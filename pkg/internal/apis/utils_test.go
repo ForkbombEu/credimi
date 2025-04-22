@@ -11,9 +11,6 @@ import (
 	"testing"
 )
 
-// const testDataDir = "../../../test_pb_data"
-
-
 func TestNormalizeProtocolAndAuthor(t *testing.T) {
 	tests := []struct {
 		name           string

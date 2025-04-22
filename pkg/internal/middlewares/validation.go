@@ -26,8 +26,8 @@ func ValidateInputMiddleware[T any]() func(e *core.RequestEvent) error {
 			return apis.NewBadRequestError("Invalid JSON body", err)
 		}
 		ptr := new(T)
-		if err := json.NewDecoder(bytes.NewReader(raw)).Decode(&ptr); err != nil {
-			return apis.NewBadRequestError("Invalid JSON body i", err)
+		if err := json.NewDecoder(bytes.NewReader(raw)).Decode(ptr); err != nil {
+			return apis.NewBadRequestError("Invalid JSON body", err)
 		}
 
 		tKind := reflect.TypeOf(*ptr).Kind()
@@ -37,7 +37,7 @@ func ValidateInputMiddleware[T any]() func(e *core.RequestEvent) error {
 		case reflect.Struct:
 			if err := validate.Struct(*ptr); err != nil {
 				for _, ve := range err.(validator.ValidationErrors) {
-					details = append(details, map[string]interface{}{
+					details = append(details, map[string]any{
 						"field":   ve.Field(),
 						"tag":     ve.Tag(),
 						"param":   ve.Param(),
@@ -48,15 +48,18 @@ func ValidateInputMiddleware[T any]() func(e *core.RequestEvent) error {
 			}
 
 		case reflect.Map:
-			m := reflect.ValueOf(ptr)
+			m := reflect.ValueOf(*ptr)
+			if !m.IsValid() || m.IsNil() {
+				return apis.NewBadRequestError("Invalid JSON body: map is nil", nil)
+			}
 			for _, key := range m.MapKeys() {
 				val := m.MapIndex(key).Interface()
 				vType := reflect.TypeOf(val)
 
-				if vType.Kind() == reflect.Struct || (vType.Kind() == reflect.Ptr && vType.Elem().Kind() == reflect.Struct) {
+				if vType != nil && (vType.Kind() == reflect.Struct || (vType.Kind() == reflect.Ptr && vType.Elem().Kind() == reflect.Struct)) {
 					if err := validate.Struct(val); err != nil {
 						for _, ve := range err.(validator.ValidationErrors) {
-							details = append(details, map[string]interface{}{
+							details = append(details, map[string]any{
 								"field":   fmt.Sprintf("%v.%s", key, ve.Field()),
 								"tag":     ve.Tag(),
 								"param":   ve.Param(),
@@ -67,7 +70,7 @@ func ValidateInputMiddleware[T any]() func(e *core.RequestEvent) error {
 					}
 				} else {
 					if err := validate.Var(val, "required"); err != nil {
-						details = append(details, map[string]interface{}{
+						details = append(details, map[string]any{
 							"field":   fmt.Sprintf("%v", key),
 							"message": err.Error(),
 						})
@@ -77,7 +80,7 @@ func ValidateInputMiddleware[T any]() func(e *core.RequestEvent) error {
 
 		default:
 			if err := validate.Var(*ptr, "required"); err != nil {
-				details = append(details, map[string]interface{}{
+				details = append(details, map[string]any{
 					"field":   "",
 					"message": err.Error(),
 				})
@@ -85,7 +88,7 @@ func ValidateInputMiddleware[T any]() func(e *core.RequestEvent) error {
 		}
 
 		if len(details) > 0 {
-			return apis.NewBadRequestError("Validation failed", map[string]interface{}{"errors": details})
+			return apis.NewBadRequestError("Validation failed", map[string]any{"errors": details})
 		}
 
 		e.Request.Body = io.NopCloser(bytes.NewBuffer(raw))

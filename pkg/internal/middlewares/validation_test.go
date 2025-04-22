@@ -11,12 +11,10 @@ import (
 	"net/http"
 	"testing"
 
-
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
 )
 
-// mockRequestEvent helps to create a core.RequestEvent for testing
 func mockRequestEvent(body io.Reader) *core.RequestEvent {
 	req, _ := http.NewRequest("POST", "/", body)
 	return &core.RequestEvent{
@@ -26,7 +24,6 @@ func mockRequestEvent(body io.Reader) *core.RequestEvent {
 	}
 }
 
-// Example struct for validation
 type testStruct struct {
 	Name  string `json:"name" validate:"required"`
 	Email string `json:"email" validate:"required,email"`
@@ -102,14 +99,14 @@ func TestValidateInputMiddleware_Map_Valid(t *testing.T) {
 }
 
 func TestValidateInputMiddleware_Map_Invalid(t *testing.T) {
-	input := map[string]interface{}{
+	input := map[string]any{
 		"foo": "",
 		"baz": nil,
 	}
 	b, _ := json.Marshal(input)
 	e := mockRequestEvent(bytes.NewReader(b))
 
-	mw := ValidateInputMiddleware[map[string]interface{}]()
+	mw := ValidateInputMiddleware[map[string]any]()
 	err := mw(e)
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -147,17 +144,3 @@ func TestValidateInputMiddleware_Scalar_Invalid(t *testing.T) {
 		t.Errorf("expected 400 error code, got %d", apiErr.Status)
 	}
 }
-
-// Test that Next() error is propagated
-// func TestValidateInputMiddleware_NextError(t *testing.T) {
-// 	input := testStruct{Name: "Alice", Email: "alice@example.com", Age: 30}
-// 	b, _ := json.Marshal(input)
-// 	e := mockRequestEvent(bytes.NewReader(b))
-// 	e.Next = func() error { return errors.New("next error") }
-
-// 	mw := ValidateInputMiddleware[testStruct]()
-// 	err := mw(e)
-// 	if err == nil || err.Error() != "next error" {
-// 		t.Fatalf("expected next error, got %v", err)
-// 	}
-// }

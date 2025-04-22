@@ -23,11 +23,6 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-type SaveVariablesAndStartRequest map[string]struct {
-	Format string      `json:"format" validate:"required"`
-	Data   interface{} `json:"data" validate:"required"`
-}
-
 func AddComplianceChecks(app core.App) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		g := se.Router.Group("/api/compliance/check")
@@ -37,56 +32,14 @@ func AddComplianceChecks(app core.App) {
 		g.POST("", HandleOpenID4VPTest(app))
 		g.POST("/{protocol}/{author}/save-variables-and-start",
 			HandleSaveVariablesAndStart(app)).Bind(&hook.Handler[*core.RequestEvent]{
-			Func: middlewares.ValidateInputMiddleware[*SaveVariablesAndStartRequest](),
+			Func: middlewares.ValidateInputMiddleware[*SaveVariablesAndStartRequestInput](),
 		})
 		g.POST("/confirm-success", HandleConfirmSuccess(app))
 		g.POST("/notify-failure", HandleNotifyFailure(app))
 		g.POST("/send-log-update", HandleSendLogUpdate(app))
 		g.POST("/send-log-update-start", HandleSendLogUpdateStart(app))
 
-		g.GET("/{workflowId}/{runId}/history", func(e *core.RequestEvent) error {
-			authRecord := e.Auth
-
-			namespace, err := getUserNamespace(e.App, authRecord.Id)
-			if err != nil {
-				return apis.NewBadRequestError("failed to get user namespace", err)
-			}
-
-			workflowId := e.Request.PathValue("workflowId")
-			if workflowId == "" {
-				return apis.NewBadRequestError("workflowId is required", nil)
-			}
-			runId := e.Request.PathValue("runId")
-			if runId == "" {
-				return apis.NewBadRequestError("runId is required", nil)
-			}
-
-			c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-			defer c.Close()
-			if err != nil {
-				return apis.NewInternalServerError("unable to create client", err)
-			}
-
-			historyIterator := c.GetWorkflowHistory(context.Background(), workflowId, runId, false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
-			var history []map[string]interface{}
-			for historyIterator.HasNext() {
-				event, err := historyIterator.Next()
-				if err != nil {
-					return apis.NewInternalServerError("failed to iterate workflow history", err)
-				}
-				eventData, err := protojson.Marshal(event)
-				if err != nil {
-					return apis.NewInternalServerError("failed to marshal history event", err)
-				}
-				var eventMap map[string]interface{}
-				if err := json.Unmarshal(eventData, &eventMap); err != nil {
-					return apis.NewInternalServerError("failed to unmarshal history event", err)
-				}
-				history = append(history, eventMap)
-			}
-
-			return e.JSON(http.StatusOK, history)
-		})
+		g.GET("/{workflowId}/{runId}/history", HandleGetWorkflowsHistory(app))
 
 		return se.Next()
 	})
@@ -143,7 +96,7 @@ func HandleOpenID4VPTest(app core.App) func(*core.RequestEvent) error {
 
 func HandleSaveVariablesAndStart(app core.App) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		var req SaveVariablesAndStartRequest
+		var req SaveVariablesAndStartRequestInput
 		if err := decodeJSON(e.Request.Body, &req); err != nil {
 			return err
 		}
@@ -391,5 +344,51 @@ func HandleSendLogUpdateStart(app core.App) func(*core.RequestEvent) error {
 			return apis.NewBadRequestError("failed to send start logs update signal", err)
 		}
 		return e.JSON(http.StatusOK, map[string]string{"message": "Realtime Logs update started successfully"})
+	}
+}
+
+func HandleGetWorkflowsHistory(app core.App) func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+
+		namespace, err := getUserNamespace(e.App, authRecord.Id)
+		if err != nil {
+			return apis.NewBadRequestError("failed to get user namespace", err)
+		}
+
+		workflowId := e.Request.PathValue("workflowId")
+		if workflowId == "" {
+			return apis.NewBadRequestError("workflowId is required", nil)
+		}
+		runId := e.Request.PathValue("runId")
+		if runId == "" {
+			return apis.NewBadRequestError("runId is required", nil)
+		}
+
+		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		defer c.Close()
+		if err != nil {
+			return apis.NewInternalServerError("unable to create client", err)
+		}
+
+		historyIterator := c.GetWorkflowHistory(context.Background(), workflowId, runId, false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
+		var history []map[string]interface{}
+		for historyIterator.HasNext() {
+			event, err := historyIterator.Next()
+			if err != nil {
+				return apis.NewInternalServerError("failed to iterate workflow history", err)
+			}
+			eventData, err := protojson.Marshal(event)
+			if err != nil {
+				return apis.NewInternalServerError("failed to marshal history event", err)
+			}
+			var eventMap map[string]interface{}
+			if err := json.Unmarshal(eventData, &eventMap); err != nil {
+				return apis.NewInternalServerError("failed to unmarshal history event", err)
+			}
+			history = append(history, eventMap)
+		}
+
+		return e.JSON(http.StatusOK, history)
 	}
 }

@@ -30,7 +30,6 @@ func (s *UnitTestSuite) SetupTest() {
 }
 
 const testDataDir = "../../../test_pb_data"
-// const rootDir = "/Users/alcibiade/dyne/temp/DIDimo"
 
 func generateToken(collectionNameOrId string, email string) (string, error) {
 	app, err := tests.NewTestApp(testDataDir)
