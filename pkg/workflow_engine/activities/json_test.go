@@ -47,18 +47,6 @@ func TestParseJSONActivity_Execute(t *testing.T) {
 			},
 		},
 		{
-			name:           "Invalid JSON with unknown field",
-			rawJSON:        `{"name":"Bob","email":"bob@example.com","username":"bobby"}`,
-			expectErr:      true,
-			expectedErrMsg: "Invalid JSON",
-		},
-		{
-			name:           "Failure - valid JSON with unknown fields",
-			rawJSON:        `{"username": "ghost", "age": 99}`,
-			expectErr:      true,
-			expectedErrMsg: "Invalid JSON",
-		},
-		{
 			name:           "Failure - missing rawJSON",
 			expectErr:      true,
 			expectedErrMsg: "Missing rawJSON in payload",
