@@ -49,7 +49,7 @@ func (a *JsonActivity) Execute(ctx context.Context, input workflowengine.Activit
 	target := reflect.New(structType).Interface()
 	// add additional extra properties
 	decoder := json.NewDecoder(strings.NewReader(rawStr))
-
+	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(target); err != nil {
 		return workflowengine.Fail(&workflowengine.ActivityResult{},
 			fmt.Sprintf("Invalid JSON: %v", err))
