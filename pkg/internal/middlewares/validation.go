@@ -26,16 +26,15 @@ func ValidateInputMiddleware[T any]() func(e *core.RequestEvent) error {
 			return apis.NewBadRequestError("Invalid JSON body", err)
 		}
 		ptr := new(T)
-		if err := json.NewDecoder(e.Request.Body).Decode(ptr); err != nil {
+		if err := json.NewDecoder(bytes.NewReader(raw)).Decode(&ptr); err != nil {
 			return apis.NewBadRequestError("Invalid JSON body i", err)
 		}
 
 		tKind := reflect.TypeOf(*ptr).Kind()
-		var details []map[string]interface{}
+		var details []map[string]any
 
 		switch tKind {
 		case reflect.Struct:
-			// Direct struct validation
 			if err := validate.Struct(*ptr); err != nil {
 				for _, ve := range err.(validator.ValidationErrors) {
 					details = append(details, map[string]interface{}{
@@ -77,7 +76,6 @@ func ValidateInputMiddleware[T any]() func(e *core.RequestEvent) error {
 			}
 
 		default:
-			// Fallback for other types: require non-zero
 			if err := validate.Var(*ptr, "required"); err != nil {
 				details = append(details, map[string]interface{}{
 					"field":   "",
