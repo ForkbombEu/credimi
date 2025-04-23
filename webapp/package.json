@@ -88,7 +88,6 @@
 	},
 	"dependencies": {
 		"@codemirror/lang-json": "^6.0.1",
-		"@effect/platform": "^0.80.13",
 		"@forkbombeu/temporal-ui": "github:ForkbombEu/temporal-ui",
 		"@melt-ui/svelte": "^0.86.4",
 		"@tanstack/table-core": "^8.21.2",
