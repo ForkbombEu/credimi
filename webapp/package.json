@@ -88,6 +88,7 @@
 	},
 	"dependencies": {
 		"@codemirror/lang-json": "^6.0.1",
+		"@effect/platform": "^0.80.13",
 		"@forkbombeu/temporal-ui": "github:ForkbombEu/temporal-ui",
 		"@melt-ui/svelte": "^0.86.4",
 		"@tanstack/table-core": "^8.21.2",
@@ -98,7 +99,7 @@
 		"effect": "^3.14.1",
 		"json-schema-to-typescript": "^15.0.4",
 		"lodash": "^4.17.21",
-		"marked": "^15.0.8",
+		"marked": "^15.0.9",
 		"mjml": "^4.15.3",
 		"nanoid": "^5.1.5",
 		"pocketbase": "~0.25.2",
