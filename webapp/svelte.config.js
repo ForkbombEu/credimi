@@ -15,8 +15,7 @@ const config = {
 			$zencode: './client_zencode'
 		},
 		version: { name: process.env.npm_package_version }
-	},
-	extensions: ['.svelte']
+	}
 };
 
 export default config;
