@@ -58,7 +58,7 @@ func TestAddOpenID4VPTestEndpoints_RoutesRegistered(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		AddComplianceChecks(testApp)
+		AddComplianceCheckss(testApp)
 
 		return testApp
 	}
@@ -92,7 +92,7 @@ func TestAddOpenID4VPTestEndpoints_RoutesRegistered(t *testing.T) {
 			Timeout:        5 * time.Second,
 			ExpectedStatus: http.StatusBadRequest,
 			ExpectedContent: []string{
-				"Invalid JSON body",
+				"error",
 			},
 			NotExpectedContent: []string{"start"},
 			TestAppFactory:     setupTestApp,
@@ -113,6 +113,62 @@ func TestAddOpenID4VPTestEndpoints_RoutesRegistered(t *testing.T) {
 			NotExpectedContent: []string{"start"},
 			TestAppFactory:     setupTestApp,
 		},
+		{
+			Name:           "Confirm success - valid",
+			Method:         "POST",
+			URL:            "/api/compliance/check/confirm-success",
+			Body:           strings.NewReader(`{"workflow_id":"workflow_id"}`),
+			Headers:        map[string]string{"Content-Type": "application/json", "Authorization": authToken},
+			Delay:          0,
+			Timeout:        5 * time.Second,
+			ExpectedStatus: http.StatusOK,
+			TestAppFactory:    setupTestApp,
+		},
+		{
+			Name:           "Confirm success - invalid request",
+			Method:         "POST",
+			URL:            "/api/compliance/check/confirm-success",
+			Body:           strings.NewReader(`{"workflowId":"workflow_id"}`),
+			Headers:        map[string]string{"Content-Type": "application/json", "Authorization": authToken},
+			Delay:          0,
+			Timeout:        5 * time.Second,
+			ExpectedStatus: http.StatusBadRequest,
+			ExpectedContent: []string{
+				"error",
+			},
+			TestAppFactory:    setupTestApp,
+		},
+		{
+			Name:           "history - not found",
+			Method:         "GET",
+			URL:            "/api/compliance/check/workflow_id/run_id/history",
+			Body:           nil,
+			Headers:        map[string]string{"Content-Type": "application/json", "Authorization": authToken},
+			Delay:          0,
+			Timeout:        5 * time.Second,
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				"error",
+				"apiVersion",
+			},
+			TestAppFactory:    setupTestApp,
+		},
+		{
+			Name:           "notify failure - not found workflow",
+			Method:         "POST",
+			URL:            "/api/compliance/check/notify-failure",
+			Body:           strings.NewReader(`{"workflow_id":"workflow_id","reason":"reason"}`),
+			Headers:        map[string]string{"Content-Type": "application/json", "Authorization": authToken},
+			Delay:          0,
+			Timeout:        5 * time.Second,
+			ExpectedStatus: http.StatusNotFound,
+			ExpectedContent: []string{
+				"error",
+				"workflow not found for ID: workflow_id",
+				"apiVersion",
+			},
+			TestAppFactory:    setupTestApp,
+		},
 	}
 
 	for _, scenario := range scenarios {
@@ -120,3 +176,5 @@ func TestAddOpenID4VPTestEndpoints_RoutesRegistered(t *testing.T) {
 	}
 
 }
+
+

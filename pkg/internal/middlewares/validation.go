@@ -10,92 +10,181 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
+	"net/http"
 	"reflect"
 
+	"github.com/forkbombeu/didimo/pkg/internal/apierror"
+	"github.com/forkbombeu/didimo/pkg/internal/routing"
 	"github.com/go-playground/validator/v10"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
+	"github.com/pocketbase/pocketbase/tools/router"
 )
 
 var validate = validator.New()
 
-func ValidateInputMiddleware[T any]() func(e *core.RequestEvent) error {
+
+func formatValidationErrors(err error) []map[string]any {
+	var details []map[string]any
+	validationErrs, ok := err.(validator.ValidationErrors)
+	if !ok {
+		// Handle non-validation errors if they can occur
+		details = append(details, map[string]any{"error": "validation process error", "message": err.Error()})
+		return details
+	}
+	for _, ve := range validationErrs {
+		details = append(details, map[string]any{
+			"field":   ve.Namespace(), // Use Namespace for nested fields
+			"tag":     ve.Tag(),
+			"param":   ve.Param(),
+			"value":   fmt.Sprintf("%v", ve.Value()), // Format value safely
+			"message": ve.Error(),                    // Default validator message
+		})
+	}
+	return details
+}
+
+func validateMapValues(m reflect.Value) error {
+	var allErrors validator.ValidationErrors
+	for _, key := range m.MapKeys() {
+		mapVal := m.MapIndex(key).Interface() 
+
+		if vType := reflect.TypeOf(mapVal); vType != nil && (vType.Kind() == reflect.Struct || (vType.Kind() == reflect.Ptr && vType.Elem().Kind() == reflect.Struct)) {
+			if err := validate.Struct(mapVal); err != nil {
+				if vErrs, ok := err.(validator.ValidationErrors); ok {
+					for _, ve := range vErrs {
+						// Adjust field namespace if possible/needed, simple prepend here
+						// Note: validator doesn't easily support map key prefixes in Namespace out-of-the-box.
+						// Custom error formatting might be needed for perfect field paths.
+						allErrors = append(allErrors, ve) 
+					}
+				}
+			}
+		} else {
+			if err := validate.Var(mapVal, "required"); err != nil {
+				if vErrs, ok := err.(validator.ValidationErrors); ok {
+					// Again, namespace/field path might need custom handling for map keys.
+					allErrors = append(allErrors, vErrs...)
+				}
+			}
+		}
+	}
+	if len(allErrors) > 0 {
+		return allErrors
+	}
+	return nil
+}
+
+func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEvent) error {
+	if inputType == nil {
+		return func(e *core.RequestEvent) error {
+			return e.Next() 
+		}
+	}
+
 	return func(e *core.RequestEvent) error {
-		raw, err := io.ReadAll(e.Request.Body)
+		request := e.Request
+		if request.ContentLength == 0 {
+			return e.Next()
+		}
+		raw, err := io.ReadAll(request.Body)
 		if err != nil {
-			return apis.NewBadRequestError("Invalid JSON body", err)
+			return apierror.New(http.StatusBadRequest, "request.body.read", "Failed to read request body", err.Error())
 		}
-		ptr := new(T)
-		if err := json.NewDecoder(bytes.NewReader(raw)).Decode(ptr); err != nil {
-			return apis.NewBadRequestError("Invalid JSON body", err)
-		}
+		request.Body = io.NopCloser(bytes.NewBuffer(raw))
 
-		tKind := reflect.TypeOf(*ptr).Kind()
-		var details []map[string]any
+		ptr := reflect.New(inputType).Interface() 
+		bodyReader := bytes.NewReader(raw)
+		decoder := json.NewDecoder(bodyReader)
 
-		switch tKind {
-		case reflect.Struct:
-			if err := validate.Struct(*ptr); err != nil {
-				for _, ve := range err.(validator.ValidationErrors) {
-					details = append(details, map[string]any{
-						"field":   ve.Field(),
-						"tag":     ve.Tag(),
-						"param":   ve.Param(),
-						"value":   ve.Value(),
-						"message": ve.Error(),
-					})
-				}
-			}
-
-		case reflect.Map:
-			m := reflect.ValueOf(*ptr)
-			if !m.IsValid() || m.IsNil() {
-				return apis.NewBadRequestError("Invalid JSON body: map is nil", nil)
-			}
-			for _, key := range m.MapKeys() {
-				val := m.MapIndex(key).Interface()
-				vType := reflect.TypeOf(val)
-
-				if vType != nil && (vType.Kind() == reflect.Struct || (vType.Kind() == reflect.Ptr && vType.Elem().Kind() == reflect.Struct)) {
-					if err := validate.Struct(val); err != nil {
-						for _, ve := range err.(validator.ValidationErrors) {
-							details = append(details, map[string]any{
-								"field":   fmt.Sprintf("%v.%s", key, ve.Field()),
-								"tag":     ve.Tag(),
-								"param":   ve.Param(),
-								"value":   ve.Value(),
-								"message": ve.Error(),
-							})
-						}
-					}
-				} else {
-					if err := validate.Var(val, "required"); err != nil {
-						details = append(details, map[string]any{
-							"field":   fmt.Sprintf("%v", key),
-							"message": err.Error(),
-						})
-					}
-				}
-			}
-
-		default:
-			if err := validate.Var(*ptr, "required"); err != nil {
-				details = append(details, map[string]any{
-					"field":   "",
-					"message": err.Error(),
-				})
+		if err := decoder.Decode(ptr); err != nil {
+			if !(err == io.EOF && len(raw) == 0) { 
+				return apierror.New(http.StatusBadRequest, "request.body.json", "Invalid JSON format for the expected type", err.Error())
 			}
 		}
+		val := reflect.Indirect(reflect.ValueOf(ptr)).Interface()
 
-		if len(details) > 0 {
-			return apis.NewBadRequestError("Validation failed", map[string]any{"errors": details})
+		validationErrors := validateValue(val)
+
+		if len(validationErrors) > 0 {
+			detailsBytes, _ := json.Marshal(validationErrors)
+			return apierror.New(http.StatusBadRequest, "request.validation", "Validation failed", string(detailsBytes))
 		}
 
-		e.Request.Body = io.NopCloser(bytes.NewBuffer(raw))
+		ctx := context.WithValue(request.Context(), routing.ValidatedInputKey, val)
+		e.Request = request.WithContext(ctx)
 
-
-		ctx := context.WithValue(e.Request.Context(), "validatedInput", *ptr)
-		e.Request = e.Request.WithContext(ctx)
 		return e.Next()
+	}
+}
+
+func validateValue(val interface{}) []map[string]any {
+    valueToValidate := reflect.ValueOf(val)
+    var err error
+
+    switch valueToValidate.Kind() {
+    case reflect.Struct:
+        err = validate.Struct(val)
+    case reflect.Map:
+        if valueToValidate.IsValid() && !valueToValidate.IsNil() {
+            err = validateMapValues(valueToValidate) 
+        }
+    default:
+		err = validate.Var(val, "required") // Example tag
+
+		if err != nil {
+			validationErrors := formatValidationErrors(err)
+			return validationErrors
+		}
+    }
+
+    if err != nil {
+        return formatValidationErrors(err)
+    }
+    return nil
+}
+
+func RegisterRoutesWithValidation(app core.App, group *router.RouterGroup[*core.RequestEvent], routes []routing.RouteDefinition) {
+	for _, route := range routes {
+		validatorMiddleware := DynamicValidateInputByType(route.InputType)
+
+		needsValidationBinding := route.InputType != nil
+
+		switch route.Method {
+		case http.MethodPost:
+			log.Println("Registering POST route:", route.Path)
+			registrar := group.POST(route.Path, route.Handler)
+			if needsValidationBinding {
+				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
+			}
+		case http.MethodGet:
+			group.GET(route.Path, route.Handler) 
+		case http.MethodPut:
+			registrar := group.PUT(route.Path, route.Handler)
+			if needsValidationBinding {
+				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
+			}
+		case http.MethodPatch:
+			registrar := group.PATCH(route.Path, route.Handler)
+			if needsValidationBinding {
+				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
+			}
+		case http.MethodDelete:
+			registrar := group.DELETE(route.Path, route.Handler)
+			if needsValidationBinding {
+				app.Logger().Warn("Binding validation middleware to DELETE route", "path", route.Path) // Optional warning
+				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
+			}
+        case http.MethodHead:
+             group.HEAD(route.Path, route.Handler) 
+        case http.MethodOptions:
+             group.OPTIONS(route.Path, route.Handler) 
+		default:
+			app.Logger().Warn("Unsupported HTTP method in route definition during registration",
+                "method", route.Method,
+                "path", route.Path,
+            )
+		}
 	}
 }
