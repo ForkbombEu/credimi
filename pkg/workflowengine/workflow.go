@@ -49,8 +49,8 @@ func StartWorkflowWithOptions(options client.StartWorkflowOptions, name string, 
 	}
 	defer c.Close()
 
-	if input.Config["Memo"] != nil {
-		options.Memo = input.Config["Memo"].(map[string]any)
+	if input.Config["memo"] != nil {
+		options.Memo = input.Config["memo"].(map[string]any)
 	}
 
 	// Start the workflow execution.
