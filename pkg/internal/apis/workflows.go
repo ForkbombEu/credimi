@@ -38,7 +38,7 @@ func DefineComplianceRoutes(app core.App) []routing.RouteDefinition {
 	}
 }
 
-func AddComplianceCheckss(app core.App) {
+func AddComplianceChecks(app core.App) {
 	complianceRoutes := DefineComplianceRoutes(app)
 
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {

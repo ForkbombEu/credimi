@@ -58,7 +58,7 @@ func TestAddOpenID4VPTestEndpoints_RoutesRegistered(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		AddComplianceCheckss(testApp)
+		AddComplianceChecks(testApp)
 
 		return testApp
 	}
