@@ -11,7 +11,7 @@ COPY . ./
 ENV GOCACHE=/go-cache
 ENV GOMODCACHE=/gomod-cache
 RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache \
-    go build -o didimo main.go
+    go build -o credimi main.go
 
 FROM debian:12-slim
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
@@ -29,9 +29,9 @@ RUN tar xf $TARFILE
 RUN rm $TARFILE
 RUN mv temporal /usr/local/bin
 
-# install didimo
-COPY --from=builder /src/didimo /usr/local/bin/didimo
-RUN chmod +x /usr/local/bin/didimo
+# install credimi
+COPY --from=builder /src/credimi /usr/local/bin/credimi
+RUN chmod +x /usr/local/bin/credimi
 
 # install mise and mise tools
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
@@ -65,7 +65,7 @@ RUN wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/do
 
 # copy everything
 COPY . ./
-RUN didimo migrate up
+RUN credimi migrate up
 
 
 WORKDIR /app/webapp
