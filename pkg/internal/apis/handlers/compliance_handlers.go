@@ -22,6 +22,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/subscriptions"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/api/workflowservice/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 
 	temporalclient "github.com/forkbombeu/didimo/pkg/internal/temporal_client"
@@ -175,6 +176,90 @@ func HandleGetWorkflowsHistory(app core.App) func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, history)
 	}
+}
+
+func HandleGetWorkflow(app core.App) func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		workflowId := e.Request.PathValue("workflowId")
+		if workflowId == "" {
+			return apierror.New(http.StatusBadRequest, "workflowId", "workflowId is required", "missing workflowId")
+		}
+		runId := e.Request.PathValue("runId")
+		if runId == "" {
+			return apierror.New(http.StatusBadRequest, "runId", "runId is required", "missing runId")
+		}
+		authRecord := e.Auth
+
+		namespace, err := getUserNamespace(e.App, authRecord.Id)
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "user namespace", "failed to get user namespace", err.Error())
+		}
+		if namespace == "" {
+			return apierror.New(http.StatusBadRequest, "organization", "organization is empty", "missing organization")
+		}
+
+		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		defer c.Close()
+		if err != nil {
+			return apis.NewInternalServerError("unable to create client", err)
+		}
+		workflowExecution, err := c.DescribeWorkflowExecution(context.Background(), workflowId, runId)
+		if err != nil {
+			if _, ok := err.(*serviceerror.NotFound); ok {
+				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
+			}
+			if _, ok := err.(*serviceerror.InvalidArgument); ok {
+				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
+			}
+			return apierror.New(http.StatusInternalServerError, "workflow", "failed to describe workflow execution", err.Error())
+		}
+		weJson, err := protojson.Marshal(workflowExecution)
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "workflow", "failed to marshal workflow execution", err.Error())
+		}
+		finalJson := make(map[string]interface{})
+		err = json.Unmarshal(weJson, &finalJson)
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "workflow", "failed to unmarshal workflow execution", err.Error())
+		}
+		return e.JSON(http.StatusOK, finalJson)
+	}
+}
+
+func HandleGetWorkflows(app core.App) func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+		namespace, err := getUserNamespace(e.App, authRecord.Id)
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "user namespace", "failed to get user namespace", err.Error())
+		}
+		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		defer c.Close()
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
+		}
+		list, err := c.ListWorkflow(context.Background(), &workflowservice.ListWorkflowExecutionsRequest{
+			Namespace: namespace,
+		})
+		if err != nil {
+			log.Println("Error listing workflows:", err)
+			return apierror.New(http.StatusInternalServerError, "workflow", "failed to list workflows", err.Error())
+		}
+		listJson, err := protojson.Marshal(list)
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "workflow", "failed to marshal workflow list", err.Error())
+		}
+		finalJson := make(map[string]interface{})
+		err = json.Unmarshal(listJson, &finalJson)
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "workflow", "failed to unmarshal workflow list", err.Error())
+		}
+		if finalJson["executions"] == nil {
+			finalJson["executions"] = []map[string]interface{}{}
+		}
+		return e.JSON(http.StatusOK, finalJson)
+	}
+
 }
 
 type HandleNotifyFailureRequestInput struct {

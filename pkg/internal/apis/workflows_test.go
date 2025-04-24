@@ -112,7 +112,7 @@ func TestAddOpenID4VPTestEndpoints_RoutesRegistered(t *testing.T) {
 		{
 			Name:           "history - not found",
 			Method:         "GET",
-			URL:            "/api/compliance/check/workflow_id/run_id/history",
+			URL:            "/api/compliance/check/checks/workflow_id/run_id/history",
 			Body:           nil,
 			Headers:        map[string]string{"Content-Type": "application/json", "Authorization": authToken},
 			Delay:          0,
