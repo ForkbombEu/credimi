@@ -17,7 +17,7 @@ import (
 )
 
 func TestHTTPActivity_Execute(t *testing.T) {
-	activity := &HttpActivity{}
+	activity := &HTTPActivity{}
 	var ts testsuite.WorkflowTestSuite
 	env := ts.NewTestActivityEnvironment()
 	env.RegisterActivity(activity.Execute)
@@ -32,7 +32,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 	}{
 		{
 			name: "Success - GET request without headers/body",
-			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(`{"message": "ok"}`))
 			},
@@ -85,7 +85,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - server returns error status",
-			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
 				http.Error(w, "bad request", http.StatusBadRequest)
 			},
 			input: workflowengine.ActivityInput{
@@ -98,7 +98,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - timeout",
-			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+			handlerFunc: func(_ http.ResponseWriter, _ *http.Request) {
 				time.Sleep(2 * time.Second)
 			},
 			input: workflowengine.ActivityInput{
@@ -112,7 +112,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Success - non-JSON response is returned as string",
-			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
 				w.Write([]byte("plain response"))
 			},
 			input: workflowengine.ActivityInput{
@@ -126,7 +126,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - malformed URL",
-			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
 				http.Error(w, "bad request", http.StatusBadRequest)
 			},
 			input: workflowengine.ActivityInput{
@@ -169,7 +169,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				tt.input.Config["url"] = server.URL
 			}
 
-			a := HttpActivity{}
+			a := HTTPActivity{}
 			var result workflowengine.ActivityResult
 			future, err := env.ExecuteActivity(a.Execute, tt.input)
 

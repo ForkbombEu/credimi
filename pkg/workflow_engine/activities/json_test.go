@@ -23,7 +23,7 @@ func TestParseJSONActivity_Execute(t *testing.T) {
 	var ts testsuite.WorkflowTestSuite
 	env := ts.NewTestActivityEnvironment()
 
-	activity := &JsonActivity{
+	activity := &JSONActivity{
 		StructRegistry: map[string]reflect.Type{
 			"DummyStruct": reflect.TypeOf(DummyStruct{}),
 		},

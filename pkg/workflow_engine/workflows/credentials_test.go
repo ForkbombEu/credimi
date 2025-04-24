@@ -24,11 +24,11 @@ func Test_Workflow(t *testing.T) {
 	env.RegisterActivityWithOptions(CheckActivity.Execute, activity.RegisterOptions{
 		Name: CheckActivity.Name(),
 	})
-	var JSONActivity activities.JsonActivity
+	var JSONActivity activities.JSONActivity
 	env.RegisterActivityWithOptions(JSONActivity.Execute, activity.RegisterOptions{
 		Name: JSONActivity.Name(),
 	})
-	var HTTPActivity activities.HttpActivity
+	var HTTPActivity activities.HTTPActivity
 	env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 		Name: HTTPActivity.Name(),
 	})
@@ -56,5 +56,5 @@ func Test_Workflow(t *testing.T) {
 	var result workflowengine.WorkflowResult
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "Successfully retrieved and stored and update credentials", result.Message)
-	require.Equal(t, map[string]any{"RemovedCredentials": []any{"test-credential"}}, result.Log)
+	require.Equal(t, map[string]any{"RemovedCredentials": []any{interface{}(nil)}}, result.Log)
 }

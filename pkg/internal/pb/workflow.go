@@ -326,6 +326,9 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 						return apis.NewBadRequestError("failed to parse JSON for test "+testName, err)
 					}
 					stepCItemplate, err := os.ReadFile(workflows.OpenIDNetStepCITemplatePath)
+					if err != nil {
+						return apis.NewBadRequestError("failed to open template file: %w", err)
+					}
 					// Start the workflow
 					input := workflowengine.WorkflowInput{
 						Payload: map[string]any{
@@ -378,16 +381,16 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 					}
 
 					template, err := os.Open(filepath + testName)
-					defer template.Close()
 					if err != nil {
 						return apis.NewBadRequestError("failed to open template for test "+testName, err)
 					}
+					defer template.Close()
 
 					templateFile, err := os.Open(filepath + testName)
-					defer templateFile.Close()
 					if err != nil {
 						return apis.NewBadRequestError("failed to open template for test "+testName, err)
 					}
+					defer templateFile.Close()
 
 					renderedTemplate, err := engine.RenderTemplate(templateFile, values)
 					if err != nil {
@@ -446,10 +449,10 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 			}
 
 			c, err := temporalclient.GetTemporalClient()
-			defer c.Close()
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 
 			err = c.SignalWorkflow(context.Background(), request.WorkflowID, "", "wallet-test-signal", data)
 			if err != nil {
@@ -473,11 +476,10 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 			}
 
 			c, err := temporalclient.GetTemporalClient()
-			defer c.Close()
-
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 
 			err = c.SignalWorkflow(context.Background(), request.WorkflowID, "", "wallet-test-signal", data)
 			if err != nil {
@@ -513,7 +515,6 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 			}
 
 			c, err := temporalclient.GetTemporalClient()
-			defer c.Close()
 			if err != nil {
 				return err
 			}
@@ -592,11 +593,10 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 		temporalClient, err := client.Dial(client.Options{
 			HostPort: client.DefaultHostPort,
 		})
-		defer temporalClient.Close()
-
 		if err != nil {
 			log.Fatalln("Unable to create Temporal Client", err)
 		}
+		defer temporalClient.Close()
 		scheduleHandle, err := temporalClient.ScheduleClient().Create(ctx, client.ScheduleOptions{
 			ID: scheduleID,
 			Spec: client.ScheduleSpec{
@@ -630,10 +630,10 @@ func RouteWorkflow(app *pocketbase.PocketBase) {
 				return apis.NewUnauthorizedError("User is not authorized to access this organization", err)
 			}
 			c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-			defer c.Close()
 			if err != nil {
 				return apis.NewInternalServerError("unable to create client", err)
 			}
+			defer c.Close()
 			list, err := c.ListWorkflow(context.Background(), &workflowservice.ListWorkflowExecutionsRequest{
 				Namespace: namespace,
 			})
@@ -676,10 +676,10 @@ func RouteWorkflow(app *pocketbase.PocketBase) {
 			}
 
 			c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-			defer c.Close()
 			if err != nil {
 				return apis.NewInternalServerError("unable to create client", err)
 			}
+			defer c.Close()
 			workflowExecution, err := c.DescribeWorkflowExecution(context.Background(), workflowId, runId)
 			if err != nil {
 				return apis.NewInternalServerError("failed to describe workflow execution", err)
@@ -714,10 +714,10 @@ func RouteWorkflow(app *pocketbase.PocketBase) {
 			}
 
 			c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-			defer c.Close()
 			if err != nil {
 				return apis.NewInternalServerError("unable to create client", err)
 			}
+			defer c.Close()
 
 			historyIterator := c.GetWorkflowHistory(context.Background(), workflowId, runId, false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
 			var history []map[string]interface{}

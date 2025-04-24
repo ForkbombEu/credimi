@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-// GetEnvVariable retrieves the value of an environment variable.
+// GetEnvironmentVariable retrieves the value of an environment variable.
 //
 // Parameters:
 //   - name: The name of the environment variable to retrieve.
@@ -22,7 +22,7 @@ import (
 //   - string: The value of the environment variable, or the default value if not set.
 //     If the variable is required and not set, the function panics.
 func GetEnvironmentVariable(name string, others ...any) string {
-	var defaultValue string = ""
+	var defaultValue = ""
 	var required bool
 
 	if len(others) > 0 {
@@ -59,7 +59,7 @@ func GetEnvironmentVariable(name string, others ...any) string {
 //   - error: An error if the environment variable cannot be parsed as an integer or if the value is out of range for int.
 //     Returns nil if no error occurred.
 func GetEnvironmentVariableAsInteger(name string, others ...any) (int, error) {
-	var defaultValue int = 0
+	var defaultValue = 0
 	var required bool
 
 	if len(others) > 0 {

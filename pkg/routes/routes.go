@@ -42,7 +42,6 @@ func Setup(app *pocketbase.PocketBase) {
 	pb.HookUpdateCredentialsIssuers(app)
 	pb.RouteWorkflow(app)
 	pb.HookAtUserCreation(app)
-	pb.Register(app)
 	worker_engine.WorkersHook(app)
 
 	jsvm.MustRegister(app, jsvm.Config{

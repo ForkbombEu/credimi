@@ -40,7 +40,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				env.RegisterActivityWithOptions(MailActivity.Execute, activity.RegisterOptions{
 					Name: MailActivity.Name(),
 				})
-				var HTTPActivity activities.HttpActivity
+				var HTTPActivity activities.HTTPActivity
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
@@ -70,7 +70,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				env.RegisterActivityWithOptions(MailActivity.Execute, activity.RegisterOptions{
 					Name: MailActivity.Name(),
 				})
-				var HTTPActivity activities.HttpActivity
+				var HTTPActivity activities.HTTPActivity
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
@@ -163,7 +163,7 @@ func Test_LogSubWorkflow(t *testing.T) {
 			env := testSuite.NewTestWorkflowEnvironment()
 
 			callCount := 0
-			var HTTPActivity activities.HttpActivity
+			var HTTPActivity activities.HTTPActivity
 			env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 				Name: HTTPActivity.Name(),
 			})

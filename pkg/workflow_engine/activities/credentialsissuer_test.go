@@ -62,7 +62,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 			config: map[string]string{
 				"base_url": "",
 			},
-			serverHandler: func(w http.ResponseWriter, r *http.Request) {
+			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusForbidden)
 			},
 			expectErr:      true,
@@ -73,7 +73,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 			config: map[string]string{
 				"base_url": "",
 			},
-			serverHandler: func(w http.ResponseWriter, r *http.Request) {
+			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Length", "10")
 				conn, _, _ := w.(http.Hijacker).Hijack()
 				conn.Close()
@@ -86,7 +86,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 			config: map[string]string{
 				"base_url": "",
 			},
-			serverHandler: func(w http.ResponseWriter, r *http.Request) {
+			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
 				w.Write([]byte(`{"partial":`))

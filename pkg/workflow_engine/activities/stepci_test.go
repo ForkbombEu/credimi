@@ -5,6 +5,7 @@
 package activities
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +16,7 @@ import (
 	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
+	"golang.org/x/sys/unix"
 )
 
 // Helper to create a basic test template
@@ -103,7 +105,9 @@ func TestStepCIActivity_Execute(t *testing.T) {
 
 	// Determine the platform and architecture
 	OS := runtime.GOOS
-	arch := runtime.GOARCH
+	var utsname unix.Utsname
+	unix.Uname(&utsname)
+	arch := string(bytes.Trim(utsname.Machine[:], "\x00"))
 
 	// Construct the binary download URL
 	url := fmt.Sprintf("https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/download/stepci-captured-runner-%s-%s", OS, arch)

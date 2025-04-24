@@ -48,10 +48,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(ctx workflow.Context, input workfl
 	}
 	rawJSON, ok := issuerResult.Output.(map[string]any)["rawJSON"].(string)
 	if !ok {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("Missing rawJSON in activity output")
+		return workflowengine.WorkflowResult{}, fmt.Errorf("missing rawJSON in activity output")
 	}
 
-	parseJSON := activities.JsonActivity{
+	parseJSON := activities.JSONActivity{
 		StructRegistry: map[string]reflect.Type{
 			"OpenidCredentialIssuerSchemaJson": reflect.TypeOf(credentials_config.OpenidCredentialIssuerSchemaJson{}),
 		},
@@ -83,7 +83,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(ctx workflow.Context, input workfl
 	for credKey, credential := range issuerData.CredentialConfigurationsSupported {
 
 		castedCredential := activities.Credential(credential)
-		HTTPActivity := activities.HttpActivity{}
+		HTTPActivity := activities.HTTPActivity{}
 		storeInput := workflowengine.ActivityInput{
 			Config: map[string]string{
 				"method": "POST",
@@ -110,7 +110,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(ctx workflow.Context, input workfl
 		logs["StoredCredentials"] = append(logs["StoredCredentials"], storeResponse.Output.(map[string]any)["body"].(map[string]any)["key"])
 	}
 
-	HTTPActivity := activities.HttpActivity{}
+	HTTPActivity := activities.HTTPActivity{}
 	cleanupInput := workflowengine.ActivityInput{
 		Config: map[string]string{
 			"method": "POST",

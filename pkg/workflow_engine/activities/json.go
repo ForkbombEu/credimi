@@ -13,15 +13,15 @@ import (
 	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
 )
 
-type JsonActivity struct {
+type JSONActivity struct {
 	StructRegistry map[string]reflect.Type // Maps type names to their reflect.Type
 }
 
-func (a *JsonActivity) Name() string {
+func (a *JSONActivity) Name() string {
 	return "Parse a JSON and validate it against a schema"
 }
 
-func (a *JsonActivity) Execute(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+func (a *JSONActivity) Execute(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 	// Get rawJSON
 	raw, ok := input.Payload["rawJSON"]
 	if !ok {

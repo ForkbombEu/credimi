@@ -18,13 +18,13 @@ import (
 	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
 )
 
-type HttpActivity struct{}
+type HTTPActivity struct{}
 
-func (HttpActivity) Name() string {
+func (HTTPActivity) Name() string {
 	return "Make an HTTP request"
 }
 
-func (a *HttpActivity) Execute(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+func (a *HTTPActivity) Execute(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
 
 	method := input.Config["method"]
