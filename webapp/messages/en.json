@@ -384,5 +384,10 @@
 	"Test_the_conformance_and_interoperability_of_your_EUDIW": "Test the conformance and interoperability of your EUDIW",
 	"Language": "Language",
 	"Credential_name": "Credential name",
-	"App_name": "App name"
+	"App_name": "App name",
+	"Marketplace": "Marketplace",
+	"Wallet": "Wallet",
+	"Verifier": "Verifier",
+	"Credential_issuer": "Credential Issuer",
+	"Back_to_marketplace": "Back to marketplace"
 }
