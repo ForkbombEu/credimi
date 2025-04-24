@@ -30,6 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
 	import A from '@/components/ui-custom/a.svelte';
 	import Card from '@/components/ui-custom/plainCard.svelte';
+	import Avatar from '@/components/ui-custom/avatar.svelte';
 
 	//
 
@@ -233,6 +234,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Card class="!p-4">
 		<div class="space-y-4">
 			<div class="flex items-center justify-between gap-4">
+				<Avatar src={record.logo_url} class="rounded-sm border" />
+
 				<div class="w-0 grow">
 					<div class="flex items-center gap-2">
 						<T class="font-bold">
@@ -275,8 +278,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<Button variant="outline" size="sm" class="p-2" {...triggerAttributes}>
 								<Icon />
 							</Button>
-						{/snippet}</RecordEdit
-					>
+						{/snippet}
+					</RecordEdit>
 
 					<RecordDelete {record}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
