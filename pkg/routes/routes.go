@@ -57,7 +57,6 @@ func Setup(app *pocketbase.PocketBase) {
 	pb.HookNamespaceOrgs(app)
 	apis.AddComplianceChecks(app)
 	apis.AddTemplatingRoutes(app)
-	pb.HookNamespaceOrgs(app)
 	hooks.WorkersHook(app)
 
 	jsvm.MustRegister(app, jsvm.Config{
