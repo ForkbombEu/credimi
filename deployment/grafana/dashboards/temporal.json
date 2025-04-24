@@ -12,7 +12,7 @@
             }
         ]
     },
-    "description": "Dashboard for DIDimo conformance checks",
+    "description": "Dashboard for credimi conformance checks",
     "editable": true,
     "gnetId": null,
     "graphTooltip": 0,
@@ -3620,12 +3620,10 @@
         "to": "now"
     },
     "timepicker": {
-        "refresh_intervals": [
-            "30s"
-        ]
+        "refresh_intervals": ["30s"]
     },
     "timezone": "",
-    "title": "DIDimo temporal server metrics",
+    "title": "credimi temporal server metrics",
     "uid": "FxWwuPinz",
     "version": 3
 }

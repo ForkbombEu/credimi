@@ -14,15 +14,12 @@ version: 2
 
 before:
   hooks:
-    # You may remove this if you don't use go modules.
     - go mod tidy
-    # you may remove this if you don't need go generate
-    # - go generate ./...
 
 builds:
-  - id: didimo
-    binary: didimo
-    main: ./cmd/didimo/ 
+  - id: credimi
+    binary: credimi
+    main: ./main.go
     env:
       - CGO_ENABLED=0
     targets:

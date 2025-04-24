@@ -1,5 +1,5 @@
 {
-    "name": "didimo-docs",
+    "name": "credimi-docs",
     "module": "index.ts",
     "type": "module",
     "devDependencies": {

@@ -1,7 +1,7 @@
 {
-	"name": "DIDimo - webapp",
+	"name": "credimi ui",
 	"author": {
-		"name": "Forkbomb",
+		"name": "Forkbomb BV",
 		"email": "info@forkbomb.com"
 	},
 	"description": "Your trustworthy compliance checker for decentralized identity solutions",
@@ -16,7 +16,7 @@
 		"dev": "vite dev",
 		"prebuild": "bun run svelte-kit sync && bun run generate:definitions",
 		"build": "vite build",
-		"bin": "bun run build && bun build --compile --minify-whitespace --minify-syntax --target bun --outfile didimo-ui ./build/index.js",
+		"bin": "bun run build && bun build --compile --minify-whitespace --minify-syntax --target bun --outfile credimi-ui ./build/index.js",
 		"preview": "vite preview --port 5100",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -98,7 +98,7 @@
 		"effect": "^3.14.1",
 		"json-schema-to-typescript": "^15.0.4",
 		"lodash": "^4.17.21",
-		"marked": "^15.0.8",
+		"marked": "^15.0.9",
 		"mjml": "^4.15.3",
 		"nanoid": "^5.1.5",
 		"pocketbase": "~0.25.2",

@@ -18,7 +18,7 @@ services:
       - APP_PATH=${COOLIFY_URL:-http://localhost:8090}
       - ROOT_DIR=/app
       - DATA_DB_PATH=/app/pb_data/data.db
-      - MAIL_SENDER=didimo@forkbomb.eu
+      - MAIL_SENDER=no-reply@credimi.io
       - RUN_STEPCI_PATH=pkg/OpenID4VP/stepci/runStepCI.js
       - SCHEMAS_PATH=schemas
       - SMTP_HOST=smtp.apps.forkbomb.eu

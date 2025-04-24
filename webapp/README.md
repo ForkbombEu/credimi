@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div align="center">
 
-# DIDimo
+# credimi
 
 ### Your trustworthy compliance checker for decentralized identity solutions
 
@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <br><br>
 
-## DIDimo Features
+## credimi Features
 
 - [ ] Sveltekit
 - [ ] Forms handled by https://superforms.vercel.app
@@ -67,7 +67,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 ## 💾 Install
 
 ```
-pip install / yard add DIDimo
+pip install / yard add credimi
 ```
 
 **[🔝 back to top](#toc)**
@@ -76,7 +76,7 @@ pip install / yard add DIDimo
 
 ## 🎮 Quick start
 
-To start using DIDimo run the following command in the root folder
+To start using credimi run the following command in the root folder
 
 ```bash
 git submodule update --init
@@ -93,9 +93,9 @@ pnpm install
 
 **[🌱 Ecosystem](https://github.com/dyne/ecosystem)** - Plugins, resources, and more.
 
-**[🚩 Issues](../../issues)** - Bugs end errors you encounter using DIDimo.
+**[🚩 Issues](../../issues)** - Bugs end errors you encounter using credimi.
 
-**[💬 Discussions](../../discussions)** - Get help, ask questions, request features, and discuss DIDimo.
+**[💬 Discussions](../../discussions)** - Get help, ask questions, request features, and discuss credimi.
 
 **[[] Matrix](https://socials.dyne.org/matrix)** - Hanging out with the community.
 
@@ -103,7 +103,7 @@ pnpm install
 
 **[🪁 Telegram](https://socials.dyne.org/telegram)** - Hanging out with the community.
 
-**[📖 Example](https://github.com/DIDimo/example)** - An example repository that uses DIDimo.
+**[📖 Example](https://github.com/credimi/example)** - An example repository that uses credimi.
 
 **[🔝 back to top](#toc)**
 
@@ -190,7 +190,7 @@ Please first take a look at the [Dyne.org - Contributor License Agreement](CONTR
 
 ## 💼 License
 
-    DIDimo - Your trustworthy compliance checker for decentralized identity solutions
+    credimi - Your trustworthy compliance checker for decentralized identity solutions
     Copyleft 🄯 2024 Forkbomb <info@forkbomb.com>
 
     This program is free software: you can redistribute it and/or modify

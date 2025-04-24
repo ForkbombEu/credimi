@@ -8,11 +8,18 @@ The Marketplace, contains:
 Anyone can browse the Marketplace, no user account is required
 
 ## Browse products and services
-Coming soon
+Credimi's Marketplace showcases **Mobile Apps** (typically Wallets), **Credentials**, **Issuers** and **Verifiers**. 
+
+Browse the Marketplace, use the filters or search for products or services using keywords and tags. 
+
+![credimiMarketplace](./images/credimiMarketplace.png)
 
 ## Search Credentials
-Coming soon
+
+Credentials can be browsed and (when available) you can try to obtain them with your Wallet using the QR Code:
+
+![credimiSingleCredential](./images/credimiSingleCredential.png)
 
 ## Browse and search compliance scores
-Coming soon
+(Coming soon)
 

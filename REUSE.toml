@@ -1,34 +1,35 @@
-# SPDX-FileCopyrightText: 2025 Puria Nafisi Azizi 
-# SPDX-FileCopyrightText: 2025 The Forkbomb Company
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 version = 1
-SPDX-PackageName = "DIDimo"
-SPDX-PackageSupplier = "Puria Nafisi Azizi <puria@dyne.org>"
-SPDX-PackageDownloadLocation = "https://github.com/ForkbombEu/didimo"
+SPDX-PackageName = "credimi"
+SPDX-PackageSupplier = "Forkbomb BV"
+SPDX-PackageDownloadLocation = "https://github.com/ForkbombEu/credimi"
 
 [[annotations]]
 path = [
+    ".env.example",
+    ".vscode/settings.json",
     "config_templates/**/*",
     "docs/**/*",
-    ".env.example",
     "fixtures/test_pb_data/types.d.ts",
     "schemas/**/*",
     "VERSION",
-    "webapp/project.inlang/project_id",
-    "webapp/src/lib/types/openid-credential-issuer.ts",
-    "webapp/src/modules/i18n/paraglide/.gitignore",
-    "webapp/src/modules/i18n/paraglide/.prettierignore",
     "webapp/.env.example",
     "webapp/bun.lock",
     "webapp/messages/**/*",
-    ".vscode/settings.json",
+    "webapp/project.inlang/project_id",
+    "webapp/src/lib/types/openid-credential-issuer.ts",
     "webapp/src/lib/types/openid-credential-issuer.ts",
     "webapp/src/modules/i18n/paraglide/.gitignore",
+    "webapp/src/modules/i18n/paraglide/.gitignore",
     "webapp/src/modules/i18n/paraglide/.prettierignore",
+    "webapp/static/pages/**/*",
     "pkg/credential_issuer/openid-credential-issuer.schema.go",
-    "pb_migrations/*"
+    "pkg/workflowengine/workflows/credentials_config/openid-credential-issuer.schema.go",
+    "pb_migrations/*",
+    "go.sum"
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Forkbomb BV"

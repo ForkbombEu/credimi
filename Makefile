@@ -2,19 +2,19 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-PROJECT_NAME 	?= didimo
+PROJECT_NAME 	?= credimi
 ORGANIZATION 	?= forkbombeu
-DESCRIPTION  	?= "SSI Compliance tool"
 ROOT_DIR		?= $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 BINARY_NAME 	?= $(PROJECT_NAME)
 SUBDIRS			?= ./...
-MAIN_SRC 		?= $(ROOT_DIR)/cmd/didimo/didimo.go
+MAIN_SRC 		?= $(ROOT_DIR)/main.go
 DATA			?= $(ROOT_DIR)/pb_data
 WEBAPP			?= $(ROOT_DIR)/webapp
 GO_SRC 			:= $(wildcard **/*.go)
 GODIRS			:= ./pkg/... ./cmd/...
 UI_SRC			:= $(shell find $(WEBAPP)/src -type f \( -name '*.svelte' -o -name '*.js' -o -name '*.ts' -o -name '*.css' \) ! -name '*.generated.ts' ! -path 'webapp/src/modules/i18n/paraglide/*')
 DOCS			?= $(ROOT_DIR)/docs
+
 GOCMD 			?= go
 GOBUILD			?= $(GOCMD) build
 GOCLEAN			?= $(GOCMD) clean
@@ -30,18 +30,10 @@ GOBIN 			?= $(GOPATH)/bin
 GOMOD_FILES 	:= go.mod go.sum
 COVOUT			:= coverage.out
 
-# Tools & Linters
-REVIVE			?= $(GOBIN)/revive
-GOVULNCHECK 	?= $(GOBIN)/govulncheck
-HIVEMIND 		?= $(GOBIN)/hivemind
-GOW				?= $(GOBIN)/gow
-GOCOVERTREEMAP	?= $(GOBIN)/go-cover-treemap
-
 # Submodules
 WEBENV			= $(WEBAPP)/.env
 BIN				= $(ROOT_DIR)/.bin
 DEPS 			= mise git temporal wget
-DEPS 			= mise git temporal
 DEV_DEPS		= pre-commit
 K 				:= $(foreach exec,$(DEPS), $(if $(shell which $(exec)),some string,$(error "🥶 `$(exec)` not found in PATH please install it")))
 
@@ -49,7 +41,7 @@ all: help
 .PHONY: submodules version dev test lint tidy purge build docker doc clean tools help w devtools
 
 $(BIN):
-	@mkdir $(BIN)
+	@mkdir -p $@
 
 submodules:
 	git submodule update --recursive --init
@@ -80,26 +72,30 @@ $(WEBENV):
 	cp $(WEBAPP)/.env.example $(WEBAPP)/.env
 
 dev: $(WEBENV) tools devtools submodules ## 🚀 run in watch mode
-	DEBUG=1 $(HIVEMIND) -T Procfile.dev
+	DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev
 
 test: ## 🧪 run tests with coverage
-	$(GOTEST) $(GODIRS) -v -cover
+	$(GOTEST) $(GODIRS) -v -race -buildvcs
 
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)
 endif
 test.p: tools ## 🍷 watch tests and run on change for a certain folder
-	$(GOW) test -run "^$(test_name)$$" $(GODIRS)
+	$(GOTOOL) gow test -run "^$(test_name)$$" $(GODIRS)
 
 coverage: devtools # ☂️ run test and open code coverage report
 	-$(GOTEST) $(GODIRS) -coverprofile=$(COVOUT)
 	$(GOTOOL) cover -html=$(COVOUT)
-	$(GOCOVERTREEMAP) -coverprofile $(COVOUT) > coverage.svg && open coverage.svg
+	$(GOTOOL) go-cover-treemap -coverprofile $(COVOUT) > coverage.svg && open coverage.svg
 
 lint: devtools ## 📑 lint rules checks
-	$(GOVULNCHECK) $(SUBDIRS)
-	$(REVIVE) $(GODIRS)
+	$(GOMOD) tidy -diff
+	$(GOMOD) verify
+	$(GOCMD) vet $(SUBDIRS)
+	$(GOTOOL) staticcheck -checks=all,-ST1000,-U1000,-ST1003 $(SUBDIRS)
+	$(GOTOOL) govulncheck $(SUBDIRS)
+	$(GOTOOL) revive $(GODIRS)
 
 fmt: devtools ## 🗿 format rules checks
 	$(GOFMT) $(GODIRS)
@@ -156,27 +152,11 @@ generate: $(ROOT_DIR)/pkg/gen.go
 	$(GOGEN) $(ROOT_DIR)/pkg/gen.go
 
 devtools: generate
-	@if [ ! -f "$(REVIVE)" ]; then \
-		$(GOINST) github.com/mgechev/revive@latest; \
-	fi
-	@if [ ! -f "$(GOVULNCHECK)" ]; then \
-		$(GOINST) golang.org/x/vuln/cmd/govulncheck@latest; \
-	fi
-	@if [ ! -f "$(GOCOVERTREEMAP)" ]; then \
-		$(GOINST) github.com/nikolaydubina/go-cover-treemap@latest; \
-	fi
-	@if [ ! -f "$(GOW)" ]; then \
-		$(GOINST) github.com/mitranim/gow@latest; \
-	fi
 	pre-commit install
 	pre-commit autoupdate
-	-$(foreach exec,$(DEV_DEPS), $(if $(shell which $(exec)),some string,$(error "🥶 `$(exec)` not found in PATH please install it")))
 
 tools: generate $(BIN) $(BIN)/stepci-captured-runner
 	mise install
-	@if [ ! -f "$(HIVEMIND)" ]; then \
-		$(GOINST) github.com/DarthSim/hivemind@latest; \
-	fi
 
 $(BIN)/stepci-captured-runner:
 	wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/download/stepci-captured-runner-$(shell uname)-$(shell uname -m) -O $(BIN)/stepci-captured-runner && chmod +x $(BIN)/stepci-captured-runner
@@ -196,6 +176,3 @@ help: ## Show this help.
 kill-pocketbase: ## 🔪 Kill any running PocketBase instance
 	@echo "Killing any existing PocketBase instance..."
 	@-lsof -ti:8090 -sTCP:LISTEN | xargs kill -9 2>/dev/null || true
-
-remove-overmind: ## 🧹 Remove overmind.sock
-	@rm -f ./.overmind.sock
