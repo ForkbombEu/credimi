@@ -7,9 +7,9 @@ import (
 	"encoding/json"
 	"testing"
 
-	"github.com/forkbombeu/didimo/pkg/workflowengine"
-	"github.com/forkbombeu/didimo/pkg/workflowengine/activities"
-	"github.com/forkbombeu/didimo/pkg/workflowengine/workflows/credentials_config"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"

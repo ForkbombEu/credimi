@@ -21,10 +21,10 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 
-	"github.com/forkbombeu/didimo/pkg/internal/temporalclient"
-	"github.com/forkbombeu/didimo/pkg/utils"
-	"github.com/forkbombeu/didimo/pkg/workflowengine"
-	"github.com/forkbombeu/didimo/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 )
 
 // SignalData represents the data structure for signals used in the workflow.

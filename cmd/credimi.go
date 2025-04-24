@@ -9,8 +9,8 @@ import (
 	"log"
 
 	// Blank import to initialize database migrations
-	_ "github.com/forkbombeu/didimo/migrations"
-	"github.com/forkbombeu/didimo/pkg/routes"
+	_ "github.com/forkbombeu/credimi/migrations"
+	"github.com/forkbombeu/credimi/pkg/routes"
 
 	"github.com/pocketbase/pocketbase"
 )

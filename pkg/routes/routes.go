@@ -19,9 +19,9 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
-	"github.com/forkbombeu/didimo/pkg/internal/pb"
-	"github.com/forkbombeu/didimo/pkg/utils"
-	"github.com/forkbombeu/didimo/pkg/workflowengine/hooks"
+	"github.com/forkbombeu/credimi/pkg/internal/pb"
+	"github.com/forkbombeu/credimi/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 )
 
 func bindAppHooks(app core.App) {

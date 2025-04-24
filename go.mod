@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-module github.com/forkbombeu/didimo
+module github.com/forkbombeu/credimi
 
 go 1.24.2
 

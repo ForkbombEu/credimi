@@ -15,7 +15,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/forkbombeu/didimo/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
 // HTTPActivity is an activity that performs an HTTP request.

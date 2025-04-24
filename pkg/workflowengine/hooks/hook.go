@@ -20,11 +20,11 @@ import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 
-	"github.com/forkbombeu/didimo/pkg/internal/temporalclient"
-	"github.com/forkbombeu/didimo/pkg/workflowengine"
-	"github.com/forkbombeu/didimo/pkg/workflowengine/activities"
-	"github.com/forkbombeu/didimo/pkg/workflowengine/workflows"
-	"github.com/forkbombeu/didimo/pkg/workflowengine/workflows/credentials_config"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
 )
 
 // WorkersHook sets up a hook for the PocketBase application to start all workers
