@@ -6,12 +6,14 @@ package worker_engine
 
 import (
 	"log"
+	"reflect"
 	"sync"
 
 	temporalclient "github.com/forkbombeu/didimo/pkg/internal/temporal_client"
 	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
 	"github.com/forkbombeu/didimo/pkg/workflow_engine/activities"
 	"github.com/forkbombeu/didimo/pkg/workflow_engine/workflows"
+	"github.com/forkbombeu/didimo/pkg/workflow_engine/workflows/credentials_config"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/sdk/activity"
@@ -69,7 +71,22 @@ func StartAllWorkers() {
 			Activities: []workflowengine.ExecutableActivity{
 				&activities.StepCIWorkflowActivity{},
 				&activities.SendMailActivity{},
-				&activities.HTTPActivity{},
+				&activities.HttpActivity{},
+			},
+		},
+		{
+			TaskQueue: workflows.CredentialsTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				&workflows.CredentialsIssuersWorkflow{},
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				&activities.CheckCredentialsIssuerActivity{},
+				&activities.JsonActivity{
+					StructRegistry: map[string]reflect.Type{
+						"OpenidCredentialIssuerSchemaJson": reflect.TypeOf(credentials_config.OpenidCredentialIssuerSchemaJson{}),
+					},
+				},
+				&activities.HttpActivity{},
 			},
 		},
 	}

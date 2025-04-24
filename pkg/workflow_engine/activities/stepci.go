@@ -25,7 +25,7 @@ import (
 type StepCIWorkflowActivity struct{}
 
 func (StepCIWorkflowActivity) Name() string {
-	return "StepCI"
+	return "Run an automation workflow of API calls"
 }
 
 // Configure injects the parsed template and token into the payload
@@ -91,6 +91,7 @@ func (a *StepCIWorkflowActivity) Execute(
 	result.Output = outputJSON
 	return result, nil
 }
+
 func RenderYAML(yamlString string, data map[string]interface{}) (string, error) {
 	handler := sprout.New(
 		sprout.WithGroups(all.RegistryGroup()),

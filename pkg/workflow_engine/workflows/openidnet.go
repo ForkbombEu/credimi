@@ -37,7 +37,7 @@ const (
 type OpenIDNetWorkflow struct{}
 
 func (OpenIDNetWorkflow) Name() string {
-	return "OpenIDNetWorkflow"
+	return "Conformance check on https://www.certification.openid.net"
 }
 
 func (OpenIDNetWorkflow) GetOptions() workflow.ActivityOptions {
@@ -94,11 +94,11 @@ func (w *OpenIDNetWorkflow) Workflow(
 			"recipient": input.Payload["user_mail"].(string),
 		},
 		Payload: map[string]any{
-			"subject": "Test QR Code Email",
+			"subject": "[CREDIMI] Action required to continue your conformance checks",
 			"body": fmt.Sprintf(`
 		<html>
 			<body>
-				<p>Here is your link:</p>
+				<p>Please click on the following link:</p>
 				<p><a href="%s" target="_blank" rel="noopener">%s</a></p>
 			</body>
 		</html>
@@ -213,7 +213,7 @@ func (w *OpenIDNetWorkflow) Start(
 type OpenIDNetLogsWorkflow struct{}
 
 func (OpenIDNetLogsWorkflow) Name() string {
-	return "OpenIDNetLogsChildWorkflow"
+	return "Drain logs from https://www.certification.openid.net"
 }
 
 func (OpenIDNetLogsWorkflow) GetOptions() workflow.ActivityOptions {
@@ -267,7 +267,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 			logger.Info("Workflow canceled, returning collected logs")
 			return workflowengine.WorkflowResult{Log: logs}, nil
 		}
-		var HTTPActivity activities.HTTPActivity
+		var HTTPActivity activities.HttpActivity
 		var HTTPResponse workflowengine.ActivityResult
 		// Fetch logs
 		err := workflow.ExecuteActivity(subCtx, HTTPActivity.Name(), GetLogsInput).

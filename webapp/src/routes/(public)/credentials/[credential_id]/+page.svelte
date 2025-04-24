@@ -16,12 +16,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { m, localizeHref } from '@/i18n/index.js';
+	import { m } from '@/i18n/index.js';
 	import { QrCode } from '@/qr/index.js';
-	import { Building2, FolderCheck, Layers3, ScanEye } from 'lucide-svelte';
+	import { Building2, FolderCheck, Layers3 } from 'lucide-svelte';
 	import { String } from 'effect';
-	import { pb } from '@/pocketbase/index.js';
-	import { onMount } from 'svelte';
 
 	let { data } = $props();
 	const { credential } = $derived(data);
@@ -59,6 +57,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 
 	const credentialIssuer = $derived(credential.expand?.credential_issuer);
+
+	function createIntentUrl(issuer: string | undefined, type: string): string {
+		const data = {
+			credential_configuration_ids: [type],
+			credential_issuer: issuer
+		};
+		const credentialOffer = encodeURIComponent(JSON.stringify(data));
+		return `openid-credential-offer://?credential_offer=${credentialOffer}`;
+	}
 </script>
 
 <PageTop contentClass="!space-y-4">
@@ -113,22 +120,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<InfoBox label="Type" value={credential.type} />
 			</div>
 
-			<div>
-				<PageHeader title="QR code" id="qr" />
-				{#if String.isNonEmpty(credential.deeplink)}
-					<QrCode
-						src={credential.deeplink}
-						cellSize={10}
-						class={[
-							'w-52 rounded-md',
-							{ 'blur-md': String.isEmpty(credential.deeplink) }
-						]}
-					/>
-				{:else}
-					<div class="flex size-52 items-center justify-center rounded-md bg-white">
-						<p class="text-xs text-gray-300">Missing QR deeplink</p>
-					</div>
-				{/if}
+			<div class="flex flex-col items-center">
+				<PageHeader title="Credential offer" id="qr" />
+				<QrCode
+					src={String.isNonEmpty(credential.deeplink)
+						? credential.deeplink
+						: createIntentUrl(credentialIssuer?.url, credential.type)}
+					cellSize={10}
+					class={['w-60 rounded-md']}
+				/>
+				<div class="w-60 break-all pt-4 text-xs">
+					<a
+						href={String.isNonEmpty(credential.deeplink)
+							? credential.deeplink
+							: createIntentUrl(credentialIssuer?.url, credential.type)}
+						target="_self"
+					>
+						{String.isNonEmpty(credential.deeplink)
+							? credential.deeplink
+							: createIntentUrl(credentialIssuer?.url, credential.type)}</a
+					>
+				</div>
 			</div>
 		</div>
 

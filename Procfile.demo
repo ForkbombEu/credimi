@@ -1,7 +1,0 @@
-# SPDX-FileCopyrightText: 2025 Forkbomb BV
-#
-# SPDX-License-Identifier: AGPL-3.0-or-later
-didimo: /usr/local/bin/didimo serve --dir /pb_data --http=0.0.0.0:8090
-ui: ./scripts/wait-for-it.sh -s -t 0 localhost:8090 && cd webapp && bun run preview --host 0.0.0.0
-workflow: go run pkg/credential_issuer/worker/worker.go
-workflow-oid: go run pkg/OpenID4VP/worker/worker.go

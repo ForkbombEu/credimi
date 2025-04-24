@@ -20,7 +20,7 @@ import (
 type SendMailActivity struct{}
 
 func (SendMailActivity) Name() string {
-	return "SendMail"
+	return "Send an email"
 }
 
 func (a *SendMailActivity) Configure(

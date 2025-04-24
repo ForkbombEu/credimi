@@ -4,7 +4,7 @@
 
 import { currentUser, pb, type AuthStoreModel } from '@/pocketbase';
 
-import { version } from '$app/environment';
+import { appVersion } from '@/utils/appVersion';
 import { appName } from '@/brand';
 
 pb.authStore.loadFromCookie(document.cookie);
@@ -13,4 +13,11 @@ pb.authStore.onChange(() => {
 	document.cookie = pb.authStore.exportToCookie({ httpOnly: false, secure: false });
 });
 
-console.info(`${appName} version: 🔖 ${version}`);
+console.info(
+	`%c${appName} version: 🔖 ${appVersion}`,
+	'font-size:4em;background: #833ab4;background:linear-gradient(to left,#833ab4,#fd1d1d,#fcb045);color:#fff;padding:4px;border-radius:4px;'
+);
+console.info(
+	'%cmade with ❤️‍🔥 by FORKBOMB hackers',
+	'font-size:2em;background:#1C39BB;color:#fff;padding:4px;border-radius:4px;'
+);

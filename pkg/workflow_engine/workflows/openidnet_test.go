@@ -20,7 +20,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-func Test_Workflows(t *testing.T) {
+func Test_OpenIDNETWorkflows(t *testing.T) {
 	testCases := []struct {
 		name                string
 		mockActivities      func(env *testsuite.TestWorkflowEnvironment)
@@ -40,7 +40,7 @@ func Test_Workflows(t *testing.T) {
 				env.RegisterActivityWithOptions(MailActivity.Execute, activity.RegisterOptions{
 					Name: MailActivity.Name(),
 				})
-				var HTTPActivity activities.HTTPActivity
+				var HTTPActivity activities.HttpActivity
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
@@ -70,7 +70,7 @@ func Test_Workflows(t *testing.T) {
 				env.RegisterActivityWithOptions(MailActivity.Execute, activity.RegisterOptions{
 					Name: MailActivity.Name(),
 				})
-				var HTTPActivity activities.HTTPActivity
+				var HTTPActivity activities.HttpActivity
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
@@ -163,7 +163,7 @@ func Test_LogSubWorkflow(t *testing.T) {
 			env := testSuite.NewTestWorkflowEnvironment()
 
 			callCount := 0
-			var HTTPActivity activities.HTTPActivity
+			var HTTPActivity activities.HttpActivity
 			env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 				Name: HTTPActivity.Name(),
 			})

@@ -1,0 +1,39 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+name: 🚦 Update version
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'VERSION'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref_name }}
+  cancel-in-progress: true
+
+jobs:
+  version:
+    name: 🚦 Update version
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+      - uses: jdx/mise-action@v2
+      - uses: go-semantic-release/action@v1
+        id: semrel
+        with:
+            github-token: '${{ secrets.GITHUB_TOKEN }}'
+            dry: true
+      - if: steps.semrel.outputs.version != ''
+        run: |
+            git config user.name "forkboteu"
+            git config user.email "apps@forkbomb.eu"
+            echo ${{ steps.semrel.outputs.version }} > VERSION
+            git add VERSION
+            git commit -m "chore(release): 🚀 update VERSION to ${{ steps.semrel.outputs.version }}"
+            git push origin main

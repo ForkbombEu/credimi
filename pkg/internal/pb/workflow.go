@@ -17,8 +17,8 @@ import (
 	temporalclient "github.com/forkbombeu/didimo/pkg/internal/temporal_client"
 	engine "github.com/forkbombeu/didimo/pkg/template_engine"
 	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
+	"github.com/forkbombeu/didimo/pkg/workflow_engine/activities"
 	"github.com/forkbombeu/didimo/pkg/workflow_engine/workflows"
-	"github.com/google/uuid"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
@@ -62,11 +62,12 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 
 			existingRecords, err := app.FindRecordsByFilter(
 				collection.Id,
-				"url = {:url}",
+				"url = {:url} && owner = {:owner}",
 				"",
 				1,
 				0,
-				dbx.Params{"url": req.URL},
+				dbx.Params{"url": req.URL,
+					"owner": e.Auth.Id},
 			)
 			if err != nil {
 				return err
@@ -87,31 +88,20 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				issuerID = newRecord.Id
 			}
 			// Start the workflow
-			workflowInput := credential_workflow.CredentialWorkflowInput{
-				BaseURL:  req.URL,
-				IssuerID: issuerID,
+			workflowInput := workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": app.Settings().Meta.AppURL,
+				},
+				Payload: map[string]any{
+					"issuerID": issuerID,
+					"base_url": req.URL,
+				},
 			}
+			w := workflows.CredentialsIssuersWorkflow{}
 
-			workflowOptions := client.StartWorkflowOptions{
-				ID:        "credentials-workflow-" + uuid.New().String(),
-				TaskQueue: credential_workflow.CredentialsTaskQueue,
-			}
-
-			c, err := temporalclient.GetTemporalClient()
-			defer c.Close()
-			if err != nil {
-				return err
-			}
-
-			we, err := c.ExecuteWorkflow(context.Background(), workflowOptions, credential_workflow.CredentialWorkflow, workflowInput)
+			_, err = w.Start(workflowInput)
 			if err != nil {
 				return fmt.Errorf("error starting workflow for URL %s: %v", req.URL, err)
-			}
-
-			var result credential_workflow.CredentialWorkflowResponse
-			err = we.Get(context.Background(), &result)
-			if err != nil {
-				return fmt.Errorf("error running workflow for URL %s: %v", req.URL, err)
 			}
 			//
 			// providers, err := app.FindCollectionByNameOrId("services")
@@ -130,8 +120,118 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				"credentialIssuerUrl": req.URL,
 			})
 		}).Bind(apis.RequireAuth())
+
+		se.Router.POST("/api/credentials_issuers/store-or-update-extracted-credentials", func(e *core.RequestEvent) error {
+			var body struct {
+				IssuerID   string                `json:"issuerID"`
+				IssuerName string                `json:"issuerName"`
+				CredKey    string                `json:"credKey"`
+				Credential activities.Credential `json:"credential"`
+			}
+
+			if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
+				return apis.NewBadRequestError("invalid JSON body", err)
+			}
+
+			var name, locale, logo string
+			if len(body.Credential.Display) > 0 {
+				display := body.Credential.Display[0]
+				name = display.Name
+				if display.Locale != nil {
+					locale = *display.Locale
+				}
+				if display.Logo != nil {
+					// do not broke if URI is nil
+					if display.Logo.Uri != nil {
+						logo = *display.Logo.Uri
+					}
+				}
+			}
+
+			collection, err := app.FindCollectionByNameOrId("credentials")
+			if err != nil {
+				return err
+			}
+			existing, err := app.FindFirstRecordByFilter(collection,
+				"key = {:key} && credential_issuer = {:issuerID}",
+				map[string]any{
+					"key":      body.CredKey,
+					"issuerID": body.IssuerID,
+				},
+			)
+
+			var record *core.Record
+			if err != nil {
+				// Create new record
+				record = core.NewRecord(collection)
+			} else {
+				// Update existing record
+				record = existing
+			}
+
+			// Marshal original credential JSON to store
+			credJSON, _ := json.Marshal(body.Credential)
+
+			record.Set("format", body.Credential.Format)
+			record.Set("issuer_name", body.IssuerName)
+			record.Set("name", name)
+			record.Set("locale", locale)
+			record.Set("logo", logo)
+			record.Set("json", string(credJSON))
+			record.Set("key", body.CredKey)
+			record.Set("credential_issuer", body.IssuerID)
+
+			if err := app.Save(record); err != nil {
+				return err
+			}
+			return e.JSON(http.StatusOK, map[string]any{"key": body.CredKey})
+		})
+		se.Router.POST("/api/credentials_issuers/cleanup_credentials", func(e *core.RequestEvent) error {
+			var body struct {
+				IssuerID  string   `json:"issuerID"`
+				ValidKeys []string `json:"validKeys"`
+			}
+
+			if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
+				return apis.NewBadRequestError("invalid JSON body", err)
+			}
+
+			validSet := map[string]bool{}
+			for _, key := range body.ValidKeys {
+				validSet[key] = true
+			}
+
+			collection, err := app.FindCollectionByNameOrId("credentials")
+			if err != nil {
+				return err
+			}
+			all, err := app.FindRecordsByFilter(collection,
+				"credential_issuer = {:issuerID}",
+				"", // sort
+				0,  // page
+				0,  // perPage
+				dbx.Params{"issuerID": body.IssuerID},
+			)
+
+			if err != nil {
+				return apis.NewBadRequestError("failed to find records", err)
+			}
+
+			var deleted []string
+			for _, rec := range all {
+				key := rec.GetString("key")
+				if !validSet[key] {
+					if err := app.Delete(rec); err != nil {
+						return apis.NewBadRequestError("failed to delete record", err)
+					}
+					deleted = append(deleted, key)
+				}
+			}
+			return e.JSON(http.StatusOK, map[string]any{"deleted": deleted})
+		})
 		return se.Next()
 	})
+
 }
 
 func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {

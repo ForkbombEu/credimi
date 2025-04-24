@@ -17,7 +17,7 @@ import (
 )
 
 func TestHTTPActivity_Execute(t *testing.T) {
-	activity := &HTTPActivity{}
+	activity := &HttpActivity{}
 	var ts testsuite.WorkflowTestSuite
 	env := ts.NewTestActivityEnvironment()
 	env.RegisterActivity(activity.Execute)
@@ -169,7 +169,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				tt.input.Config["url"] = server.URL
 			}
 
-			a := HTTPActivity{}
+			a := HttpActivity{}
 			var result workflowengine.ActivityResult
 			future, err := env.ExecuteActivity(a.Execute, tt.input)
 
