@@ -62,12 +62,15 @@ func (a *CheckCredentialsIssuerActivity) Execute(ctx context.Context, input work
 	if !ok || strings.TrimSpace(baseURL) == "" {
 		return workflowengine.Fail(&workflowengine.ActivityResult{}, "Missing baseURL in config")
 	}
-
-	if !strings.HasPrefix(baseURL, "https://") && !strings.HasPrefix(baseURL, "http://") {
-		baseURL = "https://" + baseURL
+	cleanURL := strings.TrimSpace(baseURL)
+	if !strings.HasPrefix(cleanURL, "https://") && !strings.HasPrefix(cleanURL, "http://") {
+		cleanURL = "https://" + cleanURL
 	}
 
-	issuerURL := strings.TrimRight(baseURL, "/") + "/.well-known/openid-credential-issuer"
+	issuerURL := strings.TrimRight(cleanURL, "/")
+	if !strings.HasSuffix(issuerURL, "/.well-known/openid-credential-issuer") {
+		issuerURL += "/.well-known/openid-credential-issuer"
+	}
 	req, err := http.NewRequestWithContext(ctx, "GET", issuerURL, nil)
 	if err != nil {
 		return workflowengine.Fail(&workflowengine.ActivityResult{}, fmt.Sprintf("Request creation failed: %v", err))
