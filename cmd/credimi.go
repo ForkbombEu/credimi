@@ -2,18 +2,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// DIDimo is your companion tool for be compliant with your SSI system.
+// Package cmd credimi is your companion tool for be compliant with your SSI system.
 package cmd
 
 import (
 	"log"
 
+	// Blank import to initialize database migrations
 	_ "github.com/forkbombeu/didimo/migrations"
 	"github.com/forkbombeu/didimo/pkg/routes"
 
 	"github.com/pocketbase/pocketbase"
 )
 
+// Start initializes and starts the PocketBase application.
 func Start() {
 	app := pocketbase.New()
 	app.RootCmd.Short = "\033[38;2;255;100;0m .o88b. d8888b. d88888b d8888b. d888888b .88b  d88. d888888b \033[0m\n" +

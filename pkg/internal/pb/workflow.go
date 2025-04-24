@@ -14,11 +14,11 @@ import (
 	"time"
 
 	credential_workflow "github.com/forkbombeu/didimo/pkg/credential_issuer/workflow"
-	temporalclient "github.com/forkbombeu/didimo/pkg/internal/temporal_client"
-	engine "github.com/forkbombeu/didimo/pkg/template_engine"
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/activities"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/workflows"
+	"github.com/forkbombeu/didimo/pkg/internal/temporalclient"
+	"github.com/forkbombeu/didimo/pkg/templateengine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/activities"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
@@ -31,21 +31,48 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+// OpenID4VPTestInputFile is a struct that represents the input file for OpenID4VP tests.
 type OpenID4VPTestInputFile struct {
 	Variant json.RawMessage `json:"variant"`
 	Form    any             `json:"form"`
 }
 
+// OpenID4VPRequest is a struct that represents the request body for OpenID4VP tests.
 type OpenID4VPRequest struct {
 	Input    OpenID4VPTestInputFile `json:"input"`
 	UserMail string                 `json:"user_mail"`
 	TestName string                 `json:"test_name"`
 }
 
+// IssuerURL is a struct that represents the URL of a credential issuer.
 type IssuerURL struct {
 	URL string `json:"credentialIssuerUrl"`
 }
 
+// HookCredentialWorkflow sets up routes and handlers for managing credential issuers
+// and their associated workflows in the PocketBase application.
+//
+// This function registers the following endpoints:
+// 1. POST /credentials_issuers/start-check
+//   - Starts a workflow for a credential issuer based on the provided URL.
+//   - If a record for the given URL already exists, it reuses it; otherwise, it creates a new record.
+//   - Returns the credential issuer URL upon success.
+//
+// 2. POST /api/credentials_issuers/store-or-update-extracted-credentials
+//   - Stores or updates credentials extracted from a workflow.
+//   - Accepts details such as issuer ID, issuer name, credential key, and the credential itself.
+//   - Updates an existing record if it matches the provided key and issuer ID, or creates a new one.
+//
+// 3. POST /api/credentials_issuers/cleanup_credentials
+//   - Cleans up credentials associated with a specific issuer by removing records
+//     that are not in the list of valid keys provided in the request.
+//   - Returns a list of deleted keys upon success.
+//
+// Parameters:
+// - app: The PocketBase application instance to which the routes and handlers are bound.
+//
+// This function ensures that all routes require authentication and handles errors
+// gracefully by returning appropriate HTTP responses.
 func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.POST("/credentials_issuers/start-check", func(e *core.RequestEvent) error {
@@ -234,6 +261,36 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 
 }
 
+// AddOpenID4VPTestEndpoints registers multiple HTTP endpoints to the provided PocketBase application.
+// These endpoints are used for testing OpenID4VP workflows and related functionalities.
+//
+// Endpoints:
+// 1. POST /api/openid4vp-test
+//   - Starts an OpenID4VP workflow using the provided input data.
+//
+// 2. POST /api/{protocol}/{author}/save-variables-and-start
+//   - Saves variables and starts a workflow for a specific protocol and author.
+//   - Supports JSON and variable-based input formats.
+//
+// 3. POST /wallet-test/confirm-success
+//   - Sends a success signal to a specified workflow.
+//
+// 4. POST /wallet-test/notify-failure
+//   - Sends a failure signal to a specified workflow with a reason for failure.
+//
+// 5. POST /wallet-test/send-log-update
+//   - Sends real-time log updates for a specified workflow.
+//
+// 6. POST /wallet-test/send-log-update-start
+//   - Signals the start of real-time log updates for a specified workflow.
+//
+// Parameters:
+// - app: A pointer to the PocketBase application instance.
+//
+// Notes:
+// - Some endpoints require authentication.
+// - The function uses various utilities like JSON decoding, file reading, and workflow engine interactions.
+// - Errors are returned as HTTP responses with appropriate status codes and messages.
 func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.POST("/api/openid4vp-test", func(e *core.RequestEvent) error {
@@ -326,6 +383,9 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 						return apis.NewBadRequestError("failed to parse JSON for test "+testName, err)
 					}
 					stepCItemplate, err := os.ReadFile(workflows.OpenIDNetStepCITemplatePath)
+					if err != nil {
+						return apis.NewBadRequestError("failed to open template file: %w", err)
+					}
 					// Start the workflow
 					input := workflowengine.WorkflowInput{
 						Payload: map[string]any{
@@ -348,14 +408,14 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 				} else if testData.Format == "variables" {
 					variables, ok := testData.Data.(map[string]interface{})
 					values := make(map[string]interface{})
-					config_values, err := app.FindCollectionByNameOrId("config_values")
+					configValues, err := app.FindCollectionByNameOrId("config_values")
 					if err != nil {
 						return err
 					}
 					if !ok {
 						return apis.NewBadRequestError("invalid variables format for test "+testName, nil)
 					}
-					for credimiId, variable := range variables {
+					for credimiID, variable := range variables {
 						v, ok := variable.(map[string]interface{})
 						if !ok {
 							return apis.NewBadRequestError("invalid variable format for test "+testName, nil)
@@ -366,8 +426,8 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 							return apis.NewBadRequestError("invalid fieldName format for test "+testName, nil)
 						}
 
-						record := core.NewRecord(config_values)
-						record.Set("credimi_id", credimiId)
+						record := core.NewRecord(configValues)
+						record.Set("credimi_id", credimiID)
 						record.Set("value", v["value"])
 						record.Set("field_name", fieldName)
 						record.Set("template_path", testName)
@@ -378,18 +438,18 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 					}
 
 					template, err := os.Open(filepath + testName)
-					defer template.Close()
 					if err != nil {
 						return apis.NewBadRequestError("failed to open template for test "+testName, err)
 					}
+					defer template.Close()
 
 					templateFile, err := os.Open(filepath + testName)
-					defer templateFile.Close()
 					if err != nil {
 						return apis.NewBadRequestError("failed to open template for test "+testName, err)
 					}
+					defer templateFile.Close()
 
-					renderedTemplate, err := engine.RenderTemplate(templateFile, values)
+					renderedTemplate, err := templateengine.RenderTemplate(templateFile, values)
 					if err != nil {
 						return apis.NewInternalServerError("failed to render template for test "+testName, err)
 					}
@@ -445,11 +505,11 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 				Success: true,
 			}
 
-			c, err := temporalclient.GetTemporalClient()
-			defer c.Close()
+			c, err := temporalclient.New()
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 
 			err = c.SignalWorkflow(context.Background(), request.WorkflowID, "", "wallet-test-signal", data)
 			if err != nil {
@@ -472,12 +532,11 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 				Reason:  request.Reason,
 			}
 
-			c, err := temporalclient.GetTemporalClient()
-			defer c.Close()
-
+			c, err := temporalclient.New()
 			if err != nil {
 				return err
 			}
+			defer c.Close()
 
 			err = c.SignalWorkflow(context.Background(), request.WorkflowID, "", "wallet-test-signal", data)
 			if err != nil {
@@ -512,8 +571,7 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 				return apis.NewBadRequestError("Invalid JSON input", err)
 			}
 
-			c, err := temporalclient.GetTemporalClient()
-			defer c.Close()
+			c, err := temporalclient.New()
 			if err != nil {
 				return err
 			}
@@ -548,6 +606,25 @@ func notifyLogsUpdate(app core.App, subscription string, data []map[string]any) 
 	return nil
 }
 
+// HookUpdateCredentialsIssuers sets up a hook in the PocketBase application to listen for
+// successful updates to records in the "features" collection with the name "updateIssuers".
+// When triggered, it checks if the "active" field is true and processes the "envVariables"
+// field to determine a scheduling interval. Based on the interval, it creates a Temporal
+// schedule to periodically execute the FetchIssuersWorkflow.
+//
+// Parameters:
+//   - app: A pointer to the PocketBase application instance.
+//
+// Behavior:
+//   - Listens for updates to the "features" collection.
+//   - Verifies the record name is "updateIssuers" and the "active" field is true.
+//   - Parses the "envVariables" field to extract the scheduling interval.
+//   - Maps the interval to a predefined duration (e.g., every minute, hourly, daily, etc.).
+//   - Creates a Temporal schedule with the specified interval to run the FetchIssuersWorkflow.
+//
+// Notes:
+//   - If the "envVariables" field is missing or the interval is invalid, the hook exits without action.
+//   - Logs fatal errors if JSON unmarshalling or Temporal client/schedule creation fails.
 func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 	app.OnRecordAfterUpdateSuccess().BindFunc(func(e *core.RecordEvent) error {
 		if e.Record.Collection().Name != "features" || e.Record.Get("name") != "updateIssuers" {
@@ -563,9 +640,9 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 		result := struct {
 			Interval string `json:"interval"`
 		}{}
-		errJson := json.Unmarshal(e.Record.Get("envVariables").(types.JSONRaw), &result)
-		if errJson != nil {
-			log.Fatal(errJson)
+		errJSON := json.Unmarshal(e.Record.Get("envVariables").(types.JSONRaw), &result)
+		if errJSON != nil {
+			log.Fatal(errJSON)
 		}
 		if result.Interval == "" {
 			return nil
@@ -592,11 +669,10 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 		temporalClient, err := client.Dial(client.Options{
 			HostPort: client.DefaultHostPort,
 		})
-		defer temporalClient.Close()
-
 		if err != nil {
 			log.Fatalln("Unable to create Temporal Client", err)
 		}
+		defer temporalClient.Close()
 		scheduleHandle, err := temporalClient.ScheduleClient().Create(ctx, client.ScheduleOptions{
 			ID: scheduleID,
 			Spec: client.ScheduleSpec{
@@ -621,6 +697,26 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 	})
 }
 
+// RouteWorkflow sets up the HTTP routes for managing workflows in the application.
+// It defines the following endpoints:
+//
+// 1. GET /api/workflows
+//   - Retrieves a list of workflows for the authenticated user.
+//   - Requires authentication.
+//   - Returns a JSON response containing the list of workflows.
+//
+// 2. GET /api/workflows/{workflowId}/{runId}
+//   - Retrieves details of a specific workflow execution identified by `workflowId` and `runId`.
+//   - Requires authentication.
+//   - Returns a JSON response containing the workflow execution details.
+//
+// 3. GET /api/workflows/{workflowId}/{runId}/history
+//   - Retrieves the history of a specific workflow execution identified by `workflowId` and `runId`.
+//   - Requires authentication.
+//   - Returns a JSON response containing the workflow execution history.
+//
+// Each route ensures that the user is authorized to access the requested namespace
+// and handles errors such as missing parameters, unauthorized access, and internal server issues.
 func RouteWorkflow(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.GET("/api/workflows", func(e *core.RequestEvent) error {
@@ -630,10 +726,10 @@ func RouteWorkflow(app *pocketbase.PocketBase) {
 				return apis.NewUnauthorizedError("User is not authorized to access this organization", err)
 			}
 			c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-			defer c.Close()
 			if err != nil {
 				return apis.NewInternalServerError("unable to create client", err)
 			}
+			defer c.Close()
 			list, err := c.ListWorkflow(context.Background(), &workflowservice.ListWorkflowExecutionsRequest{
 				Namespace: namespace,
 			})
@@ -641,28 +737,28 @@ func RouteWorkflow(app *pocketbase.PocketBase) {
 				log.Println("Error listing workflows:", err)
 				return apis.NewInternalServerError("failed to list workflows", err)
 			}
-			listJson, err := protojson.Marshal(list)
+			listJSON, err := protojson.Marshal(list)
 			if err != nil {
 				return apis.NewInternalServerError("failed to marshal workflow list", err)
 			}
-			finalJson := make(map[string]interface{})
-			err = json.Unmarshal(listJson, &finalJson)
+			finalJSON := make(map[string]interface{})
+			err = json.Unmarshal(listJSON, &finalJSON)
 			if err != nil {
 				return apis.NewInternalServerError("failed to unmarshal workflow list", err)
 			}
-			if finalJson["executions"] == nil {
-				finalJson["executions"] = []map[string]interface{}{}
+			if finalJSON["executions"] == nil {
+				finalJSON["executions"] = []map[string]interface{}{}
 			}
-			return e.JSON(http.StatusOK, finalJson)
+			return e.JSON(http.StatusOK, finalJSON)
 		}).Bind(apis.RequireAuth())
 
 		se.Router.GET("/api/workflows/{workflowId}/{runId}", func(e *core.RequestEvent) error {
-			workflowId := e.Request.PathValue("workflowId")
-			if workflowId == "" {
+			workflowID := e.Request.PathValue("workflowId")
+			if workflowID == "" {
 				return apis.NewBadRequestError("workflowId is required", nil)
 			}
-			runId := e.Request.PathValue("runId")
-			if runId == "" {
+			runID := e.Request.PathValue("runId")
+			if runID == "" {
 				return apis.NewBadRequestError("runId is required", nil)
 			}
 			authRecord := e.Auth
@@ -676,24 +772,24 @@ func RouteWorkflow(app *pocketbase.PocketBase) {
 			}
 
 			c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-			defer c.Close()
 			if err != nil {
 				return apis.NewInternalServerError("unable to create client", err)
 			}
-			workflowExecution, err := c.DescribeWorkflowExecution(context.Background(), workflowId, runId)
+			defer c.Close()
+			workflowExecution, err := c.DescribeWorkflowExecution(context.Background(), workflowID, runID)
 			if err != nil {
 				return apis.NewInternalServerError("failed to describe workflow execution", err)
 			}
-			weJson, err := protojson.Marshal(workflowExecution)
+			weJSON, err := protojson.Marshal(workflowExecution)
 			if err != nil {
 				return apis.NewInternalServerError("failed to marshal workflow execution", err)
 			}
-			finalJson := make(map[string]interface{})
-			err = json.Unmarshal(weJson, &finalJson)
+			finalJSON := make(map[string]interface{})
+			err = json.Unmarshal(weJSON, &finalJSON)
 			if err != nil {
 				return apis.NewInternalServerError("failed to unmarshal workflow execution", err)
 			}
-			return e.JSON(http.StatusOK, finalJson)
+			return e.JSON(http.StatusOK, finalJSON)
 		}).Bind(apis.RequireAuth())
 
 		se.Router.GET("/api/workflows/{workflowId}/{runId}/history", func(e *core.RequestEvent) error {
@@ -704,22 +800,22 @@ func RouteWorkflow(app *pocketbase.PocketBase) {
 				return apis.NewBadRequestError("failed to get user namespace", err)
 			}
 
-			workflowId := e.Request.PathValue("workflowId")
-			if workflowId == "" {
+			workflowID := e.Request.PathValue("workflowId")
+			if workflowID == "" {
 				return apis.NewBadRequestError("workflowId is required", nil)
 			}
-			runId := e.Request.PathValue("runId")
-			if runId == "" {
+			runID := e.Request.PathValue("runId")
+			if runID == "" {
 				return apis.NewBadRequestError("runId is required", nil)
 			}
 
 			c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-			defer c.Close()
 			if err != nil {
 				return apis.NewInternalServerError("unable to create client", err)
 			}
+			defer c.Close()
 
-			historyIterator := c.GetWorkflowHistory(context.Background(), workflowId, runId, false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
+			historyIterator := c.GetWorkflowHistory(context.Background(), workflowID, runID, false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
 			var history []map[string]interface{}
 			for historyIterator.HasNext() {
 				event, err := historyIterator.Next()
@@ -744,6 +840,18 @@ func RouteWorkflow(app *pocketbase.PocketBase) {
 	})
 }
 
+// HookAtUserCreation sets up a hook in the PocketBase application to execute
+// custom logic after a user record is successfully created. Specifically, it
+// binds a function to the "users" collection that adds the newly created user
+// to a default organization.
+//
+// Parameters:
+//   - app: A pointer to the PocketBase application instance.
+//
+// The bound function will attempt to add the user to a default organization
+// by calling `addUserToDefaultOrganization`. If an error occurs during this
+// process, the error is returned and the hook execution is halted. Otherwise,
+// the hook proceeds to the next middleware or handler by calling `e.Next()`.
 func HookAtUserCreation(app *pocketbase.PocketBase) {
 	app.OnRecordAfterCreateSuccess("users").BindFunc(func(e *core.RecordEvent) error {
 		err := addUserToDefaultOrganization(e)
@@ -754,13 +862,13 @@ func HookAtUserCreation(app *pocketbase.PocketBase) {
 	})
 }
 
-func getUserNamespace(app core.App, userId string) (string, error) {
+func getUserNamespace(app core.App, userID string) (string, error) {
 	orgAuthCollection, err := app.FindCollectionByNameOrId("orgAuthorizations")
 	if err != nil {
 		return "", apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
 	}
 
-	authOrgRecords, err := app.FindRecordsByFilter(orgAuthCollection.Id, "user={:user}", "", 0, 0, dbx.Params{"user": userId})
+	authOrgRecords, err := app.FindRecordsByFilter(orgAuthCollection.Id, "user={:user}", "", 0, 0, dbx.Params{"user": userID})
 	if err != nil {
 		return "", apis.NewInternalServerError("failed to find orgAuthorizations records", err)
 	}
@@ -825,40 +933,40 @@ func addUserToDefaultOrganization(e *core.RecordEvent) error {
 	return nil
 }
 
-// This function will be used when user will claim the organization
-func createNamespaceForUser(e *core.RecordEvent, user *core.Record) error {
+// TODO: This function will be used when user will claim the organization
+// func createNamespaceForUser(e *core.RecordEvent, user *core.Record) error {
 
-	err := e.App.RunInTransaction(func(txApp core.App) error {
-		orgCollection, err := txApp.FindCollectionByNameOrId("organizations")
-		if err != nil {
-			return apis.NewInternalServerError("failed to find organizations collection", err)
-		}
+// 	err := e.App.RunInTransaction(func(txApp core.App) error {
+// 		orgCollection, err := txApp.FindCollectionByNameOrId("organizations")
+// 		if err != nil {
+// 			return apis.NewInternalServerError("failed to find organizations collection", err)
+// 		}
 
-		newOrg := core.NewRecord(orgCollection)
-		newOrg.Set("name", user.Id)
-		txApp.Save(newOrg)
+// 		newOrg := core.NewRecord(orgCollection)
+// 		newOrg.Set("name", user.Id)
+// 		txApp.Save(newOrg)
 
-		ownerRoleRecord, err := txApp.FindFirstRecordByFilter("orgRoles", "name='owner'")
-		if err != nil {
-			return apis.NewInternalServerError("failed to find owner role", err)
-		}
+// 		ownerRoleRecord, err := txApp.FindFirstRecordByFilter("orgRoles", "name='owner'")
+// 		if err != nil {
+// 			return apis.NewInternalServerError("failed to find owner role", err)
+// 		}
 
-		orgAuthCollection, err := txApp.FindCollectionByNameOrId("orgAuthorizations")
-		if err != nil {
-			return apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
-		}
-		newOrgAuth := core.NewRecord(orgAuthCollection)
-		newOrgAuth.Set("user", user.Id)
-		newOrgAuth.Set("organization", newOrg.Id)
-		newOrgAuth.Set("role", ownerRoleRecord.Id)
-		txApp.Save(newOrgAuth)
+// 		orgAuthCollection, err := txApp.FindCollectionByNameOrId("orgAuthorizations")
+// 		if err != nil {
+// 			return apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
+// 		}
+// 		newOrgAuth := core.NewRecord(orgAuthCollection)
+// 		newOrgAuth.Set("user", user.Id)
+// 		newOrgAuth.Set("organization", newOrg.Id)
+// 		newOrgAuth.Set("role", ownerRoleRecord.Id)
+// 		txApp.Save(newOrgAuth)
 
-		return nil
-	})
+// 		return nil
+// 	})
 
-	if err != nil {
-		return err
-	}
+// 	if err != nil {
+// 		return err
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
