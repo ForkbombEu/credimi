@@ -16,12 +16,10 @@ info:
     url: https://forkbomb.solutions
 
 servers:
+  - url: https://demo.credimi.io/api
+    description: Demo server
   - url: http://localhost:8090/
     description: Localhost server
-  - url: https://t.api.didimo.forkbomb.eu/v1
-    description: Test server
-  - url: https://s.api.didimo.forkbomb.eu/v1
-    description: Staging server
 
 paths:
   /api/collections/users/records:
