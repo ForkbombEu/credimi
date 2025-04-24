@@ -16,6 +16,7 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
+	"github.com/forkbombeu/didimo/pkg/internal/apis"
 	"github.com/forkbombeu/didimo/pkg/internal/pb"
 	"github.com/forkbombeu/didimo/pkg/utils"
 )
@@ -34,13 +35,11 @@ func bindAppHooks(app core.App) {
 
 func Setup(app *pocketbase.PocketBase) {
 	bindAppHooks(app)
-	pb.RouteGetConfigsTemplates(app)
-	pb.RoutePostPlaceholdersByFilenames(app)
 	pb.HookNamespaceOrgs(app)
 	pb.HookCredentialWorkflow(app)
-	pb.AddOpenID4VPTestEndpoints(app)
 	pb.HookUpdateCredentialsIssuers(app)
-	pb.RouteWorkflow(app)
+	apis.AddComplianceChecks(app)
+	apis.AddTemplatingRoutes(app)
 	pb.HookAtUserCreation(app)
 	pb.Register(app)
 	worker_engine.WorkersHook(app)
