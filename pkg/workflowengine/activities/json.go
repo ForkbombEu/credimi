@@ -13,7 +13,7 @@ import (
 	"reflect"
 	"strings"
 
-	"github.com/forkbombeu/didimo/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
 // JSONActivity is an activity that parses a JSON string and validates it against a registered struct type.

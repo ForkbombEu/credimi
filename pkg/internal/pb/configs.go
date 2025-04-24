@@ -13,7 +13,7 @@ import (
 	p "path"
 	"path/filepath"
 
-	"github.com/forkbombeu/didimo/pkg/templateengine"
+	"github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"

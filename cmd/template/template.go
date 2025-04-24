@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/forkbombeu/didimo/pkg/templateengine"
+	"github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/spf13/cobra"
 )
 

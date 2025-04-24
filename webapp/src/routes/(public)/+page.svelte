@@ -100,7 +100,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m._Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List()}
 		</T>
 		<T class="mt-1 text-balance font-medium">
-			{m.Be_the_first_to_explore_DIDimo_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_()}
+			{m.Be_the_first_to_explore_credimi_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_()}
 		</T>
 	</div>
 

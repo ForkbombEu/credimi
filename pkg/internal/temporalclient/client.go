@@ -9,7 +9,7 @@ package temporalclient
 import (
 	"fmt"
 
-	"github.com/forkbombeu/didimo/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"go.temporal.io/sdk/client"
 )
 

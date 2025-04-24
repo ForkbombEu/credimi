@@ -13,7 +13,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/forkbombeu/didimo/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 	"golang.org/x/sys/unix"

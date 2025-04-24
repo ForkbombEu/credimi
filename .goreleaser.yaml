@@ -17,9 +17,9 @@ before:
     - go mod tidy
 
 builds:
-  - id: didimo
-    binary: didimo
-    main: ./cmd/didimo/ 
+  - id: credimi
+    binary: credimi
+    main: ./main.go
     env:
       - CGO_ENABLED=0
     targets:
