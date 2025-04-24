@@ -13,6 +13,27 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+// FetchIssuersWorkflow is a Temporal workflow that orchestrates the process of fetching
+// credential issuers and creating them in the database. It performs the following steps:
+//
+// 1. Configures retry policies and activity options for the workflow context.
+// 2. Executes the FetchIssuersActivity to retrieve a list of issuers.
+// 3. Validates the response to ensure issuers are found.
+// 4. Executes the CreateCredentialIssuersActivity to store the issuers in the database.
+//
+// Parameters:
+// - ctx: The workflow context provided by Temporal.
+//
+// Returns:
+// - error: An error if any of the activities fail or if no issuers are found.
+//
+// Activities:
+// - FetchIssuersActivity: Fetches a list of credential issuers.
+// - CreateCredentialIssuersActivity: Stores the fetched issuers in the database.
+//
+// Notes:
+// - The workflow uses a retry policy with exponential backoff for activity retries.
+// - The database path is retrieved from the "DATA_DB_PATH" environment variable.
 func FetchIssuersWorkflow(ctx workflow.Context) error {
 	retrypolicy := &temporal.RetryPolicy{
 		InitialInterval:    time.Second,

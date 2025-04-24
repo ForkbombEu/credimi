@@ -4,10 +4,13 @@
 
 package workflow
 
-const FidesIssuersUrl = "https://credential-catalog.fides.community/api/public/credentialtype?includeAllDetails=false&size=200"
+// FidesIssuersURL is the URL to fetch issuers from the Fides API.
+const FidesIssuersURL = "https://credential-catalog.fides.community/api/public/credentialtype?includeAllDetails=false&size=200"
 
+// FetchIssuersActivityResponse represents the response containing a list of issuers fetched from the Fides API.
 type FetchIssuersActivityResponse struct{ Issuers []string }
 
+// FidesResponse represents the structure of the response from the Fides API.
 type FidesResponse struct {
 	Content []struct {
 		IssuanceURL               string `json:"issuanceUrl"`
@@ -22,18 +25,11 @@ type FidesResponse struct {
 	} `json:"page"`
 }
 
-type CredentialWorkflowInput struct {
-	BaseURL  string // Base URL for the credential issuer
-	IssuerID string // ID of the credentials issuer from PB
-}
-
-type CredentialWorkflowResponse struct {
-	Message string
-}
-
+// CreateCredentialIssuersInput represents the input required to create credential issuers.
 type CreateCredentialIssuersInput struct {
 	Issuers []string
 	DBPath  string
 }
 
+// FetchIssuersTaskQueue is the task queue name for fetching issuers.
 const FetchIssuersTaskQueue = "FetchIssuersTaskQueue"

@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Package pb provides internal utilities and routes for managing configuration templates
+// and placeholders within the application.
 package pb
 
 import (
@@ -11,8 +13,7 @@ import (
 	p "path"
 	"path/filepath"
 
-	engine "github.com/forkbombeu/didimo/pkg/template_engine"
-
+	"github.com/forkbombeu/didimo/pkg/templateengine"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -45,14 +46,15 @@ func getTemplatesByFolder(folder string) ([]*os.File, error) {
 	return templates, nil
 }
 
+// RouteGetConfigsTemplates sets up a GET route to retrieve configuration templates by folder.
 func RouteGetConfigsTemplates(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.GET("/api/conformance-checks/configs/get-configs-templates", func(e *core.RequestEvent) error {
-			testId := e.Request.URL.Query().Get("test_id")
-			if testId == "" {
-				testId = "OpenID4VP_Wallet/OpenID_Foundation"
+			checkID := e.Request.URL.Query().Get("test_id")
+			if checkID == "" {
+				checkID = "OpenID4VP_Wallet/OpenID_Foundation"
 			}
-			files, err := getTemplatesByFolder(testId)
+			files, err := getTemplatesByFolder(checkID)
 			if err != nil {
 				return apis.NewBadRequestError("Error reading test suite folder", err)
 			}
@@ -68,6 +70,7 @@ func RouteGetConfigsTemplates(app *pocketbase.PocketBase) {
 	})
 }
 
+// RoutePostPlaceholdersByFilenames sets up a POST route to retrieve placeholders by filenames.
 func RoutePostPlaceholdersByFilenames(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		se.Router.POST("/api/conformance-checks/configs/placeholders-by-filenames", func(e *core.RequestEvent) error {
@@ -99,7 +102,7 @@ func RoutePostPlaceholdersByFilenames(app *pocketbase.PocketBase) {
 				files = append(files, file)
 			}
 
-			placeholders, err := engine.GetPlaceholders(files, requestPayload.Filenames)
+			placeholders, err := templateengine.GetPlaceholders(files, requestPayload.Filenames)
 			if err != nil {
 				return apis.NewBadRequestError("Error getting placeholders", err)
 			}

@@ -48,37 +48,9 @@ func TestExtractHrefsFromApiResponse(t *testing.T) {
 		},
 	}
 
-	hrefs, err := extractHrefsFromApiResponse(root)
+	hrefs, err := extractHrefsFromAPIResponse(root)
 	assert.NoError(t, err)
 	assert.Equal(t, []string{"https://example.com/123", "https://example.com/456"}, hrefs)
-}
-
-func TestCheckIfCredentialIssuersExist(t *testing.T) {
-	testCases := []struct {
-		name         string
-		url          string
-		expectError  bool
-		expectedRows int
-	}{
-		{
-			name:         "Valid URL",
-			url:          "https://example.com/123",
-			expectError:  false,
-			expectedRows: 1,
-		},
-		{
-			name:         "Invalid URL",
-			url:          "https://example.com/invalid",
-			expectError:  false,
-			expectedRows: 0,
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			//I need to implement with a test database
-		})
-	}
 }
 
 func TestRemoveWellKnownSuffix(t *testing.T) {
@@ -106,7 +78,7 @@ func TestRemoveWellKnownSuffix(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := RemoveWellKnownSuffix(tt.input)
+			result := removeWellKnownSuffix(tt.input)
 			if result != tt.expected {
 				t.Errorf("RemoveWellKnownSuffix(%q) = %q; expected %q", tt.input, result, tt.expected)
 			}
