@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 // DIDimo is your companion tool for be compliant with your SSI system.
-package main
+package cmd
 
 import (
 	"log"
@@ -14,7 +14,7 @@ import (
 	"github.com/pocketbase/pocketbase"
 )
 
-func main() {
+func Start() {
 	app := pocketbase.New()
 	app.RootCmd.Short = "\033[38;2;255;100;0m .o88b. d8888b. d88888b d8888b. d888888b .88b  d88. d888888b \033[0m\n" +
 		"\033[38;2;255;71;43md8P  Y8 88  `8D 88'     88  `8D   `88'   88'YbdP`88   `88'   \033[0m\n" +
