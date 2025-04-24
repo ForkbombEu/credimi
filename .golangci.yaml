@@ -119,8 +119,6 @@ linters:
     gosec:
       excludes:
         - G304
-    gosimple:
-      checks: [ "all","-S1023" ]
   exclusions:
     rules:
       - path: testutils/
