@@ -80,7 +80,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<hr />
-	{#each Object.entries(data.specific_fields) as [testId, testData]}
+	{#each Object.entries(data.specific_fields) as [testId, testData], index}
 		<div class="space-y-4">
 			<h2 id={testId} class="text-lg font-bold">
 				{testId}
@@ -99,11 +99,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}}
 			/>
 		</div>
-		<hr />
+
+		{#if index < Object.keys(data.specific_fields).length - 1}
+			<hr />
+		{/if}
 	{/each}
 </div>
 
-<div class="bg-background/80 sticky bottom-0 border-t p-4 backdrop-blur-lg">
+<div class="bg-background/80 sticky bottom-0 border-t py-4 backdrop-blur-lg">
 	<Form
 		{form}
 		hide={['submit_button', 'error']}

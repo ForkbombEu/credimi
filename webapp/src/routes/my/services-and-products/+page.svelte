@@ -98,75 +98,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Header>
 			{/snippet}
 
-			{#snippet records({ records, Card, reloadRecords })}
+			{#snippet records({ records, reloadRecords })}
 				<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 					{#each records as record (record.id)}
-						<Card
-							{record}
-							class="bg-background overflow-auto"
-							hide={['select', 'share', 'delete', 'edit']}
-						>
-							{@const conformanceChecks =
-								record.conformance_checks as ConformanceCheck[]}
-							<div class="space-y-4 overflow-scroll">
-								<div class="flex flex-row justify-between">
-									<div>
-										<div class="flex items-center gap-2">
-											<T class="font-bold">
-												{#if !record.published}
-													{record.name}
-												{:else}
-													<A href="/apps/{record.id}">{record.name}</A>
-												{/if}
-											</T>
-											{#if record.published}
-												<Badge variant="default">{m.Published()}</Badge>
-											{/if}
-										</div>
-										<T class="mt-1 text-xs text-gray-400">
-											{record.description}
-										</T>
-									</div>
-									<div class="flex items-center gap-1">
-										<PublishButton
-											{record}
-											{canPublish}
-											{cannotPublishMessage}
-											onSuccess={reloadRecords}
-										>
-											{#snippet button({ togglePublish, label })}
-												<Button variant="outline" onclick={togglePublish}>
-													{label}
-												</Button>
-											{/snippet}
-										</PublishButton>
-
-										{@render UpdateWalletFormSnippet(record.id, record)}
-										<RecordDelete {record} />
-									</div>
-								</div>
-
-								<Separator />
-
-								<div class="flex flex-wrap gap-2">
-									{#if conformanceChecks.length > 0}
-										{#each conformanceChecks as check}
-											<Badge
-												variant={check.status === 'success'
-													? 'secondary'
-													: 'destructive'}
-											>
-												{check.test}
-											</Badge>
-										{/each}
-									{:else}
-										<T class="text-gray-300"
-											>{m.No_conformance_checks_available()}</T
-										>
-									{/if}
-								</div>
-							</div>
-						</Card>
+						{@render WalletCard(record, reloadRecords)}
 					{/each}
 				</div>
 			{/snippet}
@@ -191,38 +126,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!--  -->
 
-{#snippet NewWalletFormSnippet()}
-	<Sheet>
-		{#snippet trigger({ sheetTriggerAttributes })}
-			<Button {...sheetTriggerAttributes}><Plus />Add new wallet</Button>
-		{/snippet}
-
-		{#snippet content({ closeSheet })}
-			<div class="space-y-6">
-				<T tag="h3">Add a new wallet</T>
-				<NewWalletForm onSuccess={closeSheet} ownerId={$currentUser?.id} />
-			</div>
-		{/snippet}
-	</Sheet>
-{/snippet}
-
-{#snippet UpdateWalletFormSnippet(walletId: string, initialData: Partial<WalletsResponse>)}
-	<Sheet>
-		{#snippet trigger({ sheetTriggerAttributes })}
-			<Button variant="outline" size="icon" {...sheetTriggerAttributes}><Pencil /></Button>
-		{/snippet}
-
-		{#snippet content({ closeSheet })}
-			<div class="space-y-6">
-				<T tag="h3">Add a new wallet</T>
-				<NewWalletForm {walletId} {initialData} onSuccess={closeSheet} />
-			</div>
-		{/snippet}
-	</Sheet>
-{/snippet}
-
-<!--  -->
-
 {#snippet CredentialIssuerCard(props: {
 	credentialIssuer: CredentialIssuersResponse;
 	credentials: CredentialsResponse[];
@@ -233,8 +136,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Card class="!p-4">
 		<div class="space-y-4">
-			<div class="flex items-center justify-between gap-4">
-				<Avatar src={record.logo_url} class="rounded-sm border" />
+			<div class="flex items-start justify-between gap-6">
+				<Avatar
+					src={record.logo_url}
+					class="rounded-sm border"
+					fallback={record.name.slice(0, 2)}
+				/>
 
 				<div class="w-0 grow">
 					<div class="flex items-center gap-2">
@@ -351,4 +258,110 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</Dialog.Content>
 	</Dialog.Root>
+{/snippet}
+
+<!--  -->
+
+{#snippet WalletCard(wallet: WalletsResponse, onPublishSuccess: () => void)}
+	<Card class="bg-background overflow-auto">
+		{@const conformanceChecks = wallet.conformance_checks as ConformanceCheck[]}
+		<div class="space-y-4 overflow-scroll">
+			<div class="flex flex-row items-start justify-between gap-4">
+				<div>
+					<div class="flex items-center gap-2">
+						<T class="font-bold">
+							{#if !wallet.published}
+								{wallet.name}
+							{:else}
+								<A href="/apps/{wallet.id}">{wallet.name}</A>
+							{/if}
+						</T>
+						{#if wallet.published}
+							<Badge variant="default">{m.Published()}</Badge>
+						{/if}
+					</div>
+					<T class="mt-1 text-xs text-gray-400">
+						{wallet.description}
+					</T>
+				</div>
+
+				<div class="flex items-center gap-1">
+					<PublishButton
+						record={wallet}
+						{canPublish}
+						{cannotPublishMessage}
+						onSuccess={onPublishSuccess}
+					>
+						{#snippet button({ togglePublish, label })}
+							<Button
+								variant="outline"
+								class="h-9 px-2 text-xs"
+								onclick={togglePublish}
+							>
+								{label}
+							</Button>
+						{/snippet}
+					</PublishButton>
+
+					{@render UpdateWalletFormSnippet(wallet.id, wallet)}
+
+					<RecordDelete record={wallet}>
+						{#snippet button({ triggerAttributes, icon: Icon })}
+							<Button variant="outline" size="sm" class="p-2" {...triggerAttributes}>
+								<Icon />
+							</Button>
+						{/snippet}
+					</RecordDelete>
+				</div>
+			</div>
+
+			<Separator />
+
+			<div class="flex flex-wrap gap-2">
+				{#if conformanceChecks.length > 0}
+					{#each conformanceChecks as check}
+						<Badge variant={check.status === 'success' ? 'secondary' : 'destructive'}>
+							{check.test}
+						</Badge>
+					{/each}
+				{:else}
+					<T class="text-gray-300">
+						{m.No_conformance_checks_available()}
+					</T>
+				{/if}
+			</div>
+		</div>
+	</Card>
+{/snippet}
+
+{#snippet NewWalletFormSnippet()}
+	<Sheet>
+		{#snippet trigger({ sheetTriggerAttributes })}
+			<Button {...sheetTriggerAttributes}><Plus />Add new wallet</Button>
+		{/snippet}
+
+		{#snippet content({ closeSheet })}
+			<div class="space-y-6">
+				<T tag="h3">Add a new wallet</T>
+				<NewWalletForm onSuccess={closeSheet} ownerId={$currentUser?.id} />
+			</div>
+		{/snippet}
+	</Sheet>
+{/snippet}
+
+{#snippet UpdateWalletFormSnippet(walletId: string, initialData: Partial<WalletsResponse>)}
+	<Sheet>
+		{#snippet trigger({ sheetTriggerAttributes })}
+			<Button variant="outline" size="sm" class="p-2" {...sheetTriggerAttributes}>
+				<Pencil />
+			</Button>
+		{/snippet}
+
+		{#snippet content({ closeSheet })}
+			<div class="space-y-6">
+				<T tag="h3">Add a new wallet</T>
+				<NewWalletForm {walletId} {initialData} onSuccess={closeSheet} />
+			</div>
+		{/snippet}
+	</Sheet>
 {/snippet}
