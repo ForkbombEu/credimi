@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// workflowengine is a package that provides a framework for defining and executing workflows.
+// Package workflowengine is a package that provides a framework for defining and executing workflows.
 // It includes interfaces and types for activities, activity input and output, and error handling.
 package workflowengine
 

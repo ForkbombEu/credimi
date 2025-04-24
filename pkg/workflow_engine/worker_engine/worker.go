@@ -2,6 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Package worker_engine provides functionality to manage and run Temporal workers
+// for executing workflows and activities in a distributed system. It includes
+// functions to start workers, register workflows and activities, and handle
+// workflow execution.
 package worker_engine
 
 import (
@@ -22,15 +26,29 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-// WorkerConfig defines a worker setup
-type WorkerConfig struct {
+// WorkersHook sets up a hook for the PocketBase application to start all workers
+// when the server starts. It binds a function to the OnServe event, which logs
+// a message indicating that workers are starting and then asynchronously starts
+// all workers by calling StartAllWorkers in a separate goroutine.
+//
+// Parameters:
+//   - app: The PocketBase application instance to which the hook is attached.
+func WorkersHook(app *pocketbase.PocketBase) {
+	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		log.Println("Starting workers...")
+		go startAllWorkers()
+		return se.Next()
+	})
+
+}
+
+type workerConfig struct {
 	TaskQueue  string
 	Workflows  []workflowengine.Workflow
 	Activities []workflowengine.ExecutableActivity
 }
 
-// StartWorker initializes and runs a single Temporal worker
-func StartWorker(client client.Client, config WorkerConfig, wg *sync.WaitGroup) {
+func startWorker(client client.Client, config workerConfig, wg *sync.WaitGroup) {
 	defer wg.Done()
 	w := worker.New(client, config.TaskQueue, worker.Options{})
 
@@ -51,8 +69,7 @@ func StartWorker(client client.Client, config WorkerConfig, wg *sync.WaitGroup) 
 	}
 }
 
-// StartAllWorkers initializes and starts multiple Temporal workers
-func StartAllWorkers() {
+func startAllWorkers() {
 	c, err := temporalclient.GetTemporalClient()
 	if err != nil {
 		log.Fatalf("Failed to connect to Temporal: %v", err)
@@ -61,7 +78,7 @@ func StartAllWorkers() {
 
 	var wg sync.WaitGroup
 
-	workers := []WorkerConfig{
+	workers := []workerConfig{
 		{
 			TaskQueue: workflows.OpenIDNetTaskQueue,
 			Workflows: []workflowengine.Workflow{
@@ -93,17 +110,8 @@ func StartAllWorkers() {
 
 	for _, config := range workers {
 		wg.Add(1)
-		go StartWorker(c, config, &wg)
+		go startWorker(c, config, &wg)
 	}
 
 	wg.Wait()
-}
-
-func WorkersHook(app *pocketbase.PocketBase) {
-	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		log.Println("Starting workers...")
-		go StartAllWorkers()
-		return se.Next()
-	})
-
 }

@@ -38,7 +38,7 @@ func (w *CredentialsIssuersWorkflow) Name() string {
 
 // GetOptions returns the activity options for the workflow.
 func (w *CredentialsIssuersWorkflow) GetOptions() workflow.ActivityOptions {
-	return ActivityOptions
+	return DefaultActivityOptions
 }
 
 // Workflow is the main workflow function for the CredentialsIssuersWorkflow.

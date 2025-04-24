@@ -169,7 +169,7 @@ func Test_LogSubWorkflow(t *testing.T) {
 			})
 			var logsWorkflow OpenIDNetLogsWorkflow
 			env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
-				Run(func(args mock.Arguments) {
+				Run(func(_ mock.Arguments) {
 					callCount++
 				}).
 				Return(tc.mockResponse, nil)

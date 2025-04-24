@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Package temporalclient provides functions to create and manage Temporal clients.
+// It includes utilities for connecting to Temporal servers with default or custom namespaces.
 package temporalclient
 
 import (

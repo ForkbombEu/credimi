@@ -33,10 +33,11 @@ type SignalData struct {
 	Reason  string
 }
 
-const (
-	OpenIDNetTaskQueue          = "OpenIDNetTaskQueue"                                                         // OpenIDNetTaskQueue is the task queue for OpenIDNet workflows.
-	OpenIDNetStepCITemplatePath = "pkg/workflow_engine/workflows/openidnet_config/stepci_wallet_template.yaml" // OpenIDNetStepCITemplatePath points to the StepCI template for OpenIDNet workflows.
-)
+// OpenIDNetTaskQueue is the task queue for OpenIDNet workflows.
+const OpenIDNetTaskQueue = "OpenIDNetTaskQueue"
+
+// OpenIDNetStepCITemplatePath points to the StepCI template for OpenIDNet workflows.
+const OpenIDNetStepCITemplatePath = "pkg/workflow_engine/workflows/openidnet_config/stepci_wallet_template.yaml"
 
 // OpenIDNetWorkflow is a workflow that performs conformance checks on the OpenID certification site.
 type OpenIDNetWorkflow struct{}
@@ -48,7 +49,7 @@ func (OpenIDNetWorkflow) Name() string {
 
 // GetOptions Configure sets up the workflow with the necessary options.
 func (OpenIDNetWorkflow) GetOptions() workflow.ActivityOptions {
-	return ActivityOptions
+	return DefaultActivityOptions
 }
 
 // Workflow is the main workflow function for the OpenIDNetWorkflow. It orchestrates
@@ -268,7 +269,7 @@ func (OpenIDNetLogsWorkflow) Name() string {
 
 // GetOptions returns the activity options for the OpenIDNetLogsWorkflow.
 func (OpenIDNetLogsWorkflow) GetOptions() workflow.ActivityOptions {
-	return ActivityOptions
+	return DefaultActivityOptions
 }
 
 // Workflow is the main workflow function for the OpenIDNetLogsWorkflow.

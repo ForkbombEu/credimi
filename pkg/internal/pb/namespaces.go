@@ -17,6 +17,20 @@ import (
 	"go.temporal.io/sdk/client"
 )
 
+// HookNamespaceOrgs sets up a hook for the "organizations" collection in the PocketBase application.
+// This hook is triggered after a successful record creation event. It performs the following actions:
+//
+// 1. Creates a new NamespaceClient to interact with the namespace service.
+// 2. Checks if a namespace with the same name as the created record already exists by calling the Describe method.
+// 3. If the namespace does not exist, it registers a new namespace with a retention period of 7 days.
+// 4. Logs an error if the namespace creation fails or logs a success message if the namespace is created successfully.
+//
+// Parameters:
+// - app: A pointer to the PocketBase application instance.
+//
+// Note:
+// - The function uses the `log.Fatalln` method to terminate the application if the NamespaceClient cannot be created.
+// - The hook ensures that the namespace registration process does not block the continuation of the event by calling `e.Next()` at the end.
 func HookNamespaceOrgs(app *pocketbase.PocketBase) {
 	app.OnRecordAfterCreateSuccess("organizations").BindFunc(func(e *core.RecordEvent) error {
 		c, err := client.NewNamespaceClient(client.Options{})

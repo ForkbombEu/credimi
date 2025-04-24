@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Package utils provides utility functions for environment variable management.
 package utils
 
 import (
