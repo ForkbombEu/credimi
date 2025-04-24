@@ -22,15 +22,18 @@ import (
 	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
 )
 
+// StepCIWorkflowActivity is an activity that runs a StepCI workflow
 type StepCIWorkflowActivity struct{}
 
+// Name returns the name of the StepCIWorkflowActivity, which describes
+// the purpose of this activity as running an automation workflow of API calls.
 func (StepCIWorkflowActivity) Name() string {
 	return "Run an automation workflow of API calls"
 }
 
 // Configure injects the parsed template and token into the payload
 func (a *StepCIWorkflowActivity) Configure(
-	ctx context.Context,
+	_ context.Context,
 	input *workflowengine.ActivityInput,
 ) error {
 	yamlString := input.Config["template"]
@@ -48,6 +51,27 @@ func (a *StepCIWorkflowActivity) Configure(
 	return nil
 }
 
+// Execute runs the StepCI workflow activity. It takes the activity input,
+// validates the presence of a YAML payload, and executes the StepCI runner
+// binary with the provided configuration and secrets.
+//
+// Parameters:
+//   - ctx: The context for managing the execution lifecycle.
+//   - input: The input for the activity, containing the payload and configuration.
+//
+// Returns:
+//   - workflowengine.ActivityResult: The result of the activity execution,
+//     including any output produced by the StepCI runner.
+//   - error: An error if the execution fails, including details about the failure.
+//
+// The method performs the following steps:
+//  1. Validates the presence of a "yaml" key in the input payload.
+//  2. Constructs a secret string from the input configuration, excluding the "template" key.
+//  3. Determines the path to the StepCI runner binary.
+//  4. Executes the binary with the YAML content and secret string as arguments.
+//  5. Captures and parses the output from the binary, returning it as a JSON object.
+//
+// If any step fails, the method returns a failure result with an appropriate error message.
 func (a *StepCIWorkflowActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
@@ -92,6 +116,21 @@ func (a *StepCIWorkflowActivity) Execute(
 	return result, nil
 }
 
+// RenderYAML takes a YAML template string and a data map, renders the template
+// using the provided data, and returns the resulting string. The function
+// supports custom template functions provided by the sprout library.
+//
+// Parameters:
+//   - yamlString: A string containing the YAML template with placeholders.
+//   - data: A map containing key-value pairs to populate the template.
+//
+// Returns:
+//   - A string containing the rendered YAML with placeholders replaced by
+//     corresponding values from the data map.
+//   - An error if the template parsing or execution fails.
+//
+// The function also decodes any HTML entities in the rendered string and trims
+// leading/trailing whitespace or extra newlines from the result.
 func RenderYAML(yamlString string, data map[string]interface{}) (string, error) {
 	handler := sprout.New(
 		sprout.WithGroups(all.RegistryGroup()),

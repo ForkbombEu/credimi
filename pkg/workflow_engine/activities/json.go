@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+// Package activities is a package that provides activities for the workflow engine.
+// This file contains the JSONActivity struct and its methods.
 package activities
 
 import (
@@ -13,15 +16,18 @@ import (
 	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
 )
 
+// JSONActivity is an activity that parses a JSON string and validates it against a registered struct type.
 type JSONActivity struct {
 	StructRegistry map[string]reflect.Type // Maps type names to their reflect.Type
 }
 
+// Name returns the name of the activity.
 func (a *JSONActivity) Name() string {
 	return "Parse a JSON and validate it against a schema"
 }
 
-func (a *JSONActivity) Execute(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+// Execute parses a JSON string from the input payload and validates it against a registered struct type.
+func (a *JSONActivity) Execute(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 	// Get rawJSON
 	raw, ok := input.Payload["rawJSON"]
 	if !ok {

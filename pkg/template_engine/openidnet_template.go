@@ -2,6 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Package template_engine is a package that provides functionality to parse and validate
+// JSON configuration files, validate variants, and process input strings to
+// generate a final output structure.
+// This file particularly takes care of the variants tof the https://conformance.openid.net/
+// for the OpenID4VP Wallet.
 package template_engine
 
 import (
@@ -19,6 +24,7 @@ type Variant struct {
 	ResponseMode     string `json:"response_mode"`
 }
 
+// Variants represents the structure of the variants JSON.
 type Variants struct {
 	Variants []string `json:"variants"`
 }

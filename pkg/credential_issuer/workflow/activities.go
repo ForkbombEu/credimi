@@ -29,9 +29,9 @@ func FetchIssuersActivity(ctx context.Context) (FetchIssuersActivityResponse, er
 func fetchIssuersRecursive(ctx context.Context, after int) ([]string, error) {
 	var url string
 	if after > 0 {
-		url = fmt.Sprintf("%s&page=%d", FidesIssuersUrl, after)
+		url = fmt.Sprintf("%s&page=%d", FidesIssuersURL, after)
 	} else {
-		url = FidesIssuersUrl
+		url = FidesIssuersURL
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)

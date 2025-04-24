@@ -19,16 +19,6 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Helper to create a basic test template
-func createTempTemplate(t *testing.T, content string) string {
-	tmpFile, err := os.CreateTemp("", "template-*.yaml")
-	require.NoError(t, err)
-	_, err = tmpFile.WriteString(content)
-	require.NoError(t, err)
-	require.NoError(t, tmpFile.Close())
-	return tmpFile.Name()
-}
-
 func TestStepCIlActivity_Configure(t *testing.T) {
 	activity := &StepCIWorkflowActivity{}
 

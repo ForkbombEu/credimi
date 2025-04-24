@@ -2,6 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Package routes provides the routing and HTTP handling for the application.
+// It includes functions to bind application hooks, register routes, and configure
+// additional modules such as JavaScript VM and database migration commands.
+// It also includes a reverse proxy for routing requests to different services.
 package routes
 
 import (
@@ -32,6 +36,21 @@ func bindAppHooks(app core.App) {
 	})
 }
 
+// Setup initializes the application by binding hooks, registering routes,
+// and configuring additional modules. It sets up various functionalities
+// such as application hooks, route handlers, worker hooks, JavaScript VM
+// integration, and database migration commands.
+//
+// Parameters:
+//   - app: A pointer to the PocketBase application instance.
+//
+// The function performs the following tasks:
+//   - Binds application-specific hooks for handling events and workflows.
+//   - Registers HTTP routes for handling specific API endpoints.
+//   - Configures worker hooks for background task processing.
+//   - Integrates a JavaScript VM for dynamic scripting capabilities.
+//   - Registers and configures database migration commands with support
+//     for JavaScript-based templates and automatic migration.
 func Setup(app *pocketbase.PocketBase) {
 	bindAppHooks(app)
 	pb.RouteGetConfigsTemplates(app)

@@ -17,14 +17,19 @@ import (
 	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
 )
 
+// SendMailActivity is an activity that sends an email using SMTP.
 type SendMailActivity struct{}
 
+// Name returns the name of the activity.
 func (SendMailActivity) Name() string {
 	return "Send an email"
 }
 
+// Configure sets up the SMTP configuration for sending emails.
+// It retrieves the SMTP host, port, and sender email from environment variables.
+// If the environment variables are not set, it uses default values.
 func (a *SendMailActivity) Configure(
-	ctx context.Context,
+	_ context.Context,
 	input *workflowengine.ActivityInput,
 ) error {
 	input.Config["smtp_host"] = utils.GetEnvironmentVariable("SMTP_HOST", "smtp.apps.forkbomb.eu")
@@ -33,8 +38,9 @@ func (a *SendMailActivity) Configure(
 	return nil
 }
 
+// Execute sends an email using the provided SMTP configuration and payload.
 func (a *SendMailActivity) Execute(
-	ctx context.Context,
+	_ context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult

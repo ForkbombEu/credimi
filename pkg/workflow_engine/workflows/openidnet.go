@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Package workflows provides implementations of workflows for the OpenID certification site.
+// It includes the OpenIDNetWorkflow for conformance checks and the OpenIDNetLogsWorkflow
+// for draining logs from the OpenID certification site.
 package workflows
 
 import (
@@ -24,26 +27,55 @@ import (
 	"github.com/forkbombeu/didimo/pkg/workflow_engine/activities"
 )
 
+// SignalData represents the data structure for signals used in the workflow.
 type SignalData struct {
 	Success bool
 	Reason  string
 }
 
 const (
-	OpenIDNetTaskQueue          = "OpenIDNetTaskQueue"
-	OpenIDNetStepCITemplatePath = "pkg/workflow_engine/workflows/openidnet_config/stepci_wallet_template.yaml"
+	OpenIDNetTaskQueue          = "OpenIDNetTaskQueue"                                                         // OpenIDNetTaskQueue is the task queue for OpenIDNet workflows.
+	OpenIDNetStepCITemplatePath = "pkg/workflow_engine/workflows/openidnet_config/stepci_wallet_template.yaml" // OpenIDNetStepCITemplatePath points to the StepCI template for OpenIDNet workflows.
 )
 
+// OpenIDNetWorkflow is a workflow that performs conformance checks on the OpenID certification site.
 type OpenIDNetWorkflow struct{}
 
+// Name returns the name of the OpenIDNetWorkflow.
 func (OpenIDNetWorkflow) Name() string {
 	return "Conformance check on https://www.certification.openid.net"
 }
 
+// GetOptions Configure sets up the workflow with the necessary options.
 func (OpenIDNetWorkflow) GetOptions() workflow.ActivityOptions {
 	return ActivityOptions
 }
 
+// Workflow is the main workflow function for the OpenIDNetWorkflow. It orchestrates
+// the execution of various activities and child workflows to perform conformance checks
+// and send notifications to the user.
+//
+// Parameters:
+//   - ctx: The workflow context used to manage workflow execution.
+//   - input: The input data for the workflow, including payload and configuration.
+//
+// Returns:
+//   - workflowengine.WorkflowResult: The result of the workflow execution, including
+//     a message and log data.
+//   - error: An error if the workflow fails at any step.
+//
+// Workflow Steps:
+//  1. Configure and execute the StepCIWorkflowActivity to perform initial checks.
+//  2. Generate a URL with query parameters for the user to continue the process.
+//  3. Configure and execute the SendMailActivity to notify the user via email.
+//  4. Execute a child workflow (OpenIDNetLogsWorkflow) asynchronously to monitor logs.
+//  5. Wait for either a signal ("wallet-test-signal") or the completion of the child workflow.
+//  6. Process the signal data to determine the success or failure of the workflow.
+//
+// Notes:
+//   - The workflow uses a selector to wait for either a signal or the child workflow's completion.
+//   - If the signal data indicates failure, the workflow terminates with a failure message.
+//   - The workflow relies on environment variables (e.g., OPENIDNET_TOKEN) for configuration.
 func (w *OpenIDNetWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
@@ -176,6 +208,22 @@ func (w *OpenIDNetWorkflow) Workflow(
 	}, nil
 }
 
+// Start initializes and starts the OpenIDNetWorkflow execution.
+// It loads environment variables, configures the Temporal client with the specified namespace,
+// and sets up workflow options including a unique workflow ID and optional memo.
+// The workflow is then executed with the provided input.
+//
+// Parameters:
+//   - input: A WorkflowInput object containing configuration and input data for the workflow.
+//
+// Returns:
+//   - result: A WorkflowResult object (currently empty in this implementation).
+//   - err: An error if the workflow fails to start or if there is an issue with the Temporal client.
+//
+// Notes:
+//   - The namespace defaults to "default" if not provided in the input configuration.
+//   - The workflow ID is generated using a UUID to ensure uniqueness.
+//   - The Temporal client is closed after the workflow execution is initiated.
 func (w *OpenIDNetWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
@@ -210,16 +258,43 @@ func (w *OpenIDNetWorkflow) Start(
 	return workflowengine.WorkflowResult{}, nil
 }
 
+// OpenIDNetLogsWorkflow is a workflow that drains logs from the OpenID certification site.
 type OpenIDNetLogsWorkflow struct{}
 
+// Name returns the name of the OpenIDNetLogsWorkflow.
 func (OpenIDNetLogsWorkflow) Name() string {
 	return "Drain logs from https://www.certification.openid.net"
 }
 
+// GetOptions returns the activity options for the OpenIDNetLogsWorkflow.
 func (OpenIDNetLogsWorkflow) GetOptions() workflow.ActivityOptions {
 	return ActivityOptions
 }
 
+// Workflow is the main workflow function for the OpenIDNetLogsWorkflow.
+// It periodically fetches logs from a specified URL and processes them
+// based on the provided input configuration. The workflow listens for
+// signals to trigger additional activities and terminates when a specific
+// condition in the logs is met.
+//
+// Parameters:
+//   - ctx: The workflow context used to manage workflow execution.
+//   - input: The input configuration and payload for the workflow.
+//
+// Returns:
+//   - workflowengine.WorkflowResult: Contains the collected logs upon
+//     successful completion of the workflow.
+//   - error: An error if the workflow fails during execution.
+//
+// Behavior:
+//   - Fetches logs from a remote API using the provided input configuration.
+//   - Listens for a signal ("wallet-test-start-log-update") to trigger
+//     additional activities.
+//   - Uses a timer to periodically fetch logs at intervals specified in
+//     the input configuration.
+//   - Terminates when the logs contain a "result" field with a value of
+//     "INTERRUPTED" or "FINISHED".
+//   - Sends logs to a specified endpoint when triggered by a signal.
 func (w *OpenIDNetLogsWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
@@ -293,7 +368,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 			c.Receive(ctx, &signalVal)
 			triggerEnabled = true // Enable activity execution
 		})
-		selector.AddFuture(timerFuture, func(f workflow.Future) {
+		selector.AddFuture(timerFuture, func(_ workflow.Future) {
 			// Timer expired; reset the timer for the next interval
 			startTimer()
 		})
@@ -336,6 +411,16 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	}
 }
 
+// Configure sets up the OpenIDNetLogsWorkflow with specific child workflow options.
+// It configures the child workflow to have a unique WorkflowID by appending "-log"
+// to the parent workflow's ID and sets the ParentClosePolicy to terminate the child
+// workflow when the parent workflow is closed.
+//
+// Parameters:
+//   - ctx: The workflow.Context for the current workflow execution.
+//
+// Returns:
+//   - A new workflow.Context configured with the specified child workflow options.
 func (w *OpenIDNetLogsWorkflow) Configure(ctx workflow.Context) workflow.Context {
 	childOptions := workflow.ChildWorkflowOptions{
 		WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-log",

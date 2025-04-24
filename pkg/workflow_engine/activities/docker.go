@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+// Package activities is a package that provides activities for the workflow engine.
+// This file contains the DockerActivity struct and its methods.
 package activities
 
 import (
@@ -19,12 +22,23 @@ import (
 	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
 )
 
+// DockerActivity is an activity that runs a Docker image with the specified command and environment variables.
 type DockerActivity struct{}
 
+// Name returns the name of the Docker activity.
 func (d *DockerActivity) Name() string {
 	return "Run a Docker Image"
 }
 
+// Execute pulls a Docker image, creates a container, and starts it with the provided command and environment variables.
+// It also sets up port bindings and collects logs from the container.
+// The input payload should contain the following keys:
+// - "image": The Docker image to pull (format: "name:version").
+// - "cmd": The command to run inside the container (as a slice of strings).
+// - "user": The user to run the command as (optional).
+// - "env": Environment variables to set inside the container (as a slice of strings).
+// - "ports": Port mappings (as a slice of strings, format: "hostPort:containerPort").
+// - "containerName": The name of the container (optional).
 func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
 
@@ -52,10 +66,10 @@ func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.Activ
 	defer out.Close()
 	io.Copy(io.Discard, out)
 
-	cmd := AsSliceOfStrings(input.Payload["cmd"])
+	cmd := asSliceOfStrings(input.Payload["cmd"])
 	user, _ := input.Payload["user"].(string)
-	env := AsSliceOfStrings(input.Payload["env"])
-	ports := AsSliceOfStrings(input.Payload["ports"])
+	env := asSliceOfStrings(input.Payload["env"])
+	ports := asSliceOfStrings(input.Payload["ports"])
 	containerName, ok := input.Payload["containerName"].(string)
 	if !ok {
 		containerName = ""
@@ -146,7 +160,7 @@ func buildPortMappings(hostIP string, ports []string) (nat.PortSet, nat.PortMap,
 	return exposedPorts, portBindings, nil
 }
 
-func AsSliceOfStrings(val any) []string {
+func asSliceOfStrings(val any) []string {
 	if v, ok := val.([]string); ok {
 		return v
 	}

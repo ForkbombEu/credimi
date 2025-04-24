@@ -1,6 +1,9 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
+// Package activities is a package that provides activities for the workflow engine.
+// This file includes activities for checking credentials issuer metadata and running automation workflows.
 package activities
 
 import (
@@ -10,13 +13,14 @@ import (
 	"net/http"
 	"strings"
 
-	_ "modernc.org/sqlite"
-	_ "modernc.org/sqlite/lib"
-
 	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
 	"github.com/forkbombeu/didimo/pkg/workflow_engine/workflows/credentials_config"
 )
 
+// Credential is a struct that represents the credential issuer metadata
+// as defined in the OpenID4VP specification. It includes various fields
+// such as credential definition, supported signing algorithms, cryptographic
+// binding methods, display options, format, proof types, and scope.
 type Credential struct {
 	CredentialDefinition                 *credentials_config.OpenidCredentialIssuerSchemaJsonCredentialConfigurationsSupportedValueCredentialDefinition                      `json:"credential_definition,omitempty"`
 	CredentialSigningAlgValuesSupported  []credentials_config.OpenidCredentialIssuerSchemaJsonCredentialConfigurationsSupportedValueCredentialSigningAlgValuesSupportedElem  `json:"credential_signing_alg_values_supported,omitempty"`
@@ -27,12 +31,32 @@ type Credential struct {
 	Scope                                *string                                                                                                                             `json:"scope,omitempty"`
 }
 
+// CheckCredentialsIssuerActivity is an activity that checks the credential issuer
 type CheckCredentialsIssuerActivity struct{}
 
+// Name returns the name of the CheckCredentialsIssuerActivity, which describes
+// the purpose of this activity as checking the credential issuer metadata.
 func (a *CheckCredentialsIssuerActivity) Name() string {
 	return "Parse the Credential issuer metadata (.well-known/openid-credential-issuer)"
 }
 
+// Execute performs the CheckCredentialsIssuerActivity by validating the provided
+// base URL from the input configuration, constructing the issuer URL, and making
+// an HTTP GET request to verify if the endpoint is a valid credential issuer.
+//
+// Parameters:
+//   - ctx: The context for managing request deadlines and cancellations.
+//   - input: The ActivityInput containing the configuration map with a "base_url" key.
+//
+// Returns:
+//   - ActivityResult: Contains the raw JSON response from the credential issuer
+//     and the validated base URL if successful.
+//   - error: An error if the activity fails due to missing configuration, invalid
+//     base URL, HTTP request issues, or non-OK response status.
+//
+// The function ensures the base URL is properly formatted with a scheme (http/https),
+// appends the OpenID credential issuer path, and validates the response. If any
+// step fails, it returns a failure result with an appropriate error message.
 func (a *CheckCredentialsIssuerActivity) Execute(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 	baseURL, ok := input.Config["base_url"]
 	if !ok || strings.TrimSpace(baseURL) == "" {
