@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"net/http"
 	"os"
 
 	"github.com/pocketbase/dbx"
@@ -25,18 +24,6 @@ func decodeJSON(r io.Reader, dest interface{}) error {
 }
 
 
-func normalizeProtocolAndAuthor(protocol, author string) (string, string) {
-	switch protocol {
-	case "openid4vp_wallet":
-		protocol = "OpenID4VP_Wallet"
-	case "openid4vci_wallet":
-		protocol = "OpenID4VCI_Wallet"
-	}
-	if author == "openid_foundation" {
-		author = "OpenID_foundation"
-	}
-	return protocol, author
-}
 
 func readTemplateFile(path string) (string, error) {
 	data, err := os.ReadFile(path)
@@ -96,23 +83,3 @@ func notifyLogsUpdate(app core.App, subscription string, data []map[string]any) 
 	return nil
 }
 
-func WriteAPIError(w http.ResponseWriter, code int, domain, reason, message string) {
-	errorResponse := APIErrorResponse{
-		APIVersion: "2.0",
-		Error: APIError{
-			Code:    code,
-			Message: message,
-			Errors: []APIErrorDetail{
-				{
-					Domain:  domain,
-					Reason:  reason,
-					Message: message,
-				},
-			},
-		},
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(code)
-	json.NewEncoder(w).Encode(errorResponse)
-}

@@ -4,25 +4,44 @@
 
 package apis
 
-type APIErrorDetail struct {
-	Domain  string `json:"domain"`
-	Reason  string `json:"reason"`
-	Message string `json:"message"`
-}
+import (
 
-type APIError struct {
-	Code    int              `json:"code"`
-	Message string           `json:"message"`
-	Errors  []APIErrorDetail `json:"errors"`
-}
-
-type APIErrorResponse struct {
-	APIVersion string   `json:"apiVersion"`
-	Error      APIError `json:"error"`
-}
+	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/suite"
+	"go.temporal.io/sdk/testsuite"
+)
 
 
 type SaveVariablesAndStartRequestInput map[string]struct {
 	Format string      `json:"format" validate:"required"`
 	Data   interface{} `json:"data" validate:"required"`
 }
+
+type UnitTestSuite struct {
+        suite.Suite
+        testsuite.WorkflowTestSuite
+
+        env *testsuite.TestWorkflowEnvironment
+}
+
+func (s *UnitTestSuite) SetupTest() {
+        s.env = s.NewTestWorkflowEnvironment()
+}
+
+const testDataDir = "../../../test_pb_data"
+
+func generateToken(collectionNameOrId string, email string) (string, error) {
+	app, err := tests.NewTestApp(testDataDir)
+	if err != nil {
+		return "", err
+	}
+	defer app.Cleanup()
+
+	record, err := app.FindAuthRecordByEmail(collectionNameOrId, email)
+	if err != nil {
+		return "", err
+	}
+
+	return record.NewAuthToken()
+}
+

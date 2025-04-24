@@ -11,40 +11,11 @@ import (
 	"time"
 
 	"github.com/pocketbase/pocketbase/tests"
-	"go.temporal.io/sdk/testsuite"
 
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 )
 
-type UnitTestSuite struct {
-        suite.Suite
-        testsuite.WorkflowTestSuite
-
-        env *testsuite.TestWorkflowEnvironment
-}
-
-func (s *UnitTestSuite) SetupTest() {
-        s.env = s.NewTestWorkflowEnvironment()
-}
-
-const testDataDir = "../../../test_pb_data"
-
-func generateToken(collectionNameOrId string, email string) (string, error) {
-	app, err := tests.NewTestApp(testDataDir)
-	if err != nil {
-		return "", err
-	}
-	defer app.Cleanup()
-
-	record, err := app.FindAuthRecordByEmail(collectionNameOrId, email)
-	if err != nil {
-		return "", err
-	}
-
-	return record.NewAuthToken()
-}
 
 func TestAddOpenID4VPTestEndpoints_RoutesRegistered(t *testing.T) {
 	godotenv.Load("../../../.env")
