@@ -61,7 +61,6 @@ func TestStepCIlActivity_Configure(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-
 			input := &workflowengine.ActivityInput{
 				Config:  tc.config,
 				Payload: tc.payload,
@@ -277,7 +276,6 @@ nested2: nested_value2`,
 			output, err := RenderYAML(tt.tmpl, tt.data)
 			require.NoError(t, err, "RenderYAML should not return an error")
 			require.Equal(t, strings.TrimSpace(tt.expected), strings.TrimSpace(output), "Rendered output should match expected")
-
 		})
 	}
 }

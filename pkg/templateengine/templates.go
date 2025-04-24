@@ -193,7 +193,7 @@ func preprocessTemplate(content string) (string, error) {
 }
 
 func extractMetadata() []PlaceholderMetadata {
-	var extracted []PlaceholderMetadata
+	extracted := []PlaceholderMetadata{}
 	for _, meta := range metadataStore {
 		extracted = append(extracted, meta)
 	}

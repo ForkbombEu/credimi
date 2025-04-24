@@ -48,8 +48,7 @@ func TestExtractHrefsFromApiResponse(t *testing.T) {
 		},
 	}
 
-	hrefs, err := extractHrefsFromAPIResponse(root)
-	assert.NoError(t, err)
+	hrefs := extractHrefsFromAPIResponse(root)
 	assert.Equal(t, []string{"https://example.com/123", "https://example.com/456"}, hrefs)
 }
 

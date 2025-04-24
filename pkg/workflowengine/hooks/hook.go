@@ -65,7 +65,7 @@ func startWorker(client client.Client, config workerConfig, wg *sync.WaitGroup) 
 	}
 
 	if err := w.Run(worker.InterruptCh()); err != nil {
-		log.Fatalf("Failed to start worker for %s: %v", config.TaskQueue, err)
+		log.Printf("Failed to start worker for %s: %v", config.TaskQueue, err)
 	}
 }
 

@@ -64,11 +64,10 @@ func main() {
 				filename := fmt.Sprintf("%s.json", filepath.Clean(variantString))
 				filePath := filepath.Join(outputDir, filename)
 
-				if err := os.WriteFile(filePath, output, 0644); err != nil {
+				if err := os.WriteFile(filePath, output, 0600); err != nil {
 					fmt.Println("Error writing file:", err)
 					continue
 				}
-
 			}
 		},
 	}

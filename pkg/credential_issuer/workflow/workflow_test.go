@@ -31,7 +31,6 @@ func Test_SuccessfulFetchIssuersWorkflows(t *testing.T) {
 
 	require.True(t, env.IsWorkflowCompleted())
 	require.NoError(t, env.GetWorkflowError())
-
 }
 
 func Test_UnsuccessfulFetchIssuersWorkflows(t *testing.T) {

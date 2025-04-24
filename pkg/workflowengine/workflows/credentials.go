@@ -9,18 +9,15 @@
 package workflows
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"reflect"
 
-	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
 
 	"github.com/google/uuid"
-	"github.com/joho/godotenv"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 )
@@ -106,9 +103,8 @@ func (w *CredentialsIssuersWorkflow) Workflow(ctx workflow.Context, input workfl
 
 	logs := make(map[string][]any)
 
-	var validKeys []string
+	validKeys := []string{}
 	for credKey, credential := range issuerData.CredentialConfigurationsSupported {
-
 		castedCredential := activities.Credential(credential)
 		HTTPActivity := activities.HTTPActivity{}
 		storeInput := workflowengine.ActivityInput{
@@ -180,33 +176,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(ctx workflow.Context, input workfl
 func (w *CredentialsIssuersWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
-	// Load environment variables.
-	godotenv.Load()
-	namespace := "default"
-	if input.Config["namespace"] != nil {
-		namespace = input.Config["namespace"].(string)
-	}
-	c, err := temporalclient.GetTemporalClientWithNamespace(
-		namespace,
-	)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unable to create client: %v", err)
-	}
-	defer c.Close()
-
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "Credentials-Workflow-" + uuid.NewString(),
 		TaskQueue: CredentialsTaskQueue,
 	}
-	if input.Config["Memo"] != nil {
-		workflowOptions.Memo = input.Config["Memo"].(map[string]any)
-	}
 
-	// Start the workflow execution.
-	_, err = c.ExecuteWorkflow(context.Background(), workflowOptions, w.Name(), input)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("failed to start workflow: %v", err)
-	}
-
-	return workflowengine.WorkflowResult{}, nil
+	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
 }

@@ -116,7 +116,6 @@ func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.Activ
 	logs, err := cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
 	if err != nil {
 		return workflowengine.Fail(&result, fmt.Sprintf("failed to fetch logs: %v", err))
-
 	}
 	defer logs.Close()
 

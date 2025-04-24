@@ -258,7 +258,6 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 		})
 		return se.Next()
 	})
-
 }
 
 // AddOpenID4VPTestEndpoints registers multiple HTTP endpoints to the provided PocketBase application.
@@ -483,7 +482,6 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 					if err != nil {
 						return apis.NewBadRequestError("failed to start openidnet wallet for test "+testName, err)
 					}
-
 				} else {
 					return apis.NewBadRequestError("unsupported format for test "+testName, nil)
 				}

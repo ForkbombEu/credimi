@@ -1,0 +1,188 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version: "2"
+linters:
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    # - canonicalheader
+    # - containedctx
+    # - contextcheck
+    - copyloopvar
+    # - cyclop
+    - decorder
+    # - depguard
+    - dogsled
+    - dupl
+    # - dupword
+    - durationcheck
+    # - err113
+    # - errcheck
+    # - errchkjson
+    - errname
+    - errorlint
+    # - exhaustive
+    # - exhaustruct
+    - exptostd
+    - fatcontext
+    # - forbidigo
+    # - forcetypeassert
+    - funlen
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    # - gochecknoglobals
+    - gochecknoinits
+    - gochecksumtype
+    - gocognit
+    - goconst
+    - gocritic
+    - gocyclo
+    # - godot
+    - godox
+    - goheader
+    - gomoddirectives
+    - gomodguard
+    - goprintffuncname
+    - gosec
+    # - gosmopolitan
+    - govet
+    - grouper
+    - iface
+    - importas
+    # - inamedparam
+    - ineffassign
+    - interfacebloat
+    # - intrange
+    # - ireturn
+    - lll
+    - loggercheck
+    # - maintidx
+    - makezero
+    - mirror
+    - misspell
+    # - mnd
+    - musttag
+    - nakedret
+    # - nestif
+    - nilerr
+    - nilnesserr
+    # - nilnil
+    # - nlreturn
+    - noctx
+    # - nolintlint
+    # - nonamedreturns
+    - nosprintfhostport
+    # - paralleltest
+    # - perfsprint
+    - prealloc
+    - predeclared
+    # - promlinter
+    - protogetter
+    - reassign
+    - recvcheck
+    - revive
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
+    - staticcheck
+    # - tagalign
+    # - tagliatelle
+    - testableexamples
+    # - testifylint
+    # - testpackage
+    # - thelper
+    - unconvert
+    - unparam
+    - unused
+    # - usestdlibvars
+    # - usetesting
+    # - varnamelen
+    - wastedassign
+    - whitespace
+    # - wrapcheck
+    # - wsl
+    - zerologlint
+  settings:
+    revive:
+      confidence: 0.8
+    funlen:
+      lines: 90
+      statements: 50
+    gocritic:
+      disabled-checks:
+        - singleCaseSwitch
+    gosec:
+      excludes:
+        - G304
+    gosimple:
+      checks: [ "all","-S1023" ]
+  exclusions:
+    rules:
+      - path: testutils/
+        linters:
+          - revive
+      - path: cmd/relayproxy/modeldocs/
+        linters:
+          - lll
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+          - funlen
+          - maligned
+          - noctx
+          - scopelint
+          - bodyclose
+          - lll
+          - goconst
+          - gocognit
+          - gocyclo
+          - gochecknoinits
+          - dupl
+          - staticcheck
+          - revive
+          - gosec
+          - copyloopvar
+      - path: _mock\.go
+        linters:
+          - errcheck
+          - funlen
+          - maligned
+          - noctx
+          - scopelint
+          - bodyclose
+          - lll
+          - goconst
+          - gocognit
+          - gocyclo
+          - gochecknoinits
+          - dupl
+          - staticcheck
+          - revive
+          - predeclared
+formatters:
+  enable:
+    - gci
+    - gofmt
+    - goimports
+    - golines
+  settings:
+    gofumpt:
+      module-path: github.com/forkbombeu/credimi
+    gci:
+      no-lex-order: true
+    gofmt:
+      simplify: false
+      rewrite-rules:
+        #        - pattern: 'interface{}'
+        #          replacement: 'any'
+        - pattern: 'a[b:len(a)]'
+          replacement: 'a[b:]'
+issues:
+  # See the dedicated "issues" documentation section.
+  max-issues-per-linter: 0

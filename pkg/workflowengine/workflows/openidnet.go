@@ -16,12 +16,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/joho/godotenv"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 
-	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -228,35 +226,12 @@ func (w *OpenIDNetWorkflow) Workflow(
 func (w *OpenIDNetWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
-	// Load environment variables.
-	godotenv.Load()
-	namespace := "default"
-	if input.Config["namespace"] != nil {
-		namespace = input.Config["namespace"].(string)
-	}
-	c, err := temporalclient.GetTemporalClientWithNamespace(
-		namespace,
-	)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unable to create client: %v", err)
-	}
-	defer c.Close()
-
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "OpenIDTestWorkflow" + uuid.NewString(),
 		TaskQueue: OpenIDNetTaskQueue,
 	}
-	if input.Config["memo"] != nil {
-		workflowOptions.Memo = input.Config["memo"].(map[string]any)
-	}
 
-	// Start the workflow execution.
-	_, err = c.ExecuteWorkflow(context.Background(), workflowOptions, w.Name(), input)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("failed to start workflow: %v", err)
-	}
-
-	return workflowengine.WorkflowResult{}, nil
+	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
 }
 
 // OpenIDNetLogsWorkflow is a workflow that drains logs from the OpenID certification site.
@@ -341,7 +316,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	for {
 		if ctx.Err() != nil {
 			logger.Info("Workflow canceled, returning collected logs")
-			return workflowengine.WorkflowResult{Log: logs}, nil
+			return workflowengine.WorkflowResult{Log: logs}, ctx.Err()
 		}
 		var HTTPActivity activities.HTTPActivity
 		var HTTPResponse workflowengine.ActivityResult
