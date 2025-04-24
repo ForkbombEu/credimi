@@ -39,7 +39,7 @@ type OpenID4VPTestInputFile struct {
 	Form    any             `json:"form"`
 }
 
-func HandleSaveVariablesAndStart(app core.App) routing.HandlerFunc {
+func HandleSaveVariablesAndStart(app core.App) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		req, err := routing.GetValidatedInput[SaveVariablesAndStartRequestInput](e)
 		if err != nil {

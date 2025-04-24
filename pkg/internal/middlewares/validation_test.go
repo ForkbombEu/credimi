@@ -12,7 +12,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/forkbombeu/didimo/pkg/internal/routing"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
 )
@@ -108,7 +107,7 @@ func TestDynamicValidateInputByType_ValidationPasses(t *testing.T) {
 	// if !e.nextCalled {
 	// 	t.Error("expected Next() to be called")
 	// }
-	val := e.Request.Context().Value(routing.ValidatedInputKey)
+	val := e.Request.Context().Value("validatedInput")
 	if val == nil {
 		t.Error("expected validated input in context")
 	}

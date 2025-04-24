@@ -6,10 +6,15 @@ package routing
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"reflect"
+
 	"github.com/forkbombeu/didimo/pkg/internal/apierror" // Adjust import path
+	"github.com/forkbombeu/didimo/pkg/internal/middlewares"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
+	"github.com/pocketbase/pocketbase/tools/router"
 )
 
 type contextKey string
@@ -18,21 +23,19 @@ const ValidatedInputKey contextKey = "validatedInput"
 
 type HandlerFunc func(e *core.RequestEvent) error
 
+type HandlerFactory func(app core.App) func(*core.RequestEvent) error
+
 type RouteDefinition struct {
-	Method    string        
-	Path      string    
-	Handler   HandlerFunc 
-	InputType reflect.Type  
-}
-
-type InputTypeRegistry map[string]reflect.Type
-
-func BuildRegistryKey(method, path string) string {
-	return method + " " + path
+	Method      string
+	Path        string
+	Handler     HandlerFactory
+	Input       any
+	OutputType  reflect.Type
+	middlewares []*hook.Handler[*core.RequestEvent]
 }
 
 func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
-	validatedInput := e.Request.Context().Value(ValidatedInputKey)
+	validatedInput := e.Request.Context().Value("validatedInput")
 	var zero T
 
 	if validatedInput == nil {
@@ -48,3 +51,98 @@ func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
 	return typedInput, nil
 }
 
+type RouteGroup struct {
+	BaseUrl     string
+	Routes      []RouteDefinition
+	Middlewares []*hook.Handler[*core.RequestEvent]
+	Validation  bool
+}
+
+func AddGroupRoutes(app core.App, input RouteGroup) {
+	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		basePath := input.BaseUrl
+		if basePath == "" {
+			basePath = "/api"
+		}
+
+		rg := se.Router.Group(basePath)
+		rg.Bind(input.Middlewares...)
+		if input.Validation {
+			RegisterRoutesWithValidation(app, rg, input.Routes)
+		} else {
+			RegisterRoutesWithoutValidation(app, rg, input.Routes)
+		}
+		return se.Next()
+	})
+	app.OnServe()
+}
+
+func RegisterRoutesWithValidation(app core.App, group *router.RouterGroup[*core.RequestEvent], routes []RouteDefinition) {
+	log.Println("Registering routes with validation")
+	
+	for _, route := range routes {
+		inputType := reflect.TypeOf(route.Input)
+		
+
+		validatorMiddleware := middlewares.DynamicValidateInputByType(inputType)
+
+		needsValidationBinding := inputType != nil
+
+		switch route.Method {
+		case http.MethodPost:
+			registrar := group.POST(route.Path, route.Handler(app))
+			if needsValidationBinding {
+				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
+			}
+		case http.MethodGet:
+			group.GET(route.Path, route.Handler(app))
+		case http.MethodPut:
+			registrar := group.PUT(route.Path, route.Handler(app))
+			if needsValidationBinding {
+				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
+			}
+		case http.MethodPatch:
+			registrar := group.PATCH(route.Path, route.Handler(app))
+			if needsValidationBinding {
+				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
+			}
+		case http.MethodDelete:
+			registrar := group.DELETE(route.Path, route.Handler(app))
+			if needsValidationBinding {
+				app.Logger().Warn("Binding validation middleware to DELETE route", "path", route.Path)
+				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
+			}
+		case http.MethodHead:
+			group.HEAD(route.Path, route.Handler(app))
+		case http.MethodOptions:
+			group.OPTIONS(route.Path, route.Handler(app))
+		default:
+			app.Logger().Warn("Unsupported HTTP method in route definition during registration",
+				"method", route.Method,
+				"path", route.Path,
+			)
+		}
+	}
+}
+
+func RegisterRoutesWithoutValidation(app core.App, group *router.RouterGroup[*core.RequestEvent], routes []RouteDefinition) {
+	for _, route := range routes {
+		switch route.Method {
+		case http.MethodPost:
+			group.POST(route.Path, route.Handler(app))
+		case http.MethodGet:
+			group.GET(route.Path, route.Handler(app))
+		case http.MethodPut:
+			group.PUT(route.Path, route.Handler(app))
+		case http.MethodPatch:
+			group.PATCH(route.Path, route.Handler(app))
+		case http.MethodDelete:
+			group.DELETE(route.Path, route.Handler(app))
+		default:
+			app.Logger().Warn("Unsupported HTTP method in route definition during registration",
+				"method", route.Method,
+				"path", route.Path,
+			)
+		}
+	}
+}

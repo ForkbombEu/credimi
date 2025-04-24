@@ -10,16 +10,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"reflect"
 
 	"github.com/forkbombeu/didimo/pkg/internal/apierror"
-	"github.com/forkbombeu/didimo/pkg/internal/routing"
 	"github.com/go-playground/validator/v10"
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/tools/router"
 )
 
 var validate = validator.New()
@@ -112,7 +108,7 @@ func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEven
 			return apierror.New(http.StatusBadRequest, "request.validation", "Validation failed", string(detailsBytes))
 		}
 
-		ctx := context.WithValue(request.Context(), routing.ValidatedInputKey, val)
+		ctx := context.WithValue(request.Context(), "validatedInput", val)
 		e.Request = request.WithContext(ctx)
 
 		return e.Next()
@@ -143,48 +139,4 @@ func validateValue(val interface{}) []map[string]any {
         return formatValidationErrors(err)
     }
     return nil
-}
-
-func RegisterRoutesWithValidation(app core.App, group *router.RouterGroup[*core.RequestEvent], routes []routing.RouteDefinition) {
-	for _, route := range routes {
-		validatorMiddleware := DynamicValidateInputByType(route.InputType)
-
-		needsValidationBinding := route.InputType != nil
-
-		switch route.Method {
-		case http.MethodPost:
-			log.Println("Registering POST route:", route.Path)
-			registrar := group.POST(route.Path, route.Handler)
-			if needsValidationBinding {
-				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
-			}
-		case http.MethodGet:
-			group.GET(route.Path, route.Handler) 
-		case http.MethodPut:
-			registrar := group.PUT(route.Path, route.Handler)
-			if needsValidationBinding {
-				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
-			}
-		case http.MethodPatch:
-			registrar := group.PATCH(route.Path, route.Handler)
-			if needsValidationBinding {
-				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
-			}
-		case http.MethodDelete:
-			registrar := group.DELETE(route.Path, route.Handler)
-			if needsValidationBinding {
-				app.Logger().Warn("Binding validation middleware to DELETE route", "path", route.Path) // Optional warning
-				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
-			}
-        case http.MethodHead:
-             group.HEAD(route.Path, route.Handler) 
-        case http.MethodOptions:
-             group.OPTIONS(route.Path, route.Handler) 
-		default:
-			app.Logger().Warn("Unsupported HTTP method in route definition during registration",
-                "method", route.Method,
-                "path", route.Path,
-            )
-		}
-	}
 }
