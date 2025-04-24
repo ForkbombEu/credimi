@@ -2,22 +2,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-
 package handlers
 
 import (
 	"io"
 	"net/http"
 	"os"
-	"path/filepath"
 	p "path"
+	"path/filepath"
 
-
-	"github.com/forkbombeu/didimo/pkg/internal/apierror"
-	"github.com/forkbombeu/didimo/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/pocketbase/core"
 
-	engine "github.com/forkbombeu/didimo/pkg/template_engine"
+	engine "github.com/forkbombeu/credimi/pkg/templateengine"
 )
 
 func getTemplatesByFolder(folder string) ([]*os.File, error) {
@@ -46,7 +44,6 @@ func getTemplatesByFolder(folder string) ([]*os.File, error) {
 
 	return templates, nil
 }
-
 
 func HandleGetConfigsTemplates(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {

@@ -8,7 +8,7 @@ import (
 	"errors"
 	"log"
 
-	"github.com/forkbombeu/didimo/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -36,7 +36,7 @@ func ErrorHandlingMiddleware(e *core.RequestEvent) error {
 				},
 			},
 		})
-	} 
+	}
 	log.Printf("Unhandled error: %v", err)
 
 	return e.JSON(500, map[string]interface{}{

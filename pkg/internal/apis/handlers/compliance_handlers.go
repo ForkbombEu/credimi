@@ -13,9 +13,9 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/forkbombeu/didimo/pkg/internal/apierror"
-	"github.com/forkbombeu/didimo/pkg/internal/routing"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/workflows"
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -25,9 +25,9 @@ import (
 	"go.temporal.io/api/workflowservice/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 
-	temporalclient "github.com/forkbombeu/didimo/pkg/internal/temporal_client"
-	engine "github.com/forkbombeu/didimo/pkg/template_engine"
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
+	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	engine "github.com/forkbombeu/credimi/pkg/templateengine"
+	workflowengine "github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
 type SaveVariablesAndStartRequestInput map[string]struct {
@@ -109,7 +109,7 @@ func HandleConfirmSuccess(app core.App) func(*core.RequestEvent) error {
 		}
 
 		data := workflows.SignalData{Success: true}
-		c, err := temporalclient.GetTemporalClient()
+		c, err := temporalclient.New()
 		if err != nil {
 			return err
 		}
@@ -275,7 +275,7 @@ func HandleNotifyFailure(app core.App) func(*core.RequestEvent) error {
 			return err
 		}
 		data := workflows.SignalData{Success: false, Reason: req.Reason}
-		c, err := temporalclient.GetTemporalClient()
+		c, err := temporalclient.New()
 		if err != nil {
 			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
 		}
@@ -341,7 +341,7 @@ func HandleSendLogUpdateStart(app core.App) func(*core.RequestEvent) error {
 			return err
 		}
 
-		c, err := temporalclient.GetTemporalClient()
+		c, err := temporalclient.New()
 		if err != nil {
 			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
 		}

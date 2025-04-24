@@ -5,9 +5,9 @@
 package apis
 
 import (
-	"github.com/forkbombeu/didimo/pkg/internal/apis/handlers"
-	"github.com/forkbombeu/didimo/pkg/internal/middlewares"
-	"github.com/forkbombeu/didimo/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"

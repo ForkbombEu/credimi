@@ -19,9 +19,9 @@ import (
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
-	"github.com/forkbombeu/didimo/pkg/internal/apis"
-	"github.com/forkbombeu/didimo/pkg/internal/pb"
-	"github.com/forkbombeu/didimo/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/internal/apis"
+	"github.com/forkbombeu/credimi/pkg/internal/pb"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 )
 
@@ -55,11 +55,9 @@ func bindAppHooks(app core.App) {
 func Setup(app *pocketbase.PocketBase) {
 	bindAppHooks(app)
 	pb.HookNamespaceOrgs(app)
-	pb.HookCredentialWorkflow(app)
-	pb.HookUpdateCredentialsIssuers(app)
 	apis.AddComplianceChecks(app)
 	apis.AddTemplatingRoutes(app)
-	pb.HookAtUserCreation(app)
+	pb.HookNamespaceOrgs(app)
 	hooks.WorkersHook(app)
 
 	jsvm.MustRegister(app, jsvm.Config{

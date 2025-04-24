@@ -10,8 +10,8 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/forkbombeu/didimo/pkg/internal/apierror" // Adjust import path
-	"github.com/forkbombeu/didimo/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/apierror" // Adjust import path
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -79,10 +79,9 @@ func AddGroupRoutes(app core.App, input RouteGroup) {
 
 func RegisterRoutesWithValidation(app core.App, group *router.RouterGroup[*core.RequestEvent], routes []RouteDefinition) {
 	log.Println("Registering routes with validation")
-	
+
 	for _, route := range routes {
 		inputType := reflect.TypeOf(route.Input)
-		
 
 		validatorMiddleware := middlewares.DynamicValidateInputByType(inputType)
 

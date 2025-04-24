@@ -13,13 +13,12 @@ import (
 	"net/http"
 	"reflect"
 
-	"github.com/forkbombeu/didimo/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/go-playground/validator/v10"
 	"github.com/pocketbase/pocketbase/core"
 )
 
 var validate = validator.New()
-
 
 func formatValidationErrors(err error) []map[string]any {
 	var details []map[string]any
@@ -44,7 +43,7 @@ func formatValidationErrors(err error) []map[string]any {
 func validateMapValues(m reflect.Value) error {
 	var allErrors validator.ValidationErrors
 	for _, key := range m.MapKeys() {
-		mapVal := m.MapIndex(key).Interface() 
+		mapVal := m.MapIndex(key).Interface()
 
 		if vType := reflect.TypeOf(mapVal); vType != nil && (vType.Kind() == reflect.Struct || (vType.Kind() == reflect.Ptr && vType.Elem().Kind() == reflect.Struct)) {
 			if err := validate.Struct(mapVal); err != nil {
@@ -53,7 +52,7 @@ func validateMapValues(m reflect.Value) error {
 						// Adjust field namespace if possible/needed, simple prepend here
 						// Note: validator doesn't easily support map key prefixes in Namespace out-of-the-box.
 						// Custom error formatting might be needed for perfect field paths.
-						allErrors = append(allErrors, ve) 
+						allErrors = append(allErrors, ve)
 					}
 				}
 			}
@@ -75,7 +74,7 @@ func validateMapValues(m reflect.Value) error {
 func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEvent) error {
 	if inputType == nil {
 		return func(e *core.RequestEvent) error {
-			return e.Next() 
+			return e.Next()
 		}
 	}
 
@@ -90,12 +89,12 @@ func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEven
 		}
 		request.Body = io.NopCloser(bytes.NewBuffer(raw))
 
-		ptr := reflect.New(inputType).Interface() 
+		ptr := reflect.New(inputType).Interface()
 		bodyReader := bytes.NewReader(raw)
 		decoder := json.NewDecoder(bodyReader)
 
 		if err := decoder.Decode(ptr); err != nil {
-			if !(err == io.EOF && len(raw) == 0) { 
+			if !(err == io.EOF && len(raw) == 0) {
 				return apierror.New(http.StatusBadRequest, "request.body.json", "Invalid JSON format for the expected type", err.Error())
 			}
 		}
@@ -116,27 +115,27 @@ func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEven
 }
 
 func validateValue(val interface{}) []map[string]any {
-    valueToValidate := reflect.ValueOf(val)
-    var err error
+	valueToValidate := reflect.ValueOf(val)
+	var err error
 
-    switch valueToValidate.Kind() {
-    case reflect.Struct:
-        err = validate.Struct(val)
-    case reflect.Map:
-        if valueToValidate.IsValid() && !valueToValidate.IsNil() {
-            err = validateMapValues(valueToValidate) 
-        }
-    default:
+	switch valueToValidate.Kind() {
+	case reflect.Struct:
+		err = validate.Struct(val)
+	case reflect.Map:
+		if valueToValidate.IsValid() && !valueToValidate.IsNil() {
+			err = validateMapValues(valueToValidate)
+		}
+	default:
 		err = validate.Var(val, "required") // Example tag
 
 		if err != nil {
 			validationErrors := formatValidationErrors(err)
 			return validationErrors
 		}
-    }
+	}
 
-    if err != nil {
-        return formatValidationErrors(err)
-    }
-    return nil
+	if err != nil {
+		return formatValidationErrors(err)
+	}
+	return nil
 }
