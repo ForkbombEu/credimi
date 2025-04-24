@@ -16,7 +16,7 @@ info:
     url: https://forkbomb.solutions
 
 servers:
-  - url: https://demo.credimi.io/api
+  - url: https://demo.credimi.io
     description: Demo server
   - url: http://localhost:8090/
     description: Localhost server
