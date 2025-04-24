@@ -2013,12 +2013,10 @@
         "to": "now"
     },
     "timepicker": {
-        "refresh_intervals": [
-            "30s"
-        ]
+        "refresh_intervals": ["30s"]
     },
     "timezone": "",
-    "title": "DIDimo conformance checks SDK Metrics",
+    "title": "credimi conformance checks SDK Metrics",
     "uid": "XXEJjl17k",
     "version": 1,
     "weekStart": ""
