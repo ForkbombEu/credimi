@@ -14,10 +14,10 @@ import (
 	"fmt"
 	"reflect"
 
-	temporalclient "github.com/forkbombeu/didimo/pkg/internal/temporal_client"
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/activities"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/workflows/credentials_config"
+	"github.com/forkbombeu/didimo/pkg/internal/temporalclient"
+	"github.com/forkbombeu/didimo/pkg/workflowengine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/activities"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/workflows/credentials_config"
 
 	"github.com/google/uuid"
 	"github.com/joho/godotenv"

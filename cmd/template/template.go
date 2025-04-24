@@ -13,7 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/forkbombeu/didimo/pkg/template_engine"
+	"github.com/forkbombeu/didimo/pkg/templateengine"
 	"github.com/spf13/cobra"
 )
 
@@ -44,13 +44,13 @@ func main() {
 			}
 
 			var variants Variants
-			if err := template_engine.LoadJSON(input, &variants); err != nil {
+			if err := templateengine.LoadJSON(input, &variants); err != nil {
 				fmt.Println("Error loading JSON:", err)
 				return
 			}
 
 			for _, variantString := range variants.Variants {
-				result, err := template_engine.ParseInput(variantString, defaultPath, configPath)
+				result, err := templateengine.ParseInput(variantString, defaultPath, configPath)
 				if err != nil {
 					fmt.Println("Error processing variant:", err)
 					continue

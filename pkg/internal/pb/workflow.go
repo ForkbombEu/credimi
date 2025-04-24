@@ -14,11 +14,11 @@ import (
 	"time"
 
 	credential_workflow "github.com/forkbombeu/didimo/pkg/credential_issuer/workflow"
-	temporalclient "github.com/forkbombeu/didimo/pkg/internal/temporal_client"
-	engine "github.com/forkbombeu/didimo/pkg/template_engine"
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/activities"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/workflows"
+	"github.com/forkbombeu/didimo/pkg/internal/temporalclient"
+	"github.com/forkbombeu/didimo/pkg/templateengine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/activities"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
@@ -449,7 +449,7 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 					}
 					defer templateFile.Close()
 
-					renderedTemplate, err := engine.RenderTemplate(templateFile, values)
+					renderedTemplate, err := templateengine.RenderTemplate(templateFile, values)
 					if err != nil {
 						return apis.NewInternalServerError("failed to render template for test "+testName, err)
 					}
@@ -505,7 +505,7 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 				Success: true,
 			}
 
-			c, err := temporalclient.GetTemporalClient()
+			c, err := temporalclient.New()
 			if err != nil {
 				return err
 			}
@@ -532,7 +532,7 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 				Reason:  request.Reason,
 			}
 
-			c, err := temporalclient.GetTemporalClient()
+			c, err := temporalclient.New()
 			if err != nil {
 				return err
 			}
@@ -571,7 +571,7 @@ func AddOpenID4VPTestEndpoints(app *pocketbase.PocketBase) {
 				return apis.NewBadRequestError("Invalid JSON input", err)
 			}
 
-			c, err := temporalclient.GetTemporalClient()
+			c, err := temporalclient.New()
 			if err != nil {
 				return err
 			}

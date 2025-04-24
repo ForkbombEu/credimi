@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package template_engine
+package templateengine
 
 import (
 	"encoding/json"

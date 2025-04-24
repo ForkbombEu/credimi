@@ -2,28 +2,29 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package worker_engine provides functionality to manage and run Temporal workers
+// Package hooks provides functionality to manage and run Temporal workers
 // for executing workflows and activities in a distributed system. It includes
 // functions to start workers, register workflows and activities, and handle
 // workflow execution.
-package worker_engine
+package hooks
 
 import (
 	"log"
 	"reflect"
 	"sync"
 
-	temporalclient "github.com/forkbombeu/didimo/pkg/internal/temporal_client"
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/activities"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/workflows"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/workflows/credentials_config"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
+
+	"github.com/forkbombeu/didimo/pkg/internal/temporalclient"
+	"github.com/forkbombeu/didimo/pkg/workflowengine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/activities"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/workflows"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/workflows/credentials_config"
 )
 
 // WorkersHook sets up a hook for the PocketBase application to start all workers
@@ -39,7 +40,6 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		go startAllWorkers()
 		return se.Next()
 	})
-
 }
 
 type workerConfig struct {
@@ -70,7 +70,7 @@ func startWorker(client client.Client, config workerConfig, wg *sync.WaitGroup) 
 }
 
 func startAllWorkers() {
-	c, err := temporalclient.GetTemporalClient()
+	c, err := temporalclient.New()
 	if err != nil {
 		log.Fatalf("Failed to connect to Temporal: %v", err)
 	}
@@ -100,7 +100,9 @@ func startAllWorkers() {
 				&activities.CheckCredentialsIssuerActivity{},
 				&activities.JSONActivity{
 					StructRegistry: map[string]reflect.Type{
-						"OpenidCredentialIssuerSchemaJson": reflect.TypeOf(credentials_config.OpenidCredentialIssuerSchemaJson{}),
+						"OpenidCredentialIssuerSchemaJson": reflect.TypeOf(
+							credentials_config.OpenidCredentialIssuerSchemaJson{},
+						),
 					},
 				},
 				&activities.HTTPActivity{},

@@ -13,8 +13,7 @@ import (
 	p "path"
 	"path/filepath"
 
-	engine "github.com/forkbombeu/didimo/pkg/template_engine"
-
+	"github.com/forkbombeu/didimo/pkg/templateengine"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -103,7 +102,7 @@ func RoutePostPlaceholdersByFilenames(app *pocketbase.PocketBase) {
 				files = append(files, file)
 			}
 
-			placeholders, err := engine.GetPlaceholders(files, requestPayload.Filenames)
+			placeholders, err := templateengine.GetPlaceholders(files, requestPayload.Filenames)
 			if err != nil {
 				return apis.NewBadRequestError("Error getting placeholders", err)
 			}

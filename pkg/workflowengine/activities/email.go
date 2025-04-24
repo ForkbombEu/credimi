@@ -14,7 +14,7 @@ import (
 	"gopkg.in/gomail.v2"
 
 	"github.com/forkbombeu/didimo/pkg/utils"
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine"
 )
 
 // SendMailActivity is an activity that sends an email using SMTP.

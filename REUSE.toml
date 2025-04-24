@@ -14,9 +14,6 @@ path = [
     "config_templates/**/*",
     "docs/**/*",
     "fixtures/test_pb_data/types.d.ts",
-    "pb_migrations/*",
-    "pkg/credential_issuer/openid-credential-issuer.schema.go",
-    "pkg/workflow_engine/workflows/credentials_config/openid-credential-issuer.schema.go",
     "schemas/**/*",
     "VERSION",
     "webapp/.env.example",
@@ -30,7 +27,7 @@ path = [
     "webapp/src/modules/i18n/paraglide/.prettierignore",
     "webapp/static/pages/**/*",
     "pkg/credential_issuer/openid-credential-issuer.schema.go",
-    "pkg/workflow_engine/workflows/credentials_config/openid-credential-issuer.schema.go",
+    "pkg/workflowengine/workflows/credentials_config/openid-credential-issuer.schema.go",
     "pb_migrations/*",
     "go.sum"
 ]

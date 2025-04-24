@@ -14,7 +14,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/worker_engine"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
@@ -22,6 +21,7 @@ import (
 
 	"github.com/forkbombeu/didimo/pkg/internal/pb"
 	"github.com/forkbombeu/didimo/pkg/utils"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/hooks"
 )
 
 func bindAppHooks(app core.App) {
@@ -61,7 +61,7 @@ func Setup(app *pocketbase.PocketBase) {
 	pb.HookUpdateCredentialsIssuers(app)
 	pb.RouteWorkflow(app)
 	pb.HookAtUserCreation(app)
-	worker_engine.WorkersHook(app)
+	hooks.WorkersHook(app)
 
 	jsvm.MustRegister(app, jsvm.Config{
 		HooksWatch: true,

@@ -8,7 +8,7 @@ import (
 	"os"
 	"testing"
 
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine"
 	smtpmock "github.com/mocktools/go-smtp-mock"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

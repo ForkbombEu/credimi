@@ -9,9 +9,9 @@ import (
 	"testing"
 	"time"
 
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine"
 
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/activities"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"

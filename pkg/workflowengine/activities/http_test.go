@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 )

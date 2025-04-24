@@ -13,8 +13,8 @@ import (
 	"net/http"
 	"strings"
 
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/workflows/credentials_config"
+	"github.com/forkbombeu/didimo/pkg/workflowengine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/workflows/credentials_config"
 )
 
 // Credential is a struct that represents the credential issuer metadata

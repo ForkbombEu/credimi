@@ -19,7 +19,7 @@ import (
 	"github.com/go-sprout/sprout/group/all"
 
 	"github.com/forkbombeu/didimo/pkg/utils"
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine"
 )
 
 // StepCIWorkflowActivity is an activity that runs a StepCI workflow

@@ -21,10 +21,10 @@ import (
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 
-	temporalclient "github.com/forkbombeu/didimo/pkg/internal/temporal_client"
+	"github.com/forkbombeu/didimo/pkg/internal/temporalclient"
 	"github.com/forkbombeu/didimo/pkg/utils"
-	workflowengine "github.com/forkbombeu/didimo/pkg/workflow_engine"
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/activities"
+	"github.com/forkbombeu/didimo/pkg/workflowengine"
+	"github.com/forkbombeu/didimo/pkg/workflowengine/activities"
 )
 
 // SignalData represents the data structure for signals used in the workflow.
@@ -37,7 +37,7 @@ type SignalData struct {
 const OpenIDNetTaskQueue = "OpenIDNetTaskQueue"
 
 // OpenIDNetStepCITemplatePath points to the StepCI template for OpenIDNet workflows.
-const OpenIDNetStepCITemplatePath = "pkg/workflow_engine/workflows/openidnet_config/stepci_wallet_template.yaml"
+const OpenIDNetStepCITemplatePath = "pkg/workflowengine/workflows/openidnet_config/stepci_wallet_template.yaml"
 
 // OpenIDNetWorkflow is a workflow that performs conformance checks on the OpenID certification site.
 type OpenIDNetWorkflow struct{}

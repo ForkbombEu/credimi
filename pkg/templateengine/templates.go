@@ -2,7 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package template_engine
+// Package templateengine provides functionality for rendering templates
+package templateengine
 
 import (
 	"bytes"
