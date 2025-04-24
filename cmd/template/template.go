@@ -55,8 +55,8 @@ func main() {
 
 				output, _ := json.MarshalIndent(result, "", "    ")
 
-				output = []byte(fmt.Sprintf(strings.ReplaceAll(string(output), "\\\"", "\"")))
-				output = []byte(fmt.Sprintf(strings.ReplaceAll(string(output), "\\\\", "\\")))
+				output = []byte(strings.ReplaceAll(string(output), "\\\"", "\""))
+				output = []byte(strings.ReplaceAll(string(output), "\\\\", "\\"))
 
 				filename := fmt.Sprintf("%s.json", filepath.Clean(variantString))
 				filePath := filepath.Join(outputDir, filename)
