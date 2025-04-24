@@ -1,6 +1,6 @@
 <!--
 SPDX-FileCopyrightText: 2024 Puria Nafisi Azizi
-SPDX-FileCopyrightText: 2024 Puria Nafisi Azizi 
+SPDX-FileCopyrightText: 2024 Puria Nafisi Azizi
 SPDX-FileCopyrightText: 2024 The Forkbomb Company
 
 SPDX-License-Identifier: CC-BY-NC-SA-4.0
@@ -18,4 +18,4 @@ This challenge is further complicated by the fact that key regulations and frame
 
 Most of the solutions today are focused around one standard, or they have very limited functionality; thus, a void exists in the market for a complete tool that can check compliance against a multitude of standards and return findings that are meaningful and actionable. If there is no interoperability and standardization, risks apply to the developers as well as to the wider adoption of digital identity systems, because in such systems, trust and reliability are inseparable.
 
-**DIDimo adresses this gap by providing a platform that tests, evaluates, and debugs credential issuers and verifiers against the largest set of standards in the industry for conformance. This not only assisted developers in creating services that were both interoperable and secure but also empowers end-users and organizations to take well-reasoned decisions on the type of digital identity solution that best suits them, despite regulatory uncertainties.**
+**credimi adresses this gap by providing a platform that tests, evaluates, and debugs credential issuers and verifiers against the largest set of standards in the industry for conformance. This not only assisted developers in creating services that were both interoperable and secure but also empowers end-users and organizations to take well-reasoned decisions on the type of digital identity solution that best suits them, despite regulatory uncertainties.**
