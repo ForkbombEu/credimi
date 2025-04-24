@@ -26,7 +26,7 @@ type PlaceholderMetadata struct {
 
 var metadataStore = make(map[string]PlaceholderMetadata)
 
-func credimiPlaceholder(fieldName, credimiID, labelKey, descriptionKey, fieldType, example string) (string, error)  {
+func credimiPlaceholder(fieldName, credimiID, labelKey, descriptionKey, fieldType, example string) (string, error) {
 	metadataStore[fieldName] = PlaceholderMetadata{
 		FieldName:      fieldName,
 		CredimiID:      credimiID,

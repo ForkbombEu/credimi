@@ -222,7 +222,7 @@ func TestGetPlaceholders_MultipleReaders(t *testing.T) {
 	// Check fields of template2
 	template2, ok := specificFields["template2"].(map[string]interface{})
 
-  if !ok {
+	if !ok {
 		t.Errorf("template2 is not of expected type")
 	}
 	fields2, ok := template2["fields"].([]PlaceholderMetadata)
@@ -346,4 +346,3 @@ func TestGetPlaceholders_ComplexTemplate(t *testing.T) {
 		}
 	}
 }
-

@@ -33,7 +33,7 @@ COVOUT			:= coverage.out
 # Submodules
 WEBENV			= $(WEBAPP)/.env
 BIN				= $(ROOT_DIR)/.bin
-DEPS 			= mise git temporal
+DEPS 			= mise git temporal wget
 DEV_DEPS		= pre-commit
 K 				:= $(foreach exec,$(DEPS), $(if $(shell which $(exec)),some string,$(error "🥶 `$(exec)` not found in PATH please install it")))
 
@@ -72,26 +72,30 @@ $(WEBENV):
 	cp $(WEBAPP)/.env.example $(WEBAPP)/.env
 
 dev: $(WEBENV) tools devtools submodules ## 🚀 run in watch mode
-	DEBUG=1 $(HIVEMIND) -T Procfile.dev
+	DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev
 
 test: ## 🧪 run tests with coverage
-	$(GOTEST) $(GODIRS) -v -cover
+	$(GOTEST) $(GODIRS) -v -race -buildvcs
 
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)
 endif
 test.p: tools ## 🍷 watch tests and run on change for a certain folder
-	$(GOW) test -run "^$(test_name)$$" $(GODIRS)
+	$(GOTOOL) gow test -run "^$(test_name)$$" $(GODIRS)
 
 coverage: devtools # ☂️ run test and open code coverage report
 	-$(GOTEST) $(GODIRS) -coverprofile=$(COVOUT)
 	$(GOTOOL) cover -html=$(COVOUT)
-	$(GOCOVERTREEMAP) -coverprofile $(COVOUT) > coverage.svg && open coverage.svg
+	$(GOTOOL) go-cover-treemap -coverprofile $(COVOUT) > coverage.svg && open coverage.svg
 
 lint: devtools ## 📑 lint rules checks
-	$(GOVULNCHECK) $(SUBDIRS)
-	$(REVIVE) $(GODIRS)
+	$(GOMOD) tidy -diff
+	$(GOMOD) verify
+	$(GOCMD) vet $(SUBDIRS)
+	$(GOTOOL) staticcheck -checks=all,-ST1000,-U1000 $(SUBDIRS)
+	$(GOTOOL) govulncheck -v $(SUBDIRS)
+	$(GOTOOL) revive $(GODIRS)
 
 fmt: devtools ## 🗿 format rules checks
 	$(GOFMT) $(GODIRS)
