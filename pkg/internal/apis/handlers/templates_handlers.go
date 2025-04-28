@@ -92,8 +92,8 @@ func HandlePlaceholdersByFilenames(app core.App) func(e *core.RequestEvent) erro
 			if err != nil {
 				return apierror.New(http.StatusBadRequest, "request.file.open", "Error opening file: "+filename, err.Error())
 			}
+			defer file.Close()
 			files = append(files, file)
-			file.Close()
 		}
 
 		placeholders, err := engine.GetPlaceholders(files, requestPayload.Filenames)
