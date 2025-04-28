@@ -8,42 +8,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import WalletCard from '$lib/layout/walletCard.svelte';
 	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { localizeHref, m } from '@/i18n';
-	import { pb } from '@/pocketbase';
-	import type { Collections } from '@/pocketbase/types';
+	import { m } from '@/i18n';
 	import { truncate } from 'lodash';
-
-	/**
-	 * This type is needed as the MarketplaceItem type coming from codegen is not good.
-	 * Since `marketplace_items` is a view collection, that merges multiple collections,
-	 * pocketbase says that each field is of type `json` and not the actual type.
-	 */
-	type MarketplaceItem = {
-		collectionId: string;
-		collectionName: string;
-		id: string;
-		type: Collections;
-		name: string;
-		description: string | null;
-		avatar: string | null;
-		avatar_url: string | null;
-	};
-
-	const displayData: Partial<
-		Record<Collections, { label: string; bgClass: string; textClass: string }>
-	> = {
-		wallets: { label: m.Wallet(), bgClass: 'bg-blue-500', textClass: 'text-blue-500' },
-		verifiers: { label: m.Verifier(), bgClass: 'bg-green-500', textClass: 'text-green-500' },
-		credential_issuers: {
-			label: m.Credential_issuer(),
-			bgClass: 'bg-yellow-500',
-			textClass: 'text-yellow-500'
-		}
-	};
+	import {
+		getMarketplaceItemData,
+		type MarketplaceItem,
+		MarketplaceItemTypeDisplay
+	} from './_utils';
 </script>
 
 <CollectionManager collection="marketplace_items">
@@ -66,9 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<PageGrid>
 			{#each records as record}
 				{@const item = record as MarketplaceItem}
-				{@const href = localizeHref(`/marketplace/${item.type}/${item.id}`)}
-				{@const logo = item.avatar ? pb.files.getURL(item, item.avatar) : item.avatar_url}
-				{@const display = displayData[item.type]}
+				{@const { href, logo, display } = getMarketplaceItemData(item)}
 
 				<a
 					{href}
@@ -76,10 +48,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				>
 					<div class="space-y-1">
 						<T class="overflow-hidden text-ellipsis font-semibold">{item.name}</T>
-						<div class="flex items-center gap-1">
-							<div class="{display?.bgClass} size-1.5 rounded-full"></div>
-							<T class="{display?.textClass} text-sm">{display?.label}</T>
-						</div>
+						{#if display}
+							<MarketplaceItemTypeDisplay data={display} />
+						{/if}
 						{#if item.description}
 							<T class="text-muted-foreground pt-1 text-sm">
 								{truncate(item.description, { length: 100 })}
