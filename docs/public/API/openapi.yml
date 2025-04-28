@@ -5,23 +5,21 @@
 openapi: 3.0.1
 
 info:
-  title: DIDimo 👀 API Gateway
+  title: credimi 👀 API Gateway
   description: >
-    DIDimo API Gateway for managing EUDI-ARF compliance checks, periodic scheduling, organizational management, and reporting. 
+    credimi API Gateway for managing EUDI-ARF compliance checks, periodic scheduling, organizational management, and reporting. 
     This API provides developers, service providers, and organizations with tools to ensure compliance, manage tests, reports, and ownership claims.
   version: 1.4.0
   contact:
-    name: DIDimo Support
+    name: credimi Support
     email: support@forkbomb.eu
     url: https://forkbomb.solutions
 
 servers:
+  - url: https://demo.credimi.io
+    description: Demo server
   - url: http://localhost:8090/
     description: Localhost server
-  - url: https://t.api.didimo.forkbomb.eu/v1
-    description: Test server
-  - url: https://s.api.didimo.forkbomb.eu/v1
-    description: Staging server
 
 paths:
   /api/collections/users/records:

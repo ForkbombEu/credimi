@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Package workflow contains activities for managing credential issuers.
 package workflow
 
 import (
@@ -13,10 +14,12 @@ import (
 	"net/http"
 	"strings"
 
+	// Importing modernc.org/sqlite for its side effects to enable SQLite database driver.
 	_ "modernc.org/sqlite"
 	_ "modernc.org/sqlite/lib"
 )
 
+// FetchIssuersActivity retrieves a list of issuers by recursively fetching data from the API.
 func FetchIssuersActivity(ctx context.Context) (FetchIssuersActivityResponse, error) {
 	// Start with offset 0.
 	hrefs, err := fetchIssuersRecursive(ctx, 0)
@@ -29,9 +32,9 @@ func FetchIssuersActivity(ctx context.Context) (FetchIssuersActivityResponse, er
 func fetchIssuersRecursive(ctx context.Context, after int) ([]string, error) {
 	var url string
 	if after > 0 {
-		url = fmt.Sprintf("%s&page=%d", FidesIssuersUrl, after)
+		url = fmt.Sprintf("%s&page=%d", FidesIssuersURL, after)
 	} else {
-		url = FidesIssuersUrl
+		url = FidesIssuersURL
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
@@ -58,7 +61,7 @@ func fetchIssuersRecursive(ctx context.Context, after int) ([]string, error) {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 
-	hrefs, err := extractHrefsFromApiResponse(root)
+	hrefs, err := extractHrefsFromAPIResponse(root)
 	if err != nil {
 		return nil, fmt.Errorf("failed to extract hrefs: %w", err)
 	}
@@ -75,15 +78,16 @@ func fetchIssuersRecursive(ctx context.Context, after int) ([]string, error) {
 	return append(hrefs, nextHrefs...), nil
 }
 
-func extractHrefsFromApiResponse(root FidesResponse) ([]string, error) {
+func extractHrefsFromAPIResponse(root FidesResponse) ([]string, error) {
 	var hrefs []string
 	for _, item := range root.Content {
-		trimmedHref := RemoveWellKnownSuffix(item.IssuanceURL)
+		trimmedHref := removeWellKnownSuffix(item.IssuanceURL)
 		hrefs = append(hrefs, trimmedHref)
 	}
 	return hrefs, nil
 }
 
+// CreateCredentialIssuersActivity inserts a list of credential issuers into the database if they do not already exist.
 func CreateCredentialIssuersActivity(ctx context.Context, input CreateCredentialIssuersInput) error {
 	db, err := sql.Open("sqlite", input.DBPath)
 	if err != nil {
@@ -117,7 +121,7 @@ func checkIfCredentialIssuerExist(ctx context.Context, db *sql.DB, url string) (
 	return count > 0, nil
 }
 
-func RemoveWellKnownSuffix(urlStr string) string {
+func removeWellKnownSuffix(urlStr string) string {
 	const suffix = "/.well-known/openid-credential-issuer"
 	if strings.HasSuffix(urlStr, suffix) {
 		return strings.TrimSuffix(urlStr, suffix)

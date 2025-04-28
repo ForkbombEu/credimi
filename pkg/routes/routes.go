@@ -2,6 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Package routes provides the routing and HTTP handling for the application.
+// It includes functions to bind application hooks, register routes, and configure
+// additional modules such as JavaScript VM and database migration commands.
+// It also includes a reverse proxy for routing requests to different services.
 package routes
 
 import (
@@ -10,14 +14,14 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/forkbombeu/didimo/pkg/workflow_engine/worker_engine"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 
-	"github.com/forkbombeu/didimo/pkg/internal/pb"
-	"github.com/forkbombeu/didimo/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/internal/pb"
+	"github.com/forkbombeu/credimi/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 )
 
 func bindAppHooks(app core.App) {
@@ -32,6 +36,21 @@ func bindAppHooks(app core.App) {
 	})
 }
 
+// Setup initializes the application by binding hooks, registering routes,
+// and configuring additional modules. It sets up various functionalities
+// such as application hooks, route handlers, worker hooks, JavaScript VM
+// integration, and database migration commands.
+//
+// Parameters:
+//   - app: A pointer to the PocketBase application instance.
+//
+// The function performs the following tasks:
+//   - Binds application-specific hooks for handling events and workflows.
+//   - Registers HTTP routes for handling specific API endpoints.
+//   - Configures worker hooks for background task processing.
+//   - Integrates a JavaScript VM for dynamic scripting capabilities.
+//   - Registers and configures database migration commands with support
+//     for JavaScript-based templates and automatic migration.
 func Setup(app *pocketbase.PocketBase) {
 	bindAppHooks(app)
 	pb.RouteGetConfigsTemplates(app)
@@ -42,8 +61,7 @@ func Setup(app *pocketbase.PocketBase) {
 	pb.HookUpdateCredentialsIssuers(app)
 	pb.RouteWorkflow(app)
 	pb.HookAtUserCreation(app)
-	pb.Register(app)
-	worker_engine.WorkersHook(app)
+	hooks.WorkersHook(app)
 
 	jsvm.MustRegister(app, jsvm.Config{
 		HooksWatch: true,

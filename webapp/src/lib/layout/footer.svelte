@@ -72,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			label: m.Community(),
 			links: [
 				{ label: m.join_our_slack(), url: '/community/slack' },
-				{ label: 'GitHub', url: 'https://github.com/didimoid' },
+				{ label: 'GitHub', url: 'https://github.com/forkbombeu/credimi' },
 				{ label: m.events_webinars(), url: '/community/events' },
 				{ label: m.conformance_community_forum(), url: '/community/forum' },
 				{ label: m.partner_network(), url: '/partners' }
