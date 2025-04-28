@@ -18,6 +18,7 @@ type WorkflowInput struct {
 type WorkflowResult struct {
 	Message string
 	Errors  []error
+	Output  any
 	Log     any
 }
 
