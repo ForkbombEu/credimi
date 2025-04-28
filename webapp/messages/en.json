@@ -236,7 +236,7 @@
 	"Apps": "Apps",
 	"Credentials": "Credentials",
 	"Find_and_test_identity_solutions_with_ease": "Find and test identity solutions with ease",
-	"credimi_is_your_trusted_source_for_compliance_verification": "credimi is your trusted source for compliance verification",
+	"Didimo_is_your_trusted_source_for_compliance_verification": "Didimo is your trusted source for compliance verification",
 	"See_how_it_works": "See how it works",
 	"Find_solutions": "Find solutions:",
 	"All_solutions": "All solutions",
@@ -273,7 +273,7 @@
 	"Issuers": "Issuers",
 	"OpenID_Issuance_URL": "OpenID Issuance URL",
 	"_Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List": "🚀 Stay Ahead in Digital Identity Compliance – Join Our Early Access List!",
-	"Be_the_first_to_explore_credimi_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_": "Be the first to explore credimi, the ultimate compliance testing tool for decentralized identity. Get exclusive updates, early access, and a direct line to our team.",
+	"Be_the_first_to_explore_DIDimo_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_": "Be the first to explore DIDimo, the ultimate compliance testing tool for decentralized identity. Get exclusive updates, early access, and a direct line to our team.",
 	"Join_the_Waitlist": "Join the Waitlist",
 	"Your_name": "Your name",
 	"e_g_hellomycompany_com": "e.g. hello@mycompany.com",
@@ -330,6 +330,7 @@
 	"events_webinars": "Events & Webinars",
 	"conformance_community_forum": "Conformance Community Forum",
 	"partner_network": "Partner Network",
+	"about_didimo": "About Didimo",
 	"about_credimi": "About Credimi",
 	"our_vision_and_approach": "Our Vision & Approach",
 	"careers": "Careers",
@@ -390,5 +391,7 @@
 	"Credential_issuer": "Credential Issuer",
 	"Back_to_marketplace": "Back to marketplace",
 	"Filters": "Filters",
-	"Type": "Type"
+	"Type": "Type",
+	"credimi_is_your_trusted_source_for_compliance_verification": "credimi is your trusted source for compliance verification",
+	"Be_the_first_to_explore_credimi_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_": "Be the first to explore credimi, the ultimate compliance testing tool for decentralized identity. Get exclusive updates, early access, and a direct line to our team."
 }
