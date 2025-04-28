@@ -58,6 +58,9 @@ func Setup(app *pocketbase.PocketBase) {
 	apis.AddComplianceChecks(app)
 	apis.AddTemplatingRoutes(app)
 	hooks.WorkersHook(app)
+	apis.HookAtUserCreation(app)
+	apis.HookCredentialWorkflow(app)
+	apis.HookUpdateCredentialsIssuers(app)
 
 	jsvm.MustRegister(app, jsvm.Config{
 		HooksWatch: true,
