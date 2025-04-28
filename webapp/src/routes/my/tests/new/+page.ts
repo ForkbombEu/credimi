@@ -15,7 +15,7 @@ const variantsSchema = z.object({
 
 export const load = async ({ fetch }) => {
 	const openid4vpVariantsResponse = await pb.send(
-		'/api/conformance-checks/configs/get-configs-templates',
+		'/api/compliance/configs/templates',
 		{
 			method: 'GET',
 			fetch
@@ -23,7 +23,7 @@ export const load = async ({ fetch }) => {
 	);
 
 	const openid4vciVariantsResponse = await pb.send(
-		'/api/conformance-checks/configs/get-configs-templates?test_id=OpenID4VCI_Wallet/eudiw',
+		'/api/compliance/configs/templates?test_id=OpenID4VCI_Wallet/eudiw',
 		{
 			method: 'GET',
 			fetch

@@ -44,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			// /pkg/internal/pb/workflow.go
 			// Result type should be `{started:boolean}`
-			const result: { started: boolean } = await pb.send('/api/openid4vp-test', {
+			const result: { started: boolean } = await pb.send('/api/compliance/check', {
 				method: 'POST',
 				body: {
 					input: JSON.parse(json),

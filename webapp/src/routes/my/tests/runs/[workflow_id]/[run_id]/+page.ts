@@ -12,7 +12,7 @@ import type { HistoryEvent } from '@forkbombeu/temporal-ui';
 export const load = async ({ params, fetch }) => {
 	const { workflow_id, run_id } = params;
 
-	const basePath = `/api/workflows/${workflow_id}/${run_id}`;
+	const basePath = `/api/compliance/check/${workflow_id}/${run_id}`;
 
 	//
 
