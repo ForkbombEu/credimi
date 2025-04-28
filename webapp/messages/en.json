@@ -389,5 +389,7 @@
 	"Wallet": "Wallet",
 	"Verifier": "Verifier",
 	"Credential_issuer": "Credential Issuer",
-	"Back_to_marketplace": "Back to marketplace"
+	"Back_to_marketplace": "Back to marketplace",
+	"Filters": "Filters",
+	"Type": "Type"
 }

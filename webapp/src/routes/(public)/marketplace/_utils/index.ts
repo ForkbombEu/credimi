@@ -41,10 +41,14 @@ const displayData: Partial<Record<CollectionName, MarketplaceItemDisplayData>> =
 	}
 };
 
+export function getMarketplaceItemTypeData(type: CollectionName) {
+	const display = displayData[type];
+	const filter = `type = '${type}'`;
+	return { display, filter };
+}
+
 export function getMarketplaceItemData(item: MarketplaceItem) {
 	const href = localizeHref(`/marketplace/${item.type}/${item.id}`);
 	const logo = item.avatar ? pb.files.getURL(item, item.avatar) : item.avatar_url;
-	const display = displayData[item.type];
-
-	return { href, logo, display };
+	return { href, logo, ...getMarketplaceItemTypeData(item.type) };
 }

@@ -15,18 +15,48 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { truncate } from 'lodash';
 	import {
 		getMarketplaceItemData,
+		getMarketplaceItemTypeData,
 		type MarketplaceItem,
 		MarketplaceItemTypeDisplay
 	} from './_utils';
+	import type { Filter } from '@/collections-components/manager';
+	import Button from '@/components/ui-custom/button.svelte';
+
+	const filters: Filter[] = [
+		getMarketplaceItemTypeData('credential_issuers'),
+		getMarketplaceItemTypeData('verifiers'),
+		getMarketplaceItemTypeData('wallets')
+	].map((item) => ({
+		name: item.display?.label!,
+		expression: item.filter
+	}));
 </script>
 
-<CollectionManager collection="marketplace_items">
-	{#snippet top({ Search })}
+<CollectionManager
+	collection="marketplace_items"
+	filters={{
+		name: m.Type(),
+		id: 'default',
+		mode: '||',
+		filters: filters
+	}}
+>
+	{#snippet top({ Search, Filters })}
 		<PageTop>
 			<T tag="h1">{m.Marketplace()}</T>
-			<Search
-				class="border-primary bg-secondary pur                                                                                                                                                                                                                                                                                                                   "
-			/>
+			<div class="flex items-center gap-2">
+				<Search
+					containerClass="grow"
+					class="border-primary bg-secondary                                                                                                                                                                                                                                                                                                              "
+				/>
+				<Filters>
+					{#snippet trigger({ props })}
+						<Button {...props} variant="outline" class="border-primary bg-secondary">
+							{m.Filters()}
+						</Button>
+					{/snippet}
+				</Filters>
+			</div>
 		</PageTop>
 	{/snippet}
 
