@@ -385,7 +385,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 					"url": fmt.Sprintf(
 						"%s/%s",
 						input.Payload["app_url"].(string),
-						"/api/compliance/check/send-log-update",
+						"api/compliance/check/send-log-update",
 					),
 				},
 				Payload: map[string]any{
