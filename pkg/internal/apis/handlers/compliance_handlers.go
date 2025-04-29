@@ -40,7 +40,7 @@ type openID4VPTestInputFile struct {
 	Form    any             `json:"form"`
 }
 
-func HandleSaveVariablesAndStart(app core.App) func(*core.RequestEvent) error {
+func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		req, err := routing.GetValidatedInput[SaveVariablesAndStartRequestInput](e)
 		if err != nil {
@@ -51,10 +51,10 @@ func HandleSaveVariablesAndStart(app core.App) func(*core.RequestEvent) error {
 			return apierror.New(http.StatusBadRequest, "request.body.missing", "Request body cannot be empty", "input is required")
 		}
 
-		appURL := app.Settings().Meta.AppURL
+		appURL := e.App.Settings().Meta.AppURL
 		userID := e.Auth.Id
 		email := e.Auth.GetString("email")
-		namespace, err := getUserNamespace(app, userID)
+		namespace, err := getUserNamespace(e.App, userID)
 		if err != nil {
 			return apierror.New(http.StatusInternalServerError, "user namespace", "failed to get user namespace", err.Error())
 		}
@@ -80,11 +80,11 @@ func HandleSaveVariablesAndStart(app core.App) func(*core.RequestEvent) error {
 
 			switch testData.Format {
 			case "json":
-				if err := processJSONChecks(app, e, testData, email, appURL, namespace, memo); err != nil {
+				if err := processJSONChecks(e.App, e, testData, email, appURL, namespace, memo); err != nil {
 					return apierror.New(http.StatusBadRequest, "json", "failed to process JSON checks", err.Error())
 				}
 			case "variables":
-				if err := processVariablesTest(app, e, testName, testData, email, appURL, namespace, dirPath, memo); err != nil {
+				if err := processVariablesTest(e.App, e, testName, testData, email, appURL, namespace, dirPath, memo); err != nil {
 					return apierror.New(http.StatusBadRequest, "variables", "failed to process variables test", err.Error())
 				}
 			default:
@@ -100,7 +100,7 @@ type HandleConfirmSuccessRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
 }
 
-func HandleConfirmSuccess(app core.App) func(*core.RequestEvent) error {
+func HandleConfirmSuccess() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		log.Println("HandleConfirmSuccess called")
 		req, err := routing.GetValidatedInput[HandleConfirmSuccessRequestInput](e)
@@ -123,7 +123,7 @@ func HandleConfirmSuccess(app core.App) func(*core.RequestEvent) error {
 	}
 }
 
-func HandleGetWorkflowsHistory(app core.App) func(*core.RequestEvent) error {
+func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 
@@ -178,7 +178,7 @@ func HandleGetWorkflowsHistory(app core.App) func(*core.RequestEvent) error {
 	}
 }
 
-func HandleGetWorkflow(app core.App) func(*core.RequestEvent) error {
+func HandleGetWorkflow() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		workflowID := e.Request.PathValue("workflowId")
 		if workflowID == "" {
@@ -226,7 +226,7 @@ func HandleGetWorkflow(app core.App) func(*core.RequestEvent) error {
 	}
 }
 
-func HandleGetWorkflows(app core.App) func(*core.RequestEvent) error {
+func HandleGetWorkflows() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 		namespace, err := getUserNamespace(e.App, authRecord.Id)
@@ -267,7 +267,7 @@ type HandleNotifyFailureRequestInput struct {
 	Reason     string `json:"reason" validate:"required"`
 }
 
-func HandleNotifyFailure(app core.App) func(*core.RequestEvent) error {
+func HandleNotifyFailure() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		log.Println("HandleNotifyFailure called")
 		req, err := routing.GetValidatedInput[HandleNotifyFailureRequestInput](e)
@@ -297,7 +297,7 @@ type HandleSendLogUpdateStartRequestInput struct {
 	WorkflowID string `json:"workflow_id"`
 }
 
-func HandleSendLogUpdateStart(app core.App) func(*core.RequestEvent) error {
+func HandleSendLogUpdateStart() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		req, err := routing.GetValidatedInput[HandleSendLogUpdateStartRequestInput](e)
 		if err != nil {
@@ -328,13 +328,13 @@ type HandleSendLogUpdateRequestInput struct {
 	Logs       []map[string]any `json:"logs"`
 }
 
-func HandleSendLogUpdate(app core.App) func(*core.RequestEvent) error {
+func HandleSendLogUpdate() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		req, err := routing.GetValidatedInput[HandleSendLogUpdateRequestInput](e)
 		if err != nil {
 			return err
 		}
-		if err := notifyLogsUpdate(app, req.WorkflowID+"openid4vp-wallet-logs", req.Logs); err != nil {
+		if err := notifyLogsUpdate(e.App, req.WorkflowID+"openid4vp-wallet-logs", req.Logs); err != nil {
 			return apis.NewBadRequestError("failed to send real-time log update", err)
 		}
 		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})

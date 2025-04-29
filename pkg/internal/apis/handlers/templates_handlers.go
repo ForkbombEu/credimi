@@ -45,7 +45,7 @@ func getTemplatesByFolder(folder string) ([]*os.File, error) {
 	return templates, nil
 }
 
-func HandleGetConfigsTemplates(app core.App) func(e *core.RequestEvent) error {
+func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		testID := e.Request.URL.Query().Get("test_id")
 		if testID == "" {
@@ -70,7 +70,7 @@ type GetPlaceholdersByFilenamesRequestInput struct {
 	Filenames []string `json:"filenames"`
 }
 
-func HandlePlaceholdersByFilenames(app core.App) func(e *core.RequestEvent) error {
+func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		requestPayload, err := routing.GetValidatedInput[GetPlaceholdersByFilenamesRequestInput](e)
 		if err != nil {

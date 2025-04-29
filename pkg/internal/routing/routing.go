@@ -19,7 +19,7 @@ import (
 
 type HandlerFunc func(e *core.RequestEvent) error
 
-type HandlerFactory func(app core.App) func(*core.RequestEvent) error
+type HandlerFactory func() func(*core.RequestEvent) error
 
 type RouteDefinition struct {
 	Method              string
@@ -86,32 +86,32 @@ func RegisterRoutesWithValidation(app core.App, group *router.RouterGroup[*core.
 
 		switch route.Method {
 		case http.MethodPost:
-			registrar := group.POST(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			registrar := group.POST(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 			if needsValidationBinding {
 				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
 			}
 		case http.MethodGet:
-			group.GET(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			group.GET(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 		case http.MethodPut:
-			registrar := group.PUT(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			registrar := group.PUT(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 			if needsValidationBinding {
 				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
 			}
 		case http.MethodPatch:
-			registrar := group.PATCH(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			registrar := group.PATCH(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 			if needsValidationBinding {
 				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
 			}
 		case http.MethodDelete:
-			registrar := group.DELETE(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			registrar := group.DELETE(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 			if needsValidationBinding {
 				app.Logger().Warn("Binding validation middleware to DELETE route", "path", route.Path)
 				registrar.Bind(&hook.Handler[*core.RequestEvent]{Func: validatorMiddleware})
 			}
 		case http.MethodHead:
-			group.HEAD(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			group.HEAD(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 		case http.MethodOptions:
-			group.OPTIONS(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			group.OPTIONS(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 		default:
 			app.Logger().Warn("Unsupported HTTP method in route definition during registration",
 				"method", route.Method,
@@ -125,15 +125,15 @@ func RegisterRoutesWithoutValidation(app core.App, group *router.RouterGroup[*co
 	for _, route := range routes {
 		switch route.Method {
 		case http.MethodPost:
-			group.POST(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			group.POST(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 		case http.MethodGet:
-			group.GET(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			group.GET(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 		case http.MethodPut:
-			group.PUT(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			group.PUT(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 		case http.MethodPatch:
-			group.PATCH(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			group.PATCH(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 		case http.MethodDelete:
-			group.DELETE(route.Path, route.Handler(app)).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
+			group.DELETE(route.Path, route.Handler()).Bind(route.Middlewares...).Unbind(route.ExcludedMiddlewares...)
 		default:
 			app.Logger().Warn("Unsupported HTTP method in route definition during registration",
 				"method", route.Method,
