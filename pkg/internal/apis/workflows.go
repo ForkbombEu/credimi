@@ -43,7 +43,7 @@ func AddComplianceChecks(app core.App) {
 			{Method: http.MethodGet, Path: "/checks", Handler: handlers.HandleGetWorkflows, Input: nil},
 			{Method: http.MethodPost, Path: "/notify-failure", Handler: handlers.HandleNotifyFailure, Input: handlers.HandleNotifyFailureRequestInput{}},
 			{Method: http.MethodPost, Path: "/send-log-update-start", Handler: handlers.HandleSendLogUpdateStart, Input: handlers.HandleSendLogUpdateStartRequestInput{}},
-			{Method: http.MethodPost, Path: "/send-log-update", Handler: handlers.HandleSendLogUpdate, Input: handlers.HandleSendLogUpdateRequestInput{}},
+			{Method: http.MethodPost, Path: "/send-log-update", Handler: handlers.HandleSendLogUpdate, Input: handlers.HandleSendLogUpdateRequestInput{}, ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId}},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{apis.RequireAuth(), {Func: middlewares.ErrorHandlingMiddleware}},
 		Validation:  true,
