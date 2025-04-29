@@ -48,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				data: { reason }
 			}
 		}) => {
-			await pb.send('/compliance/check/notify-failure', {
+			await pb.send('/api/compliance/check/notify-failure', {
 				method: 'POST',
 				body: {
 					workflow_id: data.workflowId,
