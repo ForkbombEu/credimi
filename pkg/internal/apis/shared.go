@@ -30,14 +30,14 @@ func (s *UnitTestSuite) SetupTest() {
 
 const testDataDir = "../../../test_pb_data"
 
-func generateToken(collectionNameOrId string, email string) (string, error) {
+func generateToken(collectionNameOrID string, email string) (string, error) {
 	app, err := tests.NewTestApp(testDataDir)
 	if err != nil {
 		return "", err
 	}
 	defer app.Cleanup()
 
-	record, err := app.FindAuthRecordByEmail(collectionNameOrId, email)
+	record, err := app.FindAuthRecordByEmail(collectionNameOrID, email)
 	if err != nil {
 		return "", err
 	}
