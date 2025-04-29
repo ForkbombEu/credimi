@@ -96,7 +96,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		},
 	}
 	var stepCIResult workflowengine.ActivityResult
-	err := stepCIWorkflowActivity.Configure(context.Background(), &stepCIInput)
+	err := stepCIWorkflowActivity.Configure(&stepCIInput)
 	if err != nil {
 		logger.Error(" StepCI configure failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
@@ -138,7 +138,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	`, u.String(), u.String()),
 		},
 	}
-	err = emailActivity.Configure(context.Background(), &emailInput)
+	err = emailActivity.Configure(&emailInput)
 	if err != nil {
 		logger.Error("Email activity configure failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
