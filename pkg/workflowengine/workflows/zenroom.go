@@ -126,7 +126,7 @@ func (w *ZenroomWorkflow) Workflow(ctx workflow.Context, input workflowengine.Wo
 		return workflowengine.WorkflowResult{}, errors.New("invalid exit code format")
 	}
 	if int(exitCode) != 0 {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("Zenroom execution failed with exit code %d", int(exitCode))
+		return workflowengine.WorkflowResult{}, fmt.Errorf("execution of Zenroom failed with exit code %d", int(exitCode))
 	}
 	// Parse stdout as JSON
 	outputStr, ok := output["stdout"].(string)

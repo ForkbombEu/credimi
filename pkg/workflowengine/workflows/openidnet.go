@@ -332,7 +332,10 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	var timerFuture workflow.Future
 	startTimer := func() {
 		timerCtx, _ := workflow.WithCancel(ctx)
-		timerFuture = workflow.NewTimer(timerCtx, time.Duration(input.Config["interval"].(float64))*time.Nanosecond)
+		timerFuture = workflow.NewTimer(
+			timerCtx,
+			time.Duration(input.Config["interval"].(float64))*time.Nanosecond,
+		)
 	}
 
 	// Initialize the timer
@@ -385,7 +388,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 					"url": fmt.Sprintf(
 						"%s/%s",
 						input.Payload["app_url"].(string),
-						"wallet-test/send-log-update",
+						"api/compliance/send-log-update",
 					),
 				},
 				Payload: map[string]any{

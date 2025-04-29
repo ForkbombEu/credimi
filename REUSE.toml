@@ -29,6 +29,7 @@ path = [
     "pkg/credential_issuer/openid-credential-issuer.schema.go",
     "pkg/workflowengine/workflows/credentials_config/openid-credential-issuer.schema.go",
     "pb_migrations/*",
+    "test_pb_data/*",
     "go.sum"
 ]
 precedence = "override"
