@@ -80,7 +80,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 
 			switch testData.Format {
 			case "json":
-				if err := processJSONChecks(e.App, e, testData, email, appURL, namespace, memo); err != nil {
+				if err := processJSONChecks(e, testData, email, appURL, namespace, memo); err != nil {
 					return apierror.New(http.StatusBadRequest, "json", "failed to process JSON checks", err.Error())
 				}
 			case "variables":
@@ -375,7 +375,7 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 	return "default", nil
 }
 
-func processJSONChecks(app core.App, e *core.RequestEvent, testData struct {
+func processJSONChecks(e *core.RequestEvent, testData struct {
 	Format string      `json:"format" validate:"required"`
 	Data   interface{} `json:"data" validate:"required"`
 }, email, appURL string, namespace interface{}, memo map[string]interface{}) error {
