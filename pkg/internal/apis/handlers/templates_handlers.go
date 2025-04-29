@@ -8,7 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
-	p "path"
+	// p "path"
 	"path/filepath"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -47,21 +47,8 @@ func getTemplatesByFolder(folder string) ([]*os.File, error) {
 
 func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		testID := e.Request.URL.Query().Get("test_id")
-		if testID == "" {
-			testID = "OpenID4VP_Wallet/OpenID_Foundation"
-		}
-		files, err := getTemplatesByFolder(testID)
-		if err != nil {
-			return apierror.New(http.StatusBadRequest, "request.file.read", "Error reading test suite folder", err.Error())
-		}
-		var variants []string
-		for _, file := range files {
-			variants = append(variants, p.Base(file.Name()))
-		}
-		return e.JSON(http.StatusOK, map[string]interface{}{
-			"variants": variants,
-		})
+		configs := walkConfigTemplates()
+		return e.JSON(http.StatusOK, configs)
 	}
 }
 
@@ -102,5 +89,93 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, placeholders)
+	}
+}
+
+type StandardMetadata struct {
+	UID           string              `json:"uid"`
+	Name          string              `json:"name"`
+	Description   string              `json:"description"`
+	StandardURL   string              `json:"standard_url"`
+	LatestUpdate  string              `json:"latest_update"`
+	ExternalLinks map[string][]string `json:"external_links"`
+}
+
+type VersionMetadata struct {
+	Name             string `json:"name"`
+	LatestUpdate     string `json:"latest_update"`
+	SpecificationURL string `json:"specification_url"`
+}
+
+type SuiteMetadata struct {
+	Name        string `json:"name"`
+	Homepage    string `json:"homepage"`
+	GitHub      string `json:"github"`
+	Help        string `json:"help"`
+	Description string `json:"description"`
+}
+
+type Suite struct {
+	Metadata SuiteMetadata `json:"metadata"`
+	Files    []string      `json:"files"`
+}
+
+type Draft struct {
+	Version VersionMetadata  `json:"version"`
+	Suites  map[string]Suite `json:"suites"`
+}
+
+type Config struct {
+	Standard StandardMetadata `json:"standard"`
+	Drafts   map[string]Draft `json:"drafts"`
+}
+
+type Configs map[string]Config
+
+func walkConfigTemplates() Configs {
+	return Configs{
+		"openid4vp": Config{
+			Standard: StandardMetadata{
+				UID:          "openid4vp",
+				Name:         "OpenID4VP Wallet",
+				Description:  "OpenID for Verifiable Credential Issuance",
+				StandardURL:  "https://openid.net/specs/openid-4-verifiable-presentations-1_0-24.html",
+				LatestUpdate: "2024-02-08",
+				ExternalLinks: map[string][]string{
+					"reference": {},
+				},
+			},
+			Drafts: map[string]Draft{
+				"draft-24": {
+					Version: VersionMetadata{
+						Name:             "Draft 13",
+						LatestUpdate:     "2024-02-08",
+						SpecificationURL: "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-13.html",
+					},
+					Suites: map[string]Suite{
+						"ewc": {
+							Metadata: SuiteMetadata{
+								Name:        "OpenID Foundation Conformance Suite",
+								Homepage:    "https://openid.net/certification/about-conformance-suite/",
+								GitHub:      "https://gitlab.com/openid/conformance-suite",
+								Help:        "https://openid.net/certification/conformance-testing-for-openid-for-verifiable-presentations/",
+								Description: "Conformance suite for OIDF’s OpenID Connect, FAPI & FAPI-CIBA Profiles",
+							},
+							Files: []string{"ewc_file1.json", "ewc_file2.json"},
+						},
+						"openid_conformance_suite": {
+							Metadata: SuiteMetadata{
+								Name:        "OpenID Foundation Conformance Suite",
+								Homepage:    "https://openid.net/certification/about-conformance-suite/",
+								GitHub:      "https://gitlab.com/openid/conformance-suite",
+								Help:        "https://openid.net/certification/conformance-testing-for-openid-for-verifiable-presentations/",
+								Description: "Conformance suite for OIDF’s OpenID Connect, FAPI & FAPI-CIBA Profiles",
+							},
+							Files: []string{"conformance_file1.json", "conformance_file2.json"},
+						},
+					},
+				},
+			},
+		},
 	}
 }
