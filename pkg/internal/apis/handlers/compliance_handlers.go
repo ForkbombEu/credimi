@@ -35,7 +35,7 @@ type SaveVariablesAndStartRequestInput map[string]struct {
 	Data   interface{} `json:"data" validate:"required"`
 }
 
-type OpenID4VPTestInputFile struct {
+type openID4VPTestInputFile struct {
 	Variant json.RawMessage `json:"variant"`
 	Form    any             `json:"form"`
 }
@@ -47,7 +47,7 @@ func HandleSaveVariablesAndStart(app core.App) func(*core.RequestEvent) error {
 			return err
 		}
 
-		if req == nil || len(req) == 0 {
+		if len(req) == 0 {
 			return apierror.New(http.StatusBadRequest, "request.body.missing", "Request body cannot be empty", "input is required")
 		}
 
@@ -132,22 +132,22 @@ func HandleGetWorkflowsHistory(app core.App) func(*core.RequestEvent) error {
 			return apierror.New(http.StatusInternalServerError, "user namespace", "failed to get user namespace", err.Error())
 		}
 
-		workflowId := e.Request.PathValue("workflowId")
-		if workflowId == "" {
+		workflowID := e.Request.PathValue("workflowId")
+		if workflowID == "" {
 			return apierror.New(http.StatusBadRequest, "workflowId", "workflowId is required", "missing workflowId")
 		}
-		runId := e.Request.PathValue("runId")
-		if runId == "" {
+		runID := e.Request.PathValue("runId")
+		if runID == "" {
 			return apierror.New(http.StatusBadRequest, "runId", "runId is required", "missing runId")
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-		defer c.Close()
 		if err != nil {
 			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
 		}
+		defer c.Close()
 
-		historyIterator := c.GetWorkflowHistory(context.Background(), workflowId, runId, false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
+		historyIterator := c.GetWorkflowHistory(context.Background(), workflowID, runID, false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
 		if historyIterator == nil {
 			return apierror.New(http.StatusNotFound, "workflow", "workflow history not found", "not found")
 		}
@@ -180,12 +180,12 @@ func HandleGetWorkflowsHistory(app core.App) func(*core.RequestEvent) error {
 
 func HandleGetWorkflow(app core.App) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		workflowId := e.Request.PathValue("workflowId")
-		if workflowId == "" {
+		workflowID := e.Request.PathValue("workflowId")
+		if workflowID == "" {
 			return apierror.New(http.StatusBadRequest, "workflowId", "workflowId is required", "missing workflowId")
 		}
-		runId := e.Request.PathValue("runId")
-		if runId == "" {
+		runID := e.Request.PathValue("runId")
+		if runID == "" {
 			return apierror.New(http.StatusBadRequest, "runId", "runId is required", "missing runId")
 		}
 		authRecord := e.Auth
@@ -199,11 +199,11 @@ func HandleGetWorkflow(app core.App) func(*core.RequestEvent) error {
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-		defer c.Close()
 		if err != nil {
 			return apis.NewInternalServerError("unable to create client", err)
 		}
-		workflowExecution, err := c.DescribeWorkflowExecution(context.Background(), workflowId, runId)
+		defer c.Close()
+		workflowExecution, err := c.DescribeWorkflowExecution(context.Background(), workflowID, runID)
 		if err != nil {
 			if _, ok := err.(*serviceerror.NotFound); ok {
 				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
@@ -213,12 +213,12 @@ func HandleGetWorkflow(app core.App) func(*core.RequestEvent) error {
 			}
 			return apierror.New(http.StatusInternalServerError, "workflow", "failed to describe workflow execution", err.Error())
 		}
-		weJson, err := protojson.Marshal(workflowExecution)
+		weJSON, err := protojson.Marshal(workflowExecution)
 		if err != nil {
 			return apierror.New(http.StatusInternalServerError, "workflow", "failed to marshal workflow execution", err.Error())
 		}
 		finalJson := make(map[string]interface{})
-		err = json.Unmarshal(weJson, &finalJson)
+		err = json.Unmarshal(weJSON, &finalJson)
 		if err != nil {
 			return apierror.New(http.StatusInternalServerError, "workflow", "failed to unmarshal workflow execution", err.Error())
 		}
@@ -234,10 +234,10 @@ func HandleGetWorkflows(app core.App) func(*core.RequestEvent) error {
 			return apierror.New(http.StatusInternalServerError, "user namespace", "failed to get user namespace", err.Error())
 		}
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-		defer c.Close()
 		if err != nil {
 			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
 		}
+		defer c.Close()
 		list, err := c.ListWorkflow(context.Background(), &workflowservice.ListWorkflowExecutionsRequest{
 			Namespace: namespace,
 		})
@@ -245,19 +245,19 @@ func HandleGetWorkflows(app core.App) func(*core.RequestEvent) error {
 			log.Println("Error listing workflows:", err)
 			return apierror.New(http.StatusInternalServerError, "workflow", "failed to list workflows", err.Error())
 		}
-		listJson, err := protojson.Marshal(list)
+		listJSON, err := protojson.Marshal(list)
 		if err != nil {
 			return apierror.New(http.StatusInternalServerError, "workflow", "failed to marshal workflow list", err.Error())
 		}
-		finalJson := make(map[string]interface{})
-		err = json.Unmarshal(listJson, &finalJson)
+		finalJSON := make(map[string]interface{})
+		err = json.Unmarshal(listJSON, &finalJSON)
 		if err != nil {
 			return apierror.New(http.StatusInternalServerError, "workflow", "failed to unmarshal workflow list", err.Error())
 		}
-		if finalJson["executions"] == nil {
-			finalJson["executions"] = []map[string]interface{}{}
+		if finalJSON["executions"] == nil {
+			finalJSON["executions"] = []map[string]interface{}{}
 		}
-		return e.JSON(http.StatusOK, finalJson)
+		return e.JSON(http.StatusOK, finalJSON)
 	}
 
 }
@@ -290,43 +290,6 @@ func HandleNotifyFailure(app core.App) func(*core.RequestEvent) error {
 			return apierror.New(http.StatusBadRequest, "signal", "failed to send failure signal", err.Error())
 		}
 		return e.JSON(http.StatusOK, map[string]string{"message": "Test failed", "reason": req.Reason})
-	}
-}
-
-type OpenID4VPRequest struct {
-	Input    OpenID4VPTestInputFile `json:"input"`
-	UserMail string                 `json:"user_mail"`
-	TestName string                 `json:"test_name"`
-}
-
-func HandleOpenID4VPTest(app core.App) func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[OpenID4VPRequest](e)
-
-		appURL := app.Settings().Meta.AppURL
-		templateStr, err := readTemplateFile(os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath)
-		if err != nil {
-			return apierror.New(http.StatusBadRequest, "template", "failed to read template file", err.Error())
-		}
-
-		input := workflowengine.WorkflowInput{
-			Payload: map[string]any{
-				"variant":   string(req.Input.Variant),
-				"form":      req.Input.Form,
-				"user_mail": req.UserMail,
-				"app_url":   appURL,
-			},
-			Config: map[string]any{
-				"template": templateStr,
-			},
-		}
-
-		var workflow workflows.OpenIDNetWorkflow
-		if _, err = workflow.Start(input); err != nil {
-			return apierror.New(http.StatusBadRequest, "workflow", "failed to start openidnet wallet workflow", err.Error())
-		}
-
-		return e.JSON(http.StatusOK, map[string]bool{"started": true})
 	}
 }
 
@@ -380,13 +343,13 @@ func HandleSendLogUpdate(app core.App) func(*core.RequestEvent) error {
 
 ///
 
-func getUserNamespace(app core.App, userId string) (string, error) {
+func getUserNamespace(app core.App, userID string) (string, error) {
 	orgAuthCollection, err := app.FindCollectionByNameOrId("orgAuthorizations")
 	if err != nil {
 		return "", apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
 	}
 
-	authOrgRecords, err := app.FindRecordsByFilter(orgAuthCollection.Id, "user={:user}", "", 0, 0, dbx.Params{"user": userId})
+	authOrgRecords, err := app.FindRecordsByFilter(orgAuthCollection.Id, "user={:user}", "", 0, 0, dbx.Params{"user": userID})
 	if err != nil {
 		return "", apis.NewInternalServerError("failed to find orgAuthorizations records", err)
 	}
@@ -421,7 +384,7 @@ func processJSONChecks(app core.App, e *core.RequestEvent, testData struct {
 		return apis.NewBadRequestError("invalid JSON format", nil)
 	}
 
-	var parsedData OpenID4VPTestInputFile
+	var parsedData openID4VPTestInputFile
 	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
 		return apis.NewBadRequestError("failed to parse JSON input", err)
 	}
@@ -498,7 +461,7 @@ func processVariablesTest(app core.App, e *core.RequestEvent, testName string, t
 		return apis.NewInternalServerError("failed to render template for test "+testName, err)
 	}
 
-	var parsedVariant OpenID4VPTestInputFile
+	var parsedVariant openID4VPTestInputFile
 	if err := json.Unmarshal([]byte(renderedTemplate), &parsedVariant); err != nil {
 		return apis.NewBadRequestError("failed to unmarshal JSON for test "+testName, err)
 	}

@@ -6,7 +6,7 @@ import { pb } from '@/pocketbase';
 import z from 'zod';
 
 export async function fetchUserWorkflows(fetchFn = fetch) {
-	const data = await pb.send('/api/compliance/check/checks', {
+	const data = await pb.send('/api/compliance/checks', {
 		method: 'GET',
 		fetch: fetchFn
 	});

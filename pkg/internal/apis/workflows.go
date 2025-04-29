@@ -5,48 +5,89 @@
 package apis
 
 import (
-	"net/http"
-
-	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
-	"github.com/pocketbase/pocketbase/apis"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
-
-	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
-	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"context"
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"time"
 
-	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/apis"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"go.temporal.io/sdk/client"
 
+	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
+	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 )
 
 func AddComplianceChecks(app core.App) {
 	routing.AddGroupRoutes(app, routing.RouteGroup{
-		BaseUrl: "/api/compliance/check",
+		BaseURL: "/api/compliance",
 		Routes: []routing.RouteDefinition{
-			{Method: http.MethodPost, Path: "", Handler: handlers.HandleOpenID4VPTest, Input: handlers.OpenID4VPRequest{}},
-			{Method: http.MethodPost, Path: "/confirm-success", Handler: handlers.HandleConfirmSuccess, Input: handlers.HandleConfirmSuccessRequestInput{}},
-			{Method: http.MethodPost, Path: "/{protocol}/{author}/save-variables-and-start", Handler: handlers.HandleSaveVariablesAndStart, Input: handlers.SaveVariablesAndStartRequestInput{}},
-			{Method: http.MethodGet, Path: "/checks/{workflowId}/{runId}/history", Handler: handlers.HandleGetWorkflowsHistory, Input: nil},
-			{Method: http.MethodGet, Path: "/checks/{workflowId}/{runId}", Handler: handlers.HandleGetWorkflow, Input: nil},
-			{Method: http.MethodGet, Path: "/checks", Handler: handlers.HandleGetWorkflows, Input: nil},
-			{Method: http.MethodPost, Path: "/notify-failure", Handler: handlers.HandleNotifyFailure, Input: handlers.HandleNotifyFailureRequestInput{}},
-			{Method: http.MethodPost, Path: "/send-log-update-start", Handler: handlers.HandleSendLogUpdateStart, Input: handlers.HandleSendLogUpdateStartRequestInput{}},
-			{Method: http.MethodPost, Path: "/send-log-update", Handler: handlers.HandleSendLogUpdate, Input: handlers.HandleSendLogUpdateRequestInput{}, ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId}},
+			{
+				Method:  http.MethodGet,
+				Path:    "/checks",
+				Handler: handlers.HandleGetWorkflows,
+				Input:   nil,
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/checks/{workflowId}/{runId}",
+				Handler: handlers.HandleGetWorkflow,
+				Input:   nil,
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/checks/{workflowId}/{runId}/history",
+				Handler: handlers.HandleGetWorkflowsHistory,
+				Input:   nil,
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/{protocol}/{author}/save-variables-and-start",
+				Handler: handlers.HandleSaveVariablesAndStart,
+				Input:   handlers.SaveVariablesAndStartRequestInput{},
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/notify-failure",
+				Handler: handlers.HandleNotifyFailure,
+				Input:   handlers.HandleNotifyFailureRequestInput{},
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/confirm-success",
+				Handler: handlers.HandleConfirmSuccess,
+				Input:   handlers.HandleConfirmSuccessRequestInput{},
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/send-log-update-start",
+				Handler: handlers.HandleSendLogUpdateStart,
+				Input:   handlers.HandleSendLogUpdateStartRequestInput{},
+			},
+			{
+				Method:              http.MethodPost,
+				Path:                "/send-log-update",
+				Handler:             handlers.HandleSendLogUpdate,
+				Input:               handlers.HandleSendLogUpdateRequestInput{},
+				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
+			},
 		},
-		Middlewares: []*hook.Handler[*core.RequestEvent]{apis.RequireAuth(), {Func: middlewares.ErrorHandlingMiddleware}},
-		Validation:  true,
+		Middlewares: []*hook.Handler[*core.RequestEvent]{
+			apis.RequireAuth(),
+			{Func: middlewares.ErrorHandlingMiddleware},
+		},
+		Validation: true,
 	})
 }
 
@@ -99,8 +140,10 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				"",
 				1,
 				0,
-				dbx.Params{"url": req.URL,
-					"owner": e.Auth.Id},
+				dbx.Params{
+					"url":   req.URL,
+					"owner": e.Auth.Id,
+				},
 			)
 			if err != nil {
 				return err
@@ -154,120 +197,122 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 			})
 		}).Bind(apis.RequireAuth())
 
-		se.Router.POST("/api/credentials_issuers/store-or-update-extracted-credentials", func(e *core.RequestEvent) error {
-			var body struct {
-				IssuerID   string                `json:"issuerID"`
-				IssuerName string                `json:"issuerName"`
-				CredKey    string                `json:"credKey"`
-				Credential activities.Credential `json:"credential"`
-			}
-
-			if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
-				return apis.NewBadRequestError("invalid JSON body", err)
-			}
-
-			var name, locale, logo string
-			if len(body.Credential.Display) > 0 {
-				display := body.Credential.Display[0]
-				name = display.Name
-				if display.Locale != nil {
-					locale = *display.Locale
+		se.Router.POST(
+			"/api/credentials_issuers/store-or-update-extracted-credentials",
+			func(e *core.RequestEvent) error {
+				var body struct {
+					IssuerID   string                `json:"issuerID"`
+					IssuerName string                `json:"issuerName"`
+					CredKey    string                `json:"credKey"`
+					Credential activities.Credential `json:"credential"`
 				}
-				if display.Logo != nil {
-					// do not broke if URI is nil
-					if display.Logo.Uri != nil {
-						logo = *display.Logo.Uri
+
+				if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
+					return apis.NewBadRequestError("invalid JSON body", err)
+				}
+
+				var name, locale, logo string
+				if len(body.Credential.Display) > 0 {
+					display := body.Credential.Display[0]
+					name = display.Name
+					if display.Locale != nil {
+						locale = *display.Locale
+					}
+					if display.Logo != nil {
+						// do not broke if URI is nil
+						if display.Logo.Uri != nil {
+							logo = *display.Logo.Uri
+						}
 					}
 				}
-			}
 
-			collection, err := app.FindCollectionByNameOrId("credentials")
-			if err != nil {
-				return err
-			}
-			existing, err := app.FindFirstRecordByFilter(collection,
-				"key = {:key} && credential_issuer = {:issuerID}",
-				map[string]any{
-					"key":      body.CredKey,
-					"issuerID": body.IssuerID,
-				},
-			)
-
-			var record *core.Record
-			if err != nil {
-				// Create new record
-				record = core.NewRecord(collection)
-			} else {
-				// Update existing record
-				record = existing
-			}
-
-			// Marshal original credential JSON to store
-			credJSON, _ := json.Marshal(body.Credential)
-
-			record.Set("format", body.Credential.Format)
-			record.Set("issuer_name", body.IssuerName)
-			record.Set("name", name)
-			record.Set("locale", locale)
-			record.Set("logo", logo)
-			record.Set("json", string(credJSON))
-			record.Set("key", body.CredKey)
-			record.Set("credential_issuer", body.IssuerID)
-
-			if err := app.Save(record); err != nil {
-				return err
-			}
-			return e.JSON(http.StatusOK, map[string]any{"key": body.CredKey})
-		})
-		se.Router.POST("/api/credentials_issuers/cleanup_credentials", func(e *core.RequestEvent) error {
-			var body struct {
-				IssuerID  string   `json:"issuerID"`
-				ValidKeys []string `json:"validKeys"`
-			}
-
-			if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
-				return apis.NewBadRequestError("invalid JSON body", err)
-			}
-
-			validSet := map[string]bool{}
-			for _, key := range body.ValidKeys {
-				validSet[key] = true
-			}
-
-			collection, err := app.FindCollectionByNameOrId("credentials")
-			if err != nil {
-				return err
-			}
-			all, err := app.FindRecordsByFilter(collection,
-				"credential_issuer = {:issuerID}",
-				"", // sort
-				0,  // page
-				0,  // perPage
-				dbx.Params{"issuerID": body.IssuerID},
-			)
-
-			if err != nil {
-				return apis.NewBadRequestError("failed to find records", err)
-			}
-
-			var deleted []string
-			for _, rec := range all {
-				key := rec.GetString("key")
-				if !validSet[key] {
-					if err := app.Delete(rec); err != nil {
-						return apis.NewBadRequestError("failed to delete record", err)
-					}
-					deleted = append(deleted, key)
+				collection, err := app.FindCollectionByNameOrId("credentials")
+				if err != nil {
+					return err
 				}
-			}
-			return e.JSON(http.StatusOK, map[string]any{"deleted": deleted})
-		})
+				existing, err := app.FindFirstRecordByFilter(collection,
+					"key = {:key} && credential_issuer = {:issuerID}",
+					map[string]any{
+						"key":      body.CredKey,
+						"issuerID": body.IssuerID,
+					},
+				)
+
+				var record *core.Record
+				if err != nil {
+					// Create new record
+					record = core.NewRecord(collection)
+				} else {
+					// Update existing record
+					record = existing
+				}
+
+				// Marshal original credential JSON to store
+				credJSON, _ := json.Marshal(body.Credential)
+
+				record.Set("format", body.Credential.Format)
+				record.Set("issuer_name", body.IssuerName)
+				record.Set("name", name)
+				record.Set("locale", locale)
+				record.Set("logo", logo)
+				record.Set("json", string(credJSON))
+				record.Set("key", body.CredKey)
+				record.Set("credential_issuer", body.IssuerID)
+
+				if err := app.Save(record); err != nil {
+					return err
+				}
+				return e.JSON(http.StatusOK, map[string]any{"key": body.CredKey})
+			},
+		)
+		se.Router.POST(
+			"/api/credentials_issuers/cleanup_credentials",
+			func(e *core.RequestEvent) error {
+				var body struct {
+					IssuerID  string   `json:"issuerID"`
+					ValidKeys []string `json:"validKeys"`
+				}
+
+				if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
+					return apis.NewBadRequestError("invalid JSON body", err)
+				}
+
+				validSet := map[string]bool{}
+				for _, key := range body.ValidKeys {
+					validSet[key] = true
+				}
+
+				collection, err := app.FindCollectionByNameOrId("credentials")
+				if err != nil {
+					return err
+				}
+				all, err := app.FindRecordsByFilter(collection,
+					"credential_issuer = {:issuerID}",
+					"", // sort
+					0,  // page
+					0,  // perPage
+					dbx.Params{"issuerID": body.IssuerID},
+				)
+				if err != nil {
+					return apis.NewBadRequestError("failed to find records", err)
+				}
+
+				var deleted []string
+				for _, rec := range all {
+					key := rec.GetString("key")
+					if !validSet[key] {
+						if err := app.Delete(rec); err != nil {
+							return apis.NewBadRequestError("failed to delete record", err)
+						}
+						deleted = append(deleted, key)
+					}
+				}
+				return e.JSON(http.StatusOK, map[string]any{"deleted": deleted})
+			},
+		)
 		return se.Next()
 	})
-
 }
-
-
 
 // HookUpdateCredentialsIssuers sets up a hook in the PocketBase application to listen for
 // successful updates to records in the "features" collection with the name "updateIssuers".
@@ -446,4 +491,3 @@ func addUserToDefaultOrganization(e *core.RecordEvent) error {
 
 // 	return nil
 // }
-

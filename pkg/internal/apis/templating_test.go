@@ -4,7 +4,6 @@
 
 package apis
 
-
 import (
 	"net/http"
 	"testing"
@@ -15,7 +14,6 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/stretchr/testify/require"
 )
-
 
 func TestAddTemplatingRoutes(t *testing.T) {
 	godotenv.Load("../../../.env")
@@ -32,21 +30,21 @@ func TestAddTemplatingRoutes(t *testing.T) {
 		AddTemplatingRoutes(testApp)
 		return testApp
 	}
-	authToken, err := generateToken("users", "userA@example.org")
+	authToken, _ := generateToken("users", "userA@example.org")
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name: "Get configs templates",
+			Name:   "Get configs templates",
 			Method: http.MethodGet,
-			URL: "/api/compliance/configs/templates",
+			URL:    "/api/template/blueprints",
 			Headers: map[string]string{
 				"Authorization": "Bearer " + authToken,
 			},
-			Delay:          0,
-			ExpectedContent:  []string{"variants"},
-			Timeout:        5 * time.Second,
-			ExpectedStatus: http.StatusOK,
-			TestAppFactory:    setupTestApp,
+			Delay:           0,
+			ExpectedContent: []string{"variants"},
+			Timeout:         5 * time.Second,
+			ExpectedStatus:  http.StatusOK,
+			TestAppFactory:  setupTestApp,
 		},
 	}
 
@@ -54,7 +52,4 @@ func TestAddTemplatingRoutes(t *testing.T) {
 		scenario.Test(t)
 	}
 
-	
 }
-
-

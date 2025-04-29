@@ -5,22 +5,36 @@
 package apis
 
 import (
-	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
-	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
-	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
+
+	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/forkbombeu/credimi/pkg/internal/routing"
 )
 
 func AddTemplatingRoutes(app core.App) {
 	routing.AddGroupRoutes(app, routing.RouteGroup{
-		BaseUrl: "/api/compliance/configs",
+		BaseURL: "/api/template",
 		Routes: []routing.RouteDefinition{
-			{Method: "GET", Path: "/templates", Handler: handlers.HandleGetConfigsTemplates, Input: nil},
-			{Method: "POST", Path: "/placeholders", Handler: handlers.HandlePlaceholdersByFilenames, Input: handlers.GetPlaceholdersByFilenamesRequestInput{}},
+			{
+				Method:  "GET",
+				Path:    "/blueprints",
+				Handler: handlers.HandleGetConfigsTemplates,
+				Input:   nil,
+			},
+			{
+				Method:  "POST",
+				Path:    "/placeholders",
+				Handler: handlers.HandlePlaceholdersByFilenames,
+				Input:   handlers.GetPlaceholdersByFilenamesRequestInput{},
+			},
 		},
-		Middlewares: []*hook.Handler[*core.RequestEvent]{apis.RequireAuth(), {Func: middlewares.ErrorHandlingMiddleware}},
-		Validation:  true,
+		Middlewares: []*hook.Handler[*core.RequestEvent]{
+			apis.RequireAuth(),
+			{Func: middlewares.ErrorHandlingMiddleware},
+		},
+		Validation: true,
 	})
 }

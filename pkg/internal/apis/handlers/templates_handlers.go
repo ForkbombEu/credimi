@@ -47,11 +47,11 @@ func getTemplatesByFolder(folder string) ([]*os.File, error) {
 
 func HandleGetConfigsTemplates(app core.App) func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		testId := e.Request.URL.Query().Get("test_id")
-		if testId == "" {
-			testId = "OpenID4VP_Wallet/OpenID_Foundation"
+		testID := e.Request.URL.Query().Get("test_id")
+		if testID == "" {
+			testID = "OpenID4VP_Wallet/OpenID_Foundation"
 		}
-		files, err := getTemplatesByFolder(testId)
+		files, err := getTemplatesByFolder(testID)
 		if err != nil {
 			return apierror.New(http.StatusBadRequest, "request.file.read", "Error reading test suite folder", err.Error())
 		}

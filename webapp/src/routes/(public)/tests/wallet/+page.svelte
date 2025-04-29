@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const successForm = createForm({
 		adapter: zod(z.object({})),
 		onSubmit: async () => {
-			await pb.send('/api/compliance/check/confirm-success', {
+			await pb.send('/api/compliance/confirm-success', {
 				method: 'POST',
 				body: {
 					workflow_id: data.workflowId
@@ -48,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				data: { reason }
 			}
 		}) => {
-			await pb.send('/api/compliance/check/notify-failure', {
+			await pb.send('/api/compliance/notify-failure', {
 				method: 'POST',
 				body: {
 					workflow_id: data.workflowId,

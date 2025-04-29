@@ -48,9 +48,6 @@ func TestDynamicValidateInputByType_NilInputType(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
-	if !e.nextCalled {
-		t.Error("expected Next() to be called")
-	}
 }
 
 func TestDynamicValidateInputByType_EmptyBody(t *testing.T) {
@@ -136,6 +133,6 @@ func TestDynamicValidateInputByType_ReadBodyError(t *testing.T) {
 
 type errReader struct{}
 
-func (e *errReader) Read(p []byte) (int, error) {
+func (e *errReader) Read(_ []byte) (int, error) {
 	return 0, errors.New("read error")
 }

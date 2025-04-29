@@ -17,21 +17,17 @@ import (
 	"github.com/pocketbase/pocketbase/tools/router"
 )
 
-type contextKey string
-
-const ValidatedInputKey contextKey = "validatedInput"
-
 type HandlerFunc func(e *core.RequestEvent) error
 
 type HandlerFactory func(app core.App) func(*core.RequestEvent) error
 
 type RouteDefinition struct {
-	Method      string
-	Path        string
-	Handler     HandlerFactory
-	Input       any
-	OutputType  reflect.Type
-	Middlewares []*hook.Handler[*core.RequestEvent]
+	Method              string
+	Path                string
+	Handler             HandlerFactory
+	Input               any
+	OutputType          reflect.Type
+	Middlewares         []*hook.Handler[*core.RequestEvent]
 	ExcludedMiddlewares []string
 }
 
@@ -53,7 +49,7 @@ func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
 }
 
 type RouteGroup struct {
-	BaseUrl     string
+	BaseURL     string
 	Routes      []RouteDefinition
 	Middlewares []*hook.Handler[*core.RequestEvent]
 	Validation  bool
@@ -61,7 +57,7 @@ type RouteGroup struct {
 
 func AddGroupRoutes(app core.App, input RouteGroup) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		basePath := input.BaseUrl
+		basePath := input.BaseURL
 		if basePath == "" {
 			basePath = "/api"
 		}

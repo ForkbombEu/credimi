@@ -45,7 +45,7 @@ Then print the data
 Given I have a 'string' named 'broken'
 `,
 			expectError:    true,
-			expectErrorMsg: "Zenroom execution failed with exit code",
+			expectErrorMsg: "execution of Zenroom failed with exit code",
 		},
 	}
 

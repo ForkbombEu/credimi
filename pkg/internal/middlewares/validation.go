@@ -48,12 +48,7 @@ func validateMapValues(m reflect.Value) error {
 		if vType := reflect.TypeOf(mapVal); vType != nil && (vType.Kind() == reflect.Struct || (vType.Kind() == reflect.Ptr && vType.Elem().Kind() == reflect.Struct)) {
 			if err := validate.Struct(mapVal); err != nil {
 				if vErrs, ok := err.(validator.ValidationErrors); ok {
-					for _, ve := range vErrs {
-						// Adjust field namespace if possible/needed, simple prepend here
-						// Note: validator doesn't easily support map key prefixes in Namespace out-of-the-box.
-						// Custom error formatting might be needed for perfect field paths.
-						allErrors = append(allErrors, ve)
-					}
+					allErrors = append(allErrors, vErrs...)
 				}
 			}
 		} else {
@@ -107,6 +102,7 @@ func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEven
 			return apierror.New(http.StatusBadRequest, "request.validation", "Validation failed", string(detailsBytes))
 		}
 
+		// TODO: Add a way to set the validated value in the context
 		ctx := context.WithValue(request.Context(), "validatedInput", val)
 		e.Request = request.WithContext(ctx)
 
