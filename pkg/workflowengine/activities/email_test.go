@@ -48,7 +48,7 @@ func TestSendMailActivity_Configure(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			tt.setupEnv()
-			err := activity.Configure(t.Context(), input)
+			err := activity.Configure(input)
 
 			require.NoError(t, err)
 			require.Equal(t, "smtp.example.com", input.Config["smtp_host"])
