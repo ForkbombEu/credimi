@@ -383,5 +383,6 @@
 	"Test_the_conformance_and_interoperability_of_your_EUDIW": "Test the conformance and interoperability of your EUDIW",
 	"Language": "Language",
 	"Credential_name": "Credential name",
-	"App_name": "App name"
+	"App_name": "App name",
+	"An_error_happened_while_generating_the_qr_code": "An error happened while generating the QR code"
 }
