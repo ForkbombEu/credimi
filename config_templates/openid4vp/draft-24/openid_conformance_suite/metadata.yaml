@@ -1,0 +1,5 @@
+name:  OpenID Foundation Conformance Suite
+homepage: https://openid.net/certification/about-conformance-suite/
+github: https://gitlab.com/openid/conformance-suite
+help: https://openid.net/certification/conformance-testing-for-openid-for-verifiable-presentations/
+description: Conformance/certification suite for OIDF's OpenID Connect, FAPI & FAPI-CIBA Profiles, including OpenBanking UK & Australia CDR security conformance certification
