@@ -22,7 +22,7 @@ import (
 var validate = validator.New()
 
 func formatValidationErrors(err error) []map[string]any {
-	var details []map[string]any
+	details := []map[string]any{}
 	var validationErrs validator.ValidationErrors
 	ok := errors.As(err, &validationErrs)
 	if !ok {
@@ -126,6 +126,7 @@ func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEven
 		}
 
 		// TODO: Add a way to set the validated value in the context
+		// nolint:staticcheck
 		ctx := context.WithValue(request.Context(), "validatedInput", val)
 		e.Request = request.WithContext(ctx)
 

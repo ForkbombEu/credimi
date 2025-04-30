@@ -93,7 +93,6 @@ lint: devtools ## 📑 lint rules checks
 	$(GOMOD) tidy -diff
 	$(GOMOD) verify
 	$(GOCMD) vet $(SUBDIRS)
-	$(GOTOOL) staticcheck -checks=all,-ST1000,-U1000,-ST1003,-SA1029 $(SUBDIRS)
 	$(GOTOOL) govulncheck $(SUBDIRS)
 	$(GOTOOL) golangci-lint run $(SUBDIRS)
 

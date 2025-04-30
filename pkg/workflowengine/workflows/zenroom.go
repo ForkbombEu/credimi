@@ -54,7 +54,7 @@ func (w *ZenroomWorkflow) Workflow(
 
 		contract, _ := input.Payload["contract"].(string)
 		contractPath := filepath.Join(tmpDirLocal, "contract.zen")
-		if err := os.WriteFile(contractPath, []byte(contract), 0644); err != nil {
+		if err := os.WriteFile(contractPath, []byte(contract), 0600); err != nil {
 			return err
 		}
 
@@ -62,7 +62,7 @@ func (w *ZenroomWorkflow) Workflow(
 
 		if keys, ok := input.Payload["keys"].(string); ok {
 			keysPath := filepath.Join(tmpDirLocal, "keys.json")
-			if err := os.WriteFile(keysPath, []byte(keys), 0644); err != nil {
+			if err := os.WriteFile(keysPath, []byte(keys), 0600); err != nil {
 				return err
 			}
 			cmdArgsLocal = append(cmdArgsLocal, "-k", "/tmp/keys.json")
@@ -70,7 +70,7 @@ func (w *ZenroomWorkflow) Workflow(
 
 		if data, ok := input.Payload["data"].(string); ok {
 			dataPath := filepath.Join(tmpDirLocal, "data.json")
-			if err := os.WriteFile(dataPath, []byte(data), 0644); err != nil {
+			if err := os.WriteFile(dataPath, []byte(data), 0600); err != nil {
 				return err
 			}
 			cmdArgsLocal = append(cmdArgsLocal, "-a", "/tmp/data.json")

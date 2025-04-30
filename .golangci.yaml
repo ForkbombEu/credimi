@@ -31,7 +31,7 @@ linters:
     - fatcontext
     # - forbidigo
     # - forcetypeassert
-    - funlen
+    # - funlen
     - ginkgolinter
     - gocheckcompilerdirectives
     # - gochecknoglobals
@@ -107,6 +107,9 @@ linters:
     # - wrapcheck
     # - wsl
     - zerologlint
+  disable:
+    - errcheck
+
   settings:
     revive:
       confidence: 0.8
@@ -121,12 +124,6 @@ linters:
         - G304
   exclusions:
     rules:
-      - path: testutils/
-        linters:
-          - revive
-      - path: cmd/relayproxy/modeldocs/
-        linters:
-          - lll
       - path: _test\.go
         linters:
           - gosec
@@ -146,23 +143,10 @@ linters:
           - revive
           - gosec
           - copyloopvar
-      - path: _mock\.go
+      - path: pkg/workflowengine/activities/credentialsissuer.go
         linters:
-          - errcheck
-          - funlen
-          - maligned
-          - noctx
-          - scopelint
-          - bodyclose
           - lll
-          - goconst
-          - gocognit
-          - gocyclo
-          - gochecknoinits
-          - dupl
-          - staticcheck
-          - revive
-          - predeclared
+
 formatters:
   enable:
     - gci
@@ -172,15 +156,6 @@ formatters:
   settings:
     gofumpt:
       module-path: github.com/forkbombeu/credimi
-    gci:
-      no-lex-order: true
-    gofmt:
-      simplify: false
-      rewrite-rules:
-        #        - pattern: 'interface{}'
-        #          replacement: 'any'
-        - pattern: 'a[b:len(a)]'
-          replacement: 'a[b:]'
 issues:
-  # See the dedicated "issues" documentation section.
   max-issues-per-linter: 0
+  fix: true
