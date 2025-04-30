@@ -11,6 +11,8 @@ import (
 
 	// p "path"
 	"path/filepath"
+	"gopkg.in/yaml.v3"
+
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -48,7 +50,11 @@ func getTemplatesByFolder(folder string) ([]*os.File, error) {
 
 func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		configs := walkConfigTemplates()
+		rootDir := os.Getenv("ROOT_DIR") + "/config_templates"
+		configs, err := walkConfigTemplates(rootDir)
+		if err != nil {
+			return err
+		}
 		return e.JSON(http.StatusOK, configs)
 	}
 }
@@ -135,64 +141,115 @@ type Standard struct {
 
 type Standards []Standard
 
-func walkConfigTemplates() Standards {
-	return Standards{
-		Standard{
-			StandardMetadata: StandardMetadata{
-				UID:          "openid4vp",
-				Name:         "OpenID4VP Wallet",
-				Description:  "OpenID for Verifiable Credential Issuance",
-				StandardURL:  "https://openid.net/specs/openid-4-verifiable-presentations-1_0-24.html",
-				LatestUpdate: "2024-02-08",
-				ExternalLinks: map[string][]string{
-					"reference": {},
-				},
-			},
-			Versions: []Version{
-				{
-					VersionMetadata: VersionMetadata{
-						UID:              "draft-24",
-						Name:             "Draft 13",
-						LatestUpdate:     "2024-02-08",
-						SpecificationURL: "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-13.html",
-					},
-					Suites: []Suite{
-						{
-							SuiteMetadata: SuiteMetadata{
-								UID:         "ewc",
-								Name:        "OpenID Foundation Conformance Suite",
-								Homepage:    "https://openid.net/certification/about-conformance-suite/",
-								Repository:  "https://gitlab.com/openid/conformance-suite",
-								Help:        "https://openid.net/certification/conformance-testing-for-openid-for-verifiable-presentations/",
-								Description: "Conformance suite for OIDF’s OpenID Connect, FAPI & FAPI-CIBA Profiles",
-							},
-							Files: []string{"ewc_file1.json", "ewc_file2.json"},
-						},
-						{
-							SuiteMetadata: SuiteMetadata{
-								UID:         "openid_conformance_suite",
-								Name:        "OpenID Foundation Conformance Suite",
-								Homepage:    "https://openid.net/certification/about-conformance-suite/",
-								Repository:  "https://gitlab.com/openid/conformance-suite",
-								Help:        "https://openid.net/certification/conformance-testing-for-openid-for-verifiable-presentations/",
-								Description: "Conformance suite for OIDF’s OpenID Connect, FAPI & FAPI-CIBA Profiles",
-							},
-							Files: []string{"conformance_file1.json", "conformance_file2.json"},
-						},
-						{
-							SuiteMetadata: SuiteMetadata{
-								UID:         "vuota_conformance_suite",
-								Name:        "Vuota Conformance Suite",
-								Homepage:    "https://vuota.com/certification/about-conformance-suite/",
-								Repository:  "https://gitlab.com/vuota/conformance-suite",
-								Help:        "https://vuota.com/certification/conformance-testing-for-openid-for-verifiable-presentations/",
-								Description: "Conformance suite for Vuota",
-							},
-							Files: []string{},
-						},
-					},
-				},
-			},
-		},
+
+func walkConfigTemplates(dir string) (Standards, error) {
+	var standards Standards
+
+	readDir := func(path string) ([]os.DirEntry, error) {
+		entries, err := os.ReadDir(path)
+		if err != nil {
+			return nil, apierror.New(http.StatusInternalServerError, "filesystem.readDir", "Failed to read directory: "+path, err.Error())
+		}
+		return entries, nil
 	}
+
+	readYaml := func(path string, out interface{}) error {
+		data, err := os.ReadFile(path)
+		if err != nil {
+			// If file doesn't exist, just skip (not an error)
+			if os.IsNotExist(err) {
+				return nil
+			}
+			return apierror.New(http.StatusInternalServerError, "filesystem.readFile", "Failed to read file: "+path, err.Error())
+		}
+		if err := yaml.Unmarshal(data, out); err != nil {
+			return apierror.New(http.StatusInternalServerError, "yaml.unmarshal", "Failed to unmarshal yaml: "+path, err.Error())
+		}
+		return nil
+	}
+
+	standardEntries, err := readDir(dir)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, entry := range standardEntries {
+		if !entry.IsDir() {
+			continue
+		}
+		standardUID := entry.Name()
+		standardPath := filepath.Join(dir, standardUID)
+
+		standardMeta := StandardMetadata{UID: standardUID}
+		if err := readYaml(filepath.Join(standardPath, "standard.yaml"), &standardMeta); err != nil {
+			return nil, err
+		}
+
+		versionEntries, err := readDir(standardPath)
+		if err != nil {
+			return nil, err
+		}
+
+		var versions []Version
+		for _, vEntry := range versionEntries {
+			if !vEntry.IsDir() {
+				continue
+			}
+			versionUID := vEntry.Name()
+			versionPath := filepath.Join(standardPath, versionUID)
+
+			versionMeta := VersionMetadata{UID: versionUID}
+			if err := readYaml(filepath.Join(versionPath, "version.yaml"), &versionMeta); err != nil {
+				return nil, err
+			}
+
+			suiteEntries, err := readDir(versionPath)
+			if err != nil {
+				return nil, err
+			}
+
+			var suites []Suite
+			for _, sEntry := range suiteEntries {
+				if !sEntry.IsDir() {
+					continue
+				}
+				suiteUID := sEntry.Name()
+				suitePath := filepath.Join(versionPath, suiteUID)
+
+				suiteMeta := SuiteMetadata{UID: suiteUID}
+				if err := readYaml(filepath.Join(suitePath, "metadata.yaml"), &suiteMeta); err != nil {
+					return nil, err
+				}
+
+				fileEntries, err := readDir(suitePath)
+				if err != nil {
+					return nil, err
+				}
+
+				files := []string{}
+				for _, f := range fileEntries {
+					if !f.IsDir() && f.Name() != "metadata.yaml" {
+						files = append(files, f.Name())
+					}
+				}
+
+				suites = append(suites, Suite{
+					SuiteMetadata: suiteMeta,
+					Files:         files,
+				})
+			}
+
+			versions = append(versions, Version{
+				VersionMetadata: versionMeta,
+				Suites:          suites,
+			})
+		}
+
+		standards = append(standards, Standard{
+			StandardMetadata: standardMeta,
+			Versions:         versions,
+		})
+	}
+
+	return standards, nil
 }
