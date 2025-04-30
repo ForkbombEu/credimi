@@ -177,7 +177,12 @@ func (w *OpenIDNetWorkflow) Workflow(
 	var data SignalData
 
 	selector.AddFuture(logsWorkflow, func(f workflow.Future) {
-		f.Get(ctx, &subWorkflowResponse)
+		if err := f.Get(ctx, &subWorkflowResponse); err != nil {
+			logger.Error("Child workflow failed", "error", err)
+			subWorkflowResponse = workflowengine.WorkflowResult{
+				Message: fmt.Sprintf("Child workflow failed: %v", err),
+			}
+		}
 	})
 	var signalSent bool
 	signalChan := workflow.GetSignalChannel(ctx, "wallet-test-signal")
@@ -185,7 +190,12 @@ func (w *OpenIDNetWorkflow) Workflow(
 		signalSent = true
 		c.Receive(ctx, &data)
 		cancelHandler()
-		logsWorkflow.Get(ctx, &subWorkflowResponse)
+		if err := logsWorkflow.Get(ctx, &subWorkflowResponse); err != nil {
+			logger.Error("Failed to get child workflow result", "error", err)
+			subWorkflowResponse = workflowengine.WorkflowResult{
+				Message: fmt.Sprintf("Failed to get child workflow result: %v", err),
+			}
+		}
 	})
 	for !signalSent {
 		selector.Select(ctx)

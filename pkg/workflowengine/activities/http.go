@@ -82,7 +82,7 @@ func (a *HTTPActivity) Execute(
 		body = bytes.NewBuffer(jsonBody)
 	}
 
-	req, err := http.NewRequest(method, url, body)
+	req, err := http.NewRequestWithContext(context.Background(), method, url, body)
 	if err != nil {
 		return workflowengine.Fail(&result, fmt.Sprintf("failed to create request: %v", err))
 	}

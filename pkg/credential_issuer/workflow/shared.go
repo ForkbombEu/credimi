@@ -5,7 +5,8 @@
 package workflow
 
 // FidesIssuersURL is the URL to fetch issuers from the Fides API.
-const FidesIssuersURL = "https://credential-catalog.fides.community/api/public/credentialtype?includeAllDetails=false&size=200"
+const FidesIssuersURL = "https://credential-catalog.fides.community/api/public/credentialtype?" + params
+const params = "includeAllDetails=false&size=200"
 
 // FetchIssuersActivityResponse represents the response containing a list of issuers fetched from the Fides API.
 type FetchIssuersActivityResponse struct{ Issuers []string }

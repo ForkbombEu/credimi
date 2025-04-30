@@ -28,8 +28,9 @@ import (
 // - app: A pointer to the PocketBase application instance.
 //
 // Note:
-// - The function uses the `log.Fatalln` method to terminate the application if the NamespaceClient cannot be created.
-// - The hook ensures that the namespace registration process does not block the continuation of the event by calling `e.Next()` at the end.
+//   - The function uses the `log.Fatalln` method to terminate the application if the NamespaceClient cannot be created.
+//   - The hook ensures that the namespace registration process does not block the continuation of the event by calling
+//     `e.Next()` at the end.
 func HookNamespaceOrgs(app *pocketbase.PocketBase) {
 	app.OnRecordAfterCreateSuccess("organizations").BindFunc(func(e *core.RecordEvent) error {
 		c, err := client.NewNamespaceClient(client.Options{})

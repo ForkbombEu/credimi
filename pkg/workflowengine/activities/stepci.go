@@ -91,7 +91,7 @@ func (a *StepCIWorkflowActivity) Execute(
 		}
 	}
 
-	binDir := utils.GetEnvironmentVariable("BIN", ".bin", false)
+	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	binName := "stepci-captured-runner"
 	binPath := fmt.Sprintf("%s/%s", binDir, binName)
 	// Build the arguments for the command

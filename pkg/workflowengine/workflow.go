@@ -41,7 +41,10 @@ func StartWorkflowWithOptions(
 	input WorkflowInput,
 ) (result WorkflowResult, err error) {
 	// Load environment variables.
-	godotenv.Load()
+	err = godotenv.Load()
+	if err != nil {
+		return WorkflowResult{}, fmt.Errorf("failed to load .env file: %w", err)
+	}
 	namespace := "default"
 	if input.Config["namespace"] != nil {
 		namespace = input.Config["namespace"].(string)
