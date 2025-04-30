@@ -3,7 +3,7 @@
 ## Prerequisites
 Obtain a TOKEN from the https://www.certification.openid.net
 
-### 1. Login (Google/Gitalb)
+### 1. Login (Google/GitLab)
 ![login](images/1.png)
 
 
