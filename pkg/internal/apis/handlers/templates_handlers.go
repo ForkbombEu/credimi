@@ -119,17 +119,17 @@ type SuiteMetadata struct {
 }
 
 type Suite struct {
-	Metadata SuiteMetadata `json:"metadata"`
+	SuiteMetadata
 	Files    []string      `json:"files"`
 }
 
 type Version struct {
-	Version VersionMetadata `json:"version"`
+	VersionMetadata
 	Suites  []Suite         `json:"suites"`
 }
 
 type Standard struct {
-	Standard StandardMetadata `json:"standard"`
+	StandardMetadata
 	Versions []Version        `json:"versions"`
 }
 
@@ -138,7 +138,7 @@ type Standards []Standard
 func walkConfigTemplates() Standards {
 	return Standards{
 		Standard{
-			Standard: StandardMetadata{
+			StandardMetadata: StandardMetadata{
 				UID:          "openid4vp",
 				Name:         "OpenID4VP Wallet",
 				Description:  "OpenID for Verifiable Credential Issuance",
@@ -150,7 +150,7 @@ func walkConfigTemplates() Standards {
 			},
 			Versions: []Version{
 				{
-					Version: VersionMetadata{
+					VersionMetadata: VersionMetadata{
 						UID:              "draft-24",
 						Name:             "Draft 13",
 						LatestUpdate:     "2024-02-08",
@@ -158,7 +158,7 @@ func walkConfigTemplates() Standards {
 					},
 					Suites: []Suite{
 						{
-							Metadata: SuiteMetadata{
+							SuiteMetadata: SuiteMetadata{
 								UID:         "ewc",
 								Name:        "OpenID Foundation Conformance Suite",
 								Homepage:    "https://openid.net/certification/about-conformance-suite/",
@@ -169,7 +169,7 @@ func walkConfigTemplates() Standards {
 							Files: []string{"ewc_file1.json", "ewc_file2.json"},
 						},
 						{
-							Metadata: SuiteMetadata{
+							SuiteMetadata: SuiteMetadata{
 								UID:         "openid_conformance_suite",
 								Name:        "OpenID Foundation Conformance Suite",
 								Homepage:    "https://openid.net/certification/about-conformance-suite/",
@@ -180,7 +180,7 @@ func walkConfigTemplates() Standards {
 							Files: []string{"conformance_file1.json", "conformance_file2.json"},
 						},
 						{
-							Metadata: SuiteMetadata{
+							SuiteMetadata: SuiteMetadata{
 								UID:         "vuota_conformance_suite",
 								Name:        "Vuota Conformance Suite",
 								Homepage:    "https://vuota.com/certification/about-conformance-suite/",

@@ -14,7 +14,7 @@ func TestWalkConfigTemplates(t *testing.T) {
 	// Mocked expected value for TestWalkConfigTemplates
 	want := Standards{
 		Standard{
-			Standard: StandardMetadata{
+			StandardMetadata: StandardMetadata{
 				UID:          "openid4vp",
 				Name:         "OpenID4VP Wallet",
 				Description:  "OpenID for Verifiable Credential Issuance",
@@ -26,7 +26,7 @@ func TestWalkConfigTemplates(t *testing.T) {
 			},
 			Versions: []Version{
 				{
-					Version: VersionMetadata{
+					VersionMetadata: VersionMetadata{
 						UID:              "draft-24",
 						Name:             "Draft 13",
 						LatestUpdate:     "2024-02-08",
@@ -34,7 +34,7 @@ func TestWalkConfigTemplates(t *testing.T) {
 					},
 					Suites: []Suite{
 						{
-							Metadata: SuiteMetadata{
+							SuiteMetadata: SuiteMetadata{
 								UID:         "ewc",
 								Name:        "OpenID Foundation Conformance Suite",
 								Homepage:    "https://openid.net/certification/about-conformance-suite/",
@@ -45,7 +45,7 @@ func TestWalkConfigTemplates(t *testing.T) {
 							Files: []string{"ewc_file1.json", "ewc_file2.json"},
 						},
 						{
-							Metadata: SuiteMetadata{
+							SuiteMetadata: SuiteMetadata{
 								UID:         "openid_conformance_suite",
 								Name:        "OpenID Foundation Conformance Suite",
 								Homepage:    "https://openid.net/certification/about-conformance-suite/",
@@ -56,7 +56,7 @@ func TestWalkConfigTemplates(t *testing.T) {
 							Files: []string{"conformance_file1.json", "conformance_file2.json"},
 						},
 						{
-							Metadata: SuiteMetadata{
+							SuiteMetadata: SuiteMetadata{
 								UID:         "vuota_conformance_suite",
 								Name:        "Vuota Conformance Suite",
 								Homepage:    "https://vuota.com/certification/about-conformance-suite/",
