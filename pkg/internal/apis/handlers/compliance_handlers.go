@@ -137,12 +137,10 @@ type HandleConfirmSuccessRequestInput struct {
 
 func HandleConfirmSuccess() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		log.Println("HandleConfirmSuccess called")
 		req, err := routing.GetValidatedInput[HandleConfirmSuccessRequestInput](e)
-		if err == nil {
+		if err != nil {
 			return err
 		}
-
 		data := workflows.SignalData{Success: true}
 		c, err := temporalclient.New()
 		if err != nil {
