@@ -304,7 +304,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 
 	subCtx := workflow.WithActivityOptions(ctx, w.GetOptions())
 
-	GetLogsInput := workflowengine.ActivityInput{
+	getLogsInput := workflowengine.ActivityInput{
 		Config: map[string]string{
 			"method": "GET",
 			"url": fmt.Sprintf(
@@ -324,92 +324,109 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	}
 	var logs []map[string]any
 
-	signalChan := workflow.GetSignalChannel(ctx, "wallet-test-start-log-update")
+	startSignalChan := workflow.GetSignalChannel(ctx, "wallet-test-start-log-update")
+	stopSignalChan := workflow.GetSignalChannel(ctx, "wallet-test-stop-log-update")
 	selector := workflow.NewSelector(ctx)
-	var triggerEnabled bool // Persistent flag to enable activity executions
 
-	// Timer setup
+	var isPaused = true
+	var triggerEnabled = false
+
 	var timerFuture workflow.Future
-	startTimer := func() {
+	var startTimer func()
+	startTimer = func() {
 		timerCtx, _ := workflow.WithCancel(ctx)
 		timerFuture = workflow.NewTimer(
 			timerCtx,
 			time.Duration(input.Config["interval"].(float64))*time.Nanosecond,
 		)
+		selector.AddFuture(timerFuture, func(_ workflow.Future) {
+			if !isPaused {
+				startTimer()
+			}
+		})
 	}
-
-	// Initialize the timer
-	startTimer()
 
 	for {
 		if ctx.Err() != nil {
 			logger.Info("Workflow canceled, returning collected logs")
 			return workflowengine.WorkflowResult{Log: logs}, nil
 		}
+
+		// Always listen for pause/resume signals
+		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+			var signalVal interface{}
+			c.Receive(ctx, &signalVal)
+			if isPaused {
+				isPaused = false
+				triggerEnabled = true
+				startTimer()
+				logger.Info("Received start signal, unpausing workflow")
+			}
+		})
+		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+			var signalVal interface{}
+			c.Receive(ctx, &signalVal)
+			isPaused = true
+			logger.Info("Received stop signal, pausing workflow")
+		})
+
+		// Wait for a signal or timer
+		selector.Select(ctx)
+
+		// Skip activity execution if paused
+		if isPaused || !triggerEnabled {
+			continue
+		}
+
+		// Perform activity to fetch logs
 		var HTTPActivity activities.HTTPActivity
 		var HTTPResponse workflowengine.ActivityResult
-		// Fetch logs
-		err := workflow.ExecuteActivity(subCtx, HTTPActivity.Name(), GetLogsInput).
+
+		err := workflow.ExecuteActivity(subCtx, HTTPActivity.Name(), getLogsInput).
 			Get(subCtx, &HTTPResponse)
 		if err != nil {
 			logger.Error("Failed to get logs", "error", err)
 			return workflowengine.WorkflowResult{}, err
 		}
 
-		logs = asSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
-		// Check termination condition
+		logs = AsSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
+
+		triggerLogsInput := workflowengine.ActivityInput{
+			Config: map[string]string{
+				"method": "POST",
+				"url": fmt.Sprintf(
+					"%s/%s",
+					input.Payload["app_url"].(string),
+					"api/compliance/send-log-update",
+				),
+			},
+			Payload: map[string]any{
+				"headers": map[string]any{
+					"Content-Type": "application/json",
+				},
+				"body": map[string]any{
+					"workflow_id": strings.TrimSuffix(
+						workflow.GetInfo(ctx).WorkflowExecution.ID,
+						"-log",
+					),
+					"logs": logs,
+				},
+			},
+		}
+
+		err = workflow.ExecuteActivity(subCtx, HTTPActivity.Name(), triggerLogsInput).
+			Get(ctx, nil)
+		if err != nil {
+			logger.Error("Failed to send logs", "error", err)
+			return workflowengine.WorkflowResult{}, err
+		}
+
+		// Stop if logs are done
 		if len(logs) > 0 {
 			if result, ok := logs[len(logs)-1]["result"].(string); ok {
 				if result == "INTERRUPTED" || result == "FINISHED" {
 					return workflowengine.WorkflowResult{Log: logs}, nil
 				}
-			}
-		}
-
-		// Register events in the selector
-		selector.AddReceive(signalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalVal interface{}
-			c.Receive(ctx, &signalVal)
-			triggerEnabled = true // Enable activity execution
-		})
-		selector.AddFuture(timerFuture, func(_ workflow.Future) {
-			// Timer expired; reset the timer for the next interval
-			startTimer()
-		})
-
-		// Wait for either a signal or the timer to expire
-		selector.Select(ctx)
-
-		// Execute TriggerLogsUpdateActivity if enabled
-		if triggerEnabled {
-			triggerLogsInput := workflowengine.ActivityInput{
-				Config: map[string]string{
-					"method": "POST",
-					"url": fmt.Sprintf(
-						"%s/%s",
-						input.Payload["app_url"].(string),
-						"api/compliance/send-log-update",
-					),
-				},
-				Payload: map[string]any{
-					"headers": map[string]any{
-						"Content-Type": "application/json",
-					},
-					"body": map[string]any{
-						"workflow_id": strings.TrimSuffix(
-							workflow.GetInfo(ctx).WorkflowExecution.ID,
-							"-log",
-						),
-						"logs": logs,
-					},
-				},
-			}
-
-			err = workflow.ExecuteActivity(subCtx, HTTPActivity.Name(), triggerLogsInput).
-				Get(ctx, nil)
-			if err != nil {
-				logger.Error("Failed to send logs", "error", err)
-				return workflowengine.WorkflowResult{}, err
 			}
 		}
 	}
@@ -433,7 +450,7 @@ func (w *OpenIDNetLogsWorkflow) Configure(ctx workflow.Context) workflow.Context
 	return workflow.WithChildOptions(ctx, childOptions)
 }
 
-func asSliceOfMaps(val any) []map[string]any {
+func AsSliceOfMaps(val any) []map[string]any {
 	if v, ok := val.([]map[string]any); ok {
 		return v
 	}
