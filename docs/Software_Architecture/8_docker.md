@@ -1,4 +1,4 @@
-# Docker deployment
+# 🐳 Docker deployment
 
 ## Prerequisites
 Obtain a TOKEN from the https://www.certification.openid.net
