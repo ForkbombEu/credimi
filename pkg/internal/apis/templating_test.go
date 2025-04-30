@@ -9,9 +9,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/pocketbase/pocketbase/tests"
-
 	"github.com/joho/godotenv"
+	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
 )
 
@@ -51,5 +50,4 @@ func TestAddTemplatingRoutes(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
-
 }

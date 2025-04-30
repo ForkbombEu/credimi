@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
@@ -15,6 +16,9 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	engine "github.com/forkbombeu/credimi/pkg/templateengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -24,10 +28,6 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"google.golang.org/protobuf/encoding/protojson"
-
-	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	engine "github.com/forkbombeu/credimi/pkg/templateengine"
-	workflowengine "github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
 type SaveVariablesAndStartRequestInput map[string]struct {
@@ -48,7 +48,12 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 		}
 
 		if len(req) == 0 {
-			return apierror.New(http.StatusBadRequest, "request.body.missing", "Request body cannot be empty", "input is required")
+			return apierror.New(
+				http.StatusBadRequest,
+				"request.body.missing",
+				"Request body cannot be empty",
+				"input is required",
+			)
 		}
 
 		appURL := e.App.Settings().Meta.AppURL
@@ -56,19 +61,34 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 		email := e.Auth.GetString("email")
 		namespace, err := getUserNamespace(e.App, userID)
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "user namespace", "failed to get user namespace", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"user namespace",
+				"failed to get user namespace",
+				err.Error(),
+			)
 		}
 
 		protocol := e.Request.PathValue("protocol")
 		author := e.Request.PathValue("author")
 		if protocol == "" || author == "" {
-			return apierror.New(http.StatusBadRequest, "protocol and author", "protocol and author are required", "missing parameters")
+			return apierror.New(
+				http.StatusBadRequest,
+				"protocol and author",
+				"protocol and author are required",
+				"missing parameters",
+			)
 		}
 		protocol, author = normalizeProtocolAndAuthor(protocol, author)
 
 		dirPath := os.Getenv("ROOT_DIR") + "/config_templates/" + protocol + "/" + author + "/"
 		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-			return apierror.New(http.StatusBadRequest, "directory", "directory does not exist for test "+os.Getenv("ROOT_DIR")+protocol+"/"+author, err.Error())
+			return apierror.New(
+				http.StatusBadRequest,
+				"directory",
+				"directory does not exist for test "+os.Getenv("ROOT_DIR")+protocol+"/"+author,
+				err.Error(),
+			)
 		}
 
 		for testName, testData := range req {
@@ -81,14 +101,29 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			switch testData.Format {
 			case "json":
 				if err := processJSONChecks(e, testData, email, appURL, namespace, memo); err != nil {
-					return apierror.New(http.StatusBadRequest, "json", "failed to process JSON checks", err.Error())
+					return apierror.New(
+						http.StatusBadRequest,
+						"json",
+						"failed to process JSON checks",
+						err.Error(),
+					)
 				}
 			case "variables":
 				if err := processVariablesTest(e.App, e, testName, testData, email, appURL, namespace, dirPath, memo); err != nil {
-					return apierror.New(http.StatusBadRequest, "variables", "failed to process variables test", err.Error())
+					return apierror.New(
+						http.StatusBadRequest,
+						"variables",
+						"failed to process variables test",
+						err.Error(),
+					)
 				}
 			default:
-				return apierror.New(http.StatusBadRequest, "format", "unsupported format for test "+testName, "unsupported format")
+				return apierror.New(
+					http.StatusBadRequest,
+					"format",
+					"unsupported format for test "+testName,
+					"unsupported format",
+				)
 			}
 		}
 
@@ -115,9 +150,17 @@ func HandleConfirmSuccess() func(*core.RequestEvent) error {
 
 		if err := c.SignalWorkflow(context.Background(), req.WorkflowID, "", "wallet-test-signal", data); err != nil {
 			// return apis.NewBadRequestError("failed to send success signal", err)
-			return apierror.New(http.StatusBadRequest, "signal", "failed to send success signal", err.Error())
+			return apierror.New(
+				http.StatusBadRequest,
+				"signal",
+				"failed to send success signal",
+				err.Error(),
+			)
 		}
-		return e.JSON(http.StatusOK, map[string]string{"message": "Workflow completed successfully"})
+		return e.JSON(
+			http.StatusOK,
+			map[string]string{"message": "Workflow completed successfully"},
+		)
 	}
 }
 
@@ -127,47 +170,105 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 
 		namespace, err := getUserNamespace(e.App, authRecord.Id)
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "user namespace", "failed to get user namespace", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"user namespace",
+				"failed to get user namespace",
+				err.Error(),
+			)
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
 		if workflowID == "" {
-			return apierror.New(http.StatusBadRequest, "workflowId", "workflowId is required", "missing workflowId")
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflowId",
+				"workflowId is required",
+				"missing workflowId",
+			)
 		}
 		runID := e.Request.PathValue("runId")
 		if runID == "" {
-			return apierror.New(http.StatusBadRequest, "runId", "runId is required", "missing runId")
+			return apierror.New(
+				http.StatusBadRequest,
+				"runId",
+				"runId is required",
+				"missing runId",
+			)
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
 		}
 		defer c.Close()
 
-		historyIterator := c.GetWorkflowHistory(context.Background(), workflowID, runID, false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT)
+		historyIterator := c.GetWorkflowHistory(
+			context.Background(),
+			workflowID,
+			runID,
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		)
 		if historyIterator == nil {
-			return apierror.New(http.StatusNotFound, "workflow", "workflow history not found", "not found")
+			return apierror.New(
+				http.StatusNotFound,
+				"workflow",
+				"workflow history not found",
+				"not found",
+			)
 		}
 		var history []map[string]interface{}
 		for historyIterator.HasNext() {
 			event, err := historyIterator.Next()
 			if err != nil {
-				if _, ok := err.(*serviceerror.NotFound); ok {
-					return apierror.New(http.StatusNotFound, "workflow", "workflow history not found", err.Error())
-				} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
-					return apierror.New(http.StatusNotFound, "workflow", "workflow history not found", err.Error())
+				notFound := &serviceerror.NotFound{}
+				if errors.As(err, &notFound) {
+					return apierror.New(
+						http.StatusNotFound,
+						"workflow",
+						"workflow history not found",
+						err.Error(),
+					)
 				}
-				return apierror.New(http.StatusInternalServerError, "workflow", "failed to iterate workflow history", err.Error())
-
+				invalidArgument := &serviceerror.InvalidArgument{}
+				if errors.As(err, &invalidArgument) {
+					return apierror.New(
+						http.StatusNotFound,
+						"workflow",
+						"workflow history not found",
+						err.Error(),
+					)
+				}
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to iterate workflow history",
+					err.Error(),
+				)
 			}
 			eventData, err := protojson.Marshal(event)
 			if err != nil {
-				return apierror.New(http.StatusInternalServerError, "workflow", "failed to marshal history event", err.Error())
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to marshal history event",
+					err.Error(),
+				)
 			}
 			var eventMap map[string]interface{}
 			if err := json.Unmarshal(eventData, &eventMap); err != nil {
-				return apierror.New(http.StatusInternalServerError, "workflow", "failed to unmarshal history event", err.Error())
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to unmarshal history event",
+					err.Error(),
+				)
 			}
 			history = append(history, eventMap)
 		}
@@ -180,20 +281,40 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		workflowID := e.Request.PathValue("workflowId")
 		if workflowID == "" {
-			return apierror.New(http.StatusBadRequest, "workflowId", "workflowId is required", "missing workflowId")
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflowId",
+				"workflowId is required",
+				"missing workflowId",
+			)
 		}
 		runID := e.Request.PathValue("runId")
 		if runID == "" {
-			return apierror.New(http.StatusBadRequest, "runId", "runId is required", "missing runId")
+			return apierror.New(
+				http.StatusBadRequest,
+				"runId",
+				"runId is required",
+				"missing runId",
+			)
 		}
 		authRecord := e.Auth
 
 		namespace, err := getUserNamespace(e.App, authRecord.Id)
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "user namespace", "failed to get user namespace", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"user namespace",
+				"failed to get user namespace",
+				err.Error(),
+			)
 		}
 		if namespace == "" {
-			return apierror.New(http.StatusBadRequest, "organization", "organization is empty", "missing organization")
+			return apierror.New(
+				http.StatusBadRequest,
+				"organization",
+				"organization is empty",
+				"missing organization",
+			)
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
@@ -201,24 +322,55 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 			return apis.NewInternalServerError("unable to create client", err)
 		}
 		defer c.Close()
-		workflowExecution, err := c.DescribeWorkflowExecution(context.Background(), workflowID, runID)
+		workflowExecution, err := c.DescribeWorkflowExecution(
+			context.Background(),
+			workflowID,
+			runID,
+		)
 		if err != nil {
-			if _, ok := err.(*serviceerror.NotFound); ok {
-				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
+			notFound := &serviceerror.NotFound{}
+			if errors.As(err, &notFound) {
+				return apierror.New(
+					http.StatusNotFound,
+					"workflow",
+					"workflow not found",
+					err.Error(),
+				)
 			}
-			if _, ok := err.(*serviceerror.InvalidArgument); ok {
-				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
+			invalidArgument := &serviceerror.InvalidArgument{}
+			if errors.As(err, &invalidArgument) {
+				return apierror.New(
+					http.StatusBadRequest,
+					"workflow",
+					"invalid workflow ID",
+					err.Error(),
+				)
 			}
-			return apierror.New(http.StatusInternalServerError, "workflow", "failed to describe workflow execution", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to describe workflow execution",
+				err.Error(),
+			)
 		}
 		weJSON, err := protojson.Marshal(workflowExecution)
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "workflow", "failed to marshal workflow execution", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to marshal workflow execution",
+				err.Error(),
+			)
 		}
 		finalJson := make(map[string]interface{})
 		err = json.Unmarshal(weJSON, &finalJson)
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "workflow", "failed to unmarshal workflow execution", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to unmarshal workflow execution",
+				err.Error(),
+			)
 		}
 		return e.JSON(http.StatusOK, finalJson)
 	}
@@ -229,40 +381,67 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 		authRecord := e.Auth
 		namespace, err := getUserNamespace(e.App, authRecord.Id)
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "user namespace", "failed to get user namespace", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"user namespace",
+				"failed to get user namespace",
+				err.Error(),
+			)
 		}
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
 		}
 		defer c.Close()
-		list, err := c.ListWorkflow(context.Background(), &workflowservice.ListWorkflowExecutionsRequest{
-			Namespace: namespace,
-		})
+		list, err := c.ListWorkflow(
+			context.Background(),
+			&workflowservice.ListWorkflowExecutionsRequest{
+				Namespace: namespace,
+			},
+		)
 		if err != nil {
 			log.Println("Error listing workflows:", err)
-			return apierror.New(http.StatusInternalServerError, "workflow", "failed to list workflows", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to list workflows",
+				err.Error(),
+			)
 		}
 		listJSON, err := protojson.Marshal(list)
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "workflow", "failed to marshal workflow list", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to marshal workflow list",
+				err.Error(),
+			)
 		}
 		finalJSON := make(map[string]interface{})
 		err = json.Unmarshal(listJSON, &finalJSON)
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "workflow", "failed to unmarshal workflow list", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to unmarshal workflow list",
+				err.Error(),
+			)
 		}
 		if finalJSON["executions"] == nil {
 			finalJSON["executions"] = []map[string]interface{}{}
 		}
 		return e.JSON(http.StatusOK, finalJSON)
 	}
-
 }
 
 type HandleNotifyFailureRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
-	Reason     string `json:"reason" validate:"required"`
+	Reason     string `json:"reason"      validate:"required"`
 }
 
 func HandleNotifyFailure() func(*core.RequestEvent) error {
@@ -275,19 +454,45 @@ func HandleNotifyFailure() func(*core.RequestEvent) error {
 		data := workflows.SignalData{Success: false, Reason: req.Reason}
 		c, err := temporalclient.New()
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
 		}
 		defer c.Close()
 
 		if err := c.SignalWorkflow(context.Background(), req.WorkflowID, "", "wallet-test-signal", data); err != nil {
-			if _, ok := err.(*serviceerror.NotFound); ok {
-				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
-				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
+			notFound := &serviceerror.NotFound{}
+			if errors.As(err, &notFound) {
+				return apierror.New(
+					http.StatusNotFound,
+					"workflow",
+					"workflow not found",
+					err.Error(),
+				)
 			}
-			return apierror.New(http.StatusBadRequest, "signal", "failed to send failure signal", err.Error())
+			invalidArgument := &serviceerror.InvalidArgument{}
+			if errors.As(err, &invalidArgument) {
+				return apierror.New(
+					http.StatusBadRequest,
+					"workflow",
+					"invalid workflow ID",
+					err.Error(),
+				)
+			}
+			return apierror.New(
+				http.StatusBadRequest,
+				"signal",
+				"failed to send failure signal",
+				err.Error(),
+			)
 		}
-		return e.JSON(http.StatusOK, map[string]string{"message": "Test failed", "reason": req.Reason})
+		return e.JSON(
+			http.StatusOK,
+			map[string]string{"message": "Test failed", "reason": req.Reason},
+		)
 	}
 }
 
@@ -304,20 +509,52 @@ func HandleSendLogUpdateStart() func(*core.RequestEvent) error {
 
 		c, err := temporalclient.New()
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
 		}
 		defer c.Close()
 
-		err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "wallet-test-start-log-update", struct{}{})
+		err = c.SignalWorkflow(
+			context.Background(),
+			req.WorkflowID+"-log",
+			"",
+			"wallet-test-start-log-update",
+			struct{}{},
+		)
 		if err != nil {
-			if _, ok := err.(*serviceerror.NotFound); ok {
-				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
-				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
+			notFound := &serviceerror.NotFound{}
+			if errors.As(err, &notFound) {
+				return apierror.New(
+					http.StatusNotFound,
+					"workflow",
+					"workflow not found",
+					err.Error(),
+				)
 			}
-			return apierror.New(http.StatusBadRequest, "signal", "failed to send start logs update signal", err.Error())
+			invalidArgument := &serviceerror.InvalidArgument{}
+			if errors.As(err, &invalidArgument) {
+				return apierror.New(
+					http.StatusBadRequest,
+					"workflow",
+					"invalid workflow ID",
+					err.Error(),
+				)
+			}
+			return apierror.New(
+				http.StatusBadRequest,
+				"signal",
+				"failed to send start logs update signal",
+				err.Error(),
+			)
 		}
-		return e.JSON(http.StatusOK, map[string]string{"message": "Realtime Logs update started successfully"})
+		return e.JSON(
+			http.StatusOK,
+			map[string]string{"message": "Realtime Logs update started successfully"},
+		)
 	}
 }
 
@@ -347,12 +584,22 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 		return "", apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
 	}
 
-	authOrgRecords, err := app.FindRecordsByFilter(orgAuthCollection.Id, "user={:user}", "", 0, 0, dbx.Params{"user": userID})
+	authOrgRecords, err := app.FindRecordsByFilter(
+		orgAuthCollection.Id,
+		"user={:user}",
+		"",
+		0,
+		0,
+		dbx.Params{"user": userID},
+	)
 	if err != nil {
 		return "", apis.NewInternalServerError("failed to find orgAuthorizations records", err)
 	}
 	if len(authOrgRecords) == 0 {
-		return "", apis.NewInternalServerError("user is not authorized to access any organization", nil)
+		return "", apis.NewInternalServerError(
+			"user is not authorized to access any organization",
+			nil,
+		)
 	}
 
 	ownerRoleRecord, err := app.FindFirstRecordByFilter("orgRoles", "name='owner'")
@@ -373,7 +620,7 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 	return "default", nil
 }
 
-func processJSONChecks(e *core.RequestEvent, testData struct {
+func processJSONChecks(_ *core.RequestEvent, testData struct {
 	Format string      `json:"format" validate:"required"`
 	Data   interface{} `json:"data" validate:"required"`
 }, email, appURL string, namespace interface{}, memo map[string]interface{}) error {
@@ -387,7 +634,9 @@ func processJSONChecks(e *core.RequestEvent, testData struct {
 		return apis.NewBadRequestError("failed to parse JSON input", err)
 	}
 
-	templateStr, err := readTemplateFile(os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath)
+	templateStr, err := readTemplateFile(
+		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
+	)
 	if err != nil {
 		return apis.NewBadRequestError(err.Error(), err)
 	}
@@ -412,7 +661,7 @@ func processJSONChecks(e *core.RequestEvent, testData struct {
 	return nil
 }
 
-func processVariablesTest(app core.App, e *core.RequestEvent, testName string, testData struct {
+func processVariablesTest(app core.App, _ *core.RequestEvent, testName string, testData struct {
 	Format string      `json:"format" validate:"required"`
 	Data   interface{} `json:"data" validate:"required"`
 }, email, appURL string, namespace interface{}, dirPath string, memo map[string]interface{}) error {
@@ -464,7 +713,9 @@ func processVariablesTest(app core.App, e *core.RequestEvent, testName string, t
 		return apis.NewBadRequestError("failed to unmarshal JSON for test "+testName, err)
 	}
 
-	templateStr, err := readTemplateFile(os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath)
+	templateStr, err := readTemplateFile(
+		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
+	)
 	if err != nil {
 		return apis.NewBadRequestError(err.Error(), err)
 	}

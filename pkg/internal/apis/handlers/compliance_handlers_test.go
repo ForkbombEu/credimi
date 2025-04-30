@@ -48,10 +48,18 @@ func TestNormalizeProtocolAndAuthor(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			gotProto, gotAuthor := normalizeProtocolAndAuthor(tt.protocol, tt.author)
 			if gotProto != tt.expectedProto {
-				t.Errorf("normalizeProtocolAndAuthor() protocol = %v, want %v", gotProto, tt.expectedProto)
+				t.Errorf(
+					"normalizeProtocolAndAuthor() protocol = %v, want %v",
+					gotProto,
+					tt.expectedProto,
+				)
 			}
 			if gotAuthor != tt.expectedAuthor {
-				t.Errorf("normalizeProtocolAndAuthor() author = %v, want %v", gotAuthor, tt.expectedAuthor)
+				t.Errorf(
+					"normalizeProtocolAndAuthor() author = %v, want %v",
+					gotAuthor,
+					tt.expectedAuthor,
+				)
 			}
 		})
 	}

@@ -64,20 +64,22 @@ func main() {
 				filename := fmt.Sprintf("%s.json", filepath.Clean(variantString))
 				filePath := filepath.Join(outputDir, filename)
 
-				if err := os.WriteFile(filePath, output, 0644); err != nil {
+				if err := os.WriteFile(filePath, output, 0600); err != nil {
 					fmt.Println("Error writing file:", err)
 					continue
 				}
-
 			}
 		},
 	}
 
 	// Define the flags for the command
 	rootCmd.Flags().StringVarP(&input, "input", "i", "", "Input string (required)")
-	rootCmd.Flags().StringVarP(&defaultPath, "default", "d", "", "Path to the default JSON file (required)")
-	rootCmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to the config JSON file (required)")
-	rootCmd.Flags().StringVarP(&outputDir, "output", "o", "", "Path to the output directory (required)")
+	rootCmd.Flags().
+		StringVarP(&defaultPath, "default", "d", "", "Path to the default JSON file (required)")
+	rootCmd.Flags().
+		StringVarP(&configPath, "config", "c", "", "Path to the config JSON file (required)")
+	rootCmd.Flags().
+		StringVarP(&outputDir, "output", "o", "", "Path to the output directory (required)")
 
 	rootCmd.MarkFlagRequired("input")
 	rootCmd.MarkFlagRequired("default")

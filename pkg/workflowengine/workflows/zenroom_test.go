@@ -83,7 +83,12 @@ Given I have a 'string' named 'broken'
 
 			if tc.expectError {
 				require.Error(t, err, "Expected an error but got none")
-				require.Contains(t, err.Error(), tc.expectErrorMsg, "Error message should contain expected text")
+				require.Contains(
+					t,
+					err.Error(),
+					tc.expectErrorMsg,
+					"Error message should contain expected text",
+				)
 			} else {
 				require.NoError(t, err, "Expected no error but got one")
 				for _, key := range tc.expectOutputs {

@@ -72,7 +72,12 @@ func TestValidateVariant(t *testing.T) {
 		wantError bool
 	}{
 		{"Valid variant", Variant{"test1", "test", "test2", "test"}, validConfig, false},
-		{"Invalid credential_format", Variant{"invalid", "test", "test1", "test"}, validConfig, true},
+		{
+			"Invalid credential_format",
+			Variant{"invalid", "test", "test1", "test"},
+			validConfig,
+			true,
+		},
 		{"Invalid request_method", Variant{"test2", "test", "invalid", "test"}, validConfig, true},
 	}
 
@@ -88,7 +93,9 @@ func TestValidateVariant(t *testing.T) {
 
 func TestParseInput(t *testing.T) {
 	// Create default JSON file
-	defaultData := map[string]any{"form": map[string]any{"client": map[string]any{"default_field": "default_value"}}}
+	defaultData := map[string]any{
+		"form": map[string]any{"client": map[string]any{"default_field": "default_value"}},
+	}
 	defaultFile := writeTempJSON(t, defaultData)
 	defer os.Remove(defaultFile)
 
@@ -122,7 +129,12 @@ func TestParseInput(t *testing.T) {
 		{
 			"Valid input",
 			"test1:test2:test3:test4",
-			map[string]any{"client": map[string]any{"default_field": "default_value", "test_field": "test_value"}},
+			map[string]any{
+				"client": map[string]any{
+					"default_field": "default_value",
+					"test_field":    "test_value",
+				},
+			},
 			false,
 		},
 		{
