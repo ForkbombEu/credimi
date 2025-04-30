@@ -5,7 +5,6 @@
 package apis
 
 import (
-	// "github.com/pocketbase/pocketbase/apis"
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -32,8 +31,7 @@ func AddTemplatingRoutes(app core.App) {
 			},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			// TODO: uncomment when new configs templates feature is ready
-			// apis.RequireAuth(),
+			apis.RequireAuth(),
 			{Func: middlewares.ErrorHandlingMiddleware},
 		},
 		Validation: true,
