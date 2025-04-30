@@ -27,7 +27,10 @@ func (a *JSONActivity) Name() string {
 }
 
 // Execute parses a JSON string from the input payload and validates it against a registered struct type.
-func (a *JSONActivity) Execute(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+func (a *JSONActivity) Execute(
+	_ context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
 	// Get rawJSON
 	raw, ok := input.Payload["rawJSON"]
 	if !ok {
@@ -41,7 +44,10 @@ func (a *JSONActivity) Execute(_ context.Context, input workflowengine.ActivityI
 	// Get struct type name
 	structTypeName, ok := input.Payload["structType"].(string)
 	if !ok {
-		return workflowengine.Fail(&workflowengine.ActivityResult{}, "Missing structType in payload")
+		return workflowengine.Fail(
+			&workflowengine.ActivityResult{},
+			"Missing structType in payload",
+		)
 	}
 
 	// Look up the struct type from the registry

@@ -14,15 +14,14 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/pocketbase/pocketbase"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/plugins/jsvm"
-	"github.com/pocketbase/pocketbase/plugins/migratecmd"
-
 	"github.com/forkbombeu/credimi/pkg/internal/apis"
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
+	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/plugins/jsvm"
+	"github.com/pocketbase/pocketbase/plugins/migratecmd"
 )
 
 func bindAppHooks(app core.App) {

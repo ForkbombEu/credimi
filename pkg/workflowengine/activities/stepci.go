@@ -15,11 +15,10 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/go-sprout/sprout"
-	"github.com/go-sprout/sprout/group/all"
-
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/go-sprout/sprout"
+	"github.com/go-sprout/sprout/group/all"
 )
 
 // StepCIWorkflowActivity is an activity that runs a StepCI workflow
@@ -92,7 +91,7 @@ func (a *StepCIWorkflowActivity) Execute(
 		}
 	}
 
-	binDir := utils.GetEnvironmentVariable("BIN", ".bin", false)
+	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	binName := "stepci-captured-runner"
 	binPath := fmt.Sprintf("%s/%s", binDir, binName)
 	// Build the arguments for the command

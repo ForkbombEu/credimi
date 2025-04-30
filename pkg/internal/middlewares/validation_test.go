@@ -26,9 +26,9 @@ func mockRequestEvent(body io.Reader) *core.RequestEvent {
 }
 
 type testStruct struct {
-	Name  string `json:"name" validate:"required"`
+	Name  string `json:"name"  validate:"required"`
 	Email string `json:"email" validate:"required,email"`
-	Age   int    `json:"age" validate:"gte=0,lte=130"`
+	Age   int    `json:"age"   validate:"gte=0,lte=130"`
 }
 
 type mockRequestEventWithNext struct {
@@ -54,7 +54,7 @@ func TestDynamicValidateInputByType_EmptyBody(t *testing.T) {
 	handler := DynamicValidateInputByType(reflect.TypeOf(testStruct{}))
 	e := &mockRequestEventWithNext{RequestEvent: mockRequestEvent(nil)}
 	e.Request.ContentLength = 0
-	err := handler((*core.RequestEvent)(e.RequestEvent))
+	err := handler(e.RequestEvent)
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -68,7 +68,7 @@ func TestDynamicValidateInputByType_InvalidJSON(t *testing.T) {
 	body := strings.NewReader("{invalid json}")
 	e := &mockRequestEventWithNext{RequestEvent: mockRequestEvent(body)}
 	e.Request.ContentLength = int64(body.Len())
-	err := handler((*core.RequestEvent)(e.RequestEvent))
+	err := handler(e.RequestEvent)
 	if err == nil {
 		t.Fatal("expected error for invalid JSON, got nil")
 	}
@@ -83,7 +83,7 @@ func TestDynamicValidateInputByType_ValidationFails(t *testing.T) {
 	body := strings.NewReader(`{"name": "", "email": "not-an-email", "age": -5}`)
 	e := &mockRequestEventWithNext{RequestEvent: mockRequestEvent(body)}
 	e.Request.ContentLength = int64(body.Len())
-	err := handler((*core.RequestEvent)(e.RequestEvent))
+	err := handler(e.RequestEvent)
 	if err == nil {
 		t.Fatal("expected validation error, got nil")
 	}
@@ -97,7 +97,7 @@ func TestDynamicValidateInputByType_ValidationPasses(t *testing.T) {
 	body := strings.NewReader(`{"name": "Alice", "email": "alice@example.com", "age": 30}`)
 	e := &mockRequestEventWithNext{RequestEvent: mockRequestEvent(body)}
 	e.Request.ContentLength = int64(body.Len())
-	err := handler((*core.RequestEvent)(e.RequestEvent))
+	err := handler(e.RequestEvent)
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
@@ -122,7 +122,7 @@ func TestDynamicValidateInputByType_ReadBodyError(t *testing.T) {
 	badReader := &errReader{}
 	e := &mockRequestEventWithNext{RequestEvent: mockRequestEvent(badReader)}
 	e.Request.ContentLength = 10
-	err := handler((*core.RequestEvent)(e.RequestEvent))
+	err := handler(e.RequestEvent)
 	if err == nil {
 		t.Fatal("expected error for body read failure, got nil")
 	}

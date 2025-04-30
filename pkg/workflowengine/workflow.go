@@ -5,6 +5,12 @@
 package workflowengine
 
 import (
+	"context"
+	"fmt"
+
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/joho/godotenv"
+	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -27,4 +33,39 @@ type Workflow interface {
 	Workflow(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error)
 	Name() string
 	GetOptions() workflow.ActivityOptions
+}
+
+func StartWorkflowWithOptions(
+	options client.StartWorkflowOptions,
+	name string,
+	input WorkflowInput,
+) (result WorkflowResult, err error) {
+	// Load environment variables.
+	err = godotenv.Load()
+	if err != nil {
+		return WorkflowResult{}, fmt.Errorf("failed to load .env file: %w", err)
+	}
+	namespace := "default"
+	if input.Config["namespace"] != nil {
+		namespace = input.Config["namespace"].(string)
+	}
+	c, err := temporalclient.GetTemporalClientWithNamespace(
+		namespace,
+	)
+	if err != nil {
+		return WorkflowResult{}, fmt.Errorf("unable to create client: %w", err)
+	}
+	defer c.Close()
+
+	if input.Config["memo"] != nil {
+		options.Memo = input.Config["memo"].(map[string]any)
+	}
+
+	// Start the workflow execution.
+	_, err = c.ExecuteWorkflow(context.Background(), options, name, input)
+	if err != nil {
+		return WorkflowResult{}, fmt.Errorf("failed to start workflow: %w", err)
+	}
+
+	return WorkflowResult{}, nil
 }

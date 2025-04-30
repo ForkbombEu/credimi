@@ -25,7 +25,7 @@ func getTemporalClient(args ...string) (client.Client, error) {
 	})
 
 	if err != nil {
-		return nil, fmt.Errorf("unable to create client: %v", err)
+		return nil, fmt.Errorf("unable to create client: %w", err)
 	}
 	return c, nil
 }
@@ -36,7 +36,7 @@ func getTemporalClient(args ...string) (client.Client, error) {
 func New() (client.Client, error) {
 	c, err := getTemporalClient()
 	if err != nil {
-		return nil, fmt.Errorf("unable to create client: %v", err)
+		return nil, fmt.Errorf("unable to create client: %w", err)
 	}
 
 	return c, nil
@@ -48,7 +48,7 @@ func New() (client.Client, error) {
 func GetTemporalClientWithNamespace(namespace string) (client.Client, error) {
 	c, err := getTemporalClient(namespace)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create client: %v", err)
+		return nil, fmt.Errorf("unable to create client: %w", err)
 	}
 
 	return c, nil

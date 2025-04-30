@@ -17,31 +17,33 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
-	"github.com/pocketbase/pocketbase/core"
-
 	engine "github.com/forkbombeu/credimi/pkg/templateengine"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 func getTemplatesByFolder(folder string) ([]*os.File, error) {
 	var templates []*os.File
-	err := filepath.Walk(os.Getenv("ROOT_DIR")+"/config_templates/"+folder, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			return err
-		}
+	err := filepath.Walk(
+		os.Getenv("ROOT_DIR")+"/config_templates/"+folder,
+		func(path string, info os.FileInfo, err error) error {
+			if err != nil {
+				return err
+			}
 
-		if info.IsDir() {
+			if info.IsDir() {
+				return nil
+			}
+
+			file, err := os.Open(path)
+			if err != nil {
+				return err
+			}
+
+			templates = append(templates, file)
+
 			return nil
-		}
-
-		file, err := os.Open(path)
-		if err != nil {
-			return err
-		}
-
-		templates = append(templates, file)
-
-		return nil
-	})
+		},
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +79,12 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 		}
 
 		if len(requestPayload.Filenames) == 0 {
-			return apierror.New(http.StatusBadRequest, "request.validation", "filenames are required", "filenames are required")
+			return apierror.New(
+				http.StatusBadRequest,
+				"request.validation",
+				"filenames are required",
+				"filenames are required",
+			)
 		}
 
 		var files []io.Reader
@@ -88,7 +95,12 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 			filePath := filepath.Join(os.Getenv("ROOT_DIR"), "mocked_templates", requestPayload.TestID, filename)
 			file, err := os.Open(filePath)
 			if err != nil {
-				return apierror.New(http.StatusBadRequest, "request.file.open", "Error opening file: "+filename, err.Error())
+				return apierror.New(
+					http.StatusBadRequest,
+					"request.file.open",
+					"Error opening file: "+filename,
+					err.Error(),
+				)
 			}
 			defer file.Close()
 			files = append(files, file)
@@ -96,7 +108,12 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 
 		placeholders, err := engine.GetPlaceholders(files, requestPayload.Filenames)
 		if err != nil {
-			return apierror.New(http.StatusBadRequest, "request.placeholders", "Error getting placeholders", err.Error())
+			return apierror.New(
+				http.StatusBadRequest,
+				"request.placeholders",
+				"Error getting placeholders",
+				err.Error(),
+			)
 		}
 
 		return e.JSON(http.StatusOK, placeholders)

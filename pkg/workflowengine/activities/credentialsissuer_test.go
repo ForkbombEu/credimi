@@ -102,7 +102,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var baseURL string
 			if tt.serverHandler != nil {
-				server := httptest.NewServer(http.HandlerFunc(tt.serverHandler))
+				server := httptest.NewServer(tt.serverHandler)
 				defer server.Close()
 				baseURL = server.URL
 				tt.config["base_url"] = strings.TrimPrefix(baseURL, "https://")

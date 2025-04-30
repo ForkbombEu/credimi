@@ -48,8 +48,7 @@ func TestExtractHrefsFromApiResponse(t *testing.T) {
 		},
 	}
 
-	hrefs, err := extractHrefsFromAPIResponse(root)
-	assert.NoError(t, err)
+	hrefs := extractHrefsFromAPIResponse(root)
 	assert.Equal(t, []string{"https://example.com/123", "https://example.com/456"}, hrefs)
 }
 
@@ -80,7 +79,12 @@ func TestRemoveWellKnownSuffix(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := removeWellKnownSuffix(tt.input)
 			if result != tt.expected {
-				t.Errorf("RemoveWellKnownSuffix(%q) = %q; expected %q", tt.input, result, tt.expected)
+				t.Errorf(
+					"RemoveWellKnownSuffix(%q) = %q; expected %q",
+					tt.input,
+					result,
+					tt.expected,
+				)
 			}
 		})
 	}
