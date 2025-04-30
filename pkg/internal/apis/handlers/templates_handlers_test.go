@@ -12,8 +12,8 @@ import (
 
 func TestWalkConfigTemplates(t *testing.T) {
 	// Mocked expected value for TestWalkConfigTemplates
-	want := Configs{
-		"openid4vp": Config{
+	want := Standards{
+		Standard{
 			Standard: StandardMetadata{
 				UID:          "openid4vp",
 				Name:         "OpenID4VP Wallet",

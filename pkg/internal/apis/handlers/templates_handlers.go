@@ -128,16 +128,16 @@ type Version struct {
 	Suites  []Suite         `json:"suites"`
 }
 
-type Config struct {
+type Standard struct {
 	Standard StandardMetadata `json:"standard"`
 	Versions []Version        `json:"versions"`
 }
 
-type Configs map[string]Config
+type Standards []Standard
 
-func walkConfigTemplates() Configs {
-	return Configs{
-		"openid4vp": Config{
+func walkConfigTemplates() Standards {
+	return Standards{
+		Standard{
 			Standard: StandardMetadata{
 				UID:          "openid4vp",
 				Name:         "OpenID4VP Wallet",
