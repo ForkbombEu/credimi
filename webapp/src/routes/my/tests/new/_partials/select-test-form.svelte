@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { StandardWithTestSuites } from './logic';
 	import * as RadioGroup from '@/components/ui/radio-group/index.js';
 	import { Label } from '@/components/ui/label/index.js';
 	import T from '@/components/ui-custom/t.svelte';
@@ -14,48 +13,63 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
 	import Button from '@/components/ui/button/button.svelte';
 	import { ArrowRight } from 'lucide-svelte';
+	import type { StandardsWithTestSuites } from './standards-response-schema';
+	import { m } from '@/i18n';
 
 	//
 
 	type Props = {
-		standards: StandardWithTestSuites[];
+		standards: StandardsWithTestSuites;
 		onSelectTests?: (standardId: string, tests: string[]) => void;
 	};
 
 	let { standards, onSelectTests }: Props = $props();
 
-	let selectedStandardId = $state(standards[0].id);
+	//
 
-	let compositeTestId = $derived.by(
-		() =>
-			`${selectedStandardId}/${standards.find((s) => s.id === selectedStandardId)?.testSuites[0].id}`
-	);
+	// Makes a flat list `[StandardA:VersionA, StandardA:VersionB, ...]`
+	const standardsWithVersions = $derived.by(() => {
+		return Object.values(standards).flatMap((standard) =>
+			standard.versions.map((version) => ({
+				id: `${standard.uid}:${version.uid}`,
+				label: `${standard.name} – ${version.name}`,
+				description: `${standard.description} (${version.name})`,
+				suites: version.suites
+			}))
+		);
+	});
 
-	const availableTestSuites = $derived(
-		standards.find((s) => s.id === selectedStandardId)?.testSuites ?? []
-	);
-	const totalTests = $derived(
-		availableTestSuites.reduce((prev, curr) => prev + curr.tests.length, 0)
-	);
+	// svelte-ignore state_referenced_locally
+	let selectedStandardId = $state(standardsWithVersions[0].id);
 
-	let selectedTests = $state<string[]>([]);
+	const availableTestSuites = $derived.by(() => {
+		return standardsWithVersions.find((s) => s.id === selectedStandardId)?.suites;
+	});
+
+	let selectedSuitesOrTests = $state<string[]>([]);
 
 	watch(
 		() => selectedStandardId,
 		() => {
-			selectedTests = [];
+			selectedSuitesOrTests = [];
 		}
 	);
+
+	// const totalTests = $derived(
+	// 	availableTestSuites.reduce((prev, curr) => prev + curr.tests.length, 0)
+	// );
 </script>
+
+<pre>{JSON.stringify(selectedSuitesOrTests, null, 2)}</pre>
 
 <div class="mx-auto flex w-full max-w-screen-xl items-start gap-8 p-8">
 	<div class="space-y-4">
-		<T tag="h4">Available standards:</T>
+		<T tag="h4">{m.Available_standards()}</T>
 
 		<RadioGroup.Root bind:value={selectedStandardId} class="!gap-0">
-			{#each standards as test}
-				{@const selected = selectedStandardId === test.id}
-				{@const disabled = test.testSuites.length === 0 || test.disabled}
+			{#each standardsWithVersions as option}
+				{@const selected = selectedStandardId === option.id}
+				{@const disabled = option.suites.length === 0}
 
 				<Label
 					class={[
@@ -69,10 +83,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					]}
 				>
 					<div class="flex items-center gap-2">
-						<RadioGroup.Item value={test.id} id={test.id} {disabled} />
-						<span class="text-lg font-bold">{test.label}</span>
+						<RadioGroup.Item value={option.id} id={option.id} {disabled} />
+						<span class="text-lg font-bold">{option.label}</span>
 					</div>
-					<p class="text-muted-foreground text-sm">{test.description}</p>
+					<p class="text-muted-foreground text-sm">{option.description}</p>
 				</Label>
 			{/each}
 		</RadioGroup.Root>
@@ -81,28 +95,57 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="min-w-0 space-y-4">
 		<T tag="h4">Test suites:</T>
 
-		<Check.Group
-			bind:value={selectedTests}
-			name="test-suites"
-			class="flex flex-col gap-2 overflow-auto"
-		>
-			{#each availableTestSuites as testSuite}
-				<div class="space-y-2">
-					<Check.GroupLabel class="text-sm text-gray-400 underline underline-offset-4">
-						{testSuite.label}
-					</Check.GroupLabel>
-					{#each testSuite.tests as testId}
-						<Label class="flex items-center gap-2 font-mono text-xs">
-							<Checkbox name="test-suites" value={testId} />
-							<span>{testId.replace('.json', '')}</span>
-						</Label>
-					{/each}
-				</div>
-			{/each}
-		</Check.Group>
+		{#if availableTestSuites}
+			<Check.Group
+				bind:value={selectedSuitesOrTests}
+				name="test-suites"
+				class="flex flex-col gap-2 overflow-auto"
+			>
+				{#each availableTestSuites as testSuite}
+					{@const testSuiteId = testSuite.uid}
+					{@const hasIndividualTests = testSuite.files.length > 0}
+
+					{#snippet suiteLabel()}
+						<div>
+							<T class="text-md font-bold">{testSuite.name}</T>
+							<T class="text-muted-foreground text-xs">
+								{testSuite.description}
+							</T>
+						</div>
+					{/snippet}
+
+					{#if !hasIndividualTests}
+						<label class="flex items-center gap-2">
+							<div class="w-4">
+								<Checkbox value={testSuiteId} />
+							</div>
+							{@render suiteLabel()}
+						</label>
+					{:else}
+						<div class="space-y-2">
+							<Check.GroupLabel>
+								{@render suiteLabel()}
+							</Check.GroupLabel>
+
+							{#each testSuite.files as fileId}
+								{@const value = `${testSuiteId}/${fileId}`}
+								{@const label = fileId.split('.').slice(0, -1).join('.')}
+								<Label class="flex items-center gap-2 font-mono text-xs">
+									<Checkbox {value} />
+									<span>{label}</span>
+								</Label>
+							{/each}
+						</div>
+					{/if}
+				{/each}
+			</Check.Group>
+		{:else}
+			<p class="text-muted-foreground text-sm">No test suites available</p>
+		{/if}
 	</div>
 </div>
 
+<!-- 
 <div class="bg-background sticky bottom-0 mt-8 border-t p-4 px-8">
 	<div class="mx-auto flex w-full max-w-screen-xl items-center justify-between">
 		<p class="text-gray-400">
@@ -119,4 +162,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			Next step <ArrowRight />
 		</Button>
 	</div>
-</div>
+</div> -->
