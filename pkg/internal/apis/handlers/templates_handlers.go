@@ -8,9 +8,9 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 
-	// p "path"
 	"path/filepath"
 
 	"gopkg.in/yaml.v3"
@@ -21,40 +21,11 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-func getTemplatesByFolder(folder string) ([]*os.File, error) {
-	var templates []*os.File
-	err := filepath.Walk(
-		os.Getenv("ROOT_DIR")+"/config_templates/"+folder,
-		func(path string, info os.FileInfo, err error) error {
-			if err != nil {
-				return err
-			}
-
-			if info.IsDir() {
-				return nil
-			}
-
-			file, err := os.Open(path)
-			if err != nil {
-				return err
-			}
-
-			templates = append(templates, file)
-
-			return nil
-		},
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	return templates, nil
-}
+var templatesDir = path.Join(os.Getenv("ROOT_DIR"), "config_templates")
 
 func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		rootDir := os.Getenv("ROOT_DIR") + "/mocked_templates"
-		configs, err := walkConfigTemplates(rootDir)
+		configs, err := walkConfigTemplates(templatesDir)
 		if err != nil {
 			return err
 		}
@@ -92,7 +63,7 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 			if !strings.Contains(filename, "/") {
 				continue
 			}
-			filePath := filepath.Join(os.Getenv("ROOT_DIR"), "mocked_templates", requestPayload.TestID, filename)
+			filePath := filepath.Join(templatesDir, requestPayload.TestID, filename)
 			file, err := os.Open(filePath)
 			if err != nil {
 				return apierror.New(
@@ -127,6 +98,7 @@ type StandardMetadata struct {
 	StandardURL   string              `json:"standard_url"`
 	LatestUpdate  string              `json:"latest_update"`
 	ExternalLinks map[string][]string `json:"external_links"`
+	Disabled      bool                `json:"disabled"`
 }
 
 type VersionMetadata struct {

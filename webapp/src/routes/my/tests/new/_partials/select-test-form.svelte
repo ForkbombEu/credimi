@@ -34,7 +34,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				id: `${standard.uid}/${version.uid}`,
 				label: `${standard.name} – ${version.name}`,
 				description: `${standard.description} (${version.name})`,
-				suites: version.suites
+				suites: version.suites,
+				disabled: standard.disabled
 			}))
 		);
 	});
@@ -70,7 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<RadioGroup.Root bind:value={selectedStandardId} class="!gap-0">
 			{#each standardsWithVersions as option}
 				{@const selected = selectedStandardId === option.id}
-				{@const disabled = option.suites.length === 0}
+				{@const disabled = option.disabled}
 
 				<Label
 					class={[

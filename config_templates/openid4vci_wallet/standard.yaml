@@ -1,0 +1,8 @@
+uid: openid4vci-wallet
+name: OpenID4VCI Wallet
+description: OpenID for verifiable credential issuance
+standard_url: https://openid.net/specs/openid-4-verifiable-presentations-1_0-24.html
+latest_update: 2024-02-08
+disabled: true
+external_links:
+  reference: 
