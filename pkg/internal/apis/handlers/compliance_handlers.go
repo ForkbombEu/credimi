@@ -155,14 +155,15 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 		for historyIterator.HasNext() {
 			event, err := historyIterator.Next()
 			if err != nil {
-				if _, ok := err.(*serviceerror.NotFound); ok {
+				notFound := &serviceerror.NotFound{}
+if errors.As(err, &notFound){
 					return apierror.New(http.StatusNotFound, "workflow", "workflow history not found", err.Error())
-				} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
+				} else invalidArgument := &serviceerror.InvalidArgument{}
+if errors.As(err, &invalidArgument){
 					return apierror.New(http.StatusNotFound, "workflow", "workflow history not found", err.Error())
 				}
 				return apierror.New(http.StatusInternalServerError, "workflow", "failed to iterate workflow history", err.Error())
-
-			}
+}
 			eventData, err := protojson.Marshal(event)
 			if err != nil {
 				return apierror.New(http.StatusInternalServerError, "workflow", "failed to marshal history event", err.Error())
@@ -205,10 +206,12 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 		defer c.Close()
 		workflowExecution, err := c.DescribeWorkflowExecution(context.Background(), workflowID, runID)
 		if err != nil {
-			if _, ok := err.(*serviceerror.NotFound); ok {
+			notFound := &serviceerror.NotFound{}
+if errors.As(err, &notFound){
 				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
 			}
-			if _, ok := err.(*serviceerror.InvalidArgument); ok {
+			invalidArgument := &serviceerror.InvalidArgument{}
+if errors.As(err, &invalidArgument){
 				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
 			}
 			return apierror.New(http.StatusInternalServerError, "workflow", "failed to describe workflow execution", err.Error())
@@ -259,7 +262,6 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 		}
 		return e.JSON(http.StatusOK, finalJSON)
 	}
-
 }
 
 type HandleNotifyFailureRequestInput struct {
@@ -282,9 +284,11 @@ func HandleNotifyFailure() func(*core.RequestEvent) error {
 		defer c.Close()
 
 		if err := c.SignalWorkflow(context.Background(), req.WorkflowID, "", "wallet-test-signal", data); err != nil {
-			if _, ok := err.(*serviceerror.NotFound); ok {
+			notFound := &serviceerror.NotFound{}
+if errors.As(err, &notFound){
 				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
+			} else invalidArgument := &serviceerror.InvalidArgument{}
+if errors.As(err, &invalidArgument){
 				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
 			}
 			return apierror.New(http.StatusBadRequest, "signal", "failed to send failure signal", err.Error())
@@ -312,9 +316,11 @@ func HandleSendLogUpdateStart() func(*core.RequestEvent) error {
 
 		err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "wallet-test-start-log-update", struct{}{})
 		if err != nil {
-			if _, ok := err.(*serviceerror.NotFound); ok {
+			notFound := &serviceerror.NotFound{}
+if errors.As(err, &notFound){
 				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
+			} else invalidArgument := &serviceerror.InvalidArgument{}
+if errors.As(err, &invalidArgument){
 				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
 			}
 			return apierror.New(http.StatusBadRequest, "signal", "failed to send start logs update signal", err.Error())

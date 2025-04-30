@@ -26,9 +26,9 @@ func mockRequestEvent(body io.Reader) *core.RequestEvent {
 }
 
 type testStruct struct {
-	Name  string `json:"name" validate:"required"`
+	Name  string `json:"name"  validate:"required"`
 	Email string `json:"email" validate:"required,email"`
-	Age   int    `json:"age" validate:"gte=0,lte=130"`
+	Age   int    `json:"age"   validate:"gte=0,lte=130"`
 }
 
 type mockRequestEventWithNext struct {

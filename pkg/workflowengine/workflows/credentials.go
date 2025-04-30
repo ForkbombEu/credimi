@@ -16,7 +16,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
-
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
@@ -56,7 +55,10 @@ func (w *CredentialsIssuersWorkflow) GetOptions() workflow.ActivityOptions {
 // Returns:
 // - workflowengine.WorkflowResult: The result of the workflow execution, including logs.
 // - error: An error if any step in the workflow fails.
-func (w *CredentialsIssuersWorkflow) Workflow(ctx workflow.Context, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+func (w *CredentialsIssuersWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 	checkIssuer := activities.CheckCredentialsIssuerActivity{}
@@ -77,7 +79,9 @@ func (w *CredentialsIssuersWorkflow) Workflow(ctx workflow.Context, input workfl
 
 	parseJSON := activities.JSONActivity{
 		StructRegistry: map[string]reflect.Type{
-			"OpenidCredentialIssuerSchemaJson": reflect.TypeOf(credentials_config.OpenidCredentialIssuerSchemaJson{}),
+			"OpenidCredentialIssuerSchemaJson": reflect.TypeOf(
+				credentials_config.OpenidCredentialIssuerSchemaJson{},
+			),
 		},
 	}
 	var result workflowengine.ActivityResult
@@ -125,19 +129,27 @@ func (w *CredentialsIssuersWorkflow) Workflow(ctx workflow.Context, input workfl
 			},
 		}
 		var storeResponse workflowengine.ActivityResult
-		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeInput).Get(ctx, &storeResponse)
+		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeInput).
+			Get(ctx, &storeResponse)
 		if err != nil {
 			return workflowengine.WorkflowResult{Log: logs}, err
 		}
 		validKeys = append(validKeys, credKey)
-		logs["StoredCredentials"] = append(logs["StoredCredentials"], storeResponse.Output.(map[string]any)["body"].(map[string]any)["key"])
+		logs["StoredCredentials"] = append(
+			logs["StoredCredentials"],
+			storeResponse.Output.(map[string]any)["body"].(map[string]any)["key"],
+		)
 	}
 
 	HTTPActivity := activities.HTTPActivity{}
 	cleanupInput := workflowengine.ActivityInput{
 		Config: map[string]string{
 			"method": "POST",
-			"url":    fmt.Sprintf("%s/%s", input.Config["app_url"].(string), "api/credentials_issuers/cleanup_credentials"),
+			"url": fmt.Sprintf(
+				"%s/%s",
+				input.Config["app_url"].(string),
+				"api/credentials_issuers/cleanup_credentials",
+			),
 		},
 		Payload: map[string]any{
 			"body": map[string]any{
@@ -147,8 +159,12 @@ func (w *CredentialsIssuersWorkflow) Workflow(ctx workflow.Context, input workfl
 		},
 	}
 	var cleanupResponse workflowengine.ActivityResult
-	err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), cleanupInput).Get(ctx, &cleanupResponse)
-	logs["RemovedCredentials"] = append(logs["RemovedCredentials"], cleanupResponse.Output.(map[string]any)["body"].(map[string]any)["deleted"])
+	err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), cleanupInput).
+		Get(ctx, &cleanupResponse)
+	logs["RemovedCredentials"] = append(
+		logs["RemovedCredentials"],
+		cleanupResponse.Output.(map[string]any)["body"].(map[string]any)["deleted"],
+	)
 	if err != nil {
 		return workflowengine.WorkflowResult{Log: logs}, err
 	}

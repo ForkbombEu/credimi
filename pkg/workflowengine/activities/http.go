@@ -31,7 +31,10 @@ func (HTTPActivity) Name() string {
 // The result includes the status code, headers, and body of the response.
 // It returns an error if the request fails or if the response status code is not 2xx.
 // The timeout for the request can be configured in seconds.
-func (a *HTTPActivity) Execute(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+func (a *HTTPActivity) Execute(
+	_ context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
 
 	method := input.Config["method"]

@@ -11,10 +11,9 @@ import (
 
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
-	"google.golang.org/protobuf/types/known/durationpb"
-
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // HookNamespaceOrgs sets up a hook for the "organizations" collection in the PocketBase application.

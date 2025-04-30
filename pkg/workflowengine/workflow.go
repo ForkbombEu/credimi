@@ -35,7 +35,11 @@ type Workflow interface {
 	GetOptions() workflow.ActivityOptions
 }
 
-func StartWorkflowWithOptions(options client.StartWorkflowOptions, name string, input WorkflowInput) (result WorkflowResult, err error) {
+func StartWorkflowWithOptions(
+	options client.StartWorkflowOptions,
+	name string,
+	input WorkflowInput,
+) (result WorkflowResult, err error) {
 	// Load environment variables.
 	godotenv.Load()
 	namespace := "default"
@@ -46,7 +50,7 @@ func StartWorkflowWithOptions(options client.StartWorkflowOptions, name string, 
 		namespace,
 	)
 	if err != nil {
-		return WorkflowResult{}, fmt.Errorf("unable to create client: %v", err)
+		return WorkflowResult{}, fmt.Errorf("unable to create client: %w", err)
 	}
 	defer c.Close()
 
@@ -57,7 +61,7 @@ func StartWorkflowWithOptions(options client.StartWorkflowOptions, name string, 
 	// Start the workflow execution.
 	_, err = c.ExecuteWorkflow(context.Background(), options, name, input)
 	if err != nil {
-		return WorkflowResult{}, fmt.Errorf("failed to start workflow: %v", err)
+		return WorkflowResult{}, fmt.Errorf("failed to start workflow: %w", err)
 	}
 
 	return WorkflowResult{}, nil

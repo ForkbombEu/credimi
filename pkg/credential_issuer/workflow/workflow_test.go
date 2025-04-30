@@ -37,7 +37,8 @@ func Test_UnsuccessfulFetchIssuersWorkflows(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	env.OnActivity(FetchIssuersActivity, mock.Anything).Return(FetchIssuersActivityResponse{}, errors.New("error"))
+	env.OnActivity(FetchIssuersActivity, mock.Anything).
+		Return(FetchIssuersActivityResponse{}, errors.New("error"))
 	env.ExecuteWorkflow(FetchIssuersWorkflow)
 
 	require.True(t, env.IsWorkflowCompleted())

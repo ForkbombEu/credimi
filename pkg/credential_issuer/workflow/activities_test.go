@@ -79,7 +79,12 @@ func TestRemoveWellKnownSuffix(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			result := removeWellKnownSuffix(tt.input)
 			if result != tt.expected {
-				t.Errorf("RemoveWellKnownSuffix(%q) = %q; expected %q", tt.input, result, tt.expected)
+				t.Errorf(
+					"RemoveWellKnownSuffix(%q) = %q; expected %q",
+					tt.input,
+					result,
+					tt.expected,
+				)
 			}
 		})
 	}

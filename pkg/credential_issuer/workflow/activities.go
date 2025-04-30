@@ -85,7 +85,10 @@ func extractHrefsFromAPIResponse(root FidesResponse) []string {
 }
 
 // CreateCredentialIssuersActivity inserts a list of credential issuers into the database if they do not already exist.
-func CreateCredentialIssuersActivity(ctx context.Context, input CreateCredentialIssuersInput) error {
+func CreateCredentialIssuersActivity(
+	ctx context.Context,
+	input CreateCredentialIssuersInput,
+) error {
 	db, err := sql.Open("sqlite", input.DBPath)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
@@ -111,7 +114,8 @@ func CreateCredentialIssuersActivity(ctx context.Context, input CreateCredential
 
 func checkIfCredentialIssuerExist(ctx context.Context, db *sql.DB, url string) (bool, error) {
 	var count int
-	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM credential_issuers WHERE url = ?", url).Scan(&count)
+	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM credential_issuers WHERE url = ?", url).
+		Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("failed to query database: %w", err)
 	}

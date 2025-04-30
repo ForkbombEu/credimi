@@ -40,7 +40,10 @@ func (d *DockerActivity) Name() string {
 // - "env": Environment variables to set inside the container (as a slice of strings).
 // - "ports": Port mappings (as a slice of strings, format: "hostPort:containerPort").
 // - "containerName": The name of the container (optional).
-func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+func (d *DockerActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
 
 	imageRaw, ok := input.Payload["image"].(string)
@@ -113,7 +116,10 @@ func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.Activ
 	select {
 	case err := <-errCh:
 		if err != nil {
-			return workflowengine.Fail(&result, fmt.Sprintf("error while waiting for container: %v", err))
+			return workflowengine.Fail(
+				&result,
+				fmt.Sprintf("error while waiting for container: %v", err),
+			)
 		}
 	case <-statusCh:
 	}
@@ -124,7 +130,11 @@ func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.Activ
 	}
 
 	// Collect logs
-	logs, err := cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
+	logs, err := cli.ContainerLogs(
+		ctx,
+		resp.ID,
+		container.LogsOptions{ShowStdout: true, ShowStderr: true},
+	)
 	if err != nil {
 		return workflowengine.Fail(&result, fmt.Sprintf("failed to fetch logs: %v", err))
 	}
@@ -149,7 +159,6 @@ func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.Activ
 		"exitCode":    inspect.State.ExitCode,
 	}
 	return result, nil
-
 }
 
 // buildPortMappings takes a slice of port mappings as strings (e.g., "8080:80") and returns
@@ -162,7 +171,9 @@ func buildPortMappings(hostIP string, ports []string) (nat.PortSet, nat.PortMap,
 		// Example: "8080:80"
 		parts := strings.Split(port, ":")
 		if len(parts) != 2 {
-			return nil, nil, errors.New("invalid port mapping format, expected 'hostPort:containerPort'")
+			return nil, nil, errors.New(
+				"invalid port mapping format, expected 'hostPort:containerPort'",
+			)
 		}
 
 		hostPort := parts[0]

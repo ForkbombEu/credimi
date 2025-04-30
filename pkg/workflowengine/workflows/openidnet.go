@@ -14,14 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
-
-	"github.com/forkbombeu/credimi/pkg/utils"
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 )
 
 // SignalData represents the data structure for signals used in the workflow.
@@ -111,7 +110,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	baseURL := input.Payload["app_url"].(string) + "/tests/wallet"
 	u, err := url.Parse(baseURL)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %v", err)
+		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %w", err)
 	}
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)

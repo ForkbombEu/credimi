@@ -74,9 +74,12 @@ func main() {
 
 	// Define the flags for the command
 	rootCmd.Flags().StringVarP(&input, "input", "i", "", "Input string (required)")
-	rootCmd.Flags().StringVarP(&defaultPath, "default", "d", "", "Path to the default JSON file (required)")
-	rootCmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to the config JSON file (required)")
-	rootCmd.Flags().StringVarP(&outputDir, "output", "o", "", "Path to the output directory (required)")
+	rootCmd.Flags().
+		StringVarP(&defaultPath, "default", "d", "", "Path to the default JSON file (required)")
+	rootCmd.Flags().
+		StringVarP(&configPath, "config", "c", "", "Path to the config JSON file (required)")
+	rootCmd.Flags().
+		StringVarP(&outputDir, "output", "o", "", "Path to the output directory (required)")
 
 	rootCmd.MarkFlagRequired("input")
 	rootCmd.MarkFlagRequired("default")

@@ -34,7 +34,10 @@ func (w *ZenroomWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
-func (w *ZenroomWorkflow) Workflow(ctx workflow.Context, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+func (w *ZenroomWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 
@@ -109,24 +112,36 @@ func (w *ZenroomWorkflow) Workflow(ctx workflow.Context, input workflowengine.Wo
 	if err != nil {
 		logger.Error("Activity failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
-
 	}
-	cli, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv, dockerclient.WithAPIVersionNegotiation())
+	cli, err := dockerclient.NewClientWithOpts(
+		dockerclient.FromEnv,
+		dockerclient.WithAPIVersionNegotiation(),
+	)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("failed to create Docker client: %v", err)
+		return workflowengine.WorkflowResult{}, fmt.Errorf(
+			"failed to create Docker client: %w",
+			err,
+		)
 	}
 	output, ok := result.Output.(map[string]any)
 	if !ok {
 		return workflowengine.WorkflowResult{}, errors.New("invalid output format")
 	}
-	cli.ContainerRemove(context.Background(), output["containerID"].(string), container.RemoveOptions{Force: true})
+	cli.ContainerRemove(
+		context.Background(),
+		output["containerID"].(string),
+		container.RemoveOptions{Force: true},
+	)
 
 	exitCode, ok := output["exitCode"].(float64)
 	if !ok {
 		return workflowengine.WorkflowResult{}, errors.New("invalid exit code format")
 	}
 	if int(exitCode) != 0 {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("execution of Zenroom failed with exit code %d", int(exitCode))
+		return workflowengine.WorkflowResult{}, fmt.Errorf(
+			"execution of Zenroom failed with exit code %d",
+			int(exitCode),
+		)
 	}
 	// Parse stdout as JSON
 	outputStr, ok := output["stdout"].(string)
@@ -160,7 +175,7 @@ func (w *ZenroomWorkflow) Start(
 		namespace,
 	)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unable to create client: %v", err)
+		return workflowengine.WorkflowResult{}, fmt.Errorf("unable to create client: %w", err)
 	}
 	defer c.Close()
 
@@ -175,7 +190,7 @@ func (w *ZenroomWorkflow) Start(
 	// Start the workflow execution.
 	_, err = c.ExecuteWorkflow(context.Background(), workflowOptions, w.Name(), input)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("failed to start workflow: %v", err)
+		return workflowengine.WorkflowResult{}, fmt.Errorf("failed to start workflow: %w", err)
 	}
 
 	return workflowengine.WorkflowResult{}, nil

@@ -12,14 +12,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase"
-	"github.com/pocketbase/pocketbase/apis"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
-	"github.com/pocketbase/pocketbase/tools/types"
-	"go.temporal.io/sdk/client"
-
 	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
@@ -27,6 +19,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/apis"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
+	"github.com/pocketbase/pocketbase/tools/types"
+	"go.temporal.io/sdk/client"
 )
 
 func AddComplianceChecks(app core.App) {
@@ -177,7 +176,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 
 			_, err = w.Start(workflowInput)
 			if err != nil {
-				return fmt.Errorf("error starting workflow for URL %s: %v", req.URL, err)
+				return fmt.Errorf("error starting workflow for URL %s: %w", req.URL, err)
 			}
 			//
 			// providers, err := app.FindCollectionByNameOrId("services")
