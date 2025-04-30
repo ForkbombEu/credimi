@@ -131,13 +131,10 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 				require.NotEmpty(t, containerID)
 				cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 				if tt.checkPort {
-					require.NoError(t, err)
-
 					ctx := context.Background()
 					inspect, err := cli.ContainerInspect(ctx, containerID)
 					require.NoError(t, err)
-
-					_, ok := inspect.NetworkSettings.Ports[nat.Port(tt.expectedPort)]
+					_, ok := inspect.HostConfig.PortBindings[nat.Port(tt.expectedPort)]
 					require.True(t, ok, "Expected port %s to be exposed", tt.expectedPort)
 				}
 

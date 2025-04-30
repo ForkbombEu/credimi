@@ -33,7 +33,6 @@ func (StepCIWorkflowActivity) Name() string {
 
 // Configure injects the parsed template and token into the payload
 func (a *StepCIWorkflowActivity) Configure(
-	_ context.Context,
 	input *workflowengine.ActivityInput,
 ) error {
 	yamlString := input.Config["template"]

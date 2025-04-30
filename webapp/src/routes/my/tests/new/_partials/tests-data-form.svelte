@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const form = createForm({
 		adapter: zod(createTestListInputSchema(data)),
 		onSubmit: async ({ form }) => {
-			await pb.send(`/api/${testId}/save-variables-and-start`, {
+			await pb.send(`/api/compliance/${testId}/save-variables-and-start`, {
 				method: 'POST',
 				body: form.data
 			});

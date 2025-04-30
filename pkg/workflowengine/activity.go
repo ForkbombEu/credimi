@@ -35,7 +35,7 @@ type ExecutableActivity interface {
 
 // ConfigurableActivity is an interface that defines the structure of a configurable activity.
 type ConfigurableActivity interface {
-	Configure(ctx context.Context, input *ActivityInput) error
+	Configure(input *ActivityInput) error
 }
 
 // Fail is a utility function that appends an error message to the activity result's errors.

@@ -18,6 +18,7 @@ import (
 	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
 	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
@@ -46,12 +47,6 @@ func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.Activ
 	if !ok || imageRaw == "" {
 		return workflowengine.Fail(&result, "missing or invalid 'image' in payload")
 	}
-	imageParts := strings.Split(imageRaw, ":")
-	if len(imageParts) != 2 {
-		return workflowengine.Fail(&result, "image format should be 'name:version'")
-	}
-
-	imageName := imageParts[0]
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
@@ -70,6 +65,7 @@ func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.Activ
 	user, _ := input.Payload["user"].(string)
 	env := asSliceOfStrings(input.Payload["env"])
 	ports := asSliceOfStrings(input.Payload["ports"])
+	mounts := asSliceOfStrings(input.Payload["mounts"])
 	containerName, ok := input.Payload["containerName"].(string)
 	if !ok {
 		containerName = ""
@@ -90,7 +86,7 @@ func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.Activ
 	}
 
 	config := &container.Config{
-		Image:        imageName,
+		Image:        imageRaw,
 		Cmd:          cmd,
 		User:         user,
 		Env:          env,
@@ -101,6 +97,7 @@ func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.Activ
 
 	hostConfig := &container.HostConfig{
 		PortBindings: portBindings,
+		Binds:        mounts,
 	}
 
 	resp, err := cli.ContainerCreate(ctx, config, hostConfig, networkConfig, nil, containerName)
@@ -112,6 +109,20 @@ func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.Activ
 		return workflowengine.Fail(&result, fmt.Sprintf("failed to start container: %v", err))
 	}
 
+	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
+	select {
+	case err := <-errCh:
+		if err != nil {
+			return workflowengine.Fail(&result, fmt.Sprintf("error while waiting for container: %v", err))
+		}
+	case <-statusCh:
+	}
+
+	inspect, err := cli.ContainerInspect(ctx, resp.ID)
+	if err != nil {
+		return workflowengine.Fail(&result, fmt.Sprintf("failed to inspect container: %v", err))
+	}
+
 	// Collect logs
 	logs, err := cli.ContainerLogs(ctx, resp.ID, container.LogsOptions{ShowStdout: true, ShowStderr: true})
 	if err != nil {
@@ -119,14 +130,26 @@ func (d *DockerActivity) Execute(ctx context.Context, input workflowengine.Activ
 	}
 	defer logs.Close()
 
-	var buf bytes.Buffer
-	io.Copy(&buf, logs)
+	var stdoutBuf, stderrBuf bytes.Buffer
+	var combinedBuf bytes.Buffer
 
-	result.Log = append(result.Log, buf.String())
+	multiStdout := io.MultiWriter(&stdoutBuf, &combinedBuf)
+	multiStderr := io.MultiWriter(&stderrBuf, &combinedBuf)
+
+	_, err = stdcopy.StdCopy(multiStdout, multiStderr, logs)
+	if err != nil {
+		return workflowengine.Fail(&result, fmt.Sprintf("failed to parse logs: %v", err))
+	}
+
+	result.Log = append(result.Log, combinedBuf.String())
 	result.Output = map[string]any{
 		"containerID": resp.ID,
+		"stdout":      stdoutBuf.String(),
+		"stderr":      stderrBuf.String(),
+		"exitCode":    inspect.State.ExitCode,
 	}
 	return result, nil
+
 }
 
 // buildPortMappings takes a slice of port mappings as strings (e.g., "8080:80") and returns

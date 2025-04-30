@@ -29,7 +29,6 @@ func (SendMailActivity) Name() string {
 // It retrieves the SMTP host, port, and sender email from environment variables.
 // If the environment variables are not set, it uses default values.
 func (a *SendMailActivity) Configure(
-	_ context.Context,
 	input *workflowengine.ActivityInput,
 ) error {
 	input.Config["smtp_host"] = utils.GetEnvironmentVariable("SMTP_HOST", "smtp.apps.forkbomb.eu")

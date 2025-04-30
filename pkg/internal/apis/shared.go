@@ -1,0 +1,47 @@
+// SPDX-FileCopyrightText: 2025 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+package apis
+
+import (
+
+	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/suite"
+	"go.temporal.io/sdk/testsuite"
+)
+
+
+type SaveVariablesAndStartRequestInput map[string]struct {
+	Format string      `json:"format" validate:"required"`
+	Data   interface{} `json:"data" validate:"required"`
+}
+
+type UnitTestSuite struct {
+        suite.Suite
+        testsuite.WorkflowTestSuite
+
+        env *testsuite.TestWorkflowEnvironment
+}
+
+func (s *UnitTestSuite) SetupTest() {
+        s.env = s.NewTestWorkflowEnvironment()
+}
+
+const testDataDir = "../../../test_pb_data"
+
+func generateToken(collectionNameOrID string, email string) (string, error) {
+	app, err := tests.NewTestApp(testDataDir)
+	if err != nil {
+		return "", err
+	}
+	defer app.Cleanup()
+
+	record, err := app.FindAuthRecordByEmail(collectionNameOrID, email)
+	if err != nil {
+		return "", err
+	}
+
+	return record.NewAuthToken()
+}
+

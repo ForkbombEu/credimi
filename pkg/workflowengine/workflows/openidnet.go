@@ -94,7 +94,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		},
 	}
 	var stepCIResult workflowengine.ActivityResult
-	err := stepCIWorkflowActivity.Configure(context.Background(), &stepCIInput)
+	err := stepCIWorkflowActivity.Configure(&stepCIInput)
 	if err != nil {
 		logger.Error(" StepCI configure failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
@@ -136,7 +136,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	`, u.String(), u.String()),
 		},
 	}
-	err = emailActivity.Configure(context.Background(), &emailInput)
+	err = emailActivity.Configure(&emailInput)
 	if err != nil {
 		logger.Error("Email activity configure failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
@@ -307,7 +307,10 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	var timerFuture workflow.Future
 	startTimer := func() {
 		timerCtx, _ := workflow.WithCancel(ctx)
-		timerFuture = workflow.NewTimer(timerCtx, time.Duration(input.Config["interval"].(float64))*time.Nanosecond)
+		timerFuture = workflow.NewTimer(
+			timerCtx,
+			time.Duration(input.Config["interval"].(float64))*time.Nanosecond,
+		)
 	}
 
 	// Initialize the timer
@@ -360,7 +363,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 					"url": fmt.Sprintf(
 						"%s/%s",
 						input.Payload["app_url"].(string),
-						"wallet-test/send-log-update",
+						"api/compliance/send-log-update",
 					),
 				},
 				Payload: map[string]any{
