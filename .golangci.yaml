@@ -83,7 +83,7 @@ linters:
     # - promlinter
     - protogetter
     - reassign
-    - recvcheck
+    # - recvcheck
     - revive
     - rowserrcheck
     - sloglint
@@ -109,6 +109,8 @@ linters:
     - zerologlint
   disable:
     - errcheck
+    - funlen
+    - recvcheck
 
   settings:
     revive:

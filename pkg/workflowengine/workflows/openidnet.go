@@ -307,7 +307,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		timerCtx, _ := workflow.WithCancel(ctx)
 		timerFuture = workflow.NewTimer(
 			timerCtx,
-			time.Duration(input.Config["interval"].(float64))*time.Nanosecond,
+			time.Duration(input.Config["interval"].(float64)),
 		)
 	}
 
