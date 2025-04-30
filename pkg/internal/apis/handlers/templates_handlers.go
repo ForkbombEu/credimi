@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+
 	// p "path"
 	"path/filepath"
 
@@ -102,15 +103,17 @@ type StandardMetadata struct {
 }
 
 type VersionMetadata struct {
+	UID              string `json:"uid"`
 	Name             string `json:"name"`
 	LatestUpdate     string `json:"latest_update"`
 	SpecificationURL string `json:"specification_url"`
 }
 
 type SuiteMetadata struct {
+	UID         string `json:"uid"`
 	Name        string `json:"name"`
 	Homepage    string `json:"homepage"`
-	GitHub      string `json:"github"`
+	Repository  string `json:"repository"`
 	Help        string `json:"help"`
 	Description string `json:"description"`
 }
@@ -120,14 +123,14 @@ type Suite struct {
 	Files    []string      `json:"files"`
 }
 
-type Draft struct {
-	Version VersionMetadata  `json:"version"`
-	Suites  map[string]Suite `json:"suites"`
+type Version struct {
+	Version VersionMetadata `json:"version"`
+	Suites  []Suite         `json:"suites"`
 }
 
 type Config struct {
 	Standard StandardMetadata `json:"standard"`
-	Drafts   map[string]Draft `json:"drafts"`
+	Versions []Version        `json:"versions"`
 }
 
 type Configs map[string]Config
@@ -145,33 +148,47 @@ func walkConfigTemplates() Configs {
 					"reference": {},
 				},
 			},
-			Drafts: map[string]Draft{
-				"draft-24": {
+			Versions: []Version{
+				{
 					Version: VersionMetadata{
+						UID:              "draft-24",
 						Name:             "Draft 13",
 						LatestUpdate:     "2024-02-08",
 						SpecificationURL: "https://openid.net/specs/openid-4-verifiable-credential-issuance-1_0-13.html",
 					},
-					Suites: map[string]Suite{
-						"ewc": {
+					Suites: []Suite{
+						{
 							Metadata: SuiteMetadata{
+								UID:         "ewc",
 								Name:        "OpenID Foundation Conformance Suite",
 								Homepage:    "https://openid.net/certification/about-conformance-suite/",
-								GitHub:      "https://gitlab.com/openid/conformance-suite",
+								Repository:  "https://gitlab.com/openid/conformance-suite",
 								Help:        "https://openid.net/certification/conformance-testing-for-openid-for-verifiable-presentations/",
 								Description: "Conformance suite for OIDF’s OpenID Connect, FAPI & FAPI-CIBA Profiles",
 							},
 							Files: []string{"ewc_file1.json", "ewc_file2.json"},
 						},
-						"openid_conformance_suite": {
+						{
 							Metadata: SuiteMetadata{
+								UID:         "openid_conformance_suite",
 								Name:        "OpenID Foundation Conformance Suite",
 								Homepage:    "https://openid.net/certification/about-conformance-suite/",
-								GitHub:      "https://gitlab.com/openid/conformance-suite",
+								Repository:  "https://gitlab.com/openid/conformance-suite",
 								Help:        "https://openid.net/certification/conformance-testing-for-openid-for-verifiable-presentations/",
 								Description: "Conformance suite for OIDF’s OpenID Connect, FAPI & FAPI-CIBA Profiles",
 							},
 							Files: []string{"conformance_file1.json", "conformance_file2.json"},
+						},
+						{
+							Metadata: SuiteMetadata{
+								UID:         "vuota_conformance_suite",
+								Name:        "Vuota Conformance Suite",
+								Homepage:    "https://vuota.com/certification/about-conformance-suite/",
+								Repository:  "https://gitlab.com/vuota/conformance-suite",
+								Help:        "https://vuota.com/certification/conformance-testing-for-openid-for-verifiable-presentations/",
+								Description: "Conformance suite for Vuota",
+							},
+							Files: []string{},
 						},
 					},
 				},
