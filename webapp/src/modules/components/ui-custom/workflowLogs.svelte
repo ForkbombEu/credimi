@@ -51,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		[key: string]: any;
 	};
 
-	onDestroy(() => {
+	function closeConnections() {
 		pb.realtime.unsubscribe(`${workflowId}openid4vp-wallet-logs`).catch((e) => {
 			console.error(e);
 		});
@@ -64,8 +64,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}).catch((e) => {
 			console.error(e);
 		});
+	}
+
+	onDestroy(() => {
+		closeConnections();
 	});
 </script>
+
+<svelte:window on:beforeunload={closeConnections} />
 
 <div class="flex flex-col gap-2 py-2">
 	{#if logs.length === 0}

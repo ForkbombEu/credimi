@@ -27,15 +27,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			});
 	});
 
-	onDestroy(() => {
+	function closeConnections() {
 		pb.send('/api/...', {
 			method: 'POST',
 			body: {
 				workflow_id: data.workflowId
 			}
 		});
+	}
+
+	onDestroy(() => {
+		closeConnections();
 	});
 </script>
+
+<svelte:window on:beforeunload={closeConnections} />
 
 <div>
 	<h1>Wallet EWC</h1>
