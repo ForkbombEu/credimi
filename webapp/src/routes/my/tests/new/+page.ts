@@ -8,7 +8,7 @@ import { error } from '@sveltejs/kit';
 import { Effect as _, Either } from 'effect';
 import { pipe } from 'effect';
 import type { ClientResponseError } from 'pocketbase';
-import type { ZodError } from 'zod';
+// import type { ZodError } from 'zod';
 
 //
 
@@ -25,7 +25,7 @@ export const load = async ({ fetch }) => {
 		_.andThen((response) =>
 			_.try({
 				try: () => templateBlueprintsResponseSchema.parse(response),
-				catch: (e) => e as ZodError
+				catch: (e) => console.error(e)
 			})
 		),
 		_.either,

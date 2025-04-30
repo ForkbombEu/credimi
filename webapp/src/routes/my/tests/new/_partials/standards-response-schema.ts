@@ -17,7 +17,7 @@ const versionMetadataSchema = z.object({
 	uid: z.string(),
 	name: z.string(),
 	latest_update: z.string(),
-	specification_url: z.string()
+	specification_url: z.string().optional(),
 });
 
 const suiteMetadataSchema = z.object({

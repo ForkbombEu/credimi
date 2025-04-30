@@ -8,11 +8,12 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 
 	// p "path"
 	"path/filepath"
-	"gopkg.in/yaml.v3"
 
+	"gopkg.in/yaml.v3"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -81,7 +82,10 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 
 		var files []io.Reader
 		for _, filename := range requestPayload.Filenames {
-			filePath := filepath.Join(os.Getenv("ROOT_DIR"), "config_templates", requestPayload.TestID, filename)
+			if !strings.Contains(filename, "/") {
+				continue
+			}
+			filePath := filepath.Join(os.Getenv("ROOT_DIR"), "mocked_templates", requestPayload.TestID, filename)
 			file, err := os.Open(filePath)
 			if err != nil {
 				return apierror.New(http.StatusBadRequest, "request.file.open", "Error opening file: "+filename, err.Error())
@@ -126,21 +130,20 @@ type SuiteMetadata struct {
 
 type Suite struct {
 	SuiteMetadata
-	Files    []string      `json:"files"`
+	Files []string `json:"files"`
 }
 
 type Version struct {
 	VersionMetadata
-	Suites  []Suite         `json:"suites"`
+	Suites []Suite `json:"suites"`
 }
 
 type Standard struct {
 	StandardMetadata
-	Versions []Version        `json:"versions"`
+	Versions []Version `json:"versions"`
 }
 
 type Standards []Standard
-
 
 func walkConfigTemplates(dir string) (Standards, error) {
 	var standards Standards
