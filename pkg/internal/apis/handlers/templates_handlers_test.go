@@ -135,7 +135,6 @@ func TestWalkConfigTemplates(t *testing.T) {
 	})
 
 	t.Run("yaml unmarshal error", func(t *testing.T) {
-		// Write invalid yaml to trigger unmarshal error
 		invalidYamlPath := filepath.Join(standardDir, "standard.yaml")
 		require.NoError(t, os.WriteFile(invalidYamlPath, []byte("invalid: [unclosed"), 0644))
 		_, err := walkConfigTemplates(testdataDir)

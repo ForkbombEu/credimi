@@ -50,7 +50,7 @@ func getTemplatesByFolder(folder string) ([]*os.File, error) {
 
 func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		rootDir := os.Getenv("ROOT_DIR") + "/config_templates"
+		rootDir := os.Getenv("ROOT_DIR") + "/mocked_templates"
 		configs, err := walkConfigTemplates(rootDir)
 		if err != nil {
 			return err

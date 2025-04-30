@@ -5,7 +5,7 @@
 package apis
 
 import (
-	"github.com/pocketbase/pocketbase/apis"
+	// "github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 
@@ -32,7 +32,8 @@ func AddTemplatingRoutes(app core.App) {
 			},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			apis.RequireAuth(),
+			// TODO: uncomment when new configs templates feature is ready
+			// apis.RequireAuth(),
 			{Func: middlewares.ErrorHandlingMiddleware},
 		},
 		Validation: true,
