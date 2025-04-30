@@ -14,24 +14,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import { Sparkle } from 'lucide-svelte';
 	import { AppLogo } from '@/brand';
+
+	function href(href: string) {
+		return $featureFlags.DEMO ? '#waitlist' : href;
+	}
 </script>
 
-<BaseTopbar class="border-none bg-card">
+<BaseTopbar class="bg-card border-none">
 	{#snippet left()}
-		<Button variant="link" href={$featureFlags.DEMO ? '#waitlist' : '/'}>
+		<Button variant="link" href={href('/')}>
 			<AppLogo />
 		</Button>
 		<div class="hidden flex-row sm:flex">
-			<Button variant="link" href={$featureFlags.DEMO ? '#waitlist' : '/credentials'}>
+			<Button variant="link" href={href('/credentials')}>
 				{m.Credentials()}
 			</Button>
-			<Button variant="link" href={$featureFlags.DEMO ? '#waitlist' : '/apps'}
-				>{m.Apps()}</Button
-			>
-			<Button variant="link" href={$featureFlags.DEMO ? '#waitlist' : '/services'}>
-				{m.Issuers()}
+			<Button variant="link" href={href('/marketplace')}>
+				{m.Marketplace()}
 			</Button>
-			<Button variant="link" href={$featureFlags.DEMO ? '#waitlist' : '/organizations'}>
+			<Button variant="link" href={href('/organizations')}>
 				{m.organizations()}
 			</Button>
 		</div>

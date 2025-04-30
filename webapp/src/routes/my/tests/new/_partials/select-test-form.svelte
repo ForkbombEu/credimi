@@ -103,12 +103,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </div>
 
-<div class="bg-background sticky bottom-0 mt-8 border-t p-4 px-8">
+<div class="bg-background/20 sticky bottom-0 border-t p-4 px-8 backdrop-blur-lg">
 	<div class="mx-auto flex w-full max-w-screen-xl items-center justify-between">
 		<p class="text-gray-400">
-			<span class="rounded-sm bg-gray-200 p-1 font-bold text-black"
-				>{selectedTests.length}</span
-			>
+			<span class="rounded-sm bg-gray-200 p-1 font-bold text-black">
+				{selectedTests.length}
+			</span>
 			/ {totalTests}
 			selected
 		</p>
