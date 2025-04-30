@@ -8,23 +8,19 @@
 package workflows
 
 import (
-	"context"
 	"fmt"
 	"net/url"
 	"os"
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-	"github.com/joho/godotenv"
-	"go.temporal.io/api/enums/v1"
-	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/workflow"
-
-	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/google/uuid"
+	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/workflow"
 )
 
 // SignalData represents the data structure for signals used in the workflow.
@@ -96,7 +92,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		},
 	}
 	var stepCIResult workflowengine.ActivityResult
-	err := stepCIWorkflowActivity.Configure(context.Background(), &stepCIInput)
+	err := stepCIWorkflowActivity.Configure(&stepCIInput)
 	if err != nil {
 		logger.Error(" StepCI configure failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
@@ -114,7 +110,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	baseURL := input.Payload["app_url"].(string) + "/tests/wallet"
 	u, err := url.Parse(baseURL)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %v", err)
+		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %w", err)
 	}
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
@@ -138,7 +134,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	`, u.String(), u.String()),
 		},
 	}
-	err = emailActivity.Configure(context.Background(), &emailInput)
+	err = emailActivity.Configure(&emailInput)
 	if err != nil {
 		logger.Error("Email activity configure failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
@@ -181,7 +177,12 @@ func (w *OpenIDNetWorkflow) Workflow(
 	var data SignalData
 
 	selector.AddFuture(logsWorkflow, func(f workflow.Future) {
-		f.Get(ctx, &subWorkflowResponse)
+		if err := f.Get(ctx, &subWorkflowResponse); err != nil {
+			logger.Error("Child workflow failed", "error", err)
+			subWorkflowResponse = workflowengine.WorkflowResult{
+				Message: fmt.Sprintf("Child workflow failed: %v", err),
+			}
+		}
 	})
 	var signalSent bool
 	signalChan := workflow.GetSignalChannel(ctx, "wallet-test-signal")
@@ -189,7 +190,12 @@ func (w *OpenIDNetWorkflow) Workflow(
 		signalSent = true
 		c.Receive(ctx, &data)
 		cancelHandler()
-		logsWorkflow.Get(ctx, &subWorkflowResponse)
+		if err := logsWorkflow.Get(ctx, &subWorkflowResponse); err != nil {
+			logger.Error("Failed to get child workflow result", "error", err)
+			subWorkflowResponse = workflowengine.WorkflowResult{
+				Message: fmt.Sprintf("Failed to get child workflow result: %v", err),
+			}
+		}
 	})
 	for !signalSent {
 		selector.Select(ctx)
@@ -228,35 +234,12 @@ func (w *OpenIDNetWorkflow) Workflow(
 func (w *OpenIDNetWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
-	// Load environment variables.
-	godotenv.Load()
-	namespace := "default"
-	if input.Config["namespace"] != nil {
-		namespace = input.Config["namespace"].(string)
-	}
-	c, err := temporalclient.GetTemporalClientWithNamespace(
-		namespace,
-	)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unable to create client: %v", err)
-	}
-	defer c.Close()
-
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "OpenIDTestWorkflow" + uuid.NewString(),
 		TaskQueue: OpenIDNetTaskQueue,
 	}
-	if input.Config["memo"] != nil {
-		workflowOptions.Memo = input.Config["memo"].(map[string]any)
-	}
 
-	// Start the workflow execution.
-	_, err = c.ExecuteWorkflow(context.Background(), workflowOptions, w.Name(), input)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("failed to start workflow: %v", err)
-	}
-
-	return workflowengine.WorkflowResult{}, nil
+	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
 }
 
 // OpenIDNetLogsWorkflow is a workflow that drains logs from the OpenID certification site.
@@ -332,7 +315,10 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	var timerFuture workflow.Future
 	startTimer := func() {
 		timerCtx, _ := workflow.WithCancel(ctx)
-		timerFuture = workflow.NewTimer(timerCtx, time.Duration(input.Config["interval"].(float64))*time.Nanosecond)
+		timerFuture = workflow.NewTimer(
+			timerCtx,
+			time.Duration(input.Config["interval"].(float64)),
+		)
 	}
 
 	// Initialize the timer
@@ -341,7 +327,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	for {
 		if ctx.Err() != nil {
 			logger.Info("Workflow canceled, returning collected logs")
-			return workflowengine.WorkflowResult{Log: logs}, nil
+			return workflowengine.WorkflowResult{Log: logs}, ctx.Err()
 		}
 		var HTTPActivity activities.HTTPActivity
 		var HTTPResponse workflowengine.ActivityResult
@@ -385,7 +371,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 					"url": fmt.Sprintf(
 						"%s/%s",
 						input.Payload["app_url"].(string),
-						"wallet-test/send-log-update",
+						"api/compliance/send-log-update",
 					),
 				},
 				Payload: map[string]any{

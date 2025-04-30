@@ -57,7 +57,10 @@ func (a *CheckCredentialsIssuerActivity) Name() string {
 // The function ensures the base URL is properly formatted with a scheme (http/https),
 // appends the OpenID credential issuer path, and validates the response. If any
 // step fails, it returns a failure result with an appropriate error message.
-func (a *CheckCredentialsIssuerActivity) Execute(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+func (a *CheckCredentialsIssuerActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
 	baseURL, ok := input.Config["base_url"]
 	if !ok || strings.TrimSpace(baseURL) == "" {
 		return workflowengine.Fail(&workflowengine.ActivityResult{}, "Missing baseURL in config")
@@ -73,22 +76,34 @@ func (a *CheckCredentialsIssuerActivity) Execute(ctx context.Context, input work
 	}
 	req, err := http.NewRequestWithContext(ctx, "GET", issuerURL, nil)
 	if err != nil {
-		return workflowengine.Fail(&workflowengine.ActivityResult{}, fmt.Sprintf("Request creation failed: %v", err))
+		return workflowengine.Fail(
+			&workflowengine.ActivityResult{},
+			fmt.Sprintf("Request creation failed: %v", err),
+		)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return workflowengine.Fail(&workflowengine.ActivityResult{}, fmt.Sprintf("Could not reach issuer: %v", err))
+		return workflowengine.Fail(
+			&workflowengine.ActivityResult{},
+			fmt.Sprintf("Could not reach issuer: %v", err),
+		)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return workflowengine.Fail(&workflowengine.ActivityResult{}, fmt.Sprintf("Not a credential issuer, status: %d", resp.StatusCode))
+		return workflowengine.Fail(
+			&workflowengine.ActivityResult{},
+			fmt.Sprintf("Not a credential issuer, status: %d", resp.StatusCode),
+		)
 	}
 
 	bodyBytes, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return workflowengine.Fail(&workflowengine.ActivityResult{}, "Error reading response from credential issuer")
+		return workflowengine.Fail(
+			&workflowengine.ActivityResult{},
+			"Error reading response from credential issuer",
+		)
 	}
 
 	return workflowengine.ActivityResult{

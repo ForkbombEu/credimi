@@ -15,11 +15,10 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/go-sprout/sprout"
-	"github.com/go-sprout/sprout/group/all"
-
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/go-sprout/sprout"
+	"github.com/go-sprout/sprout/group/all"
 )
 
 // StepCIWorkflowActivity is an activity that runs a StepCI workflow
@@ -33,7 +32,6 @@ func (StepCIWorkflowActivity) Name() string {
 
 // Configure injects the parsed template and token into the payload
 func (a *StepCIWorkflowActivity) Configure(
-	_ context.Context,
 	input *workflowengine.ActivityInput,
 ) error {
 	yamlString := input.Config["template"]
@@ -93,7 +91,7 @@ func (a *StepCIWorkflowActivity) Execute(
 		}
 	}
 
-	binDir := utils.GetEnvironmentVariable("BIN", ".bin", false)
+	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	binName := "stepci-captured-runner"
 	binPath := fmt.Sprintf("%s/%s", binDir, binName)
 	// Build the arguments for the command

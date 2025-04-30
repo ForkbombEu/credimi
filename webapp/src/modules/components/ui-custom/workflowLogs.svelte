@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	$effect(() => {
 		untrack(async () => {
 			try {
-				const result = await pb.send('/wallet-test/send-log-update-start', {
+				const result = await pb.send('/api/compliance/send-log-update-start', {
 					method: 'POST',
 					body: {
 						workflow_id: workflowId

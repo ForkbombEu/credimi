@@ -77,7 +77,13 @@ func TestParseJSONActivity_Execute(t *testing.T) {
 			if tt.expectErr {
 				require.Error(t, err)
 				if tt.expectedErrMsg != "" {
-					require.Contains(t, err.Error(), tt.expectedErrMsg, "expected error message to contain: %s", tt.expectedErrMsg)
+					require.Contains(
+						t,
+						err.Error(),
+						tt.expectedErrMsg,
+						"expected error message to contain: %s",
+						tt.expectedErrMsg,
+					)
 				}
 			} else {
 				require.NoError(t, err)

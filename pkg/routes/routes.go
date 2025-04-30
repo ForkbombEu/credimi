@@ -14,14 +14,14 @@ import (
 	"net/http/httputil"
 	"net/url"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apis"
+	"github.com/forkbombeu/credimi/pkg/internal/pb"
+	"github.com/forkbombeu/credimi/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
 	"github.com/pocketbase/pocketbase/plugins/migratecmd"
-
-	"github.com/forkbombeu/credimi/pkg/internal/pb"
-	"github.com/forkbombeu/credimi/pkg/utils"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 )
 
 func bindAppHooks(app core.App) {
@@ -53,15 +53,13 @@ func bindAppHooks(app core.App) {
 //     for JavaScript-based templates and automatic migration.
 func Setup(app *pocketbase.PocketBase) {
 	bindAppHooks(app)
-	pb.RouteGetConfigsTemplates(app)
-	pb.RoutePostPlaceholdersByFilenames(app)
 	pb.HookNamespaceOrgs(app)
-	pb.HookCredentialWorkflow(app)
-	pb.AddOpenID4VPTestEndpoints(app)
-	pb.HookUpdateCredentialsIssuers(app)
-	pb.RouteWorkflow(app)
-	pb.HookAtUserCreation(app)
+	apis.AddComplianceChecks(app)
+	apis.AddTemplatingRoutes(app)
 	hooks.WorkersHook(app)
+	apis.HookAtUserCreation(app)
+	apis.HookCredentialWorkflow(app)
+	apis.HookUpdateCredentialsIssuers(app)
 
 	jsvm.MustRegister(app, jsvm.Config{
 		HooksWatch: true,

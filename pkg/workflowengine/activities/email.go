@@ -11,10 +11,9 @@ import (
 	"os"
 	"strconv"
 
-	"gopkg.in/gomail.v2"
-
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"gopkg.in/gomail.v2"
 )
 
 // SendMailActivity is an activity that sends an email using SMTP.
@@ -29,7 +28,6 @@ func (SendMailActivity) Name() string {
 // It retrieves the SMTP host, port, and sender email from environment variables.
 // If the environment variables are not set, it uses default values.
 func (a *SendMailActivity) Configure(
-	_ context.Context,
 	input *workflowengine.ActivityInput,
 ) error {
 	input.Config["smtp_host"] = utils.GetEnvironmentVariable("SMTP_HOST", "smtp.apps.forkbomb.eu")

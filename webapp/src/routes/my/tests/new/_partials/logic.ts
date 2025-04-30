@@ -90,7 +90,7 @@ const fieldsResponseSchema = z.object({
 export type FieldsResponse = z.infer<typeof fieldsResponseSchema>;
 
 export async function getVariables(test_id: string, filenames: string[]) {
-	const data = await pb.send('/api/conformance-checks/configs/placeholders-by-filenames', {
+	const data = await pb.send('/api/template/placeholders', {
 		method: 'POST',
 		body: {
 			test_id,

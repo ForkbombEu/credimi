@@ -15,6 +15,7 @@ export default defineConfig({
 
     lastUpdated: true,
     metaChunk: true,
+    ignoreDeadLinks: [/^http?:\/\/localhost/, /^https?:\/\/localhost/],
 
     head: [
         [

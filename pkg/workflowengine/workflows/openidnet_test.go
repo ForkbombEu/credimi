@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
@@ -114,7 +113,11 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				env.SignalWorkflow("wallet-test-signal", tc.signalData)
 			}, tc.completeSignalDelay)
 			env.RegisterDelayedCallback(func() {
-				env.SignalWorkflowByID("default-test-workflow-id-log", "wallet-test-start-log-update", nil)
+				env.SignalWorkflowByID(
+					"default-test-workflow-id-log",
+					"wallet-test-start-log-update",
+					nil,
+				)
 			}, tc.completeSignalDelay)
 			// Execute workflow
 			env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{

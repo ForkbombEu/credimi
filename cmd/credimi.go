@@ -11,7 +11,6 @@ import (
 	// Blank import to initialize database migrations
 	_ "github.com/forkbombeu/credimi/migrations"
 	"github.com/forkbombeu/credimi/pkg/routes"
-
 	"github.com/pocketbase/pocketbase"
 )
 
