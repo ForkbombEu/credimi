@@ -55,6 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	);
 
+	// TODO - Reimplement count of selected tests
 	// const totalTests = $derived(
 	// 	availableTestSuites.reduce((prev, curr) => prev + curr.tests.length, 0)
 	// );
@@ -99,7 +100,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Check.Group
 				bind:value={selectedSuitesOrTests}
 				name="test-suites"
-				class="flex flex-col gap-2 overflow-auto"
+				class="flex flex-col gap-2 space-y-4 overflow-auto"
 			>
 				{#each availableTestSuites as testSuite}
 					{@const testSuiteId = testSuite.uid}
@@ -115,14 +116,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/snippet}
 
 					{#if !hasIndividualTests}
-						<label class="flex items-center gap-2">
+						<label class="flex items-center gap-3">
 							<div class="w-4">
 								<Checkbox value={testSuiteId} />
 							</div>
 							{@render suiteLabel()}
 						</label>
 					{:else}
-						<div class="space-y-2">
+						<div class="space-y-2 pl-7">
 							<Check.GroupLabel>
 								{@render suiteLabel()}
 							</Check.GroupLabel>
@@ -145,21 +146,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </div>
 
-<!-- 
 <div class="bg-background sticky bottom-0 mt-8 border-t p-4 px-8">
 	<div class="mx-auto flex w-full max-w-screen-xl items-center justify-between">
-		<p class="text-gray-400">
+		<!-- TODO - Reimplement count of selected tests -->
+		<div></div>
+		<!-- <p class="text-gray-400">
 			<span class="rounded-sm bg-gray-200 p-1 font-bold text-black"
 				>{selectedTests.length}</span
 			>
 			/ {totalTests}
 			selected
-		</p>
+		</p> -->
 		<Button
-			disabled={selectedTests.length === 0}
-			onclick={() => onSelectTests?.(compositeTestId, selectedTests)}
+			disabled={selectedSuitesOrTests.length === 0}
+			onclick={() => onSelectTests?.(selectedStandardId, selectedSuitesOrTests)}
 		>
 			Next step <ArrowRight />
 		</Button>
 	</div>
-</div> -->
+</div>

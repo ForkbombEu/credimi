@@ -10,7 +10,7 @@ const standardMetadataSchema = z.object({
 	description: z.string(),
 	standard_url: z.string(),
 	latest_update: z.string(),
-	external_links: z.record(z.array(z.string()))
+	external_links: z.record(z.array(z.string())).nullable()
 });
 
 const versionMetadataSchema = z.object({
