@@ -58,9 +58,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if !d}
 	<SelectTestForm
 		standards={data.standardsAndTestSuites}
-		onSelectTests={(standardId, tests) => {
-			compositeTestId = standardId;
-			getVariables(standardId, tests).then((res) => {
+		onSelectTests={(data) => {
+			compositeTestId = data.standardId;
+			getVariables(data.standardId, data.tests).then((res) => {
 				d = res;
 			});
 		}}

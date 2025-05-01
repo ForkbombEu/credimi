@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		standards: StandardsWithTestSuites;
-		onSelectTests?: (standardId: string, tests: string[]) => void;
+		onSelectTests?: (data: { standardId: string; suites: string[]; tests: string[] }) => void;
 	};
 
 	let { standards, onSelectTests }: Props = $props();
@@ -41,18 +41,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	// svelte-ignore state_referenced_locally
-	let selectedStandardId = $state(standardsWithVersions[0].id);
+	let selectedStandardId = $state(
+		// Getting the first non disabled standard
+		standardsWithVersions.find((s) => !s.disabled)?.id
+	);
 
 	const availableTestSuites = $derived.by(() => {
 		return standardsWithVersions.find((s) => s.id === selectedStandardId)?.suites;
 	});
 
-	let selectedSuitesOrTests = $state<string[]>([]);
+	let selectedSuites = $state<string[]>([]);
+	let selectedTests = $state<string[]>([]);
 
 	watch(
 		() => selectedStandardId,
 		() => {
-			selectedSuitesOrTests = [];
+			selectedSuites = [];
+			selectedTests = [];
 		}
 	);
 
@@ -62,7 +67,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// );
 </script>
 
-<pre>{JSON.stringify(selectedSuitesOrTests, null, 2)}</pre>
+<pre>{JSON.stringify({ selectedSuites, selectedTests }, null, 2)}</pre>
 
 <div class="mx-auto flex w-full max-w-screen-xl items-start gap-8 p-8">
 	<div class="space-y-4">
@@ -99,7 +104,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		{#if availableTestSuites}
 			<Check.Group
-				bind:value={selectedSuitesOrTests}
+				bind:value={selectedTests}
 				name="test-suites"
 				class="flex flex-col gap-2 space-y-4 overflow-auto"
 			>
@@ -159,8 +164,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			selected
 		</p> -->
 		<Button
-			disabled={selectedSuitesOrTests.length === 0}
-			onclick={() => onSelectTests?.(selectedStandardId, selectedSuitesOrTests)}
+			disabled={selectedSuites.length === 0 || selectedTests.length === 0}
+			onclick={() =>
+				onSelectTests?.({
+					standardId: selectedStandardId!,
+					suites: selectedSuites,
+					tests: selectedTests
+				})}
 		>
 			Next step <ArrowRight />
 		</Button>
