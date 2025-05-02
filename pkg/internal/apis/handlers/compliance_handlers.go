@@ -310,7 +310,7 @@ func HandleSendLogUpdateStart() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-		err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "wallet-test-start-log-update", struct{}{})
+		err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "openidnet-check-log-update-start", struct{}{})
 		if err != nil {
 			if _, ok := err.(*serviceerror.Canceled); ok {
 				wf := c.GetWorkflow(context.Background(), req.WorkflowID+"-log", "")
@@ -354,7 +354,7 @@ func HandleSendLogUpdateStop() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-		err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "wallet-test-stop-log-update", struct{}{})
+		err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "openidnet-check-log-update-stop", struct{}{})
 		if err != nil {
 			if _, ok := err.(*serviceerror.NotFound); ok {
 				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())

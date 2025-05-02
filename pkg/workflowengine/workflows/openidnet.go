@@ -243,7 +243,7 @@ func (w *OpenIDNetWorkflow) Start(
 	defer c.Close()
 
 	workflowOptions := client.StartWorkflowOptions{
-		ID:        "OpenIDTestWorkflow" + uuid.NewString(),
+		ID:        "OpenIDNetCheckWorkflow" + uuid.NewString(),
 		TaskQueue: OpenIDNetTaskQueue,
 	}
 	if input.Config["memo"] != nil {
@@ -324,8 +324,8 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	}
 	var logs []map[string]any
 
-	startSignalChan := workflow.GetSignalChannel(ctx, "wallet-test-start-log-update")
-	stopSignalChan := workflow.GetSignalChannel(ctx, "wallet-test-stop-log-update")
+	startSignalChan := workflow.GetSignalChannel(ctx, "openidnet-check-log-update-start")
+	stopSignalChan := workflow.GetSignalChannel(ctx, "openidnet-check-log-update-stop")
 	selector := workflow.NewSelector(ctx)
 
 	var isPaused = true
