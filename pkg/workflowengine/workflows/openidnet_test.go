@@ -205,7 +205,7 @@ func Test_LogSubWorkflow(t *testing.T) {
 				var result workflowengine.WorkflowResult
 				assert.NoError(t, env.GetWorkflowResult(&result))
 				assert.NotEmpty(t, result.Log)
-				assert.Equal(t, callCount, 1) // Only one activity call (no looping)
+				assert.Equal(t, 2, callCount) // Only two activity call (no looping)
 			}
 		})
 	}

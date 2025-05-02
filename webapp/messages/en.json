@@ -385,6 +385,7 @@
 	"Language": "Language",
 	"Credential_name": "Credential name",
 	"App_name": "App name",
+	"An_error_happened_while_generating_the_qr_code": "An error happened while generating the QR code",
 	"Marketplace": "Marketplace",
 	"Wallet": "Wallet",
 	"Verifier": "Verifier",

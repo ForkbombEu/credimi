@@ -75,6 +75,12 @@ func AddComplianceChecks(app core.App) {
 				Input:   handlers.HandleSendLogUpdateStartRequestInput{},
 			},
 			{
+				Method:  http.MethodPost,
+				Path:    "/send-log-update-stop",
+				Handler: handlers.HandleSendLogUpdateStop,
+				Input:   handlers.HandleSendLogUpdateStartRequestInput{},
+			},
+			{
 				Method:              http.MethodPost,
 				Path:                "/send-log-update",
 				Handler:             handlers.HandleSendLogUpdate,

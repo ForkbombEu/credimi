@@ -518,43 +518,61 @@ func HandleSendLogUpdateStart() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-		err = c.SignalWorkflow(
-			context.Background(),
-			req.WorkflowID+"-log",
-			"",
-			"wallet-test-start-log-update",
-			struct{}{},
-		)
+    err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "openidnet-check-log-update-start", struct{}{})
 		if err != nil {
-			notFound := &serviceerror.NotFound{}
-			if errors.As(err, &notFound) {
-				return apierror.New(
-					http.StatusNotFound,
-					"workflow",
-					"workflow not found",
-					err.Error(),
-				)
+			if _, ok := err.(*serviceerror.Canceled); ok {
+				wf := c.GetWorkflow(context.Background(), req.WorkflowID+"-log", "")
+				var result workflowengine.WorkflowResult
+
+				err := wf.Get(context.Background(), &result)
+				if err != nil {
+					return apierror.New(http.StatusBadRequest, "workflow", "failed to get logs workflow result", err.Error())
+				}
+
+				if logsInterface, ok := result.Log.([]any); ok {
+					logs := workflows.AsSliceOfMaps(logsInterface)
+					if err := notifyLogsUpdate(e.App, req.WorkflowID+"openid4vp-wallet-logs", logs); err != nil {
+						return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
+					}
+				} else {
+					return apierror.New(http.StatusBadRequest, "workflow", "invalid log format", "logs are not in the expected format")
+				}
 			}
-			invalidArgument := &serviceerror.InvalidArgument{}
-			if errors.As(err, &invalidArgument) {
-				return apierror.New(
-					http.StatusBadRequest,
-					"workflow",
-					"invalid workflow ID",
-					err.Error(),
-				)
+			if _, ok := err.(*serviceerror.NotFound); ok {
+				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
+			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
+				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
 			}
-			return apierror.New(
-				http.StatusBadRequest,
-				"signal",
-				"failed to send start logs update signal",
-				err.Error(),
-			)
+
+			return apierror.New(http.StatusBadRequest, "signal", "failed to send start logs update signal", err.Error())
 		}
-		return e.JSON(
-			http.StatusOK,
-			map[string]string{"message": "Realtime Logs update started successfully"},
-		)
+		return e.JSON(http.StatusOK, map[string]string{"message": "Realtime Logs update started successfully"})
+	}
+}
+func HandleSendLogUpdateStop() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		req, err := routing.GetValidatedInput[HandleSendLogUpdateStartRequestInput](e)
+		if err != nil {
+			return err
+		}
+
+		c, err := temporalclient.New()
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
+		}
+		defer c.Close()
+
+		err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "openidnet-check-log-update-stop", struct{}{})
+		if err != nil {
+			if _, ok := err.(*serviceerror.NotFound); ok {
+				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
+			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
+				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
+			}
+
+			return apierror.New(http.StatusBadRequest, "signal", "failed to send stop logs update signal", err.Error())
+		}
+		return e.JSON(http.StatusOK, map[string]string{"message": "Realtime Logs update stopped successfully"})
 	}
 }
 
