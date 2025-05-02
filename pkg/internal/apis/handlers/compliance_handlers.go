@@ -148,7 +148,7 @@ func HandleConfirmSuccess() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-		if err := c.SignalWorkflow(context.Background(), req.WorkflowID, "", "wallet-test-signal", data); err != nil {
+		if err := c.SignalWorkflow(context.Background(), req.WorkflowID, "", "openidnet-check-result-signal", data); err != nil {
 			// return apis.NewBadRequestError("failed to send success signal", err)
 			return apierror.New(
 				http.StatusBadRequest,
@@ -463,7 +463,7 @@ func HandleNotifyFailure() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-		if err := c.SignalWorkflow(context.Background(), req.WorkflowID, "", "wallet-test-signal", data); err != nil {
+		if err := c.SignalWorkflow(context.Background(), req.WorkflowID, "", "openidnet-check-result-signal", data); err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
 				return apierror.New(
@@ -518,7 +518,7 @@ func HandleSendLogUpdateStart() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-    err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "openidnet-check-log-update-start", struct{}{})
+		err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "openidnet-check-log-update-start", struct{}{})
 		if err != nil {
 			if _, ok := err.(*serviceerror.Canceled); ok {
 				wf := c.GetWorkflow(context.Background(), req.WorkflowID+"-log", "")
