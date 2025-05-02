@@ -328,8 +328,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	stopSignalChan := workflow.GetSignalChannel(ctx, "openidnet-check-log-update-stop")
 	selector := workflow.NewSelector(ctx)
 
-	var isPaused = true
-	var triggerEnabled = false
+	var isPolling bool
 
 	var timerFuture workflow.Future
 	var startTimer func()
@@ -340,7 +339,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 			time.Duration(input.Config["interval"].(float64))*time.Nanosecond,
 		)
 		selector.AddFuture(timerFuture, func(_ workflow.Future) {
-			if !isPaused {
+			if isPolling {
 				startTimer()
 			}
 		})
@@ -356,9 +355,8 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 			var signalVal interface{}
 			c.Receive(ctx, &signalVal)
-			if isPaused {
-				isPaused = false
-				triggerEnabled = true
+			if !isPolling {
+				isPolling = true
 				startTimer()
 				logger.Info("Received start signal, unpausing workflow")
 			}
@@ -366,7 +364,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 			var signalVal interface{}
 			c.Receive(ctx, &signalVal)
-			isPaused = true
+			isPolling = false
 			logger.Info("Received stop signal, pausing workflow")
 		})
 
@@ -374,7 +372,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		selector.Select(ctx)
 
 		// Skip activity execution if paused
-		if isPaused || !triggerEnabled {
+		if !isPolling {
 			continue
 		}
 
