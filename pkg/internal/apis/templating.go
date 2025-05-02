@@ -5,13 +5,12 @@
 package apis
 
 import (
-	"github.com/pocketbase/pocketbase/apis"
-	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
-
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/pocketbase/pocketbase/apis"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
 )
 
 func AddTemplatingRoutes(app core.App) {

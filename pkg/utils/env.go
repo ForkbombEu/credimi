@@ -52,12 +52,17 @@ func GetEnvironmentVariable(name string, others ...any) string {
 // Parameters:
 //   - name: The name of the environment variable to retrieve.
 //   - others: Optional variadic parameters:
-//   - First parameter (if provided): The default integer value to return if the environment variable is not set or empty.
+//   - First parameter (if provided): The default integer value to return if the environment variable is not set or
+//     empty.
 //   - Second parameter (if provided): A boolean indicating whether the environment variable is required.
 //
 // Returns:
+//
 //   - int: The integer value of the environment variable, or the default value if not set or empty.
-//   - error: An error if the environment variable cannot be parsed as an integer or if the value is out of range for int.
+//
+//   - error: An error if the environment variable cannot be parsed as an integer or if the value is out of range for
+//     int.
+//
 //     Returns nil if no error occurred.
 func GetEnvironmentVariableAsInteger(name string, others ...any) (int, error) {
 	var defaultValue = 0

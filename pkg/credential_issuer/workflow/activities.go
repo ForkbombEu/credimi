@@ -61,10 +61,7 @@ func fetchIssuersRecursive(ctx context.Context, after int) ([]string, error) {
 		return nil, fmt.Errorf("failed to unmarshal JSON: %w", err)
 	}
 
-	hrefs, err := extractHrefsFromAPIResponse(root)
-	if err != nil {
-		return nil, fmt.Errorf("failed to extract hrefs: %w", err)
-	}
+	hrefs := extractHrefsFromAPIResponse(root)
 
 	if root.Page.Number >= root.Page.TotalPages || len(hrefs) < 200 {
 		return hrefs, nil
@@ -78,17 +75,20 @@ func fetchIssuersRecursive(ctx context.Context, after int) ([]string, error) {
 	return append(hrefs, nextHrefs...), nil
 }
 
-func extractHrefsFromAPIResponse(root FidesResponse) ([]string, error) {
-	var hrefs []string
+func extractHrefsFromAPIResponse(root FidesResponse) []string {
+	hrefs := []string{}
 	for _, item := range root.Content {
 		trimmedHref := removeWellKnownSuffix(item.IssuanceURL)
 		hrefs = append(hrefs, trimmedHref)
 	}
-	return hrefs, nil
+	return hrefs
 }
 
 // CreateCredentialIssuersActivity inserts a list of credential issuers into the database if they do not already exist.
-func CreateCredentialIssuersActivity(ctx context.Context, input CreateCredentialIssuersInput) error {
+func CreateCredentialIssuersActivity(
+	ctx context.Context,
+	input CreateCredentialIssuersInput,
+) error {
 	db, err := sql.Open("sqlite", input.DBPath)
 	if err != nil {
 		return fmt.Errorf("failed to open database: %w", err)
@@ -114,7 +114,8 @@ func CreateCredentialIssuersActivity(ctx context.Context, input CreateCredential
 
 func checkIfCredentialIssuerExist(ctx context.Context, db *sql.DB, url string) (bool, error) {
 	var count int
-	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM credential_issuers WHERE url = ?", url).Scan(&count)
+	err := db.QueryRowContext(ctx, "SELECT COUNT(*) FROM credential_issuers WHERE url = ?", url).
+		Scan(&count)
 	if err != nil {
 		return false, fmt.Errorf("failed to query database: %w", err)
 	}

@@ -5,12 +5,10 @@
 package apis
 
 import (
-
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/suite"
 	"go.temporal.io/sdk/testsuite"
 )
-
 
 type SaveVariablesAndStartRequestInput map[string]struct {
 	Format string      `json:"format" validate:"required"`
@@ -18,14 +16,14 @@ type SaveVariablesAndStartRequestInput map[string]struct {
 }
 
 type UnitTestSuite struct {
-        suite.Suite
-        testsuite.WorkflowTestSuite
+	suite.Suite
+	testsuite.WorkflowTestSuite
 
-        env *testsuite.TestWorkflowEnvironment
+	env *testsuite.TestWorkflowEnvironment
 }
 
 func (s *UnitTestSuite) SetupTest() {
-        s.env = s.NewTestWorkflowEnvironment()
+	s.env = s.NewTestWorkflowEnvironment()
 }
 
 const testDataDir = "../../../test_pb_data"
@@ -44,4 +42,3 @@ func generateToken(collectionNameOrID string, email string) (string, error) {
 
 	return record.NewAuthToken()
 }
-

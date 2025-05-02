@@ -40,9 +40,12 @@ func Test_Workflow(t *testing.T) {
 	err = json.Unmarshal(jsonBytes, &JSONOutput)
 	require.NoError(t, err)
 	// Mock activity implementation
-	env.OnActivity(CheckActivity.Name(), mock.Anything, mock.Anything).Return(workflowengine.ActivityResult{Output: map[string]any{"rawJSON": "{json:}", "base_url": "testURL"}}, nil)
-	env.OnActivity(JSONActivity.Name(), mock.Anything, mock.Anything).Return(workflowengine.ActivityResult{Output: JSONOutput}, nil)
-	env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).Return(workflowengine.ActivityResult{Output: map[string]any{"body": map[string]any{"key": "test-credential"}}}, nil)
+	env.OnActivity(CheckActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"rawJSON": "{json:}", "base_url": "testURL"}}, nil)
+	env.OnActivity(JSONActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: JSONOutput}, nil)
+	env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"body": map[string]any{"key": "test-credential"}}}, nil)
 	env.ExecuteWorkflow(credentialWorkflow.Workflow, workflowengine.WorkflowInput{
 		Config: map[string]any{
 			"app_url": "test.app",
