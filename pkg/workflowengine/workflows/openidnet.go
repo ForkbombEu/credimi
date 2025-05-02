@@ -66,7 +66,7 @@ func (OpenIDNetWorkflow) GetOptions() workflow.ActivityOptions {
 //  2. Generate a URL with query parameters for the user to continue the process.
 //  3. Configure and execute the SendMailActivity to notify the user via email.
 //  4. Execute a child workflow (OpenIDNetLogsWorkflow) asynchronously to monitor logs.
-//  5. Wait for either a signal ("wallet-test-signal") or the completion of the child workflow.
+//  5. Wait for either a signal ("openidnet-check-result-signal") or the completion of the child workflow.
 //  6. Process the signal data to determine the success or failure of the workflow.
 //
 // Notes:
@@ -185,7 +185,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		}
 	})
 	var signalSent bool
-	signalChan := workflow.GetSignalChannel(ctx, "wallet-test-signal")
+	signalChan := workflow.GetSignalChannel(ctx, "openidnet-check-result-signal")
 	selector.AddReceive(signalChan, func(c workflow.ReceiveChannel, _ bool) {
 		signalSent = true
 		c.Receive(ctx, &data)
