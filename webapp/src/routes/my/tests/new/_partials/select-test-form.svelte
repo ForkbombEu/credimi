@@ -164,7 +164,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			selected
 		</p> -->
 		<Button
-			disabled={selectedSuites.length === 0 || selectedTests.length === 0}
+			disabled={selectedTests.length === 0}
 			onclick={() =>
 				onSelectTests?.({
 					standardId: selectedStandardId!,

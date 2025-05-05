@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -652,15 +653,15 @@ func startOpenIDNetWorkflow(variant json.RawMessage, form any, email, appURL str
 	return nil
 }
 
-func startEWCWorkflow(yaml string, email, appURL string, namespace interface{}, memo map[string]interface{}, filename string) error {
-	log.Println("Starting EWC workflow with YAML:", yaml)
+func startEWCWorkflow(sessionID string, email, appURL string, namespace interface{}, memo map[string]interface{}, templateStr string) error {
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
-			"yaml":      yaml,
-			"user_mail": email,
-			"app_url":   appURL,
+			"session_id": sessionID,
+			"user_mail":  email,
+			"app_url":    appURL,
 		},
 		Config: map[string]any{
+			"template":  templateStr,
 			"namespace": namespace,
 			"memo":      memo,
 		},
@@ -681,22 +682,28 @@ func processJSONChecks(_ *core.RequestEvent, testData struct {
 		return apis.NewBadRequestError("invalid JSON format", nil)
 	}
 
-	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
-	)
-	if err != nil {
-		return apis.NewBadRequestError(err.Error(), err)
-	}
-
 	if author == "ewc" {
+		filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
+		templateStr, err := readTemplateFile(
+			os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
+		)
+		if err != nil {
+			return apis.NewBadRequestError(err.Error(), err)
+		}
 		return startEWCWorkflow(
 			jsonData,
 			email,
 			appURL,
 			namespace,
 			memo,
-			testName,
+			templateStr,
 		)
+	}
+	templateStr, err := readTemplateFile(
+		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
+	)
+	if err != nil {
+		return apis.NewBadRequestError(err.Error(), err)
 	}
 
 	var parsedData openID4VPTestInputFile
@@ -759,23 +766,29 @@ func processVariablesTest(app core.App, _ *core.RequestEvent, testName string, t
 		return apis.NewBadRequestError("failed to unmarshal JSON for test "+testName, err)
 	}
 
-	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
-	)
-	if err != nil {
-		return apis.NewBadRequestError(err.Error(), err)
-	}
 	if author == "ewc" {
+		filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
+		templateStr, err := readTemplateFile(
+			os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
+		)
+		if err != nil {
+			return apis.NewBadRequestError(err.Error(), err)
+		}
 		return startEWCWorkflow(
 			renderedTemplate,
 			email,
 			appURL,
 			namespace,
 			memo,
-			testName,
+			templateStr,
 		)
 	}
-
+	templateStr, err := readTemplateFile(
+		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
+	)
+	if err != nil {
+		return apis.NewBadRequestError(err.Error(), err)
+	}
 	return startOpenIDNetWorkflow(parsedVariant.Variant, parsedVariant.Form, email, appURL, namespace, memo, templateStr)
 }
 
