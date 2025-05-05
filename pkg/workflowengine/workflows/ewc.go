@@ -8,18 +8,15 @@
 package workflows
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/joho/godotenv"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 
-	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 )
@@ -81,11 +78,19 @@ func (w *EWCWorkflow) Workflow(
 	stepCIWorkflowActivity := activities.StepCIWorkflowActivity{}
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
-			"yaml": input.Payload["yaml"],
+			"session_id": input.Payload["session_id"],
+		},
+		Config: map[string]string{
+			"template": input.Config["template"].(string),
 		},
 	}
+	err := stepCIWorkflowActivity.Configure(&stepCIInput)
+	if err != nil {
+		logger.Error(" StepCI configure failed", "error", err)
+		return workflowengine.WorkflowResult{}, err
+	}
 	var stepCIResult workflowengine.ActivityResult
-	err := workflow.ExecuteActivity(ctx, stepCIWorkflowActivity.Name(), stepCIInput).
+	err = workflow.ExecuteActivity(ctx, stepCIWorkflowActivity.Name(), stepCIInput).
 		Get(ctx, &stepCIResult)
 	if err != nil {
 		logger.Error("StepCIExecution failed", "error", err)
@@ -143,8 +148,19 @@ func (w *EWCWorkflow) Workflow(
 
 	startSignalChan := workflow.GetSignalChannel(ctx, "start-ewc-check-signal")
 	stopSignalChan := workflow.GetSignalChannel(ctx, "stop-ewc-check-signal")
-
-	polling := false
+	selector := workflow.NewSelector(ctx)
+	var isPolling bool
+	var timerFuture workflow.Future
+	var startTimer func()
+	startTimer = func() {
+		timerCtx, _ := workflow.WithCancel(ctx)
+		timerFuture = workflow.NewTimer(timerCtx, time.Second)
+		selector.AddFuture(timerFuture, func(f workflow.Future) {
+			if isPolling {
+				startTimer()
+			}
+		})
+	}
 
 	for {
 		selector := workflow.NewSelector(ctx)
@@ -152,75 +168,71 @@ func (w *EWCWorkflow) Workflow(
 		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 			var signalData struct{}
 			c.Receive(ctx, &signalData)
-			polling = true
+			isPolling = true
+			startTimer()
 		})
 
 		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 			var signalData struct{}
 			c.Receive(ctx, &signalData)
-			polling = false
+			isPolling = false
 		})
 
-		if polling {
+		if !isPolling {
+			continue
+		}
 
-			var HTTPGetActivity activities.HTTPActivity
-			var response workflowengine.ActivityResult
-			HTTPInput := workflowengine.ActivityInput{
-				Config: map[string]string{
-					"method": "GET",
-					"url":    "https://ewc.api.forkbomb.eu/issueStatus",
+		var HTTPGetActivity activities.HTTPActivity
+		var response workflowengine.ActivityResult
+		HTTPInput := workflowengine.ActivityInput{
+			Config: map[string]string{
+				"method": "GET",
+				"url":    "https://ewc.api.forkbomb.eu/issueStatus",
+			},
+			Payload: map[string]any{
+				"query_params": map[string]any{
+					"sessionId": sessionID,
 				},
-				Payload: map[string]any{
-					"query_params": map[string]any{
-						"sessionId": sessionID,
-					},
-				},
-			}
-			err := workflow.ExecuteActivity(ctx, HTTPGetActivity.Name(), HTTPInput).Get(ctx, &response)
-			if err != nil {
-				logger.Error("HTTP GET failed", "error", err)
-				return workflowengine.WorkflowResult{}, err
-			}
-			bodyJSON, err := json.Marshal(response.Output.(map[string]any)["body"])
-			if err != nil {
-				return workflowengine.WorkflowResult{}, fmt.Errorf("failed to re-marshal body: %w", err)
-			}
-			var parsed ResponseBody
-			err = json.Unmarshal(bodyJSON, &parsed)
-			if err != nil {
-				logger.Error("Failed to parse JSON response", "error", err)
-				return workflowengine.WorkflowResult{}, err
-			}
+			},
+		}
+		err := workflow.ExecuteActivity(ctx, HTTPGetActivity.Name(), HTTPInput).Get(ctx, &response)
+		if err != nil {
+			logger.Error("HTTP GET failed", "error", err)
+			return workflowengine.WorkflowResult{}, err
+		}
+		bodyJSON, err := json.Marshal(response.Output.(map[string]any)["body"])
+		if err != nil {
+			return workflowengine.WorkflowResult{}, fmt.Errorf("failed to re-marshal body: %w", err)
+		}
+		var parsed ResponseBody
+		err = json.Unmarshal(bodyJSON, &parsed)
+		if err != nil {
+			logger.Error("Failed to parse JSON response", "error", err)
+			return workflowengine.WorkflowResult{}, err
+		}
 
-			switch parsed.Status {
-			case "success":
-				return workflowengine.WorkflowResult{
-					Message: "EWC check completed successfully",
-					Log:     parsed.Claims,
-				}, nil
+		switch parsed.Status {
+		case "success":
+			return workflowengine.WorkflowResult{
+				Message: "EWC check completed successfully",
+				Log:     parsed.Claims,
+			}, nil
 
-			case "pending":
-				if parsed.Reason != "ok" {
-					return workflowengine.WorkflowResult{
-						Message: fmt.Sprintf("EWC check failed: %s", parsed.Reason),
-					}, nil
-				}
-			case "failed":
+		case "pending":
+			if parsed.Reason != "ok" {
 				return workflowengine.WorkflowResult{
 					Message: fmt.Sprintf("EWC check failed: %s", parsed.Reason),
 				}, nil
-
-			default:
-				return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected status from 'https://ewc.api.forkbomb.eu/verificationStatus': %s", parsed.Status)
 			}
+		case "failed":
+			return workflowengine.WorkflowResult{
+				Message: fmt.Sprintf("EWC check failed: %s", parsed.Reason),
+			}, nil
 
+		default:
+			return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected status from 'https://ewc.api.forkbomb.eu/verificationStatus': %s", parsed.Status)
 		}
 
-		// Wait for either a signal or a timer
-		selector.AddFuture(workflow.NewTimer(ctx, time.Second), func(f workflow.Future) {
-		})
-
-		selector.Select(ctx)
 	}
 }
 
@@ -243,33 +255,10 @@ func (w *EWCWorkflow) Workflow(
 func (w *EWCWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
-	// Load environment variables.
-	godotenv.Load()
-	namespace := "default"
-	if input.Config["namespace"] != nil {
-		namespace = input.Config["namespace"].(string)
-	}
-	c, err := temporalclient.GetTemporalClientWithNamespace(
-		namespace,
-	)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unable to create client: %v", err)
-	}
-	defer c.Close()
-
 	workflowOptions := client.StartWorkflowOptions{
-		ID:        "OpenIDTestWorkflow" + uuid.NewString(),
+		ID:        "EWCWorkflow" + uuid.NewString(),
 		TaskQueue: OpenIDNetTaskQueue,
 	}
-	if input.Config["memo"] != nil {
-		workflowOptions.Memo = input.Config["memo"].(map[string]any)
-	}
 
-	// Start the workflow execution.
-	_, err = c.ExecuteWorkflow(context.Background(), workflowOptions, w.Name(), input)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("failed to start workflow: %v", err)
-	}
-
-	return workflowengine.WorkflowResult{}, nil
+	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
 }
