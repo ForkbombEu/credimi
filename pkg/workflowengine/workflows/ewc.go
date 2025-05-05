@@ -163,7 +163,6 @@ func (w *EWCWorkflow) Workflow(
 	}
 
 	for {
-		selector := workflow.NewSelector(ctx)
 
 		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 			var signalData struct{}
@@ -177,6 +176,8 @@ func (w *EWCWorkflow) Workflow(
 			c.Receive(ctx, &signalData)
 			isPolling = false
 		})
+
+		selector.Select(ctx)
 
 		if !isPolling {
 			continue

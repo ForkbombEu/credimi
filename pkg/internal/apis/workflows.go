@@ -83,7 +83,7 @@ func AddComplianceChecks(app core.App) {
 			},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			// apis.RequireAuth(),
+			apis.RequireAuth(),
 			{Func: middlewares.ErrorHandlingMiddleware},
 		},
 		Validation: true,
