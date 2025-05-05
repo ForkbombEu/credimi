@@ -83,7 +83,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						'w-[300px] space-y-1 border-b-2 p-4',
 						{
 							'border-b-primary bg-secondary ': selected,
-							'hover:bg-secondary/35 cursor-pointer border-b-transparent':
+							'cursor-pointer border-b-transparent hover:bg-secondary/35':
 								!selected && !disabled,
 							'cursor-not-allowed border-b-transparent opacity-50': disabled
 						}
@@ -93,7 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<RadioGroup.Item value={option.id} id={option.id} {disabled} />
 						<span class="text-lg font-bold">{option.label}</span>
 					</div>
-					<p class="text-muted-foreground text-sm">{option.description}</p>
+					<p class="text-sm text-muted-foreground">{option.description}</p>
 				</Label>
 			{/each}
 		</RadioGroup.Root>
@@ -115,7 +115,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#snippet suiteLabel()}
 						<div>
 							<T class="text-md font-bold">{testSuite.name}</T>
-							<T class="text-muted-foreground text-xs">
+							<T class="text-xs text-muted-foreground">
 								{testSuite.description}
 							</T>
 						</div>
@@ -147,12 +147,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/each}
 			</Check.Group>
 		{:else}
-			<p class="text-muted-foreground text-sm">No test suites available</p>
+			<p class="text-sm text-muted-foreground">No test suites available</p>
 		{/if}
 	</div>
 </div>
 
-<div class="bg-background sticky bottom-0 mt-8 border-t p-4 px-8">
+<div class="sticky bottom-0 border-t bg-background/20 p-4 px-8 backdrop-blur-lg">
 	<div class="mx-auto flex w-full max-w-screen-xl items-center justify-between">
 		<!-- TODO - Reimplement count of selected tests -->
 		<div></div>

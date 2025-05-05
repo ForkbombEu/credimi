@@ -31,40 +31,43 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!--  -->
 
-<div class="mx-auto w-full max-w-screen-xl space-y-12 p-8 pb-0">
-	<div>
-		<BackButton href="/my">Back to dashboard</BackButton>
-		<T tag="h1">Compliance tests</T>
+<div class="relative mx-auto w-full max-w-screen-xl rounded-md bg-background shadow-sm">
+	<div class="space-y-12 p-8 pb-0">
+		<div>
+			<BackButton href="/my">Back to dashboard</BackButton>
+			<T tag="h1">Compliance tests</T>
+		</div>
+
+		<Tabs.Root value={currentTab} class="w-full">
+			<Tabs.List class="flex bg-secondary">
+				<Tabs.Trigger
+					value={tabs[0].id}
+					class="grow data-[state=inactive]:text-black data-[state=inactive]:hover:bg-primary/10"
+					onclick={() => {
+						d = undefined;
+					}}
+				>
+					{tabs[0].label}
+				</Tabs.Trigger>
+				<Tabs.Trigger value={tabs[1].id} class="grow" disabled={!Boolean(d)}>
+					{tabs[1].label}
+				</Tabs.Trigger>
+			</Tabs.List>
+		</Tabs.Root>
 	</div>
 
-	<Tabs.Root value={currentTab} class="w-full">
-		<Tabs.List class="bg-secondary flex">
-			<Tabs.Trigger
-				value={tabs[0].id}
-				class="data-[state=inactive]:hover:bg-primary/10 grow data-[state=inactive]:text-black"
-				onclick={() => {
-					d = undefined;
-				}}
-			>
-				{tabs[0].label}
-			</Tabs.Trigger>
-			<Tabs.Trigger value={tabs[1].id} class="grow" disabled={!Boolean(d)}>
-				{tabs[1].label}
-			</Tabs.Trigger>
-		</Tabs.List>
-	</Tabs.Root>
+	{#if !d}
+		<SelectTestForm
+			standards={data.standardsAndTestSuites}
+			onSelectTests={(data) => {
+				compositeTestId = data.standardId;
+				getVariables(data.standardId, data.tests).then((res) => {
+					d = res;
+					scrollTo({ top: 0, behavior: 'instant' });
+				});
+			}}
+		/>
+	{:else}
+		<TestsDataForm data={d} testId={compositeTestId} />
+	{/if}
 </div>
-
-{#if !d}
-	<SelectTestForm
-		standards={data.standardsAndTestSuites}
-		onSelectTests={(data) => {
-			compositeTestId = data.standardId;
-			getVariables(data.standardId, data.tests).then((res) => {
-				d = res;
-			});
-		}}
-	/>
-{:else}
-	<TestsDataForm data={d} testId={compositeTestId} />
-{/if}

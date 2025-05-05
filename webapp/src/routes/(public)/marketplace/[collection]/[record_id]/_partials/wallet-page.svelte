@@ -5,30 +5,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import BackButton from '$lib/layout/back-button.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import PageIndex from '$lib/layout/pageIndex.svelte';
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
-	import PageTop from '$lib/layout/pageTop.svelte';
-	import ServiceCard from '$lib/layout/serviceCard.svelte';
-	import type { CredentialConfiguration } from '$lib/types/openid.js';
-	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import { m, localizeHref } from '@/i18n/index.js';
-	import { QrCode } from '@/qr/index.js';
-	import { Building2, FolderCheck, Layers3, ScanEye } from 'lucide-svelte';
+	import { Building2, Layers3 } from 'lucide-svelte';
 	import { String } from 'effect';
-	import { pb } from '@/pocketbase/index.js';
-	import { ConformanceCheckSchema } from '../../../my/services-and-products/wallet-form-checks-table.svelte';
 	import { z } from 'zod';
 	import Card from '@/components/ui-custom/card.svelte';
-	import Badge from '@/components/ui/badge/badge.svelte';
-	import { assets } from '$app/paths';
+	import { ConformanceCheckSchema } from '../../../../../my/services-and-products/wallet-form-checks-table.svelte';
+	import { Badge } from '@/components/ui/badge';
+	import type { WalletsResponse } from '@/pocketbase/types';
 
-	let { data } = $props();
-	const { wallet } = $derived(data);
+	//
+
+	type Props = {
+		wallet: WalletsResponse;
+	};
+
+	let { wallet }: Props = $props();
 
 	//
 
@@ -60,8 +55,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		// // }
 	} satisfies Record<string, IndexItem>;
 
-	const logo = $derived(pb.files.getURL(wallet, wallet.logo));
-
 	const checks = $derived(z.array(ConformanceCheckSchema).safeParse(wallet.conformance_checks));
 
 	//
@@ -89,131 +82,61 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 </script>
 
-<PageTop contentClass="!space-y-4">
-	<BackButton href="/apps">Back to apps</BackButton>
-	<div class="flex items-center gap-6">
-		{#if wallet.logo}
-			{@const providerUrl = pb.files.getURL(wallet, wallet.logo)}
-			<Avatar src={providerUrl} class="size-32 rounded-sm" hideIfLoadingError />
-		{/if}
+<!--  -->
 
-		<div class="space-y-3">
-			<div class="space-y-1">
-				<T class="text-sm">{m.App_name()}</T>
-				<T tag="h1">{wallet.name}</T>
+<PageIndex sections={Object.values(sections)} class="sticky top-5" />
+
+<div class="grow space-y-16">
+	<div class="flex items-start gap-6">
+		<div class="grow space-y-6">
+			<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
+
+			<div>
+				<InfoBox label="Description" value={wallet.description}></InfoBox>
+			</div>
+
+			<div class="grid grid-cols-2 gap-6">
+				<InfoBox label="Homepage URL" value={wallet.home_url} />
+				<InfoBox label="Repository URL" value={wallet.repository} />
+
+				{#if String.isNonEmpty(wallet.appstore_url)}
+					{@render AppStore(wallet.appstore_url)}
+				{/if}
+
+				{#if String.isNonEmpty(wallet.playstore_url)}
+					{@render PlayStore(wallet.playstore_url)}
+				{/if}
 			</div>
 		</div>
 	</div>
-</PageTop>
 
-<PageContent class="grow bg-secondary" contentClass="flex gap-12 items-start">
-	<PageIndex sections={Object.values(sections)} class="sticky top-5" />
-
-	<div class="grow space-y-16">
-		<div class="flex items-start gap-6">
-			<div class="grow space-y-6">
-				<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
-
-				<div>
-					<InfoBox label="Description" value={wallet.description}></InfoBox>
-				</div>
-
-				<div class="grid grid-cols-2 gap-6">
-					<InfoBox label="Homepage URL" value={wallet.home_url} />
-					<InfoBox label="Repository URL" value={wallet.repository} />
-
-					{#if String.isNonEmpty(wallet.appstore_url)}
-						{@render AppStore(wallet.appstore_url)}
-					{/if}
-
-					{#if String.isNonEmpty(wallet.playstore_url)}
-						{@render PlayStore(wallet.playstore_url)}
-					{/if}
-				</div>
-			</div>
-		</div>
-
-		{#if checks.success}
-			<div>
-				<PageHeader
-					title={sections.conformance_checks.label}
-					id={sections.conformance_checks.anchor}
-				/>
-				<div class="space-y-2">
-					{#each checks.data as check}
-						{@const badgeColor = statuses[check.status]}
-						<Card contentClass="flex justify-between items-center p-4">
-							<div>
-								<p class="font-bold">{check.standard}</p>
-								<p>{check.test}</p>
-							</div>
-							<Badge class="{badgeColor} text-black hover:{badgeColor}">
-								{check.status}
-							</Badge>
-						</Card>
-					{/each}
-				</div>
-			</div>
-		{/if}
-
-		<!-- <div class="space-y-6">
-			<PageHeader
-				title={sections.credential_subjects.label}
-				id={sections.credential_subjects.anchor}
-			/>
-
-			{#if credentialSubject}
-				<InfoBox
-					label="Type"
-					value={credentialConfiguration?.credential_definition?.type?.join(', ')}
-				/>
-
-				<div class="grid grid-cols-[auto_auto_auto] gap-3">
-					{#each Object.entries(credentialSubject) as [key, value]}
-						<InfoBox label="Property">
-							<T>{key}</T>
-						</InfoBox>
-
-						{#if value.display}
-							<InfoBox label="Label">
-								<T>
-									{value.display
-										.map((d) => `${d.name}${d.locale ? ` (${d.locale})` : ''}`)
-										.join(', ')}
-								</T>
-							</InfoBox>
-						{:else}
-							<div></div>
-						{/if}
-
-						{#if value.mandatory}
-							<InfoBox label="Required">
-								<T>Mandatory</T>
-							</InfoBox>
-						{:else}
-							<div></div>
-						{/if}
-					{/each}
-				</div>
-			{/if}
-		</div>
-
+	{#if checks.success}
 		<div>
 			<PageHeader
-				title={sections.compatible_issuer.label}
-				id={sections.compatible_issuer.anchor}
+				title={sections.conformance_checks.label}
+				id={sections.conformance_checks.anchor}
 			/>
-
-			{#if credentialIssuer}
-				<ServiceCard service={credentialIssuer} />
-			{/if}
-		</div> -->
-	</div>
-</PageContent>
+			<div class="space-y-2">
+				{#each checks.data as check}
+					{@const badgeColor = statuses[check.status]}
+					<Card contentClass="flex justify-between items-center p-4">
+						<div>
+							<p class="font-bold">{check.standard}</p>
+							<p>{check.test}</p>
+						</div>
+						<Badge class="{badgeColor} text-black hover:{badgeColor}">
+							{check.status}
+						</Badge>
+					</Card>
+				{/each}
+			</div>
+		</div>
+	{/if}
+</div>
 
 {#snippet AppStore(url: string)}
-	<a href={url} target="_blank" class=""
-		><svg
+	<a href={url} target="_blank" class="">
+		<svg
 			id="livetype"
 			xmlns="http://www.w3.org/2000/svg"
 			viewBox="0 0 119.66407 40"

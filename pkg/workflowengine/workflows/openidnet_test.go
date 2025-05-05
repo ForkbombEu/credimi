@@ -110,12 +110,12 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 			tc.mockActivities(env)
 
 			env.RegisterDelayedCallback(func() {
-				env.SignalWorkflow("wallet-test-signal", tc.signalData)
+				env.SignalWorkflow("openidnet-check-result-signal", tc.signalData)
 			}, tc.completeSignalDelay)
 			env.RegisterDelayedCallback(func() {
 				env.SignalWorkflowByID(
 					"default-test-workflow-id-log",
-					"wallet-test-start-log-update",
+					"openidnet-check-log-update-start",
 					nil,
 				)
 			}, tc.completeSignalDelay)
@@ -179,7 +179,7 @@ func Test_LogSubWorkflow(t *testing.T) {
 			done := make(chan struct{})
 			go func() {
 				env.RegisterDelayedCallback(func() {
-					env.SignalWorkflow("wallet-test-start-log-update", nil)
+					env.SignalWorkflow("openidnet-check-log-update-start", nil)
 				}, time.Second*30)
 				env.ExecuteWorkflow(logsWorkflow.Workflow, workflowengine.WorkflowInput{
 					Payload: map[string]any{
@@ -205,7 +205,7 @@ func Test_LogSubWorkflow(t *testing.T) {
 				var result workflowengine.WorkflowResult
 				assert.NoError(t, env.GetWorkflowResult(&result))
 				assert.NotEmpty(t, result.Log)
-				assert.Equal(t, callCount, 1) // Only one activity call (no looping)
+				assert.Equal(t, 2, callCount) // Only two activity call (no looping)
 			}
 		})
 	}
