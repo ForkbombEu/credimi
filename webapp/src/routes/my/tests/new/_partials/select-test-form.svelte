@@ -31,7 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const standardsWithVersions = $derived.by(() => {
 		return Object.values(standards).flatMap((standard) =>
 			standard.versions.map((version) => ({
-				id: `${standard.uid}/${version.uid}`,
+				id: `${standard.uid}_wallet/${version.uid}`,
 				label: `${standard.name} – ${version.name}`,
 				description: `${standard.description} (${version.name})`,
 				suites: version.suites,

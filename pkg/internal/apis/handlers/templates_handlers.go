@@ -44,10 +44,11 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
+		requestPayload.TestID = "openid4vp_wallet/draft-24" // TODO: remove this hardcoded value
 
-		if requestPayload.TestID == "" {
-			requestPayload.TestID = "OpenID4VP_Wallet/OpenID_Foundation"
-		}
+		// if requestPayload.TestID == "" {
+		// 	requestPayload.TestID = "OpenID4VP_Wallet/OpenID_Foundation"
+		// }
 
 		if len(requestPayload.Filenames) == 0 {
 			return apierror.New(

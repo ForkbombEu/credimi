@@ -13,6 +13,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -36,7 +37,7 @@ type SaveVariablesAndStartRequestInput map[string]struct {
 }
 
 type openID4VPTestInputFile struct {
-	Variant json.RawMessage `json:"variant"`
+	Variant json.RawMessage `json:"variant"  validate:"required,oneof=json variables yaml"`
 	Form    any             `json:"form"`
 }
 
@@ -97,10 +98,20 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"standard": protocol,
 				"author":   author,
 			}
+			suite := strings.Split(testName, "/")[0]
+			if suite == "" {
+				return apierror.New(
+					http.StatusBadRequest,
+					"suite",
+					"suite is required",
+					"missing suite",
+				)
+			}
+			log.Println("Suite:", suite)
 
 			switch testData.Format {
 			case "json":
-				if err := processJSONChecks(e, testData, email, appURL, namespace, memo); err != nil {
+				if err := processJSONChecks(e, testData, email, appURL, namespace, memo, suite, testName); err != nil {
 					return apierror.New(
 						http.StatusBadRequest,
 						"json",
@@ -109,7 +120,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					)
 				}
 			case "variables":
-				if err := processVariablesTest(e.App, e, testName, testData, email, appURL, namespace, dirPath, memo); err != nil {
+				if err := processVariablesTest(e.App, e, testName, testData, email, appURL, namespace, dirPath, memo, suite); err != nil {
 					return apierror.New(
 						http.StatusBadRequest,
 						"variables",
@@ -620,31 +631,11 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 	return "default", nil
 }
 
-func processJSONChecks(_ *core.RequestEvent, testData struct {
-	Format string      `json:"format" validate:"required"`
-	Data   interface{} `json:"data" validate:"required"`
-}, email, appURL string, namespace interface{}, memo map[string]interface{}) error {
-	jsonData, ok := testData.Data.(string)
-	if !ok {
-		return apis.NewBadRequestError("invalid JSON format", nil)
-	}
-
-	var parsedData openID4VPTestInputFile
-	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
-		return apis.NewBadRequestError("failed to parse JSON input", err)
-	}
-
-	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
-	)
-	if err != nil {
-		return apis.NewBadRequestError(err.Error(), err)
-	}
-
+func startOpenIDNetWorkflow(variant json.RawMessage, form any, email, appURL string, namespace interface{}, memo map[string]interface{}, templateStr string) error {
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
-			"variant":   string(parsedData.Variant),
-			"form":      parsedData.Form,
+			"variant":   string(variant),
+			"form":      form,
 			"user_mail": email,
 			"app_url":   appURL,
 		},
@@ -655,16 +646,71 @@ func processJSONChecks(_ *core.RequestEvent, testData struct {
 		},
 	}
 	var workflow workflows.OpenIDNetWorkflow
-	if _, err = workflow.Start(input); err != nil {
-		return apis.NewBadRequestError("failed to start workflow for json test", err)
+	if _, err := workflow.Start(input); err != nil {
+		return apis.NewBadRequestError("failed to start workflow", err)
 	}
 	return nil
+}
+
+func startEWCWorkflow(yaml string, email, appURL string, namespace interface{}, memo map[string]interface{}, filename string) error {
+	log.Println("Starting EWC workflow with YAML:", yaml)
+	input := workflowengine.WorkflowInput{
+		Payload: map[string]any{
+			"yaml":      yaml,
+			"user_mail": email,
+			"app_url":   appURL,
+		},
+		Config: map[string]any{
+			"namespace": namespace,
+			"memo":      memo,
+		},
+	}
+	var workflow workflows.EWCWorkflow
+	if _, err := workflow.Start(input); err != nil {
+		return apis.NewBadRequestError("failed to start workflow", err)
+	}
+	return nil
+}
+
+func processJSONChecks(_ *core.RequestEvent, testData struct {
+	Format string      `json:"format" validate:"required"`
+	Data   interface{} `json:"data" validate:"required"`
+}, email, appURL string, namespace interface{}, memo map[string]interface{}, author string, testName string) error {
+	jsonData, ok := testData.Data.(string)
+	if !ok {
+		return apis.NewBadRequestError("invalid JSON format", nil)
+	}
+
+	templateStr, err := readTemplateFile(
+		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
+	)
+	if err != nil {
+		return apis.NewBadRequestError(err.Error(), err)
+	}
+
+	if author == "ewc" {
+		return startEWCWorkflow(
+			jsonData,
+			email,
+			appURL,
+			namespace,
+			memo,
+			testName,
+		)
+	}
+
+	var parsedData openID4VPTestInputFile
+	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
+		return apis.NewBadRequestError("failed to parse JSON input", err)
+	}
+
+	return startOpenIDNetWorkflow(parsedData.Variant, parsedData.Form, email, appURL, namespace, memo, templateStr)
 }
 
 func processVariablesTest(app core.App, _ *core.RequestEvent, testName string, testData struct {
 	Format string      `json:"format" validate:"required"`
 	Data   interface{} `json:"data" validate:"required"`
-}, email, appURL string, namespace interface{}, dirPath string, memo map[string]interface{}) error {
+}, email, appURL string, namespace interface{}, dirPath string, memo map[string]interface{}, author string) error {
 	variables, ok := testData.Data.(map[string]interface{})
 	if !ok {
 		return apis.NewBadRequestError("invalid variables format for test "+testName, nil)
@@ -719,25 +765,18 @@ func processVariablesTest(app core.App, _ *core.RequestEvent, testName string, t
 	if err != nil {
 		return apis.NewBadRequestError(err.Error(), err)
 	}
+	if author == "ewc" {
+		return startEWCWorkflow(
+			renderedTemplate,
+			email,
+			appURL,
+			namespace,
+			memo,
+			testName,
+		)
+	}
 
-	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"variant":   string(parsedVariant.Variant),
-			"form":      parsedVariant.Form,
-			"user_mail": email,
-			"app_url":   appURL,
-		},
-		Config: map[string]any{
-			"template":  templateStr,
-			"namespace": namespace,
-			"memo":      memo,
-		},
-	}
-	var workflow workflows.OpenIDNetWorkflow
-	if _, err = workflow.Start(input); err != nil {
-		return apis.NewBadRequestError("failed to start workflow for variables test "+testName, err)
-	}
-	return nil
+	return startOpenIDNetWorkflow(parsedVariant.Variant, parsedVariant.Form, email, appURL, namespace, memo, templateStr)
 }
 
 func readTemplateFile(path string) (string, error) {
