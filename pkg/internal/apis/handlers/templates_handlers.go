@@ -44,11 +44,7 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-
-		// if requestPayload.TestID == "" {
-		// 	requestPayload.TestID = "OpenID4VP_Wallet/OpenID_Foundation"
-		// }
-
+		
 		if len(requestPayload.Filenames) == 0 {
 			return apierror.New(
 				http.StatusBadRequest,

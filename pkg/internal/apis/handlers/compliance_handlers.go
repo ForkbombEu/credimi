@@ -5,7 +5,6 @@
 package handlers
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -13,17 +12,13 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	engine "github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/subscriptions"
 	"go.temporal.io/api/enums/v1"
@@ -31,121 +26,6 @@ import (
 	"go.temporal.io/api/workflowservice/v1"
 	"google.golang.org/protobuf/encoding/protojson"
 )
-
-type SaveVariablesAndStartRequestInput map[string]struct {
-	Format string      `json:"format" validate:"required"`
-	Data   interface{} `json:"data" validate:"required"`
-}
-
-type openID4VPTestInputFile struct {
-	Variant json.RawMessage `json:"variant"  validate:"required,oneof=json variables yaml"`
-	Form    any             `json:"form"`
-}
-
-type EWCInput struct {
-	SessionID string `json:"sessionId" validate:"required"`
-}
-
-func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[SaveVariablesAndStartRequestInput](e)
-		if err != nil {
-			return err
-		}
-
-		if len(req) == 0 {
-			return apierror.New(
-				http.StatusBadRequest,
-				"request.body.missing",
-				"Request body cannot be empty",
-				"input is required",
-			)
-		}
-
-		appURL := e.App.Settings().Meta.AppURL
-		userID := e.Auth.Id
-		email := e.Auth.GetString("email")
-		namespace, err := getUserNamespace(e.App, userID)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"user namespace",
-				"failed to get user namespace",
-				err.Error(),
-			)
-		}
-
-		protocol := e.Request.PathValue("protocol")
-		author := e.Request.PathValue("author")
-		if protocol == "" || author == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"protocol and author",
-				"protocol and author are required",
-				"missing parameters",
-			)
-		}
-		protocol, author = normalizeProtocolAndAuthor(protocol, author)
-
-		dirPath := os.Getenv("ROOT_DIR") + "/config_templates/" + protocol + "/" + author + "/"
-		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
-			return apierror.New(
-				http.StatusBadRequest,
-				"directory",
-				"directory does not exist for test "+os.Getenv("ROOT_DIR")+protocol+"/"+author,
-				err.Error(),
-			)
-		}
-
-		for testName, testData := range req {
-			memo := map[string]interface{}{
-				"test":     testName,
-				"standard": protocol,
-				"author":   author,
-			}
-			suite := strings.Split(testName, "/")[0]
-			if suite == "" {
-				return apierror.New(
-					http.StatusBadRequest,
-					"suite",
-					"suite is required",
-					"missing suite",
-				)
-			}
-			log.Println("Suite:", suite)
-
-			switch testData.Format {
-			case "json":
-				if err := processJSONChecks(e, testData, email, appURL, namespace, memo, suite, testName, protocol); err != nil {
-					return apierror.New(
-						http.StatusBadRequest,
-						"json",
-						"failed to process JSON checks",
-						err.Error(),
-					)
-				}
-			case "variables":
-				if err := processVariablesTest(e.App, testName, testData, email, appURL, namespace, dirPath, memo, suite, protocol); err != nil {
-					return apierror.New(
-						http.StatusBadRequest,
-						"variables",
-						"failed to process variables test",
-						err.Error(),
-					)
-				}
-			default:
-				return apierror.New(
-					http.StatusBadRequest,
-					"format",
-					"unsupported format for test "+testName,
-					"unsupported format",
-				)
-			}
-		}
-
-		return e.JSON(http.StatusOK, map[string]bool{"started": true})
-	}
-}
 
 type HandleConfirmSuccessRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
@@ -165,7 +45,6 @@ func HandleConfirmSuccess() func(*core.RequestEvent) error {
 		defer c.Close()
 
 		if err := c.SignalWorkflow(context.Background(), req.WorkflowID, "", "openidnet-check-result-signal", data); err != nil {
-			// return apis.NewBadRequestError("failed to send success signal", err)
 			return apierror.New(
 				http.StatusBadRequest,
 				"signal",
@@ -186,12 +65,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 
 		namespace, err := getUserNamespace(e.App, authRecord.Id)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"user namespace",
-				"failed to get user namespace",
-				err.Error(),
-			)
+			return err
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
@@ -317,12 +191,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 
 		namespace, err := getUserNamespace(e.App, authRecord.Id)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"user namespace",
-				"failed to get user namespace",
-				err.Error(),
-			)
+			return err
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -335,7 +204,12 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 		if err != nil {
-			return apis.NewInternalServerError("unable to create client", err)
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
 		}
 		defer c.Close()
 		workflowExecution, err := c.DescribeWorkflowExecution(
@@ -397,12 +271,7 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 		authRecord := e.Auth
 		namespace, err := getUserNamespace(e.App, authRecord.Id)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"user namespace",
-				"failed to get user namespace",
-				err.Error(),
-			)
+			return err
 		}
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 		if err != nil {
@@ -604,7 +473,7 @@ func HandleSendLogUpdate() func(*core.RequestEvent) error {
 			return err
 		}
 		if err := notifyLogsUpdate(e.App, req.WorkflowID+"openid4vp-wallet-logs", req.Logs); err != nil {
-			return apis.NewBadRequestError("failed to send real-time log update", err)
+			return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
 		}
 		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})
 	}
@@ -677,7 +546,12 @@ func HandleSendEWCUpdateStop() func(*core.RequestEvent) error {
 func getUserNamespace(app core.App, userID string) (string, error) {
 	orgAuthCollection, err := app.FindCollectionByNameOrId("orgAuthorizations")
 	if err != nil {
-		return "", apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"collection",
+			"failed to find orgAuthorizations collection",
+			err.Error(),
+		)
 	}
 
 	authOrgRecords, err := app.FindRecordsByFilter(
@@ -689,18 +563,30 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 		dbx.Params{"user": userID},
 	)
 	if err != nil {
-		return "", apis.NewInternalServerError("failed to find orgAuthorizations records", err)
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"get user namespace",
+			"failed to find orgAuthorizations record",
+			err.Error(),
+		)
 	}
 	if len(authOrgRecords) == 0 {
-		return "", apis.NewInternalServerError(
-			"user is not authorized to access any organization",
-			nil,
+		return "", apierror.New(
+			http.StatusNotFound,
+			"get user namespace",
+			"no orgAuthorizations record found",
+			"no orgAuthorizations record found",
 		)
 	}
 
 	ownerRoleRecord, err := app.FindFirstRecordByFilter("orgRoles", "name='owner'")
 	if err != nil {
-		return "", apis.NewInternalServerError("failed to find owner role", err)
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"get user namespace",
+			"failed to find orgRoles collection",
+			err.Error(),
+		)
 	}
 
 	if len(authOrgRecords) > 1 {
@@ -716,175 +602,12 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 	return "default", nil
 }
 
-func startOpenIDNetWorkflow(jsonData string, email, appURL string, namespace interface{}, memo map[string]interface{}) error {
-	var parsedData openID4VPTestInputFile
-	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
-		return apis.NewBadRequestError("failed to parse JSON input", err)
-	}
-	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
-	)
-	if err != nil {
-		return apis.NewBadRequestError(err.Error(), err)
-	}
-	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"variant":   string(parsedData.Variant),
-			"form":      parsedData.Form,
-			"user_mail": email,
-			"app_url":   appURL,
-		},
-		Config: map[string]any{
-			"template":  templateStr,
-			"namespace": namespace,
-			"memo":      memo,
-		},
-	}
-	var workflow workflows.OpenIDNetWorkflow
-	if _, err := workflow.Start(input); err != nil {
-		return apis.NewBadRequestError("failed to start workflow", err)
-	}
-	return nil
-}
-
-func startEWCWorkflow(jsonData string, email, appURL string, namespace interface{}, memo map[string]interface{}, testName string, protocol string) error {
-	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
-	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
-	)
-	if err != nil {
-		return apis.NewBadRequestError(err.Error(), err)
-	}
-	var parsedData EWCInput
-	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
-		return apis.NewBadRequestError("failed to parse JSON input", err)
-	}
-
-	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"session_id": parsedData.SessionID,
-			"user_mail":  email,
-			"app_url":    appURL,
-		},
-		Config: map[string]any{
-			"template":  templateStr,
-			"namespace": namespace,
-			"memo":      memo,
-			"protocol":  protocol,
-		},
-	}
-	var workflow workflows.EWCWorkflow
-	if _, err := workflow.Start(input); err != nil {
-		return apis.NewBadRequestError("failed to start workflow", err)
-	}
-	return nil
-}
-
-func processJSONChecks(_ *core.RequestEvent, testData struct {
-	Format string      `json:"format" validate:"required"`
-	Data   interface{} `json:"data" validate:"required"`
-}, email, appURL string, namespace interface{}, memo map[string]interface{}, author string, testName string, protocol string) error {
-	jsonData, ok := testData.Data.(string)
-	if !ok {
-		return apis.NewBadRequestError("invalid JSON format", nil)
-	}
-
-	if author == "ewc" {
-		return startEWCWorkflow(
-			jsonData,
-			email,
-			appURL,
-			namespace,
-			memo,
-			testName,
-			protocol,
-		)
-	}
-
-	return startOpenIDNetWorkflow(jsonData, email, appURL, namespace, memo)
-}
-
-func processVariablesTest(app core.App, testName string, testData struct {
-	Format string      `json:"format" validate:"required"`
-	Data   interface{} `json:"data" validate:"required"`
-}, email, appURL string, namespace interface{}, dirPath string, memo map[string]interface{}, author string, protocol string) error {
-	variables, ok := testData.Data.(map[string]interface{})
-	if !ok {
-		return apis.NewBadRequestError("invalid variables format for test "+testName, nil)
-	}
-
-	values := make(map[string]interface{})
-	configValues, err := app.FindCollectionByNameOrId("config_values")
-	if err != nil {
-		return err
-	}
-
-	for credimiID, variable := range variables {
-		v, ok := variable.(map[string]interface{})
-		if !ok {
-			return apis.NewBadRequestError("invalid variable format for test "+testName, nil)
-		}
-		fieldName, ok := v["fieldName"].(string)
-		if !ok {
-			return apis.NewBadRequestError("invalid fieldName format for test "+testName, nil)
-		}
-
-		record := core.NewRecord(configValues)
-		record.Set("credimi_id", credimiID)
-		record.Set("value", v["value"])
-		record.Set("field_name", fieldName)
-		record.Set("template_path", testName)
-		if err := app.Save(record); err != nil {
-			return apis.NewBadRequestError("failed to save variable for test "+testName, err)
-		}
-		values[fieldName] = v["value"]
-	}
-
-	templatePath := dirPath + testName
-	templateData, err := os.ReadFile(templatePath)
-	if err != nil {
-		return apis.NewBadRequestError("failed to open template for test "+testName, err)
-	}
-
-	renderedTemplate, err := engine.RenderTemplate(bytes.NewReader(templateData), values)
-	if err != nil {
-		return apis.NewInternalServerError("failed to render template for test "+testName, err)
-	}
-
-	if author == "ewc" {
-		return startEWCWorkflow(
-			renderedTemplate,
-			email,
-			appURL,
-			namespace,
-			memo,
-			testName,
-			protocol,
-		)
-	}
-	
-	return startOpenIDNetWorkflow(renderedTemplate, email, appURL, namespace, memo)
-}
-
 func readTemplateFile(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", fmt.Errorf("failed to open template file: %w", err)
 	}
 	return string(data), nil
-}
-
-func normalizeProtocolAndAuthor(protocol, author string) (string, string) {
-	switch protocol {
-	case "openid4vp_wallet":
-		protocol = "OpenID4VP_Wallet"
-	case "openid4vci_wallet":
-		protocol = "OpenID4VCI_Wallet"
-	}
-	if author == "openid_foundation" {
-		author = "OpenID_foundation"
-	}
-	return protocol, author
 }
 
 func notifyLogsUpdate(app core.App, subscription string, data []map[string]any) error {
