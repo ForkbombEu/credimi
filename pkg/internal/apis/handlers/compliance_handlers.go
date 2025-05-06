@@ -42,6 +42,10 @@ type openID4VPTestInputFile struct {
 	Form    any             `json:"form"`
 }
 
+type EWCInput struct {
+	SessionID string `json:"sessionId" validate:"required"`
+}
+
 func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		req, err := routing.GetValidatedInput[SaveVariablesAndStartRequestInput](e)
@@ -606,6 +610,68 @@ func HandleSendLogUpdate() func(*core.RequestEvent) error {
 	}
 }
 
+type HandleEWCCheckResultRequestInput struct {
+	WorkflowID string `json:"workflow_id"`
+}
+
+func HandleSendEWCUpdateStart() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		req, err := routing.GetValidatedInput[HandleEWCCheckResultRequestInput](e)
+		if err != nil {
+			return err
+		}
+
+		c, err := temporalclient.New()
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
+		}
+		defer c.Close()
+
+		err = c.SignalWorkflow(context.Background(), req.WorkflowID, "", "start-ewc-check-signal", struct{}{})
+		if err != nil {
+			if _, ok := err.(*serviceerror.NotFound); ok {
+				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
+			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
+				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
+			}
+
+			return apierror.New(http.StatusBadRequest, "signal", "failed to send start logs update signal", err.Error())
+		}
+		return e.JSON(http.StatusOK, map[string]string{"message": "Realtime Logs update started successfully"})
+	}
+}
+func HandleSendEWCUpdateStop() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		req, err := routing.GetValidatedInput[HandleEWCCheckResultRequestInput](e)
+		if err != nil {
+			return err
+		}
+
+		c, err := temporalclient.New()
+		if err != nil {
+			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
+		}
+		defer c.Close()
+
+		err = c.SignalWorkflow(context.Background(), req.WorkflowID, "", "stop-ewc-check-signal", struct{}{})
+		if err != nil {
+			if _, ok := err.(*serviceerror.NotFound); ok {
+				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
+			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
+				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
+			}
+
+			return apierror.New(http.StatusBadRequest, "signal", "failed to send stop logs update signal", err.Error())
+		}
+		return e.JSON(http.StatusOK, map[string]string{"message": "Realtime Logs update stopped successfully"})
+	}
+}
+
 ///
 
 func getUserNamespace(app core.App, userID string) (string, error) {
@@ -681,7 +747,7 @@ func startOpenIDNetWorkflow(jsonData string, email, appURL string, namespace int
 	return nil
 }
 
-func startEWCWorkflow(sessionID string, email, appURL string, namespace interface{}, memo map[string]interface{}, testName string, protocol string) error {
+func startEWCWorkflow(jsonData string, email, appURL string, namespace interface{}, memo map[string]interface{}, testName string, protocol string) error {
 	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
 	templateStr, err := readTemplateFile(
 		os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
@@ -689,9 +755,14 @@ func startEWCWorkflow(sessionID string, email, appURL string, namespace interfac
 	if err != nil {
 		return apis.NewBadRequestError(err.Error(), err)
 	}
+	var parsedData EWCInput
+	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
+		return apis.NewBadRequestError("failed to parse JSON input", err)
+	}
+
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
-			"session_id": sessionID,
+			"session_id": parsedData.SessionID,
 			"user_mail":  email,
 			"app_url":    appURL,
 		},

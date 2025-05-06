@@ -78,7 +78,7 @@ func (w *EWCWorkflow) Workflow(
 	stepCIWorkflowActivity := activities.StepCIWorkflowActivity{}
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
-			"session_id": input.Payload["session_id"],
+			"session_id": input.Payload["session_id"].(string),
 		},
 		Config: map[string]string{
 			"template": input.Config["template"].(string),
@@ -108,7 +108,7 @@ func (w *EWCWorkflow) Workflow(
 	if !ok {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("missing session_id in stepci response")
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet"
+	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/"
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %v", err)
