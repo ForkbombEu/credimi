@@ -14,7 +14,7 @@ tests:
           url: ${{ env.DSS_API }}/offer-no-code
           method: GET
           params:
-            credentialType: PID
+            credentialType: urn:eu.europa.ec.eudi:pid:1
             sessionId: [[.session_id | toString]]
           check:
             status: 200
