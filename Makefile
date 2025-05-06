@@ -126,7 +126,7 @@ $(BINARY_NAME)-ui: $(UI_SRC)
 	cd $(WEBAPP) && bun i && bun run bin; \
 	kill $$PID;
 
-docker: ## 🐳 run docker with all the infrastructure services
+docker: submodules ## 🐳 run docker with all the infrastructure services
 	docker compose build --build-arg PUBLIC_POCKETBASE_URL="http://localhost:8090"
 	docker compose up
 
