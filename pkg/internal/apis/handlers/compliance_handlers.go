@@ -112,7 +112,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 
 			switch testData.Format {
 			case "json":
-				if err := processJSONChecks(e, testData, email, appURL, namespace, memo, suite, testName); err != nil {
+				if err := processJSONChecks(e, testData, email, appURL, namespace, memo, suite, testName, protocol); err != nil {
 					return apierror.New(
 						http.StatusBadRequest,
 						"json",
@@ -121,7 +121,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					)
 				}
 			case "variables":
-				if err := processVariablesTest(e.App, e, testName, testData, email, appURL, namespace, dirPath, memo, suite); err != nil {
+				if err := processVariablesTest(e.App, testName, testData, email, appURL, namespace, dirPath, memo, suite, protocol); err != nil {
 					return apierror.New(
 						http.StatusBadRequest,
 						"variables",
@@ -671,7 +671,14 @@ func startOpenIDNetWorkflow(variant json.RawMessage, form any, email, appURL str
 	return nil
 }
 
-func startEWCWorkflow(sessionID string, email, appURL string, namespace interface{}, memo map[string]interface{}, templateStr string) error {
+func startEWCWorkflow(sessionID string, email, appURL string, namespace interface{}, memo map[string]interface{}, testName string, protocol string) error {
+	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
+	templateStr, err := readTemplateFile(
+		os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
+	)
+	if err != nil {
+		return apis.NewBadRequestError(err.Error(), err)
+	}
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
 			"session_id": sessionID,
@@ -682,6 +689,7 @@ func startEWCWorkflow(sessionID string, email, appURL string, namespace interfac
 			"template":  templateStr,
 			"namespace": namespace,
 			"memo":      memo,
+			"protocol":  protocol,
 		},
 	}
 	var workflow workflows.EWCWorkflow
@@ -694,27 +702,21 @@ func startEWCWorkflow(sessionID string, email, appURL string, namespace interfac
 func processJSONChecks(_ *core.RequestEvent, testData struct {
 	Format string      `json:"format" validate:"required"`
 	Data   interface{} `json:"data" validate:"required"`
-}, email, appURL string, namespace interface{}, memo map[string]interface{}, author string, testName string) error {
+}, email, appURL string, namespace interface{}, memo map[string]interface{}, author string, testName string, protocol string) error {
 	jsonData, ok := testData.Data.(string)
 	if !ok {
 		return apis.NewBadRequestError("invalid JSON format", nil)
 	}
 
 	if author == "ewc" {
-		filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
-		templateStr, err := readTemplateFile(
-			os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
-		)
-		if err != nil {
-			return apis.NewBadRequestError(err.Error(), err)
-		}
 		return startEWCWorkflow(
 			jsonData,
 			email,
 			appURL,
 			namespace,
 			memo,
-			templateStr,
+			testName,
+			protocol,
 		)
 	}
 	templateStr, err := readTemplateFile(
@@ -732,10 +734,10 @@ func processJSONChecks(_ *core.RequestEvent, testData struct {
 	return startOpenIDNetWorkflow(parsedData.Variant, parsedData.Form, email, appURL, namespace, memo, templateStr)
 }
 
-func processVariablesTest(app core.App, _ *core.RequestEvent, testName string, testData struct {
+func processVariablesTest(app core.App, testName string, testData struct {
 	Format string      `json:"format" validate:"required"`
 	Data   interface{} `json:"data" validate:"required"`
-}, email, appURL string, namespace interface{}, dirPath string, memo map[string]interface{}, author string) error {
+}, email, appURL string, namespace interface{}, dirPath string, memo map[string]interface{}, author string, protocol string) error {
 	variables, ok := testData.Data.(map[string]interface{})
 	if !ok {
 		return apis.NewBadRequestError("invalid variables format for test "+testName, nil)
@@ -785,20 +787,14 @@ func processVariablesTest(app core.App, _ *core.RequestEvent, testName string, t
 	}
 
 	if author == "ewc" {
-		filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
-		templateStr, err := readTemplateFile(
-			os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
-		)
-		if err != nil {
-			return apis.NewBadRequestError(err.Error(), err)
-		}
 		return startEWCWorkflow(
 			renderedTemplate,
 			email,
 			appURL,
 			namespace,
 			memo,
-			templateStr,
+			testName,
+			protocol,
 		)
 	}
 	templateStr, err := readTemplateFile(
