@@ -650,11 +650,21 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 	return "default", nil
 }
 
-func startOpenIDNetWorkflow(variant json.RawMessage, form any, email, appURL string, namespace interface{}, memo map[string]interface{}, templateStr string) error {
+func startOpenIDNetWorkflow(jsonData string, email, appURL string, namespace interface{}, memo map[string]interface{}) error {
+	var parsedData openID4VPTestInputFile
+	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
+		return apis.NewBadRequestError("failed to parse JSON input", err)
+	}
+	templateStr, err := readTemplateFile(
+		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
+	)
+	if err != nil {
+		return apis.NewBadRequestError(err.Error(), err)
+	}
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
-			"variant":   string(variant),
-			"form":      form,
+			"variant":   string(parsedData.Variant),
+			"form":      parsedData.Form,
 			"user_mail": email,
 			"app_url":   appURL,
 		},
@@ -719,19 +729,8 @@ func processJSONChecks(_ *core.RequestEvent, testData struct {
 			protocol,
 		)
 	}
-	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
-	)
-	if err != nil {
-		return apis.NewBadRequestError(err.Error(), err)
-	}
 
-	var parsedData openID4VPTestInputFile
-	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
-		return apis.NewBadRequestError("failed to parse JSON input", err)
-	}
-
-	return startOpenIDNetWorkflow(parsedData.Variant, parsedData.Form, email, appURL, namespace, memo, templateStr)
+	return startOpenIDNetWorkflow(jsonData, email, appURL, namespace, memo)
 }
 
 func processVariablesTest(app core.App, testName string, testData struct {
@@ -781,11 +780,6 @@ func processVariablesTest(app core.App, testName string, testData struct {
 		return apis.NewInternalServerError("failed to render template for test "+testName, err)
 	}
 
-	var parsedVariant openID4VPTestInputFile
-	if err := json.Unmarshal([]byte(renderedTemplate), &parsedVariant); err != nil {
-		return apis.NewBadRequestError("failed to unmarshal JSON for test "+testName, err)
-	}
-
 	if author == "ewc" {
 		return startEWCWorkflow(
 			renderedTemplate,
@@ -797,13 +791,8 @@ func processVariablesTest(app core.App, testName string, testData struct {
 			protocol,
 		)
 	}
-	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
-	)
-	if err != nil {
-		return apis.NewBadRequestError(err.Error(), err)
-	}
-	return startOpenIDNetWorkflow(parsedVariant.Variant, parsedVariant.Form, email, appURL, namespace, memo, templateStr)
+	
+	return startOpenIDNetWorkflow(renderedTemplate, email, appURL, namespace, memo)
 }
 
 func readTemplateFile(path string) (string, error) {
