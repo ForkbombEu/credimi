@@ -17,7 +17,6 @@ import (
 	engine "github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -149,13 +148,23 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) error {
 
 	var parsedData openID4VPTestInputFile
 	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
-		return apis.NewBadRequestError("failed to parse JSON input", err)
+		return apierror.New(
+			http.StatusBadRequest,
+			"json",
+			"failed to parse JSON input",
+			err.Error(),
+		)
 	}
 	templateStr, err := readTemplateFile(
 		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
 	)
 	if err != nil {
-		return apis.NewBadRequestError(err.Error(), err)
+		return apierror.New(
+			http.StatusBadRequest,
+			"template",
+			"failed to read template file",
+			err.Error(),
+		)
 	}
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
@@ -172,7 +181,12 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) error {
 	}
 	var workflow workflows.OpenIDNetWorkflow
 	if _, err := workflow.Start(input); err != nil {
-		return apis.NewBadRequestError("failed to start workflow", err)
+		return apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"failed to start workflow",
+			err.Error(),
+		)
 	}
 	return nil
 }
@@ -191,11 +205,21 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 		os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
 	)
 	if err != nil {
-		return apis.NewBadRequestError(err.Error(), err)
+		return apierror.New(
+			http.StatusBadRequest,
+			"template",
+			"failed to read template file",
+			err.Error(),
+		)
 	}
 	var parsedData EWCInput
 	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
-		return apis.NewBadRequestError("failed to parse JSON input", err)
+		return apierror.New(
+			http.StatusBadRequest,
+			"json",
+			"failed to parse JSON input",
+			err.Error(),
+		)
 	}
 
 	input := workflowengine.WorkflowInput{
@@ -213,7 +237,12 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 	}
 	var workflow workflows.EWCWorkflow
 	if _, err := workflow.Start(input); err != nil {
-		return apis.NewBadRequestError("failed to start workflow", err)
+		return apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"failed to start workflow",
+			err.Error(),
+		)
 	}
 	return nil
 }
@@ -224,7 +253,12 @@ func processJSONChecks(testData struct {
 }, email, appURL string, namespace interface{}, memo map[string]interface{}, author Author, testName string, protocol string) error {
 	jsonData, ok := testData.Data.(string)
 	if !ok {
-		return apis.NewBadRequestError("invalid JSON format", nil)
+		return apierror.New(
+			http.StatusBadRequest,
+			"json",
+			"invalid JSON format for test "+testName,
+			"invalid JSON format",
+		)
 	}
 	input := WorkflowStarterParams{
 		JsonData:  jsonData,
@@ -239,7 +273,12 @@ func processJSONChecks(testData struct {
 	if starterFunc, ok := workflowRegistry[Author(author)]; ok {
 		return starterFunc(input)
 	}
-	return apis.NewBadRequestError("unsupported author for test "+testName, nil)
+	return apierror.New(
+		http.StatusBadRequest,
+		"author",
+		"unsupported author for test "+testName,
+		"unsupported author",
+	)
 }
 
 func processVariablesTest(app core.App, testName string, testData struct {
@@ -248,7 +287,12 @@ func processVariablesTest(app core.App, testName string, testData struct {
 }, email, appURL string, namespace interface{}, dirPath string, memo map[string]interface{}, author Author, protocol string) error {
 	variables, ok := testData.Data.(map[string]interface{})
 	if !ok {
-		return apis.NewBadRequestError("invalid variables format for test "+testName, nil)
+		return apierror.New(
+			http.StatusBadRequest,
+			"variables",
+			"invalid variables format for test "+testName,
+			"invalid variables format",
+		)
 	}
 
 	values := make(map[string]interface{})
@@ -260,11 +304,21 @@ func processVariablesTest(app core.App, testName string, testData struct {
 	for credimiID, variable := range variables {
 		v, ok := variable.(map[string]interface{})
 		if !ok {
-			return apis.NewBadRequestError("invalid variable format for test "+testName, nil)
+			return apierror.New(
+				http.StatusBadRequest,
+				"variable",
+				"invalid variable format for test "+testName,
+				"invalid variable format",
+			)
 		}
 		fieldName, ok := v["fieldName"].(string)
 		if !ok {
-			return apis.NewBadRequestError("invalid fieldName format for test "+testName, nil)
+			return apierror.New(
+				http.StatusBadRequest,
+				"fieldName",
+				"invalid fieldName format for test "+testName,
+				"invalid fieldName format",
+			)
 		}
 
 		record := core.NewRecord(configValues)
@@ -273,7 +327,12 @@ func processVariablesTest(app core.App, testName string, testData struct {
 		record.Set("field_name", fieldName)
 		record.Set("template_path", testName)
 		if err := app.Save(record); err != nil {
-			return apis.NewBadRequestError("failed to save variable for test "+testName, err)
+			return apierror.New(
+				http.StatusBadRequest,
+				"save",
+				"failed to save variable for test "+testName,
+				err.Error(),
+			)
 		}
 		values[fieldName] = v["value"]
 	}
@@ -281,12 +340,22 @@ func processVariablesTest(app core.App, testName string, testData struct {
 	templatePath := dirPath + testName
 	templateData, err := os.ReadFile(templatePath)
 	if err != nil {
-		return apis.NewBadRequestError("failed to open template for test "+testName, err)
+		return apierror.New(
+			http.StatusBadRequest,
+			"template",
+			"failed to open template for test "+testName,
+			err.Error(),
+		)
 	}
 
 	renderedTemplate, err := engine.RenderTemplate(bytes.NewReader(templateData), values)
 	if err != nil {
-		return apis.NewInternalServerError("failed to render template for test "+testName, err)
+		return apierror.New(
+			http.StatusBadRequest,
+			"template",
+			"failed to render template for test "+testName,
+			err.Error(),
+		)
 	}
 
 	input := WorkflowStarterParams{
@@ -303,5 +372,10 @@ func processVariablesTest(app core.App, testName string, testData struct {
 	if starterFunc, ok := workflowRegistry[author]; ok {
 		return starterFunc(input)
 	}
-	return apis.NewBadRequestError("unsupported author for test "+testName, nil)
+	return apierror.New(
+		http.StatusBadRequest,
+		"author",
+		"unsupported author for test "+testName,
+		"unsupported author",
+	)
 }
