@@ -98,34 +98,34 @@ type StandardMetadata struct {
 }
 
 type VersionMetadata struct {
-	UID              string `json:"uid"`
-	Name             string `json:"name"`
-	LatestUpdate     string `json:"latest_update"`
-	SpecificationURL string `json:"specification_url"`
+	UID              string `json:"uid" yaml:"uid"`
+	Name             string `json:"name" yaml:"name"`
+	LatestUpdate     string `json:"latest_update" yaml:"latest_update"`
+	SpecificationURL string `json:"specification_url" yaml:"specification_url"`
 }
 
 type SuiteMetadata struct {
-	UID         string `json:"uid"`
-	Name        string `json:"name"`
-	Homepage    string `json:"homepage"`
-	Repository  string `json:"repository"`
-	Help        string `json:"help"`
-	Description string `json:"description"`
+	UID         string `json:"uid" yaml:"uid"`
+	Name        string `json:"name" yaml:"name"`
+	Homepage    string `json:"homepage" yaml:"homepage"`
+	Repository  string `json:"repository" yaml:"repository"`
+	Help        string `json:"help" yaml:"help"`
+	Description string `json:"description" yaml:"description"`
 }
 
 type Suite struct {
 	SuiteMetadata
-	Files []string `json:"files"`
+	Files []string `json:"files" yaml:"files"`
 }
 
 type Version struct {
 	VersionMetadata
-	Suites []Suite `json:"suites"`
+	Suites []Suite `json:"suites" yaml:"suites"` 
 }
 
 type Standard struct {
 	StandardMetadata
-	Versions []Version `json:"versions"`
+	Versions []Version `json:"versions" yaml:"versions"`
 }
 
 type Standards []Standard
