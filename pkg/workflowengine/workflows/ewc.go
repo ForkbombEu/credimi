@@ -188,7 +188,7 @@ func (w *EWCWorkflow) Workflow(
 		HTTPInput := workflowengine.ActivityInput{
 			Config: map[string]string{
 				"method": "GET",
-				"url":    "https://ewc.api.forkbomb.eu/issueStatus",
+				"url":    input.Config["check_endpoint"].(string),
 			},
 			Payload: map[string]any{
 				"query_params": map[string]any{
@@ -232,7 +232,8 @@ func (w *EWCWorkflow) Workflow(
 
 		default:
 			return workflowengine.WorkflowResult{}, fmt.Errorf(
-				"unexpected status from 'https://ewc.api.forkbomb.eu/verificationStatus': %s",
+				"unexpected status from '%s': %s",
+				input.Config["check_endpoint"].(string),
 				parsed.Status,
 			)
 		}

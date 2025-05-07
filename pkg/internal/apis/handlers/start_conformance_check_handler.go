@@ -7,6 +7,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -205,7 +206,6 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 	memo := i.Memo
 	protocol := i.Protocol
 	testName := i.TestName
-
 	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
 	templateStr, err := readTemplateFile(
 		os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
@@ -222,7 +222,20 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 			err.Error(),
 		)
 	}
-
+	var checkEndpoint string
+	switch protocol {
+	case "openid4vp_wallet":
+		checkEndpoint = "https://ewc.api.forkbomb.eu/verificationStatus"
+	case "openid4vci_wallet":
+		checkEndpoint = "https://ewc.api.forkbomb.eu/issueStatus"
+	default:
+		return apierror.New(
+			http.StatusBadRequest,
+			"protocol",
+			fmt.Sprintf("unsupported protocol %s for EWC suite", protocol),
+			"unsupported protocol",
+		)
+	}
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
 			"session_id": parsedData.SessionID,
@@ -230,10 +243,10 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 			"app_url":    appURL,
 		},
 		Config: map[string]any{
-			"template":  templateStr,
-			"namespace": namespace,
-			"memo":      memo,
-			"protocol":  protocol,
+			"template":       templateStr,
+			"namespace":      namespace,
+			"memo":           memo,
+			"check_endpoint": checkEndpoint,
 		},
 	}
 	var workflow workflows.EWCWorkflow
