@@ -131,7 +131,7 @@ type Standard struct {
 type Standards []Standard
 
 func walkConfigTemplates(dir string) (Standards, error) {
-	var standards Standards
+	var standards = make(Standards, 0)
 
 	readDir := func(path string) ([]os.DirEntry, error) {
 		entries, err := os.ReadDir(path)
