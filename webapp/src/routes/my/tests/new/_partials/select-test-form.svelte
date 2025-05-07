@@ -67,8 +67,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// );
 </script>
 
-<pre>{JSON.stringify({ selectedSuites, selectedTests }, null, 2)}</pre>
-
 <div class="mx-auto flex w-full max-w-screen-xl items-start gap-8 p-8">
 	<div class="space-y-4">
 		<T tag="h4">{m.Available_standards()}</T>
