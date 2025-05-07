@@ -507,40 +507,12 @@ type HandleEWCCheckResultRequestInput struct {
 }
 
 func HandleSendEWCUpdateStart() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[HandleEWCCheckResultRequestInput](e)
-		if err != nil {
-			return err
-		}
-
-		c, err := temporalclient.New()
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
-		}
-		defer c.Close()
-
-		err = c.SignalWorkflow(context.Background(), req.WorkflowID, "", "start-ewc-check-signal", struct{}{})
-		if err != nil {
-			notFound := &serviceerror.NotFound{}
-			if errors.As(err, &notFound) {
-				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			}
-			invalidArgument := &serviceerror.InvalidArgument{}
-			if errors.As(err, &invalidArgument) {
-				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
-			}
-
-			return apierror.New(http.StatusBadRequest, "signal", "failed to send start logs update signal", err.Error())
-		}
-		return e.JSON(http.StatusOK, map[string]string{"message": "Realtime Logs update started successfully"})
-	}
+	return StartOrStopEWCUpdates(workflows.EwcStartCheckSignal)
 }
 func HandleSendEWCUpdateStop() func(*core.RequestEvent) error {
+	return StartOrStopEWCUpdates(workflows.EwcStopCheckSignal)
+}
+func StartOrStopEWCUpdates(signal workflows.WorkflowSignal) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		req, err := routing.GetValidatedInput[HandleEWCCheckResultRequestInput](e)
 		if err != nil {
@@ -553,7 +525,7 @@ func HandleSendEWCUpdateStop() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-		err = c.SignalWorkflow(context.Background(), req.WorkflowID, "", "stop-ewc-check-signal", struct{}{})
+		err = c.SignalWorkflow(context.Background(), req.WorkflowID, "", signal.String(), struct{}{})
 		if err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
@@ -564,7 +536,7 @@ func HandleSendEWCUpdateStop() func(*core.RequestEvent) error {
 				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
 			}
 
-			return apierror.New(http.StatusBadRequest, "signal", "failed to send stop logs update signal", err.Error())
+			return apierror.New(http.StatusBadRequest, "signal", "failed to send start/stop logs update signal", err.Error())
 		}
 		return e.JSON(http.StatusOK, map[string]string{"message": "Realtime Logs update stopped successfully"})
 	}
