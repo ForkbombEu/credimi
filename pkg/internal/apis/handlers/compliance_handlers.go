@@ -8,10 +8,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"log"
 	"net/http"
-	"os"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -44,7 +42,13 @@ func HandleConfirmSuccess() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-		if err := c.SignalWorkflow(context.Background(), req.WorkflowID, "", "openidnet-check-result-signal", data); err != nil {
+		if err := c.SignalWorkflow(
+			context.Background(),
+			req.WorkflowID,
+			"",
+			"openidnet-check-result-signal",
+			data,
+		); err != nil {
 			return apierror.New(
 				http.StatusBadRequest,
 				"signal",
@@ -348,7 +352,13 @@ func HandleNotifyFailure() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-		if err := c.SignalWorkflow(context.Background(), req.WorkflowID, "", "openidnet-check-result-signal", data); err != nil {
+		if err := c.SignalWorkflow(
+			context.Background(),
+			req.WorkflowID,
+			"",
+			"openidnet-check-result-signal",
+			data,
+		); err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
 				return apierror.New(
@@ -403,9 +413,16 @@ func HandleSendLogUpdateStart() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-		err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "openidnet-check-log-update-start", struct{}{})
+		err = c.SignalWorkflow(
+			context.Background(),
+			req.WorkflowID+"-log",
+			"",
+			"openidnet-check-log-update-start",
+			struct{}{},
+		)
 		if err != nil {
-			if _, ok := err.(*serviceerror.Canceled); ok {
+			canceledErr := &serviceerror.Canceled{}
+			if errors.As(err, &canceledErr) {
 				wf := c.GetWorkflow(context.Background(), req.WorkflowID+"-log", "")
 				var result workflowengine.WorkflowResult
 
@@ -423,9 +440,12 @@ func HandleSendLogUpdateStart() func(*core.RequestEvent) error {
 					return apierror.New(http.StatusBadRequest, "workflow", "invalid log format", "logs are not in the expected format")
 				}
 			}
-			if _, ok := err.(*serviceerror.NotFound); ok {
+			notFound := &serviceerror.NotFound{}
+			if errors.As(err, &notFound) {
 				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
+			}
+			invalidArgument := &serviceerror.InvalidArgument{}
+			if errors.As(err, &invalidArgument) {
 				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
 			}
 
@@ -449,9 +469,12 @@ func HandleSendLogUpdateStop() func(*core.RequestEvent) error {
 
 		err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "openidnet-check-log-update-stop", struct{}{})
 		if err != nil {
-			if _, ok := err.(*serviceerror.NotFound); ok {
+			notFound := &serviceerror.NotFound{}
+			if errors.As(err, &notFound) {
 				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
+			}
+			invalidArgument := &serviceerror.InvalidArgument{}
+			if errors.As(err, &invalidArgument) {
 				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
 			}
 
@@ -503,9 +526,12 @@ func HandleSendEWCUpdateStart() func(*core.RequestEvent) error {
 
 		err = c.SignalWorkflow(context.Background(), req.WorkflowID, "", "start-ewc-check-signal", struct{}{})
 		if err != nil {
-			if _, ok := err.(*serviceerror.NotFound); ok {
+			notFound := &serviceerror.NotFound{}
+			if errors.As(err, &notFound) {
 				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
+			}
+			invalidArgument := &serviceerror.InvalidArgument{}
+			if errors.As(err, &invalidArgument) {
 				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
 			}
 
@@ -529,9 +555,12 @@ func HandleSendEWCUpdateStop() func(*core.RequestEvent) error {
 
 		err = c.SignalWorkflow(context.Background(), req.WorkflowID, "", "stop-ewc-check-signal", struct{}{})
 		if err != nil {
-			if _, ok := err.(*serviceerror.NotFound); ok {
+			notFound := &serviceerror.NotFound{}
+			if errors.As(err, &notFound) {
 				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			} else if _, ok := err.(*serviceerror.InvalidArgument); ok {
+			}
+			invalidArgument := &serviceerror.InvalidArgument{}
+			if errors.As(err, &invalidArgument) {
 				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
 			}
 
@@ -600,14 +629,6 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 		return authOrgRecords[0].GetString("organization"), nil
 	}
 	return "default", nil
-}
-
-func readTemplateFile(path string) (string, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return "", fmt.Errorf("failed to open template file: %w", err)
-	}
-	return string(data), nil
 }
 
 func notifyLogsUpdate(app core.App, subscription string, data []map[string]any) error {

@@ -231,7 +231,10 @@ func (w *EWCWorkflow) Workflow(
 			}, nil
 
 		default:
-			return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected status from 'https://ewc.api.forkbomb.eu/verificationStatus': %s", parsed.Status)
+			return workflowengine.WorkflowResult{}, fmt.Errorf(
+				"unexpected status from 'https://ewc.api.forkbomb.eu/verificationStatus': %s",
+				parsed.Status,
+			)
 		}
 
 	}

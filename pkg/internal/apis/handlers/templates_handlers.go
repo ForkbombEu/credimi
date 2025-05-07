@@ -44,7 +44,7 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		
+
 		if len(requestPayload.Filenames) == 0 {
 			return apierror.New(
 				http.StatusBadRequest,
@@ -88,13 +88,13 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 }
 
 type StandardMetadata struct {
-	UID           string              `json:"uid"`
-	Name          string              `json:"name"`
-	Description   string              `json:"description"`
-	StandardURL   string              `json:"standard_url"`
-	LatestUpdate  string              `json:"latest_update"`
-	ExternalLinks map[string][]string `json:"external_links"`
-	Disabled      bool                `json:"disabled"`
+	UID           string              `json:"uid" yaml:"uid"`
+	Name          string              `json:"name" yaml:"name"`
+	Description   string              `json:"description" yaml:"description"`
+	StandardURL   string              `json:"standard_url" yaml:"standard_url"`
+	LatestUpdate  string              `json:"latest_update" yaml:"latest_update"`
+	ExternalLinks map[string][]string `json:"external_links" yaml:"external_links"`
+	Disabled      bool                `json:"disabled" yaml:"disabled"`
 }
 
 type VersionMetadata struct {
@@ -136,7 +136,12 @@ func walkConfigTemplates(dir string) (Standards, error) {
 	readDir := func(path string) ([]os.DirEntry, error) {
 		entries, err := os.ReadDir(path)
 		if err != nil {
-			return nil, apierror.New(http.StatusInternalServerError, "filesystem.readDir", "Failed to read directory: "+path, err.Error())
+			return nil, apierror.New(
+				http.StatusInternalServerError,
+				"filesystem.readDir",
+				"Failed to read directory: "+path,
+				err.Error(),
+			)
 		}
 		return entries, nil
 	}

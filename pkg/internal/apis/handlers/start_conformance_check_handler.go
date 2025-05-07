@@ -117,7 +117,18 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					)
 				}
 			case "variables":
-				if err := processVariablesTest(e.App, testName, testData, email, appURL, namespace, dirPath, memo, suite, protocol); err != nil {
+				if err := processVariablesTest(
+					e.App,
+					testName,
+					testData,
+					email,
+					appURL,
+					namespace,
+					dirPath,
+					memo,
+					suite,
+					protocol,
+				); err != nil {
 					return apierror.New(
 						http.StatusBadRequest,
 						"variables",
@@ -159,12 +170,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) error {
 		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
 	)
 	if err != nil {
-		return apierror.New(
-			http.StatusBadRequest,
-			"template",
-			"failed to read template file",
-			err.Error(),
-		)
+		return err
 	}
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
@@ -205,12 +211,7 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 		os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
 	)
 	if err != nil {
-		return apierror.New(
-			http.StatusBadRequest,
-			"template",
-			"failed to read template file",
-			err.Error(),
-		)
+		return err
 	}
 	var parsedData EWCInput
 	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
@@ -247,10 +248,19 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 	return nil
 }
 
-func processJSONChecks(testData struct {
-	Format string      `json:"format" validate:"required"`
-	Data   interface{} `json:"data" validate:"required"`
-}, email, appURL string, namespace interface{}, memo map[string]interface{}, author Author, testName string, protocol string) error {
+func processJSONChecks(
+	testData struct {
+		Format string      `json:"format" validate:"required"`
+		Data   interface{} `json:"data" validate:"required"`
+	},
+	email,
+	appURL string,
+	namespace interface{},
+	memo map[string]interface{},
+	author Author,
+	testName string,
+	protocol string,
+) error {
 	jsonData, ok := testData.Data.(string)
 	if !ok {
 		return apierror.New(
@@ -266,11 +276,11 @@ func processJSONChecks(testData struct {
 		AppURL:    appURL,
 		Namespace: namespace,
 		Memo:      memo,
-		Author:    Author(author),
+		Author:    author,
 		TestName:  testName,
 		Protocol:  protocol,
 	}
-	if starterFunc, ok := workflowRegistry[Author(author)]; ok {
+	if starterFunc, ok := workflowRegistry[author]; ok {
 		return starterFunc(input)
 	}
 	return apierror.New(
@@ -281,10 +291,21 @@ func processJSONChecks(testData struct {
 	)
 }
 
-func processVariablesTest(app core.App, testName string, testData struct {
-	Format string      `json:"format" validate:"required"`
-	Data   interface{} `json:"data" validate:"required"`
-}, email, appURL string, namespace interface{}, dirPath string, memo map[string]interface{}, author Author, protocol string) error {
+func processVariablesTest(
+	app core.App,
+	testName string,
+	testData struct {
+		Format string      `json:"format" validate:"required"`
+		Data   interface{} `json:"data" validate:"required"`
+	},
+	email,
+	appURL string,
+	namespace interface{},
+	dirPath string,
+	memo map[string]interface{},
+	author Author,
+	protocol string,
+) error {
 	variables, ok := testData.Data.(map[string]interface{})
 	if !ok {
 		return apierror.New(
@@ -359,7 +380,7 @@ func processVariablesTest(app core.App, testName string, testData struct {
 	}
 
 	input := WorkflowStarterParams{
-		JsonData:  string(renderedTemplate),
+		JsonData:  renderedTemplate,
 		Email:     email,
 		AppURL:    appURL,
 		Namespace: namespace,
@@ -378,4 +399,17 @@ func processVariablesTest(app core.App, testName string, testData struct {
 		"unsupported author for test "+testName,
 		"unsupported author",
 	)
+}
+
+func readTemplateFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusBadRequest,
+			"file",
+			"failed to read template file",
+			err.Error(),
+		)
+	}
+	return string(data), nil
 }
