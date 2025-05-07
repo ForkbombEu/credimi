@@ -38,7 +38,7 @@ credimi is more than just a tool – it's a platform designed to foster trust, s
 Click the link above to dive into our comprehensive documentation, where you’ll find detailed information about how credimi works, how to get started, and how to make the most of its features.
 
 > [!TIP]
-> Are you a developer? Check out the [🤖 Developer Setup](https://forkbombeu.github.io/credimi/Architecture/7_dev_setup.html) to get started.
+> Are you a developer? Check out the [🤖 Developer Setup](https://forkbombeu.github.io/credimi/Software_Architecture/7_dev_setup.html) to get started.
 
 <br>
 
