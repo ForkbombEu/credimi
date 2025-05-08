@@ -12,7 +12,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageIndex from '$lib/layout/pageIndex.svelte';
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import ServiceCard from '$lib/layout/serviceCard.svelte';
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -20,9 +19,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { QrCode } from '@/qr/index.js';
 	import { Building2, FolderCheck, Layers3 } from 'lucide-svelte';
 	import { String } from 'effect';
+	import { MarketplaceItemCard } from '../../marketplace/_utils';
 
 	let { data } = $props();
-	const { credential } = $derived(data);
+	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
 
 	const sections = {
 		credential_properties: {
@@ -56,8 +56,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		credential.json as CredentialConfiguration | undefined
 	);
 
-	const credentialIssuer = $derived(credential.expand?.credential_issuer);
-
 	function createIntentUrl(issuer: string | undefined, type: string): string {
 		const data = {
 			credential_configuration_ids: [type],
@@ -66,6 +64,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const credentialOffer = encodeURIComponent(JSON.stringify(data));
 		return `openid-credential-offer://?credential_offer=${credentialOffer}`;
 	}
+
+	const qrLink = $derived(
+		String.isNonEmpty(credential.deeplink)
+			? credential.deeplink
+			: createIntentUrl(credentialIssuer?.url, credential.type)
+	);
 </script>
 
 <PageTop contentClass="!space-y-4">
@@ -84,7 +88,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </PageTop>
 
-<PageContent class="grow bg-secondary" contentClass="flex gap-12 items-start">
+<PageContent class="bg-secondary grow" contentClass="flex gap-12 items-start">
 	<PageIndex sections={Object.values(sections)} class="sticky top-5" />
 
 	<div class="grow space-y-16">
@@ -122,24 +126,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			<div class="flex flex-col items-center">
 				<PageHeader title="Credential offer" id="qr" />
-				<QrCode
-					src={String.isNonEmpty(credential.deeplink)
-						? credential.deeplink
-						: createIntentUrl(credentialIssuer?.url, credential.type)}
-					cellSize={10}
-					class={['w-60 rounded-md']}
-				/>
+				<QrCode src={qrLink} cellSize={10} class={['w-60 rounded-md']} />
 				<div class="w-60 break-all pt-4 text-xs">
-					<a
-						href={String.isNonEmpty(credential.deeplink)
-							? credential.deeplink
-							: createIntentUrl(credentialIssuer?.url, credential.type)}
-						target="_self"
-					>
-						{String.isNonEmpty(credential.deeplink)
-							? credential.deeplink
-							: createIntentUrl(credentialIssuer?.url, credential.type)}</a
-					>
+					<a href={qrLink} target="_self">{qrLink}</a>
 				</div>
 			</div>
 		</div>
@@ -152,7 +141,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{#if credentialConfiguration}
 				<pre
-					class="w-fit max-w-screen-lg overflow-x-clip rounded-xl border border-primary bg-card p-6 text-xs text-card-foreground shadow-sm ring-primary transition-transform hover:-translate-y-2 hover:ring-2">{JSON.stringify(
+					class="border-primary bg-card text-card-foreground ring-primary w-fit max-w-screen-lg overflow-x-clip rounded-xl border p-6 text-xs shadow-sm transition-transform hover:-translate-y-2 hover:ring-2">{JSON.stringify(
 						credentialConfiguration,
 						null,
 						2
@@ -160,21 +149,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 		</div>
 
-		<!-- <div>
-			<PageHeader
-				title={sections.compatible_apps.label}
-				id={sections.compatible_apps.anchor}
-			/>
-		</div> -->
-
 		<div>
 			<PageHeader
 				title={sections.compatible_issuer.label}
 				id={sections.compatible_issuer.anchor}
 			/>
 
-			{#if credentialIssuer}
-				<ServiceCard service={credentialIssuer} />
+			{#if credentialIssuerMarketplaceEntry}
+				<MarketplaceItemCard item={credentialIssuerMarketplaceEntry} />
 			{/if}
 		</div>
 	</div>
