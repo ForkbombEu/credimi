@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Label } from '@/components/ui/label';
 	import { MediaQuery } from 'svelte/reactivity';
 	import WorkflowLogs from '@/components/ui-custom/workflowLogs.svelte';
+	import ParamsChecker from './_partials/params-checker.svelte';
 
 	//
 
@@ -75,75 +76,83 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageContent>
-	<div class="space-y-4">
-		<T tag="h1">Wallet test</T>
+	<ParamsChecker>
+		{#snippet ifValid({ qr, workflowId })}
+			<div class="space-y-4">
+				<T tag="h1">Wallet test</T>
 
-		<div class="step-container">
-			{@render Step(1, 'Scan this QR with the wallet app to start the check')}
+				<div class="step-container">
+					{@render Step(1, 'Scan this QR with the wallet app to start the check')}
 
-			<div
-				class="bg-primary/10 ml-16 mt-4 flex flex-col items-center justify-center rounded-md p-2 sm:flex-row"
-			>
-				<QrCode src={data.qrContent} class="size-40 rounded-sm" />
+					<div
+						class="bg-primary/10 ml-16 mt-4 flex flex-col items-center justify-center rounded-md p-2 sm:flex-row"
+					>
+						<QrCode src={qr} class="size-40 rounded-sm" />
 
-				<p class="text-primary max-w-sm break-all p-4 font-mono text-xs hover:underline">
-					{data.qrContent}
-				</p>
-			</div>
-		</div>
-
-		<div class="step-container">
-			{@render Step(2, 'Follow the procedure on the wallet app')}
-			<div class="ml-16">
-				<WorkflowLogs workflowId={data.workflowId} />
-			</div>
-		</div>
-
-		<div class="step-container">
-			{@render Step(3, 'Confirm the result')}
-
-			<div class="ml-16 flex flex-col gap-8 sm:flex-row">
-				{#if pageStatus == 'fresh'}
-					<div class="grow basis-1">
-						<Form form={successForm}>
-							{#snippet submitButton()}
-								<div class="space-y-2">
-									<Label for="success">If the test succeeded:</Label>
-									<SubmitButton
-										id="success"
-										class="w-full bg-green-600 hover:bg-green-700"
-									>
-										Confirm test success
-									</SubmitButton>
-								</div>
-							{/snippet}
-						</Form>
+						<p
+							class="text-primary max-w-sm break-all p-4 font-mono text-xs hover:underline"
+						>
+							{qr}
+						</p>
 					</div>
+				</div>
 
-					<Separator orientation={sm.current ? 'vertical' : 'horizontal'} />
-
-					<div class="grow basis-1">
-						<Form form={failureForm} hideRequiredIndicator class="space-y-2">
-							<TextareaField
-								form={failureForm}
-								name="reason"
-								options={{ label: 'If something went wrong, please tell us what:' }}
-							/>
-							{#snippet submitButton()}
-								<SubmitButton class="w-full bg-red-600 hover:bg-red-700">
-									Notify issue
-								</SubmitButton>
-							{/snippet}
-						</Form>
+				<div class="step-container">
+					{@render Step(2, 'Follow the procedure on the wallet app')}
+					<div class="ml-16">
+						<WorkflowLogs {workflowId} />
 					</div>
-				{:else if pageStatus == 'success'}
-					<Alert variant="info">Your response was submitted! Thanks :)</Alert>
-				{:else if pageStatus == 'already_answered'}
-					<Alert variant="info">This test was already confirmed</Alert>
-				{/if}
+				</div>
+
+				<div class="step-container">
+					{@render Step(3, 'Confirm the result')}
+
+					<div class="ml-16 flex flex-col gap-8 sm:flex-row">
+						{#if pageStatus == 'fresh'}
+							<div class="grow basis-1">
+								<Form form={successForm}>
+									{#snippet submitButton()}
+										<div class="space-y-2">
+											<Label for="success">If the test succeeded:</Label>
+											<SubmitButton
+												id="success"
+												class="w-full bg-green-600 hover:bg-green-700"
+											>
+												Confirm test success
+											</SubmitButton>
+										</div>
+									{/snippet}
+								</Form>
+							</div>
+
+							<Separator orientation={sm.current ? 'vertical' : 'horizontal'} />
+
+							<div class="grow basis-1">
+								<Form form={failureForm} hideRequiredIndicator class="space-y-2">
+									<TextareaField
+										form={failureForm}
+										name="reason"
+										options={{
+											label: 'If something went wrong, please tell us what:'
+										}}
+									/>
+									{#snippet submitButton()}
+										<SubmitButton class="w-full bg-red-600 hover:bg-red-700">
+											Notify issue
+										</SubmitButton>
+									{/snippet}
+								</Form>
+							</div>
+						{:else if pageStatus == 'success'}
+							<Alert variant="info">Your response was submitted! Thanks :)</Alert>
+						{:else if pageStatus == 'already_answered'}
+							<Alert variant="info">This test was already confirmed</Alert>
+						{/if}
+					</div>
+				</div>
 			</div>
-		</div>
-	</div>
+		{/snippet}
+	</ParamsChecker>
 </PageContent>
 
 {#snippet Step(n: number, text: string)}

@@ -2,15 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { error } from '@sveltejs/kit';
+import { getWalletTestParams } from '../_partials';
 
 export const load = ({ url }) => {
-	const deeplink = url.searchParams.get('qr');
-	const workflowId = url.searchParams.get('workflow-id');
-	if (!deeplink || !workflowId) error(404);
-
-	return {
-		deeplink,
-		workflowId
-	};
+	return getWalletTestParams(url);
 };

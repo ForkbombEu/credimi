@@ -5,8 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import PageContent from '$lib/layout/pageContent.svelte';
 	import { pb } from '@/pocketbase/index.js';
 	import { onDestroy, onMount } from 'svelte';
+	import ParamsChecker from '../_partials/params-checker.svelte';
+	import { QrCode } from '@/qr/index.js';
 
 	let { data } = $props();
 
@@ -43,7 +46,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <svelte:window on:beforeunload={closeConnections} />
 
-<div>
-	<h1>Wallet EWC</h1>
-	<pre>{JSON.stringify(response, null, 2)}</pre>
-</div>
+<PageContent>
+	<ParamsChecker>
+		{#snippet ifValid({ qr, workflowId })}
+			<div>
+				<h1>Wallet EWC</h1>
+				<pre>{JSON.stringify(response, null, 2)}</pre>
+				<QrCode src={qr} class="size-40 rounded-sm" />
+			</div>
+		{/snippet}
+	</ParamsChecker>
+</PageContent>
