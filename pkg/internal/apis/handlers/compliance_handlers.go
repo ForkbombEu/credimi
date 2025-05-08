@@ -638,10 +638,6 @@ func HandleCustomChecks() func(*core.RequestEvent) error {
 		authName := customCheckRecord.GetString("owner")
 		standard := customCheckRecord.GetString("standard")
 
-		appURL := e.App.Settings().Meta.AppURL
-
-		email := e.Auth.GetString("email")
-
 		namespace, err := getUserNamespace(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
@@ -660,17 +656,15 @@ func HandleCustomChecks() func(*core.RequestEvent) error {
 
 		input := workflowengine.WorkflowInput{
 			Payload: map[string]any{
-				"user_mail": email,
-				"app_url":   appURL,
+				"yaml": yaml,
 			},
 			Config: map[string]any{
-				"template":  yaml,
 				"namespace": namespace,
 				"memo":      memo,
 			},
 		}
 
-		var w workflows.OpenIDNetWorkflow
+		var w workflows.CustomCheckWorkflow
 
 		_, errStart := w.Start(input)
 		if errStart != nil {
