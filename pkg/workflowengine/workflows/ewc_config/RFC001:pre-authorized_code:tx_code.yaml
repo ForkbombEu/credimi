@@ -1,0 +1,35 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version: "1.1"
+name: EWC flow
+env:
+  DSS_API: https://ewc.api.forkbomb.eu
+tests:
+  Test_case_01:
+    steps:
+      - name: EWC RFC001 pre-authorized_code and tx_code (sd-jwt)
+        http:
+          url: ${{ env.DSS_API }}/offer-tx-code
+          method: GET
+          params:
+            credentialType: VerifiablePortableDocumentA1SDJWT
+            sessionId: [[.session_id | toString]]
+          check:
+            status: 200
+          captures:
+            qr:
+              jsonpath: $.qr
+            deep_link:
+              jsonpath: $.deepLink
+            session_id:
+              jsonpath: $.sessionId
+# qrcode image in qr or qr content in deep_link, then show the qrcode
+# to see the result do a GET to https://ewc.api.forkbomb.eu/issueStatus?sessionId=${{ captures.session_id }}
+# the result is a json that can be
+# * {"status":"pending","reason":"ok","sessionId":"${{ captures.session_id }}"} (not scanned yet)
+# * {"status":"failed","reason":"not found","sessionId":"${{ captures.session_id }}"} (failure)
+# * {"status":"success","reason":"ok","sessionId":"${{ captures.session_id }}"} (success)
+
+# ?client_id=https%3A%2F%2Fewc.api.forkbomb.eu%2Fdirect_post%2F1eb7bffd-148c-4571-bee6-d2d319abf80f&response_type=vp_token&response_mode=direct_post&response_uri=https%3A%2F%2Fewc.api.forkbomb.eu%2Fdirect_post%2F1eb7bffd-148c-4571-bee6-d2d319abf80f&presentation_definition_uri=https%3A%2F%2Fewc.api.forkbomb.eu%2Fpresentation-definition%2Fitbsdjwt&client_id_scheme=redirect_uri&client_metadata_uri=https%3A%2F%2Fewc.api.forkbomb.eu%2Fclient-metadata&nonce=9111d59e41b37ec550ce060edaed89dd&state=606a7e440e1ee873407abf31cd22b689&scope=code

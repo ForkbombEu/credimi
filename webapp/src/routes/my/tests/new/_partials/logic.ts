@@ -9,20 +9,6 @@ import { pb } from '@/pocketbase';
 
 /* Types & Schemas */
 
-export type StandardWithTestSuites = {
-	id: string;
-	label: string;
-	description: string;
-	testSuites: Array<{
-		id: string;
-		label: string;
-		tests: string[];
-	}>;
-	disabled?: boolean;
-};
-
-//
-
 const fieldValueTypeSchema = z.literal('string').or(z.literal('object'));
 
 const sharedFieldSchema = z.object({

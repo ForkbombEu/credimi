@@ -81,6 +81,18 @@ func AddComplianceChecks(app core.App) {
 				Input:   handlers.HandleSendLogUpdateStartRequestInput{},
 			},
 			{
+				Method:  http.MethodPost,
+				Path:    "/send-ewc-update-start",
+				Handler: handlers.HandleSendEWCUpdateStart,
+				Input:   handlers.HandleEWCCheckResultRequestInput{},
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/send-ewc-update-stop",
+				Handler: handlers.HandleSendLogUpdateStart,
+				Input:   handlers.HandleEWCCheckResultRequestInput{},
+			},
+			{
 				Method:              http.MethodPost,
 				Path:                "/send-log-update",
 				Handler:             handlers.HandleSendLogUpdate,
@@ -89,7 +101,7 @@ func AddComplianceChecks(app core.App) {
 			},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			apis.RequireAuth(),
+			//apis.RequireAuth(),
 			{Func: middlewares.ErrorHandlingMiddleware},
 		},
 		Validation: true,

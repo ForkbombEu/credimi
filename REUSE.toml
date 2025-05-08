@@ -30,7 +30,8 @@ path = [
     "pkg/workflowengine/workflows/credentials_config/openid-credential-issuer.schema.go",
     "pb_migrations/*",
     "test_pb_data/*",
-    "go.sum"
+    "go.sum",
+    "mocked_templates/**/*"
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Forkbomb BV"
