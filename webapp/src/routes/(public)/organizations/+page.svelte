@@ -9,10 +9,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import ServiceCard from '$lib/layout/serviceCard.svelte';
 	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import Card from '@/components/ui-custom/card.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';

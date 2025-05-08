@@ -14,9 +14,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		item: MarketplaceItemsResponse;
+		class?: string;
 	};
 
-	const { item: record }: Props = $props();
+	const { item: record, class: className = '' }: Props = $props();
 
 	const item = $derived(record as MarketplaceItem);
 	const { href, logo, display } = $derived(getMarketplaceItemData(item));
@@ -24,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <a
 	{href}
-	class="border-primary bg-card text-card-foreground ring-primary flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm transition-all hover:-translate-y-2 hover:ring-2"
+	class="border-primary bg-card text-card-foreground ring-primary flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm transition-all hover:-translate-y-2 hover:ring-2 {className}"
 >
 	<div class="space-y-1">
 		<T class="overflow-hidden text-ellipsis font-semibold">{item.name}</T>

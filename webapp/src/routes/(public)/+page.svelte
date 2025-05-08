@@ -16,15 +16,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Field } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { currentUser, pb } from '@/pocketbase';
-	import { onMount } from 'svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
-	import CredentialSection from './_sections/credential_section.svelte';
-	import AppsSection from './_sections/apps_section.svelte';
-	import IssuerSection from './_sections/issuer_section.svelte';
-	import VerifierSection from './_sections/verifier_section.svelte';
+	import CredentialSection from './_sections/credential-section.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import { Sparkle } from 'lucide-svelte';
+	import { Collections } from '@/pocketbase/types';
+	import MarketplaceSection, { type SectionData } from './_sections/marketplace-section.svelte';
+
+	//
 
 	const schema = z.object({
 		name: z.string(),
@@ -52,11 +52,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let formHighlight = $state(false);
-
-	onMount(() => {
-		// TODO (start animation on scroll)
-	});
+	const sections: SectionData[] = [
+		{
+			collection: Collections.Verifiers,
+			findLabel: m.Find_verifiers(),
+			allLabel: m.All_verifiers()
+		},
+		{
+			collection: Collections.Wallets,
+			findLabel: m.Find_apps(),
+			allLabel: m.All_apps()
+		},
+		{
+			collection: Collections.CredentialIssuers,
+			findLabel: m.Find_issuers(),
+			allLabel: m.All_issuers()
+		}
+	];
 </script>
 
 {#if $featureFlags.DEMO}
@@ -65,15 +77,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <PageTop>
 	<div class="space-y-2">
-		<T tag="h1" class="text-balance">{m.EUDIW_Conformance_Interoperability_and_Marketplace()}</T
-		>
+		<T tag="h1" class="text-balance">
+			{m.EUDIW_Conformance_Interoperability_and_Marketplace()}
+		</T>
 		<div class="flex flex-col gap-2 py-2">
 			<T tag="small" class="text-balance">
 				{m.Explore_the_marketplace_and_try_credentials_wallets_and_services()}
 			</T>
-			<T tag="small" class="text-balance"
-				>{m.Test_the_conformance_and_interoperability_of_your_EUDIW()}</T
-			>
+			<T tag="small" class="text-balance">
+				{m.Test_the_conformance_and_interoperability_of_your_EUDIW()}
+			</T>
 		</div>
 	</div>
 	<div class="flex gap-4">
@@ -89,9 +102,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <PageContent class="bg-secondary" contentClass="space-y-12">
 	<CredentialSection />
-	<AppsSection />
-	<IssuerSection />
-	<VerifierSection />
+	{#each sections as section}
+		<MarketplaceSection {...section} />
+	{/each}
 </PageContent>
 
 <PageContent class="border-y-primaryborder-y-2" contentClass="!space-y-8">

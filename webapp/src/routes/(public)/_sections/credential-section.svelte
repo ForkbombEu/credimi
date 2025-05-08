@@ -3,6 +3,7 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
+
 <script lang="ts">
 	import CredentialCard from '$lib/layout/credentialCard.svelte';
 	import { m } from '@/i18n';
@@ -16,7 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type CredentialsResponse
 	} from '@/pocketbase/types';
 	import { CollectionManager } from '@/collections-components';
-	import { currentUser } from '@/pocketbase';
+
+	//
 
 	const fakeCredential: CredentialsResponse = {
 		id: 'das',
@@ -42,6 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<T tag="h3">{m.Find_credentials()}</T>
+
 		{#if $featureFlags.DEMO}
 			<Button variant="default" disabled class="select-none blur">
 				{m.All_credentials()}
@@ -50,6 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Button variant="default" href="/credentials">{m.All_credentials()}</Button>
 		{/if}
 	</div>
+
 	{#if $featureFlags.DEMO}
 		<PageGrid class="select-none blur-sm">
 			<CredentialCard credential={fakeCredential} class="pointer-events-none grow basis-1" />
@@ -65,7 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			collection="credentials"
 			queryOptions={{
 				perPage: MAX_ITEMS,
-				filter: `published = true ${$currentUser ? `|| credential_issuer = '${$currentUser?.id}'` : ''}`
+				filter: `published = true`
 			}}
 			hide={['pagination']}
 		>
