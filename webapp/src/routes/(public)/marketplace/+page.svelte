@@ -16,6 +16,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { getMarketplaceItemTypeData, MarketplaceItemCard } from './_utils';
 	import type { Filter } from '@/collections-components/manager';
 	import Button from '@/components/ui-custom/button.svelte';
+	import { page } from '$app/state';
+	import type { PocketbaseQueryOptions } from '@/pocketbase/query';
+	import type { CollectionName } from '@/pocketbase/collections-models';
+
+	//
+
+	const type = $derived.by(() => {
+		const typeParam = page.url.searchParams.get('type');
+		if (!typeParam) return undefined;
+
+		const validTypes: CollectionName[] = ['credential_issuers', 'verifiers', 'wallets'];
+		if (!validTypes.includes(typeParam as CollectionName)) return undefined;
+
+		return typeParam as CollectionName;
+	});
+
+	const queryOptions: PocketbaseQueryOptions<'marketplace_items'> = $derived(
+		type ? { filter: `type = '${type}'` } : {}
+	);
 
 	//
 
@@ -31,6 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <CollectionManager
 	collection="marketplace_items"
+	{queryOptions}
 	filters={{
 		name: m.Type(),
 		id: 'default',
@@ -46,14 +66,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					containerClass="grow"
 					class="border-primary bg-secondary                                                                                                                                                                                                                                                                                                              "
 				/>
-				<Filters>
-					{#snippet trigger({ props })}
-						<Button {...props} variant="outline" class="border-primary bg-secondary">
-							{m.Filters()}
-						</Button>
-					{/snippet}
-				</Filters>
+				{#if !type}
+					<Filters>
+						{#snippet trigger({ props })}
+							<Button
+								{...props}
+								variant="outline"
+								class="border-primary bg-secondary"
+							>
+								{m.Filters()}
+							</Button>
+						{/snippet}
+					</Filters>
+				{/if}
 			</div>
+			{#if type}
+				{@const typeData = getMarketplaceItemTypeData(type)}
+				<div class="flex items-center gap-2">
+					<T>
+						{m.Filters()}:
+						<span class={typeData.display?.textClass}>{typeData.display?.label}</span>
+					</T>
+					<Button variant="outline" href="/marketplace" size="sm">{m.Reset()}</Button>
+				</div>
+			{/if}
 		</PageTop>
 	{/snippet}
 
