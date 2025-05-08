@@ -23,6 +23,7 @@ export type MarketplaceItem = {
 	description: string | null;
 	avatar: string | null;
 	avatar_url: string | null;
+	updated: string;
 };
 
 export type MarketplaceItemDisplayData = {

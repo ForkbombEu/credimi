@@ -40,7 +40,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="flex items-end justify-between gap-2">
-		<T class="text-muted-foreground text-xs">Last update: yyyy-mm-dd</T>
+		<T class="text-muted-foreground text-xs"
+			>Last update: {new Date(item.updated).toLocaleDateString()}</T
+		>
 
 		<Avatar
 			src={logo ?? ''}
