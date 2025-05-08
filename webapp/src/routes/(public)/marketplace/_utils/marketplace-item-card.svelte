@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <a
 	{href}
-	class="border-primary bg-card text-card-foreground ring-primary flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm transition-all hover:-translate-y-2 hover:ring-2 {className}"
+	class="border-primary bg-card text-card-foreground ring-primary flex flex-col justify-between gap-2 rounded-lg border p-6 shadow-sm transition-all hover:-translate-y-2 hover:ring-2 {className}"
 >
 	<div class="space-y-1">
 		<T class="overflow-hidden text-ellipsis font-semibold">{item.name}</T>
@@ -40,10 +40,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="flex items-end justify-between gap-2">
-		<T class="text-muted-foreground text-xs">Last check: yyyy-mm-dd</T>
-		{#if logo}
-			<Avatar src={logo} class="size-14 !rounded-sm border" hideIfLoadingError />
-		{/if}
+		<T class="text-muted-foreground text-xs">Last update: yyyy-mm-dd</T>
+
+		<Avatar
+			src={logo ?? ''}
+			class="size-12 !rounded-sm border"
+			fallback={item.name.slice(0, 2)}
+		/>
 	</div>
 
 	<!-- <div
