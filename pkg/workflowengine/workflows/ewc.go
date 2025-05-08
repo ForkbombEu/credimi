@@ -235,9 +235,7 @@ func (w *EWCWorkflow) Workflow(
 				}, nil
 			}
 		case "failed":
-			return workflowengine.WorkflowResult{
-				Message: fmt.Sprintf("EWC check failed: %s", parsed.Reason),
-			}, nil
+			return workflowengine.WorkflowResult{}, fmt.Errorf("EWC check failed: %s", parsed.Reason)
 
 		default:
 			return workflowengine.WorkflowResult{}, fmt.Errorf(
