@@ -76,11 +76,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageContent>
+	<T tag="h1" class="mb-4">Wallet test</T>
 	<ParamsChecker>
 		{#snippet ifValid({ qr, workflowId })}
 			<div class="space-y-4">
-				<T tag="h1">Wallet test</T>
-
 				<div class="step-container">
 					{@render Step(1, 'Scan this QR with the wallet app to start the check')}
 

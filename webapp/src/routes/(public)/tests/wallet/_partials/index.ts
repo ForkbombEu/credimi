@@ -9,14 +9,14 @@ export type WalletTestParams = {
 	workflowId: string;
 };
 
-export function getWalletTestParams(url: URL): WalletTestParams | Error {
+export function getWalletTestParams(url: URL): WalletTestParams | undefined {
 	const qr = url.searchParams.get('qr');
 	const workflowId = url.searchParams.get('workflow-id');
 
 	const hasError = !qr || String.isEmpty(qr) || !workflowId || String.isEmpty(workflowId);
 
 	if (hasError) {
-		return new Error('Invalid params');
+		return undefined;
 	}
 
 	return {
