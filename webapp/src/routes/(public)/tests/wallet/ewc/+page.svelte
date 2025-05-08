@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let response = $state<any>(null);
 
 	onMount(() => {
-		pb.send('/api/...', {
+		pb.send('/api/compliance/send-ewc-update-start', {
 			method: 'POST',
 			body: {
 				workflow_id: data.workflowId
@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	function closeConnections() {
-		pb.send('/api/...', {
+		pb.send('/api/compliance/send-ewc-update-stop', {
 			method: 'POST',
 			body: {
 				workflow_id: data.workflowId
