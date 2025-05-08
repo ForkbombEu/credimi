@@ -31,8 +31,46 @@ export interface OpenidCredentialIssuerSchema {
    */
   notification_endpoint?: string;
   credential_response_encryption?: {
-    alg_values_supported: ("ES256" | "EdDSA" | "RS256")[];
-    enc_values_supported: ("A128CBC-HS256" | "A128GCM")[];
+    alg_values_supported: (
+      | "HS256"
+      | "HS384"
+      | "HS512"
+      | "RS256"
+      | "RS384"
+      | "RS512"
+      | "ES256"
+      | "ES384"
+      | "ES512"
+      | "PS256"
+      | "PS384"
+      | "PS512"
+      | "none"
+      | "RSA1_5"
+      | "RSA-OAEP"
+      | "RSA-OAEP-256"
+      | "A128KW"
+      | "A192KW"
+      | "A256KW"
+      | "dir"
+      | "ECDH-ES"
+      | "ECDH-ES+A128KW"
+      | "ECDH-ES+A192KW"
+      | "ECDH-ES+A256KW"
+      | "A128GCMKW"
+      | "A192GCMKW"
+      | "A256GCMKW"
+      | "PBES2-HS256+A128KW"
+      | "PBES2-HS384+A192KW"
+      | "PBES2-HS512+A256KW"
+      | "EdDSA"
+      | "RSA-OAEP-384"
+      | "RSA-OAEP-512"
+      | "ES256K"
+      | "ML-DSA-44"
+      | "ML-DSA-65"
+      | "ML-DSA-87"
+    )[];
+    enc_values_supported: ("A128CBC-HS256" | "A128GCM" | "A192CBC-HS384" | "A192GCM" | "A256CBC-HS512" | "A256GCM")[];
     encryption_required: boolean;
     [k: string]: unknown;
   };
