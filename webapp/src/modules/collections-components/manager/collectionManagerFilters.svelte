@@ -6,11 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Button, buttonVariants, type ButtonVariant } from '@/components/ui/button';
-	import {
-		getCollectionManagerContext,
-		type Filter,
-		type FilterGroup
-	} from './collectionManagerContext';
+	import { getCollectionManagerContext, type Filter } from './collectionManagerContext';
 	import * as Popover from '@/components/ui/popover/index.js';
 	import * as Sheet from '@/components/ui/sheet/index.js';
 	import { Checkbox } from '@/components/ui/checkbox';

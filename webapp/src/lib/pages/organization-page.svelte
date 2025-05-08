@@ -17,7 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { pb } from '@/pocketbase/index.js';
 	import type { OrganizationInfoResponse } from '@/pocketbase/types';
-	import ServiceCard from '$lib/layout/serviceCard.svelte';
 	import BackButton from '$lib/layout/back-button.svelte';
 
 	type Props = {
@@ -45,12 +44,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			label: m.Issuers()
 		}
 	};
-
-	//
-
-	const credentialIssuersPromise = pb.collection('credential_issuers').getFullList({
-		filter: `owner = '${organizationInfo.owner}'`
-	});
 </script>
 
 <PageTop contentClass="!space-y-4">
@@ -70,7 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </PageTop>
 
-<PageContent class="grow bg-secondary" contentClass="flex flex-col md:flex-row gap-16 items-start">
+<PageContent class="bg-secondary grow" contentClass="flex flex-col md:flex-row gap-16 items-start">
 	<div class="sticky top-5 shrink-0">
 		<PageIndex sections={Object.values(sections)} />
 	</div>
@@ -102,13 +95,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<PageHeader title={m.Apps()} id="apps"></PageHeader>
 		</div>
 
-		<div>
+		<!-- TODO - Replace with MarketplaceItemCards -->
+		<!--<div>
 			<PageHeader title={m.Issuers()} id="issuers" />
 
 			{#await credentialIssuersPromise then credential_issuers}
 				<div class="space-y-2">
 					{#each credential_issuers as issuer, index (issuer.id)}
-						<ServiceCard service={issuer} />
+						< service={issuer} />
 					{:else}
 						<div class="p-4 border border-black/20 rounded-md">
 							<T class="text-center text-black/30">No issuers found</T>
@@ -116,13 +110,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/each}
 				</div>
 			{/await}
-		</div>
+		</div> -->
 	</div>
 </PageContent>
 
 {#snippet CircledNumber(index: number)}
 	<div
-		class="flex size-4 shrink-0 items-center justify-center rounded-full border border-primary text-sm text-slate-500"
+		class="border-primary flex size-4 shrink-0 items-center justify-center rounded-full border text-sm text-slate-500"
 	>
 		<p>
 			{index}

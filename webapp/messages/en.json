@@ -5,7 +5,6 @@
 	"accepted_files": "accepted_files",
 	"Active": "Active",
 	"Already_have_an_account": "Already have an account?",
-	"Available_standards": "Available standards",
 	"and": "and",
 	"Avatar": "Avatar",
 	"Back_to_my_organizations": "Back to My Organizations",
@@ -397,5 +396,7 @@
 	"credimi_is_your_trusted_source_for_compliance_verification": "credimi is your trusted source for compliance verification",
 	"Be_the_first_to_explore_credimi_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_": "Be the first to explore credimi, the ultimate compliance testing tool for decentralized identity. Get exclusive updates, early access, and a direct line to our team.",
 	"Error_check_failed": "Error: Check failed",
-	"An_error_happened_during_the_check_please_read_the_logs_for_more_information": "An error happened during the check. Please read the logs below for more information."
+	"An_error_happened_during_the_check_please_read_the_logs_for_more_information": "An error happened during the check. Please read the logs below for more information.",
+	"Reset": "Reset",
+	"Available_standards": "Available standards"
 }
