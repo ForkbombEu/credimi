@@ -5,7 +5,7 @@
 import { error } from '@sveltejs/kit';
 
 export const load = ({ url }) => {
-	const deeplink = url.searchParams.get('deeplink');
+	const deeplink = url.searchParams.get('qr');
 	const workflowId = url.searchParams.get('workflow-id');
 	if (!deeplink || !workflowId) error(404);
 
