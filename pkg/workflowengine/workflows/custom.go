@@ -32,6 +32,8 @@ func (w *CustomCheckWorkflow) Workflow(
 ) (workflowengine.WorkflowResult, error) {
 	stepCIWorkflowActivity := activities.StepCIWorkflowActivity{}
 	logger := workflow.GetLogger(ctx)
+	subCtx := workflow.WithActivityOptions(ctx, w.GetOptions())
+
 
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
@@ -41,8 +43,8 @@ func (w *CustomCheckWorkflow) Workflow(
 	}
 	var stepCIResult workflowengine.ActivityResult
 
-	err := workflow.ExecuteActivity(ctx, stepCIWorkflowActivity.Name(), stepCIInput).
-		Get(ctx, &stepCIResult)
+	err := workflow.ExecuteActivity(subCtx, stepCIWorkflowActivity.Name(), stepCIInput).
+		Get(subCtx, &stepCIResult)
 	if err != nil {
 		logger.Error("StepCIExecution failed", "error", err)
 		return workflowengine.WorkflowResult{}, err

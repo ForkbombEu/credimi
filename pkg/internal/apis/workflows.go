@@ -58,7 +58,7 @@ func AddComplianceChecks(app core.App) {
 			},
 			{
 				Method:  http.MethodGet,
-				Path:    "/{id}/start-custom",
+				Path:    "/custom/{id}/start",
 				Handler: handlers.HandleCustomChecks,
 				Input:   nil,
 			},
