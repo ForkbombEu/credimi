@@ -5,22 +5,19 @@
 import { String } from 'effect';
 
 export type WalletTestParams = {
-	qr: string;
-	workflowId: string;
+	qr: string | undefined;
+	workflowId: string | undefined;
 };
 
-export function getWalletTestParams(url: URL): WalletTestParams | undefined {
+export function getWalletTestParams(url: URL): WalletTestParams {
 	const qr = url.searchParams.get('qr');
 	const workflowId = url.searchParams.get('workflow-id');
 
-	const hasError = !qr || String.isEmpty(qr) || !workflowId || String.isEmpty(workflowId);
-
-	if (hasError) {
-		return undefined;
-	}
+	const hasQr = qr && !String.isEmpty(qr);
+	const hasWorkflowId = workflowId && !String.isEmpty(workflowId);
 
 	return {
-		qr,
-		workflowId
+		qr: hasQr ? qr : undefined,
+		workflowId: hasWorkflowId ? workflowId : undefined
 	};
 }

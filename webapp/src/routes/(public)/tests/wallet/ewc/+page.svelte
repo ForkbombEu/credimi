@@ -8,13 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import { pb } from '@/pocketbase/index.js';
 	import { onDestroy, onMount } from 'svelte';
-	import ParamsChecker from '../_partials/params-checker.svelte';
 	import { QrCode } from '@/qr/index.js';
 	import T from '@/components/ui-custom/t.svelte';
 
 	let { data } = $props();
-
-	let response = $state<any>(null);
 
 	onMount(() => {
 		if (!data.workflowId) return;
@@ -23,13 +20,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			body: {
 				workflow_id: data.workflowId
 			}
-		})
-			.then((res) => {
-				response = res;
-			})
-			.catch((err) => {
-				console.error(err);
-			});
+		}).catch((err) => {
+			console.error(err);
+		});
 	});
 
 	function closeConnections() {
@@ -51,13 +44,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <PageContent>
 	<T tag="h1" class="mb-4">Wallet EWC test</T>
-	<ParamsChecker>
-		{#snippet ifValid({ qr, workflowId })}
-			<div>
-				<h1>Wallet EWC</h1>
-				<pre>{JSON.stringify(response, null, 2)}</pre>
-				<QrCode src={qr} class="size-40 rounded-sm" />
-			</div>
-		{/snippet}
-	</ParamsChecker>
+
+	<div>
+		{#if data.qr}
+			<QrCode src={data.qr} class="size-40 rounded-sm" />
+		{:else}
+			<T class="font-bold text-red-700">Error: QR code not found</T>
+		{/if}
+	</div>
 </PageContent>
