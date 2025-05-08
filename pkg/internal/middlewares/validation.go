@@ -146,7 +146,7 @@ func validateValue(val interface{}) []map[string]any {
 			err = validateMapValues(valueToValidate)
 		}
 	default:
-		err = validate.Var(val, "required") // Example tag
+		err = validate.Var(val, "required")
 
 		if err != nil {
 			validationErrors := formatValidationErrors(err)

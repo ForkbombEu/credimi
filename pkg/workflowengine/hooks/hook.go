@@ -91,6 +91,17 @@ func startAllWorkers() {
 			},
 		},
 		{
+			TaskQueue: workflows.EWCTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				&workflows.EWCWorkflow{},
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				&activities.StepCIWorkflowActivity{},
+				&activities.SendMailActivity{},
+				&activities.HTTPActivity{},
+			},
+		},
+		{
 			TaskQueue: workflows.CredentialsTaskQueue,
 			Workflows: []workflowengine.Workflow{
 				&workflows.CredentialsIssuersWorkflow{},
