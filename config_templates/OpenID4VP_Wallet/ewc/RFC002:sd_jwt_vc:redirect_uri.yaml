@@ -1,0 +1,34 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version: "1.1"
+name: EWC flow
+env:
+  DSS_API: https://ewc.api.forkbomb.eu
+tests:
+  Test_case_04:
+    steps:
+      - name: EWC RFC002 "Verification" using SD-JWT credentials. OIDC4VP v18, redirect_uri
+        http:
+          url: ${{ env.DSS_API }}/generateVPRequest
+          method: GET
+          params:
+            credentialType: PID
+            sessionId: ${{ string.uuid | fake }}
+          check:
+            status: 200
+          captures:
+            qr:
+              jsonpath: $.qr
+            deep_link:
+              jsonpath: $.deepLink
+            session_id:
+              jsonpath: $.sessionId
+
+# qrcode image in qr or qr content in deep_link, then show the qrcode
+# to see the result do a GET to https://ewc.api.forkbomb.eu/verificationStatus?sessionId=${{ captures.session_id }}
+# the result is a json that can be
+# * {"status":"pending","reason":"ok","sessionId":"${{ captures.session_id }}","claims":null} (not scanned yet)
+# * {"status":"failed","reason":"not found","sessionId":"${{ captures.session_id }}"} (failure)
+# * {"status":"success","reason":"ok","sessionId":"${{ captures.session_id }}","claims":"boh mai arrivato qua ahahah"} (success)

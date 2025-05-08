@@ -146,7 +146,7 @@ function sanitizeCollectionsModels(models: CollectionModel[]) {
 		})
 	);
 
-	return `export const CollectionsModels = ${JSON.stringify(sanitizedModels, null, 2)} as ${ANY_COLLECTION_MODEL}[]`;
+	return `export const CollectionsModels = ${JSON.stringify(sanitizedModels, null, 2)} as unknown as ${ANY_COLLECTION_MODEL}[]`;
 }
 
 function collectionName(models: CollectionModel[]): string {

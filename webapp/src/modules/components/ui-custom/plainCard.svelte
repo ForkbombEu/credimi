@@ -6,15 +6,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { HTMLAttributes } from 'svelte/elements';
 
-	interface Props {
-		class?: string;
+	interface Props extends HTMLAttributes<HTMLDivElement> {
 		children?: Snippet;
 	}
 
-	let { class: className = '', children }: Props = $props();
+	let { class: className = '', children, ...rest }: Props = $props();
 </script>
 
-<div class="rounded-md border px-4 py-3 text-sm {className}">
+<div class="bg-card border-card rounded-md px-4 py-3 {className}" {...rest}>
 	{@render children?.()}
 </div>

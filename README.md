@@ -1,5 +1,5 @@
 <!--
-SPDX-FileCopyrightText: 2024 Puria Nafisi Azizi 
+SPDX-FileCopyrightText: 2024 Puria Nafisi Azizi
 SPDX-FileCopyrightText: 2024 The Forkbomb Company
 
 SPDX-License-Identifier: CC-BY-NC-SA-4.0
@@ -7,23 +7,24 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 <div align="center">
 
-# DIDimo
+# credimi
+
 ## Your trustworthy compliance checker for decentralized identity solutions
 
-<img src="https://repository-images.githubusercontent.com/731107747/afa784ae-ee9f-4101-8cc8-440b839303d8" width="1000">
+<img src="https://demo.credimi.io/logos/credimi_logo-transp.svg" width="1000">
 </div>
 <br><br>
 
-## 📋 DIDimo Features
+## 📋 credimi Features
 
-DIDimo is a platform designed to ensure that credential issuers and verifiers within decentralized identity ecosystems are compliant with industry standards. Whether you're developing digital wallets, government identity projects, or decentralized apps, DIDimo offers:
+credimi is a platform designed to ensure that credential issuers and verifiers within decentralized identity ecosystems are compliant with industry standards. Whether you're developing digital wallets, government identity projects, or decentralized apps, credimi offers:
 
 - **Compliance Assessment**: Verify alignment with industry standards for secure and interoperable identity management.
 - **Debugging Tools**: Real-time analysis and resolution of cryptographic protocol issues.
 - **Interoperability Testing**: Ensure your services work seamlessly with other global systems.
 - **Periodic Checks**: Schedule automated compliance checks to maintain ongoing compliance with evolving standards.
 
-DIDimo is more than just a tool – it's a platform designed to foster trust, security, and innovation in the world of decentralized identity.
+credimi is more than just a tool – it's a platform designed to foster trust, security, and innovation in the world of decentralized identity.
 
 ## 🎯 Project Goals
 
@@ -32,12 +33,12 @@ DIDimo is more than just a tool – it's a platform designed to foster trust, se
 - **Foster Trust**: Build a trustworthy ecosystem where credential issuers and verifiers can demonstrate their compliance with industry standards.
 - **Support Innovation**: Encourage the development of cutting-edge identity solutions by providing essential tools for testing, debugging, and compliance checking.
 
-# 👉 [DOCUMENTATION](https://forkbombeu.github.io/DIDimo/)
+# 👉 [DOCUMENTATION](https://forkbombeu.github.io/credimi/)
 
-Click the link above to dive into our comprehensive documentation, where you’ll find detailed information about how DIDimo works, how to get started, and how to make the most of its features.
+Click the link above to dive into our comprehensive documentation, where you’ll find detailed information about how credimi works, how to get started, and how to make the most of its features.
 
 > [!TIP]
-> Are you a developer? Check out the [🤖 Developer Setup](https://forkbombeu.github.io/DIDimo/Architecture/7_dev_setup.html) to get started.
+> Are you a developer? Check out the [🤖 Developer Setup](https://forkbombeu.github.io/credimi/Software_Architecture/7_dev_setup.html) to get started.
 
 <br>
 
@@ -52,21 +53,22 @@ Click the link above to dive into our comprehensive documentation, where you’l
 
 </div>
 
-***
+---
+
 ## 🚑 Community & support
 
-**[📝 Documentation](https://forkbombeu.github.io/DIDimo/)** - Getting started and more.
+**[📝 Documentation](https://forkbombeu.github.io/credimi/)** - Getting started and more.
 
-**[🌱 Ecosystem 👈 🚧 WIP 🚧](https://github.com/forkbombeu/didimo_plugins)** - Plugins, resources, and more.
+**[🌱 Ecosystem 👈 🚧 WIP 🚧](https://github.com/forkbombeu/credimi_plugins)** - Plugins, resources, and more.
 
-**[🚩 Issues](../../issues)** - Bugs end errors you encounter using didimo.
+**[🚩 Issues](../../issues)** - Bugs end errors you encounter using credimi.
 
 **[💬 Discussions](../../discussions)** - Get help, ask questions, request features, and discuss.
 
-
 **[🔝 back to top](#toc)**
 
-***
+---
+
 ## 😍 Acknowledgements
 
 Copyright © 2023-2025 by [Forkbomb BV](https://www.forkbomb.solutions), Amsterdam
@@ -77,7 +79,8 @@ Supported by [NGI TRUSTCHAIN](https://trustchain.ngi.eu/), which is made possibl
 
 **[🔝 back to top](#toc)**
 
-***
+---
+
 ## 👤 Contributing
 
 1.  🔀 [FORK IT](../../fork)
@@ -87,12 +90,13 @@ Supported by [NGI TRUSTCHAIN](https://trustchain.ngi.eu/), which is made possibl
 5.  Create a new Pull Request `gh pr create -f`
 6.  🙏 Thank you
 
-
 **[🔝 back to top](#toc)**
 
-***
+---
+
 ## 💼 License
-    DIDimo - Your Trustworthy Compliance Checker for Decentralized Identity Solutions
+
+    credimi - Your Trustworthy Compliance Checker for Decentralized Identity Solutions
     Copyleft 🄯 2024 The Forkbomb company, Amsterdam
 
     This program is free software: you can redistribute it and/or modify

@@ -23,14 +23,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const form = createForm({
 		adapter: zod(
 			z.object({
-				url: z.string().url()
+				url: z.string().trim().url()
 			})
 		),
 		onSubmit: async ({ form }) => {
 			// note: use npm:out-of-character to clean the url if needed
 			const { url } = form.data;
 
-			const response = await pb.send('/credentials_issuers/start-check', {
+			await pb.send('/credentials_issuers/start-check', {
 				method: 'POST',
 				body: {
 					credentialIssuerUrl: url

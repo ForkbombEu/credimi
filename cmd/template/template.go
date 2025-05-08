@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+// Package main provides a command-line tool for parsing input strings
+// using OpenID4VP and saving the output to files.
 package main
 
 import (
@@ -11,10 +13,11 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/forkbombeu/didimo/pkg/template_engine"
+	"github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/spf13/cobra"
 )
 
+// Variants represents a collection of variant strings.
 type Variants struct {
 	Variants []string `json:"variants"`
 }
@@ -29,7 +32,7 @@ func main() {
 	rootCmd := &cobra.Command{
 		Use:   "parse-input",
 		Short: "Parses the input string using OpenID4VP and saves output to files",
-		Run: func(cmd *cobra.Command, args []string) {
+		Run: func(_ *cobra.Command, _ []string) {
 			info, err := os.Stat(outputDir)
 			if err != nil {
 				fmt.Println("Error: Output directory does not exist:", outputDir)
@@ -41,13 +44,13 @@ func main() {
 			}
 
 			var variants Variants
-			if err := template_engine.LoadJSON(input, &variants); err != nil {
+			if err := templateengine.LoadJSON(input, &variants); err != nil {
 				fmt.Println("Error loading JSON:", err)
 				return
 			}
 
 			for _, variantString := range variants.Variants {
-				result, err := template_engine.ParseInput(variantString, defaultPath, configPath)
+				result, err := templateengine.ParseInput(variantString, defaultPath, configPath)
 				if err != nil {
 					fmt.Println("Error processing variant:", err)
 					continue
@@ -61,20 +64,22 @@ func main() {
 				filename := fmt.Sprintf("%s.json", filepath.Clean(variantString))
 				filePath := filepath.Join(outputDir, filename)
 
-				if err := os.WriteFile(filePath, output, 0644); err != nil {
+				if err := os.WriteFile(filePath, output, 0600); err != nil {
 					fmt.Println("Error writing file:", err)
 					continue
 				}
-
 			}
 		},
 	}
 
 	// Define the flags for the command
 	rootCmd.Flags().StringVarP(&input, "input", "i", "", "Input string (required)")
-	rootCmd.Flags().StringVarP(&defaultPath, "default", "d", "", "Path to the default JSON file (required)")
-	rootCmd.Flags().StringVarP(&configPath, "config", "c", "", "Path to the config JSON file (required)")
-	rootCmd.Flags().StringVarP(&outputDir, "output", "o", "", "Path to the output directory (required)")
+	rootCmd.Flags().
+		StringVarP(&defaultPath, "default", "d", "", "Path to the default JSON file (required)")
+	rootCmd.Flags().
+		StringVarP(&configPath, "config", "c", "", "Path to the config JSON file (required)")
+	rootCmd.Flags().
+		StringVarP(&outputDir, "output", "o", "", "Path to the output directory (required)")
 
 	rootCmd.MarkFlagRequired("input")
 	rootCmd.MarkFlagRequired("default")

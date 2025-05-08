@@ -93,9 +93,8 @@ lint: devtools ## 📑 lint rules checks
 	$(GOMOD) tidy -diff
 	$(GOMOD) verify
 	$(GOCMD) vet $(SUBDIRS)
-	$(GOTOOL) staticcheck -checks=all,-ST1000,-U1000 $(SUBDIRS)
-	$(GOTOOL) govulncheck -v $(SUBDIRS)
-	$(GOTOOL) revive $(GODIRS)
+	$(GOTOOL) govulncheck $(SUBDIRS)
+	$(GOTOOL) golangci-lint run $(SUBDIRS)
 
 fmt: devtools ## 🗿 format rules checks
 	$(GOFMT) $(GODIRS)
@@ -127,7 +126,7 @@ $(BINARY_NAME)-ui: $(UI_SRC)
 	cd $(WEBAPP) && bun i && bun run bin; \
 	kill $$PID;
 
-docker: ## 🐳 run docker with all the infrastructure services
+docker: submodules ## 🐳 run docker with all the infrastructure services
 	docker compose build --build-arg PUBLIC_POCKETBASE_URL="http://localhost:8090"
 	docker compose up
 

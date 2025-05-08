@@ -61,11 +61,11 @@ export const schemaFieldToZodTypeMap: SchemaFieldToZodTypeMap = {
 				(value) => ({ message: `${value} is not a ISO date string` })
 			)
 			.refine(
-				(date) => (min ? isAfter(date, min) : true),
+				(date) => (min ? isAfter(parseISO(date), parseISO(min)) : true),
 				(value) => ({ message: `${value} is before ${min}` })
 			)
 			.refine(
-				(date) => (max ? isBefore(date, max) : true),
+				(date) => (max ? isBefore(parseISO(date), parseISO(max)) : true),
 				(value) => ({ message: `${value} is after ${max}` })
 			);
 	},

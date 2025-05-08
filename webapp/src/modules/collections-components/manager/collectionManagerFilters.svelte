@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		modalType?: 'popover' | 'sheet';
 		triggerVariant?: ButtonVariant;
-		children: Snippet;
+		children?: Snippet;
 		beforeFilters?: Snippet;
 		afterFilters?: Snippet;
 		trigger?: Snippet<[{ props: GenericRecord }]>;
@@ -115,7 +115,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render trigger({ props })}
 	{:else}
 		<Button {...props} variant={triggerVariant}>
-			{@render children()}
+			{#if children}
+				{@render children()}
+			{:else}
+				{m.Filters()}
+			{/if}
 		</Button>
 	{/if}
 {/snippet}
