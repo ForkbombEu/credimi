@@ -57,6 +57,12 @@ func AddComplianceChecks(app core.App) {
 				Input:   handlers.SaveVariablesAndStartRequestInput{},
 			},
 			{
+				Method:  http.MethodGet,
+				Path:    "/{id}/start-custom",
+				Handler: handlers.HandleCustomChecks,
+				Input:   nil,
+			},
+			{
 				Method:  http.MethodPost,
 				Path:    "/notify-failure",
 				Handler: handlers.HandleNotifyFailure,

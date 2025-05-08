@@ -594,6 +594,101 @@ func HandleSendLogUpdate() func(*core.RequestEvent) error {
 	}
 }
 
+func HandleCustomChecks() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		id := e.Request.PathValue("id")
+
+		customChecksCollection, err := e.App.FindCollectionByNameOrId("custom_checks")
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"collection",
+				"failed to find custom_checks collection",
+				err.Error(),
+			)
+		}
+		customCheckRecord, err := e.App.FindRecordById(customChecksCollection.Id, id)
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"record",
+				"failed to find custom check record",
+				err.Error(),
+			)
+		}
+
+		if customCheckRecord == nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"record",
+				"custom check record not found",
+				"record not found",
+			)
+		}
+
+		yaml := customCheckRecord.GetString("yaml")
+		if yaml == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"yaml",
+				"yaml is empty",
+				"yaml is empty",
+			)
+		}
+		authName := customCheckRecord.GetString("owner")
+		standard := customCheckRecord.GetString("standard")
+
+		appURL := e.App.Settings().Meta.AppURL
+
+		email := e.Auth.GetString("email")
+
+		namespace, err := getUserNamespace(e.App, e.Auth.Id)
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"namespace",
+				"failed to get user namespace",
+				err.Error(),
+			)
+		}
+
+		memo := map[string]interface{}{
+			"test":     "custom-check",
+			"standard": standard,
+			"author":   authName,
+		}
+
+		input := workflowengine.WorkflowInput{
+			Payload: map[string]any{
+				"user_mail": email,
+				"app_url":   appURL,
+			},
+			Config: map[string]any{
+				"template":  yaml,
+				"namespace": namespace,
+				"memo":      memo,
+			},
+		}
+
+		var w workflows.OpenIDNetWorkflow
+
+		_, errStart := w.Start(input)
+		if errStart != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"failed to start check",
+				errStart.Error(),
+			)
+		}
+
+		return e.JSON(http.StatusOK, map[string]bool{
+			"started": true,
+		},
+		)
+	}
+}
+
 ///
 
 func getUserNamespace(app core.App, userID string) (string, error) {
