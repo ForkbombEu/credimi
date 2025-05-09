@@ -15,15 +15,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui/button/button.svelte';
 	import { pb } from '@/pocketbase';
 	import { goto } from '$app/navigation';
-
+	import type { CustomChecksResponse } from '@/pocketbase/types';
 	//
 
 	type Props = {
-		data: FieldsResponse;
+		data?: FieldsResponse | undefined;
 		testId: string;
+		customChecks: CustomChecksResponse[];
 	};
 
-	let { data, testId = 'openid4vp' }: Props = $props();
+	let { data = { normalized_fields: [], specific_fields: {} }, testId = 'openid4vp' }: Props =
+		$props();
 
 	//
 
@@ -71,15 +73,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="mx-auto w-full max-w-screen-xl space-y-16 p-8">
-	<div class="space-y-4">
-		<h2 id={SHARED_FIELDS_ID} class="text-lg font-bold">Shared fields</h2>
-		<FieldConfigFormShared
-			fields={data.normalized_fields}
-			onUpdate={(form) => (sharedData = form)}
-		/>
-	</div>
+	{#if data.normalized_fields.length > 0}
+		<div class="space-y-4">
+			<h2 id={SHARED_FIELDS_ID} class="text-lg font-bold">Shared fields</h2>
+			<FieldConfigFormShared
+				fields={data.normalized_fields}
+				onUpdate={(form) => (sharedData = form)}
+			/>
+		</div>
 
-	<hr />
+		<hr />
+	{/if}
+
 	{#each Object.entries(data.specific_fields) as [testId, testData], index}
 		<div class="space-y-4">
 			<h2 id={testId} class="text-lg font-bold">
