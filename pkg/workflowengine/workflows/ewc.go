@@ -44,14 +44,8 @@ type EWCResponseBody struct {
 	Claims    []string `json:"claims,omitempty"`
 }
 
-type WorkflowSignal string
-
-func (s WorkflowSignal) String() string {
-	return string(s)
-}
-
-const EwcStartCheckSignal WorkflowSignal = "start-ewc-check-signal"
-const EwcStopCheckSignal WorkflowSignal = "stop-ewc-check-signal"
+const EwcStartCheckSignal = "start-ewc-check-signal"
+const EwcStopCheckSignal = "stop-ewc-check-signal"
 
 // Workflow is the main workflow function for the EWCWorkflow. It orchestrates
 // the execution of various activities to perform conformance checks
@@ -155,8 +149,8 @@ func (w *EWCWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	startSignalChan := workflow.GetSignalChannel(ctx, EwcStartCheckSignal.String())
-	stopSignalChan := workflow.GetSignalChannel(ctx, EwcStopCheckSignal.String())
+	startSignalChan := workflow.GetSignalChannel(ctx, EwcStartCheckSignal)
+	stopSignalChan := workflow.GetSignalChannel(ctx, EwcStopCheckSignal)
 	selector := workflow.NewSelector(ctx)
 	var isPolling bool
 	var timerFuture workflow.Future

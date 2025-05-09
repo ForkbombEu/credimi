@@ -30,10 +30,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				console.error(e);
 			});
 
-		pb.send('/api/compliance/send-log-update-start', {
+		pb.send('/api/compliance/send-temporal-signal', {
 			method: 'POST',
 			body: {
-				workflow_id: workflowId
+				workflow_id: workflowId + '-log',
+				signal: 'start-openidnet-check-log-update'
 			}
 		}).catch((e) => {
 			console.error(e);
@@ -56,10 +57,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			console.error(e);
 		});
 
-		pb.send('/api/compliance/send-log-update-stop', {
+		pb.send('/api/compliance/send-temporal-signal', {
 			method: 'POST',
 			body: {
-				workflow_id: workflowId
+				workflow_id: workflowId + '-log',
+				signal: 'stop-openidnet-check-log-update'
 			}
 		}).catch((e) => {
 			console.error(e);

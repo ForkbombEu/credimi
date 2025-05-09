@@ -69,9 +69,3 @@ func StartWorkflowWithOptions(
 
 	return WorkflowResult{}, nil
 }
-
-type WorkflowSignal string
-
-func (s WorkflowSignal) String() string {
-	return string(s)
-}

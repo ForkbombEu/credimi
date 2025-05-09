@@ -255,6 +255,9 @@ func (OpenIDNetLogsWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
+const OpenIDNetStartCheckSignal = "start-openidnet-check-log-update"
+const OpenIDNetStopCheckSignal = "stop-openidnet-check-log-update"
+
 // Workflow is the main workflow function for the OpenIDNetLogsWorkflow.
 // It periodically fetches logs from a specified URL and processes them
 // based on the provided input configuration. The workflow listens for
@@ -307,8 +310,8 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	}
 	var logs []map[string]any
 
-	startSignalChan := workflow.GetSignalChannel(ctx, "openidnet-check-log-update-start")
-	stopSignalChan := workflow.GetSignalChannel(ctx, "openidnet-check-log-update-stop")
+	startSignalChan := workflow.GetSignalChannel(ctx, OpenIDNetStartCheckSignal)
+	stopSignalChan := workflow.GetSignalChannel(ctx, OpenIDNetStopCheckSignal)
 	selector := workflow.NewSelector(ctx)
 
 	var isPolling bool

@@ -70,27 +70,9 @@ func AddComplianceChecks(app core.App) {
 			},
 			{
 				Method:  http.MethodPost,
-				Path:    "/send-log-update-start",
-				Handler: handlers.HandleSendLogUpdateStart,
-				Input:   handlers.HandleSendLogUpdateStartRequestInput{},
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/send-log-update-stop",
-				Handler: handlers.HandleSendLogUpdateStop,
-				Input:   handlers.HandleSendLogUpdateStartRequestInput{},
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/send-ewc-update-start",
-				Handler: handlers.HandleSendEWCUpdateStart,
-				Input:   handlers.HandleEWCCheckResultRequestInput{},
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/send-ewc-update-stop",
-				Handler: handlers.HandleSendLogUpdateStart,
-				Input:   handlers.HandleEWCCheckResultRequestInput{},
+				Path:    "/send-temporal-signal",
+				Handler: handlers.HandleSendTemporalSignal,
+				Input:   handlers.HandleSendTemporalSignalInput{},
 			},
 			{
 				Method:              http.MethodPost,

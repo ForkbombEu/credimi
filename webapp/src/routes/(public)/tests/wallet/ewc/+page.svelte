@@ -15,10 +15,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	onMount(() => {
 		if (!data.workflowId) return;
-		pb.send('/api/compliance/send-ewc-update-start', {
+		pb.send('/api/compliance/send-temporal-signal', {
 			method: 'POST',
 			body: {
-				workflow_id: data.workflowId
+				workflow_id: data.workflowId,
+				signal: 'start-ewc-check-signal'
 			}
 		}).catch((err) => {
 			console.error(err);
@@ -27,10 +28,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function closeConnections() {
 		if (!data.workflowId) return;
-		pb.send('/api/compliance/send-ewc-update-stop', {
+		pb.send('/api/compliance/send-temporal-signal', {
 			method: 'POST',
 			body: {
-				workflow_id: data.workflowId
+				workflow_id: data.workflowId,
+				signal: 'stop-ewc-check-signal'
 			}
 		});
 	}
