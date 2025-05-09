@@ -48,19 +48,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 
 		{#snippet records({ records, Card })}
-			{#each records as record}
-				{@const logo = pb.files.getURL(record, record.logo)}
-				<Card {record} class="bg-background !pl-4" hide={['share', 'select']}>
-					<div class="flex items-start gap-4">
-						<Avatar src={logo} class="rounded-sm" fallback={record.name.slice(0, 2)} />
-						<div>
-							<T class="font-bold">{record.name}</T>
-							<T class="mb-2 font-mono text-xs">{record.standard_and_version}</T>
-							<T class="text-sm text-gray-400">{record.description}</T>
+			<div class="space-y-2">
+				{#each records as record}
+					{@const logo = pb.files.getURL(record, record.logo)}
+					<Card {record} class="bg-background !pl-4" hide={['share', 'select']}>
+						<div class="flex items-start gap-4">
+							<Avatar
+								src={logo}
+								class="rounded-sm"
+								fallback={record.name.slice(0, 2)}
+							/>
+							<div>
+								<T class="font-bold">{record.name}</T>
+								<T class="mb-2 font-mono text-xs">{record.standard_and_version}</T>
+								<T class="text-sm text-gray-400">{record.description}</T>
+							</div>
 						</div>
-					</div>
-				</Card>
-			{/each}
+					</Card>
+				{/each}
+			</div>
 		{/snippet}
 	</CollectionManager>
 </div>
