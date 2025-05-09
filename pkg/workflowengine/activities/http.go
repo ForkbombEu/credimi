@@ -106,13 +106,6 @@ func (a *HTTPActivity) Execute(
 		return workflowengine.Fail(&result, fmt.Sprintf("failed to read response body: %v", err))
 	}
 
-	// Handle non-2xx status codes
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return workflowengine.Fail(&result,
-			fmt.Sprintf("received status code %d: %s", resp.StatusCode, string(respBody)),
-		)
-	}
-
 	var output any
 	if err := json.Unmarshal(respBody, &output); err != nil {
 		// if not JSON, return as string

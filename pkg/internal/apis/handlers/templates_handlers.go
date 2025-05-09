@@ -120,7 +120,7 @@ type Suite struct {
 
 type Version struct {
 	VersionMetadata
-	Suites []Suite `json:"suites" yaml:"suites"` 
+	Suites []Suite `json:"suites" yaml:"suites"`
 }
 
 type Standard struct {

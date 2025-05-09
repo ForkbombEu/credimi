@@ -1,0 +1,55 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+version: "1.1"
+name: Mobile Driving Licence (MDL) flow
+tests:
+  get_qr_info:
+    steps:
+      - name: Flow euidw openid4vp Mobile Driving Licence (MDL)
+        http:
+          url: https://verifier-backend.eudiw.dev/ui/presentations
+          method: POST
+          json:
+            type: "vp_token"
+            nonce: [[.nonce | toString]]
+            presentation_definition:
+              id: [[.id | toString]]
+              input_descriptors:
+                - id: org.iso.18013.5.1.mDL
+                  format:
+                    mso_mdoc:
+                      alg:
+                        - ES256
+                        - ES384
+                        - ES512
+                        - EdDSA
+                  constraints:
+                    limit_disclosure: required
+                    fields:
+                      - path:
+                          - $['org.iso.18013.5.1.mDL']['family_name']
+                        intent_to_retain: false
+                      - path:
+                          - $['org.iso.18013.5.1.mDL']['given_name']
+                        intent_to_retain: false
+                      - path:
+                          - $['org.iso.18013.5.1.mDL']['birth_date']
+                        intent_to_retain: false
+                      - path:
+                          - $['org.iso.18013.5.1.mDL']['expiry_date']
+                        intent_to_retain: false
+                      - path:
+                          - $['org.iso.18013.5.1.mDL']['document_number']
+                        intent_to_retain: false
+          check:
+            status: /^20/
+          captures:
+            client_id:
+              jsonpath: $.client_id
+            request_uri:
+              jsonpath: $.request_uri
+            transaction_id:
+              jsonpath: $.transaction_id
+# qrcode: eudi-openid4vp://?client_id=${{ url_encoded:client_id }}&request_uri=${{ url_encoded:request_uri }}
+# polling to https://verifier-backend.eudiw.dev/ui/presentations/${{ transaction_id }}

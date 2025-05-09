@@ -1,0 +1,4 @@
+{
+    "nonce": "{{ credimiPlaceholder "nonce" "mdl_nonce" "i18n_nonce" "i18n_nonce_description" "string" uuidv4  }}",
+    "id":"{{ credimiPlaceholder "id" "mdl_id" "i18n_id" "i18n_id_description" "string" uuidv4  }}"
+}

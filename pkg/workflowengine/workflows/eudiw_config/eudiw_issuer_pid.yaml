@@ -1,0 +1,46 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+version: "1.1"
+name: Fake Data
+tests:
+  get_qr_info:
+    steps:
+      - name: Flow euidw openid4vp
+        http:
+          url: https://verifier-backend.eudiw.dev/ui/presentations
+          method: POST
+          json:
+            type: "vp_token"
+            nonce: [[.nonce | toString]]
+            presentation_definition:
+              id: [[.id | toString]]
+              input_descriptors:
+                - id: eu.europa.ec.eudi.pid.1
+                  format:
+                    mso_mdoc:
+                      alg:
+                        - ES256
+                        - ES384
+                        - ES512
+                        - EdDSA
+                  constraints:
+                    limit_disclosure: required
+                    fields:
+                      - path:
+                          - $['eu.europa.ec.eudi.pid.1']['birth_date']
+                        intent_to_retain: false
+                      - path:
+                          - $['eu.europa.ec.eudi.pid.1']['birth_place']
+                        intent_to_retain: false
+          check:
+            status: /^20/
+          captures:
+            client_id:
+              jsonpath: $.client_id
+            request_uri:
+              jsonpath: $.request_uri
+            transaction_id:
+              jsonpath: $.transaction_id
+# qrcode: eudi-openid4vp://?client_id=${{ url_encoded:client_id }}&request_uri=${{ url_encoded:request_uri }}
+# polling to https://verifier-backend.eudiw.dev/ui/presentations/${{ transaction_id }}

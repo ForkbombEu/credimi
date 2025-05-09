@@ -235,8 +235,9 @@ func (w *OpenIDNetWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
-		ID:        "OpenIDNetCheckWorkflow" + uuid.NewString(),
-		TaskQueue: OpenIDNetTaskQueue,
+		ID:                       "OpenIDNetCheckWorkflow" + uuid.NewString(),
+		TaskQueue:                OpenIDNetTaskQueue,
+		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
@@ -254,6 +255,9 @@ func (OpenIDNetLogsWorkflow) Name() string {
 func (OpenIDNetLogsWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
+
+const OpenIDNetStartCheckSignal = "start-openidnet-check-log-update"
+const OpenIDNetStopCheckSignal = "stop-openidnet-check-log-update"
 
 // Workflow is the main workflow function for the OpenIDNetLogsWorkflow.
 // It periodically fetches logs from a specified URL and processes them
@@ -307,8 +311,8 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	}
 	var logs []map[string]any
 
-	startSignalChan := workflow.GetSignalChannel(ctx, "openidnet-check-log-update-start")
-	stopSignalChan := workflow.GetSignalChannel(ctx, "openidnet-check-log-update-stop")
+	startSignalChan := workflow.GetSignalChannel(ctx, OpenIDNetStartCheckSignal)
+	stopSignalChan := workflow.GetSignalChannel(ctx, OpenIDNetStopCheckSignal)
 	selector := workflow.NewSelector(ctx)
 
 	var isPolling bool
