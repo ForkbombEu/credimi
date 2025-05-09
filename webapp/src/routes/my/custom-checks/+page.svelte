@@ -8,60 +8,75 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CollectionManager } from '@/collections-components';
 	import { CodeEditorField, SelectField } from '@/forms/fields';
 	import { m } from '@/i18n';
-	import { currentUser } from '@/pocketbase';
-	import type { CustomChecksFormData } from '@/pocketbase/types';
-	import type { SuperForm } from 'sveltekit-superforms';
+	import { currentUser, pb } from '@/pocketbase';
 	import { yaml } from '@codemirror/lang-yaml';
+	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
+	import T from '@/components/ui-custom/t.svelte';
+	import Avatar from '@/components/ui-custom/avatar.svelte';
 
 	//
 
-	const options = {
-		standard_1: ['ciao', 'draft-2'],
-		standard_2: ['v.0', 'v.1']
-	};
+	let { data } = $props();
 
-	const standards = Object.keys(options).map((o) => ({ value: o, label: o }));
+	const options = $derived(
+		data.standardsAndTestSuites.flatMap((standard) =>
+			standard.versions.map((version) => ({
+				value: `${standard.uid}/${version.uid}`,
+				label: `${standard.name} – ${version.name}`
+			}))
+		)
+	);
 </script>
 
-<CollectionManager
-	collection="custom_checks"
-	formFieldsOptions={{
-		hide: {
-			owner: $currentUser?.id
-		},
-		exclude: ['organization', 'standard'],
-		snippets: {
-			yaml: yamlField,
-			standard: standardField,
-			standard_version: standardVersionField
-		}
-	}}
->
-	{#snippet top({ Header })}
-		<Header title={m.Custom_checks()}></Header>
-	{/snippet}
-</CollectionManager>
-
-{#snippet yamlField(data: { form: SuperForm<CustomChecksFormData>; field: string })}
-	<CodeEditorField form={data.form} name="yaml" options={{ lang: yaml() }} />
-{/snippet}
-
-{#snippet standardField(data: { form: SuperForm<CustomChecksFormData>; field: string })}
-	<SelectField
-		form={data.form}
-		name="standard"
-		options={{
-			items: [...standards]
+<div class="space-y-4">
+	<CollectionManager
+		collection="custom_checks"
+		formFieldsOptions={{
+			// TODO - Enforce owner from backend
+			hide: {
+				owner: $currentUser?.id
+			},
+			exclude: ['organization'],
+			snippets: {
+				yaml: yamlField,
+				standard_and_version: standardAndVersionField
+			}
 		}}
-	/>
+	>
+		{#snippet top({ Header })}
+			<Header title={m.Custom_checks()}></Header>
+		{/snippet}
+
+		{#snippet records({ records, Card })}
+			{#each records as record}
+				{@const logo = pb.files.getURL(record, record.logo)}
+				<Card {record} class="bg-background !pl-4" hide={['share', 'select']}>
+					<div class="flex items-start gap-4">
+						<Avatar src={logo} class="rounded-sm" fallback={record.name.slice(0, 2)} />
+						<div>
+							<T class="font-bold">{record.name}</T>
+							<T class="mb-2 font-mono text-xs">{record.standard_and_version}</T>
+							<T class="text-sm text-gray-400">{record.description}</T>
+						</div>
+					</div>
+				</Card>
+			{/each}
+		{/snippet}
+	</CollectionManager>
+</div>
+
+<!--  -->
+
+{#snippet yamlField({ form }: FieldSnippetOptions<'custom_checks'>)}
+	<CodeEditorField {form} name="yaml" options={{ lang: yaml() }} />
 {/snippet}
 
-{#snippet standardVersionField(data: { form: SuperForm<CustomChecksFormData>; field: string })}
+{#snippet standardAndVersionField({ form }: FieldSnippetOptions<'custom_checks'>)}
 	<SelectField
-		form={data.form}
-		name="standard_version"
+		{form}
+		name="standard_and_version"
 		options={{
-			items: []
+			items: [...options]
 		}}
 	/>
 {/snippet}

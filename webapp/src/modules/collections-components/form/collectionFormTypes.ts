@@ -66,7 +66,7 @@ export type RelationFieldOptions<C extends CollectionName> = CollectionFieldMode
 export type FieldSnippetOptions<C extends CollectionName, T = CollectionFormData[C]> = {
 	form: SuperForm<T & GenericRecord>;
 	field: FormPath<T & GenericRecord>;
-	formData?: T;
+	formData: Partial<T>;
 };
 
 export type FieldSnippet<C extends CollectionName, T = CollectionFormData[C]> = Snippet<

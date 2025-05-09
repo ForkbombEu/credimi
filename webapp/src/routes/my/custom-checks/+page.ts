@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getStandardsAndTestSuites } from './_partials/standards-response-schema.js';
 import { error } from '@sveltejs/kit';
 import { Either } from 'effect';
+import { getStandardsAndTestSuites } from '../tests/new/_partials/standards-response-schema';
 
 //
 
