@@ -296,8 +296,9 @@ func (w *EudiwWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
-		ID:        "EudiWWorkflow" + uuid.NewString(),
-		TaskQueue: EudiwTaskQueue,
+		ID:                       "EudiWWorkflow" + uuid.NewString(),
+		TaskQueue:                EudiwTaskQueue,
+		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)

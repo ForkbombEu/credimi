@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	dockerclient "github.com/docker/docker/client"
@@ -180,8 +181,9 @@ func (w *ZenroomWorkflow) Start(
 	defer c.Close()
 
 	workflowOptions := client.StartWorkflowOptions{
-		ID:        "Zenroom-Workflow-" + uuid.NewString(),
-		TaskQueue: ZenroomTaskQueue,
+		ID:                       "Zenroom-Workflow-" + uuid.NewString(),
+		TaskQueue:                ZenroomTaskQueue,
+		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 	if input.Config["Memo"] != nil {
 		workflowOptions.Memo = input.Config["Memo"].(map[string]any)

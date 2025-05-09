@@ -235,8 +235,9 @@ func (w *OpenIDNetWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
-		ID:        "OpenIDNetCheckWorkflow" + uuid.NewString(),
-		TaskQueue: OpenIDNetTaskQueue,
+		ID:                       "OpenIDNetCheckWorkflow" + uuid.NewString(),
+		TaskQueue:                OpenIDNetTaskQueue,
+		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)

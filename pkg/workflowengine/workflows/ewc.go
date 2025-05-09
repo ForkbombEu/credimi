@@ -262,8 +262,9 @@ func (w *EWCWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
-		ID:        "EWCWorkflow" + uuid.NewString(),
-		TaskQueue: EWCTaskQueue,
+		ID:                       "EWCWorkflow" + uuid.NewString(),
+		TaskQueue:                EWCTaskQueue,
+		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
