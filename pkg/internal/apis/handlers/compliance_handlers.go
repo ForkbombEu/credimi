@@ -534,7 +534,6 @@ func notifyLogsUpdate(app core.App, subscription string, data []map[string]any) 
 }
 
 func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) error {
-
 	err := c.SignalWorkflow(context.Background(), input.WorkflowID, "", input.Signal, struct{}{})
 	if err != nil {
 		notFound := &serviceerror.NotFound{}
@@ -546,7 +545,11 @@ func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) er
 			return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
 		}
 
-		return apierror.New(http.StatusBadRequest, "signal", fmt.Sprintf("failed to send signal: %s", input.Signal), err.Error())
+		return apierror.New(
+			http.StatusBadRequest,
+			"signal",
+			fmt.Sprintf("failed to send signal: %s", input.Signal),
+			err.Error())
 	}
 	return nil
 }
