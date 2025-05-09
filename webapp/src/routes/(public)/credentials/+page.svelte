@@ -35,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	queryOptions={{
 		searchFields: ['name', 'format'],
 		perPage: 20,
-		filter: `published = true ${$currentUser ? `|| credential_issuer = '${$currentUser?.id}'` : ''}`
+		filter: `published = true`
 	}}
 	{filters}
 >
@@ -52,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet contentWrapper(children)}
-		<PageContent class="grow bg-secondary">
+		<PageContent class="bg-secondary grow">
 			{@render children()}
 		</PageContent>
 	{/snippet}

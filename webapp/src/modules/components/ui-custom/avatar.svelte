@@ -35,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-{#if src && !(loadingError && hideIfLoadingError)}
+{#if !(loadingError && hideIfLoadingError)}
 	<Avatar.Root {...rest} class={cn(rest.class, 'overflow-hidden')}>
 		{#if src}
 			<Avatar.Image {src} alt={alt ?? m.Avatar()} />

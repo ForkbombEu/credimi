@@ -31,7 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!--  -->
 
-<div class="bg-background relative mx-auto w-full max-w-screen-xl rounded-md shadow-sm">
+<div class="relative mx-auto w-full max-w-screen-xl rounded-md bg-background shadow-sm">
 	<div class="space-y-12 p-8 pb-0">
 		<div>
 			<BackButton href="/my">Back to dashboard</BackButton>
@@ -39,10 +39,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		<Tabs.Root value={currentTab} class="w-full">
-			<Tabs.List class="bg-secondary flex">
+			<Tabs.List class="flex bg-secondary">
 				<Tabs.Trigger
 					value={tabs[0].id}
-					class="data-[state=inactive]:hover:bg-primary/10 grow data-[state=inactive]:text-black"
+					class="grow data-[state=inactive]:text-black data-[state=inactive]:hover:bg-primary/10"
 					onclick={() => {
 						d = undefined;
 					}}
@@ -59,9 +59,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if !d}
 		<SelectTestForm
 			standards={data.standardsAndTestSuites}
-			onSelectTests={(standardId, tests) => {
-				compositeTestId = standardId;
-				getVariables(standardId, tests).then((res) => {
+			onSelectTests={(data) => {
+				compositeTestId = data.standardId;
+				getVariables(data.standardId, data.tests).then((res) => {
 					d = res;
 					scrollTo({ top: 0, behavior: 'instant' });
 				});

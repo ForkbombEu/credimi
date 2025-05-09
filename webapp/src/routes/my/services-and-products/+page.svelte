@@ -22,10 +22,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { currentUser } from '@/pocketbase';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import NewWalletForm from './wallet-form.svelte';
-	import type {
-		CredentialIssuersResponse,
-		CredentialsResponse,
-		WalletsResponse
+	import {
+		Collections,
+		type CredentialIssuersResponse,
+		type CredentialsResponse,
+		type WalletsResponse
 	} from '@/pocketbase/types';
 	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
 	import A from '@/components/ui-custom/a.svelte';
@@ -149,7 +150,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{#if !record.published}
 								{title}
 							{:else}
-								<A href="/services/{record.id}">{title}</A>
+								<A href="/marketplace/{Collections.CredentialIssuers}/{record.id}">
+									{title}
+								</A>
 							{/if}
 						</T>
 						{#if record.published}
