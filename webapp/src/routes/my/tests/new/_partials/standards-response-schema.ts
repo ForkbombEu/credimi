@@ -2,7 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
+import { Effect as _, pipe } from 'effect';
+import type { ClientResponseError } from 'pocketbase';
+import { pb } from '@/pocketbase';
+
+//
 
 const standardMetadataSchema = z.object({
 	uid: z.string(),
@@ -11,14 +16,14 @@ const standardMetadataSchema = z.object({
 	standard_url: z.string(),
 	latest_update: z.string(),
 	external_links: z.record(z.array(z.string())).nullable(),
-	disabled: z.boolean().optional(),
+	disabled: z.boolean().optional()
 });
 
 const versionMetadataSchema = z.object({
 	uid: z.string(),
 	name: z.string(),
 	latest_update: z.string(),
-	specification_url: z.string().optional(),
+	specification_url: z.string().optional()
 });
 
 const suiteMetadataSchema = z.object({
@@ -44,3 +49,26 @@ const standardSchema = standardMetadataSchema.extend({
 
 export const templateBlueprintsResponseSchema = z.array(standardSchema);
 export type StandardsWithTestSuites = z.infer<typeof templateBlueprintsResponseSchema>;
+
+/** */
+
+export function getStandardsAndTestSuites(options = { fetch }) {
+	return pipe(
+		_.tryPromise({
+			try: () =>
+				pb.send('/api/template/blueprints', {
+					method: 'GET',
+					fetch: options.fetch
+				}),
+			catch: (e) => e as ClientResponseError
+		}),
+		_.andThen((response) =>
+			_.try({
+				try: () => templateBlueprintsResponseSchema.parse(response),
+				catch: (e) => e as ZodError
+			})
+		),
+		_.either,
+		_.runPromise
+	);
+}

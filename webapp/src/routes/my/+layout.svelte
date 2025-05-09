@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
-	import { GlobeIcon, Home, Shapes, TestTubeDiagonalIcon, User } from 'lucide-svelte';
+	import { CheckCheck, GlobeIcon, Home, Shapes, TestTubeDiagonalIcon, User } from 'lucide-svelte';
 	import type { Snippet } from 'svelte';
 
 	//
@@ -30,15 +30,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<NavigationTabs
 			tabs={[
-				{ title: 'Services and Products', href: '/my/services-and-products', icon: Shapes },
-				{ title: 'Test runs', href: '/my/tests/runs', icon: TestTubeDiagonalIcon },
-				{ title: 'Organization page', href: '/my/organization-page', icon: GlobeIcon },
-				{ title: 'Profile', href: '/my/profile', icon: User }
+				{
+					title: m.Services_and_products(),
+					href: '/my/services-and-products',
+					icon: Shapes
+				},
+				{ title: m.Test_runs(), href: '/my/tests/runs', icon: TestTubeDiagonalIcon },
+				{ title: m.Organization_page(), href: '/my/organization-page', icon: GlobeIcon },
+				{ title: m.Profile(), href: '/my/profile', icon: User },
+				{ title: m.Custom_checks(), href: '/my/custom-checks', icon: CheckCheck }
 			]}
 		/>
 	</PageTop>
 
-	<PageContent class="grow bg-secondary">
+	<PageContent class="bg-secondary grow">
 		{@render children?.()}
 	</PageContent>
 </BaseLayout>

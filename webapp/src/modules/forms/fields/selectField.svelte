@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		items = [],
 		trigger,
 		...rest
-	} = options;
+	} = $derived(options);
 
 	//
 

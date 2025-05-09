@@ -25,7 +25,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		record: CollectionResponses[C];
 		hide?: Array<RecordAction>;
 		class?: string;
-		children?: Snippet<[{ Title: typeof ItemCardTitle; Description: typeof ItemCardDescription }]>;
+		children?: Snippet<
+			[{ Title: typeof ItemCardTitle; Description: typeof ItemCardDescription }]
+		>;
 		right?: Snippet<[{ record: CollectionResponses[C] }]>;
 	}
 
@@ -48,13 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 </script>
 
-<ItemCard class="{classes} ">
-	{#snippet left()}
-		{#if !hide.includes('select')}
-			<RecordSelect {record} />
-		{/if}
-	{/snippet}
-
+<ItemCard class="{classes} " left={!hide.includes('select') ? left : undefined}>
 	{#snippet children({ Title, Description })}
 		{@render children_render?.({ Title, Description })}
 	{/snippet}
@@ -73,3 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	{/snippet}
 </ItemCard>
+
+{#snippet left()}
+	<RecordSelect {record} />
+{/snippet}
