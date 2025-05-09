@@ -412,6 +412,19 @@ func HandleSendLogUpdate() func(*core.RequestEvent) error {
 	}
 }
 
+func HandleSendEudiwLogUpdate() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		req, err := routing.GetValidatedInput[HandleSendLogUpdateRequestInput](e)
+		if err != nil {
+			return err
+		}
+		if err := notifyLogsUpdate(e.App, req.WorkflowID+"eudiw-logs", req.Logs); err != nil {
+			return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
+		}
+		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})
+	}
+}
+
 type HandleSendTemporalSignalInput struct {
 	WorkflowID string `json:"workflow_id"`
 	Signal     string `json:"signal"`

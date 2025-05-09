@@ -81,6 +81,13 @@ func AddComplianceChecks(app core.App) {
 				Input:               handlers.HandleSendLogUpdateRequestInput{},
 				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
 			},
+			{
+				Method:              http.MethodPost,
+				Path:                "/send-eudiw-log-update",
+				Handler:             handlers.HandleSendEudiwLogUpdate,
+				Input:               handlers.HandleSendLogUpdateRequestInput{},
+				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
+			},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
 			//apis.RequireAuth(),

@@ -20,13 +20,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 )
 
-// EWCTaskQueue is the task queue for EWC workflows.
+// EudiwTaskQueue is the task queue for Eudiw workflows.
 const EudiwTaskQueue = "EUDIWTaskQueue"
 
-// EWCWorkflow is a workflow that performs conformance checks on the OpenID certification site.
+// EudiwWorkflow is a workflow that performs conformance checks on the OpenID certification site.
 type EudiwWorkflow struct{}
 
-// Name returns the name of the EWCWorkflow.
+// Name returns the name of the EudiwWorkflow.
 func (EudiwWorkflow) Name() string {
 	return "Conformance check on EUDIW"
 }
@@ -43,10 +43,10 @@ type EudiwResponseBody struct {
 	Claims    []string `json:"claims,omitempty"`
 }
 
-const EudiwStartCheckSignal WorkflowSignal = "start-eudiw-check-signal"
-const EudiwStopCheckSignal WorkflowSignal = "stop-eudiw-check-signal"
+const EudiwStartCheckSignal = "start-eudiw-check-signal"
+const EudiwStopCheckSignal = "stop-eudiw-check-signal"
 
-// Workflow is the main workflow function for the EWCWorkflow. It orchestrates
+// Workflow is the main workflow function for the EudiwWorkflow. It orchestrates
 // the execution of various activities to perform conformance checks
 // and send notifications to the user.
 //
@@ -63,8 +63,8 @@ const EudiwStopCheckSignal WorkflowSignal = "stop-eudiw-check-signal"
 //  1. Execute the StepCIWorkflowActivity to perform initial checks and gets the QR code deep link.
 //  2. Generate a URL with query parameters for the user to continue the process.
 //  3. Configure and execute the SendMailActivity to notify the user via email.
-//  4. Wait for a signal ("ewc-check-started") to start polling the API to getthe current status of the check.
-//  5. Wait for either a signal ("ewc-check-stopped") to pause the workflow or the check result from the API
+//  4. Wait for a signal to start polling the API to get the current status of the check.
+//  5. Wait for either a signal to pause the workflow or the check result from the API
 //  6. Process the response to determine the success or failure of the workflow.
 //
 // Notes:
@@ -115,12 +115,16 @@ func (w *EudiwWorkflow) Workflow(
 	if !ok {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("missing transaction_id in stepci response")
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/" //TODO use the correct one
+	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/eudiw" //TODO use the correct one
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %v", err)
 	}
-	qr := fmt.Sprintf("eudi-openid4vp://?client_id=%s&request_uri=%s", url.QueryEscape(clientID), url.QueryEscape(requestUri))
+	qr := fmt.Sprintf(
+		"eudi-openid4vp://?client_id=%s&request_uri=%s",
+		url.QueryEscape(clientID),
+		url.QueryEscape(requestUri),
+	)
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
 	query.Set("qr", qr)
@@ -154,8 +158,8 @@ func (w *EudiwWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	startSignalChan := workflow.GetSignalChannel(ctx, EudiwStartCheckSignal.String())
-	stopSignalChan := workflow.GetSignalChannel(ctx, EudiwStopCheckSignal.String())
+	startSignalChan := workflow.GetSignalChannel(ctx, EudiwStartCheckSignal)
+	stopSignalChan := workflow.GetSignalChannel(ctx, EudiwStopCheckSignal)
 	selector := workflow.NewSelector(ctx)
 	var isPolling bool
 	var timerFuture workflow.Future
@@ -191,40 +195,78 @@ func (w *EudiwWorkflow) Workflow(
 			continue
 		}
 
-		var HTTPGetActivity activities.HTTPActivity
-		var response workflowengine.ActivityResult
-		HTTPInput := workflowengine.ActivityInput{
+		var HTTPActivity activities.HTTPActivity
+		var checkResponse workflowengine.ActivityResult
+		CheckStatusInput := workflowengine.ActivityInput{
 			Config: map[string]string{
 				"method": "GET",
 				"url":    fmt.Sprintf("https://verifier-backend.eudiw.dev/ui/presentations/%s", transactionID),
 			},
 		}
-		err := workflow.ExecuteActivity(ctx, HTTPGetActivity.Name(), HTTPInput).Get(ctx, &response)
+		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), CheckStatusInput).Get(ctx, &checkResponse)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
 		}
-		outputMap, ok := response.Output.(map[string]any)
+		outputMap, ok := checkResponse.Output.(map[string]any)
 		if !ok {
-			return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected output type: %T", response.Output)
+			return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected output type: %T", checkResponse.Output)
 		}
 
 		statusCode, ok := outputMap["status"].(float64)
 		if !ok {
 			return workflowengine.WorkflowResult{}, fmt.Errorf("missing or invalid status_code in response")
 		}
-		// TODO change the status code with Matteo
+		var events []map[string]any
+		var eventsResponse workflowengine.ActivityResult
+		getLogsInput := workflowengine.ActivityInput{
+			Config: map[string]string{
+				"method": "GET",
+				"url":    fmt.Sprintf("https://verifier-backend.eudiw.dev/ui/presentations/%s/events", transactionID),
+			},
+		}
+		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), getLogsInput).Get(ctx, &eventsResponse)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, err
+		}
+		events = AsSliceOfMaps(eventsResponse.Output.(map[string]any)["body"].(map[string]any)["events"])
+		triggerLogsInput := workflowengine.ActivityInput{
+			Config: map[string]string{
+				"method": "POST",
+				"url": fmt.Sprintf(
+					"%s/%s",
+					input.Payload["app_url"].(string),
+					"api/compliance/send-eudiw-log-update",
+				),
+			},
+			Payload: map[string]any{
+				"headers": map[string]any{
+					"Content-Type": "application/json",
+				},
+				"body": map[string]any{
+					"workflow_id": workflow.GetInfo(ctx).WorkflowExecution.ID,
+					"logs":        events,
+				},
+			},
+		}
+
+		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), triggerLogsInput).
+			Get(ctx, nil)
+		if err != nil {
+			logger.Error("Failed to send logs", "error", err)
+			return workflowengine.WorkflowResult{}, err
+		}
 		switch int(statusCode) {
 		case 200:
 			return workflowengine.WorkflowResult{
-				Message: "EWC check completed successfully",
+				Message: "Eudiw check completed successfully",
 			}, nil
 
-		case 202:
+		case 400:
 			continue
 
-		case 400, 401, 403, 500:
+		case 500:
 			return workflowengine.WorkflowResult{
-				Message: fmt.Sprintf("EWC check failed with status code %d", int(statusCode)),
+				Message: fmt.Sprintf("Eudiw check failed with status code %d", int(statusCode)),
 			}, nil
 
 		default:
@@ -234,7 +276,7 @@ func (w *EudiwWorkflow) Workflow(
 	}
 }
 
-// Start initializes and starts the EWCWorkflow execution.
+// Start initializes and starts the EudiwWorkflow execution.
 // It loads environment variables, configures the Temporal client with the specified namespace,
 // and sets up workflow options including a unique workflow ID and optional memo.
 // The workflow is then executed with the provided input.
@@ -255,7 +297,7 @@ func (w *EudiwWorkflow) Start(
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "EudiWWorkflow" + uuid.NewString(),
-		TaskQueue: EWCTaskQueue,
+		TaskQueue: EudiwTaskQueue,
 	}
 
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
