@@ -66,6 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}).catch((e) => {
 			console.error(e);
 		});
+		return true;
 	}
 
 	onDestroy(() => {
@@ -73,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<svelte:window on:beforeunload={closeConnections} />
+<svelte:window on:beforeunload|preventDefault={closeConnections} />
 
 <div class="py-2">
 	{#if logs.length === 0}
@@ -81,9 +82,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<p>Waiting for logs...</p>
 		</Alert>
 	{:else}
-		<pre class="bg-secondary overflow-x-scroll rounded-md p-4 text-sm">
+		<pre class="overflow-x-scroll rounded-md bg-secondary p-4 text-sm">
 			{JSON.stringify(logs, null, 2)}
 		</pre>
 	{/if}
 </div>
-
