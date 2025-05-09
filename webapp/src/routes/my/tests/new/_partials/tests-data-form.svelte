@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onSubmit: async ({ form }) => {
 			await pb.send(`/api/compliance/${testId}/save-variables-and-start`, {
 				method: 'POST',
-				body: { ...form.data, customChecks: customChecks.map((c) => c.id) }
+				body: { ...form.data, customChecks: customChecks.map((c) => c.yaml) }
 			});
 			await goto(`/my/tests/runs`);
 		},
