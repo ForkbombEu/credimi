@@ -9,8 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { onDestroy, onMount } from 'svelte';
 	import { Info } from 'lucide-svelte';
 	import Alert from '@/components/ui-custom/alert.svelte';
-	import { Badge } from '../ui/badge/index.js';
-	import * as Accordion from '../ui/accordion/index.js';
+	import { beforeNavigate } from '$app/navigation';
 
 	let logs = $state<WorkflowLogEntry[]>([]);
 
@@ -23,7 +22,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	onMount(() => {
 		pb.realtime
 			.subscribe(`${workflowId}eudiw-logs`, (data: WorkflowLogEntry[]) => {
-				console.log(data);
 				logs = data;
 			})
 			.catch((e) => {
@@ -70,6 +68,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	onDestroy(() => {
+		closeConnections();
+	});
+
+	beforeNavigate((conf) => {
 		closeConnections();
 	});
 </script>
