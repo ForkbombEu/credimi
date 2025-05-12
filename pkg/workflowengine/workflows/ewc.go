@@ -224,9 +224,7 @@ func (w *EWCWorkflow) Workflow(
 
 		case "pending":
 			if parsed.Reason != "ok" {
-				return workflowengine.WorkflowResult{
-					Message: fmt.Sprintf("EWC check failed: %s", parsed.Reason),
-				}, nil
+				return workflowengine.WorkflowResult{}, fmt.Errorf("EWC check failed: %s", parsed.Reason)
 			}
 		case "failed":
 			return workflowengine.WorkflowResult{}, fmt.Errorf("EWC check failed: %s", parsed.Reason)
