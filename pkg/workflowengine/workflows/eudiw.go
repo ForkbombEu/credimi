@@ -21,7 +21,13 @@ import (
 )
 
 // EudiwTaskQueue is the task queue for Eudiw workflows.
-const EudiwTaskQueue = "EUDIWTaskQueue"
+const (
+	EudiwTaskQueue          = "EUDIWTaskQueue"
+	EudiwTemplateFolderPath = "pkg/workflowengine/workflows/eudiw_config"
+	EudiwStartCheckSignal   = "start-eudiw-check-signal"
+	EudiwStopCheckSignal    = "stop-eudiw-check-signal"
+	EudiwSubscription       = "eudiw-logs"
+)
 
 // EudiwWorkflow is a workflow that performs conformance checks on the OpenID certification site.
 type EudiwWorkflow struct{}
@@ -42,9 +48,6 @@ type EudiwResponseBody struct {
 	SessionID string   `json:"sessionId"`
 	Claims    []string `json:"claims,omitempty"`
 }
-
-const EudiwStartCheckSignal = "start-eudiw-check-signal"
-const EudiwStopCheckSignal = "stop-eudiw-check-signal"
 
 // Workflow is the main workflow function for the EudiwWorkflow. It orchestrates
 // the execution of various activities to perform conformance checks
@@ -265,9 +268,7 @@ func (w *EudiwWorkflow) Workflow(
 			continue
 
 		case 500:
-			return workflowengine.WorkflowResult{
-				Message: fmt.Sprintf("Eudiw check failed with status code %d", int(statusCode)),
-			}, nil
+			return workflowengine.WorkflowResult{}, fmt.Errorf("eudiw check failed with status code %d", int(statusCode))
 
 		default:
 			return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected status code: %d", int(statusCode))

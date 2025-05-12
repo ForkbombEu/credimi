@@ -213,7 +213,7 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 	testName := i.TestName
 	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
 	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
+		os.Getenv("ROOT_DIR") + "/" + workflows.EWCTemplateFolderPath + filename,
 	)
 	if err != nil {
 		return err
@@ -274,7 +274,7 @@ func startEudiwWorkflow(i WorkflowStarterParams) error {
 	testName := i.TestName
 	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "eudiw")
 	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/eudiw_config" + filename,
+		os.Getenv("ROOT_DIR") + "/" + workflows.EudiwTemplateFolderPath + filename,
 	)
 	if err != nil {
 		return err

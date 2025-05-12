@@ -30,10 +30,13 @@ type SignalData struct {
 }
 
 // OpenIDNetTaskQueue is the task queue for OpenIDNet workflows.
-const OpenIDNetTaskQueue = "OpenIDNetTaskQueue"
-
-// OpenIDNetStepCITemplatePath points to the StepCI template for OpenIDNet workflows.
-const OpenIDNetStepCITemplatePath = "pkg/workflowengine/workflows/openidnet_config/stepci_wallet_template.yaml"
+const (
+	OpenIDNetTaskQueue          = "OpenIDNetTaskQueue"
+	OpenIDNetStepCITemplatePath = "pkg/workflowengine/workflows/openidnet_config/stepci_wallet_template.yaml"
+	OpenIDNetSubscription       = "openidnet-logs"
+	OpenIDNetStartCheckSignal   = "start-openidnet-check-log-update"
+	OpenIDNetStopCheckSignal    = "stop-openidnet-check-log-update"
+)
 
 // OpenIDNetWorkflow is a workflow that performs conformance checks on the OpenID certification site.
 type OpenIDNetWorkflow struct{}
@@ -255,9 +258,6 @@ func (OpenIDNetLogsWorkflow) Name() string {
 func (OpenIDNetLogsWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
-
-const OpenIDNetStartCheckSignal = "start-openidnet-check-log-update"
-const OpenIDNetStopCheckSignal = "stop-openidnet-check-log-update"
 
 // Workflow is the main workflow function for the OpenIDNetLogsWorkflow.
 // It periodically fetches logs from a specified URL and processes them

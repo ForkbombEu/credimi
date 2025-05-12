@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	onMount(() => {
 		pb.realtime
-			.subscribe(`${workflowId}openid4vp-wallet-logs`, (data: WorkflowLogEntry[]) => {
+			.subscribe(`${workflowId}openidnet-logs`, (data: WorkflowLogEntry[]) => {
 				console.log(data);
 				logs = data;
 			})
@@ -53,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	function closeConnections() {
-		pb.realtime.unsubscribe(`${workflowId}openid4vp-wallet-logs`).catch((e) => {
+		pb.realtime.unsubscribe(`${workflowId}openidnet-logs`).catch((e) => {
 			console.error(e);
 		});
 

@@ -400,29 +400,11 @@ type HandleSendLogUpdateRequestInput struct {
 }
 
 func HandleSendLogUpdate() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[HandleSendLogUpdateRequestInput](e)
-		if err != nil {
-			return err
-		}
-		if err := notifyLogsUpdate(e.App, req.WorkflowID+"openid4vp-wallet-logs", req.Logs); err != nil {
-			return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
-		}
-		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})
-	}
+	return sendRealtimeLogs(workflows.OpenIDNetSubscription)
 }
 
 func HandleSendEudiwLogUpdate() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[HandleSendLogUpdateRequestInput](e)
-		if err != nil {
-			return err
-		}
-		if err := notifyLogsUpdate(e.App, req.WorkflowID+"eudiw-logs", req.Logs); err != nil {
-			return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
-		}
-		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})
-	}
+	return sendRealtimeLogs(workflows.EudiwSubscription)
 }
 
 type HandleSendTemporalSignalInput struct {
@@ -515,6 +497,19 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 	return "default", nil
 }
 
+func sendRealtimeLogs(suiteSubscription string) func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		req, err := routing.GetValidatedInput[HandleSendLogUpdateRequestInput](e)
+		if err != nil {
+			return err
+		}
+		if err := notifyLogsUpdate(e.App, req.WorkflowID+suiteSubscription, req.Logs); err != nil {
+			return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
+		}
+		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})
+	}
+}
+
 func notifyLogsUpdate(app core.App, subscription string, data []map[string]any) error {
 	rawData, err := json.Marshal(data)
 	if err != nil {
@@ -564,7 +559,10 @@ func sendOpenIDNetLogUpdateStart(app core.App, c client.Client, input HandleSend
 	)
 	if err != nil {
 		canceledErr := &serviceerror.Canceled{}
-		if errors.As(err, &canceledErr) {
+		notFound := &serviceerror.NotFound{}
+		if errors.As(err, &canceledErr) ||
+			(errors.As(err, &notFound) && err.Error() == "workflow execution already completed") {
+
 			wf := c.GetWorkflow(context.Background(), input.WorkflowID, "")
 			var result workflowengine.WorkflowResult
 
@@ -575,15 +573,15 @@ func sendOpenIDNetLogUpdateStart(app core.App, c client.Client, input HandleSend
 
 			if logsInterface, ok := result.Log.([]any); ok {
 				logs := workflows.AsSliceOfMaps(logsInterface)
-				id := strings.TrimSuffix(input.WorkflowID, "-logs")
-				if err := notifyLogsUpdate(app, id+"openid4vp-wallet-logs", logs); err != nil {
+				id := strings.TrimSuffix(input.WorkflowID, "-log")
+				if err := notifyLogsUpdate(app, id+workflows.OpenIDNetSubscription, logs); err != nil {
 					return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
 				}
 			} else {
 				return apierror.New(http.StatusBadRequest, "workflow", "invalid log format", "logs are not in the expected format")
 			}
 		}
-		notFound := &serviceerror.NotFound{}
+
 		if errors.As(err, &notFound) {
 			return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
 		}
