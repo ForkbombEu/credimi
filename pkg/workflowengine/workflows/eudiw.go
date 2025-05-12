@@ -268,7 +268,7 @@ func (w *EudiwWorkflow) Workflow(
 			continue
 
 		case 500:
-			return workflowengine.WorkflowResult{}, fmt.Errorf("Eudiw check failed with status code %d", int(statusCode))
+			return workflowengine.WorkflowResult{}, fmt.Errorf("eudiw check failed with status code %d", int(statusCode))
 
 		default:
 			return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected status code: %d", int(statusCode))

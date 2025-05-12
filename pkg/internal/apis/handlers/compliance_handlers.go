@@ -560,7 +560,8 @@ func sendOpenIDNetLogUpdateStart(app core.App, c client.Client, input HandleSend
 	if err != nil {
 		canceledErr := &serviceerror.Canceled{}
 		notFound := &serviceerror.NotFound{}
-		if errors.As(err, &canceledErr) || (errors.As(err, &notFound) && err.Error() == "workflow execution already completed") {
+		if errors.As(err, &canceledErr) ||
+			(errors.As(err, &notFound) && err.Error() == "workflow execution already completed") {
 
 			wf := c.GetWorkflow(context.Background(), input.WorkflowID, "")
 			var result workflowengine.WorkflowResult
