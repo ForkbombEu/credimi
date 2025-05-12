@@ -22,7 +22,12 @@ import (
 )
 
 // EWCTaskQueue is the task queue for EWC workflows.
-const EWCTaskQueue = "EWCTaskQueue"
+const (
+	EWCTaskQueue          = "EWCTaskQueue"
+	EWCTemplateFolderPath = "pkg/workflowengine/workflows/ewc_config"
+	EwcStartCheckSignal   = "start-ewc-check-signal"
+	EwcStopCheckSignal    = "stop-ewc-check-signal"
+)
 
 // EWCWorkflow is a workflow that performs conformance checks on the OpenID certification site.
 type EWCWorkflow struct{}
@@ -43,9 +48,6 @@ type EWCResponseBody struct {
 	SessionID string   `json:"sessionId"`
 	Claims    []string `json:"claims,omitempty"`
 }
-
-const EwcStartCheckSignal = "start-ewc-check-signal"
-const EwcStopCheckSignal = "stop-ewc-check-signal"
 
 // Workflow is the main workflow function for the EWCWorkflow. It orchestrates
 // the execution of various activities to perform conformance checks
