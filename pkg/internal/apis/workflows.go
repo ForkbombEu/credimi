@@ -52,7 +52,7 @@ func AddComplianceChecks(app core.App) {
 			},
 			{
 				Method:  http.MethodPost,
-				Path:    "/{protocol}/{author}/save-variables-and-start",
+				Path:    "/{protocol}/{version}/save-variables-and-start",
 				Handler: handlers.HandleSaveVariablesAndStart,
 				Input:   handlers.SaveVariablesAndStartRequestInput{},
 			},

@@ -71,40 +71,40 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 		}
 
 		protocol := e.Request.PathValue("protocol")
-		author := e.Request.PathValue("author")
-		if protocol == "" || author == "" {
+		version := e.Request.PathValue("version")
+		if protocol == "" || version == "" {
 			return apierror.New(
 				http.StatusBadRequest,
-				"protocol and author",
-				"protocol and author are required",
+				"protocol and version",
+				"protocol and version are required",
 				"missing parameters",
 			)
 		}
 
-		dirPath := os.Getenv("ROOT_DIR") + "/config_templates/" + protocol + "/" + author + "/"
+		dirPath := os.Getenv("ROOT_DIR") + "/config_templates/" + protocol + "/" + version + "/"
 		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 			return apierror.New(
 				http.StatusBadRequest,
 				"directory",
-				"directory does not exist for test "+os.Getenv("ROOT_DIR")+protocol+"/"+author,
+				"directory does not exist for test "+os.Getenv("ROOT_DIR")+protocol+"/"+version,
 				err.Error(),
 			)
 		}
 
 		for testName, testData := range req {
+			author := Author(strings.Split(testName, "/")[0])
+			if author == "" {
+				return apierror.New(
+					http.StatusBadRequest,
+					"author",
+					"author is required",
+					"missing author",
+				)
+			}
 			memo := map[string]interface{}{
 				"test":     testName,
 				"standard": protocol,
 				"author":   author,
-			}
-			suite := Author(strings.Split(testName, "/")[0])
-			if suite == "" {
-				return apierror.New(
-					http.StatusBadRequest,
-					"suite",
-					"suite is required",
-					"missing suite",
-				)
 			}
 
 			switch testData.Format {
@@ -125,7 +125,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					)
 				}
 			case "json":
-				if err := processJSONChecks(testData, email, appURL, namespace, memo, suite, testName, protocol); err != nil {
+				if err := processJSONChecks(testData, email, appURL, namespace, memo, author, testName, protocol); err != nil {
 					return apierror.New(
 						http.StatusBadRequest,
 						"json",
@@ -143,7 +143,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					namespace,
 					dirPath,
 					memo,
-					suite,
+					author,
 					protocol,
 				); err != nil {
 					return apierror.New(
