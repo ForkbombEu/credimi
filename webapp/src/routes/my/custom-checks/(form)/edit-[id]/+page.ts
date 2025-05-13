@@ -4,10 +4,10 @@
 
 import { pb } from '@/pocketbase';
 
-export const load = async ({ params }) => {
+export const load = async ({ params, fetch }) => {
 	const { id } = params;
 
-	const record = await pb.collection('custom_checks').getOne(id);
+	const record = await pb.collection('custom_checks').getOne(id, { fetch });
 
 	return { record };
 };
