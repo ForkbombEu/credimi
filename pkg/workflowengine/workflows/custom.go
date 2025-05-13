@@ -5,7 +5,7 @@
 package workflows
 
 import (
-	"errors"
+	"fmt"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -50,17 +50,11 @@ func (w *CustomCheckWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	result, ok := stepCIResult.Output.(map[string]any)["result"].(string)
-	if !ok {
-		result = ""
-	}
-	if result == "" {
-		logger.Error("StepCIExecution result is empty")
-		return workflowengine.WorkflowResult{}, errors.New("StepCIExecution result is empty")
-	}
+	result := stepCIResult.Output.(map[string]any)["result"]
+	
 
 	return workflowengine.WorkflowResult{
-		Message: "Workflow completed successfully",
+		Message: fmt.Sprintf("Custom check result: %v", result),
 	}, nil
 }
 
