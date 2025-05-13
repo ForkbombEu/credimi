@@ -26,20 +26,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { readFileAsString } from '@/utils/files.js';
 	import { parse } from 'yaml';
 	import { getExceptionMessage } from '@/utils/errors.js';
-	import { pb } from '@/pocketbase';
+	import { currentUser, pb } from '@/pocketbase';
+	import { toast } from 'svelte-sonner';
+	import type { StandardsWithTestSuites } from '../../../tests/new/_partials/standards-response-schema';
+	import type { CustomChecksResponse } from '@/pocketbase/types';
+	import _ from 'lodash';
 
 	//
 
-	let { data } = $props();
+	type Props = {
+		standardsAndTestSuites: StandardsWithTestSuites;
+		record?: CustomChecksResponse;
+	};
 
-	const standardsOptions = $derived(
-		data.standardsAndTestSuites.flatMap((standard) =>
-			standard.versions.map((version) => ({
-				value: `${standard.uid}/${version.uid}`,
-				label: `${standard.name} – ${version.name}`
-			}))
-		)
-	);
+	let { standardsAndTestSuites, record }: Props = $props();
 
 	//
 
@@ -51,12 +51,59 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const form = createForm({
 		adapter: zod(schema),
 		onSubmit: async ({ form: { data } }) => {
-			await pb.collection('custom_checks').create(data);
-			goto('/my/custom-checks');
-		}
+			if (formMode === 'new') {
+				await pb.collection('custom_checks').create(data);
+			} else if (record) {
+				await pb.collection('custom_checks').update(record.id, data);
+			}
+			toast.success(currentLabels.toastMessage);
+			await goto('/my/custom-checks');
+		},
+		options: {
+			dataType: 'form'
+		},
+		initialData: record ? _.omit(record, 'logo') : undefined
 	});
 
-	const { form: formData, errors } = form;
+	const { errors } = form;
+
+	//
+
+	type FormMode = 'new' | 'edit';
+
+	const formMode = $derived<FormMode>(record ? 'edit' : 'new');
+
+	type FormLabels = {
+		title: string;
+		submitButton: string;
+		toastMessage: string;
+	};
+
+	const labels: Record<FormMode, FormLabels> = {
+		new: {
+			title: m.Add_a_Custom_Conformance_Check(),
+			submitButton: m.Add_a_custom_check(),
+			toastMessage: m.Custom_check_created()
+		},
+		edit: {
+			title: m.Update_Custom_Conformance_Check(),
+			submitButton: m.Update_custom_check(),
+			toastMessage: m.Custom_check_updated()
+		}
+	};
+
+	const currentLabels = $derived(labels[formMode]);
+
+	//
+
+	const standardsOptions = $derived(
+		standardsAndTestSuites.flatMap((standard) =>
+			standard.versions.map((version) => ({
+				value: `${standard.uid}/${version.uid}`,
+				label: `${standard.name} – ${version.name}`
+			}))
+		)
+	);
 
 	//
 
@@ -94,12 +141,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{m.Back_and_discard()}
 	</BackButton>
 
-	<div class="text-center">
+	<div class="space-y-2 text-center">
 		<T tag="h2">
-			{m.Add_a_Custom_Conformance_Check()}
+			{currentLabels.title}
 		</T>
 		<T tag="p">
-			{@html m.Add_a_custom_conformance_check_description()}
+			{@html m.Custom_check_form_description()}
 		</T>
 	</div>
 
@@ -123,7 +170,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<PageCardSection title={m.Check_Metadata()} description={m.Check_metadata_description()}>
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
 				<Field {form} name="name" options={{ label: m.Name() }} />
-				<FileField {form} name="logo" options={{ label: m.Upload_logo() }} />
+
+				<div>
+					<FileField {form} name="logo" options={{ label: m.Upload_logo() }} />
+					<!-- TODO - Improve logo preview -->
+					{#if record?.logo}
+						<T class="text-xs">Current: {record.logo}</T>
+					{/if}
+				</div>
 
 				<Field
 					{form}
@@ -180,7 +234,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		{#snippet submitButtonContent()}
 			<PlusIcon />
-			{m.Add_a_custom_check()}
+			{currentLabels.submitButton}
 		{/snippet}
 	</Form>
 </div>

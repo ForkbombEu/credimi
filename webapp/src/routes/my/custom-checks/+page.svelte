@@ -11,7 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { Plus } from 'lucide-svelte';
+	import { Pencil, Plus } from 'lucide-svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 </script>
 
 <div class="space-y-4">
@@ -31,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="space-y-2">
 				{#each records as record}
 					{@const logo = pb.files.getURL(record, record.logo)}
-					<Card {record} class="bg-background !pl-4" hide={['share', 'select']}>
+					<Card {record} class="bg-background !pl-4" hide={['share', 'select', 'edit']}>
 						<div class="flex items-start gap-4">
 							<Avatar
 								src={logo}
@@ -44,6 +45,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<T class="text-sm text-gray-400">{record.description}</T>
 							</div>
 						</div>
+
+						{#snippet right()}
+							<IconButton href="/my/custom-checks/edit-{record.id}" icon={Pencil} />
+						{/snippet}
 					</Card>
 				{/each}
 			</div>
