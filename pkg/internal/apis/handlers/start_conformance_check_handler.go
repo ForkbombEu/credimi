@@ -108,6 +108,22 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			}
 
 			switch testData.Format {
+			case "custom":
+				if err := processCustomChecks(
+					e.App,
+					userID,
+					testName,
+					testData.Data.(string),
+					namespace,
+					memo,
+				); err != nil {
+					return apierror.New(
+						http.StatusBadRequest,
+						"custom",
+						"failed to process custom checks",
+						err.Error(),
+					)
+				}
 			case "json":
 				if err := processJSONChecks(testData, email, appURL, namespace, memo, suite, testName, protocol); err != nil {
 					return apierror.New(
@@ -412,6 +428,68 @@ func processVariablesTest(
 		"unsupported author for test "+testName,
 		"unsupported author",
 	)
+}
+
+func processCustomChecks(
+	app core.App,
+	authId string,
+	testName string,
+	testData string,
+	namespace interface{},
+	memo map[string]interface{},
+) error {
+
+	yaml := testData
+	if yaml == "" {
+		return apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"yaml is empty",
+			"yaml is empty",
+		)
+	}
+	// authName := customCheckRecord.GetString("owner")
+	// standard := customCheckRecord.GetString("standard")
+
+	namespace, err := getUserNamespace(app, authId)
+	if err != nil {
+		return apierror.New(
+			http.StatusBadRequest,
+			"namespace",
+			"failed to get user namespace",
+			err.Error(),
+		)
+	}
+
+	// memo := map[string]interface{}{
+	// 	"test": "custom-check",
+	// 	// "standard": standard,
+	// 	// "author":   authName,
+	// }
+
+	input := workflowengine.WorkflowInput{
+		Payload: map[string]any{
+			"yaml": yaml,
+		},
+		Config: map[string]any{
+			"namespace": namespace,
+			"memo":      memo,
+		},
+	}
+
+	var w workflows.CustomCheckWorkflow
+
+	_, errStart := w.Start(input)
+	if errStart != nil {
+		return apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"failed to start check",
+			errStart.Error(),
+		)
+	}
+
+	return nil
 }
 
 func readTemplateFile(path string) (string, error) {

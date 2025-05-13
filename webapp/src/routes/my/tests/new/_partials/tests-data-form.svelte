@@ -43,9 +43,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const form = createForm({
 		adapter: zod(createTestListInputSchema(data)),
 		onSubmit: async ({ form }) => {
+			const custom = customChecks.map((c) => {return {format:"custom", data:  c.yaml}});
 			await pb.send(`/api/compliance/${testId}/save-variables-and-start`, {
 				method: 'POST',
-				body: { ...form.data, customChecks: customChecks.map((c) => c.yaml) }
+				body: { ...form.data, ...custom }
 			});
 			await goto(`/my/tests/runs`);
 		},
