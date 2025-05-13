@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -193,8 +194,9 @@ func (w *CredentialsIssuersWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
-		ID:        "Credentials-Workflow-" + uuid.NewString(),
-		TaskQueue: CredentialsTaskQueue,
+		ID:                       "Credentials-Workflow-" + uuid.NewString(),
+		TaskQueue:                CredentialsTaskQueue,
+		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)

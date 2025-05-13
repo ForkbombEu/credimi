@@ -102,6 +102,17 @@ func startAllWorkers() {
 			},
 		},
 		{
+			TaskQueue: workflows.EudiwTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				&workflows.EudiwWorkflow{},
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				&activities.StepCIWorkflowActivity{},
+				&activities.SendMailActivity{},
+				&activities.HTTPActivity{},
+			},
+		},
+		{
 			TaskQueue: workflows.CredentialsTaskQueue,
 			Workflows: []workflowengine.Workflow{
 				&workflows.CredentialsIssuersWorkflow{},

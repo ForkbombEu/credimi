@@ -34,6 +34,10 @@ type openID4VPTestInputFile struct {
 type EWCInput struct {
 	SessionID string `json:"sessionId" validate:"required"`
 }
+type EudiwInput struct {
+	Nonce string `json:"nonce" validate:"required"`
+	Id    string `json:"id" validate:"required"`
+}
 
 type Author string
 
@@ -53,6 +57,7 @@ type WorkflowStarter func(params WorkflowStarterParams) error
 var workflowRegistry = map[Author]WorkflowStarter{
 	"ewc":                      startEWCWorkflow,
 	"openid_conformance_suite": startOpenIDNetWorkflow,
+	"eudiw":                    startEudiwWorkflow,
 }
 
 func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
@@ -224,7 +229,7 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 	testName := i.TestName
 	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
 	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/pkg/workflowengine/workflows/ewc_config" + filename,
+		os.Getenv("ROOT_DIR") + "/" + workflows.EWCTemplateFolderPath + filename,
 	)
 	if err != nil {
 		return err
@@ -276,7 +281,53 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 	}
 	return nil
 }
-
+func startEudiwWorkflow(i WorkflowStarterParams) error {
+	jsonData := i.JsonData
+	email := i.Email
+	appURL := i.AppURL
+	namespace := i.Namespace
+	memo := i.Memo
+	testName := i.TestName
+	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "eudiw")
+	templateStr, err := readTemplateFile(
+		os.Getenv("ROOT_DIR") + "/" + workflows.EudiwTemplateFolderPath + filename,
+	)
+	if err != nil {
+		return err
+	}
+	var parsedData EudiwInput
+	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
+		return apierror.New(
+			http.StatusBadRequest,
+			"json",
+			"failed to parse JSON input",
+			err.Error(),
+		)
+	}
+	input := workflowengine.WorkflowInput{
+		Payload: map[string]any{
+			"nonce":     parsedData.Nonce,
+			"id":        parsedData.Id,
+			"user_mail": email,
+			"app_url":   appURL,
+		},
+		Config: map[string]any{
+			"template":  templateStr,
+			"namespace": namespace,
+			"memo":      memo,
+		},
+	}
+	var workflow workflows.EudiwWorkflow
+	if _, err := workflow.Start(input); err != nil {
+		return apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"failed to start workflow",
+			err.Error(),
+		)
+	}
+	return nil
+}
 func processJSONChecks(
 	testData struct {
 		Format string      `json:"format" validate:"required"`

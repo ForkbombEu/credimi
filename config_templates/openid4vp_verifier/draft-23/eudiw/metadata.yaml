@@ -1,0 +1,4 @@
+name: EUDIW Verifier testing tool
+homepage: https://verifier.eudiw.dev/home
+repository: https://verifier-backend.eudiw.dev/swagger-ui
+description: This uses the EUDI Verifier Endpoint OpenId4VP draft 23 that verifies an OpenId4VP presentation the API are documented on https://verifier-backend.eudiw.dev/swagger-ui

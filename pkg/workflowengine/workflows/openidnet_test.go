@@ -115,7 +115,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 			env.RegisterDelayedCallback(func() {
 				env.SignalWorkflowByID(
 					"default-test-workflow-id-log",
-					"openidnet-check-log-update-start",
+					OpenIDNetStartCheckSignal,
 					nil,
 				)
 			}, tc.completeSignalDelay)
@@ -179,7 +179,7 @@ func Test_LogSubWorkflow(t *testing.T) {
 			done := make(chan struct{})
 			go func() {
 				env.RegisterDelayedCallback(func() {
-					env.SignalWorkflow("openidnet-check-log-update-start", nil)
+					env.SignalWorkflow(OpenIDNetStartCheckSignal, nil)
 				}, time.Second*30)
 				env.ExecuteWorkflow(logsWorkflow.Workflow, workflowengine.WorkflowInput{
 					Payload: map[string]any{

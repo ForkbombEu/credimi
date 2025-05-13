@@ -8,7 +8,6 @@
 package workflows
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"time"
@@ -21,35 +20,36 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 )
 
-// EWCTaskQueue is the task queue for EWC workflows.
+// EudiwTaskQueue is the task queue for Eudiw workflows.
 const (
-	EWCTaskQueue          = "EWCTaskQueue"
-	EWCTemplateFolderPath = "pkg/workflowengine/workflows/ewc_config"
-	EwcStartCheckSignal   = "start-ewc-check-signal"
-	EwcStopCheckSignal    = "stop-ewc-check-signal"
+	EudiwTaskQueue          = "EUDIWTaskQueue"
+	EudiwTemplateFolderPath = "pkg/workflowengine/workflows/eudiw_config"
+	EudiwStartCheckSignal   = "start-eudiw-check-signal"
+	EudiwStopCheckSignal    = "stop-eudiw-check-signal"
+	EudiwSubscription       = "eudiw-logs"
 )
 
-// EWCWorkflow is a workflow that performs conformance checks on the OpenID certification site.
-type EWCWorkflow struct{}
+// EudiwWorkflow is a workflow that performs conformance checks on the OpenID certification site.
+type EudiwWorkflow struct{}
 
-// Name returns the name of the EWCWorkflow.
-func (EWCWorkflow) Name() string {
-	return "Conformance check on EWC"
+// Name returns the name of the EudiwWorkflow.
+func (EudiwWorkflow) Name() string {
+	return "Conformance check on EUDIW"
 }
 
 // GetOptions Configure sets up the workflow with the necessary options.
-func (EWCWorkflow) GetOptions() workflow.ActivityOptions {
+func (EudiwWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
-type EWCResponseBody struct {
+type EudiwResponseBody struct {
 	Status    string   `json:"status"`
 	Reason    string   `json:"reason"`
 	SessionID string   `json:"sessionId"`
 	Claims    []string `json:"claims,omitempty"`
 }
 
-// Workflow is the main workflow function for the EWCWorkflow. It orchestrates
+// Workflow is the main workflow function for the EudiwWorkflow. It orchestrates
 // the execution of various activities to perform conformance checks
 // and send notifications to the user.
 //
@@ -66,14 +66,14 @@ type EWCResponseBody struct {
 //  1. Execute the StepCIWorkflowActivity to perform initial checks and gets the QR code deep link.
 //  2. Generate a URL with query parameters for the user to continue the process.
 //  3. Configure and execute the SendMailActivity to notify the user via email.
-//  4. Wait for a signal ("ewc-check-started") to start polling the API to getthe current status of the check.
-//  5. Wait for either a signal ("ewc-check-stopped") to pause the workflow or the check result from the API
+//  4. Wait for a signal to start polling the API to get the current status of the check.
+//  5. Wait for either a signal to pause the workflow or the check result from the API
 //  6. Process the response to determine the success or failure of the workflow.
 //
 // Notes:
 //   - The workflow uses a selector to wait for either a signal or the next API call.
 //   - If the signal data indicates failure, the workflow terminates with a failure message.
-func (w *EWCWorkflow) Workflow(
+func (w *EudiwWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
@@ -83,7 +83,8 @@ func (w *EWCWorkflow) Workflow(
 	stepCIWorkflowActivity := activities.StepCIWorkflowActivity{}
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
-			"session_id": input.Payload["session_id"].(string),
+			"nonce": input.Payload["nonce"].(string),
+			"id":    input.Payload["id"].(string),
 		},
 		Config: map[string]string{
 			"template": input.Config["template"].(string),
@@ -105,22 +106,31 @@ func (w *EWCWorkflow) Workflow(
 	if !ok {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected output type: %T", stepCIResult.Output)
 	}
-	deepLink, ok := result["deep_link"].(string)
+	clientID, ok := result["client_id"].(string)
 	if !ok {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("missing deep_link in stepci response")
+		return workflowengine.WorkflowResult{}, fmt.Errorf("missing client_id in stepci response")
 	}
-	sessionID, ok := result["session_id"].(string)
+	requestUri, ok := result["request_uri"].(string)
 	if !ok {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("missing session_id in stepci response")
+		return workflowengine.WorkflowResult{}, fmt.Errorf("missing request_uri in stepci response")
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/ewc"
+	transactionID, ok := result["transaction_id"].(string)
+	if !ok {
+		return workflowengine.WorkflowResult{}, fmt.Errorf("missing transaction_id in stepci response")
+	}
+	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/eudiw" //TODO use the correct one
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %v", err)
 	}
+	qr := fmt.Sprintf(
+		"eudi-openid4vp://?client_id=%s&request_uri=%s",
+		url.QueryEscape(clientID),
+		url.QueryEscape(requestUri),
+	)
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
-	query.Set("qr", deepLink)
+	query.Set("qr", qr)
 	u.RawQuery = query.Encode()
 	emailActivity := activities.SendMailActivity{}
 
@@ -151,8 +161,8 @@ func (w *EWCWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	startSignalChan := workflow.GetSignalChannel(ctx, EwcStartCheckSignal)
-	stopSignalChan := workflow.GetSignalChannel(ctx, EwcStopCheckSignal)
+	startSignalChan := workflow.GetSignalChannel(ctx, EudiwStartCheckSignal)
+	stopSignalChan := workflow.GetSignalChannel(ctx, EudiwStopCheckSignal)
 	selector := workflow.NewSelector(ctx)
 	var isPolling bool
 	var timerFuture workflow.Future
@@ -188,61 +198,86 @@ func (w *EWCWorkflow) Workflow(
 			continue
 		}
 
-		var HTTPGetActivity activities.HTTPActivity
-		var response workflowengine.ActivityResult
-		HTTPInput := workflowengine.ActivityInput{
+		var HTTPActivity activities.HTTPActivity
+		var checkResponse workflowengine.ActivityResult
+		CheckStatusInput := workflowengine.ActivityInput{
 			Config: map[string]string{
 				"method": "GET",
-				"url":    input.Config["check_endpoint"].(string),
+				"url":    fmt.Sprintf("https://verifier-backend.eudiw.dev/ui/presentations/%s", transactionID),
+			},
+		}
+		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), CheckStatusInput).Get(ctx, &checkResponse)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, err
+		}
+		outputMap, ok := checkResponse.Output.(map[string]any)
+		if !ok {
+			return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected output type: %T", checkResponse.Output)
+		}
+
+		statusCode, ok := outputMap["status"].(float64)
+		if !ok {
+			return workflowengine.WorkflowResult{}, fmt.Errorf("missing or invalid status_code in response")
+		}
+		var events []map[string]any
+		var eventsResponse workflowengine.ActivityResult
+		getLogsInput := workflowengine.ActivityInput{
+			Config: map[string]string{
+				"method": "GET",
+				"url":    fmt.Sprintf("https://verifier-backend.eudiw.dev/ui/presentations/%s/events", transactionID),
+			},
+		}
+		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), getLogsInput).Get(ctx, &eventsResponse)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, err
+		}
+		events = AsSliceOfMaps(eventsResponse.Output.(map[string]any)["body"].(map[string]any)["events"])
+		triggerLogsInput := workflowengine.ActivityInput{
+			Config: map[string]string{
+				"method": "POST",
+				"url": fmt.Sprintf(
+					"%s/%s",
+					input.Payload["app_url"].(string),
+					"api/compliance/send-eudiw-log-update",
+				),
 			},
 			Payload: map[string]any{
-				"query_params": map[string]any{
-					"sessionId": sessionID,
+				"headers": map[string]any{
+					"Content-Type": "application/json",
+				},
+				"body": map[string]any{
+					"workflow_id": workflow.GetInfo(ctx).WorkflowExecution.ID,
+					"logs":        events,
 				},
 			},
 		}
-		err := workflow.ExecuteActivity(ctx, HTTPGetActivity.Name(), HTTPInput).Get(ctx, &response)
-		if err != nil {
-			logger.Error("HTTP GET failed", "error", err)
-			return workflowengine.WorkflowResult{}, err
-		}
-		bodyJSON, err := json.Marshal(response.Output.(map[string]any)["body"])
-		if err != nil {
-			return workflowengine.WorkflowResult{}, fmt.Errorf("failed to re-marshal body: %w", err)
-		}
-		var parsed EWCResponseBody
-		err = json.Unmarshal(bodyJSON, &parsed)
-		if err != nil {
-			logger.Error("Failed to parse JSON response", "error", err)
-			return workflowengine.WorkflowResult{}, err
-		}
 
-		switch parsed.Status {
-		case "success":
+		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), triggerLogsInput).
+			Get(ctx, nil)
+		if err != nil {
+			logger.Error("Failed to send logs", "error", err)
+			return workflowengine.WorkflowResult{}, err
+		}
+		switch int(statusCode) {
+		case 200:
 			return workflowengine.WorkflowResult{
-				Message: "EWC check completed successfully",
-				Log:     parsed.Claims,
+				Message: "Eudiw check completed successfully",
 			}, nil
 
-		case "pending":
-			if parsed.Reason != "ok" {
-				return workflowengine.WorkflowResult{}, fmt.Errorf("EWC check failed: %s", parsed.Reason)
-			}
-		case "failed":
-			return workflowengine.WorkflowResult{}, fmt.Errorf("EWC check failed: %s", parsed.Reason)
+		case 400:
+			continue
+
+		case 500:
+			return workflowengine.WorkflowResult{}, fmt.Errorf("eudiw check failed with status code %d", int(statusCode))
 
 		default:
-			return workflowengine.WorkflowResult{}, fmt.Errorf(
-				"unexpected status from '%s': %s",
-				input.Config["check_endpoint"].(string),
-				parsed.Status,
-			)
+			return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected status code: %d", int(statusCode))
 		}
 
 	}
 }
 
-// Start initializes and starts the EWCWorkflow execution.
+// Start initializes and starts the EudiwWorkflow execution.
 // It loads environment variables, configures the Temporal client with the specified namespace,
 // and sets up workflow options including a unique workflow ID and optional memo.
 // The workflow is then executed with the provided input.
@@ -258,12 +293,12 @@ func (w *EWCWorkflow) Workflow(
 //   - The namespace defaults to "default" if not provided in the input configuration.
 //   - The workflow ID is generated using a UUID to ensure uniqueness.
 //   - The Temporal client is closed after the workflow execution is initiated.
-func (w *EWCWorkflow) Start(
+func (w *EudiwWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
-		ID:                       "EWCWorkflow" + uuid.NewString(),
-		TaskQueue:                EWCTaskQueue,
+		ID:                       "EudiWWorkflow" + uuid.NewString(),
+		TaskQueue:                EudiwTaskQueue,
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 

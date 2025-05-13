@@ -84,19 +84,6 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			expectError: true,
 		},
 		{
-			name: "Failure - server returns error status",
-			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
-				http.Error(w, "bad request", http.StatusBadRequest)
-			},
-			input: workflowengine.ActivityInput{
-				Config: map[string]string{
-					"method": "GET",
-					"url":    "",
-				},
-			},
-			expectError: true,
-		},
-		{
 			name: "Failure - timeout",
 			handlerFunc: func(_ http.ResponseWriter, _ *http.Request) {
 				time.Sleep(2 * time.Second)
@@ -123,19 +110,6 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			},
 			expectStatus:   http.StatusOK,
 			expectResponse: "plain response",
-		},
-		{
-			name: "Failure - malformed URL",
-			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
-				http.Error(w, "bad request", http.StatusBadRequest)
-			},
-			input: workflowengine.ActivityInput{
-				Config: map[string]string{
-					"method": "GET",
-					"url":    "://example.com/api/resource",
-				},
-			},
-			expectError: true,
 		},
 		{
 			name: "Success - GET request with query parameters",

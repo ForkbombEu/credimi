@@ -8,8 +8,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -22,6 +24,7 @@ import (
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/sdk/client"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -391,154 +394,45 @@ func HandleNotifyFailure() func(*core.RequestEvent) error {
 	}
 }
 
-type HandleSendLogUpdateStartRequestInput struct {
-	WorkflowID string `json:"workflow_id"`
-}
-
-func HandleSendLogUpdateStart() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[HandleSendLogUpdateStartRequestInput](e)
-		if err != nil {
-			return err
-		}
-
-		c, err := temporalclient.New()
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
-		}
-		defer c.Close()
-
-		err = c.SignalWorkflow(
-			context.Background(),
-			req.WorkflowID+"-log",
-			"",
-			"openidnet-check-log-update-start",
-			struct{}{},
-		)
-		if err != nil {
-			canceledErr := &serviceerror.Canceled{}
-			if errors.As(err, &canceledErr) {
-				wf := c.GetWorkflow(context.Background(), req.WorkflowID+"-log", "")
-				var result workflowengine.WorkflowResult
-
-				err := wf.Get(context.Background(), &result)
-				if err != nil {
-					return apierror.New(http.StatusBadRequest, "workflow", "failed to get logs workflow result", err.Error())
-				}
-
-				if logsInterface, ok := result.Log.([]any); ok {
-					logs := workflows.AsSliceOfMaps(logsInterface)
-					if err := notifyLogsUpdate(e.App, req.WorkflowID+"openid4vp-wallet-logs", logs); err != nil {
-						return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
-					}
-				} else {
-					return apierror.New(http.StatusBadRequest, "workflow", "invalid log format", "logs are not in the expected format")
-				}
-			}
-			notFound := &serviceerror.NotFound{}
-			if errors.As(err, &notFound) {
-				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			}
-			invalidArgument := &serviceerror.InvalidArgument{}
-			if errors.As(err, &invalidArgument) {
-				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
-			}
-
-			return apierror.New(http.StatusBadRequest, "signal", "failed to send start logs update signal", err.Error())
-		}
-		return e.JSON(http.StatusOK, map[string]string{"message": "Realtime Logs update started successfully"})
-	}
-}
-func HandleSendLogUpdateStop() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[HandleSendLogUpdateStartRequestInput](e)
-		if err != nil {
-			return err
-		}
-
-		c, err := temporalclient.New()
-		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
-		}
-		defer c.Close()
-
-		err = c.SignalWorkflow(context.Background(), req.WorkflowID+"-log", "", "openidnet-check-log-update-stop", struct{}{})
-		if err != nil {
-			notFound := &serviceerror.NotFound{}
-			if errors.As(err, &notFound) {
-				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			}
-			invalidArgument := &serviceerror.InvalidArgument{}
-			if errors.As(err, &invalidArgument) {
-				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
-			}
-
-			return apierror.New(http.StatusBadRequest, "signal", "failed to send stop logs update signal", err.Error())
-		}
-		return e.JSON(http.StatusOK, map[string]string{"message": "Realtime Logs update stopped successfully"})
-	}
-}
-
 type HandleSendLogUpdateRequestInput struct {
 	WorkflowID string           `json:"workflow_id"`
 	Logs       []map[string]any `json:"logs"`
 }
 
 func HandleSendLogUpdate() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[HandleSendLogUpdateRequestInput](e)
-		if err != nil {
-			return err
-		}
-		if err := notifyLogsUpdate(e.App, req.WorkflowID+"openid4vp-wallet-logs", req.Logs); err != nil {
-			return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
-		}
-		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})
-	}
+	return sendRealtimeLogs(workflows.OpenIDNetSubscription)
 }
 
-type HandleEWCCheckResultRequestInput struct {
+func HandleSendEudiwLogUpdate() func(*core.RequestEvent) error {
+	return sendRealtimeLogs(workflows.EudiwSubscription)
+}
+
+type HandleSendTemporalSignalInput struct {
 	WorkflowID string `json:"workflow_id"`
+	Signal     string `json:"signal"`
 }
 
-func HandleSendEWCUpdateStart() func(*core.RequestEvent) error {
-	return StartOrStopEWCUpdates(workflows.EwcStartCheckSignal)
-}
-func HandleSendEWCUpdateStop() func(*core.RequestEvent) error {
-	return StartOrStopEWCUpdates(workflows.EwcStopCheckSignal)
-}
-func StartOrStopEWCUpdates(signal workflows.WorkflowSignal) func(*core.RequestEvent) error {
+func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[HandleEWCCheckResultRequestInput](e)
+		req, err := routing.GetValidatedInput[HandleSendTemporalSignalInput](e)
 		if err != nil {
 			return err
 		}
-
 		c, err := temporalclient.New()
 		if err != nil {
 			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
 		}
 		defer c.Close()
-
-		err = c.SignalWorkflow(context.Background(), req.WorkflowID, "", signal.String(), struct{}{})
-		if err != nil {
-			notFound := &serviceerror.NotFound{}
-			if errors.As(err, &notFound) {
-				return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
-			}
-			invalidArgument := &serviceerror.InvalidArgument{}
-			if errors.As(err, &invalidArgument) {
-				return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
-			}
-
-			return apierror.New(http.StatusBadRequest, "signal", "failed to send start/stop logs update signal", err.Error())
+		switch req.Signal {
+		case workflows.OpenIDNetStartCheckSignal:
+			err = sendOpenIDNetLogUpdateStart(e.App, c, req)
+		default:
+			err = sendTemporalSignal(c, req)
 		}
-		return e.JSON(http.StatusOK, map[string]string{"message": "Realtime Logs update stopped successfully"})
+		if err != nil {
+			return err
+		}
+		return e.JSON(http.StatusOK, map[string]string{"message": "Signal sent successfully"})
 	}
 }
 
@@ -603,6 +497,19 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 	return "default", nil
 }
 
+func sendRealtimeLogs(suiteSubscription string) func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		req, err := routing.GetValidatedInput[HandleSendLogUpdateRequestInput](e)
+		if err != nil {
+			return err
+		}
+		if err := notifyLogsUpdate(e.App, req.WorkflowID+suiteSubscription, req.Logs); err != nil {
+			return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
+		}
+		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})
+	}
+}
+
 func notifyLogsUpdate(app core.App, subscription string, data []map[string]any) error {
 	rawData, err := json.Marshal(data)
 	if err != nil {
@@ -617,6 +524,73 @@ func notifyLogsUpdate(app core.App, subscription string, data []map[string]any) 
 		if client.HasSubscription(subscription) {
 			client.Send(message)
 		}
+	}
+	return nil
+}
+
+func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) error {
+	err := c.SignalWorkflow(context.Background(), input.WorkflowID, "", input.Signal, struct{}{})
+	if err != nil {
+		notFound := &serviceerror.NotFound{}
+		if errors.As(err, &notFound) {
+			return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
+		}
+		invalidArgument := &serviceerror.InvalidArgument{}
+		if errors.As(err, &invalidArgument) {
+			return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
+		}
+
+		return apierror.New(
+			http.StatusBadRequest,
+			"signal",
+			fmt.Sprintf("failed to send signal: %s", input.Signal),
+			err.Error())
+	}
+	return nil
+}
+
+func sendOpenIDNetLogUpdateStart(app core.App, c client.Client, input HandleSendTemporalSignalInput) error {
+	err := c.SignalWorkflow(
+		context.Background(),
+		input.WorkflowID,
+		"",
+		workflows.OpenIDNetStartCheckSignal,
+		struct{}{},
+	)
+	if err != nil {
+		canceledErr := &serviceerror.Canceled{}
+		notFound := &serviceerror.NotFound{}
+		if errors.As(err, &canceledErr) ||
+			(errors.As(err, &notFound) && err.Error() == "workflow execution already completed") {
+
+			wf := c.GetWorkflow(context.Background(), input.WorkflowID, "")
+			var result workflowengine.WorkflowResult
+
+			err := wf.Get(context.Background(), &result)
+			if err != nil {
+				return apierror.New(http.StatusBadRequest, "workflow", "failed to get logs workflow result", err.Error())
+			}
+
+			if logsInterface, ok := result.Log.([]any); ok {
+				logs := workflows.AsSliceOfMaps(logsInterface)
+				id := strings.TrimSuffix(input.WorkflowID, "-log")
+				if err := notifyLogsUpdate(app, id+workflows.OpenIDNetSubscription, logs); err != nil {
+					return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
+				}
+			} else {
+				return apierror.New(http.StatusBadRequest, "workflow", "invalid log format", "logs are not in the expected format")
+			}
+		}
+
+		if errors.As(err, &notFound) {
+			return apierror.New(http.StatusNotFound, "workflow", "workflow not found", err.Error())
+		}
+		invalidArgument := &serviceerror.InvalidArgument{}
+		if errors.As(err, &invalidArgument) {
+			return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
+		}
+
+		return apierror.New(http.StatusBadRequest, "signal", "failed to send start logs update signal", err.Error())
 	}
 	return nil
 }
