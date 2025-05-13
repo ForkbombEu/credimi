@@ -420,7 +420,12 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 		}
 		c, err := temporalclient.New()
 		if err != nil {
-			return apierror.New(http.StatusInternalServerError, "temporal", "unable to create client", err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
 		}
 		defer c.Close()
 		switch req.Signal {
@@ -504,7 +509,12 @@ func sendRealtimeLogs(suiteSubscription string) func(*core.RequestEvent) error {
 			return err
 		}
 		if err := notifyLogsUpdate(e.App, req.WorkflowID+suiteSubscription, req.Logs); err != nil {
-			return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"failed to send realtime logs update",
+				err.Error(),
+			)
 		}
 		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})
 	}
@@ -537,7 +547,12 @@ func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) er
 		}
 		invalidArgument := &serviceerror.InvalidArgument{}
 		if errors.As(err, &invalidArgument) {
-			return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"invalid workflow ID",
+				err.Error(),
+			)
 		}
 
 		return apierror.New(
@@ -549,7 +564,11 @@ func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) er
 	return nil
 }
 
-func sendOpenIDNetLogUpdateStart(app core.App, c client.Client, input HandleSendTemporalSignalInput) error {
+func sendOpenIDNetLogUpdateStart(
+	app core.App,
+	c client.Client,
+	input HandleSendTemporalSignalInput,
+) error {
 	err := c.SignalWorkflow(
 		context.Background(),
 		input.WorkflowID,
@@ -562,20 +581,29 @@ func sendOpenIDNetLogUpdateStart(app core.App, c client.Client, input HandleSend
 		notFound := &serviceerror.NotFound{}
 		if errors.As(err, &canceledErr) ||
 			(errors.As(err, &notFound) && err.Error() == "workflow execution already completed") {
-
 			wf := c.GetWorkflow(context.Background(), input.WorkflowID, "")
 			var result workflowengine.WorkflowResult
 
 			err := wf.Get(context.Background(), &result)
 			if err != nil {
-				return apierror.New(http.StatusBadRequest, "workflow", "failed to get logs workflow result", err.Error())
+				return apierror.New(
+					http.StatusBadRequest,
+					"workflow",
+					"failed to get logs workflow result",
+					err.Error(),
+				)
 			}
 
 			if logsInterface, ok := result.Log.([]any); ok {
 				logs := workflows.AsSliceOfMaps(logsInterface)
 				id := strings.TrimSuffix(input.WorkflowID, "-log")
 				if err := notifyLogsUpdate(app, id+workflows.OpenIDNetSubscription, logs); err != nil {
-					return apierror.New(http.StatusBadRequest, "workflow", "failed to send realtime logs update", err.Error())
+					return apierror.New(
+						http.StatusBadRequest,
+						"workflow",
+						"failed to send realtime logs update",
+						err.Error(),
+					)
 				}
 			} else {
 				return apierror.New(http.StatusBadRequest, "workflow", "invalid log format", "logs are not in the expected format")
@@ -587,10 +615,20 @@ func sendOpenIDNetLogUpdateStart(app core.App, c client.Client, input HandleSend
 		}
 		invalidArgument := &serviceerror.InvalidArgument{}
 		if errors.As(err, &invalidArgument) {
-			return apierror.New(http.StatusBadRequest, "workflow", "invalid workflow ID", err.Error())
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"invalid workflow ID",
+				err.Error(),
+			)
 		}
 
-		return apierror.New(http.StatusBadRequest, "signal", "failed to send start logs update signal", err.Error())
+		return apierror.New(
+			http.StatusBadRequest,
+			"signal",
+			"failed to send start logs update signal",
+			err.Error(),
+		)
 	}
 	return nil
 }

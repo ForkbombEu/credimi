@@ -48,6 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const multiple = $derived(isArrayField(config));
 
 	const { form } = getFormContext();
+	const { form: formData } = form;
 </script>
 
 {#if hidden}
@@ -55,7 +56,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {:else if snippet}
 	{@render snippet({
 		form: form as unknown as SuperForm<CollectionFormData[C]>,
-		field: name as FormPath<CollectionFormData[C]>
+		field: name as FormPath<CollectionFormData[C]>,
+		formData: $formData as CollectionFormData[C]
 	})}
 {:else if config.type == 'text' || config.type == 'url' || config.type == 'date' || config.type == 'email'}
 	<Field {form} {name} options={{ label, description, placeholder, type: config.type }} />

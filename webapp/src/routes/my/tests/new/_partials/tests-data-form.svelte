@@ -15,15 +15,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui/button/button.svelte';
 	import { pb } from '@/pocketbase';
 	import { goto } from '$app/navigation';
-
+	import type { CustomChecksResponse } from '@/pocketbase/types';
+	import T from '@/components/ui-custom/t.svelte';
+	import Avatar from '@/components/ui-custom/avatar.svelte';
 	//
 
 	type Props = {
-		data: FieldsResponse;
+		data?: FieldsResponse | undefined;
 		testId: string;
+		customChecks?: CustomChecksResponse[];
 	};
 
-	let { data, testId = 'openid4vp' }: Props = $props();
+	let {
+		data = { normalized_fields: [], specific_fields: {} },
+		testId = 'openid4vp',
+		customChecks = []
+	}: Props = $props();
 
 	//
 
@@ -36,9 +43,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const form = createForm({
 		adapter: zod(createTestListInputSchema(data)),
 		onSubmit: async ({ form }) => {
+			const custom = customChecks.map((c) => {return {format:"custom", data:  c.yaml}});
 			await pb.send(`/api/compliance/${testId}/save-variables-and-start`, {
 				method: 'POST',
-				body: form.data
+				body: { ...form.data, ...custom }
 			});
 			await goto(`/my/tests/runs`);
 		},
@@ -71,15 +79,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="mx-auto w-full max-w-screen-xl space-y-16 p-8">
-	<div class="space-y-4">
-		<h2 id={SHARED_FIELDS_ID} class="text-lg font-bold">Shared fields</h2>
-		<FieldConfigFormShared
-			fields={data.normalized_fields}
-			onUpdate={(form) => (sharedData = form)}
-		/>
-	</div>
+	{#if data.normalized_fields.length > 0}
+		<div class="space-y-4">
+			<h2 id={SHARED_FIELDS_ID} class="text-lg font-bold">Shared fields</h2>
+			<FieldConfigFormShared
+				fields={data.normalized_fields}
+				onUpdate={(form) => (sharedData = form)}
+			/>
+		</div>
 
-	<hr />
+		<hr />
+	{/if}
+
 	{#each Object.entries(data.specific_fields) as [testId, testData], index}
 		<div class="space-y-4">
 			<h2 id={testId} class="text-lg font-bold">
@@ -104,6 +115,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<hr />
 		{/if}
 	{/each}
+
+	{#if customChecks.length > 0}
+		<hr />
+
+		<div class="space-y-4">
+			<T tag="h2" class="text-lg font-bold">Review custom checks</T>
+
+			{#each customChecks as check}
+				{@const logo = pb.files.getURL(check, check.logo)}
+				<div class="flex items-start gap-4 rounded-md border p-2 px-4">
+					<Avatar src={logo} class="rounded-sm" fallback={check.name.slice(0, 2)} />
+					<div>
+						<T class="font-bold">{check.name}</T>
+						<T class="mb-2 font-mono text-xs">{check.standard_and_version}</T>
+						{#if check.description}
+							<T class="mb-2 text-sm text-gray-400">{check.description}</T>
+						{/if}
+						<pre class="rounded-sm bg-black p-3 text-xs text-white">{check.yaml}</pre>
+					</div>
+				</div>
+			{/each}
+		</div>
+	{/if}
 </div>
 
 <div class="bg-background/80 sticky bottom-0 border-t py-4 backdrop-blur-lg">
@@ -117,6 +151,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#await completionStatusPromise then [completeTestsCount, incompleteTestsIds]}
 					<p>
 						{completeTestsCount}/{testsIds.length} configs complete
+						{#if customChecks.length > 0}
+							<span class="text-muted-foreground">and</span>
+							{customChecks.length} custom checks
+						{/if}
 					</p>
 					{#if incompleteTestsIds.length}
 						<Popover.Root>

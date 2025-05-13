@@ -27,16 +27,17 @@ type SaveVariablesAndStartRequestInput map[string]struct {
 }
 
 type openID4VPTestInputFile struct {
-	Variant json.RawMessage `json:"variant"  validate:"required,oneof=json variables yaml"`
+	Variant json.RawMessage `json:"variant" validate:"required,oneof=json variables yaml"`
 	Form    any             `json:"form"`
 }
 
 type EWCInput struct {
 	SessionID string `json:"sessionId" validate:"required"`
 }
+
 type EudiwInput struct {
 	Nonce string `json:"nonce" validate:"required"`
-	Id    string `json:"id" validate:"required"`
+	Id    string `json:"id"    validate:"required"`
 }
 
 type Author string
@@ -76,45 +77,58 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 		}
 
 		protocol := e.Request.PathValue("protocol")
-		author := e.Request.PathValue("author")
-		if protocol == "" || author == "" {
+		version := e.Request.PathValue("version")
+		if protocol == "" || version == "" {
 			return apierror.New(
 				http.StatusBadRequest,
-				"protocol and author",
-				"protocol and author are required",
+				"protocol and version",
+				"protocol and version are required",
 				"missing parameters",
 			)
 		}
 
-		dirPath := os.Getenv("ROOT_DIR") + "/config_templates/" + protocol + "/" + author + "/"
+		dirPath := os.Getenv("ROOT_DIR") + "/config_templates/" + protocol + "/" + version + "/"
 		if _, err := os.Stat(dirPath); os.IsNotExist(err) {
 			return apierror.New(
 				http.StatusBadRequest,
 				"directory",
-				"directory does not exist for test "+os.Getenv("ROOT_DIR")+protocol+"/"+author,
+				"directory does not exist for test "+os.Getenv("ROOT_DIR")+protocol+"/"+version,
 				err.Error(),
 			)
 		}
 
 		for testName, testData := range req {
+			author := Author(strings.Split(testName, "/")[0])
+			if author == "" {
+				return apierror.New(
+					http.StatusBadRequest,
+					"author",
+					"author is required",
+					"missing author",
+				)
+			}
 			memo := map[string]interface{}{
 				"test":     testName,
 				"standard": protocol,
 				"author":   author,
 			}
-			suite := Author(strings.Split(testName, "/")[0])
-			if suite == "" {
-				return apierror.New(
-					http.StatusBadRequest,
-					"suite",
-					"suite is required",
-					"missing suite",
-				)
-			}
 
 			switch testData.Format {
+			case "custom":
+				if err := processCustomChecks(
+					testData.Data.(string),
+					namespace,
+					memo,
+				); err != nil {
+					return apierror.New(
+						http.StatusBadRequest,
+						"custom",
+						"failed to process custom checks",
+						err.Error(),
+					)
+				}
 			case "json":
-				if err := processJSONChecks(testData, email, appURL, namespace, memo, suite, testName, protocol); err != nil {
+				if err := processJSONChecks(testData, email, appURL, namespace, memo, author, testName, protocol); err != nil {
 					return apierror.New(
 						http.StatusBadRequest,
 						"json",
@@ -132,7 +146,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					namespace,
 					dirPath,
 					memo,
-					suite,
+					author,
 					protocol,
 				); err != nil {
 					return apierror.New(
@@ -211,7 +225,10 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 	memo := i.Memo
 	protocol := i.Protocol
 	testName := i.TestName
-	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
+	filename := strings.TrimPrefix(
+		strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml",
+		"ewc",
+	)
 	templateStr, err := readTemplateFile(
 		os.Getenv("ROOT_DIR") + "/" + workflows.EWCTemplateFolderPath + filename,
 	)
@@ -265,6 +282,7 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 	}
 	return nil
 }
+
 func startEudiwWorkflow(i WorkflowStarterParams) error {
 	jsonData := i.JsonData
 	email := i.Email
@@ -272,7 +290,10 @@ func startEudiwWorkflow(i WorkflowStarterParams) error {
 	namespace := i.Namespace
 	memo := i.Memo
 	testName := i.TestName
-	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "eudiw")
+	filename := strings.TrimPrefix(
+		strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml",
+		"eudiw",
+	)
 	templateStr, err := readTemplateFile(
 		os.Getenv("ROOT_DIR") + "/" + workflows.EudiwTemplateFolderPath + filename,
 	)
@@ -312,6 +333,7 @@ func startEudiwWorkflow(i WorkflowStarterParams) error {
 	}
 	return nil
 }
+
 func processJSONChecks(
 	testData struct {
 		Format string      `json:"format" validate:"required"`
@@ -463,6 +485,53 @@ func processVariablesTest(
 		"unsupported author for test "+testName,
 		"unsupported author",
 	)
+}
+
+func processCustomChecks(
+	testData string,
+	namespace interface{},
+	memo map[string]interface{},
+) error {
+	yaml := testData
+	if yaml == "" {
+		return apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"yaml is empty",
+			"yaml is empty",
+		)
+	}
+	// authName := customCheckRecord.GetString("owner")
+	// standard := customCheckRecord.GetString("standard")
+	// memo := map[string]interface{}{
+	// 	"test": "custom-check",
+	// 	// "standard": standard,
+	// 	// "author":   authName,
+	// }
+
+	input := workflowengine.WorkflowInput{
+		Payload: map[string]any{
+			"yaml": yaml,
+		},
+		Config: map[string]any{
+			"namespace": namespace,
+			"memo":      memo,
+		},
+	}
+
+	var w workflows.CustomCheckWorkflow
+
+	_, errStart := w.Start(input)
+	if errStart != nil {
+		return apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"failed to start check",
+			errStart.Error(),
+		)
+	}
+
+	return nil
 }
 
 func readTemplateFile(path string) (string, error) {

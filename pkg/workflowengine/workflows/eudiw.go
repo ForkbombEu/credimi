@@ -12,12 +12,11 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
-
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 )
 
 // EudiwTaskQueue is the task queue for Eudiw workflows.
@@ -104,7 +103,10 @@ func (w *EudiwWorkflow) Workflow(
 	}
 	result, ok := stepCIResult.Output.(map[string]any)
 	if !ok {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected output type: %T", stepCIResult.Output)
+		return workflowengine.WorkflowResult{}, fmt.Errorf(
+			"unexpected output type: %T",
+			stepCIResult.Output,
+		)
 	}
 	clientID, ok := result["client_id"].(string)
 	if !ok {
@@ -116,12 +118,14 @@ func (w *EudiwWorkflow) Workflow(
 	}
 	transactionID, ok := result["transaction_id"].(string)
 	if !ok {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("missing transaction_id in stepci response")
+		return workflowengine.WorkflowResult{}, fmt.Errorf(
+			"missing transaction_id in stepci response",
+		)
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/eudiw" //TODO use the correct one
+	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/eudiw" // TODO use the correct one
 	u, err := url.Parse(baseURL)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %v", err)
+		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %w", err)
 	}
 	qr := fmt.Sprintf(
 		"eudi-openid4vp://?client_id=%s&request_uri=%s",
@@ -178,7 +182,6 @@ func (w *EudiwWorkflow) Workflow(
 	}
 
 	for {
-
 		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 			var signalData struct{}
 			c.Receive(ctx, &signalData)
@@ -203,35 +206,50 @@ func (w *EudiwWorkflow) Workflow(
 		CheckStatusInput := workflowengine.ActivityInput{
 			Config: map[string]string{
 				"method": "GET",
-				"url":    fmt.Sprintf("https://verifier-backend.eudiw.dev/ui/presentations/%s", transactionID),
+				"url": fmt.Sprintf(
+					"https://verifier-backend.eudiw.dev/ui/presentations/%s",
+					transactionID,
+				),
 			},
 		}
-		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), CheckStatusInput).Get(ctx, &checkResponse)
+		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), CheckStatusInput).
+			Get(ctx, &checkResponse)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
 		}
 		outputMap, ok := checkResponse.Output.(map[string]any)
 		if !ok {
-			return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected output type: %T", checkResponse.Output)
+			return workflowengine.WorkflowResult{}, fmt.Errorf(
+				"unexpected output type: %T",
+				checkResponse.Output,
+			)
 		}
 
 		statusCode, ok := outputMap["status"].(float64)
 		if !ok {
-			return workflowengine.WorkflowResult{}, fmt.Errorf("missing or invalid status_code in response")
+			return workflowengine.WorkflowResult{}, fmt.Errorf(
+				"missing or invalid status_code in response",
+			)
 		}
 		var events []map[string]any
 		var eventsResponse workflowengine.ActivityResult
 		getLogsInput := workflowengine.ActivityInput{
 			Config: map[string]string{
 				"method": "GET",
-				"url":    fmt.Sprintf("https://verifier-backend.eudiw.dev/ui/presentations/%s/events", transactionID),
+				"url": fmt.Sprintf(
+					"https://verifier-backend.eudiw.dev/ui/presentations/%s/events",
+					transactionID,
+				),
 			},
 		}
-		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), getLogsInput).Get(ctx, &eventsResponse)
+		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), getLogsInput).
+			Get(ctx, &eventsResponse)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
 		}
-		events = AsSliceOfMaps(eventsResponse.Output.(map[string]any)["body"].(map[string]any)["events"])
+		events = AsSliceOfMaps(
+			eventsResponse.Output.(map[string]any)["body"].(map[string]any)["events"],
+		)
 		triggerLogsInput := workflowengine.ActivityInput{
 			Config: map[string]string{
 				"method": "POST",
@@ -268,12 +286,17 @@ func (w *EudiwWorkflow) Workflow(
 			continue
 
 		case 500:
-			return workflowengine.WorkflowResult{}, fmt.Errorf("eudiw check failed with status code %d", int(statusCode))
+			return workflowengine.WorkflowResult{}, fmt.Errorf(
+				"eudiw check failed with status code %d",
+				int(statusCode),
+			)
 
 		default:
-			return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected status code: %d", int(statusCode))
+			return workflowengine.WorkflowResult{}, fmt.Errorf(
+				"unexpected status code: %d",
+				int(statusCode),
+			)
 		}
-
 	}
 }
 

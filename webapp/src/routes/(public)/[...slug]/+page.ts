@@ -36,6 +36,8 @@ export async function load({ params, fetch }) {
 		_.runPromise
 	);
 
+	console.log(post);
+
 	if (Either.isLeft(post)) {
 		if (post.left instanceof FileFetchError) {
 			error(404, post.left.message);

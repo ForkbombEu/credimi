@@ -45,9 +45,10 @@ func Test_EudiwWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{Output: map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
-				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).Run(func(_ mock.Arguments) {
-					callCount++
-				}).
+				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+					Run(func(_ mock.Arguments) {
+						callCount++
+					}).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"status": 200,
 						"body":   map[string]any{"events": []map[string]any{{"logs": "test_logs"}}},
@@ -75,9 +76,10 @@ func Test_EudiwWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{Output: map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
-				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).Run(func(_ mock.Arguments) {
-					callCount++
-				}).
+				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+					Run(func(_ mock.Arguments) {
+						callCount++
+					}).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"status": 400,
 						"body":   map[string]any{"events": []map[string]any{{"logs": "test_logs"}}},
@@ -105,9 +107,10 @@ func Test_EudiwWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{Output: map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
-				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).Run(func(_ mock.Arguments) {
-					callCount++
-				}).
+				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+					Run(func(_ mock.Arguments) {
+						callCount++
+					}).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"status": 500,
 						"body":   map[string]any{"events": []map[string]any{{"logs": "test_logs"}}},
@@ -158,7 +161,6 @@ func Test_EudiwWorkflow(t *testing.T) {
 					require.Equal(t, 3, callCount) // Only two activity call (no looping)
 				}
 			} else {
-
 				<-done
 				var result workflowengine.WorkflowResult
 				require.Error(t, env.GetWorkflowResult(&result))

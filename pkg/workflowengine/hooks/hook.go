@@ -129,6 +129,15 @@ func startAllWorkers() {
 				&activities.HTTPActivity{},
 			},
 		},
+		{
+			TaskQueue: workflows.CustomCheckTaskQueque,
+			Workflows: []workflowengine.Workflow{
+				&workflows.CustomCheckWorkflow{},
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				&activities.StepCIWorkflowActivity{},
+			},
+		},
 	}
 
 	for _, config := range workers {

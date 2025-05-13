@@ -19,32 +19,43 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let d = $state<FieldsResponse>();
 	let compositeTestId = $state('');
 
-	const tabs = [
-		{ id: 'standard', label: '1. Standard and test suite' },
-		{ id: 'values', label: '2. Key values and JSONs' }
-	] as const;
+	//
 
-	type Tab = (typeof tabs)[number]['id'];
+	type FormState = 'select-tests' | 'fill-values';
 
-	const currentTab = $derived<Tab>(d ? 'values' : 'standard');
+	let formState = $state<FormState>('select-tests');
+
+	//
+
+	const tabs: { id: FormState; label: string }[] = [
+		{ id: 'select-tests', label: '1. Standard and test suite' },
+		{ id: 'fill-values', label: '2. Key values and JSONs' }
+	];
+
+	//
+
+	let selectedCustomChecksIds = $state<string[]>([]);
+	const selectedCustomChecks = $derived(
+		data.customChecks.filter((check) => selectedCustomChecksIds.includes(check.id))
+	);
 </script>
 
 <!--  -->
 
-<div class="relative mx-auto w-full max-w-screen-xl rounded-md bg-background shadow-sm">
+<div class="bg-background relative mx-auto w-full max-w-screen-xl rounded-md shadow-sm">
 	<div class="space-y-12 p-8 pb-0">
 		<div>
 			<BackButton href="/my">Back to dashboard</BackButton>
 			<T tag="h1">Compliance tests</T>
 		</div>
 
-		<Tabs.Root value={currentTab} class="w-full">
-			<Tabs.List class="flex bg-secondary">
+		<Tabs.Root value={formState} class="w-full">
+			<Tabs.List class="bg-secondary flex">
 				<Tabs.Trigger
 					value={tabs[0].id}
-					class="grow data-[state=inactive]:text-black data-[state=inactive]:hover:bg-primary/10"
+					class="data-[state=inactive]:hover:bg-primary/10 grow data-[state=inactive]:text-black"
 					onclick={() => {
-						d = undefined;
+						formState = 'select-tests';
 					}}
 				>
 					{tabs[0].label}
@@ -56,18 +67,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Tabs.Root>
 	</div>
 
-	{#if !d}
+	{#if formState === 'select-tests'}
 		<SelectTestForm
 			standards={data.standardsAndTestSuites}
-			onSelectTests={(data) => {
+			customChecks={data.customChecks}
+			onSelectTests={async (data) => {
 				compositeTestId = data.standardId;
-				getVariables(data.standardId, data.tests).then((res) => {
-					d = res;
-					scrollTo({ top: 0, behavior: 'instant' });
-				});
+				//
+				selectedCustomChecksIds = data.customChecks;
+				//
+				if (data.tests.length > 0) {
+					d = await getVariables(data.standardId, data.tests);
+				}
+				//
+				scrollTo({ top: 0, behavior: 'instant' });
+				formState = 'fill-values';
 			}}
 		/>
-	{:else}
-		<TestsDataForm data={d} testId={compositeTestId} />
+	{:else if formState === 'fill-values'}
+		<TestsDataForm data={d} testId={compositeTestId} customChecks={selectedCustomChecks} />
 	{/if}
 </div>

@@ -5,12 +5,12 @@
 package handlers
 
 import (
-	"gopkg.in/yaml.v3"
 	"os"
 	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"gopkg.in/yaml.v3"
 )
 
 func TestWalkConfigTemplates(t *testing.T) {
@@ -31,7 +31,10 @@ func TestWalkConfigTemplates(t *testing.T) {
 		},
 	}
 	standardYaml, _ := yaml.Marshal(standardMeta)
-	require.NoError(t, os.WriteFile(filepath.Join(standardDir, "standard.yaml"), standardYaml, 0644))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(standardDir, "standard.yaml"), standardYaml, 0644),
+	)
 
 	versionUID := "draft-24"
 	versionDir := filepath.Join(standardDir, versionUID)

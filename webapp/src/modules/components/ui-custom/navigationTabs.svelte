@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { tabs = [] }: Props = $props();
 </script>
 
-<ul class="flex gap-1 overflow-x-scroll sm:overflow-hidden">
+<ul class="flex gap-1 overflow-x-scroll">
 	{#each tabs as tab}
 		<li role="presentation">
 			<NavigationTab {...tab} />

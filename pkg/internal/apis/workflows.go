@@ -52,7 +52,7 @@ func AddComplianceChecks(app core.App) {
 			},
 			{
 				Method:  http.MethodPost,
-				Path:    "/{protocol}/{author}/save-variables-and-start",
+				Path:    "/{protocol}/{version}/save-variables-and-start",
 				Handler: handlers.HandleSaveVariablesAndStart,
 				Input:   handlers.SaveVariablesAndStartRequestInput{},
 			},
@@ -90,7 +90,7 @@ func AddComplianceChecks(app core.App) {
 			},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			//apis.RequireAuth(),
+			// apis.RequireAuth(),
 			{Func: middlewares.ErrorHandlingMiddleware},
 		},
 		Validation: true,

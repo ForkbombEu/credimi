@@ -398,5 +398,9 @@
 	"Error_check_failed": "Error: Check failed",
 	"An_error_happened_during_the_check_please_read_the_logs_for_more_information": "An error happened during the check. Please read the logs below for more information.",
 	"Reset": "Reset",
-	"Available_standards": "Available standards"
+	"Available_standards": "Available standards",
+	"Services_and_products": "Services and Products",
+	"Test_runs": "Test runs'",
+	"Organization_page": "Organization page",
+	"Profile": "Profile"
 }

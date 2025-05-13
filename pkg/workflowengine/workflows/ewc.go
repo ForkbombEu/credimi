@@ -13,12 +13,11 @@ import (
 	"net/url"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
-
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 )
 
 // EWCTaskQueue is the task queue for EWC workflows.
@@ -103,7 +102,10 @@ func (w *EWCWorkflow) Workflow(
 	}
 	result, ok := stepCIResult.Output.(map[string]any)
 	if !ok {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected output type: %T", stepCIResult.Output)
+		return workflowengine.WorkflowResult{}, fmt.Errorf(
+			"unexpected output type: %T",
+			stepCIResult.Output,
+		)
 	}
 	deepLink, ok := result["deep_link"].(string)
 	if !ok {
@@ -116,7 +118,7 @@ func (w *EWCWorkflow) Workflow(
 	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/ewc"
 	u, err := url.Parse(baseURL)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %v", err)
+		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %w", err)
 	}
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
@@ -168,7 +170,6 @@ func (w *EWCWorkflow) Workflow(
 	}
 
 	for {
-
 		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 			var signalData struct{}
 			c.Receive(ctx, &signalData)
@@ -226,10 +227,16 @@ func (w *EWCWorkflow) Workflow(
 
 		case "pending":
 			if parsed.Reason != "ok" {
-				return workflowengine.WorkflowResult{}, fmt.Errorf("EWC check failed: %s", parsed.Reason)
+				return workflowengine.WorkflowResult{}, fmt.Errorf(
+					"EWC check failed: %s",
+					parsed.Reason,
+				)
 			}
 		case "failed":
-			return workflowengine.WorkflowResult{}, fmt.Errorf("EWC check failed: %s", parsed.Reason)
+			return workflowengine.WorkflowResult{}, fmt.Errorf(
+				"EWC check failed: %s",
+				parsed.Reason,
+			)
 
 		default:
 			return workflowengine.WorkflowResult{}, fmt.Errorf(
@@ -238,7 +245,6 @@ func (w *EWCWorkflow) Workflow(
 				parsed.Status,
 			)
 		}
-
 	}
 }
 
