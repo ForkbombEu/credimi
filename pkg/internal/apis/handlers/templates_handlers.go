@@ -9,16 +9,14 @@ import (
 	"net/http"
 	"os"
 	"path"
-	"strings"
-
 	"path/filepath"
-
-	"gopkg.in/yaml.v3"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	engine "github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/pocketbase/pocketbase/core"
+	"gopkg.in/yaml.v3"
 )
 
 var templatesDir = path.Join(os.Getenv("ROOT_DIR"), "config_templates")
@@ -88,28 +86,28 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 }
 
 type StandardMetadata struct {
-	UID           string              `json:"uid" yaml:"uid"`
-	Name          string              `json:"name" yaml:"name"`
-	Description   string              `json:"description" yaml:"description"`
-	StandardURL   string              `json:"standard_url" yaml:"standard_url"`
-	LatestUpdate  string              `json:"latest_update" yaml:"latest_update"`
+	UID           string              `json:"uid"            yaml:"uid"`
+	Name          string              `json:"name"           yaml:"name"`
+	Description   string              `json:"description"    yaml:"description"`
+	StandardURL   string              `json:"standard_url"   yaml:"standard_url"`
+	LatestUpdate  string              `json:"latest_update"  yaml:"latest_update"`
 	ExternalLinks map[string][]string `json:"external_links" yaml:"external_links"`
-	Disabled      bool                `json:"disabled" yaml:"disabled"`
+	Disabled      bool                `json:"disabled"       yaml:"disabled"`
 }
 
 type VersionMetadata struct {
-	UID              string `json:"uid" yaml:"uid"`
-	Name             string `json:"name" yaml:"name"`
-	LatestUpdate     string `json:"latest_update" yaml:"latest_update"`
+	UID              string `json:"uid"               yaml:"uid"`
+	Name             string `json:"name"              yaml:"name"`
+	LatestUpdate     string `json:"latest_update"     yaml:"latest_update"`
 	SpecificationURL string `json:"specification_url" yaml:"specification_url"`
 }
 
 type SuiteMetadata struct {
-	UID         string `json:"uid" yaml:"uid"`
-	Name        string `json:"name" yaml:"name"`
-	Homepage    string `json:"homepage" yaml:"homepage"`
-	Repository  string `json:"repository" yaml:"repository"`
-	Help        string `json:"help" yaml:"help"`
+	UID         string `json:"uid"         yaml:"uid"`
+	Name        string `json:"name"        yaml:"name"`
+	Homepage    string `json:"homepage"    yaml:"homepage"`
+	Repository  string `json:"repository"  yaml:"repository"`
+	Help        string `json:"help"        yaml:"help"`
 	Description string `json:"description" yaml:"description"`
 }
 
@@ -153,10 +151,20 @@ func walkConfigTemplates(dir string) (Standards, error) {
 			if os.IsNotExist(err) {
 				return nil
 			}
-			return apierror.New(http.StatusInternalServerError, "filesystem.readFile", "Failed to read file: "+path, err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"filesystem.readFile",
+				"Failed to read file: "+path,
+				err.Error(),
+			)
 		}
 		if err := yaml.Unmarshal(data, out); err != nil {
-			return apierror.New(http.StatusInternalServerError, "yaml.unmarshal", "Failed to unmarshal yaml: "+path, err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"yaml.unmarshal",
+				"Failed to unmarshal yaml: "+path,
+				err.Error(),
+			)
 		}
 		return nil
 	}

@@ -45,9 +45,10 @@ func Test_EWCWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{Output: map[string]any{"deep_link": "test_content", "session_id": "12345"}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
-				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).Run(func(_ mock.Arguments) {
-					callCount++
-				}).
+				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+					Run(func(_ mock.Arguments) {
+						callCount++
+					}).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"body": map[string]string{"status": "success"},
 					}}, nil)
@@ -74,9 +75,10 @@ func Test_EWCWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{Output: map[string]any{"deep_link": "test_content", "session_id": "12345"}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
-				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).Run(func(_ mock.Arguments) {
-					callCount++
-				}).
+				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+					Run(func(_ mock.Arguments) {
+						callCount++
+					}).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"body": map[string]string{"status": "pending", "reason": "ok"},
 					}}, nil)
@@ -103,9 +105,10 @@ func Test_EWCWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{Output: map[string]any{"deep_link": "test_content", "session_id": "12345"}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
-				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).Run(func(_ mock.Arguments) {
-					callCount++
-				}).
+				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+					Run(func(_ mock.Arguments) {
+						callCount++
+					}).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"body": map[string]string{"status": "failed", "reason": "fail test reason"},
 					}}, nil)
@@ -155,7 +158,6 @@ func Test_EWCWorkflow(t *testing.T) {
 					require.Equal(t, 1, callCount) // Only two activity call (no looping)
 				}
 			} else {
-
 				<-done
 				var result workflowengine.WorkflowResult
 				require.Error(t, env.GetWorkflowResult(&result))

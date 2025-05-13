@@ -34,7 +34,6 @@ func (w *CustomCheckWorkflow) Workflow(
 	logger := workflow.GetLogger(ctx)
 	subCtx := workflow.WithActivityOptions(ctx, w.GetOptions())
 
-
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
 			"yaml": input.Payload["yaml"],
@@ -51,7 +50,6 @@ func (w *CustomCheckWorkflow) Workflow(
 	}
 
 	result := stepCIResult.Output.(map[string]any)["result"]
-	
 
 	return workflowengine.WorkflowResult{
 		Message: fmt.Sprintf("Custom check result: %v", result),
@@ -62,9 +60,8 @@ func (w *CustomCheckWorkflow) Start(
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	workflowOptions := client.StartWorkflowOptions{
-		ID: "custom" + "-" + uuid.NewString(),
+		ID:        "custom" + "-" + uuid.NewString(),
 		TaskQueue: CustomCheckTaskQueque,
 	}
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
-
 }

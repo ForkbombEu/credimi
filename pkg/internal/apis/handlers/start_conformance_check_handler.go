@@ -27,16 +27,17 @@ type SaveVariablesAndStartRequestInput map[string]struct {
 }
 
 type openID4VPTestInputFile struct {
-	Variant json.RawMessage `json:"variant"  validate:"required,oneof=json variables yaml"`
+	Variant json.RawMessage `json:"variant" validate:"required,oneof=json variables yaml"`
 	Form    any             `json:"form"`
 }
 
 type EWCInput struct {
 	SessionID string `json:"sessionId" validate:"required"`
 }
+
 type EudiwInput struct {
 	Nonce string `json:"nonce" validate:"required"`
-	Id    string `json:"id" validate:"required"`
+	Id    string `json:"id"    validate:"required"`
 }
 
 type Author string
@@ -115,9 +116,6 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			switch testData.Format {
 			case "custom":
 				if err := processCustomChecks(
-					e.App,
-					userID,
-					testName,
 					testData.Data.(string),
 					namespace,
 					memo,
@@ -227,7 +225,10 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 	memo := i.Memo
 	protocol := i.Protocol
 	testName := i.TestName
-	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "ewc")
+	filename := strings.TrimPrefix(
+		strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml",
+		"ewc",
+	)
 	templateStr, err := readTemplateFile(
 		os.Getenv("ROOT_DIR") + "/" + workflows.EWCTemplateFolderPath + filename,
 	)
@@ -281,6 +282,7 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 	}
 	return nil
 }
+
 func startEudiwWorkflow(i WorkflowStarterParams) error {
 	jsonData := i.JsonData
 	email := i.Email
@@ -288,7 +290,10 @@ func startEudiwWorkflow(i WorkflowStarterParams) error {
 	namespace := i.Namespace
 	memo := i.Memo
 	testName := i.TestName
-	filename := strings.TrimPrefix(strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml", "eudiw")
+	filename := strings.TrimPrefix(
+		strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml",
+		"eudiw",
+	)
 	templateStr, err := readTemplateFile(
 		os.Getenv("ROOT_DIR") + "/" + workflows.EudiwTemplateFolderPath + filename,
 	)
@@ -328,6 +333,7 @@ func startEudiwWorkflow(i WorkflowStarterParams) error {
 	}
 	return nil
 }
+
 func processJSONChecks(
 	testData struct {
 		Format string      `json:"format" validate:"required"`
@@ -482,14 +488,10 @@ func processVariablesTest(
 }
 
 func processCustomChecks(
-	app core.App,
-	authId string,
-	testName string,
 	testData string,
 	namespace interface{},
 	memo map[string]interface{},
 ) error {
-
 	yaml := testData
 	if yaml == "" {
 		return apierror.New(
@@ -501,17 +503,6 @@ func processCustomChecks(
 	}
 	// authName := customCheckRecord.GetString("owner")
 	// standard := customCheckRecord.GetString("standard")
-
-	namespace, err := getUserNamespace(app, authId)
-	if err != nil {
-		return apierror.New(
-			http.StatusBadRequest,
-			"namespace",
-			"failed to get user namespace",
-			err.Error(),
-		)
-	}
-
 	// memo := map[string]interface{}{
 	// 	"test": "custom-check",
 	// 	// "standard": standard,
