@@ -125,28 +125,30 @@ function createCollectionZodRawType(model: AnyCollectionModel): GeneratedCollect
 	const typeName = capitalize(camelCase(model.name)) + ZOD_RAW_SHAPE;
 	const modelFields = model.fields as AnyCollectionField[];
 
-	const fields = modelFields.map((f) => {
-		let type: string;
-		if (f.type == 'number') type = 'z.ZodNumber';
-		else if (f.type == 'bool') type = 'z.ZodBoolean';
-		else if (f.type == 'date') type = 'z.ZodString';
-		else if (f.type == 'editor') type = 'z.ZodString';
-		else if (f.type == 'email') type = 'z.ZodString';
-		else if (f.type == 'file') type = 'z.ZodType<File>';
-		else if (f.type == 'json') type = 'z.ZodUnknown';
-		else if (f.type == 'relation') type = 'z.ZodString';
-		else if (f.type == 'select') type = `z.ZodEnum<${JSON.stringify(f.values)}>`;
-		else if (f.type == 'text') type = 'z.ZodString';
-		else if (f.type == 'url') type = 'z.ZodString';
-		else if (f.type == 'autodate') type = 'z.ZodString';
-		else if (f.type == 'password') type = 'z.ZodString';
-		else throw new UnhandledFieldTypeError();
+	const fields = modelFields
+		.filter((f) => !['id', 'created', 'updated'].includes(f.name))
+		.map((f) => {
+			let type: string;
+			if (f.type == 'number') type = 'z.ZodNumber';
+			else if (f.type == 'bool') type = 'z.ZodBoolean';
+			else if (f.type == 'date') type = 'z.ZodString';
+			else if (f.type == 'editor') type = 'z.ZodString';
+			else if (f.type == 'email') type = 'z.ZodString';
+			else if (f.type == 'file') type = 'z.ZodType<File>';
+			else if (f.type == 'json') type = 'z.ZodUnknown';
+			else if (f.type == 'relation') type = 'z.ZodString';
+			else if (f.type == 'select') type = `z.ZodEnum<${JSON.stringify(f.values)}>`;
+			else if (f.type == 'text') type = 'z.ZodString';
+			else if (f.type == 'url') type = 'z.ZodString';
+			else if (f.type == 'autodate') type = 'z.ZodString';
+			else if (f.type == 'password') type = 'z.ZodString';
+			else throw new UnhandledFieldTypeError();
 
-		if (isArrayField(f)) type = `z.ZodArray<${type}>`;
-		if (!f.required) type = `z.ZodOptional<${type}>`;
+			if (isArrayField(f)) type = `z.ZodArray<${type}>`;
+			if (!f.required) type = `z.ZodOptional<${type}>`;
 
-		return `"${f.name}" : ${type}`;
-	});
+			return `"${f.name}" : ${type}`;
+		});
 
 	return {
 		code: `${EXPORT_TYPE} ${typeName} = { ${fields.join('\n')} }`,
