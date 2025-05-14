@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Popover from '@/components/ui/popover/index.js';
 	import type { OrganizationsResponse } from '@/pocketbase/types';
 	import { m } from '@/i18n';
+	import OrganizationAvatar from '@/organizations/components/organizationAvatar.svelte';
 	import { goto } from '@/i18n';
 
 	//
@@ -110,8 +111,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								value={organization.name}
 								class="text-sm"
 							>
-								<!-- TODO - Fetch info from organization_info -->
-								<!-- <OrganizationAvatar {organization} /> -->
+								<OrganizationAvatar {organization} />
 								{organization.name}
 								<Check
 									class={cn(

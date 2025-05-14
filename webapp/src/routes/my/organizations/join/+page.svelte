@@ -24,6 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { OrganizationAvatar } from '@/organizations/components';
 
 	//
 
@@ -74,14 +75,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 						<PlainCard>
 							{#snippet left()}
-								<!-- TODO - Fetch info from organization_info -->
-								<!-- <OrganizationAvatar organization={org} /> -->
+								<OrganizationAvatar organization={org} />
 							{/snippet}
 
 							{#snippet children({ Title, Description })}
 								<div>
 									<Title>{org.name}</Title>
-									<!-- TODO - Fetch info from organization_info -->
+									{#if org.description}
+										<Description>
+											<span class="line-clamp-2">
+												{@html org.description}
+											</span>
+										</Description>
+									{/if}
 								</div>
 							{/snippet}
 
