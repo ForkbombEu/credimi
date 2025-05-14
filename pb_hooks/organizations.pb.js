@@ -76,56 +76,70 @@ routerAdd("POST", "/organizations/verify-user-role", (e) => {
 
 /* Business logic hooks */
 
+// Create organization when user is created
+
 onRecordCreateRequest((e) => {
     /** @type {Utils} */
     const utils = require(`${__hooks}/utils.js`);
     /** @type {AuditLogger} */
     const auditLogger = require(`${__hooks}/auditLogger.js`);
 
-    // 0 - Backend logic
+    const user = e.record;
+    if (!user) throw utils.createMissingDataError("user");
 
-    e.next();
+    $app.runInTransaction((txApp) => {
+        // Creating main organization
 
-    if (!e.record) throw utils.createMissingDataError("organization record");
+        const organizationCollection =
+            txApp.findCollectionByNameOrId("organizations");
+        const organizationName = user.getString("email").split("@")[0];
+        const organization = new Record(organizationCollection, {
+            name: organizationName,
+        });
+        txApp.save(organization);
 
-    // 1 - Audit logging
+        auditLogger(e, txApp).info(
+            "Created organization",
+            "organizationId",
+            organization.id,
+            "organizationName",
+            organizationName,
+            "user",
+            user.getString("email")
+        );
 
-    auditLogger(e).info(
-        "Created organization",
-        "organizationId",
-        e.record?.id,
-        "organizationName",
-        e.record?.get("name")
-    );
+        // Creating info
 
-    if (utils.isAdminContext(e)) e.next();
+        const organizationInfoCollection =
+            txApp.findCollectionByNameOrId("organization_info");
+        const organizationInfo = new Record(organizationInfoCollection, {
+            name: organizationName,
+            owner: user.id,
+        });
+        txApp.save(organizationInfo);
 
-    // 2 - Creating owner `orgAuthorization` for user that crated the org
+        // Creating owner role
 
-    const user = utils.getUserFromContext(e);
-    if (!user) throw utils.createMissingDataError("user creating organization");
+        const ownerRole = utils.getRoleByName("owner");
+        const ownerRoleId = ownerRole?.id;
 
-    const organizationId = e.record.id;
-    const organizationName = e.record.getString("name");
+        const authorizationCollection =
+            txApp.findCollectionByNameOrId("orgAuthorizations");
+        const record = new Record(authorizationCollection, {
+            organization: organization.id,
+            role: ownerRoleId,
+            user: user.id,
+        });
+        txApp.save(record);
 
-    utils.createOwnerRoleForOrganization(e, organizationId, user.id);
-
-    // 3 - Finally, notifying user
-
-    const userAddress = utils.getUserEmailAddressData(user);
-
-    const emailData = utils.renderEmail("new-organization", {
-        OrganizationName: organizationName,
-        UserName: user.get("name") ?? "User",
-        DashboardLink: utils.getOrganizationPageUrl(e.record.id),
-        AppName: utils.getAppName(),
+        auditLogger(e, txApp).info(
+            "Created owner role for organization",
+            "organizationId",
+            organization.id,
+            "organizationName",
+            organizationName,
+            "user",
+            user.getString("email")
+        );
     });
-
-    const res = utils.sendEmail({
-        to: userAddress,
-        ...emailData,
-    });
-    if (res instanceof Error) {
-        console.error(res);
-    }
-}, "organizations");
+}, "users");

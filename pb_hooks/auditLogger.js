@@ -6,8 +6,11 @@
 
 /** @typedef {import('./utils.js')} Utils */
 
-/** @param {core.RequestEvent} e */
-function auditLogger(e) {
+/**
+ * @param {core.RequestEvent} e
+ * @param {core.App | excludeHooks<PocketBase>} [app = $app]
+ */
+function auditLogger(e, app = $app) {
     /** @type {Utils} */
     const utils = require(`${__hooks}/utils.js`);
 
@@ -25,7 +28,7 @@ function auditLogger(e) {
         );
     }
 
-    return $app.logger().with("audit", true, ...args);
+    return app.logger().with("audit", true, ...args);
 }
 
 module.exports = auditLogger;
