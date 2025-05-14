@@ -75,7 +75,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<!-- TODO - Set owner via hook -->
 		<CollectionForm
 			collection="organization_info"
-			fieldsOptions={{ hide: { owner: $currentUser!.id } }}
+			fieldsOptions={{ exclude: ['owner'] }}
 			uiOptions={{ hideRequiredIndicator: true }}
 			onSuccess={() => {
 				invalidateAll();

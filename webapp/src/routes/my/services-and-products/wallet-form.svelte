@@ -24,10 +24,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onSuccess?: (wallet: WalletsResponse) => void;
 		initialData?: Partial<WalletsResponse>;
 		walletId?: string;
-		ownerId?: string;
 	};
 
-	let { onSuccess, initialData = {}, walletId, ownerId }: Props = $props();
+	let { onSuccess, initialData = {}, walletId }: Props = $props();
 
 	//
 
