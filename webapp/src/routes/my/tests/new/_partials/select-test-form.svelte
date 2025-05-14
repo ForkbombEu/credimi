@@ -96,7 +96,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<Label
 					class={[
-						'w-[300px] space-y-1 border-b-2 p-4',
+						'w-[400px] space-y-1 border-b-2 p-4',
 						{
 							'border-b-primary bg-secondary ': selected,
 							'hover:bg-secondary/35 cursor-pointer border-b-transparent':
