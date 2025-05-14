@@ -112,12 +112,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#each records as request}
 						{@const organization = request.expand?.organization}
 						{#if organization}
-							{@const avatarUrl = pb.files.getURL(organization, organization.logo)}
 							<PlainCard>
-								{#snippet left()}
-									<Avatar src={avatarUrl}></Avatar>
-								{/snippet}
-
 								{#snippet children({ Title })}
 									<div class="flex items-center space-x-2">
 										<Title>{request.expand?.organization?.name}</Title>
@@ -187,14 +182,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											<A href={`/my/organizations/${org.id}`}>{org.name}</A>
 										</Title>
 										{#if role.name == ADMIN || role.name == OWNER}
-											<Badge variant="secondary"
-												>{capitalize(role.name)}</Badge
-											>
+											<Badge variant="secondary">
+												{capitalize(role.name)}
+											</Badge>
 										{/if}
 									</div>
-									{#if org.description}
-										<Description>{org.description}</Description>
-									{/if}
 								{/snippet}
 								{#snippet right()}
 									{#if role.name == OWNER}

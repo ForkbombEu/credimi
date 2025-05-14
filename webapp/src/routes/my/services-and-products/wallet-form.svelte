@@ -61,10 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				const wallet = await pb.collection('wallets').update(walletId, form.data);
 				onSuccess?.(wallet);
 			} else {
-				// TODO - Set ownerId on the backend
-				const wallet = await pb
-					.collection('wallets')
-					.create({ ...form.data, owner: ownerId });
+				const wallet = await pb.collection('wallets').create(form.data);
 				onSuccess?.(wallet);
 			}
 		},

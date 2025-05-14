@@ -49,7 +49,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const schema = createCollectionZodSchema('custom_checks')
 		.omit({
-			organization: true,
 			owner: true
 		})
 		.extend({
@@ -191,7 +190,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					items: standardsOptions,
 					label: m.Compliance_standard(),
 					placeholder: m.Select_a_standard_and_version(),
-					description:  `${m.eg()}: OpenID4VP Verifier - Draft 23`,
+					description: `${m.eg()}: OpenID4VP Verifier - Draft 23`
 				}}
 			/>
 		</PageCardSection>
