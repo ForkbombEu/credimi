@@ -81,13 +81,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{#snippet children({ Title, Description })}
 								<div>
 									<Title>{org.name}</Title>
-									{#if org.description}
+									<!-- If needed, fetch info from organization_info collection -->
+									<!-- {#if org.description}
 										<Description>
 											<span class="line-clamp-2">
 												{@html org.description}
 											</span>
 										</Description>
-									{/if}
+									{/if} -->
 								</div>
 							{/snippet}
 

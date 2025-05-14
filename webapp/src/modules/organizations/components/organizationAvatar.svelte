@@ -8,7 +8,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar, { type AvatarProps } from '@/components/ui-custom/avatar.svelte';
 	import { cn } from '@/components/ui/utils';
 	import { pb } from '@/pocketbase';
-	import type { OrganizationsRecord } from '@/pocketbase/types';
+	import type { OrganizationInfoResponse, OrganizationsRecord } from '@/pocketbase/types';
+
+	//
 
 	type Props = AvatarProps & {
 		organization: OrganizationsRecord;
@@ -16,8 +18,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { organization, ...rest }: Props = $props();
 
-	let src = $derived(pb.files.getURL(organization, organization.logo ?? ''));
-	let fallback = $derived(organization.name.slice(0, 2));
+	//
+
+	let organizationInfoPromise = $derived(
+		pb.collection('organization_info').getFirstListItem(`organization = "${organization.id}"`)
+	);
 </script>
 
-<Avatar {...rest} {src} {fallback} class={cn(rest.class, 'rounded-sm')} />
+{#await organizationInfoPromise then organizationInfo}
+	{@const src = pb.files.getURL(organizationInfo, organizationInfo.logo ?? '')}
+	{@const fallback = organization.name.slice(0, 2)}
+	<Avatar {...rest} {src} {fallback} class={cn(rest.class, 'rounded-sm')} />
+{/await}

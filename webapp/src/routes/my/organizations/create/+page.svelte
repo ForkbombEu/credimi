@@ -24,13 +24,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <PageContent>
 	<PageCard>
+		<!-- If needed, use organization_info collection for info -->
 		<CollectionForm
 			collection="organizations"
 			fieldsOptions={{
 				labels: {
-					name: m.Organization_name(),
-					description: m.Short_description(),
-					logo: m.Avatar()
+					name: m.Organization_name()
 				}
 			}}
 			onSuccess={(record) => {
