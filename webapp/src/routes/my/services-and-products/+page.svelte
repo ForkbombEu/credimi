@@ -118,7 +118,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		organization.
 	</T>
 	<div class="flex justify-end">
-		<Button href="/my/organization-page">
+		<Button href="/my/organization">
 			<Plus />
 			{m.Create_organization()}
 		</Button>

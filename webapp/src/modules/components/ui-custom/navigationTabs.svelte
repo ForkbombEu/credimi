@@ -6,10 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { LinkWithIcon } from '../types';
-	import NavigationTab from './navigationTab.svelte';
+	import NavigationTab, { type Props as NavigationTabProps } from './navigationTab.svelte';
 
 	interface Props {
-		tabs?: LinkWithIcon[];
+		tabs?: NavigationTabProps[];
 	}
 
 	let { tabs = [] }: Props = $props();

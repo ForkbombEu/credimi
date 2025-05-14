@@ -7,13 +7,17 @@ import { loadFeatureFlags } from '@/features';
 import { error } from '@sveltejs/kit';
 
 import { browser } from '$app/environment';
-import { redirect } from '@/i18n';
+import { deLocalizeHref, redirect } from '@/i18n';
 import { getKeyringFromLocalStorage, matchPublicAndPrivateKeys } from '@/keypairoom/keypair';
 import { getUserPublicKeys, RegenerateKeyringSession } from '@/keypairoom/utils';
 
 import { OrganizationInviteSession } from '@/organizations/invites/index.js';
+import { getUserOrganization } from '$lib/utils';
+import { WelcomeSession } from '@/auth/welcome/index.js';
 
-export const load = async ({ fetch }) => {
+//
+
+export const load = async ({ fetch, url }) => {
 	if (!browser) return;
 	const featureFlags = await loadFeatureFlags(fetch);
 
@@ -51,4 +55,23 @@ export const load = async ({ fetch }) => {
 		OrganizationInviteSession.end();
 		redirect('/my/organizations');
 	}
+
+	//
+
+	const organizationData = await getUserOrganization({ fetch });
+	if (!organizationData) error(500, { message: 'NO_ORGANIZATION' });
+
+	const { organization, organizationInfo } = organizationData;
+	const isOrganizationInfoMissing = organizationInfo.created === organizationInfo.updated;
+
+	if (WelcomeSession.isActive() && deLocalizeHref(url.pathname) !== '/my/organization') {
+		WelcomeSession.end();
+		redirect('/my/organization?edit=true');
+	}
+
+	return {
+		organization,
+		organizationInfo,
+		isOrganizationInfoMissing
+	};
 };

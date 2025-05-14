@@ -11,17 +11,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { currentUser } from '@/pocketbase/index.js';
 	import { InfoIcon, Plus, Pencil, Undo } from 'lucide-svelte';
 	import OrganizationPageDemo from '$lib/pages/organization-page.svelte';
-
-	let { data } = $props();
-	const { organizationInfo } = $derived(data);
+	import { page } from '$app/state';
 
 	//
+	let { data } = $props();
+	const { organizationInfo, isOrganizationInfoMissing } = $derived(data);
 
-	let showOrganizationForm = $state(false);
+	const isEdit = $derived(Boolean(page.url.searchParams.get('edit')));
+
+	// svelte-ignore state_referenced_locally
+	let showOrganizationForm = $state(isEdit);
 </script>
+
+{#if isOrganizationInfoMissing}
+	<Alert variant="info" icon={InfoIcon} class="mb-8">
+		<T>
+			Edit your organization's information to better represent your services and products on
+			the marketplace
+		</T>
+	</Alert>
+{/if}
 
 {#if !showOrganizationForm}
 	{#if organizationInfo}
@@ -76,7 +87,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<CollectionForm
 			collection="organization_info"
 			fieldsOptions={{ exclude: ['owner'] }}
-			uiOptions={{ hideRequiredIndicator: true }}
 			onSuccess={() => {
 				invalidateAll();
 				showOrganizationForm = false;

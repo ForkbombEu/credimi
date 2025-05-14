@@ -12,16 +12,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
-	import { CheckCheck, GlobeIcon, Home, Shapes, TestTubeDiagonalIcon, User } from 'lucide-svelte';
-	import type { Snippet } from 'svelte';
+	import { CheckCheck, GlobeIcon, Shapes, TestTubeDiagonalIcon, User } from 'lucide-svelte';
 
 	//
 
-	interface Props {
-		children?: Snippet;
-	}
-
-	let { children }: Props = $props();
+	let { children, data } = $props();
 </script>
 
 <BaseLayout>
@@ -36,7 +31,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					icon: Shapes
 				},
 				{ title: m.Test_runs(), href: '/my/tests/runs', icon: TestTubeDiagonalIcon },
-				{ title: m.Organization_page(), href: '/my/organization-page', icon: GlobeIcon },
+				{
+					title: m.Organization_page(),
+					href: '/my/organization',
+					icon: GlobeIcon,
+					notification: data.isOrganizationInfoMissing
+				},
 				{ title: m.Profile(), href: '/my/profile', icon: User },
 				{ title: m.Custom_checks(), href: '/my/custom-checks', icon: CheckCheck }
 			]}
