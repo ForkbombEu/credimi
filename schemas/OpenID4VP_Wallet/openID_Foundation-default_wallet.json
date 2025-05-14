@@ -1,6 +1,6 @@
 {
     "form": {
-        "alias": "{{ credimiPlaceholder \"testalias\" \"oid_alias\" \"i18n_testalias\" \"i18n_testalias_description\" \"string\" \"\" }}",
+        "alias": "{{ credimiPlaceholder \"testalias\" \"oid_alias\" \"i18n_testalias\" \"i18n_testalias_description\" \"string\" uuidv4  }}",
         "description": "{{ credimiPlaceholder \"description\" \"oid_description\" \"i18n_description\" \"i18n_description_description\" \"string\" \"\" }}",
         "server": {
             "authorization_endpoint": "openid-vc://"

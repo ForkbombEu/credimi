@@ -6,7 +6,7 @@
         "response_mode": "direct_post.jwt"
     },
     "form": {
-        "alias": "{{ credimiPlaceholder "testalias" "oid_alias" "i18n_testalias" "i18n_testalias_description" "string" "" }}",
+        "alias": "{{ credimiPlaceholder "testalias" "sd_jwt_vc_did_request_uri_signed_direct_post_jwt_oid_alias" "i18n_testalias" "i18n_testalias_description" "string" uuidv4 }}",
         "client": {
             "authorization_encrypted_response_alg": "{{ credimiPlaceholder "authorization_encrypted_response_alg" "oid_autz_enc_alg" "i18n_authorization_encrypted_response_alg" "i18n_authorization_encrypted_response_alg_description" "string" "" }}",
             "authorization_encrypted_response_enc": "{{ credimiPlaceholder "authorization_encrypted_response_enc" "oid_authz_enc_enc" "i18n_authorization_encrypted_response_enc" "i18n_authorization_encrypted_response_enc_description" "string" "" }}",
