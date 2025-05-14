@@ -84,6 +84,8 @@ onRecordCreateRequest((e) => {
     /** @type {AuditLogger} */
     const auditLogger = require(`${__hooks}/auditLogger.js`);
 
+    e.next();
+
     const user = e.record;
     if (!user) throw utils.createMissingDataError("user");
 
@@ -114,7 +116,7 @@ onRecordCreateRequest((e) => {
             txApp.findCollectionByNameOrId("organization_info");
         const organizationInfo = new Record(organizationInfoCollection, {
             name: organizationName,
-            owner: user.id,
+            owner: organization.id,
         });
         txApp.save(organizationInfo);
 
@@ -125,12 +127,12 @@ onRecordCreateRequest((e) => {
 
         const authorizationCollection =
             txApp.findCollectionByNameOrId("orgAuthorizations");
-        const record = new Record(authorizationCollection, {
+        const authorization = new Record(authorizationCollection, {
             organization: organization.id,
             role: ownerRoleId,
             user: user.id,
         });
-        txApp.save(record);
+        txApp.save(authorization);
 
         auditLogger(e, txApp).info(
             "Created owner role for organization",
