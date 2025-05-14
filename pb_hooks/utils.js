@@ -452,6 +452,31 @@ function copyFile(record, field) {
     return file;
 }
 
+/**
+ * @param {core.RequestEvent} e
+ * @returns {string | undefined}
+ */
+function getRequestingUserOrganization(e) {
+    if (isAdminContext(e)) return undefined;
+
+    const userId = getUserFromContext(e)?.id;
+    if (!userId) return undefined;
+
+    const orgAuth = findFirstRecordByFilter(
+        "orgAuthorizations",
+        `user = "${userId}"`
+    );
+    if (!orgAuth) return undefined;
+    return orgAuth.get("organization");
+}
+
+/**
+ * @param {core.RequestEvent} e
+ */
+function skipIfAdmin(e) {
+    if (isAdminContext(e)) e.next();
+}
+
 //
 
 module.exports = {
@@ -480,5 +505,7 @@ module.exports = {
     getRequestAgent,
     getRequestAgentName,
     copyFile,
+    getRequestingUserOrganization,
     errors,
+    skipIfAdmin,
 };
