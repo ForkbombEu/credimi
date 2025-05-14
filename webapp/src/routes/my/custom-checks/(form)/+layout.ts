@@ -4,11 +4,12 @@
 
 import { error } from '@sveltejs/kit';
 import { Either } from 'effect';
-import { getStandardsAndTestSuites } from '../tests/new/_partials/standards-response-schema';
-
-//
+import { getStandardsAndTestSuites } from '../../tests/new/_partials/standards-response-schema';
+import { checkAuthFlagAndUser } from '$lib/utils';
 
 export const load = async ({ fetch }) => {
+	await checkAuthFlagAndUser({ fetch });
+
 	const result = await getStandardsAndTestSuites({ fetch });
 
 	if (Either.isLeft(result)) {

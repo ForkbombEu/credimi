@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <!--  -->
 
 <div class="bg-[#220e7c] text-white">
-	<div class="mx-auto max-w-screen-xl !px-2 md:!px-4 lg:!px-8">
+	<div class="!px-2 md:!px-4 lg:!px-8">
 		<BackButton href="/my/tests/runs" class="text-white">{m.Back_to_test_runs()}</BackButton>
 	</div>
 </div>
@@ -48,8 +48,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<T tag="h2">{m.Test_run()}: {workflowId}</T>
 </PageTop>
 
-<div class="mx-auto max-w-screen-xl">
-	<TemporalI18nProvider>
-		<TemporalWorkflow {workflowResponse} {eventHistory} />
-	</TemporalI18nProvider>
-</div>
+<TemporalI18nProvider>
+	<TemporalWorkflow {workflowResponse} {eventHistory} />
+</TemporalI18nProvider>

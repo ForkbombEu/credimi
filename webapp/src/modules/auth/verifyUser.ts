@@ -14,7 +14,7 @@ export async function verifyUser(fetchFn = fetch): Promise<boolean> {
 	pb.authStore.loadFromCookie(document.cookie);
 	try {
 		await pb.collection('users').authRefresh({ fetch: fetchFn });
-	} catch (_) {
+	} catch {
 		pb.authStore.clear();
 		return false;
 	}

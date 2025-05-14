@@ -104,7 +104,11 @@ export const schemaFieldToZodTypeMap: SchemaFieldToZodTypeMap = {
 	url: (field) => {
 		const { exceptDomains, onlyDomains } = field;
 		return pipe(z.string().url(), (zodUrl) =>
-			validateDomains(zodUrl, exceptDomains as unknown as string[], onlyDomains)
+			validateDomains(
+				zodUrl,
+				exceptDomains as unknown as string[],
+				onlyDomains as unknown as string[]
+			)
 		);
 	},
 

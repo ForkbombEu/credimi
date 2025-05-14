@@ -23,11 +23,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Form.Control>
 	{#snippet children({ props })}
-		<!-- TODO - Make <FormLabel> commponent -->
-		<Form.Label>
-			{options.label ?? capitalize(field)}
-			<RequiredIndicator {field} />
-		</Form.Label>
+		{#if !options.labelRight}
+			{@render label()}
+		{:else}
+			<div class="flex items-center justify-between gap-4">
+				{@render label()}
+				{@render options.labelRight?.()}
+			</div>
+		{/if}
 
 		{@render child?.({ props })}
 	{/snippet}
@@ -38,3 +41,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/if}
 
 <Form.FieldErrors />
+
+{#snippet label()}
+	<Form.Label>
+		{options.label ?? capitalize(field)}
+		<RequiredIndicator {field} />
+	</Form.Label>
+{/snippet}

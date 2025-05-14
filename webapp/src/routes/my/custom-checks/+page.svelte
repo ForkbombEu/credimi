@@ -6,52 +6,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { CollectionManager } from '@/collections-components';
-	import { CodeEditorField, SelectField } from '@/forms/fields';
 	import { m } from '@/i18n';
-	import { currentUser, pb } from '@/pocketbase';
-	import { yaml } from '@codemirror/lang-yaml';
-	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
+	import { pb } from '@/pocketbase';
 	import T from '@/components/ui-custom/t.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
-
-	//
-
-	let { data } = $props();
-
-	const options = $derived(
-		data.standardsAndTestSuites.flatMap((standard) =>
-			standard.versions.map((version) => ({
-				value: `${standard.uid}/${version.uid}`,
-				label: `${standard.name} – ${version.name}`
-			}))
-		)
-	);
+	import Button from '@/components/ui-custom/button.svelte';
+	import { Pencil, Plus } from 'lucide-svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 </script>
 
 <div class="space-y-4">
-	<CollectionManager
-		collection="custom_checks"
-		formFieldsOptions={{
-			// TODO - Enforce owner from backend
-			hide: {
-				owner: $currentUser?.id
-			},
-			exclude: ['organization'],
-			snippets: {
-				yaml: yamlField,
-				standard_and_version: standardAndVersionField
-			}
-		}}
-	>
+	<CollectionManager collection="custom_checks">
 		{#snippet top({ Header })}
-			<Header title={m.Custom_checks()}></Header>
+			<Header title={m.Custom_checks()} hideCreate>
+				{#snippet right()}
+					<Button href="/my/custom-checks/new">
+						<Plus />
+						{m.Add_a_custom_check()}
+					</Button>
+				{/snippet}
+			</Header>
 		{/snippet}
 
 		{#snippet records({ records, Card })}
 			<div class="space-y-2">
 				{#each records as record}
 					{@const logo = pb.files.getURL(record, record.logo)}
-					<Card {record} class="bg-background !pl-4" hide={['share', 'select']}>
+					<Card {record} class="bg-background !pl-4" hide={['share', 'select', 'edit']}>
 						<div class="flex items-start gap-4">
 							<Avatar
 								src={logo}
@@ -64,25 +45,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<T class="text-sm text-gray-400">{record.description}</T>
 							</div>
 						</div>
+
+						{#snippet right()}
+							<IconButton href="/my/custom-checks/edit-{record.id}" icon={Pencil} />
+						{/snippet}
 					</Card>
 				{/each}
 			</div>
 		{/snippet}
 	</CollectionManager>
 </div>
-
-<!--  -->
-
-{#snippet yamlField({ form }: FieldSnippetOptions<'custom_checks'>)}
-	<CodeEditorField {form} name="yaml" options={{ lang: yaml() }} />
-{/snippet}
-
-{#snippet standardAndVersionField({ form }: FieldSnippetOptions<'custom_checks'>)}
-	<SelectField
-		{form}
-		name="standard_and_version"
-		options={{
-			items: [...options]
-		}}
-	/>
-{/snippet}
