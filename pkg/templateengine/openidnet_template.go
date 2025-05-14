@@ -137,7 +137,6 @@ func ParseInput(input, defaultFile, configFile string) (*FinalFormat, error) {
 				variant.ResponseMode,
 			)
 			original := strings.Trim(tokens[2], `"`)
-			fmt.Println("Original:", original)
 			variantPrefix = strings.ReplaceAll(variantPrefix, ".", "_")
 			tokens[2] = fmt.Sprintf(`"%s_%s"`, variantPrefix, original)
 		}
