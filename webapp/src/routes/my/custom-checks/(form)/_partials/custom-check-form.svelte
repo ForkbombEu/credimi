@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
 	import { yaml } from '@codemirror/lang-yaml';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { readFileAsString } from '@/utils/files.js';
+	import { readFileAsDataURL, readFileAsString } from '@/utils/files.js';
 	import { parse as parseYaml } from 'yaml';
 	import { getExceptionMessage } from '@/utils/errors.js';
 	import { pb } from '@/pocketbase';
@@ -32,6 +32,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CustomChecksResponse } from '@/pocketbase/types';
 	import _ from 'lodash';
 	import { z } from 'zod';
+	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import { fromStore } from 'svelte/store';
+	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 
 	//
 
@@ -147,22 +150,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			$errors['yaml'] = [getExceptionMessage(e)];
 		}
 	}
+
+	// Logo preview
+	// TODO - Abstract this to a component: it's useful to preview image changes in forms
+
+	const originalLogoUrl = $derived.by(() => {
+		if (!record || !record.logo) return undefined;
+		return pb.files.getURL(record, record.logo);
+	});
+
+	let avatarPreviewUrl = $derived(originalLogoUrl);
+
+	let formState = fromStore(form.form);
+	$effect(() => {
+		const logo = formState.current.logo;
+		if (logo) {
+			readFileAsDataURL(logo).then((dataURL) => {
+				avatarPreviewUrl = dataURL;
+			});
+		} else {
+			avatarPreviewUrl = originalLogoUrl;
+		}
+	});
 </script>
 
-<div class="bg-secondary min-h-screen space-y-10 p-6">
-	<BackButton href="/my/custom-checks">
-		{m.Back_and_discard()}
-	</BackButton>
-
-	<div class="space-y-2 text-center">
-		<T tag="h2">
-			{currentLabels.title}
-		</T>
-		<T tag="p">
-			{@html m.Custom_check_form_description()}
-		</T>
-	</div>
-
+<FocusPageLayout
+	title={currentLabels.title}
+	description={m.Custom_check_form_description()}
+	backButton={{ title: m.Back_and_discard(), href: '/my/custom-checks' }}
+>
 	<Form {form}>
 		<PageCardSection
 			title={m.Standard_and_version()}
@@ -184,12 +200,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
 				<Field {form} name="name" options={{ label: m.Name() }} />
 
-				<div>
+				<div class="flex items-start gap-4">
 					<FileField {form} name="logo" options={{ label: m.Upload_logo() }} />
-					<!-- TODO - Improve logo preview -->
-					{#if record?.logo}
-						<T class="text-xs">Current: {record.logo}</T>
-					{/if}
+					<div class="pt-2">
+						<Avatar
+							src={avatarPreviewUrl}
+							alt={record?.name}
+							class="size-16 rounded-md border"
+						/>
+					</div>
 				</div>
 
 				<Field
@@ -250,7 +269,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{currentLabels.submitButton}
 		{/snippet}
 	</Form>
-</div>
+</FocusPageLayout>
 
 {#snippet yamlFieldLabelRight()}
 	<Button variant="secondary" onclick={startYamlUpload}>

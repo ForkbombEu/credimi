@@ -404,10 +404,11 @@
 	"Organization_page": "Organization page",
 	"Profile": "Profile",
 	"Add_a_custom_check": "Add custom check",
-	"Back_and_discard": "Back and discard",
-	"Add_a_Custom_Conformance_Check": "Add a Custom Conformance Check",
-	"Standard_and_version": "Standard and version",
-	"Compliance_standard": "Compliance standard",
+	"Back_and_discard": "Back_and_discard",
+	"Add_a_Custom_Conformance_Check": "Add_a_Custom_Conformance_Check",
+	"Add_a_custom_conformance_check_description": "Add_a_custom_conformance_check_description",
+	"Standard_and_version": "Standard_and_version",
+	"Compliance_standard": "Compliance_standard",
 	"Select_a_standard_and_version": "Select a Standard and version",
 	"Check_Metadata": "Check Metadata",
 	"Standard_and_Version_description": "Metadata about the check, including the standard and version it is based on.",
@@ -428,5 +429,7 @@
 	"Update_Custom_Conformance_Check": "Update Custom Conformance Check",
 	"Update_custom_check": "Update custom check",
 	"Custom_check_updated": "Custom check updated",
-	"Custom_check_form_description": "Submit your own conformance test to be included in your organization's <span class='text-primary font-bold'>credimi</span> dashboard.<br>You can define test metadata and provide configuration as a YAML file or inline code."
+	"Custom_check_form_description": "Submit your own conformance test to be included in your organization's <span class='text-primary font-bold'>credimi</span> dashboard.<br>You can define test metadata and provide configuration as a YAML file or inline code.",
+	"Start_a_new_conformance_check": "Start a new conformance check",
+	"Start_a_new_conformance_check_description": "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, quos."
 }

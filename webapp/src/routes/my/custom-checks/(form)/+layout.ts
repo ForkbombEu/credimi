@@ -2,18 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { verifyUser } from '@/auth/verifyUser';
-import { loadFeatureFlags } from '@/features';
 import { error } from '@sveltejs/kit';
-import { redirect } from '@/i18n';
-
 import { Either } from 'effect';
 import { getStandardsAndTestSuites } from '../../tests/new/_partials/standards-response-schema';
+import { checkAuthFlagAndUser } from '$lib/utils';
 
 export const load = async ({ fetch }) => {
-	const featureFlags = await loadFeatureFlags(fetch);
-	if (!featureFlags.AUTH) error(404);
-	if (!(await verifyUser(fetch))) redirect('/login');
+	await checkAuthFlagAndUser({ fetch });
 
 	const result = await getStandardsAndTestSuites({ fetch });
 

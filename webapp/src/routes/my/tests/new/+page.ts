@@ -7,10 +7,13 @@ import { getStandardsAndTestSuites } from './_partials/standards-response-schema
 import { error } from '@sveltejs/kit';
 import { Either } from 'effect';
 import { pb } from '@/pocketbase/index.js';
+import { checkAuthFlagAndUser } from '$lib/utils/index.js';
 
 //
 
 export const load = async ({ fetch }) => {
+	await checkAuthFlagAndUser({ fetch });
+
 	const result = await getStandardsAndTestSuites({ fetch });
 
 	let customChecks: CustomChecksResponse[] = [];
