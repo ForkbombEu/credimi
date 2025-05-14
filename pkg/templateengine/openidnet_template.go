@@ -119,6 +119,31 @@ func ParseInput(input, defaultFile, configFile string) (*FinalFormat, error) {
 	if !ok {
 		return nil, fmt.Errorf("invalid default JSON structure")
 	}
+	alias, ok := defaultData["form"].(map[string]any)["alias"].(string)
+	if !ok {
+		return nil, fmt.Errorf("invalid default JSON structure")
+	}
+
+	trimmed := strings.TrimSpace(alias)
+	if strings.HasPrefix(trimmed, "{{") && strings.HasSuffix(trimmed, "}}") {
+		content := strings.TrimSpace(trimmed[2 : len(trimmed)-2])
+		tokens := strings.Fields(content)
+
+		if len(tokens) >= 3 {
+			variantPrefix := fmt.Sprintf("%s_%s_%s_%s",
+				variant.CredentialFormat,
+				variant.ClientIDScheme,
+				variant.RequestMethod,
+				variant.ResponseMode,
+			)
+			original := strings.Trim(tokens[2], `"`)
+			fmt.Println("Original:", original)
+			variantPrefix = strings.Replace(variantPrefix, ".", "_", -1)
+			tokens[2] = fmt.Sprintf(`"%s_%s"`, variantPrefix, original)
+		}
+		newAlias := fmt.Sprintf("{{ %s }}", strings.Join(tokens, " "))
+		defaultData["form"].(map[string]any)["alias"] = newAlias
+	}
 
 	// Apply optional fields based on configuration
 	variantMap := map[string]string{

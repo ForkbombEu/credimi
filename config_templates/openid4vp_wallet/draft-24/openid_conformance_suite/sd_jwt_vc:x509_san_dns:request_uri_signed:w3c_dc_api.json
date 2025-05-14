@@ -6,7 +6,7 @@
         "response_mode": "w3c_dc_api"
     },
     "form": {
-        "alias": "{{ credimiPlaceholder "testalias" "oid_alias" "i18n_testalias" "i18n_testalias_description" "string" "" }}",
+        "alias": "{{ credimiPlaceholder "testalias" "sd_jwt_vc_x509_san_dns_request_uri_signed_w3c_dc_api_oid_alias" "i18n_testalias" "i18n_testalias_description" "string" uuidv4 }}",
         "client": {
             "client_id": "{{ credimiPlaceholder "client_id" "oid_client_id" "i18n_client_id" "i18n_client_id_description" "string" "did:web:app.altme.io:issuer"  }}",
             "jwks": "{{ credimiPlaceholder "jwks" "oid_client_jwks" "i18n_jwks" "i18n_jwks_description" "object" "{ \"keys\": [ { \"kty\": \"EC\", \"alg\": \"ES256\", \"crv\": \"P-256\", \"d\": \"GSbo9TpmGaLgxxO6RNx6QnvcfykQJS7vUVgTe8vy9W0\", \"x\": \"m5uKsE35t3sP7gjmirUewufx2Gt2n6J7fSW68apB2Lo\", \"y\": \"-V54TpMI8RbpB40hbAocIjnaHX5WP6NHjWkHfdCSAyU\" } ] }" }}",
