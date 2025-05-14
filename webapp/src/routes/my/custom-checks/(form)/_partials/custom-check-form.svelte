@@ -24,13 +24,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { yaml } from '@codemirror/lang-yaml';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { readFileAsString } from '@/utils/files.js';
-	import { parse } from 'yaml';
+	import { parse as parseYaml } from 'yaml';
 	import { getExceptionMessage } from '@/utils/errors.js';
-	import { currentUser, pb } from '@/pocketbase';
+	import { pb } from '@/pocketbase';
 	import { toast } from 'svelte-sonner';
 	import type { StandardsWithTestSuites } from '../../../tests/new/_partials/standards-response-schema';
 	import type { CustomChecksResponse } from '@/pocketbase/types';
 	import _ from 'lodash';
+	import { z } from 'zod';
 
 	//
 
@@ -43,10 +44,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const schema = createCollectionZodSchema('custom_checks').omit({
-		organization: true,
-		owner: true
-	});
+	const schema = createCollectionZodSchema('custom_checks')
+		.omit({
+			organization: true,
+			owner: true
+		})
+		.extend({
+			yaml: z.string().superRefine((value, ctx) => {
+				try {
+					parseYaml(value);
+				} catch (e) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message: `Invalid YAML: ${getExceptionMessage(e)}`
+					});
+				}
+			})
+		});
 
 	const form = createForm({
 		adapter: zod(schema),
@@ -108,7 +122,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	function startYamlUpload() {
-		// Create and trigger a file input
 		const input = document.createElement('input');
 		input.type = 'file';
 		input.accept = '.yaml,.yml';
@@ -125,11 +138,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	async function handleYamlUpload(file: File) {
 		try {
 			const fileContent = await readFileAsString(file);
-			parse(fileContent);
 			form.form.update((data) => ({
 				...data,
 				yaml: fileContent
 			}));
+			form.validate('yaml');
 		} catch (e) {
 			$errors['yaml'] = [getExceptionMessage(e)];
 		}
