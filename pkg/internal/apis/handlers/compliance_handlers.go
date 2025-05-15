@@ -30,7 +30,7 @@ import (
 
 type HandleConfirmSuccessRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
-	Namespace  string `json:"namespace"  validate:"required"`
+	Namespace  string `json:"namespace"   validate:"required"`
 }
 
 func HandleConfirmSuccess() func(*core.RequestEvent) error {
@@ -334,7 +334,7 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 
 type HandleNotifyFailureRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
-	Namespace  string `json:"namespace"  validate:"required"`
+	Namespace  string `json:"namespace"   validate:"required"`
 	Reason     string `json:"reason"      validate:"required"`
 }
 
@@ -411,8 +411,8 @@ func HandleSendEudiwLogUpdate() func(*core.RequestEvent) error {
 
 type HandleSendTemporalSignalInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
-	Namespace  string `json:"namespace"  validate:"required"`
-	Signal     string `json:"signal" validate:"required"`
+	Namespace  string `json:"namespace"   validate:"required"`
+	Signal     string `json:"signal"      validate:"required"`
 }
 
 func HandleSendTemporalSignal() func(*core.RequestEvent) error {
