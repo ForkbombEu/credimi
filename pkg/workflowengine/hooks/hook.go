@@ -16,11 +16,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
@@ -30,10 +25,16 @@ import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 	"google.golang.org/protobuf/types/known/durationpb"
+
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
 )
 
-// WorkersHook sets up a hook for the PocketBase application to create the namespaces
-// for already existing orgs and starts the workers
+// WorkersHook sets up a hook for the PocketBase application to
+// create the namespaces for already existing orgs and starts the workers
 // when the server starts. It binds a function to the OnServe event, which logs
 // a message indicating that workers are starting and then asynchronously starts
 // all workers by calling StartAllWorkers in a separate goroutine.
@@ -55,7 +56,8 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		for _, ns := range namespaces {
 			_, err = c.Describe(context.Background(), ns)
 			if err == nil {
-				return se.Next()
+				go StartAllWorkersByNamespace(ns)
+				continue
 			} else {
 				var notFound *serviceerror.NamespaceNotFound
 				if !errors.As(err, &notFound) {
@@ -182,6 +184,7 @@ func StartAllWorkersByNamespace(namespace string) {
 
 	wg.Wait()
 }
+
 func FetchNamespaces(app *pocketbase.PocketBase) ([]string, error) {
 	collection, err := app.FindCollectionByNameOrId("organizations")
 	if err != nil {
