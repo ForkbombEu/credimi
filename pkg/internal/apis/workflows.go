@@ -414,7 +414,7 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 
 func HookAtUserCreation(app *pocketbase.PocketBase) {
 	app.OnRecordAfterCreateSuccess("users").BindFunc(func(e *core.RecordEvent) error {
-		err := createNamespaceForUser(e, e.Record)
+		err := createNewOrganizationForUser(e, e.Record)
 		if err != nil {
 			return err
 		}
@@ -461,7 +461,7 @@ func HookAtUserCreation(app *pocketbase.PocketBase) {
 // 	return nil
 // }
 
-func createNamespaceForUser(e *core.RecordEvent, user *core.Record) error {
+func createNewOrganizationForUser(e *core.RecordEvent, user *core.Record) error {
 
 	err := e.App.RunInTransaction(func(txApp core.App) error {
 		orgCollection, err := txApp.FindCollectionByNameOrId("organizations")
@@ -470,11 +470,12 @@ func createNamespaceForUser(e *core.RecordEvent, user *core.Record) error {
 		}
 
 		newOrg := core.NewRecord(orgCollection)
-		orgName, found := strings.CutSuffix(user.Email(), "@")
-		if !found {
-			return apis.NewInternalServerError("failed to find suffix in email", nil)
+		emailParts := strings.SplitN(user.Email(), "@", 2)
+		if len(emailParts) != 2 {
+			return apis.NewInternalServerError("invalid email format", nil)
 		}
-		newOrg.Set("name", orgName)
+
+		newOrg.Set("name", emailParts[0])
 		txApp.Save(newOrg)
 
 		ownerRoleRecord, err := txApp.FindFirstRecordByFilter("orgRoles", "name='owner'")
