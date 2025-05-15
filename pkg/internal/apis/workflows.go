@@ -414,13 +414,35 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 
 func HookAtUserCreation(app *pocketbase.PocketBase) {
 	app.OnRecordAfterCreateSuccess("users").BindFunc(func(e *core.RecordEvent) error {
-		err := createNewOrganizationForUser(e, e.Record)
+		err := createNewOrganizationForUser(e.App, e.Record)
 		if err != nil {
 			return err
 		}
 		return e.Next()
 	})
 }
+
+func HookAtUserLogin(app *pocketbase.PocketBase) {
+	app.OnRecordAuthRequest().BindFunc(func(e *core.RecordAuthRequestEvent) error {
+		orgAuthCollection, err := e.App.FindCollectionByNameOrId("orgAuthorizations")
+		if err != nil {
+			return apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
+		}
+		user := e.Record
+		orgAuthRecord, err := e.App.FindFirstRecordByFilter(orgAuthCollection.Id, "user = {:user}", dbx.Params{"user": user.Id})
+		if err != nil {
+			return apis.NewInternalServerError("failed to find orgAuthorization record", err)
+		}
+		if orgAuthRecord == nil {
+			err = createNewOrganizationForUser(e.App, user)
+			if err != nil {
+				return apis.NewInternalServerError("failed to create new organization for user", err)
+			}
+		}
+		return e.Next()
+	})
+}
+
 
 // func addUserToDefaultOrganization(e *core.RecordEvent) error {
 // 	user := e.Record
@@ -461,9 +483,9 @@ func HookAtUserCreation(app *pocketbase.PocketBase) {
 // 	return nil
 // }
 
-func createNewOrganizationForUser(e *core.RecordEvent, user *core.Record) error {
+func createNewOrganizationForUser(app core.App, user *core.Record) error {
 
-	err := e.App.RunInTransaction(func(txApp core.App) error {
+	err := app.RunInTransaction(func(txApp core.App) error {
 		orgCollection, err := txApp.FindCollectionByNameOrId("organizations")
 		if err != nil {
 			return apis.NewInternalServerError("failed to find organizations collection", err)
