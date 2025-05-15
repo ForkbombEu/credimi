@@ -123,6 +123,7 @@ func (w *EWCWorkflow) Workflow(
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
 	query.Set("qr", deepLink)
+	query.Set("namespace", input.Config["namespace"].(string))
 	u.RawQuery = query.Encode()
 	emailActivity := activities.SendMailActivity{}
 

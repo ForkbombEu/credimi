@@ -8,7 +8,7 @@ import "testing"
 
 func TestTemporalClientGet(t *testing.T) {
 	t.Skip()
-	have, err := New()
+	have, err := GetTemporalClientWithNamespace("default")
 	if err != nil {
 		t.Error(err)
 	}

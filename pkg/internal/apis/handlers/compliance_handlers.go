@@ -30,6 +30,7 @@ import (
 
 type HandleConfirmSuccessRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
+	Namespace  string `json:"namespace"   validate:"required"`
 }
 
 func HandleConfirmSuccess() func(*core.RequestEvent) error {
@@ -39,7 +40,7 @@ func HandleConfirmSuccess() func(*core.RequestEvent) error {
 			return err
 		}
 		data := workflows.SignalData{Success: true}
-		c, err := temporalclient.New()
+		c, err := temporalclient.GetTemporalClientWithNamespace(req.Namespace)
 		if err != nil {
 			return err
 		}
@@ -333,6 +334,7 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 
 type HandleNotifyFailureRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
+	Namespace  string `json:"namespace"   validate:"required"`
 	Reason     string `json:"reason"      validate:"required"`
 }
 
@@ -344,7 +346,7 @@ func HandleNotifyFailure() func(*core.RequestEvent) error {
 			return err
 		}
 		data := workflows.SignalData{Success: false, Reason: req.Reason}
-		c, err := temporalclient.New()
+		c, err := temporalclient.GetTemporalClientWithNamespace(req.Namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -408,8 +410,9 @@ func HandleSendEudiwLogUpdate() func(*core.RequestEvent) error {
 }
 
 type HandleSendTemporalSignalInput struct {
-	WorkflowID string `json:"workflow_id"`
-	Signal     string `json:"signal"`
+	WorkflowID string `json:"workflow_id" validate:"required"`
+	Namespace  string `json:"namespace"   validate:"required"`
+	Signal     string `json:"signal"      validate:"required"`
 }
 
 func HandleSendTemporalSignal() func(*core.RequestEvent) error {
@@ -418,7 +421,7 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		c, err := temporalclient.New()
+		c, err := temporalclient.GetTemporalClientWithNamespace(req.Namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -454,12 +457,9 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 		)
 	}
 
-	authOrgRecords, err := app.FindRecordsByFilter(
+	authOrgRecords, err := app.FindFirstRecordByFilter(
 		orgAuthCollection.Id,
 		"user={:user}",
-		"",
-		0,
-		0,
 		dbx.Params{"user": userID},
 	)
 	if err != nil {
@@ -470,36 +470,7 @@ func getUserNamespace(app core.App, userID string) (string, error) {
 			err.Error(),
 		)
 	}
-	if len(authOrgRecords) == 0 {
-		return "", apierror.New(
-			http.StatusNotFound,
-			"get user namespace",
-			"no orgAuthorizations record found",
-			"no orgAuthorizations record found",
-		)
-	}
-
-	ownerRoleRecord, err := app.FindFirstRecordByFilter("orgRoles", "name='owner'")
-	if err != nil {
-		return "", apierror.New(
-			http.StatusInternalServerError,
-			"get user namespace",
-			"failed to find orgRoles collection",
-			err.Error(),
-		)
-	}
-
-	if len(authOrgRecords) > 1 {
-		for _, record := range authOrgRecords {
-			if record.GetString("role") == ownerRoleRecord.Id {
-				return record.GetString("organization"), nil
-			}
-		}
-	}
-	if authOrgRecords[0].GetString("role") == ownerRoleRecord.Id {
-		return authOrgRecords[0].GetString("organization"), nil
-	}
-	return "default", nil
+	return authOrgRecords.GetString("organization"), nil
 }
 
 func sendRealtimeLogs(suiteSubscription string) func(*core.RequestEvent) error {

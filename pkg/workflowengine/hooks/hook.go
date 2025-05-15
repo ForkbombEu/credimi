@@ -9,24 +9,32 @@
 package hooks
 
 import (
+	"context"
+	"errors"
 	"log"
 	"reflect"
 	"sync"
+	"time"
+
+	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/core"
+	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/worker"
+	"go.temporal.io/sdk/workflow"
+	"google.golang.org/protobuf/types/known/durationpb"
 
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
-	"github.com/pocketbase/pocketbase"
-	"github.com/pocketbase/pocketbase/core"
-	"go.temporal.io/sdk/activity"
-	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/worker"
-	"go.temporal.io/sdk/workflow"
 )
 
-// WorkersHook sets up a hook for the PocketBase application to start all workers
+// WorkersHook sets up a hook for the PocketBase application to
+// create the namespaces for already existing orgs and starts the workers
 // when the server starts. It binds a function to the OnServe event, which logs
 // a message indicating that workers are starting and then asynchronously starts
 // all workers by calling StartAllWorkers in a separate goroutine.
@@ -35,8 +43,37 @@ import (
 //   - app: The PocketBase application instance to which the hook is attached.
 func WorkersHook(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		log.Println("Starting workers...")
-		go startAllWorkers()
+		c, err := client.NewNamespaceClient(client.Options{})
+		if err != nil {
+			log.Fatalln("Unable to create client", err)
+		}
+		defer c.Close()
+
+		namespaces, err := FetchNamespaces(app)
+		if err != nil {
+			log.Fatalf("Failed to fetch namespaces: %v", err)
+		}
+		for _, ns := range namespaces {
+			_, err = c.Describe(context.Background(), ns)
+			if err == nil {
+				go StartAllWorkersByNamespace(ns)
+				continue
+			} else {
+				var notFound *serviceerror.NamespaceNotFound
+				if !errors.As(err, &notFound) {
+					log.Fatalln("unexpected error while describing namespace", err)
+				}
+			}
+
+			err = c.Register(context.Background(), &workflowservice.RegisterNamespaceRequest{
+				Namespace:                        ns,
+				WorkflowExecutionRetentionPeriod: durationpb.New(7 * 24 * time.Hour),
+			})
+			if err != nil {
+				log.Printf("Unable to create namespace %s: %v", ns, err)
+			}
+			go StartAllWorkersByNamespace(ns)
+		}
 		return se.Next()
 	})
 }
@@ -68,8 +105,8 @@ func startWorker(client client.Client, config workerConfig, wg *sync.WaitGroup) 
 	}
 }
 
-func startAllWorkers() {
-	c, err := temporalclient.New()
+func StartAllWorkersByNamespace(namespace string) {
+	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 	if err != nil {
 		log.Fatalf("Failed to connect to Temporal: %v", err)
 	}
@@ -146,4 +183,22 @@ func startAllWorkers() {
 	}
 
 	wg.Wait()
+}
+
+func FetchNamespaces(app *pocketbase.PocketBase) ([]string, error) {
+	collection, err := app.FindCollectionByNameOrId("organizations")
+	if err != nil {
+		return nil, err
+	}
+
+	records, err := app.FindRecordsByFilter(collection, "", "-created", 0, 0)
+	if err != nil {
+		return nil, err
+	}
+
+	namespaces := []string{}
+	for _, r := range records {
+		namespaces = append(namespaces, r.Id)
+	}
+	return namespaces, nil
 }
