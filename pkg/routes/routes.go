@@ -58,6 +58,7 @@ func Setup(app *pocketbase.PocketBase) {
 	apis.AddTemplatingRoutes(app)
 	hooks.WorkersHook(app)
 	apis.HookAtUserCreation(app)
+	apis.HookAtUserLogin(app)
 	apis.HookCredentialWorkflow(app)
 	apis.HookUpdateCredentialsIssuers(app)
 

@@ -429,15 +429,13 @@ func HookAtUserLogin(app *pocketbase.PocketBase) {
 			return apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
 		}
 		user := e.Record
-		orgAuthRecord, err := e.App.FindFirstRecordByFilter(orgAuthCollection.Id, "user = {:user}", dbx.Params{"user": user.Id})
-		if err != nil {
-			return apis.NewInternalServerError("failed to find orgAuthorization record", err)
+		_ , orgNotFound := e.App.FindFirstRecordByFilter(orgAuthCollection.Id, "user = {:user}", dbx.Params{"user": user.Id})
+		if orgNotFound == nil {
+			return e.Next()
 		}
-		if orgAuthRecord == nil {
-			err = createNewOrganizationForUser(e.App, user)
-			if err != nil {
-				return apis.NewInternalServerError("failed to create new organization for user", err)
-			}
+		err = createNewOrganizationForUser(e.App, user)
+		if err != nil {
+			return apis.NewInternalServerError("failed to create new organization for user", err)
 		}
 		return e.Next()
 	})
