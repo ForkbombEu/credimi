@@ -196,7 +196,8 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 			// Start the workflow
 			workflowInput := workflowengine.WorkflowInput{
 				Config: map[string]any{
-					"app_url": app.Settings().Meta.AppURL,
+					"app_url":   app.Settings().Meta.AppURL,
+					"namespace": organization,
 				},
 				Payload: map[string]any{
 					"issuerID": issuerID,
