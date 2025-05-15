@@ -36,7 +36,6 @@ import (
 //   - The hook ensures that the namespace registration process does not block the continuation of the event by calling
 //     `e.Next()` at the end.
 func HookNamespaceOrgs(app *pocketbase.PocketBase) {
-
 	app.OnRecordAfterCreateSuccess("organizations").BindFunc(func(e *core.RecordEvent) error {
 		c, err := client.NewNamespaceClient(client.Options{})
 		if err != nil {
