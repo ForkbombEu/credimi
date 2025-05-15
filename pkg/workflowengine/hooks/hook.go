@@ -32,7 +32,8 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
-// WorkersHook sets up a hook for the PocketBase application to create the namespaces for already existing orgs and starts the workers
+// WorkersHook sets up a hook for the PocketBase application to create the namespaces
+// for already existing orgs and starts the workers
 // when the server starts. It binds a function to the OnServe event, which logs
 // a message indicating that workers are starting and then asynchronously starts
 // all workers by calling StartAllWorkers in a separate goroutine.
@@ -41,7 +42,6 @@ import (
 //   - app: The PocketBase application instance to which the hook is attached.
 func WorkersHook(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-
 		c, err := client.NewNamespaceClient(client.Options{})
 		if err != nil {
 			log.Fatalln("Unable to create client", err)
@@ -193,7 +193,7 @@ func FetchNamespaces(app *pocketbase.PocketBase) ([]string, error) {
 		return nil, err
 	}
 
-	var namespaces []string
+	namespaces := make([]string, 0, len(records))
 	for _, r := range records {
 		namespaces = append(namespaces, r.Id)
 	}

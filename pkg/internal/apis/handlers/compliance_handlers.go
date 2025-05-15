@@ -30,7 +30,7 @@ import (
 
 type HandleConfirmSuccessRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
-	Namespace  string `json:"namespace"  validate:"required"`
+	Namespace  string `json:"namespace"   validate:"required"`
 }
 
 func HandleConfirmSuccess() func(*core.RequestEvent) error {
@@ -71,7 +71,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 
-		namespace, err := getUserNamespace(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationId(e.App, authRecord.Id)
 		if err != nil {
 			return err
 		}
@@ -197,7 +197,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 		}
 		authRecord := e.Auth
 
-		namespace, err := getUserNamespace(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationId(e.App, authRecord.Id)
 		if err != nil {
 			return err
 		}
@@ -277,7 +277,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 func HandleGetWorkflows() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
-		namespace, err := getUserNamespace(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationId(e.App, authRecord.Id)
 		if err != nil {
 			return err
 		}
@@ -334,7 +334,7 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 
 type HandleNotifyFailureRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
-	Namespace  string `json:"namespace"  validate:"required"`
+	Namespace  string `json:"namespace"   validate:"required"`
 	Reason     string `json:"reason"      validate:"required"`
 }
 
@@ -411,8 +411,8 @@ func HandleSendEudiwLogUpdate() func(*core.RequestEvent) error {
 
 type HandleSendTemporalSignalInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
-	Namespace  string `json:"namespace"  validate:"required"`
-	Signal     string `json:"signal" validate:"required"`
+	Namespace  string `json:"namespace"   validate:"required"`
+	Signal     string `json:"signal"      validate:"required"`
 }
 
 func HandleSendTemporalSignal() func(*core.RequestEvent) error {
@@ -446,7 +446,7 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 
 ///
 
-func getUserNamespace(app core.App, userID string) (string, error) {
+func GetUserOrganizationId(app core.App, userID string) (string, error) {
 	orgAuthCollection, err := app.FindCollectionByNameOrId("orgAuthorizations")
 	if err != nil {
 		return "", apierror.New(
