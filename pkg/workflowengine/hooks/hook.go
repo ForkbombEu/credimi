@@ -55,7 +55,8 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		for _, ns := range namespaces {
 			_, err = c.Describe(context.Background(), ns)
 			if err == nil {
-				return se.Next()
+				go StartAllWorkersByNamespace(ns)
+				continue
 			} else {
 				var notFound *serviceerror.NamespaceNotFound
 				if !errors.As(err, &notFound) {
