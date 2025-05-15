@@ -441,48 +441,7 @@ func HookAtUserLogin(app *pocketbase.PocketBase) {
 	})
 }
 
-
-// func addUserToDefaultOrganization(e *core.RecordEvent) error {
-// 	user := e.Record
-// 	errTx := e.App.RunInTransaction(func(txApp core.App) error {
-// 		orgCollection, err := txApp.FindCollectionByNameOrId("organizations")
-// 		if err != nil {
-// 			return apis.NewInternalServerError("failed to find organizations collection", err)
-// 		}
-// 		defaultOrgRecord, err := txApp.FindFirstRecordByFilter(orgCollection.Id, "name='default'")
-// 		if err != nil {
-// 			return apis.NewInternalServerError("failed to find default organization", err)
-// 		}
-// 		if defaultOrgRecord == nil {
-// 			return apis.NewInternalServerError("default organization not found", nil)
-// 		}
-// 		orgAuthCollection, err := txApp.FindCollectionByNameOrId("orgAuthorizations")
-// 		if err != nil {
-// 			return apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
-// 		}
-// 		newOrgAuth := core.NewRecord(orgAuthCollection)
-// 		newOrgAuth.Set("user", user.Id)
-// 		newOrgAuth.Set("organization", defaultOrgRecord.Id)
-// 		memberRoleRecord, err := txApp.FindFirstRecordByFilter("orgRoles", "name='member'")
-// 		if err != nil {
-// 			return apis.NewInternalServerError("failed to find owner role", err)
-// 		}
-// 		newOrgAuth.Set("role", memberRoleRecord.Id)
-// 		err = txApp.Save(newOrgAuth)
-// 		if err != nil {
-// 			return apis.NewInternalServerError("failed to save orgAuthorization record", err)
-// 		}
-// 		return nil
-// 	})
-
-// 	if errTx != nil {
-// 		return apis.NewInternalServerError("failed to add user to default organization", errTx)
-// 	}
-// 	return nil
-// }
-
 func createNewOrganizationForUser(app core.App, user *core.Record) error {
-
 	err := app.RunInTransaction(func(txApp core.App) error {
 		orgCollection, err := txApp.FindCollectionByNameOrId("organizations")
 		if err != nil {
@@ -515,10 +474,5 @@ func createNewOrganizationForUser(app core.App, user *core.Record) error {
 
 		return nil
 	})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return err
 }
