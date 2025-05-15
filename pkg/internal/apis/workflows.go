@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
@@ -413,7 +414,7 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 
 func HookAtUserCreation(app *pocketbase.PocketBase) {
 	app.OnRecordAfterCreateSuccess("users").BindFunc(func(e *core.RecordEvent) error {
-		err := addUserToDefaultOrganization(e)
+		err := createNamespaceForUser(e, e.Record)
 		if err != nil {
 			return err
 		}
@@ -421,79 +422,82 @@ func HookAtUserCreation(app *pocketbase.PocketBase) {
 	})
 }
 
-func addUserToDefaultOrganization(e *core.RecordEvent) error {
-	user := e.Record
-	errTx := e.App.RunInTransaction(func(txApp core.App) error {
-		orgCollection, err := txApp.FindCollectionByNameOrId("organizations")
-		if err != nil {
-			return apis.NewInternalServerError("failed to find organizations collection", err)
-		}
-		defaultOrgRecord, err := txApp.FindFirstRecordByFilter(orgCollection.Id, "name='default'")
-		if err != nil {
-			return apis.NewInternalServerError("failed to find default organization", err)
-		}
-		if defaultOrgRecord == nil {
-			return apis.NewInternalServerError("default organization not found", nil)
-		}
-		orgAuthCollection, err := txApp.FindCollectionByNameOrId("orgAuthorizations")
-		if err != nil {
-			return apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
-		}
-		newOrgAuth := core.NewRecord(orgAuthCollection)
-		newOrgAuth.Set("user", user.Id)
-		newOrgAuth.Set("organization", defaultOrgRecord.Id)
-		memberRoleRecord, err := txApp.FindFirstRecordByFilter("orgRoles", "name='member'")
-		if err != nil {
-			return apis.NewInternalServerError("failed to find owner role", err)
-		}
-		newOrgAuth.Set("role", memberRoleRecord.Id)
-		err = txApp.Save(newOrgAuth)
-		if err != nil {
-			return apis.NewInternalServerError("failed to save orgAuthorization record", err)
-		}
-		return nil
-	})
-
-	if errTx != nil {
-		return apis.NewInternalServerError("failed to add user to default organization", errTx)
-	}
-	return nil
-}
-
-// TODO: This function will be used when user will claim the organization
-// func createNamespaceForUser(e *core.RecordEvent, user *core.Record) error {
-
-// 	err := e.App.RunInTransaction(func(txApp core.App) error {
+// func addUserToDefaultOrganization(e *core.RecordEvent) error {
+// 	user := e.Record
+// 	errTx := e.App.RunInTransaction(func(txApp core.App) error {
 // 		orgCollection, err := txApp.FindCollectionByNameOrId("organizations")
 // 		if err != nil {
 // 			return apis.NewInternalServerError("failed to find organizations collection", err)
 // 		}
-
-// 		newOrg := core.NewRecord(orgCollection)
-// 		newOrg.Set("name", user.Id)
-// 		txApp.Save(newOrg)
-
-// 		ownerRoleRecord, err := txApp.FindFirstRecordByFilter("orgRoles", "name='owner'")
+// 		defaultOrgRecord, err := txApp.FindFirstRecordByFilter(orgCollection.Id, "name='default'")
 // 		if err != nil {
-// 			return apis.NewInternalServerError("failed to find owner role", err)
+// 			return apis.NewInternalServerError("failed to find default organization", err)
 // 		}
-
+// 		if defaultOrgRecord == nil {
+// 			return apis.NewInternalServerError("default organization not found", nil)
+// 		}
 // 		orgAuthCollection, err := txApp.FindCollectionByNameOrId("orgAuthorizations")
 // 		if err != nil {
 // 			return apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
 // 		}
 // 		newOrgAuth := core.NewRecord(orgAuthCollection)
 // 		newOrgAuth.Set("user", user.Id)
-// 		newOrgAuth.Set("organization", newOrg.Id)
-// 		newOrgAuth.Set("role", ownerRoleRecord.Id)
-// 		txApp.Save(newOrgAuth)
-
+// 		newOrgAuth.Set("organization", defaultOrgRecord.Id)
+// 		memberRoleRecord, err := txApp.FindFirstRecordByFilter("orgRoles", "name='member'")
+// 		if err != nil {
+// 			return apis.NewInternalServerError("failed to find owner role", err)
+// 		}
+// 		newOrgAuth.Set("role", memberRoleRecord.Id)
+// 		err = txApp.Save(newOrgAuth)
+// 		if err != nil {
+// 			return apis.NewInternalServerError("failed to save orgAuthorization record", err)
+// 		}
 // 		return nil
 // 	})
 
-// 	if err != nil {
-// 		return err
+// 	if errTx != nil {
+// 		return apis.NewInternalServerError("failed to add user to default organization", errTx)
 // 	}
-
 // 	return nil
 // }
+
+func createNamespaceForUser(e *core.RecordEvent, user *core.Record) error {
+
+	err := e.App.RunInTransaction(func(txApp core.App) error {
+		orgCollection, err := txApp.FindCollectionByNameOrId("organizations")
+		if err != nil {
+			return apis.NewInternalServerError("failed to find organizations collection", err)
+		}
+
+		newOrg := core.NewRecord(orgCollection)
+		orgName, found := strings.CutSuffix(user.Email(), "@")
+		if !found {
+			return apis.NewInternalServerError("failed to find suffix in email", nil)
+		}
+		newOrg.Set("name", orgName)
+		txApp.Save(newOrg)
+
+		ownerRoleRecord, err := txApp.FindFirstRecordByFilter("orgRoles", "name='owner'")
+		if err != nil {
+			return apis.NewInternalServerError("failed to find owner role", err)
+		}
+
+		orgAuthCollection, err := txApp.FindCollectionByNameOrId("orgAuthorizations")
+		if err != nil {
+			return apis.NewInternalServerError("failed to find orgAuthorizations collection", err)
+		}
+		newOrgAuth := core.NewRecord(orgAuthCollection)
+		newOrgAuth.Set("user", user.Id)
+		newOrgAuth.Set("organization", newOrg.Id)
+		newOrgAuth.Set("role", ownerRoleRecord.Id)
+		txApp.Save(newOrgAuth)
+
+		return nil
+	})
+
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
