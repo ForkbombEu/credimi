@@ -118,6 +118,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
 	query.Set("qr", result)
+	query.Set("namespace", input.Config["namespace"].(string))
 	u.RawQuery = query.Encode()
 	emailActivity := activities.SendMailActivity{}
 
@@ -340,7 +341,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 
 		// Always listen for pause/resume signals
 		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalVal interface{}
+			var signalVal any
 			c.Receive(ctx, &signalVal)
 			if !isPolling {
 				isPolling = true
@@ -349,7 +350,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 			}
 		})
 		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalVal interface{}
+			var signalVal any
 			c.Receive(ctx, &signalVal)
 			isPolling = false
 			logger.Info("Received stop signal, pausing workflow")

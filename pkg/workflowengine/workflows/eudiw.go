@@ -135,6 +135,7 @@ func (w *EudiwWorkflow) Workflow(
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
 	query.Set("qr", qr)
+	query.Set("namespace", input.Config["namespace"].(string))
 	u.RawQuery = query.Encode()
 	emailActivity := activities.SendMailActivity{}
 
