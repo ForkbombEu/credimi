@@ -45,6 +45,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			label: m.Issuers()
 		}
 	};
+
+	const organizationLogoUrl = $derived(pb.files.getURL(organization, organization.logo));
 </script>
 
 <PageTop contentClass="!space-y-4">
@@ -52,10 +54,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<BackButton href="/organizations">Back to organizations</BackButton>
 	{/if}
 	<div class="flex items-center gap-6">
-		{#if organization.logo}
-			{@const providerUrl = pb.files.getURL(organization, organization.logo)}
-			<Avatar src={providerUrl} class="size-32 rounded-sm" hideIfLoadingError />
-		{/if}
+		<Avatar
+			src={organizationLogoUrl}
+			class="size-24 rounded-sm border text-2xl"
+			fallback={organization.name}
+		/>
 
 		<div class="space-y-3">
 			<div class="space-y-1">

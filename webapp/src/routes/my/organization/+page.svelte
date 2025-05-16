@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.Edit_organization_info()}
 		</Button>
 	</div>
-	<PageCard>
+	<PageCard contentClass="!p-2">
 		<div class="overflow-hidden rounded-lg border">
 			<OrganizationPageDemo organization={organization!} isPreview />
 		</div>
