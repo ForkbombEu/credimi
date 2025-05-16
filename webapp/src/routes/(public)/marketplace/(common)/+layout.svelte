@@ -8,18 +8,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BackButton from '$lib/layout/back-button.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
 	import { m } from '@/i18n';
-	import { getMarketplaceItemData, MarketplaceItemTypeDisplay } from '../../_utils';
+	import { getMarketplaceItemData, MarketplaceItemTypeDisplay } from '../_utils';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
-	import { Collections } from '@/pocketbase/types';
-	import CredentialIssuerPage from './_partials/credential-issuer-page.svelte';
-	import WalletPage from './_partials/wallet-page.svelte';
 
 	//
 
-	let { data } = $props();
-	const { marketplaceItem, detailRecord } = $derived(data);
+	let { children, data } = $props();
+	const { marketplaceItem } = $derived(data);
 
 	const { logo, display } = $derived(getMarketplaceItemData(marketplaceItem));
 </script>
@@ -45,11 +42,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </PageTop>
 
-<PageContent class="bg-secondary grow" contentClass="flex gap-12 items-start">
-	<!-- TODO - Improve type safety -->
-	{#if detailRecord.collectionName == Collections.CredentialIssuers}
-		<CredentialIssuerPage credentialIssuer={detailRecord as any} />
-	{:else}
-		<WalletPage wallet={detailRecord as any} />
-	{/if}
+<PageContent class="bg-secondary grow" contentClass="flex flex-col md:flex-row gap-12 items-start">
+	{@render children()}
 </PageContent>

@@ -26,9 +26,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<AppLogo />
 		</Button>
 		<div class="hidden flex-row sm:flex">
-			<Button variant="link" href={href('/credentials')}>
-				{m.Credentials()}
-			</Button>
 			<Button variant="link" href={href('/marketplace')}>
 				{m.Marketplace()}
 			</Button>

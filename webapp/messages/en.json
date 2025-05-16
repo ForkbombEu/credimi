@@ -437,5 +437,7 @@
 	"Edit_organization_info": "Edit organization info",
 	"Update_your_organization_page": "Update your organization page",
 	"Update_organization_page": "Update organization page",
-	"Organization": "Organization"
+	"Organization": "Organization",
+	"Credential": "Credential",
+	"Last_update": "Last update"
 }

@@ -13,23 +13,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import { getMarketplaceItemTypeData, MarketplaceItemCard } from './_utils';
+	import {
+		getMarketplaceItemTypeData,
+		MarketplaceItemCard,
+		marketplaceItemTypes,
+		marketplaceItemTypeSchema,
+		type MarketplaceItemType
+	} from './_utils';
 	import type { Filter } from '@/collections-components/manager';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { page } from '$app/state';
 	import type { PocketbaseQueryOptions } from '@/pocketbase/query';
-	import type { CollectionName } from '@/pocketbase/collections-models';
 
 	//
 
 	const type = $derived.by(() => {
-		const typeParam = page.url.searchParams.get('type');
-		if (!typeParam) return undefined;
-
-		const validTypes: CollectionName[] = ['credential_issuers', 'verifiers', 'wallets'];
-		if (!validTypes.includes(typeParam as CollectionName)) return undefined;
-
-		return typeParam as CollectionName;
+		try {
+			return marketplaceItemTypeSchema.parse(page.url.searchParams.get('type'));
+		} catch (error) {
+			return undefined;
+		}
 	});
 
 	const queryOptions: PocketbaseQueryOptions<'marketplace_items'> = $derived(
@@ -38,14 +41,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const filters: Filter[] = [
-		getMarketplaceItemTypeData('credential_issuers'),
-		getMarketplaceItemTypeData('verifiers'),
-		getMarketplaceItemTypeData('wallets')
-	].map((item) => ({
-		name: item.display?.label!,
-		expression: item.filter
-	}));
+	const filters: Filter[] = marketplaceItemTypes
+		.map((type) => getMarketplaceItemTypeData(type))
+		.map((item) => ({
+			name: item.display?.label!,
+			expression: item.filter
+		}));
 </script>
 
 <CollectionManager

@@ -14,18 +14,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { String } from 'effect';
 	import CredentialCard from '$lib/layout/credentialCard.svelte';
-	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
+	import { MarketplaceItemCard } from '../../../_utils/index.js';
 
 	//
 
-	type Props = {
-		credentialIssuer: PocketbaseQueryResponse<
-			'credential_issuers',
-			['credentials_via_credential_issuer']
-		>;
-	};
-
-	let { credentialIssuer }: Props = $props();
+	let { data } = $props();
+	const { credentialIssuer, credentialsMarketplaceItems } = $derived(data);
 
 	//
 
@@ -53,7 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} satisfies Record<string, IndexItem>;
 </script>
 
-<PageIndex sections={Object.values(sections)} class="sticky top-5" />
+<PageIndex sections={Object.values(sections)} class="top-5 md:sticky" />
 
 <div class="grow space-y-16">
 	<div class="space-y-6">
@@ -86,8 +80,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<PageHeader title={sections.credentials.label} id={sections.credentials.anchor} />
 
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-			{#each credentialIssuer.expand?.credentials_via_credential_issuer ?? [] as credential}
-				<CredentialCard {credential} />
+			{#each credentialsMarketplaceItems as credential}
+				<MarketplaceItemCard item={credential} />
 			{:else}
 				<div class="p-4 border border-black/20 rounded-md">
 					<T class="text-center text-black/30">No credentials found</T>

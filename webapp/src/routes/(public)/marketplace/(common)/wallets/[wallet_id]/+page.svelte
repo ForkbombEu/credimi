@@ -13,17 +13,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { String } from 'effect';
 	import { z } from 'zod';
 	import Card from '@/components/ui-custom/card.svelte';
-	import { ConformanceCheckSchema } from '../../../../../my/services-and-products/wallet-form-checks-table.svelte';
 	import { Badge } from '@/components/ui/badge';
-	import type { WalletsResponse } from '@/pocketbase/types';
+	import { ConformanceCheckSchema } from '../../../../../my/services-and-products/wallet-form-checks-table.svelte';
 
 	//
 
-	type Props = {
-		wallet: WalletsResponse;
-	};
-
-	let { wallet }: Props = $props();
+	let { data } = $props();
+	const { wallet } = $derived(data);
 
 	//
 
@@ -92,7 +88,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
 
 			<div>
-				<InfoBox label="Description" value={wallet.description}></InfoBox>
+				<InfoBox label="Description" value={wallet.description} />
 			</div>
 
 			<div class="grid grid-cols-2 gap-6">

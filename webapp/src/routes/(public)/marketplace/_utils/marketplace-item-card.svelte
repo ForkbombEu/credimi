@@ -11,6 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { truncate } from 'lodash';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import MarketplaceItemTypeDisplay from './marketplace-item-type-display.svelte';
+	import { m } from '@/i18n';
 
 	type Props = {
 		item: MarketplaceItemsResponse;
@@ -40,9 +41,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="flex items-end justify-between gap-2">
-		<T class="text-muted-foreground text-xs"
-			>Last update: {new Date(item.updated).toLocaleDateString()}</T
-		>
+		<T class="text-muted-foreground text-xs">
+			{m.Last_update()}: {new Date(item.updated).toLocaleDateString()}
+		</T>
 
 		<Avatar
 			src={logo ?? ''}
@@ -50,18 +51,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			fallback={item.name.slice(0, 2)}
 		/>
 	</div>
-
-	<!-- <div
-						class="text-muted-foreground flex flex-col items-start gap-2 overflow-hidden"
-					>
-						{#if String.isNonEmpty(service.url)}
-							<T tag="small">{service.url}</T>
-						{/if}
-						{#if String.isNonEmpty(service.homepage_url)}
-							<T tag="small">{service.homepage_url}</T>
-						{/if}
-						{#if String.isNonEmpty(service.repo_url)}
-							<T tag="small">{service.repo_url}</T>
-						{/if}
-					</div> -->
 </a>
