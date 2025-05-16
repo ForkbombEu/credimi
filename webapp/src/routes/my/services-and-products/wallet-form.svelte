@@ -10,16 +10,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase/index.js';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
-	import Table, {
-		ConformanceCheckSchema,
-		type ConformanceCheck
-	} from './wallet-form-checks-table.svelte';
+	import Table, { ConformanceCheckSchema } from './wallet-form-checks-table.svelte';
 	import TextareaField from '@/forms/fields/textareaField.svelte';
 	import type { WalletsResponse } from '@/pocketbase/types';
-	import { zodFileSchema } from '@/utils/files';
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 	import _ from 'lodash';
-	import type { NonEmptyArray } from 'effect/Array';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import { m } from '@/i18n';
 	import { InfoIcon } from 'lucide-svelte';
@@ -57,7 +52,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onSubmit: async ({ form }) => {
 			let wallet: WalletsResponse;
 			if (walletId) {
-				wallet = await pb.collection('wallets').update(walletId, form.data);
+				// Temp fix
+				const data = _.omit(form.data, 'conformance_checks');
+				wallet = await pb.collection('wallets').update(walletId, data);
 			} else {
 				wallet = await pb.collection('wallets').create(form.data);
 			}
