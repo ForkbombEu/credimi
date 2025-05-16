@@ -487,7 +487,7 @@ func createNewOrganizationForUser(app core.App, user *core.Record) error {
 			return apis.NewInternalServerError("invalid email format", nil)
 		}
 
-		newOrg.Set("name", emailParts[0])
+		newOrg.Set("name", emailParts[0]+"'s organization")
 		txApp.Save(newOrg)
 
 		ownerRoleRecord, err := txApp.FindFirstRecordByFilter("orgRoles", "name='owner'")

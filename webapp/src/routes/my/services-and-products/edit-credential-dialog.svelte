@@ -14,14 +14,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		credential: CredentialsRecord;
-		canPublish: boolean;
+		onSuccess: () => void;
 	};
 
-	let { credential, canPublish }: Props = $props();
+	let { credential, onSuccess }: Props = $props();
 
 	let open = $state(false);
-
-	const excludedFields: (keyof CredentialsFormData)[] = canPublish ? [] : ['published'];
 </script>
 
 <Dialog.Root bind:open>
@@ -54,8 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						'description',
 						'credential_issuer',
 						'json',
-						'key',
-						...excludedFields
+						'key'
 					],
 					order: ['deeplink'],
 					labels: {
@@ -64,6 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}}
 				onSuccess={() => {
 					open = false;
+					onSuccess();
 				}}
 			/>
 		</div>
