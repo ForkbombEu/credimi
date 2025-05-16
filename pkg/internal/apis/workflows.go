@@ -241,6 +241,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 					IssuerName string                `json:"issuerName"`
 					CredKey    string                `json:"credKey"`
 					Credential activities.Credential `json:"credential"`
+					OrgID      string                `json:"orgID"`
 				}
 
 				if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
@@ -294,9 +295,15 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				record.Set("json", string(credJSON))
 				record.Set("key", body.CredKey)
 				record.Set("credential_issuer", body.IssuerID)
+				record.Set("owner", body.OrgID)
 
 				if err := app.Save(record); err != nil {
-					return err
+					return apierror.New(
+						http.StatusInternalServerError,
+						"credentials",
+						"failed to save credentials",
+						err.Error(),
+					)
 				}
 				return e.JSON(http.StatusOK, map[string]any{"key": body.CredKey})
 			},
