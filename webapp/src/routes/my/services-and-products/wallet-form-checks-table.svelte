@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script
 	lang="ts"
-	generics="Data extends GenericRecord & { conformance_checks: ConformanceCheck[] }"
+	generics="Data extends GenericRecord & { conformance_checks?: ConformanceCheck[] }"
 >
 	import * as Form from '@/components/ui/form';
 	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
@@ -78,20 +78,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<Table.Row>
 								<Table.Cell>
 									<Checkbox
-										checked={$formData.conformance_checks.some(
+										checked={$formData.conformance_checks?.some(
 											(item) => item.runId === row.runId
 										)}
 										onCheckedChange={(e) => {
 											if (e) {
 												$formData.conformance_checks = [
-													...$formData.conformance_checks,
+													...($formData.conformance_checks ?? []),
 													row
 												];
 											} else {
-												$formData.conformance_checks =
-													$formData.conformance_checks.filter(
-														(item) => item.runId !== row.runId
-													);
+												$formData.conformance_checks = (
+													$formData.conformance_checks ?? []
+												).filter((item) => item.runId !== row.runId);
 											}
 										}}
 									/>
@@ -99,6 +98,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<Table.Cell>{row.status}</Table.Cell>
 								<Table.Cell>{row.standard}</Table.Cell>
 								<Table.Cell>{row.test}</Table.Cell>
+							</Table.Row>
+						{:else}
+							<Table.Row>
+								<Table.Cell colspan={4} class="text-center">
+									No conformance checks found
+								</Table.Cell>
 							</Table.Row>
 						{/each}
 					</Table.Body>

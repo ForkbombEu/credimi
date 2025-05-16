@@ -345,7 +345,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#snippet content({ closeSheet })}
 			<div class="space-y-6">
 				<T tag="h3">Add a new wallet</T>
-				<NewWalletForm onSuccess={closeSheet} ownerId={$currentUser?.id} />
+				<NewWalletForm onSuccess={closeSheet} />
 			</div>
 		{/snippet}
 	</Sheet>

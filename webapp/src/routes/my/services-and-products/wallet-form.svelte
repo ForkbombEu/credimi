@@ -17,6 +17,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import TextareaField from '@/forms/fields/textareaField.svelte';
 	import type { WalletsResponse } from '@/pocketbase/types';
 	import { zodFileSchema } from '@/utils/files';
+	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+	import _ from 'lodash';
+	import type { NonEmptyArray } from 'effect/Array';
 
 	//
 
@@ -24,10 +27,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onSuccess?: (wallet: WalletsResponse) => void;
 		initialData?: Partial<WalletsResponse>;
 		walletId?: string;
-		ownerId?: string;
 	};
 
-	let { onSuccess, initialData = {}, walletId, ownerId }: Props = $props();
+	let { onSuccess, initialData = {}, walletId }: Props = $props();
 
 	//
 
@@ -38,50 +40,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	 * Handle this somehow (Maybe by treating the JSON field as a string and parsing it on submit?)
 	 */
 
-	const mimeTypes = ['image/png', 'image/jpeg'];
-
-	// TODO – Maybe use createCollectionZodSchema
-	const schema = z.object({
-		name: z.string().min(1, 'Name is required'),
-		description: z.string(),
-		playstore_url: z.string().url('Invalid URL'),
-		appstore_url: z.string().url('Invalid URL'),
-		logo: zodFileSchema({ mimeTypes }),
-		repository: z.string().url('Invalid URL'),
-		home_url: z.string().url('Invalid URL'),
-		conformance_checks: z
-			.array(ConformanceCheckSchema)
-			.min(1, 'At least one conformance check is required')
-	});
+	const schema = createCollectionZodSchema('wallets')
+		.omit({
+			owner: true
+		})
+		.extend({
+			conformance_checks: z.array(ConformanceCheckSchema).nonempty()
+		});
 
 	const form = createForm<z.infer<typeof schema>>({
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
+			let wallet: WalletsResponse;
 			if (walletId) {
-				const wallet = await pb.collection('wallets').update(walletId, form.data);
-				onSuccess?.(wallet);
+				wallet = await pb.collection('wallets').update(walletId, form.data);
 			} else {
-				// TODO - Set ownerId on the backend
-				const wallet = await pb
-					.collection('wallets')
-					.create({ ...form.data, owner: ownerId });
-				onSuccess?.(wallet);
+				wallet = await pb.collection('wallets').create(form.data);
 			}
+			onSuccess?.(wallet);
 		},
 		options: {
 			dataType: 'form'
 		},
 		initialData: {
-			...initialData,
-			conformance_checks: (initialData.conformance_checks ?? []) as ConformanceCheck[],
-			logo: initialData.logo
-				? new File([], initialData.logo as string, { type: mimeTypes[0] })
-				: undefined
+			..._.omit(initialData, 'logo'),
+			conformance_checks: initialData.conformance_checks as NonEmptyArray<ConformanceCheck>
 		}
 	});
 </script>
 
-<Form {form} enctype="multipart/form-data" class="!space-y-8" hideRequiredIndicator>
+<Form {form} enctype="multipart/form-data" class="!space-y-8">
 	<Field
 		{form}
 		name="name"
