@@ -71,7 +71,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 
-		namespace, err := getUserNamespace(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationId(e.App, authRecord.Id)
 		if err != nil {
 			return err
 		}
@@ -197,7 +197,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 		}
 		authRecord := e.Auth
 
-		namespace, err := getUserNamespace(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationId(e.App, authRecord.Id)
 		if err != nil {
 			return err
 		}
@@ -277,7 +277,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 func HandleGetWorkflows() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
-		namespace, err := getUserNamespace(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationId(e.App, authRecord.Id)
 		if err != nil {
 			return err
 		}
@@ -446,7 +446,7 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 
 ///
 
-func getUserNamespace(app core.App, userID string) (string, error) {
+func GetUserOrganizationId(app core.App, userID string) (string, error) {
 	orgAuthCollection, err := app.FindCollectionByNameOrId("orgAuthorizations")
 	if err != nil {
 		return "", apierror.New(

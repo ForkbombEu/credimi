@@ -14,6 +14,7 @@ import (
 	"time"
 
 	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
@@ -138,9 +139,21 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 			// Check if a record with the given URL already exists
 			collection, err := app.FindCollectionByNameOrId("credential_issuers")
 			if err != nil {
-				return err
+				return apierror.New(
+					http.StatusInternalServerError,
+					"credential_issuers",
+					"failed to find credential issuers collection",
+					err.Error(),
+				)
 			}
-
+			organization, err := handlers.GetUserOrganizationId(app, e.Auth.Id)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"failed to get user organization",
+					err.Error())
+			}
 			existingRecords, err := app.FindRecordsByFilter(
 				collection.Id,
 				"url = {:url} && owner = {:owner}",
@@ -149,11 +162,16 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				0,
 				dbx.Params{
 					"url":   req.URL,
-					"owner": e.Auth.Id,
+					"owner": organization,
 				},
 			)
 			if err != nil {
-				return err
+				return apierror.New(
+					http.StatusInternalServerError,
+					"credential_issuers",
+					"failed to find credential issuer",
+					err.Error(),
+				)
 			}
 			var issuerID string
 
@@ -163,9 +181,14 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				// Create a new record
 				newRecord := core.NewRecord(collection)
 				newRecord.Set("url", req.URL)
-				newRecord.Set("owner", e.Auth.Id)
+				newRecord.Set("owner", organization)
 				if err := app.Save(newRecord); err != nil {
-					return err
+					return apierror.New(
+						http.StatusInternalServerError,
+						"credential_issuers",
+						"failed to save credential issuer",
+						err.Error(),
+					)
 				}
 
 				issuerID = newRecord.Id
@@ -173,7 +196,8 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 			// Start the workflow
 			workflowInput := workflowengine.WorkflowInput{
 				Config: map[string]any{
-					"app_url": app.Settings().Meta.AppURL,
+					"app_url":   app.Settings().Meta.AppURL,
+					"namespace": organization,
 				},
 				Payload: map[string]any{
 					"issuerID": issuerID,
@@ -184,7 +208,12 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 
 			_, err = w.Start(workflowInput)
 			if err != nil {
-				return fmt.Errorf("error starting workflow for URL %s: %w", req.URL, err)
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to start workflow",
+					err.Error(),
+				)
 			}
 			//
 			// providers, err := app.FindCollectionByNameOrId("services")

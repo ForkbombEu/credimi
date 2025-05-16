@@ -47,8 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<CollectionManager
 			collection="credential_issuers"
 			queryOptions={{
-				expand: ['credentials_via_credential_issuer'],
-				filter: `owner.id = "${$currentUser?.id}"`
+				expand: ['credentials_via_credential_issuer']
 			}}
 			editFormFieldsOptions={{ exclude: ['owner', 'url', 'published'], order: ['published'] }}
 			subscribe="expanded_collections"
