@@ -21,9 +21,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		organization: OrganizationsResponse;
+		isPreview?: boolean;
 	};
 
-	let { organization }: Props = $props();
+	let { organization, isPreview = false }: Props = $props();
 
 	//
 
@@ -47,7 +48,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageTop contentClass="!space-y-4">
-	<BackButton href="/organizations">Back to organizations</BackButton>
+	{#if !isPreview}
+		<BackButton href="/organizations">Back to organizations</BackButton>
+	{/if}
 	<div class="flex items-center gap-6">
 		{#if organization.logo}
 			{@const providerUrl = pb.files.getURL(organization, organization.logo)}

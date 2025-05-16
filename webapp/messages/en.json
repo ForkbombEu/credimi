@@ -431,5 +431,11 @@
 	"Custom_check_updated": "Custom check updated",
 	"Custom_check_form_description": "Submit your own conformance test to be included in your organization's <span class='text-primary font-bold'>credimi</span> dashboard.<br>You can define test metadata and provide configuration as a YAML file or inline code.",
 	"Start_a_new_conformance_check": "Start a new conformance check",
-	"Start_a_new_conformance_check_description": "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, quos."
+	"Start_a_new_conformance_check_description": "Lorem ipsum dolor sit amet consectetur adipisicing elit. Quisquam, quos.",
+	"Edit_your_organization_information_to_better_represent_your_services_and_products_on_the_marketplace": "Edit your organization's information to better represent your services and products on\n\t\t\tthe marketplace",
+	"Page_preview": "Page preview",
+	"Edit_organization_info": "Edit organization info",
+	"Update_your_organization_page": "Update your organization page",
+	"Update_organization_page": "Update organization page",
+	"Organization": "Organization"
 }
