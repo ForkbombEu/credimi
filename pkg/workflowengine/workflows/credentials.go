@@ -126,6 +126,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 					"issuerName": *issuerData.Display[0].Name,
 					"credKey":    credKey,
 					"credential": castedCredential,
+					"orgID":      input.Config["namespace"].(string),
 				},
 			},
 		}
