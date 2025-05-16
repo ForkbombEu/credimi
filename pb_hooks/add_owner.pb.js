@@ -7,22 +7,34 @@
 /// <reference path="../pb_data/types.d.ts" />
 /** @typedef {import('./utils.js')} Utils */
 
-onRecordCreateRequest((e) => {
-    /** @type {Utils} */
-    const utils = require(`${__hooks}/utils.js`);
+onRecordCreateRequest(
+    (e) => {
+        /** @type {Utils} */
+        const utils = require(`${__hooks}/utils.js`);
 
-    utils.skipIfAdmin(e);
+        if (!e.hasSuperuserAuth()) {
+            e.record?.set("owner", utils.getRequestingUserOrganization(e));
+        }
 
-    e.record?.set("owner", utils.getRequestingUserOrganization(e));
-    e.next();
-}, "wallets");
+        e.next();
+    },
+    "wallets",
+    "verifiers",
+    "custom_checks"
+);
 
-onRecordUpdateRequest((e) => {
-    /** @type {Utils} */
-    const utils = require(`${__hooks}/utils.js`);
+onRecordUpdateRequest(
+    (e) => {
+        /** @type {Utils} */
+        const utils = require(`${__hooks}/utils.js`);
 
-    utils.skipIfAdmin(e);
+        if (!e.hasSuperuserAuth()) {
+            e.record?.set("owner", utils.getRequestingUserOrganization(e));
+        }
 
-    e.record?.set("owner", utils.getRequestingUserOrganization(e));
-    e.next();
-}, "wallets");
+        e.next();
+    },
+    "wallets",
+    "verifiers",
+    "custom_checks"
+);
