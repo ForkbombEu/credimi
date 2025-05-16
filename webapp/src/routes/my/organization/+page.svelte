@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const { organization, isOrganizationNotEdited } = $derived(data);
+	const { organization, marketplaceItems, isOrganizationNotEdited } = $derived(data);
 
 	const isEdit = $derived(Boolean(page.url.searchParams.get('edit')));
 
@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 	<PageCard contentClass="!p-2">
 		<div class="overflow-hidden rounded-lg border">
-			<OrganizationPageDemo organization={organization!} isPreview />
+			<OrganizationPageDemo organization={organization!} {marketplaceItems} isPreview />
 		</div>
 	</PageCard>
 {:else}

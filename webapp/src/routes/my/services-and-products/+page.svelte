@@ -182,7 +182,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{#if !credential.published}
 									{credential.key}
 								{:else}
-									<A href="/credentials/{credential.id}">
+									<A href="/marketplace/credentials/{credential.id}">
 										{credential.key}
 									</A>
 								{/if}
