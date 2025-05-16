@@ -1,0 +1,216 @@
+/// <reference path="../pb_data/types.d.ts" />
+migrate((app) => {
+  const collection = app.findCollectionByNameOrId("pbc_863811952");
+
+  return app.delete(collection);
+}, (app) => {
+  const collection = new Collection({
+    "createRule": "@request.auth.id != \"\"",
+    "deleteRule": "@request.auth.id = owner.id",
+    "fields": [
+      {
+        "autogeneratePattern": "[a-z0-9]{15}",
+        "hidden": false,
+        "id": "text3208210256",
+        "max": 15,
+        "min": 15,
+        "name": "id",
+        "pattern": "^[a-z0-9]+$",
+        "presentable": false,
+        "primaryKey": true,
+        "required": true,
+        "system": true,
+        "type": "text"
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text1579384326",
+        "max": 0,
+        "min": 2,
+        "name": "name",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "convertURLs": false,
+        "hidden": false,
+        "id": "editor1843675174",
+        "maxSize": 0,
+        "name": "description",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "editor"
+      },
+      {
+        "hidden": false,
+        "id": "file3834550803",
+        "maxSelect": 1,
+        "maxSize": 0,
+        "mimeTypes": [
+          "image/png",
+          "image/jpeg",
+          "image/webp",
+          "image/svg+xml"
+        ],
+        "name": "logo",
+        "presentable": false,
+        "protected": false,
+        "required": true,
+        "system": false,
+        "thumbs": [],
+        "type": "file"
+      },
+      {
+        "hidden": false,
+        "id": "select1400097126",
+        "maxSelect": 1,
+        "name": "country",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "select",
+        "values": [
+          "AL",
+          "AD",
+          "AM",
+          "AT",
+          "AZ",
+          "BY",
+          "BE",
+          "BA",
+          "BG",
+          "HR",
+          "CY",
+          "CZ",
+          "DK",
+          "EE",
+          "FI",
+          "FR",
+          "GE",
+          "DE",
+          "GR",
+          "HU",
+          "IS",
+          "IE",
+          "IT",
+          "KZ",
+          "XK",
+          "LV",
+          "LI",
+          "LT",
+          "LU",
+          "MT",
+          "MD",
+          "MC",
+          "ME",
+          "NL",
+          "MK",
+          "NO",
+          "PL",
+          "PT",
+          "RO",
+          "RU",
+          "SM",
+          "RS",
+          "SK",
+          "SI",
+          "ES",
+          "SE",
+          "CH",
+          "TR",
+          "UA",
+          "GB",
+          "VA",
+          "Other"
+        ]
+      },
+      {
+        "autogeneratePattern": "",
+        "hidden": false,
+        "id": "text3793657363",
+        "max": 0,
+        "min": 0,
+        "name": "legal_entity",
+        "pattern": "",
+        "presentable": false,
+        "primaryKey": false,
+        "required": true,
+        "system": false,
+        "type": "text"
+      },
+      {
+        "exceptDomains": null,
+        "hidden": false,
+        "id": "url4106974746",
+        "name": "external_website_url",
+        "onlyDomains": null,
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "url"
+      },
+      {
+        "exceptDomains": null,
+        "hidden": false,
+        "id": "email3401084027",
+        "name": "contact_email",
+        "onlyDomains": null,
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "email"
+      },
+      {
+        "cascadeDelete": false,
+        "collectionId": "_pb_users_auth_",
+        "hidden": false,
+        "id": "relation3479234172",
+        "maxSelect": 1,
+        "minSelect": 0,
+        "name": "owner",
+        "presentable": false,
+        "required": true,
+        "system": false,
+        "type": "relation"
+      },
+      {
+        "hidden": false,
+        "id": "autodate2990389176",
+        "name": "created",
+        "onCreate": true,
+        "onUpdate": false,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      },
+      {
+        "hidden": false,
+        "id": "autodate3332085495",
+        "name": "updated",
+        "onCreate": true,
+        "onUpdate": true,
+        "presentable": false,
+        "system": false,
+        "type": "autodate"
+      }
+    ],
+    "id": "pbc_863811952",
+    "indexes": [
+      "CREATE INDEX `idx_qmfBsdc8jj` ON `organization_info` (`owner`)"
+    ],
+    "listRule": "",
+    "name": "organization_info",
+    "system": false,
+    "type": "base",
+    "updateRule": "@request.auth.id = owner.id",
+    "viewRule": ""
+  });
+
+  return app.save(collection);
+})

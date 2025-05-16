@@ -7,13 +7,18 @@ import { loadFeatureFlags } from '@/features';
 import { error } from '@sveltejs/kit';
 
 import { browser } from '$app/environment';
-import { redirect } from '@/i18n';
+import { deLocalizeUrl, redirect } from '@/i18n';
 import { getKeyringFromLocalStorage, matchPublicAndPrivateKeys } from '@/keypairoom/keypair';
 import { getUserPublicKeys, RegenerateKeyringSession } from '@/keypairoom/utils';
 
 import { OrganizationInviteSession } from '@/organizations/invites/index.js';
+import { PocketbaseQueryAgent } from '@/pocketbase/query';
+import { pb } from '@/pocketbase';
+import { WelcomeSession } from '@/auth/welcome/index.js';
 
-export const load = async ({ fetch }) => {
+//
+
+export const load = async ({ fetch, url }) => {
 	if (!browser) return;
 	const featureFlags = await loadFeatureFlags(fetch);
 
@@ -51,4 +56,35 @@ export const load = async ({ fetch }) => {
 		OrganizationInviteSession.end();
 		redirect('/my/organizations');
 	}
+
+	// Organization page, redirect to edit page if first time user
+
+	const organizationAuth = await new PocketbaseQueryAgent(
+		{
+			collection: 'orgAuthorizations',
+			expand: ['organization'],
+			filter: `user.id = "${pb.authStore.record?.id}"`
+		},
+		{ fetch }
+	).getFullList();
+
+	const organization = organizationAuth.at(0)?.expand?.organization;
+	if (!organization) error(500, { message: 'USER_MISSING_ORGANIZATION' });
+
+	const isOrganizationNotEdited = organization.created === organization.updated;
+	const organizationPagePath = '/my/organization';
+	if (
+		isOrganizationNotEdited &&
+		WelcomeSession.isActive() &&
+		deLocalizeUrl(url).pathname != organizationPagePath
+	) {
+		console.log('redirecting to edit page');
+		WelcomeSession.end();
+		redirect(organizationPagePath + '?edit=true');
+	}
+
+	return {
+		organization,
+		isOrganizationNotEdited
+	};
 };

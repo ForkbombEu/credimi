@@ -13,4 +13,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { organization } = $derived(data);
 </script>
 
-<OrganizationPage organizationInfo={organization} />
+<OrganizationPage {organization} />
