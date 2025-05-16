@@ -71,7 +71,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 		appURL := e.App.Settings().Meta.AppURL
 		userID := e.Auth.Id
 		email := e.Auth.GetString("email")
-		namespace, err := getUserNamespace(e.App, userID)
+		namespace, err := GetUserOrganizationId(e.App, userID)
 		if err != nil {
 			return err
 		}
