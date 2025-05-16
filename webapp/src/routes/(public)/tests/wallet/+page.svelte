@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const { qr, workflowId } = $derived(data);
+	const { qr, workflowId, namespace } = $derived(data);
 
 	let pageStatus = $state<'fresh' | 'success' | 'already_answered'>('fresh');
 
@@ -33,7 +33,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			await pb.send('/api/compliance/confirm-success', {
 				method: 'POST',
 				body: {
-					workflow_id: workflowId
+					workflow_id: workflowId,
+					namespace: namespace
 				}
 			});
 			pageStatus = 'success';
@@ -54,7 +55,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				method: 'POST',
 				body: {
 					workflow_id: workflowId,
-					reason: reason
+					reason: reason,
+					namespace: namespace
 				}
 			});
 			pageStatus = 'success';
@@ -104,11 +106,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Alert>
 		{/if}
 
-		{#if workflowId}
+		{#if workflowId && namespace}
 			<div class="step-container">
 				{@render Step(2, 'Follow the procedure on the wallet app')}
 				<div class="ml-16">
-					<WorkflowLogs {workflowId} />
+					<WorkflowLogs {workflowId} {namespace} />
 				</div>
 			</div>
 		{/if}

@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const { qr, workflowId } = $derived(data);
+	const { qr, workflowId, namespace } = $derived(data);
 
 	let pageStatus = $state<'fresh' | 'success' | 'already_answered'>('fresh');
 
@@ -33,7 +33,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			await pb.send('/api/compliance/confirm-success', {
 				method: 'POST',
 				body: {
-					workflow_id: workflowId
+					workflow_id: workflowId,
+					namespace: namespace
 				}
 			});
 			pageStatus = 'success';
@@ -54,6 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				method: 'POST',
 				body: {
 					workflow_id: workflowId,
+					namespace: namespace,
 					reason: reason
 				}
 			});
@@ -104,63 +106,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Alert>
 		{/if}
 
-		{#if workflowId}
+		{#if workflowId && namespace}
 			<div class="step-container">
 				{@render Step(2, 'Follow the procedure on the wallet app')}
 				<div class="ml-16">
-					<WorkflowLogs {workflowId} />
+					<WorkflowLogs {workflowId} {namespace} />
 				</div>
 			</div>
 		{/if}
-
-		<div class="step-container">
-			{@render Step(3, 'Confirm the result')}
-
-			<div class="ml-16 flex flex-col gap-8 sm:flex-row">
-				{#if pageStatus == 'fresh'}
-					{#if data.qr}
-						<div class="grow basis-1">
-							<Form form={successForm}>
-								{#snippet submitButton()}
-									<div class="space-y-2">
-										<Label for="success">If the test succeeded:</Label>
-										<SubmitButton
-											id="success"
-											class="w-full bg-green-600 hover:bg-green-700"
-										>
-											Confirm test success
-										</SubmitButton>
-									</div>
-								{/snippet}
-							</Form>
-						</div>
-
-						<Separator orientation={sm.current ? 'vertical' : 'horizontal'} />
-					{/if}
-
-					<div class="grow basis-1">
-						<Form form={failureForm} hideRequiredIndicator class="space-y-2">
-							<TextareaField
-								form={failureForm}
-								name="reason"
-								options={{
-									label: 'If something went wrong, please tell us what:'
-								}}
-							/>
-							{#snippet submitButton()}
-								<SubmitButton class="w-full bg-red-600 hover:bg-red-700">
-									Notify issue
-								</SubmitButton>
-							{/snippet}
-						</Form>
-					</div>
-				{:else if pageStatus == 'success'}
-					<Alert variant="info">Your response was submitted! Thanks :)</Alert>
-				{:else if pageStatus == 'already_answered'}
-					<Alert variant="info">This test was already confirmed</Alert>
-				{/if}
-			</div>
-		</div>
 	</div>
 </PageContent>
 
