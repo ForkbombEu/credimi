@@ -433,6 +433,7 @@ func processVariablesTest(
 		record.Set("value", v["value"])
 		record.Set("field_name", fieldName)
 		record.Set("template_path", testName)
+		record.Set("owner", namespace)
 		if err := app.Save(record); err != nil {
 			return apierror.New(
 				http.StatusBadRequest,
