@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		alt?: string;
 		fallback?: string;
 		hideIfLoadingError?: boolean;
+		fallbackLength?: number | null | undefined;
 	};
 </script>
 
@@ -20,7 +21,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { cn } from '../ui/utils';
 
-	const { src, alt, fallback, hideIfLoadingError = false, ...rest }: AvatarProps = $props();
+	const {
+		src,
+		alt,
+		fallback,
+		hideIfLoadingError = false,
+		fallbackLength = 2,
+		...rest
+	}: AvatarProps = $props();
 
 	//
 
@@ -42,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 		{#if fallback}
 			<Avatar.Fallback class="rounded-none text-[80%] font-semibold uppercase">
-				{fallback}
+				{fallbackLength ? fallback.slice(0, fallbackLength) : fallback}
 			</Avatar.Fallback>
 		{/if}
 	</Avatar.Root>

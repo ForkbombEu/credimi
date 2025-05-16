@@ -3,23 +3,26 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pb } from '@/pocketbase';
-import type { OrganizationInfoResponse } from '@/pocketbase/types';
+import { PocketbaseQueryAgent } from '@/pocketbase/query/agent.js';
 import { error } from '@sveltejs/kit';
 
 export const load = async ({ fetch }) => {
-	const userId = pb.authStore.record?.id;
-	if (!userId) error(500);
+	const organizationAuth = await new PocketbaseQueryAgent(
+		{
+			collection: 'orgAuthorizations',
+			expand: ['organization'],
+			filter: `user.id = "${pb.authStore.record?.id}"`
+		},
+		{ fetch }
+	).getFullList();
 
-	let organizationInfo: OrganizationInfoResponse | undefined = undefined;
-	try {
-		organizationInfo = await pb
-			.collection('organization_info')
-			.getFirstListItem(`owner = '${userId}'`, { fetch });
-	} catch {
-		//
-	}
+	const organization = organizationAuth.at(0)?.expand?.organization;
+	if (!organization) error(404, { message: 'Organization not found' });
+
+	const isOrganizationNotEdited = organization.created === organization.updated;
 
 	return {
-		organizationInfo
+		organization,
+		isOrganizationNotEdited
 	};
 };

@@ -16,14 +16,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { pb } from '@/pocketbase/index.js';
-	import type { OrganizationInfoResponse } from '@/pocketbase/types';
+	import type { OrganizationsResponse } from '@/pocketbase/types';
 	import BackButton from '$lib/layout/back-button.svelte';
 
 	type Props = {
-		organizationInfo: OrganizationInfoResponse;
+		organization: OrganizationsResponse;
 	};
 
-	let { organizationInfo }: Props = $props();
+	let { organization }: Props = $props();
 
 	//
 
@@ -49,15 +49,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <PageTop contentClass="!space-y-4">
 	<BackButton href="/organizations">Back to organizations</BackButton>
 	<div class="flex items-center gap-6">
-		{#if organizationInfo.logo}
-			{@const providerUrl = pb.files.getURL(organizationInfo, organizationInfo.logo)}
+		{#if organization.logo}
+			{@const providerUrl = pb.files.getURL(organization, organization.logo)}
 			<Avatar src={providerUrl} class="size-32 rounded-sm" hideIfLoadingError />
 		{/if}
 
 		<div class="space-y-3">
 			<div class="space-y-1">
 				<T class="text-sm">{m.Organization_name()}</T>
-				<T tag="h1">{organizationInfo.name}</T>
+				<T tag="h1">{organization.name}</T>
 			</div>
 		</div>
 	</div>
@@ -72,20 +72,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="space-y-6">
 			<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
 			<div class="flex gap-6">
-				<InfoBox label="Legal entity">{organizationInfo.legal_entity}</InfoBox>
-				<InfoBox label="Country">{organizationInfo.country}</InfoBox>
+				<InfoBox label="Legal entity">{organization.legal_entity}</InfoBox>
+				<InfoBox label="Country">{organization.country}</InfoBox>
 			</div>
-			<InfoBox label={m.Description()}>{organizationInfo.description}</InfoBox>
+			<InfoBox label={m.Description()}>{organization.description}</InfoBox>
 
 			<div class="flex gap-6">
 				<InfoBox label="Website">
-					<a href={organizationInfo.external_website_url} target="_blank">
-						{organizationInfo.external_website_url}
+					<a href={organization.external_website_url} target="_blank">
+						{organization.external_website_url}
 					</a>
 				</InfoBox>
 				<InfoBox label="Contact email">
-					<a href={`mailto:${organizationInfo.contact_email}`} target="_blank">
-						{organizationInfo.contact_email}
+					<a href={`mailto:${organization.contact_email}`} target="_blank">
+						{organization.contact_email}
 					</a>
 				</InfoBox>
 			</div>
@@ -113,13 +113,3 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div> -->
 	</div>
 </PageContent>
-
-{#snippet CircledNumber(index: number)}
-	<div
-		class="border-primary flex size-4 shrink-0 items-center justify-center rounded-full border text-sm text-slate-500"
-	>
-		<p>
-			{index}
-		</p>
-	</div>
-{/snippet}

@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import OrganizationPageDemo from '$lib/pages/organization-page.svelte';
 
 	let { data } = $props();
-	const { organizationInfo } = $derived(data);
+	const { organization, isOrganizationNotEdited } = $derived(data);
 
 	//
 
@@ -24,45 +24,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if !showOrganizationForm}
-	{#if organizationInfo}
-		<div class="mb-6 flex items-center justify-between">
-			<T tag="h3">Page preview</T>
-			<Button onclick={() => (showOrganizationForm = true)}>
-				<Pencil />
-				Edit organization info
-			</Button>
+	<div class="mb-6 flex items-center justify-between">
+		<T tag="h3">Page preview</T>
+		<Button onclick={() => (showOrganizationForm = true)}>
+			<Pencil />
+			Edit organization info
+		</Button>
+	</div>
+	<PageCard>
+		<div class="overflow-hidden rounded-lg border">
+			<OrganizationPageDemo {organization} />
 		</div>
-		<PageCard>
-			<div class="overflow-hidden rounded-lg border">
-				<OrganizationPageDemo {organizationInfo} />
-			</div>
-		</PageCard>
-	{:else}
-		<Alert variant="info" icon={InfoIcon}>
-			{#snippet content({ Title, Description })}
-				<Title>Info</Title>
-				<Description class="mt-2">
-					An organization page is used to present your services and products on the
-					marketplace. Create one to get started!
-				</Description>
-				<div class="mt-2 flex justify-end">
-					<Button
-						variant="outline"
-						onclick={() => {
-							showOrganizationForm = true;
-						}}
-					>
-						<Plus />
-						Create organization page
-					</Button>
-				</div>
-			{/snippet}
-		</Alert>
-	{/if}
+	</PageCard>
 {:else}
 	<div class="mb-6 flex items-center justify-between">
 		<T tag="h3">
-			{organizationInfo ? 'Update your organization page' : 'Create your organization page'}
+			{isOrganizationNotEdited
+				? 'Update your organization page'
+				: 'Create your organization page'}
 		</T>
 
 		<Button onclick={() => (showOrganizationForm = false)}>
@@ -74,18 +53,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<PageCard>
 		<!-- TODO - Set owner via hook -->
 		<CollectionForm
-			collection="organization_info"
-			fieldsOptions={{ hide: { owner: $currentUser!.id } }}
-			uiOptions={{ hideRequiredIndicator: true }}
+			collection="organizations"
 			onSuccess={() => {
 				invalidateAll();
 				showOrganizationForm = false;
 			}}
-			initialData={organizationInfo}
-			recordId={organizationInfo?.id}
+			initialData={organization}
+			recordId={organization?.id}
 		>
 			{#snippet submitButtonContent()}
-				{organizationInfo ? 'Update organization page' : 'Create organization page'}
+				{isOrganizationNotEdited ? 'Update organization page' : 'Create organization page'}
 			{/snippet}
 		</CollectionForm>
 	</PageCard>

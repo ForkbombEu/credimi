@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 </script>
 
-<CollectionManager collection="organization_info">
+<CollectionManager collection="organizations">
 	{#snippet top({ Search })}
 		<PageTop>
 			<T tag="h1">{m.Find_providers_of_identity_solutions()}</T>
@@ -33,12 +33,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet records({ records })}
 		<PageGrid>
 			{#each records as organization}
-				<CardLink href={`/organizations/${organization.id}`}>
+				{@const logoUrl = pb.files.getURL(organization, organization.logo)}
+				<CardLink href={`/organizations/${organization.id}`} class="!p-4">
 					<div class="flex items-center gap-4">
-						{#if organization.logo}
-							{@const logoUrl = pb.files.getURL(organization, organization.logo)}
-							<Avatar src={logoUrl} class="!rounded-sm" hideIfLoadingError />
-						{/if}
+						<Avatar
+							src={logoUrl}
+							fallback={organization.name}
+							class="!rounded-sm border p-6"
+							hideIfLoadingError
+						/>
+
 						<T class="font-semibold">{organization.name}</T>
 					</div>
 				</CardLink>
