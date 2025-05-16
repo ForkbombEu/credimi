@@ -6,11 +6,12 @@ import { localizeHref, m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import type { CollectionName } from '@/pocketbase/collections-models';
 import MarketplaceItemTypeDisplay from './marketplace-item-type-display.svelte';
+import MarketplaceItemCard from './marketplace-item-card.svelte';
 import { z } from 'zod';
 
 //
 
-export { MarketplaceItemTypeDisplay };
+export { MarketplaceItemTypeDisplay, MarketplaceItemCard };
 
 /* -- Marketplace item types -- */
 

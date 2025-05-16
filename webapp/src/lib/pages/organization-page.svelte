@@ -16,15 +16,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { pb } from '@/pocketbase/index.js';
-	import type { OrganizationsResponse } from '@/pocketbase/types';
+	import type { MarketplaceItemsResponse, OrganizationsResponse } from '@/pocketbase/types';
 	import BackButton from '$lib/layout/back-button.svelte';
+	import { MarketplaceItemCard } from '../../routes/(public)/marketplace/_utils/utils.js';
+
+	//
 
 	type Props = {
 		organization: OrganizationsResponse;
+		marketplaceItems: MarketplaceItemsResponse[];
 		isPreview?: boolean;
 	};
 
-	let { organization, isPreview = false }: Props = $props();
+	let { organization, marketplaceItems, isPreview = false }: Props = $props();
 
 	//
 
@@ -34,15 +38,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			anchor: 'general_info',
 			label: m.General_info()
 		},
-		apps: {
+		services_and_products: {
 			icon: Layers,
-			anchor: 'apps',
-			label: m.Apps()
-		},
-		issuers: {
-			icon: ScanEye,
-			anchor: 'issuers',
-			label: m.Issuers()
+			anchor: 'services-and-products',
+			label: m.Services_and_products()
 		}
 	};
 
@@ -98,7 +97,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		<div>
-			<PageHeader title={m.Apps()} id="apps"></PageHeader>
+			<PageHeader
+				title={sections.services_and_products.label}
+				id={sections.services_and_products.anchor}
+			/>
+
+			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+				{#each marketplaceItems as item}
+					<MarketplaceItemCard {item} />
+				{/each}
+			</div>
 		</div>
 
 		<!-- TODO - Replace with MarketplaceItemCards -->

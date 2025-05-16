@@ -9,5 +9,9 @@ export const load = async ({ params, fetch }) => {
 		fetch
 	});
 
-	return { organization };
+	const marketplaceItems = await pb.collection('marketplace_items').getFullList({
+		filter: `organization_id = '${params.organization_id}'`
+	});
+
+	return { organization, marketplaceItems };
 };
