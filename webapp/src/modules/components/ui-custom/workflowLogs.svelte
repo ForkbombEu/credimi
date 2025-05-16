@@ -16,9 +16,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		workflowId: string;
+		namespace: string;
 	};
 
-	const { workflowId }: Props = $props();
+	const { workflowId, namespace }: Props = $props();
 
 	onMount(() => {
 		pb.realtime
@@ -34,6 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			method: 'POST',
 			body: {
 				workflow_id: workflowId + '-log',
+				namespace: namespace,
 				signal: 'start-openidnet-check-log-update'
 			}
 		}).catch((e) => {
@@ -61,6 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			method: 'POST',
 			body: {
 				workflow_id: workflowId + '-log',
+				namespace: namespace,
 				signal: 'stop-openidnet-check-log-update'
 			}
 		}).catch((e) => {

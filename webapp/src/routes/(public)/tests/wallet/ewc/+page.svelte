@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			method: 'POST',
 			body: {
 				workflow_id: data.workflowId,
+				namespace: data.namespace,
 				signal: 'start-ewc-check-signal'
 			}
 		}).catch((err) => {
@@ -32,6 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			method: 'POST',
 			body: {
 				workflow_id: data.workflowId,
+				namespace: data.namespace,
 				signal: 'stop-ewc-check-signal'
 			}
 		});

@@ -15,9 +15,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		workflowId: string;
+		namespace: string;
 	};
 
-	const { workflowId }: Props = $props();
+	const { workflowId, namespace }: Props = $props();
 
 	onMount(() => {
 		pb.realtime
@@ -32,6 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			method: 'POST',
 			body: {
 				workflow_id: workflowId,
+				namespace: namespace,
 				signal: 'start-eudiw-check-signal'
 			}
 		}).catch((e) => {
@@ -59,6 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			method: 'POST',
 			body: {
 				workflow_id: workflowId,
+				namespace: namespace,
 				signal: 'stop-eudiw-check-signal'
 			}
 		}).catch((e) => {
@@ -84,7 +87,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<p>Waiting for logs...</p>
 		</Alert>
 	{:else}
-		<pre class="overflow-x-scroll rounded-md bg-secondary p-4 text-sm">
+		<pre class="bg-secondary overflow-x-scroll rounded-md p-4 text-sm">
 			{JSON.stringify(logs, null, 2)}
 		</pre>
 	{/if}
