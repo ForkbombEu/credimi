@@ -17,9 +17,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';
 	import { RecordDelete, RecordEdit } from '@/collections-components/manager';
-	import PublishButton from './publish-button.svelte';
+
 	import Separator from '@/components/ui/separator/separator.svelte';
-	import { currentUser } from '@/pocketbase';
+
 	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import NewWalletForm from './wallet-form.svelte';
 	import {
@@ -35,10 +35,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let { data } = $props();
-	const { organizationInfo } = $derived(data);
-	const canPublish = $derived(Boolean(organizationInfo));
-
 	let isCredentialIssuerModalOpen = $state(false);
 </script>
 
@@ -49,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			queryOptions={{
 				expand: ['credentials_via_credential_issuer']
 			}}
-			editFormFieldsOptions={{ exclude: ['owner', 'url', 'published'], order: ['published'] }}
+			editFormFieldsOptions={{ exclude: ['owner', 'url'] }}
 			subscribe="expanded_collections"
 		>
 			{#snippet top({ Header })}
@@ -68,22 +64,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{@render CredentialIssuerCard({
 							credentialIssuer: record,
 							credentials,
-							onPublishSuccess: reloadRecords
+							onEditSuccess: reloadRecords
 						})}
 					{/each}
 				</div>
-			{/snippet}
-		</CollectionManager>
-	</div>
-
-	<div class="space-y-4">
-		<CollectionManager collection="verifiers">
-			{#snippet top({ Header })}
-				<Header title="Verifiers">
-					{#snippet right()}
-						<Button disabled><Plus />Add new verifier</Button>
-					{/snippet}
-				</Header>
 			{/snippet}
 		</CollectionManager>
 	</div>
@@ -107,31 +91,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/snippet}
 		</CollectionManager>
 	</div>
-</div>
 
-<!--  -->
-
-{#snippet cannotPublishMessage()}
-	<T>
-		Before you can publish your service, you need to create a public profile for your
-		organization.
-	</T>
-	<div class="flex justify-end">
-		<Button href="/my/organization-page">
-			<Plus />
-			{m.Create_organization()}
-		</Button>
+	<div class="space-y-4">
+		<CollectionManager collection="verifiers">
+			{#snippet top({ Header })}
+				<Header title="Verifiers">
+					{#snippet right()}
+						<Button disabled><Plus />Add new verifier</Button>
+					{/snippet}
+				</Header>
+			{/snippet}
+		</CollectionManager>
 	</div>
-{/snippet}
+</div>
 
 <!--  -->
 
 {#snippet CredentialIssuerCard(props: {
 	credentialIssuer: CredentialIssuersResponse;
 	credentials: CredentialsResponse[];
-	onPublishSuccess: () => void;
+	onEditSuccess: () => void;
 })}
-	{@const { credentialIssuer: record, credentials, onPublishSuccess } = props}
+	{@const { credentialIssuer: record, credentials, onEditSuccess } = props}
 	{@const title = String.isNonEmpty(record.name) ? record.name : '[no_title]'}
 
 	<Card class="!p-4">
@@ -165,24 +146,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 
 				<div class="flex items-center gap-1">
-					<PublishButton
-						{record}
-						{canPublish}
-						{cannotPublishMessage}
-						onSuccess={onPublishSuccess}
-					>
-						{#snippet button({ togglePublish, label })}
-							<Button
-								variant="outline"
-								class="h-9 !px-2 text-xs"
-								onclick={togglePublish}
-							>
-								{label}
-							</Button>
-						{/snippet}
-					</PublishButton>
-
-					<RecordEdit {record}>
+					<RecordEdit {record} onSuccess={onEditSuccess}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
 							<Button variant="outline" size="sm" class="p-2" {...triggerAttributes}>
 								<Icon />
@@ -229,7 +193,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</div>
 
 							<div class="flex items-center gap-1">
-								<EditCredentialDialog {credential} {canPublish} />
+								<EditCredentialDialog {credential} onSuccess={onEditSuccess} />
 							</div>
 						</li>
 					{/each}
@@ -264,9 +228,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!--  -->
 
-{#snippet WalletCard(wallet: WalletsResponse, onPublishSuccess: () => void)}
+{#snippet WalletCard(wallet: WalletsResponse, onEditSuccess: () => void)}
 	<Card class="bg-background overflow-auto">
-		{@const conformanceChecks = wallet.conformance_checks as ConformanceCheck[]}
+		{@const conformanceChecks = wallet.conformance_checks as
+			| ConformanceCheck[]
+			| null
+			| undefined}
 		<div class="space-y-4 overflow-scroll">
 			<div class="flex flex-row items-start justify-between gap-4">
 				<div>
@@ -288,24 +255,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 
 				<div class="flex items-center gap-1">
-					<PublishButton
-						record={wallet}
-						{canPublish}
-						{cannotPublishMessage}
-						onSuccess={onPublishSuccess}
-					>
-						{#snippet button({ togglePublish, label })}
-							<Button
-								variant="outline"
-								class="h-9 px-2 text-xs"
-								onclick={togglePublish}
-							>
-								{label}
-							</Button>
-						{/snippet}
-					</PublishButton>
-
-					{@render UpdateWalletFormSnippet(wallet.id, wallet)}
+					{@render UpdateWalletFormSnippet(wallet.id, wallet, onEditSuccess)}
 
 					<RecordDelete record={wallet}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
@@ -320,7 +270,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Separator />
 
 			<div class="flex flex-wrap gap-2">
-				{#if conformanceChecks.length > 0}
+				{#if conformanceChecks && conformanceChecks.length > 0}
 					{#each conformanceChecks as check}
 						<Badge variant={check.status === 'success' ? 'secondary' : 'destructive'}>
 							{check.test}
@@ -351,7 +301,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Sheet>
 {/snippet}
 
-{#snippet UpdateWalletFormSnippet(walletId: string, initialData: Partial<WalletsResponse>)}
+{#snippet UpdateWalletFormSnippet(
+	walletId: string,
+	initialData: Partial<WalletsResponse>,
+	onEditSuccess: () => void
+)}
 	<Sheet>
 		{#snippet trigger({ sheetTriggerAttributes })}
 			<Button variant="outline" size="sm" class="p-2" {...sheetTriggerAttributes}>
@@ -362,7 +316,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#snippet content({ closeSheet })}
 			<div class="space-y-6">
 				<T tag="h3">Add a new wallet</T>
-				<NewWalletForm {walletId} {initialData} onSuccess={closeSheet} />
+				<NewWalletForm
+					{walletId}
+					{initialData}
+					onSuccess={() => {
+						onEditSuccess();
+						closeSheet();
+					}}
+				/>
 			</div>
 		{/snippet}
 	</Sheet>

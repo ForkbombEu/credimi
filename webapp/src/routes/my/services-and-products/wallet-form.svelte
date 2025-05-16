@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { createForm, Form } from '@/forms';
-	import { Field, FileField } from '@/forms/fields';
+	import { Field, FileField, CheckboxField } from '@/forms/fields';
 	import { pb } from '@/pocketbase/index.js';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
@@ -20,6 +20,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 	import _ from 'lodash';
 	import type { NonEmptyArray } from 'effect/Array';
+	import Alert from '@/components/ui-custom/alert.svelte';
+	import { m } from '@/i18n';
+	import { InfoIcon } from 'lucide-svelte';
+	import T from '@/components/ui-custom/t.svelte';
 
 	//
 
@@ -45,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			owner: true
 		})
 		.extend({
-			conformance_checks: z.array(ConformanceCheckSchema).nonempty()
+			conformance_checks: z.array(ConformanceCheckSchema).nullable()
 		});
 
 	const form = createForm<z.infer<typeof schema>>({
@@ -62,14 +66,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		options: {
 			dataType: 'form'
 		},
-		initialData: {
-			..._.omit(initialData, 'logo'),
-			conformance_checks: initialData.conformance_checks as NonEmptyArray<ConformanceCheck>
-		}
+		initialData: _.omit(initialData, 'logo', 'conformance_checks')
+		// TODO - Fix edit form for conformance_checks
+		// {
+		// 	..._.omit(initialData, 'logo', "conformance_checks"),
+		// 	// conformance_checks: initialData.conformance_checks as NonEmptyArray<ConformanceCheck>
+		// }
 	});
 </script>
 
 <Form {form} enctype="multipart/form-data" class="!space-y-8">
+	<div class="flex justify-end">
+		<CheckboxField
+			{form}
+			name="published"
+			options={{
+				label: m.Published()
+			}}
+		/>
+	</div>
 	<Field
 		{form}
 		name="name"
@@ -131,5 +146,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			placeholder: 'Enter home URL'
 		}}
 	/>
-	<Table {form} name="conformance_checks" options={{ label: 'Conformance Checks' }} />
+	{#if !walletId}
+		<!-- @ts-ignore -->
+		<Table {form} name="conformance_checks" options={{ label: 'Conformance Checks' }} />
+	{:else}
+		<Alert variant="info" icon={InfoIcon}>
+			<T>Editing conformance checks for wallets is temporary disabled.</T>
+		</Alert>
+	{/if}
 </Form>
