@@ -36,9 +36,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					icon: Shapes
 				},
 				{ title: m.Test_runs(), href: '/my/tests/runs', icon: TestTubeDiagonalIcon },
+				{ title: m.Custom_checks(), href: '/my/custom-checks', icon: CheckCheck },
 				{ title: m.Organization_page(), href: '/my/organization-page', icon: GlobeIcon },
-				{ title: m.Profile(), href: '/my/profile', icon: User },
-				{ title: m.Custom_checks(), href: '/my/custom-checks', icon: CheckCheck }
+				{ title: m.Profile(), href: '/my/profile', icon: User }
 			]}
 		/>
 	</PageTop>
