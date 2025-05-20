@@ -7,6 +7,7 @@ package templateengine
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -26,7 +27,11 @@ type PlaceholderMetadata struct {
 	DescriptionKey string
 	Type           string
 	Example        string
+	Options 	 []string
 }
+
+var metadataStore = make(map[string]PlaceholderMetadata)
+
 
 // func RemoveNewlinesAndBackslashes(input string) string {
 // 	output := strings.ReplaceAll(input, "\n", "")
@@ -157,20 +162,39 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 	return result, nil
 }
 
-var metadataStore = make(map[string]PlaceholderMetadata)
 
-func credimiPlaceholder(
-	fieldName, credimiID, labelKey, descriptionKey, fieldType, example string,
-) (string, error) {
-	metadataStore[fieldName] = PlaceholderMetadata{
-		FieldName:      fieldName,
-		CredimiID:      credimiID,
-		LabelKey:       labelKey,
-		DescriptionKey: descriptionKey,
-		Type:           fieldType,
-		Example:        strings.ReplaceAll(example, "\\\\\\\\", ""),
+func credimiPlaceholder(jsonStr string) (string, error) {
+	// Remove any leading/trailing whitespace
+	jsonStr = strings.TrimSpace(jsonStr)
+
+	// Define a struct to unmarshal the JSON input
+	type placeholderInput struct {
+		CredimiID      string   `json:"credimi_id"`
+		FieldID        string   `json:"field_id"`
+		FieldLabel     string   `json:"field_label"`
+		FieldDesc      string   `json:"field_description"`
+		FieldDefault   string   `json:"field_default_value"`
+		FieldType      string   `json:"field_type"`
+		FieldOptions   []string `json:"field_options"`
 	}
-	return fmt.Sprintf("{{ .%s }}", fieldName), nil
+
+	var input placeholderInput
+	err := json.Unmarshal([]byte(jsonStr), &input)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse placeholder JSON: %w", err)
+	}
+
+	metadataStore[input.FieldID] = PlaceholderMetadata{
+		FieldName:      input.FieldID,
+		CredimiID:      input.CredimiID,
+		LabelKey:       input.FieldLabel,
+		DescriptionKey: input.FieldDesc,
+		Type:           input.FieldType,
+		Example:        strings.ReplaceAll(input.FieldDefault, "\\\\\\\\", ""),
+		Options:        input.FieldOptions,
+	}
+
+	return fmt.Sprintf("{{ .%s }}", input.FieldID), nil
 }
 
 func preprocessTemplate(content string) (string, error) {
@@ -183,7 +207,7 @@ func preprocessTemplate(content string) (string, error) {
 
 	tmpl, err := template.New("preprocess").Funcs(funcs).Parse(content)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse template: %w", err)
 	}
 
 	var buf bytes.Buffer
