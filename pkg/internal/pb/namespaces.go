@@ -10,12 +10,14 @@ import (
 	"log"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
+	"google.golang.org/grpc"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
@@ -36,35 +38,42 @@ import (
 //   - The hook ensures that the namespace registration process does not block the continuation of the event by calling
 //     `e.Next()` at the end.
 func HookNamespaceOrgs(app *pocketbase.PocketBase) {
-
 	app.OnRecordAfterCreateSuccess("organizations").BindFunc(func(e *core.RecordEvent) error {
-		c, err := client.NewNamespaceClient(client.Options{})
+		hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
+		c, err := client.NewNamespaceClient(client.Options{
+			HostPort: hostPort,
+			ConnectionOptions: client.ConnectionOptions{
+				DialOptions: []grpc.DialOption{
+					grpc.WithConnectParams(grpc.ConnectParams{
+						MinConnectTimeout: time.Second,
+					}),
+				},
+			},
+		})
 		if err != nil {
-			log.Fatalln("Unable to create client", err)
+			log.Println("Unable to create client", err)
 		}
-		defer c.Close()
 
 		_, err = c.Describe(context.Background(), e.Record.Id)
-
-		if err == nil {
-			return e.Next()
-		} else {
+		if err != nil {
 			var notFound *serviceerror.NamespaceNotFound
-			if !errors.As(err, &notFound) {
-				log.Fatalln("unexpected error while describing namespace", err)
+			if errors.As(err, &notFound) {
+				err = c.Register(context.Background(), &workflowservice.RegisterNamespaceRequest{
+					Namespace:                        e.Record.Id,
+					WorkflowExecutionRetentionPeriod: durationpb.New(7 * 24 * time.Hour),
+				})
+				if err != nil {
+					log.Printf("Unable to create namespace %s: %v", e.Record.Id, err)
+					return e.Next()
+				}
+				log.Printf("Created namespace %s", e.Record.Id)
+				go hooks.StartAllWorkersByNamespace(e.Record.Id)
+
+				log.Default().Printf("Namespace %s created", e.Record.Id)
+				return e.Next()
 			}
 		}
 
-		err = c.Register(context.Background(), &workflowservice.RegisterNamespaceRequest{
-			Namespace:                        e.Record.Id,
-			WorkflowExecutionRetentionPeriod: durationpb.New(7 * 24 * time.Hour),
-		})
-		if err != nil {
-			log.Printf("Unable to create namespace %s: %v", e.Record.Id, err)
-		}
-		go hooks.StartAllWorkersByNamespace(e.Record.Id)
-
-		log.Default().Printf("Namespace %s created", e.Record.Id)
 		return e.Next()
 	})
 }

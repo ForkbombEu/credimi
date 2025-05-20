@@ -14,7 +14,6 @@ docker-compose*
 Dockerfile*
 docs
 LICENSES
-pb_data
 README.md
 REUSE.toml
 tmp
