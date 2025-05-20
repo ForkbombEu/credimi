@@ -1,0 +1,151 @@
+variant:
+    client_id_scheme: x509_san_dns
+    request_method: request_uri_unsigned
+    response_mode: w3c_dc_api.jwt
+    credential_format: sd_jwt_vc
+form:
+    alias: >
+        {{
+
+           credimi \"
+              {
+                "credimi_id": "sd_jwt_vc_x509_san_dns_request_uri_unsigned_w3c_dc_api_jwt_oid_alias",
+                "field_default_value": "uuidv4",
+                "field_description": "i18n_test_alias_description",
+                "field_id": "testalias",
+                "field_label": "i18n_testalias",
+                "field_options": [],
+                "field_type": "string"
+              }
+        \"}}
+
+    description: >
+        {{
+
+            credimi \"
+              {
+                "credimi_id": "oid_description",
+                "field_id": "description",
+                "field_label": "i18n_description",
+                "field_description": "i18n_description_description",
+                "field_default_value": "",
+                "field_type": "string",
+                "field_options": []
+              }
+        \"}}
+
+    server:
+        authorization_endpoint: "openid-vc://"
+    client:
+        presentation_definition: >
+            {{
+
+                credimi \"
+                  {
+                    "credimi_id": "oid_client_presentation_definition",
+                    "field_id": "presentation_definition",
+                    "field_label": "i18n_client_presentation_definition",
+                    "field_description": "i18n_client_presentation_definition_description",
+                    "field_default_value":
+                      {
+                        "id": "two_sd_jwt",
+                        "input_descriptors": [
+                            {
+                              "constraints": {
+                                "fields": [
+                                    {
+                                      "filter": {
+                                        "const": "eu.europa.ec.eudi.pid.1",
+                                        "type": "string"
+                                        },
+                                      "path": ["$.vct"]
+                                    }
+                                ]
+                              },
+                              "format": {
+                                "vc+sd-jwt": {
+                                  "kb-jwt_alg_values": ["ES256", "ES256K", "EdDSA"],
+                                  "sd-jwt_alg_values": ["ES256", "ES256K", "EdDSA"]
+                                }
+                              },
+                              "id": "pid_credential"
+                            }
+                        ]
+                      },
+                    "field_type": "object"
+                    "field_options": []
+                  }
+            \"}}
+
+        jwks: >
+            {{
+
+                credimi \"
+                  {
+                    "credimi_id": "oid_client_jwks",
+                    "field_id": "jwks",
+                    "field_label": "i18n_jwks",
+                    "field_description": "i18n_jwks_description",
+                    "field_default_value":
+                      {
+                        "keys": [
+                          {
+                            "kty": "EC",
+                            "alg": "ES256",
+                            "crv": "P-256",
+                            "d": "GSbo9TpmGaLgxxO6RNx6QnvcfykQJS7vUVgTe8vy9W0",
+                            "x": "m5uKsE35t3sP7gjmirUewufx2Gt2n6J7fSW68apB2Lo",
+                            "y": "-V54TpMI8RbpB40hbAocIjnaHX5WP6NHjWkHfdCSAyU",
+                          }
+                        ]
+                      },
+                    "field_type": "object",
+                    "field_options": []
+                  }
+            \"}}
+
+        client_id: >
+            {{
+
+                credimi \"
+                  {
+                    "credimi_id": "oid_client_id",
+                    "field_id": "client_id",
+                    "field_label": "i18n_client_id",
+                    "field_description": "i18n_client_id_description",
+                    "field_default_value": "did:web:app.altme.io:issuer",
+                    "field_type": "string",
+                    "field_options": []
+                  }
+            \"}}
+
+        authorization_encrypted_response_enc: >
+            {{
+
+                credimi \"
+                  {
+                    "credimi_id": "oid_authorization_encrypted_response_enc",
+                    "field_id": "authorization_encrypted_response_enc",
+                    "field_label": "i18n_authorization_encrypted_response_enc",
+                    "field_description": "i18n_authorization_encrypted_response_enc_description",
+                    "field_default_value": """,
+                    "field_type": "string",
+                    "field_options": []
+                  }
+            \"}}
+
+        authorization_encrypted_response_alg: >
+            {{
+
+                credimi \"
+                  {
+                   "credimi_id": "oid_authorization_encrypted_response_alg",
+                    "field_id": "authorization_encrypted_response_alg",
+                    "field_label": "i18n_authorization_encrypted_response_alg",
+                    "field_description": "i18n_authorization_encrypted_response_alg_description",
+                    "field_default_value": """,
+                    "field_type": "string",
+                    "field_options": []
+                  }
+            \"}}
+
