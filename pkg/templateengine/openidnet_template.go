@@ -125,14 +125,33 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 	}
 	setMapKey(formNode, "alias", aliasUpdatedNode)
 
-	for sectionName, fields := range config.OptionalFields {
+	sectionNames := make([]string, 0, len(config.OptionalFields))
+	for name := range config.OptionalFields {
+		sectionNames = append(sectionNames, name)
+	}
+	sort.Strings(sectionNames)
+
+	for _, sectionName := range sectionNames {
+		fields := config.OptionalFields[sectionName]
 		sectionNode := findMapKey(formNode, sectionName)
 		if sectionNode == nil {
-			continue // skip missing sections
-		}
 
-		// For each field to be injected into this section
-		for field, rule := range fields {
+			sectionNode = &yaml.Node{
+				Kind:    yaml.MappingNode,
+				Tag:     "!!map",
+				Content: []*yaml.Node{},
+			}
+			setMapKey(formNode, sectionName, sectionNode)
+
+		}
+		fieldKeys := make([]string, 0, len(fields))
+		for k := range fields {
+			fieldKeys = append(fieldKeys, k)
+		}
+		sort.Strings(fieldKeys)
+
+		for _, field := range fieldKeys {
+			rule := fields[field]
 			for param, allowedValues := range rule.Values {
 				if value, exists := variant[param]; exists {
 					for _, allowed := range allowedValues {
@@ -157,7 +176,8 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 		Tag:     "!!map",
 		Content: []*yaml.Node{},
 	}
-	for k, v := range variant {
+	for _, k := range config.VariantOrder {
+		v := variant[k]
 		variantNode.Content = append(variantNode.Content,
 			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: k},
 			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: v},
