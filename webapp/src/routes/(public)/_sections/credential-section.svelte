@@ -44,15 +44,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
-		<T tag="h3">{m.Find_credentials()}</T>
-
-		{#if $featureFlags.DEMO}
-			<Button variant="default" disabled class="select-none blur">
-				{m.All_credentials()}
-			</Button>
-		{:else}
-			<Button variant="default" href="/credentials">{m.All_credentials()}</Button>
-		{/if}
+		<T tag="h3">{m.Find_solutions()}</T>
+		<Button variant="default" href="/marketplace">{m.Explore_Marketplace()}</Button>
 	</div>
 
 	{#if $featureFlags.DEMO}

@@ -77,20 +77,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <PageTop>
 	<div class="space-y-2">
-		<T tag="h1" class="text-balance">
+		<T tag="huge" class="text-balance">
 			{m.EUDIW_Conformance_Interoperability_and_Marketplace()}
 		</T>
 		<div class="flex flex-col gap-2 py-2">
-			<T tag="small" class="text-balance">
+			<T tag="h3" class="text-balance !font-normal">
 				{m.Explore_the_marketplace_and_try_credentials_wallets_and_services()}
 			</T>
-			<T tag="small" class="text-balance">
+			<T tag="h3" class="text-balance !font-normal">
 				{m.Test_the_conformance_and_interoperability_of_your_EUDIW()}
 			</T>
 		</div>
 	</div>
 	<div class="flex gap-4">
-		<Button variant="default" href={$featureFlags.DEMO ? '#waitlist' : '/credentials'}>
+		<Button variant="default" href="/marketplace">
 			{m.Explore_Marketplace()}
 		</Button>
 		<Button variant="secondary" href={$currentUser ? '/my/tests/new' : '/login'}>
