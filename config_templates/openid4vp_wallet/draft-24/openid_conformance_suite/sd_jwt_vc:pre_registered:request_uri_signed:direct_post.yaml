@@ -1,8 +1,8 @@
 variant:
+    response_mode: direct_post
     credential_format: sd_jwt_vc
     client_id_scheme: pre_registered
     request_method: request_uri_signed
-    response_mode: direct_post
 form:
     alias: >
         {{
