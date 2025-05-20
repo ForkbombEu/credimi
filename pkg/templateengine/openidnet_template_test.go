@@ -150,11 +150,13 @@ func TestParseInput(t *testing.T) {
 			"response_mode":     {"test4"},
 		},
 		"optional_fields": map[string]any{
-			"test_field": map[string]any{
-				"values": map[string][]string{
-					"credential_format": {"test1"},
+			"client": map[string]any{
+				"test_field": map[string]any{
+					"values": map[string][]string{
+						"credential_format": {"test1"},
+					},
+					"template": "test_value",
 				},
-				"template": "test_value",
 			},
 		},
 	}

@@ -23,59 +23,60 @@ variant_keys:
     - w3c_dc_api.jwt
 
 optional_fields:
-  client_id:
-    values:
-      client_id_scheme:
-        - did
-        - pre_registered
-        - x509_san_dns
-    template: >
-      {{
-          credimi \"
-            {
-              "credimi_id": "oid_client_id",
-              "field_id": "client_id",
-              "field_label": "i18n_client_id",
-              "field_description": "i18n_client_id_description",
-              "field_default_value": "did:web:app.altme.io:issuer",
-              "field_type": "string",
-              "field_options": []
-            }
-      \"}}
+  client:
+    client_id:
+      values:
+        client_id_scheme:
+          - did
+          - pre_registered
+          - x509_san_dns
+      template: >
+        {{
+            credimi \"
+              {
+                "credimi_id": "oid_client_id",
+                "field_id": "client_id",
+                "field_label": "i18n_client_id",
+                "field_description": "i18n_client_id_description",
+                "field_default_value": "did:web:app.altme.io:issuer",
+                "field_type": "string",
+                "field_options": []
+              }
+        \"}}
 
-  authorization_encrypted_response_enc:
-    values:
-      response_mode:
-        - direct_post.jwt
-        - w3c_dc_api.jwt
-    template: >
-      {{
-          credimi \"
-            {
-              "credimi_id": "oid_authorization_encrypted_response_enc",
-              "field_id": "authorization_encrypted_response_enc",
-              "field_label": "i18n_authorization_encrypted_response_enc",
-              "field_description": "i18n_authorization_encrypted_response_enc_description",
-              "field_default_value": """,
-              "field_type": "string",
-              "field_options": []
-            }
-      \"}}
-  authorization_encrypted_response_alg:
-    values:
-      response_mode:
-        - direct_post.jwt
-        - w3c_dc_api.jwt
-    template: >
-      {{
-          credimi \"
-            {
-             "credimi_id": "oid_authorization_encrypted_response_alg",
-              "field_id": "authorization_encrypted_response_alg",
-              "field_label": "i18n_authorization_encrypted_response_alg",
-              "field_description": "i18n_authorization_encrypted_response_alg_description",
-              "field_default_value": """,
-              "field_type": "string",
-              "field_options": []
-            }
-      \"}}
+    authorization_encrypted_response_enc:
+      values:
+        response_mode:
+          - direct_post.jwt
+          - w3c_dc_api.jwt
+      template: >
+        {{
+            credimi \"
+              {
+                "credimi_id": "oid_authorization_encrypted_response_enc",
+                "field_id": "authorization_encrypted_response_enc",
+                "field_label": "i18n_authorization_encrypted_response_enc",
+                "field_description": "i18n_authorization_encrypted_response_enc_description",
+                "field_default_value": """,
+                "field_type": "string",
+                "field_options": []
+              }
+        \"}}
+    authorization_encrypted_response_alg:
+      values:
+        response_mode:
+          - direct_post.jwt
+          - w3c_dc_api.jwt
+      template: >
+        {{
+            credimi \"
+              {
+              "credimi_id": "oid_authorization_encrypted_response_alg",
+                "field_id": "authorization_encrypted_response_alg",
+                "field_label": "i18n_authorization_encrypted_response_alg",
+                "field_description": "i18n_authorization_encrypted_response_alg_description",
+                "field_default_value": """,
+                "field_type": "string",
+                "field_options": []
+              }
+        \"}}

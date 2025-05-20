@@ -1,8 +1,8 @@
 variant:
-    request_method: request_uri_unsigned
-    response_mode: direct_post.jwt
     credential_format: sd_jwt_vc
     client_id_scheme: pre_registered
+    request_method: request_uri_unsigned
+    response_mode: direct_post.jwt
 form:
     alias: >
         {{
@@ -139,7 +139,7 @@ form:
 
                 credimi \"
                   {
-                   "credimi_id": "oid_authorization_encrypted_response_alg",
+                  "credimi_id": "oid_authorization_encrypted_response_alg",
                     "field_id": "authorization_encrypted_response_alg",
                     "field_label": "i18n_authorization_encrypted_response_alg",
                     "field_description": "i18n_authorization_encrypted_response_alg_description",

@@ -1,8 +1,8 @@
 variant:
-    client_id_scheme: redirect_uri
-    request_method: request_uri_unsigned
     response_mode: w3c_dc_api.jwt
     credential_format: sd_jwt_vc
+    client_id_scheme: redirect_uri
+    request_method: request_uri_unsigned
 form:
     alias: >
         {{
@@ -104,21 +104,6 @@ form:
                   }
             \"}}
 
-        authorization_encrypted_response_alg: >
-            {{
-
-                credimi \"
-                  {
-                   "credimi_id": "oid_authorization_encrypted_response_alg",
-                    "field_id": "authorization_encrypted_response_alg",
-                    "field_label": "i18n_authorization_encrypted_response_alg",
-                    "field_description": "i18n_authorization_encrypted_response_alg_description",
-                    "field_default_value": """,
-                    "field_type": "string",
-                    "field_options": []
-                  }
-            \"}}
-
         authorization_encrypted_response_enc: >
             {{
 
@@ -128,6 +113,21 @@ form:
                     "field_id": "authorization_encrypted_response_enc",
                     "field_label": "i18n_authorization_encrypted_response_enc",
                     "field_description": "i18n_authorization_encrypted_response_enc_description",
+                    "field_default_value": """,
+                    "field_type": "string",
+                    "field_options": []
+                  }
+            \"}}
+
+        authorization_encrypted_response_alg: >
+            {{
+
+                credimi \"
+                  {
+                  "credimi_id": "oid_authorization_encrypted_response_alg",
+                    "field_id": "authorization_encrypted_response_alg",
+                    "field_label": "i18n_authorization_encrypted_response_alg",
+                    "field_description": "i18n_authorization_encrypted_response_alg_description",
                     "field_default_value": """,
                     "field_type": "string",
                     "field_options": []

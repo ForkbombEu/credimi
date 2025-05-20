@@ -16,12 +16,14 @@ import (
 )
 
 type Config struct {
-	VariantOrder   []string            `json:"variant_order" yaml:"variant_order"`
-	VariantKeys    map[string][]string `json:"variant_keys" yaml:"variant_keys"`
-	OptionalFields map[string]struct {
-		Values   map[string][]string `json:"values" yaml:"values"`
-		Template string              `json:"template" yaml:"template"`
-	} `json:"optional_fields" yaml:"optional_fields"`
+	VariantOrder   []string                        `json:"variant_order" yaml:"variant_order"`
+	VariantKeys    map[string][]string             `json:"variant_keys" yaml:"variant_keys"`
+	OptionalFields map[string]map[string]FieldRule `json:"optional_fields" yaml:"optional_fields"`
+}
+
+type FieldRule struct {
+	Values   map[string][]string `json:"values" yaml:"values"`
+	Template string              `json:"template" yaml:"template"`
 }
 
 func LoadYAML(filename string, v any) error {
@@ -96,11 +98,6 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 		return nil, fmt.Errorf("missing 'form' key in default YAML")
 	}
 
-	clientNode := findMapKey(formNode, "client")
-	if clientNode == nil {
-		return nil, fmt.Errorf("missing 'client' key in form")
-	}
-
 	aliasNode := findMapKey(formNode, "alias")
 	if aliasNode == nil {
 		return nil, fmt.Errorf("missing 'alias' key in form")
@@ -128,24 +125,33 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 	}
 	setMapKey(formNode, "alias", aliasUpdatedNode)
 
-	for field, rule := range config.OptionalFields {
-		for param, allowedValues := range rule.Values {
-			if value, exists := variant[param]; exists {
-				for _, allowed := range allowedValues {
-					if value == allowed {
-						templateNode := &yaml.Node{
-							Kind:  yaml.ScalarNode,
-							Tag:   "!!str",
-							Value: rule.Template,
-							Style: yaml.FoldedStyle,
+	for sectionName, fields := range config.OptionalFields {
+		sectionNode := findMapKey(formNode, sectionName)
+		if sectionNode == nil {
+			continue // skip missing sections
+		}
+
+		// For each field to be injected into this section
+		for field, rule := range fields {
+			for param, allowedValues := range rule.Values {
+				if value, exists := variant[param]; exists {
+					for _, allowed := range allowedValues {
+						if value == allowed {
+							templateNode := &yaml.Node{
+								Kind:  yaml.ScalarNode,
+								Tag:   "!!str",
+								Value: rule.Template,
+								Style: yaml.FoldedStyle,
+							}
+							setMapKey(sectionNode, field, templateNode)
+							break
 						}
-						setMapKey(clientNode, field, templateNode)
-						break
 					}
 				}
 			}
 		}
 	}
+
 	variantNode := &yaml.Node{
 		Kind:    yaml.MappingNode,
 		Tag:     "!!map",

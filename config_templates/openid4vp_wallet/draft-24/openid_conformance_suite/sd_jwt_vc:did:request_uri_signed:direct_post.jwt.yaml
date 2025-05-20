@@ -1,8 +1,8 @@
 variant:
+    response_mode: direct_post.jwt
     credential_format: sd_jwt_vc
     client_id_scheme: did
     request_method: request_uri_signed
-    response_mode: direct_post.jwt
 form:
     alias: >
         {{
@@ -104,6 +104,21 @@ form:
                   }
             \"}}
 
+        client_id: >
+            {{
+
+                credimi \"
+                  {
+                    "credimi_id": "oid_client_id",
+                    "field_id": "client_id",
+                    "field_label": "i18n_client_id",
+                    "field_description": "i18n_client_id_description",
+                    "field_default_value": "did:web:app.altme.io:issuer",
+                    "field_type": "string",
+                    "field_options": []
+                  }
+            \"}}
+
         authorization_encrypted_response_enc: >
             {{
 
@@ -124,26 +139,11 @@ form:
 
                 credimi \"
                   {
-                   "credimi_id": "oid_authorization_encrypted_response_alg",
+                  "credimi_id": "oid_authorization_encrypted_response_alg",
                     "field_id": "authorization_encrypted_response_alg",
                     "field_label": "i18n_authorization_encrypted_response_alg",
                     "field_description": "i18n_authorization_encrypted_response_alg_description",
                     "field_default_value": """,
-                    "field_type": "string",
-                    "field_options": []
-                  }
-            \"}}
-
-        client_id: >
-            {{
-
-                credimi \"
-                  {
-                    "credimi_id": "oid_client_id",
-                    "field_id": "client_id",
-                    "field_label": "i18n_client_id",
-                    "field_description": "i18n_client_id_description",
-                    "field_default_value": "did:web:app.altme.io:issuer",
                     "field_type": "string",
                     "field_options": []
                   }
