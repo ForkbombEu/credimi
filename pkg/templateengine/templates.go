@@ -149,6 +149,7 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 				"DescriptionKey": ph.DescriptionKey,
 				"LabelKey":       ph.LabelKey,
 				"Example":        ph.Example,
+				"Options":        ph.Options,
 			}
 			normalizedFields = append(normalizedFields, field)
 		}
