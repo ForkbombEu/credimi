@@ -242,16 +242,17 @@ func setMapKey(mapNode *yaml.Node, key string, valueNode *yaml.Node) {
 }
 
 func extractCredimiJSON(template string) (map[string]any, error) {
-	re := regexp.MustCompile(`(?s)credimi\s+\\\"(.*?)\\\"`)
+	re := regexp.MustCompile("(?s)credimi\\s+`(.*?)`")
 	matches := re.FindStringSubmatch(template)
 	if len(matches) < 2 {
-		fmt.Println("matches", matches)
-		return nil, errors.New("could not find embedded escaped JSON")
-
+		return nil, errors.New("could not find embedded JSON in credimi")
 	}
-	// Unmarshal
+
+	// Remove leading/trailing whitespace and newlines
+	jsonStr := strings.TrimSpace(matches[1])
+
 	var result map[string]any
-	if err := json.Unmarshal([]byte(matches[1]), &result); err != nil {
+	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
 		return nil, fmt.Errorf("invalid JSON: %w", err)
 	}
 
@@ -262,7 +263,7 @@ func generateCredimiTemplate(data map[string]any) (string, error) {
 	var b strings.Builder
 
 	// Write opening lines
-	b.WriteString("{{\n   credimi \\\"\n")
+	b.WriteString("{{\n   credimi `\n")
 	b.WriteString("      {\n")
 
 	// Collect and sort keys for stable output
@@ -288,7 +289,7 @@ func generateCredimiTemplate(data map[string]any) (string, error) {
 
 	// Closing lines
 	b.WriteString("      }\n")
-	b.WriteString("\\\"}}\n")
+	b.WriteString("`}}\n")
 
 	return b.String(), nil
 }

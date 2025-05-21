@@ -12,7 +12,7 @@ import (
 )
 
 
-func TestCredimiPlaceholder_ValidJSON(t *testing.T) {
+func TestCredimi_ValidJSON(t *testing.T) {
 	jsonInput := `
 	{
 		"credimi_id": "credimi_123",
@@ -24,13 +24,13 @@ func TestCredimiPlaceholder_ValidJSON(t *testing.T) {
 		"field_options": ["opt1", "opt2"]
 	}`
 
-	result, err := credimiPlaceholder(jsonInput)
+	result, err := credimi(jsonInput)
 	if err != nil {
-		t.Errorf("credimiPlaceholder() returned error: %v", err)
+		t.Errorf("credimi() returned error: %v", err)
 	}
 	expected := "{{ .field_abc }}"
 	if result != expected {
-		t.Errorf("credimiPlaceholder() = %v, want %v", result, expected)
+		t.Errorf("credimi() = %v, want %v", result, expected)
 	}
 
 	meta, ok := metadataStore["field_abc"]
@@ -50,15 +50,15 @@ func TestCredimiPlaceholder_ValidJSON(t *testing.T) {
 	}
 }
 
-func TestCredimiPlaceholder_InvalidJSON(t *testing.T) {
+func TestCredimi_InvalidJSON(t *testing.T) {
 	invalidJSON := `{"credimi_id": "id", "field_id": "field"`
-	_, err := credimiPlaceholder(invalidJSON)
+	_, err := credimi(invalidJSON)
 	if err == nil {
 		t.Errorf("Expected error for invalid JSON, got nil")
 	}
 }
 
-func TestCredimiPlaceholder_WhitespaceTrim(t *testing.T) {
+func TestCredimi_WhitespaceTrim(t *testing.T) {
 	jsonInput := `
 	{
 		"credimi_id": "id_trim",
@@ -70,17 +70,17 @@ func TestCredimiPlaceholder_WhitespaceTrim(t *testing.T) {
 		"field_options": []
 	}
 	`
-	result, err := credimiPlaceholder("\n  "+jsonInput+"  \n")
+	result, err := credimi("\n  "+jsonInput+"  \n")
 	if err != nil {
-		t.Errorf("credimiPlaceholder() returned error: %v", err)
+		t.Errorf("credimi() returned error: %v", err)
 	}
 	expected := "{{ .field_trim }}"
 	if result != expected {
-		t.Errorf("credimiPlaceholder() = %v, want %v", result, expected)
+		t.Errorf("credimi() = %v, want %v", result, expected)
 	}
 }
 
-func TestCredimiPlaceholder_BackslashCleanup(t *testing.T) {
+func TestCredimi_BackslashCleanup(t *testing.T) {
 	jsonInput := `
 	{
 		"credimi_id": "id_bs",
@@ -92,9 +92,9 @@ func TestCredimiPlaceholder_BackslashCleanup(t *testing.T) {
 		"field_options": []
 	}
 	`
-	_, err := credimiPlaceholder(jsonInput)
+	_, err := credimi(jsonInput)
 	if err != nil {
-		t.Errorf("credimiPlaceholder() returned error: %v", err)
+		t.Errorf("credimi() returned error: %v", err)
 	}
 	meta, ok := metadataStore["field_bs"]
 	if !ok {
@@ -113,7 +113,7 @@ func TestPreprocessTemplate_BasicPlaceholder(t *testing.T) {
 form:
   alias: |>
     {{
-      credimiPlaceholder ` + "`" + `
+      credimi ` + "`" + `
         {
           "credimi_id": "iso_mdl_did_request_uri_signed_direct_post_jwt_oid_alias",
           "field_id": "testalias",
@@ -149,7 +149,7 @@ form:
 }
 
 func TestPreprocessTemplate_InvalidJSON(t *testing.T) {
-	input := `{{ credimiPlaceholder "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"example1\",\"field_type\":\"string\",\"field_options\":[]}" }}`
+	input := `{{ credimi "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"example1\",\"field_type\":\"string\",\"field_options\":[]}" }}`
 	expected := "{{ .field1 }}"
 	result, err := preprocessTemplate(input)
 	if err != nil {
@@ -161,7 +161,7 @@ func TestPreprocessTemplate_InvalidJSON(t *testing.T) {
 }
 
 func TestPreprocessTemplate_MultiplePlaceholders(t *testing.T) {
-	input := `{{ credimiPlaceholder "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"example1\",\"field_type\":\"string\",\"field_options\":[]}" }} {{ credimiPlaceholder "{\"credimi_id\":\"id2\",\"field_id\":\"field2\",\"field_label\":\"label2\",\"field_description\":\"desc2\",\"field_default_value\":\"example2\",\"field_type\":\"string\",\"field_options\":[]}" }}`
+	input := `{{ credimi "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"example1\",\"field_type\":\"string\",\"field_options\":[]}" }} {{ credimi "{\"credimi_id\":\"id2\",\"field_id\":\"field2\",\"field_label\":\"label2\",\"field_description\":\"desc2\",\"field_default_value\":\"example2\",\"field_type\":\"string\",\"field_options\":[]}" }}`
 	expected := "{{ .field1 }} {{ .field2 }}"
 	result, err := preprocessTemplate(input)
 	if err != nil {
@@ -173,7 +173,7 @@ func TestPreprocessTemplate_MultiplePlaceholders(t *testing.T) {
 }
 
 func TestPreprocessTemplate_WhitespaceInput(t *testing.T) {
-	input := `   {{ credimiPlaceholder "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"example1\",\"field_type\":\"string\",\"field_options\":[]}" }}   `
+	input := `   {{ credimi "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"example1\",\"field_type\":\"string\",\"field_options\":[]}" }}   `
 	expected := "   {{ .field1 }}   "
 	result, err := preprocessTemplate(input)
 	if err != nil {
@@ -197,7 +197,7 @@ func TestPreprocessTemplate_EmptyInput(t *testing.T) {
 	}
 }
 func TestGetPlaceholders_SingleTemplateSinglePlaceholder(t *testing.T) {
-	templateStr := `{{ credimiPlaceholder "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"example1\",\"field_type\":\"string\",\"field_options\":[\"a\",\"b\"]}" }}`
+	templateStr := `{{ credimi "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"example1\",\"field_type\":\"string\",\"field_options\":[\"a\",\"b\"]}" }}`
 	reader := strings.NewReader(templateStr)
 	names := []string{"template1"}
 
@@ -241,8 +241,8 @@ func TestGetPlaceholders_SingleTemplateSinglePlaceholder(t *testing.T) {
 
 func TestGetPlaceholders_MultipleTemplatesWithSharedCredimiID(t *testing.T) {
 	// Both templates use the same credimi_id
-	template1 := `{{ credimiPlaceholder "{\"credimi_id\":\"shared\",\"field_id\":\"fieldA\",\"field_label\":\"labelA\",\"field_description\":\"descA\",\"field_default_value\":\"exA\",\"field_type\":\"string\",\"field_options\":[]}" }}`
-	template2 := `{{ credimiPlaceholder "{\"credimi_id\":\"shared\",\"field_id\":\"fieldB\",\"field_label\":\"labelB\",\"field_description\":\"descB\",\"field_default_value\":\"exB\",\"field_type\":\"string\",\"field_options\":[]}" }}`
+	template1 := `{{ credimi "{\"credimi_id\":\"shared\",\"field_id\":\"fieldA\",\"field_label\":\"labelA\",\"field_description\":\"descA\",\"field_default_value\":\"exA\",\"field_type\":\"string\",\"field_options\":[]}" }}`
+	template2 := `{{ credimi "{\"credimi_id\":\"shared\",\"field_id\":\"fieldB\",\"field_label\":\"labelB\",\"field_description\":\"descB\",\"field_default_value\":\"exB\",\"field_type\":\"string\",\"field_options\":[]}" }}`
 	readers := []io.Reader{strings.NewReader(template1), strings.NewReader(template2)}
 	names := []string{"tmpl1", "tmpl2"}
 
@@ -285,8 +285,8 @@ func TestGetPlaceholders_MultipleTemplatesWithSharedCredimiID(t *testing.T) {
 }
 
 func TestGetPlaceholders_MultipleTemplatesNoSharedCredimiID(t *testing.T) {
-	template1 := `{{ credimiPlaceholder "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"ex1\",\"field_type\":\"string\",\"field_options\":[]}" }}`
-	template2 := `{{ credimiPlaceholder "{\"credimi_id\":\"id2\",\"field_id\":\"field2\",\"field_label\":\"label2\",\"field_description\":\"desc2\",\"field_default_value\":\"ex2\",\"field_type\":\"string\",\"field_options\":[]}" }}`
+	template1 := `{{ credimi "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"ex1\",\"field_type\":\"string\",\"field_options\":[]}" }}`
+	template2 := `{{ credimi "{\"credimi_id\":\"id2\",\"field_id\":\"field2\",\"field_label\":\"label2\",\"field_description\":\"desc2\",\"field_default_value\":\"ex2\",\"field_type\":\"string\",\"field_options\":[]}" }}`
 	readers := []io.Reader{strings.NewReader(template1), strings.NewReader(template2)}
 	names := []string{"tmpl1", "tmpl2"}
 
@@ -324,7 +324,7 @@ func TestGetPlaceholders_MultipleTemplatesNoSharedCredimiID(t *testing.T) {
 
 func TestGetPlaceholders_ErrorOnInvalidTemplate(t *testing.T) {
 	// Invalid JSON in placeholder
-	templateStr := `{{ credimiPlaceholder "{\"credimi_id\":\"id1\",\"field_id\":\"field1\"" }}`
+	templateStr := `{{ credimi "{\"credimi_id\":\"id1\",\"field_id\":\"field1\"" }}`
 	reader := strings.NewReader(templateStr)
 	names := []string{"badtemplate"}
 

@@ -163,7 +163,7 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 }
 
 
-func credimiPlaceholder(jsonStr string) (string, error) {
+func credimi(jsonStr string) (string, error) {
 	// Remove any leading/trailing whitespace
 	jsonStr = strings.TrimSpace(jsonStr)
 
@@ -203,7 +203,7 @@ func preprocessTemplate(content string) (string, error) {
 	)
 	funcs := handler.Build()
 
-	funcs["credimiPlaceholder"] = credimiPlaceholder
+	funcs["credimi"] = credimi
 
 	tmpl, err := template.New("preprocess").Funcs(funcs).Parse(content)
 	if err != nil {
