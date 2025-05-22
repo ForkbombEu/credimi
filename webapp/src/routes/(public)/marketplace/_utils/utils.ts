@@ -93,7 +93,10 @@ export function getMarketplaceItemTypeData(type: MarketplaceItemType) {
 }
 
 export function getMarketplaceItemData(item: MarketplaceItem) {
-	const href = localizeHref(`/marketplace/${item.type}/${item.id}`);
+	const href =
+		item.type === 'custom_checks'
+			? `/my/tests/new?test_id=${item.id}`
+			: localizeHref(`/marketplace/${item.type}/${item.id}`);
 	const logo = item.avatar
 		? pb.files.getURL(item.avatar, item.avatar.image_file)
 		: item.avatar_url
