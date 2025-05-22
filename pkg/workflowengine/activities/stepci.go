@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -23,6 +24,50 @@ import (
 
 // StepCIWorkflowActivity is an activity that runs a StepCI workflow
 type StepCIWorkflowActivity struct{}
+
+type TestResult struct {
+	ID            string       `json:"id"`
+	Name          *string      `json:"name,omitempty"`
+	Steps         []StepResult `json:"steps"`
+	Passed        bool         `json:"passed"`
+	Timestamp     time.Time    `json:"timestamp"`
+	Duration      float64      `json:"duration"`
+	CO2           float64      `json:"co2"`
+	BytesSent     int64        `json:"bytesSent"`
+	BytesReceived int64        `json:"bytesReceived"`
+}
+
+type StepCICliReturns struct {
+	Passed   bool           `json:"passed"`
+	Messages []string       `json:"messages"`
+	Captures map[string]any `json:"captures"`
+	Tests    []TestResult   `json:"tests"`
+	Errors   []CliError     `json:"errors"`
+}
+
+type StepResult struct {
+	ID            *string         `json:"id,omitempty"`
+	TestID        string          `json:"testId"`
+	Name          *string         `json:"name,omitempty"`
+	Retries       *int            `json:"retries,omitempty"`
+	Captures      *map[string]any `json:"captures,omitempty"`
+	Cookies       any             `json:"cookies,omitempty"`
+	Errored       bool            `json:"errored"`
+	ErrorMessage  *string         `json:"errorMessage,omitempty"`
+	Passed        bool            `json:"passed"`
+	Skipped       bool            `json:"skipped"`
+	Timestamp     time.Time       `json:"timestamp"`
+	ResponseTime  int             `json:"responseTime"`
+	Duration      int             `json:"duration"`
+	CO2           float64         `json:"co2"`
+	BytesSent     int             `json:"bytesSent"`
+	BytesReceived int             `json:"bytesReceived"`
+}
+
+type CliError struct {
+	Message string  `json:"message"`
+	Stack   *string `json:"stack,omitempty"`
+}
 
 // Name returns the name of the StepCIWorkflowActivity, which describes
 // the purpose of this activity as running an automation workflow of API calls.
@@ -81,34 +126,58 @@ func (a *StepCIWorkflowActivity) Execute(
 		return workflowengine.Fail(&result, "missing rendered YAML in payload")
 	}
 
-	var secretString bytes.Buffer
+	filtered := make(map[string]string)
 	for k, v := range input.Config {
-		if k != "template" {
-			if secretString.Len() > 0 {
-				secretString.WriteString(" ")
-			}
-			secretString.WriteString(fmt.Sprintf("%s=%s", k, v))
+		if k != "template" && k != "human_readable" {
+			filtered[k] = v
 		}
+
 	}
 
+	jsonBytes, err := json.Marshal(filtered)
+	if err != nil {
+		return workflowengine.Fail(
+			&result,
+			fmt.Sprintf("failed to marshal JSON: %v", err),
+		)
+	}
 	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	binName := "stepci-captured-runner"
 	binPath := fmt.Sprintf("%s/%s", binDir, binName)
 	// Build the arguments for the command
-	args := []string{yamlContent, "-s", secretString.String()}
+	args := []string{yamlContent, "-s", string(jsonBytes)}
+	if input.Config["human_readable"] == "true" {
+		args = append(args, "-h")
+	}
 
 	cmd := exec.CommandContext(ctx, binPath, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return workflowengine.Fail(
 			&result,
-			fmt.Sprintf("stepci runner failed: %v\nOutput: %s", err, output),
+			fmt.Sprintf("stepci runner failed: %v\nOutput: %s", err, string(output)),
 		)
 	}
-	var outputJSON map[string]any
+	if input.Config["human_readable"] == "true" {
+
+		result.Output = string(output)
+		if strings.Contains(string(output), "Workflow failed") {
+			return workflowengine.Fail(
+				&result,
+				"stepCI run failed",
+			)
+		}
+		return result, nil
+	}
+
+	var outputJSON StepCICliReturns
 
 	if err := json.Unmarshal(output, &outputJSON); err != nil {
 		return workflowengine.Fail(&result, fmt.Sprintf("failed to unmarshal JSON output: %v", err))
+	}
+
+	if !outputJSON.Passed {
+		return workflowengine.Fail(&result, "stepCI run failed")
 	}
 	result.Output = outputJSON
 	return result, nil
@@ -129,7 +198,7 @@ func (a *StepCIWorkflowActivity) Execute(
 //
 // The function also decodes any HTML entities in the rendered string and trims
 // leading/trailing whitespace or extra newlines from the result.
-func RenderYAML(yamlString string, data map[string]interface{}) (string, error) {
+func RenderYAML(yamlString string, data map[string]any) (string, error) {
 	handler := sprout.New(
 		sprout.WithGroups(all.RegistryGroup()),
 	)

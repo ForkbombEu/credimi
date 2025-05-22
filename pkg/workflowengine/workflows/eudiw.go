@@ -101,7 +101,7 @@ func (w *EudiwWorkflow) Workflow(
 		logger.Error("StepCIExecution failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
 	}
-	result, ok := stepCIResult.Output.(map[string]any)
+	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
 	if !ok {
 		return workflowengine.WorkflowResult{}, fmt.Errorf(
 			"unexpected output type: %T",
@@ -288,7 +288,7 @@ func (w *EudiwWorkflow) Workflow(
 
 		case 500:
 			return workflowengine.WorkflowResult{}, fmt.Errorf(
-				"eudiw check failed with status code %d",
+				"Eudiw check failed with status code %d",
 				int(statusCode),
 			)
 

@@ -126,7 +126,8 @@ func TestStepCIActivity_Execute(t *testing.T) {
 		config           map[string]string
 		expectedError    bool
 		expectedErrorMsg string
-		expectedInOutput any
+		expectedCaptures any
+		expectedOutput   string
 	}{
 		{
 			name: "Success - valid execution",
@@ -156,7 +157,26 @@ tests:
 `,
 			},
 			config:           map[string]string{"test_secret": "https://httpbin.org/status/404"},
-			expectedInOutput: map[string]any{"test": float64(1)},
+			expectedCaptures: map[string]any{"test": float64(1)},
+		},
+		{
+			name: "Success - human readable",
+			payload: map[string]interface{}{
+				"yaml": `
+version: "1.1"
+tests:
+  example:
+    steps:
+      - name: test
+        http:
+          url: "https://httpbin.org/status/200"
+          method: GET
+          check:
+            status: 200
+`,
+			},
+			config:         map[string]string{"human_readable": "true"},
+			expectedOutput: "\n🎉 All done! Your workflow succeeded.",
 		},
 		{
 			name: "Failure - missing runner binary",
@@ -164,14 +184,14 @@ tests:
 				"yaml": "version: 1.0",
 			},
 			expectedError:    true,
-			expectedErrorMsg: "stepci runner failed",
+			expectedErrorMsg: "stepCI run failed",
 		},
 		{
 			name:             "Failure - incorrect secrets",
 			payload:          map[string]any{"yaml": "version: 1.0"},
 			config:           map[string]string{"wrongToken": "invalid-token"},
 			expectedError:    true,
-			expectedErrorMsg: "stepci runner failed",
+			expectedErrorMsg: "stepCI run failed",
 		},
 		{
 			name: "Failure - stepCI fails",
@@ -200,7 +220,7 @@ tests:
 			},
 			config:           map[string]string{"test_secret": "https://httpbin.org/status/404"},
 			expectedError:    true,
-			expectedErrorMsg: "Workflow failed. Details:\n\n🔴 Step Failed: Notfound test",
+			expectedErrorMsg: "stepCI run failed",
 		},
 	}
 
@@ -227,7 +247,11 @@ tests:
 			} else {
 				require.NoError(t, err)
 				future.Get(&result)
-				require.Equal(t, tc.expectedInOutput, result.Output)
+				if tc.expectedOutput != "" {
+					require.Contains(t, result.Output.(string), tc.expectedOutput)
+				} else {
+					require.Equal(t, tc.expectedCaptures, result.Output.(map[string]any)["captures"])
+				}
 			}
 		})
 	}
