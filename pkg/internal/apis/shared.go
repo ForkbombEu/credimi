@@ -5,6 +5,8 @@
 package apis
 
 import (
+	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/suite"
 	"go.temporal.io/sdk/testsuite"
@@ -41,4 +43,15 @@ func generateToken(collectionNameOrID string, email string) (string, error) {
 	}
 
 	return record.NewAuthToken()
+}
+
+func isSuperUser(app core.App, user *core.Record) bool {
+	superUserRecord, err := app.FindFirstRecordByFilter("_superusers", "id ={:id}", dbx.Params{"id": user.Id})
+	if err != nil {
+		return false
+	}
+	if superUserRecord != nil {
+		return true
+	}
+	return false
 }
