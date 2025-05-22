@@ -71,7 +71,10 @@ version: ## ℹ️ Display version information
 $(WEBENV):
 	cp $(WEBAPP)/.env.example $(WEBAPP)/.env
 
-dev: $(WEBENV) tools devtools submodules ## 🚀 run in watch mode
+$(DATA):
+	mkdir -p $(DATA)
+
+dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA)## 🚀 run in watch mode
 	DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev
 
 test: ## 🧪 run tests with coverage
@@ -126,7 +129,7 @@ $(BINARY_NAME)-ui: $(UI_SRC)
 	cd $(WEBAPP) && bun i && bun run bin; \
 	kill $$PID;
 
-docker: submodules ## 🐳 run docker with all the infrastructure services
+docker: $(DATA) submodules ## 🐳 run docker with all the infrastructure services
 	docker compose build --build-arg PUBLIC_POCKETBASE_URL="http://localhost:8090"
 	docker compose up
 
