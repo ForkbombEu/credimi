@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { children, contentClass = '' }: Props = $props();
 </script>
 
-<div class="bg-card border-b-primary border-b-2">
+<div class="border-y-2 border-y-primary bg-[url(/hero.png)] bg-cover bg-right">
 	<div class="mx-auto max-w-screen-xl space-y-8 px-8 py-12 pt-20 {contentClass}">
 		{@render children()}
 	</div>

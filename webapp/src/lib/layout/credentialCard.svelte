@@ -29,7 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <a
-	href={localizeHref(`/credentials/${credential.id}`)}
+	href={localizeHref(`/marketplace/credentials/${credential.id}`)}
 	class="flex flex-col gap-6 rounded-xl border border-primary bg-card p-6 text-card-foreground shadow-sm ring-primary transition-transform hover:-translate-y-2 hover:ring-2 {className}"
 >
 	<div class="flex items-center gap-2">

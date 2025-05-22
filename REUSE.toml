@@ -30,6 +30,7 @@ path = [
     "pkg/workflowengine/workflows/credentials_config/openid-credential-issuer.schema.go",
     "pb_migrations/*",
     "test_pb_data/*",
+    ".idea/**/*",
     "go.sum",
     "mocked_templates/**/*"
 ]
