@@ -42,7 +42,7 @@ func Test_EudiwWorkflow(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -73,7 +73,7 @@ func Test_EudiwWorkflow(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -104,7 +104,7 @@ func Test_EudiwWorkflow(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"client_id": "test_client_id", "transaction_id": "12345", "request_uri": "test_uri"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -117,7 +117,7 @@ func Test_EudiwWorkflow(t *testing.T) {
 					}}, nil)
 			},
 			expectedErr:  true,
-			errorMessage: "Eudiw check failed with status code 500",
+			errorMessage: "eudiw check failed with status code 500",
 		},
 	}
 
@@ -142,7 +142,8 @@ func Test_EudiwWorkflow(t *testing.T) {
 						"user_mail": "test@example.org",
 					},
 					Config: map[string]any{
-						"template": "test-template",
+						"template":  "test-template",
+						"namespace": "test-namespace",
 					},
 				})
 

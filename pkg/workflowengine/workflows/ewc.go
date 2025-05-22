@@ -100,7 +100,7 @@ func (w *EWCWorkflow) Workflow(
 		logger.Error("StepCIExecution failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
 	}
-	result, ok := stepCIResult.Output.(map[string]any)
+	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
 	if !ok {
 		return workflowengine.WorkflowResult{}, fmt.Errorf(
 			"unexpected output type: %T",
