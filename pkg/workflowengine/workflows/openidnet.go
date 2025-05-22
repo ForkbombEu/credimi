@@ -106,7 +106,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		logger.Error("StepCIExecution failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
 	}
-	result, ok := stepCIResult.Output.(map[string]any)["result"].(string)
+	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["result"].(string)
 	if !ok {
 		result = ""
 	}
@@ -149,7 +149,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	rid, ok := stepCIResult.Output.(map[string]any)["rid"].(string)
+	rid, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["rid"].(string)
 	if !ok {
 		rid = ""
 	}

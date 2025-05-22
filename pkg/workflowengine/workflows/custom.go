@@ -38,7 +38,9 @@ func (w *CustomCheckWorkflow) Workflow(
 		Payload: map[string]any{
 			"yaml": input.Payload["yaml"],
 		},
-		Config: map[string]string{},
+		Config: map[string]string{
+			"human_readable": "true",
+		},
 	}
 	var stepCIResult workflowengine.ActivityResult
 
@@ -49,10 +51,10 @@ func (w *CustomCheckWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	result := stepCIResult.Output.(map[string]any)["result"]
+	result := stepCIResult.Output.(string)
 
 	return workflowengine.WorkflowResult{
-		Message: fmt.Sprintf("Custom check result: %v", result),
+		Message: fmt.Sprintf("Custom check result:\n%v", result),
 	}, nil
 }
 

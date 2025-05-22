@@ -45,7 +45,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"rid": 12345}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": 12345}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -75,7 +75,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"rid": 12345}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": 12345}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -128,7 +128,8 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 					"app_url":   "https://test-app.com",
 				},
 				Config: map[string]any{
-					"template": "test-template",
+					"template":  "test-template",
+					"namespace": "test-namespace",
 				},
 			})
 			var result workflowengine.WorkflowResult
