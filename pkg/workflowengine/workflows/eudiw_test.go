@@ -117,7 +117,7 @@ func Test_EudiwWorkflow(t *testing.T) {
 					}}, nil)
 			},
 			expectedErr:  true,
-			errorMessage: "Eudiw check failed with status code 500",
+			errorMessage: "eudiw check failed with status code 500",
 		},
 	}
 

@@ -288,7 +288,7 @@ func (w *EudiwWorkflow) Workflow(
 
 		case 500:
 			return workflowengine.WorkflowResult{}, fmt.Errorf(
-				"Eudiw check failed with status code %d",
+				"eudiw check failed with status code %d",
 				int(statusCode),
 			)
 

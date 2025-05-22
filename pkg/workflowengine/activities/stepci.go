@@ -131,7 +131,6 @@ func (a *StepCIWorkflowActivity) Execute(
 		if k != "template" && k != "human_readable" {
 			filtered[k] = v
 		}
-
 	}
 
 	jsonBytes, err := json.Marshal(filtered)
@@ -159,7 +158,6 @@ func (a *StepCIWorkflowActivity) Execute(
 		)
 	}
 	if input.Config["human_readable"] == "true" {
-
 		result.Output = string(output)
 		if strings.Contains(string(output), "Workflow failed") {
 			return workflowengine.Fail(
