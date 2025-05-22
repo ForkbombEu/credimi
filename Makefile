@@ -74,7 +74,7 @@ $(WEBENV):
 $(DATA):
 	mkdir -p $(DATA)
 
-dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA)## 🚀 run in watch mode
+dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mode
 	DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev
 
 test: ## 🧪 run tests with coverage
