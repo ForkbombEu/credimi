@@ -19,7 +19,8 @@ export const marketplaceItemTypes = [
 	'verifiers',
 	'credential_issuers',
 	'wallets',
-	'credentials'
+	'credentials',
+	'custom_checks'
 ] as const satisfies CollectionName[];
 
 export const marketplaceItemTypeSchema = z.enum(marketplaceItemTypes);
@@ -38,7 +39,7 @@ export type MarketplaceItem = {
 	type: MarketplaceItemType;
 	name: string;
 	description: string | null;
-	avatar: string | null;
+	avatar: { [key: string]: unknown; image_file: string } | null;
 	avatar_url: string | null;
 	updated: string;
 	organization_id: string;
@@ -77,6 +78,11 @@ const marketplaceItemsDisplayConfig: MarketplaceItemsDisplayConfig = {
 		label: m.Credential(),
 		bgClass: 'bg-purple-500',
 		textClass: 'text-purple-500'
+	},
+	custom_checks: {
+		label: m.Custom_check(),
+		bgClass: 'bg-orange-500',
+		textClass: 'text-orange-500'
 	}
 };
 
@@ -87,9 +93,12 @@ export function getMarketplaceItemTypeData(type: MarketplaceItemType) {
 }
 
 export function getMarketplaceItemData(item: MarketplaceItem) {
-	const href = localizeHref(`/marketplace/${item.type}/${item.id}`);
+	const href =
+		item.type === 'custom_checks'
+			? `/my/tests/new?test_id=${item.id}`
+			: localizeHref(`/marketplace/${item.type}/${item.id}`);
 	const logo = item.avatar
-		? pb.files.getURL(item, item.avatar)
+		? pb.files.getURL(item.avatar, item.avatar.image_file)
 		: item.avatar_url
 			? item.avatar_url
 			: undefined;
