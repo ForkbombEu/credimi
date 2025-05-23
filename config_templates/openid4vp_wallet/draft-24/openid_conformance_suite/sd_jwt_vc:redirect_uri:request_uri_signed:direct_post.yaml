@@ -4,21 +4,21 @@ variant:
     request_method: request_uri_signed
     response_mode: direct_post
 form:
-    alias: >
+    alias: >-
         {{
 
            credimi `
               {
                 "credimi_id": "sd_jwt_vc_redirect_uri_request_uri_signed_direct_post_oid_alias",
-                "field_default_value": "uuidv4",
+                "field_default_value": "",
                 "field_description": "i18n_test_alias_description",
                 "field_id": "testalias",
                 "field_label": "i18n_testalias",
                 "field_options": [],
                 "field_type": "string"
               }
-        `}}
-
+           `
+        uuidv4}}
     description: >
         {{
 

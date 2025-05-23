@@ -102,7 +102,7 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 	if aliasNode == nil {
 		return nil, fmt.Errorf("missing 'alias' key in form")
 	}
-	aliasJSON, err := extractCredimiJSON(aliasNode.Value)
+	aliasJSON, afterContent, err := extractCredimiJSON(aliasNode.Value)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate template: %w", err)
 	}
@@ -113,7 +113,7 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 	variantPrefix := strings.Join(variantParts, "_")
 	variantPrefix = strings.ReplaceAll(variantPrefix, ".", "_")
 	aliasJSON["credimi_id"] = fmt.Sprintf("%s_%s", variantPrefix, aliasJSON["credimi_id"])
-	updatedTemplate, err := generateCredimiTemplate(aliasJSON)
+	updatedTemplate, err := generateCredimiTemplate(aliasJSON, afterContent)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate template: %w", err)
 	}
@@ -241,11 +241,11 @@ func setMapKey(mapNode *yaml.Node, key string, valueNode *yaml.Node) {
 	}, valueNode)
 }
 
-func extractCredimiJSON(template string) (map[string]any, error) {
+func extractCredimiJSON(template string) (map[string]any, string, error) {
 	re := regexp.MustCompile("(?s)credimi\\s+`(.*?)`")
 	matches := re.FindStringSubmatch(template)
 	if len(matches) < 2 {
-		return nil, errors.New("could not find embedded JSON in credimi")
+		return nil, "", errors.New("could not find embedded JSON in credimi")
 	}
 
 	// Remove leading/trailing whitespace and newlines
@@ -253,13 +253,20 @@ func extractCredimiJSON(template string) (map[string]any, error) {
 
 	var result map[string]any
 	if err := json.Unmarshal([]byte(jsonStr), &result); err != nil {
-		return nil, fmt.Errorf("invalid JSON: %w", err)
+		return nil, "", fmt.Errorf("invalid JSON: %w", err)
 	}
 
-	return result, nil
+	reAfter := regexp.MustCompile("(?s)credimi\\s+`.*?`([\\s\\S]*?)\\}\\}")
+	afterMatches := reAfter.FindStringSubmatch(template)
+	afterContent := ""
+	if len(afterMatches) >= 2 {
+		afterContent = strings.TrimSpace(afterMatches[1])
+	}
+
+	return result, afterContent, nil
 }
 
-func generateCredimiTemplate(data map[string]any) (string, error) {
+func generateCredimiTemplate(data map[string]any, afterContent string) (string, error) {
 	var b strings.Builder
 
 	// Write opening lines
@@ -289,7 +296,7 @@ func generateCredimiTemplate(data map[string]any) (string, error) {
 
 	// Closing lines
 	b.WriteString("      }\n")
-	b.WriteString("`}}\n")
+	b.WriteString(fmt.Sprintf("   `\n%s}}", afterContent))
 
 	return b.String(), nil
 }

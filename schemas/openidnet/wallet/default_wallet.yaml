@@ -7,11 +7,11 @@ form:
             "field_id": "testalias",
             "field_label": "i18n_testalias",
             "field_description": "i18n_test_alias_description",
-            "field_default_value": "uuidv4",
+            "field_default_value": "",
             "field_type": "string",
             "field_options": []
           }
-    `}}
+    ` uuidv4 }}
   description: >
     {{
         credimi `
