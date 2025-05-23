@@ -53,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<Avatar
 							src={logoUrl}
 							fallback={organization.name}
-							class="!rounded-sm border p-6"
+							class="!rounded-sm border size-12"
 							hideIfLoadingError
 						/>
 
