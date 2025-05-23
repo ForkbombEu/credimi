@@ -11,14 +11,17 @@ import { checkAuthFlagAndUser } from '$lib/utils/index.js';
 
 //
 
-export const load = async ({ fetch }) => {
+export const load = async ({ fetch, parent }) => {
 	await checkAuthFlagAndUser({ fetch });
-
+	
 	const result = await getStandardsAndTestSuites({ fetch });
+	const { organization } = await parent();
+	if (!organization) throw error(403);
+
 
 	let customChecks: CustomChecksResponse[] = [];
 	try {
-		customChecks = await pb.collection('custom_checks').getFullList();
+		customChecks = await pb.collection('custom_checks').getFullList({filter: `owner = '${organization.id}'`});
 	} catch (e) {
 		console.error(e);
 	}
