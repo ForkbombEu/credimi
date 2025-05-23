@@ -18,27 +18,37 @@ import (
 )
 
 // PlaceholderMetadata holds metadata for a placeholder in a template.
-// It includes the field name, Credimi ID, label key, description key,
-// type, and example value.
+// It matches the placeholderInput struct.
 type PlaceholderMetadata struct {
-	FieldName      string
-	CredimiID      string
-	LabelKey       string
-	DescriptionKey string
-	Type           string
-	Example        string
-	Options 	 []string
+	CredimiID    string      `json:"credimi_id"`
+	FieldID      string      `json:"field_id"`
+	FieldLabel   string      `json:"field_label"`
+	FieldDesc    string      `json:"field_description"`
+	FieldDefault interface{} `json:"field_default_value"`
+	FieldType    string      `json:"field_type"`
+	FieldOptions []string    `json:"field_options"`
 }
 
+// GetDefaultValue returns the default value of the placeholder, if the orginal value is a string return a string, if is an object return a json string
+func (p *PlaceholderMetadata) GetDefaultValue() string {
+	if p.FieldDefault == nil {
+		return ""
+	}
+
+	switch v := p.FieldDefault.(type) {
+	case string:
+		return v
+	case map[string]interface{}:
+		jsonBytes, _ := json.Marshal(v)
+		return string(jsonBytes)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+	
+
+
 var metadataStore = make(map[string]PlaceholderMetadata)
-
-
-// func RemoveNewlinesAndBackslashes(input string) string {
-// 	output := strings.ReplaceAll(input, "\n", "")
-// 	output = strings.ReplaceAll(output, "\\", "")
-// 	output = strings.ReplaceAll(output, "\"", "'")
-// 	return output
-// }
 
 // RenderTemplate takes a reader containing a template and a data map,
 // renders the template using the provided data, and returns the resulting string.
@@ -80,31 +90,6 @@ func RenderTemplate(reader io.Reader, data map[string]interface{}) (string, erro
 
 // GetPlaceholders processes a list of template readers and their corresponding names
 // to extract placeholder metadata and organize it into normalized and specific fields.
-//
-// Parameters:
-//   - readers: A slice of io.Reader objects, each representing a template to be processed.
-//   - names: A slice of strings representing the names corresponding to each reader.
-//
-// Returns:
-//   - A map containing two keys:
-//   - "normalized_fields": A slice of maps, each representing a placeholder that appears
-//     in multiple templates. Each map contains the following keys:
-//   - "CredimiID": The unique identifier of the placeholder.
-//   - "Type": The type of the placeholder.
-//   - "DescriptionKey": The description key associated with the placeholder.
-//   - "LabelKey": The label key associated with the placeholder.
-//   - "Example": An example value for the placeholder.
-//   - "specific_fields": A map where each key is a name from the `names` slice, and the
-//     value is a map containing:
-//   - "content": The preprocessed content of the corresponding template.
-//   - "fields": A slice of placeholder metadata extracted from the template.
-//   - An error if any issues occur during processing.
-//
-// Notes:
-//   - The function ensures that placeholders with the same CredimiID across multiple templates
-//     are grouped together in the "normalized_fields".
-//   - The `metadataStore` is cleared for each reader to avoid mixing placeholder metadata
-//     between templates.
 func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{}, error) {
 	var allPlaceholders []PlaceholderMetadata
 	specificFields := make(map[string]interface{})
@@ -144,12 +129,13 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 		if credimiIDCount[ph.CredimiID] > 1 && !seenCredimiIDs[ph.CredimiID] {
 			seenCredimiIDs[ph.CredimiID] = true
 			field := map[string]interface{}{
-				"CredimiID":      ph.CredimiID,
-				"Type":           ph.Type,
-				"DescriptionKey": ph.DescriptionKey,
-				"LabelKey":       ph.LabelKey,
-				"Example":        ph.Example,
-				"Options":        ph.Options,
+				"credimi_id":          ph.CredimiID,
+				"field_id":            ph.FieldID,
+				"field_label":         ph.FieldLabel,
+				"field_description":   ph.FieldDesc,
+				"field_default_value": ph.FieldDefault,
+				"field_type":          ph.FieldType,
+				"field_options":       ph.FieldOptions,
 			}
 			normalizedFields = append(normalizedFields, field)
 		}
@@ -163,37 +149,20 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 	return result, nil
 }
 
-
-func credimi(jsonStr string) (string, error) {
-	// Remove any leading/trailing whitespace
+func credimi(jsonStr string, args ...interface{}) (string, error) {
 	jsonStr = strings.TrimSpace(jsonStr)
 
-	// Define a struct to unmarshal the JSON input
-	type placeholderInput struct {
-		CredimiID      string   `json:"credimi_id"`
-		FieldID        string   `json:"field_id"`
-		FieldLabel     string   `json:"field_label"`
-		FieldDesc      string   `json:"field_description"`
-		FieldDefault   string   `json:"field_default_value"`
-		FieldType      string   `json:"field_type"`
-		FieldOptions   []string `json:"field_options"`
-	}
-
-	var input placeholderInput
+	var input PlaceholderMetadata
 	err := json.Unmarshal([]byte(jsonStr), &input)
 	if err != nil {
 		return "", fmt.Errorf("failed to parse placeholder JSON: %w", err)
 	}
 
-	metadataStore[input.FieldID] = PlaceholderMetadata{
-		FieldName:      input.FieldID,
-		CredimiID:      input.CredimiID,
-		LabelKey:       input.FieldLabel,
-		DescriptionKey: input.FieldDesc,
-		Type:           input.FieldType,
-		Example:        strings.ReplaceAll(input.FieldDefault, "\\\\\\\\", ""),
-		Options:        input.FieldOptions,
+	if len(args) > 0 {
+		input.FieldDefault = args[0]
 	}
+
+	metadataStore[input.FieldID] = input
 
 	return fmt.Sprintf("{{ .%s }}", input.FieldID), nil
 }

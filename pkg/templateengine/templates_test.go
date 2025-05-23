@@ -38,14 +38,14 @@ func TestCredimi_ValidJSON(t *testing.T) {
 		t.Errorf("metadataStore does not contain field_abc")
 	}
 	if meta.CredimiID != "credimi_123" ||
-		meta.FieldName != "field_abc" ||
-		meta.LabelKey != "label_abc" ||
-		meta.DescriptionKey != "desc_abc" ||
-		meta.Type != "string" ||
-		meta.Example != "default_val" ||
-		len(meta.Options) != 2 ||
-		meta.Options[0] != "opt1" ||
-		meta.Options[1] != "opt2" {
+		meta.FieldID != "field_abc" ||
+		meta.FieldLabel != "label_abc" ||
+		meta.FieldDefault != "desc_abc" ||
+		meta.FieldType != "string" ||
+		meta.FieldDefault != "default_val" ||
+		len(meta.FieldOptions) != 2 ||
+		meta.FieldOptions[0] != "opt1" ||
+		meta.FieldOptions[1] != "opt2" {
 		t.Errorf("metadataStore entry incorrect: %+v", meta)
 	}
 }
@@ -100,8 +100,8 @@ func TestCredimi_BackslashCleanup(t *testing.T) {
 	if !ok {
 		t.Errorf("metadataStore does not contain field_bs")
 	}
-	if meta.Example != "foobar" {
-		t.Errorf("Expected Example to be 'foobar', got '%s'", meta.Example)
+	if meta.FieldDefault != "foobar" {
+		t.Errorf("Expected Example to be 'foobar', got '%s'", meta.FieldDefault)
 	}
 }
 func TestPreprocessTemplate_BasicPlaceholder(t *testing.T) {
@@ -232,9 +232,9 @@ func TestGetPlaceholders_SingleTemplateSinglePlaceholder(t *testing.T) {
 		t.Fatalf("Expected 1 field, got %d", len(fields))
 	}
 	ph := fields[0]
-	if ph.CredimiID != "id1" || ph.FieldName != "field1" || ph.LabelKey != "label1" ||
-		ph.DescriptionKey != "desc1" || ph.Type != "string" || ph.Example != "example1" ||
-		len(ph.Options) != 2 || ph.Options[0] != "a" || ph.Options[1] != "b" {
+	if ph.CredimiID != "id1" || ph.FieldID != "field1" || ph.FieldLabel != "label1" ||
+		ph.FieldDesc != "desc1" || ph.FieldType != "string" || ph.FieldDefault != "example1" ||
+		len(ph.FieldOptions) != 2 || ph.FieldOptions[0] != "a" || ph.FieldOptions[1] != "b" {
 		t.Errorf("Unexpected placeholder metadata: %+v", ph)
 	}
 }
