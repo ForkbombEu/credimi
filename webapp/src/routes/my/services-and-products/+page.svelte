@@ -35,6 +35,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
+	let { data } = $props();
+	const organizationId = $derived(data.organization?.id);
+
 	let isCredentialIssuerModalOpen = $state(false);
 	let { data } = $props();
 	let { executions } = $derived(data);
@@ -45,7 +48,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<CollectionManager
 			collection="credential_issuers"
 			queryOptions={{
-				expand: ['credentials_via_credential_issuer']
+				expand: ['credentials_via_credential_issuer'],
+				filter: `owner.id = '${organizationId}'`
 			}}
 			editFormFieldsOptions={{ exclude: ['owner', 'url'] }}
 			subscribe="expanded_collections"
@@ -75,7 +79,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="space-y-4">
-		<CollectionManager collection="wallets">
+		<CollectionManager
+			collection="wallets"
+			queryOptions={{
+				filter: `owner.id = '${organizationId}'`
+			}}
+		>
 			{#snippet top({ Header })}
 				<Header title="Wallets">
 					{#snippet right()}
@@ -95,7 +104,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="space-y-4">
-		<CollectionManager collection="verifiers">
+		<CollectionManager
+			collection="verifiers"
+			queryOptions={{
+				filter: `owner.id = '${organizationId}'`
+			}}
+		>
 			{#snippet top({ Header })}
 				<Header title="Verifiers">
 					{#snippet right()}
