@@ -182,6 +182,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				newRecord := core.NewRecord(collection)
 				newRecord.Set("url", req.URL)
 				newRecord.Set("owner", organization)
+				newRecord.Set("name", strings.TrimPrefix(req.URL, "https://"))
 				if err := app.Save(newRecord); err != nil {
 					return apierror.New(
 						http.StatusInternalServerError,
