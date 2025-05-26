@@ -36,6 +36,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let isCredentialIssuerModalOpen = $state(false);
+	let { data } = $props();
+	let { executions } = $derived(data);
 </script>
 
 <div class="space-y-12">
@@ -289,7 +291,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet NewWalletFormSnippet()}
 	<Sheet>
 		{#snippet trigger({ sheetTriggerAttributes })}
-			<Button {...sheetTriggerAttributes}><Plus />Add new wallet</Button>
+			<Button {...sheetTriggerAttributes} disabled={executions.length > 0}><Plus />Add new wallet</Button>
 		{/snippet}
 
 		{#snippet content({ closeSheet })}
