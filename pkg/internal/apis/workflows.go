@@ -182,7 +182,16 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				newRecord := core.NewRecord(collection)
 				newRecord.Set("url", req.URL)
 				newRecord.Set("owner", organization)
-				newRecord.Set("name", strings.TrimPrefix(req.URL, "https://"))
+				parsedURL, err := url.Parse(req.URL)
+				if err != nil {
+					return apierror.New(
+						http.StatusBadRequest,
+						"credential_issuers",
+						"invalid URL format",
+						err.Error(),
+					)
+				}
+				newRecord.Set("name", parsedURL.Hostname())
 				if err := app.Save(newRecord); err != nil {
 					return apierror.New(
 						http.StatusInternalServerError,
