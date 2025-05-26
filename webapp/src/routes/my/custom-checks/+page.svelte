@@ -13,10 +13,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import { Pencil, Plus } from 'lucide-svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+
+	let { data } = $props();
+	const organizationId = $derived(data.organization?.id);
 </script>
 
 <div class="space-y-4">
-	<CollectionManager collection="custom_checks">
+	<CollectionManager
+		collection="custom_checks"
+		queryOptions={{ filter: `owner.id = "${organizationId}"` }}
+	>
 		{#snippet top({ Header })}
 			<Header title={m.Custom_checks()} hideCreate>
 				{#snippet right()}
