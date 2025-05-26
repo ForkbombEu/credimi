@@ -5,15 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import BackButton from '$lib/layout/back-button.svelte';
-	import PageContent from '$lib/layout/pageContent.svelte';
-	import PageTop from '$lib/layout/pageTop.svelte';
 	import A from '@/components/ui-custom/a.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import * as Table from '@/components/ui/table/index.js';
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import TemporalI18nProvider from './[workflow_id]/[run_id]/components/temporal-i18n-provider.svelte';
-	import { m } from '@/i18n';
+	import { toUserTimezone } from '@/utils/toUserTimezone';
 
 	let { data } = $props();
 	const { executions } = $derived(data);
@@ -44,8 +40,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<A href={path}>{workflow.execution.workflowId}</A>
 					</Table.Cell>
 					<Table.Cell>{workflow.type.name}</Table.Cell>
-					<Table.Cell class="text-right">{workflow.startTime}</Table.Cell>
-					<Table.Cell class="text-right">{workflow.endTime}</Table.Cell>
+					<Table.Cell class="text-right">{toUserTimezone(workflow.startTime)}</Table.Cell>
+					<Table.Cell class="text-right">{workflow.endTime && toUserTimezone(workflow.endTime)}</Table.Cell>
 				</Table.Row>
 			{:else}
 				<Table.Row class="hover:bg-transparent">

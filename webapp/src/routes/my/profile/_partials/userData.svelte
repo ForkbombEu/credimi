@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 
 	import { Form, createForm } from '@/forms';
-	import { Field, FileField, CheckboxField } from '@/forms/fields';
+	import { Field, FileField, CheckboxField, SelectField } from '@/forms/fields';
 
 	import { currentUser, pb } from '@/pocketbase';
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
@@ -26,9 +26,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const showForm = createToggleStore();
 
+	const timezones = Intl.supportedValuesOf("timeZone") as readonly string[];
+
 	const schema = createCollectionZodSchema('users').extend({
 		email: z.string().email(),
-		emailVisibility: z.boolean()
+		emailVisibility: z.boolean(),
+		Timezone: z.string().refine((val) => timezones.includes(val), {
+			message: 'Invalid timezone'
+		})
 	});
 
 	let form = $derived(
@@ -43,7 +48,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			initialData: {
 				name: $currentUser?.name,
 				email: $currentUser?.email,
-				emailVisibility: $currentUser?.emailVisibility
+				emailVisibility: $currentUser?.emailVisibility,
+				Timezone: $currentUser?.Timezone || 'Europe/Amsterdam',
 			},
 			options: {
 				dataType: 'form'
@@ -91,6 +97,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					name="emailVisibility"
 					options={{ label: m.Show_email_to_other_users() }}
 				/>
+				<SelectField
+					{form}
+					name="Timezone"
+					options={{
+						label: "Select your timezone",
+						items: timezones.map((tz) => ({
+							value: tz,
+							label: tz.replace(/_/g, ' ')
+						})),
+					}}
+					/>
+					
+					
 			</div>
 
 			<FileField {form} name="avatar" />
