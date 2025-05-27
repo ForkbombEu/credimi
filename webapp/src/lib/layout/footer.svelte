@@ -5,10 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { AppLogo, appName } from '@/brand';
+	import { AppLogo } from '@/brand';
 	import T from '@/components/ui-custom/t.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { featureFlags } from '@/features';
 	import { m } from '@/i18n';
 	import { appVersion } from '@/utils/appVersion';
 	import LanguageSelect from '@/i18n/languageSelect.svelte';
@@ -20,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			label: m.Platform(),
 			links: [
 				{ label: m.Overview(), url: '/platform' },
+				{ label: m.Conformance_automation(), url: '/conformance-automation' },
 				{ label: m.api_documentation(), url: '/docs/api' },
 				{ label: m.platform_architecture(), url: '/platform/architecture' },
 				{ label: m.deployment_options(), url: '/platform/deployment' },
