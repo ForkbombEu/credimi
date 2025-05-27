@@ -20,11 +20,27 @@ export async function load({ params, fetch }) {
 			}),
 			_.andThen((response) =>
 				_.tryPromise({
-					try: () => response.text(),
+					try: () => {
+						const contentType = response.headers.get('content-type');
+						
+						if (!response.ok) {
+							
+							if (response.status === 404) {
+								throw new FileFetchError(`Page not found: ${params.slug}`);
+							} else {
+								throw new FileParseError(
+									`Server error fetching page ${params.slug}: ${response.statusText}`
+								);
+							}
+						}
+						if (contentType && contentType.toLowerCase().includes('text/html')) {
+							throw new FileFetchError(
+								`Expected markdown file for page ${params.slug}, but received HTML.`
+							);
+						}
+						return response.text()},
 					catch: (e) =>
-						new FileParseError(
-							`Error parsing page ${params.slug}: ${getExceptionMessage(e)}`
-						)
+						e
 				})
 			)
 		);
@@ -35,8 +51,6 @@ export async function load({ params, fetch }) {
 		_.either,
 		_.runPromise
 	);
-
-	console.log(post);
 
 	if (Either.isLeft(post)) {
 		if (post.left instanceof FileFetchError) {

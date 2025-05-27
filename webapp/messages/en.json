@@ -400,7 +400,7 @@
 	"Reset": "Reset",
 	"Available_standards": "Available standards",
 	"Services_and_products": "Services and Products",
-	"Test_runs": "Test runs'",
+	"Test_runs": "Test runs",
 	"Organization_page": "Organization page",
 	"Profile": "Profile",
 	"Add_a_custom_check": "Add custom check",
@@ -439,6 +439,8 @@
 	"Update_organization_page": "Update organization page",
 	"Organization": "Organization",
 	"Credential": "Credential",
+	"Conformance_automation": "Conformance automation",
 	"Last_update": "Last update",
-	"Custom_check": "Custom check"
+	"Custom_check": "Custom check",
+	"Select_your_timezone": "Select your timezone"
 }

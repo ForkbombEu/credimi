@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -174,18 +175,27 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				)
 			}
 			var issuerID string
-
 			if len(existingRecords) > 0 {
 				issuerID = existingRecords[0].Id
 			} else {
 				// Create a new record
+				parsedURL, err := url.Parse(req.URL)
+				if err != nil {
+					return apierror.New(
+						http.StatusBadRequest,
+						fmt.Sprintf("credential_issuers_%s", req.URL),
+						"invalid URL format",
+						err.Error(),
+					)
+				}
 				newRecord := core.NewRecord(collection)
 				newRecord.Set("url", req.URL)
 				newRecord.Set("owner", organization)
+				newRecord.Set("name", parsedURL.Hostname())
 				if err := app.Save(newRecord); err != nil {
 					return apierror.New(
 						http.StatusInternalServerError,
-						"credential_issuers",
+						fmt.Sprintf("credential_issuers_%s", req),
 						"failed to save credential issuer",
 						err.Error(),
 					)
