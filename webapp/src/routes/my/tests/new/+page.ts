@@ -33,7 +33,7 @@ export const load = async ({ fetch }) => {
 		customChecks = await pb
 			.collection('custom_checks')
 			.getFullList({
-				filter: `(owner = '${organization.id}') || (public = true && owner != '${organization.id}')`
+				filter: `owner = '${organization.id}' || public = true`
 			});
 	} catch (e) {
 		console.error(e);
