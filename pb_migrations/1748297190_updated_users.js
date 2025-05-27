@@ -10,7 +10,7 @@ migrate((app) => {
     "max": 0,
     "min": 0,
     "name": "Timezone",
-    "pattern": "^[A-Za-z_]+\\/[A-Za-z_]+$",
+    "pattern": "^[A-Za-z]+(?:[._-][A-Za-z0-9+-]+)*\\/[A-Za-z0-9._+-]+$",
     "presentable": false,
     "primaryKey": false,
     "required": false,
