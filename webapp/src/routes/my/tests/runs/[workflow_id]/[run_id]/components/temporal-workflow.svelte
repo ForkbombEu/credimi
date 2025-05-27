@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { beforeNavigate } from '$app/navigation';
+	import { toUserTimezone } from '@/utils/toUserTimezone';
 	import {
 		workflowRun,
 		fullEventHistory,
@@ -54,6 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const pathname = to?.url.pathname;
 		if (pathname?.includes('undefined')) cancel();
 	});
+
 </script>
 
 <div class="space-y-4 border-b-2 px-2 py-4 md:px-4 lg:px-8">
@@ -65,13 +67,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<tr>
 				<td class="italic"> Start </td>
 				<td class="pl-4">
-					{workflow.startTime}
+					{toUserTimezone(workflow.startTime) ?? '-'}
 				</td>
 			</tr>
 			<tr>
 				<td class="italic"> End </td>
 				<td class="pl-4">
-					{workflow.endTime ?? '-'}
+					{toUserTimezone(workflow.endTime) ?? '-'}
 				</td>
 			</tr>
 			<tr>
