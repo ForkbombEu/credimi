@@ -67,13 +67,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<tr>
 				<td class="italic"> Start </td>
 				<td class="pl-4">
-					{toUserTimezone(workflow.startTime)}
+					{toUserTimezone(workflow.startTime) ?? '-'}
 				</td>
 			</tr>
 			<tr>
 				<td class="italic"> End </td>
 				<td class="pl-4">
-					{workflow.endTime ? toUserTimezone(workflow.endTime) : '-'}
+					{toUserTimezone(workflow.endTime) ?? '-'}
 				</td>
 			</tr>
 			<tr>

@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Table.Cell>
 					<Table.Cell>{workflow.type.name}</Table.Cell>
 					<Table.Cell class="text-right">{toUserTimezone(workflow.startTime)}</Table.Cell>
-					<Table.Cell class="text-right">{workflow.endTime && toUserTimezone(workflow.endTime)}</Table.Cell>
+					<Table.Cell class="text-right">{toUserTimezone(workflow.endTime)}</Table.Cell>
 				</Table.Row>
 			{:else}
 				<Table.Row class="hover:bg-transparent">
