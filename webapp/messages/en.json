@@ -439,13 +439,7 @@
 	"Update_organization_page": "Update organization page",
 	"Organization": "Organization",
 	"Credential": "Credential",
-<<<<<<< ours
-	"Last_update": "Last update",
-	"Conformance_automation": "Conformance automation"
-||||||| ancestor
-	"Last_update": "Last update"
-=======
+	"Conformance_automation": "Conformance automation",
 	"Last_update": "Last update",
 	"Custom_check": "Custom check"
->>>>>>> theirs
 }
