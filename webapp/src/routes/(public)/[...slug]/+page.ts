@@ -26,16 +26,16 @@ export async function load({ params, fetch }) {
 						if (!response.ok) {
 							
 							if (response.status === 404) {
-								throw new FileFetchError(`Page not found: ${params.slug}`);
+								throw new FileFetchError(`Page not found: ${params.slug.join('/')}`);
 							} else {
 								throw new FileFetchError(
-									`Server error fetching page ${params.slug}: ${response.statusText}`
+									`Server error fetching page ${params.slug.join('/')}: ${response.statusText}`
 								);
 							}
 						}
 						if (contentType && contentType.toLowerCase().includes('text/html')) {
 							throw new FileFetchError(
-								`Expected markdown file for page ${params.slug}, but received HTML.`
+								`Expected markdown file for page ${params.slug.join('/')}, but received HTML.`
 							);
 						}
 						return response.text()},
