@@ -13,6 +13,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BackButton from '$lib/layout/back-button.svelte';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import { m } from '@/i18n';
+	import { page } from '$app/stores'
+
+
 
 	//
 
@@ -21,11 +24,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let d = $state<FieldsResponse>();
 	let compositeTestId = $state('');
 
+	let searchParams = $state($page.url.searchParams);
+	let testId = $state(searchParams.get('test_id') || undefined);
+
+
 	//
 
 	type FormState = 'select-tests' | 'fill-values';
 
-	let formState = $state<FormState>('select-tests');
+	let formState = $state<FormState>(testId ? 'fill-values' : 'select-tests');
 
 	//
 
@@ -36,7 +43,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let selectedCustomChecksIds = $state<string[]>([]);
+	let selectedCustomChecksIds = $state<string[]>(
+		testId ? [testId] : []
+	);
 	const selectedCustomChecks = $derived(
 		data.customChecks.filter((check) => selectedCustomChecksIds.includes(check.id))
 	);

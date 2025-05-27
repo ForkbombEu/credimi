@@ -9,6 +9,7 @@
 .github
 .gitignore
 .vscode
+.env.local
 coverage*
 docker-compose*
 Dockerfile*

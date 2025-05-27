@@ -16,7 +16,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 </script>
 
-<CollectionManager collection="organizations">
+<CollectionManager queryOptions={{
+	expand:[
+		"custom_checks_via_owner", 
+		"credentials_via_owner", 
+		"credential_issuers_via_owner", 
+		"verifiers_via_owner", 
+		"wallets_via_owner"
+	],
+	filter: `
+		custom_checks_via_owner.public = true || 
+		credentials_via_owner.published = true || 
+		credential_issuers_via_owner.published = true || 
+		wallets_via_owner.published = true
+	`,
+	}} collection="organizations">
 	{#snippet top({ Search })}
 		<PageTop>
 			<T tag="h1">{m.Find_providers_of_identity_solutions()}</T>
@@ -39,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<Avatar
 							src={logoUrl}
 							fallback={organization.name}
-							class="!rounded-sm border p-6"
+							class="!rounded-sm border size-12"
 							hideIfLoadingError
 						/>
 
