@@ -8,6 +8,7 @@ docs/.vitepress/cache/
 .DS_Store
 .bin
 .env
+.env.*
 pb.env
 /didimo
 /credimi
