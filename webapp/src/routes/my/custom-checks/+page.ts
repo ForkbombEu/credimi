@@ -1,0 +1,13 @@
+// SPDX-FileCopyrightText: 2025 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
+import { OrganizationBreadcrumbs } from '@/organizations/components/index.js';
+import { error } from '@sveltejs/kit';
+
+export const load = async ({ parent }) => {
+    const { organization } = await parent();
+    if (!organization) throw error(404);
+
+    return { OrganizationBreadcrumbs };
+};
