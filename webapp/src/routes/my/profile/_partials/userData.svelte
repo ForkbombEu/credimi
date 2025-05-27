@@ -101,7 +101,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{form}
 					name="Timezone"
 					options={{
-						label: "Select your timezone",
+						label: m.Select_your_timezone(),
 						items: timezones.map((tz) => ({
 							value: tz,
 							label: tz.replace(/_/g, ' ')

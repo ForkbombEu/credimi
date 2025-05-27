@@ -440,5 +440,6 @@
 	"Organization": "Organization",
 	"Credential": "Credential",
 	"Last_update": "Last update",
-	"Custom_check": "Custom check"
+	"Custom_check": "Custom check",
+	"Select_your_timezone": "Select your timezone"
 }
