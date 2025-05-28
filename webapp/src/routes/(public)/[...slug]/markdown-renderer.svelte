@@ -21,4 +21,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<div class="prose {className}">{@html html}</div>
+<div class="prose prose-headings:font-serif prose-h1:text-3xl {className}">{@html html}</div>
