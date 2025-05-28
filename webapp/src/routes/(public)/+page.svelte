@@ -23,6 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Sparkle } from 'lucide-svelte';
 	import { Collections } from '@/pocketbase/types';
 	import MarketplaceSection, { type SectionData } from './_sections/marketplace-section.svelte';
+	import SolutionsSection from './_sections/solutions-section.svelte';
 
 	//
 
@@ -54,20 +55,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const sections: SectionData[] = [
 		{
-			collection: Collections.Verifiers,
-			findLabel: m.Find_verifiers(),
-			allLabel: m.All_verifiers()
-		},
-		{
-			collection: Collections.Wallets,
-			findLabel: m.Find_apps(),
-			allLabel: m.All_apps()
-		},
-		{
-			collection: Collections.CredentialIssuers,
-			findLabel: m.Find_issuers(),
-			allLabel: m.All_issuers()
+			collection: Collections.Credentials,
+			findLabel: m.Find_credentials(),
+			allLabel: m.All_credentials()
 		}
+		// {
+		// 	collection: Collections.Verifiers,
+		// 	findLabel: m.Find_verifiers(),
+		// 	allLabel: m.All_verifiers()
+		// },
+		// {
+		// 	collection: Collections.Wallets,
+		// 	findLabel: m.Find_apps(),
+		// 	allLabel: m.All_apps()
+		// },
+		// {
+		// 	collection: Collections.CredentialIssuers,
+		// 	findLabel: m.Find_issuers(),
+		// 	allLabel: m.All_issuers()
+		// }
 	];
 </script>
 
@@ -101,7 +107,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </PageTop>
 
 <PageContent class="bg-secondary" contentClass="space-y-12">
-	<CredentialSection />
+	<SolutionsSection />
+	<!-- <CredentialSection /> -->
 	{#each sections as section}
 		<MarketplaceSection {...section} />
 	{/each}
