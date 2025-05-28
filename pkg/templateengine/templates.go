@@ -13,8 +13,13 @@ import (
 	"strings"
 	"text/template"
 
+	// "crypto/rand"
+	// "crypto/rsa"
+	// "crypto/x509"
+
 	"github.com/go-sprout/sprout"
 	"github.com/go-sprout/sprout/group/all"
+	// jwxjwk "github.com/lestrrat-go/jwx/v3/jwk"
 )
 
 // PlaceholderMetadata holds metadata for a placeholder in a template.
@@ -125,6 +130,8 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 
 	normalizedFields := make([]map[string]interface{}, 0)
 	seenCredimiIDs := make(map[string]bool)
+	stringFields := make([]map[string]interface{}, 0)
+	otherFields := make([]map[string]interface{}, 0)
 	for _, ph := range allPlaceholders {
 		if credimiIDCount[ph.CredimiID] > 1 && !seenCredimiIDs[ph.CredimiID] {
 			seenCredimiIDs[ph.CredimiID] = true
@@ -137,8 +144,37 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 				"field_type":          ph.FieldType,
 				"field_options":       ph.FieldOptions,
 			}
-			normalizedFields = append(normalizedFields, field)
+			if ph.FieldType == "string" {
+				stringFields = append(stringFields, field)
+			} else {
+				otherFields = append(otherFields, field)
+			}
 		}
+	}
+	normalizedFields = append(normalizedFields, stringFields...)
+	normalizedFields = append(normalizedFields, otherFields...)
+
+	for name, v := range specificFields {
+		m, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		fields, ok := m["fields"].([]PlaceholderMetadata)
+		if !ok {
+			continue
+		}
+		stringPH := make([]PlaceholderMetadata, 0)
+		otherPH := make([]PlaceholderMetadata, 0)
+		for _, ph := range fields {
+			if ph.FieldType == "string" {
+				stringPH = append(stringPH, ph)
+			} else {
+				otherPH = append(otherPH, ph)
+			}
+		}
+		newFields := append(stringPH, otherPH...)
+		m["fields"] = newFields
+		specificFields[name] = m
 	}
 
 	result := map[string]interface{}{
@@ -167,6 +203,19 @@ func credimi(jsonStr string, args ...interface{}) (string, error) {
 	return fmt.Sprintf("{{ .%s }}", input.FieldID), nil
 }
 
+// func jwk(key *rsa.PrivateKey) (string, error) {
+// 	keyBytes := x509.MarshalPKCS1PrivateKey(key)
+// 	jwkKey, err := jwxjwk.ParseKey(keyBytes)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to create JWK: %w", err)
+// 	}
+// 	jwkJSON, err := json.Marshal(jwkKey)
+// 	if err != nil {
+// 		return "", fmt.Errorf("failed to marshal JWK: %w", err)
+// 	}
+// 	return string(jwkJSON), nil
+// }
+
 func preprocessTemplate(content string) (string, error) {
 	handler := sprout.New(
 		sprout.WithGroups(all.RegistryGroup()),
@@ -174,6 +223,7 @@ func preprocessTemplate(content string) (string, error) {
 	funcs := handler.Build()
 
 	funcs["credimi"] = credimi
+	// funcs["jwk"] = jwk
 
 	tmpl, err := template.New("preprocess").Funcs(funcs).Parse(content)
 	if err != nil {
