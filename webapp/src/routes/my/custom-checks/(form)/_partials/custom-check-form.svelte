@@ -18,8 +18,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { goto, m } from '@/i18n';
 	import { PlusIcon, UploadIcon } from 'lucide-svelte';
-	import BackButton from '$lib/layout/back-button.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
 	import { yaml } from '@codemirror/lang-yaml';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -35,6 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import { fromStore } from 'svelte/store';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
+	import toJsonSchema from 'to-json-schema';
 
 	//
 
@@ -49,7 +48,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const schema = createCollectionZodSchema('custom_checks')
 		.omit({
-			owner: true
+			owner: true,
+			input_json_schema: true
 		})
 		.extend({
 			yaml: z.string().superRefine((value, ctx) => {
@@ -61,12 +61,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						message: `Invalid YAML: ${getExceptionMessage(e)}`
 					});
 				}
+			}),
+			input_json_sample: z.string().superRefine((value, ctx) => {
+				try {
+					JSON.parse(value);
+				} catch (e) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message: `Invalid JSON: ${getExceptionMessage(e)}`
+					});
+				}
 			})
 		});
 
 	const form = createForm({
 		adapter: zod(schema),
-		onSubmit: async ({ form: { data } }) => {
+		onSubmit: async ({ form }) => {
+			// TODO - This should be done in the backend
+			const input_json_schema = toJsonSchema(JSON.parse(form.data.input_json_sample), {
+				required: true
+			});
+			const data = {
+				...form.data,
+				input_json_schema
+			};
 			if (formMode === 'new') {
 				await pb.collection('custom_checks').create(data);
 			} else if (record) {
@@ -78,8 +96,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		options: {
 			dataType: 'form'
 		},
-		initialData: record ? _.omit(record, 'logo') : undefined
+		initialData: createInitialData(record)
 	});
+
+	function createInitialData(record?: CustomChecksResponse) {
+		if (!record) return undefined;
+		return {
+			..._.omit(record, 'logo', 'input_json_schema'),
+			input_json_sample: JSON.stringify(record.input_json_sample, null, 2)
+		};
+	}
 
 	const { errors } = form;
 
@@ -250,6 +276,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{form}
 				name="yaml"
 				options={{ lang: yaml(), labelRight: yamlFieldLabelRight, minHeight: 200 }}
+			/>
+
+			<CodeEditorField
+				{form}
+				name="input_json_sample"
+				options={{
+					lang: 'json',
+					minHeight: 200,
+					label: 'Configuration example',
+					description: 'Paste here a example JSON of the content of the config'
+				}}
 			/>
 		</PageCardSection>
 
