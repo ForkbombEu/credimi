@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CustomChecksResponse } from '@/pocketbase/types';
 	import T from '@/components/ui-custom/t.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import JsonSchemaForm from '@/components/json-schema-form.svelte';
 	//
 
 	type Props = {
@@ -43,7 +44,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const form = createForm({
 		adapter: zod(createTestListInputSchema(data)),
 		onSubmit: async ({ form }) => {
-			const custom = customChecks.map((c) => {return {format:"custom", data:  c.yaml}});
+			const custom = customChecks.map((c) => {
+				return { format: 'custom', data: c.yaml };
+			});
 			await pb.send(`/api/compliance/${testId}/save-variables-and-start`, {
 				method: 'POST',
 				body: { ...form.data, ...custom }
@@ -133,6 +136,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<T class="mb-2 text-sm text-gray-400">{check.description}</T>
 						{/if}
 						<pre class="rounded-sm bg-black p-3 text-xs text-white">{check.yaml}</pre>
+						<JsonSchemaForm
+							schema={check.input_json_schema as object}
+							options={{ hideTitle: true, hideSubmitButton: true }}
+							onUpdate={(data) => {
+								console.log(data);
+							}}
+						/>
 					</div>
 				</div>
 			{/each}

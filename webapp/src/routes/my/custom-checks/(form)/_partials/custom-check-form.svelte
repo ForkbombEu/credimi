@@ -33,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import { fromStore } from 'svelte/store';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
-	import toJsonSchema from 'to-json-schema';
+	import { run } from 'json_typegen_wasm';
 
 	//
 
@@ -78,9 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
 			// TODO - This should be done in the backend
-			const input_json_schema = toJsonSchema(JSON.parse(form.data.input_json_sample), {
-				required: true
-			});
+			const input_json_schema = generateJsonSchema(form.data.input_json_sample);
 			const data = {
 				...form.data,
 				input_json_schema
@@ -98,6 +96,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		initialData: createInitialData(record)
 	});
+
+	function generateJsonSchema(json: string) {
+		return run(
+			'Root',
+			json,
+			JSON.stringify({
+				output_mode: 'json_schema'
+			})
+		);
+	}
 
 	function createInitialData(record?: CustomChecksResponse) {
 		if (!record) return undefined;
