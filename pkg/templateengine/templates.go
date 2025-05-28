@@ -13,13 +13,14 @@ import (
 	"strings"
 	"text/template"
 
-	// "crypto/rand"
-	// "crypto/rsa"
-	// "crypto/x509"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"encoding/base64"
+	"errors"
 
 	"github.com/go-sprout/sprout"
 	"github.com/go-sprout/sprout/group/all"
-	// jwxjwk "github.com/lestrrat-go/jwx/v3/jwk"
 )
 
 // PlaceholderMetadata holds metadata for a placeholder in a template.
@@ -203,18 +204,64 @@ func credimi(jsonStr string, args ...interface{}) (string, error) {
 	return fmt.Sprintf("{{ .%s }}", input.FieldID), nil
 }
 
-// func jwk(key *rsa.PrivateKey) (string, error) {
-// 	keyBytes := x509.MarshalPKCS1PrivateKey(key)
-// 	jwkKey, err := jwxjwk.ParseKey(keyBytes)
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to create JWK: %w", err)
-// 	}
-// 	jwkJSON, err := json.Marshal(jwkKey)
-// 	if err != nil {
-// 		return "", fmt.Errorf("failed to marshal JWK: %w", err)
-// 	}
-// 	return string(jwkJSON), nil
-// }
+
+func jwk(alg string) (string, error) {
+	var crv elliptic.Curve
+	var crvName string
+
+	switch alg {
+	case "ES256":
+		crv = elliptic.P256()
+		crvName = "P-256"
+	case "ES384":
+		crv = elliptic.P384()
+		crvName = "P-384"
+	case "ES512":
+		crv = elliptic.P521()
+		crvName = "P-521"
+	default:
+		return "", errors.New("unsupported algorithm")
+	}
+
+	priv, err := ecdsa.GenerateKey(crv, rand.Reader)
+	if err != nil {
+		return "", err
+	}
+
+	b64 := func(b []byte) string {
+		return base64.RawURLEncoding.EncodeToString(b)
+	}
+
+	padBytes := func(b []byte, size int) []byte {
+		if len(b) >= size {
+			return b
+		}
+		padded := make([]byte, size)
+		copy(padded[size-len(b):], b)
+		return padded
+	}
+
+	size := (priv.Curve.Params().BitSize + 7) / 8
+
+	jwkKey := map[string]interface{}{
+		"kty": "EC",
+		"alg": alg,
+		"crv": crvName,
+		"d":   b64(padBytes(priv.D.Bytes(), size)),
+		"x":   b64(padBytes(priv.X.Bytes(), size)),
+		"y":   b64(padBytes(priv.Y.Bytes(), size)),
+	}
+
+	jwkSet := map[string]interface{}{
+		"keys": []interface{}{jwkKey},
+	}
+
+	jwkJSON, err := json.Marshal(jwkSet)
+	if err != nil {
+		return "", err
+	}
+	return string(jwkJSON), nil
+}
 
 func preprocessTemplate(content string) (string, error) {
 	handler := sprout.New(
@@ -223,7 +270,7 @@ func preprocessTemplate(content string) (string, error) {
 	funcs := handler.Build()
 
 	funcs["credimi"] = credimi
-	// funcs["jwk"] = jwk
+	funcs["jwk"] = jwk
 
 	tmpl, err := template.New("preprocess").Funcs(funcs).Parse(content)
 	if err != nil {
