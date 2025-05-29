@@ -47,7 +47,12 @@ func (w *ZenroomWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI:   fmt.Sprintf("%s/my/tests/runs/%s/%s", input.Config["app_url"], workflow.GetInfo(ctx).WorkflowExecution.ID, workflow.GetInfo(ctx).WorkflowExecution.RunID),
+		TemporalUI: fmt.Sprintf(
+			"%s/my/tests/runs/%s/%s",
+			input.Config["app_url"],
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			workflow.GetInfo(ctx).WorkflowExecution.RunID,
+		),
 	}
 
 	var sideEffectResult struct {
@@ -70,7 +75,6 @@ func (w *ZenroomWorkflow) Workflow(
 		errCode := errorcodes.Codes[errorcodes.WriteFileFailed]
 		contractPath := filepath.Join(tmpDirLocal, "contract.zen")
 		if err := os.WriteFile(contractPath, []byte(contract), 0600); err != nil {
-
 			return workflowengine.NewAppError(errCode, err.Error())
 		}
 
@@ -143,8 +147,10 @@ func (w *ZenroomWorkflow) Workflow(
 		if !ok {
 			msg := fmt.Sprintf("unexpected output type: %T", result.Output)
 			appErr := workflowengine.NewAppError(errCode, msg, result.Output)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
-
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 	}
 	cli.ContainerRemove(

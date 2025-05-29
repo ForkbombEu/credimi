@@ -50,7 +50,11 @@ type ConfigurableActivity interface {
 	Configure(input *ActivityInput) error
 }
 
-func (a *BaseActivity) NewActivityError(errorType string, errorMsg string, activityPayload ...any) error {
+func (a *BaseActivity) NewActivityError(
+	errorType string,
+	errorMsg string,
+	activityPayload ...any,
+) error {
 	msg := fmt.Sprintf("[%s]: %s", a.Name, errorMsg)
 	return temporal.NewApplicationError(msg, errorType, activityPayload)
 }

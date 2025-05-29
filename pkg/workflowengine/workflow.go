@@ -47,7 +47,6 @@ type Workflow interface {
 }
 
 func NewWorkflowError(err error, metadata WorkflowErrorMetadata, extraPayload ...any) error {
-
 	var appErr *temporal.ApplicationError
 	if !temporal.IsApplicationError(err) || !errors.As(err, &appErr) {
 		return err
@@ -78,7 +77,10 @@ func NewWorkflowError(err error, metadata WorkflowErrorMetadata, extraPayload ..
 }
 
 func NewAppError(code errorcodes.Code, field string, payload ...any) error {
-	return temporal.NewApplicationError(fmt.Sprintf("%s: '%s'", code.Description, field), code.Code, payload...)
+	return temporal.NewApplicationError(
+		fmt.Sprintf("%s: '%s'", code.Description, field),
+		code.Code,
+		payload...)
 }
 
 // newMissingPayloadError returns a WorkflowError for a missing or invalid payload key.

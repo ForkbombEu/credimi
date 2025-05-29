@@ -73,7 +73,6 @@ func (a *DockerActivity) Execute(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
 		)
-
 	}
 	defer cli.Close()
 

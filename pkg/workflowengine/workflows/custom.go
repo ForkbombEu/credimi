@@ -37,7 +37,12 @@ func (w *CustomCheckWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(subCtx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(subCtx).Namespace,
-		TemporalUI:   fmt.Sprintf("%s/my/tests/runs/%s/%s", input.Config["app_url"], workflow.GetInfo(subCtx).WorkflowExecution.ID, workflow.GetInfo(subCtx).WorkflowExecution.RunID),
+		TemporalUI: fmt.Sprintf(
+			"%s/my/tests/runs/%s/%s",
+			input.Config["app_url"],
+			workflow.GetInfo(subCtx).WorkflowExecution.ID,
+			workflow.GetInfo(subCtx).WorkflowExecution.RunID,
+		),
 	}
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: map[string]any{

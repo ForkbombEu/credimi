@@ -83,18 +83,29 @@ func (w *EWCWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI:   fmt.Sprintf("%s/my/tests/runs/%s/%s", input.Config["app_url"], workflow.GetInfo(ctx).WorkflowExecution.ID, workflow.GetInfo(ctx).WorkflowExecution.RunID),
+		TemporalUI: fmt.Sprintf(
+			"%s/my/tests/runs/%s/%s",
+			input.Config["app_url"],
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			workflow.GetInfo(ctx).WorkflowExecution.RunID,
+		),
 	}
 
 	stepCIWorkflowActivity := activities.NewStepCIWorkflowActivity()
 
 	sessionID, ok := input.Payload["session_id"].(string)
 	if !ok || sessionID == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("session_id", runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"session_id",
+			runMetadata,
+		)
 	}
 	template, ok := input.Config["template"].(string)
 	if !ok || template == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError("template", runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"template",
+			runMetadata,
+		)
 	}
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
@@ -119,17 +130,28 @@ func (w *EWCWorkflow) Workflow(
 	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
 	if !ok {
 		msg := fmt.Sprintf("unexpected output type: %T", stepCIResult.Output)
-		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(msg, stepCIResult.Output, runMetadata)
-
+		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+			msg,
+			stepCIResult.Output,
+			runMetadata,
+		)
 	}
 
 	deepLink, ok := result["deep_link"].(string)
 	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError("deep_link", stepCIResult.Output, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+			"deep_link",
+			stepCIResult.Output,
+			runMetadata,
+		)
 	}
 	sessionID, ok = result["session_id"].(string)
 	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError("session_id", stepCIResult.Output, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+			"session_id",
+			stepCIResult.Output,
+			runMetadata,
+		)
 	}
 	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/ewc"
 	u, err := url.Parse(baseURL)
@@ -224,20 +246,33 @@ func (w *EWCWorkflow) Workflow(
 		err := workflow.ExecuteActivity(ctx, HTTPGetActivity.Name(), HTTPInput).Get(ctx, &response)
 		if err != nil {
 			logger.Error("HTTP GET failed", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 		bodyJSON, err := json.Marshal(response.Output.(map[string]any)["body"])
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-			appErr := workflowengine.NewAppError(errCode, err.Error(), response.Output.(map[string]any)["body"])
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			appErr := workflowengine.NewAppError(
+				errCode,
+				err.Error(),
+				response.Output.(map[string]any)["body"],
+			)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 		var parsed EWCResponseBody
 		err = json.Unmarshal(bodyJSON, &parsed)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
 			appErr := workflowengine.NewAppError(errCode, err.Error(), bodyJSON)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 		errCode := errorcodes.Codes[errorcodes.EWCCheckFailed]
 		failedErr := workflowengine.NewAppError(errCode, parsed.Reason, parsed)
@@ -250,10 +285,16 @@ func (w *EWCWorkflow) Workflow(
 
 		case "pending":
 			if parsed.Reason != "ok" {
-				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(failedErr, runMetadata)
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+					failedErr,
+					runMetadata,
+				)
 			}
 		case "failed":
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(failedErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				failedErr,
+				runMetadata,
+			)
 
 		default:
 			failedErr := workflowengine.NewAppError(
@@ -264,8 +305,10 @@ func (w *EWCWorkflow) Workflow(
 					parsed.Status,
 				),
 				parsed)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(failedErr, runMetadata)
-
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				failedErr,
+				runMetadata,
+			)
 		}
 	}
 }

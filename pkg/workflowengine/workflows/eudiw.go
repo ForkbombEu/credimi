@@ -84,20 +84,34 @@ func (w *EudiwWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI:   fmt.Sprintf("%s/my/tests/runs/%s/%s", input.Config["app_url"], workflow.GetInfo(ctx).WorkflowExecution.ID, workflow.GetInfo(ctx).WorkflowExecution.RunID),
+		TemporalUI: fmt.Sprintf(
+			"%s/my/tests/runs/%s/%s",
+			input.Config["app_url"],
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			workflow.GetInfo(ctx).WorkflowExecution.RunID,
+		),
 	}
 
 	nonce, ok := input.Payload["nonce"].(string)
 	if !ok || nonce == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("nonce", runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"nonce",
+			runMetadata,
+		)
 	}
 	id, ok := input.Payload["id"].(string)
 	if !ok || id == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("id", runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"id",
+			runMetadata,
+		)
 	}
 	template, ok := input.Config["template"].(string)
 	if !ok || template == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError("template", runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"template",
+			runMetadata,
+		)
 	}
 
 	stepCIWorkflowActivity := activities.NewStepCIWorkflowActivity()
@@ -125,20 +139,35 @@ func (w *EudiwWorkflow) Workflow(
 	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
 	if !ok {
 		msg := fmt.Sprintf("unexpected output type: %T", stepCIResult.Output)
-		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(msg, stepCIResult.Output, runMetadata)
-
+		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+			msg,
+			stepCIResult.Output,
+			runMetadata,
+		)
 	}
 	clientID, ok := result["client_id"].(string)
 	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError("client_id", stepCIResult.Output, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+			"client_id",
+			stepCIResult.Output,
+			runMetadata,
+		)
 	}
 	requestUri, ok := result["request_uri"].(string)
 	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError("request_uri", stepCIResult.Output, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+			"request_uri",
+			stepCIResult.Output,
+			runMetadata,
+		)
 	}
 	transactionID, ok := result["transaction_id"].(string)
 	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError("transaction_id", stepCIResult.Output, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+			"transaction_id",
+			stepCIResult.Output,
+			runMetadata,
+		)
 	}
 	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/eudiw" // TODO use the correct one
 	u, err := url.Parse(baseURL)
@@ -236,7 +265,10 @@ func (w *EudiwWorkflow) Workflow(
 		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), CheckStatusInput).
 			Get(ctx, &checkResponse)
 		if err != nil {
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 
 		errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPResponse]
@@ -247,7 +279,10 @@ func (w *EudiwWorkflow) Workflow(
 				fmt.Sprintf("unexpected output type: %T", checkResponse.Output),
 				checkResponse.Output,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 
 		statusCode, ok := outputMap["status"].(float64)
@@ -257,7 +292,10 @@ func (w *EudiwWorkflow) Workflow(
 				"missing or invalid status code",
 				checkResponse.Output,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 		var events []map[string]any
 		var eventsResponse workflowengine.ActivityResult
@@ -273,7 +311,10 @@ func (w *EudiwWorkflow) Workflow(
 		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), getLogsInput).
 			Get(ctx, &eventsResponse)
 		if err != nil {
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 		events = AsSliceOfMaps(
 			eventsResponse.Output.(map[string]any)["body"].(map[string]any)["events"],
@@ -302,7 +343,10 @@ func (w *EudiwWorkflow) Workflow(
 			Get(ctx, nil)
 		if err != nil {
 			logger.Error("Failed to send logs", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 		errCode = errorcodes.Codes[errorcodes.EudiwCheckFailed]
 		switch int(statusCode) {
@@ -322,7 +366,10 @@ func (w *EudiwWorkflow) Workflow(
 					int(statusCode),
 				),
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(failedErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				failedErr,
+				runMetadata,
+			)
 
 		default:
 			failedErr := workflowengine.NewAppError(
@@ -332,8 +379,10 @@ func (w *EudiwWorkflow) Workflow(
 					int(statusCode),
 				),
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(failedErr, runMetadata)
-
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				failedErr,
+				runMetadata,
+			)
 		}
 	}
 }

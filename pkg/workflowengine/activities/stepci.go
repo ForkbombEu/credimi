@@ -103,7 +103,10 @@ func (a *StepCIWorkflowActivity) Configure(input *workflowengine.ActivityInput) 
 	return nil
 }
 
-func (a *StepCIWorkflowActivity) Execute(ctx context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+func (a *StepCIWorkflowActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
 
 	yamlContent, ok := input.Payload["yaml"].(string)
