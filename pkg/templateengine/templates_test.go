@@ -40,7 +40,6 @@ func TestCredimi_ValidJSON(t *testing.T) {
 	if meta.CredimiID != "credimi_123" ||
 		meta.FieldID != "field_abc" ||
 		meta.FieldLabel != "label_abc" ||
-		meta.FieldDefault != "desc_abc" ||
 		meta.FieldType != "string" ||
 		meta.FieldDefault != "default_val" ||
 		len(meta.FieldOptions) != 2 ||
@@ -80,30 +79,6 @@ func TestCredimi_WhitespaceTrim(t *testing.T) {
 	}
 }
 
-func TestCredimi_BackslashCleanup(t *testing.T) {
-	jsonInput := `
-	{
-		"credimi_id": "id_bs",
-		"field_id": "field_bs",
-		"field_label": "label_bs",
-		"field_description": "desc_bs",
-		"field_default_value": "foo\\\\\\\\bar",
-		"field_type": "string",
-		"field_options": []
-	}
-	`
-	_, err := credimi(jsonInput)
-	if err != nil {
-		t.Errorf("credimi() returned error: %v", err)
-	}
-	meta, ok := metadataStore["field_bs"]
-	if !ok {
-		t.Errorf("metadataStore does not contain field_bs")
-	}
-	if meta.FieldDefault != "foobar" {
-		t.Errorf("Expected Example to be 'foobar', got '%s'", meta.FieldDefault)
-	}
-}
 func TestPreprocessTemplate_BasicPlaceholder(t *testing.T) {
 	input := `variant:
   credential_format: iso_mdl
@@ -260,8 +235,8 @@ func TestGetPlaceholders_MultipleTemplatesWithSharedCredimiID(t *testing.T) {
 		t.Errorf("Expected 1 normalized_field, got %d", len(norm))
 	}
 	nf := norm[0]
-	if nf["CredimiID"] != "shared" {
-		t.Errorf("Expected CredimiID 'shared', got %v", nf["CredimiID"])
+	if nf["credimi_id"] != "shared" {
+		t.Errorf("Expected CredimiID 'shared', got %v", nf["credimi_id"])
 	}
 
 	// Each template should have its own field

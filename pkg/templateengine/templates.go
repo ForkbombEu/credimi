@@ -23,6 +23,16 @@ import (
 	"github.com/go-sprout/sprout/group/all"
 )
 
+type TypeOfFieldType string
+
+const (
+	TypeOfFieldTypeString  TypeOfFieldType = "string"
+	TypeOfFieldTypeObject  TypeOfFieldType = "object"
+	TypeOfFieldTypeOptions TypeOfFieldType = "options"
+)
+
+
+
 // PlaceholderMetadata holds metadata for a placeholder in a template.
 // It matches the placeholderInput struct.
 type PlaceholderMetadata struct {
@@ -31,7 +41,7 @@ type PlaceholderMetadata struct {
 	FieldLabel   string      `json:"field_label"`
 	FieldDesc    string      `json:"field_description"`
 	FieldDefault interface{} `json:"field_default_value"`
-	FieldType    string      `json:"field_type"`
+	FieldType    TypeOfFieldType `json:"field_type"`
 	FieldOptions []string    `json:"field_options"`
 }
 
@@ -51,8 +61,6 @@ func (p *PlaceholderMetadata) GetDefaultValue() string {
 		return fmt.Sprintf("%v", v)
 	}
 }
-	
-
 
 var metadataStore = make(map[string]PlaceholderMetadata)
 
@@ -145,7 +153,7 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 				"field_type":          ph.FieldType,
 				"field_options":       ph.FieldOptions,
 			}
-			if ph.FieldType == "string" {
+			if ph.FieldType == TypeOfFieldTypeString {
 				stringFields = append(stringFields, field)
 			} else {
 				otherFields = append(otherFields, field)
@@ -167,7 +175,7 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 		stringPH := make([]PlaceholderMetadata, 0)
 		otherPH := make([]PlaceholderMetadata, 0)
 		for _, ph := range fields {
-			if ph.FieldType == "string" {
+			if ph.FieldType == TypeOfFieldTypeString {
 				stringPH = append(stringPH, ph)
 			} else {
 				otherPH = append(otherPH, ph)
@@ -203,7 +211,6 @@ func credimi(jsonStr string, args ...interface{}) (string, error) {
 
 	return fmt.Sprintf("{{ .%s }}", input.FieldID), nil
 }
-
 
 func jwk(alg string) (string, error) {
 	var crv elliptic.Curve
