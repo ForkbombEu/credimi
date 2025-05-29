@@ -14,7 +14,6 @@ import (
 	"net/http/httputil"
 	"net/url"
 
-	"github.com/forkbombeu/credimi/pkg/customchecks"
 	"github.com/forkbombeu/credimi/pkg/internal/apis"
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -62,7 +61,6 @@ func Setup(app *pocketbase.PocketBase) {
 	apis.HookAtUserLogin(app)
 	apis.HookCredentialWorkflow(app)
 	apis.HookUpdateCredentialsIssuers(app)
-	customchecks.AddHooks(app)
 
 	jsvm.MustRegister(app, jsvm.Config{
 		HooksWatch: true,
