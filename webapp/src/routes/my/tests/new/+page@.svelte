@@ -5,15 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import SelectTestForm from './_partials/select-test-form.svelte';
 	import { getVariables, type FieldsResponse } from './_partials/logic';
 	import TestsDataForm from './_partials/tests-data-form.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import * as Tabs from '@/components/ui/tabs/index.js';
-	import BackButton from '$lib/layout/back-button.svelte';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import { m } from '@/i18n';
-	import { page } from '$app/stores';
+	import { page } from '$app/state';
 	import SelectTestsForm from './_partials/select-tests-form/select-tests-form.svelte';
 
 	//
@@ -23,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let d = $state<FieldsResponse>();
 	let compositeTestId = $state('');
 
-	let searchParams = $state($page.url.searchParams);
+	let searchParams = $state(page.url.searchParams);
 	let testId = $state(searchParams.get('test_id') || undefined);
 
 	//
@@ -76,21 +73,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	<div class="bg-background relative w-full rounded-md shadow-sm">
-		<SelectTestsForm
-			standards={data.standardsAndTestSuites}
-			customChecks={data.customChecks}
-			onSubmit={(data) => {
-				console.log(data);
-			}}
-		/>
-	</div>
-
-	<div class="bg-background relative w-full rounded-md shadow-sm">
 		{#if formState === 'select-tests'}
-			<SelectTestForm
+			<SelectTestsForm
 				standards={data.standardsAndTestSuites}
 				customChecks={data.customChecks}
-				onSelectTests={async (data) => {
+				onSubmit={async (data) => {
 					compositeTestId = data.standardId;
 					//
 					selectedCustomChecksIds = data.customChecks;

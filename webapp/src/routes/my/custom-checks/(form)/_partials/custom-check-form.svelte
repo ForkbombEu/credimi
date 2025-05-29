@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { getExceptionMessage } from '@/utils/errors.js';
 	import { pb } from '@/pocketbase';
 	import { toast } from 'svelte-sonner';
-	import type { StandardsWithTestSuites } from '../../../tests/new/_partials/standards-response-schema';
+	import type { StandardsWithTestSuites } from '$lib/standards';
 	import type { CustomChecksResponse } from '@/pocketbase/types';
 	import _ from 'lodash';
 	import { z } from 'zod';
