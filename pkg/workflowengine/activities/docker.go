@@ -20,15 +20,26 @@ import (
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
 // DockerActivity is an activity that runs a Docker image with the specified command and environment variables.
-type DockerActivity struct{}
+type DockerActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewDockerActivity() *DockerActivity {
+	return &DockerActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Run a Docker Image",
+		},
+	}
+}
 
 // Name returns the name of the Docker activity.
-func (d *DockerActivity) Name() string {
-	return "Run a Docker Image"
+func (a *DockerActivity) Name() string {
+	return a.BaseActivity.Name
 }
 
 // Execute pulls a Docker image, creates a container, and starts it with the provided command and environment variables.
@@ -40,7 +51,7 @@ func (d *DockerActivity) Name() string {
 // - "env": Environment variables to set inside the container (as a slice of strings).
 // - "ports": Port mappings (as a slice of strings, format: "hostPort:containerPort").
 // - "containerName": The name of the container (optional).
-func (d *DockerActivity) Execute(
+func (a *DockerActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
@@ -48,18 +59,32 @@ func (d *DockerActivity) Execute(
 
 	imageRaw, ok := input.Payload["image"].(string)
 	if !ok || imageRaw == "" {
-		return workflowengine.Fail(&result, "missing or invalid 'image' in payload")
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'yaml", errCode.Description),
+		)
 	}
 
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
-		return workflowengine.Fail(&result, fmt.Sprintf("failed to create Docker client: %v", err))
+		errCode := errorcodes.Codes[errorcodes.DockerClientCreationFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+		)
+
 	}
 	defer cli.Close()
 
 	out, err := cli.ImagePull(ctx, imageRaw, image.PullOptions{})
 	if err != nil {
-		return workflowengine.Fail(&result, fmt.Sprintf("failed to pull image: %v", err))
+		errCode := errorcodes.Codes[errorcodes.DockerPullImageFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+			imageRaw,
+		)
 	}
 	defer out.Close()
 	io.Copy(io.Discard, out)
@@ -80,7 +105,11 @@ func (d *DockerActivity) Execute(
 	}
 	exposedPorts, portBindings, err := buildPortMappings(hostIP, ports)
 	if err != nil {
-		return workflowengine.Fail(&result, fmt.Sprintf("invalid port mappings: %s", err))
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+		)
 	}
 
 	var networkConfig *network.NetworkingConfig
@@ -105,7 +134,15 @@ func (d *DockerActivity) Execute(
 
 	resp, err := cli.ContainerCreate(ctx, config, hostConfig, networkConfig, nil, containerName)
 	if err != nil {
-		return workflowengine.Fail(&result, fmt.Sprintf("failed to create container: %v", err))
+		errCode := errorcodes.Codes[errorcodes.DockerCreateContainerFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+			containerName,
+			config,
+			hostConfig,
+			networkConfig,
+		)
 	}
 
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
@@ -116,9 +153,11 @@ func (d *DockerActivity) Execute(
 	select {
 	case err := <-errCh:
 		if err != nil {
-			return workflowengine.Fail(
-				&result,
-				fmt.Sprintf("error while waiting for container: %v", err),
+			errCode := errorcodes.Codes[errorcodes.DockerWaitContainerFailed]
+			return result, a.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s: %v", errCode.Description, err),
+				resp.ID,
 			)
 		}
 	case <-statusCh:
@@ -126,7 +165,12 @@ func (d *DockerActivity) Execute(
 
 	inspect, err := cli.ContainerInspect(ctx, resp.ID)
 	if err != nil {
-		return workflowengine.Fail(&result, fmt.Sprintf("failed to inspect container: %v", err))
+		errCode := errorcodes.Codes[errorcodes.DockerInspectContainerFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+			resp.ID,
+		)
 	}
 
 	// Collect logs
@@ -136,7 +180,12 @@ func (d *DockerActivity) Execute(
 		container.LogsOptions{ShowStdout: true, ShowStderr: true},
 	)
 	if err != nil {
-		return workflowengine.Fail(&result, fmt.Sprintf("failed to fetch logs: %v", err))
+		errCode := errorcodes.Codes[errorcodes.DockerFetchLogsFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+			resp.ID,
+		)
 	}
 	defer logs.Close()
 
@@ -148,7 +197,11 @@ func (d *DockerActivity) Execute(
 
 	_, err = stdcopy.StdCopy(multiStdout, multiStderr, logs)
 	if err != nil {
-		return workflowengine.Fail(&result, fmt.Sprintf("failed to parse logs: %v", err))
+		errCode := errorcodes.Codes[errorcodes.CopyFromReaderFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+		)
 	}
 
 	result.Log = append(result.Log, combinedBuf.String())

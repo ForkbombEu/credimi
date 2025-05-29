@@ -17,7 +17,7 @@ import (
 )
 
 func TestHTTPActivity_Execute(t *testing.T) {
-	activity := &HTTPActivity{}
+	activity := NewHTTPActivity()
 	var ts testsuite.WorkflowTestSuite
 	env := ts.NewTestActivityEnvironment()
 	env.RegisterActivity(activity.Execute)

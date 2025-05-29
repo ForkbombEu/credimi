@@ -30,31 +30,32 @@ func (w *CustomCheckWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	stepCIWorkflowActivity := activities.StepCIWorkflowActivity{}
+	stepCIWorkflowActivity := activities.NewStepCIWorkflowActivity()
 	logger := workflow.GetLogger(ctx)
 	subCtx := workflow.WithActivityOptions(ctx, w.GetOptions())
-
+	runMetadata := workflowengine.WorkflowErrorMetadata{
+		WorkflowName: w.Name(),
+		WorkflowID:   workflow.GetInfo(subCtx).WorkflowExecution.ID,
+		Namespace:    workflow.GetInfo(subCtx).Namespace,
+		TemporalUI:   fmt.Sprintf("%s/my/tests/runs/%s/%s", input.Config["app_url"], workflow.GetInfo(subCtx).WorkflowExecution.ID, workflow.GetInfo(subCtx).WorkflowExecution.RunID),
+	}
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
 			"yaml": input.Payload["yaml"],
-		},
-		Config: map[string]string{
-			"human_readable": "true",
 		},
 	}
 	var stepCIResult workflowengine.ActivityResult
 
 	err := workflow.ExecuteActivity(subCtx, stepCIWorkflowActivity.Name(), stepCIInput).
 		Get(subCtx, &stepCIResult)
+
 	if err != nil {
-		logger.Error("StepCIExecution failed", "error", err)
-		return workflowengine.WorkflowResult{}, err
+		logger.Error(stepCIWorkflowActivity.Name(), "error", err)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
-
-	result := stepCIResult.Output.(string)
-
+	result := stepCIResult.Output.(map[string]any)
 	return workflowengine.WorkflowResult{
-		Message: fmt.Sprintf("Custom check result:\n%v", result),
+		Output: result["tests"].([]any),
 	}, nil
 }
 

@@ -16,6 +16,11 @@ import (
 	"sync"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
@@ -25,12 +30,6 @@ import (
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 	"google.golang.org/protobuf/types/known/durationpb"
-
-	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
 )
 
 // WorkersHook sets up a hook for the PocketBase application to
@@ -122,9 +121,9 @@ func StartAllWorkersByNamespace(namespace string) {
 				&workflows.OpenIDNetLogsWorkflow{},
 			},
 			Activities: []workflowengine.ExecutableActivity{
-				&activities.StepCIWorkflowActivity{},
-				&activities.SendMailActivity{},
-				&activities.HTTPActivity{},
+				activities.NewStepCIWorkflowActivity(),
+				activities.NewSendMailActivity(),
+				activities.NewHTTPActivity(),
 			},
 		},
 		{
@@ -133,9 +132,9 @@ func StartAllWorkersByNamespace(namespace string) {
 				&workflows.EWCWorkflow{},
 			},
 			Activities: []workflowengine.ExecutableActivity{
-				&activities.StepCIWorkflowActivity{},
-				&activities.SendMailActivity{},
-				&activities.HTTPActivity{},
+				activities.NewStepCIWorkflowActivity(),
+				activities.NewSendMailActivity(),
+				activities.NewHTTPActivity(),
 			},
 		},
 		{
@@ -144,9 +143,9 @@ func StartAllWorkersByNamespace(namespace string) {
 				&workflows.EudiwWorkflow{},
 			},
 			Activities: []workflowengine.ExecutableActivity{
-				&activities.StepCIWorkflowActivity{},
-				&activities.SendMailActivity{},
-				&activities.HTTPActivity{},
+				activities.NewStepCIWorkflowActivity(),
+				activities.NewSendMailActivity(),
+				activities.NewHTTPActivity(),
 			},
 		},
 		{
@@ -156,14 +155,14 @@ func StartAllWorkersByNamespace(namespace string) {
 			},
 			Activities: []workflowengine.ExecutableActivity{
 				&activities.CheckCredentialsIssuerActivity{},
-				&activities.JSONActivity{
-					StructRegistry: map[string]reflect.Type{
+				activities.NewJSONActivity(
+					map[string]reflect.Type{
 						"OpenidCredentialIssuerSchemaJson": reflect.TypeOf(
 							credentials_config.OpenidCredentialIssuerSchemaJson{},
 						),
 					},
-				},
-				&activities.HTTPActivity{},
+				),
+				activities.NewHTTPActivity(),
 			},
 		},
 		{
@@ -172,7 +171,7 @@ func StartAllWorkersByNamespace(namespace string) {
 				&workflows.CustomCheckWorkflow{},
 			},
 			Activities: []workflowengine.ExecutableActivity{
-				&activities.StepCIWorkflowActivity{},
+				activities.NewStepCIWorkflowActivity(),
 			},
 		},
 	}

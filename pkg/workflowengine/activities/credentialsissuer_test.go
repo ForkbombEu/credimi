@@ -12,6 +12,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 )
 
@@ -19,8 +20,10 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 	var ts testsuite.WorkflowTestSuite
 	env := ts.NewTestActivityEnvironment()
 
-	activity := &CheckCredentialsIssuerActivity{}
-	env.RegisterActivity(activity.Execute)
+	act := NewCheckCredentialsIssuerActivity()
+	env.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{
+		Name: act.Name(),
+	})
 
 	tests := []struct {
 		name           string
@@ -112,7 +115,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 				Config: tt.config,
 			}
 
-			future, err := env.ExecuteActivity(activity.Execute, input)
+			future, err := env.ExecuteActivity(act.Execute, input)
 
 			if tt.expectErr {
 				require.Error(t, err)

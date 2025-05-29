@@ -8,7 +8,9 @@ package workflowengine
 
 import (
 	"context"
-	"errors"
+	"fmt"
+
+	"go.temporal.io/sdk/temporal"
 )
 
 // ActivityInput represents the input to an activity, including payload and configuration.
@@ -22,25 +24,42 @@ type ActivityInput struct {
 // It is designed to be extensible, allowing for different types of output and error handling.
 type ActivityResult struct {
 	Output any
-	Errors []error
 	Log    []string
 }
 
-// ExecutableActivity is an interface that defines the structure of an activity.
-// It includes methods for executing the activity and retrieving its name.
-type ExecutableActivity interface {
-	Execute(ctx context.Context, input ActivityInput) (ActivityResult, error)
+// BaseActivity provides the common interface for all activities.
+type Activity interface {
 	Name() string
+	NewActivityError(errorType string, errorMsg string, payload ...any) error
 }
 
-// ConfigurableActivity is an interface that defines the structure of a configurable activity.
+// BaseActivity provides a default implementation of the Activity interface.
+type BaseActivity struct {
+	Name string
+}
+
+// ExecutableActivity defines an activity that can be executed.
+type ExecutableActivity interface {
+	Activity
+	Execute(ctx context.Context, input ActivityInput) (ActivityResult, error)
+}
+
+// ConfigurableActivity defines an activity that can be configured.
 type ConfigurableActivity interface {
+	Activity
 	Configure(input *ActivityInput) error
 }
 
-// Fail is a utility function that appends an error message to the activity result's errors.
-func Fail(result *ActivityResult, msg string) (ActivityResult, error) {
-	err := errors.New(msg)
-	result.Errors = append(result.Errors, err)
-	return *result, err
+func (a *BaseActivity) NewActivityError(errorType string, errorMsg string, activityPayload ...any) error {
+	msg := fmt.Sprintf("[%s]: %s", a.Name, errorMsg)
+	return temporal.NewApplicationError(msg, errorType, activityPayload)
+}
+
+func Fail(result *ActivityResult, errorMsg string, payload ...any) (ActivityResult, error) {
+	if result == nil {
+		result = &ActivityResult{}
+	}
+	result.Output = nil
+	result.Log = append(result.Log, errorMsg)
+	return *result, fmt.Errorf("activity failed: %s", errorMsg)
 }

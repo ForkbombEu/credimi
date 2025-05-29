@@ -6,14 +6,15 @@ package workflows
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/docker/docker/api/types/container"
 	dockerclient "github.com/docker/docker/client"
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	workflowengine "github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -42,6 +43,13 @@ func (w *ZenroomWorkflow) Workflow(
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 
+	runMetadata := workflowengine.WorkflowErrorMetadata{
+		WorkflowName: w.Name(),
+		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
+		Namespace:    workflow.GetInfo(ctx).Namespace,
+		TemporalUI:   fmt.Sprintf("%s/my/tests/runs/%s/%s", input.Config["app_url"], workflow.GetInfo(ctx).WorkflowExecution.ID, workflow.GetInfo(ctx).WorkflowExecution.RunID),
+	}
+
 	var sideEffectResult struct {
 		TmpDir  string
 		CmdArgs []string
@@ -50,13 +58,20 @@ func (w *ZenroomWorkflow) Workflow(
 	err := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
 		tmpDirLocal, err := os.MkdirTemp("", "zenroom-workflow-")
 		if err != nil {
-			return err
+			errCode := errorcodes.Codes[errorcodes.MkdirFailed]
+			return workflowengine.NewAppError(errCode, err.Error())
 		}
 
-		contract, _ := input.Payload["contract"].(string)
+		contract, ok := input.Payload["contract"].(string)
+		if !ok || contract == "" {
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+			return workflowengine.NewAppError(errCode, "contract")
+		}
+		errCode := errorcodes.Codes[errorcodes.WriteFileFailed]
 		contractPath := filepath.Join(tmpDirLocal, "contract.zen")
 		if err := os.WriteFile(contractPath, []byte(contract), 0600); err != nil {
-			return err
+
+			return workflowengine.NewAppError(errCode, err.Error())
 		}
 
 		cmdArgsLocal := make([]string, 0)
@@ -64,7 +79,7 @@ func (w *ZenroomWorkflow) Workflow(
 		if keys, ok := input.Payload["keys"].(string); ok {
 			keysPath := filepath.Join(tmpDirLocal, "keys.json")
 			if err := os.WriteFile(keysPath, []byte(keys), 0600); err != nil {
-				return err
+				return workflowengine.NewAppError(errCode, err.Error())
 			}
 			cmdArgsLocal = append(cmdArgsLocal, "-k", "/tmp/keys.json")
 		}
@@ -72,7 +87,7 @@ func (w *ZenroomWorkflow) Workflow(
 		if data, ok := input.Payload["data"].(string); ok {
 			dataPath := filepath.Join(tmpDirLocal, "data.json")
 			if err := os.WriteFile(dataPath, []byte(data), 0600); err != nil {
-				return err
+				return workflowengine.NewAppError(errCode, err.Error())
 			}
 			cmdArgsLocal = append(cmdArgsLocal, "-a", "/tmp/data.json")
 		}
@@ -91,10 +106,9 @@ func (w *ZenroomWorkflow) Workflow(
 			CmdArgs: cmdArgsLocal,
 		}
 	}).Get(&sideEffectResult)
-	fmt.Println("tmpDir", sideEffectResult.TmpDir)
 	if err != nil {
 		logger.Error("Failed to prepare files inside SideEffect", "error", err)
-		return workflowengine.WorkflowResult{}, fmt.Errorf("failed to prepare temp files: %w", err)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 
 	activityInput := workflowengine.ActivityInput{
@@ -108,25 +122,30 @@ func (w *ZenroomWorkflow) Workflow(
 	// Execute the activity
 
 	var result workflowengine.ActivityResult
-	var activity activities.DockerActivity
+	activity := activities.NewDockerActivity()
 	err = workflow.ExecuteActivity(ctx, activity.Name(), activityInput).Get(ctx, &result)
 	if err != nil {
 		logger.Error("Activity failed", "error", err)
-		return workflowengine.WorkflowResult{}, err
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 	cli, err := dockerclient.NewClientWithOpts(
 		dockerclient.FromEnv,
 		dockerclient.WithAPIVersionNegotiation(),
 	)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf(
-			"failed to create Docker client: %w",
-			err,
-		)
+		errCode := errorcodes.Codes[errorcodes.DockerClientCreationFailed]
+		appErr := workflowengine.NewAppError(errCode, err.Error())
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 	output, ok := result.Output.(map[string]any)
+	errCode := errorcodes.Codes[errorcodes.UnexpectedDockerOutput]
 	if !ok {
-		return workflowengine.WorkflowResult{}, errors.New("invalid output format")
+		if !ok {
+			msg := fmt.Sprintf("unexpected output type: %T", result.Output)
+			appErr := workflowengine.NewAppError(errCode, msg, result.Output)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+
+		}
 	}
 	cli.ContainerRemove(
 		context.Background(),
@@ -136,24 +155,36 @@ func (w *ZenroomWorkflow) Workflow(
 
 	exitCode, ok := output["exitCode"].(float64)
 	if !ok {
-		return workflowengine.WorkflowResult{}, errors.New("invalid exit code format")
+		appErr := workflowengine.NewAppError(errCode, "invalid exit code", output["exitCode"])
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+	}
+	stderr, ok := output["stderr"].(string)
+	if !ok {
+		appErr := workflowengine.NewAppError(errCode, "invalid stderr ", output["stderr"])
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+	}
+	stdout, ok := output["stdout"].(string)
+	if !ok {
+		appErr := workflowengine.NewAppError(errCode, "invalid stderr ", output["stout"])
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 	if int(exitCode) != 0 {
-		return workflowengine.WorkflowResult{}, fmt.Errorf(
-			"execution of Zenroom failed with exit code %d",
-			int(exitCode),
+		errCode := errorcodes.Codes[errorcodes.ZenroomExecutionFailed]
+		appErr := workflowengine.NewAppError(
+			errCode,
+			strconv.Itoa(int(exitCode)),
+			stderr,
+			stdout,
 		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 	// Parse stdout as JSON
-	outputStr, ok := output["stdout"].(string)
-	if !ok {
-		return workflowengine.WorkflowResult{}, errors.New("invalid output format")
-	}
 	var parsedOutput map[string]any
-
-	if err := json.Unmarshal([]byte(outputStr), &parsedOutput); err != nil {
+	if err := json.Unmarshal([]byte(stdout), &parsedOutput); err != nil {
 		logger.Error("Failed to parse stdout JSON", "error", err)
-		return workflowengine.WorkflowResult{}, fmt.Errorf("failed to parse stdout JSON: %w", err)
+		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
+		appErr := workflowengine.NewAppError(errCode, err.Error(), stdout)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 
 	return workflowengine.WorkflowResult{
