@@ -6,8 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { CodeEditorField, Field } from '@/forms/fields';
-	import type { FieldConfig } from './logic';
 	import type { SuperForm } from 'sveltekit-superforms';
+	import type { FieldConfig } from './tests-configs-form/types';
 
 	//
 

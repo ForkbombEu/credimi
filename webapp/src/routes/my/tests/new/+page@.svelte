@@ -11,7 +11,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import { getVariables, type FieldsResponse } from './_partials/logic';
 	import TestsDataForm from './_partials/tests-data-form.svelte';
 	import * as Tabs from '@/components/ui/tabs/index.js';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
@@ -19,6 +18,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { page } from '$app/state';
 	import SelectTestsForm from './_partials/select-tests-form/select-tests-form.svelte';
 	import type { SelectTestsFormData } from './_partials/select-tests-form/select-tests-form.svelte.js';
+	import { getTestsConfigsFields } from './_partials/tests-configs-form/utils';
+	import type { TestsConfigsFields } from './_partials/tests-configs-form/types';
 
 	//
 
@@ -44,14 +45,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let compositeTestId = $state('');
-	let variablesResponse = $state<FieldsResponse>();
+	let testsConfigsFields = $state<TestsConfigsFields>();
 
 	async function handleSelection(data: SelectTestsFormData) {
 		compositeTestId = data.standardId + '/' + data.versionId;
 		selectedCustomChecksIds = data.customChecks;
 
 		if (data.tests.length > 0) {
-			variablesResponse = await getVariables(compositeTestId, data.tests);
+			testsConfigsFields = await getTestsConfigsFields(compositeTestId, data.tests);
 		}
 
 		scrollTo({ top: 0, behavior: 'instant' });
@@ -96,7 +97,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Tabs.Trigger
 						value={tabs[1].id}
 						class="grow"
-						disabled={!Boolean(variablesResponse)}
+						disabled={!Boolean(testsConfigsFields)}
 					>
 						{tabs[1].label}
 					</Tabs.Trigger>
@@ -114,7 +115,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			/>
 		{:else if formState === 'fill-values'}
 			<TestsDataForm
-				data={variablesResponse}
+				data={testsConfigsFields}
 				testId={compositeTestId}
 				customChecks={selectedCustomChecks}
 			/>

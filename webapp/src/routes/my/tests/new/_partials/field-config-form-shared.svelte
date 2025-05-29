@@ -7,15 +7,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { createForm, Form } from '@/forms';
 	import { zod } from 'sveltekit-superforms/adapters';
-	import {
-		createInitialDataFromFields,
-		createTestVariablesFormSchema,
-		type FieldConfig
-	} from './logic';
+	import { createInitialDataFromFields, createTestVariablesFormSchema } from './logic';
 	import { Store, watch } from 'runed';
 	import FieldConfigToFormField from './field-config-to-form-field.svelte';
 	import { pipe, Tuple, Record } from 'effect';
 	import { nanoid } from 'nanoid';
+	import type { FieldConfig } from './tests-configs-form/types';
 
 	//
 

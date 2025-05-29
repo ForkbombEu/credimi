@@ -3,45 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z, type ZodTypeAny, type ZodRawShape } from 'zod';
-import { getExceptionMessage } from '@/utils/errors';
-import { pipe, Record as R, Record, Tuple } from 'effect';
-import { pb } from '@/pocketbase';
-
-/* Types & Schemas */
-
-const fieldValueTypeSchema = z.literal('string').or(z.literal('object'));
-
-const sharedFieldSchema = z.object({
-	CredimiID: z.string(),
-	DescriptionKey: z.string(),
-	LabelKey: z.string(),
-	Type: fieldValueTypeSchema,
-	Example: z.string().optional()
-});
-
-export type FieldConfig = z.infer<typeof sharedFieldSchema>;
-
-const specificFieldSchema = sharedFieldSchema.extend({
-	FieldName: z.string()
-});
-
-export type SpecificFieldConfig = z.infer<typeof specificFieldSchema>;
-
-//
-
-export const stringifiedObjectSchema = z.string().superRefine((v, ctx) => {
-	try {
-		z.record(z.string(), z.unknown())
-			.refine((value) => R.size(value) > 0)
-			.parse(JSON.parse(v));
-	} catch (e) {
-		const message = getExceptionMessage(e);
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			message: `Invalid JSON object: ${message}`
-		});
-	}
-});
+import { pipe, Record, Tuple } from 'effect';
+import {
+	fieldValueTypeSchema,
+	stringifiedObjectSchema,
+	type FieldConfig,
+	type TestsConfigsFields
+} from './tests-configs-form/types';
 
 export function createTestVariablesFormSchema(fields: FieldConfig[]) {
 	const schemaRawShape: ZodRawShape = Object.fromEntries(
@@ -61,30 +29,6 @@ export function createTestVariablesFormSchema(fields: FieldConfig[]) {
 }
 
 //
-
-const fieldsResponseSchema = z.object({
-	normalized_fields: z.array(sharedFieldSchema),
-	specific_fields: z.record(
-		z.string(),
-		z.object({
-			content: stringifiedObjectSchema,
-			fields: z.array(specificFieldSchema)
-		})
-	)
-});
-
-export type FieldsResponse = z.infer<typeof fieldsResponseSchema>;
-
-export async function getVariables(suiteAndVersionPath: string, filenames: string[]) {
-	const data = await pb.send('/api/template/placeholders', {
-		method: 'POST',
-		body: {
-			test_id: suiteAndVersionPath,
-			filenames
-		}
-	});
-	return fieldsResponseSchema.parse(data);
-}
 
 //
 
@@ -109,7 +53,7 @@ export const testInputSchema = jsonTestInputSchema.or(variablesTestInputSchema);
 
 export type TestInput = z.infer<typeof testInputSchema>;
 
-export function createTestListInputSchema(fields: FieldsResponse) {
+export function createTestListInputSchema(fields: TestsConfigsFields) {
 	return z.object(Record.map(fields.specific_fields, () => testInputSchema));
 }
 

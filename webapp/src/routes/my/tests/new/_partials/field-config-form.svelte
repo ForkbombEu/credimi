@@ -12,8 +12,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import {
 		createInitialDataFromFields,
 		createTestVariablesFormSchema,
-		stringifiedObjectSchema,
-		type SpecificFieldConfig,
 		type TestInput
 	} from './logic';
 	import { Record as R, Record, pipe, Array as A } from 'effect';
@@ -27,6 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Separator from '@/components/ui/separator/separator.svelte';
 	import { nanoid } from 'nanoid';
 	import * as Popover from '@/components/ui/popover/index.js';
+	import { stringifiedObjectSchema, type SpecificFieldConfig } from './tests-configs-form/types';
 
 	//
 

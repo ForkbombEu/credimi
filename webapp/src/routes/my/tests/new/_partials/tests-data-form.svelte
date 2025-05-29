@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import FieldConfigFormShared from './field-config-form-shared.svelte';
 	import FieldConfigForm from './field-config-form.svelte';
-	import { createTestListInputSchema, type FieldsResponse } from './logic';
+	import { createTestListInputSchema } from './logic';
 	import { createForm, Form, SubmitButton, FormError } from '@/forms';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { Store } from 'runed';
@@ -19,10 +19,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import JsonSchemaForm from '@/components/json-schema-form.svelte';
+	import type { TestsConfigsFields } from './tests-configs-form/types';
 	//
 
 	type Props = {
-		data?: FieldsResponse | undefined;
+		data?: TestsConfigsFields | undefined;
 		testId: string;
 		customChecks?: CustomChecksResponse[];
 	};
