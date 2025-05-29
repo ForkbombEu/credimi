@@ -11,12 +11,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { zod } from 'sveltekit-superforms/adapters';
 	import {
 		createInitialDataFromFields,
-		createTestVariablesFormSchema,
+		createTestConfigFormSchema,
 		type TestInput
 	} from './logic';
 	import { Record as R, Record, pipe, Array as A } from 'effect';
 	import { Store, watch } from 'runed';
-	import FieldConfigToFormField from './field-config-to-form-field.svelte';
+	import FieldConfigToFormField from './tests-configs-form/config-field.svelte';
 	import Label from '@/components/ui/label/label.svelte';
 	import { Pencil, Info, Undo, Eye } from 'lucide-svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
@@ -56,7 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const form = createForm({
 		adapter: zod(
-			createTestVariablesFormSchema(fields).extend({
+			createTestConfigFormSchema(fields).extend({
 				jsonConfig: stringifiedObjectSchema.optional()
 			})
 		),
@@ -308,7 +308,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{:else}
 			<div class="space-y-8">
 				{#each specificFields as config}
-					<FieldConfigToFormField {config} {form} />
+					<FieldConfigToFormField field={config} {form} />
 				{/each}
 
 				{#each overriddenFields as config}
@@ -325,7 +325,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								Reset to default
 							</button>
 						</div>
-						<FieldConfigToFormField {config} {form} />
+						<FieldConfigToFormField field={config} {form} />
 					</div>
 				{/each}
 

@@ -3,15 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z, type ZodTypeAny, type ZodRawShape } from 'zod';
-import { pipe, Record, Tuple } from 'effect';
-import {
-	fieldValueTypeSchema,
-	stringifiedObjectSchema,
-	type ConfigField,
-	type TestsConfigsFields
-} from './tests-configs-form/types';
+import type { TestConfigField } from './test-config-field/test-config-field';
+import { stringifiedObjectSchema } from '../../utils';
+import { Tuple } from 'effect';
+import { pipe } from 'effect';
 
-export function createTestConfigFormSchema(fields: ConfigField[]) {
+//
+
+export function createTestConfigFormSchema(fields: TestConfigField[]) {
 	const schemaRawShape: ZodRawShape = Object.fromEntries(
 		fields.map((f) => {
 			let schema: ZodTypeAny;
@@ -28,38 +27,10 @@ export function createTestConfigFormSchema(fields: ConfigField[]) {
 	return z.object(schemaRawShape);
 }
 
-//
-
-//
-
-export const jsonTestInputSchema = z.object({
-	format: z.literal('json'),
-	data: stringifiedObjectSchema
-});
-
-export const variablesTestInputSchema = z.object({
-	format: z.literal('variables'),
-	data: z.record(
-		z.string(),
-		z.object({
-			type: fieldValueTypeSchema,
-			value: z.string().or(stringifiedObjectSchema),
-			fieldName: z.string()
-		})
-	)
-});
-
-export const testInputSchema = jsonTestInputSchema.or(variablesTestInputSchema);
-
-export type TestInput = z.infer<typeof testInputSchema>;
-
-export function createTestListInputSchema(fields: TestsConfigsFields) {
-	return z.object(Record.map(fields.specific_fields, () => testInputSchema));
-}
-
-//
-
-export function createInitialDataFromFields(fields: ConfigField[], excludeIds: string[] = []) {
+export function createTestConfigFormInitialData(
+	fields: TestConfigField[],
+	excludeIds: string[] = []
+) {
 	return pipe(
 		fields
 			.map((field) => {
@@ -78,5 +49,3 @@ export function createInitialDataFromFields(fields: ConfigField[], excludeIds: s
 		(entries) => Object.fromEntries(entries)
 	);
 }
-
-/*  */

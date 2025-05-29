@@ -10,7 +10,7 @@ import { Record as R } from 'effect';
 
 export const fieldValueTypeSchema = z.literal('string').or(z.literal('object'));
 
-const sharedFieldSchema = z.object({
+const configFieldSchema = z.object({
 	CredimiID: z.string(),
 	DescriptionKey: z.string(),
 	LabelKey: z.string(),
@@ -18,9 +18,9 @@ const sharedFieldSchema = z.object({
 	Example: z.string().optional()
 });
 
-export type FieldConfig = z.infer<typeof sharedFieldSchema>;
+export type ConfigField = z.infer<typeof configFieldSchema>;
 
-const specificFieldSchema = sharedFieldSchema.extend({
+const specificFieldSchema = configFieldSchema.extend({
 	FieldName: z.string()
 });
 
@@ -45,7 +45,7 @@ export const stringifiedObjectSchema = z.string().superRefine((v, ctx) => {
 // API response schema
 
 export const testsConfigsFieldsSchema = z.object({
-	normalized_fields: z.array(sharedFieldSchema),
+	normalized_fields: z.array(configFieldSchema),
 	specific_fields: z.record(
 		z.string(),
 		z.object({

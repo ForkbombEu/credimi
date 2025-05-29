@@ -7,28 +7,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { CodeEditorField, Field } from '@/forms/fields';
 	import type { SuperForm } from 'sveltekit-superforms';
-	import type { FieldConfig } from './tests-configs-form/types';
+	import type { TestConfigField } from './test-config-field';
 
 	//
 
 	type Props = {
-		config: FieldConfig;
+		field: TestConfigField;
 		form: SuperForm<Record<string, unknown>>;
 	};
 
-	const { config, form }: Props = $props();
+	const { field, form }: Props = $props();
 </script>
 
-{#if config.Type == 'string'}
-	<Field {form} name={config.CredimiID} options={{ label: config.LabelKey }} />
-{:else if config.Type == 'object'}
+{#if field.Type == 'string'}
+	<Field {form} name={field.CredimiID} options={{ label: field.LabelKey }} />
+{:else if field.Type == 'object'}
 	<CodeEditorField
 		{form}
-		name={config.CredimiID}
+		name={field.CredimiID}
 		options={{
 			lang: 'json',
-			label: config.LabelKey,
-			value: config.Example
+			label: field.LabelKey,
+			value: field.Example
 		}}
 	/>
 {/if}

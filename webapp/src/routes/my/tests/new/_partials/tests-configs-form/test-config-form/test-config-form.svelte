@@ -7,17 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { createForm, Form } from '@/forms';
 	import { zod } from 'sveltekit-superforms/adapters';
-	import { createInitialDataFromFields, createTestVariablesFormSchema } from './logic';
+	import { createTestConfigFormInitialData, createTestConfigFormSchema } from './utils';
 	import { Store, watch } from 'runed';
-	import FieldConfigToFormField from './field-config-to-form-field.svelte';
+	import FieldConfigToFormField from '../config-field.svelte';
 	import { pipe, Tuple, Record } from 'effect';
 	import { nanoid } from 'nanoid';
-	import type { FieldConfig } from './tests-configs-form/types';
+	import type { ConfigField } from '../types';
 
 	//
 
 	type Props = {
-		fields: FieldConfig[];
+		fields: ConfigField[];
 		initialData?: Record<string, unknown>;
 		onUpdate?: (form: Record<string, unknown>) => void;
 	};
@@ -27,8 +27,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	const form = createForm({
-		adapter: zod(createTestVariablesFormSchema(fields)),
-		initialData: createInitialDataFromFields(fields),
+		adapter: zod(createTestConfigFormSchema(fields)),
+		initialData: createTestConfigFormInitialData(fields),
 		options: {
 			id: nanoid(6)
 		}
@@ -65,6 +65,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Form {form} hide={['submit_button']} hideRequiredIndicator>
 	{#each fields as config}
-		<FieldConfigToFormField {config} {form} />
+		<FieldConfigToFormField field={config} {form} />
 	{/each}
 </Form>
