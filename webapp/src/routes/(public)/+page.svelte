@@ -18,15 +18,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { currentUser, pb } from '@/pocketbase';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
-	import CredentialSection from './_sections/credential-section.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import { Sparkle } from 'lucide-svelte';
 	import { Collections } from '@/pocketbase/types';
 	import MarketplaceSection, { type SectionData } from './_sections/marketplace-section.svelte';
-	import SolutionsSection from './_sections/solutions-section.svelte';
+	import { CollectionManager } from '@/collections-components';
+	import PageGrid from '$lib/layout/pageGrid.svelte';
+	import { MarketplaceItemCard } from './marketplace/_utils';
 
 	//
-
+	const MAX_SOLUTION_ITEMS = 3;
 	const schema = z.object({
 		name: z.string(),
 		email: z.string().email()
@@ -48,33 +49,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 		}
 	});
-
 	let formSuccess = $state(false);
-
-	//
-
 	const sections: SectionData[] = [
 		{
 			collection: Collections.Credentials,
 			findLabel: m.Find_credentials(),
 			allLabel: m.All_credentials()
 		}
-		// {
-		// 	collection: Collections.Verifiers,
-		// 	findLabel: m.Find_verifiers(),
-		// 	allLabel: m.All_verifiers()
-		// },
-		// {
-		// 	collection: Collections.Wallets,
-		// 	findLabel: m.Find_apps(),
-		// 	allLabel: m.All_apps()
-		// },
-		// {
-		// 	collection: Collections.CredentialIssuers,
-		// 	findLabel: m.Find_issuers(),
-		// 	allLabel: m.All_issuers()
-		// }
 	];
+	const excludeFromSolutions = Collections.Credentials;
 </script>
 
 {#if $featureFlags.DEMO}
@@ -107,8 +90,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </PageTop>
 
 <PageContent class="bg-secondary" contentClass="space-y-12">
-	<SolutionsSection />
-	<!-- <CredentialSection /> -->
+	<div class="space-y-6">
+		<div class="flex items-center justify-between">
+			<T tag="h3">{m.Find_solutions()}</T>
+			<Button variant="default" href="/marketplace">{m.Explore_Marketplace()}</Button>
+		</div>
+
+		<CollectionManager
+			collection="marketplace_items"
+			queryOptions={{
+				perPage: MAX_SOLUTION_ITEMS,
+				filter: `type != '${excludeFromSolutions}'`
+			}}
+			hide={['pagination']}
+		>
+			{#snippet records({ records })}
+				<PageGrid>
+					{#each records as item, i}
+						<MarketplaceItemCard {item} class={'last:hidden last:lg:flex'} />
+					{/each}
+				</PageGrid>
+			{/snippet}
+		</CollectionManager>
+	</div>
 	{#each sections as section}
 		<MarketplaceSection {...section} />
 	{/each}
