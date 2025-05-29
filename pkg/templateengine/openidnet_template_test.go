@@ -122,7 +122,7 @@ func TestParseInput(t *testing.T) {
 		"form": map[string]any{
 			"alias": `        {{
 
-           credimi \"
+           credimi` + " ` " + `
               {
                 "credimi_id": "oid_alias",
                 "field_default_value": "uuidv4",
@@ -132,7 +132,7 @@ func TestParseInput(t *testing.T) {
                 "field_options": [],
                 "field_type": "string"
               }
-        \"}}`,
+        ` + "` " + `}}`,
 			"client": map[string]any{
 				"default_field": "default_value",
 			},
@@ -175,7 +175,7 @@ func TestParseInput(t *testing.T) {
 			wantForm: map[string]any{
 				"alias": `{{
         
-           credimi \"
+           credimi ` + " ` " + `
               {
                 "credimi_id": "test1_test2_test3_test4_oid_alias",
                 "field_default_value": "uuidv4",
@@ -185,7 +185,7 @@ func TestParseInput(t *testing.T) {
                 "field_options": [],
                 "field_type": "string"
               }
-        \"}}`,
+         ` + "` " + `}}`,
 				"client": map[string]any{
 					"default_field": "default_value",
 					"test_field":    "test_value",

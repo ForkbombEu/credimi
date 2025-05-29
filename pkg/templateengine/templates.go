@@ -31,21 +31,19 @@ const (
 	TypeOfFieldTypeOptions TypeOfFieldType = "options"
 )
 
-
-
 // PlaceholderMetadata holds metadata for a placeholder in a template.
 // It matches the placeholderInput struct.
 type PlaceholderMetadata struct {
-	CredimiID    string      `json:"credimi_id"`
-	FieldID      string      `json:"field_id"`
-	FieldLabel   string      `json:"field_label"`
-	FieldDesc    string      `json:"field_description"`
-	FieldDefault interface{} `json:"field_default_value"`
+	CredimiID    string          `json:"credimi_id"`
+	FieldID      string          `json:"field_id"`
+	FieldLabel   string          `json:"field_label"`
+	FieldDesc    string          `json:"field_description"`
+	FieldDefault interface{}     `json:"field_default_value"`
 	FieldType    TypeOfFieldType `json:"field_type"`
-	FieldOptions []string    `json:"field_options"`
+	FieldOptions []string        `json:"field_options"`
 }
 
-// GetDefaultValue returns the default value of the placeholder, 
+// GetDefaultValue returns the default value of the placeholder,
 // if the orginal value is a string return a string, if is an object return a json string
 func (p *PlaceholderMetadata) GetDefaultValue() string {
 	if p.FieldDefault == nil {
@@ -106,29 +104,39 @@ func RenderTemplate(reader io.Reader, data map[string]interface{}) (string, erro
 // GetPlaceholders processes a list of template readers and their corresponding names
 // to extract placeholder metadata and organize it into normalized and specific fields.
 func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{}, error) {
-	var allPlaceholders []PlaceholderMetadata
+	specificFields, allPlaceholders, err := getFields(readers, names)
+	if err != nil {
+		return nil, err
+	}
+	normalizedFields := normalizeFields(allPlaceholders)
+	result := map[string]interface{}{
+		"normalized_fields": normalizedFields,
+		"specific_fields":   specificFields,
+	}
+	return result, nil
+}
+
+func getFields(readers []io.Reader, names []string) (map[string]interface{}, []PlaceholderMetadata, error) {
 	specificFields := make(map[string]interface{})
-	credimiIDCount := make(map[string]int)
+	var allPlaceholders []PlaceholderMetadata
 
 	for i, r := range readers {
-		// Clear metadataStore for each reader to avoid mixing placeholders
 		metadataStore = make(map[string]PlaceholderMetadata)
 
 		var buf bytes.Buffer
 		if _, err := io.Copy(&buf, r); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		content := buf.String()
 
 		preprocessedContent, err := preprocessTemplate(content)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		placeholders := extractMetadata()
 
 		for _, ph := range placeholders {
-			credimiIDCount[ph.CredimiID]++
 			allPlaceholders = append(allPlaceholders, ph)
 		}
 
@@ -138,44 +146,23 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 		}
 	}
 
-	normalizedFields := make([]map[string]interface{}, 0)
-	seenCredimiIDs := make(map[string]bool)
-	stringFields := make([]map[string]interface{}, 0)
-	otherFields := make([]map[string]interface{}, 0)
-	for _, ph := range allPlaceholders {
-		if credimiIDCount[ph.CredimiID] > 1 && !seenCredimiIDs[ph.CredimiID] {
-			seenCredimiIDs[ph.CredimiID] = true
-			field := map[string]interface{}{
-				"credimi_id":          ph.CredimiID,
-				"field_id":            ph.FieldID,
-				"field_label":         ph.FieldLabel,
-				"field_description":   ph.FieldDesc,
-				"field_default_value": ph.FieldDefault,
-				"field_type":          ph.FieldType,
-				"field_options":       ph.FieldOptions,
-			}
-			if ph.FieldType == TypeOfFieldTypeString {
-				stringFields = append(stringFields, field)
-			} else {
-				otherFields = append(otherFields, field)
-			}
-		}
-	}
-	normalizedFields = append(normalizedFields, stringFields...)
-	normalizedFields = append(normalizedFields, otherFields...)
 
-	for name, v := range specificFields {
+	return sortSpecificFields(specificFields), allPlaceholders, nil
+}
+
+func sortSpecificFields(fields map[string]interface{}) map[string]interface{} {
+	for name, v := range fields {
 		m, ok := v.(map[string]interface{})
 		if !ok {
 			continue
 		}
-		fields, ok := m["fields"].([]PlaceholderMetadata)
+		phs, ok := m["fields"].([]PlaceholderMetadata)
 		if !ok {
 			continue
 		}
 		stringPH := make([]PlaceholderMetadata, 0)
 		otherPH := make([]PlaceholderMetadata, 0)
-		for _, ph := range fields {
+		for _, ph := range phs {
 			if ph.FieldType == TypeOfFieldTypeString {
 				stringPH = append(stringPH, ph)
 			} else {
@@ -184,15 +171,41 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 		}
 		stringPH = append(stringPH, otherPH...)
 		m["fields"] = stringPH
-		specificFields[name] = m
+		fields[name] = m
 	}
+	return fields
+}
 
-	result := map[string]interface{}{
-		"normalized_fields": normalizedFields,
-		"specific_fields":   specificFields,
+func normalizeFields(fields []PlaceholderMetadata) []map[string]interface{} {
+	credimiIDCount := make(map[string]int)
+	normalized := make([]map[string]interface{}, 0, len(fields))
+	stringFields := make([]map[string]interface{}, 0)
+	otherFields := make([]map[string]interface{}, 0)
+	for _, ph := range fields {
+		if credimiIDCount[ph.CredimiID] == 1 {
+			field := map[string]interface{}{
+				"credimi_id":          ph.CredimiID,
+				"field_label":         ph.FieldLabel,
+				"field_description":   ph.FieldDesc,
+				"field_default_value": ph.GetDefaultValue(),
+				"field_type":          ph.FieldType,
+				"field_options":       ph.FieldOptions,
+			}
+
+			if ph.FieldType == TypeOfFieldTypeString {
+				stringFields = append(stringFields, field)
+			} else {
+				otherFields = append(otherFields, field)
+			}
+
+		}
+		credimiIDCount[ph.CredimiID]++
+
 	}
+	normalized = append(normalized, stringFields...)
+	normalized = append(normalized, otherFields...)
 
-	return result, nil
+	return normalized
 }
 
 func credimi(jsonStr string, args ...interface{}) (string, error) {

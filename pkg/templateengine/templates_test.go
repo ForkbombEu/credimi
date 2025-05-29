@@ -331,3 +331,237 @@ func TestGetPlaceholders_EmptyInput(t *testing.T) {
 		t.Errorf("Expected 0 specific_fields, got %d", len(spec))
 	}
 }
+func TestNormalizeFields_EmptyInput(t *testing.T) {
+	fields := []PlaceholderMetadata{}
+	result := normalizeFields(fields)
+	if len(result) != 0 {
+		t.Errorf("Expected empty result, got %v", result)
+	}
+}
+
+func TestNormalizeFields_NoSharedCredimiID(t *testing.T) {
+	fields := []PlaceholderMetadata{
+		{
+			CredimiID:    "id1",
+			FieldID:      "field1",
+			FieldLabel:   "label1",
+			FieldDesc:    "desc1",
+			FieldDefault: "def1",
+			FieldType:    TypeOfFieldTypeString,
+			FieldOptions: []string{"a"},
+		},
+		{
+			CredimiID:    "id2",
+			FieldID:      "field2",
+			FieldLabel:   "label2",
+			FieldDesc:    "desc2",
+			FieldDefault: "def2",
+			FieldType:    TypeOfFieldTypeOptions,
+			FieldOptions: []string{"b"},
+		},
+	}
+	result := normalizeFields(fields)
+	if len(result) != 0 {
+		t.Errorf("Expected 0 normalized fields, got %d", len(result))
+	}
+}
+
+func TestNormalizeFields_WithSharedCredimiID(t *testing.T) {
+	fields := []PlaceholderMetadata{
+		{
+			CredimiID:    "shared",
+			FieldID:      "field1",
+			FieldLabel:   "label1",
+			FieldDesc:    "desc1",
+			FieldDefault: "def1",
+			FieldType:    TypeOfFieldTypeString,
+			FieldOptions: []string{"a"},
+		},
+		{
+			CredimiID:    "shared",
+			FieldID:      "field2",
+			FieldLabel:   "label2",
+			FieldDesc:    "desc2",
+			FieldDefault: "def2",
+			FieldType:    TypeOfFieldTypeString,
+			FieldOptions: []string{"b"},
+		},
+		{
+			CredimiID:    "unique",
+			FieldID:      "field3",
+			FieldLabel:   "label3",
+			FieldDesc:    "desc3",
+			FieldDefault: "def3",
+			FieldType:    TypeOfFieldTypeString,
+			FieldOptions: []string{"c"},
+		},
+	}
+	result := normalizeFields(fields)
+	if len(result) != 1 {
+		t.Fatalf("Expected 2 normalized fields, got %d", len(result))
+	}
+}
+
+func TestNormalizeFields_MultipleSharedCredimiIDs(t *testing.T) {
+	fields := []PlaceholderMetadata{
+		{
+			CredimiID:    "idA",
+			FieldID:      "fieldA1",
+			FieldLabel:   "labelA1",
+			FieldDesc:    "descA1",
+			FieldDefault: "defA1",
+			FieldType:    TypeOfFieldTypeString,
+			FieldOptions: []string{},
+		},
+		{
+			CredimiID:    "idA",
+			FieldID:      "fieldA2",
+			FieldLabel:   "labelA2",
+			FieldDesc:    "descA2",
+			FieldDefault: "defA2",
+			FieldType:    TypeOfFieldTypeOptions,
+			FieldOptions: []string{},
+		},
+		{
+			CredimiID:    "idB",
+			FieldID:      "fieldB1",
+			FieldLabel:   "labelB1",
+			FieldDesc:    "descB1",
+			FieldDefault: "defB1",
+			FieldType:    TypeOfFieldTypeString,
+			FieldOptions: []string{},
+		},
+		{
+			CredimiID:    "idB",
+			FieldID:      "fieldB2",
+			FieldLabel:   "labelB2",
+			FieldDesc:    "descB2",
+			FieldDefault: "defB2",
+			FieldType:    TypeOfFieldTypeObject,
+			FieldOptions: []string{},
+		},
+	}
+	result := normalizeFields(fields)
+	if len(result) != 2 {
+		t.Fatalf("Expected 2 normalized fields, got %d", len(result))
+	}
+	// Should have one string and one other for each shared credimi_id
+	countA, countB := 0, 0
+	for _, field := range result {
+		switch field["credimi_id"] {
+		case "idA":
+			countA++
+		case "idB":
+			countB++
+		default:
+			t.Errorf("Unexpected credimi_id: %v", field["credimi_id"])
+		}
+	}
+	if countA != 1 || countB != 1 {
+		t.Errorf("Expected 2 fields for each shared credimi_id, got idA=%d, idB=%d", countA, countB)
+	}
+}
+func TestGetFields_SingleTemplateSinglePlaceholder(t *testing.T) {
+	templateStr := `{{ credimi "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"def1\",\"field_type\":\"string\",\"field_options\":[\"a\",\"b\"]}" }}`
+	names := []string{"template_0"}
+	reader := strings.NewReader(templateStr)
+
+	specific, all, err := getFields([]io.Reader{reader}, names)
+	if err != nil {
+		t.Fatalf("getFields returned error: %v", err)
+	}
+
+	// Check specificFields
+	entry, ok := specific["template_0"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("specificFields[template_0] missing or wrong type")
+	}
+	fields, ok := entry["fields"].([]PlaceholderMetadata)
+	if !ok {
+		t.Fatalf("fields missing or wrong type")
+	}
+	if len(fields) != 1 {
+		t.Fatalf("Expected 1 field, got %d", len(fields))
+	}
+	ph := fields[0]
+	if ph.CredimiID != "id1" || ph.FieldID != "field1" || ph.FieldLabel != "label1" ||
+		ph.FieldDesc != "desc1" || ph.FieldType != "string" || ph.FieldDefault != "def1" ||
+		len(ph.FieldOptions) != 2 || ph.FieldOptions[0] != "a" || ph.FieldOptions[1] != "b" {
+		t.Errorf("Unexpected placeholder metadata: %+v", ph)
+	}
+
+	// Check allPlaceholders
+	if len(all) != 1 {
+		t.Errorf("Expected 1 allPlaceholder, got %d", len(all))
+	}
+}
+
+func TestGetFields_MultipleTemplatesMultiplePlaceholders(t *testing.T) {
+	template1 := `{{ credimi "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"def1\",\"field_type\":\"string\",\"field_options\":[]}" }}`
+	template2 := `{{ credimi "{\"credimi_id\":\"id2\",\"field_id\":\"field2\",\"field_label\":\"label2\",\"field_description\":\"desc2\",\"field_default_value\":\"def2\",\"field_type\":\"options\",\"field_options\":[\"x\"]}" }}`
+	names := []string{"template_0", "template_1"}
+	readers := []io.Reader{strings.NewReader(template1), strings.NewReader(template2)}
+	specific, all, err := getFields(readers, names)
+	if err != nil {
+		t.Fatalf("getFields returned error: %v", err)
+	}
+
+	// Check specificFields
+	for i := 0; i < 2; i++ {
+		entry, ok := specific[fmt.Sprintf("template_%d", i)].(map[string]interface{})
+		if !ok {
+			t.Fatalf("specificFields[template_%d] missing or wrong type", i)
+		}
+		fields, ok := entry["fields"].([]PlaceholderMetadata)
+		if !ok {
+			t.Fatalf("fields missing or wrong type for template_%d", i)
+		}
+		if len(fields) != 1 {
+			t.Fatalf("Expected 1 field for template_%d, got %d", i, len(fields))
+		}
+	}
+	if len(all) != 2 {
+		t.Errorf("Expected 2 allPlaceholders, got %d", len(all))
+	}
+}
+
+func TestGetFields_TemplateWithNoPlaceholders(t *testing.T) {
+	templateStr := `This template has no placeholders.`
+	names := []string{"template_0"}
+	reader := strings.NewReader(templateStr)
+
+	specific, all, err := getFields([]io.Reader{reader}, names)
+	if err != nil {
+		t.Fatalf("getFields returned error: %v", err)
+	}
+
+	entry, ok := specific["template_0"].(map[string]interface{})
+	if !ok {
+		t.Fatalf("specificFields[template_0] missing or wrong type")
+	}
+	fields, ok := entry["fields"].([]PlaceholderMetadata)
+	if !ok {
+		t.Fatalf("fields missing or wrong type")
+	}
+	if len(fields) != 0 {
+		t.Errorf("Expected 0 fields, got %d", len(fields))
+	}
+	if len(all) != 0 {
+		t.Errorf("Expected 0 allPlaceholders, got %d", len(all))
+	}
+}
+
+func TestGetFields_EmptyInput(t *testing.T) {
+	specific, all, err := getFields([]io.Reader{}, nil)
+	if err != nil {
+		t.Fatalf("getFields returned error: %v", err)
+	}
+	if len(specific) != 0 {
+		t.Errorf("Expected 0 specificFields, got %d", len(specific))
+	}
+	if len(all) != 0 {
+		t.Errorf("Expected 0 allPlaceholders, got %d", len(all))
+	}
+}
+
+
