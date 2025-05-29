@@ -8,20 +8,30 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"os"
 	"strconv"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"gopkg.in/gomail.v2"
 )
 
 // SendMailActivity is an activity that sends an email using SMTP.
-type SendMailActivity struct{}
+type SendMailActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewSendMailActivity() *SendMailActivity {
+	return &SendMailActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Send an email",
+		},
+	}
+}
 
 // Name returns the name of the activity.
-func (SendMailActivity) Name() string {
-	return "Send an email"
+func (a *SendMailActivity) Name() string {
+	return a.BaseActivity.Name
 }
 
 // Configure sets up the SMTP configuration for sending emails.
@@ -63,18 +73,27 @@ func (a *SendMailActivity) Execute(
 
 	SMTPPort, err := strconv.Atoi(input.Config["smtp_port"])
 	if err != nil {
-		return workflowengine.Fail(&result, "SMTP_PORT environment variable not an integer")
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+		return workflowengine.ActivityResult{}, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'SMTP_PORT environment variable not an integer'", errCode.Description),
+			input.Config["smtp_port"],
+		)
 	}
 
 	d := gomail.NewDialer(
 		input.Config["smtp_host"],
 		SMTPPort,
-		os.Getenv("MAIL_USERNAME"),
-		os.Getenv("MAIL_PASSWORD"),
+		utils.GetEnvironmentVariable("MAIL_USERNAME"),
+		utils.GetEnvironmentVariable("MAIL_PASSWORD"),
 	)
 
 	if err := d.DialAndSend(m); err != nil {
-		return workflowengine.Fail(&result, fmt.Sprintf("failed to send email: %v", err))
+		errCode := errorcodes.Codes[errorcodes.EmailSendFailed]
+		return workflowengine.ActivityResult{}, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+		)
 	}
 
 	result.Output = "Email sent successfully"
