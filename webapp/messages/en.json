@@ -443,5 +443,11 @@
 	"Last_update": "Last update",
 	"Custom_check": "Custom check",
 	"Select_your_timezone": "Select your timezone",
-	"Configuration_example": "Configuration example"
+	"Configuration_example": "Configuration example",
+	"Version": "Version",
+	"Select_a_version": "Select a version",
+	"Test_suites": "Test suites",
+	"Next_step": "Next step",
+	"Current_selection": "Current selection",
+	"Suites": "Suites"
 }

@@ -144,8 +144,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}}
 	/>
 	{#if !walletId}
-		<!-- @ts-ignore -->
-		<Table {form} name="conformance_checks" options={{ label: 'Conformance Checks' }} />
+		<!-- TODO - Fix -->
+		<Table
+			form={form as any}
+			name="conformance_checks"
+			options={{ label: 'Conformance Checks' }}
+		/>
 	{:else}
 		<Alert variant="info" icon={InfoIcon}>
 			<T>Editing conformance checks for wallets is temporary disabled.</T>

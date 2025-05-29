@@ -13,9 +13,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BackButton from '$lib/layout/back-button.svelte';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import { m } from '@/i18n';
-	import { page } from '$app/stores'
-
-
+	import { page } from '$app/stores';
+	import SelectTestsForm from './_partials/select-tests-form/select-tests-form.svelte';
 
 	//
 
@@ -26,7 +25,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let searchParams = $state($page.url.searchParams);
 	let testId = $state(searchParams.get('test_id') || undefined);
-
 
 	//
 
@@ -43,9 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let selectedCustomChecksIds = $state<string[]>(
-		testId ? [testId] : []
-	);
+	let selectedCustomChecksIds = $state<string[]>(testId ? [testId] : []);
 	const selectedCustomChecks = $derived(
 		data.customChecks.filter((check) => selectedCustomChecksIds.includes(check.id))
 	);
@@ -78,6 +74,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Tabs.Root>
 		</div>
 	{/snippet}
+
+	<div class="bg-background relative w-full rounded-md shadow-sm">
+		<SelectTestsForm
+			standards={data.standardsAndTestSuites}
+			customChecks={data.customChecks}
+			onSubmit={(data) => {
+				console.log(data);
+			}}
+		/>
+	</div>
 
 	<div class="bg-background relative w-full rounded-md shadow-sm">
 		{#if formState === 'select-tests'}
