@@ -45,7 +45,8 @@ type PlaceholderMetadata struct {
 	FieldOptions []string    `json:"field_options"`
 }
 
-// GetDefaultValue returns the default value of the placeholder, if the orginal value is a string return a string, if is an object return a json string
+// GetDefaultValue returns the default value of the placeholder, 
+// if the orginal value is a string return a string, if is an object return a json string
 func (p *PlaceholderMetadata) GetDefaultValue() string {
 	if p.FieldDefault == nil {
 		return ""
@@ -181,8 +182,8 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 				otherPH = append(otherPH, ph)
 			}
 		}
-		newFields := append(stringPH, otherPH...)
-		m["fields"] = newFields
+		stringPH = append(stringPH, otherPH...)
+		m["fields"] = stringPH
 		specificFields[name] = m
 	}
 
