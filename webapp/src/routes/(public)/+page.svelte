@@ -26,7 +26,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import { MarketplaceItemCard } from './marketplace/_utils';
 
-	//
 	const MAX_SOLUTION_ITEMS = 3;
 	const schema = z.object({
 		name: z.string(),
