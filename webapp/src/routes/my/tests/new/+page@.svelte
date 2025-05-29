@@ -4,6 +4,12 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+<script module>
+	export const queryParams = {
+		customCheckId: 'custom_check_id'
+	};
+</script>
+
 <script lang="ts">
 	import { getVariables, type FieldsResponse } from './_partials/logic';
 	import TestsDataForm from './_partials/tests-data-form.svelte';
@@ -12,24 +18,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { page } from '$app/state';
 	import SelectTestsForm from './_partials/select-tests-form/select-tests-form.svelte';
+	import type { SelectTestsFormData } from './_partials/select-tests-form/select-tests-form.svelte.js';
 
 	//
 
 	let { data } = $props();
 
-	let d = $state<FieldsResponse>();
-	let compositeTestId = $state('');
-
-	let searchParams = $state(page.url.searchParams);
-	let testId = $state(searchParams.get('test_id') || undefined);
-
 	//
 
 	type FormState = 'select-tests' | 'fill-values';
-
-	let formState = $state<FormState>(testId ? 'fill-values' : 'select-tests');
-
-	//
+	let formState = $state<FormState>('select-tests');
 
 	const tabs: { id: FormState; label: string }[] = [
 		{ id: 'select-tests', label: '1. Standard and test suite' },
@@ -38,10 +36,41 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let selectedCustomChecksIds = $state<string[]>(testId ? [testId] : []);
+	let selectedCustomChecksIds = $state<string[]>([]);
 	const selectedCustomChecks = $derived(
 		data.customChecks.filter((check) => selectedCustomChecksIds.includes(check.id))
 	);
+
+	//
+
+	let compositeTestId = $state('');
+	let variablesResponse = $state<FieldsResponse>();
+
+	async function handleSelection(data: SelectTestsFormData) {
+		compositeTestId = data.standardId + '/' + data.versionId;
+		selectedCustomChecksIds = data.customChecks;
+
+		if (data.tests.length > 0) {
+			variablesResponse = await getVariables(compositeTestId, data.tests);
+		}
+
+		scrollTo({ top: 0, behavior: 'instant' });
+		formState = 'fill-values';
+	}
+
+	//
+
+	const customCheckId = $derived(page.url.searchParams.get(queryParams.customCheckId));
+
+	$effect(() => {
+		if (!customCheckId) return;
+		const customCheck = data.customChecks.find((check) => check.id === customCheckId);
+		if (!customCheck) return;
+
+		compositeTestId = customCheck.standard_and_version;
+		selectedCustomChecksIds = [customCheckId];
+		formState = 'fill-values';
+	});
 </script>
 
 <!--  -->
@@ -64,7 +93,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					>
 						{tabs[0].label}
 					</Tabs.Trigger>
-					<Tabs.Trigger value={tabs[1].id} class="grow" disabled={!Boolean(d)}>
+					<Tabs.Trigger
+						value={tabs[1].id}
+						class="grow"
+						disabled={!Boolean(variablesResponse)}
+					>
 						{tabs[1].label}
 					</Tabs.Trigger>
 				</Tabs.List>
@@ -77,21 +110,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<SelectTestsForm
 				standards={data.standardsAndTestSuites}
 				customChecks={data.customChecks}
-				onSubmit={async (data) => {
-					compositeTestId = data.standardId;
-					//
-					selectedCustomChecksIds = data.customChecks;
-					//
-					if (data.tests.length > 0) {
-						d = await getVariables(data.standardId, data.tests);
-					}
-					//
-					scrollTo({ top: 0, behavior: 'instant' });
-					formState = 'fill-values';
-				}}
+				onSubmit={handleSelection}
 			/>
 		{:else if formState === 'fill-values'}
-			<TestsDataForm data={d} testId={compositeTestId} customChecks={selectedCustomChecks} />
+			<TestsDataForm
+				data={variablesResponse}
+				testId={compositeTestId}
+				customChecks={selectedCustomChecks}
+			/>
 		{/if}
 	</div>
 </FocusPageLayout>

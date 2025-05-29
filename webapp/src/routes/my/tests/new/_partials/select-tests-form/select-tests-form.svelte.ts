@@ -9,7 +9,7 @@ import { watch } from 'runed';
 
 //
 
-type SelectTestsFormData = {
+export type SelectTestsFormData = {
 	standardId: string;
 	versionId: string;
 	suites: string[];
@@ -28,8 +28,6 @@ export class SelectTestsForm {
 		this.effectDeselectOnStandardChange();
 		this.effectDeselectOnVersionChange();
 		this.effectUpdateSelectedVersion(); // Must be last!
-
-		$inspect(this.selectedVersion);
 	}
 
 	// Selection: Standard
@@ -139,12 +137,14 @@ export class SelectTestsForm {
 	submit() {
 		if (!this.isValid) return;
 
-		this.props.onSubmit({
-			standardId: this.selectedStandardId,
-			versionId: this.selectedVersionId,
-			suites: this.selectedSuites,
-			tests: this.selectedTests,
-			customChecks: this.selectedCustomChecks
-		});
+		this.props.onSubmit(
+			$state.snapshot({
+				standardId: this.selectedStandardId,
+				versionId: this.selectedVersionId,
+				suites: this.selectedSuites,
+				tests: this.selectedTests,
+				customChecks: this.selectedCustomChecks
+			})
+		);
 	}
 }

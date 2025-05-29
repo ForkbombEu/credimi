@@ -75,11 +75,11 @@ const fieldsResponseSchema = z.object({
 
 export type FieldsResponse = z.infer<typeof fieldsResponseSchema>;
 
-export async function getVariables(test_id: string, filenames: string[]) {
+export async function getVariables(suiteAndVersionPath: string, filenames: string[]) {
 	const data = await pb.send('/api/template/placeholders', {
 		method: 'POST',
 		body: {
-			test_id,
+			test_id: suiteAndVersionPath,
 			filenames
 		}
 	});
