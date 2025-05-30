@@ -56,7 +56,9 @@ export class ChecksConfigForm {
 
 	getCompletionStatus() {
 		const forms = Record.map(this.checksForms, (form) => form.isValid);
-		const missingSharedFieldsCount = this.sharedFieldsForm.state.invalidData.length;
+		const missingSharedFieldsCount = Object.keys(
+			this.sharedFieldsForm.state.invalidData
+		).length;
 
 		const validFormsCount = Object.values(forms).filter(Boolean).length;
 		const invalidFormsCount = Object.values(forms).filter((v) => !v).length;

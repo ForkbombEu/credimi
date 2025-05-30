@@ -457,5 +457,11 @@
 	"reset_json_and_use_fields": "Reset JSON and use fields",
 	"Shared_fields": "Shared fields",
 	"Standard_version": "Standard version",
-	"JSON_configuration": "JSON configuration"
+	"JSON_configuration": "JSON configuration",
+	"count_missing": "{count} missing",
+	"Completed": "Completed",
+	"Configs": "Configs",
+	"count_valid": "{count} valid",
+	"count_invalid": "{count} invalid",
+	"Scroll": "Scroll"
 }
