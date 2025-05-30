@@ -22,6 +22,10 @@ export class TestConfigForm {
 
 	mode: TestConfigFormMode = $derived.by(() => (this.jsonForm.isTainted ? 'json' : 'fields'));
 
+	isValid = $derived.by(() =>
+		this.mode === 'json' ? this.jsonForm.isValid : this.fieldsForm.state.isValid
+	);
+
 	constructor(public readonly props: TestConfigFormProps) {
 		this.fieldsForm = new DependentTestConfigFieldsForm({
 			fields: this.props.fields,

@@ -24,7 +24,6 @@ export type TestConfigFieldsFormState = {
 
 export type TestConfigFieldsFormProps = {
 	fields: TestConfigField[];
-	onStateChange?: (formState: TestConfigFieldsFormState) => void;
 };
 
 export class TestConfigFieldsForm {
@@ -67,7 +66,6 @@ export class TestConfigFieldsForm {
 			() => {
 				this.getFormState().then((newState) => {
 					this.state = newState;
-					this.props.onStateChange?.(newState);
 				});
 			}
 		);

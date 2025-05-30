@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { TestConfigForm } from './test-config-form.svelte.js';
 	import { TestConfigJsonFormComponent } from '$lib/start-checks-form/test-config-json-form';
-	import { TestConfigFieldsFormComponent } from '$lib/start-checks-form/test-config-fields-form';
+	import { DependentTestConfigFieldsFormComponent } from '$lib/start-checks-form/test-config-fields-form';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import { Info } from 'lucide-svelte';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render SectionLabel(m.Fields())}
 
 		{#if form.mode == 'fields'}
-			<TestConfigFieldsFormComponent form={form.fieldsForm} />
+			<DependentTestConfigFieldsFormComponent form={form.fieldsForm} />
 		{:else}
 			<div class="text-muted-foreground text-sm">
 				<Alert variant="info" icon={Info}>

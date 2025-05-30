@@ -13,6 +13,7 @@ import { fromStore } from 'svelte/store';
 import { Record, Array as A, Tuple, pipe } from 'effect';
 import type { TestConfigFieldsForm } from '$lib/start-checks-form/test-config-fields-form';
 import { isNamedTestConfigField } from '$lib/start-checks-form/test-config-field';
+import { watch } from 'runed';
 
 //
 
@@ -27,9 +28,12 @@ type FormData = {
 
 export class TestConfigJsonForm {
 	superform: SuperForm<FormData>;
+	values: State<FormData>;
 
 	private taintedState: State<TaintedFields<FormData> | undefined>;
 	isTainted = $derived.by(() => this.taintedState.current?.json === true);
+
+	isValid = $state(false);
 
 	constructor(public readonly props: TestConfigJsonFormProps) {
 		this.superform = createForm({
@@ -39,8 +43,19 @@ export class TestConfigJsonForm {
 				id: nanoid(6)
 			}
 		});
-
+		this.values = fromStore(this.superform.form);
 		this.taintedState = fromStore(this.superform.tainted);
+	}
+
+	effectValidateForm() {
+		watch(
+			() => this.values.current,
+			() => {
+				this.superform.validateForm({ update: false }).then(({ valid }) => {
+					this.isValid = valid;
+				});
+			}
+		);
 	}
 
 	reset() {

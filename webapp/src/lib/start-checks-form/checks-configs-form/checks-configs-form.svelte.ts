@@ -50,6 +50,13 @@ export class ChecksConfigForm {
 				})
 		);
 	}
+
+	getCompletionStatus() {
+		return {
+			sharedFields: this.sharedFieldsForm.state.isValid,
+			forms: Record.map(this.checksForms, (form) => form.isValid)
+		};
+	}
 }
 
 //
