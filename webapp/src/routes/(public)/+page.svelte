@@ -49,13 +49,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 	let formSuccess = $state(false);
-	const sections: SectionData[] = [
-		{
-			collection: Collections.Credentials,
-			findLabel: m.Find_credentials(),
-			allLabel: m.All_credentials()
-		}
-	];
 	const excludeFromSolutions = Collections.Credentials;
 </script>
 
@@ -112,9 +105,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/snippet}
 		</CollectionManager>
 	</div>
-	{#each sections as section}
-		<MarketplaceSection {...section} />
-	{/each}
+	<MarketplaceSection
+		collection={Collections.Credentials}
+		findLabel={m.Find_credentials()}
+		allLabel={m.All_credentials()}
+	/>
 </PageContent>
 
 <PageContent class="border-y-primaryborder-y-2" contentClass="!space-y-8">
