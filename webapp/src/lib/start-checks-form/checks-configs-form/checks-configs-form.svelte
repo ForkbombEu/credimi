@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ArrowUp, Eye } from 'lucide-svelte';
 	import type { IconComponent } from '@/components/types';
 	import type { GenericRecord } from '@/utils/types';
+	import { Separator } from '@/components/ui/separator';
 
 	//
 
@@ -30,6 +31,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<SectionCard id={SHARED_FIELDS_ID} title={m.Shared_fields()}>
 			<TestConfigFieldsFormComponent form={form.sharedFieldsForm} />
 		</SectionCard>
+
+		<Separator class="!my-6" />
 	{/if}
 
 	{#each Object.entries(form.checksForms) as [id, checkForm]}
