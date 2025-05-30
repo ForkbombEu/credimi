@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="space-y-4">
-	{#if form.props.normalized_fields.length > 0}
+	{#if form.hasSharedFields}
 		<SectionCard id={SHARED_FIELDS_ID} title={m.Shared_fields()}>
 			<TestConfigFieldsFormComponent form={form.sharedFieldsForm} />
 		</SectionCard>
@@ -36,6 +36,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </div>
 
 <Footer>
+	{#snippet left()}
+		{@const status = form.getCompletionStatus()}
+
+		<div>
+			{#if form.hasSharedFields}
+				<div class="flex items-center gap-2">
+					{#if status.sharedFields}
+						<p class="text-green-500">
+							{m.Shared_fields()}
+						</p>
+					{:else}
+						<p class="text-red-500">
+							missing {status.missingSharedFieldsCount} shared fields
+						</p>
+					{/if}
+				</div>
+			{/if}
+
+			<div>
+				<p>Individual checks:</p>
+				<p class="text-green-500">
+					{status.validFormsCount}/{status.totalForms} valid forms
+				</p>
+				<p class="text-red-500">
+					{status.invalidFormsCount}/{status.totalForms} invalid forms
+				</p>
+			</div>
+		</div>
+	{/snippet}
+
 	{#snippet right()}
 		<Button>ao</Button>
 	{/snippet}

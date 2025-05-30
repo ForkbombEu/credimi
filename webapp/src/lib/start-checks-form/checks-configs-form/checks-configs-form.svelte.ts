@@ -35,6 +35,8 @@ export class ChecksConfigForm {
 	public readonly sharedFieldsForm: TestConfigFieldsForm;
 	public readonly checksForms: Record<string, TestConfigForm>;
 
+	hasSharedFields = $derived.by(() => this.props.normalized_fields.length > 0);
+
 	constructor(public readonly props: ChecksConfigFormProps) {
 		this.sharedFieldsForm = new TestConfigFieldsForm({
 			fields: this.props.normalized_fields.sort(testConfigFieldComparator)
@@ -42,8 +44,9 @@ export class ChecksConfigForm {
 
 		this.checksForms = Record.map(
 			this.props.specific_fields,
-			(data) =>
+			(data, id) =>
 				new TestConfigForm({
+					id,
 					json: data.content,
 					fields: data.fields.sort(testConfigFieldComparator),
 					formDependency: this.sharedFieldsForm
@@ -52,9 +55,23 @@ export class ChecksConfigForm {
 	}
 
 	getCompletionStatus() {
+		const forms = Record.map(this.checksForms, (form) => form.isValid);
+		const missingSharedFieldsCount = this.sharedFieldsForm.state.invalidData.length;
+
+		const validFormsCount = Object.values(forms).filter(Boolean).length;
+		const invalidFormsCount = Object.values(forms).filter((v) => !v).length;
+		const totalForms = Object.keys(forms).length;
+		const invalidFormIds = Object.entries(forms)
+			.filter(([, isValid]) => !isValid)
+			.map(([id]) => id);
+
 		return {
 			sharedFields: this.sharedFieldsForm.state.isValid,
-			forms: Record.map(this.checksForms, (form) => form.isValid)
+			validFormsCount,
+			invalidFormsCount,
+			totalForms,
+			invalidFormIds,
+			missingSharedFieldsCount
 		};
 	}
 }

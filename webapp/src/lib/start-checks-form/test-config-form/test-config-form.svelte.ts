@@ -11,6 +11,7 @@ import {
 //
 
 type TestConfigFormProps = DependentTestConfigFieldsProps & {
+	id: string;
 	json: string;
 };
 
