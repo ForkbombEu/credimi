@@ -6,11 +6,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Form } from '@/forms';
-	import TestConfigFieldInput from './test-config-field/test-config-field-input.svelte';
+	import { TestConfigFieldInput } from '$lib/start-checks-form/test-config-field';
 	import type { DependentTestConfigFieldsForm } from './dependent-test-config-fields-form.svelte.js';
 	import { Eye, Pencil, Undo } from 'lucide-svelte';
 	import Label from '@/components/ui/label/label.svelte';
-	import type { TestConfigField } from './test-config-field/test-config-field';
+	import type { TestConfigField } from '$lib/start-checks-form/test-config-field';
 	import * as Popover from '@/components/ui/popover';
 	import { m } from '@/i18n';
 
@@ -58,7 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Label>{m.Default_fields()}</Label>
 			<ul class="space-y-1">
 				{#each form.dependentFields as { CredimiID, LabelKey, Type }}
-					{@const value = form.props.valuesDependency()[CredimiID]}
+					{@const value = form.props.formDependency.values.current[CredimiID]}
 					{@const valuePreview = previewValue(value, Type)}
 
 					<li class="flex items-center gap-2">

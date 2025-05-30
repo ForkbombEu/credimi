@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z, type ZodEffects, ZodString } from 'zod';
-import type { TestConfigField } from './test-config-field/test-config-field';
-import { stringifiedObjectSchema } from '../../utils';
+import type { TestConfigField } from '$lib/start-checks-form/test-config-field/test-config-field';
+import { stringifiedObjectSchema } from '$lib/start-checks-form/utils';
 import { Tuple } from 'effect';
 import { pipe } from 'effect';
 

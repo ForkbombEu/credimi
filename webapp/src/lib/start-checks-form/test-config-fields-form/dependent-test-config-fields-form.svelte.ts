@@ -2,25 +2,25 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { StringRecord } from '@/utils/types';
 import { watch } from 'runed';
 import {
 	TestConfigFieldsForm,
 	type TestConfigFieldsFormProps
 } from './test-config-fields-form.svelte.js';
 import { Array, pipe, Record } from 'effect';
-import type { Getter } from '@/utils/types';
 
 //
 
 export type DependentTestConfigFieldsProps = TestConfigFieldsFormProps & {
-	dependentFieldsIds: string[];
-	valuesDependency: Getter<StringRecord>;
+	formDependency: TestConfigFieldsForm;
 };
 
 export class DependentTestConfigFieldsForm extends TestConfigFieldsForm {
+	private dependentFieldsIds: string[];
+
 	constructor(public readonly props: DependentTestConfigFieldsProps) {
 		super(props);
+		this.dependentFieldsIds = this.props.formDependency.props.fields.map((f) => f.CredimiID);
 		this.effectUpdateDependentFields();
 	}
 
@@ -31,9 +31,7 @@ export class DependentTestConfigFieldsForm extends TestConfigFieldsForm {
 	);
 
 	independentFields = $derived.by(() =>
-		this.props.fields.filter(
-			(field) => !this.props.dependentFieldsIds.includes(field.CredimiID)
-		)
+		this.props.fields.filter((field) => !this.dependentFieldsIds.includes(field.CredimiID))
 	);
 
 	dependentFields = $derived.by(() =>
@@ -55,8 +53,8 @@ export class DependentTestConfigFieldsForm extends TestConfigFieldsForm {
 
 	private updateDependentFieldsValues() {
 		const notOverriddenValues = pipe(
-			this.props.valuesDependency(),
-			Record.filter((_, id) => this.props.dependentFieldsIds.includes(id)),
+			this.props.formDependency.values.current,
+			Record.filter((_, id) => this.dependentFieldsIds.includes(id)),
 			Record.filter((_, id) => !this.overriddenFieldsIds.includes(id))
 		);
 
@@ -67,6 +65,9 @@ export class DependentTestConfigFieldsForm extends TestConfigFieldsForm {
 	}
 
 	effectUpdateDependentFields() {
-		watch(this.props.valuesDependency, () => this.updateDependentFieldsValues());
+		watch(
+			() => this.props.formDependency.values.current,
+			() => this.updateDependentFieldsValues()
+		);
 	}
 }

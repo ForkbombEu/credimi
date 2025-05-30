@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Form } from '@/forms';
-	import TestConfigFieldInput from './test-config-field/test-config-field-input.svelte';
+	import { TestConfigFieldInput } from '$lib/start-checks-form/test-config-field';
 	import type { TestConfigFieldsForm } from './test-config-fields-form.svelte.js';
 
 	//

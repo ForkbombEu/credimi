@@ -20,7 +20,7 @@ export type SelectTestsFormData = {
 export type SelectTestsFormProps = {
 	standards: StandardsWithTestSuites;
 	customChecks: CustomChecksResponse[];
-	onSubmit: (data: SelectTestsFormData) => void;
+	onSubmit: (data: SelectTestsFormData) => void | Promise<void>;
 };
 
 export class SelectTestsForm {

@@ -4,15 +4,15 @@
 
 import { createForm } from '@/forms';
 import { z } from 'zod';
-import { stringifiedObjectSchema } from '../types';
+import { stringifiedObjectSchema } from '$lib/start-checks-form/utils';
 import { zod } from 'sveltekit-superforms/adapters';
 import type { SuperForm, TaintedFields } from 'sveltekit-superforms';
 import { nanoid } from 'nanoid';
 import type { State } from '@/utils/types';
 import { fromStore } from 'svelte/store';
 import { Record, Array as A, Tuple, pipe } from 'effect';
-import type { TestConfigFieldsForm } from '../test-config-fields-form/test-config-fields-form.svelte.js';
-import { isNamedTestConfigField } from '../test-config-fields-form/test-config-field/test-config-field';
+import type { TestConfigFieldsForm } from '$lib/start-checks-form/test-config-fields-form';
+import { isNamedTestConfigField } from '$lib/start-checks-form/test-config-field';
 
 //
 
@@ -36,19 +36,20 @@ export class TestConfigJsonForm {
 			adapter: zod(z.object({ json: stringifiedObjectSchema })),
 			initialData: { json: this.props.json },
 			options: {
-				id: nanoid(6),
-				onUpdated: (event) => {
-					console.log(event);
-				}
+				id: nanoid(6)
 			}
 		});
 
 		this.taintedState = fromStore(this.superform.tainted);
 	}
 
+	reset() {
+		this.superform.reset();
+	}
+
 	// Placeholders for visualization
 
-	getPlaceholdersFromJson(): string[] {
+	private getPlaceholdersFromJson(): string[] {
 		const placeholderRegex = /\{\{\s*\.(\w+)\s*\}\}/g;
 		const matches = this.props.json.matchAll(placeholderRegex);
 		return Array.from(matches).map((match) => match[1]);

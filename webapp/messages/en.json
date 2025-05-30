@@ -451,5 +451,9 @@
 	"Current_selection": "Current selection",
 	"Suites": "Suites",
 	"Reset_to_default": "Reset to default",
-	"Default_fields": "Default fields"
+	"Default_fields": "Default fields",
+	"Fields": "Fields",
+	"json_configuration_is_edited_fields_are_disabled": "JSON configuration is manually edited. Fields are disabled.",
+	"reset_json_and_use_fields": "Reset JSON and use fields",
+	"Shared_fields": "Shared fields"
 }

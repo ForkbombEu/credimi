@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { Suite } from '$lib/standards';
-	import { SelectTestsForm, type SelectTestsFormProps } from './select-tests-form.svelte.js';
+	import { SelectTestsForm } from './select-tests-form.svelte.js';
 
 	import * as RadioGroup from '@/components/ui/radio-group/index.js';
 	import * as Select from '@/components/ui/select/index.js';
@@ -20,8 +20,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const props: SelectTestsFormProps = $props();
-	const form = new SelectTestsForm(props);
+	type Props = {
+		form: SelectTestsForm;
+	};
+
+	const { form }: Props = $props();
 </script>
 
 <div class="flex flex-col items-start gap-8 p-8 md:flex-row">
@@ -60,49 +63,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </div>
 
-<div class="bg-background/20 sticky bottom-0 border-t p-4 px-8 backdrop-blur-lg">
-	<div class="mx-auto flex max-w-screen-xl items-center justify-between">
-		<div class="flex text-sm">
-			{#if form.hasSelection}
-				<p>{m.Current_selection()}:</p>
-				<ul class="flex items-center divide-x">
-					{#snippet CountItem(count: number, label: string)}
-						<li class="px-2">
-							<span class="text-primary font-bold">{count}</span>
-							{label}
-						</li>
-					{/snippet}
+{@render FormFooter()}
 
-					{#if form.selectedSuites.length > 0}
-						{@render CountItem(form.selectedSuites.length, m.Suites())}
-					{/if}
-					{#if form.selectedTests.length > 0}
-						{@render CountItem(form.selectedTests.length, m.Tests())}
-					{/if}
-					{#if form.selectedCustomChecks.length > 0}
-						{@render CountItem(form.selectedCustomChecks.length, m.Custom_checks())}
-					{/if}
-				</ul>
-			{/if}
-		</div>
-		<!-- <p class="text-gray-400">
-			<span class="rounded-sm bg-gray-200 p-1 font-bold text-black"
-				>{selectedTests.length}</span
-			>
-			/ {totalTests}
-			selected
-		</p> -->
-		<Button
-			disabled={!form.isValid}
-			onclick={() => {
-				form.submit();
-			}}
-		>
-			{m.Next_step()}
-			<ArrowRight />
-		</Button>
-	</div>
-</div>
+<!-- Snippets -->
 
 {#snippet StandardSelect()}
 	<T tag="h4">{m.Available_standards()}</T>
@@ -215,5 +178,51 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<T class="text-muted-foreground text-xs">
 			{suite.description}
 		</T>
+	</div>
+{/snippet}
+
+{#snippet FormFooter()}
+	<div class="bg-background/20 sticky bottom-0 border-t p-4 px-8 backdrop-blur-lg">
+		<div class="mx-auto flex max-w-screen-xl items-center justify-between">
+			<div class="flex text-sm">
+				{#if form.hasSelection}
+					<p>{m.Current_selection()}:</p>
+					<ul class="flex items-center divide-x">
+						{#snippet CountItem(count: number, label: string)}
+							<li class="px-2">
+								<span class="text-primary font-bold">{count}</span>
+								{label}
+							</li>
+						{/snippet}
+
+						{#if form.selectedSuites.length > 0}
+							{@render CountItem(form.selectedSuites.length, m.Suites())}
+						{/if}
+						{#if form.selectedTests.length > 0}
+							{@render CountItem(form.selectedTests.length, m.Tests())}
+						{/if}
+						{#if form.selectedCustomChecks.length > 0}
+							{@render CountItem(form.selectedCustomChecks.length, m.Custom_checks())}
+						{/if}
+					</ul>
+				{/if}
+			</div>
+			<!-- <p class="text-gray-400">
+			<span class="rounded-sm bg-gray-200 p-1 font-bold text-black"
+				>{selectedTests.length}</span
+			>
+			/ {totalTests}
+			selected
+		</p> -->
+			<Button
+				disabled={!form.isValid}
+				onclick={() => {
+					form.submit();
+				}}
+			>
+				{m.Next_step()}
+				<ArrowRight />
+			</Button>
+		</div>
 	</div>
 {/snippet}

@@ -5,7 +5,7 @@
 import { createTestConfigFormInitialData, createTestConfigFormSchema } from './utils';
 
 import type { SuperForm } from 'sveltekit-superforms';
-import type { TestConfigField } from './test-config-field/test-config-field';
+import type { TestConfigField } from '$lib/start-checks-form/test-config-field';
 import { createForm } from '@/forms';
 import { zod } from 'sveltekit-superforms/adapters';
 import { nanoid } from 'nanoid';
@@ -29,7 +29,7 @@ export type TestConfigFieldsFormProps = {
 
 export class TestConfigFieldsForm {
 	public readonly superform: SuperForm<StringRecord>;
-	private values: State<StringRecord>;
+	public readonly values: State<StringRecord>;
 
 	state = $state<TestConfigFieldsFormState>({
 		isValid: false,
