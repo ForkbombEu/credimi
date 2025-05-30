@@ -65,26 +65,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Tabs.Root>
 </div>
 
-<div class="bg-background relative w-full rounded-t-md shadow-sm">
-	{#if form.state === 'select-tests'}
-		<SelectTestsFormComponent form={form.selectTestsForm}>
-			{#snippet footerRight()}
-				{#if form.loadingError}
-					<div
-						class="rounded-md border border-red-500 bg-red-100 px-1 py-0.5 text-xs text-red-700"
-					>
-						<p class="space-x-1">
-							<span class="font-bold">{m.Error()}:</span>
-							<span>{form.loadingError.message}</span>
-						</p>
-					</div>
-				{/if}
-			{/snippet}
-		</SelectTestsFormComponent>
-	{:else if form.state === 'fill-values' && form.checksConfigsFormProps}
-		<ChecksConfigsFormComponent {...form.checksConfigsFormProps} />
-	{/if}
-</div>
+{#if form.state === 'select-tests'}
+	<SelectTestsFormComponent form={form.selectTestsForm}>
+		{#snippet footerRight()}
+			{#if form.loadingError}
+				<div
+					class="rounded-md border border-red-500 bg-red-100 px-1 py-0.5 text-xs text-red-700"
+				>
+					<p class="space-x-1">
+						<span class="font-bold">{m.Error()}:</span>
+						<span>{form.loadingError.message}</span>
+					</p>
+				</div>
+			{/if}
+		{/snippet}
+	</SelectTestsFormComponent>
+{:else if form.state === 'fill-values' && form.checksConfigsFormProps}
+	<ChecksConfigsFormComponent {...form.checksConfigsFormProps} />
+{/if}
 
 {#if form.isLoadingData}
 	<LoadingDialog />

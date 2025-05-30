@@ -4,7 +4,7 @@
 
 import { z, type ZodEffects, ZodString } from 'zod';
 import type { TestConfigField } from '$lib/start-checks-form/test-config-field/test-config-field';
-import { stringifiedObjectSchema } from '$lib/start-checks-form/utils';
+import { stringifiedObjectSchema } from '$lib/start-checks-form/_utils';
 import { Tuple } from 'effect';
 import { pipe } from 'effect';
 

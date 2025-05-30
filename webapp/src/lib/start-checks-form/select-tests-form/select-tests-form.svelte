@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ArrowRight } from 'lucide-svelte';
 	import { m } from '@/i18n';
 	import type { Snippet } from 'svelte';
+	import SectionCard from '$lib/start-checks-form/_utils/section-card.svelte';
 
 	//
 
@@ -29,23 +30,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { form, footerRight }: Props = $props();
 </script>
 
-<div class="flex flex-col items-start gap-8 p-6 md:flex-row">
-	<div class="w-full space-y-4 md:w-auto">
+<div class="flex flex-col items-start gap-4 md:flex-row">
+	<SectionCard title={m.Available_standards()} class="w-full !space-y-2 md:w-auto">
 		{@render StandardSelect()}
-	</div>
+	</SectionCard>
 
-	<div class="w-full space-y-8 md:min-w-0 md:grow">
+	<div class="w-full space-y-4 md:min-w-0 md:grow">
 		{#if form.selectedStandard}
-			<div class="space-y-4">
+			<SectionCard title={m.Standard_version()}>
 				{@render VersionSelect()}
-			</div>
+			</SectionCard>
 		{/if}
 
 		{#if form.selectedVersion}
 			{#if form.availableSuites.length > 0}
-				<div class="space-y-4">
-					<T tag="h4">{m.Test_suites()}</T>
-
+				<SectionCard title={m.Test_suites()}>
 					{#if form.availableSuitesWithoutTests.length > 0}
 						{@render SuitesWithoutTestsSelect()}
 					{/if}
@@ -53,13 +52,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#if form.availableSuitesWithTests.length > 0}
 						{@render SuitesWithTestsSelect()}
 					{/if}
-				</div>
+				</SectionCard>
 			{/if}
 
 			{#if form.availableCustomChecks.length > 0}
-				<div class="space-y-4">
+				<SectionCard title={m.Custom_checks()}>
 					{@render CustomChecksSelect()}
-				</div>
+				</SectionCard>
 			{/if}
 		{/if}
 	</div>
@@ -70,8 +69,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <!-- Snippets -->
 
 {#snippet StandardSelect()}
-	<T tag="h4">{m.Available_standards()}</T>
-
 	<RadioGroup.Root bind:value={form.selectedStandardId} class="!gap-0" required>
 		{#each form.availableStandards as option}
 			{@const selected = form.selectedStandardId === option.uid}
@@ -99,7 +96,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet VersionSelect()}
-	<T tag="h4">{m.Version()}</T>
 	<Select.Root type="single" bind:value={form.selectedVersionId}>
 		<Select.Trigger>
 			{form.selectedVersion?.name ?? m.Select_a_version()}
@@ -118,7 +114,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<!-- This binding style is needed to avoid a svelte warning -->
 	<Check.Group
 		bind:value={() => form.selectedTests, (v) => (form.selectedTests = v)}
-		class="flex flex-col gap-4 overflow-auto"
+		class="flex flex-col gap-6 overflow-auto"
 	>
 		{#each form.availableSuitesWithoutTests as suite}
 			<label class="flex items-center gap-3">
@@ -135,7 +131,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<!-- This binding style is needed to avoid a svelte warning -->
 	<Check.Group
 		bind:value={() => form.selectedTests, (v) => (form.selectedTests = v)}
-		class="flex flex-col gap-4 "
+		class="flex flex-col gap-6"
 	>
 		{#each form.availableSuitesWithTests as suite}
 			<div class="space-y-3 border-l-4 pl-4">
@@ -159,8 +155,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet CustomChecksSelect()}
-	<T tag="h4">{m.Custom_checks()}</T>
-
 	<!-- This binding style is needed to avoid a svelte warning -->
 	<Check.Group
 		bind:value={() => form.selectedCustomChecks, (v) => (form.selectedCustomChecks = v)}
@@ -193,7 +187,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet FormFooter()}
-	<div class="bg-background/20 sticky bottom-0 border-t p-4 px-8 backdrop-blur-lg">
+	<div class="bg-background sticky bottom-0 rounded-md border p-4 px-8 backdrop-blur-lg">
 		<div class="mx-auto flex max-w-screen-xl items-center justify-between gap-8">
 			<div class="flex shrink-0 text-sm">
 				{#if form.hasSelection}

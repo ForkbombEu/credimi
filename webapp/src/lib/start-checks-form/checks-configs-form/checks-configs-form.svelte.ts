@@ -8,7 +8,7 @@ import {
 	baseTestConfigFieldSchema,
 	namedTestConfigFieldSchema
 } from '$lib/start-checks-form/test-config-field';
-import { stringifiedObjectSchema } from '$lib/start-checks-form/utils';
+import { stringifiedObjectSchema } from '$lib/start-checks-form/_utils';
 import { TestConfigFieldsForm } from '$lib/start-checks-form/test-config-fields-form';
 import { TestConfigForm } from '$lib/start-checks-form/test-config-form';
 import { Record } from 'effect';

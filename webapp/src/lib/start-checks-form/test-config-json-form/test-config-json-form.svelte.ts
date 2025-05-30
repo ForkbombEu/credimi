@@ -4,7 +4,7 @@
 
 import { createForm } from '@/forms';
 import { z } from 'zod';
-import { stringifiedObjectSchema } from '$lib/start-checks-form/utils';
+import { stringifiedObjectSchema } from '$lib/start-checks-form/_utils';
 import { zod } from 'sveltekit-superforms/adapters';
 import type { SuperForm, TaintedFields } from 'sveltekit-superforms';
 import { nanoid } from 'nanoid';
