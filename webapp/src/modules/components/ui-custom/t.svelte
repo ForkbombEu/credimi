@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		tag?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'small';
+		tag?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'small' | 'huge';
 		margin?: boolean;
 		class?: string | undefined;
 		children?: Snippet;

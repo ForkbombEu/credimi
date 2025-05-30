@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { CustomChecksResponse } from '@/pocketbase/types/index.generated.js';
-import { getStandardsAndTestSuites } from './_partials/standards-response-schema.js';
+import { getStandardsWithTestSuites } from '$lib/standards';
 import { error } from '@sveltejs/kit';
 import { Either } from 'effect';
 import { pb } from '@/pocketbase/index.js';
@@ -15,7 +15,7 @@ import { PocketbaseQueryAgent } from '@/pocketbase/query/agent.js';
 export const load = async ({ fetch }) => {
 	await checkAuthFlagAndUser({ fetch });
 
-	const result = await getStandardsAndTestSuites({ fetch });
+	const result = await getStandardsWithTestSuites({ fetch });
 	const organizationAuth = await new PocketbaseQueryAgent(
 		{
 			collection: 'orgAuthorizations',
@@ -30,11 +30,9 @@ export const load = async ({ fetch }) => {
 
 	let customChecks: CustomChecksResponse[] = [];
 	try {
-		customChecks = await pb
-			.collection('custom_checks')
-			.getFullList({
-				filter: `owner = '${organization.id}' || public = true`
-			});
+		customChecks = await pb.collection('custom_checks').getFullList({
+			filter: `owner = '${organization.id}' || public = true`
+		});
 	} catch (e) {
 		console.error(e);
 	}
