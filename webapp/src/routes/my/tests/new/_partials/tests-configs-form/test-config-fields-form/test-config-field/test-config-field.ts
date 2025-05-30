@@ -8,7 +8,7 @@ import { z } from 'zod';
 
 export const testConfigFieldTypeSchema = z.literal('string').or(z.literal('object'));
 
-export const testConfigFieldSchema = z.object({
+export const baseTestConfigFieldSchema = z.object({
 	CredimiID: z.string(),
 	DescriptionKey: z.string(),
 	LabelKey: z.string(),
@@ -16,10 +16,18 @@ export const testConfigFieldSchema = z.object({
 	Example: z.string().optional()
 });
 
-export type TestConfigField = z.infer<typeof testConfigFieldSchema>;
+type BaseTestConfigField = z.infer<typeof baseTestConfigFieldSchema>;
 
-export const testConfigFieldSpecificSchema = testConfigFieldSchema.extend({
+export const namedTestConfigFieldSchema = baseTestConfigFieldSchema.extend({
 	FieldName: z.string()
 });
 
-export type TestConfigFieldSpecific = z.infer<typeof testConfigFieldSpecificSchema>;
+type NamedTestConfigField = z.infer<typeof namedTestConfigFieldSchema>;
+
+export type TestConfigField = BaseTestConfigField | NamedTestConfigField;
+
+//
+
+export function isNamedTestConfigField(field: TestConfigField): field is NamedTestConfigField {
+	return namedTestConfigFieldSchema.safeParse(field).success;
+}

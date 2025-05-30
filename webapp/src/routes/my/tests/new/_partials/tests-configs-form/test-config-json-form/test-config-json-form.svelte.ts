@@ -8,16 +8,17 @@ import { stringifiedObjectSchema } from '../types';
 import { zod } from 'sveltekit-superforms/adapters';
 import type { SuperForm, TaintedFields } from 'sveltekit-superforms';
 import { nanoid } from 'nanoid';
-import type { Getter, State } from '@/utils/types';
+import type { State } from '@/utils/types';
 import { fromStore } from 'svelte/store';
-import { Record } from 'effect';
-import type { TestConfigFieldsFormState } from '../test-config-fields-form/test-config-fields-form.svelte.js';
+import { Record, Array as A, Tuple, pipe } from 'effect';
+import type { TestConfigFieldsForm } from '../test-config-fields-form/test-config-fields-form.svelte.js';
+import { isNamedTestConfigField } from '../test-config-fields-form/test-config-field/test-config-field';
 
 //
 
 type TestConfigJsonFormProps = {
 	json: string;
-	formStateDependency: Getter<TestConfigFieldsFormState>;
+	formDependency?: TestConfigFieldsForm;
 };
 
 type FormData = {
@@ -47,33 +48,32 @@ export class TestConfigJsonForm {
 
 	// Placeholders for visualization
 
-	getFieldsListFromJson(): string[] {
+	getPlaceholdersFromJson(): string[] {
 		const placeholderRegex = /\{\{\s*\.(\w+)\s*\}\}/g;
 		const matches = this.props.json.matchAll(placeholderRegex);
 		return Array.from(matches).map((match) => match[1]);
 	}
 
 	placeholdersValues: PlaceholderValues = $derived.by(() => {
-		const placeholders = this.getFieldsListFromJson();
-		const { validData, invalidData } = this.props.formStateDependency();
+		if (!this.props.formDependency) return {};
 
-		console.log('validData');
-		console.log($state.snapshot(validData));
-		console.log('invalidData');
-		console.log($state.snapshot(invalidData));
+		const placeholders = this.getPlaceholdersFromJson();
+		const { validData } = this.props.formDependency.state;
 
-		const baseValues: PlaceholderValues = {
-			...Record.map(validData, (value) => ({
-				valid: true,
-				value: getValuePreview(value)
-			})),
-			...Record.map(invalidData, (value) => ({
-				valid: false,
-				value: getValuePreview(value)
-			}))
-		};
-
-		return Record.filter(baseValues, (_, id) => placeholders.includes(id));
+		return pipe(
+			this.props.formDependency.props.fields,
+			A.filter(isNamedTestConfigField),
+			A.filter((field) => placeholders.includes(field.FieldName)),
+			A.map((field) => {
+				const key = field.FieldName;
+				const validValue = validData[field.CredimiID];
+				return Tuple.make(key, {
+					valid: Boolean(validValue),
+					value: validValue ? getValuePreview(validValue) : ''
+				});
+			}),
+			Record.fromEntries
+		);
 	});
 }
 

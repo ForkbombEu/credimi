@@ -105,7 +105,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		});
 		const jsonForm = new TestConfigJsonForm({
 			json: content,
-			formStateDependency: () => dependentForm.state
+			formDependency: dependentForm
 		});
 		return Tuple.make(dependentForm, jsonForm);
 	});
