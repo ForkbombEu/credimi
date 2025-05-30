@@ -10,6 +10,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { SelectTestsFormComponent } from './select-tests-form/index.js';
 	import { StartChecksForm, type StartChecksFormProps } from './start-checks-form.svelte.js';
 	import * as Tabs from '@/components/ui/tabs/index.js';
+	import Alert from '@/components/ui-custom/alert.svelte';
+	import { m } from '@/i18n/index.js';
 
 	//
 
@@ -65,10 +67,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="bg-background relative w-full rounded-t-md shadow-sm">
 	{#if form.state === 'select-tests'}
-		<SelectTestsFormComponent form={form.selectTestsForm} />
-		{#if form.loadingError}
-			<p>ALERT! {form.loadingError.message}</p>
-		{/if}
+		<SelectTestsFormComponent form={form.selectTestsForm}>
+			{#snippet footerRight()}
+				{#if form.loadingError}
+					<div
+						class="rounded-md border border-red-500 bg-red-100 px-1 py-0.5 text-xs text-red-700"
+					>
+						<p class="space-x-1">
+							<span class="font-bold">{m.Error()}:</span>
+							<span>{form.loadingError.message}</span>
+						</p>
+					</div>
+				{/if}
+			{/snippet}
+		</SelectTestsFormComponent>
 	{:else if form.state === 'fill-values' && form.checksConfigsForm}
 		<ChecksConfigsFormComponent form={form.checksConfigsForm} />
 	{/if}

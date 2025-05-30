@@ -17,14 +17,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui/button/button.svelte';
 	import { ArrowRight } from 'lucide-svelte';
 	import { m } from '@/i18n';
+	import type { Snippet } from 'svelte';
 
 	//
 
 	type Props = {
 		form: SelectTestsForm;
+		footerRight?: Snippet;
 	};
 
-	const { form }: Props = $props();
+	const { form, footerRight }: Props = $props();
 </script>
 
 <div class="flex flex-col items-start gap-8 p-6 md:flex-row">
@@ -192,8 +194,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet FormFooter()}
 	<div class="bg-background/20 sticky bottom-0 border-t p-4 px-8 backdrop-blur-lg">
-		<div class="mx-auto flex max-w-screen-xl items-center justify-between">
-			<div class="flex text-sm">
+		<div class="mx-auto flex max-w-screen-xl items-center justify-between gap-8">
+			<div class="flex shrink-0 text-sm">
 				{#if form.hasSelection}
 					<p>{m.Current_selection()}:</p>
 					<ul class="flex items-center divide-x">
@@ -216,22 +218,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</ul>
 				{/if}
 			</div>
-			<!-- <p class="text-gray-400">
-			<span class="rounded-sm bg-gray-200 p-1 font-bold text-black"
-				>{selectedTests.length}</span
-			>
-			/ {totalTests}
-			selected
-		</p> -->
-			<Button
-				disabled={!form.isValid}
-				onclick={() => {
-					form.submit();
-				}}
-			>
-				{m.Next_step()}
-				<ArrowRight />
-			</Button>
+
+			<div class="flex items-start gap-4">
+				{@render footerRight?.()}
+
+				<Button
+					disabled={!form.isValid}
+					onclick={() => {
+						form.submit();
+					}}
+				>
+					{m.Next_step()}
+					<ArrowRight />
+				</Button>
+			</div>
 		</div>
 	</div>
 {/snippet}
