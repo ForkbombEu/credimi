@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import FieldConfigFormShared from './field-config-form-shared.svelte';
+	import FieldConfigFormShared from './tests-configs-form/test-config-fields-form/test-config-fields-form.svelte';
 	import FieldConfigForm from './field-config-form.svelte';
 	import { createTestListInputSchema } from './logic';
 	import { createForm, Form, SubmitButton, FormError } from '@/forms';
@@ -20,6 +20,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import JsonSchemaForm from '@/components/json-schema-form.svelte';
 	import type { TestsConfigsFields } from './tests-configs-form/types';
+	import { TestConfigFieldsForm } from './tests-configs-form/test-config-fields-form/test-config-fields-form.svelte.js';
+	import TestConfigFieldsFormComponent from './tests-configs-form/test-config-fields-form/test-config-fields-form.svelte';
+	import { DependentTestConfigFieldsForm } from './tests-configs-form/test-config-fields-form/dependent-test-config-fields-form.svelte.js';
+	import DependentTestConfigFieldsFormComponent from './tests-configs-form/test-config-fields-form/dependent-test-config-fields-form.svelte';
+	import { TestConfigJsonForm } from './tests-configs-form/test-config-json-form/test-config-json-form.svelte.js';
+	import TestConfigJsonFormComponent from './tests-configs-form/test-config-json-form/test-config-json-form.svelte';
+	import { Tuple } from 'effect';
 	//
 
 	type Props = {
@@ -80,16 +87,51 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	const SHARED_FIELDS_ID = 'shared-fields';
+
+	//
+
+	const f = new TestConfigFieldsForm({
+		fields: data.normalized_fields,
+		onStateChange: (state) => {
+			console.log(state);
+		}
+	});
+
+	const dependentForms = Object.values(data.specific_fields).map(({ fields, content }) => {
+		const dependentForm = new DependentTestConfigFieldsForm({
+			fields,
+			dependentFieldsIds: data.normalized_fields.map((f) => f.CredimiID),
+			valuesDependency: () => f.state.validData
+		});
+		const jsonForm = new TestConfigJsonForm({
+			json: content,
+			formStateDependency: () => dependentForm.state
+		});
+		return Tuple.make(dependentForm, jsonForm);
+	});
 </script>
 
 <div class="mx-auto w-full max-w-screen-xl space-y-16 p-8">
+	<TestConfigFieldsFormComponent form={f} />
+
+	{#each dependentForms as [dependentForm, jsonForm]}
+		<hr />
+		<TestConfigJsonFormComponent form={jsonForm} />
+		<DependentTestConfigFieldsFormComponent form={dependentForm} />
+	{/each}
+
+	<div class="h-10 bg-black"></div>
+
+	<hr />
+	<hr />
+
 	{#if data.normalized_fields.length > 0}
 		<div class="space-y-4">
 			<h2 id={SHARED_FIELDS_ID} class="text-lg font-bold">Shared fields</h2>
-			<FieldConfigFormShared
+			<!-- <FieldConfigFormShared
 				fields={data.normalized_fields}
 				onUpdate={(form) => (sharedData = form)}
-			/>
+			/> -->
 		</div>
 
 		<hr />

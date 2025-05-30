@@ -8,19 +8,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CodeEditorField, Field } from '@/forms/fields';
 	import type { SuperForm } from 'sveltekit-superforms';
 	import type { TestConfigField } from './test-config-field';
+	import type { Snippet } from 'svelte';
+	import type { StringRecord } from '@/utils/types';
 
 	//
 
 	type Props = {
 		field: TestConfigField;
-		form: SuperForm<Record<string, unknown>>;
+		form: SuperForm<StringRecord>;
+		labelRight?: Snippet;
 	};
 
-	const { field, form }: Props = $props();
+	const { field, form, labelRight }: Props = $props();
 </script>
 
 {#if field.Type == 'string'}
-	<Field {form} name={field.CredimiID} options={{ label: field.LabelKey }} />
+	<Field {form} name={field.CredimiID} options={{ label: field.LabelKey, labelRight }} />
 {:else if field.Type == 'object'}
 	<CodeEditorField
 		{form}
@@ -28,7 +31,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		options={{
 			lang: 'json',
 			label: field.LabelKey,
-			value: field.Example
+			value: field.Example,
+			labelRight
 		}}
 	/>
 {/if}

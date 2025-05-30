@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { z, type ZodTypeAny, type ZodRawShape } from 'zod';
+import { z, type ZodEffects, ZodString } from 'zod';
 import type { TestConfigField } from './test-config-field/test-config-field';
 import { stringifiedObjectSchema } from '../../utils';
 import { Tuple } from 'effect';
@@ -10,10 +10,12 @@ import { pipe } from 'effect';
 
 //
 
+type TestConfigFormValueSchema = ZodString | ZodEffects<ZodString>;
+
 export function createTestConfigFormSchema(fields: TestConfigField[]) {
-	const schemaRawShape: ZodRawShape = Object.fromEntries(
+	const schemaRawShape: Record<string, TestConfigFormValueSchema> = Object.fromEntries(
 		fields.map((f) => {
-			let schema: ZodTypeAny;
+			let schema: ZodString | ZodEffects<ZodString>;
 			if (f.Type == 'string') {
 				schema = z.string().nonempty();
 			} else if (f.Type == 'object') {

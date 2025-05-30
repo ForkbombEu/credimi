@@ -449,5 +449,7 @@
 	"Test_suites": "Test suites",
 	"Next_step": "Next step",
 	"Current_selection": "Current selection",
-	"Suites": "Suites"
+	"Suites": "Suites",
+	"Reset_to_default": "Reset to default",
+	"Default_fields": "Default fields"
 }
