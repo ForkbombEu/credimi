@@ -81,8 +81,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			{/snippet}
 		</SelectTestsFormComponent>
-	{:else if form.state === 'fill-values' && form.checksConfigsForm}
-		<ChecksConfigsFormComponent form={form.checksConfigsForm} />
+	{:else if form.state === 'fill-values' && form.checksConfigsFormProps}
+		<ChecksConfigsFormComponent {...form.checksConfigsFormProps} />
 	{/if}
 </div>
 

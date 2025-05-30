@@ -5,7 +5,7 @@
 import { type StandardsWithTestSuites } from '$lib/standards';
 import type { CustomChecksResponse } from '@/pocketbase/types';
 import { SelectTestsForm, type SelectTestsFormData } from './select-tests-form';
-import { ChecksConfigForm, getChecksConfigFormProps } from './checks-configs-form';
+import { getChecksConfigFormProps, type ChecksConfigFormProps } from './checks-configs-form';
 
 //
 
@@ -16,7 +16,7 @@ export type StartChecksFormProps = {
 
 export class StartChecksForm {
 	public readonly selectTestsForm: SelectTestsForm;
-	public checksConfigsForm: ChecksConfigForm | undefined;
+	public checksConfigsFormProps: ChecksConfigFormProps | undefined;
 
 	state: 'select-tests' | 'fill-values' = $state('select-tests');
 
@@ -34,11 +34,10 @@ export class StartChecksForm {
 	private async handleChecksSelection(data: SelectTestsFormData) {
 		this.isLoadingData = true;
 		try {
-			const props = await getChecksConfigFormProps(
+			this.checksConfigsFormProps = await getChecksConfigFormProps(
 				data.standardId + '/' + data.versionId,
 				data.tests
 			);
-			this.checksConfigsForm = new ChecksConfigForm(props);
 			this.state = 'fill-values';
 		} catch (error) {
 			this.loadingError = error as Error;
@@ -49,7 +48,7 @@ export class StartChecksForm {
 
 	backToSelectTests() {
 		this.state = 'select-tests';
-		this.checksConfigsForm = undefined;
+		this.checksConfigsFormProps = undefined;
 		this.loadingError = undefined;
 	}
 
