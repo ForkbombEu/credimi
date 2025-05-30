@@ -5,6 +5,7 @@ package workflows
 
 import (
 	"encoding/json"
+	"reflect"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -24,11 +25,13 @@ func Test_Workflow(t *testing.T) {
 	env.RegisterActivityWithOptions(CheckActivity.Execute, activity.RegisterOptions{
 		Name: CheckActivity.Name(),
 	})
-	var JSONActivity activities.JSONActivity
+	JSONActivity := activities.NewJSONActivity(map[string]reflect.Type{
+		"DummyStruct": reflect.TypeOf(nil),
+	})
 	env.RegisterActivityWithOptions(JSONActivity.Execute, activity.RegisterOptions{
 		Name: JSONActivity.Name(),
 	})
-	var HTTPActivity activities.HTTPActivity
+	HTTPActivity := activities.NewHTTPActivity()
 	env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 		Name: HTTPActivity.Name(),
 	})

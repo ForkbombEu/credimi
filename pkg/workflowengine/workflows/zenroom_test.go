@@ -7,6 +7,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/require"
@@ -19,13 +20,13 @@ func Test_ZenroomWorkflow(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 
 	tests := []struct {
-		name           string
-		contract       string
-		keys           string
-		data           string
-		expectError    bool
-		expectOutputs  []string
-		expectErrorMsg string
+		name            string
+		contract        string
+		keys            string
+		data            string
+		expectError     bool
+		expectOutputs   []string
+		expectErrorCode errorcodes.Code
 	}{
 		{
 			name: "Successful execution",
@@ -44,8 +45,8 @@ Then print the data
 			contract: `
 Given I have a 'string' named 'broken'
 `,
-			expectError:    true,
-			expectErrorMsg: "execution of Zenroom failed with exit code",
+			expectError:     true,
+			expectErrorCode: errorcodes.Codes[errorcodes.ZenroomExecutionFailed],
 		},
 	}
 
@@ -59,7 +60,7 @@ Given I have a 'string' named 'broken'
 				Name: w.Name(),
 			})
 
-			var zenroomActivity activities.DockerActivity
+			zenroomActivity := activities.NewDockerActivity()
 			env.RegisterActivityWithOptions(zenroomActivity.Execute, activity.RegisterOptions{
 				Name: zenroomActivity.Name(),
 			})
@@ -83,12 +84,8 @@ Given I have a 'string' named 'broken'
 
 			if tc.expectError {
 				require.Error(t, err, "Expected an error but got none")
-				require.Contains(
-					t,
-					err.Error(),
-					tc.expectErrorMsg,
-					"Error message should contain expected text",
-				)
+				require.Contains(t, err.Error(), tc.expectErrorCode.Code)
+				require.Contains(t, err.Error(), tc.expectErrorCode.Description)
 			} else {
 				require.NoError(t, err, "Expected no error but got one")
 				for _, key := range tc.expectOutputs {
