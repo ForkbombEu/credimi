@@ -14,14 +14,17 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 )
 
 func TestDockerRunActivity_Execute(t *testing.T) {
-	activity := &DockerActivity{}
+	act := NewDockerActivity()
 	var ts testsuite.WorkflowTestSuite
 	env := ts.NewTestActivityEnvironment()
-	env.RegisterActivity(activity.Execute)
+	env.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{
+		Name: act.Name(),
+	})
 
 	tests := []struct {
 		name         string
@@ -113,7 +116,7 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var result workflowengine.ActivityResult
-			future, err := env.ExecuteActivity(activity.Execute, tt.input)
+			future, err := env.ExecuteActivity(act.Execute, tt.input)
 
 			if tt.expectError {
 				require.Error(t, err)
