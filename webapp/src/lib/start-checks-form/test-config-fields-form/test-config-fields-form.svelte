@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { form }: Props = $props();
 </script>
 
-<Form form={form.superform} hide={['submit_button']} hideRequiredIndicator>
+<Form form={form.superform} hide={['submit_button']} class="space-y-6" hideRequiredIndicator>
 	{#each form.props.fields as field}
 		<TestConfigFieldInput {field} form={form.superform} />
 	{/each}

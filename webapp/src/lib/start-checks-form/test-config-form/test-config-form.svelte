@@ -11,8 +11,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import { Info } from 'lucide-svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { Label } from '@/components/ui/label';
-	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 
 	type Props = {
@@ -22,12 +20,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { form }: Props = $props();
 </script>
 
-<div class="flex flex-col gap-8 md:flex-row">
-	<div class="min-w-0 shrink-0 grow basis-1">
-		<div class="mb-8 space-y-2">
-			<Label>{m.Fields()}</Label>
-			<Separator />
-		</div>
+<div class="flex flex-col gap-6 md:flex-row md:gap-10">
+	<div class="min-w-0 shrink-0 grow basis-1 space-y-6">
+		{@render SectionLabel(m.Fields())}
 
 		{#if form.mode == 'fields'}
 			<TestConfigFieldsFormComponent form={form.fieldsForm} />
@@ -49,7 +44,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</div>
 
-	<div class="flex min-w-0 shrink-0 grow basis-1 flex-col">
+	<div class="flex min-w-0 shrink-0 grow basis-1 flex-col space-y-6">
+		{@render SectionLabel(m.JSON_configuration())}
 		<TestConfigJsonFormComponent form={form.jsonForm} />
 	</div>
 </div>
+
+{#snippet SectionLabel(title: string)}
+	<div class="bg-secondary/40 rounded-md p-2">
+		<p class="text-sm font-bold">{title}</p>
+	</div>
+{/snippet}

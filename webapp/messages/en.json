@@ -456,5 +456,6 @@
 	"json_configuration_is_edited_fields_are_disabled": "JSON configuration is manually edited. Fields are disabled.",
 	"reset_json_and_use_fields": "Reset JSON and use fields",
 	"Shared_fields": "Shared fields",
-	"Standard_version": "Standard version"
+	"Standard_version": "Standard version",
+	"JSON_configuration": "JSON configuration"
 }

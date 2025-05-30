@@ -23,8 +23,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		fieldValues={form.placeholdersValues}
 		options={{
 			lang: 'json',
-			label: 'JSON configuration',
-			class: 'self-stretch'
+			class: 'self-stretch',
+			hideLabel: true
 		}}
 	/>
 </Form>

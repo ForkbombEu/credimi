@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class={['bg-background space-y-6 rounded-md p-6 shadow-sm', className]} {...restProps}>
 	{#if title}
-		<T tag="h4" class="border-b pb-1">{title}</T>
+		<T tag="h4" class="overflow-auto border-b pb-1">{title}</T>
 	{/if}
 	{@render children?.()}
 </div>
