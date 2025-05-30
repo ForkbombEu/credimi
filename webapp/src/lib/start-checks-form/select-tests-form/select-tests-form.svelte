@@ -27,8 +27,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { form }: Props = $props();
 </script>
 
-<div class="flex flex-col items-start gap-8 p-8 md:flex-row">
-	<div class="w-full space-y-4">
+<div class="flex flex-col items-start gap-8 p-6 md:flex-row">
+	<div class="w-full space-y-4 md:w-auto">
 		{@render StandardSelect()}
 	</div>
 
@@ -113,7 +113,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet SuitesWithoutTestsSelect()}
-	<Check.Group bind:value={form.selectedSuites} class="flex flex-col gap-4 overflow-auto">
+	<!-- This binding style is needed to avoid a svelte warning -->
+	<Check.Group
+		bind:value={() => form.selectedTests, (v) => (form.selectedTests = v)}
+		class="flex flex-col gap-4 overflow-auto"
+	>
 		{#each form.availableSuitesWithoutTests as suite}
 			<label class="flex items-center gap-3">
 				<div class="w-4">
@@ -126,7 +130,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet SuitesWithTestsSelect()}
-	<Check.Group bind:value={form.selectedTests} class="flex flex-col gap-4 ">
+	<!-- This binding style is needed to avoid a svelte warning -->
+	<Check.Group
+		bind:value={() => form.selectedTests, (v) => (form.selectedTests = v)}
+		class="flex flex-col gap-4 "
+	>
 		{#each form.availableSuitesWithTests as suite}
 			<div class="space-y-3 border-l-4 pl-4">
 				<Check.GroupLabel>
@@ -151,8 +159,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet CustomChecksSelect()}
 	<T tag="h4">{m.Custom_checks()}</T>
 
+	<!-- This binding style is needed to avoid a svelte warning -->
 	<Check.Group
-		bind:value={form.selectedCustomChecks}
+		bind:value={() => form.selectedCustomChecks, (v) => (form.selectedCustomChecks = v)}
 		name="test-suites"
 		class="flex flex-col gap-2 overflow-auto"
 	>
