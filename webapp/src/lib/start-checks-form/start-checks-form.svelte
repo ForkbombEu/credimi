@@ -46,24 +46,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// });
 </script>
 
-<div class="space-y-12 pb-0 pt-8">
-	<Tabs.Root value={form.state} class="w-full">
-		<Tabs.List class="bg-secondary flex">
-			<Tabs.Trigger
-				value={tabs[0].id}
-				class="data-[state=inactive]:hover:bg-primary/10 grow data-[state=inactive]:text-black"
-				onclick={() => {
-					form.backToSelectTests();
-				}}
-			>
-				{tabs[0].label}
-			</Tabs.Trigger>
-			<Tabs.Trigger value={tabs[1].id} class="grow" disabled={form.state === 'select-tests'}>
-				{tabs[1].label}
-			</Tabs.Trigger>
-		</Tabs.List>
-	</Tabs.Root>
-</div>
+<Tabs.Root value={form.state} class="w-full">
+	<Tabs.List class="flex">
+		<Tabs.Trigger
+			value={tabs[0].id}
+			class="data-[state=inactive]:hover:bg-primary/10 grow data-[state=inactive]:text-black"
+			onclick={() => {
+				form.backToSelectTests();
+			}}
+		>
+			{tabs[0].label}
+		</Tabs.Trigger>
+		<Tabs.Trigger value={tabs[1].id} class="grow" disabled={form.state === 'select-tests'}>
+			{tabs[1].label}
+		</Tabs.Trigger>
+	</Tabs.List>
+</Tabs.Root>
 
 {#if form.state === 'select-tests'}
 	<SelectTestsFormComponent form={form.selectTestsForm}>

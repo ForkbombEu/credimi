@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import type { Snippet } from 'svelte';
 	import SectionCard from '$lib/start-checks-form/_utils/section-card.svelte';
+	import Footer from '$lib/start-checks-form/_utils/footer.svelte';
 
 	//
 
@@ -187,45 +188,43 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet FormFooter()}
-	<div class="bg-background sticky bottom-0 rounded-md border p-4 px-8 backdrop-blur-lg">
-		<div class="mx-auto flex max-w-screen-xl items-center justify-between gap-8">
-			<div class="flex shrink-0 text-sm">
-				{#if form.hasSelection}
-					<p>{m.Current_selection()}:</p>
-					<ul class="flex items-center divide-x">
-						{#snippet CountItem(count: number, label: string)}
-							<li class="px-2">
-								<span class="text-primary font-bold">{count}</span>
-								{label}
-							</li>
-						{/snippet}
+	<Footer>
+		{#snippet left()}
+			{#if form.hasSelection}
+				<p>{m.Current_selection()}:</p>
+				<ul class="flex items-center divide-x">
+					{#snippet CountItem(count: number, label: string)}
+						<li class="px-2">
+							<span class="text-primary font-bold">{count}</span>
+							{label}
+						</li>
+					{/snippet}
 
-						{#if form.selectedSuites.length > 0}
-							{@render CountItem(form.selectedSuites.length, m.Suites())}
-						{/if}
-						{#if form.selectedTests.length > 0}
-							{@render CountItem(form.selectedTests.length, m.Tests())}
-						{/if}
-						{#if form.selectedCustomChecks.length > 0}
-							{@render CountItem(form.selectedCustomChecks.length, m.Custom_checks())}
-						{/if}
-					</ul>
-				{/if}
-			</div>
+					{#if form.selectedSuites.length > 0}
+						{@render CountItem(form.selectedSuites.length, m.Suites())}
+					{/if}
+					{#if form.selectedTests.length > 0}
+						{@render CountItem(form.selectedTests.length, m.Tests())}
+					{/if}
+					{#if form.selectedCustomChecks.length > 0}
+						{@render CountItem(form.selectedCustomChecks.length, m.Custom_checks())}
+					{/if}
+				</ul>
+			{/if}
+		{/snippet}
 
-			<div class="flex items-start gap-4">
-				{@render footerRight?.()}
+		{#snippet right()}
+			{@render footerRight?.()}
 
-				<Button
-					disabled={!form.isValid}
-					onclick={() => {
-						form.submit();
-					}}
-				>
-					{m.Next_step()}
-					<ArrowRight />
-				</Button>
-			</div>
-		</div>
-	</div>
+			<Button
+				disabled={!form.isValid}
+				onclick={() => {
+					form.submit();
+				}}
+			>
+				{m.Next_step()}
+				<ArrowRight />
+			</Button>
+		{/snippet}
+	</Footer>
 {/snippet}

@@ -6,7 +6,8 @@ import { z } from 'zod';
 import { pb } from '@/pocketbase';
 import {
 	baseTestConfigFieldSchema,
-	namedTestConfigFieldSchema
+	namedTestConfigFieldSchema,
+	testConfigFieldComparator
 } from '$lib/start-checks-form/test-config-field';
 import { stringifiedObjectSchema } from '$lib/start-checks-form/_utils';
 import { TestConfigFieldsForm } from '$lib/start-checks-form/test-config-fields-form';
@@ -36,7 +37,7 @@ export class ChecksConfigForm {
 
 	constructor(public readonly props: ChecksConfigFormProps) {
 		this.sharedFieldsForm = new TestConfigFieldsForm({
-			fields: this.props.normalized_fields
+			fields: this.props.normalized_fields.sort(testConfigFieldComparator)
 		});
 
 		this.checksForms = Record.map(
@@ -44,7 +45,7 @@ export class ChecksConfigForm {
 			(data) =>
 				new TestConfigForm({
 					json: data.content,
-					fields: data.fields,
+					fields: data.fields.sort(testConfigFieldComparator),
 					formDependency: this.sharedFieldsForm
 				})
 		);

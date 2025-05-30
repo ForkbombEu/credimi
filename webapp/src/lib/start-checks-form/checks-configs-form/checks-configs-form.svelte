@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { TestConfigFieldsFormComponent } from '$lib/start-checks-form/test-config-fields-form';
 	import { TestConfigFormComponent } from '$lib/start-checks-form/test-config-form';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Footer from '../_utils/footer.svelte';
 	import SectionCard from '../_utils/section-card.svelte';
 	import { ChecksConfigForm, type ChecksConfigFormProps } from './checks-configs-form.svelte.js';
 	import { m } from '@/i18n';
@@ -27,8 +29,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	{#each Object.entries(form.checksForms) as [id, checkForm]}
-		<SectionCard {id} title={id}>
+		<SectionCard {id} title={id.replace('.json', '')}>
 			<TestConfigFormComponent form={checkForm} />
 		</SectionCard>
 	{/each}
 </div>
+
+<Footer>
+	{#snippet right()}
+		<Button>ao</Button>
+	{/snippet}
+</Footer>
