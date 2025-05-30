@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	smtpmock "github.com/mocktools/go-smtp-mock"
 	"github.com/stretchr/testify/mock"
@@ -26,7 +27,7 @@ func (m *MockDialer) DialAndSend(msg *gomail.Message) error {
 }
 
 func TestSendMailActivity_Configure(t *testing.T) {
-	activity := &SendMailActivity{}
+	activity := NewSendMailActivity()
 	input := &workflowengine.ActivityInput{
 		Config: make(map[string]string),
 	}
@@ -77,10 +78,11 @@ func TestSendMailActivity_Execute(t *testing.T) {
 	env.RegisterActivity(activity.Execute)
 
 	tests := []struct {
-		name           string
-		input          workflowengine.ActivityInput
-		expectedOutput string
-		expectedErr    string
+		name            string
+		input           workflowengine.ActivityInput
+		expectedOutput  string
+		expectedErr     string
+		expectedErrCode errorcodes.Code
 	}{
 		{
 			name: "Success - email sent successfully",
@@ -112,8 +114,9 @@ func TestSendMailActivity_Execute(t *testing.T) {
 					"body":    "<html><body>Test email body</body></html>",
 				},
 			},
-			expectedOutput: "Email sending failed",
-			expectedErr:    "no address",
+			expectedOutput:  "Email sending failed",
+			expectedErr:     "no address",
+			expectedErrCode: errorcodes.Codes[errorcodes.EmailSendFailed],
 		},
 	}
 
@@ -124,6 +127,8 @@ func TestSendMailActivity_Execute(t *testing.T) {
 			if tt.expectedErr != "" {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.expectedErr)
+				require.Contains(t, err.Error(), tt.expectedErrCode.Code)
+				require.Contains(t, err.Error(), tt.expectedErrCode.Description)
 			} else {
 				require.NoError(t, err)
 				future.Get(&result)

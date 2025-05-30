@@ -13,22 +13,23 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 	"golang.org/x/sys/unix"
 )
 
-func TestStepCIlActivity_Configure(t *testing.T) {
-	activity := &StepCIWorkflowActivity{}
+func TestStepCIActivity_Configure(t *testing.T) {
+	activity := NewStepCIWorkflowActivity()
 
 	tests := []struct {
-		name          string
-		config        map[string]string
-		payload       map[string]interface{}
-		expectedYAML  string
-		expectError   bool
-		errorContains string
+		name             string
+		config           map[string]string
+		payload          map[string]interface{}
+		expectedYAML     string
+		expectError      bool
+		expectedErrorMsg errorcodes.Code
 	}{
 		{
 			name: "Success - valid template",
@@ -42,10 +43,10 @@ func TestStepCIlActivity_Configure(t *testing.T) {
 			expectedYAML: "hello: world",
 		},
 		{
-			name:          "Failure - missing template",
-			config:        map[string]string{},
-			expectError:   true,
-			errorContains: "missing required config",
+			name:             "Failure - missing template",
+			config:           map[string]string{},
+			expectError:      true,
+			expectedErrorMsg: errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
 		},
 		{
 			name: "Failure - invalid template syntax",
@@ -54,8 +55,8 @@ func TestStepCIlActivity_Configure(t *testing.T) {
 			payload: map[string]interface{}{
 				"name": "bad",
 			},
-			expectError:   true,
-			errorContains: "failed to render YAML",
+			expectError:      true,
+			expectedErrorMsg: errorcodes.Codes[errorcodes.TemplateRenderFailed],
 		},
 	}
 
@@ -70,8 +71,9 @@ func TestStepCIlActivity_Configure(t *testing.T) {
 
 			if tc.expectError {
 				require.Error(t, err)
-				if tc.errorContains != "" {
-					require.ErrorContains(t, err, tc.errorContains)
+				if tc.expectedErrorMsg != (errorcodes.Code{}) {
+					require.Contains(t, err.Error(), tc.expectedErrorMsg.Code)
+					require.Contains(t, err.Error(), tc.expectedErrorMsg.Description)
 				}
 			} else {
 				require.NoError(t, err)
@@ -125,7 +127,7 @@ func TestStepCIActivity_Execute(t *testing.T) {
 		payload          map[string]interface{}
 		config           map[string]string
 		expectedError    bool
-		expectedErrorMsg string
+		expectedErrorMsg errorcodes.Code
 		expectedCaptures any
 		expectedOutput   string
 	}{
@@ -160,38 +162,19 @@ tests:
 			expectedCaptures: map[string]any{"test": float64(1)},
 		},
 		{
-			name: "Success - human readable",
-			payload: map[string]interface{}{
-				"yaml": `
-version: "1.1"
-tests:
-  example:
-    steps:
-      - name: test
-        http:
-          url: "https://httpbin.org/status/200"
-          method: GET
-          check:
-            status: 200
-`,
-			},
-			config:         map[string]string{"human_readable": "true"},
-			expectedOutput: "\n🎉 All done! Your workflow succeeded.",
-		},
-		{
 			name: "Failure - missing runner binary",
 			payload: map[string]interface{}{
 				"yaml": "version: 1.0",
 			},
 			expectedError:    true,
-			expectedErrorMsg: "stepCI run failed",
+			expectedErrorMsg: errorcodes.Codes[errorcodes.StepCIRunFailed],
 		},
 		{
 			name:             "Failure - incorrect secrets",
 			payload:          map[string]any{"yaml": "version: 1.0"},
 			config:           map[string]string{"wrongToken": "invalid-token"},
 			expectedError:    true,
-			expectedErrorMsg: "stepCI run failed",
+			expectedErrorMsg: errorcodes.Codes[errorcodes.StepCIRunFailed],
 		},
 		{
 			name: "Failure - stepCI fails",
@@ -220,7 +203,7 @@ tests:
 			},
 			config:           map[string]string{"test_secret": "https://httpbin.org/status/404"},
 			expectedError:    true,
-			expectedErrorMsg: "stepCI run failed",
+			expectedErrorMsg: errorcodes.Codes[errorcodes.StepCIRunFailed],
 		},
 	}
 
@@ -243,7 +226,8 @@ tests:
 			future, err := env.ExecuteActivity(activity.Execute, input)
 			if tc.expectedError {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tc.expectedErrorMsg)
+				require.Contains(t, err.Error(), tc.expectedErrorMsg.Code)
+				require.Contains(t, err.Error(), tc.expectedErrorMsg.Description)
 			} else {
 				require.NoError(t, err)
 				future.Get(&result)

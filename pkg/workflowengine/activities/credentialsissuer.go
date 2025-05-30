@@ -32,7 +32,17 @@ type Credential struct {
 }
 
 // CheckCredentialsIssuerActivity is an activity that checks the credential issuer
-type CheckCredentialsIssuerActivity struct{}
+type CheckCredentialsIssuerActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewCheckCredentialsIssuerActivity() *CheckCredentialsIssuerActivity {
+	return &CheckCredentialsIssuerActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Parse the Credential issuer metadata (.well-known/openid-credential-issuer)",
+		},
+	}
+}
 
 // Name returns the name of the CheckCredentialsIssuerActivity, which describes
 // the purpose of this activity as checking the credential issuer metadata.

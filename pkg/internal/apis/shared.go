@@ -46,7 +46,11 @@ func generateToken(collectionNameOrID string, email string) (string, error) {
 }
 
 func isSuperUser(app core.App, user *core.Record) bool {
-	superUserRecord, err := app.FindFirstRecordByFilter("_superusers", "id ={:id}", dbx.Params{"id": user.Id})
+	superUserRecord, err := app.FindFirstRecordByFilter(
+		"_superusers",
+		"id ={:id}",
+		dbx.Params{"id": user.Id},
+	)
 	if err != nil {
 		return false
 	}
