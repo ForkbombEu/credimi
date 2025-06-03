@@ -1,12 +1,12 @@
 ---
-title: "Events & Webinars"
-description: "Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi."
-date: "2025-06-01"
+title: Events & Webinars
+description: Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi.
+date: 2025-06-01
 tags:
   - community
   - events
   - webinars
-published-date: "2025-06-01"
+updatedOn: 2025-06-01
 ---
 
 # Events & Webinars
