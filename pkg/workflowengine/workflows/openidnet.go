@@ -110,7 +110,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	if !ok {
 		result = ""
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet"
+	baseURL := input.Payload["app_url"].(string) + "/tests/wallet-openidnet"
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %w", err)

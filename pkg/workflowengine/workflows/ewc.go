@@ -115,7 +115,7 @@ func (w *EWCWorkflow) Workflow(
 	if !ok {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("missing session_id in stepci response")
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/ewc"
+	baseURL := input.Payload["app_url"].(string) + "/tests/wallet-ewc"
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %w", err)

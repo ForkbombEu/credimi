@@ -15,6 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Separator from '@/components/ui/separator/separator.svelte';
 	import { pb } from '@/pocketbase/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { Label } from '@/components/ui/label';
 	import { MediaQuery } from 'svelte/reactivity';
 	import WorkflowLogs from '@/components/ui-custom/workflowLogs.svelte';
@@ -23,10 +24,43 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const { testName, qr, workflowId, namespace, showLogs, showStatusButtons } =
+	const { testName, qr, workflowId, namespace, showLogs, showStatusButtons, isCloseConnection } =
 		$derived(data);
 
 	let pageStatus = $state<'fresh' | 'success' | 'already_answered'>('fresh');
+
+	// svelte-ignore state_referenced_locally
+	if (isCloseConnection) {
+		onMount(() => {
+			if (!data.workflowId) return;
+			pb.send('/api/compliance/send-temporal-signal', {
+				method: 'POST',
+				body: {
+					workflow_id: data.workflowId,
+					namespace: data.namespace,
+					signal: 'start-ewc-check-signal'
+				}
+			}).catch((err) => {
+				console.error(err);
+			});
+		});
+
+		onDestroy(() => {
+			closeConnections();
+		});
+	}
+
+	function closeConnections() {
+		if (!data.workflowId) return;
+		pb.send('/api/compliance/send-temporal-signal', {
+			method: 'POST',
+			body: {
+				workflow_id: data.workflowId,
+				namespace: data.namespace,
+				signal: 'stop-ewc-check-signal'
+			}
+		});
+	}
 
 	const successForm = createForm({
 		adapter: zod(z.object({})),
@@ -76,6 +110,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const sm = new MediaQuery('min-width: 640px');
 </script>
+
+<svelte:window on:beforeunload={isCloseConnection ? closeConnections : undefined} />
 
 <PageContent>
 	<T tag="h1" class="mb-4">{testName} test</T>

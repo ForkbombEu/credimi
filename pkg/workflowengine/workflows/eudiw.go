@@ -122,7 +122,7 @@ func (w *EudiwWorkflow) Workflow(
 			"missing transaction_id in stepci response",
 		)
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/eudiw" // TODO use the correct one
+	baseURL := input.Payload["app_url"].(string) + "/tests/wallet-eudiw" // TODO use the correct one
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %w", err)
