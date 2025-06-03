@@ -13,6 +13,9 @@ import { stringifiedObjectSchema } from '$lib/start-checks-form/_utils';
 import { TestConfigFieldsForm } from '$lib/start-checks-form/test-config-fields-form';
 import { TestConfigForm } from '$lib/start-checks-form/test-config-form';
 import { Record } from 'effect';
+import type { CustomChecksResponse } from '@/pocketbase/types';
+import { CustomCheckForm } from '$lib/start-checks-form/custom-check-form';
+import { goto } from '@/i18n';
 
 //
 
@@ -27,23 +30,32 @@ export const checksConfigFormPropsSchema = z.object({
 	)
 });
 
-export type ChecksConfigFormProps = z.infer<typeof checksConfigFormPropsSchema>;
+export type ChecksConfigFormProps = {
+	standardAndVersionPath: string;
+	standardChecks: z.infer<typeof checksConfigFormPropsSchema>;
+	customChecks: CustomChecksResponse[];
+};
 
 //
 
 export class ChecksConfigForm {
 	public readonly sharedFieldsForm: TestConfigFieldsForm;
 	public readonly checksForms: Record<string, TestConfigForm>;
+	public readonly customChecksForms: CustomCheckForm[];
 
-	hasSharedFields = $derived.by(() => this.props.normalized_fields.length > 0);
+	hasSharedFields = $derived.by(() => this.props.standardChecks.normalized_fields.length > 0);
+	isValid = $derived.by(() => this.getCompletionStatus().isValid);
+
+	isLoading = $state(false);
+	loadingError = $state<Error>();
 
 	constructor(public readonly props: ChecksConfigFormProps) {
 		this.sharedFieldsForm = new TestConfigFieldsForm({
-			fields: this.props.normalized_fields.sort(testConfigFieldComparator)
+			fields: this.props.standardChecks.normalized_fields.sort(testConfigFieldComparator)
 		});
 
 		this.checksForms = Record.map(
-			this.props.specific_fields,
+			this.props.standardChecks.specific_fields,
 			(data, id) =>
 				new TestConfigForm({
 					id,
@@ -52,31 +64,73 @@ export class ChecksConfigForm {
 					formDependency: this.sharedFieldsForm
 				})
 		);
+
+		this.customChecksForms = this.props.customChecks.map(
+			(c) => new CustomCheckForm({ customCheck: c })
+		);
+	}
+
+	async submit() {
+		this.isLoading = true;
+		try {
+			await pb.send(
+				`/api/compliance/${this.props.standardAndVersionPath}/save-variables-and-start`,
+				{
+					method: 'POST',
+					// TODO - Add form data
+					body: {}
+				}
+			);
+			await goto(`/my/tests/runs`);
+		} catch (error) {
+			this.loadingError = error as Error;
+		} finally {
+			this.isLoading = false;
+		}
 	}
 
 	getCompletionStatus() {
-		const forms = Record.map(this.checksForms, (form) => form.isValid);
-		const missingSharedFieldsCount = Object.keys(
-			this.sharedFieldsForm.state.invalidData
-		).length;
+		const missingSharedFieldsCount =
+			this.sharedFieldsForm.getCompletionReport().invalidFieldsCount;
 
-		const validFormsCount = Object.values(forms).filter(Boolean).length;
-		const invalidFormsCount = Object.values(forms).filter((v) => !v).length;
-		const totalForms = Object.keys(forms).length;
-		const invalidFormIds = Object.entries(forms)
+		//
+
+		const baseForms = Record.map(this.checksForms, (form) => form.isValid);
+		const validBaseFormsCount = Object.values(baseForms).filter(Boolean).length;
+		const invalidBaseFormsCount = Object.keys(baseForms).length - validBaseFormsCount;
+
+		const validCustomChecksFormsCount = this.customChecksForms.filter((c) => c.isValid).length;
+		const invalidCustomChecksFormsCount =
+			this.customChecksForms.length - validCustomChecksFormsCount;
+
+		//
+
+		const invalidBaseFormsEntries: InvalidFormEntry[] = Object.entries(baseForms)
 			.filter(([, isValid]) => !isValid)
-			.map(([id]) => id);
+			.map(([id]) => ({ text: id, id }));
+
+		const invalidCustomChecksFormsEntries: InvalidFormEntry[] = this.customChecksForms
+			.filter((c) => !c.isValid)
+			.map((c) => ({ text: c.props.customCheck.name, id: c.props.customCheck.id }));
 
 		return {
-			sharedFields: this.sharedFieldsForm.state.isValid,
-			validFormsCount,
-			invalidFormsCount,
-			totalForms,
-			invalidFormIds,
+			isValid:
+				missingSharedFieldsCount === 0 &&
+				invalidBaseFormsCount === 0 &&
+				invalidCustomChecksFormsCount === 0,
+			sharedFields: this.sharedFieldsForm.getCompletionReport().isValid,
+			validFormsCount: validBaseFormsCount + validCustomChecksFormsCount,
+			invalidFormsCount: invalidBaseFormsCount + invalidCustomChecksFormsCount,
+			invalidFormsEntries: [...invalidBaseFormsEntries, ...invalidCustomChecksFormsEntries],
 			missingSharedFieldsCount
 		};
 	}
 }
+
+type InvalidFormEntry = {
+	text: string;
+	id: string;
+};
 
 //
 

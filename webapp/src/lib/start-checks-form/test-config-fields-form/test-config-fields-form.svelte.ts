@@ -4,7 +4,7 @@
 
 import { createTestConfigFormInitialData, createTestConfigFormSchema } from './utils';
 
-import type { SuperForm } from 'sveltekit-superforms';
+import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
 import type { TestConfigField } from '$lib/start-checks-form/test-config-field';
 import { createForm } from '@/forms';
 import { zod } from 'sveltekit-superforms/adapters';
@@ -30,11 +30,7 @@ export class TestConfigFieldsForm {
 	public readonly superform: SuperForm<StringRecord>;
 	public readonly values: State<StringRecord>;
 
-	state = $state<TestConfigFieldsFormState>({
-		isValid: false,
-		validData: {},
-		invalidData: {}
-	});
+	private currentValidationResult = $state<SuperValidated<StringRecord>>();
 
 	constructor(public readonly props: TestConfigFieldsFormProps) {
 		this.superform = createForm({
@@ -46,26 +42,28 @@ export class TestConfigFieldsForm {
 		});
 
 		this.values = fromStore(this.superform.form);
-		this.effectDispatchUpdate();
+		this.effectUpdateValidationResult();
 	}
 
-	async getFormState(): Promise<TestConfigFieldsFormState> {
-		const { validateForm } = this.superform;
-		const { errors, valid } = await validateForm({ update: false });
-
+	getCompletionReport() {
+		const errors = this.currentValidationResult?.errors ?? {};
+		const validData = Record.filter(this.values.current, (_, id) => !(id in errors));
+		const invalidData = Record.filter(this.values.current, (_, id) => id in errors);
 		return {
-			isValid: valid,
-			validData: Record.filter(this.values.current, (_, id) => !(id in errors)),
-			invalidData: Record.filter(this.values.current, (_, id) => id in errors)
+			isValid: this.currentValidationResult?.valid ?? false,
+			validData,
+			invalidData,
+			validFieldsCount: Record.size(validData),
+			invalidFieldsCount: Record.size(invalidData)
 		};
 	}
 
-	effectDispatchUpdate() {
+	effectUpdateValidationResult() {
 		watch(
 			() => this.values.current,
 			() => {
-				this.getFormState().then((newState) => {
-					this.state = newState;
+				this.superform.validateForm({ update: false }).then((result) => {
+					this.currentValidationResult = result;
 				});
 			}
 		);

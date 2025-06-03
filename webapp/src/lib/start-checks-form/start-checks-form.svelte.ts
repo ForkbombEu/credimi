@@ -23,6 +23,11 @@ export class StartChecksForm {
 	isLoadingData = $state(false);
 	loadingError = $state<Error>();
 
+	selectedCustomChecksIds = $state<string[]>([]);
+	selectedCustomChecks = $derived.by(() =>
+		this.props.customChecks.filter((c) => this.selectedCustomChecksIds.includes(c.id))
+	);
+
 	constructor(public readonly props: StartChecksFormProps) {
 		this.selectTestsForm = new SelectTestsForm({
 			standards: props.standardsWithTestSuites,
@@ -32,12 +37,19 @@ export class StartChecksForm {
 	}
 
 	private async handleChecksSelection(data: SelectTestsFormData) {
+		this.selectedCustomChecksIds = data.customChecks;
 		this.isLoadingData = true;
 		try {
-			this.checksConfigsFormProps = await getChecksConfigFormProps(
-				data.standardId + '/' + data.versionId,
+			const standardAndVersionPath = data.standardId + '/' + data.versionId;
+			const standardChecks = await getChecksConfigFormProps(
+				standardAndVersionPath,
 				data.tests
 			);
+			this.checksConfigsFormProps = {
+				standardAndVersionPath,
+				standardChecks,
+				customChecks: this.selectedCustomChecks
+			};
 			this.state = 'fill-values';
 		} catch (error) {
 			this.loadingError = error as Error;
@@ -50,24 +62,6 @@ export class StartChecksForm {
 		this.state = 'select-tests';
 		this.checksConfigsFormProps = undefined;
 		this.loadingError = undefined;
-	}
-
-	submit() {
-		// const form = createForm({
-		// 	adapter: zod(createTestListInputSchema(data)),
-		// 	onSubmit: async ({ form }) => {
-		// 		const custom = customChecks.map((c) => {
-		// 			return { format: 'custom', data: c.yaml };
-		// 		});
-		// 		await pb.send(`/api/compliance/${testId}/save-variables-and-start`, {
-		// 			method: 'POST',
-		// 			body: { ...form.data, ...custom }
-		// 		});
-		// 		await goto(`/my/tests/runs`);
-		// 	},
-		// 	options: {
-		// 		resetForm: false
-		// 	}
-		// });
+		this.selectedCustomChecksIds = [];
 	}
 }

@@ -12,6 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Tabs from '@/components/ui/tabs/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import { m } from '@/i18n/index.js';
+	import SmallErrorDisplay from './_utils/small-error-display.svelte';
 
 	//
 
@@ -32,6 +33,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			scrollTo({ top: 0, behavior: 'instant' });
 		}
 	});
+
+	// TODO - Implement logic with only one custom check selected
 
 	// const customCheckId = $derived(page.url.searchParams.get(queryParams.customCheckId));
 
@@ -67,14 +70,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<SelectTestsFormComponent form={form.selectTestsForm}>
 		{#snippet footerRight()}
 			{#if form.loadingError}
-				<div
-					class="rounded-md border border-red-500 bg-red-100 px-1 py-0.5 text-xs text-red-700"
-				>
-					<p class="space-x-1">
-						<span class="font-bold">{m.Error()}:</span>
-						<span>{form.loadingError.message}</span>
-					</p>
-				</div>
+				<SmallErrorDisplay error={form.loadingError} />
 			{/if}
 		{/snippet}
 	</SelectTestsFormComponent>

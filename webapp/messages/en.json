@@ -463,5 +463,6 @@
 	"Configs": "Configs",
 	"count_valid": "{count} valid",
 	"count_invalid": "{count} invalid",
-	"Scroll": "Scroll"
+	"Scroll": "Scroll",
+	"Start_checks": "Start checks"
 }

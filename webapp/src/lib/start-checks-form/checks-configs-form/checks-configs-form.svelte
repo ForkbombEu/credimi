@@ -17,6 +17,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IconComponent } from '@/components/types';
 	import type { GenericRecord } from '@/utils/types';
 	import { Separator } from '@/components/ui/separator';
+	import { CustomCheckFormComponent } from '../custom-check-form';
+	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
+	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
 
 	//
 
@@ -32,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<TestConfigFieldsFormComponent form={form.sharedFieldsForm} />
 		</SectionCard>
 
-		<Separator class="!my-6" />
+		{@render SectionDivider(m.Configs())}
 	{/if}
 
 	{#each Object.entries(form.checksForms) as [id, checkForm]}
@@ -40,9 +43,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<TestConfigFormComponent form={checkForm} />
 		</SectionCard>
 	{/each}
+
+	{#if form.customChecksForms.length}
+		{@render SectionDivider(m.Custom_checks())}
+		{#each form.customChecksForms as customCheckForm}
+			<SectionCard
+				id={customCheckForm.props.customCheck.id}
+				title={customCheckForm.props.customCheck.name}
+			>
+				<CustomCheckFormComponent form={customCheckForm} />
+			</SectionCard>
+		{/each}
+	{/if}
+
+	{@render SectionDivider(m.Submit())}
 </div>
 
-<Footer>
+<Footer class="!mt-4">
 	{#snippet left()}
 		{@const status = form.getCompletionStatus()}
 
@@ -77,26 +94,40 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="flex items-center gap-2">
 				<p>
 					<span>{m.Configs()}:</span>
+
 					<span class="font-bold text-green-600">
 						{m.count_valid({ count: status.validFormsCount })}
 					</span>
 					<span>{' / '}</span>
-					<span class="font-bold text-red-600">
-						{m.count_invalid({ count: status.invalidFormsCount })}
-					</span>
+					{#if !form.isValid}
+						<span class="font-bold text-red-600">
+							{m.count_invalid({ count: status.invalidFormsCount })}
+						</span>
+					{:else}
+						<span class="font-bold text-green-600">
+							{status.validFormsCount}
+						</span>
+					{/if}
 				</p>
-				{@render InvalidFormsPopover(status.invalidFormIds)}
+				{@render InvalidFormsPopover(status.invalidFormsEntries)}
 			</div>
 		</div>
 	{/snippet}
 
 	{#snippet right()}
-		<Button>ao</Button>
+		{#if form.loadingError}
+			<SmallErrorDisplay error={form.loadingError} />
+		{/if}
+		<Button disabled={!form.isValid} onclick={() => form.submit()}>{m.Start_checks()}</Button>
 	{/snippet}
 </Footer>
 
-{#snippet InvalidFormsPopover(ids: string[])}
-	{#if ids.length}
+{#if form.isLoading}
+	<LoadingDialog />
+{/if}
+
+{#snippet InvalidFormsPopover(entries: { id: string; text: string }[])}
+	{#if entries.length}
 		<Popover.Root>
 			<Popover.Trigger>
 				{#snippet child({ props })}
@@ -105,10 +136,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Popover.Trigger>
 			<Popover.Content class="dark w-fit">
 				<ul class="space-y-1 text-sm">
-					{#each ids as testId}
+					{#each entries as { id, text }}
 						<li>
-							<a class="underline hover:no-underline" href={`#${testId}`}>
-								{testId}
+							<a class="underline hover:no-underline" href="#{id}">
+								{text}
 							</a>
 						</li>
 					{/each}
@@ -129,4 +160,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Icon size={10} class="" />
 		{text}
 	</Button>
+{/snippet}
+
+{#snippet SectionDivider(text: string)}
+	<div class="flex items-center gap-3 py-1">
+		<Separator class="!w-auto grow" />
+		<p class="text-muted-foreground text-sm">{text}</p>
+		<Separator class="!w-auto grow" />
+	</div>
 {/snippet}

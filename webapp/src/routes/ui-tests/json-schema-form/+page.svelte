@@ -5,11 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import JsonSchemaForm from '@/components/json-schema-form.svelte';
-</script>
+	import { createJsonSchemaForm, JsonSchemaFormComponent } from '@/components/json-schema-form';
 
-<JsonSchemaForm
-	schema={{
+	const form = createJsonSchemaForm({
 		type: 'object',
 		title: 'Form title',
 		properties: {
@@ -27,5 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 		},
 		required: ['text']
-	}}
-/>
+	});
+</script>
+
+<JsonSchemaFormComponent {form} />

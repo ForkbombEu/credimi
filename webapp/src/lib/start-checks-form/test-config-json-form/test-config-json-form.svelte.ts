@@ -74,7 +74,7 @@ export class TestConfigJsonForm {
 		if (!this.props.formDependency) return {};
 
 		const placeholders = this.getPlaceholdersFromJson();
-		const { validData } = this.props.formDependency.state;
+		const { validData } = this.props.formDependency.getCompletionReport();
 
 		return pipe(
 			this.props.formDependency.props.fields,

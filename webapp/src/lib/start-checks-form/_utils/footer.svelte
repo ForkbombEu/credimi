@@ -10,12 +10,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		right?: Snippet;
 		left?: Snippet;
+		class?: string;
 	};
 
-	const { right, left }: Props = $props();
+	const { right, left, class: className }: Props = $props();
 </script>
 
-<div class="bg-background sticky bottom-0 rounded-md border p-3 px-6 backdrop-blur-lg">
+<div
+	class={['bg-background sticky bottom-0 rounded-md border p-3 px-6 backdrop-blur-lg', className]}
+>
 	<div class="mx-auto flex max-w-screen-xl items-center justify-between gap-8">
 		<div class="flex shrink-0 text-sm">
 			{@render left?.()}

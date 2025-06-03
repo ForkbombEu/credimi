@@ -12,6 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Info } from 'lucide-svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n';
+	import SmallSectionLabel from '$lib/start-checks-form/_utils/small-section-label.svelte';
 
 	type Props = {
 		form: TestConfigForm;
@@ -22,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="flex flex-col gap-6 md:flex-row md:gap-10">
 	<div class="min-w-0 shrink-0 grow basis-1 space-y-6">
-		{@render SectionLabel(m.Fields())}
+		<SmallSectionLabel>{m.Fields()}</SmallSectionLabel>
 
 		{#if form.mode == 'fields'}
 			<DependentTestConfigFieldsFormComponent form={form.fieldsForm} />
@@ -45,13 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="flex min-w-0 shrink-0 grow basis-1 flex-col space-y-6">
-		{@render SectionLabel(m.JSON_configuration())}
+		<SmallSectionLabel>{m.JSON_configuration()}</SmallSectionLabel>
 		<TestConfigJsonFormComponent form={form.jsonForm} />
 	</div>
 </div>
-
-{#snippet SectionLabel(title: string)}
-	<div class="bg-secondary/40 rounded-md p-2">
-		<p class="text-sm font-bold">{title}</p>
-	</div>
-{/snippet}
