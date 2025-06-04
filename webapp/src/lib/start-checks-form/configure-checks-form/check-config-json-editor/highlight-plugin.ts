@@ -11,10 +11,10 @@ import {
 	WidgetType,
 	type DecorationSet
 } from '@codemirror/view';
-import { type Extension, StateEffect, StateEffectType, Transaction } from '@codemirror/state';
+import { type Extension, StateEffect, StateEffectType } from '@codemirror/state';
 import _ from 'lodash';
 import type { NamedConfigField } from '$start-checks-form/types';
-import { formatJson } from '../../_utils';
+import { formatJson } from '$start-checks-form/_utils';
 
 //
 
@@ -57,8 +57,14 @@ export function displayPlaceholderData(settings: DisplayPlaceholderDataSettings)
 			constructor(view: EditorView) {
 				this.placeholders = placeholderMatcher.createDeco(view);
 			}
-			update({ view }: ViewUpdate) {
-				this.placeholders = placeholderMatcher.createDeco(view);
+			update(viewUpdate: ViewUpdate) {
+				this.placeholders = placeholderMatcher.updateDeco(viewUpdate, this.placeholders);
+				if (hasEffect(viewUpdate, 'updatePlaceholders')) {
+					this.placeholders = placeholderMatcher.createDeco(viewUpdate.view);
+				}
+				if (hasEffect(viewUpdate, 'removePlaceholders')) {
+					this.placeholders = Decoration.none;
+				}
 			}
 		},
 		{
@@ -126,7 +132,6 @@ export function dispatchEffect(view: EditorView, key: Effect) {
 	view.dispatch({ effects: effects[key].of() });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function hasEffect(transactions: readonly Transaction[], key: Effect) {
-	return transactions.some((t) => t.effects.some((e) => e.is(effects[key])));
+function hasEffect(viewUpdate: ViewUpdate, key: Effect) {
+	return viewUpdate.transactions.some((t) => t.effects.some((e) => e.is(effects[key])));
 }
