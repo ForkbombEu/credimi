@@ -22,18 +22,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { yaml } from '@codemirror/lang-yaml';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { readFileAsDataURL, readFileAsString } from '@/utils/files.js';
-	import { parse as parseYaml } from 'yaml';
 	import { getExceptionMessage } from '@/utils/errors.js';
 	import { pb } from '@/pocketbase';
 	import { toast } from 'svelte-sonner';
 	import type { StandardsWithTestSuites } from '$lib/standards';
 	import type { CustomChecksResponse } from '@/pocketbase/types';
 	import _ from 'lodash';
-	import { z } from 'zod';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import { fromStore } from 'svelte/store';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import { run } from 'json_typegen_wasm';
+	import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
 
 	//
 
@@ -52,26 +51,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			input_json_schema: true
 		})
 		.extend({
-			yaml: z.string().superRefine((value, ctx) => {
-				try {
-					parseYaml(value);
-				} catch (e) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						message: `Invalid YAML: ${getExceptionMessage(e)}`
-					});
-				}
-			}),
-			input_json_sample: z.string().superRefine((value, ctx) => {
-				try {
-					JSON.parse(value);
-				} catch (e) {
-					ctx.addIssue({
-						code: z.ZodIssueCode.custom,
-						message: `Invalid JSON: ${getExceptionMessage(e)}`
-					});
-				}
-			})
+			yaml: yamlStringSchema,
+			input_json_sample: jsonStringSchema
 		});
 
 	const form = createForm({

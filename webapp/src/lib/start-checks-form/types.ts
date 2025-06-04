@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z } from 'zod';
-import { getExceptionMessage } from '@/utils/errors';
-import { Record as R } from 'effect';
+import { jsonStringSchema } from '$lib/utils';
 
 //
 
@@ -30,26 +29,12 @@ export type ConfigField = BaseConfigField | NamedConfigField;
 
 //
 
-export const stringifiedObjectSchema = z.string().superRefine((v, ctx) => {
-	try {
-		z.record(z.string(), z.unknown())
-			.refine((value) => R.size(value) > 0)
-			.parse(JSON.parse(v));
-	} catch (e) {
-		const message = getExceptionMessage(e);
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			message: `Invalid JSON object: ${message}`
-		});
-	}
-});
-
 export const checksConfigFieldsResponseSchema = z.object({
 	normalized_fields: z.array(baseConfigFieldSchema),
 	specific_fields: z.record(
 		z.string(),
 		z.object({
-			content: stringifiedObjectSchema,
+			content: jsonStringSchema,
 			fields: z.array(namedConfigFieldSchema)
 		})
 	)

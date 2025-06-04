@@ -3,10 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z, type ZodEffects, ZodString } from 'zod';
-import { stringifiedObjectSchema, type ConfigField } from '$start-checks-form/types';
+import type { ConfigField } from '$start-checks-form/types';
 import { formatJson } from '$start-checks-form/_utils';
 import { Tuple } from 'effect';
 import { pipe } from 'effect';
+import { jsonStringSchema } from '$lib/utils';
 
 //
 
@@ -19,7 +20,7 @@ export function createCheckConfigFormSchema(fields: ConfigField[]) {
 			if (f.Type == 'string') {
 				schema = z.string().nonempty();
 			} else if (f.Type == 'object') {
-				schema = stringifiedObjectSchema;
+				schema = jsonStringSchema;
 			} else {
 				throw new Error(`Invalid field type: ${f.Type}`);
 			}

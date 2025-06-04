@@ -12,7 +12,7 @@ import type { State } from '@/utils/types';
 import { fromStore } from 'svelte/store';
 import type { CheckConfigFormEditor } from '$lib/start-checks-form/configure-checks-form/check-config-form-editor';
 import { watch } from 'runed';
-import { stringifiedObjectSchema } from '../../types';
+import { jsonStringSchema } from '$lib/utils';
 
 //
 
@@ -35,7 +35,7 @@ export class CheckConfigJsonEditor implements BaseEditor {
 
 	constructor(public readonly props: CheckConfigJsonEditorProps) {
 		this.superform = createForm({
-			adapter: zod(z.object({ json: stringifiedObjectSchema })),
+			adapter: zod(z.object({ json: jsonStringSchema })),
 			initialData: { json: formatJson(this.props.json) },
 			options: {
 				id: nanoid(6)
