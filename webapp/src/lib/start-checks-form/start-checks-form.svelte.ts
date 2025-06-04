@@ -12,6 +12,7 @@ import { type ConfigureChecksFormProps } from './configure-checks-form';
 export type StartChecksFormProps = {
 	standardsWithTestSuites: StandardsWithTestSuites;
 	customChecks: CustomChecksResponse[];
+	customCheckId?: string;
 };
 
 export class StartChecksForm {
@@ -23,11 +24,25 @@ export class StartChecksForm {
 	//
 
 	constructor(public readonly props: StartChecksFormProps) {
+		const { standardsWithTestSuites, customChecks, customCheckId } = props;
 		this.selectChecksForm = new SelectChecksForm({
-			standards: props.standardsWithTestSuites,
-			customChecks: props.customChecks,
+			standards: standardsWithTestSuites,
+			customChecks,
 			onSubmit: (data) => this.handleChecksSelection(data)
 		});
+
+		const customCheck = customChecks.find((check) => check.id === customCheckId);
+		if (customCheck) {
+			this.configureChecksFormProps = {
+				standardAndVersionPath: customCheck.standard_and_version,
+				configsFields: {
+					normalized_fields: [],
+					specific_fields: {}
+				},
+				customChecks: [customCheck]
+			};
+			this.state = 'fill-values';
+		}
 	}
 
 	private async handleChecksSelection(data: SelectChecksSubmitData) {

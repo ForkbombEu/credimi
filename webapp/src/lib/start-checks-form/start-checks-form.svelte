@@ -29,20 +29,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			scrollTo({ top: 0, behavior: 'instant' });
 		}
 	});
-
-	// TODO - Implement logic with only one custom check selected
-
-	// const customCheckId = $derived(page.url.searchParams.get(queryParams.customCheckId));
-
-	// $effect(() => {
-	// 	if (!customCheckId) return;
-	// 	const customCheck = data.customChecks.find((check) => check.id === customCheckId);
-	// 	if (!customCheck) return;
-
-	// 	compositeTestId = customCheck.standard_and_version;
-	// 	selectedCustomChecksIds = [customCheckId];
-	// 	formState = 'fill-values';
-	// });
 </script>
 
 <Tabs.Root value={form.state} class="w-full">
