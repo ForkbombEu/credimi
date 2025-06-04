@@ -5,26 +5,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { TestConfigFieldsFormComponent } from '$lib/start-checks-form/test-config-fields-form';
-	import { TestConfigFormComponent } from '$lib/start-checks-form/test-config-form';
+	import { CheckConfigFormEditorComponent } from '$start-checks-form/check-config-form-editor';
+	import { CheckConfigEditorComponent } from '$start-checks-form/check-config-editor';
 	import Button from '@/components/ui-custom/button.svelte';
 	import Footer from '../_utils/footer.svelte';
 	import SectionCard from '../_utils/section-card.svelte';
-	import { ChecksConfigForm, type ChecksConfigFormProps } from './checks-configs-form.svelte.js';
+	import {
+		ConfigureChecksForm,
+		type ConfigureChecksFormProps
+	} from './configure-checks-form.svelte.js';
 	import { m } from '@/i18n';
 	import * as Popover from '@/components/ui/popover';
 	import { ArrowUp, Eye } from 'lucide-svelte';
 	import type { IconComponent } from '@/components/types';
 	import type { GenericRecord } from '@/utils/types';
 	import { Separator } from '@/components/ui/separator';
-	import { CustomCheckFormComponent } from '../custom-check-form';
+	import { CustomCheckConfigEditorComponent } from '../custom-check-config-editor';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
 
 	//
 
-	const props: ChecksConfigFormProps = $props();
-	const form = new ChecksConfigForm(props);
+	const props: ConfigureChecksFormProps = $props();
+	const form = new ConfigureChecksForm(props);
 
 	const SHARED_FIELDS_ID = 'shared-fields';
 </script>
@@ -32,26 +35,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="space-y-4">
 	{#if form.hasSharedFields}
 		<SectionCard id={SHARED_FIELDS_ID} title={m.Shared_fields()}>
-			<TestConfigFieldsFormComponent form={form.sharedFieldsForm} />
+			<CheckConfigFormEditorComponent editor={form.sharedFieldsEditor} />
 		</SectionCard>
 
 		{@render SectionDivider(m.Configs())}
 	{/if}
 
-	{#each Object.entries(form.checksForms) as [id, checkForm]}
+	{#each Object.entries(form.checkConfigEditors) as [id, checkConfigEditor]}
 		<SectionCard {id} title={id.replace('.json', '')}>
-			<TestConfigFormComponent form={checkForm} />
+			<CheckConfigEditorComponent editor={checkConfigEditor} />
 		</SectionCard>
 	{/each}
 
-	{#if form.customChecksForms.length}
+	{#if form.customCheckConfigEditors.length}
 		{@render SectionDivider(m.Custom_checks())}
-		{#each form.customChecksForms as customCheckForm}
+		{#each form.customCheckConfigEditors as customCheckConfigEditor}
 			<SectionCard
-				id={customCheckForm.props.customCheck.id}
-				title={customCheckForm.props.customCheck.name}
+				id={customCheckConfigEditor.props.customCheck.id}
+				title={customCheckConfigEditor.props.customCheck.name}
 			>
-				<CustomCheckFormComponent form={customCheckForm} />
+				<CustomCheckConfigEditorComponent editor={customCheckConfigEditor} />
 			</SectionCard>
 		{/each}
 	{/if}

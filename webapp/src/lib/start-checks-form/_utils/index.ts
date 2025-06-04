@@ -2,35 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { z } from 'zod';
-import { getExceptionMessage } from '@/utils/errors';
-import { Record as R } from 'effect';
 import {
 	type ConfigField,
 	namedConfigFieldSchema,
-	type NamedConfigField
+	type NamedConfigField,
+	checksConfigFieldsResponseSchema
 } from '$start-checks-form/types';
+import { pb } from '@/pocketbase';
 
 //
 
-export const stringifiedObjectSchema = z.string().superRefine((v, ctx) => {
-	try {
-		z.record(z.string(), z.unknown())
-			.refine((value) => R.size(value) > 0)
-			.parse(JSON.parse(v));
-	} catch (e) {
-		const message = getExceptionMessage(e);
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			message: `Invalid JSON object: ${message}`
-		});
-	}
-});
-
-//
-
-export interface BaseForm {
-	getFormData(): Record<string, unknown>;
+export interface BaseEditor {
+	getData(): unknown;
 	isValid: boolean;
 }
 
@@ -60,4 +43,17 @@ export function configFieldComparator(a: ConfigField, b: ConfigField) {
 	}
 	// Then compare by name
 	return a.CredimiID.localeCompare(b.CredimiID);
+}
+
+//
+
+export async function getChecksConfigsFields(suiteAndVersionPath: string, filenames: string[]) {
+	const data = await pb.send('/api/template/placeholders', {
+		method: 'POST',
+		body: {
+			test_id: suiteAndVersionPath,
+			filenames
+		}
+	});
+	return checksConfigFieldsResponseSchema.parse(data);
 }

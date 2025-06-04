@@ -6,8 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { Suite } from '$lib/standards';
-	import { SelectTestsForm } from './select-tests-form.svelte.js';
-
+	import type { SelectChecksForm } from './select-checks-form.svelte.js';
 	import * as RadioGroup from '@/components/ui/radio-group/index.js';
 	import * as Select from '@/components/ui/select/index.js';
 	import { Label } from '@/components/ui/label/index.js';
@@ -17,18 +16,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui/button/button.svelte';
 	import { ArrowRight } from 'lucide-svelte';
 	import { m } from '@/i18n';
-	import type { Snippet } from 'svelte';
-	import SectionCard from '$lib/start-checks-form/_utils/section-card.svelte';
-	import Footer from '$lib/start-checks-form/_utils/footer.svelte';
+	import SectionCard from '$start-checks-form/_utils/section-card.svelte';
+	import Footer from '$start-checks-form/_utils/footer.svelte';
+	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
+	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
 
 	//
 
 	type Props = {
-		form: SelectTestsForm;
-		footerRight?: Snippet;
+		form: SelectChecksForm;
 	};
 
-	const { form, footerRight }: Props = $props();
+	const { form }: Props = $props();
 </script>
 
 <div class="flex flex-col items-start gap-4 md:flex-row">
@@ -158,7 +157,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet CustomChecksSelect()}
 	<!-- This binding style is needed to avoid a svelte warning -->
 	<Check.Group
-		bind:value={() => form.selectedCustomChecks, (v) => (form.selectedCustomChecks = v)}
+		bind:value={() => form.selectedCustomChecksIds, (v) => (form.selectedCustomChecksIds = v)}
 		name="test-suites"
 		class="flex flex-col gap-2 overflow-auto"
 	>
@@ -206,15 +205,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#if form.selectedTests.length > 0}
 						{@render CountItem(form.selectedTests.length, m.Tests())}
 					{/if}
-					{#if form.selectedCustomChecks.length > 0}
-						{@render CountItem(form.selectedCustomChecks.length, m.Custom_checks())}
+					{#if form.selectedCustomChecksIds.length > 0}
+						{@render CountItem(form.selectedCustomChecksIds.length, m.Custom_checks())}
 					{/if}
 				</ul>
 			{/if}
 		{/snippet}
 
 		{#snippet right()}
-			{@render footerRight?.()}
+			{#if form.loadingError}
+				<SmallErrorDisplay error={form.loadingError} />
+			{/if}
 
 			<Button
 				disabled={!form.isValid}
@@ -228,3 +229,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 	</Footer>
 {/snippet}
+
+{#if form.isLoading}
+	<LoadingDialog />
+{/if}

@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Form } from '@/forms';
-	import { TestConfigJsonForm } from './test-config-json-form.svelte.js';
+	import { CheckConfigJsonEditor } from './check-config-json-editor.svelte.js';
 	import { CodeEditorField } from '@/forms/fields/index.js';
 	import {
 		dispatchEffect,
@@ -20,17 +20,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		form: TestConfigJsonForm;
+		editor: CheckConfigJsonEditor;
 	};
 
-	const { form }: Props = $props();
+	const { editor }: Props = $props();
 
 	// Placeholders update preview
 
-	let editorView = $state<EditorView>();
+	let codeEditorView = $state<EditorView>();
 
 	function getPlaceholdersData(): PlaceholderData[] {
-		const { formDependency } = form.props;
+		const { editorDependency: formDependency } = editor.props;
 		if (!formDependency) return [];
 
 		const { validData } = formDependency.getCompletionReport();
@@ -44,21 +44,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	$effect(() => {
-		if (!editorView) return;
+		if (!codeEditorView) return;
 		getPlaceholdersData();
-		dispatchEffect(editorView, 'updatePlaceholders');
+		dispatchEffect(codeEditorView, 'updatePlaceholders');
 	});
 
 	$effect(() => {
-		if (!editorView) return;
-		if (!form.isTainted) return;
-		dispatchEffect(editorView, 'removePlaceholders');
+		if (!codeEditorView) return;
+		if (!editor.isTainted) return;
+		dispatchEffect(codeEditorView, 'removePlaceholders');
 	});
 </script>
 
-<Form form={form.superform} hide={['submit_button']} hideRequiredIndicator>
+<Form form={editor.superform} hide={['submit_button']} hideRequiredIndicator>
 	<CodeEditorField
-		form={form.superform}
+		form={editor.superform}
 		name="json"
 		options={{
 			lang: 'json',
@@ -72,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				})
 			],
 			onReady: (view) => {
-				editorView = view;
+				codeEditorView = view;
 			}
 		}}
 	/>

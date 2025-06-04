@@ -6,28 +6,28 @@ import type { StandardsWithTestSuites } from '$lib/standards';
 import type { CustomChecksResponse } from '@/pocketbase/types';
 import { String } from 'effect';
 import { watch } from 'runed';
+import type { ChecksConfigFieldsResponse } from '../types';
+import { getChecksConfigsFields } from '$start-checks-form/_utils';
 
 //
 
-export type SelectTestsFormData = {
-	standardId: string;
-	versionId: string;
-	suites: string[];
-	tests: string[];
-	customChecks: string[];
+export type SelectChecksSubmitData = {
+	standardAndVersionPath: string;
+	configsFields: ChecksConfigFieldsResponse;
+	customChecks: CustomChecksResponse[];
 };
 
-export type SelectTestsFormProps = {
+export type SelectChecksFormProps = {
 	standards: StandardsWithTestSuites;
 	customChecks: CustomChecksResponse[];
-	onSubmit: (data: SelectTestsFormData) => void | Promise<void>;
+	onSubmit: (data: SelectChecksSubmitData) => void | Promise<void>;
 };
 
-export class SelectTestsForm {
-	constructor(private readonly props: SelectTestsFormProps) {
-		this.effectDeselectOnStandardChange();
-		this.effectDeselectOnVersionChange();
-		this.effectUpdateSelectedVersion(); // Must be last!
+export class SelectChecksForm {
+	constructor(private readonly props: SelectChecksFormProps) {
+		this.registerEffect_DeselectOnStandardChange();
+		this.registerEffect_DeselectOnVersionChange();
+		this.registerEffect_UpdateSelectedVersion(); // Must be last!
 	}
 
 	// Selection: Standard
@@ -49,7 +49,7 @@ export class SelectTestsForm {
 		return this.availableVersions.find((version) => version.uid === this.selectedVersionId);
 	});
 
-	effectUpdateSelectedVersion() {
+	private registerEffect_UpdateSelectedVersion() {
 		watch(
 			() => this.availableVersions,
 			(availableVersions) => {
@@ -93,29 +93,34 @@ export class SelectTestsForm {
 			});
 	});
 
-	selectedCustomChecks = $state<string[]>([]);
+	selectedCustomChecksIds = $state<string[]>([]);
+	selectedCustomChecks = $derived.by(() =>
+		this.availableCustomChecks.filter((check) =>
+			this.selectedCustomChecksIds.includes(check.id)
+		)
+	);
 
 	// Deselect
 
-	effectDeselectOnStandardChange() {
+	private registerEffect_DeselectOnStandardChange() {
 		watch(
 			() => this.selectedStandardId,
 			() => {
 				this.selectedVersionId = '';
 				this.selectedSuites = [];
 				this.selectedTests = [];
-				this.selectedCustomChecks = [];
+				this.selectedCustomChecksIds = [];
 			}
 		);
 	}
 
-	effectDeselectOnVersionChange() {
+	private registerEffect_DeselectOnVersionChange() {
 		watch(
 			() => this.selectedVersionId,
 			() => {
 				this.selectedSuites = [];
 				this.selectedTests = [];
-				this.selectedCustomChecks = [];
+				this.selectedCustomChecksIds = [];
 			}
 		);
 	}
@@ -125,7 +130,7 @@ export class SelectTestsForm {
 	hasSelection = $derived(
 		this.selectedSuites.length > 0 ||
 			this.selectedTests.length > 0 ||
-			this.selectedCustomChecks.length > 0
+			this.selectedCustomChecksIds.length > 0
 	);
 
 	isValid = $derived(
@@ -134,17 +139,29 @@ export class SelectTestsForm {
 			this.hasSelection
 	);
 
-	submit() {
-		if (!this.isValid) return;
+	isLoading = $state(false);
+	loadingError = $state<Error>();
 
-		this.props.onSubmit(
-			$state.snapshot({
-				standardId: this.selectedStandardId,
-				versionId: this.selectedVersionId,
-				suites: this.selectedSuites,
-				tests: this.selectedTests,
-				customChecks: this.selectedCustomChecks
-			})
-		);
+	async submit() {
+		if (!this.isValid) return;
+		this.isLoading = true;
+		try {
+			const standardAndVersionPath = this.selectedStandardId + '/' + this.selectedVersionId;
+			const checksConfigsFields = await getChecksConfigsFields(
+				standardAndVersionPath,
+				this.selectedSuites.concat(this.selectedTests)
+			);
+			this.props.onSubmit(
+				$state.snapshot({
+					standardAndVersionPath,
+					configsFields: checksConfigsFields,
+					customChecks: this.selectedCustomChecks
+				})
+			);
+		} catch (error) {
+			this.loadingError = error as Error;
+		} finally {
+			this.isLoading = false;
+		}
 	}
 }

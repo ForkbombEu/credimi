@@ -4,8 +4,8 @@
 
 import { type StandardsWithTestSuites } from '$lib/standards';
 import type { CustomChecksResponse } from '@/pocketbase/types';
-import { SelectTestsForm, type SelectTestsFormData } from './select-tests-form';
-import { getChecksConfigFormProps, type ChecksConfigFormProps } from './checks-configs-form';
+import { SelectChecksForm, type SelectChecksSubmitData } from './select-checks-form';
+import { type ConfigureChecksFormProps } from './configure-checks-form';
 
 //
 
@@ -15,53 +15,28 @@ export type StartChecksFormProps = {
 };
 
 export class StartChecksForm {
-	public readonly selectTestsForm: SelectTestsForm;
-	public checksConfigsFormProps: ChecksConfigFormProps | undefined;
+	public readonly selectChecksForm: SelectChecksForm;
+	configureChecksFormProps = $state<ConfigureChecksFormProps>();
 
 	state: 'select-tests' | 'fill-values' = $state('select-tests');
 
-	isLoadingData = $state(false);
-	loadingError = $state<Error>();
-
-	selectedCustomChecksIds = $state<string[]>([]);
-	selectedCustomChecks = $derived.by(() =>
-		this.props.customChecks.filter((c) => this.selectedCustomChecksIds.includes(c.id))
-	);
+	//
 
 	constructor(public readonly props: StartChecksFormProps) {
-		this.selectTestsForm = new SelectTestsForm({
+		this.selectChecksForm = new SelectChecksForm({
 			standards: props.standardsWithTestSuites,
 			customChecks: props.customChecks,
 			onSubmit: (data) => this.handleChecksSelection(data)
 		});
 	}
 
-	private async handleChecksSelection(data: SelectTestsFormData) {
-		this.selectedCustomChecksIds = data.customChecks;
-		this.isLoadingData = true;
-		try {
-			const standardAndVersionPath = data.standardId + '/' + data.versionId;
-			const standardChecks = await getChecksConfigFormProps(
-				standardAndVersionPath,
-				data.tests
-			);
-			this.checksConfigsFormProps = {
-				standardAndVersionPath,
-				standardChecks,
-				customChecks: this.selectedCustomChecks
-			};
-			this.state = 'fill-values';
-		} catch (error) {
-			this.loadingError = error as Error;
-		} finally {
-			this.isLoadingData = false;
-		}
+	private async handleChecksSelection(data: SelectChecksSubmitData) {
+		this.configureChecksFormProps = data;
+		this.state = 'fill-values';
 	}
 
 	backToSelectTests() {
 		this.state = 'select-tests';
-		this.checksConfigsFormProps = undefined;
-		this.loadingError = undefined;
-		this.selectedCustomChecksIds = [];
+		this.configureChecksFormProps = undefined;
 	}
 }

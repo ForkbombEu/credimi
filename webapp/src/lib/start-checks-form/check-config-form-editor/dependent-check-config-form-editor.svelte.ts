@@ -2,28 +2,26 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { watch } from 'runed';
 import {
-	TestConfigFieldsForm,
-	type TestConfigFieldsFormProps
-} from './config-form-fields.svelte.js';
+	CheckConfigFormEditor,
+	type CheckConfigFormEditorProps
+} from './check-config-form-editor.svelte.js';
 import { Array, pipe, Record } from 'effect';
 
 //
 
-export type DependentTestConfigFieldsProps = TestConfigFieldsFormProps & {
-	formDependency: TestConfigFieldsForm;
+export type DependentCheckConfigFormEditorProps = CheckConfigFormEditorProps & {
+	formDependency: CheckConfigFormEditor;
 };
 
-export class DependentTestConfigFieldsForm extends TestConfigFieldsForm {
-	private dependentFieldsIds: string[];
-
-	constructor(public readonly props: DependentTestConfigFieldsProps) {
+export class DependentCheckConfigFormEditor extends CheckConfigFormEditor {
+	constructor(public readonly props: DependentCheckConfigFormEditorProps) {
 		super(props);
 		this.dependentFieldsIds = this.props.formDependency.props.fields.map((f) => f.CredimiID);
-		this.effectUpdateDependentFields();
+		this.registerEffect_UpdateDependentFields();
 	}
 
+	private dependentFieldsIds: string[];
 	private overriddenFieldsIds = $state<string[]>([]);
 
 	overriddenFields = $derived.by(() =>
@@ -48,12 +46,12 @@ export class DependentTestConfigFieldsForm extends TestConfigFieldsForm {
 
 	resetOverride(fieldId: string) {
 		this.overriddenFieldsIds = this.overriddenFieldsIds.filter((id) => id !== fieldId);
-		this.updateDependentFieldsValues();
+		this.updateDependentFields();
 	}
 
-	private updateDependentFieldsValues() {
+	private updateDependentFields() {
 		const notOverriddenValues = pipe(
-			this.props.formDependency.values.current,
+			this.props.formDependency.getData(),
 			Record.filter((_, id) => this.dependentFieldsIds.includes(id)),
 			Record.filter((_, id) => !this.overriddenFieldsIds.includes(id))
 		);
@@ -64,10 +62,9 @@ export class DependentTestConfigFieldsForm extends TestConfigFieldsForm {
 		}));
 	}
 
-	effectUpdateDependentFields() {
-		watch(
-			() => this.props.formDependency.values.current,
-			() => this.updateDependentFieldsValues()
-		);
+	private registerEffect_UpdateDependentFields() {
+		$effect(() => {
+			this.updateDependentFields();
+		});
 	}
 }

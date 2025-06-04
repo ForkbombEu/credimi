@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { createTestConfigFormInitialData, createTestConfigFormSchema } from './utils';
+import { createCheckConfigFormInitialData, createCheckConfigFormSchema } from './utils';
 
 import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
 import type { ConfigField } from '$start-checks-form/types';
@@ -13,38 +13,31 @@ import { fromStore } from 'svelte/store';
 import { Record } from 'effect';
 import { watch } from 'runed';
 import type { State, StringRecord } from '@/utils/types';
-import type { BaseForm } from '../_utils';
+import type { BaseEditor } from '../_utils';
 
 //
 
-export type TestConfigFieldsFormState = {
-	isValid: boolean;
-	validData: StringRecord;
-	invalidData: StringRecord;
-};
-
-export type TestConfigFieldsFormProps = {
+export type CheckConfigFormEditorProps = {
 	fields: ConfigField[];
 };
 
-export class TestConfigFieldsForm implements BaseForm {
+export class CheckConfigFormEditor implements BaseEditor {
 	public readonly superform: SuperForm<StringRecord>;
-	public readonly values: State<StringRecord>;
-
+	private values: State<StringRecord>;
 	private currentValidationResult = $state<SuperValidated<StringRecord>>();
+
 	isValid = $derived.by(() => this.currentValidationResult?.valid ?? false);
 
-	constructor(public readonly props: TestConfigFieldsFormProps) {
+	constructor(public readonly props: CheckConfigFormEditorProps) {
 		this.superform = createForm({
-			adapter: zod(createTestConfigFormSchema(this.props.fields)),
-			initialData: createTestConfigFormInitialData(this.props.fields),
+			adapter: zod(createCheckConfigFormSchema(this.props.fields)),
+			initialData: createCheckConfigFormInitialData(this.props.fields),
 			options: {
 				id: nanoid(6)
 			}
 		});
-
 		this.values = fromStore(this.superform.form);
-		this.effectUpdateValidationResult();
+		this.registerEffect_UpdateValidationResult();
 	}
 
 	getCompletionReport() {
@@ -60,7 +53,7 @@ export class TestConfigFieldsForm implements BaseForm {
 		};
 	}
 
-	effectUpdateValidationResult() {
+	private registerEffect_UpdateValidationResult() {
 		watch(
 			() => this.values.current,
 			() => {
@@ -71,9 +64,7 @@ export class TestConfigFieldsForm implements BaseForm {
 		);
 	}
 
-	getFormData() {
-		return {
-			fields: this.values.current
-		};
+	getData() {
+		return this.values.current;
 	}
 }

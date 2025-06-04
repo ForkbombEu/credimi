@@ -5,14 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
-	import { ChecksConfigsFormComponent } from './checks-configs-form/utils.js';
-	import { SelectTestsFormComponent } from './select-tests-form/index.js';
+	import { ConfigureChecksFormComponent } from './configure-checks-form';
+	import { SelectChecksFormComponent } from './select-checks-form';
 	import { StartChecksForm, type StartChecksFormProps } from './start-checks-form.svelte.js';
 	import * as Tabs from '@/components/ui/tabs/index.js';
-	import Alert from '@/components/ui-custom/alert.svelte';
-	import { m } from '@/i18n/index.js';
-	import SmallErrorDisplay from './_utils/small-error-display.svelte';
 
 	//
 
@@ -67,104 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </Tabs.Root>
 
 {#if form.state === 'select-tests'}
-	<SelectTestsFormComponent form={form.selectTestsForm}>
-		{#snippet footerRight()}
-			{#if form.loadingError}
-				<SmallErrorDisplay error={form.loadingError} />
-			{/if}
-		{/snippet}
-	</SelectTestsFormComponent>
-{:else if form.state === 'fill-values' && form.checksConfigsFormProps}
-	<ChecksConfigsFormComponent {...form.checksConfigsFormProps} />
+	<SelectChecksFormComponent form={form.selectChecksForm} />
+{:else if form.state === 'fill-values' && form.configureChecksFormProps}
+	<ConfigureChecksFormComponent {...form.configureChecksFormProps} />
 {/if}
-
-{#if form.isLoadingData}
-	<LoadingDialog />
-{/if}
-
-<!-- <hr />
-{#if customChecks.length > 0}
-
-<div class="space-y-4">
-	<T tag="h2" class="text-lg font-bold">Review custom checks</T>
-
-	{#each customChecks as check}
-		{@const logo = pb.files.getURL(check, check.logo)}
-		<div class="flex items-start gap-4 rounded-md border p-2 px-4">
-			<Avatar src={logo} class="rounded-sm" fallback={check.name.slice(0, 2)} />
-			<div>
-				<T class="font-bold">{check.name}</T>
-				<T class="mb-2 font-mono text-xs">{check.standard_and_version}</T>
-				{#if check.description}
-					<T class="mb-2 text-sm text-gray-400">{check.description}</T>
-				{/if}
-				<pre class="rounded-sm bg-black p-3 text-xs text-white">{check.yaml}</pre>
-				<JsonSchemaForm
-					schema={check.input_json_schema as object}
-					options={{ hideTitle: true, hideSubmitButton: true }}
-					onUpdate={(data) => {
-						console.log(data);
-					}}
-				/>
-			</div>
-		</div>
-	{/each}
-</div>
-{/if} -->
-
-<!-- 
-
-<div class="bg-background/80 sticky bottom-0 border-t py-4 backdrop-blur-lg">
-	<Form
-		{form}
-		hide={['submit_button', 'error']}
-		class="mx-auto w-full max-w-screen-xl space-y-4 px-8"
-	>
-		<div class="flex items-center justify-between">
-			<div class="flex items-center gap-3">
-				{#await completionStatusPromise then [completeTestsCount, incompleteTestsIds]}
-					<p>
-						{completeTestsCount}/{testsIds.length} configs complete
-						{#if customChecks.length > 0}
-							<span class="text-muted-foreground">and</span>
-							{customChecks.length} custom checks
-						{/if}
-					</p>
-					{#if incompleteTestsIds.length}
-						<Popover.Root>
-							<Popover.Trigger
-								class="rounded-md p-1 hover:cursor-pointer hover:bg-gray-200"
-							>
-								{#snippet child({ props })}
-									<Button {...props} variant="outline" class="px-3">
-										View incomplete configs ({incompleteTestsIds.length})
-									</Button>
-								{/snippet}
-							</Popover.Trigger>
-							<Popover.Content class="dark w-fit">
-								<ul class="space-y-1 text-sm">
-									{#each incompleteTestsIds as testId}
-										<li>
-											<a
-												class="underline hover:no-underline"
-												href={`#${testId}`}
-											>
-												{testId}
-											</a>
-										</li>
-									{/each}
-								</ul>
-							</Popover.Content>
-						</Popover.Root>
-					{:else}
-						<p>✅</p>
-					{/if}
-				{/await}
-			</div>
-
-			<SubmitButton>Next</SubmitButton>
-		</div>
-
-		<FormError />
-	</Form>
-</div> -->

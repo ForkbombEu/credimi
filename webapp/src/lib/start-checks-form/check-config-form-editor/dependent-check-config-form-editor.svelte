@@ -6,8 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Form } from '@/forms';
-	import ConfigFormInput from './config-form-input.svelte';
-	import type { DependentTestConfigFieldsForm } from './dependent-test-config-fields-form.svelte.js';
+	import ConfigFormInput from './check-config-form-input.svelte';
+	import type { DependentCheckConfigFormEditor } from './dependent-check-config-form-editor.svelte.js';
 	import { Eye, Pencil, Undo } from 'lucide-svelte';
 	import Label from '@/components/ui/label/label.svelte';
 	import type { ConfigField } from '$start-checks-form/types';
@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		form: DependentTestConfigFieldsForm;
+		form: DependentCheckConfigFormEditor;
 	};
 
 	let { form }: Props = $props();
@@ -58,7 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Label>{m.Default_fields()}</Label>
 			<ul class="space-y-1">
 				{#each form.dependentFields as { CredimiID, LabelKey, Type }}
-					{@const value = form.props.formDependency.values.current[CredimiID]}
+					{@const value = form.props.formDependency.getData()[CredimiID]}
 					{@const valuePreview = previewValue(value, Type)}
 
 					<li class="flex items-center gap-2">
