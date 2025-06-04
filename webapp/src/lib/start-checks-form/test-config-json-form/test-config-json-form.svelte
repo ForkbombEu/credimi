@@ -58,6 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			lang: 'json',
 			class: 'self-stretch',
 			hideLabel: true,
+			maxHeight: 600,
 			extensions: [
 				displayPlaceholderData({
 					placeholdersRegex: /"?\{\{\s*\.(\w+)\s*\}\}"?/g,

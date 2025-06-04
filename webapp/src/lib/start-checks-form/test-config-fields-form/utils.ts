@@ -4,7 +4,7 @@
 
 import { z, type ZodEffects, ZodString } from 'zod';
 import type { TestConfigField } from '$lib/start-checks-form/test-config-field/test-config-field';
-import { stringifiedObjectSchema } from '$lib/start-checks-form/_utils';
+import { formatJson, stringifiedObjectSchema } from '$lib/start-checks-form/_utils';
 import { Tuple } from 'effect';
 import { pipe } from 'effect';
 
@@ -40,7 +40,7 @@ export function createTestConfigFormInitialData(
 				if (field.Type == 'string') {
 					example = field.Example ?? '';
 				} else if (field.Type == 'object' && field.Example) {
-					example = JSON.stringify(JSON.parse(field.Example), null, 4);
+					example = formatJson(field.Example);
 				} else {
 					throw new Error(`Invalid field type: ${field.Type}`);
 				}

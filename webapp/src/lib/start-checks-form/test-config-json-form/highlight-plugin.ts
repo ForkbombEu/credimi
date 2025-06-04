@@ -14,6 +14,7 @@ import {
 import { type Extension, StateEffect } from '@codemirror/state';
 import _ from 'lodash';
 import type { NamedTestConfigField } from '../test-config-field';
+import { formatJson } from '../_utils';
 
 //
 
@@ -33,8 +34,10 @@ export function displayPlaceholderData(settings: DisplayPlaceholderDataSettings)
 
 	const placeholderMatcher = new MatchDecorator({
 		regexp: placeholdersRegex,
-		decoration: (match) => {
+		decoration: (match, view, pos) => {
 			const fieldName = match[1];
+			const line = view.state.doc.lineAt(pos);
+			const indentation = line.text.match(/^\s*/)?.[0].length ?? 0;
 
 			const placeholderData = getPlaceholdersData().find(
 				(data) => data.field.FieldName === fieldName
@@ -42,7 +45,7 @@ export function displayPlaceholderData(settings: DisplayPlaceholderDataSettings)
 			if (!placeholderData) return null;
 
 			return Decoration.replace({
-				widget: new PlaceholderWidget(placeholderData)
+				widget: new PlaceholderWidget(placeholderData, indentation)
 			});
 		}
 	});
@@ -70,7 +73,10 @@ export function displayPlaceholderData(settings: DisplayPlaceholderDataSettings)
 }
 
 class PlaceholderWidget extends WidgetType {
-	constructor(private data: PlaceholderData) {
+	constructor(
+		private data: PlaceholderData,
+		private indentation: number
+	) {
 		super();
 	}
 
@@ -100,7 +106,7 @@ class PlaceholderWidget extends WidgetType {
 		const { field, isValid, value } = this.data;
 		if (!isValid) return `{{ ${field.FieldName} }}`;
 		if (field.Type == 'string') return `"${value}"`;
-		return value;
+		else return formatJson(value).replaceAll('\n', '\n' + ' '.repeat(this.indentation));
 	}
 }
 

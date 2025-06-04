@@ -22,7 +22,22 @@ export const stringifiedObjectSchema = z.string().superRefine((v, ctx) => {
 	}
 });
 
+//
+
 export interface BaseForm {
 	getFormData(): Record<string, unknown>;
 	isValid: boolean;
+}
+
+//
+
+export const DEFAULT_INDENTATION = 2;
+
+export function formatJson(json: string, indentation: number = DEFAULT_INDENTATION) {
+	try {
+		const parsed = JSON.parse(json);
+		return JSON.stringify(parsed, null, indentation);
+	} catch {
+		return json;
+	}
 }

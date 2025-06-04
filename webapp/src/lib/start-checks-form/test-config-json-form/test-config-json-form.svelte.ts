@@ -4,7 +4,7 @@
 
 import { createForm } from '@/forms';
 import { z } from 'zod';
-import { stringifiedObjectSchema, type BaseForm } from '$lib/start-checks-form/_utils';
+import { formatJson, stringifiedObjectSchema, type BaseForm } from '$lib/start-checks-form/_utils';
 import { zod } from 'sveltekit-superforms/adapters';
 import type { SuperForm, TaintedFields } from 'sveltekit-superforms';
 import { nanoid } from 'nanoid';
@@ -36,7 +36,7 @@ export class TestConfigJsonForm implements BaseForm {
 	constructor(public readonly props: TestConfigJsonFormProps) {
 		this.superform = createForm({
 			adapter: zod(z.object({ json: stringifiedObjectSchema })),
-			initialData: { json: this.props.json },
+			initialData: { json: formatJson(this.props.json) },
 			options: {
 				id: nanoid(6)
 			}
