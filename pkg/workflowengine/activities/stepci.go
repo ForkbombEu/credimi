@@ -159,7 +159,7 @@ func (a *StepCIWorkflowActivity) Execute(
 	var outputJSON StepCICliReturns
 	if err := json.Unmarshal(stdoutBuf.Bytes(), &outputJSON); err != nil {
 		result.Output = stdoutStr
-		return result, nil
+		return result, nil //nolint:all
 	}
 
 	result.Output = outputJSON
