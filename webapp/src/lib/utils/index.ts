@@ -35,27 +35,33 @@ export async function checkAuthFlagAndUser(options: {
 
 //
 
-export const yamlStringSchema = z.string().superRefine((value, ctx) => {
-	try {
-		parseYaml(value);
-	} catch (e) {
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			message: `Invalid YAML: ${getExceptionMessage(e)}`
-		});
-	}
-});
+export const yamlStringSchema = z
+	.string()
+	.nonempty()
+	.superRefine((value, ctx) => {
+		try {
+			parseYaml(value);
+		} catch (e) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `Invalid YAML: ${getExceptionMessage(e)}`
+			});
+		}
+	});
 
-export const jsonStringSchema = z.string().superRefine((v, ctx) => {
-	try {
-		z.record(z.string(), z.unknown())
-			.refine((value) => R.size(value) > 0)
-			.parse(JSON.parse(v));
-	} catch (e) {
-		const message = getExceptionMessage(e);
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			message: `Invalid JSON object: ${message}`
-		});
-	}
-});
+export const jsonStringSchema = z
+	.string()
+	.nonempty()
+	.superRefine((v, ctx) => {
+		try {
+			z.record(z.string(), z.unknown())
+				.refine((value) => R.size(value) > 0)
+				.parse(JSON.parse(v));
+		} catch (e) {
+			const message = getExceptionMessage(e);
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `Invalid JSON object: ${message}`
+			});
+		}
+	});
