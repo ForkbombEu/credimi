@@ -126,6 +126,7 @@ export function dispatchEffect(view: EditorView, key: Effect) {
 	view.dispatch({ effects: effects[key].of() });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function hasEffect(transactions: readonly Transaction[], key: Effect) {
 	return transactions.some((t) => t.effects.some((e) => e.is(effects[key])));
 }
