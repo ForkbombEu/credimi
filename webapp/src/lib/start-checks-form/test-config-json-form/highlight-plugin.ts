@@ -11,7 +11,7 @@ import {
 	WidgetType,
 	type DecorationSet
 } from '@codemirror/view';
-import { type Extension, StateEffect } from '@codemirror/state';
+import { type Extension, StateEffect, StateEffectType, Transaction } from '@codemirror/state';
 import _ from 'lodash';
 import type { NamedTestConfigField } from '../test-config-field';
 import { formatJson } from '../_utils';
@@ -36,13 +36,13 @@ export function displayPlaceholderData(settings: DisplayPlaceholderDataSettings)
 		regexp: placeholdersRegex,
 		decoration: (match, view, pos) => {
 			const fieldName = match[1];
-			const line = view.state.doc.lineAt(pos);
-			const indentation = line.text.match(/^\s*/)?.[0].length ?? 0;
-
 			const placeholderData = getPlaceholdersData().find(
 				(data) => data.field.FieldName === fieldName
 			);
 			if (!placeholderData) return null;
+
+			const line = view.state.doc.lineAt(pos);
+			const indentation = line.text.match(/^\s*/)?.[0].length ?? 0;
 
 			return Decoration.replace({
 				widget: new PlaceholderWidget(placeholderData, indentation)
@@ -53,11 +53,12 @@ export function displayPlaceholderData(settings: DisplayPlaceholderDataSettings)
 	const plugin = ViewPlugin.fromClass(
 		class {
 			placeholders: DecorationSet;
+
 			constructor(view: EditorView) {
 				this.placeholders = placeholderMatcher.createDeco(view);
 			}
-			update(update: ViewUpdate) {
-				this.placeholders = placeholderMatcher.createDeco(update.view);
+			update({ view }: ViewUpdate) {
+				this.placeholders = placeholderMatcher.createDeco(view);
 			}
 		},
 		{
@@ -110,10 +111,21 @@ class PlaceholderWidget extends WidgetType {
 	}
 }
 
-//
+// Utils
 
-const refreshEffect = StateEffect.define<void>();
+type Effects = Record<string, StateEffectType<void>>;
 
-export function refreshEditorView(view: EditorView) {
-	view.dispatch({ effects: refreshEffect.of() });
+const effects = {
+	updatePlaceholders: StateEffect.define<void>(),
+	removePlaceholders: StateEffect.define<void>()
+} satisfies Effects;
+
+type Effect = keyof typeof effects;
+
+export function dispatchEffect(view: EditorView, key: Effect) {
+	view.dispatch({ effects: effects[key].of() });
+}
+
+function hasEffect(transactions: readonly Transaction[], key: Effect) {
+	return transactions.some((t) => t.effects.some((e) => e.is(effects[key])));
 }

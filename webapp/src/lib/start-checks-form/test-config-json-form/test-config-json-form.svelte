@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { TestConfigJsonForm } from './test-config-json-form.svelte.js';
 	import { CodeEditorField } from '@/forms/fields/index.js';
 	import {
-		refreshEditorView,
+		dispatchEffect,
 		type PlaceholderData,
 		displayPlaceholderData
 	} from './highlight-plugin.js';
@@ -46,7 +46,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	$effect(() => {
 		if (!editorView) return;
 		getPlaceholdersData();
-		refreshEditorView(editorView);
+		dispatchEffect(editorView, 'updatePlaceholders');
+	});
+
+	$effect(() => {
+		if (!editorView) return;
+		if (!form.isTainted) return;
+		dispatchEffect(editorView, 'removePlaceholders');
 	});
 </script>
 
