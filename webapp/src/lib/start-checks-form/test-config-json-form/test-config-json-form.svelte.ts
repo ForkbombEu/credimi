@@ -10,9 +10,7 @@ import type { SuperForm, TaintedFields } from 'sveltekit-superforms';
 import { nanoid } from 'nanoid';
 import type { State } from '@/utils/types';
 import { fromStore } from 'svelte/store';
-import { Record, Array as A, Tuple, pipe } from 'effect';
 import type { TestConfigFieldsForm } from '$lib/start-checks-form/test-config-fields-form';
-import { isNamedTestConfigField } from '$lib/start-checks-form/test-config-field';
 import { watch } from 'runed';
 
 //
@@ -53,7 +51,6 @@ export class TestConfigJsonForm implements BaseForm {
 			() => this.values.current,
 			() => {
 				this.superform.validateForm({ update: false }).then(({ valid }) => {
-					console.log('valid', valid);
 					this.isValid = valid;
 				});
 			}
@@ -68,48 +65,5 @@ export class TestConfigJsonForm implements BaseForm {
 
 	reset() {
 		this.superform.reset();
-	}
-
-	// Placeholders for visualization
-
-	private getPlaceholdersFromJson(): string[] {
-		const placeholderRegex = /\{\{\s*\.(\w+)\s*\}\}/g;
-		const matches = this.props.json.matchAll(placeholderRegex);
-		return Array.from(matches).map((match) => match[1]);
-	}
-
-	placeholdersValues: PlaceholderValues = $derived.by(() => {
-		if (!this.props.formDependency) return {};
-
-		const placeholders = this.getPlaceholdersFromJson();
-		const { validData } = this.props.formDependency.getCompletionReport();
-
-		return pipe(
-			this.props.formDependency.props.fields,
-			A.filter(isNamedTestConfigField),
-			A.filter((field) => placeholders.includes(field.FieldName)),
-			A.map((field) => {
-				const key = field.FieldName;
-				const validValue = validData[field.CredimiID];
-				return Tuple.make(key, {
-					valid: Boolean(validValue),
-					value: validValue ? getValuePreview(validValue) : ''
-				});
-			}),
-			Record.fromEntries
-		);
-	});
-}
-
-// Utils
-
-type PlaceholderValues = Record<string, { valid: boolean; value: string }>;
-
-function getValuePreview(value: string): string {
-	try {
-		const parsed = JSON.parse(value);
-		return JSON.stringify(parsed);
-	} catch {
-		return value;
 	}
 }

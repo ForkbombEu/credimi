@@ -22,7 +22,7 @@ export const namedTestConfigFieldSchema = baseTestConfigFieldSchema.extend({
 	FieldName: z.string()
 });
 
-type NamedTestConfigField = z.infer<typeof namedTestConfigFieldSchema>;
+export type NamedTestConfigField = z.infer<typeof namedTestConfigFieldSchema>;
 
 export type TestConfigField = BaseTestConfigField | NamedTestConfigField;
 
