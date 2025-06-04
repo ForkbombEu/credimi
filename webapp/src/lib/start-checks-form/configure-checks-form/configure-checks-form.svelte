@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CheckConfigFormEditorComponent } from '$start-checks-form/check-config-form-editor';
-	import { CheckConfigEditorComponent } from '$start-checks-form/check-config-editor';
+	import { CheckConfigFormEditorComponent } from './check-config-form-editor';
+	import { CheckConfigEditorComponent } from './check-config-editor';
 	import Button from '@/components/ui-custom/button.svelte';
 	import Footer from '../_utils/footer.svelte';
 	import SectionCard from '../_utils/section-card.svelte';
@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IconComponent } from '@/components/types';
 	import type { GenericRecord } from '@/utils/types';
 	import { Separator } from '@/components/ui/separator';
-	import { CustomCheckConfigEditorComponent } from '../custom-check-config-editor';
+	import { CustomCheckConfigEditorComponent } from './custom-check-config-editor';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
 

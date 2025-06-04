@@ -4,10 +4,10 @@
 
 import { pb } from '@/pocketbase';
 import { configFieldComparator } from '$start-checks-form/_utils';
-import { CheckConfigFormEditor } from '$start-checks-form/check-config-form-editor';
-import { CheckConfigEditor } from '$start-checks-form/check-config-editor';
+import { CheckConfigFormEditor } from './check-config-form-editor';
+import { CheckConfigEditor } from './check-config-editor';
 import { pipe, Record } from 'effect';
-import { CustomCheckConfigEditor } from '$lib/start-checks-form/custom-check-config-editor';
+import { CustomCheckConfigEditor } from './custom-check-config-editor';
 import { goto } from '@/i18n';
 import type { SelectChecksSubmitData } from '../select-checks-form';
 

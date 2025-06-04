@@ -10,9 +10,9 @@ import type { SuperForm, TaintedFields } from 'sveltekit-superforms';
 import { nanoid } from 'nanoid';
 import type { State } from '@/utils/types';
 import { fromStore } from 'svelte/store';
-import type { CheckConfigFormEditor } from '$start-checks-form/check-config-form-editor';
+import type { CheckConfigFormEditor } from '$lib/start-checks-form/configure-checks-form/check-config-form-editor';
 import { watch } from 'runed';
-import { stringifiedObjectSchema } from '../types';
+import { stringifiedObjectSchema } from '../../types';
 
 //
 

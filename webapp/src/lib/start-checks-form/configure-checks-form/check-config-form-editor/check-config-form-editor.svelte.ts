@@ -13,7 +13,7 @@ import { fromStore } from 'svelte/store';
 import { Record } from 'effect';
 import { watch } from 'runed';
 import type { State, StringRecord } from '@/utils/types';
-import type { BaseEditor } from '../_utils';
+import type { BaseEditor } from '../../_utils';
 
 //
 

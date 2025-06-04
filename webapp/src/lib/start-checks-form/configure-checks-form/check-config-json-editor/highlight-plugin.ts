@@ -14,7 +14,7 @@ import {
 import { type Extension, StateEffect, StateEffectType, Transaction } from '@codemirror/state';
 import _ from 'lodash';
 import type { NamedConfigField } from '$start-checks-form/types';
-import { formatJson } from '../_utils';
+import { formatJson } from '../../_utils';
 
 //
 
