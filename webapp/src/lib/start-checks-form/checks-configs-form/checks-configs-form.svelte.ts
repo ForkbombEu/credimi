@@ -4,28 +4,24 @@
 
 import { z } from 'zod';
 import { pb } from '@/pocketbase';
-import {
-	baseTestConfigFieldSchema,
-	namedTestConfigFieldSchema,
-	testConfigFieldComparator
-} from '$lib/start-checks-form/test-config-field';
-import { stringifiedObjectSchema } from '$lib/start-checks-form/_utils';
-import { TestConfigFieldsForm } from '$lib/start-checks-form/test-config-fields-form';
-import { TestConfigForm } from '$lib/start-checks-form/test-config-form';
+import { baseConfigFieldSchema, namedConfigFieldSchema } from '$start-checks-form/types';
+import { configFieldComparator, stringifiedObjectSchema } from '$start-checks-form/_utils';
+import { TestConfigFieldsForm } from '$start-checks-form/test-config-fields-form';
+import { TestConfigForm } from '$start-checks-form/test-config-form';
 import { pipe, Record } from 'effect';
 import type { CustomChecksResponse } from '@/pocketbase/types';
-import { CustomCheckForm } from '$lib/start-checks-form/custom-check-form';
+import { CustomCheckForm } from '$start-checks-form/custom-check-form';
 import { goto } from '@/i18n';
 
 //
 
 export const checksConfigFormPropsSchema = z.object({
-	normalized_fields: z.array(baseTestConfigFieldSchema),
+	normalized_fields: z.array(baseConfigFieldSchema),
 	specific_fields: z.record(
 		z.string(),
 		z.object({
 			content: stringifiedObjectSchema,
-			fields: z.array(namedTestConfigFieldSchema)
+			fields: z.array(namedConfigFieldSchema)
 		})
 	)
 });
@@ -51,7 +47,7 @@ export class ChecksConfigForm {
 
 	constructor(public readonly props: ChecksConfigFormProps) {
 		this.sharedFieldsForm = new TestConfigFieldsForm({
-			fields: this.props.standardChecks.normalized_fields.sort(testConfigFieldComparator)
+			fields: this.props.standardChecks.normalized_fields.sort(configFieldComparator)
 		});
 
 		this.checksForms = Record.map(
@@ -60,7 +56,7 @@ export class ChecksConfigForm {
 				new TestConfigForm({
 					id,
 					json: data.content,
-					fields: data.fields.sort(testConfigFieldComparator),
+					fields: data.fields.sort(configFieldComparator),
 					formDependency: this.sharedFieldsForm
 				})
 		);

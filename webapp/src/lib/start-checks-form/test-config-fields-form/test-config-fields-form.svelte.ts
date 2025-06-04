@@ -5,7 +5,7 @@
 import { createTestConfigFormInitialData, createTestConfigFormSchema } from './utils';
 
 import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
-import type { TestConfigField } from '$lib/start-checks-form/test-config-field';
+import type { ConfigField } from '$start-checks-form/types';
 import { createForm } from '@/forms';
 import { zod } from 'sveltekit-superforms/adapters';
 import { nanoid } from 'nanoid';
@@ -24,7 +24,7 @@ export type TestConfigFieldsFormState = {
 };
 
 export type TestConfigFieldsFormProps = {
-	fields: TestConfigField[];
+	fields: ConfigField[];
 };
 
 export class TestConfigFieldsForm implements BaseForm {

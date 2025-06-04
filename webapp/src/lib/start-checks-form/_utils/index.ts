@@ -5,6 +5,11 @@
 import { z } from 'zod';
 import { getExceptionMessage } from '@/utils/errors';
 import { Record as R } from 'effect';
+import {
+	type ConfigField,
+	namedConfigFieldSchema,
+	type NamedConfigField
+} from '$start-checks-form/types';
 
 //
 
@@ -40,4 +45,19 @@ export function formatJson(json: string, indentation: number = DEFAULT_INDENTATI
 	} catch {
 		return json;
 	}
+}
+
+//
+
+export function isNamedConfigField(field: ConfigField): field is NamedConfigField {
+	return namedConfigFieldSchema.safeParse(field).success;
+}
+
+export function configFieldComparator(a: ConfigField, b: ConfigField) {
+	// First compare by type - string comes before object
+	if (a.Type !== b.Type) {
+		return a.Type === 'string' ? -1 : 1;
+	}
+	// Then compare by name
+	return a.CredimiID.localeCompare(b.CredimiID);
 }

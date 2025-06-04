@@ -6,11 +6,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Form } from '@/forms';
-	import { TestConfigFieldInput } from '$lib/start-checks-form/test-config-field';
+	import ConfigFormInput from './config-form-input.svelte';
 	import type { DependentTestConfigFieldsForm } from './dependent-test-config-fields-form.svelte.js';
 	import { Eye, Pencil, Undo } from 'lucide-svelte';
 	import Label from '@/components/ui/label/label.svelte';
-	import type { TestConfigField } from '$lib/start-checks-form/test-config-field';
+	import type { ConfigField } from '$start-checks-form/types';
 	import * as Popover from '@/components/ui/popover';
 	import { m } from '@/i18n';
 
@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { form }: Props = $props();
 
-	function previewValue(value: unknown, type: TestConfigField['Type']): string {
+	function previewValue(value: unknown, type: ConfigField['Type']): string {
 		const NULL_VALUE = '<null>';
 		if (!value) return NULL_VALUE;
 		if (type === 'string') return value as string;
@@ -33,11 +33,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Form form={form.superform} hide={['submit_button']} hideRequiredIndicator>
 	{#each form.independentFields as field}
-		<TestConfigFieldInput {field} form={form.superform} />
+		<ConfigFormInput {field} form={form.superform} />
 	{/each}
 
 	{#each form.overriddenFields as field}
-		<TestConfigFieldInput {field} form={form.superform}>
+		<ConfigFormInput {field} form={form.superform}>
 			{#snippet labelRight()}
 				<button
 					class="text-primary flex items-center gap-2 text-sm underline hover:no-underline"
@@ -50,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{m.Reset_to_default()}
 				</button>
 			{/snippet}
-		</TestConfigFieldInput>
+		</ConfigFormInput>
 	{/each}
 
 	{#if form.dependentFields.length}

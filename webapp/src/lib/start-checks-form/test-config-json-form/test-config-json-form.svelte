@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		displayPlaceholderData
 	} from './highlight-plugin.js';
 
-	import { isNamedTestConfigField } from '$lib/start-checks-form/test-config-field';
+	import { isNamedConfigField } from '$start-checks-form/_utils';
 	import type { EditorView } from '@codemirror/view';
 
 	//
@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!formDependency) return [];
 
 		const { validData } = formDependency.getCompletionReport();
-		return formDependency.props.fields.filter(isNamedTestConfigField).map((field) => {
+		return formDependency.props.fields.filter(isNamedConfigField).map((field) => {
 			return {
 				field,
 				isValid: field.CredimiID in validData,

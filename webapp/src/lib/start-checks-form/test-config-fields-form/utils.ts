@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z, type ZodEffects, ZodString } from 'zod';
-import type { TestConfigField } from '$lib/start-checks-form/test-config-field/test-config-field';
-import { formatJson, stringifiedObjectSchema } from '$lib/start-checks-form/_utils';
+import type { ConfigField } from '$start-checks-form/types';
+import { formatJson, stringifiedObjectSchema } from '$start-checks-form/_utils';
 import { Tuple } from 'effect';
 import { pipe } from 'effect';
 
@@ -12,7 +12,7 @@ import { pipe } from 'effect';
 
 type TestConfigFormValueSchema = ZodString | ZodEffects<ZodString>;
 
-export function createTestConfigFormSchema(fields: TestConfigField[]) {
+export function createTestConfigFormSchema(fields: ConfigField[]) {
 	const schemaRawShape: Record<string, TestConfigFormValueSchema> = Object.fromEntries(
 		fields.map((f) => {
 			let schema: ZodString | ZodEffects<ZodString>;
@@ -29,10 +29,7 @@ export function createTestConfigFormSchema(fields: TestConfigField[]) {
 	return z.object(schemaRawShape);
 }
 
-export function createTestConfigFormInitialData(
-	fields: TestConfigField[],
-	excludeIds: string[] = []
-) {
+export function createTestConfigFormInitialData(fields: ConfigField[], excludeIds: string[] = []) {
 	return pipe(
 		fields
 			.map((field) => {

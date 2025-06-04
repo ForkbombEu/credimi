@@ -13,13 +13,13 @@ import {
 } from '@codemirror/view';
 import { type Extension, StateEffect, StateEffectType, Transaction } from '@codemirror/state';
 import _ from 'lodash';
-import type { NamedTestConfigField } from '../test-config-field';
+import type { NamedConfigField } from '$start-checks-form/types';
 import { formatJson } from '../_utils';
 
 //
 
 export type PlaceholderData = {
-	field: NamedTestConfigField;
+	field: NamedConfigField;
 	isValid: boolean;
 	value: string;
 };
