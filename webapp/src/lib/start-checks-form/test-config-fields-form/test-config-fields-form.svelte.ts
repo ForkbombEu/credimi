@@ -13,6 +13,7 @@ import { fromStore } from 'svelte/store';
 import { Record } from 'effect';
 import { watch } from 'runed';
 import type { State, StringRecord } from '@/utils/types';
+import type { BaseForm } from '../_utils';
 
 //
 
@@ -26,11 +27,12 @@ export type TestConfigFieldsFormProps = {
 	fields: TestConfigField[];
 };
 
-export class TestConfigFieldsForm {
+export class TestConfigFieldsForm implements BaseForm {
 	public readonly superform: SuperForm<StringRecord>;
 	public readonly values: State<StringRecord>;
 
 	private currentValidationResult = $state<SuperValidated<StringRecord>>();
+	isValid = $derived.by(() => this.currentValidationResult?.valid ?? false);
 
 	constructor(public readonly props: TestConfigFieldsFormProps) {
 		this.superform = createForm({
@@ -50,7 +52,7 @@ export class TestConfigFieldsForm {
 		const validData = Record.filter(this.values.current, (_, id) => !(id in errors));
 		const invalidData = Record.filter(this.values.current, (_, id) => id in errors);
 		return {
-			isValid: this.currentValidationResult?.valid ?? false,
+			isValid: this.isValid,
 			validData,
 			invalidData,
 			validFieldsCount: Record.size(validData),
@@ -67,5 +69,11 @@ export class TestConfigFieldsForm {
 				});
 			}
 		);
+	}
+
+	getFormData() {
+		return {
+			fields: this.values.current
+		};
 	}
 }

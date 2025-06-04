@@ -12,7 +12,7 @@ import {
 import { stringifiedObjectSchema } from '$lib/start-checks-form/_utils';
 import { TestConfigFieldsForm } from '$lib/start-checks-form/test-config-fields-form';
 import { TestConfigForm } from '$lib/start-checks-form/test-config-form';
-import { Record } from 'effect';
+import { pipe, Record } from 'effect';
 import type { CustomChecksResponse } from '@/pocketbase/types';
 import { CustomCheckForm } from '$lib/start-checks-form/custom-check-form';
 import { goto } from '@/i18n';
@@ -73,12 +73,12 @@ export class ChecksConfigForm {
 	async submit() {
 		this.isLoading = true;
 		try {
+			console.log(this.getFormData());
 			await pb.send(
 				`/api/compliance/${this.props.standardAndVersionPath}/save-variables-and-start`,
 				{
 					method: 'POST',
-					// TODO - Add form data
-					body: {}
+					body: this.getFormData()
 				}
 			);
 			await goto(`/my/tests/runs`);
@@ -87,6 +87,31 @@ export class ChecksConfigForm {
 		} finally {
 			this.isLoading = false;
 		}
+	}
+
+	getFormData() {
+		const configs_with_fields = pipe(
+			this.checksForms,
+			Record.map((form) => form.getFormData()),
+			Record.filter((v) => v.mode == 'fields'),
+			Record.map((v) => v.value.fields)
+		);
+		const configs_with_json = pipe(
+			this.checksForms,
+			Record.map((form) => form.getFormData()),
+			Record.filter((v) => v.mode == 'json'),
+			Record.map((v) => v.value.json)
+		);
+		const custom_checks = Record.fromIterableWith(this.customChecksForms, (form) => [
+			form.props.customCheck.id,
+			form.getFormData()
+		]);
+
+		return $state.snapshot({
+			configs_with_fields,
+			configs_with_json,
+			custom_checks
+		});
 	}
 
 	getCompletionStatus() {

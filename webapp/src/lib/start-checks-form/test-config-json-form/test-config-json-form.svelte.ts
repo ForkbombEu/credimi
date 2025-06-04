@@ -4,7 +4,7 @@
 
 import { createForm } from '@/forms';
 import { z } from 'zod';
-import { stringifiedObjectSchema } from '$lib/start-checks-form/_utils';
+import { stringifiedObjectSchema, type BaseForm } from '$lib/start-checks-form/_utils';
 import { zod } from 'sveltekit-superforms/adapters';
 import type { SuperForm, TaintedFields } from 'sveltekit-superforms';
 import { nanoid } from 'nanoid';
@@ -26,7 +26,7 @@ type FormData = {
 	json: string;
 };
 
-export class TestConfigJsonForm {
+export class TestConfigJsonForm implements BaseForm {
 	superform: SuperForm<FormData>;
 	values: State<FormData>;
 
@@ -45,6 +45,7 @@ export class TestConfigJsonForm {
 		});
 		this.values = fromStore(this.superform.form);
 		this.taintedState = fromStore(this.superform.tainted);
+		this.effectValidateForm();
 	}
 
 	effectValidateForm() {
@@ -52,10 +53,17 @@ export class TestConfigJsonForm {
 			() => this.values.current,
 			() => {
 				this.superform.validateForm({ update: false }).then(({ valid }) => {
+					console.log('valid', valid);
 					this.isValid = valid;
 				});
 			}
 		);
+	}
+
+	getFormData() {
+		return {
+			json: this.values.current.json
+		};
 	}
 
 	reset() {

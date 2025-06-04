@@ -7,6 +7,7 @@ import {
 	DependentTestConfigFieldsForm,
 	type DependentTestConfigFieldsProps
 } from '$lib/start-checks-form/test-config-fields-form';
+import type { BaseForm } from '../_utils';
 
 //
 
@@ -17,7 +18,7 @@ type TestConfigFormProps = DependentTestConfigFieldsProps & {
 
 export type TestConfigFormMode = 'json' | 'fields';
 
-export class TestConfigForm {
+export class TestConfigForm implements BaseForm {
 	public readonly jsonForm: TestConfigJsonForm;
 	public readonly fieldsForm: DependentTestConfigFieldsForm;
 
@@ -37,5 +38,19 @@ export class TestConfigForm {
 			json: this.props.json,
 			formDependency: this.fieldsForm
 		});
+	}
+
+	getFormData() {
+		if (this.mode === 'json') {
+			return {
+				mode: this.mode,
+				value: this.jsonForm.getFormData()
+			};
+		} else {
+			return {
+				mode: this.mode,
+				value: this.fieldsForm.getFormData()
+			};
+		}
 	}
 }

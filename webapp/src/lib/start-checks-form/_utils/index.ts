@@ -21,3 +21,8 @@ export const stringifiedObjectSchema = z.string().superRefine((v, ctx) => {
 		});
 	}
 });
+
+export interface BaseForm {
+	getFormData(): Record<string, unknown>;
+	isValid: boolean;
+}

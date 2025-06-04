@@ -4,6 +4,7 @@
 
 import { createJsonSchemaForm, type JsonSchemaForm } from '@/components/json-schema-form';
 import type { CustomChecksResponse } from '@/pocketbase/types';
+import type { BaseForm } from '../_utils';
 
 export type CustomCheckFormProps = {
 	customCheck: CustomChecksResponse;
@@ -11,7 +12,7 @@ export type CustomCheckFormProps = {
 
 //
 
-export class CustomCheckForm {
+export class CustomCheckForm implements BaseForm {
 	public readonly jsonSchemaForm: JsonSchemaForm;
 
 	isValid = $derived.by(() => this.jsonSchemaForm.validate().size === 0);
@@ -20,5 +21,12 @@ export class CustomCheckForm {
 		this.jsonSchemaForm = createJsonSchemaForm(props.customCheck.input_json_schema as object, {
 			hideTitle: true
 		});
+	}
+
+	getFormData() {
+		return {
+			form: this.jsonSchemaForm.value,
+			yaml: this.props.customCheck.yaml
+		};
 	}
 }
