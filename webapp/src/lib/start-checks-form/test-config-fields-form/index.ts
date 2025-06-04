@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { TestConfigFieldsForm } from './test-config-fields-form.svelte.js';
+import { TestConfigFieldsForm } from './config-form-fields.svelte.js';
 import TestConfigFieldsFormComponent from './test-config-fields-form.svelte';
 
 import {

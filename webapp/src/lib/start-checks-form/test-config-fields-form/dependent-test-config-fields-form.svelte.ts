@@ -6,7 +6,7 @@ import { watch } from 'runed';
 import {
 	TestConfigFieldsForm,
 	type TestConfigFieldsFormProps
-} from './test-config-fields-form.svelte.js';
+} from './config-form-fields.svelte.js';
 import { Array, pipe, Record } from 'effect';
 
 //
