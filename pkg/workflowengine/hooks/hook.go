@@ -153,7 +153,7 @@ func StartAllWorkersByNamespace(namespace string) {
 				&workflows.CredentialsIssuersWorkflow{},
 			},
 			Activities: []workflowengine.ExecutableActivity{
-				&activities.CheckCredentialsIssuerActivity{},
+				activities.NewCheckCredentialsIssuerActivity(),
 				activities.NewJSONActivity(
 					map[string]reflect.Type{
 						"map": reflect.TypeOf(
