@@ -62,7 +62,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
-	checkIssuer := activities.CheckCredentialsIssuerActivity{}
+	checkIssuer := activities.NewCheckCredentialsIssuerActivity()
 	var issuerResult workflowengine.ActivityResult
 	err := workflow.ExecuteActivity(ctx, checkIssuer.Name(), workflowengine.ActivityInput{
 		Config: map[string]string{
@@ -78,13 +78,13 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, fmt.Errorf("missing rawJSON in activity output")
 	}
 
-	parseJSON := activities.JSONActivity{
-		StructRegistry: map[string]reflect.Type{
+	parseJSON := activities.NewJSONActivity(
+		map[string]reflect.Type{
 			"OpenidCredentialIssuerSchemaJson": reflect.TypeOf(
 				credentials_config.OpenidCredentialIssuerSchemaJson{},
 			),
 		},
-	}
+	)
 	var result workflowengine.ActivityResult
 	var issuerData *credentials_config.OpenidCredentialIssuerSchemaJson
 	err = workflow.ExecuteActivity(ctx, parseJSON.Name(), workflowengine.ActivityInput{
@@ -107,11 +107,11 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	}
 
 	logs := make(map[string][]any)
-
+	HTTPActivity := activities.NewHTTPActivity()
 	validKeys := []string{}
 	for credKey, credential := range issuerData.CredentialConfigurationsSupported {
 		castedCredential := activities.Credential(credential)
-		HTTPActivity := activities.HTTPActivity{}
+		HTTPActivity := activities.NewHTTPActivity()
 		storeInput := workflowengine.ActivityInput{
 			Config: map[string]string{
 				"method": "POST",
@@ -143,7 +143,6 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		)
 	}
 
-	HTTPActivity := activities.HTTPActivity{}
 	cleanupInput := workflowengine.ActivityInput{
 		Config: map[string]string{
 			"method": "POST",

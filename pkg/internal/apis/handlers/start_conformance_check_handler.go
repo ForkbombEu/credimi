@@ -496,6 +496,7 @@ func processVariablesTest(
 
 func processCustomChecks(
 	testData string,
+	appURL string,
 	namespace interface{},
 	memo map[string]interface{},
 ) error {
@@ -516,6 +517,7 @@ func processCustomChecks(
 		Config: map[string]any{
 			"namespace": namespace,
 			"memo":      memo,
+			"app_url":   appURL,
 		},
 	}
 

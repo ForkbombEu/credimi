@@ -13,17 +13,28 @@ import (
 	"reflect"
 	"strings"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
 // JSONActivity is an activity that parses a JSON string and validates it against a registered struct type.
 type JSONActivity struct {
+	*workflowengine.BaseActivity
 	StructRegistry map[string]reflect.Type // Maps type names to their reflect.Type
+}
+
+func NewJSONActivity(structRegistry map[string]reflect.Type) *JSONActivity {
+	return &JSONActivity{
+		BaseActivity: &workflowengine.BaseActivity{
+			Name: "Parse and validate JSON against a schema",
+		},
+		StructRegistry: structRegistry,
+	}
 }
 
 // Name returns the name of the activity.
 func (a *JSONActivity) Name() string {
-	return "Parse a JSON and validate it against a schema"
+	return a.BaseActivity.Name
 }
 
 // Execute parses a JSON string from the input payload and validates it against a registered struct type.
@@ -31,42 +42,58 @@ func (a *JSONActivity) Execute(
 	_ context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	result := workflowengine.ActivityResult{}
 	// Get rawJSON
 	raw, ok := input.Payload["rawJSON"]
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 	if !ok {
-		return workflowengine.Fail(&workflowengine.ActivityResult{}, "Missing rawJSON in payload")
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'rawJSON'", errCode.Description),
+		)
 	}
 	rawStr, ok := raw.(string)
 	if !ok {
-		return workflowengine.Fail(&workflowengine.ActivityResult{}, "rawJSON must be a string")
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'rawJSON' must be a string", errCode.Description),
+			raw,
+		)
 	}
 
 	// Get struct type name
 	structTypeName, ok := input.Payload["structType"].(string)
 	if !ok {
-		return workflowengine.Fail(
-			&workflowengine.ActivityResult{},
-			"Missing structType in payload",
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'structType'", errCode.Description),
 		)
 	}
 
 	// Look up the struct type from the registry
 	structType, ok := a.StructRegistry[structTypeName]
 	if !ok {
-		return workflowengine.Fail(&workflowengine.ActivityResult{},
-			fmt.Sprintf("Unregistered struct type: %s", structTypeName))
+		errCode := errorcodes.Codes[errorcodes.UnregisteredStructType]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: '%s'", errCode.Description, structTypeName),
+			structTypeName,
+		)
 	}
 
 	// Create a new instance of the struct
 	target := reflect.New(structType).Interface()
-	// add additional extra properties
+
 	decoder := json.NewDecoder(strings.NewReader(rawStr))
 
 	if err := decoder.Decode(target); err != nil {
-		return workflowengine.Fail(&workflowengine.ActivityResult{},
-			fmt.Sprintf("Invalid JSON: %v", err))
+		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+			rawStr,
+		)
 	}
-	return workflowengine.ActivityResult{
-		Output: reflect.ValueOf(target).Elem().Interface(),
-	}, nil
+	result.Output = reflect.ValueOf(target).Elem().Interface()
+	return result, nil
 }

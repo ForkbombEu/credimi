@@ -8,6 +8,7 @@ import (
 	"reflect"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
@@ -23,18 +24,18 @@ func TestParseJSONActivity_Execute(t *testing.T) {
 	var ts testsuite.WorkflowTestSuite
 	env := ts.NewTestActivityEnvironment()
 
-	activity := &JSONActivity{
-		StructRegistry: map[string]reflect.Type{
+	activity := NewJSONActivity(
+		map[string]reflect.Type{
 			"DummyStruct": reflect.TypeOf(DummyStruct{}),
 		},
-	}
+	)
 	env.RegisterActivity(activity.Execute)
 
 	tests := []struct {
 		name           string
 		rawJSON        string
 		expectErr      bool
-		expectedErrMsg string
+		expectedErrMsg errorcodes.Code
 		expectValue    DummyStruct
 	}{
 		{
@@ -49,13 +50,13 @@ func TestParseJSONActivity_Execute(t *testing.T) {
 		{
 			name:           "Failure - missing rawJSON",
 			expectErr:      true,
-			expectedErrMsg: "Missing rawJSON in payload",
+			expectedErrMsg: errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
 		},
 		{
 			name:           "Failure - malformed JSON",
 			rawJSON:        `{"name": "Charlie", "age": "oops"`,
 			expectErr:      true,
-			expectedErrMsg: "Invalid JSON",
+			expectedErrMsg: errorcodes.Codes[errorcodes.JSONUnmarshalFailed],
 		},
 	}
 
@@ -76,14 +77,9 @@ func TestParseJSONActivity_Execute(t *testing.T) {
 
 			if tt.expectErr {
 				require.Error(t, err)
-				if tt.expectedErrMsg != "" {
-					require.Contains(
-						t,
-						err.Error(),
-						tt.expectedErrMsg,
-						"expected error message to contain: %s",
-						tt.expectedErrMsg,
-					)
+				if tt.expectedErrMsg != (errorcodes.Code{}) {
+					require.Contains(t, err.Error(), tt.expectedErrMsg.Code)
+					require.Contains(t, err.Error(), tt.expectedErrMsg.Description)
 				}
 			} else {
 				require.NoError(t, err)
