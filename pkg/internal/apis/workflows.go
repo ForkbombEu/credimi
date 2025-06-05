@@ -11,6 +11,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"time"
 
@@ -19,8 +20,8 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase"
@@ -203,11 +204,21 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 
 				issuerID = newRecord.Id
 			}
+			credIssuerSchemaStr, err := readSchemaFile(
+				utils.GetEnvironmentVariable(
+					"ROOT_DIR",
+				) + "/" + workflows.CredentialIssuerSchemaPath,
+			)
+			if err != nil {
+				return err
+			}
+
 			// Start the workflow
 			workflowInput := workflowengine.WorkflowInput{
 				Config: map[string]any{
-					"app_url":   app.Settings().Meta.AppURL,
-					"namespace": organization,
+					"app_url":       app.Settings().Meta.AppURL,
+					"issuer_schema": credIssuerSchemaStr,
+					"namespace":     organization,
 				},
 				Payload: map[string]any{
 					"issuerID": issuerID,
@@ -247,30 +258,34 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 			"/api/credentials_issuers/store-or-update-extracted-credentials",
 			func(e *core.RequestEvent) error {
 				var body struct {
-					IssuerID   string                `json:"issuerID"`
-					IssuerName string                `json:"issuerName"`
-					CredKey    string                `json:"credKey"`
-					Credential activities.Credential `json:"credential"`
-					OrgID      string                `json:"orgID"`
+					IssuerID   string         `json:"issuerID"`
+					IssuerName string         `json:"issuerName"`
+					CredKey    string         `json:"credKey"`
+					Credential map[string]any `json:"credential"`
+					Conformant bool           `json:"conformant"`
+					OrgID      string         `json:"orgID"`
 				}
 
 				if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
 					return apis.NewBadRequestError("invalid JSON body", err)
 				}
-
-				var name, locale, logo string
-				if len(body.Credential.Display) > 0 {
-					display := body.Credential.Display[0]
-					name = display.Name
-					if display.Locale != nil {
-						locale = *display.Locale
-					}
-					if display.Logo != nil {
-						// do not broke if URI is nil
-						if display.Logo.Uri != nil {
-							logo = *display.Logo.Uri
+				var name, locale, logo, format string
+				if displayList, ok :=
+					body.Credential["display"].([]any); ok && len(displayList) > 0 {
+					if first, ok := displayList[0].(map[string]any); ok {
+						if issuerName, ok := first["name"].(string); ok {
+							name = issuerName
+						}
+						if displayLogo, ok := first["logo"].(map[string]any); ok {
+							// do not broke if URI is nil
+							if uri, ok := displayLogo["uri"].(string); ok {
+								logo = uri
+							}
 						}
 					}
+				}
+				if credFormat, ok := body.Credential["format"].(string); ok {
+					format = credFormat
 				}
 
 				collection, err := app.FindCollectionByNameOrId("credentials")
@@ -297,7 +312,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				// Marshal original credential JSON to store
 				credJSON, _ := json.Marshal(body.Credential)
 
-				record.Set("format", body.Credential.Format)
+				record.Set("format", format)
 				record.Set("issuer_name", body.IssuerName)
 				record.Set("name", name)
 				record.Set("locale", locale)
@@ -305,6 +320,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				record.Set("json", string(credJSON))
 				record.Set("key", body.CredKey)
 				record.Set("credential_issuer", body.IssuerID)
+				record.Set("conformant", body.Conformant)
 				record.Set("owner", body.OrgID)
 
 				if err := app.Save(record); err != nil {
@@ -528,4 +544,17 @@ func createNewOrganizationForUser(app core.App, user *core.Record) error {
 		return nil
 	})
 	return err
+}
+
+func readSchemaFile(path string) (string, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusBadRequest,
+			"file",
+			"failed to read  JSON schema file",
+			err.Error(),
+		)
+	}
+	return string(data), nil
 }
