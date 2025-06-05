@@ -8,12 +8,10 @@ import { sveltekit } from '@sveltejs/kit/vite';
 
 // These are needed for the json_typegen_wasm plugin
 import wasm from 'vite-plugin-wasm';
-import topLevelAwait from 'vite-plugin-top-level-await';
 
 export default defineConfig({
 	plugins: [
 		wasm(),
-		topLevelAwait(),
 		sveltekit(),
 		paraglideVitePlugin({
 			project: './project.inlang',
