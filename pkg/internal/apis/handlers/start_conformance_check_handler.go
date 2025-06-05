@@ -25,11 +25,16 @@ type CustomCheck struct {
 	Form json.RawMessage `json:"form" validate:"required"`
 	Yaml string          `json:"yaml" validate:"required"`
 }
+type Variable struct {
+	FieldName string      `json:"field_name" validate:"required"`
+	Value     interface{} `json:"value" validate:"required"`
+	CredimiID string      `json:"credimi_id" validate:"required"`
+}
 
 type SaveVariablesAndStartRequestInput struct {
-	ConfigsWithFields map[string]map[string]interface{} `json:"configs_with_fields" validate:"required"`
-	ConfigsWithJSON   map[string]string                 `json:"configs_with_json" validate:"required"`
-	CustomChecks     map[string]CustomCheck            `json:"custom_checks" validate:"required"`
+	ConfigsWithFields map[string][]Variable  `json:"configs_with_fields" validate:"required"`
+	ConfigsWithJSON   map[string]string      `json:"configs_with_json" validate:"required"`
+	CustomChecks      map[string]CustomCheck `json:"custom_checks" validate:"required"`
 }
 
 type openID4VPTestInputFile struct {
@@ -413,7 +418,7 @@ func processJSONChecks(
 func processVariablesTest(
 	app core.App,
 	testName string,
-	variables map[string]interface{},
+	variables []Variable,
 	email,
 	appURL string,
 	namespace interface{},
@@ -428,11 +433,11 @@ func processVariablesTest(
 		return err
 	}
 
-	for fieldName, value := range variables {
+	for _, variable := range variables {
 		record := core.NewRecord(configValues)
-		// record.Set("credimi_id", credimiID)
-		record.Set("value", value)
-		record.Set("field_name", fieldName)
+		record.Set("credimi_id", variable.CredimiID)
+		record.Set("value", variable.Value)
+		record.Set("field_name", variable.FieldName)
 		record.Set("template_path", testName)
 		record.Set("owner", namespace)
 		if err := app.Save(record); err != nil {
@@ -443,7 +448,7 @@ func processVariablesTest(
 				err.Error(),
 			)
 		}
-		values[fieldName] = value
+		values[variable.FieldName] = variable.Value
 	}
 
 	templatePath := dirPath + testName
@@ -503,13 +508,6 @@ func processCustomChecks(
 			"yaml is empty",
 		)
 	}
-	// authName := customCheckRecord.GetString("owner")
-	// standard := customCheckRecord.GetString("standard")
-	// memo := map[string]interface{}{
-	// 	"test": "custom-check",
-	// 	// "standard": standard,
-	// 	// "author":   authName,
-	// }
 
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
