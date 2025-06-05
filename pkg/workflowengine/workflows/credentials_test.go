@@ -10,18 +10,28 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 )
 
+const rawJSON = `{
+    "credential_issuer": "testissuer",
+    "credential_endpoint": "testendpoint",
+    "credential_configurations_supported": {
+        "test": {
+		}
+    }
+}
+
+`
+
 func Test_Workflow(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestWorkflowEnvironment()
 
-	var CheckActivity activities.CheckCredentialsIssuerActivity
+	CheckActivity := activities.NewCheckCredentialsIssuerActivity()
 	env.RegisterActivityWithOptions(CheckActivity.Execute, activity.RegisterOptions{
 		Name: CheckActivity.Name(),
 	})
@@ -31,27 +41,43 @@ func Test_Workflow(t *testing.T) {
 	env.RegisterActivityWithOptions(JSONActivity.Execute, activity.RegisterOptions{
 		Name: JSONActivity.Name(),
 	})
+	ValidateActivity := activities.NewSchemaValidationActivity()
+	env.RegisterActivityWithOptions(ValidateActivity.Execute, activity.RegisterOptions{
+		Name: ValidateActivity.Name(),
+	})
 	HTTPActivity := activities.NewHTTPActivity()
 	env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 		Name: HTTPActivity.Name(),
 	})
 	var credentialWorkflow CredentialsIssuersWorkflow
-	var issuerData credentials_config.OpenidCredentialIssuerSchemaJson
-	jsonBytes, err := json.Marshal(issuerData)
-	require.NoError(t, err)
 	var JSONOutput map[string]any
-	err = json.Unmarshal(jsonBytes, &JSONOutput)
+
+	err := json.Unmarshal([]byte(rawJSON), &JSONOutput)
 	require.NoError(t, err)
 	// Mock activity implementation
 	env.OnActivity(CheckActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: map[string]any{"rawJSON": "{json:}", "base_url": "testURL"}}, nil)
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"rawJSON":  rawJSON,
+			"base_url": "testURL"},
+		},
+			nil)
 	env.OnActivity(JSONActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: JSONOutput}, nil)
+	env.OnActivity(ValidateActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, nil)
 	env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{"body": map[string]any{"key": "test-credential"}}}, nil)
 	env.ExecuteWorkflow(credentialWorkflow.Workflow, workflowengine.WorkflowInput{
 		Config: map[string]any{
 			"app_url": "test.app",
+			"issuer_schema": `{
+					"type": "object",
+					"properties": {
+						"name": { "type": "string" }
+					},
+					"required": ["name"]
+				}`,
+			"namespace": "test_namespace",
 		},
 		Payload: map[string]any{
 			"issuerID": "test_issuer",
@@ -62,5 +88,12 @@ func Test_Workflow(t *testing.T) {
 	var result workflowengine.WorkflowResult
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "Successfully retrieved and stored and update credentials", result.Message)
-	require.Equal(t, map[string]any{"RemovedCredentials": []any{interface{}(nil)}}, result.Log)
+	require.Equal(
+		t,
+		map[string]any{
+			"RemovedCredentials": []any{interface{}(nil)},
+			"StoredCredentials":  []any{interface{}("test-credential")},
+		},
+		result.Log,
+	)
 }
