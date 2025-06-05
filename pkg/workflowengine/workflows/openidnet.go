@@ -102,8 +102,8 @@ func (w *OpenIDNetWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	form, ok := input.Payload["form"].(string)
-	if !ok || form == "" {
+	form, ok := input.Payload["form"].(any)
+	if !ok || form == nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
 			"form",
 			runMetadata,

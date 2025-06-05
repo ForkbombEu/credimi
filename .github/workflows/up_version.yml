@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 name: 🚦 Update version
+permissions:
+  contents: write
 on:
   push:
     branches:
