@@ -8,6 +8,9 @@ package activities
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -30,7 +33,7 @@ type CheckCredentialsIssuerActivity struct {
 func NewCheckCredentialsIssuerActivity() *CheckCredentialsIssuerActivity {
 	return &CheckCredentialsIssuerActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Parse the Credential issuer metadata (.well-known/openid-credential-issuer)",
+			Name: "Parse the Credential issuer metadata (.well-known/openid-federation or .well-known/openid-credential-issuer)",
 		},
 	}
 }
@@ -38,7 +41,17 @@ func NewCheckCredentialsIssuerActivity() *CheckCredentialsIssuerActivity {
 // Name returns the name of the CheckCredentialsIssuerActivity, which describes
 // the purpose of this activity as checking the credential issuer metadata.
 func (a *CheckCredentialsIssuerActivity) Name() string {
-	return "Parse the Credential issuer metadata (.well-known/openid-credential-issuer)"
+	return a.BaseActivity.Name
+}
+
+type FederationDecodingError struct {
+	Payload string
+	Code    string
+	Err     error
+}
+
+func (e *FederationDecodingError) Error() string {
+	return fmt.Sprintf("failed to decode openid-federation JWT payload: %v", e.Err)
 }
 
 // Execute performs the CheckCredentialsIssuerActivity by validating the provided
@@ -78,26 +91,62 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 	if !strings.HasPrefix(cleanURL, "https://") && !strings.HasPrefix(cleanURL, "http://") {
 		cleanURL = "https://" + cleanURL
 	}
+	cleanURL = strings.TrimRight(cleanURL, "/")
+	if !strings.HasSuffix(cleanURL, "/.well-known/openid-credential-issuer") {
 
-	issuerURL := strings.TrimRight(cleanURL, "/")
-	if !strings.HasSuffix(issuerURL, "/.well-known/openid-credential-issuer") {
-		issuerURL += "/.well-known/openid-credential-issuer"
+		// 1. Try federation
+		federationURL := strings.TrimSuffix(cleanURL, "/.well-known/openid-federation") + "/.well-known/openid-federation"
+		federationJSON, err := fetchJSONFromURL(ctx, federationURL, true, a)
+		if err == nil {
+			return workflowengine.ActivityResult{
+				Output: map[string]any{
+					"rawJSON":  federationJSON,
+					"base_url": baseURL,
+					"source":   ".well-known/openid-federation",
+				},
+			}, nil
+		}
+		var decodeErr *FederationDecodingError
+		if errors.As(err, &decodeErr) {
+			return result, a.NewActivityError(
+				errorcodes.Codes[errorcodes.DecodeFailed].Code,
+				fmt.Sprintf("Openid-federation well.known exists but JWT decoding failed: %v", decodeErr.Err),
+				decodeErr.Payload,
+			)
+		}
 	}
-	req, err := http.NewRequestWithContext(ctx, "GET", issuerURL, nil)
+	// 2. Fallback to credential issuer
+	issuerURL := strings.TrimSuffix(cleanURL, "/.well-known/openid-credential-issuer") + "/.well-known/openid-credential-issuer"
+	issuerJSON, err := fetchJSONFromURL(ctx, issuerURL, false, a)
+	if err != nil {
+		return result, err
+	}
+
+	return workflowengine.ActivityResult{
+		Output: map[string]any{
+			"rawJSON":  issuerJSON,
+			"base_url": baseURL,
+			"source":   ".well-known/openid-credential-issuer",
+		},
+	}, nil
+}
+
+func fetchJSONFromURL(ctx context.Context, url string, isJWT bool, a *CheckCredentialsIssuerActivity) (string, error) {
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CreateHTTPRequestFailed]
-		return result, a.NewActivityError(
+		return "", a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
 			"GET",
-			issuerURL,
+			url,
 		)
 	}
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]
-		return result, a.NewActivityError(
+		return "", a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
 			req,
@@ -107,27 +156,75 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 
 	if resp.StatusCode != http.StatusOK {
 		errCode := errorcodes.Codes[errorcodes.IsNotCredentialIssuer]
-		return result, a.NewActivityError(
+		return "", a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: ", errCode.Description),
-			issuerURL,
+			url,
 		)
 	}
 
-	bodyBytes, err := io.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ReadFromReaderFailed]
-		return result, a.NewActivityError(
+		return "", a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
 			resp.Body,
 		)
 	}
 
-	return workflowengine.ActivityResult{
-		Output: map[string]any{
-			"rawJSON":  string(bodyBytes),
-			"base_url": baseURL,
-		},
-	}, nil
+	if isJWT {
+		parts := strings.Split(string(body), ".")
+		if len(parts) < 2 {
+			errCode := errorcodes.Codes[errorcodes.InvalidJWTFormat]
+			return "", &FederationDecodingError{
+				Payload: string(body),
+				Code:    errCode.Code,
+				Err:     errors.New(errCode.Description),
+			}
+		}
+
+		payload := parts[1]
+		decoded, err := base64.RawURLEncoding.DecodeString(payload)
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.DecodeFailed]
+			return "", &FederationDecodingError{
+				Payload: payload,
+				Code:    errCode.Code,
+				Err:     err,
+			}
+		}
+		// Unmarshal and extract openid_credential_issuer
+		var data map[string]any
+		if err := json.Unmarshal(decoded, &data); err != nil {
+			errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
+			return "", &FederationDecodingError{
+				Payload: string(decoded),
+				Code:    errCode.Code,
+				Err:     err,
+			}
+		}
+
+		issuerMap, ok := data["metadata"].(map[string]any)["openid_credential_issuer"].(map[string]any)
+		if !ok {
+			errCode := errorcodes.Codes[errorcodes.InvalidJWTFormat]
+			return "", &FederationDecodingError{
+				Payload: string(decoded),
+				Code:    errCode.Code,
+				Err:     fmt.Errorf("openid_credential_issuer not found or not valid"),
+			}
+		}
+		jsonBytes, err := json.Marshal(issuerMap)
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
+			return "", &FederationDecodingError{
+				Payload: string(decoded),
+				Code:    errCode.Code,
+				Err:     err,
+			}
+		}
+		return string(jsonBytes), nil
+	}
+
+	return string(body), nil
 }

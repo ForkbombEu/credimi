@@ -35,6 +35,8 @@ var Codes = map[string]Code{
 	},
 	UnexpectedActivityErrorDetails: {"CRE222", "Unexpected activity error details type"},
 	IsNotCredentialIssuer:          {"CRE223", "The input issuer URL is not a credential issuer"},
+	InvalidJWTFormat:               {"CRE224", "Invalid JWT format"},
+	DecodeFailed:                   {"CRE225", "Failed to decode string"},
 	CommandExecutionFailed:         {"CRE301", "Command execution failed"},
 	StepCIRunFailed:                {"CRE302", "StepCI run failed"},
 	UnexpectedStepCIOutput:         {"CRE303", "Unexpected output from StepCI run"},
@@ -73,6 +75,8 @@ const (
 	UnexpectedActivityError        = "CRE221"
 	UnexpectedActivityErrorDetails = "CRE222"
 	IsNotCredentialIssuer          = "CRE223"
+	InvalidJWTFormat               = "CRE224"
+	DecodeFailed                   = "CRE225"
 	CommandExecutionFailed         = "CRE301"
 	StepCIRunFailed                = "CRE302"
 	UnexpectedStepCIOutput         = "CRE303"

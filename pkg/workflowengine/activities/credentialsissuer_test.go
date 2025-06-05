@@ -108,7 +108,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 			if tt.serverHandler != nil {
 				server := httptest.NewServer(tt.serverHandler)
 				defer server.Close()
-				baseURL = server.URL
+				baseURL = server.URL + "/.well-known/openid-credential-issuer"
 				tt.config["base_url"] = strings.TrimPrefix(baseURL, "https://")
 			}
 

@@ -120,12 +120,21 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		logger.Error("CheckCredentialIssuer failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
 	}
+	source, ok := issuerResult.Output.(map[string]any)["source"].(string)
+	if !ok {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		appErr := workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("%s: source", checkIssuer.Name()),
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+	}
 	rawJSON, ok := issuerResult.Output.(map[string]any)["rawJSON"].(string)
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		appErr := workflowengine.NewAppError(
 			errCode,
-			fmt.Sprintf("%s:rawJSON", checkIssuer.Name()),
+			fmt.Sprintf("%s: rawJSON", checkIssuer.Name()),
 		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
@@ -153,6 +162,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		logger.Error("ParseJSON failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
+
 	issuerData, err = decodeToMap(result.Output, runMetadata)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -294,7 +304,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	}
 
 	return workflowengine.WorkflowResult{
-		Message: "Successfully retrieved and stored and update credentials",
+		Message: fmt.Sprintf("Successfully retrieved and stored and update credentials from '%s'", source),
 		Log:     logs,
 	}, nil
 }

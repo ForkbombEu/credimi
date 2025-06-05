@@ -58,6 +58,7 @@ func Test_Workflow(t *testing.T) {
 	env.OnActivity(CheckActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{
 			"rawJSON":  rawJSON,
+			"source":   "test",
 			"base_url": "testURL"},
 		},
 			nil)
@@ -87,7 +88,7 @@ func Test_Workflow(t *testing.T) {
 
 	var result workflowengine.WorkflowResult
 	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, "Successfully retrieved and stored and update credentials", result.Message)
+	require.Equal(t, "Successfully retrieved and stored and update credentials from 'test'", result.Message)
 	require.Equal(
 		t,
 		map[string]any{
