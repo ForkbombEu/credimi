@@ -132,6 +132,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			}
 			if err := processCustomChecks(
 				customCheck.Yaml,
+				appURL,
 				namespace,
 				memo,
 			); err != nil {
