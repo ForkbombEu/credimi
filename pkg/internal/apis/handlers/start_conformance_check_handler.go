@@ -21,9 +21,15 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
-type SaveVariablesAndStartRequestInput map[string]struct {
-	Format string      `json:"format" validate:"required"`
-	Data   interface{} `json:"data" validate:"required"`
+type CustomCheck struct {
+	Form json.RawMessage `json:"form" validate:"required"`
+	Yaml string          `json:"yaml" validate:"required"`
+}
+
+type SaveVariablesAndStartRequestInput struct {
+	ConfigsWithFields map[string]map[string]interface{} `json:"configs_with_fields" validate:"required"`
+	ConfigsWithJSON   map[string]string                 `json:"configs_with_json" validate:"required"`
+	CustomChecks     map[string]CustomCheck            `json:"custom_checks" validate:"required"`
 }
 
 type openID4VPTestInputFile struct {
@@ -97,7 +103,43 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			)
 		}
 
-		for testName, testData := range req {
+		for id, customCheck := range req.CustomChecks {
+			if customCheck.Yaml == "" {
+				return apierror.New(
+					http.StatusBadRequest,
+					"yaml",
+					"yaml is required for custom check",
+					"missing yaml",
+				)
+			}
+			if customCheck.Form == nil {
+				return apierror.New(
+					http.StatusBadRequest,
+					"form",
+					"form is required for custom check",
+					"missing form",
+				)
+			}
+			memo := map[string]interface{}{
+				"test":     "custom-check",
+				"standard": protocol,
+				"author":   id,
+			}
+			if err := processCustomChecks(
+				customCheck.Yaml,
+				namespace,
+				memo,
+			); err != nil {
+				return apierror.New(
+					http.StatusBadRequest,
+					"custom-check",
+					"failed to process custom check",
+					err.Error(),
+				)
+			}
+		}
+
+		for testName, config := range req.ConfigsWithJSON {
 			author := Author(strings.Split(testName, "/")[0])
 			if author == "" {
 				return apierror.New(
@@ -113,57 +155,60 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"author":   author,
 			}
 
-			switch testData.Format {
-			case "custom":
-				if err := processCustomChecks(
-					testData.Data.(string),
-					namespace,
-					memo,
-				); err != nil {
-					return apierror.New(
-						http.StatusBadRequest,
-						"custom",
-						"failed to process custom checks",
-						err.Error(),
-					)
-				}
-			case "json":
-				if err := processJSONChecks(testData, email, appURL, namespace, memo, author, testName, protocol); err != nil {
-					return apierror.New(
-						http.StatusBadRequest,
-						"json",
-						"failed to process JSON checks",
-						err.Error(),
-					)
-				}
-			case "variables":
-				if err := processVariablesTest(
-					e.App,
-					testName,
-					testData,
-					email,
-					appURL,
-					namespace,
-					dirPath,
-					memo,
-					author,
-					protocol,
-				); err != nil {
-					return apierror.New(
-						http.StatusBadRequest,
-						"variables",
-						"failed to process variables test",
-						err.Error(),
-					)
-				}
-			default:
+			if err := processJSONChecks(
+				config,
+				email,
+				appURL,
+				namespace,
+				memo,
+				author,
+				testName,
+				protocol,
+			); err != nil {
 				return apierror.New(
 					http.StatusBadRequest,
-					"format",
-					"unsupported format for test "+testName,
-					"unsupported format",
+					"json",
+					"failed to process JSON checks",
+					err.Error(),
 				)
 			}
+		}
+
+		for testName, testData := range req.ConfigsWithFields {
+			author := Author(strings.Split(testName, "/")[0])
+			if author == "" {
+				return apierror.New(
+					http.StatusBadRequest,
+					"author",
+					"author is required",
+					"missing author",
+				)
+			}
+			memo := map[string]interface{}{
+				"test":     testName,
+				"standard": protocol,
+				"author":   author,
+			}
+			if err := processVariablesTest(
+				e.App,
+				testName,
+				testData,
+				email,
+				appURL,
+				namespace,
+				dirPath,
+				memo,
+				author,
+				protocol,
+			); err != nil {
+				return apierror.New(
+					http.StatusBadRequest,
+					"variables",
+					"failed to process variables test",
+					err.Error(),
+				)
+			}
+
 		}
 
 		return e.JSON(http.StatusOK, map[string]bool{"started": true})
@@ -335,10 +380,7 @@ func startEudiwWorkflow(i WorkflowStarterParams) error {
 }
 
 func processJSONChecks(
-	testData struct {
-		Format string      `json:"format" validate:"required"`
-		Data   interface{} `json:"data" validate:"required"`
-	},
+	testData string,
 	email,
 	appURL string,
 	namespace interface{},
@@ -347,17 +389,8 @@ func processJSONChecks(
 	testName string,
 	protocol string,
 ) error {
-	jsonData, ok := testData.Data.(string)
-	if !ok {
-		return apierror.New(
-			http.StatusBadRequest,
-			"json",
-			"invalid JSON format for test "+testName,
-			"invalid JSON format",
-		)
-	}
 	input := WorkflowStarterParams{
-		JsonData:  jsonData,
+		JsonData:  testData,
 		Email:     email,
 		AppURL:    appURL,
 		Namespace: namespace,
@@ -380,10 +413,7 @@ func processJSONChecks(
 func processVariablesTest(
 	app core.App,
 	testName string,
-	testData struct {
-		Format string      `json:"format" validate:"required"`
-		Data   interface{} `json:"data" validate:"required"`
-	},
+	variables map[string]interface{},
 	email,
 	appURL string,
 	namespace interface{},
@@ -392,45 +422,16 @@ func processVariablesTest(
 	author Author,
 	protocol string,
 ) error {
-	variables, ok := testData.Data.(map[string]interface{})
-	if !ok {
-		return apierror.New(
-			http.StatusBadRequest,
-			"variables",
-			"invalid variables format for test "+testName,
-			"invalid variables format",
-		)
-	}
-
 	values := make(map[string]interface{})
 	configValues, err := app.FindCollectionByNameOrId("config_values")
 	if err != nil {
 		return err
 	}
 
-	for credimiID, variable := range variables {
-		v, ok := variable.(map[string]interface{})
-		if !ok {
-			return apierror.New(
-				http.StatusBadRequest,
-				"variable",
-				"invalid variable format for test "+testName,
-				"invalid variable format",
-			)
-		}
-		fieldName, ok := v["fieldName"].(string)
-		if !ok {
-			return apierror.New(
-				http.StatusBadRequest,
-				"fieldName",
-				"invalid fieldName format for test "+testName,
-				"invalid fieldName format",
-			)
-		}
-
+	for fieldName, value := range variables {
 		record := core.NewRecord(configValues)
-		record.Set("credimi_id", credimiID)
-		record.Set("value", v["value"])
+		// record.Set("credimi_id", credimiID)
+		record.Set("value", value)
 		record.Set("field_name", fieldName)
 		record.Set("template_path", testName)
 		record.Set("owner", namespace)
@@ -442,7 +443,7 @@ func processVariablesTest(
 				err.Error(),
 			)
 		}
-		values[fieldName] = v["value"]
+		values[fieldName] = value
 	}
 
 	templatePath := dirPath + testName
