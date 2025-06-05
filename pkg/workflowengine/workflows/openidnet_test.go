@@ -31,15 +31,15 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 		{
 			name: "Signal before child completes",
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				var StepCIActivity activities.StepCIWorkflowActivity
+				StepCIActivity := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(StepCIActivity.Execute, activity.RegisterOptions{
 					Name: StepCIActivity.Name(),
 				})
-				var MailActivity activities.SendMailActivity
+				MailActivity := activities.NewSendMailActivity()
 				env.RegisterActivityWithOptions(MailActivity.Execute, activity.RegisterOptions{
 					Name: MailActivity.Name(),
 				})
-				var HTTPActivity activities.HTTPActivity
+				HTTPActivity := activities.NewHTTPActivity()
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
@@ -61,15 +61,15 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 		{
 			name: "Child terminates before signal",
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				var StepCIActivity activities.StepCIWorkflowActivity
+				StepCIActivity := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(StepCIActivity.Execute, activity.RegisterOptions{
 					Name: StepCIActivity.Name(),
 				})
-				var MailActivity activities.SendMailActivity
+				MailActivity := activities.NewSendMailActivity()
 				env.RegisterActivityWithOptions(MailActivity.Execute, activity.RegisterOptions{
 					Name: MailActivity.Name(),
 				})
-				var HTTPActivity activities.HTTPActivity
+				HTTPActivity := activities.NewHTTPActivity()
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
@@ -167,7 +167,7 @@ func Test_LogSubWorkflow(t *testing.T) {
 			env := testSuite.NewTestWorkflowEnvironment()
 
 			callCount := 0
-			var HTTPActivity activities.HTTPActivity
+			HTTPActivity := activities.NewHTTPActivity()
 			env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 				Name: HTTPActivity.Name(),
 			})

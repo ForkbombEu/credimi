@@ -10,16 +10,17 @@ package workflows
 import (
 	"fmt"
 	"net/url"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -82,15 +83,46 @@ func (w *OpenIDNetWorkflow) Workflow(
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
-
-	stepCIWorkflowActivity := activities.StepCIWorkflowActivity{}
+	runMetadata := workflowengine.WorkflowErrorMetadata{
+		WorkflowName: w.Name(),
+		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
+		Namespace:    workflow.GetInfo(ctx).Namespace,
+		TemporalUI: fmt.Sprintf(
+			"%s/my/tests/runs/%s/%s",
+			input.Config["app_url"],
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			workflow.GetInfo(ctx).WorkflowExecution.RunID,
+		),
+	}
+	stepCIWorkflowActivity := activities.NewStepCIWorkflowActivity()
+	variant, ok := input.Payload["variant"].(string)
+	if !ok || variant == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"variant",
+			runMetadata,
+		)
+	}
+	form, ok := input.Payload["form"]
+	if !ok || form == nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"form",
+			runMetadata,
+		)
+	}
+	template, ok := input.Config["template"].(string)
+	if !ok || template == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"template",
+			runMetadata,
+		)
+	}
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
-			"variant": input.Payload["variant"],
-			"form":    input.Payload["form"],
+			"variant": variant,
+			"form":    form,
 		},
 		Config: map[string]string{
-			"template": input.Config["template"].(string),
+			"template": template,
 			"token":    utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		},
 	}
@@ -98,33 +130,59 @@ func (w *OpenIDNetWorkflow) Workflow(
 	err := stepCIWorkflowActivity.Configure(&stepCIInput)
 	if err != nil {
 		logger.Error(" StepCI configure failed", "error", err)
-		return workflowengine.WorkflowResult{}, err
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 	err = workflow.ExecuteActivity(ctx, stepCIWorkflowActivity.Name(), stepCIInput).
 		Get(ctx, &stepCIResult)
 	if err != nil {
 		logger.Error("StepCIExecution failed", "error", err)
-		return workflowengine.WorkflowResult{}, err
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["result"].(string)
 	if !ok {
 		result = ""
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet-openidnet"
+  
+	appURL, ok := input.Payload["app_url"].(string)
+	if !ok || appURL == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		appErr := workflowengine.NewAppError(errCode, "app_url")
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+	}
+	baseURL := appURL + "/tests/wallet-openidnet"
 	u, err := url.Parse(baseURL)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unexpected error parsing URL: %w", err)
+		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
+		appErr := workflowengine.NewAppError(errCode, baseURL)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
 	query.Set("qr", result)
+	namespace, ok := input.Config["namespace"].(string)
+
+	if !ok || namespace == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+		appErr := workflowengine.NewAppError(errCode, "namespace")
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+	}
 	query.Set("namespace", input.Config["namespace"].(string))
 	u.RawQuery = query.Encode()
-	emailActivity := activities.SendMailActivity{}
+
+	emailActivity := activities.NewSendMailActivity()
+	userMail, ok := input.Payload["user_mail"].(string)
+	if !ok || userMail == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		appErr := temporal.NewApplicationError(
+			fmt.Sprintf("%s: 'user_mail'", errCode.Description),
+			errCode.Code,
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+	}
 
 	emailInput := workflowengine.ActivityInput{
 		Config: map[string]string{
-			"recipient": input.Payload["user_mail"].(string),
+			"recipient": userMail,
 		},
 		Payload: map[string]any{
 			"subject": "[CREDIMI] Action required to continue your conformance checks",
@@ -141,12 +199,12 @@ func (w *OpenIDNetWorkflow) Workflow(
 	err = emailActivity.Configure(&emailInput)
 	if err != nil {
 		logger.Error("Email activity configure failed", "error", err)
-		return workflowengine.WorkflowResult{}, err
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 	err = workflow.ExecuteActivity(ctx, emailActivity.Name(), emailInput).Get(ctx, nil)
 	if err != nil {
 		logger.Error("Failed to send mail to user ", "error", err)
-		return workflowengine.WorkflowResult{}, err
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 
 	rid, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["rid"].(string)
@@ -166,8 +224,8 @@ func (w *OpenIDNetWorkflow) Workflow(
 		workflowengine.WorkflowInput{
 			Payload: map[string]any{
 				"rid":     rid,
-				"token":   os.Getenv("OPENIDNET_TOKEN"),
-				"app_url": input.Payload["app_url"].(string),
+				"token":   utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+				"app_url": appURL,
 			},
 			Config: map[string]any{
 				"interval": time.Second,
@@ -179,25 +237,30 @@ func (w *OpenIDNetWorkflow) Workflow(
 	selector := workflow.NewSelector(ctx)
 	var subWorkflowResponse workflowengine.WorkflowResult
 	var data SignalData
+	var signalSent bool
 
 	selector.AddFuture(logsWorkflow, func(f workflow.Future) {
 		if err := f.Get(ctx, &subWorkflowResponse); err != nil {
-			logger.Error("Child workflow failed", "error", err)
-			subWorkflowResponse = workflowengine.WorkflowResult{
-				Message: fmt.Sprintf("Child workflow failed: %v", err),
+			if !temporal.IsCanceledError(err) {
+				logger.Error("Child workflow failed", "error", err)
+				subWorkflowResponse = workflowengine.WorkflowResult{
+					Log: fmt.Sprintf("Child workflow failed: %s", err.Error()),
+				}
 			}
 		}
 	})
-	var signalSent bool
+
 	signalChan := workflow.GetSignalChannel(ctx, "openidnet-check-result-signal")
 	selector.AddReceive(signalChan, func(c workflow.ReceiveChannel, _ bool) {
 		signalSent = true
 		c.Receive(ctx, &data)
 		cancelHandler()
 		if err := logsWorkflow.Get(ctx, &subWorkflowResponse); err != nil {
-			logger.Error("Failed to get child workflow result", "error", err)
-			subWorkflowResponse = workflowengine.WorkflowResult{
-				Message: fmt.Sprintf("Failed to get child workflow result: %v", err),
+			if !temporal.IsCanceledError(err) {
+				logger.Error("Failed to get child workflow result", "error", err)
+				subWorkflowResponse = workflowengine.WorkflowResult{
+					Log: fmt.Sprintf("Failed to get child workflow result: %v", err.Error()),
+				}
 			}
 		}
 	})
@@ -291,6 +354,17 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	logger := workflow.GetLogger(ctx)
 
 	subCtx := workflow.WithActivityOptions(ctx, w.GetOptions())
+	runMetadata := workflowengine.WorkflowErrorMetadata{
+		WorkflowName: w.Name(),
+		WorkflowID:   workflow.GetInfo(subCtx).WorkflowExecution.ID,
+		Namespace:    workflow.GetInfo(subCtx).Namespace,
+		TemporalUI: fmt.Sprintf(
+			"%s/my/tests/runs/%s/%s",
+			input.Config["app_url"],
+			workflow.GetInfo(subCtx).WorkflowExecution.ID,
+			workflow.GetInfo(subCtx).WorkflowExecution.RunID,
+		),
+	}
 
 	getLogsInput := workflowengine.ActivityInput{
 		Config: map[string]string{
@@ -311,17 +385,17 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		},
 	}
 	var logs []map[string]any
+	startSignalChan := workflow.GetSignalChannel(subCtx, OpenIDNetStartCheckSignal)
+	stopSignalChan := workflow.GetSignalChannel(subCtx, OpenIDNetStopCheckSignal)
 
-	startSignalChan := workflow.GetSignalChannel(ctx, OpenIDNetStartCheckSignal)
-	stopSignalChan := workflow.GetSignalChannel(ctx, OpenIDNetStopCheckSignal)
-	selector := workflow.NewSelector(ctx)
+	selector := workflow.NewSelector(subCtx)
 
 	var isPolling bool
 
 	var timerFuture workflow.Future
 	var startTimer func()
 	startTimer = func() {
-		timerCtx, _ := workflow.WithCancel(ctx)
+		timerCtx, _ := workflow.WithCancel(subCtx)
 		timerFuture = workflow.NewTimer(
 			timerCtx,
 			time.Duration(input.Config["interval"].(float64)),
@@ -334,15 +408,10 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	}
 
 	for {
-		if ctx.Err() != nil {
-			logger.Info("Workflow canceled, returning collected logs")
-			return workflowengine.WorkflowResult{Log: logs}, ctx.Err()
-		}
-
 		// Always listen for pause/resume signals
 		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 			var signalVal any
-			c.Receive(ctx, &signalVal)
+			c.Receive(subCtx, &signalVal)
 			if !isPolling {
 				isPolling = true
 				startTimer()
@@ -351,13 +420,13 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		})
 		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 			var signalVal any
-			c.Receive(ctx, &signalVal)
+			c.Receive(subCtx, &signalVal)
 			isPolling = false
 			logger.Info("Received stop signal, pausing workflow")
 		})
 
 		// Wait for a signal or timer
-		selector.Select(ctx)
+		selector.Select(subCtx)
 
 		// Skip activity execution if paused
 		if !isPolling {
@@ -365,14 +434,17 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		}
 
 		// Perform activity to fetch logs
-		var HTTPActivity activities.HTTPActivity
+		var HTTPActivity = activities.NewHTTPActivity()
 		var HTTPResponse workflowengine.ActivityResult
 
 		err := workflow.ExecuteActivity(subCtx, HTTPActivity.Name(), getLogsInput).
 			Get(subCtx, &HTTPResponse)
 		if err != nil {
 			logger.Error("Failed to get logs", "error", err)
-			return workflowengine.WorkflowResult{}, err
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 
 		logs = AsSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
@@ -392,7 +464,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 				},
 				"body": map[string]any{
 					"workflow_id": strings.TrimSuffix(
-						workflow.GetInfo(ctx).WorkflowExecution.ID,
+						workflow.GetInfo(subCtx).WorkflowExecution.ID,
 						"-log",
 					),
 					"logs": logs,
@@ -401,10 +473,13 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		}
 
 		err = workflow.ExecuteActivity(subCtx, HTTPActivity.Name(), triggerLogsInput).
-			Get(ctx, nil)
+			Get(subCtx, nil)
 		if err != nil {
 			logger.Error("Failed to send logs", "error", err)
-			return workflowengine.WorkflowResult{}, err
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 
 		// Stop if logs are done

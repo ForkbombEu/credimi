@@ -15,15 +15,26 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
 // HTTPActivity is an activity that performs an HTTP request.
-type HTTPActivity struct{}
+type HTTPActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewHTTPActivity() *HTTPActivity {
+	return &HTTPActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Make an HTTP request",
+		},
+	}
+}
 
 // Name returns the name of the HTTP activity.
-func (HTTPActivity) Name() string {
-	return "Make an HTTP request"
+func (a *HTTPActivity) Name() string {
+	return a.BaseActivity.Name
 }
 
 // Execute performs an HTTP request based on the provided configuration and payload.
@@ -42,7 +53,12 @@ func (a *HTTPActivity) Execute(
 	if queryParams, ok := input.Payload["query_params"].(map[string]any); ok {
 		parsedURL, err := URL.Parse(url)
 		if err != nil {
-			return workflowengine.Fail(&result, fmt.Sprintf("failed to parse URL: %v", err))
+			errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
+			return result, a.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s': %v", errCode.Description, err),
+				url,
+			)
 		}
 
 		// Add query parameters
@@ -57,7 +73,11 @@ func (a *HTTPActivity) Execute(
 		url = parsedURL.String() // Update the URL with query parameters
 	}
 	if method == "" || url == "" {
-		return workflowengine.Fail(&result, "missing 'method' or 'url' in config")
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'method' and 'url' must be provided", errCode.Description),
+		)
 	}
 	timeout := 10 * time.Second
 	if tStr, ok := input.Config["timeout"]; ok {
@@ -77,14 +97,26 @@ func (a *HTTPActivity) Execute(
 	if input.Payload["body"] != nil {
 		jsonBody, err := json.Marshal(input.Payload["body"])
 		if err != nil {
-			return workflowengine.Fail(&result, fmt.Sprintf("failed to marshal body: %v", err))
+			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
+			return result, a.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s for request body: %v", errCode.Description, err),
+				input.Payload["body"],
+			)
 		}
 		body = bytes.NewBuffer(jsonBody)
 	}
 
 	req, err := http.NewRequestWithContext(context.Background(), method, url, body)
 	if err != nil {
-		return workflowengine.Fail(&result, fmt.Sprintf("failed to create request: %v", err))
+		errCode := errorcodes.Codes[errorcodes.CreateHTTPRequestFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+			method,
+			url,
+			body,
+		)
 	}
 
 	for k, v := range headers {
@@ -97,13 +129,23 @@ func (a *HTTPActivity) Execute(
 	client := &http.Client{Timeout: timeout}
 	resp, err := client.Do(req)
 	if err != nil {
-		return workflowengine.Fail(&result, fmt.Sprintf("failed to perform request: %v", err))
+		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+			req,
+		)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return workflowengine.Fail(&result, fmt.Sprintf("failed to read response body: %v", err))
+		errCode := errorcodes.Codes[errorcodes.ReadFromReaderFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: %v", errCode.Description, err),
+			resp.Body,
+		)
 	}
 
 	var output any

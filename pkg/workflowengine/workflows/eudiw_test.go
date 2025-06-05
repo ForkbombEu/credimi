@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
@@ -23,20 +24,20 @@ func Test_EudiwWorkflow(t *testing.T) {
 		mockActivities func(env *testsuite.TestWorkflowEnvironment)
 		expectRunning  bool
 		expectedErr    bool
-		errorMessage   string
+		errorCode      errorcodes.Code
 	}{
 		{
 			name: "Workflow completes when status is 200",
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				var StepCIActivity activities.StepCIWorkflowActivity
+				StepCIActivity := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(StepCIActivity.Execute, activity.RegisterOptions{
 					Name: StepCIActivity.Name(),
 				})
-				var MailActivity activities.SendMailActivity
+				MailActivity := activities.NewSendMailActivity()
 				env.RegisterActivityWithOptions(MailActivity.Execute, activity.RegisterOptions{
 					Name: MailActivity.Name(),
 				})
-				var HTTPActivity activities.HTTPActivity
+				HTTPActivity := activities.NewHTTPActivity()
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
@@ -59,15 +60,15 @@ func Test_EudiwWorkflow(t *testing.T) {
 		{
 			name: "Workflow loops when status is 400",
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				var StepCIActivity activities.StepCIWorkflowActivity
+				StepCIActivity := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(StepCIActivity.Execute, activity.RegisterOptions{
 					Name: StepCIActivity.Name(),
 				})
-				var MailActivity activities.SendMailActivity
+				MailActivity := activities.NewSendMailActivity()
 				env.RegisterActivityWithOptions(MailActivity.Execute, activity.RegisterOptions{
 					Name: MailActivity.Name(),
 				})
-				var HTTPActivity activities.HTTPActivity
+				HTTPActivity := activities.NewHTTPActivity()
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
@@ -90,15 +91,15 @@ func Test_EudiwWorkflow(t *testing.T) {
 		{
 			name: "Workflow fails when status is 500",
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				var StepCIActivity activities.StepCIWorkflowActivity
+				StepCIActivity := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(StepCIActivity.Execute, activity.RegisterOptions{
 					Name: StepCIActivity.Name(),
 				})
-				var MailActivity activities.SendMailActivity
+				MailActivity := activities.NewSendMailActivity()
 				env.RegisterActivityWithOptions(MailActivity.Execute, activity.RegisterOptions{
 					Name: MailActivity.Name(),
 				})
-				var HTTPActivity activities.HTTPActivity
+				HTTPActivity := activities.NewHTTPActivity()
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
 				})
@@ -116,8 +117,8 @@ func Test_EudiwWorkflow(t *testing.T) {
 						"body":   map[string]any{"events": []map[string]any{{"logs": "test_logs"}}},
 					}}, nil)
 			},
-			expectedErr:  true,
-			errorMessage: "eudiw check failed with status code 500",
+			expectedErr: true,
+			errorCode:   errorcodes.Codes[errorcodes.EudiwCheckFailed],
 		},
 	}
 
@@ -165,7 +166,8 @@ func Test_EudiwWorkflow(t *testing.T) {
 				<-done
 				var result workflowengine.WorkflowResult
 				require.Error(t, env.GetWorkflowResult(&result))
-				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorMessage)
+				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Code)
+				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Description)
 			}
 		})
 	}
