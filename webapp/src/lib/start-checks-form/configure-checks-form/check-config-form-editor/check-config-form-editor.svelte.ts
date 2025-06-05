@@ -17,9 +17,9 @@ import type { BaseEditor } from '../../_utils';
 
 //
 
-export type CheckConfigFormEditorProps = {
+export interface CheckConfigFormEditorProps {
 	fields: ConfigField[];
-};
+}
 
 export class CheckConfigFormEditor implements BaseEditor {
 	public readonly superform: SuperForm<StringRecord>;

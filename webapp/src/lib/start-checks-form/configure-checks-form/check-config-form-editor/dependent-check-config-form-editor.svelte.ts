@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { NamedConfigField } from '$lib/start-checks-form/types.js';
 import {
 	CheckConfigFormEditor,
 	type CheckConfigFormEditorProps
@@ -10,9 +11,10 @@ import { Array, pipe, Record } from 'effect';
 
 //
 
-export type DependentCheckConfigFormEditorProps = CheckConfigFormEditorProps & {
+export interface DependentCheckConfigFormEditorProps extends CheckConfigFormEditorProps {
+	fields: NamedConfigField[];
 	formDependency: CheckConfigFormEditor;
-};
+}
 
 export class DependentCheckConfigFormEditor extends CheckConfigFormEditor {
 	constructor(public readonly props: DependentCheckConfigFormEditorProps) {

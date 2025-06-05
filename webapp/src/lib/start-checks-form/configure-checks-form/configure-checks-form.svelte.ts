@@ -74,18 +74,38 @@ export class ConfigureChecksForm {
 	}
 
 	getFormData() {
+		type Entries = {
+			credimi_id: string;
+			value: unknown;
+			field_name: string;
+		};
 		const configs_with_fields = pipe(
 			this.checkConfigEditors,
-			Record.map((form) => form.getData()),
-			Record.filter((v) => v.mode == 'form'),
-			Record.map((v) => v.value)
+			Record.map((form) => {
+				const { mode, value } = form.getData();
+				if (mode != 'form') return undefined;
+
+				const entries: Entries[] = [];
+				for (const [credimiId, datum] of Record.toEntries(value)) {
+					entries.push({
+						credimi_id: credimiId,
+						value: datum,
+						field_name:
+							form.props.fields.find((f) => f.CredimiID == credimiId)?.FieldName ?? ''
+					});
+				}
+				return entries;
+			}),
+			Record.filter((v) => v != undefined)
 		);
+
 		const configs_with_json = pipe(
 			this.checkConfigEditors,
 			Record.map((form) => form.getData()),
 			Record.filter((v) => v.mode == 'json'),
 			Record.map((v) => v.value)
 		);
+
 		const custom_checks = Record.fromIterableWith(this.customCheckConfigEditors, (form) => [
 			form.props.customCheck.id,
 			form.getData()
