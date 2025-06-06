@@ -2,9 +2,14 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: "SEcond 👺 Lint PR title"
+name: "Second 👺 Lint PR title"
 on:
   pull_request:
+    types:
+      - opened
+      - edited
+      - reopened
+      - synchronize
 
 permissions:
   pull-requests: read
@@ -13,7 +18,6 @@ permissions:
 jobs:
   main:
     runs-on: ubuntu-latest
-    secrets: inherit
     permissions:
       pull-requests: read
     steps:
