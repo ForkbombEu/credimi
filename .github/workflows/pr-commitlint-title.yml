@@ -3,6 +3,8 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 name: "👺 Lint PR title"
+permissions:
+  contents: read
 on:
   pull_request_target:
     types:
