@@ -33,6 +33,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import { run } from 'json_typegen_wasm';
 	import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
+	import { Record } from 'effect';
+	import { removeEmptyValues } from '@/collections-components/form';
 
 	//
 
@@ -60,10 +62,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onSubmit: async ({ form }) => {
 			// TODO - This should be done in the backend
 			const input_json_schema = generateJsonSchema(form.data.input_json_sample);
-			const data = {
-				...form.data,
-				input_json_schema
-			};
+			const data = removeEmptyValues({ ...form.data, input_json_schema });
+
 			if (formMode === 'new') {
 				await pb.collection('custom_checks').create(data);
 			} else if (record) {
