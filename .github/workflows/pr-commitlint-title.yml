@@ -5,11 +5,11 @@
 name: "👺 Lint PR title"
 on:
   pull_request:
-    types:
-      - opened
-      - edited
-      - reopened
 
+permissions:
+  pull-requests: read
+  contents: read
+  
 jobs:
   main:
     runs-on: ubuntu-latest
