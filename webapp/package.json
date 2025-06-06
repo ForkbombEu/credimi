@@ -32,7 +32,7 @@
 		"generate:types-extra": "bun run src/modules/pocketbase/types/generate.types-extra.ts",
 		"generate:features": "bun run src/modules/features/generate.features-list.ts",
 		"generate:roles": "bun run ./src/modules/organizations/generate.roles-list.ts",
-		"generate:schema-types": "bun json2ts -i ../schemas/openid-credential-issuer.schema.json -o ./src/lib/types/openid-credential-issuer.ts",
+		"generate:schema-types": "bun json2ts -i ../schemas/credentialissuer/openid-credential-issuer.schema.json -o ./src/lib/types/openid-credential-issuer.ts",
 		"generate:definitions": "bun run generate:collections-models && bun run generate:types && bun run generate:features && bun run generate:roles && bun run generate:schema-types",
 		"i18n:remove-unused-strings": "bun run ./src/modules/i18n/remove-unused-strings.ts",
 		"i18n:lint": "bun run inlang lint --project ./project.inlang",
