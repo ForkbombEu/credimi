@@ -3,19 +3,19 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
 name: "👺 Lint PR title"
-permissions:
-  contents: read
 on:
-  pull_request:
+  pull_request_target:
     types:
       - opened
       - edited
-      - synchronize
+      - reopened
 
 jobs:
   main:
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: read
     steps:
-      - uses: dreampulse/action-commitlint-pull-request-title@v2
+      - uses: amannn/action-semantic-pull-request@v5
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
