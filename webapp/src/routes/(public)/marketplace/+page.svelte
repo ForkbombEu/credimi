@@ -24,6 +24,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import { page } from '$app/state';
 	import type { PocketbaseQueryOptions } from '@/pocketbase/query';
+	import type { MaybeArray } from '@/utils/other';
+	import {type MarketplaceItemsRecord } from '@/pocketbase/types';
+	import type { SortOption } from '@/pocketbase/query/query';
 
 	//
 
@@ -35,10 +38,60 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	const queryOptions: PocketbaseQueryOptions<'marketplace_items'> = $derived(
-		type ? { filter: `type = '${type}'` } : {}
-	);
+	const fromDate = $derived.by(() => {
+		const date = page.url.searchParams.get('from');
+		return date ? date : undefined;
+	});
 
+	const tillDate = $derived.by(() => {
+		const date = page.url.searchParams.get('to');
+		console.log('tillDate', decodeURI(date || ''));
+		return date ? date : undefined;
+	});
+
+	type SortType = MaybeArray<SortOption<"expand" | keyof MarketplaceItemsRecord>>
+	
+	const orderBy = $derived.by(() => {
+		const orderBy = page.url.searchParams.get('order-by');
+		let order = page.url.searchParams.get('order');
+		if (order == null || !(order == 'DESC' || order == 'ASC')) order = 'ASC';
+		try {
+			if (orderBy == null) return undefined;
+			console.log('orderBy', orderBy, 'order', order);
+			return [orderBy, order] as SortType;
+		} catch (error) {
+			console.error('Invalid orderBy parameter:', error);
+		}
+		return undefined;
+	});
+
+	const name = $derived.by(() => {
+		return page.url.searchParams.get('name');
+	});
+
+	const perPage = $derived.by(() => {
+		const perPageParam = page.url.searchParams.get('perPage');
+		return perPageParam ? parseInt(perPageParam, 10) : 20;
+	});
+
+	const queryOptions: PocketbaseQueryOptions<'marketplace_items'> = $derived.by(() => {
+		const filterParts: string[] = [];
+		if (type) {
+			filterParts.push(`type = '${type}'`);
+		}
+		if (fromDate) {
+			filterParts.push(`updated >= '${fromDate}'`);
+		}
+		if (tillDate) {
+			filterParts.push(`updated <= '${tillDate}'`);
+		}
+		return {
+			filter: filterParts.join(' && '),
+			sort: orderBy,
+			search: name,
+			perPage: perPage || 20
+		};
+	});
 	//
 
 	const filters: Filter[] = marketplaceItemTypes
