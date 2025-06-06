@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,8 +23,8 @@ import (
 )
 
 type CustomCheck struct {
-	Form json.RawMessage `json:"form" validate:"required"`
-	Yaml string          `json:"yaml" validate:"required"`
+	Form interface{} `json:"form" validate:"required"`
+	Yaml string      `json:"yaml" validate:"required"`
 }
 type Variable struct {
 	FieldName string      `json:"field_name" validate:"required"`
@@ -125,6 +126,17 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"missing form",
 				)
 			}
+			log.Println("Custom check form:", customCheck.Form)
+			formJSON, err := json.Marshal(customCheck.Form)
+			if err != nil {
+				return apierror.New(
+					http.StatusBadRequest,
+					"form",
+					"failed to serialize form to JSON",
+					err.Error(),
+				)
+			}
+
 			memo := map[string]interface{}{
 				"test":     "custom-check",
 				"standard": protocol,
@@ -135,6 +147,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				appURL,
 				namespace,
 				memo,
+				string(formJSON),
 			); err != nil {
 				return apierror.New(
 					http.StatusBadRequest,
@@ -500,6 +513,7 @@ func processCustomChecks(
 	appURL string,
 	namespace interface{},
 	memo map[string]interface{},
+	formJSON string,
 ) error {
 	yaml := testData
 	if yaml == "" {
@@ -510,6 +524,7 @@ func processCustomChecks(
 			"yaml is empty",
 		)
 	}
+	log.Println("Custom check form JSON:", formJSON)
 
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
@@ -519,6 +534,7 @@ func processCustomChecks(
 			"namespace": namespace,
 			"memo":      memo,
 			"app_url":   appURL,
+			"env": formJSON,
 		},
 	}
 
