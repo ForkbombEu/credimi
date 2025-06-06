@@ -44,7 +44,12 @@ export class ConfigureChecksForm {
 	// Utility
 
 	private get fields() {
-		return this.props.configsFields;
+		return (
+			this.props.checksConfigsFields ?? {
+				normalized_fields: [],
+				specific_fields: {}
+			}
+		);
 	}
 
 	hasSharedFields = $derived.by(() => this.fields.normalized_fields.length > 0);

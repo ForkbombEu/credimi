@@ -35,10 +35,7 @@ export class StartChecksForm {
 		if (customCheck) {
 			this.configureChecksFormProps = {
 				standardAndVersionPath: customCheck.standard_and_version,
-				configsFields: {
-					normalized_fields: [],
-					specific_fields: {}
-				},
+				checksConfigsFields: undefined,
 				customChecks: [customCheck]
 			};
 			this.state = 'fill-values';

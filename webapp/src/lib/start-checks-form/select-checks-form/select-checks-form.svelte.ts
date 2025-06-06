@@ -13,7 +13,7 @@ import { getChecksConfigsFields } from '$start-checks-form/_utils';
 
 export type SelectChecksSubmitData = {
 	standardAndVersionPath: string;
-	configsFields: ChecksConfigFieldsResponse;
+	checksConfigsFields?: ChecksConfigFieldsResponse | undefined;
 	customChecks: CustomChecksResponse[];
 };
 
@@ -127,6 +127,12 @@ export class SelectChecksForm {
 
 	// Submission
 
+	hasOnlyCustomChecks = $derived(
+		this.selectedSuites.length === 0 &&
+			this.selectedTests.length === 0 &&
+			this.selectedCustomChecksIds.length > 0
+	);
+
 	hasSelection = $derived(
 		this.selectedSuites.length > 0 ||
 			this.selectedTests.length > 0 ||
@@ -147,14 +153,19 @@ export class SelectChecksForm {
 		this.isLoading = true;
 		try {
 			const standardAndVersionPath = this.selectedStandardId + '/' + this.selectedVersionId;
-			const checksConfigsFields = await getChecksConfigsFields(
-				standardAndVersionPath,
-				this.selectedSuites.concat(this.selectedTests)
-			);
+
+			let checksConfigsFields: ChecksConfigFieldsResponse | undefined;
+			if (!this.hasOnlyCustomChecks) {
+				checksConfigsFields = await getChecksConfigsFields(
+					standardAndVersionPath,
+					this.selectedSuites.concat(this.selectedTests)
+				);
+			}
+
 			this.props.onSubmit(
 				$state.snapshot({
 					standardAndVersionPath,
-					configsFields: checksConfigsFields,
+					checksConfigsFields,
 					customChecks: this.selectedCustomChecks
 				})
 			);
