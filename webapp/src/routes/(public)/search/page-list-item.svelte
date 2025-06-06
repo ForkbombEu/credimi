@@ -1,0 +1,59 @@
+<script lang="ts">
+	import T from '@/components/ui-custom/t.svelte';
+
+	const { searchText: search, slug, title, description, date, tags, onTagChange } = $props();
+
+	function escapeRegex(str?: string) {
+		return str ? str.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') : '';
+	}
+
+	function highlightText(text: string, term: string): string {
+		if (!text) return '';
+		if (!term) return text;
+		const esc = escapeRegex(term);
+		const regex = new RegExp(`(${esc})`, 'gi');
+		return text.replace(regex, '<mark>$1</mark>');
+	}
+</script>
+
+<div
+	class="border-primary bg-card text-card-foreground ring-primary flex flex-col justify-between gap-2 rounded-lg border p-6 shadow-sm transition-all hover:-translate-y-2 hover:ring-2"
+>
+	<a href={`/${slug}`} class="!cursor-pointer">
+		<T tag="h4" class="text-balance !font-bold">
+			{@html search ? highlightText(title, search) : title}
+		</T>
+	</a>
+
+	<T>
+		{new Date(date).toLocaleDateString(undefined, {
+			year: 'numeric',
+			month: 'short',
+			day: 'numeric'
+		})}
+	</T>
+
+	{#if description}
+		<T
+			tag="p"
+			class="text-primary my-4 overflow-hidden text-balance [-webkit-box-orient:vertical] [-webkit-line-clamp:3] [display:-webkit-box]"
+		>
+			{@html highlightText(description, search)}
+		</T>
+	{/if}
+
+	<div class="tags flex flex-wrap items-center gap-2">
+		<T tag="small" class="text-balance !font-normal">
+			{'Tags:'}
+		</T>
+		{#each tags as tag}
+			<a
+				href={`/search?tag=${encodeURIComponent(tag)}`}
+				onclick={() => onTagChange(tag)}
+				class="text-primary border-primary !cursor-pointer rounded-lg border px-2"
+			>
+				{@html highlightText(tag, search)}
+			</a>
+		{/each}
+	</div>
+</div>
