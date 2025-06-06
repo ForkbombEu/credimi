@@ -5,7 +5,6 @@
 name: "👺 Lint PR title"
 on:
   pull_request:
-    types: [opened, edited, synchronize]
 
 jobs:
   uses: forkbombeu/.github/.github/workflows/pr-conventional-title.yml@main
