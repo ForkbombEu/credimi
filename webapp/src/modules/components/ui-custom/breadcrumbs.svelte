@@ -21,11 +21,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	interface Props {
 		options?: Partial<CalcBreadcrumbsOptions>;
-		contentClass?: string;
-		activeLinkClass?: string;
 	}
 
-	const { options = {}, activeLinkClass, contentClass }: Props = $props();
+	const { options = {} }: Props = $props();
 
 	//
 
@@ -36,29 +34,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-{#if breadcrumbs.length}
-	<Breadcrumb.Root class={contentClass}>
-		<Breadcrumb.List>
-			<Breadcrumb.Item>
-				<Breadcrumb.Link class={activeLinkClass} href="/"
-					><Icon src={Home} /></Breadcrumb.Link
-				>
-			</Breadcrumb.Item>
-			<Breadcrumb.Separator class={activeLinkClass} />
-			{#each breadcrumbs as { href, title }, i}
-				{@const isLast = i == breadcrumbs.length - 1}
-				<Breadcrumb.Item>
-					{#if !isLast}
-						<Breadcrumb.Link {href} class={activeLinkClass}>{title}</Breadcrumb.Link>
-					{:else}
-						<Breadcrumb.Link {href} class="cursor-default" aria-disabled>{title}</Breadcrumb.Link>
-					{/if}
-				</Breadcrumb.Item>
+<Breadcrumb.Root>
+	<Breadcrumb.List>
+		{#each breadcrumbs as { href, title }, i}
+			{@const isHome = i == 0}
+			{@const isLast = i == breadcrumbs.length - 1}
 
-				{#if !isLast}
-					<Breadcrumb.Separator class={activeLinkClass} />
-				{/if}
-			{/each}
-		</Breadcrumb.List>
-	</Breadcrumb.Root>
-{/if}
+			{#if !isHome}
+				<Breadcrumb.Item>
+					<Breadcrumb.Link {href}>{title}</Breadcrumb.Link>
+				</Breadcrumb.Item>
+			{:else}
+				<Breadcrumb.Item>
+					<Breadcrumb.Link {href}><Icon src={Home} /></Breadcrumb.Link>
+				</Breadcrumb.Item>
+			{/if}
+
+			<!-- {#if isLast}
+			<Breadcrumb.Item>
+			<Breadcrumb.Page>Breadcrumb</Breadcrumb.Page>
+			</Breadcrumb.Item>
+			{/if} -->
+
+			{#if !isLast}
+				<Breadcrumb.Separator />
+			{/if}
+		{/each}
+	</Breadcrumb.List>
+</Breadcrumb.Root>

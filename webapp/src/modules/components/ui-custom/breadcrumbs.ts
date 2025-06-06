@@ -25,7 +25,7 @@ export async function calcBreadcrumbs(
 ): Promise<Link[]> {
 	const { exclude = [], renamers = {} } = options;
 
-	const routeChunks = getPathChunkList(page.url.pathname!);
+	const routeChunks = getPathChunkList(page.route.id!);
 
 	const routeChunkDataList = routeChunks
 		.map((c) => getRouteChunkData(page, c))
