@@ -45,7 +45,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const tillDate = $derived.by(() => {
 		const date = page.url.searchParams.get('to');
-		console.log('tillDate', decodeURI(date || ''));
 		return date ? date : undefined;
 	});
 
@@ -57,12 +56,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (order == null || !(order == 'DESC' || order == 'ASC')) order = 'ASC';
 		try {
 			if (orderBy == null) return undefined;
-			console.log('orderBy', orderBy, 'order', order);
 			return [orderBy, order] as SortType;
 		} catch (error) {
-			console.error('Invalid orderBy parameter:', error);
+			return undefined;
 		}
-		return undefined;
 	});
 
 	const name = $derived.by(() => {
