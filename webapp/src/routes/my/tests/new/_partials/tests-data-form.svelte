@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CustomChecksResponse } from '@/pocketbase/types';
 	import T from '@/components/ui-custom/t.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	//
 
 	type Props = {
@@ -130,7 +131,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<T class="font-bold">{check.name}</T>
 						<T class="mb-2 font-mono text-xs">{check.standard_and_version}</T>
 						{#if check.description}
-							<T class="mb-2 text-sm text-gray-400">{check.description}</T>
+							<T class="mb-2 text-sm text-gray-400"><RenderMd content={check.description}/></T>
 						{/if}
 						<pre class="rounded-sm bg-black p-3 text-xs text-white">{check.yaml}</pre>
 					</div>
