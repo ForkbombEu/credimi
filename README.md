@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 <div align="center">
 
-# credimi
+# Credimi
 
 ## Your trustworthy compliance checker for decentralized identity solutions
 

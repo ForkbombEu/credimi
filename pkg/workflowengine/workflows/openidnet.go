@@ -144,9 +144,10 @@ func (w *OpenIDNetWorkflow) Workflow(
 	}
 	appURL, ok := input.Payload["app_url"].(string)
 	if !ok || appURL == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		appErr := workflowengine.NewAppError(errCode, "app_url")
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"app_url",
+			runMetadata,
+		)
 	}
 	baseURL := appURL + "/tests/wallet"
 	u, err := url.Parse(baseURL)
@@ -159,11 +160,11 @@ func (w *OpenIDNetWorkflow) Workflow(
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
 	query.Set("qr", result)
 	namespace, ok := input.Config["namespace"].(string)
-
 	if !ok || namespace == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-		appErr := workflowengine.NewAppError(errCode, "namespace")
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"namespace",
+			runMetadata,
+		)
 	}
 	query.Set("namespace", input.Config["namespace"].(string))
 	u.RawQuery = query.Encode()
@@ -171,12 +172,10 @@ func (w *OpenIDNetWorkflow) Workflow(
 	emailActivity := activities.NewSendMailActivity()
 	userMail, ok := input.Payload["user_mail"].(string)
 	if !ok || userMail == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		appErr := temporal.NewApplicationError(
-			fmt.Sprintf("%s: 'user_mail'", errCode.Description),
-			errCode.Code,
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"user_mail",
+			runMetadata,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 
 	emailInput := workflowengine.ActivityInput{
