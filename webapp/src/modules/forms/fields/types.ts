@@ -8,4 +8,5 @@ export type FieldOptions = {
 	label: string;
 	description: string;
 	labelRight?: Snippet;
+	hideLabel?: boolean;
 };

@@ -96,18 +96,13 @@ export interface OpenidCredentialIssuerSchema {
     [k: string]: {
       format: string;
       scope?: string;
-      cryptographic_binding_methods_supported?: (
-        | "JWK"
-        | "jwk"
-        | "did"
-        | "did:web"
-        | "did:ebsi"
-        | "did:jwk"
-        | "did:dyne"
-        | "did:dyne:sandbox.signroom"
-        | "did:key"
-        | "cose_key"
-      )[];
+      cryptographic_binding_methods_supported?: ((
+        | {
+            [k: string]: unknown;
+          }
+        | ("jwk" | "JWK" | "cose_key")
+      ) &
+        string)[];
       credential_signing_alg_values_supported?: (
         | "ES256"
         | "EdDSA"
@@ -119,7 +114,7 @@ export interface OpenidCredentialIssuerSchema {
       )[];
       proof_types_supported?: {
         [k: string]: {
-          proof_signing_alg_values_supported: ("ES256" | "EdDSA" | "PS256" | "RS256")[];
+          proof_signing_alg_values_supported: ("ES256" | "ES384" | "EdDSA" | "PS256" | "RS256")[];
           key_attestations_required?: {
             key_storage?: string[];
             user_authentication?: string[];
