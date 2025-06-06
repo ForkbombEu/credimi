@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
-name: "Second 👺 Lint PR title"
+name: "👺 Lint PR title"
 on:
   pull_request:
     types:
