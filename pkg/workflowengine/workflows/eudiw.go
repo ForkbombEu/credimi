@@ -169,7 +169,7 @@ func (w *EudiwWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/eudiw" // TODO use the correct one
+	baseURL := input.Payload["app_url"].(string) + "/tests/wallet-eudiw" // TODO use the correct one
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]

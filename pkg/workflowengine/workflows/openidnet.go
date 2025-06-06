@@ -142,6 +142,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	if !ok {
 		result = ""
 	}
+  
 	appURL, ok := input.Payload["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
@@ -149,7 +150,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	baseURL := appURL + "/tests/wallet"
+	baseURL := appURL + "/tests/wallet-openidnet"
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
