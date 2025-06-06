@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StandardsWithTestSuites } from './standards-response-schema';
 	import { m } from '@/i18n';
 	import type { CustomChecksResponse } from '@/pocketbase/types';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 
 	//
 
@@ -133,7 +134,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<div>
 								<T class="text-md font-bold">{testSuite.name}</T>
 								<T class="text-muted-foreground text-xs">
-									{testSuite.description}
+									<RenderMd content={testSuite.description}/>
 								</T>
 							</div>
 						{/snippet}
@@ -183,7 +184,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<div>
 								<T>{check.name}</T>
 								{#if check.description}
-									<T class="text-muted-foreground text-xs">{check.description}</T>
+									<T class="text-muted-foreground text-xs"><RenderMd content={check.description}/></T>
 								{/if}
 							</div>
 						</Label>

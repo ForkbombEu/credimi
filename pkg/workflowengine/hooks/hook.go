@@ -20,7 +20,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
@@ -154,14 +153,15 @@ func StartAllWorkersByNamespace(namespace string) {
 				&workflows.CredentialsIssuersWorkflow{},
 			},
 			Activities: []workflowengine.ExecutableActivity{
-				&activities.CheckCredentialsIssuerActivity{},
+				activities.NewCheckCredentialsIssuerActivity(),
 				activities.NewJSONActivity(
 					map[string]reflect.Type{
-						"OpenidCredentialIssuerSchemaJson": reflect.TypeOf(
-							credentials_config.OpenidCredentialIssuerSchemaJson{},
+						"map": reflect.TypeOf(
+							map[string]any{},
 						),
 					},
 				),
+				activities.NewSchemaValidationActivity(),
 				activities.NewHTTPActivity(),
 			},
 		},
