@@ -32,6 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 	import Card from '@/components/ui-custom/plainCard.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 
 	//
 
@@ -264,7 +265,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{/if}
 					</div>
 					<T class="mt-1 text-xs text-gray-400">
-						{wallet.description}
+						<RenderMd content={wallet.description}/>
 					</T>
 				</div>
 

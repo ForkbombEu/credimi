@@ -57,7 +57,7 @@ onMailerRecordVerificationSend((e) => {
     e.next();
 }, "users");
 
-onRecordCreateRequest((e) => {
+onRecordAfterCreateSuccess((e) => {
     e.next();
 
     /** @type {Utils} */
