@@ -16,6 +16,6 @@ jobs:
   main:
     runs-on: ubuntu-latest
     steps:
-      - uses: dreampulse/action-lint-pull-request-title@v2
+      - uses: dreampulse/action-commitlint-pull-request-title@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
