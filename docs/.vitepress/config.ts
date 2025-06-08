@@ -11,7 +11,7 @@ export default defineConfig({
     title: "EUDI-ARF Compliance/Interop",
     description:
         "Master the complexities of SSI identity solutions with Credimi: Your go-to platform for testing, validating, and ensuring compliance in the ever-evolving digital identity ecosystem.",
-    base: "/credimi/",
+    base: "/",
 
     lastUpdated: true,
     metaChunk: true,
