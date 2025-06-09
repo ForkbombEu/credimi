@@ -5,9 +5,82 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import PageHeader from '$lib/layout/pageHeader.svelte';
+	import PageIndex from '$lib/layout/pageIndex.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n';
+	import { Building2, Layers } from 'lucide-svelte';
+	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
+	import InfoBox from '$lib/layout/infoBox.svelte';
+	import { String } from 'effect';
+
+	//
+
 	let { data } = $props();
+	const { verifier } = $derived(data);
+
+	//
+
+	const sections = {
+		general_info: {
+			icon: Building2,
+			anchor: 'general_info',
+			label: m.General_info()
+		},
+		description: {
+			icon: Layers,
+			anchor: 'description',
+			label: m.Description()
+		}
+	} satisfies Record<string, IndexItem>;
 </script>
 
-<div>
-	<pre>{JSON.stringify(data.verifier, null, 2)}</pre>
+<PageIndex sections={Object.values(sections)} class="top-5 md:sticky" />
+
+<div class="grow space-y-16">
+	<div class="space-y-6">
+		<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
+
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+			<InfoBox label="URL">
+				<a href={verifier.url} class="hover:underline" target="_blank">
+					{verifier.url}
+				</a>
+			</InfoBox>
+
+			{#if String.isNonEmpty(verifier.repository_url)}
+				<InfoBox label="Homepage">
+					<a href={verifier.repository_url} class="hover:underline" target="_blank">
+						{verifier.repository_url}
+					</a>
+				</InfoBox>
+			{:else}
+				<div></div>
+			{/if}
+
+			<InfoBox label={m.Standard_and_version()}>
+				<T>{verifier.standard_and_version}</T>
+			</InfoBox>
+
+			<InfoBox label={m.Signing_algorithms_supported()}>
+				<T>{verifier.signing_algorithms.join(', ')}</T>
+			</InfoBox>
+
+			<InfoBox label={m.Cryptographic_binding_methods_supported()}>
+				<T>{verifier.cryptographic_binding_methods.join(', ')}</T>
+			</InfoBox>
+
+			<InfoBox label={m.Credentials_format()}>
+				<T>{verifier.format.join(', ')}</T>
+			</InfoBox>
+		</div>
+	</div>
+
+	<div class="space-y-6">
+		<PageHeader title={sections.description.label} id={sections.description.anchor} />
+
+		<div class="prose">
+			<T>{verifier.description}</T>
+		</div>
+	</div>
 </div>
