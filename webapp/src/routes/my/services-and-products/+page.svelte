@@ -36,6 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
 	import { CheckboxField } from '@/forms/fields';
+	import MarkdownField from '@/forms/fields/markdownField.svelte';
 
 	//
 
@@ -115,7 +116,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				exclude: ['owner', 'conformance_checks'],
 				snippets: {
 					standard_and_version,
-					published
+					published,
+					description
 				},
 				order: ['published']
 			}}
@@ -142,6 +144,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="flex justify-end gap-2">
 				<CheckboxField {form} name="published" options={{ label: m.Published() }} />
 			</div>
+		{/snippet}
+
+		{#snippet description({ form }: FieldSnippetOptions<'verifiers'>)}
+			<MarkdownField {form} name="description" />
 		{/snippet}
 	</div>
 </div>
