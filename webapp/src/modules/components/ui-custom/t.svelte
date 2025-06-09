@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render children?.()}
 	</h4>
 {:else if tag == 'p'}
-	<p class="{margin ? 'leading-7 [&:not(:first-child)]:mt-6' : ''} {className}">
+	<p class="block {margin ? 'leading-7 [&:not(:first-child)]:mt-6' : ''} {className}">
 		{@render children?.()}
 	</p>
 {:else if tag == 'small'}

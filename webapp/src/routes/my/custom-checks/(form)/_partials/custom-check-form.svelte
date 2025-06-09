@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 	import { createForm, Form } from '@/forms';
 	import {
-		SelectField,
 		Field,
 		FileField,
 		TextareaField,
@@ -18,8 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { goto, m } from '@/i18n';
 	import { PlusIcon, UploadIcon } from 'lucide-svelte';
-	import BackButton from '$lib/layout/back-button.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
 	import { yaml } from '@codemirror/lang-yaml';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -35,6 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import { fromStore } from 'svelte/store';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
+	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
 
 	//
 
@@ -112,17 +110,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const standardsOptions = $derived(
-		standardsAndTestSuites.flatMap((standard) =>
-			standard.versions.map((version) => ({
-				value: `${standard.uid}/${version.uid}`,
-				label: `${standard.name} – ${version.name}`
-			}))
-		)
-	);
-
-	//
-
 	function startYamlUpload() {
 		const input = document.createElement('input');
 		input.type = 'file';
@@ -183,16 +170,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			title={m.Standard_and_version()}
 			description={m.Standard_and_Version_description()}
 		>
-			<SelectField
-				{form}
-				name="standard_and_version"
-				options={{
-					items: standardsOptions,
-					label: m.Compliance_standard(),
-					placeholder: m.Select_a_standard_and_version(),
-					description: `${m.eg()}: OpenID4VP Verifier - Draft 23`
-				}}
-			/>
+			<StandardAndVersionField {form} name="standard_and_version" />
 		</PageCardSection>
 
 		<PageCardSection title={m.Check_Metadata()} description={m.Check_metadata_description()}>

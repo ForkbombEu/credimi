@@ -33,6 +33,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Card from '@/components/ui-custom/plainCard.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
+	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
+	import { CheckboxField } from '@/forms/fields';
 
 	//
 
@@ -108,15 +111,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			queryOptions={{
 				filter: `owner.id = '${organizationId}'`
 			}}
+			formFieldsOptions={{
+				exclude: ['owner', 'conformance_checks'],
+				snippets: {
+					standard_and_version,
+					published
+				},
+				order: ['published']
+			}}
 		>
 			{#snippet top({ Header })}
-				<Header title="Verifiers">
-					{#snippet right()}
-						<Button disabled><Plus />Add new verifier</Button>
-					{/snippet}
-				</Header>
+				<Header title="Verifiers"></Header>
+			{/snippet}
+
+			{#snippet records({ records, Card })}
+				{#each records as record}
+					<Card {record} class="bg-background" hide={['select', 'share']}>
+						<T class="font-bold">{record.name}</T>
+						<T>{record.url}</T>
+					</Card>
+				{/each}
 			{/snippet}
 		</CollectionManager>
+
+		{#snippet standard_and_version({ form }: FieldSnippetOptions<'verifiers'>)}
+			<StandardAndVersionField {form} name="standard_and_version" />
+		{/snippet}
+
+		{#snippet published({ form }: FieldSnippetOptions<'verifiers'>)}
+			<div class="flex justify-end gap-2">
+				<CheckboxField {form} name="published" options={{ label: m.Published() }} />
+			</div>
+		{/snippet}
 	</div>
 </div>
 
@@ -265,7 +291,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{/if}
 					</div>
 					<T class="mt-1 text-xs text-gray-400">
-						<RenderMd content={wallet.description}/>
+						<RenderMd content={wallet.description} />
 					</T>
 				</div>
 
