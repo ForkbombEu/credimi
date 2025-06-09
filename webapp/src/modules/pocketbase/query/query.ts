@@ -245,7 +245,7 @@ function buildExcludeFilter(filter: ExcludeFilter) {
 
 type SortOrder = 'ASC' | 'DESC';
 
-type SortOption<T extends string = string> = [T, SortOrder];
+export type SortOption<T extends string = string> = [T, SortOrder];
 
 function buildSortOption<T extends string>(sortOption: SortOption<T>) {
 	return (sortOption[1] == 'ASC' ? '+' : '-') + sortOption[0];
