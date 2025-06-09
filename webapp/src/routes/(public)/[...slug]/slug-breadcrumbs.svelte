@@ -9,14 +9,10 @@
 		title: string;
 	}
 
-	let breadcrumbs: Link[] = $state([]);
-
-	function calcBreadcrumbsLocal(): Link[] {
-		const url = page.url; // runes-style store access
+	const breadcrumbs = $derived.by(() => {
+		const url = page.url;
 		const segments = url.pathname.split('/').filter(Boolean);
-
 		const crumbs: Link[] = [{ href: '/', title: 'Home' }];
-
 		segments.forEach((seg, i) => {
 			const href = '/' + segments.slice(0, i + 1).join('/');
 			const title = decodeURIComponent(seg.replace(/-/g, ' '));
@@ -24,10 +20,6 @@
 		});
 
 		return crumbs;
-	}
-
-	$effect(() => {
-		breadcrumbs = calcBreadcrumbsLocal();
 	});
 </script>
 
