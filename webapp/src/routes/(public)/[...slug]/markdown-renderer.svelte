@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import PageTop from '$lib/layout/pageTop.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
-	import Breadcrumbs from "./slug-breadcrumbs.svelte";
+	import Breadcrumbs from './slug-breadcrumbs.svelte';
 	import { marked } from 'marked';
 	import T from '@/components/ui-custom/t.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		preprocessHtml?: (html: string) => string;
 	};
 
-	let { content, class: className = '', preprocessHtml }: Props = $props();	
+	let { content, class: className = '', preprocessHtml }: Props = $props();
 	const { attributes, body } = $derived(fm<{ [key: string]: any }>(content));
 	const frontMatterSchema = z.object({
 		date: z.coerce.date(),
@@ -40,11 +40,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-{#if parsedFrontMatter}
-	{@const { title, description, tags, date } = parsedFrontMatter}
-	<PageTop containerClass="border-t-0" contentClass={'pt-4'}>
-		<!-- <Breadcrumbs activeLinkClass="text-primary" contentClass={'w-full mb-12'} /> -->
-		 <Breadcrumbs />
+<PageTop containerClass="border-t-0" contentClass={'pt-4'}>
+	<!-- <Breadcrumbs activeLinkClass="text-primary" contentClass={'w-full mb-12'} /> -->
+	<Breadcrumbs />
+	{#if parsedFrontMatter}
+		{@const { title, description, tags, date } = parsedFrontMatter}
 		<div class="mx-auto max-w-screen-lg">
 			<div class="space-y-2">
 				<T tag="h1" class="text-balance !font-bold">
@@ -81,8 +81,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 			{/if}
 		</div>
-	</PageTop>
-{/if}
+	{/if}
+</PageTop>
+
 <div class="bg-secondary">
 	<PageContent>
 		<div class="mx-auto max-w-screen-lg">
