@@ -8,10 +8,6 @@
 @tailwind components;
 @tailwind utilities;
 
-html {
-	scroll-behavior: smooth;
-}
-
 /* @layer base {
 	:root {
 		--background: #f9f7ff;

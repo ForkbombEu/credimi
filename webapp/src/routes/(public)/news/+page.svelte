@@ -40,7 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet records({ records })}
-		<PageGrid>
+		<PageGrid class="lg:grid-cols-1 gap-4">
 			{#each records as record (record.id)}
 				<NewsCard news={record} />
 			{/each}
