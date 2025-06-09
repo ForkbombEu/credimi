@@ -68,7 +68,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let filteredPages = $derived.by(() => {
 		const search = searchText.trim().toLowerCase();
 		if (search === '') {
-			return [];
+			return data.pages;
 		}
 		const fuseResults = fuseStore.search(search).map((r) => r.item as Page);
 		const pathFilters = selectedFilters.filter((f) => f.endsWith('/'));
