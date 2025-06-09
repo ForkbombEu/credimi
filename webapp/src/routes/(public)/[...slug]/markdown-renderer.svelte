@@ -7,11 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import PageTop from '$lib/layout/pageTop.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
-
+	import Breadcrumbs from "./slug-breadcrumbs.svelte";
 	import { marked } from 'marked';
 	import T from '@/components/ui-custom/t.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import Breadcrumbs from '@/components/ui-custom/breadcrumbs.svelte';
 	import fm from 'front-matter';
 	import z from 'zod';
 
@@ -21,8 +20,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		preprocessHtml?: (html: string) => string;
 	};
 
-	let { content, class: className = '', preprocessHtml }: Props = $props();
-
+	let { content, class: className = '', preprocessHtml }: Props = $props();	
+	const { attributes, body } = $derived(fm<{ [key: string]: any }>(content));
 	const frontMatterSchema = z.object({
 		date: z.coerce.date(),
 		updatedOn: z.coerce.date(),
@@ -31,13 +30,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		tags: z.array(z.string())
 	});
 	let parsedFrontMatter = $derived.by(() => {
-		const frontMatter = fm(content).attributes;
-		const parsedFrontMatter = frontMatterSchema.safeParse(frontMatter);
+		const parsedFrontMatter = frontMatterSchema.safeParse(attributes);
 		return parsedFrontMatter.data;
 	});
 
 	const html = $derived.by(() => {
-		const baseHtml = marked(content, { async: false });
+		const baseHtml = marked(body, { async: false });
 		return preprocessHtml ? preprocessHtml(baseHtml) : baseHtml;
 	});
 </script>
@@ -45,7 +43,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if parsedFrontMatter}
 	{@const { title, description, tags, date } = parsedFrontMatter}
 	<PageTop containerClass="border-t-0" contentClass={'pt-4'}>
-		<Breadcrumbs activeLinkClass="text-primary" contentClass={'w-full mb-12'} />
+		<!-- <Breadcrumbs activeLinkClass="text-primary" contentClass={'w-full mb-12'} /> -->
+		 <Breadcrumbs />
 		<div class="mx-auto max-w-screen-lg">
 			<div class="space-y-2">
 				<T tag="h1" class="text-balance !font-bold">
