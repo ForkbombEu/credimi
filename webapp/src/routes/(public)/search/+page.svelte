@@ -1,4 +1,9 @@
-<!-- src/routes/search/+page.svelte -->
+<!--
+SPDX-FileCopyrightText: 2025 Forkbomb BV
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
 <script lang="ts">
 	import { page } from '$app/state';
 	import { Button, buttonVariants } from '@/components/ui/button';

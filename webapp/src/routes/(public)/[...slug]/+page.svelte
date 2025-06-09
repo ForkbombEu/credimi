@@ -10,6 +10,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 </script>
 
-<div class="mx-auto p-8 py-12">
-	<MarkdownRenderer content={data.content} />
-</div>
+<MarkdownRenderer content={data.content} />

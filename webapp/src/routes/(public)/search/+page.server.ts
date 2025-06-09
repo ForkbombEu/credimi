@@ -1,4 +1,7 @@
-// src/routes/(public)/search/+page.server.ts
+// SPDX-FileCopyrightText: 2025 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import type { PageServerLoad } from './$types';
 import fs from 'fs';
 import path from 'path';
@@ -53,7 +56,7 @@ export const load: PageServerLoad<{
 	const pagesDir = path.resolve('static', 'pages');
 	let files: string[] = [];
 	try {
-		files = getAllMdFilesForLocale(pagesDir, getLocale(), baseLocale);    
+		files = getAllMdFilesForLocale(pagesDir, getLocale(), baseLocale);
 	} catch (e) {
 		console.error(
 			`Failed to scan static/pages recursively: ${e instanceof Error ? e.message : e}`
