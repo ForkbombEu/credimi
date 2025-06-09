@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { String } from 'effect';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 
 	//
 
@@ -80,7 +81,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<PageHeader title={sections.description.label} id={sections.description.anchor} />
 
 		<div class="prose">
-			<T>{verifier.description}</T>
+			<RenderMd content={verifier.description} />
 		</div>
 	</div>
 </div>
