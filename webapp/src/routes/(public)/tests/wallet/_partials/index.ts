@@ -22,6 +22,6 @@ export function getWalletTestParams(url: URL): WalletTestParams {
 	return {
 		qr: hasQr ? qr : undefined,
 		workflowId: hasWorkflowId ? workflowId : undefined,
-		namespace: hasNamespace ? namespace : undefined,
+		namespace: hasNamespace ? namespace : undefined
 	};
 }

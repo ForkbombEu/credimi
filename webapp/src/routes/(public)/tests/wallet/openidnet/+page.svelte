@@ -7,18 +7,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import TextareaField from '@/forms/fields/textareaField.svelte';
-	import { Form, SubmitButton, createForm } from '@/forms';
-	import { QrCode } from '@/qr';
+	import { createForm } from '@/forms';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
 	import Separator from '@/components/ui/separator/separator.svelte';
 	import { pb } from '@/pocketbase/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';
-	import { Label } from '@/components/ui/label';
 	import { MediaQuery } from 'svelte/reactivity';
 	import WorkflowLogs from '@/components/ui-custom/workflowLogs.svelte';
-	import { m } from '@/i18n';
+	import { m } from '@/i18n/index.js';
+	import Step from '../_partials/step.svelte';
+	import SuccessForm from '../_partials/success-form.svelte';
+	import FailureForm from '../_partials/failure-form.svelte';
+	import QrLink from '../_partials/qr-link.svelte';
 
 	//
 
@@ -79,24 +80,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageContent>
-	<T tag="h1" class="mb-4">Wallet test</T>
+	<T tag="h1" class="mb-4">Wallet OpenId test</T>
 	<div class="space-y-4">
 		{#if qr}
-			<div class="step-container">
-				{@render Step(1, 'Scan this QR with the wallet app to start the check')}
-
+			<Step n="1" text="Scan this QR with the wallet app to start the check">
 				<div
 					class="bg-primary/10 ml-16 mt-4 flex flex-col items-center justify-center rounded-md p-2 sm:flex-row"
 				>
-					<QrCode src={qr} class="size-40 rounded-sm" />
-
-					<p
-						class="text-primary max-w-sm break-all p-4 font-mono text-xs hover:underline"
-					>
-						{qr}
-					</p>
+				<QrLink {qr}/>
 				</div>
-			</div>
+			</Step>
 		{:else}
 			<Alert variant="destructive">
 				<T class="font-bold">{m.Error_check_failed()}</T>
@@ -107,78 +100,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		{#if workflowId && namespace}
-			<div class="step-container">
-				{@render Step(2, 'Follow the procedure on the wallet app')}
+			<Step n="2" text="Follow the procedure on the wallet app">
 				<div class="ml-16">
 					<WorkflowLogs {workflowId} {namespace} />
 				</div>
-			</div>
+			</Step>
 		{/if}
 
-		<div class="step-container">
-			{@render Step(3, 'Confirm the result')}
-
+		<Step n="3" text="Confirm the result">
 			<div class="ml-16 flex flex-col gap-8 sm:flex-row">
 				{#if pageStatus == 'fresh'}
 					{#if data.qr}
-						<div class="grow basis-1">
-							<Form form={successForm}>
-								{#snippet submitButton()}
-									<div class="space-y-2">
-										<Label for="success">If the test succeeded:</Label>
-										<SubmitButton
-											id="success"
-											class="w-full bg-green-600 hover:bg-green-700"
-										>
-											Confirm test success
-										</SubmitButton>
-									</div>
-								{/snippet}
-							</Form>
-						</div>
-
+						<SuccessForm {successForm} />
 						<Separator orientation={sm.current ? 'vertical' : 'horizontal'} />
 					{/if}
-
-					<div class="grow basis-1">
-						<Form form={failureForm} hideRequiredIndicator class="space-y-2">
-							<TextareaField
-								form={failureForm}
-								name="reason"
-								options={{
-									label: 'If something went wrong, please tell us what:'
-								}}
-							/>
-							{#snippet submitButton()}
-								<SubmitButton class="w-full bg-red-600 hover:bg-red-700">
-									Notify issue
-								</SubmitButton>
-							{/snippet}
-						</Form>
-					</div>
+					<FailureForm {failureForm}/>
 				{:else if pageStatus == 'success'}
 					<Alert variant="info">Your response was submitted! Thanks :)</Alert>
 				{:else if pageStatus == 'already_answered'}
 					<Alert variant="info">This test was already confirmed</Alert>
 				{/if}
 			</div>
-		</div>
+		</Step>
 	</div>
 </PageContent>
-
-{#snippet Step(n: number, text: string)}
-	<div class="flex items-center gap-4">
-		<div
-			class="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-semibold"
-		>
-			<p>{n}</p>
-		</div>
-		<T class="text-primary font-semibold">{text}</T>
-	</div>
-{/snippet}
-
-<style lang="postcss">
-	.step-container {
-		@apply bg-secondary rounded-xl p-4;
-	}
-</style>
