@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Alert from '@/components/ui-custom/alert.svelte';
-	import WorkflowLogs from './workflowLogs.svelte';
+	import WorkflowLogs from './openid-workflow-logs.svelte';
 	import { m } from '@/i18n/index.js';
 	import Step from '../_partials/step.svelte';
 	import QrLink from '../_partials/qr-link.svelte';
