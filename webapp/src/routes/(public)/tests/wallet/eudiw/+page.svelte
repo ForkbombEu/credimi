@@ -39,8 +39,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Alert>
 		{/if}
 
-		<Step n="2" text="Confirm the result">
-			<FeedbackForms {workflowId} {namespace} />
-		</Step>
+		{#if workflowId && namespace}
+			<Step n="2" text="Confirm the result">
+				<FeedbackForms {workflowId} {namespace} />
+			</Step>
+		{/if}
 	</div>
 </PageContent>
