@@ -8,7 +8,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Alert from '@/components/ui-custom/alert.svelte';
-	import { m } from '@/i18n';
+	import WorkflowLogs from './openid-workflow-logs.svelte';
+	import { m } from '@/i18n/index.js';
 	import Step from '../_partials/step.svelte';
 	import QrLink from '../_partials/qr-link.svelte';
 	import FeedbackForms from '../_partials/feedback-forms.svelte';
@@ -20,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageContent>
-	<T tag="h1" class="mb-4">Wallet test</T>
+	<T tag="h1" class="mb-4">Wallet OpenId test</T>
 	<div class="space-y-4">
 		{#if qr}
 			<Step n="1" text="Scan this QR with the wallet app to start the check">
@@ -40,7 +41,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		{#if workflowId && namespace}
-			<Step n="2" text="Confirm the result">
+			<Step n="2" text="Follow the procedure on the wallet app">
+				<div class="ml-16">
+					<WorkflowLogs {workflowId} {namespace} />
+				</div>
+			</Step>
+
+			<Step n="3" text="Confirm the result">
 				<FeedbackForms {workflowId} {namespace} />
 			</Step>
 		{/if}

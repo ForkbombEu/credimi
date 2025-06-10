@@ -149,7 +149,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	baseURL := appURL + "/tests/wallet"
+	baseURL := appURL + "/tests/wallet/openidnet"
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]

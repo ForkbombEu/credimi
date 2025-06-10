@@ -9,10 +9,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { onDestroy, onMount } from 'svelte';
 	import { Info } from 'lucide-svelte';
 	import Alert from '@/components/ui-custom/alert.svelte';
-	import { Badge } from '../ui/badge/index.js';
-	import * as Accordion from '../ui/accordion/index.js';
+	import { Badge } from '@/components/ui/badge/index.js';
+	import * as Accordion from '@/components/ui/accordion/index.js';
 
-	let logs = $state<WorkflowLogEntry[]>([]);
+	//
 
 	type Props = {
 		workflowId: string;
@@ -20,6 +20,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	const { workflowId, namespace }: Props = $props();
+
+	//
+
+	let logs = $state<WorkflowLogEntry[]>([]);
 
 	onMount(() => {
 		pb.realtime
