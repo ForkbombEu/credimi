@@ -3,13 +3,19 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
-<script>
+<script lang="ts">
 	import T from '@/components/ui-custom/t.svelte';
+	import type { Snippet } from 'svelte';
 
-	const { n, text, children } = $props();
+	type Props = {
+		n: string;
+		text: string;
+		children?: Snippet
+	}
+	const { n, text, children }: Props = $props();
 </script>
 
-<div class="step-container">
+<div class="bg-secondary rounded-xl p-4">
 	<div class="flex items-center gap-4">
 		<div
 			class="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-semibold"
@@ -21,8 +27,3 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{@render children?.()}
 </div>
 
-<style lang="postcss">
-	.step-container {
-		@apply bg-secondary rounded-xl p-4;
-	}
-</style>

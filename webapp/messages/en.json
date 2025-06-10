@@ -443,7 +443,13 @@
 	"Last_update": "Last update",
 	"Custom_check": "Custom check",
 	"Select_your_timezone": "Select your timezone",
+<<<<<<< Updated upstream
 	"Signing_algorithms_supported": "Signing algorithms supported",
 	"Cryptographic_binding_methods_supported": "Cryptographic binding methods supported",
-	"Credentials_format": "Credentials format"
+	"Credentials_format": "Credentials format",
+	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Scan this QR with the wallet app to start the check"
+=======
+	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Scan this QR with the wallet app to start the check",
+	"Wallet_EWC_test": "Wallet EWC test"
+>>>>>>> Stashed changes
 }

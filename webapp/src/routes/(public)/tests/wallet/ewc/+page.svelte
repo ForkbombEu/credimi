@@ -13,7 +13,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import QrLink from '../_partials/qr-link.svelte';
 	import { Alert } from '@/components/ui/alert';
 	import { m } from '@/i18n';
-	import WorkflowLogs from '@/components/ui-custom/workflowLogs.svelte';
 
 	let { data } = $props();
 	const { qr, workflowId, namespace } = $derived(data);
@@ -51,11 +50,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <svelte:window on:beforeunload={closeConnections} />
 
-<PageContent>
-	<T tag="h1" class="mb-4">Wallet EWC test</T>
+<PageContent contentClass="space-y-4">
+	<T tag="h1" class="mb-4">{m.Wallet_EWC_test()}</T>
 
 	{#if qr}
-		<Step n="1" text="Scan this QR with the wallet app to start the check">
+		<Step n="1" text={m.Scan_this_QR_with_the_wallet_app_to_start_the_check()}>
 			<div
 				class="bg-primary/10 ml-16 mt-4 flex flex-col items-center justify-center rounded-md p-2 sm:flex-row"
 			>
@@ -73,9 +72,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#if workflowId && namespace}
 		<Step n="2" text="Follow the procedure on the wallet app">
-			<div class="ml-16">
+			<!-- <div class="ml-16">
 				<WorkflowLogs {workflowId} {namespace} />
-			</div>
+			</div> -->
 		</Step>
 	{/if}
 </PageContent>
