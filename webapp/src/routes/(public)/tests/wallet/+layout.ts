@@ -8,8 +8,6 @@ import { getWalletTestParams } from './_partials';
 
 export const load = ({ url }) => {
     const params = getWalletTestParams(url);
-	console.log("Getting params:");
-	console.log(params);
 	
 	if (!params.workflowId) {
 		error(404);
