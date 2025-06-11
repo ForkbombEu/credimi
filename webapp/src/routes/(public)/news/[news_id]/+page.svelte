@@ -12,6 +12,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import HTML from '@/components/ui-custom/renderHTML.svelte';
 	import Badge from '@/components/ui/badge/badge.svelte';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import PageHeader from '$lib/layout/pageHeader.svelte';
 
 	let { data } = $props();
 	const { news } = $derived(data);
@@ -66,7 +68,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </PageTop>
 
 <PageContent class="grow bg-secondary" contentClass="flex gap-12 items-start">
+	<div>
+		<div>
+			<PageHeader
+				title={'Key differences'}
+				id={'key_differences'}
+			/>
+			<RenderMd content={news.key_differences}/>
+		</div>
 	<div class="prose prose-base lg:prose-lg xl:prose-xl">
+		<PageHeader
+			title={'news'}
+			id={'news'}
+		/>
 		<HTML content={news.news} />
 	</div>
+</div>
 </PageContent>
