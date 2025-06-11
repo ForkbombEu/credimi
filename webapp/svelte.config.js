@@ -12,7 +12,9 @@ const config = {
 		alias: {
 			$lib: './src/lib',
 			'@': './src/modules',
-			$zencode: './client_zencode'
+			$zencode: './client_zencode',
+			$routes: './src/routes',
+			'$start-checks-form': './src/lib/start-checks-form'
 		},
 		version: { name: process.env.npm_package_version }
 	}

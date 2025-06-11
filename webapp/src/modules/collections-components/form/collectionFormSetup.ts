@@ -276,3 +276,13 @@ function mapRecordDataByFieldType<T extends keyof SchemaFields>(
 		})
 	);
 }
+
+//
+
+export function removeEmptyValues(data: GenericRecord) {
+	return Record.filter(data, (v) => {
+		if (v === undefined || v === null) return false;
+		if (typeof v == 'string') return String.isNonEmpty(v);
+		return true;
+	});
+}
