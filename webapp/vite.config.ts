@@ -5,7 +5,6 @@
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { defineConfig } from 'vitest/config';
 import { sveltekit } from '@sveltejs/kit/vite';
-import topLevelAwait from 'vite-plugin-top-level-await';
 
 // These are needed for the json_typegen_wasm plugin
 import wasm from 'vite-plugin-wasm';
@@ -18,14 +17,13 @@ export default defineConfig({
 			project: './project.inlang',
 			outdir: './src/modules/i18n/paraglide',
 			strategy: ['url', 'cookie', 'baseLocale']
-		}),
-		topLevelAwait({
-			// The export name of top-level await promise for each chunk module
-			promiseExportName: '__tla',
-			// The function to generate import names of top-level await promise in each chunk module
-			promiseImportName: (i) => `__tla_${i}`
 		})
 	],
+	esbuild: {
+		supported: {
+			'top-level-await': true
+		}
+	},
 	optimizeDeps: {
 		include: ['date-fns', 'date-fns-tz'],
 		exclude: [
