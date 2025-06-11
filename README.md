@@ -33,7 +33,7 @@ credimi is more than just a tool – it's a platform designed to foster trust, s
 - **Foster Trust**: Build a trustworthy ecosystem where credential issuers and verifiers can demonstrate their compliance with industry standards.
 - **Support Innovation**: Encourage the development of cutting-edge identity solutions by providing essential tools for testing, debugging, and compliance checking.
 
-# 👉 [DOCUMENTATION](https://forkbombeu.github.io/credimi/)
+# 👉 [DOCUMENTATION](https://docs.credimi.io/)
 
 Click the link above to dive into our comprehensive documentation, where you’ll find detailed information about how credimi works, how to get started, and how to make the most of its features.
 
@@ -57,7 +57,7 @@ Click the link above to dive into our comprehensive documentation, where you’l
 
 ## 🚑 Community & support
 
-**[📝 Documentation](https://forkbombeu.github.io/credimi/)** - Getting started and more.
+**[📝 Documentation](https://docs.credimi.io/)** - Getting started and more.
 
 **[🌱 Ecosystem 👈 🚧 WIP 🚧](https://github.com/forkbombeu/credimi_plugins)** - Plugins, resources, and more.
 
