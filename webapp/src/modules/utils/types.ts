@@ -5,6 +5,7 @@
 // Base types
 
 export type GenericRecord = Record<string, unknown>;
+export type StringRecord = Record<string, string>;
 
 export type MaybePromise<T> = T | Promise<T>;
 
@@ -25,3 +26,11 @@ export type KeyOf<T> = Extract<keyof T, string>;
 export type ValueOf<T> = T[keyof T];
 
 export type InferArrayType<T> = T extends (infer U)[] ? U : T;
+
+// Reactivity
+
+export type State<T> = {
+	current: T;
+};
+
+export type Getter<T> = () => T;

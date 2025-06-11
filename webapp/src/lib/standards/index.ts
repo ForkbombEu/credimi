@@ -39,6 +39,8 @@ const suiteSchema = suiteMetadataSchema.extend({
 	files: z.array(z.string())
 });
 
+export type Suite = z.infer<typeof suiteSchema>;
+
 const versionSchema = versionMetadataSchema.extend({
 	suites: z.array(suiteSchema)
 });
@@ -52,7 +54,7 @@ export type StandardsWithTestSuites = z.infer<typeof templateBlueprintsResponseS
 
 /** */
 
-export function getStandardsAndTestSuites(options = { fetch }) {
+export function getStandardsWithTestSuites(options = { fetch }) {
 	return pipe(
 		_.tryPromise({
 			try: () =>
