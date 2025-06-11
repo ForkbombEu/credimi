@@ -60,7 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			<InfoBox label={m.Standard_and_version()}>
-				<T>{verifier.standard_and_version}</T>
+				<T>{verifier.standard_and_version.split(',').join('\n')}</T>
 			</InfoBox>
 
 			<InfoBox label={m.Signing_algorithms_supported()}>

@@ -10,31 +10,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Pencil, Plus } from 'lucide-svelte';
 	import * as Dialog from '@/components/ui/dialog';
 	import { buttonVariants } from '@/components/ui/button';
-	import CredentialIssuerForm from './credential-issuer-form.svelte';
+	import CredentialIssuerForm from './_partials/credential-issuer-form.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { String } from 'effect';
 	import { Badge } from '@/components/ui/badge';
 	import Button from '@/components/ui-custom/button.svelte';
-	import EditCredentialDialog from './edit-credential-dialog.svelte';
+	import EditCredentialDialog from './_partials/edit-credential-dialog.svelte';
 	import { RecordDelete, RecordEdit } from '@/collections-components/manager';
 
 	import Separator from '@/components/ui/separator/separator.svelte';
 
 	import Sheet from '@/components/ui-custom/sheet.svelte';
-	import NewWalletForm from './wallet-form.svelte';
+	import NewWalletForm from './_partials/wallet-form.svelte';
 	import {
 		Collections,
 		type CredentialIssuersResponse,
 		type CredentialsResponse,
 		type WalletsResponse
 	} from '@/pocketbase/types';
-	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
+	import type { ConformanceCheck } from './_partials/wallet-form-checks-table.svelte';
 	import A from '@/components/ui-custom/a.svelte';
 	import Card from '@/components/ui-custom/plainCard.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
-	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
+	import VerifierStandardAndVersionField from './_partials/verifier-standard-version-field.svelte';
 	import { CheckboxField } from '@/forms/fields';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 
@@ -137,7 +137,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</CollectionManager>
 
 		{#snippet standard_and_version({ form }: FieldSnippetOptions<'verifiers'>)}
-			<StandardAndVersionField {form} name="standard_and_version" />
+			<VerifierStandardAndVersionField {form} />
 		{/snippet}
 
 		{#snippet published({ form }: FieldSnippetOptions<'verifiers'>)}

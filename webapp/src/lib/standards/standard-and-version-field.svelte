@@ -8,8 +8,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { SelectField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import type { FormPath, SuperForm } from 'sveltekit-superforms';
-	import { getStandardsAndTestSuites } from '.';
-	import { Either } from 'effect';
+	import { getStandardsAndVersionsFlatOptionsList } from '.';
+	import type { SelectOption } from '@/components/ui-custom/utils';
 
 	//
 
@@ -23,22 +23,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type Option = {
-		value: string;
-		label: string;
-	};
+	let options: SelectOption<string>[] = $state([]);
 
-	let options: Option[] = $state([]);
-
-	getStandardsAndTestSuites().then((response) => {
-		if (!Either.isRight(response)) return;
-		const standards = response.right;
-		options = standards.flatMap((standard) =>
-			standard.versions.map((version) => ({
-				value: `${standard.uid}/${version.uid}`,
-				label: `${standard.name} – ${version.name}`
-			}))
-		);
+	getStandardsAndVersionsFlatOptionsList().then((options) => {
+		options = options;
 	});
 </script>
 
