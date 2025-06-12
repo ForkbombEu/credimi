@@ -20,7 +20,8 @@ export const marketplaceItemTypes = [
 	'credential_issuers',
 	'wallets',
 	'credentials',
-	'custom_checks'
+	'custom_checks',
+	'verification_use_cases'
 ] as const satisfies CollectionName[];
 
 export const marketplaceItemTypeSchema = z.enum(marketplaceItemTypes);
@@ -83,6 +84,11 @@ const marketplaceItemsDisplayConfig: MarketplaceItemsDisplayConfig = {
 		label: m.Custom_check(),
 		bgClass: 'bg-orange-500',
 		textClass: 'text-orange-500'
+	},
+	verification_use_cases: {
+		label: m.Verification_use_case(),
+		bgClass: 'bg-red-500',
+		textClass: 'text-red-500'
 	}
 };
 

@@ -447,5 +447,6 @@
 	"Cryptographic_binding_methods_supported": "Cryptographic binding methods supported",
 	"Credentials_format": "Credentials format",
 	"Linked_credentials": "Linked credentials",
-	"No_published_credentials_found": "No published credentials found"
+	"No_published_credentials_found": "No published credentials found",
+	"Verification_use_case": "Verification use case"
 }
