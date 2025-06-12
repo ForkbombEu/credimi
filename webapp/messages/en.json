@@ -447,5 +447,6 @@
 	"Cryptographic_binding_methods_supported": "Cryptographic binding methods supported",
 	"Credentials_format": "Credentials format",
 	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Scan this QR with the wallet app to start the check",
-	"Wallet_EWC_test": "Wallet EWC test"
+	"Wallet_EWC_test": "Wallet EWC test",
+	"Search_tags": "Search tags"
 }

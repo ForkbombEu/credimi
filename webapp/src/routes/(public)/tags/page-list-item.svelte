@@ -5,21 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { PageWithBody } from '$lib/content';
 	import T from '@/components/ui-custom/t.svelte';
-
-	const { searchText: search, slug, title, description, date, tags, onTagChange } = $props();
-
-	function escapeRegex(str?: string) {
-		return str ? str.replace(/[-/\\^$*+?.()|[\]{}]/g, '\\$&') : '';
+	interface Props extends PageWithBody {
+		onTagChange: (s: string) => void;
 	}
 
-	function highlightText(text: string, term: string): string {
-		if (!text) return '';
-		if (!term) return text;
-		const esc = escapeRegex(term);
-		const regex = new RegExp(`(${esc})`, 'gi');
-		return text.replace(regex, '<mark>$1</mark>');
-	}
+	const { title, description, date, tags, onTagChange, slug }: Props = $props();
 </script>
 
 <div
@@ -27,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<a href={`/${slug}`} class="!cursor-pointer">
 		<T tag="h4" class="text-balance !font-bold">
-			{@html search ? highlightText(title, search) : title}
+			{title}
 		</T>
 	</a>
 
@@ -44,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			tag="p"
 			class="text-primary my-4 overflow-hidden text-balance [-webkit-box-orient:vertical] [-webkit-line-clamp:3] [display:-webkit-box]"
 		>
-			{@html highlightText(description, search)}
+			{description}
 		</T>
 	{/if}
 
@@ -54,11 +46,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</T>
 		{#each tags as tag}
 			<a
-				href={`/search?tag=${encodeURIComponent(tag)}`}
+				href={`/tags?search=${encodeURIComponent(tag)}`}
 				onclick={() => onTagChange(tag)}
 				class="text-primary border-primary !cursor-pointer rounded-lg border px-2"
 			>
-				{@html highlightText(tag, search)}
+				{tag}
 			</a>
 		{/each}
 	</div>

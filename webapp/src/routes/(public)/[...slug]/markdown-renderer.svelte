@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import fm from 'front-matter';
-	import z from 'zod';
+	import { pageFrontMatterSchema } from '$lib/content';
 
 	type Props = {
 		content: string;
@@ -22,15 +22,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { content, class: className = '', preprocessHtml }: Props = $props();
 	const { attributes, body } = $derived(fm<{ [key: string]: any }>(content));
-	const frontMatterSchema = z.object({
-		date: z.coerce.date(),
-		updatedOn: z.coerce.date(),
-		title: z.string(),
-		description: z.string().optional(),
-		tags: z.array(z.string())
-	});
 	let parsedFrontMatter = $derived.by(() => {
-		const parsedFrontMatter = frontMatterSchema.safeParse(attributes);
+		const parsedFrontMatter = pageFrontMatterSchema.safeParse(attributes);
 		return parsedFrontMatter.data;
 	});
 
@@ -41,7 +34,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageTop containerClass="border-t-0" contentClass={'pt-4'}>
-	<!-- <Breadcrumbs activeLinkClass="text-primary" contentClass={'w-full mb-12'} /> -->
 	<Breadcrumbs />
 	{#if parsedFrontMatter}
 		{@const { title, description, tags, date } = parsedFrontMatter}
@@ -74,7 +66,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 				<div class="!mt-0 flex items-center gap-4">
 					{#each tags as tag}
-						<Button variant="outline" class="border-primary text-primary" href={''}>
+						<Button
+							variant="outline"
+							class="border-primary text-primary"
+							href={`tags?search=${tag}`}
+						>
 							{tag}
 						</Button>
 					{/each}
