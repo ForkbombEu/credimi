@@ -455,5 +455,7 @@
 	"Related_verifier": "Related verifier",
 	"QR_code": "QR code",
 	"No_published_verification_use_cases_found": "No published verification use cases found",
-	"Use_case_verification": "Use case verification"
+	"Use_case_verification": "Use case verification",
+	"Use_case_verifications": "Use case verifications",
+	"Related_credentials": "Related credentials"
 }

@@ -7,7 +7,7 @@ import { error } from '@sveltejs/kit';
 import { String } from 'effect';
 import type { MarketplaceItem } from '../_utils/utils.js';
 
-export const load = async ({ params }) => {
+export const load = async ({ params, fetch }) => {
 	const id = Object.values(params)
 		.filter((p) => String.isNonEmpty(p))
 		.at(0);
@@ -16,7 +16,7 @@ export const load = async ({ params }) => {
 
 	const marketplaceItem = (await pb
 		.collection('marketplace_items')
-		.getOne(id)) as MarketplaceItem;
+		.getOne(id, { fetch })) as MarketplaceItem;
 
 	return {
 		marketplaceItem

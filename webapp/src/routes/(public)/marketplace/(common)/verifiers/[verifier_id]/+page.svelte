@@ -40,10 +40,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			anchor: 'credentials',
 			label: m.Linked_credentials()
 		},
-		verification_use_cases: {
+		use_case_verifications: {
 			icon: ScanEye,
-			anchor: 'verification_use_cases',
-			label: m.Verification_use_cases()
+			anchor: 'use_case_verifications',
+			label: m.Use_case_verifications()
 		}
 	} satisfies Record<string, IndexItem>;
 
@@ -119,8 +119,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<div class="space-y-6">
 		<PageHeader
-			title={sections.verification_use_cases.label}
-			id={sections.verification_use_cases.anchor}
+			title={sections.use_case_verifications.label}
+			id={sections.use_case_verifications.anchor}
 		/>
 
 		{#if marketplaceUseCasesVerifications.length > 0}

@@ -89,7 +89,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<InfoBox label="Type" value={credential.type} />
 		</div>
 
-		<div class="flex flex-col items-center">
+		<div class="flex flex-col items-stretch">
 			<PageHeader title="Credential offer" id="qr" />
 			<QrCode src={qrLink} cellSize={10} class={['w-60 rounded-md']} />
 			<div class="w-60 break-all pt-4 text-xs">
