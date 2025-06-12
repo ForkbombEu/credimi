@@ -445,5 +445,6 @@
 	"Select_your_timezone": "Select your timezone",
 	"Signing_algorithms_supported": "Signing algorithms supported",
 	"Cryptographic_binding_methods_supported": "Cryptographic binding methods supported",
-	"Credentials_format": "Credentials format"
+	"Credentials_format": "Credentials format",
+	"Linked_credentials": "Linked credentials"
 }
