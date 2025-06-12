@@ -9,24 +9,26 @@ import { Effect as _, pipe } from 'effect';
 export const load = async ({ params }) => {
 	const verifier = await new PocketbaseQueryAgent({
 		collection: 'verifiers',
-		expand: ['credentials', 'verification_use_cases_via_verifier']
+		expand: ['use_cases_verifications_via_verifier']
 	}).getOne(params.verifier_id);
 
-	const [, marketplaceCredentials] = await pipe(
-		verifier.credentials,
-		_.partition((c) => _.tryPromise(() => pb.collection('marketplace_items').getOne(c))),
+	const useCasesVerifications = verifier.expand?.use_cases_verifications_via_verifier ?? [];
+
+	const [, marketplaceUseCasesVerifications] = await pipe(
+		useCasesVerifications,
+		_.partition((v) => _.tryPromise(() => pb.collection('marketplace_items').getOne(v.id))),
 		_.runPromise
 	);
 
-	const [, marketplaceVerificationUseCases] = await pipe(
-		verifier.expand?.verification_use_cases_via_verifier ?? [],
-		_.partition((v) => _.tryPromise(() => pb.collection('marketplace_items').getOne(v.id))),
+	const [, marketplaceCredentials] = await pipe(
+		useCasesVerifications.flatMap((v) => v.credentials),
+		_.partition((c) => _.tryPromise(() => pb.collection('marketplace_items').getOne(c))),
 		_.runPromise
 	);
 
 	return {
 		verifier,
 		marketplaceCredentials,
-		marketplaceVerificationUseCases
+		marketplaceUseCasesVerifications
 	};
 };

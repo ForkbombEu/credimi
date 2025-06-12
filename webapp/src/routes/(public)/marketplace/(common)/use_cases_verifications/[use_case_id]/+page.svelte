@@ -40,8 +40,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="flex flex-col gap-6 md:flex-row">
 		<div class="grow space-y-6">
 			<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
-			{#if String.isNonEmpty(data.verificationUseCase.description)}
-				<RenderMd content={data.verificationUseCase.description} />
+			{#if String.isNonEmpty(data.useCaseVerification.description)}
+				<RenderMd content={data.useCaseVerification.description} />
 			{:else}
 				<div class="rounded-md border border-black/20 p-4">
 					<T class="text-center text-black/30">No description found</T>
@@ -51,10 +51,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<div class="flex flex-col items-stretch">
 			<PageHeader title={m.QR_code()} id="qr" />
-			<QrCode src={data.verificationUseCase.deeplink} class="size-60 rounded-md" />
+			<QrCode src={data.useCaseVerification.deeplink} class="size-60 rounded-md" />
 			<div class="break-all pt-2 font-mono text-xs">
-				<a href={data.verificationUseCase.deeplink} class="hover:underline" target="_blank">
-					{data.verificationUseCase.deeplink}
+				<a href={data.useCaseVerification.deeplink} class="hover:underline" target="_blank">
+					{data.useCaseVerification.deeplink}
 				</a>
 			</div>
 		</div>

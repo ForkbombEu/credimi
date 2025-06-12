@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const { verifier, marketplaceCredentials, marketplaceVerificationUseCases } = $derived(data);
+	const { verifier, marketplaceCredentials, marketplaceUseCasesVerifications } = $derived(data);
 
 	//
 
@@ -123,10 +123,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			id={sections.verification_use_cases.anchor}
 		/>
 
-		{#if marketplaceVerificationUseCases.length > 0}
+		{#if marketplaceUseCasesVerifications.length > 0}
 			<PageGrid>
-				{#each marketplaceVerificationUseCases as verificationUseCase}
-					<MarketplaceItemCard item={verificationUseCase} />
+				{#each marketplaceUseCasesVerifications as useCaseVerification}
+					<MarketplaceItemCard item={useCaseVerification} />
 				{/each}
 			</PageGrid>
 		{:else}

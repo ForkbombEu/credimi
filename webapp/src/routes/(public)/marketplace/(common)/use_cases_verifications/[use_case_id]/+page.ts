@@ -6,17 +6,17 @@ import { pb } from '@/pocketbase/index.js';
 import { PocketbaseQueryAgent } from '@/pocketbase/query/agent.js';
 
 export const load = async ({ params }) => {
-	const verificationUseCase = await new PocketbaseQueryAgent({
-		collection: 'verification_use_cases',
+	const useCaseVerification = await new PocketbaseQueryAgent({
+		collection: 'use_cases_verifications',
 		expand: ['verifier']
 	}).getOne(params.use_case_id);
 
 	const verifierMarketplaceItem = await pb
 		.collection('marketplace_items')
-		.getOne(verificationUseCase.verifier);
+		.getOne(useCaseVerification.verifier);
 
 	return {
-		verificationUseCase,
+		useCaseVerification,
 		verifierMarketplaceItem
 	};
 };

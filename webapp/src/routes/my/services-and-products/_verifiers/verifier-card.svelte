@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
-	import type { CredentialsResponse, VerifiersResponse } from '@/pocketbase/types';
+	import type { UseCasesVerificationsResponse, VerifiersResponse } from '@/pocketbase/types';
 	import { pb } from '@/pocketbase';
 	import { Pencil, Plus } from 'lucide-svelte';
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
@@ -26,11 +26,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		verifier: VerifiersResponse;
-		credentials?: CredentialsResponse[];
+		useCasesVerifications: UseCasesVerificationsResponse[];
 		organizationId: string;
 	};
 
-	let { verifier, credentials, organizationId }: Props = $props();
+	let { verifier, useCasesVerifications, organizationId }: Props = $props();
 	const avatarSrc = $derived(pb.files.getURL(verifier, verifier.logo));
 </script>
 
@@ -51,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Separator />
 
-	<div class="space-y-0.5 text-sm">
+	<!-- <div class="space-y-0.5 text-sm">
 		<T class="font-semibold">{m.Linked_credentials()}</T>
 		{#if credentials?.length === 0}
 			<T class="text-gray-300">{m.No_credentials_available()}</T>
@@ -64,25 +64,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/each}
 			</ul>
 		{/if}
-	</div>
+	</div> -->
 
 	<Separator />
 
 	<div class="space-y-0.5 text-sm">
-		{@render verificationUseCases()}
+		{@render useCasesVerificationsSnippet()}
 	</div>
 </Card>
 
-{#snippet verificationUseCases()}
+{#snippet useCasesVerificationsSnippet()}
 	<CollectionManager
-		collection="verification_use_cases"
+		collection="use_cases_verifications"
 		queryOptions={{ filter: `verifier = '${verifier.id}'` }}
 		formFieldsOptions={{
 			hide: {
 				owner: organizationId,
 				verifier: verifier.id
 			},
-			order: ['published', 'name', 'deeplink'],
+			order: ['name', 'deeplink', 'credentials', 'description', 'published'],
 			snippets: {
 				description
 			}
@@ -131,6 +131,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</CollectionManager>
 {/snippet}
 
-{#snippet description({ form }: FieldSnippetOptions<'verification_use_cases'>)}
+{#snippet description({ form }: FieldSnippetOptions<'use_cases_verifications'>)}
 	<MarkdownField {form} name="description" />
 {/snippet}
