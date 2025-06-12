@@ -41,6 +41,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			label: m.Linked_credentials()
 		}
 	} satisfies Record<string, IndexItem>;
+
+	//
+
+	const standardAndVersion = $derived(verifier.standard_and_version.split(','));
 </script>
 
 <PageIndex sections={Object.values(sections)} class="top-5 md:sticky" />
@@ -67,7 +71,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			<InfoBox label={m.Standard_and_version()}>
-				<T>{verifier.standard_and_version.split(',').join('\n')}</T>
+				<ul class="">
+					{#each standardAndVersion as standard}
+						<li>{standard}</li>
+					{/each}
+				</ul>
 			</InfoBox>
 
 			<InfoBox label={m.Signing_algorithms_supported()}>
