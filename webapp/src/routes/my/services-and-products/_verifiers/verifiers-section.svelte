@@ -38,6 +38,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		labels: {
 			credentials: m.Linked_credentials()
 		},
+		relations: {
+			credentials: {
+				displayFields: ['issuer_name', 'name', 'key', 'format']
+			}
+		},
 		order: ['published']
 	}}
 >
