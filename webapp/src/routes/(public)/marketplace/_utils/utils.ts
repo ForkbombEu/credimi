@@ -8,6 +8,7 @@ import type { CollectionName } from '@/pocketbase/collections-models';
 import MarketplaceItemTypeDisplay from './marketplace-item-type-display.svelte';
 import MarketplaceItemCard from './marketplace-item-card.svelte';
 import { z } from 'zod';
+import { queryParams } from '$routes/my/tests/new/+page@.svelte';
 
 //
 
@@ -100,13 +101,15 @@ export function getMarketplaceItemTypeData(type: MarketplaceItemType) {
 
 export function getMarketplaceItemData(item: MarketplaceItem) {
 	const href =
-		item.type == 'custom_checks'
-			? `/my/tests/new?test_id=${item.id}`
+		item.type === 'custom_checks'
+			? `/my/tests/new?${queryParams.customCheckId}=${item.id}`
 			: localizeHref(`/marketplace/${item.type}/${item.id}`);
+
 	const logo = item.avatar
 		? pb.files.getURL(item.avatar, item.avatar.image_file)
 		: item.avatar_url
 			? item.avatar_url
 			: undefined;
+
 	return { href, logo, ...getMarketplaceItemTypeData(item.type) };
 }

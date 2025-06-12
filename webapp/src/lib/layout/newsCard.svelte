@@ -11,6 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { cn } from '@/components/ui/utils';
 	import { m } from '@/i18n';
 	import type { NewsResponse } from '@/pocketbase/types';
+	import { CalendarDays, Clock } from "lucide-svelte"
 
 	type Props = {
 		news: NewsResponse;
@@ -20,17 +21,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { news, class: className }: Props = $props();
 </script>
 
-<div class={cn('flex flex-col gap-6 text-card-foreground', className)}>
-	<div class="flex flex-col gap-3">
-		<T tag="h3" class="block">{news.title}</T>
-		<HTML class="prose prose-sm line-clamp-2 text-primary" content={news.summary} />
-	</div>
-
-	<HTML class="prose prose-base line-clamp-4" content={news.news} />
-
+<div class={cn('flex flex-col rounded-lg border bg-card text-card-foreground shadow-sm hover:shadow-xl transition-shadow duration-200 p-4', className)}>
 	<a href="/news/{news.id}">
-		<Button variant="outline" size="sm">
-			{m.view_more()}
-		</Button>
+	<div class="flex items-center gap-4 text-sm text-muted-foreground mb-3" >
+		<div class="flex items-center gap-4 text-sm text-muted-foreground mb-3">
+			<div class="flex items-center gap-1">
+				<CalendarDays class="h-4 w-4" />
+				<time dateTime={news.created}>
+					{new Date(news.created).toLocaleDateString("en-US", {
+					year: "numeric",
+					month: "long",
+					day: "numeric",
+					})}
+				</time>
+			</div>
+			<div class="flex items-center gap-1">
+				<Clock class="h-4 w-4" />
+				<span>5 min</span>
+			</div>
+		</div>
+    </div>
+	<div class="flex flex-col gap-3">
+		<T tag="h3" class="prose block">{news.title}</T>
+		<HTML class="prose prose-sm text-primary" content={news.summary} />
+	</div>
 	</a>
 </div>

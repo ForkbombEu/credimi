@@ -11,6 +11,7 @@ SPDX-PackageDownloadLocation = "https://github.com/ForkbombEu/credimi"
 path = [
     ".env.example",
     ".vscode/settings.json",
+    ".vscode/launch.json",
     "config_templates/**/*",
     "docs/**/*",
     "fixtures/test_pb_data/types.d.ts",
