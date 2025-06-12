@@ -16,11 +16,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
-	import type { UseCasesVerificationsResponse, VerifiersResponse } from '@/pocketbase/types';
+	import type {
+		CredentialsResponse,
+		UseCasesVerificationsResponse,
+		VerifiersResponse
+	} from '@/pocketbase/types';
 	import { pb } from '@/pocketbase';
 	import { Pencil, Plus } from 'lucide-svelte';
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
+	import { Badge } from '@/components/ui/badge';
 
 	//
 
@@ -30,8 +35,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		organizationId: string;
 	};
 
-	let { verifier, useCasesVerifications, organizationId }: Props = $props();
+	let { verifier, organizationId }: Props = $props();
 	const avatarSrc = $derived(pb.files.getURL(verifier, verifier.logo));
+
+	//
+
+	function credentialsPreviewString(credentials: CredentialsResponse[]): string | undefined {
+		if (credentials.length === 0) return undefined;
+		let preview = '';
+		if (credentials.length === 1) {
+			preview = `${credentials[0].name}`;
+		} else if (credentials.length === 2) {
+			preview = `${credentials[0].name}, ${credentials[1].name}`;
+		} else {
+			preview = `${credentials[0].name}, ${credentials[1].name} and ${credentials.length - 2} others`;
+		}
+		return preview;
+	}
 </script>
 
 <Card class="bg-card" contentClass="space-y-4 p-4">
@@ -39,7 +59,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex items-center gap-4">
 			<Avatar src={avatarSrc} fallback={verifier.name} class="rounded-sm border" />
 			<div>
-				<T class="font-bold">{verifier.name}</T>
+				<div class="flex items-center gap-2">
+					<T class="font-bold">{verifier.name}</T>
+					{#if verifier.published}
+						<Badge>{m.Published()}</Badge>
+					{/if}
+				</div>
 				<T class="text-xs text-gray-400">{verifier.url}</T>
 			</div>
 		</div>
@@ -51,38 +76,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Separator />
 
-	<!-- <div class="space-y-0.5 text-sm">
-		<T class="font-semibold">{m.Linked_credentials()}</T>
-		{#if credentials?.length === 0}
-			<T class="text-gray-300">{m.No_credentials_available()}</T>
-		{:else if credentials}
-			<ul class="list-disc space-y-0.5 pl-4">
-				{#each credentials as credential}
-					<li>
-						<T>{credential.key}</T>
-					</li>
-				{/each}
-			</ul>
-		{/if}
-	</div> -->
-
-	<Separator />
-
 	<div class="space-y-0.5 text-sm">
-		{@render useCasesVerificationsSnippet()}
+		{@render useCasesVerificationsList()}
 	</div>
 </Card>
 
-{#snippet useCasesVerificationsSnippet()}
+{#snippet useCasesVerificationsList()}
 	<CollectionManager
 		collection="use_cases_verifications"
-		queryOptions={{ filter: `verifier = '${verifier.id}'` }}
+		queryOptions={{
+			filter: `verifier = '${verifier.id}' && owner.id = '${organizationId}'`,
+			expand: ['credentials']
+		}}
 		formFieldsOptions={{
 			hide: {
 				owner: organizationId,
 				verifier: verifier.id
 			},
 			order: ['name', 'deeplink', 'credentials', 'description', 'published'],
+			relations: {
+				credentials: {
+					mode: 'select',
+					displayFields: ['issuer_name', 'name', 'key']
+				}
+			},
 			snippets: {
 				description
 			}
@@ -105,10 +122,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 		{#snippet records({ records })}
 			<ul class="list-disc pl-4">
-				{#each records as verificationUseCase}
+				{#each records as useCaseVerification}
+					{@const credentials = useCaseVerification.expand?.credentials ?? []}
+					{@const credentialsPreview = credentialsPreviewString(credentials)}
 					<li>
-						<span>{verificationUseCase.name}</span>
-						<RecordEdit record={verificationUseCase}>
+						<span>{useCaseVerification.name}</span>
+						{#if credentialsPreview}
+							<span>({credentialsPreview})</span>
+						{/if}
+						{#if useCaseVerification.published}
+							<span class="bg-primary rounded-full px-2 py-0.5 text-xs text-white">
+								{m.Published()}
+							</span>
+						{/if}
+
+						<RecordEdit record={useCaseVerification}>
 							{#snippet button({ triggerAttributes })}
 								<button
 									class="inline translate-y-0.5 rounded-sm p-1 hover:cursor-pointer hover:bg-gray-100"
