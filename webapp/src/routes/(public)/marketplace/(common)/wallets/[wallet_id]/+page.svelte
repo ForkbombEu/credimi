@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { z } from 'zod';
 	import Card from '@/components/ui-custom/card.svelte';
 	import { Badge } from '@/components/ui/badge';
-	import { ConformanceCheckSchema } from '../../../../../my/services-and-products/wallet-form-checks-table.svelte';
+	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
 
 	//
 

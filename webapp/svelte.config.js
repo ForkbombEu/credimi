@@ -12,7 +12,8 @@ const config = {
 		alias: {
 			$lib: './src/lib',
 			'@': './src/modules',
-			$zencode: './client_zencode'
+			$zencode: './client_zencode',
+			'$services-and-products': './src/routes/my/services-and-products'
 		},
 		version: { name: process.env.npm_package_version }
 	}

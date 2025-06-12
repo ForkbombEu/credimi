@@ -58,7 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <PageTop>
 	<div class="space-y-2">
-		<T tag="huge" class="text-balance">
+		<T tag="h1" class="text-balance">
 			{m.EUDIW_Conformance_Interoperability_and_Marketplace()}
 		</T>
 		<div class="flex flex-col gap-2 py-2">
