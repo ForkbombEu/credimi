@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const organizationId = $derived(data.organization?.id);
+	const organizationId = $derived(data.organization?.id ?? '');
 </script>
 
 <div class="space-y-12">

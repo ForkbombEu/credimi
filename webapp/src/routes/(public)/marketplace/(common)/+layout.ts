@@ -11,6 +11,7 @@ export const load = async ({ params }) => {
 	const id = Object.values(params)
 		.filter((p) => String.isNonEmpty(p))
 		.at(0);
+	// TODO - Redirect to marketplace filter with the collection filter
 	if (!id) throw error(500);
 
 	const marketplaceItem = (await pb

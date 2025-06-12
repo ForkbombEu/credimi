@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import PageIndex from '$lib/layout/pageIndex.svelte';
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import { Building2, Layers3 } from 'lucide-svelte';
 	import { String } from 'effect';
@@ -15,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Card from '@/components/ui-custom/card.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
+	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 
 	//
 
@@ -34,21 +34,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			anchor: 'conformance_checks',
 			label: 'Conformance checks'
 		}
-		// // compatible_apps: {
-		// // 	icon: Building2,
-		// // 	anchor: 'compatible_apps',
-		// // 	label: 'Compatible apps'
-		// // },
-		// compatible_issuer: {
-		// 	icon: FolderCheck,
-		// 	anchor: 'compatible_issuer',
-		// 	label: 'Compatible issuer'
-		// }
-		// // test_results: {
-		// // 	icon: ScanEye,
-		// // 	anchor: 'test_results',
-		// // 	label: 'Test results'
-		// // }
 	} satisfies Record<string, IndexItem>;
 
 	const checks = $derived(z.array(ConformanceCheckSchema).safeParse(wallet.conformance_checks));
@@ -78,11 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 </script>
 
-<!--  -->
-
-<PageIndex sections={Object.values(sections)} class="sticky top-5" />
-
-<div class="grow space-y-16">
+<MarketplacePageLayout tableOfContents={sections}>
 	<div class="flex items-start gap-6">
 		<div class="grow space-y-6">
 			<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
@@ -128,7 +109,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 	{/if}
-</div>
+</MarketplacePageLayout>
 
 {#snippet AppStore(url: string)}
 	<a href={url} target="_blank" class="">

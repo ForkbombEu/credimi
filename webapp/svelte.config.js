@@ -13,7 +13,8 @@ const config = {
 			$lib: './src/lib',
 			'@': './src/modules',
 			$zencode: './client_zencode',
-			'$services-and-products': './src/routes/my/services-and-products'
+			'$services-and-products': './src/routes/my/services-and-products',
+			$marketplace: './src/routes/(public)/marketplace'
 		},
 		version: { name: process.env.npm_package_version }
 	}

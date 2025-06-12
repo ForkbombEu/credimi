@@ -448,5 +448,11 @@
 	"Credentials_format": "Credentials format",
 	"Linked_credentials": "Linked credentials",
 	"No_published_credentials_found": "No published credentials found",
-	"Verification_use_case": "Verification use case"
+	"Verification_use_case": "Verification use case",
+	"Verification_use_cases": "Verification use cases",
+	"Add_a_verification_use_case": "Add a verification use case",
+	"Add": "Add",
+	"Related_verifier": "Related verifier",
+	"QR_code": "QR code",
+	"No_published_verification_use_cases_found": "No published verification use cases found"
 }

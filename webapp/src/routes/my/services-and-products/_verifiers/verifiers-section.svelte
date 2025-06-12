@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		organizationId?: string;
+		organizationId: string;
 	};
 
 	let { organizationId }: Props = $props();
@@ -53,7 +53,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet records({ records })}
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			{#each records as verifier}
-				<VerifierCard {verifier} credentials={verifier.expand?.credentials} />
+				<VerifierCard
+					{verifier}
+					credentials={verifier.expand?.credentials}
+					{organizationId}
+				/>
 			{/each}
 		</div>
 	{/snippet}
