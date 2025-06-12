@@ -26,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { Badge } from '@/components/ui/badge';
+	import PublishedStatus from '$lib/layout/published-status.svelte';
 
 	//
 
@@ -61,9 +62,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div>
 				<div class="flex items-center gap-2">
 					<T class="font-bold">{verifier.name}</T>
-					{#if verifier.published}
-						<Badge>{m.Published()}</Badge>
-					{/if}
+					<PublishedStatus item={verifier} />
 				</div>
 				<T class="text-xs text-gray-400">{verifier.url}</T>
 			</div>
@@ -121,7 +120,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		{/snippet}
 		{#snippet records({ records })}
-			<ul class="list-disc pl-4">
+			<ul class="">
 				{#each records as useCaseVerification}
 					{@const credentials = useCaseVerification.expand?.credentials ?? []}
 					{@const credentialsPreview = credentialsPreviewString(credentials)}
@@ -130,11 +129,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{#if credentialsPreview}
 							<span>({credentialsPreview})</span>
 						{/if}
-						{#if useCaseVerification.published}
-							<span class="bg-primary rounded-full px-2 py-0.5 text-xs text-white">
-								{m.Published()}
-							</span>
-						{/if}
+						<PublishedStatus item={useCaseVerification} size="sm" />
 
 						<RecordEdit record={useCaseVerification}>
 							{#snippet button({ triggerAttributes })}
