@@ -13,7 +13,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { item, class: className, size = 'md' }: Props = $props();
 
-	console.log(item);
 	const published = $derived(
 		('published' in item && item.published) || ('public' in item && item.public)
 	);
