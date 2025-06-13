@@ -479,5 +479,18 @@
 	"count_valid": "{count} valid",
 	"count_invalid": "{count} invalid",
 	"Scroll": "Scroll",
-	"Start_checks": "Start checks"
+	"Start_checks": "Start checks",
+	"verifier_field_description_name": "verifier_field_description_name",
+	"verifier_field_description_description": "verifier_field_description_description",
+	"verifier_field_description_logo": "verifier_field_description_logo",
+	"verifier_field_description_url": "verifier_field_description_url",
+	"verifier_field_description_repository_url": "verifier_field_description_repository_url",
+	"verifier_field_description_standard_and_version": "verifier_field_description_standard_and_version",
+	"verifier_field_description_format": "verifier_field_description_format",
+	"verifier_field_description_signing_algorithms": "verifier_field_description_signing_algorithms",
+	"verifier_field_description_cryptographic_binding_methods": "use_case_verification_field_name_description",
+	"use_case_verification_field_description_description": "use_case_verification_field_description_description",
+	"use_case_verification_field_description_deeplink": "use_case_verification_field_description_deeplink",
+	"use_case_verification_field_description_credentials": "use_case_verification_field_description_credentials",
+	"use_case_verification_field_description_published": "use_case_verification_field_description_published"
 }

@@ -35,6 +35,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			published,
 			description
 		},
+		descriptions: {
+			name: m.verifier_field_description_name(),
+			description: m.verifier_field_description_description(),
+			logo: m.verifier_field_description_logo(),
+			url: m.verifier_field_description_url(),
+			repository_url: m.verifier_field_description_repository_url(),
+			standard_and_version: m.verifier_field_description_standard_and_version(),
+			format: m.verifier_field_description_format(),
+			signing_algorithms: m.verifier_field_description_signing_algorithms(),
+			cryptographic_binding_methods:
+				m.verifier_field_description_cryptographic_binding_methods()
+		},
 		order: ['published']
 	}}
 >

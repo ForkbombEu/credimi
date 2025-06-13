@@ -92,6 +92,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				owner: organizationId,
 				verifier: verifier.id
 			},
+			descriptions: {
+				name: m.verifier_field_description_cryptographic_binding_methods(),
+				description: m.use_case_verification_field_description_description(),
+				deeplink: m.use_case_verification_field_description_deeplink(),
+				credentials: m.use_case_verification_field_description_credentials(),
+				published: m.use_case_verification_field_description_published()
+			},
 			order: ['name', 'deeplink', 'credentials', 'description', 'published'],
 			relations: {
 				credentials: {
