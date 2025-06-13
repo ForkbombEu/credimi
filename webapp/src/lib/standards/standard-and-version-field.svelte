@@ -25,8 +25,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let options: SelectOption<string>[] = $state([]);
 
-	getStandardsAndVersionsFlatOptionsList().then((options) => {
-		options = options;
+	getStandardsAndVersionsFlatOptionsList().then((o) => {
+		options = o;
 	});
 </script>
 
