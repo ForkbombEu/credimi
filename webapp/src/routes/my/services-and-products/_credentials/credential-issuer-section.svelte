@@ -24,6 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import PublishedStatus from '$lib/layout/published-status.svelte';
 
 	//
 
@@ -122,9 +123,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</A>
 							{/if}
 						</T>
-						{#if record.published}
-							<Badge variant="default">{m.Published()}</Badge>
-						{/if}
+						<PublishedStatus item={record} />
 					</div>
 
 					<T class="mt-1 truncate text-xs text-gray-400">
@@ -170,13 +169,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{credential.key}
 								{:else}
 									<A href="/marketplace/credentials/{credential.id}">
-										{credential.key}
+										{credential.name}
 									</A>
 								{/if}
 
-								{#if credential.published}
-									<Badge variant="default">{m.Published()}</Badge>
-								{/if}
+								<PublishedStatus item={credential} />
 							</div>
 
 							<div class="flex items-center gap-1">

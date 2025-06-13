@@ -20,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WalletForm from './wallet-form.svelte';
 	import { Pencil, Plus } from 'lucide-svelte';
 	import { m } from '@/i18n';
+	import PublishedStatus from '$lib/layout/published-status.svelte';
 
 	//
 
@@ -70,9 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<A href="/apps/{wallet.id}">{wallet.name}</A>
 							{/if}
 						</T>
-						{#if wallet.published}
-							<Badge variant="default">{m.Published()}</Badge>
-						{/if}
+						<PublishedStatus item={wallet} />
 					</div>
 					<T class="mt-1 text-xs text-gray-400">
 						<RenderMd content={wallet.description} />
