@@ -12,7 +12,9 @@ import { z, type ZodError } from 'zod';
 
 export type StandardsWithTestSuites = z.infer<typeof templateBlueprintsResponseSchema>;
 
-export function getStandardsWithTestSuites(options = { fetch }) {
+export function getStandardsWithTestSuites(
+	options = { fetch }
+): Promise<StandardsWithTestSuites | Error> {
 	return pipe(
 		_.tryPromise({
 			try: () =>
@@ -29,6 +31,10 @@ export function getStandardsWithTestSuites(options = { fetch }) {
 			})
 		),
 		_.either,
+		_.map((e) => {
+			if (Either.isLeft(e)) return e.left;
+			else return e.right;
+		}),
 		_.runPromise
 	);
 }
@@ -36,9 +42,8 @@ export function getStandardsWithTestSuites(options = { fetch }) {
 export async function getStandardsAndVersionsFlatOptionsList(
 	options = { fetch }
 ): Promise<SelectOption<string>[]> {
-	const response = await getStandardsWithTestSuites(options);
-	if (!Either.isRight(response)) return [];
-	const standards = response.right;
+	const standards = await getStandardsWithTestSuites(options);
+	if (standards instanceof Error) return [];
 	return standards.flatMap((standard) =>
 		standard.versions.map((version) => ({
 			value: `${standard.uid}/${version.uid}`,
