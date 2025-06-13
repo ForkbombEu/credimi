@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { CollectionForm } from '@/collections-components';
 	import * as Dialog from '@/components/ui/dialog';
-	import type { CredentialsFormData, CredentialsRecord } from '@/pocketbase/types';
+	import type { CredentialsRecord } from '@/pocketbase/types';
 	import Button from '@/components/ui/button/button.svelte';
 	import { Pencil } from 'lucide-svelte';
 	import { m } from '@/i18n';

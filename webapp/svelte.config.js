@@ -10,10 +10,12 @@ const config = {
 	kit: {
 		adapter: adapter(),
 		alias: {
-			$lib: './src/lib',
 			'@': './src/modules',
+			$lib: './src/lib',
 			$zencode: './client_zencode',
 			$routes: './src/routes',
+			$marketplace: './src/routes/(public)/marketplace',
+			'$services-and-products': './src/routes/my/services-and-products',
 			'$start-checks-form': './src/lib/start-checks-form'
 		},
 		version: { name: process.env.npm_package_version }
