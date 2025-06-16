@@ -5,13 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { PageWithBody } from '$lib/content';
+	import type { ContentPage } from '$lib/content/types';
 	import T from '@/components/ui-custom/t.svelte';
-	interface Props extends PageWithBody {
-		onTagChange: (s: string) => void;
-	}
 
-	const { title, description, date, tags, onTagChange, slug }: Props = $props();
+	const { attributes, slug }: ContentPage = $props();
+	const { title, date, description, tags } = attributes;
 </script>
 
 <div
@@ -47,7 +45,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#each tags as tag}
 			<a
 				href={`/tags?search=${encodeURIComponent(tag)}`}
-				onclick={() => onTagChange(tag)}
 				class="text-primary border-primary !cursor-pointer rounded-lg border px-2"
 			>
 				{tag}

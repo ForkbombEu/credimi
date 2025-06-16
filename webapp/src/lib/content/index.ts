@@ -1,37 +1,39 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
-import { getLocale, baseLocale } from '@/i18n';
-import { z } from 'zod';
+import { baseLocale, getLocale } from '@/i18n/paraglide/runtime';
+import fm from 'front-matter';
+import { pageFrontMatterSchema, type ContentPage } from './types';
+import { marked } from 'marked';
 
-export const contentLoaders = import.meta.glob<string>('$lib/content/**/en.md', { as: 'raw' });
+export const contentLoaders = import.meta.glob<string>('./**/en.md', { as: 'raw' });
 
-export const pageFrontMatterSchema = z.object({
-	date: z.coerce.date(),
-	updatedOn: z.coerce.date(),
-	title: z.string(),
-	description: z.string().optional(),
-	tags: z.array(z.string())
-});
-export type PageFrontMatter = z.infer<typeof pageFrontMatterSchema>;
-export type PageWithBody = PageFrontMatter & {
-	body: string;
-	slug: string;
-};
-
-export async function getContentBySlug(slug: string): Promise<string | undefined> {
+export async function getContentBySlug(slug: string): Promise<ContentPage | undefined> {
 	const locale = getLocale();
 	const fallbackLocale = baseLocale;
+	const entries = Object.entries(contentLoaders).filter(([filePath]) => {
+		const parts = filePath.split('/');
+		return parts.length >= 2 && parts[parts.length - 2] === slug;
+	});
 
-	// use full path: this key must match key in contentLoaders
-	let key = `/src/lib/content/pages/${slug}/${locale}.md`;
-	let loader = contentLoaders[key as keyof typeof contentLoaders];
+	const key =
+		entries.find(([p]) => p.endsWith(`${locale}.md`))?.[0] ??
+		entries.find(([p]) => p.endsWith(`${fallbackLocale}.md`))?.[0];
 
-	if (!loader) {
-		key = `/src/lib/content/pages/${slug}/${fallbackLocale}.md`;
-		loader = contentLoaders[key as keyof typeof contentLoaders];
-	}
+	if (!key) return undefined;
 
+	const loader = contentLoaders[key as keyof typeof contentLoaders];
 	if (!loader) return undefined;
-	return await loader();
+
+	const raw = await loader();
+	const { attributes, body } = fm(raw);
+
+	const parsed = pageFrontMatterSchema.safeParse(attributes);
+	if (!parsed.success) return undefined;
+
+	return {
+		attributes: parsed.data,
+		body: body ? marked(body, { async: false }) : "",
+		slug
+	};
 }
