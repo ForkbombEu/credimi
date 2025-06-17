@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { URL_SEARCH_PARAM_NAME } from '$lib/content';
+	import { getTagTranslation } from '$lib/content/tags-i18n';
 	import type { ContentPage } from '$lib/content/types';
 	import T from '@/components/ui-custom/t.svelte';
 
@@ -48,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				href={`/tags?${URL_SEARCH_PARAM_NAME}=${encodeURIComponent(tag)}`}
 				class="text-primary border-primary !cursor-pointer rounded-lg border px-2"
 			>
-				{tag}
+				{getTagTranslation(tag)}
 			</a>
 		{/each}
 	</div>
