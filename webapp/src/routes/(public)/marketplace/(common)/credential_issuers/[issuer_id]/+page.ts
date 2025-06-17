@@ -7,7 +7,7 @@ import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
 //
 
-export const load = async ({ params }) => {
+export const load = async ({ params, fetch }) => {
 	const credentialIssuer = await new PocketbaseQueryAgent(
 		{
 			collection: 'credential_issuers',
@@ -23,7 +23,8 @@ export const load = async ({ params }) => {
 	const credentialsFilters = credentialsIds.map((id) => `id = '${id}'`).join(' || ');
 
 	const credentialsMarketplaceItems = await pb.collection('marketplace_items').getFullList(1, {
-		filter: credentialsFilters
+		filter: credentialsFilters,
+		fetch
 	});
 
 	return {
