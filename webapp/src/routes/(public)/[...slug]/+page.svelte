@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Breadcrumbs from './slug-breadcrumbs.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import { URL_SEARCH_PARAM_NAME } from '$lib/content';
 
 	const { data } = $props();
 	let { attributes, body } = data;
@@ -51,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<Button
 							variant="outline"
 							class="border-primary text-primary"
-							href={`tags?search=${tag}`}
+							href={`tags?${URL_SEARCH_PARAM_NAME}=${tag}`}
 						>
 							{tag}
 						</Button>

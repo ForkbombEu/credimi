@@ -9,27 +9,42 @@ import fm from 'front-matter';
 import { GENERATED, logCodegenResult } from '@/utils/codegen';
 import { pageFrontMatterSchema } from './types';
 
+const STRIP_PATH_MARKER = 'pages/';
+
 const tagMap: Record<string, string[]> = {};
 const base = import.meta.dirname;
 const files = await fg(path.join(base, '**/en.md'));
+
+function stripPagesAndFile(fullPath: string): string {
+	const idx = fullPath.indexOf(STRIP_PATH_MARKER);
+	if (idx < 0) return '';
+
+	const afterMarker = fullPath.slice(idx + STRIP_PATH_MARKER.length);
+
+	// drop the file
+	const parts = afterMarker.split('/');
+	if (parts.length <= 1) return '';
+	parts.pop();
+	return parts.join('/');
+}
 
 for (const fullPath of files) {
 	const raw = fs.readFileSync(fullPath, 'utf8');
 	const parsed = fm(raw);
 	const parsedResult = pageFrontMatterSchema.safeParse(parsed.attributes);
 	console.log(parsedResult);
-	
+
 	if (!parsedResult.success) {
 		console.error(`file ${fullPath} has failed schema validation`);
 		continue;
 	}
 	const tags = parsedResult.data.tags;
-	const parts = fullPath.split('/');
-	const loaderKey = parts[parts.length - 2];
+
+	const loaderKey = stripPagesAndFile(fullPath);
 
 	for (const tag of tags) {
 		tagMap[tag] ??= [];
-		tagMap[tag].push(loaderKey);
+		if (loaderKey) tagMap[tag].push(loaderKey);
 	}
 }
 

@@ -2,23 +2,26 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getContentBySlug } from '$lib/content';
+import { getContentBySlug, URL_SEARCH_PARAM_NAME } from '$lib/content';
+import type { Tag } from '$lib/content/tags-i18n';
 import tagsIndex from '$lib/content/tags-list.generated.json';
 import type { ContentPage } from '$lib/content/types';
+import { error } from '@sveltejs/kit';
 
 export const load = async ({ url }) => {
-  const paramTag = url.searchParams.get('search');
+  const paramTag = url.searchParams.get(URL_SEARCH_PARAM_NAME);
+  
   if (!paramTag || !(paramTag in tagsIndex)) {
-    return { pages: [] };
+    error(404);
   }
 
   const contentPages = (
     await Promise.all(
-      (tagsIndex[paramTag as keyof typeof tagsIndex] as string[]).map(slug =>
+      (tagsIndex[paramTag as Tag] as string[]).map(slug =>
         getContentBySlug(slug)
       )
     )
   ).filter(Boolean) as ContentPage[];
-
-  return { pages: contentPages, search: paramTag };
+  
+  return { pages: contentPages, tag: paramTag };
 };

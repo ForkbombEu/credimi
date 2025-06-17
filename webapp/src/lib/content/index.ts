@@ -1,30 +1,31 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
 import { baseLocale, getLocale } from '@/i18n/paraglide/runtime';
 import fm from 'front-matter';
 import { pageFrontMatterSchema, type ContentPage } from './types';
 import { marked } from 'marked';
 
-export const contentLoaders = import.meta.glob<string>('./**/en.md', { as: 'raw' });
+export const URL_SEARCH_PARAM_NAME = "tag";
+
+export const contentLoaders = import.meta.glob<string>('$lib/content/**/en.md', { as: 'raw' });
 
 export async function getContentBySlug(slug: string): Promise<ContentPage | undefined> {
 	const locale = getLocale();
 	const fallbackLocale = baseLocale;
 	const entries = Object.entries(contentLoaders).filter(([filePath]) => {
-		const parts = filePath.split('/');
-		return parts.length >= 2 && parts[parts.length - 2] === slug;
+		const splitted = filePath.split('/').slice(0, -1).join('/');
+		return splitted.endsWith(slug);
 	});
 
-	const key =
-		entries.find(([p]) => p.endsWith(`${locale}.md`))?.[0] ??
-		entries.find(([p]) => p.endsWith(`${fallbackLocale}.md`))?.[0];
+	const entry =
+		entries.find(([p]) => p.endsWith(`${locale}.md`)) ??
+		entries.find(([p]) => p.endsWith(`${fallbackLocale}.md`));
 
-	if (!key) return undefined;
+	if (!entry) return undefined;
 
-	const loader = contentLoaders[key as keyof typeof contentLoaders];
-	if (!loader) return undefined;
-
+	const [, loader] = entry;
 	const raw = await loader();
 	const { attributes, body } = fm(raw);
 
@@ -33,7 +34,7 @@ export async function getContentBySlug(slug: string): Promise<ContentPage | unde
 
 	return {
 		attributes: parsed.data,
-		body: body ? marked(body, { async: false }) : "",
+		body: body ? marked(body, { async: false }) : '',
 		slug
 	};
 }

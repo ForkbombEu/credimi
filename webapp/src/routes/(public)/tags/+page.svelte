@@ -11,13 +11,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageCard from './page-list-item.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
+	import { getTagTranslation } from '$lib/content/tags-i18n';
 
 	const { data } = $props();
-	const { pages, search } = data;
+	const pages = $derived(data.pages);
+	const tag = $derived(data.tag);
 </script>
 
 <PageTop>
-	<T tag="h1">{search}</T>
+	<T tag="h1">{getTagTranslation(tag)}</T>
 </PageTop>
 
 <PageContent class="bg-secondary grow">
