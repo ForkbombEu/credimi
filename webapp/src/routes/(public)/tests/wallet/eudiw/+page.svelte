@@ -12,11 +12,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Step from '../_partials/step.svelte';
 	import QrLink from '../_partials/qr-link.svelte';
 	import FeedbackForms from '../_partials/feedback-forms.svelte';
+	import WorkflowLogs from '../_partials/workflow-logs.svelte';
 
 	//
 
 	let { data } = $props();
 	const { qr, workflowId, namespace } = $derived(data);
+
+	//
+
+	const subscriptionSuffix = 'eudiw-logs';
+	const startSignal = 'start-eudiw-check-signal';
+	const stopSignal = 'stop-eudiw-check-signal';
 </script>
 
 <PageContent>
@@ -40,7 +47,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		{#if workflowId && namespace}
-			<Step n="2" text="Confirm the result">
+			<Step n="2" text="Follow the procedure on the wallet app">
+				<div class="ml-16">
+					<WorkflowLogs
+						{workflowId}
+						{namespace}
+						{subscriptionSuffix}
+						{startSignal}
+						{stopSignal}
+					/>
+				</div>
+			</Step>
+
+			<Step n="3" text="Confirm the result">
+				<FeedbackForms {workflowId} {namespace} />
+			</Step>
+		{/if}
+
+		{#if workflowId && namespace}
+			<Step n="3" text="Confirm the result">
 				<FeedbackForms {workflowId} {namespace} />
 			</Step>
 		{/if}
