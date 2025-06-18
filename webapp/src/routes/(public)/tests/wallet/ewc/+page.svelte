@@ -69,12 +69,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</T>
 		</Alert>
 	{/if}
-
-	{#if workflowId && namespace}
-		<Step n="2" text="Follow the procedure on the wallet app">
-			<!-- <div class="ml-16">
-				<WorkflowLogs {workflowId} {namespace} />
-			</div> -->
-		</Step>
-	{/if}
 </PageContent>
