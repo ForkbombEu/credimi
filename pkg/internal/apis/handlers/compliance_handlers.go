@@ -301,7 +301,7 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 				case "running":
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_RUNNING)
 				case "completed":
-					statusFilters = append(statusFilters, enums.WORKFLO_EXECUTION_STATUS_COMPLETED)
+					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_COMPLETED)
 				case "failed":
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_FAILED)
 				case "terminated":
