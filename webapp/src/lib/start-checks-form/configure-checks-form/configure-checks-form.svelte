@@ -23,6 +23,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CustomCheckConfigEditorComponent } from './custom-check-config-editor';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
+	import CopyButton from '@/components/ui-custom/copyButton.svelte';
+	import { pb } from '@/pocketbase/index.js';
+	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
 
 	//
 
@@ -121,6 +124,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if form.loadingError}
 			<SmallErrorDisplay error={form.loadingError} />
 		{/if}
+		<CopyButton
+			textToCopy={`curl '${PUBLIC_POCKETBASE_URL}api/compliance/${form.props.standardAndVersionPath}/save-variables-and-start' -X POST -H 'Authorization: ${pb.authStore.token}' --data-raw '${JSON.stringify(form.getFormData())}'`}
+		>
+			{m.Copy_as_curl()}
+		</CopyButton>
 		<Button disabled={!form.isValid} onclick={() => form.submit()}>{m.Start_checks()}</Button>
 	{/snippet}
 </Footer>
@@ -168,7 +176,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet SectionDivider(text: string)}
 	<div class="flex items-center gap-3 py-1">
 		<Separator class="!w-auto grow" />
-		<p class="text-muted-foreground text-sm">{text}</p>
+		<p class="text-sm text-muted-foreground">{text}</p>
 		<Separator class="!w-auto grow" />
 	</div>
 {/snippet}
