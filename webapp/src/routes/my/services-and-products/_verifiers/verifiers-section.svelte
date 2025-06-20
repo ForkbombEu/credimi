@@ -26,7 +26,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	collection="verifiers"
 	queryOptions={{
 		filter: `owner.id = '${organizationId}'`,
-		expand: ['use_cases_verifications_via_verifier']
+		expand: ['use_cases_verifications_via_verifier'],
+		sort: ['created', 'DESC']
 	}}
 	formFieldsOptions={{
 		exclude: ['owner', 'conformance_checks'],
