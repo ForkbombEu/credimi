@@ -221,7 +221,7 @@ onRecordUpdateRequest((e) => {
                 DashboardLink: utils.getAppUrl() + "/my",
                 AppLogo: utils.getAppLogoUrl(),
                 UserName: user.getString("name"),
-                AppName: utils.getAppName(),
+                AppName: utils.getAppName()
             });
 
             utils.sendEmail({
