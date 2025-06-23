@@ -8,13 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CollectionManager } from '@/collections-components';
 	import { m } from '@/i18n';
 	import { buttonVariants } from '@/components/ui/button';
-	import { Plus } from 'lucide-svelte';
+	import { Pencil, Plus } from 'lucide-svelte';
 	import CredentialIssuerForm from './credential-issuer-form.svelte';
 	import { Card } from '@/components/ui/card';
 	import T from '@/components/ui-custom/t.svelte';
 	import A from '@/components/ui-custom/a.svelte';
 
-	import { Badge } from '@/components/ui/badge';
 	import { Separator } from '@/components/ui/separator';
 	import * as Dialog from '@/components/ui/dialog';
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
@@ -22,7 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Collections } from '@/pocketbase/types';
 	import { RecordDelete, RecordEdit } from '@/collections-components/manager';
 	import Button from '@/components/ui-custom/button.svelte';
-	import EditCredentialDialog from './edit-credential-dialog.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import PublishedStatus from '$lib/layout/published-status.svelte';
 
@@ -175,9 +173,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 								<PublishedStatus item={credential} />
 							</div>
-
 							<div class="flex items-center gap-1">
-								<EditCredentialDialog {credential} onSuccess={onEditSuccess} />
+								<RecordEdit
+									record={credential}
+									onSuccess={() => {
+										onEditSuccess();
+									}}
+									collection="credentials"
+									fieldsOptions={{
+										exclude: [
+											'format',
+											'issuer_name',
+											'type',
+											'name',
+											'locale',
+											'logo',
+											'credential_issuer',
+											'json',
+											'key',
+											'owner',
+											'conformant'
+										],
+										order: ['deeplink'],
+										labels: {
+											published: m.Publish_to_marketplace()
+										}
+									}}
+								>
+									{#snippet button({ triggerAttributes })}
+										<button
+											class="inline translate-y-0.5 rounded-sm p-1 hover:cursor-pointer hover:bg-gray-100"
+											{...triggerAttributes}
+										>
+											<Pencil size={14} />
+										</button>
+									{/snippet}
+								</RecordEdit>
 							</div>
 						</li>
 					{/each}

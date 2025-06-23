@@ -23,10 +23,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type FieldsOptions
 	} from './collectionFormTypes';
 	import { getCollectionFields } from '@/pocketbase/zod-schema';
+	import type { SuperForm } from 'sveltekit-superforms';
 
 	/* Props and unpacking */
 
-	const props: CollectionFormProps<C> = $props();
+	let {
+		form = $bindable<SuperForm<CollectionFormData[C]>>(),
+		...props
+	}: CollectionFormProps<C> & {
+		form?: SuperForm<CollectionFormData[C]>;
+	} = $props();
 
 	const {
 		collection,
@@ -55,7 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const formMode = $derived<CollectionFormMode>(props.recordId ? 'edit' : 'create');
 
-	const form = setupCollectionForm(props);
+	form = setupCollectionForm(props);
 	// Note: form was previously derived, but this was causing issues with the form context
 	// On error, the form would not be updated correctly
 
