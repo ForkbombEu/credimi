@@ -11,6 +11,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui/button/button.svelte';
 	import { Pencil } from 'lucide-svelte';
 	import { m } from '@/i18n';
+	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
+	import MarkdownField from '@/forms/fields/markdownField.svelte';
+	import DeeplinkField from './deeplink-field.svelte';
 
 	type Props = {
 		credential: CredentialsRecord;
@@ -49,7 +52,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						'name',
 						'locale',
 						'logo',
-						'description',
 						'credential_issuer',
 						'json',
 						'key',
@@ -58,6 +60,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					order: ['deeplink'],
 					labels: {
 						published: m.Publish_to_marketplace()
+					},
+					snippets: {
+						description
 					}
 				}}
 				onSuccess={() => {
@@ -68,3 +73,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</Dialog.Content>
 </Dialog.Root>
+
+{#snippet description({ form }: FieldSnippetOptions<'credentials'>)}
+	<MarkdownField {form} name="description" />
+{/snippet}
+
+{#snippet deeplink({ form }: FieldSnippetOptions<'credentials'>)}
+	<DeeplinkField {form} name="deeplink" />
+{/snippet}
