@@ -178,7 +178,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</div>
 
 							<div class="flex items-center gap-1">
-								<EditCredentialDialog {credential} onSuccess={onEditSuccess} />
+								<EditCredentialDialog
+									{credential}
+									credentialIssuer={record}
+									onSuccess={onEditSuccess}
+								/>
 							</div>
 						</li>
 					{/each}
