@@ -6,78 +6,69 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { CollectionForm } from '@/collections-components';
-	import * as Dialog from '@/components/ui/dialog';
-	import type { CredentialsRecord } from '@/pocketbase/types';
-	import Button from '@/components/ui/button/button.svelte';
+	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
 	import { Pencil } from 'lucide-svelte';
 	import { m } from '@/i18n';
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import DeeplinkField from './deeplink-field.svelte';
+	import Sheet from '@/components/ui-custom/sheet.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 
 	type Props = {
 		credential: CredentialsRecord;
+		credentialIssuer: CredentialIssuersResponse;
 		onSuccess: () => void;
 	};
 
-	let { credential, onSuccess }: Props = $props();
-
-	let open = $state(false);
+	let { credential, credentialIssuer, onSuccess }: Props = $props();
 </script>
 
-<Dialog.Root bind:open>
-	<Dialog.Trigger>
-		{#snippet child({ props })}
-			<Button {...props} variant="outline" size="sm" class="h-fit py-1 text-xs">
-				<Pencil size={10} />
-			</Button>
-		{/snippet}
-	</Dialog.Trigger>
+<Sheet>
+	{#snippet trigger({ sheetTriggerAttributes, openSheet })}
+		<IconButton variant="outline" icon={Pencil} {...sheetTriggerAttributes} />
+	{/snippet}
 
-	<Dialog.Content class=" sm:max-w-[425px]">
-		<Dialog.Header>
-			<Dialog.Title>Credential {credential.key}</Dialog.Title>
-		</Dialog.Header>
-
-		<div class="pt-8">
-			<CollectionForm
-				collection="credentials"
-				recordId={credential.id}
-				initialData={credential}
-				fieldsOptions={{
-					exclude: [
-						'format',
-						'issuer_name',
-						'type',
-						'name',
-						'locale',
-						'logo',
-						'credential_issuer',
-						'json',
-						'key',
-						'owner'
-					],
-					order: ['deeplink'],
-					labels: {
-						published: m.Publish_to_marketplace()
-					},
-					snippets: {
-						description
-					}
-				}}
-				onSuccess={() => {
-					open = false;
-					onSuccess();
-				}}
-			/>
-		</div>
-	</Dialog.Content>
-</Dialog.Root>
+	{#snippet content({ closeSheet })}
+		<CollectionForm
+			collection="credentials"
+			recordId={credential.id}
+			initialData={credential}
+			fieldsOptions={{
+				exclude: [
+					'format',
+					'issuer_name',
+					'type',
+					'name',
+					'locale',
+					'logo',
+					'credential_issuer',
+					'json',
+					'key',
+					'owner',
+					'conformant'
+				],
+				order: ['deeplink'],
+				labels: {
+					published: m.Publish_to_marketplace()
+				},
+				snippets: {
+					description,
+					deeplink
+				}
+			}}
+			onSuccess={() => {
+				closeSheet();
+				onSuccess();
+			}}
+		/>
+	{/snippet}
+</Sheet>
 
 {#snippet description({ form }: FieldSnippetOptions<'credentials'>)}
 	<MarkdownField {form} name="description" />
 {/snippet}
 
 {#snippet deeplink({ form }: FieldSnippetOptions<'credentials'>)}
-	<DeeplinkField {form} name="deeplink" />
+	<DeeplinkField {form} {credential} {credentialIssuer} name="deeplink" />
 {/snippet}
