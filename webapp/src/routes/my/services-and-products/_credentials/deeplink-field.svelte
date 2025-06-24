@@ -15,6 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { QrCode } from '@/qr';
 	import { String } from 'effect';
 	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
+	import { fromStore } from 'svelte/store';
+	import { createIntentUrl } from '$lib/credentials';
 	//
 
 	interface Props {
@@ -26,54 +28,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	const { form, name, options = {}, credential, credentialIssuer }: Props = $props();
-
 	const { form: formData } = $derived(form);
-	const valueProxy = $derived(stringProxy(formData, name, { empty: 'undefined' }));
-	let qrLink = $state('');
-	let deepLink = $state('');
 
-	$effect(() => {
-		if (formData) {
-			const unsubscribe = formData.subscribe((d) => {
-				if (
-					'deeplink' in d &&
-					typeof d.deeplink === 'string' &&
-					String.isNonEmpty(d.deeplink)
-				) {
-					deepLink = qrLink = d.deeplink;
-				} else {
-					qrLink = createIntentUrl(credentialIssuer?.url, credential.type!);
-					deepLink = '';
-				}
-			});
-			return unsubscribe;
+	const fieldProxy = $derived(stringProxy(formData, name, { empty: 'undefined' }));
+	const fieldState = $derived(fromStore(fieldProxy));
+
+	const deepLink = $derived.by(() => {
+		if (String.isNonEmpty(fieldState.current)) {
+			return fieldState.current;
+		} else {
+			if (!credential.type) throw new Error('Credential type is required');
+			return createIntentUrl(credentialIssuer.url, credential.type);
 		}
 	});
-
-	//
-
-	function createIntentUrl(issuer: string | undefined, type: string): string {
-		const data = {
-			credential_configuration_ids: [type],
-			credential_issuer: issuer
-		};
-		const credentialOffer = encodeURIComponent(JSON.stringify(data));
-		return `openid-credential-offer://?credential_offer=${credentialOffer}`;
-	}
 </script>
 
 <Form.Field {form} {name}>
 	<FieldWrapper field={name} {options}>
 		{#snippet children()}
 			<div class="flex items-stretch">
-				<QrCode src={qrLink} cellSize={10} class={['w-60 rounded-md']} />
-				{#if qrLink !== deepLink}
-					<div class="w-60 break-all pt-4 text-xs">
-						<a href={qrLink} target="_self">{qrLink}</a>
-					</div>
-				{/if}
+				<QrCode src={deepLink} cellSize={10} class={['w-60 rounded-md']} />
+				<div class="w-60 break-all pt-4 text-xs">
+					<a href={deepLink} target="_self">{deepLink}</a>
+				</div>
 			</div>
-			<Input {...options as GenericRecord} bind:value={$valueProxy} />
+			<Input {...options as GenericRecord} bind:value={fieldState.current} />
 		{/snippet}
 	</FieldWrapper>
 </Form.Field>
