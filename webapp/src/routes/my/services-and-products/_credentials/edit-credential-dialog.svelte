@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import DeeplinkField from './deeplink-field.svelte';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 
 	type Props = {
 		credential: CredentialsRecord;
@@ -24,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { credential, credentialIssuer, onSuccess }: Props = $props();
 </script>
 
-<Sheet>
+<Sheet title="{m.Edit_credential()}: {credential.name}">
 	{#snippet trigger({ sheetTriggerAttributes, openSheet })}
 		<IconButton variant="outline" icon={Pencil} {...sheetTriggerAttributes} />
 	{/snippet}

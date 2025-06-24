@@ -37,8 +37,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (String.isNonEmpty(fieldState.current)) {
 			return fieldState.current;
 		} else {
-			if (!credential.type) throw new Error('Credential type is required');
-			return createIntentUrl(credentialIssuer.url, credential.type);
+			if (!credential.type)
+				console.warn('Credential type is required, an empty string will be used');
+			return createIntentUrl(credentialIssuer.url, credential.type ?? '');
 		}
 	});
 </script>
@@ -46,13 +47,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Form.Field {form} {name}>
 	<FieldWrapper field={name} {options}>
 		{#snippet children()}
-			<div class="flex items-stretch">
-				<QrCode src={deepLink} cellSize={10} class={['w-60 rounded-md']} />
-				<div class="w-60 break-all pt-4 text-xs">
-					<a href={deepLink} target="_self">{deepLink}</a>
-				</div>
-			</div>
 			<Input {...options as GenericRecord} bind:value={fieldState.current} />
+			<div class="flex items-stretch gap-4 pt-3">
+				<QrCode src={deepLink} cellSize={10} class="size-60 rounded-md border" />
+				{#if String.isEmpty(fieldState.current)}
+					<div class="max-w-60 break-all text-xs">
+						<a href={deepLink} target="_self">{deepLink}</a>
+					</div>
+				{/if}
+			</div>
 		{/snippet}
 	</FieldWrapper>
 </Form.Field>

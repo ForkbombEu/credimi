@@ -492,5 +492,6 @@
 	"use_case_verification_field_description_description": "use_case_verification_field_description_description",
 	"use_case_verification_field_description_deeplink": "use_case_verification_field_description_deeplink",
 	"use_case_verification_field_description_credentials": "use_case_verification_field_description_credentials",
-	"use_case_verification_field_description_published": "use_case_verification_field_description_published"
+	"use_case_verification_field_description_published": "use_case_verification_field_description_published",
+	"Edit_credential": "Edit credential"
 }
