@@ -21,11 +21,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { workflowId, namespace }: Props = $props();
 
+	let logContainer: HTMLDivElement | undefined = $state();
+
+	$effect(() => {
+		if (logContainer && logs.length > 0) {
+			queueMicrotask(() => {
+				logContainer!.scrollTop = logContainer!.scrollHeight;
+			});
+		}
+	});
+
+
 	onMount(() => {
 		pb.realtime
 			.subscribe(`${workflowId}openidnet-logs`, (data: WorkflowLogEntry[]) => {
 				console.log(data);
-				logs = data;
+				logs = data.reverse();
 			})
 			.catch((e) => {
 				console.error(e);
@@ -78,7 +89,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <svelte:window on:beforeunload={closeConnections} />
 
-<div class="flex flex-col gap-2 py-2">
+<div bind:this={logContainer} class="flex flex-col gap-2 py-2 max-h-72 overflow-y-auto">
 	{#if logs.length === 0}
 		<Alert variant="info" icon={Info}>
 			<p>Waiting for logs...</p>
