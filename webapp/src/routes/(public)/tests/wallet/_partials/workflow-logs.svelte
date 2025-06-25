@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		createWorkflowLogHandlers({
 			...props,
 			onUpdate: (data: WorkflowLogEntry[]) => {
-				logs = data;
+				logs = data.reverse();
 			}
 		})
 	);
