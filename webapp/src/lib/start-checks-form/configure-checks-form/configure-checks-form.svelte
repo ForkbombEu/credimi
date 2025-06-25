@@ -33,6 +33,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const form = new ConfigureChecksForm(props);
 
 	const SHARED_FIELDS_ID = 'shared-fields';
+
+	//
+
+	function getCurlCommand() {
+		const url = new URL(
+			`api/compliance/${form.props.standardAndVersionPath}/save-variables-and-start`,
+			PUBLIC_POCKETBASE_URL
+		);
+		return `curl '${url.toString()}' -X POST -H 'Authorization: ${pb.authStore.token}' --data-raw '${JSON.stringify(form.getFormData())}'`;
+	}
 </script>
 
 <div class="space-y-4">
@@ -124,9 +134,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if form.loadingError}
 			<SmallErrorDisplay error={form.loadingError} />
 		{/if}
-		<CopyButton
-			textToCopy={`curl '${PUBLIC_POCKETBASE_URL}api/compliance/${form.props.standardAndVersionPath}/save-variables-and-start' -X POST -H 'Authorization: ${pb.authStore.token}' --data-raw '${JSON.stringify(form.getFormData())}'`}
-		>
+		<CopyButton textToCopy={getCurlCommand()}>
 			{m.Copy_as_curl()}
 		</CopyButton>
 		<Button disabled={!form.isValid} onclick={() => form.submit()}>{m.Start_checks()}</Button>
@@ -176,7 +184,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet SectionDivider(text: string)}
 	<div class="flex items-center gap-3 py-1">
 		<Separator class="!w-auto grow" />
-		<p class="text-sm text-muted-foreground">{text}</p>
+		<p class="text-muted-foreground text-sm">{text}</p>
 		<Separator class="!w-auto grow" />
 	</div>
 {/snippet}

@@ -464,5 +464,6 @@
 	"count_valid": "{count} valid",
 	"count_invalid": "{count} invalid",
 	"Scroll": "Scroll",
-	"Start_checks": "Start checks"
+	"Start_checks": "Start checks",
+	"Copy_as_curl": "Copy as curl"
 }
