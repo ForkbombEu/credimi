@@ -5,54 +5,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { onMount, onDestroy } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
-	import { createWorkflowLogHandlers, type WorkflowLogEntry } from './logic.js';
+	import {
+		createWorkflowLogHandlers,
+		type WorkflowLogEntry,
+		type WorkflowLogsProps
+	} from './workflow-logs.js';
 	import { Info } from 'lucide-svelte';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
 	import * as Accordion from '@/components/ui/accordion/index.js';
 	import { m } from '@/i18n/index.js';
 
-	type Props = {
-		workflowId: string;
-		namespace: string;
-		subscriptionSuffix: string;
-		startSignal: string;
-		stopSignal: string;
-		workflowSignalSuffix?: string;
-	};
-	const {
-		workflowId,
-		namespace,
-		subscriptionSuffix,
-		startSignal,
-		stopSignal,
-		workflowSignalSuffix
-	}: Props = $props();
+	//
+
+	const props: WorkflowLogsProps = $props();
 
 	let logs: WorkflowLogEntry[] = $state([]);
 
-	const { onMount: mountLogs, onDestroy: destroyLogs } = createWorkflowLogHandlers({
-		workflowId,
-		namespace,
-		subscriptionSuffix,
-		workflowSignalSuffix,
-		startSignal,
-		stopSignal,
-		onUpdate: (data: WorkflowLogEntry[]) => {
-			logs = data;
-		}
+	const { startLogs, stopLogs } = $derived(
+		createWorkflowLogHandlers({
+			...props,
+			onUpdate: (data: WorkflowLogEntry[]) => {
+				logs = data;
+			}
+		})
+	);
+
+	$effect(() => {
+		startLogs();
+		return () => stopLogs();
 	});
 
-	onMount(mountLogs);
-	onDestroy(destroyLogs);
 	beforeNavigate(() => {
-		destroyLogs();
+		stopLogs();
 	});
 </script>
 
-<svelte:window on:beforeunload|preventDefault={destroyLogs} />
+<svelte:window on:beforeunload|preventDefault={stopLogs} />
 
 <div class="py-2">
 	{#if logs.length === 0}
@@ -83,9 +73,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{/if}
 					</Accordion.Trigger>
 					<Accordion.Content>
-						<pre class="bg-secondary overflow-x-scroll rounded-md p-2 text-xs">
-{JSON.stringify(log, null, 2)}
-            </pre>
+						<pre
+							class="bg-secondary overflow-x-scroll rounded-md p-2 text-xs">{JSON.stringify(
+								log,
+								null,
+								2
+							)}</pre>
 					</Accordion.Content>
 				</Accordion.Item>
 			</Accordion.Root>
