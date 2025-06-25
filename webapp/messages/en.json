@@ -480,6 +480,7 @@
 	"count_invalid": "{count} invalid",
 	"Scroll": "Scroll",
 	"Start_checks": "Start checks",
+	"Copy_as_curl": "Copy as curl",
 	"verifier_field_description_name": "verifier_field_description_name",
 	"verifier_field_description_description": "verifier_field_description_description",
 	"verifier_field_description_logo": "verifier_field_description_logo",
