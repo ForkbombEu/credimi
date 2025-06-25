@@ -24,9 +24,12 @@ export const load = async ({ params, fetch }) => {
 				{ fetch }
 			);
 
+		const credentialIssuer = credential.expand?.credential_issuer;
+		if (!credentialIssuer) throw new Error('Credential issuer not found');
+
 		return {
 			credential,
-			credentialIssuer: credential.expand?.credential_issuer,
+			credentialIssuer,
 			credentialIssuerMarketplaceEntry
 		};
 	} catch {

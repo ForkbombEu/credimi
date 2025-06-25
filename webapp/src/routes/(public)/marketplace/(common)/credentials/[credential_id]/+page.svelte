@@ -41,11 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		credential.json as CredentialConfiguration | undefined
 	);
 
-	const qrLink = $derived(
-		String.isNonEmpty(credential.deeplink)
-			? credential.deeplink
-			: createIntentUrl(credentialIssuer?.url, credential.type)
-	);
+	const qrLink = $derived(createIntentUrl(credential, credentialIssuer.url));
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>

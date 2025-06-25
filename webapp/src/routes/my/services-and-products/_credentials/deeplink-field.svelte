@@ -17,6 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
 	import { fromStore } from 'svelte/store';
 	import { createIntentUrl } from '$lib/credentials';
+
 	//
 
 	interface Props {
@@ -37,9 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (String.isNonEmpty(fieldState.current)) {
 			return fieldState.current;
 		} else {
-			if (!credential.type)
-				console.warn('Credential type is required, an empty string will be used');
-			return createIntentUrl(credentialIssuer.url, credential.type ?? '');
+			return createIntentUrl(credential, credentialIssuer.url);
 		}
 	});
 </script>

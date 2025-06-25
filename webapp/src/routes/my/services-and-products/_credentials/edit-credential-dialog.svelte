@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import DeeplinkField from './deeplink-field.svelte';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import T from '@/components/ui-custom/t.svelte';
+	import { toast } from 'svelte-sonner';
 
 	type Props = {
 		credential: CredentialsRecord;
@@ -59,6 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}
 			}}
 			onSuccess={() => {
+				toast.success(m.Credential_updated_successfully());
 				closeSheet();
 				onSuccess();
 			}}
