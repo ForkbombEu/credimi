@@ -65,7 +65,7 @@ type WorkflowStarterParams struct {
 	Protocol  string
 }
 
-type WorkflowStarter func(params WorkflowStarterParams) error
+type WorkflowStarter func(params WorkflowStarterParams) (workflowengine.WorkflowResult, error)
 
 var workflowRegistry = map[Author]WorkflowStarter{
 	"ewc":                      startEWCWorkflow,
@@ -109,6 +109,8 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			)
 		}
 
+		var returns []workflowengine.WorkflowResult
+
 		for id, customCheck := range req.CustomChecks {
 			if customCheck.Yaml == "" {
 				return apierror.New(
@@ -142,13 +144,14 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"standard": protocol,
 				"author":   id,
 			}
-			if err := processCustomChecks(
+			results, err := processCustomChecks(
 				customCheck.Yaml,
 				appURL,
 				namespace,
 				memo,
 				string(formJSON),
-			); err != nil {
+			)
+			if err != nil {
 				return apierror.New(
 					http.StatusBadRequest,
 					"custom-check",
@@ -156,6 +159,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					err.Error(),
 				)
 			}
+			returns = append(returns, results)
 		}
 
 		for testName, config := range req.ConfigsWithJSON {
@@ -174,7 +178,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"author":   author,
 			}
 
-			if err := processJSONChecks(
+			results, err := processJSONChecks(
 				config,
 				email,
 				appURL,
@@ -183,7 +187,8 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				author,
 				testName,
 				protocol,
-			); err != nil {
+			)
+			if err != nil {
 				return apierror.New(
 					http.StatusBadRequest,
 					"json",
@@ -191,6 +196,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					err.Error(),
 				)
 			}
+			returns = append(returns, results)
 		}
 
 		for testName, testData := range req.ConfigsWithFields {
@@ -208,7 +214,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"standard": protocol,
 				"author":   author,
 			}
-			if err := processVariablesTest(
+			results, err := processVariablesTest(
 				e.App,
 				testName,
 				testData,
@@ -219,7 +225,8 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				memo,
 				author,
 				protocol,
-			); err != nil {
+			)
+			if err != nil {
 				return apierror.New(
 					http.StatusBadRequest,
 					"variables",
@@ -227,14 +234,18 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					err.Error(),
 				)
 			}
+			returns = append(returns, results)
 
 		}
 
-		return e.JSON(http.StatusOK, map[string]bool{"started": true})
+		return e.JSON(http.StatusOK, map[string]any{
+			"message": "Tests started successfully",
+			"results": returns,
+		})
 	}
 }
 
-func startOpenIDNetWorkflow(i WorkflowStarterParams) error {
+func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
 	jsonData := i.JsonData
 	email := i.Email
 	appURL := i.AppURL
@@ -243,7 +254,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) error {
 
 	var parsedData openID4VPTestInputFile
 	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
-		return apierror.New(
+		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"json",
 			"failed to parse JSON input",
@@ -254,7 +265,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) error {
 		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
 	)
 	if err != nil {
-		return err
+		return workflowengine.WorkflowResult{}, err
 	}
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
@@ -270,18 +281,19 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) error {
 		},
 	}
 	var workflow workflows.OpenIDNetWorkflow
-	if _, err := workflow.Start(input); err != nil {
-		return apierror.New(
+	results, err := workflow.Start(input)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"workflow",
 			"failed to start workflow",
 			err.Error(),
 		)
 	}
-	return nil
+	return results, nil
 }
 
-func startEWCWorkflow(i WorkflowStarterParams) error {
+func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
 	jsonData := i.JsonData
 	email := i.Email
 	appURL := i.AppURL
@@ -297,11 +309,11 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 		os.Getenv("ROOT_DIR") + "/" + workflows.EWCTemplateFolderPath + filename,
 	)
 	if err != nil {
-		return err
+		return workflowengine.WorkflowResult{}, err
 	}
 	var parsedData EWCInput
 	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
-		return apierror.New(
+		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"json",
 			"failed to parse JSON input",
@@ -315,7 +327,7 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 	case "openid4vci_wallet":
 		checkEndpoint = "https://ewc.api.forkbomb.eu/issueStatus"
 	default:
-		return apierror.New(
+		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"protocol",
 			fmt.Sprintf("unsupported protocol %s for EWC suite", protocol),
@@ -336,18 +348,19 @@ func startEWCWorkflow(i WorkflowStarterParams) error {
 		},
 	}
 	var workflow workflows.EWCWorkflow
-	if _, err := workflow.Start(input); err != nil {
-		return apierror.New(
+	results, err := workflow.Start(input)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"workflow",
 			"failed to start workflow",
 			err.Error(),
 		)
 	}
-	return nil
+	return results, nil
 }
 
-func startEudiwWorkflow(i WorkflowStarterParams) error {
+func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
 	jsonData := i.JsonData
 	email := i.Email
 	appURL := i.AppURL
@@ -362,11 +375,11 @@ func startEudiwWorkflow(i WorkflowStarterParams) error {
 		os.Getenv("ROOT_DIR") + "/" + workflows.EudiwTemplateFolderPath + filename,
 	)
 	if err != nil {
-		return err
+		return workflowengine.WorkflowResult{}, err
 	}
 	var parsedData EudiwInput
 	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
-		return apierror.New(
+		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"json",
 			"failed to parse JSON input",
@@ -387,15 +400,16 @@ func startEudiwWorkflow(i WorkflowStarterParams) error {
 		},
 	}
 	var workflow workflows.EudiwWorkflow
-	if _, err := workflow.Start(input); err != nil {
-		return apierror.New(
+	results, err := workflow.Start(input)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"workflow",
 			"failed to start workflow",
 			err.Error(),
 		)
 	}
-	return nil
+	return results, nil
 }
 
 func processJSONChecks(
@@ -407,7 +421,7 @@ func processJSONChecks(
 	author Author,
 	testName string,
 	protocol string,
-) error {
+) (workflowengine.WorkflowResult, error) {
 	input := WorkflowStarterParams{
 		JsonData:  testData,
 		Email:     email,
@@ -421,7 +435,7 @@ func processJSONChecks(
 	if starterFunc, ok := workflowRegistry[author]; ok {
 		return starterFunc(input)
 	}
-	return apierror.New(
+	return workflowengine.WorkflowResult{}, apierror.New(
 		http.StatusBadRequest,
 		"author",
 		"unsupported author for test "+testName,
@@ -440,11 +454,11 @@ func processVariablesTest(
 	memo map[string]interface{},
 	author Author,
 	protocol string,
-) error {
+) (workflowengine.WorkflowResult, error) {
 	values := make(map[string]interface{})
 	configValues, err := app.FindCollectionByNameOrId("config_values")
 	if err != nil {
-		return err
+		return workflowengine.WorkflowResult{}, err
 	}
 
 	for _, variable := range variables {
@@ -455,7 +469,7 @@ func processVariablesTest(
 		record.Set("template_path", testName)
 		record.Set("owner", namespace)
 		if err := app.Save(record); err != nil {
-			return apierror.New(
+			return workflowengine.WorkflowResult{}, apierror.New(
 				http.StatusBadRequest,
 				"save",
 				"failed to save variable for test "+testName,
@@ -468,7 +482,7 @@ func processVariablesTest(
 	templatePath := dirPath + testName
 	templateData, err := os.ReadFile(templatePath)
 	if err != nil {
-		return apierror.New(
+		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"template",
 			"failed to open template for test "+testName,
@@ -478,7 +492,7 @@ func processVariablesTest(
 
 	renderedTemplate, err := engine.RenderTemplate(bytes.NewReader(templateData), values)
 	if err != nil {
-		return apierror.New(
+		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"template",
 			"failed to render template for test "+testName,
@@ -500,7 +514,7 @@ func processVariablesTest(
 	if starterFunc, ok := workflowRegistry[author]; ok {
 		return starterFunc(input)
 	}
-	return apierror.New(
+	return workflowengine.WorkflowResult{}, apierror.New(
 		http.StatusBadRequest,
 		"author",
 		"unsupported author for test "+testName,
@@ -514,10 +528,10 @@ func processCustomChecks(
 	namespace interface{},
 	memo map[string]interface{},
 	formJSON string,
-) error {
+) (workflowengine.WorkflowResult, error) {
 	yaml := testData
 	if yaml == "" {
-		return apierror.New(
+		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"yaml",
 			"yaml is empty",
@@ -534,15 +548,15 @@ func processCustomChecks(
 			"namespace": namespace,
 			"memo":      memo,
 			"app_url":   appURL,
-			"env": formJSON,
+			"env":       formJSON,
 		},
 	}
 
 	var w workflows.CustomCheckWorkflow
 
-	_, errStart := w.Start(input)
+	results, errStart := w.Start(input)
 	if errStart != nil {
-		return apierror.New(
+		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"workflow",
 			"failed to start check",
@@ -550,7 +564,7 @@ func processCustomChecks(
 		)
 	}
 
-	return nil
+	return results, nil
 }
 
 func readTemplateFile(path string) (string, error) {
