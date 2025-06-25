@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import QrLink from '../_partials/qr-link.svelte';
 	import FeedbackForms from '../_partials/feedback-forms.svelte';
 	import WorkflowLogs from '../_partials/workflow-logs.svelte';
+	import type { WorkflowLogsProps } from '../_partials/workflow-logs';
 
 	//
 
@@ -21,9 +22,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const subscriptionSuffix = 'eudiw-logs';
-	const startSignal = 'start-eudiw-check-signal';
-	const stopSignal = 'stop-eudiw-check-signal';
+	const logsProps: WorkflowLogsProps = $derived.by(() => {
+		if (!workflowId || !namespace) throw new Error('Workflow ID and namespace are required');
+		return {
+			workflowId,
+			namespace,
+			workflowType: 'eudiw-logs',
+			startSignal: 'start-eudiw-check-signal',
+			stopSignal: 'stop-eudiw-check-signal'
+		};
+	});
 </script>
 
 <PageContent>
@@ -49,13 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if workflowId && namespace}
 			<Step n="2" text="Follow the procedure on the wallet app">
 				<div class="ml-16">
-					<WorkflowLogs
-						{workflowId}
-						{namespace}
-						{subscriptionSuffix}
-						{startSignal}
-						{stopSignal}
-					/>
+					<WorkflowLogs {...logsProps} />
 				</div>
 			</Step>
 
