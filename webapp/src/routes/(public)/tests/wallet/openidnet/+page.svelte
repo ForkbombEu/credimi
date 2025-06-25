@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const logsProps: WorkflowLogsProps = $derived.by(() => {
 		if (!workflowId || !namespace) throw new Error('Workflow ID and namespace are required');
 		return {
-			workflowId: workflowId + '-log',
+			workflowId: workflowId + '-log', // Important: the workflow ID must end with '-log' for openidnet
 			namespace,
 			workflowType: 'openidnet-logs',
 			startSignal: 'start-openidnet-check-log-update',
