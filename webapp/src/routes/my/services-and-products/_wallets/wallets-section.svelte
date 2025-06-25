@@ -34,7 +34,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <CollectionManager
 	collection="wallets"
 	queryOptions={{
-		filter: `owner.id = '${organizationId}'`
+		filter: `owner.id = '${organizationId}'`,
+		sort: ['created', 'DESC']
 	}}
 >
 	{#snippet top({ Header })}
