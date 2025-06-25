@@ -110,6 +110,7 @@ func (a *StepCIWorkflowActivity) Execute(
 	var result workflowengine.ActivityResult
 
 	yamlContent, ok := input.Payload["yaml"].(string)
+
 	if !ok || yamlContent == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewActivityError(
@@ -138,6 +139,11 @@ func (a *StepCIWorkflowActivity) Execute(
 	binName := "stepci-captured-runner"
 	binPath := fmt.Sprintf("%s/%s", binDir, binName)
 	args := []string{yamlContent, "-s", string(jsonBytes)}
+
+	yamlEnv, _ := input.Payload["env"].(string)
+	if yamlEnv != "" {
+		args = append(args, "--env", yamlEnv)
+	}
 
 	cmd := exec.CommandContext(ctx, binPath, args...)
 

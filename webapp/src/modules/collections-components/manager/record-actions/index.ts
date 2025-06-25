@@ -10,5 +10,4 @@ import RecordSelect from './recordSelect.svelte';
 
 export { RecordCreate, RecordEdit, RecordDelete, RecordShare, RecordSelect };
 
-export type RecordAction = 'delete' | 'share' | 'edit' | 'select';
-export type GlobalRecordAction = RecordAction | 'create';
+export type { RecordAction, GlobalRecordAction, HideOption } from './types';
