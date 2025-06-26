@@ -144,7 +144,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}}
 	/>
 	{#if !walletId}
-		<!-- TODO - Fix -->
+		<!-- @ts-ignore -->
+		<!-- TODO - Typecheck -->
 		<Table
 			form={form as any}
 			name="conformance_checks"

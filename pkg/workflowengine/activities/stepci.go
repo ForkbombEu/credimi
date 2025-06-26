@@ -118,15 +118,6 @@ func (a *StepCIWorkflowActivity) Execute(
 			fmt.Sprintf("%s: 'yaml", errCode.Description),
 		)
 	}
-	yamlEnv, ok := input.Payload["env"].(string)
-	if !ok {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'env'", errCode.Description),
-		)
-	}
-	
 
 	filtered := make(map[string]string)
 	for k, v := range input.Config {
@@ -144,11 +135,15 @@ func (a *StepCIWorkflowActivity) Execute(
 		)
 	}
 
-
 	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	binName := "stepci-captured-runner"
 	binPath := fmt.Sprintf("%s/%s", binDir, binName)
-	args := []string{yamlContent, "-s", string(jsonBytes), "--env", yamlEnv}
+	args := []string{yamlContent, "-s", string(jsonBytes)}
+
+	yamlEnv, _ := input.Payload["env"].(string)
+	if yamlEnv != "" {
+		args = append(args, "--env", yamlEnv)
+	}
 
 	cmd := exec.CommandContext(ctx, binPath, args...)
 

@@ -19,6 +19,11 @@ export default defineConfig({
 			strategy: ['url', 'cookie', 'baseLocale']
 		})
 	],
+	esbuild: {
+		supported: {
+			'top-level-await': true
+		}
+	},
 	optimizeDeps: {
 		include: ['date-fns', 'date-fns-tz'],
 		exclude: [

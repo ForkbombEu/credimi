@@ -5,7 +5,6 @@
 import type { CustomChecksResponse } from '@/pocketbase/types/index.generated.js';
 import { getStandardsWithTestSuites } from '$lib/standards';
 import { error } from '@sveltejs/kit';
-import { Either } from 'effect';
 import { pb } from '@/pocketbase/index.js';
 import { checkAuthFlagAndUser } from '$lib/utils/index.js';
 import { PocketbaseQueryAgent } from '@/pocketbase/query/agent.js';
@@ -37,11 +36,11 @@ export const load = async ({ fetch }) => {
 		console.error(e);
 	}
 
-	if (Either.isLeft(result)) {
-		error(500, { message: result.left.message });
+	if (result instanceof Error) {
+		error(500, { message: result.message });
 	} else {
 		return {
-			standardsAndTestSuites: result.right,
+			standardsAndTestSuites: result,
 			customChecks
 		};
 	}

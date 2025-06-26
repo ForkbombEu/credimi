@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { error } from '@sveltejs/kit';
-import { Either } from 'effect';
 import { getStandardsWithTestSuites } from '$lib/standards';
 import { checkAuthFlagAndUser } from '$lib/utils';
 
@@ -12,11 +11,11 @@ export const load = async ({ fetch }) => {
 
 	const result = await getStandardsWithTestSuites({ fetch });
 
-	if (Either.isLeft(result)) {
-		error(500, { message: result.left.message });
+	if (result instanceof Error) {
+		error(500, { message: result.message });
 	} else {
 		return {
-			standardsAndTestSuites: result.right
+			standardsAndTestSuites: result
 		};
 	}
 };

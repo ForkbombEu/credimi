@@ -2,12 +2,57 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { z, ZodError } from 'zod';
-import { Effect as _, pipe } from 'effect';
-import type { ClientResponseError } from 'pocketbase';
+import { Either, pipe, Effect as _ } from 'effect';
+import type { SelectOption } from '@/components/ui-custom/utils';
 import { pb } from '@/pocketbase';
+import type { ClientResponseError } from 'pocketbase';
+import { z, type ZodError } from 'zod';
 
-//
+/* Exports */
+
+export type StandardsWithTestSuites = z.infer<typeof templateBlueprintsResponseSchema>;
+
+export function getStandardsWithTestSuites(
+	options = { fetch }
+): Promise<StandardsWithTestSuites | Error> {
+	return pipe(
+		_.tryPromise({
+			try: () =>
+				pb.send('/api/template/blueprints', {
+					method: 'GET',
+					fetch: options.fetch
+				}),
+			catch: (e) => e as ClientResponseError
+		}),
+		_.andThen((response) =>
+			_.try({
+				try: () => templateBlueprintsResponseSchema.parse(response),
+				catch: (e) => e as ZodError
+			})
+		),
+		_.either,
+		_.map((e) => {
+			if (Either.isLeft(e)) return e.left;
+			else return e.right;
+		}),
+		_.runPromise
+	);
+}
+
+export async function getStandardsAndVersionsFlatOptionsList(
+	options = { fetch }
+): Promise<SelectOption<string>[]> {
+	const standards = await getStandardsWithTestSuites(options);
+	if (standards instanceof Error) return [];
+	return standards.flatMap((standard) =>
+		standard.versions.map((version) => ({
+			value: `${standard.uid}/${version.uid}`,
+			label: `${standard.name} – ${version.name}`
+		}))
+	);
+}
+
+/* Schemas */
 
 const standardMetadataSchema = z.object({
 	uid: z.string(),
@@ -49,28 +94,4 @@ const standardSchema = standardMetadataSchema.extend({
 	versions: z.array(versionSchema)
 });
 
-export const templateBlueprintsResponseSchema = z.array(standardSchema);
-export type StandardsWithTestSuites = z.infer<typeof templateBlueprintsResponseSchema>;
-
-/** */
-
-export function getStandardsWithTestSuites(options = { fetch }) {
-	return pipe(
-		_.tryPromise({
-			try: () =>
-				pb.send('/api/template/blueprints', {
-					method: 'GET',
-					fetch: options.fetch
-				}),
-			catch: (e) => e as ClientResponseError
-		}),
-		_.andThen((response) =>
-			_.try({
-				try: () => templateBlueprintsResponseSchema.parse(response),
-				catch: (e) => e as ZodError
-			})
-		),
-		_.either,
-		_.runPromise
-	);
-}
+const templateBlueprintsResponseSchema = z.array(standardSchema);
