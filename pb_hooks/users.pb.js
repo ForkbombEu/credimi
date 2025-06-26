@@ -24,6 +24,7 @@ onMailerRecordPasswordResetSend((e) => {
         username: e.record?.get("name") ?? "User",
         resetLink: resetLink,
         AppName: utils.getAppName(),
+        AppLogo: utils.getAppLogoUrl()
     });
 
     e.message.html = emailData.html;
@@ -49,6 +50,7 @@ onMailerRecordVerificationSend((e) => {
         UserName: e.record?.get("name") ?? "User",
         VerificationLink,
         AppName: utils.getAppName(),
+        AppLogo: utils.getAppLogoUrl()
     });
 
     e.message.html = emailData.html;
@@ -69,6 +71,7 @@ onRecordAfterCreateSuccess((e) => {
         DashboardLink: utils.getAppUrl() + "/my",
         UserName: e.record.get("name") ?? "User",
         AppName: utils.getAppName(),
+        AppLogo: utils.getAppLogoUrl()
     });
 
     const err = utils.sendEmail({

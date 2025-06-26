@@ -262,6 +262,13 @@ function getAppName() {
 }
 
 /**
+ * @returns {string}
+ */
+function getAppLogoUrl() {
+    return getAppUrl() + `/${getAppName()}_logo.svg`
+}
+
+/**
  * @param {string} organizationId
  * @returns {string}
  */
@@ -537,6 +544,7 @@ module.exports = {
     getOrganizationAdminsAddresses,
     getOrganizationMembersPageUrl,
     getAppUrl,
+    getAppLogoUrl,
     getAppName,
     runOrganizationInviteEndpointChecks,
     renderEmail,
