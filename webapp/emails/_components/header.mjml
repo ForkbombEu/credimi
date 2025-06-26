@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			width="260px"
 			alt="{{.AppName}} Logo"
 			align="center"
-			src=""
+			src="{{.AppLogo}}"
 		></mj-image>
 		<mj-divider></mj-divider>
 	</mj-column>
