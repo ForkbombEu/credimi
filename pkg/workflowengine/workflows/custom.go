@@ -47,6 +47,7 @@ func (w *CustomCheckWorkflow) Workflow(
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
 			"yaml": input.Payload["yaml"],
+			"env": input.Config["env"],
 		},
 	}
 	var stepCIResult workflowengine.ActivityResult
