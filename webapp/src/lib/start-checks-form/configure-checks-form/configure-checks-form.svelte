@@ -23,6 +23,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CustomCheckConfigEditorComponent } from './custom-check-config-editor';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
+	import CopyButton from '@/components/ui-custom/copyButton.svelte';
+	import { pb } from '@/pocketbase/index.js';
+	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
 
 	//
 
@@ -30,6 +33,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const form = new ConfigureChecksForm(props);
 
 	const SHARED_FIELDS_ID = 'shared-fields';
+
+	//
+
+	function getCurlCommand() {
+		const url = new URL(
+			`api/compliance/${form.props.standardAndVersionPath}/save-variables-and-start`,
+			PUBLIC_POCKETBASE_URL
+		);
+		return `curl '${url.toString()}' -X POST -H 'Authorization: ${pb.authStore.token}' --data-raw '${JSON.stringify(form.getFormData())}'`;
+	}
 </script>
 
 <div class="space-y-4">
@@ -121,6 +134,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if form.loadingError}
 			<SmallErrorDisplay error={form.loadingError} />
 		{/if}
+		<CopyButton textToCopy={getCurlCommand()}>
+			{m.Copy_as_curl()}
+		</CopyButton>
 		<Button disabled={!form.isValid} onclick={() => form.submit()}>{m.Start_checks()}</Button>
 	{/snippet}
 </Footer>

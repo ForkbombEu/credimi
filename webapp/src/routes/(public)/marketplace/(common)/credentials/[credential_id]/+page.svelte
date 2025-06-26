@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { String } from 'effect';
 	import { MarketplaceItemCard } from '../../../_utils/index.js';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
+	import { createIntentUrl } from '$lib/credentials/index.js';
 
 	let { data } = $props();
 	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
@@ -40,20 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		credential.json as CredentialConfiguration | undefined
 	);
 
-	function createIntentUrl(issuer: string | undefined, type: string): string {
-		const data = {
-			credential_configuration_ids: [type],
-			credential_issuer: issuer
-		};
-		const credentialOffer = encodeURIComponent(JSON.stringify(data));
-		return `openid-credential-offer://?credential_offer=${credentialOffer}`;
-	}
-
-	const qrLink = $derived(
-		String.isNonEmpty(credential.deeplink)
-			? credential.deeplink
-			: createIntentUrl(credentialIssuer?.url, credential.type)
-	);
+	const qrLink = $derived(createIntentUrl(credential, credentialIssuer.url));
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>
