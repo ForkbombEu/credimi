@@ -28,5 +28,13 @@
 	"Delete": "Excluir",
 	"Description": "Descrição",
 	"Dont_have_an_account": "Não tem uma conta?",
-	"Edit": "Editar"
+	"Edit": "Editar",
+	"EDIT": "Editar",
+	"Email_and_password": "E-mail e senha",
+	"email": "e-mail",
+	"Emails_found": "E-mails encontrados!",
+	"Error": "Erro",
+	"failed_email_send": "Falha ao enviar e-mail",
+	"File": "Arquivo ",
+	"folder": "Pasta"
 }
