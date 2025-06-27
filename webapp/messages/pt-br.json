@@ -144,5 +144,14 @@
 	"Update_profile": "Atualizar perfil",
 	"Checking_your_device": "Verificando seu dispositivo",
 	"Your_device_does_not_have_integrated_Webauthn_support_An_external_authenticator_is_required_": "Seu dispositivo não possui suporte WebAuthn integrado. Um autenticador externo é\nobrigatório.",
-	"Add_a_device": "Adicionar um dispositivo"
+	"Add_a_device": "Adicionar um dispositivo",
+	"Your_devices": "Seus dispositivos",
+	"Manage_the_devices_you_use_to_login_": "Gerencie os dispositivos que você usa para fazer login, usando a tecnologia WebAuthn.",
+	"Go_to_login": "Ir para login",
+	"Properties": "Propriedades",
+	"Years": "Anos",
+	"Months": "Meses",
+	"Year": "Ano",
+	"Month": "Mês",
+	"Day": "Dia"
 }
