@@ -183,5 +183,20 @@
 	"Share": "Compartilhe",
 	"Record_shared_successfully": "Dados compartilhados com sucesso",
 	"Remove_access": "Remover acesso",
-	"Are_you_sure_you_want_to_remove_access_to_the_record": "Tem certeza de que deseja remover todo o acesso aos dados?"
+	"Are_you_sure_you_want_to_remove_access_to_the_record": "Tem certeza de que deseja remover todo o acesso aos dados?",
+	"Update_authorizations": "Atualizar autorizações",
+	"Request_accepted_sucessfully": "Solicitação aceita com sucesso",
+	"An_error_occurred_while_handling_membership_request": "Ocorreu um erro ao processar a solicitação de associação",
+	"Not_Found": "Não encontrado",
+	"Internal_Error": "Erro interno",
+	"Come_back_home": "Vá para home",
+	"Membership_request_declined_successfully": "Pedido de adesão recusado com sucesso",
+	"Invite_accepted_succesfully": "Convite aceito com sucesso!",
+	"Invitation_declined": "Convite recusado",
+	"An_error_occurred_while_processing_your_request": "Ocorreu um erro ao processar sua solicitação",
+	"Value_does_not_match_regex_pattern": "O valor não corresponde ao padrão regex {pattern}",
+	"No_records_found": "Nenhum dado encontrado",
+	"Actions": "Ações",
+	"An_error_occurred_while_verifying_your_email_": "Ocorreu um erro ao verificar seu e-mail! :(",
+	"Email_verified_succesfully": "E-mail verificado com sucesso!"
 }
