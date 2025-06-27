@@ -198,5 +198,15 @@
 	"No_records_found": "Nenhum dado encontrado",
 	"Actions": "Ações",
 	"An_error_occurred_while_verifying_your_email_": "Ocorreu um erro ao verificar seu e-mail! :(",
-	"Email_verified_succesfully": "E-mail verificado com sucesso!"
+	"Email_verified_succesfully": "E-mail verificado com sucesso!",
+	"Continue_with_oauthProvider": "Continue com {oauthProvider}",
+	"Start_a_new_test": "Iniciar um novo teste",
+	"Getting_started": "Começando",
+	"Apps": "Aplicativos",
+	"Credentials": "Credenciais",
+	"Find_solutions": "Encontre aplicativos, recursos e serviços",
+	"last_check": "última verificação:",
+	"checking_results_": "verificando resultados...",
+	"percentage_compliant": "Compatível com {percentage}",
+	"Find_credentials": "Encontre credenciais"
 }
