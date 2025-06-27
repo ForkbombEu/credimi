@@ -36,5 +36,21 @@
 	"Error": "Erro",
 	"failed_email_send": "Falha ao enviar e-mail",
 	"File": "Arquivo ",
-	"folder": "Pasta"
+	"folder": "Pasta",
+	"Forgot_the_seed_Regenerate_it": "Esqueceu a \"semente\"? Regenere-a",
+	"Full_name": "Seu nome",
+	"Generate_keys": "Gerar chaves privadas",
+	"Generate_your_keys": "Gere suas chaves privadas",
+	"Go_Pro": "Atualizar",
+	"Go_to_Dashboard": "Painel do desenvolvedor",
+	"Hello": "Olá, ",
+	"hello": "Olá",
+	"Help": "Ajuda",
+	"Home": "Lar",
+	"I_accept_the": "Eu aceito o",
+	"I_have_the_seed_passphrase": "Eu tenho a senha da semente",
+	"Important_information": "Informações importantes",
+	"invite_declined": "convite recusado",
+	"invite_members": "Convidar membros",
+	"Join_an_organization": "Junte-se a uma organização"
 }
