@@ -5,21 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import BackButton from '$lib/layout/back-button.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import PageIndex from '$lib/layout/pageIndex.svelte';
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
-	import PageTop from '$lib/layout/pageTop.svelte';
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
-	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n/index.js';
 	import { QrCode } from '@/qr/index.js';
 	import { Building2, FolderCheck, Layers3 } from 'lucide-svelte';
 	import { String } from 'effect';
 	import { MarketplaceItemCard } from '../../../_utils/index.js';
+	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
+	import { createIntentUrl } from '$lib/credentials/index.js';
 
 	let { data } = $props();
 	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
@@ -35,46 +30,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			anchor: 'credential_subject',
 			label: 'Credential subject'
 		},
-		// compatible_apps: {
-		// 	icon: Building2,
-		// 	anchor: 'compatible_apps',
-		// 	label: 'Compatible apps'
-		// },
 		compatible_issuer: {
 			icon: FolderCheck,
 			anchor: 'compatible_issuer',
 			label: 'Compatible issuer'
 		}
-		// test_results: {
-		// 	icon: ScanEye,
-		// 	anchor: 'test_results',
-		// 	label: 'Test results'
-		// }
 	} satisfies Record<string, IndexItem>;
 
 	const credentialConfiguration = $derived(
 		credential.json as CredentialConfiguration | undefined
 	);
 
-	function createIntentUrl(issuer: string | undefined, type: string): string {
-		const data = {
-			credential_configuration_ids: [type],
-			credential_issuer: issuer
-		};
-		const credentialOffer = encodeURIComponent(JSON.stringify(data));
-		return `openid-credential-offer://?credential_offer=${credentialOffer}`;
-	}
-
-	const qrLink = $derived(
-		String.isNonEmpty(credential.deeplink)
-			? credential.deeplink
-			: createIntentUrl(credentialIssuer?.url, credential.type)
-	);
+	const qrLink = $derived(createIntentUrl(credential, credentialIssuer.url));
 </script>
 
-<PageIndex sections={Object.values(sections)} class="top-5 md:sticky" />
-
-<div class="grow space-y-16">
+<MarketplacePageLayout tableOfContents={sections}>
 	<div class="flex items-start gap-6">
 		<div class="grow space-y-6">
 			<PageHeader
@@ -107,7 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<InfoBox label="Type" value={credential.type} />
 		</div>
 
-		<div class="flex flex-col items-center">
+		<div class="flex flex-col items-stretch">
 			<PageHeader title="Credential offer" id="qr" />
 			<QrCode src={qrLink} cellSize={10} class={['w-60 rounded-md']} />
 			<div class="w-60 break-all pt-4 text-xs">
@@ -142,4 +112,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<MarketplaceItemCard item={credentialIssuerMarketplaceEntry} />
 		{/if}
 	</div>
-</div>
+</MarketplacePageLayout>
