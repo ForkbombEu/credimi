@@ -24,7 +24,7 @@ export type WorkflowLogEntry = z.infer<typeof WorkflowLogEntrySchema>;
 export type WorkflowLogsProps = {
 	namespace: string;
 	workflowId: string;
-	workflowType: string;
+	workflowType: 'openidnet-logs' | 'eudiw-logs';
 	startSignal: string;
 	stopSignal: string;
 };
@@ -43,6 +43,7 @@ export function createWorkflowLogHandlers(
 ): WorkflowLogsHandlers {
 	const { workflowId, namespace, workflowType, startSignal, stopSignal, onUpdate } = props;
 	const channel = `${workflowId}${workflowType}`;
+	const actualWorkflowId = workflowType === 'openidnet-logs' ? workflowId + '-log' : workflowId;
 
 	function startLogs() {
 		pb.realtime
@@ -56,7 +57,7 @@ export function createWorkflowLogHandlers(
 		pb.send('/api/compliance/send-temporal-signal', {
 			method: 'POST',
 			body: {
-				workflow_id: workflowId,
+				workflow_id: actualWorkflowId,
 				namespace,
 				signal: startSignal
 			}
@@ -69,7 +70,7 @@ export function createWorkflowLogHandlers(
 		pb.send('/api/compliance/send-temporal-signal', {
 			method: 'POST',
 			body: {
-				workflow_id: workflowId,
+				workflow_id: actualWorkflowId,
 				namespace,
 				signal: stopSignal
 			}
