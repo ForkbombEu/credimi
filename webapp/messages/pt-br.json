@@ -62,5 +62,18 @@
 	"Members": "Membros",
 	"Mode": "Modo",
 	"my_DID": "Meu DID",
-	"My_organizations": "Minhas organizações"
+	"My_organizations": "Minhas organizações",
+	"My_profile": "Perfil do usuário",
+	"My": "Meu",
+	"Name": "Nome",
+	"No_available_organizations_found": "Nenhuma organização disponível encontrada",
+	"notifications": "Notificações",
+	"One_last_thing_before_to_using_the_app": "Uma última coisa antes de começar a usar o aplicativo:",
+	"Options": "Opções",
+	"or": "ou",
+	"organization_invites": "Convites para a organização ",
+	"Organization_name": "Nome da organização",
+	"Organizations_and_other_users_will_identify_you_by_your_name_": "Organizações e outros usuários identificarão você pelo seu nome.",
+	"organizations": "Organizações",
+	"ORGANIZATIONS": "ORGANIZAÇÕES"
 }
