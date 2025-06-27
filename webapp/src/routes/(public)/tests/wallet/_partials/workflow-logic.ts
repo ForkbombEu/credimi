@@ -8,13 +8,13 @@ import { z } from 'zod';
 //
 
 export enum LogStatus {
-	SUCCESS = 'Success',
-	ERROR = 'Error',
-	FAILED = 'Failed',
-	FAILURE = 'Failure',
-	WARNING = 'Warning',
-	INFO = 'Info',
-	INTERRUPTED = 'Interrupted'
+	SUCCESS = 'SUCCESS',
+	ERROR = 'ERROR',
+	FAILED = 'FAILED',
+	FAILURE = 'FAILURE',
+	WARNING = 'WARNING',
+	INFO = 'INFO',
+	INTERRUPTED = 'INTERRUPTED'
 }
 
 export type WorkflowLog = {
@@ -61,14 +61,16 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 				const parseResult = z.array(z.unknown()).safeParse(data);
 				if (!parseResult.success) throw new Error('Unexpected data shape');
 				onUpdate(
-					parseResult.data.reverse().map((datum) => {
-						try {
-							return logTransformer(datum);
-						} catch (e) {
-							console.error('Log transformer error:', e);
-							return { status: LogStatus.INFO, rawLog: datum };
-						}
-					})
+					parseResult.data
+						.map((datum) => {
+							try {
+								return logTransformer(datum);
+							} catch (e) {
+								console.error('Log transformer error:', e);
+								return { status: LogStatus.INFO, rawLog: datum };
+							}
+						})
+						.sort((a, b) => (b.time ?? 0) - (a.time ?? 0))
 				);
 			});
 			await pb.send('/api/compliance/send-temporal-signal', {

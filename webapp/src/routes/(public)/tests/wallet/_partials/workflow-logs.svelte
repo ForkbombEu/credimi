@@ -65,46 +65,50 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<p>{m.Waiting_for_logs()}</p>
 		</Alert>
 	{:else}
-		{#each logs as log}
-			{@const logId = nanoid(4)}
-			{@const status = log.status ?? LogStatus.INFO}
-			<Accordion.Root
-				type="multiple"
-				class="bg-muted max-h-[700px] space-y-1 rounded-md px-2"
-			>
-				<Accordion.Item value={logId} class="border-none">
-					<Accordion.Trigger
-						class="flex items-center justify-between gap-2 hover:no-underline"
-					>
-						<div class="flex grow items-center gap-2">
-							<Badge class="w-20 text-center" variant={statusToVariant(status)}>
-								{status}
-							</Badge>
+		<div>
+			{#each logs as log}
+				{@const logId = nanoid(4)}
+				{@const status = log.status ?? LogStatus.INFO}
+				<Accordion.Root type="multiple" class="bg-muted space-y-1 rounded-md px-2">
+					<Accordion.Item value={logId} class="border-none">
+						<Accordion.Trigger
+							class="flex items-center justify-between gap-2 hover:no-underline"
+						>
+							<div class="flex grow items-center gap-2">
+								<Badge
+									class="w-20 text-center capitalize"
+									variant={statusToVariant(status)}
+								>
+									{status}
+								</Badge>
 
-							{#if log.message}
-								<p class="text-left">{log.message}</p>
+								{#if log.message}
+									<p class="text-left">{log.message}</p>
+								{:else}
+									<p class="text-muted-foreground">{m.Open_for_details()}</p>
+								{/if}
+							</div>
+
+							{#if log.time}
+								<p
+									class="text-muted-foreground shrink-0 text-nowrap text-right text-xs"
+								>
+									{new Date(log.time).toLocaleString()}
+								</p>
 							{/if}
-						</div>
+						</Accordion.Trigger>
 
-						{#if log.time}
-							<p
-								class="text-muted-foreground shrink-0 text-nowrap text-right text-xs"
-							>
-								{new Date(log.time).toLocaleString()}
-							</p>
-						{/if}
-					</Accordion.Trigger>
-
-					<Accordion.Content>
-						<pre
-							class="bg-secondary overflow-x-scroll rounded-md p-2 text-xs">{JSON.stringify(
-								log.rawLog,
-								null,
-								2
-							)}</pre>
-					</Accordion.Content>
-				</Accordion.Item>
-			</Accordion.Root>
-		{/each}
+						<Accordion.Content>
+							<pre
+								class="bg-secondary overflow-x-scroll rounded-md p-2 text-xs">{JSON.stringify(
+									log.rawLog,
+									null,
+									2
+								)}</pre>
+						</Accordion.Content>
+					</Accordion.Item>
+				</Accordion.Root>
+			{/each}
+		</div>
 	{/if}
 </div>

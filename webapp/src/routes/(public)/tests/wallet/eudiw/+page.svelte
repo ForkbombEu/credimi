@@ -56,7 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageContent>
-	<T tag="h1" class="mb-4">Wallet test</T>
+	<T tag="h1" class="mb-4">{m.OpenID_Wallet_test()}</T>
 	<div class="space-y-4">
 		{#if qr}
 			<Step n="1" text="Scan this QR with the wallet app to start the check">
