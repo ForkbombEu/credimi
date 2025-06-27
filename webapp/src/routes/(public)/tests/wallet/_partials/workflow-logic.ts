@@ -70,7 +70,7 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 								return { status: LogStatus.INFO, rawLog: datum };
 							}
 						})
-						.sort((a, b) => (b.time ?? 0) - (a.time ?? 0))
+						.sort((a, b) => (a.time ?? 0) - (b.time ?? 0))
 				);
 			});
 			await pb.send('/api/compliance/send-temporal-signal', {

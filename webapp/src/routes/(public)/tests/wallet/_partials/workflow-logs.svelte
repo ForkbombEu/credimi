@@ -65,7 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<p>{m.Waiting_for_logs()}</p>
 		</Alert>
 	{:else}
-		<div>
+		<div class="max-h-[700px] space-y-1 overflow-y-auto">
 			{#each logs as log}
 				{@const logId = nanoid(4)}
 				{@const status = log.status ?? LogStatus.INFO}
