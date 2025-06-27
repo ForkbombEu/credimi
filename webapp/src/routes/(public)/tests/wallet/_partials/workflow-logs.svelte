@@ -65,7 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<p>{m.Waiting_for_logs()}</p>
 		</Alert>
 	{:else}
-		{#each logs as log (log.rawLog)}
+		{#each logs as log}
 			{@const logId = nanoid(4)}
 			{@const status = log.status ?? LogStatus.INFO}
 			<Accordion.Root
@@ -76,8 +76,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Accordion.Trigger
 						class="flex items-center justify-between gap-2 hover:no-underline"
 					>
-						<div class="flex items-center gap-2">
-							<Badge class="w-20" variant={statusToVariant(status)}>
+						<div class="flex grow items-center gap-2">
+							<Badge class="w-20 text-center" variant={statusToVariant(status)}>
 								{status}
 							</Badge>
 
@@ -87,7 +87,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</div>
 
 						{#if log.time}
-							<p class="text-muted-foreground text-nowrap text-xs">
+							<p
+								class="text-muted-foreground shrink-0 text-nowrap text-right text-xs"
+							>
 								{new Date(log.time).toLocaleString()}
 							</p>
 						{/if}
