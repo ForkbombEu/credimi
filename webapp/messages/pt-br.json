@@ -208,5 +208,9 @@
 	"last_check": "última verificação:",
 	"checking_results_": "verificando resultados...",
 	"percentage_compliant": "Compatível com {percentage}",
-	"Find_credentials": "Encontre credenciais"
+	"Find_credentials": "Encontre credenciais",
+	"All_credentials": "Todas as credenciais",
+	"Issuer": "Emissor de Credenciais",
+	"Duration": "Duração",
+	"Category": "Categoria"
 }
