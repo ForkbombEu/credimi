@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		LogStatus,
 		type WorkflowLog,
 		type WorkflowLogsProps
-	} from './workflow-logic.js';
+	} from './workflow-logs.js';
 	import { Info } from 'lucide-svelte';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
