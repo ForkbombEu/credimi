@@ -212,5 +212,19 @@
 	"All_credentials": "Todas as credenciais",
 	"Issuer": "Emissor de Credenciais",
 	"Duration": "Duração",
-	"Category": "Categoria"
+	"Category": "Categoria",
+	"Compare_by_test_results": "Comparar por resultados de testes:",
+	"Start_a_new_compliance_check": "Iniciar uma nova verificação de conformidade",
+	"Start_check": "Iniciar verificação",
+	"Start_a_new_check": "Iniciar uma nova verificação",
+	"Find_identity_solutions": "Navegue pelos serviços de emissão de credenciais",
+	"Service_name": "Nome do serviço:",
+	"Find_credential_attributes": "Navegue pelas credenciais disponíveis",
+	"Compatible_verifiers": "Verificadores compatíveis",
+	"Next_steps": "Próximos passos:",
+	"Open_your_email": "Abra seu e-mail ( {email} )",
+	"filters": "Filtros",
+	"latest_news_and_updates": "Últimas notícias e atualizações",
+	"all_news": "Todas as notícias",
+	"news": "Notícias"
 }
