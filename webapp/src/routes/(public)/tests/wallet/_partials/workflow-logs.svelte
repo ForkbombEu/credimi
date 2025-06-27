@@ -67,6 +67,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{:else}
 		{#each logs as log (log.rawLog)}
 			{@const logId = nanoid(4)}
+			{@const status = log.status ?? LogStatus.INFO}
 			<Accordion.Root
 				type="multiple"
 				class="bg-muted max-h-[700px] space-y-1 rounded-md px-2"
@@ -76,11 +77,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						class="flex items-center justify-between gap-2 hover:no-underline"
 					>
 						<div class="flex items-center gap-2">
-							{#if log.status}
-								<Badge class="w-20" variant={statusToVariant(log.status)}>
-									{log.status}
-								</Badge>
-							{/if}
+							<Badge class="w-20" variant={statusToVariant(status)}>
+								{status}
+							</Badge>
 
 							{#if log.message}
 								<p class="text-left">{log.message}</p>
