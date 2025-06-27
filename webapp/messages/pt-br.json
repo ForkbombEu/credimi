@@ -1,4 +1,8 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
-	"accept_invite": "Aceitar convite"
+	"accept_invite": "Aceitar convite",
+	"Accept": "Aceitar",
+	"accepted_files": "Arquivos aceitos",
+	"Active": "Ativo",
+	"Already_have_an_account": "Já tem uma conta?"
 }

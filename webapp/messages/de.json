@@ -1,6 +1,9 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
 	"accept_invite": "Einladung annehmen",
+	"Accept": "Akzeptieren",
+	"accepted_files": "Akzeptierte Dateien",
+	"Active": "Aktiv",
 	"Already_have_an_account": "Sie haben bereits ein Konto?",
 	"Before_using_the_app_again_you_need_to_restore_them_": "Bevor Sie die App erneut verwenden, müssen Sie Ihre privaten Schlüssel wiederherstellen.",
 	"By_answering_these_questions_you_will_generate_keys_that_will_be_used_to_encrypt_your_data": "Durch die Beantwortung dieser Fragen generiert die App Ihre privaten Schlüssel, die zur Authentifizierung, Signaturen und Verschlüsselung verwendet werden",
