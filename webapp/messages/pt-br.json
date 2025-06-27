@@ -86,5 +86,15 @@
 	"Pending": "Pendentes",
 	"Please_confirm_that_you_want_to_join_this_organization_": "Por favor, confirme que você deseja ingressar nesta organização",
 	"Please_register_using_the_provided_email_account_": "Por favor, registre-se usando a conta de e-mail fornecida",
-	"Please_remember_the_answers_as_they_will_be_the_only_way_to_restore_the_encryption_keys": "Certifique-se de que você poderá se lembrar de suas respostas mais tarde, pois elas serão a única maneira de restaurar suas chaves privadas"
+	"Please_remember_the_answers_as_they_will_be_the_only_way_to_restore_the_encryption_keys": "Certifique-se de que você poderá se lembrar de suas respostas mais tarde, pois elas serão a única maneira de restaurar suas chaves privadas",
+	"Port": "Port",
+	"privacy_policy": "Política de Privacidade",
+	"Public": "Público",
+	"Register_here": "Registre-se aqui",
+	"Register": "Registrar",
+	"Remove": "Remover",
+	"Request_sent": "Solicitação enviada",
+	"Required": "Obrigatório",
+	"Review_and_confirm": "Revisar e confirmar",
+	"Review_the_email_list_before_sending": "Revise a lista de e-mails antes de enviar"
 }
