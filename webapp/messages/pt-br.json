@@ -166,5 +166,18 @@
 	"Search": "Procurar",
 	"No_results_found": "Nenhum resultado encontrado",
 	"No_items_selected": "Nenhum item selecionado",
-	"No_options_available": "Nenhuma opção disponível"
+	"No_options_available": "Nenhuma opção disponível",
+	"Edit_record": "Editar dados",
+	"Create_record": "Insira os dados",
+	"URL_is_in_forbidden_domains_list": "Este URL está em uma lista de domínios proibidos",
+	"URL_is_not_in_allowed_domains_list": "Este URL não está na lista de domínios permitidos",
+	"Some_error_occurred_while_loading_records_": "Ocorreu um erro ao carregar os dados.",
+	"No_items_here": "Não há dados aqui!",
+	"Start_by_adding_a_record_to_this_collection_": "Comece adicionando um elemento aqui",
+	"Record_created_successfully": "Dados armazenados com sucesso!",
+	"Record_updated_successfully": "Dados atualizados com sucesso!",
+	"Delete_record": "Excluir dados",
+	"Are_you_sure_you_want_to_delete_this_record": "Tem certeza de que deseja excluir esses dados?",
+	"Record_deleted_successfully": "Dados excluídos com sucesso",
+	"Share_record": "Compartilhar dados"
 }
