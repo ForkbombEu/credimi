@@ -115,5 +115,20 @@
 	"Undo_request": "Desfazer solicitação",
 	"Undo": "Desfazer",
 	"Upload_a_file_containing_emails": "Carregar um arquivo contendo e-mails",
-	"User_email": "Seu e-mail"
+	"User_email": "Seu e-mail",
+	"Username": "Nome de usuário",
+	"Validate": "Validar",
+	"View": "Visualizar",
+	"Warning": "⚠️ Aviso ⚠️",
+	"We_havent_found_any_emails_in_the_provided_documents_please_upload_a_new_file_or_paste_new_content_": "Não encontramos nenhum e-mail nos documentos fornecidos. Carregue um novo arquivo ou insira um novo conteúdo.",
+	"welcome_to_app": "Bem-vindo ao {appName} 🎉",
+	"you_have_been_invited_by_organization_to_join_the_platform": "Você foi convidado por <b>{organizationName}</b> para participar da plataforma!",
+	"You_havent_added_any_organizations_yet_": "Você ainda não adicionou nenhuma organização.",
+	"You": "Você",
+	"Your_email": "Seu e-mail",
+	"Your_membership_requests": "Seus pedidos de associação",
+	"Your_organizations": "Suas organizações",
+	"Your_password": "Sua senha",
+	"your_profile": "seu perfil",
+	"Please_wait": "Por favor, aguarde"
 }

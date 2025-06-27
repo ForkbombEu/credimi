@@ -137,7 +137,7 @@
 	"Validate": "Validate",
 	"View": "View",
 	"Warning": "⚠️ Warning ⚠️",
-	"We_havent_found_any_emails_in_the_provided_documents_please_upload_a_new_file_or_paste_new_content_": "We haven't found any emails in the provided documents, please upload a new file or paste new content.",
+	"We_havent_found_any_emails_in_the_provided_documents_please_upload_a_new_file_or_paste_new_content_": "We haven't found any emails in the provided documents, please upload a new file or insert new content.",
 	"we_need_you_to_answer_these_questions_as_they_will_be_used_to_secure_your_data_": "we need you to answer some questions, that will be used to generate your private keys. The answers to this questions are NEVER communicated to us!",
 	"Webauthn": "Webauthn",
 	"welcome_to_app": "Welcome to {appName} 🎉",
