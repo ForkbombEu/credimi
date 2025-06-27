@@ -52,5 +52,15 @@
 	"Important_information": "Informações importantes",
 	"invite_declined": "convite recusado",
 	"invite_members": "Convidar membros",
-	"Join_an_organization": "Junte-se a uma organização"
+	"Join_an_organization": "Junte-se a uma organização",
+	"Keypair_creation_successful": "Criação de chaves privadas bem-sucedida!",
+	"Login_here": "Faça login aqui",
+	"Login": "Conecte-se",
+	"Manage_your_organization_public_info": "Gerencie as informações públicas da sua organização",
+	"Manage": "Gerenciar",
+	"members_description": "Lista de membros existentes da organização: os membros podem ter funções diferentes, o que lhes permite privilégios diferentes ",
+	"Members": "Membros",
+	"Mode": "Modo",
+	"my_DID": "Meu DID",
+	"My_organizations": "Minhas organizações"
 }
