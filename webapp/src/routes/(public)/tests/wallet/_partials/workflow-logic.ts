@@ -8,13 +8,13 @@ import { z } from 'zod';
 //
 
 export enum LogStatus {
-	'SUCCESS',
-	'ERROR',
-	'FAILED',
-	'FAILURE',
-	'WARNING',
-	'INFO',
-	'INTERRUPTED'
+	SUCCESS = 'Success',
+	ERROR = 'Error',
+	FAILED = 'Failed',
+	FAILURE = 'Failure',
+	WARNING = 'Warning',
+	INFO = 'Info',
+	INTERRUPTED = 'Interrupted'
 }
 
 export type WorkflowLog = {
@@ -61,7 +61,7 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 				const parseResult = z.array(z.unknown()).safeParse(data);
 				if (!parseResult.success) throw new Error('Unexpected data shape');
 				onUpdate(
-					parseResult.data.map((datum) => {
+					parseResult.data.reverse().map((datum) => {
 						try {
 							return logTransformer(datum);
 						} catch (e) {
