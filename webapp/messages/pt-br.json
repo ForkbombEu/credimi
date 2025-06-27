@@ -19,5 +19,9 @@
 	"Create_a_new_organization": "Criar uma nova organização",
 	"Create_an_account": "Criar uma conta",
 	"Create_an_organization": "Criar uma organização",
-	"Create_organization": "Criar organização"
+	"Create_organization": "Criar organização",
+	"Date": "Data",
+	"decline_invite": "Recusar convite",
+	"decline_membership_request_warning": "Aviso: você deseja recusar esta solicitação de associação?",
+	"decline_membership_request": "Recusar solicitação de associação"
 }
