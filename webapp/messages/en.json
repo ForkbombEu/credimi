@@ -364,7 +364,7 @@
 	"vc_api_issuer_standard_description": "VC-API Issuer Test Suite, by the W3C Foundation, https://github.com/w3c-ccg/vc-api-issuer-test-suite",
 	"vc_api_verifier_standard_description": "VC-API Verifier Test Suite, by the W3C Foundation, https://github.com/w3c-ccg/vc-api-verifier-test-suite",
 	"Organizations": "Organizations",
-	"Find_providers_of_identity_solutions": "Find providers of identity solutions",
+	"Find_providers_of_identity_solutions": "Browse organizations",
 	"Publish_to_marketplace": "Publish to marketplace",
 	"Custom_checks": "Custom checks",
 	"No_conformance_checks_available": "No conformance checks available",

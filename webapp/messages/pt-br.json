@@ -226,5 +226,18 @@
 	"filters": "Filtros",
 	"latest_news_and_updates": "Últimas notícias e atualizações",
 	"all_news": "Todas as notícias",
-	"news": "Notícias"
+	"news": "Notícias",
+	"My_test_runs": "Meus testes são executados",
+	"Back_to_dashboard": "Voltar ao painel",
+	"View_test_runs": "Ver execuções de teste",
+	"Back_to_test_runs": "Voltar para testes",
+	"Test_run": "Execução de teste",
+	"hello_user": "Olá, {username}",
+	"Add_new_credential_issuer": "Adicionar novo emissor de credencial",
+	"Published": "Publicado",
+	"No_credentials_available": "Nenhuma credencial disponível",
+	"count_available_credentials": "{number} credenciais disponíveis:",
+	"Organizations": "Organizações",
+	"Find_providers_of_identity_solutions": "Navegar por organizações",
+	"Publish_to_marketplace": "Publicar no mercado"
 }
