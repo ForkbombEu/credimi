@@ -75,5 +75,12 @@
 	"Organization_name": "Nome da organização",
 	"Organizations_and_other_users_will_identify_you_by_your_name_": "Organizações e outros usuários identificarão você pelo seu nome.",
 	"organizations": "Organizações",
-	"ORGANIZATIONS": "ORGANIZAÇÕES"
+	"ORGANIZATIONS": "ORGANIZAÇÕES",
+	"organzations_page_description": "Esta página serve como um centro para gerenciar suas atividades e associações organizacionais.",
+	"PASSWORDS_DO_NOT_MATCH": "A senha e a senha de confirmação não correspondem!",
+	"Paste_email_addresses_here": "Insira endereços de e-mail aqui",
+	"pending_invites_description": "Aqui você pode ver todos os convites pendentes",
+	"Pending_invites": "Convites pendentes",
+	"pending_membership_requests_description": "Aqui você pode ver a lista de usuários que solicitaram ser membros desta organização",
+	"Pending_membership_requests": "Solicitações de associação pendentes"
 }
