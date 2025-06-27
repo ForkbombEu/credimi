@@ -7,52 +7,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { onMount, onDestroy } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
-	import { createWorkflowLogHandlers, type WorkflowLogEntry } from './logic.js';
+	import {
+		createWorkflowLogHandlers,
+		type GeneralWorkflowLog,
+		type WorkflowLogsProps
+	} from './workflow-logic.js';
 	import { Info } from 'lucide-svelte';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
 	import * as Accordion from '@/components/ui/accordion/index.js';
 	import { m } from '@/i18n/index.js';
 
-	type Props = {
-		workflowId: string;
-		namespace: string;
-		subscriptionSuffix: string;
-		startSignal: string;
-		stopSignal: string;
-		workflowSignalSuffix?: string;
-	};
-	const {
-		workflowId,
-		namespace,
-		subscriptionSuffix,
-		startSignal,
-		stopSignal,
-		workflowSignalSuffix
-	}: Props = $props();
+	const props: WorkflowLogsProps = $props();
 
-	let logs: WorkflowLogEntry[] = $state([]);
+	let logs: GeneralWorkflowLog[] = $state([]);
 
-	const { onMount: mountLogs, onDestroy: destroyLogs } = createWorkflowLogHandlers({
-		workflowId,
-		namespace,
-		subscriptionSuffix,
-		workflowSignalSuffix,
-		startSignal,
-		stopSignal,
-		onUpdate: (data: WorkflowLogEntry[]) => {
-			logs = data;
+	const { startLogs, stopLogs } = createWorkflowLogHandlers({
+		...props,
+		onUpdate: (data) => {
+			logs = data.reverse();
 		}
 	});
 
-	onMount(mountLogs);
-	onDestroy(destroyLogs);
+	onMount(startLogs);
+	onDestroy(stopLogs);
 	beforeNavigate(() => {
-		destroyLogs();
+		stopLogs();
 	});
 </script>
 
-<svelte:window on:beforeunload|preventDefault={destroyLogs} />
+<svelte:window on:beforeunload|preventDefault={stopLogs} />
 
 <div class="py-2">
 	{#if logs.length === 0}

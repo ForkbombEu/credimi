@@ -1,0 +1,223 @@
+[
+    {
+        "_id": "BWdbzhAZ40ORENi-wZdzFIzd5Q4ChNGE5UpmRNFvdkpwZOML",
+        "alias": "a2554786-4155-421f-bf11-762b6e5f90af",
+        "baseMtlsUrl": "https://mtls-www.certification.openid.net/test-mtls/a/a2554786-4155-421f-bf11-762b6e5f90af",
+        "baseUrl": "https://www.certification.openid.net/test/a/a2554786-4155-421f-bf11-762b6e5f90af",
+        "config": {
+            "alias": "a2554786-4155-421f-bf11-762b6e5f90af",
+            "client": {
+                "authorization_encrypted_response_alg": "agc",
+                "authorization_encrypted_response_enc": "abc",
+                "client_id": "did:web:app.altme.io:issuer",
+                "jwks": {
+                    "keys": [
+                        {
+                            "alg": "ES256",
+                            "crv": "P-256",
+                            "d": "GSbo9TpmGaLgxxO6RNx6QnvcfykQJS7vUVgTe8vy9W0",
+                            "kty": "EC",
+                            "x": "m5uKsE35t3sP7gjmirUewufx2Gt2n6J7fSW68apB2Lo",
+                            "y": "-V54TpMI8RbpB40hbAocIjnaHX5WP6NHjWkHfdCSAyU"
+                        }
+                    ]
+                },
+                "presentation_definition": {
+                    "id": "two_sd_jwt",
+                    "input_descriptors": [
+                        {
+                            "constraints": {
+                                "fields": [
+                                    {
+                                        "filter": {
+                                            "const": "eu.europa.ec.eudi.pid.1",
+                                            "type": "string"
+                                        },
+                                        "path": [
+                                            "$.vct"
+                                        ]
+                                    }
+                                ]
+                            },
+                            "format": {
+                                "vc+sd-jwt": {
+                                    "kb-jwt_alg_values": [
+                                        "ES256",
+                                        "ES256K",
+                                        "EdDSA"
+                                    ],
+                                    "sd-jwt_alg_values": [
+                                        "ES256",
+                                        "ES256K",
+                                        "EdDSA"
+                                    ]
+                                }
+                            },
+                            "id": "pid_credential"
+                        }
+                    ]
+                }
+            },
+            "description": "abc",
+            "server": {
+                "authorization_endpoint": "openid-vc://"
+            }
+        },
+        "description": "abc",
+        "msg": "Test instance BWdbzhAZ40ORENi created",
+        "planId": "Z5Kr9AnKMmuRC",
+        "result": "INFO",
+        "src": "TEST-RUNNER",
+        "testId": "BWdbzhAZ40ORENi",
+        "testName": "oid4vp-id2-wallet-happy-flow-no-state",
+        "testOwner": {
+            "iss": "https://accounts.google.com",
+            "sub": "117407334112601770506"
+        },
+        "time": 1751017995743,
+        "variant": {
+            "client_id_scheme": "x509_san_dns",
+            "credential_format": "iso_mdl",
+            "request_method": "request_uri_signed",
+            "response_mode": "direct_post.jwt"
+        }
+    },
+    {
+        "_id": "BWdbzhAZ40ORENi-hGCQzLGx9gkRl5mwdcTRqruyfXxN87NJ",
+        "msg": "Created response URI",
+        "response_uri": "https://www.certification.openid.net/test/a/a2554786-4155-421f-bf11-762b6e5f90af/responseuri",
+        "src": "CreateDirectPostResponseUri",
+        "testId": "BWdbzhAZ40ORENi",
+        "testOwner": {
+            "iss": "https://accounts.google.com",
+            "sub": "117407334112601770506"
+        },
+        "time": 1751017995745
+    },
+    {
+        "_id": "BWdbzhAZ40ORENi-iUEjFvjugZgJbLNBRPg1iGA31hSjVhyA",
+        "client_id": "did:web:app.altme.io:issuer",
+        "msg": "client_id is already set, not setting it to our hostname",
+        "src": "SetClientIdToResponseUriHostnameIfUnset",
+        "testId": "BWdbzhAZ40ORENi",
+        "testOwner": {
+            "iss": "https://accounts.google.com",
+            "sub": "117407334112601770506"
+        },
+        "time": 1751017995746
+    },
+    {
+        "_id": "BWdbzhAZ40ORENi-SWcGdjcVLyaydhoKUCfBBIzN84DQIiVV",
+        "authorization_endpoint": "openid-vc://",
+        "msg": "Found a static server object",
+        "result": "SUCCESS",
+        "src": "GetStaticServerConfiguration",
+        "testId": "BWdbzhAZ40ORENi",
+        "testOwner": {
+            "iss": "https://accounts.google.com",
+            "sub": "117407334112601770506"
+        },
+        "time": 1751017995746
+    },
+    {
+        "_id": "BWdbzhAZ40ORENi-wDlHaTZJ4EjqBWF0llMNrN2lhhly3aVh",
+        "authorization_encrypted_response_alg": "agc",
+        "authorization_encrypted_response_enc": "abc",
+        "client_id": "did:web:app.altme.io:issuer",
+        "jwks": {
+            "keys": [
+                {
+                    "alg": "ES256",
+                    "crv": "P-256",
+                    "d": "GSbo9TpmGaLgxxO6RNx6QnvcfykQJS7vUVgTe8vy9W0",
+                    "kty": "EC",
+                    "x": "m5uKsE35t3sP7gjmirUewufx2Gt2n6J7fSW68apB2Lo",
+                    "y": "-V54TpMI8RbpB40hbAocIjnaHX5WP6NHjWkHfdCSAyU"
+                }
+            ]
+        },
+        "msg": "Found a static client object",
+        "presentation_definition": {
+            "id": "two_sd_jwt",
+            "input_descriptors": [
+                {
+                    "constraints": {
+                        "fields": [
+                            {
+                                "filter": {
+                                    "const": "eu.europa.ec.eudi.pid.1",
+                                    "type": "string"
+                                },
+                                "path": [
+                                    "$.vct"
+                                ]
+                            }
+                        ]
+                    },
+                    "format": {
+                        "vc+sd-jwt": {
+                            "kb-jwt_alg_values": [
+                                "ES256",
+                                "ES256K",
+                                "EdDSA"
+                            ],
+                            "sd-jwt_alg_values": [
+                                "ES256",
+                                "ES256K",
+                                "EdDSA"
+                            ]
+                        }
+                    },
+                    "id": "pid_credential"
+                }
+            ]
+        },
+        "result": "SUCCESS",
+        "src": "GetStaticClientConfiguration",
+        "testId": "BWdbzhAZ40ORENi",
+        "testOwner": {
+            "iss": "https://accounts.google.com",
+            "sub": "117407334112601770506"
+        },
+        "time": 1751017995747
+    },
+    {
+        "_id": "BWdbzhAZ40ORENi-K4alvFsHQaLCVsMJEkRXaxLc9FZpwjsm",
+        "msg": "Valid client JWKs: keys are valid JSON, contain the required fields, the private/public exponents match and are correctly encoded using unpadded base64url",
+        "requirements": [
+            "RFC7517-1.1"
+        ],
+        "result": "SUCCESS",
+        "src": "ValidateClientJWKsPrivatePart",
+        "testId": "BWdbzhAZ40ORENi",
+        "testOwner": {
+            "iss": "https://accounts.google.com",
+            "sub": "117407334112601770506"
+        },
+        "time": 1751017995753
+    },
+    {
+        "_id": "BWdbzhAZ40ORENi-Q69w538amOk1xCyb74MerFbHNRJ3D5zZ",
+        "msg": "Not sure what kind of key to create for 'agc' - please provide an encryption key in the test configuration.",
+        "result": "FAILURE",
+        "src": "CreateClientEncryptionKeyIfMissing",
+        "testId": "BWdbzhAZ40ORENi",
+        "testOwner": {
+            "iss": "https://accounts.google.com",
+            "sub": "117407334112601770506"
+        },
+        "time": 1751017995753
+    },
+    {
+        "_id": "BWdbzhAZ40ORENi-40lAXpbI29Eqkyid8CY876Gw1MOwKs5Y",
+        "msg": "Test was interrupted before it could complete. The failure 'CreateClientEncryptionKeyIfMissing: Not sure what kind of key to create for 'agc' - please provide an encryption key in the test configuration.' means the test cannot continue.",
+        "result": "INTERRUPTED",
+        "src": "oid4vp-id2-wallet-happy-flow-no-state",
+        "testId": "BWdbzhAZ40ORENi",
+        "testOwner": {
+            "iss": "https://accounts.google.com",
+            "sub": "117407334112601770506"
+        },
+        "time": 1751017995755
+    }
+]

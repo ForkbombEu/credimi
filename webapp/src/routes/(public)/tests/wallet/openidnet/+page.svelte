@@ -13,18 +13,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import QrLink from '../_partials/qr-link.svelte';
 	import FeedbackForms from '../_partials/feedback-forms.svelte';
 	import WorkflowLogs from '../_partials/workflow-logs.svelte';
+	import type { WorkflowLogsProps } from '../_partials/workflow-logic';
 
 	//
 
 	let { data } = $props();
 	const { qr, workflowId, namespace } = $derived(data);
 
-	// 
-	
-	const subscriptionSuffix = 'openidnet-logs';
-	const startSignal = 'start-openidnet-check-log-update';
-	const stopSignal = 'stop-openidnet-check-log-update';
-	const workflowSignalSuffix = '-log';
+	//
+
+	const workflowLogsProps: WorkflowLogsProps = $derived.by(() => {
+		if (!workflowId || !namespace) {
+			throw new Error('missing workflowId or namespace');
+		}
+		return {
+			subscriptionSuffix: 'openidnet-logs',
+			startSignal: 'start-openidnet-check-log-update',
+			stopSignal: 'stop-openidnet-check-log-update',
+			workflowSignalSuffix: '-log',
+			workflowId,
+			namespace
+		};
+	});
 </script>
 
 <PageContent>
@@ -50,14 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if workflowId && namespace}
 			<Step n="2" text="Follow the procedure on the wallet app">
 				<div class="ml-16">
-					<WorkflowLogs
-						{workflowId}
-						{namespace}
-						{subscriptionSuffix}
-						{startSignal}
-						{stopSignal}
-						{workflowSignalSuffix}
-					/>
+					<WorkflowLogs {...workflowLogsProps} />
 				</div>
 			</Step>
 
