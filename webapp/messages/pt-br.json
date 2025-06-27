@@ -307,5 +307,21 @@
 	"reset_json_and_use_fields": "Redefinir JSON e usar campos",
 	"Shared_fields": "Campos compartilhados",
 	"Standard_version": "Versão padrão",
-	"JSON_configuration": "Configuração JSON"
+	"JSON_configuration": "Configuração JSON",
+	"Copy_as_curl": "Copiar como curl",
+	"verifier_field_description_name": "Digite o nome do verificador: o nome ficará visível no marketplace",
+	"verifier_field_description_description": "Insira a descrição do verificador (Markdown é suportado)",
+	"verifier_field_description_logo": "Insira o logotipo do verificador",
+	"verifier_field_description_url": "Insira o URL do verificador",
+	"verifier_field_description_repository_url": "Entre no repositório do verificador",
+	"verifier_field_description_format": "Selecione um ou mais formatos suportados",
+	"verifier_field_description_signing_algorithms": "Selecione um ou mais algoritmos de assinatura suportados",
+	"verifier_field_description_cryptographic_binding_methods": "Insira o nome do caso de uso de verificação: ele ficará visível no mercado ",
+	"use_case_verification_field_description_description": "Insira a descrição do caso de uso de verificação (com suporte para Markdown)",
+	"use_case_verification_field_description_deeplink": "Insira o deeplink (solicitação de verificação) que é usado para gerar o QR Code e iniciar a verificação do caso de uso",
+	"use_case_verification_field_description_credentials": "Selecione uma ou mais credenciais que podem ser verificadas usando este caso de uso de verificação",
+	"use_case_verification_field_description_published": "Marque esta caixa de seleção para publicar a verificação do caso de uso no mercado",
+	"Waiting_for_logs": "Aguardando logs",
+	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Escaneie este QR com o aplicativo de carteira para iniciar a verificação",
+	"Credential_updated_successfully": "Credencial atualizada com sucesso"
 }
