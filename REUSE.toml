@@ -10,11 +10,18 @@ SPDX-PackageDownloadLocation = "https://github.com/ForkbombEu/credimi"
 [[annotations]]
 path = [
     ".env.example",
+    ".idea/**/*",
     ".vscode/settings.json",
     "config_templates/**/*",
     "docs/**/*",
     "fixtures/test_pb_data/types.d.ts",
+    "go.sum",
+    "mocked_templates/**/*",
+    "pb_migrations/*",
+    "pkg/credential_issuer/openid-credential-issuer.schema.go",
+    "pkg/workflowengine/workflows/credentials_config/openid-credential-issuer.schema.go",
     "schemas/**/*",
+    "test_pb_data/*",
     "VERSION",
     "webapp/.env.example",
     "webapp/bun.lock",
@@ -25,15 +32,9 @@ path = [
     "webapp/src/modules/i18n/paraglide/.gitignore",
     "webapp/src/modules/i18n/paraglide/.gitignore",
     "webapp/src/modules/i18n/paraglide/.prettierignore",
+    "webapp/static/hero.png",
     "webapp/static/pages/**/*",
-    "pkg/credential_issuer/openid-credential-issuer.schema.go",
-    "pkg/workflowengine/workflows/credentials_config/openid-credential-issuer.schema.go",
-    "pb_migrations/*",
-    "test_pb_data/*",
-    ".idea/**/*",
-    "go.sum",
-    "mocked_templates/**/*",
-    "webapp/static/hero.png"
+    "webapp/static/emails/_emailData.d.ts"
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Forkbomb BV"
