@@ -166,7 +166,7 @@
 	"Reset_password": "Reset password",
 	"shared": "shared",
 	"Edit_profile": "Edit profile",
-	"Show_email_to_other_users": "Show email to other users",
+	"Show_email_to_other_users": "Make email visible to other users",
 	"Update_profile": "Update profile",
 	"Checking_your_device": "Checking your device",
 	"Your_device_does_not_have_integrated_Webauthn_support_An_external_authenticator_is_required_": "Your device does not have integrated Webauthn support. An external authenticator is\n\t\t\t\trequired.",

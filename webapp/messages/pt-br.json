@@ -130,5 +130,19 @@
 	"Your_organizations": "Suas organizações",
 	"Your_password": "Sua senha",
 	"your_profile": "seu perfil",
-	"Please_wait": "Por favor, aguarde"
+	"Please_wait": "Por favor, aguarde",
+	"Log_in_with_webauthn": "Faça login com Webauthn",
+	"Log_in": "Conecte-se",
+	"New_password": "Nova Senha",
+	"Password_reset_successfully": "Senha redefinida com sucesso!",
+	"Please_click_the_link_in_the_email_to_reset_your_password_": "Clique no link no e-mail para redefinir sua senha.",
+	"Please_enter_here_a_new_password_": "Por favor, digite aqui uma nova senha.",
+	"Reset_password": "Redefinir senha",
+	"shared": "compartilhado",
+	"Edit_profile": "Editar perfil",
+	"Show_email_to_other_users": "Tornar o e-mail visível para outros usuários",
+	"Update_profile": "Atualizar perfil",
+	"Checking_your_device": "Verificando seu dispositivo",
+	"Your_device_does_not_have_integrated_Webauthn_support_An_external_authenticator_is_required_": "Seu dispositivo não possui suporte WebAuthn integrado. Um autenticador externo é\nobrigatório.",
+	"Add_a_device": "Adicionar um dispositivo"
 }
