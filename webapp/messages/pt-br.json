@@ -179,5 +179,9 @@
 	"Delete_record": "Excluir dados",
 	"Are_you_sure_you_want_to_delete_this_record": "Tem certeza de que deseja excluir esses dados?",
 	"Record_deleted_successfully": "Dados excluídos com sucesso",
-	"Share_record": "Compartilhar dados"
+	"Share_record": "Compartilhar dados",
+	"Share": "Compartilhe",
+	"Record_shared_successfully": "Dados compartilhados com sucesso",
+	"Remove_access": "Remover acesso",
+	"Are_you_sure_you_want_to_remove_access_to_the_record": "Tem certeza de que deseja remover todo o acesso aos dados?"
 }
