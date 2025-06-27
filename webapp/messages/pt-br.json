@@ -11,5 +11,13 @@
 	"Back": "Voltar",
 	"Before_using_the_app_again_you_need_to_restore_them_": "Antes de usar o aplicativo novamente, você precisa restaurar suas chaves privadas.",
 	"By_answering_these_questions_you_will_generate_keys_that_will_be_used_to_encrypt_your_data": "Ao responder a essas perguntas, o aplicativo irá gerar suas chaves privadas que serão usadas para autenticação, assinaturas e criptografia",
-	"Cancel": "Cancelar"
+	"Cancel": "Cancelar",
+	"Choose_your_authentication_method": "Escolha seu método de autenticação",
+	"Confirm_password": "Confirme sua senha",
+	"Contact": "Contato",
+	"Copy_seed": "Copiar senha de semente",
+	"Create_a_new_organization": "Criar uma nova organização",
+	"Create_an_account": "Criar uma conta",
+	"Create_an_organization": "Criar uma organização",
+	"Create_organization": "Criar organização"
 }
