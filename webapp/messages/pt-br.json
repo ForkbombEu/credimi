@@ -23,5 +23,10 @@
 	"Date": "Data",
 	"decline_invite": "Recusar convite",
 	"decline_membership_request_warning": "Aviso: você deseja recusar esta solicitação de associação?",
-	"decline_membership_request": "Recusar solicitação de associação"
+	"decline_membership_request": "Recusar solicitação de associação",
+	"Decline": "Recusar",
+	"Delete": "Excluir",
+	"Description": "Descrição",
+	"Dont_have_an_account": "Não tem uma conta?",
+	"Edit": "Editar"
 }
