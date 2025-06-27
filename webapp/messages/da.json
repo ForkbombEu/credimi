@@ -1,5 +1,6 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"accept_invite": "Accepter invitation",
 	"Already_have_an_account": "Har du allerede en konto?",
 	"Before_using_the_app_again_you_need_to_restore_them_": "Før du bruger appen igen, skal du gendanne dine private nøgler.",
 	"By_answering_these_questions_you_will_generate_keys_that_will_be_used_to_encrypt_your_data": "Ved at besvare disse spørgsmål genererer appen dine private nøgler, der vil blive brugt til godkendelse, signaturer og kryptering",
@@ -50,6 +51,7 @@
 	"User_email": "Din email",
 	"Validate": "Valider",
 	"we_need_you_to_answer_these_questions_as_they_will_be_used_to_secure_your_data_": "vi har brug for dig til at besvare nogle spørgsmål, som vil blive brugt til at generere dine private nøgler. Svarene på disse spørgsmål kommunikeres ALDRIG til os!",
+	"you_have_been_invited_by_organization_to_join_the_platform": "Du er blevet inviteret af <b>{organizationName}</b> til at deltage i platformen!",
 	"You_have_been_redirected_here_because_your_private_keys_are_missing_": "Du er blevet omdirigeret hertil, fordi dine private nøgler mangler.",
 	"Your_email": "Din email",
 	"Your_keys_have_been_regenerated_You_can_now_go_back_to": "Dine nøgler er blevet regenereret. Du kan nu gå tilbage til ",

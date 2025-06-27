@@ -1,5 +1,6 @@
 {
 	"$schema": "https://inlang.com/schema/inlang-message-format",
+	"accept_invite": "Accetta l'invito",
 	"Already_have_an_account": "Hai già un account?",
 	"Before_using_the_app_again_you_need_to_restore_them_": "Prima di utilizzare nuovamente l'app, è necessario ripristinare le chiavi private.",
 	"By_answering_these_questions_you_will_generate_keys_that_will_be_used_to_encrypt_your_data": "Rispondendo a queste domande, l'app genererà le tue chiavi private che verranno utilizzate per l'autenticazione, le firme e la crittografia",
