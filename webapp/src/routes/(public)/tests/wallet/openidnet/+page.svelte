@@ -8,12 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Alert from '@/components/ui-custom/alert.svelte';
-	import { m } from '@/i18n';
+	import { m } from '@/i18n/index.js';
 	import Step from '../_partials/step.svelte';
 	import QrLink from '../_partials/qr-link.svelte';
 	import FeedbackForms from '../_partials/feedback-forms.svelte';
-	import { LogStatus, type WorkflowLogsProps } from '../_partials/workflow-logs';
 	import WorkflowLogs from '../_partials/workflow-logs.svelte';
+	import { LogStatus, type WorkflowLogsProps } from '../_partials/workflow-logs';
 	import { z } from 'zod';
 
 	//
@@ -28,17 +28,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			throw new Error('missing workflowId or namespace');
 		}
 		return {
-			subscriptionSuffix: 'eudiw-logs',
-			startSignal: 'start-eudiw-check-signal',
-			stopSignal: 'stop-eudiw-check-signal',
+			subscriptionSuffix: 'openidnet-logs',
+			startSignal: 'start-openidnet-check-log-update',
+			stopSignal: 'stop-openidnet-check-log-update',
+			workflowSignalSuffix: '-log',
 			workflowId,
 			namespace,
 			logTransformer: (rawLog) => {
 				const data = LogsSchema.parse(rawLog);
 				return {
-					time: data.timestamp,
-					message: data.event + '\n' + data.cause,
-					status: LogStatus.INFO,
+					time: data.time,
+					message: data.msg,
+					status: data.result,
 					rawLog
 				};
 			}
@@ -47,16 +48,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const LogsSchema = z
 		.object({
-			actor: z.string(),
-			event: z.string(),
-			cause: z.string().optional(),
-			timestamp: z.number().optional()
+			_id: z.string(),
+			msg: z.string(),
+			src: z.string(),
+			time: z.number().optional(),
+			result: z.nativeEnum(LogStatus).optional()
 		})
 		.passthrough();
 </script>
 
 <PageContent>
-	<T tag="h1" class="mb-4">{m.OpenID_Wallet_test()}</T>
+	<T tag="h1" class="mb-4">Wallet OpenId test</T>
 	<div class="space-y-4">
 		{#if qr}
 			<Step n="1" text="Scan this QR with the wallet app to start the check">

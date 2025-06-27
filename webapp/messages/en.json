@@ -495,5 +495,10 @@
 	"use_case_verification_field_description_credentials": "use_case_verification_field_description_credentials",
 	"use_case_verification_field_description_published": "use_case_verification_field_description_published",
 	"Edit_credential": "Edit credential",
+	"Open_for_details": "Open for details",
+	"OpenID_Wallet_test": "OpenID Wallet test",
+	"Waiting_for_logs": "Waiting for logs",
+	"Wallet_EWC_test": "Wallet EWC test",
+	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Scan this QR with the wallet app to start the check",
 	"Credential_updated_successfully": "Credential updated successfully"
 }
