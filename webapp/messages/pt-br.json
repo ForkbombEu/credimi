@@ -153,5 +153,18 @@
 	"Months": "Meses",
 	"Year": "Ano",
 	"Month": "Mês",
-	"Day": "Dia"
+	"Day": "Dia",
+	"Next": "Próximo",
+	"Edit_role": "Editar função",
+	"Copied": "Copiado",
+	"Clear": "Remover",
+	"Rejected_files": "Arquivos rejeitados",
+	"New": "Novo",
+	"Files": "Arquivos",
+	"Submit": "Enviar",
+	"Select_a_value": "Selecione um valor",
+	"Search": "Procurar",
+	"No_results_found": "Nenhum resultado encontrado",
+	"No_items_selected": "Nenhum item selecionado",
+	"No_options_available": "Nenhuma opção disponível"
 }
