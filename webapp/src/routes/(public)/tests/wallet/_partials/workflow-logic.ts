@@ -5,7 +5,9 @@
 import { pb } from '@/pocketbase/index.js';
 import { z } from 'zod';
 
-enum LogStatus {
+//
+
+export enum LogStatus {
 	'SUCCESS',
 	'ERROR',
 	'FAILED',
@@ -14,37 +16,13 @@ enum LogStatus {
 	'INFO',
 	'INTERRUPTED'
 }
-export const WorkflowLogOpenIdSchema = z
-	.object({
-		_id: z.string(),
-		msg: z.string(),
-		src: z.string(),
-		time: z.number().optional(),
-		result: z
-			.nativeEnum(LogStatus)
-			.optional()
-	})
-	.passthrough();
 
-export const WorkflowLogEudiwSchema = z
-	.object({
-		actor: z.string(),
-		event: z.string(),
-		cause: z.string().optional(),
-		timestamp: z.number().optional()
-	})
-	.passthrough();
-
-type WorkflowLog = {
-	message: string;
-	time: number;
-	status: LogStatus;
-  rawLog: object;
+export type WorkflowLog = {
+	message?: string;
+	time?: number;
+	status?: LogStatus;
+	rawLog: unknown;
 };
-
-export const GeneralWorkflowLogSchema = WorkflowLogOpenIdSchema.or(WorkflowLogEudiwSchema);
-
-type GeneralWorkflowLog = z.infer<typeof GeneralWorkflowLogSchema>;
 
 export type WorkflowLogsProps = {
 	workflowId: string;
@@ -53,21 +31,25 @@ export type WorkflowLogsProps = {
 	startSignal: string;
 	stopSignal: string;
 	workflowSignalSuffix?: string;
+	logTransformer: (data: unknown) => WorkflowLog;
 };
 
 type HandlerOptions = WorkflowLogsProps & {
-	onUpdate: (data: GeneralWorkflowLog[]) => void;
+	onUpdate: (data: WorkflowLog[]) => void;
 };
 
-export function createWorkflowLogHandlers({
-	workflowId,
-	namespace,
-	subscriptionSuffix,
-	workflowSignalSuffix,
-	startSignal,
-	stopSignal,
-	onUpdate
-}: HandlerOptions) {
+export function createWorkflowLogHandlers(props: HandlerOptions) {
+	const {
+		workflowId,
+		namespace,
+		subscriptionSuffix,
+		workflowSignalSuffix,
+		startSignal,
+		stopSignal,
+		onUpdate,
+		logTransformer
+	} = props;
+
 	const channel = `${workflowId}${subscriptionSuffix}`;
 	const signalWorkflowId = workflowSignalSuffix
 		? `${workflowId}${workflowSignalSuffix}`
@@ -76,15 +58,18 @@ export function createWorkflowLogHandlers({
 	async function startLogs() {
 		try {
 			await pb.realtime.subscribe(channel, (data) => {
-				const parsedResult = z.array(GeneralWorkflowLogSchema).safeParse(data);
-				if (!parsedResult.success) {
-					throw parsedResult.error;
-				}
-        const isOpenIdLogs = ;
-        const updatedLogs: WorkflowLog[]  = parsedResult.data.map(d => ({
-          message: 
-        }))
-				onUpdate(parsedResult.data);
+				const parseResult = z.array(z.unknown()).safeParse(data);
+				if (!parseResult.success) throw new Error('Unexpected data shape');
+				onUpdate(
+					parseResult.data.map((datum) => {
+						try {
+							return logTransformer(datum);
+						} catch (e) {
+							console.error('Log transformer error:', e);
+							return { status: LogStatus.INFO, rawLog: datum };
+						}
+					})
+				);
 			});
 			await pb.send('/api/compliance/send-temporal-signal', {
 				method: 'POST',

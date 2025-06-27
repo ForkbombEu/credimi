@@ -13,7 +13,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import QrLink from '../_partials/qr-link.svelte';
 	import FeedbackForms from '../_partials/feedback-forms.svelte';
 	import WorkflowLogs from '../_partials/workflow-logs.svelte';
-	import type { WorkflowLogsProps } from '../_partials/workflow-logic';
+	import { LogStatus, type WorkflowLogsProps } from '../_partials/workflow-logic';
+	import { z } from 'zod';
 
 	//
 
@@ -32,9 +33,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			stopSignal: 'stop-openidnet-check-log-update',
 			workflowSignalSuffix: '-log',
 			workflowId,
-			namespace
+			namespace,
+			logTransformer: (rawLog) => {
+				const data = LogsSchema.parse(rawLog);
+				return {
+					time: data.time,
+					message: data.msg,
+					status: data.result,
+					rawLog
+				};
+			}
 		};
 	});
+
+	const LogsSchema = z
+		.object({
+			_id: z.string(),
+			msg: z.string(),
+			src: z.string(),
+			time: z.number().optional(),
+			result: z.nativeEnum(LogStatus).optional()
+		})
+		.passthrough();
 </script>
 
 <PageContent>
