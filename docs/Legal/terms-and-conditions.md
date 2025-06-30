@@ -3,7 +3,7 @@
 **Effective Date:** June 30, 2025  
 **Applies to:** Credimi Dashboard  
 **Licensor:** Forkbomb B.V.  
-**Repository:** https://github.com/ForkbombEu/credimi
+**Repository:** https://github.com/ForkbombEu/credimi  
 **Note:** Some of this document was generated with the help of AI
 
 ---

@@ -1,16 +1,17 @@
 # 📜 Privacy Policy
 
 **Effective Date:** June 30, 2025  
-**Applies to:** Credimi Dashboard  
-**Data Controller:** Forkbomb B.V.
-**Note:** Some of this document was generated with the help of AI
+**Applies to:** Credimi  
+**Data Controller:** Forkbomb B.V.  
+**Note:** Some of this document was generated with the help of AI 
+
 ---
 
-## 💻 Credimi Dashboard
+## 💻 Credimi app 
 
 ### 1. Introduction
 
-This Privacy Policy explains how **Forkbomb B.V.** ("we", "our", "us") collects, uses, and protects your personal data when you use the **Credimi Dashboard** ("the Dashboard"). By accessing or using the Dashboard, you agree to the terms of this policy.
+This Privacy Policy explains how **Forkbomb B.V.** ("we", "our", "us") collects, uses, and protects your personal data when you use the **Credimi app** ("the Dashboard"). By accessing or using the Dashboard, you agree to the terms of this policy.
 
 ### 2. Data Collection
 
