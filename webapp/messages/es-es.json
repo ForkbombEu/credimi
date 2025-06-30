@@ -319,5 +319,10 @@
 	"verifier_field_description_signing_algorithms": "Seleccione uno o más algoritmos de firma compatibles",
 	"verifier_field_description_cryptographic_binding_methods": "Ingrese el nombre del caso de uso de verificación: esto será visible en el mercado ",
 	"use_case_verification_field_description_description": "Ingrese la descripción del caso de uso de verificación (compatible con Markdown)",
-	"use_case_verification_field_description_deeplink": "Ingrese el enlace profundo (solicitud de verificación) que se utiliza para generar el código QR e iniciar la verificación del caso de uso"
+	"use_case_verification_field_description_deeplink": "Ingrese el enlace profundo (solicitud de verificación) que se utiliza para generar el código QR e iniciar la verificación del caso de uso",
+	"use_case_verification_field_description_credentials": "Seleccione una o más credenciales que se puedan verificar utilizando este caso de uso de verificación",
+	"use_case_verification_field_description_published": "Marque esta casilla de verificación para publicar la verificación del caso de uso en el mercado",
+	"Waiting_for_logs": "Esperando registros",
+	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Escanea este QR con la aplicación de billetera para iniciar el chequeo",
+	"Credential_updated_successfully": "Credencial actualizada exitosamente"
 }
