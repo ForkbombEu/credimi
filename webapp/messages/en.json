@@ -414,7 +414,7 @@
 	"Standard_and_Version_description": "Metadata about the check, including the standard and version it is based on.",
 	"Check_metadata_description": "Metadata about the check, including the repo and references and description.",
 	"Homepage": "Homepage",
-	"Upload_logo": "Upload logo",
+	"Upload_logo": "Upload logo ",
 	"Example": "Example",
 	"Repository": "Repository",
 	"eg": "e.g.:",
