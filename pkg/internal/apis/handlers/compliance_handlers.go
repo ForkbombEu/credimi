@@ -709,12 +709,11 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 							}
 							json.Unmarshal(decoded, &out)
 							return e.JSON(http.StatusOK, map[string]interface{}{
-								"result": out.Output.Captures.Result,
+								"deeplink": out.Output.Captures.Result,
 							})
 						}
 					}
 				}
-
 			}
 		}
 
