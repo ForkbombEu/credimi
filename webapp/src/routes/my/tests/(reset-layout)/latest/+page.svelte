@@ -17,13 +17,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	backButton={{ href: '/my/tests/runs', title: m.Back_to_check_runs() }}
 >
 	{#if data.latestCheckRuns}
-		{#each data.latestCheckRuns as checkRun}
-			<SectionCard title={checkRun.WorkflowId}>
-				<div>
-					<h1>{checkRun.WorkflowId}</h1>
-					<pre>{JSON.stringify(checkRun, null, 2)}</pre>
-				</div>
-			</SectionCard>
-		{/each}
+		<div class="space-y-4">
+			{#each data.latestCheckRuns as checkRun}
+				<SectionCard title={checkRun.WorkflowId}>
+					<div>
+						<h1>{checkRun.WorkflowId}</h1>
+						<pre>{JSON.stringify(checkRun, null, 2)}</pre>
+					</div>
+				</SectionCard>
+			{/each}
+		</div>
 	{/if}
 </FocusPageLayout>
