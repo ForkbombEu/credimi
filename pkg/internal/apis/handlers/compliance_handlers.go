@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -602,4 +603,126 @@ func sendOpenIDNetLogUpdateStart(
 		)
 	}
 	return nil
+}
+func HandleDeeplink() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		workflowID := e.Request.PathValue("workflowId")
+		if workflowID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflowId",
+				"workflowId is required",
+				"missing workflowId",
+			)
+		}
+		runID := e.Request.PathValue("runId")
+		if runID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"runId",
+				"runId is required",
+				"missing runId",
+			)
+		}
+
+		namespace, err := GetUserOrganizationId(e.App, e.Auth.Id)
+		if err != nil {
+			return err
+		}
+		if namespace == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"organization",
+				"organization is empty",
+				"missing organization",
+			)
+		}
+		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
+		}
+		defer c.Close()
+		historyIterator := c.GetWorkflowHistory(
+			context.Background(),
+			workflowID,
+			runID,
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		)
+		if historyIterator == nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"workflow",
+				"workflow history not found",
+				"not found",
+			)
+		}
+
+		for historyIterator.HasNext() {
+			event, err := historyIterator.Next()
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to iterate workflow history",
+					err.Error(),
+				)
+			}
+			eventData, err := protojson.Marshal(event)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to marshal history event",
+					err.Error(),
+				)
+			}
+			var eventMap map[string]interface{}
+			if err := json.Unmarshal(eventData, &eventMap); err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to unmarshal history event",
+					err.Error(),
+				)
+			}
+
+			if attrRaw, ok := eventMap["activityTaskCompletedEventAttributes"]; ok {
+				attr := attrRaw.(map[string]interface{})
+				if resultRaw, ok := attr["result"]; ok {
+					resultMap := resultRaw.(map[string]interface{})
+					if pls, ok := resultMap["payloads"].([]interface{}); ok && len(pls) > 0 {
+						first := pls[0].(map[string]interface{})
+						if dataB64, ok := first["data"].(string); ok {
+							decoded, _ := base64.StdEncoding.DecodeString(dataB64)
+							var out struct {
+								Output struct {
+									Captures struct {
+										Result interface{} `json:"result"`
+									} `json:"captures"`
+								} `json:"Output"`
+							}
+							json.Unmarshal(decoded, &out)
+							return e.JSON(http.StatusOK, map[string]interface{}{
+								"result": out.Output.Captures.Result,
+							})
+						}
+					}
+				}
+
+			}
+		}
+
+		return apierror.New(
+			http.StatusNotFound,
+			"deeplink",
+			"no matching activity found",
+			"no activity that have as result a deeplink found for this workflow run",
+		)
+	}
 }
