@@ -327,6 +327,8 @@
 	"Shared_fields": "Champs partagés",
 	"Standard_version": "Version standard",
 	"JSON_configuration": "Configuration JSON",
+	"count_missing": "{count} manquant",
+	"Completed": "Complété",
 	"Copy_as_curl": "Copier comme curl",
 	"verifier_field_description_name": "Entrez le nom du vérificateur : le nom sera visible sur la marketplace",
 	"verifier_field_description_description": "Saisissez la description du vérificateur (Markdown est pris en charge)",

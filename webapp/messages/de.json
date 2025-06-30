@@ -328,6 +328,8 @@
 	"Shared_fields": "Gemeinsam genutzte Felder",
 	"Standard_version": "Standardversion",
 	"JSON_configuration": "JSON-Konfiguration",
+	"count_missing": "{count} fehlt",
+	"Completed": "Vollendet",
 	"Copy_as_curl": "Als curl kopieren",
 	"verifier_field_description_name": "Geben Sie den Namen des Prüfers ein: Der Name wird im Marktplatz angezeigt",
 	"verifier_field_description_description": "Geben Sie die Beschreibung des Prüfers ein (Markdown wird unterstützt)",

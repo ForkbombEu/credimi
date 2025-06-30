@@ -317,6 +317,8 @@
 	"Shared_fields": "Campos compartilhados",
 	"Standard_version": "Versão padrão",
 	"JSON_configuration": "Configuração JSON",
+	"count_missing": "{count} ausente",
+	"Completed": "Concluído",
 	"Copy_as_curl": "Copiar como curl",
 	"verifier_field_description_name": "Digite o nome do verificador: o nome ficará visível no marketplace",
 	"verifier_field_description_description": "Insira a descrição do verificador (Markdown é suportado)",

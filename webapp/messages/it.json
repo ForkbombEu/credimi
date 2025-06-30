@@ -326,6 +326,8 @@
 	"Shared_fields": "Campi condivisi",
 	"Standard_version": "Versione standard",
 	"JSON_configuration": "Configurazione JSON",
+	"count_missing": "{count} mancante",
+	"Completed": "Completato",
 	"Copy_as_curl": "Copia come arricciatura",
 	"verifier_field_description_name": "Inserisci il nome del verificatore: il nome sarà visibile nel marketplace",
 	"verifier_field_description_description": "Inserisci la descrizione del verificatore (è supportato Markdown)",

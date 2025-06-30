@@ -325,6 +325,8 @@
 	"Shared_fields": "Delte felter",
 	"Standard_version": "Standardversion",
 	"JSON_configuration": "JSON-konfiguration",
+	"count_missing": "{count} mangler",
+	"Completed": "Færdiggjort",
 	"Copy_as_curl": "Kopiér som krøllet",
 	"verifier_field_description_name": "Indtast navnet på verifikatoren: navnet vil være synligt på markedspladsen",
 	"verifier_field_description_description": "Indtast beskrivelsen af verifikatoren (Markdown understøttes)",
