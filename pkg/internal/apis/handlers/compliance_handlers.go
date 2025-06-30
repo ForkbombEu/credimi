@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"slices"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -327,11 +328,42 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 			)
 		}
 		if finalJSON["executions"] == nil {
-			finalJSON["executions"] = []map[string]interface{}{}
+			finalJSON["executions"] = []any{}
 		}
+		executions, ok := (finalJSON["executions"]).([]any)
+		if !ok {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"invalid executions data type",
+				"executions field is not of expected type",
+			)
+		}
+		finalJSON["executions"] = sortExecutionsByStartTime(executions)
 		return e.JSON(http.StatusOK, finalJSON)
 	}
 }
+
+type Execution = map[string]any
+
+func sortExecutionsByStartTime(executions []any) []any {
+	slices.SortFunc(executions, func(execA, execB any) int {
+		execAMap, okA := execA.(Execution)
+		execBMap, okB := execB.(Execution)
+		if !okA || !okB {
+			return 0
+		}
+		startTimeA, okA := execAMap["startTime"].(string)
+		startTimeB, okB := execBMap["startTime"].(string)
+		if !okA || !okB {
+			return 0
+		}
+		return strings.Compare(startTimeB, startTimeA)
+	})
+	return executions
+}
+
+//
 
 type HandleNotifyFailureRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
