@@ -51,9 +51,11 @@ export type StartCheckResult = {
 	Errors: null | string;
 	Output: null | string;
 	Log: null | string;
+	Author: string;
 };
 
 export type StartChecksResponse = {
+	'protocol/version': string;
 	message: string;
 	results: StartCheckResult[];
 };

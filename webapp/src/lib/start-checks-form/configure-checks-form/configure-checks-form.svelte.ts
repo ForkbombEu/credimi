@@ -70,7 +70,12 @@ export class ConfigureChecksForm {
 					body: this.getFormData()
 				}
 			);
-			LatestCheckRunsStorage.set(response.results);
+			LatestCheckRunsStorage.set(
+				response.results.map((res) => ({
+					...res,
+					standardAndVersion: response['protocol/version']
+				}))
+			);
 			await goto(`/my/tests/runs`);
 		} catch (error) {
 			this.loadingError = error as Error;

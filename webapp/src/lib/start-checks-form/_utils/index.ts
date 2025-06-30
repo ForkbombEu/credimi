@@ -63,7 +63,9 @@ export async function getChecksConfigsFields(suiteAndVersionPath: string, filena
 
 //
 
-export const LatestCheckRunsStorage = createStorageHandlers<StartCheckResult[]>(
+export type StartCheckResultWithMeta = StartCheckResult & { standardAndVersion: string };
+
+export const LatestCheckRunsStorage = createStorageHandlers<StartCheckResultWithMeta[]>(
 	`${appName}-latestCheckRuns`,
 	localStorage
 );
