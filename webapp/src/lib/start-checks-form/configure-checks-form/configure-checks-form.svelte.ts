@@ -71,7 +71,7 @@ export class ConfigureChecksForm {
 				}
 			);
 			LatestCheckRunsStorage.set(response.results);
-			await goto(`/my/tests/latest`);
+			await goto(`/my/tests/runs`);
 		} catch (error) {
 			this.loadingError = error as Error;
 		} finally {
