@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pb } from '@/pocketbase';
-import { configFieldComparator } from '$start-checks-form/_utils';
+import { configFieldComparator, LatestCheckRunsStorage } from '$start-checks-form/_utils';
 import { CheckConfigFormEditor } from './check-config-form-editor';
 import { CheckConfigEditor } from './check-config-editor';
 import { pipe, Record } from 'effect';
@@ -62,15 +62,16 @@ export class ConfigureChecksForm {
 	async submit() {
 		this.isLoading = true;
 		try {
-			console.log(this.getFormData());
-			await pb.send(
+			const response = await pb.send(
 				`/api/compliance/${this.props.standardAndVersionPath}/save-variables-and-start`,
 				{
 					method: 'POST',
 					body: this.getFormData()
 				}
 			);
-			await goto(`/my/tests/runs`);
+			console.log(response);
+			LatestCheckRunsStorage.set(response);
+			await goto(`/my/runs/latest`);
 		} catch (error) {
 			this.loadingError = error as Error;
 		} finally {

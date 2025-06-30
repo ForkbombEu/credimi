@@ -8,7 +8,9 @@ import {
 	type NamedConfigField,
 	checksConfigFieldsResponseSchema
 } from '$start-checks-form/types';
+import { appName } from '@/brand';
 import { pb } from '@/pocketbase';
+import { createStorageHandlers } from '@/utils/storage';
 
 //
 
@@ -57,3 +59,10 @@ export async function getChecksConfigsFields(suiteAndVersionPath: string, filena
 	});
 	return checksConfigFieldsResponseSchema.parse(data);
 }
+
+//
+
+export const LatestCheckRunsStorage = createStorageHandlers(
+	`${appName}-latestCheckRuns`,
+	localStorage
+);
