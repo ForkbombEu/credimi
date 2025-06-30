@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex items-center space-x-2">
 			<div class="hidden sm:flex sm:flex-row">
 				<Button variant="link" href="/news">{m.News()}</Button>
-				<Button variant="link" href="/help">{m.Help()}</Button>
+				<Button variant="link" href="https://docs.credimi.io">{m.Help()}</Button>
 			</div>
 			{#if !$featureFlags.DEMO && $featureFlags.AUTH}
 				{#if !$currentUser}
