@@ -10,6 +10,7 @@ import { pipe, Record } from 'effect';
 import { CustomCheckConfigEditor } from './custom-check-config-editor';
 import { goto } from '@/i18n';
 import type { SelectChecksSubmitData } from '../select-checks-form';
+import type { StartChecksResponse } from '../types';
 
 //
 
@@ -62,16 +63,15 @@ export class ConfigureChecksForm {
 	async submit() {
 		this.isLoading = true;
 		try {
-			const response = await pb.send(
+			const response: StartChecksResponse = await pb.send(
 				`/api/compliance/${this.props.standardAndVersionPath}/save-variables-and-start`,
 				{
 					method: 'POST',
 					body: this.getFormData()
 				}
 			);
-			console.log(response);
-			LatestCheckRunsStorage.set(response);
-			await goto(`/my/runs/latest`);
+			LatestCheckRunsStorage.set(response.results);
+			await goto(`/my/tests/latest`);
 		} catch (error) {
 			this.loadingError = error as Error;
 		} finally {

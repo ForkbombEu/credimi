@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui/button/button.svelte';
 	import { ArrowRight } from 'lucide-svelte';
 	import { m } from '@/i18n';
-	import SectionCard from '$start-checks-form/_utils/section-card.svelte';
+	import SectionCard from '$lib/layout/section-card.svelte';
 	import Footer from '$start-checks-form/_utils/footer.svelte';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import SmallErrorDisplay from '../_utils/small-error-display.svelte';

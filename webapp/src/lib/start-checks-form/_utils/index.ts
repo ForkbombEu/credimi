@@ -6,7 +6,8 @@ import {
 	type ConfigField,
 	namedConfigFieldSchema,
 	type NamedConfigField,
-	checksConfigFieldsResponseSchema
+	checksConfigFieldsResponseSchema,
+	type StartCheckResult
 } from '$start-checks-form/types';
 import { appName } from '@/brand';
 import { pb } from '@/pocketbase';
@@ -62,7 +63,7 @@ export async function getChecksConfigsFields(suiteAndVersionPath: string, filena
 
 //
 
-export const LatestCheckRunsStorage = createStorageHandlers(
+export const LatestCheckRunsStorage = createStorageHandlers<StartCheckResult[]>(
 	`${appName}-latestCheckRuns`,
 	localStorage
 );

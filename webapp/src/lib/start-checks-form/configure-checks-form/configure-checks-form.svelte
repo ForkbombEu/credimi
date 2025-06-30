@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CheckConfigEditorComponent } from './check-config-editor';
 	import Button from '@/components/ui-custom/button.svelte';
 	import Footer from '../_utils/footer.svelte';
-	import SectionCard from '../_utils/section-card.svelte';
+	import SectionCard from '../../layout/section-card.svelte';
 	import {
 		ConfigureChecksForm,
 		type ConfigureChecksFormProps
