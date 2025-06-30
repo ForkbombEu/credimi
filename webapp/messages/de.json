@@ -194,6 +194,7 @@
 	"Record_shared_successfully": "Daten erfolgreich geteilt",
 	"Remove_access": "Zugriff entfernen",
 	"Are_you_sure_you_want_to_remove_access_to_the_record": "Möchtest Du wirklich den gesamten Zugriff auf die Daten entfernen?",
+	"Record_authorization_removed_successfully": "Autorisierung erfolgreich entfernt",
 	"Update_authorizations": "Update-Berechtigungen",
 	"Request_accepted_sucessfully": "Anfrage erfolgreich angenommen",
 	"An_error_occurred_while_handling_membership_request": "Beim Verarbeiten der Mitgliedschaftsanfrage ist ein Fehler aufgetreten",

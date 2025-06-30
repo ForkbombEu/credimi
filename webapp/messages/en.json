@@ -212,7 +212,7 @@
 	"Record_shared_successfully": "Data shared successfully",
 	"Remove_access": "Remove access",
 	"Are_you_sure_you_want_to_remove_access_to_the_record": "Are you sure you want to remove all access to the data?",
-	"Record_authorization_removed_successfully": "Record authorization removed successfully",
+	"Record_authorization_removed_successfully": "Authorization removed successfully",
 	"Update_authorizations": "Update authorizations",
 	"Request_accepted_sucessfully": "Request accepted sucessfully",
 	"An_error_occurred_while_handling_membership_request": "An error occurred while handling membership request",

@@ -194,6 +194,7 @@
 	"Record_shared_successfully": "Data blev delt",
 	"Remove_access": "Fjern adgang",
 	"Are_you_sure_you_want_to_remove_access_to_the_record": "Er du sikker på, at du vil fjerne al adgang til dataene?",
+	"Record_authorization_removed_successfully": "Autorisationen er fjernet",
 	"Update_authorizations": "Opdater autorisationer",
 	"Request_accepted_sucessfully": "Anmodning accepteret",
 	"An_error_occurred_while_handling_membership_request": "Der opstod en fejl under behandling af medlemsanmodningen",

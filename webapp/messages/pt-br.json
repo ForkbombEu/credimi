@@ -184,6 +184,7 @@
 	"Record_shared_successfully": "Dados compartilhados com sucesso",
 	"Remove_access": "Remover acesso",
 	"Are_you_sure_you_want_to_remove_access_to_the_record": "Tem certeza de que deseja remover todo o acesso aos dados?",
+	"Record_authorization_removed_successfully": "Autorização removida com sucesso",
 	"Update_authorizations": "Atualizar autorizações",
 	"Request_accepted_sucessfully": "Solicitação aceita com sucesso",
 	"An_error_occurred_while_handling_membership_request": "Ocorreu um erro ao processar a solicitação de associação",
