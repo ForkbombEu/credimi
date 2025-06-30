@@ -145,7 +145,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{@const label = fileId.split('.').slice(0, -1).join('.')}
 						<Label class="flex items-center gap-2  font-mono text-xs">
 							<Checkbox {value} />
-							<span>{label + label}</span>
+							<span>{label}</span>
 						</Label>
 					{/each}
 				</div>
