@@ -67,6 +67,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Td>
 						{#if workflowMemo && workflowMemo.standard.includes('wallet')}
 							<WorkflowQrPoller {workflow} containerClass="size-32" />
+						{:else}
+							<T class="text-gray-300">N/A</T>
 						{/if}
 					</Td>
 				{/snippet}
