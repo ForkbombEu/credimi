@@ -12,7 +12,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Step from '../_partials/step.svelte';
 	import QrLink from '../_partials/qr-link.svelte';
 	import FeedbackForms from '../_partials/feedback-forms.svelte';
-	import { WorkflowLogs, LogStatus, type WorkflowLogsProps } from '$lib/workflows';
+	import { LogStatus, type WorkflowLogsProps } from '../_partials/workflow-logs';
+	import WorkflowLogs from '../_partials/workflow-logs.svelte';
 	import { z } from 'zod';
 
 	//
