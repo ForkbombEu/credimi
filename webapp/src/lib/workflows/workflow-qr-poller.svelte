@@ -18,12 +18,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		workflow: WorkflowExecution;
+		workflowId: string;
+		runId: string;
 		containerClass?: string;
 	};
 
-	let { workflow, containerClass }: Props = $props();
-	const { workflowId, runId } = $derived(workflow.execution);
+	let { workflowId, runId, containerClass }: Props = $props();
 
 	let deeplink = $state<string>();
 	let attempt = $state(0);
