@@ -511,5 +511,6 @@
 	"End_time": "End time",
 	"Test_runs_will_appear_here": "Test runs will appear here",
 	"Clear_list": "Clear list",
-	"Checks_history": "Checks history"
+	"Checks_history": "Checks history",
+	"Create_verifier": "Create verifier"
 }
