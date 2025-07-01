@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="flex items-center justify-between">
 				<T tag="h3">{m.Review_latest_check_runs()}</T>
 				<Button
-					variant="link"
+					variant="outline"
 					size="sm"
 					onclick={() => {
 						latestCheckRuns = [];
