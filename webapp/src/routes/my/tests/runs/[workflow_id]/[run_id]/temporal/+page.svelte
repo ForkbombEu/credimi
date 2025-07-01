@@ -21,8 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function sendHeight(height: number) {
 		parent.postMessage({ type: 'height', height }, '/');
 	}
-
-	export const WRAPPER_ID = 'temporal-container';
 </script>
 
 <script>
@@ -32,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const { workflowResponse, eventHistory } = data;
+	const { workflow, eventHistory } = data;
 </script>
 
 <!--  -->
@@ -46,10 +44,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<link rel="stylesheet" href="/temporal.css" />
 </svelte:head>
 
-<div id={WRAPPER_ID}>
+<div>
 	<TemporalI18nProvider>
 		<TemporalWorkflow
-			{workflowResponse}
+			workflowResponse={workflow}
 			{eventHistory}
 			onMount={() => {
 				sendHeight(document.body.scrollHeight);

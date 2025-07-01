@@ -79,7 +79,8 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 					workflow_id: signalWorkflowId,
 					namespace,
 					signal: startSignal
-				}
+				},
+				requestKey: null
 			});
 		} catch (e) {
 			console.error('Start signal error:', e);
@@ -95,7 +96,8 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 					workflow_id: signalWorkflowId,
 					namespace,
 					signal: stopSignal
-				}
+				},
+				requestKey: null
 			});
 		} catch (e) {
 			console.error('Stop signal error:', e);

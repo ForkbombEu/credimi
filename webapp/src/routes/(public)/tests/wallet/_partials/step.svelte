@@ -8,22 +8,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	type Props = {
-		n: string;
+		n?: string;
 		text: string;
-		children?: Snippet
-	}
-	const { n, text, children }: Props = $props();
+		children?: Snippet;
+		class?: string;
+	};
+	const { n, text, children, class: className }: Props = $props();
 </script>
 
-<div class="bg-secondary rounded-xl p-4">
+<div class={['bg-secondary rounded-xl p-4', className]}>
 	<div class="flex items-center gap-4">
-		<div
-			class="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-semibold"
-		>
-			<p>{n}</p>
-		</div>
+		{#if n}
+			<div
+				class="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-semibold"
+			>
+				<p>{n}</p>
+			</div>
+		{/if}
 		<T class="text-primary font-semibold">{text}</T>
 	</div>
 	{@render children?.()}
 </div>
-

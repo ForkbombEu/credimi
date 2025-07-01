@@ -13,12 +13,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { onDestroy } from 'svelte';
-	import { HeightMessageSchema, WRAPPER_ID } from './temporal/+page.svelte';
+	import { HeightMessageSchema } from './temporal/+page.svelte';
+	import OpenidnetTop from './_partials/openidnet-top.svelte';
+	import EwcTop from './_partials/ewc-top.svelte';
+	import EudiwTop from './_partials/eudiw-top.svelte';
+	import { WorkflowQrPoller } from '$lib/workflows';
 
 	//
 
 	let { data } = $props();
-	const { workflowId } = data;
+	const { workflowId, runId, workflowMemo, organization } = $derived(data);
+
+	const testNameChunks = $derived(workflowMemo?.test.split(':') ?? []);
 
 	/* Loading handling and height calculation */
 
@@ -51,17 +57,58 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="min-h-screen">
 	<div class="bg-primary text-white">
 		<div class="!px-2 md:!px-4 lg:!px-8">
-			<BackButton href="/my/tests/runs" class="text-white">{m.Back_to_test_runs()}</BackButton
-			>
+			<BackButton href="/my/tests/runs" class="text-white">
+				{m.Back_to_test_runs()}
+			</BackButton>
 		</div>
 	</div>
 
-	<PageTop contentClass="!space-y-0 !px-2 md:!px-4 lg:!px-8">
-		<T tag="h2">{m.Test_run()}: {workflowId}</T>
-	</PageTop>
+	<div
+		class="border-primary flex items-center justify-between border-b-2 !px-2 py-4 pb-4 md:!px-4 lg:!px-8"
+	>
+		<div>
+			<T tag="h3">
+				{workflowMemo?.standard} / {workflowMemo?.author}
+			</T>
+			<T tag="h1">
+				{#each testNameChunks as chunk, index}
+					{#if index > 0}
+						<span class="text-muted-foreground">:</span>
+					{/if}
+					<span>
+						{chunk}
+					</span>
+				{/each}
+			</T>
+			<T class="mt-4">{m.Test_run()}: {workflowId}</T>
+		</div>
+		<div class="bg-secondary rounded-md p-4">
+			<WorkflowQrPoller {workflowId} {runId} containerClass="size-40" />
+		</div>
+	</div>
 
-	<LoadingDialog {loading} />
+	<div class="!px-2 py-4 md:!px-4 lg:!px-8">
+		{#if workflowMemo?.author == 'openid_conformance_suite'}
+			<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
+		{:else if workflowMemo?.author == 'ewc'}
+			<EwcTop {workflowId} {runId} namespace={organization?.id!} />
+		{:else if workflowMemo?.author == 'eudiw'}
+			<EudiwTop {workflowId} {runId} namespace={organization?.id!} />
+		{:else}
+			<div>
+				<T tag="h2">
+					{workflowId}
+				</T>
+			</div>
+		{/if}
+	</div>
 
-	<iframe id={iframeId} title="Workflow" src={page.url.pathname + '/temporal'} class="w-full"
+	<iframe
+		id={iframeId}
+		title="Workflow"
+		src={page.url.pathname + '/temporal'}
+		class="w-full border-t-2 border-t-black"
 	></iframe>
 </div>
+
+<LoadingDialog {loading} />

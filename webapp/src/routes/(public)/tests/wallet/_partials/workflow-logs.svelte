@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n/index.js';
 	import { nanoid } from 'nanoid';
 
-	const props: WorkflowLogsProps = $props();
+	const props: WorkflowLogsProps & { class?: string; uiSize?: 'sm' | 'md' } = $props();
 
 	let logs: WorkflowLog[] = $state([]);
 
@@ -59,56 +59,64 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <svelte:window on:beforeunload|preventDefault={stopLogs} />
 
-<div class="py-2">
-	{#if logs.length === 0}
-		<Alert variant="info" icon={Info}>
-			<p>{m.Waiting_for_logs()}</p>
-		</Alert>
-	{:else}
-		<div class="max-h-[700px] space-y-1 overflow-y-auto">
-			{#each logs as log}
-				{@const logId = nanoid(4)}
-				{@const status = log.status ?? LogStatus.INFO}
-				<Accordion.Root type="multiple" class="bg-muted space-y-1 rounded-md px-2">
-					<Accordion.Item value={logId} class="border-none">
-						<Accordion.Trigger
-							class="flex items-center justify-between gap-2 hover:no-underline"
-						>
-							<div class="flex grow items-center gap-2">
-								<Badge
-									class="w-20 text-center capitalize"
-									variant={statusToVariant(status)}
-								>
-									{status}
-								</Badge>
+{#if logs.length === 0}
+	<Alert variant="info" icon={Info}>
+		<p>{m.Waiting_for_logs()}</p>
+	</Alert>
+{:else}
+	<div class={['max-h-[700px] space-y-1 overflow-y-auto', props.class]}>
+		{#each logs as log}
+			{@const logId = nanoid(4)}
+			{@const status = log.status ?? LogStatus.INFO}
+			<Accordion.Root type="multiple" class="bg-muted space-y-1 rounded-md px-2">
+				<Accordion.Item value={logId} class="border-none">
+					<Accordion.Trigger
+						class="flex items-center justify-between gap-2 hover:no-underline"
+					>
+						<div class="flex grow items-center gap-2">
+							<Badge
+								class="w-20 text-center capitalize"
+								variant={statusToVariant(status)}
+							>
+								{status}
+							</Badge>
 
-								{#if log.message}
-									<p class="text-left">{log.message}</p>
-								{:else}
-									<p class="text-muted-foreground">{m.Open_for_details()}</p>
-								{/if}
-							</div>
-
-							{#if log.time}
+							{#if log.message}
 								<p
-									class="text-muted-foreground shrink-0 text-nowrap text-right text-xs"
+									class={[
+										'text-left',
+										{
+											'text-sm': props.uiSize === 'sm',
+											'text-md': props.uiSize === 'md'
+										}
+									]}
 								>
-									{new Date(log.time).toLocaleString()}
+									{log.message}
 								</p>
+							{:else}
+								<p class="text-muted-foreground">{m.Open_for_details()}</p>
 							{/if}
-						</Accordion.Trigger>
+						</div>
 
-						<Accordion.Content>
-							<pre
-								class="bg-secondary overflow-x-scroll rounded-md p-2 text-xs">{JSON.stringify(
-									log.rawLog,
-									null,
-									2
-								)}</pre>
-						</Accordion.Content>
-					</Accordion.Item>
-				</Accordion.Root>
-			{/each}
-		</div>
-	{/if}
-</div>
+						{#if log.time}
+							<p
+								class="text-muted-foreground shrink-0 text-nowrap text-right text-xs"
+							>
+								{new Date(log.time).toLocaleString()}
+							</p>
+						{/if}
+					</Accordion.Trigger>
+
+					<Accordion.Content>
+						<pre
+							class="bg-secondary overflow-x-scroll rounded-md p-2 text-xs">{JSON.stringify(
+								log.rawLog,
+								null,
+								2
+							)}</pre>
+					</Accordion.Content>
+				</Accordion.Item>
+			</Accordion.Root>
+		{/each}
+	</div>
+{/if}

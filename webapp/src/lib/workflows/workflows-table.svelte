@@ -13,9 +13,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { toUserTimezone } from '@/utils/toUserTimezone';
 	import { m } from '@/i18n';
 	import type { Snippet } from 'svelte';
-	import { z } from 'zod';
 	import T from '@/components/ui-custom/t.svelte';
-	import { warn } from '@/utils/other';
+	import { getWorkflowMemo, type WorkflowMemo } from './memo';
 
 	//
 
@@ -36,49 +35,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { workflows, headerRight, rowRight }: Props = $props();
 
 	//
-
-	const memoFieldSchema = z.object({
-		data: z.string(),
-		metadata: z.object({
-			encoding: z.string()
-		})
-	});
-
-	type MemoField = z.infer<typeof memoFieldSchema>;
-	type WorkflowMemo = {
-		author: string;
-		standard: string;
-		test: string;
-	};
-
-	function getWorkflowMemo(workflow: WorkflowExecution): WorkflowMemo | undefined {
-		try {
-			const fields = z.record(memoFieldSchema).parse(workflow.memo['fields']);
-			if (!fields) return undefined;
-			const author = memoFieldToText(fields['author']);
-			const standard = memoFieldToText(fields['standard']);
-			const test = memoFieldToText(fields['test'])?.split('/').at(-1)?.split('.').at(0);
-			if (!author || !standard || !test) return undefined;
-			return {
-				author,
-				standard,
-				test
-			};
-		} catch (error) {
-			warn(`Failed to parse memo: ${error}`);
-			return undefined;
-		}
-	}
-
-	function memoFieldToText(field: MemoField | undefined) {
-		if (!field) return undefined;
-		try {
-			const { data } = field;
-			return atob(data).replaceAll('"', '').trim();
-		} catch (error) {
-			throw new Error(`Failed to decode memo field: ${error}`);
-		}
-	}
 </script>
 
 <TemporalI18nProvider>
