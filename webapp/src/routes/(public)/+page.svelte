@@ -27,28 +27,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { MarketplaceItemCard } from './marketplace/_utils';
 
 	const MAX_SOLUTION_ITEMS = 3;
-	const schema = z.object({
-		name: z.string(),
-		email: z.string().email()
-	});
-
-	const form = createForm({
-		adapter: zod(schema),
-		onSubmit: async ({ form: { data } }) => {
-			try {
-				await pb.collection('waitlist').create({
-					email: data.email,
-					name: data.name
-				});
-				formSuccess = true;
-			} catch {
-				throw new Error(
-					m.An_error_occurred_while_submitting_your_request_Please_try_again()
-				);
-			}
-		}
-	});
-	let formSuccess = $state(false);
+	// const schema = z.object({
+	// 	name: z.string(),
+	// 	email: z.string().email()
+	// });
+	//
+	// const form = createForm({
+	// 	adapter: zod(schema),
+	// 	onSubmit: async ({ form: { data } }) => {
+	// 		try {
+	// 			await pb.collection('waitlist').create({
+	// 				email: data.email,
+	// 				name: data.name
+	// 			});
+	// 			formSuccess = true;
+	// 		} catch {
+	// 			throw new Error(
+	// 				m.An_error_occurred_while_submitting_your_request_Please_try_again()
+	// 			);
+	// 		}
+	// 	}
+	// });
+	// let formSuccess = $state(false);
 	const excludeFromSolutions = Collections.Credentials;
 </script>
 
@@ -114,50 +114,50 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <PageContent class="border-y-primaryborder-y-2" contentClass="!space-y-8">
 	<div id="waitlist" class="scroll-mt-20">
-		<T tag="h2" class="text-balance">
-			{m._Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List()}
-		</T>
-		<T class="mt-1 text-balance font-medium">
-			{m.Be_the_first_to_explore_credimi_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_()}
-		</T>
+		<!-- <T tag="h2" class="text-balance"> -->
+		<!-- 	{m._Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List()} -->
+		<!-- </T> -->
+		<!-- <T class="mt-1 text-balance font-medium"> -->
+		<!-- 	{m.Be_the_first_to_explore_credimi_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_()} -->
+		<!-- </T> -->
 	</div>
 
-	{#if !formSuccess}
-		<Form {form} hide={['submit_button']} class=" !space-y-3" hideRequiredIndicator>
-			<div class="flex w-full max-w-3xl flex-col gap-2 md:flex-row md:gap-6">
-				<div class="grow">
-					<Field
-						{form}
-						name="name"
-						options={{
-							label: m.Your_name(),
-							placeholder: m.John_Doe(),
-							class: 'bg-secondary/40 '
-						}}
-					/>
-				</div>
-				<div class="grow">
-					<Field
-						{form}
-						name="email"
-						options={{
-							label: m.Your_email(),
-							placeholder: m.e_g_hellomycompany_com(),
-							class: 'bg-secondary/40'
-						}}
-					/>
-				</div>
-			</div>
-			<SubmitButton>{m.Join_the_Waitlist()}</SubmitButton>
-		</Form>
-	{:else}
-		<Alert variant="info">
-			<p class="font-bold">{m.Request_sent_()}</p>
-			<p>
-				{m.Thanks_for_your_interest_We_will_write_to_you_soon()}
-			</p>
-		</Alert>
-	{/if}
+	<!-- {#if !formSuccess} -->
+	<!-- 	<Form {form} hide={['submit_button']} class=" !space-y-3" hideRequiredIndicator> -->
+	<!-- 		<div class="flex w-full max-w-3xl flex-col gap-2 md:flex-row md:gap-6"> -->
+	<!-- 			<div class="grow"> -->
+	<!-- 				<Field -->
+	<!-- 					{form} -->
+	<!-- 					name="name" -->
+	<!-- 					options={{ -->
+	<!-- 						label: m.Your_name(), -->
+	<!-- 						placeholder: m.John_Doe(), -->
+	<!-- 						class: 'bg-secondary/40 ' -->
+	<!-- 					}} -->
+	<!-- 				/> -->
+	<!-- 			</div> -->
+	<!-- 			<div class="grow"> -->
+	<!-- 				<Field -->
+	<!-- 					{form} -->
+	<!-- 					name="email" -->
+	<!-- 					options={{ -->
+	<!-- 						label: m.Your_email(), -->
+	<!-- 						placeholder: m.e_g_hellomycompany_com(), -->
+	<!-- 						class: 'bg-secondary/40' -->
+	<!-- 					}} -->
+	<!-- 				/> -->
+	<!-- 			</div> -->
+	<!-- 		</div> -->
+	<!-- 		<SubmitButton>{m.Join_the_Waitlist()}</SubmitButton> -->
+	<!-- 	</Form> -->
+	<!-- {:else} -->
+	<!-- 	<Alert variant="info"> -->
+	<!-- 		<p class="font-bold">{m.Request_sent_()}</p> -->
+	<!-- 		<p> -->
+	<!-- 			{m.Thanks_for_your_interest_We_will_write_to_you_soon()} -->
+	<!-- 		</p> -->
+	<!-- 	</Alert> -->
+	<!-- {/if} -->
 </PageContent>
 
 <PageContent class="bg-secondary" contentClass="space-y-12">
