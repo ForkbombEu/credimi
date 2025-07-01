@@ -512,5 +512,6 @@
 	"Test_runs_will_appear_here": "Test runs will appear here",
 	"Clear_list": "Clear list",
 	"Checks_history": "Checks history",
-	"Create_verifier": "Create verifier"
+	"Create_verifier": "Create verifier",
+	"The_QR_code_may_be_not_available_for_this_test": "The QR code may be not available for this test."
 }

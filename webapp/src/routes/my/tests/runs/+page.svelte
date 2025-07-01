@@ -12,13 +12,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { browser } from '$app/environment';
 	import { Array } from 'effect';
 	import { ensureArray } from '@/utils/other';
-	import { WorkflowsTable } from '$lib/workflows';
+	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { XIcon } from 'lucide-svelte';
 	import { Separator } from '@/components/ui/separator/index.js';
-	import { QrCode } from '@/qr';
 
 	//
 
@@ -64,13 +63,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Th>
 				{/snippet}
 
-				{#snippet rowRight({ workflow, Td })}
+				{#snippet rowRight({ workflow, Td, workflowMemo })}
 					<Td>
-						<QrCode
-							src={workflow.execution.runId}
-							cellSize={40}
-							class="aspect-square"
-						/>
+						{#if workflowMemo && workflowMemo.standard.includes('wallet')}
+							<WorkflowQrPoller {workflow} containerClass="size-32" />
+						{/if}
 					</Td>
 				{/snippet}
 			</WorkflowsTable>
@@ -82,12 +79,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	{#if oldExecutions.length > 0}
-		<div
-			class={[
-				'space-y-4 transition-opacity duration-300',
-				{ 'opacity-40 hover:opacity-100': latestExecutions.length > 0 }
-			]}
-		>
+		<div class="space-y-4">
 			<T tag="h3">{m.Checks_history()}</T>
 			<WorkflowsTable workflows={oldExecutions} />
 		</div>

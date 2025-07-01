@@ -21,7 +21,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		workflows: WorkflowExecution[];
 		headerRight?: Snippet<[{ Th: typeof Table.Head }]>;
-		rowRight?: Snippet<[{ workflow: WorkflowExecution; Td: typeof Table.Cell }]>;
+		rowRight?: Snippet<
+			[
+				{
+					workflow: WorkflowExecution;
+					Td: typeof Table.Cell;
+					workflowMemo: WorkflowMemo | undefined;
+				}
+			]
+		>;
 	};
 
 	let { workflows, headerRight, rowRight }: Props = $props();
@@ -36,8 +44,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	type MemoField = z.infer<typeof memoFieldSchema>;
+	type WorkflowMemo = {
+		author: string;
+		standard: string;
+		test: string;
+	};
 
-	function getWorkflowMemo(workflow: WorkflowExecution) {
+	function getWorkflowMemo(workflow: WorkflowExecution): WorkflowMemo | undefined {
 		try {
 			const fields = z.record(memoFieldSchema).parse(workflow.memo['fields']);
 			if (!fields) return undefined;
@@ -73,9 +86,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Table.Row>
 				<Table.Head>{m.Status()}</Table.Head>
 				<Table.Head>{m.Workflow_ID()}</Table.Head>
+				{@render headerRight?.({ Th: Table.Head })}
 				<Table.Head class="text-right">{m.Start_time()}</Table.Head>
 				<Table.Head class="text-right">{m.End_time()}</Table.Head>
-				{@render headerRight?.({ Th: Table.Head })}
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
@@ -83,6 +96,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{@const path = `/my/tests/runs/${workflow.execution.workflowId}/${workflow.execution.runId}`}
 				{@const status = toWorkflowStatusReadable(workflow.status)}
 				{@const memo = getWorkflowMemo(workflow)}
+				{@const start = toUserTimezone(workflow.startTime)}
+				{@const end = toUserTimezone(workflow.endTime)}
 				<Table.Row>
 					<Table.Cell>
 						{#if status !== null}
@@ -91,20 +106,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Table.Cell>
 
 					<Table.Cell class="font-medium">
-						<A href={path}>
-							{#if memo}
-								<T>{memo.standard}</T>
-								<T>{memo.author}</T>
+						{#if memo}
+							<A href={path}>
+								<T>{memo.standard} / {memo.author}</T>
 								<T>{memo.test}</T>
-							{:else}
+							</A>
+							<T class="mt-1 text-xs text-gray-400">
 								{workflow.execution.workflowId}
-							{/if}
-						</A>
+							</T>
+						{:else}
+							<A href={path}>
+								{workflow.execution.workflowId}
+							</A>
+						{/if}
 					</Table.Cell>
 
-					<Table.Cell class="text-right">{toUserTimezone(workflow.startTime)}</Table.Cell>
-					<Table.Cell class="text-right">{toUserTimezone(workflow.endTime)}</Table.Cell>
-					{@render rowRight?.({ workflow, Td: Table.Cell })}
+					{@render rowRight?.({ workflow, Td: Table.Cell, workflowMemo: memo })}
+
+					<Table.Cell class="text-right">
+						{start}
+					</Table.Cell>
+					<Table.Cell class={['text-right', { 'text-gray-300': !end }]}>
+						{end ?? 'N/A'}
+					</Table.Cell>
 				</Table.Row>
 			{:else}
 				<Table.Row class="hover:bg-transparent">
