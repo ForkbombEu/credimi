@@ -92,6 +92,12 @@ func AddComplianceChecks(app core.App) {
 				Input:               handlers.HandleSendLogUpdateRequestInput{},
 				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
 			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/deeplink/{workflowId}/{runId}",
+				Handler: handlers.HandleDeeplink,
+				Input: nil,
+			},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
 			// apis.RequireAuth(),

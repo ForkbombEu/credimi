@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { currentUser } from '@/pocketbase';
 	import UserNav from './userNav.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
-	import { Sparkle } from 'lucide-svelte';
+	import { LayoutDashboardIcon, Sparkle } from 'lucide-svelte';
 	import { AppLogo } from '@/brand';
 
 	function href(href: string) {
@@ -32,6 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Button variant="link" href={href('/organizations')}>
 				{m.organizations()}
 			</Button>
+			<Button variant="link" href="/news">{m.News()}</Button>
 		</div>
 	{/snippet}
 
@@ -48,6 +49,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Button variant="link" href="/my/tests/new">
 						<Icon src={Sparkle} />
 						{m.Start_a_new_check()}
+					</Button>
+					<Button variant="link" href="/my/services-and-products">
+						<Icon src={LayoutDashboardIcon} />
+						{m.Go_to_Dashboard()}
 					</Button>
 					<UserNav />
 				{/if}
