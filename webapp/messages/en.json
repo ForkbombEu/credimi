@@ -504,5 +504,12 @@
 	"Review_latest_check_runs": "Review latest check runs",
 	"Back_to_check_runs": "Back to check runs",
 	"You_have_count_recent_check_runs": "You have {count} recent check runs.",
-	"Clear_history": "Clear history"
+	"Clear_history": "Clear history",
+	"Status": "Status",
+	"Workflow_ID": "Workflow ID",
+	"Start_time": "Start time",
+	"End_time": "End time",
+	"Test_runs_will_appear_here": "Test runs will appear here",
+	"Clear_list": "Clear list",
+	"Checks_history": "Checks history"
 }
