@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import { Sparkle } from 'lucide-svelte';
 	import { AppLogo } from '@/brand';
+	import { Badge } from '@/components/ui/badge';
 
 	function href(href: string) {
 		return $featureFlags.DEMO ? '#waitlist' : href;
@@ -48,6 +49,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Button variant="link" href="/my/tests/new">
 						<Icon src={Sparkle} />
 						{m.Start_a_new_check()}
+						<Badge
+							variant="outline"
+							class="border-primary text-primary !hover:no-underline text-xs"
+						>
+							{m.Beta()}
+						</Badge>
 					</Button>
 					<UserNav />
 				{/if}

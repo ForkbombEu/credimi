@@ -501,5 +501,6 @@
 	"Wallet_EWC_test": "Wallet EWC test",
 	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Scan this QR with the wallet app to start the check",
 	"Credential_updated_successfully": "Credential updated successfully",
-	"terms_and_conditions": "Terms and conditions"
+	"terms_and_conditions": "Terms and conditions",
+	"Beta": "Beta"
 }
