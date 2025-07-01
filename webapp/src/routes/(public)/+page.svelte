@@ -25,6 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CollectionManager } from '@/collections-components';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import { MarketplaceItemCard } from './marketplace/_utils';
+	import { Badge } from '@/components/ui/badge';
 
 	const MAX_SOLUTION_ITEMS = 3;
 	// const schema = z.object({
@@ -76,7 +77,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Button>
 		<Button variant="secondary" href={$currentUser ? '/my/tests/new' : '/login'}>
 			<Icon src={Sparkle} />
-			{m.Conformance_Checks()}
+			{m.Start_a_new_check()}
+			<Badge variant="outline" class="border-primary text-primary text-xs">
+				{m.Beta()}
+			</Badge>
 		</Button>
 	</div>
 </PageTop>

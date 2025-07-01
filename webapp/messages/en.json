@@ -501,6 +501,7 @@
 	"Wallet_EWC_test": "Wallet EWC test",
 	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Scan this QR with the wallet app to start the check",
 	"Credential_updated_successfully": "Credential updated successfully",
+	"Beta": "Beta",
 	"Review_latest_check_runs": "Review latest check runs",
 	"Back_to_check_runs": "Back to check runs",
 	"You_have_count_recent_check_runs": "You have {count} recent check runs.",
