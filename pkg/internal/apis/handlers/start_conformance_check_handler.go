@@ -235,13 +235,12 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				)
 			}
 			returns = append(returns, results)
-
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
 			"protocol/version": protocol + "/" + version,
-			"message": "Tests started successfully",
-			"results": returns,
+			"message":          "Tests started successfully",
+			"results":          returns,
 		})
 	}
 }
