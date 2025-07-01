@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		children?: Snippet;
 	};
 
-	let { workflowId, runId, namespace, children }: Props = $props();
+	let { workflowId, namespace, children }: Props = $props();
 
 	//
 
@@ -71,7 +71,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 	{#snippet right()}
 		<Step text="Logs">
-			<WorkflowLogs {...workflowLogsProps} uiSize="sm" class="!max-h-[500px] pt-4" />
+			<div class="pt-4">
+				<WorkflowLogs {...workflowLogsProps} uiSize="sm" class="!max-h-[500px] " />
+			</div>
 		</Step>
 	{/snippet}
 </Container>

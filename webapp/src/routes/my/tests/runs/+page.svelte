@@ -65,15 +65,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				{#snippet rowRight({ workflow, Td, workflowMemo })}
 					<Td>
-						{#if workflowMemo && workflowMemo.standard.includes('wallet')}
-							<WorkflowQrPoller
-								workflowId={workflow.execution.workflowId}
-								runId={workflow.execution.runId}
-								containerClass="size-32"
-							/>
-						{:else}
-							<T class="text-gray-300">N/A</T>
-						{/if}
+						<WorkflowQrPoller
+							workflowId={workflow.execution.workflowId}
+							runId={workflow.execution.runId}
+							containerClass="size-32"
+						/>
 					</Td>
 				{/snippet}
 			</WorkflowsTable>

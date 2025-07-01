@@ -50,9 +50,3 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <svelte:window on:beforeunload={closeConnections} />
-
-<Container>
-	{#snippet left()}
-		{@render children?.()}
-	{/snippet}
-</Container>

@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/if}
 	{#if right}
-		<div class="shrink-0 grow basis-1">
+		<div class="shrink-0 grow basis-2">
 			{@render right()}
 		</div>
 	{/if}

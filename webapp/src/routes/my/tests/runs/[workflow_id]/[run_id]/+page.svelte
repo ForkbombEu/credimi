@@ -67,47 +67,47 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class="border-primary flex items-center justify-between border-b-2 !px-2 py-4 pb-4 md:!px-4 lg:!px-8"
 	>
 		<div>
-			<T tag="h3">
-				{workflowMemo?.standard} / {workflowMemo?.author}
-			</T>
-			<T tag="h1">
-				{#each testNameChunks as chunk, index}
-					{#if index > 0}
-						<span class="text-muted-foreground">:</span>
-					{/if}
-					<span>
-						{chunk}
-					</span>
-				{/each}
-			</T>
-			<T class="mt-4">{m.Test_run()}: {workflowId}</T>
+			{#if workflowMemo}
+				<T tag="h3">
+					{workflowMemo?.standard} / {workflowMemo?.author}
+				</T>
+				<T tag="h1">
+					{#each testNameChunks as chunk, index}
+						{#if index > 0}
+							<span class="text-muted-foreground">:</span>
+						{/if}
+						<span>
+							{chunk}
+						</span>
+					{/each}
+				</T>
+				<T class="mt-4">{m.Test_run()}: {workflowId}</T>
+			{:else}
+				<div>
+					<T tag="h2">
+						{workflowId}
+					</T>
+				</div>
+			{/if}
 		</div>
 		<div class="bg-secondary rounded-md p-4">
 			<WorkflowQrPoller {workflowId} {runId} containerClass="size-40" />
 		</div>
 	</div>
 
-	<div class="!px-2 py-4 md:!px-4 lg:!px-8">
-		{#if workflowMemo?.author == 'openid_conformance_suite'}
-			<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
-		{:else if workflowMemo?.author == 'ewc'}
-			<EwcTop {workflowId} {runId} namespace={organization?.id!} />
-		{:else if workflowMemo?.author == 'eudiw'}
-			<EudiwTop {workflowId} {runId} namespace={organization?.id!} />
-		{:else}
-			<div>
-				<T tag="h2">
-					{workflowId}
-				</T>
-			</div>
-		{/if}
-	</div>
+	{#if workflowMemo}
+		<div class="border-b-2 border-b-black !px-2 py-4 md:!px-4 lg:!px-8">
+			{#if workflowMemo.author == 'openid_conformance_suite'}
+				<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
+			{:else if workflowMemo.author == 'ewc'}
+				<EwcTop {workflowId} {runId} namespace={organization?.id!} />
+			{:else if workflowMemo.author == 'eudiw'}
+				<EudiwTop {workflowId} namespace={organization?.id!} />
+			{/if}
+		</div>
+	{/if}
 
-	<iframe
-		id={iframeId}
-		title="Workflow"
-		src={page.url.pathname + '/temporal'}
-		class="w-full border-t-2 border-t-black"
+	<iframe id={iframeId} title="Workflow" src={page.url.pathname + '/temporal'} class="w-full"
 	></iframe>
 </div>
 

@@ -27,7 +27,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { startLogs, stopLogs } = createWorkflowLogHandlers({
 		...props,
 		onUpdate: (data) => {
-			logs = data.reverse();
+			logs = data;
+			const container = document.getElementById(containerId);
+			if (!container) return;
+			if (accordionValue?.length !== 0) return;
+			container.scrollTo({
+				top: container.scrollHeight,
+				behavior: 'smooth'
+			});
 		}
 	});
 
@@ -55,6 +62,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return 'outline';
 		}
 	}
+
+	//
+
+	let accordionValue = $state<string>();
+	const containerId = 'container' + nanoid(4);
 </script>
 
 <svelte:window on:beforeunload|preventDefault={stopLogs} />
@@ -64,27 +76,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<p>{m.Waiting_for_logs()}</p>
 	</Alert>
 {:else}
-	<div class={['max-h-[700px] space-y-1 overflow-y-auto', props.class]}>
-		{#each logs as log}
-			{@const logId = nanoid(4)}
-			{@const status = log.status ?? LogStatus.INFO}
-			<Accordion.Root type="multiple" class="bg-muted space-y-1 rounded-md px-2">
-				<Accordion.Item value={logId} class="border-none">
+	<div id={containerId} class={['max-h-[700px] space-y-1 overflow-y-auto', props.class]}>
+		<Accordion.Root
+			bind:value={accordionValue}
+			type="single"
+			class="flex w-full flex-col gap-1"
+		>
+			{#each logs as log}
+				{@const status = log.status ?? LogStatus.INFO}
+				<Accordion.Item class="bg-background rounded-md border-none px-2">
 					<Accordion.Trigger
 						class="flex items-center justify-between gap-2 hover:no-underline"
 					>
-						<div class="flex grow items-center gap-2">
-							<Badge
-								class="w-20 text-center capitalize"
-								variant={statusToVariant(status)}
-							>
-								{status}
-							</Badge>
+						<Badge
+							class="w-20 text-center capitalize"
+							variant={statusToVariant(status)}
+						>
+							{status}
+						</Badge>
 
+						<div class="flex w-0 grow items-center gap-2">
 							{#if log.message}
 								<p
 									class={[
-										'text-left',
+										'overflow-hidden text-left',
 										{
 											'text-sm': props.uiSize === 'sm',
 											'text-md': props.uiSize === 'md'
@@ -108,15 +123,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Accordion.Trigger>
 
 					<Accordion.Content>
-						<pre
-							class="bg-secondary overflow-x-scroll rounded-md p-2 text-xs">{JSON.stringify(
-								log.rawLog,
-								null,
-								2
-							)}</pre>
+						<div
+							class="bg-secondary flex w-full gap-2 overflow-x-scroll rounded-md p-2"
+						>
+							<div class="w-0 grow">
+								<pre class="text-xs">{JSON.stringify(log.rawLog, null, 2)}</pre>
+							</div>
+						</div>
 					</Accordion.Content>
 				</Accordion.Item>
-			</Accordion.Root>
-		{/each}
+			{/each}
+		</Accordion.Root>
 	</div>
 {/if}
