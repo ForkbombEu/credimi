@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import TemporalI18nProvider from '$routes/my/tests/runs/[workflow_id]/[run_id]/components/temporal-i18n-provider.svelte';
+	import TemporalI18nProvider from '$routes/my/tests/runs/[workflow_id]/[run_id]/temporal/components/temporal-i18n-provider.svelte';
 	import * as Table from '@/components/ui/table';
 	import type { WorkflowExecution } from './types';
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
@@ -15,6 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 	import { z } from 'zod';
 	import T from '@/components/ui-custom/t.svelte';
+	import { warn } from '@/utils/other';
 
 	//
 
@@ -64,7 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				test
 			};
 		} catch (error) {
-			console.warn(`Failed to parse memo: ${error}`);
+			warn(`Failed to parse memo: ${error}`);
 			return undefined;
 		}
 	}

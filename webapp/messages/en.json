@@ -513,5 +513,6 @@
 	"Clear_list": "Clear list",
 	"Checks_history": "Checks history",
 	"Create_verifier": "Create verifier",
-	"The_QR_code_may_be_not_available_for_this_test": "The QR code may be not available for this test."
+	"The_QR_code_may_be_not_available_for_this_test": "The QR code may be not available for this test.",
+	"Scroll_to_top": "Scroll to top"
 }
