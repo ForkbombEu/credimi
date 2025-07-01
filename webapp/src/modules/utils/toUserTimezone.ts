@@ -17,7 +17,7 @@ export const toUserTimezone = (date: string | undefined): string | undefined => 
 	}
 	const userTimezone = get(currentUser)?.Timezone;
 	if (!userTimezone) {
-		return date.toString();
+		return new Date(date).toLocaleString();
 	}
 
 	const parsedDate = dayjs(date);

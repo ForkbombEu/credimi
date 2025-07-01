@@ -28,6 +28,7 @@ type WorkflowInput struct {
 type WorkflowResult struct {
 	WorkflowId    string
 	WorkflowRunId string
+	Author        string
 	Message       string
 	Errors        []error
 	Output        any

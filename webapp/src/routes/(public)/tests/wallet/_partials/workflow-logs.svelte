@@ -20,14 +20,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n/index.js';
 	import { nanoid } from 'nanoid';
 
-	const props: WorkflowLogsProps = $props();
+	const props: WorkflowLogsProps & { class?: string; uiSize?: 'sm' | 'md' } = $props();
 
 	let logs: WorkflowLog[] = $state([]);
 
 	const { startLogs, stopLogs } = createWorkflowLogHandlers({
 		...props,
 		onUpdate: (data) => {
-			logs = data.reverse();
+			logs = data;
+			const container = document.getElementById(containerId);
+			if (!container) return;
+			if (accordionValue?.length !== 0) return;
+			container.scrollTo({
+				top: container.scrollHeight,
+				behavior: 'smooth'
+			});
 		}
 	});
 
@@ -55,60 +62,77 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return 'outline';
 		}
 	}
+
+	//
+
+	let accordionValue = $state<string>();
+	const containerId = 'container' + nanoid(4);
 </script>
 
 <svelte:window on:beforeunload|preventDefault={stopLogs} />
 
-<div class="py-2">
-	{#if logs.length === 0}
-		<Alert variant="info" icon={Info}>
-			<p>{m.Waiting_for_logs()}</p>
-		</Alert>
-	{:else}
-		<div class="max-h-[700px] space-y-1 overflow-y-auto">
+{#if logs.length === 0}
+	<Alert variant="info" icon={Info}>
+		<p>{m.Waiting_for_logs()}</p>
+	</Alert>
+{:else}
+	<div id={containerId} class={['max-h-[700px] space-y-1 overflow-y-auto', props.class]}>
+		<Accordion.Root
+			bind:value={accordionValue}
+			type="single"
+			class="flex w-full flex-col gap-1"
+		>
 			{#each logs as log}
-				{@const logId = nanoid(4)}
 				{@const status = log.status ?? LogStatus.INFO}
-				<Accordion.Root type="multiple" class="bg-muted space-y-1 rounded-md px-2">
-					<Accordion.Item value={logId} class="border-none">
-						<Accordion.Trigger
-							class="flex items-center justify-between gap-2 hover:no-underline"
+				<Accordion.Item class="bg-background rounded-md border-none px-2">
+					<Accordion.Trigger
+						class="flex items-center justify-between gap-2 hover:no-underline"
+					>
+						<Badge
+							class="w-20 text-center capitalize"
+							variant={statusToVariant(status)}
 						>
-							<div class="flex grow items-center gap-2">
-								<Badge
-									class="w-20 text-center capitalize"
-									variant={statusToVariant(status)}
-								>
-									{status}
-								</Badge>
+							{status}
+						</Badge>
 
-								{#if log.message}
-									<p class="text-left">{log.message}</p>
-								{:else}
-									<p class="text-muted-foreground">{m.Open_for_details()}</p>
-								{/if}
-							</div>
-
-							{#if log.time}
+						<div class="flex w-0 grow items-center gap-2">
+							{#if log.message}
 								<p
-									class="text-muted-foreground shrink-0 text-nowrap text-right text-xs"
+									class={[
+										'overflow-hidden text-left',
+										{
+											'text-sm': props.uiSize === 'sm',
+											'text-md': props.uiSize === 'md'
+										}
+									]}
 								>
-									{new Date(log.time).toLocaleString()}
+									{log.message}
 								</p>
+							{:else}
+								<p class="text-muted-foreground">{m.Open_for_details()}</p>
 							{/if}
-						</Accordion.Trigger>
+						</div>
 
-						<Accordion.Content>
-							<pre
-								class="bg-secondary overflow-x-scroll rounded-md p-2 text-xs">{JSON.stringify(
-									log.rawLog,
-									null,
-									2
-								)}</pre>
-						</Accordion.Content>
-					</Accordion.Item>
-				</Accordion.Root>
+						{#if log.time}
+							<p
+								class="text-muted-foreground shrink-0 text-nowrap text-right text-xs"
+							>
+								{new Date(log.time).toLocaleString()}
+							</p>
+						{/if}
+					</Accordion.Trigger>
+
+					<Accordion.Content>
+						<div
+							class="bg-secondary flex w-full gap-2 overflow-x-scroll rounded-md p-2"
+						>
+							<div class="w-0 grow">
+								<pre class="text-xs">{JSON.stringify(log.rawLog, null, 2)}</pre>
+							</div>
+						</div>
+					</Accordion.Content>
+				</Accordion.Item>
 			{/each}
-		</div>
-	{/if}
-</div>
+		</Accordion.Root>
+	</div>
+{/if}
