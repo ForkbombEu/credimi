@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import { XIcon } from 'lucide-svelte';
 	import { Separator } from '@/components/ui/separator/index.js';
+	import WorkflowStatusSelect from '$lib/workflows/workflow-status-select.svelte';
 
 	//
 
@@ -37,6 +38,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="space-y-8">
+	{#if oldExecutions.length !== 0 || latestExecutions.length !== 0}
+		<div class="bg-background flex flex-wrap items-center gap-4 rounded-lg border p-4">
+			<p>Filter runs by status</p>
+			<WorkflowStatusSelect type="multiple" />
+		</div>
+	{/if}
+
 	{#if latestExecutions.length > 0}
 		<div class="space-y-4">
 			<div class="flex items-center justify-between">

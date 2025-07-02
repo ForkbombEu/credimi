@@ -24,8 +24,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script>
-	import TemporalI18nProvider from './components/temporal-i18n-provider.svelte';
-	import TemporalWorkflow from './components/temporal-workflow.svelte';
+	import { TemporalI18nProvider } from '$lib/temporal';
+	import TemporalWorkflow from './temporal-workflow.svelte';
 
 	//
 
