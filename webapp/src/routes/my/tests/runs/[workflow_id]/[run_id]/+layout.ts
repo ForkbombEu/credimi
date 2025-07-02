@@ -6,10 +6,15 @@ import { pb } from '@/pocketbase/index.js';
 import { z } from 'zod';
 import { error } from '@sveltejs/kit';
 import type { HistoryEvent } from '@forkbombeu/temporal-ui';
+import { getWorkflowMemo, workflowExecutionSchema } from '$lib/workflows';
+import { checkAuthFlagAndUser, getUserOrganization } from '$lib/utils';
 
 //
 
 export const load = async ({ params, fetch }) => {
+	await checkAuthFlagAndUser({ fetch });
+	const organization = await getUserOrganization({ fetch });
+
 	const { workflow_id, run_id } = params;
 
 	const basePath = `/api/compliance/checks/${workflow_id}/${run_id}`;
@@ -40,13 +45,20 @@ export const load = async ({ params, fetch }) => {
 
 	return {
 		workflowId: workflow_id,
-		workflowResponse: workflowResponseValidation.data,
-		eventHistory: historyResponseValidation.data as HistoryEvent[]
+		runId: run_id,
+		eventHistory: historyResponseValidation.data as HistoryEvent[],
+		workflow: workflowResponseValidation.data,
+		workflowMemo: getWorkflowMemo(workflowResponseValidation.data.workflowExecutionInfo),
+		organization
 	};
 };
 
 //
 
-const rawWorkflowResponseSchema = z.record(z.unknown());
+const rawWorkflowResponseSchema = z
+	.object({
+		workflowExecutionInfo: workflowExecutionSchema
+	})
+	.passthrough();
 
 const rawHistoryResponseSchema = z.array(z.record(z.unknown()));

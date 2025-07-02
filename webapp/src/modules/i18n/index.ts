@@ -27,13 +27,18 @@ export const handleParaglide: Handle = ({ event, resolve }) =>
 export const goto = (url: string) => svelteKitGoto(localizeHref(url));
 export const redirect = (url: string) => svelteKitRedirect(303, localizeUrl(url));
 
-export const languagesDisplay: Record<(typeof locales)[number], { flag: string; name: string }> = {
+//
+
+type Locale = (typeof locales)[number];
+
+export const languagesDisplay: Record<Locale, { flag: string; name: string }> = {
 	en: { flag: '🇬🇧', name: 'English' },
 	it: { flag: '🇮🇹', name: 'Italiano' },
 	de: { flag: '🇩🇪', name: 'Deutsch' },
 	fr: { flag: '🇫🇷', name: 'Français' },
 	da: { flag: '🇩🇰', name: 'Dansk' },
-	'pt-br': { flag: '🇧🇷', name: 'Português' }
+	'pt-br': { flag: '🇧🇷', name: 'Português' },
+	'es-es': { flag: '🇪🇸', name: 'Español' }
 };
 
 export function getLanguagesData(page: Page): LanguageData[] {
@@ -50,9 +55,9 @@ export function getLanguagesData(page: Page): LanguageData[] {
 }
 
 export type LanguageData = {
-	tag: (typeof locales)[number];
+	tag: Locale;
 	href: string;
-	hreflang: (typeof locales)[number];
+	hreflang: Locale;
 	flag: string;
 	name: string;
 	isCurrent: boolean;

@@ -134,14 +134,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<span class="leading-snug">
 			{m.I_accept_the()}
 			<A
-				href="https://didroom.com/guides/7_terms-and-conditions/privacy-policy.html#%F0%9F%92%BB-didroom-control-room-dashboard-%F0%9F%92%BB"
+				href="https://docs.credimi.io/Legal/terms-and-conditions.html"
 				target="_blank"
 			>
 				{m.Terms_and_Conditions()}
 			</A>
 			{m.and()}
 			<A
-				href="https://didroom.com/guides/7_terms-and-conditions/privacy-policy.html"
+				href="https://docs.credimi.io/Legal/privacy-policy.html"
 				target="_blank"
 			>
 				{m.privacy_policy()}

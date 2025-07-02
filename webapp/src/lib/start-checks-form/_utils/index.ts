@@ -6,9 +6,12 @@ import {
 	type ConfigField,
 	namedConfigFieldSchema,
 	type NamedConfigField,
-	checksConfigFieldsResponseSchema
+	checksConfigFieldsResponseSchema,
+	type StartCheckResult
 } from '$start-checks-form/types';
+import { appName } from '@/brand';
 import { pb } from '@/pocketbase';
+import { createStorageHandlers } from '@/utils/storage';
 
 //
 
@@ -57,3 +60,12 @@ export async function getChecksConfigsFields(suiteAndVersionPath: string, filena
 	});
 	return checksConfigFieldsResponseSchema.parse(data);
 }
+
+//
+
+export type StartCheckResultWithMeta = StartCheckResult & { standardAndVersion: string };
+
+export const LatestCheckRunsStorage = createStorageHandlers<StartCheckResultWithMeta[]>(
+	`${appName}-latestCheckRuns`,
+	localStorage
+);
