@@ -3,13 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pb } from '@/pocketbase';
-import { configFieldComparator } from '$start-checks-form/_utils';
+import { configFieldComparator, LatestCheckRunsStorage } from '$start-checks-form/_utils';
 import { CheckConfigFormEditor } from './check-config-form-editor';
 import { CheckConfigEditor } from './check-config-editor';
 import { pipe, Record } from 'effect';
 import { CustomCheckConfigEditor } from './custom-check-config-editor';
 import { goto } from '@/i18n';
 import type { SelectChecksSubmitData } from '../select-checks-form';
+import type { StartChecksResponse } from '../types';
 
 //
 
@@ -62,13 +63,18 @@ export class ConfigureChecksForm {
 	async submit() {
 		this.isLoading = true;
 		try {
-			console.log(this.getFormData());
-			await pb.send(
+			const response: StartChecksResponse = await pb.send(
 				`/api/compliance/${this.props.standardAndVersionPath}/save-variables-and-start`,
 				{
 					method: 'POST',
 					body: this.getFormData()
 				}
+			);
+			LatestCheckRunsStorage.set(
+				response.results.map((res) => ({
+					...res,
+					standardAndVersion: response['protocol/version']
+				}))
 			);
 			await goto(`/my/tests/runs`);
 		} catch (error) {

@@ -26,7 +26,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	collection="verifiers"
 	queryOptions={{
 		filter: `owner.id = '${organizationId}'`,
-		expand: ['use_cases_verifications_via_verifier']
+		expand: ['use_cases_verifications_via_verifier'],
+		sort: ['created', 'DESC']
 	}}
 	formFieldsOptions={{
 		exclude: ['owner', 'conformance_checks'],
@@ -51,7 +52,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 >
 	{#snippet top({ Header })}
-		<Header title="Verifiers"></Header>
+		<Header title="Verifiers">
+			{#snippet buttonContent()}
+				{m.Create_verifier()}
+			{/snippet}
+		</Header>
 	{/snippet}
 
 	{#snippet records({ records })}

@@ -8,7 +8,7 @@ import type { CollectionName } from '@/pocketbase/collections-models';
 import MarketplaceItemTypeDisplay from './marketplace-item-type-display.svelte';
 import MarketplaceItemCard from './marketplace-item-card.svelte';
 import { z } from 'zod';
-import { queryParams } from '$routes/my/tests/new/+page@.svelte';
+import { queryParams } from '$routes/my/tests/new/+page.svelte';
 
 //
 

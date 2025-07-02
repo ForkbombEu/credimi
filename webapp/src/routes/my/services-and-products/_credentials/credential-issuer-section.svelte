@@ -41,7 +41,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	collection="credential_issuers"
 	queryOptions={{
 		expand: ['credentials_via_credential_issuer'],
-		filter: `owner.id = '${organizationId}'`
+		filter: `owner.id = '${organizationId}'`,
+		sort: ['created', 'DESC']
 	}}
 	editFormFieldsOptions={{ exclude: ['owner', 'url'] }}
 	subscribe="expanded_collections"
@@ -177,7 +178,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</div>
 
 							<div class="flex items-center gap-1">
-								<EditCredentialDialog {credential} onSuccess={onEditSuccess} />
+								<EditCredentialDialog
+									{credential}
+									credentialIssuer={record}
+									onSuccess={onEditSuccess}
+								/>
 							</div>
 						</li>
 					{/each}

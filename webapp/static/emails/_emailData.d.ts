@@ -1,101 +1,37 @@
-// SPDX-FileCopyrightText: 2025 Forkbomb BV
-//
-// SPDX-License-Identifier: AGPL-3.0-or-later
-
 type EmailData = {
-    "confirm-email": [
+    "membership-request-accepted": [
+        "OrganizationName",
+        "AppName",
+        "AppLogo",
+        "UserName",
+        "OrganizationName",
+        "AppName",
+        "OrganizationName",
+        "DashboardLink"
+    ],
+    "user-welcome": [
+        "AppName",
+        "AppName",
+        "AppLogo",
         "AppName",
         "UserName",
         "AppName",
-        "VerificationLink",
-        "VerificationLink",
-        "VerificationLink"
+        "DashboardLink"
     ],
     "join-organization": [
         "OrganizationName",
         "AppName",
+        "AppLogo",
         "OrganizationName",
         "UserName",
         "Editor",
         "OrganizationName",
         "DashboardLink"
     ],
-    "member-removal": [
-        "OrganizationName",
-        "AppName",
-        "UserName",
-        "OrganizationName",
-        "AppName",
-        "DashboardLink"
-    ],
-    "membership-request-accepted": [
-        "OrganizationName",
-        "AppName",
-        "UserName",
-        "OrganizationName",
-        "AppName",
-        "OrganizationName",
-        "DashboardLink"
-    ],
-    "membership-request-declined": [
-        "AppName",
-        "UserName",
-        "OrganizationName",
-        "AppName",
-        "DashboardLink"
-    ],
-    "membership-request-new": [
-        "UserName",
-        "OrganizationName",
-        "AppName",
-        "Admin",
-        "UserName",
-        "OrganizationName",
-        "AppName",
-        "DashboardLink"
-    ],
-    "membership-request-pending": [
-        "OrganizationName",
-        "AppName",
-        "Admin",
-        "PendingNumber",
-        "DashboardLink"
-    ],
-    "new-organization": [
-        "OrganizationName",
-        "AppName",
-        "AppName",
-        "UserName",
-        "OrganizationName",
-        "AppName",
-        "DashboardLink"
-    ],
-    "provider-claim-accepted": [
-        "ProviderName",
-        "AppName",
-        "ProviderName",
-        "UserName",
-        "ProviderName",
-        "AppName",
-        "ProviderName",
-        "DashboardLink"
-    ],
-    "provider-claim-declined": [
-        "ProviderName",
-        "AppName",
-        "ProviderName",
-        "UserName",
-        "ProviderName"
-    ],
-    "reset-password": [
-        "AppName",
-        "username",
-        "AppName",
-        "resetLink"
-    ],
     "role-change": [
         "OrganizationName",
         "AppName",
+        "AppLogo",
         "Admin",
         "OrganizationName",
         "UserName",
@@ -104,10 +40,73 @@ type EmailData = {
         "Membership",
         "DashboardLink"
     ],
+    "membership-request-pending": [
+        "OrganizationName",
+        "AppName",
+        "AppLogo",
+        "Admin",
+        "PendingNumber",
+        "DashboardLink"
+    ],
+    "provider-claim-accepted": [
+        "ProviderName",
+        "AppName",
+        "AppLogo",
+        "ProviderName",
+        "UserName",
+        "ProviderName",
+        "AppName",
+        "ProviderName",
+        "DashboardLink"
+    ],
+    "membership-request-new": [
+        "UserName",
+        "OrganizationName",
+        "AppName",
+        "AppLogo",
+        "Admin",
+        "UserName",
+        "OrganizationName",
+        "AppName",
+        "DashboardLink"
+    ],
+    "reset-password": [
+        "AppName",
+        "AppLogo",
+        "username",
+        "AppName",
+        "resetLink"
+    ],
+    "membership-request-declined": [
+        "AppName",
+        "AppLogo",
+        "UserName",
+        "OrganizationName",
+        "AppName",
+        "DashboardLink"
+    ],
+    "confirm-email": [
+        "AppName",
+        "AppLogo",
+        "UserName",
+        "AppName",
+        "VerificationLink",
+        "VerificationLink",
+        "VerificationLink"
+    ],
+    "provider-claim-declined": [
+        "ProviderName",
+        "AppName",
+        "AppLogo",
+        "ProviderName",
+        "UserName",
+        "ProviderName"
+    ],
     "user-invitation": [
         "Editor",
         "OrganizationName",
         "AppName",
+        "AppLogo",
         "OrganizationName",
         "Editor",
         "OrganizationName",
@@ -116,11 +115,22 @@ type EmailData = {
         "InvitationLink",
         "AppName"
     ],
-    "user-welcome": [
+    "new-organization": [
+        "OrganizationName",
         "AppName",
-        "AppName",
+        "AppLogo",
         "AppName",
         "UserName",
+        "OrganizationName",
+        "AppName",
+        "DashboardLink"
+    ],
+    "member-removal": [
+        "OrganizationName",
+        "AppName",
+        "AppLogo",
+        "UserName",
+        "OrganizationName",
         "AppName",
         "DashboardLink"
     ]
