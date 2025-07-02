@@ -34,7 +34,8 @@ path = [
     ".idea/**/*",
     "go.sum",
     "mocked_templates/**/*",
-    "webapp/static/hero.png"
+    "webapp/static/hero.png",
+    "webapp/src/lib/content/**/*"
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Forkbomb BV"
