@@ -32,7 +32,6 @@ for (const fullPath of files) {
 	const raw = fs.readFileSync(fullPath, 'utf8');
 	const parsed = fm(raw);
 	const parsedResult = pageFrontMatterSchema.safeParse(parsed.attributes);
-	console.log(parsedResult);
 
 	if (!parsedResult.success) {
 		console.error(`file ${fullPath} has failed schema validation`);
