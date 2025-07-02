@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const tag = $derived(data.tag);
 </script>
 
-<PageTop>
+<PageTop containerClass="border-t-0">
 	<T tag="h1">{getTagTranslation(tag)}</T>
 </PageTop>
 

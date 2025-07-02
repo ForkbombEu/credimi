@@ -11,50 +11,49 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { URL_SEARCH_PARAM_NAME } from '$lib/content';
+	import { getTagTranslation } from '$lib/content/tags-i18n';
 
 	const { data } = $props();
 	let { attributes, body } = data;
 </script>
 
-<PageTop containerClass="border-t-0" contentClass={'pt-4'}>
+<PageTop containerClass="border-t-0" contentClass="pt-8 !space-y-12">
 	<Breadcrumbs />
+
 	{#if attributes}
 		{@const { title, description, tags, date } = attributes}
-		<div class="mx-auto max-w-screen-lg">
+		<div class="max-w-prose space-y-6">
 			<div class="space-y-2">
+				{#if date}
+					<div class="text-muted-foreground flex gap-1">
+						<T tag="small" class="text-balance !font-normal">
+							{'Published on:'}
+						</T>
+						<T tag="small" class="text-balance !font-semibold">
+							{date.toLocaleDateString()}
+						</T>
+					</div>
+				{/if}
+
 				<T tag="h1" class="text-balance !font-bold">
 					{title}
 				</T>
-				<div class="flex flex-col gap-2 py-2">
-					<T tag="p" class="text-primary text-balance !font-bold">
-						{description}
-					</T>
-				</div>
 			</div>
-			{#if date}
-				<div class="my-7 flex gap-2">
-					<T tag="small" class="text-balance !font-normal">
-						{'Published on:'}
-					</T>
-					<T tag="small" class="text-balance !font-bold">
-						{date.toLocaleDateString()}
-					</T>
-				</div>
-			{/if}
+
+			<T tag="p" class="text-primary text-balance !font-bold">
+				{description}
+			</T>
+
 			{#if tags.length}
-				<div class="!mb-1">
-					<T tag="small" class="text-balance !font-normal">
-						{'Tags:'}
-					</T>
-				</div>
-				<div class="!mt-0 flex items-center gap-4">
+				<div class="flex items-center gap-2">
 					{#each tags as tag}
 						<Button
+							size="sm"
 							variant="outline"
 							class="border-primary text-primary"
 							href={`tags?${URL_SEARCH_PARAM_NAME}=${tag}`}
 						>
-							{tag}
+							{getTagTranslation(tag)}
 						</Button>
 					{/each}
 				</div>
@@ -63,12 +62,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 </PageTop>
 
-<div class="bg-secondary">
-	<PageContent>
-		<div class="mx-auto max-w-screen-lg">
-			<div class="prose prose-headings:font-serif prose-h1:text-3xl">
-				{@html body}
-			</div>
+<PageContent class="bg-secondary">
+	<div class="mx-auto max-w-screen-lg">
+		<div class="prose prose-h1:text-3xl">
+			{@html body}
 		</div>
-	</PageContent>
-</div>
+	</div>
+</PageContent>

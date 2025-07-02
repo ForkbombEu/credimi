@@ -7,13 +7,14 @@ import fm from 'front-matter';
 import { pageFrontMatterSchema, type ContentPage } from './types';
 import { marked } from 'marked';
 
-export const URL_SEARCH_PARAM_NAME = "tag";
+export const URL_SEARCH_PARAM_NAME = 'tag';
 
 export const contentLoaders = import.meta.glob<string>('$lib/content/**/en.md', { as: 'raw' });
 
 export async function getContentBySlug(slug: string): Promise<ContentPage | undefined> {
 	const locale = getLocale();
 	const fallbackLocale = baseLocale;
+
 	const entries = Object.entries(contentLoaders).filter(([filePath]) => {
 		const splitted = filePath.split('/').slice(0, -1).join('/');
 		return splitted.endsWith(slug);
