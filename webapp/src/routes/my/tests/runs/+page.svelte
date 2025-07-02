@@ -16,8 +16,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { XIcon } from 'lucide-svelte';
+	import { SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
 	import { Separator } from '@/components/ui/separator/index.js';
+	import EmptyState from '@/components/ui-custom/emptyState.svelte';
+	import { Badge } from '@/components/ui/badge/index.js';
 
 	//
 
@@ -85,5 +87,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T tag="h3">{m.Checks_history()}</T>
 			<WorkflowsTable workflows={oldExecutions} />
 		</div>
+	{/if}
+
+	{#if oldExecutions.length === 0 && latestExecutions.length === 0}
+		<EmptyState
+			icon={TestTube2}
+			title="No check runs yet"
+			description="Start a new check run to see it here"
+		>
+			{#snippet bottom()}
+				<Button href="/my/tests/new" variant="outline" class="text-primary mt-4">
+					<SparkleIcon />
+					{m.Start_a_new_check()}
+					<Badge
+						variant="outline"
+						class="border-primary text-primary !hover:no-underline text-xs"
+					>
+						{m.Beta()}
+					</Badge>
+				</Button>
+			{/snippet}
+		</EmptyState>
 	{/if}
 </div>
