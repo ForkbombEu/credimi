@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 export const pageFrontMatterSchema = z.object({
 	date: z.coerce.date(),
@@ -9,6 +9,7 @@ export const pageFrontMatterSchema = z.object({
 });
 
 export type PageFrontMatter = z.infer<typeof pageFrontMatterSchema>;
+
 export type ContentPage = {
 	attributes: PageFrontMatter;
 	body: string;
