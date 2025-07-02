@@ -516,5 +516,6 @@
 	"Create_verifier": "Create verifier",
 	"The_QR_code_may_be_not_available_for_this_test": "The QR code may be not available for this test.",
 	"Scroll_to_top": "Scroll to top",
-	"terms_and_conditions": "Terms and conditions"
+	"terms_and_conditions": "Terms and conditions",
+	"Loading_QR_code": "Loading QR code..."
 }
