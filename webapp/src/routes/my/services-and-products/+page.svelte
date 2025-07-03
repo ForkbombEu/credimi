@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="space-y-4">
-		<WalletsSection {organizationId} />
+		<WalletsSection {organizationId} workflows={data.workflows} />
 	</div>
 
 	<div class="space-y-4">
