@@ -591,5 +591,7 @@
 	"tag_our_vision_and_approach": "Our Vision and Approach",
 	"tag_platform_architecture": "Platform Architecture",
 	"tag_conformance_community_forum": "Conformance Community Forum",
-	"tag_unknown_tag": "(Unknown tag)"
+	"tag_unknown_tag": "(Unknown tag)",
+	"Add_new_wallet": "Add new wallet",
+	"Before_adding_a_new_wallet_you_need_to_start_a_conformance_check": "Before adding a new wallet, you need to start a conformance check."
 }

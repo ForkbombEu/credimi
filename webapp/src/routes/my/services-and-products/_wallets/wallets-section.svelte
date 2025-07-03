@@ -21,14 +21,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Pencil, Plus } from 'lucide-svelte';
 	import { m } from '@/i18n';
 	import PublishedStatus from '$lib/layout/published-status.svelte';
+	import type { WorkflowExecution } from '$lib/workflows';
 
 	//
 
 	type Props = {
 		organizationId?: string;
+		workflows?: WorkflowExecution[];
 	};
 
-	let { organizationId }: Props = $props();
+	let { organizationId, workflows }: Props = $props();
 </script>
 
 <CollectionManager
@@ -61,6 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			| ConformanceCheck[]
 			| null
 			| undefined}
+
 		<div class="space-y-4 overflow-scroll">
 			<div class="flex flex-row items-start justify-between gap-4">
 				<div>
@@ -114,7 +117,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet WalletFormSnippet()}
 	<Sheet>
 		{#snippet trigger({ sheetTriggerAttributes })}
-			<Button {...sheetTriggerAttributes}><Plus />Add new wallet</Button>
+			{#if workflows?.length === 0}
+				<Button disabled variant="outline" class="text-wrap text-xs">
+					{m.Before_adding_a_new_wallet_you_need_to_start_a_conformance_check()}
+				</Button>
+			{:else}
+				<Button {...sheetTriggerAttributes}>
+					<Plus />{m.Add_new_wallet()}
+				</Button>
+			{/if}
 		{/snippet}
 
 		{#snippet content({ closeSheet })}
