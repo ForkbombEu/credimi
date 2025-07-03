@@ -49,13 +49,13 @@ type EWCInput struct {
 
 type EudiwInput struct {
 	Nonce string `json:"nonce" validate:"required"`
-	Id    string `json:"id"    validate:"required"`
+	ID    string `json:"id"    validate:"required"`
 }
 
 type Author string
 
 type WorkflowStarterParams struct {
-	JsonData  string
+	JSONData  string
 	Email     string
 	AppURL    string
 	Namespace interface{}
@@ -83,7 +83,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 		appURL := e.App.Settings().Meta.AppURL
 		userID := e.Auth.Id
 		email := e.Auth.GetString("email")
-		namespace, err := GetUserOrganizationId(e.App, userID)
+		namespace, err := GetUserOrganizationID(e.App, userID)
 		if err != nil {
 			return err
 		}
@@ -246,7 +246,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 }
 
 func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
-	jsonData := i.JsonData
+	jsonData := i.JSONData
 	email := i.Email
 	appURL := i.AppURL
 	namespace := i.Namespace
@@ -295,7 +295,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 }
 
 func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
-	jsonData := i.JsonData
+	jsonData := i.JSONData
 	email := i.Email
 	appURL := i.AppURL
 	namespace := i.Namespace
@@ -363,7 +363,7 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 }
 
 func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
-	jsonData := i.JsonData
+	jsonData := i.JSONData
 	email := i.Email
 	appURL := i.AppURL
 	namespace := i.Namespace
@@ -391,7 +391,7 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
 			"nonce":     parsedData.Nonce,
-			"id":        parsedData.Id,
+			"id":        parsedData.ID,
 			"user_mail": email,
 			"app_url":   appURL,
 		},
@@ -426,7 +426,7 @@ func processJSONChecks(
 	protocol string,
 ) (workflowengine.WorkflowResult, error) {
 	input := WorkflowStarterParams{
-		JsonData:  testData,
+		JSONData:  testData,
 		Email:     email,
 		AppURL:    appURL,
 		Namespace: namespace,
@@ -504,7 +504,7 @@ func processVariablesTest(
 	}
 
 	input := WorkflowStarterParams{
-		JsonData:  renderedTemplate,
+		JSONData:  renderedTemplate,
 		Email:     email,
 		AppURL:    appURL,
 		Namespace: namespace,

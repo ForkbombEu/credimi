@@ -56,11 +56,10 @@ func WorkersHook(app *pocketbase.PocketBase) {
 			if err == nil {
 				go StartAllWorkersByNamespace(ns)
 				continue
-			} else {
-				var notFound *serviceerror.NamespaceNotFound
-				if !errors.As(err, &notFound) {
-					log.Fatalln("unexpected error while describing namespace", err)
-				}
+			}
+			var notFound *serviceerror.NamespaceNotFound
+			if !errors.As(err, &notFound) {
+				log.Fatalln("unexpected error while describing namespace", err)
 			}
 
 			err = c.Register(context.Background(), &workflowservice.RegisterNamespaceRequest{

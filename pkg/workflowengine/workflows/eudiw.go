@@ -153,7 +153,7 @@ func (w *EudiwWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	requestUri, ok := result["request_uri"].(string)
+	requestURI, ok := result["request_uri"].(string)
 	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 			"request_uri",
@@ -178,7 +178,7 @@ func (w *EudiwWorkflow) Workflow(
 	}
 	qr, err := BuildQRDeepLink(
 		clientID,
-		requestUri,
+		requestURI,
 	)
 	if err != nil {
 		logger.Error("Failed to build QR deep link", "error", err)
@@ -227,7 +227,7 @@ func (w *EudiwWorkflow) Workflow(
 	startTimer = func() {
 		timerCtx, _ := workflow.WithCancel(ctx)
 		timerFuture = workflow.NewTimer(timerCtx, time.Second)
-		selector.AddFuture(timerFuture, func(f workflow.Future) {
+		selector.AddFuture(timerFuture, func(_ workflow.Future) {
 			if isPolling {
 				startTimer()
 			}
