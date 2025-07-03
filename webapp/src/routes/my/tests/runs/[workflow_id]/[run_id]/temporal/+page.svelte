@@ -44,14 +44,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<link rel="stylesheet" href="/temporal.css" />
 </svelte:head>
 
-<div>
+<div
+	id="temporal-workflow-container"
+	class="block"
+	bind:offsetHeight={null, (data) => sendHeight(data)}
+>
 	<TemporalI18nProvider>
-		<TemporalWorkflow
-			workflowResponse={workflow}
-			{eventHistory}
-			onMount={() => {
-				sendHeight(document.body.scrollHeight);
-			}}
-		/>
+		<TemporalWorkflow workflowResponse={workflow} {eventHistory} />
 	</TemporalI18nProvider>
 </div>
