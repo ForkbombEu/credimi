@@ -566,7 +566,10 @@ func processCustomChecks(
 			errStart.Error(),
 		)
 	}
-	results.Author = string(memo["author"].(Author))
+	authorVal, ok := memo["author"]
+	if ok {
+		results.Author = fmt.Sprintf("%v", authorVal)
+	}
 	return results, nil
 }
 
