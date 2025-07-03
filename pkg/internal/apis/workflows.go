@@ -96,7 +96,7 @@ func AddComplianceChecks(app core.App) {
 				Method:  http.MethodGet,
 				Path:    "/deeplink/{workflowId}/{runId}",
 				Handler: handlers.HandleDeeplink,
-				Input: nil,
+				Input:   nil,
 			},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
@@ -154,7 +154,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 					err.Error(),
 				)
 			}
-			organization, err := handlers.GetUserOrganizationId(app, e.Auth.Id)
+			organization, err := handlers.GetUserOrganizationID(app, e.Auth.Id)
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,

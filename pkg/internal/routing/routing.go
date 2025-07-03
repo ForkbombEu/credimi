@@ -32,7 +32,7 @@ type RouteDefinition struct {
 }
 
 func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
-	validatedInput := e.Request.Context().Value("validatedInput")
+	validatedInput := e.Request.Context().Value(middlewares.ValidatedInputKey)
 	var zero T
 
 	if validatedInput == nil {
