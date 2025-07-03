@@ -176,13 +176,13 @@ func (w *EudiwWorkflow) Workflow(
 		appErr := workflowengine.NewAppError(errCode, baseURL)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
-	qr, error := BuildQRDeepLink(
+	qr, err := BuildQRDeepLink(
 		clientID,
 		requestUri,
 	)
-	if error != nil {
-		logger.Error("Failed to build QR deep link", "error", error)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(error, runMetadata)
+	if err != nil {
+		logger.Error("Failed to build QR deep link", "error", err)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)

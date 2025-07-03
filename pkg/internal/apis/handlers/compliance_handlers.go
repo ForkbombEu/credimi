@@ -715,46 +715,56 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-		workflowExecution, err := c.DescribeWorkflowExecution(
-			context.Background(),
-			workflowID,
-			runID,
+		author, err := getWorkflowAuthor(c, workflowID, runID)
+		if err != nil {
+			return err
+		}
+
+		return handleDeeplinkFromHistory(e, c, workflowID, runID, author)
+	}
+}
+
+func getWorkflowAuthor(c client.Client, workflowID, runID string) (string, error) {
+	workflowExecution, err := c.DescribeWorkflowExecution(
+		context.Background(),
+		workflowID,
+		runID,
+	)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to describe workflow execution",
+			err.Error(),
 		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to describe workflow execution",
-				err.Error(),
-			)
-		}
-		weJSON, err := protojson.Marshal(workflowExecution)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to marshal workflow execution",
-				err.Error(),
-			)
-		}
-		var weMap map[string]interface{}
-		if err := json.Unmarshal(weJSON, &weMap); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to unmarshal workflow execution",
-				err.Error(),
-			)
-		}
-		author := ""
-		if memo, ok := weMap["workflowExecutionInfo"].(map[string]interface{})["memo"]; ok {
-			if fields, ok := memo.(map[string]interface{})["fields"]; ok {
-				if protoVal, ok := fields.(map[string]interface{})["author"]; ok {
-					if protoMap, ok := protoVal.(map[string]interface{}); ok {
+	}
+	weJSON, err := protojson.Marshal(workflowExecution)
+	if err != nil {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to marshal workflow execution",
+			err.Error(),
+		)
+	}
+	var weMap map[string]any
+	if err := json.Unmarshal(weJSON, &weMap); err != nil {
+		return "", apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to unmarshal workflow execution",
+			err.Error(),
+		)
+	}
+	author := ""
+	if workflowExecutionInfo, ok := weMap["workflowExecutionInfo"].(map[string]any); ok {
+		if memo, ok := workflowExecutionInfo["memo"]; ok {
+			if fields, ok := memo.(map[string]any)["fields"]; ok {
+				if protoVal, ok := fields.(map[string]any)["author"]; ok {
+					if protoMap, ok := protoVal.(map[string]any); ok {
 						if protoData, ok := protoMap["data"].(string); ok {
 							decoded, err := base64.StdEncoding.DecodeString(protoData)
 							if err == nil {
-								// decoded is a quoted string, e.g. "openid4vc_wallet"
 								unquoted, err := strconv.Unquote(string(decoded))
 								if err == nil {
 									author = unquoted
@@ -767,135 +777,157 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				}
 			}
 		}
+	}
+	return author, nil
+}
 
-		historyIterator := c.GetWorkflowHistory(
-			context.Background(),
-			workflowID,
-			runID,
-			false,
-			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+func handleDeeplinkFromHistory(
+	e *core.RequestEvent,
+	c client.Client,
+	workflowID, runID, author string,
+) error {
+	historyIterator := c.GetWorkflowHistory(
+		context.Background(),
+		workflowID,
+		runID,
+		false,
+		enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	)
+	if historyIterator == nil {
+		return apierror.New(
+			http.StatusNotFound,
+			"workflow",
+			"workflow history not found",
+			"not found",
 		)
-		if historyIterator == nil {
+	}
+
+	for historyIterator.HasNext() {
+		event, err := historyIterator.Next()
+		if err != nil {
 			return apierror.New(
-				http.StatusNotFound,
+				http.StatusInternalServerError,
 				"workflow",
-				"workflow history not found",
-				"not found",
+				"failed to iterate workflow history",
+				err.Error(),
+			)
+		}
+		eventData, err := protojson.Marshal(event)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to marshal history event",
+				err.Error(),
+			)
+		}
+		var eventMap map[string]any
+		if err := json.Unmarshal(eventData, &eventMap); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to unmarshal history event",
+				err.Error(),
 			)
 		}
 
-		for historyIterator.HasNext() {
-			event, err := historyIterator.Next()
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to iterate workflow history",
-					err.Error(),
-				)
-			}
-			eventData, err := protojson.Marshal(event)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to marshal history event",
-					err.Error(),
-				)
-			}
-			var eventMap map[string]interface{}
-			if err := json.Unmarshal(eventData, &eventMap); err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to unmarshal history event",
-					err.Error(),
-				)
-			}
-
-			if attrRaw, ok := eventMap["activityTaskCompletedEventAttributes"]; ok {
-				attr := attrRaw.(map[string]interface{})
-				if resultRaw, ok := attr["result"]; ok {
-					resultMap := resultRaw.(map[string]interface{})
-					if pls, ok := resultMap["payloads"].([]interface{}); ok && len(pls) > 0 {
-						first := pls[0].(map[string]interface{})
-						switch author {
-						case "openid_conformance_suite":
-							if dataB64, ok := first["data"].(string); ok {
-								decoded, _ := base64.StdEncoding.DecodeString(dataB64)
-								var out struct {
-									Output struct {
-										Captures struct {
-											Result interface{} `json:"result"`
-										} `json:"captures"`
-									} `json:"Output"`
-								}
-								json.Unmarshal(decoded, &out)
-								return e.JSON(http.StatusOK, map[string]interface{}{
-									"deeplink": out.Output.Captures.Result,
-								})
-							}
-						case "ewc":
-							if dataB64, ok := first["data"].(string); ok {
-								decoded, _ := base64.StdEncoding.DecodeString(dataB64)
-								var out struct {
-									Output struct {
-										Captures struct {
-											Deeplink string `json:"deep_link"`
-										} `json:"captures"`
-									} `json:"Output"`
-								}
-								json.Unmarshal(decoded, &out)
-								return e.JSON(http.StatusOK, map[string]interface{}{
-									"deeplink": out.Output.Captures.Deeplink,
-								})
-							}
-						case "eudiw":
-							if dataB64, ok := first["data"].(string); ok {
-								decoded, _ := base64.StdEncoding.DecodeString(dataB64)
-								var out struct {
-									Output struct {
-										Captures struct {
-												ClientID   string `json:"client_id"`
-												RequestURI string `json:"request_uri"`
-										} `json:"captures"`
-									} `json:"Output"`
-								}
-								json.Unmarshal(decoded, &out)
-								deeplink, err := workflows.BuildQRDeepLink(
-									out.Output.Captures.ClientID,
-									out.Output.Captures.RequestURI,
-								)
-								if err != nil {									return apierror.New(
-										http.StatusInternalServerError,
-										"deeplink",
-										"failed to build QR deep link",
-										err.Error(),
-									)
-								}
-								return e.JSON(http.StatusOK, map[string]interface{}{
-									"deeplink": deeplink,
-								})
-							}
-						default:
-							return apierror.New(
-								http.StatusBadRequest,
-								"protocol",
-								"unsupported suite",
-								fmt.Sprintf("author is %q, expected openid_conformance_suite, ewc or eudiw", author),
-							)
-
-						}
+		if attrRaw, ok := eventMap["activityTaskCompletedEventAttributes"]; ok {
+			attr := attrRaw.(map[string]any)
+			if resultRaw, ok := attr["result"]; ok {
+				resultMap := resultRaw.(map[string]any)
+				if pls, ok := resultMap["payloads"].([]any); ok && len(pls) > 0 {
+					first := pls[0].(map[string]any)
+					switch author {
+					case "openid_conformance_suite":
+						return getDeeplinkOpenIDConformanceSuite(e, first)
+					case "ewc":
+						return getDeeplinkEWC(e, first)
+					case "eudiw":
+						return getDeeplinkEudiw(e, first)
+					default:
+						return apierror.New(
+							http.StatusBadRequest,
+							"protocol",
+							"unsupported suite",
+							fmt.Sprintf("author is %q, expected openid_conformance_suite, ewc or eudiw", author),
+						)
 					}
 				}
 			}
 		}
-
-		return apierror.New(
-			http.StatusNotFound,
-			"deeplink",
-			"no matching activity found",
-			"no activity that have as result a deeplink found for this workflow run",
-		)
 	}
+
+	return apierror.New(
+		http.StatusNotFound,
+		"deeplink",
+		"no matching activity found",
+		"no activity that have as result a deeplink found for this workflow run",
+	)
+}
+
+func getDeeplinkOpenIDConformanceSuite(e *core.RequestEvent, first map[string]any) error {
+	if dataB64, ok := first["data"].(string); ok {
+		decoded, _ := base64.StdEncoding.DecodeString(dataB64)
+		var out struct {
+			Output struct {
+				Captures struct {
+					Result any `json:"result"`
+				} `json:"captures"`
+			} `json:"Output"`
+		}
+		json.Unmarshal(decoded, &out)
+		return e.JSON(http.StatusOK, map[string]any{
+			"deeplink": out.Output.Captures.Result,
+		})
+	}
+	return nil
+}
+
+func getDeeplinkEWC(e *core.RequestEvent, first map[string]any) error {
+	if dataB64, ok := first["data"].(string); ok {
+		decoded, _ := base64.StdEncoding.DecodeString(dataB64)
+		var out struct {
+			Output struct {
+				Captures struct {
+					Deeplink string `json:"deep_link"`
+				} `json:"captures"`
+			} `json:"Output"`
+		}
+		json.Unmarshal(decoded, &out)
+		return e.JSON(http.StatusOK, map[string]any{
+			"deeplink": out.Output.Captures.Deeplink,
+		})
+	}
+	return nil
+}
+
+func getDeeplinkEudiw(e *core.RequestEvent, first map[string]any) error {
+	if dataB64, ok := first["data"].(string); ok {
+		decoded, _ := base64.StdEncoding.DecodeString(dataB64)
+		var out struct {
+			Output struct {
+				Captures struct {
+					ClientID   string `json:"client_id"`
+					RequestURI string `json:"request_uri"`
+				} `json:"captures"`
+			} `json:"Output"`
+		}
+		json.Unmarshal(decoded, &out)
+		deeplink, err := workflows.BuildQRDeepLink(
+			out.Output.Captures.ClientID,
+			out.Output.Captures.RequestURI,
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"deeplink",
+				"failed to build QR deep link",
+				err.Error(),
+			)
+		}
+		return e.JSON(http.StatusOK, map[string]any{
+			"deeplink": deeplink,
+		})
+	}
+	return nil
 }

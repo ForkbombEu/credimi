@@ -27,6 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let deeplink = $state<string>();
 	let attempt = $state(0);
+	const maxAttempts = 5;
 
 	onMount(() => {
 		const interval = setInterval(async () => {
@@ -57,12 +58,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	{#if deeplink}
 		<QrCode src={deeplink} class="h-full w-full" />
-	{:else}
+	{:else if attempt < maxAttempts}
 		<Spinner size={20} />
-		{#if attempt > 5}
-			<T class="p-3 pt-2 text-center text-xs text-gray-400">
-				{m.The_QR_code_may_be_not_available_for_this_test()}
-			</T>
-		{/if}
+		<T class="px-3 pt-2 text-center text-xs text-gray-400">
+			{m.Loading_QR_code()}
+		</T>
+	{:else}
+		<T class="px-3 text-center text-xs text-gray-400">
+			{m.The_QR_code_may_be_not_available_for_this_test()}
+		</T>
 	{/if}
 </div>
