@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Breadcrumb from '@/components/ui/breadcrumb/index.js';
 	import { Home } from 'lucide-svelte';
 	import { String } from 'effect';
+	import { URL_SEARCH_PARAM_NAME } from '$lib/content';
 
 	interface Link {
 		href: string;
@@ -21,8 +22,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const segments = url.pathname.split('/').filter(Boolean);
 		const crumbs: Link[] = [{ href: '/', title: 'Home' }];
 		segments.forEach((seg, i) => {
-			const href = '/' + segments.slice(0, i + 1).join('/');
 			const title = String.capitalize(decodeURIComponent(seg.replace(/-/g, ' ')));
+			const href = `tags?${URL_SEARCH_PARAM_NAME}=${title}`;
 			crumbs.push({ href, title });
 		});
 
