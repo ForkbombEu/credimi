@@ -52,7 +52,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 >
 	{#snippet top({ Header })}
-		<Header title="Verifiers"></Header>
+		<Header title="Verifiers">
+			{#snippet buttonContent()}
+				{m.Create_verifier()}
+			{/snippet}
+		</Header>
 	{/snippet}
 
 	{#snippet records({ records })}

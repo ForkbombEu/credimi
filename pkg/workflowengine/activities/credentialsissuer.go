@@ -93,7 +93,6 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 	}
 	cleanURL = strings.TrimRight(cleanURL, "/")
 	if !strings.HasSuffix(cleanURL, "/.well-known/openid-credential-issuer") {
-
 		// 1. Try federation
 		federationURL := strings.TrimSuffix(cleanURL, "/.well-known/openid-federation") + "/.well-known/openid-federation"
 		federationJSON, err := fetchJSONFromURL(ctx, federationURL, true, a)

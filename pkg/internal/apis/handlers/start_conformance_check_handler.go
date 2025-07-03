@@ -235,12 +235,12 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				)
 			}
 			returns = append(returns, results)
-
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
-			"message": "Tests started successfully",
-			"results": returns,
+			"protocol/version": protocol + "/" + version,
+			"message":          "Tests started successfully",
+			"results":          returns,
 		})
 	}
 }
@@ -290,6 +290,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			err.Error(),
 		)
 	}
+	results.Author = string(i.Author)
 	return results, nil
 }
 
@@ -357,6 +358,7 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 			err.Error(),
 		)
 	}
+	results.Author = string(i.Author)
 	return results, nil
 }
 
@@ -409,6 +411,7 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 			err.Error(),
 		)
 	}
+	results.Author = string(i.Author)
 	return results, nil
 }
 
@@ -563,7 +566,10 @@ func processCustomChecks(
 			errStart.Error(),
 		)
 	}
-
+	authorVal, ok := memo["author"]
+	if ok {
+		results.Author = fmt.Sprintf("%v", authorVal)
+	}
 	return results, nil
 }
 

@@ -10,6 +10,8 @@ import { z } from 'zod';
 import { parse as parseYaml } from 'yaml';
 import { getExceptionMessage } from '@/utils/errors';
 import { Record as R } from 'effect';
+import { PocketbaseQueryAgent } from '@/pocketbase/query';
+import { pb } from '@/pocketbase';
 
 //
 
@@ -31,6 +33,19 @@ export async function checkAuthFlagAndUser(options: {
 	const featureFlags = await loadFeatureFlags(fetchFn);
 	if (!featureFlags.AUTH) onAuthError();
 	if (!(await verifyUser(fetchFn))) onUserError();
+}
+
+export async function getUserOrganization(options = { fetch }) {
+	const organizationAuth = await new PocketbaseQueryAgent(
+		{
+			collection: 'orgAuthorizations',
+			expand: ['organization'],
+			filter: `user.id = "${pb.authStore.record?.id}"`
+		},
+		{ fetch: options.fetch }
+	).getFullList();
+
+	return organizationAuth.at(0)?.expand?.organization;
 }
 
 //
