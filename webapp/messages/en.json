@@ -592,6 +592,9 @@
 	"tag_platform_architecture": "Platform Architecture",
 	"tag_conformance_community_forum": "Conformance Community Forum",
 	"tag_unknown_tag": "(Unknown tag)",
+	"No_check_runs_yet": "No check runs yet",
+	"Start_a_new_check_run_to_see_it_here": "Start a new check run to see it here",
+	"No_check_runs_with_this_status": "No check runs with this status",
 	"Add_new_wallet": "Add new wallet",
 	"Before_adding_a_new_wallet_you_need_to_start_a_conformance_check": "Before adding a new wallet, you need to start a conformance check."
 }

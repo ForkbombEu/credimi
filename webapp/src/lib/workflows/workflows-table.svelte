@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import TemporalI18nProvider from '$routes/my/tests/runs/[workflow_id]/[run_id]/temporal/components/temporal-i18n-provider.svelte';
+	import { TemporalI18nProvider } from '$lib/temporal';
 	import * as Table from '@/components/ui/table';
 	import type { WorkflowExecution } from './types';
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';

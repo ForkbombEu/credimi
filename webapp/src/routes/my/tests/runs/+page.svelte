@@ -16,15 +16,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
+	import { SearchIcon, SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
 	import { Separator } from '@/components/ui/separator/index.js';
+	import WorkflowStatusSelect from '$lib/workflows/workflow-status-select.svelte';
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
+	import { setWorkflowStatusesInUrl } from './utils.js';
 
 	//
 
 	let { data } = $props();
-	const { executions } = $derived(data);
+	const { executions, selectedStatuses } = $derived(data);
 
 	let latestCheckRuns: StartCheckResultWithMeta[] = $state(
 		browser ? ensureArray(LatestCheckRunsStorage.get()) : []
@@ -39,6 +41,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="space-y-8">
+	<div class="bg-background flex flex-wrap items-center gap-4 rounded-lg border p-4">
+		<p>Filter runs by status</p>
+		<WorkflowStatusSelect value={selectedStatuses} onValueChange={setWorkflowStatusesInUrl} />
+	</div>
+
 	{#if latestExecutions.length > 0}
 		<div class="space-y-4">
 			<div class="flex items-center justify-between">
@@ -90,23 +97,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	{#if oldExecutions.length === 0 && latestExecutions.length === 0}
-		<EmptyState
-			icon={TestTube2}
-			title="No check runs yet"
-			description="Start a new check run to see it here"
-		>
-			{#snippet bottom()}
-				<Button href="/my/tests/new" variant="outline" class="text-primary mt-4">
-					<SparkleIcon />
-					{m.Start_a_new_check()}
-					<Badge
-						variant="outline"
-						class="border-primary text-primary !hover:no-underline text-xs"
-					>
-						{m.Beta()}
-					</Badge>
-				</Button>
-			{/snippet}
-		</EmptyState>
+		{#if selectedStatuses.length === 0}
+			<EmptyState
+				icon={TestTube2}
+				title={m.No_check_runs_yet()}
+				description={m.Start_a_new_check_run_to_see_it_here()}
+			>
+				{#snippet bottom()}
+					<Button href="/my/tests/new" variant="outline" class="text-primary mt-4">
+						<SparkleIcon />
+						{m.Start_a_new_check()}
+						<Badge
+							variant="outline"
+							class="border-primary text-primary !hover:no-underline text-xs"
+						>
+							{m.Beta()}
+						</Badge>
+					</Button>
+				{/snippet}
+			</EmptyState>
+		{:else}
+			<EmptyState icon={SearchIcon} title={m.No_check_runs_with_this_status()} />
+		{/if}
 	{/if}
 </div>

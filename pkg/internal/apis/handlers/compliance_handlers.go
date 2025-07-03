@@ -293,10 +293,47 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 			)
 		}
 		defer c.Close()
+
+		statusParam := e.Request.URL.Query().Get("status")
+		var statusFilters []enums.WorkflowExecutionStatus
+		if statusParam != "" {
+			statusStrings := strings.Split(statusParam, ",")
+			for _, s := range statusStrings {
+				switch strings.ToLower(strings.TrimSpace(s)) {
+				case "running":
+					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_RUNNING)
+				case "completed":
+					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_COMPLETED)
+				case "failed":
+					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_FAILED)
+				case "terminated":
+					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_TERMINATED)
+				case "canceled":
+					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_CANCELED)
+				case "timed_out":
+					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_TIMED_OUT)
+				case "continued_as_new":
+					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW)
+				case "unspecified":
+					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED)
+				}
+			}
+		}
+
+		var query string
+		if len(statusFilters) > 0 {
+			var statusQueries []string
+			for _, s := range statusFilters {
+				statusQueries = append(statusQueries, fmt.Sprintf("ExecutionStatus=%d", s))
+			}
+			query = strings.Join(statusQueries, " or ")
+		}
+
 		list, err := c.ListWorkflow(
 			context.Background(),
 			&workflowservice.ListWorkflowExecutionsRequest{
 				Namespace: namespace,
+				Query:     query,
 			},
 		)
 		if err != nil {
