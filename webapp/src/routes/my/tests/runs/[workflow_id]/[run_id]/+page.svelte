@@ -39,9 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const iframe = document.getElementById(iframeId);
 		if (!iframe || !(iframe instanceof HTMLIFrameElement)) return;
 
-		iframe.height = '';
 		iframe.height = message.data.height + 'px';
-
 		loading = false;
 	}
 
