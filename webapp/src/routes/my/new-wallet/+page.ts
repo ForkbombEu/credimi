@@ -9,7 +9,7 @@ import { error } from '@sveltejs/kit';
 //
 
 export const load = async ({ fetch }) => {
-	const workflows = await fetchUserWorkflows(fetch);
+	const workflows = await fetchUserWorkflows({ fetch });
 	if (!workflows.success) {
 		error(500, {
 			message: 'Failed to parse response'
