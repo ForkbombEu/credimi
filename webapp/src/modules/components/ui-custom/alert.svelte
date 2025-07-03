@@ -13,7 +13,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		variants: {
 			variant: {
 				info: 'border-blue-600/50 text-blue-600 dark:border-blue-600 [&>svg]:text-blue-600',
-				success: 'border-green-600/50 text-green-600 dark:border-green-600 [&>svg]:text-green-600',
+				success:
+					'border-green-600/50 text-green-600 dark:border-green-600 [&>svg]:text-green-600',
 				warning:
 					'border-yellow-600/50 text-yellow-600 dark:border-yellow-600 [&>svg]:text-yellow-600'
 			}

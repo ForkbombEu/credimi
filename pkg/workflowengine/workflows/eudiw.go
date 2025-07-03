@@ -176,11 +176,14 @@ func (w *EudiwWorkflow) Workflow(
 		appErr := workflowengine.NewAppError(errCode, baseURL)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
-	qr := fmt.Sprintf(
-		"eudi-openid4vp://?client_id=%s&request_uri=%s",
-		url.QueryEscape(clientID),
-		url.QueryEscape(requestUri),
+	qr, err := BuildQRDeepLink(
+		clientID,
+		requestUri,
 	)
+	if err != nil {
+		logger.Error("Failed to build QR deep link", "error", err)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+	}
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
 	query.Set("qr", qr)
@@ -413,4 +416,18 @@ func (w *EudiwWorkflow) Start(
 	}
 
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+}
+func BuildQRDeepLink(
+	clientID, requestURI string,
+) (string, error) {
+	baseURL := "eudi-openid4vp://?client_id=%s&request_uri=%s"
+	u, err := url.Parse(fmt.Sprintf(baseURL, url.QueryEscape(clientID), url.QueryEscape(requestURI)))
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
+		appErr := workflowengine.NewAppError(errCode, baseURL)
+		return "", workflowengine.NewWorkflowError(appErr, workflowengine.WorkflowErrorMetadata{
+			WorkflowName: "EudiwWorkflow",
+		})
+	}
+	return u.String(), nil
 }

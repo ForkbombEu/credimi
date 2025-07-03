@@ -6,6 +6,12 @@ import { error } from '@sveltejs/kit';
 import { loadFeatureFlags } from '@/features';
 import { verifyUser } from '@/auth/verifyUser';
 import { redirect } from '@/i18n';
+import { z } from 'zod';
+import { parse as parseYaml } from 'yaml';
+import { getExceptionMessage } from '@/utils/errors';
+import { Record as R } from 'effect';
+import { PocketbaseQueryAgent } from '@/pocketbase/query';
+import { pb } from '@/pocketbase';
 
 //
 
@@ -28,3 +34,49 @@ export async function checkAuthFlagAndUser(options: {
 	if (!featureFlags.AUTH) onAuthError();
 	if (!(await verifyUser(fetchFn))) onUserError();
 }
+
+export async function getUserOrganization(options = { fetch }) {
+	const organizationAuth = await new PocketbaseQueryAgent(
+		{
+			collection: 'orgAuthorizations',
+			expand: ['organization'],
+			filter: `user.id = "${pb.authStore.record?.id}"`
+		},
+		{ fetch: options.fetch }
+	).getFullList();
+
+	return organizationAuth.at(0)?.expand?.organization;
+}
+
+//
+
+export const yamlStringSchema = z
+	.string()
+	.nonempty()
+	.superRefine((value, ctx) => {
+		try {
+			parseYaml(value);
+		} catch (e) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `Invalid YAML: ${getExceptionMessage(e)}`
+			});
+		}
+	});
+
+export const jsonStringSchema = z
+	.string()
+	.nonempty()
+	.superRefine((v, ctx) => {
+		try {
+			z.record(z.string(), z.unknown())
+				.refine((value) => R.size(value) > 0)
+				.parse(JSON.parse(v));
+		} catch (e) {
+			const message = getExceptionMessage(e);
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `Invalid JSON object: ${message}`
+			});
+		}
+	});

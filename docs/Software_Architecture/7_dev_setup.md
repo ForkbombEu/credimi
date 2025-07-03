@@ -9,6 +9,8 @@ Before you begin, ensure you have the following tools installed:
 -   [Mise](https://mise.jdx.dev/getting-started.html)
 -   [Temporal](https://docs.temporal.io/cli)
 -   [Tmux](https://github.com/tmux/tmux/wiki/Installing)
+-   [Pre-commit](https://pre-commit.com/)
+-   [Golang](https://go.dev/doc/install)
 
 ### **Install `slangroom-exec`**
 
@@ -21,6 +23,14 @@ wget https://github.com/dyne/slangroom-exec/releases/latest/download/slangroom-e
 chmod +x slangroom-exec
 sudo cp slangroom-exec /usr/local/bin/
 ```
+### **Install `Pre-commit`**
+For most Linux distrubution, just do: 
+```bash
+sudo apt install pre-commit
+```
+
+
+### **Install `slangroom-exec`**
 
 ## **Setup Workspace**
 

@@ -16,6 +16,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { class: className = '', children }: Props = $props();
 </script>
 
-<div class={cn('grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8 lg:grid-cols-3', className)}>
+<div class={cn('grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3', className)}>
 	{@render children?.()}
 </div>
