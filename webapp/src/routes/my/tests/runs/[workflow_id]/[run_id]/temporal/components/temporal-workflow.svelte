@@ -19,13 +19,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		calculateElapsedTime
 		// pauseLiveUpdates
 	} from '@forkbombeu/temporal-ui';
-	import { onMount as svelteOnMount } from 'svelte';
 
 	//
 
 	export let workflowResponse: Record<string, unknown>;
 	export let eventHistory: HistoryEvent[];
-	export let onMount = () => {};
 
 	//
 
@@ -56,10 +54,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	beforeNavigate(({ cancel, to }) => {
 		const pathname = to?.url.pathname;
 		if (pathname?.includes('undefined')) cancel();
-	});
-
-	svelteOnMount(() => {
-		onMount();
 	});
 </script>
 
