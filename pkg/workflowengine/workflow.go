@@ -26,8 +26,8 @@ type WorkflowInput struct {
 
 // WorkflowResult represents the result of a workflow execution, including a message, errors, and a log.
 type WorkflowResult struct {
-	WorkflowId    string
-	WorkflowRunId string
+	WorkflowID    string
+	WorkflowRunID string
 	Author        string
 	Message       string
 	Errors        []error
@@ -140,8 +140,8 @@ func StartWorkflowWithOptions(
 	}
 
 	return WorkflowResult{
-		WorkflowId:    w.GetID(),
-		WorkflowRunId: w.GetRunID(),
+		WorkflowID:    w.GetID(),
+		WorkflowRunID: w.GetRunID(),
 		Message:       fmt.Sprintf("Workflow %s started successfully with ID %s", name, w.GetID()),
 	}, nil
 }

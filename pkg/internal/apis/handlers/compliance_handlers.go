@@ -73,7 +73,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 
-		namespace, err := GetUserOrganizationId(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
 		if err != nil {
 			return err
 		}
@@ -199,7 +199,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 		}
 		authRecord := e.Auth
 
-		namespace, err := GetUserOrganizationId(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
 		if err != nil {
 			return err
 		}
@@ -262,8 +262,8 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		finalJson := make(map[string]interface{})
-		err = json.Unmarshal(weJSON, &finalJson)
+		finalJSON := make(map[string]interface{})
+		err = json.Unmarshal(weJSON, &finalJSON)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -272,14 +272,14 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		return e.JSON(http.StatusOK, finalJson)
+		return e.JSON(http.StatusOK, finalJSON)
 	}
 }
 
 func HandleGetWorkflows() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
-		namespace, err := GetUserOrganizationId(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
 		if err != nil {
 			return err
 		}
@@ -477,7 +477,7 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 
 ///
 
-func GetUserOrganizationId(app core.App, userID string) (string, error) {
+func GetUserOrganizationID(app core.App, userID string) (string, error) {
 	orgAuthCollection, err := app.FindCollectionByNameOrId("orgAuthorizations")
 	if err != nil {
 		return "", apierror.New(
@@ -655,7 +655,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 			)
 		}
 
-		namespace, err := GetUserOrganizationId(e.App, e.Auth.Id)
+		namespace, err := GetUserOrganizationID(e.App, e.Auth.Id)
 		if err != nil {
 			return err
 		}

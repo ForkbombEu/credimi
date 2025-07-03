@@ -203,7 +203,7 @@ func (w *EWCWorkflow) Workflow(
 	startTimer = func() {
 		timerCtx, _ := workflow.WithCancel(ctx)
 		timerFuture = workflow.NewTimer(timerCtx, time.Second)
-		selector.AddFuture(timerFuture, func(f workflow.Future) {
+		selector.AddFuture(timerFuture, func(_ workflow.Future) {
 			if isPolling {
 				startTimer()
 			}

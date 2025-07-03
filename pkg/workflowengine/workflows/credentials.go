@@ -431,11 +431,11 @@ func extractAppErrorDetails(err error) ([]any, error) {
 		var appErr *temporal.ApplicationError
 		if errors.As(actErr.Unwrap(), &appErr) {
 			var details []any
-			if derr := appErr.Details(&details); derr == nil {
+			derr := appErr.Details(&details)
+			if derr == nil {
 				return details, nil
-			} else {
-				return nil, workflowengine.NewAppError(errCode, derr.Error())
 			}
+			return nil, workflowengine.NewAppError(errCode, derr.Error())
 		}
 		return nil, workflowengine.NewAppError(errCode, actErr.Unwrap().Error())
 	}
