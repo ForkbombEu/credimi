@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import { Pencil, Plus } from 'lucide-svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 
 	let { data } = $props();
 	const organizationId = $derived(data.organization?.id);
@@ -48,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<div>
 								<T class="font-bold">{record.name}</T>
 								<T class="mb-2 font-mono text-xs">{record.standard_and_version}</T>
-								<T class="text-sm text-gray-400">{record.description}</T>
+								<T class="text-sm text-gray-400"><RenderMd content={record.description}></RenderMd></T>
 							</div>
 						</div>
 

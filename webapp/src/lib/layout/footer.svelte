@@ -13,20 +13,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import LanguageSelect from '@/i18n/languageSelect.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import { Sparkle } from 'lucide-svelte';
+	import { Badge } from '@/components/ui/badge';
 
 	const footer_data = [
 		{
 			label: m.Platform(),
 			links: [
-				{ label: m.Overview(), url: '/platform' },
-				{ label: m.Conformance_automation(), url: '/conformance-automation' },
-				{ label: m.api_documentation(), url: '/docs/api' },
-				{ label: m.platform_architecture(), url: '/platform/architecture' },
-				{ label: m.deployment_options(), url: '/platform/deployment' },
-				{ label: m.compliance_standards(), url: '/platform/compliance' }
+				{ label: m.Overview(), url: 'https://docs.credimi.io/' },
+				{
+					label: m.Conformance_automation(),
+					url: 'https://docs.credimi.io/Manual/compliance-checks.html'
+				},
+				{ label: m.api_documentation(), url: 'https://docs.credimi.io/API/index.html' },
+				{
+					label: m.platform_architecture(),
+					url: 'https://docs.credimi.io/Software_Architecture/1_start.html'
+				},
+				{
+					label: m.deployment_options(),
+					url: 'https://docs.credimi.io/Software_Architecture/7_dev_setup.html'
+				}
+
+				//			,{ label: m.compliance_standards(), url: '/platform/compliance' }
 			]
 		},
-		{
+		/*	{
 			label: m.Solutions(),
 			links: [
 				{ label: m.didital_identity_for_governments(), url: '/solutions/government' },
@@ -36,36 +47,54 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{ label: m.transportation_smart_mobility(), url: '/solutions/transportation' }
 			]
 		},
+	*/
 		{
 			label: m.Capabilities(),
 			links: [
+				/*		
 				{ label: m.credential_issuance(), url: '/capabilities/issuance' },
-				{ label: m.credential_verification(), url: '/capabilities/verification' },
-				{ label: m.identity_wallet_integration(), url: '/capabilities/wallet-integration' },
-				{ label: m.conformance_compliance_tools(), url: '/capabilities/conformance' },
-				{ label: m.ecosystem_governance(), url: '/capabilities/ecosystem-governance' }
+				{ label: m.credential_verification(), url: '/capabilities/verification' }, 
+	*/
+				{
+					label: m.identity_wallet_integration(),
+					url: 'https://docs.credimi.io/Manual/compliance-checks.html'
+				},
+				{
+					label: m.conformance_compliance_tools(),
+					url: 'https://docs.credimi.io/Software_Architecture/Workflow_YAML.html'
+				},
+				{
+					label: m.ecosystem_governance(),
+					url: 'https://docs.credimi.io/Manual/browse-marketplace.html'
+				}
 			]
 		},
 		{
 			label: m.Developers(),
 			links: [
-				{ label: m.get_started_with_api(), url: '/developers/get-started' },
-				{ label: m.sdks_libraries(), url: '/developers/sdks' },
-				{ label: m.sandbox_environment(), url: '/developers/sandbox' },
-				{ label: m.test_suites_runs(), url: '/developers/test-suites' },
-				{ label: m.developer_tools(), url: '/developers/tools' },
-				{ label: m.Changelog(), url: '/developers/changelog' }
+				{ label: m.get_started_with_api(), url: 'https://docs.credimi.io/API/index.html' },
+				//			{ label: m.sdks_libraries(), url: '/developers/sdks' },
+				//			{ label: m.sandbox_environment(), url: '/developers/sandbox' },
+				{
+					label: m.test_suites_runs(),
+					url: 'https://docs.credimi.io/Manual/compliance-checks.html'
+				},
+				{
+					label: m.developer_tools(),
+					url: 'https://docs.credimi.io/Software_Architecture/Workflow_YAML.html'
+				}
+				//			{ label: m.Changelog(), url: '/developers/changelog' }
 			]
 		},
 		{
 			label: m.Resources(),
 			links: [
-				{ label: m.Documentation(), url: '/resources/docs' },
-				{ label: m.articles_tutorials(), url: '/resources/articles' },
-				{ label: m.videos(), url: '/resources/videos' },
-				{ label: m.case_studies(), url: '/resources/case-studies' },
-				{ label: m.press_releases(), url: '/resources/press' },
-				{ label: m.Blog(), url: '/blog' }
+				{ label: m.Documentation(), url: 'https://docs.credimi.io/' },
+				{ label: m.articles_tutorials(), url: 'https://docs.credimi.io/' },
+				{ label: m.videos(), url: 'https://docs.credimi.io/' }
+				//			{ label: m.case_studies(), url: '/resources/case-studies' },
+				//			{ label: m.press_releases(), url: '/resources/press' },
+				//			{ label: m.Blog(), url: '/blog' }
 			]
 		},
 		{
@@ -81,12 +110,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{
 			label: m.Company(),
 			links: [
-				{ label: m.about_credimi(), url: '/about' },
-				{ label: m.our_vision_and_approach(), url: '/about/approach' },
-				{ label: m.careers(), url: '/careers' },
-				{ label: m.security(), url: '/security' },
-				{ label: m.contact_us(), url: '/contact' },
-				{ label: m.legal_privacy(), url: '/legal' }
+				{ label: m.about_credimi(), url: 'https://forkbomb.solutions/about-us/' },
+				//			{ label: m.our_vision_and_approach(), url: '/about/approach' },
+				{ label: m.careers(), url: 'https://forkbomb.solutions/about-us/' },
+				//			{ label: m.security(), url: '/security' },
+				{ label: m.contact_us(), url: 'mailto:credimi@forkbomb.eu' },
+				{
+					label: m.legal_privacy(),
+					url: 'https://docs.credimi.io/Legal/privacy-policy.html'
+				},
+				{
+					label: m.terms_and_conditions(),
+					url: 'https://docs.credimi.io/Legal/terms-and-conditions.html'
+				}
 			]
 		}
 	];
@@ -103,17 +139,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<span class="pl-1 text-sm text-white/40">{appVersion}</span>
 						</T>
 					</div>
-					<p class="border-b border-b-muted">{m.Test_and_find_decentralized_IDs()}</p>
+					<p class="border-b-muted border-b">{m.Test_and_find_decentralized_IDs()}</p>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row">
 					<LanguageSelect />
 					<Button
 						variant="default"
-						class="grow basis-1 bg-white text-primary hover:bg-white/90 sm:grow-0"
+						class="text-primary grow basis-1 bg-white hover:bg-white/90 sm:grow-0"
 						href="/my/tests/new"
 					>
 						<Icon src={Sparkle} />
 						{m.Start_a_new_check()}
+						<Badge
+							variant="outline"
+							class="border-primary text-primary !hover:no-underline py-1 text-xs"
+						>
+							{m.Beta()}
+						</Badge>
 					</Button>
 					<Button variant="ghost" class="grow basis-1 border sm:grow-0" href="/login">
 						{m.Login()}
@@ -126,7 +168,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<div class="flex flex-col gap-2">
 							<T tag="small">{category.label}</T>
 							{#each category.links as item}
-								<a href={item.url} class="text-xs text-muted-foreground"
+								<a href={item.url} class="text-muted-foreground text-xs"
 									>{item.label}</a
 								>
 							{/each}

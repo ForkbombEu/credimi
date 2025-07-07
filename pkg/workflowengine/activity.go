@@ -31,6 +31,7 @@ type ActivityResult struct {
 type Activity interface {
 	Name() string
 	NewActivityError(errorType string, errorMsg string, payload ...any) error
+	NewNonRetryableActivityError(errorType string, errorMsg string, payload ...any) error
 }
 
 // BaseActivity provides a default implementation of the Activity interface.
@@ -59,11 +60,11 @@ func (a *BaseActivity) NewActivityError(
 	return temporal.NewApplicationError(msg, errorType, activityPayload)
 }
 
-func Fail(result *ActivityResult, errorMsg string, payload ...any) (ActivityResult, error) {
-	if result == nil {
-		result = &ActivityResult{}
-	}
-	result.Output = nil
-	result.Log = append(result.Log, errorMsg)
-	return *result, fmt.Errorf("activity failed: %s", errorMsg)
+func (a *BaseActivity) NewNonRetryableActivityError(
+	errorType string,
+	errorMsg string,
+	activityPayload ...any,
+) error {
+	msg := fmt.Sprintf("[%s]: %s", a.Name, errorMsg)
+	return temporal.NewNonRetryableApplicationError(msg, errorType, nil, activityPayload)
 }

@@ -6,15 +6,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import PageIndex from '$lib/layout/pageIndex.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { Building2, Layers } from 'lucide-svelte';
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { String } from 'effect';
-	import CredentialCard from '$lib/layout/credentialCard.svelte';
 	import { MarketplaceItemCard } from '../../../_utils/index.js';
+	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 
 	//
 
@@ -34,22 +33,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			anchor: 'credentials',
 			label: 'Supported credentials'
 		}
-		// test_results: {
-		// 	icon: FolderCheck,
-		// 	anchor: 'test_results',
-		// 	label: m.Test_results()
-		// },
-		// compatible_verifiers: {
-		// 	icon: ScanEye,
-		// 	anchor: 'compatible_verifiers',
-		// 	label: m.Compatible_verifiers()
-		// }
 	} satisfies Record<string, IndexItem>;
 </script>
 
-<PageIndex sections={Object.values(sections)} class="top-5 md:sticky" />
-
-<div class="grow space-y-16">
+<MarketplacePageLayout tableOfContents={sections}>
 	<div class="space-y-6">
 		<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
 
@@ -89,4 +76,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/each}
 		</div>
 	</div>
-</div>
+</MarketplacePageLayout>

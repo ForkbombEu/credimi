@@ -58,6 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{...options}
 			onSuccess={(record) => {
 				closeSheet();
+				manager.loadRecords();
 				onSuccess(record, 'create');
 			}}
 		>

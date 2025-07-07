@@ -54,7 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const {
 		form,
 		hide = [],
-		class: className = 'space-y-6',
+		class: className = 'space-y-8',
 		hideRequiredIndicator = false,
 		children,
 		submitButton,

@@ -20,10 +20,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <svelte:boundary>
 	{@const qr = generateQrCode(src, cellSize ?? 20)}
-	<img src={qr} {...rest} />
+	<img src={qr} {...rest} class={[rest.class, 'aspect-square object-contain']} />
 
 	{#snippet failed()}
-		<div class="justify-cente flex aspect-square items-center p-4 {rest.class}">
+		<div class="flex aspect-square items-center justify-center p-4 {rest.class}">
 			<T class="text-center text-sm">{m.An_error_happened_while_generating_the_qr_code()}</T>
 		</div>
 	{/snippet}

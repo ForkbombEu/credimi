@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		tag?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'small';
+		tag?: 'h1' | 'h2' | 'h3' | 'h4' | 'p' | 'small' | 'huge';
 		margin?: boolean;
 		class?: string | undefined;
 		children?: Snippet;
@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render children?.()}
 	</h4>
 {:else if tag == 'p'}
-	<p class="{margin ? 'leading-7 [&:not(:first-child)]:mt-6' : ''} {className}">
+	<p class="block {margin ? 'leading-7 [&:not(:first-child)]:mt-6' : ''} {className}">
 		{@render children?.()}
 	</p>
 {:else if tag == 'small'}

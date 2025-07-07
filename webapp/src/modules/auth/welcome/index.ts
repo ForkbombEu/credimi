@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { createSessionStorageHandlers } from '@/utils/sessionStorage';
+import { createSessionStorageHandlers } from '@/utils/storage';
 import WelcomeBanner from './welcomeBanner.svelte';
 
 const WelcomeSession = createSessionStorageHandlers('welcome');

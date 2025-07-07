@@ -14,9 +14,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		title?: string | undefined;
 		hideCreate?: boolean;
 		right?: Snippet;
+		buttonContent?: Snippet;
 	}
 
-	const { title, hideCreate = false, right: rightSnippet }: Props = $props();
+	const { title, hideCreate = false, right: rightSnippet, buttonContent }: Props = $props();
 	const { manager } = $derived(getCollectionManagerContext());
 </script>
 
@@ -25,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if rightSnippet}
 			{@render rightSnippet()}
 		{:else if !hideCreate}
-			<RecordCreate />
+			<RecordCreate buttonText={buttonContent} />
 		{/if}
 	{/snippet}
 </SectionTitle>

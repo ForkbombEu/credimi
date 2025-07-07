@@ -255,6 +255,7 @@ onRecordUpdateRequest((e) => {
         Admin: adminName,
         Membership: role.getString("name"),
         AppName: utils.getAppName(),
+        AppLogo: utils.getAppLogoUrl()
     });
 
     const res = utils.sendEmail({
@@ -309,6 +310,7 @@ onRecordDeleteRequest((e) => {
         DashboardLink: utils.getAppUrl(),
         UserName: user.getString("name"),
         AppName: utils.getAppName(),
+        AppLogo: utils.getAppLogoUrl()
     });
 
     const res = utils.sendEmail({

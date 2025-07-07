@@ -6,7 +6,7 @@ import { pb } from '@/pocketbase';
 import { type Data, type UsersPublicKeysRecord } from '@/pocketbase/types';
 import _ from 'lodash';
 import type { Keypair } from './keypair';
-import { createSessionStorageHandlers } from '@/utils/sessionStorage';
+import { createSessionStorageHandlers } from '@/utils/storage';
 import { String } from 'effect';
 
 export type PublicKeys = Omit<Data<UsersPublicKeysRecord>, 'owner'>;
