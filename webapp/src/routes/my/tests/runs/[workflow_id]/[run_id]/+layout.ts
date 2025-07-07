@@ -61,4 +61,6 @@ const rawWorkflowResponseSchema = z
 	})
 	.passthrough();
 
+export type WorkflowResponse = z.infer<typeof rawWorkflowResponseSchema>;
+
 const rawHistoryResponseSchema = z.array(z.record(z.unknown()));

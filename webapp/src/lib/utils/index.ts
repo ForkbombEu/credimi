@@ -12,6 +12,7 @@ import { getExceptionMessage } from '@/utils/errors';
 import { Record as R } from 'effect';
 import { PocketbaseQueryAgent } from '@/pocketbase/query';
 import { pb } from '@/pocketbase';
+import { invalidateAll } from '$app/navigation';
 
 //
 
@@ -80,3 +81,15 @@ export const jsonStringSchema = z
 			});
 		}
 	});
+
+//
+
+export function setupPollingWithInvalidation(intervalMs: number) {
+	const interval = setInterval(() => {
+		invalidateAll();
+	}, intervalMs);
+
+	return () => {
+		clearInterval(interval);
+	};
+}

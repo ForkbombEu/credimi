@@ -26,11 +26,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script>
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import TemporalWorkflow from './temporal-workflow.svelte';
+	import { browser } from '$app/environment';
+	import { onDestroy } from 'svelte';
+	import type { WorkflowResponse } from '../+layout';
+	import { WorkflowMessageSchema } from '../+page.svelte';
+	import type { HistoryEvent } from '@forkbombeu/temporal-ui';
 
 	//
 
-	let { data } = $props();
-	const { workflow, eventHistory } = data;
+	let workflow = $state<WorkflowResponse>();
+	let eventHistory = $state<HistoryEvent[]>();
+
+	function onMessage(event: MessageEvent) {
+		const message = WorkflowMessageSchema.safeParse(event.data);
+		if (!message.success) return;
+
+		workflow = message.data.workflow;
+		eventHistory = message.data.eventHistory;
+	}
+
+	if (browser) {
+		window.addEventListener('message', onMessage);
+
+		onDestroy(() => {
+			window.removeEventListener('message', onMessage);
+		});
+	}
 </script>
 
 <!--  -->
@@ -49,7 +70,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class="block"
 	bind:offsetHeight={null, (data) => sendHeight(data)}
 >
-	<TemporalI18nProvider>
-		<TemporalWorkflow workflowResponse={workflow} {eventHistory} />
-	</TemporalI18nProvider>
+	{#if workflow && eventHistory}
+		<TemporalI18nProvider>
+			<TemporalWorkflow workflowResponse={workflow} {eventHistory} />
+		</TemporalI18nProvider>
+	{/if}
 </div>

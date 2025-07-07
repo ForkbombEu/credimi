@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ensureArray } from '@/utils/other';
 	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import T from '@/components/ui-custom/t.svelte';
-	import { localizeHref, m } from '@/i18n/index.js';
+	import { m } from '@/i18n/index.js';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { SearchIcon, SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
 	import { Separator } from '@/components/ui/separator/index.js';
@@ -22,8 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
 	import { setWorkflowStatusesInUrl } from './utils.js';
-	import { invalidateAll } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { setupPollingWithInvalidation } from '$lib/utils/index.js';
 
 	//
 
@@ -43,15 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	onMount(() => {
-		const interval = setInterval(() => {
-			invalidateAll();
-		}, 5000);
-
-		return () => {
-			clearInterval(interval);
-		};
-	});
+	setupPollingWithInvalidation(5000);
 </script>
 
 <div class="space-y-8">

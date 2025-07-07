@@ -45,9 +45,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	// $pauseLiveUpdates = true;
-	$workflowRun = { ...$workflowRun, workflow };
-	$fullEventHistory = toEventHistory(eventHistory);
-	$currentEventHistory = toEventHistory(eventHistory);
+	$: $workflowRun = { ...$workflowRun, workflow };
+	$: $fullEventHistory = toEventHistory(eventHistory);
+	$: $currentEventHistory = toEventHistory(eventHistory);
 
 	//
 
