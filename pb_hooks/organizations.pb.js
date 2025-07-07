@@ -119,7 +119,6 @@ onRecordCreateRequest((e) => {
         UserName: user.get("name") ?? "User",
         DashboardLink: utils.getOrganizationPageUrl(e.record.id),
         AppName: utils.getAppName(),
-        AppLogo: utils.getAppLogoUrl()
     });
 
     const res = utils.sendEmail({

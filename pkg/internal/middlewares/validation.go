@@ -74,10 +74,6 @@ func validateMapValues(m reflect.Value) error {
 	return nil
 }
 
-type validatedInputKeyType string
-const ValidatedInputKey validatedInputKeyType = "validatedInput"
-
-
 func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEvent) error {
 	if inputType == nil {
 		return func(e *core.RequestEvent) error {
@@ -130,7 +126,8 @@ func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEven
 		}
 
 		// TODO: Add a way to set the validated value in the context
-		ctx := context.WithValue(request.Context(), ValidatedInputKey, val)
+		// nolint:staticcheck
+		ctx := context.WithValue(request.Context(), "validatedInput", val)
 		e.Request = request.WithContext(ctx)
 
 		return e.Next()

@@ -1,11 +1,7 @@
-// SPDX-FileCopyrightText: 2025 Forkbomb BV
-//
-// SPDX-License-Identifier: AGPL-3.0-or-later
-
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { currentUser } from '@/pocketbase';
+import { currentUser, pb } from '@/pocketbase';
 import { get } from 'svelte/store';
 
 dayjs.extend(utc);
@@ -17,7 +13,7 @@ export const toUserTimezone = (date: string | undefined): string | undefined => 
 	}
 	const userTimezone = get(currentUser)?.Timezone;
 	if (!userTimezone) {
-		return new Date(date).toLocaleString();
+		return date.toString();
 	}
 
 	const parsedDate = dayjs(date);

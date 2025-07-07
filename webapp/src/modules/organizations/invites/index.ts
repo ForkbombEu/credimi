@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { createSessionStorageHandlers } from '@/utils/storage';
+import { createSessionStorageHandlers } from '@/utils/sessionStorage';
 
 type OrganizationInviteSession = {
 	organizationId: string;

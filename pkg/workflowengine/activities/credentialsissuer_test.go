@@ -10,7 +10,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
@@ -27,12 +26,12 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 	})
 
 	tests := []struct {
-		name            string
-		config          map[string]string
-		serverHandler   http.HandlerFunc
-		expectErr       bool
-		expectedErrCode errorcodes.Code
-		expectedOutput  map[string]any
+		name           string
+		config         map[string]string
+		serverHandler  http.HandlerFunc
+		expectErr      bool
+		expectedErrMsg string
+		expectedOutput map[string]any
 	}{
 		{
 			name: "Success - valid issuer response",
@@ -50,16 +49,16 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 			},
 		},
 		{
-			name:            "Failure - missing base_url",
-			config:          map[string]string{},
-			expectErr:       true,
-			expectedErrCode: errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
+			name:           "Failure - missing base_url",
+			config:         map[string]string{},
+			expectErr:      true,
+			expectedErrMsg: "Missing baseURL in config",
 		},
 		{
-			name:            "Failure - empty base_url",
-			config:          map[string]string{"base_url": "  "},
-			expectErr:       true,
-			expectedErrCode: errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed],
+			name:           "Failure - empty base_url",
+			config:         map[string]string{"base_url": "  "},
+			expectErr:      true,
+			expectedErrMsg: "Missing baseURL in config",
 		},
 		{
 			name: "Failure - non-200 status code",
@@ -69,8 +68,8 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusForbidden)
 			},
-			expectErr:       true,
-			expectedErrCode: errorcodes.Codes[errorcodes.IsNotCredentialIssuer],
+			expectErr:      true,
+			expectedErrMsg: "Not a credential issuer",
 		},
 		{
 			name: "Failure - error reaching issuer",
@@ -82,8 +81,8 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 				conn, _, _ := w.(http.Hijacker).Hijack()
 				conn.Close()
 			},
-			expectErr:       true,
-			expectedErrCode: errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed],
+			expectErr:      true,
+			expectedErrMsg: "Could not reach issue",
 		},
 		{
 			name: "Failure - error reading body",
@@ -97,8 +96,8 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 				conn, _, _ := w.(http.Hijacker).Hijack()
 				conn.Close() // simulate read failure
 			},
-			expectErr:       true,
-			expectedErrCode: errorcodes.Codes[errorcodes.ReadFromReaderFailed],
+			expectErr:      true,
+			expectedErrMsg: "Error reading response",
 		},
 	}
 
@@ -108,7 +107,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 			if tt.serverHandler != nil {
 				server := httptest.NewServer(tt.serverHandler)
 				defer server.Close()
-				baseURL = server.URL + "/.well-known/openid-credential-issuer"
+				baseURL = server.URL
 				tt.config["base_url"] = strings.TrimPrefix(baseURL, "https://")
 			}
 
@@ -120,8 +119,9 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 
 			if tt.expectErr {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.expectedErrCode.Code)
-				require.Contains(t, err.Error(), tt.expectedErrCode.Description)
+				if tt.expectedErrMsg != "" {
+					require.Contains(t, err.Error(), tt.expectedErrMsg)
+				}
 			} else {
 				require.NoError(t, err)
 				var result workflowengine.ActivityResult

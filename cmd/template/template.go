@@ -9,9 +9,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"path/filepath"
-	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/spf13/cobra"
@@ -44,8 +44,13 @@ func main() {
 			}
 
 			var variants Variants
-			if err := templateengine.LoadJSON(input, &variants); err != nil {
-				fmt.Println("Error loading JSON:", err)
+			data, err := os.ReadFile(input)
+			if err != nil {
+				log.Printf("failed to read %s: %s\n", input, err)
+				return
+			}
+			if err := json.Unmarshal(data, &variants); err != nil {
+				log.Printf("failed to parse %s: %s\n", input, err)
 				return
 			}
 
@@ -56,15 +61,9 @@ func main() {
 					continue
 				}
 
-				output, _ := json.MarshalIndent(result, "", "    ")
-
-				output = []byte(strings.ReplaceAll(string(output), "\\\"", "\""))
-				output = []byte(strings.ReplaceAll(string(output), "\\\\", "\\"))
-
-				filename := fmt.Sprintf("%s.json", filepath.Clean(variantString))
+				filename := fmt.Sprintf("%s.yaml", filepath.Clean(variantString))
 				filePath := filepath.Join(outputDir, filename)
-
-				if err := os.WriteFile(filePath, output, 0600); err != nil {
+				if err := os.WriteFile(filePath, result, 0600); err != nil {
 					fmt.Println("Error writing file:", err)
 					continue
 				}

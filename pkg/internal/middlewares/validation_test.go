@@ -104,7 +104,7 @@ func TestDynamicValidateInputByType_ValidationPasses(t *testing.T) {
 	// if !e.nextCalled {
 	// 	t.Error("expected Next() to be called")
 	// }
-	val := e.Request.Context().Value(ValidatedInputKey)
+	val := e.Request.Context().Value("validatedInput")
 	if val == nil {
 		t.Error("expected validated input in context")
 	}

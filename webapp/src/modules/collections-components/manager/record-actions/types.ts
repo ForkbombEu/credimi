@@ -27,8 +27,3 @@ export type RecordCreateEditProps<C extends CollectionName> = {
 } & CollectionFormOptions<C> &
 	TriggerProp &
 	TitleProp;
-
-export type RecordAction = 'delete' | 'share' | 'edit' | 'select';
-export type GlobalRecordAction = RecordAction | 'create';
-
-export type HideOption = Array<RecordAction> | 'all';

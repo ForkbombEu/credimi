@@ -219,9 +219,8 @@ onRecordUpdateRequest((e) => {
             const email = utils.renderEmail("provider-claim-accepted", {
                 ProviderName: provider.get("name"),
                 DashboardLink: utils.getAppUrl() + "/my",
-                AppLogo: utils.getAppLogoUrl(),
                 UserName: user.getString("name"),
-                AppName: utils.getAppName()
+                AppName: utils.getAppName(),
             });
 
             utils.sendEmail({
@@ -290,7 +289,6 @@ onRecordDeleteRequest((e) => {
         const email = utils.renderEmail("provider-claim-declined", {
             ProviderName: provider.get("name"),
             UserName: user.getString("name"),
-            AppLogo: utils.getAppLogoUrl(),
             AppName: utils.getAppName(),
         });
 

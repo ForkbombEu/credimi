@@ -21,7 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { capitalize } from '@/utils/other';
 	import A from '@/components/ui-custom/a.svelte';
 	import { toast } from 'svelte-sonner';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 
 	//
 
@@ -194,7 +193,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										{/if}
 									</div>
 									{#if org.description}
-										<Description><RenderMd content={org.description}/></Description>
+										<Description>{org.description}</Description>
 									{/if}
 								{/snippet}
 								{#snippet right()}

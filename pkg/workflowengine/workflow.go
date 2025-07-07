@@ -26,13 +26,10 @@ type WorkflowInput struct {
 
 // WorkflowResult represents the result of a workflow execution, including a message, errors, and a log.
 type WorkflowResult struct {
-	WorkflowID    string
-	WorkflowRunID string
-	Author        string
-	Message       string
-	Errors        []error
-	Output        any
-	Log           any
+	Message string
+	Errors  []error
+	Output  any
+	Log     any
 }
 
 type WorkflowErrorMetadata struct {
@@ -134,14 +131,10 @@ func StartWorkflowWithOptions(
 	}
 
 	// Start the workflow execution.
-	w, err := c.ExecuteWorkflow(context.Background(), options, name, input)
+	_, err = c.ExecuteWorkflow(context.Background(), options, name, input)
 	if err != nil {
 		return WorkflowResult{}, fmt.Errorf("failed to start workflow: %w", err)
 	}
 
-	return WorkflowResult{
-		WorkflowID:    w.GetID(),
-		WorkflowRunID: w.GetRunID(),
-		Message:       fmt.Sprintf("Workflow %s started successfully with ID %s", name, w.GetID()),
-	}, nil
+	return WorkflowResult{}, nil
 }

@@ -191,7 +191,6 @@ routerAdd("POST", "/organizations/invite", (e) => {
                     InvitationLink: emailCtaUrl,
                     OrganizationName: organizationName,
                     AppName: utils.getAppName(),
-                    AppLogo: utils.getAppLogoUrl()
                 });
             } else {
                 emailData = utils.renderEmail("join-organization", {
@@ -200,7 +199,6 @@ routerAdd("POST", "/organizations/invite", (e) => {
                     UserName: user?.get("name") ?? "User",
                     OrganizationName: organizationName,
                     AppName: utils.getAppName(),
-                    AppLogo: utils.getAppLogoUrl()
                 });
             }
 

@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 	import { createForm, Form } from '@/forms';
 	import {
+		SelectField,
 		Field,
 		FileField,
 		TextareaField,
@@ -17,24 +18,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { goto, m } from '@/i18n';
 	import { PlusIcon, UploadIcon } from 'lucide-svelte';
+	import BackButton from '$lib/layout/back-button.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
 	import { yaml } from '@codemirror/lang-yaml';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { readFileAsDataURL, readFileAsString } from '@/utils/files.js';
+	import { parse as parseYaml } from 'yaml';
 	import { getExceptionMessage } from '@/utils/errors.js';
 	import { pb } from '@/pocketbase';
 	import { toast } from 'svelte-sonner';
-	import type { StandardsWithTestSuites } from '$lib/standards';
+	import type { StandardsWithTestSuites } from '../../../tests/new/_partials/standards-response-schema';
 	import type { CustomChecksResponse } from '@/pocketbase/types';
 	import _ from 'lodash';
+	import { z } from 'zod';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import { fromStore } from 'svelte/store';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
-	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
-	import { run } from 'json_typegen_wasm';
-	import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
-	import { Record } from 'effect';
-	import { removeEmptyValues } from '@/collections-components/form';
 
 	//
 
@@ -49,21 +49,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const schema = createCollectionZodSchema('custom_checks')
 		.omit({
-			owner: true,
-			input_json_schema: true
+			owner: true
 		})
 		.extend({
-			yaml: yamlStringSchema,
-			input_json_sample: jsonStringSchema
+			yaml: z.string().superRefine((value, ctx) => {
+				try {
+					parseYaml(value);
+				} catch (e) {
+					ctx.addIssue({
+						code: z.ZodIssueCode.custom,
+						message: `Invalid YAML: ${getExceptionMessage(e)}`
+					});
+				}
+			})
 		});
 
 	const form = createForm({
 		adapter: zod(schema),
-		onSubmit: async ({ form }) => {
-			// TODO - This should be done in the backend
-			const input_json_schema = generateJsonSchema(form.data.input_json_sample);
-			const data = removeEmptyValues({ ...form.data, input_json_schema });
-
+		onSubmit: async ({ form: { data } }) => {
 			if (formMode === 'new') {
 				await pb.collection('custom_checks').create(data);
 			} else if (record) {
@@ -75,26 +78,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		options: {
 			dataType: 'form'
 		},
-		initialData: createInitialData(record)
+		initialData: record ? _.omit(record, 'logo') : undefined
 	});
-
-	function generateJsonSchema(json: string) {
-		return run(
-			'Root',
-			json,
-			JSON.stringify({
-				output_mode: 'json_schema'
-			})
-		);
-	}
-
-	function createInitialData(record?: CustomChecksResponse) {
-		if (!record) return undefined;
-		return {
-			..._.omit(record, 'logo', 'input_json_schema'),
-			input_json_sample: JSON.stringify(record.input_json_sample, null, 2)
-		};
-	}
 
 	const { errors } = form;
 
@@ -124,6 +109,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	const currentLabels = $derived(labels[formMode]);
+
+	//
+
+	const standardsOptions = $derived(
+		standardsAndTestSuites.flatMap((standard) =>
+			standard.versions.map((version) => ({
+				value: `${standard.uid}/${version.uid}`,
+				label: `${standard.name} – ${version.name}`
+			}))
+		)
+	);
 
 	//
 
@@ -187,7 +183,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			title={m.Standard_and_version()}
 			description={m.Standard_and_Version_description()}
 		>
-			<StandardAndVersionField {form} name="standard_and_version" />
+			<SelectField
+				{form}
+				name="standard_and_version"
+				options={{
+					items: standardsOptions,
+					label: m.Compliance_standard(),
+					placeholder: m.Select_a_standard_and_version(),
+					description: `${m.eg()}: OpenID4VP Verifier - Draft 23`
+				}}
+			/>
 		</PageCardSection>
 
 		<PageCardSection title={m.Check_Metadata()} description={m.Check_metadata_description()}>
@@ -245,17 +250,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{form}
 				name="yaml"
 				options={{ lang: yaml(), labelRight: yamlFieldLabelRight, minHeight: 200 }}
-			/>
-
-			<CodeEditorField
-				{form}
-				name="input_json_sample"
-				options={{
-					lang: 'json',
-					minHeight: 200,
-					label: 'Configuration example',
-					description: 'Paste here a example JSON of the content of the config'
-				}}
 			/>
 		</PageCardSection>
 

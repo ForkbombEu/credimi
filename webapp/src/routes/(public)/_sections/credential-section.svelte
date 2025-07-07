@@ -11,7 +11,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { Collections, type CredentialsResponse } from '@/pocketbase/types';
+	import {
+		Collections,
+		CredentialsFormatOptions,
+		type CredentialsResponse
+	} from '@/pocketbase/types';
 	import { CollectionManager } from '@/collections-components';
 
 	//
@@ -24,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		json: {},
 		key: 'das',
 		description: 'Lorem ipsum',
-		format: 'jwt_vc_json',
+		format: CredentialsFormatOptions['jwt_vc_json'],
 		issuer_name: 'das',
 		logo: 'das',
 		name: 'das',
@@ -34,8 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		collectionName: Collections.Credentials,
 		deeplink: '',
 		published: false,
-		owner: 'das',
-		conformant: false
+		owner: 'das'
 	};
 </script>
 

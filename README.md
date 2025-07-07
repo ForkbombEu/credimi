@@ -7,7 +7,7 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 <div align="center">
 
-# Credimi
+# credimi
 
 ## Your trustworthy compliance checker for decentralized identity solutions
 
@@ -33,7 +33,7 @@ credimi is more than just a tool – it's a platform designed to foster trust, s
 - **Foster Trust**: Build a trustworthy ecosystem where credential issuers and verifiers can demonstrate their compliance with industry standards.
 - **Support Innovation**: Encourage the development of cutting-edge identity solutions by providing essential tools for testing, debugging, and compliance checking.
 
-# 👉 [DOCUMENTATION](https://docs.credimi.io/)
+# 👉 [DOCUMENTATION](https://forkbombeu.github.io/credimi/)
 
 Click the link above to dive into our comprehensive documentation, where you’ll find detailed information about how credimi works, how to get started, and how to make the most of its features.
 
@@ -57,7 +57,7 @@ Click the link above to dive into our comprehensive documentation, where you’l
 
 ## 🚑 Community & support
 
-**[📝 Documentation](https://docs.credimi.io/)** - Getting started and more.
+**[📝 Documentation](https://forkbombeu.github.io/credimi/)** - Getting started and more.
 
 **[🌱 Ecosystem 👈 🚧 WIP 🚧](https://github.com/forkbombeu/credimi_plugins)** - Plugins, resources, and more.
 

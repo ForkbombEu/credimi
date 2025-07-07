@@ -102,7 +102,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet records({ records })}
 		<PageGrid>
-			{#each records as record (record.id)}
+			{#each records as record}
 				<MarketplaceItemCard item={record} />
 			{/each}
 		</PageGrid>

@@ -5,14 +5,11 @@
 import { fetchUserWorkflows } from '$lib/workflows/index.js';
 
 import { error } from '@sveltejs/kit';
-import { getWorkflowStatusesFromUrl } from './utils';
 
 //
 
-export const load = async ({ fetch, url }) => {
-	const statuses = getWorkflowStatusesFromUrl(url);
-
-	const workflows = await fetchUserWorkflows({ fetch, statuses });
+export const load = async ({ fetch }) => {
+	const workflows = await fetchUserWorkflows(fetch);
 	if (!workflows.success) {
 		error(500, {
 			message: 'Failed to parse response'
@@ -20,7 +17,6 @@ export const load = async ({ fetch, url }) => {
 	}
 
 	return {
-		executions: workflows.data.executions,
-		selectedStatuses: statuses
+		executions: workflows.data.executions
 	};
 };

@@ -51,6 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<SelectInput
 				{...rest}
 				{items}
+				trigger={trigger as undefined}
 				{type}
 				value={$value as unknown as undefined}
 				controlAttrs={props}

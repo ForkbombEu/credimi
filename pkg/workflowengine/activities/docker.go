@@ -145,15 +145,7 @@ func (a *DockerActivity) Execute(
 	}
 
 	if err := cli.ContainerStart(ctx, resp.ID, container.StartOptions{}); err != nil {
-		errCode := errorcodes.Codes[errorcodes.DockerStartContainerFailed]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			containerName,
-			config,
-			hostConfig,
-			networkConfig,
-		)
+		return workflowengine.Fail(&result, fmt.Sprintf("failed to start container: %v", err))
 	}
 
 	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
