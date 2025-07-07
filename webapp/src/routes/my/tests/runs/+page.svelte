@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ensureArray } from '@/utils/other';
 	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n/index.js';
+	import { localizeHref, m } from '@/i18n/index.js';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { SearchIcon, SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
 	import { Separator } from '@/components/ui/separator/index.js';
@@ -22,6 +22,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
 	import { setWorkflowStatusesInUrl } from './utils.js';
+	import { invalidateAll } from '$app/navigation';
+	import { onMount } from 'svelte';
 
 	//
 
@@ -31,13 +33,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let latestCheckRuns: StartCheckResultWithMeta[] = $state(
 		browser ? ensureArray(LatestCheckRunsStorage.get()) : []
 	);
-	const latestRunIds = $derived(latestCheckRuns.map((run) => run.WorkflowRunId));
+	const latestRunIds = $derived(latestCheckRuns.map((run) => run.WorkflowRunID));
 
 	const latestExecutions = $derived(
 		executions.filter((exec) => latestRunIds.includes(exec.execution.runId))
 	);
 
 	const oldExecutions = $derived(Array.difference(executions, latestExecutions));
+
+	//
+
+	onMount(() => {
+		const interval = setInterval(() => {
+			invalidateAll();
+		}, 5000);
+
+		return () => {
+			clearInterval(interval);
+		};
+	});
 </script>
 
 <div class="space-y-8">
