@@ -50,7 +50,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	$effect(() => {
 		const iframe = document.getElementById(iframeId);
 		if (!iframe || !(iframe instanceof HTMLIFrameElement)) return;
-		console.log(workflow, eventHistory);
 
 		iframe.contentWindow?.postMessage(
 			{
