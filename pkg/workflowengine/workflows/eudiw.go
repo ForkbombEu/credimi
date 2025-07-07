@@ -153,7 +153,7 @@ func (w *EudiwWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	requestURI, ok := result["request_uri"].(string)
+	requestUri, ok := result["request_uri"].(string)
 	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 			"request_uri",
@@ -176,14 +176,11 @@ func (w *EudiwWorkflow) Workflow(
 		appErr := workflowengine.NewAppError(errCode, baseURL)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
-	qr, err := BuildQRDeepLink(
-		clientID,
-		requestURI,
+	qr := fmt.Sprintf(
+		"eudi-openid4vp://?client_id=%s&request_uri=%s",
+		url.QueryEscape(clientID),
+		url.QueryEscape(requestUri),
 	)
-	if err != nil {
-		logger.Error("Failed to build QR deep link", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
 	query.Set("qr", qr)
@@ -227,7 +224,7 @@ func (w *EudiwWorkflow) Workflow(
 	startTimer = func() {
 		timerCtx, _ := workflow.WithCancel(ctx)
 		timerFuture = workflow.NewTimer(timerCtx, time.Second)
-		selector.AddFuture(timerFuture, func(_ workflow.Future) {
+		selector.AddFuture(timerFuture, func(f workflow.Future) {
 			if isPolling {
 				startTimer()
 			}
@@ -416,18 +413,4 @@ func (w *EudiwWorkflow) Start(
 	}
 
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
-}
-func BuildQRDeepLink(
-	clientID, requestURI string,
-) (string, error) {
-	baseURL := "eudi-openid4vp://?client_id=%s&request_uri=%s"
-	u, err := url.Parse(fmt.Sprintf(baseURL, url.QueryEscape(clientID), url.QueryEscape(requestURI)))
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
-		appErr := workflowengine.NewAppError(errCode, baseURL)
-		return "", workflowengine.NewWorkflowError(appErr, workflowengine.WorkflowErrorMetadata{
-			WorkflowName: "EudiwWorkflow",
-		})
-	}
-	return u.String(), nil
 }

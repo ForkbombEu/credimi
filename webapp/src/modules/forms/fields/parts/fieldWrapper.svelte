@@ -23,15 +23,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Form.Control>
 	{#snippet children({ props })}
-		{#if !options.hideLabel}
-			{#if !options.labelRight}
+		{#if !options.labelRight}
+			{@render label()}
+		{:else}
+			<div class="flex items-center justify-between gap-4">
 				{@render label()}
-			{:else}
-				<div class="flex items-center justify-between gap-4">
-					{@render label()}
-					{@render options.labelRight?.()}
-				</div>
-			{/if}
+				{@render options.labelRight?.()}
+			</div>
 		{/if}
 
 		{@render child?.({ props })}

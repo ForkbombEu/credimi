@@ -10,26 +10,20 @@ package workflows
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"reflect"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/credentials_config"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
 // CredentialsTaskQueue is the task queue for the credentials workflow.
-const (
-	CredentialsTaskQueue       = "CredentialsTaskQueue"
-	CredentialIssuerSchemaPath = "schemas/credentialissuer/openid-credential-issuer.schema.json"
-	CredentialSchemaPath       = "schemas/credentialissuer/credential_config.schema.json"
-)
+const CredentialsTaskQueue = "CredentialsTaskQueue"
 
 // CredentialsIssuersWorkflow is a workflow that validates and imports credential issuer metadata.
 type CredentialsIssuersWorkflow struct{}
@@ -68,207 +62,84 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
-
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
 	checkIssuer := activities.NewCheckCredentialsIssuerActivity()
 	var issuerResult workflowengine.ActivityResult
-
-	baseURL, ok := input.Payload["base_url"].(string)
-	if !ok || baseURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"base_url",
-			runMetadata,
-		)
-	}
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			runMetadata,
-		)
-	}
-	issuerSchema, ok := input.Config["issuer_schema"].(string)
-	if !ok || issuerSchema == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"issuer_schema",
-			runMetadata,
-		)
-	}
-	issuerID, ok := input.Payload["issuerID"].(string)
-	if !ok || issuerID == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"issuerID",
-			runMetadata,
-		)
-	}
 	err := workflow.ExecuteActivity(ctx, checkIssuer.Name(), workflowengine.ActivityInput{
 		Config: map[string]string{
-			"base_url": baseURL,
+			"base_url": input.Payload["base_url"].(string),
 		},
 	}).Get(ctx, &issuerResult)
 	if err != nil {
 		logger.Error("CheckCredentialIssuer failed", "error", err)
 		return workflowengine.WorkflowResult{}, err
 	}
-	source, ok := issuerResult.Output.(map[string]any)["source"].(string)
-	if !ok {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: source", checkIssuer.Name()),
-		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
-	}
 	rawJSON, ok := issuerResult.Output.(map[string]any)["rawJSON"].(string)
 	if !ok {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("%s: rawJSON", checkIssuer.Name()),
-		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, fmt.Errorf("missing rawJSON in activity output")
 	}
 
 	parseJSON := activities.NewJSONActivity(
 		map[string]reflect.Type{
-			"map": reflect.TypeOf(
-				map[string]any{},
+			"OpenidCredentialIssuerSchemaJson": reflect.TypeOf(
+				credentials_config.OpenidCredentialIssuerSchemaJson{},
 			),
 		},
 	)
-
-	logs := make(map[string][]any)
 	var result workflowengine.ActivityResult
-	var issuerData map[string]any
-	invalidCred := make(map[string]bool)
-
+	var issuerData *credentials_config.OpenidCredentialIssuerSchemaJson
 	err = workflow.ExecuteActivity(ctx, parseJSON.Name(), workflowengine.ActivityInput{
 		Payload: map[string]any{
 			"rawJSON":    rawJSON,
-			"structType": "map",
+			"structType": "OpenidCredentialIssuerSchemaJson",
 		},
 	}).Get(ctx, &result)
 	if err != nil {
 		logger.Error("ParseJSON failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, err
 	}
-
-	issuerData, err = decodeToMap(result.Output, runMetadata)
+	jsonBytes, err := json.Marshal(result.Output)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+	err = json.Unmarshal(jsonBytes, &issuerData)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	validateJSON := activities.NewSchemaValidationActivity()
-	validateErr := workflow.ExecuteActivity(ctx, validateJSON.Name(), workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"data":   issuerData,
-			"schema": issuerSchema,
-		},
-	}).Get(ctx, nil)
-	if validateErr != nil {
-		details, err := extractAppErrorDetails(validateErr)
-		if err != nil {
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				err,
-				runMetadata,
-			)
-		}
-
-		logs["JSONSchemaError"] = details
-		invalidCred, err = extractInvalidCredentialsFromErrorDetails(details, runMetadata)
-		if err != nil {
-			return workflowengine.WorkflowResult{}, err
-		}
-	}
-
-	issuerName := ""
-	if displayList, ok := issuerData["display"].([]any); ok && len(displayList) > 0 {
-		if first, ok := displayList[0].(map[string]any); ok {
-			if name, ok := first["name"].(string); ok {
-				issuerName = name
-			}
-		}
-	}
-
-	credConfigs, ok := issuerData["credential_configurations_supported"].(map[string]any)
-	if !ok {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-
-		appErr := workflowengine.NewAppError(
-			errCode,
-			"rawJSON should contains credential_configurations_supported",
-		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
-	}
-
+	logs := make(map[string][]any)
 	HTTPActivity := activities.NewHTTPActivity()
 	validKeys := []string{}
-	for credKey, credential := range credConfigs {
-		conformant := true
-		if invalidCred[credKey] {
-			conformant = false
-		}
-
-		namespace, ok := input.Config["namespace"].(string)
-		if !ok || namespace == "" {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-				"namespace",
-				runMetadata,
-			)
-		}
-
+	for credKey, credential := range issuerData.CredentialConfigurationsSupported {
+		castedCredential := activities.Credential(credential)
+		HTTPActivity := activities.NewHTTPActivity()
 		storeInput := workflowengine.ActivityInput{
 			Config: map[string]string{
 				"method": "POST",
 				"url": fmt.Sprintf(
 					"%s/%s",
-					appURL,
+					input.Config["app_url"].(string),
 					"api/credentials_issuers/store-or-update-extracted-credentials"),
 			},
 			Payload: map[string]any{
 				"body": map[string]any{
-					"issuerID":   issuerID,
-					"issuerName": issuerName,
+					"issuerID":   input.Payload["issuerID"].(string),
+					"issuerName": *issuerData.Display[0].Name,
 					"credKey":    credKey,
-					"credential": credential,
-					"conformant": conformant,
-					"orgID":      namespace,
+					"credential": castedCredential,
+					"orgID":      input.Config["namespace"].(string),
 				},
 			},
 		}
 		var storeResponse workflowengine.ActivityResult
-		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeInput).
+		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeInput).
 			Get(ctx, &storeResponse)
 		if err != nil {
 			return workflowengine.WorkflowResult{Log: logs}, err
 		}
-		key, ok := storeResponse.Output.(map[string]any)["body"].(map[string]any)["key"]
-		if !ok {
-			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("%s: body.key", HTTPActivity.Name()),
-			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				runMetadata,
-			)
-		}
-
 		validKeys = append(validKeys, credKey)
 		logs["StoredCredentials"] = append(
 			logs["StoredCredentials"],
-			key,
+			storeResponse.Output.(map[string]any)["body"].(map[string]any)["key"],
 		)
 	}
 
@@ -277,13 +148,13 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			"method": "POST",
 			"url": fmt.Sprintf(
 				"%s/%s",
-				appURL,
+				input.Config["app_url"].(string),
 				"api/credentials_issuers/cleanup_credentials",
 			),
 		},
 		Payload: map[string]any{
 			"body": map[string]any{
-				"issuerID":  issuerID,
+				"issuerID":  input.Payload["issuerID"].(string),
 				"validKeys": validKeys,
 			},
 		},
@@ -296,15 +167,11 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		cleanupResponse.Output.(map[string]any)["body"].(map[string]any)["deleted"],
 	)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			err,
-			runMetadata,
-			logs,
-		)
+		return workflowengine.WorkflowResult{Log: logs}, err
 	}
 
 	return workflowengine.WorkflowResult{
-		Message: fmt.Sprintf("Successfully retrieved and stored and update credentials from '%s'", source),
+		Message: "Successfully retrieved and stored and update credentials",
 		Log:     logs,
 	}, nil
 }
@@ -333,111 +200,4 @@ func (w *CredentialsIssuersWorkflow) Start(
 	}
 
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
-}
-
-func toStringSlice(input []any) []string {
-	result := make([]string, len(input))
-	for i, v := range input {
-		result[i] = fmt.Sprint(v)
-	}
-	return result
-}
-
-func extractInvalidCredentialsFromErrorDetails(
-	details []any,
-	runMetadata workflowengine.WorkflowErrorMetadata,
-) (map[string]bool, error) {
-	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityErrorDetails]
-	invalidCred := map[string]bool{}
-
-	rawMap, ok := details[0].(map[string]any)
-	if !ok {
-		wErr := workflowengine.NewAppError(errCode, "details[0] is not a map")
-		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
-	}
-
-	causes, ok := rawMap["Causes"].([]any)
-	if !ok {
-		wErr := workflowengine.NewAppError(
-			errCode,
-			"details should contain causes from validation error",
-		)
-		return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
-	}
-
-	for _, cause := range causes {
-		causeMap, ok := cause.(map[string]any)
-		if !ok {
-			wErr := workflowengine.NewAppError(
-				errCode,
-				"each cause should be a map",
-			)
-			return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
-		}
-
-		instanceLocation, ok := causeMap["InstanceLocation"].([]any)
-		if !ok {
-			wErr := workflowengine.NewAppError(
-				errCode,
-				"instanceLocation should be a string array",
-			)
-			return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
-		}
-
-		instanceLocationStr := toStringSlice(instanceLocation)
-		if len(instanceLocationStr) > 1 &&
-			instanceLocationStr[0] == "credential_configurations_supported" {
-			invalidCred[instanceLocationStr[1]] = true
-		}
-	}
-
-	return invalidCred, nil
-}
-
-func decodeToMap(
-	input any,
-	runMetadata workflowengine.WorkflowErrorMetadata,
-) (map[string]any, error) {
-	b, err := json.Marshal(input)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-		appErr := workflowengine.NewAppError(
-			errCode,
-			err.Error(),
-			input,
-		)
-		return nil, workflowengine.NewWorkflowError(
-			appErr,
-			runMetadata,
-		)
-	}
-	var m map[string]any
-	err = json.Unmarshal(b, &m)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
-		appErr := workflowengine.NewAppError(errCode, err.Error(), string(b))
-		return nil, workflowengine.NewWorkflowError(
-			appErr,
-			runMetadata,
-		)
-	}
-	return m, err
-}
-
-func extractAppErrorDetails(err error) ([]any, error) {
-	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityError]
-	var actErr *temporal.ActivityError
-	if errors.As(err, &actErr) {
-		var appErr *temporal.ApplicationError
-		if errors.As(actErr.Unwrap(), &appErr) {
-			var details []any
-			derr := appErr.Details(&details)
-			if derr == nil {
-				return details, nil
-			}
-			return nil, workflowengine.NewAppError(errCode, derr.Error())
-		}
-		return nil, workflowengine.NewAppError(errCode, actErr.Unwrap().Error())
-	}
-	return nil, workflowengine.NewAppError(errCode, err.Error())
 }

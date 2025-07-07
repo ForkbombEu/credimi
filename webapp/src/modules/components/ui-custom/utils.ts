@@ -28,11 +28,3 @@ export function createToggleStore(defaultValue = false) {
 	const store = writable(defaultValue);
 	return { ...store, ...addToggleToBooleanStore(store) };
 }
-
-//
-
-export type SelectOption<T> = {
-	value: T;
-	label: string;
-	disabled?: boolean;
-};

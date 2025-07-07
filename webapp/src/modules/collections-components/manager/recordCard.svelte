@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { getCollectionManagerContext } from './collectionManagerContext';
 	import {
 		RecordSelect,
-		type HideOption,
+		type RecordAction,
 		RecordEdit,
 		RecordShare,
 		RecordDelete
@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	interface Props {
 		record: CollectionResponses[C];
-		hide?: HideOption;
+		hide?: Array<RecordAction>;
 		class?: string;
 		children?: Snippet<
 			[{ Title: typeof ItemCardTitle; Description: typeof ItemCardDescription }]
@@ -50,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 </script>
 
-<ItemCard class="{classes} " left={!hide.includes('select') && hide !== 'all' ? left : undefined}>
+<ItemCard class="{classes} " left={!hide.includes('select') ? left : undefined}>
 	{#snippet children({ Title, Description })}
 		{@render children_render?.({ Title, Description })}
 	{/snippet}
@@ -58,13 +58,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet right()}
 		{@render right_render?.({ record })}
 
-		{#if !hide.includes('edit') && hide !== 'all'}
+		{#if !hide.includes('edit')}
 			<RecordEdit {record} />
 		{/if}
-		{#if !hide.includes('share') && hide !== 'all'}
+		{#if !hide.includes('share')}
 			<RecordShare {record} />
 		{/if}
-		{#if !hide.includes('delete') && hide !== 'all'}
+		{#if !hide.includes('delete')}
 			<RecordDelete {record} />
 		{/if}
 	{/snippet}

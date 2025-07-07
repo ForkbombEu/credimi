@@ -4,8 +4,8 @@
 
 import { pb } from '@/pocketbase';
 
-export const load = async ({ params, fetch }) => {
-	const wallet = await pb.collection('wallets').getOne(params.wallet_id, { fetch });
+export const load = async ({ params }) => {
+	const wallet = await pb.collection('wallets').getOne(params.wallet_id);
 	return {
 		wallet
 	};

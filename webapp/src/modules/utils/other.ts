@@ -68,10 +68,6 @@ export function log(...data: unknown[]) {
 	if (dev) console.log(...data);
 }
 
-export function warn(...data: unknown[]) {
-	if (dev) console.warn(...data);
-}
-
 export function pipeLog<T>(data: T): T {
 	log(data);
 	return data;

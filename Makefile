@@ -78,7 +78,8 @@ dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mod
 	DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev
 
 test: ## 🧪 run tests with coverage
-	$(GOTEST) $(GODIRS) -v -race -buildvcs --tags=unit
+	$(GOTEST) $(GODIRS) -v -race -buildvcs
+
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)
@@ -88,7 +89,7 @@ test.p: tools ## 🍷 watch tests and run on change for a certain folder
 
 coverage: devtools # ☂️ run test and open code coverage report
 	-$(GOTEST) $(GODIRS) -coverprofile=$(COVOUT)
-	$(GOTOOL) cover -html=$(COVOUT) --tags=unit
+	$(GOTOOL) cover -html=$(COVOUT)
 	$(GOTOOL) go-cover-treemap -coverprofile $(COVOUT) > coverage.svg && open coverage.svg
 
 lint: devtools ## 📑 lint rules checks

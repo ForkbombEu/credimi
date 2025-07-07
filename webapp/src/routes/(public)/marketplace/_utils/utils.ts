@@ -8,7 +8,6 @@ import type { CollectionName } from '@/pocketbase/collections-models';
 import MarketplaceItemTypeDisplay from './marketplace-item-type-display.svelte';
 import MarketplaceItemCard from './marketplace-item-card.svelte';
 import { z } from 'zod';
-import { queryParams } from '$routes/my/tests/new/+page.svelte';
 
 //
 
@@ -21,8 +20,7 @@ export const marketplaceItemTypes = [
 	'credential_issuers',
 	'wallets',
 	'credentials',
-	'custom_checks',
-	'use_cases_verifications'
+	'custom_checks'
 ] as const satisfies CollectionName[];
 
 export const marketplaceItemTypeSchema = z.enum(marketplaceItemTypes);
@@ -66,30 +64,25 @@ const marketplaceItemsDisplayConfig: MarketplaceItemsDisplayConfig = {
 		bgClass: 'bg-blue-500',
 		textClass: 'text-blue-500'
 	},
-	custom_checks: {
-		label: m.Custom_check(),
-		bgClass: 'bg-purple-500',
-		textClass: 'text-purple-500'
+	verifiers: {
+		label: m.Verifier(),
+		bgClass: 'bg-green-500',
+		textClass: 'text-green-500'
 	},
 	credential_issuers: {
 		label: m.Credential_issuer(),
-		bgClass: 'bg-green-700',
-		textClass: 'text-green-700'
+		bgClass: 'bg-yellow-500',
+		textClass: 'text-yellow-500'
 	},
 	credentials: {
 		label: m.Credential(),
-		bgClass: 'bg-green-400',
-		textClass: 'text-green-400'
+		bgClass: 'bg-purple-500',
+		textClass: 'text-purple-500'
 	},
-	verifiers: {
-		label: m.Verifier(),
-		bgClass: 'bg-red-600',
-		textClass: 'text-red-600'
-	},
-	use_cases_verifications: {
-		label: m.Use_case_verification(),
-		bgClass: 'bg-orange-400',
-		textClass: 'text-orange-400'
+	custom_checks: {
+		label: m.Custom_check(),
+		bgClass: 'bg-orange-500',
+		textClass: 'text-orange-500'
 	}
 };
 
@@ -102,14 +95,12 @@ export function getMarketplaceItemTypeData(type: MarketplaceItemType) {
 export function getMarketplaceItemData(item: MarketplaceItem) {
 	const href =
 		item.type === 'custom_checks'
-			? `/my/tests/new?${queryParams.customCheckId}=${item.id}`
+			? `/my/tests/new?test_id=${item.id}`
 			: localizeHref(`/marketplace/${item.type}/${item.id}`);
-
 	const logo = item.avatar
 		? pb.files.getURL(item.avatar, item.avatar.image_file)
 		: item.avatar_url
 			? item.avatar_url
 			: undefined;
-
 	return { href, logo, ...getMarketplaceItemTypeData(item.type) };
 }

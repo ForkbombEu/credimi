@@ -32,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ArrayOrItemManager from '@/components/ui-custom/arrayOrItemManager.svelte';
 	import type { Writable } from 'svelte/store';
 	import { CollectionSelect } from '.';
-	import { createDefaultRecordPresenter, createRecordDisplay } from './utils';
+	import { createDefaultRecordPresenter } from './utils';
 	import * as Form from '@/components/ui/form';
 	import type { FormPath, SuperForm } from 'sveltekit-superforms';
 	import { fieldProxy } from 'sveltekit-superforms/client';
@@ -110,7 +110,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{#snippet children({ item, removeItem })}
 							<ListItem onclick={removeItem}>
 								{#await fetchRecord(collection, item) then record}
-									{createRecordDisplay(record, options.displayFields, presenter)}
+									{presenter(record)}
 								{/await}
 							</ListItem>
 						{/snippet}
