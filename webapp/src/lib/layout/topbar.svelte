@@ -15,53 +15,135 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { LayoutDashboardIcon, Sparkle } from 'lucide-svelte';
 	import { AppLogo } from '@/brand';
 	import { Badge } from '@/components/ui/badge';
+	import EnhancedResponsiveNav from '../responsive-navigation/enhanced-responsive-nav.svelte';
+	import type { NavItem } from '../responsive-navigation/nav-items.svelte';
 
 	function href(href: string) {
 		return $featureFlags.DEMO ? '#waitlist' : href;
 	}
+
+	// Configure navigation items with proper display settings
+	const navigationItems: NavItem[] = [
+		{
+			href: href('/marketplace'),
+			label: m.Marketplace(),
+			display: 'both' // Show on both desktop and mobile
+		},
+		{
+			href: href('/organizations'),
+			label: m.organizations(),
+			display: 'both' // Show on both desktop and mobile
+		},
+		{
+			href: '/news',
+			label: m.News(),
+			display: 'both' // Show on both desktop and mobile
+		},
+		{
+			href: 'https://docs.credimi.io',
+			label: m.Help(),
+			display: 'mobile-only' // Only show in mobile menu, not desktop
+		}
+	];
+
+	// Add authenticated user items that only appear in mobile
+	const userItems: NavItem[] = $derived(
+		!$featureFlags.DEMO && $featureFlags.AUTH && $currentUser ? [
+			{
+				href: '/my/tests/new',
+				label: m.Start_a_new_check(),
+				icon: Sparkle,
+				display: 'mobile-only'
+			},
+			{
+				href: '/my/services-and-products',
+				label: m.Go_to_Dashboard(),
+				icon: LayoutDashboardIcon,
+				display: 'mobile-only'
+			}
+		] : []
+	);
+
+	const allItems = $derived([...navigationItems, ...userItems]);
 </script>
 
 <BaseTopbar class="bg-card border-none">
 	{#snippet left()}
-		<Button variant="link" href={href('/')}>
-			<AppLogo />
-		</Button>
-		<div class="hidden flex-row sm:flex">
-			<Button variant="link" href={href('/marketplace')}>
-				{m.Marketplace()}
+		<div class="flex items-center space-x-4 min-w-0 overflow-hidden">
+			<Button variant="link" href={href('/')} class="shrink-0">
+				<AppLogo />
 			</Button>
-			<Button variant="link" href={href('/organizations')}>
-				{m.organizations()}
-			</Button>
-			<Button variant="link" href="/news">{m.News()}</Button>
+			
+			<!-- Desktop navigation only -->
+			<div class="hidden md:flex md:flex-row md:items-center md:space-x-1 min-w-0 overflow-hidden">
+				<Button variant="link" href={href('/marketplace')}>
+					{m.Marketplace()}
+				</Button>
+				<Button variant="link" href={href('/organizations')}>
+					{m.organizations()}
+				</Button>
+				<Button variant="link" href="/news">
+					{m.News()}
+				</Button>
+			</div>
 		</div>
 	{/snippet}
 
 	{#snippet right()}
-		<div class="flex items-center space-x-2">
+		<div class="flex items-center space-x-2 min-w-0 overflow-hidden">
+			<!-- Help link only appears on desktop (mobile has it in the menu) -->
 			<div class="hidden sm:flex sm:flex-row">
 				<Button variant="link" href="https://docs.credimi.io">{m.Help()}</Button>
 			</div>
+			
 			{#if !$featureFlags.DEMO && $featureFlags.AUTH}
 				{#if !$currentUser}
 					<Button variant="secondary" href="/login">{m.Login()}</Button>
+					
+					<!-- Mobile menu trigger - only show when not logged in -->
+					<div class="md:hidden">
+						<EnhancedResponsiveNav 
+							items={navigationItems}
+							mobileTitle="Navigation"
+						/>
+					</div>
 				{:else}
-					<Button variant="link" href="/my/tests/new">
-						<Icon src={Sparkle} />
-						{m.Start_a_new_check()}
-						<Badge
-							variant="outline"
-							class="border-primary text-primary !hover:no-underline text-xs"
-						>
-							{m.Beta()}
-						</Badge>
-					</Button>
-					<Button variant="link" href="/my/services-and-products">
-						<Icon src={LayoutDashboardIcon} />
-						{m.Go_to_Dashboard()}
-					</Button>
+					<!-- User action buttons only on desktop (mobile has them in menu) -->
+					<div class="hidden sm:flex sm:flex-row sm:items-center sm:space-x-2 min-w-0 overflow-hidden">
+						<Button variant="link" href="/my/tests/new" class="text-nowrap">
+							<Icon src={Sparkle} />
+							{m.Start_a_new_check()}
+							<Badge
+								variant="outline"
+								class="border-primary text-primary !hover:no-underline text-xs ml-2"
+							>
+								{m.Beta()}
+							</Badge>
+						</Button>
+						<Button variant="link" href="/my/services-and-products" class="text-nowrap">
+							<Icon src={LayoutDashboardIcon} />
+							{m.Go_to_Dashboard()}
+						</Button>
+					</div>
+					
 					<UserNav />
+					
+					<!-- Mobile menu trigger - positioned after UserNav for logged in users -->
+					<div class="md:hidden">
+						<EnhancedResponsiveNav 
+							items={allItems}
+							mobileTitle="Navigation"
+						/>
+					</div>
 				{/if}
+			{:else}
+				<!-- Mobile menu trigger for when AUTH is disabled -->
+				<div class="md:hidden">
+					<EnhancedResponsiveNav 
+						items={navigationItems}
+						mobileTitle="Navigation"
+					/>
+				</div>
 			{/if}
 		</div>
 	{/snippet}
