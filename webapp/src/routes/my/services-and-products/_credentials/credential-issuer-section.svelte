@@ -164,17 +164,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<ul class="space-y-2">
 					{#each credentials as credential}
-						<li class="bg-muted flex items-center justify-between rounded-md p-2 px-4">
-							<div class="flex items-center gap-2">
+						<li class="bg-muted flex items-start justify-between rounded-md p-2 px-4">
+							<div class="break-words min-w-0 flex-1">
 								{#if !credential.published}
 									{credential.key}
+									<PublishedStatus item={credential} class="ml-1 inline-block align-middle" />
 								{:else}
-									<A href="/marketplace/credentials/{credential.id}">
+									<A href="/marketplace/credentials/{credential.id}" class="break-words">
 										{credential.name}
 									</A>
+									<PublishedStatus item={credential} class="ml-1 inline-block align-middle" />
 								{/if}
-
-								<PublishedStatus item={credential} />
 							</div>
 
 							<div class="flex items-center gap-1">
