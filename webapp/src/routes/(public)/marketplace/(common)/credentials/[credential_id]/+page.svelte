@@ -94,16 +94,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		{#if credentialConfiguration}
 			<pre
-				class="
-    border-primary bg-card text-card-foreground ring-primary
-    w-full max-w-screen-lg overflow-x-auto
-    rounded-xl border p-4
-    text-[10px] shadow-sm transition-transform
-    hover:-translate-y-2 hover:ring-2 sm:w-fit sm:p-6
-    sm:text-xs md:text-sm lg:p-8 lg:text-base
-  ">
-  {JSON.stringify(credentialConfiguration, null, 2)}
-</pre>
+				class="border-primary bg-card text-card-foreground ring-primary
+         w-full max-w-screen-lg overflow-x-auto
+         rounded-xl border p-4 text-[10px] shadow-sm transition-transform hover:-translate-y-2 hover:ring-2
+         md:w-fit md:overflow-x-clip md:p-6 md:text-xs">
+			{JSON.stringify(credentialConfiguration, null, 2)}
+			</pre>
 		{/if}
 	</div>
 
