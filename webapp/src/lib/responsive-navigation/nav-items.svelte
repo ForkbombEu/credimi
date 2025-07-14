@@ -5,37 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { ComponentType } from 'svelte';
-	import type { Icon } from 'lucide-svelte';
 	import ResponsiveNavItem from './responsive-nav-item.svelte';
-
-	export interface NavItem {
-		href: string;
-		label: string;
-		icon?: ComponentType<Icon>;
-		/**
-		 * Controls where this item appears:
-		 * - 'both': appears in both desktop and mobile (default)
-		 * - 'desktop-only': only appears in desktop navigation
-		 * - 'mobile-only': only appears in mobile menu
-		 */
-		display?: 'both' | 'desktop-only' | 'mobile-only';
-		/**
-		 * Custom click handler
-		 */
-		onClick?: () => void;
-		/**
-		 * Additional CSS classes
-		 */
-		class?: string;
-	}
-
+	import type { IconComponent, NavItem } from '@/components/types';
+	
 	interface Props {
 		items: NavItem[];
 		variant: 'desktop' | 'mobile';
+		onNavigate?: () => void;
 	}
 
-	let { items, variant }: Props = $props();
+	let { items, variant, onNavigate }: Props = $props();
 
 	const filteredItems = $derived(
 		items.filter(item => {
@@ -54,6 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		icon={item.icon}
 		{variant}
 		onClick={item.onClick}
+		{onNavigate}
 		class={item.class}
 	/>
 {/each}

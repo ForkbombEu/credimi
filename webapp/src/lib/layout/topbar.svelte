@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { AppLogo } from '@/brand';
 	import { Badge } from '@/components/ui/badge';
 	import EnhancedResponsiveNav from '../responsive-navigation/enhanced-responsive-nav.svelte';
-	import type { NavItem } from '../responsive-navigation/nav-items.svelte';
+	import type { NavItem } from '@/components/types';
 
 	function href(href: string) {
 		return $featureFlags.DEMO ? '#waitlist' : href;

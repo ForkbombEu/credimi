@@ -7,7 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { ResponsiveNav } from './responsive-nav.svelte.js';
 	import MobileNav from './mobile-nav.svelte';
-	import NavItems, { type NavItem } from './nav-items.svelte';
+	import NavItems from './nav-items.svelte';
+	import type { NavItem } from '@/components/types';
 	import type { Snippet } from 'svelte';
 
 	interface Props {
@@ -71,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if mobileContent}
 			{@render mobileContent()}
 		{:else}
-			<NavItems {items} variant="mobile" />
+			<NavItems {items} variant="mobile" onNavigate={nav.close} />
 		{/if}
 	</MobileNav>
 {/if}
