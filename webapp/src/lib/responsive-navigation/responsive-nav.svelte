@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <!-- Desktop Navigation -->
-<div class="hidden md:flex md:flex-row md:items-center md:space-x-1 min-w-0 overflow-hidden {className}">
+<div class="hidden lg:flex lg:flex-row lg:items-center lg:space-x-1 min-w-0 overflow-hidden {className}">
 	{#if desktopContent}
 		{@render desktopContent()}
 	{:else}

@@ -74,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Button>
 			
 			<!-- Desktop navigation only -->
-			<div class="hidden md:flex md:flex-row md:items-center md:space-x-1 min-w-0 overflow-hidden">
+			<div class="hidden lg:flex lg:flex-row lg:items-center lg:space-x-1 min-w-0 overflow-hidden">
 				<Button variant="link" href={href('/marketplace')}>
 					{m.Marketplace()}
 				</Button>
@@ -91,7 +91,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet right()}
 		<div class="flex items-center space-x-2 min-w-0 overflow-hidden">
 			<!-- Help link only appears on desktop (mobile has it in the menu) -->
-			<div class="hidden sm:flex sm:flex-row">
+			<div class="hidden lg:flex lg:flex-row">
 				<Button variant="link" href="https://docs.credimi.io">{m.Help()}</Button>
 			</div>
 			
@@ -100,7 +100,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Button variant="secondary" href="/login">{m.Login()}</Button>
 					
 					<!-- Mobile menu trigger - only show when not logged in -->
-					<div class="md:hidden">
+					<div class="lg:hidden">
 						<ResponsiveNav 
 							items={navigationItems}
 							mobileTitle="Navigation"
@@ -108,7 +108,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{:else}
 					<!-- User action buttons only on desktop (mobile has them in menu) -->
-					<div class="hidden sm:flex sm:flex-row sm:items-center sm:space-x-2 min-w-0 overflow-hidden">
+					<div class="hidden lg:flex lg:flex-row lg:items-center lg:space-x-2 min-w-0 overflow-hidden">
 						<Button variant="link" href="/my/tests/new" class="text-nowrap">
 							<Icon src={Sparkle} />
 							{m.Start_a_new_check()}
@@ -127,7 +127,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					
 					<UserNav />
 					
-					<div class="md:hidden">
+					<div class="lg:hidden">
 						<ResponsiveNav 
 							items={allItems}
 							mobileTitle="Navigation"
@@ -135,7 +135,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{/if}
 			{:else}
-				<div class="md:hidden">
+				<div class="lg:hidden">
 					<ResponsiveNav 
 						items={navigationItems}
 						mobileTitle="Navigation"
