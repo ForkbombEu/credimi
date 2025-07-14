@@ -5,12 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Component } from 'svelte';
-	import type { Icon } from 'lucide-svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconComponent from '@/components/ui-custom/icon.svelte';
 	import type { IconComponent as ComponentIcon } from '@/components/types';
-	
 
 	interface Props {
 		href: string;
@@ -22,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class?: string;
 	}
 
-	let { 
+	const { 
 		href, 
 		label, 
 		icon, 
@@ -34,7 +31,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function handleClick() {
 		onClick?.();
-		// Close mobile menu when navigating (only for mobile variant)
 		if (variant === 'mobile') {
 			onNavigate?.();
 		}

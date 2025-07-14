@@ -15,34 +15,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { LayoutDashboardIcon, Sparkle } from 'lucide-svelte';
 	import { AppLogo } from '@/brand';
 	import { Badge } from '@/components/ui/badge';
-	import EnhancedResponsiveNav from '../responsive-navigation/enhanced-responsive-nav.svelte';
+	import ResponsiveNav from '../responsive-navigation/responsive-nav.svelte';
 	import type { NavItem } from '@/components/types';
 
 	function href(href: string) {
 		return $featureFlags.DEMO ? '#waitlist' : href;
 	}
 
-	// Configure navigation items with proper display settings
 	const navigationItems: NavItem[] = [
 		{
 			href: href('/marketplace'),
 			label: m.Marketplace(),
-			display: 'both' // Show on both desktop and mobile
+			display: 'both'
 		},
 		{
 			href: href('/organizations'),
 			label: m.organizations(),
-			display: 'both' // Show on both desktop and mobile
+			display: 'both'
 		},
 		{
 			href: '/news',
 			label: m.News(),
-			display: 'both' // Show on both desktop and mobile
+			display: 'both'
 		},
 		{
 			href: 'https://docs.credimi.io',
 			label: m.Help(),
-			display: 'mobile-only' // Only show in mobile menu, not desktop
+			display: 'mobile-only'
 		}
 	];
 
@@ -102,7 +101,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					
 					<!-- Mobile menu trigger - only show when not logged in -->
 					<div class="md:hidden">
-						<EnhancedResponsiveNav 
+						<ResponsiveNav 
 							items={navigationItems}
 							mobileTitle="Navigation"
 						/>
@@ -128,18 +127,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					
 					<UserNav />
 					
-					<!-- Mobile menu trigger - positioned after UserNav for logged in users -->
 					<div class="md:hidden">
-						<EnhancedResponsiveNav 
+						<ResponsiveNav 
 							items={allItems}
 							mobileTitle="Navigation"
 						/>
 					</div>
 				{/if}
 			{:else}
-				<!-- Mobile menu trigger for when AUTH is disabled -->
 				<div class="md:hidden">
-					<EnhancedResponsiveNav 
+					<ResponsiveNav 
 						items={navigationItems}
 						mobileTitle="Navigation"
 					/>

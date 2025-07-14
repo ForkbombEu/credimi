@@ -24,19 +24,7 @@ export interface NavItem {
 	href: string;
 	label: string;
 	icon?: IconComponent;
-	/**
-	 * Controls where this item appears:
-	 * - 'both': appears in both desktop and mobile (default)
-	 * - 'desktop-only': only appears in desktop navigation
-	 * - 'mobile-only': only appears in mobile menu
-	 */
 	display?: 'both' | 'desktop-only' | 'mobile-only';
-	/**
-	 * Custom click handler
-	 */
 	onClick?: () => void;
-	/**
-	 * Additional CSS classes
-	 */
 	class?: string;
 }

@@ -12,25 +12,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	interface Props {
-		/**
-		 * Navigation items configuration
-		 */
 		items?: NavItem[];
-		/**
-		 * Custom content for mobile menu (takes precedence over items)
-		 */
 		mobileContent?: Snippet;
-		/**
-		 * Custom content for desktop navigation (takes precedence over items)
-		 */
 		desktopContent?: Snippet;
-		/**
-		 * Navigation title for mobile menu
-		 */
 		mobileTitle?: string;
-		/**
-		 * Additional classes for the desktop container
-		 */
 		class?: string;
 	}
 

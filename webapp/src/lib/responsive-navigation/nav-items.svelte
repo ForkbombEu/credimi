@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import ResponsiveNavItem from './responsive-nav-item.svelte';
-	import type { IconComponent, NavItem } from '@/components/types';
+	import type { NavItem } from '@/components/types';
 	
 	interface Props {
 		items: NavItem[];
@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onNavigate?: () => void;
 	}
 
-	let { items, variant, onNavigate }: Props = $props();
+	const { items, variant, onNavigate }: Props = $props();
 
 	const filteredItems = $derived(
 		items.filter(item => {

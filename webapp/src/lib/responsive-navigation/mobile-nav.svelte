@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import * as Sheet from '@/components/ui/sheet';
+	import { m } from '@/i18n';
 	import { Menu } from 'lucide-svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
@@ -18,24 +19,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		title?: string;
 	}
 
-	let { open, onOpenChange, children, title = 'Navigation' }: Props = $props();
+	const { open, onOpenChange, children, title = m.navigation() }: Props = $props();
 </script>
 
-<Sheet.Root {open} onOpenChange={onOpenChange}>
+<Sheet.Root {open} {onOpenChange}>
 	<Sheet.Trigger>
 		{#snippet child({ props })}
 			<Button variant="ghost" size="icon" class="md:hidden" {...props}>
 				<Icon src={Menu} />
-				<span class="sr-only">Toggle navigation menu</span>
 			</Button>
 		{/snippet}
 	</Sheet.Trigger>
-	
+
 	<Sheet.Content side="left" class="w-80">
 		<Sheet.Header class="border-b pb-4">
 			<Sheet.Title>{title}</Sheet.Title>
 		</Sheet.Header>
-		
+
 		<div class="mt-6 flex flex-col space-y-2">
 			{@render children()}
 		</div>
