@@ -26,8 +26,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
 			const { data } = form;
-			// Handle form submission
-			console.log('Form submitted:', data);
 			pb.collection('wallets').create({
 				...data,
 				conformace_checks: { runs: data.conformance_checks }

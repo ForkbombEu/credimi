@@ -22,6 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
 	import { setWorkflowStatusesInUrl } from './utils.js';
+	import { setupPollingWithInvalidation } from '$lib/utils/index.js';
 
 	//
 
@@ -31,13 +32,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let latestCheckRuns: StartCheckResultWithMeta[] = $state(
 		browser ? ensureArray(LatestCheckRunsStorage.get()) : []
 	);
-	const latestRunIds = $derived(latestCheckRuns.map((run) => run.WorkflowRunId));
+	const latestRunIds = $derived(latestCheckRuns.map((run) => run.WorkflowRunID));
 
 	const latestExecutions = $derived(
 		executions.filter((exec) => latestRunIds.includes(exec.execution.runId))
 	);
 
 	const oldExecutions = $derived(Array.difference(executions, latestExecutions));
+
+	//
+
+	setupPollingWithInvalidation(5000);
 </script>
 
 <div class="space-y-8">

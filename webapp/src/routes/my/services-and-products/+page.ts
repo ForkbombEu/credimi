@@ -7,7 +7,7 @@ import { fetchUserWorkflows } from '$lib/workflows/index.js';
 //
 
 export const load = async ({ fetch }) => {
-	const workflows = await fetchUserWorkflows(fetch);
+	const workflows = await fetchUserWorkflows({ fetch });
 
 	return {
 		workflows: workflows.data?.executions

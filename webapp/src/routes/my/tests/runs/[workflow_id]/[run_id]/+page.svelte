@@ -4,11 +4,22 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+<script lang="ts" module>
+	import { z } from 'zod';
+	import type { HistoryEvent } from '@forkbombeu/temporal-ui';
+	import type { WorkflowResponse } from './+layout';
+
+	export const WorkflowMessageSchema = z.object({
+		type: z.literal('workflow'),
+		workflow: z.custom<WorkflowResponse>(),
+		eventHistory: z.custom<HistoryEvent[]>()
+	});
+</script>
+
 <script lang="ts">
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import BackButton from '$lib/layout/back-button.svelte';
-	import PageTop from '$lib/layout/pageTop.svelte';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
@@ -18,19 +29,41 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import EwcTop from './_partials/ewc-top.svelte';
 	import EudiwTop from './_partials/eudiw-top.svelte';
 	import { WorkflowQrPoller } from '$lib/workflows';
+	import { setupPollingWithInvalidation } from '$lib/utils';
 
 	//
 
 	let { data } = $props();
-	const { workflowId, runId, workflowMemo, organization } = $derived(data);
+	const { workflowId, runId, workflowMemo, organization, workflow, eventHistory } =
+		$derived(data);
 
 	const testNameChunks = $derived(workflowMemo?.test.split(':') ?? []);
 
-	/* Loading handling and height calculation */
+	/* Iframe communication */
 
 	const iframeId = 'iframe';
 
-	let loading = $state(true);
+	// Sending workflow data to iframe
+
+	setupPollingWithInvalidation(1000);
+
+	$effect(() => {
+		const iframe = document.getElementById(iframeId);
+		if (!iframe || !(iframe instanceof HTMLIFrameElement)) return;
+
+		iframe.contentWindow?.postMessage(
+			{
+				type: 'workflow',
+				workflow,
+				eventHistory
+			},
+			'*'
+		);
+	});
+
+	// Loading handling and height calculation
+
+	let isIframeLoading = $state(true);
 
 	function onMessage(event: MessageEvent) {
 		const message = HeightMessageSchema.safeParse(event.data);
@@ -40,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!iframe || !(iframe instanceof HTMLIFrameElement)) return;
 
 		iframe.height = message.data.height + 'px';
-		loading = false;
+		isIframeLoading = false;
 	}
 
 	if (browser) {
@@ -109,4 +142,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	></iframe>
 </div>
 
-<LoadingDialog {loading} />
+<LoadingDialog loading={isIframeLoading} />
