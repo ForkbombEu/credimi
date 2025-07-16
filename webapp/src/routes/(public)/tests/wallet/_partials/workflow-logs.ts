@@ -4,35 +4,7 @@
 
 import { pb } from '@/pocketbase/index.js';
 import { z } from 'zod';
-
-//
-
-export enum LogStatus {
-	SUCCESS = 'SUCCESS',
-	ERROR = 'ERROR',
-	FAILED = 'FAILED',
-	FAILURE = 'FAILURE',
-	WARNING = 'WARNING',
-	INFO = 'INFO',
-	INTERRUPTED = 'INTERRUPTED'
-}
-
-export type WorkflowLog = {
-	message?: string;
-	time?: number;
-	status?: LogStatus;
-	rawLog: unknown;
-};
-
-export type WorkflowLogsProps = {
-	workflowId: string;
-	namespace: string;
-	subscriptionSuffix: 'openidnet-logs' | 'eudiw-logs';
-	startSignal: string;
-	stopSignal: string;
-	workflowSignalSuffix?: string;
-	logTransformer: (data: unknown) => WorkflowLog;
-};
+import { LogStatus, type WorkflowLog, type WorkflowLogsProps } from '$lib/qrpages/workflow-types';
 
 type HandlerOptions = WorkflowLogsProps & {
 	onUpdate: (data: WorkflowLog[]) => void;

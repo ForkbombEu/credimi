@@ -13,8 +13,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import QrLink from '../_partials/qr-link.svelte';
 	import FeedbackForms from '../_partials/feedback-forms.svelte';
 	import WorkflowLogs from '../_partials/workflow-logs.svelte';
-	import { LogStatus, type WorkflowLogsProps } from '../_partials/workflow-logs';
-	import { z } from 'zod';
+	import { createOpenIdNetWorkflowManager } from '$lib/qrpages';
+	import { onDestroy } from 'svelte';
 
 	//
 
@@ -23,39 +23,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const workflowLogsProps: WorkflowLogsProps = $derived.by(() => {
-		if (!workflowId || !namespace) {
-			throw new Error('missing workflowId or namespace');
+	let workflowManager: ReturnType<typeof createOpenIdNetWorkflowManager> | null = null;
+
+	// Initialize the workflow manager when we have the required data
+	$effect(() => {
+		if (workflowId && namespace) {
+			workflowManager?.destroy(); // Clean up previous instance
+			workflowManager = createOpenIdNetWorkflowManager(workflowId, namespace);
 		}
-		return {
-			subscriptionSuffix: 'openidnet-logs',
-			startSignal: 'start-openidnet-check-log-update',
-			stopSignal: 'stop-openidnet-check-log-update',
-			workflowSignalSuffix: '-log',
-			workflowId,
-			namespace,
-			logTransformer: (rawLog) => {
-				const data = LogsSchema.parse(rawLog);
-				return {
-					time: data.time,
-					message: data.msg,
-					status: data.result,
-					rawLog
-				};
-			}
-		};
 	});
 
-	const LogsSchema = z
-		.object({
-			_id: z.string(),
-			msg: z.string(),
-			src: z.string(),
-			time: z.number().optional(),
-			result: z.nativeEnum(LogStatus).optional()
-		})
-		.passthrough();
+	// Clean up on component destroy
+	onDestroy(() => {
+		workflowManager?.destroy();
+	});
+
+	// Setup beforeunload cleanup for cross-browser compatibility
+	function handleBeforeUnload() {
+		workflowManager?.destroy();
+	}
+
+	const workflowLogsProps = $derived.by(() => {
+		return workflowManager?.getWorkflowLogsProps() || null;
+	});
 </script>
+
+<svelte:window on:beforeunload={handleBeforeUnload} />
 
 <PageContent>
 	<T tag="h1" class="mb-4">Wallet OpenId test</T>
@@ -80,7 +73,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if workflowId && namespace}
 			<Step n="2" text="Follow the procedure on the wallet app">
 				<div class="ml-16">
-					<WorkflowLogs {...workflowLogsProps} />
+					{#if workflowLogsProps}
+						<WorkflowLogs {...workflowLogsProps} />
+					{:else}
+						<p class="text-gray-500">Waiting for workflow logs...</p>
+					{/if}
 				</div>
 			</Step>
 

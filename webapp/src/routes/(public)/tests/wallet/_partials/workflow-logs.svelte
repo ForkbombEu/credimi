@@ -8,11 +8,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { onMount, onDestroy, type ComponentProps } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import {
-		createWorkflowLogHandlers,
-		LogStatus,
-		type WorkflowLog,
-		type WorkflowLogsProps
+		createWorkflowLogHandlers
 	} from './workflow-logs.js';
+	import { LogStatus, type WorkflowLog, type WorkflowLogsProps } from '$lib/qrpages/workflow-types';
 	import { Info } from 'lucide-svelte';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
