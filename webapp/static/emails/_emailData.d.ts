@@ -115,6 +115,14 @@ type EmailData = {
         "InvitationLink",
         "AppName"
     ],
+    "continue-conformane_check": [
+        "AppName",
+        "AppLogo",
+        "UserName",
+        "VerificationLink",
+        "VerificationLink",
+        "VerificationLink"
+    ],
     "new-organization": [
         "OrganizationName",
         "AppName",

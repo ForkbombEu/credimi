@@ -1,0 +1,37 @@
+<!--
+SPDX-FileCopyrightText: 2025 Forkbomb BV
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
+<mjml>
+	<mj-head>
+		<mj-title>Action required to continue your conformance checks</mj-title>
+		<mj-include path="../_components/attributes.mjml" />
+	</mj-head>
+	<mj-body>
+		<mj-include path="../_components/header.mjml" />
+
+		<mj-section>
+			<mj-column>
+				<mj-text mj-class="big"> Please click on the following link: </mj-text>
+
+				<mj-text> Hello <strong>{{.UserName}}</strong>, </mj-text>
+
+				<mj-text>
+					Click on the button or paste this link in your browser in order to continue your conformace check
+				</mj-text>
+
+				<mj-text>
+					<a href="{{.VerificationLink}}">{{.VerificationLink}}</a>
+				</mj-text>
+
+				<mj-button href="{{.VerificationLink}}" mj-class="btn-primary">
+					Continue
+				</mj-button>
+			</mj-column>
+		</mj-section>
+
+		<mj-include path="../_components/footer.mjml" />
+	</mj-body>
+</mjml>

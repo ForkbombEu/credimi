@@ -197,14 +197,17 @@ func (w *EudiwWorkflow) Workflow(
 		},
 		Payload: map[string]any{
 			"subject": "[CREDIMI] Action required to continue your conformance checks",
-			"body": fmt.Sprintf(`
+			"template": fmt.Sprintf(`
 		<html>
 			<body>
-				<p>Please click on the following link:</p>
+				<p>{{.prova}}</p>
 				<p><a href="%s" target="_blank" rel="noopener">%s</a></p>
 			</body>
 		</html>
 	`, u.String(), u.String()),
+			"data": map[string]any{
+				"prova": "(template) Please click on the following link to continue your conformance checks",
+			},
 		},
 	}
 	err = emailActivity.Configure(&emailInput)
