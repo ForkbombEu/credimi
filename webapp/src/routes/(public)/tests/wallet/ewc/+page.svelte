@@ -19,15 +19,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let workflowManager: ReturnType<typeof createEwcWorkflowManager> | null = null;
 
-	// Initialize the workflow manager when we have the required data
 	$effect(() => {
 		if (workflowId && namespace) {
-			workflowManager?.destroy(); // Clean up previous instance
+			workflowManager?.destroy();
 			workflowManager = createEwcWorkflowManager(workflowId, namespace);
 		}
 	});
 
-	// Clean up on component destroy
 	onDestroy(() => {
 		workflowManager?.destroy();
 	});

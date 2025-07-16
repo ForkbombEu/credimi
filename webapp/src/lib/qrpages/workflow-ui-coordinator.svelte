@@ -21,10 +21,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		namespace: string;
 		runId?: string;
 		children?: Snippet;
-		containerComponent?: any; // For Container component
-		stepComponent?: any; // For Step component  
-		feedbackFormsComponent?: any; // For FeedbackForms component
-		workflowLogsComponent?: any; // For WorkflowLogs component
+		containerComponent?: any;
+		stepComponent?: any;  
+		feedbackFormsComponent?: any;
+		workflowLogsComponent?: any;
 		showLogs?: boolean;
 		showFeedbackForms?: boolean;
 	};
@@ -48,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	$effect(() => {
 		if (workflowId && namespace) {
-			workflowManager?.destroy(); // Clean up previous instance
+			workflowManager?.destroy();
 			
 			switch (workflowType) {
 				case 'openidnet':
@@ -64,12 +64,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	// Clean up on component destroy
 	onDestroy(() => {
 		workflowManager?.destroy();
 	});
 
-	// Setup beforeunload cleanup for cross-browser compatibility
 	function handleBeforeUnload() {
 		workflowManager?.destroy();
 	}
