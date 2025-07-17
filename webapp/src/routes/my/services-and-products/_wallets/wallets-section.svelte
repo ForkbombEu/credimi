@@ -117,15 +117,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet WalletFormSnippet()}
 	<Sheet>
 		{#snippet trigger({ sheetTriggerAttributes })}
-			{#if workflows?.length === 0}
+			<!-- {#if workflows?.length === 0}
 				<Button disabled variant="outline" class="text-wrap text-xs">
 					{m.Before_adding_a_new_wallet_you_need_to_start_a_conformance_check()}
 				</Button>
-			{:else}
-				<Button {...sheetTriggerAttributes}>
-					<Plus />{m.Add_new_wallet()}
-				</Button>
-			{/if}
+			{:else} -->
+			<Button {...sheetTriggerAttributes}>
+				<Plus />{m.Add_new_wallet()}
+			</Button>
+			<!-- {/if} -->
 		{/snippet}
 
 		{#snippet content({ closeSheet })}
