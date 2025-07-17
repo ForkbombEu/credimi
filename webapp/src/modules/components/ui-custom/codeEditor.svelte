@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { dracula } from 'thememirror';
 	import type { EditorView } from '@codemirror/view';
 	import { dev } from '$app/environment';
+	import { copyButtonExtension } from './copyButtonExtension.js';
 
 	//
 
@@ -37,6 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onChange?: (value: string) => void;
 		onReady?: (value: EditorView) => void;
 		onBlur?: () => void;
+		showCopyButton?: boolean;
 	};
 
 	let {
@@ -49,7 +51,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		extensions = [],
 		onChange,
 		onReady,
-		onBlur = () => {}
+		onBlur = () => {},
+		showCopyButton = true
 	}: Props = $props();
 
 	//
@@ -80,6 +83,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (minHeight) baseStyles['&'].minHeight = `${minHeight}px`;
 		if (maxHeight) baseStyles['&'].maxHeight = `${maxHeight}px`;
 		return baseStyles;
+	});
+
+	/* Extensions with copy button */
+	const allExtensions = $derived.by(() => {
+		const baseExtensions = [...extensions];
+		if (showCopyButton) {
+			baseExtensions.push(copyButtonExtension({ enabled: true }));
+		}
+		return baseExtensions;
 	});
 
 	/* Utils */
@@ -118,5 +130,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		view.contentDOM.onblur = onBlur;
 		onReady?.(view);
 	}}
-	{extensions}
+	extensions={allExtensions}
 />

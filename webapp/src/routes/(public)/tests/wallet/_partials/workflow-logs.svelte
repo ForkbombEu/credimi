@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Accordion from '@/components/ui/accordion/index.js';
 	import { m } from '@/i18n/index.js';
 	import { nanoid } from 'nanoid';
+	import CopyableCodeBlock from '$lib/layout/copyableCodeBlock.svelte';
 
 	const props: WorkflowLogsProps & { class?: string; uiSize?: 'sm' | 'md' } = $props();
 
@@ -127,7 +128,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							class="bg-secondary flex w-full gap-2 overflow-x-scroll rounded-md p-2"
 						>
 							<div class="w-0 grow">
-								<pre class="text-xs">{JSON.stringify(log.rawLog, null, 2)}</pre>
+								<CopyableCodeBlock 
+									content={JSON.stringify(log.rawLog, null, 2)} 
+									language="json" 
+									class="text-xs"
+								/>
 							</div>
 						</div>
 					</Accordion.Content>
