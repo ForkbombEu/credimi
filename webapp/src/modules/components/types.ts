@@ -19,3 +19,12 @@ export interface LinkWithIcon extends Link {
 }
 
 export type SnippetFunction<T> = (props: T) => ReturnType<Snippet>;
+
+export interface NavItem {
+	href: string;
+	label: string;
+	icon?: IconComponent;
+	display?: 'both' | 'desktop-only' | 'mobile-only';
+	onClick?: () => void;
+	class?: string;
+}

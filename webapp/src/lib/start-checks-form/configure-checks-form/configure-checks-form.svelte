@@ -134,10 +134,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if form.loadingError}
 			<SmallErrorDisplay error={form.loadingError} />
 		{/if}
-		<CopyButton textToCopy={getCurlCommand()}>
+		<CopyButton textToCopy={getCurlCommand()} size="sm" class="shrink-0">
 			{m.Copy_as_curl()}
 		</CopyButton>
-		<Button disabled={!form.isValid} onclick={() => form.submit()}>{m.Start_checks()}</Button>
+		<Button disabled={!form.isValid} onclick={() => form.submit()} size="sm" class="shrink-0">{m.Start_checks()}</Button>
 	{/snippet}
 </Footer>
 
@@ -175,7 +175,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	restProps?: GenericRecord;
 })}
 	{@const { href, Icon, text, restProps = {} } = props}
-	<Button {href} variant="outline" class="h-8 px-2 text-sm" {...restProps}>
+	<Button {href} variant="outline" class="h-8 px-2 text-sm min-w-fit" {...restProps}>
 		<Icon size={10} class="" />
 		{text}
 	</Button>
