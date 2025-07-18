@@ -109,7 +109,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{:else}
 					<!-- User action buttons only on desktop (mobile has them in menu) -->
 					<div class="hidden lg:flex lg:flex-row lg:items-center lg:space-x-2 min-w-0 overflow-hidden">
-						<Button variant="link" href="/my/tests/new" class="text-nowrap">
+						<Button variant="link" href="/my/tests/new" class="whitespace-nowrap">
 							<Icon src={Sparkle} />
 							{m.Start_a_new_check()}
 							<Badge
