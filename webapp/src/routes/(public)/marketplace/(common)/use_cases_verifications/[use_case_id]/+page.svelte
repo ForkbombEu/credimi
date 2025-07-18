@@ -42,25 +42,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>
-	<div class="flex flex-col gap-6 md:flex-row">
+	<div class="flex items-start gap-6">
 		<div class="grow space-y-6">
 			<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
-			{#if String.isNonEmpty(data.useCaseVerification.description)}
+			
+			<div class="prose">
 				<RenderMd content={data.useCaseVerification.description} />
-			{:else}
-				<div class="rounded-md border border-black/20 p-4">
-					<T class="text-center text-black/30">No description found</T>
-				</div>
-			{/if}
+			</div>
 		</div>
 
 		<div class="flex flex-col items-stretch">
 			<PageHeader title={m.QR_code()} id="qr" />
-			<QrCode src={data.useCaseVerification.deeplink} class="size-60 rounded-md" />
-			<div class="break-all pt-2 font-mono text-xs">
-				<a href={data.useCaseVerification.deeplink} class="hover:underline" target="_blank">
-					{data.useCaseVerification.deeplink}
-				</a>
+			<QrCode src={data.useCaseVerification.deeplink} cellSize={10} class={['w-60 rounded-md']} />
+			<div class="w-60 break-all pt-4 text-xs">
+				<a href={data.useCaseVerification.deeplink} target="_self">{data.useCaseVerification.deeplink}</a>
 			</div>
 		</div>
 	</div>
