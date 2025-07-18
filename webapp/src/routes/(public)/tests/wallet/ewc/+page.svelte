@@ -6,49 +6,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import PageContent from '$lib/layout/pageContent.svelte';
-	import { pb } from '@/pocketbase/index.js';
-	import { onDestroy, onMount } from 'svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Step from '../_partials/step.svelte';
 	import QrLink from '../_partials/qr-link.svelte';
 	import { Alert } from '@/components/ui/alert';
 	import { m } from '@/i18n';
+	import { createEwcWorkflowManager } from '$lib/qrpages';
+	import { onDestroy } from 'svelte';
 
 	let { data } = $props();
 	const { qr, workflowId, namespace } = $derived(data);
 
-	onMount(() => {
-		if (!workflowId) return;
-		pb.send('/api/compliance/send-temporal-signal', {
-			method: 'POST',
-			body: {
-				workflow_id: workflowId,
-				namespace: namespace,
-				signal: 'start-ewc-check-signal'
-			}
-		}).catch((err) => {
-			console.error(err);
-		});
-	});
+	let workflowManager: ReturnType<typeof createEwcWorkflowManager> | null = null;
 
-	function closeConnections() {
-		if (!workflowId) return;
-		pb.send('/api/compliance/send-temporal-signal', {
-			method: 'POST',
-			body: {
-				workflow_id: workflowId,
-				namespace: namespace,
-				signal: 'stop-ewc-check-signal'
-			}
-		});
-	}
+	$effect(() => {
+		if (workflowId && namespace) {
+			workflowManager?.destroy();
+			workflowManager = createEwcWorkflowManager(workflowId, namespace);
+		}
+	});
 
 	onDestroy(() => {
-		closeConnections();
+		workflowManager?.destroy();
 	});
+
+	// Setup beforeunload cleanup for cross-browser compatibility
+	function handleBeforeUnload() {
+		workflowManager?.destroy();
+	}
 </script>
 
-<svelte:window on:beforeunload={closeConnections} />
+<svelte:window on:beforeunload={handleBeforeUnload} />
 
 <PageContent contentClass="space-y-4">
 	<T tag="h1" class="mb-4">{m.Wallet_EWC_test()}</T>
