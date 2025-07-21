@@ -76,6 +76,7 @@
 		"svelte-adapter-bun": "^0.5.2",
 		"svelte-check": "^4.1.7",
 		"svelte-sonner": "^0.3.28",
+		"svelte-toc": "^0.6.2",
 		"sveltekit-superforms": "^2.24.0",
 		"tailwind-merge": "^2.6.0",
 		"tailwind-variants": "^0.2.1",
