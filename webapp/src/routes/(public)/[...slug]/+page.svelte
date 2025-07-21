@@ -66,26 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="flex gap-8">
 		<div class="hidden lg:block w-64 flex-shrink-0">
 			<div class="toc-sidebar sticky top-5">
-				<Toc {headingSelector} minItems={1} title="">
-					<!-- @ts-ignore -->
-					<span slot="toc-item" let:heading class="flex items-center gap-2">
-						<svg
-							class="size-4 shrink-0"
-							viewBox="0 0 24 24"
-							fill="none"
-							stroke="currentColor"
-							stroke-width="2"
-							stroke-linecap="round"
-							stroke-linejoin="round"
-						>
-							<path
-								d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"
-							/>
-							<polyline points="14,2 14,8 20,8" />
-						</svg>
-						{heading.textContent}
-					</span>
-				</Toc>
+				<Toc {headingSelector} minItems={1} title="" />
 			</div>
 		</div>
 		
@@ -116,6 +97,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/* Match paragraph font size */
 		font-size: 1rem;
 		line-height: 1.75;
+		
+		/* Ensure text and icons are visible */
+		color: hsl(var(--foreground));
 		
 		/* Active state styling */
 		--toc-active-bg: transparent;
