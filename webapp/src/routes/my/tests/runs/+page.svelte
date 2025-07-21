@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { browser } from '$app/environment';
 	import { Array } from 'effect';
 	import { ensureArray } from '@/utils/other';
-	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
+	import { fetchUserWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -23,11 +23,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Badge } from '@/components/ui/badge/index.js';
 	import { setWorkflowStatusesInUrl } from './utils.js';
 	import { setupPollingWithInvalidation } from '$lib/utils/index.js';
+	import { onMount } from 'svelte';
 
 	//
 
 	let { data } = $props();
-	const { executions, selectedStatuses } = $derived(data);
+	let { executions, selectedStatuses } = $derived(data);
 
 	let latestCheckRuns: StartCheckResultWithMeta[] = $state(
 		browser ? ensureArray(LatestCheckRunsStorage.get()) : []
@@ -42,7 +43,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	setupPollingWithInvalidation(5000);
+	onMount(() => {
+		const interval = setInterval(async () => {
+			const workflows = await fetchUserWorkflows({ statuses: selectedStatuses });
+			if (workflows.success) {
+				executions = workflows.data.executions;
+			}
+		}, 5000);
+
+		return () => {
+			clearInterval(interval);
+		};
+	});
 </script>
 
 <div class="space-y-8">

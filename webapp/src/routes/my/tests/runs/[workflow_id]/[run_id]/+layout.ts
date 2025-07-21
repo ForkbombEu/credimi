@@ -17,28 +17,9 @@ export const load = async ({ params, fetch }) => {
 
 	const { workflow_id, run_id } = params;
 
-	const basePath = `/api/compliance/checks/${workflow_id}/${run_id}`;
-
-	//
-
-	const workflowResponse = await pb.send(basePath, {
-		method: 'GET',
-		fetch
-	});
-	const workflowResponseValidation = rawWorkflowResponseSchema.safeParse(workflowResponse);
-	if (!workflowResponseValidation.success) {
-		error(500, { message: 'Failed to parse workflow response' });
-	}
-
-	//
-
-	const historyResponse = await pb.send(`${basePath}/history`, {
-		method: 'GET',
-		fetch
-	});
-	const historyResponseValidation = rawHistoryResponseSchema.safeParse(historyResponse);
-	if (!historyResponseValidation.success) {
-		error(500, { message: 'Failed to parse workflow response' });
+	const data = await _loadData(workflow_id, run_id, { fetch });
+	if (data instanceof Error) {
+		error(500, { message: data.message });
 	}
 
 	//
@@ -46,14 +27,44 @@ export const load = async ({ params, fetch }) => {
 	return {
 		workflowId: workflow_id,
 		runId: run_id,
-		eventHistory: historyResponseValidation.data as HistoryEvent[],
-		workflow: workflowResponseValidation.data,
-		workflowMemo: getWorkflowMemo(workflowResponseValidation.data.workflowExecutionInfo),
-		organization
+		organization,
+		...data
 	};
 };
 
 //
+
+export async function _loadData(workflowId: string, runId: string, options = { fetch }) {
+	const basePath = `/api/compliance/checks/${workflowId}/${runId}`;
+
+	//
+
+	const workflowResponse = await pb.send(basePath, {
+		method: 'GET',
+		fetch: options.fetch
+	});
+	const workflowResponseValidation = rawWorkflowResponseSchema.safeParse(workflowResponse);
+	if (!workflowResponseValidation.success) {
+		return workflowResponseValidation.error;
+	}
+
+	//
+
+	const historyResponse = await pb.send(`${basePath}/history`, {
+		method: 'GET',
+		fetch: options.fetch
+	});
+	const historyResponseValidation = rawHistoryResponseSchema.safeParse(historyResponse);
+	if (!historyResponseValidation.success) {
+		return historyResponseValidation.error;
+	}
+
+	return {
+		workflow: workflowResponseValidation.data,
+		workflowMemo: getWorkflowMemo(workflowResponseValidation.data.workflowExecutionInfo),
+		eventHistory: historyResponseValidation.data as HistoryEvent[]
+	};
+}
 
 const rawWorkflowResponseSchema = z
 	.object({
