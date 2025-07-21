@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <AlertDialog.Root bind:open={loading}>
 	<AlertDialog.Content
-		class="flex !w-1/5 !min-w-[150px] flex-col items-center justify-center gap-2"
+		class="flex !w-1/5 !min-w-[150px] flex-col items-center justify-center gap-2 rounded-sm"
 		tabindex={null}
 		escapeKeydownBehavior="ignore"
 		interactOutsideBehavior="ignore"
