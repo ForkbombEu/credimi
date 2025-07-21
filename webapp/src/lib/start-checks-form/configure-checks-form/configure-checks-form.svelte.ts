@@ -97,6 +97,7 @@ export class ConfigureChecksForm {
 				if (mode != 'form') return undefined;
 
 				const entries: Entries[] = [];
+				// TODO: dentro value ci sono campi che non dovrebbero esserci, da investigare
 				for (const [credimiId, datum] of Record.toEntries(value)) {
 					entries.push({
 						credimi_id: credimiId,
@@ -105,7 +106,7 @@ export class ConfigureChecksForm {
 							form.props.fields.find((f) => f.CredimiID == credimiId)?.FieldName ?? ''
 					});
 				}
-				return entries;
+				return entries.filter((e) => e.field_name != '');
 			}),
 			Record.filter((v) => v != undefined)
 		);
