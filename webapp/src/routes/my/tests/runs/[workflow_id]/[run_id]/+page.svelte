@@ -66,8 +66,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		iframe.contentWindow?.postMessage(
 			{
 				type: 'workflow',
-				workflow,
-				eventHistory
+				workflow: $state.snapshot(workflow),
+				eventHistory: $state.snapshot(eventHistory)
 			},
 			'*'
 		);

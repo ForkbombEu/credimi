@@ -35,11 +35,10 @@ import (
 // RegisterMyChecksRoutes sets up the /my/checks API group.
 func RegisterMyChecksRoutes(app core.App) {
 	routing.AddGroupRoutes(app, routing.RouteGroup{
-		BaseURL: "/my/checks",
+		BaseURL: "/api/my/checks",
 		Routes: []routing.RouteDefinition{
 			{
 				Method:  http.MethodGet,
-				Path:    "/",
 				Handler: handlers.HandleListMyChecks,
 				Input: nil,
 			},
@@ -53,43 +52,35 @@ func RegisterMyChecksRoutes(app core.App) {
 				Method:  http.MethodGet,
 				Path:    "/{checkId}/runs/{runId}",
 				Handler: handlers.HandleGetMyCheckRun, // view config/input/output/result/logs
-				Input: nil,
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/{checkId}/run",
-				Handler: handlers.HandleRunMyCheck, // run
+				Input:  nil,
 			},
 			{
 				Method:  http.MethodPost,
 				Path:    "/{checkId}/runs/{runId}/rerun",
-				Handler: handlers.HandleRerunMyCheck, // rerun from previous run
+				Handler: handlers.HandleRerunMyCheck,
+				Input: handlers.ReRunCheckRequest{},
 			},
 			{
 				Method:  http.MethodPost,
 				Path:    "/{checkId}/runs/{runId}/cancel",
-				Handler: handlers.HandleCancelMyCheckRun, // cancel
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/{checkId}/runs/{runId}/logs",
-				Handler: handlers.HandleTailMyCheckLogs, // logs (tail)
+				Handler: handlers.HandleCancelMyCheckRun,
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/{checkId}/runs/{runId}/export",
 				Handler: handlers.HandleExportMyCheckRun, // export config, input
 			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/{checkId}/schedule",
-				Handler: handlers.HandleScheduleMyCheck, // schedule
-			},
-			{
-				Method:  http.MethodPut,
-				Path:    "/{checkId}/update",
-				Handler: handlers.HandleUpdateMyCheckWorkflow, // update workflow file
-			},
+			// {
+			// 	Method:  http.MethodGet,
+			// 	Path:    "/{checkId}/runs/{runId}/logs",
+			// 	Handler: handlers.HandleTailMyCheckLogs, // logs (tail)
+			// },
+			
+			// {
+			// 	Method:  http.MethodPost,
+			// 	Path:    "/{checkId}/schedule",
+			// 	Handler: handlers.HandleScheduleMyCheck, // schedule
+			// },
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
 			{Func: middlewares.ErrorHandlingMiddleware},

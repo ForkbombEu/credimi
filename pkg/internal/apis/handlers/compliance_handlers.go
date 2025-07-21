@@ -297,8 +297,8 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 		statusParam := e.Request.URL.Query().Get("status")
 		var statusFilters []enums.WorkflowExecutionStatus
 		if statusParam != "" {
-			statusStrings := strings.Split(statusParam, ",")
-			for _, s := range statusStrings {
+			statusStrings := strings.SplitSeq(statusParam, ",")
+			for s := range statusStrings {
 				switch strings.ToLower(strings.TrimSpace(s)) {
 				case "running":
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_RUNNING)
