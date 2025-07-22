@@ -70,9 +70,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class="block"
 	bind:offsetHeight={null, (data) => sendHeight(data)}
 >
-	{#if workflow && eventHistory}
-		<TemporalI18nProvider>
+	<TemporalI18nProvider>
+		{#if workflow && eventHistory}
 			<TemporalWorkflow workflowResponse={workflow} {eventHistory} />
-		</TemporalI18nProvider>
-	{/if}
+		{/if}
+	</TemporalI18nProvider>
 </div>
