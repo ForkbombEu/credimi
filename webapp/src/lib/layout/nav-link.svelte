@@ -17,20 +17,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	const { link, variant = 'desktop', badge }: Props = $props();
+	const { href, title, icon, ...rest } = $derived(link);
 </script>
 
 {#if variant === 'desktop'}
-	<Button class="group" variant="link" href={link.href}>
-		{#if link.icon}
-			<IconComponent src={link.icon} />
+	<Button class="group" variant="link" {href} {...rest as any}>
+		{#if icon}
+			<IconComponent src={icon} />
 		{/if}
 		{link.title}
 		{@render badgeSnippet()}
 	</Button>
 {:else}
-	<Button variant="ghost" href={link.href} class="group w-full justify-start text-left ">
-		{#if link.icon}
-			<IconComponent src={link.icon} />
+	<Button variant="ghost" {href} class="group w-full justify-start text-left" {...rest as any}>
+		{#if icon}
+			<IconComponent src={icon} />
 		{/if}
 		{link.title}
 		{@render badgeSnippet()}
