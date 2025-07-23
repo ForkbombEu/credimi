@@ -13,15 +13,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { AppLogo } from '@/brand';
 	import NavLink from './nav-link.svelte';
 	import { m } from '@/i18n';
+	import { onNavigate } from '$app/navigation';
+
+	//
 
 	interface Props {
 		items: LinkWithIcon[];
 	}
 
 	const { items }: Props = $props();
+
+	let open = $state(false);
+
+	onNavigate(() => {
+		open = false;
+	});
 </script>
 
-<Sheet.Root>
+<Sheet.Root bind:open>
 	<Sheet.Trigger>
 		{#snippet child({ props })}
 			<Button variant="ghost" size="icon" class="lg:hidden" {...props}>
