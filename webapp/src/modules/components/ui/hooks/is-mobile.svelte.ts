@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { untrack } from "svelte";
+import { untrack } from 'svelte';
 
-const MOBILE_BREAKPOINT = 1024;
+const MOBILE_BREAKPOINT = 768;
 
 export class IsMobile {
 	#current = $state<boolean>(false);
@@ -16,10 +16,10 @@ export class IsMobile {
 				const onChange = () => {
 					this.#current = window.innerWidth < MOBILE_BREAKPOINT;
 				};
-				mql.addEventListener("change", onChange);
+				mql.addEventListener('change', onChange);
 				onChange();
 				return () => {
-					mql.removeEventListener("change", onChange);
+					mql.removeEventListener('change', onChange);
 				};
 			});
 		});
