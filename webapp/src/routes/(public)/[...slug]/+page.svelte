@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</T>
 
 			{#if tags.length}
-				<div class="flex items-center gap-2 flex-wrap">
+				<div class="flex flex-wrap items-center gap-2">
 					{#each tags as tag}
 						<Button
 							size="sm"
@@ -64,14 +64,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <PageContent class="bg-secondary">
 	<div class="flex gap-8">
-		<div class="hidden lg:block w-64 flex-shrink-0">
+		<div class="hidden w-64 flex-shrink-0 lg:block">
 			<div class="toc-sidebar sticky top-5">
 				<Toc {headingSelector} minItems={1} title="" />
 			</div>
 		</div>
-		
+
 		<!-- Main Content -->
-		<div class="flex-1 mx-auto max-w-screen-lg">
+		<div class="mx-auto max-w-screen-lg flex-1">
 			<div class="prose prose-h1:text-3xl" id="content-area">
 				{@html body}
 			</div>
@@ -93,14 +93,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	:global(.toc-sidebar) {
 		/* Override default padding to remove left and top padding */
 		--toc-padding: 0 1em 0 0;
-		
+
 		/* Match paragraph font size */
 		font-size: 1rem;
 		line-height: 1.75;
-		
+
 		/* Ensure text and icons are visible */
 		color: hsl(var(--foreground));
-		
+
 		/* Active state styling */
 		--toc-active-bg: transparent;
 		--toc-active-color: hsl(var(--primary));
@@ -123,7 +123,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		--toc-ol-padding: 0;
 		--toc-ol-margin: 0;
 	}
-  :global(.toc-sidebar aside.toc > nav > ol > li.active) {
-    font-weight: 600;
-  }
+
+	:global(.toc-sidebar aside.toc > nav > ol > li.active) {
+		font-weight: 600;
+	}
 </style>
