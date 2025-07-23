@@ -42,8 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <a href={href ? localizeHref(href) : undefined} {...rest} role="tab" class={classes}>
 	{#if icon}
-		<Icon src={icon} mr class="hidden lg:block"></Icon>
-		<Icon src={icon} class="block lg:hidden"></Icon>
+		<Icon src={icon} class="block lg:mr-2"></Icon>
 	{/if}
 	<span class="hidden lg:inline">{title}</span>
 	{#if notification}
