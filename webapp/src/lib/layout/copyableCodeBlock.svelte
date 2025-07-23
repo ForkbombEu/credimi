@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	async function copyToClipboard() {
 		if (!content) return;
-		
+
 		try {
 			await navigator.clipboard.writeText(content);
 			isCopied = true;
@@ -47,22 +47,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="relative {containerClass}">
-	<pre 
+	<pre
 		class="{preClasses} relative"
 		class:language-json={language === 'json'}
-		class:language-yaml={language === 'yaml'}
-	>{content}{#if showCopyButton && content}		<Button
-			type="button"
-			variant="ghost"
-			size="sm"
-			class="absolute top-2 right-2 h-6 w-6 p-0 opacity-80 hover:opacity-100 bg-white/90 hover:bg-white/100 backdrop-blur-sm border border-slate-300/50 shadow-sm z-10"
-			onclick={copyToClipboard}
-			title={isCopied ? 'Copied!' : 'Copy to clipboard'}
-		>
-			{#if isCopied}
-				<Check class="h-3 w-3 text-green-600" />
-			{:else}
-				<ClipboardCopy class="h-3 w-3 text-slate-600" />
-			{/if}
-		</Button>{/if}</pre>
+		class:language-yaml={language === 'yaml'}>
+		{content}
+		{#if showCopyButton && content}
+			<Button
+				type="button"
+				variant="ghost"
+				size="sm"
+				class="absolute right-2 top-2 z-10 h-6 w-6 border border-slate-300/50 bg-white/90 p-0 opacity-80 shadow-sm backdrop-blur-sm hover:bg-white/100 hover:opacity-100"
+				onclick={copyToClipboard}
+				title={isCopied ? 'Copied!' : 'Copy to clipboard'}>
+				{#if isCopied}
+					<Check class="h-3 w-3 text-green-600" />
+				{:else}
+					<ClipboardCopy class="h-3 w-3 text-slate-600" size={16} />
+				{/if}
+			</Button>
+		{/if}
+	</pre>
 </div>
