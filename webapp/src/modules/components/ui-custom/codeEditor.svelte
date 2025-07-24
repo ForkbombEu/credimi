@@ -38,7 +38,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onChange?: (value: string) => void;
 		onReady?: (value: EditorView) => void;
 		onBlur?: () => void;
-		showCopyButton?: boolean;
+		hideCopyButton?: boolean;
+		hidePasteButton?: boolean;
+		onCopy?: (content: string) => void;
+		onPaste?: (content: string) => void;
 	};
 
 	let {
@@ -52,7 +55,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onChange,
 		onReady,
 		onBlur = () => {},
-		showCopyButton = true
+		hideCopyButton,
+		hidePasteButton,
+		onCopy,
+		onPaste
 	}: Props = $props();
 
 	//
@@ -85,11 +91,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return baseStyles;
 	});
 
-	/* Extensions with copy button */
+	/* Extensions with copy/paste buttons */
 	const allExtensions = $derived.by(() => {
 		const baseExtensions = [...extensions];
-		if (showCopyButton) {
-			baseExtensions.push(copyButtonExtension({ enabled: true }));
+		const showCopy = !hideCopyButton;
+		const showPaste = !hidePasteButton;
+		
+		if (showCopy || showPaste) {
+			baseExtensions.push(copyButtonExtension({ 
+				enabled: true,
+				showCopy,
+				showPaste,
+				onCopy,
+				onPaste
+			}));
 		}
 		return baseExtensions;
 	});
