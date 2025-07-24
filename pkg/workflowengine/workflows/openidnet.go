@@ -89,7 +89,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		Namespace:    workflow.GetInfo(ctx).Namespace,
 		TemporalUI: fmt.Sprintf(
 			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+			input.Payload["app_url"],
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -358,7 +358,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		Namespace:    workflow.GetInfo(subCtx).Namespace,
 		TemporalUI: fmt.Sprintf(
 			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+			input.Payload["app_url"],
 			workflow.GetInfo(subCtx).WorkflowExecution.ID,
 			workflow.GetInfo(subCtx).WorkflowExecution.RunID,
 		),
