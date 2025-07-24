@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version: "1.1"
+name: EWC flow
+env:
+  DSS_API: https://ewc.api.forkbomb.eu
+tests:
+  Test_case_06:
+    steps:
+      - name: EWC RFC001 Pre-Authorization Code with No PIN, X509 signature on mDL
+        http:
+          url: ${{ env.DSS_API }}/offer-no-code
+          method: GET
+          params:
+            credentialType: urn:eu.europa.ec.eudi:pid:1:mso_mdoc
+            sessionId: [[.session_id | toString]]
+          check:
+            status: 200
+          captures:
+            qr:
+              jsonpath: $.qr
+            deep_link:
+              jsonpath: $.deepLink
+            session_id:
+              jsonpath: $.sessionId
