@@ -46,7 +46,6 @@ func HandleConfirmSuccess() func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		defer c.Close()
 
 		if err := c.SignalWorkflow(
 			context.Background(),
@@ -106,7 +105,6 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 
 		historyIterator := c.GetWorkflowHistory(
 			context.Background(),
@@ -221,7 +219,6 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 		workflowExecution, err := c.DescribeWorkflowExecution(
 			context.Background(),
 			workflowID,
@@ -292,7 +289,6 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 
 		statusParam := e.Request.URL.Query().Get("status")
 		var statusFilters []enums.WorkflowExecutionStatus
@@ -423,7 +419,6 @@ func HandleNotifyFailure() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 
 		if err := c.SignalWorkflow(
 			context.Background(),
@@ -498,7 +493,6 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 		switch req.Signal {
 		case workflows.OpenIDNetStartCheckSignal:
 			err = sendOpenIDNetLogUpdateStart(e.App, c, req)
@@ -713,7 +707,6 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 
 		author, err := getWorkflowAuthor(c, workflowID, runID)
 		if err != nil {
