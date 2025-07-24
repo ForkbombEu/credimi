@@ -11,10 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BaseTopbar from '@/components/layout/topbar.svelte';
 	import { currentUser } from '@/pocketbase';
 	import UserNav from './userNav.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
 	import { LayoutDashboardIcon, Sparkle } from 'lucide-svelte';
 	import { AppLogo } from '@/brand';
-	import { Badge } from '@/components/ui/badge';
 	import MobileNav from './nav-mobile.svelte';
 	import type { LinkWithIcon } from '@/components/types';
 	import { fromStore } from 'svelte/store';
@@ -104,7 +102,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/each}
 			</div>
 
+		{#if currentUserState.current}
 			<UserNav />
+		{:else}
+			<Button href={href('/login')}>
+				{m.Log_in()}
+			</Button>
+		{/if}
 
 			<div class="lg:hidden">
 				<MobileNav items={allItems} />
