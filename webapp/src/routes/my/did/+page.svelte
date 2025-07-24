@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import T from '@/components/ui-custom/t.svelte';
-	import CopyableCodeBlock from '$lib/layout/copyableCodeBlock.svelte';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	let { data } = $props();
 	const did = JSON.stringify(data.did, null, 2);
@@ -14,5 +14,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="space-y-4 p-4">
 	<T tag="h3">Your DID</T>
-	<CopyableCodeBlock content={did} language="json" />
+	<CodeDisplay content={did} language="json" />
 </div>

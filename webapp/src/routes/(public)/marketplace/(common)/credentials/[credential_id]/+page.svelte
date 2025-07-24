@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { MarketplaceItemCard } from '../../../_utils/index.js';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import { createIntentUrl } from '$lib/credentials/index.js';
-	import CopyableCodeBlock from '$lib/layout/copyableCodeBlock.svelte';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	let { data } = $props();
 	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
@@ -98,7 +98,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 
 		{#if credentialConfiguration}
-			<CopyableCodeBlock
+			<CodeDisplay
 				content={JSON.stringify(credentialConfiguration, null, 2)}
 				language="json"
 				class="border-primary bg-card text-card-foreground ring-primary w-fit max-w-screen-lg overflow-x-clip rounded-xl border p-6 text-xs shadow-sm transition-transform hover:-translate-y-2 hover:ring-2"

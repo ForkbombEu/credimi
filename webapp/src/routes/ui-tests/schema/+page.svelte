@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CollectionFormData, Data } from '@/pocketbase/types';
 	import z from 'zod';
 	import { createDummyFile } from '@/utils/other';
-	import CopyableCodeBlock from '$lib/layout/copyableCodeBlock.svelte';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	const x = z
 		.object({
@@ -45,5 +45,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#await res then x}
-	<CopyableCodeBlock content={JSON.stringify(x, null, 2)} language="json" />
+	<CodeDisplay content={JSON.stringify(x, null, 2)} language="json" />
 {/await}

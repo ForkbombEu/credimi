@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ConfigField } from '$start-checks-form/types';
 	import * as Popover from '@/components/ui/popover';
 	import { m } from '@/i18n';
-	import CopyableCodeBlock from '$lib/layout/copyableCodeBlock.svelte';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	//
 
@@ -73,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</Popover.Trigger>
 							<Popover.Content class="dark overflow-auto">
 								{#if Type === 'object'}
-									<CopyableCodeBlock content={valuePreview} language="json" class="text-xs" />
+									<CodeDisplay content={valuePreview} language="json" class="text-xs" />
 								{:else}
 									<pre class="text-xs">{valuePreview}</pre>
 								{/if}
