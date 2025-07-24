@@ -7,6 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { ClipboardCopy, Check } from 'lucide-svelte';
 	import Button from '@/components/ui/button/button.svelte';
+	import { onMount } from 'svelte';
+	import { codeToHtml } from 'shiki';
+	import { stat } from 'fs';
 
 	type Props = {
 		content: string;
@@ -25,6 +28,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}: Props = $props();
 
 	let isCopied = $state(false);
+	let highlighted = $state('');
+
+	// Generate highlighted HTML on mount
+	onMount(async () => {
+		if (content) {
+			highlighted = await codeToHtml(content, {
+				lang: language,
+				theme: 'vitesse-dark'
+			});
+		}
+	});
 
 	async function copyToClipboard() {
 		if (!content) return;
@@ -51,7 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class="{preClasses} relative"
 		class:language-json={language === 'json'}
 		class:language-yaml={language === 'yaml'}>
-		{content}
+		{highlighted || content}
 		{#if showCopyButton && content}
 			<Button
 				type="button"
