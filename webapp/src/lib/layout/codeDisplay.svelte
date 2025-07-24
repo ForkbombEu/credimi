@@ -30,7 +30,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let highlighted = $state('');
 	let isDarkTheme = $state(true);
 
-	// Generate highlighted HTML on mount
 	onMount(async () => {
 		await updateHighlighting();
 	});
@@ -51,7 +50,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}
 
-	// Update highlighting when theme changes
 	$effect(() => {
 		updateHighlighting();
 	});
@@ -74,7 +72,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		isDarkTheme = !isDarkTheme;
 	}
 
-	// Use provided classes or sensible defaults
 	const preClasses = $derived(
 		className || 'rounded-lg border border-slate-200 bg-white p-4 overflow-x-auto text-sm'
 	);
@@ -120,7 +117,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="relative {containerClass}">
 	{#if highlighted}
-		<!-- Render highlighted HTML -->
 		<div
 			class={preClasses}
 			style="padding: 0; margin: 0; overflow: hidden; position: relative;"
