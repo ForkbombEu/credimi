@@ -15,133 +15,100 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { LayoutDashboardIcon, Sparkle } from 'lucide-svelte';
 	import { AppLogo } from '@/brand';
 	import { Badge } from '@/components/ui/badge';
-	import ResponsiveNav from '../responsive-navigation/responsive-nav.svelte';
-	import type { NavItem } from '@/components/types';
+	import MobileNav from './nav-mobile.svelte';
+	import type { LinkWithIcon } from '@/components/types';
+	import { fromStore } from 'svelte/store';
+	import NavLink from './nav-link.svelte';
+
+	//
+
+	const featureFlagsState = fromStore(featureFlags);
+	const currentUserState = fromStore(currentUser);
 
 	function href(href: string) {
-		return $featureFlags.DEMO ? '#waitlist' : href;
+		return featureFlagsState.current.DEMO ? '#waitlist' : href;
 	}
 
-	const navigationItems: NavItem[] = [
+	const leftItems: LinkWithIcon[] = [
 		{
 			href: href('/marketplace'),
-			label: m.Marketplace(),
-			display: 'both'
+			title: m.Marketplace()
 		},
 		{
 			href: href('/organizations'),
-			label: m.organizations(),
-			display: 'both'
+			title: m.organizations()
 		},
 		{
 			href: '/news',
-			label: m.News(),
-			display: 'both'
-		},
-		{
-			href: 'https://docs.credimi.io',
-			label: m.Help(),
-			display: 'mobile-only'
+			title: m.News()
 		}
 	];
 
-	// Add authenticated user items that only appear in mobile
-	const userItems: NavItem[] = $derived(
-		!$featureFlags.DEMO && $featureFlags.AUTH && $currentUser ? [
-			{
-				href: '/my/tests/new',
-				label: m.Start_a_new_check(),
-				icon: Sparkle,
-				display: 'mobile-only'
-			},
-			{
-				href: '/my/services-and-products',
-				label: m.Go_to_Dashboard(),
-				icon: LayoutDashboardIcon,
-				display: 'mobile-only'
-			}
-		] : []
-	);
+	const rightItems: LinkWithIcon[] = $derived.by(() => {
+		const { DEMO, AUTH } = featureFlagsState.current;
+		const user = currentUserState.current;
 
-	const allItems = $derived([...navigationItems, ...userItems]);
+		const items: LinkWithIcon[] = [
+			{
+				href: 'https://docs.credimi.io',
+				title: m.Help(),
+				target: '_blank'
+			}
+		];
+
+		if (!DEMO && AUTH && user) {
+			items.push(
+				{
+					href: '/my/tests/new',
+					title: m.Start_a_new_check(),
+					icon: Sparkle
+				},
+				{
+					href: '/my/services-and-products',
+					title: m.Go_to_Dashboard(),
+					icon: LayoutDashboardIcon
+				}
+			);
+		}
+
+		return items;
+	});
+
+	const allItems = $derived([...leftItems, ...rightItems]);
 </script>
 
 <BaseTopbar class="bg-card border-none">
 	{#snippet left()}
-		<div class="flex items-center space-x-4 min-w-0 overflow-hidden">
+		<div class="flex min-w-0 items-center space-x-4 overflow-hidden">
 			<Button variant="link" href={href('/')} class="shrink-0">
 				<AppLogo />
 			</Button>
-			
-			<!-- Desktop navigation only -->
-			<div class="hidden lg:flex lg:flex-row lg:items-center lg:space-x-1 min-w-0 overflow-hidden">
-				<Button variant="link" href={href('/marketplace')}>
-					{m.Marketplace()}
-				</Button>
-				<Button variant="link" href={href('/organizations')}>
-					{m.organizations()}
-				</Button>
-				<Button variant="link" href="/news">
-					{m.News()}
-				</Button>
+
+			<div class="hidden lg:flex lg:flex-row lg:items-center lg:gap-1">
+				{#each leftItems as item}
+					<NavLink link={item} variant="desktop" />
+				{/each}
 			</div>
 		</div>
 	{/snippet}
 
 	{#snippet right()}
-		<div class="flex items-center space-x-2 min-w-0 overflow-hidden">
-			<!-- Help link only appears on desktop (mobile has it in the menu) -->
+		<div class="flex items-center gap-2">
 			<div class="hidden lg:flex lg:flex-row">
-				<Button variant="link" href="https://docs.credimi.io">{m.Help()}</Button>
-			</div>
-			
-			{#if !$featureFlags.DEMO && $featureFlags.AUTH}
-				{#if !$currentUser}
-					<Button variant="secondary" href="/login">{m.Login()}</Button>
-					
-					<!-- Mobile menu trigger - only show when not logged in -->
-					<div class="lg:hidden">
-						<ResponsiveNav 
-							items={navigationItems}
-							mobileTitle="Navigation"
-						/>
-					</div>
-				{:else}
-					<!-- User action buttons only on desktop (mobile has them in menu) -->
-					<div class="hidden lg:flex lg:flex-row lg:items-center lg:space-x-2 min-w-0 overflow-hidden">
-						<Button variant="link" href="/my/tests/new" class="whitespace-nowrap">
-							<Icon src={Sparkle} />
-							{m.Start_a_new_check()}
-							<Badge
-								variant="outline"
-								class="border-primary text-primary !hover:no-underline text-xs ml-2"
-							>
-								{m.Beta()}
-							</Badge>
-						</Button>
-						<Button variant="link" href="/my/services-and-products" class="text-nowrap">
-							<Icon src={LayoutDashboardIcon} />
-							{m.Go_to_Dashboard()}
-						</Button>
-					</div>
-					
-					<UserNav />
-					
-					<div class="lg:hidden">
-						<ResponsiveNav 
-							items={allItems}
-							mobileTitle="Navigation"
-						/>
-					</div>
-				{/if}
-			{:else}
-				<div class="lg:hidden">
-					<ResponsiveNav 
-						items={navigationItems}
-						mobileTitle="Navigation"
+				{#each rightItems as item}
+					<NavLink
+						link={item}
+						variant="desktop"
+						badge={item.href?.endsWith('/my/tests/new') ? m.Beta() : undefined}
 					/>
-				</div>
-			{/if}
+				{/each}
+			</div>
+
+			<UserNav />
+
+			<div class="lg:hidden">
+				<MobileNav items={allItems} />
+			</div>
 		</div>
 	{/snippet}
 </BaseTopbar>
