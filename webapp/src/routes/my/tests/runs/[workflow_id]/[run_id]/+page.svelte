@@ -106,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div
-		class="border-primary flex flex-wrap items-start justify-between gap-4 border-b-2 !px-2 py-4 pb-4 sm:flex-nowrap sm:gap-8 md:!px-4 lg:!px-8"
+		class="bg-temporal flex flex-wrap items-start justify-between gap-4 border-b border-gray-400 !px-2 py-4 pb-4 sm:flex-nowrap sm:gap-8 md:!px-4 lg:!px-8"
 	>
 		<div>
 			<div class="mb-4">
@@ -176,13 +176,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	{#if memo}
-		<div class="border-b-2 border-b-black !px-2 py-4 md:!px-4 lg:!px-8">
+		{@const showFeedbackForm = execution.status === 'Running'}
+		<div class="bg-temporal !px-2 pt-4 md:!px-4 lg:!px-8">
 			{#if memo.author == 'openid_conformance_suite'}
 				<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
 			{:else if memo.author == 'ewc'}
 				<EwcTop {workflowId} {runId} namespace={organization?.id!} />
 			{:else if memo.author == 'eudiw'}
-				<EudiwTop {workflowId} namespace={organization?.id!} />
+				<EudiwTop {workflowId} namespace={organization?.id!} {showFeedbackForm} />
 			{/if}
 		</div>
 	{/if}
@@ -213,3 +214,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/snippet}
 </LoadingDialog>
+
+<style>
+	.bg-temporal {
+		background-color: rgb(248 250 252);
+	}
+</style>

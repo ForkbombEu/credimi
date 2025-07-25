@@ -11,15 +11,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WorkflowLogs from '$wallet-test/_partials/workflow-logs.svelte';
 	import { z } from 'zod';
 	import Container from './container.svelte';
+	import Section from './section.svelte';
 
 	//
 
 	type Props = {
 		workflowId: string;
 		namespace: string;
+		showFeedbackForm?: boolean;
 	};
 
-	let { workflowId, namespace }: Props = $props();
+	let { workflowId, namespace, showFeedbackForm = true }: Props = $props();
 
 	//
 
@@ -58,17 +60,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if workflowId && namespace}
 	<Container>
 		{#snippet left()}
-			<Step text="Confirm the result">
-				<FeedbackForms {workflowId} {namespace} class="!gap-4 pt-4" />
-			</Step>
+			<Section title="Logs">
+				<WorkflowLogs {...workflowLogsProps} uiSize="sm" class="!max-h-[500px] " />
+			</Section>
 		{/snippet}
 
 		{#snippet right()}
-			<Step text="Logs" class="h-full">
-				<div class="pt-4">
-					<WorkflowLogs {...workflowLogsProps} uiSize="sm" class="!max-h-[500px] " />
-				</div>
-			</Step>
+			{#if showFeedbackForm}
+				<Section title="Confirm the result">
+					<FeedbackForms {workflowId} {namespace} class="!gap-4" />
+				</Section>
+			{/if}
 		{/snippet}
 	</Container>
 {/if}
