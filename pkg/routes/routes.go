@@ -56,6 +56,7 @@ func Setup(app *pocketbase.PocketBase) {
 	pb.HookNamespaceOrgs(app)
 	apis.AddComplianceChecks(app)
 	apis.AddTemplatingRoutes(app)
+	apis.RegisterMyChecksRoutes(app)
 	hooks.WorkersHook(app)
 	apis.HookAtUserCreation(app)
 	apis.HookAtUserLogin(app)

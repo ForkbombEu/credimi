@@ -32,6 +32,63 @@ import (
 	"go.temporal.io/sdk/client"
 )
 
+func RegisterMyChecksRoutes(app core.App) {
+	routing.AddGroupRoutes(app, routing.RouteGroup{
+		BaseURL: "/api/my/checks",
+		Routes: []routing.RouteDefinition{
+			{
+				Method:  http.MethodGet,
+				Handler: handlers.HandleListMyChecks,
+				Input: nil,
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/{checkId}/runs",
+				Handler: handlers.HandleListMyCheckRuns, 
+				Input: nil,
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/{checkId}/runs/{runId}",
+				Handler: handlers.HandleGetMyCheckRun, 
+				Input:  nil,
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/{checkId}/runs/{runId}/rerun",
+				Handler: handlers.HandleRerunMyCheck,
+				Input: handlers.ReRunCheckRequest{},
+			},
+			{
+				Method:  http.MethodPost,
+				Path:    "/{checkId}/runs/{runId}/cancel",
+				Handler: handlers.HandleCancelMyCheckRun,
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/{checkId}/runs/{runId}/export",
+				Handler: handlers.HandleExportMyCheckRun,
+			},
+			// {
+			// 	Method:  http.MethodGet,
+			// 	Path:    "/{checkId}/runs/{runId}/logs",
+			// 	Handler: handlers.HandleTailMyCheckLogs, // logs (tail)
+			// },
+			
+			// {
+			// 	Method:  http.MethodPost,
+			// 	Path:    "/{checkId}/schedule",
+			// 	Handler: handlers.HandleScheduleMyCheck, // schedule
+			// },
+		},
+		Middlewares: []*hook.Handler[*core.RequestEvent]{
+			{Func: middlewares.ErrorHandlingMiddleware},
+			apis.RequireAuth(),
+		},
+		Validation: true,
+	})
+}
+
 func AddComplianceChecks(app core.App) {
 	routing.AddGroupRoutes(app, routing.RouteGroup{
 		BaseURL: "/api/compliance",
