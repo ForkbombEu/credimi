@@ -96,20 +96,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const testNameChunks = $derived(memo?.test.split(':') ?? []);
 </script>
 
-<div class="min-h-screen">
-	{#if !isIframeLoading}
-		<div class="bg-primary">
-			<div class="!px-2 md:!px-4 lg:!px-8">
-				<BackButton href="/my/tests/runs" class="text-white">
-					{m.Back_to_test_runs()}
-				</BackButton>
-			</div>
+{#if !isIframeLoading}
+	<div class="bg-primary">
+		<div class="!px-2 md:!px-4 lg:!px-8">
+			<BackButton href="/my/tests/runs" class="text-white">
+				{m.Back_to_test_runs()}
+			</BackButton>
 		</div>
+	</div>
 
-		<div
-			class="border-primary flex items-center justify-between border-b-2 !px-2 py-4 pb-4 md:!px-4 lg:!px-8"
-		>
-			<div>
+	<div
+		class="border-primary flex flex-wrap items-start justify-between gap-4 border-b-2 !px-2 py-4 pb-4 sm:flex-nowrap sm:gap-8 md:!px-4 lg:!px-8"
+	>
+		<div>
+			<div class="mb-4">
 				{#if memo}
 					<T tag="h3">
 						{memo?.standard} / {memo?.author}
@@ -124,77 +124,76 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</span>
 						{/each}
 					</T>
-					<T class="mt-4">{m.Test_run()}: {execution.id}</T>
 				{:else}
-					<div>
-						<T tag="h2">
-							{execution.id}
-						</T>
-					</div>
+					<T tag="h3" class="break-words !p-0">
+						{execution.id}
+					</T>
 				{/if}
-
-				<div class="space-y-4 border-b-2 px-2 py-4 md:px-4 lg:px-8">
-					{#if execution.status}
-						<TemporalI18nProvider>
-							<WorkflowStatus status={execution.status} />
-						</TemporalI18nProvider>
-					{/if}
-
-					<table>
-						<tbody>
-							<tr>
-								<td class="italic"> Start </td>
-								<td class="pl-4">
-									{toUserTimezone(execution.startTime) ?? '-'}
-								</td>
-							</tr>
-							<tr>
-								<td class="italic"> End </td>
-								<td class="pl-4">
-									{toUserTimezone(execution.endTime) ?? '-'}
-								</td>
-							</tr>
-							<tr>
-								<td class="italic"> Elapsed </td>
-								<td class="pl-4">
-									{execution.executionTime ?? '-'}
-								</td>
-							</tr>
-							<tr>
-								<td class="italic"> Run ID </td>
-								<td class="pl-4">
-									{execution.runId}
-								</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
 			</div>
-			<div class="bg-secondary rounded-md p-4">
-				<WorkflowQrPoller {workflowId} {runId} containerClass="size-40" />
-			</div>
+
+			{#if execution.status}
+				<TemporalI18nProvider>
+					<WorkflowStatus status={execution.status} />
+				</TemporalI18nProvider>
+			{/if}
+
+			<table class="mt-6 text-sm">
+				<tbody>
+					<tr>
+						<td class="italic"> Start </td>
+						<td class="pl-4">
+							{toUserTimezone(execution.startTime) ?? '-'}
+						</td>
+					</tr>
+					<tr>
+						<td class="italic"> End </td>
+						<td class="pl-4">
+							{toUserTimezone(execution.endTime) ?? '-'}
+						</td>
+					</tr>
+					<tr>
+						<td class="h-2"></td>
+					</tr>
+					<tr>
+						<td class="italic"> Workflow ID </td>
+						<td class="pl-4">
+							{execution.id}
+						</td>
+					</tr>
+					<tr>
+						<td class="italic"> Run ID </td>
+						<td class="pl-4">
+							{execution.runId}
+						</td>
+					</tr>
+				</tbody>
+			</table>
 		</div>
 
-		{#if memo}
-			<div class="border-b-2 border-b-black !px-2 py-4 md:!px-4 lg:!px-8">
-				{#if memo.author == 'openid_conformance_suite'}
-					<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
-				{:else if memo.author == 'ewc'}
-					<EwcTop {workflowId} {runId} namespace={organization?.id!} />
-				{:else if memo.author == 'eudiw'}
-					<EudiwTop {workflowId} namespace={organization?.id!} />
-				{/if}
-			</div>
+		{#if execution.status === 'Running'}
+			<WorkflowQrPoller {workflowId} {runId} containerClass="size-40" />
 		{/if}
-	{/if}
+	</div>
 
-	<iframe
-		id={iframeId}
-		title="Workflow"
-		src={page.url.pathname + '/temporal'}
-		class="w-full overflow-hidden"
-	></iframe>
-</div>
+	{#if memo}
+		<div class="border-b-2 border-b-black !px-2 py-4 md:!px-4 lg:!px-8">
+			{#if memo.author == 'openid_conformance_suite'}
+				<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
+			{:else if memo.author == 'ewc'}
+				<EwcTop {workflowId} {runId} namespace={organization?.id!} />
+			{:else if memo.author == 'eudiw'}
+				<EudiwTop {workflowId} namespace={organization?.id!} />
+			{/if}
+		</div>
+	{/if}
+{/if}
+
+<iframe
+	id={iframeId}
+	title="Workflow"
+	src={page.url.pathname + '/temporal'}
+	class="w-full overflow-hidden"
+></iframe>
 
 <LoadingDialog
 	loading={isIframeLoading}
