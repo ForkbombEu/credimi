@@ -2,76 +2,46 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pb } from '@/pocketbase/index.js';
-import { z } from 'zod';
 import { error } from '@sveltejs/kit';
-import type { HistoryEvent } from '@forkbombeu/temporal-ui';
-import { getWorkflowMemo, workflowExecutionSchema } from '$lib/workflows';
 import { checkAuthFlagAndUser, getUserOrganization } from '$lib/utils';
+import { fetchWorkflow, fetchWorkflowHistory, getWorkflowMemo } from '$lib/workflows';
 
 //
 
 export const load = async ({ params, fetch }) => {
 	await checkAuthFlagAndUser({ fetch });
+
 	const organization = await getUserOrganization({ fetch });
-
-	const { workflow_id, run_id } = params;
-
-	const data = await _loadData(workflow_id, run_id, { fetch });
-	if (data instanceof Error) {
-		error(500, { message: data.message });
+	if (!organization) {
+		error(403, { message: 'You are not authorized to access this page' });
 	}
 
-	//
+	const workflow = await _getWorkflow(params.workflow_id, params.run_id, { fetch });
+	if (workflow instanceof Error) {
+		error(500, { message: workflow.message });
+	}
 
 	return {
-		workflowId: workflow_id,
-		runId: run_id,
 		organization,
-		...data
+		workflow
 	};
 };
 
 //
 
-export async function _loadData(workflowId: string, runId: string, options = { fetch }) {
-	const basePath = `/api/compliance/checks/${workflowId}/${runId}`;
+export async function _getWorkflow(workflowId: string, runId: string, options = { fetch }) {
+	const execution = await fetchWorkflow(workflowId, runId, options);
+	if (execution instanceof Error) return execution;
 
-	//
+	const eventHistory = await fetchWorkflowHistory(workflowId, runId, options);
+	if (eventHistory instanceof Error) return eventHistory;
 
-	const workflowResponse = await pb.send(basePath, {
-		method: 'GET',
-		fetch: options.fetch
-	});
-	const workflowResponseValidation = rawWorkflowResponseSchema.safeParse(workflowResponse);
-	if (!workflowResponseValidation.success) {
-		return workflowResponseValidation.error;
-	}
-
-	//
-
-	const historyResponse = await pb.send(`${basePath}/history`, {
-		method: 'GET',
-		fetch: options.fetch
-	});
-	const historyResponseValidation = rawHistoryResponseSchema.safeParse(historyResponse);
-	if (!historyResponseValidation.success) {
-		return historyResponseValidation.error;
-	}
+	const memo = getWorkflowMemo(execution);
+	if (memo instanceof Error) return memo;
 
 	return {
-		workflow: workflowResponseValidation.data,
-		workflowMemo: getWorkflowMemo(workflowResponseValidation.data.workflowExecutionInfo),
-		eventHistory: historyResponseValidation.data as HistoryEvent[]
+		execution,
+		eventHistory,
+		memo
 	};
 }
-
-const rawWorkflowResponseSchema = z
-	.object({
-		workflowExecutionInfo: workflowExecutionSchema
-	})
-	.passthrough();
-
-export type WorkflowResponse = z.infer<typeof rawWorkflowResponseSchema>;
-
-const rawHistoryResponseSchema = z.array(z.record(z.unknown()));

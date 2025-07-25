@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Pencil, Plus } from 'lucide-svelte';
 	import { m } from '@/i18n';
 	import PublishedStatus from '$lib/layout/published-status.svelte';
-	import type { WorkflowExecution } from '$lib/workflows';
+	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
 	//
 
@@ -30,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflows?: WorkflowExecution[];
 	};
 
-	let { organizationId, workflows }: Props = $props();
+	let { organizationId }: Props = $props();
 </script>
 
 <CollectionManager
