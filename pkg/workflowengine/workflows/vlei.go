@@ -4,6 +4,7 @@
 package workflows
 
 import (
+	"fmt"
 	"reflect"
 	"time"
 
@@ -37,6 +38,12 @@ func (w *VLEIValidationWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
+		TemporalUI: fmt.Sprintf(
+			"%s/my/tests/runs/%s/%s",
+			input.Payload["app_url"],
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			workflow.GetInfo(ctx).WorkflowExecution.RunID,
+		),
 	}
 
 	schema, ok := input.Config["schema"].(string)
