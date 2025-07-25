@@ -32,7 +32,6 @@ import (
 	"go.temporal.io/sdk/client"
 )
 
-// RegisterMyChecksRoutes sets up the /my/checks API group.
 func RegisterMyChecksRoutes(app core.App) {
 	routing.AddGroupRoutes(app, routing.RouteGroup{
 		BaseURL: "/api/my/checks",
@@ -45,13 +44,13 @@ func RegisterMyChecksRoutes(app core.App) {
 			{
 				Method:  http.MethodGet,
 				Path:    "/{checkId}/runs",
-				Handler: handlers.HandleListMyCheckRuns, // view previous runs
+				Handler: handlers.HandleListMyCheckRuns, 
 				Input: nil,
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/{checkId}/runs/{runId}",
-				Handler: handlers.HandleGetMyCheckRun, // view config/input/output/result/logs
+				Handler: handlers.HandleGetMyCheckRun, 
 				Input:  nil,
 			},
 			{
@@ -68,7 +67,7 @@ func RegisterMyChecksRoutes(app core.App) {
 			{
 				Method:  http.MethodGet,
 				Path:    "/{checkId}/runs/{runId}/export",
-				Handler: handlers.HandleExportMyCheckRun, // export config, input
+				Handler: handlers.HandleExportMyCheckRun,
 			},
 			// {
 			// 	Method:  http.MethodGet,

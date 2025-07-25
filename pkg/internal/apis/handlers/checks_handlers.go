@@ -28,7 +28,6 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-
 func HandleListMyChecks() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
@@ -400,120 +399,14 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			WorkflowExecutionTimeout: workflowExecution.ExecutionConfig.WorkflowExecutionTimeout.AsDuration(),
 		}
 
-		historyIterator := c.GetWorkflowHistory(
-			context.Background(),
-			checkID,
-			runID,
-			false,
-			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-		)
-		var workflowInput workflowengine.WorkflowInput
-
-		for historyIterator.HasNext() {
-			event, err := historyIterator.Next()
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to get workflow history",
-					err.Error(),
-				)
-			}
-
-			if event.EventType == enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
-				startedAttributes := event.GetWorkflowExecutionStartedEventAttributes()
-				if startedAttributes.Input != nil {
-					// Unmarshal the input payload
-					inputJSON, err := protojson.Marshal(startedAttributes.Input)
-					if err != nil {
-						return apierror.New(
-							http.StatusInternalServerError,
-							"workflow",
-							"failed to marshal workflow input",
-							err.Error(),
-						)
-					}
-					var inputMap map[string]interface{}
-					err = json.Unmarshal(inputJSON, &inputMap)
-					if err != nil {
-						return apierror.New(
-							http.StatusInternalServerError,
-							"workflow",
-							"failed to unmarshal workflow input",
-							err.Error(),
-						)
-					}
-					if payloads, ok := inputMap["payloads"]; ok {
-						if payloadsSlice, ok := payloads.([]interface{}); ok && len(payloadsSlice) > 0 {
-							if payloadMap, ok := payloadsSlice[0].(map[string]interface{}); ok {
-								if data, ok := payloadMap["data"]; ok {
-									if dataStr, ok := data.(string); ok {
-										decodedData, err := base64.StdEncoding.DecodeString(dataStr)
-										if err != nil {
-											return apierror.New(
-												http.StatusInternalServerError,
-												"workflow",
-												"failed to decode workflow input payload",
-												err.Error(),
-											)
-										}
-										var payloadData map[string]interface{}
-										err = json.Unmarshal(decodedData, &payloadData)
-										if err != nil {
-											return apierror.New(
-												http.StatusInternalServerError,
-												"workflow",
-												"failed to unmarshal workflow input payload",
-												err.Error(),
-											)
-										}
-										//take workflow input payload from payloadData.Payload
-										if payload, ok := payloadData["Payload"]; ok {
-											if payloadMap, ok := payload.(map[string]interface{}); ok {
-												workflowInput.Payload = payloadMap
-											} else {
-												return apierror.New(
-													http.StatusInternalServerError,
-													"workflow",
-													"invalid workflow input payload format",
-													"payload is not a map",
-												)
-											}
-										} else {
-											return apierror.New(
-												http.StatusInternalServerError,
-												"workflow",
-												"missing workflow input payload",
-												"payload field is missing in input data",
-											)
-										}
-										if config, ok := payloadData["Config"]; ok {
-											log.Println("Rerun workflow input config:", config)
-											if configMap, ok := config.(map[string]interface{}); ok {
-												workflowInput.Config = configMap
-											} else {
-												return apierror.New(
-													http.StatusInternalServerError,
-													"workflow",
-													"invalid workflow input config format",
-													"config is not a map",
-												)
-											}
-										} else {
-											return apierror.New(
-												http.StatusInternalServerError,
-												"workflow",
-												"missing workflow input config",
-												"config field is missing in input data",
-											)
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
+		workflowInput, err := getWorkflowInput(checkID, runID, c)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to get workflow input",
+				err.Error(),
+			)
 		}
 
 		var req ReRunCheckRequest
@@ -603,13 +496,13 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
-			"message": "Workflow execution canceled successfully",
-			"checkId": checkID,
-			"runId":   runID,
-			"status":  "canceled",
-			"time":    time.Now().Format(time.RFC3339),
+			"message":   "Workflow execution canceled successfully",
+			"checkId":   checkID,
+			"runId":     runID,
+			"status":    "canceled",
+			"time":      time.Now().Format(time.RFC3339),
 			"namespace": namespace,
-		 })
+		})
 	}
 }
 
@@ -652,85 +545,14 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 		}
 		defer c.Close()
 
-		historyIterator := c.GetWorkflowHistory(
-			context.Background(),
-			checkID,
-			runID,
-			false,
-			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-		)
-		var workflowInput workflowengine.WorkflowInput
-		for historyIterator.HasNext() {
-			event, err := historyIterator.Next()
-			if err != nil {
-				break
-			}
-			if event == nil {
-				break
-			}
-			if event.EventType == enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
-				startedAttributes := event.GetWorkflowExecutionStartedEventAttributes()
-				if startedAttributes != nil && startedAttributes.Input != nil {
-					inputJSON, err := protojson.Marshal(startedAttributes.Input)
-					if err != nil {
-						return apierror.New(
-							http.StatusInternalServerError,
-							"workflow",
-							"failed to marshal workflow input",
-							err.Error(),
-						)
-					}
-					var inputMap map[string]interface{}
-					err = json.Unmarshal(inputJSON, &inputMap)
-					if err != nil {
-						return apierror.New(
-							http.StatusInternalServerError,
-							"workflow",
-							"failed to unmarshal workflow input",
-							err.Error(),
-						)
-					}
-					if payloads, ok := inputMap["payloads"]; ok {
-						if payloadsSlice, ok := payloads.([]interface{}); ok && len(payloadsSlice) > 0 {
-							if payloadMap, ok := payloadsSlice[0].(map[string]interface{}); ok {
-								if data, ok := payloadMap["data"]; ok {
-									if dataStr, ok := data.(string); ok {
-										decodedData, err := base64.StdEncoding.DecodeString(dataStr)
-										if err != nil {
-											return apierror.New(
-												http.StatusInternalServerError,
-												"workflow",
-												"failed to decode workflow input payload",
-												err.Error(),
-											)
-										}
-										var payloadData map[string]interface{}
-										err = json.Unmarshal(decodedData, &payloadData)
-										if err != nil {
-											return apierror.New(
-												http.StatusInternalServerError,
-												"workflow",
-												"failed to unmarshal workflow input payload",
-												err.Error(),
-											)
-										}
-										if payload, ok := payloadData["Payload"]; ok {
-											if payloadMap, ok := payload.(map[string]interface{}); ok {
-												workflowInput.Payload = payloadMap
-											}
-										}
-										if config, ok := payloadData["Config"]; ok {
-											if configMap, ok := config.(map[string]interface{}); ok {
-												workflowInput.Config = configMap
-											}
-										}
-									}
-								}
-							}
-						}
-					}
-				}
-			}
+		workflowInput, err := getWorkflowInput(checkID, runID, c)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to get workflow input",
+				err.Error(),
+			)
 		}
 		if workflowInput.Config == nil {
 			workflowInput.Config = make(map[string]interface{})
@@ -738,7 +560,6 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 		if workflowInput.Payload == nil {
 			workflowInput.Payload = make(map[string]interface{})
 		}
-		// Prepare the export data
 		exportData := map[string]interface{}{
 			"checkId": checkID,
 			"runId":   runID,
@@ -755,10 +576,100 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 			)
 		}
 
-		// Return the export data as JSON
 		return e.JSON(http.StatusOK, map[string]interface{}{
 			"export": string(exportJSON),
 		})
 	}
 }
 
+func getWorkflowInput(checkID string, runID string, c client.Client) (workflowengine.WorkflowInput, error) {
+	var workflowInput workflowengine.WorkflowInput
+	historyIterator := c.GetWorkflowHistory(
+		context.Background(),
+		checkID,
+		runID,
+		false,
+		enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	)
+
+	for historyIterator.HasNext() {
+		event, err := historyIterator.Next()
+		if err != nil {
+			return workflowengine.WorkflowInput{}, fmt.Errorf("failed to get workflow history: %w", err)
+		}
+
+		if event.EventType == enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
+			startedAttributes := event.GetWorkflowExecutionStartedEventAttributes()
+			if startedAttributes.Input != nil {
+				// Unmarshal the input payload
+				inputJSON, err := protojson.Marshal(startedAttributes.Input)
+				if err != nil {
+					return workflowengine.WorkflowInput{}, fmt.Errorf("failed to marshal workflow input: %w", err)
+				}
+				var inputMap map[string]interface{}
+				err = json.Unmarshal(inputJSON, &inputMap)
+				if err != nil {
+					return workflowengine.WorkflowInput{}, fmt.Errorf("failed to unmarshal workflow input: %w", err)
+				}
+				if payloads, ok := inputMap["payloads"]; ok {
+					if payloadsSlice, ok := payloads.([]interface{}); ok && len(payloadsSlice) > 0 {
+						if payloadMap, ok := payloadsSlice[0].(map[string]interface{}); ok {
+							if data, ok := payloadMap["data"]; ok {
+								if dataStr, ok := data.(string); ok {
+									decodedData, err := base64.StdEncoding.DecodeString(dataStr)
+									if err != nil {
+										return workflowengine.WorkflowInput{}, fmt.Errorf("failed to decode workflow input payload: %w", err)
+									}
+									var payloadData map[string]interface{}
+									err = json.Unmarshal(decodedData, &payloadData)
+									if err != nil {
+										return workflowengine.WorkflowInput{}, fmt.Errorf("failed to unmarshal workflow input payload: %w", err)
+									}
+									//take workflow input payload from payloadData.Payload
+									if payload, ok := payloadData["Payload"]; ok {
+										if payloadMap, ok := payload.(map[string]interface{}); ok {
+											workflowInput.Payload = payloadMap
+										} else {
+											return workflowengine.WorkflowInput{}, fmt.Errorf("failed to unmarshal workflow input payload: %w", err)
+										}
+									}
+									//take workflow input payload from payloadData.Payload
+									if payload, ok := payloadData["Payload"]; ok {
+										if payloadMap, ok := payload.(map[string]interface{}); ok {
+											workflowInput.Payload = payloadMap
+										} else {
+											return workflowengine.WorkflowInput{}, fmt.Errorf("invalid workflow input payload format: payload is not a map")
+										}
+									} else {
+										return workflowengine.WorkflowInput{}, fmt.Errorf("missing workflow input payload: payload field is missing in input data")
+									}
+									if config, ok := payloadData["Config"]; ok {
+										log.Println("Rerun workflow input config:", config)
+										if configMap, ok := config.(map[string]interface{}); ok {
+											workflowInput.Config = configMap
+										} else {
+											return workflowengine.WorkflowInput{}, fmt.Errorf("invalid workflow input config format: config is not a map")
+										}
+									} else {
+										return workflowengine.WorkflowInput{}, fmt.Errorf("missing workflow input config: config field is missing in input data")
+									}
+									if config, ok := payloadData["Config"]; ok {
+										log.Println("Rerun workflow input config:", config)
+										if configMap, ok := config.(map[string]interface{}); ok {
+											workflowInput.Config = configMap
+										} else {
+											return workflowengine.WorkflowInput{}, fmt.Errorf("invalid workflow input config format: config is not a map")
+										}
+									} else {
+										return workflowengine.WorkflowInput{}, fmt.Errorf("missing workflow input config: config field is missing in input data")
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+	return workflowInput, nil
+}
