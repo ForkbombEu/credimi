@@ -105,7 +105,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						class="flex items-center justify-between gap-2 hover:no-underline"
 					>
 						<Badge
-							class="block w-20 truncate text-center capitalize"
+							class="block w-20 truncate rounded-md text-center capitalize"
 							variant={statusToVariant(status)}
 						>
 							{status}
