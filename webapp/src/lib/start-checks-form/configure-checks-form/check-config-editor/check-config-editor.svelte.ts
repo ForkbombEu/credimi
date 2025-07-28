@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { CheckConfigJsonEditor } from '$lib/start-checks-form/configure-checks-form/check-config-json-editor';
+import { CheckConfigJsonEditor } from '$lib/start-checks-form/configure-checks-form/check-config-code-editor';
 import {
 	DependentCheckConfigFormEditor,
 	type DependentCheckConfigFormEditorProps

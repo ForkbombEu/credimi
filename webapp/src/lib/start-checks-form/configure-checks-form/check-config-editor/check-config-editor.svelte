@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { CheckConfigEditor } from './check-config-editor.svelte.js';
-	import { CheckConfigJsonEditorComponent } from '../check-config-json-editor';
+	import { CheckConfigJsonEditorComponent } from '../check-config-code-editor/index.js';
 	import { DependentCheckConfigFormEditorComponent } from '../check-config-form-editor';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import { Info } from 'lucide-svelte';
