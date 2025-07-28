@@ -26,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { _getWorkflow } from './+layout';
 	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { TemporalI18nProvider } from '$lib/temporal';
+	import { Separator } from '@/components/ui/separator';
 
 	//
 
@@ -98,7 +99,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if !isIframeLoading}
 	<div class="bg-primary">
-		<div class="!px-2 md:!px-4 lg:!px-8">
+		<div class="padding-x">
 			<BackButton href="/my/tests/runs" class="text-white">
 				{m.Back_to_test_runs()}
 			</BackButton>
@@ -106,7 +107,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div
-		class="bg-temporal flex flex-wrap items-start justify-between gap-4 border-b border-gray-400 !px-2 py-4 pb-4 sm:flex-nowrap sm:gap-8 md:!px-4 lg:!px-8"
+		class="bg-temporal padding-x flex flex-wrap items-start justify-between gap-4 py-4 pb-4 sm:flex-nowrap sm:gap-8"
 	>
 		<div>
 			<div class="mb-4">
@@ -175,17 +176,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</div>
 
+	<div class="bg-temporal padding-x py-2">
+		<Separator />
+	</div>
+
 	{#if memo}
-		{@const showFeedbackForm = execution.status === 'Running'}
-		<div class="bg-temporal !px-2 pt-4 md:!px-4 lg:!px-8">
-			{#if memo.author == 'openid_conformance_suite'}
-				<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
-			{:else if memo.author == 'ewc'}
-				<EwcTop {workflowId} {runId} namespace={organization?.id!} />
-			{:else if memo.author == 'eudiw'}
-				<EudiwTop {workflowId} namespace={organization?.id!} {showFeedbackForm} />
-			{/if}
-		</div>
+		{#if memo.author == 'ewc'}
+			<EwcTop {workflowId} {runId} namespace={organization?.id!} />
+		{:else}
+			{@const showFeedbackForm = execution.status === 'Running'}
+			<div class="bg-temporal padding-x space-y-8 pt-4">
+				{#if memo.author == 'openid_conformance_suite'}
+					<OpenidnetTop
+						{workflowId}
+						{runId}
+						namespace={organization?.id!}
+						{showFeedbackForm}
+					/>
+				{:else if memo.author == 'eudiw'}
+					<EudiwTop {workflowId} namespace={organization?.id!} {showFeedbackForm} />
+				{/if}
+
+				<Separator />
+			</div>
+		{/if}
 	{/if}
 {/if}
 
@@ -215,8 +229,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 </LoadingDialog>
 
-<style>
+<style lang="postcss">
 	.bg-temporal {
 		background-color: rgb(248 250 252);
+	}
+
+	.padding-x {
+		@apply !px-2 md:!px-4 lg:!px-8;
 	}
 </style>

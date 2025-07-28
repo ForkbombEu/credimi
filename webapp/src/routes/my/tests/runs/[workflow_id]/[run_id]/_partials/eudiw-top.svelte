@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import Step from '$wallet-test/_partials/step.svelte';
 	import FeedbackForms from '$wallet-test/_partials/feedback-forms.svelte';
 	import { LogStatus, type WorkflowLogsProps } from '$wallet-test/_partials/workflow-logs';
 	import WorkflowLogs from '$wallet-test/_partials/workflow-logs.svelte';
@@ -57,20 +56,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		.passthrough();
 </script>
 
-{#if workflowId && namespace}
-	<Container>
-		{#snippet left()}
-			<Section title="Logs">
-				<WorkflowLogs {...workflowLogsProps} uiSize="sm" class="!max-h-[500px] " />
-			</Section>
-		{/snippet}
+<Container right={showFeedbackForm ? right : undefined}>
+	{#snippet left()}
+		<Section title="Logs" bgColor="blue">
+			<WorkflowLogs
+				{...workflowLogsProps}
+				uiSize="sm"
+				class="!max-h-[500px]"
+				accordionItemClass="rounded-none !border-b !border-gray-500"
+				codeClass="!bg-slate-100 rounded-none"
+			/>
+		</Section>
+	{/snippet}
+</Container>
 
-		{#snippet right()}
-			{#if showFeedbackForm}
-				<Section title="Confirm the result">
-					<FeedbackForms {workflowId} {namespace} class="!gap-4" />
-				</Section>
-			{/if}
-		{/snippet}
-	</Container>
-{/if}
+{#snippet right()}
+	<div class="space-y-4">
+		<Section title="Confirm the result" bgColor="blue">
+			<FeedbackForms {workflowId} {namespace} class="!gap-4" />
+		</Section>
+	</div>
+{/snippet}
