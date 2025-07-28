@@ -19,13 +19,13 @@ type CheckConfigEditorProps = DependentCheckConfigFormEditorProps & {
 export type CheckConfigEditorMode = 'json' | 'form';
 
 export class CheckConfigEditor implements BaseEditor {
-	public readonly jsonEditor: CheckConfigJsonEditor;
+	public readonly codeEditor: CheckConfigJsonEditor;
 	public readonly formEditor: DependentCheckConfigFormEditor;
 
-	mode: CheckConfigEditorMode = $derived.by(() => (this.jsonEditor.isTainted ? 'json' : 'form'));
+	mode: CheckConfigEditorMode = $derived.by(() => (this.codeEditor.isTainted ? 'json' : 'form'));
 
 	isValid = $derived.by(() =>
-		this.mode === 'json' ? this.jsonEditor.isValid : this.formEditor.isValid
+		this.mode === 'json' ? this.codeEditor.isValid : this.formEditor.isValid
 	);
 
 	constructor(public readonly props: CheckConfigEditorProps) {
@@ -34,7 +34,7 @@ export class CheckConfigEditor implements BaseEditor {
 			formDependency: this.props.formDependency
 		});
 
-		this.jsonEditor = new CheckConfigJsonEditor({
+		this.codeEditor = new CheckConfigJsonEditor({
 			json: this.props.json,
 			editorDependency: this.formEditor
 		});
@@ -45,7 +45,7 @@ export class CheckConfigEditor implements BaseEditor {
 		if (this.mode === 'json') {
 			return {
 				mode: this.mode,
-				value: this.jsonEditor.getData()
+				value: this.codeEditor.getData()
 			};
 		} else {
 			return {

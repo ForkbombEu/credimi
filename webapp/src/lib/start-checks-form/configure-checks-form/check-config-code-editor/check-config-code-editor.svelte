@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Form } from '@/forms';
-	import { CheckConfigJsonEditor } from './check-config-json-editor.svelte.js';
+	import { CheckConfigJsonEditor } from './check-config-code-editor.svelte.js';
 	import { CodeEditorField } from '@/forms/fields/index.js';
 	import {
 		dispatchEffect,
