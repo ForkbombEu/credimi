@@ -4,7 +4,7 @@
 
 import { createForm } from '@/forms';
 import { z } from 'zod';
-import { formatJson, type BaseEditor } from '$start-checks-form/_utils';
+import type { BaseEditor } from '$start-checks-form/_utils';
 import { zod } from 'sveltekit-superforms/adapters';
 import type { SuperForm, TaintedFields } from 'sveltekit-superforms';
 import { nanoid } from 'nanoid';
@@ -12,17 +12,17 @@ import type { State } from '@/utils/types';
 import { fromStore } from 'svelte/store';
 import type { CheckConfigFormEditor } from '$lib/start-checks-form/configure-checks-form/check-config-form-editor';
 import { watch } from 'runed';
-import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
+import { yamlStringSchema } from '$lib/utils';
 
 //
 
 type CheckConfigJsonEditorProps = {
-	json: string;
+	code: string;
 	editorDependency?: CheckConfigFormEditor;
 };
 
 type FormData = {
-	yaml: string;
+	code: string;
 };
 
 export class CheckConfigCodeEditor implements BaseEditor {
@@ -30,13 +30,13 @@ export class CheckConfigCodeEditor implements BaseEditor {
 	private values: State<FormData>;
 	private taintedState: State<TaintedFields<FormData> | undefined>;
 
-	isTainted = $derived.by(() => this.taintedState.current?.yaml === true);
+	isTainted = $derived.by(() => this.taintedState.current?.code === true);
 	isValid = $state(false);
 
 	constructor(public readonly props: CheckConfigJsonEditorProps) {
 		this.superform = createForm({
-			adapter: zod(z.object({ yaml: yamlStringSchema })),
-			initialData: { yaml: formatJson(this.props.json) },
+			adapter: zod(z.object({ code: yamlStringSchema })),
+			initialData: { code: this.props.code },
 			options: {
 				id: nanoid(6)
 			}
@@ -58,7 +58,7 @@ export class CheckConfigCodeEditor implements BaseEditor {
 	}
 
 	getData() {
-		return this.values.current.yaml;
+		return this.values.current.code;
 	}
 
 	reset() {

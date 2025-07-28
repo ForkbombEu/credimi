@@ -35,7 +35,7 @@ export class CheckConfigEditor implements BaseEditor {
 		});
 
 		this.codeEditor = new CheckConfigCodeEditor({
-			json: this.props.code,
+			code: this.props.code,
 			editorDependency: this.formEditor
 		});
 	}

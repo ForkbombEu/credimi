@@ -35,11 +35,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#snippet content({ Title, Description })}
 						<Title class="font-bold">Info</Title>
 						<Description class="mb-2">
-							{m.json_configuration_is_edited_fields_are_disabled()}
+							{m.code_configuration_is_edited_fields_are_disabled()}
 						</Description>
 
 						<Button variant="outline" onclick={() => editor.codeEditor.reset()}>
-							{m.reset_json_and_use_fields()}
+							{m.reset_code_and_use_fields()}
 						</Button>
 					{/snippet}
 				</Alert>

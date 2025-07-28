@@ -58,7 +58,6 @@ export async function getChecksConfigsFields(suiteAndVersionPath: string, filena
 			filenames
 		}
 	});
-	console.log('data', data);
 	return checksConfigFieldsResponseSchema.parse(data);
 }
 
