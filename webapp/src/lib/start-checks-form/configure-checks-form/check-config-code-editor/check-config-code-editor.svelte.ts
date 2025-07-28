@@ -25,7 +25,7 @@ type FormData = {
 	yaml: string;
 };
 
-export class CheckConfigJsonEditor implements BaseEditor {
+export class CheckConfigCodeEditor implements BaseEditor {
 	public readonly superform: SuperForm<FormData>;
 	private values: State<FormData>;
 	private taintedState: State<TaintedFields<FormData> | undefined>;

@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { CheckConfigEditor } from './check-config-editor.svelte.js';
-	import { CheckConfigJsonEditorComponent } from '../check-config-code-editor/index.js';
+	import { CheckConfigCodeEditorComponent } from '../check-config-code-editor/index.js';
 	import { DependentCheckConfigFormEditorComponent } from '../check-config-form-editor';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import { Info } from 'lucide-svelte';
@@ -49,6 +49,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<div class="flex min-w-0 shrink-0 grow basis-1 flex-col space-y-6">
 		<SmallSectionLabel>{m.YAML_Configuration()}</SmallSectionLabel>
-		<CheckConfigJsonEditorComponent editor={editor.codeEditor} />
+		<CheckConfigCodeEditorComponent editor={editor.codeEditor} />
 	</div>
 </div>

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import CheckConfigJsonEditorComponent from './check-config-code-editor.svelte';
-import { CheckConfigJsonEditor } from './check-config-code-editor.svelte.js';
+import CheckConfigCodeEditorComponent from './check-config-code-editor.svelte';
+import { CheckConfigCodeEditor } from './check-config-code-editor.svelte.js';
 
-export { CheckConfigJsonEditor, CheckConfigJsonEditorComponent };
+export { CheckConfigCodeEditor, CheckConfigCodeEditorComponent };

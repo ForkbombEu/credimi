@@ -31,7 +31,7 @@ export class ConfigureChecksForm {
 			(data, id) =>
 				new CheckConfigEditor({
 					id,
-					json: data.content,
+					code: data.content,
 					fields: data.fields.sort(configFieldComparator),
 					formDependency: this.sharedFieldsEditor
 				})
@@ -114,7 +114,7 @@ export class ConfigureChecksForm {
 		const configs_with_json = pipe(
 			this.checkConfigEditors,
 			Record.map((form) => form.getData()),
-			Record.filter((v) => v.mode == 'json'),
+			Record.filter((v) => v.mode == 'code'),
 			Record.map((v) => v.value)
 		);
 
