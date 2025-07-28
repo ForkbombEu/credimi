@@ -18,7 +18,6 @@ export const load = async ({ fetch, url }) => {
 			message: workflows.message
 		});
 	}
-	console.log(workflows);
 
 	return {
 		workflows,

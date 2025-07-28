@@ -77,7 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Button>
 			</div>
 
-			<WorkflowsTable workflows={latestWorkflows}>
+			<WorkflowsTable workflows={latestWorkflows} separateLogs>
 				{#snippet headerRight({ Th })}
 					{@const isRunning = latestWorkflows.some((w) => w.status === 'Running')}
 					{#if isRunning}
@@ -109,7 +109,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if oldWorkflows.length > 0}
 		<div class="space-y-4">
 			<T tag="h3">{m.Checks_history()}</T>
-			<WorkflowsTable workflows={oldWorkflows} />
+			<WorkflowsTable workflows={oldWorkflows} separateLogs />
 		</div>
 	{/if}
 
