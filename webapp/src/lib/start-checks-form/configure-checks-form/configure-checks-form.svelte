@@ -55,7 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	{#each Object.entries(form.checkConfigEditors) as [id, checkConfigEditor]}
-		<SectionCard {id} title={id.replace('.yaml', '')}>
+		<SectionCard {id} title={id.split('.')[0]}>
 			<CheckConfigEditorComponent editor={checkConfigEditor} />
 		</SectionCard>
 	{/each}
