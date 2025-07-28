@@ -12,7 +12,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { browser } from '$app/environment';
 	import { Array } from 'effect';
 	import { ensureArray, warn } from '@/utils/other';
-	import { fetchWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
+	import {
+		fetchWorkflows,
+		groupWorkflowsWithChildren,
+		WorkflowQrPoller,
+		WorkflowsTable
+	} from '$lib/workflows';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -42,8 +47,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	onMount(() => {
 		const interval = setInterval(async () => {
 			const newWorkflows = await fetchWorkflows({ statuses: selectedStatuses });
-			if (!(newWorkflows instanceof Error)) workflows = newWorkflows;
-			else warn(newWorkflows);
+			if (newWorkflows instanceof Error) warn(newWorkflows);
+			else workflows = groupWorkflowsWithChildren(newWorkflows);
 		}, 5000);
 
 		return () => {
@@ -54,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="space-y-8">
 	<div class="bg-background flex flex-wrap items-center gap-4 rounded-lg border p-4">
-		<p>Filter runs by status</p>
+		<p>{m.Filter_runs_by_status()}</p>
 		<WorkflowStatusSelect value={selectedStatuses} onValueChange={setWorkflowStatusesInUrl} />
 	</div>
 
@@ -86,11 +91,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				{#snippet rowRight({ workflow, Td })}
 					<Td>
-						<WorkflowQrPoller
-							workflowId={workflow.id}
-							runId={workflow.runId}
-							containerClass="size-32"
-						/>
+						{#if workflow.status === 'Running'}
+							<WorkflowQrPoller
+								workflowId={workflow.id}
+								runId={workflow.runId}
+								containerClass="size-32"
+							/>
+						{/if}
 					</Td>
 				{/snippet}
 			</WorkflowsTable>
