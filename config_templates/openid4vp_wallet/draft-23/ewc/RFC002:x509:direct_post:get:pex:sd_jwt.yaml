@@ -1,14 +1,16 @@
 sessionId: >
   {{
 
-      credimi \"
+      credimi `
         {
           "credimi_id": "07_session_id",
           "field_id": "session_id",
           "field_label": "i18n_session_id",
           "field_description": "i18n_description_session_id",
-          "field_default_value": "uuidv4",
+          "field_default_value": "",
           "field_type": "string",
           "field_options": []
         }
-  \"}}
+      `
+  uuidv4
+  }}
