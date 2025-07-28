@@ -19,7 +19,7 @@ export interface DependentCheckConfigFormEditorProps extends CheckConfigFormEdit
 export class DependentCheckConfigFormEditor extends CheckConfigFormEditor {
 	constructor(public readonly props: DependentCheckConfigFormEditorProps) {
 		super(props);
-		this.dependentFieldsIds = this.props.formDependency.props.fields.map((f) => f.CredimiID);
+		this.dependentFieldsIds = this.props.formDependency.props.fields.map((f) => f.credimi_id);
 		this.registerEffect_UpdateDependentFields();
 	}
 
@@ -27,11 +27,11 @@ export class DependentCheckConfigFormEditor extends CheckConfigFormEditor {
 	private overriddenFieldsIds = $state<string[]>([]);
 
 	overriddenFields = $derived.by(() =>
-		this.props.fields.filter((field) => this.overriddenFieldsIds.includes(field.CredimiID))
+		this.props.fields.filter((field) => this.overriddenFieldsIds.includes(field.credimi_id))
 	);
 
 	independentFields = $derived.by(() =>
-		this.props.fields.filter((field) => !this.dependentFieldsIds.includes(field.CredimiID))
+		this.props.fields.filter((field) => !this.dependentFieldsIds.includes(field.credimi_id))
 	);
 
 	dependentFields = $derived.by(() =>

@@ -37,8 +37,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return formDependency.props.fields.filter(isNamedConfigField).map((field) => {
 			return {
 				field,
-				isValid: field.CredimiID in validData,
-				value: validData[field.CredimiID]
+				isValid: field.credimi_id in validData,
+				value: validData[field.credimi_id]
 			};
 		});
 	}

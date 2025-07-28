@@ -103,7 +103,7 @@ export class ConfigureChecksForm {
 						credimi_id: credimiId,
 						value: datum,
 						field_name:
-							form.props.fields.find((f) => f.CredimiID == credimiId)?.FieldName ?? ''
+							form.props.fields.find((f) => f.credimi_id == credimiId)?.field_id ?? ''
 					});
 				}
 				return entries.filter((e) => e.field_name != '');

@@ -37,7 +37,7 @@ export function displayPlaceholderData(settings: DisplayPlaceholderDataSettings)
 		decoration: (match, view, pos) => {
 			const fieldName = match[1];
 			const placeholderData = getPlaceholdersData().find(
-				(data) => data.field.FieldName === fieldName
+				(data) => data.field.field_id === fieldName
 			);
 			if (!placeholderData) return null;
 
@@ -111,8 +111,8 @@ class PlaceholderWidget extends WidgetType {
 
 	getTextContent() {
 		const { field, isValid, value } = this.data;
-		if (!isValid) return `{{ ${field.FieldName} }}`;
-		if (field.Type == 'string') return `"${value}"`;
+		if (!isValid) return `{{ ${field.field_id} }}`;
+		if (field.field_type == 'string') return `"${value}"`;
 		else return formatJson(value).replaceAll('\n', '\n' + ' '.repeat(this.indentation));
 	}
 }
