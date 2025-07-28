@@ -79,19 +79,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			<WorkflowsTable workflows={latestWorkflows}>
 				{#snippet headerRight({ Th })}
-					<Th>
-						{m.QR_code()}
-					</Th>
+					{@const isRunning = latestWorkflows.some((w) => w.status === 'Running')}
+					{#if isRunning}
+						<Th>
+							{m.QR_code()}
+						</Th>
+					{/if}
 				{/snippet}
 
 				{#snippet rowRight({ workflow, Td })}
-					<Td>
-						<WorkflowQrPoller
-							workflowId={workflow.id}
-							runId={workflow.runId}
-							containerClass="size-32"
-						/>
-					</Td>
+					{#if workflow.status === 'Running'}
+						<Td>
+							<WorkflowQrPoller
+								workflowId={workflow.id}
+								runId={workflow.runId}
+								containerClass="size-32"
+							/>
+						</Td>
+					{/if}
 				{/snippet}
 			</WorkflowsTable>
 		</div>
