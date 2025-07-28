@@ -1,8 +1,8 @@
 variant:
-    response_mode: direct_post.jwt
     credential_format: iso_mdl
     client_id_scheme: did
     request_method: request_uri_unsigned
+    response_mode: direct_post.jwt
 form:
     alias: >
         {{

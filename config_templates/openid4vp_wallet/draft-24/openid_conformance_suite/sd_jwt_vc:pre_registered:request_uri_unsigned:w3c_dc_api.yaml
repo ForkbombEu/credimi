@@ -1,8 +1,8 @@
 variant:
-    request_method: request_uri_unsigned
-    response_mode: w3c_dc_api
     credential_format: sd_jwt_vc
     client_id_scheme: pre_registered
+    request_method: request_uri_unsigned
+    response_mode: w3c_dc_api
 form:
     alias: >
         {{

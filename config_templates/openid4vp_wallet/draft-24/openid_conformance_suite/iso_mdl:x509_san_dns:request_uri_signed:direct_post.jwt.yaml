@@ -1,8 +1,8 @@
 variant:
-    credential_format: iso_mdl
-    client_id_scheme: x509_san_dns
     request_method: request_uri_signed
     response_mode: direct_post.jwt
+    credential_format: iso_mdl
+    client_id_scheme: x509_san_dns
 form:
     alias: >
         {{
@@ -104,6 +104,21 @@ form:
                   }
             \"}}
 
+        client_id: >
+            {{
+
+                credimi \"
+                  {
+                    "credimi_id": "oid_client_id",
+                    "field_id": "client_id",
+                    "field_label": "i18n_client_id",
+                    "field_description": "i18n_client_id_description",
+                    "field_default_value": "did:web:app.altme.io:issuer",
+                    "field_type": "string",
+                    "field_options": []
+                  }
+            \"}}
+
         authorization_encrypted_response_enc: >
             {{
 
@@ -129,21 +144,6 @@ form:
                     "field_label": "i18n_authorization_encrypted_response_alg",
                     "field_description": "i18n_authorization_encrypted_response_alg_description",
                     "field_default_value": """,
-                    "field_type": "string",
-                    "field_options": []
-                  }
-            \"}}
-
-        client_id: >
-            {{
-
-                credimi \"
-                  {
-                    "credimi_id": "oid_client_id",
-                    "field_id": "client_id",
-                    "field_label": "i18n_client_id",
-                    "field_description": "i18n_client_id_description",
-                    "field_default_value": "did:web:app.altme.io:issuer",
                     "field_type": "string",
                     "field_options": []
                   }

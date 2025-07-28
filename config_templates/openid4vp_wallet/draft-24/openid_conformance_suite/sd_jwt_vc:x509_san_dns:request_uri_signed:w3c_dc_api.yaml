@@ -1,8 +1,8 @@
 variant:
+    credential_format: sd_jwt_vc
     client_id_scheme: x509_san_dns
     request_method: request_uri_signed
     response_mode: w3c_dc_api
-    credential_format: sd_jwt_vc
 form:
     alias: >
         {{
