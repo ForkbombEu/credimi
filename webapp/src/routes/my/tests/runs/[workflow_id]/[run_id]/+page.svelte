@@ -27,6 +27,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { Separator } from '@/components/ui/separator';
+	import Button from '@/components/ui-custom/button.svelte';
+	import { ArrowLeftIcon } from 'lucide-svelte';
 
 	//
 
@@ -221,9 +223,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet bottom()}
 		<div class="w-full pt-2">
 			<div class="w-full bg-gray-200 px-4">
-				<BackButton href="/my/tests/runs" class="text-black">
-					{m.Back_to_test_runs()}
-				</BackButton>
+				<Button
+					variant="link"
+					class="!px-0 text-black"
+					onclick={() => window.history.back()}
+				>
+					<ArrowLeftIcon />
+					{m.Back()}
+				</Button>
 			</div>
 		</div>
 	{/snippet}
