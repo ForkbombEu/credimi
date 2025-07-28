@@ -6,7 +6,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { QrCode } from '@/qr';
-	import type { WorkflowExecution } from './types';
 	import { pb } from '@/pocketbase';
 	import { onMount } from 'svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -52,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	class={[
-		'flex aspect-square flex-col items-center justify-center rounded-sm border bg-gray-50',
+		'flex aspect-square !shrink-0 flex-col items-center justify-center overflow-hidden rounded-sm border bg-gray-50',
 		containerClass
 	]}
 >

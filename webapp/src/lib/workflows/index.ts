@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 export * from './types';
-export * from './utils';
+export * from './queries';
 export * from './memo';
 
 import WorkflowsTable from './workflows-table.svelte';

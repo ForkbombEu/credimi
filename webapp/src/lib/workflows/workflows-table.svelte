@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import * as Table from '@/components/ui/table';
-	import type { WorkflowExecution } from './types';
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import A from '@/components/ui-custom/a.svelte';
 	import { toUserTimezone } from '@/utils/toUserTimezone';
@@ -15,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { getWorkflowMemo, type WorkflowMemo } from './memo';
+	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
 	//
 
@@ -49,8 +49,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
-			{#each workflows as workflow (workflow.execution.runId)}
-				{@const path = `/my/tests/runs/${workflow.execution.workflowId}/${workflow.execution.runId}`}
+			{#each workflows as workflow (workflow.runId)}
+				{@const path = `/my/tests/runs/${workflow.id}/${workflow.runId}`}
 				{@const status = toWorkflowStatusReadable(workflow.status)}
 				{@const memo = getWorkflowMemo(workflow)}
 				{@const start = toUserTimezone(workflow.startTime)}
@@ -69,11 +69,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<T>{memo.test}</T>
 							</A>
 							<T class="mt-1 text-xs text-gray-400">
-								{workflow.execution.workflowId}
+								{workflow.id}
 							</T>
 						{:else}
 							<A href={path}>
-								{workflow.execution.workflowId}
+								{workflow.id}
 							</A>
 						{/if}
 					</Table.Cell>

@@ -11,8 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '$lib/start-checks-form/_utils';
 	import { browser } from '$app/environment';
 	import { Array } from 'effect';
-	import { ensureArray } from '@/utils/other';
-	import { fetchUserWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
+	import { ensureArray, warn } from '@/utils/other';
+	import { fetchWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -22,33 +22,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
 	import { setWorkflowStatusesInUrl } from './utils.js';
-	import { setupPollingWithInvalidation } from '$lib/utils/index.js';
 	import { onMount } from 'svelte';
 
 	//
 
 	let { data } = $props();
-	let { executions, selectedStatuses } = $derived(data);
+	let { workflows, selectedStatuses } = $derived(data);
 
 	let latestCheckRuns: StartCheckResultWithMeta[] = $state(
 		browser ? ensureArray(LatestCheckRunsStorage.get()) : []
 	);
 	const latestRunIds = $derived(latestCheckRuns.map((run) => run.WorkflowRunID));
 
-	const latestExecutions = $derived(
-		executions.filter((exec) => latestRunIds.includes(exec.execution.runId))
-	);
-
-	const oldExecutions = $derived(Array.difference(executions, latestExecutions));
+	const latestWorkflows = $derived(workflows.filter((w) => latestRunIds.includes(w.runId)));
+	const oldWorkflows = $derived(Array.difference(workflows, latestWorkflows));
 
 	//
 
 	onMount(() => {
 		const interval = setInterval(async () => {
-			const workflows = await fetchUserWorkflows({ statuses: selectedStatuses });
-			if (workflows.success) {
-				executions = workflows.data.executions;
-			}
+			const newWorkflows = await fetchWorkflows({ statuses: selectedStatuses });
+			if (!(newWorkflows instanceof Error)) workflows = newWorkflows;
+			else warn(newWorkflows);
 		}, 5000);
 
 		return () => {
@@ -63,7 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<WorkflowStatusSelect value={selectedStatuses} onValueChange={setWorkflowStatusesInUrl} />
 	</div>
 
-	{#if latestExecutions.length > 0}
+	{#if latestWorkflows.length > 0}
 		<div class="space-y-4">
 			<div class="flex items-center justify-between">
 				<T tag="h3">{m.Review_latest_check_runs()}</T>
@@ -82,18 +77,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Button>
 			</div>
 
-			<WorkflowsTable workflows={latestExecutions}>
+			<WorkflowsTable workflows={latestWorkflows}>
 				{#snippet headerRight({ Th })}
 					<Th>
 						{m.QR_code()}
 					</Th>
 				{/snippet}
 
-				{#snippet rowRight({ workflow, Td, workflowMemo })}
+				{#snippet rowRight({ workflow, Td })}
 					<Td>
 						<WorkflowQrPoller
-							workflowId={workflow.execution.workflowId}
-							runId={workflow.execution.runId}
+							workflowId={workflow.id}
+							runId={workflow.runId}
 							containerClass="size-32"
 						/>
 					</Td>
@@ -102,18 +97,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/if}
 
-	{#if oldExecutions.length !== 0 && latestExecutions.length !== 0}
+	{#if oldWorkflows.length !== 0 && latestWorkflows.length !== 0}
 		<Separator />
 	{/if}
 
-	{#if oldExecutions.length > 0}
+	{#if oldWorkflows.length > 0}
 		<div class="space-y-4">
 			<T tag="h3">{m.Checks_history()}</T>
-			<WorkflowsTable workflows={oldExecutions} />
+			<WorkflowsTable workflows={oldWorkflows} />
 		</div>
 	{/if}
 
-	{#if oldExecutions.length === 0 && latestExecutions.length === 0}
+	{#if oldWorkflows.length === 0 && latestWorkflows.length === 0}
 		{#if selectedStatuses.length === 0}
 			<EmptyState
 				icon={TestTube2}
