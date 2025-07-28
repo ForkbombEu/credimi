@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '$lib/start-checks-form/_utils';
 	import { browser } from '$app/environment';
 	import { Array } from 'effect';
-	import { ensureArray, warn } from '@/utils/other';
+	import { ensureArray } from '@/utils/other';
 	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
@@ -53,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="space-y-8">
 	<div class="bg-background flex flex-wrap items-center gap-4 rounded-lg border p-4">
-		<p>Filter runs by status</p>
+		<p>{m.Filter_runs_by_status()}</p>
 		<WorkflowStatusSelect value={selectedStatuses} onValueChange={setWorkflowStatusesInUrl} />
 	</div>
 
