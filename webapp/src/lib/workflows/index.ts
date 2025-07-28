@@ -5,6 +5,7 @@
 export * from './types';
 export * from './queries';
 export * from './memo';
+export * from './utils';
 
 import WorkflowsTable from './workflows-table.svelte';
 import WorkflowQrPoller from './workflow-qr-poller.svelte';

@@ -25,7 +25,3 @@ export function setWorkflowStatusesInUrl(statuses: WorkflowStatusType[]) {
 	}
 	goto(`${page.url.pathname}?${query.toString()}`);
 }
-
-//
-
-export const INVALIDATE_KEY = 'app:load-workflows';

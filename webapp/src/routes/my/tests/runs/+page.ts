@@ -2,16 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { fetchWorkflows } from '$lib/workflows/index.js';
+import { fetchWorkflows, groupWorkflowsWithChildren } from '$lib/workflows/index.js';
 
 import { error } from '@sveltejs/kit';
-import { getWorkflowStatusesFromUrl, INVALIDATE_KEY } from './utils';
+import { getWorkflowStatusesFromUrl } from './utils';
 
 //
 
-export const load = async ({ fetch, url, depends }) => {
-	depends(INVALIDATE_KEY);
-
+export const load = async ({ fetch, url }) => {
 	const statuses = getWorkflowStatusesFromUrl(url);
 
 	const workflows = await fetchWorkflows({ fetch, statuses });
@@ -22,7 +20,7 @@ export const load = async ({ fetch, url, depends }) => {
 	}
 
 	return {
-		workflows,
+		workflows: groupWorkflowsWithChildren(workflows),
 		selectedStatuses: statuses
 	};
 };

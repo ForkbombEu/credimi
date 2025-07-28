@@ -11,8 +11,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '$lib/start-checks-form/_utils';
 	import { browser } from '$app/environment';
 	import { Array } from 'effect';
-	import { ensureArray } from '@/utils/other';
-	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
+	import { ensureArray, warn } from '@/utils/other';
+	import {
+		fetchWorkflows,
+		groupWorkflowsWithChildren,
+		WorkflowQrPoller,
+		WorkflowsTable
+	} from '$lib/workflows';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -21,9 +26,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WorkflowStatusSelect from '$lib/workflows/workflow-status-select.svelte';
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
-	import { INVALIDATE_KEY, setWorkflowStatusesInUrl } from './utils.js';
+	import { setWorkflowStatusesInUrl } from './utils.js';
 	import { onMount } from 'svelte';
-	import { invalidate } from '$app/navigation';
 
 	//
 
@@ -42,7 +46,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	onMount(() => {
 		const interval = setInterval(async () => {
-			invalidate(INVALIDATE_KEY);
+			const newWorkflows = await fetchWorkflows({ statuses: selectedStatuses });
+			if (newWorkflows instanceof Error) warn(newWorkflows);
+			else workflows = groupWorkflowsWithChildren(newWorkflows);
 		}, 5000);
 
 		return () => {
@@ -76,7 +82,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Button>
 			</div>
 
-			<WorkflowsTable workflows={latestWorkflows} separateLogs>
+			<WorkflowsTable workflows={latestWorkflows}>
 				{#snippet headerRight({ Th })}
 					<Th>
 						{m.QR_code()}
@@ -105,7 +111,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if oldWorkflows.length > 0}
 		<div class="space-y-4">
 			<T tag="h3">{m.Checks_history()}</T>
-			<WorkflowsTable workflows={oldWorkflows} separateLogs />
+			<WorkflowsTable workflows={oldWorkflows} />
 		</div>
 	{/if}
 

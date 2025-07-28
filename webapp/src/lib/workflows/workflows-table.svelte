@@ -14,20 +14,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { getWorkflowMemo, type WorkflowMemo } from './memo';
-	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 	import { Array } from 'effect';
 	import { CornerDownRight } from 'lucide-svelte';
+	import type { WorkflowWithChildren } from './utils';
 
 	//
 
 	type Props = {
-		workflows: WorkflowExecution[];
-		separateLogs?: boolean;
+		workflows: WorkflowWithChildren[];
 		headerRight?: Snippet<[{ Th: typeof Table.Head }]>;
 		rowRight?: Snippet<
 			[
 				{
-					workflow: WorkflowExecution;
+					workflow: WorkflowWithChildren;
 					Td: typeof Table.Cell;
 					workflowMemo: WorkflowMemo | undefined;
 				}
@@ -35,12 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>;
 	};
 
-	let { workflows, headerRight, rowRight, separateLogs }: Props = $props();
-
-	const [base, logs] = $derived.by(() => {
-		if (separateLogs) return Array.partition(workflows, (w) => w.id.endsWith('-log'));
-		return [workflows, []];
-	});
+	let { workflows, headerRight, rowRight }: Props = $props();
 </script>
 
 <TemporalI18nProvider>
@@ -55,13 +49,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
-			{#each base as workflow (workflow.runId)}
+			{#each workflows as workflow (workflow.runId)}
 				{@const path = `/my/tests/runs/${workflow.id}/${workflow.runId}`}
 				{@const status = toWorkflowStatusReadable(workflow.status)}
 				{@const memo = getWorkflowMemo(workflow)}
 				{@const start = toUserTimezone(workflow.startTime)}
 				{@const end = toUserTimezone(workflow.endTime)}
-				{@const logWorkflow = logs.find((l) => l.id.startsWith(workflow.id))}
 
 				<Table.Row>
 					<Table.Cell>
@@ -85,16 +78,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</A>
 						{/if}
 
-						{#if separateLogs && logWorkflow}
-							<div class="pt-2">
-								<A
-									href={`/my/tests/runs/${logWorkflow.id}/${logWorkflow.runId}`}
-									class="flex gap-0.5"
-								>
-									<CornerDownRight size="15" />
-									<T class="-translate-y-[1px]">{m.View_logs_workflow()}</T>
-								</A>
-							</div>
+						{#if workflow.children}
+							{#each workflow.children as child}
+								<div class="pt-2">
+									<A
+										href={`/my/tests/runs/${child.id}/${child.runId}`}
+										class="flex gap-0.5"
+									>
+										<CornerDownRight size="15" />
+										<T class="-translate-y-[1px]">{m.View_logs_workflow()}</T>
+									</A>
+								</div>
+							{/each}
 						{/if}
 					</Table.Cell>
 
