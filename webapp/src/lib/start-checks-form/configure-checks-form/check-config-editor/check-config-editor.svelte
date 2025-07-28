@@ -48,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="flex min-w-0 shrink-0 grow basis-1 flex-col space-y-6">
-		<SmallSectionLabel>{m.JSON_configuration()}</SmallSectionLabel>
+		<SmallSectionLabel>{m.YAML_Configuration()}</SmallSectionLabel>
 		<CheckConfigJsonEditorComponent editor={editor.jsonEditor} />
 	</div>
 </div>

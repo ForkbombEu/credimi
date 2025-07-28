@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { isNamedConfigField } from '$start-checks-form/_utils';
 	import type { EditorView } from '@codemirror/view';
+	import { yaml } from '@codemirror/lang-yaml';
 
 	//
 
@@ -59,9 +60,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Form form={editor.superform} hide={['submit_button']} hideRequiredIndicator>
 	<CodeEditorField
 		form={editor.superform}
-		name="json"
+		name="yaml"
 		options={{
-			lang: 'json',
+			lang: yaml(),
 			class: 'self-stretch',
 			hideLabel: true,
 			maxHeight: 600,

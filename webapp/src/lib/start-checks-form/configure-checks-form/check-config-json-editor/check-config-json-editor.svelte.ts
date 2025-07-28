@@ -12,7 +12,7 @@ import type { State } from '@/utils/types';
 import { fromStore } from 'svelte/store';
 import type { CheckConfigFormEditor } from '$lib/start-checks-form/configure-checks-form/check-config-form-editor';
 import { watch } from 'runed';
-import { jsonStringSchema } from '$lib/utils';
+import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
 
 //
 
@@ -22,7 +22,7 @@ type CheckConfigJsonEditorProps = {
 };
 
 type FormData = {
-	json: string;
+	yaml: string;
 };
 
 export class CheckConfigJsonEditor implements BaseEditor {
@@ -30,13 +30,13 @@ export class CheckConfigJsonEditor implements BaseEditor {
 	private values: State<FormData>;
 	private taintedState: State<TaintedFields<FormData> | undefined>;
 
-	isTainted = $derived.by(() => this.taintedState.current?.json === true);
+	isTainted = $derived.by(() => this.taintedState.current?.yaml === true);
 	isValid = $state(false);
 
 	constructor(public readonly props: CheckConfigJsonEditorProps) {
 		this.superform = createForm({
-			adapter: zod(z.object({ json: jsonStringSchema })),
-			initialData: { json: formatJson(this.props.json) },
+			adapter: zod(z.object({ yaml: yamlStringSchema })),
+			initialData: { yaml: formatJson(this.props.json) },
 			options: {
 				id: nanoid(6)
 			}
@@ -58,7 +58,7 @@ export class CheckConfigJsonEditor implements BaseEditor {
 	}
 
 	getData() {
-		return this.values.current.json;
+		return this.values.current.yaml;
 	}
 
 	reset() {
