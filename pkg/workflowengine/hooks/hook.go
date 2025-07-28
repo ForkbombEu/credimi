@@ -73,6 +73,11 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		}
 		return se.Next()
 	})
+	app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error {
+		temporalclient.ShutdownClients()
+		return nil
+	})
+
 }
 
 type workerConfig struct {
@@ -107,7 +112,6 @@ func StartAllWorkersByNamespace(namespace string) {
 	if err != nil {
 		log.Fatalf("Failed to connect to Temporal: %v", err)
 	}
-	defer c.Close()
 
 	var wg sync.WaitGroup
 

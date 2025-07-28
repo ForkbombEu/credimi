@@ -6,23 +6,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import * as Sheet from '@/components/ui/sheet';
-	import { m } from '@/i18n';
 	import { Menu } from 'lucide-svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
-	import type { Snippet } from 'svelte';
+	import type { LinkWithIcon } from '@/components/types';
+	import { AppLogo } from '@/brand';
+	import NavLink from './nav-link.svelte';
+	import { m } from '@/i18n';
+	import { onNavigate } from '$app/navigation';
+
+	//
 
 	interface Props {
-		open: boolean;
-		onOpenChange: (open: boolean) => void;
-		children: Snippet;
-		title?: string;
+		items: LinkWithIcon[];
 	}
 
-	const { open, onOpenChange, children, title = m.navigation() }: Props = $props();
+	const { items }: Props = $props();
+
+	let open = $state(false);
+
+	onNavigate(() => {
+		open = false;
+	});
 </script>
 
-<Sheet.Root {open} {onOpenChange}>
+<Sheet.Root bind:open>
 	<Sheet.Trigger>
 		{#snippet child({ props })}
 			<Button variant="ghost" size="icon" class="lg:hidden" {...props}>
@@ -31,13 +39,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 	</Sheet.Trigger>
 
-	<Sheet.Content side="left" class="w-80">
+	<Sheet.Content side="right" class="w-80">
 		<Sheet.Header class="border-b pb-4">
-			<Sheet.Title>{title}</Sheet.Title>
+			<Sheet.Title>
+				<AppLogo />
+			</Sheet.Title>
 		</Sheet.Header>
 
 		<div class="mt-6 flex flex-col space-y-2">
-			{@render children()}
+			{#each items as item}
+				<NavLink
+					link={item}
+					variant="mobile"
+					badge={item.href?.endsWith('/my/tests/new') ? m.Beta() : undefined}
+				/>
+			{/each}
 		</div>
 	</Sheet.Content>
 </Sheet.Root>

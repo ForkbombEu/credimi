@@ -98,60 +98,64 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="min-h-screen">
-	<div class="bg-primary text-white">
-		<div class="!px-2 md:!px-4 lg:!px-8">
-			<BackButton href="/my/tests/runs" class="text-white">
-				{m.Back_to_test_runs()}
-			</BackButton>
+	{#if !isIframeLoading}
+		<div class="bg-primary text-white">
+			<div class="!px-2 md:!px-4 lg:!px-8">
+				<BackButton href="/my/tests/runs" class="text-white">
+					{m.Back_to_test_runs()}
+				</BackButton>
+			</div>
 		</div>
-	</div>
 
-	<div
-		class="border-primary flex items-center justify-between border-b-2 !px-2 py-4 pb-4 md:!px-4 lg:!px-8"
-	>
-		<div>
-			{#if workflowMemo}
-				<T tag="h3">
-					{workflowMemo?.standard} / {workflowMemo?.author}
-				</T>
-				<T tag="h1">
-					{#each testNameChunks as chunk, index}
-						{#if index > 0}
-							<span class="text-muted-foreground">:</span>
-						{/if}
-						<span>
-							{chunk}
-						</span>
-					{/each}
-				</T>
-				<T class="mt-4">{m.Test_run()}: {workflowId}</T>
-			{:else}
-				<div>
-					<T tag="h2">
-						{workflowId}
+		<div
+			class="border-primary flex items-center justify-between border-b-2 !px-2 py-4 pb-4 md:!px-4 lg:!px-8"
+		>
+			<div>
+				{#if workflowMemo}
+					<T tag="h3">
+						{workflowMemo?.standard} / {workflowMemo?.author}
 					</T>
-				</div>
-			{/if}
+					<T tag="h1">
+						{#each testNameChunks as chunk, index}
+							{#if index > 0}
+								<span class="text-muted-foreground">:</span>
+							{/if}
+							<span>
+								{chunk}
+							</span>
+						{/each}
+					</T>
+					<T class="mt-4">{m.Test_run()}: {workflowId}</T>
+				{:else}
+					<div>
+						<T tag="h2">
+							{workflowId}
+						</T>
+					</div>
+				{/if}
+			</div>
+			<div class="bg-secondary rounded-md p-4">
+				<WorkflowQrPoller {workflowId} {runId} containerClass="size-40" />
+			</div>
 		</div>
-		<div class="bg-secondary rounded-md p-4">
-			<WorkflowQrPoller {workflowId} {runId} containerClass="size-40" />
-		</div>
-	</div>
 
-	{#if workflowMemo}
-		<div class="border-b-2 border-b-black !px-2 py-4 md:!px-4 lg:!px-8">
-			{#if workflowMemo.author == 'openid_conformance_suite'}
-				<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
-			{:else if workflowMemo.author == 'ewc'}
-				<EwcTop {workflowId} {runId} namespace={organization?.id!} />
-			{:else if workflowMemo.author == 'eudiw'}
-				<EudiwTop {workflowId} namespace={organization?.id!} />
-			{/if}
-		</div>
+		{#if workflowMemo}
+			<div class="border-b-2 border-b-black !px-2 py-4 md:!px-4 lg:!px-8">
+				{#if workflowMemo.author == 'openid_conformance_suite'}
+					<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
+				{:else if workflowMemo.author == 'ewc'}
+					<EwcTop {workflowId} {runId} namespace={organization?.id!} />
+				{:else if workflowMemo.author == 'eudiw'}
+					<EudiwTop {workflowId} namespace={organization?.id!} />
+				{/if}
+			</div>
+		{/if}
 	{/if}
 
 	<iframe id={iframeId} title="Workflow" src={page.url.pathname + '/temporal'} class="w-full"
 	></iframe>
 </div>
 
-<LoadingDialog loading={isIframeLoading} />
+<LoadingDialog loading={isIframeLoading}>
+	<T class="text-center">{m.Loading_workflow_data_may_take_some_seconds()}</T>
+</LoadingDialog>
