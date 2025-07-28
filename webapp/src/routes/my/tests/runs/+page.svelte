@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { browser } from '$app/environment';
 	import { Array } from 'effect';
 	import { ensureArray, warn } from '@/utils/other';
-	import { fetchWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
+	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -21,8 +21,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WorkflowStatusSelect from '$lib/workflows/workflow-status-select.svelte';
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
-	import { setWorkflowStatusesInUrl } from './utils.js';
+	import { INVALIDATE_KEY, setWorkflowStatusesInUrl } from './utils.js';
 	import { onMount } from 'svelte';
+	import { invalidate } from '$app/navigation';
 
 	//
 
@@ -41,9 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	onMount(() => {
 		const interval = setInterval(async () => {
-			const newWorkflows = await fetchWorkflows({ statuses: selectedStatuses });
-			if (!(newWorkflows instanceof Error)) workflows = newWorkflows;
-			else warn(newWorkflows);
+			invalidate(INVALIDATE_KEY);
 		}, 5000);
 
 		return () => {

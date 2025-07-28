@@ -5,11 +5,13 @@
 import { fetchWorkflows } from '$lib/workflows/index.js';
 
 import { error } from '@sveltejs/kit';
-import { getWorkflowStatusesFromUrl } from './utils';
+import { getWorkflowStatusesFromUrl, INVALIDATE_KEY } from './utils';
 
 //
 
-export const load = async ({ fetch, url }) => {
+export const load = async ({ fetch, url, depends }) => {
+	depends(INVALIDATE_KEY);
+
 	const statuses = getWorkflowStatusesFromUrl(url);
 
 	const workflows = await fetchWorkflows({ fetch, statuses });
@@ -18,7 +20,6 @@ export const load = async ({ fetch, url }) => {
 			message: workflows.message
 		});
 	}
-	console.log(workflows);
 
 	return {
 		workflows,
