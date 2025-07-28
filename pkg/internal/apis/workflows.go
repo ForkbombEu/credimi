@@ -74,7 +74,6 @@ func RegisterMyChecksRoutes(app core.App) {
 			// 	Path:    "/{checkId}/runs/{runId}/logs",
 			// 	Handler: handlers.HandleTailMyCheckLogs, // logs (tail)
 			// },
-			
 			// {
 			// 	Method:  http.MethodPost,
 			// 	Path:    "/{checkId}/schedule",

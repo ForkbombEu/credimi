@@ -44,7 +44,6 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 
 		statusParam := e.Request.URL.Query().Get("status")
 		var statusFilters []enums.WorkflowExecutionStatus
@@ -176,7 +175,6 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 		workflowExecution, err := c.DescribeWorkflowExecution(
 			context.Background(),
 			checkID,
@@ -272,7 +270,6 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 
 		list, err := c.ListWorkflow(
 			context.Background(),
@@ -366,7 +363,6 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 
 		workflowExecution, err := c.DescribeWorkflowExecution(
 			context.Background(),
@@ -474,7 +470,6 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 
 		err = c.CancelWorkflow(context.Background(), checkID, runID)
 		if err != nil {
@@ -543,7 +538,6 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		defer c.Close()
 
 		workflowInput, err := getWorkflowInput(checkID, runID, c)
 		if err != nil {
@@ -618,50 +612,43 @@ func getWorkflowInput(checkID string, runID string, c client.Client) (workflowen
 								if dataStr, ok := data.(string); ok {
 									decodedData, err := base64.StdEncoding.DecodeString(dataStr)
 									if err != nil {
-										return workflowengine.WorkflowInput{}, fmt.Errorf("failed to decode workflow input payload: %w", err)
+										return workflowengine.WorkflowInput{}, fmt.Errorf(
+											"failed to decode workflow input payload: %w", err,
+										)
 									}
 									var payloadData map[string]interface{}
 									err = json.Unmarshal(decodedData, &payloadData)
 									if err != nil {
-										return workflowengine.WorkflowInput{}, fmt.Errorf("failed to unmarshal workflow input payload: %w", err)
+										return workflowengine.WorkflowInput{}, fmt.Errorf(
+											"failed to unmarshal workflow input payload: %w", err,
+										)
 									}
-									//take workflow input payload from payloadData.Payload
 									if payload, ok := payloadData["Payload"]; ok {
 										if payloadMap, ok := payload.(map[string]interface{}); ok {
 											workflowInput.Payload = payloadMap
 										} else {
-											return workflowengine.WorkflowInput{}, fmt.Errorf("failed to unmarshal workflow input payload: %w", err)
-										}
-									}
-									//take workflow input payload from payloadData.Payload
-									if payload, ok := payloadData["Payload"]; ok {
-										if payloadMap, ok := payload.(map[string]interface{}); ok {
-											workflowInput.Payload = payloadMap
-										} else {
-											return workflowengine.WorkflowInput{}, fmt.Errorf("invalid workflow input payload format: payload is not a map")
+											return workflowengine.WorkflowInput{}, fmt.Errorf(
+												"invalid workflow input payload format: payload is not a map",
+											)
 										}
 									} else {
-										return workflowengine.WorkflowInput{}, fmt.Errorf("missing workflow input payload: payload field is missing in input data")
+										return workflowengine.WorkflowInput{}, fmt.Errorf(
+											"missing workflow input payload: payload field is missing in input data",
+										)
 									}
 									if config, ok := payloadData["Config"]; ok {
 										log.Println("Rerun workflow input config:", config)
 										if configMap, ok := config.(map[string]interface{}); ok {
 											workflowInput.Config = configMap
 										} else {
-											return workflowengine.WorkflowInput{}, fmt.Errorf("invalid workflow input config format: config is not a map")
+											return workflowengine.WorkflowInput{}, fmt.Errorf(
+												"invalid workflow input config format: config is not a map",
+											)
 										}
 									} else {
-										return workflowengine.WorkflowInput{}, fmt.Errorf("missing workflow input config: config field is missing in input data")
-									}
-									if config, ok := payloadData["Config"]; ok {
-										log.Println("Rerun workflow input config:", config)
-										if configMap, ok := config.(map[string]interface{}); ok {
-											workflowInput.Config = configMap
-										} else {
-											return workflowengine.WorkflowInput{}, fmt.Errorf("invalid workflow input config format: config is not a map")
-										}
-									} else {
-										return workflowengine.WorkflowInput{}, fmt.Errorf("missing workflow input config: config field is missing in input data")
+										return workflowengine.WorkflowInput{}, fmt.Errorf(
+											"missing workflow input config: config field is missing in input data",
+										)
 									}
 								}
 							}
