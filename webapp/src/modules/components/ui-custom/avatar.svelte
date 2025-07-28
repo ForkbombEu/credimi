@@ -34,13 +34,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let loadingError = $state(false);
 
-	if (src) {
+	$effect(() => {
+		if (!src) return;
 		const tester = new Image();
 		tester.src = src;
 		tester.onerror = () => {
 			loadingError = true;
 		};
-	}
+	});
 </script>
 
 {#if !(loadingError && hideIfLoadingError)}

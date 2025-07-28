@@ -7,96 +7,65 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import TextareaField from '@/forms/fields/textareaField.svelte';
-	import { Form, SubmitButton, createForm } from '@/forms';
-	import { QrCode } from '@/qr';
-	import { zod } from 'sveltekit-superforms/adapters';
-	import { z } from 'zod';
-	import Separator from '@/components/ui/separator/separator.svelte';
-	import { pb } from '@/pocketbase/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';
-	import { Label } from '@/components/ui/label';
-	import { MediaQuery } from 'svelte/reactivity';
-	import WorkflowLogs from '@/components/ui-custom/EudiwLogs.svelte';
 	import { m } from '@/i18n';
+	import Step from '../_partials/step.svelte';
+	import QrLink from '../_partials/qr-link.svelte';
+	import FeedbackForms from '../_partials/feedback-forms.svelte';
+	import { LogStatus, type WorkflowLogsProps } from '../_partials/workflow-logs';
+	import WorkflowLogs from '../_partials/workflow-logs.svelte';
+	import { z } from 'zod';
 
 	//
 
 	let { data } = $props();
 	const { qr, workflowId, namespace } = $derived(data);
 
-	let pageStatus = $state<'fresh' | 'success' | 'already_answered'>('fresh');
-
-	const successForm = createForm({
-		adapter: zod(z.object({})),
-		onSubmit: async () => {
-			await pb.send('/api/compliance/confirm-success', {
-				method: 'POST',
-				body: {
-					workflow_id: workflowId,
-					namespace: namespace
-				}
-			});
-			pageStatus = 'success';
-		},
-		onError: ({ setFormError, errorMessage }) => {
-			handleErrorMessage(errorMessage, setFormError);
-		}
-	});
-
-	const failureForm = createForm({
-		adapter: zod(z.object({ reason: z.string().min(3) })),
-		onSubmit: async ({
-			form: {
-				data: { reason }
-			}
-		}) => {
-			await pb.send('/api/compliance/notify-failure', {
-				method: 'POST',
-				body: {
-					workflow_id: workflowId,
-					namespace: namespace,
-					reason: reason
-				}
-			});
-			pageStatus = 'success';
-		},
-		onError: ({ setFormError, errorMessage }) => {
-			handleErrorMessage(errorMessage, setFormError);
-		}
-	});
-
-	function handleErrorMessage(message: string, errorFallback: () => void) {
-		const lowercased = message.toLowerCase();
-		if (lowercased.includes('signal') && lowercased.includes('failed'))
-			pageStatus = 'already_answered';
-		else errorFallback();
-	}
-
 	//
 
-	const sm = new MediaQuery('min-width: 640px');
+	const workflowLogsProps: WorkflowLogsProps = $derived.by(() => {
+		if (!workflowId || !namespace) {
+			throw new Error('missing workflowId or namespace');
+		}
+		return {
+			subscriptionSuffix: 'eudiw-logs',
+			startSignal: 'start-eudiw-check-signal',
+			stopSignal: 'stop-eudiw-check-signal',
+			workflowId,
+			namespace,
+			logTransformer: (rawLog) => {
+				const data = LogsSchema.parse(rawLog);
+				return {
+					time: data.timestamp,
+					message: data.event + '\n' + data.cause,
+					status: LogStatus.INFO,
+					rawLog
+				};
+			}
+		};
+	});
+
+	const LogsSchema = z
+		.object({
+			actor: z.string(),
+			event: z.string(),
+			cause: z.string().optional(),
+			timestamp: z.number().optional()
+		})
+		.passthrough();
 </script>
 
 <PageContent>
-	<T tag="h1" class="mb-4">Wallet test</T>
+	<T tag="h1" class="mb-4">{m.OpenID_Wallet_test()}</T>
 	<div class="space-y-4">
 		{#if qr}
-			<div class="step-container">
-				{@render Step(1, 'Scan this QR with the wallet app to start the check')}
-
+			<Step n="1" text="Scan this QR with the wallet app to start the check">
 				<div
 					class="bg-primary/10 ml-16 mt-4 flex flex-col items-center justify-center rounded-md p-2 sm:flex-row"
 				>
-					<QrCode src={qr} class="size-40 rounded-sm" />
-
-					<p
-						class="text-primary max-w-sm break-all p-4 font-mono text-xs hover:underline"
-					>
-						{qr}
-					</p>
+					<QrLink {qr} />
 				</div>
-			</div>
+			</Step>
 		{:else}
 			<Alert variant="destructive">
 				<T class="font-bold">{m.Error_check_failed()}</T>
@@ -107,29 +76,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		{#if workflowId && namespace}
-			<div class="step-container">
-				{@render Step(2, 'Follow the procedure on the wallet app')}
+			<Step n="2" text="Follow the procedure on the wallet app">
 				<div class="ml-16">
-					<WorkflowLogs {workflowId} {namespace} />
+					<WorkflowLogs {...workflowLogsProps} />
 				</div>
-			</div>
+			</Step>
+
+			<Step n="3" text="Confirm the result">
+				<FeedbackForms {workflowId} {namespace} />
+			</Step>
 		{/if}
 	</div>
 </PageContent>
-
-{#snippet Step(n: number, text: string)}
-	<div class="flex items-center gap-4">
-		<div
-			class="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-semibold"
-		>
-			<p>{n}</p>
-		</div>
-		<T class="text-primary font-semibold">{text}</T>
-	</div>
-{/snippet}
-
-<style lang="postcss">
-	.step-container {
-		@apply bg-secondary rounded-xl p-4;
-	}
-</style>

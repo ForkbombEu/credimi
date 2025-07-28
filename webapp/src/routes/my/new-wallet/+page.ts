@@ -2,21 +2,21 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { fetchUserWorkflows } from '$lib/workflows/index.js';
+import { fetchWorkflows } from '$lib/workflows/index.js';
 
 import { error } from '@sveltejs/kit';
 
 //
 
 export const load = async ({ fetch }) => {
-	const workflows = await fetchUserWorkflows(fetch);
-	if (!workflows.success) {
+	const workflows = await fetchWorkflows({ fetch });
+	if (workflows instanceof Error) {
 		error(500, {
-			message: 'Failed to parse response'
+			message: workflows.message
 		});
 	}
 
 	return {
-		executions: workflows.data.executions
+		workflows
 	};
 };

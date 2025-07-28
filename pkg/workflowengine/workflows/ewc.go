@@ -85,7 +85,7 @@ func (w *EWCWorkflow) Workflow(
 		Namespace:    workflow.GetInfo(ctx).Namespace,
 		TemporalUI: fmt.Sprintf(
 			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+			input.Payload["app_url"],
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -203,7 +203,7 @@ func (w *EWCWorkflow) Workflow(
 	startTimer = func() {
 		timerCtx, _ := workflow.WithCancel(ctx)
 		timerFuture = workflow.NewTimer(timerCtx, time.Second)
-		selector.AddFuture(timerFuture, func(f workflow.Future) {
+		selector.AddFuture(timerFuture, func(_ workflow.Future) {
 			if isPolling {
 				startTimer()
 			}

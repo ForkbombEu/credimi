@@ -110,6 +110,7 @@ func (a *StepCIWorkflowActivity) Execute(
 	var result workflowengine.ActivityResult
 
 	yamlContent, ok := input.Payload["yaml"].(string)
+
 	if !ok || yamlContent == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewActivityError(
@@ -139,25 +140,32 @@ func (a *StepCIWorkflowActivity) Execute(
 	binPath := fmt.Sprintf("%s/%s", binDir, binName)
 	args := []string{yamlContent, "-s", string(jsonBytes)}
 
+	yamlEnv, _ := input.Payload["env"].(string)
+	if yamlEnv != "" {
+		args = append(args, "--env", yamlEnv)
+	}
+
 	cmd := exec.CommandContext(ctx, binPath, args...)
-	output, err := cmd.CombinedOutput()
+
+	var stdoutBuf, stderrBuf bytes.Buffer
+	cmd.Stdout = &stdoutBuf
+	cmd.Stderr = &stderrBuf
+
+	err = cmd.Run()
+	stdoutStr := stdoutBuf.String()
+	stderrStr := stderrBuf.String()
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf(errCode.Description+": %v", err),
-			string(output),
+			stderrStr, // pass only stderr here
 		)
 	}
-
 	var outputJSON StepCICliReturns
-	if err := json.Unmarshal(output, &outputJSON); err != nil {
-		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf(errCode.Description+": %v", err),
-			string(output),
-		)
+	if err := json.Unmarshal(stdoutBuf.Bytes(), &outputJSON); err != nil {
+		result.Output = stdoutStr
+		return result, nil //nolint:all
 	}
 
 	result.Output = outputJSON

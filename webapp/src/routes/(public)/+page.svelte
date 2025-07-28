@@ -18,57 +18,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { currentUser, pb } from '@/pocketbase';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
-	import CredentialSection from './_sections/credential-section.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import { Sparkle } from 'lucide-svelte';
 	import { Collections } from '@/pocketbase/types';
 	import MarketplaceSection, { type SectionData } from './_sections/marketplace-section.svelte';
+	import { CollectionManager } from '@/collections-components';
+	import PageGrid from '$lib/layout/pageGrid.svelte';
+	import { MarketplaceItemCard } from './marketplace/_utils';
+	import { Badge } from '@/components/ui/badge';
 
+	const MAX_SOLUTION_ITEMS = 3;
+	// const schema = z.object({
+	// 	name: z.string(),
+	// 	email: z.string().email()
+	// });
 	//
-
-	const schema = z.object({
-		name: z.string(),
-		email: z.string().email()
-	});
-
-	const form = createForm({
-		adapter: zod(schema),
-		onSubmit: async ({ form: { data } }) => {
-			try {
-				await pb.collection('waitlist').create({
-					email: data.email,
-					name: data.name
-				});
-				formSuccess = true;
-			} catch {
-				throw new Error(
-					m.An_error_occurred_while_submitting_your_request_Please_try_again()
-				);
-			}
-		}
-	});
-
-	let formSuccess = $state(false);
-
-	//
-
-	const sections: SectionData[] = [
-		{
-			collection: Collections.Verifiers,
-			findLabel: m.Find_verifiers(),
-			allLabel: m.All_verifiers()
-		},
-		{
-			collection: Collections.Wallets,
-			findLabel: m.Find_apps(),
-			allLabel: m.All_apps()
-		},
-		{
-			collection: Collections.CredentialIssuers,
-			findLabel: m.Find_issuers(),
-			allLabel: m.All_issuers()
-		}
-	];
+	// const form = createForm({
+	// 	adapter: zod(schema),
+	// 	onSubmit: async ({ form: { data } }) => {
+	// 		try {
+	// 			await pb.collection('waitlist').create({
+	// 				email: data.email,
+	// 				name: data.name
+	// 			});
+	// 			formSuccess = true;
+	// 		} catch {
+	// 			throw new Error(
+	// 				m.An_error_occurred_while_submitting_your_request_Please_try_again()
+	// 			);
+	// 		}
+	// 	}
+	// });
+	// let formSuccess = $state(false);
+	const excludeFromSolutions = Collections.Credentials;
 </script>
 
 {#if $featureFlags.DEMO}
@@ -77,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <PageTop>
 	<div class="space-y-2">
-		<T tag="huge" class="text-balance">
+		<T tag="h1" class="text-balance">
 			{m.EUDIW_Conformance_Interoperability_and_Marketplace()}
 		</T>
 		<div class="flex flex-col gap-2 py-2">
@@ -89,70 +71,98 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</T>
 		</div>
 	</div>
-	<div class="flex gap-4">
+	<div class="flex flex-col gap-4 md:flex-row">
 		<Button variant="default" href="/marketplace">
 			{m.Explore_Marketplace()}
 		</Button>
 		<Button variant="secondary" href={$currentUser ? '/my/tests/new' : '/login'}>
 			<Icon src={Sparkle} />
-			{m.Conformance_Checks()}
+			{m.Start_a_new_check()}
+			<Badge variant="outline" class="border-primary text-primary text-xs">
+				{m.Beta()}
+			</Badge>
 		</Button>
 	</div>
 </PageTop>
 
 <PageContent class="bg-secondary" contentClass="space-y-12">
-	<CredentialSection />
-	{#each sections as section}
-		<MarketplaceSection {...section} />
-	{/each}
+	<div class="space-y-6">
+		<div class="flex items-center justify-between">
+			<T tag="h3">{m.Find_solutions()}</T>
+			<Button variant="default" href="/marketplace">{m.Explore_Marketplace()}</Button>
+		</div>
+
+		<CollectionManager
+			collection="marketplace_items"
+			queryOptions={{
+				perPage: MAX_SOLUTION_ITEMS,
+				filter: `type != '${excludeFromSolutions}'`
+			}}
+			hide={['pagination']}
+		>
+			{#snippet records({ records })}
+				<PageGrid>
+					{#each records as item, i}
+						{@const isLast = i === MAX_SOLUTION_ITEMS - 1}
+						<MarketplaceItemCard {item} class={isLast ? 'hidden lg:flex' : ''} />
+					{/each}
+				</PageGrid>
+			{/snippet}
+		</CollectionManager>
+	</div>
+	<MarketplaceSection
+		collection={Collections.Credentials}
+		findLabel={m.Find_credentials()}
+		allLabel={m.All_credentials()}
+	/>
 </PageContent>
 
 <PageContent class="border-y-primaryborder-y-2" contentClass="!space-y-8">
 	<div id="waitlist" class="scroll-mt-20">
-		<T tag="h2" class="text-balance">
-			{m._Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List()}
-		</T>
-		<T class="mt-1 text-balance font-medium">
-			{m.Be_the_first_to_explore_credimi_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_()}
-		</T>
+		<!-- <T tag="h2" class="text-balance"> -->
+		<!-- 	{m._Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List()} -->
+		<!-- </T> -->
+		<!-- <T class="mt-1 text-balance font-medium"> -->
+		<!-- 	{m.Be_the_first_to_explore_credimi_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_()} -->
+		<!-- </T> -->
 	</div>
 
-	{#if !formSuccess}
-		<Form {form} hide={['submit_button']} class=" !space-y-3" hideRequiredIndicator>
-			<div class="flex w-full max-w-3xl flex-col gap-2 md:flex-row md:gap-6">
-				<div class="grow">
-					<Field
-						{form}
-						name="name"
-						options={{
-							label: m.Your_name(),
-							placeholder: m.John_Doe(),
-							class: 'bg-secondary/40 '
-						}}
-					/>
-				</div>
-				<div class="grow">
-					<Field
-						{form}
-						name="email"
-						options={{
-							label: m.Your_email(),
-							placeholder: m.e_g_hellomycompany_com(),
-							class: 'bg-secondary/40'
-						}}
-					/>
-				</div>
-			</div>
-			<SubmitButton>{m.Join_the_Waitlist()}</SubmitButton>
-		</Form>
-	{:else}
-		<Alert variant="info">
-			<p class="font-bold">{m.Request_sent_()}</p>
-			<p>
-				{m.Thanks_for_your_interest_We_will_write_to_you_soon()}
-			</p>
-		</Alert>
-	{/if}
+	<!-- {#if !formSuccess} -->
+	<!-- 	<Form {form} hide={['submit_button']} class=" !space-y-3" hideRequiredIndicator> -->
+	<!-- 		<div class="flex w-full max-w-3xl flex-col gap-2 md:flex-row md:gap-6"> -->
+	<!-- 			<div class="grow"> -->
+	<!-- 				<Field -->
+	<!-- 					{form} -->
+	<!-- 					name="name" -->
+	<!-- 					options={{ -->
+	<!-- 						label: m.Your_name(), -->
+	<!-- 						placeholder: m.John_Doe(), -->
+	<!-- 						class: 'bg-secondary/40 ' -->
+	<!-- 					}} -->
+	<!-- 				/> -->
+	<!-- 			</div> -->
+	<!-- 			<div class="grow"> -->
+	<!-- 				<Field -->
+	<!-- 					{form} -->
+	<!-- 					name="email" -->
+	<!-- 					options={{ -->
+	<!-- 						label: m.Your_email(), -->
+	<!-- 						placeholder: m.e_g_hellomycompany_com(), -->
+	<!-- 						class: 'bg-secondary/40' -->
+	<!-- 					}} -->
+	<!-- 				/> -->
+	<!-- 			</div> -->
+	<!-- 		</div> -->
+	<!-- 		<SubmitButton>{m.Join_the_Waitlist()}</SubmitButton> -->
+	<!-- 	</Form> -->
+	<!-- {:else} -->
+	<!-- 	<Alert variant="info"> -->
+	<!-- 		<p class="font-bold">{m.Request_sent_()}</p> -->
+	<!-- 		<p> -->
+	<!-- 			{m.Thanks_for_your_interest_We_will_write_to_you_soon()} -->
+	<!-- 		</p> -->
+	<!-- 	</Alert> -->
+	<!-- {/if} -->
 </PageContent>
 
 <PageContent class="bg-secondary" contentClass="space-y-12">

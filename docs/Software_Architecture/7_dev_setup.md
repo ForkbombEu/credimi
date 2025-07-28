@@ -9,6 +9,8 @@ Before you begin, ensure you have the following tools installed:
 -   [Mise](https://mise.jdx.dev/getting-started.html)
 -   [Temporal](https://docs.temporal.io/cli)
 -   [Tmux](https://github.com/tmux/tmux/wiki/Installing)
+-   [Pre-commit](https://pre-commit.com/)
+-   [Golang](https://go.dev/doc/install)
 
 ### **Install `slangroom-exec`**
 
@@ -21,22 +23,45 @@ wget https://github.com/dyne/slangroom-exec/releases/latest/download/slangroom-e
 chmod +x slangroom-exec
 sudo cp slangroom-exec /usr/local/bin/
 ```
+### **Install `Pre-commit`**
+For most Linux distrubution, just do: 
+```bash
+sudo apt install pre-commit
+```
+
+
+### **Install `slangroom-exec`**
 
 ## **Setup Workspace**
 
 ### **Clone the repository**
 
 ```bash
-git clone https://github.com/ForkbombEu/DIDimo
+git clone https://github.com/ForkbombEu/credimi
 ```
 
 ### **Install dependencies**
 
 ```bash
-cd DIDimo
+cd credimi
 mise trust
-make didimo
+make credimi
 ```
+
+## Edit your .env file 
+
+Copy .env.example to .env
+
+```bash
+cp ./webapp/.env.example ./webapp/.env  
+```
+
+Then edit the .env file, particularly: 
+
+1. set the absolute path in ROOT_DIR
+1. Get a token from https://www.certification.openid.net and add it in TOKEN
+
+Copy ./webapp/env.example to 
 
 ## **Start Development Server**
 

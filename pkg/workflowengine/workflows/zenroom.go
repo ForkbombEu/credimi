@@ -60,7 +60,7 @@ func (w *ZenroomWorkflow) Workflow(
 		CmdArgs []string
 	}
 
-	err := workflow.SideEffect(ctx, func(ctx workflow.Context) interface{} {
+	err := workflow.SideEffect(ctx, func(_ workflow.Context) interface{} {
 		tmpDirLocal, err := os.MkdirTemp("", "zenroom-workflow-")
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.MkdirFailed]
@@ -215,7 +215,6 @@ func (w *ZenroomWorkflow) Start(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unable to create client: %w", err)
 	}
-	defer c.Close()
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       "Zenroom-Workflow-" + uuid.NewString(),
