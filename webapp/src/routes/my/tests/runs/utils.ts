@@ -6,6 +6,8 @@ import { isWorkflowStatus, type WorkflowStatusType } from '$lib/temporal';
 import { page } from '$app/state';
 import { goto } from '@/i18n';
 
+//
+
 export const STATUS_PARAM = 'statuses';
 
 export function getWorkflowStatusesFromUrl(url: URL): WorkflowStatusType[] {
