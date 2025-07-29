@@ -17,7 +17,6 @@ import (
 	"crypto/elliptic"
 	"crypto/rand"
 	"encoding/base64"
-	"errors"
 
 	"github.com/go-sprout/sprout"
 	"github.com/go-sprout/sprout/group/all"
