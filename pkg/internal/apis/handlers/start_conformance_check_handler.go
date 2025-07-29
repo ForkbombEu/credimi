@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
+	"gopkg.in/yaml.v3"
 )
 
 type CustomCheck struct {
@@ -128,7 +128,6 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"missing form",
 				)
 			}
-			log.Println("Custom check form:", customCheck.Form)
 			formJSON, err := json.Marshal(customCheck.Form)
 			if err != nil {
 				return apierror.New(
@@ -245,6 +244,52 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 	}
 }
 
+func reduceData(data interface{}) interface{} {
+	switch v := data.(type) {
+	case map[string]interface{}:
+		for key, value := range v {
+			if strValue, ok := value.(string); ok {
+				trimmed := strings.TrimSpace(strValue)
+				var jsonValue interface{}
+				if (strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")) ||
+					(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")) {
+					if err := json.Unmarshal([]byte(trimmed), &jsonValue); err == nil {
+						v[key] = reduceData(jsonValue)
+						continue
+					}
+				}
+				v[key] = trimmed
+			} else {
+				v[key] = reduceData(value)
+			}
+		}
+		return v
+
+	case []interface{}:
+		for i, value := range v {
+			if strValue, ok := value.(string); ok {
+				trimmed := strings.TrimSpace(strValue)
+				var jsonValue interface{}
+				if (strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")) ||
+					(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")) {
+					if err := json.Unmarshal([]byte(trimmed), &jsonValue); err == nil {
+						v[i] = reduceData(jsonValue)
+						continue
+					}
+				}
+				v[i] = trimmed
+			} else {
+				v[i] = reduceData(value)
+			}
+		}
+		return v
+
+	default:
+		return data
+	}
+}
+
+
 func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
 	jsonData := i.JSONData
 	email := i.Email
@@ -252,8 +297,40 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 	namespace := i.Namespace
 	memo := i.Memo
 
+	if jsonData == "" {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"json",
+			"JSON data is required for OpenIDNet workflow",
+			"missing JSON data",
+		)
+	}
+	var data interface{}
+
+	err := yaml.Unmarshal([]byte(jsonData), &data)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse YAML input",
+			err.Error(),
+		)
+	}
+
+	dataMap := reduceData(data)
+
+	jsonDataFinal, err := json.Marshal(dataMap)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"json",
+			"failed to convert YAML to JSON",
+			err.Error(),
+		)
+	}
+
 	var parsedData openID4VPTestInputFile
-	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
+	if err := json.Unmarshal(jsonDataFinal, &parsedData); err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"json",
@@ -493,6 +570,12 @@ func processVariablesTest(
 		)
 	}
 
+	for key, value := range values {
+		if strValue, ok := value.(string); ok {
+			values[key] = strings.ReplaceAll(strValue, "\n", "")
+		}
+	}
+
 	renderedTemplate, err := engine.RenderTemplate(bytes.NewReader(templateData), values)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
@@ -541,7 +624,6 @@ func processCustomChecks(
 			"yaml is empty",
 		)
 	}
-	log.Println("Custom check form JSON:", formJSON)
 
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
