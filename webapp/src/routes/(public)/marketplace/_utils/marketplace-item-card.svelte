@@ -60,7 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#if isCurrentUserOwner}
 		<div class="absolute right-0 top-0 p-1">
-			<Badge class="block rounded-md">Yours</Badge>
+			<Badge class="block rounded-md">{m.Yours()}</Badge>
 		</div>
 	{/if}
 </a>
