@@ -11,9 +11,8 @@ nonce: >
           "field_type": "string",
           "field_options": []
         }
-      `
-  uuidv4
-  }}
+
+  ` uuidv4}}
 id: >
   {{
 
@@ -27,6 +26,5 @@ id: >
           "field_type": "string",
           "field_options": []
         }
-      `
-  uuidv4
-  }}
+
+  ` uuidv4}}

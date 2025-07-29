@@ -11,6 +11,6 @@ sessionId: >
           "field_type": "string",
           "field_options": []
         }
-      `
-  uuidv4
-  }}
+
+   `
+   uuidv4}}
