@@ -39,8 +39,8 @@ type SaveVariablesAndStartRequestInput struct {
 }
 
 type openID4VPTestInputFile struct {
-	Variant json.RawMessage `json:"variant" validate:"required,oneof=json variables yaml"`
-	Form    any             `json:"form"`
+	Variant json.RawMessage `json:"variant" yaml:"variant" validate:"required,oneof=json variables yaml"`
+	Form    any             `json:"form" yaml:"form" `
 }
 
 type EWCInput struct {
@@ -48,8 +48,8 @@ type EWCInput struct {
 }
 
 type EudiwInput struct {
-	Nonce string `json:"nonce" validate:"required"`
-	ID    string `json:"id"    validate:"required"`
+	Nonce string `json:"nonce" yaml:"nonce" validate:"required"`
+	ID    string `json:"id"    yaml:"id"    validate:"required"`
 }
 
 type Author string
