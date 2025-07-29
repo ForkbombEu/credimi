@@ -14,6 +14,8 @@ import { PocketbaseQueryAgent } from '@/pocketbase/query';
 import { pb } from '@/pocketbase';
 import { invalidateAll } from '$app/navigation';
 import { onMount } from 'svelte';
+import { userOrganization } from '$lib/app-state';
+import { browser } from '$app/environment';
 
 //
 
@@ -47,7 +49,10 @@ export async function getUserOrganization(options = { fetch }) {
 		{ fetch: options.fetch }
 	).getFullList();
 
-	return organizationAuth.at(0)?.expand?.organization;
+	const org = organizationAuth.at(0)?.expand?.organization;
+	if (browser) userOrganization.current = org;
+
+	return org;
 }
 
 //
