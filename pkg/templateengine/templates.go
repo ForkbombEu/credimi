@@ -241,7 +241,7 @@ func jwk(alg string) (string, error) {
 		crv = elliptic.P521()
 		crvName = "P-521"
 	default:
-		return "", errors.New("unsupported algorithm")
+		return "", fmt.Errorf("unsupported algorithm: %s. Supported algorithms are: ES256, ES384, ES512", alg)
 	}
 
 	priv, err := ecdsa.GenerateKey(crv, rand.Reader)
