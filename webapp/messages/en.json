@@ -601,5 +601,8 @@
 	"Loading_workflow_data_may_take_some_seconds": "Loading workflow data may take some seconds...",
 	"Workflow": "Workflow",
 	"View_logs_workflow": "View logs workflow",
-	"Filter_runs_by_status": "Filter runs by status"
+	"Filter_runs_by_status": "Filter runs by status",
+	"This_item_is_yours": "This {item} is yours",
+	"Make_changes": "Make changes",
+	"Last_edited": "Last edited"
 }
