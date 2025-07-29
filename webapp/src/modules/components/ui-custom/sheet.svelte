@@ -25,6 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		trigger?: Snippet<[{ sheetTriggerAttributes: GenericRecord; openSheet: () => void }]>;
 		children?: Snippet;
 		content?: Snippet<[{ closeSheet: () => void }]>;
+		hideTrigger?: boolean;
 	}
 
 	let {
@@ -35,7 +36,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		contentClass = '',
 		trigger,
 		children,
-		content
+		content,
+		hideTrigger = false
 	}: Props = $props();
 
 	//
@@ -50,17 +52,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Sheet.Root bind:open={isOpen}>
-	<Sheet.Trigger>
-		{#snippet child({ props })}
-			{#if trigger}
-				{@render trigger({ sheetTriggerAttributes: props, openSheet })}
-			{:else}
-				<Button {...props} class="shrink-0" variant="outline">
-					{@render children?.()}
-				</Button>
-			{/if}
-		{/snippet}
-	</Sheet.Trigger>
+	{#if !hideTrigger}
+		<Sheet.Trigger>
+			{#snippet child({ props })}
+				{#if trigger}
+					{@render trigger({ sheetTriggerAttributes: props, openSheet })}
+				{:else}
+					<Button {...props} class="shrink-0" variant="outline">
+						{@render children?.()}
+					</Button>
+				{/if}
+			{/snippet}
+		</Sheet.Trigger>
+	{/if}
 
 	<Sheet.Content
 		side="right"
