@@ -300,9 +300,9 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 	if yamlData == "" {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
-			"json",
-			"JSON data is required for OpenIDNet workflow",
-			"missing JSON data",
+			"yaml",
+			"YAML data is required for OpenIDNet workflow",
+			"missing YAML data",
 		)
 	}
 	var data interface{}
