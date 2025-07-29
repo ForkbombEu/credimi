@@ -598,5 +598,12 @@
 	"Add_new_wallet": "Add new wallet",
 	"Before_adding_a_new_wallet_you_need_to_start_a_conformance_check": "Before adding a new wallet, you need to start a conformance check.",
 	"navigation": "Navigation",
-	"Loading_workflow_data_may_take_some_seconds": "Loading workflow data may take some seconds..."
+	"Loading_workflow_data_may_take_some_seconds": "Loading workflow data may take some seconds...",
+	"Workflow": "Workflow",
+	"View_logs_workflow": "View logs workflow",
+	"Filter_runs_by_status": "Filter runs by status",
+	"This_item_is_yours": "This {item} is yours",
+	"Make_changes": "Make changes",
+	"Last_edited": "Last edited",
+	"Yours": "Yours"
 }

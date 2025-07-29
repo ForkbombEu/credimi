@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import * as Table from '@/components/ui/table';
-	import type { WorkflowExecution } from './types';
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import A from '@/components/ui-custom/a.svelte';
 	import { toUserTimezone } from '@/utils/toUserTimezone';
@@ -15,16 +14,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { getWorkflowMemo, type WorkflowMemo } from './memo';
+	import { Array } from 'effect';
+	import { CornerDownRight } from 'lucide-svelte';
+	import type { WorkflowWithChildren } from './utils';
 
 	//
 
 	type Props = {
-		workflows: WorkflowExecution[];
+		workflows: WorkflowWithChildren[];
 		headerRight?: Snippet<[{ Th: typeof Table.Head }]>;
 		rowRight?: Snippet<
 			[
 				{
-					workflow: WorkflowExecution;
+					workflow: WorkflowWithChildren;
 					Td: typeof Table.Cell;
 					workflowMemo: WorkflowMemo | undefined;
 				}
@@ -33,8 +35,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { workflows, headerRight, rowRight }: Props = $props();
-
-	//
 </script>
 
 <TemporalI18nProvider>
@@ -42,19 +42,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Table.Header>
 			<Table.Row>
 				<Table.Head>{m.Status()}</Table.Head>
-				<Table.Head>{m.Workflow_ID()}</Table.Head>
+				<Table.Head>{m.Workflow()}</Table.Head>
 				{@render headerRight?.({ Th: Table.Head })}
 				<Table.Head class="text-right">{m.Start_time()}</Table.Head>
 				<Table.Head class="text-right">{m.End_time()}</Table.Head>
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
-			{#each workflows as workflow (workflow.execution.runId)}
-				{@const path = `/my/tests/runs/${workflow.execution.workflowId}/${workflow.execution.runId}`}
+			{#each workflows as workflow (workflow.runId)}
+				{@const path = `/my/tests/runs/${workflow.id}/${workflow.runId}`}
 				{@const status = toWorkflowStatusReadable(workflow.status)}
 				{@const memo = getWorkflowMemo(workflow)}
 				{@const start = toUserTimezone(workflow.startTime)}
 				{@const end = toUserTimezone(workflow.endTime)}
+
 				<Table.Row>
 					<Table.Cell>
 						{#if status !== null}
@@ -69,12 +70,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<T>{memo.test}</T>
 							</A>
 							<T class="mt-1 text-xs text-gray-400">
-								{workflow.execution.workflowId}
+								{workflow.id}
 							</T>
 						{:else}
 							<A href={path}>
-								{workflow.execution.workflowId}
+								{workflow.id}
 							</A>
+						{/if}
+
+						{#if workflow.children}
+							{#each workflow.children as child}
+								<div class="pt-2">
+									<A
+										href={`/my/tests/runs/${child.id}/${child.runId}`}
+										class="flex gap-0.5"
+									>
+										<CornerDownRight size="15" />
+										<T class="-translate-y-[1px]">{m.View_logs_workflow()}</T>
+									</A>
+								</div>
+							{/each}
 						{/if}
 					</Table.Cell>
 

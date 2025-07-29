@@ -27,8 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { GenericRecord } from '@/utils/types';
 	import type { FieldOptions } from '@/forms/fields/types';
 	import { Checkbox } from '@/components/ui/checkbox';
-	import { fetchUserWorkflows } from '$lib/workflows';
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
+	import { fetchWorkflows, getWorkflowMemo } from '$lib/workflows';
 
 	type Props = {
 		form: SuperForm<Data>;
@@ -37,23 +36,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { form, name, options }: Props = $props();
-
 	const { form: formData } = form;
 
 	//
 
-	const tableData: Promise<ConformanceCheck[]> = fetchUserWorkflows().then((res) => {
-		if (!res.success) return [];
-		const executions = res.data.executions.filter((execution) => execution.memo.fields);
-		return executions.map((execution) => ({
-			runId: execution.execution.runId,
-			// @ts-ignore
-			standard: atob(execution.memo.fields.standard.data).replaceAll(`"`, ''),
-			// @ts-ignore
-			test: atob(execution.memo.fields.test.data).replaceAll(`"`, ''),
-			workflowId: execution.execution.workflowId,
-			status: toWorkflowStatusReadable(execution.status)!
-		}));
+	const tableData: Promise<ConformanceCheck[]> = fetchWorkflows().then((res) => {
+		if (res instanceof Error) throw res;
+
+		const memos = res.map((w) => getWorkflowMemo(w));
+		const checks: ConformanceCheck[] = [];
+
+		// Listing only checks that have a memo
+		for (const [index, memo] of memos.entries()) {
+			if (!memo) continue;
+			const w = res[index];
+			checks.push({
+				runId: w.runId,
+				standard: memo.standard,
+				test: memo.test,
+				workflowId: w.id,
+				status: w.status ?? ''
+			});
+		}
+
+		return checks;
 	});
 </script>
 
