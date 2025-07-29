@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import FeedbackForms from '$wallet-test/_partials/feedback-forms.svelte';
 	import { LogStatus, type WorkflowLogsProps } from '$wallet-test/_partials/workflow-logs';
 	import WorkflowLogs from '$wallet-test/_partials/workflow-logs.svelte';
 	import { z } from 'zod';
@@ -20,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		showFeedbackForm?: boolean;
 	};
 
-	let { workflowId, namespace, showFeedbackForm = true }: Props = $props();
+	let { workflowId, namespace }: Props = $props();
 
 	//
 
@@ -56,7 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		.passthrough();
 </script>
 
-<Container right={showFeedbackForm ? right : undefined}>
+<Container>
 	{#snippet left()}
 		<Section title="Logs" bgColor="blue">
 			<WorkflowLogs
@@ -69,11 +68,3 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Section>
 	{/snippet}
 </Container>
-
-{#snippet right()}
-	<div class="space-y-4">
-		<Section title="Confirm the result" bgColor="blue">
-			<FeedbackForms {workflowId} {namespace} class="!gap-4" />
-		</Section>
-	</div>
-{/snippet}
