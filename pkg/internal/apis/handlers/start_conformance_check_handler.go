@@ -372,7 +372,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 }
 
 func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
-	jsonData := i.YAMLData
+	yamlData := i.YAMLData
 	email := i.Email
 	appURL := i.AppURL
 	namespace := i.Namespace
@@ -390,7 +390,7 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 		return workflowengine.WorkflowResult{}, err
 	}
 	var parsedData EWCInput
-	if err := yaml.Unmarshal([]byte(jsonData), &parsedData); err != nil {
+	if err := yaml.Unmarshal([]byte(yamlData), &parsedData); err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"yaml",
@@ -440,7 +440,7 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 }
 
 func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
-	jsonData := i.YAMLData
+	yamlData := i.YAMLData
 	email := i.Email
 	appURL := i.AppURL
 	namespace := i.Namespace
@@ -457,11 +457,11 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 		return workflowengine.WorkflowResult{}, err
 	}
 	var parsedData EudiwInput
-	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
+	if err := yaml.Unmarshal([]byte(yamlData), &parsedData); err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
-			"json",
-			"failed to parse JSON input",
+			"yaml",
+			"failed to parse YAML input",
 			err.Error(),
 		)
 	}
