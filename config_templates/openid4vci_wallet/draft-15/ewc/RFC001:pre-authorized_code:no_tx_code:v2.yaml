@@ -11,9 +11,4 @@ sessionId: >
           "field_type": "string",
           "field_options": []
         }
-<<<<<<< HEAD
-        `
-  uuidv4
-  }}
-=======
   ` uuidv4}}
