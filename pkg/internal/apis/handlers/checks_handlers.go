@@ -229,6 +229,96 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 	}
 }
 
+func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+		if authRecord == nil {
+			return apierror.New(
+				http.StatusUnauthorized,
+				"auth",
+				"authentication required",
+				"user not authenticated",
+			)
+		}
+
+		checkID := e.Request.PathValue("checkId")
+		runID := e.Request.PathValue("runId")
+		if checkID == "" || runID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"params",
+				"checkId and runId are required",
+				"missing required parameters",
+			)
+		}
+
+		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		if err != nil {
+			return err
+		}
+
+		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
+		}
+
+		historyIterator := c.GetWorkflowHistory(
+			context.Background(),
+			checkID,
+			runID,
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		)
+
+		var history []map[string]interface{}
+		for historyIterator.HasNext() {
+			event, err := historyIterator.Next()
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to get workflow history",
+					err.Error(),
+				)
+			}
+			eventJSON, err := protojson.Marshal(event)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to marshal workflow event",
+					err.Error(),
+				)
+			}
+			var eventMap map[string]interface{}
+			err = json.Unmarshal(eventJSON, &eventMap)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to unmarshal workflow event",
+					err.Error(),
+				)
+			}
+			history = append(history, eventMap)
+		}
+
+		return e.JSON(http.StatusOK, map[string]interface{}{
+			"history":   history,
+			"count":     len(history),
+			"time":      time.Now().Format(time.RFC3339),
+			"checkId":   checkID,
+			"runId":     runID,
+			"namespace": namespace,
+		})
+	}
+}
+
 func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
@@ -659,4 +749,107 @@ func getWorkflowInput(checkID string, runID string, c client.Client) (workflowen
 		}
 	}
 	return workflowInput, nil
+}
+
+func HandleMyCheckLogs() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+		if authRecord == nil {
+			return apierror.New(
+				http.StatusUnauthorized,
+				"auth",
+				"authentication required",
+				"user not authenticated",
+			)
+		}
+
+		checkID := e.Request.PathValue("checkId")
+		runID := e.Request.PathValue("runId")
+		if checkID == "" || runID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"params",
+				"checkId and runId are required",
+				"missing required parameters",
+			)
+		}
+
+		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		if err != nil {
+			return err
+		}
+		if namespace == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"organization",
+				"organization is empty",
+				"missing organization",
+			)
+		}
+
+		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
+		}
+
+		_, err = c.DescribeWorkflowExecution(context.Background(), checkID, runID)
+		if err != nil {
+			notFound := &serviceerror.NotFound{}
+			if errors.As(err, &notFound) {
+				return apierror.New(
+					http.StatusNotFound,
+					"workflow",
+					"workflow execution not found",
+					err.Error(),
+				)
+			}
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to describe workflow execution",
+				err.Error(),
+			)
+		}
+
+		action := e.Request.URL.Query().Get("action")
+
+		if action == "start" {
+			err = c.SignalWorkflow(context.Background(), checkID, runID, "start-logs", struct{}{})
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to send start logs signal",
+					err.Error(),
+				)
+			}
+		} else if action == "stop" {
+			err = c.SignalWorkflow(context.Background(), checkID, runID, "stop-logs", struct{}{})
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to send stop logs signal",
+					err.Error(),
+				)
+			}
+		}
+
+		logsChannel := fmt.Sprintf("%s-logs", checkID)
+
+		return e.JSON(http.StatusOK, map[string]interface{}{
+			"channel":     logsChannel,
+			"workflow_id": checkID,
+			"run_id":      runID,
+			"message":     "Logs streaming started",
+			"status":      "started",
+			"time":        time.Now().Format(time.RFC3339),
+			"namespace":   namespace,
+		})
+	}
 }

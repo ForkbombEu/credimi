@@ -54,6 +54,12 @@ func RegisterMyChecksRoutes(app core.App) {
 				Input:  nil,
 			},
 			{
+				Method:  http.MethodGet,
+				Path:    "/{checkId}/runs/{runId}/history",
+				Handler: handlers.HandleGetMyCheckRunHistory, 
+				Input:  nil,
+			},
+			{
 				Method:  http.MethodPost,
 				Path:    "/{checkId}/runs/{runId}/rerun",
 				Handler: handlers.HandleRerunMyCheck,
@@ -69,11 +75,11 @@ func RegisterMyChecksRoutes(app core.App) {
 				Path:    "/{checkId}/runs/{runId}/export",
 				Handler: handlers.HandleExportMyCheckRun,
 			},
-			// {
-			// 	Method:  http.MethodGet,
-			// 	Path:    "/{checkId}/runs/{runId}/logs",
-			// 	Handler: handlers.HandleTailMyCheckLogs, // logs (tail)
-			// },
+			{
+				Method:  http.MethodGet,
+				Path:    "/{checkId}/runs/{runId}/logs",
+				Handler: handlers.HandleMyCheckLogs, // logs (tail)
+			},
 			// {
 			// 	Method:  http.MethodPost,
 			// 	Path:    "/{checkId}/schedule",
