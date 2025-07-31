@@ -180,7 +180,7 @@ export function copyButtonExtension(options: CopyButtonExtensionOptions = {}): E
 						clearTimeout(this.copyTimeout);
 					}
 
-					this.copyTimeout = window.setTimeout(() => {
+					this.copyTimeout = setTimeout(() => {
 						this.isCopied = false;
 						this.updateCopyButtonContent();
 					}, 2000);
