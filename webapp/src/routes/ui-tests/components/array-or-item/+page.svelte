@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ArrayOrItemManager from '@/components/ui-custom/arrayOrItemManager.svelte';
 	import PlainCard from '@/components/ui-custom/plainCard.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	let items = $state(['ciao', 'no', 'ok']);
 
@@ -25,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 </ArrayOrItemManager>
 
-<pre>{JSON.stringify(items)}</pre>
+<CodeDisplay content={JSON.stringify(items)} language="json" />
 
 <h1 class="scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl">Item test</h1>
 
@@ -38,4 +39,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 </ArrayOrItemManager>
 
-<pre>{JSON.stringify(item)}</pre>
+<CodeDisplay content={JSON.stringify(item)} language="json" />
