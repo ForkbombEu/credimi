@@ -211,7 +211,7 @@ export function copyButtonExtension(options: CopyButtonExtensionOptions = {}): E
 						clearTimeout(this.pasteTimeout);
 					}
 
-					this.pasteTimeout = window.setTimeout(() => {
+					this.pasteTimeout = setTimeout(() => {
 						this.isPasted = false;
 						this.updatePasteButtonContent();
 					}, 2000);
