@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import QrLink from '../_partials/qr-link.svelte';
 	import { Alert } from '@/components/ui/alert';
 	import { m } from '@/i18n';
-	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc';
+	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc.svelte';
 
 	//
 

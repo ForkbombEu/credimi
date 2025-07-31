@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc';
+	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc.svelte';
 
 	type Props = {
 		workflowId: string;
