@@ -465,7 +465,7 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 	}
 
 	if err := os.WriteFile(outputPath, buf.Bytes(), 0644); err != nil {
-		log.Fatalf("FATAL: Failed to write OpenAPI file '%s': %v", err)
+		log.Fatalf("FATAL: Failed to write OpenAPI file '%s': %v", outputPath, err)
 	}
 	log.Printf("✅ OpenAPI YAML documentation successfully generated at: %s", outputPath)
 }
@@ -498,11 +498,11 @@ func extractPathParams(path string) []string {
 	}
 	return params
 }
-func isRequired(field string, requiredFields []string) bool {
-	for _, req := range requiredFields {
-		if req == field {
-			return true
-		}
-	}
-	return false
-}
+// func isRequired(field string, requiredFields []string) bool {
+// 	for _, req := range requiredFields {
+// 		if req == field {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }

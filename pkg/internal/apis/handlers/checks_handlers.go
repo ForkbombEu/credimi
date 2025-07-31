@@ -30,16 +30,16 @@ import (
 )
 
 var TypeRegistry = map[string]interface{}{
-	"ReRunCheckInput":        ReRunCheckInput{},
-	"ReRunCheckOutput":       ReRunCheckOutput{},
-	"ListMyChecksOutput":     ListMyChecksOutput{},
-	"GetMyCheckRunOutput":    GetMyCheckRunOutput{},
-	"GetMyCheckRunHistory":   GetMyCheckRunHistory{},
-	"WorkflowExecution":      WorkflowExecution{},
-	"CancelMyCheckRunOutput": CancelMyCheckRunOutput{},
-	"ExportMyCheckRun":       ExportMyCheckRun{},
-	"ChecksLogsOutput":       ChecksLogsOutput{},
-	"ListMyCheckRunsOutput":  ListMyCheckRunsOutput{},
+	"ReRunCheckInput":           ReRunCheckInput{},
+	"ReRunCheckOutput":          ReRunCheckOutput{},
+	"ListMyChecksOutput":        ListMyChecksOutput{},
+	"GetMyCheckRunOutput":       GetMyCheckRunOutput{},
+	"GetMyCheckRunHistory":      GetMyCheckRunHistory{},
+	"WorkflowExecution":         WorkflowExecution{},
+	"CancelMyCheckRunOutput":    CancelMyCheckRunOutput{},
+	"ExportMyCheckRun":          ExportMyCheckRun{},
+	"ChecksLogsOutput":          ChecksLogsOutput{},
+	"ListMyCheckRunsOutput":     ListMyCheckRunsOutput{},
 	"TerminateMyCheckRunOutput": TerminateMyCheckRunOutput{},
 }
 
@@ -557,12 +557,12 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			)
 		}
 
-		workflowName := workflowExecution.WorkflowExecutionInfo.Type.Name
+		workflowName := workflowExecution.GetWorkflowExecutionInfo().GetType().GetName()
 
 		workflowOptions := client.StartWorkflowOptions{
-			TaskQueue:                workflowExecution.WorkflowExecutionInfo.TaskQueue,
-			WorkflowRunTimeout:       workflowExecution.ExecutionConfig.WorkflowRunTimeout.AsDuration(),
-			WorkflowExecutionTimeout: workflowExecution.ExecutionConfig.WorkflowExecutionTimeout.AsDuration(),
+			TaskQueue:                workflowExecution.GetWorkflowExecutionInfo().GetTaskQueue(),
+			WorkflowRunTimeout:       workflowExecution.GetExecutionConfig().GetWorkflowRunTimeout().AsDuration(),
+			WorkflowExecutionTimeout: workflowExecution.GetExecutionConfig().GetWorkflowExecutionTimeout().AsDuration(),
 		}
 
 		workflowInput, err := getWorkflowInput(checkID, runID, c)
@@ -762,11 +762,11 @@ func getWorkflowInput(checkID string, runID string, c client.Client) (workflowen
 			return workflowengine.WorkflowInput{}, fmt.Errorf("failed to get workflow history: %w", err)
 		}
 
-		if event.EventType == enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
+		if event.GetEventType() == enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
 			startedAttributes := event.GetWorkflowExecutionStartedEventAttributes()
-			if startedAttributes.Input != nil {
+			if startedAttributes.GetInput() != nil {
 				// Unmarshal the input payload
-				inputJSON, err := protojson.Marshal(startedAttributes.Input)
+				inputJSON, err := protojson.Marshal(startedAttributes.GetInput())
 				if err != nil {
 					return workflowengine.WorkflowInput{}, fmt.Errorf("failed to marshal workflow input: %w", err)
 				}

@@ -128,7 +128,7 @@ func AddComplianceChecks(app core.App) {
 			{
 				Method:  http.MethodGet,
 				Path:    "/checks",
-				Handler: handlers.HandleGetWorkflows,
+				Handler: handlers.HandleListMyChecks,
 				Input:   nil,
 			},
 			{
