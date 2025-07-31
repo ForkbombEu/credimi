@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Accordion from '@/components/ui/accordion/index.js';
 	import { m } from '@/i18n/index.js';
 	import { nanoid } from 'nanoid';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	//
 
@@ -146,7 +147,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							]}
 						>
 							<div class="w-0 grow">
-								<pre class="text-xs">{JSON.stringify(log.rawLog, null, 2)}</pre>
+								<CodeDisplay 
+									content={JSON.stringify(log.rawLog, null, 2)} 
+									language="json" 
+									class="text-xs"
+								/>
 							</div>
 						</div>
 					</Accordion.Content>

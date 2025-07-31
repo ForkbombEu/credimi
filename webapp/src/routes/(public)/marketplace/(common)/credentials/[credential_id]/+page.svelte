@@ -15,6 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { MarketplaceItemCard } from '../../../_utils/index.js';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import { createIntentUrl } from '$lib/credentials/index.js';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	let { data } = $props();
 	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
@@ -97,13 +98,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 
 		{#if credentialConfiguration}
-			<pre
-				class="border-primary bg-card text-card-foreground ring-primary
-         w-full max-w-screen-lg overflow-x-auto
-         rounded-xl border p-4 text-[10px] shadow-sm transition-transform hover:-translate-y-2 hover:ring-2
-         md:w-fit md:overflow-x-clip md:p-6 md:text-xs">
-			{JSON.stringify(credentialConfiguration, null, 2)}
-			</pre>
+			<CodeDisplay
+				content={JSON.stringify(credentialConfiguration, null, 2)}
+				language="json"
+				class="border-primary bg-card text-card-foreground ring-primary w-fit max-w-screen-lg overflow-x-clip rounded-xl border p-6 text-xs shadow-sm transition-transform hover:-translate-y-2 hover:ring-2"
+			/>
 		{/if}
 	</div>
 
