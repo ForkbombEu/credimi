@@ -40,6 +40,7 @@ var TypeRegistry = map[string]interface{}{
 	"ExportMyCheckRun":       ExportMyCheckRun{},
 	"ChecksLogsOutput":       ChecksLogsOutput{},
 	"ListMyCheckRunsOutput":  ListMyCheckRunsOutput{},
+	"TerminateMyCheckRunOutput": TerminateMyCheckRunOutput{},
 }
 
 type ReRunCheckInput struct {
@@ -97,6 +98,15 @@ type ChecksLogsOutput struct {
 	WorkflowID string `json:"workflow_id"`
 	RunID      string `json:"run_id"`
 	Message    string `json:"message"`
+	Status     string `json:"status"`
+	Time       string `json:"time"`
+	Namespace  string `json:"namespace"`
+}
+
+type TerminateMyCheckRunOutput struct {
+	Message    string `json:"message"`
+	WorkflowID string `json:"workflow_id"`
+	RunID      string `json:"run_id"`
 	Status     string `json:"status"`
 	Time       string `json:"time"`
 	Namespace  string `json:"namespace"`
@@ -920,6 +930,74 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 			"status":      "started",
 			"time":        time.Now().Format(time.RFC3339),
 			"namespace":   namespace,
+		})
+	}
+}
+
+func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+		if authRecord == nil {
+			return apierror.New(
+				http.StatusUnauthorized,
+				"auth",
+				"authentication required",
+				"user not authenticated",
+			)
+		}
+
+		checkID := e.Request.PathValue("checkId")
+		runID := e.Request.PathValue("runId")
+		if checkID == "" || runID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"params",
+				"checkId and runId are required",
+				"missing required parameters",
+			)
+		}
+
+		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		if err != nil {
+			return err
+		}
+
+		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
+		}
+
+		err = c.TerminateWorkflow(context.Background(), checkID, runID, "Terminated by user", nil)
+		if err != nil {
+			notFound := &serviceerror.NotFound{}
+			if errors.As(err, &notFound) {
+				return apierror.New(
+					http.StatusNotFound,
+					"workflow",
+					"workflow execution not found",
+					err.Error(),
+				)
+			}
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to terminate workflow execution",
+				err.Error(),
+			)
+		}
+
+		return e.JSON(http.StatusOK, map[string]any{
+			"message":   "Workflow execution terminated successfully",
+			"checkId":   checkID,
+			"runId":     runID,
+			"status":    "terminated",
+			"time":      time.Now().Format(time.RFC3339),
+			"namespace": namespace,
 		})
 	}
 }

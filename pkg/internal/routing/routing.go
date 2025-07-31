@@ -28,6 +28,7 @@ type RouteDefinition struct {
 	Input               any
 	Output              any
 	Description         string
+	Summary             string
 	Examples            []string
 	Middlewares         []*hook.Handler[*core.RequestEvent]
 	ExcludedMiddlewares []string

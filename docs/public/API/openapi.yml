@@ -308,6 +308,27 @@ components:
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/re-run-check-output
       $ref: '#/$defs/ReRunCheckOutput'
       $schema: https://json-schema.org/draft/2020-12/schema
+    TerminateMyCheckRunOutput:
+      $defs:
+        TerminateMyCheckRunOutput:
+          additionalProperties: false
+          properties:
+            message:
+              type: string
+            namespace:
+              type: string
+            run_id:
+              type: string
+            status:
+              type: string
+            time:
+              type: string
+            workflow_id:
+              type: string
+          type: object
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/terminate-my-check-run-output
+      $ref: '#/$defs/TerminateMyCheckRunOutput'
+      $schema: https://json-schema.org/draft/2020-12/schema
 info:
   contact:
     email: support@forkbomb.eu
@@ -320,6 +341,7 @@ openapi: 3.0.1
 paths:
   /api/my/checks:
     get:
+      description: List all checks for the authenticated user
       operationId: listMyChecks
       responses:
         "200":
@@ -334,9 +356,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIError'
           description: An unexpected error occurred.
-      summary: route.Summary
+      summary: Get a list of all checks for the authenticated user
   /api/my/checks/{checkId}/runs:
     get:
+      description: List all runs for a specific check
       operationId: listMyCheckRuns
       parameters:
         - description: The ID for the checkId.
@@ -358,9 +381,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIError'
           description: An unexpected error occurred.
-      summary: route.Summary
+      summary: Get a list of all runs for a specific check
   /api/my/checks/{checkId}/runs/{runId}:
     get:
+      description: Get details of a specific run for a check
       operationId: getMyCheckRun
       parameters:
         - description: The ID for the checkId.
@@ -388,9 +412,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIError'
           description: An unexpected error occurred.
-      summary: route.Summary
+      summary: Get details of a specific run for a check
   /api/my/checks/{checkId}/runs/{runId}/cancel:
     post:
+      description: Cancel a specific check run
       operationId: cancelMyCheckRun
       parameters:
         - description: The ID for the checkId.
@@ -418,9 +443,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIError'
           description: An unexpected error occurred.
-      summary: route.Summary
+      summary: Cancel a specific check run
   /api/my/checks/{checkId}/runs/{runId}/export:
     get:
+      description: Export a specific check run
       operationId: exportMyCheckRun
       parameters:
         - description: The ID for the checkId.
@@ -448,9 +474,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIError'
           description: An unexpected error occurred.
-      summary: route.Summary
+      summary: Export a specific check run
   /api/my/checks/{checkId}/runs/{runId}/history:
     get:
+      description: Get the history of events for a specific run of a check
       operationId: getMyCheckRunHistory
       parameters:
         - description: The ID for the checkId.
@@ -478,9 +505,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIError'
           description: An unexpected error occurred.
-      summary: route.Summary
+      summary: Get the history of events for a specific run of a check
   /api/my/checks/{checkId}/runs/{runId}/logs:
     get:
+      description: Start or Stop logs for a specific check run and get the log channel
       operationId: myCheckLogs
       parameters:
         - description: The ID for the checkId.
@@ -508,9 +536,10 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIError'
           description: An unexpected error occurred.
-      summary: route.Summary
+      summary: Start or Stop logs for a specific check run
   /api/my/checks/{checkId}/runs/{runId}/rerun:
     post:
+      description: Re-run a specific check run
       operationId: rerunMyCheck
       parameters:
         - description: The ID for the checkId.
@@ -544,7 +573,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/APIError'
           description: An unexpected error occurred.
-      summary: route.Summary
+      summary: Re-run a specific check run
+  /api/my/checks/{checkId}/runs/{runId}/terminate:
+    post:
+      description: Terminate a specific check run
+      operationId: terminateMyCheckRun
+      parameters:
+        - description: The ID for the checkId.
+          in: path
+          name: checkId
+          required: true
+          schema:
+            type: string
+        - description: The ID for the runId.
+          in: path
+          name: runId
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TerminateMyCheckRunOutput'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: An unexpected error occurred.
+      summary: Terminate a specific check run
 servers:
   - description: Demo server
     url: https://demo.credimi.io

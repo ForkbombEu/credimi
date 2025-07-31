@@ -6,3 +6,4 @@
 package pkg
 
 //go:generate go run ../cmd/template/template.go -c ../schemas/OpenID4VP_Wallet/openID_Foundation-config_wallet.json -d ../schemas/OpenID4VP_Wallet/openID_Foundation-default_wallet.json -i ../schemas/OpenID4VP_Wallet/openID_Foundation-variant_config.json -o ../config_templates/openid4vp_wallet/draft-24/openid_conformance_suite/
+//go:generate go run generate_client/generate_client.go
