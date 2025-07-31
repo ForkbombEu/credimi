@@ -5,47 +5,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { pb } from '@/pocketbase/index.js';
-	import { onDestroy, onMount, type Snippet } from 'svelte';
+	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc';
 
 	type Props = {
 		workflowId: string;
-		runId: string;
 		namespace: string;
-		children?: Snippet;
 	};
 
 	let { workflowId, namespace }: Props = $props();
 
-	onMount(() => {
-		if (!workflowId) return;
-		pb.send('/api/compliance/send-temporal-signal', {
-			method: 'POST',
-			body: {
-				workflow_id: workflowId,
-				namespace: namespace,
-				signal: 'start-ewc-check-signal'
-			}
-		}).catch((err) => {
-			console.error(err);
-		});
-	});
-
-	function closeConnections() {
-		if (!workflowId) return;
-		pb.send('/api/compliance/send-temporal-signal', {
-			method: 'POST',
-			body: {
-				workflow_id: workflowId,
-				namespace: namespace,
-				signal: 'stop-ewc-check-signal'
-			}
-		});
-	}
-
-	onDestroy(() => {
-		closeConnections();
-	});
+	setupEWCConnections(
+		() => workflowId,
+		() => namespace
+	);
 </script>
-
-<svelte:window on:beforeunload={closeConnections} />

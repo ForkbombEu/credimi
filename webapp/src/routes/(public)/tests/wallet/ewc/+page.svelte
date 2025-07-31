@@ -6,49 +6,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import PageContent from '$lib/layout/pageContent.svelte';
-	import { pb } from '@/pocketbase/index.js';
-	import { onDestroy, onMount } from 'svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Step from '../_partials/step.svelte';
 	import QrLink from '../_partials/qr-link.svelte';
 	import { Alert } from '@/components/ui/alert';
 	import { m } from '@/i18n';
+	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc';
+
+	//
 
 	let { data } = $props();
 	const { qr, workflowId, namespace } = $derived(data);
 
-	onMount(() => {
-		if (!workflowId) return;
-		pb.send('/api/compliance/send-temporal-signal', {
-			method: 'POST',
-			body: {
-				workflow_id: workflowId,
-				namespace: namespace,
-				signal: 'start-ewc-check-signal'
-			}
-		}).catch((err) => {
-			console.error(err);
-		});
-	});
-
-	function closeConnections() {
-		if (!workflowId) return;
-		pb.send('/api/compliance/send-temporal-signal', {
-			method: 'POST',
-			body: {
-				workflow_id: workflowId,
-				namespace: namespace,
-				signal: 'stop-ewc-check-signal'
-			}
-		});
-	}
-
-	onDestroy(() => {
-		closeConnections();
-	});
+	setupEWCConnections(
+		() => {
+			if (!workflowId) throw new Error('Workflow ID is required');
+			return workflowId;
+		},
+		() => {
+			if (!namespace) throw new Error('Namespace is required');
+			return namespace;
+		}
+	);
 </script>
-
-<svelte:window on:beforeunload={closeConnections} />
 
 <PageContent contentClass="space-y-4">
 	<T tag="h1" class="mb-4">{m.Wallet_EWC_test()}</T>
