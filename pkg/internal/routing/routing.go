@@ -21,12 +21,19 @@ type HandlerFunc func(e *core.RequestEvent) error
 
 type HandlerFactory func() func(*core.RequestEvent) error
 
+type RouteGroup struct {
+	BaseURL     string
+	Routes      []RouteDefinition
+	Middlewares []*hook.Handler[*core.RequestEvent]
+	Validation  bool
+}
+
 type RouteDefinition struct {
 	Method              string
 	Path                string
 	Handler             HandlerFactory
-	Input               any
-	Output              any
+	Request             any
+	RequestResponse     any
 	Description         string
 	Summary             string
 	Examples            []string
@@ -60,13 +67,6 @@ func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
 	return typedInput, nil
 }
 
-type RouteGroup struct {
-	BaseURL     string
-	Routes      []RouteDefinition
-	Middlewares []*hook.Handler[*core.RequestEvent]
-	Validation  bool
-}
-
 func AddGroupRoutes(app core.App, input RouteGroup) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		basePath := input.BaseURL
@@ -94,7 +94,7 @@ func RegisterRoutesWithValidation(
 	log.Println("Registering routes with validation")
 
 	for _, route := range routes {
-		inputType := reflect.TypeOf(route.Input)
+		inputType := reflect.TypeOf(route.Request)
 
 		validatorMiddleware := middlewares.DynamicValidateInputByType(inputType)
 

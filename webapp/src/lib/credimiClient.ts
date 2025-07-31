@@ -36,54 +36,10 @@ export const WorkflowExecutionSchema = z.object({
 })
 export type WorkflowExecution = z.infer<typeof WorkflowExecutionSchema>
 
-export const ListMyCheckRunsOutputSchema = z.object({
+export const ListMyChecksRequestResponseSchema = z.object({
   executions: WorkflowExecutionSchema.array().nullable(),
 })
-export type ListMyCheckRunsOutput = z.infer<typeof ListMyCheckRunsOutputSchema>
-
-export const CancelMyCheckRunOutputSchema = z.object({
-  message: z.string(),
-  workflow_id: z.string(),
-  run_id: z.string(),
-  status: z.string(),
-  time: z.string(),
-  namespace: z.string(),
-})
-export type CancelMyCheckRunOutput = z.infer<typeof CancelMyCheckRunOutputSchema>
-
-export const ExportSchema = z.object({
-  checkId: z.string(),
-  runId: z.string(),
-  input: z.record(z.string(), z.any()).nullable(),
-  config: z.record(z.string(), z.any()).nullable(),
-})
-export type Export = z.infer<typeof ExportSchema>
-
-export const ExportMyCheckRunSchema = z.object({
-  export: ExportSchema,
-})
-export type ExportMyCheckRun = z.infer<typeof ExportMyCheckRunSchema>
-
-export const ChecksLogsOutputSchema = z.object({
-  channel: z.string(),
-  workflow_id: z.string(),
-  run_id: z.string(),
-  message: z.string(),
-  status: z.string(),
-  time: z.string(),
-  namespace: z.string(),
-})
-export type ChecksLogsOutput = z.infer<typeof ChecksLogsOutputSchema>
-
-export const ListMyChecksOutputSchema = z.object({
-  executions: WorkflowExecutionSchema.array().nullable(),
-})
-export type ListMyChecksOutput = z.infer<typeof ListMyChecksOutputSchema>
-
-export const GetMyCheckRunOutputSchema = z.object({
-  workflow_execution: WorkflowExecutionSchema,
-})
-export type GetMyCheckRunOutput = z.infer<typeof GetMyCheckRunOutputSchema>
+export type ListMyChecksRequestResponse = z.infer<typeof ListMyChecksRequestResponseSchema>
 
 export const EventSchema = z.object({
   eventId: z.string(),
@@ -104,18 +60,12 @@ export const GetMyCheckRunHistorySchema = z.object({
 })
 export type GetMyCheckRunHistory = z.infer<typeof GetMyCheckRunHistorySchema>
 
-export const ReRunCheckInputSchema = z.object({
+export const ReRunCheckRequestSchema = z.object({
   config: z.record(z.string(), z.any()).nullable(),
 })
-export type ReRunCheckInput = z.infer<typeof ReRunCheckInputSchema>
+export type ReRunCheckRequest = z.infer<typeof ReRunCheckRequestSchema>
 
-export const ReRunCheckOutputSchema = z.object({
-  workflow_id: z.string(),
-  run_id: z.string(),
-})
-export type ReRunCheckOutput = z.infer<typeof ReRunCheckOutputSchema>
-
-export const TerminateMyCheckRunOutputSchema = z.object({
+export const CancelMyCheckRunRequestResponseSchema = z.object({
   message: z.string(),
   workflow_id: z.string(),
   run_id: z.string(),
@@ -123,7 +73,28 @@ export const TerminateMyCheckRunOutputSchema = z.object({
   time: z.string(),
   namespace: z.string(),
 })
-export type TerminateMyCheckRunOutput = z.infer<typeof TerminateMyCheckRunOutputSchema>
+export type CancelMyCheckRunRequestResponse = z.infer<typeof CancelMyCheckRunRequestResponseSchema>
+
+export const ChecksLogsRequestResponseSchema = z.object({
+  channel: z.string(),
+  workflow_id: z.string(),
+  run_id: z.string(),
+  message: z.string(),
+  status: z.string(),
+  time: z.string(),
+  namespace: z.string(),
+})
+export type ChecksLogsRequestResponse = z.infer<typeof ChecksLogsRequestResponseSchema>
+
+export const TerminateMyCheckRunRequestResponseSchema = z.object({
+  message: z.string(),
+  workflow_id: z.string(),
+  run_id: z.string(),
+  status: z.string(),
+  time: z.string(),
+  namespace: z.string(),
+})
+export type TerminateMyCheckRunRequestResponse = z.infer<typeof TerminateMyCheckRunRequestResponseSchema>
 
 export const APIErrorSchema = z.object({
   Code: z.number(),
@@ -132,6 +103,35 @@ export const APIErrorSchema = z.object({
   Message: z.string(),
 })
 export type APIError = z.infer<typeof APIErrorSchema>
+
+export const ListMyCheckRunsRequestResponseSchema = z.object({
+  executions: WorkflowExecutionSchema.array().nullable(),
+})
+export type ListMyCheckRunsRequestResponse = z.infer<typeof ListMyCheckRunsRequestResponseSchema>
+
+export const GetMyCheckRunRequestResponseSchema = z.object({
+  workflow_execution: WorkflowExecutionSchema,
+})
+export type GetMyCheckRunRequestResponse = z.infer<typeof GetMyCheckRunRequestResponseSchema>
+
+export const ReRunCheckRequestResponseSchema = z.object({
+  workflow_id: z.string(),
+  run_id: z.string(),
+})
+export type ReRunCheckRequestResponse = z.infer<typeof ReRunCheckRequestResponseSchema>
+
+export const ExportSchema = z.object({
+  checkId: z.string(),
+  runId: z.string(),
+  input: z.record(z.string(), z.any()).nullable(),
+  config: z.record(z.string(), z.any()).nullable(),
+})
+export type Export = z.infer<typeof ExportSchema>
+
+export const ExportMyCheckRunSchema = z.object({
+  export: ExportSchema,
+})
+export type ExportMyCheckRun = z.infer<typeof ExportMyCheckRunSchema>
 
 
 
@@ -171,7 +171,7 @@ export class CredimiClient {
      * @method GET
      * @path /api/my/checks
      */
-    async listMyChecks(): Promise<ListMyChecksOutput> {
+    async listMyChecks(): Promise<ListMyChecksRequestResponse> {
         const path = `/api/my/checks`;
 
         const options: SendOptions = { method: "GET" };
@@ -180,7 +180,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return ListMyChecksOutputSchema.parse(result);
+						return ListMyChecksRequestResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -198,7 +198,7 @@ export class CredimiClient {
      * @method GET
      * @path /api/my/checks/{checkId}/runs
      */
-    async listMyCheckRuns(input: { checkId: string }): Promise<ListMyCheckRunsOutput> {
+    async listMyCheckRuns(input: { checkId: string }): Promise<ListMyCheckRunsRequestResponse> {
         const path = `/api/my/checks/${input.checkId}/runs`;
 
         const options: SendOptions = { method: "GET" };
@@ -207,7 +207,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return ListMyCheckRunsOutputSchema.parse(result);
+						return ListMyCheckRunsRequestResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -225,7 +225,7 @@ export class CredimiClient {
      * @method GET
      * @path /api/my/checks/{checkId}/runs/{runId}
      */
-    async getMyCheckRun(input: { checkId: string, runId: string }): Promise<GetMyCheckRunOutput> {
+    async getMyCheckRun(input: { checkId: string, runId: string }): Promise<GetMyCheckRunRequestResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}`;
 
         const options: SendOptions = { method: "GET" };
@@ -234,7 +234,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return GetMyCheckRunOutputSchema.parse(result);
+						return GetMyCheckRunRequestResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -279,16 +279,16 @@ export class CredimiClient {
      * @method POST
      * @path /api/my/checks/{checkId}/runs/{runId}/rerun
      */
-    async rerunMyCheck(input: ReRunCheckInput & { checkId: string, runId: string }): Promise<ReRunCheckOutput> {
+    async rerunMyCheck(input: ReRunCheckRequest & { checkId: string, runId: string }): Promise<ReRunCheckRequestResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}/rerun`;
 
         const options: SendOptions = { method: "POST" };
 
-        options.body = ReRunCheckInputSchema.parse(input);
+        options.body = ReRunCheckRequestSchema.parse(input);
 
         try {
             const result = await this.pb.send(path, options);
-						return ReRunCheckOutputSchema.parse(result);
+						return ReRunCheckRequestResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -306,7 +306,7 @@ export class CredimiClient {
      * @method POST
      * @path /api/my/checks/{checkId}/runs/{runId}/cancel
      */
-    async cancelMyCheckRun(input: { checkId: string, runId: string }): Promise<CancelMyCheckRunOutput> {
+    async cancelMyCheckRun(input: { checkId: string, runId: string }): Promise<CancelMyCheckRunRequestResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}/cancel`;
 
         const options: SendOptions = { method: "POST" };
@@ -315,7 +315,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return CancelMyCheckRunOutputSchema.parse(result);
+						return CancelMyCheckRunRequestResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -360,7 +360,7 @@ export class CredimiClient {
      * @method GET
      * @path /api/my/checks/{checkId}/runs/{runId}/logs
      */
-    async myCheckLogs(input: { checkId: string, runId: string }): Promise<ChecksLogsOutput> {
+    async myCheckLogs(input: { checkId: string, runId: string }): Promise<ChecksLogsRequestResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}/logs`;
 
         const options: SendOptions = { method: "GET" };
@@ -369,7 +369,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return ChecksLogsOutputSchema.parse(result);
+						return ChecksLogsRequestResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -387,7 +387,7 @@ export class CredimiClient {
      * @method POST
      * @path /api/my/checks/{checkId}/runs/{runId}/terminate
      */
-    async terminateMyCheckRun(input: { checkId: string, runId: string }): Promise<TerminateMyCheckRunOutput> {
+    async terminateMyCheckRun(input: { checkId: string, runId: string }): Promise<TerminateMyCheckRunRequestResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}/terminate`;
 
         const options: SendOptions = { method: "POST" };
@@ -396,7 +396,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return TerminateMyCheckRunOutputSchema.parse(result);
+						return TerminateMyCheckRunRequestResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);

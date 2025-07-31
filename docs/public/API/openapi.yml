@@ -17,9 +17,9 @@ components:
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apierror/api-error
       $ref: '#/$defs/APIError'
       $schema: https://json-schema.org/draft/2020-12/schema
-    CancelMyCheckRunOutput:
+    CancelMyCheckRunRequestResponse:
       $defs:
-        CancelMyCheckRunOutput:
+        CancelMyCheckRunRequestResponse:
           additionalProperties: false
           properties:
             message:
@@ -35,12 +35,12 @@ components:
             workflow_id:
               type: string
           type: object
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/cancel-my-check-run-output
-      $ref: '#/$defs/CancelMyCheckRunOutput'
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/cancel-my-check-run-request-response
+      $ref: '#/$defs/CancelMyCheckRunRequestResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
-    ChecksLogsOutput:
+    ChecksLogsRequestResponse:
       $defs:
-        ChecksLogsOutput:
+        ChecksLogsRequestResponse:
           additionalProperties: false
           properties:
             channel:
@@ -58,8 +58,8 @@ components:
             workflow_id:
               type: string
           type: object
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/checks-logs-output
-      $ref: '#/$defs/ChecksLogsOutput'
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/checks-logs-request-response
+      $ref: '#/$defs/ChecksLogsRequestResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
     ExportMyCheckRun:
       $defs:
@@ -121,9 +121,9 @@ components:
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/get-my-check-run-history
       $ref: '#/$defs/GetMyCheckRunHistory'
       $schema: https://json-schema.org/draft/2020-12/schema
-    GetMyCheckRunOutput:
+    GetMyCheckRunRequestResponse:
       $defs:
-        GetMyCheckRunOutput:
+        GetMyCheckRunRequestResponse:
           additionalProperties: false
           properties:
             workflow_execution:
@@ -171,12 +171,12 @@ components:
             url:
               type: string
           type: object
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/get-my-check-run-output
-      $ref: '#/$defs/GetMyCheckRunOutput'
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/get-my-check-run-request-response
+      $ref: '#/$defs/GetMyCheckRunRequestResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
-    ListMyCheckRunsOutput:
+    ListMyCheckRunsRequestResponse:
       $defs:
-        ListMyCheckRunsOutput:
+        ListMyCheckRunsRequestResponse:
           additionalProperties: false
           properties:
             executions:
@@ -226,12 +226,12 @@ components:
             url:
               type: string
           type: object
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/list-my-check-runs-output
-      $ref: '#/$defs/ListMyCheckRunsOutput'
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/list-my-check-runs-request-response
+      $ref: '#/$defs/ListMyCheckRunsRequestResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
-    ListMyChecksOutput:
+    ListMyChecksRequestResponse:
       $defs:
-        ListMyChecksOutput:
+        ListMyChecksRequestResponse:
           additionalProperties: false
           properties:
             executions:
@@ -281,23 +281,23 @@ components:
             url:
               type: string
           type: object
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/list-my-checks-output
-      $ref: '#/$defs/ListMyChecksOutput'
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/list-my-checks-request-response
+      $ref: '#/$defs/ListMyChecksRequestResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
-    ReRunCheckInput:
+    ReRunCheckRequest:
       $defs:
-        ReRunCheckInput:
+        ReRunCheckRequest:
           additionalProperties: false
           properties:
             config:
               type: object
           type: object
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/re-run-check-input
-      $ref: '#/$defs/ReRunCheckInput'
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/re-run-check-request
+      $ref: '#/$defs/ReRunCheckRequest'
       $schema: https://json-schema.org/draft/2020-12/schema
-    ReRunCheckOutput:
+    ReRunCheckRequestResponse:
       $defs:
-        ReRunCheckOutput:
+        ReRunCheckRequestResponse:
           additionalProperties: false
           properties:
             run_id:
@@ -305,12 +305,12 @@ components:
             workflow_id:
               type: string
           type: object
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/re-run-check-output
-      $ref: '#/$defs/ReRunCheckOutput'
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/re-run-check-request-response
+      $ref: '#/$defs/ReRunCheckRequestResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
-    TerminateMyCheckRunOutput:
+    TerminateMyCheckRunRequestResponse:
       $defs:
-        TerminateMyCheckRunOutput:
+        TerminateMyCheckRunRequestResponse:
           additionalProperties: false
           properties:
             message:
@@ -326,8 +326,8 @@ components:
             workflow_id:
               type: string
           type: object
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/terminate-my-check-run-output
-      $ref: '#/$defs/TerminateMyCheckRunOutput'
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/terminate-my-check-run-request-response
+      $ref: '#/$defs/TerminateMyCheckRunRequestResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
 info:
   contact:
@@ -348,7 +348,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListMyChecksOutput'
+                $ref: '#/components/schemas/ListMyChecksRequestResponse'
           description: Successful response
         default:
           content:
@@ -373,7 +373,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ListMyCheckRunsOutput'
+                $ref: '#/components/schemas/ListMyCheckRunsRequestResponse'
           description: Successful response
         default:
           content:
@@ -404,7 +404,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GetMyCheckRunOutput'
+                $ref: '#/components/schemas/GetMyCheckRunRequestResponse'
           description: Successful response
         default:
           content:
@@ -435,7 +435,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CancelMyCheckRunOutput'
+                $ref: '#/components/schemas/CancelMyCheckRunRequestResponse'
           description: Successful response
         default:
           content:
@@ -528,7 +528,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ChecksLogsOutput'
+                $ref: '#/components/schemas/ChecksLogsRequestResponse'
           description: Successful response
         default:
           content:
@@ -558,14 +558,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ReRunCheckInput'
+              $ref: '#/components/schemas/ReRunCheckRequest'
         required: true
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ReRunCheckOutput'
+                $ref: '#/components/schemas/ReRunCheckRequestResponse'
           description: Successful response
         default:
           content:
@@ -596,7 +596,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/TerminateMyCheckRunOutput'
+                $ref: '#/components/schemas/TerminateMyCheckRunRequestResponse'
           description: Successful response
         default:
           content:

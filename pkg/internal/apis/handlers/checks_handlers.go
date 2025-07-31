@@ -29,27 +29,24 @@ import (
 	// "google.golang.org/protobuf/runtime/protoimpl"
 )
 
-type ListMyCheckInput struct {
-	Config string `json:"config"`
-}
-type ReRunCheckInput struct {
+type ReRunCheckRequest struct {
 	Config map[string]interface{} `json:"config"`
 }
 
-type ReRunCheckOutput struct {
+type ReRunCheckRequestResponse struct {
 	WorkflowID string `json:"workflow_id"`
 	RunID      string `json:"run_id"`
 }
 
-type ListMyChecksOutput struct {
+type ListMyChecksRequestResponse struct {
 	Executions []WorkflowExecution `json:"executions"`
 }
 
-type GetMyCheckRunOutput struct {
+type GetMyCheckRunRequestResponse struct {
 	WorkflowExecution WorkflowExecution `json:"workflow_execution"`
 }
 
-type ListMyCheckRunsOutput struct {
+type ListMyCheckRunsRequestResponse struct {
 	Executions []WorkflowExecution `json:"executions"`
 }
 
@@ -62,7 +59,7 @@ type GetMyCheckRunHistory struct {
 	Namespace string  `json:"namespace"`
 }
 
-type CancelMyCheckRunOutput struct {
+type CancelMyCheckRunRequestResponse struct {
 	Message    string `json:"message"`
 	WorkflowID string `json:"workflow_id"`
 	RunID      string `json:"run_id"`
@@ -82,7 +79,7 @@ type Export struct {
 	Config  map[string]interface{} `json:"config"`
 }
 
-type ChecksLogsOutput struct {
+type ChecksLogsRequestResponse struct {
 	Channel    string `json:"channel"`
 	WorkflowID string `json:"workflow_id"`
 	RunID      string `json:"run_id"`
@@ -92,7 +89,7 @@ type ChecksLogsOutput struct {
 	Namespace  string `json:"namespace"`
 }
 
-type TerminateMyCheckRunOutput struct {
+type TerminateMyCheckRunRequestResponse struct {
 	Message    string `json:"message"`
 	WorkflowID string `json:"workflow_id"`
 	RunID      string `json:"run_id"`
@@ -564,8 +561,8 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			)
 		}
 
-		var req ReRunCheckInput
-		req, err = routing.GetValidatedInput[ReRunCheckInput](e)
+		var req ReRunCheckRequest
+		req, err = routing.GetValidatedInput[ReRunCheckRequest](e)
 		if err != nil {
 			return err
 		}

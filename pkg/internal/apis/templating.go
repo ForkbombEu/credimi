@@ -21,13 +21,12 @@ func AddTemplatingRoutes(app core.App) {
 				Method:  "GET",
 				Path:    "/blueprints",
 				Handler: handlers.HandleGetConfigsTemplates,
-				Input:   nil,
 			},
 			{
 				Method:  "POST",
 				Path:    "/placeholders",
 				Handler: handlers.HandlePlaceholdersByFilenames,
-				Input:   handlers.GetPlaceholdersByFilenamesRequestInput{},
+				Request: handlers.GetPlaceholdersByFilenamesRequestInput{},
 			},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
