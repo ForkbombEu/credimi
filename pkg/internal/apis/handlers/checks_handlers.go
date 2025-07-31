@@ -29,6 +29,7 @@ import (
 	// "google.golang.org/protobuf/runtime/protoimpl"
 )
 
+
 type ReRunCheckRequest struct {
 	Config map[string]interface{} `json:"config"`
 }

@@ -22,10 +22,16 @@ type HandlerFunc func(e *core.RequestEvent) error
 type HandlerFactory func() func(*core.RequestEvent) error
 
 type RouteGroup struct {
-	BaseURL     string
-	Routes      []RouteDefinition
-	Middlewares []*hook.Handler[*core.RequestEvent]
-	Validation  bool
+	BaseURL               string
+	Routes                []RouteDefinition
+	Middlewares           []*hook.Handler[*core.RequestEvent]
+	Validation            bool
+}
+
+type QuerySearchAttribute struct {
+	Name        string `json:"name"`
+	Required    bool   `json:"required"`
+	Description string `json:"description"`
 }
 
 type RouteDefinition struct {
@@ -39,6 +45,7 @@ type RouteDefinition struct {
 	Examples            []string
 	Middlewares         []*hook.Handler[*core.RequestEvent]
 	ExcludedMiddlewares []string
+	QuerySearchAttributes []QuerySearchAttribute
 }
 
 func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {

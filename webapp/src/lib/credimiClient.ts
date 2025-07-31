@@ -11,6 +11,14 @@ import type PocketBase from "pocketbase";
 // =============== SCHEMAS, TYPES & ERROR HANDLING
 // =================================================================
 
+export const APIErrorSchema = z.object({
+  Code: z.number(),
+  Domain: z.string(),
+  Reason: z.string(),
+  Message: z.string(),
+})
+export type APIError = z.infer<typeof APIErrorSchema>
+
 export const MessageStateSchema = z.object({
   state: z.string(),
   details: z.string(),
@@ -65,55 +73,6 @@ export const ReRunCheckRequestSchema = z.object({
 })
 export type ReRunCheckRequest = z.infer<typeof ReRunCheckRequestSchema>
 
-export const CancelMyCheckRunRequestResponseSchema = z.object({
-  message: z.string(),
-  workflow_id: z.string(),
-  run_id: z.string(),
-  status: z.string(),
-  time: z.string(),
-  namespace: z.string(),
-})
-export type CancelMyCheckRunRequestResponse = z.infer<typeof CancelMyCheckRunRequestResponseSchema>
-
-export const ChecksLogsRequestResponseSchema = z.object({
-  channel: z.string(),
-  workflow_id: z.string(),
-  run_id: z.string(),
-  message: z.string(),
-  status: z.string(),
-  time: z.string(),
-  namespace: z.string(),
-})
-export type ChecksLogsRequestResponse = z.infer<typeof ChecksLogsRequestResponseSchema>
-
-export const TerminateMyCheckRunRequestResponseSchema = z.object({
-  message: z.string(),
-  workflow_id: z.string(),
-  run_id: z.string(),
-  status: z.string(),
-  time: z.string(),
-  namespace: z.string(),
-})
-export type TerminateMyCheckRunRequestResponse = z.infer<typeof TerminateMyCheckRunRequestResponseSchema>
-
-export const APIErrorSchema = z.object({
-  Code: z.number(),
-  Domain: z.string(),
-  Reason: z.string(),
-  Message: z.string(),
-})
-export type APIError = z.infer<typeof APIErrorSchema>
-
-export const ListMyCheckRunsRequestResponseSchema = z.object({
-  executions: WorkflowExecutionSchema.array().nullable(),
-})
-export type ListMyCheckRunsRequestResponse = z.infer<typeof ListMyCheckRunsRequestResponseSchema>
-
-export const GetMyCheckRunRequestResponseSchema = z.object({
-  workflow_execution: WorkflowExecutionSchema,
-})
-export type GetMyCheckRunRequestResponse = z.infer<typeof GetMyCheckRunRequestResponseSchema>
-
 export const ReRunCheckRequestResponseSchema = z.object({
   workflow_id: z.string(),
   run_id: z.string(),
@@ -132,6 +91,47 @@ export const ExportMyCheckRunSchema = z.object({
   export: ExportSchema,
 })
 export type ExportMyCheckRun = z.infer<typeof ExportMyCheckRunSchema>
+
+export const ChecksLogsRequestResponseSchema = z.object({
+  channel: z.string(),
+  workflow_id: z.string(),
+  run_id: z.string(),
+  message: z.string(),
+  status: z.string(),
+  time: z.string(),
+  namespace: z.string(),
+})
+export type ChecksLogsRequestResponse = z.infer<typeof ChecksLogsRequestResponseSchema>
+
+export const ListMyCheckRunsRequestResponseSchema = z.object({
+  executions: WorkflowExecutionSchema.array().nullable(),
+})
+export type ListMyCheckRunsRequestResponse = z.infer<typeof ListMyCheckRunsRequestResponseSchema>
+
+export const GetMyCheckRunRequestResponseSchema = z.object({
+  workflow_execution: WorkflowExecutionSchema,
+})
+export type GetMyCheckRunRequestResponse = z.infer<typeof GetMyCheckRunRequestResponseSchema>
+
+export const CancelMyCheckRunRequestResponseSchema = z.object({
+  message: z.string(),
+  workflow_id: z.string(),
+  run_id: z.string(),
+  status: z.string(),
+  time: z.string(),
+  namespace: z.string(),
+})
+export type CancelMyCheckRunRequestResponse = z.infer<typeof CancelMyCheckRunRequestResponseSchema>
+
+export const TerminateMyCheckRunRequestResponseSchema = z.object({
+  message: z.string(),
+  workflow_id: z.string(),
+  run_id: z.string(),
+  status: z.string(),
+  time: z.string(),
+  namespace: z.string(),
+})
+export type TerminateMyCheckRunRequestResponse = z.infer<typeof TerminateMyCheckRunRequestResponseSchema>
 
 
 
@@ -360,12 +360,19 @@ export class CredimiClient {
      * @method GET
      * @path /api/my/checks/{checkId}/runs/{runId}/logs
      */
-    async myCheckLogs(input: { checkId: string, runId: string }): Promise<ChecksLogsRequestResponse> {
+    async myCheckLogs(input: { checkId: string, runId: string } & { action?: string }): Promise<ChecksLogsRequestResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}/logs`;
 
         const options: SendOptions = { method: "GET" };
 
+        let params: { [key: string]: any } = {};
         
+        // Add query search attributes
+        if (input.action !== undefined) {
+            params['action'] = input.action;
+        }
+        
+        options.params = params;
 
         try {
             const result = await this.pb.send(path, options);

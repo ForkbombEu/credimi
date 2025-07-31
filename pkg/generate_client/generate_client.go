@@ -23,6 +23,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	api "github.com/forkbombeu/credimi/pkg/internal/apis"
+	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/invopop/jsonschema"
 )
 
@@ -31,19 +32,20 @@ import (
 // =================================================================
 
 type RouteInfo struct {
-	FuncName      string
-	Method        string
-	GoHandlerName string
-	Path          string
-	InputType     string
-	OutputType    string
-	InputSchema   string
-	OutputSchema  string
-	PathParams    []string
-	HasInputBody  bool
-	Summary       string
-	Description   string
-	Tags          []string
+	FuncName              string
+	Method                string
+	GoHandlerName         string
+	Path                  string
+	InputType             string
+	OutputType            string
+	InputSchema           string
+	QuerySearchAttributes []routing.QuerySearchAttribute
+	OutputSchema          string
+	PathParams            []string
+	HasInputBody          bool
+	Summary               string
+	Description           string
+	Tags                  []string
 }
 
 type TemplateData struct {
@@ -175,8 +177,23 @@ export class CredimiClient {
 
         {{if .HasInputBody -}}
         options.body = {{.InputSchema}}.parse(input);
-        {{- else if .InputType}}
-        options.params = {{.InputSchema}}.parse(input);
+        {{- else -}}
+        {{if or .InputType (gt (len .QuerySearchAttributes) 0) -}}
+        let params: { [key: string]: any } = {};
+        {{if .InputType -}}
+        const parsedInput = {{.InputSchema}}.parse(input);
+        params = { ...params, ...parsedInput };
+        {{- end}}
+        {{if gt (len .QuerySearchAttributes) 0 -}}
+        // Add query search attributes
+        {{range .QuerySearchAttributes -}}
+        if (input.{{.Name}} !== undefined) {
+            params['{{.Name}}'] = input.{{.Name}};
+        }
+        {{end -}}
+        {{- end}}
+        options.params = params;
+        {{- end}}
         {{- end}}
 
         try {
@@ -226,11 +243,12 @@ func main() {
 			// }
 
 			r := RouteInfo{
-				Method:        route.Method,
-				Path:          path.Join(group.BaseURL, route.Path),
-				GoHandlerName: getFuncName(route.Handler),
-				Summary:       route.Summary,
-				Description:   description,
+				Method:                route.Method,
+				Path:                  path.Join(group.BaseURL, route.Path),
+				GoHandlerName:         getFuncName(route.Handler),
+				Summary:               route.Summary,
+				Description:           description,
+				QuerySearchAttributes: route.QuerySearchAttributes,
 				// Tags:          route.Tags,
 			}
 
@@ -281,7 +299,7 @@ func generateTSClient(routes []RouteInfo, typesToProcess map[string]interface{})
 	templateData := TemplateData{Schemas: schemaOutput, Routes: routes}
 	funcMap := template.FuncMap{
 		"formatInputArg": func(r RouteInfo) string {
-			if r.InputType == "" && len(r.PathParams) == 0 {
+			if r.InputType == "" && len(r.PathParams) == 0 && len(r.QuerySearchAttributes) == 0 {
 				return ""
 			}
 			var parts []string
@@ -294,6 +312,17 @@ func generateTSClient(routes []RouteInfo, typesToProcess map[string]interface{})
 					paramDefs[i] = fmt.Sprintf("%s: string", p)
 				}
 				parts = append(parts, fmt.Sprintf("{ %s }", strings.Join(paramDefs, ", ")))
+			}
+			if len(r.QuerySearchAttributes) > 0 {
+				queryDefs := make([]string, len(r.QuerySearchAttributes))
+				for i, attr := range r.QuerySearchAttributes {
+					if attr.Required {
+						queryDefs[i] = fmt.Sprintf("%s: string", attr.Name)
+					} else {
+						queryDefs[i] = fmt.Sprintf("%s?: string", attr.Name)
+					}
+				}
+				parts = append(parts, fmt.Sprintf("{ %s }", strings.Join(queryDefs, ", ")))
 			}
 			return fmt.Sprintf("input: %s", strings.Join(parts, " & "))
 		},
@@ -355,7 +384,7 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 			})
 		}
 		if route.InputType != "" {
-			inputSchema := schemas[route.InputType]
+			// inputSchema := schemas[route.InputType]
 			if route.HasInputBody {
 				operation.RequestBody = &RequestBody{
 					Required: true,
@@ -364,16 +393,29 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 					},
 				}
 			} else {
-				if inputSchema.Properties != nil {
-					for propIndex := range inputSchema.Properties.Len() {
-						prop := inputSchema.PropertyNames.AllOf[propIndex]
+				if route.QuerySearchAttributes != nil {
+					for _, attr := range route.QuerySearchAttributes {
 						operation.Parameters = append(operation.Parameters, Parameter{
-							Name:     prop.Properties.Newest().Key,
-							In:       "query",
-							Required: isRequired(prop.Properties.Newest().Key, inputSchema.Required),
-							Schema:   prop,
+							Name:        attr.Name,
+							In:          "query",
+							Required:    attr.Required,
+							Description: attr.Description,
+							Schema:      &jsonschema.Schema{Type: "string"},
 						})
 					}
+				}
+			}
+		} else {
+			// Add QuerySearchAttributes even when there's no InputType
+			if route.QuerySearchAttributes != nil {
+				for _, attr := range route.QuerySearchAttributes {
+					operation.Parameters = append(operation.Parameters, Parameter{
+						Name:        attr.Name,
+						In:          "query",
+						Required:    attr.Required,
+						Description: attr.Description,
+						Schema:      &jsonschema.Schema{Type: "string"},
+					})
 				}
 			}
 		}
@@ -486,12 +528,4 @@ func extractPathParams(path string) []string {
 		}
 	}
 	return params
-}
-func isRequired(field string, requiredFields []string) bool {
-	for _, req := range requiredFields {
-		if req == field {
-			return true
-		}
-	}
-	return false
 }

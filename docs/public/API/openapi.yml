@@ -523,6 +523,12 @@ paths:
           required: true
           schema:
             type: string
+        - description: Can be 'start' or 'stop' to control logging for the check run
+          in: query
+          name: action
+          required: false
+          schema:
+            type: string
       responses:
         "200":
           content:
