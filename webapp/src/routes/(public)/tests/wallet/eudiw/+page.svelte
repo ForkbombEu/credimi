@@ -12,51 +12,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Step from '../_partials/step.svelte';
 	import QrLink from '../_partials/qr-link.svelte';
 	import FeedbackForms from '../_partials/feedback-forms.svelte';
-	import { LogStatus, type WorkflowLogsProps } from '../_partials/workflow-logs';
 	import WorkflowLogs from '../_partials/workflow-logs.svelte';
-	import { z } from 'zod';
+	import { getEUDIWWorkflowLogsProps } from '$lib/wallet-test-pages/eudiw';
 
 	//
 
 	let { data } = $props();
 	const { qr, workflowId, namespace } = $derived(data);
 
-	//
-
-	const workflowLogsProps: WorkflowLogsProps = $derived.by(() => {
-		if (!workflowId || !namespace) {
-			throw new Error('missing workflowId or namespace');
-		}
-		return {
-			subscriptionSuffix: 'eudiw-logs',
-			startSignal: 'start-eudiw-check-signal',
-			stopSignal: 'stop-eudiw-check-signal',
-			workflowId,
-			namespace,
-			logTransformer: (rawLog) => {
-				const data = LogsSchema.parse(rawLog);
-				return {
-					time: data.timestamp,
-					message: data.event + '\n' + data.cause,
-					status: LogStatus.INFO,
-					rawLog
-				};
-			}
-		};
-	});
-
-	const LogsSchema = z
-		.object({
-			actor: z.string(),
-			event: z.string(),
-			cause: z.string().optional(),
-			timestamp: z.number().optional()
-		})
-		.passthrough();
+	const workflowLogsProps = $derived(getEUDIWWorkflowLogsProps(workflowId, namespace));
 </script>
 
 <PageContent>
-	<T tag="h1" class="mb-4">{m.OpenID_Wallet_test()}</T>
+	<T tag="h1" class="mb-4">{m.EUDIW_Wallet_test()}</T>
 	<div class="space-y-4">
 		{#if qr}
 			<Step n="1" text="Scan this QR with the wallet app to start the check">
