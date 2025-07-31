@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { onMount, onDestroy, type ComponentProps } from 'svelte';
+	import { onMount, onDestroy, type ComponentProps, type Snippet } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
 	import {
 		createWorkflowLogHandlers,
@@ -20,7 +20,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n/index.js';
 	import { nanoid } from 'nanoid';
 
-	const props: WorkflowLogsProps & { class?: string; uiSize?: 'sm' | 'md' } = $props();
+	//
+
+	type UIProps = {
+		class?: string;
+		uiSize?: 'sm' | 'md';
+		accordionItemClass?: string;
+		codeClass?: string;
+		loading?: Snippet<[{ loadingText: string; loadingAlert: () => ReturnType<Snippet> }]>;
+	};
+
+	let props: WorkflowLogsProps & UIProps = $props();
+
+	//
 
 	let logs: WorkflowLog[] = $state([]);
 
@@ -72,9 +84,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <svelte:window on:beforeunload|preventDefault={stopLogs} />
 
 {#if logs.length === 0}
-	<Alert variant="info" icon={Info}>
-		<p>{m.Waiting_for_logs()}</p>
-	</Alert>
+	{#if props.loading}
+		{@render props.loading({ loadingText: m.Waiting_for_logs(), loadingAlert: loadingAlert })}
+	{:else}
+		{@render loadingAlert()}
+	{/if}
 {:else}
 	<div id={containerId} class={['max-h-[700px] space-y-1 overflow-y-auto', props.class]}>
 		<Accordion.Root
@@ -84,12 +98,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			{#each logs as log}
 				{@const status = log.status ?? LogStatus.INFO}
-				<Accordion.Item class="bg-background rounded-md border-none px-2">
+				<Accordion.Item
+					class={['bg-background rounded-md border-none px-2', props.accordionItemClass]}
+				>
 					<Accordion.Trigger
 						class="flex items-center justify-between gap-2 hover:no-underline"
 					>
 						<Badge
-							class="w-20 text-center capitalize"
+							class="block w-20 truncate rounded-md text-center capitalize"
 							variant={statusToVariant(status)}
 						>
 							{status}
@@ -124,7 +140,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 					<Accordion.Content>
 						<div
-							class="bg-secondary flex w-full gap-2 overflow-x-scroll rounded-md p-2"
+							class={[
+								'bg-secondary -mb-2 flex w-full gap-2 overflow-x-scroll rounded-md p-2',
+								props.codeClass
+							]}
 						>
 							<div class="w-0 grow">
 								<pre class="text-xs">{JSON.stringify(log.rawLog, null, 2)}</pre>
@@ -136,3 +155,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Accordion.Root>
 	</div>
 {/if}
+
+{#snippet loadingAlert()}
+	<Alert variant="info" icon={Info}>
+		<p>{m.Waiting_for_logs()}</p>
+	</Alert>
+{/snippet}

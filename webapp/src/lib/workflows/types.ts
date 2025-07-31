@@ -4,7 +4,9 @@
 
 import z from 'zod';
 
-export const workflowExecutionSchema = z
+//
+
+export const workflowExecutionInfoSchema = z
 	.object({
 		execution: z.object({
 			runId: z.string(),
@@ -18,6 +20,10 @@ export const workflowExecutionSchema = z
 		}),
 		startTime: z.string(),
 		endTime: z.string().optional(),
+		closeTime: z.string().optional(),
+		executionDuration: z.string().optional(),
+		historyLength: z.string().optional(),
+		stateTransitionCount: z.string().optional(),
 		status: z.string(),
 		taskQueue: z.string(),
 		type: z.object({
@@ -26,8 +32,4 @@ export const workflowExecutionSchema = z
 	})
 	.passthrough();
 
-export type WorkflowExecution = z.infer<typeof workflowExecutionSchema>;
-
-export const workflowsResponseSchema = z.object({
-	executions: z.array(workflowExecutionSchema)
-});
+export type WorkflowExecutionInfo = z.infer<typeof workflowExecutionInfoSchema>;

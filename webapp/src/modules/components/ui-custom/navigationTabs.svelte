@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { tabs = [] }: Props = $props();
 
 	// Find the active tab for mobile display
-	const activeTab = $derived(tabs.find(tab => page.url.pathname === tab.href));
+	const activeTab = $derived(tabs.find((tab) => page.url.pathname === tab.href));
 </script>
 
 <!-- Desktop view: Normal flex layout -->
@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<!-- Active tab title for mobile -->
 	{#if activeTab}
 		<div class="mb-3 px-1">
-			<h2 class="text-lg font-semibold text-foreground flex items-center gap-2">
+			<h2 class="text-foreground flex items-center gap-2 text-lg font-semibold">
 				{#if activeTab.icon}
 					<Icon src={activeTab.icon} class="size-5" />
 				{/if}
@@ -44,9 +44,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</h2>
 		</div>
 	{/if}
-	
-	<!-- Icon-only tabs -->
-	<ul class="flex gap-1 overflow-x-auto scrollbar-hide pb-1">
+
+	<ul class="scrollbar-hide flex gap-1 overflow-x-auto">
 		{#each tabs as tab}
 			<li role="presentation" class="flex-shrink-0">
 				<NavigationTab {...tab} />
