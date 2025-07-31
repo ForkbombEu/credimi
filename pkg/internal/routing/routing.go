@@ -26,7 +26,9 @@ type RouteDefinition struct {
 	Path                string
 	Handler             HandlerFactory
 	Input               any
-	OutputType          reflect.Type
+	Output              any
+	Description         string
+	Examples            []string
 	Middlewares         []*hook.Handler[*core.RequestEvent]
 	ExcludedMiddlewares []string
 }

@@ -32,53 +32,57 @@ import (
 	"go.temporal.io/sdk/client"
 )
 
-func RegisterMyChecksRoutes(app core.App) {
-	routing.AddGroupRoutes(app, routing.RouteGroup{
+var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
+	routing.RouteGroup{
 		BaseURL: "/api/my/checks",
 		Routes: []routing.RouteDefinition{
 			{
 				Method:  http.MethodGet,
 				Handler: handlers.HandleListMyChecks,
-				Input: nil,
+				Output:  handlers.ListMyChecksOutput{},
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/{checkId}/runs",
-				Handler: handlers.HandleListMyCheckRuns, 
-				Input: nil,
+				Handler: handlers.HandleListMyCheckRuns,
+				Output:  handlers.ListMyCheckRunsOutput{},
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/{checkId}/runs/{runId}",
-				Handler: handlers.HandleGetMyCheckRun, 
-				Input:  nil,
+				Handler: handlers.HandleGetMyCheckRun,
+				Output:  handlers.GetMyCheckRunOutput{},
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/{checkId}/runs/{runId}/history",
-				Handler: handlers.HandleGetMyCheckRunHistory, 
-				Input:  nil,
+				Handler: handlers.HandleGetMyCheckRunHistory,
+				Output:  handlers.GetMyCheckRunHistory{},
 			},
 			{
 				Method:  http.MethodPost,
 				Path:    "/{checkId}/runs/{runId}/rerun",
 				Handler: handlers.HandleRerunMyCheck,
-				Input: handlers.ReRunCheckRequest{},
+				Input:   handlers.ReRunCheckInput{},
+				Output:  handlers.ReRunCheckOutput{},
 			},
 			{
 				Method:  http.MethodPost,
 				Path:    "/{checkId}/runs/{runId}/cancel",
 				Handler: handlers.HandleCancelMyCheckRun,
+				Output:  handlers.CancelMyCheckRunOutput{},
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/{checkId}/runs/{runId}/export",
 				Handler: handlers.HandleExportMyCheckRun,
+				Output:  handlers.ExportMyCheckRun{},
 			},
 			{
 				Method:  http.MethodGet,
 				Path:    "/{checkId}/runs/{runId}/logs",
-				Handler: handlers.HandleMyCheckLogs, // logs (tail)
+				Handler: handlers.HandleMyCheckLogs,
+				Output:  handlers.ChecksLogsOutput{},
 			},
 			// {
 			// 	Method:  http.MethodPost,
@@ -91,7 +95,11 @@ func RegisterMyChecksRoutes(app core.App) {
 			apis.RequireAuth(),
 		},
 		Validation: true,
-	})
+	},
+}
+
+func RegisterMyChecksRoutes(app core.App) {
+	routing.AddGroupRoutes(app, RouteGroups[0])
 }
 
 func AddComplianceChecks(app core.App) {

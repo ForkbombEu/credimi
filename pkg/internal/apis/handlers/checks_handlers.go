@@ -26,7 +26,81 @@ import (
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"google.golang.org/protobuf/encoding/protojson"
+	// "google.golang.org/protobuf/runtime/protoimpl"
 )
+
+var TypeRegistry = map[string]interface{}{
+	"ReRunCheckInput":        ReRunCheckInput{},
+	"ReRunCheckOutput":       ReRunCheckOutput{},
+	"ListMyChecksOutput":     ListMyChecksOutput{},
+	"GetMyCheckRunOutput":    GetMyCheckRunOutput{},
+	"GetMyCheckRunHistory":   GetMyCheckRunHistory{},
+	"WorkflowExecution":      WorkflowExecution{},
+	"CancelMyCheckRunOutput": CancelMyCheckRunOutput{},
+	"ExportMyCheckRun":       ExportMyCheckRun{},
+	"ChecksLogsOutput":       ChecksLogsOutput{},
+	"ListMyCheckRunsOutput":  ListMyCheckRunsOutput{},
+}
+
+type ReRunCheckInput struct {
+	Config map[string]interface{} `json:"config"`
+}
+
+type ReRunCheckOutput struct {
+	WorkflowID string `json:"workflow_id"`
+	RunID      string `json:"run_id"`
+}
+
+type ListMyChecksOutput struct {
+	Executions []WorkflowExecution `json:"executions"`
+}
+
+type GetMyCheckRunOutput struct {
+	WorkflowExecution WorkflowExecution `json:"workflow_execution"`
+}
+
+type ListMyCheckRunsOutput struct {
+	Executions []WorkflowExecution `json:"executions"`
+}
+
+type GetMyCheckRunHistory struct {
+	History   []Event `json:"history"`
+	Count     int     `json:"count"`
+	Time      string  `json:"time"`
+	CheckID   string  `json:"checkId"`
+	RunID     string  `json:"runId"`
+	Namespace string  `json:"namespace"`
+}
+
+type CancelMyCheckRunOutput struct {
+	Message    string `json:"message"`
+	WorkflowID string `json:"workflow_id"`
+	RunID      string `json:"run_id"`
+	Status     string `json:"status"`
+	Time       string `json:"time"`
+	Namespace  string `json:"namespace"`
+}
+
+type ExportMyCheckRun struct {
+	Export Export `json:"export"`
+}
+
+type Export struct {
+	CheckID string                 `json:"checkId"`
+	RunID   string                 `json:"runId"`
+	Input   map[string]interface{} `json:"input"`
+	Config  map[string]interface{} `json:"config"`
+}
+
+type ChecksLogsOutput struct {
+	Channel    string `json:"channel"`
+	WorkflowID string `json:"workflow_id"`
+	RunID      string `json:"run_id"`
+	Message    string `json:"message"`
+	Status     string `json:"status"`
+	Time       string `json:"time"`
+	Namespace  string `json:"namespace"`
+}
 
 func HandleListMyChecks() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -412,10 +486,6 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 	}
 }
 
-type ReRunCheckRequest struct {
-	Config map[string]interface{} `json:"config"`
-}
-
 func HandleRerunMyCheck() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
@@ -495,8 +565,8 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			)
 		}
 
-		var req ReRunCheckRequest
-		req, err = routing.GetValidatedInput[ReRunCheckRequest](e)
+		var req ReRunCheckInput
+		req, err = routing.GetValidatedInput[ReRunCheckInput](e)
 		if err != nil {
 			return err
 		}
