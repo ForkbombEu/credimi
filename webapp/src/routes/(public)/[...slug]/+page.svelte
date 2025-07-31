@@ -91,7 +91,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					class="h-12 px-4 rounded-full shadow-lg hover:shadow-xl transition-shadow flex items-center gap-2"
 				>
 					<TableOfContents class="w-4 h-4" />
-					<span class="text-sm font-medium">ToC</span>
+					<span class="text-sm font-medium">{m.toc()}</span>
 				</Button>
 			{/snippet}
 		</Popover.Trigger>
