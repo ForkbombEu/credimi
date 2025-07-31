@@ -13,7 +13,7 @@ type WorkflowExecutionInfo struct {
 	Name                 string `json:"name"`
 	ID                   string `json:"id"`
 	RunID                string `json:"runId"`
-	Status               string `json:"status"` // could be WorkflowStatus or WorkflowExecutionStatus
+	Status               string `json:"status"` 
 	StateTransitionCount string `json:"stateTransitionCount"`
 	StartTime            string `json:"startTime"`
 	CloseTime            string `json:"closeTime"`

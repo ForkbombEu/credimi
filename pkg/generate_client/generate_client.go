@@ -6,7 +6,7 @@ package main
 
 import (
 	"bytes"
-	"encoding/json" 
+	"encoding/json"
 	"fmt"
 	"log"
 	"os"
@@ -21,14 +21,13 @@ import (
 
 	"github.com/hypersequent/zen"
 
-	api "github.com/forkbombeu/credimi/pkg/internal/apis"
-	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	api "github.com/forkbombeu/credimi/pkg/internal/apis"
 	"github.com/invopop/jsonschema"
 )
 
 // =================================================================
-// =============== DATA STRUCTURES 
+// =============== DATA STRUCTURES
 // =================================================================
 
 type RouteInfo struct {
@@ -237,24 +236,16 @@ func main() {
 
 			if route.Input != nil {
 				typeName := reflect.TypeOf(route.Input).Name()
-				if instance, ok := handlers.TypeRegistry[typeName]; ok {
-					typesToProcess[typeName] = instance
-					r.InputType = typeName
-					r.InputSchema = typeName + "Schema"
-				} else {
-					log.Fatalf("FATAL: Input type '%s' is used in a route but not found in api/handlers/registry.go.", typeName)
-				}
+				typesToProcess[typeName] = route.Input
+				r.InputType = typeName
+				r.InputSchema = typeName + "Schema"
 			}
 
 			if route.Output != nil {
 				typeName := reflect.TypeOf(route.Output).Name()
-				if instance, ok := handlers.TypeRegistry[typeName]; ok {
-					typesToProcess[typeName] = instance
-					r.OutputType = typeName
-					r.OutputSchema = typeName + "Schema"
-				} else {
-					log.Fatalf("FATAL: Output type '%s' is used in a route but not found in api/handlers/registry.go.", typeName)
-				}
+				typesToProcess[typeName] = route.Output
+				r.OutputType = typeName
+				r.OutputSchema = typeName + "Schema"
 			} else {
 				r.OutputType = "any"
 				r.OutputSchema = "unknown"
@@ -279,7 +270,6 @@ func main() {
 // =================================================================
 // =============== GENERATOR FUNCTIONS
 // =================================================================
-
 
 func generateTSClient(routes []RouteInfo, typesToProcess map[string]interface{}) {
 	converter := zen.NewConverterWithOpts()
@@ -365,7 +355,7 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 			})
 		}
 		if route.InputType != "" {
-			// inputSchema := schemas[route.InputType]
+			inputSchema := schemas[route.InputType]
 			if route.HasInputBody {
 				operation.RequestBody = &RequestBody{
 					Required: true,
@@ -374,17 +364,17 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 					},
 				}
 			} else {
-				// if inputSchema.Properties != nil {
-				// 	inputSchema.Properties.Range(func(key string, prop *jsonschema.Schema) bool {
-				// 		operation.Parameters = append(operation.Parameters, Parameter{
-				// 			Name:     key,
-				// 			In:       "query",
-				// 			Required: isRequired(key, inputSchema.Required),
-				// 			Schema:   prop,
-				// 		})
-				// 		return true
-				// 	})
-				// }
+				if inputSchema.Properties != nil {
+					for propIndex := range inputSchema.Properties.Len() {
+						prop := inputSchema.PropertyNames.AllOf[propIndex]
+						operation.Parameters = append(operation.Parameters, Parameter{
+							Name:     prop.Properties.Newest().Key,
+							In:       "query",
+							Required: isRequired(prop.Properties.Newest().Key, inputSchema.Required),
+							Schema:   prop,
+						})
+					}
+				}
 			}
 		}
 		if route.OutputType != "" && route.OutputType != "any" {
@@ -470,9 +460,8 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 	log.Printf("✅ OpenAPI YAML documentation successfully generated at: %s", outputPath)
 }
 
-
 // =================================================================
-// =============== HELPER FUNCTIONS 
+// =============== HELPER FUNCTIONS
 // =================================================================
 
 func getFuncName(i interface{}) string {
@@ -498,11 +487,11 @@ func extractPathParams(path string) []string {
 	}
 	return params
 }
-// func isRequired(field string, requiredFields []string) bool {
-// 	for _, req := range requiredFields {
-// 		if req == field {
-// 			return true
-// 		}
-// 	}
-// 	return false
-// }
+func isRequired(field string, requiredFields []string) bool {
+	for _, req := range requiredFields {
+		if req == field {
+			return true
+		}
+	}
+	return false
+}

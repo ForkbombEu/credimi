@@ -41,24 +41,15 @@ export const ListMyCheckRunsOutputSchema = z.object({
 })
 export type ListMyCheckRunsOutput = z.infer<typeof ListMyCheckRunsOutputSchema>
 
-export const EventSchema = z.object({
-  eventId: z.string(),
-  eventType: z.string(),
-  eventTime: z.string(),
-  details: z.string(),
-  attributes: z.string(),
-})
-export type Event = z.infer<typeof EventSchema>
-
-export const GetMyCheckRunHistorySchema = z.object({
-  history: EventSchema.array().nullable(),
-  count: z.number(),
+export const CancelMyCheckRunOutputSchema = z.object({
+  message: z.string(),
+  workflow_id: z.string(),
+  run_id: z.string(),
+  status: z.string(),
   time: z.string(),
-  checkId: z.string(),
-  runId: z.string(),
   namespace: z.string(),
 })
-export type GetMyCheckRunHistory = z.infer<typeof GetMyCheckRunHistorySchema>
+export type CancelMyCheckRunOutput = z.infer<typeof CancelMyCheckRunOutputSchema>
 
 export const ExportSchema = z.object({
   checkId: z.string(),
@@ -84,20 +75,34 @@ export const ChecksLogsOutputSchema = z.object({
 })
 export type ChecksLogsOutput = z.infer<typeof ChecksLogsOutputSchema>
 
-export const TerminateMyCheckRunOutputSchema = z.object({
-  message: z.string(),
-  workflow_id: z.string(),
-  run_id: z.string(),
-  status: z.string(),
-  time: z.string(),
-  namespace: z.string(),
+export const ListMyChecksOutputSchema = z.object({
+  executions: WorkflowExecutionSchema.array().nullable(),
 })
-export type TerminateMyCheckRunOutput = z.infer<typeof TerminateMyCheckRunOutputSchema>
+export type ListMyChecksOutput = z.infer<typeof ListMyChecksOutputSchema>
 
 export const GetMyCheckRunOutputSchema = z.object({
   workflow_execution: WorkflowExecutionSchema,
 })
 export type GetMyCheckRunOutput = z.infer<typeof GetMyCheckRunOutputSchema>
+
+export const EventSchema = z.object({
+  eventId: z.string(),
+  eventType: z.string(),
+  eventTime: z.string(),
+  details: z.string(),
+  attributes: z.string(),
+})
+export type Event = z.infer<typeof EventSchema>
+
+export const GetMyCheckRunHistorySchema = z.object({
+  history: EventSchema.array().nullable(),
+  count: z.number(),
+  time: z.string(),
+  checkId: z.string(),
+  runId: z.string(),
+  namespace: z.string(),
+})
+export type GetMyCheckRunHistory = z.infer<typeof GetMyCheckRunHistorySchema>
 
 export const ReRunCheckInputSchema = z.object({
   config: z.record(z.string(), z.any()).nullable(),
@@ -110,7 +115,7 @@ export const ReRunCheckOutputSchema = z.object({
 })
 export type ReRunCheckOutput = z.infer<typeof ReRunCheckOutputSchema>
 
-export const CancelMyCheckRunOutputSchema = z.object({
+export const TerminateMyCheckRunOutputSchema = z.object({
   message: z.string(),
   workflow_id: z.string(),
   run_id: z.string(),
@@ -118,7 +123,7 @@ export const CancelMyCheckRunOutputSchema = z.object({
   time: z.string(),
   namespace: z.string(),
 })
-export type CancelMyCheckRunOutput = z.infer<typeof CancelMyCheckRunOutputSchema>
+export type TerminateMyCheckRunOutput = z.infer<typeof TerminateMyCheckRunOutputSchema>
 
 export const APIErrorSchema = z.object({
   Code: z.number(),
@@ -127,11 +132,6 @@ export const APIErrorSchema = z.object({
   Message: z.string(),
 })
 export type APIError = z.infer<typeof APIErrorSchema>
-
-export const ListMyChecksOutputSchema = z.object({
-  executions: WorkflowExecutionSchema.array().nullable(),
-})
-export type ListMyChecksOutput = z.infer<typeof ListMyChecksOutputSchema>
 
 
 

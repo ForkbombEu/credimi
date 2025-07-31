@@ -29,20 +29,9 @@ import (
 	// "google.golang.org/protobuf/runtime/protoimpl"
 )
 
-var TypeRegistry = map[string]interface{}{
-	"ReRunCheckInput":           ReRunCheckInput{},
-	"ReRunCheckOutput":          ReRunCheckOutput{},
-	"ListMyChecksOutput":        ListMyChecksOutput{},
-	"GetMyCheckRunOutput":       GetMyCheckRunOutput{},
-	"GetMyCheckRunHistory":      GetMyCheckRunHistory{},
-	"WorkflowExecution":         WorkflowExecution{},
-	"CancelMyCheckRunOutput":    CancelMyCheckRunOutput{},
-	"ExportMyCheckRun":          ExportMyCheckRun{},
-	"ChecksLogsOutput":          ChecksLogsOutput{},
-	"ListMyCheckRunsOutput":     ListMyCheckRunsOutput{},
-	"TerminateMyCheckRunOutput": TerminateMyCheckRunOutput{},
+type ListMyCheckInput struct {
+	Config string `json:"config"`
 }
-
 type ReRunCheckInput struct {
 	Config map[string]interface{} `json:"config"`
 }
