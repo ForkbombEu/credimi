@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { dracula } from 'thememirror';
 	import type { EditorView } from '@codemirror/view';
 	import { dev } from '$app/environment';
+	import { copyButtonExtension } from './copyButtonExtension.js';
 
 	//
 
@@ -37,6 +38,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onChange?: (value: string) => void;
 		onReady?: (value: EditorView) => void;
 		onBlur?: () => void;
+		hideCopyButton?: boolean;
+		hidePasteButton?: boolean;
+		onCopy?: (content: string) => void;
+		onPaste?: (content: string) => void;
 	};
 
 	let {
@@ -49,7 +54,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		extensions = [],
 		onChange,
 		onReady,
-		onBlur = () => {}
+		onBlur = () => {},
+		hideCopyButton,
+		hidePasteButton,
+		onCopy,
+		onPaste
 	}: Props = $props();
 
 	//
@@ -80,6 +89,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (minHeight) baseStyles['&'].minHeight = `${minHeight}px`;
 		if (maxHeight) baseStyles['&'].maxHeight = `${maxHeight}px`;
 		return baseStyles;
+	});
+
+	/* Extensions with copy/paste buttons */
+	const allExtensions = $derived.by(() => {
+		const baseExtensions = [...extensions];
+		const showCopy = !hideCopyButton;
+		const showPaste = !hidePasteButton;
+		
+		if (showCopy || showPaste) {
+			baseExtensions.push(copyButtonExtension({ 
+				enabled: true,
+				showCopy,
+				showPaste,
+				onCopy,
+				onPaste
+			}));
+		}
+		return baseExtensions;
 	});
 
 	/* Utils */
@@ -118,5 +145,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		view.contentDOM.onblur = onBlur;
 		onReady?.(view);
 	}}
-	{extensions}
+	extensions={allExtensions}
 />
