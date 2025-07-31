@@ -2,65 +2,46 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pb } from '@/pocketbase/index.js';
-import { z } from 'zod';
 import { error } from '@sveltejs/kit';
-import type { HistoryEvent } from '@forkbombeu/temporal-ui';
-import { getWorkflowMemo, workflowExecutionSchema } from '$lib/workflows';
 import { checkAuthFlagAndUser, getUserOrganization } from '$lib/utils';
+import { fetchWorkflow, fetchWorkflowHistory, getWorkflowMemo } from '$lib/workflows';
 
 //
 
 export const load = async ({ params, fetch }) => {
 	await checkAuthFlagAndUser({ fetch });
+
 	const organization = await getUserOrganization({ fetch });
-
-	const { workflow_id, run_id } = params;
-
-	const basePath = `/api/compliance/checks/${workflow_id}/${run_id}`;
-
-	//
-
-	const workflowResponse = await pb.send(basePath, {
-		method: 'GET',
-		fetch
-	});
-	const workflowResponseValidation = rawWorkflowResponseSchema.safeParse(workflowResponse);
-	if (!workflowResponseValidation.success) {
-		error(500, { message: 'Failed to parse workflow response' });
+	if (!organization) {
+		error(403, { message: 'You are not authorized to access this page' });
 	}
 
-	//
-
-	const historyResponse = await pb.send(`${basePath}/history`, {
-		method: 'GET',
-		fetch
-	});
-	const historyResponseValidation = rawHistoryResponseSchema.safeParse(historyResponse);
-	if (!historyResponseValidation.success) {
-		error(500, { message: 'Failed to parse workflow response' });
+	const workflow = await _getWorkflow(params.workflow_id, params.run_id, { fetch });
+	if (workflow instanceof Error) {
+		error(500, { message: workflow.message });
 	}
-
-	//
 
 	return {
-		workflowId: workflow_id,
-		runId: run_id,
-		eventHistory: historyResponseValidation.data as HistoryEvent[],
-		workflow: workflowResponseValidation.data,
-		workflowMemo: getWorkflowMemo(workflowResponseValidation.data.workflowExecutionInfo),
-		organization
+		organization,
+		workflow
 	};
 };
 
 //
 
-const rawWorkflowResponseSchema = z
-	.object({
-		workflowExecutionInfo: workflowExecutionSchema
-	})
-	.passthrough();
+export async function _getWorkflow(workflowId: string, runId: string, options = { fetch }) {
+	const execution = await fetchWorkflow(workflowId, runId, options);
+	if (execution instanceof Error) return execution;
 
-export type WorkflowResponse = z.infer<typeof rawWorkflowResponseSchema>;
+	const eventHistory = await fetchWorkflowHistory(workflowId, runId, options);
+	if (eventHistory instanceof Error) return eventHistory;
 
-const rawHistoryResponseSchema = z.array(z.record(z.unknown()));
+	const memo = getWorkflowMemo(execution);
+	if (memo instanceof Error) return memo;
+
+	return {
+		execution,
+		eventHistory,
+		memo
+	};
+}

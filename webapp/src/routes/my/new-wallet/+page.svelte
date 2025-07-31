@@ -12,6 +12,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { z } from 'zod';
 	import Table from './conformance_checks_table.svelte';
 
+	//
+
+	let { data } = $props();
+	const { workflows } = $derived(data);
+
 	const schema = z.object({
 		name: z.string().min(1, 'Name is required'),
 		description: z.string(),
@@ -42,12 +47,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	let { data } = $props();
-	const { executions } = $derived(data);
-
 	const tableData = $derived(
-		executions.map((execution) => ({
-			runId: execution.execution.runId,
+		workflows.map((w) => ({
+			runId: w.runId,
 			// @ts-ignore
 			standard: atob(execution.memo.fields.standard.data),
 			// @ts-ignore

@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { pb } from '@/pocketbase/index.js';
 	import { onDestroy, onMount, type Snippet } from 'svelte';
-	import Container from './container.svelte';
 
 	type Props = {
 		workflowId: string;
@@ -16,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		children?: Snippet;
 	};
 
-	let { workflowId, runId, namespace, children }: Props = $props();
+	let { workflowId, namespace }: Props = $props();
 
 	onMount(() => {
 		if (!workflowId) return;

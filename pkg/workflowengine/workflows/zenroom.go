@@ -215,7 +215,6 @@ func (w *ZenroomWorkflow) Start(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unable to create client: %w", err)
 	}
-	defer c.Close()
 
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       "Zenroom-Workflow-" + uuid.NewString(),

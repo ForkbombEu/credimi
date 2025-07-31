@@ -127,7 +127,6 @@ func StartWorkflowWithOptions(
 	if err != nil {
 		return WorkflowResult{}, fmt.Errorf("unable to create client: %w", err)
 	}
-	defer c.Close()
 
 	if input.Config["memo"] != nil {
 		options.Memo = input.Config["memo"].(map[string]any)

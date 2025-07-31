@@ -50,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>
-	<div class="flex items-start gap-6">
+	<div class="flex flex-col items-start gap-6 md:flex-row">
 		<div class="grow space-y-6">
 			<PageHeader
 				title={sections.credential_properties.label}

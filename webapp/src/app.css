@@ -149,3 +149,14 @@
 		--sidebar-ring: 217.2 91.2% 59.8%;
 	}
 }
+
+/* Custom utilities for responsive navigation */
+@layer utilities {
+	.scrollbar-hide {
+		-ms-overflow-style: none; /* IE and Edge */
+		scrollbar-width: none; /* Firefox */
+	}
+	.scrollbar-hide::-webkit-scrollbar {
+		display: none; /* Chrome, Safari and Opera */
+	}
+}
