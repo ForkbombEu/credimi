@@ -34,8 +34,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		await updateHighlighting();
 	});
 
+	let supportedLanguages = [];
+
+	onMount(async () => {
+		const highlighter = await getHighlighter({ theme: 'nord' });
+		supportedLanguages = highlighter.getLoadedLanguages();
+		await updateHighlighting();
+	});
+
 	async function updateHighlighting() {
-		if (content && (language === 'json' || language === 'yaml')) {
+		if (content && supportedLanguages.includes(language)) {
 			highlighted = await codeToHtml(content, {
 				lang: language,
 				theme: isDarkTheme ? 'vitesse-dark' : 'github-light',
