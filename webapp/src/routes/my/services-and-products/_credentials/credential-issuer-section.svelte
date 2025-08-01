@@ -63,7 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		filter: `owner.id = '${organizationId}'`,
 		sort: ['created', 'DESC']
 	}}
-	editFormFieldsOptions={{ exclude: ['owner', 'url'] }}
+	editFormFieldsOptions={{ exclude: ['owner', 'url', 'published'] }}
 	subscribe="expanded_collections"
 >
 	{#snippet top({ Header })}

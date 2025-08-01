@@ -47,7 +47,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					'json',
 					'key',
 					'owner',
-					'conformant'
+					'conformant',
+					'published'
 				],
 				order: ['deeplink'],
 				labels: {
