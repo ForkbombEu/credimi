@@ -17,17 +17,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		getMarketplaceItemTypeData,
 		MarketplaceItemCard,
 		marketplaceItemTypes,
-		marketplaceItemTypeSchema,
-		type MarketplaceItemType
+		marketplaceItemTypeSchema
 	} from './_utils';
-	import type { Filter } from '@/collections-components/manager';
-	import Button from '@/components/ui-custom/button.svelte';
 	import { page } from '$app/state';
 	import type { PocketbaseQueryOptions } from '@/pocketbase/query';
+	import { queryParameters } from 'sveltekit-search-params';
+	import Button from '@/components/ui-custom/button.svelte';
 
 	//
 
-	const type = $derived.by(() => {
+	const params = queryParameters({
+		type: {
+			encode: (value) => value,
+			decode: (value) => {
+				try {
+					return marketplaceItemTypeSchema.parse(value);
+				} catch (error) {
+					return null;
+				}
+			}
+		}
+	});
+
+	const typeFilter = $derived.by(() => {
 		try {
 			return marketplaceItemTypeSchema.parse(page.url.searchParams.get('type'));
 		} catch (error) {
@@ -36,67 +48,53 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	const queryOptions: PocketbaseQueryOptions<'marketplace_items'> = $derived(
-		type ? { filter: `type = '${type}'` } : {}
+		typeFilter ? { filter: `type = '${typeFilter}'` } : {}
 	);
 
 	//
 
-	const filters: Filter[] = marketplaceItemTypes
-		.map((type) => getMarketplaceItemTypeData(type))
-		.map((item) => ({
-			name: item.display?.label!,
-			expression: item.filter
-		}));
+	// const filters: Filter[] = marketplaceItemTypes
+	// 	.map((type) => getMarketplaceItemTypeData(type))
+	// 	.map((item) => ({
+	// 		name: item.display?.label!,
+	// 		expression: item.filter
+	// 	}));
 </script>
 
-<CollectionManager
-	collection="marketplace_items"
-	{queryOptions}
-	filters={{
-		name: m.Type(),
-		id: 'default',
-		mode: '||',
-		filters: filters
-	}}
->
-	{#snippet top({ Search, Filters })}
+<CollectionManager collection="marketplace_items" {queryOptions}>
+	{#snippet top({ Search })}
 		<PageTop>
-			<T tag="h1">{m.Marketplace()}</T>
+			<div>
+				<T tag="h1">
+					<span> {m.Marketplace()}</span>
+					{#if typeFilter}
+						{@const typeData = getMarketplaceItemTypeData(typeFilter)}
+						<span>/</span>
+						<span class={typeData.display?.textClass}>
+							{typeData.display?.labelPlural}
+						</span>
+					{/if}
+				</T>
+			</div>
 			<div class="flex items-center gap-2">
 				<Search
 					containerClass="grow"
 					class="border-primary bg-secondary                                                                                                                                                                                                                                                                                                              "
 				/>
-				{#if !type}
-					<Filters>
-						{#snippet trigger({ props })}
-							<Button
-								{...props}
-								variant="outline"
-								class="border-primary bg-secondary"
-							>
-								{m.Filters()}
-							</Button>
-						{/snippet}
-					</Filters>
-				{/if}
 			</div>
-			{#if type}
-				{@const typeData = getMarketplaceItemTypeData(type)}
-				<div class="flex items-center gap-2">
-					<T>
-						{m.Filters()}:
-						<span class={typeData.display?.textClass}>{typeData.display?.label}</span>
-					</T>
-					<Button variant="outline" href="/marketplace" size="sm">{m.Reset()}</Button>
-				</div>
-			{/if}
 		</PageTop>
 	{/snippet}
 
 	{#snippet contentWrapper(children)}
 		<PageContent class="bg-secondary grow">
-			{@render children()}
+			<div class="flex flex-col gap-8 sm:flex-row">
+				<div class="w-full sm:w-fit">
+					{@render MarketplaceTableOfContents()}
+				</div>
+				<div class="grow">
+					{@render children()}
+				</div>
+			</div>
 		</PageContent>
 	{/snippet}
 
@@ -108,3 +106,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</PageGrid>
 	{/snippet}
 </CollectionManager>
+
+{#snippet MarketplaceTableOfContents()}
+	{@const isAllActive = params.type === null}
+	<div class="grid grid-cols-2 sm:flex sm:flex-col">
+		<Button
+			variant={isAllActive ? 'default' : 'ghost'}
+			size="sm"
+			onclick={() => (params.type = null)}
+			class="justify-start"
+		>
+			{m.All()}
+		</Button>
+
+		<div class="spacer relative sm:hidden"></div>
+
+		{#each marketplaceItemTypes as type}
+			{@const typeData = getMarketplaceItemTypeData(type)}
+			{@const isActive = typeFilter === type}
+			<Button
+				variant={isActive ? 'default' : 'ghost'}
+				size="sm"
+				onclick={() => (params.type = type)}
+				class={'justify-start '}
+			>
+				<div
+					class={[
+						'block size-3 shrink-0 rounded-full border border-white',
+						typeData.display?.bgClass
+					]}
+				></div>
+				{typeData.display?.labelPlural}
+			</Button>
+		{/each}
+	</div>
+{/snippet}

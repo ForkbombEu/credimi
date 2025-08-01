@@ -17,12 +17,12 @@ export { MarketplaceItemTypeDisplay, MarketplaceItemCard };
 /* -- Marketplace item types -- */
 
 export const marketplaceItemTypes = [
-	'verifiers',
-	'credential_issuers',
 	'wallets',
+	'credential_issuers',
 	'credentials',
-	'custom_checks',
-	'use_cases_verifications'
+	'verifiers',
+	'use_cases_verifications',
+	'custom_checks'
 ] as const satisfies CollectionName[];
 
 export const marketplaceItemTypeSchema = z.enum(marketplaceItemTypes);
@@ -52,6 +52,7 @@ export type MarketplaceItem = {
 
 export type MarketplaceItemDisplayData = {
 	label: string;
+	labelPlural: string;
 	bgClass: string;
 	textClass: string;
 };
@@ -63,31 +64,37 @@ type MarketplaceItemsDisplayConfig = {
 const marketplaceItemsDisplayConfig: MarketplaceItemsDisplayConfig = {
 	wallets: {
 		label: m.Wallet(),
+		labelPlural: m.Wallets(),
 		bgClass: 'bg-blue-500',
 		textClass: 'text-blue-500'
 	},
 	custom_checks: {
 		label: m.Custom_check(),
+		labelPlural: m.Custom_checks(),
 		bgClass: 'bg-purple-500',
 		textClass: 'text-purple-500'
 	},
 	credential_issuers: {
 		label: m.Credential_issuer(),
+		labelPlural: m.Credential_issuers(),
 		bgClass: 'bg-green-700',
 		textClass: 'text-green-700'
 	},
 	credentials: {
 		label: m.Credential(),
+		labelPlural: m.Credentials(),
 		bgClass: 'bg-green-400',
 		textClass: 'text-green-400'
 	},
 	verifiers: {
 		label: m.Verifier(),
+		labelPlural: m.Verifiers(),
 		bgClass: 'bg-red-600',
 		textClass: 'text-red-600'
 	},
 	use_cases_verifications: {
 		label: m.Use_case_verification(),
+		labelPlural: m.Use_case_verifications(),
 		bgClass: 'bg-orange-400',
 		textClass: 'text-orange-400'
 	}

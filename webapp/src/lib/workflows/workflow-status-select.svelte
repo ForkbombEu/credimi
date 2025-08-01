@@ -6,10 +6,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { workflowStatuses, WorkflowStatus } from '@forkbombeu/temporal-ui';
-	import * as Select from '@/components/ui/select/index.js';
-	import { isWorkflowStatus, TemporalI18nProvider, type WorkflowStatusType } from '$lib/temporal';
+
+	import { TemporalI18nProvider, type WorkflowStatusType } from '$lib/temporal';
 	import { ensureArray } from '@/utils/other';
 	import { m } from '@/i18n';
+	import Label from '@/components/ui/label/label.svelte';
+	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+
+	//
 
 	type Props = {
 		value?: WorkflowStatusType[];
@@ -17,40 +22,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { value = $bindable(), onValueChange }: Props = $props();
-	const maxDisplayed = 2;
 </script>
 
 <TemporalI18nProvider>
-	<!-- `any` is used to avoid type errors when binding the value -->
-	<Select.Root
-		type="multiple"
-		bind:value
-		onValueChange={(data) => {
-			onValueChange?.(data.filter(isWorkflowStatus));
-		}}
-	>
-		<Select.Trigger class="w-fit gap-2">
-			{#each ensureArray(value).slice(0, maxDisplayed) as status}
-				<WorkflowStatus {status} />
-			{:else}
-				{m.Select_a_value()}
-			{/each}
-			{#if ensureArray(value).length > maxDisplayed}
-				<span
-					class=" flex items-center gap-1 whitespace-nowrap rounded-sm bg-gray-100 px-1 py-0.5 font-medium text-black"
-				>
-					+{ensureArray(value).length - maxDisplayed}
-				</span>
+	<div class="flex flex-col gap-2">
+		{#each workflowStatuses as status}
+			{#if status}
+				<Label class="flex items-center gap-2">
+					<Checkbox
+						value={status}
+						checked={value?.includes(status)}
+						onCheckedChange={(checked) => {
+							const v = ensureArray(value);
+							if (checked) onValueChange?.([...v, status]);
+							else onValueChange?.([...v.filter((v) => v !== status)]);
+						}}
+					/>
+					<WorkflowStatus {status} />
+				</Label>
 			{/if}
-		</Select.Trigger>
-		<Select.Content>
-			{#each workflowStatuses as status}
-				{#if status}
-					<Select.Item value={status}>
-						<WorkflowStatus {status} />
-					</Select.Item>
-				{/if}
-			{/each}
-		</Select.Content>
-	</Select.Root>
+		{/each}
+	</div>
 </TemporalI18nProvider>

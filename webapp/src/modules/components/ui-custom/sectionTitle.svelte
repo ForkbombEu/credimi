@@ -16,12 +16,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		hideLine?: boolean;
 		right?: Snippet;
 		bottom?: Snippet;
+		id?: string;
 	}
 
-	const { title, tag = 'h4', description, hideLine = false, right, bottom }: Props = $props();
+	const { title, tag = 'h4', description, hideLine = false, right, bottom, id }: Props = $props();
 </script>
 
-<div class="space-y-2">
+<div class="space-y-2" {id}>
 	<div class="flex flex-wrap items-center justify-between gap-2">
 		<div class="w-fit">
 			<T {tag}>{title}</T>
