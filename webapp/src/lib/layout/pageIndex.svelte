@@ -6,8 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" module>
 	import type { IconComponent } from '@/components/types';
+	import T from '@/components/ui-custom/t.svelte';
 	export interface IndexItem {
-		icon: IconComponent;
+		icon?: IconComponent;
 		anchor: string;
 		label: string;
 	}
@@ -18,18 +19,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		sections: IndexItem[];
+		title?: string;
 	} & HTMLAttributes<HTMLUListElement>;
 
-	let { sections, class: className, ...props }: Props = $props();
+	let { sections, class: className, title, ...props }: Props = $props();
 </script>
 
-<ul class="space-y-4 {className}" {...props}>
-	{#each sections as section}
-		<li>
-			<a href="#{section.anchor}" class="flex items-center gap-2 hover:underline">
-				<section.icon class="size-4 shrink-0" />
-				{section.label}
-			</a>
-		</li>
-	{/each}
-</ul>
+<div class="space-y-4">
+	{#if title}
+		<p class="border-b pb-1 text-lg font-semibold">{title}</p>
+	{/if}
+
+	<ul class={['space-y-4', className]} {...props}>
+		{#each sections as section}
+			<li>
+				<a href="#{section.anchor}" class="flex items-center gap-2 hover:underline">
+					{#if section.icon}
+						<section.icon class="size-4 shrink-0" />
+					{/if}
+					{section.label}
+				</a>
+			</li>
+		{/each}
+	</ul>
+</div>

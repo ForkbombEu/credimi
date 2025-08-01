@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { page } from '$app/state';
 	import Icon from '@/components/ui-custom/icon.svelte';
-	import type { LinkWithIcon } from '../types';
 	import NavigationTab, { type Props as NavigationTabProps } from './navigationTab.svelte';
 
 	interface Props {
@@ -17,7 +16,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { tabs = [] }: Props = $props();
 
 	// Find the active tab for mobile display
-	const activeTab = $derived(tabs.find((tab) => page.url.pathname === tab.href));
+	const activeTab = $derived(
+		tabs.find(
+			(tab) => page.url.pathname === tab.href || page.url.pathname.startsWith(tab.href!)
+		)
+	);
 </script>
 
 <!-- Desktop view: Normal flex layout -->

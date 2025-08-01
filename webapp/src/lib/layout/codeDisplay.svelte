@@ -7,14 +7,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { ClipboardCopy, Check, Sun, Moon } from 'lucide-svelte';
 	import Button from '@/components/ui/button/button.svelte';
-	import { onMount } from 'svelte';
-	import { codeToHtml } from 'shiki';
+
+	import { codeToHtml, type BundledLanguage } from 'shiki';
 
 	type Props = {
 		content: string;
 		class?: string;
 		hideCopyButton?: boolean;
-		language?: string;
+		language: BundledLanguage;
 		containerClass?: string;
 	};
 
@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		content,
 		class: className = '',
 		hideCopyButton = false,
-		language = '',
+		language,
 		containerClass = ''
 	}: Props = $props();
 
@@ -30,32 +30,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let highlighted = $state('');
 	let isDarkTheme = $state(true);
 
-	onMount(async () => {
-		await updateHighlighting();
-	});
-
-	let supportedLanguages = [];
-
-	onMount(async () => {
-		const highlighter = await getHighlighter({ theme: 'nord' });
-		supportedLanguages = highlighter.getLoadedLanguages();
-		await updateHighlighting();
-	});
-
 	async function updateHighlighting() {
-		if (content && supportedLanguages.includes(language)) {
-			highlighted = await codeToHtml(content, {
-				lang: language,
-				theme: isDarkTheme ? 'vitesse-dark' : 'github-light',
-				transformers: [
-					{
-						pre(node) {
-							this.addClassToHast(node, 'p-4');
-						}
+		highlighted = await codeToHtml(content, {
+			lang: language,
+			theme: isDarkTheme ? 'vitesse-dark' : 'github-light',
+			transformers: [
+				{
+					pre(node) {
+						this.addClassToHast(node, 'p-4');
 					}
-				]
-			});
-		}
+				}
+			]
+		});
 	}
 
 	$effect(() => {
@@ -102,7 +88,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<ClipboardCopy class="h-3 w-3 text-slate-600" size={16} />
 				{/if}
 			</Button>
-			
+
 			{#if highlighted}
 				<Button
 					type="button"

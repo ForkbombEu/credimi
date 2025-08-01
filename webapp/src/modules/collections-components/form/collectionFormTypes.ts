@@ -69,9 +69,9 @@ export type FieldSnippetOptions<C extends CollectionName, T = CollectionFormData
 	formData: Partial<T>;
 };
 
-export type FieldSnippet<C extends CollectionName, T = CollectionFormData[C]> = Snippet<
-	[FieldSnippetOptions<C, T>]
->;
+export type FieldSnippet<C extends CollectionName, T = CollectionFormData[C]> = (
+	options: FieldSnippetOptions<C, T>
+) => ReturnType<Snippet>;
 
 /* UI Options */
 

@@ -7,6 +7,6 @@ import type { Snippet } from 'svelte';
 export type FieldOptions = {
 	label: string;
 	description: string;
-	labelRight?: Snippet;
+	labelRight?: () => ReturnType<Snippet>;
 	hideLabel?: boolean;
 };

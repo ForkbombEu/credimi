@@ -39,13 +39,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Button
 			{href}
 			variant="ghost"
-			class={cn(!isActive && 'hover:underline', 'relative justify-start hover:bg-transparent')}
+			class={cn(
+				!isActive && 'hover:underline',
+				'relative justify-start hover:bg-transparent'
+			)}
 			data-sveltekit-noscroll
 			size="sm"
 		>
 			{#if isActive}
 				<div
-					class="bg-muted absolute inset-0 rounded-md"
+					class="bg-background absolute inset-0 rounded-md"
 					in:send={{ key: 'active-sidebar-tab' }}
 					out:receive={{ key: 'active-sidebar-tab' }}
 				></div>

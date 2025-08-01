@@ -184,19 +184,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#if memo}
 		{#if memo.author == 'ewc'}
-			<EwcTop {workflowId} {runId} namespace={organization?.id!} />
+			<EwcTop {workflowId} namespace={organization?.id!} />
 		{:else}
-			{@const showFeedbackForm = execution.status === 'Running'}
 			<div class="bg-temporal padding-x space-y-8 pt-4">
 				{#if memo.author == 'openid_conformance_suite'}
-					<OpenidnetTop
-						{workflowId}
-						{runId}
-						namespace={organization?.id!}
-						{showFeedbackForm}
-					/>
+					<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
 				{:else if memo.author == 'eudiw'}
-					<EudiwTop {workflowId} namespace={organization?.id!} {showFeedbackForm} />
+					<EudiwTop {workflowId} namespace={organization?.id!} />
 				{/if}
 
 				<Separator />
