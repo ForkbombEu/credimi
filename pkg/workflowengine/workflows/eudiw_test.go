@@ -139,10 +139,10 @@ func Test_EudiwWorkflow(t *testing.T) {
 					Payload: map[string]any{
 						"nonce":     "12345",
 						"id":        "12345",
-						"app_url":   "https://test-app.com",
 						"user_mail": "test@example.org",
 					},
 					Config: map[string]any{
+						"app_url":   "https://test-app.com",
 						"template":  "test-template",
 						"namespace": "test-namespace",
 					},
