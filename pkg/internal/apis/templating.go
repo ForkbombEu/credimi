@@ -26,7 +26,7 @@ func AddTemplatingRoutes(app core.App) {
 				Method:  "POST",
 				Path:    "/placeholders",
 				Handler: handlers.HandlePlaceholdersByFilenames,
-				Request: handlers.GetPlaceholdersByFilenamesRequestInput{},
+				RequestSchema: handlers.GetPlaceholdersByFilenamesRequestInput{},
 			},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{

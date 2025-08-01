@@ -252,16 +252,16 @@ func main() {
 				// Tags:          route.Tags,
 			}
 
-			if route.Request != nil {
-				typeName := reflect.TypeOf(route.Request).Name()
-				typesToProcess[typeName] = route.Request
+			if route.RequestSchema != nil {
+				typeName := reflect.TypeOf(route.RequestSchema).Name()
+				typesToProcess[typeName] = route.RequestSchema
 				r.InputType = typeName
 				r.InputSchema = typeName + "Schema"
 			}
 
-			if route.RequestResponse != nil {
-				typeName := reflect.TypeOf(route.RequestResponse).Name()
-				typesToProcess[typeName] = route.RequestResponse
+			if route.ResponseSchema != nil {
+				typeName := reflect.TypeOf(route.ResponseSchema).Name()
+				typesToProcess[typeName] = route.ResponseSchema
 				r.OutputType = typeName
 				r.OutputSchema = typeName + "Schema"
 			} else {

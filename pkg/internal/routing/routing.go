@@ -22,10 +22,10 @@ type HandlerFunc func(e *core.RequestEvent) error
 type HandlerFactory func() func(*core.RequestEvent) error
 
 type RouteGroup struct {
-	BaseURL               string
-	Routes                []RouteDefinition
-	Middlewares           []*hook.Handler[*core.RequestEvent]
-	Validation            bool
+	BaseURL     string
+	Routes      []RouteDefinition
+	Middlewares []*hook.Handler[*core.RequestEvent]
+	Validation  bool
 }
 
 type QuerySearchAttribute struct {
@@ -35,16 +35,16 @@ type QuerySearchAttribute struct {
 }
 
 type RouteDefinition struct {
-	Method              string
-	Path                string
-	Handler             HandlerFactory
-	Request             any
-	RequestResponse     any
-	Description         string
-	Summary             string
-	Examples            []string
-	Middlewares         []*hook.Handler[*core.RequestEvent]
-	ExcludedMiddlewares []string
+	Method                string
+	Path                  string
+	Handler               HandlerFactory
+	RequestSchema         any
+	ResponseSchema        any
+	Description           string
+	Summary               string
+	Examples              []string
+	Middlewares           []*hook.Handler[*core.RequestEvent]
+	ExcludedMiddlewares   []string
 	QuerySearchAttributes []QuerySearchAttribute
 }
 
@@ -101,7 +101,7 @@ func RegisterRoutesWithValidation(
 	log.Println("Registering routes with validation")
 
 	for _, route := range routes {
-		inputType := reflect.TypeOf(route.Request)
+		inputType := reflect.TypeOf(route.RequestSchema)
 
 		validatorMiddleware := middlewares.DynamicValidateInputByType(inputType)
 
