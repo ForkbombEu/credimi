@@ -54,8 +54,7 @@ func bindAppHooks(app core.App) {
 func Setup(app *pocketbase.PocketBase) {
 	bindAppHooks(app)
 	pb.HookNamespaceOrgs(app)
-	apis.AddComplianceChecks(app)
-	apis.AddTemplatingRoutes(app)
+	apis.RegisterMyRoutes(app)
 	hooks.WorkersHook(app)
 	apis.HookAtUserCreation(app)
 	apis.HookAtUserLogin(app)

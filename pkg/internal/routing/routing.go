@@ -21,14 +21,31 @@ type HandlerFunc func(e *core.RequestEvent) error
 
 type HandlerFactory func() func(*core.RequestEvent) error
 
+type RouteGroup struct {
+	BaseURL     string
+	Routes      []RouteDefinition
+	Middlewares []*hook.Handler[*core.RequestEvent]
+	Validation  bool
+}
+
+type QuerySearchAttribute struct {
+	Name        string `json:"name"`
+	Required    bool   `json:"required"`
+	Description string `json:"description"`
+}
+
 type RouteDefinition struct {
-	Method              string
-	Path                string
-	Handler             HandlerFactory
-	Input               any
-	OutputType          reflect.Type
-	Middlewares         []*hook.Handler[*core.RequestEvent]
-	ExcludedMiddlewares []string
+	Method                string
+	Path                  string
+	Handler               HandlerFactory
+	RequestSchema         any
+	ResponseSchema        any
+	Description           string
+	Summary               string
+	Examples              []string
+	Middlewares           []*hook.Handler[*core.RequestEvent]
+	ExcludedMiddlewares   []string
+	QuerySearchAttributes []QuerySearchAttribute
 }
 
 func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
@@ -57,26 +74,37 @@ func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
 	return typedInput, nil
 }
 
-type RouteGroup struct {
-	BaseURL     string
-	Routes      []RouteDefinition
-	Middlewares []*hook.Handler[*core.RequestEvent]
-	Validation  bool
-}
+// func AddGroupRoutes(app core.App, input RouteGroup) {
+// 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+// 		basePath := input.BaseURL
+// 		if basePath == "" {
+// 			basePath = "/api"
+// 		}
 
-func AddGroupRoutes(app core.App, input RouteGroup) {
+// 		rg := se.Router.Group(basePath)
+// 		rg.Bind(input.Middlewares...)
+// 		if input.Validation {
+// 			RegisterRoutesWithValidation(app, rg, input.Routes)
+// 		} else {
+// 			RegisterRoutesWithoutValidation(app, rg, input.Routes)
+// 		}
+// 		return se.Next()
+// 	})
+// 	app.OnServe()
+// }
+
+func (r *RouteGroup) Add(app core.App) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		basePath := input.BaseURL
+		basePath := r.BaseURL
 		if basePath == "" {
 			basePath = "/api"
-		}
-
+		}	
 		rg := se.Router.Group(basePath)
-		rg.Bind(input.Middlewares...)
-		if input.Validation {
-			RegisterRoutesWithValidation(app, rg, input.Routes)
+		rg.Bind(r.Middlewares...)	
+		if r.Validation {
+			RegisterRoutesWithValidation(app, rg, r.Routes)
 		} else {
-			RegisterRoutesWithoutValidation(app, rg, input.Routes)
+			RegisterRoutesWithoutValidation(app, rg, r.Routes)
 		}
 		return se.Next()
 	})
@@ -91,7 +119,7 @@ func RegisterRoutesWithValidation(
 	log.Println("Registering routes with validation")
 
 	for _, route := range routes {
-		inputType := reflect.TypeOf(route.Input)
+		inputType := reflect.TypeOf(route.RequestSchema)
 
 		validatorMiddleware := middlewares.DynamicValidateInputByType(inputType)
 
