@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const isActive = $derived(page.url.pathname == href);
+	const isActive = $derived(page.url.pathname === href || page.url.pathname.startsWith(href!));
 
 	const classes = $derived(
 		cn(

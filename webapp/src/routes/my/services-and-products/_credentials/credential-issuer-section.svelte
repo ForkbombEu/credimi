@@ -30,9 +30,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		organizationId?: string;
+		id?: string;
 	};
 
-	let { organizationId }: Props = $props();
+	let { organizationId, id }: Props = $props();
 
 	let isCredentialIssuerModalOpen = $state(false);
 </script>
@@ -48,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	subscribe="expanded_collections"
 >
 	{#snippet top({ Header })}
-		<Header title={m.Credential_issuers()}>
+		<Header title={m.Credential_issuers()} {id}>
 			{#snippet right()}
 				{@render CreateCredentialIssuerModal()}
 			{/snippet}
@@ -165,15 +166,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<ul class="space-y-2">
 					{#each credentials as credential}
 						<li class="bg-muted flex items-start justify-between rounded-md p-2 px-4">
-							<div class="break-words min-w-0 flex-1">
+							<div class="min-w-0 flex-1 break-words">
 								{#if !credential.published}
 									{credential.key}
-									<PublishedStatus item={credential} class="ml-1 inline-block align-middle" />
+									<PublishedStatus
+										item={credential}
+										class="ml-1 inline-block align-middle"
+									/>
 								{:else}
-									<A href="/marketplace/credentials/{credential.id}" class="break-words">
+									<A
+										href="/marketplace/credentials/{credential.id}"
+										class="break-words"
+									>
 										{credential.name}
 									</A>
-									<PublishedStatus item={credential} class="ml-1 inline-block align-middle" />
+									<PublishedStatus
+										item={credential}
+										class="ml-1 inline-block align-middle"
+									/>
 								{/if}
 							</div>
 
