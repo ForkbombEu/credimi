@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CollectionManager } from '@/collections-components';
 	import { m } from '@/i18n';
 	import { buttonVariants } from '@/components/ui/button';
-	import { Eye, EyeOff, Plus } from 'lucide-svelte';
+	import { SquareArrowOutUpRight, Eye, EyeOff, Plus } from 'lucide-svelte';
 	import CredentialIssuerForm from './credential-issuer-form.svelte';
 	import { Card } from '@/components/ui/card';
 	import T from '@/components/ui-custom/t.svelte';
@@ -138,16 +138,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{#if !record.published}
 								{title}
 							{:else}
-								<A href="/marketplace/{Collections.CredentialIssuers}/{record.id}">
+								<A
+									href="/marketplace/{Collections.CredentialIssuers}/{record.id}"
+									class="underline underline-offset-2 hover:!no-underline"
+								>
 									{title}
 								</A>
 							{/if}
 						</T>
 					</div>
 
-					<T class="mt-1 truncate text-xs text-gray-400">
-						{record.url}
-					</T>
+					<div class="text-xs">
+						<T class="mb-3 mt-0.5 text-xs text-gray-400">
+							{record.description}
+						</T>
+
+						<div class="flex items-center gap-1">
+							<T>URL:</T>
+							<A class="link-sm" target="_blank" href={record.url}>
+								{record.url}
+							</A>
+						</div>
+
+						<div class="flex items-center gap-1">
+							<T>Repository:</T>
+							<A class="link-sm" target="_blank" href={record.repo_url}>
+								{record.repo_url}
+							</A>
+						</div>
+
+						<div class="flex items-center gap-1">
+							<T>Homepage:</T>
+							<A class="link-sm" target="_blank" href={record.homepage_url}>
+								{record.homepage_url}
+							</A>
+						</div>
+					</div>
 				</div>
 
 				<div class="flex items-center gap-2">
@@ -205,7 +231,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{:else}
 									<A
 										href="/marketplace/credentials/{credential.id}"
-										class="break-words underline"
+										class="break-words font-medium underline underline-offset-2 hover:!no-underline"
 									>
 										{credential.name}
 									</A>
@@ -241,3 +267,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</Card>
 {/snippet}
+
+<style lang="postcss">
+	:global(.link-sm) {
+		@apply cursor-pointer truncate !text-gray-400 underline underline-offset-2;
+	}
+</style>
