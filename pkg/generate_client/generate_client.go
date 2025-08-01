@@ -392,17 +392,15 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 						"application/json": {Schema: Ref{Ref: "#/components/schemas/" + route.InputType}},
 					},
 				}
-			} else {
-				if route.QuerySearchAttributes != nil {
-					for _, attr := range route.QuerySearchAttributes {
-						operation.Parameters = append(operation.Parameters, Parameter{
-							Name:        attr.Name,
-							In:          "query",
-							Required:    attr.Required,
-							Description: attr.Description,
-							Schema:      &jsonschema.Schema{Type: "string"},
-						})
-					}
+			} else if route.QuerySearchAttributes != nil {
+				for _, attr := range route.QuerySearchAttributes {
+					operation.Parameters = append(operation.Parameters, Parameter{
+						Name:        attr.Name,
+						In:          "query",
+						Required:    attr.Required,
+						Description: attr.Description,
+						Schema:      &jsonschema.Schema{Type: "string"},
+					})
 				}
 			}
 		} else {
