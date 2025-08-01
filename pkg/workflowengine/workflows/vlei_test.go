@@ -5,7 +5,6 @@ package workflows
 
 import (
 	"encoding/json"
-	"reflect"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -20,7 +19,8 @@ import (
 func Test_VLEIValidationWorkflow(t *testing.T) {
 	testCases := []struct {
 		name           string
-		rawJSON        string
+		payload        map[string]any
+		config         map[string]any
 		schema         string
 		expectError    bool
 		errorCode      errorcodes.Code
@@ -28,83 +28,77 @@ func Test_VLEIValidationWorkflow(t *testing.T) {
 		mockActivities func(env *testsuite.TestWorkflowEnvironment)
 	}{
 		{
-			name: "Valid JSON matches schema",
-			rawJSON: `{
-				"name": "Alice",
-				"age": 30
-			}`,
-			schema: `{
-				"type": "object",
-				"properties": {
-					"name": { "type": "string" },
-					"age": { "type": "number" }
-				},
-				"required": ["name", "age"]
-			}`,
+			name: "Valid Workflow Run",
+			payload: map[string]any{
+				"credentialID": "12345",
+			},
+			config: map[string]any{
+				"server_url": "http://example.com",
+				"app_url":    "http://app.example.com",
+			},
 			expectError: false,
-			expectedMsg: "vLEI is valid according to the schema for test",
+			expectedMsg: "validated for credential: '12345'",
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				jsonActivity := activities.NewJSONActivity(map[string]reflect.Type{
-					"map": reflect.TypeOf(map[string]any{}),
-				})
-				validateActivity := activities.NewSchemaValidationActivity()
+				HTTPActivity := activities.NewHTTPActivity()
+				parseActivity := activities.NewCESRParsingActivity()
+				validateActivity := activities.NewCESRValidateActivity()
 
-				env.RegisterActivityWithOptions(jsonActivity.Execute, activity.RegisterOptions{
-					Name: jsonActivity.Name(),
+				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
+					Name: HTTPActivity.Name(),
+				})
+				env.RegisterActivityWithOptions(parseActivity.Execute, activity.RegisterOptions{
+					Name: parseActivity.Name(),
 				})
 				env.RegisterActivityWithOptions(validateActivity.Execute, activity.RegisterOptions{
 					Name: validateActivity.Name(),
 				})
 
 				var parsed map[string]any
-				_ = json.Unmarshal([]byte(`{"name": "Alice", "age": 30}`), &parsed)
+				_ = json.Unmarshal([]byte(`[{"test": "test", "v": "A12345"}]`), &parsed)
 
-				env.OnActivity(jsonActivity.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{"status": 200, "body": "test_result"}}, nil)
+				env.OnActivity(parseActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: parsed}, nil)
-
 				env.OnActivity(validateActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{
-						"status":  "success",
-						"message": "JSON is valid against the schema",
-					}}, nil)
+					Return(workflowengine.ActivityResult{Output: "validated"}, nil)
 			},
 		},
 		{
-			name: "Invalid JSON fails schema validation",
-			rawJSON: `{
-				"name": "Alice"
-			}`,
-			schema: `{
-				"type": "object",
-				"properties": {
-					"name": { "type": "string" },
-					"age": { "type": "number" }
-				},
-				"required": ["name", "age"]
-			}`,
+			name: "Invalid Workflow Run",
+			payload: map[string]any{
+				"credentialID": "12345",
+			},
+			config: map[string]any{
+				"server_url": "http://example.com",
+				"app_url":    "http://app.example.com",
+			},
 			expectError: true,
 			errorCode:   errorcodes.Codes[errorcodes.SchemaValidationFailed],
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				jsonActivity := activities.NewJSONActivity(map[string]reflect.Type{
-					"map": reflect.TypeOf(map[string]any{}),
-				})
-				validateActivity := activities.NewSchemaValidationActivity()
+				HTTPActivity := activities.NewHTTPActivity()
+				parseActivity := activities.NewCESRParsingActivity()
+				validateActivity := activities.NewCESRValidateActivity()
 
-				env.RegisterActivityWithOptions(jsonActivity.Execute, activity.RegisterOptions{
-					Name: jsonActivity.Name(),
+				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
+					Name: HTTPActivity.Name(),
+				})
+				env.RegisterActivityWithOptions(parseActivity.Execute, activity.RegisterOptions{
+					Name: parseActivity.Name(),
 				})
 				env.RegisterActivityWithOptions(validateActivity.Execute, activity.RegisterOptions{
 					Name: validateActivity.Name(),
 				})
 
 				var parsed map[string]any
-				_ = json.Unmarshal([]byte(`{"name": "Alice"}`), &parsed)
+				_ = json.Unmarshal([]byte(`[{"test": "test", "v": "A12345"}]`), &parsed)
 
-				env.OnActivity(jsonActivity.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{"status": 200, "body": "test_result"}}, nil)
+				env.OnActivity(parseActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: parsed}, nil)
-
 				env.OnActivity(validateActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{}, workflowengine.NewAppError(errorcodes.Codes[errorcodes.SchemaValidationFailed], "Missing required field: age"))
+					Return(workflowengine.ActivityResult{}, workflowengine.NewAppError(errorcodes.Codes[errorcodes.SchemaValidationFailed], ""))
 			},
 		},
 	}
@@ -117,13 +111,110 @@ func Test_VLEIValidationWorkflow(t *testing.T) {
 
 			w := &VLEIValidationWorkflow{}
 			env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
-				Config: map[string]any{
-					"schema": tc.schema,
-				},
-				Payload: map[string]any{
-					"rawJSON":   tc.rawJSON,
-					"vLEI_type": "test",
-				},
+				Payload: tc.payload,
+				Config:  tc.config,
+			})
+
+			if tc.expectError {
+				var result workflowengine.WorkflowResult
+				require.Error(t, env.GetWorkflowResult(&result))
+				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Code)
+				require.Contains(
+					t,
+					env.GetWorkflowResult(&result).Error(),
+					tc.errorCode.Description,
+				)
+			} else {
+				var result workflowengine.WorkflowResult
+				require.NoError(t, env.GetWorkflowResult(&result))
+				require.Equal(t, tc.expectedMsg, result.Message)
+			}
+		})
+	}
+}
+
+func Test_VLEIValidationLocalWorkflow(t *testing.T) {
+	testCases := []struct {
+		name           string
+		payload        map[string]any
+		config         map[string]any
+		schema         string
+		expectError    bool
+		errorCode      errorcodes.Code
+		expectedMsg    string
+		mockActivities func(env *testsuite.TestWorkflowEnvironment)
+	}{
+		{
+			name: "Valid Workflow Run",
+			payload: map[string]any{
+				"credentialID": "12345",
+				"rawCESR":      `[{"test": "test", "v": "A12345"}]`,
+			},
+			config: map[string]any{
+				"app_url": "http://app.example.com",
+			},
+			expectError: false,
+			expectedMsg: "validated from file",
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				parseActivity := activities.NewCESRParsingActivity()
+				validateActivity := activities.NewCESRValidateActivity()
+				env.RegisterActivityWithOptions(parseActivity.Execute, activity.RegisterOptions{
+					Name: parseActivity.Name(),
+				})
+				env.RegisterActivityWithOptions(validateActivity.Execute, activity.RegisterOptions{
+					Name: validateActivity.Name(),
+				})
+
+				var parsed map[string]any
+				_ = json.Unmarshal([]byte(`[{"test": "test", "v": "A12345"}]`), &parsed)
+				env.OnActivity(parseActivity.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: parsed}, nil)
+				env.OnActivity(validateActivity.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: "validated from file"}, nil)
+			},
+		},
+		{
+			name: "Invalid Workflow Run",
+			payload: map[string]any{
+				"credentialID": "12345",
+				"rawCESR":      `[{"test": "test", "v": "A12345"}]`,
+			},
+			config: map[string]any{
+				"server_url": "http://example.com",
+				"app_url":    "http://app.example.com",
+			},
+			expectError: true,
+			errorCode:   errorcodes.Codes[errorcodes.SchemaValidationFailed],
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				parseActivity := activities.NewCESRParsingActivity()
+				validateActivity := activities.NewCESRValidateActivity()
+				env.RegisterActivityWithOptions(parseActivity.Execute, activity.RegisterOptions{
+					Name: parseActivity.Name(),
+				})
+				env.RegisterActivityWithOptions(validateActivity.Execute, activity.RegisterOptions{
+					Name: validateActivity.Name(),
+				})
+
+				var parsed map[string]any
+				_ = json.Unmarshal([]byte(`[{"test": "test", "v": "A12345"}]`), &parsed)
+				env.OnActivity(parseActivity.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: parsed}, nil)
+				env.OnActivity(validateActivity.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{}, workflowengine.NewAppError(errorcodes.Codes[errorcodes.SchemaValidationFailed], ""))
+			},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testSuite := &testsuite.WorkflowTestSuite{}
+			env := testSuite.NewTestWorkflowEnvironment()
+			tc.mockActivities(env)
+
+			w := &VLEIValidationLocalWorkflow{}
+			env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
+				Payload: tc.payload,
+				Config:  tc.config,
 			})
 
 			if tc.expectError {
