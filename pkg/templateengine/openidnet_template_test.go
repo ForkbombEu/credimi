@@ -100,7 +100,12 @@ func TestValidateVariant(t *testing.T) {
 		},
 		{
 			"Not valid key",
-			map[string]string{"notvalid": "test1", "key2": "test", "key3": "invalid", "key4": "test"},
+			map[string]string{
+				"notvalid": "test1",
+				"key2":     "test",
+				"key3":     "invalid",
+				"key4":     "test",
+			},
 			validConfig,
 			true,
 		},
@@ -142,7 +147,12 @@ func TestParseInput(t *testing.T) {
 	defer os.Remove(defaultFile)
 
 	configData := map[string]any{
-		"variant_order": []string{"credential_format", "client_id_scheme", "request_method", "response_mode"},
+		"variant_order": []string{
+			"credential_format",
+			"client_id_scheme",
+			"request_method",
+			"response_mode",
+		},
 		"variant_keys": map[string][]string{
 			"credential_format": {"test1"},
 			"client_id_scheme":  {"test2"},
@@ -238,7 +248,6 @@ func TestParseInput(t *testing.T) {
 			if string(wantJSON) != string(gotJSON) {
 				t.Errorf("form mismatch:\nexpected:\n%s\ngot:\n%s", wantJSON, gotJSON)
 			}
-
 		})
 	}
 }

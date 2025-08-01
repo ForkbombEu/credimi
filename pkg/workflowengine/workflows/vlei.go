@@ -50,12 +50,18 @@ func (w *VLEIValidationWorkflow) Workflow(
 
 	serverURL, ok := input.Config["server_url"].(string)
 	if !ok || serverURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError("server_url", runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"server_url",
+			runMetadata,
+		)
 	}
 
 	credentialID, ok := input.Payload["credentialID"].(string)
 	if !ok || credentialID == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("credentialID", runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"credentialID",
+			runMetadata,
+		)
 	}
 
 	// Fetch raw CESR from server
@@ -69,13 +75,20 @@ func (w *VLEIValidationWorkflow) Workflow(
 	}
 	if err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), request).
 		Get(ctx, &serverResponse); err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			runMetadata,
+		)
 	}
 
 	outputMap, ok := serverResponse.Output.(map[string]any)
 	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			workflowengine.NewAppError(errorcodes.Codes[errorcodes.UnexpectedHTTPResponse], "invalid output type", serverResponse.Output),
+			workflowengine.NewAppError(
+				errorcodes.Codes[errorcodes.UnexpectedHTTPResponse],
+				"invalid output type",
+				serverResponse.Output,
+			),
 			runMetadata,
 		)
 	}
@@ -83,7 +96,11 @@ func (w *VLEIValidationWorkflow) Workflow(
 	cesrStr, ok := outputMap["body"].(string)
 	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			workflowengine.NewAppError(errorcodes.Codes[errorcodes.UnexpectedHTTPResponse], "missing 'body'", serverResponse.Output),
+			workflowengine.NewAppError(
+				errorcodes.Codes[errorcodes.UnexpectedHTTPResponse],
+				"missing 'body'",
+				serverResponse.Output,
+			),
 			runMetadata,
 		)
 	}
@@ -96,7 +113,9 @@ func (w *VLEIValidationWorkflow) Workflow(
 	return result, nil
 }
 
-func (w *VLEIValidationWorkflow) Start(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+func (w *VLEIValidationWorkflow) Start(
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       "VLEIValidation-" + uuid.NewString(),
 		TaskQueue:                VLEIValidationTaskQueue,
@@ -134,13 +153,18 @@ func (w *VLEIValidationLocalWorkflow) Workflow(
 
 	cesrStr, ok := input.Payload["rawCESR"].(string)
 	if !ok || cesrStr == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("rawCESR", runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"rawCESR",
+			runMetadata,
+		)
 	}
 
 	return validateCESRFromString(ctx, cesrStr, runMetadata)
 }
 
-func (w *VLEIValidationLocalWorkflow) Start(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+func (w *VLEIValidationLocalWorkflow) Start(
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
 	workflowOptions := client.StartWorkflowOptions{
 		ID:                       "VLEILocalValidation-" + uuid.NewString(),
 		TaskQueue:                VLEIValidationLocalTaskQueue,

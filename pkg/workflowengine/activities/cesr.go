@@ -59,7 +59,7 @@ func (a *CESRParsingActivity) Execute(
 			raw,
 		)
 	}
-	events, err := cesr.ParseCESR(string(rawStr))
+	events, err := cesr.ParseCESR(rawStr)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CESRParsingError]
 		return result, a.NewActivityError(

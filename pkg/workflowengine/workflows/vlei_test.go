@@ -5,9 +5,8 @@ package workflows
 
 import (
 	"encoding/json"
-	"testing"
-
 	"reflect"
+	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -131,7 +130,11 @@ func Test_VLEIValidationWorkflow(t *testing.T) {
 				var result workflowengine.WorkflowResult
 				require.Error(t, env.GetWorkflowResult(&result))
 				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Code)
-				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Description)
+				require.Contains(
+					t,
+					env.GetWorkflowResult(&result).Error(),
+					tc.errorCode.Description,
+				)
 			} else {
 				var result workflowengine.WorkflowResult
 				require.NoError(t, env.GetWorkflowResult(&result))

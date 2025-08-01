@@ -304,8 +304,11 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	}
 
 	return workflowengine.WorkflowResult{
-		Message: fmt.Sprintf("Successfully retrieved and stored and update credentials from '%s'", source),
-		Log:     logs,
+		Message: fmt.Sprintf(
+			"Successfully retrieved and stored and update credentials from '%s'",
+			source,
+		),
+		Log: logs,
 	}, nil
 }
 

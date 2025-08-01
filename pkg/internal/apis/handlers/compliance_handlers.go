@@ -303,15 +303,24 @@ func HandleGetWorkflows() func(*core.RequestEvent) error {
 				case "failed":
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_FAILED)
 				case "terminated":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_TERMINATED)
+					statusFilters = append(
+						statusFilters,
+						enums.WORKFLOW_EXECUTION_STATUS_TERMINATED,
+					)
 				case "canceled":
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_CANCELED)
 				case "timed_out":
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_TIMED_OUT)
 				case "continued_as_new":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW)
+					statusFilters = append(
+						statusFilters,
+						enums.WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW,
+					)
 				case "unspecified":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED)
+					statusFilters = append(
+						statusFilters,
+						enums.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED,
+					)
 				}
 			}
 		}
@@ -842,7 +851,10 @@ func handleDeeplinkFromHistory(
 							http.StatusBadRequest,
 							"protocol",
 							"unsupported suite",
-							fmt.Sprintf("author is %q, expected openid_conformance_suite, ewc or eudiw", author),
+							fmt.Sprintf(
+								"author is %q, expected openid_conformance_suite, ewc or eudiw",
+								author,
+							),
 						)
 					}
 				}

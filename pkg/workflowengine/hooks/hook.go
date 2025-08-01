@@ -77,7 +77,6 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		temporalclient.ShutdownClients()
 		return nil
 	})
-
 }
 
 type workerConfig struct {

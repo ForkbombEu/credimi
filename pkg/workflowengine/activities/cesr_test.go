@@ -47,16 +47,26 @@ func TestCESRParsing_Execute(t *testing.T) {
 			expectValue: []cesr.Event{
 				{
 					KED: map[string]any{
-						"a":  []any{},
-						"b":  []any{"Boq71an-vhU6DtlZzzJF7yIqbQxb56rcxeB0LppxeDOA", "BHGK9Gem8PdiZ7PZ9WcIwxM7YnGaztYA65X3o5_RxFa8", "B4tbPLI_TEze0pzAA-X-gewpdg22yfzN8CdKKIF5wETM"},
+						"a": []any{},
+						"b": []any{
+							"Boq71an-vhU6DtlZzzJF7yIqbQxb56rcxeB0LppxeDOA",
+							"BHGK9Gem8PdiZ7PZ9WcIwxM7YnGaztYA65X3o5_RxFa8",
+							"B4tbPLI_TEze0pzAA-X-gewpdg22yfzN8CdKKIF5wETM",
+						},
 						"bt": "3",
 						"c":  []any{},
 						"d":  "Ez6QKIKLzrGqpq4v9Bj908pQanoRKwOgBXjPW-w-P_8Q",
 						"di": "EC1m0ZF6ez1xoM8-jQsIbT5I3GpYnX4Zzh4om8_V1bnU",
 						"i":  "Ez6QKIKLzrGqpq4v9Bj908pQanoRKwOgBXjPW-w-P_8Q",
-						"k":  []any{"DQGnP_wcQSoIYd9U9rmLw75lZ__9UYy6LVekVjvdeDqw", "DeVruwFGOOPVugouR8afsKPcw1bxt674uMCvdLaub7Do"},
+						"k": []any{
+							"DQGnP_wcQSoIYd9U9rmLw75lZ__9UYy6LVekVjvdeDqw",
+							"DeVruwFGOOPVugouR8afsKPcw1bxt674uMCvdLaub7Do",
+						},
 						"kt": "2",
-						"n":  []any{"EcHq2C5-Gc5NeVOb-YYKbr8gh-Z6VqMbryO5XFsNRhb0", "E3JYJXrYXFm6HCSZNCDlbQrA8FiLA3LiFVOFy0Aix2Ww"},
+						"n": []any{
+							"EcHq2C5-Gc5NeVOb-YYKbr8gh-Z6VqMbryO5XFsNRhb0",
+							"E3JYJXrYXFm6HCSZNCDlbQrA8FiLA3LiFVOFy0Aix2Ww",
+						},
 						"nt": "2",
 						"s":  "0",
 						"t":  "dip",

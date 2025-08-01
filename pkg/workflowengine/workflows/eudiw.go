@@ -421,7 +421,9 @@ func BuildQRDeepLink(
 	clientID, requestURI string,
 ) (string, error) {
 	baseURL := "eudi-openid4vp://?client_id=%s&request_uri=%s"
-	u, err := url.Parse(fmt.Sprintf(baseURL, url.QueryEscape(clientID), url.QueryEscape(requestURI)))
+	u, err := url.Parse(
+		fmt.Sprintf(baseURL, url.QueryEscape(clientID), url.QueryEscape(requestURI)),
+	)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
 		appErr := workflowengine.NewAppError(errCode, baseURL)
