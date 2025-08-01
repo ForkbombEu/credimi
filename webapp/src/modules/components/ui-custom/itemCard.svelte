@@ -6,9 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" module>
 	export type ItemCardSnippets = {
-		left?: Snippet;
+		left?: () => ReturnType<Snippet>;
 		children?: Snippet<[{ Title: typeof Title; Description: typeof Description }]>;
-		right?: Snippet;
+		right?: () => ReturnType<Snippet>;
 	};
 </script>
 
