@@ -29,74 +29,8 @@ import (
 	// "google.golang.org/protobuf/runtime/protoimpl"
 )
 
-
 type ReRunCheckRequest struct {
 	Config map[string]interface{} `json:"config"`
-}
-
-type ReRunCheckRequestResponse struct {
-	WorkflowID string `json:"workflow_id"`
-	RunID      string `json:"run_id"`
-}
-
-type ListMyChecksRequestResponse struct {
-	Executions []WorkflowExecution `json:"executions"`
-}
-
-type GetMyCheckRunRequestResponse struct {
-	WorkflowExecution WorkflowExecution `json:"workflow_execution"`
-}
-
-type ListMyCheckRunsRequestResponse struct {
-	Executions []WorkflowExecution `json:"executions"`
-}
-
-type GetMyCheckRunHistory struct {
-	History   []Event `json:"history"`
-	Count     int     `json:"count"`
-	Time      string  `json:"time"`
-	CheckID   string  `json:"checkId"`
-	RunID     string  `json:"runId"`
-	Namespace string  `json:"namespace"`
-}
-
-type CancelMyCheckRunRequestResponse struct {
-	Message    string `json:"message"`
-	WorkflowID string `json:"workflow_id"`
-	RunID      string `json:"run_id"`
-	Status     string `json:"status"`
-	Time       string `json:"time"`
-	Namespace  string `json:"namespace"`
-}
-
-type ExportMyCheckRun struct {
-	Export Export `json:"export"`
-}
-
-type Export struct {
-	CheckID string                 `json:"checkId"`
-	RunID   string                 `json:"runId"`
-	Input   map[string]interface{} `json:"input"`
-	Config  map[string]interface{} `json:"config"`
-}
-
-type ChecksLogsRequestResponse struct {
-	Channel    string `json:"channel"`
-	WorkflowID string `json:"workflow_id"`
-	RunID      string `json:"run_id"`
-	Message    string `json:"message"`
-	Status     string `json:"status"`
-	Time       string `json:"time"`
-	Namespace  string `json:"namespace"`
-}
-
-type TerminateMyCheckRunRequestResponse struct {
-	Message    string `json:"message"`
-	WorkflowID string `json:"workflow_id"`
-	RunID      string `json:"run_id"`
-	Status     string `json:"status"`
-	Time       string `json:"time"`
-	Namespace  string `json:"namespace"`
 }
 
 func HandleListMyChecks() func(*core.RequestEvent) error {

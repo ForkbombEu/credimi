@@ -25,6 +25,133 @@ export const MessageStateSchema = z.object({
 })
 export type MessageState = z.infer<typeof MessageStateSchema>
 
+export const MostRecentWorkflowVersionStampSchema = z.object({
+  workflowVersionTimestamp: z.string(),
+  useVersioning: z.boolean().optional(),
+})
+export type MostRecentWorkflowVersionStamp = z.infer<typeof MostRecentWorkflowVersionStampSchema>
+
+export const PayloadSchema = z.object({
+  metadata: z.record(z.string(), z.string()).optional(),
+  data: z.string().optional(),
+})
+export type Payload = z.infer<typeof PayloadSchema>
+
+export const MemoSchema = z.object({
+  fields: z.record(z.string(), PayloadSchema).optional(),
+})
+export type Memo = z.infer<typeof MemoSchema>
+
+export const WorkflowIdentifierSchema = z.object({
+  workflowId: z.string().min(1),
+  runId: z.string().optional(),
+})
+export type WorkflowIdentifier = z.infer<typeof WorkflowIdentifierSchema>
+
+export const PendingChildrenSchema = z.object({
+  workflowId: z.string().min(1),
+  runId: z.string().optional(),
+  workflowTypeName: z.string().min(1),
+  initiatedId: z.string().min(1),
+  parentClosePolicy: z.string().optional(),
+})
+export type PendingChildren = z.infer<typeof PendingChildrenSchema>
+
+export type Failure = {
+  message?: string | undefined,
+  source?: string | undefined,
+  stackTrace?: string | undefined,
+  cause?: Failure | undefined,
+  failureInfo?: Record<string, string> | undefined,
+}
+const FailureSchemaShape = {
+  message: z.string().optional(),
+  source: z.string().optional(),
+  stackTrace: z.string().optional(),
+  cause: z.lazy(() => FailureSchema).optional(),
+  failureInfo: z.record(z.string(), z.string()).optional(),
+}
+export const FailureSchema: z.ZodType<Failure> = z.object(FailureSchemaShape)
+
+export const PendingNexusOperationSchema = z.object({
+  endpoint: z.string().min(1),
+  service: z.string().min(1),
+  operation: z.string().min(1),
+  operationId: z.string().min(1),
+  scheduledEventId: z.string().min(1),
+  state: z.string().min(1),
+  attempt: z.number().optional(),
+  nextAttemptScheduleTime: z.string().optional(),
+  lastAttemptCompleteTime: z.string().optional(),
+  lastAttemptFailure: FailureSchema.optional(),
+})
+export type PendingNexusOperation = z.infer<typeof PendingNexusOperationSchema>
+
+export const ActivityTypeSchema = z.object({
+  name: z.string().min(1),
+})
+export type ActivityType = z.infer<typeof ActivityTypeSchema>
+
+export const PendingActivityInfoSchema = z.object({
+  activityId: z.string().min(1),
+  activityType: ActivityTypeSchema,
+  state: z.string().min(1),
+  heartbeatDetails: PayloadSchema.array().optional().nullable(),
+  lastHeartbeatTime: z.string().optional(),
+  lastStartedTime: z.string().optional(),
+  attempt: z.number().optional(),
+  maximumAttempts: z.number().optional(),
+  scheduledTime: z.string().optional(),
+  expirationTime: z.string().optional(),
+  lastFailure: FailureSchema.optional(),
+  lastWorkerIdentity: z.string().optional(),
+  assignedBuildId: z.string().optional(),
+})
+export type PendingActivityInfo = z.infer<typeof PendingActivityInfoSchema>
+
+export const PendingWorkflowTaskInfoSchema = z.object({
+  state: z.string().optional(),
+  scheduledTime: z.string().optional(),
+  originalScheduledTime: z.string().optional(),
+  startedTime: z.string().optional(),
+  attempt: z.number().optional(),
+  lastFailure: FailureSchema.optional(),
+})
+export type PendingWorkflowTaskInfo = z.infer<typeof PendingWorkflowTaskInfoSchema>
+
+export const DurationSchema = z.object({
+  seconds: z.number().optional(),
+  nanos: z.number().optional(),
+})
+export type Duration = z.infer<typeof DurationSchema>
+
+export const CallbackInfoSchema = z.object({
+  callback: PayloadSchema.optional(),
+  registrationTime: z.string().optional(),
+})
+export type CallbackInfo = z.infer<typeof CallbackInfoSchema>
+
+export const CallbackSchema = z.object({
+  trigger: CallbackInfoSchema.optional(),
+  publicInfo: CallbackInfoSchema.optional(),
+  state: z.string().optional(),
+  attempt: z.number().optional(),
+  lastAttemptCompleteTime: z.string().optional(),
+  lastAttemptFailure: FailureSchema.optional(),
+  nextAttemptScheduleTime: z.string().optional(),
+})
+export type Callback = z.infer<typeof CallbackSchema>
+
+export const CallbacksSchema = z.object({
+  callbacks: CallbackSchema.array().optional(),
+})
+export type Callbacks = z.infer<typeof CallbacksSchema>
+
+export const VersioningInfoSchema = z.object({
+  useVersioning: z.boolean().optional(),
+})
+export type VersioningInfo = z.infer<typeof VersioningInfoSchema>
+
 export const WorkflowExecutionSchema = z.object({
   name: z.string(),
   id: z.string(),
@@ -36,102 +163,146 @@ export const WorkflowExecutionSchema = z.object({
   taskQueue: z.string().optional(),
   historyEvents: z.string(),
   historySizeBytes: z.string(),
+  mostRecentWorkerVersionStamp: MostRecentWorkflowVersionStampSchema.optional(),
   assignedBuildId: z.string().optional(),
+  searchAttributes: z.record(z.string(), z.any()).optional().nullable(),
+  memo: MemoSchema.optional(),
+  rootExecution: WorkflowIdentifierSchema.optional(),
+  pendingChildren: PendingChildrenSchema.array().optional(),
+  pendingNexusOperations: PendingNexusOperationSchema.array().optional(),
+  pendingActivities: PendingActivityInfoSchema.array().optional(),
+  pendingWorkflowTask: PendingWorkflowTaskInfoSchema.optional(),
+  stateTransitionCount: z.string(),
   parentNamespaceId: z.string().optional(),
+  parent: WorkflowIdentifierSchema.optional(),
   url: z.string(),
   isRunning: z.boolean(),
+  defaultWorkflowTaskTimeout: DurationSchema.optional(),
   canBeTerminated: z.boolean(),
+  callbacks: CallbacksSchema.optional(),
+  versioningInfo: VersioningInfoSchema.optional(),
+  summary: PayloadSchema.optional(),
+  details: PayloadSchema.optional(),
 })
 export type WorkflowExecution = z.infer<typeof WorkflowExecutionSchema>
 
-export const ListMyChecksRequestResponseSchema = z.object({
-  executions: WorkflowExecutionSchema.array().nullable(),
+export const ListMyChecksResponseSchema = z.object({
+  executions: WorkflowExecutionSchema.array(),
 })
-export type ListMyChecksRequestResponse = z.infer<typeof ListMyChecksRequestResponseSchema>
+export type ListMyChecksResponse = z.infer<typeof ListMyChecksResponseSchema>
 
-export const EventSchema = z.object({
-  eventId: z.string(),
-  eventType: z.string(),
-  eventTime: z.string(),
-  details: z.string(),
-  attributes: z.string(),
+export const ListMyCheckRunsResponseSchema = z.object({
+  executions: WorkflowExecutionSchema.array(),
 })
-export type Event = z.infer<typeof EventSchema>
+export type ListMyCheckRunsResponse = z.infer<typeof ListMyCheckRunsResponseSchema>
 
-export const GetMyCheckRunHistorySchema = z.object({
-  history: EventSchema.array().nullable(),
-  count: z.number(),
-  time: z.string(),
-  checkId: z.string(),
+export const WorkflowExecutionInfoSchema = z.object({
+  name: z.string(),
+  id: z.string(),
   runId: z.string(),
-  namespace: z.string(),
+  status: z.string(),
+  stateTransitionCount: z.string(),
+  startTime: z.string(),
+  closeTime: z.string(),
+  executionTime: z.string(),
+  historySizeBytes: z.string(),
+  historyLength: z.string(),
+  assignedBuildId: z.string(),
+  searchAttributes: z.record(z.string(), z.any()).optional().nullable(),
+  memo: MemoSchema.optional(),
+  versioningInfo: VersioningInfoSchema.optional(),
 })
-export type GetMyCheckRunHistory = z.infer<typeof GetMyCheckRunHistorySchema>
+export type WorkflowExecutionInfo = z.infer<typeof WorkflowExecutionInfoSchema>
+
+export const TaskQueueSchema = z.object({
+  name: z.string().min(1),
+  kind: z.string().optional(),
+  normalName: z.string().optional(),
+})
+export type TaskQueue = z.infer<typeof TaskQueueSchema>
+
+export const UserMetadataSchema = z.object({
+  summary: PayloadSchema.optional(),
+  details: PayloadSchema.optional(),
+})
+export type UserMetadata = z.infer<typeof UserMetadataSchema>
+
+export const WorkflowExecutionConfigWithMetadataSchema = z.object({
+  taskQueue: TaskQueueSchema.optional(),
+  workflowExecutionTimeout: DurationSchema.optional(),
+  workflowRunTimeout: DurationSchema.optional(),
+  defaultWorkflowTaskTimeout: DurationSchema.optional(),
+  userMetadata: UserMetadataSchema.optional(),
+})
+export type WorkflowExecutionConfigWithMetadata = z.infer<typeof WorkflowExecutionConfigWithMetadataSchema>
+
+export const GetMyCheckRunResponseSchema = z.object({
+  workflowExecutionInfo: WorkflowExecutionInfoSchema.optional(),
+  pendingActivities: PendingActivityInfoSchema.array().optional(),
+  pendingChildren: PendingChildrenSchema.array().optional(),
+  pendingNexusOperations: PendingNexusOperationSchema.array().optional(),
+  executionConfig: WorkflowExecutionConfigWithMetadataSchema.optional(),
+  callbacks: CallbacksSchema.optional(),
+  pendingWorkflowTask: PendingWorkflowTaskInfoSchema.optional(),
+})
+export type GetMyCheckRunResponse = z.infer<typeof GetMyCheckRunResponseSchema>
 
 export const ReRunCheckRequestSchema = z.object({
   config: z.record(z.string(), z.any()).nullable(),
 })
 export type ReRunCheckRequest = z.infer<typeof ReRunCheckRequestSchema>
 
-export const ReRunCheckRequestResponseSchema = z.object({
-  workflow_id: z.string(),
-  run_id: z.string(),
+export const ReRunCheckResponseSchema = z.object({
+  workflow_id: z.string().min(1),
+  run_id: z.string().min(1),
 })
-export type ReRunCheckRequestResponse = z.infer<typeof ReRunCheckRequestResponseSchema>
+export type ReRunCheckResponse = z.infer<typeof ReRunCheckResponseSchema>
 
-export const ExportSchema = z.object({
-  checkId: z.string(),
-  runId: z.string(),
-  input: z.record(z.string(), z.any()).nullable(),
-  config: z.record(z.string(), z.any()).nullable(),
+export const CancelMyCheckRunResponseSchema = z.object({
+  message: z.string().min(1),
+  checkId: z.string().min(1),
+  runId: z.string().min(1),
+  status: z.string().min(1),
+  time: z.string().min(1),
+  namespace: z.string().min(1),
 })
-export type Export = z.infer<typeof ExportSchema>
+export type CancelMyCheckRunResponse = z.infer<typeof CancelMyCheckRunResponseSchema>
 
-export const ExportMyCheckRunSchema = z.object({
-  export: ExportSchema,
+export const GetMyCheckRunHistoryResponseSchema = z.object({
+  history: z.record(z.string(), z.any()).array(),
+  count: z.number().refine((val) => val !== 0),
+  time: z.string().min(1),
+  checkId: z.string().min(1),
+  runId: z.string().min(1),
+  namespace: z.string().min(1),
 })
-export type ExportMyCheckRun = z.infer<typeof ExportMyCheckRunSchema>
+export type GetMyCheckRunHistoryResponse = z.infer<typeof GetMyCheckRunHistoryResponseSchema>
 
-export const ChecksLogsRequestResponseSchema = z.object({
-  channel: z.string(),
-  workflow_id: z.string(),
-  run_id: z.string(),
-  message: z.string(),
-  status: z.string(),
-  time: z.string(),
-  namespace: z.string(),
+export const ExportMyCheckRunResponseSchema = z.object({
+  export: z.string().min(1),
 })
-export type ChecksLogsRequestResponse = z.infer<typeof ChecksLogsRequestResponseSchema>
+export type ExportMyCheckRunResponse = z.infer<typeof ExportMyCheckRunResponseSchema>
 
-export const ListMyCheckRunsRequestResponseSchema = z.object({
-  executions: WorkflowExecutionSchema.array().nullable(),
+export const ChecksLogsResponseSchema = z.object({
+  channel: z.string().min(1),
+  workflow_id: z.string().min(1),
+  run_id: z.string().min(1),
+  message: z.string().min(1),
+  status: z.string().min(1),
+  time: z.string().min(1),
+  namespace: z.string().min(1),
 })
-export type ListMyCheckRunsRequestResponse = z.infer<typeof ListMyCheckRunsRequestResponseSchema>
+export type ChecksLogsResponse = z.infer<typeof ChecksLogsResponseSchema>
 
-export const GetMyCheckRunRequestResponseSchema = z.object({
-  workflow_execution: WorkflowExecutionSchema,
+export const TerminateMyCheckRunResponseSchema = z.object({
+  message: z.string().min(1),
+  checkId: z.string().min(1),
+  runId: z.string().min(1),
+  status: z.string().min(1),
+  time: z.string().min(1),
+  namespace: z.string().min(1),
 })
-export type GetMyCheckRunRequestResponse = z.infer<typeof GetMyCheckRunRequestResponseSchema>
-
-export const CancelMyCheckRunRequestResponseSchema = z.object({
-  message: z.string(),
-  workflow_id: z.string(),
-  run_id: z.string(),
-  status: z.string(),
-  time: z.string(),
-  namespace: z.string(),
-})
-export type CancelMyCheckRunRequestResponse = z.infer<typeof CancelMyCheckRunRequestResponseSchema>
-
-export const TerminateMyCheckRunRequestResponseSchema = z.object({
-  message: z.string(),
-  workflow_id: z.string(),
-  run_id: z.string(),
-  status: z.string(),
-  time: z.string(),
-  namespace: z.string(),
-})
-export type TerminateMyCheckRunRequestResponse = z.infer<typeof TerminateMyCheckRunRequestResponseSchema>
+export type TerminateMyCheckRunResponse = z.infer<typeof TerminateMyCheckRunResponseSchema>
 
 
 
@@ -171,7 +342,7 @@ export class CredimiClient {
      * @method GET
      * @path /api/my/checks
      */
-    async listMyChecks(): Promise<ListMyChecksRequestResponse> {
+    async listMyChecks(): Promise<ListMyChecksResponse> {
         const path = `/api/my/checks`;
 
         const options: SendOptions = { method: "GET" };
@@ -180,7 +351,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return ListMyChecksRequestResponseSchema.parse(result);
+						return ListMyChecksResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -198,7 +369,7 @@ export class CredimiClient {
      * @method GET
      * @path /api/my/checks/{checkId}/runs
      */
-    async listMyCheckRuns(input: { checkId: string }): Promise<ListMyCheckRunsRequestResponse> {
+    async listMyCheckRuns(input: { checkId: string }): Promise<ListMyCheckRunsResponse> {
         const path = `/api/my/checks/${input.checkId}/runs`;
 
         const options: SendOptions = { method: "GET" };
@@ -207,7 +378,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return ListMyCheckRunsRequestResponseSchema.parse(result);
+						return ListMyCheckRunsResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -225,7 +396,7 @@ export class CredimiClient {
      * @method GET
      * @path /api/my/checks/{checkId}/runs/{runId}
      */
-    async getMyCheckRun(input: { checkId: string, runId: string }): Promise<GetMyCheckRunRequestResponse> {
+    async getMyCheckRun(input: { checkId: string, runId: string }): Promise<GetMyCheckRunResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}`;
 
         const options: SendOptions = { method: "GET" };
@@ -234,7 +405,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return GetMyCheckRunRequestResponseSchema.parse(result);
+						return GetMyCheckRunResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -252,7 +423,7 @@ export class CredimiClient {
      * @method GET
      * @path /api/my/checks/{checkId}/runs/{runId}/history
      */
-    async getMyCheckRunHistory(input: { checkId: string, runId: string }): Promise<GetMyCheckRunHistory> {
+    async getMyCheckRunHistory(input: { checkId: string, runId: string }): Promise<GetMyCheckRunHistoryResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}/history`;
 
         const options: SendOptions = { method: "GET" };
@@ -261,7 +432,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return GetMyCheckRunHistorySchema.parse(result);
+						return GetMyCheckRunHistoryResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -279,7 +450,7 @@ export class CredimiClient {
      * @method POST
      * @path /api/my/checks/{checkId}/runs/{runId}/rerun
      */
-    async rerunMyCheck(input: ReRunCheckRequest & { checkId: string, runId: string }): Promise<ReRunCheckRequestResponse> {
+    async rerunMyCheck(input: ReRunCheckRequest & { checkId: string, runId: string }): Promise<ReRunCheckResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}/rerun`;
 
         const options: SendOptions = { method: "POST" };
@@ -288,7 +459,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return ReRunCheckRequestResponseSchema.parse(result);
+						return ReRunCheckResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -306,7 +477,7 @@ export class CredimiClient {
      * @method POST
      * @path /api/my/checks/{checkId}/runs/{runId}/cancel
      */
-    async cancelMyCheckRun(input: { checkId: string, runId: string }): Promise<CancelMyCheckRunRequestResponse> {
+    async cancelMyCheckRun(input: { checkId: string, runId: string }): Promise<CancelMyCheckRunResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}/cancel`;
 
         const options: SendOptions = { method: "POST" };
@@ -315,7 +486,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return CancelMyCheckRunRequestResponseSchema.parse(result);
+						return CancelMyCheckRunResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -333,7 +504,7 @@ export class CredimiClient {
      * @method GET
      * @path /api/my/checks/{checkId}/runs/{runId}/export
      */
-    async exportMyCheckRun(input: { checkId: string, runId: string }): Promise<ExportMyCheckRun> {
+    async exportMyCheckRun(input: { checkId: string, runId: string }): Promise<ExportMyCheckRunResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}/export`;
 
         const options: SendOptions = { method: "GET" };
@@ -342,7 +513,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return ExportMyCheckRunSchema.parse(result);
+						return ExportMyCheckRunResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -360,7 +531,7 @@ export class CredimiClient {
      * @method GET
      * @path /api/my/checks/{checkId}/runs/{runId}/logs
      */
-    async myCheckLogs(input: { checkId: string, runId: string } & { action?: string }): Promise<ChecksLogsRequestResponse> {
+    async myCheckLogs(input: { checkId: string, runId: string } & { action?: string }): Promise<ChecksLogsResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}/logs`;
 
         const options: SendOptions = { method: "GET" };
@@ -376,7 +547,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return ChecksLogsRequestResponseSchema.parse(result);
+						return ChecksLogsResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
@@ -394,7 +565,7 @@ export class CredimiClient {
      * @method POST
      * @path /api/my/checks/{checkId}/runs/{runId}/terminate
      */
-    async terminateMyCheckRun(input: { checkId: string, runId: string }): Promise<TerminateMyCheckRunRequestResponse> {
+    async terminateMyCheckRun(input: { checkId: string, runId: string }): Promise<TerminateMyCheckRunResponse> {
         const path = `/api/my/checks/${input.checkId}/runs/${input.runId}/terminate`;
 
         const options: SendOptions = { method: "POST" };
@@ -403,7 +574,7 @@ export class CredimiClient {
 
         try {
             const result = await this.pb.send(path, options);
-						return TerminateMyCheckRunRequestResponseSchema.parse(result);
+						return TerminateMyCheckRunResponseSchema.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
