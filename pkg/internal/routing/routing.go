@@ -21,14 +21,31 @@ type HandlerFunc func(e *core.RequestEvent) error
 
 type HandlerFactory func() func(*core.RequestEvent) error
 
+type RouteGroup struct {
+	BaseURL     string
+	Routes      []RouteDefinition
+	Middlewares []*hook.Handler[*core.RequestEvent]
+	Validation  bool
+}
+
+type QuerySearchAttribute struct {
+	Name        string `json:"name"`
+	Required    bool   `json:"required"`
+	Description string `json:"description"`
+}
+
 type RouteDefinition struct {
-	Method              string
-	Path                string
-	Handler             HandlerFactory
-	Input               any
-	OutputType          reflect.Type
-	Middlewares         []*hook.Handler[*core.RequestEvent]
-	ExcludedMiddlewares []string
+	Method                string
+	Path                  string
+	Handler               HandlerFactory
+	RequestSchema         any
+	ResponseSchema        any
+	Description           string
+	Summary               string
+	Examples              []string
+	Middlewares           []*hook.Handler[*core.RequestEvent]
+	ExcludedMiddlewares   []string
+	QuerySearchAttributes []QuerySearchAttribute
 }
 
 func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
@@ -55,13 +72,6 @@ func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
 		)
 	}
 	return typedInput, nil
-}
-
-type RouteGroup struct {
-	BaseURL     string
-	Routes      []RouteDefinition
-	Middlewares []*hook.Handler[*core.RequestEvent]
-	Validation  bool
 }
 
 func AddGroupRoutes(app core.App, input RouteGroup) {
@@ -91,7 +101,7 @@ func RegisterRoutesWithValidation(
 	log.Println("Registering routes with validation")
 
 	for _, route := range routes {
-		inputType := reflect.TypeOf(route.Input)
+		inputType := reflect.TypeOf(route.RequestSchema)
 
 		validatorMiddleware := middlewares.DynamicValidateInputByType(inputType)
 
