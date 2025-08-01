@@ -501,7 +501,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		if req.Config == nil {
+		if req.Config != nil {
 			for k, v := range req.Config {
 				workflowInput.Config[k] = v
 			}
