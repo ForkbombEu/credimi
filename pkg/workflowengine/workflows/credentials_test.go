@@ -88,7 +88,11 @@ func Test_Workflow(t *testing.T) {
 
 	var result workflowengine.WorkflowResult
 	require.NoError(t, env.GetWorkflowResult(&result))
-	require.Equal(t, "Successfully retrieved and stored and update credentials from 'test'", result.Message)
+	require.Equal(
+		t,
+		"Successfully retrieved and stored and update credentials from 'test'",
+		result.Message,
+	)
 	require.Equal(
 		t,
 		map[string]any{

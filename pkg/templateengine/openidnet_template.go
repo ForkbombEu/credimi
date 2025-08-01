@@ -16,13 +16,13 @@ import (
 )
 
 type Config struct {
-	VariantOrder   []string                        `json:"variant_order" yaml:"variant_order"`
-	VariantKeys    map[string][]string             `json:"variant_keys" yaml:"variant_keys"`
+	VariantOrder   []string                        `json:"variant_order"   yaml:"variant_order"`
+	VariantKeys    map[string][]string             `json:"variant_keys"    yaml:"variant_keys"`
 	OptionalFields map[string]map[string]FieldRule `json:"optional_fields" yaml:"optional_fields"`
 }
 
 type FieldRule struct {
-	Values   map[string][]string `json:"values" yaml:"values"`
+	Values   map[string][]string `json:"values"   yaml:"values"`
 	Template string              `json:"template" yaml:"template"`
 }
 
@@ -75,7 +75,10 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 	if len(parts) != len(expectedKeys) {
 		expectedFormat := strings.Join(expectedKeys, ":")
 		return nil, fmt.Errorf(
-			"expected %d parts in variant input (format: %s), got %d", len(expectedKeys), expectedFormat, len(parts),
+			"expected %d parts in variant input (format: %s), got %d",
+			len(expectedKeys),
+			expectedFormat,
+			len(parts),
 		)
 	}
 

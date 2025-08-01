@@ -217,10 +217,8 @@ tests:
 			require.NoError(t, err, "Failed to write to temporary YAML file")
 			activity := &StepCIWorkflowActivity{}
 			input := workflowengine.ActivityInput{
-				Payload: map[string]interface{}{
-					"yaml": tmpYAMLFile.Name(),
-				},
-				Config: tc.config,
+				Payload: tc.payload,
+				Config:  tc.config,
 			}
 			var result workflowengine.ActivityResult
 			future, err := env.ExecuteActivity(activity.Execute, input)

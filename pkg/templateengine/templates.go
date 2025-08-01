@@ -7,16 +7,15 @@ package templateengine
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 	"text/template"
-
-	"crypto/ecdsa"
-	"crypto/elliptic"
-	"crypto/rand"
-	"encoding/base64"
 
 	"github.com/go-sprout/sprout"
 	"github.com/go-sprout/sprout/group/all"
@@ -43,7 +42,7 @@ type PlaceholderMetadata struct {
 }
 
 // GetDefaultValue returns the default value of the placeholder,
-// if the orginal value is a string return a string, if is an object return a json string
+// if the original value is a string return a string, if is an object return a json string
 func (p *PlaceholderMetadata) GetDefaultValue() string {
 	if p.FieldDefault == nil {
 		return ""
@@ -115,7 +114,10 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 	return result, nil
 }
 
-func getFields(readers []io.Reader, names []string) (map[string]interface{}, []PlaceholderMetadata, error) {
+func getFields(
+	readers []io.Reader,
+	names []string,
+) (map[string]interface{}, []PlaceholderMetadata, error) {
 	specificFields := make(map[string]interface{})
 	var allPlaceholders []PlaceholderMetadata
 
@@ -135,16 +137,13 @@ func getFields(readers []io.Reader, names []string) (map[string]interface{}, []P
 
 		placeholders := extractMetadata()
 
-		for _, ph := range placeholders {
-			allPlaceholders = append(allPlaceholders, ph)
-		}
+		allPlaceholders = append(allPlaceholders, placeholders...)
 
 		specificFields[names[i]] = map[string]interface{}{
 			"content": preprocessedContent,
 			"fields":  placeholders,
 		}
 	}
-
 
 	return sortSpecificFields(specificFields), allPlaceholders, nil
 }
@@ -196,10 +195,8 @@ func normalizeFields(fields []PlaceholderMetadata) []map[string]interface{} {
 			} else {
 				otherFields = append(otherFields, field)
 			}
-
 		}
 		credimiIDCount[ph.CredimiID]++
-
 	}
 	normalized = append(normalized, stringFields...)
 	normalized = append(normalized, otherFields...)
@@ -240,7 +237,10 @@ func jwk(alg string) (string, error) {
 		crv = elliptic.P521()
 		crvName = "P-521"
 	default:
-		return "", fmt.Errorf("unsupported algorithm: %s. Supported algorithms are: ES256, ES384, ES512", alg)
+		return "", fmt.Errorf(
+			"unsupported algorithm: %s. Supported algorithms are: ES256, ES384, ES512",
+			alg,
+		)
 	}
 
 	priv, err := ecdsa.GenerateKey(crv, rand.Reader)

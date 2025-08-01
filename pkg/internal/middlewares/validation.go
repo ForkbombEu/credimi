@@ -75,8 +75,8 @@ func validateMapValues(m reflect.Value) error {
 }
 
 type validatedInputKeyType string
-const ValidatedInputKey validatedInputKeyType = "validatedInput"
 
+const ValidatedInputKey validatedInputKeyType = "validatedInput"
 
 func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEvent) error {
 	if inputType == nil {

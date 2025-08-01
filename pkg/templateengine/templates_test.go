@@ -11,7 +11,6 @@ import (
 	"testing"
 )
 
-
 func TestCredimi_ValidJSON(t *testing.T) {
 	jsonInput := `
 	{
@@ -69,7 +68,7 @@ func TestCredimi_WhitespaceTrim(t *testing.T) {
 		"field_options": []
 	}
 	`
-	result, err := credimi("\n  "+jsonInput+"  \n")
+	result, err := credimi("\n  " + jsonInput + "  \n")
 	if err != nil {
 		t.Errorf("credimi() returned error: %v", err)
 	}
@@ -103,7 +102,7 @@ form:
     authorization_endpoint: openid-vc://`
 
 	fmt.Printf("Input: %s\n", input)
-	
+
 	expected := `variant:
   credential_format: iso_mdl
   client_id_scheme: did
@@ -119,7 +118,13 @@ form:
 		t.Fatalf("preprocessTemplate returned error: %v", err)
 	}
 	if result != expected {
-		t.Errorf("preprocessTemplate() = %q, want %q\n--- Got ---\n%s\n--- Want ---\n%s", result, expected, result, expected)
+		t.Errorf(
+			"preprocessTemplate() = %q, want %q\n--- Got ---\n%s\n--- Want ---\n%s",
+			result,
+			expected,
+			result,
+			expected,
+		)
 	}
 }
 
@@ -158,7 +163,6 @@ func TestPreprocessTemplate_WhitespaceInput(t *testing.T) {
 		t.Errorf("preprocessTemplate() = %q, want %q", result, expected)
 	}
 }
-
 
 func TestPreprocessTemplate_EmptyInput(t *testing.T) {
 	input := ""
@@ -563,5 +567,3 @@ func TestGetFields_EmptyInput(t *testing.T) {
 		t.Errorf("Expected 0 allPlaceholders, got %d", len(all))
 	}
 }
-
-
