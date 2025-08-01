@@ -209,6 +209,11 @@ export const WorkflowExecutionSchema = z.object({
 })
 export type WorkflowExecution = z.infer<typeof WorkflowExecutionSchema>
 
+export const ListMyChecksResponseSchema = z.object({
+  executions: WorkflowExecutionSchema.array(),
+})
+export type ListMyChecksResponse = z.infer<typeof ListMyChecksResponseSchema>
+
 export const ListMyCheckRunsResponseSchema = z.object({
   executions: WorkflowExecutionSchema.array(),
 })
@@ -224,20 +229,11 @@ export const GetMyCheckRunHistoryResponseSchema = z.object({
 })
 export type GetMyCheckRunHistoryResponse = z.infer<typeof GetMyCheckRunHistoryResponseSchema>
 
-export const ReRunCheckRequestSchema = z.object({
-  config: z.record(z.string(), z.any()).nullable(),
+export const ReRunCheckResponseSchema = z.object({
+  workflow_id: z.string().min(1),
+  run_id: z.string().min(1),
 })
-export type ReRunCheckRequest = z.infer<typeof ReRunCheckRequestSchema>
-
-export const CancelMyCheckRunResponseSchema = z.object({
-  message: z.string().min(1),
-  checkId: z.string().min(1),
-  runId: z.string().min(1),
-  status: z.string().min(1),
-  time: z.string().min(1),
-  namespace: z.string().min(1),
-})
-export type CancelMyCheckRunResponse = z.infer<typeof CancelMyCheckRunResponseSchema>
+export type ReRunCheckResponse = z.infer<typeof ReRunCheckResponseSchema>
 
 export const ChecksLogsResponseSchema = z.object({
   channel: z.string().min(1),
@@ -249,11 +245,6 @@ export const ChecksLogsResponseSchema = z.object({
   namespace: z.string().min(1),
 })
 export type ChecksLogsResponse = z.infer<typeof ChecksLogsResponseSchema>
-
-export const ListMyChecksResponseSchema = z.object({
-  executions: WorkflowExecutionSchema.array(),
-})
-export type ListMyChecksResponse = z.infer<typeof ListMyChecksResponseSchema>
 
 export const WorkflowExecutionInfoSchema = z.object({
   name: z.string(),
@@ -306,11 +297,20 @@ export const GetMyCheckRunResponseSchema = z.object({
 })
 export type GetMyCheckRunResponse = z.infer<typeof GetMyCheckRunResponseSchema>
 
-export const ReRunCheckResponseSchema = z.object({
-  workflow_id: z.string().min(1),
-  run_id: z.string().min(1),
+export const ReRunCheckRequestSchema = z.object({
+  config: z.record(z.string(), z.any()).nullable(),
 })
-export type ReRunCheckResponse = z.infer<typeof ReRunCheckResponseSchema>
+export type ReRunCheckRequest = z.infer<typeof ReRunCheckRequestSchema>
+
+export const CancelMyCheckRunResponseSchema = z.object({
+  message: z.string().min(1),
+  checkId: z.string().min(1),
+  runId: z.string().min(1),
+  status: z.string().min(1),
+  time: z.string().min(1),
+  namespace: z.string().min(1),
+})
+export type CancelMyCheckRunResponse = z.infer<typeof CancelMyCheckRunResponseSchema>
 
 
 

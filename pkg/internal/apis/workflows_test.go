@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
+//go:build !unit
 // +build !unit
-
 
 package apis
 
@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/joho/godotenv"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -29,8 +30,9 @@ func TestAddOpenID4VPTestEndpoints_RoutesRegistered(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		RegisterMyChecksRoutes(testApp)
-		AddComplianceChecks(testApp)
+		ChecksRoutes := handlers.ChecksRoutes
+		ChecksRoutes.Add(testApp)
+		// AddComplianceChecks(testApp)
 
 		return testApp
 	}

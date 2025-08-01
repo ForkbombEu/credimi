@@ -16,18 +16,90 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/subscriptions"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 	"google.golang.org/protobuf/encoding/protojson"
 )
+
+var ConformaceRoutes routing.RouteGroup = routing.RouteGroup{
+		BaseURL: "/api/compliance",
+		Routes: []routing.RouteDefinition{
+			{
+				Method:  http.MethodGet,
+				Path:    "/checks",
+				Handler: HandleListMyChecks,
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/checks/{workflowId}/{runId}",
+				Handler: HandleGetWorkflow,
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/checks/{workflowId}/{runId}/history",
+				Handler: HandleGetWorkflowsHistory,
+			},
+			{
+				Method:        http.MethodPost,
+				Path:          "/{protocol}/{version}/save-variables-and-start",
+				Handler:       HandleSaveVariablesAndStart,
+				RequestSchema: SaveVariablesAndStartRequestInput{},
+			},
+			{
+				Method:        http.MethodPost,
+				Path:          "/notify-failure",
+				Handler:       HandleNotifyFailure,
+				RequestSchema: HandleNotifyFailureRequestInput{},
+			},
+			{
+				Method:        http.MethodPost,
+				Path:          "/confirm-success",
+				Handler:       HandleConfirmSuccess,
+				RequestSchema: HandleConfirmSuccessRequestInput{},
+			},
+			{
+				Method:        http.MethodPost,
+				Path:          "/send-temporal-signal",
+				Handler:       HandleSendTemporalSignal,
+				RequestSchema: HandleSendTemporalSignalInput{},
+			},
+			{
+				Method:              http.MethodPost,
+				Path:                "/send-log-update",
+				Handler:             HandleSendLogUpdate,
+				RequestSchema:       HandleSendLogUpdateRequestInput{},
+				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
+			},
+			{
+				Method:              http.MethodPost,
+				Path:                "/send-eudiw-log-update",
+				Handler:             HandleSendEudiwLogUpdate,
+				RequestSchema:       HandleSendLogUpdateRequestInput{},
+				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/deeplink/{workflowId}/{runId}",
+				Handler: HandleDeeplink,
+			},
+		},
+		Middlewares: []*hook.Handler[*core.RequestEvent]{
+			apis.RequireAuth(),
+			{Func: middlewares.ErrorHandlingMiddleware},
+		},
+		Validation: true,
+	}
 
 type HandleConfirmSuccessRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`

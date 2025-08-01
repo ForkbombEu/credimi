@@ -74,19 +74,37 @@ func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
 	return typedInput, nil
 }
 
-func AddGroupRoutes(app core.App, input RouteGroup) {
+// func AddGroupRoutes(app core.App, input RouteGroup) {
+// 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+// 		basePath := input.BaseURL
+// 		if basePath == "" {
+// 			basePath = "/api"
+// 		}
+
+// 		rg := se.Router.Group(basePath)
+// 		rg.Bind(input.Middlewares...)
+// 		if input.Validation {
+// 			RegisterRoutesWithValidation(app, rg, input.Routes)
+// 		} else {
+// 			RegisterRoutesWithoutValidation(app, rg, input.Routes)
+// 		}
+// 		return se.Next()
+// 	})
+// 	app.OnServe()
+// }
+
+func (r *RouteGroup) Add(app core.App) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		basePath := input.BaseURL
+		basePath := r.BaseURL
 		if basePath == "" {
 			basePath = "/api"
-		}
-
+		}	
 		rg := se.Router.Group(basePath)
-		rg.Bind(input.Middlewares...)
-		if input.Validation {
-			RegisterRoutesWithValidation(app, rg, input.Routes)
+		rg.Bind(r.Middlewares...)	
+		if r.Validation {
+			RegisterRoutesWithValidation(app, rg, r.Routes)
 		} else {
-			RegisterRoutesWithoutValidation(app, rg, input.Routes)
+			RegisterRoutesWithoutValidation(app, rg, r.Routes)
 		}
 		return se.Next()
 	})

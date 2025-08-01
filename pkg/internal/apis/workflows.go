@@ -18,8 +18,6 @@ import (
 	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
-	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
-	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -27,177 +25,12 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"go.temporal.io/sdk/client"
 )
 
-var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
-	{
-		BaseURL: "/api/my/checks",
-		Routes: []routing.RouteDefinition{
-			{
-				Method:         http.MethodGet,
-				Handler:        handlers.HandleListMyChecks,
-				ResponseSchema: handlers.ListMyChecksResponse{},
-				Description:    "List all checks for the authenticated user",
-				Summary:        "Get a list of all checks for the authenticated user",
-			},
-			{
-				Method:         http.MethodGet,
-				Path:           "/{checkId}/runs",
-				Handler:        handlers.HandleListMyCheckRuns,
-				ResponseSchema: handlers.ListMyCheckRunsResponse{},
-				Description:    "List all runs for a specific check",
-				Summary:        "Get a list of all runs for a specific check",
-			},
-			{
-				Method:         http.MethodGet,
-				Path:           "/{checkId}/runs/{runId}",
-				Handler:        handlers.HandleGetMyCheckRun,
-				ResponseSchema: handlers.GetMyCheckRunResponse{},
-				Description:    "Get details of a specific run for a check",
-				Summary:        "Get details of a specific run for a check",
-			},
-			{
-				Method:         http.MethodGet,
-				Path:           "/{checkId}/runs/{runId}/history",
-				Handler:        handlers.HandleGetMyCheckRunHistory,
-				ResponseSchema: handlers.GetMyCheckRunHistoryResponse{},
-				Description:    "Get the history of events for a specific run of a check",
-				Summary:        "Get the history of events for a specific run of a check",
-			},
-			{
-				Method:         http.MethodPost,
-				Path:           "/{checkId}/runs/{runId}/rerun",
-				Handler:        handlers.HandleRerunMyCheck,
-				RequestSchema:  handlers.ReRunCheckRequest{},
-				ResponseSchema: handlers.ReRunCheckResponse{},
-				Description:    "Re-run a specific check run",
-				Summary:        "Re-run a specific check run",
-			},
-			{
-				Method:         http.MethodPost,
-				Path:           "/{checkId}/runs/{runId}/cancel",
-				Handler:        handlers.HandleCancelMyCheckRun,
-				ResponseSchema: handlers.CancelMyCheckRunResponse{},
-				Description:    "Cancel a specific check run",
-				Summary:        "Cancel a specific check run",
-			},
-			{
-				Method:         http.MethodGet,
-				Path:           "/{checkId}/runs/{runId}/export",
-				Handler:        handlers.HandleExportMyCheckRun,
-				ResponseSchema: handlers.ExportMyCheckRunResponse{},
-				Description:    "Export a specific check run",
-				Summary:        "Export a specific check run",
-			},
-			{
-				Method:         http.MethodGet,
-				Path:           "/{checkId}/runs/{runId}/logs",
-				Handler:        handlers.HandleMyCheckLogs,
-				ResponseSchema: handlers.ChecksLogsResponse{},
-				Description:    "Start or Stop logs for a specific check run and get the log channel",
-				Summary:        "Start or Stop logs for a specific check run",
-				QuerySearchAttributes: []routing.QuerySearchAttribute{
-					{
-						Name:        "action",
-						Required:    false,
-						Description: "Can be 'start' or 'stop' to control logging for the check run",
-					},
-				},
-			},
-			{
-				Method:         http.MethodPost,
-				Path:           "/{checkId}/runs/{runId}/terminate",
-				Handler:        handlers.HandleTerminateMyCheckRun,
-				ResponseSchema: handlers.TerminateMyCheckRunResponse{},
-				Description:    "Terminate a specific check run",
-				Summary:        "Terminate a specific check run",
-			},
-		},
-		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			{Func: middlewares.ErrorHandlingMiddleware},
-			apis.RequireAuth(),
-		},
-		Validation: true,
-	},
-}
 
-func RegisterMyChecksRoutes(app core.App) {
-	routing.AddGroupRoutes(app, RouteGroups[0])
-}
 
-func AddComplianceChecks(app core.App) {
-	routing.AddGroupRoutes(app, routing.RouteGroup{
-		BaseURL: "/api/compliance",
-		Routes: []routing.RouteDefinition{
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks",
-				Handler: handlers.HandleListMyChecks,
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks/{workflowId}/{runId}",
-				Handler: handlers.HandleGetWorkflow,
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks/{workflowId}/{runId}/history",
-				Handler: handlers.HandleGetWorkflowsHistory,
-			},
-			{
-				Method:        http.MethodPost,
-				Path:          "/{protocol}/{version}/save-variables-and-start",
-				Handler:       handlers.HandleSaveVariablesAndStart,
-				RequestSchema: handlers.SaveVariablesAndStartRequestInput{},
-			},
-			{
-				Method:        http.MethodPost,
-				Path:          "/notify-failure",
-				Handler:       handlers.HandleNotifyFailure,
-				RequestSchema: handlers.HandleNotifyFailureRequestInput{},
-			},
-			{
-				Method:        http.MethodPost,
-				Path:          "/confirm-success",
-				Handler:       handlers.HandleConfirmSuccess,
-				RequestSchema: handlers.HandleConfirmSuccessRequestInput{},
-			},
-			{
-				Method:        http.MethodPost,
-				Path:          "/send-temporal-signal",
-				Handler:       handlers.HandleSendTemporalSignal,
-				RequestSchema: handlers.HandleSendTemporalSignalInput{},
-			},
-			{
-				Method:              http.MethodPost,
-				Path:                "/send-log-update",
-				Handler:             handlers.HandleSendLogUpdate,
-				RequestSchema:       handlers.HandleSendLogUpdateRequestInput{},
-				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
-			},
-			{
-				Method:              http.MethodPost,
-				Path:                "/send-eudiw-log-update",
-				Handler:             handlers.HandleSendEudiwLogUpdate,
-				RequestSchema:       handlers.HandleSendLogUpdateRequestInput{},
-				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/deeplink/{workflowId}/{runId}",
-				Handler: handlers.HandleDeeplink,
-			},
-		},
-		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			// apis.RequireAuth(),
-			{Func: middlewares.ErrorHandlingMiddleware},
-		},
-		Validation: true,
-	})
-}
 
 // IssuerURL is a struct that represents the URL of a credential issuer.
 type IssuerURL struct {
