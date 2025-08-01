@@ -17,9 +17,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		organizationId: string;
+		id?: string;
 	};
 
-	let { organizationId }: Props = $props();
+	let { organizationId, id }: Props = $props();
 </script>
 
 <CollectionManager
@@ -52,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 >
 	{#snippet top({ Header })}
-		<Header title="Verifiers">
+		<Header title="Verifiers" {id}>
 			{#snippet buttonContent()}
 				{m.Create_verifier()}
 			{/snippet}

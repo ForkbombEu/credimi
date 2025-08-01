@@ -15,13 +15,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		description?: string | undefined;
 		icon?: IconComponent;
 		bottom?: import('svelte').Snippet;
+		className?: string;
 	}
 
-	let { title, description = undefined, icon = FolderOpen, bottom }: Props = $props();
+	let { title, description = undefined, icon = FolderOpen, bottom, className }: Props = $props();
 </script>
 
 <div
-	class="text-primary/40 flex flex-col items-center justify-center rounded-lg border p-10 text-center"
+	class={[
+		'text-primary/40 flex flex-col items-center justify-center rounded-lg border p-10 text-center',
+		className
+	]}
 >
 	<div class="mb-6 opacity-50">
 		<Icon src={icon} size={70} />

@@ -28,9 +28,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		organizationId?: string;
 		workflows?: WorkflowExecution[];
+		id?: string;
 	};
 
-	let { organizationId }: Props = $props();
+	let { organizationId, id }: Props = $props();
 </script>
 
 <CollectionManager
@@ -41,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 >
 	{#snippet top({ Header })}
-		<Header title="Wallets">
+		<Header title="Wallets" {id}>
 			{#snippet right()}
 				{@render WalletFormSnippet()}
 			{/snippet}

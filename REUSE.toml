@@ -30,6 +30,7 @@ path = [
     "webapp/project.inlang/project_id",
     "webapp/src/lib/content/**/*",
     "webapp/src/lib/types/openid-credential-issuer.ts",
+    "webapp/src/modules/components/ui/**/*",
     "webapp/src/modules/i18n/paraglide/.gitignore",
     "webapp/src/modules/i18n/paraglide/.prettierignore",
     "webapp/static/emails/_emailData.d.ts",

@@ -15,13 +15,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		hideCreate?: boolean;
 		right?: Snippet;
 		buttonContent?: Snippet;
+		id?: string;
 	}
 
-	const { title, hideCreate = false, right: rightSnippet, buttonContent }: Props = $props();
+	const { title, hideCreate = false, right: rightSnippet, buttonContent, id }: Props = $props();
 	const { manager } = $derived(getCollectionManagerContext());
 </script>
 
-<SectionTitle title={title ?? manager.collection}>
+<SectionTitle title={title ?? manager.collection} {id}>
 	{#snippet right()}
 		{#if rightSnippet}
 			{@render rightSnippet()}
