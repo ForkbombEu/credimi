@@ -4,10 +4,11 @@
 package workflows
 
 import (
+	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -15,12 +16,15 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-const VLEIValidationTaskQueue = "VLEIValidationTaskQueue"
+const (
+	VLEIValidationTaskQueue      = "VLEIValidationTaskQueue"
+	VLEIValidationLocalTaskQueue = "VLEIValidationLocalTaskQueue"
+)
 
 type VLEIValidationWorkflow struct{}
 
 func (w *VLEIValidationWorkflow) Name() string {
-	return "Validate vLEI against a schema"
+	return "Validate vLEI credential from server request"
 }
 
 func (w *VLEIValidationWorkflow) GetOptions() workflow.ActivityOptions {
@@ -31,75 +35,65 @@ func (w *VLEIValidationWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 
 	runMetadata := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Payload["app_url"],
+		TemporalUI: fmt.Sprintf("%s/my/tests/runs/%s/%s",
+			input.Config["app_url"],
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
 
-	schema, ok := input.Config["schema"].(string)
-	if !ok || schema == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError("schema", runMetadata)
+	serverURL, ok := input.Config["server_url"].(string)
+	if !ok || serverURL == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError("server_url", runMetadata)
 	}
 
-	vLEIType, ok := input.Payload["vLEI_type"].(string)
-	if !ok || vLEIType == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("vLEI_type", runMetadata)
+	credentialID, ok := input.Payload["credentialID"].(string)
+	if !ok || credentialID == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("credentialID", runMetadata)
 	}
 
-	var jsonData map[string]any
-	var err error
-
-	raw, ok := input.Payload["rawJSON"].(string)
-	if !ok || raw == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("rawJSON", runMetadata)
-	}
-
-	parseJSON := activities.NewJSONActivity(map[string]reflect.Type{"map": reflect.TypeOf(map[string]any{})})
-	var parsedResult workflowengine.ActivityResult
-
-	err = workflow.ExecuteActivity(ctx, parseJSON.Name(), workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"rawJSON":    raw,
-			"structType": "map",
+	// Fetch raw CESR from server
+	HTTPActivity := activities.NewHTTPActivity()
+	var serverResponse workflowengine.ActivityResult
+	request := workflowengine.ActivityInput{
+		Config: map[string]string{
+			"method": "GET",
+			"url":    fmt.Sprintf("%s/oobi/%s", serverURL, credentialID),
 		},
-	}).Get(ctx, &parsedResult)
-
-	if err != nil {
-		logger.Error("ParseJSON failed", "error", err)
+	}
+	if err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), request).
+		Get(ctx, &serverResponse); err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 
-	jsonData, err = decodeToMap(parsedResult.Output, runMetadata)
+	outputMap, ok := serverResponse.Output.(map[string]any)
+	if !ok {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			workflowengine.NewAppError(errorcodes.Codes[errorcodes.UnexpectedHTTPResponse], "invalid output type", serverResponse.Output),
+			runMetadata,
+		)
+	}
+
+	cesrStr, ok := outputMap["body"].(string)
+	if !ok {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			workflowengine.NewAppError(errorcodes.Codes[errorcodes.UnexpectedHTTPResponse], "missing 'body'", serverResponse.Output),
+			runMetadata,
+		)
+	}
+
+	result, err := validateCESRFromString(ctx, cesrStr, runMetadata)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
-
-	validateJSON := activities.NewSchemaValidationActivity()
-	err = workflow.ExecuteActivity(ctx, validateJSON.Name(), workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"data":   jsonData,
-			"schema": schema,
-		},
-	}).Get(ctx, nil)
-
-	if err != nil {
-		logger.Error("SchemaValidation failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
-
-	return workflowengine.WorkflowResult{
-		Message: "vLEI is valid according to the schema for " + vLEIType,
-	}, nil
+	result.Message += fmt.Sprintf(" for credential: '%s'", credentialID)
+	return result, nil
 }
 
 func (w *VLEIValidationWorkflow) Start(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
@@ -109,4 +103,100 @@ func (w *VLEIValidationWorkflow) Start(input workflowengine.WorkflowInput) (work
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+}
+
+type VLEIValidationLocalWorkflow struct{}
+
+func (w *VLEIValidationLocalWorkflow) Name() string {
+	return "Validate vLEI from cesr file"
+}
+
+func (w *VLEIValidationLocalWorkflow) GetOptions() workflow.ActivityOptions {
+	return DefaultActivityOptions
+}
+
+func (w *VLEIValidationLocalWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
+
+	runMetadata := workflowengine.WorkflowErrorMetadata{
+		WorkflowName: w.Name(),
+		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
+		Namespace:    workflow.GetInfo(ctx).Namespace,
+		TemporalUI: fmt.Sprintf("%s/my/tests/runs/%s/%s",
+			input.Config["app_url"],
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			workflow.GetInfo(ctx).WorkflowExecution.RunID,
+		),
+	}
+
+	cesrStr, ok := input.Payload["rawCESR"].(string)
+	if !ok || cesrStr == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("rawCESR", runMetadata)
+	}
+
+	return validateCESRFromString(ctx, cesrStr, runMetadata)
+}
+
+func (w *VLEIValidationLocalWorkflow) Start(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+	workflowOptions := client.StartWorkflowOptions{
+		ID:                       "VLEILocalValidation-" + uuid.NewString(),
+		TaskQueue:                VLEIValidationLocalTaskQueue,
+		WorkflowExecutionTimeout: 24 * time.Hour,
+	}
+	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+}
+
+// validateCESRFromString runs CESR parsing + validation inside a workflow.
+func validateCESRFromString(
+	ctx workflow.Context,
+	rawCESR string,
+	runMetadata workflowengine.WorkflowErrorMetadata,
+) (workflowengine.WorkflowResult, error) {
+	logger := workflow.GetLogger(ctx)
+
+	parseCESR := activities.NewCESRParsingActivity()
+	var parsedResult workflowengine.ActivityResult
+	err := workflow.ExecuteActivity(ctx, parseCESR.Name(), workflowengine.ActivityInput{
+		Payload: map[string]any{"rawCESR": rawCESR},
+	}).Get(ctx, &parsedResult)
+	if err != nil {
+		logger.Error("ParseCESR failed", "error", err)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+	}
+
+	eventsBytes, err := json.Marshal(parsedResult.Output)
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
+		appErr := workflowengine.NewAppError(errCode, err.Error(), parsedResult.Output)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+	}
+
+	validateCESR := activities.NewCESRValidateActivity()
+	var validateResult workflowengine.ActivityResult
+	err = workflow.ExecuteActivity(ctx, validateCESR.Name(), workflowengine.ActivityInput{
+		Payload: map[string]any{"events": string(eventsBytes)},
+	}).Get(ctx, &validateResult)
+	if err != nil {
+		logger.Error("CESRValidation failed", "error", err)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+	}
+
+	resultMessage, ok := validateResult.Output.(string)
+	if !ok {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		appErr := workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("unexpected output type: %T", validateResult.Output),
+			validateResult.Output,
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+	}
+
+	return workflowengine.WorkflowResult{
+		Message: resultMessage,
+		Log:     validateResult.Log,
+	}, nil
 }
