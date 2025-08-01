@@ -6,7 +6,8 @@ import { getContentBySlug, URL_SEARCH_PARAM_NAME } from '$lib/content';
 import type { Tag } from '$lib/content/tags-i18n';
 import tagsIndex from '$lib/content/tags-list.generated.json';
 import { error } from '@sveltejs/kit';
-import { Record } from 'effect';
+
+//
 
 export const load = async ({ url }) => {
 	const paramTag = url.searchParams.get(URL_SEARCH_PARAM_NAME);
