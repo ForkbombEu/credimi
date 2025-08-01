@@ -22,7 +22,7 @@ export interface CopyButtonExtensionOptions {
 
 export function copyButtonExtension(options: CopyButtonExtensionOptions = {}): Extension {
 	const { enabled = true, showCopy = true, showPaste = true, onCopy, onPaste } = options;
-	
+
 	if (!enabled) return [];
 
 	return ViewPlugin.fromClass(
@@ -32,8 +32,8 @@ export function copyButtonExtension(options: CopyButtonExtensionOptions = {}): E
 			pasteButton?: HTMLButtonElement;
 			isCopied: boolean = false;
 			isPasted: boolean = false;
-			copyTimeout: number | null = null;
-			pasteTimeout: number | null = null;
+			copyTimeout: NodeJS.Timeout | null = null;
+			pasteTimeout: NodeJS.Timeout | null = null;
 			showCopy: boolean;
 			showPaste: boolean;
 
@@ -68,17 +68,17 @@ export function copyButtonExtension(options: CopyButtonExtensionOptions = {}): E
 			update() {
 				// Update button visibility based on content
 				const hasContent = this.view.state.doc.length > 0;
-				
+
 				// Copy button should only be visible when there's content to copy
 				if (this.copyButton) {
 					this.copyButton.style.display = hasContent ? 'block' : 'none';
 				}
-				
+
 				// Paste button should always be visible (you can paste into empty editor)
 				if (this.pasteButton) {
 					this.pasteButton.style.display = 'block';
 				}
-				
+
 				// Container should be visible if any button is enabled
 				const shouldShowContainer = this.showPaste || (this.showCopy && hasContent);
 				this.dom.style.display = shouldShowContainer ? 'block' : 'none';
@@ -126,7 +126,7 @@ export function copyButtonExtension(options: CopyButtonExtensionOptions = {}): E
 				this.pasteButton.className = 'cm-paste-button';
 				this.pasteButton.title = 'Paste from clipboard';
 				this.setButtonStyles(this.pasteButton);
-				
+
 				// Add margin bottom to separate from copy button
 				this.pasteButton.style.marginBottom = '8px';
 
@@ -170,7 +170,7 @@ export function copyButtonExtension(options: CopyButtonExtensionOptions = {}): E
 
 			async copyContent() {
 				const content = this.view.state.doc.toString();
-				
+
 				try {
 					await navigator.clipboard.writeText(content);
 					this.isCopied = true;
@@ -194,7 +194,7 @@ export function copyButtonExtension(options: CopyButtonExtensionOptions = {}): E
 			async pasteContent() {
 				try {
 					const content = await navigator.clipboard.readText();
-					
+
 					// Replace the entire content of the editor
 					this.view.dispatch({
 						changes: {
@@ -224,7 +224,7 @@ export function copyButtonExtension(options: CopyButtonExtensionOptions = {}): E
 
 			updateCopyButtonContent() {
 				if (!this.copyButton) return;
-				
+
 				if (this.isCopied) {
 					this.copyButton.innerHTML = LUCIDE_ICONS.check;
 					this.copyButton.style.color = 'hsl(142 76% 36%)'; // green-600
@@ -236,7 +236,7 @@ export function copyButtonExtension(options: CopyButtonExtensionOptions = {}): E
 
 			updatePasteButtonContent() {
 				if (!this.pasteButton) return;
-				
+
 				if (this.isPasted) {
 					this.pasteButton.innerHTML = LUCIDE_ICONS.check;
 					this.pasteButton.style.color = 'hsl(142 76% 36%)'; // green-600
@@ -247,16 +247,17 @@ export function copyButtonExtension(options: CopyButtonExtensionOptions = {}): E
 			}
 		},
 		{
-			provide: () => EditorView.baseTheme({
-				'.cm-copy-paste-button-container': {
-					'pointer-events': 'auto'
-				},
-				'.cm-copy-button, .cm-paste-button': {
-					'&:hover': {
-						opacity: '1 !important'
+			provide: () =>
+				EditorView.baseTheme({
+					'.cm-copy-paste-button-container': {
+						'pointer-events': 'auto'
+					},
+					'.cm-copy-button, .cm-paste-button': {
+						'&:hover': {
+							opacity: '1 !important'
+						}
 					}
-				}
-			})
+				})
 		}
 	);
 }

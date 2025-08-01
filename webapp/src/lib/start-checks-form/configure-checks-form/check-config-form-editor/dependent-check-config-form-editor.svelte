@@ -72,8 +72,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<Eye size={14} />
 							</Popover.Trigger>
 							<Popover.Content class="dark overflow-auto">
-								{#if Type === 'object'}
-									<CodeDisplay content={valuePreview} language="json" class="text-xs" />
+								{#if field_type === 'object'}
+									<CodeDisplay
+										content={valuePreview}
+										language="json"
+										class="text-xs"
+									/>
 								{:else}
 									<pre class="text-xs">{valuePreview}</pre>
 								{/if}

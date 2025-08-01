@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		await updateHighlighting();
 	});
 
-	let supportedLanguages = [];
+	let supportedLanguages: string[] = [];
 
 	onMount(async () => {
 		const highlighter = await getHighlighter({ theme: 'nord' });
@@ -102,7 +102,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<ClipboardCopy class="h-3 w-3 text-slate-600" size={16} />
 				{/if}
 			</Button>
-			
+
 			{#if highlighted}
 				<Button
 					type="button"
