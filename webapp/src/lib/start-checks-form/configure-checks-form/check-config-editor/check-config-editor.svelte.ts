@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { CheckConfigJsonEditor } from '$lib/start-checks-form/configure-checks-form/check-config-json-editor';
+import { CheckConfigCodeEditor } from '$lib/start-checks-form/configure-checks-form/check-config-code-editor';
 import {
 	DependentCheckConfigFormEditor,
 	type DependentCheckConfigFormEditorProps
@@ -13,19 +13,19 @@ import type { BaseEditor } from '../../_utils';
 
 type CheckConfigEditorProps = DependentCheckConfigFormEditorProps & {
 	id: string;
-	json: string;
+	code: string;
 };
 
-export type CheckConfigEditorMode = 'json' | 'form';
+export type CheckConfigEditorMode = 'code' | 'form';
 
 export class CheckConfigEditor implements BaseEditor {
-	public readonly jsonEditor: CheckConfigJsonEditor;
+	public readonly codeEditor: CheckConfigCodeEditor;
 	public readonly formEditor: DependentCheckConfigFormEditor;
 
-	mode: CheckConfigEditorMode = $derived.by(() => (this.jsonEditor.isTainted ? 'json' : 'form'));
+	mode: CheckConfigEditorMode = $derived.by(() => (this.codeEditor.isTainted ? 'code' : 'form'));
 
 	isValid = $derived.by(() =>
-		this.mode === 'json' ? this.jsonEditor.isValid : this.formEditor.isValid
+		this.mode === 'code' ? this.codeEditor.isValid : this.formEditor.isValid
 	);
 
 	constructor(public readonly props: CheckConfigEditorProps) {
@@ -34,18 +34,18 @@ export class CheckConfigEditor implements BaseEditor {
 			formDependency: this.props.formDependency
 		});
 
-		this.jsonEditor = new CheckConfigJsonEditor({
-			json: this.props.json,
+		this.codeEditor = new CheckConfigCodeEditor({
+			code: this.props.code,
 			editorDependency: this.formEditor
 		});
 	}
 
 	getData() {
 		// A small repetition to improve type safety
-		if (this.mode === 'json') {
+		if (this.mode === 'code') {
 			return {
 				mode: this.mode,
-				value: this.jsonEditor.getData()
+				value: this.codeEditor.getData()
 			};
 		} else {
 			return {
