@@ -13,6 +13,7 @@ import (
 
 var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 	handlers.ChecksRoutes,
+	handlers.ApiKeyRoutes,
 	
 }
 

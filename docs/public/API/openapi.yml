@@ -84,6 +84,17 @@ components:
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/export-my-check-run-response
       $ref: '#/$defs/ExportMyCheckRunResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
+    GenerateApiKeyRequestSchema:
+      $defs:
+        GenerateApiKeyRequestSchema:
+          additionalProperties: false
+          properties:
+            name:
+              type: string
+          type: object
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/generate-api-key-request-schema
+      $ref: '#/$defs/GenerateApiKeyRequestSchema'
+      $schema: https://json-schema.org/draft/2020-12/schema
     GetMyCheckRunHistoryResponse:
       $defs:
         GetMyCheckRunHistoryResponse:
@@ -1003,6 +1014,26 @@ info:
   version: 1.4.0
 openapi: 3.0.1
 paths:
+  /api/apikey/generate:
+    post:
+      description: Generate a new API key for the authenticated user.
+      operationId: generateApiKey
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateApiKeyRequestSchema'
+        required: true
+      responses:
+        "200":
+          description: Successful response without a body
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: An unexpected error occurred.
+      summary: Generate API Key
   /api/my/checks:
     get:
       description: List all checks for the authenticated user

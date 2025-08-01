@@ -11,18 +11,16 @@ import type PocketBase from "pocketbase";
 // =============== SCHEMAS, TYPES & ERROR HANDLING
 // =================================================================
 
-export const ExportDataSchema = z.object({
-  checkId: z.string().min(1),
-  runId: z.string().min(1),
-  input: z.record(z.string(), z.any()),
-  config: z.record(z.string(), z.any()),
+export const ChecksLogsResponseSchema = z.object({
+  channel: z.string().min(1),
+  workflow_id: z.string().min(1),
+  run_id: z.string().min(1),
+  message: z.string().min(1),
+  status: z.string().min(1),
+  time: z.string().min(1),
+  namespace: z.string().min(1),
 })
-export type ExportData = z.infer<typeof ExportDataSchema>
-
-export const ExportMyCheckRunResponseSchema = z.object({
-  export: ExportDataSchema,
-})
-export type ExportMyCheckRunResponse = z.infer<typeof ExportMyCheckRunResponseSchema>
+export type ChecksLogsResponse = z.infer<typeof ChecksLogsResponseSchema>
 
 export const TerminateMyCheckRunResponseSchema = z.object({
   message: z.string().min(1),
@@ -33,6 +31,11 @@ export const TerminateMyCheckRunResponseSchema = z.object({
   namespace: z.string().min(1),
 })
 export type TerminateMyCheckRunResponse = z.infer<typeof TerminateMyCheckRunResponseSchema>
+
+export const GenerateApiKeyRequestSchemaSchema = z.object({
+  name: z.string().min(1),
+})
+export type GenerateApiKeyRequestSchema = z.infer<typeof GenerateApiKeyRequestSchemaSchema>
 
 export const APIErrorSchema = z.object({
   Code: z.number(),
@@ -229,22 +232,18 @@ export const GetMyCheckRunHistoryResponseSchema = z.object({
 })
 export type GetMyCheckRunHistoryResponse = z.infer<typeof GetMyCheckRunHistoryResponseSchema>
 
-export const ReRunCheckResponseSchema = z.object({
-  workflow_id: z.string().min(1),
-  run_id: z.string().min(1),
+export const ExportDataSchema = z.object({
+  checkId: z.string().min(1),
+  runId: z.string().min(1),
+  input: z.record(z.string(), z.any()),
+  config: z.record(z.string(), z.any()),
 })
-export type ReRunCheckResponse = z.infer<typeof ReRunCheckResponseSchema>
+export type ExportData = z.infer<typeof ExportDataSchema>
 
-export const ChecksLogsResponseSchema = z.object({
-  channel: z.string().min(1),
-  workflow_id: z.string().min(1),
-  run_id: z.string().min(1),
-  message: z.string().min(1),
-  status: z.string().min(1),
-  time: z.string().min(1),
-  namespace: z.string().min(1),
+export const ExportMyCheckRunResponseSchema = z.object({
+  export: ExportDataSchema,
 })
-export type ChecksLogsResponse = z.infer<typeof ChecksLogsResponseSchema>
+export type ExportMyCheckRunResponse = z.infer<typeof ExportMyCheckRunResponseSchema>
 
 export const WorkflowExecutionInfoSchema = z.object({
   name: z.string(),
@@ -301,6 +300,12 @@ export const ReRunCheckRequestSchema = z.object({
   config: z.record(z.string(), z.any()).nullable(),
 })
 export type ReRunCheckRequest = z.infer<typeof ReRunCheckRequestSchema>
+
+export const ReRunCheckResponseSchema = z.object({
+  workflow_id: z.string().min(1),
+  run_id: z.string().min(1),
+})
+export type ReRunCheckResponse = z.infer<typeof ReRunCheckResponseSchema>
 
 export const CancelMyCheckRunResponseSchema = z.object({
   message: z.string().min(1),
@@ -583,6 +588,33 @@ export class CredimiClient {
         try {
             const result = await this.pb.send(path, options);
 						return TerminateMyCheckRunResponseSchema.parse(result);
+        } catch (error: any) {
+            if (error && error.data) {
+                const parsedError = APIErrorSchema.safeParse(error.data);
+                if (parsedError.success) {
+                    throw new CredimiClientError(parsedError.data);
+                }
+            }
+            throw error;
+        }
+    }
+
+    /**
+     * Generate API Key
+	 * Generate a new API key for the authenticated user.
+     * @method POST
+     * @path /api/apikey/generate
+     */
+    async generateApiKey(input: GenerateApiKeyRequestSchema): Promise<any> {
+        const path = `/api/apikey/generate`;
+
+        const options: SendOptions = { method: "POST" };
+
+        options.body = GenerateApiKeyRequestSchemaSchema.parse(input);
+
+        try {
+            const result = await this.pb.send(path, options);
+						return unknown.parse(result);
         } catch (error: any) {
             if (error && error.data) {
                 const parsedError = APIErrorSchema.safeParse(error.data);
