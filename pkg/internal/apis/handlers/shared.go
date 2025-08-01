@@ -191,7 +191,15 @@ type TerminateMyCheckRunResponse struct {
 
 // ExportMyCheckRunResponse represents the response when exporting a check run
 type ExportMyCheckRunResponse struct {
-	Export string `json:"export" validate:"required"`
+	Export ExportData `json:"export" validate:"required"`
+}
+
+// ExportData represents the exported check run data
+type ExportData struct {
+	CheckID string                 `json:"checkId" validate:"required"`
+	RunID   string                 `json:"runId" validate:"required"`
+	Input   map[string]interface{} `json:"input" validate:"required"`
+	Config  map[string]interface{} `json:"config" validate:"required"`
 }
 
 // ChecksLogsResponse represents the response for workflow logs operations

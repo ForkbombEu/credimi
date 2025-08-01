@@ -651,18 +651,9 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 			"input":   workflowInput.Payload,
 			"config":  workflowInput.Config,
 		}
-		exportJSON, err := json.Marshal(exportData)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"export",
-				"failed to marshal export data",
-				err.Error(),
-			)
-		}
 
 		return e.JSON(http.StatusOK, map[string]interface{}{
-			"export": string(exportJSON),
+			"export": exportData,
 		})
 	}
 }

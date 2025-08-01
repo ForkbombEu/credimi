@@ -63,11 +63,23 @@ components:
       $schema: https://json-schema.org/draft/2020-12/schema
     ExportMyCheckRunResponse:
       $defs:
+        ExportData:
+          additionalProperties: false
+          properties:
+            checkId:
+              type: string
+            config:
+              type: object
+            input:
+              type: object
+            runId:
+              type: string
+          type: object
         ExportMyCheckRunResponse:
           additionalProperties: false
           properties:
             export:
-              type: string
+              $ref: '#/$defs/ExportData'
           type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/export-my-check-run-response
       $ref: '#/$defs/ExportMyCheckRunResponse'
