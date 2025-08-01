@@ -1,3 +1,0 @@
-{
-  "sessionId": "{{ credimiPlaceholder "session_id" "07_session_id" "i18n_session_id" "i18n_description_session_id" "string" uuidv4 }}"
-}

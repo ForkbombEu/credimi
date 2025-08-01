@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { CheckConfigEditor } from './check-config-editor.svelte.js';
-	import { CheckConfigJsonEditorComponent } from '../check-config-json-editor';
+	import { CheckConfigCodeEditorComponent } from '../check-config-code-editor/index.js';
 	import { DependentCheckConfigFormEditorComponent } from '../check-config-form-editor';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import { Info } from 'lucide-svelte';
@@ -35,11 +35,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#snippet content({ Title, Description })}
 						<Title class="font-bold">Info</Title>
 						<Description class="mb-2">
-							{m.json_configuration_is_edited_fields_are_disabled()}
+							{m.code_configuration_is_edited_fields_are_disabled()}
 						</Description>
 
-						<Button variant="outline" onclick={() => editor.jsonEditor.reset()}>
-							{m.reset_json_and_use_fields()}
+						<Button variant="outline" onclick={() => editor.codeEditor.reset()}>
+							{m.reset_code_and_use_fields()}
 						</Button>
 					{/snippet}
 				</Alert>
@@ -48,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="flex min-w-0 shrink-0 grow basis-1 flex-col space-y-6">
-		<SmallSectionLabel>{m.JSON_configuration()}</SmallSectionLabel>
-		<CheckConfigJsonEditorComponent editor={editor.jsonEditor} />
+		<SmallSectionLabel>{m.YAML_Configuration()}</SmallSectionLabel>
+		<CheckConfigCodeEditorComponent editor={editor.codeEditor} />
 	</div>
 </div>

@@ -1,0 +1,82 @@
+variant_order:
+  - credential_format
+  - client_id_scheme
+  - request_method
+  - response_mode
+
+variant_keys:
+  credential_format:
+    - sd_jwt_vc
+    - iso_mdl
+  client_id_scheme:
+    - did
+    - pre_registered
+    - redirect_uri
+    - x509_san_dns
+  request_method:
+    - request_uri_signed
+    - request_uri_unsigned
+  response_mode:
+    - direct_post
+    - direct_post.jwt
+    - w3c_dc_api
+    - w3c_dc_api.jwt
+
+optional_fields:
+  client:
+    client_id:
+      values:
+        client_id_scheme:
+          - did
+          - pre_registered
+          - x509_san_dns
+      template: >
+        {{
+            credimi `
+              {
+                "credimi_id": "oid_client_id",
+                "field_id": "client_id",
+                "field_label": "i18n_client_id",
+                "field_description": "i18n_client_id_description",
+                "field_default_value": "did:web:app.altme.io:issuer",
+                "field_type": "string",
+                "field_options": []
+              }
+        `}}
+
+    authorization_encrypted_response_enc:
+      values:
+        response_mode:
+          - direct_post.jwt
+          - w3c_dc_api.jwt
+      template: >
+        {{
+            credimi `
+              {
+                "credimi_id": "oid_authorization_encrypted_response_enc",
+                "field_id": "authorization_encrypted_response_enc",
+                "field_label": "i18n_authorization_encrypted_response_enc",
+                "field_description": "i18n_authorization_encrypted_response_enc_description",
+                "field_default_value": "",
+                "field_type": "string",
+                "field_options": []
+              }
+        `}}
+    authorization_encrypted_response_alg:
+      values:
+        response_mode:
+          - direct_post.jwt
+          - w3c_dc_api.jwt
+      template: >
+        {{
+            credimi `
+              {
+              "credimi_id": "oid_authorization_encrypted_response_alg",
+                "field_id": "authorization_encrypted_response_alg",
+                "field_label": "i18n_authorization_encrypted_response_alg",
+                "field_description": "i18n_authorization_encrypted_response_alg_description",
+                "field_default_value": "",
+                "field_type": "string",
+                "field_options": []
+              }
+        `}}

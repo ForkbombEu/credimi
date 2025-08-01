@@ -41,11 +41,11 @@ export function isNamedConfigField(field: ConfigField): field is NamedConfigFiel
 
 export function configFieldComparator(a: ConfigField, b: ConfigField) {
 	// First compare by type - string comes before object
-	if (a.Type !== b.Type) {
-		return a.Type === 'string' ? -1 : 1;
+	if (a.field_type !== b.field_type) {
+		return a.field_type === 'string' ? -1 : 1;
 	}
 	// Then compare by name
-	return a.CredimiID.localeCompare(b.CredimiID);
+	return a.credimi_id.localeCompare(b.credimi_id);
 }
 
 //
