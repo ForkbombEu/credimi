@@ -8,13 +8,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CollectionManager } from '@/collections-components';
 	import { m } from '@/i18n';
 	import { buttonVariants } from '@/components/ui/button';
-	import { Plus } from 'lucide-svelte';
+	import { SquareArrowOutUpRight, Eye, EyeOff, Plus } from 'lucide-svelte';
 	import CredentialIssuerForm from './credential-issuer-form.svelte';
 	import { Card } from '@/components/ui/card';
 	import T from '@/components/ui-custom/t.svelte';
 	import A from '@/components/ui-custom/a.svelte';
 
-	import { Badge } from '@/components/ui/badge';
+	import Switch from '@/components/ui/switch/switch.svelte';
 	import { Separator } from '@/components/ui/separator';
 	import * as Dialog from '@/components/ui/dialog';
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
@@ -24,7 +24,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import PublishedStatus from '$lib/layout/published-status.svelte';
+	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
+	import { pb } from '@/pocketbase';
 
 	//
 
@@ -36,6 +37,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { organizationId, id }: Props = $props();
 
 	let isCredentialIssuerModalOpen = $state(false);
+
+	//
+
+	function updatePublished(
+		collection: 'credential_issuers' | 'credentials',
+		recordId: string,
+		published: boolean,
+		onSuccess: () => void
+	) {
+		pb.collection(collection)
+			.update(recordId, {
+				published
+			})
+			.then(() => {
+				onSuccess();
+			});
+	}
 </script>
 
 <CollectionManager
@@ -45,7 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		filter: `owner.id = '${organizationId}'`,
 		sort: ['created', 'DESC']
 	}}
-	editFormFieldsOptions={{ exclude: ['owner', 'url'] }}
+	editFormFieldsOptions={{ exclude: ['owner', 'url', 'published'] }}
 	subscribe="expanded_collections"
 >
 	{#snippet top({ Header })}
@@ -120,23 +138,62 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{#if !record.published}
 								{title}
 							{:else}
-								<A href="/marketplace/{Collections.CredentialIssuers}/{record.id}">
+								<A
+									href="/marketplace/{Collections.CredentialIssuers}/{record.id}"
+									class="underline underline-offset-2 hover:!no-underline"
+								>
 									{title}
 								</A>
 							{/if}
 						</T>
-						<PublishedStatus item={record} />
 					</div>
 
-					<T class="mt-1 truncate text-xs text-gray-400">
-						{record.url}
-					</T>
+					<div class="text-xs">
+						<T class="mb-3 mt-0.5 text-xs text-gray-400">
+							{record.description}
+						</T>
+
+						<div class="flex items-center gap-1">
+							<T>URL:</T>
+							<A class="link-sm" target="_blank" href={record.url}>
+								{record.url}
+							</A>
+						</div>
+
+						<div class="flex items-center gap-1">
+							<T>Repository:</T>
+							<A class="link-sm" target="_blank" href={record.repo_url}>
+								{record.repo_url}
+							</A>
+						</div>
+
+						<div class="flex items-center gap-1">
+							<T>Homepage:</T>
+							<A class="link-sm" target="_blank" href={record.homepage_url}>
+								{record.homepage_url}
+							</A>
+						</div>
+					</div>
 				</div>
 
-				<div class="flex items-center gap-1">
+				<div class="flex items-center gap-2">
+					<SwitchWithIcons
+						offIcon={EyeOff}
+						onIcon={Eye}
+						size="md"
+						checked={record.published}
+						onCheckedChange={() =>
+							updatePublished(
+								'credential_issuers',
+								record.id,
+								!record.published,
+								onEditSuccess
+							)}
+					/>
+
 					<RecordEdit {record} onSuccess={onEditSuccess}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
-							<Button variant="outline" size="sm" class="p-2" {...triggerAttributes}>
+							<Button variant="outline" size="icon" {...triggerAttributes}>
 								<Icon />
 							</Button>
 						{/snippet}
@@ -144,7 +201,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 					<RecordDelete {record}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
-							<Button variant="outline" size="sm" class="p-2" {...triggerAttributes}>
+							<Button variant="outline" size="icon" {...triggerAttributes}>
 								<Icon />
 							</Button>
 						{/snippet}
@@ -165,29 +222,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<ul class="space-y-2">
 					{#each credentials as credential}
-						<li class="bg-muted flex items-start justify-between rounded-md p-2 px-4">
+						<li
+							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
+						>
 							<div class="min-w-0 flex-1 break-words">
-								{#if !credential.published}
-									{credential.key}
-									<PublishedStatus
-										item={credential}
-										class="ml-1 inline-block align-middle"
-									/>
+								{#if !credential.published || !record.published}
+									{credential.name}
 								{:else}
 									<A
 										href="/marketplace/credentials/{credential.id}"
-										class="break-words"
+										class="break-words font-medium underline underline-offset-2 hover:!no-underline"
 									>
 										{credential.name}
 									</A>
-									<PublishedStatus
-										item={credential}
-										class="ml-1 inline-block align-middle"
-									/>
 								{/if}
 							</div>
 
-							<div class="flex items-center gap-1">
+							<div class="flex items-center gap-2">
+								<SwitchWithIcons
+									offIcon={EyeOff}
+									onIcon={Eye}
+									size="sm"
+									disabled={!record.published}
+									checked={credential.published}
+									onCheckedChange={() =>
+										updatePublished(
+											'credentials',
+											credential.id,
+											!credential.published,
+											onEditSuccess
+										)}
+								/>
+
 								<EditCredentialDialog
 									{credential}
 									credentialIssuer={record}
@@ -201,3 +267,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</Card>
 {/snippet}
+
+<style lang="postcss">
+	:global(.link-sm) {
+		@apply cursor-pointer truncate !text-gray-400 underline underline-offset-2;
+	}
+</style>
