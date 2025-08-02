@@ -85,7 +85,7 @@ func (w *EWCWorkflow) Workflow(
 		Namespace:    workflow.GetInfo(ctx).Namespace,
 		TemporalUI: fmt.Sprintf(
 			"%s/my/tests/runs/%s/%s",
-			input.Payload["app_url"],
+			input.Config["app_url"],
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -153,7 +153,7 @@ func (w *EWCWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/ewc"
+	baseURL := input.Config["app_url"].(string) + "/tests/wallet/ewc"
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]

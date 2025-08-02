@@ -125,9 +125,9 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 					"variant":   "test-variant",
 					"form":      mock.Anything,
 					"user_mail": "user@test.org",
-					"app_url":   "https://test-app.com",
 				},
 				Config: map[string]any{
+					"app_url":   "https://test-app.com",
 					"template":  "test-template",
 					"namespace": "test-namespace",
 				},
@@ -184,11 +184,11 @@ func Test_LogSubWorkflow(t *testing.T) {
 				}, time.Second*30)
 				env.ExecuteWorkflow(logsWorkflow.Workflow, workflowengine.WorkflowInput{
 					Payload: map[string]any{
-						"rid":     "12345",
-						"token":   "test-token",
-						"app_url": "https://test-app.com",
+						"rid":   "12345",
+						"token": "test-token",
 					},
 					Config: map[string]any{
+						"app_url":  "https://test-app.com",
 						"interval": time.Second * 10,
 					},
 				})

@@ -135,10 +135,10 @@ func Test_EWCWorkflow(t *testing.T) {
 				env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
 					Payload: map[string]any{
 						"session_id": "12345",
-						"app_url":    "https://test-app.com",
 						"user_mail":  "test@example.org",
 					},
 					Config: map[string]any{
+						"app_url":        "https://test-app.com",
 						"template":       "test-template",
 						"check_endpoint": "test/endpoint",
 						"namespace":      "test-namespace",
