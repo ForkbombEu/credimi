@@ -59,6 +59,7 @@ func Setup(app *pocketbase.PocketBase) {
 	hooks.WorkersHook(app)
 	apis.HookAtUserCreation(app)
 	apis.HookAtUserLogin(app)
+	apis.HookStartScheduledWorkflow(app)
 	apis.HookCredentialWorkflow(app)
 	apis.HookUpdateCredentialsIssuers(app)
 

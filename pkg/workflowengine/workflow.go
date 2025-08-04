@@ -8,12 +8,15 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/joho/godotenv"
+	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
@@ -40,6 +43,12 @@ type WorkflowErrorMetadata struct {
 	WorkflowID   string
 	Namespace    string
 	TemporalUI   string
+}
+type WorkflowRunInfo struct {
+	Name      string
+	TaskQueue string
+	Input     WorkflowInput
+	Memo      map[string]any
 }
 
 // Workflow defines the interface for a workflow, including its execution, name, and options.
@@ -143,4 +152,122 @@ func StartWorkflowWithOptions(
 		WorkflowRunID: w.GetRunID(),
 		Message:       fmt.Sprintf("Workflow %s started successfully with ID %s", name, w.GetID()),
 	}, nil
+}
+
+func GetWorkflowRunInfo(workflowID, runID, namespace string) (WorkflowRunInfo, error) {
+	runInfo := WorkflowRunInfo{}
+
+	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	if err != nil {
+		return WorkflowRunInfo{}, fmt.Errorf("unable to create Temporal client for namespace %q: %w", namespace, err)
+	}
+
+	describeResp, err := c.DescribeWorkflowExecution(context.Background(), workflowID, runID)
+	if err != nil {
+		return WorkflowRunInfo{}, fmt.Errorf("unable to describe workflow execution (WorkflowID=%q, RunID=%q): %w", workflowID, runID, err)
+	}
+
+	decodedMemo := make(map[string]any)
+	for k, payload := range describeResp.WorkflowExecutionInfo.Memo.GetFields() {
+		var v any
+		if err := converter.GetDefaultDataConverter().FromPayload(payload, &v); err != nil {
+			return WorkflowRunInfo{}, fmt.Errorf("failed to decode memo key %q: %w", k, err)
+		}
+		decodedMemo[k] = v
+	}
+
+	runInfo = WorkflowRunInfo{
+		Name:      describeResp.WorkflowExecutionInfo.Type.GetName(),
+		TaskQueue: describeResp.WorkflowExecutionInfo.GetTaskQueue(),
+		Memo:      decodedMemo,
+	}
+
+	iter := c.GetWorkflowHistory(
+		context.Background(),
+		workflowID,
+		runID,
+		false,
+		enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	)
+	if iter == nil {
+		return runInfo, fmt.Errorf("unable to get workflow history iterator (WorkflowID=%q, RunID=%q)", workflowID, runID)
+	}
+
+	for iter.HasNext() {
+		event, err := iter.Next()
+		if err != nil {
+			return runInfo, fmt.Errorf("error reading workflow history: %w", err)
+		}
+
+		if event.GetEventType() == enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
+			attr := event.GetWorkflowExecutionStartedEventAttributes()
+			var wi WorkflowInput
+			if err := converter.GetDefaultDataConverter().FromPayloads(attr.Input, &wi); err != nil {
+				return runInfo, fmt.Errorf("failed to decode workflow input payloads: %w", err)
+			}
+			runInfo.Input = wi
+			break
+		}
+	}
+	return runInfo, nil
+}
+
+func StartScheduledWorkflowWithOptions(runInfo WorkflowRunInfo, workflowID, namespace string, interval time.Duration) error {
+	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	if err != nil {
+		return fmt.Errorf("unable to create Temporal client for namespace %q: %w", namespace, err)
+	}
+	ctx := context.Background()
+	scheduleID := fmt.Sprintf("schedule_id_%s", workflowID)
+	scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
+		ID: scheduleID,
+		Spec: client.ScheduleSpec{
+			Intervals: []client.ScheduleIntervalSpec{
+				{
+					Every: interval,
+				},
+			},
+		},
+		Action: &client.ScheduleWorkflowAction{
+			ID:        fmt.Sprintf("scheduled_%s", workflowID),
+			Workflow:  runInfo.Name,
+			TaskQueue: runInfo.TaskQueue,
+			Args:      []any{runInfo.Input},
+			Memo:      runInfo.Memo,
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to start scheduledID from workflowID: %s", workflowID)
+	}
+	_, _ = scheduleHandle.Describe(ctx)
+
+	return nil
+}
+func ListScheduledWorkflows(namespace string) ([]string, error) {
+	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create Temporal client for namespace %q: %w", namespace, err)
+	}
+	defer c.Close()
+
+	ctx := context.Background()
+
+	// List all schedules
+	iter, err := c.ScheduleClient().List(ctx, client.ScheduleListOptions{
+		PageSize: 100, // adjust if needed
+	})
+	if err != nil {
+		return nil, fmt.Errorf("failed to list schedules: %w", err)
+	}
+
+	var schedules []string
+	for iter.HasNext() {
+		sched, err := iter.Next()
+		if err != nil {
+			return nil, fmt.Errorf("failed to list schedules: %w", err)
+		}
+		schedules = append(schedules, sched.ID)
+	}
+
+	return schedules, nil
 }
