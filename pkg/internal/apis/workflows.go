@@ -565,6 +565,14 @@ func HookStartScheduledWorkflow(app core.App) {
 				interval = time.Hour
 			}
 			err = workflowengine.StartScheduledWorkflowWithOptions(info, req.WorkflowID, namespace, interval)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"schedule",
+					"failed to start scheduled workflow",
+					err.Error(),
+				)
+			}
 			return e.JSON(http.StatusOK, "scheduled workflow started successfully")
 		}).Bind(apis.RequireAuth())
 		return se.Next()
