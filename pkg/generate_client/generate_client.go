@@ -151,14 +151,18 @@ export class CredimiClientError extends Error {
 // =============== API CLIENT CLASS
 // =================================================================
 
+/** * ClientOptions interface for optional request parameters.
+ */
+export interface ClientOptions {
+  body?: any;
+  headers?: { [key: string]: string };
+}
 /**
  * Interface for options when sending requests.
  */
-interface SendOptions {
-    method?: string;
-    body?: any;
-    params?: { [key: string]: any };
-    [key: string]: any;
+export interface SendOptions extends ClientOptions {
+	method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+	query?: { [key: string]: any };
 }
 
 export class CredimiClient {
@@ -170,34 +174,37 @@ export class CredimiClient {
      * @method {{.Method}}
      * @path {{.Path}}
      */
-    async {{.FuncName}}({{. | formatInputArg}}): Promise<{{.OutputType}}> {
+    async {{.FuncName}}({{. | formatInputArg}} options?: ClientOptions ): Promise<{{.OutputType}}> {
         const path = ` + "`" + `{{.Path | toTemplateLiteral}}` + "`;" + `
 
-        const options: SendOptions = { method: "{{.Method}}" };
+        var opt: SendOptions = { method: "{{.Method}}" };
 
         {{if .HasInputBody -}}
-        options.body = {{.InputSchema}}.parse(input);
+        opt.body = {{.InputSchema}}.parse(input);
         {{- else -}}
         {{if or .InputType (gt (len .QuerySearchAttributes) 0) -}}
-        let params: { [key: string]: any } = {};
+        let query: { [key: string]: any } = {};
         {{if .InputType -}}
         const parsedInput = {{.InputSchema}}.parse(input);
-        params = { ...params, ...parsedInput };
+        query = { ...query, ...parsedInput };
         {{- end}}
         {{if gt (len .QuerySearchAttributes) 0 -}}
         // Add query search attributes
         {{range .QuerySearchAttributes -}}
         if (input.{{.Name}} !== undefined) {
-            params['{{.Name}}'] = input.{{.Name}};
+            query['{{.Name}}'] = input.{{.Name}};
         }
         {{end -}}
         {{- end}}
-        options.params = params;
+        opt.query = query;
         {{- end}}
         {{- end}}
+		if (options) {
+			opt = { ...opt, ...options };
+		}
 
         try {
-            const result = await this.pb.send(path, options);
+            const result = await this.pb.send(path, opt);
 						{{if .OutputSchema -}}
             return {{.OutputSchema}}.parse(result);
 						{{- else -}}
@@ -324,7 +331,7 @@ func generateTSClient(routes []RouteInfo, typesToProcess map[string]interface{})
 				}
 				parts = append(parts, fmt.Sprintf("{ %s }", strings.Join(queryDefs, ", ")))
 			}
-			return fmt.Sprintf("input: %s", strings.Join(parts, " & "))
+			return fmt.Sprintf("input: %s,", strings.Join(parts, " & "))
 		},
 		"toTemplateLiteral": func(p string) string {
 			re := regexp.MustCompile(`{([^{}]+)}`)
