@@ -7,7 +7,7 @@ package handlers
 import (
 	"crypto/rand"
 	"encoding/base64"
-	"log"
+	"fmt"
 	"net/http"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -73,7 +73,6 @@ func GenerateApiKey() func(e *core.RequestEvent) error {
 				"user must be authenticated to generate an API key",
 			)
 		}
-		// e.Auth.NewAuthToken()
 
 		input, err := routing.GetValidatedInput[GenerateApiKeyRequestSchema](e)
 		if err != nil {
@@ -94,8 +93,8 @@ func GenerateApiKey() func(e *core.RequestEvent) error {
 			)
 		}
 
-		apiKeyBytes := make([]byte, 32)
-		if _, err := rand.Read(apiKeyBytes); err != nil {
+		apiKeyBytes, err := generateApiKeyBytes() 
+		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"request.internal_error",
@@ -103,9 +102,19 @@ func GenerateApiKey() func(e *core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		apiKey := base64.URLEncoding.EncodeToString(apiKeyBytes)
+		
+		apiKey := b64EncodeApiKey(apiKeyBytes)
+		if apiKey == "" {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"request.internal_error",
+				"failed_to_encode_api_key",
+				"failed to encode API key",
+			)
+		}
 
-		hashedKey, err := bcrypt.GenerateFromPassword([]byte(apiKey), bcrypt.DefaultCost)
+
+		hashedKey, err := hashApiKey(apiKey)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -116,6 +125,7 @@ func GenerateApiKey() func(e *core.RequestEvent) error {
 		}
 
 		apiKeysCollection, err := e.App.FindCollectionByNameOrId("api_keys")
+		
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -154,20 +164,8 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 				"API key is required for authentication",
 			)
 		}
-		log.Println("Authenticating API key:", apiKey)
 
-		apiKeysCollection, err := e.App.FindCollectionByNameOrId("api_keys")
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"request.internal_error",
-				"failed_to_find_api_keys_collection",
-				err.Error(),
-			)
-		}
-
-		// Get all API key records and check each one with bcrypt.CompareHashAndPassword
-		records, err := e.App.FindRecordsByFilter(apiKeysCollection.Name, "", "", 0, 0)
+		records, err := e.App.FindRecordsByFilter("api_keys", "", "", 0, 0)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -177,20 +175,12 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 			)
 		}
 
-		var matchedRecord *core.Record
-		for _, record := range records {
-			storedHash := record.GetString("key")
-			if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(apiKey)); err == nil {
-				matchedRecord = record
-				break
-			}
-		}
-
-		if matchedRecord == nil {
+		matchedRecord, err := getMatchApiKeyRecord(records, apiKey)
+		if err != nil {
 			return apierror.New(
 				http.StatusUnauthorized,
 				"request.validation",
-				"invalid_api_key",
+				"invalid_api_key",	
 				"Invalid API key provided",
 			)
 		}
@@ -222,8 +212,7 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 				"User associated with the API key not found",
 			)
 		}
-
-		token, err := authRecord.NewAuthToken()
+		response, err := generateAuthenticateApiKeyResponse(apiKey, authRecord)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -233,10 +222,64 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 			)
 		}
 
-		return e.JSON(http.StatusOK, map[string]string{
-			"message": "API key authenticated successfully",
-			"token":   token,
-		})
+		return e.JSON(http.StatusOK, response)
 	}
 
 }
+		
+
+
+func generateApiKeyBytes() ([]byte, error) {
+	apiKeyBytes := make([]byte, 32)
+	if _, err := rand.Read(apiKeyBytes); err != nil {
+		return nil, fmt.Errorf("failed to generate API key bytes: %w", err)
+	}
+	return apiKeyBytes, nil
+}
+
+func b64EncodeApiKey(apiKeyBytes []byte) string {
+	return base64.URLEncoding.EncodeToString(apiKeyBytes)
+}
+
+func hashApiKey(apiKey string) (string, error) {
+	hashedKey, err := bcrypt.GenerateFromPassword([]byte(apiKey), bcrypt.DefaultCost)
+	if err != nil {
+		return "", fmt.Errorf("failed to hash API key: %w", err)
+	}
+	return string(hashedKey), nil
+}
+
+func getMatchApiKeyRecord(records []*core.Record, apiKey string) (*core.Record, error) {
+	for _, record := range records {
+		record.NewAuthToken()
+		storedHash := record.GetString("key")
+		if err := bcrypt.CompareHashAndPassword([]byte(storedHash), []byte(apiKey)); err == nil {
+			return record, nil
+		} 
+	}
+	
+	return nil, fmt.Errorf("no matching API key record found")
+}
+
+type HasAuthToken interface {
+	NewAuthToken() (string, error)
+}
+
+func generateAuthenticateApiKeyResponse(apiKey string, authRecord HasAuthToken) (AuthenticateApiKeyResponseSchema, error) {
+		token, err := authRecord.NewAuthToken()
+		if err != nil {
+			return AuthenticateApiKeyResponseSchema{}, apierror.New(
+				http.StatusInternalServerError,
+				"request.internal_error",
+				"failed_to_generate_auth_token",
+				err.Error(),
+			)
+		}
+	return AuthenticateApiKeyResponseSchema{
+		Message: "API key authenticated successfully",
+		Token:   token,
+	}, nil
+}
+
+
+
