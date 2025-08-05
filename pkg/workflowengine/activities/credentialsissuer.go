@@ -94,7 +94,10 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 	cleanURL = strings.TrimRight(cleanURL, "/")
 	if !strings.HasSuffix(cleanURL, "/.well-known/openid-credential-issuer") {
 		// 1. Try federation
-		federationURL := strings.TrimSuffix(cleanURL, "/.well-known/openid-federation") + "/.well-known/openid-federation"
+		federationURL := strings.TrimSuffix(
+			cleanURL,
+			"/.well-known/openid-federation",
+		) + "/.well-known/openid-federation"
 		federationJSON, err := fetchJSONFromURL(ctx, federationURL, true, a)
 		if err == nil {
 			return workflowengine.ActivityResult{
@@ -109,13 +112,19 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 		if errors.As(err, &decodeErr) {
 			return result, a.NewActivityError(
 				errorcodes.Codes[errorcodes.DecodeFailed].Code,
-				fmt.Sprintf("Openid-federation well.known exists but JWT decoding failed: %v", decodeErr.Err),
+				fmt.Sprintf(
+					"Openid-federation well.known exists but JWT decoding failed: %v",
+					decodeErr.Err,
+				),
 				decodeErr.Payload,
 			)
 		}
 	}
 	// 2. Fallback to credential issuer
-	issuerURL := strings.TrimSuffix(cleanURL, "/.well-known/openid-credential-issuer") + "/.well-known/openid-credential-issuer"
+	issuerURL := strings.TrimSuffix(
+		cleanURL,
+		"/.well-known/openid-credential-issuer",
+	) + "/.well-known/openid-credential-issuer"
 	issuerJSON, err := fetchJSONFromURL(ctx, issuerURL, false, a)
 	if err != nil {
 		return result, err
@@ -130,7 +139,12 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 	}, nil
 }
 
-func fetchJSONFromURL(ctx context.Context, url string, isJWT bool, a *CheckCredentialsIssuerActivity) (string, error) {
+func fetchJSONFromURL(
+	ctx context.Context,
+	url string,
+	isJWT bool,
+	a *CheckCredentialsIssuerActivity,
+) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CreateHTTPRequestFailed]

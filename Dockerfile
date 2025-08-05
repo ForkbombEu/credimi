@@ -19,7 +19,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean \
     && apt-get update \
     && apt-get -y --no-install-recommends install \
-        build-essential make bash curl git tmux wget ca-certificates
+    build-essential make bash curl git tmux wget ca-certificates
 WORKDIR /app
 
 # install temporal
@@ -62,6 +62,9 @@ WORKDIR /app
 # install the stepci-captured-runner
 RUN mkdir .bin
 RUN wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/download/stepci-captured-runner-Linux-x86_64 -O .bin/stepci-captured-runner && chmod +x .bin/stepci-captured-runner
+
+#install et-tu-cesr
+RUN wget https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-linux-amd64 -O .bin/et-tu-cesr && chmod +x .bin/et-tu-cesr
 
 # copy everything
 COPY . ./

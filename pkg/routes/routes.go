@@ -61,6 +61,7 @@ func Setup(app *pocketbase.PocketBase) {
 	apis.HookStartScheduledWorkflow(app)
 	apis.HookCredentialWorkflow(app)
 	apis.HookUpdateCredentialsIssuers(app)
+	apis.HookvLEIWorkflow(app)
 
 	jsvm.MustRegister(app, jsvm.Config{
 		HooksWatch: true,

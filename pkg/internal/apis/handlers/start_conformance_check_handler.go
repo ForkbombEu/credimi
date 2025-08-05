@@ -28,19 +28,19 @@ type CustomCheck struct {
 }
 type Variable struct {
 	FieldName string      `json:"field_name" validate:"required"`
-	Value     interface{} `json:"value" validate:"required"`
+	Value     interface{} `json:"value"      validate:"required"`
 	CredimiID string      `json:"credimi_id" validate:"required"`
 }
 
 type SaveVariablesAndStartRequestInput struct {
-	ConfigsWithFields map[string][]Variable  `json:"configs_with_fields"  validate:"required"`
-	ConfigsWithJSON   map[string]string      `json:"configs_with_json" validate:"required"`
-	CustomChecks      map[string]CustomCheck `json:"custom_checks" validate:"required"`
+	ConfigsWithFields map[string][]Variable  `json:"configs_with_fields" validate:"required"`
+	ConfigsWithJSON   map[string]string      `json:"configs_with_json"   validate:"required"`
+	CustomChecks      map[string]CustomCheck `json:"custom_checks"       validate:"required"`
 }
 
 type openID4VPTestInputFile struct {
 	Variant json.RawMessage `json:"variant" yaml:"variant" validate:"required,oneof=json variables yaml"`
-	Form    any             `json:"form" yaml:"form" `
+	Form    any             `json:"form"    yaml:"form"`
 }
 
 type EWCInput struct {

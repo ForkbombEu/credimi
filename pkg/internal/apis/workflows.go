@@ -576,3 +576,55 @@ func readSchemaFile(path string) (string, error) {
 	}
 	return string(data), nil
 }
+
+type vLEICheckInput struct {
+	CredentialID string `json:"credentialID"`
+}
+
+func HookvLEIWorkflow(app *pocketbase.PocketBase) {
+	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		se.Router.POST("/vlei/start-check", func(e *core.RequestEvent) error {
+			var req vLEICheckInput
+
+			if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
+				return apis.NewBadRequestError("invalid JSON input", err)
+			}
+			organization, err := handlers.GetUserOrganizationID(app, e.Auth.Id)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"failed to get user organization",
+					err.Error())
+			}
+
+			// Start the workflow
+			workflowInput := workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url":    app.Settings().Meta.AppURL,
+					"server_url": "http://localhost:7723", // TODO update with the real one
+					"namespace":  organization,
+				},
+				Payload: map[string]any{
+					"credentialID": req.CredentialID,
+				},
+			}
+			w := workflows.VLEIValidationWorkflow{}
+
+			_, err = w.Start(workflowInput)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to start workflow",
+					err.Error(),
+				)
+			}
+			return e.JSON(http.StatusOK, map[string]string{
+				"credentialID": req.CredentialID,
+			})
+		})
+
+		return se.Next()
+	})
+}
