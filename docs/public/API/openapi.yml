@@ -1,1033 +1,543 @@
 components:
   schemas:
     APIError:
-      $defs:
-        APIError:
-          additionalProperties: false
-          properties:
-            Code:
-              type: integer
-            Domain:
-              type: string
-            Message:
-              type: string
-            Reason:
-              type: string
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apierror/api-error
-      $ref: '#/$defs/APIError'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        Code:
+          type: integer
+        Domain:
+          type: string
+        Message:
+          type: string
+        Reason:
+          type: string
+      type: object
+    ActivityType:
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+      type: object
     AuthenticateApiKeyResponseSchema:
-      $defs:
-        AuthenticateApiKeyResponseSchema:
-          additionalProperties: false
-          properties:
-            message:
-              type: string
-            token:
-              type: string
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/authenticate-api-key-response-schema
-      $ref: '#/$defs/AuthenticateApiKeyResponseSchema'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+        token:
+          type: string
+      type: object
+    Callback:
+      additionalProperties: false
+      properties:
+        attempt:
+          type: integer
+        lastAttemptCompleteTime:
+          type: string
+        lastAttemptFailure:
+          $ref: '#/components/schemas/Failure'
+        nextAttemptScheduleTime:
+          type: string
+        publicInfo:
+          $ref: '#/components/schemas/CallbackInfo'
+        state:
+          type: string
+        trigger:
+          $ref: '#/components/schemas/CallbackInfo'
+      type: object
+    CallbackInfo:
+      additionalProperties: false
+      properties:
+        callback:
+          $ref: '#/components/schemas/Payload'
+        registrationTime:
+          type: string
+      type: object
+    Callbacks:
+      additionalProperties: false
+      properties:
+        callbacks:
+          items:
+            $ref: '#/components/schemas/Callback'
+          type: array
+      type: object
     CancelMyCheckRunResponse:
-      $defs:
-        CancelMyCheckRunResponse:
-          additionalProperties: false
-          properties:
-            checkId:
-              type: string
-            message:
-              type: string
-            namespace:
-              type: string
-            runId:
-              type: string
-            status:
-              type: string
-            time:
-              type: string
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/cancel-my-check-run-response
-      $ref: '#/$defs/CancelMyCheckRunResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        checkId:
+          type: string
+        message:
+          type: string
+        namespace:
+          type: string
+        runId:
+          type: string
+        status:
+          type: string
+        time:
+          type: string
+      type: object
     ChecksLogsResponse:
-      $defs:
-        ChecksLogsResponse:
-          additionalProperties: false
-          properties:
-            channel:
-              type: string
-            message:
-              type: string
-            namespace:
-              type: string
-            run_id:
-              type: string
-            status:
-              type: string
-            time:
-              type: string
-            workflow_id:
-              type: string
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/checks-logs-response
-      $ref: '#/$defs/ChecksLogsResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        channel:
+          type: string
+        message:
+          type: string
+        namespace:
+          type: string
+        run_id:
+          type: string
+        status:
+          type: string
+        time:
+          type: string
+        workflow_id:
+          type: string
+      type: object
+    DecodedWorkflowSearchAttributes:
+      type: object
+    Duration:
+      additionalProperties: false
+      properties:
+        nanos:
+          type: integer
+        seconds:
+          type: integer
+      type: object
+    ExportData:
+      additionalProperties: false
+      properties:
+        checkId:
+          type: string
+        config:
+          type: object
+        input:
+          type: object
+        runId:
+          type: string
+      type: object
     ExportMyCheckRunResponse:
-      $defs:
-        ExportData:
-          additionalProperties: false
-          properties:
-            checkId:
-              type: string
-            config:
-              type: object
-            input:
-              type: object
-            runId:
-              type: string
-          type: object
-        ExportMyCheckRunResponse:
-          additionalProperties: false
-          properties:
-            export:
-              $ref: '#/$defs/ExportData'
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/export-my-check-run-response
-      $ref: '#/$defs/ExportMyCheckRunResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        export:
+          $ref: '#/components/schemas/ExportData'
+      type: object
+    Failure:
+      additionalProperties: false
+      properties:
+        cause:
+          $ref: '#/components/schemas/Failure'
+        failureInfo:
+          additionalProperties:
+            type: string
+          type: object
+        message:
+          type: string
+        source:
+          type: string
+        stackTrace:
+          type: string
+      type: object
     GenerateApiKeyRequestSchema:
-      $defs:
-        GenerateApiKeyRequestSchema:
-          additionalProperties: false
-          properties:
-            name:
-              type: string
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/generate-api-key-request-schema
-      $ref: '#/$defs/GenerateApiKeyRequestSchema'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        name:
+          type: string
+      type: object
     GenerateApiKeyResponseSchema:
-      $defs:
-        GenerateApiKeyResponseSchema:
-          additionalProperties: false
-          properties:
-            api_key:
-              type: string
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/generate-api-key-response-schema
-      $ref: '#/$defs/GenerateApiKeyResponseSchema'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        api_key:
+          type: string
+      type: object
     GetMyCheckRunHistoryResponse:
-      $defs:
-        GetMyCheckRunHistoryResponse:
-          additionalProperties: false
-          properties:
-            checkId:
-              type: string
-            count:
-              type: integer
-            history:
-              items:
-                type: object
-              type: array
-            namespace:
-              type: string
-            runId:
-              type: string
-            time:
-              type: string
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/get-my-check-run-history-response
-      $ref: '#/$defs/GetMyCheckRunHistoryResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        checkId:
+          type: string
+        count:
+          type: integer
+        history:
+          items:
+            type: object
+          type: array
+        namespace:
+          type: string
+        runId:
+          type: string
+        time:
+          type: string
+      type: object
     GetMyCheckRunResponse:
-      $defs:
-        ActivityType:
-          additionalProperties: false
-          properties:
-            name:
-              type: string
-          type: object
-        Callback:
-          additionalProperties: false
-          properties:
-            attempt:
-              type: integer
-            lastAttemptCompleteTime:
-              type: string
-            lastAttemptFailure:
-              $ref: '#/$defs/Failure'
-            nextAttemptScheduleTime:
-              type: string
-            publicInfo:
-              $ref: '#/$defs/CallbackInfo'
-            state:
-              type: string
-            trigger:
-              $ref: '#/$defs/CallbackInfo'
-          type: object
-        CallbackInfo:
-          additionalProperties: false
-          properties:
-            callback:
-              $ref: '#/$defs/Payload'
-            registrationTime:
-              type: string
-          type: object
-        Callbacks:
-          additionalProperties: false
-          properties:
-            callbacks:
-              items:
-                $ref: '#/$defs/Callback'
-              type: array
-          type: object
-        Duration:
-          additionalProperties: false
-          properties:
-            nanos:
-              type: integer
-            seconds:
-              type: integer
-          type: object
-        Failure:
-          additionalProperties: false
-          properties:
-            cause:
-              $ref: '#/$defs/Failure'
-            failureInfo:
-              additionalProperties:
-                type: string
-              type: object
-            message:
-              type: string
-            source:
-              type: string
-            stackTrace:
-              type: string
-          type: object
-        GetMyCheckRunResponse:
-          additionalProperties: false
-          properties:
-            callbacks:
-              $ref: '#/$defs/Callbacks'
-            executionConfig:
-              $ref: '#/$defs/WorkflowExecutionConfigWithMetadata'
-            pendingActivities:
-              items:
-                $ref: '#/$defs/PendingActivityInfo'
-              type: array
-            pendingChildren:
-              items:
-                $ref: '#/$defs/PendingChildren'
-              type: array
-            pendingNexusOperations:
-              items:
-                $ref: '#/$defs/PendingNexusOperation'
-              type: array
-            pendingWorkflowTask:
-              $ref: '#/$defs/PendingWorkflowTaskInfo'
-            workflowExecutionInfo:
-              $ref: '#/$defs/WorkflowExecutionInfo'
-          type: object
-        Memo:
-          additionalProperties: false
-          properties:
-            fields:
-              additionalProperties:
-                $ref: '#/$defs/Payload'
-              type: object
-          type: object
-        Payload:
-          additionalProperties: false
-          properties:
-            data:
-              type: string
-            metadata:
-              additionalProperties:
-                type: string
-              type: object
-          type: object
-        Payloads:
-          items:
-            $ref: '#/$defs/Payload'
-          type: array
-        PendingActivityInfo:
-          additionalProperties: false
-          properties:
-            activityId:
-              type: string
-            activityType:
-              $ref: '#/$defs/ActivityType'
-            assignedBuildId:
-              type: string
-            attempt:
-              type: integer
-            expirationTime:
-              type: string
-            heartbeatDetails:
-              $ref: '#/$defs/Payloads'
-            lastFailure:
-              $ref: '#/$defs/Failure'
-            lastHeartbeatTime:
-              type: string
-            lastStartedTime:
-              type: string
-            lastWorkerIdentity:
-              type: string
-            maximumAttempts:
-              type: integer
-            scheduledTime:
-              type: string
-            state:
-              type: string
-          type: object
-        PendingChildren:
-          additionalProperties: false
-          properties:
-            initiatedId:
-              type: string
-            parentClosePolicy:
-              type: string
-            runId:
-              type: string
-            workflowId:
-              type: string
-            workflowTypeName:
-              type: string
-          type: object
-        PendingNexusOperation:
-          additionalProperties: false
-          properties:
-            attempt:
-              type: integer
-            endpoint:
-              type: string
-            lastAttemptCompleteTime:
-              type: string
-            lastAttemptFailure:
-              $ref: '#/$defs/Failure'
-            nextAttemptScheduleTime:
-              type: string
-            operation:
-              type: string
-            operationId:
-              type: string
-            scheduledEventId:
-              type: string
-            service:
-              type: string
-            state:
-              type: string
-          type: object
-        PendingWorkflowTaskInfo:
-          additionalProperties: false
-          properties:
-            attempt:
-              type: integer
-            lastFailure:
-              $ref: '#/$defs/Failure'
-            originalScheduledTime:
-              type: string
-            scheduledTime:
-              type: string
-            startedTime:
-              type: string
-            state:
-              type: string
-          type: object
-        TaskQueue:
-          additionalProperties: false
-          properties:
-            kind:
-              type: string
-            name:
-              type: string
-            normalName:
-              type: string
-          type: object
-        UserMetadata:
-          additionalProperties: false
-          properties:
-            details:
-              $ref: '#/$defs/Payload'
-            summary:
-              $ref: '#/$defs/Payload'
-          type: object
-        VersioningInfo:
-          additionalProperties: false
-          properties:
-            useVersioning:
-              type: boolean
-          type: object
-        WorkflowExecutionConfigWithMetadata:
-          additionalProperties: false
-          properties:
-            defaultWorkflowTaskTimeout:
-              $ref: '#/$defs/Duration'
-            taskQueue:
-              $ref: '#/$defs/TaskQueue'
-            userMetadata:
-              $ref: '#/$defs/UserMetadata'
-            workflowExecutionTimeout:
-              $ref: '#/$defs/Duration'
-            workflowRunTimeout:
-              $ref: '#/$defs/Duration'
-          type: object
-        WorkflowExecutionInfo:
-          additionalProperties: false
-          properties:
-            assignedBuildId:
-              type: string
-            closeTime:
-              type: string
-            executionTime:
-              type: string
-            historyLength:
-              type: string
-            historySizeBytes:
-              type: string
-            id:
-              type: string
-            memo:
-              $ref: '#/$defs/Memo'
-            name:
-              type: string
-            runId:
-              type: string
-            searchAttributes:
-              $ref: '#/$defs/WorkflowSearchAttributes'
-            startTime:
-              type: string
-            stateTransitionCount:
-              type: string
-            status:
-              type: string
-            versioningInfo:
-              $ref: '#/$defs/VersioningInfo'
-          type: object
-        WorkflowSearchAttributes:
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/get-my-check-run-response
-      $ref: '#/$defs/GetMyCheckRunResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        callbacks:
+          $ref: '#/components/schemas/Callbacks'
+        executionConfig:
+          $ref: '#/components/schemas/WorkflowExecutionConfigWithMetadata'
+        pendingActivities:
+          items:
+            $ref: '#/components/schemas/PendingActivityInfo'
+          type: array
+        pendingChildren:
+          items:
+            $ref: '#/components/schemas/PendingChildren'
+          type: array
+        pendingNexusOperations:
+          items:
+            $ref: '#/components/schemas/PendingNexusOperation'
+          type: array
+        pendingWorkflowTask:
+          $ref: '#/components/schemas/PendingWorkflowTaskInfo'
+        workflowExecutionInfo:
+          $ref: '#/components/schemas/WorkflowExecutionInfo'
+      type: object
     ListMyCheckRunsResponse:
-      $defs:
-        ActivityType:
-          additionalProperties: false
-          properties:
-            name:
-              type: string
-          type: object
-        Callback:
-          additionalProperties: false
-          properties:
-            attempt:
-              type: integer
-            lastAttemptCompleteTime:
-              type: string
-            lastAttemptFailure:
-              $ref: '#/$defs/Failure'
-            nextAttemptScheduleTime:
-              type: string
-            publicInfo:
-              $ref: '#/$defs/CallbackInfo'
-            state:
-              type: string
-            trigger:
-              $ref: '#/$defs/CallbackInfo'
-          type: object
-        CallbackInfo:
-          additionalProperties: false
-          properties:
-            callback:
-              $ref: '#/$defs/Payload'
-            registrationTime:
-              type: string
-          type: object
-        Callbacks:
-          additionalProperties: false
-          properties:
-            callbacks:
-              items:
-                $ref: '#/$defs/Callback'
-              type: array
-          type: object
-        DecodedWorkflowSearchAttributes:
-          type: object
-        Duration:
-          additionalProperties: false
-          properties:
-            nanos:
-              type: integer
-            seconds:
-              type: integer
-          type: object
-        Failure:
-          additionalProperties: false
-          properties:
-            cause:
-              $ref: '#/$defs/Failure'
-            failureInfo:
-              additionalProperties:
-                type: string
-              type: object
-            message:
-              type: string
-            source:
-              type: string
-            stackTrace:
-              type: string
-          type: object
-        ListMyCheckRunsResponse:
-          additionalProperties: false
-          properties:
-            executions:
-              items:
-                $ref: '#/$defs/WorkflowExecution'
-              type: array
-          type: object
-        Memo:
-          additionalProperties: false
-          properties:
-            fields:
-              additionalProperties:
-                $ref: '#/$defs/Payload'
-              type: object
-          type: object
-        MessageState:
-          additionalProperties: false
-          properties:
-            details:
-              type: string
-            state:
-              type: string
-          type: object
-        MostRecentWorkflowVersionStamp:
-          additionalProperties: false
-          properties:
-            useVersioning:
-              type: boolean
-            workflowVersionTimestamp:
-              type: string
-          type: object
-        Payload:
-          additionalProperties: false
-          properties:
-            data:
-              type: string
-            metadata:
-              additionalProperties:
-                type: string
-              type: object
-          type: object
-        Payloads:
-          items:
-            $ref: '#/$defs/Payload'
-          type: array
-        PendingActivityInfo:
-          additionalProperties: false
-          properties:
-            activityId:
-              type: string
-            activityType:
-              $ref: '#/$defs/ActivityType'
-            assignedBuildId:
-              type: string
-            attempt:
-              type: integer
-            expirationTime:
-              type: string
-            heartbeatDetails:
-              $ref: '#/$defs/Payloads'
-            lastFailure:
-              $ref: '#/$defs/Failure'
-            lastHeartbeatTime:
-              type: string
-            lastStartedTime:
-              type: string
-            lastWorkerIdentity:
-              type: string
-            maximumAttempts:
-              type: integer
-            scheduledTime:
-              type: string
-            state:
-              type: string
-          type: object
-        PendingChildren:
-          additionalProperties: false
-          properties:
-            initiatedId:
-              type: string
-            parentClosePolicy:
-              type: string
-            runId:
-              type: string
-            workflowId:
-              type: string
-            workflowTypeName:
-              type: string
-          type: object
-        PendingNexusOperation:
-          additionalProperties: false
-          properties:
-            attempt:
-              type: integer
-            endpoint:
-              type: string
-            lastAttemptCompleteTime:
-              type: string
-            lastAttemptFailure:
-              $ref: '#/$defs/Failure'
-            nextAttemptScheduleTime:
-              type: string
-            operation:
-              type: string
-            operationId:
-              type: string
-            scheduledEventId:
-              type: string
-            service:
-              type: string
-            state:
-              type: string
-          type: object
-        PendingWorkflowTaskInfo:
-          additionalProperties: false
-          properties:
-            attempt:
-              type: integer
-            lastFailure:
-              $ref: '#/$defs/Failure'
-            originalScheduledTime:
-              type: string
-            scheduledTime:
-              type: string
-            startedTime:
-              type: string
-            state:
-              type: string
-          type: object
-        VersioningInfo:
-          additionalProperties: false
-          properties:
-            useVersioning:
-              type: boolean
-          type: object
-        WorkflowExecution:
-          additionalProperties: false
-          properties:
-            assignedBuildId:
-              type: string
-            callbacks:
-              $ref: '#/$defs/Callbacks'
-            canBeTerminated:
-              type: boolean
-            defaultWorkflowTaskTimeout:
-              $ref: '#/$defs/Duration'
-            details:
-              $ref: '#/$defs/Payload'
-            endTime:
-              type: string
-            executionTime:
-              type: string
-            historyEvents:
-              type: string
-            historySizeBytes:
-              type: string
-            id:
-              type: string
-            isRunning:
-              type: boolean
-            memo:
-              $ref: '#/$defs/Memo'
-            mostRecentWorkerVersionStamp:
-              $ref: '#/$defs/MostRecentWorkflowVersionStamp'
-            name:
-              type: string
-            parent:
-              $ref: '#/$defs/WorkflowIdentifier'
-            parentNamespaceId:
-              type: string
-            pendingActivities:
-              items:
-                $ref: '#/$defs/PendingActivityInfo'
-              type: array
-            pendingChildren:
-              items:
-                $ref: '#/$defs/PendingChildren'
-              type: array
-            pendingNexusOperations:
-              items:
-                $ref: '#/$defs/PendingNexusOperation'
-              type: array
-            pendingWorkflowTask:
-              $ref: '#/$defs/PendingWorkflowTaskInfo'
-            rootExecution:
-              $ref: '#/$defs/WorkflowIdentifier'
-            runId:
-              type: string
-            searchAttributes:
-              $ref: '#/$defs/DecodedWorkflowSearchAttributes'
-            startTime:
-              type: string
-            stateTransitionCount:
-              type: string
-            status:
-              $ref: '#/$defs/MessageState'
-            summary:
-              $ref: '#/$defs/Payload'
-            taskQueue:
-              type: string
-            url:
-              type: string
-            versioningInfo:
-              $ref: '#/$defs/VersioningInfo'
-          type: object
-        WorkflowIdentifier:
-          additionalProperties: false
-          properties:
-            runId:
-              type: string
-            workflowId:
-              type: string
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/list-my-check-runs-response
-      $ref: '#/$defs/ListMyCheckRunsResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
-    ListMyChecksResponse:
-      $defs:
-        ActivityType:
-          additionalProperties: false
-          properties:
-            name:
-              type: string
-          type: object
-        Callback:
-          additionalProperties: false
-          properties:
-            attempt:
-              type: integer
-            lastAttemptCompleteTime:
-              type: string
-            lastAttemptFailure:
-              $ref: '#/$defs/Failure'
-            nextAttemptScheduleTime:
-              type: string
-            publicInfo:
-              $ref: '#/$defs/CallbackInfo'
-            state:
-              type: string
-            trigger:
-              $ref: '#/$defs/CallbackInfo'
-          type: object
-        CallbackInfo:
-          additionalProperties: false
-          properties:
-            callback:
-              $ref: '#/$defs/Payload'
-            registrationTime:
-              type: string
-          type: object
-        Callbacks:
-          additionalProperties: false
-          properties:
-            callbacks:
-              items:
-                $ref: '#/$defs/Callback'
-              type: array
-          type: object
-        DecodedWorkflowSearchAttributes:
-          type: object
-        Duration:
-          additionalProperties: false
-          properties:
-            nanos:
-              type: integer
-            seconds:
-              type: integer
-          type: object
-        Failure:
-          additionalProperties: false
-          properties:
-            cause:
-              $ref: '#/$defs/Failure'
-            failureInfo:
-              additionalProperties:
-                type: string
-              type: object
-            message:
-              type: string
-            source:
-              type: string
-            stackTrace:
-              type: string
-          type: object
-        ListMyChecksResponse:
-          additionalProperties: false
-          properties:
-            executions:
-              items:
-                $ref: '#/$defs/WorkflowExecution'
-              type: array
-          type: object
-        Memo:
-          additionalProperties: false
-          properties:
-            fields:
-              additionalProperties:
-                $ref: '#/$defs/Payload'
-              type: object
-          type: object
-        MessageState:
-          additionalProperties: false
-          properties:
-            details:
-              type: string
-            state:
-              type: string
-          type: object
-        MostRecentWorkflowVersionStamp:
-          additionalProperties: false
-          properties:
-            useVersioning:
-              type: boolean
-            workflowVersionTimestamp:
-              type: string
-          type: object
-        Payload:
-          additionalProperties: false
-          properties:
-            data:
-              type: string
-            metadata:
-              additionalProperties:
-                type: string
-              type: object
-          type: object
-        Payloads:
+      additionalProperties: false
+      properties:
+        executions:
           items:
-            $ref: '#/$defs/Payload'
+            $ref: '#/components/schemas/WorkflowExecution'
           type: array
-        PendingActivityInfo:
-          additionalProperties: false
-          properties:
-            activityId:
-              type: string
-            activityType:
-              $ref: '#/$defs/ActivityType'
-            assignedBuildId:
-              type: string
-            attempt:
-              type: integer
-            expirationTime:
-              type: string
-            heartbeatDetails:
-              $ref: '#/$defs/Payloads'
-            lastFailure:
-              $ref: '#/$defs/Failure'
-            lastHeartbeatTime:
-              type: string
-            lastStartedTime:
-              type: string
-            lastWorkerIdentity:
-              type: string
-            maximumAttempts:
-              type: integer
-            scheduledTime:
-              type: string
-            state:
-              type: string
-          type: object
-        PendingChildren:
-          additionalProperties: false
-          properties:
-            initiatedId:
-              type: string
-            parentClosePolicy:
-              type: string
-            runId:
-              type: string
-            workflowId:
-              type: string
-            workflowTypeName:
-              type: string
-          type: object
-        PendingNexusOperation:
-          additionalProperties: false
-          properties:
-            attempt:
-              type: integer
-            endpoint:
-              type: string
-            lastAttemptCompleteTime:
-              type: string
-            lastAttemptFailure:
-              $ref: '#/$defs/Failure'
-            nextAttemptScheduleTime:
-              type: string
-            operation:
-              type: string
-            operationId:
-              type: string
-            scheduledEventId:
-              type: string
-            service:
-              type: string
-            state:
-              type: string
-          type: object
-        PendingWorkflowTaskInfo:
-          additionalProperties: false
-          properties:
-            attempt:
-              type: integer
-            lastFailure:
-              $ref: '#/$defs/Failure'
-            originalScheduledTime:
-              type: string
-            scheduledTime:
-              type: string
-            startedTime:
-              type: string
-            state:
-              type: string
-          type: object
-        VersioningInfo:
-          additionalProperties: false
-          properties:
-            useVersioning:
-              type: boolean
-          type: object
-        WorkflowExecution:
-          additionalProperties: false
-          properties:
-            assignedBuildId:
-              type: string
-            callbacks:
-              $ref: '#/$defs/Callbacks'
-            canBeTerminated:
-              type: boolean
-            defaultWorkflowTaskTimeout:
-              $ref: '#/$defs/Duration'
-            details:
-              $ref: '#/$defs/Payload'
-            endTime:
-              type: string
-            executionTime:
-              type: string
-            historyEvents:
-              type: string
-            historySizeBytes:
-              type: string
-            id:
-              type: string
-            isRunning:
-              type: boolean
-            memo:
-              $ref: '#/$defs/Memo'
-            mostRecentWorkerVersionStamp:
-              $ref: '#/$defs/MostRecentWorkflowVersionStamp'
-            name:
-              type: string
-            parent:
-              $ref: '#/$defs/WorkflowIdentifier'
-            parentNamespaceId:
-              type: string
-            pendingActivities:
-              items:
-                $ref: '#/$defs/PendingActivityInfo'
-              type: array
-            pendingChildren:
-              items:
-                $ref: '#/$defs/PendingChildren'
-              type: array
-            pendingNexusOperations:
-              items:
-                $ref: '#/$defs/PendingNexusOperation'
-              type: array
-            pendingWorkflowTask:
-              $ref: '#/$defs/PendingWorkflowTaskInfo'
-            rootExecution:
-              $ref: '#/$defs/WorkflowIdentifier'
-            runId:
-              type: string
-            searchAttributes:
-              $ref: '#/$defs/DecodedWorkflowSearchAttributes'
-            startTime:
-              type: string
-            stateTransitionCount:
-              type: string
-            status:
-              $ref: '#/$defs/MessageState'
-            summary:
-              $ref: '#/$defs/Payload'
-            taskQueue:
-              type: string
-            url:
-              type: string
-            versioningInfo:
-              $ref: '#/$defs/VersioningInfo'
-          type: object
-        WorkflowIdentifier:
-          additionalProperties: false
-          properties:
-            runId:
-              type: string
-            workflowId:
-              type: string
-          type: object
+      type: object
+    ListMyChecksResponse:
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/list-my-checks-response
-      $ref: '#/$defs/ListMyChecksResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        executions:
+          items:
+            $ref: '#/components/schemas/WorkflowExecution'
+          type: array
+      type: object
+    Memo:
+      additionalProperties: false
+      properties:
+        fields:
+          additionalProperties:
+            $ref: '#/components/schemas/Payload'
+          type: object
+      type: object
+    MessageState:
+      additionalProperties: false
+      properties:
+        details:
+          type: string
+        state:
+          type: string
+      type: object
+    MostRecentWorkflowVersionStamp:
+      additionalProperties: false
+      properties:
+        useVersioning:
+          type: boolean
+        workflowVersionTimestamp:
+          type: string
+      type: object
+    Payload:
+      additionalProperties: false
+      properties:
+        data:
+          type: string
+        metadata:
+          additionalProperties:
+            type: string
+          type: object
+      type: object
+    Payloads:
+      items:
+        $ref: '#/components/schemas/Payload'
+      type: array
+    PendingActivityInfo:
+      additionalProperties: false
+      properties:
+        activityId:
+          type: string
+        activityType:
+          $ref: '#/components/schemas/ActivityType'
+        assignedBuildId:
+          type: string
+        attempt:
+          type: integer
+        expirationTime:
+          type: string
+        heartbeatDetails:
+          $ref: '#/components/schemas/Payloads'
+        lastFailure:
+          $ref: '#/components/schemas/Failure'
+        lastHeartbeatTime:
+          type: string
+        lastStartedTime:
+          type: string
+        lastWorkerIdentity:
+          type: string
+        maximumAttempts:
+          type: integer
+        scheduledTime:
+          type: string
+        state:
+          type: string
+      type: object
+    PendingChildren:
+      additionalProperties: false
+      properties:
+        initiatedId:
+          type: string
+        parentClosePolicy:
+          type: string
+        runId:
+          type: string
+        workflowId:
+          type: string
+        workflowTypeName:
+          type: string
+      type: object
+    PendingNexusOperation:
+      additionalProperties: false
+      properties:
+        attempt:
+          type: integer
+        endpoint:
+          type: string
+        lastAttemptCompleteTime:
+          type: string
+        lastAttemptFailure:
+          $ref: '#/components/schemas/Failure'
+        nextAttemptScheduleTime:
+          type: string
+        operation:
+          type: string
+        operationId:
+          type: string
+        scheduledEventId:
+          type: string
+        service:
+          type: string
+        state:
+          type: string
+      type: object
+    PendingWorkflowTaskInfo:
+      additionalProperties: false
+      properties:
+        attempt:
+          type: integer
+        lastFailure:
+          $ref: '#/components/schemas/Failure'
+        originalScheduledTime:
+          type: string
+        scheduledTime:
+          type: string
+        startedTime:
+          type: string
+        state:
+          type: string
+      type: object
     ReRunCheckRequest:
-      $defs:
-        ReRunCheckRequest:
-          additionalProperties: false
-          properties:
-            config:
-              type: object
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/re-run-check-request
-      $ref: '#/$defs/ReRunCheckRequest'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        config:
+          type: object
+      type: object
     ReRunCheckResponse:
-      $defs:
-        ReRunCheckResponse:
-          additionalProperties: false
-          properties:
-            run_id:
-              type: string
-            workflow_id:
-              type: string
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/re-run-check-response
-      $ref: '#/$defs/ReRunCheckResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        run_id:
+          type: string
+        workflow_id:
+          type: string
+      type: object
+    TaskQueue:
+      additionalProperties: false
+      properties:
+        kind:
+          type: string
+        name:
+          type: string
+        normalName:
+          type: string
+      type: object
     TerminateMyCheckRunResponse:
-      $defs:
-        TerminateMyCheckRunResponse:
-          additionalProperties: false
-          properties:
-            checkId:
-              type: string
-            message:
-              type: string
-            namespace:
-              type: string
-            runId:
-              type: string
-            status:
-              type: string
-            time:
-              type: string
-          type: object
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/terminate-my-check-run-response
-      $ref: '#/$defs/TerminateMyCheckRunResponse'
       $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        checkId:
+          type: string
+        message:
+          type: string
+        namespace:
+          type: string
+        runId:
+          type: string
+        status:
+          type: string
+        time:
+          type: string
+      type: object
+    UserMetadata:
+      additionalProperties: false
+      properties:
+        details:
+          $ref: '#/components/schemas/Payload'
+        summary:
+          $ref: '#/components/schemas/Payload'
+      type: object
+    VersioningInfo:
+      additionalProperties: false
+      properties:
+        useVersioning:
+          type: boolean
+      type: object
+    WorkflowExecution:
+      additionalProperties: false
+      properties:
+        assignedBuildId:
+          type: string
+        callbacks:
+          $ref: '#/components/schemas/Callbacks'
+        canBeTerminated:
+          type: boolean
+        defaultWorkflowTaskTimeout:
+          $ref: '#/components/schemas/Duration'
+        details:
+          $ref: '#/components/schemas/Payload'
+        endTime:
+          type: string
+        executionTime:
+          type: string
+        historyEvents:
+          type: string
+        historySizeBytes:
+          type: string
+        id:
+          type: string
+        isRunning:
+          type: boolean
+        memo:
+          $ref: '#/components/schemas/Memo'
+        mostRecentWorkerVersionStamp:
+          $ref: '#/components/schemas/MostRecentWorkflowVersionStamp'
+        name:
+          type: string
+        parent:
+          $ref: '#/components/schemas/WorkflowIdentifier'
+        parentNamespaceId:
+          type: string
+        pendingActivities:
+          items:
+            $ref: '#/components/schemas/PendingActivityInfo'
+          type: array
+        pendingChildren:
+          items:
+            $ref: '#/components/schemas/PendingChildren'
+          type: array
+        pendingNexusOperations:
+          items:
+            $ref: '#/components/schemas/PendingNexusOperation'
+          type: array
+        pendingWorkflowTask:
+          $ref: '#/components/schemas/PendingWorkflowTaskInfo'
+        rootExecution:
+          $ref: '#/components/schemas/WorkflowIdentifier'
+        runId:
+          type: string
+        searchAttributes:
+          $ref: '#/components/schemas/DecodedWorkflowSearchAttributes'
+        startTime:
+          type: string
+        stateTransitionCount:
+          type: string
+        status:
+          $ref: '#/components/schemas/MessageState'
+        summary:
+          $ref: '#/components/schemas/Payload'
+        taskQueue:
+          type: string
+        url:
+          type: string
+        versioningInfo:
+          $ref: '#/components/schemas/VersioningInfo'
+      type: object
+    WorkflowExecutionConfigWithMetadata:
+      additionalProperties: false
+      properties:
+        defaultWorkflowTaskTimeout:
+          $ref: '#/components/schemas/Duration'
+        taskQueue:
+          $ref: '#/components/schemas/TaskQueue'
+        userMetadata:
+          $ref: '#/components/schemas/UserMetadata'
+        workflowExecutionTimeout:
+          $ref: '#/components/schemas/Duration'
+        workflowRunTimeout:
+          $ref: '#/components/schemas/Duration'
+      type: object
+    WorkflowExecutionInfo:
+      additionalProperties: false
+      properties:
+        assignedBuildId:
+          type: string
+        closeTime:
+          type: string
+        executionTime:
+          type: string
+        historyLength:
+          type: string
+        historySizeBytes:
+          type: string
+        id:
+          type: string
+        memo:
+          $ref: '#/components/schemas/Memo'
+        name:
+          type: string
+        runId:
+          type: string
+        searchAttributes:
+          $ref: '#/components/schemas/WorkflowSearchAttributes'
+        startTime:
+          type: string
+        stateTransitionCount:
+          type: string
+        status:
+          type: string
+        versioningInfo:
+          $ref: '#/components/schemas/VersioningInfo'
+      type: object
+    WorkflowIdentifier:
+      additionalProperties: false
+      properties:
+        runId:
+          type: string
+        workflowId:
+          type: string
+      type: object
+    WorkflowSearchAttributes:
+      type: object
 info:
   contact:
     email: support@forkbomb.eu

@@ -357,9 +357,18 @@ func generateTSClient(routes []RouteInfo, typesToProcess map[string]interface{})
 func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface{}) {
 	reflector := new(jsonschema.Reflector)
 	reflector.RequiredFromJSONSchemaTags = true
+	reflector.ExpandedStruct = true // Ensure expanded definitions for OpenAPI compatibility
 	schemas := make(map[string]*jsonschema.Schema)
 	for name, typ := range typesToProcess {
-		schemas[name] = reflector.Reflect(typ)
+		schema := reflector.Reflect(typ)
+		// Remove $defs and replace with components/schemas references
+		if schema.Definitions != nil {
+			for defName, defSchema := range schema.Definitions {
+				schemas[defName] = defSchema
+			}
+			schema.Definitions = nil
+		}
+		schemas[name] = schema
 	}
 
 	paths := make(map[string]*PathItem)
@@ -389,7 +398,6 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 			})
 		}
 		if route.InputType != "" {
-			// inputSchema := schemas[route.InputType]
 			if route.HasInputBody {
 				operation.RequestBody = &RequestBody{
 					Required: true,
@@ -409,7 +417,6 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 				}
 			}
 		} else {
-			// Add QuerySearchAttributes even when there's no InputType
 			if route.QuerySearchAttributes != nil {
 				for _, attr := range route.QuerySearchAttributes {
 					operation.Parameters = append(operation.Parameters, Parameter{
@@ -524,23 +531,44 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 		},
 	}
 
-	// --- (Stage 2: The JSON Bridge for Clean Output) ---
-
-	// 1. Marshal the struct to JSON. This respects all the `json:",omitempty"`
-	//    tags in the jsonschema library, creating a clean intermediate structure.
+	// Marshal to JSON first to clean up omitempty fields
 	jsonBytes, err := json.Marshal(doc)
 	if err != nil {
 		log.Fatalf("FATAL: Failed to marshal intermediate JSON: %v", err)
 	}
 
-	// 2. Unmarshal the clean JSON into a generic interface{}. This strips all
-	//    the struct field information and leaves us with pure map[string]interface{} data.
-	var genericData interface{}
+	// Remove any lingering $defs or $ref tokens that are not OpenAPI compatible
+	var genericData map[string]interface{}
 	if err := json.Unmarshal(jsonBytes, &genericData); err != nil {
 		log.Fatalf("FATAL: Failed to unmarshal intermediate JSON: %v", err)
 	}
 
-	// 3. Marshal the clean, generic data into YAML.
+	// Recursively clean $defs and fix $ref tokens
+	var cleanRefs func(interface{})
+	cleanRefs = func(v interface{}) {
+		switch vv := v.(type) {
+		case map[string]interface{}:
+			for k, val := range vv {
+				if k == "$defs" {
+					delete(vv, k)
+				} else if k == "$ref" {
+					refStr, ok := val.(string)
+					if ok && strings.HasPrefix(refStr, "#/$defs/") {
+						vv[k] = "#/components/schemas/" + strings.TrimPrefix(refStr, "#/$defs/")
+					}
+				} else {
+					cleanRefs(val)
+				}
+			}
+		case []interface{}:
+			for _, item := range vv {
+				cleanRefs(item)
+			}
+		}
+	}
+	cleanRefs(genericData)
+
+	// Marshal to YAML
 	outputPath := "../docs/public/API/openapi.yml"
 	var buf bytes.Buffer
 	encoder := yaml.NewEncoder(&buf)
