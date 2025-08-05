@@ -357,11 +357,10 @@ func generateTSClient(routes []RouteInfo, typesToProcess map[string]interface{})
 func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface{}) {
 	reflector := new(jsonschema.Reflector)
 	reflector.RequiredFromJSONSchemaTags = true
-	reflector.ExpandedStruct = true // Ensure expanded definitions for OpenAPI compatibility
+	reflector.ExpandedStruct = true
 	schemas := make(map[string]*jsonschema.Schema)
 	for name, typ := range typesToProcess {
 		schema := reflector.Reflect(typ)
-		// Remove $defs and replace with components/schemas references
 		if schema.Definitions != nil {
 			for defName, defSchema := range schema.Definitions {
 				schemas[defName] = defSchema
@@ -381,131 +380,10 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 		if _, ok := paths[openapiPath]; !ok {
 			paths[openapiPath] = &PathItem{}
 		}
-		operation := &Operation{
-			Summary:     route.Summary,
-			Description: route.Description,
-			OperationID: handlerToFuncName(route.GoHandlerName),
-			Tags:        route.Tags,
-			Responses:   make(map[string]Response),
-		}
-		for _, pName := range route.PathParams {
-			operation.Parameters = append(operation.Parameters, Parameter{
-				Name:        pName,
-				In:          "path",
-				Required:    true,
-				Description: fmt.Sprintf("The ID for the %s.", pName),
-				Schema:      &jsonschema.Schema{Type: "string"},
-			})
-		}
-		if route.InputType != "" {
-			if route.HasInputBody {
-				operation.RequestBody = &RequestBody{
-					Required: true,
-					Content: map[string]Content{
-						"application/json": {Schema: Ref{Ref: "#/components/schemas/" + route.InputType}},
-					},
-				}
-			} else if route.QuerySearchAttributes != nil {
-				for _, attr := range route.QuerySearchAttributes {
-					operation.Parameters = append(operation.Parameters, Parameter{
-						Name:        attr.Name,
-						In:          "query",
-						Required:    attr.Required,
-						Description: attr.Description,
-						Schema:      &jsonschema.Schema{Type: "string"},
-					})
-				}
-			}
-		} else {
-			if route.QuerySearchAttributes != nil {
-				for _, attr := range route.QuerySearchAttributes {
-					operation.Parameters = append(operation.Parameters, Parameter{
-						Name:        attr.Name,
-						In:          "query",
-						Required:    attr.Required,
-						Description: attr.Description,
-						Schema:      &jsonschema.Schema{Type: "string"},
-					})
-				}
-			}
-		}
-		if route.OutputType != "" && route.OutputType != "any" {
-			operation.Responses["200"] = Response{
-				Description: "Successful response",
-				Content: map[string]Content{
-					"application/json": {Schema: Ref{Ref: "#/components/schemas/" + route.OutputType}},
-				},
-			}
-		} else {
-			operation.Responses["200"] = Response{Description: "Successful response without a body"}
-		}
-		operation.Responses["default"] = Response{
-			Description: "An unexpected error occurred.",
-			Content: map[string]Content{
-				"application/json": {Schema: Ref{Ref: "#/components/schemas/APIError"}},
-			},
-		}
-		switch strings.ToUpper(route.Method) {
-		case "GET":
-			paths[openapiPath].Get = operation
-		case "POST":
-			paths[openapiPath].Post = operation
-		case "PUT":
-			paths[openapiPath].Put = operation
-		case "PATCH":
-			paths[openapiPath].Patch = operation
-		case "DELETE":
-			paths[openapiPath].Delete = operation
-		}
-
+		operation := buildOperation(route)
+		assignOperationToPath(paths[openapiPath], route.Method, operation)
 		if route.AuthenticationRequired {
-			for _, pathItem := range paths {
-				if pathItem.Get != nil {
-					pathItem.Get.Parameters = append(pathItem.Get.Parameters, Parameter{
-						Name:        "Authorization",
-						In:          "header",
-						Description: "Bearer token for authentication",
-						Required:    true,
-						Schema:      &jsonschema.Schema{Type: "string"},
-					})
-				}
-				if pathItem.Post != nil {
-					pathItem.Post.Parameters = append(pathItem.Post.Parameters, Parameter{
-						Name:        "Authorization",
-						In:          "header",
-						Description: "Bearer token for authentication",
-						Required:    true,
-						Schema:      &jsonschema.Schema{Type: "string"},
-					})
-				}
-				if pathItem.Put != nil {
-					pathItem.Put.Parameters = append(pathItem.Put.Parameters, Parameter{
-						Name:        "Authorization",
-						In:          "header",
-						Description: "Bearer token for authentication",
-						Required:    true,
-						Schema:      &jsonschema.Schema{Type: "string"},
-					})
-				}
-				if pathItem.Patch != nil {
-					pathItem.Patch.Parameters = append(pathItem.Patch.Parameters, Parameter{
-						Name:        "Authorization",
-						In:          "header",
-						Description: "Bearer token for authentication",
-						Required:    true,
-						Schema:      &jsonschema.Schema{Type: "string"},
-					})
-				}
-				if pathItem.Delete != nil {
-					pathItem.Delete.Parameters = append(pathItem.Delete.Parameters, Parameter{
-						Name:        "Authorization",
-						In:          "header",
-						Description: "Bearer token for authentication",
-						Required:    true,
-						Schema:      &jsonschema.Schema{Type: "string"},
-					})
-				}
-			}
+			addAuthHeader(paths[openapiPath])
 		}
 	}
 
@@ -531,44 +409,18 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 		},
 	}
 
-	// Marshal to JSON first to clean up omitempty fields
 	jsonBytes, err := json.Marshal(doc)
 	if err != nil {
 		log.Fatalf("FATAL: Failed to marshal intermediate JSON: %v", err)
 	}
 
-	// Remove any lingering $defs or $ref tokens that are not OpenAPI compatible
 	var genericData map[string]interface{}
 	if err := json.Unmarshal(jsonBytes, &genericData); err != nil {
 		log.Fatalf("FATAL: Failed to unmarshal intermediate JSON: %v", err)
 	}
 
-	// Recursively clean $defs and fix $ref tokens
-	var cleanRefs func(interface{})
-	cleanRefs = func(v interface{}) {
-		switch vv := v.(type) {
-		case map[string]interface{}:
-			for k, val := range vv {
-				if k == "$defs" {
-					delete(vv, k)
-				} else if k == "$ref" {
-					refStr, ok := val.(string)
-					if ok && strings.HasPrefix(refStr, "#/$defs/") {
-						vv[k] = "#/components/schemas/" + strings.TrimPrefix(refStr, "#/$defs/")
-					}
-				} else {
-					cleanRefs(val)
-				}
-			}
-		case []interface{}:
-			for _, item := range vv {
-				cleanRefs(item)
-			}
-		}
-	}
 	cleanRefs(genericData)
 
-	// Marshal to YAML
 	outputPath := "../docs/public/API/openapi.yml"
 	var buf bytes.Buffer
 	encoder := yaml.NewEncoder(&buf)
@@ -582,6 +434,137 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 		log.Fatalf("FATAL: Failed to write OpenAPI file '%s': %v", outputPath, err)
 	}
 	log.Printf("✅ OpenAPI YAML documentation successfully generated at: %s", outputPath)
+}
+
+func buildOperation(route RouteInfo) *Operation {
+	operation := &Operation{
+		Summary:     route.Summary,
+		Description: route.Description,
+		OperationID: handlerToFuncName(route.GoHandlerName),
+		Tags:        route.Tags,
+		Responses:   make(map[string]Response),
+	}
+	for _, pName := range route.PathParams {
+		operation.Parameters = append(operation.Parameters, Parameter{
+			Name:        pName,
+			In:          "path",
+			Required:    true,
+			Description: fmt.Sprintf("The ID for the %s.", pName),
+			Schema:      &jsonschema.Schema{Type: "string"},
+		})
+	}
+	if route.InputType != "" {
+		if route.HasInputBody {
+			operation.RequestBody = &RequestBody{
+				Required: true,
+				Content: map[string]Content{
+					"application/json": {Schema: Ref{Ref: "#/components/schemas/" + route.InputType}},
+				},
+			}
+		} else if route.QuerySearchAttributes != nil {
+			for _, attr := range route.QuerySearchAttributes {
+				operation.Parameters = append(operation.Parameters, Parameter{
+					Name:        attr.Name,
+					In:          "query",
+					Required:    attr.Required,
+					Description: attr.Description,
+					Schema:      &jsonschema.Schema{Type: "string"},
+				})
+			}
+		}
+	} else {
+		if route.QuerySearchAttributes != nil {
+			for _, attr := range route.QuerySearchAttributes {
+				operation.Parameters = append(operation.Parameters, Parameter{
+					Name:        attr.Name,
+					In:          "query",
+					Required:    attr.Required,
+					Description: attr.Description,
+					Schema:      &jsonschema.Schema{Type: "string"},
+				})
+			}
+		}
+	}
+	if route.OutputType != "" && route.OutputType != "any" {
+		operation.Responses["200"] = Response{
+			Description: "Successful response",
+			Content: map[string]Content{
+				"application/json": {Schema: Ref{Ref: "#/components/schemas/" + route.OutputType}},
+			},
+		}
+	} else {
+		operation.Responses["200"] = Response{Description: "Successful response without a body"}
+	}
+	operation.Responses["default"] = Response{
+		Description: "An unexpected error occurred.",
+		Content: map[string]Content{
+			"application/json": {Schema: Ref{Ref: "#/components/schemas/APIError"}},
+		},
+	}
+	return operation
+}
+
+func assignOperationToPath(pathItem *PathItem, method string, op *Operation) {
+	switch strings.ToUpper(method) {
+	case "GET":
+		pathItem.Get = op
+	case "POST":
+		pathItem.Post = op
+	case "PUT":
+		pathItem.Put = op
+	case "PATCH":
+		pathItem.Patch = op
+	case "DELETE":
+		pathItem.Delete = op
+	}
+}
+
+func addAuthHeader(pathItem *PathItem) {
+	authParam := Parameter{
+		Name:        "Authorization",
+		In:          "header",
+		Description: "Bearer token for authentication",
+		Required:    true,
+		Schema:      &jsonschema.Schema{Type: "string"},
+	}
+	if pathItem.Get != nil {
+		pathItem.Get.Parameters = append(pathItem.Get.Parameters, authParam)
+	}
+	if pathItem.Post != nil {
+		pathItem.Post.Parameters = append(pathItem.Post.Parameters, authParam)
+	}
+	if pathItem.Put != nil {
+		pathItem.Put.Parameters = append(pathItem.Put.Parameters, authParam)
+	}
+	if pathItem.Patch != nil {
+		pathItem.Patch.Parameters = append(pathItem.Patch.Parameters, authParam)
+	}
+	if pathItem.Delete != nil {
+		pathItem.Delete.Parameters = append(pathItem.Delete.Parameters, authParam)
+	}
+}
+
+func cleanRefs(v interface{}) {
+	switch vv := v.(type) {
+	case map[string]interface{}:
+		for k, val := range vv {
+			switch k {
+			case "$defs":
+				delete(vv, k)
+			case "$ref":
+				refStr, ok := val.(string)
+				if ok && strings.HasPrefix(refStr, "#/$defs/") {
+					vv[k] = "#/components/schemas/" + strings.TrimPrefix(refStr, "#/$defs/")
+				}
+			default:
+				cleanRefs(val)
+			}
+		}
+	case []interface{}:
+		for _, item := range vv {
+			cleanRefs(item)
+		}
+	}
 }
 
 // =================================================================

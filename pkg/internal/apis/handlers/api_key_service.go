@@ -45,7 +45,13 @@ func (a *AppAdapter) Save(record *core.Record) error {
 	return a.coreApp.Save(record)
 }
 
-func (a *AppAdapter) FindRecordsByFilter(collectionNameOrId, filter, sort string, limit, offset int) ([]*core.Record, error) {
+func (a *AppAdapter) FindRecordsByFilter(
+	collectionNameOrId,
+	filter,
+	sort string,
+	limit,
+	offset int,
+) ([]*core.Record, error) {
 	return a.coreApp.FindRecordsByFilter(collectionNameOrId, filter, sort, limit, offset)
 }
 
@@ -109,7 +115,11 @@ func (h *BcryptKeyHasher) CompareHashAndKey(hashedKey, key string) error {
 
 type DefaultRecordRepository struct{}
 
-func (r *DefaultRecordRepository) FindMatchingApiKeyRecord(records []*core.Record, apiKey string, hasher KeyHasher) (*core.Record, error) {
+func (r *DefaultRecordRepository) FindMatchingApiKeyRecord(
+	records []*core.Record,
+	apiKey string,
+	hasher KeyHasher,
+) (*core.Record, error) {
 	if apiKey == "" {
 		return nil, fmt.Errorf("API key cannot be empty")
 	}

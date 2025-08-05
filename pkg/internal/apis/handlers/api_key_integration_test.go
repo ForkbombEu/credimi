@@ -294,13 +294,6 @@ func TestAuthenticateApiKeyHandler_SecurityValidation(t *testing.T) {
 	}
 }
 
-// Helper function for min (available in Go 1.21+)
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
 
 // Performance tests
 

@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -16,7 +17,6 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/stretchr/testify/assert"
 )
-
 
 func TestGenerateApiKeyBytes(t *testing.T) {
 	// Test the CryptoKeyGenerator implementation
@@ -128,7 +128,7 @@ func TestHashApiKey_Error(t *testing.T) {
 	assert.NoError(t, err)
 	err = hasher.CompareHashAndKey(hashed, "wrong-key")
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "hashedPassword is not the hash of the given password")	
+	assert.Contains(t, err.Error(), "hashedPassword is not the hash of the given password")
 }
 
 func TestGetMatchApiKeyRecord_Found(t *testing.T) {
@@ -309,7 +309,8 @@ func TestGenerateAuthenticateApiKeyResponse_Error(t *testing.T) {
 	assert.Equal(t, AuthenticateApiKeyResponseSchema{}, resp)
 
 	// Check if it's an APIError
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusInternalServerError, apiErr.Code)
 	assert.Contains(t, apiErr.Error(), "dummy error")

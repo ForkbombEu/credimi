@@ -120,7 +120,10 @@ type HasAuthToken interface {
 	NewAuthToken() (string, error)
 }
 
-func generateAuthenticateApiKeyResponse(apiKey string, authRecord HasAuthToken) (AuthenticateApiKeyResponseSchema, error) {
+func generateAuthenticateApiKeyResponse(
+	apiKey string, 
+	authRecord HasAuthToken,
+	) (AuthenticateApiKeyResponseSchema, error) {
 	token, err := authRecord.NewAuthToken()
 	if err != nil {
 		return AuthenticateApiKeyResponseSchema{}, apierror.New(

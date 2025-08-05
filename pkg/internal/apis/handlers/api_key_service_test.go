@@ -37,7 +37,13 @@ func (m *MockApp) Save(record *core.Record) error {
 	return args.Error(0)
 }
 
-func (m *MockApp) FindRecordsByFilter(collectionNameOrId, filter, sort string, limit, offset int) ([]*core.Record, error) {
+func (m *MockApp) FindRecordsByFilter(
+	collectionNameOrId,
+	filter,
+	sort string,
+	limit,
+	offset int,
+) ([]*core.Record, error) {
 	args := m.Called(collectionNameOrId, filter, sort, limit, offset)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -323,7 +329,8 @@ func TestApiKeyService_GenerateApiKey_EmptyUserId(t *testing.T) {
 
 	_, err := service.GenerateApiKey("", "Test API Key")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusBadRequest, apiErr.Code)
 	assert.Equal(t, "user_id_required", apiErr.Reason)
@@ -334,7 +341,8 @@ func TestApiKeyService_GenerateApiKey_EmptyName(t *testing.T) {
 
 	_, err := service.GenerateApiKey("test-user", "")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusBadRequest, apiErr.Code)
 	assert.Equal(t, "name_required", apiErr.Reason)
@@ -352,7 +360,8 @@ func TestApiKeyService_GenerateApiKey_KeyGenerationFails(t *testing.T) {
 
 	_, err := service.GenerateApiKey("test-user", "Test API Key")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusInternalServerError, apiErr.Code)
 	assert.Equal(t, "failed_to_generate_api_key", apiErr.Reason)
@@ -372,7 +381,8 @@ func TestApiKeyService_GenerateApiKey_EmptyEncodedKey(t *testing.T) {
 
 	_, err := service.GenerateApiKey("test-user", "Test API Key")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusInternalServerError, apiErr.Code)
 	assert.Equal(t, "failed_to_encode_api_key", apiErr.Reason)
@@ -393,7 +403,8 @@ func TestApiKeyService_GenerateApiKey_HashingFails(t *testing.T) {
 
 	_, err := service.GenerateApiKey("test-user", "Test API Key")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusInternalServerError, apiErr.Code)
 	assert.Equal(t, "failed_to_hash_api_key", apiErr.Reason)
@@ -415,7 +426,8 @@ func TestApiKeyService_GenerateApiKey_CollectionNotFound(t *testing.T) {
 
 	_, err := service.GenerateApiKey("test-user", "Test API Key")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusInternalServerError, apiErr.Code)
 	assert.Equal(t, "failed_to_find_api_keys_collection", apiErr.Reason)
@@ -440,7 +452,8 @@ func TestApiKeyService_GenerateApiKey_SaveFails(t *testing.T) {
 
 	_, err := service.GenerateApiKey("test-user", "Test API Key")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusInternalServerError, apiErr.Code)
 	assert.Equal(t, "failed_to_create_api_key_record", apiErr.Reason)
@@ -484,7 +497,8 @@ func TestApiKeyService_AuthenticateApiKey_EmptyApiKey(t *testing.T) {
 
 	_, err := service.AuthenticateApiKey("")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusUnauthorized, apiErr.Code)
 	assert.Equal(t, "api_key_required", apiErr.Reason)
@@ -498,7 +512,8 @@ func TestApiKeyService_AuthenticateApiKey_FindRecordsFails(t *testing.T) {
 
 	_, err := service.AuthenticateApiKey("test-api-key")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusInternalServerError, apiErr.Code)
 	assert.Equal(t, "failed_to_find_api_key_records", apiErr.Reason)
@@ -515,7 +530,8 @@ func TestApiKeyService_AuthenticateApiKey_NoMatchingRecord(t *testing.T) {
 
 	_, err := service.AuthenticateApiKey("test-api-key")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusUnauthorized, apiErr.Code)
 	assert.Equal(t, "invalid_api_key", apiErr.Reason)
@@ -538,7 +554,8 @@ func TestApiKeyService_AuthenticateApiKey_EmptyUserId(t *testing.T) {
 
 	_, err := service.AuthenticateApiKey("test-api-key")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusUnauthorized, apiErr.Code)
 	assert.Equal(t, "user_not_found", apiErr.Reason)
@@ -562,7 +579,8 @@ func TestApiKeyService_AuthenticateApiKey_UserNotFound(t *testing.T) {
 
 	_, err := service.AuthenticateApiKey("test-api-key")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusInternalServerError, apiErr.Code)
 	assert.Equal(t, "failed_to_find_user", apiErr.Reason)
@@ -586,7 +604,8 @@ func TestApiKeyService_AuthenticateApiKey_UserRecordNil(t *testing.T) {
 
 	_, err := service.AuthenticateApiKey("test-api-key")
 
-	apiErr, ok := err.(*apierror.APIError)
+	var apiErr *apierror.APIError
+	ok := errors.As(err, &apiErr)
 	assert.True(t, ok)
 	assert.Equal(t, http.StatusUnauthorized, apiErr.Code)
 	assert.Equal(t, "user_not_found", apiErr.Reason)
@@ -647,7 +666,8 @@ func TestApiKeyService_SecurityInputValidation_MaliciousInputs(t *testing.T) {
 
 			if input.userId == "" || input.name == "" {
 				// Should fail validation
-				apiErr, ok := err.(*apierror.APIError)
+				var apiErr *apierror.APIError
+				ok := errors.As(err, &apiErr)
 				assert.True(t, ok, "Should return APIError for: %s", input.desc)
 				assert.Equal(t, http.StatusBadRequest, apiErr.Code)
 			} else {
@@ -682,7 +702,8 @@ func TestApiKeyService_SecurityApiKeyValidation_MaliciousApiKeys(t *testing.T) {
 
 			if apiKey == "" {
 				// Empty API key should be explicitly rejected
-				apiErr, ok := err.(*apierror.APIError)
+				var apiErr *apierror.APIError
+				ok := errors.As(err, &apiErr)
 				assert.True(t, ok)
 				assert.Equal(t, http.StatusUnauthorized, apiErr.Code)
 				assert.Equal(t, "api_key_required", apiErr.Reason)
