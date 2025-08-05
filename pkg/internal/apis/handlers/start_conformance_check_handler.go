@@ -348,9 +348,9 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			"variant":   string(parsedData.Variant),
 			"form":      parsedData.Form,
 			"user_mail": email,
-			"app_url":   appURL,
 		},
 		Config: map[string]any{
+			"app_url":   appURL,
 			"template":  templateStr,
 			"namespace": namespace,
 			"memo":      memo,
@@ -415,9 +415,9 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 		Payload: map[string]any{
 			"session_id": parsedData.SessionID,
 			"user_mail":  email,
-			"app_url":    appURL,
 		},
 		Config: map[string]any{
+			"app_url":        appURL,
 			"template":       templateStr,
 			"namespace":      namespace,
 			"memo":           memo,
@@ -469,9 +469,9 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 			"nonce":     parsedData.Nonce,
 			"id":        parsedData.ID,
 			"user_mail": email,
-			"app_url":   appURL,
 		},
 		Config: map[string]any{
+			"app_url":   appURL,
 			"template":  templateStr,
 			"namespace": namespace,
 			"memo":      memo,

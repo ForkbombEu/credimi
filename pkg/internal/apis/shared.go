@@ -12,10 +12,7 @@ import (
 	"go.temporal.io/sdk/testsuite"
 )
 
-type SaveVariablesAndStartRequestInput map[string]struct {
-	Format string      `json:"format" validate:"required"`
-	Data   interface{} `json:"data" validate:"required"`
-}
+
 
 type UnitTestSuite struct {
 	suite.Suite

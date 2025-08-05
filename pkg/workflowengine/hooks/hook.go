@@ -73,7 +73,7 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		}
 		return se.Next()
 	})
-	app.OnTerminate().BindFunc(func(e *core.TerminateEvent) error {
+	app.OnTerminate().BindFunc(func(_ *core.TerminateEvent) error {
 		temporalclient.ShutdownClients()
 		return nil
 	})

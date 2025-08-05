@@ -12,6 +12,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/joho/godotenv"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -29,7 +30,9 @@ func TestAddOpenID4VPTestEndpoints_RoutesRegistered(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		AddComplianceChecks(testApp)
+		ChecksRoutes := handlers.ChecksRoutes
+		ChecksRoutes.Add(testApp)
+		// AddComplianceChecks(testApp)
 
 		return testApp
 	}

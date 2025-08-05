@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/joho/godotenv"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,9 @@ func TestAddTemplatingRoutes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		AddTemplatingRoutes(testApp)
+		
+		handlers.TemplateRoutes.Add(testApp)
+
 		return testApp
 	}
 	authToken, _ := generateToken("users", "userA@example.org")

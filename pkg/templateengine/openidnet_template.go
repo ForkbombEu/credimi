@@ -148,6 +148,7 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 			}
 			setMapKey(formNode, sectionName, sectionNode)
 		}
+
 		fieldKeys := make([]string, 0, len(fields))
 		for k := range fields {
 			fieldKeys = append(fieldKeys, k)
@@ -160,6 +161,7 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 				if value, exists := variant[param]; exists {
 					for _, allowed := range allowedValues {
 						if value == allowed {
+							// Always override existing field if config specifies it
 							templateNode := &yaml.Node{
 								Kind:  yaml.ScalarNode,
 								Tag:   "!!str",
@@ -252,7 +254,6 @@ func extractCredimiJSON(template string) (map[string]any, string, error) {
 		return nil, "", errors.New("could not find embedded JSON in credimi")
 	}
 
-	// Remove leading/trailing whitespace and newlines
 	jsonStr := strings.TrimSpace(matches[1])
 
 	var result map[string]any
@@ -273,18 +274,15 @@ func extractCredimiJSON(template string) (map[string]any, string, error) {
 func generateCredimiTemplate(data map[string]any, afterContent string) (string, error) {
 	var b strings.Builder
 
-	// Write opening lines
 	b.WriteString("{{\n   credimi `\n")
 	b.WriteString("      {\n")
 
-	// Collect and sort keys for stable output
 	keys := make([]string, 0, len(data))
 	for k := range data {
 		keys = append(keys, k)
 	}
 	sort.Strings(keys)
 
-	// Write each field with exact indentation (6 spaces)
 	for i, key := range keys {
 		valueBytes, err := json.Marshal(data[key])
 		if err != nil {
@@ -298,7 +296,6 @@ func generateCredimiTemplate(data map[string]any, afterContent string) (string, 
 		}
 	}
 
-	// Closing lines
 	b.WriteString("      }\n")
 	b.WriteString(fmt.Sprintf("   `\n%s}}", afterContent))
 

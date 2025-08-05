@@ -18,8 +18,6 @@ import (
 	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
-	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
-	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -27,85 +25,12 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"go.temporal.io/sdk/client"
 )
 
-func AddComplianceChecks(app core.App) {
-	routing.AddGroupRoutes(app, routing.RouteGroup{
-		BaseURL: "/api/compliance",
-		Routes: []routing.RouteDefinition{
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks",
-				Handler: handlers.HandleGetWorkflows,
-				Input:   nil,
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks/{workflowId}/{runId}",
-				Handler: handlers.HandleGetWorkflow,
-				Input:   nil,
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks/{workflowId}/{runId}/history",
-				Handler: handlers.HandleGetWorkflowsHistory,
-				Input:   nil,
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/{protocol}/{version}/save-variables-and-start",
-				Handler: handlers.HandleSaveVariablesAndStart,
-				Input:   handlers.SaveVariablesAndStartRequestInput{},
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/notify-failure",
-				Handler: handlers.HandleNotifyFailure,
-				Input:   handlers.HandleNotifyFailureRequestInput{},
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/confirm-success",
-				Handler: handlers.HandleConfirmSuccess,
-				Input:   handlers.HandleConfirmSuccessRequestInput{},
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/send-temporal-signal",
-				Handler: handlers.HandleSendTemporalSignal,
-				Input:   handlers.HandleSendTemporalSignalInput{},
-			},
-			{
-				Method:              http.MethodPost,
-				Path:                "/send-log-update",
-				Handler:             handlers.HandleSendLogUpdate,
-				Input:               handlers.HandleSendLogUpdateRequestInput{},
-				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
-			},
-			{
-				Method:              http.MethodPost,
-				Path:                "/send-eudiw-log-update",
-				Handler:             handlers.HandleSendEudiwLogUpdate,
-				Input:               handlers.HandleSendLogUpdateRequestInput{},
-				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/deeplink/{workflowId}/{runId}",
-				Handler: handlers.HandleDeeplink,
-				Input:   nil,
-			},
-		},
-		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			// apis.RequireAuth(),
-			{Func: middlewares.ErrorHandlingMiddleware},
-		},
-		Validation: true,
-	})
-}
+
+
 
 // IssuerURL is a struct that represents the URL of a credential issuer.
 type IssuerURL struct {
@@ -514,6 +439,93 @@ func HookAtUserLogin(app *pocketbase.PocketBase) {
 		}
 		return e.Next()
 	})
+}
+
+type StartScheduledWorkflowRequest struct {
+	WorkflowID string `json:"workflowID"`
+	RunID      string `json:"runID"`
+	Interval   string `json:"interval"`
+}
+
+func HookStartScheduledWorkflow(app core.App) {
+	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		se.Router.POST("/start-scheduled-workflow", func(e *core.RequestEvent) error {
+			var req StartScheduledWorkflowRequest
+
+			if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
+				return apis.NewBadRequestError("invalid JSON input", err)
+			}
+
+			namespace, err := handlers.GetUserOrganizationID(app, e.Auth.Id)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"failed to get user organization",
+					err.Error())
+			}
+			info, err := workflowengine.GetWorkflowRunInfo(req.WorkflowID, req.RunID, namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to get workflow run info",
+					err.Error(),
+				)
+			}
+
+			var interval time.Duration
+			switch req.Interval {
+			case "every_minute":
+				interval = time.Minute
+			case "hourly":
+				interval = time.Hour
+			case "daily":
+				interval = time.Hour * 24
+			case "weekly":
+				interval = time.Hour * 24 * 7
+			case "monthly":
+				interval = time.Hour * 24 * 30
+			default:
+				interval = time.Hour
+			}
+			err = workflowengine.StartScheduledWorkflowWithOptions(info, req.WorkflowID, namespace, interval)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"schedule",
+					"failed to start scheduled workflow",
+					err.Error(),
+				)
+			}
+			return e.JSON(http.StatusOK, "scheduled workflow started successfully")
+		}).Bind(apis.RequireAuth())
+
+		se.Router.GET("/list-scheduled-workflows", func(e *core.RequestEvent) error {
+			namespace, err := handlers.GetUserOrganizationID(app, e.Auth.Id)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"failed to get user organization",
+					err.Error())
+			}
+
+			schedules, err := workflowengine.ListScheduledWorkflows(namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"schedule",
+					"failed to list scheduled workflows",
+					err.Error(),
+				)
+			}
+			return e.JSON(http.StatusOK, schedules)
+		}).Bind(apis.RequireAuth())
+
+		return se.Next()
+	})
+
 }
 
 func createNewOrganizationForUser(app core.App, user *core.Record) error {

@@ -5,10 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Calendar as CalendarPrimitive } from "bits-ui";
-	import ChevronLeft from "lucide-svelte/icons/chevron-left";
-	import { buttonVariants } from "@/components/ui/button/index.js";
-	import { cn } from "@/components/ui/utils.js";
+	// @ts-nocheck
+
+	import { Calendar as CalendarPrimitive } from 'bits-ui';
+	import ChevronLeft from 'lucide-svelte/icons/chevron-left';
+	import { buttonVariants } from '@/components/ui/button/index.js';
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -25,8 +27,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <CalendarPrimitive.PrevButton
 	bind:ref
 	class={cn(
-		buttonVariants({ variant: "outline" }),
-		"size-7 bg-transparent p-0 opacity-50 hover:opacity-100",
+		buttonVariants({ variant: 'outline' }),
+		'size-7 bg-transparent p-0 opacity-50 hover:opacity-100',
 		className
 	)}
 	children={children || Fallback}
