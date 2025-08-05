@@ -1084,6 +1084,61 @@ paths:
     get:
       description: List all checks for the authenticated user
       operationId: listMyChecks
+      parameters:
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
@@ -1106,6 +1161,54 @@ paths:
         - description: The ID for the checkId.
           in: path
           name: checkId
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
           required: true
           schema:
             type: string
@@ -1140,6 +1243,48 @@ paths:
           required: true
           schema:
             type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
@@ -1168,6 +1313,30 @@ paths:
         - description: The ID for the runId.
           in: path
           name: runId
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
           required: true
           schema:
             type: string
@@ -1202,6 +1371,24 @@ paths:
           required: true
           schema:
             type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
@@ -1230,6 +1417,42 @@ paths:
         - description: The ID for the runId.
           in: path
           name: runId
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
           required: true
           schema:
             type: string
@@ -1270,6 +1493,18 @@ paths:
           required: false
           schema:
             type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
       responses:
         "200":
           content:
@@ -1298,6 +1533,36 @@ paths:
         - description: The ID for the runId.
           in: path
           name: runId
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
           required: true
           schema:
             type: string
@@ -1335,6 +1600,12 @@ paths:
         - description: The ID for the runId.
           in: path
           name: runId
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
           required: true
           schema:
             type: string

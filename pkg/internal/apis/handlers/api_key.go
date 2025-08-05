@@ -16,8 +16,7 @@ import (
 )
 
 var ApiKeyRoutes = routing.RouteGroup{
-	BaseURL:    "/api/apikey",
-	Validation: true,
+	BaseURL: "/api/apikey",
 	Routes: []routing.RouteDefinition{
 		{
 			Method:         "POST",
@@ -44,6 +43,7 @@ var ApiKeyRoutes = routing.RouteGroup{
 			},
 		},
 	},
+	AuthenticationRequired: false,
 }
 
 type GenerateApiKeyRequestSchema struct {

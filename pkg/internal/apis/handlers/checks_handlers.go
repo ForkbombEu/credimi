@@ -21,7 +21,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/api/enums/v1"
@@ -117,9 +116,8 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
 			{Func: middlewares.ErrorHandlingMiddleware},
-			apis.RequireAuth(),
 		},
-		Validation: true,
+		AuthenticationRequired: true,
 	}
 
 type ReRunCheckRequest struct {

@@ -32,20 +32,21 @@ import (
 // =================================================================
 
 type RouteInfo struct {
-	FuncName              string
-	Method                string
-	GoHandlerName         string
-	Path                  string
-	InputType             string
-	OutputType            string
-	InputSchema           string
-	QuerySearchAttributes []routing.QuerySearchAttribute
-	OutputSchema          string
-	PathParams            []string
-	HasInputBody          bool
-	Summary               string
-	Description           string
-	Tags                  []string
+	FuncName               string
+	Method                 string
+	GoHandlerName          string
+	Path                   string
+	InputType              string
+	OutputType             string
+	InputSchema            string
+	QuerySearchAttributes  []routing.QuerySearchAttribute
+	OutputSchema           string
+	PathParams             []string
+	HasInputBody           bool
+	Summary                string
+	Description            string
+	Tags                   []string
+	AuthenticationRequired bool
 }
 
 type TemplateData struct {
@@ -244,18 +245,15 @@ func main() {
 	log.Println("Processing routes...")
 	for _, group := range routeGroups {
 		for _, route := range group.Routes {
-			description := route.Description
-			// if description == "" {
-			// 	description = route.Summary
-			// }
 
 			r := RouteInfo{
-				Method:                route.Method,
-				Path:                  path.Join(group.BaseURL, route.Path),
-				GoHandlerName:         getFuncName(route.Handler),
-				Summary:               route.Summary,
-				Description:           description,
-				QuerySearchAttributes: route.QuerySearchAttributes,
+				Method:                 route.Method,
+				Path:                   path.Join(group.BaseURL, route.Path),
+				GoHandlerName:          getFuncName(route.Handler),
+				Summary:                route.Summary,
+				Description:            route.Description,
+				QuerySearchAttributes:  route.QuerySearchAttributes,
+				AuthenticationRequired: group.AuthenticationRequired,
 				// Tags:          route.Tags,
 			}
 
@@ -452,7 +450,58 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 		case "DELETE":
 			paths[openapiPath].Delete = operation
 		}
+
+		if route.AuthenticationRequired {
+			for _, pathItem := range paths {
+				if pathItem.Get != nil {
+					pathItem.Get.Parameters = append(pathItem.Get.Parameters, Parameter{
+						Name:        "Authorization",
+						In:          "header",
+						Description: "Bearer token for authentication",
+						Required:    true,
+						Schema:      &jsonschema.Schema{Type: "string"},
+					})
+				}
+				if pathItem.Post != nil {
+					pathItem.Post.Parameters = append(pathItem.Post.Parameters, Parameter{
+						Name:        "Authorization",
+						In:          "header",
+						Description: "Bearer token for authentication",
+						Required:    true,
+						Schema:      &jsonschema.Schema{Type: "string"},
+					})
+				}
+				if pathItem.Put != nil {
+					pathItem.Put.Parameters = append(pathItem.Put.Parameters, Parameter{
+						Name:        "Authorization",
+						In:          "header",
+						Description: "Bearer token for authentication",
+						Required:    true,
+						Schema:      &jsonschema.Schema{Type: "string"},
+					})
+				}
+				if pathItem.Patch != nil {
+					pathItem.Patch.Parameters = append(pathItem.Patch.Parameters, Parameter{
+						Name:        "Authorization",
+						In:          "header",
+						Description: "Bearer token for authentication",
+						Required:    true,
+						Schema:      &jsonschema.Schema{Type: "string"},
+					})
+				}
+				if pathItem.Delete != nil {
+					pathItem.Delete.Parameters = append(pathItem.Delete.Parameters, Parameter{
+						Name:        "Authorization",
+						In:          "header",
+						Description: "Bearer token for authentication",
+						Required:    true,
+						Schema:      &jsonschema.Schema{Type: "string"},
+					})
+				}
+			}
+		}
 	}
+
 	doc := OpenAPI{
 		OpenAPI: "3.0.1",
 		Info: Info{

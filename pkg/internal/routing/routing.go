@@ -12,6 +12,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror" // Adjust import path
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -22,10 +23,10 @@ type HandlerFunc func(e *core.RequestEvent) error
 type HandlerFactory func() func(*core.RequestEvent) error
 
 type RouteGroup struct {
-	BaseURL     string
-	Routes      []RouteDefinition
-	Middlewares []*hook.Handler[*core.RequestEvent]
-	Validation  bool
+	BaseURL                 string
+	Routes                  []RouteDefinition
+	Middlewares             []*hook.Handler[*core.RequestEvent]
+	AuthenticationRequired  bool
 }
 
 type QuerySearchAttribute struct {
@@ -74,38 +75,15 @@ func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
 	return typedInput, nil
 }
 
-// func AddGroupRoutes(app core.App, input RouteGroup) {
-// 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-// 		basePath := input.BaseURL
-// 		if basePath == "" {
-// 			basePath = "/api"
-// 		}
-
-// 		rg := se.Router.Group(basePath)
-// 		rg.Bind(input.Middlewares...)
-// 		if input.Validation {
-// 			RegisterRoutesWithValidation(app, rg, input.Routes)
-// 		} else {
-// 			RegisterRoutesWithoutValidation(app, rg, input.Routes)
-// 		}
-// 		return se.Next()
-// 	})
-// 	app.OnServe()
-// }
-
 func (r *RouteGroup) Add(app core.App) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		basePath := r.BaseURL
 		if basePath == "" {
 			basePath = "/api"
-		}	
-		rg := se.Router.Group(basePath)
-		rg.Bind(r.Middlewares...)	
-		if r.Validation {
-			RegisterRoutesWithValidation(app, rg, r.Routes)
-		} else {
-			RegisterRoutesWithoutValidation(app, rg, r.Routes)
 		}
+		rg := se.Router.Group(basePath)
+		rg.Bind(r.Middlewares...)
+		RegisterRoutesWithValidation(app, rg, r.Routes, r.AuthenticationRequired)
 		return se.Next()
 	})
 	app.OnServe()
@@ -115,6 +93,7 @@ func RegisterRoutesWithValidation(
 	app core.App,
 	group *router.RouterGroup[*core.RequestEvent],
 	routes []RouteDefinition,
+	needsAuth bool,
 ) {
 	log.Println("Registering routes with validation")
 
@@ -124,6 +103,10 @@ func RegisterRoutesWithValidation(
 		validatorMiddleware := middlewares.DynamicValidateInputByType(inputType)
 
 		needsValidationBinding := inputType != nil
+
+		if needsAuth {
+			route.Middlewares = append(route.Middlewares, apis.RequireAuth())
+		}
 
 		switch route.Method {
 		case http.MethodPost:
@@ -182,6 +165,7 @@ func RegisterRoutesWithoutValidation(
 	group *router.RouterGroup[*core.RequestEvent],
 	routes []RouteDefinition,
 ) {
+
 	for _, route := range routes {
 		switch route.Method {
 		case http.MethodPost:

@@ -95,10 +95,9 @@ var ConformaceRoutes routing.RouteGroup = routing.RouteGroup{
 			},
 		},
 		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			apis.RequireAuth(),
 			{Func: middlewares.ErrorHandlingMiddleware},
 		},
-		Validation: true,
+		AuthenticationRequired: true,
 	}
 
 type HandleConfirmSuccessRequestInput struct {
