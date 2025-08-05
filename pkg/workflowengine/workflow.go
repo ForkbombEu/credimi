@@ -248,13 +248,11 @@ func ListScheduledWorkflows(namespace string) ([]string, error) {
 	if err != nil {
 		return nil, fmt.Errorf("unable to create Temporal client for namespace %q: %w", namespace, err)
 	}
-	defer c.Close()
 
 	ctx := context.Background()
 
-	// List all schedules
 	iter, err := c.ScheduleClient().List(ctx, client.ScheduleListOptions{
-		PageSize: 100, // adjust if needed
+		PageSize: 100,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("failed to list schedules: %w", err)

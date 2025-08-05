@@ -575,6 +575,29 @@ func HookStartScheduledWorkflow(app core.App) {
 			}
 			return e.JSON(http.StatusOK, "scheduled workflow started successfully")
 		}).Bind(apis.RequireAuth())
+
+		se.Router.GET("/list-scheduled-workflows", func(e *core.RequestEvent) error {
+			namespace, err := handlers.GetUserOrganizationID(app, e.Auth.Id)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"failed to get user organization",
+					err.Error())
+			}
+
+			schedules, err := workflowengine.ListScheduledWorkflows(namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"schedule",
+					"failed to list scheduled workflows",
+					err.Error(),
+				)
+			}
+			return e.JSON(http.StatusOK, schedules)
+		}).Bind(apis.RequireAuth())
+
 		return se.Next()
 	})
 
