@@ -26,7 +26,7 @@ func RegisterMyRoutes(app core.App) {
 	for _, group := range RouteGroups {
 		group.Add(app)
 	}
-	for _, group := range RouteGruoupsNotExported {
+	for _, group := range RouteGroupsNotExported {
 		group.Add(app)
 	}
 }
