@@ -296,7 +296,7 @@ func (r *DummyRecordError) NewAuthToken() (string, error) {
 
 func TestGenerateAuthenticateApiKeyResponse_Success(t *testing.T) {
 	record := new(DummyRecord)
-	resp, err := generateAuthenticateApiKeyResponse("dummy-api-key", record)
+	resp, err := generateAuthenticateApiKeyResponse(record)
 	assert.NoError(t, err)
 	assert.Equal(t, "API key authenticated successfully", resp.Message)
 	assert.Equal(t, "dummy-token", resp.Token)
@@ -304,7 +304,7 @@ func TestGenerateAuthenticateApiKeyResponse_Success(t *testing.T) {
 
 func TestGenerateAuthenticateApiKeyResponse_Error(t *testing.T) {
 	record := new(DummyRecordError)
-	resp, err := generateAuthenticateApiKeyResponse("dummy-api-key", record)
+	resp, err := generateAuthenticateApiKeyResponse(record)
 	assert.Error(t, err)
 	assert.Equal(t, AuthenticateApiKeyResponseSchema{}, resp)
 
@@ -330,7 +330,7 @@ func TestGenerateAuthenticateApiKeyResponse_IsJWT(t *testing.T) {
 	record.Set("tokenKey", "dummy-token-key")
 	record.Set("password", "dummy-password")
 
-	resp, err := generateAuthenticateApiKeyResponse("dummy-api-key", record)
+	resp, err := generateAuthenticateApiKeyResponse(record)
 	assert.NoError(t, err)
 	assert.NotEmpty(t, resp.Token)
 
@@ -361,7 +361,7 @@ func TestGenerateAuthenticateApiKeyResponse_SecurityMaliciousApiKey(t *testing.T
 		t.Run(fmt.Sprintf("malicious_key_%d", len(maliciousKey)), func(t *testing.T) {
 			// Should not panic and should handle gracefully
 			assert.NotPanics(t, func() {
-				resp, err := generateAuthenticateApiKeyResponse(maliciousKey, record)
+				resp, err := generateAuthenticateApiKeyResponse(record)
 				if err == nil {
 					assert.NotEmpty(t, resp.Message)
 					assert.NotEmpty(t, resp.Token)
