@@ -107,7 +107,7 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 			return err
 		}
 
-		response, err := generateAuthenticateApiKeyResponse(apiKey, authRecord)
+		response, err := generateAuthenticateApiKeyResponse(authRecord)
 		if err != nil {
 			return err
 		}
@@ -121,9 +121,8 @@ type HasAuthToken interface {
 }
 
 func generateAuthenticateApiKeyResponse(
-	apiKey string, 
 	authRecord HasAuthToken,
-	) (AuthenticateApiKeyResponseSchema, error) {
+) (AuthenticateApiKeyResponseSchema, error) {
 	token, err := authRecord.NewAuthToken()
 	if err != nil {
 		return AuthenticateApiKeyResponseSchema{}, apierror.New(

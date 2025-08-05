@@ -151,7 +151,12 @@ func NewApiKeyService(app App) *ApiKeyService {
 	}
 }
 
-func NewApiKeyServiceWithDependencies(app App, keyGen KeyGenerator, hasher KeyHasher, repo RecordRepository) *ApiKeyService {
+func NewApiKeyServiceWithDependencies(
+	app App,
+	keyGen KeyGenerator,
+	hasher KeyHasher,
+	repo RecordRepository,
+) *ApiKeyService {
 	return &ApiKeyService{
 		app:              app,
 		keyGenerator:     keyGen,
