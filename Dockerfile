@@ -64,7 +64,6 @@ RUN mkdir .bin
 RUN wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/download/stepci-captured-runner-Linux-x86_64 -O .bin/stepci-captured-runner && chmod +x .bin/stepci-captured-runner
 
 #install et-tu-cesr
-RUN mkdir .bin
 RUN wget https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-linux-amd64 -O .bin/et-tu-cesr && chmod +x .bin/et-tu-cesr
 
 # copy everything
