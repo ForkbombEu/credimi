@@ -516,6 +516,93 @@ func HookAtUserLogin(app *pocketbase.PocketBase) {
 	})
 }
 
+type StartScheduledWorkflowRequest struct {
+	WorkflowID string `json:"workflowID"`
+	RunID      string `json:"runID"`
+	Interval   string `json:"interval"`
+}
+
+func HookStartScheduledWorkflow(app core.App) {
+	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		se.Router.POST("/start-scheduled-workflow", func(e *core.RequestEvent) error {
+			var req StartScheduledWorkflowRequest
+
+			if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
+				return apis.NewBadRequestError("invalid JSON input", err)
+			}
+
+			namespace, err := handlers.GetUserOrganizationID(app, e.Auth.Id)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"failed to get user organization",
+					err.Error())
+			}
+			info, err := workflowengine.GetWorkflowRunInfo(req.WorkflowID, req.RunID, namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to get workflow run info",
+					err.Error(),
+				)
+			}
+
+			var interval time.Duration
+			switch req.Interval {
+			case "every_minute":
+				interval = time.Minute
+			case "hourly":
+				interval = time.Hour
+			case "daily":
+				interval = time.Hour * 24
+			case "weekly":
+				interval = time.Hour * 24 * 7
+			case "monthly":
+				interval = time.Hour * 24 * 30
+			default:
+				interval = time.Hour
+			}
+			err = workflowengine.StartScheduledWorkflowWithOptions(info, req.WorkflowID, namespace, interval)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"schedule",
+					"failed to start scheduled workflow",
+					err.Error(),
+				)
+			}
+			return e.JSON(http.StatusOK, "scheduled workflow started successfully")
+		}).Bind(apis.RequireAuth())
+
+		se.Router.GET("/list-scheduled-workflows", func(e *core.RequestEvent) error {
+			namespace, err := handlers.GetUserOrganizationID(app, e.Auth.Id)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"failed to get user organization",
+					err.Error())
+			}
+
+			schedules, err := workflowengine.ListScheduledWorkflows(namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"schedule",
+					"failed to list scheduled workflows",
+					err.Error(),
+				)
+			}
+			return e.JSON(http.StatusOK, schedules)
+		}).Bind(apis.RequireAuth())
+
+		return se.Next()
+	})
+
+}
+
 func createNewOrganizationForUser(app core.App, user *core.Record) error {
 	err := app.RunInTransaction(func(txApp core.App) error {
 		orgCollection, err := txApp.FindCollectionByNameOrId("organizations")
