@@ -159,16 +159,25 @@ func GetWorkflowRunInfo(workflowID, runID, namespace string) (WorkflowRunInfo, e
 
 	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 	if err != nil {
-		return WorkflowRunInfo{}, fmt.Errorf("unable to create Temporal client for namespace %q: %w", namespace, err)
+		return WorkflowRunInfo{}, fmt.Errorf(
+			"unable to create Temporal client for namespace %q: %w",
+			namespace,
+			err,
+		)
 	}
 
 	describeResp, err := c.DescribeWorkflowExecution(context.Background(), workflowID, runID)
 	if err != nil {
-		return WorkflowRunInfo{}, fmt.Errorf("unable to describe workflow execution (WorkflowID=%q, RunID=%q): %w", workflowID, runID, err)
+		return WorkflowRunInfo{}, fmt.Errorf(
+			"unable to describe workflow execution (WorkflowID=%q, RunID=%q): %w",
+			workflowID,
+			runID,
+			err,
+		)
 	}
 
 	decodedMemo := make(map[string]any)
-	for k, payload := range describeResp.WorkflowExecutionInfo.Memo.GetFields() {
+	for k, payload := range describeResp.GetWorkflowExecutionInfo().GetMemo().GetFields() {
 		var v any
 		if err := converter.GetDefaultDataConverter().FromPayload(payload, &v); err != nil {
 			return WorkflowRunInfo{}, fmt.Errorf("failed to decode memo key %q: %w", k, err)
@@ -177,8 +186,8 @@ func GetWorkflowRunInfo(workflowID, runID, namespace string) (WorkflowRunInfo, e
 	}
 
 	runInfo = WorkflowRunInfo{
-		Name:      describeResp.WorkflowExecutionInfo.Type.GetName(),
-		TaskQueue: describeResp.WorkflowExecutionInfo.GetTaskQueue(),
+		Name:      describeResp.GetWorkflowExecutionInfo().GetType().GetName(),
+		TaskQueue: describeResp.GetWorkflowExecutionInfo().GetTaskQueue(),
 		Memo:      decodedMemo,
 	}
 
@@ -190,7 +199,11 @@ func GetWorkflowRunInfo(workflowID, runID, namespace string) (WorkflowRunInfo, e
 		enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
 	)
 	if iter == nil {
-		return runInfo, fmt.Errorf("unable to get workflow history iterator (WorkflowID=%q, RunID=%q)", workflowID, runID)
+		return runInfo, fmt.Errorf(
+			"unable to get workflow history iterator (WorkflowID=%q, RunID=%q)",
+			workflowID,
+			runID,
+		)
 	}
 
 	for iter.HasNext() {
@@ -202,7 +215,7 @@ func GetWorkflowRunInfo(workflowID, runID, namespace string) (WorkflowRunInfo, e
 		if event.GetEventType() == enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
 			attr := event.GetWorkflowExecutionStartedEventAttributes()
 			var wi WorkflowInput
-			if err := converter.GetDefaultDataConverter().FromPayloads(attr.Input, &wi); err != nil {
+			if err := converter.GetDefaultDataConverter().FromPayloads(attr.GetInput(), &wi); err != nil {
 				return runInfo, fmt.Errorf("failed to decode workflow input payloads: %w", err)
 			}
 			runInfo.Input = wi
@@ -212,7 +225,11 @@ func GetWorkflowRunInfo(workflowID, runID, namespace string) (WorkflowRunInfo, e
 	return runInfo, nil
 }
 
-func StartScheduledWorkflowWithOptions(runInfo WorkflowRunInfo, workflowID, namespace string, interval time.Duration) error {
+func StartScheduledWorkflowWithOptions(
+	runInfo WorkflowRunInfo,
+	workflowID, namespace string,
+	interval time.Duration,
+) error {
 	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 	if err != nil {
 		return fmt.Errorf("unable to create Temporal client for namespace %q: %w", namespace, err)
@@ -246,7 +263,11 @@ func StartScheduledWorkflowWithOptions(runInfo WorkflowRunInfo, workflowID, name
 func ListScheduledWorkflows(namespace string) ([]string, error) {
 	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 	if err != nil {
-		return nil, fmt.Errorf("unable to create Temporal client for namespace %q: %w", namespace, err)
+		return nil, fmt.Errorf(
+			"unable to create Temporal client for namespace %q: %w",
+			namespace,
+			err,
+		)
 	}
 
 	ctx := context.Background()
