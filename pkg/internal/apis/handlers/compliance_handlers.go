@@ -32,7 +32,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-var ConformaceRoutes routing.RouteGroup = routing.RouteGroup{
+var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
 		BaseURL: "/api/compliance",
 		Routes: []routing.RouteDefinition{
 			{
