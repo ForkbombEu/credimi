@@ -89,7 +89,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		Namespace:    workflow.GetInfo(ctx).Namespace,
 		TemporalUI: fmt.Sprintf(
 			"%s/my/tests/runs/%s/%s",
-			input.Payload["app_url"],
+			input.Config["app_url"],
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -142,7 +142,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	if !ok {
 		result = ""
 	}
-	appURL, ok := input.Payload["app_url"].(string)
+	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
 			"app_url",
@@ -221,11 +221,11 @@ func (w *OpenIDNetWorkflow) Workflow(
 		child.Name(),
 		workflowengine.WorkflowInput{
 			Payload: map[string]any{
-				"rid":     rid,
-				"token":   utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
-				"app_url": appURL,
+				"rid":   rid,
+				"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 			},
 			Config: map[string]any{
+				"app_url":  appURL,
 				"interval": time.Second,
 			},
 		},
@@ -358,7 +358,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		Namespace:    workflow.GetInfo(subCtx).Namespace,
 		TemporalUI: fmt.Sprintf(
 			"%s/my/tests/runs/%s/%s",
-			input.Payload["app_url"],
+			input.Config["app_url"],
 			workflow.GetInfo(subCtx).WorkflowExecution.ID,
 			workflow.GetInfo(subCtx).WorkflowExecution.RunID,
 		),
@@ -452,7 +452,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 				"method": "POST",
 				"url": fmt.Sprintf(
 					"%s/%s",
-					input.Payload["app_url"].(string),
+					input.Config["app_url"].(string),
 					"api/compliance/send-log-update",
 				),
 			},
