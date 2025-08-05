@@ -18,7 +18,7 @@ var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 }
 
 var RouteGruoupsNotExported []routing.RouteGroup = []routing.RouteGroup{
-	handlers.ConformaceRoutes,
+	handlers.ConformanceRoutes,
 	handlers.TemplateRoutes,
 }
 
