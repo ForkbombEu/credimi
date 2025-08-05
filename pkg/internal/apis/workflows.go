@@ -18,8 +18,6 @@ import (
 	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
-	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
-	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -27,85 +25,12 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
-	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"go.temporal.io/sdk/client"
 )
 
-func AddComplianceChecks(app core.App) {
-	routing.AddGroupRoutes(app, routing.RouteGroup{
-		BaseURL: "/api/compliance",
-		Routes: []routing.RouteDefinition{
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks",
-				Handler: handlers.HandleGetWorkflows,
-				Input:   nil,
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks/{workflowId}/{runId}",
-				Handler: handlers.HandleGetWorkflow,
-				Input:   nil,
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks/{workflowId}/{runId}/history",
-				Handler: handlers.HandleGetWorkflowsHistory,
-				Input:   nil,
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/{protocol}/{version}/save-variables-and-start",
-				Handler: handlers.HandleSaveVariablesAndStart,
-				Input:   handlers.SaveVariablesAndStartRequestInput{},
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/notify-failure",
-				Handler: handlers.HandleNotifyFailure,
-				Input:   handlers.HandleNotifyFailureRequestInput{},
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/confirm-success",
-				Handler: handlers.HandleConfirmSuccess,
-				Input:   handlers.HandleConfirmSuccessRequestInput{},
-			},
-			{
-				Method:  http.MethodPost,
-				Path:    "/send-temporal-signal",
-				Handler: handlers.HandleSendTemporalSignal,
-				Input:   handlers.HandleSendTemporalSignalInput{},
-			},
-			{
-				Method:              http.MethodPost,
-				Path:                "/send-log-update",
-				Handler:             handlers.HandleSendLogUpdate,
-				Input:               handlers.HandleSendLogUpdateRequestInput{},
-				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
-			},
-			{
-				Method:              http.MethodPost,
-				Path:                "/send-eudiw-log-update",
-				Handler:             handlers.HandleSendEudiwLogUpdate,
-				Input:               handlers.HandleSendLogUpdateRequestInput{},
-				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/deeplink/{workflowId}/{runId}",
-				Handler: handlers.HandleDeeplink,
-				Input:   nil,
-			},
-		},
-		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			// apis.RequireAuth(),
-			{Func: middlewares.ErrorHandlingMiddleware},
-		},
-		Validation: true,
-	})
-}
+
+
 
 // IssuerURL is a struct that represents the URL of a credential issuer.
 type IssuerURL struct {
