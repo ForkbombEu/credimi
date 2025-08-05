@@ -22,8 +22,8 @@ var ApiKeyRoutes = routing.RouteGroup{
 			Method:         "POST",
 			Path:           "/generate",
 			Handler:        GenerateApiKey,
-			RequestSchema:  GenerateApiKeyRequestSchema{},
-			ResponseSchema: GenerateApiKeyResponseSchema{},
+			RequestSchema:  GenerateApiKeyRequest{},
+			ResponseSchema: GenerateApiKeyResponse{},
 			Description:    "Generate a new API key for the authenticated user.",
 			Summary:        "Generate API Key",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
@@ -36,7 +36,7 @@ var ApiKeyRoutes = routing.RouteGroup{
 			Path:           "/authenticate",
 			Description:    "Authenticate an API key and return Bearer token",
 			Summary:        "Authenticate API Key",
-			ResponseSchema: AuthenticateApiKeyResponseSchema{},
+			ResponseSchema: AuthenticateApiKeyResponse{},
 			Handler:        AuthenticateApiKey,
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				{Func: middlewares.ErrorHandlingMiddleware},
@@ -46,13 +46,13 @@ var ApiKeyRoutes = routing.RouteGroup{
 	AuthenticationRequired: false,
 }
 
-type GenerateApiKeyRequestSchema struct {
+type GenerateApiKeyRequest struct {
 	Name string `json:"name" validate:"required"`
 }
-type GenerateApiKeyResponseSchema struct {
+type GenerateApiKeyResponse struct {
 	ApiKey string `json:"api_key"`
 }
-type AuthenticateApiKeyResponseSchema struct {
+type AuthenticateApiKeyResponse struct {
 	Message string `json:"message"`
 	Token   string `json:"token"`
 }
@@ -69,7 +69,7 @@ func GenerateApiKey() func(e *core.RequestEvent) error {
 			)
 		}
 
-		input, err := routing.GetValidatedInput[GenerateApiKeyRequestSchema](e)
+		input, err := routing.GetValidatedInput[GenerateApiKeyRequest](e)
 		if err != nil {
 			return apierror.New(
 				http.StatusBadRequest,
@@ -122,17 +122,17 @@ type HasAuthToken interface {
 
 func generateAuthenticateApiKeyResponse(
 	authRecord HasAuthToken,
-) (AuthenticateApiKeyResponseSchema, error) {
+) (AuthenticateApiKeyResponse, error) {
 	token, err := authRecord.NewAuthToken()
 	if err != nil {
-		return AuthenticateApiKeyResponseSchema{}, apierror.New(
+		return AuthenticateApiKeyResponse{}, apierror.New(
 			http.StatusInternalServerError,
 			"request.internal_error",
 			"failed_to_generate_auth_token",
 			err.Error(),
 		)
 	}
-	return AuthenticateApiKeyResponseSchema{
+	return AuthenticateApiKeyResponse{
 		Message: "API key authenticated successfully",
 		Token:   token,
 	}, nil

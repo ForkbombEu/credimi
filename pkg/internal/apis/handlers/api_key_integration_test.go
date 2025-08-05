@@ -65,7 +65,7 @@ func TestGenerateApiKeyHandler_Integration(t *testing.T) {
 	}
 
 	// Test generating API key
-	reqBody := GenerateApiKeyRequestSchema{
+	reqBody := GenerateApiKeyRequest{
 		Name: "Test-API",
 	}
 
@@ -223,31 +223,31 @@ func TestGenerateApiKeyHandler_SecurityValidation(t *testing.T) {
 	}{
 		{
 			name:        "empty name",
-			requestBody: GenerateApiKeyRequestSchema{Name: ""},
+			requestBody: GenerateApiKeyRequest{Name: ""},
 			expectError: true,
 			description: "should reject empty name",
 		},
 		{
 			name:        "very long name",
-			requestBody: GenerateApiKeyRequestSchema{Name: strings.Repeat("a", 1000)},
+			requestBody: GenerateApiKeyRequest{Name: strings.Repeat("a", 1000)},
 			expectError: false, // Should be handled gracefully, might fail later
 			description: "should handle very long names gracefully",
 		},
 		{
 			name:        "name with null bytes",
-			requestBody: GenerateApiKeyRequestSchema{Name: "test\x00null"},
+			requestBody: GenerateApiKeyRequest{Name: "test\x00null"},
 			expectError: false, // Should be handled gracefully
 			description: "should handle null bytes in name",
 		},
 		{
 			name:        "name with special characters",
-			requestBody: GenerateApiKeyRequestSchema{Name: "test'; DROP TABLE api_keys; --"},
+			requestBody: GenerateApiKeyRequest{Name: "test'; DROP TABLE api_keys; --"},
 			expectError: false, // Should be handled gracefully
 			description: "should handle SQL injection attempts",
 		},
 		{
 			name:        "name with XSS attempt",
-			requestBody: GenerateApiKeyRequestSchema{Name: "<script>alert('xss')</script>"},
+			requestBody: GenerateApiKeyRequest{Name: "<script>alert('xss')</script>"},
 			expectError: false, // Should be handled gracefully
 			description: "should handle XSS attempts",
 		},

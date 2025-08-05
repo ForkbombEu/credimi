@@ -20,8 +20,8 @@ components:
         name:
           type: string
       type: object
-    AuthenticateApiKeyResponseSchema:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/authenticate-api-key-response-schema
+    AuthenticateApiKeyResponse:
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/authenticate-api-key-response
       $schema: https://json-schema.org/draft/2020-12/schema
       additionalProperties: false
       properties:
@@ -148,16 +148,16 @@ components:
         stackTrace:
           type: string
       type: object
-    GenerateApiKeyRequestSchema:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/generate-api-key-request-schema
+    GenerateApiKeyRequest:
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/generate-api-key-request
       $schema: https://json-schema.org/draft/2020-12/schema
       additionalProperties: false
       properties:
         name:
           type: string
       type: object
-    GenerateApiKeyResponseSchema:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/generate-api-key-response-schema
+    GenerateApiKeyResponse:
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/generate-api-key-response
       $schema: https://json-schema.org/draft/2020-12/schema
       additionalProperties: false
       properties:
@@ -557,7 +557,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthenticateApiKeyResponseSchema'
+                $ref: '#/components/schemas/AuthenticateApiKeyResponse'
           description: Successful response
         default:
           content:
@@ -574,14 +574,14 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/GenerateApiKeyRequestSchema'
+              $ref: '#/components/schemas/GenerateApiKeyRequest'
         required: true
       responses:
         "200":
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/GenerateApiKeyResponseSchema'
+                $ref: '#/components/schemas/GenerateApiKeyResponse'
           description: Successful response
         default:
           content:

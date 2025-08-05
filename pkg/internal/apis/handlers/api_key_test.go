@@ -306,7 +306,7 @@ func TestGenerateAuthenticateApiKeyResponse_Error(t *testing.T) {
 	record := new(DummyRecordError)
 	resp, err := generateAuthenticateApiKeyResponse(record)
 	assert.Error(t, err)
-	assert.Equal(t, AuthenticateApiKeyResponseSchema{}, resp)
+	assert.Equal(t, AuthenticateApiKeyResponse{}, resp)
 
 	// Check if it's an APIError
 	var apiErr *apierror.APIError

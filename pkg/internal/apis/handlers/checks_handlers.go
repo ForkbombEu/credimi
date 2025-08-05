@@ -32,93 +32,93 @@ import (
 )
 
 var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
-		BaseURL: "/api/my/checks",
-		Routes: []routing.RouteDefinition{
-			{
-				Method:         http.MethodGet,
-				Handler:        HandleListMyChecks,
-				ResponseSchema: ListMyChecksResponse{},
-				Description:    "List all checks for the authenticated user",
-				Summary:        "Get a list of all checks for the authenticated user",
-			},
-			{
-				Method:         http.MethodGet,
-				Path:           "/{checkId}/runs",
-				Handler:        HandleListMyCheckRuns,
-				ResponseSchema: ListMyCheckRunsResponse{},
-				Description:    "List all runs for a specific check",
-				Summary:        "Get a list of all runs for a specific check",
-			},
-			{
-				Method:         http.MethodGet,
-				Path:           "/{checkId}/runs/{runId}",
-				Handler:        HandleGetMyCheckRun,
-				ResponseSchema: GetMyCheckRunResponse{},
-				Description:    "Get details of a specific run for a check",
-				Summary:        "Get details of a specific run for a check",
-			},
-			{
-				Method:         http.MethodGet,
-				Path:           "/{checkId}/runs/{runId}/history",
-				Handler:        HandleGetMyCheckRunHistory,
-				ResponseSchema: GetMyCheckRunHistoryResponse{},
-				Description:    "Get the history of events for a specific run of a check",
-				Summary:        "Get the history of events for a specific run of a check",
-			},
-			{
-				Method:         http.MethodPost,
-				Path:           "/{checkId}/runs/{runId}/rerun",
-				Handler:        HandleRerunMyCheck,
-				RequestSchema:  ReRunCheckRequest{},
-				ResponseSchema: ReRunCheckResponse{},
-				Description:    "Re-run a specific check run",
-				Summary:        "Re-run a specific check run",
-			},
-			{
-				Method:         http.MethodPost,
-				Path:           "/{checkId}/runs/{runId}/cancel",
-				Handler:        HandleCancelMyCheckRun,
-				ResponseSchema: CancelMyCheckRunResponse{},
-				Description:    "Cancel a specific check run",
-				Summary:        "Cancel a specific check run",
-			},
-			{
-				Method:         http.MethodGet,
-				Path:           "/{checkId}/runs/{runId}/export",
-				Handler:        HandleExportMyCheckRun,
-				ResponseSchema: ExportMyCheckRunResponse{},
-				Description:    "Export a specific check run",
-				Summary:        "Export a specific check run",
-			},
-			{
-				Method:         http.MethodGet,
-				Path:           "/{checkId}/runs/{runId}/logs",
-				Handler:        HandleMyCheckLogs,
-				ResponseSchema: ChecksLogsResponse{},
-				Description:    "Start or Stop logs for a specific check run and get the log channel",
-				Summary:        "Start or Stop logs for a specific check run",
-				QuerySearchAttributes: []routing.QuerySearchAttribute{
-					{
-						Name:        "action",
-						Required:    false,
-						Description: "Can be 'start' or 'stop' to control logging for the check run",
-					},
+	BaseURL: "/api/my/checks",
+	Routes: []routing.RouteDefinition{
+		{
+			Method:         http.MethodGet,
+			Handler:        HandleListMyChecks,
+			ResponseSchema: ListMyChecksResponse{},
+			Description:    "List all checks for the authenticated user",
+			Summary:        "Get a list of all checks for the authenticated user",
+		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/{checkId}/runs",
+			Handler:        HandleListMyCheckRuns,
+			ResponseSchema: ListMyCheckRunsResponse{},
+			Description:    "List all runs for a specific check",
+			Summary:        "Get a list of all runs for a specific check",
+		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/{checkId}/runs/{runId}",
+			Handler:        HandleGetMyCheckRun,
+			ResponseSchema: GetMyCheckRunResponse{},
+			Description:    "Get details of a specific run for a check",
+			Summary:        "Get details of a specific run for a check",
+		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/{checkId}/runs/{runId}/history",
+			Handler:        HandleGetMyCheckRunHistory,
+			ResponseSchema: GetMyCheckRunHistoryResponse{},
+			Description:    "Get the history of events for a specific run of a check",
+			Summary:        "Get the history of events for a specific run of a check",
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/{checkId}/runs/{runId}/rerun",
+			Handler:        HandleRerunMyCheck,
+			RequestSchema:  ReRunCheckRequest{},
+			ResponseSchema: ReRunCheckResponse{},
+			Description:    "Re-run a specific check run",
+			Summary:        "Re-run a specific check run",
+		},
+		{
+			Method:         http.MethodPost,
+			Path:           "/{checkId}/runs/{runId}/cancel",
+			Handler:        HandleCancelMyCheckRun,
+			ResponseSchema: CancelMyCheckRunResponse{},
+			Description:    "Cancel a specific check run",
+			Summary:        "Cancel a specific check run",
+		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/{checkId}/runs/{runId}/export",
+			Handler:        HandleExportMyCheckRun,
+			ResponseSchema: ExportMyCheckRunResponse{},
+			Description:    "Export a specific check run",
+			Summary:        "Export a specific check run",
+		},
+		{
+			Method:         http.MethodGet,
+			Path:           "/{checkId}/runs/{runId}/logs",
+			Handler:        HandleMyCheckLogs,
+			ResponseSchema: ChecksLogsResponse{},
+			Description:    "Start or Stop logs for a specific check run and get the log channel",
+			Summary:        "Start or Stop logs for a specific check run",
+			QuerySearchAttributes: []routing.QuerySearchAttribute{
+				{
+					Name:        "action",
+					Required:    false,
+					Description: "Can be 'start' or 'stop' to control logging for the check run",
 				},
 			},
-			{
-				Method:         http.MethodPost,
-				Path:           "/{checkId}/runs/{runId}/terminate",
-				Handler:        HandleTerminateMyCheckRun,
-				ResponseSchema: TerminateMyCheckRunResponse{},
-				Description:    "Terminate a specific check run",
-				Summary:        "Terminate a specific check run",
-			},
 		},
-		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			{Func: middlewares.ErrorHandlingMiddleware},
+		{
+			Method:         http.MethodPost,
+			Path:           "/{checkId}/runs/{runId}/terminate",
+			Handler:        HandleTerminateMyCheckRun,
+			ResponseSchema: TerminateMyCheckRunResponse{},
+			Description:    "Terminate a specific check run",
+			Summary:        "Terminate a specific check run",
 		},
-		AuthenticationRequired: true,
-	}
+	},
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	AuthenticationRequired: true,
+}
 
 type ReRunCheckRequest struct {
 	Config map[string]interface{} `json:"config"`
