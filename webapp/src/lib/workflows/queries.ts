@@ -43,8 +43,6 @@ export async function fetchWorkflows(
 			fetch: fetchFn
 		});
 		const schema = ListMyChecksResponseSchema
-		console.log('Fetched workflows data:', data);
-
 		const parsed = schema.parse(data).executions.map(workflowInfoToExecution);
 		const errors = parsed.filter((execution) => execution instanceof Error);
 		const executions = Array.difference(parsed, errors) as WorkflowExecution[];
