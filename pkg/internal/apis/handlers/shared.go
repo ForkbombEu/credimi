@@ -14,12 +14,12 @@ type WorkflowExecutionInfo struct {
 	ID                   string                    `json:"id"`
 	RunID                string                    `json:"runId"`
 	Status               string                    `json:"status"`
-	StateTransitionCount string                    `json:"stateTransitionCount"`
+	StateTransitionCount *string                   `json:"stateTransitionCount,omitempty"`
 	StartTime            string                    `json:"startTime"`
-	CloseTime            string                    `json:"closeTime"`
+	CloseTime            *string                   `json:"closeTime,omitempty"`
 	ExecutionTime        string                    `json:"executionTime"`
-	HistorySizeBytes     string                    `json:"historySizeBytes"`
-	HistoryLength        string                    `json:"historyLength"`
+	HistorySizeBytes     *string                   `json:"historySizeBytes,omitempty"`
+	HistoryLength        *string                   `json:"historyLength,omitempty"`
 	AssignedBuildID      string                    `json:"assignedBuildId"`
 	SearchAttributes     *WorkflowSearchAttributes `json:"searchAttributes,omitempty"`
 	Memo                 *Memo                     `json:"memo,omitempty"`
@@ -46,7 +46,7 @@ type WorkflowExecution struct {
 	PendingNexusOperations       []PendingNexusOperation          `json:"pendingNexusOperations,omitempty"`
 	PendingActivities            []PendingActivityInfo            `json:"pendingActivities,omitempty"`
 	PendingWorkflowTask          *PendingWorkflowTaskInfo         `json:"pendingWorkflowTask,omitempty"`
-	StateTransitionCount         string                           `json:"stateTransitionCount"`
+	StateTransitionCount         *string                          `json:"stateTransitionCount,omitempty"`
 	ParentNamespaceID            *string                          `json:"parentNamespaceId,omitempty"`
 	Parent                       *WorkflowIdentifier              `json:"parent,omitempty"`
 	URL                          string                           `json:"url"`
@@ -142,17 +142,17 @@ type ListMyChecksResponse struct {
 	Executions []ExecutionInfo `json:"executions" validate:"required"`
 }
 type ExecutionInfo struct {
-	CloseTime            string           `json:"closeTime"`
+	CloseTime            *string          `json:"closeTime,omitempty"`
 	Execution            Execution        `json:"execution"`
-	ExecutionDuration    string           `json:"executionDuration"`
+	ExecutionDuration    *string          `json:"executionDuration,omitempty"`
 	ExecutionTime        string           `json:"executionTime"`
-	HistoryLength        string           `json:"historyLength"`
-	HistorySizeBytes     string           `json:"historySizeBytes"`
+	HistoryLength        *string          `json:"historyLength,omitempty"`
+	HistorySizeBytes     *string          `json:"historySizeBytes,omitempty"`
 	Memo                 Memo             `json:"memo"`
 	RootExecution        Execution        `json:"rootExecution"`
 	SearchAttributes     SearchAttributes `json:"searchAttributes"`
 	StartTime            string           `json:"startTime"`
-	StateTransitionCount string           `json:"stateTransitionCount"`
+	StateTransitionCount *string          `json:"stateTransitionCount,omitempty"`
 	Status               string           `json:"status"`
 	TaskQueue            string           `json:"taskQueue"`
 	Type                 Type             `json:"type"`
