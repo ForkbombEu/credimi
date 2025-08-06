@@ -14,12 +14,12 @@ type WorkflowExecutionInfo struct {
 	ID                   string                    `json:"id"`
 	RunID                string                    `json:"runId"`
 	Status               string                    `json:"status"`
-	StateTransitionCount *string                   `json:"stateTransitionCount,omitempty"`
+	StateTransitionCount string                    `json:"stateTransitionCount"`
 	StartTime            string                    `json:"startTime"`
-	CloseTime            *string                   `json:"closeTime,omitempty"`
+	CloseTime            string                    `json:"closeTime"`
 	ExecutionTime        string                    `json:"executionTime"`
-	HistorySizeBytes     *string                   `json:"historySizeBytes,omitempty"`
-	HistoryLength        *string                   `json:"historyLength,omitempty"`
+	HistorySizeBytes     string                    `json:"historySizeBytes"`
+	HistoryLength        string                    `json:"historyLength"`
 	AssignedBuildID      string                    `json:"assignedBuildId"`
 	SearchAttributes     *WorkflowSearchAttributes `json:"searchAttributes,omitempty"`
 	Memo                 *Memo                     `json:"memo,omitempty"`
@@ -46,7 +46,7 @@ type WorkflowExecution struct {
 	PendingNexusOperations       []PendingNexusOperation          `json:"pendingNexusOperations,omitempty"`
 	PendingActivities            []PendingActivityInfo            `json:"pendingActivities,omitempty"`
 	PendingWorkflowTask          *PendingWorkflowTaskInfo         `json:"pendingWorkflowTask,omitempty"`
-	StateTransitionCount         *string                          `json:"stateTransitionCount,omitempty"`
+	StateTransitionCount         string                           `json:"stateTransitionCount"`
 	ParentNamespaceID            *string                          `json:"parentNamespaceId,omitempty"`
 	Parent                       *WorkflowIdentifier              `json:"parent,omitempty"`
 	URL                          string                           `json:"url"`
@@ -110,7 +110,7 @@ const (
 	Unspecified SearchAttributeType = "Unspecified"
 )
 
-// type SearchAttributes map[string]SearchAttributeType
+type SearchAttributes map[string]SearchAttributeType
 
 type SearchAttributesResponse struct {
 	CustomAttributes map[string]SearchAttributeType `json:"customAttributes"`
@@ -138,59 +138,9 @@ type ReRunCheckResponse struct {
 	RunID      string `json:"run_id" validate:"required"`
 }
 
+// ListMyChecksResponse represents the response containing list of workflow executions
 type ListMyChecksResponse struct {
-	Executions []ExecutionInfo `json:"executions" validate:"required"`
-}
-type ExecutionInfo struct {
-	CloseTime            *string          `json:"closeTime,omitempty"`
-	Execution            Execution        `json:"execution"`
-	ExecutionDuration    *string          `json:"executionDuration,omitempty"`
-	ExecutionTime        string           `json:"executionTime"`
-	HistoryLength        *string          `json:"historyLength,omitempty"`
-	HistorySizeBytes     *string          `json:"historySizeBytes,omitempty"`
-	Memo                 Memo             `json:"memo"`
-	RootExecution        Execution        `json:"rootExecution"`
-	SearchAttributes     SearchAttributes `json:"searchAttributes"`
-	StartTime            string           `json:"startTime"`
-	StateTransitionCount *string          `json:"stateTransitionCount,omitempty"`
-	Status               string           `json:"status"`
-	TaskQueue            string           `json:"taskQueue"`
-	Type                 Type             `json:"type"`
-}
-
-type Execution struct {
-	RunID      string `json:"runId"`
-	WorkflowID string `json:"workflowId"`
-}
-type Data struct {
-	Data     string   `json:"data"`
-	Metadata Metadata `json:"metadata"`
-}
-type Metadata struct {
-	Encoding string `json:"encoding"`
-	Type     string `json:"type,omitempty"`
-}
-type Fields struct {
-	Author   Data `json:"author"`
-	Standard Data `json:"standard"`
-	Test     Data `json:"test"`
-}
-type Memo struct {
-	// not required, but can be used to store additional information
-	Fields *Fields `json:"fields,omitempty"`
-}
-type BuildIds struct {
-	Data     string   `json:"data"`
-	Metadata Metadata `json:"metadata"`
-}
-type IndexedFields struct {
-	BuildIds BuildIds `json:"BuildIds"`
-}
-type SearchAttributes struct {
-	IndexedFields IndexedFields `json:"indexedFields"`
-}
-type Type struct {
-	Name string `json:"name"`
+	Executions []WorkflowExecution `json:"executions" validate:"required"`
 }
 
 // GetMyCheckRunResponse represents the response for getting a specific check run
@@ -449,6 +399,11 @@ type WorkflowSearchAttributes map[string]interface{}
 
 // DecodedWorkflowSearchAttributes represents decoded search attributes
 type DecodedWorkflowSearchAttributes map[string]interface{}
+
+// Memo represents workflow memo information
+type Memo struct {
+	Fields map[string]*Payload `json:"fields,omitempty"`
+}
 
 // VersioningInfo represents versioning information
 type VersioningInfo struct {

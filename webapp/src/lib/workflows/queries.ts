@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pb } from '@/pocketbase';
-import { ListMyChecksResponseSchema, type ListMyChecksResponse } from './../credimiClient';
-import { workflowExecutionInfoSchema } from './types';
+import { workflowExecutionInfoSchema, type WorkflowExecutionInfo } from './types';
 import type { WorkflowStatusType } from '$lib/temporal';
 import { Array, String } from 'effect';
 import { z } from 'zod';
@@ -42,7 +41,10 @@ export async function fetchWorkflows(
 			method: 'GET',
 			fetch: fetchFn
 		});
-		const schema = ListMyChecksResponseSchema
+		const schema = z.object({
+			executions: z.array(workflowExecutionInfoSchema)
+		});
+
 		const parsed = schema.parse(data).executions.map(workflowInfoToExecution);
 		const errors = parsed.filter((execution) => execution instanceof Error);
 		const executions = Array.difference(parsed, errors) as WorkflowExecution[];
@@ -90,8 +92,9 @@ export async function fetchWorkflowHistory(
 
 //
 
-function workflowInfoToExecution(data: ListMyChecksResponse["executions"][number]): WorkflowExecution | Error {
+function workflowInfoToExecution(data: WorkflowExecutionInfo): WorkflowExecution | Error {
 	return tryFn(() => {
+		// @ts-expect-error Slight type mismatch
 		const w = toWorkflowExecution({ workflowExecutionInfo: data });
 
 		/* HACK */
