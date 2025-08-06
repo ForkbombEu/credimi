@@ -42,6 +42,10 @@ type openID4VPTestInputFile struct {
 	Variant json.RawMessage `json:"variant" yaml:"variant" validate:"required,oneof=json variables yaml"`
 	Form    any             `json:"form"    yaml:"form"`
 }
+type vLEICheckInput struct {
+	CredentialID string `json:"credentialID"`
+	ServerURL    string `json:"serverURL"`
+}
 
 type EWCInput struct {
 	SessionID string `yaml:"sessionId" json:"sessionId" validate:"required"`
@@ -71,6 +75,7 @@ var workflowRegistry = map[Author]WorkflowStarter{
 	"ewc":                      startEWCWorkflow,
 	"openid_conformance_suite": startOpenIDNetWorkflow,
 	"eudiw":                    startEudiwWorkflow,
+	"vlei":                     startvLEIWorkflow,
 }
 
 func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
@@ -478,6 +483,81 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 		},
 	}
 	var workflow workflows.EudiwWorkflow
+	results, err := workflow.Start(input)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"failed to start workflow",
+			err.Error(),
+		)
+	}
+	results.Author = string(i.Author)
+	return results, nil
+}
+func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
+	yamlData := i.YAMLData
+	appURL := i.AppURL
+	namespace := i.Namespace
+	memo := i.Memo
+
+	if yamlData == "" {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"YAML data is required for OpenIDNet workflow",
+			"missing YAML data",
+		)
+	}
+	var data interface{}
+
+	err := yaml.Unmarshal([]byte(yamlData), &data)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse YAML input",
+			err.Error(),
+		)
+	}
+
+	dataMap := reduceData(data)
+
+	jsonDataFinal, err := json.Marshal(dataMap)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"json",
+			"failed to convert YAML to JSON",
+			err.Error(),
+		)
+	}
+
+	var parsedData vLEICheckInput
+	if err := json.Unmarshal(jsonDataFinal, &parsedData); err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"json",
+			"failed to parse JSON input",
+			err.Error(),
+		)
+	}
+	if err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+	input := workflowengine.WorkflowInput{
+		Config: map[string]any{
+			"app_url":    appURL,
+			"server_url": parsedData.ServerURL, // TODO update with the real one
+			"namespace":  namespace,
+			"memo":       memo,
+		},
+		Payload: map[string]any{
+			"credentialID": parsedData.CredentialID,
+		},
+	}
+
+	var workflow workflows.VLEIValidationWorkflow
 	results, err := workflow.Start(input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(

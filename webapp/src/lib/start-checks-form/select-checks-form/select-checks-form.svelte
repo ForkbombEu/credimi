@@ -20,8 +20,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Footer from '$start-checks-form/_utils/footer.svelte';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
+	import OpenidSuiteTable from './openid-suite-files-table.svelte';
 
 	//
+
+	const OPENID_SUITE_UID = 'openid_conformance_suite';
 
 	type Props = {
 		form: SelectChecksForm;
@@ -140,14 +143,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Check.GroupLabel>
 
 				<div class="w-full space-y-3 overflow-auto">
-					{#each suite.files as fileId}
-						{@const value = `${suite.uid}/${fileId}`}
-						{@const label = fileId.split('.').slice(0, -1).join('.')}
-						<Label class="flex items-center gap-2  font-mono text-xs">
-							<Checkbox {value} />
-							<span>{label}</span>
-						</Label>
-					{/each}
+					{#if suite.uid === OPENID_SUITE_UID}
+						<OpenidSuiteTable suiteFiles={suite.files} suiteUid={suite.uid} />
+					{:else}
+						{#each suite.files as fileId}
+							{@const value = `${suite.uid}/${fileId}`}
+							{@const label = fileId.split('.').slice(0, -1).join('.')}
+							<Label class="flex items-center gap-2  font-mono text-xs">
+								<Checkbox {value} />
+								<span>{label}</span>
+							</Label>
+						{/each}
+					{/if}
 				</div>
 			</div>
 		{/each}
