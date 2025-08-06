@@ -302,26 +302,9 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		weJSON, err := protojson.Marshal(workflowExecution)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to marshal workflow execution",
-				err.Error(),
-			)
-		}
-		finalJSON := make(map[string]interface{})
-		err = json.Unmarshal(weJSON, &finalJSON)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to unmarshal workflow execution",
-				err.Error(),
-			)
-		}
-		return e.JSON(http.StatusOK, finalJSON)
+
+		// Directly return the Temporal response
+		return e.JSON(http.StatusOK, workflowExecution)
 	}
 }
 
@@ -472,39 +455,9 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		listJSON, err := protojson.Marshal(list)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to marshal workflow list",
-				err.Error(),
-			)
-		}
-		finalJSON := make(map[string]interface{})
-		err = json.Unmarshal(listJSON, &finalJSON)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to unmarshal workflow list",
-				err.Error(),
-			)
-		}
-		if finalJSON["executions"] == nil {
-			finalJSON["executions"] = []any{}
-		}
-		executions, ok := (finalJSON["executions"]).([]any)
-		if !ok {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"invalid executions data type",
-				"executions field is not of expected type",
-			)
-		}
-		finalJSON["executions"] = sortExecutionsByStartTime(executions)
-		return e.JSON(http.StatusOK, finalJSON)
+
+		// Directly return the Temporal response
+		return e.JSON(http.StatusOK, list)
 	}
 }
 
