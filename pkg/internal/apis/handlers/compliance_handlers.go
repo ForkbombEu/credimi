@@ -16,19 +16,89 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/subscriptions"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
-	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"google.golang.org/protobuf/encoding/protojson"
 )
+
+var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
+		BaseURL: "/api/compliance",
+		Routes: []routing.RouteDefinition{
+			{
+				Method:  http.MethodGet,
+				Path:    "/checks",
+				Handler: HandleListMyChecks,
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/checks/{workflowId}/{runId}",
+				Handler: HandleGetWorkflow,
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/checks/{workflowId}/{runId}/history",
+				Handler: HandleGetWorkflowsHistory,
+			},
+			{
+				Method:        http.MethodPost,
+				Path:          "/{protocol}/{version}/save-variables-and-start",
+				Handler:       HandleSaveVariablesAndStart,
+				RequestSchema: SaveVariablesAndStartRequestInput{},
+			},
+			{
+				Method:        http.MethodPost,
+				Path:          "/notify-failure",
+				Handler:       HandleNotifyFailure,
+				RequestSchema: HandleNotifyFailureRequestInput{},
+			},
+			{
+				Method:        http.MethodPost,
+				Path:          "/confirm-success",
+				Handler:       HandleConfirmSuccess,
+				RequestSchema: HandleConfirmSuccessRequestInput{},
+			},
+			{
+				Method:        http.MethodPost,
+				Path:          "/send-temporal-signal",
+				Handler:       HandleSendTemporalSignal,
+				RequestSchema: HandleSendTemporalSignalInput{},
+			},
+			{
+				Method:              http.MethodPost,
+				Path:                "/send-log-update",
+				Handler:             HandleSendLogUpdate,
+				RequestSchema:       HandleSendLogUpdateRequestInput{},
+				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
+			},
+			{
+				Method:              http.MethodPost,
+				Path:                "/send-eudiw-log-update",
+				Handler:             HandleSendEudiwLogUpdate,
+				RequestSchema:       HandleSendLogUpdateRequestInput{},
+				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
+			},
+			{
+				Method:  http.MethodGet,
+				Path:    "/deeplink/{workflowId}/{runId}",
+				Handler: HandleDeeplink,
+			},
+		},
+		Middlewares: []*hook.Handler[*core.RequestEvent]{
+			{Func: middlewares.ErrorHandlingMiddleware},
+		},
+		AuthenticationRequired: true,
+	}
 
 type HandleConfirmSuccessRequestInput struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
@@ -269,109 +339,6 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		return e.JSON(http.StatusOK, finalJSON)
-	}
-}
-
-func HandleGetWorkflows() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		authRecord := e.Auth
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
-		if err != nil {
-			return err
-		}
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
-		}
-
-		statusParam := e.Request.URL.Query().Get("status")
-		var statusFilters []enums.WorkflowExecutionStatus
-		if statusParam != "" {
-			statusStrings := strings.Split(statusParam, ",")
-			for _, s := range statusStrings {
-				switch strings.ToLower(strings.TrimSpace(s)) {
-				case "running":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_RUNNING)
-				case "completed":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_COMPLETED)
-				case "failed":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_FAILED)
-				case "terminated":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_TERMINATED)
-				case "canceled":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_CANCELED)
-				case "timed_out":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_TIMED_OUT)
-				case "continued_as_new":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW)
-				case "unspecified":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED)
-				}
-			}
-		}
-
-		var query string
-		if len(statusFilters) > 0 {
-			var statusQueries []string
-			for _, s := range statusFilters {
-				statusQueries = append(statusQueries, fmt.Sprintf("ExecutionStatus=%d", s))
-			}
-			query = strings.Join(statusQueries, " or ")
-		}
-
-		list, err := c.ListWorkflow(
-			context.Background(),
-			&workflowservice.ListWorkflowExecutionsRequest{
-				Namespace: namespace,
-				Query:     query,
-			},
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to list workflows",
-				err.Error(),
-			)
-		}
-		listJSON, err := protojson.Marshal(list)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to marshal workflow list",
-				err.Error(),
-			)
-		}
-		finalJSON := make(map[string]interface{})
-		err = json.Unmarshal(listJSON, &finalJSON)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to unmarshal workflow list",
-				err.Error(),
-			)
-		}
-		if finalJSON["executions"] == nil {
-			finalJSON["executions"] = []any{}
-		}
-		executions, ok := (finalJSON["executions"]).([]any)
-		if !ok {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"invalid executions data type",
-				"executions field is not of expected type",
-			)
-		}
-		finalJSON["executions"] = sortExecutionsByStartTime(executions)
 		return e.JSON(http.StatusOK, finalJSON)
 	}
 }

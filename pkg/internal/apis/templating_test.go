@@ -1,8 +1,8 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
+//go:build !unit
 // +build !unit
-
 
 package apis
 
@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/joho/godotenv"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -28,7 +29,9 @@ func TestAddTemplatingRoutes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		AddTemplatingRoutes(testApp)
+		
+		handlers.TemplateRoutes.Add(testApp)
+
 		return testApp
 	}
 	authToken, _ := generateToken("users", "userA@example.org")

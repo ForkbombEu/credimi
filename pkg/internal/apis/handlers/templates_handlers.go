@@ -13,11 +13,35 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	engine "github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/hook"
 	"gopkg.in/yaml.v3"
 )
+
+var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
+	BaseURL: "/api/template",
+	Routes: []routing.RouteDefinition{
+		{
+			Method:  "GET",
+			Path:    "/blueprints",
+			Handler: HandleGetConfigsTemplates,
+		},
+		{
+			Method:        "POST",
+			Path:          "/placeholders",
+			Handler:       HandlePlaceholdersByFilenames,
+			RequestSchema: GetPlaceholdersByFilenamesRequestInput{},
+		},
+	},
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	AuthenticationRequired: true,
+}
+
 
 var templatesDir = path.Join(os.Getenv("ROOT_DIR"), "config_templates")
 
