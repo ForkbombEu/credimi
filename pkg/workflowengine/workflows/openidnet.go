@@ -207,147 +207,8 @@ func (w *OpenIDNetWorkflow) Workflow(
 	if !ok {
 		rid = ""
 	}
-	var logs []map[string]any
-	startSignalChan := workflow.GetSignalChannel(ctx, OpenIDNetStartCheckSignal)
-	stopSignalChan := workflow.GetSignalChannel(ctx, OpenIDNetStopCheckSignal)
 
-	selector := workflow.NewSelector(ctx)
-
-	var isPolling bool
-
-	var timerFuture workflow.Future
-	var startTimer func()
-	startTimer = func() {
-		timerCtx, _ := workflow.WithCancel(ctx)
-		timerFuture = workflow.NewTimer(
-			timerCtx,
-			time.Second,
-		)
-		selector.AddFuture(timerFuture, func(_ workflow.Future) {
-			if isPolling {
-				startTimer()
-			}
-		})
-	}
-	getLogsInput := workflowengine.ActivityInput{
-		Config: map[string]string{
-			"method": "GET",
-			"url": fmt.Sprintf(
-				"%s/%s",
-				"https://www.certification.openid.net/api/log/",
-				rid,
-			),
-		},
-		Payload: map[string]any{
-			"headers": map[string]any{
-				"Authorization": fmt.Sprintf("Bearer %s", token),
-			},
-			"query_params": map[string]any{
-				"public": "false",
-			},
-		},
-	}
-	for {
-		// Always listen for pause/resume signals
-		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalVal any
-			c.Receive(ctx, &signalVal)
-			if !isPolling {
-				isPolling = true
-				startTimer()
-				logger.Info("Received start signal, unpausing workflow")
-			}
-		})
-		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalVal any
-			c.Receive(ctx, &signalVal)
-			isPolling = false
-			logger.Info("Received stop signal, pausing workflow")
-		})
-
-		// Wait for a signal or timer
-		selector.Select(ctx)
-
-		// Skip activity execution if paused
-		if !isPolling {
-			continue
-		}
-
-		// Perform activity to fetch logs
-		var HTTPActivity = activities.NewHTTPActivity()
-		var HTTPResponse workflowengine.ActivityResult
-
-		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), getLogsInput).
-			Get(ctx, &HTTPResponse)
-		if err != nil {
-			logger.Error("Failed to get logs", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				err,
-				runMetadata,
-			)
-		}
-
-		logs = AsSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
-
-		triggerLogsInput := workflowengine.ActivityInput{
-			Config: map[string]string{
-				"method": "POST",
-				"url": fmt.Sprintf(
-					"%s/%s",
-					input.Config["app_url"].(string),
-					"api/compliance/send-openidnet-log-update",
-				),
-			},
-			Payload: map[string]any{
-				"headers": map[string]any{
-					"Content-Type": "application/json",
-				},
-				"body": map[string]any{
-					"workflow_id": workflow.GetInfo(ctx).WorkflowExecution.ID,
-
-					"logs": logs,
-				},
-			},
-		}
-
-		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), triggerLogsInput).
-			Get(ctx, nil)
-		if err != nil {
-			logger.Error("Failed to send logs", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				err,
-				runMetadata,
-			)
-		}
-
-		// Check if any log has result == "FAILURE"
-		for _, logEntry := range logs {
-			if result, ok := logEntry["result"].(string); ok && result == "FAILURE" {
-				errCode := errorcodes.Codes[errorcodes.OpenIDnetCheckFailed]
-				failedErr := workflowengine.NewAppError(
-					errCode,
-					errCode.Description,
-					logs,
-				)
-				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-					failedErr,
-					runMetadata,
-				)
-			}
-		}
-
-		// If last log is INTERRUPTED or FINISHED → success
-		if len(logs) > 0 {
-			if result, ok := logs[len(logs)-1]["result"].(string); ok {
-				if result == "INTERRUPTED" || result == "FINISHED" {
-					return workflowengine.WorkflowResult{
-						Message: "OpenIDnet check completed successfully",
-						Log:     logs,
-					}, nil
-				}
-			}
-		}
-	}
+	return pollLogs(ctx, rid, token, appURL, runMetadata)
 }
 
 // Start initializes and starts the OpenIDNetWorkflow execution.
@@ -392,4 +253,145 @@ func AsSliceOfMaps(val any) []map[string]any {
 		return res
 	}
 	return nil
+}
+
+func pollLogs(
+	ctx workflow.Context,
+	rid string,
+	token string,
+	appURL string,
+	runMetadata workflowengine.WorkflowErrorMetadata,
+
+) (workflowengine.WorkflowResult, error) {
+	logger := workflow.GetLogger(ctx)
+
+	var logs []map[string]any
+	startSignalChan := workflow.GetSignalChannel(ctx, OpenIDNetStartCheckSignal)
+	stopSignalChan := workflow.GetSignalChannel(ctx, OpenIDNetStopCheckSignal)
+
+	selector := workflow.NewSelector(ctx)
+
+	var isPolling bool
+
+	var timerFuture workflow.Future
+	var startTimer func()
+	startTimer = func() {
+		timerCtx, _ := workflow.WithCancel(ctx)
+		timerFuture = workflow.NewTimer(timerCtx, time.Second)
+		selector.AddFuture(timerFuture, func(_ workflow.Future) {
+			if isPolling {
+				startTimer()
+			}
+		})
+	}
+
+	getLogsInput := workflowengine.ActivityInput{
+		Config: map[string]string{
+			"method": "GET",
+			"url":    fmt.Sprintf("https://www.certification.openid.net/api/log/%s", rid),
+		},
+		Payload: map[string]any{
+			"headers": map[string]any{
+				"Authorization": fmt.Sprintf("Bearer %s", token),
+			},
+			"query_params": map[string]any{
+				"public": "false",
+			},
+		},
+	}
+
+	for {
+		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+			var signalVal any
+			c.Receive(ctx, &signalVal)
+			if !isPolling {
+				isPolling = true
+				startTimer()
+				logger.Info("Received start signal, unpausing workflow")
+			}
+		})
+
+		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+			var signalVal any
+			c.Receive(ctx, &signalVal)
+			isPolling = false
+			logger.Info("Received stop signal, pausing workflow")
+		})
+
+		selector.Select(ctx)
+
+		if !isPolling {
+			continue
+		}
+
+		httpActivity := activities.NewHTTPActivity()
+		var httpResponse workflowengine.ActivityResult
+
+		err := workflow.ExecuteActivity(ctx, httpActivity.Name(), getLogsInput).
+			Get(ctx, &httpResponse)
+		if err != nil {
+			logger.Error("Failed to get logs", "error", err)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
+		}
+
+		logs = AsSliceOfMaps(httpResponse.Output.(map[string]any)["body"])
+
+		triggerLogsInput := workflowengine.ActivityInput{
+			Config: map[string]string{
+				"method": "POST",
+				"url":    fmt.Sprintf("%s/api/compliance/send-openidnet-log-update", appURL),
+			},
+			Payload: map[string]any{
+				"headers": map[string]any{
+					"Content-Type": "application/json",
+				},
+				"body": map[string]any{
+					"workflow_id": workflow.GetInfo(ctx).WorkflowExecution.ID,
+					"logs":        logs,
+				},
+			},
+		}
+
+		err = workflow.ExecuteActivity(ctx, httpActivity.Name(), triggerLogsInput).Get(ctx, nil)
+		if err != nil {
+			logger.Error("Failed to send logs", "error", err)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
+		}
+		if len(logs) > 0 {
+			lastResult := ""
+			for i, logEntry := range logs {
+				if result, ok := logEntry["result"].(string); ok {
+					// Check for failure in any log
+					if result == "FAILURE" {
+						errCode := errorcodes.Codes[errorcodes.OpenIDnetCheckFailed]
+						failedErr := workflowengine.NewAppError(
+							errCode,
+							errCode.Description,
+							logs,
+						)
+						return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+							failedErr,
+							runMetadata,
+						)
+					}
+					// Save the last result for the final check
+					if i == len(logs)-1 {
+						lastResult = result
+					}
+				}
+			}
+			if lastResult == "INTERRUPTED" || lastResult == "FINISHED" {
+				return workflowengine.WorkflowResult{
+					Message: "OpenIDnet check completed successfully",
+					Log:     logs,
+				}, nil
+			}
+		}
+	}
 }
