@@ -92,7 +92,7 @@
 		--primary-foreground: 0 0% 98%;
 		--secondary: 250 100% 95.9%;
 		--secondary-foreground: 251 80% 27%;
-		--muted: 240 4.8% 95.9%;
+		--muted: 270 44% 98%;
 		--muted-foreground: 240 3.8% 66.1%;
 		--accent: 60 4.8% 95.9%;
 		--accent-foreground: 24 9.8% 10%;
@@ -102,6 +102,32 @@
 		--input: 240 5.9% 90%;
 		--ring: 24.6 95% 53.1%;
 		--radius: 0.5rem;
+		
+		/* Named colors */
+		--blue-background: 235 100% 91%;
+		--blue-foreground: 233 68% 53%;
+		--blue-outline: 235 100% 71%;
+		--green-background: 118 59% 88%;
+		--green-foreground: 118 58% 39%;
+		--green-outline: 116 55% 56%;
+		--light-blue-background: 186 100% 91%;
+		--light-blue-foreground: 188 77% 35%;
+		--light-blue-outline: 184 75% 59%;
+		--neutral-background: 254 19% 93%;
+		--neutral-foreground: 252 10% 46%;
+		--neutral-outline: 256 9% 71%;
+		--orange-background: 31 100% 91%;
+		--orange-foreground: 25 82% 38%;
+		--orange-outline: 31 100% 64%;
+		--purple-background: 289 45% 90%;
+		--purple-foreground: 283 72% 38%;
+		--purple-outline: 288 79% 67%;
+		--red-background: 329 100% 91%;
+		--red-foreground: 339 61% 52%;
+		--red-outline: 329 100% 74%;
+		--yellow-background: 46 74% 85%;
+		--yellow-foreground: 40 97% 34%;
+		--yellow-outline: 45 78% 58%;
 	}
 	.dark {
 		--background: 20 14.3% 4.1%;

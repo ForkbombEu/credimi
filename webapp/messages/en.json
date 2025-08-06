@@ -610,5 +610,9 @@
 	"Sections": "Sections",
 	"All": "All",
 	"EUDIW_Wallet_test": "EUDIW Wallet test",
-	"toc": "Table of Contents"
+	"toc": "Table of Contents",
+	"Credential_Format": "Credential Format",
+	"Client_id_Scheme": "Client id Scheme",
+	"Request_Method": "Request Method",
+	"Response_Mode": "Response Mode"
 }
