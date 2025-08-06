@@ -49,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
-			{#each workflows as workflow (workflow.runId)}
+			{#each workflows as workflow }
 				{@const path = `/my/tests/runs/${workflow.id}/${workflow.runId}`}
 				{@const status = toWorkflowStatusReadable(workflow.status)}
 				{@const memo = getWorkflowMemo(workflow)}

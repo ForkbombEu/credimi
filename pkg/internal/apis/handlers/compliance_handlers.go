@@ -293,12 +293,12 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 	}
 }
 
-type Execution = map[string]any
+type ExecutionSimplified = map[string]any
 
 func sortExecutionsByStartTime(executions []any) []any {
 	slices.SortFunc(executions, func(execA, execB any) int {
-		execAMap, okA := execA.(Execution)
-		execBMap, okB := execB.(Execution)
+		execAMap, okA := execA.(ExecutionSimplified)
+		execBMap, okB := execB.(ExecutionSimplified)
 		if !okA || !okB {
 			return 0
 		}
