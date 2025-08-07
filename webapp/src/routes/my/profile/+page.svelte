@@ -26,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const showForm = createToggleStore();
 
+	const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 	const timezones = Intl.supportedValuesOf('timeZone') as readonly string[];
 
 	const schema = createCollectionZodSchema('users').extend({
@@ -49,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				name: $currentUser?.name,
 				email: $currentUser?.email,
 				emailVisibility: $currentUser?.emailVisibility,
-				Timezone: $currentUser?.Timezone || 'Europe/Amsterdam'
+				Timezone: $currentUser?.Timezone || detectedTimezone
 			},
 			options: {
 				dataType: 'form'
