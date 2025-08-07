@@ -203,7 +203,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	id={iframeId}
 	title="Workflow"
 	src={page.url.pathname + '/temporal'}
-	class="w-full overflow-hidden"
+	class="w-full h-svh"
 ></iframe>
 
 <LoadingDialog
