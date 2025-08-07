@@ -10,27 +10,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	Styles imported from the `/temporal.css` file conflict with the global styles.
 -->
 
-<script lang="ts" module>
-	import { z } from 'zod';
-
-	export const HeightMessageSchema = z.object({
-		type: z.literal('height'),
-		height: z.number()
-	});
-
-	function sendHeight(height: number) {
-		parent.postMessage({ type: 'height', height }, '/');
-	}
-</script>
-
-<script>
+<script lang="ts">
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import TemporalWorkflow from './temporal-workflow.svelte';
+	import type { HistoryEvent } from '@forkbombeu/temporal-ui';
+	import {
+		setupEmitter,
+		setupListener,
+		type PageMessage,
+		type IframeMessage
+	} from '../_partials/page-events';
+	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
 	//
 
-	let { data } = $props();
-	const { workflow, eventHistory } = data;
+	let execution = $state<WorkflowExecution>();
+	let eventHistory = $state<HistoryEvent[]>();
+
+	setupListener<PageMessage>((ev) => {
+		if (ev.type === 'workflow') {
+			execution = ev.execution;
+			eventHistory = ev.eventHistory;
+		}
+	});
+
+	const emit = setupEmitter<IframeMessage>(() => parent);
 </script>
 
 <!--  -->
@@ -47,9 +51,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div
 	id="temporal-workflow-container"
 	class="block"
-	bind:offsetHeight={null, (data) => sendHeight(data)}
+	bind:offsetHeight={null, (data) => emit({ type: 'height', height: data })}
 >
 	<TemporalI18nProvider>
-		<TemporalWorkflow workflowResponse={workflow} {eventHistory} />
+		{#if execution && eventHistory}
+			<TemporalWorkflow {execution} {eventHistory} onLoad={() => emit({ type: 'ready' })} />
+		{/if}
 	</TemporalI18nProvider>
 </div>

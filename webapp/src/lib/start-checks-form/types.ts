@@ -3,24 +3,25 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { z } from 'zod';
-import { jsonStringSchema } from '$lib/utils';
+import { yamlStringSchema } from '$lib/utils';
 
 //
 
 export const configFieldTypeSchema = z.literal('string').or(z.literal('object'));
 
 export const baseConfigFieldSchema = z.object({
-	CredimiID: z.string(),
-	DescriptionKey: z.string(),
-	LabelKey: z.string(),
-	Type: configFieldTypeSchema,
-	Example: z.string().optional()
+	credimi_id: z.string(),
+	field_default_value: z.string().optional(),
+	field_description: z.string(),
+	field_label: z.string(),
+	field_type: configFieldTypeSchema,
+	field_options: z.array(z.string())
 });
 
 export type BaseConfigField = z.infer<typeof baseConfigFieldSchema>;
 
 export const namedConfigFieldSchema = baseConfigFieldSchema.extend({
-	FieldName: z.string()
+	field_id: z.string()
 });
 
 export type NamedConfigField = z.infer<typeof namedConfigFieldSchema>;
@@ -34,7 +35,7 @@ export const checksConfigFieldsResponseSchema = z.object({
 	specific_fields: z.record(
 		z.string(),
 		z.object({
-			content: jsonStringSchema,
+			content: yamlStringSchema,
 			fields: z.array(namedConfigFieldSchema)
 		})
 	)
@@ -46,7 +47,7 @@ export type ChecksConfigFieldsResponse = z.infer<typeof checksConfigFieldsRespon
 
 export type StartCheckResult = {
 	WorkflowId: string;
-	WorkflowRunId: string;
+	WorkflowRunID: string;
 	Message: string;
 	Errors: null | string;
 	Output: null | string;

@@ -169,7 +169,7 @@ func (w *EudiwWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/eudiw" // TODO use the correct one
+	baseURL := input.Config["app_url"].(string) + "/tests/wallet/eudiw" // TODO use the correct one
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
@@ -330,7 +330,7 @@ func (w *EudiwWorkflow) Workflow(
 				"method": "POST",
 				"url": fmt.Sprintf(
 					"%s/%s",
-					input.Payload["app_url"].(string),
+					input.Config["app_url"].(string),
 					"api/compliance/send-eudiw-log-update",
 				),
 			},
@@ -424,7 +424,9 @@ func BuildQRDeepLink(
 	clientID, requestURI string,
 ) (string, error) {
 	baseURL := "eudi-openid4vp://?client_id=%s&request_uri=%s"
-	u, err := url.Parse(fmt.Sprintf(baseURL, url.QueryEscape(clientID), url.QueryEscape(requestURI)))
+	u, err := url.Parse(
+		fmt.Sprintf(baseURL, url.QueryEscape(clientID), url.QueryEscape(requestURI)),
+	)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
 		appErr := workflowengine.NewAppError(errCode, baseURL)

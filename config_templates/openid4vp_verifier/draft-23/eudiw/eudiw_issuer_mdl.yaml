@@ -1,0 +1,30 @@
+nonce: >
+  {{
+
+      credimi `
+        {
+          "credimi_id": "mdl_nonce",
+          "field_id": "nonce",
+          "field_label": "i18n_nonce",
+          "field_description": "i18n_nonce_description",
+          "field_default_value": "",
+          "field_type": "string",
+          "field_options": []
+        }
+
+  ` uuidv4}}
+id: >
+  {{
+
+      credimi `
+        {
+          "credimi_id": "mdl_id",
+          "field_id": "id",
+          "field_label": "i18n_id",
+          "field_description": "i18n_id_description",
+          "field_default_value": "",
+          "field_type": "string",
+          "field_options": []
+        }
+
+  ` uuidv4}}

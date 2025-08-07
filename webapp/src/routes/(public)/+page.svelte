@@ -71,7 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</T>
 		</div>
 	</div>
-	<div class="flex gap-4">
+	<div class="flex flex-col gap-4 md:flex-row">
 		<Button variant="default" href="/marketplace">
 			{m.Explore_Marketplace()}
 		</Button>
@@ -103,7 +103,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#snippet records({ records })}
 				<PageGrid>
 					{#each records as item, i}
-						<MarketplaceItemCard {item} class={'last:hidden last:lg:flex'} />
+						{@const isLast = i === MAX_SOLUTION_ITEMS - 1}
+						<MarketplaceItemCard {item} class={isLast ? 'hidden lg:flex' : ''} />
 					{/each}
 				</PageGrid>
 			{/snippet}

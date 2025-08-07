@@ -153,7 +153,7 @@ func (w *EWCWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	baseURL := input.Payload["app_url"].(string) + "/tests/wallet/ewc"
+	baseURL := input.Config["app_url"].(string) + "/tests/wallet/ewc"
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]

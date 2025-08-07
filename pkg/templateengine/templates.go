@@ -7,6 +7,11 @@ package templateengine
 
 import (
 	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"crypto/rand"
+	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
@@ -16,24 +21,45 @@ import (
 	"github.com/go-sprout/sprout/group/all"
 )
 
+type TypeOfFieldType string
+
+const (
+	TypeOfFieldTypeString  TypeOfFieldType = "string"
+	TypeOfFieldTypeObject  TypeOfFieldType = "object"
+	TypeOfFieldTypeOptions TypeOfFieldType = "options"
+)
+
 // PlaceholderMetadata holds metadata for a placeholder in a template.
-// It includes the field name, Credimi ID, label key, description key,
-// type, and example value.
+// It matches the placeholderInput struct.
 type PlaceholderMetadata struct {
-	FieldName      string
-	CredimiID      string
-	LabelKey       string
-	DescriptionKey string
-	Type           string
-	Example        string
+	CredimiID    string          `json:"credimi_id"`
+	FieldID      string          `json:"field_id"`
+	FieldLabel   string          `json:"field_label"`
+	FieldDesc    string          `json:"field_description"`
+	FieldDefault interface{}     `json:"field_default_value"`
+	FieldType    TypeOfFieldType `json:"field_type"`
+	FieldOptions []string        `json:"field_options"`
 }
 
-// func RemoveNewlinesAndBackslashes(input string) string {
-// 	output := strings.ReplaceAll(input, "\n", "")
-// 	output = strings.ReplaceAll(output, "\\", "")
-// 	output = strings.ReplaceAll(output, "\"", "'")
-// 	return output
-// }
+// GetDefaultValue returns the default value of the placeholder,
+// if the original value is a string return a string, if is an object return a json string
+func (p *PlaceholderMetadata) GetDefaultValue() string {
+	if p.FieldDefault == nil {
+		return ""
+	}
+
+	switch v := p.FieldDefault.(type) {
+	case string:
+		return v
+	case map[string]interface{}:
+		jsonBytes, _ := json.Marshal(v)
+		return string(jsonBytes)
+	default:
+		return fmt.Sprintf("%v", v)
+	}
+}
+
+var metadataStore = make(map[string]PlaceholderMetadata)
 
 // RenderTemplate takes a reader containing a template and a data map,
 // renders the template using the provided data, and returns the resulting string.
@@ -75,57 +101,43 @@ func RenderTemplate(reader io.Reader, data map[string]interface{}) (string, erro
 
 // GetPlaceholders processes a list of template readers and their corresponding names
 // to extract placeholder metadata and organize it into normalized and specific fields.
-//
-// Parameters:
-//   - readers: A slice of io.Reader objects, each representing a template to be processed.
-//   - names: A slice of strings representing the names corresponding to each reader.
-//
-// Returns:
-//   - A map containing two keys:
-//   - "normalized_fields": A slice of maps, each representing a placeholder that appears
-//     in multiple templates. Each map contains the following keys:
-//   - "CredimiID": The unique identifier of the placeholder.
-//   - "Type": The type of the placeholder.
-//   - "DescriptionKey": The description key associated with the placeholder.
-//   - "LabelKey": The label key associated with the placeholder.
-//   - "Example": An example value for the placeholder.
-//   - "specific_fields": A map where each key is a name from the `names` slice, and the
-//     value is a map containing:
-//   - "content": The preprocessed content of the corresponding template.
-//   - "fields": A slice of placeholder metadata extracted from the template.
-//   - An error if any issues occur during processing.
-//
-// Notes:
-//   - The function ensures that placeholders with the same CredimiID across multiple templates
-//     are grouped together in the "normalized_fields".
-//   - The `metadataStore` is cleared for each reader to avoid mixing placeholder metadata
-//     between templates.
 func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{}, error) {
-	var allPlaceholders []PlaceholderMetadata
+	specificFields, allPlaceholders, err := getFields(readers, names)
+	if err != nil {
+		return nil, err
+	}
+	normalizedFields := normalizeFields(allPlaceholders)
+	result := map[string]interface{}{
+		"normalized_fields": normalizedFields,
+		"specific_fields":   specificFields,
+	}
+	return result, nil
+}
+
+func getFields(
+	readers []io.Reader,
+	names []string,
+) (map[string]interface{}, []PlaceholderMetadata, error) {
 	specificFields := make(map[string]interface{})
-	credimiIDCount := make(map[string]int)
+	var allPlaceholders []PlaceholderMetadata
 
 	for i, r := range readers {
-		// Clear metadataStore for each reader to avoid mixing placeholders
 		metadataStore = make(map[string]PlaceholderMetadata)
 
 		var buf bytes.Buffer
 		if _, err := io.Copy(&buf, r); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		content := buf.String()
 
 		preprocessedContent, err := preprocessTemplate(content)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		placeholders := extractMetadata()
 
-		for _, ph := range placeholders {
-			credimiIDCount[ph.CredimiID]++
-			allPlaceholders = append(allPlaceholders, ph)
-		}
+		allPlaceholders = append(allPlaceholders, placeholders...)
 
 		specificFields[names[i]] = map[string]interface{}{
 			"content": preprocessedContent,
@@ -133,44 +145,142 @@ func GetPlaceholders(readers []io.Reader, names []string) (map[string]interface{
 		}
 	}
 
-	normalizedFields := make([]map[string]interface{}, 0)
-	seenCredimiIDs := make(map[string]bool)
-	for _, ph := range allPlaceholders {
-		if credimiIDCount[ph.CredimiID] > 1 && !seenCredimiIDs[ph.CredimiID] {
-			seenCredimiIDs[ph.CredimiID] = true
-			field := map[string]interface{}{
-				"CredimiID":      ph.CredimiID,
-				"Type":           ph.Type,
-				"DescriptionKey": ph.DescriptionKey,
-				"LabelKey":       ph.LabelKey,
-				"Example":        ph.Example,
-			}
-			normalizedFields = append(normalizedFields, field)
-		}
-	}
-
-	result := map[string]interface{}{
-		"normalized_fields": normalizedFields,
-		"specific_fields":   specificFields,
-	}
-
-	return result, nil
+	return sortSpecificFields(specificFields), allPlaceholders, nil
 }
 
-var metadataStore = make(map[string]PlaceholderMetadata)
-
-func credimiPlaceholder(
-	fieldName, credimiID, labelKey, descriptionKey, fieldType, example string,
-) (string, error) {
-	metadataStore[fieldName] = PlaceholderMetadata{
-		FieldName:      fieldName,
-		CredimiID:      credimiID,
-		LabelKey:       labelKey,
-		DescriptionKey: descriptionKey,
-		Type:           fieldType,
-		Example:        strings.ReplaceAll(example, "\\\\\\\\", ""),
+func sortSpecificFields(fields map[string]interface{}) map[string]interface{} {
+	for name, v := range fields {
+		m, ok := v.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		phs, ok := m["fields"].([]PlaceholderMetadata)
+		if !ok {
+			continue
+		}
+		stringPH := make([]PlaceholderMetadata, 0)
+		otherPH := make([]PlaceholderMetadata, 0)
+		for _, ph := range phs {
+			if ph.FieldType == TypeOfFieldTypeString {
+				stringPH = append(stringPH, ph)
+			} else {
+				otherPH = append(otherPH, ph)
+			}
+		}
+		stringPH = append(stringPH, otherPH...)
+		m["fields"] = stringPH
+		fields[name] = m
 	}
-	return fmt.Sprintf("{{ .%s }}", fieldName), nil
+	return fields
+}
+
+func normalizeFields(fields []PlaceholderMetadata) []map[string]interface{} {
+	credimiIDCount := make(map[string]int)
+	normalized := make([]map[string]interface{}, 0, len(fields))
+	stringFields := make([]map[string]interface{}, 0)
+	otherFields := make([]map[string]interface{}, 0)
+	for _, ph := range fields {
+		if credimiIDCount[ph.CredimiID] == 1 {
+			field := map[string]interface{}{
+				"credimi_id":          ph.CredimiID,
+				"field_label":         ph.FieldLabel,
+				"field_description":   ph.FieldDesc,
+				"field_default_value": ph.GetDefaultValue(),
+				"field_type":          ph.FieldType,
+				"field_options":       ph.FieldOptions,
+			}
+
+			if ph.FieldType == TypeOfFieldTypeString {
+				stringFields = append(stringFields, field)
+			} else {
+				otherFields = append(otherFields, field)
+			}
+		}
+		credimiIDCount[ph.CredimiID]++
+	}
+	normalized = append(normalized, stringFields...)
+	normalized = append(normalized, otherFields...)
+
+	return normalized
+}
+
+func credimi(jsonStr string, args ...interface{}) (string, error) {
+	jsonStr = strings.TrimSpace(jsonStr)
+
+	var input PlaceholderMetadata
+	err := json.Unmarshal([]byte(jsonStr), &input)
+	if err != nil {
+		return "", fmt.Errorf("failed to parse placeholder JSON: %w", err)
+	}
+
+	if len(args) > 0 {
+		input.FieldDefault = args[0]
+	}
+
+	metadataStore[input.FieldID] = input
+
+	return fmt.Sprintf("{{ .%s }}", input.FieldID), nil
+}
+
+func jwk(alg string) (string, error) {
+	var crv elliptic.Curve
+	var crvName string
+
+	switch alg {
+	case "ES256":
+		crv = elliptic.P256()
+		crvName = "P-256"
+	case "ES384":
+		crv = elliptic.P384()
+		crvName = "P-384"
+	case "ES512":
+		crv = elliptic.P521()
+		crvName = "P-521"
+	default:
+		return "", fmt.Errorf(
+			"unsupported algorithm: %s. Supported algorithms are: ES256, ES384, ES512",
+			alg,
+		)
+	}
+
+	priv, err := ecdsa.GenerateKey(crv, rand.Reader)
+	if err != nil {
+		return "", err
+	}
+
+	b64 := func(b []byte) string {
+		return base64.RawURLEncoding.EncodeToString(b)
+	}
+
+	padBytes := func(b []byte, size int) []byte {
+		if len(b) >= size {
+			return b
+		}
+		padded := make([]byte, size)
+		copy(padded[size-len(b):], b)
+		return padded
+	}
+
+	size := (priv.Curve.Params().BitSize + 7) / 8
+
+	jwkKey := map[string]interface{}{
+		"kty": "EC",
+		"alg": alg,
+		"crv": crvName,
+		"d":   b64(padBytes(priv.D.Bytes(), size)),
+		"x":   b64(padBytes(priv.X.Bytes(), size)),
+		"y":   b64(padBytes(priv.Y.Bytes(), size)),
+	}
+
+	jwkSet := map[string]interface{}{
+		"keys": []interface{}{jwkKey},
+	}
+
+	jwkJSON, err := json.Marshal(jwkSet)
+	if err != nil {
+		return "", err
+	}
+	return string(jwkJSON), nil
 }
 
 func preprocessTemplate(content string) (string, error) {
@@ -179,11 +289,12 @@ func preprocessTemplate(content string) (string, error) {
 	)
 	funcs := handler.Build()
 
-	funcs["credimiPlaceholder"] = credimiPlaceholder
+	funcs["credimi"] = credimi
+	funcs["jwk"] = jwk
 
 	tmpl, err := template.New("preprocess").Funcs(funcs).Parse(content)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to parse template: %w", err)
 	}
 
 	var buf bytes.Buffer

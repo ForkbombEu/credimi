@@ -16,14 +16,14 @@ export function createCheckConfigFormSchema(fields: ConfigField[]) {
 	const schemaRawShape: Record<string, CheckConfigFormValueSchema> = Object.fromEntries(
 		fields.map((f) => {
 			let schema: ZodString | ZodEffects<ZodString>;
-			if (f.Type == 'string') {
+			if (f.field_type == 'string') {
 				schema = z.string().nonempty();
-			} else if (f.Type == 'object') {
+			} else if (f.field_type == 'object') {
 				schema = jsonStringSchema;
 			} else {
-				throw new Error(`Invalid field type: ${f.Type}`);
+				throw new Error(`Invalid field type: ${f.field_type}`);
 			}
-			return [f.CredimiID, schema];
+			return [f.credimi_id, schema];
 		})
 	);
 	return z.object(schemaRawShape);
@@ -34,14 +34,14 @@ export function createCheckConfigFormInitialData(fields: ConfigField[], excludeI
 		fields
 			.map((field) => {
 				let example: string;
-				if (field.Type == 'string') {
-					example = field.Example ?? '';
-				} else if (field.Type == 'object' && field.Example) {
-					example = formatJson(field.Example);
+				if (field.field_type == 'string') {
+					example = field.field_default_value ?? '';
+				} else if (field.field_type == 'object' && field.field_default_value) {
+					example = formatJson(field.field_default_value);
 				} else {
-					throw new Error(`Invalid field type: ${field.Type}`);
+					throw new Error(`Invalid field type: ${field.field_type}`);
 				}
-				return Tuple.make(field.CredimiID, example);
+				return Tuple.make(field.credimi_id, example);
 			})
 			.filter(([, value]) => value !== undefined && Boolean(value))
 			.filter(([id]) => !excludeIds.includes(id)),

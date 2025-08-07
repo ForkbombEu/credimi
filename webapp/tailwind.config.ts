@@ -9,6 +9,17 @@ import tailwindcssTypography from '@tailwindcss/typography';
 import tailwindcssContainerQueries from '@tailwindcss/container-queries';
 import { THEME_CONTENT } from '@sjsf/shadcn-theme/preset';
 
+const colorNames = ['blue', 'green', 'light-blue', 'neutral', 'orange', 'purple', 'red', 'yellow'];
+const colorRoles = ['background', 'foreground', 'outline'];
+
+function buildColors(names: string[], roles: string[]) {
+	return Object.fromEntries(
+		names.flatMap((name) =>
+			roles.map((role) => [`${name}-${role}`, `hsl(var(--${name}-${role}) / <alpha-value>)`])
+		)
+	);
+}
+
 const config: Config = {
 	darkMode: ['class'],
 	content: ['./src/**/*.{html,js,svelte,ts}', THEME_CONTENT],
@@ -68,7 +79,8 @@ const config: Config = {
 					'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
 					border: 'hsl(var(--sidebar-border))',
 					ring: 'hsl(var(--sidebar-ring))'
-				}
+				},
+				...buildColors(colorNames, colorRoles)
 			},
 			borderRadius: {
 				xl: 'calc(var(--radius) + 4px)',

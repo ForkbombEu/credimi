@@ -47,7 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<FieldWrapper field={name} {options}>
 		{#snippet children()}
 			<Input {...options as GenericRecord} bind:value={fieldState.current} />
-			<div class="flex items-stretch gap-4 pt-3">
+			<div class="flex flex-col md:flex-row items-stretch gap-4 pt-3">
 				<QrCode src={deepLink} cellSize={10} class="size-60 rounded-md border" />
 				{#if String.isEmpty(fieldState.current)}
 					<div class="max-w-60 break-all text-xs">

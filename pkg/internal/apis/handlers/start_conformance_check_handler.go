@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
+	"gopkg.in/yaml.v3"
 )
 
 type CustomCheck struct {
@@ -28,34 +28,38 @@ type CustomCheck struct {
 }
 type Variable struct {
 	FieldName string      `json:"field_name" validate:"required"`
-	Value     interface{} `json:"value" validate:"required"`
+	Value     interface{} `json:"value"      validate:"required"`
 	CredimiID string      `json:"credimi_id" validate:"required"`
 }
 
 type SaveVariablesAndStartRequestInput struct {
 	ConfigsWithFields map[string][]Variable  `json:"configs_with_fields" validate:"required"`
-	ConfigsWithJSON   map[string]string      `json:"configs_with_json" validate:"required"`
-	CustomChecks      map[string]CustomCheck `json:"custom_checks" validate:"required"`
+	ConfigsWithJSON   map[string]string      `json:"configs_with_json"   validate:"required"`
+	CustomChecks      map[string]CustomCheck `json:"custom_checks"       validate:"required"`
 }
 
 type openID4VPTestInputFile struct {
-	Variant json.RawMessage `json:"variant" validate:"required,oneof=json variables yaml"`
-	Form    any             `json:"form"`
+	Variant json.RawMessage `json:"variant" yaml:"variant" validate:"required,oneof=json variables yaml"`
+	Form    any             `json:"form"    yaml:"form"`
+}
+type vLEICheckInput struct {
+	CredentialID string `json:"credentialID"`
+	ServerURL    string `json:"serverURL"`
 }
 
 type EWCInput struct {
-	SessionID string `json:"sessionId" validate:"required"`
+	SessionID string `yaml:"sessionId" json:"sessionId" validate:"required"`
 }
 
 type EudiwInput struct {
-	Nonce string `json:"nonce" validate:"required"`
-	ID    string `json:"id"    validate:"required"`
+	Nonce string `json:"nonce" yaml:"nonce" validate:"required"`
+	ID    string `json:"id"    yaml:"id"    validate:"required"`
 }
 
 type Author string
 
 type WorkflowStarterParams struct {
-	JSONData  string
+	YAMLData  string
 	Email     string
 	AppURL    string
 	Namespace interface{}
@@ -71,6 +75,7 @@ var workflowRegistry = map[Author]WorkflowStarter{
 	"ewc":                      startEWCWorkflow,
 	"openid_conformance_suite": startOpenIDNetWorkflow,
 	"eudiw":                    startEudiwWorkflow,
+	"vlei":                     startvLEIWorkflow,
 }
 
 func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
@@ -128,7 +133,6 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"missing form",
 				)
 			}
-			log.Println("Custom check form:", customCheck.Form)
 			formJSON, err := json.Marshal(customCheck.Form)
 			if err != nil {
 				return apierror.New(
@@ -245,15 +249,92 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 	}
 }
 
+func reduceData(data interface{}) interface{} {
+	switch v := data.(type) {
+	case map[string]interface{}:
+		for key, value := range v {
+			if strValue, ok := value.(string); ok {
+				trimmed := strings.TrimSpace(strValue)
+				var jsonValue interface{}
+				if (strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")) ||
+					(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")) {
+					if err := json.Unmarshal([]byte(trimmed), &jsonValue); err == nil {
+						v[key] = reduceData(jsonValue)
+						continue
+					}
+				}
+				v[key] = trimmed
+			} else {
+				v[key] = reduceData(value)
+			}
+		}
+		return v
+
+	case []interface{}:
+		for i, value := range v {
+			if strValue, ok := value.(string); ok {
+				trimmed := strings.TrimSpace(strValue)
+				var jsonValue interface{}
+				if (strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")) ||
+					(strings.HasPrefix(trimmed, "[") && strings.HasSuffix(trimmed, "]")) {
+					if err := json.Unmarshal([]byte(trimmed), &jsonValue); err == nil {
+						v[i] = reduceData(jsonValue)
+						continue
+					}
+				}
+				v[i] = trimmed
+			} else {
+				v[i] = reduceData(value)
+			}
+		}
+		return v
+
+	default:
+		return data
+	}
+}
+
 func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
-	jsonData := i.JSONData
+	yamlData := i.YAMLData
 	email := i.Email
 	appURL := i.AppURL
 	namespace := i.Namespace
 	memo := i.Memo
 
+	if yamlData == "" {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"YAML data is required for OpenIDNet workflow",
+			"missing YAML data",
+		)
+	}
+	var data interface{}
+
+	err := yaml.Unmarshal([]byte(yamlData), &data)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse YAML input",
+			err.Error(),
+		)
+	}
+
+	dataMap := reduceData(data)
+
+	jsonDataFinal, err := json.Marshal(dataMap)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"json",
+			"failed to convert YAML to JSON",
+			err.Error(),
+		)
+	}
+
 	var parsedData openID4VPTestInputFile
-	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
+	if err := json.Unmarshal(jsonDataFinal, &parsedData); err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"json",
@@ -272,9 +353,9 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			"variant":   string(parsedData.Variant),
 			"form":      parsedData.Form,
 			"user_mail": email,
-			"app_url":   appURL,
 		},
 		Config: map[string]any{
+			"app_url":   appURL,
 			"template":  templateStr,
 			"namespace": namespace,
 			"memo":      memo,
@@ -295,7 +376,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 }
 
 func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
-	jsonData := i.JSONData
+	yamlData := i.YAMLData
 	email := i.Email
 	appURL := i.AppURL
 	namespace := i.Namespace
@@ -313,11 +394,11 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 		return workflowengine.WorkflowResult{}, err
 	}
 	var parsedData EWCInput
-	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
+	if err := yaml.Unmarshal([]byte(yamlData), &parsedData); err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
-			"json",
-			"failed to parse JSON input",
+			"yaml",
+			"failed to parse YAML input",
 			err.Error(),
 		)
 	}
@@ -339,9 +420,9 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 		Payload: map[string]any{
 			"session_id": parsedData.SessionID,
 			"user_mail":  email,
-			"app_url":    appURL,
 		},
 		Config: map[string]any{
+			"app_url":        appURL,
 			"template":       templateStr,
 			"namespace":      namespace,
 			"memo":           memo,
@@ -363,7 +444,7 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 }
 
 func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
-	jsonData := i.JSONData
+	yamlData := i.YAMLData
 	email := i.Email
 	appURL := i.AppURL
 	namespace := i.Namespace
@@ -380,11 +461,11 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 		return workflowengine.WorkflowResult{}, err
 	}
 	var parsedData EudiwInput
-	if err := json.Unmarshal([]byte(jsonData), &parsedData); err != nil {
+	if err := yaml.Unmarshal([]byte(yamlData), &parsedData); err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
-			"json",
-			"failed to parse JSON input",
+			"yaml",
+			"failed to parse YAML input",
 			err.Error(),
 		)
 	}
@@ -393,15 +474,90 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 			"nonce":     parsedData.Nonce,
 			"id":        parsedData.ID,
 			"user_mail": email,
-			"app_url":   appURL,
 		},
 		Config: map[string]any{
+			"app_url":   appURL,
 			"template":  templateStr,
 			"namespace": namespace,
 			"memo":      memo,
 		},
 	}
 	var workflow workflows.EudiwWorkflow
+	results, err := workflow.Start(input)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"workflow",
+			"failed to start workflow",
+			err.Error(),
+		)
+	}
+	results.Author = string(i.Author)
+	return results, nil
+}
+func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
+	yamlData := i.YAMLData
+	appURL := i.AppURL
+	namespace := i.Namespace
+	memo := i.Memo
+
+	if yamlData == "" {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"YAML data is required for OpenIDNet workflow",
+			"missing YAML data",
+		)
+	}
+	var data interface{}
+
+	err := yaml.Unmarshal([]byte(yamlData), &data)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"yaml",
+			"failed to parse YAML input",
+			err.Error(),
+		)
+	}
+
+	dataMap := reduceData(data)
+
+	jsonDataFinal, err := json.Marshal(dataMap)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"json",
+			"failed to convert YAML to JSON",
+			err.Error(),
+		)
+	}
+
+	var parsedData vLEICheckInput
+	if err := json.Unmarshal(jsonDataFinal, &parsedData); err != nil {
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"json",
+			"failed to parse JSON input",
+			err.Error(),
+		)
+	}
+	if err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+	input := workflowengine.WorkflowInput{
+		Config: map[string]any{
+			"app_url":    appURL,
+			"server_url": parsedData.ServerURL, // TODO update with the real one
+			"namespace":  namespace,
+			"memo":       memo,
+		},
+		Payload: map[string]any{
+			"credentialID": parsedData.CredentialID,
+		},
+	}
+
+	var workflow workflows.VLEIValidationWorkflow
 	results, err := workflow.Start(input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
@@ -426,7 +582,7 @@ func processJSONChecks(
 	protocol string,
 ) (workflowengine.WorkflowResult, error) {
 	input := WorkflowStarterParams{
-		JSONData:  testData,
+		YAMLData:  testData,
 		Email:     email,
 		AppURL:    appURL,
 		Namespace: namespace,
@@ -493,6 +649,12 @@ func processVariablesTest(
 		)
 	}
 
+	for key, value := range values {
+		if strValue, ok := value.(string); ok {
+			values[key] = strings.ReplaceAll(strValue, "\n", "")
+		}
+	}
+
 	renderedTemplate, err := engine.RenderTemplate(bytes.NewReader(templateData), values)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
@@ -504,7 +666,7 @@ func processVariablesTest(
 	}
 
 	input := WorkflowStarterParams{
-		JSONData:  renderedTemplate,
+		YAMLData:  renderedTemplate,
 		Email:     email,
 		AppURL:    appURL,
 		Namespace: namespace,
@@ -541,7 +703,6 @@ func processCustomChecks(
 			"yaml is empty",
 		)
 	}
-	log.Println("Custom check form JSON:", formJSON)
 
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{

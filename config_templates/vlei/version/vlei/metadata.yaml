@@ -1,0 +1,4 @@
+name: vLEI credential test
+homepage: https://www.gleif.org/
+repository: https://github.com/WebOfTrust/vLEI
+description: Test conformance of vLEI credentials. In the next page, enter a vLEI id from https://github.com/WebOfTrust/vLEI/tree/main/samples/acdc removing _acdc.cesr for example 'E4OU1DuxIAtRRscHSSQCO0UIpk3tVc0QHaNBDUmpHKac'

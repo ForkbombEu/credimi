@@ -73,6 +73,10 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		}
 		return se.Next()
 	})
+	app.OnTerminate().BindFunc(func(_ *core.TerminateEvent) error {
+		temporalclient.ShutdownClients()
+		return nil
+	})
 }
 
 type workerConfig struct {
@@ -107,7 +111,6 @@ func StartAllWorkersByNamespace(namespace string) {
 	if err != nil {
 		log.Fatalf("Failed to connect to Temporal: %v", err)
 	}
-	defer c.Close()
 
 	var wg sync.WaitGroup
 
@@ -171,6 +174,27 @@ func StartAllWorkersByNamespace(namespace string) {
 			},
 			Activities: []workflowengine.ExecutableActivity{
 				activities.NewStepCIWorkflowActivity(),
+			},
+		},
+		{
+			TaskQueue: workflows.VLEIValidationTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				&workflows.VLEIValidationWorkflow{},
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				activities.NewHTTPActivity(),
+				activities.NewCESRParsingActivity(),
+				activities.NewCESRValidateActivity(),
+			},
+		},
+		{
+			TaskQueue: workflows.VLEIValidationLocalTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				&workflows.VLEIValidationLocalWorkflow{},
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				activities.NewCESRParsingActivity(),
+				activities.NewCESRValidateActivity(),
 			},
 		},
 	}

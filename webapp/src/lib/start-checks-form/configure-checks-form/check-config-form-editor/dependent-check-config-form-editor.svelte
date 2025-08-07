@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ConfigField } from '$start-checks-form/types';
 	import * as Popover from '@/components/ui/popover';
 	import { m } from '@/i18n';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	//
 
@@ -22,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { form }: Props = $props();
 
-	function previewValue(value: unknown, type: ConfigField['Type']): string {
+	function previewValue(value: unknown, type: ConfigField['field_type']): string {
 		const NULL_VALUE = '<null>';
 		if (!value) return NULL_VALUE;
 		if (type === 'string') return value as string;
@@ -43,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					class="text-primary flex items-center gap-2 text-sm underline hover:no-underline"
 					onclick={(e) => {
 						e.preventDefault(); // Important to prevent form submission
-						form.resetOverride(field.CredimiID);
+						form.resetOverride(field.credimi_id);
 					}}
 				>
 					<Undo size={14} />
@@ -57,12 +58,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="space-y-2">
 			<Label>{m.Default_fields()}</Label>
 			<ul class="space-y-1">
-				{#each form.dependentFields as { CredimiID, LabelKey, Type }}
-					{@const value = form.props.formDependency.getData()[CredimiID]}
-					{@const valuePreview = previewValue(value, Type)}
+				{#each form.dependentFields as { credimi_id, field_label, field_type }}
+					{@const value = form.props.formDependency.getData()[credimi_id]}
+					{@const valuePreview = previewValue(value, field_type)}
 
 					<li class="flex items-center gap-2">
-						<span class="font-mono text-sm">{LabelKey}</span>
+						<span class="font-mono text-sm">{field_label}</span>
 
 						<Popover.Root>
 							<Popover.Trigger
@@ -71,7 +72,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<Eye size={14} />
 							</Popover.Trigger>
 							<Popover.Content class="dark overflow-auto">
-								<pre class="text-xs">{valuePreview}</pre>
+								{#if field_type === 'object'}
+									<CodeDisplay
+										content={valuePreview}
+										language="json"
+										class="text-xs"
+									/>
+								{:else}
+									<pre class="text-xs">{valuePreview}</pre>
+								{/if}
 							</Popover.Content>
 						</Popover.Root>
 
@@ -79,7 +88,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							class="rounded-md p-1 hover:cursor-pointer hover:bg-gray-200"
 							onclick={(e) => {
 								e.preventDefault(); // Important to prevent form submission
-								form.overrideField(CredimiID);
+								form.overrideField(credimi_id);
 							}}
 						>
 							<Pencil size={14} />

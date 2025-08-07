@@ -5,13 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import Step from '$wallet-test/_partials/step.svelte';
-	import FeedbackForms from '$wallet-test/_partials/feedback-forms.svelte';
 	import WorkflowLogs from '$wallet-test/_partials/workflow-logs.svelte';
-	import { LogStatus, type WorkflowLogsProps } from '$wallet-test/_partials/workflow-logs';
-	import { z } from 'zod';
-	import type { Snippet } from 'svelte';
 	import Container from './container.svelte';
+	import Section from './section.svelte';
+	import { getOpenIDNetWorkflowLogsProps } from '$lib/wallet-test-pages/openidnet';
 
 	//
 
@@ -19,61 +16,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflowId: string;
 		runId: string;
 		namespace: string;
-		children?: Snippet;
 	};
 
-	let { workflowId, namespace, children }: Props = $props();
-
-	//
-
-	const workflowLogsProps: WorkflowLogsProps = $derived.by(() => {
-		if (!workflowId || !namespace) {
-			throw new Error('missing workflowId or namespace');
-		}
-		return {
-			subscriptionSuffix: 'openidnet-logs',
-			startSignal: 'start-openidnet-check-log-update',
-			stopSignal: 'stop-openidnet-check-log-update',
-			workflowSignalSuffix: '-log',
-			workflowId,
-			namespace,
-			logTransformer: (rawLog) => {
-				const data = LogsSchema.parse(rawLog);
-				return {
-					time: data.time,
-					message: data.msg,
-					status: data.result,
-					rawLog
-				};
-			}
-		};
-	});
-
-	const LogsSchema = z
-		.object({
-			_id: z.string(),
-			msg: z.string(),
-			src: z.string(),
-			time: z.number().optional(),
-			result: z.nativeEnum(LogStatus).optional()
-		})
-		.passthrough();
+	let { workflowId, namespace }: Props = $props();
+	const workflowLogsProps = $derived(getOpenIDNetWorkflowLogsProps(workflowId, namespace));
 </script>
 
 <Container>
 	{#snippet left()}
-		<div class="space-y-4">
-			{@render children?.()}
-			<Step text="Confirm the result">
-				<FeedbackForms {workflowId} {namespace} class="!gap-4 pt-4" />
-			</Step>
-		</div>
-	{/snippet}
-	{#snippet right()}
-		<Step text="Logs">
-			<div class="pt-4">
-				<WorkflowLogs {...workflowLogsProps} uiSize="sm" class="!max-h-[500px] " />
-			</div>
-		</Step>
+		<Section title="Logs" bgColor="blue">
+			<WorkflowLogs
+				{...workflowLogsProps}
+				uiSize="sm"
+				class="!max-h-[500px]"
+				accordionItemClass="rounded-none !border-b !border-gray-500"
+				codeClass="!bg-slate-100 rounded-none"
+			/>
+		</Section>
 	{/snippet}
 </Container>

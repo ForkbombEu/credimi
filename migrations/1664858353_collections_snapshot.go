@@ -18,7 +18,7 @@ var jsonData string
 func init() {
 	m.Register(func(app core.App) error {
 		return app.ImportCollectionsByMarshaledJSON([]byte(jsonData), false)
-	}, func(app core.App) error {
+	}, func(_ core.App) error {
 		// no revert since the configuration on the environment, on which
 		// the migration was executed, could have changed via the UI/API
 		return nil

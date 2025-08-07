@@ -31,7 +31,7 @@ export class ConfigureChecksForm {
 			(data, id) =>
 				new CheckConfigEditor({
 					id,
-					json: data.content,
+					code: data.content,
 					fields: data.fields.sort(configFieldComparator),
 					formDependency: this.sharedFieldsEditor
 				})
@@ -97,15 +97,16 @@ export class ConfigureChecksForm {
 				if (mode != 'form') return undefined;
 
 				const entries: Entries[] = [];
+				// TODO: dentro value ci sono campi che non dovrebbero esserci, da investigare
 				for (const [credimiId, datum] of Record.toEntries(value)) {
 					entries.push({
 						credimi_id: credimiId,
 						value: datum,
 						field_name:
-							form.props.fields.find((f) => f.CredimiID == credimiId)?.FieldName ?? ''
+							form.props.fields.find((f) => f.credimi_id == credimiId)?.field_id ?? ''
 					});
 				}
-				return entries;
+				return entries.filter((e) => e.field_name != '');
 			}),
 			Record.filter((v) => v != undefined)
 		);
@@ -113,7 +114,7 @@ export class ConfigureChecksForm {
 		const configs_with_json = pipe(
 			this.checkConfigEditors,
 			Record.map((form) => form.getData()),
-			Record.filter((v) => v.mode == 'json'),
+			Record.filter((v) => v.mode == 'code'),
 			Record.map((v) => v.value)
 		);
 

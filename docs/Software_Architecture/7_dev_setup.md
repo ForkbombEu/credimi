@@ -37,16 +37,31 @@ sudo apt install pre-commit
 ### **Clone the repository**
 
 ```bash
-git clone https://github.com/ForkbombEu/DIDimo
+git clone https://github.com/ForkbombEu/credimi
 ```
 
 ### **Install dependencies**
 
 ```bash
-cd DIDimo
+cd credimi
 mise trust
-make didimo
+make credimi
 ```
+
+## Edit your .env file 
+
+Copy .env.example to .env
+
+```bash
+cp ./webapp/.env.example ./webapp/.env  
+```
+
+Then edit the .env file, particularly: 
+
+1. set the absolute path in ROOT_DIR
+1. Get a token from https://www.certification.openid.net and add it in TOKEN
+
+Copy ./webapp/env.example to 
 
 ## **Start Development Server**
 
