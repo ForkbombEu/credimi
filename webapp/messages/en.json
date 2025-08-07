@@ -614,5 +614,8 @@
 	"Credential_Format": "Credential Format",
 	"Client_id_Scheme": "Client id Scheme",
 	"Request_Method": "Request Method",
-	"Response_Mode": "Response Mode"
+	"Response_Mode": "Response Mode",
+	"Timezone": "Timezone",
+	"public": "public",
+	"not_public": "not public"
 }
