@@ -33,109 +33,59 @@ import (
 )
 
 var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
-		BaseURL: "/api/compliance",
-		Routes: []routing.RouteDefinition{
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks",
-				Handler: HandleListMyChecks,
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks/{workflowId}/{runId}",
-				Handler: HandleGetWorkflow,
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/checks/{workflowId}/{runId}/history",
-				Handler: HandleGetWorkflowsHistory,
-			},
-			{
-				Method:        http.MethodPost,
-				Path:          "/{protocol}/{version}/save-variables-and-start",
-				Handler:       HandleSaveVariablesAndStart,
-				RequestSchema: SaveVariablesAndStartRequestInput{},
-			},
-			{
-				Method:        http.MethodPost,
-				Path:          "/notify-failure",
-				Handler:       HandleNotifyFailure,
-				RequestSchema: HandleNotifyFailureRequestInput{},
-			},
-			{
-				Method:        http.MethodPost,
-				Path:          "/confirm-success",
-				Handler:       HandleConfirmSuccess,
-				RequestSchema: HandleConfirmSuccessRequestInput{},
-			},
-			{
-				Method:        http.MethodPost,
-				Path:          "/send-temporal-signal",
-				Handler:       HandleSendTemporalSignal,
-				RequestSchema: HandleSendTemporalSignalInput{},
-			},
-			{
-				Method:              http.MethodPost,
-				Path:                "/send-log-update",
-				Handler:             HandleSendLogUpdate,
-				RequestSchema:       HandleSendLogUpdateRequestInput{},
-				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
-			},
-			{
-				Method:              http.MethodPost,
-				Path:                "/send-eudiw-log-update",
-				Handler:             HandleSendEudiwLogUpdate,
-				RequestSchema:       HandleSendLogUpdateRequestInput{},
-				ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
-			},
-			{
-				Method:  http.MethodGet,
-				Path:    "/deeplink/{workflowId}/{runId}",
-				Handler: HandleDeeplink,
-			},
+	BaseURL: "/api/compliance",
+	Routes: []routing.RouteDefinition{
+		{
+			Method:  http.MethodGet,
+			Path:    "/checks",
+			Handler: HandleListMyChecks,
 		},
-		Middlewares: []*hook.Handler[*core.RequestEvent]{
-			{Func: middlewares.ErrorHandlingMiddleware},
+		{
+			Method:  http.MethodGet,
+			Path:    "/checks/{workflowId}/{runId}",
+			Handler: HandleGetWorkflow,
 		},
-		AuthenticationRequired: true,
-	}
-
-type HandleConfirmSuccessRequestInput struct {
-	WorkflowID string `json:"workflow_id" validate:"required"`
-	Namespace  string `json:"namespace"   validate:"required"`
-}
-
-func HandleConfirmSuccess() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[HandleConfirmSuccessRequestInput](e)
-		if err != nil {
-			return err
-		}
-		data := workflows.SignalData{Success: true}
-		c, err := temporalclient.GetTemporalClientWithNamespace(req.Namespace)
-		if err != nil {
-			return err
-		}
-
-		if err := c.SignalWorkflow(
-			context.Background(),
-			req.WorkflowID,
-			"",
-			"openidnet-check-result-signal",
-			data,
-		); err != nil {
-			return apierror.New(
-				http.StatusBadRequest,
-				"signal",
-				"failed to send success signal",
-				err.Error(),
-			)
-		}
-		return e.JSON(
-			http.StatusOK,
-			map[string]string{"message": "Workflow completed successfully"},
-		)
-	}
+		{
+			Method:  http.MethodGet,
+			Path:    "/checks/{workflowId}/{runId}/history",
+			Handler: HandleGetWorkflowsHistory,
+		},
+		{
+			Method:        http.MethodPost,
+			Path:          "/{protocol}/{version}/save-variables-and-start",
+			Handler:       HandleSaveVariablesAndStart,
+			RequestSchema: SaveVariablesAndStartRequestInput{},
+		},
+		{
+			Method:        http.MethodPost,
+			Path:          "/send-temporal-signal",
+			Handler:       HandleSendTemporalSignal,
+			RequestSchema: HandleSendTemporalSignalInput{},
+		},
+		{
+			Method:              http.MethodPost,
+			Path:                "/send-openidnet-log-update",
+			Handler:             HandleSendOpenIDNetLogUpdate,
+			RequestSchema:       HandleSendLogUpdateRequestInput{},
+			ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
+		},
+		{
+			Method:              http.MethodPost,
+			Path:                "/send-eudiw-log-update",
+			Handler:             HandleSendEudiwLogUpdate,
+			RequestSchema:       HandleSendLogUpdateRequestInput{},
+			ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
+		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/deeplink/{workflowId}/{runId}",
+			Handler: HandleDeeplink,
+		},
+	},
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	AuthenticationRequired: true,
 }
 
 func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
@@ -370,68 +320,12 @@ type HandleNotifyFailureRequestInput struct {
 	Reason     string `json:"reason"      validate:"required"`
 }
 
-func HandleNotifyFailure() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[HandleNotifyFailureRequestInput](e)
-		if err != nil {
-			return err
-		}
-		data := workflows.SignalData{Success: false, Reason: req.Reason}
-		c, err := temporalclient.GetTemporalClientWithNamespace(req.Namespace)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
-		}
-
-		if err := c.SignalWorkflow(
-			context.Background(),
-			req.WorkflowID,
-			"",
-			"openidnet-check-result-signal",
-			data,
-		); err != nil {
-			notFound := &serviceerror.NotFound{}
-			if errors.As(err, &notFound) {
-				return apierror.New(
-					http.StatusNotFound,
-					"workflow",
-					"workflow not found",
-					err.Error(),
-				)
-			}
-			invalidArgument := &serviceerror.InvalidArgument{}
-			if errors.As(err, &invalidArgument) {
-				return apierror.New(
-					http.StatusBadRequest,
-					"workflow",
-					"invalid workflow ID",
-					err.Error(),
-				)
-			}
-			return apierror.New(
-				http.StatusBadRequest,
-				"signal",
-				"failed to send failure signal",
-				err.Error(),
-			)
-		}
-		return e.JSON(
-			http.StatusOK,
-			map[string]string{"message": "Test failed", "reason": req.Reason},
-		)
-	}
-}
-
 type HandleSendLogUpdateRequestInput struct {
 	WorkflowID string           `json:"workflow_id"`
 	Logs       []map[string]any `json:"logs"`
 }
 
-func HandleSendLogUpdate() func(*core.RequestEvent) error {
+func HandleSendOpenIDNetLogUpdate() func(*core.RequestEvent) error {
 	return sendRealtimeLogs(workflows.OpenIDNetSubscription)
 }
 
@@ -596,7 +490,7 @@ func sendOpenIDNetLogUpdateStart(
 
 			if logsInterface, ok := result.Log.([]any); ok {
 				logs := workflows.AsSliceOfMaps(logsInterface)
-				id := strings.TrimSuffix(input.WorkflowID, "-log")
+				id := input.WorkflowID
 				if err := notifyLogsUpdate(app, id+workflows.OpenIDNetSubscription, logs); err != nil {
 					return apierror.New(
 						http.StatusBadRequest,

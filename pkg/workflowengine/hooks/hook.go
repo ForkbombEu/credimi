@@ -119,7 +119,6 @@ func StartAllWorkersByNamespace(namespace string) {
 			TaskQueue: workflows.OpenIDNetTaskQueue,
 			Workflows: []workflowengine.Workflow{
 				&workflows.OpenIDNetWorkflow{},
-				&workflows.OpenIDNetLogsWorkflow{},
 			},
 			Activities: []workflowengine.ExecutableActivity{
 				activities.NewStepCIWorkflowActivity(),
