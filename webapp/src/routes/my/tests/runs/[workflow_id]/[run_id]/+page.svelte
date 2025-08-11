@@ -56,11 +56,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let isIframeLoading = $state(true);
+	let constantHeightDifference = $state(0);
 
 	setupListener<IframeMessage>((ev) => {
 		if (ev.type === 'height') {
 			const iframe = getIframe();
-			if (iframe) iframe.height = ev.height + 'px';
+			if (iframe) {
+				const heightDifference = ev.height - (parseInt(iframe.height) || 0);
+				if (heightDifference !== constantHeightDifference) {
+					iframe.height = ev.height + 'px';
+					constantHeightDifference = heightDifference;
+				}
+			}
 		}
 		if (ev.type === 'ready') {
 			isIframeLoading = false;
@@ -203,7 +210,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	id={iframeId}
 	title="Workflow"
 	src={page.url.pathname + '/temporal'}
-	class="w-full h-svh"
+	class="w-full"
+	style="overflow: hidden;"
+	scrolling="no"
 ></iframe>
 
 <LoadingDialog
