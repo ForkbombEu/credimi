@@ -81,7 +81,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Form {form}>
 			<Field {form} name="name" options={{ label: m.Username() }} />
 			<div class="space-y-2">
-				<Field {form} name="email" options={{ label: m.email(), type: 'email' }} />
+				<Field {form} name="email" options={{ type: m.email(), readonly: true }} />
 				<CheckboxField
 					{form}
 					name="emailVisibility"
