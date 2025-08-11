@@ -46,6 +46,7 @@ var Codes = map[string]Code{
 	EudiwCheckFailed:               {"CRE306", "Eudiw check failed"},
 	UnexpectedDockerOutput:         {"CRE307", "Unexpected output from docker container"},
 	ZenroomExecutionFailed:         {"CRE308", "Execution of Zenroom failed"},
+	OpenIDnetCheckFailed:           {"CRE309", "OpenIDnet check failed"},
 	ReadFromReaderFailed:           {"CRE901", "Failed to read from reader"},
 	CopyFromReaderFailed:           {"CRE902", "Failed to copy from reader"},
 	MkdirFailed:                    {"CRE903", "Failed to create a new folder"},
@@ -87,6 +88,7 @@ const (
 	EudiwCheckFailed               = "CRE306"
 	UnexpectedDockerOutput         = "CRE307"
 	ZenroomExecutionFailed         = "CRE308"
+	OpenIDnetCheckFailed           = "CRE309"
 	ReadFromReaderFailed           = "CRE901"
 	CopyFromReaderFailed           = "CRE902"
 	MkdirFailed                    = "CRE903"
