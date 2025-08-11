@@ -542,9 +542,6 @@ func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, 
 			err.Error(),
 		)
 	}
-	if err != nil {
-		return workflowengine.WorkflowResult{}, err
-	}
 	input := workflowengine.WorkflowInput{
 		Config: map[string]any{
 			"app_url":    appURL,

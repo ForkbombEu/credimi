@@ -43,6 +43,7 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 		workflowId,
 		namespace,
 		subscriptionSuffix,
+		workflowSignalSuffix,
 		startSignal,
 		stopSignal,
 		onUpdate,
@@ -50,6 +51,9 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 	} = props;
 
 	const channel = `${workflowId}${subscriptionSuffix}`;
+	const signalWorkflowId = workflowSignalSuffix
+		? `${workflowId}${workflowSignalSuffix}`
+		: workflowId;
 
 	async function startLogs() {
 		try {
@@ -72,7 +76,7 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 			await pb.send('/api/compliance/send-temporal-signal', {
 				method: 'POST',
 				body: {
-					workflow_id: workflowId,
+					workflow_id: signalWorkflowId,
 					namespace,
 					signal: startSignal
 				},
@@ -89,7 +93,7 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 			await pb.send('/api/compliance/send-temporal-signal', {
 				method: 'POST',
 				body: {
-					workflow_id: workflowId,
+					workflow_id: signalWorkflowId,
 					namespace,
 					signal: stopSignal
 				},

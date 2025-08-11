@@ -129,6 +129,10 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 			env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{
 				Name: w.Name(),
 			})
+			var child OpenIDNetLogsWorkflow
+			env.RegisterWorkflowWithOptions(child.Workflow, workflow.RegisterOptions{
+				Name: child.Name(),
+			})
 			// Set environment variables
 			os.Setenv("OPENIDNET_TOKEN", "test_token")
 
@@ -136,7 +140,11 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 			done := make(chan struct{})
 			go func() {
 				env.RegisterDelayedCallback(func() {
-					env.SignalWorkflow(OpenIDNetStartCheckSignal, nil)
+					env.SignalWorkflowByID(
+						"default-test-workflow-id-log",
+						OpenIDNetStartCheckSignal,
+						nil,
+					)
 				}, time.Second*30)
 				env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
 					Payload: map[string]any{
@@ -170,6 +178,79 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				require.Error(t, env.GetWorkflowResult(&result))
 				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Code)
 				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Description)
+			}
+		})
+	}
+}
+
+func Test_LogSubWorkflow(t *testing.T) {
+	testCases := []struct {
+		name          string
+		mockResponse  workflowengine.ActivityResult
+		expectRunning bool
+	}{
+		{
+			name: "Workflow completes when result is FINISHED",
+			mockResponse: workflowengine.ActivityResult{Output: map[string]any{
+				"body": []map[string]any{{"result": "FINISHED"}},
+			}},
+			expectRunning: false,
+		},
+		{
+			name: "Workflow runs indefinitely when result is RUNNING",
+			mockResponse: workflowengine.ActivityResult{Output: map[string]any{
+				"body": []map[string]any{{"result": "RUNNING"}},
+			}},
+			expectRunning: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testSuite := &testsuite.WorkflowTestSuite{}
+			env := testSuite.NewTestWorkflowEnvironment()
+
+			callCount := 0
+			HTTPActivity := activities.NewHTTPActivity()
+			env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
+				Name: HTTPActivity.Name(),
+			})
+			var logsWorkflow OpenIDNetLogsWorkflow
+			env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+				Run(func(_ mock.Arguments) {
+					callCount++
+				}).
+				Return(tc.mockResponse, nil)
+			done := make(chan struct{})
+			go func() {
+				env.RegisterDelayedCallback(func() {
+					env.SignalWorkflow(OpenIDNetStartCheckSignal, nil)
+				}, time.Second*30)
+				env.ExecuteWorkflow(logsWorkflow.Workflow, workflowengine.WorkflowInput{
+					Payload: map[string]any{
+						"rid":   "12345",
+						"token": "test-token",
+					},
+					Config: map[string]any{
+						"app_url":  "https://test-app.com",
+						"interval": time.Second * 10,
+					},
+				})
+
+				close(done)
+			}()
+
+			if tc.expectRunning {
+				env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*45)
+
+				<-done
+				require.Greater(t, callCount, 1) // Expecting multiple activity calls
+			} else {
+				<-done
+				var result workflowengine.WorkflowResult
+				require.NoError(t, env.GetWorkflowResult(&result))
+				require.NotEmpty(t, result.Log)
+				require.Equal(t, 2, callCount) // Only two activity call (no looping)
 			}
 		})
 	}
