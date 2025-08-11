@@ -19,6 +19,7 @@ export function getOpenIDNetWorkflowLogsProps(
 		subscriptionSuffix: 'openidnet-logs',
 		startSignal: 'start-openidnet-check-log-update',
 		stopSignal: 'stop-openidnet-check-log-update',
+		workflowSignalSuffix: '-log',
 		workflowId,
 		namespace,
 		logTransformer: (rawLog) => {
