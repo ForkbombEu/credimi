@@ -617,5 +617,6 @@
 	"Response_Mode": "Response Mode",
 	"Timezone": "Timezone",
 	"public": "public",
-	"not_public": "not public"
+	"not_public": "not public",
+	"Could_not_import_credential_issuer_well_known": "Could not import credential issuer well-known: neither .well-known/openid-federation nor .well-known/openid-credential-issuer endpoints are accessible. Please check the URL and try again."
 }

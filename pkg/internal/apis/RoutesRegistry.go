@@ -20,6 +20,7 @@ var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.ConformanceRoutes,
 	handlers.TemplateRoutes,
+	IssuersRoutes,
 }
 
 func RegisterMyRoutes(app core.App) {
