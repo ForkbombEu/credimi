@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { String } from 'effect';
 	import { MarketplaceItemCard } from '../../../_utils/index.js';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 
 	//
 
@@ -28,6 +29,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			anchor: 'general_info',
 			label: m.General_info()
 		},
+		// svelte-ignore state_referenced_locally
+		...(credentialIssuer?.description && {
+			description: {
+				icon: Layers,
+				anchor: 'description',
+				label: m.Description()
+			}
+		}),
 		credentials: {
 			icon: Layers,
 			anchor: 'credentials',
@@ -62,6 +71,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</InfoBox>
 		{/if}
 	</div>
+
+	{#if credentialIssuer.description && sections.description}
+		<div class="space-y-6">
+			<PageHeader title={sections.description.label} id={sections.description.anchor} />
+
+			<div class="prose">
+				<RenderMd content={credentialIssuer.description} />
+			</div>
+		</div>
+	{/if}
 
 	<div class="space-y-6">
 		<PageHeader title={sections.credentials.label} id={sections.credentials.anchor} />
