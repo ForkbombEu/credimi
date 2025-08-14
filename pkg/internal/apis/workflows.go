@@ -14,6 +14,7 @@ import (
 	"os"
 	"strings"
 	"time"
+	"net"
 
 	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -196,24 +197,65 @@ func checkWellKnownEndpoints(ctx context.Context, baseURL string) error {
 
 	federationURL := cleanURL + "/.well-known/openid-federation"
 	if err := checkEndpointExists(ctx, federationURL); err == nil {
-		return nil 
+		return nil
 	}
 
 	issuerURL := cleanURL + "/.well-known/openid-credential-issuer"
 	if err := checkEndpointExists(ctx, issuerURL); err == nil {
-		return nil 
+		return nil
 	}
 
 	return fmt.Errorf("neither .well-known/openid-federation nor .well-known/openid-credential-issuer endpoints are accessible")
 }
 
-func checkEndpointExists(ctx context.Context, url string) error {
-	req, err := http.NewRequestWithContext(ctx, "HEAD", url, nil)
+func isPrivateIP(ip net.IP) bool {
+	privateBlocks := []*net.IPNet{
+		// IPv4 private ranges
+		{IP: net.IPv4(10, 0, 0, 0), Mask: net.CIDRMask(8, 32)},
+		{IP: net.IPv4(172, 16, 0, 0), Mask: net.CIDRMask(12, 32)},
+		{IP: net.IPv4(192, 168, 0, 0), Mask: net.CIDRMask(16, 32)},
+		// IPv6 loopback and link-local
+		{IP: net.ParseIP("::1"), Mask: net.CIDRMask(128, 128)},
+		{IP: net.ParseIP("fe80::"), Mask: net.CIDRMask(10, 128)},
+	}
+	for _, block := range privateBlocks {
+		if block.Contains(ip) {
+			return true
+		}
+	}
+	return ip.IsLoopback()
+}
+
+func checkEndpointExists(ctx context.Context, urlToCheck string) error {
+	parsedURL, err := url.Parse(urlToCheck)
+	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
+		return fmt.Errorf("invalid or unsafe URL provided")
+	}
+	
+	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
+		return fmt.Errorf("unsupported URL scheme")
+	}
+
+	ips, err := net.LookupIP(parsedURL.Hostname())
+	if err != nil {
+		return fmt.Errorf("could not resolve host: %w", err)
+	}
+	for _, ip := range ips {
+		if isPrivateIP(ip) {
+			return fmt.Errorf("refusing to connect to private/internal IP: %s", ip)
+		}
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "HEAD", parsedURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %v", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := &http.Client{
+		Timeout: 5 * time.Second,
+	}
+	
+	resp, err := client.Do(req)
 	if err != nil {
 		return fmt.Errorf("failed to make request: %v", err)
 	}
