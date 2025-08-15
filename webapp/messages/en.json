@@ -617,5 +617,9 @@
 	"Response_Mode": "Response Mode",
 	"Timezone": "Timezone",
 	"public": "public",
-	"not_public": "not public"
+	"not_public": "not public",
+	"Credential_properties": "Credential properties",
+	"Supported_credentials": "Supported credentials",
+	"Credential_subject": "Credential subject",
+	"Compatible_issuer": "Compatible issuer"
 }

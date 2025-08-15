@@ -7,14 +7,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import { type IndexItem } from '$lib/layout/pageIndex.svelte';
 	import { m } from '@/i18n/index.js';
-	import { Building2, Key, Layers3 } from 'lucide-svelte';
 	import MarketplaceItemCard from '$marketplace/_utils/marketplace-item-card.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import { String } from 'effect';
 	import T from '@/components/ui-custom/t.svelte';
 	import { QrCode } from '@/qr';
+	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
 
 	//
 
@@ -22,23 +21,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const sections = {
-		general_info: {
-			icon: Building2,
-			anchor: 'general_info',
-			label: m.General_info()
-		},
-		related_verifier: {
-			icon: Layers3,
-			anchor: 'related_verifier',
-			label: m.Related_verifier()
-		},
-		related_credentials: {
-			icon: Key,
-			anchor: 'related_credentials',
-			label: m.Related_credentials()
-		}
-	} satisfies Record<string, IndexItem>;
+	const sections = generateMarketplaceSection('use_cases_verifications', {
+		hasRelatedVerifier: true,
+		hasRelatedCredentials: true
+	});
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>

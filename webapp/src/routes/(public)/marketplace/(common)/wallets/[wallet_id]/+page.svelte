@@ -8,8 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
-	import { Building2, Layers3, Layers } from 'lucide-svelte';
 	import { String } from 'effect';
 	import { z } from 'zod';
 	import Card from '@/components/ui-custom/card.svelte';
@@ -17,6 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
 
 	//
 
@@ -25,25 +24,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const sections = {
-		general_info: {
-			icon: Building2,
-			anchor: 'general_info',
-			label: m.General_info()
-		},
-		description: {
-			icon: Layers,
-			anchor: 'description',
-			label: m.Description()
-		},
-		conformance_checks: {
-			icon: Layers3,
-			anchor: 'conformance_checks',
-			label: m.Conformance_Checks()
-		}
-	} satisfies Record<string, IndexItem>;
-
 	const checks = $derived(z.array(ConformanceCheckSchema).safeParse(wallet.conformance_checks));
+
+	const sections = $derived(generateMarketplaceSection('wallets', {
+		hasDescription: !!wallet?.description,
+		hasConformanceChecks: checks.success && checks.data.length > 0
+	}));
 
 	//
 
@@ -86,10 +72,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 		</div>
 	</div>
-	{#if wallet.description}
+	{#if wallet.description && sections.description}
 		<div class="space-y-6">
 			<PageHeader title={sections.description.label} id={sections.description.anchor} />
-
 			<div class="prose">
 				<RenderMd content={wallet.description} />
 			</div>
