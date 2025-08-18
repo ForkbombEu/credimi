@@ -402,6 +402,181 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 	})
 }
 
+type WalletURL struct {
+	URL string `json:"walletURL"`
+}
+
+func HookWalletWorkflow(app *pocketbase.PocketBase) {
+	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		se.Router.POST("/wallet/start-check", func(e *core.RequestEvent) error {
+			var req WalletURL
+
+			if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
+				return apis.NewBadRequestError("invalid JSON input", err)
+			}
+			// Check if a record with the given URL already exists
+			collection, err := app.FindCollectionByNameOrId("wallets")
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"wallets",
+					"failed to find wallets collection",
+					err.Error(),
+				)
+			}
+			organization, err := handlers.GetUserOrganizationID(app, e.Auth.Id)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"failed to get user organization",
+					err.Error())
+			}
+			existingRecords, err := app.FindRecordsByFilter(
+				collection.Id,
+				"(playstore_url = {:url} || appstore_url = {:url}) && owner = {:owner}",
+				"",
+				1,
+				0,
+				dbx.Params{
+					"url":   req.URL,
+					"owner": organization,
+				},
+			)
+
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"wallets",
+					"failed to find wallet records",
+					err.Error(),
+				)
+			}
+			var walletID string
+			if len(existingRecords) > 0 {
+				walletID = existingRecords[0].Id
+			} else {
+				newRecord := core.NewRecord(collection)
+				newRecord.Set("name", req.URL)
+				newRecord.Set("owner", organization)
+				if err := app.Save(newRecord); err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						fmt.Sprintf("wallet_%s", req),
+						"failed to save wallet data",
+						err.Error(),
+					)
+				}
+
+				walletID = newRecord.Id
+			}
+
+			// Start the workflow
+			workflowInput := workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url":   app.Settings().Meta.AppURL,
+					"namespace": organization,
+				},
+				Payload: map[string]any{
+					"walletID": walletID,
+					"url":      req.URL,
+				},
+			}
+			w := workflows.WalletWorkflow{}
+
+			_, err = w.Start(workflowInput)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to start workflow",
+					err.Error(),
+				)
+			}
+			return e.JSON(http.StatusOK, map[string]string{
+				"walletURL": req.URL,
+			})
+		}).Bind(apis.RequireAuth())
+
+		se.Router.POST(
+			"/api/wallet/store-or-update-wallet-data",
+			func(e *core.RequestEvent) error {
+				var body struct {
+					WalletID string         `json:"walletID"`
+					URL      string         `json:"url"`
+					Type     string         `json:"type"`
+					Metadata map[string]any `json:"metadata"`
+					OrgID    string         `json:"orgID"`
+				}
+
+				if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
+					return apis.NewBadRequestError("invalid JSON body", err)
+				}
+
+				collection, err := app.FindCollectionByNameOrId("wallets")
+				if err != nil {
+					return err
+				}
+				existing, err := app.FindFirstRecordByData(collection, "id", body.WalletID)
+
+				var record *core.Record
+				if err != nil {
+					// Create new record
+					record = core.NewRecord(collection)
+				} else {
+					// Update existing record
+					record = existing
+				}
+
+				description := getStringFromMap(body.Metadata, "description")
+				record.Set("description", description)
+
+				switch body.Type {
+				case "google":
+					name := getStringFromMap(body.Metadata, "title")
+					record.Set("name", name)
+					logo := getStringFromMap(body.Metadata, "icon")
+					record.Set("logo_url", logo)
+					appID := getStringFromMap(body.Metadata, "appId")
+					record.Set("app_id", appID)
+					record.Set("playstore_url", body.URL)
+
+				case "apple":
+					name := getStringFromMap(body.Metadata, "trackName")
+					record.Set("name", name)
+					logo := getStringFromMap(body.Metadata, "artworkUrl100")
+					appID := getStringFromMap(body.Metadata, "bundleId")
+					record.Set("app_id", appID)
+					record.Set("logo_url", logo)
+					record.Set("appstore_url", body.URL)
+				}
+				dataJSON, err := json.Marshal(body.Metadata)
+				if err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"wallet",
+						"failed to marshal wallet metadata",
+						err.Error(),
+					)
+				}
+				record.Set("metadata", dataJSON)
+				record.Set("owner", body.OrgID)
+
+				if err := app.Save(record); err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"wallet",
+						"failed to save wallet data",
+						err.Error(),
+					)
+				}
+				return e.JSON(http.StatusOK, map[string]any{"walletID": body.WalletID})
+			},
+		)
+		return se.Next()
+	})
+}
+
 func HookAtUserCreation(app *pocketbase.PocketBase) {
 	app.OnRecordAfterCreateSuccess("users").BindFunc(func(e *core.RecordEvent) error {
 		err := createNewOrganizationForUser(e.App, e.Record)
@@ -572,4 +747,15 @@ func readSchemaFile(path string) (string, error) {
 		)
 	}
 	return string(data), nil
+}
+func getStringFromMap(m map[string]any, key string) string {
+	if m == nil {
+		return ""
+	}
+	if val, ok := m[key]; ok {
+		if s, ok := val.(string); ok {
+			return s
+		}
+	}
+	return ""
 }
