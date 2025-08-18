@@ -74,15 +74,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Form {form} enctype="multipart/form-data" class="!space-y-8">
-	<div class="flex justify-end">
-		<CheckboxField
-			{form}
-			name="published"
-			options={{
-				label: m.Published()
-			}}
-		/>
-	</div>
 	<Field
 		{form}
 		name="name"

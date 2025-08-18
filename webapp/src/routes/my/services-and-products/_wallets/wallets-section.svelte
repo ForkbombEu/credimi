@@ -20,7 +20,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WalletForm from './wallet-form.svelte';
 	import { Pencil, Plus } from 'lucide-svelte';
 	import { m } from '@/i18n';
-	import PublishedStatus from '$lib/layout/published-status.svelte';
+	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
+	import { Eye, EyeOff } from 'lucide-svelte';
+	import { pb } from '@/pocketbase';
 	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
 	//
@@ -32,6 +34,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { organizationId, id }: Props = $props();
+
+	//
+
+	function updatePublished(
+		recordId: string,
+		published: boolean,
+		onSuccess: () => void
+	) {
+		pb.collection('wallets')
+			.update(recordId, {
+				published
+			})
+			.then(() => {
+				onSuccess();
+			});
+	}
 </script>
 
 <CollectionManager
@@ -40,6 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		filter: `owner.id = '${organizationId}'`,
 		sort: ['created', 'DESC']
 	}}
+	editFormFieldsOptions={{ exclude: ['owner', 'published'] }}
 >
 	{#snippet top({ Header })}
 		<Header title="Wallets" {id}>
@@ -76,7 +95,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<A href="/apps/{wallet.id}">{wallet.name}</A>
 							{/if}
 						</T>
-						<PublishedStatus item={wallet} />
 					</div>
 					<T class="mt-1 text-xs text-gray-400">
 						<RenderMd content={wallet.description} />
@@ -84,6 +102,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 
 				<div class="flex items-center gap-1">
+					<SwitchWithIcons
+						offIcon={EyeOff}
+						onIcon={Eye}
+						size="md"
+						checked={wallet.published}
+						onCheckedChange={() =>
+							updatePublished(
+								wallet.id,
+								!wallet.published,
+								onEditSuccess
+							)}
+					/>
+
 					{@render UpdateWalletFormSnippet(wallet.id, wallet, onEditSuccess)}
 
 					<RecordDelete record={wallet}>

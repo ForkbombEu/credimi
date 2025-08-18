@@ -31,10 +31,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		sort: ['created', 'DESC']
 	}}
 	formFieldsOptions={{
-		exclude: ['owner', 'conformance_checks'],
+		exclude: ['owner', 'conformance_checks', 'published'],
 		snippets: {
 			standard_and_version,
-			published,
 			description
 		},
 		descriptions: {
@@ -49,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			cryptographic_binding_methods:
 				m.verifier_field_description_cryptographic_binding_methods()
 		},
-		order: ['published']
+		order: []
 	}}
 >
 	{#snippet top({ Header })}
@@ -73,12 +72,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet standard_and_version({ form }: FieldSnippetOptions<'verifiers'>)}
 	<VerifierStandardVersionField {form} />
-{/snippet}
-
-{#snippet published({ form }: FieldSnippetOptions<'verifiers'>)}
-	<div class="flex justify-end gap-2">
-		<CheckboxField {form} name="published" options={{ label: m.Published() }} />
-	</div>
 {/snippet}
 
 {#snippet description({ form }: FieldSnippetOptions<'verifiers'>)}
