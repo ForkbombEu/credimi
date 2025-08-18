@@ -494,19 +494,3 @@ func (w *OpenIDNetLogsWorkflow) Configure(ctx workflow.Context) workflow.Context
 	}
 	return workflow.WithChildOptions(ctx, childOptions)
 }
-
-func AsSliceOfMaps(val any) []map[string]any {
-	if v, ok := val.([]map[string]any); ok {
-		return v
-	}
-	if arr, ok := val.([]any); ok {
-		res := make([]map[string]any, 0, len(arr))
-		for _, item := range arr {
-			if m, ok := item.(map[string]any); ok {
-				res = append(res, m)
-			}
-		}
-		return res
-	}
-	return nil
-}
