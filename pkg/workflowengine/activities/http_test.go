@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
@@ -23,12 +24,13 @@ func TestHTTPActivity_Execute(t *testing.T) {
 	env.RegisterActivity(activity.Execute)
 
 	tests := []struct {
-		name           string
-		handlerFunc    http.HandlerFunc
-		input          workflowengine.ActivityInput
-		expectError    bool
-		expectStatus   int
-		expectResponse any
+		name            string
+		handlerFunc     http.HandlerFunc
+		input           workflowengine.ActivityInput
+		expectError     bool
+		expectedErrCode errorcodes.Code
+		expectStatus    int
+		expectResponse  any
 	}{
 		{
 			name: "Success - GET request without headers/body",
@@ -77,11 +79,12 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			name: "Failure - invalid method",
 			input: workflowengine.ActivityInput{
 				Config: map[string]string{
-					"method": "",
+					"method": "INV",
 					"url":    "http://example.com",
 				},
 			},
-			expectError: true,
+			expectError:     true,
+			expectedErrCode: errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed],
 		},
 		{
 			name: "Failure - timeout",
@@ -95,7 +98,8 @@ func TestHTTPActivity_Execute(t *testing.T) {
 					"timeout": "1",
 				},
 			},
-			expectError: true,
+			expectError:     true,
+			expectedErrCode: errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed],
 		},
 		{
 			name: "Success - non-JSON response is returned as string",
@@ -133,6 +137,23 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			expectStatus:   http.StatusOK,
 			expectResponse: map[string]any{"message": "query received"},
 		},
+		{
+			name: "Failure - unexpected status code",
+			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+			},
+			input: workflowengine.ActivityInput{
+				Config: map[string]string{
+					"method": "GET",
+					"url":    "",
+				},
+				Payload: map[string]any{
+					"expectedStatus": http.StatusOK,
+				},
+			},
+			expectError:     true,
+			expectedErrCode: errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode],
+		},
 	}
 
 	for _, tt := range tests {
@@ -149,6 +170,8 @@ func TestHTTPActivity_Execute(t *testing.T) {
 
 			if tt.expectError {
 				require.Error(t, err)
+				require.Contains(t, err.Error(), tt.expectedErrCode.Code)
+				require.Contains(t, err.Error(), tt.expectedErrCode.Description)
 			} else {
 				require.NoError(t, err)
 				future.Get(&result)

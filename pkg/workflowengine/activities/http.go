@@ -154,6 +154,18 @@ func (a *HTTPActivity) Execute(
 		output = string(respBody)
 	}
 
+	if input.Payload["expected_status"] != nil {
+		expectedStatus := int(input.Payload["expected_status"].(float64))
+		if resp.StatusCode != expectedStatus {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
+			return result, a.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s: expected '%d', got '%d'", errCode.Description, expectedStatus, resp.StatusCode),
+				resp.StatusCode,
+				expectedStatus,
+			)
+		}
+	}
 	result.Output = map[string]any{
 		"status":  resp.StatusCode,
 		"headers": resp.Header,
