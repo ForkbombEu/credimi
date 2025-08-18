@@ -94,7 +94,11 @@ type MockRecordRepository struct {
 	mock.Mock
 }
 
-func (m *MockRecordRepository) FindMatchingApiKeyRecord(records []*core.Record, apiKey string, hasher KeyHasher) (*core.Record, error) {
+func (m *MockRecordRepository) FindMatchingApiKeyRecord(
+	records []*core.Record,
+	apiKey string,
+	hasher KeyHasher,
+) (*core.Record, error) {
 	args := m.Called(records, apiKey, hasher)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -422,7 +426,8 @@ func TestApiKeyService_GenerateApiKey_CollectionNotFound(t *testing.T) {
 	mockKeyGen.On("GenerateKeyBytes").Return(testKeyBytes, nil)
 	mockKeyGen.On("EncodeKey", testKeyBytes).Return("encoded-key")
 	mockHasher.On("HashKey", "encoded-key").Return("hashed-key", nil)
-	mockApp.On("FindCollectionByNameOrId", "api_keys").Return(nil, errors.New("collection not found"))
+	mockApp.On("FindCollectionByNameOrId", "api_keys").
+		Return(nil, errors.New("collection not found"))
 
 	_, err := service.GenerateApiKey("test-user", "Test API Key")
 
@@ -508,7 +513,8 @@ func TestApiKeyService_AuthenticateApiKey_FindRecordsFails(t *testing.T) {
 	mockApp := new(MockApp)
 	service := NewApiKeyService(mockApp)
 
-	mockApp.On("FindRecordsByFilter", "api_keys", "", "", 0, 0).Return(nil, errors.New("database error"))
+	mockApp.On("FindRecordsByFilter", "api_keys", "", "", 0, 0).
+		Return(nil, errors.New("database error"))
 
 	_, err := service.AuthenticateApiKey("test-api-key")
 
@@ -526,7 +532,8 @@ func TestApiKeyService_AuthenticateApiKey_NoMatchingRecord(t *testing.T) {
 
 	records := []*core.Record{}
 	mockApp.On("FindRecordsByFilter", "api_keys", "", "", 0, 0).Return(records, nil)
-	mockRepo.On("FindMatchingApiKeyRecord", records, "test-api-key", mock.Anything).Return(nil, errors.New("no matching record"))
+	mockRepo.On("FindMatchingApiKeyRecord", records, "test-api-key", mock.Anything).
+		Return(nil, errors.New("no matching record"))
 
 	_, err := service.AuthenticateApiKey("test-api-key")
 
@@ -550,7 +557,8 @@ func TestApiKeyService_AuthenticateApiKey_EmptyUserId(t *testing.T) {
 	records := []*core.Record{apiKeyRecord}
 
 	mockApp.On("FindRecordsByFilter", "api_keys", "", "", 0, 0).Return(records, nil)
-	mockRepo.On("FindMatchingApiKeyRecord", records, "test-api-key", mock.Anything).Return(apiKeyRecord, nil)
+	mockRepo.On("FindMatchingApiKeyRecord", records, "test-api-key", mock.Anything).
+		Return(apiKeyRecord, nil)
 
 	_, err := service.AuthenticateApiKey("test-api-key")
 
@@ -574,7 +582,8 @@ func TestApiKeyService_AuthenticateApiKey_UserNotFound(t *testing.T) {
 	records := []*core.Record{apiKeyRecord}
 
 	mockApp.On("FindRecordsByFilter", "api_keys", "", "", 0, 0).Return(records, nil)
-	mockRepo.On("FindMatchingApiKeyRecord", records, "test-api-key", mock.Anything).Return(apiKeyRecord, nil)
+	mockRepo.On("FindMatchingApiKeyRecord", records, "test-api-key", mock.Anything).
+		Return(apiKeyRecord, nil)
 	mockApp.On("FindRecordById", "users", "test-user").Return(nil, errors.New("user not found"))
 
 	_, err := service.AuthenticateApiKey("test-api-key")
@@ -599,7 +608,8 @@ func TestApiKeyService_AuthenticateApiKey_UserRecordNil(t *testing.T) {
 	records := []*core.Record{apiKeyRecord}
 
 	mockApp.On("FindRecordsByFilter", "api_keys", "", "", 0, 0).Return(records, nil)
-	mockRepo.On("FindMatchingApiKeyRecord", records, "test-api-key", mock.Anything).Return(apiKeyRecord, nil)
+	mockRepo.On("FindMatchingApiKeyRecord", records, "test-api-key", mock.Anything).
+		Return(apiKeyRecord, nil)
 	mockApp.On("FindRecordById", "users", "test-user").Return(nil, nil)
 
 	_, err := service.AuthenticateApiKey("test-api-key")

@@ -23,10 +23,10 @@ type HandlerFunc func(e *core.RequestEvent) error
 type HandlerFactory func() func(*core.RequestEvent) error
 
 type RouteGroup struct {
-	BaseURL                 string
-	Routes                  []RouteDefinition
-	Middlewares             []*hook.Handler[*core.RequestEvent]
-	AuthenticationRequired  bool
+	BaseURL                string
+	Routes                 []RouteDefinition
+	Middlewares            []*hook.Handler[*core.RequestEvent]
+	AuthenticationRequired bool
 }
 
 type QuerySearchAttribute struct {
@@ -165,7 +165,6 @@ func RegisterRoutesWithoutValidation(
 	group *router.RouterGroup[*core.RequestEvent],
 	routes []RouteDefinition,
 ) {
-
 	for _, route := range routes {
 		switch route.Method {
 		case http.MethodPost:

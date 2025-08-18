@@ -11,30 +11,6 @@ import type PocketBase from "pocketbase";
 // =============== SCHEMAS, TYPES & ERROR HANDLING
 // =================================================================
 
-export const GenerateApiKeyRequestSchema = z.object({
-  name: z.string().min(1),
-})
-export type GenerateApiKeyRequest = z.infer<typeof GenerateApiKeyRequestSchema>
-
-export const GenerateApiKeyResponseSchema = z.object({
-  api_key: z.string(),
-})
-export type GenerateApiKeyResponse = z.infer<typeof GenerateApiKeyResponseSchema>
-
-export const AuthenticateApiKeyResponseSchema = z.object({
-  message: z.string(),
-  token: z.string(),
-})
-export type AuthenticateApiKeyResponse = z.infer<typeof AuthenticateApiKeyResponseSchema>
-
-export const APIErrorSchema = z.object({
-  Code: z.number(),
-  Domain: z.string(),
-  Reason: z.string(),
-  Message: z.string(),
-})
-export type APIError = z.infer<typeof APIErrorSchema>
-
 export const MessageStateSchema = z.object({
   state: z.string(),
   details: z.string(),
@@ -202,10 +178,10 @@ export const WorkflowExecutionSchema = z.object({
 })
 export type WorkflowExecution = z.infer<typeof WorkflowExecutionSchema>
 
-export const ListMyCheckRunsResponseSchema = z.object({
+export const ListMyChecksResponseSchema = z.object({
   executions: WorkflowExecutionSchema.array(),
 })
-export type ListMyCheckRunsResponse = z.infer<typeof ListMyCheckRunsResponseSchema>
+export type ListMyChecksResponse = z.infer<typeof ListMyChecksResponseSchema>
 
 export const WorkflowExecutionInfoSchema = z.object({
   name: z.string(),
@@ -258,10 +234,11 @@ export const GetMyCheckRunResponseSchema = z.object({
 })
 export type GetMyCheckRunResponse = z.infer<typeof GetMyCheckRunResponseSchema>
 
-export const ReRunCheckRequestSchema = z.object({
-  config: z.record(z.string(), z.any()).nullable(),
+export const ReRunCheckResponseSchema = z.object({
+  workflow_id: z.string().min(1),
+  run_id: z.string().min(1),
 })
-export type ReRunCheckRequest = z.infer<typeof ReRunCheckRequestSchema>
+export type ReRunCheckResponse = z.infer<typeof ReRunCheckResponseSchema>
 
 export const CancelMyCheckRunResponseSchema = z.object({
   message: z.string().min(1),
@@ -307,10 +284,23 @@ export const TerminateMyCheckRunResponseSchema = z.object({
 })
 export type TerminateMyCheckRunResponse = z.infer<typeof TerminateMyCheckRunResponseSchema>
 
-export const ListMyChecksResponseSchema = z.object({
+export const GenerateApiKeyRequestSchema = z.object({
+  name: z.string().min(1),
+})
+export type GenerateApiKeyRequest = z.infer<typeof GenerateApiKeyRequestSchema>
+
+export const APIErrorSchema = z.object({
+  Code: z.number(),
+  Domain: z.string(),
+  Reason: z.string(),
+  Message: z.string(),
+})
+export type APIError = z.infer<typeof APIErrorSchema>
+
+export const ListMyCheckRunsResponseSchema = z.object({
   executions: WorkflowExecutionSchema.array(),
 })
-export type ListMyChecksResponse = z.infer<typeof ListMyChecksResponseSchema>
+export type ListMyCheckRunsResponse = z.infer<typeof ListMyCheckRunsResponseSchema>
 
 export const GetMyCheckRunHistoryResponseSchema = z.object({
   history: z.record(z.string(), z.any()).array(),
@@ -322,11 +312,21 @@ export const GetMyCheckRunHistoryResponseSchema = z.object({
 })
 export type GetMyCheckRunHistoryResponse = z.infer<typeof GetMyCheckRunHistoryResponseSchema>
 
-export const ReRunCheckResponseSchema = z.object({
-  workflow_id: z.string().min(1),
-  run_id: z.string().min(1),
+export const ReRunCheckRequestSchema = z.object({
+  config: z.record(z.string(), z.any()).nullable(),
 })
-export type ReRunCheckResponse = z.infer<typeof ReRunCheckResponseSchema>
+export type ReRunCheckRequest = z.infer<typeof ReRunCheckRequestSchema>
+
+export const GenerateApiKeyResponseSchema = z.object({
+  api_key: z.string(),
+})
+export type GenerateApiKeyResponse = z.infer<typeof GenerateApiKeyResponseSchema>
+
+export const AuthenticateApiKeyResponseSchema = z.object({
+  message: z.string(),
+  token: z.string(),
+})
+export type AuthenticateApiKeyResponse = z.infer<typeof AuthenticateApiKeyResponseSchema>
 
 
 

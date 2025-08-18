@@ -17,14 +17,12 @@ import (
 	"strings"
 	"text/template"
 
-	"gopkg.in/yaml.v3"
-
-	"github.com/hypersequent/zen"
-
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	api "github.com/forkbombeu/credimi/pkg/internal/apis"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/hypersequent/zen"
 	"github.com/invopop/jsonschema"
+	"gopkg.in/yaml.v3"
 )
 
 // =================================================================
@@ -56,60 +54,60 @@ type TemplateData struct {
 
 type (
 	OpenAPI struct {
-		OpenAPI    string               `json:"openapi" yaml:"openapi"`
-		Info       Info                 `json:"info" yaml:"info"`
+		OpenAPI    string               `json:"openapi"           yaml:"openapi"`
+		Info       Info                 `json:"info"              yaml:"info"`
 		Servers    []Server             `json:"servers,omitempty" yaml:"servers,omitempty"`
-		Paths      map[string]*PathItem `json:"paths" yaml:"paths"`
-		Components Components           `json:"components" yaml:"components"`
+		Paths      map[string]*PathItem `json:"paths"             yaml:"paths"`
+		Components Components           `json:"components"        yaml:"components"`
 	}
 	Server struct {
-		URL         string `json:"url" yaml:"url"`
+		URL         string `json:"url"                   yaml:"url"`
 		Description string `json:"description,omitempty" yaml:"description,omitempty"`
 	}
 	Info struct {
-		Title       string  `json:"title" yaml:"title"`
-		Version     string  `json:"version" yaml:"version"`
-		Description string  `json:"description" yaml:"description"`
+		Title       string  `json:"title"             yaml:"title"`
+		Version     string  `json:"version"           yaml:"version"`
+		Description string  `json:"description"       yaml:"description"`
 		Contact     Contact `json:"contact,omitempty" yaml:"contact,omitempty"`
 	}
 	Contact struct {
-		Name  string `json:"name,omitempty" yaml:"name,omitempty"`
+		Name  string `json:"name,omitempty"  yaml:"name,omitempty"`
 		Email string `json:"email,omitempty" yaml:"email,omitempty"`
-		URL   string `json:"url,omitempty" yaml:"url,omitempty"`
+		URL   string `json:"url,omitempty"   yaml:"url,omitempty"`
 	}
 	PathItem struct {
-		Get    *Operation `json:"get,omitempty" yaml:"get,omitempty"`
-		Post   *Operation `json:"post,omitempty" yaml:"post,omitempty"`
-		Put    *Operation `json:"put,omitempty" yaml:"put,omitempty"`
-		Patch  *Operation `json:"patch,omitempty" yaml:"patch,omitempty"`
+		Get    *Operation `json:"get,omitempty"    yaml:"get,omitempty"`
+		Post   *Operation `json:"post,omitempty"   yaml:"post,omitempty"`
+		Put    *Operation `json:"put,omitempty"    yaml:"put,omitempty"`
+		Patch  *Operation `json:"patch,omitempty"  yaml:"patch,omitempty"`
 		Delete *Operation `json:"delete,omitempty" yaml:"delete,omitempty"`
 	}
 	Operation struct {
-		Tags        []string            `json:"tags,omitempty" yaml:"tags,omitempty"`
-		Summary     string              `json:"summary" yaml:"summary"`
+		Tags        []string            `json:"tags,omitempty"        yaml:"tags,omitempty"`
+		Summary     string              `json:"summary"               yaml:"summary"`
 		Description string              `json:"description,omitempty" yaml:"description,omitempty"`
-		OperationID string              `json:"operationId" yaml:"operationId"`
-		Parameters  []Parameter         `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+		OperationID string              `json:"operationId"           yaml:"operationId"`
+		Parameters  []Parameter         `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
 		RequestBody *RequestBody        `json:"requestBody,omitempty" yaml:"requestBody,omitempty"`
-		Responses   map[string]Response `json:"responses" yaml:"responses"`
+		Responses   map[string]Response `json:"responses"             yaml:"responses"`
 	}
 	Parameter struct {
-		Name        string             `json:"name" yaml:"name"`
-		In          string             `json:"in" yaml:"in"`
+		Name        string             `json:"name"                  yaml:"name"`
+		In          string             `json:"in"                    yaml:"in"`
 		Description string             `json:"description,omitempty" yaml:"description,omitempty"`
-		Required    bool               `json:"required" yaml:"required"`
-		Schema      *jsonschema.Schema `json:"schema" yaml:"schema"`
+		Required    bool               `json:"required"              yaml:"required"`
+		Schema      *jsonschema.Schema `json:"schema"                yaml:"schema"`
 	}
 	RequestBody struct {
 		Description string             `json:"description,omitempty" yaml:"description,omitempty"`
-		Required    bool               `json:"required" yaml:"required"`
-		Content     map[string]Content `json:"content" yaml:"content"`
+		Required    bool               `json:"required"              yaml:"required"`
+		Content     map[string]Content `json:"content"               yaml:"content"`
 	}
 	Content struct {
 		Schema Ref `json:"schema" yaml:"schema"`
 	}
 	Response struct {
-		Description string             `json:"description" yaml:"description"`
+		Description string             `json:"description"       yaml:"description"`
 		Content     map[string]Content `json:"content,omitempty" yaml:"content,omitempty"`
 	}
 	Ref struct {
@@ -234,7 +232,9 @@ func main() {
 
 	routeGroups := api.RouteGroups
 	if len(routeGroups) == 0 {
-		log.Fatal("FATAL: No route groups found. Did you register them in api.AllRouteGroups using an init() function?")
+		log.Fatal(
+			"FATAL: No route groups found. Did you register them in api.AllRouteGroups using an init() function?",
+		)
 	}
 
 	var routes []RouteInfo
@@ -245,7 +245,6 @@ func main() {
 	log.Println("Processing routes...")
 	for _, group := range routeGroups {
 		for _, route := range group.Routes {
-
 			r := RouteInfo{
 				Method:                 route.Method,
 				Path:                   path.Join(group.BaseURL, route.Path),
@@ -276,7 +275,8 @@ func main() {
 
 			r.FuncName = handlerToFuncName(r.GoHandlerName)
 			r.PathParams = extractPathParams(r.Path)
-			r.HasInputBody = r.InputType != "" && (r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH")
+			r.HasInputBody = r.InputType != "" &&
+				(r.Method == "POST" || r.Method == "PUT" || r.Method == "PATCH")
 			routes = append(routes, r)
 		}
 	}
@@ -458,7 +458,9 @@ func buildOperation(route RouteInfo) *Operation {
 			operation.RequestBody = &RequestBody{
 				Required: true,
 				Content: map[string]Content{
-					"application/json": {Schema: Ref{Ref: "#/components/schemas/" + route.InputType}},
+					"application/json": {
+						Schema: Ref{Ref: "#/components/schemas/" + route.InputType},
+					},
 				},
 			}
 		} else if route.QuerySearchAttributes != nil {

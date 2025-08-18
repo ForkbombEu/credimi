@@ -9,12 +9,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
 	"strings"
 	"time"
-	"net"
 
 	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -205,7 +205,10 @@ func checkWellKnownEndpoints(ctx context.Context, baseURL string) error {
 		return nil
 	}
 
-	return fmt.Errorf("neither .well-known/openid-federation nor .well-known/openid-credential-issuer endpoints are accessible")
+	return fmt.Errorf(
+		`neither .well-known/openid-federation  
+		 nor .well-known/openid-credential-issuer endpoints are accessible`,
+	)
 }
 
 func isPrivateIP(ip net.IP) bool {
@@ -231,7 +234,7 @@ func checkEndpointExists(ctx context.Context, urlToCheck string) error {
 	if err != nil || parsedURL.Scheme == "" || parsedURL.Host == "" {
 		return fmt.Errorf("invalid or unsafe URL provided")
 	}
-	
+
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 		return fmt.Errorf("unsupported URL scheme")
 	}
@@ -248,16 +251,16 @@ func checkEndpointExists(ctx context.Context, urlToCheck string) error {
 
 	req, err := http.NewRequestWithContext(ctx, "HEAD", parsedURL.String(), nil)
 	if err != nil {
-		return fmt.Errorf("failed to create request: %v", err)
+		return fmt.Errorf("failed to create request: %w", err)
 	}
 
 	client := &http.Client{
 		Timeout: 5 * time.Second,
 	}
-	
+
 	resp, err := client.Do(req)
 	if err != nil {
-		return fmt.Errorf("failed to make request: %v", err)
+		return fmt.Errorf("failed to make request: %w", err)
 	}
 	defer resp.Body.Close()
 
@@ -309,8 +312,8 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 					return apis.NewBadRequestError("invalid JSON body", err)
 				}
 				var name, locale, logo, format string
-				if displayList, ok :=
-					body.Credential["display"].([]any); ok && len(displayList) > 0 {
+				if displayList, ok := body.Credential["display"].([]any); ok &&
+					len(displayList) > 0 {
 					if first, ok := displayList[0].(map[string]any); ok {
 						if issuerName, ok := first["name"].(string); ok {
 							name = issuerName
@@ -597,7 +600,12 @@ func HookStartScheduledWorkflow(app core.App) {
 			default:
 				interval = time.Hour
 			}
-			err = workflowengine.StartScheduledWorkflowWithOptions(info, req.WorkflowID, namespace, interval)
+			err = workflowengine.StartScheduledWorkflowWithOptions(
+				info,
+				req.WorkflowID,
+				namespace,
+				interval,
+			)
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -633,7 +641,6 @@ func HookStartScheduledWorkflow(app core.App) {
 
 		return se.Next()
 	})
-
 }
 
 func createNewOrganizationForUser(app core.App, user *core.Record) error {

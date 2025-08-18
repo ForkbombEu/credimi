@@ -29,7 +29,7 @@ func TestAddTemplatingRoutes(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		
+
 		handlers.TemplateRoutes.Add(testApp)
 
 		return testApp
