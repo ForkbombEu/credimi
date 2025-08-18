@@ -42,18 +42,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	function updatePublished(
-		recordId: string,
-		published: boolean,
-		onSuccess: () => void
-	) {
-		pb.collection('verifiers')
-			.update(recordId, {
-				published
-			})
-			.then(() => {
-				onSuccess();
-			});
+	function updatePublished(recordId: string, published: boolean) {
+		pb.collection('verifiers').update(recordId, { published });
 	}
 
 	//
@@ -89,12 +79,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				onIcon={Eye}
 				size="md"
 				checked={verifier.published}
-				onCheckedChange={() =>
-					updatePublished(
-						verifier.id,
-						!verifier.published,
-						() => {} // Could add reload function if needed
-					)}
+				onCheckedChange={() => updatePublished(verifier.id, !verifier.published)}
 			/>
 			<RecordEdit record={verifier} />
 			<RecordDelete record={verifier} />
