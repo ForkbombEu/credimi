@@ -26,7 +26,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { Badge } from '@/components/ui/badge';
-	import PublishedStatus from '$lib/layout/published-status.svelte';
+	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
+	import { Eye, EyeOff } from 'lucide-svelte';
 
 	//
 
@@ -38,6 +39,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { verifier, organizationId }: Props = $props();
 	const avatarSrc = $derived(pb.files.getURL(verifier, verifier.logo));
+
+	//
+
+	function updatePublished(recordId: string, published: boolean) {
+		pb.collection('verifiers').update(recordId, { published });
+	}
 
 	//
 
@@ -62,12 +69,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div>
 				<div class="flex items-center gap-2">
 					<T class="font-bold">{verifier.name}</T>
-					<PublishedStatus item={verifier} />
 				</div>
 				<T class="text-xs text-gray-400">{verifier.url}</T>
 			</div>
 		</div>
 		<div>
+			<SwitchWithIcons
+				offIcon={EyeOff}
+				onIcon={Eye}
+				size="md"
+				checked={verifier.published}
+				onCheckedChange={() => updatePublished(verifier.id, !verifier.published)}
+			/>
 			<RecordEdit record={verifier} />
 			<RecordDelete record={verifier} />
 		</div>
@@ -136,7 +149,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{#if credentialsPreview}
 							<span>({credentialsPreview})</span>
 						{/if}
-						<PublishedStatus item={useCaseVerification} size="sm" />
 
 						<RecordEdit record={useCaseVerification}>
 							{#snippet button({ triggerAttributes })}

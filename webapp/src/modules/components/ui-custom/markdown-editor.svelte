@@ -15,9 +15,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		value?: string;
+		height?: number;
 	};
 
-	let { value = $bindable() }: Props = $props();
+	let { value = $bindable(), height = 300 }: Props = $props();
 
 	//
 
@@ -53,13 +54,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<MarkdownEditor bind:value {carta} />
+<div class="resizable-container" style="height: {height}px;">
+	<MarkdownEditor bind:value {carta} />
+</div>
 
 <style lang="postcss">
+	.resizable-container {
+		resize: both;
+		overflow: auto;
+		min-height: 120px;
+		min-width: 200px;
+		border: 1px solid hsl(var(--border));
+		border-radius: 6px;
+		width: 100%;
+	}
+
 	:global(.carta-input),
 	:global(.carta-renderer) {
 		min-height: 120px;
-		max-height: 400px;
 		overflow: auto;
 	}
 </style>

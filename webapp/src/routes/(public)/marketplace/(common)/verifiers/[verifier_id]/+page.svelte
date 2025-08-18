@@ -8,14 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import { Building2, Key, Layers, ScanEye } from 'lucide-svelte';
-	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { String } from 'effect';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
-	import { MarketplaceItemCard } from '$marketplace/_utils/index.js';
+	import { MarketplaceItemCard, generateMarketplaceSection } from '$marketplace/_utils/index.js';
 
 	//
 
@@ -24,28 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const sections = {
-		general_info: {
-			icon: Building2,
-			anchor: 'general_info',
-			label: m.General_info()
-		},
-		description: {
-			icon: Layers,
-			anchor: 'description',
-			label: m.Description()
-		},
-		credentials: {
-			icon: Key,
-			anchor: 'credentials',
-			label: m.Linked_credentials()
-		},
-		use_case_verifications: {
-			icon: ScanEye,
-			anchor: 'use_case_verifications',
-			label: m.Use_case_verifications()
-		}
-	} satisfies Record<string, IndexItem>;
+	const sections = generateMarketplaceSection('verifiers');
 
 	//
 

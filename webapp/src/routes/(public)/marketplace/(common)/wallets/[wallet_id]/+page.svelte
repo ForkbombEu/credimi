@@ -5,16 +5,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { m } from '@/i18n';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
-	import { Building2, Layers3 } from 'lucide-svelte';
 	import { String } from 'effect';
 	import { z } from 'zod';
 	import Card from '@/components/ui-custom/card.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
 
 	//
 
@@ -23,20 +24,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const sections = {
-		general_info: {
-			icon: Building2,
-			anchor: 'general_info',
-			label: 'General info'
-		},
-		conformance_checks: {
-			icon: Layers3,
-			anchor: 'conformance_checks',
-			label: 'Conformance checks'
-		}
-	} satisfies Record<string, IndexItem>;
-
 	const checks = $derived(z.array(ConformanceCheckSchema).safeParse(wallet.conformance_checks));
+
+	const sections = $derived(generateMarketplaceSection('wallets', {
+		hasDescription: !!wallet?.description,
+		hasConformanceChecks: checks.success && checks.data.length > 0
+	}));
 
 	//
 
@@ -64,28 +57,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>
-	<div class="flex items-start gap-6">
-		<div class="grow space-y-6">
-			<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
+	<div class="grow space-y-6">
+		<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
+		<div class="grid grid-cols-2 gap-6">
+			<InfoBox label="Homepage URL" value={wallet.home_url} />
+			<InfoBox label="Repository URL" value={wallet.repository} />
 
-			<div>
-				<InfoBox label="Description" value={wallet.description} />
-			</div>
+			{#if String.isNonEmpty(wallet.appstore_url)}
+				{@render AppStore(wallet.appstore_url)}
+			{/if}
 
-			<div class="grid grid-cols-2 gap-6">
-				<InfoBox label="Homepage URL" value={wallet.home_url} />
-				<InfoBox label="Repository URL" value={wallet.repository} />
-
-				{#if String.isNonEmpty(wallet.appstore_url)}
-					{@render AppStore(wallet.appstore_url)}
-				{/if}
-
-				{#if String.isNonEmpty(wallet.playstore_url)}
-					{@render PlayStore(wallet.playstore_url)}
-				{/if}
-			</div>
+			{#if String.isNonEmpty(wallet.playstore_url)}
+				{@render PlayStore(wallet.playstore_url)}
+			{/if}
 		</div>
 	</div>
+	{#if wallet.description && sections.description}
+		<div class="space-y-6">
+			<PageHeader title={sections.description.label} id={sections.description.anchor} />
+			<div class="prose">
+				<RenderMd content={wallet.description} />
+			</div>
+		</div>
+	{/if}
 
 	{#if checks.success}
 		<div>
