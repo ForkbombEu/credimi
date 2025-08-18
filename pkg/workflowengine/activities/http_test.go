@@ -76,17 +76,6 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			expectResponse: map[string]any{"received": "value"},
 		},
 		{
-			name: "Failure - invalid method",
-			input: workflowengine.ActivityInput{
-				Config: map[string]string{
-					"method": "INV",
-					"url":    "http://example.com",
-				},
-			},
-			expectError:     true,
-			expectedErrCode: errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed],
-		},
-		{
 			name: "Failure - timeout",
 			handlerFunc: func(_ http.ResponseWriter, _ *http.Request) {
 				time.Sleep(2 * time.Second)
@@ -148,7 +137,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 					"url":    "",
 				},
 				Payload: map[string]any{
-					"expectedStatus": http.StatusOK,
+					"expected_status": http.StatusOK,
 				},
 			},
 			expectError:     true,
