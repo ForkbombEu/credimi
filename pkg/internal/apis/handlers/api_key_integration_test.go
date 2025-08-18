@@ -20,7 +20,9 @@ import (
 // Integration tests for the API key handlers
 
 func TestGenerateApiKeyHandler_Integration(t *testing.T) {
-	t.Skip("Skipping integration test for GenerateApiKeyHandler") // Skip this test for now I cant pass name in the request body
+	t.Skip(
+		"Skipping integration test for GenerateApiKeyHandler",
+	) // Skip this test for now I cant pass name in the request body
 	app, err := tests.NewTestApp()
 	if err != nil {
 		t.Fatal(err)
@@ -46,8 +48,8 @@ func TestGenerateApiKeyHandler_Integration(t *testing.T) {
 	apiKeysCollection.Type = core.CollectionTypeBase
 	apiKeysCollection.Fields = []core.Field{
 		&core.TextField{
-			Name:       "key",
-			Required:   true,
+			Name:     "key",
+			Required: true,
 		},
 		&core.RelationField{
 			Name:         "user",
@@ -84,8 +86,6 @@ func TestGenerateApiKeyHandler_Integration(t *testing.T) {
 	if rec == nil {
 		t.Fatal("Failed to create response recorder")
 	}
-	
-
 
 	// Create the handler
 	handler := GenerateApiKey()
@@ -94,7 +94,7 @@ func TestGenerateApiKeyHandler_Integration(t *testing.T) {
 	e := &core.RequestEvent{
 		App: app,
 		Event: router.Event{
-			Request: req,
+			Request:  req,
 			Response: rec,
 		},
 		Auth: user,
@@ -102,7 +102,7 @@ func TestGenerateApiKeyHandler_Integration(t *testing.T) {
 
 	// Execute the handler
 	err = handler(e)
-	assert.NoError(t, err) 
+	assert.NoError(t, err)
 
 	// Verify the response would contain an API key
 	// Note: In real scenario this would be tested through the HTTP response
@@ -113,7 +113,7 @@ func TestGenerateApiKeyHandler_Integration(t *testing.T) {
 	apiKey, exists := response["api_key"]
 	if !exists || apiKey == "" {
 		t.Fatal("Expected API key in response, but got none")
-	}	
+	}
 	// Verify the API key record was created
 	record, err := app.FindRecordById(apiKeysCollection.Id, response["api_key"])
 	if err != nil {
@@ -123,11 +123,18 @@ func TestGenerateApiKeyHandler_Integration(t *testing.T) {
 		t.Fatal("Expected API key record to be created, but got nil")
 	}
 	if record.GetString("name") != "Test-API" {
-		t.Fatalf("Expected API key record name to be 'Test-API', but got '%s'", record.GetString("name"))
+		t.Fatalf(
+			"Expected API key record name to be 'Test-API', but got '%s'",
+			record.GetString("name"),
+		)
 	}
 	if record.GetString("user") != user.Id {
-		t.Fatalf("Expected API key record user to be '%s', but got '%s'", user.Id, record.GetString("user"))
-	}	
+		t.Fatalf(
+			"Expected API key record user to be '%s', but got '%s'",
+			user.Id,
+			record.GetString("user"),
+		)
+	}
 	// Verify the API key is hashed
 	hashedKey := record.GetString("key")
 	if hashedKey == "" {
@@ -135,11 +142,15 @@ func TestGenerateApiKeyHandler_Integration(t *testing.T) {
 	}
 	if len(hashedKey) < 60 { // Bcrypt hashes are typically 60 characters
 		t.Fatalf("Expected API key record to have a hashed key, but got '%s'", hashedKey)
-	}	
-	
+	}
+
 	// Verify the API key can be found by the service
 	service := NewApiKeyService(NewAppAdapter(app))
-	foundRecord, err := service.recordRepository.FindMatchingApiKeyRecord([]*core.Record{record}, apiKey, service.keyHasher)
+	foundRecord, err := service.recordRepository.FindMatchingApiKeyRecord(
+		[]*core.Record{record},
+		apiKey,
+		service.keyHasher,
+	)
 	if err != nil {
 		t.Fatalf("Failed to find API key record: %v", err)
 	}
@@ -150,14 +161,25 @@ func TestGenerateApiKeyHandler_Integration(t *testing.T) {
 		t.Fatalf("Expected found record ID to be '%s', but got '%s'", record.Id, foundRecord.Id)
 	}
 	if foundRecord.GetString("name") != "Test-API" {
-		t.Fatalf("Expected found record name to be 'Test-API', but got '%s'", foundRecord.GetString("name"))
+		t.Fatalf(
+			"Expected found record name to be 'Test-API', but got '%s'",
+			foundRecord.GetString("name"),
+		)
 	}
 	if foundRecord.GetString("user") != user.Id {
-		t.Fatalf("Expected found record user to be '%s', but got '%s'", user.Id, foundRecord.GetString("user"))
+		t.Fatalf(
+			"Expected found record user to be '%s', but got '%s'",
+			user.Id,
+			foundRecord.GetString("user"),
+		)
 	}
 	if foundRecord.GetString("key") != hashedKey {
-		t.Fatalf("Expected found record key to be '%s', but got '%s'", hashedKey, foundRecord.GetString("key"))
-	}		
+		t.Fatalf(
+			"Expected found record key to be '%s', but got '%s'",
+			hashedKey,
+			foundRecord.GetString("key"),
+		)
+	}
 }
 
 func TestAuthenticateApiKeyHandler_Integration(t *testing.T) {
@@ -178,7 +200,7 @@ func TestAuthenticateApiKeyHandler_Integration(t *testing.T) {
 	user := core.NewRecord(authCollection)
 	user.Set("email", "tt@example.com")
 	user.Set("password", "password123")
-	
+
 	if err := app.Save(user); err != nil {
 		t.Fatal(err)
 	}
@@ -201,8 +223,8 @@ func TestAuthenticateApiKeyHandler_Integration(t *testing.T) {
 
 	// Create a mock request event
 	e := &core.RequestEvent{
-		App:     app,
-		Event:   router.Event{Request: req},
+		App:   app,
+		Event: router.Event{Request: req},
 	}
 
 	// Execute the handler
@@ -293,7 +315,6 @@ func TestAuthenticateApiKeyHandler_SecurityValidation(t *testing.T) {
 		})
 	}
 }
-
 
 // Performance tests
 

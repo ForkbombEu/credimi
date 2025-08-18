@@ -25,7 +25,10 @@ type ApiKeyService struct {
 type App interface {
 	FindCollectionByNameOrId(collectionKey string) (*core.Collection, error)
 	Save(record *core.Record) error
-	FindRecordsByFilter(collectionNameOrId, filter, sort string, limit, offset int) ([]*core.Record, error)
+	FindRecordsByFilter(
+		collectionNameOrId, filter, sort string,
+		limit, offset int,
+	) ([]*core.Record, error)
 	FindRecordById(collectionNameOrId, recordId string) (*core.Record, error)
 }
 
@@ -70,7 +73,11 @@ type KeyHasher interface {
 }
 
 type RecordRepository interface {
-	FindMatchingApiKeyRecord(records []*core.Record, apiKey string, hasher KeyHasher) (*core.Record, error)
+	FindMatchingApiKeyRecord(
+		records []*core.Record,
+		apiKey string,
+		hasher KeyHasher,
+	) (*core.Record, error)
 }
 
 type CryptoKeyGenerator struct{}

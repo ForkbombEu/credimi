@@ -18,9 +18,8 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
-
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/api/enums/v1"
@@ -28,7 +27,6 @@ import (
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"google.golang.org/protobuf/encoding/protojson"
-	// "google.golang.org/protobuf/runtime/protoimpl"
 )
 
 var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
@@ -154,15 +152,24 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				case "failed":
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_FAILED)
 				case "terminated":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_TERMINATED)
+					statusFilters = append(
+						statusFilters,
+						enums.WORKFLOW_EXECUTION_STATUS_TERMINATED,
+					)
 				case "canceled":
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_CANCELED)
 				case "timed_out":
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_TIMED_OUT)
 				case "continued_as_new":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW)
+					statusFilters = append(
+						statusFilters,
+						enums.WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW,
+					)
 				case "unspecified":
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED)
+					statusFilters = append(
+						statusFilters,
+						enums.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED,
+					)
 				}
 			}
 		}
@@ -572,9 +579,13 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 		workflowName := workflowExecution.GetWorkflowExecutionInfo().GetType().GetName()
 
 		workflowOptions := client.StartWorkflowOptions{
-			TaskQueue:                workflowExecution.GetWorkflowExecutionInfo().GetTaskQueue(),
-			WorkflowRunTimeout:       workflowExecution.GetExecutionConfig().GetWorkflowRunTimeout().AsDuration(),
-			WorkflowExecutionTimeout: workflowExecution.GetExecutionConfig().GetWorkflowExecutionTimeout().AsDuration(),
+			TaskQueue: workflowExecution.GetWorkflowExecutionInfo().GetTaskQueue(),
+			WorkflowRunTimeout: workflowExecution.GetExecutionConfig().
+				GetWorkflowRunTimeout().
+				AsDuration(),
+			WorkflowExecutionTimeout: workflowExecution.GetExecutionConfig().
+				GetWorkflowExecutionTimeout().
+				AsDuration(),
 		}
 
 		workflowInput, err := getWorkflowInput(checkID, runID, c)
@@ -598,7 +609,11 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			}
 		}
 
-		result, err := workflowengine.StartWorkflowWithOptions(workflowOptions, workflowName, workflowInput)
+		result, err := workflowengine.StartWorkflowWithOptions(
+			workflowOptions,
+			workflowName,
+			workflowInput,
+		)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -749,7 +764,11 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 	}
 }
 
-func getWorkflowInput(checkID string, runID string, c client.Client) (workflowengine.WorkflowInput, error) {
+func getWorkflowInput(
+	checkID string,
+	runID string,
+	c client.Client,
+) (workflowengine.WorkflowInput, error) {
 	var workflowInput workflowengine.WorkflowInput
 	historyIterator := c.GetWorkflowHistory(
 		context.Background(),
@@ -762,7 +781,10 @@ func getWorkflowInput(checkID string, runID string, c client.Client) (workflowen
 	for historyIterator.HasNext() {
 		event, err := historyIterator.Next()
 		if err != nil {
-			return workflowengine.WorkflowInput{}, fmt.Errorf("failed to get workflow history: %w", err)
+			return workflowengine.WorkflowInput{}, fmt.Errorf(
+				"failed to get workflow history: %w",
+				err,
+			)
 		}
 
 		if event.GetEventType() == enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
@@ -771,12 +793,18 @@ func getWorkflowInput(checkID string, runID string, c client.Client) (workflowen
 				// Unmarshal the input payload
 				inputJSON, err := protojson.Marshal(startedAttributes.GetInput())
 				if err != nil {
-					return workflowengine.WorkflowInput{}, fmt.Errorf("failed to marshal workflow input: %w", err)
+					return workflowengine.WorkflowInput{}, fmt.Errorf(
+						"failed to marshal workflow input: %w",
+						err,
+					)
 				}
 				var inputMap map[string]interface{}
 				err = json.Unmarshal(inputJSON, &inputMap)
 				if err != nil {
-					return workflowengine.WorkflowInput{}, fmt.Errorf("failed to unmarshal workflow input: %w", err)
+					return workflowengine.WorkflowInput{}, fmt.Errorf(
+						"failed to unmarshal workflow input: %w",
+						err,
+					)
 				}
 				if payloads, ok := inputMap["payloads"]; ok {
 					if payloadsSlice, ok := payloads.([]interface{}); ok && len(payloadsSlice) > 0 {
@@ -901,7 +929,8 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 
 		action := e.Request.URL.Query().Get("action")
 
-		if action == "start" {
+		switch action {
+		case "start":
 			err = c.SignalWorkflow(context.Background(), checkID, runID, "start-logs", struct{}{})
 			if err != nil {
 				return apierror.New(
@@ -911,7 +940,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 					err.Error(),
 				)
 			}
-		} else if action == "stop" {
+		case "stop":
 			err = c.SignalWorkflow(context.Background(), checkID, runID, "stop-logs", struct{}{})
 			if err != nil {
 				return apierror.New(

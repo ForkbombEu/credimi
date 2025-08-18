@@ -12,8 +12,6 @@ import (
 	"go.temporal.io/sdk/testsuite"
 )
 
-
-
 type UnitTestSuite struct {
 	suite.Suite
 	testsuite.WorkflowTestSuite
