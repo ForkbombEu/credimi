@@ -18,3 +18,5 @@ didimo-ui
 dist/
 coverage.out
 coverage.svg
+.generated-go-semantic-release-changelog.md
+.semrel/
