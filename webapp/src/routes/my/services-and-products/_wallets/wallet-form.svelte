@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { InfoIcon } from 'lucide-svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import MarkdownField from '@/forms/fields/markdownField.svelte';
 
 	//
 
@@ -73,15 +74,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Form {form} enctype="multipart/form-data" class="!space-y-8">
-	<div class="flex justify-end">
-		<CheckboxField
-			{form}
-			name="published"
-			options={{
-				label: m.Published()
-			}}
-		/>
-	</div>
 	<Field
 		{form}
 		name="name"
@@ -91,14 +83,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			placeholder: 'Enter app name'
 		}}
 	/>
-	<TextareaField
-		{form}
-		name="description"
-		options={{
-			label: 'Description',
-			placeholder: 'Enter app description'
-		}}
-	/>
+	<MarkdownField {form} name="description" height={80} />
 	<FileField
 		{form}
 		name="logo"

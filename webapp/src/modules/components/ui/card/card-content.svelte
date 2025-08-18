@@ -17,6 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>> = $props();
 </script>
 
-<div bind:this={ref} class={cn("p-6", className)} {...restProps}>
+<div bind:this={ref} class={cn("p-4", className)} {...restProps}>
 	{@render children?.()}
 </div>

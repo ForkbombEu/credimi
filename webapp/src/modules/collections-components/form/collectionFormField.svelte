@@ -28,6 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { isArrayField } from '@/pocketbase/collections-models';
 	import type { FormPath, SuperForm } from 'sveltekit-superforms';
 	import type { CollectionFormData } from '@/pocketbase/types';
+	import MarkdownField from '@/forms/fields/markdownField.svelte';
 
 	//
 
@@ -78,7 +79,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		options={{ label, items, type: multiple ? 'multiple' : 'single', description, placeholder }}
 	/>
 {:else if config.type == 'editor'}
-	<TextareaField {form} {name} options={{ label, description, placeholder }} />
+	<MarkdownField {form} {name} height={80} />
 {:else if config.type == 'relation'}
 	{@const collectionName = getCollectionNameFromId(config.collectionId) as C}
 	<CollectionField

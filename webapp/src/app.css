@@ -185,4 +185,35 @@
 	.scrollbar-hide::-webkit-scrollbar {
 		display: none; /* Chrome, Safari and Opera */
 	}
+	
+	/* Global scrollbar styling that follows app theme */
+	::-webkit-scrollbar {
+		width: 10px;
+		height: 10px;
+	}
+	
+	::-webkit-scrollbar-track {
+		background: transparent;
+	}
+	
+	/* Light theme scrollbar */
+	::-webkit-scrollbar-thumb {
+		background: hsl(var(--border));
+		border-radius: 6px;
+		transition: background-color 0.2s ease;
+	}
+	
+	::-webkit-scrollbar-thumb:hover {
+		background: hsl(var(--border) / 0.8);
+	}
+	
+	/* Firefox scrollbar styling */
+	html {
+		scrollbar-width: thin;
+		scrollbar-color: hsl(var(--border)) transparent;
+	}
+	
+	.dark html {
+		scrollbar-color: hsl(var(--border)) transparent;
+	}
 }
