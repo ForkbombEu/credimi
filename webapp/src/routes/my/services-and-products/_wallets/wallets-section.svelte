@@ -78,13 +78,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </CollectionManager>
 
 {#snippet WalletCard(wallet: WalletsResponse, onEditSuccess: () => void)}
-	<Card class="bg-background overflow-auto">
+	<Card class="bg-background">
 		{@const conformanceChecks = wallet.conformance_checks as
 			| ConformanceCheck[]
 			| null
 			| undefined}
 
-		<div class="space-y-4 overflow-scroll">
+		<div class="space-y-4">
 			<div class="flex flex-row items-start justify-between gap-4">
 				<div>
 					<div class="flex items-center gap-2">
