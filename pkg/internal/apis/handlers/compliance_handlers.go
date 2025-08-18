@@ -703,7 +703,10 @@ func handleDeeplinkFromHistory(
 							http.StatusBadRequest,
 							"protocol",
 							"unsupported suite",
-							fmt.Sprintf("author is %q, expected openid_conformance_suite, ewc or eudiw", author),
+							fmt.Sprintf(
+								"author is %q, expected openid_conformance_suite, ewc or eudiw",
+								author,
+							),
 						)
 					}
 				}

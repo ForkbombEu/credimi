@@ -42,7 +42,6 @@ var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
 	AuthenticationRequired: true,
 }
 
-
 var templatesDir = path.Join(os.Getenv("ROOT_DIR"), "config_templates")
 
 func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {

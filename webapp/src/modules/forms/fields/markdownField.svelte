@@ -19,9 +19,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		form: SuperForm<Data>;
 		name: FormPathLeaves<Data, string>;
 		options?: Partial<FieldOptions>;
+		height?: number;
 	}
 
-	const { form, name, options = {} }: Props = $props();
+	const { form, name, options = {}, height }: Props = $props();
 
 	const { form: formData } = $derived(form);
 	const valueProxy = $derived(stringProxy(formData, name, { empty: 'undefined' }));
@@ -30,7 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Form.Field {form} {name}>
 	<FieldWrapper field={name} {options}>
 		{#snippet children()}
-			<MarkdownEditor bind:value={$valueProxy} />
+			<MarkdownEditor bind:value={$valueProxy} {height} />
 		{/snippet}
 	</FieldWrapper>
 </Form.Field>

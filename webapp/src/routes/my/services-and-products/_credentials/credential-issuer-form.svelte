@@ -26,16 +26,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				url: z.string().trim().url()
 			})
 		),
+		onError: ({ error, errorMessage, setFormError }) => {
+			//@ts-ignore
+			if (error.response?.error?.code === 404) {
+				return setFormError(m.Could_not_import_credential_issuer_well_known());
+			}
+			//@ts-ignore
+			setFormError(error.response?.error?.message || errorMessage);
+		},
 		onSubmit: async ({ form }) => {
 			// note: use npm:out-of-character to clean the url if needed
 			const { url } = form.data;
-
 			await pb.send('/credentials_issuers/start-check', {
-				method: 'POST',
-				body: {
-					credentialIssuerUrl: url
-				}
-			});
+					method: 'POST',
+					body: {
+						credentialIssuerUrl: url
+					}
+				});
 
 			onSuccess?.();
 		}
