@@ -195,9 +195,19 @@ func checkWellKnownEndpoints(ctx context.Context, baseURL string) error {
 	}
 	cleanURL = strings.TrimRight(cleanURL, "/")
 
+	if strings.HasSuffix(cleanURL, "/.well-known/openid-federation") ||
+		strings.HasSuffix(cleanURL, "/.well-known/openid-credential-issuer") {
+		if err := checkEndpointExists(ctx, cleanURL); err == nil {
+			return nil
+		}
+
+		return fmt.Errorf("%s is not accessible", cleanURL)
+	}
+
 	federationURL := cleanURL + "/.well-known/openid-federation"
 	if err := checkEndpointExists(ctx, federationURL); err == nil {
 		return nil
+
 	}
 
 	issuerURL := cleanURL + "/.well-known/openid-credential-issuer"
@@ -207,7 +217,8 @@ func checkWellKnownEndpoints(ctx context.Context, baseURL string) error {
 
 	return fmt.Errorf(
 		`neither .well-known/openid-federation  
-		 nor .well-known/openid-credential-issuer endpoints are accessible`,
+		 nor .well-known/openid-credential-issuer endpoints are accessible at %s`,
+		cleanURL,
 	)
 }
 
