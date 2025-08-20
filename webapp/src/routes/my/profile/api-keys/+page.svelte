@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let generatedApiKey = $state<GenerateApiKeyResponse | null>(null);
 	let generatedApiKeyName = $state<string>('');
 	let error = $state<string | null>(null);
-	let dialogTimer = $state(10);
+	let dialogTimer = $state(5);
 	let timerInterval: ReturnType<typeof setInterval> | null = null;
 
 	async function generateApiKey() {
