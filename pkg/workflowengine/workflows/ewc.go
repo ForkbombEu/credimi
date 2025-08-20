@@ -241,6 +241,7 @@ func (w *EWCWorkflow) Workflow(
 				"query_params": map[string]any{
 					"sessionId": sessionID,
 				},
+				"expected_status": 200,
 			},
 		}
 		err := workflow.ExecuteActivity(ctx, HTTPGetActivity.Name(), HTTPInput).Get(ctx, &response)

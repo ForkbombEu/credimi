@@ -244,6 +244,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 					"conformant": conformant,
 					"orgID":      namespace,
 				},
+				"expected_status": 200,
 			},
 		}
 		var storeResponse workflowengine.ActivityResult
@@ -286,6 +287,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 				"issuerID":  issuerID,
 				"validKeys": validKeys,
 			},
+			"expected_status": 200,
 		},
 	}
 	var cleanupResponse workflowengine.ActivityResult
