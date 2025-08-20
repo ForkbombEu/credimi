@@ -539,16 +539,6 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 			if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
 				return apis.NewBadRequestError("invalid JSON input", err)
 			}
-			// Check if a record with the given URL already exists
-			collection, err := app.FindCollectionByNameOrId("wallets")
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"wallets",
-					"failed to find wallets collection",
-					err.Error(),
-				)
-			}
 			organization, err := handlers.GetUserOrganizationID(app, e.Auth.Id)
 			if err != nil {
 				return apierror.New(
@@ -556,44 +546,6 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					"organization",
 					"failed to get user organization",
 					err.Error())
-			}
-			existingRecords, err := app.FindRecordsByFilter(
-				collection.Id,
-				"(playstore_url = {:url} || appstore_url = {:url}) && owner = {:owner}",
-				"",
-				1,
-				0,
-				dbx.Params{
-					"url":   req.URL,
-					"owner": organization,
-				},
-			)
-
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"wallets",
-					"failed to find wallet records",
-					err.Error(),
-				)
-			}
-			var walletID string
-			if len(existingRecords) > 0 {
-				walletID = existingRecords[0].Id
-			} else {
-				newRecord := core.NewRecord(collection)
-				newRecord.Set("name", req.URL)
-				newRecord.Set("owner", organization)
-				if err := app.Save(newRecord); err != nil {
-					return apierror.New(
-						http.StatusInternalServerError,
-						fmt.Sprintf("wallet_%s", req),
-						"failed to save wallet data",
-						err.Error(),
-					)
-				}
-
-				walletID = newRecord.Id
 			}
 
 			// Start the workflow
@@ -603,8 +555,7 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					"namespace": organization,
 				},
 				Payload: map[string]any{
-					"walletID": walletID,
-					"url":      req.URL,
+					"url": req.URL,
 				},
 			}
 			w := workflows.WalletWorkflow{}
@@ -627,7 +578,6 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 			"/api/wallet/store-or-update-wallet-data",
 			func(e *core.RequestEvent) error {
 				var body struct {
-					WalletID string         `json:"walletID"`
 					URL      string         `json:"url"`
 					Type     string         `json:"type"`
 					Metadata map[string]any `json:"metadata"`
@@ -642,15 +592,38 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 				if err != nil {
 					return err
 				}
-				existing, err := app.FindFirstRecordByData(collection, "id", body.WalletID)
-
+				var name string
+				switch body.Type {
+				case "google":
+					name = getStringFromMap(body.Metadata, "title")
+				case "apple":
+					name = getStringFromMap(body.Metadata, "trackName")
+				}
 				var record *core.Record
+				existingRecords, err := app.FindRecordsByFilter(
+					collection.Id,
+					"(playstore_url = {:url} || appstore_url = {:url} || name = {:name}) && owner = {:owner}",
+					"",
+					1,
+					0,
+					dbx.Params{
+						"url":   body.URL,
+						"owner": body.OrgID,
+						"name":  name,
+					},
+				)
 				if err != nil {
-					// Create new record
-					record = core.NewRecord(collection)
+					return apierror.New(
+						http.StatusInternalServerError,
+						"wallets",
+						"failed to find wallet records",
+						err.Error(),
+					)
+				}
+				if len(existingRecords) > 0 {
+					record = existingRecords[0]
 				} else {
-					// Update existing record
-					record = existing
+					record = core.NewRecord(collection)
 				}
 
 				description := getStringFromMap(body.Metadata, "description")
@@ -658,7 +631,6 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 
 				switch body.Type {
 				case "google":
-					name := getStringFromMap(body.Metadata, "title")
 					record.Set("name", name)
 					logo := getStringFromMap(body.Metadata, "icon")
 					record.Set("logo_url", logo)
@@ -667,7 +639,6 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					record.Set("playstore_url", body.URL)
 
 				case "apple":
-					name := getStringFromMap(body.Metadata, "trackName")
 					record.Set("name", name)
 					logo := getStringFromMap(body.Metadata, "artworkUrl100")
 					appID := getStringFromMap(body.Metadata, "bundleId")
@@ -695,7 +666,7 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 						err.Error(),
 					)
 				}
-				return e.JSON(http.StatusOK, map[string]any{"walletID": body.WalletID})
+				return e.JSON(http.StatusOK, map[string]any{"URL": body.URL})
 			},
 		)
 		return se.Next()

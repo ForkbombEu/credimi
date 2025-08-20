@@ -191,13 +191,6 @@ func (w *WalletWorkflow) Workflow(
 		}
 
 	}
-	walletID, ok := input.Payload["walletID"].(string)
-	if !ok || walletID == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"issuerID",
-			runMetadata,
-		)
-	}
 	namespace, ok := input.Config["namespace"].(string)
 	if !ok || namespace == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -215,7 +208,6 @@ func (w *WalletWorkflow) Workflow(
 		},
 		Payload: map[string]any{
 			"body": map[string]any{
-				"walletID": walletID,
 				"metadata": metadata,
 				"url":      fullURL,
 				"type":     storeType,
