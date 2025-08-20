@@ -350,6 +350,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 			"query_params": map[string]any{
 				"public": "false",
 			},
+			"expected_status": 200,
 		},
 	}
 	var logs []map[string]any
@@ -436,6 +437,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 					),
 					"logs": logs,
 				},
+				"expected_status": 200,
 			},
 		}
 
