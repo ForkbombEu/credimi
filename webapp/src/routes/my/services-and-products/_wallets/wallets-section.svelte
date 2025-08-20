@@ -24,7 +24,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Eye, EyeOff } from 'lucide-svelte';
 	import { pb } from '@/pocketbase';
 	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
-	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import { buttonVariants } from '@/components/ui/button';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 
@@ -40,7 +39,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let isNewWalletModalOpen = $state(false);
 	let expandedDescriptions = $state(new Set<string>());
 
 	//
@@ -76,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet top({ Header, reloadRecords })}
 		<Header title="Wallets" {id}>
 			{#snippet right()}
-				{@render WalletFormSnippet(reloadRecords)}
+				{@render UpdateWalletFormSnippet(undefined, {}, reloadRecords)}
 			{/snippet}
 		</Header>
 	{/snippet}
@@ -189,43 +187,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Card>
 {/snippet}
 
-{#snippet WalletFormSnippet(reloadRecords: () => void)}
-	<Dialog open={isNewWalletModalOpen} title={m.Add_new_wallet()} contentClass="sm:max-w-[425px]">
-		{#snippet trigger({ props, openDialog })}
-			<button class={buttonVariants({ variant: 'default' })} {...props} onclick={openDialog}>
-				<Plus />
-				{m.Add_new_wallet()}
-			</button>
-		{/snippet}
 
-		{#snippet content({ closeDialog })}
-			<div class="pt-8">
-				<WalletForm
-					onSuccess={() => {
-						closeDialog();
-						reloadRecords();
-					}}
-				/>
-			</div>
-		{/snippet}
-	</Dialog>
-{/snippet}
 
 {#snippet UpdateWalletFormSnippet(
-	walletId: string,
+	walletId: string | undefined,
 	initialData: Partial<WalletsResponse>,
 	onEditSuccess: () => void
 )}
 	<Sheet>
 		{#snippet trigger({ sheetTriggerAttributes })}
-			<Button variant="outline" size="sm" class="p-2" {...sheetTriggerAttributes}>
-				<Pencil />
+			<Button variant={walletId ? "outline" : "default"} size="sm" class={walletId ? "p-2" : ""} {...sheetTriggerAttributes}>
+				{#if walletId}
+					<Pencil />
+				{:else}
+					<Plus />
+					{m.Add_new_wallet()}
+				{/if}
 			</Button>
 		{/snippet}
 
 		{#snippet content({ closeSheet })}
 			<div class="space-y-6">
-				<T tag="h3">Edit wallet</T>
+				<T tag="h3">{walletId ? 'Edit wallet' : m.Add_new_wallet()}</T>
 				<WalletForm
 					{walletId}
 					{initialData}
