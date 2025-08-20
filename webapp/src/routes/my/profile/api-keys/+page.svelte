@@ -226,7 +226,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="space-y-4">
 					<div class="rounded-md border border-amber-200 bg-amber-50 p-4">
 						<div class="flex items-start gap-2">
-							<!-- <Icon src={AlertTriangle} class="mt-0.5 text-amber-600" size="sm" /> -->
 							<div class="space-y-1">
 								<T class="text-sm font-medium text-amber-800"
 									>{m.Important_Security_Notice()}</T
