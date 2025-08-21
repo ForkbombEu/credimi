@@ -534,7 +534,7 @@ type WalletURL struct {
 
 func HookWalletWorkflow(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		se.Router.POST("/wallet/start-checko", func(e *core.RequestEvent) error {
+		se.Router.POST("/wallet/start-check", func(e *core.RequestEvent) error {
 			var req WalletURL
 
 			if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
