@@ -132,7 +132,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			disabled={isLoading}
 			maxlength={30}
 		/>
-		<Button class="w-[20%]" onclick={generateApiKey} disabled={isLoading || !apiKeyNameSchema.safeParse({ name: apiKeyName }).success}>
+		<Button class="w-fit" onclick={generateApiKey} disabled={isLoading || !apiKeyNameSchema.safeParse({ name: apiKeyName }).success}>
 			{isLoading ? m.Generating() : m.Generate_API_Key()}
 		</Button>
 	</div>
