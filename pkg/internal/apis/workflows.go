@@ -21,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -533,7 +534,7 @@ type WalletURL struct {
 
 func HookWalletWorkflow(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		se.Router.POST("/wallet/start-check", func(e *core.RequestEvent) error {
+		se.Router.POST("/wallet/start-checko", func(e *core.RequestEvent) error {
 			var req WalletURL
 
 			if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
@@ -560,7 +561,7 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 			}
 			w := workflows.WalletWorkflow{}
 
-			_, err = w.Start(workflowInput)
+			workflowInfo, err := w.Start(workflowInput)
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -569,106 +570,160 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					err.Error(),
 				)
 			}
-			return e.JSON(http.StatusOK, map[string]string{
-				"walletURL": req.URL,
+			client, err := temporalclient.GetTemporalClientWithNamespace(
+				organization,
+			)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"temporal",
+					"failed to get temporal client",
+					err.Error(),
+				)
+			}
+			result, err := workflowengine.WaitForPartialResult[map[string]any](client, workflowInfo.WorkflowID, workflowInfo.WorkflowRunID, workflows.AppMetadataQuery, 100*time.Millisecond, 30*time.Second)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to get partial workflow result",
+					err.Error(),
+				)
+			}
+			storeType := getStringFromMap(result, "storeType")
+			metadata, ok := result["metadata"].(map[string]any)
+			if !ok {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to get partial workflow result",
+					"failed to get metadata",
+				)
+			}
+			var name, logo, appleAppID, googleAppID, playstoreURL, appstoreURL string
+			description := getStringFromMap(metadata, "description")
+			switch storeType {
+			case "google":
+				name = getStringFromMap(metadata, "title")
+				logo = getStringFromMap(metadata, "icon")
+				googleAppID = getStringFromMap(metadata, "appId")
+				playstoreURL = req.URL
+
+			case "apple":
+				name = getStringFromMap(metadata, "trackName")
+				logo = getStringFromMap(metadata, "artworkUrl100")
+				appleAppID = getStringFromMap(metadata, "bundleId")
+				appstoreURL = req.URL
+			}
+
+			return e.JSON(http.StatusOK, map[string]any{
+				"name":          name,
+				"description":   description,
+				"logo":          logo,
+				"google_app_id": googleAppID,
+				"apple_app_id":  appleAppID,
+				"playstore_url": playstoreURL,
+				"appstore_url":  appstoreURL,
+				"owner":         organization,
 			})
 		}).Bind(apis.RequireAuth())
+		/*
+			se.Router.POST(
+				"/api/wallet/store-or-update-wallet-data",
+				func(e *core.RequestEvent) error {
+					var body struct {
+						URL      string         `json:"url"`
+						Type     string         `json:"type"`
+						Metadata map[string]any `json:"metadata"`
+						OrgID    string         `json:"orgID"`
+					}
 
-		se.Router.POST(
-			"/api/wallet/store-or-update-wallet-data",
-			func(e *core.RequestEvent) error {
-				var body struct {
-					URL      string         `json:"url"`
-					Type     string         `json:"type"`
-					Metadata map[string]any `json:"metadata"`
-					OrgID    string         `json:"orgID"`
-				}
+					if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
+						return apis.NewBadRequestError("invalid JSON body", err)
+					}
 
-				if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
-					return apis.NewBadRequestError("invalid JSON body", err)
-				}
-
-				collection, err := app.FindCollectionByNameOrId("wallets")
-				if err != nil {
-					return err
-				}
-				var name string
-				switch body.Type {
-				case "google":
-					name = getStringFromMap(body.Metadata, "title")
-				case "apple":
-					name = getStringFromMap(body.Metadata, "trackName")
-				}
-				var record *core.Record
-				existingRecords, err := app.FindRecordsByFilter(
-					collection.Id,
-					"(playstore_url = {:url} || appstore_url = {:url} || name = {:name}) && owner = {:owner}",
-					"",
-					1,
-					0,
-					dbx.Params{
-						"url":   body.URL,
-						"owner": body.OrgID,
-						"name":  name,
-					},
-				)
-				if err != nil {
-					return apierror.New(
-						http.StatusInternalServerError,
-						"wallets",
-						"failed to find wallet records",
-						err.Error(),
+					collection, err := app.FindCollectionByNameOrId("wallets")
+					if err != nil {
+						return err
+					}
+					var name string
+					switch body.Type {
+					case "google":
+						name = getStringFromMap(body.Metadata, "title")
+					case "apple":
+						name = getStringFromMap(body.Metadata, "trackName")
+					}
+					var record *core.Record
+					existingRecords, err := app.FindRecordsByFilter(
+						collection.Id,
+						"(playstore_url = {:url} || appstore_url = {:url} || name = {:name}) && owner = {:owner}",
+						"",
+						1,
+						0,
+						dbx.Params{
+							"url":   body.URL,
+							"owner": body.OrgID,
+							"name":  name,
+						},
 					)
-				}
-				if len(existingRecords) > 0 {
-					record = existingRecords[0]
-				} else {
-					record = core.NewRecord(collection)
-				}
+					if err != nil {
+						return apierror.New(
+							http.StatusInternalServerError,
+							"wallets",
+							"failed to find wallet records",
+							err.Error(),
+						)
+					}
+					if len(existingRecords) > 0 {
+						record = existingRecords[0]
+					} else {
+						record = core.NewRecord(collection)
+					}
 
-				description := getStringFromMap(body.Metadata, "description")
-				record.Set("description", description)
+					description := getStringFromMap(body.Metadata, "description")
+					record.Set("description", description)
 
-				switch body.Type {
-				case "google":
-					record.Set("name", name)
-					logo := getStringFromMap(body.Metadata, "icon")
-					record.Set("logo_url", logo)
-					appID := getStringFromMap(body.Metadata, "appId")
-					record.Set("app_id", appID)
-					record.Set("playstore_url", body.URL)
+					switch body.Type {
+					case "google":
+						record.Set("name", name)
+						logo := getStringFromMap(body.Metadata, "icon")
+						record.Set("logo_url", logo)
+						appID := getStringFromMap(body.Metadata, "appId")
+						record.Set("app_id", appID)
+						record.Set("playstore_url", body.URL)
 
-				case "apple":
-					record.Set("name", name)
-					logo := getStringFromMap(body.Metadata, "artworkUrl100")
-					appID := getStringFromMap(body.Metadata, "bundleId")
-					record.Set("app_id", appID)
-					record.Set("logo_url", logo)
-					record.Set("appstore_url", body.URL)
-				}
-				dataJSON, err := json.Marshal(body.Metadata)
-				if err != nil {
-					return apierror.New(
-						http.StatusInternalServerError,
-						"wallet",
-						"failed to marshal wallet metadata",
-						err.Error(),
-					)
-				}
-				record.Set("metadata", dataJSON)
-				record.Set("owner", body.OrgID)
+					case "apple":
+						record.Set("name", name)
+						logo := getStringFromMap(body.Metadata, "artworkUrl100")
+						appID := getStringFromMap(body.Metadata, "bundleId")
+						record.Set("app_id", appID)
+						record.Set("logo_url", logo)
+						record.Set("appstore_url", body.URL)
+					}
+					dataJSON, err := json.Marshal(body.Metadata)
+					if err != nil {
+						return apierror.New(
+							http.StatusInternalServerError,
+							"wallet",
+							"failed to marshal wallet metadata",
+							err.Error(),
+						)
+					}
+					record.Set("metadata", dataJSON)
+					record.Set("owner", body.OrgID)
 
-				if err := app.Save(record); err != nil {
-					return apierror.New(
-						http.StatusInternalServerError,
-						"wallet",
-						"failed to save wallet data",
-						err.Error(),
-					)
-				}
-				return e.JSON(http.StatusOK, map[string]any{"URL": body.URL})
-			},
-		)
+					if err := app.Save(record); err != nil {
+						return apierror.New(
+							http.StatusInternalServerError,
+							"wallet",
+							"failed to save wallet data",
+							err.Error(),
+						)
+					}
+					return e.JSON(http.StatusOK, map[string]any{"URL": body.URL})
+				},
+			)
+		*/
 		return se.Next()
 	})
 }

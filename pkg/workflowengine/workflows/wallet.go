@@ -25,6 +25,7 @@ import (
 const (
 	WalletTaskQueue  = "WalletTaskQueue"
 	AppleStoreAPIURL = "https://itunes.apple.com/lookup"
+	AppMetadataQuery = "getAppMetadata"
 )
 
 // Wallet is a workflow that imports wallet metadata from app stores urls.
@@ -59,6 +60,19 @@ func (w *WalletWorkflow) Workflow(
 		),
 	}
 
+	var metadata map[string]any
+	var storeType string
+	metadataReady := false
+
+	workflow.SetQueryHandler(ctx, AppMetadataQuery, func() (map[string]any, error) {
+		if !metadataReady {
+			return nil, workflowengine.ErrNotReady{}
+		}
+		return map[string]any{
+			"metadata":  metadata,
+			"storeType": storeType,
+		}, nil
+	})
 	fullURL, ok := input.Payload["url"].(string)
 	if !ok || fullURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
@@ -94,7 +108,7 @@ func (w *WalletWorkflow) Workflow(
 		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
-	storeType, ok := parsedResult.Output.(map[string]any)["store_type"].(string)
+	storeType, ok = parsedResult.Output.(map[string]any)["store_type"].(string)
 	if !ok {
 		appErr := workflowengine.NewAppError(
 			errCode,
@@ -104,7 +118,6 @@ func (w *WalletWorkflow) Workflow(
 	}
 	httpActivity := activities.NewHTTPActivity()
 
-	var metadata map[string]any
 	switch storeType {
 
 	case "apple":
@@ -198,7 +211,10 @@ func (w *WalletWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	storeInput := workflowengine.ActivityInput{
+
+	metadataReady = true
+	//Code to store metdata directly into PB
+	/*storeInput := workflowengine.ActivityInput{
 		Config: map[string]string{
 			"method": "POST",
 			"url": fmt.Sprintf(
@@ -222,6 +238,7 @@ func (w *WalletWorkflow) Workflow(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
+	*/
 	return workflowengine.WorkflowResult{
 		Message: "Worflow completed successfully",
 	}, nil
