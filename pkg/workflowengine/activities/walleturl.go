@@ -58,7 +58,7 @@ func (a *ParseWalletURLActivity) Execute(
 		)
 	}
 
-	parsed, err := url.Parse(fullURL)
+	parsed, err := url.Parse(TrimInput(fullURL))
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
 		return result, a.NewActivityError(
