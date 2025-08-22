@@ -641,15 +641,13 @@
 	"Enter_repository_URL": "Enter repository URL",
 	"Home_URL": "Home URL",
 	"Enter_home_URL": "Enter home URL",
-	"Conformance_Checks": "Conformance Checks",
 	"Processing_wallet": "Processing wallet...",
 	"Fetching_app_store_metadata": "Fetching app store metadata",
 	"Enter_description": "Enter description",
 	"Enter_logo_url_used_if_no_logo_file_is_uploaded": "Enter logo URL (used if no logo file is uploaded)",
-	"Enter_app_identifier": "Enter app identifier",
-	"Enter_Play_Store_URL": "Enter Play Store URL",
-	"Enter_App_Store_URL": "Enter App Store URL",
-	"Enter_repository_URL": "Enter repository URL",
-	"Enter_home_URL": "Enter home URL",
-	"Add_new_wallet": "Add new wallet"
+	"Wallet_not_found_check_URL": "Wallet not found. Please check the URL and try again.",
+	"Import_from_marketplace": "Import from marketplace",
+	"Import_wallet_metadata_description": "If your wallet is already published, you can import its metadata and later edit it",
+	"Enter_app_store_URL_placeholder": "Enter Apple App Store or Google Play Store URL",
+	"Logo": "Logo"
 }

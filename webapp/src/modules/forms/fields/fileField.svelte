@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Writable } from 'svelte/store';
 	import type { ComponentProps } from 'svelte';
 	import { createFilesValidator } from './fileField';
+	import { Button } from '@/components/ui/button';
 
 	//
 
@@ -33,6 +34,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const validator = $derived(
 		createFilesValidator(form as SuperForm<GenericRecord>, name, multiple)
 	);
+
+	let fileInput: HTMLInputElement;
 </script>
 
 <Form.Field {form} {name}>
@@ -40,12 +43,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#snippet children({ props })}
 			<FileManager bind:data={$valueProxy} {validator} {multiple}>
 				{#snippet children({ addFiles })}
-					<Input
-						{...options}
+					<Button
+						type="button"
+						onclick={() => fileInput.click()}
+					>
+						{options.placeholder}
+					</Button>
+					<input
+						bind:this={fileInput}
 						{...props}
-						placeholder="Upload a file"
 						type="file"
-						class="hover:bg-primary/10 file:bg-secondary-foreground file:text-secondary p-0 py-1 pl-1 file:mr-4 file:h-full file:rounded-md file:px-4 hover:cursor-pointer file:hover:cursor-pointer"
+						{multiple}
+						accept={options.accept}
+						class="hidden"
 						onchange={(e) => {
 							const fileList = e.currentTarget.files;
 							if (fileList) addFiles([...fileList]);

@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { createForm, Form, SubmitButton } from '@/forms';
+	import { createForm, Form } from '@/forms';
 	import { Field, FileField } from '@/forms/fields';
 	import { pb } from '@/pocketbase/index.js';
 	import { zod } from 'sveltekit-superforms/adapters';
@@ -19,13 +19,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { Loader2, Download, AlertCircle } from 'lucide-svelte';
 	import { Button } from '@/components/ui/button';
-	import {
-		Card,
-		CardContent,
-		CardDescription,
-		CardHeader,
-		CardTitle
-	} from '@/components/ui/card';
 	import { Alert, AlertDescription } from '@/components/ui/alert';
 	import Separator from '@/components/ui/separator/separator.svelte';
 
@@ -53,7 +46,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			conformance_checks: z.array(ConformanceCheckSchema).nullable()
 		});
 
-	// Function to auto-populate form from store URLs
 	async function autoPopulateFromUrl() {
 		if (!autoPopulateUrl.trim()) return;
 
@@ -68,9 +60,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}
 			});
 
-			// Auto-populate the form with the response data
 			if (response) {
-				// Update the form data with the fetched metadata
+				if (response.logo) {
+					response.logo_url = response.logo;
+					delete response.logo;
+				}
 				const { form: formData } = editWalletform;
 				formData.update((currentData) => {
 					const updatedData = { ...currentData };
@@ -83,11 +77,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				});
 			}
 
-			// Clear the URL input after successful fetch
 			autoPopulateUrl = '';
 		} catch (error: any) {
 			if (error?.response?.error?.code === 404) {
-				autoPopulateError = m.Could_not_import_credential_issuer_well_known();
+				autoPopulateError = m.Wallet_not_found_check_URL();
 			} else {
 				autoPopulateError =
 					error?.response?.error?.message || 'Failed to fetch wallet metadata';
@@ -101,13 +94,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
 			let wallet: WalletsResponse;
+			const formData = { ...form.data };
+			if (!formData.apk || (formData.apk instanceof File && formData.apk.size === 0)) {
+				delete formData.apk;
+			}
+			if (!formData.logo || (formData.logo instanceof File && formData.logo.size === 0)) {
+				delete formData.logo;
+			}
+			
 			if (walletId) {
 				// Temp fix
-				const data = _.omit(form.data, 'conformance_checks');
+				const data = _.omit(formData, 'conformance_checks');
 				wallet = await pb.collection('wallets').update(walletId, data);
 			} else {
-				wallet = await pb.collection('wallets').create(form.data);
+				wallet = await pb.collection('wallets').create(formData);
 			}
+
 			onSuccess?.();
 		},
 		options: {
@@ -120,27 +122,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			appstore_url: initialData.appstore_url || '',
 			repository: initialData.repository || '',
 			home_url: initialData.home_url || '',
-			app_id: initialData.app_id || '',
 			logo_url: initialData.logo_url || '',
 			// Don't include apk/logo in initial data since they're File fields
 			conformance_checks: null
 		}
 	});
-
-	// Check if either app store URL is filled to show auto-populate option
-	const { form: formData } = editWalletform;
-	const hasStoreUrl = $derived($formData.playstore_url || $formData.appstore_url);
 </script>
 
-<!-- Auto-populate section -->
-
 <div class="flex flex-col">
-	<div class="flex items-center mb-2">
-		<!-- <Download class="h-5 w-5 mr-4" /> -->
-		<T tag="h4">Import from marketplace</T>
+	<div class="mb-2 flex items-center">
+		<T tag="h4">{m.Import_from_marketplace()}</T>
 	</div>
 	<T tag="small">
-		 If your wallet is already published, you can import its metadata and later edit it
+		{m.Import_wallet_metadata_description()}
 	</T>
 </div>
 
@@ -156,7 +150,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<input
 			type="url"
 			bind:value={autoPopulateUrl}
-			placeholder="https://apps.apple.com/app/... or https://play.google.com/store/apps/..."
+			placeholder={m.Enter_app_store_URL_placeholder()}
 			class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 		/>
 	</div>
@@ -176,8 +170,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Button>
 </div>
 
-<Separator/>
-<!-- Main wallet form -->
+<Separator />
+
 <Form form={editWalletform} enctype="multipart/form-data" class="!space-y-8">
 	<Field
 		form={editWalletform}
@@ -189,24 +183,40 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}}
 	/>
 	<MarkdownField form={editWalletform} name="description" height={80} />
-	<Field
-		form={editWalletform}
-		name="logo_url"
-		options={{
-			type: 'url',
-			label: m.Logo_URL(),
-			placeholder: m.Enter_logo_URL()
-		}}
-	/>
-	<Field
-		form={editWalletform}
-		name="app_id"
-		options={{
-			type: 'text',
-			label: m.App_ID(),
-			placeholder: m.Enter_app_identifier()
-		}}
-	/>
+	<div class="space-y-4">
+		<div class="text-sm font-medium leading-none">{m.Logo()}</div>
+		<div class="space-y-4">
+			<div class="space-y-2">
+				<FileField
+					form={editWalletform}
+					name="logo"
+					options={{
+						label: '',
+						placeholder: m.Upload_logo()
+					}}
+				/>
+			</div>
+			<div class="relative">
+				<div class="absolute inset-0 flex items-center">
+					<span class="border-muted w-full border-t"></span>
+				</div>
+				<div class="relative flex justify-center text-xs uppercase">
+					<span class="bg-background text-muted-foreground px-2">{m.or()}</span>
+				</div>
+			</div>
+			<div class="space-y-2">
+				<Field
+					form={editWalletform}
+					name="logo_url"
+					options={{
+						type: 'url',
+						label: '',
+						placeholder: m.Enter_logo_URL()
+					}}
+				/>
+			</div>
+		</div>
+	</div>
 	<Field
 		form={editWalletform}
 		name="playstore_url"
