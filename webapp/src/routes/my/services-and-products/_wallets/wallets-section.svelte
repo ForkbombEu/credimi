@@ -16,14 +16,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { RecordDelete } from '@/collections-components/manager';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { Separator } from '@/components/ui/separator';
-	import Sheet from '@/components/ui-custom/sheet.svelte';
-	import WalletForm from './wallet-form.svelte';
-	import { Pencil, Plus } from 'lucide-svelte';
+	import WalletFormSheet from './wallet-form-sheet.svelte';
+	import { ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { m } from '@/i18n';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import { Eye, EyeOff } from 'lucide-svelte';
 	import { pb } from '@/pocketbase';
 	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
+	import { buttonVariants } from '@/components/ui/button';
+	import Avatar from '@/components/ui-custom/avatar.svelte';
 
 	//
 
@@ -37,11 +38,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	function updatePublished(
-		recordId: string,
-		published: boolean,
-		onSuccess: () => void
-	) {
+	let expandedDescriptions = $state(new Set<string>());
+
+	//
+
+	function updatePublished(recordId: string, published: boolean, onSuccess: () => void) {
 		pb.collection('wallets')
 			.update(recordId, {
 				published
@@ -49,6 +50,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			.then(() => {
 				onSuccess();
 			});
+	}
+
+	function toggleDescriptionExpansion(walletId: string) {
+		if (expandedDescriptions.has(walletId)) {
+			expandedDescriptions.delete(walletId);
+		} else {
+			expandedDescriptions.add(walletId);
+		}
+		expandedDescriptions = new Set(expandedDescriptions);
 	}
 </script>
 
@@ -60,10 +70,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 	editFormFieldsOptions={{ exclude: ['owner', 'published'] }}
 >
-	{#snippet top({ Header })}
+	{#snippet top({ Header, reloadRecords })}
 		<Header title="Wallets" {id}>
 			{#snippet right()}
-				{@render WalletFormSnippet()}
+				<WalletFormSheet onEditSuccess={reloadRecords} />
 			{/snippet}
 		</Header>
 	{/snippet}
@@ -83,10 +93,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			| ConformanceCheck[]
 			| null
 			| undefined}
+		{@const avatarSrc = wallet.logo ? pb.files.getURL(wallet, wallet.logo) : wallet.logo_url}
 
 		<div class="space-y-4">
 			<div class="flex flex-row items-start justify-between gap-4">
-				<div>
+				<Avatar src={avatarSrc} fallback={wallet.name} class="rounded-sm border" />
+				<div class="flex-1">
 					<div class="flex items-center gap-2">
 						<T class="font-bold">
 							{#if !wallet.published}
@@ -96,9 +108,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{/if}
 						</T>
 					</div>
-					<T class="mt-1 text-xs text-gray-400">
-						<RenderMd content={wallet.description} />
-					</T>
+					{#if wallet.appstore_url}
+						<T class="text-xs text-gray-400">{wallet.appstore_url}</T>
+					{/if}
 				</div>
 
 				<div class="flex items-center gap-1">
@@ -108,15 +120,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						size="md"
 						checked={wallet.published}
 						onCheckedChange={() =>
-							updatePublished(
-								wallet.id,
-								!wallet.published,
-								onEditSuccess
-							)}
+							updatePublished(wallet.id, !wallet.published, onEditSuccess)}
 					/>
-
-					{@render UpdateWalletFormSnippet(wallet.id, wallet, onEditSuccess)}
-
+					<WalletFormSheet walletId={wallet.id} initialData={wallet} {onEditSuccess} />
 					<RecordDelete record={wallet}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
 							<Button variant="outline" size="sm" class="p-2" {...triggerAttributes}>
@@ -126,6 +132,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</RecordDelete>
 				</div>
 			</div>
+
+			{#if wallet.description}
+				<Separator />
+				{@const isExpanded = expandedDescriptions.has(wallet.id)}
+				{@const descriptionText = wallet.description.replace(/<[^>]*>/g, '').trim()}
+				{@const needsExpansion = descriptionText.length > 100}
+				<div class="mt-1 text-xs text-gray-400">
+					<div
+						class="transition-all duration-200 ease-in-out {isExpanded
+							? ''
+							: 'line-clamp-2'}"
+					>
+						<RenderMd content={wallet.description} />
+					</div>
+
+					{#if needsExpansion}
+						<button
+							class="text-primary mt-1 flex items-center gap-1 text-xs transition-colors duration-150 hover:underline"
+							onclick={() => toggleDescriptionExpansion(wallet.id)}
+							type="button"
+						>
+							{#if isExpanded}
+								{m.Show_less()}
+								<ChevronUp class="h-3 w-3" />
+							{:else}
+								{m.Show_more()}
+								<ChevronDown class="h-3 w-3" />
+							{/if}
+						</button>
+					{/if}
+				</div>
+			{/if}
 
 			<Separator />
 
@@ -144,55 +182,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 	</Card>
-{/snippet}
-
-{#snippet WalletFormSnippet()}
-	<Sheet>
-		{#snippet trigger({ sheetTriggerAttributes })}
-			<!-- {#if workflows?.length === 0}
-				<Button disabled variant="outline" class="text-wrap text-xs">
-					{m.Before_adding_a_new_wallet_you_need_to_start_a_conformance_check()}
-				</Button>
-			{:else} -->
-			<Button {...sheetTriggerAttributes}>
-				<Plus />{m.Add_new_wallet()}
-			</Button>
-			<!-- {/if} -->
-		{/snippet}
-
-		{#snippet content({ closeSheet })}
-			<div class="space-y-6">
-				<T tag="h3">Add a new wallet</T>
-				<WalletForm onSuccess={closeSheet} />
-			</div>
-		{/snippet}
-	</Sheet>
-{/snippet}
-
-{#snippet UpdateWalletFormSnippet(
-	walletId: string,
-	initialData: Partial<WalletsResponse>,
-	onEditSuccess: () => void
-)}
-	<Sheet>
-		{#snippet trigger({ sheetTriggerAttributes })}
-			<Button variant="outline" size="sm" class="p-2" {...sheetTriggerAttributes}>
-				<Pencil />
-			</Button>
-		{/snippet}
-
-		{#snippet content({ closeSheet })}
-			<div class="space-y-6">
-				<T tag="h3">Add a new wallet</T>
-				<WalletForm
-					{walletId}
-					{initialData}
-					onSuccess={() => {
-						onEditSuccess();
-						closeSheet();
-					}}
-				/>
-			</div>
-		{/snippet}
-	</Sheet>
 {/snippet}

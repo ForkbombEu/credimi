@@ -168,6 +168,17 @@ func StartAllWorkersByNamespace(namespace string) {
 			},
 		},
 		{
+			TaskQueue: workflows.WalletTaskQueue,
+			Workflows: []workflowengine.Workflow{
+				&workflows.WalletWorkflow{},
+			},
+			Activities: []workflowengine.ExecutableActivity{
+				activities.NewParseWalletURLActivity(),
+				activities.NewDockerActivity(),
+				activities.NewHTTPActivity(),
+			},
+		},
+		{
 			TaskQueue: workflows.CustomCheckTaskQueque,
 			Workflows: []workflowengine.Workflow{
 				&workflows.CustomCheckWorkflow{},

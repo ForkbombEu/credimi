@@ -24,7 +24,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { app, class: className = '' }: Props = $props();
 
-	const logo = $derived(pb.files.getURL(app, app.logo));
+	// Prioritize logo file over logo_url
+	const logo = $derived.by(() => {
+		if (app.logo) {
+			return pb.files.getURL(app, app.logo);
+		} else if (app.logo_url) {
+			return app.logo_url;
+		}
+		return null;
+	});
 	const conformanceChecks = $derived(app.conformance_checks) as ConformanceCheck[];
 </script>
 
