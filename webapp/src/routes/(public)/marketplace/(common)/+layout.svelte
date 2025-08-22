@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WalletFormSheet from '$routes/my/services-and-products/_wallets/wallet-form-sheet.svelte';
 	import { invalidateAll } from '$app/navigation';
 	import type { WalletsResponse } from '@/pocketbase/types';
-	
+
 	//
 
 	let { children, data } = $props();
@@ -33,11 +33,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const isWallet = $derived(marketplaceItem.type === 'wallets');
 
-
 	let fullWalletData = $state<WalletsResponse | null>(null);
-		async function loadFullWalletDataOnDemand() {		
+	async function loadFullWalletDataOnDemand() {
 		if (fullWalletData || marketplaceItem.type !== 'wallets') return;
-		
 		try {
 			fullWalletData = await pb.collection('wallets').getOne(marketplaceItem.id);
 		} catch (error) {
@@ -52,6 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function handleEditSuccess() {
 		invalidateAll();
+		fullWalletData = null;
 	}
 </script>
 
@@ -70,9 +69,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						onEditSuccess={handleEditSuccess}
 					>
 						{#snippet customTrigger({ sheetTriggerAttributes })}
-							<Button 
-								size="sm" 
-								class="!h-8 text-xs" 
+							<Button
+								size="sm"
+								class="!h-8 text-xs"
 								onclick={async (event) => {
 									await loadFullWalletDataOnDemand();
 									if (sheetTriggerAttributes?.onclick) {

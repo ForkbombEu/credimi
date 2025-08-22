@@ -122,7 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						onCheckedChange={() =>
 							updatePublished(wallet.id, !wallet.published, onEditSuccess)}
 					/>
-					<WalletFormSheet walletId={wallet.id} initialData={wallet} onEditSuccess={onEditSuccess} />
+					<WalletFormSheet walletId={wallet.id} initialData={wallet} {onEditSuccess} />
 					<RecordDelete record={wallet}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
 							<Button variant="outline" size="sm" class="p-2" {...triggerAttributes}>
