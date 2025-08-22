@@ -606,23 +606,26 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					"failed to get metadata",
 				)
 			}
-			var name, logo, appleAppID, googleAppID, playstoreURL, appstoreURL string
+			var name, logo, appleAppID, googleAppID, playstoreURL, appstoreURL, homeURL string
 			description := getStringFromMap(metadata, "description")
 			switch storeType {
 			case "google":
 				name = getStringFromMap(metadata, "title")
 				logo = getStringFromMap(metadata, "icon")
 				googleAppID = getStringFromMap(metadata, "appId")
+				homeURL = getStringFromMap(metadata, "developerWebsite")
 				playstoreURL = req.URL
 
 			case "apple":
 				name = getStringFromMap(metadata, "trackName")
 				logo = getStringFromMap(metadata, "artworkUrl100")
 				appleAppID = getStringFromMap(metadata, "bundleId")
+				homeURL = getStringFromMap(metadata, "sellerUrl")
 				appstoreURL = req.URL
 			}
 
 			return e.JSON(http.StatusOK, map[string]any{
+				"type":          storeType,
 				"name":          name,
 				"description":   description,
 				"logo":          logo,
@@ -630,6 +633,7 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 				"apple_app_id":  appleAppID,
 				"playstore_url": playstoreURL,
 				"appstore_url":  appstoreURL,
+				"home_url":      homeURL,
 				"owner":         organization,
 			})
 		}).Bind(apis.RequireAuth())
