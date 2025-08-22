@@ -303,10 +303,10 @@ func WaitForWorkflowResult(c client.Client, workflowID, runID string) (WorkflowR
 }
 
 // ErrNotReady is returned by a workflow query when the requested data is not ready yet.
-type ErrNotReady struct{}
+type NotReadyError struct{}
 
 // Error implements the error interface for ErrNotReady.
-func (e ErrNotReady) Error() string {
+func (e NotReadyError) Error() string {
 	return "result not ready"
 }
 

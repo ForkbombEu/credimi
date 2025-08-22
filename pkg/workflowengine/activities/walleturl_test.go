@@ -94,7 +94,6 @@ func TestParseWalletURLActivity_Execute(t *testing.T) {
 				require.Error(t, err)
 				require.Contains(t, err.Error(), tt.errCode.Code)
 				require.Contains(t, err.Error(), tt.errCode.Description)
-
 			} else {
 				require.NoError(t, err)
 				var result workflowengine.ActivityResult

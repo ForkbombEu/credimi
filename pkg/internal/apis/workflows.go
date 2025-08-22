@@ -208,7 +208,6 @@ func checkWellKnownEndpoints(ctx context.Context, baseURL string) error {
 	federationURL := cleanURL + "/.well-known/openid-federation"
 	if err := checkEndpointExists(ctx, federationURL); err == nil {
 		return nil
-
 	}
 
 	issuerURL := cleanURL + "/.well-known/openid-credential-issuer"
@@ -581,7 +580,14 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					err.Error(),
 				)
 			}
-			result, err := workflowengine.WaitForPartialResult[map[string]any](client, workflowInfo.WorkflowID, workflowInfo.WorkflowRunID, workflows.AppMetadataQuery, 100*time.Millisecond, 30*time.Second)
+			result, err := workflowengine.WaitForPartialResult[map[string]any](
+				client,
+				workflowInfo.WorkflowID,
+				workflowInfo.WorkflowRunID,
+				workflows.AppMetadataQuery,
+				100*time.Millisecond,
+				30*time.Second,
+			)
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,

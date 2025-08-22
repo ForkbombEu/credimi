@@ -57,7 +57,6 @@ func Test_WalletWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{Output: map[string]any{"stdout": testdata}}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"status": 200, "body": "test_result"}}, nil)
-
 			},
 		},
 		{
@@ -86,7 +85,6 @@ func Test_WalletWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{Output: map[string]any{"api_input": "http://example.com", "store_type": "apple"}}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"status": 200, "body": map[string]any{"results": testdata}}}, nil)
-
 			},
 		},
 		{

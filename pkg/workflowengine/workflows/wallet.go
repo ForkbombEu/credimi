@@ -66,7 +66,7 @@ func (w *WalletWorkflow) Workflow(
 
 	workflow.SetQueryHandler(ctx, AppMetadataQuery, func() (map[string]any, error) {
 		if !metadataReady {
-			return nil, workflowengine.ErrNotReady{}
+			return nil, workflowengine.NotReadyError{}
 		}
 		return map[string]any{
 			"metadata":  metadata,
@@ -119,7 +119,6 @@ func (w *WalletWorkflow) Workflow(
 	httpActivity := activities.NewHTTPActivity()
 
 	switch storeType {
-
 	case "apple":
 		var response workflowengine.ActivityResult
 		err = workflow.ExecuteActivity(ctx, httpActivity.Name(), workflowengine.ActivityInput{
@@ -136,7 +135,10 @@ func (w *WalletWorkflow) Workflow(
 		}).Get(ctx, &response)
 		if err != nil {
 			logger.Error("HTTP failed", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 		result, ok := response.Output.(map[string]any)["body"]
 		if !ok {
@@ -144,8 +146,10 @@ func (w *WalletWorkflow) Workflow(
 				errCode,
 				fmt.Sprintf("%s: results", urlParser.Name()),
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
-
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 		metadata = AsSliceOfMaps(result.(map[string]any)["results"])[0]
 
@@ -160,7 +164,10 @@ func (w *WalletWorkflow) Workflow(
 		}).Get(ctx, &result)
 		if err != nil {
 			logger.Error("Docker failed", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 		stdout, ok := result.Output.(map[string]any)["stdout"].(string)
 		if !ok {
@@ -168,7 +175,10 @@ func (w *WalletWorkflow) Workflow(
 				errCode,
 				fmt.Sprintf("%s: results", urlParser.Name()),
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 
 		stdoutJSON, err := json.Marshal(stdout)
@@ -202,7 +212,6 @@ func (w *WalletWorkflow) Workflow(
 				runMetadata,
 			)
 		}
-
 	}
 	namespace, ok := input.Config["namespace"].(string)
 	if !ok || namespace == "" {
@@ -213,7 +222,7 @@ func (w *WalletWorkflow) Workflow(
 	}
 
 	metadataReady = true
-	//Code to store metdata directly into PB
+	// Code to store metdata directly into PB
 	/*storeInput := workflowengine.ActivityInput{
 		Config: map[string]string{
 			"method": "POST",
