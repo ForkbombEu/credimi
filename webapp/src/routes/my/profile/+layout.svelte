@@ -26,6 +26,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			href: '/my/profile/webauthn',
 			title: 'Webauthn',
 			icon: LockIcon
+		},
+		{
+			href: '/my/profile/api-keys',
+			title: 'API keys',
+			icon: LockIcon
 		}
 	]);
 
