@@ -32,10 +32,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		data?: File | File[];
 		validator?: FileManagerValidator;
 		multiple?: boolean;
+		showFilesList?: boolean;
 		children?: Snippet<[{ addFiles: (newFiles: File[]) => void }]>;
 	};
 
-	let { data = $bindable(), validator, multiple = false, children: child }: Props = $props();
+	let { data = $bindable(), validator, multiple = false, showFilesList = true, children: child }: Props = $props();
 
 	/* File upload handling */
 
@@ -80,7 +81,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="space-y-2">
 	{@render child?.({ addFiles })}
 
-	{#if (Array.isArray(data) && data.length > 0) || (!multiple && Boolean(data))}
+	{#if showFilesList && ((Array.isArray(data) && data.length > 0) || (!multiple && Boolean(data)))}
 		<List>
 			<ListHeader label={m.Files()} />
 

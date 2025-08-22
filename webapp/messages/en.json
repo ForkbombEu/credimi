@@ -676,5 +676,11 @@
 	"You_can_now_close_this_dialog": "You can now close this dialog",
 	"Close_seconds": "Close ({dialogTimer})",
 	"An_unexpected_error_occurred": "An unexpected error occurred",
-	"Close": "Close"
+	"Close": "Close",
+	"Import": "Import",
+	"Edit_wallet": "Edit wallet",
+	"Failed_to_fetch_wallet_metadata": "Failed to fetch wallet metadata",
+	"Invalid_image_URL_error": "Invalid image URL. Please check the URL and try again.",
+	"Logo_preview": "Logo preview",
+	"Fetching_fallback": "Fetching..."
 }

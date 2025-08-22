@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		form: SuperForm<Data>;
 		name: FormPath<Data>;
-		options?: Partial<FieldOptions & Omit<ComponentProps<typeof Input>, 'type' | 'value'>>;
+		options?: Partial<FieldOptions & Omit<ComponentProps<typeof Input>, 'type' | 'value'> & { showFilesList?: boolean }>;
 	};
 
 	const { form, name, options = {} }: Props = $props();
@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Form.Field {form} {name}>
 	<FieldWrapper field={name} {options}>
 		{#snippet children({ props })}
-			<FileManager bind:data={$valueProxy} {validator} {multiple}>
+			<FileManager bind:data={$valueProxy} {validator} {multiple} showFilesList={options.showFilesList}>
 				{#snippet children({ addFiles })}
 					<Button
 						type="button"

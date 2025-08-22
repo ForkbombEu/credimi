@@ -16,9 +16,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { RecordDelete } from '@/collections-components/manager';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { Separator } from '@/components/ui/separator';
-	import Sheet from '@/components/ui-custom/sheet.svelte';
-	import WalletForm from './wallet-form.svelte';
-	import { Pencil, Plus, ChevronDown, ChevronUp } from 'lucide-svelte';
+	import WalletFormSheet from './wallet-form-sheet.svelte';
+	import { ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { m } from '@/i18n';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import { Eye, EyeOff } from 'lucide-svelte';
@@ -74,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet top({ Header, reloadRecords })}
 		<Header title="Wallets" {id}>
 			{#snippet right()}
-				{@render UpdateWalletFormSnippet(undefined, {}, reloadRecords)}
+				<WalletFormSheet onEditSuccess={reloadRecords} />
 			{/snippet}
 		</Header>
 	{/snippet}
@@ -123,9 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						onCheckedChange={() =>
 							updatePublished(wallet.id, !wallet.published, onEditSuccess)}
 					/>
-
-					{@render UpdateWalletFormSnippet(wallet.id, wallet, onEditSuccess)}
-
+					<WalletFormSheet walletId={wallet.id} initialData={wallet} onEditSuccess={onEditSuccess} />
 					<RecordDelete record={wallet}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
 							<Button variant="outline" size="sm" class="p-2" {...triggerAttributes}>
@@ -185,40 +182,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 	</Card>
-{/snippet}
-
-
-
-{#snippet UpdateWalletFormSnippet(
-	walletId: string | undefined,
-	initialData: Partial<WalletsResponse>,
-	onEditSuccess: () => void
-)}
-	<Sheet>
-		{#snippet trigger({ sheetTriggerAttributes })}
-			<Button variant={walletId ? "outline" : "default"} size="sm" class={walletId ? "p-2" : ""} {...sheetTriggerAttributes}>
-				{#if walletId}
-					<Pencil />
-				{:else}
-					<Plus />
-					{m.Add_new_wallet()}
-				{/if}
-			</Button>
-		{/snippet}
-
-		{#snippet content({ closeSheet })}
-			<div class="space-y-6">
-				<T tag="h3">{walletId ? 'Edit wallet' : m.Add_new_wallet()}</T>
-				<WalletForm
-					{walletId}
-					{initialData}
-					onSuccess={() => {
-						onEditSuccess();
-						closeSheet();
-						// Wallet will be automatically updated via CollectionManager subscription
-					}}
-				/>
-			</div>
-		{/snippet}
-	</Sheet>
 {/snippet}
