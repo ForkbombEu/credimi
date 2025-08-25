@@ -34,7 +34,7 @@ type WorkflowResult struct {
 	WorkflowRunID string
 	Author        string
 	Message       string
-	Errors        []error
+	Errors        any
 	Output        any
 	Log           any
 }

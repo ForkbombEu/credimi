@@ -148,6 +148,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	)
 
 	logs := make(map[string][]any)
+	errs := make(map[string][]any)
 	var result workflowengine.ActivityResult
 	var issuerData map[string]any
 	invalidCred := make(map[string]bool)
@@ -184,7 +185,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			)
 		}
 
-		logs["JSONSchemaError"] = details
+		errs["JSONSchemaValidation"] = details
 		invalidCred, err = extractInvalidCredentialsFromErrorDetails(details, runMetadata)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
@@ -310,7 +311,8 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			"Successfully retrieved and stored and update credentials from '%s'",
 			source,
 		),
-		Log: logs,
+		Log:    logs,
+		Errors: errs,
 	}, nil
 }
 
