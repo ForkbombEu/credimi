@@ -25,8 +25,10 @@ services:
       - SMTP_PORT=1025
       - TEMPORAL_ADDRESS=localhost:7233
       - PORT=5100
+      - DOCKER_HOST="unix:///var/run/docker.sock"
     ports:
       - 8090:8090
       - 7233:7233
     volumes:
       - ./pb_data/:/app/pb_data
+      - /var/run/docker.sock:/var/run/docker.sock
