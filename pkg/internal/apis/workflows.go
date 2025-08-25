@@ -147,10 +147,11 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			return err
 		}
 
+		appURL := e.App.Settings().Meta.AppURL
 		// Start the workflow
 		workflowInput := workflowengine.WorkflowInput{
 			Config: map[string]any{
-				"app_url":       e.App.Settings().Meta.AppURL,
+				"app_url":       appURL,
 				"issuer_schema": credIssuerSchemaStr,
 				"namespace":     organization,
 			},
@@ -161,12 +162,36 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		}
 		w := workflows.CredentialsIssuersWorkflow{}
 
-		_, err = w.Start(workflowInput)
+		result, err := w.Start(workflowInput)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to start workflow",
+				err.Error(),
+			)
+		}
+		workflowURL := fmt.Sprintf(
+			"%s/my/tests/runs/%s/%s",
+			e.App.Settings().Meta.AppURL,
+			result.WorkflowID,
+			result.WorkflowRunID,
+		)
+		record, err := e.App.FindRecordById("credential_issuers", issuerID)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				fmt.Sprintf("credential_issuers_%s", req),
+				"failed to get credential issuer",
+				err.Error(),
+			)
+		}
+		record.Set("workflow_url", workflowURL)
+		if err := e.App.Save(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				fmt.Sprintf("credential_issuers_%s", req),
+				"failed to save credential issuer",
 				err.Error(),
 			)
 		}
@@ -183,8 +208,10 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		// if err := app.Save(newRecord); err != nil {
 		// 	return err
 		// }
+
 		return e.JSON(http.StatusOK, map[string]string{
 			"credentialIssuerUrl": req.URL,
+			"workflowUrl":         workflowURL,
 		})
 	}
 }
