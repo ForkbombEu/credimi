@@ -177,6 +177,24 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			result.WorkflowID,
 			result.WorkflowRunID,
 		)
+		record, err := e.App.FindRecordById("credential_issuers", issuerID)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				fmt.Sprintf("credential_issuers_%s", req),
+				"failed to get credential issuer",
+				err.Error(),
+			)
+		}
+		record.Set("workflow_url", workflowURL)
+		if err := e.App.Save(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				fmt.Sprintf("credential_issuers_%s", req),
+				"failed to save credential issuer",
+				err.Error(),
+			)
+		}
 		//
 		// providers, err := app.FindCollectionByNameOrId("services")
 		// if err != nil {
