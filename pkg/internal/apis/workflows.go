@@ -147,10 +147,11 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			return err
 		}
 
+		appURL := e.App.Settings().Meta.AppURL
 		// Start the workflow
 		workflowInput := workflowengine.WorkflowInput{
 			Config: map[string]any{
-				"app_url":       e.App.Settings().Meta.AppURL,
+				"app_url":       appURL,
 				"issuer_schema": credIssuerSchemaStr,
 				"namespace":     organization,
 			},
@@ -161,7 +162,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		}
 		w := workflows.CredentialsIssuersWorkflow{}
 
-		_, err = w.Start(workflowInput)
+		result, err := w.Start(workflowInput)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -170,6 +171,12 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
+		workflowURL := fmt.Sprintf(
+			"%s/my/tests/runs/%s/%s",
+			e.App.Settings().Meta.AppURL,
+			result.WorkflowID,
+			result.WorkflowRunID,
+		)
 		//
 		// providers, err := app.FindCollectionByNameOrId("services")
 		// if err != nil {
@@ -183,8 +190,10 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		// if err := app.Save(newRecord); err != nil {
 		// 	return err
 		// }
+
 		return e.JSON(http.StatusOK, map[string]string{
 			"credentialIssuerUrl": req.URL,
+			"workflowUrl":         workflowURL,
 		})
 	}
 }
