@@ -415,7 +415,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 			)
 		}
 
-		logs = AsSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
+		logs = workflowengine.AsSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
 
 		triggerLogsInput := workflowengine.ActivityInput{
 			Config: map[string]string{

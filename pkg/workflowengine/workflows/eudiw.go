@@ -322,7 +322,7 @@ func (w *EudiwWorkflow) Workflow(
 				runMetadata,
 			)
 		}
-		events = AsSliceOfMaps(
+		events = workflowengine.AsSliceOfMaps(
 			eventsResponse.Output.(map[string]any)["body"].(map[string]any)["events"],
 		)
 		triggerLogsInput := workflowengine.ActivityInput{
