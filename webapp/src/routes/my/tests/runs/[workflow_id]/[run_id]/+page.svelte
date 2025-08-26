@@ -29,6 +29,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Separator } from '@/components/ui/separator';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { ArrowLeftIcon } from 'lucide-svelte';
+	import Spinner from '@/components/ui-custom/spinner.svelte';
+	import EmptyState from '@/components/ui-custom/emptyState.svelte';
+	import { animate, JSAnimation } from 'animejs';
 
 	//
 
@@ -106,138 +109,139 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const testNameChunks = $derived(memo?.test.split(':') ?? []);
 </script>
 
-{#if !isIframeLoading}
-	<div class="bg-primary">
-		<div class="padding-x">
-			<BackButton href="/my/tests/runs" class="text-white">
-				{m.Back_to_test_runs()}
-			</BackButton>
+<svelte:head>
+	<style>
+		body {
+			background-color: rgb(248 250 252);
+		}
+	</style>
+</svelte:head>
+
+<div class="bg-primary">
+	<div class="padding-x">
+		<BackButton href="/my/tests/runs" class="text-white">
+			{m.Back_to_test_runs()}
+		</BackButton>
+	</div>
+</div>
+
+<div
+	class="bg-temporal padding-x flex flex-wrap items-start justify-between gap-4 py-4 pb-4 sm:flex-nowrap sm:gap-8"
+>
+	<div>
+		<div class="mb-4">
+			{#if memo}
+				<T tag="h3">
+					{memo?.standard} / {memo?.author}
+				</T>
+				<T tag="h1">
+					{#each testNameChunks as chunk, index}
+						{#if index > 0}
+							<span class="text-muted-foreground">:</span>
+						{/if}
+						<span>
+							{chunk}
+						</span>
+					{/each}
+				</T>
+			{:else}
+				<T tag="h3" class="break-words !p-0">
+					{execution.id}
+				</T>
+			{/if}
 		</div>
+
+		{#if execution.status}
+			<TemporalI18nProvider>
+				<WorkflowStatus status={execution.status} />
+			</TemporalI18nProvider>
+		{/if}
+
+		<table class="mt-6 text-sm">
+			<tbody>
+				<tr>
+					<td class="italic"> Start </td>
+					<td class="pl-4">
+						{toUserTimezone(execution.startTime) ?? '-'}
+					</td>
+				</tr>
+				<tr>
+					<td class="italic"> End </td>
+					<td class="pl-4">
+						{toUserTimezone(execution.endTime) ?? '-'}
+					</td>
+				</tr>
+				<tr>
+					<td class="h-2"></td>
+				</tr>
+				<tr>
+					<td class="italic"> Workflow ID </td>
+					<td class="pl-4">
+						{execution.id}
+					</td>
+				</tr>
+				<tr>
+					<td class="italic"> Run ID </td>
+					<td class="pl-4">
+						{execution.runId}
+					</td>
+				</tr>
+			</tbody>
+		</table>
 	</div>
 
-	<div
-		class="bg-temporal padding-x flex flex-wrap items-start justify-between gap-4 py-4 pb-4 sm:flex-nowrap sm:gap-8"
-	>
-		<div>
-			<div class="mb-4">
-				{#if memo}
-					<T tag="h3">
-						{memo?.standard} / {memo?.author}
-					</T>
-					<T tag="h1">
-						{#each testNameChunks as chunk, index}
-							{#if index > 0}
-								<span class="text-muted-foreground">:</span>
-							{/if}
-							<span>
-								{chunk}
-							</span>
-						{/each}
-					</T>
-				{:else}
-					<T tag="h3" class="break-words !p-0">
-						{execution.id}
-					</T>
-				{/if}
-			</div>
+	{#if execution.status === 'Running'}
+		<WorkflowQrPoller {workflowId} {runId} containerClass="size-40" />
+	{/if}
+</div>
 
-			{#if execution.status}
-				<TemporalI18nProvider>
-					<WorkflowStatus status={execution.status} />
-				</TemporalI18nProvider>
+<div class="bg-temporal padding-x py-2">
+	<Separator />
+</div>
+
+{#if memo}
+	{#if memo.author == 'ewc'}
+		<EwcTop {workflowId} namespace={organization?.id!} />
+	{:else}
+		<div class="bg-temporal padding-x space-y-8 pt-4">
+			{#if memo.author == 'openid_conformance_suite'}
+				<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
+			{:else if memo.author == 'eudiw'}
+				<EudiwTop {workflowId} namespace={organization?.id!} />
 			{/if}
 
-			<table class="mt-6 text-sm">
-				<tbody>
-					<tr>
-						<td class="italic"> Start </td>
-						<td class="pl-4">
-							{toUserTimezone(execution.startTime) ?? '-'}
-						</td>
-					</tr>
-					<tr>
-						<td class="italic"> End </td>
-						<td class="pl-4">
-							{toUserTimezone(execution.endTime) ?? '-'}
-						</td>
-					</tr>
-					<tr>
-						<td class="h-2"></td>
-					</tr>
-					<tr>
-						<td class="italic"> Workflow ID </td>
-						<td class="pl-4">
-							{execution.id}
-						</td>
-					</tr>
-					<tr>
-						<td class="italic"> Run ID </td>
-						<td class="pl-4">
-							{execution.runId}
-						</td>
-					</tr>
-				</tbody>
-			</table>
+			<Separator />
 		</div>
-
-		{#if execution.status === 'Running'}
-			<WorkflowQrPoller {workflowId} {runId} containerClass="size-40" />
-		{/if}
-	</div>
-
-	<div class="bg-temporal padding-x py-2">
-		<Separator />
-	</div>
-
-	{#if memo}
-		{#if memo.author == 'ewc'}
-			<EwcTop {workflowId} namespace={organization?.id!} />
-		{:else}
-			<div class="bg-temporal padding-x space-y-8 pt-4">
-				{#if memo.author == 'openid_conformance_suite'}
-					<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
-				{:else if memo.author == 'eudiw'}
-					<EudiwTop {workflowId} namespace={organization?.id!} />
-				{/if}
-
-				<Separator />
-			</div>
-		{/if}
 	{/if}
 {/if}
 
-<iframe
-	id={iframeId}
-	title="Workflow"
-	src={page.url.pathname + '/temporal'}
-	class="w-full"
-	style="overflow: hidden;"
-	scrolling="no"
-></iframe>
-
-<LoadingDialog
-	loading={isIframeLoading}
-	contentClass="p-0 pt-6 gap-4 overflow-hidden !max-w-[300px]"
->
-	<div class="px-4">
-		<T class="text-center">{m.Loading_workflow_data_may_take_some_seconds()}</T>
-	</div>
-
-	{#snippet bottom()}
-		<div class="w-full pt-2">
-			<div class="w-full bg-gray-200 px-4">
-				<Button
-					variant="link"
-					class="!px-0 text-black"
-					onclick={() => window.history.back()}
-				>
-					<ArrowLeftIcon />
-					{m.Back()}
-				</Button>
+<div class="relative min-h-[500px]">
+	{#if isIframeLoading}
+		<div class="bg-temporal padding-x absolute inset-0 pt-4">
+			<div
+				class={[
+					'rounded-lg border bg-slate-200 py-10 text-center',
+					'flex items-center justify-center gap-2',
+					'animate-pulse'
+				]}
+			>
+				<Spinner size={16} />
+				<T class="text-muted-foreground">
+					{m.Loading_workflow_data_may_take_some_seconds()}
+				</T>
 			</div>
 		</div>
-	{/snippet}
-</LoadingDialog>
+	{/if}
+
+	<iframe
+		id={iframeId}
+		title="Workflow"
+		src={page.url.pathname + '/temporal'}
+		class="bg-animate-pulse w-full"
+		style="overflow: hidden;"
+		scrolling="no"
+	></iframe>
+</div>
 
 <style lang="postcss">
 	.bg-temporal {
