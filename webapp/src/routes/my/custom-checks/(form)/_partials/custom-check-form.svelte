@@ -35,6 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
 	import { Record } from 'effect';
 	import { removeEmptyValues } from '@/collections-components/form';
+	import T from '@/components/ui-custom/t.svelte';
 
 	//
 
@@ -54,14 +55,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})
 		.extend({
 			yaml: yamlStringSchema,
-			input_json_sample: jsonStringSchema
+			input_json_sample: jsonStringSchema.optional()
 		});
 
 	const form = createForm({
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
 			// TODO - This should be done in the backend
-			const input_json_schema = generateJsonSchema(form.data.input_json_sample);
+			const input_json_schema = generateJsonSchema(form.data.input_json_sample ?? '');
 			const data = removeEmptyValues({ ...form.data, input_json_schema });
 
 			if (formMode === 'new') {
@@ -90,9 +91,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function createInitialData(record?: CustomChecksResponse) {
 		if (!record) return undefined;
+		let input_json_sample = JSON.stringify(record.input_json_sample, null, 2);
+		if (input_json_sample == 'null') input_json_sample = '';
 		return {
 			..._.omit(record, 'logo', 'input_json_schema'),
-			input_json_sample: JSON.stringify(record.input_json_sample, null, 2)
+			input_json_sample
 		};
 	}
 
@@ -195,7 +198,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Field {form} name="name" options={{ label: m.Name() }} />
 
 				<div class="flex items-start gap-4">
-					<FileField {form} name="logo" options={{ label: m.Upload_logo() }} />
+					<div class="grow">
+						<FileField
+							{form}
+							variant="outline"
+							name="logo"
+							options={{ label: m.Upload_logo() }}
+						>
+							<UploadIcon />
+							<T>{m.Upload_logo()}</T>
+						</FileField>
+					</div>
 					<div class="pt-2">
 						<Avatar
 							src={avatarPreviewUrl}
