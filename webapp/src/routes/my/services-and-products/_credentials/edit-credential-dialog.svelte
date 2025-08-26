@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { credential, credentialIssuer, onSuccess }: Props = $props();
 </script>
 
-<Sheet title="{m.Edit_credential()}: {credential.name}">
+<Sheet title="{m.Edit_credential()}: {credential.name  || credential.key}">
 	{#snippet trigger({ sheetTriggerAttributes, openSheet })}
 		<IconButton size="sm" variant="outline" icon={Pencil} {...sheetTriggerAttributes} />
 	{/snippet}

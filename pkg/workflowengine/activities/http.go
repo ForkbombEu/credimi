@@ -160,7 +160,12 @@ func (a *HTTPActivity) Execute(
 			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
 			return result, a.NewActivityError(
 				errCode.Code,
-				fmt.Sprintf("%s: expected '%d', got '%d'", errCode.Description, expectedStatus, resp.StatusCode),
+				fmt.Sprintf(
+					"%s: expected '%d', got '%d'",
+					errCode.Description,
+					expectedStatus,
+					resp.StatusCode,
+				),
 				resp.StatusCode,
 				expectedStatus,
 			)

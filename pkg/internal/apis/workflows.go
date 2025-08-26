@@ -21,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -146,10 +147,11 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			return err
 		}
 
+		appURL := e.App.Settings().Meta.AppURL
 		// Start the workflow
 		workflowInput := workflowengine.WorkflowInput{
 			Config: map[string]any{
-				"app_url":       e.App.Settings().Meta.AppURL,
+				"app_url":       appURL,
 				"issuer_schema": credIssuerSchemaStr,
 				"namespace":     organization,
 			},
@@ -160,12 +162,36 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		}
 		w := workflows.CredentialsIssuersWorkflow{}
 
-		_, err = w.Start(workflowInput)
+		result, err := w.Start(workflowInput)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to start workflow",
+				err.Error(),
+			)
+		}
+		workflowURL := fmt.Sprintf(
+			"%s/my/tests/runs/%s/%s",
+			e.App.Settings().Meta.AppURL,
+			result.WorkflowID,
+			result.WorkflowRunID,
+		)
+		record, err := e.App.FindRecordById("credential_issuers", issuerID)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				fmt.Sprintf("credential_issuers_%s", req),
+				"failed to get credential issuer",
+				err.Error(),
+			)
+		}
+		record.Set("workflow_url", workflowURL)
+		if err := e.App.Save(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				fmt.Sprintf("credential_issuers_%s", req),
+				"failed to save credential issuer",
 				err.Error(),
 			)
 		}
@@ -182,8 +208,10 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		// if err := app.Save(newRecord); err != nil {
 		// 	return err
 		// }
+
 		return e.JSON(http.StatusOK, map[string]string{
 			"credentialIssuerUrl": req.URL,
+			"workflowUrl":         workflowURL,
 		})
 	}
 }
@@ -207,7 +235,6 @@ func checkWellKnownEndpoints(ctx context.Context, baseURL string) error {
 	federationURL := cleanURL + "/.well-known/openid-federation"
 	if err := checkEndpointExists(ctx, federationURL); err == nil {
 		return nil
-
 	}
 
 	issuerURL := cleanURL + "/.well-known/openid-credential-issuer"
@@ -527,6 +554,120 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 	})
 }
 
+type WalletURL struct {
+	URL string `json:"walletURL"`
+}
+
+func HookWalletWorkflow(app *pocketbase.PocketBase) {
+	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		se.Router.POST("/wallet/start-check", func(e *core.RequestEvent) error {
+			var req WalletURL
+
+			if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
+				return apis.NewBadRequestError("invalid JSON input", err)
+			}
+			organization, err := handlers.GetUserOrganizationID(app, e.Auth.Id)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"failed to get user organization",
+					err.Error())
+			}
+
+			// Start the workflow
+			workflowInput := workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url":   app.Settings().Meta.AppURL,
+					"namespace": organization,
+				},
+				Payload: map[string]any{
+					"url": req.URL,
+				},
+			}
+			w := workflows.WalletWorkflow{}
+
+			workflowInfo, err := w.Start(workflowInput)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to start workflow",
+					err.Error(),
+				)
+			}
+			client, err := temporalclient.GetTemporalClientWithNamespace(
+				organization,
+			)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"temporal",
+					"failed to get temporal client",
+					err.Error(),
+				)
+			}
+			result, err := workflowengine.WaitForPartialResult[map[string]any](
+				client,
+				workflowInfo.WorkflowID,
+				workflowInfo.WorkflowRunID,
+				workflows.AppMetadataQuery,
+				100*time.Millisecond,
+				30*time.Second,
+			)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to get partial workflow result",
+					err.Error(),
+				)
+			}
+			storeType := getStringFromMap(result, "storeType")
+			metadata, ok := result["metadata"].(map[string]any)
+			if !ok {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to get partial workflow result",
+					"failed to get metadata",
+				)
+			}
+			var name, logo, appleAppID, googleAppID, playstoreURL, appstoreURL, homeURL string
+			description := getStringFromMap(metadata, "description")
+			switch storeType {
+			case "google":
+				name = getStringFromMap(metadata, "title")
+				logo = getStringFromMap(metadata, "icon")
+				googleAppID = getStringFromMap(metadata, "appId")
+				homeURL = getStringFromMap(metadata, "developerWebsite")
+				playstoreURL = req.URL
+
+			case "apple":
+				name = getStringFromMap(metadata, "trackName")
+				logo = getStringFromMap(metadata, "artworkUrl100")
+				appleAppID = getStringFromMap(metadata, "bundleId")
+				homeURL = getStringFromMap(metadata, "sellerUrl")
+				appstoreURL = req.URL
+			}
+
+			return e.JSON(http.StatusOK, map[string]any{
+				"type":          storeType,
+				"name":          name,
+				"description":   description,
+				"logo":          logo,
+				"google_app_id": googleAppID,
+				"apple_app_id":  appleAppID,
+				"playstore_url": playstoreURL,
+				"appstore_url":  appstoreURL,
+				"home_url":      homeURL,
+				"owner":         organization,
+			})
+		}).Bind(apis.RequireAuth())
+		return se.Next()
+	})
+}
+
 func HookAtUserCreation(app *pocketbase.PocketBase) {
 	app.OnRecordAfterCreateSuccess("users").BindFunc(func(e *core.RecordEvent) error {
 		err := createNewOrganizationForUser(e.App, e.Record)
@@ -701,4 +842,15 @@ func readSchemaFile(path string) (string, error) {
 		)
 	}
 	return string(data), nil
+}
+func getStringFromMap(m map[string]any, key string) string {
+	if m == nil {
+		return ""
+	}
+	if val, ok := m[key]; ok {
+		if s, ok := val.(string); ok {
+			return s
+		}
+	}
+	return ""
 }
