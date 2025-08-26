@@ -151,7 +151,7 @@ func (w *WalletWorkflow) Workflow(
 				runMetadata,
 			)
 		}
-		metadata = AsSliceOfMaps(result.(map[string]any)["results"])[0]
+		metadata = workflowengine.AsSliceOfMaps(result.(map[string]any)["results"])[0]
 
 	case "google":
 		docker := activities.NewDockerActivity()
