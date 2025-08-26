@@ -175,6 +175,13 @@ func StartAllWorkersByNamespace(namespace string) {
 			Activities: []workflowengine.ExecutableActivity{
 				activities.NewParseWalletURLActivity(),
 				activities.NewDockerActivity(),
+				activities.NewJSONActivity(
+					map[string]reflect.Type{
+						"map": reflect.TypeOf(
+							map[string]any{},
+						),
+					},
+				),
 				activities.NewHTTPActivity(),
 			},
 		},
