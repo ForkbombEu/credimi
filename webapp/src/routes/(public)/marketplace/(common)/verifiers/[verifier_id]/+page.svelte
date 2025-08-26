@@ -73,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="space-y-6">
-		<PageHeader title={sections.description?.label} id={sections.description?.anchor} />
+		<PageHeader title={sections.description?.label ?? ''} id={sections.description?.anchor ?? ''} />
 
 		<div class="prose">
 			<RenderMd content={verifier.description} />
