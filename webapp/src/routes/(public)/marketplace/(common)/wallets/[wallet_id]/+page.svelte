@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
+	import EditSheet from '../../_utils/edit-sheet.svelte';
 
 	//
 
@@ -26,10 +27,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const checks = $derived(z.array(ConformanceCheckSchema).safeParse(wallet.conformance_checks));
 
-	const sections = $derived(generateMarketplaceSection('wallets', {
-		hasDescription: !!wallet?.description,
-		hasConformanceChecks: checks.success && checks.data.length > 0
-	}));
+	const sections = $derived(
+		generateMarketplaceSection('wallets', {
+			hasDescription: !!wallet?.description,
+			hasConformanceChecks: checks.success && checks.data.length > 0
+		})
+	);
 
 	//
 
@@ -104,6 +107,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/if}
 </MarketplacePageLayout>
+
+<EditSheet>ciao</EditSheet>
+
+<!-- {#if isWallet}
+					<WalletFormSheet
+						walletId={marketplaceItem.id}
+						initialData={walletInitialData}
+						onEditSuccess={handleEditSuccess}
+					>
+						{#snippet customTrigger({ sheetTriggerAttributes })}
+							<Button
+								size="sm"
+								class="!h-8 text-xs"
+								onclick={async (event) => {
+									await loadFullWalletDataOnDemand();
+									if (sheetTriggerAttributes?.onclick) {
+										sheetTriggerAttributes.onclick(event);
+									}
+								}}
+							>
+								<PencilIcon />
+								{m.Make_changes()}
+							</Button>
+						{/snippet}
+					</WalletFormSheet>
+				{/if} -->
 
 {#snippet AppStore(url: string)}
 	<a href={url} target="_blank" class="">

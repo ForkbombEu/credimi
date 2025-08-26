@@ -15,10 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { userOrganization } from '$lib/app-state';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { PencilIcon } from 'lucide-svelte';
-	import { pb } from '@/pocketbase/index.js';
-	import WalletFormSheet from '$routes/my/services-and-products/_wallets/wallet-form-sheet.svelte';
-	import { invalidateAll } from '$app/navigation';
-	import type { WalletsResponse } from '@/pocketbase/types';
+	import { editFormState } from './_utils/edit-sheet.svelte';
 
 	//
 
@@ -30,28 +27,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const isCurrentUserOwner = $derived(
 		userOrganization.current?.id === marketplaceItem.organization_id
 	);
-
-	const isWallet = $derived(marketplaceItem.type === 'wallets');
-
-	let fullWalletData = $state<WalletsResponse | null>(null);
-	async function loadFullWalletDataOnDemand() {
-		if (fullWalletData || marketplaceItem.type !== 'wallets') return;
-		try {
-			fullWalletData = await pb.collection('wallets').getOne(marketplaceItem.id);
-		} catch (error) {
-			console.error('Failed to load full wallet data:', error);
-		}
-	}
-
-	const walletInitialData = $derived.by(() => {
-		if (!isWallet) return {};
-		return fullWalletData || { ...marketplaceItem };
-	});
-
-	function handleEditSuccess() {
-		invalidateAll();
-		fullWalletData = null;
-	}
 </script>
 
 {#if isCurrentUserOwner}
@@ -62,29 +37,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T>{m.This_item_is_yours({ item: display.label })}</T>
 			<div class="flex items-center gap-3">
 				<T>{m.Last_edited()}: {new Date(marketplaceItem.updated).toLocaleDateString()}</T>
-				{#if isWallet}
-					<WalletFormSheet
-						walletId={marketplaceItem.id}
-						initialData={walletInitialData}
-						onEditSuccess={handleEditSuccess}
-					>
-						{#snippet customTrigger({ sheetTriggerAttributes })}
-							<Button
-								size="sm"
-								class="!h-8 text-xs"
-								onclick={async (event) => {
-									await loadFullWalletDataOnDemand();
-									if (sheetTriggerAttributes?.onclick) {
-										sheetTriggerAttributes.onclick(event);
-									}
-								}}
-							>
-								<PencilIcon />
-								{m.Make_changes()}
-							</Button>
-						{/snippet}
-					</WalletFormSheet>
-				{/if}
+				<Button
+					size="sm"
+					class="!h-8 text-xs"
+					onclick={() => {
+						editFormState.open = true;
+					}}
+				>
+					<PencilIcon />
+					{m.Make_changes()}
+				</Button>
 			</div>
 		</div>
 	</div>
