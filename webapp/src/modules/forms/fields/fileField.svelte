@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Input from '@/components/ui/input/input.svelte';
 	import type { FieldOptions } from './types';
 	import type { Writable } from 'svelte/store';
-	import type { ComponentProps } from 'svelte';
+	import type { ComponentProps, Snippet } from 'svelte';
 	import { createFilesValidator } from './fileField';
 	import { Button } from '@/components/ui/button';
 
@@ -23,10 +23,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		form: SuperForm<Data>;
 		name: FormPath<Data>;
-		options?: Partial<FieldOptions & Omit<ComponentProps<typeof Input>, 'type' | 'value'> & { showFilesList?: boolean }>;
+		variant?: ComponentProps<typeof Button>['variant'];
+		class?: string;
+		options?: Partial<
+			FieldOptions &
+				Omit<ComponentProps<typeof Input>, 'type' | 'value'> & { showFilesList?: boolean }
+		>;
+		children?: Snippet;
 	};
 
-	const { form, name, options = {} }: Props = $props();
+	const {
+		form,
+		name,
+		class: className,
+		variant = 'default',
+		options = {},
+		children
+	}: Props = $props();
 
 	const multiple = $derived(options.multiple ?? false);
 	const valueProxy = $derived(fieldProxy(form, name) as Writable<File | File[]>);
@@ -41,13 +54,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Form.Field {form} {name}>
 	<FieldWrapper field={name} {options}>
 		{#snippet children({ props })}
-			<FileManager bind:data={$valueProxy} {validator} {multiple} showFilesList={options.showFilesList}>
+			<FileManager
+				bind:data={$valueProxy}
+				{validator}
+				{multiple}
+				showFilesList={options.showFilesList}
+			>
 				{#snippet children({ addFiles })}
 					<Button
 						type="button"
+						{variant}
 						onclick={() => fileInput.click()}
+						class={['w-full', className]}
 					>
-						{options.placeholder}
+						{#if children}
+							{@render children({ addFiles })}
+						{:else}
+							{options.placeholder}
+						{/if}
 					</Button>
 					<input
 						bind:this={fileInput}
