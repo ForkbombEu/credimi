@@ -17,6 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
 	import EditSheet from '../../_utils/edit-sheet.svelte';
+	import WalletForm from '$routes/my/services-and-products/_wallets/wallet-form.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 
 	//
 
@@ -108,7 +110,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 </MarketplacePageLayout>
 
-<EditSheet>ciao</EditSheet>
+<EditSheet>
+	{#snippet children({ closeSheet })}
+		<T tag="h2" class="mb-4">{m.Edit()} {wallet.name}</T>
+		<WalletForm
+			walletId={wallet.id}
+			initialData={wallet}
+			onSuccess={() => {
+				closeSheet();
+			}}
+		/>
+	{/snippet}
+</EditSheet>
 
 <!-- {#if isWallet}
 					<WalletFormSheet
