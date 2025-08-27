@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import BackButton from '$lib/layout/back-button.svelte';
-	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { onMount } from 'svelte';
@@ -27,11 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { Separator } from '@/components/ui/separator';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { ArrowLeftIcon } from 'lucide-svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
-	import EmptyState from '@/components/ui-custom/emptyState.svelte';
-	import { animate, JSAnimation } from 'animejs';
 
 	//
 

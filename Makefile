@@ -163,7 +163,7 @@ $(BIN)/stepci-captured-runner:
 	wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/download/stepci-captured-runner-$(shell uname)-$(shell uname -m) -O $(BIN)/stepci-captured-runner && chmod +x $(BIN)/stepci-captured-runner
 
 $(BIN)/et-tu-cesr:
-	wget https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-$(shell go env GOOS)-$(shell go env GOARCH) -O $(BIN)/et-tu-cesr &&chmod +x $(BIN)/et-tu-cesr
+	wget https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-$(shell go env GOOS)-$(shell go env GOARCH) -O $(BIN)/et-tu-cesr && chmod +x $(BIN)/et-tu-cesr
 
 ## Help:
 help: ## Show this help.
