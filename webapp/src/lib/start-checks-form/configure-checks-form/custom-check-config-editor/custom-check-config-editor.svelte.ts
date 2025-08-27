@@ -38,7 +38,8 @@ export class CustomCheckConfigEditor implements BaseEditor {
 		const jsonSchema = props.customCheck.input_json_schema;
 		if (jsonSchema) {
 			this.jsonSchemaForm = createJsonSchemaForm(jsonSchema as object, {
-				hideTitle: true
+				hideTitle: true,
+				initialValue: props.customCheck.input_json_sample
 			});
 		}
 
