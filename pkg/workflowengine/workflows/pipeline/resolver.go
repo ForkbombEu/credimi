@@ -104,7 +104,11 @@ func resolveValue(val any, ctx map[string]any) (any, error) {
 }
 
 // Resolve step inputs and merge configs
-func ResolveInputs(step StepDefinition, globalCfg map[string]string, ctx map[string]any) (*workflowengine.ActivityInput, error) {
+func ResolveInputs(
+	step StepDefinition,
+	globalCfg map[string]string,
+	ctx map[string]any,
+) (*workflowengine.ActivityInput, error) {
 	// Resolve step-level config
 	stepCfg := make(map[string]string)
 	for k, src := range step.Inputs.Config {
@@ -166,9 +170,7 @@ func ResolveInputs(step StepDefinition, globalCfg map[string]string, ctx map[str
 			case "[]map":
 				val = workflowengine.AsSliceOfMaps(val)
 			default:
-
 			}
-
 		}
 
 		payload[k] = val

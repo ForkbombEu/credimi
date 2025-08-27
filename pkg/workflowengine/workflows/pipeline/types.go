@@ -64,7 +64,6 @@ func (c *ConfigSource) UnmarshalYAML(value *yaml.Node) error {
 }
 func (i *InputSource) UnmarshalYAML(value *yaml.Node) error {
 	switch value.Kind {
-
 	case yaml.ScalarNode:
 		var raw any
 		if err := value.Decode(&raw); err != nil {

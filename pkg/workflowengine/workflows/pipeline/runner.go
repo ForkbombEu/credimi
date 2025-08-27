@@ -12,7 +12,11 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-func (s *StepDefinition) Run(ctx workflow.Context, globalCfg map[string]string, dataCtx *map[string]any) (workflowengine.ActivityResult, error) {
+func (s *StepDefinition) Run(
+	ctx workflow.Context,
+	globalCfg map[string]string,
+	dataCtx *map[string]any,
+) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
 
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
@@ -27,7 +31,7 @@ func (s *StepDefinition) Run(ctx workflow.Context, globalCfg map[string]string, 
 	}
 	act := activities.Registry[s.Activity].NewFunc()
 
-	//Configure if the activity supports it
+	// Configure if the activity supports it
 	if cfgAct, ok := act.(workflowengine.ConfigurableActivity); ok {
 		if err := cfgAct.Configure(input); err != nil {
 			appErr := workflowengine.NewAppError(
