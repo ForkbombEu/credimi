@@ -31,9 +31,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const defaultFormOptions: CollectionFormOptions<C> = {
 		uiOptions: { showToastOnSuccess: true }
 	};
-	const options = $derived(merge(defaultFormOptions, formsOptions.base, formsOptions.create));
+	const options = $derived(merge(defaultFormOptions, formsOptions.base, formsOptions.edit));
 
 	const sheetTitle = $derived(formTitle ?? m.Create_record());
+	console.log('RECORD CREATE OPTIONS:');
+	$inspect(options);
 </script>
 
 <Sheet title={sheetTitle}>

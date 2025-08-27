@@ -20,12 +20,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 	import { String } from 'effect';
 	import { Collections } from '@/pocketbase/types';
-	import { RecordDelete, RecordEdit } from '@/collections-components/manager';
+	import { RecordCreate2, RecordDelete, RecordEdit } from '@/collections-components/manager';
 	import Button from '@/components/ui-custom/button.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import { pb } from '@/pocketbase';
+	import type { CollectionName } from '@/pocketbase/collections-models';
 
 	//
 
@@ -54,6 +55,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				onSuccess();
 			});
 	}
+
+	const newCredentialIssuer = {
+		id: '',
+		collectionId: '',
+		collectionName: 'credential_issuers' as Collections,
+		url: '',
+		owner: organizationId!,
+		name: '',
+		description: '',
+		homepage_url: '',
+		repo_url: '',
+		logo_url: '',
+		workflow_url: '',
+		published: false,
+		created: '',
+		updated: ''
+	};
 </script>
 
 <CollectionManager
@@ -69,7 +87,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet top({ Header })}
 		<Header title={m.Credential_issuers()} {id}>
 			{#snippet right()}
-				{@render CreateCredentialIssuerModal()}
+				<!-- {@render CreateCredentialIssuerModal()} -->
+				<!-- <RecordCreate onSuccess={() => {}} collection="credential_issuers">
+					{#snippet button({ triggerAttributes, icon: Icon })}
+						<Button variant="outline" size="icon" {...triggerAttributes}>
+							<Icon />
+						</Button>
+					{/snippet}
+				</RecordCreate> -->
+				{#if organizationId}
+					<RecordCreate2
+						fieldsOptions={{
+							defaults: newCredentialIssuer,
+							exclude: ['owner', 'url', 'published']
+						}}
+						onSuccess={() => {}}
+						collection="credential_issuers"
+					>
+						{#snippet buttonText()}
+							{m.Add_new_credential_issuer()}
+						{/snippet}
+						{#snippet button({ triggerAttributes, icon: Icon })}
+							<Button variant="outline" size="icon" {...triggerAttributes}>
+								<Icon />
+							</Button>
+						{/snippet}
+					</RecordCreate2>
+				{/if}
 			{/snippet}
 		</Header>
 	{/snippet}

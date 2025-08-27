@@ -16,9 +16,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createIntentUrl } from '$lib/credentials/index.js';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import { processYamlAndExtractCredentialOffer } from '$lib/compliance';
+	import { onMount } from 'svelte';
 
 	let { data } = $props();
 	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
+
+	// State for credential offer from YAML processing
+	let credentialOfferFromYaml = $state<string | null>(null);
+	let isProcessingYaml = $state(false);
 
 	const sections = $derived(generateMarketplaceSection('credentials', {
 		hasDescription: !!credential?.description,
@@ -29,11 +35,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		credential.json as CredentialConfiguration | undefined
 	);
 
+	// If credential has yaml and we got a credential offer from it, use that; otherwise use the default qr link
 	const qrLink = $derived(
-		String.isNonEmpty(credential.deeplink)
+		credentialOfferFromYaml ||
+		(String.isNonEmpty(credential.deeplink)
 			? credential.deeplink
-			: createIntentUrl(credential, credentialIssuer.url)
+			: createIntentUrl(credential, credentialIssuer.url))
 	);
+
+	// Process YAML if it exists
+	onMount(async () => {
+		if (credential.yaml && String.isNonEmpty(credential.yaml)) {
+			isProcessingYaml = true;
+			try {
+				const result = await processYamlAndExtractCredentialOffer(credential.yaml);
+				if (result.success && result.credentialOffer) {
+					credentialOfferFromYaml = result.credentialOffer;
+				}
+			} catch (error) {
+				console.error('Failed to process YAML for credential offer:', error);
+			} finally {
+				isProcessingYaml = false;
+			}
+		}
+	});
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>
@@ -69,10 +94,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<div class="flex flex-col items-stretch">
 			<PageHeader title="Credential offer" id="qr" />
-			<QrCode src={qrLink} cellSize={10} class={['w-60 rounded-md']} />
-			<div class="w-60 break-all pt-4 text-xs">
-				<a href={qrLink} target="_self">{qrLink}</a>
-			</div>
+			
+			{#if isProcessingYaml}
+				<div class="flex w-60 h-60 items-center justify-center border rounded-md">
+					<div class="text-sm text-muted-foreground">Processing YAML configuration...</div>
+				</div>
+			{:else}
+				<!-- Always use the same display format regardless of whether it's from YAML or default -->
+				<QrCode src={qrLink} cellSize={10} class={['w-60 rounded-md']} />
+				<div class="w-60 break-all pt-4 text-xs">
+					<a href={qrLink} target="_self">{qrLink}</a>
+				</div>
+			{/if}
 		</div>
 	</div>
 

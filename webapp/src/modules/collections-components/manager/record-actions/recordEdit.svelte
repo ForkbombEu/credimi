@@ -35,6 +35,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const options = $derived(merge(defaultFormOptions, formsOptions.base, formsOptions.edit));
 
 	const sheetTitle = $derived(formTitle ?? m.Edit_record());
+	console.log("RECORD EDIT OPTIONS:");
+	$inspect(options);
 </script>
 
 <Sheet title={sheetTitle}>
