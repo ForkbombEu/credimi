@@ -23,7 +23,7 @@ import (
 )
 
 type CustomCheck struct {
-	Form interface{} `json:"form" validate:"required"`
+	Form interface{} `json:"form"`
 	Yaml string      `json:"yaml" validate:"required"`
 }
 type Variable struct {
@@ -125,22 +125,18 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"missing yaml",
 				)
 			}
-			if customCheck.Form == nil {
-				return apierror.New(
-					http.StatusBadRequest,
-					"form",
-					"form is required for custom check",
-					"missing form",
-				)
-			}
-			formJSON, err := json.Marshal(customCheck.Form)
-			if err != nil {
-				return apierror.New(
-					http.StatusBadRequest,
-					"form",
-					"failed to serialize form to JSON",
-					err.Error(),
-				)
+			var formJSON string
+			if customCheck.Form != nil {
+				b, err := json.Marshal(customCheck.Form)
+				if err != nil {
+					return apierror.New(
+						http.StatusBadRequest,
+						"form",
+						"failed to serialize form to JSON",
+						err.Error(),
+					)
+				}
+				formJSON = string(b)
 			}
 
 			memo := map[string]interface{}{
@@ -153,7 +149,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				appURL,
 				namespace,
 				memo,
-				string(formJSON),
+				formJSON,
 			)
 			if err != nil {
 				return apierror.New(
