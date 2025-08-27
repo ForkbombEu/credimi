@@ -14,18 +14,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import { MarketplaceItemCard, generateMarketplaceSection } from '$marketplace/_utils/index.js';
+	import EditSheet from '../../_utils/edit-sheet.svelte';
+	import { CollectionForm } from '@/collections-components/index.js';
+	import { settings } from '$routes/my/services-and-products/_verifiers/verifier-form-settings.svelte';
 
 	//
 
 	let { data } = $props();
 	const { verifier, marketplaceCredentials, marketplaceUseCasesVerifications } = $derived(data);
 
-	//
-
 	const sections = generateMarketplaceSection('verifiers');
-
-	//
-
 	const standardAndVersion = $derived(verifier.standard_and_version.split(','));
 </script>
 
@@ -73,7 +71,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="space-y-6">
-		<PageHeader title={sections.description?.label ?? ''} id={sections.description?.anchor ?? ''} />
+		<PageHeader
+			title={sections.description?.label ?? ''}
+			id={sections.description?.anchor ?? ''}
+		/>
 
 		<div class="prose">
 			<RenderMd content={verifier.description} />
@@ -111,3 +112,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</div>
 </MarketplacePageLayout>
+
+<EditSheet>
+	{#snippet children({ closeSheet })}
+		<T tag="h2" class="mb-4">{m.Edit()} {verifier.name}</T>
+		<CollectionForm
+			collection="verifiers"
+			recordId={verifier.id}
+			initialData={verifier}
+			fieldsOptions={settings}
+			onSuccess={closeSheet}
+			uiOptions={{
+				showToastOnSuccess: true
+			}}
+		>
+			{#snippet submitButtonContent()}
+				{m.Edit_record()}
+			{/snippet}
+		</CollectionForm>
+	{/snippet}
+</EditSheet>
