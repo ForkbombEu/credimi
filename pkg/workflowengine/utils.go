@@ -3,7 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 package workflowengine
 
-import "fmt"
+import (
+	"fmt"
+)
 
 func AsSliceOfMaps(val any) []map[string]any {
 	if v, ok := val.([]map[string]any); ok {
@@ -33,4 +35,18 @@ func AsSliceOfStrings(val any) []string {
 	default:
 		return nil
 	}
+}
+
+func AsString(v any) string {
+	if s, ok := v.(string); ok {
+		return s
+	}
+	return fmt.Sprintf("%v", v)
+}
+
+func AsMap(v any) map[string]any {
+	if m, ok := v.(map[string]any); ok {
+		return m
+	}
+	return nil
 }
