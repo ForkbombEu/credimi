@@ -122,6 +122,42 @@ func TestResolveRef(t *testing.T) {
 		})
 	}
 }
+func TestCastType(t *testing.T) {
+	tests := []struct {
+		name     string
+		val      any
+		typeStr  string
+		expected any
+		wantErr  bool
+	}{
+		{"string from int", 42, "string", "42", false},
+		{"string from string", "hello", "string", "hello", false},
+		{"int from string", "123", "int", 123, false},
+		{"int from int", 99, "int", 99, false},
+		{"int invalid string", "abc", "int", nil, true},
+		{"map success", map[string]any{"a": 1}, "map", map[string]any{"a": 1}, false},
+		{"map invalid", "notmap", "map", nil, true},
+		{"slice of string", []any{"a", "b"}, "[]string", []string{"a", "b"}, false},
+		{"slice of map", []any{map[string]any{"x": 1}}, "[]map", []map[string]any{{"x": 1}}, false},
+		{"bytes from string", "data", "[]byte", []byte("data"), false},
+		{"bytes from []byte", []byte("ok"), "[]byte", []byte("ok"), false},
+		{"bytes invalid", 123, "[]byte", nil, true},
+		{"unknown type returns original", 42, "unknown", 42, false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := castType(tc.val, tc.typeStr)
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expected, got)
+			}
+		})
+	}
+}
+
 func TestResolveValue(t *testing.T) {
 	ctx := map[string]any{
 		"a": "top",

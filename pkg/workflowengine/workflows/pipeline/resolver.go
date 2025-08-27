@@ -67,17 +67,63 @@ func resolveRef(ref string, ctx map[string]any) (any, error) {
 
 	return cur, nil
 }
+func castType(val any, typeStr string) (any, error) {
+	switch typeStr {
+	case "string":
+		return fmt.Sprintf("%v", val), nil
+	case "int":
+		switch v := val.(type) {
+		case int:
+			return v, nil
+		case string:
+			return strconv.Atoi(v)
+		default:
+			return nil, fmt.Errorf("cannot cast %T to int", val)
+		}
+	case "map":
+		m, ok := val.(map[string]any)
+		if !ok {
+			return nil, fmt.Errorf("cannot cast %T to map", val)
+		}
+		return m, nil
+	case "[]string":
+		return workflowengine.AsSliceOfStrings(val), nil
+	case "[]map":
+		return workflowengine.AsSliceOfMaps(val), nil
+	case "bytes", "[]byte":
+
+		switch v := val.(type) {
+		case string:
+			return []byte(v), nil
+		case []byte:
+			return v, nil
+		default:
+			return nil, fmt.Errorf("cannot convert %T to []byte", val)
+		}
+	default:
+		return val, nil
+	}
+}
 
 func resolveValue(val any, ctx map[string]any) (any, error) {
 	switch v := val.(type) {
 	case map[string]any:
+
 		if ref, ok := v["ref"].(string); ok {
 			res, err := resolveRef(ref, ctx)
 			if err != nil {
 				return nil, err
 			}
 			// recursively resolve in case the resolved value is another ref
-			return resolveValue(res, ctx)
+			resolvedVal, err := resolveValue(res, ctx)
+			if err != nil {
+				return nil, err
+			}
+			// Apply type conversion if specified
+			if typeStr, ok := v["type"].(string); ok {
+				return castType(resolvedVal, typeStr)
+			}
+			return resolvedVal, nil
 		}
 		res := make(map[string]any)
 		for key, val := range v {
@@ -147,29 +193,9 @@ func ResolveInputs(
 		}
 
 		if src.Type != "" {
-			switch src.Type {
-			case "int":
-				switch v := val.(type) {
-				case int:
-					val = v
-				case string:
-					val, err = strconv.Atoi(v)
-					if err != nil {
-						return nil, err
-					}
-				default:
-					return nil, fmt.Errorf("cannot cast %T to int", v)
-				}
-			case "map":
-				val, ok := val.(map[string]any)
-				if !ok {
-					return nil, fmt.Errorf("cannot cast %T to map", val)
-				}
-			case "[]string":
-				val = workflowengine.AsSliceOfStrings(val)
-			case "[]map":
-				val = workflowengine.AsSliceOfMaps(val)
-			default:
+			val, err = castType(val, src.Type)
+			if err != nil {
+				return nil, err
 			}
 		}
 
