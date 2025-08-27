@@ -35,7 +35,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		deeplink: '',
 		published: false,
 		owner: 'das',
-		conformant: false
+		conformant: false,
+		yaml: ''
 	};
 </script>
 

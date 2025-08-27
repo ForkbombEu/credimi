@@ -7,37 +7,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { CollectionManager } from '@/collections-components';
 	import { m } from '@/i18n';
-	import { buttonVariants } from '@/components/ui/button';
-	import { SquareArrowOutUpRight, Eye, EyeOff, Plus } from 'lucide-svelte';
-	import CredentialIssuerForm from './credential-issuer-form.svelte';
+	import { Eye, EyeOff } from 'lucide-svelte';
 	import { Card } from '@/components/ui/card';
 	import T from '@/components/ui-custom/t.svelte';
 	import A from '@/components/ui-custom/a.svelte';
-
-	import Switch from '@/components/ui/switch/switch.svelte';
 	import { Separator } from '@/components/ui/separator';
-	import * as Dialog from '@/components/ui/dialog';
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 	import { String } from 'effect';
 	import { Collections } from '@/pocketbase/types';
-	import { RecordCreate2, RecordDelete, RecordEdit } from '@/collections-components/manager';
+	import { RecordDelete, RecordEdit } from '@/collections-components/manager';
 	import Button from '@/components/ui-custom/button.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import { pb } from '@/pocketbase';
-	import type { CollectionName } from '@/pocketbase/collections-models';
+	import CredentialIssuerFormNew from './credential-issuer-form/credential-issuer-form.svelte';
 
 	//
 
 	type Props = {
-		organizationId?: string;
+		organizationId: string;
 		id?: string;
 	};
 
 	let { organizationId, id }: Props = $props();
-
-	let isCredentialIssuerModalOpen = $state(false);
 
 	//
 
@@ -55,23 +48,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				onSuccess();
 			});
 	}
-
-	const newCredentialIssuer = {
-		id: '',
-		collectionId: '',
-		collectionName: 'credential_issuers' as Collections,
-		url: '',
-		owner: organizationId!,
-		name: '',
-		description: '',
-		homepage_url: '',
-		repo_url: '',
-		logo_url: '',
-		workflow_url: '',
-		published: false,
-		created: '',
-		updated: ''
-	};
 </script>
 
 <CollectionManager
@@ -87,33 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet top({ Header })}
 		<Header title={m.Credential_issuers()} {id}>
 			{#snippet right()}
-				<!-- {@render CreateCredentialIssuerModal()} -->
-				<!-- <RecordCreate onSuccess={() => {}} collection="credential_issuers">
-					{#snippet button({ triggerAttributes, icon: Icon })}
-						<Button variant="outline" size="icon" {...triggerAttributes}>
-							<Icon />
-						</Button>
-					{/snippet}
-				</RecordCreate> -->
-				{#if organizationId}
-					<RecordCreate2
-						fieldsOptions={{
-							defaults: newCredentialIssuer,
-							exclude: ['owner', 'url', 'published']
-						}}
-						onSuccess={() => {}}
-						collection="credential_issuers"
-					>
-						{#snippet buttonText()}
-							{m.Add_new_credential_issuer()}
-						{/snippet}
-						{#snippet button({ triggerAttributes, icon: Icon })}
-							<Button variant="outline" size="icon" {...triggerAttributes}>
-								<Icon />
-							</Button>
-						{/snippet}
-					</RecordCreate2>
-				{/if}
+				<CredentialIssuerFormNew {organizationId} />
 			{/snippet}
 		</Header>
 	{/snippet}
@@ -131,31 +81,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/snippet}
 </CollectionManager>
-
-<!--  -->
-
-{#snippet CreateCredentialIssuerModal()}
-	<Dialog.Root bind:open={isCredentialIssuerModalOpen}>
-		<Dialog.Trigger class={buttonVariants({ variant: 'default' })}>
-			<Plus />
-			{m.Add_new_credential_issuer()}
-		</Dialog.Trigger>
-
-		<Dialog.Content class=" sm:max-w-[425px]">
-			<Dialog.Header>
-				<Dialog.Title>{m.Add_new_credential_issuer()}</Dialog.Title>
-			</Dialog.Header>
-
-			<div class="pt-8">
-				<CredentialIssuerForm
-					onSuccess={() => {
-						isCredentialIssuerModalOpen = false;
-					}}
-				/>
-			</div>
-		</Dialog.Content>
-	</Dialog.Root>
-{/snippet}
 
 <!--  -->
 
