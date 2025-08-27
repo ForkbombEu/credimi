@@ -71,22 +71,23 @@ export const yamlStringSchema = z
 		}
 	});
 
-export const jsonStringSchema = z
-	.string()
-	.nonempty()
-	.superRefine((v, ctx) => {
-		try {
+export const jsonStringSchema = z.string().superRefine((v, ctx) => {
+	try {
+		if (v.length === 0) {
+			return {};
+		} else {
 			z.record(z.string(), z.unknown())
 				.refine((value) => R.size(value) > 0)
 				.parse(JSON.parse(v));
-		} catch (e) {
-			const message = getExceptionMessage(e);
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: `Invalid JSON object: ${message}`
-			});
 		}
-	});
+	} catch (e) {
+		const message = getExceptionMessage(e);
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			message: `Invalid JSON object: ${message}`
+		});
+	}
+});
 
 //
 

@@ -19,12 +19,15 @@ type CreateJsonSchemaFormOptions = {
 	hideTitle?: boolean;
 	preventPageReload?: boolean;
 	onUpdate?: (data: OnUpdateData) => void;
+	initialValue?: unknown;
 };
 
 export function createJsonSchemaForm(schema: object, options?: CreateJsonSchemaFormOptions) {
+	const initialValue = options?.initialValue;
 	const form = createForm({
 		idPrefix: nanoid(5),
 		resolver,
+		initialValue,
 		theme,
 		validator: createFormValidator({}),
 		schema,

@@ -21,21 +21,27 @@ export type CustomCheckConfigEditorProps = {
 };
 
 export class CustomCheckConfigEditor implements BaseEditor {
-	public readonly jsonSchemaForm: JsonSchemaForm;
+	public readonly jsonSchemaForm?: JsonSchemaForm;
 	public readonly yamlForm: SuperForm<YamlFormData>;
 	private yamlFormState: State<YamlFormData>;
 	private yamlFormValidationResult = $state<SuperValidated<YamlFormData>>();
 
 	isValid = $derived.by(() => {
-		const jsonSchemaFormIsValid = this.jsonSchemaForm.validate().size === 0;
+		let jsonSchemaFormIsValid = true;
+		if (this.jsonSchemaForm) jsonSchemaFormIsValid = this.jsonSchemaForm.validate().size === 0;
+
 		const yamlFormIsValid = this.yamlFormValidationResult?.valid ?? false;
 		return jsonSchemaFormIsValid && yamlFormIsValid;
 	});
 
 	constructor(public readonly props: CustomCheckConfigEditorProps) {
-		this.jsonSchemaForm = createJsonSchemaForm(props.customCheck.input_json_schema as object, {
-			hideTitle: true
-		});
+		const jsonSchema = props.customCheck.input_json_schema;
+		if (jsonSchema) {
+			this.jsonSchemaForm = createJsonSchemaForm(jsonSchema as object, {
+				hideTitle: true,
+				initialValue: props.customCheck.input_json_sample
+			});
+		}
 
 		this.yamlForm = createForm({
 			adapter: zod(z.object({ yaml: yamlStringSchema })),
@@ -48,7 +54,7 @@ export class CustomCheckConfigEditor implements BaseEditor {
 
 	getData() {
 		return {
-			form: this.jsonSchemaForm.value,
+			form: this.jsonSchemaForm?.value,
 			yaml: this.yamlFormState.current.yaml
 		};
 	}
