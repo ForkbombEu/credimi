@@ -13,6 +13,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import EditSheet from '../../_utils/edit-sheet.svelte';
+	import { CollectionForm } from '@/collections-components/index.js';
 
 	//
 
@@ -21,9 +23,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const sections = $derived(generateMarketplaceSection('credential_issuers', {
-		hasDescription: !!credentialIssuer?.description
-	}));
+	const sections = $derived(
+		generateMarketplaceSection('credential_issuers', {
+			hasDescription: !!credentialIssuer?.description
+		})
+	);
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>
@@ -76,3 +80,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 </MarketplacePageLayout>
+
+<EditSheet>
+	{#snippet children({ closeSheet })}
+		<T tag="h2" class="mb-4">{m.Edit()} {credentialIssuer.name}</T>
+		<CollectionForm
+			collection="credential_issuers"
+			recordId={credentialIssuer.id}
+			initialData={credentialIssuer}
+			onSuccess={closeSheet}
+			fieldsOptions={{
+				exclude: ['owner', 'url', 'published']
+			}}
+		/>
+	{/snippet}
+</EditSheet>
