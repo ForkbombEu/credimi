@@ -24,12 +24,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Sheet>
 	ciao
 
-	{#snippet content()}
+	{#snippet content({ closeSheet })}
 		<ImportCredentialIssuer {organizationId}>
 			{#snippet after({ formState: { loading, credentialIssuer } })}
-				{#if loading}
-					<div>Loading...</div>
-				{:else if !credentialIssuer}
+				{#if !credentialIssuer}
 					<CollectionForm
 						collection="credential_issuers"
 						fieldsOptions={{
@@ -38,7 +36,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							},
 							exclude: ['published']
 						}}
+						onSuccess={closeSheet}
+						uiOptions={{
+							showToastOnSuccess: true
+						}}
 					></CollectionForm>
+				{:else if loading}
+					<div>Loading...</div>
 				{:else}
 					<CollectionForm
 						collection="credential_issuers"
