@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import { pb } from '@/pocketbase';
-	import CredentialIssuerFormNew from './credential-issuer-form/credential-issuer-form.svelte';
+	import CredentialIssuerForm from './credential-issuer-form/credential-issuer-form.svelte';
 
 	//
 
@@ -63,7 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet top({ Header })}
 		<Header title={m.Credential_issuers()} {id}>
 			{#snippet right()}
-				<CredentialIssuerFormNew {organizationId} />
+				<CredentialIssuerForm {organizationId} />
 			{/snippet}
 		</Header>
 	{/snippet}
