@@ -5,16 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import InfoBox from '$lib/layout/infoBox.svelte';
+	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
+	import { String } from 'effect';
+
+	import { CollectionForm } from '@/collections-components/index.js';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import InfoBox from '$lib/layout/infoBox.svelte';
-	import { String } from 'effect';
-	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
-	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+
 	import EditSheet from '../../_utils/edit-sheet.svelte';
-	import { CollectionForm } from '@/collections-components/index.js';
+	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
 
 	//
 
