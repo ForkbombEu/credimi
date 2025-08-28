@@ -58,7 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	async function processYamlAndExtractCredentialOffer(yaml: string) {
-		const res = await pb.send('/credential-issuer/get-credential-deeplink', {
+		const res = await pb.send('api/credentials_issuers/get-credential-deeplink', {
 			method: 'POST',
 			body: {
 				yaml

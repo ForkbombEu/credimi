@@ -414,6 +414,118 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				return e.JSON(http.StatusOK, map[string]any{"key": body.CredKey})
 			},
 		)
+
+		se.Router.POST(
+			"/api/credentials_issuers/get-credential-deeplink",
+			func(e *core.RequestEvent) error {
+				var body struct {
+					Yaml string `json:"yaml"`
+				}
+
+				if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
+					return apis.NewBadRequestError("invalid JSON body", err)
+				}
+
+				appURL := e.App.Settings().Meta.AppURL
+				userID := e.Auth.Id
+				namespace, err := handlers.GetUserOrganizationID(e.App, userID)
+				if err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"organization",
+						"failed to get organization",
+						err.Error(),
+					)
+				}
+				memo := map[string]interface{}{
+					"test":   "get-credential-deeplink",
+					"author": userID,
+				}
+				input := workflowengine.WorkflowInput{
+					Payload: map[string]any{
+						"yaml": body.Yaml,
+					},
+					Config: map[string]any{
+						"namespace": namespace,
+						"memo":      memo,
+						"app_url":   appURL,
+					},
+				}
+
+				var w workflows.CustomCheckWorkflow
+
+				resStart, errStart := w.Start(input)
+				if errStart != nil {
+					return apierror.New(
+						http.StatusBadRequest,
+						"workflow",
+						"failed to start get deeplink check",
+						errStart.Error(),
+					)
+				}
+				client, err := temporalclient.GetTemporalClientWithNamespace(
+					namespace,
+				)
+				if err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"temporal",
+						"failed to get temporal client",
+						err.Error(),
+					)
+				}
+				result, err := workflowengine.WaitForWorkflowResult(client, resStart.WorkflowID, resStart.WorkflowRunID)
+				if err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"workflow",
+						"failed to get workflow result",
+						err.Error(),
+					)
+				}
+
+				output, ok := result.Output.([]any)
+				if !ok {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"workflow",
+						"failed to get workflow output",
+						"output is not an array",
+					)
+				}
+				steps, ok := output[0].(map[string]any)["steps"].([]any)
+				if !ok || len(steps) == 0 {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"workflow",
+						"failed to get workflow output",
+						"steps are not present or empty",
+					)
+				}
+
+				captures, ok := steps[0].(map[string]any)["captures"].(map[string]any)
+				if !ok {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"workflow",
+						"failed to get workflow output",
+						"captures are not present in step",
+					)
+				}
+
+				deeplink, ok := captures["credentialOffer"].(string)
+				if !ok {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"workflow",
+						"failed to get workflow output",
+						"credentialOffer is not present in captures",
+					)
+				}
+				return e.JSON(http.StatusOK, deeplink)
+			},
+		).Bind(apis.RequireAuth())
+
 		se.Router.POST(
 			"/api/credentials_issuers/cleanup_credentials",
 			func(e *core.RequestEvent) error {
