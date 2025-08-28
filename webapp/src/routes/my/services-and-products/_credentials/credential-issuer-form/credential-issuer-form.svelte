@@ -5,10 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { CollectionForm } from '@/collections-components';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import ImportCredentialIssuer from './import-credential-issuer.svelte';
-	import type { CredentialIssuersResponse } from '@/pocketbase/types';
-	import { CollectionForm } from '@/collections-components';
 
 	//
 
@@ -17,8 +16,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { organizationId }: Props = $props();
-
-	let credentialIssuerPromise = $state<Promise<CredentialIssuersResponse>>();
 </script>
 
 <Sheet>
@@ -53,6 +50,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								owner: organizationId
 							},
 							exclude: ['owner', 'url']
+						}}
+						uiOptions={{
+							showToastOnSuccess: true
 						}}
 					></CollectionForm>
 				{/if}
