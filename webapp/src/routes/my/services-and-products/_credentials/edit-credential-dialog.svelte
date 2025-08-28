@@ -6,20 +6,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { CollectionForm } from '@/collections-components';
-	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
-	import { Pencil } from 'lucide-svelte';
-	import { m } from '@/i18n';
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
-	import MarkdownField from '@/forms/fields/markdownField.svelte';
-	import DeeplinkField from './deeplink-field.svelte';
-	import Sheet from '@/components/ui-custom/sheet.svelte';
-	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import { toast } from 'svelte-sonner';
-	import { CodeEditorField } from '@/forms/fields';
-	import { yaml as yamlLang } from '@codemirror/lang-yaml';
 	import Button from '@/components/ui-custom/button.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import Sheet from '@/components/ui-custom/sheet.svelte';
+	import { CodeEditorField } from '@/forms/fields';
+	import MarkdownField from '@/forms/fields/markdownField.svelte';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
+	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
 	import { QrCode } from '@/qr';
-	import { processYamlAndExtractCredentialOffer } from '$lib/compliance';
+	import { yaml as yamlLang } from '@codemirror/lang-yaml';
+	import { Pencil } from 'lucide-svelte';
+	import { toast } from 'svelte-sonner';
+	import { z } from 'zod';
+	import DeeplinkField from './deeplink-field.svelte';
+
+	//
 
 	type Props = {
 		credential: CredentialsRecord;
@@ -43,23 +46,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		try {
 			const result = await processYamlAndExtractCredentialOffer(yamlContent);
-			
-			if (result.success) {
-				if (result.credentialOffer) {
-					credentialOffer = result.credentialOffer;
-					toast.success('Compliance test completed successfully with credential offer!');
-				} else {
-					toast.success('Compliance test completed successfully!');
-				}
-			} else {
-				toast.error(result.error || 'Compliance test failed');
-			}
+			credentialOffer = result;
+			toast.success('Compliance test completed successfully!');
+			toast.success('Compliance test completed successfully with credential offer!');
 		} catch (error) {
 			console.error('Failed to start compliance test:', error);
-			toast.error('Failed to start compliance test');
+			toast.error('Compliance test failed');
 		} finally {
 			isSubmittingCompliance = false;
 		}
+	}
+
+	async function processYamlAndExtractCredentialOffer(yaml: string) {
+		const res = await pb.send('/credential-issuer/get-credential-deeplink', {
+			method: 'POST',
+			body: {
+				yaml
+			}
+		});
+		return z.string().parse(res);
 	}
 </script>
 
@@ -137,14 +142,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			{isSubmittingCompliance ? 'Starting Compliance Test...' : 'Start Compliance Test'}
 		</Button>
-		
+
 		{#if credentialOffer}
-			<div class="border rounded-lg p-4 space-y-3">
-				<h4 class="font-medium text-sm">Credential Offer</h4>
-				<div class="flex flex-col md:flex-row items-stretch gap-4">
+			<div class="space-y-3 rounded-lg border p-4">
+				<h4 class="text-sm font-medium">Credential Offer</h4>
+				<div class="flex flex-col items-stretch gap-4 md:flex-row">
 					<QrCode src={credentialOffer} cellSize={10} class="size-60 rounded-md border" />
 					<div class="max-w-60 break-all text-xs">
-						<a href={credentialOffer} target="_blank" rel="noopener">{credentialOffer}</a>
+						<a href={credentialOffer} target="_blank" rel="noopener"
+							>{credentialOffer}</a
+						>
 					</div>
 				</div>
 			</div>
