@@ -128,9 +128,9 @@ func (w *WalletWorkflow) Workflow(
 			},
 			Payload: map[string]any{
 				"query_params": map[string]any{
-					"id":              apiInput,
-					"expected_status": 200,
+					"id": apiInput,
 				},
+				"expected_status": 200,
 			},
 		}).Get(ctx, &response)
 		if err != nil {
