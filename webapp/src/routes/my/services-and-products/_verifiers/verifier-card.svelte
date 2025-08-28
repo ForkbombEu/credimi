@@ -28,6 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Badge } from '@/components/ui/badge';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import { Eye, EyeOff } from 'lucide-svelte';
+	import { options } from './use-case-verification-form-options.svelte';
 
 	//
 
@@ -100,29 +101,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			filter: `verifier = '${verifier.id}' && owner.id = '${organizationId}'`,
 			expand: ['credentials']
 		}}
-		formFieldsOptions={{
-			hide: {
-				owner: organizationId,
-				verifier: verifier.id
-			},
-			descriptions: {
-				name: m.verifier_field_description_cryptographic_binding_methods(),
-				description: m.use_case_verification_field_description_description(),
-				deeplink: m.use_case_verification_field_description_deeplink(),
-				credentials: m.use_case_verification_field_description_credentials(),
-				published: m.use_case_verification_field_description_published()
-			},
-			order: ['name', 'deeplink', 'credentials', 'description', 'published'],
-			relations: {
-				credentials: {
-					mode: 'select',
-					displayFields: ['issuer_name', 'name', 'key']
-				}
-			},
-			snippets: {
-				description
-			}
-		}}
+		formFieldsOptions={options(organizationId, verifier.id)}
 	>
 		{#snippet top()}
 			<div class="flex items-center justify-between pb-1">
@@ -139,6 +118,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</RecordCreate>
 			</div>
 		{/snippet}
+
 		{#snippet records({ records })}
 			<ul class="">
 				{#each records as useCaseVerification}
@@ -171,8 +151,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		{/snippet}
 	</CollectionManager>
-{/snippet}
-
-{#snippet description({ form }: FieldSnippetOptions<'use_cases_verifications'>)}
-	<MarkdownField {form} name="description" />
 {/snippet}
