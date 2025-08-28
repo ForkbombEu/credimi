@@ -5,6 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Eye, EyeOff, Pencil, Plus } from 'lucide-svelte';
+
+	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
+	import type {
+		CredentialsResponse,
+		UseCasesVerificationsResponse,
+		VerifiersResponse
+	} from '@/pocketbase/types';
+
 	import {
 		CollectionManager,
 		RecordCreate,
@@ -13,21 +22,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/collections-components/manager';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
+	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator';
-	import { m } from '@/i18n';
-	import type {
-		CredentialsResponse,
-		UseCasesVerificationsResponse,
-		VerifiersResponse
-	} from '@/pocketbase/types';
-	import { pb } from '@/pocketbase';
-	import { Pencil, Plus } from 'lucide-svelte';
-	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
-	import { Badge } from '@/components/ui/badge';
-	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
-	import { Eye, EyeOff } from 'lucide-svelte';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
 
 	//
 

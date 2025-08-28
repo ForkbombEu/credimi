@@ -9,8 +9,8 @@
 package workflows
 
 import (
-	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -128,9 +128,9 @@ func (w *WalletWorkflow) Workflow(
 			},
 			Payload: map[string]any{
 				"query_params": map[string]any{
-					"id":              apiInput,
-					"expected_status": 200,
+					"id": apiInput,
 				},
+				"expected_status": 200,
 			},
 		}).Get(ctx, &response)
 		if err != nil {
@@ -151,7 +151,7 @@ func (w *WalletWorkflow) Workflow(
 				runMetadata,
 			)
 		}
-		metadata = AsSliceOfMaps(result.(map[string]any)["results"])[0]
+		metadata = workflowengine.AsSliceOfMaps(result.(map[string]any)["results"])[0]
 
 	case "google":
 		docker := activities.NewDockerActivity()
@@ -180,37 +180,31 @@ func (w *WalletWorkflow) Workflow(
 				runMetadata,
 			)
 		}
-
-		stdoutJSON, err := json.Marshal(stdout)
+		json := activities.NewJSONActivity(map[string]reflect.Type{
+			"map": reflect.TypeOf(
+				map[string]any{},
+			),
+		})
+		var jsonResult workflowengine.ActivityResult
+		err = workflow.ExecuteActivity(ctx, json.Name(), workflowengine.ActivityInput{
+			Payload: map[string]any{
+				"rawJSON":    stdout,
+				"structType": "map",
+			},
+		}).Get(ctx, &jsonResult)
 		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
+			logger.Error("ParseJSON failed", "error", err)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		}
+		metadata, ok = jsonResult.Output.(map[string]any)
+		if !ok {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			appErr := workflowengine.NewAppError(
 				errCode,
-				err.Error(),
-				stdout,
+				fmt.Sprintf("%s: output", json.Name()),
+				jsonResult.Output,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				runMetadata,
-			)
-		}
-		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
-		var raw string
-		err = json.Unmarshal(stdoutJSON, &raw)
-		if err != nil {
-			appErr := workflowengine.NewAppError(errCode, err.Error(), stdoutJSON)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				runMetadata,
-			)
-		}
-		err = json.Unmarshal([]byte(raw), &metadata)
-		if err != nil {
-			appErr := workflowengine.NewAppError(errCode, err.Error(), raw)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				runMetadata,
-			)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 		}
 	}
 	namespace, ok := input.Config["namespace"].(string)

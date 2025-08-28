@@ -566,7 +566,7 @@ func sendOpenIDNetLogUpdateStart(
 			}
 
 			if logsInterface, ok := result.Log.([]any); ok {
-				logs := workflows.AsSliceOfMaps(logsInterface)
+				logs := workflowengine.AsSliceOfMaps(logsInterface)
 				id := strings.TrimSuffix(input.WorkflowID, "-log")
 				if err := notifyLogsUpdate(app, id+workflows.OpenIDNetSubscription, logs); err != nil {
 					return apierror.New(

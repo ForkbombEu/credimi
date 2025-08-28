@@ -8,7 +8,11 @@
     "editor.quickSuggestions": {
         "strings": "on"
     },
-    "cSpell.words": [
-        "temporalapi"
-    ]
+    "cSpell.words": ["temporalapi"],
+    "editor.codeActionsOnSave": [
+        "source.organizeImports",
+        "source.fixAll.eslint"
+    ],
+    "eslint.validate": ["javascript", "typescript", "svelte"],
+    "editor.formatOnSave": true
 }

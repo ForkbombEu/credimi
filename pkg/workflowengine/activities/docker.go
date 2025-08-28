@@ -88,11 +88,11 @@ func (a *DockerActivity) Execute(
 	defer out.Close()
 	io.Copy(io.Discard, out)
 
-	cmd := asSliceOfStrings(input.Payload["cmd"])
+	cmd := workflowengine.AsSliceOfStrings(input.Payload["cmd"])
 	user, _ := input.Payload["user"].(string)
-	env := asSliceOfStrings(input.Payload["env"])
-	ports := asSliceOfStrings(input.Payload["ports"])
-	mounts := asSliceOfStrings(input.Payload["mounts"])
+	env := workflowengine.AsSliceOfStrings(input.Payload["env"])
+	ports := workflowengine.AsSliceOfStrings(input.Payload["ports"])
+	mounts := workflowengine.AsSliceOfStrings(input.Payload["mounts"])
 	containerName, ok := input.Payload["containerName"].(string)
 	if !ok {
 		containerName = ""
@@ -251,20 +251,4 @@ func buildPortMappings(hostIP string, ports []string) (nat.PortSet, nat.PortMap,
 	}
 
 	return exposedPorts, portBindings, nil
-}
-
-func asSliceOfStrings(val any) []string {
-	if v, ok := val.([]string); ok {
-		return v
-	}
-	if arr, ok := val.([]any); ok {
-		res := make([]string, 0, len(arr))
-		for _, item := range arr {
-			if s, ok := item.(string); ok {
-				res = append(res, s)
-			}
-		}
-		return res
-	}
-	return nil
 }
