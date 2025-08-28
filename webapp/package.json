@@ -62,6 +62,7 @@
 		"dotenv": "^16.4.7",
 		"eslint": "^9.22.0",
 		"eslint-config-prettier": "^9.1.0",
+		"eslint-plugin-perfectionist": "^4.15.0",
 		"eslint-plugin-svelte": "^2.46.1",
 		"formsnap": "^2.0.0",
 		"globals": "^15.15.0",
