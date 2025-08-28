@@ -17,10 +17,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="flex gap-6">
-	<div class="grow basis-1 space-y-6">
-		<SmallSectionLabel>{m.Fields()}</SmallSectionLabel>
-		<JsonSchemaFormComponent form={editor.jsonSchemaForm} hideSubmitButton />
-	</div>
+	{#if editor.jsonSchemaForm}
+		<div class="grow basis-1 space-y-6">
+			<SmallSectionLabel>{m.Fields()}</SmallSectionLabel>
+			<JsonSchemaFormComponent form={editor.jsonSchemaForm} hideSubmitButton />
+		</div>
+	{/if}
 	<div class="min-w-0 grow basis-1 space-y-6">
 		<SmallSectionLabel>{m.YAML_Configuration()}</SmallSectionLabel>
 		<Form form={editor.yamlForm} hide={['submit_button']}>

@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@forkbombeu/temporal-ui';
 	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 	import _ from 'lodash';
+	import { fly } from 'svelte/transition';
 
 	//
 
@@ -63,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if $workflowRun.workflow}
-	<div class="temporal-ui-workflow space-y-4">
+	<div class="temporal-ui-workflow space-y-4" in:fly={{ duration: 1000 }}>
 		<WorkflowHistoryLayout></WorkflowHistoryLayout>
 	</div>
 {/if}

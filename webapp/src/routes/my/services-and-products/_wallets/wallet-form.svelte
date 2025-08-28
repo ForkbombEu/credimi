@@ -5,22 +5,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { createForm, Form } from '@/forms';
-	import { Field, FileField } from '@/forms/fields';
-	import { pb } from '@/pocketbase/index.js';
+	import _ from 'lodash';
+	import { AlertCircle, Download, Loader2, X } from 'lucide-svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
-	import Table, { ConformanceCheckSchema } from './wallet-form-checks-table.svelte';
+
 	import type { WalletsResponse } from '@/pocketbase/types';
-	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
-	import _ from 'lodash';
-	import { m } from '@/i18n';
-	import MarkdownField from '@/forms/fields/markdownField.svelte';
+
 	import T from '@/components/ui-custom/t.svelte';
-	import { Loader2, Download, AlertCircle, X } from 'lucide-svelte';
-	import { Button } from '@/components/ui/button';
 	import { Alert, AlertDescription } from '@/components/ui/alert';
+	import { Button } from '@/components/ui/button';
 	import Separator from '@/components/ui/separator/separator.svelte';
+	import { createForm, Form } from '@/forms';
+	import { Field, FileField } from '@/forms/fields';
+	import MarkdownField from '@/forms/fields/markdownField.svelte';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase/index.js';
+	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+
+	import Table, { ConformanceCheckSchema } from './wallet-form-checks-table.svelte';
 
 	//
 

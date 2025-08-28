@@ -5,18 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="Data extends GenericRecord">
-	import type { GenericRecord } from '@/utils/types';
-	import * as Form from '@/components/ui/form';
 	import type { FormPathLeaves, SuperForm } from 'sveltekit-superforms';
-	import { stringProxy } from 'sveltekit-superforms';
-	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
-	import type { FieldOptions } from '@/forms/fields/types';
-	import { Input } from '@/components/ui/input';
-	import { QrCode } from '@/qr';
-	import { String } from 'effect';
-	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
-	import { fromStore } from 'svelte/store';
+
 	import { createIntentUrl } from '$lib/credentials';
+	import { String } from 'effect';
+	import { fromStore } from 'svelte/store';
+	import { stringProxy } from 'sveltekit-superforms';
+
+	import type { FieldOptions } from '@/forms/fields/types';
+	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
+	import type { GenericRecord } from '@/utils/types';
+
+	import * as Form from '@/components/ui/form';
+	import { Input } from '@/components/ui/input';
+	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
+	import { QrCode } from '@/qr';
 
 	//
 
@@ -47,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<FieldWrapper field={name} {options}>
 		{#snippet children()}
 			<Input {...options as GenericRecord} bind:value={fieldState.current} />
-			<div class="flex flex-col md:flex-row items-stretch gap-4 pt-3">
+			<div class="flex flex-col items-stretch gap-4 pt-3 md:flex-row">
 				<QrCode src={deepLink} cellSize={10} class="size-60 rounded-md border" />
 				{#if String.isEmpty(fieldState.current)}
 					<div class="max-w-60 break-all text-xs">
