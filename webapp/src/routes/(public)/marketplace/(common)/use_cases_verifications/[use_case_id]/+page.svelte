@@ -10,7 +10,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n/index.js';
 	import MarketplaceItemCard from '$marketplace/_utils/marketplace-item-card.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
-	import { String } from 'effect';
 	import T from '@/components/ui-custom/t.svelte';
 	import { QrCode } from '@/qr';
 	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
