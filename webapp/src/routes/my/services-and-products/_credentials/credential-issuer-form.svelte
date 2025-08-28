@@ -5,11 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { zod } from 'sveltekit-superforms/adapters';
+	import { z } from 'zod';
+
 	import { createForm, Form, SubmitButton } from '@/forms';
 	import { Field } from '@/forms/fields';
 	import { m } from '@/i18n';
-	import { zod } from 'sveltekit-superforms/adapters';
-	import { z } from 'zod';
 	import { pb } from '@/pocketbase';
 
 	//
@@ -27,22 +28,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			})
 		),
 		onError: ({ error, errorMessage, setFormError }) => {
-			//@ts-ignore
+			// @ts-expect-error Error is unknown
 			if (error.response?.error?.code === 404) {
 				return setFormError(m.Could_not_import_credential_issuer_well_known());
 			}
-			//@ts-ignore
+			// @ts-expect-error Error is unknown
 			setFormError(error.response?.error?.message || errorMessage);
 		},
 		onSubmit: async ({ form }) => {
 			// note: use npm:out-of-character to clean the url if needed
 			const { url } = form.data;
 			await pb.send('/credentials_issuers/start-check', {
-					method: 'POST',
-					body: {
-						credentialIssuerUrl: url
-					}
-				});
+				method: 'POST',
+				body: {
+					credentialIssuerUrl: url
+				}
+			});
 
 			onSuccess?.();
 		}

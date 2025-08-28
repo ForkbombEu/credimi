@@ -104,7 +104,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{#if !wallet.published}
 								{wallet.name}
 							{:else}
-								<A href="/apps/{wallet.id}">{wallet.name}</A>
+								<A href="/marketplace/wallets/{wallet.id}">{wallet.name}</A>
 							{/if}
 						</T>
 					</div>

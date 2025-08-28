@@ -109,7 +109,8 @@ export function setupCollectionForm<C extends CollectionName>({
 					record = await pb.collection(collection).create<CollectionResponses[C]>(data);
 				}
 
-				if (uiOptions?.showToastOnSuccess) {
+				const showToast = uiOptions?.showToastOnSuccess ?? true;
+				if (showToast) {
 					const text = toastText
 						? toastText
 						: recordId

@@ -130,14 +130,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			dataType: 'form'
 		},
 		initialData: {
-			name: initialData.name || '',
-			description: initialData.description || '',
-			playstore_url: initialData.playstore_url || '',
-			appstore_url: initialData.appstore_url || '',
-			repository: initialData.repository || '',
-			home_url: initialData.home_url || '',
-			logo_url: initialData.logo_url || '',
-			// Don't include apk/logo in initial data since they're File fields
+			...initialData,
+			logo: undefined,
+			apk: undefined,
 			conformance_checks: null
 		}
 	});

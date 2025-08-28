@@ -16,14 +16,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createIntentUrl } from '$lib/credentials/index.js';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import EditSheet from '../../_utils/edit-sheet.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import EditCredentialForm from '$routes/my/services-and-products/_credentials/edit-credential-form.svelte';
 
 	let { data } = $props();
 	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
 
-	const sections = $derived(generateMarketplaceSection('credentials', {
-		hasDescription: !!credential?.description,
-		hasCompatibleIssuer: !!credentialIssuerMarketplaceEntry
-	}));
+	const sections = $derived(
+		generateMarketplaceSection('credentials', {
+			hasDescription: !!credential?.description,
+			hasCompatibleIssuer: !!credentialIssuerMarketplaceEntry
+		})
+	);
 
 	const credentialConfiguration = $derived(
 		credential.json as CredentialConfiguration | undefined
@@ -111,3 +116,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</div>
 </MarketplacePageLayout>
+
+<EditSheet>
+	{#snippet children({ closeSheet })}
+		<T tag="h2" class="mb-4">{m.Edit()} {credential.name}</T>
+		<EditCredentialForm
+			{credential}
+			{credentialIssuer}
+			onSuccess={() => {
+				closeSheet();
+			}}
+		/>
+	{/snippet}
+</EditSheet>
