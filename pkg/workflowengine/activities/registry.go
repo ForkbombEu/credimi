@@ -17,23 +17,23 @@ type ActivityFactory struct {
 
 // Registry maps activity keys to their factory.
 var Registry = map[string]ActivityFactory{
-	"http": {
+	"http-request": {
 		NewFunc:    func() workflowengine.Activity { return NewHTTPActivity() },
 		OutputKind: workflowengine.OutputMap,
 	},
-	"docker": {
+	"container-run": {
 		NewFunc:    func() workflowengine.Activity { return NewDockerActivity() },
 		OutputKind: workflowengine.OutputMap,
 	},
-	"mail": {
+	"email": {
 		NewFunc:    func() workflowengine.Activity { return NewSendMailActivity() },
 		OutputKind: workflowengine.OutputString,
 	},
-	"stepCI": {
+	"rest-chain": {
 		NewFunc:    func() workflowengine.Activity { return NewStepCIWorkflowActivity() },
 		OutputKind: workflowengine.OutputMap,
 	},
-	"json": {
+	"json-parse": {
 		NewFunc: func() workflowengine.Activity {
 			return NewJSONActivity(map[string]reflect.Type{
 				"map": reflect.TypeOf(
@@ -43,23 +43,23 @@ var Registry = map[string]ActivityFactory{
 		},
 		OutputKind: workflowengine.OutputMap,
 	},
-	"validateSchema": {
+	"jsonschema-validation": {
 		NewFunc:    func() workflowengine.Activity { return NewSchemaValidationActivity() },
 		OutputKind: workflowengine.OutputMap,
 	},
-	"parseCredentialsIssuer": {
+	"credential-issuer-validation": {
 		NewFunc:    func() workflowengine.Activity { return NewCheckCredentialsIssuerActivity() },
 		OutputKind: workflowengine.OutputMap,
 	},
-	"parseCESR": {
+	"cesr-parse": {
 		NewFunc:    func() workflowengine.Activity { return NewCESRParsingActivity() },
 		OutputKind: workflowengine.OutputMap,
 	},
-	"validateCESR": {
+	"cesr-validate": {
 		NewFunc:    func() workflowengine.Activity { return NewCESRValidateActivity() },
 		OutputKind: workflowengine.OutputAny,
 	},
-	"parseWalletURL": {
+	"appstore-url-validation": {
 		NewFunc:    func() workflowengine.Activity { return NewParseWalletURLActivity() },
 		OutputKind: workflowengine.OutputMap,
 	},

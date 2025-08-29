@@ -122,6 +122,96 @@ func TestResolveRef(t *testing.T) {
 		})
 	}
 }
+func TestResolveExpressions(t *testing.T) {
+	ctx := map[string]any{
+		"user": map[string]any{
+			"name":    "Alice",
+			"age":     30,
+			"emails":  []any{"a@example.com", "b@example.com"},
+			"address": map[string]any{"city": "Wonderland"},
+		},
+	}
+
+	tests := []struct {
+		name     string
+		input    any
+		expected any
+		wantErr  bool
+	}{
+		{
+			name:     "simple string replacement",
+			input:    "${{ user.name }}",
+			expected: "Alice",
+		},
+		{
+			name:     "string with multiple expressions",
+			input:    "Name: ${{ user.name }}, Age: ${{ user.age }}",
+			expected: "Name: Alice, Age: 30",
+		},
+		{
+			name:    "invalid expression",
+			input:   "${{ unknown.key }}",
+			wantErr: true,
+		},
+		{
+			name: "nested map",
+			input: map[string]any{
+				"name": "${{ user.name }}",
+				"city": "${{ user.address.city }}",
+			},
+			expected: map[string]any{
+				"name": "Alice",
+				"city": "Wonderland",
+			},
+		},
+		{
+			name: "nested array",
+			input: []any{
+				"${{ user.emails[0] }}",
+				"${{ user.emails[1] }}",
+			},
+			expected: []any{
+				"a@example.com",
+				"b@example.com",
+			},
+		},
+		{
+			name:     "non-string value returns as-is",
+			input:    42,
+			expected: 42,
+		},
+		{
+			name: "map with mixed types",
+			input: map[string]any{
+				"int":   123,
+				"email": "${{ user.emails[0] }}",
+				"nested": map[string]any{
+					"city": "${{ user.address.city }}",
+				},
+			},
+			expected: map[string]any{
+				"int":   123,
+				"email": "a@example.com",
+				"nested": map[string]any{
+					"city": "Wonderland",
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := resolveExpressions(tc.input, ctx)
+			if tc.wantErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, tc.expected, got)
+			}
+		})
+	}
+}
+
 func TestCastType(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -157,76 +247,6 @@ func TestCastType(t *testing.T) {
 		})
 	}
 }
-
-func TestResolveValue(t *testing.T) {
-	ctx := map[string]any{
-		"a": "top",
-		"b": map[string]any{
-			"x": 42,
-			"y": []any{
-				map[string]any{"ref": "a"},
-				"static",
-			},
-		},
-	}
-
-	tests := []struct {
-		name     string
-		input    any
-		expected any
-		wantErr  bool
-	}{
-		{
-			name:     "simple value",
-			input:    "hello",
-			expected: "hello",
-		},
-		{
-			name:     "simple ref",
-			input:    map[string]any{"ref": "a"},
-			expected: "top",
-		},
-		{
-			name: "nested map",
-			input: map[string]any{
-				"val": map[string]any{"ref": "b.x"},
-			},
-			expected: map[string]any{
-				"val": 42,
-			},
-		},
-		{
-			name: "nested slice",
-			input: []any{
-				map[string]any{"ref": "b.y[0]"},
-				"keep",
-			},
-			expected: []any{
-				"top",
-				"keep",
-			},
-		},
-		{
-			name: "missing ref",
-			input: map[string]any{
-				"bad": map[string]any{"ref": "missing.key"},
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := resolveValue(tc.input, ctx)
-			if tc.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.expected, got)
-			}
-		})
-	}
-}
 func TestResolveInputs(t *testing.T) {
 	type testCase struct {
 		name      string
@@ -239,11 +259,11 @@ func TestResolveInputs(t *testing.T) {
 
 	tests := []testCase{
 		{
-			name: "config from value and payload from value",
+			name: "payload from value",
 			step: StepDefinition{
-				Inputs: StepInputs{
-					Config: map[string]ConfigSource{
-						"key": {Value: "val"},
+				With: StepInputs{
+					Config: map[string]string{
+						"key": "value",
 					},
 					Payload: map[string]InputSource{
 						"p": {Value: "data"},
@@ -253,14 +273,14 @@ func TestResolveInputs(t *testing.T) {
 			globalCfg: map[string]string{"g": "G"},
 			ctx:       map[string]any{},
 			expected: &workflowengine.ActivityInput{
-				Config:  map[string]string{"key": "val", "g": "G"},
+				Config:  map[string]string{"key": "value", "g": "G"},
 				Payload: map[string]any{"p": "data"},
 			},
 		},
 		{
 			name: "payload int conversion from string",
 			step: StepDefinition{
-				Inputs: StepInputs{
+				With: StepInputs{
 					Payload: map[string]InputSource{
 						"num": {Value: "123", Type: "int"},
 					},
@@ -273,36 +293,24 @@ func TestResolveInputs(t *testing.T) {
 			},
 		},
 		{
-			name: "payload ref resolution success",
+			name: "payload expression resolution",
 			step: StepDefinition{
-				Inputs: StepInputs{
+				With: StepInputs{
 					Payload: map[string]InputSource{
-						"val": {Ref: "nested.inner"},
+						"val": {Value: "${{ ctx.key }}"},
 					},
 				},
 			},
-			ctx: map[string]any{"nested": map[string]any{"inner": "ok"}},
+			ctx: map[string]any{"ctx": map[string]any{"key": "ok"}},
 			expected: &workflowengine.ActivityInput{
 				Config:  map[string]string{},
 				Payload: map[string]any{"val": "ok"},
 			},
 		},
 		{
-			name: "payload ref resolution failure",
-			step: StepDefinition{
-				Inputs: StepInputs{
-					Payload: map[string]InputSource{
-						"val": {Ref: "bad.path"},
-					},
-				},
-			},
-			ctx:     map[string]any{},
-			wantErr: true,
-		},
-		{
 			name: "type cast failure (cannot cast map to int)",
 			step: StepDefinition{
-				Inputs: StepInputs{
+				With: StepInputs{
 					Payload: map[string]InputSource{
 						"num": {Value: map[string]any{}, Type: "int"},
 					},
@@ -312,19 +320,19 @@ func TestResolveInputs(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name: "nested payload map and array refs",
+			name: "nested payload map and array expressions",
 			step: StepDefinition{
-				Inputs: StepInputs{
+				With: StepInputs{
 					Payload: map[string]InputSource{
 						"nested": {
 							Value: map[string]any{
 								"level1": map[string]any{
 									"level2": map[string]any{
-										"value": map[string]any{"ref": "ctx.key"},
+										"value": "${{ ctx.key }}",
 									},
 								},
 								"array": []any{
-									map[string]any{"ref": "ctx.key"},
+									"${{ ctx.key }}",
 									"static",
 								},
 							},

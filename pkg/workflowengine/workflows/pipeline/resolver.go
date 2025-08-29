@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
-
 package pipeline
 
 import (
@@ -13,7 +12,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
-// Merge global config with step-level config (step overrides global)
+// mergeConfigs merges global config with step-level config
 func mergeConfigs(global, step map[string]string) map[string]string {
 	res := make(map[string]string)
 	for k, v := range global {
@@ -25,39 +24,75 @@ func mergeConfigs(global, step map[string]string) map[string]string {
 	return res
 }
 
-// Resolve a dotted ref string in a nested context
-var sliceIndexRegexp = regexp.MustCompile(`^([a-zA-Z0-9_]+)(?:\[(\d+)\])?$`)
+var stepPayloadExclusions = map[string][]string{
+	"rest-chain": {"yaml"},
+}
 
+// helper to check if a string is exactly a single ${{ ... }} ref
+func isFullRef(s string) bool {
+	matches := exprRegexp.FindStringSubmatch(s)
+	return matches != nil && strings.TrimSpace(s) == matches[0]
+}
+
+// Matches expressions like ${{ ... }}
+var exprRegexp = regexp.MustCompile(`\${{\s*([a-zA-Z0-9_\[\]\.]+)\s*}}`)
+
+func parsePart(part string) (key string, idxs []int, err error) {
+	bracket := strings.Index(part, "[")
+	if bracket == -1 {
+		return part, nil, nil
+	}
+
+	key = part[:bracket]
+	rest := part[bracket:]
+
+	for len(rest) > 0 {
+		if rest[0] != '[' {
+			return "", nil, fmt.Errorf("invalid syntax in part: %s", part)
+		}
+		end := strings.Index(rest, "]")
+		if end == -1 {
+			return "", nil, fmt.Errorf("missing ] in part: %s", part)
+		}
+		numStr := rest[1:end]
+		n, err := strconv.Atoi(numStr)
+		if err != nil {
+			return "", nil, fmt.Errorf("invalid index %q in part: %s", numStr, part)
+		}
+		idxs = append(idxs, n)
+		rest = rest[end+1:]
+	}
+
+	return key, idxs, nil
+}
+
+// resolveRef resolves a dotted ref like "user.addresses[0].city" in the given context
 func resolveRef(ref string, ctx map[string]any) (any, error) {
 	parts := strings.Split(ref, ".")
 	var cur any = ctx
 
 	for _, part := range parts {
-		matches := sliceIndexRegexp.FindStringSubmatch(part)
-		if matches == nil {
-			return nil, fmt.Errorf("invalid ref part: %s", part)
+		key, idxs, err := parsePart(part)
+		if err != nil {
+			return nil, err
 		}
-		key := matches[1]
-		idxStr := matches[2]
 
-		// map access
 		m, ok := cur.(map[string]any)
 		if !ok {
 			return nil, fmt.Errorf("expected map at %s", part)
 		}
+
 		v, ok := m[key]
 		if !ok {
 			return nil, fmt.Errorf("ref not found: %s", ref)
 		}
 		cur = v
 
-		// slice access if [index] present
-		if idxStr != "" {
+		for _, idx := range idxs {
 			arr, ok := cur.([]any)
 			if !ok {
 				return nil, fmt.Errorf("expected slice at %s in ref %s", part, ref)
 			}
-			idx, _ := strconv.Atoi(idxStr)
 			if idx < 0 || idx >= len(arr) {
 				return nil, fmt.Errorf("slice index out of bounds at %s in ref %s", part, ref)
 			}
@@ -67,9 +102,59 @@ func resolveRef(ref string, ctx map[string]any) (any, error) {
 
 	return cur, nil
 }
+
+// resolveExpressions recursively replaces ${{ ... }} expressions in a value
+func resolveExpressions(val any, ctx map[string]any) (any, error) {
+	switch v := val.(type) {
+	case string:
+		matches := exprRegexp.FindStringSubmatch(v)
+		if len(matches) == 2 && matches[0] == v {
+			inner := matches[1]
+			return resolveRef(inner, ctx)
+		}
+		return exprRegexp.ReplaceAllStringFunc(v, func(expr string) string {
+			matches := exprRegexp.FindStringSubmatch(expr)
+			if len(matches) < 2 {
+				return fmt.Sprintf("ERR(invalid expression: %s)", expr)
+			}
+			inner := matches[1]
+			resolved, err := resolveRef(inner, ctx)
+			if err != nil {
+				return fmt.Sprintf("ERR(%s)", err.Error())
+			}
+			return fmt.Sprintf("%v", resolved)
+		}), nil
+
+	case map[string]any:
+		res := make(map[string]any)
+		for k, vv := range v {
+			rv, err := resolveExpressions(vv, ctx)
+			if err != nil {
+				return nil, err
+			}
+			res[k] = rv
+		}
+		return res, nil
+
+	case []any:
+		arr := make([]any, len(v))
+		for i, vv := range v {
+			rv, err := resolveExpressions(vv, ctx)
+			if err != nil {
+				return nil, err
+			}
+			arr[i] = rv
+		}
+		return arr, nil
+
+	default:
+		return v, nil
+	}
+}
+
 func castType(val any, typeStr string) (any, error) {
 	switch typeStr {
-	case "string":
+	case "string", "":
 		return fmt.Sprintf("%v", val), nil
 	case "int":
 		switch v := val.(type) {
@@ -91,7 +176,6 @@ func castType(val any, typeStr string) (any, error) {
 	case "[]map":
 		return workflowengine.AsSliceOfMaps(val), nil
 	case "bytes", "[]byte":
-
 		switch v := val.(type) {
 		case string:
 			return []byte(v), nil
@@ -104,91 +188,48 @@ func castType(val any, typeStr string) (any, error) {
 		return val, nil
 	}
 }
-
-func resolveValue(val any, ctx map[string]any) (any, error) {
-	switch v := val.(type) {
-	case map[string]any:
-
-		if ref, ok := v["ref"].(string); ok {
-			res, err := resolveRef(ref, ctx)
-			if err != nil {
-				return nil, err
+func shouldSkipInString(stepRun, key string, val any) bool {
+	if strVal, ok := val.(string); ok {
+		if !isFullRef(strVal) {
+			if keys, exists := stepPayloadExclusions[stepRun]; exists {
+				for _, exKey := range keys {
+					if exKey == key {
+						return true
+					}
+				}
 			}
-			// recursively resolve in case the resolved value is another ref
-			resolvedVal, err := resolveValue(res, ctx)
-			if err != nil {
-				return nil, err
-			}
-			// Apply type conversion if specified
-			if typeStr, ok := v["type"].(string); ok {
-				return castType(resolvedVal, typeStr)
-			}
-			return resolvedVal, nil
 		}
-		res := make(map[string]any)
-		for key, val := range v {
-			r, err := resolveValue(val, ctx)
-			if err != nil {
-				return nil, err
-			}
-			res[key] = r
-		}
-		return res, nil
-	case []any:
-		arr := make([]any, len(v))
-		for i, val := range v {
-			r, err := resolveValue(val, ctx)
-			if err != nil {
-				return nil, err
-			}
-			arr[i] = r
-		}
-		return arr, nil
-	default:
-		return val, nil
 	}
+	return false
 }
 
-// Resolve step inputs and merge configs
+// ResolveInputs builds activity input for a step
 func ResolveInputs(
 	step StepDefinition,
 	globalCfg map[string]string,
 	ctx map[string]any,
 ) (*workflowengine.ActivityInput, error) {
-	// Resolve step-level config
 	stepCfg := make(map[string]string)
-	for k, src := range step.Inputs.Config {
-		var val string
-		if src.Ref != "" {
-			v, err := resolveRef(src.Ref, ctx)
-			if err != nil {
-				return nil, fmt.Errorf("resolving config ref %s: %w", src.Ref, err)
-			}
-			val = fmt.Sprintf("%v", v)
-		} else {
-			val = src.Value
+	for k, src := range step.With.Config {
+		val, err := resolveExpressions(src, ctx)
+		if err != nil {
+			return nil, err
 		}
-		stepCfg[k] = val
+		stepCfg[k] = val.(string)
 	}
-
-	// Merge global + step configs
 	cfg := mergeConfigs(globalCfg, stepCfg)
 
-	// Resolve payload
 	payload := make(map[string]any)
-	for k, src := range step.Inputs.Payload {
+	for k, src := range step.With.Payload {
 		var val any
 		var err error
 
-		if src.Ref != "" {
-			val, err = resolveRef(src.Ref, ctx)
-			if err != nil {
-				return nil, fmt.Errorf("resolving payload ref %s: %w", src.Ref, err)
-			}
+		if shouldSkipInString(step.Run, k, src.Value) {
+			val = src.Value
 		} else {
-			val, err = resolveValue(src.Value, ctx)
+			val, err = resolveExpressions(src.Value, ctx)
 			if err != nil {
-				return nil, fmt.Errorf("resolving payload value for %s: %w", k, err)
+				return nil, err
 			}
 		}
 
@@ -198,7 +239,6 @@ func ResolveInputs(
 				return nil, err
 			}
 		}
-
 		payload[k] = val
 	}
 

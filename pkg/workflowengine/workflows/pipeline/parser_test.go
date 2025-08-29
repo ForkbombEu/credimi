@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
+
 package pipeline
 
 import (
@@ -10,113 +11,55 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func TestConfigSource_UnmarshalYAML(t *testing.T) {
-	tests := []struct {
-		name    string
-		yamlStr string
-		want    ConfigSource
-		wantErr bool
-	}{
-		{
-			name:    "scalar string",
-			yamlStr: `"hello"`,
-			want:    ConfigSource{Value: "hello"},
-		},
-		{
-			name:    "map with ref",
-			yamlStr: `ref: someRef`,
-			want:    ConfigSource{Ref: "someRef"},
-		},
-		{
-			name:    "map with value",
-			yamlStr: `value: directVal`,
-			want:    ConfigSource{Value: "directVal"},
-		},
-		{
-			name:    "invalid type (sequence)",
-			yamlStr: `- one`,
-			wantErr: true,
-		},
-	}
+func TestStepDefinition_UnmarshalYAML(t *testing.T) {
+	yamlData := `
+id: "step1"
+run: "echo"
+with:
+  config:
+    foo: "bar"
+  scalar_input: "hello"
+  map_input:
+    key1: "value1"
+    key2: 42
+  list_input:
+    - 1
+    - 2
+    - 3
+retry:
+  count: 3
+timeout: "5m"
+metadata:
+  note: "example step"
+`
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			var got ConfigSource
-			err := yaml.Unmarshal([]byte(tc.yamlStr), &got)
-			if tc.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.want, got)
-			}
-		})
-	}
-}
+	var step StepDefinition
+	err := yaml.Unmarshal([]byte(yamlData), &step)
+	require.NoError(t, err)
+	// Top-level fields
+	require.Equal(t, "step1", step.ID)
+	require.Equal(t, "echo", step.Run)
+	require.Equal(t, map[string]any{"count": 3}, step.Retry)
+	require.Equal(t, "5m", step.Timeout)
+	require.Equal(t, map[string]interface{}{"note": "example step"}, step.Metadata)
 
-func TestInputSource_UnmarshalYAML(t *testing.T) {
-	tests := []struct {
-		name    string
-		yamlStr string
-		want    InputSource
-		wantErr bool
-	}{
-		{
-			name:    "scalar string",
-			yamlStr: `"abc"`,
-			want:    InputSource{Value: "abc"},
-		},
-		{
-			name:    "scalar int",
-			yamlStr: `42`,
-			want:    InputSource{Value: 42},
-		},
-		{
-			name: "mapping with ref and type",
-			yamlStr: `
-ref: some.path
-type: int
-value: 123
-`,
-			want: InputSource{Ref: "some.path", Type: "int", Value: 123},
-		},
-		{
-			name: "mapping with value only",
-			yamlStr: `
-value: hello
-`,
-			want: InputSource{Value: "hello"},
-		},
-		{
-			name: "mapping generic object",
-			yamlStr: `
-foo: bar
-num: 99
-`,
-			want: InputSource{Value: map[string]any{"foo": "bar", "num": 99}},
-		},
-		{
-			name: "sequence array",
-			yamlStr: `
-- a
-- b
-- 1
-`,
-			want: InputSource{Value: []any{"a", "b", 1}},
-		},
-	}
+	// StepInputs
+	require.Equal(t, map[string]string{"foo": "bar"}, step.With.Config)
 
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			var got InputSource
-			err := yaml.Unmarshal([]byte(tc.yamlStr), &got)
-			if tc.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.want, got)
-			}
-		})
-	}
+	payload := step.With.Payload
+
+	// scalar input
+	require.Contains(t, payload, "scalar_input")
+	require.Equal(t, "hello", payload["scalar_input"].Value)
+
+	// map input
+	require.Contains(t, payload, "map_input")
+	expectedMap := map[string]any{"key1": "value1", "key2": 42}
+	require.Equal(t, expectedMap, payload["map_input"].Value)
+
+	// list input
+	require.Contains(t, payload, "list_input")
+	require.Equal(t, []any{1, 2, 3}, payload["list_input"].Value)
 }
 
 func TestWorkflowDefinition_UnmarshalYAML(t *testing.T) {
@@ -124,39 +67,37 @@ func TestWorkflowDefinition_UnmarshalYAML(t *testing.T) {
 config:
   globalKey: globalVal
 steps:
-  - name: step1
-    activity: http
-    inputs:
+  - run: step1
+    with:
       config:
         apiKey: "abc123"
-      payload:
-        url: "http://example.com"
-  - name: step2
-    activity: docker
-    inputs:
+      url: "http://example.com"
+  - run: step2
+    with:
       config:
-        image: { value: "alpine:latest" }
-      payload:
-        args:
-          - run
-          - echo
+        image: "alpine:latest"
+      args:
+        - run
+        - echo
 `
 	var wf WorkflowDefinition
 	err := yaml.Unmarshal([]byte(yml), &wf)
 	require.NoError(t, err)
 
+	// Global config
 	require.Equal(t, "globalVal", wf.Config["globalKey"])
+
 	require.Len(t, wf.Steps, 2)
 
+	// Step 1
 	s1 := wf.Steps[0]
-	require.Equal(t, "step1", s1.Name)
-	require.Equal(t, "http", s1.Activity)
-	require.Equal(t, "abc123", s1.Inputs.Config["apiKey"].Value)
-	require.Equal(t, "http://example.com", s1.Inputs.Payload["url"].Value)
+	require.Equal(t, "step1", s1.Run)
+	require.Equal(t, "abc123", s1.With.Config["apiKey"])
+	require.Equal(t, "http://example.com", s1.With.Payload["url"].Value)
 
+	// Step 2
 	s2 := wf.Steps[1]
-	require.Equal(t, "step2", s2.Name)
-	require.Equal(t, "docker", s2.Activity)
-	require.Equal(t, "alpine:latest", s2.Inputs.Config["image"].Value)
-	require.Equal(t, []any{"run", "echo"}, s2.Inputs.Payload["args"].Value)
+	require.Equal(t, "step2", s2.Run)
+	require.Equal(t, "alpine:latest", s2.With.Config["image"])
+	require.Equal(t, []any{"run", "echo"}, s2.With.Payload["args"].Value)
 }
