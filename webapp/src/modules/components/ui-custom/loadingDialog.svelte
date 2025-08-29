@@ -5,9 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as AlertDialog from '@/components/ui/alert-dialog';
-	import Spinner from './spinner.svelte';
 	import type { Snippet } from 'svelte';
+
+	import * as AlertDialog from '@/components/ui/alert-dialog';
+
+	import Spinner from './spinner.svelte';
+
+	//
 
 	interface Props {
 		loading?: boolean;
@@ -34,9 +38,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<Spinner />
 
-		<AlertDialog.Description>
-			{@render children?.()}
-		</AlertDialog.Description>
+		{#if children}
+			<AlertDialog.Description>
+				{@render children()}
+			</AlertDialog.Description>
+		{/if}
 
 		{@render bottom?.()}
 	</AlertDialog.Content>
