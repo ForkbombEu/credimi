@@ -205,6 +205,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Button
 						variant="outline"
 						size="icon"
+						disabled={!record.imported}
 						onclick={() => refreshCredentialIssuer(record.url)}
 					>
 						<RefreshCwIcon />

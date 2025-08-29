@@ -127,6 +127,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			newRecord.Set("url", req.URL)
 			newRecord.Set("owner", organization)
 			newRecord.Set("name", parsedURL.Hostname())
+			newRecord.Set("imported", true)
 			if err := e.App.Save(newRecord); err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
