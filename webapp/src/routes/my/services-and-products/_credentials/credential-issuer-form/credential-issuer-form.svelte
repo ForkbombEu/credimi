@@ -5,8 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Plus } from 'lucide-svelte';
+
 	import { CollectionForm } from '@/collections-components';
+	import Button from '@/components/ui-custom/button.svelte';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
+	import { m } from '@/i18n';
+
 	import ImportCredentialIssuer from './import-credential-issuer.svelte';
 
 	//
@@ -19,7 +24,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Sheet>
-	ciao
+	{#snippet trigger({ sheetTriggerAttributes })}
+		<Button variant={'default'} size="sm" {...sheetTriggerAttributes}>
+			<Plus />
+			{m.Add_new_credential_issuer()}
+		</Button>
+	{/snippet}
 
 	{#snippet content({ closeSheet })}
 		<ImportCredentialIssuer {organizationId}>

@@ -5,15 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { createForm, Form } from '@/forms';
+	import type { Snippet } from 'svelte';
+
+	import { fromStore } from 'svelte/store';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
+
+	import type { CredentialIssuersResponse } from '@/pocketbase/types';
+
+	import { createForm, Form } from '@/forms';
+	import { Field } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
-	import { Field } from '@/forms/fields';
-	import type { CredentialIssuersResponse } from '@/pocketbase/types';
-	import { fromStore } from 'svelte/store';
-	import type { Snippet } from 'svelte';
 
 	//
 
@@ -33,11 +36,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			})
 		),
 		onError: ({ error, errorMessage, setFormError }) => {
-			//@ts-ignore
+			//@ts-expect-error ignore error type
 			if (error.response?.error?.code === 404) {
 				return setFormError(m.Could_not_import_credential_issuer_well_known());
 			}
-			//@ts-ignore
+			//@ts-expect-error ignore error type
 			setFormError(error.response?.error?.message || errorMessage);
 		},
 		onSubmit: async ({ form }) => {
