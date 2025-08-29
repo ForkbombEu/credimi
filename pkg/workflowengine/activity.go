@@ -68,3 +68,14 @@ func (a *BaseActivity) NewNonRetryableActivityError(
 	msg := fmt.Sprintf("[%s]: %s", a.Name, errorMsg)
 	return temporal.NewNonRetryableApplicationError(msg, errorType, nil, activityPayload)
 }
+
+// OutputKind represents the expected type of an activity output.
+type OutputKind int
+
+const (
+	OutputAny OutputKind = iota
+	OutputString
+	OutputMap
+	OutputArrayOfString
+	OutputArrayOfMap
+)

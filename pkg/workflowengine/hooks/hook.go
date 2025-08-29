@@ -105,7 +105,23 @@ func startWorker(client client.Client, config workerConfig, wg *sync.WaitGroup) 
 		log.Printf("Failed to start worker for %s: %v", config.TaskQueue, err)
 	}
 }
-
+func startPipelineWorker(client client.Client, wg *sync.WaitGroup) {
+	defer wg.Done()
+	w := worker.New(client, workflows.PipelineTaskQueue, worker.Options{})
+	pipelineWf := &workflows.PipelineWorkflow{}
+	w.RegisterWorkflowWithOptions(pipelineWf.Workflow, workflow.RegisterOptions{
+		Name: pipelineWf.Name(),
+	})
+	for _, a := range activities.Registry {
+		act := a.NewFunc().(workflowengine.ExecutableActivity)
+		w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{
+			Name: act.Name(),
+		})
+	}
+	if err := w.Run(worker.InterruptCh()); err != nil {
+		log.Printf("Failed to start worker for %s: %v", workflows.PipelineTaskQueue, err)
+	}
+}
 func StartAllWorkersByNamespace(namespace string) {
 	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 	if err != nil {
@@ -221,6 +237,9 @@ func StartAllWorkersByNamespace(namespace string) {
 		wg.Add(1)
 		go startWorker(c, config, &wg)
 	}
+
+	wg.Add(1)
+	go startPipelineWorker(c, &wg)
 
 	wg.Wait()
 }
