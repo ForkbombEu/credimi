@@ -287,7 +287,7 @@ func checkEndpointExists(ctx context.Context, urlToCheck string) error {
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "HEAD", parsedURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", parsedURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
