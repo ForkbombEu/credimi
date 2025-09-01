@@ -14,18 +14,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Input from '@/components/ui/input/input.svelte';
 	import type { FieldOptions } from './types';
 	import type { Writable } from 'svelte/store';
-	import type { ComponentProps } from 'svelte';
+	import type { ComponentProps, Snippet } from 'svelte';
 	import { createFilesValidator } from './fileField';
+	import { Button } from '@/components/ui/button';
 
 	//
 
 	type Props = {
 		form: SuperForm<Data>;
 		name: FormPath<Data>;
-		options?: Partial<FieldOptions & Omit<ComponentProps<typeof Input>, 'type' | 'value'>>;
+		variant?: ComponentProps<typeof Button>['variant'];
+		class?: string;
+		options?: Partial<
+			FieldOptions &
+				Omit<ComponentProps<typeof Input>, 'type' | 'value'> & { showFilesList?: boolean }
+		>;
+		children?: Snippet;
 	};
 
-	const { form, name, options = {} }: Props = $props();
+	const {
+		form,
+		name,
+		class: className,
+		variant = 'default',
+		options = {},
+		children
+	}: Props = $props();
 
 	const multiple = $derived(options.multiple ?? false);
 	const valueProxy = $derived(fieldProxy(form, name) as Writable<File | File[]>);
@@ -33,19 +47,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const validator = $derived(
 		createFilesValidator(form as SuperForm<GenericRecord>, name, multiple)
 	);
+
+	let fileInput: HTMLInputElement;
 </script>
 
 <Form.Field {form} {name}>
 	<FieldWrapper field={name} {options}>
 		{#snippet children({ props })}
-			<FileManager bind:data={$valueProxy} {validator} {multiple}>
+			<FileManager
+				bind:data={$valueProxy}
+				{validator}
+				{multiple}
+				showFilesList={options.showFilesList}
+			>
 				{#snippet children({ addFiles })}
-					<Input
-						{...options}
+					<Button
+						type="button"
+						{variant}
+						onclick={() => fileInput.click()}
+						class={['w-full', className]}
+					>
+						{#if children}
+							{@render children({ addFiles })}
+						{:else}
+							{options.placeholder}
+						{/if}
+					</Button>
+					<input
+						bind:this={fileInput}
 						{...props}
-						placeholder="Upload a file"
 						type="file"
-						class="hover:bg-primary/10 file:bg-secondary-foreground file:text-secondary p-0 py-1 pl-1 file:mr-4 file:h-full file:rounded-md file:px-4 hover:cursor-pointer file:hover:cursor-pointer"
+						{multiple}
+						accept={options.accept}
+						class="hidden"
 						onchange={(e) => {
 							const fileList = e.currentTarget.files;
 							if (fileList) addFiles([...fileList]);

@@ -59,7 +59,9 @@ func Setup(app *pocketbase.PocketBase) {
 	apis.HookAtUserCreation(app)
 	apis.HookAtUserLogin(app)
 	apis.HookStartScheduledWorkflow(app)
+	// apis.IssuersRoutes.Add(app)
 	apis.HookCredentialWorkflow(app)
+	apis.HookWalletWorkflow(app)
 	apis.HookUpdateCredentialsIssuers(app)
 
 	jsvm.MustRegister(app, jsvm.Config{

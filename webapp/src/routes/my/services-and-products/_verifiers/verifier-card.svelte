@@ -5,6 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Eye, EyeOff, Pencil, Plus } from 'lucide-svelte';
+
+	import type {
+		CredentialsResponse,
+		UseCasesVerificationsResponse,
+		VerifiersResponse
+	} from '@/pocketbase/types';
+
 	import {
 		CollectionManager,
 		RecordCreate,
@@ -13,20 +21,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/collections-components/manager';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
+	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
-	import type {
-		CredentialsResponse,
-		UseCasesVerificationsResponse,
-		VerifiersResponse
-	} from '@/pocketbase/types';
 	import { pb } from '@/pocketbase';
-	import { Pencil, Plus } from 'lucide-svelte';
-	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
-	import MarkdownField from '@/forms/fields/markdownField.svelte';
-	import { Badge } from '@/components/ui/badge';
-	import PublishedStatus from '$lib/layout/published-status.svelte';
+
+	import { options } from './use-case-verification-form-options.svelte';
 
 	//
 
@@ -38,6 +39,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { verifier, organizationId }: Props = $props();
 	const avatarSrc = $derived(pb.files.getURL(verifier, verifier.logo));
+
+	//
+
+	function updatePublished(recordId: string, published: boolean) {
+		pb.collection('verifiers').update(recordId, { published });
+	}
 
 	//
 
@@ -62,12 +69,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div>
 				<div class="flex items-center gap-2">
 					<T class="font-bold">{verifier.name}</T>
-					<PublishedStatus item={verifier} />
 				</div>
 				<T class="text-xs text-gray-400">{verifier.url}</T>
 			</div>
 		</div>
 		<div>
+			<SwitchWithIcons
+				offIcon={EyeOff}
+				onIcon={Eye}
+				size="md"
+				checked={verifier.published}
+				onCheckedChange={() => updatePublished(verifier.id, !verifier.published)}
+			/>
 			<RecordEdit record={verifier} />
 			<RecordDelete record={verifier} />
 		</div>
@@ -87,29 +100,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			filter: `verifier = '${verifier.id}' && owner.id = '${organizationId}'`,
 			expand: ['credentials']
 		}}
-		formFieldsOptions={{
-			hide: {
-				owner: organizationId,
-				verifier: verifier.id
-			},
-			descriptions: {
-				name: m.verifier_field_description_cryptographic_binding_methods(),
-				description: m.use_case_verification_field_description_description(),
-				deeplink: m.use_case_verification_field_description_deeplink(),
-				credentials: m.use_case_verification_field_description_credentials(),
-				published: m.use_case_verification_field_description_published()
-			},
-			order: ['name', 'deeplink', 'credentials', 'description', 'published'],
-			relations: {
-				credentials: {
-					mode: 'select',
-					displayFields: ['issuer_name', 'name', 'key']
-				}
-			},
-			snippets: {
-				description
-			}
-		}}
+		formFieldsOptions={options(organizationId, verifier.id)}
 	>
 		{#snippet top()}
 			<div class="flex items-center justify-between pb-1">
@@ -126,6 +117,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</RecordCreate>
 			</div>
 		{/snippet}
+
 		{#snippet records({ records })}
 			<ul class="">
 				{#each records as useCaseVerification}
@@ -136,7 +128,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{#if credentialsPreview}
 							<span>({credentialsPreview})</span>
 						{/if}
-						<PublishedStatus item={useCaseVerification} size="sm" />
 
 						<RecordEdit record={useCaseVerification}>
 							{#snippet button({ triggerAttributes })}
@@ -159,8 +150,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		{/snippet}
 	</CollectionManager>
-{/snippet}
-
-{#snippet description({ form }: FieldSnippetOptions<'use_cases_verifications'>)}
-	<MarkdownField {form} name="description" />
 {/snippet}

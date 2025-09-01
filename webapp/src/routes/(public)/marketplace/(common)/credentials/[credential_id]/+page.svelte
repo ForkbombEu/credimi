@@ -5,38 +5,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { m } from '@/i18n';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
 	import { QrCode } from '@/qr/index.js';
-	import { Building2, FolderCheck, Layers3 } from 'lucide-svelte';
 	import { String } from 'effect';
-	import { MarketplaceItemCard } from '../../../_utils/index.js';
+	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import { createIntentUrl } from '$lib/credentials/index.js';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import EditSheet from '../../_utils/edit-sheet.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import EditCredentialForm from '$routes/my/services-and-products/_credentials/edit-credential-form.svelte';
 
 	let { data } = $props();
 	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
 
-	const sections = {
-		credential_properties: {
-			icon: Building2,
-			anchor: 'credential_properties',
-			label: 'Credential properties'
-		},
-		credential_subjects: {
-			icon: Layers3,
-			anchor: 'credential_subject',
-			label: 'Credential subject'
-		},
-		compatible_issuer: {
-			icon: FolderCheck,
-			anchor: 'compatible_issuer',
-			label: 'Compatible issuer'
-		}
-	} satisfies Record<string, IndexItem>;
+	const sections = $derived(
+		generateMarketplaceSection('credentials', {
+			hasDescription: !!credential?.description,
+			hasCompatibleIssuer: !!credentialIssuerMarketplaceEntry
+		})
+	);
 
 	const credentialConfiguration = $derived(
 		credential.json as CredentialConfiguration | undefined
@@ -77,8 +69,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					)}
 				/>
 			</div>
-
-			<InfoBox label="Description" value={credential.description} />
 			<InfoBox label="Type" value={credential.type} />
 		</div>
 
@@ -90,6 +80,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 	</div>
+
+	{#if credential.description && sections.description}
+		<div class="space-y-6">
+			<PageHeader title={sections.description.label} id={sections.description.anchor} />
+			<div class="prose">
+				<RenderMd content={credential.description} />
+			</div>
+		</div>
+	{/if}
 
 	<div class="space-y-6">
 		<PageHeader
@@ -117,3 +116,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</div>
 </MarketplacePageLayout>
+
+<EditSheet>
+	{#snippet children({ closeSheet })}
+		<T tag="h2" class="mb-4">{m.Edit()} {credential.name}</T>
+		<EditCredentialForm
+			{credential}
+			{credentialIssuer}
+			onSuccess={() => {
+				closeSheet();
+			}}
+		/>
+	{/snippet}
+</EditSheet>

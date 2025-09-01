@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -33,7 +34,7 @@ type WorkflowResult struct {
 	WorkflowRunID string
 	Author        string
 	Message       string
-	Errors        []error
+	Errors        any
 	Output        any
 	Log           any
 }
@@ -289,4 +290,65 @@ func ListScheduledWorkflows(namespace string) ([]string, error) {
 	}
 
 	return schedules, nil
+}
+
+// Wait for final workflow result
+func WaitForWorkflowResult(c client.Client, workflowID, runID string) (WorkflowResult, error) {
+	var result WorkflowResult
+	we := c.GetWorkflow(context.Background(), workflowID, runID)
+	if err := we.Get(context.Background(), &result); err != nil {
+		return result, err
+	}
+	return result, nil
+}
+
+// ErrNotReady is returned by a workflow query when the requested data is not ready yet.
+type NotReadyError struct{}
+
+// Error implements the error interface for ErrNotReady.
+func (e NotReadyError) Error() string {
+	return "result not ready"
+}
+
+// Fetch partial workflow result via query (generic)
+func WaitForPartialResult[T any](
+	c client.Client,
+	workflowID, runID, queryName string,
+	pollInterval time.Duration,
+	maxWait time.Duration, // 0 = no timeout
+) (T, error) {
+	var result T
+
+	// Context with timeout if maxWait > 0
+	ctx := context.Background()
+	if maxWait > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, maxWait)
+		defer cancel()
+	}
+
+	ticker := time.NewTicker(pollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return result, fmt.Errorf("timeout waiting for partial result: %w", ctx.Err())
+		case <-ticker.C:
+			queryResp, err := c.QueryWorkflow(ctx, workflowID, runID, queryName)
+			if err != nil {
+				if strings.Contains(err.Error(), "result not ready") {
+					// Query not ready yet → keep polling
+					continue
+				}
+				return result, err
+			}
+
+			// Got query result → decode into result
+			if err := queryResp.Get(&result); err != nil {
+				return result, err
+			}
+			return result, nil
+		}
+	}
 }

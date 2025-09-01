@@ -15,6 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { userOrganization } from '$lib/app-state';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { PencilIcon } from 'lucide-svelte';
+	import { editFormState } from './_utils/edit-sheet.svelte';
+
 	//
 
 	let { children, data } = $props();
@@ -35,7 +37,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T>{m.This_item_is_yours({ item: display.label })}</T>
 			<div class="flex items-center gap-3">
 				<T>{m.Last_edited()}: {new Date(marketplaceItem.updated).toLocaleDateString()}</T>
-				<Button size="sm" class="!h-8 text-xs" disabled>
+				<Button
+					size="sm"
+					class="!h-8 text-xs"
+					onclick={() => {
+						editFormState.open = true;
+					}}
+				>
 					<PencilIcon />
 					{m.Make_changes()}
 				</Button>

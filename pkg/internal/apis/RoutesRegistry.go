@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-
 package apis
 
 import (
@@ -14,12 +13,12 @@ import (
 var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 	handlers.ChecksRoutes,
 	handlers.ApiKeyRoutes,
-	
 }
 
 var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.ConformanceRoutes,
 	handlers.TemplateRoutes,
+	IssuersRoutes,
 }
 
 func RegisterMyRoutes(app core.App) {

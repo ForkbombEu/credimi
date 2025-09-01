@@ -66,7 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			]
 		>;
 		emptyState: Snippet<[{ EmptyState: typeof EmptyState }]>;
-		top: Snippet<[{ Search: typeof Search; Header: typeof Header; Filters: typeof Filters }]>;
+		top: Snippet<[{ Search: typeof Search; Header: typeof Header; Filters: typeof Filters; reloadRecords: () => void; }]>;
 		contentWrapper: Snippet<[children: () => ReturnType<Snippet>]>;
 	};
 
@@ -152,7 +152,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-{@render top?.({ Search, Header, Filters })}
+{@render top?.({ Search, Header, Filters, reloadRecords: () => { manager.loadRecords(); } })}
 {@render (contentWrapper ?? defaultContentWrapper)(content)}
 
 {#snippet defaultContentWrapper(children: () => ReturnType<Snippet>)}
