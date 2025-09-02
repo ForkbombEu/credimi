@@ -5,12 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CollectionForm } from '@/collections-components/index.js';
-	import type { CredentialsResponse, CredentialIssuersResponse } from '@/pocketbase/types';
-	import { m } from '@/i18n';
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
+	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
+
+	import { CollectionForm } from '@/collections-components/index.js';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
+	import { m } from '@/i18n';
+
 	import DeeplinkField from './deeplink-field.svelte';
+
+	//
 
 	type Props = {
 		credential: CredentialsResponse;
@@ -38,7 +42,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'key',
 			'owner',
 			'conformant',
-			'published'
+			'published',
+			'imported'
 		],
 		order: ['deeplink'],
 		labels: {

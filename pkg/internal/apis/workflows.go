@@ -387,6 +387,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 					record = core.NewRecord(collection)
 					record.Set("name", name)
 					record.Set("logo", logo)
+					record.Set("imported", true)
 				} else {
 					// Update existing record
 					record = existing

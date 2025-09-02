@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge';
 	import { buttonVariants } from '@/components/ui/button';
 	import { Card } from '@/components/ui/card';
 	import * as Dialog from '@/components/ui/dialog';
@@ -157,6 +158,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</A>
 							{/if}
 						</T>
+						{#if record.imported}
+							<Badge variant="secondary">{m.Imported()}</Badge>
+						{/if}
 					</div>
 
 					<div class="text-xs">
@@ -259,6 +263,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</div>
 
 							<div class="flex items-center gap-2">
+								{#if credential.imported}
+									<Badge variant="secondary">{m.Imported()}</Badge>
+								{/if}
 								<SwitchWithIcons
 									offIcon={EyeOff}
 									onIcon={Eye}
