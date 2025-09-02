@@ -522,7 +522,13 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"credentialOffer is not present in captures",
 					)
 				}
-				return e.JSON(http.StatusOK, deeplink)
+				
+				// Return both the credential offer and the full workflow output
+				return e.JSON(http.StatusOK, map[string]any{
+					"credentialOffer": deeplink,
+					"steps":          steps,
+					"output":         output,
+				})
 			},
 		).Bind(apis.RequireAuth())
 

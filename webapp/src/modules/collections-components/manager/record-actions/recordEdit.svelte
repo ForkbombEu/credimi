@@ -5,17 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="C extends CollectionName">
+	import { merge } from 'lodash';
 	import Pencil from 'lucide-svelte/icons/pencil';
-	import type { CollectionResponses } from '@/pocketbase/types';
-	import { m } from '@/i18n';
+
 	import type { CollectionFormOptions } from '@/collections-components/form/collectionFormTypes';
 	import type { CollectionName } from '@/pocketbase/collections-models';
-	import { getCollectionManagerContext } from '../collectionManagerContext';
+	import type { CollectionResponses } from '@/pocketbase/types';
+
 	import { CollectionForm } from '@/collections-components';
-	import Sheet from '@/components/ui-custom/sheet.svelte';
-	import { merge } from 'lodash';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import Sheet from '@/components/ui-custom/sheet.svelte';
+	import { m } from '@/i18n';
+
 	import type { RecordCreateEditProps } from './types';
+
+	import { getCollectionManagerContext } from '../collectionManagerContext';
 
 	//
 
@@ -35,8 +39,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const options = $derived(merge(defaultFormOptions, formsOptions.base, formsOptions.edit));
 
 	const sheetTitle = $derived(formTitle ?? m.Edit_record());
-	console.log("RECORD EDIT OPTIONS:");
-	$inspect(options);
 </script>
 
 <Sheet title={sheetTitle}>

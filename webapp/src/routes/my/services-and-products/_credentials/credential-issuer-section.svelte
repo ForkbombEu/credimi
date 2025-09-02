@@ -5,23 +5,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CollectionManager } from '@/collections-components';
-	import { m } from '@/i18n';
-	import { Eye, EyeOff } from 'lucide-svelte';
-	import { Card } from '@/components/ui/card';
-	import T from '@/components/ui-custom/t.svelte';
-	import A from '@/components/ui-custom/a.svelte';
-	import { Separator } from '@/components/ui/separator';
-	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 	import { String } from 'effect';
-	import { Collections } from '@/pocketbase/types';
+	import { Eye, EyeOff } from 'lucide-svelte';
+
+	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
+
+	import { CollectionManager } from '@/collections-components';
 	import { RecordDelete, RecordEdit } from '@/collections-components/manager';
-	import Button from '@/components/ui-custom/button.svelte';
-	import EditCredentialDialog from './edit-credential-dialog.svelte';
+	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { Card } from '@/components/ui/card';
+	import { Separator } from '@/components/ui/separator';
+	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
+	import { Collections } from '@/pocketbase/types';
+
 	import CredentialIssuerForm from './credential-issuer-form/credential-issuer-form.svelte';
+	import EditCredentialDialog from './edit-credential-dialog.svelte';
 
 	//
 
@@ -60,10 +63,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	editFormFieldsOptions={{ exclude: ['owner', 'url', 'published'] }}
 	subscribe="expanded_collections"
 >
-	{#snippet top({ Header })}
+	{#snippet top({ Header, records })}
 		<Header title={m.Credential_issuers()} {id}>
 			{#snippet right()}
-				<CredentialIssuerForm {organizationId} />
+				<CredentialIssuerForm {organizationId} currentIssuers={records} />
 			{/snippet}
 		</Header>
 	{/snippet}

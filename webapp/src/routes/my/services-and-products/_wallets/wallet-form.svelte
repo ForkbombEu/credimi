@@ -147,13 +147,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { form: formData } = editWalletform;
 </script>
 
-<Card class="bg-muted border-muted/40 mb-8">
+<Card class="bg-secondary border-purple-outline/20 mb-8">
 	<CardContent class="space-y-4 p-6">
 		<div class="flex items-start gap-3">
-			<Info class="text-muted-foreground mt-0.5 h-5 w-5 flex-shrink-0" />
+			<Info class="text-secondary-foreground mt-0.5 h-5 w-5 flex-shrink-0" />
 			<div class="flex-1 space-y-1">
-				<h4 class="text-base font-medium">{m.Import_from_marketplace()}</h4>
-				<p class="text-muted-foreground text-sm">
+				<h4 class="text-secondary-foreground text-base font-medium">
+					{m.Import_from_marketplace()}
+				</h4>
+				<p class="text-secondary-foreground/80 text-sm">
 					{m.Import_wallet_metadata_description()}
 				</p>
 			</div>

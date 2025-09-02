@@ -8,43 +8,45 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	lang="ts"
 	generics="C extends CollectionName, E extends PocketbaseQueryExpandOption<C> = never"
 >
+	import type { Snippet } from 'svelte';
+
+	import { FolderIcon, MessageCircleWarning, SearchIcon } from 'lucide-svelte';
+
+	// Logic - Types
+	import type { FormOptions as SuperformsOptions } from '@/forms';
+	import type { CollectionName } from '@/pocketbase/collections-models';
+	import type {
+		PocketbaseQueryAgentOptions,
+		PocketbaseQueryExpandOption,
+		PocketbaseQueryOptions,
+		PocketbaseQueryResponse
+	} from '@/pocketbase/query';
+	import type { CollectionFormData } from '@/pocketbase/types';
+
+	// Components
+	import EmptyState from '@/components/ui-custom/emptyState.svelte';
+	// UI
+	import { m } from '@/i18n';
 	// Logic
-	import { CollectionManager } from './collectionManager.svelte.js';
 	import { setupComponentPocketbaseSubscriptions } from '@/pocketbase/subscriptions';
+
+	import type {
+		UIOptions as CollectionFormUIOptions,
+		FieldsOptions
+	} from '../form/collectionFormTypes';
+
+	import { CollectionManager } from './collectionManager.svelte.js';
 	import {
 		setCollectionManagerContext,
 		type CollectionManagerContext,
 		type FiltersOption
 	} from './collectionManagerContext';
-
-	// Logic - Types
-	import type {
-		PocketbaseQueryExpandOption,
-		PocketbaseQueryOptions,
-		PocketbaseQueryResponse,
-		PocketbaseQueryAgentOptions
-	} from '@/pocketbase/query';
-	import type { CollectionName } from '@/pocketbase/collections-models';
-	import type {
-		UIOptions as CollectionFormUIOptions,
-		FieldsOptions
-	} from '../form/collectionFormTypes';
-	import type { FormOptions as SuperformsOptions } from '@/forms';
-	import type { CollectionFormData } from '@/pocketbase/types';
-
-	// Components
-	import Card from './recordCard.svelte';
-	import Table from './table/collectionTable.svelte';
-	import EmptyState from '@/components/ui-custom/emptyState.svelte';
+	import Filters from './collectionManagerFilters.svelte';
+	import Header from './collectionManagerHeader.svelte';
 	import Pagination from './collectionManagerPagination.svelte';
 	import Search from './collectionManagerSearch.svelte';
-	import Header from './collectionManagerHeader.svelte';
-	import Filters from './collectionManagerFilters.svelte';
-
-	// UI
-	import { m } from '@/i18n';
-	import { FolderIcon, SearchIcon, MessageCircleWarning } from 'lucide-svelte';
-	import type { Snippet } from 'svelte';
+	import Card from './recordCard.svelte';
+	import Table from './table/collectionTable.svelte';
 
 	//
 
@@ -66,7 +68,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			]
 		>;
 		emptyState: Snippet<[{ EmptyState: typeof EmptyState }]>;
-		top: Snippet<[{ Search: typeof Search; Header: typeof Header; Filters: typeof Filters; reloadRecords: () => void; }]>;
+		top: Snippet<
+			[
+				{
+					Search: typeof Search;
+					Header: typeof Header;
+					Filters: typeof Filters;
+					records: PocketbaseQueryResponse<C, E>[];
+					reloadRecords: () => void;
+				}
+			]
+		>;
 		contentWrapper: Snippet<[children: () => ReturnType<Snippet>]>;
 	};
 
@@ -152,7 +164,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-{@render top?.({ Search, Header, Filters, reloadRecords: () => { manager.loadRecords(); } })}
+{@render top?.({
+	Search,
+	Header,
+	Filters,
+	records: manager.records,
+	reloadRecords: () => {
+		manager.loadRecords();
+	}
+})}
 {@render (contentWrapper ?? defaultContentWrapper)(content)}
 
 {#snippet defaultContentWrapper(children: () => ReturnType<Snippet>)}

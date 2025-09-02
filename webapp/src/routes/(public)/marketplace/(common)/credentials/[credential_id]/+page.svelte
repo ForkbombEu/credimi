@@ -5,19 +5,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { m } from '@/i18n';
-	import InfoBox from '$lib/layout/infoBox.svelte';
-	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
-	import { QrCode } from '@/qr/index.js';
-	import { String } from 'effect';
-	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
-	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
+
 	import { createIntentUrl } from '$lib/credentials/index.js';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
-	import { processYamlAndExtractCredentialOffer } from '$lib/compliance';
+	import InfoBox from '$lib/layout/infoBox.svelte';
+	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
+	import PageHeader from '$lib/layout/pageHeader.svelte';
+	import { String } from 'effect';
 	import { onMount } from 'svelte';
+	import { z } from 'zod';
+
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import { pb } from '@/pocketbase';
+	import { QrCode } from '@/qr/index.js';
+
+	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
 
 	let { data } = $props();
 	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
@@ -26,10 +29,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let credentialOfferFromYaml = $state<string | null>(null);
 	let isProcessingYaml = $state(false);
 
-	const sections = $derived(generateMarketplaceSection('credentials', {
-		hasDescription: !!credential?.description,
-		hasCompatibleIssuer: !!credentialIssuerMarketplaceEntry
-	}));
+	const sections = $derived(
+		generateMarketplaceSection('credentials', {
+			hasDescription: !!credential?.description,
+			hasCompatibleIssuer: !!credentialIssuerMarketplaceEntry
+		})
+	);
 
 	const credentialConfiguration = $derived(
 		credential.json as CredentialConfiguration | undefined
@@ -38,9 +43,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// If credential has yaml and we got a credential offer from it, use that; otherwise use the default qr link
 	const qrLink = $derived(
 		credentialOfferFromYaml ||
-		(String.isNonEmpty(credential.deeplink)
-			? credential.deeplink
-			: createIntentUrl(credential, credentialIssuer.url))
+			(String.isNonEmpty(credential.deeplink)
+				? credential.deeplink
+				: createIntentUrl(credential, credentialIssuer.url))
 	);
 
 	// Process YAML if it exists
@@ -49,7 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			isProcessingYaml = true;
 			try {
 				const result = await processYamlAndExtractCredentialOffer(credential.yaml);
-				if (result.success && result.credentialOffer) {
+				if (result.credentialOffer) {
 					credentialOfferFromYaml = result.credentialOffer;
 				}
 			} catch (error) {
@@ -59,6 +64,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 		}
 	});
+
+	async function processYamlAndExtractCredentialOffer(yaml: string) {
+		const res = await pb.send('api/credentials_issuers/get-credential-deeplink', {
+			method: 'POST',
+			body: {
+				yaml
+			}
+		});
+		const responseSchema = z.object({
+			credentialOffer: z.string()
+		});
+		return responseSchema.parse(res);
+	}
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>
@@ -94,10 +112,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<div class="flex flex-col items-stretch">
 			<PageHeader title="Credential offer" id="qr" />
-			
+
 			{#if isProcessingYaml}
-				<div class="flex w-60 h-60 items-center justify-center border rounded-md">
-					<div class="text-sm text-muted-foreground">Processing YAML configuration...</div>
+				<div class="flex h-60 w-60 items-center justify-center rounded-md border">
+					<div class="text-muted-foreground text-sm">
+						Processing YAML configuration...
+					</div>
 				</div>
 			{:else}
 				<!-- Always use the same display format regardless of whether it's from YAML or default -->

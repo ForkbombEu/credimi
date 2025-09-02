@@ -5,17 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="C extends CollectionName">
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import { m } from '@/i18n';
-	import { type CollectionFormOptions } from '@/collections-components/form/collectionFormTypes';
-	import type { CollectionName } from '@/pocketbase/collections-models';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { getCollectionManagerContext } from '../collectionManagerContext';
-	import { CollectionForm } from '@/collections-components';
-	import { Plus } from 'lucide-svelte';
-	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import { merge } from 'lodash';
+	import { Plus } from 'lucide-svelte';
+
+	import type { CollectionName } from '@/pocketbase/collections-models';
+
+	import { CollectionForm } from '@/collections-components';
+	import { type CollectionFormOptions } from '@/collections-components/form/collectionFormTypes';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import Sheet from '@/components/ui-custom/sheet.svelte';
+	import { m } from '@/i18n';
+
 	import type { RecordCreateEditProps } from './types';
+
+	import { getCollectionManagerContext } from '../collectionManagerContext';
 
 	//
 
@@ -34,8 +38,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const options = $derived(merge(defaultFormOptions, formsOptions.base, formsOptions.edit));
 
 	const sheetTitle = $derived(formTitle ?? m.Create_record());
-	console.log('RECORD CREATE OPTIONS:');
-	$inspect(options);
 </script>
 
 <Sheet title={sheetTitle}>
