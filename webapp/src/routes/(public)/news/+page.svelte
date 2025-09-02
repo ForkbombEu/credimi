@@ -5,13 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import NewsCard from '$lib/layout/newsCard.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+
 	import { CollectionManager } from '@/collections-components';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import NewsCard from '$lib/layout/newsCard.svelte';
 </script>
 
 <CollectionManager
@@ -40,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet records({ records })}
-		<PageGrid class="lg:grid-cols-1 gap-4">
+		<PageGrid class="gap-4 lg:grid-cols-1">
 			{#each records as record (record.id)}
 				<NewsCard news={record} />
 			{/each}

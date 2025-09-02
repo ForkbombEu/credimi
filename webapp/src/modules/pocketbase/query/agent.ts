@@ -2,17 +2,21 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Simplify } from 'type-fest';
 import type Pocketbase from 'pocketbase';
+import type { Simplify } from 'type-fest';
+
+import type { CollectionName } from '@/pocketbase/collections-models';
 import type { CollectionResponses, CollectionExpands } from '@/pocketbase/types';
+
+import { pb } from '@/pocketbase';
+
+import type { PocketbaseListOptions } from './utils';
+
 import {
 	buildPocketbaseQuery,
 	type PocketbaseQuery,
 	type PocketbaseQueryExpandOption
 } from './query';
-import type { CollectionName } from '@/pocketbase/collections-models';
-import { pb } from '@/pocketbase';
-import type { PocketbaseListOptions } from './utils';
 
 /* Query response */
 

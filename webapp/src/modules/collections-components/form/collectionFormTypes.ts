@@ -2,8 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { Snippet } from 'svelte';
+import type { FormPath, SuperForm } from 'sveltekit-superforms';
+
 import type { CollectionFieldModeProp } from '@/collections-components/collectionField.svelte';
+import type { FormOptions } from '@/forms/form';
+import type { FormSnippets } from '@/forms/form.svelte';
 import type { CollectionName } from '@/pocketbase/collections-models';
+import type { PocketbaseQueryExpandOption } from '@/pocketbase/query';
 import type {
 	CollectionFormData,
 	CollectionRecords,
@@ -11,13 +17,9 @@ import type {
 	RecordIdString,
 	CollectionRelatedCollections as Related
 } from '@/pocketbase/types';
-import type { PocketbaseQueryExpandOption } from '@/pocketbase/query';
 import type { GenericRecord, KeyOf, MaybePromise } from '@/utils/types';
-import type { Snippet } from 'svelte';
-import type { FormPath, SuperForm } from 'sveltekit-superforms';
+
 import type { CollectionInputRecordProps } from '../types';
-import type { FormSnippets } from '@/forms/form.svelte';
-import type { FormOptions } from '@/forms/form';
 
 /* Props */
 

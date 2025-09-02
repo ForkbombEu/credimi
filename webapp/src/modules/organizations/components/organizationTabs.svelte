@@ -5,10 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { currentUser } from '@/pocketbase';
+	import NavigationTabs from '@/components/ui-custom/navigationTabs.svelte';
 	import { getUserRole, type OrgRole } from '@/organizations';
 	import { createOrganizationLinks } from '@/organizations';
-	import NavigationTabs from '@/components/ui-custom/navigationTabs.svelte';
+	import { currentUser } from '@/pocketbase';
 
 	//
 

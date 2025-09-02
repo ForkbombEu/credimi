@@ -2,15 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pb } from '@/pocketbase';
 import { configFieldComparator, LatestCheckRunsStorage } from '$start-checks-form/_utils';
-import { CheckConfigFormEditor } from './check-config-form-editor';
-import { CheckConfigEditor } from './check-config-editor';
 import { pipe, Record } from 'effect';
-import { CustomCheckConfigEditor } from './custom-check-config-editor';
+
 import { goto } from '@/i18n';
+import { pb } from '@/pocketbase';
+
 import type { SelectChecksSubmitData } from '../select-checks-form';
 import type { StartChecksResponse } from '../types';
+
+import { CheckConfigEditor } from './check-config-editor';
+import { CheckConfigFormEditor } from './check-config-form-editor';
+import { CustomCheckConfigEditor } from './custom-check-config-editor';
 
 //
 

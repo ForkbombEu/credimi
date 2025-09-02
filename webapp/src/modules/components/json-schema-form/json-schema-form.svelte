@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { BasicForm } from '@sjsf/form';
 	import { setThemeContext } from '@sjsf/shadcn-theme';
 	import * as components from '@sjsf/shadcn-theme/default';
+
 	import type { JsonSchemaForm } from './create-form.svelte';
 
 	type Props = {

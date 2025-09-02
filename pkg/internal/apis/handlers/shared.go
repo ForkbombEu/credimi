@@ -135,7 +135,7 @@ type Payloads []Payload
 // ReRunCheckResponse represents the response when re-running a check
 type ReRunCheckResponse struct {
 	WorkflowID string `json:"workflow_id" validate:"required"`
-	RunID      string `json:"run_id" validate:"required"`
+	RunID      string `json:"run_id"      validate:"required"`
 }
 
 type ListMyChecksResponse struct {
@@ -211,31 +211,31 @@ type ListMyCheckRunsResponse struct {
 
 // GetMyCheckRunHistoryResponse represents the response containing workflow execution history
 type GetMyCheckRunHistoryResponse struct {
-	History   []map[string]interface{} `json:"history" validate:"required"`
-	Count     int                      `json:"count" validate:"required"`
-	Time      string                   `json:"time" validate:"required"`
-	CheckID   string                   `json:"checkId" validate:"required"`
-	RunID     string                   `json:"runId" validate:"required"`
+	History   []map[string]interface{} `json:"history"   validate:"required"`
+	Count     int                      `json:"count"     validate:"required"`
+	Time      string                   `json:"time"      validate:"required"`
+	CheckID   string                   `json:"checkId"   validate:"required"`
+	RunID     string                   `json:"runId"     validate:"required"`
 	Namespace string                   `json:"namespace" validate:"required"`
 }
 
 // CancelMyCheckRunResponse represents the response when canceling a workflow execution
 type CancelMyCheckRunResponse struct {
-	Message   string `json:"message" validate:"required"`
-	CheckID   string `json:"checkId" validate:"required"`
-	RunID     string `json:"runId" validate:"required"`
-	Status    string `json:"status" validate:"required"`
-	Time      string `json:"time" validate:"required"`
+	Message   string `json:"message"   validate:"required"`
+	CheckID   string `json:"checkId"   validate:"required"`
+	RunID     string `json:"runId"     validate:"required"`
+	Status    string `json:"status"    validate:"required"`
+	Time      string `json:"time"      validate:"required"`
 	Namespace string `json:"namespace" validate:"required"`
 }
 
 // TerminateMyCheckRunResponse represents the response when terminating a workflow execution
 type TerminateMyCheckRunResponse struct {
-	Message   string `json:"message" validate:"required"`
-	CheckID   string `json:"checkId" validate:"required"`
-	RunID     string `json:"runId" validate:"required"`
-	Status    string `json:"status" validate:"required"`
-	Time      string `json:"time" validate:"required"`
+	Message   string `json:"message"   validate:"required"`
+	CheckID   string `json:"checkId"   validate:"required"`
+	RunID     string `json:"runId"     validate:"required"`
+	Status    string `json:"status"    validate:"required"`
+	Time      string `json:"time"      validate:"required"`
 	Namespace string `json:"namespace" validate:"required"`
 }
 
@@ -247,29 +247,29 @@ type ExportMyCheckRunResponse struct {
 // ExportData represents the exported check run data
 type ExportData struct {
 	CheckID string                 `json:"checkId" validate:"required"`
-	RunID   string                 `json:"runId" validate:"required"`
-	Input   map[string]interface{} `json:"input" validate:"required"`
-	Config  map[string]interface{} `json:"config" validate:"required"`
+	RunID   string                 `json:"runId"   validate:"required"`
+	Input   map[string]interface{} `json:"input"   validate:"required"`
+	Config  map[string]interface{} `json:"config"  validate:"required"`
 }
 
 // ChecksLogsResponse represents the response for workflow logs operations
 type ChecksLogsResponse struct {
-	Channel    string `json:"channel" validate:"required"`
+	Channel    string `json:"channel"     validate:"required"`
 	WorkflowID string `json:"workflow_id" validate:"required"`
-	RunID      string `json:"run_id" validate:"required"`
-	Message    string `json:"message" validate:"required"`
-	Status     string `json:"status" validate:"required"`
-	Time       string `json:"time" validate:"required"`
-	Namespace  string `json:"namespace" validate:"required"`
+	RunID      string `json:"run_id"      validate:"required"`
+	Message    string `json:"message"     validate:"required"`
+	Status     string `json:"status"      validate:"required"`
+	Time       string `json:"time"        validate:"required"`
+	Namespace  string `json:"namespace"   validate:"required"`
 }
 
 // Supporting types for workflow execution details
 
 // HistoryEvent represents a single event in workflow history
 type HistoryEvent struct {
-	EventID            string                 `json:"eventId" validate:"required"`
-	EventTime          string                 `json:"eventTime" validate:"required"`
-	EventType          string                 `json:"eventType" validate:"required"`
+	EventID            string                 `json:"eventId"                      validate:"required"`
+	EventTime          string                 `json:"eventTime"                    validate:"required"`
+	EventType          string                 `json:"eventType"                    validate:"required"`
 	Version            string                 `json:"version,omitempty"`
 	TaskID             string                 `json:"taskId,omitempty"`
 	WorkerVersionStamp *WorkerVersionStamp    `json:"workerVersionStamp,omitempty"`
@@ -285,9 +285,9 @@ type WorkerVersionStamp struct {
 
 // PendingActivityInfo represents pending activity information
 type PendingActivityInfo struct {
-	ActivityID         string               `json:"activityId" validate:"required"`
-	ActivityType       ActivityType         `json:"activityType" validate:"required"`
-	State              PendingActivityState `json:"state" validate:"required"`
+	ActivityID         string               `json:"activityId"                   validate:"required"`
+	ActivityType       ActivityType         `json:"activityType"                 validate:"required"`
+	State              PendingActivityState `json:"state"                        validate:"required"`
 	HeartbeatDetails   *Payloads            `json:"heartbeatDetails,omitempty"`
 	LastHeartbeatTime  string               `json:"lastHeartbeatTime,omitempty"`
 	LastStartedTime    string               `json:"lastStartedTime,omitempty"`
@@ -316,21 +316,21 @@ const (
 
 // PendingChildren represents pending child workflow information
 type PendingChildren struct {
-	WorkflowID        string `json:"workflowId" validate:"required"`
+	WorkflowID        string `json:"workflowId"                  validate:"required"`
 	RunID             string `json:"runId,omitempty"`
-	WorkflowTypeName  string `json:"workflowTypeName" validate:"required"`
-	InitiatedID       string `json:"initiatedId" validate:"required"`
+	WorkflowTypeName  string `json:"workflowTypeName"            validate:"required"`
+	InitiatedID       string `json:"initiatedId"                 validate:"required"`
 	ParentClosePolicy string `json:"parentClosePolicy,omitempty"`
 }
 
 // PendingNexusOperation represents pending Nexus operation information
 type PendingNexusOperation struct {
-	Endpoint                string                     `json:"endpoint" validate:"required"`
-	Service                 string                     `json:"service" validate:"required"`
-	Operation               string                     `json:"operation" validate:"required"`
-	OperationID             string                     `json:"operationId" validate:"required"`
-	ScheduledEventID        string                     `json:"scheduledEventId" validate:"required"`
-	State                   PendingNexusOperationState `json:"state" validate:"required"`
+	Endpoint                string                     `json:"endpoint"                          validate:"required"`
+	Service                 string                     `json:"service"                           validate:"required"`
+	Operation               string                     `json:"operation"                         validate:"required"`
+	OperationID             string                     `json:"operationId"                       validate:"required"`
+	ScheduledEventID        string                     `json:"scheduledEventId"                  validate:"required"`
+	State                   PendingNexusOperationState `json:"state"                             validate:"required"`
 	Attempt                 int32                      `json:"attempt,omitempty"`
 	NextAttemptScheduleTime string                     `json:"nextAttemptScheduleTime,omitempty"`
 	LastAttemptCompleteTime string                     `json:"lastAttemptCompleteTime,omitempty"`
@@ -357,7 +357,7 @@ type WorkflowExecutionConfigWithMetadata struct {
 
 // TaskQueue represents task queue information
 type TaskQueue struct {
-	Name       string        `json:"name" validate:"required"`
+	Name       string        `json:"name"                 validate:"required"`
 	Kind       TaskQueueKind `json:"kind,omitempty"`
 	NormalName string        `json:"normalName,omitempty"`
 }
@@ -457,6 +457,6 @@ type VersioningInfo struct {
 
 // WorkflowIdentifier represents a workflow identifier
 type WorkflowIdentifier struct {
-	WorkflowID string `json:"workflowId" validate:"required"`
+	WorkflowID string `json:"workflowId"      validate:"required"`
 	RunID      string `json:"runId,omitempty"`
 }

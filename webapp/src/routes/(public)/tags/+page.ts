@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getContentBySlug, URL_SEARCH_PARAM_NAME } from '$lib/content';
 import type { Tag } from '$lib/content/tags-i18n';
-import tagsIndex from '$lib/content/tags-list.generated.json';
+
 import { error } from '@sveltejs/kit';
+import { getContentBySlug, URL_SEARCH_PARAM_NAME } from '$lib/content';
+import tagsIndex from '$lib/content/tags-list.generated.json';
 
 //
 

@@ -2,32 +2,35 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { pipe, Record, String } from 'effect';
+import { merge, cloneDeep } from 'lodash';
+import { ClientResponseError, type CollectionModel } from 'pocketbase';
+import { toast } from 'svelte-sonner';
+import { setError, type FormPathLeaves, type SuperForm } from 'sveltekit-superforms';
+import { zod } from 'sveltekit-superforms/adapters';
+import z from 'zod';
+
 import type {
 	CollectionName,
 	FileCollectionField,
 	SchemaFields
 } from '@/pocketbase/collections-models';
-import { pipe, Record, String } from 'effect';
-import type { CollectionFormProps } from './collectionFormTypes';
-import { setError, type FormPathLeaves, type SuperForm } from 'sveltekit-superforms';
-import { getCollectionModel } from '@/pocketbase/collections-models';
-import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
-import z from 'zod';
-import type { GenericRecord } from '@/utils/types';
-import { merge, cloneDeep } from 'lodash';
-import { pb } from '@/pocketbase';
-import { createForm, type FormOptions } from '@/forms';
-import { zod } from 'sveltekit-superforms/adapters';
-import { ensureArray } from '@/utils/other';
-import { getExceptionMessage } from '@/utils/errors';
-import { ClientResponseError, type CollectionModel } from 'pocketbase';
 import type {
 	CollectionFormData,
 	CollectionRecords,
 	CollectionResponses
 } from '@/pocketbase/types';
+import type { GenericRecord } from '@/utils/types';
+
+import { createForm, type FormOptions } from '@/forms';
 import { m } from '@/i18n';
-import { toast } from 'svelte-sonner';
+import { pb } from '@/pocketbase';
+import { getCollectionModel } from '@/pocketbase/collections-models';
+import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+import { getExceptionMessage } from '@/utils/errors';
+import { ensureArray } from '@/utils/other';
+
+import type { CollectionFormProps } from './collectionFormTypes';
 
 //
 
@@ -109,7 +112,8 @@ export function setupCollectionForm<C extends CollectionName>({
 					record = await pb.collection(collection).create<CollectionResponses[C]>(data);
 				}
 
-				if (uiOptions?.showToastOnSuccess) {
+				const showToast = uiOptions?.showToastOnSuccess ?? true;
+				if (showToast) {
 					const text = toastText
 						? toastText
 						: recordId

@@ -19,7 +19,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { href = '/', version = 'icon' }: Props = $props();
 
-	const logo = version === 'icon' ? '/logos/credimi_logo.svg' : '/logos/credimi_logo-transp_white.svg';
+	const logo =
+		version === 'icon' ? '/logos/credimi_logo.svg' : '/logos/credimi_logo-transp_white.svg';
 </script>
 
 <a href={localizeHref(href)} class="flex items-center justify-center gap-2">

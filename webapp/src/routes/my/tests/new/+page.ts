@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { CustomChecksResponse } from '@/pocketbase/types/index.generated.js';
-import { getStandardsWithTestSuites } from '$lib/standards';
 import { error } from '@sveltejs/kit';
+import { getStandardsWithTestSuites } from '$lib/standards';
+
+import type { CustomChecksResponse } from '@/pocketbase/types/index.generated.js';
+
 import { pb } from '@/pocketbase/index.js';
 
 //

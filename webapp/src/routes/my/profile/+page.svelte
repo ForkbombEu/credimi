@@ -5,27 +5,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import Button from '@/components/ui-custom/button.svelte';
-	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
-	import { Pencil, X } from 'lucide-svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import { m } from '@/i18n';
-	import Separator from '@/components/ui/separator/separator.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-
-	import { Form, createForm } from '@/forms';
-	import { Field, FileField, CheckboxField, SelectField } from '@/forms/fields';
-
-	import { currentUser, pb } from '@/pocketbase';
-	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+	import { Pencil } from 'lucide-svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
-	import { createToggleStore } from '@/components/ui-custom/utils';
+
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
+	import Separator from '@/components/ui/separator/separator.svelte';
+	import { Form, createForm } from '@/forms';
+	import { CheckboxField, Field, FileField, SelectField } from '@/forms/fields';
+	import { m } from '@/i18n';
+	import { currentUser, pb } from '@/pocketbase';
+	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 
 	//
 
-	const showForm = createToggleStore();
-
+	const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 	const timezones = Intl.supportedValuesOf('timeZone') as readonly string[];
 
 	const schema = createCollectionZodSchema('users').extend({
@@ -43,13 +39,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				const dataToUpdate = { ...form.data };
 				delete dataToUpdate.verified;
 				$currentUser = await pb.collection('users').update($currentUser?.id!, dataToUpdate);
-				showForm.off();
 			},
 			initialData: {
 				name: $currentUser?.name,
 				email: $currentUser?.email,
 				emailVisibility: $currentUser?.emailVisibility,
-				Timezone: $currentUser?.Timezone || 'Europe/Amsterdam'
+				Timezone: $currentUser?.Timezone || detectedTimezone
 			},
 			options: {
 				dataType: 'form'
@@ -68,58 +63,45 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T tag="p">
 				{$currentUser?.email}
 				<span class="ml-1 text-sm text-gray-400">
-					({$currentUser?.emailVisibility ? 'public' : 'not public'})
+					({$currentUser?.emailVisibility ? m.public() : m.not_public()})
+				</span>
+			</T>
+			<T tag="p">
+				<span class="text-sm italic text-gray-400">
+					{m.Timezone()}: {$currentUser?.Timezone || detectedTimezone}
 				</span>
 			</T>
 		</div>
 	</div>
 
-	<div class="flex items-center justify-end gap-4">
-		{#if $showForm}
-			<Separator />
-		{:else}
-			<Button variant="outline" onclick={showForm.on}>
-				<Icon src={Pencil} mr />
-				{m.Edit_profile()}
-			</Button>
-		{/if}
-	</div>
+	<Separator />
 
-	{#if $showForm}
+	{#key form}
 		<Form {form}>
 			<Field {form} name="name" options={{ label: m.Username() }} />
-
 			<div class="space-y-2">
-				<Field {form} name="email" options={{ type: m.email() }} />
-
+				<Field {form} name="email" options={{ type: m.email(), readonly: true }} />
 				<CheckboxField
 					{form}
 					name="emailVisibility"
 					options={{ label: m.Show_email_to_other_users() }}
 				/>
-				<SelectField
-					{form}
-					name="Timezone"
-					options={{
-						label: m.Select_your_timezone(),
-						items: timezones.map((tz) => ({
-							value: tz,
-							label: tz.replace(/_/g, ' ')
-						}))
-					}}
-				/>
 			</div>
-
+			<SelectField
+				{form}
+				name="Timezone"
+				options={{
+					label: m.Select_your_timezone(),
+					items: timezones.map((tz) => ({
+						value: tz,
+						label: tz.replace(/_/g, ' ')
+					}))
+				}}
+			/>
 			<FileField {form} name="avatar" />
-
 			{#snippet submitButton({ SubmitButton })}
-				<div class="flex items-center justify-end gap-2">
-					<Button variant="outline" onclick={showForm.off}
-						><Icon src={X} mr />{m.Cancel()}</Button
-					>
-					<SubmitButton><Icon src={Pencil} mr />{m.Update_profile()}</SubmitButton>
-				</div>
+				<SubmitButton><Icon src={Pencil} mr />{m.Update_profile()}</SubmitButton>
 			{/snippet}
 		</Form>
-	{/if}
+	{/key}
 </div>

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { WorkflowExecution } from '$lib/credimiClient';
+import type { WorkflowExecution } from '$lib/credimiClient.generated';
 import { Array } from 'effect';
 
 //

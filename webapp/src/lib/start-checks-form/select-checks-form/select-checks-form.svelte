@@ -6,22 +6,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { Suite } from '$lib/standards';
-	import type { SelectChecksForm } from './select-checks-form.svelte.js';
-	import * as RadioGroup from '@/components/ui/radio-group/index.js';
-	import * as Select from '@/components/ui/select/index.js';
-	import { Label } from '@/components/ui/label/index.js';
-	import T from '@/components/ui-custom/t.svelte';
-	import { Checkbox as Check } from 'bits-ui';
-	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
-	import Button from '@/components/ui/button/button.svelte';
-	import { ArrowRight } from 'lucide-svelte';
-	import { m } from '@/i18n';
+
 	import SectionCard from '$lib/layout/section-card.svelte';
 	import Footer from '$start-checks-form/_utils/footer.svelte';
+	import { Checkbox as Check } from 'bits-ui';
+	import { ArrowRight } from 'lucide-svelte';
+
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import Button from '@/components/ui/button/button.svelte';
+	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
+	import { Label } from '@/components/ui/label/index.js';
+	import * as RadioGroup from '@/components/ui/radio-group/index.js';
+	import * as Select from '@/components/ui/select/index.js';
+	import { m } from '@/i18n';
+
+	import type { SelectChecksForm } from './select-checks-form.svelte.js';
+
 	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
+	import OpenidSuiteTable from './openid-suite-files-table.svelte';
 
 	//
+
+	const OPENID_SUITE_UID = 'openid_conformance_suite';
 
 	type Props = {
 		form: SelectChecksForm;
@@ -79,7 +86,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					'w-full space-y-1 border-b-2 p-4 md:w-[400px]',
 					{
 						'border-b-primary bg-secondary ': selected,
-						'hover:bg-secondary/35 cursor-pointer border-b-transparent':
+						'cursor-pointer border-b-transparent hover:bg-secondary/35':
 							!selected && !disabled,
 						'cursor-not-allowed border-b-transparent opacity-50': disabled
 					}
@@ -89,7 +96,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<RadioGroup.Item value={option.uid} id={option.uid} {disabled} />
 					<span class="text-lg font-bold">{option.name}</span>
 				</div>
-				<p class="text-muted-foreground text-sm">{option.description}</p>
+				<p class="text-sm text-muted-foreground">{option.description}</p>
 			</Label>
 		{/each}
 	</RadioGroup.Root>
@@ -140,14 +147,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Check.GroupLabel>
 
 				<div class="w-full space-y-3 overflow-auto">
-					{#each suite.files as fileId}
-						{@const value = `${suite.uid}/${fileId}`}
-						{@const label = fileId.split('.').slice(0, -1).join('.')}
-						<Label class="flex items-center gap-2  font-mono text-xs">
-							<Checkbox {value} />
-							<span>{label}</span>
-						</Label>
-					{/each}
+					{#if suite.uid === OPENID_SUITE_UID}
+						<OpenidSuiteTable suiteFiles={suite.files} suiteUid={suite.uid} />
+					{:else}
+						{#each suite.files as fileId}
+							{@const value = `${suite.uid}/${fileId}`}
+							{@const label = fileId.split('.').slice(0, -1).join('.')}
+							<Label class="flex items-center gap-2  font-mono text-xs">
+								<Checkbox {value} />
+								<span>{label}</span>
+							</Label>
+						{/each}
+					{/if}
 				</div>
 			</div>
 		{/each}
@@ -167,7 +178,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div>
 					<T>{check.name}</T>
 					{#if check.description}
-						<T class="text-muted-foreground text-xs">
+						<T class="text-xs text-muted-foreground">
 							{check.description}
 						</T>
 					{/if}
@@ -180,7 +191,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet suiteLabel(suite: Suite)}
 	<div>
 		<T class="text-md font-bold">{suite.name}</T>
-		<T class="text-muted-foreground text-xs">
+		<T class="text-xs text-muted-foreground">
 			{suite.description}
 		</T>
 	</div>
@@ -194,7 +205,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<ul class="flex items-center divide-x">
 					{#snippet CountItem(count: number, label: string)}
 						<li class="px-2">
-							<span class="text-primary font-bold">{count}</span>
+							<span class="font-bold text-primary">{count}</span>
 							{label}
 						</li>
 					{/snippet}

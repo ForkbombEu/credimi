@@ -5,11 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { m } from '@/i18n';
+	import type { Snippet } from 'svelte';
+
 	import { appName } from '@/brand';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import type { Snippet } from 'svelte';
+	import { m } from '@/i18n';
 
 	interface Props {
 		class?: string;

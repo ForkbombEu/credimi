@@ -21,7 +21,6 @@ func Test_VLEIValidationWorkflow(t *testing.T) {
 		name           string
 		payload        map[string]any
 		config         map[string]any
-		schema         string
 		expectError    bool
 		errorCode      errorcodes.Code
 		expectedMsg    string

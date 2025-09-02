@@ -13,10 +13,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import Title from './itemCardTitle.svelte';
-	import Description from './itemCardDescription.svelte';
-	import type { Snippet } from 'svelte';
 	import type { BitsDivAttributes } from 'bits-ui';
+	import type { Snippet } from 'svelte';
+
+	import Description from './itemCardDescription.svelte';
+	import Title from './itemCardTitle.svelte';
 
 	type Props = Omit<BitsDivAttributes, 'children'> & ItemCardSnippets;
 

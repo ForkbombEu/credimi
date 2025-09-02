@@ -5,29 +5,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { browser } from '$app/environment';
 	import {
 		LatestCheckRunsStorage,
 		type StartCheckResultWithMeta
 	} from '$lib/start-checks-form/_utils';
-	import { browser } from '$app/environment';
-	import { Array } from 'effect';
-	import { ensureArray, warn } from '@/utils/other';
 	import {
 		fetchWorkflows,
 		groupWorkflowsWithChildren,
 		WorkflowQrPoller,
 		WorkflowsTable
 	} from '$lib/workflows';
-	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n/index.js';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { SearchIcon, SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
-	import { Separator } from '@/components/ui/separator/index.js';
 	import WorkflowStatusSelect from '$lib/workflows/workflow-status-select.svelte';
-	import EmptyState from '@/components/ui-custom/emptyState.svelte';
-	import { Badge } from '@/components/ui/badge/index.js';
-	import { setWorkflowStatusesInUrl } from './utils.js';
+	import { Array } from 'effect';
+	import { SearchIcon, SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
 	import { onMount } from 'svelte';
+
+	import Button from '@/components/ui-custom/button.svelte';
+	import EmptyState from '@/components/ui-custom/emptyState.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge/index.js';
+	import { Separator } from '@/components/ui/separator/index.js';
+	import { m } from '@/i18n/index.js';
+	import { ensureArray, warn } from '@/utils/other';
+
+	import { setWorkflowStatusesInUrl } from './utils.js';
 
 	//
 
@@ -125,12 +127,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					className="w-full"
 				>
 					{#snippet bottom()}
-						<Button href="/my/tests/new" variant="outline" class="text-primary mt-4">
+						<Button href="/my/tests/new" variant="outline" class="mt-4 text-primary">
 							<SparkleIcon />
 							{m.Start_a_new_check()}
 							<Badge
 								variant="outline"
-								class="border-primary text-primary !hover:no-underline text-xs"
+								class="!hover:no-underline border-primary text-xs text-primary"
 							>
 								{m.Beta()}
 							</Badge>

@@ -5,12 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import NavSidebar from '@/components/ui-custom/navSidebar.svelte';
-	import type { LinkWithIcon } from '@/components/types';
 	import { KeyIcon, LockIcon, UserIcon } from 'lucide-svelte';
 	import { fromStore } from 'svelte/store';
-	import { featureFlags } from '@/features';
+
+	import type { LinkWithIcon } from '@/components/types';
+
 	import { PageCard } from '@/components/layout';
+	import NavSidebar from '@/components/ui-custom/navSidebar.svelte';
+	import { featureFlags } from '@/features';
 
 	//
 
@@ -25,6 +27,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{
 			href: '/my/profile/webauthn',
 			title: 'Webauthn',
+			icon: LockIcon
+		},
+		{
+			href: '/my/profile/api-keys',
+			title: 'API keys',
 			icon: LockIcon
 		}
 	]);

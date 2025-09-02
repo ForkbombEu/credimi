@@ -148,6 +148,14 @@ func TestCESRValidate_Execute(t *testing.T) {
 	unix.Uname(&utsname)
 	arch := string(bytes.Trim(utsname.Machine[:], "\x00"))
 
+	// Map common uname names to release arch names
+	switch arch {
+	case "x86_64":
+		arch = "amd64"
+	case "aarch64":
+		arch = "arm64"
+	}
+
 	// Construct the binary download URL
 	url := fmt.Sprintf(
 		"https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-%s-%s",

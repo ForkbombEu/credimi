@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { z } from 'zod';
-import { warn } from '@/utils/other';
 import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
+
+import { z } from 'zod';
+
+import { warn } from '@/utils/other';
 
 //
 
@@ -25,6 +27,10 @@ export type WorkflowMemo = {
 
 export function getWorkflowMemo(workflow: WorkflowExecution): WorkflowMemo | undefined {
 	try {
+		if (!workflow.memo || !workflow.memo['fields']) {
+			return undefined;
+		}
+
 		const fields = z.record(memoFieldSchema).parse(workflow.memo['fields']);
 		if (!fields) return undefined;
 		const author = memoFieldToText(fields['author']);

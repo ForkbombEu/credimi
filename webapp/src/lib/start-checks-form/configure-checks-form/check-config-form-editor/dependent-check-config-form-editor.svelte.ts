@@ -3,11 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { NamedConfigField } from '$lib/start-checks-form/types.js';
+
+import { Array, pipe, Record } from 'effect';
+
 import {
 	CheckConfigFormEditor,
 	type CheckConfigFormEditorProps
 } from './check-config-form-editor.svelte.js';
-import { Array, pipe, Record } from 'effect';
 
 //
 

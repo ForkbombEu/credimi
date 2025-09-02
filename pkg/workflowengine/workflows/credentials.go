@@ -9,7 +9,6 @@
 package workflows
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
@@ -148,8 +147,8 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	)
 
 	logs := make(map[string][]any)
+	errs := make(map[string][]any)
 	var result workflowengine.ActivityResult
-	var issuerData map[string]any
 	invalidCred := make(map[string]bool)
 
 	err = workflow.ExecuteActivity(ctx, parseJSON.Name(), workflowengine.ActivityInput{
@@ -162,12 +161,15 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		logger.Error("ParseJSON failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
-
-	issuerData, err = decodeToMap(result.Output, runMetadata)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, err
+	issuerData, ok := result.Output.(map[string]any)
+	if !ok {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		appErr := workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("%s: output", parseJSON.Name()),
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
-
 	validateJSON := activities.NewSchemaValidationActivity()
 	validateErr := workflow.ExecuteActivity(ctx, validateJSON.Name(), workflowengine.ActivityInput{
 		Payload: map[string]any{
@@ -184,7 +186,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			)
 		}
 
-		logs["JSONSchemaError"] = details
+		errs["JSONSchemaValidation"] = details
 		invalidCred, err = extractInvalidCredentialsFromErrorDetails(details, runMetadata)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
@@ -244,6 +246,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 					"conformant": conformant,
 					"orgID":      namespace,
 				},
+				"expected_status": 200,
 			},
 		}
 		var storeResponse workflowengine.ActivityResult
@@ -286,6 +289,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 				"issuerID":  issuerID,
 				"validKeys": validKeys,
 			},
+			"expected_status": 200,
 		},
 	}
 	var cleanupResponse workflowengine.ActivityResult
@@ -308,7 +312,8 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			"Successfully retrieved and stored and update credentials from '%s'",
 			source,
 		),
-		Log: logs,
+		Log:    logs,
+		Errors: errs,
 	}, nil
 }
 
@@ -336,14 +341,6 @@ func (w *CredentialsIssuersWorkflow) Start(
 	}
 
 	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
-}
-
-func toStringSlice(input []any) []string {
-	result := make([]string, len(input))
-	for i, v := range input {
-		result[i] = fmt.Sprint(v)
-	}
-	return result
 }
 
 func extractInvalidCredentialsFromErrorDetails(
@@ -378,16 +375,7 @@ func extractInvalidCredentialsFromErrorDetails(
 			return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
 		}
 
-		instanceLocation, ok := causeMap["InstanceLocation"].([]any)
-		if !ok {
-			wErr := workflowengine.NewAppError(
-				errCode,
-				"instanceLocation should be a string array",
-			)
-			return nil, workflowengine.NewWorkflowError(wErr, runMetadata)
-		}
-
-		instanceLocationStr := toStringSlice(instanceLocation)
+		instanceLocationStr := workflowengine.AsSliceOfStrings(causeMap["InstanceLocation"])
 		if len(instanceLocationStr) > 1 &&
 			instanceLocationStr[0] == "credential_configurations_supported" {
 			invalidCred[instanceLocationStr[1]] = true
@@ -395,36 +383,6 @@ func extractInvalidCredentialsFromErrorDetails(
 	}
 
 	return invalidCred, nil
-}
-
-func decodeToMap(
-	input any,
-	runMetadata workflowengine.WorkflowErrorMetadata,
-) (map[string]any, error) {
-	b, err := json.Marshal(input)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-		appErr := workflowengine.NewAppError(
-			errCode,
-			err.Error(),
-			input,
-		)
-		return nil, workflowengine.NewWorkflowError(
-			appErr,
-			runMetadata,
-		)
-	}
-	var m map[string]any
-	err = json.Unmarshal(b, &m)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
-		appErr := workflowengine.NewAppError(errCode, err.Error(), string(b))
-		return nil, workflowengine.NewWorkflowError(
-			appErr,
-			runMetadata,
-		)
-	}
-	return m, err
 }
 
 func extractAppErrorDetails(err error) ([]any, error) {

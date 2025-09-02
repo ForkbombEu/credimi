@@ -2,17 +2,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { createJsonSchemaForm, type JsonSchemaForm } from '@/components/json-schema-form';
-import type { CustomChecksResponse } from '@/pocketbase/types';
 import type { BaseEditor } from '$start-checks-form/_utils';
 import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
-import { z } from 'zod';
-import { zod } from 'sveltekit-superforms/adapters';
-import { createForm } from '@/forms';
+
 import { yamlStringSchema } from '$lib/utils';
-import type { State } from '@/utils/types';
-import { fromStore } from 'svelte/store';
 import { watch } from 'runed';
+import { fromStore } from 'svelte/store';
+import { zod } from 'sveltekit-superforms/adapters';
+import { z } from 'zod';
+
+import type { CustomChecksResponse } from '@/pocketbase/types';
+import type { State } from '@/utils/types';
+
+import { createJsonSchemaForm, type JsonSchemaForm } from '@/components/json-schema-form';
+import { createForm } from '@/forms';
 
 //
 
@@ -21,21 +24,27 @@ export type CustomCheckConfigEditorProps = {
 };
 
 export class CustomCheckConfigEditor implements BaseEditor {
-	public readonly jsonSchemaForm: JsonSchemaForm;
+	public readonly jsonSchemaForm?: JsonSchemaForm;
 	public readonly yamlForm: SuperForm<YamlFormData>;
 	private yamlFormState: State<YamlFormData>;
 	private yamlFormValidationResult = $state<SuperValidated<YamlFormData>>();
 
 	isValid = $derived.by(() => {
-		const jsonSchemaFormIsValid = this.jsonSchemaForm.validate().size === 0;
+		let jsonSchemaFormIsValid = true;
+		if (this.jsonSchemaForm) jsonSchemaFormIsValid = this.jsonSchemaForm.validate().size === 0;
+
 		const yamlFormIsValid = this.yamlFormValidationResult?.valid ?? false;
 		return jsonSchemaFormIsValid && yamlFormIsValid;
 	});
 
 	constructor(public readonly props: CustomCheckConfigEditorProps) {
-		this.jsonSchemaForm = createJsonSchemaForm(props.customCheck.input_json_schema as object, {
-			hideTitle: true
-		});
+		const jsonSchema = props.customCheck.input_json_schema;
+		if (jsonSchema) {
+			this.jsonSchemaForm = createJsonSchemaForm(jsonSchema as object, {
+				hideTitle: true,
+				initialValue: props.customCheck.input_json_sample
+			});
+		}
 
 		this.yamlForm = createForm({
 			adapter: zod(z.object({ yaml: yamlStringSchema })),
@@ -48,7 +57,7 @@ export class CustomCheckConfigEditor implements BaseEditor {
 
 	getData() {
 		return {
-			form: this.jsonSchemaForm.value,
+			form: this.jsonSchemaForm?.value,
 			yaml: this.yamlFormState.current.yaml
 		};
 	}

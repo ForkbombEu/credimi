@@ -11,16 +11,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { TemporalI18nProvider } from '$lib/temporal';
-	import TemporalWorkflow from './temporal-workflow.svelte';
 	import type { HistoryEvent } from '@forkbombeu/temporal-ui';
+	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
+
+	import { TemporalI18nProvider } from '$lib/temporal';
+
 	import {
 		setupEmitter,
 		setupListener,
-		type PageMessage,
-		type IframeMessage
+		type IframeMessage,
+		type PageMessage
 	} from '../_partials/page-events';
-	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
+	import TemporalWorkflow from './temporal-workflow.svelte';
 
 	//
 
@@ -46,11 +48,51 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <svelte:head>
 	<link rel="stylesheet" href="/temporal.css" />
+	<style>
+		/* Override temporal CSS to ensure scrollbars follow app theme, not temporal theme */
+		::-webkit-scrollbar {
+			width: 10px !important;
+			height: 10px !important;
+		}
+
+		::-webkit-scrollbar-track {
+			background: transparent !important;
+		}
+
+		/* Light theme scrollbar (default) */
+		::-webkit-scrollbar-thumb {
+			background: hsl(245, 17%, 90%) !important; /* Your app's light mode border color */
+			border-radius: 6px !important;
+		}
+
+		::-webkit-scrollbar-thumb:hover {
+			background: hsl(245, 17%, 80%) !important;
+		}
+
+		/* Dark theme scrollbar when .dark class is present */
+		.dark ::-webkit-scrollbar-thumb {
+			background: hsl(12, 6.5%, 15.1%) !important; /* Your app's dark mode border color */
+		}
+
+		.dark ::-webkit-scrollbar-thumb:hover {
+			background: hsl(12, 6.5%, 25%) !important;
+		}
+
+		/* Reset temporal's border color override to not affect other elements */
+		* {
+			border-color: revert !important;
+		}
+
+		/* Restore your app's border styling */
+		body * {
+			border-color: hsl(var(--border)) !important;
+		}
+	</style>
 </svelte:head>
 
 <div
 	id="temporal-workflow-container"
-	class="block"
+	class="bg-temporal block"
 	bind:offsetHeight={null, (data) => emit({ type: 'height', height: data })}
 >
 	<TemporalI18nProvider>
@@ -59,3 +101,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</TemporalI18nProvider>
 </div>
+
+<style lang="postcss">
+	.bg-temporal {
+		background-color: rgb(248 250 252);
+	}
+</style>

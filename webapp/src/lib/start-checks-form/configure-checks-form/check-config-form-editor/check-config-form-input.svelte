@@ -5,11 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CodeEditorField, Field } from '@/forms/fields';
-	import type { SuperForm } from 'sveltekit-superforms';
 	import type { ConfigField } from '$start-checks-form/types';
 	import type { Snippet } from 'svelte';
+	import type { SuperForm } from 'sveltekit-superforms';
+
 	import type { StringRecord } from '@/utils/types';
+
+	import { CodeEditorField, Field } from '@/forms/fields';
 
 	//
 

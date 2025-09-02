@@ -6,9 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { page } from '$app/state';
-	import { m } from '@/i18n';
-	import T from '@/components/ui-custom/t.svelte';
+
 	import A from '@/components/ui-custom/a.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n';
 
 	const status = $derived(page.status);
 	const title = $derived(status === 404 ? m.Not_Found() : m.Internal_Error());

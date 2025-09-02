@@ -7,6 +7,7 @@ import {
 	DependentCheckConfigFormEditor,
 	type DependentCheckConfigFormEditorProps
 } from '$lib/start-checks-form/configure-checks-form/check-config-form-editor';
+
 import type { BaseEditor } from '../../_utils';
 
 //

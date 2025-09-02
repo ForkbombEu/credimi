@@ -2,15 +2,21 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pb } from '@/pocketbase';
-import { ListMyChecksResponseSchema, type ListMyChecksResponse } from './../credimiClient';
-import { workflowExecutionInfoSchema } from './types';
+import { ListMyChecksResponseSchema, type ListMyChecksResponse, type WorkflowExecution } from './../credimiClient.generated';
 import type { WorkflowStatusType } from '$lib/temporal';
+
+import { toWorkflowExecution, type HistoryEvent } from '@forkbombeu/temporal-ui';
 import { Array, String } from 'effect';
 import { z } from 'zod';
+
+import { pb } from '@/pocketbase';
 import { warn } from '@/utils/other';
-import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
-import { toWorkflowExecution, type HistoryEvent } from '@forkbombeu/temporal-ui';
+
+import {
+	workflowExecutionInfoSchema,
+	workflowResponseSchema,
+	type WorkflowResponse
+} from './types';
 
 //
 
@@ -42,19 +48,22 @@ export async function fetchWorkflows(
 			method: 'GET',
 			fetch: fetchFn
 		});
-		const schema = ListMyChecksResponseSchema
-		const parsed = schema.parse(data).executions.map(workflowInfoToExecution);
-		const errors = parsed.filter((execution) => execution instanceof Error);
-		const executions = Array.difference(parsed, errors) as WorkflowExecution[];
 
-		warn(errors);
+		const schema = z.object({
+			executions: z.array(workflowExecutionInfoSchema)
+		});
+		const parsed = schema
+			.parse(data)
+			.executions.map((exec) => workflowResponseToExecution({ workflowExecutionInfo: exec }));
+		const errors = parsed.filter((execution) => execution instanceof Error);
+		if (errors.length > 0) warn(errors);
+
+		const executions = Array.difference(parsed, errors) as WorkflowExecution[];
 		return executions;
 	}, 'Failed to fetch user workflows');
 }
 
-//
-
-export async function fetchWorkflow(
+export async function fetchWorkflowExecution(
 	workflowId: string,
 	runId: string,
 	options = { fetch }
@@ -64,12 +73,8 @@ export async function fetchWorkflow(
 			method: 'GET',
 			fetch: options.fetch
 		});
-		// Note: this schema loses some information (see type `WorkflowExecutionAPIResponse`)
-		const schema = z.object({
-			workflowExecutionInfo: workflowExecutionInfoSchema
-		});
-		const parsed = schema.parse(data).workflowExecutionInfo;
-		return workflowInfoToExecution(parsed);
+		const parsed = workflowResponseSchema.parse(data);
+		return workflowResponseToExecution(parsed);
 	}, 'Failed to fetch workflow');
 }
 
@@ -88,24 +93,22 @@ export async function fetchWorkflowHistory(
 	}, 'Failed to fetch workflow history');
 }
 
-//
+// Private
 
-function workflowInfoToExecution(data: ListMyChecksResponse["executions"][number]): WorkflowExecution | Error {
+function workflowResponseToExecution(data: WorkflowResponse): WorkflowExecution | Error {
 	return tryFn(() => {
-		const w = toWorkflowExecution({ workflowExecutionInfo: data });
+		const workflowExecution = toWorkflowExecution(data);
 
 		/* HACK */
 		// canBeTerminated a property of workflow object is a getter that requires a svelte `store` to work
 		// by removing it, we can avoid the store dependency and solve a svelte error about state not updating
-		Object.defineProperty(w, 'canBeTerminated', {
+		Object.defineProperty(workflowExecution, 'canBeTerminated', {
 			value: true
 		});
 
-		return w;
+		return workflowExecution;
 	}, 'Failed to convert workflow response to execution');
 }
-
-//
 
 function tryFn<T>(fn: () => T, errorMessage?: string): T | Error {
 	try {

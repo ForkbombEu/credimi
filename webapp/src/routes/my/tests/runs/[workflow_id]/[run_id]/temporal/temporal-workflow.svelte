@@ -5,17 +5,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { beforeNavigate } from '$app/navigation';
+	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
+
 	import {
-		workflowRun,
-		fullEventHistory,
 		currentEventHistory,
-		WorkflowHistoryLayout,
+		fullEventHistory,
 		toEventHistory,
+		WorkflowHistoryLayout,
+		workflowRun,
 		type HistoryEvent
 	} from '@forkbombeu/temporal-ui';
-	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
+	import { beforeNavigate } from '$app/navigation';
 	import _ from 'lodash';
+	import { fly } from 'svelte/transition';
 
 	//
 
@@ -63,7 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if $workflowRun.workflow}
-	<div class="temporal-ui-workflow space-y-4">
+	<div class="temporal-ui-workflow space-y-4" in:fly={{ duration: 1000 }}>
 		<WorkflowHistoryLayout></WorkflowHistoryLayout>
 	</div>
 {/if}

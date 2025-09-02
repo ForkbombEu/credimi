@@ -210,14 +210,11 @@ func (w *OpenIDNetWorkflow) Workflow(
 		rid = ""
 	}
 
-	childCtx, cancelHandler := workflow.WithCancel(ctx)
-	defer cancelHandler()
-
 	child := OpenIDNetLogsWorkflow{}
-	childCtx = child.Configure(childCtx)
-	// Execute child workflow asynchronously
+	ctx = child.Configure(ctx)
+
 	logsWorkflow := workflow.ExecuteChildWorkflow(
-		childCtx,
+		ctx,
 		child.Name(),
 		workflowengine.WorkflowInput{
 			Payload: map[string]any{
@@ -230,52 +227,25 @@ func (w *OpenIDNetWorkflow) Workflow(
 			},
 		},
 	)
-
-	// Wait for either signal or child completion
-	selector := workflow.NewSelector(ctx)
 	var subWorkflowResponse workflowengine.WorkflowResult
-	var data SignalData
-	var signalSent bool
-
-	selector.AddFuture(logsWorkflow, func(f workflow.Future) {
-		if err := f.Get(ctx, &subWorkflowResponse); err != nil {
-			if !temporal.IsCanceledError(err) {
-				logger.Error("Child workflow failed", "error", err)
-				subWorkflowResponse = workflowengine.WorkflowResult{
-					Log: fmt.Sprintf("Child workflow failed: %s", err.Error()),
-				}
+	err = logsWorkflow.Get(ctx, &subWorkflowResponse)
+	if err != nil {
+		if !temporal.IsCanceledError(err) {
+			logger.Error("Child workflow failed", "error", err)
+			subWorkflowResponse = workflowengine.WorkflowResult{
+				Log: fmt.Sprintf("Child workflow failed: %s", err.Error()),
 			}
 		}
-	})
-
-	signalChan := workflow.GetSignalChannel(ctx, "openidnet-check-result-signal")
-	selector.AddReceive(signalChan, func(c workflow.ReceiveChannel, _ bool) {
-		signalSent = true
-		c.Receive(ctx, &data)
-		cancelHandler()
-		if err := logsWorkflow.Get(ctx, &subWorkflowResponse); err != nil {
-			if !temporal.IsCanceledError(err) {
-				logger.Error("Failed to get child workflow result", "error", err)
-				subWorkflowResponse = workflowengine.WorkflowResult{
-					Log: fmt.Sprintf("Failed to get child workflow result: %v", err.Error()),
-				}
-			}
-		}
-	})
-	for !signalSent {
-		selector.Select(ctx)
 	}
 
-	// Process the signal data
-	if !data.Success {
-		return workflowengine.WorkflowResult{
-			Message: fmt.Sprintf("Workflow terminated with a failure message: %s", data.Reason),
-			Log:     subWorkflowResponse.Log,
-		}, nil
+	if subWorkflowResponse.Message == "Failed" {
+		errCode := errorcodes.Codes[errorcodes.OpenIDnetCheckFailed]
+		appErr := workflowengine.NewAppError(errCode, errCode.Description, subWorkflowResponse.Log)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 
 	return workflowengine.WorkflowResult{
-		Message: "Workflow completed successfully",
+		Message: "Check completed successfully",
 		Log:     subWorkflowResponse.Log,
 	}, nil
 }
@@ -380,6 +350,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 			"query_params": map[string]any{
 				"public": "false",
 			},
+			"expected_status": 200,
 		},
 	}
 	var logs []map[string]any
@@ -426,7 +397,6 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		// Wait for a signal or timer
 		selector.Select(subCtx)
 
-		// Skip activity execution if paused
 		if !isPolling {
 			continue
 		}
@@ -445,7 +415,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 			)
 		}
 
-		logs = AsSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
+		logs = workflowengine.AsSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
 
 		triggerLogsInput := workflowengine.ActivityInput{
 			Config: map[string]string{
@@ -453,7 +423,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 				"url": fmt.Sprintf(
 					"%s/%s",
 					input.Config["app_url"].(string),
-					"api/compliance/send-log-update",
+					"api/compliance/send-openidnet-log-update",
 				),
 			},
 			Payload: map[string]any{
@@ -467,6 +437,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 					),
 					"logs": logs,
 				},
+				"expected_status": 200,
 			},
 		}
 
@@ -482,10 +453,27 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 
 		// Stop if logs are done
 		if len(logs) > 0 {
-			if result, ok := logs[len(logs)-1]["result"].(string); ok {
-				if result == "INTERRUPTED" || result == "FINISHED" {
-					return workflowengine.WorkflowResult{Log: logs}, nil
+			lastResult := ""
+			for i, logEntry := range logs {
+				if result, ok := logEntry["result"].(string); ok {
+					// Check for failure in any log
+					if result == "FAILURE" {
+						return workflowengine.WorkflowResult{
+							Message: "Failed",
+							Log:     logs,
+						}, nil
+					}
+					// Save the last result for the final check
+					if i == len(logs)-1 {
+						lastResult = result
+					}
 				}
+			}
+			if lastResult == "INTERRUPTED" || lastResult == "FINISHED" {
+				return workflowengine.WorkflowResult{
+					Message: "Passed",
+					Log:     logs,
+				}, nil
 			}
 		}
 	}
@@ -507,20 +495,4 @@ func (w *OpenIDNetLogsWorkflow) Configure(ctx workflow.Context) workflow.Context
 		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
 	}
 	return workflow.WithChildOptions(ctx, childOptions)
-}
-
-func AsSliceOfMaps(val any) []map[string]any {
-	if v, ok := val.([]map[string]any); ok {
-		return v
-	}
-	if arr, ok := val.([]any); ok {
-		res := make([]map[string]any, 0, len(arr))
-		for _, item := range arr {
-			if m, ok := item.(map[string]any); ok {
-				res = append(res, m)
-			}
-		}
-		return res
-	}
-	return nil
 }

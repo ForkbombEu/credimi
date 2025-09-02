@@ -5,11 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { zod } from 'sveltekit-superforms/adapters';
+	import { z } from 'zod';
+
 	import { createForm, Form } from '@/forms';
 	import { Field } from '@/forms/fields';
 	import { pb } from '@/pocketbase/index.js';
-	import { zod } from 'sveltekit-superforms/adapters';
-	import { z } from 'zod';
+
 	import Table from './conformance_checks_table.svelte';
 
 	//
@@ -22,6 +24,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		description: z.string(),
 		playstore_url: z.string().url('Invalid URL'),
 		appstore_url: z.string().url('Invalid URL'),
+		google_app_id: z.string(),
+		apple_app_id: z.string(),
 		repository: z.string().url('Invalid URL'),
 		home_url: z.string().url('Invalid URL'),
 		conformance_checks: z.array(z.string())

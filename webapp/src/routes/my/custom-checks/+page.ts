@@ -5,8 +5,8 @@
 import { error } from '@sveltejs/kit';
 
 export const load = async ({ parent }) => {
-    const { organization } = await parent();
-    if (!organization) throw error(500, { message: 'USER_MISSING_ORGANIZATION' });
+	const { organization } = await parent();
+	if (!organization) throw error(500, { message: 'USER_MISSING_ORGANIZATION' });
 
-    return { organization };
+	return { organization };
 };

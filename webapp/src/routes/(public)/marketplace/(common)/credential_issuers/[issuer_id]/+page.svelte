@@ -5,15 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import InfoBox from '$lib/layout/infoBox.svelte';
+	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
+	import { String } from 'effect';
+
+	import { CollectionForm } from '@/collections-components/index.js';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import { Building2, Layers } from 'lucide-svelte';
-	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
-	import InfoBox from '$lib/layout/infoBox.svelte';
-	import { String } from 'effect';
-	import { MarketplaceItemCard } from '../../../_utils/index.js';
-	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
+
+	import EditSheet from '../../_utils/edit-sheet.svelte';
+	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
 
 	//
 
@@ -22,18 +25,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const sections = {
-		general_info: {
-			icon: Building2,
-			anchor: 'general_info',
-			label: m.General_info()
-		},
-		credentials: {
-			icon: Layers,
-			anchor: 'credentials',
-			label: 'Supported credentials'
-		}
-	} satisfies Record<string, IndexItem>;
+	const sections = $derived(
+		generateMarketplaceSection('credential_issuers', {
+			hasDescription: !!credentialIssuer?.description
+		})
+	);
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>
@@ -63,6 +59,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</div>
 
+	{#if credentialIssuer.description && sections.description}
+		<div class="space-y-6">
+			<PageHeader title={sections.description.label} id={sections.description.anchor} />
+			<div class="prose">
+				<RenderMd content={credentialIssuer.description} />
+			</div>
+		</div>
+	{/if}
+
 	<div class="space-y-6">
 		<PageHeader title={sections.credentials.label} id={sections.credentials.anchor} />
 
@@ -77,3 +82,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 </MarketplacePageLayout>
+
+<EditSheet>
+	{#snippet children({ closeSheet })}
+		<T tag="h2" class="mb-4">{m.Edit()} {credentialIssuer.name}</T>
+		<CollectionForm
+			collection="credential_issuers"
+			recordId={credentialIssuer.id}
+			initialData={credentialIssuer}
+			onSuccess={closeSheet}
+			fieldsOptions={{
+				exclude: ['owner', 'url', 'published']
+			}}
+		/>
+	{/snippet}
+</EditSheet>

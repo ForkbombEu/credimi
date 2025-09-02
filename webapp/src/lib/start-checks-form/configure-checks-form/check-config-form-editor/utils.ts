@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { z, type ZodEffects, ZodString } from 'zod';
 import type { ConfigField } from '$start-checks-form/types';
+
+import { jsonStringSchema } from '$lib/utils';
 import { formatJson } from '$start-checks-form/_utils';
 import { Tuple, pipe } from 'effect';
-import { jsonStringSchema } from '$lib/utils';
+import { z, type ZodEffects, ZodString } from 'zod';
 
 //
 

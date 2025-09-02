@@ -5,7 +5,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+	import type { StandardsWithTestSuites } from '$lib/standards';
+
+	import { yaml } from '@codemirror/lang-yaml';
+	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
+	import PageCardSection from '$lib/layout/page-card-section.svelte';
+	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
+	import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
+	import { Record, String } from 'effect';
+	import { run } from 'json_typegen_wasm';
+	import _ from 'lodash';
+	import { PlusIcon, UploadIcon } from 'lucide-svelte';
+	import { toast } from 'svelte-sonner';
+	import { fromStore } from 'svelte/store';
+	import { zod } from 'sveltekit-superforms/adapters';
+
+	import type { CustomChecksRecord, CustomChecksResponse } from '@/pocketbase/types';
+
+	import { removeEmptyValues } from '@/collections-components/form';
+	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { createForm, Form } from '@/forms';
 	import {
 		Field,
@@ -14,27 +34,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		CodeEditorField,
 		CheckboxField
 	} from '@/forms/fields';
-	import { zod } from 'sveltekit-superforms/adapters';
 	import { goto, m } from '@/i18n';
-	import { PlusIcon, UploadIcon } from 'lucide-svelte';
-	import PageCardSection from '$lib/layout/page-card-section.svelte';
-	import { yaml } from '@codemirror/lang-yaml';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { readFileAsDataURL, readFileAsString } from '@/utils/files.js';
-	import { getExceptionMessage } from '@/utils/errors.js';
 	import { pb } from '@/pocketbase';
-	import { toast } from 'svelte-sonner';
-	import type { StandardsWithTestSuites } from '$lib/standards';
-	import type { CustomChecksResponse } from '@/pocketbase/types';
-	import _ from 'lodash';
-	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import { fromStore } from 'svelte/store';
-	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
-	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
-	import { run } from 'json_typegen_wasm';
-	import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
-	import { Record } from 'effect';
-	import { removeEmptyValues } from '@/collections-components/form';
+	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+	import { getExceptionMessage } from '@/utils/errors.js';
+	import { readFileAsDataURL, readFileAsString } from '@/utils/files.js';
 
 	//
 
@@ -54,15 +58,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})
 		.extend({
 			yaml: yamlStringSchema,
-			input_json_sample: jsonStringSchema
+			input_json_sample: jsonStringSchema.optional()
 		});
 
 	const form = createForm({
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
-			// TODO - This should be done in the backend
-			const input_json_schema = generateJsonSchema(form.data.input_json_sample);
-			const data = removeEmptyValues({ ...form.data, input_json_schema });
+			const data: Partial<CustomChecksRecord> = removeEmptyValues({ ...form.data });
+
+			const jsonSample = form.data.input_json_sample;
+			if (!jsonSample || String.isEmpty(jsonSample)) {
+				data.input_json_sample = null;
+				data.input_json_schema = null;
+			} else {
+				data.input_json_schema = generateJsonSchema(jsonSample);
+			}
 
 			if (formMode === 'new') {
 				await pb.collection('custom_checks').create(data);
@@ -90,9 +100,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function createInitialData(record?: CustomChecksResponse) {
 		if (!record) return undefined;
+		let input_json_sample = JSON.stringify(record.input_json_sample, null, 2);
+		if (input_json_sample == 'null') input_json_sample = '';
 		return {
 			..._.omit(record, 'logo', 'input_json_schema'),
-			input_json_sample: JSON.stringify(record.input_json_sample, null, 2)
+			input_json_sample
 		};
 	}
 
@@ -195,7 +207,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Field {form} name="name" options={{ label: m.Name() }} />
 
 				<div class="flex items-start gap-4">
-					<FileField {form} name="logo" options={{ label: m.Upload_logo() }} />
+					<div class="grow">
+						<FileField
+							{form}
+							variant="outline"
+							name="logo"
+							options={{ label: m.Upload_logo() }}
+						>
+							<UploadIcon />
+							<T>{m.Upload_logo()}</T>
+						</FileField>
+					</div>
 					<div class="pt-2">
 						<Avatar
 							src={avatarPreviewUrl}

@@ -2,10 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { type CollectionModel } from 'pocketbase';
+import { pipe, Array as A, Record } from 'effect';
 import fs from 'fs';
 import 'dotenv/config';
+import JsonToTS from 'json-to-ts';
+import { capitalize, merge } from 'lodash';
 import path from 'node:path';
+import { type CollectionModel } from 'pocketbase';
+
 import {
 	EXPORT_TYPE,
 	formatCode,
@@ -14,9 +18,6 @@ import {
 	SEPARATOR,
 	openDb
 } from '@/utils/codegen';
-import { pipe, Array as A, Record } from 'effect';
-import { capitalize, merge } from 'lodash';
-import JsonToTS from 'json-to-ts';
 
 /* Constants */
 const COLLECTION_FIELD = `CollectionField`;

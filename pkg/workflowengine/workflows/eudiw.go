@@ -303,6 +303,9 @@ func (w *EudiwWorkflow) Workflow(
 		var events []map[string]any
 		var eventsResponse workflowengine.ActivityResult
 		getLogsInput := workflowengine.ActivityInput{
+			Payload: map[string]any{
+				"expected_status": 200,
+			},
 			Config: map[string]string{
 				"method": "GET",
 				"url": fmt.Sprintf(
@@ -319,7 +322,7 @@ func (w *EudiwWorkflow) Workflow(
 				runMetadata,
 			)
 		}
-		events = AsSliceOfMaps(
+		events = workflowengine.AsSliceOfMaps(
 			eventsResponse.Output.(map[string]any)["body"].(map[string]any)["events"],
 		)
 		triggerLogsInput := workflowengine.ActivityInput{
@@ -339,6 +342,7 @@ func (w *EudiwWorkflow) Workflow(
 					"workflow_id": workflow.GetInfo(ctx).WorkflowExecution.ID,
 					"logs":        events,
 				},
+				"expected_status": 200,
 			},
 		}
 

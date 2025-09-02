@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WithElementRef } from "bits-ui";
-	import type { HTMLAttributes } from "svelte/elements";
-	import { cn } from "@/components/ui/utils.js";
+	import type { WithElementRef } from 'bits-ui';
+	import type { HTMLAttributes } from 'svelte/elements';
+
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -17,6 +18,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>> = $props();
 </script>
 
-<div bind:this={ref} class={cn("p-6", className)} {...restProps}>
+<div bind:this={ref} class={cn('p-4', className)} {...restProps}>
 	{@render children?.()}
 </div>

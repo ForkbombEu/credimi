@@ -5,10 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { BreadcrumbsOptions } from '@/components/ui-custom/breadcrumbs.svelte';
+
+	import Breadcrumbs from '@/components/ui-custom/breadcrumbs.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
-	import type { BreadcrumbsOptions } from '@/components/ui-custom/breadcrumbs.svelte';
-	import Breadcrumbs from '@/components/ui-custom/breadcrumbs.svelte';
 
 	//
 

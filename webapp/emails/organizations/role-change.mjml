@@ -5,43 +5,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <mjml>
-  <mj-head>
-    <mj-title>Membership updated on {{.OrganizationName}}</mj-title>
-    <mj-include path="../_components/attributes.mjml" />
-  </mj-head>
+	<mj-head>
+		<mj-title>Membership updated on {{.OrganizationName}}</mj-title>
+		<mj-include path="../_components/attributes.mjml" />
+	</mj-head>
 
-  <mj-body>
-    <mj-include path="../_components/header.mjml" />
+	<mj-body>
+		<mj-include path="../_components/header.mjml" />
 
-    <mj-section>
-      <mj-column>
-        <mj-text mj-class="big">
-          {{.Admin}} changed your role inside {{.OrganizationName}}
-        </mj-text>
+		<mj-section>
+			<mj-column>
+				<mj-text mj-class="big">
+					{{.Admin}} changed your role inside {{.OrganizationName}}
+				</mj-text>
 
-        <mj-text>
-          Hello {{.UserName}},
-        </mj-text>
+				<mj-text> Hello {{.UserName}}, </mj-text>
 
-        <mj-text>
-          You membership has been updated by <strong>{{.Admin}}</strong> inside the organization <strong>{{.OrganizationName}}</strong> on DIDroom.
-        </mj-text>
+				<mj-text>
+					You membership has been updated by <strong>{{.Admin}}</strong> inside the
+					organization <strong>{{.OrganizationName}}</strong> on DIDroom.
+				</mj-text>
 
-        <mj-text>
-          Your new role: <strong>{{.Membership}}</strong>
-        </mj-text>
+				<mj-text> Your new role: <strong>{{.Membership}}</strong> </mj-text>
 
-        <mj-text>
-          Login to your Dashboard to see the changes:
-        </mj-text>
+				<mj-text> Login to your Dashboard to see the changes: </mj-text>
 
 				<mj-button href="{{.DashboardLink}}" mj-class="btn-primary">
-          Go to my Dashboard
-        </mj-button>
+					Go to my Dashboard
+				</mj-button>
+			</mj-column>
+		</mj-section>
 
-      </mj-column>
-    </mj-section>
-
-    <mj-include path="../_components/footer.mjml" />
-  </mj-body>
+		<mj-include path="../_components/footer.mjml" />
+	</mj-body>
 </mjml>

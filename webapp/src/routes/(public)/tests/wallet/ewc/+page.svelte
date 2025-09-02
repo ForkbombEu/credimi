@@ -6,12 +6,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import PageContent from '$lib/layout/pageContent.svelte';
+	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc.svelte';
+
 	import T from '@/components/ui-custom/t.svelte';
-	import Step from '../_partials/step.svelte';
-	import QrLink from '../_partials/qr-link.svelte';
 	import { Alert } from '@/components/ui/alert';
 	import { m } from '@/i18n';
-	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc.svelte';
+
+	import QrLink from '../_partials/qr-link.svelte';
+	import Step from '../_partials/step.svelte';
 
 	//
 
@@ -36,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if qr}
 		<Step n="1" text={m.Scan_this_QR_with_the_wallet_app_to_start_the_check()}>
 			<div
-				class="bg-primary/10 ml-16 mt-4 flex flex-col items-center justify-center rounded-md p-2 sm:flex-row"
+				class="ml-16 mt-4 flex flex-col items-center justify-center rounded-md bg-primary/10 p-2 sm:flex-row"
 			>
 				<QrLink {qr} />
 			</div>

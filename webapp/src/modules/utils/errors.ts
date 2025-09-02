@@ -10,6 +10,14 @@ export function getExceptionMessage(e: unknown): string {
 	}
 }
 
+export function exceptionToError(e: unknown): Error {
+	if (e instanceof Error) {
+		return e;
+	} else {
+		return new Error(`Unexpected error: ${JSON.stringify(e)}`);
+	}
+}
+
 //
 
 export class NotBrowserError extends Error {}

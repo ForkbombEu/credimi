@@ -7,7 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 	import type { HTMLAnchorAttributes } from 'svelte/elements';
+
 	import { localizeHref } from '@/i18n';
+
 	import { cn } from '../ui/utils';
 
 	type Props = HTMLAnchorAttributes & {

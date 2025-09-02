@@ -5,10 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ButtonProps } from '@/components/ui/button';
+
 	import * as Form from '@/components/ui/form';
 	import { getFormContext } from '@/forms';
+
 	import { FORM_ERROR_PATH } from '../form';
-	import type { ButtonProps } from '@/components/ui/button';
 
 	//
 
