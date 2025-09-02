@@ -39,7 +39,7 @@ export class FeedbackForms {
 				this.status = 'success';
 			},
 			onError: ({ setFormError, errorMessage }) => {
-				this.handleErrorMessage(errorMessage, setFormError);
+				this.handleErrorMessage(errorMessage, () => setFormError(errorMessage));
 			}
 		});
 
@@ -61,7 +61,7 @@ export class FeedbackForms {
 				this.status = 'success';
 			},
 			onError: ({ setFormError, errorMessage }) => {
-				this.handleErrorMessage(errorMessage, setFormError);
+				this.handleErrorMessage(errorMessage, () => setFormError(errorMessage));
 			}
 		});
 	}
