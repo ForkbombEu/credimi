@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div
-	class={['bg-background scroll-mt-4 space-y-6 rounded-md p-6 shadow-sm', className]}
+	class={['scroll-mt-4 space-y-6 rounded-md bg-background p-6 shadow-sm', className]}
 	{...restProps}
 >
 	{#if title}

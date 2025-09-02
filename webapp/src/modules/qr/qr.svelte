@@ -5,10 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { generateQrCode } from './qr';
-	import type { HTMLImgAttributes } from 'svelte/elements';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
+	import type { HTMLImgAttributes } from 'svelte/elements';
+	import { generateQrCode } from './qr';
 
 	type Props = HTMLImgAttributes & {
 		src: string;

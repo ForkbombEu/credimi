@@ -11,7 +11,7 @@ import sqlite3 from 'sqlite3';
 
 export function openDb() {
 	return open({
-		filename: process.env.DATA_DB_PATH || "../pb_data/data.db",
+		filename: process.env.DATA_DB_PATH || '../pb_data/data.db',
 		driver: sqlite3.Database
 	});
 }

@@ -10,7 +10,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Link } from '@/components/types';
 
 	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
 
 	import BackButton from './back-button.svelte';
 

@@ -98,15 +98,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const baseExtensions = [...extensions];
 		const showCopy = !hideCopyButton;
 		const showPaste = !hidePasteButton;
-		
+
 		if (showCopy || showPaste) {
-			baseExtensions.push(copyButtonExtension({ 
-				enabled: true,
-				showCopy,
-				showPaste,
-				onCopy,
-				onPaste
-			}));
+			baseExtensions.push(
+				copyButtonExtension({
+					enabled: true,
+					showCopy,
+					showPaste,
+					onCopy,
+					onPaste
+				})
+			);
 		}
 		return baseExtensions;
 	});

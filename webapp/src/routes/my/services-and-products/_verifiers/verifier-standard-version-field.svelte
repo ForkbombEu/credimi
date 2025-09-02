@@ -33,7 +33,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const name = 'standard_and_version';
 	const value = stringProxy(form, name, { empty: 'null' }) as Writable<string | null>;
 	let valueState = fromStore(value);
-	const { form: formData } = form;
 
 	//
 

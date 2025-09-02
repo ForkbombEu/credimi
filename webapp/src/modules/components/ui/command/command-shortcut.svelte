@@ -5,10 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WithElementRef } from "bits-ui";
-	import type { HTMLAttributes } from "svelte/elements";
+	import type { WithElementRef } from 'bits-ui';
+	import type { HTMLAttributes } from 'svelte/elements';
 
-	import { cn } from "@/components/ui/utils.js";
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <span
 	bind:this={ref}
-	class={cn("text-muted-foreground ml-auto text-xs tracking-widest", className)}
+	class={cn('ml-auto text-xs tracking-widest text-muted-foreground', className)}
 	{...restProps}
 >
 	{@render children?.()}

@@ -8,13 +8,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
-	import { PageCard } from '@/components/layout';
 	import A from '@/components/ui-custom/a.svelte';
-	import Card from '@/components/ui-custom/card.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Separator from '@/components/ui/separator/separator.svelte';
 	import { featureFlags } from '@/features';
-	import { Form, createForm } from '@/forms';
+	import { createForm, Form } from '@/forms';
 	import { Field, TextareaField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import {

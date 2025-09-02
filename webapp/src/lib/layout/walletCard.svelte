@@ -40,7 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <a
 	href={localizeHref(`/apps/${app.id}`)}
 	class={cn(
-		'border-primary bg-card text-card-foreground ring-primary block overflow-auto rounded-lg border p-6 shadow-sm transition-all hover:-translate-y-2 hover:ring-2 ',
+		'block overflow-auto rounded-lg border border-primary bg-card p-6 text-card-foreground shadow-sm ring-primary transition-all hover:-translate-y-2 hover:ring-2 ',
 		className
 	)}
 >

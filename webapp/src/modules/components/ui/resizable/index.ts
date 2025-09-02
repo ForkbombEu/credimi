@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Pane } from "paneforge";
+import { Pane } from 'paneforge';
 
-import Handle from "./resizable-handle.svelte";
-import PaneGroup from "./resizable-pane-group.svelte";
+import Handle from './resizable-handle.svelte';
+import PaneGroup from './resizable-pane-group.svelte';
 
 export {
 	PaneGroup,
@@ -14,5 +14,5 @@ export {
 	//
 	PaneGroup as ResizablePaneGroup,
 	Pane as ResizablePane,
-	Handle as ResizableHandle,
+	Handle as ResizableHandle
 };

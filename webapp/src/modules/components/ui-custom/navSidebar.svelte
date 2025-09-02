@@ -51,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			{#if isActive}
 				<div
-					class="bg-background absolute inset-0 rounded-md"
+					class="absolute inset-0 rounded-md bg-background"
 					in:send={{ key: 'active-sidebar-tab' }}
 					out:receive={{ key: 'active-sidebar-tab' }}
 				></div>

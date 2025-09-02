@@ -71,18 +71,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <PageContent class="grow bg-secondary" contentClass="flex gap-12 items-start">
 	<div>
 		<div>
-			<PageHeader
-				title={'Key differences'}
-				id={'key_differences'}
-			/>
-			<RenderMd content={news.key_differences}/>
+			<PageHeader title={'Key differences'} id={'key_differences'} />
+			<RenderMd content={news.key_differences} />
 		</div>
-	<div class="prose prose-base lg:prose-lg xl:prose-xl">
-		<PageHeader
-			title={'news'}
-			id={'news'}
-		/>
-		<HTML content={news.news} />
+		<div class="prose prose-base lg:prose-lg xl:prose-xl">
+			<PageHeader title={'news'} id={'news'} />
+			<HTML content={news.news} />
+		</div>
 	</div>
-</div>
 </PageContent>

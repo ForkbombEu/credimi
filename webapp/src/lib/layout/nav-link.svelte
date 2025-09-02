@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if icon}
 			<IconComponent src={icon} />
 		{/if}
-		{link.title}
+		{title}
 		{@render badgeSnippet()}
 	</Button>
 {:else}
@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if icon}
 			<IconComponent src={icon} />
 		{/if}
-		{link.title}
+		{title}
 		{@render badgeSnippet()}
 	</Button>
 {/if}

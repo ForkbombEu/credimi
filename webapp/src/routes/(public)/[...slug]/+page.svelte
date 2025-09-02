@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="max-w-prose space-y-6">
 			<div class="space-y-2">
 				{#if date}
-					<div class="text-muted-foreground flex gap-1">
+					<div class="flex gap-1 text-muted-foreground">
 						<T tag="small" class="text-balance !font-normal">Published on:</T>
 						<T tag="small" class="text-balance !font-semibold">
 							{date.toLocaleDateString()}
@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<T tag="h1" class="text-balance !font-bold">{title}</T>
 			</div>
 
-			<T tag="p" class="text-primary text-balance !font-bold">
+			<T tag="p" class="text-balance !font-bold text-primary">
 				{description}
 			</T>
 

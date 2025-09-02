@@ -17,7 +17,8 @@ Welcome to our Events & Webinars page! Here you’ll find all the latest opportu
 
 ## Upcoming Events
 
-### 1. Svelte Community Meetup  
+### 1. Svelte Community Meetup
+
 📅 **Date:** July 10, 2025  
 📍 **Location:** Copenhagen Tech Hub  
 🕒 **Time:** 5:00 PM – 8:00 PM CEST  
@@ -25,7 +26,8 @@ Welcome to our Events & Webinars page! Here you’ll find all the latest opportu
 
 ---
 
-### 2. Open Source Contributor Day  
+### 2. Open Source Contributor Day
+
 📅 **Date:** August 15, 2025  
 📍 **Location:** Online (Zoom)  
 🕒 **Time:** 10:00 AM – 2:00 PM CEST  
@@ -35,7 +37,8 @@ Welcome to our Events & Webinars page! Here you’ll find all the latest opportu
 
 ## Webinars
 
-### A. Getting Started with Svelte 5  
+### A. Getting Started with Svelte 5
+
 📅 **Date:** June 20, 2025  
 🕒 **Time:** 4:00 PM CEST  
 **Presenter:** Jane Doe, Svelte Core Team  
@@ -45,7 +48,8 @@ Welcome to our Events & Webinars page! Here you’ll find all the latest opportu
 
 ---
 
-### B. Advanced Patterns in SvelteKit  
+### B. Advanced Patterns in SvelteKit
+
 📅 **Date:** July 5, 2025  
 🕒 **Time:** 3:00 PM CEST  
 **Presenter:** John Smith, Lead Developer at Acme Corp  
@@ -57,8 +61,8 @@ Welcome to our Events & Webinars page! Here you’ll find all the latest opportu
 
 ## How to Participate
 
-1. **Register** via the links above.  
-2. **Add to your calendar** once you’ve signed up.  
-3. **Join the community** on Discord for live Q&A and follow-ups.  
+1. **Register** via the links above.
+2. **Add to your calendar** once you’ve signed up.
+3. **Join the community** on Discord for live Q&A and follow-ups.
 
 We look forward to seeing you there! If you have an event or webinar you’d like to propose, please reach out on our community forum.

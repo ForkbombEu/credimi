@@ -7,8 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
-	import { ChevronDown, ChevronUp } from 'lucide-svelte';
-	import { Eye, EyeOff } from 'lucide-svelte';
+	import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-svelte';
 
 	import type { WalletsResponse } from '@/pocketbase/types';
 
@@ -22,7 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
-	import { buttonVariants } from '@/components/ui/button';
 	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';

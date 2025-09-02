@@ -47,7 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@const value = `${suiteUid}/${fileId}`}
 			{@const label = fileId.split('.').slice(0, -1).join('.')}
 			{@const [format, scheme, method, mode] = label.split(':')}
-			<Table.Row class="even:bg-muted border-0 align-middle">
+			<Table.Row class="border-0 align-middle even:bg-muted">
 				<Table.Cell>
 					<Checkbox {value} />
 				</Table.Cell>

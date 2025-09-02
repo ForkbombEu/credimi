@@ -5,10 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WithElementRef } from "bits-ui";
-	import type { HTMLAttributes } from "svelte/elements";
+	import type { WithElementRef } from 'bits-ui';
+	import type { HTMLAttributes } from 'svelte/elements';
 
-	import { cn } from "@/components/ui/utils.js";
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	bind:this={ref}
 	data-sidebar="content"
 	class={cn(
-		"flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden",
+		'flex min-h-0 flex-1 flex-col gap-2 overflow-auto group-data-[collapsible=icon]:overflow-hidden',
 		className
 	)}
 	{...restProps}

@@ -7,11 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { String } from 'effect';
 	import { X } from 'lucide-svelte';
-	import { Debounced, watch } from 'runed';
+	import { Debounced } from 'runed';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
-	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { Input } from '@/components/ui/input';
 	import { m } from '@/i18n';
 

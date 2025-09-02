@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<ConfigFormInput {field} form={form.superform}>
 			{#snippet labelRight()}
 				<button
-					class="text-primary flex items-center gap-2 text-sm underline hover:no-underline"
+					class="flex items-center gap-2 text-sm text-primary underline hover:no-underline"
 					onclick={(e) => {
 						e.preventDefault(); // Important to prevent form submission
 						form.resetOverride(field.credimi_id);

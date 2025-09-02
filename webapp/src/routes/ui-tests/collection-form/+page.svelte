@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { toast } from 'svelte-sonner';
 
 	import { CollectionForm } from '@/collections-components';
-	import FormDebug from '@/forms/components/formDebug.svelte';
 </script>
 
 <CollectionForm

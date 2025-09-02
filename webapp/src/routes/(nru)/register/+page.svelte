@@ -132,17 +132,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<CheckboxField {form} name="acceptTerms">
 		<span class="leading-snug">
 			{m.I_accept_the()}
-			<A
-				href="https://docs.credimi.io/Legal/terms-and-conditions.html"
-				target="_blank"
-			>
+			<A href="https://docs.credimi.io/Legal/terms-and-conditions.html" target="_blank">
 				{m.Terms_and_Conditions()}
 			</A>
 			{m.and()}
-			<A
-				href="https://docs.credimi.io/Legal/privacy-policy.html"
-				target="_blank"
-			>
+			<A href="https://docs.credimi.io/Legal/privacy-policy.html" target="_blank">
 				{m.privacy_policy()}
 			</A>
 		</span>

@@ -5,11 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WithoutChild } from "bits-ui";
+	import type { WithoutChild } from 'bits-ui';
 
-	import * as FormPrimitive from "formsnap";
+	import * as FormPrimitive from 'formsnap';
 
-	import { cn } from "@/components/ui/utils.js";
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -20,6 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <FormPrimitive.Description
 	bind:ref
-	class={cn("text-muted-foreground text-sm", className)}
+	class={cn('text-sm text-muted-foreground', className)}
 	{...restProps}
 />

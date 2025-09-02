@@ -17,4 +17,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { class: className = '', children }: Props = $props();
 </script>
 
-<T class="text-card-foreground font-semibold {className}">{@render children?.()}</T>
+<T class="font-semibold text-card-foreground {className}">{@render children?.()}</T>

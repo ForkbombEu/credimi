@@ -17,16 +17,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { n, text, children, class: className }: Props = $props();
 </script>
 
-<div class={['bg-secondary rounded-xl p-4', className]}>
+<div class={['rounded-xl bg-secondary p-4', className]}>
 	<div class="flex items-center gap-4">
 		{#if n}
 			<div
-				class="bg-primary text-primary-foreground flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-semibold"
+				class="flex size-12 shrink-0 items-center justify-center rounded-full bg-primary text-lg font-semibold text-primary-foreground"
 			>
 				<p>{n}</p>
 			</div>
 		{/if}
-		<T class="text-primary font-semibold">{text}</T>
+		<T class="font-semibold text-primary">{text}</T>
 	</div>
 	{@render children?.()}
 </div>

@@ -91,7 +91,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Body>
 	</Table.Root>
 </div>
-<div class="flex justify-end text-sm text-muted-foreground">
+<div class="text-muted-foreground flex justify-end text-sm">
 	{table.getFilteredSelectedRowModel().rows.length} of{' '}
 	{table.getFilteredRowModel().rows.length} row(s) selected.
 </div>

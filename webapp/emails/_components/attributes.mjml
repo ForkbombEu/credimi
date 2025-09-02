@@ -5,20 +5,41 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <mj-attributes>
-  <mj-section background-color="#FFF" padding="8px 8px 0px 0px" />
-  <mj-column padding="0px 8px 16px 16px" />
-  <mj-text padding="0.8%" color="#111827" font-size="16px" line-height="1.4" align="left" />
+	<mj-section background-color="#FFF" padding="8px 8px 0px 0px" />
+	<mj-column padding="0px 8px 16px 16px" />
+	<mj-text padding="0.8%" color="#111827" font-size="16px" line-height="1.4" align="left" />
 
-  <mj-class name="text-primary" color="#7d2fb5" />
-  <mj-class name="bg-primary" background-color="#7d2fb5"/>
-  <mj-class name="text-primary-foreground" color="#ffffff" />
-  <mj-class name="bg-primary-foreground" background-color="#ffffff"/>
-  <mj-class name="btn-primary" background-color="#7d2fb5" color="#ffffff" font-family="Arial" font-size="16px" padding="20px"/>
+	<mj-class name="text-primary" color="#7d2fb5" />
+	<mj-class name="bg-primary" background-color="#7d2fb5" />
+	<mj-class name="text-primary-foreground" color="#ffffff" />
+	<mj-class name="bg-primary-foreground" background-color="#ffffff" />
+	<mj-class
+		name="btn-primary"
+		background-color="#7d2fb5"
+		color="#ffffff"
+		font-family="Arial"
+		font-size="16px"
+		padding="20px"
+	/>
 
-  <mj-class name="big" font-size="22px" align="center" line-height="1.4" padding-bottom="24px" padding-top="4px" />
-  <mj-class name="step" padding-bottom="8px" padding-top="24px" />
-  <mj-divider border-color="#7d2fb5" />
-  <mj-class name="footer" font-size="14px" color="#888888" font-family="Arial, sans-serif" align="center" line-height="1.4" />
-  <mj-all font-family="Arial, sans-serif" />
-  <mj-social font-size="14px" icon-size="20px" mode="horizontal" align="center" />
+	<mj-class
+		name="big"
+		font-size="22px"
+		align="center"
+		line-height="1.4"
+		padding-bottom="24px"
+		padding-top="4px"
+	/>
+	<mj-class name="step" padding-bottom="8px" padding-top="24px" />
+	<mj-divider border-color="#7d2fb5" />
+	<mj-class
+		name="footer"
+		font-size="14px"
+		color="#888888"
+		font-family="Arial, sans-serif"
+		align="center"
+		line-height="1.4"
+	/>
+	<mj-all font-family="Arial, sans-serif" />
+	<mj-social font-size="14px" icon-size="20px" mode="horizontal" align="center" />
 </mj-attributes>

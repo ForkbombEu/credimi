@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Command as CommandPrimitive } from "bits-ui";
+	import { Command as CommandPrimitive } from 'bits-ui';
 
-	import { cn } from "@/components/ui/utils.js";
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -21,13 +21,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <CommandPrimitive.Group
-	class={cn("text-foreground overflow-hidden p-1", className)}
+	class={cn('overflow-hidden p-1 text-foreground', className)}
 	bind:ref
 	{...restProps}
 >
 	{#if heading}
 		<CommandPrimitive.GroupHeading
-			class="text-muted-foreground px-2 py-1.5 text-xs font-medium"
+			class="px-2 py-1.5 text-xs font-medium text-muted-foreground"
 		>
 			{heading}
 		</CommandPrimitive.GroupHeading>

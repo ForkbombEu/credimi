@@ -27,7 +27,11 @@ export type CreateFormProps<Data extends GenericRecord> = {
 	options?: FormOptions<Data>;
 	onSubmit?: SubmitFunction<Data>;
 	initialData?: Partial<Data>;
-	onError?: (payload: { error: unknown; errorMessage: string; setFormError: (er:string) => void }) => void;
+	onError?: (payload: {
+		error: unknown;
+		errorMessage: string;
+		setFormError: (er: string) => void;
+	}) => void;
 };
 
 export function createForm<Data extends GenericRecord>(props: CreateFormProps<Data>) {
@@ -52,7 +56,7 @@ export function createForm<Data extends GenericRecord>(props: CreateFormProps<Da
 				if (event.form.valid) await onSubmit(event);
 			} catch (e) {
 				const errorMessage = getExceptionMessage(e);
-				const setFormError = (er:string = errorMessage) => {
+				const setFormError = (er: string = errorMessage) => {
 					setError(event.form, er);
 				};
 				if (onError) onError({ error: e, errorMessage, setFormError });

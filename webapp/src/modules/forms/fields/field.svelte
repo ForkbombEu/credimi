@@ -46,9 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let placeholder = $derived(
-		options.placeholder
-			? options.placeholder
-			: defaultPlaceholders[options.type ?? 'text']
+		options.placeholder ? options.placeholder : defaultPlaceholders[options.type ?? 'text']
 	);
 </script>
 

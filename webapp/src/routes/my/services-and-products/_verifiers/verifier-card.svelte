@@ -108,7 +108,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<RecordCreate>
 					{#snippet button({ triggerAttributes })}
 						<button
-							class="text-primary flex items-center underline hover:cursor-pointer hover:no-underline"
+							class="flex items-center text-primary underline hover:cursor-pointer hover:no-underline"
 							{...triggerAttributes}
 						>
 							<Plus size={14} /><span>{m.Add()}</span>

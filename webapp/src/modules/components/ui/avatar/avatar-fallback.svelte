@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Avatar as AvatarPrimitive } from "bits-ui";
+	import { Avatar as AvatarPrimitive } from 'bits-ui';
 
-	import { cn } from "@/components/ui/utils.js";
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -18,6 +18,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <AvatarPrimitive.Fallback
 	bind:ref
-	class={cn("bg-muted flex size-full items-center justify-center", className)}
+	class={cn('flex size-full items-center justify-center bg-muted', className)}
 	{...restProps}
 />

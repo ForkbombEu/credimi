@@ -15,6 +15,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { class: className = '', children, ...rest }: Props = $props();
 </script>
 
-<div class="bg-card border-card rounded-md px-4 py-3 {className}" {...rest}>
+<div class="rounded-md border-card bg-card px-4 py-3 {className}" {...rest}>
 	{@render children?.()}
 </div>

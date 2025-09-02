@@ -5,10 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WithElementRef } from "bits-ui";
-	import type { HTMLOlAttributes } from "svelte/elements";
+	import type { WithElementRef } from 'bits-ui';
+	import type { HTMLOlAttributes } from 'svelte/elements';
 
-	import { cn } from "@/components/ui/utils.js";
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <ol
 	bind:this={ref}
 	class={cn(
-		"text-muted-foreground flex flex-wrap items-center gap-1.5 break-words text-sm sm:gap-2.5",
+		'flex flex-wrap items-center gap-1.5 break-words text-sm text-muted-foreground sm:gap-2.5',
 		className
 	)}
 	{...restProps}

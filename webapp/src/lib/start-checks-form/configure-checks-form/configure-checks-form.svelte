@@ -189,7 +189,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet SectionDivider(text: string)}
 	<div class="flex items-center gap-3 py-1">
 		<Separator class="!w-auto grow" />
-		<p class="text-muted-foreground text-sm">{text}</p>
+		<p class="text-sm text-muted-foreground">{text}</p>
 		<Separator class="!w-auto grow" />
 	</div>
 {/snippet}

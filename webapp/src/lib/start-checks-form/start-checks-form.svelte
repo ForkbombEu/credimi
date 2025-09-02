@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Tabs.List class="flex">
 		<Tabs.Trigger
 			value={tabs[0].id}
-			class="data-[state=inactive]:hover:bg-primary/10 grow data-[state=inactive]:text-black"
+			class="grow data-[state=inactive]:text-black data-[state=inactive]:hover:bg-primary/10"
 			onclick={() => {
 				form.backToSelectTests();
 			}}

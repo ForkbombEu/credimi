@@ -7,9 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { Pencil, Plus, X } from 'lucide-svelte';
 
-	import { CollectionForm } from '@/collections-components';
-	import { CollectionManager } from '@/collections-components/manager';
-	import { RecordEdit, RecordDelete } from '@/collections-components/manager';
+	import { CollectionManager, RecordDelete, RecordEdit } from '@/collections-components/manager';
 	import PageCard from '@/components/layout/pageCard.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import Dialog from '@/components/ui-custom/dialog.svelte';

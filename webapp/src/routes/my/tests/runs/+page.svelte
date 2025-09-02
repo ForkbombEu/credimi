@@ -127,12 +127,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					className="w-full"
 				>
 					{#snippet bottom()}
-						<Button href="/my/tests/new" variant="outline" class="text-primary mt-4">
+						<Button href="/my/tests/new" variant="outline" class="mt-4 text-primary">
 							<SparkleIcon />
 							{m.Start_a_new_check()}
 							<Badge
 								variant="outline"
-								class="border-primary text-primary !hover:no-underline text-xs"
+								class="!hover:no-underline border-primary text-xs text-primary"
 							>
 								{m.Beta()}
 							</Badge>

@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createToggleStore } from '@/components/ui-custom/utils';
 	import { m } from '@/i18n';
 	import { currentUser, pb } from '@/pocketbase';
-	import { type CollectionResponses, type RecordIdString } from '@/pocketbase/types';
+	import { type RecordIdString } from '@/pocketbase/types';
 	import { getExceptionMessage } from '@/utils/errors';
 
 	import type { RecordProp, TitleProp, TriggerProp } from './types';

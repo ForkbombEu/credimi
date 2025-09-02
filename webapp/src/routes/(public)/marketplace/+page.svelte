@@ -87,7 +87,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet contentWrapper(children)}
-		<PageContent class="bg-secondary grow">
+		<PageContent class="grow bg-secondary">
 			<div class="flex flex-col gap-8 sm:flex-row">
 				<div class="w-full sm:w-fit">
 					{@render MarketplaceTableOfContents()}

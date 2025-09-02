@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const open = $derived(active);
 </script>
 
-<Sidebar.Menu class={cn({ 'ring-primary rounded-sm ring-1 ring-offset-2': active })}>
+<Sidebar.Menu class={cn({ 'rounded-sm ring-1 ring-primary ring-offset-2': active })}>
 	<Collapsible.Root class="group/collapsible" {open}>
 		<Sidebar.MenuItem>
 			<Collapsible.Trigger>

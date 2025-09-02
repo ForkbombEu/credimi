@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<!-- Active tab title for mobile -->
 	{#if activeTab}
 		<div class="mb-3 px-1">
-			<h2 class="text-foreground flex items-center gap-2 text-lg font-semibold">
+			<h2 class="flex items-center gap-2 text-lg font-semibold text-foreground">
 				{#if activeTab.icon}
 					<Icon src={activeTab.icon} class="size-5" />
 				{/if}

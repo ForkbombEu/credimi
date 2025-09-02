@@ -13,7 +13,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { Form } from '@/forms';
 	import { m } from '@/i18n';
-	import { getCollectionModel } from '@/pocketbase/collections-models';
 	import { getCollectionFields } from '@/pocketbase/zod-schema';
 	import { capitalize } from '@/utils/other';
 

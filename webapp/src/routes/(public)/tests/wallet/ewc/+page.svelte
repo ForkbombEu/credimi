@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if qr}
 		<Step n="1" text={m.Scan_this_QR_with_the_wallet_app_to_start_the_check()}>
 			<div
-				class="bg-primary/10 ml-16 mt-4 flex flex-col items-center justify-center rounded-md p-2 sm:flex-row"
+				class="ml-16 mt-4 flex flex-col items-center justify-center rounded-md bg-primary/10 p-2 sm:flex-row"
 			>
 				<QrLink {qr} />
 			</div>

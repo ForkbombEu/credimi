@@ -33,7 +33,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if customTrigger}
 			{@render customTrigger({ sheetTriggerAttributes })}
 		{:else}
-			<Button variant={walletId ? "outline" : "default"} size="sm" class={walletId ? "p-2" : ""} {...sheetTriggerAttributes}>
+			<Button
+				variant={walletId ? 'outline' : 'default'}
+				size="sm"
+				class={walletId ? 'p-2' : ''}
+				{...sheetTriggerAttributes}
+			>
 				{#if walletId}
 					<Pencil />
 				{:else}

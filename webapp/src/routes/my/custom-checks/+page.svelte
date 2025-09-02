@@ -50,7 +50,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<div>
 								<T class="font-bold">{record.name}</T>
 								<T class="mb-2 font-mono text-xs">{record.standard_and_version}</T>
-								<T class="text-sm text-gray-400"><RenderMd content={record.description}></RenderMd></T>
+								<T class="text-sm text-gray-400"
+									><RenderMd content={record.description}></RenderMd></T
+								>
 							</div>
 						</div>
 

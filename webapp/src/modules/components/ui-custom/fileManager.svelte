@@ -39,7 +39,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		children?: Snippet<[{ addFiles: (newFiles: File[]) => void }]>;
 	};
 
-	let { data = $bindable(), validator, multiple = false, showFilesList = true, children: child }: Props = $props();
+	let {
+		data = $bindable(),
+		validator,
+		multiple = false,
+		showFilesList = true,
+		children: child
+	}: Props = $props();
 
 	/* File upload handling */
 

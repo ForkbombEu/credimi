@@ -66,7 +66,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<List>
 				{#each records as r}
 					<ListItem>
-						<CodeDisplay content={JSON.stringify(r.expand?.role, null, 2)} language="json" />
+						<CodeDisplay
+							content={JSON.stringify(r.expand?.role, null, 2)}
+							language="json"
+						/>
 					</ListItem>
 				{/each}
 			</List>

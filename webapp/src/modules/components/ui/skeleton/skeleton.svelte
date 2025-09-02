@@ -5,10 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WithElementRef, WithoutChildren } from "bits-ui";
-	import type { HTMLAttributes } from "svelte/elements";
+	import type { WithElementRef, WithoutChildren } from 'bits-ui';
+	import type { HTMLAttributes } from 'svelte/elements';
 
-	import { cn } from "@/components/ui/utils.js";
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -19,6 +19,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	bind:this={ref}
-	class={cn("bg-muted animate-pulse rounded-md", className)}
+	class={cn('animate-pulse rounded-md bg-muted', className)}
 	{...restProps}
 ></div>

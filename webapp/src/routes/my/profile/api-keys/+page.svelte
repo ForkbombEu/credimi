@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Separator } from '@/components/ui/separator';
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
-	import { pb, currentUser } from '@/pocketbase';
+	import { currentUser, pb } from '@/pocketbase';
 
 	const apiKeyNameSchema = z.object({
 		name: z

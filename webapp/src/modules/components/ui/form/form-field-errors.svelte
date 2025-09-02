@@ -5,11 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WithoutChild } from "bits-ui";
+	import type { WithoutChild } from 'bits-ui';
 
-	import * as FormPrimitive from "formsnap";
+	import * as FormPrimitive from 'formsnap';
 
-	import { cn } from "@/components/ui/utils.js";
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <FormPrimitive.FieldErrors
 	bind:ref
-	class={cn("text-destructive text-sm font-medium", className)}
+	class={cn('text-sm font-medium text-destructive', className)}
 	{...restProps}
 >
 	{#snippet children({ errors, errorProps })}

@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { String } from 'effect';
-	import { SquareArrowOutUpRight, Eye, EyeOff, Plus } from 'lucide-svelte';
+	import { Eye, EyeOff, Plus } from 'lucide-svelte';
 
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 
@@ -21,7 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Card } from '@/components/ui/card';
 	import * as Dialog from '@/components/ui/dialog';
 	import { Separator } from '@/components/ui/separator';
-	import Switch from '@/components/ui/switch/switch.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 	import { Collections } from '@/pocketbase/types';

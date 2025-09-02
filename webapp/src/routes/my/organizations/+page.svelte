@@ -195,7 +195,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										{/if}
 									</div>
 									{#if org.description}
-										<Description><RenderMd content={org.description}/></Description>
+										<Description
+											><RenderMd content={org.description} /></Description
+										>
 									{/if}
 								{/snippet}
 								{#snippet right()}

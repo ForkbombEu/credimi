@@ -35,7 +35,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					status: 503,
 					image: '/maintenance.svg',
 					title: 'Service Unavailable',
-					description: 'We’re temporarily offline for maintenance. Please try again later.'
+					description:
+						'We’re temporarily offline for maintenance. Please try again later.'
 				};
 			default:
 				return {

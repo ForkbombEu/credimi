@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import Content from "./card-content.svelte";
-import Description from "./card-description.svelte";
-import Footer from "./card-footer.svelte";
-import Header from "./card-header.svelte";
-import Title from "./card-title.svelte";
-import Root from "./card.svelte";
+import Content from './card-content.svelte';
+import Description from './card-description.svelte';
+import Footer from './card-footer.svelte';
+import Header from './card-header.svelte';
+import Title from './card-title.svelte';
+import Root from './card.svelte';
 
 export {
 	Root,
@@ -22,5 +22,5 @@ export {
 	Description as CardDescription,
 	Footer as CardFooter,
 	Header as CardHeader,
-	Title as CardTitle,
+	Title as CardTitle
 };

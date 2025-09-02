@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if qr}
 	<QrCode src={qr} class="size-40 rounded-sm" />
-	<p class="text-primary max-w-sm break-all p-4 font-mono text-xs hover:underline">
+	<p class="max-w-sm break-all p-4 font-mono text-xs text-primary hover:underline">
 		{qr}
 	</p>
 {:else}

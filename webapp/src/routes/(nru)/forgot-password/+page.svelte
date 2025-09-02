@@ -25,7 +25,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 		<Label class="space-y-2">
 			<span>Your email</span>
-			<Input type="email" name="email" id="email" placeholder="name@foundation.org" required />
+			<Input
+				type="email"
+				name="email"
+				id="email"
+				placeholder="name@foundation.org"
+				required
+			/>
 		</Label>
 		<Button type="submit" class="w-full">Recover password</Button>
 	</form>

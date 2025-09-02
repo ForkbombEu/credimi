@@ -33,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if editor.mode == 'form'}
 			<DependentCheckConfigFormEditorComponent form={editor.formEditor} />
 		{:else}
-			<div class="text-muted-foreground text-sm">
+			<div class="text-sm text-muted-foreground">
 				<Alert variant="info" icon={Info}>
 					{#snippet content({ Title, Description })}
 						<Title class="font-bold">Info</Title>

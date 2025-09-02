@@ -13,9 +13,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Search from '@/components/ui-custom/search.svelte';
 	import {
-		type PocketbaseQueryResponse,
 		type PocketbaseQueryExpandOption,
 		type PocketbaseQueryOptions,
+		type PocketbaseQueryResponse,
 		PocketbaseQueryAgent
 	} from '@/pocketbase/query';
 

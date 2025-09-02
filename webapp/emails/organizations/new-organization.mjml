@@ -5,34 +5,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <mjml>
-  <mj-head>
-    <mj-title>New organization: {{.OrganizationName}}, is now available in your Dashboard</mj-title>
-    <mj-include path="../_components/attributes.mjml" />
-  </mj-head>
+	<mj-head>
+		<mj-title
+			>New organization: {{.OrganizationName}}, is now available in your Dashboard</mj-title
+		>
+		<mj-include path="../_components/attributes.mjml" />
+	</mj-head>
 
-  <mj-body>
-    <mj-include path="../_components/header.mjml" />
+	<mj-body>
+		<mj-include path="../_components/header.mjml" />
 
-    <mj-section>
-      <mj-column>
-        <mj-text mj-class="big">
-          Your Organization on {{.AppName}} Has Been Successfully Created!
-        </mj-text>
+		<mj-section>
+			<mj-column>
+				<mj-text mj-class="big">
+					Your Organization on {{.AppName}} Has Been Successfully Created!
+				</mj-text>
 
-        <mj-text>
-          Hello {{.UserName}},
-        </mj-text>
+				<mj-text> Hello {{.UserName}}, </mj-text>
 
-        <mj-text>
-          We’re excited to inform you that your organization, <strong>{{.OrganizationName}}</strong>, has been successfully created on {{.AppName}}!
-        </mj-text>
+				<mj-text>
+					We’re excited to inform you that your organization,
+					<strong>{{.OrganizationName}}</strong>, has been successfully created on
+					{{.AppName}}!
+				</mj-text>
 
 				<mj-button href="{{.DashboardLink}}" mj-class="btn-primary">
-          Go to your dashboard
-        </mj-button>
-      </mj-column>
-    </mj-section>
+					Go to your dashboard
+				</mj-button>
+			</mj-column>
+		</mj-section>
 
-    <mj-include path="../_components/footer.mjml" />
-  </mj-body>
+		<mj-include path="../_components/footer.mjml" />
+	</mj-body>
 </mjml>

@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if children}
-	<div class="bg-secondary/40 rounded-md p-2">
+	<div class="rounded-md bg-secondary/40 p-2">
 		<p class="text-sm font-bold">{@render children()}</p>
 	</div>
 {/if}

@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Sheet title="{m.Edit_credential()}: {credential.name || credential.key}">
-	{#snippet trigger({ sheetTriggerAttributes, openSheet })}
+	{#snippet trigger({ sheetTriggerAttributes })}
 		<IconButton size="sm" variant="outline" icon={Pencil} {...sheetTriggerAttributes} />
 	{/snippet}
 

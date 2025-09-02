@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<T tag="h1">{getTagTranslation(tag)}</T>
 </PageTop>
 
-<PageContent class="bg-secondary grow">
+<PageContent class="grow bg-secondary">
 	{#if pages.length > 0}
 		<PageGrid>
 			{#each pages as page}

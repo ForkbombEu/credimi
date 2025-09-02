@@ -9,7 +9,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { TemporalI18nProvider } from '$lib/temporal';
-	import { Array } from 'effect';
 	import { CornerDownRight } from 'lucide-svelte';
 
 	import A from '@/components/ui-custom/a.svelte';

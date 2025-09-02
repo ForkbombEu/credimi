@@ -8,18 +8,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type {
 		Command as CommandPrimitive,
 		Dialog as DialogPrimitive,
-		WithoutChildrenOrChild,
-	} from "bits-ui";
-	import type { Snippet } from "svelte";
+		WithoutChildrenOrChild
+	} from 'bits-ui';
+	import type { Snippet } from 'svelte';
 
-	import * as Dialog from "@/components/ui/dialog/index.js";
+	import * as Dialog from '@/components/ui/dialog/index.js';
 
-	import Command from "./command.svelte";
+	import Command from './command.svelte';
 
 	let {
 		open = $bindable(false),
 		ref = $bindable(null),
-		value = $bindable(""),
+		value = $bindable(''),
 		portalProps,
 		children,
 		...restProps

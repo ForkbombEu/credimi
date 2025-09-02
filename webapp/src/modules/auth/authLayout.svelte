@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </div>
 
 <div class="flex h-screen w-screen items-stretch">
-	<div class="bg-primary hidden grow basis-1 p-2 md:block"></div>
+	<div class="hidden grow basis-1 bg-primary p-2 md:block"></div>
 	<div class="flex grow basis-1 flex-col overflow-scroll">
 		<Topbar class="border-none">
 			{#snippet left()}

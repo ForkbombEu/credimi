@@ -6,10 +6,9 @@ import { error } from '@sveltejs/kit';
 
 import { getWalletTestParams } from './_partials';
 
-
 export const load = ({ url }) => {
-    const params = getWalletTestParams(url);
-	
+	const params = getWalletTestParams(url);
+
 	if (!params.workflowId) {
 		error(404);
 	}

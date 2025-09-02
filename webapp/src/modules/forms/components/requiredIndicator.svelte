@@ -23,5 +23,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if !hideRequiredIndicator && isFieldRequired}
-	<span class="text-destructive ml-1 font-bold">*</span>
+	<span class="ml-1 font-bold text-destructive">*</span>
 {/if}

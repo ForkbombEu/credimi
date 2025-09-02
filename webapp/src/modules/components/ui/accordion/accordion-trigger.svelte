@@ -5,10 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Accordion as AccordionPrimitive, type WithoutChild } from "bits-ui";
-	import ChevronDown from "lucide-svelte/icons/chevron-down";
+	import { Accordion as AccordionPrimitive, type WithoutChild } from 'bits-ui';
+	import ChevronDown from 'lucide-svelte/icons/chevron-down';
 
-	import { cn } from "@/components/ui/utils.js";
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		children,
 		...restProps
 	}: WithoutChild<AccordionPrimitive.TriggerProps> & {
-		level?: AccordionPrimitive.HeaderProps["level"];
+		level?: AccordionPrimitive.HeaderProps['level'];
 	} = $props();
 </script>
 
@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<AccordionPrimitive.Trigger
 		bind:ref
 		class={cn(
-			"flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180",
+			'flex flex-1 items-center justify-between py-4 font-medium transition-all hover:underline [&[data-state=open]>svg]:rotate-180',
 			className
 		)}
 		{...restProps}

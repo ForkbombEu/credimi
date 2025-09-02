@@ -5,11 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WithElementRef } from "bits-ui";
-	import type { HTMLAttributes } from "svelte/elements";
+	import type { WithElementRef } from 'bits-ui';
+	import type { HTMLAttributes } from 'svelte/elements';
 
-	import { Skeleton } from "@/components/ui/skeleton/index.js";
-	import { cn } from "@/components/ui/utils.js";
+	import { Skeleton } from '@/components/ui/skeleton/index.js';
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div
 	bind:this={ref}
 	data-sidebar="menu-skeleton"
-	class={cn("flex h-8 items-center gap-2 rounded-md px-2", className)}
+	class={cn('flex h-8 items-center gap-2 rounded-md px-2', className)}
 	{...restProps}
 >
 	{#if showIcon}

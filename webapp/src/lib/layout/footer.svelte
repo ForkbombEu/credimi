@@ -140,20 +140,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<span class="pl-1 text-sm text-white/40">{appVersion}</span>
 						</T>
 					</div>
-					<p class="border-b-muted border-b">{m.Test_and_find_decentralized_IDs()}</p>
+					<p class="border-b border-b-muted">{m.Test_and_find_decentralized_IDs()}</p>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row">
 					<LanguageSelect />
 					<Button
 						variant="default"
-						class="text-primary grow basis-1 bg-white hover:bg-white/90 sm:grow-0"
+						class="grow basis-1 bg-white text-primary hover:bg-white/90 sm:grow-0"
 						href="/my/tests/new"
 					>
 						<Icon src={Sparkle} />
 						{m.Start_a_new_check()}
 						<Badge
 							variant="outline"
-							class="border-primary text-primary !hover:no-underline py-1 text-xs"
+							class="!hover:no-underline border-primary py-1 text-xs text-primary"
 						>
 							{m.Beta()}
 						</Badge>
@@ -169,7 +169,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<div class="flex flex-col gap-2">
 							<T tag="small">{category.label}</T>
 							{#each category.links as item}
-								<a href={item.url} class="text-muted-foreground text-xs"
+								<a href={item.url} class="text-xs text-muted-foreground"
 									>{item.label}</a
 								>
 							{/each}

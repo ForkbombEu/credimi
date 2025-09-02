@@ -6,24 +6,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
-	import z from 'zod';
 
 	import type { CollectionFormData, Data } from '@/pocketbase/types';
 
 	import { pb } from '@/pocketbase';
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 	import { createDummyFile } from '@/utils/other';
-
-	const x = z
-		.object({
-			x: z.string(),
-			y: z.record(z.unknown())
-		})
-		.extend({
-			y: z.object({
-				u: z.number()
-			})
-		});
 
 	const res = pb.collection('z_test_collection').getFullList();
 

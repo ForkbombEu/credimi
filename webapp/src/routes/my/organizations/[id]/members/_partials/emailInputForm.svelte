@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Separator from '@/components/ui/separator/separator.svelte';
-	import { createForm, Form, SubmitButton } from '@/forms';
+	import { createForm, Form } from '@/forms';
 	import { FileField, TextareaField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { readFileAsString, zodFileSchema } from '@/utils/files';

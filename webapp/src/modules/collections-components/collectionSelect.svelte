@@ -13,9 +13,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import SelectInput, { type SelectItem } from '@/components/ui-custom/selectInput.svelte';
 	import {
-		type PocketbaseQueryResponse,
 		type PocketbaseQueryExpandOption,
-		type PocketbaseQueryOptions,
+		type PocketbaseQueryResponse,
 		PocketbaseQueryAgent
 	} from '@/pocketbase/query';
 	import { setupComponentPocketbaseSubscriptions } from '@/pocketbase/subscriptions';

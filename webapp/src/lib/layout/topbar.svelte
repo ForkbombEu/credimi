@@ -78,7 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const allItems = $derived([...leftItems, ...rightItems]);
 </script>
 
-<BaseTopbar class="bg-card border-none">
+<BaseTopbar class="border-none bg-card">
 	{#snippet left()}
 		<div class="flex min-w-0 items-center space-x-4 overflow-hidden">
 			<Button variant="link" href={href('/')} class="shrink-0">
@@ -105,13 +105,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/each}
 			</div>
 
-		{#if currentUserState.current}
-			<UserNav />
-		{:else}
-			<Button href={href('/login')}>
-				{m.Log_in()}
-			</Button>
-		{/if}
+			{#if currentUserState.current}
+				<UserNav />
+			{:else}
+				<Button href={href('/login')}>
+					{m.Log_in()}
+				</Button>
+			{/if}
 
 			<div class="lg:hidden">
 				<MobileNav items={allItems} />
