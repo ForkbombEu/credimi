@@ -11,7 +11,207 @@ import type PocketBase from "pocketbase";
 // =============== SCHEMAS, TYPES & ERROR HANDLING
 // =================================================================
 
-export const CancelMyCheckRunResponseSchema = z.object({
+export const ChecksLogsResponseSchema = z.object({
+  channel: z.string().min(1),
+  workflow_id: z.string().min(1),
+  run_id: z.string().min(1),
+  message: z.string().min(1),
+  status: z.string().min(1),
+  time: z.string().min(1),
+  namespace: z.string().min(1),
+})
+export type ChecksLogsResponse = z.infer<typeof ChecksLogsResponseSchema>
+
+export const APIErrorSchema = z.object({
+  Code: z.number(),
+  Domain: z.string(),
+  Reason: z.string(),
+  Message: z.string(),
+})
+export type APIError = z.infer<typeof APIErrorSchema>
+
+export const PayloadSchema = z.object({
+  metadata: z.record(z.string(), z.string()).optional(),
+  data: z.string().optional(),
+})
+export type Payload = z.infer<typeof PayloadSchema>
+
+export const MemoSchema = z.object({
+  fields: z.record(z.string(), PayloadSchema).optional(),
+})
+export type Memo = z.infer<typeof MemoSchema>
+
+export const VersioningInfoSchema = z.object({
+  useVersioning: z.boolean().optional(),
+})
+export type VersioningInfo = z.infer<typeof VersioningInfoSchema>
+
+export const WorkflowExecutionInfoSchema = z.object({
+  name: z.string(),
+  id: z.string(),
+  runId: z.string(),
+  status: z.string(),
+  stateTransitionCount: z.string(),
+  startTime: z.string(),
+  closeTime: z.string(),
+  executionTime: z.string(),
+  historySizeBytes: z.string(),
+  historyLength: z.string(),
+  assignedBuildId: z.string(),
+  searchAttributes: z.record(z.string(), z.any()).optional().nullable(),
+  memo: MemoSchema.optional(),
+  versioningInfo: VersioningInfoSchema.optional(),
+})
+export type WorkflowExecutionInfo = z.infer<typeof WorkflowExecutionInfoSchema>
+
+export const ActivityTypeSchema = z.object({
+  name: z.string().min(1),
+})
+export type ActivityType = z.infer<typeof ActivityTypeSchema>
+
+export type Failure = {
+  message?: string | undefined,
+  source?: string | undefined,
+  stackTrace?: string | undefined,
+  cause?: Failure | undefined,
+  failureInfo?: Record<string, string> | undefined,
+}
+const FailureSchemaShape = {
+  message: z.string().optional(),
+  source: z.string().optional(),
+  stackTrace: z.string().optional(),
+  cause: z.lazy(() => FailureSchema).optional(),
+  failureInfo: z.record(z.string(), z.string()).optional(),
+}
+export const FailureSchema: z.ZodType<Failure> = z.object(FailureSchemaShape)
+
+export const PendingActivityInfoSchema = z.object({
+  activityId: z.string().min(1),
+  activityType: ActivityTypeSchema,
+  state: z.string().min(1),
+  heartbeatDetails: PayloadSchema.array().optional().nullable(),
+  lastHeartbeatTime: z.string().optional(),
+  lastStartedTime: z.string().optional(),
+  attempt: z.number().optional(),
+  maximumAttempts: z.number().optional(),
+  scheduledTime: z.string().optional(),
+  expirationTime: z.string().optional(),
+  lastFailure: FailureSchema.optional(),
+  lastWorkerIdentity: z.string().optional(),
+  assignedBuildId: z.string().optional(),
+})
+export type PendingActivityInfo = z.infer<typeof PendingActivityInfoSchema>
+
+export const PendingChildrenSchema = z.object({
+  workflowId: z.string().min(1),
+  runId: z.string().optional(),
+  workflowTypeName: z.string().min(1),
+  initiatedId: z.string().min(1),
+  parentClosePolicy: z.string().optional(),
+})
+export type PendingChildren = z.infer<typeof PendingChildrenSchema>
+
+export const PendingNexusOperationSchema = z.object({
+  endpoint: z.string().min(1),
+  service: z.string().min(1),
+  operation: z.string().min(1),
+  operationId: z.string().min(1),
+  scheduledEventId: z.string().min(1),
+  state: z.string().min(1),
+  attempt: z.number().optional(),
+  nextAttemptScheduleTime: z.string().optional(),
+  lastAttemptCompleteTime: z.string().optional(),
+  lastAttemptFailure: FailureSchema.optional(),
+})
+export type PendingNexusOperation = z.infer<typeof PendingNexusOperationSchema>
+
+export const TaskQueueSchema = z.object({
+  name: z.string().min(1),
+  kind: z.string().optional(),
+  normalName: z.string().optional(),
+})
+export type TaskQueue = z.infer<typeof TaskQueueSchema>
+
+export const DurationSchema = z.object({
+  seconds: z.number().optional(),
+  nanos: z.number().optional(),
+})
+export type Duration = z.infer<typeof DurationSchema>
+
+export const UserMetadataSchema = z.object({
+  summary: PayloadSchema.optional(),
+  details: PayloadSchema.optional(),
+})
+export type UserMetadata = z.infer<typeof UserMetadataSchema>
+
+export const WorkflowExecutionConfigWithMetadataSchema = z.object({
+  taskQueue: TaskQueueSchema.optional(),
+  workflowExecutionTimeout: DurationSchema.optional(),
+  workflowRunTimeout: DurationSchema.optional(),
+  defaultWorkflowTaskTimeout: DurationSchema.optional(),
+  userMetadata: UserMetadataSchema.optional(),
+})
+export type WorkflowExecutionConfigWithMetadata = z.infer<typeof WorkflowExecutionConfigWithMetadataSchema>
+
+export const CallbackInfoSchema = z.object({
+  callback: PayloadSchema.optional(),
+  registrationTime: z.string().optional(),
+})
+export type CallbackInfo = z.infer<typeof CallbackInfoSchema>
+
+export const CallbackSchema = z.object({
+  trigger: CallbackInfoSchema.optional(),
+  publicInfo: CallbackInfoSchema.optional(),
+  state: z.string().optional(),
+  attempt: z.number().optional(),
+  lastAttemptCompleteTime: z.string().optional(),
+  lastAttemptFailure: FailureSchema.optional(),
+  nextAttemptScheduleTime: z.string().optional(),
+})
+export type Callback = z.infer<typeof CallbackSchema>
+
+export const CallbacksSchema = z.object({
+  callbacks: CallbackSchema.array().optional(),
+})
+export type Callbacks = z.infer<typeof CallbacksSchema>
+
+export const PendingWorkflowTaskInfoSchema = z.object({
+  state: z.string().optional(),
+  scheduledTime: z.string().optional(),
+  originalScheduledTime: z.string().optional(),
+  startedTime: z.string().optional(),
+  attempt: z.number().optional(),
+  lastFailure: FailureSchema.optional(),
+})
+export type PendingWorkflowTaskInfo = z.infer<typeof PendingWorkflowTaskInfoSchema>
+
+export const GetMyCheckRunResponseSchema = z.object({
+  workflowExecutionInfo: WorkflowExecutionInfoSchema.optional(),
+  pendingActivities: PendingActivityInfoSchema.array().optional(),
+  pendingChildren: PendingChildrenSchema.array().optional(),
+  pendingNexusOperations: PendingNexusOperationSchema.array().optional(),
+  executionConfig: WorkflowExecutionConfigWithMetadataSchema.optional(),
+  callbacks: CallbacksSchema.optional(),
+  pendingWorkflowTask: PendingWorkflowTaskInfoSchema.optional(),
+})
+export type GetMyCheckRunResponse = z.infer<typeof GetMyCheckRunResponseSchema>
+
+export const GetMyCheckRunHistoryResponseSchema = z.object({
+  history: z.record(z.string(), z.any()).array(),
+  count: z.number().refine((val) => val !== 0),
+  time: z.string().min(1),
+  checkId: z.string().min(1),
+  runId: z.string().min(1),
+  namespace: z.string().min(1),
+})
+export type GetMyCheckRunHistoryResponse = z.infer<typeof GetMyCheckRunHistoryResponseSchema>
+
+export const ReRunCheckRequestSchema = z.object({
+  config: z.record(z.string(), z.any()).nullable(),
+})
+export type ReRunCheckRequest = z.infer<typeof ReRunCheckRequestSchema>
+
+export const TerminateMyCheckRunResponseSchema = z.object({
   message: z.string().min(1),
   checkId: z.string().min(1),
   runId: z.string().min(1),
@@ -19,7 +219,12 @@ export const CancelMyCheckRunResponseSchema = z.object({
   time: z.string().min(1),
   namespace: z.string().min(1),
 })
-export type CancelMyCheckRunResponse = z.infer<typeof CancelMyCheckRunResponseSchema>
+export type TerminateMyCheckRunResponse = z.infer<typeof TerminateMyCheckRunResponseSchema>
+
+export const GenerateApiKeyRequestSchema = z.object({
+  name: z.string().min(1),
+})
+export type GenerateApiKeyRequest = z.infer<typeof GenerateApiKeyRequestSchema>
 
 export const GenerateApiKeyResponseSchema = z.object({
   api_key: z.string(),
@@ -44,126 +249,11 @@ export const MostRecentWorkflowVersionStampSchema = z.object({
 })
 export type MostRecentWorkflowVersionStamp = z.infer<typeof MostRecentWorkflowVersionStampSchema>
 
-export const PayloadSchema = z.object({
-  metadata: z.record(z.string(), z.string()).optional(),
-  data: z.string().optional(),
-})
-export type Payload = z.infer<typeof PayloadSchema>
-
-export const MemoSchema = z.object({
-  fields: z.record(z.string(), PayloadSchema).optional(),
-})
-export type Memo = z.infer<typeof MemoSchema>
-
 export const WorkflowIdentifierSchema = z.object({
   workflowId: z.string().min(1),
   runId: z.string().optional(),
 })
 export type WorkflowIdentifier = z.infer<typeof WorkflowIdentifierSchema>
-
-export const PendingChildrenSchema = z.object({
-  workflowId: z.string().min(1),
-  runId: z.string().optional(),
-  workflowTypeName: z.string().min(1),
-  initiatedId: z.string().min(1),
-  parentClosePolicy: z.string().optional(),
-})
-export type PendingChildren = z.infer<typeof PendingChildrenSchema>
-
-export type Failure = {
-  message?: string | undefined,
-  source?: string | undefined,
-  stackTrace?: string | undefined,
-  cause?: Failure | undefined,
-  failureInfo?: Record<string, string> | undefined,
-}
-const FailureSchemaShape = {
-  message: z.string().optional(),
-  source: z.string().optional(),
-  stackTrace: z.string().optional(),
-  cause: z.lazy(() => FailureSchema).optional(),
-  failureInfo: z.record(z.string(), z.string()).optional(),
-}
-export const FailureSchema: z.ZodType<Failure> = z.object(FailureSchemaShape)
-
-export const PendingNexusOperationSchema = z.object({
-  endpoint: z.string().min(1),
-  service: z.string().min(1),
-  operation: z.string().min(1),
-  operationId: z.string().min(1),
-  scheduledEventId: z.string().min(1),
-  state: z.string().min(1),
-  attempt: z.number().optional(),
-  nextAttemptScheduleTime: z.string().optional(),
-  lastAttemptCompleteTime: z.string().optional(),
-  lastAttemptFailure: FailureSchema.optional(),
-})
-export type PendingNexusOperation = z.infer<typeof PendingNexusOperationSchema>
-
-export const ActivityTypeSchema = z.object({
-  name: z.string().min(1),
-})
-export type ActivityType = z.infer<typeof ActivityTypeSchema>
-
-export const PendingActivityInfoSchema = z.object({
-  activityId: z.string().min(1),
-  activityType: ActivityTypeSchema,
-  state: z.string().min(1),
-  heartbeatDetails: PayloadSchema.array().optional().nullable(),
-  lastHeartbeatTime: z.string().optional(),
-  lastStartedTime: z.string().optional(),
-  attempt: z.number().optional(),
-  maximumAttempts: z.number().optional(),
-  scheduledTime: z.string().optional(),
-  expirationTime: z.string().optional(),
-  lastFailure: FailureSchema.optional(),
-  lastWorkerIdentity: z.string().optional(),
-  assignedBuildId: z.string().optional(),
-})
-export type PendingActivityInfo = z.infer<typeof PendingActivityInfoSchema>
-
-export const PendingWorkflowTaskInfoSchema = z.object({
-  state: z.string().optional(),
-  scheduledTime: z.string().optional(),
-  originalScheduledTime: z.string().optional(),
-  startedTime: z.string().optional(),
-  attempt: z.number().optional(),
-  lastFailure: FailureSchema.optional(),
-})
-export type PendingWorkflowTaskInfo = z.infer<typeof PendingWorkflowTaskInfoSchema>
-
-export const DurationSchema = z.object({
-  seconds: z.number().optional(),
-  nanos: z.number().optional(),
-})
-export type Duration = z.infer<typeof DurationSchema>
-
-export const CallbackInfoSchema = z.object({
-  callback: PayloadSchema.optional(),
-  registrationTime: z.string().optional(),
-})
-export type CallbackInfo = z.infer<typeof CallbackInfoSchema>
-
-export const CallbackSchema = z.object({
-  trigger: CallbackInfoSchema.optional(),
-  publicInfo: CallbackInfoSchema.optional(),
-  state: z.string().optional(),
-  attempt: z.number().optional(),
-  lastAttemptCompleteTime: z.string().optional(),
-  lastAttemptFailure: FailureSchema.optional(),
-  nextAttemptScheduleTime: z.string().optional(),
-})
-export type Callback = z.infer<typeof CallbackSchema>
-
-export const CallbacksSchema = z.object({
-  callbacks: CallbackSchema.array().optional(),
-})
-export type Callbacks = z.infer<typeof CallbacksSchema>
-
-export const VersioningInfoSchema = z.object({
-  useVersioning: z.boolean().optional(),
-})
-export type VersioningInfo = z.infer<typeof VersioningInfoSchema>
 
 export const WorkflowExecutionSchema = z.object({
   name: z.string(),
@@ -215,6 +305,16 @@ export const ReRunCheckResponseSchema = z.object({
 })
 export type ReRunCheckResponse = z.infer<typeof ReRunCheckResponseSchema>
 
+export const CancelMyCheckRunResponseSchema = z.object({
+  message: z.string().min(1),
+  checkId: z.string().min(1),
+  runId: z.string().min(1),
+  status: z.string().min(1),
+  time: z.string().min(1),
+  namespace: z.string().min(1),
+})
+export type CancelMyCheckRunResponse = z.infer<typeof CancelMyCheckRunResponseSchema>
+
 export const ExportDataSchema = z.object({
   checkId: z.string().min(1),
   runId: z.string().min(1),
@@ -227,106 +327,6 @@ export const ExportMyCheckRunResponseSchema = z.object({
   export: ExportDataSchema,
 })
 export type ExportMyCheckRunResponse = z.infer<typeof ExportMyCheckRunResponseSchema>
-
-export const ChecksLogsResponseSchema = z.object({
-  channel: z.string().min(1),
-  workflow_id: z.string().min(1),
-  run_id: z.string().min(1),
-  message: z.string().min(1),
-  status: z.string().min(1),
-  time: z.string().min(1),
-  namespace: z.string().min(1),
-})
-export type ChecksLogsResponse = z.infer<typeof ChecksLogsResponseSchema>
-
-export const TerminateMyCheckRunResponseSchema = z.object({
-  message: z.string().min(1),
-  checkId: z.string().min(1),
-  runId: z.string().min(1),
-  status: z.string().min(1),
-  time: z.string().min(1),
-  namespace: z.string().min(1),
-})
-export type TerminateMyCheckRunResponse = z.infer<typeof TerminateMyCheckRunResponseSchema>
-
-export const GenerateApiKeyRequestSchema = z.object({
-  name: z.string().min(1),
-})
-export type GenerateApiKeyRequest = z.infer<typeof GenerateApiKeyRequestSchema>
-
-export const APIErrorSchema = z.object({
-  Code: z.number(),
-  Domain: z.string(),
-  Reason: z.string(),
-  Message: z.string(),
-})
-export type APIError = z.infer<typeof APIErrorSchema>
-
-export const WorkflowExecutionInfoSchema = z.object({
-  name: z.string(),
-  id: z.string(),
-  runId: z.string(),
-  status: z.string(),
-  stateTransitionCount: z.string(),
-  startTime: z.string(),
-  closeTime: z.string(),
-  executionTime: z.string(),
-  historySizeBytes: z.string(),
-  historyLength: z.string(),
-  assignedBuildId: z.string(),
-  searchAttributes: z.record(z.string(), z.any()).optional().nullable(),
-  memo: MemoSchema.optional(),
-  versioningInfo: VersioningInfoSchema.optional(),
-})
-export type WorkflowExecutionInfo = z.infer<typeof WorkflowExecutionInfoSchema>
-
-export const TaskQueueSchema = z.object({
-  name: z.string().min(1),
-  kind: z.string().optional(),
-  normalName: z.string().optional(),
-})
-export type TaskQueue = z.infer<typeof TaskQueueSchema>
-
-export const UserMetadataSchema = z.object({
-  summary: PayloadSchema.optional(),
-  details: PayloadSchema.optional(),
-})
-export type UserMetadata = z.infer<typeof UserMetadataSchema>
-
-export const WorkflowExecutionConfigWithMetadataSchema = z.object({
-  taskQueue: TaskQueueSchema.optional(),
-  workflowExecutionTimeout: DurationSchema.optional(),
-  workflowRunTimeout: DurationSchema.optional(),
-  defaultWorkflowTaskTimeout: DurationSchema.optional(),
-  userMetadata: UserMetadataSchema.optional(),
-})
-export type WorkflowExecutionConfigWithMetadata = z.infer<typeof WorkflowExecutionConfigWithMetadataSchema>
-
-export const GetMyCheckRunResponseSchema = z.object({
-  workflowExecutionInfo: WorkflowExecutionInfoSchema.optional(),
-  pendingActivities: PendingActivityInfoSchema.array().optional(),
-  pendingChildren: PendingChildrenSchema.array().optional(),
-  pendingNexusOperations: PendingNexusOperationSchema.array().optional(),
-  executionConfig: WorkflowExecutionConfigWithMetadataSchema.optional(),
-  callbacks: CallbacksSchema.optional(),
-  pendingWorkflowTask: PendingWorkflowTaskInfoSchema.optional(),
-})
-export type GetMyCheckRunResponse = z.infer<typeof GetMyCheckRunResponseSchema>
-
-export const GetMyCheckRunHistoryResponseSchema = z.object({
-  history: z.record(z.string(), z.any()).array(),
-  count: z.number().refine((val) => val !== 0),
-  time: z.string().min(1),
-  checkId: z.string().min(1),
-  runId: z.string().min(1),
-  namespace: z.string().min(1),
-})
-export type GetMyCheckRunHistoryResponse = z.infer<typeof GetMyCheckRunHistoryResponseSchema>
-
-export const ReRunCheckRequestSchema = z.object({
-  config: z.record(z.string(), z.any()).nullable(),
-})
-export type ReRunCheckRequest = z.infer<typeof ReRunCheckRequestSchema>
 
 
 

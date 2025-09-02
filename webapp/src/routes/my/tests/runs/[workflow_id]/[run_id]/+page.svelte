@@ -5,34 +5,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import BackButton from '$lib/layout/back-button.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
-	import { onMount } from 'svelte';
-	import OpenidnetTop from './_partials/openidnet-top.svelte';
-	import EwcTop from './_partials/ewc-top.svelte';
-	import EudiwTop from './_partials/eudiw-top.svelte';
+	import { TemporalI18nProvider } from '$lib/temporal';
 	import { WorkflowQrPoller } from '$lib/workflows';
+	import { onMount } from 'svelte';
+
+	import Spinner from '@/components/ui-custom/spinner.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { Separator } from '@/components/ui/separator';
+	import { m } from '@/i18n';
+	import { toUserTimezone } from '@/utils/toUserTimezone';
+
+	import EudiwTop from './_partials/eudiw-top.svelte';
+	import EwcTop from './_partials/ewc-top.svelte';
+	import OpenidnetTop from './_partials/openidnet-top.svelte';
 	import {
 		setupEmitter,
 		setupListener,
-		type PageMessage,
-		type IframeMessage
+		type IframeMessage,
+		type PageMessage
 	} from './_partials/page-events';
-	import { toUserTimezone } from '@/utils/toUserTimezone';
 	import { _getWorkflow } from './+layout';
-	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
-	import { TemporalI18nProvider } from '$lib/temporal';
-	import { Separator } from '@/components/ui/separator';
-	import Spinner from '@/components/ui-custom/spinner.svelte';
 
 	//
 
 	let { data } = $props();
 	let { organization, workflow } = $derived(data);
-	let { execution, memo } = $derived(workflow);
+	let { memo, execution } = $derived(workflow);
 	let { id: workflowId, runId } = $derived(execution);
 
 	/* Iframe communication */
@@ -59,15 +61,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	setupListener<IframeMessage>((ev) => {
 		if (ev.type === 'height') {
 			const iframe = getIframe();
-			if (iframe) {
-				const heightDifference = ev.height - (parseInt(iframe.height) || 0);
-				if (heightDifference !== constantHeightDifference) {
-					iframe.height = ev.height + 'px';
-					constantHeightDifference = heightDifference;
-				}
+			if (!iframe) return;
+			const heightDifference = ev.height - (parseInt(iframe.height) || 0);
+			if (heightDifference !== constantHeightDifference) {
+				iframe.height = ev.height + 'px';
+				constantHeightDifference = heightDifference;
 			}
-		}
-		if (ev.type === 'ready') {
+		} else if (ev.type === 'ready') {
 			isIframeLoading = false;
 		}
 	});
@@ -196,13 +196,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if memo}
 	{#if memo.author == 'ewc'}
-		<EwcTop {workflowId} namespace={organization?.id!} />
+		<EwcTop {workflowId} namespace={organization.id} />
 	{:else}
 		<div class="bg-temporal padding-x space-y-8 pt-4">
 			{#if memo.author == 'openid_conformance_suite'}
-				<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
+				<OpenidnetTop {workflowId} {runId} namespace={organization.id} />
 			{:else if memo.author == 'eudiw'}
-				<EudiwTop {workflowId} namespace={organization?.id!} />
+				<EudiwTop {workflowId} namespace={organization.id} />
 			{/if}
 
 			<Separator />
