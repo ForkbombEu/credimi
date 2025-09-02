@@ -682,5 +682,6 @@
 	"Failed_to_fetch_wallet_metadata": "Failed to fetch wallet metadata",
 	"Invalid_image_URL_error": "Invalid image URL. Please check the URL and try again.",
 	"Logo_preview": "Logo preview",
-	"Fetching_fallback": "Fetching..."
+	"Fetching_fallback": "Fetching...",
+	"Imported": "Imported"
 }

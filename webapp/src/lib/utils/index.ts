@@ -20,6 +20,10 @@ import { getExceptionMessage } from '@/utils/errors';
 
 //
 
+export { loading, runWithLoading } from '$lib/layout/global-loading.svelte';
+
+//
+
 export async function checkAuthFlagAndUser(options: {
 	fetch?: typeof fetch;
 	onAuthError?: () => void;

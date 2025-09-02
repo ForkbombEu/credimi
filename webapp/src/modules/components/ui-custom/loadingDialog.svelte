@@ -11,6 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Spinner from './spinner.svelte';
 
+	//
+
 	interface Props {
 		loading?: boolean;
 		contentClass?: string;
@@ -36,9 +38,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<Spinner />
 
-		<AlertDialog.Description>
-			{@render children?.()}
-		</AlertDialog.Description>
+		{#if children}
+			<AlertDialog.Description>
+				{@render children()}
+			</AlertDialog.Description>
+		{/if}
 
 		{@render bottom?.()}
 	</AlertDialog.Content>

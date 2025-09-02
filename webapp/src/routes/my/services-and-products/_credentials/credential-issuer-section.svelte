@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { runWithLoading } from '$lib/utils';
 	import { String } from 'effect';
-	import { Eye, EyeOff, Plus } from 'lucide-svelte';
+	import { Eye, EyeOff, Plus, RefreshCwIcon } from 'lucide-svelte';
 
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 
@@ -17,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge';
 	import { buttonVariants } from '@/components/ui/button';
 	import { Card } from '@/components/ui/card';
 	import * as Dialog from '@/components/ui/dialog';
@@ -27,6 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import CredentialIssuerForm from './credential-issuer-form.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';
+	import { fetchCredentialIssuer } from './utils';
 
 	//
 
@@ -55,6 +58,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				onSuccess();
 			});
 	}
+
+	async function refreshCredentialIssuer(url: string) {
+		runWithLoading({
+			fn: () => fetchCredentialIssuer(url),
+			loadingText: 'Updating credential issuer...',
+			errorText: 'Failed to refresh credential issuer'
+		});
+	}
 </script>
 
 <CollectionManager
@@ -64,7 +75,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		filter: `owner.id = '${organizationId}'`,
 		sort: ['created', 'DESC']
 	}}
-	editFormFieldsOptions={{ exclude: ['owner', 'url', 'published'] }}
+	editFormFieldsOptions={{ exclude: ['owner', 'url', 'published', 'imported'] }}
 	subscribe="expanded_collections"
 >
 	{#snippet top({ Header })}
@@ -147,6 +158,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</A>
 							{/if}
 						</T>
+						{#if record.imported}
+							<Badge variant="secondary">{m.Imported()}</Badge>
+						{/if}
 					</div>
 
 					<div class="text-xs">
@@ -191,6 +205,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								onEditSuccess
 							)}
 					/>
+
+					<Button
+						variant="outline"
+						size="icon"
+						disabled={!record.imported}
+						onclick={() => refreshCredentialIssuer(record.url)}
+					>
+						<RefreshCwIcon />
+					</Button>
 
 					<RecordEdit {record} onSuccess={onEditSuccess}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
@@ -240,6 +263,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</div>
 
 							<div class="flex items-center gap-2">
+								{#if credential.imported}
+									<Badge variant="secondary">{m.Imported()}</Badge>
+								{/if}
 								<SwitchWithIcons
 									offIcon={EyeOff}
 									onIcon={Eye}
