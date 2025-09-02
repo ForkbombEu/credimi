@@ -7,15 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import { m } from '@/i18n/index.js';
+	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
 	import MarketplaceItemCard from '$marketplace/_utils/marketplace-item-card.svelte';
+	import { options } from '$routes/my/services-and-products/_verifiers/use-case-verification-form-options.svelte';
+
+	import CollectionForm from '@/collections-components/form/collectionForm.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n/index.js';
 	import { QrCode } from '@/qr';
-	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
+
 	import EditSheet from '../../_utils/edit-sheet.svelte';
-	import CollectionForm from '@/collections-components/form/collectionForm.svelte';
-	import { options } from '$routes/my/services-and-products/_verifiers/use-case-verification-form-options.svelte';
 
 	//
 

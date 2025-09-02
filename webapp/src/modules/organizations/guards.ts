@@ -3,8 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { error } from '@sveltejs/kit';
-import { verifyUserMembership, verifyUserRole } from './verify-authorizations';
+
 import type { OrgRole } from '.';
+
+import { verifyUserMembership, verifyUserRole } from './verify-authorizations';
 
 export async function blockNonMembers(organizationId: string, fetchFn = fetch) {
 	const { isMember } = await verifyUserMembership(organizationId, fetchFn);

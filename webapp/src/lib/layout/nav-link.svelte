@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { LinkWithIcon } from '@/components/types';
+
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconComponent from '@/components/ui-custom/icon.svelte';
-	import type { LinkWithIcon } from '@/components/types';
 	import { Badge } from '@/components/ui/badge';
 
 	interface Props {
@@ -25,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if icon}
 			<IconComponent src={icon} />
 		{/if}
-		{link.title}
+		{title}
 		{@render badgeSnippet()}
 	</Button>
 {:else}
@@ -33,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if icon}
 			<IconComponent src={icon} />
 		{/if}
-		{link.title}
+		{title}
 		{@render badgeSnippet()}
 	</Button>
 {/if}

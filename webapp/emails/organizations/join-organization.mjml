@@ -5,39 +5,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <mjml>
-  <mj-head>
-    <mj-title>Your invitation to join {{.OrganizationName}}</mj-title>
-    <mj-include path="../_components/attributes.mjml" />
-  </mj-head>
+	<mj-head>
+		<mj-title>Your invitation to join {{.OrganizationName}}</mj-title>
+		<mj-include path="../_components/attributes.mjml" />
+	</mj-head>
 
-  <mj-body>
-    <mj-include path="../_components/header.mjml" />
+	<mj-body>
+		<mj-include path="../_components/header.mjml" />
 
-    <mj-section>
-      <mj-column>
-        <mj-text mj-class="big">
-          Join {{.OrganizationName}} on DIDroom!
-        </mj-text>
+		<mj-section>
+			<mj-column>
+				<mj-text mj-class="big"> Join {{.OrganizationName}} on DIDroom! </mj-text>
 
-        <mj-text>
-          Hello {{.UserName}},
-        </mj-text>
+				<mj-text> Hello {{.UserName}}, </mj-text>
 
-        <mj-text>
-          You have been invited by <strong>{{.Editor}}</strong> to join the organization <strong>{{.OrganizationName}}</strong> on DIDroom.
-        </mj-text>
+				<mj-text>
+					You have been invited by <strong>{{.Editor}}</strong> to join the organization
+					<strong>{{.OrganizationName}}</strong> on DIDroom.
+				</mj-text>
 
-        <mj-text>
-          To get started, simply login to your Dashboard and accept the invitation:
-        </mj-text>
+				<mj-text>
+					To get started, simply login to your Dashboard and accept the invitation:
+				</mj-text>
 
-        <mj-button href="{{.DashboardLink}}" mj-class="btn-primary">
-          See your Invitation
-        </mj-button>
+				<mj-button href="{{.DashboardLink}}" mj-class="btn-primary">
+					See your Invitation
+				</mj-button>
+			</mj-column>
+		</mj-section>
 
-      </mj-column>
-    </mj-section>
-
-    <mj-include path="../_components/footer.mjml" />
-  </mj-body>
+		<mj-include path="../_components/footer.mjml" />
+	</mj-body>
 </mjml>

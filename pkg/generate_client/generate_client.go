@@ -347,7 +347,7 @@ func generateTSClient(routes []RouteInfo, typesToProcess map[string]interface{})
 		log.Fatalf("FATAL: Failed to execute template: %v", err)
 	}
 
-	outputPath := "../webapp/src/lib/credimiClient.ts"
+	outputPath := "../webapp/src/lib/credimiClient.generated.ts"
 	if err := os.WriteFile(outputPath, buf.Bytes(), 0644); err != nil {
 		log.Fatalf("FATAL: Failed to write output file '%s': %v", outputPath, err)
 	}

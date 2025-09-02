@@ -3,10 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import fg from 'fast-glob';
+import fm from 'front-matter';
 import fs from 'node:fs';
 import path from 'node:path';
-import fm from 'front-matter';
+
 import { GENERATED, logCodegenResult } from '@/utils/codegen';
+
 import { pageFrontMatterSchema } from './types';
 
 const STRIP_PATH_MARKER = 'pages/';

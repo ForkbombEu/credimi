@@ -5,15 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { AppLogo } from '@/brand';
-	import T from '@/components/ui-custom/t.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { m } from '@/i18n';
-	import { appVersion } from '@/utils/appVersion';
-	import LanguageSelect from '@/i18n/languageSelect.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
 	import { Sparkle } from 'lucide-svelte';
+
+	import { AppLogo } from '@/brand';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
+	import { m } from '@/i18n';
+	import LanguageSelect from '@/i18n/languageSelect.svelte';
+	import { appVersion } from '@/utils/appVersion';
 
 	const footer_data = [
 		{
@@ -139,20 +140,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<span class="pl-1 text-sm text-white/40">{appVersion}</span>
 						</T>
 					</div>
-					<p class="border-b-muted border-b">{m.Test_and_find_decentralized_IDs()}</p>
+					<p class="border-b border-b-muted">{m.Test_and_find_decentralized_IDs()}</p>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row">
 					<LanguageSelect />
 					<Button
 						variant="default"
-						class="text-primary grow basis-1 bg-white hover:bg-white/90 sm:grow-0"
+						class="grow basis-1 bg-white text-primary hover:bg-white/90 sm:grow-0"
 						href="/my/tests/new"
 					>
 						<Icon src={Sparkle} />
 						{m.Start_a_new_check()}
 						<Badge
 							variant="outline"
-							class="border-primary text-primary !hover:no-underline py-1 text-xs"
+							class="!hover:no-underline border-primary py-1 text-xs text-primary"
 						>
 							{m.Beta()}
 						</Badge>
@@ -168,7 +169,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<div class="flex flex-col gap-2">
 							<T tag="small">{category.label}</T>
 							{#each category.links as item}
-								<a href={item.url} class="text-muted-foreground text-xs"
+								<a href={item.url} class="text-xs text-muted-foreground"
 									>{item.label}</a
 								>
 							{/each}

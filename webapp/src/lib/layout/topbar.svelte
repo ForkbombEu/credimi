@@ -5,18 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { LayoutDashboardIcon, Sparkle } from 'lucide-svelte';
+	import { fromStore } from 'svelte/store';
+
+	import type { LinkWithIcon } from '@/components/types';
+
+	import { AppLogo } from '@/brand';
+	import BaseTopbar from '@/components/layout/topbar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { featureFlags } from '@/features';
 	import { m } from '@/i18n';
-	import BaseTopbar from '@/components/layout/topbar.svelte';
 	import { currentUser } from '@/pocketbase';
-	import UserNav from './userNav.svelte';
-	import { LayoutDashboardIcon, Sparkle } from 'lucide-svelte';
-	import { AppLogo } from '@/brand';
-	import MobileNav from './nav-mobile.svelte';
-	import type { LinkWithIcon } from '@/components/types';
-	import { fromStore } from 'svelte/store';
+
 	import NavLink from './nav-link.svelte';
+	import MobileNav from './nav-mobile.svelte';
+	import UserNav from './userNav.svelte';
 
 	//
 
@@ -75,7 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const allItems = $derived([...leftItems, ...rightItems]);
 </script>
 
-<BaseTopbar class="bg-card border-none">
+<BaseTopbar class="border-none bg-card">
 	{#snippet left()}
 		<div class="flex min-w-0 items-center space-x-4 overflow-hidden">
 			<Button variant="link" href={href('/')} class="shrink-0">
@@ -102,13 +105,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/each}
 			</div>
 
-		{#if currentUserState.current}
-			<UserNav />
-		{:else}
-			<Button href={href('/login')}>
-				{m.Log_in()}
-			</Button>
-		{/if}
+			{#if currentUserState.current}
+				<UserNav />
+			{:else}
+				<Button href={href('/login')}>
+					{m.Log_in()}
+				</Button>
+			{/if}
 
 			<div class="lg:hidden">
 				<MobileNav items={allItems} />

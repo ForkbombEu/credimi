@@ -102,7 +102,7 @@
 		--input: 240 5.9% 90%;
 		--ring: 24.6 95% 53.1%;
 		--radius: 0.5rem;
-		
+
 		/* Named colors */
 		--blue-background: 235 100% 91%;
 		--blue-foreground: 233 68% 53%;
@@ -185,34 +185,34 @@
 	.scrollbar-hide::-webkit-scrollbar {
 		display: none; /* Chrome, Safari and Opera */
 	}
-	
+
 	/* Global scrollbar styling that follows app theme */
 	::-webkit-scrollbar {
 		width: 10px;
 		height: 10px;
 	}
-	
+
 	::-webkit-scrollbar-track {
 		background: transparent;
 	}
-	
+
 	/* Light theme scrollbar */
 	::-webkit-scrollbar-thumb {
 		background: hsl(var(--border));
 		border-radius: 6px;
 		transition: background-color 0.2s ease;
 	}
-	
+
 	::-webkit-scrollbar-thumb:hover {
 		background: hsl(var(--border) / 0.8);
 	}
-	
+
 	/* Firefox scrollbar styling */
 	html {
 		scrollbar-width: thin;
 		scrollbar-color: hsl(var(--border)) transparent;
 	}
-	
+
 	.dark html {
 		scrollbar-color: hsl(var(--border)) transparent;
 	}

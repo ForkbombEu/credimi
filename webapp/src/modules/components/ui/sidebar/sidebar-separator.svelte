@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Separator } from "@/components/ui/separator/index.js";
-	import { cn } from "@/components/ui/utils.js";
-	import type { ComponentProps } from "svelte";
+	import type { ComponentProps } from 'svelte';
+
+	import { Separator } from '@/components/ui/separator/index.js';
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -19,6 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Separator
 	bind:ref
 	data-sidebar="separator"
-	class={cn("bg-sidebar-border mx-2 w-auto", className)}
+	class={cn('mx-2 w-auto bg-sidebar-border', className)}
 	{...restProps}
 />

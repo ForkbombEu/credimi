@@ -2,10 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pb } from '@/pocketbase';
-import type { OrgRole } from '.';
-import { type OrgAuthorizationsResponse, type OrgRolesResponse } from '@/pocketbase/types';
 import { Option as O } from 'effect';
+
+import { pb } from '@/pocketbase';
+import { type OrgAuthorizationsResponse, type OrgRolesResponse } from '@/pocketbase/types';
+
+import type { OrgRole } from '.';
 
 export async function getUserRole(organizationId: string, userId: string): Promise<OrgRole> {
 	type AuthorizationWithRole = OrgAuthorizationsResponse<{ role: OrgRolesResponse }>;

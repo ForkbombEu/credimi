@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { error } from '@sveltejs/kit';
 import { fetchWorkflows, groupWorkflowsWithChildren } from '$lib/workflows/index.js';
 
-import { error } from '@sveltejs/kit';
 import { getWorkflowStatusesFromUrl } from './utils';
 
 //

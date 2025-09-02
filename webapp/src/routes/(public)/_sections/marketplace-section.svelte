@@ -15,11 +15,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import { MarketplaceItemCard } from '../marketplace/_utils';
-	import T from '@/components/ui-custom/t.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { CollectionManager } from '@/collections-components';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
+
+	import { CollectionManager } from '@/collections-components';
+	import Button from '@/components/ui-custom/button.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+
+	import { MarketplaceItemCard } from '../marketplace/_utils';
 
 	let { findLabel, allLabel, collection }: SectionData = $props();
 

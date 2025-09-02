@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Select as SelectPrimitive } from "bits-ui";
-	import { cn } from "@/components/ui/utils.js";
+	import { Select as SelectPrimitive } from 'bits-ui';
+
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -17,6 +18,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <SelectPrimitive.GroupHeading
 	bind:ref
-	class={cn("py-1.5 pl-8 pr-2 text-sm font-semibold", className)}
+	class={cn('py-1.5 pl-8 pr-2 text-sm font-semibold', className)}
 	{...restProps}
 />

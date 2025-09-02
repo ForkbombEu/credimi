@@ -5,15 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import { getCollectionManagerContext } from './collectionManagerContext';
-	import { Input } from '@/components/ui/input';
-	import { m } from '@/i18n';
-	import { Debounced, watch } from 'runed';
+	import { String } from 'effect';
+	import { X } from 'lucide-svelte';
+	import { Debounced } from 'runed';
+
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
-	import { X } from 'lucide-svelte';
-	import { String } from 'effect';
+	import { Input } from '@/components/ui/input';
+	import { m } from '@/i18n';
+
+	import { getCollectionManagerContext } from './collectionManagerContext';
 
 	//
 

@@ -2,18 +2,22 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { createCheckConfigFormInitialData, createCheckConfigFormSchema } from './utils';
-
-import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
 import type { ConfigField } from '$start-checks-form/types';
-import { createForm } from '@/forms';
-import { zod } from 'sveltekit-superforms/adapters';
-import { nanoid } from 'nanoid';
-import { fromStore } from 'svelte/store';
+import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
+
 import { Record } from 'effect';
+import { nanoid } from 'nanoid';
 import { watch } from 'runed';
+import { fromStore } from 'svelte/store';
+import { zod } from 'sveltekit-superforms/adapters';
+
 import type { State, StringRecord } from '@/utils/types';
+
+import { createForm } from '@/forms';
+
 import type { BaseEditor } from '../../_utils';
+
+import { createCheckConfigFormInitialData, createCheckConfigFormSchema } from './utils';
 
 //
 

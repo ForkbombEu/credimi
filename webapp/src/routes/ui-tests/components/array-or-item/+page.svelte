@@ -5,10 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import ArrayOrItemManager from '@/components/ui-custom/arrayOrItemManager.svelte';
-	import PlainCard from '@/components/ui-custom/plainCard.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+
+	import ArrayOrItemManager from '@/components/ui-custom/arrayOrItemManager.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import PlainCard from '@/components/ui-custom/plainCard.svelte';
 
 	let items = $state(['ciao', 'no', 'ok']);
 

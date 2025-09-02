@@ -5,23 +5,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="C extends CollectionName">
-	import { toast } from 'svelte-sonner';
-	import { getExceptionMessage } from '@/utils/errors';
-	import type { MaybePromise } from '@/utils/types';
-	import { m } from '@/i18n';
-	import { createToggleStore } from '@/components/ui-custom/utils';
-	import Dialog from '@/components/ui-custom/dialog.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import Alert from '@/components/ui-custom/alert.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import { onDestroy } from 'svelte';
-	import { getCollectionManagerContext } from '../collectionManagerContext';
 	import { Trash, X } from 'lucide-svelte';
+	import { onDestroy } from 'svelte';
+	import { toast } from 'svelte-sonner';
+
 	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type { CollectionResponses } from '@/pocketbase/types';
+	import type { MaybePromise } from '@/utils/types';
+
+	import Alert from '@/components/ui-custom/alert.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Dialog from '@/components/ui-custom/dialog.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { createToggleStore } from '@/components/ui-custom/utils';
+	import { m } from '@/i18n';
+	import { getExceptionMessage } from '@/utils/errors';
+
 	import type { TitleProp, TriggerProp } from './types';
+
+	import { getCollectionManagerContext } from '../collectionManagerContext';
 
 	//
 

@@ -2,17 +2,22 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { RecordSubscription } from 'pocketbase';
+
+import { onDestroy } from 'svelte';
+
 import type { PocketbaseQueryExpandOption } from '@/pocketbase/query';
+import type { MaybePromise } from '@/utils/types';
+
+import { pb } from '@/pocketbase';
+
+import type { CollectionResponses } from '../types';
+
 import {
 	getCollectionModel,
 	getCollectionNameFromId,
 	type CollectionName
 } from '../collections-models';
-import { onDestroy } from 'svelte';
-import type { MaybePromise } from '@/utils/types';
-import type { RecordSubscription } from 'pocketbase';
-import { pb } from '@/pocketbase';
-import type { CollectionResponses } from '../types';
 
 //
 

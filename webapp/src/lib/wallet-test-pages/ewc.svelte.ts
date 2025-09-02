@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { Getter } from '@/utils/types';
+
 import { pb } from '@/pocketbase';
 import { warn } from '@/utils/other';
-import type { Getter } from '@/utils/types';
 
 //
 

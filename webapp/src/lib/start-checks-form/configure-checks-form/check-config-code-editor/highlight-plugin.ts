@@ -2,6 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { NamedConfigField } from '$start-checks-form/types';
+
+import { type Extension, StateEffect, StateEffectType } from '@codemirror/state';
 import {
 	Decoration,
 	EditorView,
@@ -11,10 +14,8 @@ import {
 	WidgetType,
 	type DecorationSet
 } from '@codemirror/view';
-import { type Extension, StateEffect, StateEffectType } from '@codemirror/state';
-import _ from 'lodash';
-import type { NamedConfigField } from '$start-checks-form/types';
 import { formatJson } from '$start-checks-form/_utils';
+import _ from 'lodash';
 
 //
 

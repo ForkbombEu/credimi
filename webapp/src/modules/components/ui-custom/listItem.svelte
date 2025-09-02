@@ -5,11 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
+	import { X } from 'lucide-svelte';
+
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
-	import { X } from 'lucide-svelte';
+
 	import T from './t.svelte';
-	import type { Snippet } from 'svelte';
 
 	interface Props {
 		label?: string | undefined;

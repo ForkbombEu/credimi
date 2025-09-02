@@ -5,9 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as FormPrimitive from "formsnap";
-	import type { WithoutChild } from "bits-ui";
-	import { cn } from "@/components/ui/utils.js";
+	import type { WithoutChild } from 'bits-ui';
+
+	import * as FormPrimitive from 'formsnap';
+
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -18,6 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <FormPrimitive.Legend
 	bind:ref
-	class={cn("data-[fs-error]:text-destructive text-sm font-medium leading-none", className)}
+	class={cn('text-sm font-medium leading-none data-[fs-error]:text-destructive', className)}
 	{...restProps}
 />

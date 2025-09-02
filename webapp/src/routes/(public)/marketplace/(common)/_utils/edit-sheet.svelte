@@ -11,8 +11,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import type { Snippet } from 'svelte';
+
+	import Sheet from '@/components/ui-custom/sheet.svelte';
 
 	type Props = {
 		children: Snippet<[{ closeSheet: () => void }]>;

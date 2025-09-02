@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script module lang="ts">
-	import type { GenericRecord } from '@/utils/types';
 	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type { PocketbaseQueryExpandOption, PocketbaseQueryResponse } from '@/pocketbase/query';
+	import type { GenericRecord } from '@/utils/types';
 
 	export type CollectionFieldModeProp = { mode?: 'search' | 'select' };
 
@@ -25,23 +25,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	lang="ts"
 	generics="Data extends GenericRecord, C extends CollectionName, E extends PocketbaseQueryExpandOption<C> = never"
 >
-	import { m } from '@/i18n';
-	import { ensureArray, maybeArrayIsValue } from '@/utils/other';
-	import ListItem from '@/components/ui-custom/listItem.svelte';
-	import { pb } from '@/pocketbase';
-	import ArrayOrItemManager from '@/components/ui-custom/arrayOrItemManager.svelte';
 	import type { Writable } from 'svelte/store';
-	import { CollectionSelect } from '.';
-	import { createDefaultRecordPresenter, createRecordDisplay } from './utils';
-	import * as Form from '@/components/ui/form';
 	import type { FormPath, SuperForm } from 'sveltekit-superforms';
+
 	import { fieldProxy } from 'sveltekit-superforms/client';
+
 	import type { FieldOptions } from '@/forms/fields/types';
-	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
-	import CollectionSearch from './collectionSearch.svelte';
+
+	import ArrayOrItemManager from '@/components/ui-custom/arrayOrItemManager.svelte';
 	import List from '@/components/ui-custom/list.svelte';
+	import ListItem from '@/components/ui-custom/listItem.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import * as Form from '@/components/ui/form';
+	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
+	import { ensureArray, maybeArrayIsValue } from '@/utils/other';
+
 	import type { CollectionInputProps } from './types';
+
+	import { CollectionSelect } from '.';
+	import CollectionSearch from './collectionSearch.svelte';
+	import { createDefaultRecordPresenter, createRecordDisplay } from './utils';
 
 	//
 

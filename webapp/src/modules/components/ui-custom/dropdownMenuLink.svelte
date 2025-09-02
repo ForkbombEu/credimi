@@ -5,12 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 	import type { DropdownMenuItemProps } from 'bits-ui';
-	import Icon from './icon.svelte';
-	import type { IconComponent, LinkWithIcon } from '../types';
 	import type { Snippet } from 'svelte';
+
+	import { DropdownMenuItem } from '@/components/ui/dropdown-menu';
 	import { localizeHref } from '@/i18n';
+
+	import type { IconComponent, LinkWithIcon } from '../types';
+
+	import Icon from './icon.svelte';
 
 	//
 

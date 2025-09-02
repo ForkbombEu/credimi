@@ -19,7 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<mj-text> Hello {{.Admin}}, </mj-text>
 
-				<mj-text> There are {{.PendingNumber}} membership requests in your organization. </mj-text>
+				<mj-text>
+					There are {{.PendingNumber}} membership requests in your organization.
+				</mj-text>
 
 				<mj-text> Login to your Dashboard to accept or decline the requests: </mj-text>
 

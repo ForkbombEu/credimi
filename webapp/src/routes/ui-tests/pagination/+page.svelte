@@ -5,14 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { run } from 'svelte/legacy';
+	import type { Page } from '@sveltejs/kit';
 
-	import { invalidateAll } from '$app/navigation';
 	import { page } from '$app/stores';
-	import { goto } from '@/i18n';
 
 	import * as Pagination from '@/components/ui/pagination';
-	import type { Page } from '@sveltejs/kit';
+	import { goto } from '@/i18n';
 
 	function handlePageChange(number: number, page: Page) {
 		const url = page.url;

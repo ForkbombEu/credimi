@@ -3,10 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import dayjs from 'dayjs';
-import utc from 'dayjs/plugin/utc';
 import timezone from 'dayjs/plugin/timezone';
-import { currentUser } from '@/pocketbase';
+import utc from 'dayjs/plugin/utc';
 import { get } from 'svelte/store';
+
+import { currentUser } from '@/pocketbase';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);

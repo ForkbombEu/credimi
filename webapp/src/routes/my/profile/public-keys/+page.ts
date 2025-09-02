@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { error } from '@sveltejs/kit';
+
 import { loadFeatureFlags } from '@/features';
 import { getUserPublicKeys, type PublicKeys } from '@/keypairoom/utils';
-import { error } from '@sveltejs/kit';
 
 export const load = async ({ fetch }) => {
 	const { KEYPAIROOM } = await loadFeatureFlags(fetch);

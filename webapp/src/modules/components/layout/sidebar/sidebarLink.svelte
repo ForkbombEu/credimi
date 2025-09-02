@@ -5,14 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+	import type { HTMLAnchorAttributes } from 'svelte/elements';
+
+	import { page } from '$app/state';
+
+	import type { LinkWithIcon } from '@/components/types';
+
 	import * as Sidebar from '@/components/ui/sidebar';
 	import { cn } from '@/components/ui/utils';
 	import { localizeHref } from '@/i18n';
-	import type { HTMLAnchorAttributes } from 'svelte/elements';
+
 	import SidebarItemIcon from './sidebarItemIcon.svelte';
-	import { page } from '$app/state';
-	import type { LinkWithIcon } from '@/components/types';
-	import type { Snippet } from 'svelte';
 
 	type Props = HTMLAnchorAttributes &
 		LinkWithIcon & {

@@ -5,19 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as Sidebar from '@/components/ui/sidebar/index.js';
-	import * as Popover from '@/components/ui/popover';
 	import { version } from '$app/environment';
-	import { getUserDidUrl } from '@/did';
-	import { featureFlags } from '@/features';
-	import { m } from '@/i18n';
-	import LanguageSelect from '@/i18n/languageSelect.svelte';
-	import { AppLogo } from '@/brand';
-	import { createOrganizationLinks, type OrgRole } from '@/organizations';
-	import { appName } from '@/brand';
-	import { getUserDisplayName } from '@/pocketbase/utils';
-	import { currentUser, pb } from '@/pocketbase';
-	import T from '@/components/ui-custom/t.svelte';
+	import { page } from '$app/state';
 	import {
 		Flame,
 		Home,
@@ -30,15 +19,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		User,
 		SquareArrowOutUpRight
 	} from 'lucide-svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
-	import { PocketbaseQueryAgent } from '@/pocketbase/query';
-	import SidebarLink from '@/components/layout/sidebar/sidebarLink.svelte';
+
+	import { AppLogo } from '@/brand';
+	import { appName } from '@/brand';
 	import SidebarGroup from '@/components/layout/sidebar/sidebarGroup.svelte';
 	import SidebarItemIcon from '@/components/layout/sidebar/sidebarItemIcon.svelte';
-	import { OrganizationAvatar } from '@/organizations/components';
-	import { page } from '$app/state';
+	import SidebarLink from '@/components/layout/sidebar/sidebarLink.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
+	import * as Popover from '@/components/ui/popover';
+	import * as Sidebar from '@/components/ui/sidebar/index.js';
+	import { getUserDidUrl } from '@/did';
+	import { featureFlags } from '@/features';
+	import { m } from '@/i18n';
+	import LanguageSelect from '@/i18n/languageSelect.svelte';
+	import { createOrganizationLinks, type OrgRole } from '@/organizations';
+	import { OrganizationAvatar } from '@/organizations/components';
+	import { currentUser, pb } from '@/pocketbase';
+	import { PocketbaseQueryAgent } from '@/pocketbase/query';
+	import { getUserDisplayName } from '@/pocketbase/utils';
 
 	//
 

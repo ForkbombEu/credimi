@@ -5,18 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
+	import type { FilterMode } from '@/pocketbase/query/query';
+	import type { GenericRecord } from '@/utils/types';
+
+	import T from '@/components/ui-custom/t.svelte';
 	import { Button, buttonVariants, type ButtonVariant } from '@/components/ui/button';
-	import { getCollectionManagerContext, type Filter } from './collectionManagerContext';
-	import * as Popover from '@/components/ui/popover/index.js';
-	import * as Sheet from '@/components/ui/sheet/index.js';
 	import { Checkbox } from '@/components/ui/checkbox';
 	import { Label } from '@/components/ui/label';
-	import T from '@/components/ui-custom/t.svelte';
-	import type { Snippet } from 'svelte';
-	import type { GenericRecord } from '@/utils/types';
+	import * as Popover from '@/components/ui/popover/index.js';
+	import * as Sheet from '@/components/ui/sheet/index.js';
 	import { m } from '@/i18n';
 	import { ensureArray } from '@/utils/other';
-	import type { FilterMode } from '@/pocketbase/query/query';
+
+	import { getCollectionManagerContext, type Filter } from './collectionManagerContext';
 
 	//
 

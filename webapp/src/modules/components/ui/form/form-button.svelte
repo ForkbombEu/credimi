@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as Button from "@/components/ui/button/index.js";
+	import * as Button from '@/components/ui/button/index.js';
 
 	let { ref = $bindable(null), ...restProps }: Button.Props = $props();
 </script>

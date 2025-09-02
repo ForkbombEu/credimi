@@ -5,18 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { EditorView } from '@codemirror/view';
+
+	import { yaml } from '@codemirror/lang-yaml';
+	import { isNamedConfigField } from '$start-checks-form/_utils';
+
 	import { Form } from '@/forms';
-	import { CheckConfigCodeEditor } from './check-config-code-editor.svelte.js';
 	import { CodeEditorField } from '@/forms/fields/index.js';
+
+	import { CheckConfigCodeEditor } from './check-config-code-editor.svelte.js';
 	import {
 		dispatchEffect,
 		type PlaceholderData,
 		displayPlaceholderData
 	} from './highlight-plugin.js';
-
-	import { isNamedConfigField } from '$start-checks-form/_utils';
-	import type { EditorView } from '@codemirror/view';
-	import { yaml } from '@codemirror/lang-yaml';
 
 	//
 
