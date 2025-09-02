@@ -18,7 +18,9 @@ onRecordCreateRequest(
 
 onRecordUpdateRequest(
     (e) => {
-        e.record?.set("imported", false);
+        if (!e.record?.original().getBool("imported")) {
+            e.record?.set("imported", false);
+        }
         e.next();
     },
     "credential_issuers",
