@@ -5,18 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { TemporalI18nProvider } from '$lib/temporal';
-	import * as Table from '@/components/ui/table';
-	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
-	import A from '@/components/ui-custom/a.svelte';
-	import { toUserTimezone } from '@/utils/toUserTimezone';
-	import { m } from '@/i18n';
 	import type { Snippet } from 'svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import { getWorkflowMemo, type WorkflowMemo } from './memo';
-	import { Array } from 'effect';
+
+	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
+	import { TemporalI18nProvider } from '$lib/temporal';
 	import { CornerDownRight } from 'lucide-svelte';
+
+	import A from '@/components/ui-custom/a.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import * as Table from '@/components/ui/table';
+	import { m } from '@/i18n';
+	import { toUserTimezone } from '@/utils/toUserTimezone';
+
 	import type { WorkflowWithChildren } from './utils';
+
+	import { getWorkflowMemo, type WorkflowMemo } from './memo';
 
 	//
 

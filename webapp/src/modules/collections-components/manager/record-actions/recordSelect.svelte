@@ -5,10 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="C extends CollectionName">
-	import type { CollectionResponses } from '@/pocketbase/types';
-	import { Checkbox } from '@/components/ui/checkbox';
-	import { getCollectionManagerContext } from '../collectionManagerContext';
 	import type { CollectionName } from '@/pocketbase/collections-models';
+	import type { CollectionResponses } from '@/pocketbase/types';
+
+	import { Checkbox } from '@/components/ui/checkbox';
+
+	import { getCollectionManagerContext } from '../collectionManagerContext';
 
 	//
 

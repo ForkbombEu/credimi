@@ -5,12 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as Dialog from '@/components/ui/dialog/index.js';
-	import { Footer } from '@/components/ui/dialog';
 	import type { DialogRootProps } from 'bits-ui';
-	import Separator from '@/components/ui/separator/separator.svelte';
 	import type { Snippet } from 'svelte';
+
 	import type { GenericRecord } from '@/utils/types';
+
+	import { Footer } from '@/components/ui/dialog';
+	import * as Dialog from '@/components/ui/dialog/index.js';
+	import Separator from '@/components/ui/separator/separator.svelte';
 
 	//
 

@@ -6,11 +6,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import Alert from '@/components/ui-custom/alert.svelte';
-	import { FeedbackForms, type FeedbackFormProps } from './feedback-forms.svelte.js';
-	import { Form, SubmitButton } from '@/forms/index.js';
 	import { Label } from '@/components/ui/label/index.js';
 	import { Separator } from '@/components/ui/separator/index.js';
 	import { TextareaField } from '@/forms/fields/index.js';
+	import { Form, SubmitButton } from '@/forms/index.js';
+
+	import { FeedbackForms, type FeedbackFormProps } from './feedback-forms.svelte.js';
 
 	//
 
@@ -19,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if forms.status == 'fresh'}
-	<div class={['@sm:flex-row flex flex-col gap-8', props.class, '@container']}>
+	<div class={['flex flex-col gap-8 @sm:flex-row', props.class, '@container']}>
 		<Form form={forms.successForm} hide={['submit_button']} class=" grow basis-1">
 			<div class="space-y-2">
 				<Label for="success">If the test succeeded:</Label>
@@ -29,8 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</Form>
 
-		<Separator class="@md:block hidden" orientation="vertical" />
-		<Separator class="@md:hidden block" orientation="horizontal" />
+		<Separator class="hidden @md:block" orientation="vertical" />
+		<Separator class="block @md:hidden" orientation="horizontal" />
 
 		<Form
 			form={forms.failureForm}

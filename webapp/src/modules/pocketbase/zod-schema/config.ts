@@ -2,13 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { isBefore, isAfter, isValid, parseISO } from 'date-fns';
 import { pipe } from 'effect';
 import z from 'zod';
+
 import type { SchemaFields } from '@/pocketbase/collections-models';
-import { getJsonDataSize } from '@/utils/other';
-import { isBefore, isAfter, isValid, parseISO } from 'date-fns';
+
 import { m } from '@/i18n';
 import { zodFileSchema } from '@/utils/files';
+import { getJsonDataSize } from '@/utils/other';
 
 /* Field Config -> Zod Type */
 

@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Tabs as TabsPrimitive } from "bits-ui";
-	import { cn } from "@/components/ui/utils.js";
+	import { Tabs as TabsPrimitive } from 'bits-ui';
+
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -18,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <TabsPrimitive.List
 	bind:ref
 	class={cn(
-		"bg-muted text-muted-foreground inline-flex h-10 items-center justify-center rounded-md p-1",
+		'inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground',
 		className
 	)}
 	{...restProps}

@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Dialog as SheetPrimitive } from "bits-ui";
-import Overlay from "./sheet-overlay.svelte";
-import Content from "./sheet-content.svelte";
-import Header from "./sheet-header.svelte";
-import Footer from "./sheet-footer.svelte";
-import Title from "./sheet-title.svelte";
-import Description from "./sheet-description.svelte";
+import { Dialog as SheetPrimitive } from 'bits-ui';
+
+import Content from './sheet-content.svelte';
+import Description from './sheet-description.svelte';
+import Footer from './sheet-footer.svelte';
+import Header from './sheet-header.svelte';
+import Overlay from './sheet-overlay.svelte';
+import Title from './sheet-title.svelte';
 
 const Root = SheetPrimitive.Root;
 const Close = SheetPrimitive.Close;
@@ -36,5 +37,5 @@ export {
 	Header as SheetHeader,
 	Footer as SheetFooter,
 	Title as SheetTitle,
-	Description as SheetDescription,
+	Description as SheetDescription
 };

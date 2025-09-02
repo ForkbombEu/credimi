@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import Root from "./textarea.svelte";
+import Root from './textarea.svelte';
 
 type FormTextareaEvent<T extends Event = Event> = T & {
 	currentTarget: EventTarget & HTMLTextAreaElement;
@@ -28,5 +28,5 @@ export {
 	//
 	Root as Textarea,
 	type TextareaEvents,
-	type FormTextareaEvent,
+	type FormTextareaEvent
 };

@@ -19,14 +19,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts" generics="T">
-	import { m } from '@/i18n';
+	import type { ControlAttrs } from 'formsnap';
+
 	import { createCombobox } from '@melt-ui/svelte';
 	import { Check, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import Spinner from './spinner.svelte';
+
+	import { m } from '@/i18n';
+
 	import Icon from './icon.svelte';
+	import Spinner from './spinner.svelte';
 	import T from './t.svelte';
-	import type { ControlAttrs } from 'formsnap';
 
 	//
 
@@ -99,14 +102,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<input
 			{...$input}
 			use:$input.action
-			class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+			class="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 			{placeholder}
 			{disabled}
 			bind:value={searchText}
 			{...controlAttrs}
 		/>
 		<div
-			class="text-secondary-foreground absolute right-3 top-1/2 z-10 -translate-y-1/2 opacity-50"
+			class="absolute right-3 top-1/2 z-10 -translate-y-1/2 text-secondary-foreground opacity-50"
 		>
 			<Icon src={$open ? ChevronUp : ChevronDown} class="size-4"></Icon>
 		</div>
@@ -141,7 +144,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<li
 						{...opt}
 						use:opt.action
-						class="data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none data-[disabled]:pointer-events-none data-[disabled]:opacity-50"
+						class="relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none data-[disabled]:pointer-events-none data-[highlighted]:bg-accent data-[highlighted]:text-accent-foreground data-[disabled]:opacity-50"
 					>
 						{#if $isSelected(result)}
 							<div class="check absolute left-2 top-1/2 z-10 text-gray-900">
@@ -152,7 +155,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<slot name="item" {item}>
 								<span>{result.label}</span>
 								{#if result.description}
-									<span class="block text-sm opacity-75">{result.description}</span>
+									<span class="block text-sm opacity-75"
+										>{result.description}</span
+									>
 								{/if}
 							</slot>
 						</div>

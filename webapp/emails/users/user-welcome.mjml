@@ -5,37 +5,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <mjml>
-  <mj-head>
-    <mj-title>Your {{.AppName}} account</mj-title>
-    <mj-include path="../_components/attributes.mjml" />
-  </mj-head>
-  <mj-body>
-    <mj-include path="../_components/header.mjml" />
+	<mj-head>
+		<mj-title>Your {{.AppName}} account</mj-title>
+		<mj-include path="../_components/attributes.mjml" />
+	</mj-head>
+	<mj-body>
+		<mj-include path="../_components/header.mjml" />
 
-    <mj-section>
-      <mj-column>
-        <mj-text mj-class="big">
-          Welcome to {{.AppName}}!
-        </mj-text>
+		<mj-section>
+			<mj-column>
+				<mj-text mj-class="big"> Welcome to {{.AppName}}! </mj-text>
 
-        <mj-text>
-          Hello {{.UserName}},
-        </mj-text>
+				<mj-text> Hello {{.UserName}}, </mj-text>
 
-        <mj-text>
-          We are receiving this email because you registered an account on our app.
-        </mj-text>
+				<mj-text>
+					We are receiving this email because you registered an account on our app.
+				</mj-text>
 
-        <mj-text>
-          We are excited to have you on board at {{.AppName}}!
-        </mj-text>
+				<mj-text> We are excited to have you on board at {{.AppName}}! </mj-text>
 
-        <mj-button href="{{.DashboardLink}}" mj-class="btn-primary">
-          Log in to your dashboard
-        </mj-button>
-      </mj-column>
-    </mj-section>
+				<mj-button href="{{.DashboardLink}}" mj-class="btn-primary">
+					Log in to your dashboard
+				</mj-button>
+			</mj-column>
+		</mj-section>
 
-    <mj-include path="../_components/footer.mjml" />
-  </mj-body>
+		<mj-include path="../_components/footer.mjml" />
+	</mj-body>
 </mjml>

@@ -14,14 +14,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts" generics="Data extends GenericRecord & { conformance_checks: string[] }">
-	import * as Form from '@/components/ui/form';
-	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
-	import * as Table from '@/components/ui/table/index.js';
-	import { z } from 'zod';
 	import type { FormPath, SuperForm } from 'sveltekit-superforms';
-	import type { GenericRecord } from '@/utils/types';
+
+	import { z } from 'zod';
+
 	import type { FieldOptions } from '@/forms/fields/types';
+	import type { GenericRecord } from '@/utils/types';
+
 	import { Checkbox } from '@/components/ui/checkbox';
+	import * as Form from '@/components/ui/form';
+	import * as Table from '@/components/ui/table/index.js';
+	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
 
 	type Props = {
 		data: ConfChecksTable[];

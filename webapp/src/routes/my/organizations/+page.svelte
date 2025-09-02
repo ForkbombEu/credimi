@@ -5,23 +5,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { invalidateAll } from '$app/navigation';
+	import { Plus, UserPlus, Cog, Puzzle, Undo2, X, Check } from 'lucide-svelte';
+	import { toast } from 'svelte-sonner';
+
+	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
+	import { PageTop, PageCard, PageContent } from '@/components/layout';
+	import A from '@/components/ui-custom/a.svelte';
+	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import PlainCard from '@/components/ui-custom/itemCard.svelte';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import SectionTitle from '@/components/ui-custom/sectionTitle.svelte';
+	import { Badge } from '@/components/ui/badge';
+	import { m } from '@/i18n';
 	import { OrgRoles } from '@/organizations';
 	import { currentUser, pb } from '@/pocketbase/index.js';
-	import { invalidateAll } from '$app/navigation';
-	import { m } from '@/i18n';
-	import PlainCard from '@/components/ui-custom/itemCard.svelte';
-	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { Badge } from '@/components/ui/badge';
-	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import { PageTop, PageCard, PageContent } from '@/components/layout';
-	import SectionTitle from '@/components/ui-custom/sectionTitle.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import { Plus, UserPlus, Cog, Puzzle, Undo2, X, Check } from 'lucide-svelte';
 	import { capitalize } from '@/utils/other';
-	import A from '@/components/ui-custom/a.svelte';
-	import { toast } from 'svelte-sonner';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 
 	//
 
@@ -194,7 +195,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										{/if}
 									</div>
 									{#if org.description}
-										<Description><RenderMd content={org.description}/></Description>
+										<Description
+											><RenderMd content={org.description} /></Description
+										>
 									{/if}
 								{/snippet}
 								{#snippet right()}

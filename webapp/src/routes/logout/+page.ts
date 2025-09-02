@@ -3,9 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { browser } from '$app/environment';
-import { currentUser, pb } from '@/pocketbase';
-import { redirect } from '@/i18n';
 import { userOrganization } from '$lib/app-state';
+
+import { redirect } from '@/i18n';
+import { currentUser, pb } from '@/pocketbase';
 
 //
 

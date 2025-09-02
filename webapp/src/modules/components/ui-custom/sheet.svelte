@@ -5,12 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as Sheet from '@/components/ui/sheet';
 	import type { ComponentProps, Snippet } from 'svelte';
-	import { cn } from '@/components/ui/utils';
+
+	import type { GenericRecord } from '@/utils/types';
+
 	import Button from '@/components/ui-custom/button.svelte';
 	import { Separator } from '@/components/ui/separator';
-	import type { GenericRecord } from '@/utils/types';
+	import * as Sheet from '@/components/ui/sheet';
+	import { cn } from '@/components/ui/utils';
 
 	//
 

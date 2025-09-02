@@ -4,10 +4,12 @@
 
 import { String } from 'effect';
 
-import type { KeyOf } from '@/utils/types';
-import { getCollectionModel, type CollectionName } from '@/pocketbase/collections-models';
 import type { CollectionExpands, CollectionResponses, RecordIdString } from '@/pocketbase/types';
+import type { KeyOf } from '@/utils/types';
+
+import { getCollectionModel, type CollectionName } from '@/pocketbase/collections-models';
 import { ensureArray, type MaybeArray } from '@/utils/other';
+
 import type { PocketbaseListOptions } from './utils';
 
 /* Utils */

@@ -2,12 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { Snippet } from 'svelte';
+
 import type { CollectionFormOptions } from '@/collections-components/form';
 import type { IconComponent } from '@/components/types';
 import type { CollectionName } from '@/pocketbase/collections-models';
 import type { CollectionResponses } from '@/pocketbase/types';
 import type { GenericRecord } from '@/utils/types';
-import type { Snippet } from 'svelte';
 
 //
 

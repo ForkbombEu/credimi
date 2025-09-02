@@ -5,14 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
 	import type { OrganizationsResponse } from '@/pocketbase/types';
-	import { m } from '@/i18n';
-	import Badge from '@/components/ui/badge/badge.svelte';
-	import SectionTitle from '@/components/ui-custom/sectionTitle.svelte';
+
 	import { RecordDelete } from '@/collections-components/manager';
+	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
 	import { PageCard } from '@/components/layout';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import SectionTitle from '@/components/ui-custom/sectionTitle.svelte';
+	import Badge from '@/components/ui/badge/badge.svelte';
+	import { m } from '@/i18n';
 
 	interface Props {
 		//

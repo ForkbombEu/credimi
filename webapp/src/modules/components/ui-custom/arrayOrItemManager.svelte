@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="T">
-	import { Array as A } from 'effect';
 	import type { Snippet } from 'svelte';
+
+	import { Array as A } from 'effect';
 
 	interface Props {
 		data?: T | T[] | undefined;

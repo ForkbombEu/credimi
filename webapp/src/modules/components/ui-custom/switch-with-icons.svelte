@@ -6,7 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Switch as SwitchPrimitive } from 'bits-ui';
+
 	import type { IconComponent } from '../types';
+
 	import Icon from './icon.svelte';
 
 	//
@@ -50,8 +52,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	bind:ref
 	bind:checked
 	class={[
-		'focus-visible:ring-ring focus-visible:ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-		'data-[state=unchecked]:bg-input data-[state=checked]:bg-green-600',
+		'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+		'data-[state=checked]:bg-green-600 data-[state=unchecked]:bg-input',
 		'peer inline-flex shrink-0 items-center rounded-md border-2 border-transparent',
 		'cursor-pointer transition-colors',
 		'disabled:cursor-not-allowed disabled:opacity-50',
@@ -62,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<SwitchPrimitive.Thumb
 		class={[
-			'bg-background pointer-events-none block rounded-sm shadow-lg ring-0 transition-transform',
+			'pointer-events-none block rounded-sm bg-background shadow-lg ring-0 transition-transform',
 			currentSize.translate,
 			'flex items-center justify-center',
 			currentSize.thumb

@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	class={[
-		'border-primary border-b-2 bg-[url(/hero.png)] bg-cover bg-right',
+		'border-b-2 border-primary bg-[url(/hero.png)] bg-cover bg-right',
 		{ 'border-t-2': !hideTopBorder },
 		containerClass
 	]}

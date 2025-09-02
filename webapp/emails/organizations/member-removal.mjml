@@ -5,43 +5,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <mjml>
-  <mj-head>
-    <mj-title>You are removed from {{.OrganizationName}}</mj-title>
-    <mj-include path="../_components/attributes.mjml" />
-  </mj-head>
+	<mj-head>
+		<mj-title>You are removed from {{.OrganizationName}}</mj-title>
+		<mj-include path="../_components/attributes.mjml" />
+	</mj-head>
 
-  <mj-body>
-    <mj-include path="../_components/header.mjml" />
+	<mj-body>
+		<mj-include path="../_components/header.mjml" />
 
-    <mj-section>
-      <mj-column>
-        <mj-text mj-class="big">
-          Membership removed
-        </mj-text>
+		<mj-section>
+			<mj-column>
+				<mj-text mj-class="big"> Membership removed </mj-text>
 
-        <mj-text>
-          Hello {{.UserName}},
-        </mj-text>
+				<mj-text> Hello {{.UserName}}, </mj-text>
 
-        <mj-text>
-          Your membership have been removed from <strong>{{.OrganizationName}}</strong>.
-        </mj-text>
+				<mj-text>
+					Your membership have been removed from <strong>{{.OrganizationName}}</strong>.
+				</mj-text>
 
-        <mj-text>
-          You still can access to your {{.AppName}} account, but this organization is now hidden from your Dashboard.
-        </mj-text>
+				<mj-text>
+					You still can access to your {{.AppName}} account, but this organization is now
+					hidden from your Dashboard.
+				</mj-text>
 
-        <mj-text>
-        If you have any questions or need further details, reach out to your admin team.
-        </mj-text>
+				<mj-text>
+					If you have any questions or need further details, reach out to your admin team.
+				</mj-text>
 
-        <mj-button href="{{.DashboardLink}}" mj-class="btn-primary">
-          Go to your Dashboard
-        </mj-button>
+				<mj-button href="{{.DashboardLink}}" mj-class="btn-primary">
+					Go to your Dashboard
+				</mj-button>
+			</mj-column>
+		</mj-section>
 
-      </mj-column>
-    </mj-section>
-
-    <mj-include path="../_components/footer.mjml" />
-  </mj-body>
+		<mj-include path="../_components/footer.mjml" />
+	</mj-body>
 </mjml>

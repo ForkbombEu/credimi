@@ -2,19 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { verifyUser } from '@/auth/verifyUser';
-import { loadFeatureFlags } from '@/features';
 import { error } from '@sveltejs/kit';
-
 import { browser } from '$app/environment';
+
+import { verifyUser } from '@/auth/verifyUser';
+import { WelcomeSession } from '@/auth/welcome/index.js';
+import { loadFeatureFlags } from '@/features';
 import { deLocalizeUrl, redirect } from '@/i18n';
 import { getKeyringFromLocalStorage, matchPublicAndPrivateKeys } from '@/keypairoom/keypair';
 import { getUserPublicKeys, RegenerateKeyringSession } from '@/keypairoom/utils';
-
 import { OrganizationInviteSession } from '@/organizations/invites/index.js';
-import { PocketbaseQueryAgent } from '@/pocketbase/query';
 import { pb } from '@/pocketbase';
-import { WelcomeSession } from '@/auth/welcome/index.js';
+import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
 //
 

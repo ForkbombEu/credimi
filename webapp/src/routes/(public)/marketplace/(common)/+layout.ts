@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pb } from '@/pocketbase';
 import { error } from '@sveltejs/kit';
 import { String } from 'effect';
+
+import { pb } from '@/pocketbase';
+
 import type { MarketplaceItem } from '../_utils/utils.js';
 
 export const load = async ({ params, fetch }) => {

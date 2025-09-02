@@ -2,12 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { String } from 'effect';
+import _ from 'lodash';
+
 import { pb } from '@/pocketbase';
 import { type Data, type UsersPublicKeysRecord } from '@/pocketbase/types';
-import _ from 'lodash';
-import type { Keypair } from './keypair';
 import { createSessionStorageHandlers } from '@/utils/storage';
-import { String } from 'effect';
+
+import type { Keypair } from './keypair';
 
 export type PublicKeys = Omit<Data<UsersPublicKeysRecord>, 'owner'>;
 

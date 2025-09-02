@@ -5,11 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import CredentialIssuerForm from '$services-and-products/_credentials/credential-issuer-form.svelte';
+	import { CheckCircle2 } from 'lucide-svelte';
+
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import CredentialIssuerForm from '$services-and-products/_credentials/credential-issuer-form.svelte';
+
 	import WalletForm from './_partials/wallet-form.svelte';
-	import { CheckCircle2 } from 'lucide-svelte';
 
 	//
 
@@ -50,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{@const isSelected = currentTestSubject == subject}
 	<button
 		class={[
-			'bg-secondary ring-primary relative flex grow basis-1 rounded-lg p-4 hover:ring-2',
+			'relative flex grow basis-1 rounded-lg bg-secondary p-4 ring-primary hover:ring-2',
 			{ 'ring-2': isSelected }
 		]}
 		onclick={select}

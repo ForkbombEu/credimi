@@ -5,27 +5,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CollectionManager } from '@/collections-components';
-	import { m } from '@/i18n';
-	import { buttonVariants } from '@/components/ui/button';
-	import { SquareArrowOutUpRight, Eye, EyeOff, Plus } from 'lucide-svelte';
-	import CredentialIssuerForm from './credential-issuer-form.svelte';
-	import { Card } from '@/components/ui/card';
-	import T from '@/components/ui-custom/t.svelte';
-	import A from '@/components/ui-custom/a.svelte';
-
-	import Switch from '@/components/ui/switch/switch.svelte';
-	import { Separator } from '@/components/ui/separator';
-	import * as Dialog from '@/components/ui/dialog';
-	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 	import { String } from 'effect';
-	import { Collections } from '@/pocketbase/types';
+	import { Eye, EyeOff, Plus } from 'lucide-svelte';
+
+	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
+
+	import { CollectionManager } from '@/collections-components';
 	import { RecordDelete, RecordEdit } from '@/collections-components/manager';
-	import Button from '@/components/ui-custom/button.svelte';
-	import EditCredentialDialog from './edit-credential-dialog.svelte';
+	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { buttonVariants } from '@/components/ui/button';
+	import { Card } from '@/components/ui/card';
+	import * as Dialog from '@/components/ui/dialog';
+	import { Separator } from '@/components/ui/separator';
+	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
+	import { Collections } from '@/pocketbase/types';
+
+	import CredentialIssuerForm from './credential-issuer-form.svelte';
+	import EditCredentialDialog from './edit-credential-dialog.svelte';
 
 	//
 

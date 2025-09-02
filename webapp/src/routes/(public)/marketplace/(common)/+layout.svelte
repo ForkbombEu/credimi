@@ -5,16 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import BackButton from '$lib/layout/back-button.svelte';
-	import PageTop from '$lib/layout/pageTop.svelte';
-	import { m } from '@/i18n';
-	import { getMarketplaceItemData, MarketplaceItemTypeDisplay } from '../_utils';
-	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import PageContent from '$lib/layout/pageContent.svelte';
 	import { userOrganization } from '$lib/app-state';
-	import Button from '@/components/ui-custom/button.svelte';
+	import BackButton from '$lib/layout/back-button.svelte';
+	import PageContent from '$lib/layout/pageContent.svelte';
+	import PageTop from '$lib/layout/pageTop.svelte';
 	import { PencilIcon } from 'lucide-svelte';
+
+	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n';
+
+	import { getMarketplaceItemData, MarketplaceItemTypeDisplay } from '../_utils';
 	import { editFormState } from './_utils/edit-sheet.svelte';
 
 	//
@@ -30,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if isCurrentUserOwner}
-	<div class="border-t-primary border-t-2 bg-[#E2DCF8] py-2">
+	<div class="border-t-2 border-t-primary bg-[#E2DCF8] py-2">
 		<div
 			class="mx-auto flex max-w-screen-xl flex-wrap items-center justify-between gap-3 px-4 text-sm md:px-8"
 		>
@@ -73,6 +75,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </PageTop>
 
-<PageContent class="bg-secondary grow" contentClass="flex flex-col md:flex-row gap-12 items-start">
+<PageContent class="grow bg-secondary" contentClass="flex flex-col md:flex-row gap-12 items-start">
 	{@render children()}
 </PageContent>

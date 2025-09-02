@@ -44,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	</PageTop>
 
-	<PageContent class="bg-secondary grow">
+	<PageContent class="grow bg-secondary">
 		{@render children?.()}
 	</PageContent>
 </BaseLayout>

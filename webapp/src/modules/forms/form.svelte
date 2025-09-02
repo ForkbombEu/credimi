@@ -7,7 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts" module>
 	import type { Snippet } from 'svelte';
 	import type { SuperForm } from 'sveltekit-superforms/client';
+
 	import type { GenericRecord } from '@/utils/types';
+
 	import { setupDerivedContext } from '@/utils/svelte-context';
 
 	//
@@ -33,11 +35,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts" generics="T extends GenericRecord">
+	import type { HTMLFormAttributes } from 'svelte/elements';
+
+	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import { m } from '@/i18n';
+
 	import FormError from './components/formError.svelte';
 	import SubmitButton from './components/submitButton.svelte';
-	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
-	import type { HTMLFormAttributes } from 'svelte/elements';
 
 	//
 

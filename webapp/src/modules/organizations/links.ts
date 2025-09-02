@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { m } from '@/i18n';
 import { Cog, Home, Users, Network } from 'lucide-svelte';
-import type { OrgRole } from '.';
+
 import type { LinkWithIcon } from '@/components/types';
+
+import { m } from '@/i18n';
+
+import type { OrgRole } from '.';
 
 //
 

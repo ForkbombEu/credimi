@@ -5,10 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="C extends CollectionName">
-	import { cn } from '@/components/ui/utils';
-	import type { CollectionResponses } from '@/pocketbase/types';
+	import type { Snippet } from 'svelte';
+
+	import type ItemCardDescription from '@/components/ui-custom/itemCardDescription.svelte';
+	import type ItemCardTitle from '@/components/ui-custom/itemCardTitle.svelte';
 	import type { CollectionName } from '@/pocketbase/collections-models';
+	import type { CollectionResponses } from '@/pocketbase/types';
+
 	import ItemCard from '@/components/ui-custom/itemCard.svelte';
+	import { cn } from '@/components/ui/utils';
+
 	import { getCollectionManagerContext } from './collectionManagerContext';
 	import {
 		RecordSelect,
@@ -17,9 +23,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		RecordShare,
 		RecordDelete
 	} from './record-actions';
-	import type { Snippet } from 'svelte';
-	import type ItemCardTitle from '@/components/ui-custom/itemCardTitle.svelte';
-	import type ItemCardDescription from '@/components/ui-custom/itemCardDescription.svelte';
 
 	interface Props {
 		record: CollectionResponses[C];

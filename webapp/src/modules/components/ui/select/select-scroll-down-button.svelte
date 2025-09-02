@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import ChevronDown from "lucide-svelte/icons/chevron-down";
-	import { Select as SelectPrimitive, type WithoutChildrenOrChild } from "bits-ui";
-	import { cn } from "@/components/ui/utils.js";
+	import { Select as SelectPrimitive, type WithoutChildrenOrChild } from 'bits-ui';
+	import ChevronDown from 'lucide-svelte/icons/chevron-down';
+
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -18,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <SelectPrimitive.ScrollDownButton
 	bind:ref
-	class={cn("flex cursor-default items-center justify-center py-1", className)}
+	class={cn('flex cursor-default items-center justify-center py-1', className)}
 	{...restProps}
 >
 	<ChevronDown class="size-4" />

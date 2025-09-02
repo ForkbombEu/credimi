@@ -6,7 +6,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { pb } from '@/pocketbase';
-	import { createDummyFile } from '@/utils/other';
 
 	pb.collection('z_test_collection')
 		.update('bn0sadak3y1876r', {

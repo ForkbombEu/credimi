@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { ControlAttrs } from 'formsnap';
+
 import type { CollectionName } from '@/pocketbase/collections-models';
 import type {
 	PocketbaseQueryOptions,
@@ -9,8 +11,8 @@ import type {
 	PocketbaseQueryExpandOption
 } from '@/pocketbase/query';
 import type { CollectionRecords } from '@/pocketbase/types';
+
 import type { RecordPresenter } from './utils';
-import type { ControlAttrs } from 'formsnap';
 
 //
 

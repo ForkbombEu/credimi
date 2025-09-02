@@ -2,12 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { fontFamily } from 'tailwindcss/defaultTheme';
 import type { Config } from 'tailwindcss';
-import tailwindcssAnimate from 'tailwindcss-animate';
-import tailwindcssTypography from '@tailwindcss/typography';
-import tailwindcssContainerQueries from '@tailwindcss/container-queries';
+
 import { THEME_CONTENT } from '@sjsf/shadcn-theme/preset';
+import tailwindcssContainerQueries from '@tailwindcss/container-queries';
+import tailwindcssTypography from '@tailwindcss/typography';
+import tailwindcssAnimate from 'tailwindcss-animate';
+import { fontFamily } from 'tailwindcss/defaultTheme';
 
 const colorNames = ['blue', 'green', 'light-blue', 'neutral', 'orange', 'purple', 'red', 'yellow'];
 const colorRoles = ['background', 'foreground', 'outline'];

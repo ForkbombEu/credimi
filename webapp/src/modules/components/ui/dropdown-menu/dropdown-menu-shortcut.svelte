@@ -5,9 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { HTMLAttributes } from "svelte/elements";
-	import { type WithElementRef } from "bits-ui";
-	import { cn } from "@/components/ui/utils.js";
+	import type { HTMLAttributes } from 'svelte/elements';
+
+	import { type WithElementRef } from 'bits-ui';
+
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -19,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <span
 	bind:this={ref}
-	class={cn("ml-auto text-xs tracking-widest opacity-60", className)}
+	class={cn('ml-auto text-xs tracking-widest opacity-60', className)}
 	{...restProps}
 >
 	{@render children?.()}

@@ -5,13 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="T">
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { getCollectionManagerContext } from '../collectionManagerContext';
-	import { Head } from '@/components/ui/table';
-	import type { KeyOf } from '@/utils/types';
 	import { capitalize } from 'lodash';
 	import { ArrowUp, ArrowDown } from 'lucide-svelte';
+
+	import type { KeyOf } from '@/utils/types';
+
+	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import { Head } from '@/components/ui/table';
+
+	import { getCollectionManagerContext } from '../collectionManagerContext';
 
 	interface Props {
 		field: KeyOf<T>;
