@@ -5,14 +5,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { CheckConfigEditor } from './check-config-editor.svelte.js';
-	import { CheckConfigCodeEditorComponent } from '../check-config-code-editor/index.js';
-	import { DependentCheckConfigFormEditorComponent } from '../check-config-form-editor';
-	import Alert from '@/components/ui-custom/alert.svelte';
+	import SmallSectionLabel from '$start-checks-form/_utils/small-section-label.svelte';
 	import { Info } from 'lucide-svelte';
+
+	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n';
-	import SmallSectionLabel from '$start-checks-form/_utils/small-section-label.svelte';
+
+	import type { CheckConfigEditor } from './check-config-editor.svelte.js';
+
+	import { CheckConfigCodeEditorComponent } from '../check-config-code-editor/index.js';
+	import { DependentCheckConfigFormEditorComponent } from '../check-config-form-editor';
 
 	//
 

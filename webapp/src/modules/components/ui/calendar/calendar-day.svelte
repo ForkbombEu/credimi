@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Calendar as CalendarPrimitive } from "bits-ui";
+
 	import { buttonVariants } from "@/components/ui/button/index.js";
 	import { cn } from "@/components/ui/utils.js";
-	import { Calendar as CalendarPrimitive } from "bits-ui";
 
 	let {
 		ref = $bindable(null),

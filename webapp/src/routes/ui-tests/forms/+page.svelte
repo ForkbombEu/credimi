@@ -5,6 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ComponentProps } from 'svelte';
+
+	import SuperDebug from 'sveltekit-superforms';
+	import { zod } from 'sveltekit-superforms/adapters';
+
+	import { CollectionField } from '@/collections-components';
+	import Button from '@/components/ui-custom/button.svelte';
 	import { createForm, Form } from '@/forms';
 	import {
 		Field,
@@ -14,14 +21,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		TextareaField,
 		SelectField
 	} from '@/forms/fields';
+	import { ZTestCollectionSelectFieldOptions } from '@/pocketbase/types';
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 	import { createDummyFile } from '@/utils/other';
-	import SuperDebug from 'sveltekit-superforms';
-	import { zod } from 'sveltekit-superforms/adapters';
-	import { ZTestCollectionSelectFieldOptions } from '@/pocketbase/types';
-	import { CollectionField } from '@/collections-components';
-	import type { ComponentProps } from 'svelte';
-	import Button from '@/components/ui-custom/button.svelte';
 
 	const schema = createCollectionZodSchema('z_test_collection');
 	console.log(schema.shape);

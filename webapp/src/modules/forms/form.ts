@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getExceptionMessage } from '@/utils/errors';
-import type { GenericRecord } from '@/utils/types';
 import type { FormOptions as SuperformOptions } from 'sveltekit-superforms';
+
 import { type ValidationAdapter } from 'sveltekit-superforms/adapters';
 import { defaults, setError, superForm } from 'sveltekit-superforms/client';
+
+import type { GenericRecord } from '@/utils/types';
+
+import { getExceptionMessage } from '@/utils/errors';
 
 //
 

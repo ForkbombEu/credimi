@@ -6,11 +6,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import Alert from '@/components/ui-custom/alert.svelte';
-	import { FeedbackForms, type FeedbackFormProps } from './feedback-forms.svelte.js';
-	import { Form, SubmitButton } from '@/forms/index.js';
 	import { Label } from '@/components/ui/label/index.js';
 	import { Separator } from '@/components/ui/separator/index.js';
 	import { TextareaField } from '@/forms/fields/index.js';
+	import { Form, SubmitButton } from '@/forms/index.js';
+
+	import { FeedbackForms, type FeedbackFormProps } from './feedback-forms.svelte.js';
 
 	//
 

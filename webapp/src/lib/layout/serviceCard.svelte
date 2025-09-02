@@ -5,13 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { String } from 'effect';
+
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { cn } from '@/components/ui/utils';
-
 	import { m, localizeHref } from '@/i18n';
 	import { type CredentialIssuersResponse } from '@/pocketbase/types';
-	import { String } from 'effect';
 
 	//
 

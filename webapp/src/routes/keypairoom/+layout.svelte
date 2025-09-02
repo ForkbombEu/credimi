@@ -5,19 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { currentUser } from '@/pocketbase';
-	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
-	import { m } from '@/i18n';
-	import { featureFlags } from '@/features';
 	import type { Snippet } from 'svelte';
-	import AuthLayout from '@/auth/authLayout.svelte';
-	import LanguageSelect from '@/i18n/languageSelect.svelte';
-	import * as DropdownMenu from '@/components/ui/dropdown-menu/index.js';
-	import Icon from '@/components/ui-custom/icon.svelte';
+
 	import { FileIcon, LogOut, SquareArrowOutUpRight } from 'lucide-svelte';
+
+	import AuthLayout from '@/auth/authLayout.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
+	import * as DropdownMenu from '@/components/ui/dropdown-menu/index.js';
 	import { getUserDidUrl } from '@/did';
-	import BaseLanguageSelect from '@/i18n/baseLanguageSelect.svelte';
+	import { featureFlags } from '@/features';
+	import { m } from '@/i18n';
 	import { localizeHref } from '@/i18n';
+	import BaseLanguageSelect from '@/i18n/baseLanguageSelect.svelte';
+	import LanguageSelect from '@/i18n/languageSelect.svelte';
+	import { currentUser } from '@/pocketbase';
 	interface Props {
 		children?: Snippet;
 	}

@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ComponentProps } from "svelte";
+
 	import { Separator } from "@/components/ui/separator/index.js";
 	import { cn } from "@/components/ui/utils.js";
-	import type { ComponentProps } from "svelte";
 
 	let {
 		ref = $bindable(null),

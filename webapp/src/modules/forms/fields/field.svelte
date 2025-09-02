@@ -5,14 +5,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="Data extends GenericRecord">
+	import type { HTMLInputAttributes } from 'svelte/elements';
+	import type { FormPathLeaves, FormPathType, SuperForm } from 'sveltekit-superforms';
+
+	import { numberProxy, fieldProxy } from 'sveltekit-superforms';
+
 	import type { GenericRecord } from '@/utils/types';
+
 	import * as Form from '@/components/ui/form';
 	import { Input } from '@/components/ui/input';
-	import type { FormPathLeaves, FormPathType, SuperForm } from 'sveltekit-superforms';
-	import { numberProxy, fieldProxy } from 'sveltekit-superforms';
-	import type { HTMLInputAttributes } from 'svelte/elements';
-	import FieldWrapper from './parts/fieldWrapper.svelte';
+
 	import type { FieldOptions } from './types';
+
+	import FieldWrapper from './parts/fieldWrapper.svelte';
 
 	//
 
@@ -41,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let placeholder = $derived(
-		Boolean(options.placeholder)
+		options.placeholder
 			? options.placeholder
 			: defaultPlaceholders[options.type ?? 'text']
 	);

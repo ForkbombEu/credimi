@@ -2,16 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import z from 'zod';
 import { pipe } from 'effect';
-import { schemaFieldToZodTypeMap } from './config';
+import z from 'zod';
+
 import {
 	getCollectionModel,
 	isArrayField,
 	type AnyCollectionField,
 	type CollectionName
 } from '@/pocketbase/collections-models';
+
 import { systemFields, type CollectionZodRawShapes } from '../types';
+import { schemaFieldToZodTypeMap } from './config';
 
 //
 

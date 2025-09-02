@@ -5,13 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import NewsCard from '$lib/layout/newsCard.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+
 	import { CollectionManager } from '@/collections-components';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import NewsCard from '$lib/layout/newsCard.svelte';
 </script>
 
 <CollectionManager

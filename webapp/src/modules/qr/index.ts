@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import QrCode from './qr.svelte';
 import { generateQrCode } from './qr';
+import QrCode from './qr.svelte';
 
 export { QrCode, generateQrCode };

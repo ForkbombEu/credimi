@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pb } from '@/pocketbase';
 import { error } from '@sveltejs/kit';
+
+import { pb } from '@/pocketbase';
 
 export const load = async ({ fetch }) => {
 	const record = (

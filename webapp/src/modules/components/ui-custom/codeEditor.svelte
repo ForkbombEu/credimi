@@ -5,11 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import CodeMirror from 'svelte-codemirror-editor';
-	import { json } from '@codemirror/lang-json';
-	import { dracula } from 'thememirror';
 	import type { EditorView } from '@codemirror/view';
+
+	import { json } from '@codemirror/lang-json';
 	import { dev } from '$app/environment';
+	import CodeMirror from 'svelte-codemirror-editor';
+	import { dracula } from 'thememirror';
+
 	import { copyButtonExtension } from './copyButtonExtension.js';
 
 	//

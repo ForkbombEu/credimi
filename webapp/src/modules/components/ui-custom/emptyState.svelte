@@ -6,8 +6,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { FolderOpen } from 'lucide-svelte';
+
 	import type { IconComponent } from '@/components/types';
+
 	import Icon from '@/components/ui-custom/icon.svelte';
+
 	import T from './t.svelte';
 
 	interface Props {

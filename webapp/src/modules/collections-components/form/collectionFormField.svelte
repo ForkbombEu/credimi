@@ -5,9 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import type { CollectionName, AnyCollectionField } from '@/pocketbase/collections-models';
-	import type { FieldSnippet, RelationFieldOptions } from './collectionFormTypes';
 	import type { CollectionField as PbCollectionField } from 'pocketbase';
+
+	import type { CollectionName, AnyCollectionField } from '@/pocketbase/collections-models';
+
+	import type { FieldSnippet, RelationFieldOptions } from './collectionFormTypes';
 
 	export type CollectionFormFieldProps<C extends CollectionName> = {
 		fieldConfig: PbCollectionField;
@@ -21,14 +23,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts" generics="C extends CollectionName">
+	import type { FormPath, SuperForm } from 'sveltekit-superforms';
+
+	import type { CollectionFormData } from '@/pocketbase/types';
+
 	import { getFormContext } from '@/forms';
 	import { CheckboxField, FileField, Field, SelectField, TextareaField } from '@/forms/fields';
-	import CollectionField from '../collectionField.svelte';
+	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { getCollectionNameFromId } from '@/pocketbase/collections-models';
 	import { isArrayField } from '@/pocketbase/collections-models';
-	import type { FormPath, SuperForm } from 'sveltekit-superforms';
-	import type { CollectionFormData } from '@/pocketbase/types';
-	import MarkdownField from '@/forms/fields/markdownField.svelte';
+
+	import CollectionField from '../collectionField.svelte';
 
 	//
 

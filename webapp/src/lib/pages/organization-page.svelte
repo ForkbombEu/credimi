@@ -5,19 +5,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
+
+	import BackButton from '$lib/layout/back-button.svelte';
+	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import PageIndex from '$lib/layout/pageIndex.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+	import { Building2, Layers, ScanEye } from 'lucide-svelte';
+
+	import type { MarketplaceItemsResponse, OrganizationsResponse } from '@/pocketbase/types';
+
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import { Building2, Layers, ScanEye } from 'lucide-svelte';
-	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
-	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { pb } from '@/pocketbase/index.js';
-	import type { MarketplaceItemsResponse, OrganizationsResponse } from '@/pocketbase/types';
-	import BackButton from '$lib/layout/back-button.svelte';
+
 	import { MarketplaceItemCard } from '../../routes/(public)/marketplace/_utils/utils.js';
 
 	//

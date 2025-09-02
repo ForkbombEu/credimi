@@ -5,12 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { page } from '$app/state';
 	import { cubicInOut } from 'svelte/easing';
 	import { crossfade } from 'svelte/transition';
-	import { cn } from '@/components/ui/utils.js';
-	import { page } from '$app/state';
+
 	import { Button } from '@/components/ui/button/index.js';
+	import { cn } from '@/components/ui/utils.js';
+
 	import type { LinkWithIcon } from '../types';
+
 	import Icon from './icon.svelte';
 	import T from './t.svelte';
 

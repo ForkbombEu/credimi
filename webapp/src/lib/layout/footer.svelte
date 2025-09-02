@@ -5,15 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { AppLogo } from '@/brand';
-	import T from '@/components/ui-custom/t.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { m } from '@/i18n';
-	import { appVersion } from '@/utils/appVersion';
-	import LanguageSelect from '@/i18n/languageSelect.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
 	import { Sparkle } from 'lucide-svelte';
+
+	import { AppLogo } from '@/brand';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
+	import { m } from '@/i18n';
+	import LanguageSelect from '@/i18n/languageSelect.svelte';
+	import { appVersion } from '@/utils/appVersion';
 
 	const footer_data = [
 		{

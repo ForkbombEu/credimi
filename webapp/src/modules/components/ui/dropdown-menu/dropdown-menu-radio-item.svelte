@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { DropdownMenu as DropdownMenuPrimitive, type WithoutChild } from "bits-ui";
 	import Circle from "lucide-svelte/icons/circle";
+
 	import { cn } from "@/components/ui/utils.js";
 
 	let {

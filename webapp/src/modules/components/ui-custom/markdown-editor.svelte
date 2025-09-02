@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import DOMPurify from 'dompurify';
 	import 'carta-md/default.css';
 	import { onMount } from 'svelte';
+
 	import MarkdownEditorIcon from './markdown-editor-image-icon.svelte';
 
 	//

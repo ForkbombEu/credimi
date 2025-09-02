@@ -5,18 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { LayoutDashboardIcon, Sparkle } from 'lucide-svelte';
+	import { fromStore } from 'svelte/store';
+
+	import type { LinkWithIcon } from '@/components/types';
+
+	import { AppLogo } from '@/brand';
+	import BaseTopbar from '@/components/layout/topbar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { featureFlags } from '@/features';
 	import { m } from '@/i18n';
-	import BaseTopbar from '@/components/layout/topbar.svelte';
 	import { currentUser } from '@/pocketbase';
-	import UserNav from './userNav.svelte';
-	import { LayoutDashboardIcon, Sparkle } from 'lucide-svelte';
-	import { AppLogo } from '@/brand';
-	import MobileNav from './nav-mobile.svelte';
-	import type { LinkWithIcon } from '@/components/types';
-	import { fromStore } from 'svelte/store';
+
 	import NavLink from './nav-link.svelte';
+	import MobileNav from './nav-mobile.svelte';
+	import UserNav from './userNav.svelte';
 
 	//
 

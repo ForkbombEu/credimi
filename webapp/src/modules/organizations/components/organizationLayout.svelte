@@ -5,11 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import OrganizationBreadcrumbs from './organizationBreadcrumbs.svelte';
-	import { PageTop, PageContent } from '@/components/layout';
-	import OrganizationTabs from './organizationTabs.svelte';
 	import type { OrganizationsResponse } from '@/pocketbase/types';
+
+	import { PageTop, PageContent } from '@/components/layout';
 	import T from '@/components/ui-custom/t.svelte';
+
+	import OrganizationBreadcrumbs from './organizationBreadcrumbs.svelte';
+	import OrganizationTabs from './organizationTabs.svelte';
 
 	interface Props {
 		org: OrganizationsResponse;

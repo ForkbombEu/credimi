@@ -5,12 +5,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import {
-		userChallengesSchema,
-		userChallenges,
-		type UserChallenges,
-		formatAnswersForZenroom
-	} from '@/keypairoom/userQuestions.js';
+	import { HelpCircle } from 'lucide-svelte';
+	import { zod } from 'sveltekit-superforms/adapters';
+	import z from 'zod';
+
+	import { WelcomeSession, WelcomeBanner } from '@/auth/welcome';
+	import { PageCard } from '@/components/layout';
+	import A from '@/components/ui-custom/a.svelte';
+	import Alert from '@/components/ui-custom/alert.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import CopyButton from '@/components/ui-custom/copyButton.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import Separator from '@/components/ui/separator/separator.svelte';
+	import { featureFlags } from '@/features';
+	// Components
+	import { Form, createForm } from '@/forms';
+	import { Field } from '@/forms/fields';
+	import { m } from '@/i18n';
 	import {
 		generateKeypair,
 		getHMAC,
@@ -18,32 +29,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		saveKeyringToLocalStorage
 	} from '@/keypairoom/keypair';
 	import {
+		userChallengesSchema,
+		userChallenges,
+		type UserChallenges,
+		formatAnswersForZenroom
+	} from '@/keypairoom/userQuestions.js';
+	import {
 		getPublicKeysFromKeypair,
 		saveUserPublicKeys,
 		getUserPublicKeys,
 		RegenerateKeyringSession
 	} from '@/keypairoom/utils.js';
 	import { currentUser, pb } from '@/pocketbase';
-	import z from 'zod';
-	import { featureFlags } from '@/features';
-
-	// Components
-	import { Form, createForm } from '@/forms';
-	import { Field } from '@/forms/fields';
-	import CopyButton from '@/components/ui-custom/copyButton.svelte';
-	import { HelpCircle } from 'lucide-svelte';
-	import { zod } from 'sveltekit-superforms/adapters';
-	import { WelcomeSession, WelcomeBanner } from '@/auth/welcome';
-	import { m } from '@/i18n';
-	import RegenerateBanner from './_partials/RegenerateBanner.svelte';
 	import { log } from '@/utils/other';
 
-	import Button from '@/components/ui-custom/button.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import Alert from '@/components/ui-custom/alert.svelte';
-	import Separator from '@/components/ui/separator/separator.svelte';
-	import { PageCard } from '@/components/layout';
-	import A from '@/components/ui-custom/a.svelte';
+	import RegenerateBanner from './_partials/RegenerateBanner.svelte';
 
 	//
 

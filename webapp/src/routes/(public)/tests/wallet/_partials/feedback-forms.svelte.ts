@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { createForm } from '@/forms/form';
-import type { GenericRecord } from '@/utils/types';
-import { zod } from 'sveltekit-superforms/adapters';
 import type { SuperForm } from 'sveltekit-superforms';
+
+import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
+
+import type { GenericRecord } from '@/utils/types';
+
+import { createForm } from '@/forms/form';
 import { pb } from '@/pocketbase';
 
 //

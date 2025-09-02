@@ -19,14 +19,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts" generics="T">
-	import { m } from '@/i18n';
+	import type { ControlAttrs } from 'formsnap';
+
 	import { createCombobox } from '@melt-ui/svelte';
 	import { Check, ChevronDown, ChevronUp } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
-	import Spinner from './spinner.svelte';
+
+	import { m } from '@/i18n';
+
 	import Icon from './icon.svelte';
+	import Spinner from './spinner.svelte';
 	import T from './t.svelte';
-	import type { ControlAttrs } from 'formsnap';
 
 	//
 

@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { AppLogo } from '@/brand';
 	import type { Snippet } from 'svelte';
+
+	import { AppLogo } from '@/brand';
 	import { Topbar } from '@/components/layout';
 
 	//

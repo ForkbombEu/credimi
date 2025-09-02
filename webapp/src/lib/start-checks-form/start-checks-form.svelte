@@ -5,10 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import * as Tabs from '@/components/ui/tabs/index.js';
+
 	import { ConfigureChecksFormComponent } from './configure-checks-form';
 	import { SelectChecksFormComponent } from './select-checks-form';
 	import { StartChecksForm, type StartChecksFormProps } from './start-checks-form.svelte.js';
-	import * as Tabs from '@/components/ui/tabs/index.js';
 
 	//
 

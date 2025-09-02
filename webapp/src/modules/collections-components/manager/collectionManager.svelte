@@ -8,15 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	lang="ts"
 	generics="C extends CollectionName, E extends PocketbaseQueryExpandOption<C> = never"
 >
-	// Logic
-	import { CollectionManager } from './collectionManager.svelte.js';
-	import { setupComponentPocketbaseSubscriptions } from '@/pocketbase/subscriptions';
-	import {
-		setCollectionManagerContext,
-		type CollectionManagerContext,
-		type FiltersOption
-	} from './collectionManagerContext';
+	import type { Snippet } from 'svelte';
 
+	import { FolderIcon, SearchIcon, MessageCircleWarning } from 'lucide-svelte';
+
+	import type { FormOptions as SuperformsOptions } from '@/forms';
+	import type { CollectionName } from '@/pocketbase/collections-models';
 	// Logic - Types
 	import type {
 		PocketbaseQueryExpandOption,
@@ -24,27 +21,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		PocketbaseQueryResponse,
 		PocketbaseQueryAgentOptions
 	} from '@/pocketbase/query';
-	import type { CollectionName } from '@/pocketbase/collections-models';
+	import type { CollectionFormData } from '@/pocketbase/types';
+
+	import EmptyState from '@/components/ui-custom/emptyState.svelte';
+	// UI
+	import { m } from '@/i18n';
+	import { setupComponentPocketbaseSubscriptions } from '@/pocketbase/subscriptions';
+
 	import type {
 		UIOptions as CollectionFormUIOptions,
 		FieldsOptions
 	} from '../form/collectionFormTypes';
-	import type { FormOptions as SuperformsOptions } from '@/forms';
-	import type { CollectionFormData } from '@/pocketbase/types';
 
+	// Logic
+	import { CollectionManager } from './collectionManager.svelte.js';
+	import {
+		setCollectionManagerContext,
+		type CollectionManagerContext,
+		type FiltersOption
+	} from './collectionManagerContext';
+	import Filters from './collectionManagerFilters.svelte';
+	import Header from './collectionManagerHeader.svelte';
+	import Pagination from './collectionManagerPagination.svelte';
+	import Search from './collectionManagerSearch.svelte';
 	// Components
 	import Card from './recordCard.svelte';
 	import Table from './table/collectionTable.svelte';
-	import EmptyState from '@/components/ui-custom/emptyState.svelte';
-	import Pagination from './collectionManagerPagination.svelte';
-	import Search from './collectionManagerSearch.svelte';
-	import Header from './collectionManagerHeader.svelte';
-	import Filters from './collectionManagerFilters.svelte';
-
-	// UI
-	import { m } from '@/i18n';
-	import { FolderIcon, SearchIcon, MessageCircleWarning } from 'lucide-svelte';
-	import type { Snippet } from 'svelte';
 
 	//
 

@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import T from '@/components/ui-custom/t.svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+
+	import T from '@/components/ui-custom/t.svelte';
 
 	let { data } = $props();
 	const did = JSON.stringify(data.did, null, 2);

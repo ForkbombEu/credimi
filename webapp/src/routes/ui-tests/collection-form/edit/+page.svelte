@@ -6,9 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { toast } from 'svelte-sonner';
+
 	import { CollectionForm } from '@/collections-components';
 	import FormDebug from '@/forms/components/formDebug.svelte';
-	import { toast } from 'svelte-sonner';
 
 	let { data } = $props();
 </script>

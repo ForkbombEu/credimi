@@ -5,20 +5,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { m } from '@/i18n';
 	import InfoBox from '$lib/layout/infoBox.svelte';
+	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
+	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
+	import WalletForm from '$routes/my/services-and-products/_wallets/wallet-form.svelte';
+	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
 	import { String } from 'effect';
 	import { z } from 'zod';
+
 	import Card from '@/components/ui-custom/card.svelte';
-	import { Badge } from '@/components/ui/badge';
-	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
-	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
-	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
-	import EditSheet from '../../_utils/edit-sheet.svelte';
-	import WalletForm from '$routes/my/services-and-products/_wallets/wallet-form.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge';
+	import { m } from '@/i18n';
+
+	import EditSheet from '../../_utils/edit-sheet.svelte';
 
 	//
 

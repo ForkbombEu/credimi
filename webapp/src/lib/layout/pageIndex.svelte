@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" module>
 	import type { IconComponent } from '@/components/types';
+
 	import T from '@/components/ui-custom/t.svelte';
 	export interface IndexItem {
 		icon?: IconComponent;

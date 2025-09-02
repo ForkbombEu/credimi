@@ -5,9 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { WithoutChildrenOrChild } from "bits-ui";
+
 	import GripVertical from "lucide-svelte/icons/grip-vertical";
 	import * as ResizablePrimitive from "paneforge";
-	import type { WithoutChildrenOrChild } from "bits-ui";
+
 	import { cn } from "@/components/ui/utils.js";
 
 	let {

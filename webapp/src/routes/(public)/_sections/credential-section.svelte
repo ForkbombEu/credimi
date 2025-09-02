@@ -6,13 +6,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import CredentialCard from '$lib/layout/credentialCard.svelte';
-	import { m } from '@/i18n';
-	import { featureFlags } from '@/features';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { Collections, type CredentialsResponse } from '@/pocketbase/types';
+
 	import { CollectionManager } from '@/collections-components';
+	import Button from '@/components/ui-custom/button.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { featureFlags } from '@/features';
+	import { m } from '@/i18n';
+	import { Collections, type CredentialsResponse } from '@/pocketbase/types';
 
 	//
 

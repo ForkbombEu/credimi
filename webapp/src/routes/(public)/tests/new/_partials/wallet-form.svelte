@@ -5,20 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { createForm, Form, SubmitButton } from '@/forms';
-	import { Field, TextareaField } from '@/forms/fields';
-	import { m } from '@/i18n';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
-	import { pb } from '@/pocketbase';
-	import { CollectionField } from '@/collections-components';
-	import T from '@/components/ui-custom/t.svelte';
 
-	import t from './test.json';
+	import { CollectionField } from '@/collections-components';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import CodeEditor from '@/components/ui-custom/codeEditor.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { createForm, Form, SubmitButton } from '@/forms';
+	import { Field, TextareaField } from '@/forms/fields';
 	import CodeEditorField from '@/forms/fields/codeEditorField.svelte';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
+
+	import t from './test.json';
 
 	//
 

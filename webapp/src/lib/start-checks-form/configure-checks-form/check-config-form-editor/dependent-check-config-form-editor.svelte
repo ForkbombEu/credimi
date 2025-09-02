@@ -5,15 +5,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Form } from '@/forms';
-	import ConfigFormInput from './check-config-form-input.svelte';
-	import type { DependentCheckConfigFormEditor } from './dependent-check-config-form-editor.svelte.js';
-	import { Eye, Pencil, Undo } from 'lucide-svelte';
-	import Label from '@/components/ui/label/label.svelte';
 	import type { ConfigField } from '$start-checks-form/types';
-	import * as Popover from '@/components/ui/popover';
-	import { m } from '@/i18n';
+
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+	import { Eye, Pencil, Undo } from 'lucide-svelte';
+
+	import Label from '@/components/ui/label/label.svelte';
+	import * as Popover from '@/components/ui/popover';
+	import { Form } from '@/forms';
+	import { m } from '@/i18n';
+
+	import type { DependentCheckConfigFormEditor } from './dependent-check-config-form-editor.svelte.js';
+
+	import ConfigFormInput from './check-config-form-input.svelte';
 
 	//
 

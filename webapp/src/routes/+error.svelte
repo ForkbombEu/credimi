@@ -6,8 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { page } from '$app/stores';
-	import T from '@/components/ui-custom/t.svelte';
+
 	import A from '@/components/ui-custom/a.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 
 	// TODO - Better <a> styling
 

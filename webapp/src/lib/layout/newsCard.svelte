@@ -5,13 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { CalendarDays, Clock } from "lucide-svelte"
+
+	import type { NewsResponse } from '@/pocketbase/types';
+
 	import HTML from '@/components/ui-custom/renderHTML.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Button } from '@/components/ui/button';
 	import { cn } from '@/components/ui/utils';
 	import { m } from '@/i18n';
-	import type { NewsResponse } from '@/pocketbase/types';
-	import { CalendarDays, Clock } from "lucide-svelte"
 
 	type Props = {
 		news: NewsResponse;

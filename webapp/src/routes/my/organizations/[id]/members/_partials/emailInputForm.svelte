@@ -5,19 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import { createForm, Form, SubmitButton } from '@/forms';
-	import { m } from '@/i18n';
-	import { readFileAsString, zodFileSchema } from '@/utils/files';
 	import { Array as A } from 'effect';
 	import { ArrowRight } from 'lucide-svelte';
-	import z from 'zod';
 	import { zod } from 'sveltekit-superforms/adapters';
+	import z from 'zod';
+
 	import Alert from '@/components/ui-custom/alert.svelte';
-	import { FileField, TextareaField } from '@/forms/fields';
-	import Separator from '@/components/ui/separator/separator.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import Separator from '@/components/ui/separator/separator.svelte';
+	import { createForm, Form, SubmitButton } from '@/forms';
+	import { FileField, TextareaField } from '@/forms/fields';
+	import { m } from '@/i18n';
+	import { readFileAsString, zodFileSchema } from '@/utils/files';
 
 	interface Props {
 		onSuccess?: (emails: string[]) => void;

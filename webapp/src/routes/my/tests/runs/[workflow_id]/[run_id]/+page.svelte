@@ -5,28 +5,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import BackButton from '$lib/layout/back-button.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
-	import { onMount } from 'svelte';
-	import OpenidnetTop from './_partials/openidnet-top.svelte';
-	import EwcTop from './_partials/ewc-top.svelte';
-	import EudiwTop from './_partials/eudiw-top.svelte';
+	import { TemporalI18nProvider } from '$lib/temporal';
 	import { WorkflowQrPoller } from '$lib/workflows';
+	import { onMount } from 'svelte';
+
+	import Spinner from '@/components/ui-custom/spinner.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { Separator } from '@/components/ui/separator';
+	import { m } from '@/i18n';
+	import { toUserTimezone } from '@/utils/toUserTimezone';
+
+	import EudiwTop from './_partials/eudiw-top.svelte';
+	import EwcTop from './_partials/ewc-top.svelte';
+	import OpenidnetTop from './_partials/openidnet-top.svelte';
 	import {
 		setupEmitter,
 		setupListener,
 		type PageMessage,
 		type IframeMessage
 	} from './_partials/page-events';
-	import { toUserTimezone } from '@/utils/toUserTimezone';
 	import { _getWorkflow } from './+layout';
-	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
-	import { TemporalI18nProvider } from '$lib/temporal';
-	import { Separator } from '@/components/ui/separator';
-	import Spinner from '@/components/ui-custom/spinner.svelte';
 
 	//
 

@@ -6,8 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { AlertDialog as AlertDialogPrimitive, type WithoutChild } from "bits-ui";
-	import AlertDialogOverlay from "./alert-dialog-overlay.svelte";
+
 	import { cn } from "@/components/ui/utils.js";
+
+	import AlertDialogOverlay from "./alert-dialog-overlay.svelte";
 
 	let {
 		ref = $bindable(null),

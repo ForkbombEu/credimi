@@ -5,10 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { OrganizationsRecord } from '@/pocketbase/types';
+
 	import Avatar, { type AvatarProps } from '@/components/ui-custom/avatar.svelte';
 	import { cn } from '@/components/ui/utils';
 	import { pb } from '@/pocketbase';
-	import type { OrganizationsRecord } from '@/pocketbase/types';
 
 	type Props = AvatarProps & {
 		organization: OrganizationsRecord;

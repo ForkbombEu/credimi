@@ -5,26 +5,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CollectionManager } from '@/collections-components';
-	import Card from '@/components/ui-custom/card.svelte';
-	import type { WalletsResponse } from '@/pocketbase/types';
-	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import A from '@/components/ui-custom/a.svelte';
-	import { Badge } from '@/components/ui/badge';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
-	import { RecordDelete } from '@/collections-components/manager';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { Separator } from '@/components/ui/separator';
-	import WalletFormSheet from './wallet-form-sheet.svelte';
-	import { ChevronDown, ChevronUp } from 'lucide-svelte';
-	import { m } from '@/i18n';
-	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
-	import { Eye, EyeOff } from 'lucide-svelte';
-	import { pb } from '@/pocketbase';
 	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
-	import { buttonVariants } from '@/components/ui/button';
+
+	import { ChevronDown, ChevronUp } from 'lucide-svelte';
+	import { Eye, EyeOff } from 'lucide-svelte';
+
+	import type { WalletsResponse } from '@/pocketbase/types';
+
+	import { CollectionManager } from '@/collections-components';
+	import { RecordDelete } from '@/collections-components/manager';
+	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Card from '@/components/ui-custom/card.svelte';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge';
+	import { buttonVariants } from '@/components/ui/button';
+	import { Separator } from '@/components/ui/separator';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
+
+	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
+
+	import WalletFormSheet from './wallet-form-sheet.svelte';
 
 	//
 

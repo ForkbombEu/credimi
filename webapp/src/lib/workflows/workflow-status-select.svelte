@@ -6,13 +6,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { workflowStatuses, WorkflowStatus } from '@forkbombeu/temporal-ui';
-
 	import { TemporalI18nProvider, type WorkflowStatusType } from '$lib/temporal';
-	import { ensureArray } from '@/utils/other';
-	import { m } from '@/i18n';
-	import Label from '@/components/ui/label/label.svelte';
-	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
+
 	import T from '@/components/ui-custom/t.svelte';
+	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
+	import Label from '@/components/ui/label/label.svelte';
+	import { m } from '@/i18n';
+	import { ensureArray } from '@/utils/other';
 
 	//
 

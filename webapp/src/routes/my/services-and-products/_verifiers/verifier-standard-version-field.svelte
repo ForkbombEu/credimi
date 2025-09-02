@@ -6,16 +6,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { SuperForm } from 'sveltekit-superforms';
-	import { stringProxy } from 'sveltekit-superforms/client';
-	import * as Form from '@/components/ui/form';
-	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
-	import type { VerifiersFormData } from '@/pocketbase/types';
-	import { m } from '@/i18n';
-	import type { SelectOption } from '@/components/ui-custom/utils';
+
 	import { getStandardsAndVersionsFlatOptionsList } from '$lib/standards';
-	import * as Select from '@/components/ui/select';
-	import { fromStore, type Writable } from 'svelte/store';
 	import { String } from 'effect';
+	import { fromStore, type Writable } from 'svelte/store';
+	import { stringProxy } from 'sveltekit-superforms/client';
+
+	import type { SelectOption } from '@/components/ui-custom/utils';
+	import type { VerifiersFormData } from '@/pocketbase/types';
+
+	import * as Form from '@/components/ui/form';
+	import * as Select from '@/components/ui/select';
+	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
+	import { m } from '@/i18n';
 
 	//
 

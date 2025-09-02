@@ -5,21 +5,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { m } from '@/i18n';
+	import { Trash2 } from 'lucide-svelte';
+	import { z } from 'zod';
+
+	import { CollectionManager, RecordDelete } from '@/collections-components/manager';
+	import CopyButton from '@/components/ui-custom/copyButton.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import * as AlertDialog from '@/components/ui/alert-dialog';
 	import { Button } from '@/components/ui/button';
+	import * as Card from '@/components/ui/card';
 	import { Input } from '@/components/ui/input';
 	import { Label } from '@/components/ui/label';
-	import { pb, currentUser } from '@/pocketbase';
-	import { CollectionManager, RecordDelete } from '@/collections-components/manager';
-	import * as AlertDialog from '@/components/ui/alert-dialog';
-	import * as Table from '@/components/ui/table';
-	import * as Card from '@/components/ui/card';
-	import CopyButton from '@/components/ui-custom/copyButton.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator';
-	import { Trash2 } from 'lucide-svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import { z } from 'zod';
+	import * as Table from '@/components/ui/table';
+	import { m } from '@/i18n';
+	import { pb, currentUser } from '@/pocketbase';
 
 	const apiKeyNameSchema = z.object({
 		name: z

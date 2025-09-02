@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { Separator as SeparatorPrimitive } from "bits-ui";
+
 	import { Separator } from "@/components/ui/separator/index.js";
 	import { cn } from "@/components/ui/utils.js";
 

@@ -11,9 +11,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts" generics="T extends Record<string, unknown>, U extends _FormPathLeaves<T>">
-	import * as FormPrimitive from "formsnap";
-	import type { HTMLAttributes } from "svelte/elements";
 	import type { WithElementRef, WithoutChildren } from "bits-ui";
+	import type { HTMLAttributes } from "svelte/elements";
+
+	import * as FormPrimitive from "formsnap";
+
 	import { cn } from "@/components/ui/utils.js";
 
 	let {

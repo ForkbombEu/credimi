@@ -5,14 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { QrCode } from '@/qr';
-	import { pb } from '@/pocketbase';
 	import { onMount } from 'svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import { z } from 'zod';
-	import { warn } from '@/utils/other';
+
+	import Spinner from '@/components/ui-custom/spinner.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
+	import { QrCode } from '@/qr';
+	import { warn } from '@/utils/other';
 
 	//
 

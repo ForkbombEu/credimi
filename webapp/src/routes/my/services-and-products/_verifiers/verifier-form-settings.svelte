@@ -9,9 +9,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		FieldSnippetOptions,
 		FieldsOptions
 	} from '@/collections-components/form/collectionFormTypes';
-	import { m } from '@/i18n';
-	import VerifierStandardVersionField from './verifier-standard-version-field.svelte';
+
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
+	import { m } from '@/i18n';
+
+	import VerifierStandardVersionField from './verifier-standard-version-field.svelte';
 
 	//
 

@@ -11,16 +11,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { TemporalI18nProvider } from '$lib/temporal';
-	import TemporalWorkflow from './temporal-workflow.svelte';
 	import type { HistoryEvent } from '@forkbombeu/temporal-ui';
+	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
+
+	import { TemporalI18nProvider } from '$lib/temporal';
+
 	import {
 		setupEmitter,
 		setupListener,
 		type PageMessage,
 		type IframeMessage
 	} from '../_partials/page-events';
-	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
+	import TemporalWorkflow from './temporal-workflow.svelte';
 
 	//
 

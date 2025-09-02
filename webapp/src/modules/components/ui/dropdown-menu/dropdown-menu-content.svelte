@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { cn } from "@/components/ui/utils.js";
 	import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
+
+	import { cn } from "@/components/ui/utils.js";
 
 	let {
 		ref = $bindable(null),

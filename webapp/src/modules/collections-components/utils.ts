@@ -2,11 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getCollectionModel, getCollectionNameFromId } from '@/pocketbase/collections-models';
+import type { ValueOf } from 'type-fest';
+
 import type { CollectionName } from '@/pocketbase/collections-models';
 import type { CollectionResponses } from '@/pocketbase/types';
 import type { GenericRecord } from '@/utils/types';
-import type { ValueOf } from 'type-fest';
+
+import { getCollectionModel, getCollectionNameFromId } from '@/pocketbase/collections-models';
 
 //
 

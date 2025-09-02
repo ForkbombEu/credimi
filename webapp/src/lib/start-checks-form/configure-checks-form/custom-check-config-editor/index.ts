@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { CustomCheckConfigEditor } from './custom-check-config-editor.svelte.js';
 import CustomCheckConfigEditorComponent from './custom-check-config-editor.svelte';
+import { CustomCheckConfigEditor } from './custom-check-config-editor.svelte.js';
 
 export { CustomCheckConfigEditor, CustomCheckConfigEditorComponent };

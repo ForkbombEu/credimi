@@ -6,19 +6,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { Suite } from '$lib/standards';
-	import type { SelectChecksForm } from './select-checks-form.svelte.js';
-	import * as RadioGroup from '@/components/ui/radio-group/index.js';
-	import * as Select from '@/components/ui/select/index.js';
-	import { Label } from '@/components/ui/label/index.js';
-	import T from '@/components/ui-custom/t.svelte';
-	import { Checkbox as Check } from 'bits-ui';
-	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
-	import Button from '@/components/ui/button/button.svelte';
-	import { ArrowRight } from 'lucide-svelte';
-	import { m } from '@/i18n';
+
 	import SectionCard from '$lib/layout/section-card.svelte';
 	import Footer from '$start-checks-form/_utils/footer.svelte';
+	import { Checkbox as Check } from 'bits-ui';
+	import { ArrowRight } from 'lucide-svelte';
+
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import Button from '@/components/ui/button/button.svelte';
+	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
+	import { Label } from '@/components/ui/label/index.js';
+	import * as RadioGroup from '@/components/ui/radio-group/index.js';
+	import * as Select from '@/components/ui/select/index.js';
+	import { m } from '@/i18n';
+
+	import type { SelectChecksForm } from './select-checks-form.svelte.js';
+
 	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
 	import OpenidSuiteTable from './openid-suite-files-table.svelte';
 

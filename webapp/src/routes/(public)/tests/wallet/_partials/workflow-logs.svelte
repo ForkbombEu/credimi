@@ -5,21 +5,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { onMount, onDestroy, type ComponentProps, type Snippet } from 'svelte';
 	import { beforeNavigate } from '$app/navigation';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+	import { Info } from 'lucide-svelte';
+	import { nanoid } from 'nanoid';
+	import { onMount, onDestroy, type ComponentProps, type Snippet } from 'svelte';
+
+	import Alert from '@/components/ui-custom/alert.svelte';
+	import * as Accordion from '@/components/ui/accordion/index.js';
+	import { Badge } from '@/components/ui/badge/index.js';
+	import { m } from '@/i18n/index.js';
+
 	import {
 		createWorkflowLogHandlers,
 		LogStatus,
 		type WorkflowLog,
 		type WorkflowLogsProps
 	} from './workflow-logs.js';
-	import { Info } from 'lucide-svelte';
-	import Alert from '@/components/ui-custom/alert.svelte';
-	import { Badge } from '@/components/ui/badge/index.js';
-	import * as Accordion from '@/components/ui/accordion/index.js';
-	import { m } from '@/i18n/index.js';
-	import { nanoid } from 'nanoid';
-	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	//
 

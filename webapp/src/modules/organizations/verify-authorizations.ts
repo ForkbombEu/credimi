@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pb } from '@/pocketbase';
+
 import type { OrgRole } from '.';
 
 /* Reference: pb_hooks/organizations.routes.pb.js */

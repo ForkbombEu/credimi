@@ -14,17 +14,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import ArrayOrItemManager from './arrayOrItemManager.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import T from './t.svelte';
-	import { X } from 'lucide-svelte';
+	import type { Snippet } from 'svelte';
+
 	import _ from 'lodash';
+	import { X } from 'lucide-svelte';
+
+	import Button from '@/components/ui-custom/button.svelte';
 	import Badge from '@/components/ui/badge/badge.svelte';
 	import { m } from '@/i18n';
+
+	import ArrayOrItemManager from './arrayOrItemManager.svelte';
 	import List from './list.svelte';
 	import ListHeader from './listHeader.svelte';
 	import ListItem from './listItem.svelte';
-	import type { Snippet } from 'svelte';
+	import T from './t.svelte';
 
 	//
 
@@ -71,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	function isNewFile(file: File): boolean {
 		if (Array.isArray(oldFiles)) {
 			const search = oldFiles.find((f) => _.isEqual(f, file));
-			return !Boolean(search);
+			return !search;
 		} else {
 			return !_.isEqual(oldFiles, file);
 		}

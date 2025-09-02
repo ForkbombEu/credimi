@@ -6,7 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Switch as SwitchPrimitive } from 'bits-ui';
+
 	import type { IconComponent } from '../types';
+
 	import Icon from './icon.svelte';
 
 	//

@@ -6,14 +6,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import PageContent from '$lib/layout/pageContent.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import Alert from '@/components/ui-custom/alert.svelte';
-	import { m } from '@/i18n';
-	import Step from '../_partials/step.svelte';
-	import QrLink from '../_partials/qr-link.svelte';
-	import FeedbackForms from '../_partials/feedback-forms.svelte';
-	import WorkflowLogs from '../_partials/workflow-logs.svelte';
 	import { getEUDIWWorkflowLogsProps } from '$lib/wallet-test-pages/eudiw';
+
+	import Alert from '@/components/ui-custom/alert.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n';
+
+	import FeedbackForms from '../_partials/feedback-forms.svelte';
+	import QrLink from '../_partials/qr-link.svelte';
+	import Step from '../_partials/step.svelte';
+	import WorkflowLogs from '../_partials/workflow-logs.svelte';
 
 	//
 

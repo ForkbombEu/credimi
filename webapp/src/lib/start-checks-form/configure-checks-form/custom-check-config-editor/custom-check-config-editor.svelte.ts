@@ -2,17 +2,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { createJsonSchemaForm, type JsonSchemaForm } from '@/components/json-schema-form';
-import type { CustomChecksResponse } from '@/pocketbase/types';
 import type { BaseEditor } from '$start-checks-form/_utils';
 import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
-import { z } from 'zod';
-import { zod } from 'sveltekit-superforms/adapters';
-import { createForm } from '@/forms';
+
 import { yamlStringSchema } from '$lib/utils';
-import type { State } from '@/utils/types';
-import { fromStore } from 'svelte/store';
 import { watch } from 'runed';
+import { fromStore } from 'svelte/store';
+import { zod } from 'sveltekit-superforms/adapters';
+import { z } from 'zod';
+
+import type { CustomChecksResponse } from '@/pocketbase/types';
+import type { State } from '@/utils/types';
+
+import { createJsonSchemaForm, type JsonSchemaForm } from '@/components/json-schema-form';
+import { createForm } from '@/forms';
 
 //
 

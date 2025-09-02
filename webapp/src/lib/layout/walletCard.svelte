@@ -5,17 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { localizeHref, m } from '@/i18n';
-	import T from '@/components/ui-custom/t.svelte';
-	import { Badge } from '@/components/ui/badge';
+	import { type ConformanceCheck } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
+
 	import type { WalletsResponse } from '@/pocketbase/types';
 
-	import { Separator } from '@/components/ui/separator';
-	import { type ConformanceCheck } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
-	import { cn } from '@/components/ui/utils';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import { pb } from '@/pocketbase';
 	import RenderHtml from '@/components/ui-custom/renderHTML.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge';
+	import { Separator } from '@/components/ui/separator';
+	import { cn } from '@/components/ui/utils';
+	import { localizeHref, m } from '@/i18n';
+	import { pb } from '@/pocketbase';
 
 	type Props = {
 		app: WalletsResponse;

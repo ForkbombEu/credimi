@@ -5,10 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ComponentProps } from "svelte";
+
+	import PanelLeft from "lucide-svelte/icons/panel-left";
+
 	import { Button } from "@/components/ui/button/index.js";
 	import { cn } from "@/components/ui/utils.js";
-	import PanelLeft from "lucide-svelte/icons/panel-left";
-	import type { ComponentProps } from "svelte";
+
 	import { useSidebar } from "./context.svelte.js";
 
 	let {

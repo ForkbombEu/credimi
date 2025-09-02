@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import PageIndex from '$lib/layout/pageIndex.svelte';
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import type { Snippet } from 'svelte';
+
+	import PageIndex from '$lib/layout/pageIndex.svelte';
 
 	type Props = {
 		tableOfContents?: Record<string, IndexItem>;

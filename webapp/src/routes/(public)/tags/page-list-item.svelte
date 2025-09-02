@@ -5,8 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { getTagTranslation } from '$lib/content/tags-i18n';
 	import type { ContentPage } from '$lib/content/types';
+
+	import { getTagTranslation } from '$lib/content/tags-i18n';
+
 	import T from '@/components/ui-custom/t.svelte';
 	import { localizeHref } from '@/i18n';
 

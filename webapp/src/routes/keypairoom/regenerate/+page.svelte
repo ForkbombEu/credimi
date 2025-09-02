@@ -5,6 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { zod } from 'sveltekit-superforms/adapters';
+	import z from 'zod';
+
+	import { PageCard } from '@/components/layout';
+	import A from '@/components/ui-custom/a.svelte';
+	import Card from '@/components/ui-custom/card.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import Separator from '@/components/ui/separator/separator.svelte';
+	import { featureFlags } from '@/features';
+	import { Form, createForm } from '@/forms';
+	import { Field, TextareaField } from '@/forms/fields';
+	import { m } from '@/i18n';
 	import {
 		getHMAC,
 		matchPublicAndPrivateKeys,
@@ -12,22 +24,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		saveKeyringToLocalStorage,
 		type Keyring
 	} from '@/keypairoom/keypair';
-	import { currentUser, pb } from '@/pocketbase';
-
-	import z from 'zod';
-	import { Form, createForm } from '@/forms';
-	import { Field, TextareaField } from '@/forms/fields';
-	import Card from '@/components/ui-custom/card.svelte';
-	import { featureFlags } from '@/features';
-	import { zod } from 'sveltekit-superforms/adapters';
 	import { getUserPublicKeys, RegenerateKeyringSession } from '@/keypairoom/utils';
-	import { m } from '@/i18n';
-	import RegenerateBanner from '../_partials/RegenerateBanner.svelte';
+	import { currentUser, pb } from '@/pocketbase';
 	import { log } from '@/utils/other';
-	import T from '@/components/ui-custom/t.svelte';
-	import Separator from '@/components/ui/separator/separator.svelte';
-	import { PageCard } from '@/components/layout';
-	import A from '@/components/ui-custom/a.svelte';
+
+	import RegenerateBanner from '../_partials/RegenerateBanner.svelte';
 
 	//
 

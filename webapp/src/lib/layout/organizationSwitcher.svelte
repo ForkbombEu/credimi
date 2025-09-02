@@ -5,19 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import ChevronsUpDown from 'lucide-svelte/icons/chevrons-up-down';
 	import Check from 'lucide-svelte/icons/check';
+	import ChevronsUpDown from 'lucide-svelte/icons/chevrons-up-down';
 	import { tick } from 'svelte';
-	import { cn } from '@/components/ui/utils.js';
+
+	import type { OrganizationsResponse } from '@/pocketbase/types';
+
 	import * as Avatar from '@/components/ui/avatar/index.js';
 	import { buttonVariants } from '@/components/ui/button/index.js';
 	import * as Command from '@/components/ui/command/index.js';
 	import * as Dialog from '@/components/ui/dialog/index.js';
 	import * as Popover from '@/components/ui/popover/index.js';
-	import type { OrganizationsResponse } from '@/pocketbase/types';
+	import { cn } from '@/components/ui/utils.js';
 	import { m } from '@/i18n';
-	import OrganizationAvatar from '@/organizations/components/organizationAvatar.svelte';
 	import { goto } from '@/i18n';
+	import OrganizationAvatar from '@/organizations/components/organizationAvatar.svelte';
 
 	//
 

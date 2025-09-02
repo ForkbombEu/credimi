@@ -6,7 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { page } from '$app/state';
+
 	import Icon from '@/components/ui-custom/icon.svelte';
+
 	import NavigationTab, { type Props as NavigationTabProps } from './navigationTab.svelte';
 
 	interface Props {

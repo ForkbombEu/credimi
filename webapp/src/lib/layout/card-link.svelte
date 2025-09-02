@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { localizeHref } from '@/i18n';
 	import type { Snippet } from 'svelte';
+
+	import { localizeHref } from '@/i18n';
 
 	//
 

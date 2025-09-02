@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import { alertVariants } from '@/components/ui/alert/index.js';
 	import { tv, type VariantProps } from 'tailwind-variants';
+
+	import { alertVariants } from '@/components/ui/alert/index.js';
 
 	const variants = tv({
 		extend: alertVariants,
@@ -25,11 +26,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import * as Alert from '@/components/ui/alert/index.js';
-	import Icon from './icon.svelte';
 	import type { ComponentProps, Snippet } from 'svelte';
+
 	import type { IconComponent } from '@/components/types';
+
+	import * as Alert from '@/components/ui/alert/index.js';
 	import { cn } from '@/components/ui/utils';
+
+	import Icon from './icon.svelte';
 
 	type Props = Omit<ComponentProps<typeof Alert.Root>, 'variant'> & {
 		content?: Snippet<[{ Title: typeof Alert.Title; Description: typeof Alert.Description }]>;

@@ -5,22 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { pb } from '@/pocketbase';
-	import { m } from '@/i18n';
+	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
-	import { Form, createForm } from '@/forms';
-	import { Field, CheckboxField } from '@/forms/fields';
-	import { zod } from 'sveltekit-superforms/adapters';
-
-	import { featureFlags } from '@/features';
-	import { OrganizationInviteSession } from '@/organizations/invites';
+	import Oauth from '@/auth/oauth/oauth.svelte';
 	import { WelcomeSession, WelcomeBanner } from '@/auth/welcome';
+	import A from '@/components/ui-custom/a.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Separator from '@/components/ui/separator/separator.svelte';
-	import A from '@/components/ui-custom/a.svelte';
-	import Oauth from '@/auth/oauth/oauth.svelte';
+	import { featureFlags } from '@/features';
+	import { Form, createForm } from '@/forms';
+	import { Field, CheckboxField } from '@/forms/fields';
+	import { m } from '@/i18n';
 	import { goto } from '@/i18n';
+	import { OrganizationInviteSession } from '@/organizations/invites';
+	import { pb } from '@/pocketbase';
 
 	//
 

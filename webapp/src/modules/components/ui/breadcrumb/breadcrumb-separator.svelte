@@ -5,9 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import ChevronRight from "lucide-svelte/icons/chevron-right";
 	import type { WithElementRef } from "bits-ui";
 	import type { HTMLLiAttributes } from "svelte/elements";
+
+	import ChevronRight from "lucide-svelte/icons/chevron-right";
+
 	import { cn } from "@/components/ui/utils.js";
 
 	let {

@@ -34,11 +34,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import * as Tooltip from "@/components/ui/tooltip/index.js";
-	import { cn } from "@/components/ui/utils.js";
-	import { mergeProps, type WithElementRef, type WithoutChildrenOrChild } from "bits-ui";
 	import type { ComponentProps, Snippet } from "svelte";
 	import type { HTMLAttributes } from "svelte/elements";
+
+	import { mergeProps, type WithElementRef, type WithoutChildrenOrChild } from "bits-ui";
+
+	import * as Tooltip from "@/components/ui/tooltip/index.js";
+	import { cn } from "@/components/ui/utils.js";
+
 	import { useSidebar } from "./context.svelte.js";
 
 	let {

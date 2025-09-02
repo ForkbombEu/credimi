@@ -5,15 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
-	import { getMarketplaceItemData, type MarketplaceItem } from '.';
-	import T from '@/components/ui-custom/t.svelte';
-	import { truncate } from 'lodash';
-	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import MarketplaceItemTypeDisplay from './marketplace-item-type-display.svelte';
-	import { m } from '@/i18n';
 	import { userOrganization } from '$lib/app-state';
+	import { truncate } from 'lodash';
+
+	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
+
+	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
+	import { m } from '@/i18n';
+
+	import { getMarketplaceItemData, type MarketplaceItem } from '.';
+	import MarketplaceItemTypeDisplay from './marketplace-item-type-display.svelte';
 
 	//
 

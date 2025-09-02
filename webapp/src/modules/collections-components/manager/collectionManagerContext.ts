@@ -5,9 +5,11 @@
 import type { CollectionFormOptions } from '@/collections-components/form';
 import type { CollectionName } from '@/pocketbase/collections-models';
 import type { PocketbaseQueryExpandOption } from '@/pocketbase/query';
-import { CollectionManager } from './collectionManager.svelte.js';
-import { setupDerivedContext } from '@/utils/svelte-context';
 import type { FilterMode } from '@/pocketbase/query/query.js';
+
+import { setupDerivedContext } from '@/utils/svelte-context';
+
+import { CollectionManager } from './collectionManager.svelte.js';
 
 //
 

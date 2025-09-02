@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import Topbar from './topbar.svelte';
+import PageCard from './pageCard.svelte';
 import PageContent from './pageContent.svelte';
 import PageTop from './pageTop.svelte';
-import PageCard from './pageCard.svelte';
+import Topbar from './topbar.svelte';
 
 export { Topbar, PageCard, PageContent, PageTop };

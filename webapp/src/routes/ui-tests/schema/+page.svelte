@@ -5,12 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+	import z from 'zod';
+
+	import type { CollectionFormData, Data } from '@/pocketbase/types';
+
 	import { pb } from '@/pocketbase';
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
-	import type { CollectionFormData, Data } from '@/pocketbase/types';
-	import z from 'zod';
 	import { createDummyFile } from '@/utils/other';
-	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	const x = z
 		.object({

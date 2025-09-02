@@ -6,12 +6,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import PageContent from '$lib/layout/pageContent.svelte';
+	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc.svelte';
+
 	import T from '@/components/ui-custom/t.svelte';
-	import Step from '../_partials/step.svelte';
-	import QrLink from '../_partials/qr-link.svelte';
 	import { Alert } from '@/components/ui/alert';
 	import { m } from '@/i18n';
-	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc.svelte';
+
+	import QrLink from '../_partials/qr-link.svelte';
+	import Step from '../_partials/step.svelte';
 
 	//
 

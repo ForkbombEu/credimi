@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { Pagination as PaginationPrimitive } from 'bits-ui';
 	import ChevronRight from 'lucide-svelte/icons/chevron-right';
+
 	import { buttonVariants } from '@/components/ui/button/index.js';
 	import { cn } from '@/components/ui/utils.js';
 

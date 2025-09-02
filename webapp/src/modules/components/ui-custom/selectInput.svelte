@@ -6,9 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" module>
 	import type { SelectRootProps, SelectBaseRootPropsWithoutHTML } from 'bits-ui';
-	import type { ArrayElement } from 'type-fest/source/internal';
 	import type { ControlAttrs } from 'formsnap';
 	import type { Snippet } from 'svelte';
+	import type { ArrayElement } from 'type-fest/source/internal';
 
 	//
 
@@ -31,10 +31,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts" generics="T extends SelectType">
-	import { ensureArray, maybeArrayIsValue } from '@/utils/other';
-
-	import { m } from '@/i18n';
 	import * as Select from '@/components/ui/select';
+	import { m } from '@/i18n';
+	import { ensureArray, maybeArrayIsValue } from '@/utils/other';
 
 	//
 

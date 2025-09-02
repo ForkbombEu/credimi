@@ -12,10 +12,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { page } from '$app/state';
+
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import { cn } from '@/components/ui/utils';
-	import type { LinkWithIcon } from '../types';
 	import { localizeHref } from '@/i18n';
+
+	import type { LinkWithIcon } from '../types';
 
 	//
 

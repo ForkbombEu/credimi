@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { Command as CommandPrimitive } from "bits-ui";
 	import Search from "lucide-svelte/icons/search";
+
 	import { cn } from "@/components/ui/utils.js";
 
 	let {

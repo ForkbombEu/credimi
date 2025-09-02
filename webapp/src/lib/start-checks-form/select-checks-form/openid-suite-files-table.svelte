@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as Table from '@/components/ui/table';
 	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
+	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n/index.js';
 
 	//

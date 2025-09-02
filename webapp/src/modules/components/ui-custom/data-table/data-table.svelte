@@ -15,9 +15,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" generics="TData, TValue">
 	import { type ColumnDef, getCoreRowModel, type RowSelectionState } from '@tanstack/table-core';
+
+	import type { FieldOptions } from '@/forms/fields/types';
+
 	import { createSvelteTable, FlexRender } from '@/components/ui/data-table/index.js';
 	import * as Table from '@/components/ui/table/index.js';
-	import type { FieldOptions } from '@/forms/fields/types';
 
 	let {
 		data,

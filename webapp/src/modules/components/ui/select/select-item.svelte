@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import Check from "lucide-svelte/icons/check";
 	import { Select as SelectPrimitive, type WithoutChild } from "bits-ui";
+	import Check from "lucide-svelte/icons/check";
+
 	import { cn } from "@/components/ui/utils.js";
 
 	let {

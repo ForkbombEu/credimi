@@ -4,9 +4,10 @@
 
 import type { HistoryEvent } from '@forkbombeu/temporal-ui';
 import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
+import type { WorkflowMemo } from '$lib/workflows';
+
 import { browser } from '$app/environment';
 import { onDestroy } from 'svelte';
-import type { WorkflowMemo } from '$lib/workflows';
 
 /* Messaging utilities */
 

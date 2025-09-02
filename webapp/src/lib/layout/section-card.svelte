@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import T from '@/components/ui-custom/t.svelte';
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
+
+	import T from '@/components/ui-custom/t.svelte';
 
 	type Props = HTMLAttributes<HTMLDivElement> & {
 		children: Snippet;

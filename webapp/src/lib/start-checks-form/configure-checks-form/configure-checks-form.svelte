@@ -5,27 +5,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CheckConfigFormEditorComponent } from './check-config-form-editor';
-	import { CheckConfigEditorComponent } from './check-config-editor';
+	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
+	import { ArrowUp, Eye } from 'lucide-svelte';
+
+	import type { IconComponent } from '@/components/types';
+	import type { GenericRecord } from '@/utils/types';
+
 	import Button from '@/components/ui-custom/button.svelte';
+	import CopyButton from '@/components/ui-custom/copyButton.svelte';
+	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
+	import * as Popover from '@/components/ui/popover';
+	import { Separator } from '@/components/ui/separator';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase/index.js';
+
 	import Footer from '../_utils/footer.svelte';
+	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
 	import SectionCard from '../../layout/section-card.svelte';
+	import { CheckConfigEditorComponent } from './check-config-editor';
+	import { CheckConfigFormEditorComponent } from './check-config-form-editor';
 	import {
 		ConfigureChecksForm,
 		type ConfigureChecksFormProps
 	} from './configure-checks-form.svelte.js';
-	import { m } from '@/i18n';
-	import * as Popover from '@/components/ui/popover';
-	import { ArrowUp, Eye } from 'lucide-svelte';
-	import type { IconComponent } from '@/components/types';
-	import type { GenericRecord } from '@/utils/types';
-	import { Separator } from '@/components/ui/separator';
 	import { CustomCheckConfigEditorComponent } from './custom-check-config-editor';
-	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
-	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
-	import CopyButton from '@/components/ui-custom/copyButton.svelte';
-	import { pb } from '@/pocketbase/index.js';
-	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
 
 	//
 

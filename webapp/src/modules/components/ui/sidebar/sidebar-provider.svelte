@@ -5,10 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as Tooltip from "@/components/ui/tooltip/index.js";
-	import { cn } from "@/components/ui/utils.js";
 	import type { WithElementRef } from "bits-ui";
 	import type { HTMLAttributes } from "svelte/elements";
+
+	import * as Tooltip from "@/components/ui/tooltip/index.js";
+	import { cn } from "@/components/ui/utils.js";
+
 	import {
 		SIDEBAR_COOKIE_MAX_AGE,
 		SIDEBAR_COOKIE_NAME,

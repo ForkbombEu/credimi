@@ -6,14 +6,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import PageContent from '$lib/layout/pageContent.svelte';
+	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+
+	import HTML from '@/components/ui-custom/renderHTML.svelte';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import Badge from '@/components/ui/badge/badge.svelte';
 	import { Button } from '@/components/ui/button';
 	import { m } from '@/i18n';
-	import HTML from '@/components/ui-custom/renderHTML.svelte';
-	import Badge from '@/components/ui/badge/badge.svelte';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
-	import PageHeader from '$lib/layout/pageHeader.svelte';
 
 	let { data } = $props();
 	const { news } = $derived(data);

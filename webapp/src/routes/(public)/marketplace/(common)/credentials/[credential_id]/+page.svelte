@@ -5,20 +5,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { m } from '@/i18n';
-	import InfoBox from '$lib/layout/infoBox.svelte';
-	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
-	import { QrCode } from '@/qr/index.js';
-	import { String } from 'effect';
-	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
-	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
+
 	import { createIntentUrl } from '$lib/credentials/index.js';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
-	import EditSheet from '../../_utils/edit-sheet.svelte';
-	import T from '@/components/ui-custom/t.svelte';
+	import InfoBox from '$lib/layout/infoBox.svelte';
+	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
+	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import EditCredentialForm from '$routes/my/services-and-products/_credentials/edit-credential-form.svelte';
+	import { String } from 'effect';
+
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n';
+	import { QrCode } from '@/qr/index.js';
+
+	import EditSheet from '../../_utils/edit-sheet.svelte';
+	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
 
 	let { data } = $props();
 	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);

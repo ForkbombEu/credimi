@@ -5,13 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="Data extends GenericRecord">
-	import type { GenericRecord } from '@/utils/types';
-	import * as Form from '@/components/ui/form';
 	import type { FormPathLeaves, SuperForm } from 'sveltekit-superforms';
+
 	import { stringProxy } from 'sveltekit-superforms';
-	import FieldWrapper from './parts/fieldWrapper.svelte';
-	import type { FieldOptions } from './types';
+
+	import type { GenericRecord } from '@/utils/types';
+
 	import MarkdownEditor from '@/components/ui-custom/markdown-editor.svelte';
+	import * as Form from '@/components/ui/form';
+
+	import type { FieldOptions } from './types';
+
+	import FieldWrapper from './parts/fieldWrapper.svelte';
 
 	//
 

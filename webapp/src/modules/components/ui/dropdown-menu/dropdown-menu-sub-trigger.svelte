@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { DropdownMenu as DropdownMenuPrimitive } from "bits-ui";
 	import ChevronRight from "lucide-svelte/icons/chevron-right";
+
 	import { cn } from "@/components/ui/utils.js";
 
 	let {

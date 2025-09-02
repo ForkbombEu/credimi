@@ -5,11 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { page } from '$app/state';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
+	import { queryParameters } from 'sveltekit-search-params';
 
+	import type { PocketbaseQueryOptions } from '@/pocketbase/query';
+
+	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
@@ -19,10 +24,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		marketplaceItemTypes,
 		marketplaceItemTypeSchema
 	} from './_utils';
-	import { page } from '$app/state';
-	import type { PocketbaseQueryOptions } from '@/pocketbase/query';
-	import { queryParameters } from 'sveltekit-search-params';
-	import Button from '@/components/ui-custom/button.svelte';
 
 	//
 
@@ -32,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			decode: (value) => {
 				try {
 					return marketplaceItemTypeSchema.parse(value);
-				} catch (error) {
+				} catch {
 					return null;
 				}
 			}
@@ -42,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const typeFilter = $derived.by(() => {
 		try {
 			return marketplaceItemTypeSchema.parse(page.url.searchParams.get('type'));
-		} catch (error) {
+		} catch {
 			return undefined;
 		}
 	});

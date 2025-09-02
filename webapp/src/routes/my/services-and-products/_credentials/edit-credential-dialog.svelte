@@ -5,11 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 	import { Pencil } from 'lucide-svelte';
-	import { m } from '@/i18n';
-	import Sheet from '@/components/ui-custom/sheet.svelte';
+
+	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
+
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import Sheet from '@/components/ui-custom/sheet.svelte';
+	import { m } from '@/i18n';
+
 	import EditCredentialForm from './edit-credential-form.svelte';
 
 	type Props = {

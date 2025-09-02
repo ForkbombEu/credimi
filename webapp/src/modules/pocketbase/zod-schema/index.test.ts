@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { describe, it, expect } from 'vitest';
-import { createCollectionZodSchema } from '.';
-import type { CollectionFormData, Data } from '@/pocketbase/types';
-import { getCollectionModel } from '@/pocketbase/collections-models';
 import { subYears, addYears, differenceInMilliseconds, addMilliseconds } from 'date-fns';
+import { describe, it, expect } from 'vitest';
+
+import type { CollectionFormData, Data } from '@/pocketbase/types';
+
+import { getCollectionModel } from '@/pocketbase/collections-models';
+
+import { createCollectionZodSchema } from '.';
 
 //
 

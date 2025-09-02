@@ -7,25 +7,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import FakeTable from '$lib/layout/fakeTable.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
-	import PageTop from '$lib/layout/pageTop.svelte';
-	import Alert from '@/components/ui-custom/alert.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { featureFlags } from '@/features';
-	import { createForm, Form, SubmitButton } from '@/forms';
-	import { Field } from '@/forms/fields';
-	import { m } from '@/i18n';
-	import { currentUser, pb } from '@/pocketbase';
-	import { zod } from 'sveltekit-superforms/adapters';
-	import { z } from 'zod';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import { Sparkle } from 'lucide-svelte';
-	import { Collections } from '@/pocketbase/types';
-	import MarketplaceSection, { type SectionData } from './_sections/marketplace-section.svelte';
-	import { CollectionManager } from '@/collections-components';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
-	import { MarketplaceItemCard } from './marketplace/_utils';
+	import PageTop from '$lib/layout/pageTop.svelte';
+	import { Sparkle } from 'lucide-svelte';
+
+	import { CollectionManager } from '@/collections-components';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
+	import { featureFlags } from '@/features';
+	import { m } from '@/i18n';
+	import { currentUser } from '@/pocketbase';
+	import { Collections } from '@/pocketbase/types';
+
+	import MarketplaceSection from './_sections/marketplace-section.svelte';
+	import { MarketplaceItemCard } from './marketplace/_utils';
 
 	const MAX_SOLUTION_ITEMS = 3;
 	// const schema = z.object({
