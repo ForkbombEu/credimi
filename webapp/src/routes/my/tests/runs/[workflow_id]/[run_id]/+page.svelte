@@ -25,8 +25,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import {
 		setupEmitter,
 		setupListener,
-		type PageMessage,
-		type IframeMessage
+		type IframeMessage,
+		type PageMessage
 	} from './_partials/page-events';
 	import { _getWorkflow } from './+layout';
 
@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 	let { organization, workflow } = $derived(data);
-	let { execution, memo } = $derived(workflow);
+	let { memo, execution } = $derived(workflow);
 	let { id: workflowId, runId } = $derived(execution);
 
 	/* Iframe communication */
@@ -61,15 +61,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	setupListener<IframeMessage>((ev) => {
 		if (ev.type === 'height') {
 			const iframe = getIframe();
-			if (iframe) {
-				const heightDifference = ev.height - (parseInt(iframe.height) || 0);
-				if (heightDifference !== constantHeightDifference) {
-					iframe.height = ev.height + 'px';
-					constantHeightDifference = heightDifference;
-				}
+			if (!iframe) return;
+			const heightDifference = ev.height - (parseInt(iframe.height) || 0);
+			if (heightDifference !== constantHeightDifference) {
+				iframe.height = ev.height + 'px';
+				constantHeightDifference = heightDifference;
 			}
-		}
-		if (ev.type === 'ready') {
+		} else if (ev.type === 'ready') {
 			isIframeLoading = false;
 		}
 	});
@@ -198,13 +196,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if memo}
 	{#if memo.author == 'ewc'}
-		<EwcTop {workflowId} namespace={organization?.id!} />
+		<EwcTop {workflowId} namespace={organization.id} />
 	{:else}
 		<div class="bg-temporal padding-x space-y-8 pt-4">
 			{#if memo.author == 'openid_conformance_suite'}
-				<OpenidnetTop {workflowId} {runId} namespace={organization?.id!} />
+				<OpenidnetTop {workflowId} {runId} namespace={organization.id} />
 			{:else if memo.author == 'eudiw'}
-				<EudiwTop {workflowId} namespace={organization?.id!} />
+				<EudiwTop {workflowId} namespace={organization.id} />
 			{/if}
 
 			<Separator />

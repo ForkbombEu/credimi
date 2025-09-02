@@ -19,8 +19,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import {
 		setupEmitter,
 		setupListener,
-		type PageMessage,
-		type IframeMessage
+		type IframeMessage,
+		type PageMessage
 	} from '../_partials/page-events';
 	import TemporalWorkflow from './temporal-workflow.svelte';
 
@@ -105,9 +105,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <style lang="postcss">
 	.bg-temporal {
 		background-color: rgb(248 250 252);
-	}
-
-	.padding-x {
-		@apply !px-2 md:!px-4 lg:!px-8;
 	}
 </style>

@@ -2,12 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { HistoryEvent } from '@forkbombeu/temporal-ui';
-import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
-import type { WorkflowMemo } from '$lib/workflows';
-
 import { browser } from '$app/environment';
 import { onDestroy } from 'svelte';
+
+import type { _getWorkflow } from '../+layout';
 
 /* Messaging utilities */
 
@@ -51,14 +49,8 @@ export function setupListener<M extends BaseMessage>(
 
 export type PageMessage = WorkflowMessage;
 
-type WorkflowMessage = Message<
-	'workflow',
-	{
-		execution: WorkflowExecution;
-		eventHistory: HistoryEvent[];
-		memo?: WorkflowMemo;
-	}
->;
+type WorkflowMessage = Message<'workflow', WorkflowResponse>;
+type WorkflowResponse = Exclude<Awaited<ReturnType<typeof _getWorkflow>>, Error>;
 
 // Iframe
 

@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-export * from './types';
-export * from './queries';
 export * from './memo';
+export * from './queries';
+export * from './types';
 export * from './utils';
+export { WorkflowQrPoller, WorkflowsTable };
 
 import WorkflowQrPoller from './workflow-qr-poller.svelte';
 import WorkflowsTable from './workflows-table.svelte';
-export { WorkflowsTable, WorkflowQrPoller };

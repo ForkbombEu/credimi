@@ -8,11 +8,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
 	import {
-		workflowRun,
-		fullEventHistory,
 		currentEventHistory,
-		WorkflowHistoryLayout,
+		fullEventHistory,
 		toEventHistory,
+		WorkflowHistoryLayout,
+		workflowRun,
 		type HistoryEvent
 	} from '@forkbombeu/temporal-ui';
 	import { beforeNavigate } from '$app/navigation';

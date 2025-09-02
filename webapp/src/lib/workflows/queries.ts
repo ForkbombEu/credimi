@@ -12,7 +12,11 @@ import { z } from 'zod';
 import { pb } from '@/pocketbase';
 import { warn } from '@/utils/other';
 
-import { workflowExecutionInfoSchema, type WorkflowExecutionInfo } from './types';
+import {
+	workflowExecutionInfoSchema,
+	workflowResponseSchema,
+	type WorkflowResponse
+} from './types';
 
 //
 
@@ -44,22 +48,23 @@ export async function fetchWorkflows(
 			method: 'GET',
 			fetch: fetchFn
 		});
+
 		const schema = z.object({
 			executions: z.array(workflowExecutionInfoSchema)
 		});
+		const parsed = schema
+			.parse(data)
+			.executions.map((exec) => workflowResponseToExecution({ workflowExecutionInfo: exec }));
 
-		const parsed = schema.parse(data).executions.map(workflowInfoToExecution);
 		const errors = parsed.filter((execution) => execution instanceof Error);
-		const executions = Array.difference(parsed, errors) as WorkflowExecution[];
+		if (errors.length > 0) warn(errors);
 
-		warn(errors);
+		const executions = Array.difference(parsed, errors) as WorkflowExecution[];
 		return executions;
 	}, 'Failed to fetch user workflows');
 }
 
-//
-
-export async function fetchWorkflow(
+export async function fetchWorkflowExecution(
 	workflowId: string,
 	runId: string,
 	options = { fetch }
@@ -69,12 +74,8 @@ export async function fetchWorkflow(
 			method: 'GET',
 			fetch: options.fetch
 		});
-		// Note: this schema loses some information (see type `WorkflowExecutionAPIResponse`)
-		const schema = z.object({
-			workflowExecutionInfo: workflowExecutionInfoSchema
-		});
-		const parsed = schema.parse(data).workflowExecutionInfo;
-		return workflowInfoToExecution(parsed);
+		const parsed = workflowResponseSchema.parse(data);
+		return workflowResponseToExecution(parsed);
 	}, 'Failed to fetch workflow');
 }
 
@@ -93,25 +94,23 @@ export async function fetchWorkflowHistory(
 	}, 'Failed to fetch workflow history');
 }
 
-//
+// Private
 
-function workflowInfoToExecution(data: WorkflowExecutionInfo): WorkflowExecution | Error {
+function workflowResponseToExecution(data: WorkflowResponse): WorkflowExecution | Error {
 	return tryFn(() => {
 		// @ts-expect-error Slight type mismatch
-		const w = toWorkflowExecution({ workflowExecutionInfo: data });
+		const workflowExecution = toWorkflowExecution(data);
 
 		/* HACK */
 		// canBeTerminated a property of workflow object is a getter that requires a svelte `store` to work
 		// by removing it, we can avoid the store dependency and solve a svelte error about state not updating
-		Object.defineProperty(w, 'canBeTerminated', {
+		Object.defineProperty(workflowExecution, 'canBeTerminated', {
 			value: true
 		});
 
-		return w;
+		return workflowExecution;
 	}, 'Failed to convert workflow response to execution');
 }
-
-//
 
 function tryFn<T>(fn: () => T, errorMessage?: string): T | Error {
 	try {
