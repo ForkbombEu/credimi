@@ -608,6 +608,9 @@ func processJSONChecks(
 		Author:    author,
 		TestName:  testName,
 		Protocol:  protocol,
+		LogoUrl:   logoUrl,
+		AppName:   appName,
+		UserName:  userName,
 	}
 	if starterFunc, ok := workflowRegistry[author]; ok {
 		return starterFunc(input)

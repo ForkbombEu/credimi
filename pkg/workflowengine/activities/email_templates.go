@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
-
 package activities
 
+//nolint:lll // HTML template lines may exceed 120 characters for readability and compatibility
 const ContinueConformanceCheckEmailTemplate = `<!doctype html>
 <html lang="und" dir="auto" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
 

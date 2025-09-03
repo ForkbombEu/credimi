@@ -82,15 +82,13 @@ func (a *SendMailActivity) Execute(
 			)
 		}
 		m.SetBody("text/html", bodyBuffer.String())
-	} else {
-		if body == "" {
-			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-			return workflowengine.ActivityResult{}, a.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s: 'body' or 'template' must be provided in payload",
-					errCode.Description),
-			)
-		}
+	} else if body == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return workflowengine.ActivityResult{}, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'body' or 'template' must be provided in payload",
+				errCode.Description),
+		)
 	}
 
 	// Attach any files if necessary
