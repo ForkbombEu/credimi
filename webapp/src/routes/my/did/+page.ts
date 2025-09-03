@@ -2,11 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getKeyringFromLocalStorage } from '@/keypairoom/keypair';
-import { loadFeatureFlags } from '@/features';
-import { pb } from '@/pocketbase';
 import { error } from '@sveltejs/kit';
+
+import { loadFeatureFlags } from '@/features';
 import { redirect } from '@/i18n';
+import { getKeyringFromLocalStorage } from '@/keypairoom/keypair';
+import { pb } from '@/pocketbase';
 
 export const load = async ({ fetch }) => {
 	const { DID, KEYPAIROOM } = await loadFeatureFlags(fetch);

@@ -2,10 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { baseLocale, getLocale } from '@/i18n/paraglide/runtime';
 import fm from 'front-matter';
-import { pageFrontMatterSchema, type ContentPage } from './types';
 import { marked } from 'marked';
+
+import { baseLocale, getLocale } from '@/i18n/paraglide/runtime';
+
+import { pageFrontMatterSchema, type ContentPage } from './types';
 
 export const URL_SEARCH_PARAM_NAME = 'tag';
 

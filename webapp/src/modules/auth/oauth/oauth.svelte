@@ -5,17 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { currentUser, pb } from '@/pocketbase';
-	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
-	import Button from '@/components/ui-custom/button.svelte';
 	import type { ClientResponseError } from 'pocketbase';
-	import Alert from '@/components/ui-custom/alert.svelte';
-	import { m } from '@/i18n';
-	import type { Data, UsersRecord } from '@/pocketbase/types';
+
+	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
 	import { nanoid } from 'nanoid';
+
+	import type { Data, UsersRecord } from '@/pocketbase/types';
+
+	import Alert from '@/components/ui-custom/alert.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import { Separator } from '@/components/ui/separator';
+	import { m } from '@/i18n';
 	import { goto } from '@/i18n';
+	import { currentUser, pb } from '@/pocketbase';
 
 	//
 

@@ -6,6 +6,8 @@ export * from './collections-models.generated';
 
 //
 
+import { Array, Option, pipe } from 'effect';
+
 import {
 	CollectionsModels,
 	type CollectionName,
@@ -15,7 +17,6 @@ import {
 	type SelectCollectionField,
 	type AnyCollectionModel
 } from './collections-models.generated';
-import { Array, Option, pipe } from 'effect';
 
 //
 

@@ -5,6 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { ArrowLeft, Users, UserPlus } from 'lucide-svelte';
+
+	import { CollectionManager } from '@/collections-components';
+	import PageCard from '@/components/layout/pageCard.svelte';
+	import PageContent from '@/components/layout/pageContent.svelte';
+	import PageTop from '@/components/layout/pageTop.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Dialog from '@/components/ui-custom/dialog.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import PlainCard from '@/components/ui-custom/itemCard.svelte';
+	import SectionTitle from '@/components/ui-custom/sectionTitle.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n';
+	import { OrganizationAvatar } from '@/organizations/components';
 	import { currentUser, pb } from '@/pocketbase/index.js';
 	import {
 		OrgJoinRequestsStatusOptions,
@@ -12,19 +26,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type OrgJoinRequestsRecord,
 		type OrganizationsResponse
 	} from '@/pocketbase/types';
-	import { m } from '@/i18n';
-	import PageTop from '@/components/layout/pageTop.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import { ArrowLeft, Users, UserPlus } from 'lucide-svelte';
-	import SectionTitle from '@/components/ui-custom/sectionTitle.svelte';
-	import PageContent from '@/components/layout/pageContent.svelte';
-	import PageCard from '@/components/layout/pageCard.svelte';
-	import PlainCard from '@/components/ui-custom/itemCard.svelte';
-	import { CollectionManager } from '@/collections-components';
-	import Dialog from '@/components/ui-custom/dialog.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import { OrganizationAvatar } from '@/organizations/components';
 
 	//
 

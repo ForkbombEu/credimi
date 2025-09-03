@@ -5,11 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { m } from '@/i18n';
+	import { Array as A } from 'effect';
+
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { Input } from '@/components/ui/input';
 	import { Label } from '@/components/ui/label';
-	import { Array as A } from 'effect';
-	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import { m } from '@/i18n';
 
 	interface Props {
 		emails?: string[];
@@ -20,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let filterText: string | undefined = $state(undefined);
 
 	function filterEmails(emails: string[], text: string | undefined) {
-		if (!Boolean(text)) return emails;
+		if (!text) return emails;
 		return emails.filter((e) => e.includes(text ?? ''));
 	}
 

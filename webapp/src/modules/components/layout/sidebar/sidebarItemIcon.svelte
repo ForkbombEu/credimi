@@ -5,8 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { IconComponent } from '@/components/types';
 	import type { Snippet } from 'svelte';
+
+	import type { IconComponent } from '@/components/types';
+
 	import Icon from '@/components/ui-custom/icon.svelte';
 
 	const { children, src }: { children?: Snippet; src?: IconComponent } = $props();

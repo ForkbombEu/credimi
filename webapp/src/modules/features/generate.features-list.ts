@@ -4,8 +4,10 @@
 
 import fs from 'fs';
 import path from 'node:path';
-import { formatCode, GENERATED, openDb, logCodegenResult } from '@/utils/codegen';
+
 import type { FeaturesRecord } from '@/pocketbase/types';
+
+import { formatCode, GENERATED, openDb, logCodegenResult } from '@/utils/codegen';
 
 //
 

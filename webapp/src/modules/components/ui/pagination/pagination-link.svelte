@@ -8,8 +8,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// @ts-nocheck
 
 	import { Pagination as PaginationPrimitive } from 'bits-ui';
-	import { cn } from '@/components/ui/utils.js';
+
 	import { type Props, buttonVariants } from '@/components/ui/button/index.js';
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),

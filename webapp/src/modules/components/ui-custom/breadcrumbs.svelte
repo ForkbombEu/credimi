@@ -11,11 +11,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { page } from '$app/state';
-	import { calcBreadcrumbs } from './breadcrumbs';
-	import type { Link } from '@/components/types';
-	import * as Breadcrumb from '@/components/ui/breadcrumb/index.js';
-	import Icon from './icon.svelte';
 	import { Home } from 'lucide-svelte';
+
+	import type { Link } from '@/components/types';
+
+	import * as Breadcrumb from '@/components/ui/breadcrumb/index.js';
+
+	import { calcBreadcrumbs } from './breadcrumbs';
+	import Icon from './icon.svelte';
 
 	//
 

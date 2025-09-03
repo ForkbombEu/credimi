@@ -8,12 +8,11 @@ By fully automating the conformance process, our platform enables organizations 
 
 With Credimi, teams can:
 
-- **Accelerate time to market**: Instantly validate new features and integrations, ensuring compliance from day one.  
-- **Guarantee interoperability**: Rely on rigorous automated testing to ensure seamless communication across diverse ecosystems and vendor solutions.  
-- **Gain transparent compliance reporting**: Access detailed reports and dashboards that provide actionable insights and verifiable audit trails.  
-- **Stay ahead of standards evolution**: As specifications evolve, our continuously updated test suites ensure you remain compliant without additional effort.  
+- **Accelerate time to market**: Instantly validate new features and integrations, ensuring compliance from day one.
+- **Guarantee interoperability**: Rely on rigorous automated testing to ensure seamless communication across diverse ecosystems and vendor solutions.
+- **Gain transparent compliance reporting**: Access detailed reports and dashboards that provide actionable insights and verifiable audit trails.
+- **Stay ahead of standards evolution**: As specifications evolve, our continuously updated test suites ensure you remain compliant without additional effort.
 
 **Credimi doesn't just help you meet standards — it empowers you to set them.**
 
 Whether you're developing a new EUDI Wallet, integrating credential issuance protocols, or ensuring trust in your verification processes, our automation tools provide the assurance and scalability required to succeed in a compliance-driven market.
-

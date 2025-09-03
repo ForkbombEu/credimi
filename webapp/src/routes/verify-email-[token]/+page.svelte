@@ -6,12 +6,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import AuthLayout from '@/auth/authLayout.svelte';
-	import LanguageSelect from '@/i18n/languageSelect.svelte';
-
-	import { m } from '@/i18n';
-	import { currentUser } from '@/pocketbase';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Button } from '@/components/ui/button/index.js';
+	import { m } from '@/i18n';
+	import LanguageSelect from '@/i18n/languageSelect.svelte';
+	import { currentUser } from '@/pocketbase';
 
 	export let data;
 </script>

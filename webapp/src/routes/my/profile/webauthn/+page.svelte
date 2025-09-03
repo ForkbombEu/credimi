@@ -5,23 +5,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Plus, Info } from 'lucide-svelte';
+
+	import type { WebauthnCredentialsResponse } from '@/pocketbase/types';
+
+	import { CollectionManager, RecordDelete, RecordEdit } from '@/collections-components/manager';
+	import Alert from '@/components/ui-custom/alert.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Card from '@/components/ui-custom/card.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import Spinner from '@/components/ui-custom/spinner.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import Separator from '@/components/ui/separator/separator.svelte';
+	import { m } from '@/i18n';
+	import { currentUser } from '@/pocketbase';
 	import {
 		registerUser,
 		isWebauthnSupported,
 		isPlatformAuthenticatorAvailable
 	} from '@/webauthn';
-	import { currentUser } from '@/pocketbase';
-	import { CollectionManager, RecordDelete, RecordEdit } from '@/collections-components/manager';
-	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
-	import Separator from '@/components/ui/separator/separator.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import { Plus, Info } from 'lucide-svelte';
-	import Card from '@/components/ui-custom/card.svelte';
-	import Spinner from '@/components/ui-custom/spinner.svelte';
-	import Alert from '@/components/ui-custom/alert.svelte';
-	import type { WebauthnCredentialsResponse } from '@/pocketbase/types';
 
 	const platformAuthenticatorAvailable = isPlatformAuthenticatorAvailable();
 	const userEmailAddress = $currentUser?.email!;
@@ -49,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#snippet records({ records })}
 			<div class="space-y-2 py-4">
 				{#each records as record}
-					{@const label = Boolean(record.description)
+					{@const label = record.description
 						? record.description
 						: getCredentialId(record)}
 					<Card>

@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { isWorkflowStatus, type WorkflowStatusType } from '$lib/temporal';
 import { page } from '$app/state';
+import { isWorkflowStatus, type WorkflowStatusType } from '$lib/temporal';
+
 import { goto } from '@/i18n';
 
 //

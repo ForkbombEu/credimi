@@ -5,20 +5,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
-	import { Pencil, X } from 'lucide-svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import { m } from '@/i18n';
-	import Separator from '@/components/ui/separator/separator.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-
-	import { Form, createForm } from '@/forms';
-	import { Field, FileField, CheckboxField, SelectField } from '@/forms/fields';
-
-	import { currentUser, pb } from '@/pocketbase';
-	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+	import { Pencil } from 'lucide-svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
+
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
+	import Separator from '@/components/ui/separator/separator.svelte';
+	import { Form, createForm } from '@/forms';
+	import { CheckboxField, Field, FileField, SelectField } from '@/forms/fields';
+	import { m } from '@/i18n';
+	import { currentUser, pb } from '@/pocketbase';
+	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 
 	//
 

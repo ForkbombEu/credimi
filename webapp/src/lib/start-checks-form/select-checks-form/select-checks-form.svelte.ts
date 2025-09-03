@@ -3,11 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { StandardsWithTestSuites } from '$lib/standards';
-import type { CustomChecksResponse } from '@/pocketbase/types';
+
+import { getChecksConfigsFields } from '$start-checks-form/_utils';
 import { String } from 'effect';
 import { watch } from 'runed';
+
+import type { CustomChecksResponse } from '@/pocketbase/types';
+
 import type { ChecksConfigFieldsResponse } from '../types';
-import { getChecksConfigsFields } from '$start-checks-form/_utils';
 
 //
 

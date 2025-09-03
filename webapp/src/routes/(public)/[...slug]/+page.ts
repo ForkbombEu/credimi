@@ -2,8 +2,8 @@
 
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getContentBySlug } from '$lib/content';
 import { error } from '@sveltejs/kit';
+import { getContentBySlug } from '$lib/content';
 
 export async function load({ params }) {
 	const content = await getContentBySlug(params.slug);

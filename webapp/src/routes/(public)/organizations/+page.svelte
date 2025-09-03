@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+
 	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -16,21 +17,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 </script>
 
-<CollectionManager queryOptions={{
-	expand:[
-		"custom_checks_via_owner", 
-		"credentials_via_owner", 
-		"credential_issuers_via_owner", 
-		"verifiers_via_owner", 
-		"wallets_via_owner"
-	],
-	filter: `
+<CollectionManager
+	queryOptions={{
+		expand: [
+			'custom_checks_via_owner',
+			'credentials_via_owner',
+			'credential_issuers_via_owner',
+			'verifiers_via_owner',
+			'wallets_via_owner'
+		],
+		filter: `
 		custom_checks_via_owner.public = true || 
 		credentials_via_owner.published = true || 
 		credential_issuers_via_owner.published = true || 
 		wallets_via_owner.published = true
-	`,
-	}} collection="organizations">
+	`
+	}}
+	collection="organizations"
+>
 	{#snippet top({ Search })}
 		<PageTop>
 			<T tag="h1">{m.Find_providers_of_identity_solutions()}</T>
@@ -39,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet contentWrapper(children)}
-		<PageContent class="bg-secondary grow">
+		<PageContent class="grow bg-secondary">
 			{@render children()}
 		</PageContent>
 	{/snippet}
@@ -53,7 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<Avatar
 							src={logoUrl}
 							fallback={organization.name}
-							class="!rounded-sm border size-12"
+							class="size-12 !rounded-sm border"
 							hideIfLoadingError
 						/>
 

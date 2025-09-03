@@ -5,7 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { UserPlus, CircleOffIcon } from 'lucide-svelte';
+	import Trash from 'lucide-svelte/icons/trash';
+	import X from 'lucide-svelte/icons/x';
+	import { toast } from 'svelte-sonner';
+
 	import { CollectionManager } from '@/collections-components';
+	import { PageCard } from '@/components/layout';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Dialog from '@/components/ui-custom/dialog.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import PlainCard from '@/components/ui-custom/itemCard.svelte';
+	import SectionTitle from '@/components/ui-custom/sectionTitle.svelte';
+	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
+	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase/index.js';
 	import {
 		OrgJoinRequestsStatusOptions,
@@ -13,19 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type OrgJoinRequestsResponse,
 		type OrganizationsResponse
 	} from '@/pocketbase/types';
-	import { m } from '@/i18n';
-	import { UserPlus, CircleOffIcon } from 'lucide-svelte';
-	import PlainCard from '@/components/ui-custom/itemCard.svelte';
 	import { getUserDisplayName } from '@/pocketbase/utils';
-	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import SectionTitle from '@/components/ui-custom/sectionTitle.svelte';
-	import { PageCard } from '@/components/layout';
-	import Button from '@/components/ui-custom/button.svelte';
-	import Dialog from '@/components/ui-custom/dialog.svelte';
-	import { toast } from 'svelte-sonner';
-	import Trash from 'lucide-svelte/icons/trash';
-	import X from 'lucide-svelte/icons/x';
 
 	interface Props {
 		//

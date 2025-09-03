@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import prettier from 'eslint-config-prettier';
 import js from '@eslint/js';
+import prettier from 'eslint-config-prettier';
+import perfectionist from 'eslint-plugin-perfectionist';
 import svelte from 'eslint-plugin-svelte';
 import globals from 'globals';
 import ts from 'typescript-eslint';
@@ -33,5 +34,13 @@ export default ts.config(
 	},
 	{
 		ignores: ['build/', '.svelte-kit/', 'dist/']
+	},
+	{
+		plugins: {
+			perfectionist
+		},
+		rules: {
+			'perfectionist/sort-imports': 'error'
+		}
 	}
 );

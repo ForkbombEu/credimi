@@ -5,15 +5,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
+	import type { GenericRecord } from '@/utils/types';
+
+	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import * as Popover from '@/components/ui/popover';
-	import Button from '@/components/ui-custom/button.svelte';
-	import BaseLanguageSelect from './baseLanguageSelect.svelte';
-	import type { LanguageSelectTriggerSnippetProps } from './baseLanguageSelect.svelte';
-	import type { Snippet } from 'svelte';
-	import type { GenericRecord } from '@/utils/types';
-	import { setLocale } from './paraglide/runtime';
 	import { cn } from '@/components/ui/utils';
+
+	import type { LanguageSelectTriggerSnippetProps } from './baseLanguageSelect.svelte';
+
+	import BaseLanguageSelect from './baseLanguageSelect.svelte';
+	import { setLocale } from './paraglide/runtime';
 
 	type Props = {
 		contentClass?: string;

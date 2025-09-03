@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WithElementRef } from "bits-ui";
-	import type { HTMLAttributes } from "svelte/elements";
-	import { cn } from "@/components/ui/utils.js";
+	import type { WithElementRef } from 'bits-ui';
+	import type { HTMLAttributes } from 'svelte/elements';
+
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -24,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	role="heading"
 	aria-level={level}
 	bind:this={ref}
-	class={cn("text-2xl font-semibold leading-none tracking-tight", className)}
+	class={cn('text-2xl font-semibold leading-none tracking-tight', className)}
 	{...restProps}
 >
 	{@render children?.()}

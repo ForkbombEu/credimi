@@ -5,10 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import * as Tabs from '@/components/ui/tabs/index.js';
+
 	import { ConfigureChecksFormComponent } from './configure-checks-form';
 	import { SelectChecksFormComponent } from './select-checks-form';
 	import { StartChecksForm, type StartChecksFormProps } from './start-checks-form.svelte.js';
-	import * as Tabs from '@/components/ui/tabs/index.js';
 
 	//
 
@@ -35,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Tabs.List class="flex">
 		<Tabs.Trigger
 			value={tabs[0].id}
-			class="data-[state=inactive]:hover:bg-primary/10 grow data-[state=inactive]:text-black"
+			class="grow data-[state=inactive]:text-black data-[state=inactive]:hover:bg-primary/10"
 			onclick={() => {
 				form.backToSelectTests();
 			}}

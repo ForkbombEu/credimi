@@ -5,13 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { SetFieldType } from 'type-fest';
+
+	import { Record } from 'effect';
 	import { X } from 'lucide-svelte';
+
 	import type { IconComponent } from '../types';
 	import type { ButtonProps } from '../ui/button';
+
 	import Button from '../ui/button/button.svelte';
 	import Icon from './icon.svelte';
-	import { Record } from 'effect';
-	import type { SetFieldType } from 'type-fest';
 
 	//
 

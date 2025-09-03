@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { currentUser, pb, type AuthStoreModel } from '@/pocketbase';
-
-import { appVersion } from '@/utils/appVersion';
 import { appName } from '@/brand';
+import { currentUser, pb, type AuthStoreModel } from '@/pocketbase';
+import { appVersion } from '@/utils/appVersion';
 
 pb.authStore.loadFromCookie(document.cookie);
 pb.authStore.onChange(() => {

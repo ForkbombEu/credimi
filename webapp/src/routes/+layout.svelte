@@ -5,9 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import '../app.css';
+	import GlobalLoading from '$lib/layout/global-loading.svelte';
+
 	import { appName } from '@/brand';
 	import { Toaster } from '@/components/ui/sonner';
+
+	import '../app.css';
+
+	//
 
 	let { children } = $props();
 </script>
@@ -21,3 +26,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {@render children()}
 
 <Toaster richColors closeButton />
+
+<GlobalLoading />

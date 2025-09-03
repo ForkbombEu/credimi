@@ -5,22 +5,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { createForm, Form } from '@/forms';
-	import { Field, FileField } from '@/forms/fields';
-	import { pb } from '@/pocketbase/index.js';
+	import _ from 'lodash';
+	import { AlertCircle, Download, Loader2, X } from 'lucide-svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
-	import Table, { ConformanceCheckSchema } from './wallet-form-checks-table.svelte';
+
 	import type { WalletsResponse } from '@/pocketbase/types';
-	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
-	import _ from 'lodash';
-	import { m } from '@/i18n';
-	import MarkdownField from '@/forms/fields/markdownField.svelte';
+
 	import T from '@/components/ui-custom/t.svelte';
-	import { Loader2, Download, AlertCircle, X } from 'lucide-svelte';
-	import { Button } from '@/components/ui/button';
 	import { Alert, AlertDescription } from '@/components/ui/alert';
+	import { Button } from '@/components/ui/button';
 	import Separator from '@/components/ui/separator/separator.svelte';
+	import { createForm, Form } from '@/forms';
+	import { Field, FileField } from '@/forms/fields';
+	import MarkdownField from '@/forms/fields/markdownField.svelte';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase/index.js';
+	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+
+	import Table, { ConformanceCheckSchema } from './wallet-form-checks-table.svelte';
 
 	//
 
@@ -112,7 +115,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			if (!formData.logo || (formData.logo instanceof File && formData.logo.size === 0)) {
 				delete formData.logo;
 			}
-			
+
 			if (walletId) {
 				// Temp fix
 				const data = _.omit(formData, 'conformance_checks');
@@ -127,14 +130,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			dataType: 'form'
 		},
 		initialData: {
-			name: initialData.name || '',
-			description: initialData.description || '',
-			playstore_url: initialData.playstore_url || '',
-			appstore_url: initialData.appstore_url || '',
-			repository: initialData.repository || '',
-			home_url: initialData.home_url || '',
-			logo_url: initialData.logo_url || '',
-			// Don't include apk/logo in initial data since they're File fields
+			...initialData,
+			logo: undefined,
+			apk: undefined,
 			conformance_checks: null
 		}
 	});
@@ -198,7 +196,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<MarkdownField form={editWalletform} name="description" height={80} />
 	<div class="space-y-4">
 		<div class="text-sm font-medium leading-none">{m.Logo()}</div>
-		{#if ($formData.logo instanceof File && $formData.logo.size > 0) && !logoUrlError}
+		{#if $formData.logo instanceof File && $formData.logo.size > 0 && !logoUrlError}
 			<div class="relative mb-2 inline-block">
 				<img
 					src={URL.createObjectURL($formData.logo)}
@@ -208,7 +206,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Button
 					size="sm"
 					variant="destructive"
-					class="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+					class="absolute -right-2 -top-2 h-6 w-6 rounded-full p-0"
 					onclick={removeLogo}
 				>
 					<X class="h-4 w-4" />
@@ -230,22 +228,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Button
 					size="sm"
 					variant="destructive"
-					class="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
+					class="absolute -right-2 -top-2 h-6 w-6 rounded-full p-0"
 					onclick={removeLogo}
 				>
 					<X class="h-4 w-4" />
 				</Button>
 			</div>
 		{/if}
-		
+
 		{#if logoUrlError}
 			<Alert variant="destructive">
 				<AlertCircle class="h-4 w-4" />
 				<AlertDescription>{logoUrlError}</AlertDescription>
 			</Alert>
 		{/if}
-		
-		{#if !($formData.logo instanceof File && $formData.logo.size > 0) && !$formData.logo_url || logoUrlError}
+
+		{#if (!($formData.logo instanceof File && $formData.logo.size > 0) && !$formData.logo_url) || logoUrlError}
 			<div class="space-y-4">
 				<div class="space-y-2">
 					<FileField

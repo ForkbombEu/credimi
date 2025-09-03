@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	import PlainCard from '@/components/ui-custom/plainCard.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import type { Snippet } from 'svelte';
 
 	type Props = {
 		title?: string;

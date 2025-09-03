@@ -5,13 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import PageTop from '$lib/layout/pageTop.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
-	import PageCard from './page-list-item.svelte';
+	import { getTagTranslation } from '$lib/content/tags-i18n';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
-	import { getTagTranslation } from '$lib/content/tags-i18n';
+	import PageTop from '$lib/layout/pageTop.svelte';
+
+	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n';
+
+	import PageCard from './page-list-item.svelte';
 
 	const { data } = $props();
 	const pages = $derived(data.pages);
@@ -22,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<T tag="h1">{getTagTranslation(tag)}</T>
 </PageTop>
 
-<PageContent class="bg-secondary grow">
+<PageContent class="grow bg-secondary">
 	{#if pages.length > 0}
 		<PageGrid>
 			{#each pages as page}

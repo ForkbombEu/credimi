@@ -6,23 +6,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" generics="C extends CollectionName">
 	import type { CollectionField } from 'pocketbase';
-	import { capitalize } from '@/utils/other';
-	import { getCollectionModel } from '@/pocketbase/collections-models';
+
 	import type { CollectionName } from '@/pocketbase/collections-models';
-	import type { KeyOf } from '@/utils/types';
 	import type { CollectionFormData } from '@/pocketbase/types';
-	import { m } from '@/i18n';
+	import type { KeyOf } from '@/utils/types';
+
 	import { Form } from '@/forms';
-	import { setupCollectionForm } from './collectionFormSetup';
+	import { m } from '@/i18n';
+	import { getCollectionFields } from '@/pocketbase/zod-schema';
+	import { capitalize } from '@/utils/other';
+
 	import CollectionFormField, {
 		type CollectionFormFieldProps
 	} from './collectionFormField.svelte';
+	import { setupCollectionForm } from './collectionFormSetup';
 	import {
 		type CollectionFormMode,
 		type CollectionFormProps,
 		type FieldsOptions
 	} from './collectionFormTypes';
-	import { getCollectionFields } from '@/pocketbase/zod-schema';
 
 	/* Props and unpacking */
 

@@ -8,11 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BaseLayout from '$lib/layout/baseLayout.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+	import { CheckCheck, GlobeIcon, Shapes, TestTubeDiagonalIcon, User } from 'lucide-svelte';
+
 	import NavigationTabs from '@/components/ui-custom/navigationTabs.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
-	import { CheckCheck, GlobeIcon, Shapes, TestTubeDiagonalIcon, User } from 'lucide-svelte';
 
 	//
 
@@ -43,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	</PageTop>
 
-	<PageContent class="bg-secondary grow">
+	<PageContent class="grow bg-secondary">
 		{@render children?.()}
 	</PageContent>
 </BaseLayout>

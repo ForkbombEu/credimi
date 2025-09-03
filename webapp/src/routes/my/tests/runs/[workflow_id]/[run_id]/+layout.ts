@@ -4,7 +4,7 @@
 
 import { error } from '@sveltejs/kit';
 import { checkAuthFlagAndUser, getUserOrganization } from '$lib/utils';
-import { fetchWorkflow, fetchWorkflowHistory, getWorkflowMemo } from '$lib/workflows';
+import { fetchWorkflowExecution, fetchWorkflowHistory, getWorkflowMemo } from '$lib/workflows';
 
 //
 
@@ -30,7 +30,7 @@ export const load = async ({ params, fetch }) => {
 //
 
 export async function _getWorkflow(workflowId: string, runId: string, options = { fetch }) {
-	const execution = await fetchWorkflow(workflowId, runId, options);
+	const execution = await fetchWorkflowExecution(workflowId, runId, options);
 	if (execution instanceof Error) return execution;
 
 	const eventHistory = await fetchWorkflowHistory(workflowId, runId, options);

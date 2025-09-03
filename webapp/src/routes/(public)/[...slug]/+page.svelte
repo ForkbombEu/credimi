@@ -5,17 +5,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import PageTop from '$lib/layout/pageTop.svelte';
-	import PageContent from '$lib/layout/pageContent.svelte';
-	import Breadcrumbs from './slug-breadcrumbs.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
 	import { URL_SEARCH_PARAM_NAME } from '$lib/content';
 	import { getTagTranslation } from '$lib/content/tags-i18n';
-	import Toc from 'svelte-toc';
-	import * as Popover from '@/components/ui/popover';
+	import PageContent from '$lib/layout/pageContent.svelte';
+	import PageTop from '$lib/layout/pageTop.svelte';
 	import TableOfContents from 'lucide-svelte/icons/table-of-contents';
+	import Toc from 'svelte-toc';
+
+	import Button from '@/components/ui-custom/button.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import * as Popover from '@/components/ui/popover';
 	import { m } from '@/i18n';
+
+	import Breadcrumbs from './slug-breadcrumbs.svelte';
 
 	const { data } = $props();
 	let { attributes, body } = data;
@@ -32,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="max-w-prose space-y-6">
 			<div class="space-y-2">
 				{#if date}
-					<div class="text-muted-foreground flex gap-1">
+					<div class="flex gap-1 text-muted-foreground">
 						<T tag="small" class="text-balance !font-normal">Published on:</T>
 						<T tag="small" class="text-balance !font-semibold">
 							{date.toLocaleDateString()}
@@ -43,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<T tag="h1" class="text-balance !font-bold">{title}</T>
 			</div>
 
-			<T tag="p" class="text-primary text-balance !font-bold">
+			<T tag="p" class="text-balance !font-bold text-primary">
 				{description}
 			</T>
 
@@ -82,25 +84,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </PageContent>
 
-<div class="fixed bottom-6 right-6 lg:hidden z-50">
+<div class="fixed bottom-6 right-6 z-50 lg:hidden">
 	<Popover.Root>
 		<Popover.Trigger>
 			{#snippet child({ props })}
 				<Button
 					{...props}
-					class="h-12 px-4 rounded-full shadow-lg hover:shadow-xl transition-shadow flex items-center gap-2"
+					class="flex h-12 items-center gap-2 rounded-full px-4 shadow-lg transition-shadow hover:shadow-xl"
 				>
-					<TableOfContents class="w-4 h-4" />
+					<TableOfContents class="h-4 w-4" />
 					<span class="text-sm font-medium">{m.toc()}</span>
 				</Button>
 			{/snippet}
 		</Popover.Trigger>
-		
-		<Popover.Content 
-			side="top" 
-			align="end" 
-			class="w-64"
-		>
+
+		<Popover.Content side="top" align="end" class="w-64">
 			<div class="space-y-2">
 				<div class="toc-mobile">
 					<Toc {headingSelector} minItems={1} title="" breakpoint={100} />
@@ -156,24 +154,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		--toc-ol-margin: 0;
 	}
 
+	:global(.toc-sidebar aside.toc > nav > ol > li.active),
+	:global(.toc-mobile aside.toc > nav > ol > li.active) {
+		font-weight: 600;
+	}
 
-  :global(.toc-sidebar aside.toc > nav > ol > li.active),
-  :global(.toc-mobile aside.toc > nav > ol > li.active) {
-    font-weight: 600;
-  }
+	/* Mobile ToC specific styles */
+	:global(.toc-mobile) {
+		--toc-padding: 0;
+		font-size: 0.875rem;
+		line-height: 1.5;
+	}
 
-  /* Mobile ToC specific styles */
-  :global(.toc-mobile) {
-    --toc-padding: 0;
-    font-size: 0.875rem;
-    line-height: 1.5;
-  }
+	:global(.toc-mobile aside.toc > nav > ol > li) {
+		margin-bottom: 0.25rem;
+	}
 
-  :global(.toc-mobile aside.toc > nav > ol > li) {
-    margin-bottom: 0.25rem;
-  }
-
-  :global(.toc-mobile aside.toc > nav > ol > li:last-child) {
-    margin-bottom: 0;
-  }
+	:global(.toc-mobile aside.toc > nav > ol > li:last-child) {
+		margin-bottom: 0;
+	}
 </style>

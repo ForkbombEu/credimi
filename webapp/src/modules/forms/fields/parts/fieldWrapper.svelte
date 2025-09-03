@@ -5,12 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { capitalize } from 'effect/String';
-	import * as Form from '@/components/ui/form';
-	import type { FieldOptions } from '../types';
-	import RequiredIndicator from '@/forms/components/requiredIndicator.svelte';
-	import type { Snippet } from 'svelte';
 	import type { ControlAttrs } from 'formsnap';
+	import type { Snippet } from 'svelte';
+
+	import { capitalize } from 'effect/String';
+
+	import * as Form from '@/components/ui/form';
+	import RequiredIndicator from '@/forms/components/requiredIndicator.svelte';
+
+	import type { FieldOptions } from '../types';
 
 	interface Props {
 		field: string;

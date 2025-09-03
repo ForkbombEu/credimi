@@ -8,19 +8,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	lang="ts"
 	generics="C extends CollectionName, E extends PocketbaseQueryExpandOption<C> = never"
 >
+	import type { CollectionName } from '@/pocketbase/collections-models';
+	import type { RecordIdString } from '@/pocketbase/types';
+
+	import SelectInput, { type SelectItem } from '@/components/ui-custom/selectInput.svelte';
 	import {
-		type PocketbaseQueryResponse,
 		type PocketbaseQueryExpandOption,
-		type PocketbaseQueryOptions,
+		type PocketbaseQueryResponse,
 		PocketbaseQueryAgent
 	} from '@/pocketbase/query';
-
-	import type { CollectionName } from '@/pocketbase/collections-models';
 	import { setupComponentPocketbaseSubscriptions } from '@/pocketbase/subscriptions';
-	import type { RecordIdString } from '@/pocketbase/types';
-	import { createRecordDisplay } from './utils';
-	import SelectInput, { type SelectItem } from '@/components/ui-custom/selectInput.svelte';
+
 	import type { CollectionInputProps } from './types';
+
+	import { createRecordDisplay } from './utils';
 
 	//
 

@@ -5,14 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import InfoBox from '$lib/layout/infoBox.svelte';
+	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
+	import { String } from 'effect';
+
+	import { CollectionForm } from '@/collections-components/index.js';
+	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import InfoBox from '$lib/layout/infoBox.svelte';
-	import { String } from 'effect';
+
+	import EditSheet from '../../_utils/edit-sheet.svelte';
 	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
-	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 
 	//
 
@@ -21,9 +25,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const sections = $derived(generateMarketplaceSection('credential_issuers', {
-		hasDescription: !!credentialIssuer?.description
-	}));
+	const sections = $derived(
+		generateMarketplaceSection('credential_issuers', {
+			hasDescription: !!credentialIssuer?.description
+		})
+	);
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>
@@ -76,3 +82,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 </MarketplacePageLayout>
+
+<EditSheet>
+	{#snippet children({ closeSheet })}
+		<T tag="h2" class="mb-4">{m.Edit()} {credentialIssuer.name}</T>
+		<CollectionForm
+			collection="credential_issuers"
+			recordId={credentialIssuer.id}
+			initialData={credentialIssuer}
+			onSuccess={closeSheet}
+			fieldsOptions={{
+				exclude: ['owner', 'url', 'published']
+			}}
+		/>
+	{/snippet}
+</EditSheet>

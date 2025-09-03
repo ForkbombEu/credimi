@@ -127,6 +127,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			newRecord.Set("url", req.URL)
 			newRecord.Set("owner", organization)
 			newRecord.Set("name", parsedURL.Hostname())
+			newRecord.Set("imported", true)
 			if err := e.App.Save(newRecord); err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -287,7 +288,7 @@ func checkEndpointExists(ctx context.Context, urlToCheck string) error {
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "HEAD", parsedURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", parsedURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -353,8 +354,8 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				if displayList, ok := body.Credential["display"].([]any); ok &&
 					len(displayList) > 0 {
 					if first, ok := displayList[0].(map[string]any); ok {
-						if issuerName, ok := first["name"].(string); ok {
-							name = issuerName
+						if credName, ok := first["name"].(string); ok {
+							name = credName
 						}
 						if displayLogo, ok := first["logo"].(map[string]any); ok {
 							// do not broke if URI is nil
@@ -384,19 +385,61 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				if err != nil {
 					// Create new record
 					record = core.NewRecord(collection)
+					record.Set("name", name)
+					record.Set("logo", logo)
+					record.Set("imported", true)
 				} else {
 					// Update existing record
 					record = existing
+					var savedCred map[string]any
+					err := json.Unmarshal([]byte(record.GetString("json")), &savedCred)
+					if err != nil {
+						return apierror.New(
+							http.StatusInternalServerError,
+							"credentials",
+							"failed to unmarshal credentials",
+							err.Error(),
+						)
+					}
+					var orginalName, originalLogo string
+					if displayList, ok := savedCred["display"].([]any); ok &&
+						len(displayList) > 0 {
+						if first, ok := displayList[0].(map[string]any); ok {
+							if credName, ok := first["name"].(string); ok {
+								orginalName = credName
+							}
+							if displayLogo, ok := first["logo"].(map[string]any); ok {
+								// do not broke if URI is nil
+								if uri, ok := displayLogo["uri"].(string); ok {
+									originalLogo = uri
+								}
+							}
+						}
+					}
+
+					savedName := record.GetString("name")
+					if savedName == orginalName {
+						record.Set("name", name)
+					}
+
+					savedLogo := record.GetString("logo")
+					if savedLogo == originalLogo {
+						record.Set("logo", logo)
+					}
 				}
 
-				// Marshal original credential JSON to store
-				credJSON, _ := json.Marshal(body.Credential)
-
+				credJSON, err := json.Marshal(body.Credential)
+				if err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"credentials",
+						"failed to marshal credentials",
+						err.Error(),
+					)
+				}
 				record.Set("format", format)
 				record.Set("issuer_name", body.IssuerName)
-				record.Set("name", name)
 				record.Set("locale", locale)
-				record.Set("logo", logo)
 				record.Set("json", string(credJSON))
 				record.Set("key", body.CredKey)
 				record.Set("credential_issuer", body.IssuerID)

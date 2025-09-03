@@ -6,9 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { ClipboardCopy, Check, Sun, Moon } from 'lucide-svelte';
-	import Button from '@/components/ui/button/button.svelte';
-
 	import { codeToHtml, type BundledLanguage } from 'shiki';
+
+	import Button from '@/components/ui/button/button.svelte';
 
 	type Props = {
 		content: string;
