@@ -62,7 +62,7 @@ func (a *DockerActivity) Execute(
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewActivityError(
 			errCode.Code,
-			fmt.Sprintf("%s: 'yaml", errCode.Description),
+			fmt.Sprintf("%s: 'image'", errCode.Description),
 		)
 	}
 
