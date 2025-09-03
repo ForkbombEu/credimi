@@ -67,6 +67,9 @@ type WorkflowStarterParams struct {
 	Author    Author
 	TestName  string
 	Protocol  string
+	AppName   string
+	LogoUrl   string
+	UserName  string
 }
 
 type WorkflowStarter func(params WorkflowStarterParams) (workflowengine.WorkflowResult, error)
@@ -89,6 +92,10 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 		userID := e.Auth.Id
 		email := e.Auth.GetString("email")
 		namespace, err := GetUserOrganizationID(e.App, userID)
+		appName := e.App.Settings().Meta.AppName
+		logoUrl := fmt.Sprintf("%s/logos/%s_logo.svg", appURL, strings.ToLower(appName))
+		userName := e.Auth.GetString("name")
+
 		if err != nil {
 			return err
 		}
@@ -187,6 +194,9 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				author,
 				testName,
 				protocol,
+				logoUrl,
+				appName,
+				userName,
 			)
 			if err != nil {
 				return apierror.New(
@@ -225,6 +235,9 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				memo,
 				author,
 				protocol,
+				logoUrl,
+				appName,
+				userName,
 			)
 			if err != nil {
 				return apierror.New(
@@ -349,12 +362,15 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			"variant":   string(parsedData.Variant),
 			"form":      parsedData.Form,
 			"user_mail": email,
+			"user_name": i.UserName,
 		},
 		Config: map[string]any{
 			"app_url":   appURL,
 			"template":  templateStr,
 			"namespace": namespace,
 			"memo":      memo,
+			"app_name":  i.AppName,
+			"app_logo":  i.LogoUrl,
 		},
 	}
 	var workflow workflows.OpenIDNetWorkflow
@@ -423,6 +439,9 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 			"namespace":      namespace,
 			"memo":           memo,
 			"check_endpoint": checkEndpoint,
+			"app_name":       i.AppName,
+			"app_logo":      i.LogoUrl,
+			"user_name":     i.UserName,
 		},
 	}
 	var workflow workflows.EWCWorkflow
@@ -476,6 +495,9 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 			"template":  templateStr,
 			"namespace": namespace,
 			"memo":      memo,
+			"app_name":  i.AppName,
+			"app_logo":  i.LogoUrl,
+			"user_name": i.UserName,
 		},
 	}
 	var workflow workflows.EudiwWorkflow
@@ -573,6 +595,9 @@ func processJSONChecks(
 	author Author,
 	testName string,
 	protocol string,
+	logoUrl string,
+	appName string,
+	userName string,
 ) (workflowengine.WorkflowResult, error) {
 	input := WorkflowStarterParams{
 		YAMLData:  testData,
@@ -606,6 +631,9 @@ func processVariablesTest(
 	memo map[string]interface{},
 	author Author,
 	protocol string,
+	logoUrl string,
+	appName string,
+	userName string,
 ) (workflowengine.WorkflowResult, error) {
 	values := make(map[string]interface{})
 	configValues, err := app.FindCollectionByNameOrId("config_values")
@@ -667,6 +695,9 @@ func processVariablesTest(
 		Author:    author,
 		TestName:  testName,
 		Protocol:  protocol,
+		LogoUrl:   logoUrl,
+		AppName:   appName,
+		UserName:  userName,
 	}
 
 	if starterFunc, ok := workflowRegistry[author]; ok {
