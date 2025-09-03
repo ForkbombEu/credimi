@@ -40,7 +40,7 @@ func TestMergeConfigs(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got := mergeConfigs(tc.global, tc.step)
+			got := MergeConfigs(tc.global, tc.step)
 			require.Equal(t, tc.expected, got)
 		})
 	}
@@ -201,7 +201,7 @@ func TestResolveExpressions(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := resolveExpressions(tc.input, ctx)
+			got, err := ResolveExpressions(tc.input, ctx)
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {

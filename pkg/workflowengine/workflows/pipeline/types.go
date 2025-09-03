@@ -4,25 +4,30 @@
 package pipeline
 
 import (
+	"time"
+
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/workflow"
 	"gopkg.in/yaml.v3"
 )
 
 type WorkflowDefinition struct {
-	Version string                           `yaml:"version"`
-	Name    string                           `yaml:"name"`
-	Entry   string                           `yaml:"entry"`
-	Env     map[string]string                `yaml:"env"`
-	Runtime map[string]any                   `yaml:"runtime"`
-	Checks  map[string]SubWorkflowDefinition `yaml:"custom_checks"`
-	Config  map[string]string                `yaml:"config"`
-	Steps   []StepDefinition                 `yaml:"steps"`
+	Version string                   `yaml:"version"`
+	Name    string                   `yaml:"name"`
+	Entry   string                   `yaml:"entry,omitempty"`
+	Env     map[string]string        `yaml:"env,omitempty"`
+	Runtime RuntimeConfig            `yaml:"runtime,omitempty"`
+	Checks  map[string]WorkflowBlock `yaml:"custom_checks,omitempty"`
+	Config  map[string]string        `yaml:"config,omitempty"`
+	Steps   []StepDefinition         `yaml:"steps"`
+	Entries map[string]WorkflowBlock `yaml:",inline"`
 }
 
-type SubWorkflowDefinition struct {
-	Description string            `yaml:"description"`
-	Inputs      map[string]string `yaml:"inputs"`
-	Outputs     map[string]string `yaml:"outputs"`
-	Config      map[string]string `yaml:"config"`
+type WorkflowBlock struct {
+	Description string            `yaml:"description,omitempty"`
+	Inputs      map[string]string `yaml:"inputs,omitempty"`
+	Outputs     map[string]string `yaml:"outputs,omitempty"`
+	Config      map[string]string `yaml:"config,omitempty"`
 	Steps       []StepDefinition  `yaml:"steps"`
 }
 
@@ -44,6 +49,27 @@ type StepInputs struct {
 type InputSource struct {
 	Type  string `yaml:"type,omitempty"`
 	Value any    `yaml:"value,omitempty"`
+}
+
+type RuntimeConfig struct {
+	Temporal struct {
+		Namespace        string `yaml:"namespace"`
+		TaskQueue        string `yaml:"taskQueue"`
+		ExecutionTimeout string `yaml:"executionTimeout"`
+		RetryPolicy      struct {
+			MaximumAttempts    int32   `yaml:"maximumAttempts"`
+			InitialInterval    string  `yaml:"initialInterval"`
+			MaximumInterval    string  `yaml:"maximumInterval"`
+			BackoffCoefficient float64 `yaml:"backoffCoefficient"`
+		} `yaml:"retryPolicy"`
+	} `yaml:"temporal"`
+}
+
+type WorkflowOptions struct {
+	Namespace       string
+	Options         client.StartWorkflowOptions
+	Timeout         time.Duration
+	ActivityOptions workflow.ActivityOptions
 }
 
 func (s *StepInputs) UnmarshalYAML(value *yaml.Node) error {

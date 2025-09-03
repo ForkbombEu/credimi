@@ -12,7 +12,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-func (s *StepDefinition) Run(
+func (s *StepDefinition) Execute(
 	ctx workflow.Context,
 	globalCfg map[string]string,
 	dataCtx *map[string]any,
@@ -25,18 +25,18 @@ func (s *StepDefinition) Run(
 	if err != nil {
 		appErr := workflowengine.NewAppError(
 			errCode,
-			fmt.Sprintf("error resolving inputs for step %s: %s", s.Name, err.Error()),
+			fmt.Sprintf("error resolving inputs for step %s: %s", s.ID, err.Error()),
 		)
 		return result, appErr
 	}
-	act := activities.Registry[s.Activity].NewFunc()
+	act := activities.Registry[s.Run].NewFunc()
 
 	// Configure if the activity supports it
 	if cfgAct, ok := act.(workflowengine.ConfigurableActivity); ok {
 		if err := cfgAct.Configure(input); err != nil {
 			appErr := workflowengine.NewAppError(
 				errCode,
-				fmt.Sprintf("error configuring activity %s: %s", s.Name, err.Error()),
+				fmt.Sprintf("error configuring activity %s: %s", s.ID, err.Error()),
 			)
 			return result, appErr
 		}
@@ -46,7 +46,7 @@ func (s *StepDefinition) Run(
 	if !ok {
 		appErr := workflowengine.NewAppError(
 			errCode,
-			fmt.Sprintf("activity %s is not executable", s.Name),
+			fmt.Sprintf("activity %s is not executable", s.ID),
 		)
 		return result, appErr
 	}
@@ -56,7 +56,7 @@ func (s *StepDefinition) Run(
 		return result, err
 	}
 	var output any
-	switch activities.Registry[s.Activity].OutputKind {
+	switch activities.Registry[s.Run].OutputKind {
 	case workflowengine.OutputMap:
 		output = workflowengine.AsMap(result.Output)
 
@@ -72,8 +72,8 @@ func (s *StepDefinition) Run(
 	}
 
 	if output != nil {
-		(*dataCtx)[s.Name] = map[string]any{
-			"output": output,
+		(*dataCtx)[s.ID] = map[string]any{
+			"outputs": output,
 		}
 	}
 

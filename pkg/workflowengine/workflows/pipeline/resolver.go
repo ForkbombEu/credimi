@@ -13,7 +13,7 @@ import (
 )
 
 // mergeConfigs merges global config with step-level config
-func mergeConfigs(global, step map[string]string) map[string]string {
+func MergeConfigs(global, step map[string]string) map[string]string {
 	res := make(map[string]string)
 	for k, v := range global {
 		res[k] = v
@@ -35,7 +35,7 @@ func isFullRef(s string) bool {
 }
 
 // Matches expressions like ${{ ... }}
-var exprRegexp = regexp.MustCompile(`\${{\s*([a-zA-Z0-9_\[\]\.]+)\s*}}`)
+var exprRegexp = regexp.MustCompile(`\${{\s*([a-zA-Z0-9_\-\.\[\]]+)\s*}}`)
 
 func parsePart(part string) (key string, idxs []int, err error) {
 	bracket := strings.Index(part, "[")
@@ -104,7 +104,7 @@ func resolveRef(ref string, ctx map[string]any) (any, error) {
 }
 
 // resolveExpressions recursively replaces ${{ ... }} expressions in a value
-func resolveExpressions(val any, ctx map[string]any) (any, error) {
+func ResolveExpressions(val any, ctx map[string]any) (any, error) {
 	switch v := val.(type) {
 	case string:
 		matches := exprRegexp.FindStringSubmatch(v)
@@ -128,7 +128,7 @@ func resolveExpressions(val any, ctx map[string]any) (any, error) {
 	case map[string]any:
 		res := make(map[string]any)
 		for k, vv := range v {
-			rv, err := resolveExpressions(vv, ctx)
+			rv, err := ResolveExpressions(vv, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -139,7 +139,7 @@ func resolveExpressions(val any, ctx map[string]any) (any, error) {
 	case []any:
 		arr := make([]any, len(v))
 		for i, vv := range v {
-			rv, err := resolveExpressions(vv, ctx)
+			rv, err := ResolveExpressions(vv, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -211,13 +211,13 @@ func ResolveInputs(
 ) (*workflowengine.ActivityInput, error) {
 	stepCfg := make(map[string]string)
 	for k, src := range step.With.Config {
-		val, err := resolveExpressions(src, ctx)
+		val, err := ResolveExpressions(src, ctx)
 		if err != nil {
 			return nil, err
 		}
 		stepCfg[k] = val.(string)
 	}
-	cfg := mergeConfigs(globalCfg, stepCfg)
+	cfg := MergeConfigs(globalCfg, stepCfg)
 
 	payload := make(map[string]any)
 	for k, src := range step.With.Payload {
@@ -227,7 +227,7 @@ func ResolveInputs(
 		if shouldSkipInString(step.Run, k, src.Value) {
 			val = src.Value
 		} else {
-			val, err = resolveExpressions(src.Value, ctx)
+			val, err = ResolveExpressions(src.Value, ctx)
 			if err != nil {
 				return nil, err
 			}
@@ -246,4 +246,46 @@ func ResolveInputs(
 		Payload: payload,
 		Config:  cfg,
 	}, nil
+}
+
+func ResolveSubworkflowInputs(
+	step StepDefinition,
+	subDef WorkflowBlock,
+	globalCfg map[string]string,
+	ctx map[string]any, // merged context (workflow inputs + previous outputs)
+) (map[string]any, error) {
+	resolvedInputs := make(map[string]any)
+
+	// Iterate declared inputs of the subworkflow
+	for k := range subDef.Inputs {
+		src, ok := step.With.Payload[k]
+		if !ok {
+			return nil, fmt.Errorf("missing payload for subworkflow input %q", k)
+		}
+
+		var val any
+		var err error
+
+		// Handle expression resolution
+		if shouldSkipInString(step.Run, k, src.Value) {
+			val = src.Value
+		} else {
+			val, err = ResolveExpressions(src.Value, ctx)
+			if err != nil {
+				return nil, fmt.Errorf("failed to resolve input %q: %w", k, err)
+			}
+		}
+
+		// Cast to type if defined
+		if src.Type != "" {
+			val, err = castType(val, src.Type)
+			if err != nil {
+				return nil, fmt.Errorf("failed to cast input %q: %w", k, err)
+			}
+		}
+
+		resolvedInputs[k] = val
+	}
+
+	return resolvedInputs, nil
 }
