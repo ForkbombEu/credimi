@@ -22,10 +22,11 @@ export const load = async ({ params, fetch }) => {
 
 	const credentialsFilters = credentialsIds.map((id) => `id = '${id}'`).join(' || ');
 
-	const credentialsMarketplaceItems = await pb.collection('marketplace_items').getFullList(1, {
+	const credentialsMarketplaceItems = credentialsFilters.length > 0 ? await pb.collection('marketplace_items').getFullList(1, {
 		filter: credentialsFilters,
 		fetch
-	});
+	}) : [];
+	console.log(credentialsFilters, credentialsMarketplaceItems);
 
 	return {
 		credentialIssuer,
