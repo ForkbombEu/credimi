@@ -12,10 +12,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
 	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
 	import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
-	import { Record, String } from 'effect';
+	import { String } from 'effect';
 	import { run } from 'json_typegen_wasm';
 	import _ from 'lodash';
-	import { PlusIcon, UploadIcon } from 'lucide-svelte';
+	import { ExternalLink, GitBranch, HelpCircle, Home, PlusIcon, UploadIcon } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { fromStore } from 'svelte/store';
 	import { zod } from 'sveltekit-superforms/adapters';
@@ -28,11 +28,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { createForm, Form } from '@/forms';
 	import {
+		CheckboxField,
+		CodeEditorField,
 		Field,
 		FileField,
-		TextareaField,
-		CodeEditorField,
-		CheckboxField
+		TextareaField
 	} from '@/forms/fields';
 	import { goto, m } from '@/i18n';
 	import { pb } from '@/pocketbase';
@@ -177,6 +177,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let avatarPreviewUrl = $derived(originalLogoUrl);
 
 	let formState = fromStore(form.form);
+
+	// Parse selected standard and version for contextual links
+	const selectedStandardAndVersion = $derived(() => {
+		const value = formState.current.standard_and_version;
+		if (!value || typeof value !== 'string') return null;
+
+		const [standardUid, versionUid] = value.split('/');
+		if (!standardUid || !versionUid) return null;
+
+		const standard = standardsAndTestSuites.find((s) => s.uid === standardUid);
+		if (!standard) return null;
+
+		const version = standard.versions.find((v) => v.uid === versionUid);
+		if (!version) return null;
+
+		return { standard, version };
+	});
+
 	$effect(() => {
 		const logo = formState.current.logo;
 		if (logo) {
@@ -199,6 +217,54 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			title={m.Standard_and_version()}
 			description={m.Standard_and_Version_description()}
 		>
+			{#snippet headerActions()}
+				{@const selection = selectedStandardAndVersion()}
+				{#if selection}
+					{@const { standard, version } = selection}
+					<div class="flex flex-wrap gap-2">
+						{#if standard.standard_url}
+							<a
+								href={standard.standard_url}
+								class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-help-background))] px-2 py-1 text-xs text-[hsl(var(--link-help-foreground))] transition-colors hover:bg-[hsl(var(--link-help-background))]/80"
+								target="_blank"
+								rel="noopener noreferrer"
+								title={m.Learn_about_standard({ name: standard.name })}
+							>
+								<HelpCircle class="h-3 w-3" />
+								{standard.name}
+								{m.Standard()}
+								<ExternalLink class="h-3 w-3" />
+							</a>
+						{/if}
+
+						{#if version.specification_url}
+							<a
+								href={version.specification_url}
+								class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-homepage-background))] px-2 py-1 text-xs text-[hsl(var(--link-homepage-foreground))] transition-colors hover:bg-[hsl(var(--link-homepage-background))]/80"
+								target="_blank"
+								rel="noopener noreferrer"
+								title={m.View_specification({ name: version.name })}
+							>
+								<GitBranch class="h-3 w-3" />
+								{version.name}
+								{m.Spec()}
+								<ExternalLink class="h-3 w-3" />
+							</a>
+						{/if}
+
+						<a
+							href="/marketplace?type=custom_checks&standard={standard.uid}"
+							class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-subtle-background))] px-2 py-1 text-xs text-[hsl(var(--link-subtle-foreground))] transition-colors hover:bg-[hsl(var(--link-subtle-background))]/80"
+							title={m.Browse_custom_checks_for_standard({ name: standard.name })}
+						>
+							<Home class="h-3 w-3" />
+							{m.Browse_All()}
+							<ExternalLink class="h-3 w-3" />
+						</a>
+					</div>
+				{/if}
+			{/snippet}
+
 			<StandardAndVersionField {form} name="standard_and_version" />
 		</PageCardSection>
 
