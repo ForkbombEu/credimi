@@ -26,7 +26,6 @@ export const load = async ({ params, fetch }) => {
 		filter: credentialsFilters,
 		fetch
 	}) : [];
-	console.log(credentialsFilters, credentialsMarketplaceItems);
 
 	return {
 		credentialIssuer,
