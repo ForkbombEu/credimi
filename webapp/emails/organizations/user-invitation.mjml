@@ -5,41 +5,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <mjml>
-  <mj-head>
-    <mj-title>{{.Editor}} invited you to Join {{.OrganizationName}}</mj-title>
-    <mj-include path="../_components/attributes.mjml" />
-  </mj-head>
-  
-  <mj-body>
-    <mj-include path="../_components/header.mjml" />
+	<mj-head>
+		<mj-title>{{.Editor}} invited you to Join {{.OrganizationName}}</mj-title>
+		<mj-include path="../_components/attributes.mjml" />
+	</mj-head>
 
-    <mj-section>
-      <mj-column>
-        <mj-text mj-class="big">
-          Join {{.OrganizationName}} on DIDroom
-        </mj-text>
-        <mj-text>
-          Hello there,
-        </mj-text>
+	<mj-body>
+		<mj-include path="../_components/header.mjml" />
 
-        <mj-text>
-          You have been invited by <strong>{{.Editor}}</strong> to join the organization <strong>{{.OrganizationName}}</strong> on {{.AppName}}.
-        </mj-text>
+		<mj-section>
+			<mj-column>
+				<mj-text mj-class="big"> Join {{.OrganizationName}} on DIDroom </mj-text>
+				<mj-text> Hello there, </mj-text>
 
-        <mj-text>
-          To get started, please accept the invitation and complete your registration:
-        </mj-text>
+				<mj-text>
+					You have been invited by <strong>{{.Editor}}</strong> to join the organization
+					<strong>{{.OrganizationName}}</strong> on {{.AppName}}.
+				</mj-text>
 
-        <mj-button href="{{.InvitationLink}}" mj-class="btn-primary">
-          Accept Your Invitation
-        </mj-button>
+				<mj-text>
+					To get started, please accept the invitation and complete your registration:
+				</mj-text>
 
-        <mj-button href="{{.InvitationLink}}" background-color="#ffffff" color="#7d2fb5" font-family="Arial" font-size="16px">
-          More about {{.AppName}}
-        </mj-button>
-      </mj-column>
-    </mj-section>
+				<mj-button href="{{.InvitationLink}}" mj-class="btn-primary">
+					Accept Your Invitation
+				</mj-button>
 
-    <mj-include path="../_components/footer.mjml" />
-  </mj-body>
+				<mj-button
+					href="{{.InvitationLink}}"
+					background-color="#ffffff"
+					color="#7d2fb5"
+					font-family="Arial"
+					font-size="16px"
+				>
+					More about {{.AppName}}
+				</mj-button>
+			</mj-column>
+		</mj-section>
+
+		<mj-include path="../_components/footer.mjml" />
+	</mj-body>
 </mjml>

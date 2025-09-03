@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { loadFeatureFlags } from '@/features';
 import { error } from '@sveltejs/kit';
+
+import { loadFeatureFlags } from '@/features';
 
 export const load = async ({ fetch }) => {
 	if (!(await loadFeatureFlags(fetch)).KEYPAIROOM) error(404);

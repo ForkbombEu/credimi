@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import Ellipsis from '@lucide/svelte/icons/ellipsis';
+
 	import { Button } from '@/components/ui/button/index.js';
 	import * as DropdownMenu from '@/components/ui/dropdown-menu/index.js';
 

@@ -2,6 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { capitalize } from 'effect/String';
+import { camelCase } from 'lodash';
+import _ from 'lodash';
+import assert from 'node:assert';
+import fs from 'node:fs/promises';
+import path from 'node:path';
+
 import {
 	CollectionsModels,
 	isArrayField,
@@ -9,12 +16,6 @@ import {
 	type AnyCollectionField,
 	type RelationCollectionField
 } from '@/pocketbase/collections-models';
-import { camelCase } from 'lodash';
-import { capitalize } from 'effect/String';
-import fs from 'node:fs/promises';
-import path from 'node:path';
-import _ from 'lodash';
-import assert from 'node:assert';
 import { EXPORT_TYPE, formatCode, GENERATED, logCodegenResult, SEPARATOR } from '@/utils/codegen';
 
 /* CONSTS */

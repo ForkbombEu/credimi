@@ -5,13 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { JsonSchemaFormComponent } from '@/components/json-schema-form';
-	import type { CustomCheckConfigEditor } from './custom-check-config-editor.svelte.js';
 	import { yaml } from '@codemirror/lang-yaml';
 	import SmallSectionLabel from '$start-checks-form/_utils/small-section-label.svelte';
-	import { m } from '@/i18n';
-	import { Form } from '@/forms/index.js';
+
+	import { JsonSchemaFormComponent } from '@/components/json-schema-form';
 	import { CodeEditorField } from '@/forms/fields/index.js';
+	import { Form } from '@/forms/index.js';
+	import { m } from '@/i18n';
+
+	import type { CustomCheckConfigEditor } from './custom-check-config-editor.svelte.js';
 
 	const { editor }: { editor: CustomCheckConfigEditor } = $props();
 </script>

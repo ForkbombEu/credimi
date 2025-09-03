@@ -17,9 +17,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div
-	class={['bg-background sticky bottom-0 rounded-md border p-3 px-6 backdrop-blur-lg', className]}
+	class={['sticky bottom-0 rounded-md border bg-background p-3 px-6 backdrop-blur-lg', className]}
 >
-	<div class="mx-auto flex max-w-screen-xl flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-8">
+	<div
+		class="mx-auto flex max-w-screen-xl flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-8"
+	>
 		<div class="flex shrink-0 text-sm">
 			{@render left?.()}
 		</div>

@@ -5,11 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import Avatar from './avatar.svelte';
-	import type { UsersResponse } from '@/pocketbase/types';
-	import { pb } from '@/pocketbase';
-	import { m } from '@/i18n';
 	import type { ComponentProps } from 'svelte';
+
+	import type { UsersResponse } from '@/pocketbase/types';
+
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
+
+	import Avatar from './avatar.svelte';
 
 	type Props = ComponentProps<typeof Avatar> & { user?: UsersResponse };
 

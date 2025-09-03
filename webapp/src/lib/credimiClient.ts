@@ -11,27 +11,6 @@ import type PocketBase from "pocketbase";
 // =============== SCHEMAS, TYPES & ERROR HANDLING
 // =================================================================
 
-export const CancelMyCheckRunResponseSchema = z.object({
-  message: z.string().min(1),
-  checkId: z.string().min(1),
-  runId: z.string().min(1),
-  status: z.string().min(1),
-  time: z.string().min(1),
-  namespace: z.string().min(1),
-})
-export type CancelMyCheckRunResponse = z.infer<typeof CancelMyCheckRunResponseSchema>
-
-export const GenerateApiKeyResponseSchema = z.object({
-  api_key: z.string(),
-})
-export type GenerateApiKeyResponse = z.infer<typeof GenerateApiKeyResponseSchema>
-
-export const AuthenticateApiKeyResponseSchema = z.object({
-  message: z.string(),
-  token: z.string(),
-})
-export type AuthenticateApiKeyResponse = z.infer<typeof AuthenticateApiKeyResponseSchema>
-
 export const MessageStateSchema = z.object({
   state: z.string(),
   details: z.string(),
@@ -204,64 +183,6 @@ export const ListMyChecksResponseSchema = z.object({
 })
 export type ListMyChecksResponse = z.infer<typeof ListMyChecksResponseSchema>
 
-export const ListMyCheckRunsResponseSchema = z.object({
-  executions: WorkflowExecutionSchema.array(),
-})
-export type ListMyCheckRunsResponse = z.infer<typeof ListMyCheckRunsResponseSchema>
-
-export const ReRunCheckResponseSchema = z.object({
-  workflow_id: z.string().min(1),
-  run_id: z.string().min(1),
-})
-export type ReRunCheckResponse = z.infer<typeof ReRunCheckResponseSchema>
-
-export const ExportDataSchema = z.object({
-  checkId: z.string().min(1),
-  runId: z.string().min(1),
-  input: z.record(z.string(), z.any()),
-  config: z.record(z.string(), z.any()),
-})
-export type ExportData = z.infer<typeof ExportDataSchema>
-
-export const ExportMyCheckRunResponseSchema = z.object({
-  export: ExportDataSchema,
-})
-export type ExportMyCheckRunResponse = z.infer<typeof ExportMyCheckRunResponseSchema>
-
-export const ChecksLogsResponseSchema = z.object({
-  channel: z.string().min(1),
-  workflow_id: z.string().min(1),
-  run_id: z.string().min(1),
-  message: z.string().min(1),
-  status: z.string().min(1),
-  time: z.string().min(1),
-  namespace: z.string().min(1),
-})
-export type ChecksLogsResponse = z.infer<typeof ChecksLogsResponseSchema>
-
-export const TerminateMyCheckRunResponseSchema = z.object({
-  message: z.string().min(1),
-  checkId: z.string().min(1),
-  runId: z.string().min(1),
-  status: z.string().min(1),
-  time: z.string().min(1),
-  namespace: z.string().min(1),
-})
-export type TerminateMyCheckRunResponse = z.infer<typeof TerminateMyCheckRunResponseSchema>
-
-export const GenerateApiKeyRequestSchema = z.object({
-  name: z.string().min(1),
-})
-export type GenerateApiKeyRequest = z.infer<typeof GenerateApiKeyRequestSchema>
-
-export const APIErrorSchema = z.object({
-  Code: z.number(),
-  Domain: z.string(),
-  Reason: z.string(),
-  Message: z.string(),
-})
-export type APIError = z.infer<typeof APIErrorSchema>
-
 export const WorkflowExecutionInfoSchema = z.object({
   name: z.string(),
   id: z.string(),
@@ -313,6 +234,28 @@ export const GetMyCheckRunResponseSchema = z.object({
 })
 export type GetMyCheckRunResponse = z.infer<typeof GetMyCheckRunResponseSchema>
 
+export const ReRunCheckResponseSchema = z.object({
+  workflow_id: z.string().min(1),
+  run_id: z.string().min(1),
+})
+export type ReRunCheckResponse = z.infer<typeof ReRunCheckResponseSchema>
+
+export const GenerateApiKeyResponseSchema = z.object({
+  api_key: z.string(),
+})
+export type GenerateApiKeyResponse = z.infer<typeof GenerateApiKeyResponseSchema>
+
+export const AuthenticateApiKeyResponseSchema = z.object({
+  message: z.string(),
+  token: z.string(),
+})
+export type AuthenticateApiKeyResponse = z.infer<typeof AuthenticateApiKeyResponseSchema>
+
+export const ListMyCheckRunsResponseSchema = z.object({
+  executions: WorkflowExecutionSchema.array(),
+})
+export type ListMyCheckRunsResponse = z.infer<typeof ListMyCheckRunsResponseSchema>
+
 export const GetMyCheckRunHistoryResponseSchema = z.object({
   history: z.record(z.string(), z.any()).array(),
   count: z.number().refine((val) => val !== 0),
@@ -327,6 +270,63 @@ export const ReRunCheckRequestSchema = z.object({
   config: z.record(z.string(), z.any()).nullable(),
 })
 export type ReRunCheckRequest = z.infer<typeof ReRunCheckRequestSchema>
+
+export const CancelMyCheckRunResponseSchema = z.object({
+  message: z.string().min(1),
+  checkId: z.string().min(1),
+  runId: z.string().min(1),
+  status: z.string().min(1),
+  time: z.string().min(1),
+  namespace: z.string().min(1),
+})
+export type CancelMyCheckRunResponse = z.infer<typeof CancelMyCheckRunResponseSchema>
+
+export const ExportDataSchema = z.object({
+  checkId: z.string().min(1),
+  runId: z.string().min(1),
+  input: z.record(z.string(), z.any()),
+  config: z.record(z.string(), z.any()),
+})
+export type ExportData = z.infer<typeof ExportDataSchema>
+
+export const ExportMyCheckRunResponseSchema = z.object({
+  export: ExportDataSchema,
+})
+export type ExportMyCheckRunResponse = z.infer<typeof ExportMyCheckRunResponseSchema>
+
+export const ChecksLogsResponseSchema = z.object({
+  channel: z.string().min(1),
+  workflow_id: z.string().min(1),
+  run_id: z.string().min(1),
+  message: z.string().min(1),
+  status: z.string().min(1),
+  time: z.string().min(1),
+  namespace: z.string().min(1),
+})
+export type ChecksLogsResponse = z.infer<typeof ChecksLogsResponseSchema>
+
+export const TerminateMyCheckRunResponseSchema = z.object({
+  message: z.string().min(1),
+  checkId: z.string().min(1),
+  runId: z.string().min(1),
+  status: z.string().min(1),
+  time: z.string().min(1),
+  namespace: z.string().min(1),
+})
+export type TerminateMyCheckRunResponse = z.infer<typeof TerminateMyCheckRunResponseSchema>
+
+export const GenerateApiKeyRequestSchema = z.object({
+  name: z.string().min(1),
+})
+export type GenerateApiKeyRequest = z.infer<typeof GenerateApiKeyRequestSchema>
+
+export const APIErrorSchema = z.object({
+  Code: z.number(),
+  Domain: z.string(),
+  Reason: z.string(),
+  Message: z.string(),
+})
+export type APIError = z.infer<typeof APIErrorSchema>
 
 
 

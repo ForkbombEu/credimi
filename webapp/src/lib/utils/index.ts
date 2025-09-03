@@ -3,19 +3,24 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { error } from '@sveltejs/kit';
-import { loadFeatureFlags } from '@/features';
-import { verifyUser } from '@/auth/verifyUser';
-import { redirect } from '@/i18n';
-import { z } from 'zod';
-import { parse as parseYaml } from 'yaml';
-import { getExceptionMessage } from '@/utils/errors';
-import { Record as R } from 'effect';
-import { PocketbaseQueryAgent } from '@/pocketbase/query';
-import { pb } from '@/pocketbase';
-import { invalidateAll } from '$app/navigation';
-import { onMount } from 'svelte';
-import { userOrganization } from '$lib/app-state';
 import { browser } from '$app/environment';
+import { invalidateAll } from '$app/navigation';
+import { userOrganization } from '$lib/app-state';
+import { Record as R } from 'effect';
+import { onMount } from 'svelte';
+import { parse as parseYaml } from 'yaml';
+import { z } from 'zod';
+
+import { verifyUser } from '@/auth/verifyUser';
+import { loadFeatureFlags } from '@/features';
+import { redirect } from '@/i18n';
+import { pb } from '@/pocketbase';
+import { PocketbaseQueryAgent } from '@/pocketbase/query';
+import { getExceptionMessage } from '@/utils/errors';
+
+//
+
+export { loading, runWithLoading } from '$lib/layout/global-loading.svelte';
 
 //
 

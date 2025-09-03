@@ -6,14 +6,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
+	import { page } from '$app/state';
+	import OrganizationPageDemo from '$lib/pages/organization-page.svelte';
+	import { InfoIcon, Pencil, Undo } from 'lucide-svelte';
+
 	import { CollectionForm } from '@/collections-components/index.js';
 	import { PageCard } from '@/components/layout/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { InfoIcon, Pencil, Undo } from 'lucide-svelte';
-	import OrganizationPageDemo from '$lib/pages/organization-page.svelte';
-	import { page } from '$app/state';
 	import { m } from '@/i18n/index.js';
 
 	//

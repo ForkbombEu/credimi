@@ -51,7 +51,9 @@ test.describe('it should test the collection manager', () => {
 		// 	buffer: Buffer.from('text content')
 		// });
 
-		const submitButton = page.getByRole('dialog').getByRole('button', { name: 'Create record' });
+		const submitButton = page
+			.getByRole('dialog')
+			.getByRole('button', { name: 'Create record' });
 		await expect(submitButton).toBeEnabled();
 		await submitButton.click();
 

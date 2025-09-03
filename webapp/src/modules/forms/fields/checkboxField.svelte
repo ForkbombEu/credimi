@@ -9,14 +9,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts" generics="Data extends GenericRecord">
-	import type { SuperForm } from 'sveltekit-superforms';
-	import { fieldProxy, type FormPathLeaves } from 'sveltekit-superforms/client';
-	import * as Form from '@/components/ui/form';
-	import { Checkbox } from '@/components/ui/checkbox';
-	import type { FieldOptions } from './types';
 	import type { ComponentProps, Snippet } from 'svelte';
 	import type { Writable } from 'svelte/store';
+	import type { SuperForm } from 'sveltekit-superforms';
+
 	import { capitalize } from 'effect/String';
+	import { fieldProxy, type FormPathLeaves } from 'sveltekit-superforms/client';
+
+	import { Checkbox } from '@/components/ui/checkbox';
+	import * as Form from '@/components/ui/form';
+
+	import type { FieldOptions } from './types';
+
 	import RequiredIndicator from '../components/requiredIndicator.svelte';
 
 	//

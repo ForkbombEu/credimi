@@ -5,18 +5,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="Data extends GenericRecord, T extends SelectType">
-	import type { GenericRecord } from '@/utils/types';
+	import type { Writable } from 'svelte/store';
 	import type { SuperForm } from 'sveltekit-superforms';
+
 	import { fieldProxy, type FormPath } from 'sveltekit-superforms/client';
-	import * as Form from '@/components/ui/form';
-	import FieldWrapper from './parts/fieldWrapper.svelte';
+
+	import type { MaybeArray } from '@/utils/other';
+	import type { GenericRecord } from '@/utils/types';
+
 	import SelectInput, {
 		type SelectProps,
 		type SelectType
 	} from '@/components/ui-custom/selectInput.svelte';
+	import * as Form from '@/components/ui/form';
+
 	import type { FieldOptions } from './types';
-	import type { Writable } from 'svelte/store';
-	import type { MaybeArray } from '@/utils/other';
+
+	import FieldWrapper from './parts/fieldWrapper.svelte';
 
 	//
 

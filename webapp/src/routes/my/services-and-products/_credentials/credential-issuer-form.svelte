@@ -11,7 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createForm, Form, SubmitButton } from '@/forms';
 	import { Field } from '@/forms/fields';
 	import { m } from '@/i18n';
-	import { pb } from '@/pocketbase';
+
+	import { fetchCredentialIssuer } from './utils';
 
 	//
 
@@ -36,15 +37,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			setFormError(error.response?.error?.message || errorMessage);
 		},
 		onSubmit: async ({ form }) => {
-			// note: use npm:out-of-character to clean the url if needed
 			const { url } = form.data;
-			await pb.send('/credentials_issuers/start-check', {
-				method: 'POST',
-				body: {
-					credentialIssuerUrl: url
-				}
-			});
-
+			await fetchCredentialIssuer(url);
 			onSuccess?.();
 		}
 	});

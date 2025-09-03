@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { page } from '$app/state';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import { StartChecksFormComponent } from '$start-checks-form';
+
 	import { m } from '@/i18n';
 
 	//

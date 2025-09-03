@@ -5,9 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="Response extends object">
-	import { m } from '@/i18n';
+	import type { Snippet } from 'svelte';
+
 	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type { CollectionResponses } from '@/pocketbase/types';
+	import type { KeyOf } from '@/utils/types';
+
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import * as Table from '@/components/ui/table';
+	import { m } from '@/i18n';
+
 	import {
 		RecordDelete,
 		RecordEdit,
@@ -15,11 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		RecordShare,
 		type RecordAction
 	} from '../record-actions';
-	import type { KeyOf } from '@/utils/types';
-	import * as Table from '@/components/ui/table';
 	import FieldTh from './fieldTh.svelte';
-	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import type { Snippet } from 'svelte';
 
 	//
 

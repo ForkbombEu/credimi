@@ -5,13 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import CredentialIssuerSection from './_credentials/credential-issuer-section.svelte';
-	import WalletsSection from './_wallets/wallets-section.svelte';
-	import VerifiersSection from './_verifiers/verifiers-section.svelte';
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
+
 	import PageIndex from '$lib/layout/pageIndex.svelte';
-	import { m } from '@/i18n';
 	import SmoothPageScroll from '$lib/layout/smooth-page-scroll.svelte';
+
+	import { m } from '@/i18n';
+
+	import CredentialIssuerSection from './_credentials/credential-issuer-section.svelte';
+	import VerifiersSection from './_verifiers/verifiers-section.svelte';
+	import WalletsSection from './_wallets/wallets-section.svelte';
 
 	//
 

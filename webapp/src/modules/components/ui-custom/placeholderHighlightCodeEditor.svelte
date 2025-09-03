@@ -5,11 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import CodeEditor from './codeEditor.svelte';
 	import type { ComponentProps } from 'svelte';
-	import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
+
 	import { StateEffect, StateField } from '@codemirror/state';
+	import { Decoration, EditorView, ViewPlugin, WidgetType } from '@codemirror/view';
 	import { onDestroy } from 'svelte';
+
+	import CodeEditor from './codeEditor.svelte';
 
 	// Props extending CodeEditor props
 	type Props = ComponentProps<typeof CodeEditor> & {

@@ -2,10 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { error } from '@sveltejs/kit';
+
 import { pb } from '@/pocketbase/index.js';
 import { PocketbaseQueryAgent } from '@/pocketbase/query/agent.js';
 import { Collections } from '@/pocketbase/types/index.generated.js';
-import { error } from '@sveltejs/kit';
 
 export const load = async ({ params, fetch }) => {
 	try {

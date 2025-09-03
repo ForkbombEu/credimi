@@ -2,8 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pb } from '@/pocketbase';
+import type { ClientResponseError, RecordService } from 'pocketbase';
+
+import { Array } from 'effect';
+
 import type { CollectionName } from '@/pocketbase/collections-models';
+import type { RecordIdString } from '@/pocketbase/types';
+
+import { pb } from '@/pocketbase';
 import {
 	type PocketbaseQueryOptions,
 	type PocketbaseQueryExpandOption,
@@ -12,9 +18,6 @@ import {
 	type PocketbaseQueryAgentOptions,
 	PocketbaseQueryAgent
 } from '@/pocketbase/query';
-import type { RecordIdString } from '@/pocketbase/types';
-import type { ClientResponseError, RecordService } from 'pocketbase';
-import { Array } from 'effect';
 
 //
 

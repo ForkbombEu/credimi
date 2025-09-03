@@ -19,10 +19,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<mj-text> Hello {{.UserName}}, </mj-text>
 
-				<mj-text> You recently requested to join {{.OrganizationName}} on {{.AppName}}. </mj-text>
+				<mj-text>
+					You recently requested to join {{.OrganizationName}} on {{.AppName}}.
+				</mj-text>
 
 				<mj-text>
-					Your membership request has been accepted! You are now a member of {{.OrganizationName}}
+					Your membership request has been accepted! You are now a member of
+					{{.OrganizationName}}
 				</mj-text>
 
 				<mj-text>Login to your Dashboard to see the changes:</mj-text>

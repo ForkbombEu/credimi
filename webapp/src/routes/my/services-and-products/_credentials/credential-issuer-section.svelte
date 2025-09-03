@@ -5,27 +5,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CollectionManager } from '@/collections-components';
-	import { m } from '@/i18n';
-	import { buttonVariants } from '@/components/ui/button';
-	import { SquareArrowOutUpRight, Eye, EyeOff, Plus } from 'lucide-svelte';
-	import CredentialIssuerForm from './credential-issuer-form.svelte';
-	import { Card } from '@/components/ui/card';
-	import T from '@/components/ui-custom/t.svelte';
-	import A from '@/components/ui-custom/a.svelte';
-
-	import Switch from '@/components/ui/switch/switch.svelte';
-	import { Separator } from '@/components/ui/separator';
-	import * as Dialog from '@/components/ui/dialog';
-	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
+	import { runWithLoading } from '$lib/utils';
 	import { String } from 'effect';
-	import { Collections } from '@/pocketbase/types';
+	import { Eye, EyeOff, Plus, RefreshCwIcon } from 'lucide-svelte';
+
+	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
+
+	import { CollectionManager } from '@/collections-components';
 	import { RecordDelete, RecordEdit } from '@/collections-components/manager';
-	import Button from '@/components/ui-custom/button.svelte';
-	import EditCredentialDialog from './edit-credential-dialog.svelte';
+	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge';
+	import { buttonVariants } from '@/components/ui/button';
+	import { Card } from '@/components/ui/card';
+	import * as Dialog from '@/components/ui/dialog';
+	import { Separator } from '@/components/ui/separator';
+	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
+	import { Collections } from '@/pocketbase/types';
+
+	import CredentialIssuerForm from './credential-issuer-form.svelte';
+	import EditCredentialDialog from './edit-credential-dialog.svelte';
+	import { fetchCredentialIssuer } from './utils';
 
 	//
 
@@ -54,6 +58,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				onSuccess();
 			});
 	}
+
+	async function refreshCredentialIssuer(url: string) {
+		runWithLoading({
+			fn: () => fetchCredentialIssuer(url),
+			loadingText: 'Updating credential issuer...',
+			errorText: 'Failed to refresh credential issuer'
+		});
+	}
 </script>
 
 <CollectionManager
@@ -63,7 +75,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		filter: `owner.id = '${organizationId}'`,
 		sort: ['created', 'DESC']
 	}}
-	editFormFieldsOptions={{ exclude: ['owner', 'url', 'published'] }}
+	editFormFieldsOptions={{ exclude: ['owner', 'url', 'published', 'imported'] }}
 	subscribe="expanded_collections"
 >
 	{#snippet top({ Header })}
@@ -146,6 +158,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</A>
 							{/if}
 						</T>
+						{#if record.imported}
+							<Badge variant="secondary">{m.Imported()}</Badge>
+						{/if}
 					</div>
 
 					<div class="text-xs">
@@ -190,6 +205,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								onEditSuccess
 							)}
 					/>
+
+					<Button
+						variant="outline"
+						size="icon"
+						disabled={!record.imported}
+						onclick={() => refreshCredentialIssuer(record.url)}
+					>
+						<RefreshCwIcon />
+					</Button>
 
 					<RecordEdit {record} onSuccess={onEditSuccess}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
@@ -239,6 +263,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</div>
 
 							<div class="flex items-center gap-2">
+								{#if credential.imported}
+									<Badge variant="secondary">{m.Imported()}</Badge>
+								{/if}
 								<SwitchWithIcons
 									offIcon={EyeOff}
 									onIcon={Eye}

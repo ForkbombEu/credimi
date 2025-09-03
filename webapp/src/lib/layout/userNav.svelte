@@ -5,14 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as DropdownMenu from '@/components/ui/dropdown-menu';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { currentUser } from '@/pocketbase';
-	import { Store } from 'runed';
-	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
-	import { m } from '@/i18n';
-	import DropdownMenuLink from '@/components/ui-custom/dropdownMenuLink.svelte';
 	import { LogOut } from 'lucide-svelte';
+	import { Store } from 'runed';
+
+	import Button from '@/components/ui-custom/button.svelte';
+	import DropdownMenuLink from '@/components/ui-custom/dropdownMenuLink.svelte';
+	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
+	import * as DropdownMenu from '@/components/ui/dropdown-menu';
+	import { m } from '@/i18n';
+	import { currentUser } from '@/pocketbase';
 
 	const userState = new Store(currentUser);
 	const user = $derived(userState.current!);

@@ -2,10 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { m } from '@/i18n';
 import type { IndexItem } from '$lib/layout/pageIndex.svelte';
-import type { IconComponent } from '@/components/types';
+
 import { Building2, Layers, Layers3, FolderCheck, Key, ScanEye } from 'lucide-svelte';
+
+import type { IconComponent } from '@/components/types';
+
+import { m } from '@/i18n';
+
 import type { MarketplaceItemType } from './utils';
 
 export type MarketplacePageType = Exclude<MarketplaceItemType, 'custom_checks'>;

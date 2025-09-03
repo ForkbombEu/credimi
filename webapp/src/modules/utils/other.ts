@@ -2,9 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { dev } from '$app/environment';
-import { deLocalizeUrl } from '@/i18n';
 import type { Page } from '@sveltejs/kit';
+
+import { dev } from '$app/environment';
+
+import { deLocalizeUrl } from '@/i18n';
 
 //
 

@@ -7,8 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { CollectionManager } from '@/collections-components';
 	import { m } from '@/i18n';
-	import { settings } from './verifier-form-settings.svelte';
+
 	import VerifierCard from './verifier-card.svelte';
+	import { settings } from './verifier-form-settings.svelte';
 
 	//
 

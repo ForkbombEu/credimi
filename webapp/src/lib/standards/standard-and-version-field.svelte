@@ -5,11 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="T extends Record<string, unknown>">
+	import type { FormPath, SuperForm } from 'sveltekit-superforms';
+
+	import type { SelectOption } from '@/components/ui-custom/utils';
+
 	import { SelectField } from '@/forms/fields';
 	import { m } from '@/i18n';
-	import type { FormPath, SuperForm } from 'sveltekit-superforms';
+
 	import { getStandardsAndVersionsFlatOptionsList } from '.';
-	import type { SelectOption } from '@/components/ui-custom/utils';
 
 	//
 

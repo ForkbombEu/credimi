@@ -127,6 +127,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			newRecord.Set("url", req.URL)
 			newRecord.Set("owner", organization)
 			newRecord.Set("name", parsedURL.Hostname())
+			newRecord.Set("imported", true)
 			if err := e.App.Save(newRecord); err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -287,7 +288,7 @@ func checkEndpointExists(ctx context.Context, urlToCheck string) error {
 		}
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "HEAD", parsedURL.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", parsedURL.String(), nil)
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
@@ -386,6 +387,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 					record = core.NewRecord(collection)
 					record.Set("name", name)
 					record.Set("logo", logo)
+					record.Set("imported", true)
 				} else {
 					// Update existing record
 					record = existing

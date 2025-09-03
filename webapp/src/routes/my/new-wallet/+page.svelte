@@ -5,11 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { zod } from 'sveltekit-superforms/adapters';
+	import { z } from 'zod';
+
 	import { createForm, Form } from '@/forms';
 	import { Field } from '@/forms/fields';
 	import { pb } from '@/pocketbase/index.js';
-	import { zod } from 'sveltekit-superforms/adapters';
-	import { z } from 'zod';
+
 	import Table from './conformance_checks_table.svelte';
 
 	//

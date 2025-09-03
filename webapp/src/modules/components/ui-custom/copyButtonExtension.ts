@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { EditorView, ViewPlugin } from '@codemirror/view';
 import type { Extension } from '@codemirror/state';
+
+import { EditorView, ViewPlugin } from '@codemirror/view';
 
 // Lucide SVG strings for consistent iconography
 const LUCIDE_ICONS = {

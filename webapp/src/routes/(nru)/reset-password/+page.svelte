@@ -6,11 +6,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { enhance } from '$app/forms';
-	import { m } from '@/i18n';
-	import T from '@/components/ui-custom/t.svelte';
+
 	import Button from '@/components/ui-custom/button.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { Input } from '@/components/ui/input';
 	import { Label } from '@/components/ui/label';
+	import { m } from '@/i18n';
 
 	let { form } = $props();
 </script>

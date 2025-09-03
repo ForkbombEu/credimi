@@ -33,3 +33,11 @@ export const workflowExecutionInfoSchema = z
 	.passthrough();
 
 export type WorkflowExecutionInfo = z.infer<typeof workflowExecutionInfoSchema>;
+
+export const workflowResponseSchema = z.object({
+	workflowExecutionInfo: workflowExecutionInfoSchema,
+	executionConfig: z.unknown(),
+	pendingActivities: z.unknown()
+});
+
+export type WorkflowResponse = z.infer<typeof workflowResponseSchema>;

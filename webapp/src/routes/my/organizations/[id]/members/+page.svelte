@@ -5,28 +5,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CollectionManager } from '@/collections-components/manager';
-	import { m } from '@/i18n';
-	import { OrgRoles, ProtectedOrgUI } from '@/organizations';
-	import Button from '@/components/ui-custom/button.svelte';
 	import { Pencil, Plus, X } from 'lucide-svelte';
-	import Badge from '@/components/ui/badge/badge.svelte';
+
+	import { CollectionManager, RecordDelete, RecordEdit } from '@/collections-components/manager';
 	import PageCard from '@/components/layout/pageCard.svelte';
-	import SectionTitle from '@/components/ui-custom/sectionTitle.svelte';
-	import PlainCard from '@/components/ui-custom/itemCard.svelte';
-	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
-	import { currentUser } from '@/pocketbase/index.js';
-	import { RecordEdit, RecordDelete } from '@/collections-components/manager';
-	import MembershipRequests from './_partials/membershipRequests.svelte';
-	import { getUserDisplayName } from '@/pocketbase/utils';
-	import OrganizationLayout from '@/organizations/components/organizationLayout.svelte';
-	import InviteMembersForm from './_partials/inviteMembersForm.svelte';
-	import PendingInvites from './_partials/pendingInvites.svelte';
-	import { createToggleStore } from '@/components/ui-custom/utils';
+	import Button from '@/components/ui-custom/button.svelte';
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import PlainCard from '@/components/ui-custom/itemCard.svelte';
+	import SectionTitle from '@/components/ui-custom/sectionTitle.svelte';
+	import UserAvatar from '@/components/ui-custom/userAvatar.svelte';
+	import { createToggleStore } from '@/components/ui-custom/utils';
+	import Badge from '@/components/ui/badge/badge.svelte';
+	import { m } from '@/i18n';
+	import { OrgRoles, ProtectedOrgUI } from '@/organizations';
+	import OrganizationLayout from '@/organizations/components/organizationLayout.svelte';
+	import { currentUser } from '@/pocketbase/index.js';
+	import { getUserDisplayName } from '@/pocketbase/utils';
 	import { capitalize } from '@/utils/other';
-	import { CollectionForm } from '@/collections-components';
+
+	import InviteMembersForm from './_partials/inviteMembersForm.svelte';
+	import MembershipRequests from './_partials/membershipRequests.svelte';
+	import PendingInvites from './_partials/pendingInvites.svelte';
 
 	interface Props {
 		//

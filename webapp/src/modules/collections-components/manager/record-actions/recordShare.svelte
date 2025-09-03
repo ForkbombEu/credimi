@@ -5,23 +5,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="C extends CollectionName">
-	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import { toast } from 'svelte-sonner';
-	import { getExceptionMessage } from '@/utils/errors';
-	import { m } from '@/i18n';
-	import { createToggleStore } from '@/components/ui-custom/utils';
-	import Icon from '@/components/ui-custom/icon.svelte';
-	import Dialog from '@/components/ui-custom/dialog.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import Spinner from '@/components/ui-custom/spinner.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { type CollectionResponses, type RecordIdString } from '@/pocketbase/types';
-	import { CollectionForm } from '@/collections-components';
-	import { currentUser, pb } from '@/pocketbase';
 	import { ArrowLeft, Share, Trash } from 'lucide-svelte';
+	import { toast } from 'svelte-sonner';
+
 	import type { CollectionName } from '@/pocketbase/collections-models';
+
+	import { CollectionForm } from '@/collections-components';
 	import Alert from '@/components/ui-custom/alert.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import Dialog from '@/components/ui-custom/dialog.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
+	import Spinner from '@/components/ui-custom/spinner.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { createToggleStore } from '@/components/ui-custom/utils';
+	import { m } from '@/i18n';
+	import { currentUser, pb } from '@/pocketbase';
+	import { type RecordIdString } from '@/pocketbase/types';
+	import { getExceptionMessage } from '@/utils/errors';
+
 	import type { RecordProp, TitleProp, TriggerProp } from './types';
 
 	//

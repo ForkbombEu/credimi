@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import * as Avatar from '@/components/ui/avatar';
 	import type { ComponentProps } from 'svelte';
+
+	import * as Avatar from '@/components/ui/avatar';
 
 	export type AvatarProps = ComponentProps<typeof Avatar.Root> & {
 		src?: string;
@@ -19,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { m } from '@/i18n';
+
 	import { cn } from '../ui/utils';
 
 	const {

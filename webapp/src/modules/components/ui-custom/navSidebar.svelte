@@ -5,12 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { page } from '$app/state';
 	import { cubicInOut } from 'svelte/easing';
 	import { crossfade } from 'svelte/transition';
-	import { cn } from '@/components/ui/utils.js';
-	import { page } from '$app/state';
+
 	import { Button } from '@/components/ui/button/index.js';
+	import { cn } from '@/components/ui/utils.js';
+
 	import type { LinkWithIcon } from '../types';
+
 	import Icon from './icon.svelte';
 	import T from './t.svelte';
 
@@ -48,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			{#if isActive}
 				<div
-					class="bg-background absolute inset-0 rounded-md"
+					class="absolute inset-0 rounded-md bg-background"
 					in:send={{ key: 'active-sidebar-tab' }}
 					out:receive={{ key: 'active-sidebar-tab' }}
 				></div>

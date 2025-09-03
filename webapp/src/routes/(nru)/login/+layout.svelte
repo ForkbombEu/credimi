@@ -9,16 +9,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	import { page } from '$app/state';
+
 	import type { Link } from '@/components/types';
+
+	import Oauth from '@/auth/oauth/oauth.svelte';
+	import A from '@/components/ui-custom/a.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import Separator from '@/components/ui/separator/separator.svelte';
 	import { featureFlags } from '@/features';
 	import { m } from '@/i18n';
-	import T from '@/components/ui-custom/t.svelte';
-	import Button from '@/components/ui-custom/button.svelte';
-	import Separator from '@/components/ui/separator/separator.svelte';
-	import A from '@/components/ui-custom/a.svelte';
-	import type { Snippet } from 'svelte';
-	import Oauth from '@/auth/oauth/oauth.svelte';
 	import { localizeHref } from '@/i18n';
 
 	//
