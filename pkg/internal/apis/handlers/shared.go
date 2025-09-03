@@ -150,7 +150,7 @@ type ExecutionInfo struct {
 	HistorySizeBytes     *string          `json:"historySizeBytes,omitempty"`
 	Memo                 Memo             `json:"memo"`
 	RootExecution        Execution        `json:"rootExecution"`
-	SearchAttributes     SearchAttributes `json:"searchAttributes"`
+	SearchAttributes     *SearchAttributes `json:"searchAttributes"`
 	StartTime            string           `json:"startTime"`
 	StateTransitionCount *string          `json:"stateTransitionCount,omitempty"`
 	Status               string           `json:"status"`
