@@ -183,15 +183,14 @@ func (w *OpenIDNetWorkflow) Workflow(
 			"recipient": userMail,
 		},
 		Payload: map[string]any{
-			"subject": "[CREDIMI] Action required to continue your conformance checks",
-			"body": fmt.Sprintf(`
-		<html>
-			<body>
-				<p>Please click on the following link:</p>
-				<p><a href="%s" target="_blank" rel="noopener">%s</a></p>
-			</body>
-		</html>
-	`, u.String(), u.String()),
+			"subject":  "[CREDIMI] Action required to continue your conformance checks",
+			"template": activities.ContinueConformanceCheckEmailTemplate,
+			"data": map[string]any{
+				"AppName":          input.Config["app_name"],
+				"AppLogo":          input.Config["app_logo"],
+				"UserName":         input.Config["user_name"],
+				"VerificationLink": u.String(),
+			},
 		},
 	}
 	err = emailActivity.Configure(&emailInput)

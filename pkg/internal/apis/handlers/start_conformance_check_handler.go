@@ -362,7 +362,6 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			"variant":   string(parsedData.Variant),
 			"form":      parsedData.Form,
 			"user_mail": email,
-			"user_name": i.UserName,
 		},
 		Config: map[string]any{
 			"app_url":   appURL,
@@ -371,6 +370,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			"memo":      memo,
 			"app_name":  i.AppName,
 			"app_logo":  i.LogoUrl,
+			"user_name": i.UserName,
 		},
 	}
 	var workflow workflows.OpenIDNetWorkflow
