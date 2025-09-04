@@ -83,7 +83,7 @@ func PrepareActivityOptions(
 	}
 
 	maxInterval, ok := retry["maximumInterval"].(string)
-	if !ok {
+	if ok {
 		rp.MaximumInterval = parseDurationOrDefault(maxInterval, rp.MaximumInterval.String())
 	}
 
