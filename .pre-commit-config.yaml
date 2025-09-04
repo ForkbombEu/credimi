@@ -15,6 +15,6 @@ repos:
       - id: check-added-large-files
       - id: check-merge-conflict
   - repo: https://github.com/fsfe/reuse-tool
-    rev: v5.0.2
+    rev: v5.1.0
     hooks:
       - id: reuse

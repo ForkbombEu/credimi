@@ -202,6 +202,10 @@ func (w *PipelineWorkflow) Start(
 	options.Options.Memo = memo
 	options.Options.ID = fmt.Sprintf("Pipeline-%s-%s", wfDef.Name, uuid.NewString())
 
+	if namespace != "" {
+		options.Namespace = namespace
+	}
+
 	c, err := temporalclient.GetTemporalClientWithNamespace(
 		options.Namespace,
 	)
