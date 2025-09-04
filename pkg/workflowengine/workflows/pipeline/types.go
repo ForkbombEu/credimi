@@ -15,7 +15,6 @@ type WorkflowDefinition struct {
 	Version string                   `yaml:"version"`
 	Name    string                   `yaml:"name"`
 	Entry   string                   `yaml:"entry,omitempty"`
-	Env     map[string]string        `yaml:"env,omitempty"`
 	Runtime RuntimeConfig            `yaml:"runtime,omitempty"`
 	Checks  map[string]WorkflowBlock `yaml:"custom_checks,omitempty"`
 	Config  map[string]string        `yaml:"config,omitempty"`

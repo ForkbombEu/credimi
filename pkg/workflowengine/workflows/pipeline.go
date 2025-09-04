@@ -6,14 +6,12 @@ package workflows
 import (
 	"context"
 	"fmt"
-	"os"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/pipeline"
 	"github.com/google/uuid"
-	"github.com/joho/godotenv"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/workflow"
 )
@@ -195,15 +193,7 @@ func (w *PipelineWorkflow) Start(
 	if err != nil {
 		return result, err
 	}
-	for k, v := range wfDef.Env {
-		if err := os.Setenv(k, v); err != nil {
-			return result, fmt.Errorf("failed to set env %s=%s: %w", k, v, err)
-		}
-	}
-	err = godotenv.Load()
-	if err != nil {
-		return result, fmt.Errorf("failed to load .env file: %w", err)
-	}
+
 	options := pipeline.PrepareWorkflowOptions(wfDef.Runtime)
 	options.Options.Memo = memo
 	options.Options.ID = fmt.Sprintf("Pipeline-%s-%s", wfDef.Name, uuid.NewString())

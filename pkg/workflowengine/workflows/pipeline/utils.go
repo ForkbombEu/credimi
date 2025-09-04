@@ -116,7 +116,6 @@ func (s *WorkflowBlock) ToWorkflowDefinition(name string) *WorkflowDefinition {
 	return &WorkflowDefinition{
 
 		Name:    name,
-		Env:     map[string]string{},
 		Runtime: RuntimeConfig{},
 		Checks:  map[string]WorkflowBlock{},
 		Config:  s.Config,
