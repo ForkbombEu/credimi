@@ -14,12 +14,10 @@ import (
 type WorkflowDefinition struct {
 	Version string                   `yaml:"version"`
 	Name    string                   `yaml:"name"`
-	Entry   string                   `yaml:"entry,omitempty"`
 	Runtime RuntimeConfig            `yaml:"runtime,omitempty"`
 	Checks  map[string]WorkflowBlock `yaml:"custom_checks,omitempty"`
 	Config  map[string]string        `yaml:"config,omitempty"`
 	Steps   []StepDefinition         `yaml:"steps"`
-	Entries map[string]WorkflowBlock `yaml:",inline"`
 }
 
 type WorkflowBlock struct {
