@@ -58,13 +58,20 @@ func (a *SendMailActivity) Execute(
 	m.SetHeader("From", input.Config["sender"])
 	m.SetHeader("To", input.Config["recipient"])
 	m.SetHeader("Subject", input.Payload["subject"].(string))
-	body, ok := input.Payload["body"].(string)
-	if ok {
-		m.SetBody("text/plain", body)
-	}
+	body, hasBody := input.Payload["body"].(string)
 	inputTemplate, hasTemplate := input.Payload["template"].(string)
 	data, hasData := input.Payload["data"].(map[string]any)
-	if hasTemplate && hasData {
+	if hasBody && hasTemplate {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return workflowengine.ActivityResult{}, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'body' and 'template' cannot both be provided in payload",
+				errCode.Description),
+		)
+	}
+	if hasBody {
+		m.SetBody("text/plain", body)
+	} else if hasTemplate && hasData {
 		tmpl, err := template.New("email").Parse(inputTemplate)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
@@ -82,11 +89,11 @@ func (a *SendMailActivity) Execute(
 			)
 		}
 		m.SetBody("text/html", bodyBuffer.String())
-	} else if body == "" {
+	} else {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return workflowengine.ActivityResult{}, a.NewActivityError(
 			errCode.Code,
-			fmt.Sprintf("%s: 'body' or 'template' must be provided in payload",
+			fmt.Sprintf("%s: either 'body' or both 'template' and 'data' must be provided in payload",
 				errCode.Description),
 		)
 	}

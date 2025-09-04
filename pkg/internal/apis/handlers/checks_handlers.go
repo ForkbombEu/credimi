@@ -138,12 +138,6 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				err.Error(),
 			)
 		}
-		
-
-
-
-
-
 		statusParam := e.Request.URL.Query().Get("status")
 		var statusFilters []enums.WorkflowExecutionStatus
 		if statusParam != "" {

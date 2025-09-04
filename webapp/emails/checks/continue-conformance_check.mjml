@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<mj-text> Hello <strong>{{.UserName}}</strong>, </mj-text>
 
 				<mj-text>
-					Click on the button or paste this link in your browser in order to continue your conformace check
+					Click on the button or paste this link in your browser in order to continue your conformance check
 				</mj-text>
 
 				<mj-text>

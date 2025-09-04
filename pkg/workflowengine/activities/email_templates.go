@@ -175,7 +175,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later -->
                             </tr>
                             <tr>
                               <td align="left" style="font-size:0px;padding:0.8%;word-break:break-word;">
-                                <div style="font-family:Arial, sans-serif;font-size:16px;line-height:1.4;text-align:left;color:#111827;">Click on the button or paste this link in your browser in order to continue your conformace check</div>
+                                <div style="font-family:Arial, sans-serif;font-size:16px;line-height:1.4;text-align:left;color:#111827;">Click on the button or paste this link in your browser in order to continue your conformance check</div>
                               </td>
                             </tr>
                             <tr>
