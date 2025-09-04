@@ -8,109 +8,61 @@ import (
 
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
-	"gopkg.in/yaml.v3"
 )
 
 type WorkflowDefinition struct {
-	Version string                   `yaml:"version"`
-	Name    string                   `yaml:"name"`
-	Runtime RuntimeConfig            `yaml:"runtime,omitempty"`
-	Checks  map[string]WorkflowBlock `yaml:"custom_checks,omitempty"`
-	Config  map[string]string        `yaml:"config,omitempty"`
-	Steps   []StepDefinition         `yaml:"steps"`
+	Version string                   `yaml:"version,omitempty"       json:"version,omitempty"`
+	Name    string                   `yaml:"name"          json:"name"`
+	Runtime RuntimeConfig            `yaml:"runtime"       json:"runtime"`
+	Checks  map[string]WorkflowBlock `yaml:"custom_checks,omitempty" json:"custom_checks,omitempty"`
+	Config  map[string]string        `yaml:"config,omitempty"        json:"config,omitempty"`
+	Steps   []StepDefinition         `yaml:"steps,omitempty"         json:"steps,omitempty"`
 }
 
 type WorkflowBlock struct {
-	Description string            `yaml:"description,omitempty"`
-	Inputs      map[string]string `yaml:"inputs,omitempty"`
-	Outputs     map[string]string `yaml:"outputs,omitempty"`
-	Config      map[string]string `yaml:"config,omitempty"`
-	Steps       []StepDefinition  `yaml:"steps"`
+	Description string            `yaml:"description,omitempty" json:"description,omitempty"`
+	Inputs      map[string]string `yaml:"inputs,omitempty"      json:"inputs,omitempty"`
+	Outputs     map[string]string `yaml:"outputs,omitempty"     json:"outputs,omitempty"`
+	Config      map[string]string `yaml:"config,omitempty"      json:"config,omitempty"`
+	Steps       []StepDefinition  `yaml:"steps,omitempty"       json:"steps,omitempty"`
 }
 
 type StepDefinition struct {
-	ID       string                 `yaml:"id"`
-	Run      string                 `yaml:"run"`
-	With     StepInputs             `yaml:"with"`
-	Retry    map[string]any         `yaml:"retry,omitempty"`
-	Timeout  string                 `yaml:"timeout,omitempty"`
-	Metadata map[string]interface{} `yaml:"metadata,omitempty"`
+	ID       string                 `yaml:"id"   json:"id"`
+	Run      string                 `yaml:"run"  json:"run"`
+	With     StepInputs             `yaml:"with" json:"with"`
+	Retry    map[string]any         `yaml:"retry,omitempty"    json:"retry,omitempty"`
+	Timeout  string                 `yaml:"timeout,omitempty"  json:"timeout,omitempty"`
+	Metadata map[string]interface{} `yaml:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
 type StepInputs struct {
-	Config  map[string]string      `yaml:"config"`
-	Payload map[string]InputSource `yaml:"payload"`
+	Config  map[string]string      `yaml:"config,omitempty"  json:"config,omitempty"`
+	Payload map[string]InputSource `yaml:"payload,omitempty" json:"payload,omitempty"`
 }
 
-// A single input source (always a string unless type is set)
 type InputSource struct {
-	Type  string `yaml:"type,omitempty"`
-	Value any    `yaml:"value,omitempty"`
+	Type  string `yaml:"type,omitempty"  json:"type,omitempty"`
+	Value any    `yaml:"value,omitempty" json:"value,omitempty"`
 }
 
 type RuntimeConfig struct {
 	Temporal struct {
-		Namespace        string `yaml:"namespace"`
-		TaskQueue        string `yaml:"taskQueue"`
-		ExecutionTimeout string `yaml:"executionTimeout"`
+		Namespace        string `yaml:"namespace,omitempty"        json:"namespace,omitempty"`
+		TaskQueue        string `yaml:"taskQueue,omitempty"        json:"taskQueue,omitempty"`
+		ExecutionTimeout string `yaml:"executionTimeout,omitempty" json:"executionTimeout,omitempty"`
 		RetryPolicy      struct {
-			MaximumAttempts    int32   `yaml:"maximumAttempts"`
-			InitialInterval    string  `yaml:"initialInterval"`
-			MaximumInterval    string  `yaml:"maximumInterval"`
-			BackoffCoefficient float64 `yaml:"backoffCoefficient"`
-		} `yaml:"retryPolicy"`
-	} `yaml:"temporal"`
+			MaximumAttempts    int32   `yaml:"maximumAttempts,omitempty"    json:"maximumAttempts,omitempty"`
+			InitialInterval    string  `yaml:"initialInterval,omitempty"    json:"initialInterval,omitempty"`
+			MaximumInterval    string  `yaml:"maximumInterval,omitempty"    json:"maximumInterval,omitempty"`
+			BackoffCoefficient float64 `yaml:"backoffCoefficient,omitempty" json:"backoffCoefficient,omitempty"`
+		} `yaml:"retryPolicy" json:"retryPolicy"`
+	} `yaml:"temporal" json:"temporal"`
 }
 
 type WorkflowOptions struct {
-	Namespace       string
-	Options         client.StartWorkflowOptions
-	Timeout         time.Duration
-	ActivityOptions workflow.ActivityOptions
-}
-
-func (s *StepInputs) UnmarshalYAML(value *yaml.Node) error {
-	var tmp map[string]any
-	if err := value.Decode(&tmp); err != nil {
-		return err
-	}
-
-	s.Payload = make(map[string]InputSource)
-	s.Config = make(map[string]string)
-
-	for k, v := range tmp {
-		if k == "config" {
-			cfgBytes, err := yaml.Marshal(v)
-			if err != nil {
-				return err
-			}
-			if err := yaml.Unmarshal(cfgBytes, &s.Config); err != nil {
-				return err
-			}
-		} else {
-			// everything else goes into Payload
-			switch val := v.(type) {
-			case map[string]any:
-				if _, ok := val["type"]; ok {
-					if _, ok := val["value"]; ok {
-						var src InputSource
-						nodeBytes, err := yaml.Marshal(val)
-						if err != nil {
-							return err
-						}
-						if err := yaml.Unmarshal(nodeBytes, &src); err != nil {
-							return err
-						}
-						s.Payload[k] = src
-						continue
-					}
-				}
-				// otherwise store whole map as Value
-				s.Payload[k] = InputSource{Value: val}
-			default:
-				s.Payload[k] = InputSource{Value: val}
-			}
-		}
-	}
-	return nil
+	Namespace       string                      `json:"namespace,omitempty"`
+	Options         client.StartWorkflowOptions `json:"options"`
+	Timeout         time.Duration               `json:"timeout,omitempty"`
+	ActivityOptions workflow.ActivityOptions    `json:"activityOptions"`
 }
