@@ -12,3 +12,15 @@ export async function fetchCredentialIssuer(url: string) {
 		}
 	});
 }
+
+export async function getCredentialIssuerByUrl(url: string, organizationId: string) {
+	const credentialIssuers = await pb
+		.collection('credential_issuers')
+		.getFullList({ filter: `url = '${url}' && owner = '${organizationId}'` });
+
+	if (credentialIssuers.length != 1) {
+		throw new Error('Credential issuer not found');
+	}
+
+	return credentialIssuers[0];
+}

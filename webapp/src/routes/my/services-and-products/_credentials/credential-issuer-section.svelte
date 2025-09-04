@@ -16,12 +16,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
-	import { buttonVariants } from '@/components/ui/button';
 	import { Card } from '@/components/ui/card';
-	import * as Dialog from '@/components/ui/dialog';
 	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
@@ -34,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		organizationId?: string;
+		organizationId: string;
 		id?: string;
 	};
 
@@ -103,26 +102,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <!--  -->
 
 {#snippet CreateCredentialIssuerModal()}
-	<Dialog.Root bind:open={isCredentialIssuerModalOpen}>
-		<Dialog.Trigger class={buttonVariants({ variant: 'default' })}>
-			<Plus />
-			{m.Add_new_credential_issuer()}
-		</Dialog.Trigger>
+	<Sheet bind:open={isCredentialIssuerModalOpen} title={m.Add_new_credential_issuer()}>
+		{#snippet trigger({ sheetTriggerAttributes })}
+			<Button {...sheetTriggerAttributes}>
+				<Plus />
+				{m.Add_new_credential_issuer()}
+			</Button>
+		{/snippet}
 
-		<Dialog.Content class=" sm:max-w-[425px]">
-			<Dialog.Header>
-				<Dialog.Title>{m.Add_new_credential_issuer()}</Dialog.Title>
-			</Dialog.Header>
-
-			<div class="pt-8">
-				<CredentialIssuerForm
-					onSuccess={() => {
-						isCredentialIssuerModalOpen = false;
-					}}
-				/>
-			</div>
-		</Dialog.Content>
-	</Dialog.Root>
+		{#snippet content({ closeSheet })}
+			<CredentialIssuerForm onSuccess={closeSheet} {organizationId} />
+		{/snippet}
+	</Sheet>
 {/snippet}
 
 <!--  -->

@@ -26,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		contentClass?: string;
 		trigger?: Snippet<[{ sheetTriggerAttributes: GenericRecord; openSheet: () => void }]>;
 		children?: Snippet;
+		triggerContent?: Snippet;
 		content?: Snippet<[{ closeSheet: () => void }]>;
 		hideTrigger?: boolean;
 	}
@@ -38,6 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		contentClass = '',
 		trigger,
 		children,
+		triggerContent,
 		content,
 		hideTrigger = false
 	}: Props = $props();
@@ -61,6 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{@render trigger({ sheetTriggerAttributes: props, openSheet })}
 				{:else}
 					<Button {...props} class="shrink-0" variant="outline">
+						{@render triggerContent?.()}
 						{@render children?.()}
 					</Button>
 				{/if}
