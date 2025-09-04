@@ -24,32 +24,33 @@ import (
 
 // WorkflowInput represents the input data required to start a workflow.
 type WorkflowInput struct {
-	Payload map[string]any
-	Config  map[string]any
+	Payload map[string]any `json:"payload,omitempty"`
+	Config  map[string]any `json:"config,omitempty"`
 }
 
 // WorkflowResult represents the result of a workflow execution, including a message, errors, and a log.
 type WorkflowResult struct {
-	WorkflowID    string
-	WorkflowRunID string
-	Author        string
-	Message       string
-	Errors        any
-	Output        any
-	Log           any
+	WorkflowID    string `json:"workflowId,omitempty"`
+	WorkflowRunID string `json:"workflowRunId,omitempty"`
+	Author        string `json:"author,omitempty"`
+	Message       string `json:"message,omitempty"`
+	Errors        any    `json:"errors,omitempty"`
+	Output        any    `json:"output,omitempty"`
+	Log           any    `json:"log,omitempty"`
 }
 
 type WorkflowErrorMetadata struct {
-	WorkflowName string
-	WorkflowID   string
-	Namespace    string
-	TemporalUI   string
+	WorkflowName string `json:"workflowName,omitempty"`
+	WorkflowID   string `json:"workflowId,omitempty"`
+	Namespace    string `json:"namespace,omitempty"`
+	TemporalUI   string `json:"temporalUI,omitempty"`
 }
+
 type WorkflowRunInfo struct {
-	Name      string
-	TaskQueue string
-	Input     WorkflowInput
-	Memo      map[string]any
+	Name      string         `json:"name"`
+	TaskQueue string         `json:"taskQueue"`
+	Input     WorkflowInput  `json:"input,omitempty"`
+	Memo      map[string]any `json:"memo,omitempty"`
 }
 
 // Workflow defines the interface for a workflow, including its execution, name, and options.
