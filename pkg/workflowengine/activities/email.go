@@ -68,8 +68,7 @@ func (a *SendMailActivity) Execute(
 			fmt.Sprintf("%s: 'body' and 'template' cannot both be provided in payload",
 				errCode.Description),
 		)
-	}
-	if hasBody {
+	} else if hasBody {
 		m.SetBody("text/plain", body)
 	} else if hasTemplate && hasData {
 		tmpl, err := template.New("email").Parse(inputTemplate)
