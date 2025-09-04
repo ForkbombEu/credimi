@@ -108,7 +108,7 @@ var pipelineCmd = &cobra.Command{
 	},
 }
 
-func init() {
+func RegisterPipelineCmdAndFlags(rootCmd *cobra.Command) {
 	rootCmd.AddCommand(pipelineCmd)
 	pipelineCmd.Flags().StringVarP(&yamlPath, "path", "p", "", "Path to YAML file (optional, otherwise reads from stdin)")
 	pipelineCmd.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")

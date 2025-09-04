@@ -20,6 +20,7 @@ func Execute() {
 	if err := godotenv.Load(); err != nil {
 		log.Println("No .env file found")
 	}
+	RegisterPipelineCmdAndFlags(rootCmd)
 	if err := rootCmd.Execute(); err != nil {
 		log.Println(err)
 		os.Exit(1)
