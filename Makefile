@@ -6,8 +6,10 @@ PROJECT_NAME 	?= credimi
 ORGANIZATION 	?= forkbombeu
 ROOT_DIR		?= $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
 BINARY_NAME 	?= $(PROJECT_NAME)
+CLI_NAME		?= $(PROJECT_NAME)-cli
 SUBDIRS			?= ./...
 MAIN_SRC 		?= $(ROOT_DIR)/main.go
+CLI_SRC			?= $(ROOT_DIR)/cli/main.go
 DATA			?= $(ROOT_DIR)/pb_data
 WEBAPP			?= $(ROOT_DIR)/webapp
 GO_SRC 			:= $(wildcard **/*.go)
@@ -180,3 +182,7 @@ help: ## Show this help.
 kill-pocketbase: ## 🔪 Kill any running PocketBase instance
 	@echo "Killing any existing PocketBase instance..."
 	@-lsof -ti:8090 -sTCP:LISTEN | xargs kill -9 2>/dev/null || true
+
+credimi-cli: ## Build the CLI
+	@$(GOBUILD) -o $(CLI_NAME) $(CLI_SRC)
+
