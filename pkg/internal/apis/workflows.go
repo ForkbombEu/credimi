@@ -110,10 +110,13 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			)
 		}
 		var issuerID string
+		var operationType string
 		if len(existingRecords) > 0 {
 			issuerID = existingRecords[0].Id
+			operationType = "update"
 		} else {
 			// Create a new record
+			operationType = "create"
 			parsedURL, err := url.Parse(req.URL)
 			if err != nil {
 				return apierror.New(
@@ -213,6 +216,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		return e.JSON(http.StatusOK, map[string]string{
 			"credentialIssuerUrl": req.URL,
 			"workflowUrl":         workflowURL,
+			"operation":           operationType,
 		})
 	}
 }
