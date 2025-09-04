@@ -31,8 +31,8 @@ func (s *StepDefinition) Execute(
 	}
 	act := activities.Registry[s.Run].NewFunc()
 
-	// Configure if the activity supports it
-	if cfgAct, ok := act.(workflowengine.ConfigurableActivity); ok {
+	if s.Run == "email" {
+		cfgAct := act.(workflowengine.ConfigurableActivity)
 		if err := cfgAct.Configure(input); err != nil {
 			appErr := workflowengine.NewAppError(
 				errCode,
@@ -41,7 +41,6 @@ func (s *StepDefinition) Execute(
 			return result, appErr
 		}
 	}
-
 	execAct, ok := act.(workflowengine.ExecutableActivity)
 	if !ok {
 		appErr := workflowengine.NewAppError(
