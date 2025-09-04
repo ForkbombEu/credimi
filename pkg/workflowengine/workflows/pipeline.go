@@ -57,7 +57,11 @@ func (w *PipelineWorkflow) Workflow(
 
 	globalCfg := make(map[string]string)
 	for k, v := range global {
-		globalCfg[k] = v.(string)
+		if str, ok := v.(string); ok {
+			globalCfg[k] = str
+		} else {
+			return workflowengine.WorkflowResult{}, fmt.Errorf("global config key %q has non-string value of type %T", k, v)
+		}
 	}
 	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
