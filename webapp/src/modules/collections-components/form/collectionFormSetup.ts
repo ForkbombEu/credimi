@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pipe, Record, String } from 'effect';
-import { merge, cloneDeep } from 'lodash';
+import { cloneDeep, merge } from 'lodash';
 import { ClientResponseError, type CollectionModel } from 'pocketbase';
 import { toast } from 'svelte-sonner';
 import { setError, type FormPathLeaves, type SuperForm } from 'sveltekit-superforms';
@@ -39,6 +39,7 @@ export function setupCollectionForm<C extends CollectionName>({
 	recordId,
 	initialData = {},
 	onSuccess = () => {},
+	onError = (msg: string) => {}, // eslint-disable-line @typescript-eslint/no-unused-vars
 	fieldsOptions = {},
 	superformsOptions = {},
 	uiOptions = {}
@@ -136,6 +137,7 @@ export function setupCollectionForm<C extends CollectionName>({
 						else setError(form, `${path} - ${data.message}`);
 					});
 
+					onError(e.message);
 					setError(form, e.message);
 				} else {
 					setError(form, getExceptionMessage(e));
