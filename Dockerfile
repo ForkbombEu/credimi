@@ -19,7 +19,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean \
     && apt-get update \
     && apt-get -y --no-install-recommends install \
-    build-essential make bash curl git tmux wget ca-certificates
+    build-essential make bash curl git tmux wget ca-certificates unzip 
 WORKDIR /app
 
 # install temporal
@@ -65,6 +65,14 @@ RUN wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/do
 
 #install et-tu-cesr
 RUN wget https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-linux-amd64 -O .bin/et-tu-cesr && chmod +x .bin/et-tu-cesr
+
+# install Maestro
+RUN mkdir -p /app/.bin/maestro \
+    && curl -fsSL "https://get.maestro.mobile.dev" -o /app/.bin/maestro/get-maestro.sh \
+    && chmod +x /app/.bin/maestro/get-maestro.sh \
+    && MAESTRO_DIR=/app/.bin/maestro /app/.bin/maestro/get-maestro.sh \
+    && rm -rf /app/.bin/maestro/tmp
+
 
 # copy everything
 COPY . ./
