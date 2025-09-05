@@ -155,6 +155,7 @@ export class CredimiClientError extends Error {
 export interface ClientOptions {
   body?: any;
   headers?: { [key: string]: string };
+  fetch?: typeof fetch;
 }
 /**
  * Interface for options when sending requests.
@@ -162,6 +163,7 @@ export interface ClientOptions {
 export interface SendOptions extends ClientOptions {
 	method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
 	query?: { [key: string]: any };
+	fetch?: typeof fetch;
 }
 
 export class CredimiClient {
