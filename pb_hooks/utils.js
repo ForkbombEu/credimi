@@ -265,7 +265,7 @@ function getAppName() {
  * @returns {string}
  */
 function getAppLogoUrl() {
-    return getAppUrl() + `/logos/${getAppName().toLowerCase()}_logo.svg`
+    return getAppUrl() + `/logos/${getAppName().toLowerCase()}_logo-transp_emblem.png`
 }
 
 /**

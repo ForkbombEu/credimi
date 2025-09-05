@@ -93,7 +93,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 		email := e.Auth.GetString("email")
 		namespace, err := GetUserOrganizationID(e.App, userID)
 		appName := e.App.Settings().Meta.AppName
-		logoUrl := fmt.Sprintf("%s/logos/%s_logo.svg", appURL, strings.ToLower(appName))
+		logoUrl := fmt.Sprintf("%s/logos/%s_logo-transp_emblem.png", appURL, strings.ToLower(appName))
 		userName := e.Auth.GetString("name")
 
 		if err != nil {
@@ -440,8 +440,8 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 			"memo":           memo,
 			"check_endpoint": checkEndpoint,
 			"app_name":       i.AppName,
-			"app_logo":      i.LogoUrl,
-			"user_name":     i.UserName,
+			"app_logo":       i.LogoUrl,
+			"user_name":      i.UserName,
 		},
 	}
 	var workflow workflows.EWCWorkflow
