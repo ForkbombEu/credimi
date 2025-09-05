@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { queryParams } from '$routes/my/tests/new/+page.svelte';
-import { CheckCircle, QrCode, Settings, ShieldCheck, Users, Wallet } from 'lucide-svelte';
+import { CheckCheck, CheckCircle, QrCode, ShieldCheck, Users, Wallet } from 'lucide-svelte';
 import { z } from 'zod';
 
 import type { CollectionName } from '@/pocketbase/collections-models';
@@ -85,7 +85,7 @@ const marketplaceItemsDisplayConfig: MarketplaceItemsDisplayConfig = {
 		textClass: 'text-[hsl(var(--purple-foreground))]',
 		backgroundClass: 'bg-[hsl(var(--purple-background))]',
 		outlineClass: 'border-[hsl(var(--purple-outline))]',
-		icon: Settings
+		icon: CheckCheck
 	},
 	credential_issuers: {
 		label: m.Credential_issuer(),

@@ -10,8 +10,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import SectionCard from '$lib/layout/section-card.svelte';
 	import Footer from '$start-checks-form/_utils/footer.svelte';
 	import { Checkbox as Check } from 'bits-ui';
-	import { ArrowRight, ExternalLink, GitBranch, HelpCircle, Home } from 'lucide-svelte';
+	import { ArrowRight, GitBranch, HelpCircle, Home } from 'lucide-svelte';
 
+	import LinkExternal from '@/components/ui-custom/linkExternal.svelte';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Button from '@/components/ui/button/button.svelte';
@@ -58,37 +59,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#snippet headerActions()}
 						<div class="flex gap-2">
 							{#if form.selectedStandard?.standard_url}
-								<a
+								<LinkExternal
 									href={form.selectedStandard.standard_url}
-									class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-help-background))] px-2 py-1 text-xs text-[hsl(var(--link-help-foreground))] transition-colors hover:bg-[hsl(var(--link-help-background))]/80"
-									target="_blank"
-									rel="noopener noreferrer"
+									text="{form.selectedStandard.name} {m.Standard()}"
+									icon={HelpCircle}
 									title={m.Learn_about_standard({
 										name: form.selectedStandard.name
 									})}
-								>
-									<HelpCircle class="h-3 w-3" />
-									{form.selectedStandard.name}
-									{m.Standard()}
-									<ExternalLink class="h-3 w-3" />
-								</a>
+								/>
 							{/if}
 
 							{#if form.selectedVersion?.specification_url}
-								<a
+								<LinkExternal
 									href={form.selectedVersion.specification_url}
-									class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-homepage-background))] px-2 py-1 text-xs text-[hsl(var(--link-homepage-foreground))] transition-colors hover:bg-[hsl(var(--link-homepage-background))]/80"
-									target="_blank"
-									rel="noopener noreferrer"
+									text="{form.selectedVersion.name} {m.Spec()}"
+									icon={GitBranch}
 									title={m.View_specification({
 										name: form.selectedVersion.name
 									})}
-								>
-									<GitBranch class="h-3 w-3" />
-									{form.selectedVersion.name}
-									{m.Spec()}
-									<ExternalLink class="h-3 w-3" />
-								</a>
+								/>
 							{/if}
 						</div>
 					{/snippet}
@@ -105,40 +94,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{#if form.availableCustomChecks.length > 0}
 				<SectionCard title={m.Custom_checks()} subtitle={m.Select_custom_checks_subtitle()}>
-					{#snippet headerActions()}
-						<div class="flex gap-2">
-							<a
-								href="/my/custom-checks/new{form.selectedStandard &&
-								form.selectedVersion
-									? `?standard=${form.selectedStandard.uid}&version=${form.selectedVersion.uid}`
-									: ''}"
-								class="bg-primary/10 text-primary hover:bg-primary/20 inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors"
-								title={form.selectedStandard
-									? m.Create_custom_check_for_standard({
-											name: form.selectedStandard.name
-										})
-									: m.Create_your_own_custom_check()}
-							>
-								<HelpCircle class="h-3 w-3" />
-								{m.Create_Custom_Check()}
-							</a>
-							<a
-								href="/marketplace?type=custom_checks{form.selectedStandard
-									? `&standard=${form.selectedStandard.uid}`
-									: ''}"
-								class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-subtle-background))] px-2 py-1 text-xs text-[hsl(var(--link-subtle-foreground))] transition-colors hover:bg-[hsl(var(--link-subtle-background))]/80"
-								title={form.selectedStandard
-									? m.Browse_custom_checks_for_standard({
-											name: form.selectedStandard.name
-										})
-									: m.Browse_custom_checks()}
-							>
-								<ExternalLink class="h-3 w-3" />
-								{m.Browse_All()}
-							</a>
-						</div>
-					{/snippet}
-
 					{@render CustomChecksSelect()}
 				</SectionCard>
 			{/if}
@@ -214,7 +169,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class="flex flex-col gap-8"
 	>
 		{#each form.availableSuitesWithTests as suite}
-			<div class="border-primary/20 space-y-4 border-l-4 pl-6">
+			<div class="space-y-4">
 				<Check.GroupLabel>
 					{@render suiteLabel(suite)}
 				</Check.GroupLabel>
@@ -262,31 +217,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#if check.homepage || check.repository}
 						<div class="flex flex-wrap gap-2 text-xs">
 							{#if check.homepage}
-								<a
+								<LinkExternal
 									href={check.homepage}
-									class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-homepage-background))] px-2 py-1 text-[hsl(var(--link-homepage-foreground))] transition-colors hover:bg-[hsl(var(--link-homepage-background))]/80 hover:underline"
-									target="_blank"
-									rel="noopener noreferrer"
+									text={m.Homepage()}
+									icon={Home}
 									title={m.Custom_check_homepage()}
-								>
-									<Home class="h-3 w-3" />
-									{m.Homepage()}
-									<ExternalLink class="h-3 w-3" />
-								</a>
+								/>
 							{/if}
 
 							{#if check.repository}
-								<a
+								<LinkExternal
 									href={check.repository}
-									class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-subtle-background))] px-2 py-1 text-[hsl(var(--link-subtle-foreground))] transition-colors hover:bg-[hsl(var(--link-subtle-background))]/80 hover:underline"
-									target="_blank"
-									rel="noopener noreferrer"
+									text={m.Repository()}
+									icon={GitBranch}
 									title={m.Custom_check_repository()}
-								>
-									<GitBranch class="h-3 w-3" />
-									{m.Repository()}
-									<ExternalLink class="h-3 w-3" />
-								</a>
+								/>
 							{/if}
 						</div>
 					{/if}
@@ -308,45 +253,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if suite.help || suite.homepage || suite.repository}
 			<div class="flex flex-wrap gap-3 text-xs">
 				{#if suite.help}
-					<a
+					<LinkExternal
 						href={suite.help}
-						class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-help-background))] px-2 py-1 text-[hsl(var(--link-help-foreground))] transition-colors hover:bg-[hsl(var(--link-help-background))]/80 hover:underline"
-						target="_blank"
-						rel="noopener noreferrer"
+						text={m.Instructions()}
+						icon={HelpCircle}
 						title={m.Help_and_instructions()}
-					>
-						<HelpCircle class="h-3 w-3" />
-						{m.Instructions()}
-						<ExternalLink class="h-3 w-3" />
-					</a>
+					/>
 				{/if}
 
 				{#if suite.homepage}
-					<a
+					<LinkExternal
 						href={suite.homepage}
-						class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-homepage-background))] px-2 py-1 text-[hsl(var(--link-homepage-foreground))] transition-colors hover:bg-[hsl(var(--link-homepage-background))]/80 hover:underline"
-						target="_blank"
-						rel="noopener noreferrer"
+						text={m.Homepage()}
+						icon={Home}
 						title={m.Official_homepage()}
-					>
-						<Home class="h-3 w-3" />
-						{m.Homepage()}
-						<ExternalLink class="h-3 w-3" />
-					</a>
+					/>
 				{/if}
 
 				{#if suite.repository}
-					<a
+					<LinkExternal
 						href={suite.repository}
-						class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-subtle-background))] px-2 py-1 text-[hsl(var(--link-subtle-foreground))] transition-colors hover:bg-[hsl(var(--link-subtle-background))]/80 hover:underline"
-						target="_blank"
-						rel="noopener noreferrer"
+						text={m.Repository()}
+						icon={GitBranch}
 						title={m.Source_code_repository()}
-					>
-						<GitBranch class="h-3 w-3" />
-						{m.Repository()}
-						<ExternalLink class="h-3 w-3" />
-					</a>
+					/>
 				{/if}
 			</div>
 		{/if}

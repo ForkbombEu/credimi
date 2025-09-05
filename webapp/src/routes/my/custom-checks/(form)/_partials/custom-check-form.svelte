@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { String } from 'effect';
 	import { run } from 'json_typegen_wasm';
 	import _ from 'lodash';
-	import { ExternalLink, GitBranch, HelpCircle, Home, PlusIcon, UploadIcon } from 'lucide-svelte';
+	import { GitBranch, HelpCircle, PlusIcon, UploadIcon } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { fromStore } from 'svelte/store';
 	import { zod } from 'sveltekit-superforms/adapters';
@@ -25,6 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { removeEmptyValues } from '@/collections-components/form';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import LinkExternal from '@/components/ui-custom/linkExternal.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { createForm, Form } from '@/forms';
 	import {
@@ -223,44 +224,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{@const { standard, version } = selection}
 					<div class="flex flex-wrap gap-2">
 						{#if standard.standard_url}
-							<a
+							<LinkExternal
 								href={standard.standard_url}
-								class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-help-background))] px-2 py-1 text-xs text-[hsl(var(--link-help-foreground))] transition-colors hover:bg-[hsl(var(--link-help-background))]/80"
-								target="_blank"
-								rel="noopener noreferrer"
+								text="{standard.name} {m.Standard()}"
+								icon={HelpCircle}
 								title={m.Learn_about_standard({ name: standard.name })}
-							>
-								<HelpCircle class="h-3 w-3" />
-								{standard.name}
-								{m.Standard()}
-								<ExternalLink class="h-3 w-3" />
-							</a>
+							/>
 						{/if}
 
 						{#if version.specification_url}
-							<a
+							<LinkExternal
 								href={version.specification_url}
-								class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-homepage-background))] px-2 py-1 text-xs text-[hsl(var(--link-homepage-foreground))] transition-colors hover:bg-[hsl(var(--link-homepage-background))]/80"
-								target="_blank"
-								rel="noopener noreferrer"
+								text="{version.name} {m.Spec()}"
+								icon={GitBranch}
 								title={m.View_specification({ name: version.name })}
-							>
-								<GitBranch class="h-3 w-3" />
-								{version.name}
-								{m.Spec()}
-								<ExternalLink class="h-3 w-3" />
-							</a>
+							/>
 						{/if}
-
-						<a
-							href="/marketplace?type=custom_checks&standard={standard.uid}"
-							class="inline-flex items-center gap-1 rounded-md bg-[hsl(var(--link-subtle-background))] px-2 py-1 text-xs text-[hsl(var(--link-subtle-foreground))] transition-colors hover:bg-[hsl(var(--link-subtle-background))]/80"
-							title={m.Browse_custom_checks_for_standard({ name: standard.name })}
-						>
-							<Home class="h-3 w-3" />
-							{m.Browse_All()}
-							<ExternalLink class="h-3 w-3" />
-						</a>
 					</div>
 				{/if}
 			{/snippet}
