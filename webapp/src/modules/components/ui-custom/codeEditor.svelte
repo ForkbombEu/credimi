@@ -5,9 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Extension } from '@codemirror/state';
 	import type { EditorView } from '@codemirror/view';
 
 	import { json } from '@codemirror/lang-json';
+	// import { yaml } from '@codemirror/lang-yaml';
 	import { dev } from '$app/environment';
 	import CodeMirror from 'svelte-codemirror-editor';
 	import { dracula } from 'thememirror';
@@ -17,7 +19,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type LanguageSupport = ReturnType<typeof json>;
-	type Extension = typeof dracula;
 
 	const langs = {
 		json
@@ -136,7 +137,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <CodeMirror
 	lang={languageSupport}
-	theme={themeExtension}
+	theme={themeExtension ? [themeExtension] : []}
 	class="overflow-hidden rounded-lg {className}"
 	{styles}
 	bind:value
