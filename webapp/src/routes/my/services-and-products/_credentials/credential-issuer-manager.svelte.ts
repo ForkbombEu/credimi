@@ -25,7 +25,7 @@ export class CredentialIssuerManager {
 		this.initEffects();
 	}
 
-	currentTask = $state<Task.AnyTask>();
+	currentTask = $state<ManagerTask>();
 	importedIssuer = $state<CredentialIssuersResponse>();
 
 	status = $derived.by(() => {
@@ -149,7 +149,7 @@ export class CredentialIssuerManager {
 		});
 	}
 
-	async runTask(task: Task.AnyTask) {
+	async runTask(task: ManagerTask) {
 		this.currentTask = task;
 		await this.currentTask;
 	}
@@ -160,6 +160,10 @@ export type ImportCredentialIssuerResult = {
 	record: CredentialIssuersResponse;
 	operation: 'create' | 'update';
 };
+
+type ManagerInstance = InstanceType<typeof CredentialIssuerManager>;
+type ManagerTasks = ManagerInstance['tasks'];
+type ManagerTask = ReturnType<ManagerTasks[keyof ManagerTasks]>;
 
 /* Errors */
 
