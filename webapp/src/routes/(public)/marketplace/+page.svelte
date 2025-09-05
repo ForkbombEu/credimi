@@ -87,7 +87,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet contentWrapper(children)}
-		<PageContent class="grow bg-secondary">
+		<PageContent class="bg-secondary grow">
 			<div class="flex flex-col gap-8 sm:flex-row">
 				<div class="w-full sm:w-fit">
 					{@render MarketplaceTableOfContents()}
@@ -131,12 +131,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				onclick={() => (params.type = type)}
 				class={'justify-start '}
 			>
-				<div
-					class={[
-						'block size-3 shrink-0 rounded-full border border-white',
-						typeData.display?.bgClass
-					]}
-				></div>
+				{#if typeData.display?.icon}
+					{@const IconComponent = typeData.display.icon}
+					<IconComponent
+						class="size-4 shrink-0 {isActive
+							? 'text-primary-foreground'
+							: `opacity-70 ${typeData.display?.textClass}`}"
+					/>
+				{/if}
 				{typeData.display?.labelPlural}
 			</Button>
 		{/each}
