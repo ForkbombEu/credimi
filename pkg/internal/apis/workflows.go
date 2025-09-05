@@ -213,9 +213,9 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		// 	return err
 		// }
 
-		return e.JSON(http.StatusOK, map[string]string{
+		return e.JSON(http.StatusOK, map[string]any{
 			"credentialIssuerUrl": req.URL,
-			"workflowUrl":         workflowURL,
+			"record":              record,
 			"operation":           operationType,
 		})
 	}
