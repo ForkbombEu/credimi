@@ -683,5 +683,6 @@
 	"Invalid_image_URL_error": "Invalid image URL. Please check the URL and try again.",
 	"Logo_preview": "Logo preview",
 	"Fetching_fallback": "Fetching...",
-	"Imported": "Imported"
+	"Imported": "Imported",
+	"Import_results": "Import results"
 }
