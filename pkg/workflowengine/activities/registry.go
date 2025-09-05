@@ -63,4 +63,8 @@ var Registry = map[string]ActivityFactory{
 		NewFunc:    func() workflowengine.Activity { return NewParseWalletURLActivity() },
 		OutputKind: workflowengine.OutputMap,
 	},
+	"maestro-flow": {
+		NewFunc:    func() workflowengine.Activity { return NewMaestroFlowActivity() },
+		OutputKind: workflowengine.OutputString,
+	},
 }
