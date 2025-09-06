@@ -9,7 +9,7 @@ import {
 	type CredentialIssuersFormData,
 	type CredentialIssuersResponse
 } from '@/pocketbase/types';
-import { task } from '@/v2';
+import { types as t, task } from '@/v2';
 
 import type { db, pocketbase as pb } from '..';
 
@@ -68,111 +68,115 @@ describe('PocketBaseCrud', () => {
 
 	test('read existing item', async () => {
 		mockClient = createMockClient({
-			create: vi.fn().mockResolvedValue(record),
 			getOne: vi.fn().mockResolvedValue(record)
 		});
 		crud = new pocketbaseCrud.Instance('credential_issuers', { client: mockClient });
+		const result = await task.run(crud.read('1'));
+		expect(result).toEqual(record);
+	});
+
+	test('read handles PocketBase error', async () => {
+		mockClient = createMockClient({
+			getOne: vi.fn().mockRejectedValue(new Error('Not found'))
+		});
+		crud = new pocketbaseCrud.Instance('credential_issuers', { client: mockClient });
+
+		const taskPromise = task.run(crud.read('invalid'));
+		await expect(taskPromise).rejects.toBeInstanceOf(t.BaseError);
+	});
+
+	test('readAll returns all items', async () => {
+		const mockRecords = [record, { ...record, id: '2', name: 'test2' }];
+		mockClient = createMockClient({
+			getFullList: vi.fn().mockResolvedValue(mockRecords)
+		});
+		crud = new pocketbaseCrud.Instance('credential_issuers', { client: mockClient });
+
+		const result = await task.run(crud.readAll());
+		expect(result).toEqual(mockRecords);
+	});
+
+	test('create calls PocketBase create', async () => {
+		mockClient = createMockClient({
+			create: vi.fn().mockResolvedValue(record)
+		});
+		crud = new pocketbaseCrud.Instance('credential_issuers', { client: mockClient });
+
 		const result = await task.run(crud.create(input));
 		expect(result).toEqual(record);
 	});
 
-	// test('read handles PocketBase error', async () => {
-	// 	mockCollection.getOne.mockRejectedValue(new Error('Not found'));
+	test('update calls PocketBase update', async () => {
+		const updateInput = { name: 'Updated Name' };
+		const updatedRecord = { ...record, name: 'Updated Name' };
+		mockClient = createMockClient({
+			update: vi.fn().mockResolvedValue(updatedRecord)
+		});
+		crud = new pocketbaseCrud.Instance('credential_issuers', { client: mockClient });
 
-	// 	const taskPromise = task.run(crud.read('invalid'));
-	// 	await expect(taskPromise).rejects.toBeInstanceOf(t.BaseError);
-	// });
+		const result = await task.run(crud.update('1', updateInput));
+		expect(result).toEqual(updatedRecord);
+	});
 
-	// test('readAll returns all items', async () => {
-	// 	const mockRecords = [
-	// 		{ id: '1', name: 'User 1', username: 'user1' },
-	// 		{ id: '2', name: 'User 2', username: 'user2' }
-	// 	];
-	// 	mockCollection.getFullList.mockResolvedValue(mockRecords);
+	test('delete calls PocketBase delete', async () => {
+		mockClient = createMockClient({
+			delete: vi.fn().mockResolvedValue(true)
+		});
+		crud = new pocketbaseCrud.Instance('credential_issuers', { client: mockClient });
 
-	// 	const result = await task.run(crud.readAll());
-	// 	expect(mockCollection.getFullList).toHaveBeenCalledWith({});
-	// 	expect(result).toEqual(mockRecords);
-	// });
+		const result = await task.run(crud.delete('1'));
+		expect(result).toBe(true);
+	});
 
-	// test('create calls PocketBase create', async () => {
-	// 	const mockInput = {
-	// 		id: '2',
-	// 		password: 'password',
-	// 		tokenKey: 'token',
-	// 		username: 'newuser',
-	// 		name: 'New User'
-	// 	};
-	// 	const mockRecord = { id: '2', name: 'New User', username: 'newuser' };
-	// 	mockCollection.create.mockResolvedValue(mockRecord);
+	test('uses default client when none provided', () => {
+		const crudWithDefaultClient = new pocketbaseCrud.Instance('credential_issuers', {});
+		expect(crudWithDefaultClient.client).toBeDefined();
+	});
 
-	// 	const result = await task.run(crud.create(mockInput));
-	// 	expect(mockCollection.create).toHaveBeenCalledWith(mockInput, {});
-	// 	expect(result).toEqual(mockRecord);
-	// });
+	test('merges options correctly', async () => {
+		mockClient = createMockClient({
+			getOne: vi.fn().mockResolvedValue(record)
+		});
+		const crudWithOptions = new pocketbaseCrud.Instance('credential_issuers', {
+			client: mockClient,
+			expand: 'owner'
+		});
 
-	// test('update calls PocketBase update', async () => {
-	// 	const mockInput = { name: 'Updated User' };
-	// 	const mockRecord = { id: '1', name: 'Updated User', username: 'user1' };
-	// 	mockCollection.update.mockResolvedValue(mockRecord);
+		await task.run(crudWithOptions.read('1', { filter: 'published=true' }));
+		const mockCollection = mockClient.collection('credential_issuers');
+		expect(mockCollection.getOne).toHaveBeenCalledWith('1', {
+			expand: 'owner',
+			filter: 'published=true'
+		});
+	});
 
-	// 	const result = await task.run(crud.update('1', mockInput));
-	// 	expect(mockCollection.update).toHaveBeenCalledWith('1', mockInput, {});
-	// 	expect(result).toEqual(mockRecord);
-	// });
+	test('handles create error', async () => {
+		mockClient = createMockClient({
+			create: vi.fn().mockRejectedValue(new Error('Validation failed'))
+		});
+		crud = new pocketbaseCrud.Instance('credential_issuers', { client: mockClient });
 
-	// test('delete calls PocketBase delete', async () => {
-	// 	mockCollection.delete.mockResolvedValue(true);
+		const taskPromise = task.run(crud.create(input));
+		await expect(taskPromise).rejects.toBeInstanceOf(t.BaseError);
+	});
 
-	// 	const result = await task.run(crud.delete('1'));
-	// 	expect(mockCollection.delete).toHaveBeenCalledWith('1', {});
-	// 	expect(result).toBe(true);
-	// });
+	test('handles update error', async () => {
+		mockClient = createMockClient({
+			update: vi.fn().mockRejectedValue(new Error('Not found'))
+		});
+		crud = new pocketbaseCrud.Instance('credential_issuers', { client: mockClient });
 
-	// test('uses default client when none provided', () => {
-	// 	const crudWithDefaultClient = new pocketbaseCrud.Instance('users', {});
-	// 	expect(crudWithDefaultClient.client).toBeDefined();
-	// });
+		const taskPromise = task.run(crud.update('invalid', { name: 'Updated' }));
+		await expect(taskPromise).rejects.toBeInstanceOf(t.BaseError);
+	});
 
-	// test('merges options correctly', async () => {
-	// 	const crudWithOptions = new pocketbaseCrud.Instance('users', {
-	// 		client: mockClient,
-	// 		expand: 'profile'
-	// 	});
-	// 	mockCollection.getOne.mockResolvedValue({});
+	test('handles delete error', async () => {
+		mockClient = createMockClient({
+			delete: vi.fn().mockRejectedValue(new Error('Cannot delete'))
+		});
+		crud = new pocketbaseCrud.Instance('credential_issuers', { client: mockClient });
 
-	// 	await task.run(crudWithOptions.read('1', { filter: 'active=true' }));
-	// 	expect(mockCollection.getOne).toHaveBeenCalledWith('1', {
-	// 		expand: 'profile',
-	// 		filter: 'active=true'
-	// 	});
-	// });
-
-	// test('handles create error', async () => {
-	// 	mockCollection.create.mockRejectedValue(new Error('Validation failed'));
-
-	// 	const taskPromise = task.run(
-	// 		crud.create({
-	// 			id: '3',
-	// 			password: 'pass',
-	// 			tokenKey: 'token',
-	// 			username: 'user3'
-	// 		})
-	// 	);
-	// 	await expect(taskPromise).rejects.toBeInstanceOf(t.BaseError);
-	// });
-
-	// test('handles update error', async () => {
-	// 	mockCollection.update.mockRejectedValue(new Error('Not found'));
-
-	// 	const taskPromise = task.run(crud.update('invalid', { name: 'Updated' }));
-	// 	await expect(taskPromise).rejects.toBeInstanceOf(t.BaseError);
-	// });
-
-	// test('handles delete error', async () => {
-	// 	mockCollection.delete.mockRejectedValue(new Error('Cannot delete'));
-
-	// 	const taskPromise = task.run(crud.delete('invalid'));
-	// 	await expect(taskPromise).rejects.toBeInstanceOf(t.BaseError);
-	// });
+		const taskPromise = task.run(crud.delete('invalid'));
+		await expect(taskPromise).rejects.toBeInstanceOf(t.BaseError);
+	});
 });
