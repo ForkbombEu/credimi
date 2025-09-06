@@ -2,18 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { render } from '@testing-library/svelte';
+import { nanoid } from 'nanoid';
+import { mount } from 'svelte';
 import { zod4 } from 'sveltekit-superforms/adapters';
-import { describe, expect, test } from 'vitest';
+import { describe, expect, test, vi } from 'vitest';
 import { z } from 'zod/v4';
 
-import FormTest from './form.test.svelte';
+import { form } from '@/v2';
+
+import FormTest from './form-test.svelte';
 
 //
-
-/* svelte:definitions
-  import { Form } from '@/v2/form.svelte.js';
-*/
 
 const testSchema = z.object({
 	name: z.string().min(1, 'Name is required'),
@@ -23,128 +22,177 @@ const testSchema = z.object({
 
 type Schema = z.infer<typeof testSchema>;
 
-describe('Form', () => {
-	// test('creates form with default values', () => {
-	// 	expect(form.superform).toBeDefined();
-	// 	expect(form.values).toBeDefined();
-	// 	expect(form.validationErrors).toBeDefined();
-	// });
+type MountFormProps = form.Options<Schema> & {
+	onReady?: (form: form.Form<Schema>) => void;
+};
 
-	test('initializes with provided initial data', () => {
-		render(FormTest<Schema>, {
+function mountForm(props: MountFormProps) {
+	return mount(FormTest<Schema>, {
+		target: document.body,
+		props: {
 			adapter: zod4(testSchema),
-			initialData: {
-				name: 'John',
-				email: 'john@example.com',
-				age: 25
-			},
+			options: { id: nanoid(6) },
+			...props
+		}
+	});
+}
+
+describe('Form', () => {
+	test('creates form with default values', () => {
+		mountForm({
 			onReady: (form) => {
-				expect(form.values.current).toEqual({
-					name: 'John',
-					email: 'john@example.com',
-					age: 25
-				});
+				expect(form.superform).toBeDefined();
+				expect(form.values).toBeDefined();
+				expect(form.validationErrors).toBeDefined();
 			}
 		});
-
-		// const initialData = { name: 'John', email: 'john@example.com', age: 25 };
-
-		// const cleanup = $effect.root(() => {
-		// 	const formWithInitialData = new Form({
-		// 		adapter: zod4(testSchema),
-		// 		initialData
-		// 	});
-
-		// 	expect(formWithInitialData.values.current).toEqual(
-		// 		expect.objectContaining(initialData)
-		// 	);
-		// });
-
-		// cleanup();
 	});
 
-	// test('submit calls superform submit', () => {
-	// 	form.submit();
-	// 	expect(onSubmit).toHaveBeenCalled();
-	// });
+	test('initializes with provided initial data', () => {
+		const initialData = {
+			name: 'John',
+			email: 'john@example.com',
+			age: 25
+		};
+
+		mountForm({
+			initialData,
+			onReady: (form) => {
+				expect(form.values.current).toEqual(expect.objectContaining(initialData));
+			}
+		});
+	});
+
+	test('creates form without onSubmit and onError handlers', () => {
+		mountForm({
+			onReady: (form) => {
+				expect(form.superform).toBeDefined();
+				expect(form.values).toBeDefined();
+				expect(form.validationErrors).toBeDefined();
+			}
+		});
+	});
+
+	test('submit calls superform submit', () => {
+		const submitSpy = vi.fn();
+
+		mountForm({
+			onReady: (form) => {
+				vi.spyOn(form.superform, 'submit').mockImplementation(submitSpy);
+				form.submit();
+				expect(submitSpy).toHaveBeenCalled();
+			}
+		});
+	});
 
 	// test('onSubmit is called when form is valid', async () => {
-	// 	// Set valid form data
-	// 	form.values.current = {
-	// 		name: 'John Doe',
-	// 		email: 'john@example.com',
-	// 		age: 25
-	// 	};
+	// 	const onSubmit = vi.fn();
 
-	// 	// Trigger form submission
-	// 	await form.superform.submit();
+	// 	render(FormTest<Schema>, {
+	// 		adapter: zod4(testSchema),
+	// 		onSubmit,
+	// 		onReady: async (form) => {
+	// 			// Set valid form data
+	// 			form.values.current = {
+	// 				name: 'John Doe',
+	// 				email: 'john@example.com',
+	// 				age: 25
+	// 			};
 
-	// 	expect(onSubmit).toHaveBeenCalled();
+	// 			// Trigger form submission
+	// 			await form.superform.submit();
+	// 			expect(onSubmit).toHaveBeenCalled();
+	// 		}
+	// 	});
 	// });
 
 	// test('onSubmit is not called when form is invalid', async () => {
-	// 	// Set invalid form data
-	// 	form.values.current = {
-	// 		name: '',
-	// 		email: 'invalid-email',
-	// 		age: 15
-	// 	};
+	// 	const onSubmit = vi.fn();
 
-	// 	// Trigger form submission
-	// 	await form.superform.submit();
+	// 	render(FormTest<Schema>, {
+	// 		adapter: zod4(testSchema),
+	// 		onSubmit,
+	// 		onReady: async (form) => {
+	// 			// Set invalid form data
+	// 			form.values.current = {
+	// 				name: '',
+	// 				email: 'invalid-email',
+	// 				age: 15
+	// 			};
 
-	// 	expect(onSubmit).not.toHaveBeenCalled();
+	// 			// Trigger form submission
+	// 			await form.superform.submit();
+	// 			expect(onSubmit).not.toHaveBeenCalled();
+	// 		}
+	// 	});
 	// });
 
 	// test('handles onSubmit errors and calls onError', async () => {
-	// 	const error = new Error('Submission failed');
-	// 	onSubmit.mockRejectedValue(error);
+	// 	const onSubmit = vi.fn().mockRejectedValue(new Error('Submission failed'));
+	// 	const onError = vi.fn();
 
-	// 	// Set valid form data
-	// 	form.values.current = {
-	// 		name: 'John Doe',
-	// 		email: 'john@example.com',
-	// 		age: 25
-	// 	};
+	// 	render(FormTest<Schema>, {
+	// 		adapter: zod4(testSchema),
+	// 		onSubmit,
+	// 		onError,
+	// 		onReady: async (form) => {
+	// 			// Set valid form data
+	// 			form.values.current = {
+	// 				name: 'John Doe',
+	// 				email: 'john@example.com',
+	// 				age: 25
+	// 			};
 
-	// 	// Trigger form submission
-	// 	await form.superform.submit();
-
-	// 	expect(onSubmit).toHaveBeenCalled();
-	// 	expect(onError).toHaveBeenCalledWith(expect.any(t.BaseError));
+	// 			// Trigger form submission
+	// 			await form.superform.submit();
+	// 			expect(onSubmit).toHaveBeenCalled();
+	// 			expect(onError).toHaveBeenCalled();
+	// 		}
+	// 	});
 	// });
 
 	// test('sets form error when onSubmit throws', async () => {
 	// 	const errorMessage = 'Network error';
-	// 	onSubmit.mockRejectedValue(new Error(errorMessage));
+	// 	const onSubmit = vi.fn().mockRejectedValue(new Error(errorMessage));
 
-	// 	// Set valid form data
-	// 	form.values.current = {
-	// 		name: 'John Doe',
-	// 		email: 'john@example.com',
-	// 		age: 25
-	// 	};
+	// 	render(FormTest<Schema>, {
+	// 		adapter: zod4(testSchema),
+	// 		onSubmit,
+	// 		onReady: async (form) => {
+	// 			// Set valid form data
+	// 			form.values.current = {
+	// 				name: 'John Doe',
+	// 				email: 'john@example.com',
+	// 				age: 25
+	// 			};
 
-	// 	// Trigger form submission
-	// 	await form.superform.submit();
+	// 			// Trigger form submission
+	// 			await form.superform.submit();
 
-	// 	// Check that form has error set
-	// 	expect(form.validationErrors.current._errors).toContain(errorMessage);
+	// 			// Check that form has error set
+	// 			expect(form.validationErrors.current._errors).toContain(errorMessage);
+	// 		}
+	// 	});
 	// });
 
 	// test('reactive error property reflects validation errors', () => {
-	// 	// Initially no errors
-	// 	expect(form.error).toEqual([]);
+	// 	render(FormTest<Schema>, {
+	// 		adapter: zod4(testSchema),
+	// 		onReady: (form) => {
+	// 			// Initially no errors
+	// 			expect(form.error).toEqual([]);
 
-	// 	// Set some validation errors manually for testing
-	// 	form.validationErrors.current = {
-	// 		_errors: ['Form error'],
-	// 		name: ['Name error'],
-	// 		email: ['Email error'],
-	// 		age: ['Age error']
-	// 	};
+	// 			// Set some validation errors manually for testing
+	// 			form.validationErrors.current = {
+	// 				_errors: ['Form error'],
+	// 				name: ['Name error'],
+	// 				email: ['Email error'],
+	// 				age: ['Age error']
+	// 			};
 
-	// 	expect(form.error).toEqual(['Form error']);
+	// 			expect(form.error).toEqual(['Form error']);
+	// 		}
+	// 	});
 	// });
 
 	// test('form options are passed to superForm', () => {
@@ -153,56 +201,57 @@ describe('Form', () => {
 	// 		clearOnSubmit: 'errors' as const
 	// 	};
 
-	// 	const formWithOptions = new Form({
+	// 	render(FormTest<Schema>, {
 	// 		adapter: zod4(testSchema),
-	// 		options: customOptions
+	// 		options: customOptions,
+	// 		onReady: (form) => {
+	// 			expect(form.superform).toBeDefined();
+	// 			// Note: We can't easily test that options were applied without diving into internals
+	// 			// This test mainly ensures the form can be created with custom options
+	// 		}
 	// 	});
-
-	// 	expect(formWithOptions.superform).toBeDefined();
-	// 	// Note: We can't easily test that options were applied without diving into internals
-	// 	// This test mainly ensures the form can be created with custom options
 	// });
 
 	// test('async onSubmit is handled correctly', async () => {
 	// 	const asyncOnSubmit = vi.fn().mockResolvedValue(undefined);
 
-	// 	const asyncForm = new Form({
+	// 	render(FormTest<Schema>, {
 	// 		adapter: zod4(testSchema),
-	// 		onSubmit: asyncOnSubmit
+	// 		onSubmit: asyncOnSubmit,
+	// 		onReady: async (form) => {
+	// 			// Set valid form data
+	// 			form.values.current = {
+	// 				name: 'Jane Doe',
+	// 				email: 'jane@example.com',
+	// 				age: 30
+	// 			};
+
+	// 			await form.superform.submit();
+	// 			expect(asyncOnSubmit).toHaveBeenCalled();
+	// 		}
 	// 	});
-
-	// 	// Set valid form data
-	// 	asyncForm.values.current = {
-	// 		name: 'Jane Doe',
-	// 		email: 'jane@example.com',
-	// 		age: 30
-	// 	};
-
-	// 	await asyncForm.superform.submit();
-
-	// 	expect(asyncOnSubmit).toHaveBeenCalled();
 	// });
 
 	// test('async onError is handled correctly', async () => {
 	// 	const asyncOnError = vi.fn().mockResolvedValue(undefined);
 	// 	const failingOnSubmit = vi.fn().mockRejectedValue(new Error('Async error'));
 
-	// 	const asyncForm = new Form({
+	// 	render(FormTest<Schema>, {
 	// 		adapter: zod4(testSchema),
 	// 		onSubmit: failingOnSubmit,
-	// 		onError: asyncOnError
+	// 		onError: asyncOnError,
+	// 		onReady: async (form) => {
+	// 			// Set valid form data
+	// 			form.values.current = {
+	// 				name: 'Jane Doe',
+	// 				email: 'jane@example.com',
+	// 				age: 30
+	// 			};
+
+	// 			await form.superform.submit();
+	// 			expect(failingOnSubmit).toHaveBeenCalled();
+	// 			expect(asyncOnError).toHaveBeenCalled();
+	// 		}
 	// 	});
-
-	// 	// Set valid form data
-	// 	asyncForm.values.current = {
-	// 		name: 'Jane Doe',
-	// 		email: 'jane@example.com',
-	// 		age: 30
-	// 	};
-
-	// 	await asyncForm.superform.submit();
-
-	// 	expect(failingOnSubmit).toHaveBeenCalled();
-	// 	expect(asyncOnError).toHaveBeenCalledWith(expect.any(t.BaseError));
 	// });
 });

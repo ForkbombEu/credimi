@@ -14,12 +14,15 @@ import { types as t } from '@/v2';
 
 type SuperformOptions<Data extends t.GenericRecord> = Omit<sf.FormOptions<Data>, 'onUpdate'>;
 
-export type Config<Data extends t.GenericRecord> = {
-	adapter: ValidationAdapter<Data>;
+export type Options<Data extends t.GenericRecord> = {
 	options?: SuperformOptions<Data>;
 	onSubmit?: (data: Data) => void | Promise<void>;
 	initialData?: Partial<Data>;
 	onError?: (error: t.BaseError) => void | Promise<void>;
+};
+
+export type Config<Data extends t.GenericRecord> = Options<Data> & {
+	adapter: ValidationAdapter<Data>;
 };
 
 export class Form<Data extends t.GenericRecord> {

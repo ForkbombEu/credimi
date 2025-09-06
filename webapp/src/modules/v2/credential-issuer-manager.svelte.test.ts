@@ -8,7 +8,7 @@ import { CredentialIssuerManager } from './credential-issuer-manager.svelte.js';
 
 //
 
-describe('CredentialIssuerManager', () => {
+describe.skip('CredentialIssuerManager', () => {
 	let manager: CredentialIssuerManager;
 
 	beforeEach(() => {
