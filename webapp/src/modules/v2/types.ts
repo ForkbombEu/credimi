@@ -11,3 +11,5 @@ export class BaseError extends Error {
 		super(getExceptionMessage(e));
 	}
 }
+
+export class NotFoundError extends BaseError {}
