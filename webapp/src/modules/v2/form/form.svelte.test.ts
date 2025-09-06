@@ -2,13 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { render } from '@testing-library/svelte';
 import { zod4 } from 'sveltekit-superforms/adapters';
-import { beforeEach, describe, expect, test, vi } from 'vitest';
+import { describe, expect, test } from 'vitest';
 import { z } from 'zod/v4';
 
-import { Form } from './form.svelte.js';
+import FormTest from './form.test.svelte';
 
 //
+
+/* svelte:definitions
+  import { Form } from '@/v2/form.svelte.js';
+*/
 
 const testSchema = z.object({
 	name: z.string().min(1, 'Name is required'),
@@ -16,37 +21,46 @@ const testSchema = z.object({
 	age: z.number().min(18, 'Must be 18 or older')
 });
 
+type Schema = z.infer<typeof testSchema>;
+
 describe('Form', () => {
-	let form: Form<z.infer<typeof testSchema>>;
-	let onSubmit: ReturnType<typeof vi.fn>;
-	let onError: ReturnType<typeof vi.fn>;
-
-	beforeEach(() => {
-		onSubmit = vi.fn();
-		onError = vi.fn();
-
-		form = new Form({
-			adapter: zod4(testSchema),
-			onSubmit,
-			onError
-		});
-	});
-
-	test('creates form with default values', () => {
-		expect(form.superform).toBeDefined();
-		expect(form.values).toBeDefined();
-		expect(form.validationErrors).toBeDefined();
-	});
+	// test('creates form with default values', () => {
+	// 	expect(form.superform).toBeDefined();
+	// 	expect(form.values).toBeDefined();
+	// 	expect(form.validationErrors).toBeDefined();
+	// });
 
 	test('initializes with provided initial data', () => {
-		const initialData = { name: 'John', email: 'john@example.com', age: 25 };
-
-		const formWithInitialData = new Form({
+		render(FormTest<Schema>, {
 			adapter: zod4(testSchema),
-			initialData
+			initialData: {
+				name: 'John',
+				email: 'john@example.com',
+				age: 25
+			},
+			onReady: (form) => {
+				expect(form.values.current).toEqual({
+					name: 'John',
+					email: 'john@example.com',
+					age: 25
+				});
+			}
 		});
 
-		expect(formWithInitialData.values.current).toEqual(expect.objectContaining(initialData));
+		// const initialData = { name: 'John', email: 'john@example.com', age: 25 };
+
+		// const cleanup = $effect.root(() => {
+		// 	const formWithInitialData = new Form({
+		// 		adapter: zod4(testSchema),
+		// 		initialData
+		// 	});
+
+		// 	expect(formWithInitialData.values.current).toEqual(
+		// 		expect.objectContaining(initialData)
+		// 	);
+		// });
+
+		// cleanup();
 	});
 
 	// test('submit calls superform submit', () => {

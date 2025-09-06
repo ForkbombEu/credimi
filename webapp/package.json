@@ -113,6 +113,7 @@
 		"dompurify": "^3.2.5",
 		"effect": "^3.14.1",
 		"front-matter": "^4.0.2",
+		"happy-dom": "^18.0.1",
 		"json-schema-to-typescript": "^15.0.4",
 		"json_typegen_wasm": "^0.7.0",
 		"lodash": "^4.17.21",

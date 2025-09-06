@@ -14,7 +14,7 @@ import { types as t } from '@/v2';
 
 type SuperformOptions<Data extends t.GenericRecord> = Omit<sf.FormOptions<Data>, 'onUpdate'>;
 
-type FormConfig<Data extends t.GenericRecord> = {
+export type Config<Data extends t.GenericRecord> = {
 	adapter: ValidationAdapter<Data>;
 	options?: SuperformOptions<Data>;
 	onSubmit?: (data: Data) => void | Promise<void>;
@@ -29,7 +29,7 @@ export class Form<Data extends t.GenericRecord> {
 	readonly validationErrors: t.State<sf.ValidationErrors<Data>>;
 	readonly error = $derived.by(() => this.validationErrors.current._errors);
 
-	constructor(config: FormConfig<Data>) {
+	constructor(config: Config<Data>) {
 		const { adapter, options, onSubmit = () => {}, initialData, onError = () => {} } = config;
 		this.superform = superForm(defaults(initialData, adapter), {
 			SPA: true,
