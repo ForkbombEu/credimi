@@ -4,7 +4,7 @@
 
 import type * as sf from 'sveltekit-superforms';
 
-import { fromStore } from 'svelte/store';
+import { nanoid } from 'nanoid';
 import { type ValidationAdapter } from 'sveltekit-superforms/adapters';
 import { defaults, setError, superForm } from 'sveltekit-superforms/client';
 
@@ -26,18 +26,35 @@ export type Config<Data extends t.GenericRecord> = Options<Data> & {
 };
 
 export class Form<Data extends t.GenericRecord> {
-	private readonly supervalidated: sf.SuperValidated<Data>;
-	public readonly superform: sf.SuperForm<Data>;
+	constructor(readonly config: Config<Data>) {}
 
-	readonly values: t.State<Data>;
-	readonly validationErrors: t.State<sf.ValidationErrors<Data>>;
-	readonly error = $derived.by(() => this.validationErrors.current._errors);
-	valid = $state(false);
+	private supervalidated?: sf.SuperValidated<Data>;
+	private superform?: sf.SuperForm<Data>;
 
-	constructor(readonly config: Config<Data>) {
-		const { adapter, options, initialData } = config;
+	//
+
+	private _values = $state<Partial<Data>>({});
+	get values() {
+		return this._values;
+	}
+
+	private _errors = $state<FormError[]>([]);
+	get errors() {
+		return this._errors;
+	}
+
+	private _tainted = $state(false);
+	get valid() {
+		return this._tainted && this.errors.length === 0;
+	}
+
+	//
+
+	attachSuperform() {
+		const { adapter, options, initialData } = this.config;
 		this.supervalidated = defaults(initialData, adapter);
 		this.superform = superForm(this.supervalidated, {
+			id: nanoid(5),
 			SPA: true,
 			applyAction: false,
 			scrollToError: 'smooth',
@@ -45,33 +62,41 @@ export class Form<Data extends t.GenericRecord> {
 			dataType: 'json',
 			taintedMessage: null,
 			...options,
-			onUpdate: () => {
-				this.submit();
+			onUpdate: async ({ form }) => {
+				if (form.valid) await this.submit();
 			}
 		});
-		this.values = fromStore(this.superform.form);
-		this.validationErrors = fromStore(this.superform.errors);
-
-		$effect(() => {
-			if (this.values.current) {
-				this.superform.validateForm({ update: false }).then((result) => {
-					this.valid = result.valid;
-				});
-			}
+		this.superform.form.subscribe((data) => {
+			this._values = data;
+		});
+		this.superform.allErrors.subscribe((errors) => {
+			this._errors = errors;
+		});
+		this.superform.tainted.subscribe((tainted) => {
+			this._tainted = tainted !== undefined;
 		});
 	}
 
+	async update(value: Partial<Data>) {
+		this.superform?.form.update((v) => ({ ...v, ...value }), { taint: true });
+		await this.superform?.validateForm({ update: true });
+	}
+
 	async submit() {
-		console.log('submit');
 		const { onSubmit, onError } = this.config;
 		try {
-			if (this.valid) await onSubmit?.(this.values.current);
+			if (this.valid) await onSubmit?.(this._values as Data);
 		} catch (e) {
 			const error = new t.BaseError(e);
-			setError(this.supervalidated, error.message);
+			if (this.supervalidated) setError(this.supervalidated, error.message);
 			await onError?.(error);
 		}
 	}
 }
 
 // type SubmitFunction<Data extends t.GenericRecord> = NonNullable<sf.FormOptions<Data>['onUpdate']>;
+
+type FormError = {
+	path: string;
+	messages: string[];
+};

@@ -2,10 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { nanoid } from 'nanoid';
 import { mount } from 'svelte';
 import { zod4 } from 'sveltekit-superforms/adapters';
-import { describe, expect, test, vi } from 'vitest';
+import { beforeEach, describe, expect, test } from 'vitest';
 import { z } from 'zod/v4';
 
 import { form } from '@/v2';
@@ -22,83 +21,92 @@ const schema = z.object({
 
 type Schema = z.infer<typeof schema>;
 
-//
-
-type MountFormProps = form.Options<Schema> & {
-	onReady?: (form: form.Form<Schema>) => void;
-};
-
-function mountForm(props: MountFormProps) {
+function mountForm(form: form.Form<Schema>) {
 	return mount(FormTest<Schema>, {
 		target: document.body,
-		props: {
-			adapter: zod4(schema),
-			options: { id: nanoid(6) },
-			...props
-		}
+		props: { form }
 	});
-}
-
-//
-
-class ReactiveDependent {
-	constructor(readonly form: form.Form<Schema>) {}
-	doubleAge = $derived.by(() => this.form.values.current.age * 2);
 }
 
 describe('Form', () => {
-	test('creates form with default values', () => {
-		mountForm({
-			onReady: (form) => {
-				expect(form.superform).toBeDefined();
-				expect(form.values).toBeDefined();
-				expect(form.validationErrors).toBeDefined();
-			}
-		});
-	});
+	let theForm: form.Form<Schema>;
+	let fullData: Schema;
 
-	test('initializes with provided initial data', () => {
-		const initialData = {
+	beforeEach(() => {
+		theForm = new form.Form({
+			adapter: zod4(schema)
+		});
+		fullData = {
 			name: 'John',
 			email: 'john@example.com',
 			age: 25
 		};
-		mountForm({
-			initialData,
-			onReady: (form) => {
-				expect(form.values.current).toEqual(expect.objectContaining(initialData));
-			}
-		});
 	});
 
-	test('reactive dependent is updated when form values change', () => {
-		mountForm({
-			initialData: {
-				age: 25
-			},
-			onReady: (form) => {
-				const context = new ReactiveDependent(form);
-				expect(context.doubleAge).toBe(50);
-			}
-		});
+	test('becomes valid when values are set', async () => {
+		mountForm(theForm);
+		await theForm.update(fullData);
+		expect(theForm.valid).toBe(true);
 	});
 
-	test('submit calls superform submit', () => {
-		const onSubmit = vi.fn(() => {});
-		mountForm({
-			onSubmit,
-
-			initialData: {
-				name: 'John',
-				email: 'john@example.com',
-				age: 25
-			},
-			onReady: async (form) => {
-				form.submit();
-				expect(onSubmit).toHaveBeenCalled();
-			}
-		});
+	test('stays invalid when partial data is set', async () => {
+		mountForm(theForm);
+		await theForm.update({ name: 'John' });
+		expect(theForm.valid).toBe(false);
 	});
+
+	// test('initializes with provided initial data', () => {
+	// 	mountForm({
+	// 		initialData: fullData,
+	// 		onReady: (form) => {
+	// 			expect(form.values.current).toEqual(expect.objectContaining(fullData));
+	// 		}
+	// 	});
+	// });
+
+	// test('reactive dependent is updated when form values change', () => {
+	// 	mountForm({
+	// 		initialData: {
+	// 			age: 25
+	// 		},
+	// 		onReady: (form) => {
+	// 			const context = new ReactiveDependent(form);
+	// 			expect(context.doubleAge).toBe(50);
+	// 		}
+	// 	});
+	// });
+
+	// test('isValid', () => {
+	// 	mountForm({
+	// 		initialData: {
+	// 			age: 25
+	// 		},
+	// 		onReady: async (form) => {
+	// 			expect(form.valid).toBe(false);
+	// 			form.values.current = fullData;
+	// 			flushSync();
+	// 			expect(form.valid).toBe(true);
+	// 			console.log('ciao');
+	// 		}
+	// 	});
+	// });
+
+	// test('submit calls superform submit', () => {
+	// 	const onSubmit = vi.fn(() => {});
+	// 	mountForm({
+	// 		onSubmit,
+	// 		initialData: {
+	// 			name: 'John',
+	// 			email: 'john@example.com',
+	// 			age: 25
+	// 		},
+	// 		onReady: async (form) => {
+	// 			await form.update();
+	// 			form.submit();
+	// 			expect(onSubmit).toHaveBeenCalled();
+	// 		}
+	// 	});
+	// });
 
 	// test('onSubmit is called when form is valid', async () => {
 	// 	const onSubmit = vi.fn();

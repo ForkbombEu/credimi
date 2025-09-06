@@ -4,24 +4,16 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-<script lang="ts" module>
+<script lang="ts" generics="T extends t.GenericRecord">
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import { form, types as t } from '@/v2';
 
-	export type Props<T extends t.GenericRecord> = form.Config<T> & {
-		onReady?: (form: form.Form<T>) => void;
+	type Props = {
+		// eslint-disable-next-line no-undef
+		form: form.Form<T>;
 	};
+
+	// eslint-disable-next-line svelte/valid-compile
+	let props: Props = $props();
+	props.form.attachSuperform();
 </script>
-
-<script lang="ts" generics="T extends Record<string, unknown>">
-	// eslint-disable-next-line svelte/valid-compile, no-undef
-	let props: Props<T> = $props();
-
-	const f = new form.Form(props);
-	const { enhance } = f.superform;
-
-	$effect(() => {
-		props.onReady?.(f);
-	});
-</script>
-
-<form use:enhance method="post"></form>
