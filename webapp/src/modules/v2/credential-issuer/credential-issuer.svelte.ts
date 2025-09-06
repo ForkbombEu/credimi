@@ -14,18 +14,29 @@ import type { CredentialIssuersFormData, CredentialIssuersResponse } from '@/poc
 import { setupCollectionForm } from '@/collections-components/form/collectionFormSetup';
 import { createForm } from '@/forms';
 import { pb } from '@/pocketbase';
-import { getExceptionMessage } from '@/utils/errors';
+import { pocketbaseCrud, types as t, task, ui } from '@/v2';
 
 //
 
 // TODO: Inject storage dependency / Backend abstraction for testing
 
 export class CredentialIssuerManager {
-	constructor() {
+	constructor(
+		private readonly init: {
+			crud: pocketbaseCrud.Instance<'credential_issuers'>;
+		}
+	) {
 		this.initEffects();
 	}
 
-	currentTask = $state<ManagerTask>();
+	get crud() {
+		return this.init.crud;
+	}
+
+	runner = new task.Runner<ManagerTask>();
+
+	//
+
 	importedIssuer = $state<CredentialIssuersResponse>();
 
 	status = $derived.by(() => {
@@ -51,9 +62,8 @@ export class CredentialIssuerManager {
 
 		discardImport: () => {
 			if (!this.importedIssuer) return Task.resolve();
-			return Task.fromPromise(
-				pb.collection('credential_issuers').delete(this.importedIssuer.id)
-			)
+			return this.crud
+				.delete(this.importedIssuer.id)
 				.map(() => {
 					this.importedIssuer = undefined;
 				})
@@ -75,7 +85,7 @@ export class CredentialIssuerManager {
 		adapter: zod(z.object({ url: z.string() })),
 		onSubmit: async ({ form }) => {
 			const { url } = form.data;
-			await this.runTask(this.tasks.import(url));
+			await this.runner.run(this.tasks.import(url));
 		}
 	});
 
@@ -91,7 +101,7 @@ export class CredentialIssuerManager {
 		collection: 'credential_issuers',
 		fieldsOptions: this.fieldsOptions,
 		onError: async (e) => {
-			this.currentTask = this.tasks.create(e);
+			this.runner.currentTask = this.tasks.create(e);
 		}
 	});
 
@@ -109,7 +119,7 @@ export class CredentialIssuerManager {
 				initialData: this.importedIssuer,
 				fieldsOptions: this.fieldsOptions,
 				onError: async (e) => {
-					this.currentTask = this.tasks.edit(e);
+					this.runner.currentTask = this.tasks.edit(e);
 				}
 			});
 		});
@@ -117,7 +127,7 @@ export class CredentialIssuerManager {
 
 	/* UI */
 
-	sheet = new Window({
+	sheet = new ui.Window({
 		content: {
 			importForm: this.importForm,
 			createForm: this.createForm,
@@ -131,10 +141,10 @@ export class CredentialIssuerManager {
 		}
 	});
 
-	discardAlert = new Alert({
-		window: new Window(),
+	discardAlert = new ui.Alert({
+		window: new ui.Window(),
 		onConfirm: async () => {
-			await this.runTask(this.tasks.discardImport());
+			await this.runner.run(this.tasks.discardImport());
 			this.sheet.close();
 		}
 	});
@@ -148,14 +158,9 @@ export class CredentialIssuerManager {
 			}
 		});
 	}
-
-	async runTask(task: ManagerTask) {
-		this.currentTask = task;
-		await this.currentTask;
-	}
 }
 
-export type ImportCredentialIssuerResult = {
+type ImportCredentialIssuerResult = {
 	credentialIssuerUrl: string;
 	record: CredentialIssuersResponse;
 	operation: 'create' | 'update';
@@ -165,15 +170,7 @@ type ManagerInstance = InstanceType<typeof CredentialIssuerManager>;
 type ManagerTasks = ManagerInstance['tasks'];
 type ManagerTask = ReturnType<ManagerTasks[keyof ManagerTasks]>;
 
-/* Errors */
-
-class GenericError extends Error {
-	constructor(e: unknown) {
-		super(getExceptionMessage(e));
-	}
-}
-
-class ImportError extends GenericError {}
-class DiscardImportError extends GenericError {}
-class CreateError extends GenericError {}
-class EditError extends GenericError {}
+class ImportError extends t.BaseError {}
+class DiscardImportError extends t.BaseError {}
+class CreateError extends t.BaseError {}
+class EditError extends t.BaseError {}
