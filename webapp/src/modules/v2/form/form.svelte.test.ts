@@ -4,10 +4,10 @@
 
 import { mount } from 'svelte';
 import { zod4 } from 'sveltekit-superforms/adapters';
-import { beforeEach, describe, expect, test } from 'vitest';
+import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { z } from 'zod/v4';
 
-import { form } from '@/v2';
+import { form, types as t } from '@/v2';
 
 import FormTest from './form-test.svelte';
 
@@ -55,226 +55,115 @@ describe('Form', () => {
 		expect(theForm.valid).toBe(false);
 	});
 
-	// test('initializes with provided initial data', () => {
-	// 	mountForm({
-	// 		initialData: fullData,
-	// 		onReady: (form) => {
-	// 			expect(form.values.current).toEqual(expect.objectContaining(fullData));
-	// 		}
-	// 	});
-	// });
+	test('initializes with provided initial data', () => {
+		theForm = new form.Form({
+			adapter: zod4(schema),
+			initialData: fullData
+		});
+		mountForm(theForm);
+		expect(theForm.values).toEqual(expect.objectContaining(fullData));
+	});
 
-	// test('reactive dependent is updated when form values change', () => {
-	// 	mountForm({
-	// 		initialData: {
-	// 			age: 25
-	// 		},
-	// 		onReady: (form) => {
-	// 			const context = new ReactiveDependent(form);
-	// 			expect(context.doubleAge).toBe(50);
-	// 		}
-	// 	});
-	// });
+	test('reactive dependent is updated when form values change', async () => {
+		mountForm(theForm);
+		const doubleAge = $derived.by(() => (theForm.values.age ?? 0) * 2);
+		expect(doubleAge).toBe(0);
+		await theForm.update({ age: 25 });
+		expect(doubleAge).toBe(50);
+	});
 
-	// test('isValid', () => {
-	// 	mountForm({
-	// 		initialData: {
-	// 			age: 25
-	// 		},
-	// 		onReady: async (form) => {
-	// 			expect(form.valid).toBe(false);
-	// 			form.values.current = fullData;
-	// 			flushSync();
-	// 			expect(form.valid).toBe(true);
-	// 			console.log('ciao');
-	// 		}
-	// 	});
-	// });
+	test('onSubmit gets called when form is valid', async () => {
+		const onSubmit = vi.fn();
+		theForm = new form.Form({
+			adapter: zod4(schema),
+			onSubmit
+		});
+		mountForm(theForm);
+		await theForm.update({
+			name: 'John',
+			email: 'john@example.com',
+			age: 25
+		});
+		expect(theForm.valid).toBe(true);
+		await theForm.submit();
+		expect(onSubmit).toHaveBeenCalledWith(fullData);
+	});
 
-	// test('submit calls superform submit', () => {
-	// 	const onSubmit = vi.fn(() => {});
-	// 	mountForm({
-	// 		onSubmit,
-	// 		initialData: {
-	// 			name: 'John',
-	// 			email: 'john@example.com',
-	// 			age: 25
-	// 		},
-	// 		onReady: async (form) => {
-	// 			await form.update();
-	// 			form.submit();
-	// 			expect(onSubmit).toHaveBeenCalled();
-	// 		}
-	// 	});
-	// });
+	test('onSubmit is not called when form is invalid', async () => {
+		const onSubmit = vi.fn();
+		theForm = new form.Form({
+			adapter: zod4(schema),
+			onSubmit
+		});
+		mountForm(theForm);
+		await theForm.update({
+			name: 'John',
+			age: 25
+		});
+		expect(theForm.valid).toBe(false);
+		await theForm.submit();
+		expect(onSubmit).not.toHaveBeenCalled();
+	});
 
-	// test('onSubmit is called when form is valid', async () => {
-	// 	const onSubmit = vi.fn();
+	test('handles onSubmit errors and calls onError', async () => {
+		const onSubmit = vi.fn().mockRejectedValue(new Error('Submission failed'));
+		const onError = vi.fn();
 
-	// 	render(FormTest<Schema>, {
-	// 		adapter: zod4(testSchema),
-	// 		onSubmit,
-	// 		onReady: async (form) => {
-	// 			// Set valid form data
-	// 			form.values.current = {
-	// 				name: 'John Doe',
-	// 				email: 'john@example.com',
-	// 				age: 25
-	// 			};
+		theForm = new form.Form({
+			adapter: zod4(schema),
+			onSubmit,
+			onError
+		});
 
-	// 			// Trigger form submission
-	// 			await form.superform.submit();
-	// 			expect(onSubmit).toHaveBeenCalled();
-	// 		}
-	// 	});
-	// });
+		mountForm(theForm);
+		await theForm.update(fullData);
+		expect(theForm.valid).toBe(true);
 
-	// test('onSubmit is not called when form is invalid', async () => {
-	// 	const onSubmit = vi.fn();
+		await theForm.submit();
+		expect(onSubmit).toHaveBeenCalled();
+		expect(onError).toHaveBeenCalled();
+	});
 
-	// 	render(FormTest<Schema>, {
-	// 		adapter: zod4(testSchema),
-	// 		onSubmit,
-	// 		onReady: async (form) => {
-	// 			// Set invalid form data
-	// 			form.values.current = {
-	// 				name: '',
-	// 				email: 'invalid-email',
-	// 				age: 15
-	// 			};
+	test('sets form error when onSubmit throws', async () => {
+		const errorMessage = 'Network error';
+		const onSubmit = () => {
+			throw new Error(errorMessage);
+		};
 
-	// 			// Trigger form submission
-	// 			await form.superform.submit();
-	// 			expect(onSubmit).not.toHaveBeenCalled();
-	// 		}
-	// 	});
-	// });
+		theForm = new form.Form({
+			adapter: zod4(schema),
+			onSubmit
+		});
 
-	// test('handles onSubmit errors and calls onError', async () => {
-	// 	const onSubmit = vi.fn().mockRejectedValue(new Error('Submission failed'));
-	// 	const onError = vi.fn();
+		mountForm(theForm);
+		await theForm.update(fullData);
+		expect(theForm.valid).toBe(true);
 
-	// 	render(FormTest<Schema>, {
-	// 		adapter: zod4(testSchema),
-	// 		onSubmit,
-	// 		onError,
-	// 		onReady: async (form) => {
-	// 			// Set valid form data
-	// 			form.values.current = {
-	// 				name: 'John Doe',
-	// 				email: 'john@example.com',
-	// 				age: 25
-	// 			};
+		await theForm.submit();
+		expect(theForm.submitError).toBeInstanceOf(t.BaseError);
+		expect(theForm.submitError?.message).toBe(errorMessage);
+	});
 
-	// 			// Trigger form submission
-	// 			await form.superform.submit();
-	// 			expect(onSubmit).toHaveBeenCalled();
-	// 			expect(onError).toHaveBeenCalled();
-	// 		}
-	// 	});
-	// });
+	test('catches schema refinement errors', async () => {
+		const errorMessage = 'Must be 100 or older';
 
-	// test('sets form error when onSubmit throws', async () => {
-	// 	const errorMessage = 'Network error';
-	// 	const onSubmit = vi.fn().mockRejectedValue(new Error(errorMessage));
+		const schema = z
+			.object({
+				name: z.string().min(1, 'Name is required'),
+				email: z.email('Invalid email'),
+				age: z.number().min(18, 'Must be 18 or older')
+			})
+			.refine((data) => data.age > 100, errorMessage);
 
-	// 	render(FormTest<Schema>, {
-	// 		adapter: zod4(testSchema),
-	// 		onSubmit,
-	// 		onReady: async (form) => {
-	// 			// Set valid form data
-	// 			form.values.current = {
-	// 				name: 'John Doe',
-	// 				email: 'john@example.com',
-	// 				age: 25
-	// 			};
+		theForm = new form.Form({
+			adapter: zod4(schema)
+		});
 
-	// 			// Trigger form submission
-	// 			await form.superform.submit();
+		mountForm(theForm);
+		await theForm.update({ ...fullData, age: 99 });
+		expect(theForm.valid).toBe(false);
 
-	// 			// Check that form has error set
-	// 			expect(form.validationErrors.current._errors).toContain(errorMessage);
-	// 		}
-	// 	});
-	// });
-
-	// test('reactive error property reflects validation errors', () => {
-	// 	render(FormTest<Schema>, {
-	// 		adapter: zod4(testSchema),
-	// 		onReady: (form) => {
-	// 			// Initially no errors
-	// 			expect(form.error).toEqual([]);
-
-	// 			// Set some validation errors manually for testing
-	// 			form.validationErrors.current = {
-	// 				_errors: ['Form error'],
-	// 				name: ['Name error'],
-	// 				email: ['Email error'],
-	// 				age: ['Age error']
-	// 			};
-
-	// 			expect(form.error).toEqual(['Form error']);
-	// 		}
-	// 	});
-	// });
-
-	// test('form options are passed to superForm', () => {
-	// 	const customOptions = {
-	// 		resetForm: false,
-	// 		clearOnSubmit: 'errors' as const
-	// 	};
-
-	// 	render(FormTest<Schema>, {
-	// 		adapter: zod4(testSchema),
-	// 		options: customOptions,
-	// 		onReady: (form) => {
-	// 			expect(form.superform).toBeDefined();
-	// 			// Note: We can't easily test that options were applied without diving into internals
-	// 			// This test mainly ensures the form can be created with custom options
-	// 		}
-	// 	});
-	// });
-
-	// test('async onSubmit is handled correctly', async () => {
-	// 	const asyncOnSubmit = vi.fn().mockResolvedValue(undefined);
-
-	// 	render(FormTest<Schema>, {
-	// 		adapter: zod4(testSchema),
-	// 		onSubmit: asyncOnSubmit,
-	// 		onReady: async (form) => {
-	// 			// Set valid form data
-	// 			form.values.current = {
-	// 				name: 'Jane Doe',
-	// 				email: 'jane@example.com',
-	// 				age: 30
-	// 			};
-
-	// 			await form.superform.submit();
-	// 			expect(asyncOnSubmit).toHaveBeenCalled();
-	// 		}
-	// 	});
-	// });
-
-	// test('async onError is handled correctly', async () => {
-	// 	const asyncOnError = vi.fn().mockResolvedValue(undefined);
-	// 	const failingOnSubmit = vi.fn().mockRejectedValue(new Error('Async error'));
-
-	// 	render(FormTest<Schema>, {
-	// 		adapter: zod4(testSchema),
-	// 		onSubmit: failingOnSubmit,
-	// 		onError: asyncOnError,
-	// 		onReady: async (form) => {
-	// 			// Set valid form data
-	// 			form.values.current = {
-	// 				name: 'Jane Doe',
-	// 				email: 'jane@example.com',
-	// 				age: 30
-	// 			};
-
-	// 			await form.superform.submit();
-	// 			expect(failingOnSubmit).toHaveBeenCalled();
-	// 			expect(asyncOnError).toHaveBeenCalled();
-	// 		}
-	// 	});
-	// });
+		const error = theForm.errors.find((e) => e.messages.includes(errorMessage));
+		expect(error).toBeDefined();
+	});
 });

@@ -6,7 +6,7 @@ import type * as sf from 'sveltekit-superforms';
 
 import { nanoid } from 'nanoid';
 import { type ValidationAdapter } from 'sveltekit-superforms/adapters';
-import { defaults, setError, superForm } from 'sveltekit-superforms/client';
+import { defaults, superForm } from 'sveltekit-superforms/client';
 
 import { types as t } from '@/v2';
 
@@ -36,6 +36,11 @@ export class Form<Data extends t.GenericRecord> {
 	private _values = $state<Partial<Data>>({});
 	get values() {
 		return this._values;
+	}
+
+	private _submitError = $state<t.BaseError>();
+	get submitError() {
+		return this._submitError;
 	}
 
 	private _errors = $state<FormError[]>([]);
@@ -84,17 +89,15 @@ export class Form<Data extends t.GenericRecord> {
 
 	async submit() {
 		const { onSubmit, onError } = this.config;
+		this._submitError = undefined;
 		try {
 			if (this.valid) await onSubmit?.(this._values as Data);
 		} catch (e) {
-			const error = new t.BaseError(e);
-			if (this.supervalidated) setError(this.supervalidated, error.message);
-			await onError?.(error);
+			this._submitError = new t.BaseError(e);
+			await onError?.(this._submitError);
 		}
 	}
 }
-
-// type SubmitFunction<Data extends t.GenericRecord> = NonNullable<sf.FormOptions<Data>['onUpdate']>;
 
 type FormError = {
 	path: string;
