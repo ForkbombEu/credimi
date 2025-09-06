@@ -17,8 +17,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let props: Props<T> = $props();
 
 	const f = new form.Form(props);
+	const { enhance } = f.superform;
 
 	$effect(() => {
 		props.onReady?.(f);
 	});
 </script>
+
+<form use:enhance method="post"></form>

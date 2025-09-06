@@ -14,13 +14,15 @@ import FormTest from './form-test.svelte';
 
 //
 
-const testSchema = z.object({
+const schema = z.object({
 	name: z.string().min(1, 'Name is required'),
 	email: z.email('Invalid email'),
 	age: z.number().min(18, 'Must be 18 or older')
 });
 
-type Schema = z.infer<typeof testSchema>;
+type Schema = z.infer<typeof schema>;
+
+//
 
 type MountFormProps = form.Options<Schema> & {
 	onReady?: (form: form.Form<Schema>) => void;
@@ -30,11 +32,18 @@ function mountForm(props: MountFormProps) {
 	return mount(FormTest<Schema>, {
 		target: document.body,
 		props: {
-			adapter: zod4(testSchema),
+			adapter: zod4(schema),
 			options: { id: nanoid(6) },
 			...props
 		}
 	});
+}
+
+//
+
+class ReactiveDependent {
+	constructor(readonly form: form.Form<Schema>) {}
+	doubleAge = $derived.by(() => this.form.values.current.age * 2);
 }
 
 describe('Form', () => {
@@ -54,7 +63,6 @@ describe('Form', () => {
 			email: 'john@example.com',
 			age: 25
 		};
-
 		mountForm({
 			initialData,
 			onReady: (form) => {
@@ -63,24 +71,31 @@ describe('Form', () => {
 		});
 	});
 
-	test('creates form without onSubmit and onError handlers', () => {
+	test('reactive dependent is updated when form values change', () => {
 		mountForm({
+			initialData: {
+				age: 25
+			},
 			onReady: (form) => {
-				expect(form.superform).toBeDefined();
-				expect(form.values).toBeDefined();
-				expect(form.validationErrors).toBeDefined();
+				const context = new ReactiveDependent(form);
+				expect(context.doubleAge).toBe(50);
 			}
 		});
 	});
 
 	test('submit calls superform submit', () => {
-		const submitSpy = vi.fn();
-
+		const onSubmit = vi.fn(() => {});
 		mountForm({
-			onReady: (form) => {
-				vi.spyOn(form.superform, 'submit').mockImplementation(submitSpy);
+			onSubmit,
+
+			initialData: {
+				name: 'John',
+				email: 'john@example.com',
+				age: 25
+			},
+			onReady: async (form) => {
 				form.submit();
-				expect(submitSpy).toHaveBeenCalled();
+				expect(onSubmit).toHaveBeenCalled();
 			}
 		});
 	});

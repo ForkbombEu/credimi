@@ -26,15 +26,18 @@ export type Config<Data extends t.GenericRecord> = Options<Data> & {
 };
 
 export class Form<Data extends t.GenericRecord> {
+	private readonly supervalidated: sf.SuperValidated<Data>;
 	public readonly superform: sf.SuperForm<Data>;
 
 	readonly values: t.State<Data>;
 	readonly validationErrors: t.State<sf.ValidationErrors<Data>>;
 	readonly error = $derived.by(() => this.validationErrors.current._errors);
+	valid = $state(false);
 
-	constructor(config: Config<Data>) {
-		const { adapter, options, onSubmit = () => {}, initialData, onError = () => {} } = config;
-		this.superform = superForm(defaults(initialData, adapter), {
+	constructor(readonly config: Config<Data>) {
+		const { adapter, options, initialData } = config;
+		this.supervalidated = defaults(initialData, adapter);
+		this.superform = superForm(this.supervalidated, {
 			SPA: true,
 			applyAction: false,
 			scrollToError: 'smooth',
@@ -42,22 +45,32 @@ export class Form<Data extends t.GenericRecord> {
 			dataType: 'json',
 			taintedMessage: null,
 			...options,
-			onUpdate: async (event) => {
-				try {
-					if (event.form.valid) await onSubmit(event.form.data);
-				} catch (e) {
-					const error = new t.BaseError(e);
-					setError(event.form, error.message);
-					await onError(error);
-				}
+			onUpdate: () => {
+				this.submit();
 			}
 		});
 		this.values = fromStore(this.superform.form);
 		this.validationErrors = fromStore(this.superform.errors);
+
+		$effect(() => {
+			if (this.values.current) {
+				this.superform.validateForm({ update: false }).then((result) => {
+					this.valid = result.valid;
+				});
+			}
+		});
 	}
 
-	submit() {
-		this.superform.submit();
+	async submit() {
+		console.log('submit');
+		const { onSubmit, onError } = this.config;
+		try {
+			if (this.valid) await onSubmit?.(this.values.current);
+		} catch (e) {
+			const error = new t.BaseError(e);
+			setError(this.supervalidated, error.message);
+			await onError?.(error);
+		}
 	}
 }
 
