@@ -90,11 +90,32 @@ describe('Window', () => {
 		windowWithContent.open();
 		expect(windowWithContent.isOpen).toBe(true);
 	});
+
+	test('setting isOpen to false triggers beforeClose', () => {
+		const beforeClose = vi.fn();
+		window = new Window({ beforeClose });
+		window.open();
+		expect(window.isOpen).toBe(true);
+		window.isOpen = false;
+		expect(beforeClose).toHaveBeenCalled();
+	});
+
+	test('setting isOpen to false triggers beforeClose with preventDefault', () => {
+		const beforeClose = vi.fn((preventDefault: () => void) => {
+			preventDefault();
+		});
+		window = new Window({ beforeClose });
+		window.open();
+		expect(window.isOpen).toBe(true);
+		window.isOpen = false;
+		expect(beforeClose).toHaveBeenCalled();
+		expect(window.isOpen).toBe(true);
+	});
 });
 
 describe('Alert', () => {
 	let window: Window;
-	let alert: Alert<Window>;
+	let alert: Alert;
 	let onConfirm: ReturnType<typeof vi.fn>;
 	let onDismiss: ReturnType<typeof vi.fn>;
 

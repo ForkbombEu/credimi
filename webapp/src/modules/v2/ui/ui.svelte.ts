@@ -10,10 +10,17 @@ type BeforeClose = (preventDefault: () => void) => void;
 export class Window<C extends Content = object> {
 	constructor(private readonly init: { content?: C; beforeClose?: BeforeClose } = {}) {}
 
-	isOpen = $state(false);
+	private _isOpen = $state(false);
+	get isOpen() {
+		return this._isOpen;
+	}
+	set isOpen(value: boolean) {
+		if (value === false) this.close();
+		else this._isOpen = value;
+	}
 
 	open() {
-		this.isOpen = true;
+		this._isOpen = true;
 	}
 
 	close() {
@@ -26,7 +33,7 @@ export class Window<C extends Content = object> {
 		} catch (e) {
 			console.warn(e);
 		}
-		if (!prevent) this.isOpen = false;
+		if (!prevent) this._isOpen = false;
 	}
 }
 
