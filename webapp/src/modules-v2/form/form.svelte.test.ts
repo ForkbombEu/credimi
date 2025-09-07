@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { form, types as t } from '#';
 import { mount } from 'svelte';
 import { zod4 } from 'sveltekit-superforms/adapters';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { z } from 'zod/v4';
-
-import { form, types as t } from '@/v2';
 
 import FormTest from './form-test.svelte';
 

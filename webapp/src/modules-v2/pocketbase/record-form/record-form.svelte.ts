@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { form, pocketbase as pb, pocketbaseCrud, task, ui, type db } from '#';
 import { zod, type ValidationAdapter } from 'sveltekit-superforms/adapters';
 
 import { m } from '@/i18n';
 import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
-import { form, pocketbase as pb, pocketbaseCrud, task, ui, type db } from '@/v2';
 
 import { recordToFormData } from './functions';
 

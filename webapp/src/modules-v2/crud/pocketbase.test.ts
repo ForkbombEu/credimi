@@ -4,12 +4,12 @@
 
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
+import { types as t, task } from '#';
 import {
 	Collections,
 	type CredentialIssuersFormData,
 	type CredentialIssuersResponse
 } from '@/pocketbase/types';
-import { types as t, task } from '@/v2';
 
 import type { pocketbase as pb } from '..';
 

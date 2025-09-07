@@ -7,7 +7,7 @@ import { z } from 'zod';
 
 import type { CredentialIssuersResponse } from '@/pocketbase/types';
 
-import { form, pocketbase as pb, pocketbaseCrud, types as t, task, ui } from '@/v2';
+import { form, pocketbase as pb, pocketbaseCrud, types as t, task, ui } from '#';
 
 //
 

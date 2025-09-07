@@ -6,8 +6,8 @@ import type { Simplify } from 'type-fest';
 
 import { vi } from 'vitest';
 
+import { crud } from '#';
 import * as db from '@/pocketbase/types';
-import { crud } from '@/v2';
 
 import { pocketbase as pb, task } from '..';
 

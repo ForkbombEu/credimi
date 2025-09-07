@@ -4,7 +4,7 @@
 
 import { Task, fromPromise, reject, resolve } from 'true-myth/task';
 
-import { types as t } from '@/v2';
+import { types as t } from '#';
 
 //
 

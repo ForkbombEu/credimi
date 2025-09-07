@@ -4,11 +4,10 @@
 
 import type * as sf from 'sveltekit-superforms';
 
+import { types as t } from '#';
 import { nanoid } from 'nanoid';
 import { type ValidationAdapter } from 'sveltekit-superforms/adapters';
 import { defaults, superForm } from 'sveltekit-superforms/client';
-
-import { types as t } from '@/v2';
 
 //
 

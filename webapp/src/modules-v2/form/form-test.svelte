@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" generics="T extends t.GenericRecord">
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	import { form, types as t } from '@/v2';
+	import { form, types as t } from '#';
 
 	type Props = {
 		// eslint-disable-next-line no-undef

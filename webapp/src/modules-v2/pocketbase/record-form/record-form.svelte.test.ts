@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { form as f, pocketbase as pb, pocketbaseCrud } from '#';
 import { beforeEach, describe, expect, test } from 'vitest';
 
 import { Collections, type CredentialIssuersResponse } from '@/pocketbase/types';
-import { form as f, pocketbase as pb, pocketbaseCrud } from '@/v2';
 
 describe('Pocketbase Record Form', () => {
 	let form: pb.recordform.Instance<'credential_issuers'>;

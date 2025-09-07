@@ -2,11 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { db, pocketbase as pb } from '#';
 import type { CollectionModel } from 'pocketbase';
 
 import { Record, String } from 'effect';
-
-import type { db, pocketbase as pb } from '@/v2';
 
 import { getCollectionModel, type AnyCollectionField } from '@/pocketbase/collections-models';
 
