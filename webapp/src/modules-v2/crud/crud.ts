@@ -2,10 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type * as task from 'true-myth/task';
+import type { types as t, task } from '#';
 import type { Simplify } from 'type-fest';
-
-import type { types as t } from '..';
 
 /* Crud */
 

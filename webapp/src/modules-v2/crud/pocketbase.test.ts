@@ -2,18 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { pocketbase as pb, pocketbaseCrud, types as t, task } from '#';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
-import { types as t, task } from '#';
 import {
 	Collections,
 	type CredentialIssuersFormData,
 	type CredentialIssuersResponse
 } from '@/pocketbase/types';
 
-import type { pocketbase as pb } from '..';
-
-import { pocketbaseCrud } from '.';
 import { createMockClient } from './pocketbase';
 
 //

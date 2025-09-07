@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { db } from '#';
 import type * as pb from 'pocketbase';
 import type { Simplify } from 'type-fest';
 import type * as vi from 'vitest';
@@ -9,8 +10,6 @@ import type * as vi from 'vitest';
 import GenericPocketBase from 'pocketbase';
 
 import { pb as defaultPocketbaseClient } from '@/pocketbase';
-
-import type { db } from '..';
 
 /* Types */
 

@@ -2,10 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import * as task from 'true-myth/task';
-
-import * as t from '../types';
-import * as crud from './crud';
+import { crud, types as t, task } from '#';
 
 //
 
@@ -50,7 +47,7 @@ export class Instance<
 		return task.resolve({ index, ...item, ...input });
 	}
 
-	delete(key: number): task.Task<boolean, Error> {
+	delete(key: number): task.Task<boolean, t.BaseError> {
 		if (key < 0 || key >= this.items.length) return task.reject(new t.NotFoundError(key));
 		// @ts-expect-error - we want to remove the item
 		this.items[key] = undefined;

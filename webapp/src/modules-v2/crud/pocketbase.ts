@@ -2,14 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { db } from '#';
 import type { Simplify } from 'type-fest';
 
+import { crud, pocketbase as pb, task } from '#';
 import { vi } from 'vitest';
-
-import { crud } from '#';
-import * as db from '@/pocketbase/types';
-
-import { pocketbase as pb, task } from '..';
 
 /* Pocketbase Crud */
 
