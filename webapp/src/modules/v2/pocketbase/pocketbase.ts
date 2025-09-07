@@ -21,6 +21,7 @@ export type QueryOptions = Simplify<
 	pb.FullListOptions | pb.RecordListOptions | pb.RecordOptions | pb.ListOptions
 >;
 export type RecordOptions = pb.RecordOptions;
+export type ID = string;
 
 /* Client & Record Service */
 

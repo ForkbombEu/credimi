@@ -7,7 +7,7 @@ import type { Simplify } from 'type-fest';
 import * as db from '@/pocketbase/types';
 import { crud } from '@/v2';
 
-import { pocketbase as pb, types as t, task } from '..';
+import { pocketbase as pb, task } from '..';
 
 /* Pocketbase Crud */
 
@@ -19,9 +19,13 @@ export type ResolvedConfig<C extends db.CollectionName = db.CollectionName> = {
 	options?: pb.QueryOptions;
 };
 
+type Task<T> = task.WithError<T>;
+
 export class Instance<
 	C extends db.CollectionName,
-	RConfig extends ResolvedConfig<C> = ResolvedConfig<C>
+	RConfig extends ResolvedConfig<C> = ResolvedConfig<C>,
+	FormData extends db.CollectionFormData[C] = db.CollectionFormData[C],
+	Response extends db.CollectionResponses[C] = db.CollectionResponses[C]
 > implements crud.Crud<RConfig>
 {
 	constructor(
@@ -35,56 +39,47 @@ export class Instance<
 		return this.options?.client ?? pb.defaultClient;
 	}
 
-	private getClientOptions(overrides: RConfig['options'] = {}) {
+	private getClientOptions(overrides: pb.QueryOptions = {}) {
 		if (!this.options) return overrides;
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { client, ...rest } = this.options;
 		return { ...rest, ...overrides };
 	}
 
-	read(key: RConfig['key'], options: RConfig['options'] = {}): crud.Task<RConfig> {
-		return task.fromPromise(
+	read(id: pb.ID, options: pb.RecordOptions = {}): Task<Response> {
+		return task.withError(
 			// @ts-expect-error - Slight type mismatch
-			this.client.collection(this.collection).getOne(key, this.getClientOptions(options)),
-			(e) => new t.BaseError(e)
+			this.client.collection(this.collection).getOne(id, this.getClientOptions(options))
 		);
 	}
 
-	readAll(options: RConfig['options'] = {}): task.Task<crud.Record<RConfig>[], t.BaseError> {
-		return task.fromPromise(
+	readAll(options: pb.QueryOptions = {}): Task<Response[]> {
+		return task.withError(
 			// @ts-expect-error - Slight type mismatch
-			this.client.collection(this.collection).getFullList(this.getClientOptions(options)),
-			(e) => new t.BaseError(e)
+			this.client.collection(this.collection).getFullList(this.getClientOptions(options))
 		);
 	}
 
-	create(input: RConfig['input'], options: RConfig['options'] = {}): crud.Task<RConfig> {
-		return task.fromPromise(
+	create(input: FormData, options: pb.RecordOptions = {}): Task<Response> {
+		return task.withError(
 			// @ts-expect-error - Slight type mismatch
-			this.client.collection(this.collection).create(input, this.getClientOptions(options)),
-			(e) => new t.BaseError(e)
+			this.client.collection(this.collection).create(input, this.getClientOptions(options))
 		);
 	}
 
-	update(
-		key: RConfig['key'],
-		input: Partial<RConfig['input']>,
-		options: RConfig['options'] = {}
-	): crud.Task<RConfig> {
-		return task.fromPromise(
+	update(id: pb.ID, input: Partial<FormData>, options: pb.RecordOptions = {}): Task<Response> {
+		return task.withError(
 			this.client
 				// @ts-expect-error - Slight type mismatch
 				.collection(this.collection)
-				.update(key, input, this.getClientOptions(options)),
-			(e) => new t.BaseError(e)
+				.update(id, input, this.getClientOptions(options))
 		);
 	}
 
-	delete(key: RConfig['key'], options: RConfig['options'] = {}): task.Task<boolean, t.BaseError> {
-		return task.fromPromise(
+	delete(id: pb.ID, options: pb.RecordOptions = {}): Task<boolean> {
+		return task.withError(
 			// @ts-expect-error - Slight type mismatch
-			this.client.collection(this.collection).delete(key, this.getClientOptions(options)),
-			(e) => new t.BaseError(e)
+			this.client.collection(this.collection).delete(id, this.getClientOptions(options))
 		);
 	}
 }
