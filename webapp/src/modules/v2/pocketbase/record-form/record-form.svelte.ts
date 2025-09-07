@@ -7,7 +7,9 @@ import { zod, type ValidationAdapter } from 'sveltekit-superforms/adapters';
 
 import { m } from '@/i18n';
 import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
-import { form, pocketbaseCrud, task, type db } from '@/v2';
+import { form, pocketbase as pb, pocketbaseCrud, task, type db } from '@/v2';
+
+import { recordToFormData } from './functions';
 
 //
 
@@ -86,16 +88,18 @@ export class Instance<
 		await onSuccess?.(currentState.mode, result);
 	}
 
-	// TODO - Transform from Record to FormData
-	changeMode(mode: State<C>) {
+	async changeMode(mode: State<C>) {
 		this.form.superform?.reset();
 		this.currentState = mode;
+
+		let input: Partial<pb.BaseRecord<C>>;
 		if (mode.mode === 'create') {
-			// @ts-expect-error TODO: fix this
-			this.form.update(mode.initialData, { validate: false });
-		} else if (mode.mode === 'update') {
-			// @ts-expect-error TODO: fix this
-			this.form.update(mode.record, { validate: false });
+			input = mode.initialData;
+		} else {
+			input = mode.record;
 		}
+
+		const formData = recordToFormData(this.config.collection, input) as Partial<FormData>;
+		await this.form.update(formData, { validate: false });
 	}
 }

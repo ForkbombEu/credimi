@@ -26,6 +26,7 @@ export function recordToFormData<C extends db.CollectionName>(
 		const fieldConfig = fields.find((f) => f.name == fieldName);
 		if (!fieldConfig) continue;
 
+		// [file]
 		if (fieldConfig.type == 'file') {
 			const mimeType = fieldConfig.mimeTypes.at(0);
 			if (Array.isArray(fieldValue) && fieldValue.every(String.isString)) {
@@ -35,9 +36,13 @@ export function recordToFormData<C extends db.CollectionName>(
 			} else if (String.isString(fieldValue)) {
 				formData[fieldName] = new MockFile(fieldValue, { mimeType });
 			}
-		} else if (fieldConfig.type == 'json') {
+		}
+		// [json]
+		else if (fieldConfig.type == 'json') {
 			formData[fieldName] = JSON.stringify(fieldValue);
-		} else {
+		}
+		// [rest]
+		else {
 			formData[fieldName] = fieldValue;
 		}
 	}
