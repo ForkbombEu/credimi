@@ -34,7 +34,7 @@ export class Window<C extends Content = object> {
 
 type AlertAction = () => void | Promise<void>;
 
-export class Alert<W extends Window> {
+export class Alert<C extends Content = object, W extends Window<C> = Window<C>> {
 	constructor(
 		private readonly init: { window: W; onConfirm?: AlertAction; onDismiss?: AlertAction }
 	) {}

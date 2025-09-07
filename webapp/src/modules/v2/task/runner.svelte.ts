@@ -8,7 +8,7 @@ import { run } from './task';
 
 //
 
-export class Runner<Tasks extends task.AnyTask> {
+export class Runner<Tasks extends task.AnyTask = task.AnyTask> {
 	currentTask = $state<Tasks>();
 
 	async run<Task extends Tasks>(task: Task): Promise<task.ResolvesTo<Task>> {

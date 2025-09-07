@@ -4,20 +4,24 @@
 
 import { describe, expect, test } from 'vitest';
 
-import { pocketbase as pb } from '@/v2';
+import { pocketbase as pb, pocketbaseCrud } from '@/v2';
 
 describe('Pocketbase Record Form', () => {
-	let form: pb.record.Form<'credential_issuers'>;
+	let form: pb.recordform.Instance<'credential_issuers'>;
 
 	// beforeEach(() => {
 
 	// });
 
 	test('should create a form', () => {
-		form = new pb.record.Form({
+		form = new pb.recordform.Instance({
 			collection: 'credential_issuers',
 			mode: 'create',
-			initialData: {}
+			initialData: {},
+			crud: new pocketbaseCrud.Instance('credential_issuers', {
+				// TODO - Use array storage or kv storage for testing
+				client: pocketbaseCrud.createMockClient()
+			})
 		});
 		expect(form).toBeDefined();
 	});

@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		// eslint-disable-next-line no-undef
-		form: form.Form<T>;
+		form: form.Instance<T>;
 	};
 
 	// eslint-disable-next-line svelte/valid-compile

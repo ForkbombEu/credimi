@@ -2,163 +2,141 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { SuperForm } from 'sveltekit-superforms';
-
 import { zod } from 'sveltekit-superforms/adapters';
-import * as Task from 'true-myth/task';
 import { z } from 'zod';
 
-import type { FieldsOptions } from '@/collections-components/form/collectionFormTypes';
-import type { CredentialIssuersFormData, CredentialIssuersResponse } from '@/pocketbase/types';
+import type { CredentialIssuersResponse } from '@/pocketbase/types';
 
-import { setupCollectionForm } from '@/collections-components/form/collectionFormSetup';
-import { createForm } from '@/forms';
-import { pb } from '@/pocketbase';
-import { pocketbaseCrud, types as t, task, ui } from '@/v2';
+import { form, pocketbase as pb, pocketbaseCrud, types as t, task, ui } from '@/v2';
 
 //
 
 // TODO: Inject storage dependency / Backend abstraction for testing
 
-export class CredentialIssuerManager {
-	constructor(
-		private readonly init: {
-			crud: pocketbaseCrud.Instance<'credential_issuers'>;
-		}
-	) {
-		this.initEffects();
-	}
+type Crud = pocketbaseCrud.Instance<'credential_issuers'>;
+type ImportForm = form.Instance<{ url: string }>;
+type RecordForm = pb.recordform.Instance<'credential_issuers'>;
 
-	get crud() {
-		return this.init.crud;
-	}
+type ManagerDependencies = {
+	crud: Crud;
+	importCredentialIssuer: ImportCredentialIssuer;
+};
 
-	runner = new task.Runner<ManagerTask>();
+export class Manager extends task.Runner implements ManagerDependencies {
+	// Dependencies
+	crud: Crud;
+	importCredentialIssuer: ImportCredentialIssuer;
 
-	//
+	// Components
+	recordForm: RecordForm;
+	importForm: ImportForm;
+	sheet: ui.Window<{ importForm: ImportForm; recordForm: RecordForm }>;
+	discardAlert: ui.Alert;
 
+	// State
 	importedIssuer = $state<CredentialIssuersResponse>();
-
-	status = $derived.by(() => {
-		if (!this.importedIssuer) return 'init';
-		else if (this.importedIssuer) return 'imported_and_editing';
-	});
-
-	tasks = {
-		import: (url: string) => {
-			return Task.fromPromise(
-				pb.send('/credentials_issuers/start-check', {
-					method: 'POST',
-					body: {
-						credentialIssuerUrl: url
-					}
-				}) as Promise<ImportCredentialIssuerResult>
-			)
-				.map(({ record }) => {
-					this.importedIssuer = record;
-				})
-				.mapRejected((e) => new ImportError(e));
-		},
-
-		discardImport: () => {
-			if (!this.importedIssuer) return Task.resolve();
-			return this.crud
-				.delete(this.importedIssuer.id)
-				.map(() => {
-					this.importedIssuer = undefined;
-				})
-				.mapRejected((e) => new DiscardImportError(e));
-		},
-
-		create: (e: unknown) => {
-			return Task.reject(new CreateError(e));
-		},
-
-		edit: (e: unknown) => {
-			return Task.reject(new EditError(e));
-		}
-	};
-
-	/* Import */
-
-	importForm = createForm({
-		adapter: zod(z.object({ url: z.string() })),
-		onSubmit: async ({ form }) => {
-			const { url } = form.data;
-			await this.runner.run(this.tasks.import(url));
+	currentState: 'init' | 'update' | 'imported_and_editing' = $derived.by(() => {
+		if (this.importedIssuer && this.recordForm.currentMode === 'update') {
+			return 'imported_and_editing';
+		} else if (this.recordForm.currentMode === 'update') {
+			return 'update';
+		} else {
+			return 'init';
 		}
 	});
 
-	/* Discard Import */
+	constructor(init: Partial<ManagerDependencies> = {}) {
+		super();
 
-	/* Create */
+		this.crud = init.crud ?? new pocketbaseCrud.Instance('credential_issuers');
+		this.importCredentialIssuer = init.importCredentialIssuer ?? importCredentialIssuer;
 
-	private fieldsOptions: Partial<FieldsOptions<'credential_issuers'>> = {
-		exclude: ['owner', 'imported', 'url', 'workflow_url', 'published']
-	};
+		this.recordForm = new pb.recordform.Instance<'credential_issuers'>({
+			collection: 'credential_issuers',
+			mode: 'create',
+			initialData: {},
+			crud: this.crud
+		});
+		// private fieldsOptions: Partial<FieldsOptions<'credential_issuers'>> = {
+		// 	exclude: ['owner', 'imported', 'url', 'workflow_url', 'published']
+		// };
 
-	createForm = setupCollectionForm({
-		collection: 'credential_issuers',
-		fieldsOptions: this.fieldsOptions,
-		onError: async (e) => {
-			this.runner.currentTask = this.tasks.create(e);
-		}
-	});
+		this.importForm = new form.Instance({
+			adapter: zod(z.object({ url: z.string() })),
+			onSubmit: async ({ url }) => {
+				await this.run(this.import(url));
+			}
+		});
 
-	/* Edit */
-	// TODO - Can be merged with createForm
+		this.sheet = new ui.Window({
+			content: {
+				importForm: this.importForm,
+				recordForm: this.recordForm
+			},
+			beforeClose: (preventClose) => {
+				if (this.currentState === 'imported_and_editing') {
+					preventClose();
+					this.discardAlert.window.open();
+				}
+			}
+		});
 
-	editForm = $state<SuperForm<CredentialIssuersFormData>>();
+		this.discardAlert = new ui.Alert({
+			window: new ui.Window(),
+			onConfirm: async () => {
+				await this.run(this.discardImport());
+				this.sheet.close();
+			}
+		});
 
-	$effect_initEditForm() {
 		$effect(() => {
 			if (!this.importedIssuer) return;
-			this.editForm = setupCollectionForm({
-				collection: 'credential_issuers',
-				recordId: this.importedIssuer.id,
-				initialData: this.importedIssuer,
-				fieldsOptions: this.fieldsOptions,
-				onError: async (e) => {
-					this.runner.currentTask = this.tasks.edit(e);
-				}
+			this.recordForm.changeMode({
+				mode: 'update',
+				record: this.importedIssuer
 			});
 		});
 	}
 
-	/* UI */
+	/* Import */
 
-	sheet = new ui.Window({
-		content: {
-			importForm: this.importForm,
-			createForm: this.createForm,
-			editForm: this.editForm
-		},
-		beforeClose: (preventClose) => {
-			if (this.status === 'imported_and_editing') {
-				preventClose();
-				this.discardAlert.window.open();
-			}
-		}
-	});
-
-	discardAlert = new ui.Alert({
-		window: new ui.Window(),
-		onConfirm: async () => {
-			await this.runner.run(this.tasks.discardImport());
-			this.sheet.close();
-		}
-	});
-
-	/* Utils */
-
-	initEffects() {
-		Object.entries(this).forEach(([key, value]) => {
-			if (typeof value === 'function' && key.startsWith('$effect_')) {
-				value();
-			}
+	import(url: string) {
+		return task.withError(this.importCredentialIssuer(url), ImportError).map(({ record }) => {
+			this.importedIssuer = record;
 		});
 	}
+
+	discardImport() {
+		if (!this.importedIssuer) return task.resolve();
+		return this.crud
+			.delete(this.importedIssuer.id)
+			.map(() => {
+				this.importedIssuer = undefined;
+			})
+			.mapRejected((e) => new DiscardImportError(e));
+	}
 }
+
+/* Import */
+
+type ImportCredentialIssuer = (url: string) => Promise<ImportCredentialIssuerResult>;
+
+export const importCredentialIssuer: ImportCredentialIssuer = (url) => {
+	return pb.defaultClient.send('/credentials_issuers/start-check', {
+		method: 'POST',
+		body: {
+			credentialIssuerUrl: url
+		}
+	});
+};
+
+export const testImportCredentialIssuer: (
+	record: CredentialIssuersResponse
+) => ImportCredentialIssuer = (record) => async (url) => ({
+	credentialIssuerUrl: url,
+	operation: 'create',
+	record
+});
 
 type ImportCredentialIssuerResult = {
 	credentialIssuerUrl: string;
@@ -166,11 +144,7 @@ type ImportCredentialIssuerResult = {
 	operation: 'create' | 'update';
 };
 
-type ManagerInstance = InstanceType<typeof CredentialIssuerManager>;
-type ManagerTasks = ManagerInstance['tasks'];
-type ManagerTask = ReturnType<ManagerTasks[keyof ManagerTasks]>;
+/* Types */
 
 class ImportError extends t.BaseError {}
 class DiscardImportError extends t.BaseError {}
-class CreateError extends t.BaseError {}
-class EditError extends t.BaseError {}

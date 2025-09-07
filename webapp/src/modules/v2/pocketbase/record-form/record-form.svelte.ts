@@ -11,45 +11,49 @@ import { form, pocketbaseCrud, task, type db } from '@/v2';
 
 //
 
-type FormMode = 'create' | 'update';
+export type Mode = 'create' | 'update';
 
-type BaseFormConfig<C extends db.CollectionName> = {
+type BaseConfig<C extends db.CollectionName> = {
 	collection: C;
 	crud?: pocketbaseCrud.Instance<C>;
-	onSuccess?: <M extends FormMode>(
+	onSuccess?: <M extends Mode>(
 		mode: M,
 		record: db.CollectionResponses[C]
 	) => void | Promise<void>;
 };
 
-type UpdateFormState<C extends db.CollectionName> = {
+type UpdateState<C extends db.CollectionName> = {
 	mode: 'update';
 	record: db.CollectionResponses[C];
 };
 
-type CreateFormState<C extends db.CollectionName> = {
+type CreateState<C extends db.CollectionName> = {
 	mode: 'create';
 	initialData: Partial<db.CollectionRecords[C]>;
 };
 
-type FormState<C extends db.CollectionName> = UpdateFormState<C> | CreateFormState<C>;
+type State<C extends db.CollectionName> = UpdateState<C> | CreateState<C>;
 
-type FormConfig<C extends db.CollectionName> = BaseFormConfig<C> & FormState<C>;
+type Config<C extends db.CollectionName> = BaseConfig<C> & State<C>;
 
-export class Form<
+export class Instance<
 	C extends db.CollectionName,
 	FormData extends db.CollectionFormData[C] = db.CollectionFormData[C]
 > {
 	runner = new task.Runner();
 	crud: pocketbaseCrud.Instance<C>;
-	form: form.Form<FormData>;
-	currentState = $state<FormState<C>>();
+	form: form.Instance<FormData>;
 
-	constructor(private readonly config: FormConfig<C>) {
+	private currentState = $state<State<C>>();
+	get currentMode() {
+		return this.currentState?.mode;
+	}
+
+	constructor(private readonly config: Config<C>) {
 		const { collection, crud, ...state } = config;
 		this.currentState = state;
 		this.crud = crud ?? new pocketbaseCrud.Instance(collection);
-		this.form = new form.Form({
+		this.form = new form.Instance({
 			adapter: zod(
 				createCollectionZodSchema(collection)
 			) as unknown as ValidationAdapter<FormData>,
@@ -80,5 +84,18 @@ export class Form<
 			return;
 		}
 		await onSuccess?.(currentState.mode, result);
+	}
+
+	// TODO - Transform from Record to FormData
+	changeMode(mode: State<C>) {
+		this.form.superform?.reset();
+		this.currentState = mode;
+		if (mode.mode === 'create') {
+			// @ts-expect-error TODO: fix this
+			this.form.update(mode.initialData, { validate: false });
+		} else if (mode.mode === 'update') {
+			// @ts-expect-error TODO: fix this
+			this.form.update(mode.record, { validate: false });
+		}
 	}
 }

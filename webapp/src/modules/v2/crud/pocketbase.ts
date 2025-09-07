@@ -4,6 +4,8 @@
 
 import type { Simplify } from 'type-fest';
 
+import { vi } from 'vitest';
+
 import * as db from '@/pocketbase/types';
 import { crud } from '@/v2';
 
@@ -82,4 +84,25 @@ export class Instance<
 			this.client.collection(this.collection).delete(id, this.getClientOptions(options))
 		);
 	}
+}
+
+//
+
+// TODO: Find better place for this
+export function createMockClient<C extends db.CollectionName>(
+	overrides: Partial<pb.TypedMockedRecordService<C>> = {}
+): pb.TypedMockedClient {
+	return {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		collection: <C extends db.CollectionName>(collectionName: C) => {
+			return {
+				getOne: vi.fn(),
+				getFullList: vi.fn(),
+				create: vi.fn(),
+				update: vi.fn(),
+				delete: vi.fn(),
+				...overrides
+			} as pb.TypedMockedRecordService<C>;
+		}
+	};
 }

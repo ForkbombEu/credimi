@@ -15,21 +15,24 @@ import { types as t } from '@/v2';
 type SuperformOptions<Data extends t.GenericRecord> = Omit<sf.FormOptions<Data>, 'onUpdate'>;
 
 export type Options<Data extends t.GenericRecord> = {
-	options?: SuperformOptions<Data>;
-	onSubmit?: (data: Data) => void | Promise<void>;
-	initialData?: Partial<Data>;
-	onError?: (error: t.BaseError) => void | Promise<void>;
+	superform: SuperformOptions<Data>;
+	onSubmit: (data: Data) => void | Promise<void>;
+	initialData: Partial<Data>;
+	onError: (error: t.BaseError) => void | Promise<void>;
 };
 
-export type Config<Data extends t.GenericRecord> = Options<Data> & {
+export type Config<Data extends t.GenericRecord> = Partial<Options<Data>> & {
 	adapter: ValidationAdapter<Data>;
 };
 
-export class Form<Data extends t.GenericRecord> {
+export class Instance<Data extends t.GenericRecord> {
 	constructor(readonly config: Config<Data>) {}
 
-	private supervalidated?: sf.SuperValidated<Data>;
-	private superform?: sf.SuperForm<Data>;
+	private _supervalidated?: sf.SuperValidated<Data>;
+	private _superform?: sf.SuperForm<Data>;
+	get superform() {
+		return this._superform;
+	}
 
 	//
 
@@ -56,9 +59,9 @@ export class Form<Data extends t.GenericRecord> {
 	//
 
 	attachSuperform() {
-		const { adapter, options, initialData } = this.config;
-		this.supervalidated = defaults(initialData, adapter);
-		this.superform = superForm(this.supervalidated, {
+		const { adapter, superform, initialData } = this.config;
+		this._supervalidated = defaults(initialData, adapter);
+		this._superform = superForm(this._supervalidated, {
 			id: nanoid(5),
 			SPA: true,
 			applyAction: false,
@@ -66,25 +69,26 @@ export class Form<Data extends t.GenericRecord> {
 			validators: adapter,
 			dataType: 'json',
 			taintedMessage: null,
-			...options,
+			...superform,
 			onUpdate: async ({ form }) => {
 				if (form.valid) await this.submit();
 			}
 		});
-		this.superform.form.subscribe((data) => {
+		this._superform.form.subscribe((data) => {
 			this._values = data;
 		});
-		this.superform.allErrors.subscribe((errors) => {
+		this._superform.allErrors.subscribe((errors) => {
 			this._errors = errors;
 		});
-		this.superform.tainted.subscribe((tainted) => {
+		this._superform.tainted.subscribe((tainted) => {
 			this._tainted = tainted !== undefined;
 		});
 	}
 
-	async update(value: Partial<Data>) {
-		this.superform?.form.update((v) => ({ ...v, ...value }), { taint: true });
-		await this.superform?.validateForm({ update: true });
+	async update(value: Partial<Data>, options: { taint?: boolean; validate?: boolean } = {}) {
+		const { taint = true, validate = true } = options;
+		this._superform?.form.update((v) => ({ ...v, ...value }), { taint });
+		await this._superform?.validateForm({ update: validate });
 	}
 
 	async submit() {

@@ -21,7 +21,7 @@ const schema = z.object({
 
 type Schema = z.infer<typeof schema>;
 
-function mountForm(form: form.Form<Schema>) {
+function mountForm(form: form.Instance<Schema>) {
 	return mount(FormTest<Schema>, {
 		target: document.body,
 		props: { form }
@@ -29,11 +29,11 @@ function mountForm(form: form.Form<Schema>) {
 }
 
 describe('Form', () => {
-	let theForm: form.Form<Schema>;
+	let theForm: form.Instance<Schema>;
 	let fullData: Schema;
 
 	beforeEach(() => {
-		theForm = new form.Form({
+		theForm = new form.Instance({
 			adapter: zod4(schema)
 		});
 		fullData = {
@@ -56,7 +56,7 @@ describe('Form', () => {
 	});
 
 	test('initializes with provided initial data', () => {
-		theForm = new form.Form({
+		theForm = new form.Instance({
 			adapter: zod4(schema),
 			initialData: fullData
 		});
@@ -74,7 +74,7 @@ describe('Form', () => {
 
 	test('onSubmit gets called when form is valid', async () => {
 		const onSubmit = vi.fn();
-		theForm = new form.Form({
+		theForm = new form.Instance({
 			adapter: zod4(schema),
 			onSubmit
 		});
@@ -91,7 +91,7 @@ describe('Form', () => {
 
 	test('onSubmit is not called when form is invalid', async () => {
 		const onSubmit = vi.fn();
-		theForm = new form.Form({
+		theForm = new form.Instance({
 			adapter: zod4(schema),
 			onSubmit
 		});
@@ -109,7 +109,7 @@ describe('Form', () => {
 		const onSubmit = vi.fn().mockRejectedValue(new Error('Submission failed'));
 		const onError = vi.fn();
 
-		theForm = new form.Form({
+		theForm = new form.Instance({
 			adapter: zod4(schema),
 			onSubmit,
 			onError
@@ -130,7 +130,7 @@ describe('Form', () => {
 			throw new Error(errorMessage);
 		};
 
-		theForm = new form.Form({
+		theForm = new form.Instance({
 			adapter: zod4(schema),
 			onSubmit
 		});
@@ -155,7 +155,7 @@ describe('Form', () => {
 			})
 			.refine((data) => data.age > 100, errorMessage);
 
-		theForm = new form.Form({
+		theForm = new form.Instance({
 			adapter: zod4(schema)
 		});
 

@@ -11,29 +11,12 @@ import {
 } from '@/pocketbase/types';
 import { types as t, task } from '@/v2';
 
-import type { db, pocketbase as pb } from '..';
+import type { pocketbase as pb } from '..';
 
 import { pocketbaseCrud } from '.';
+import { createMockClient } from './pocketbase';
 
 //
-
-function createMockClient<C extends db.CollectionName>(
-	overrides: Partial<pb.TypedMockedRecordService<C>> = {}
-): pb.TypedMockedClient {
-	return {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		collection: <C extends db.CollectionName>(collectionName: C) => {
-			return {
-				getOne: vi.fn(),
-				getFullList: vi.fn(),
-				create: vi.fn(),
-				update: vi.fn(),
-				delete: vi.fn(),
-				...overrides
-			} as pb.TypedMockedRecordService<C>;
-		}
-	};
-}
 
 describe('PocketBaseCrud', () => {
 	let mockClient: pb.TypedMockedClient;
@@ -67,6 +50,7 @@ describe('PocketBaseCrud', () => {
 	});
 
 	test('read existing item', async () => {
+		// TODO - Use array or kv storage to test better
 		mockClient = createMockClient({
 			getOne: vi.fn().mockResolvedValue(record)
 		});
