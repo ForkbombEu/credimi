@@ -54,11 +54,9 @@ export class Manager extends task.Runner implements ManagerDependencies {
 			collection: 'credential_issuers',
 			mode: 'create',
 			initialData: {},
-			crud: this.crud
+			crud: this.crud,
+			exclude: ['owner', 'imported', 'url', 'workflow_url', 'published']
 		});
-		// private fieldsOptions: Partial<FieldsOptions<'credential_issuers'>> = {
-		// 	exclude: ['owner', 'imported', 'url', 'workflow_url', 'published']
-		// };
 
 		this.importForm = new form.Instance({
 			adapter: zod(z.object({ url: z.string() })),

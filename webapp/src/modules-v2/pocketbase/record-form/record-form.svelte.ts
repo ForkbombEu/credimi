@@ -21,6 +21,9 @@ type BaseConfig<C extends db.CollectionName> = {
 		mode: M,
 		record: db.CollectionResponses[C]
 	) => void | Promise<void>;
+
+	// Fields options
+	exclude?: (keyof pb.BaseRecord<C>)[];
 };
 
 type UpdateState<C extends db.CollectionName> = {
@@ -51,13 +54,15 @@ export class Instance<
 	}
 
 	constructor(private readonly config: Config<C>) {
-		const { collection, crud, ...state } = config;
+		const { collection, crud, exclude = [], ...state } = config;
 		this.currentState = state;
 		this.crud = crud ?? new pocketbaseCrud.Instance(collection);
 
-		const adapter = zod(
-			createCollectionZodSchema(collection)
-		) as unknown as ValidationAdapter<FormData>;
+		const schema = createCollectionZodSchema(collection).omit(
+			// @ts-expect-error - TODO: fix this
+			Object.fromEntries(exclude.map((key) => [key, true]))
+		);
+		const adapter = zod(schema) as unknown as ValidationAdapter<FormData>;
 
 		this.form = new form.Instance({
 			adapter,
