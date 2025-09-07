@@ -4,8 +4,8 @@
 
 import { beforeEach, describe, expect, test } from 'vitest';
 
-import { Collections } from '@/pocketbase/types';
-import { pocketbase as pb, pocketbaseCrud } from '@/v2';
+import { Collections, type CredentialIssuersResponse } from '@/pocketbase/types';
+import { form as f, pocketbase as pb, pocketbaseCrud } from '@/v2';
 
 describe('Pocketbase Record Form', () => {
 	let form: pb.recordform.Instance<'credential_issuers'>;
@@ -20,37 +20,39 @@ describe('Pocketbase Record Form', () => {
 				client: pocketbaseCrud.createMockClient()
 			})
 		});
+		f.mountTestComponent(form.form);
 	});
 
 	test('should create a form', () => {
 		expect(form).toBeDefined();
 	});
 
+	// TODO - Does not work because superform must be mounted before updates can work
 	test('should change mode', async () => {
+		const record: CredentialIssuersResponse = {
+			id: '1',
+			name: 'Test',
+			created: '2021-01-01',
+			description: 'Test',
+			homepage_url: 'Test',
+			imported: false,
+			logo_url: 'Test',
+			published: false,
+			repo_url: 'Test',
+			workflow_url: 'Test',
+			collectionId: 'credential_issuers',
+			owner: 'Test',
+			updated: '2021-01-01',
+			url: 'Test',
+			collectionName: Collections.CredentialIssuers
+		};
 		await form.changeMode({
 			mode: 'update',
-			record: {
-				id: '1',
-				name: 'Test',
-				created: '2021-01-01',
-				description: 'Test',
-				homepage_url: 'Test',
-				imported: false,
-				logo_url: 'Test',
-				published: false,
-				repo_url: 'Test',
-				workflow_url: 'Test',
-				collectionId: 'credential_issuers',
-				owner: 'Test',
-				updated: '2021-01-01',
-				url: 'Test',
-				collectionName: Collections.CredentialIssuers
-			}
+			record
 		});
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		const { collectionId, collectionName, ...rest } = record;
 		expect(form.currentMode).toEqual('update');
-		console.log(form.form.values);
-		expect(form.form.values).toMatchObject({
-			name: 'Test'
-		});
+		expect(form.form.values).toEqual(rest);
 	});
 });

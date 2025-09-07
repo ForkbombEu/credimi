@@ -5,7 +5,7 @@
 import type * as db from '@/pocketbase/types';
 
 export * from './crud';
-export * as form from './form/form.svelte.js';
+export * as form from './form';
 export * as pocketbase from './pocketbase';
 export * as task from './task';
 export * as types from './types';

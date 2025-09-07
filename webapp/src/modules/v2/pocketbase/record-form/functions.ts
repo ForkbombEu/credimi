@@ -21,8 +21,6 @@ export function recordToFormData<C extends db.CollectionName>(
 	const formData: Record<string, unknown> = {};
 
 	for (const [fieldName, fieldValue] of Record.toEntries(data)) {
-		if (!fieldValue) continue;
-
 		const fieldConfig = fields.find((f) => f.name == fieldName);
 		if (!fieldConfig) continue;
 
