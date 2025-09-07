@@ -23,6 +23,13 @@ export type QueryOptions = Simplify<
 export type RecordOptions = pb.RecordOptions;
 export type ID = string;
 
+/* Record */
+
+export type BaseRecord<C extends db.CollectionName> = Omit<
+	db.CollectionRecords[C],
+	'id' | 'created' | 'updated'
+>;
+
 /* Client & Record Service */
 
 export interface CoreRecordService<T extends object, Input extends object> {
