@@ -2,12 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { toast } from 'svelte-sonner';
 import { zod, type ValidationAdapter } from 'sveltekit-superforms/adapters';
 
 import { m } from '@/i18n';
 import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
-import { form, pocketbase as pb, pocketbaseCrud, task, type db } from '@/v2';
+import { form, pocketbase as pb, pocketbaseCrud, task, ui, type db } from '@/v2';
 
 import { recordToFormData } from './functions';
 
@@ -55,13 +54,16 @@ export class Instance<
 		const { collection, crud, ...state } = config;
 		this.currentState = state;
 		this.crud = crud ?? new pocketbaseCrud.Instance(collection);
+
+		const adapter = zod(
+			createCollectionZodSchema(collection)
+		) as unknown as ValidationAdapter<FormData>;
+
 		this.form = new form.Instance({
-			adapter: zod(
-				createCollectionZodSchema(collection)
-			) as unknown as ValidationAdapter<FormData>,
+			adapter,
 			onSubmit: (data) => this.submit(data),
 			onError: (error) => {
-				toast.error(error.message);
+				ui.toast.error(error.message);
 			}
 		});
 	}
@@ -77,11 +79,11 @@ export class Instance<
 
 		if (currentState?.mode == 'create') {
 			result = await runner.run(crud.create(data));
-			toast.success(m.Record_created_successfully());
+			ui.toast.success(m.Record_created_successfully());
 		} else if (currentState?.mode == 'update') {
 			const { record } = currentState;
 			result = await runner.run(crud.update(record.id, data));
-			toast.success(m.Record_updated_successfully());
+			ui.toast.success(m.Record_updated_successfully());
 		} else {
 			return;
 		}
