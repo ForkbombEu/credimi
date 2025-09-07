@@ -32,6 +32,9 @@ export class Instance<Data extends t.GenericRecord> {
 	get superform() {
 		return this._superform;
 	}
+	get jsonSchema() {
+		return this.config.adapter.jsonSchema;
+	}
 
 	//
 

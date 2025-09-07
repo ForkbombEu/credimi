@@ -55,7 +55,7 @@ export class Manager extends task.Runner implements ManagerDependencies {
 			mode: 'create',
 			initialData: {},
 			crud: this.crud,
-			exclude: ['owner', 'imported', 'url', 'workflow_url', 'published']
+			exclude: ['owner', 'imported', 'workflow_url', 'published', { update: ['url'] }]
 		});
 
 		this.importForm = new form.Instance({

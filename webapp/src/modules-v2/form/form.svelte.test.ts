@@ -8,7 +8,7 @@ import { zod4 } from 'sveltekit-superforms/adapters';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { z } from 'zod/v4';
 
-import FormTest from './form-test.svelte';
+import FormComponent from './form.svelte';
 
 //
 
@@ -21,8 +21,8 @@ const schema = z.object({
 type Schema = z.infer<typeof schema>;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mountTestComponent<Form extends form.Instance<any>>(form: Form) {
-	return mount(FormTest, {
+export function mountComponent<Form extends form.Instance<any>>(form: Form) {
+	return mount(FormComponent, {
 		target: document.body,
 		props: { form }
 	});
@@ -44,13 +44,13 @@ describe('Form', () => {
 	});
 
 	test('becomes valid when values are set', async () => {
-		mountTestComponent(theForm);
+		mountComponent(theForm);
 		await theForm.update(fullData);
 		expect(theForm.valid).toBe(true);
 	});
 
 	test('stays invalid when partial data is set', async () => {
-		mountTestComponent(theForm);
+		mountComponent(theForm);
 		await theForm.update({ name: 'John' });
 		expect(theForm.valid).toBe(false);
 	});
@@ -60,12 +60,12 @@ describe('Form', () => {
 			adapter: zod4(schema),
 			initialData: fullData
 		});
-		mountTestComponent(theForm);
+		mountComponent(theForm);
 		expect(theForm.values).toEqual(expect.objectContaining(fullData));
 	});
 
 	test('reactive dependent is updated when form values change', async () => {
-		mountTestComponent(theForm);
+		mountComponent(theForm);
 		const doubleAge = $derived.by(() => (theForm.values.age ?? 0) * 2);
 		expect(doubleAge).toBe(0);
 		await theForm.update({ age: 25 });
@@ -78,7 +78,7 @@ describe('Form', () => {
 			adapter: zod4(schema),
 			onSubmit
 		});
-		mountTestComponent(theForm);
+		mountComponent(theForm);
 		await theForm.update({
 			name: 'John',
 			email: 'john@example.com',
@@ -95,7 +95,7 @@ describe('Form', () => {
 			adapter: zod4(schema),
 			onSubmit
 		});
-		mountTestComponent(theForm);
+		mountComponent(theForm);
 		await theForm.update({
 			name: 'John',
 			age: 25
@@ -115,7 +115,7 @@ describe('Form', () => {
 			onError
 		});
 
-		mountTestComponent(theForm);
+		mountComponent(theForm);
 		await theForm.update(fullData);
 		expect(theForm.valid).toBe(true);
 
@@ -135,7 +135,7 @@ describe('Form', () => {
 			onSubmit
 		});
 
-		mountTestComponent(theForm);
+		mountComponent(theForm);
 		await theForm.update(fullData);
 		expect(theForm.valid).toBe(true);
 
@@ -159,7 +159,7 @@ describe('Form', () => {
 			adapter: zod4(schema)
 		});
 
-		mountTestComponent(theForm);
+		mountComponent(theForm);
 		await theForm.update({ ...fullData, age: 99 });
 		expect(theForm.valid).toBe(false);
 

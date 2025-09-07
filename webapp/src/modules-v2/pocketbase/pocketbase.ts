@@ -9,6 +9,8 @@ import type * as vi from 'vitest';
 
 import GenericPocketBase from 'pocketbase';
 
+import type { KeyOf } from '@/utils/types';
+
 import { pb as defaultPocketbaseClient } from '@/pocketbase';
 
 /* Types */
@@ -28,6 +30,8 @@ export type BaseRecord<C extends db.CollectionName> = Omit<
 	db.CollectionRecords[C],
 	'id' | 'created' | 'updated'
 >;
+
+export type Field<C extends db.CollectionName> = KeyOf<db.CollectionRecords[C]>;
 
 /* Client & Record Service */
 

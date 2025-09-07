@@ -3,24 +3,29 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { form as f, pocketbase as pb, pocketbaseCrud } from '#';
-import { beforeEach, describe, expect, test } from 'vitest';
+import { afterEach, beforeEach, describe, expect, test } from 'vitest';
 
 import { Collections, type CredentialIssuersResponse } from '@/pocketbase/types';
 
 describe('Pocketbase Record Form', () => {
 	let form: pb.recordform.Instance<'credential_issuers'>;
 
+	let cleanup: () => void;
 	beforeEach(() => {
-		form = new pb.recordform.Instance({
-			collection: 'credential_issuers',
-			mode: 'create',
-			initialData: {},
-			crud: new pocketbaseCrud.Instance('credential_issuers', {
-				// TODO - Use array storage or kv storage for testing
-				client: pocketbaseCrud.createMockClient()
-			})
+		cleanup = $effect.root(() => {
+			form = new pb.recordform.Instance({
+				collection: 'credential_issuers',
+				mode: 'create',
+				initialData: {},
+				crud: new pocketbaseCrud.Instance('credential_issuers', {
+					client: pocketbaseCrud.createMockClient()
+				})
+			});
+			f.mountComponent(form.form);
 		});
-		f.mountTestComponent(form.form);
+	});
+	afterEach(() => {
+		cleanup();
 	});
 
 	test('should create a form', () => {

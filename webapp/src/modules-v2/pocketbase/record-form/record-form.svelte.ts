@@ -6,7 +6,7 @@ import { form, pocketbase as pb, pocketbaseCrud, task, ui, type db } from '#';
 import { zod, type ValidationAdapter } from 'sveltekit-superforms/adapters';
 
 import { m } from '@/i18n';
-import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+import { createCollectionZodSchema, type CollectionZodSchema } from '@/pocketbase/zod-schema';
 
 import { recordToFormData } from './functions';
 
@@ -23,7 +23,7 @@ type BaseConfig<C extends db.CollectionName> = {
 	) => void | Promise<void>;
 
 	// Fields options
-	exclude?: (keyof pb.BaseRecord<C>)[];
+	exclude?: Array<pb.Field<C> | { [K in Mode]?: pb.Field<C>[] }>;
 };
 
 type UpdateState<C extends db.CollectionName> = {
@@ -53,19 +53,50 @@ export class Instance<
 		return this.currentState?.mode;
 	}
 
+	/* Dynamic schema */
+
+	private baseSchema: CollectionZodSchema<C>;
+	private currentSchema = $derived.by(() =>
+		this.baseSchema.omit(
+			// @ts-expect-error - TODO: fix this
+			Object.fromEntries(this.currentExclude.map((key) => [key, true]))
+		)
+	);
+	private currentAdapter = $derived.by(
+		() => zod(this.currentSchema) as unknown as ValidationAdapter<FormData>
+	);
+
+	private currentExclude: pb.Field<C>[] = $derived.by(() => {
+		const { exclude = [] } = this.config;
+
+		const mode = this.currentMode;
+		if (!mode) return [];
+
+		const currentExclude: pb.Field<C>[] = [];
+		for (const item of exclude) {
+			if (typeof item === 'string') {
+				currentExclude.push(item);
+			} else if (mode in item && item[mode]) {
+				currentExclude.push(...item[mode]);
+			}
+		}
+		return currentExclude;
+	});
+
 	constructor(private readonly config: Config<C>) {
-		const { collection, crud, exclude = [], ...state } = config;
+		const { collection, crud, ...state } = config;
 		this.currentState = state;
 		this.crud = crud ?? new pocketbaseCrud.Instance(collection);
+		this.baseSchema = createCollectionZodSchema(collection);
+		this.form = this.createForm();
+		$effect(() => {
+			this.form = this.createForm();
+		});
+	}
 
-		const schema = createCollectionZodSchema(collection).omit(
-			// @ts-expect-error - TODO: fix this
-			Object.fromEntries(exclude.map((key) => [key, true]))
-		);
-		const adapter = zod(schema) as unknown as ValidationAdapter<FormData>;
-
-		this.form = new form.Instance({
-			adapter,
+	private createForm() {
+		return new form.Instance({
+			adapter: this.currentAdapter,
 			onSubmit: (data) => this.submit(data),
 			onError: (error) => {
 				ui.toast.error(error.message);
