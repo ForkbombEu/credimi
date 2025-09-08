@@ -119,14 +119,12 @@ func (a *StepCIWorkflowActivity) Execute(
 		)
 	}
 
-	filtered := make(map[string]string)
-	for k, v := range input.Config {
-		if k != "template" {
-			filtered[k] = v
-		}
+	secrets := make(map[string]any)
+	s, ok := input.Payload["secrets"].(map[string]any)
+	if ok {
+		secrets = s
 	}
-
-	jsonBytes, err := json.Marshal(filtered)
+	secretBytes, err := json.Marshal(secrets)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
 		return result, a.NewActivityError(
@@ -134,11 +132,10 @@ func (a *StepCIWorkflowActivity) Execute(
 			fmt.Sprintf("%s: %v", errCode.Description, err),
 		)
 	}
-
 	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	binName := "stepci-captured-runner"
 	binPath := fmt.Sprintf("%s/%s", binDir, binName)
-	args := []string{yamlContent, "-s", string(jsonBytes)}
+	args := []string{yamlContent, "-s", string(secretBytes)}
 
 	yamlEnv, _ := input.Payload["env"].(string)
 	if yamlEnv != "" {

@@ -111,7 +111,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		)
 	}
 	err := workflow.ExecuteActivity(ctx, checkIssuer.Name(), workflowengine.ActivityInput{
-		Config: map[string]string{
+		Payload: map[string]any{
 			"base_url": baseURL,
 		},
 	}).Get(ctx, &issuerResult)
@@ -230,14 +230,12 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		}
 
 		storeInput := workflowengine.ActivityInput{
-			Config: map[string]string{
+			Payload: map[string]any{
 				"method": "POST",
 				"url": fmt.Sprintf(
 					"%s/%s",
 					appURL,
 					"api/credentials_issuers/store-or-update-extracted-credentials"),
-			},
-			Payload: map[string]any{
 				"body": map[string]any{
 					"issuerID":   issuerID,
 					"issuerName": issuerName,
@@ -276,15 +274,13 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	}
 
 	cleanupInput := workflowengine.ActivityInput{
-		Config: map[string]string{
+		Payload: map[string]any{
 			"method": "POST",
 			"url": fmt.Sprintf(
 				"%s/%s",
 				appURL,
 				"api/credentials_issuers/cleanup_credentials",
 			),
-		},
-		Payload: map[string]any{
 			"body": map[string]any{
 				"issuerID":  issuerID,
 				"validKeys": validKeys,

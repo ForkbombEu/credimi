@@ -39,11 +39,10 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				_, _ = w.Write([]byte(`{"message": "ok"}`))
 			},
 			input: workflowengine.ActivityInput{
-				Config: map[string]string{
+				Payload: map[string]any{
 					"method": "GET",
 					"url":    "", // Set dynamically
 				},
-				Payload: map[string]any{},
 			},
 			expectStatus:   http.StatusOK,
 			expectResponse: map[string]any{"message": "ok"},
@@ -59,11 +58,9 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				json.NewEncoder(w).Encode(map[string]any{"received": payload["key"]})
 			},
 			input: workflowengine.ActivityInput{
-				Config: map[string]string{
+				Payload: map[string]any{
 					"method": "POST",
 					"url":    "",
-				},
-				Payload: map[string]any{
 					"headers": map[string]any{
 						"Content-Type": "application/json",
 					},
@@ -81,7 +78,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				time.Sleep(2 * time.Second)
 			},
 			input: workflowengine.ActivityInput{
-				Config: map[string]string{
+				Payload: map[string]any{
 					"method":  "GET",
 					"url":     "",
 					"timeout": "1",
@@ -96,7 +93,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				w.Write([]byte("plain response"))
 			},
 			input: workflowengine.ActivityInput{
-				Config: map[string]string{
+				Payload: map[string]any{
 					"method": "GET",
 					"url":    "",
 				},
@@ -113,11 +110,9 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				_, _ = w.Write([]byte(`{"message": "query received"}`))
 			},
 			input: workflowengine.ActivityInput{
-				Config: map[string]string{
+				Payload: map[string]any{
 					"method": "GET",
 					"url":    "", // Set dynamically
-				},
-				Payload: map[string]any{
 					"query_params": map[string]any{
 						"key": "value",
 					},
@@ -132,12 +127,10 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				w.WriteHeader(http.StatusInternalServerError)
 			},
 			input: workflowengine.ActivityInput{
-				Config: map[string]string{
-					"method": "GET",
-					"url":    "",
-				},
 				Payload: map[string]any{
 					"expected_status": http.StatusOK,
+					"method":          "GET",
+					"url":             "",
 				},
 			},
 			expectError:     true,
@@ -150,7 +143,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			if tt.handlerFunc != nil {
 				server := httptest.NewServer(tt.handlerFunc)
 				defer server.Close()
-				tt.input.Config["url"] = server.URL
+				tt.input.Payload["url"] = server.URL
 			}
 
 			a := HTTPActivity{}

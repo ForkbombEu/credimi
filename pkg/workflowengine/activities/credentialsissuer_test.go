@@ -28,7 +28,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		config          map[string]string
+		payload         map[string]any
 		serverHandler   http.HandlerFunc
 		expectErr       bool
 		expectedErrCode errorcodes.Code
@@ -36,7 +36,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 	}{
 		{
 			name: "Success - valid issuer response",
-			config: map[string]string{
+			payload: map[string]any{
 				"base_url": "",
 			},
 			serverHandler: func(w http.ResponseWriter, r *http.Request) {
@@ -51,19 +51,19 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 		},
 		{
 			name:            "Failure - missing base_url",
-			config:          map[string]string{},
+			payload:         map[string]any{},
 			expectErr:       true,
-			expectedErrCode: errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
+			expectedErrCode: errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
 		},
 		{
 			name:            "Failure - empty base_url",
-			config:          map[string]string{"base_url": "  "},
+			payload:         map[string]any{"base_url": "  "},
 			expectErr:       true,
 			expectedErrCode: errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed],
 		},
 		{
 			name: "Failure - non-200 status code",
-			config: map[string]string{
+			payload: map[string]any{
 				"base_url": "",
 			},
 			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
@@ -74,7 +74,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - error reaching issuer",
-			config: map[string]string{
+			payload: map[string]any{
 				"base_url": "",
 			},
 			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
@@ -87,7 +87,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - error reading body",
-			config: map[string]string{
+			payload: map[string]any{
 				"base_url": "",
 			},
 			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
@@ -109,11 +109,11 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 				server := httptest.NewServer(tt.serverHandler)
 				defer server.Close()
 				baseURL = server.URL + "/.well-known/openid-credential-issuer"
-				tt.config["base_url"] = strings.TrimPrefix(baseURL, "https://")
+				tt.payload["base_url"] = strings.TrimPrefix(baseURL, "https://")
 			}
 
 			input := workflowengine.ActivityInput{
-				Config: tt.config,
+				Payload: tt.payload,
 			}
 
 			future, err := env.ExecuteActivity(act.Execute, input)

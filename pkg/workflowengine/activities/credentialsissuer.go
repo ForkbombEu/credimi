@@ -77,10 +77,9 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	result := workflowengine.ActivityResult{}
 
-	baseURL, ok := input.Config["base_url"]
-	cleanURL := TrimInput(baseURL)
-	if !ok || cleanURL == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+	baseURL, ok := input.Payload["base_url"].(string)
+	if !ok || baseURL == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		if !ok {
 			return result, a.NewActivityError(
 				errCode.Code,
@@ -88,7 +87,7 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 			)
 		}
 	}
-
+	cleanURL := TrimInput(baseURL)
 	if !strings.HasPrefix(cleanURL, "https://") && !strings.HasPrefix(cleanURL, "http://") {
 		cleanURL = "https://" + cleanURL
 	}
