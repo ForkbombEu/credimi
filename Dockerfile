@@ -45,11 +45,6 @@ COPY .mise.toml ./
 RUN mise trust
 RUN --mount=type=cache,target=/mise/cache mise i
 
-# install bun deps and cache
-COPY ./webapp/package.json webapp/
-COPY ./webapp/bun.lock webapp/
-WORKDIR /app/webapp
-RUN bun i --frozen-lockfile
 
 # install overmind
 RUN curl -sLO https://github.com/DarthSim/overmind/releases/download/v2.5.1/overmind-v2.5.1-linux-amd64.gz
@@ -66,16 +61,20 @@ RUN wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/do
 #install et-tu-cesr
 RUN wget https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-linux-amd64 -O .bin/et-tu-cesr && chmod +x .bin/et-tu-cesr
 
-# copy everything
+# Copy everything
 COPY . ./
+
 RUN credimi migrate up
 
-
 WORKDIR /app/webapp
+RUN bun install --frozen-lockfile
+
 ARG PUBLIC_POCKETBASE_URL
 ENV PUBLIC_POCKETBASE_URL ${PUBLIC_POCKETBASE_URL}
 ENV DATA_DB_PATH /app/pb_data/data.db
+
 RUN bun run build
+
 WORKDIR /app
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 CMD curl --fail http://localhost:8090 || exit 1
