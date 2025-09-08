@@ -4,6 +4,7 @@
 
 import type * as db from '@/pocketbase/types';
 
+export * as credentialissuer from './credential-issuer';
 export * from './crud';
 export * as form from './form';
 export * as pocketbase from './pocketbase';
