@@ -58,11 +58,6 @@ export class Instance<Data extends t.GenericRecord> {
 		return this._tainted && this.errors.length === 0;
 	}
 
-	private _delayed = $state(false);
-	get delayed() {
-		return this._delayed;
-	}
-
 	//
 
 	attachSuperform() {
@@ -90,10 +85,6 @@ export class Instance<Data extends t.GenericRecord> {
 		this._superform.tainted.subscribe((tainted) => {
 			this._tainted = tainted !== undefined;
 		});
-		this._superform.delayed.subscribe((delayed) => {
-			this._delayed = delayed;
-		});
-		return this._superform;
 	}
 
 	async update(value: Partial<Data>, options: { taint?: boolean; validate?: boolean } = {}) {

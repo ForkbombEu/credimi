@@ -93,7 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div
 	id="temporal-workflow-container"
 	class="bg-temporal block"
-	bind:offsetHeight={null, (data) => emit({ type: 'height', height: data ?? 0 })}
+	bind:offsetHeight={null, (data) => emit({ type: 'height', height: data })}
 >
 	<TemporalI18nProvider>
 		{#if execution && eventHistory}
