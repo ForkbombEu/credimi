@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import * as issuerManager from '#/credential-issuer-manager';
 	import { runWithLoading } from '$lib/utils';
 	import { String } from 'effect';
-	import { Eye, EyeOff, Plus, RefreshCwIcon } from 'lucide-svelte';
+	import { Eye, EyeOff, RefreshCwIcon } from 'lucide-svelte';
 
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 
@@ -16,7 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
@@ -26,9 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 	import { Collections } from '@/pocketbase/types';
 
-	import CredentialIssuerForm from './credential-issuer-form.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';
-	import { fetchCredentialIssuer } from './utils';
 
 	//
 
@@ -38,8 +36,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { organizationId, id }: Props = $props();
-
-	let isCredentialIssuerModalOpen = $state(false);
 
 	//
 
@@ -58,9 +54,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			});
 	}
 
+	const manager = new issuerManager.Manager();
+
 	async function refreshCredentialIssuer(url: string) {
 		runWithLoading({
-			fn: () => fetchCredentialIssuer(url),
+			fn: async () => {
+				await manager.import(url);
+			},
 			loadingText: 'Updating credential issuer...',
 			errorText: 'Failed to refresh credential issuer'
 		});
@@ -80,7 +80,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet top({ Header })}
 		<Header title={m.Credential_issuers()} {id}>
 			{#snippet right()}
-				{@render CreateCredentialIssuerModal()}
+				<issuerManager.Component {manager} />
 			{/snippet}
 		</Header>
 	{/snippet}
@@ -98,23 +98,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/snippet}
 </CollectionManager>
-
-<!--  -->
-
-{#snippet CreateCredentialIssuerModal()}
-	<Sheet bind:open={isCredentialIssuerModalOpen} title={m.Add_new_credential_issuer()}>
-		{#snippet trigger({ sheetTriggerAttributes })}
-			<Button {...sheetTriggerAttributes}>
-				<Plus />
-				{m.Add_new_credential_issuer()}
-			</Button>
-		{/snippet}
-
-		{#snippet content({ closeSheet })}
-			<CredentialIssuerForm onSuccess={closeSheet} {organizationId} />
-		{/snippet}
-	</Sheet>
-{/snippet}
 
 <!--  -->
 

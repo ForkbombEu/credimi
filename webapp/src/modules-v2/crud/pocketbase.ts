@@ -6,7 +6,6 @@ import type { db } from '#';
 import type { Simplify } from 'type-fest';
 
 import { crud, pocketbase as pb, task } from '#';
-import { vi } from 'vitest';
 
 /* Pocketbase Crud */
 
@@ -81,25 +80,4 @@ export class Instance<
 			this.client.collection(this.collection).delete(id, this.getClientOptions(options))
 		);
 	}
-}
-
-//
-
-// TODO: Find better place for this
-export function createMockClient<C extends db.CollectionName>(
-	overrides: Partial<pb.TypedMockedRecordService<C>> = {}
-): pb.TypedMockedClient {
-	return {
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		collection: <C extends db.CollectionName>(collectionName: C) => {
-			return {
-				getOne: vi.fn(),
-				getFullList: vi.fn(),
-				create: vi.fn(),
-				update: vi.fn(),
-				delete: vi.fn(),
-				...overrides
-			} as pb.TypedMockedRecordService<C>;
-		}
-	};
 }

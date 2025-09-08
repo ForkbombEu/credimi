@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pocketbase as pb, pocketbaseCrud, types as t, task } from '#';
+import { type db, pocketbase as pb, pocketbaseCrud, types as t, task } from '#';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 
 import {
@@ -11,7 +11,24 @@ import {
 	type CredentialIssuersResponse
 } from '@/pocketbase/types';
 
-import { createMockClient } from './pocketbase';
+// TODO: Find better place for this
+export function createMockClient<C extends db.CollectionName>(
+	overrides: Partial<pb.TypedMockedRecordService<C>> = {}
+): pb.TypedMockedClient {
+	return {
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
+		collection: <C extends db.CollectionName>(collectionName: C) => {
+			return {
+				getOne: vi.fn(),
+				getFullList: vi.fn(),
+				create: vi.fn(),
+				update: vi.fn(),
+				delete: vi.fn(),
+				...overrides
+			} as pb.TypedMockedRecordService<C>;
+		}
+	};
+}
 
 //
 

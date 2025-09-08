@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pocketbase as pb, pocketbaseCrud } from '#';
+import { createMockClient } from '#/crud/pocketbase.test';
 import { mount } from 'svelte';
 import { beforeEach, describe, expect, test } from 'vitest';
 
@@ -27,7 +28,7 @@ describe('Pocketbase Record Form', () => {
 			mode: 'create',
 			initialData: {},
 			crud: new pocketbaseCrud.Instance('credential_issuers', {
-				client: pocketbaseCrud.createMockClient()
+				client: createMockClient()
 			})
 		});
 
