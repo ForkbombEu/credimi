@@ -8,7 +8,7 @@ import { zod4 } from 'sveltekit-superforms/adapters';
 import { beforeEach, describe, expect, test, vi } from 'vitest';
 import { z } from 'zod/v4';
 
-import FormComponent from './form.svelte';
+import FormTestComponent from './form-test.svelte';
 
 //
 
@@ -22,7 +22,7 @@ type Schema = z.infer<typeof schema>;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function mountComponent<Form extends form.Instance<any>>(form: Form) {
-	return mount(FormComponent, {
+	return mount(FormTestComponent, {
 		target: document.body,
 		props: { form }
 	});

@@ -10,8 +10,6 @@ import type { CredentialIssuersResponse } from '@/pocketbase/types';
 
 //
 
-// TODO: Inject storage dependency / Backend abstraction for testing
-
 type Crud = pocketbaseCrud.Instance<'credential_issuers'>;
 type ImportForm = form.Instance<{ url: string }>;
 type RecordForm = pb.recordform.Instance<'credential_issuers'>;
