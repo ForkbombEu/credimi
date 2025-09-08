@@ -17,10 +17,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div
-	class="inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs font-medium {data?.backgroundClass} {data?.outlineClass} {data?.textClass}"
+	class="inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs font-bold {data?.backgroundClass} {data?.outlineClass} {data?.textClass}"
 >
 	{#if IconComponent}
-		<IconComponent class="h-3 w-3" />
+		<IconComponent class="h-4 w-4" />
 	{/if}
 	{data?.label}
 </div>
