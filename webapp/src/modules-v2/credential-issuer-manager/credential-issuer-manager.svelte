@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { form } from '#';
+	import { form, pocketbase as pb } from '#';
 
 	import Sheet from '@/components/ui-custom/sheet.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { SubmitButton } from '@/forms';
 	import { Field } from '@/forms/fields';
 	import { m } from '@/i18n/index.js';
@@ -34,26 +35,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </Sheet>
 
 {#snippet ImportIssuerForm()}
-	<form.Component form={manager.importForm} hide={['submit_button', 'error']}>
-		{#snippet children({ formError })}
-			{@const superform = manager.importForm.superform!}
-			<div class="flex gap-2">
-				<div class="grow">
-					<Field
-						form={superform}
-						name="url"
-						options={{
-							type: 'url',
-							hideLabel: true,
-							placeholder: 'https://example-issuer.org'
-						}}
-					/>
-				</div>
-				<SubmitButton variant="outline" class="flex w-fit">{m.Import()}</SubmitButton>
+	{@const importForm = manager.importForm}
+	{@const superform = importForm.superform!}
+	<T>Optional: Import credential issuer</T>
+	<form.Component form={importForm} hide={['submit_button', 'error']}>
+		<div class="flex gap-2">
+			<div class="grow">
+				<Field
+					form={superform}
+					name="url"
+					options={{
+						type: 'url',
+						hideLabel: true,
+						placeholder: 'https://example-issuer.org'
+					}}
+				/>
 			</div>
-			{@render formError()}
-		{/snippet}
+			<SubmitButton variant="outline" class="flex w-fit">{m.Import()}</SubmitButton>
+		</div>
 	</form.Component>
+	<hr />
+	<pb.recordform.Component form={manager.recordForm} collection="credential_issuers" />
 {/snippet}
 <!-- 
 {#if !importedCredentialIssuer}
