@@ -28,7 +28,9 @@ func (w *VLEIValidationWorkflow) Name() string {
 }
 
 func (w *VLEIValidationWorkflow) GetOptions() workflow.ActivityOptions {
-	return DefaultActivityOptions
+	ao := DefaultActivityOptions
+	ao.RetryPolicy.MaximumAttempts = 1
+	return ao
 }
 
 func (w *VLEIValidationWorkflow) Workflow(

@@ -38,6 +38,9 @@ var Codes = map[string]Code{
 	InvalidJWTFormat:               {"CRE224", "Invalid JWT format"},
 	DecodeFailed:                   {"CRE225", "Failed to decode string"},
 	CESRParsingError:               {"CRE226", "Failed to parse CESR"},
+	PipelineParsingError:           {"CRE227", "Failed to parse pipeline yaml"},
+	PipelineInputError:             {"CRE228", "Failed to resolve pipeline inputs"},
+	PipelineExecutionError:         {"CRE229", "Failed to execute pipeline worflow"},
 	CommandExecutionFailed:         {"CRE301", "Command execution failed"},
 	StepCIRunFailed:                {"CRE302", "StepCI run failed"},
 	UnexpectedStepCIOutput:         {"CRE303", "Unexpected output from StepCI run"},
@@ -81,6 +84,9 @@ const (
 	InvalidJWTFormat               = "CRE224"
 	DecodeFailed                   = "CRE225"
 	CESRParsingError               = "CRE226"
+	PipelineParsingError           = "CRE227"
+	PipelineInputError             = "CRE228"
+	PipelineExecutionError         = "CRE229"
 	CommandExecutionFailed         = "CRE301"
 	StepCIRunFailed                = "CRE302"
 	UnexpectedStepCIOutput         = "CRE303"

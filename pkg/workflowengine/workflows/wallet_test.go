@@ -4,6 +4,7 @@
 package workflows
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -36,18 +37,20 @@ func Test_WalletWorkflow(t *testing.T) {
 			},
 			expectError: false,
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				HTTPActivity := activities.NewHTTPActivity()
 				parseActivity := activities.NewParseWalletURLActivity()
 				dockerActivity := activities.NewDockerActivity()
-
-				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
-					Name: HTTPActivity.Name(),
+				jsonActivity := activities.NewJSONActivity(map[string]reflect.Type{
+					"map": reflect.TypeOf(map[string]any{}),
 				})
+
 				env.RegisterActivityWithOptions(parseActivity.Execute, activity.RegisterOptions{
 					Name: parseActivity.Name(),
 				})
 				env.RegisterActivityWithOptions(dockerActivity.Execute, activity.RegisterOptions{
 					Name: dockerActivity.Name(),
+				})
+				env.RegisterActivityWithOptions(jsonActivity.Execute, activity.RegisterOptions{
+					Name: jsonActivity.Name(),
 				})
 
 				testdata := `{"test": "test", "id": "A12345"}`
@@ -55,7 +58,7 @@ func Test_WalletWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{Output: map[string]any{"api_input": "http://example.com", "store_type": "google"}}, nil)
 				env.OnActivity(dockerActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"stdout": testdata}}, nil)
-				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(jsonActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"status": 200, "body": "test_result"}}, nil)
 			},
 		},
@@ -103,6 +106,9 @@ func Test_WalletWorkflow(t *testing.T) {
 				HTTPActivity := activities.NewHTTPActivity()
 				parseActivity := activities.NewParseWalletURLActivity()
 				dockerActivity := activities.NewDockerActivity()
+				jsonActivity := activities.NewJSONActivity(map[string]reflect.Type{
+					"map": reflect.TypeOf(map[string]any{}),
+				})
 
 				env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 					Name: HTTPActivity.Name(),
@@ -112,6 +118,9 @@ func Test_WalletWorkflow(t *testing.T) {
 				})
 				env.RegisterActivityWithOptions(dockerActivity.Execute, activity.RegisterOptions{
 					Name: dockerActivity.Name(),
+				})
+				env.RegisterActivityWithOptions(dockerActivity.Execute, activity.RegisterOptions{
+					Name: jsonActivity.Name(),
 				})
 				env.OnActivity(parseActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, workflowengine.NewAppError(errorcodes.Codes[errorcodes.ParseURLFailed], ""))
