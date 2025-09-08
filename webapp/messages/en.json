@@ -684,6 +684,7 @@
 	"Logo_preview": "Logo preview",
 	"Fetching_fallback": "Fetching...",
 	"Imported": "Imported",
+	"Import_results": "Import results",
 	"Select_official_test_suites_subtitle": "Select official test suites to validate conformance",
 	"Select_custom_checks_subtitle": "Select community-created custom conformance checks",
 	"Standard": "Standard",
