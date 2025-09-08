@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Task, fromPromise, reject, resolve } from 'true-myth/task';
-
 import { types as t } from '#';
+import { Task, fromPromise, reject, resolve } from 'true-myth/task';
 
 //
 
