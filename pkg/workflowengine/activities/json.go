@@ -64,10 +64,7 @@ func (a *JSONActivity) Execute(
 	// Get struct type name
 	structTypeName, ok := input.Payload["structType"].(string)
 	if !ok {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'structType'", errCode.Description),
-		)
+		structTypeName = "map" // Default to map[string]any
 	}
 
 	// Look up the struct type from the registry
