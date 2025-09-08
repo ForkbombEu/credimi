@@ -47,9 +47,21 @@ func (a *HTTPActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
-
-	method := input.Config["method"]
-	url := input.Config["url"]
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+	method, ok := input.Payload["method"].(string)
+	if !ok || method == "" {
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'method'", errCode.Description),
+		)
+	}
+	url, ok := input.Payload["url"].(string)
+	if !ok || url == "" {
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'url'", errCode.Description),
+		)
+	}
 	if queryParams, ok := input.Payload["query_params"].(map[string]any); ok {
 		parsedURL, err := URL.Parse(url)
 		if err != nil {
@@ -72,15 +84,9 @@ func (a *HTTPActivity) Execute(
 		parsedURL.RawQuery = query.Encode()
 		url = parsedURL.String() // Update the URL with query parameters
 	}
-	if method == "" || url == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'method' and 'url' must be provided", errCode.Description),
-		)
-	}
+
 	timeout := 10 * time.Second
-	if tStr, ok := input.Config["timeout"]; ok {
+	if tStr, ok := input.Payload["timeout"].(string); ok {
 		if t, err := strconv.Atoi(tStr); err == nil {
 			timeout = time.Duration(t) * time.Second
 		}
@@ -166,8 +172,7 @@ func (a *HTTPActivity) Execute(
 					expectedStatus,
 					resp.StatusCode,
 				),
-				resp.StatusCode,
-				expectedStatus,
+				output,
 			)
 		}
 	}

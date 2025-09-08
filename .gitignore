@@ -13,7 +13,6 @@ pb.env
 /didimo
 /credimi
 didimo-ui
-credimi-cli
 /fixtures/test_pb_data/auxiliary.db
 /pkg/OpenID4VP/stepci/node_modules
 dist/

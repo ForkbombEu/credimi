@@ -71,11 +71,9 @@ func (w *VLEIValidationWorkflow) Workflow(
 	var serverResponse workflowengine.ActivityResult
 	request := workflowengine.ActivityInput{
 		Payload: map[string]any{
+			"method":          "GET",
+			"url":             fmt.Sprintf("%s/oobi/%s", serverURL, credentialID),
 			"expected_status": 200,
-		},
-		Config: map[string]string{
-			"method": "GET",
-			"url":    fmt.Sprintf("%s/oobi/%s", serverURL, credentialID),
 		},
 	}
 	if err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), request).

@@ -10,8 +10,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import SectionCard from '$lib/layout/section-card.svelte';
 	import Footer from '$start-checks-form/_utils/footer.svelte';
 	import { Checkbox as Check } from 'bits-ui';
-	import { ArrowRight } from 'lucide-svelte';
+	import { ArrowRight, GitBranch, HelpCircle, Home } from 'lucide-svelte';
 
+	import LinkExternal from '@/components/ui-custom/linkExternal.svelte';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Button from '@/components/ui/button/button.svelte';
@@ -51,7 +52,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		{#if form.selectedVersion}
 			{#if form.availableSuites.length > 0}
-				<SectionCard title={m.Test_suites()}>
+				<SectionCard
+					title={m.Test_suites()}
+					subtitle={m.Select_official_test_suites_subtitle()}
+				>
+					{#snippet headerActions()}
+						<div class="flex gap-2">
+							{#if form.selectedStandard?.standard_url}
+								<LinkExternal
+									href={form.selectedStandard.standard_url}
+									text="{form.selectedStandard.name} {m.Standard()}"
+									icon={HelpCircle}
+									title={m.Learn_about_standard({
+										name: form.selectedStandard.name
+									})}
+								/>
+							{/if}
+
+							{#if form.selectedVersion?.specification_url}
+								<LinkExternal
+									href={form.selectedVersion.specification_url}
+									text="{form.selectedVersion.name} {m.Spec()}"
+									icon={GitBranch}
+									title={m.View_specification({
+										name: form.selectedVersion.name
+									})}
+								/>
+							{/if}
+						</div>
+					{/snippet}
+
 					{#if form.availableSuitesWithoutTests.length > 0}
 						{@render SuitesWithoutTestsSelect()}
 					{/if}
@@ -63,7 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			{#if form.availableCustomChecks.length > 0}
-				<SectionCard title={m.Custom_checks()}>
+				<SectionCard title={m.Custom_checks()} subtitle={m.Select_custom_checks_subtitle()}>
 					{@render CustomChecksSelect()}
 				</SectionCard>
 			{/if}
@@ -86,7 +116,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					'w-full space-y-1 border-b-2 p-4 md:w-[400px]',
 					{
 						'border-b-primary bg-secondary ': selected,
-						'cursor-pointer border-b-transparent hover:bg-secondary/35':
+						'hover:bg-secondary/35 cursor-pointer border-b-transparent':
 							!selected && !disabled,
 						'cursor-not-allowed border-b-transparent opacity-50': disabled
 					}
@@ -96,7 +126,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<RadioGroup.Item value={option.uid} id={option.uid} {disabled} />
 					<span class="text-lg font-bold">{option.name}</span>
 				</div>
-				<p class="text-sm text-muted-foreground">{option.description}</p>
+				<p class="text-muted-foreground text-sm">{option.description}</p>
 			</Label>
 		{/each}
 	</RadioGroup.Root>
@@ -118,7 +148,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet SuitesWithoutTestsSelect()}
-	<!-- This binding style is needed to avoid a svelte warning -->
 	<Check.Group
 		bind:value={() => form.selectedTests, (v) => (form.selectedTests = v)}
 		class="flex flex-col gap-6 overflow-auto"
@@ -135,13 +164,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet SuitesWithTestsSelect()}
-	<!-- This binding style is needed to avoid a svelte warning -->
 	<Check.Group
 		bind:value={() => form.selectedTests, (v) => (form.selectedTests = v)}
-		class="flex flex-col gap-6"
+		class="flex flex-col gap-8"
 	>
 		{#each form.availableSuitesWithTests as suite}
-			<div class="space-y-3 border-l-4 pl-4">
+			<div class="space-y-4">
 				<Check.GroupLabel>
 					{@render suiteLabel(suite)}
 				</Check.GroupLabel>
@@ -166,21 +194,46 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet CustomChecksSelect()}
-	<!-- This binding style is needed to avoid a svelte warning -->
 	<Check.Group
 		bind:value={() => form.selectedCustomChecksIds, (v) => (form.selectedCustomChecksIds = v)}
 		name="test-suites"
-		class="flex flex-col gap-2 overflow-auto"
+		class="flex flex-col gap-4 overflow-auto"
 	>
 		{#each form.availableCustomChecks as check}
-			<Label class="flex items-start gap-2 text-sm">
-				<Checkbox value={check.id} />
-				<div>
-					<T>{check.name}</T>
-					{#if check.description}
-						<T class="text-xs text-muted-foreground">
-							{check.description}
-						</T>
+			<Label class="flex items-start gap-3 text-sm">
+				<div class="w-4 pt-0.5">
+					<Checkbox value={check.id} />
+				</div>
+				<div class="min-w-0 flex-1 space-y-2">
+					<div>
+						<T class="font-medium">{check.name}</T>
+						{#if check.description}
+							<T class="text-muted-foreground text-xs">
+								{check.description}
+							</T>
+						{/if}
+					</div>
+
+					{#if check.homepage || check.repository}
+						<div class="flex flex-wrap gap-2 text-xs">
+							{#if check.homepage}
+								<LinkExternal
+									href={check.homepage}
+									text={m.Homepage()}
+									icon={Home}
+									title={m.Custom_check_homepage()}
+								/>
+							{/if}
+
+							{#if check.repository}
+								<LinkExternal
+									href={check.repository}
+									text={m.Repository()}
+									icon={GitBranch}
+									title={m.Custom_check_repository()}
+								/>
+							{/if}
+						</div>
 					{/if}
 				</div>
 			</Label>
@@ -189,11 +242,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet suiteLabel(suite: Suite)}
-	<div>
-		<T class="text-md font-bold">{suite.name}</T>
-		<T class="text-xs text-muted-foreground">
-			{suite.description}
-		</T>
+	<div class="space-y-3">
+		<div>
+			<T class="text-md font-bold">{suite.name}</T>
+			<T class="text-muted-foreground text-xs">
+				{suite.description}
+			</T>
+		</div>
+
+		{#if suite.help || suite.homepage || suite.repository}
+			<div class="flex flex-wrap gap-3 text-xs">
+				{#if suite.help}
+					<LinkExternal
+						href={suite.help}
+						text={m.Instructions()}
+						icon={HelpCircle}
+						title={m.Help_and_instructions()}
+					/>
+				{/if}
+
+				{#if suite.homepage}
+					<LinkExternal
+						href={suite.homepage}
+						text={m.Homepage()}
+						icon={Home}
+						title={m.Official_homepage()}
+					/>
+				{/if}
+
+				{#if suite.repository}
+					<LinkExternal
+						href={suite.repository}
+						text={m.Repository()}
+						icon={GitBranch}
+						title={m.Source_code_repository()}
+					/>
+				{/if}
+			</div>
+		{/if}
 	</div>
 {/snippet}
 
@@ -205,7 +291,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<ul class="flex items-center divide-x">
 					{#snippet CountItem(count: number, label: string)}
 						<li class="px-2">
-							<span class="font-bold text-primary">{count}</span>
+							<span class="text-primary font-bold">{count}</span>
 							{label}
 						</li>
 					{/snippet}

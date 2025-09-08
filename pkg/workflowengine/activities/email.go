@@ -42,9 +42,12 @@ func (a *SendMailActivity) Name() string {
 func (a *SendMailActivity) Configure(
 	input *workflowengine.ActivityInput,
 ) error {
+	if input.Config == nil {
+		input.Config = make(map[string]string)
+	}
 	input.Config["smtp_host"] = utils.GetEnvironmentVariable("SMTP_HOST", "smtp.apps.forkbomb.eu")
 	input.Config["smtp_port"] = utils.GetEnvironmentVariable("SMTP_PORT", "1025")
-	input.Config["sender"] = utils.GetEnvironmentVariable("MAIL_SENDER", "no-reply@credimi.io")
+	input.Payload["sender"] = utils.GetEnvironmentVariable("MAIL_SENDER", "no-reply@credimi.io")
 	return nil
 }
 
@@ -53,17 +56,30 @@ func (a *SendMailActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
-
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 	m := gomail.NewMessage()
-	m.SetHeader("From", input.Config["sender"])
-	m.SetHeader("To", input.Config["recipient"])
-	m.SetHeader("Subject", input.Payload["subject"].(string))
+	recipient, ok := input.Payload["recipient"].(string)
+	if !ok {
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'recipient'", errCode.Description),
+		)
+	}
+	subject, ok := input.Payload["subject"].(string)
+	if !ok {
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'subject'", errCode.Description),
+		)
+	}
+	m.SetHeader("From", input.Payload["sender"].(string))
+	m.SetHeader("To", recipient)
+	m.SetHeader("Subject", subject)
 	body, hasBody := input.Payload["body"].(string)
 	inputTemplate, hasTemplate := input.Payload["template"].(string)
 	data, hasData := input.Payload["data"].(map[string]any)
 	switch {
 	case hasBody && hasTemplate:
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return workflowengine.ActivityResult{}, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: 'body' and 'template' cannot both be provided in payload",

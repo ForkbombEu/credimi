@@ -30,6 +30,7 @@ export default defineConfig({
 			'codemirror',
 			'@codemirror/language-javascript',
 			'@codemirror/lang-json',
+			'@codemirror/lang-yaml',
 			'@codemirror/state',
 			'thememirror'
 		]
