@@ -32,7 +32,12 @@ func NewPipelineCmd(pbURL string) *cobra.Command {
 			// --- authenticate (if apiKey provided) ---
 			var bearerToken string
 			if apiKey != "" {
-				authReq, err := http.NewRequest("GET", fmt.Sprintf("%s/api/apikey/authenticate", pbURL), nil)
+				authReq, err := http.NewRequestWithContext(
+					cmd.Context(),
+					"GET",
+					fmt.Sprintf("%s/api/apikey/authenticate", pbURL),
+					nil,
+				)
 				if err != nil {
 					return fmt.Errorf("failed to create auth request: %w", err)
 				}
@@ -85,7 +90,12 @@ func NewPipelineCmd(pbURL string) *cobra.Command {
 				return err
 			}
 
-			req, err := http.NewRequest("POST", fmt.Sprintf("%s/api/pipeline/start", pbURL), bytes.NewBuffer(body))
+			req, err := http.NewRequestWithContext(
+				cmd.Context(),
+				"POST",
+				fmt.Sprintf("%s/api/pipeline/start", pbURL),
+				bytes.NewBuffer(body),
+			)
 			if err != nil {
 				return err
 			}
@@ -107,7 +117,8 @@ func NewPipelineCmd(pbURL string) *cobra.Command {
 	}
 
 	// flags
-	cmd.Flags().StringVarP(&yamlPath, "path", "p", "", "Path to YAML file (optional, otherwise reads from stdin)")
+	cmd.Flags().
+		StringVarP(&yamlPath, "path", "p", "", "Path to YAML file (optional, otherwise reads from stdin)")
 	cmd.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
 
 	return cmd
