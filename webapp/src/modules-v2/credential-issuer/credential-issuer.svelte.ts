@@ -88,7 +88,7 @@ export class Manager extends task.Runner implements ManagerDependencies {
 
 		$effect(() => {
 			if (!this.importedIssuer) return;
-			this.recordForm.changeMode({
+			this.recordForm.setMode({
 				mode: 'update',
 				record: this.importedIssuer
 			});

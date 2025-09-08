@@ -2,5 +2,5 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+export { default as Component } from './form.svelte';
 export * from './form.svelte.js';
-export * from './form.svelte.test.js';

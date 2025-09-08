@@ -6,7 +6,7 @@ import { form, pocketbase as pb, pocketbaseCrud, task, ui, type db } from '#';
 import { zod, type ValidationAdapter } from 'sveltekit-superforms/adapters';
 
 import { m } from '@/i18n';
-import { createCollectionZodSchema, type CollectionZodSchema } from '@/pocketbase/zod-schema';
+import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 
 import { recordToFormData } from './functions';
 
@@ -40,104 +40,88 @@ type State<C extends db.CollectionName> = UpdateState<C> | CreateState<C>;
 
 type Config<C extends db.CollectionName> = BaseConfig<C> & State<C>;
 
-export class Instance<
-	C extends db.CollectionName,
-	FormData extends db.CollectionFormData[C] = db.CollectionFormData[C]
-> {
+export class Instance<C extends db.CollectionName> {
 	runner = new task.Runner();
 	crud: pocketbaseCrud.Instance<C>;
-	form: form.Instance<FormData>;
+
+	private _form?: form.Instance<db.CollectionFormData[C]>;
+	get form() {
+		return this._form;
+	}
 
 	private currentState = $state<State<C>>();
 	get currentMode() {
 		return this.currentState?.mode;
 	}
 
-	/* Dynamic schema */
-
-	private baseSchema: CollectionZodSchema<C>;
-	private currentSchema = $derived.by(() =>
-		this.baseSchema.omit(
-			// @ts-expect-error - TODO: fix this
-			Object.fromEntries(this.currentExclude.map((key) => [key, true]))
-		)
-	);
-	private currentAdapter = $derived.by(
-		() => zod(this.currentSchema) as unknown as ValidationAdapter<FormData>
-	);
-
-	private currentExclude: pb.Field<C>[] = $derived.by(() => {
-		const { exclude = [] } = this.config;
-
-		const mode = this.currentMode;
-		if (!mode) return [];
-
-		const currentExclude: pb.Field<C>[] = [];
-		for (const item of exclude) {
-			if (typeof item === 'string') {
-				currentExclude.push(item);
-			} else if (mode in item && item[mode]) {
-				currentExclude.push(...item[mode]);
-			}
-		}
-		return currentExclude;
-	});
-
 	constructor(private readonly config: Config<C>) {
 		const { collection, crud, ...state } = config;
 		this.currentState = state;
 		this.crud = crud ?? new pocketbaseCrud.Instance(collection);
-		this.baseSchema = createCollectionZodSchema(collection);
-		this.form = this.createForm();
-		$effect(() => {
-			this.form = this.createForm();
-		});
+		this._form = this.buildForm(state);
 	}
 
-	private createForm() {
+	async submit() {
+		await this.form?.submit();
+	}
+
+	async setMode(mode: State<C>) {
+		this.currentState = mode;
+		this._form = this.buildForm(mode);
+	}
+
+	/* Utils */
+
+	private buildForm(s: State<C>) {
+		const { runner, crud } = this;
+		const { onSuccess } = this.config;
+
+		let input: Partial<pb.BaseRecord<C>>;
+		if (s.mode === 'create') {
+			input = s.initialData;
+		} else {
+			input = s.record;
+		}
+
 		return new form.Instance({
-			adapter: this.currentAdapter,
-			onSubmit: (data) => this.submit(data),
+			adapter: this.buildAdapter(s.mode),
+			initialData: recordToFormData(this.config.collection, input),
+			onSubmit: async (data) => {
+				let result: db.CollectionResponses[C];
+				if (s.mode === 'create') {
+					result = await runner.run(crud.create(data));
+					ui.toast.success(m.Record_created_successfully());
+				} else {
+					result = await runner.run(crud.update(s.record.id, data));
+					ui.toast.success(m.Record_updated_successfully());
+				}
+				await onSuccess?.(s.mode, result);
+			},
 			onError: (error) => {
 				ui.toast.error(error.message);
 			}
 		});
 	}
 
-	async submit(data: db.CollectionFormData[C]) {
-		const {
-			runner,
-			crud,
-			currentState,
-			config: { onSuccess }
-		} = this;
-		let result: db.CollectionResponses[C];
-
-		if (currentState?.mode == 'create') {
-			result = await runner.run(crud.create(data));
-			ui.toast.success(m.Record_created_successfully());
-		} else if (currentState?.mode == 'update') {
-			const { record } = currentState;
-			result = await runner.run(crud.update(record.id, data));
-			ui.toast.success(m.Record_updated_successfully());
-		} else {
-			return;
-		}
-		await onSuccess?.(currentState.mode, result);
+	private buildAdapter(mode: Mode): ValidationAdapter<db.CollectionFormData[C]> {
+		const exclude = this.buildExcludedFields(mode);
+		const schema = createCollectionZodSchema(this.config.collection).omit(
+			// @ts-expect-error - TODO: fix this
+			Object.fromEntries(exclude.map((key) => [key, true]))
+		);
+		return zod(schema) as unknown as ValidationAdapter<db.CollectionFormData[C]>;
 	}
 
-	async changeMode(mode: State<C>) {
-		this.form.superform?.reset();
-		this.currentState = mode;
-
-		let input: Partial<pb.BaseRecord<C>>;
-		if (mode.mode === 'create') {
-			input = mode.initialData;
-		} else {
-			input = mode.record;
+	private buildExcludedFields(mode: Mode): pb.Field<C>[] {
+		const { exclude: excludeOption = [] } = this.config;
+		const exclude: pb.Field<C>[] = [];
+		for (const item of excludeOption) {
+			if (typeof item === 'string') {
+				exclude.push(item);
+			} else if (mode in item && item[mode]) {
+				exclude.push(...item[mode]);
+			}
 		}
-
-		const formData = recordToFormData(this.config.collection, input) as Partial<FormData>;
-		await this.form.update(formData, { validate: false });
+		return exclude;
 	}
 }

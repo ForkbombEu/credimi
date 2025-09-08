@@ -21,7 +21,7 @@ const schema = z.object({
 type Schema = z.infer<typeof schema>;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export function mountComponent<Form extends form.Instance<any>>(form: Form) {
+function mountComponent<Form extends form.Instance<any>>(form: Form) {
 	return mount(FormComponent, {
 		target: document.body,
 		props: { form }

@@ -2,37 +2,42 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { form as f, pocketbase as pb, pocketbaseCrud } from '#';
-import { afterEach, beforeEach, describe, expect, test } from 'vitest';
+import { pocketbase as pb, pocketbaseCrud } from '#';
+import { mount } from 'svelte';
+import { beforeEach, describe, expect, test } from 'vitest';
 
 import { Collections, type CredentialIssuersResponse } from '@/pocketbase/types';
+
+//
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function mountComponent<Form extends pb.recordform.Instance<any>>(form: Form) {
+	return mount(pb.recordform.Component, {
+		target: document.body,
+		props: { form }
+	});
+}
 
 describe('Pocketbase Record Form', () => {
 	let form: pb.recordform.Instance<'credential_issuers'>;
 
-	let cleanup: () => void;
 	beforeEach(() => {
-		cleanup = $effect.root(() => {
-			form = new pb.recordform.Instance({
-				collection: 'credential_issuers',
-				mode: 'create',
-				initialData: {},
-				crud: new pocketbaseCrud.Instance('credential_issuers', {
-					client: pocketbaseCrud.createMockClient()
-				})
-			});
-			f.mountComponent(form.form);
+		form = new pb.recordform.Instance({
+			collection: 'credential_issuers',
+			mode: 'create',
+			initialData: {},
+			crud: new pocketbaseCrud.Instance('credential_issuers', {
+				client: pocketbaseCrud.createMockClient()
+			})
 		});
-	});
-	afterEach(() => {
-		cleanup();
+
+		mountComponent(form);
 	});
 
 	test('should create a form', () => {
 		expect(form).toBeDefined();
 	});
 
-	// TODO - Does not work because superform must be mounted before updates can work
 	test('should change mode', async () => {
 		const record: CredentialIssuersResponse = {
 			id: '1',
@@ -51,13 +56,13 @@ describe('Pocketbase Record Form', () => {
 			url: 'Test',
 			collectionName: Collections.CredentialIssuers
 		};
-		await form.changeMode({
+		await form.setMode({
 			mode: 'update',
 			record
 		});
 		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		const { collectionId, collectionName, ...rest } = record;
 		expect(form.currentMode).toEqual('update');
-		expect(form.form.values).toEqual(rest);
+		expect(form.form?.values).toEqual(rest);
 	});
 });
