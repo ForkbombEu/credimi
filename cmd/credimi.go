@@ -9,6 +9,7 @@ import (
 	"log"
 
 	// Blank import to initialize database migrations
+	"github.com/forkbombeu/credimi/cmd/cli"
 	_ "github.com/forkbombeu/credimi/migrations"
 	"github.com/forkbombeu/credimi/pkg/routes"
 	"github.com/pocketbase/pocketbase"
@@ -28,6 +29,9 @@ func Start() {
 		"                                 \033[48;2;0;0;139m\033[38;2;255;255;255m with ❤ by Forkbomb hackers \033[0m\n"
 
 	routes.Setup(app)
+
+	app.RootCmd.AddCommand(cli.NewPipelineCmd(app.Settings().Meta.AppURL))
+
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
