@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -20,14 +21,12 @@ var (
 )
 
 // NewPipelineCmd creates the "pipeline" command, using the PocketBase URL.
-func NewPipelineCmd(pbURL string) *cobra.Command {
+func NewPipelineCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pipeline",
 		Short: "Start a pipeline workflow",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if pbURL == "" {
-				return fmt.Errorf("PocketBase URL not provided")
-			}
+			pbURL := utils.GetEnvironmentVariable("APP_URL", "https://demo.credimi.io", true)
 
 			// --- authenticate (if apiKey provided) ---
 			var bearerToken string

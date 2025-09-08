@@ -12,6 +12,7 @@ import (
 	"github.com/forkbombeu/credimi/cmd/cli"
 	_ "github.com/forkbombeu/credimi/migrations"
 	"github.com/forkbombeu/credimi/pkg/routes"
+	"github.com/joho/godotenv"
 	"github.com/pocketbase/pocketbase"
 )
 
@@ -30,8 +31,11 @@ func Start() {
 
 	routes.Setup(app)
 
-	app.RootCmd.AddCommand(cli.NewPipelineCmd(app.Settings().Meta.AppURL))
+	app.RootCmd.AddCommand(cli.NewPipelineCmd())
 
+	if err := godotenv.Load(); err != nil {
+		log.Fatal(err)
+	}
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
