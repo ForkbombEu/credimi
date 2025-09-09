@@ -6,7 +6,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
-	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
+	import type {
+		CredentialIssuersResponse,
+		CredentialsFormData,
+		CredentialsResponse
+	} from '@/pocketbase/types';
 
 	import { CollectionForm } from '@/collections-components';
 	import { Separator } from '@/components/ui/separator';
@@ -21,17 +25,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		credential: CredentialsResponse;
 		credentialIssuer: CredentialIssuersResponse;
 		onSuccess?: () => void;
+		mode?: 'edit' | 'create';
 	};
 
-	let { credential, credentialIssuer, onSuccess }: Props = $props();
-</script>
+	let { credential, credentialIssuer, onSuccess, mode = 'edit' }: Props = $props();
 
-<CollectionForm
-	collection="credentials"
-	recordId={credential.id}
-	initialData={credential}
-	fieldsOptions={{
-		exclude: [
+	type Field = keyof CredentialsFormData;
+	const exclude: Field[] = $derived.by(() => {
+		const commonFields: Field[] = [
 			'format',
 			'issuer_name',
 			'type',
@@ -46,7 +47,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'published',
 			'imported',
 			'yaml'
-		],
+		];
+		if (mode === 'create') {
+			commonFields.push('yaml');
+		}
+		return commonFields;
+	});
+</script>
+
+<CollectionForm
+	collection="credentials"
+	recordId={credential.id}
+	initialData={credential}
+	fieldsOptions={{
+		exclude,
 		order: ['deeplink'],
 		labels: {
 			published: m.Publish_to_marketplace(),
