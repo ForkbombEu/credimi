@@ -26,7 +26,7 @@ func TestStepCIActivity_Configure(t *testing.T) {
 	tests := []struct {
 		name             string
 		config           map[string]string
-		payload          map[string]interface{}
+		payload          map[string]any
 		expectedYAML     string
 		expectError      bool
 		expectedErrorMsg errorcodes.Code
@@ -34,10 +34,9 @@ func TestStepCIActivity_Configure(t *testing.T) {
 		{
 			name: "Success - valid template",
 			config: map[string]string{
-				"token":    "secret-value",
 				"template": `hello: [[ .name ]]`,
 			},
-			payload: map[string]interface{}{
+			payload: map[string]any{
 				"name": "world",
 			},
 			expectedYAML: "hello: world",
@@ -52,7 +51,7 @@ func TestStepCIActivity_Configure(t *testing.T) {
 			name: "Failure - invalid template syntax",
 			config: map[string]string{
 				"template": `[[ .name ]`},
-			payload: map[string]interface{}{
+			payload: map[string]any{
 				"name": "bad",
 			},
 			expectError:      true,
@@ -124,8 +123,7 @@ func TestStepCIActivity_Execute(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		payload          map[string]interface{}
-		config           map[string]string
+		payload          map[string]any
 		expectedError    bool
 		expectedErrorMsg errorcodes.Code
 		expectedCaptures any
@@ -133,7 +131,7 @@ func TestStepCIActivity_Execute(t *testing.T) {
 	}{
 		{
 			name: "Success - valid execution",
-			payload: map[string]interface{}{
+			payload: map[string]any{
 				"yaml": `
 version: "1.1"
 tests:
@@ -157,13 +155,14 @@ tests:
             test:
               jsonpath: $.id
 `,
+				"secrets": map[string]string{"test_secret": "https://httpbin.org/status/404"},
 			},
-			config:           map[string]string{"test_secret": "https://httpbin.org/status/404"},
+
 			expectedCaptures: map[string]any{"test": float64(1)},
 		},
 		{
 			name: "Failure - missing runner binary",
-			payload: map[string]interface{}{
+			payload: map[string]any{
 				"yaml": "version: 1.0",
 			},
 			expectedError:    true,
@@ -171,8 +170,7 @@ tests:
 		},
 		{
 			name:             "Failure - incorrect secrets",
-			payload:          map[string]any{"yaml": "version: 1.0"},
-			config:           map[string]string{"wrongToken": "invalid-token"},
+			payload:          map[string]any{"yaml": "version: 1.0", "secrets": map[string]string{"wrongToken": "invalid-token"}},
 			expectedError:    true,
 			expectedErrorMsg: errorcodes.Codes[errorcodes.StepCIRunFailed],
 		},
@@ -200,8 +198,8 @@ tests:
             test:
               jsonpath: $
 `,
+				"secrets": map[string]string{"test_secret": "https://httpbin.org/status/404"},
 			},
-			config:           map[string]string{"test_secret": "https://httpbin.org/status/404"},
 			expectedError:    true,
 			expectedErrorMsg: errorcodes.Codes[errorcodes.StepCIRunFailed],
 		},
@@ -218,7 +216,6 @@ tests:
 			activity := &StepCIWorkflowActivity{}
 			input := workflowengine.ActivityInput{
 				Payload: tc.payload,
-				Config:  tc.config,
 			}
 			var result workflowengine.ActivityResult
 			future, err := env.ExecuteActivity(activity.Execute, input)

@@ -3,8 +3,9 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { error } from '@sveltejs/kit';
-import { loadFeatureFlags } from '@/features';
+
 import { verifyUser } from '@/auth/verifyUser';
+import { loadFeatureFlags } from '@/features';
 import { redirect } from '@/i18n';
 
 export const load = async ({ fetch }) => {

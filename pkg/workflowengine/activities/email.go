@@ -5,8 +5,10 @@
 package activities
 
 import (
+	"bytes"
 	"context"
 	"fmt"
+	"html/template"
 	"io"
 	"strconv"
 
@@ -40,24 +42,77 @@ func (a *SendMailActivity) Name() string {
 func (a *SendMailActivity) Configure(
 	input *workflowengine.ActivityInput,
 ) error {
+	if input.Config == nil {
+		input.Config = make(map[string]string)
+	}
 	input.Config["smtp_host"] = utils.GetEnvironmentVariable("SMTP_HOST", "smtp.apps.forkbomb.eu")
 	input.Config["smtp_port"] = utils.GetEnvironmentVariable("SMTP_PORT", "1025")
-	input.Config["sender"] = utils.GetEnvironmentVariable("MAIL_SENDER", "no-reply@credimi.io")
+	input.Payload["sender"] = utils.GetEnvironmentVariable("MAIL_SENDER", "no-reply@credimi.io")
 	return nil
 }
 
-// Execute sends an email using the provided SMTP configuration and payload.
 func (a *SendMailActivity) Execute(
 	_ context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
-
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 	m := gomail.NewMessage()
-	m.SetHeader("From", input.Config["sender"])
-	m.SetHeader("To", input.Config["recipient"])
-	m.SetHeader("Subject", input.Payload["subject"].(string))
-	m.SetBody("text/html", input.Payload["body"].(string))
+	recipient, ok := input.Payload["recipient"].(string)
+	if !ok {
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'recipient'", errCode.Description),
+		)
+	}
+	subject, ok := input.Payload["subject"].(string)
+	if !ok {
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'subject'", errCode.Description),
+		)
+	}
+	m.SetHeader("From", input.Payload["sender"].(string))
+	m.SetHeader("To", recipient)
+	m.SetHeader("Subject", subject)
+	body, hasBody := input.Payload["body"].(string)
+	inputTemplate, hasTemplate := input.Payload["template"].(string)
+	data, hasData := input.Payload["data"].(map[string]any)
+	switch {
+	case hasBody && hasTemplate:
+		return workflowengine.ActivityResult{}, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'body' and 'template' cannot both be provided in payload",
+				errCode.Description),
+		)
+	case hasBody:
+		m.SetBody("text/plain", body)
+	case hasTemplate && hasData:
+		tmpl, err := template.New("email").Parse(inputTemplate)
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+			return workflowengine.ActivityResult{}, a.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s: %v", errCode.Description, err),
+			)
+		}
+		var bodyBuffer bytes.Buffer
+		if err := tmpl.Execute(&bodyBuffer, data); err != nil {
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+			return workflowengine.ActivityResult{}, a.NewActivityError(
+				errCode.Code,
+				fmt.Sprintf("%s: %v", errCode.Description, err),
+			)
+		}
+		m.SetBody("text/html", bodyBuffer.String())
+	default:
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return workflowengine.ActivityResult{}, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: either 'body' or both 'template' and 'data' must be provided in payload",
+				errCode.Description),
+		)
+	}
 
 	// Attach any files if necessary
 	attachments, ok := input.Payload["attachments"].(map[string][]byte)

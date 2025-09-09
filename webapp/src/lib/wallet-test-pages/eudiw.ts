@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { z } from 'zod';
 import { LogStatus, type WorkflowLogsProps } from '$wallet-test/_partials/workflow-logs';
+import { z } from 'zod';
 
 //
 

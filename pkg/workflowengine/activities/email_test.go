@@ -29,7 +29,8 @@ func (m *MockDialer) DialAndSend(msg *gomail.Message) error {
 func TestSendMailActivity_Configure(t *testing.T) {
 	activity := NewSendMailActivity()
 	input := &workflowengine.ActivityInput{
-		Config: make(map[string]string),
+		Config:  make(map[string]string),
+		Payload: make(map[string]any),
 	}
 	tests := []struct {
 		name     string
@@ -54,7 +55,7 @@ func TestSendMailActivity_Configure(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "smtp.example.com", input.Config["smtp_host"])
 			require.Equal(t, "587", input.Config["smtp_port"])
-			require.Equal(t, "sender@example.com", input.Config["sender"])
+			require.Equal(t, "sender@example.com", input.Payload["sender"])
 		})
 	}
 }
@@ -81,7 +82,7 @@ func TestSendMailActivity_Execute(t *testing.T) {
 		name            string
 		input           workflowengine.ActivityInput
 		expectedOutput  string
-		expectedErr     string
+		expectedErr     bool
 		expectedErrCode errorcodes.Code
 	}{
 		{
@@ -90,16 +91,15 @@ func TestSendMailActivity_Execute(t *testing.T) {
 				Config: map[string]string{
 					"smtp_host": "localhost", // point to the smtpmock server
 					"smtp_port": "2525",
-					"sender":    "sender@example.com",
-					"recipient": "recipient@example.com",
 				},
 				Payload: map[string]interface{}{
-					"subject": "Test Email",
-					"body":    "<html><body>Test email body</body></html>",
+					"sender":    "sender@example.com",
+					"recipient": "recipient@example.com",
+					"subject":   "Test Email",
+					"body":      "<html><body>Test email body</body></html>",
 				},
 			},
 			expectedOutput: "Email sent successfully",
-			expectedErr:    "",
 		},
 		{
 			name: "Failure - missing recipient email",
@@ -107,16 +107,16 @@ func TestSendMailActivity_Execute(t *testing.T) {
 				Config: map[string]string{
 					"smtp_host": "localhost",
 					"smtp_port": "2525",
-					"sender":    "sender@example.com",
 				},
 				Payload: map[string]interface{}{
+					"sender":  "sender@example.com",
 					"subject": "Test Email",
 					"body":    "<html><body>Test email body</body></html>",
 				},
 			},
 			expectedOutput:  "Email sending failed",
-			expectedErr:     "no address",
-			expectedErrCode: errorcodes.Codes[errorcodes.EmailSendFailed],
+			expectedErr:     true,
+			expectedErrCode: errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
 		},
 	}
 
@@ -124,9 +124,8 @@ func TestSendMailActivity_Execute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var result workflowengine.ActivityResult
 			future, err := env.ExecuteActivity(activity.Execute, tt.input)
-			if tt.expectedErr != "" {
+			if tt.expectedErr {
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tt.expectedErr)
 				require.Contains(t, err.Error(), tt.expectedErrCode.Code)
 				require.Contains(t, err.Error(), tt.expectedErrCode.Description)
 			} else {

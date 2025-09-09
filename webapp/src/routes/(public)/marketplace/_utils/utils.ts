@@ -2,17 +2,21 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { queryParams } from '$routes/my/tests/new/+page.svelte';
+import { CheckCheck, CheckCircle, QrCode, ShieldCheck, Users, Wallet } from 'lucide-svelte';
+import { z } from 'zod';
+
+import type { CollectionName } from '@/pocketbase/collections-models';
+
 import { localizeHref, m } from '@/i18n';
 import { pb } from '@/pocketbase';
-import type { CollectionName } from '@/pocketbase/collections-models';
-import MarketplaceItemTypeDisplay from './marketplace-item-type-display.svelte';
+
 import MarketplaceItemCard from './marketplace-item-card.svelte';
-import { z } from 'zod';
-import { queryParams } from '$routes/my/tests/new/+page.svelte';
+import MarketplaceItemTypeDisplay from './marketplace-item-type-display.svelte';
 
 //
 
-export { MarketplaceItemTypeDisplay, MarketplaceItemCard };
+export { MarketplaceItemCard, MarketplaceItemTypeDisplay };
 
 /* -- Marketplace item types -- */
 
@@ -55,6 +59,9 @@ export type MarketplaceItemDisplayData = {
 	labelPlural: string;
 	bgClass: string;
 	textClass: string;
+	backgroundClass: string;
+	outlineClass: string;
+	icon: typeof Wallet;
 };
 
 type MarketplaceItemsDisplayConfig = {
@@ -65,38 +72,56 @@ const marketplaceItemsDisplayConfig: MarketplaceItemsDisplayConfig = {
 	wallets: {
 		label: m.Wallet(),
 		labelPlural: m.Wallets(),
-		bgClass: 'bg-blue-500',
-		textClass: 'text-blue-500'
+		bgClass: 'bg-[hsl(var(--blue-foreground))]',
+		textClass: 'text-[hsl(var(--blue-foreground))]',
+		backgroundClass: 'bg-[hsl(var(--blue-background))]',
+		outlineClass: 'border-[hsl(var(--blue-outline))]',
+		icon: Wallet
 	},
 	custom_checks: {
 		label: m.Custom_check(),
 		labelPlural: m.Custom_checks(),
-		bgClass: 'bg-purple-500',
-		textClass: 'text-purple-500'
+		bgClass: 'bg-[hsl(var(--purple-foreground))]',
+		textClass: 'text-[hsl(var(--purple-foreground))]',
+		backgroundClass: 'bg-[hsl(var(--purple-background))]',
+		outlineClass: 'border-[hsl(var(--purple-outline))]',
+		icon: CheckCheck
 	},
 	credential_issuers: {
 		label: m.Credential_issuer(),
 		labelPlural: m.Credential_issuers(),
-		bgClass: 'bg-green-700',
-		textClass: 'text-green-700'
+		bgClass: 'bg-[hsl(var(--green-foreground))]',
+		textClass: 'text-[hsl(var(--green-foreground))]',
+		backgroundClass: 'bg-[hsl(var(--green-background))]',
+		outlineClass: 'border-[hsl(var(--green-outline))]',
+		icon: Users
 	},
 	credentials: {
 		label: m.Credential(),
 		labelPlural: m.Credentials(),
-		bgClass: 'bg-green-400',
-		textClass: 'text-green-400'
+		bgClass: 'bg-[hsl(var(--green-light-foreground))]',
+		textClass: 'text-[hsl(var(--green-light-foreground))]',
+		backgroundClass: 'bg-[hsl(var(--green-light-background))]',
+		outlineClass: 'border-[hsl(var(--green-light-outline))]',
+		icon: QrCode
 	},
 	verifiers: {
 		label: m.Verifier(),
 		labelPlural: m.Verifiers(),
-		bgClass: 'bg-red-600',
-		textClass: 'text-red-600'
+		bgClass: 'bg-[hsl(var(--red-foreground))]',
+		textClass: 'text-[hsl(var(--red-foreground))]',
+		backgroundClass: 'bg-[hsl(var(--red-background))]',
+		outlineClass: 'border-[hsl(var(--red-outline))]',
+		icon: ShieldCheck
 	},
 	use_cases_verifications: {
 		label: m.Use_case_verification(),
 		labelPlural: m.Use_case_verifications(),
-		bgClass: 'bg-orange-400',
-		textClass: 'text-orange-400'
+		bgClass: 'bg-[hsl(var(--orange-foreground))]',
+		textClass: 'text-[hsl(var(--orange-foreground))]',
+		backgroundClass: 'bg-[hsl(var(--orange-background))]',
+		outlineClass: 'border-[hsl(var(--orange-outline))]',
+		icon: CheckCircle
 	}
 };
 

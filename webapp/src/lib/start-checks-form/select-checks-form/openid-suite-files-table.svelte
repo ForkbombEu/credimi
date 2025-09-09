@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as Table from '@/components/ui/table';
 	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
+	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n/index.js';
 
 	//
@@ -47,7 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@const value = `${suiteUid}/${fileId}`}
 			{@const label = fileId.split('.').slice(0, -1).join('.')}
 			{@const [format, scheme, method, mode] = label.split(':')}
-			<Table.Row class="even:bg-muted border-0 align-middle">
+			<Table.Row class="border-0 align-middle even:bg-muted">
 				<Table.Cell>
 					<Checkbox {value} />
 				</Table.Cell>

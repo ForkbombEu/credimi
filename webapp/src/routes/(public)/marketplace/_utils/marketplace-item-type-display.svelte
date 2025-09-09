@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import T from '@/components/ui-custom/t.svelte';
 	import type { MarketplaceItemDisplayData } from '.';
 
 	type Props = {
@@ -13,9 +12,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { data }: Props = $props();
+
+	const IconComponent = $derived(data?.icon);
 </script>
 
-<div class="flex items-center gap-1">
-	<div class="{data?.bgClass} size-1.5 rounded-full"></div>
-	<T class="{data?.textClass} text-sm">{data?.label}</T>
+<div
+	class="inline-flex items-center gap-1.5 rounded-sm border px-2.5 py-1 text-xs font-bold {data?.backgroundClass} {data?.outlineClass} {data?.textClass}"
+>
+	{#if IconComponent}
+		<IconComponent class="h-4 w-4" />
+	{/if}
+	{data?.label}
 </div>

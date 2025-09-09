@@ -6,8 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Form } from '@/forms';
-	import ConfigFormInput from './check-config-form-input.svelte';
+
 	import type { CheckConfigFormEditor } from './check-config-form-editor.svelte.js';
+
+	import ConfigFormInput from './check-config-form-input.svelte';
 
 	//
 

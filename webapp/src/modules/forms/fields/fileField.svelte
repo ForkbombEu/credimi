@@ -5,23 +5,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="Data extends GenericRecord">
-	import type { GenericRecord } from '@/utils/types';
-	import type { SuperForm, FormPath } from 'sveltekit-superforms';
-	import { fieldProxy } from 'sveltekit-superforms';
-	import * as Form from '@/components/ui/form';
-	import FieldWrapper from './parts/fieldWrapper.svelte';
-	import FileManager from '@/components/ui-custom/fileManager.svelte';
-	import Input from '@/components/ui/input/input.svelte';
-	import type { FieldOptions } from './types';
-	import type { Writable } from 'svelte/store';
 	import type { ComponentProps, Snippet } from 'svelte';
-	import { createFilesValidator } from './fileField';
+	import type { Writable } from 'svelte/store';
+	import type { FormPath, SuperForm } from 'sveltekit-superforms';
+
+	import { UploadIcon } from 'lucide-svelte';
+	import { fieldProxy } from 'sveltekit-superforms';
+
+	import type { GenericRecord } from '@/utils/types';
+
+	import FileManager from '@/components/ui-custom/fileManager.svelte';
 	import { Button } from '@/components/ui/button';
+	import * as Form from '@/components/ui/form';
+	import Input from '@/components/ui/input/input.svelte';
+
+	import type { FieldOptions } from './types';
+
+	import { createFilesValidator } from './fileField';
+	import FieldWrapper from './parts/fieldWrapper.svelte';
 
 	//
 
 	type Props = {
+		// eslint-disable-next-line no-undef
 		form: SuperForm<Data>;
+		// eslint-disable-next-line no-undef
 		name: FormPath<Data>;
 		variant?: ComponentProps<typeof Button>['variant'];
 		class?: string;
@@ -36,9 +44,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		form,
 		name,
 		class: className,
-		variant = 'default',
+		variant = 'outline',
 		options = {},
-		children
+		children: child
 	}: Props = $props();
 
 	const multiple = $derived(options.multiple ?? false);
@@ -67,10 +75,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						onclick={() => fileInput.click()}
 						class={['w-full', className]}
 					>
-						{#if children}
-							{@render children({ addFiles })}
+						{#if child}
+							{@render child()}
 						{:else}
-							{options.placeholder}
+							<UploadIcon />{options.placeholder}
 						{/if}
 					</Button>
 					<input

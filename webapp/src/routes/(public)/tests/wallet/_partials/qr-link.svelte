@@ -4,10 +4,10 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 <script lang="ts">
-	import { QrCode } from '@/qr';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
+	import { QrCode } from '@/qr';
 
 	type Props = { qr?: string };
 	let { qr }: Props = $props();
@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if qr}
 	<QrCode src={qr} class="size-40 rounded-sm" />
-	<p class="text-primary max-w-sm break-all p-4 font-mono text-xs hover:underline">
+	<p class="max-w-sm break-all p-4 font-mono text-xs text-primary hover:underline">
 		{qr}
 	</p>
 {:else}

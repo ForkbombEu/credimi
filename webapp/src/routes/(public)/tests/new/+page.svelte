@@ -5,12 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { getUserOrganization } from '$lib/utils';
+	import CredentialIssuerForm from '$services-and-products/_credentials/credential-issuer-form/credential-issuer-form.svelte';
+	import { CheckCircle2 } from 'lucide-svelte';
+
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import CredentialIssuerForm from '$services-and-products/_credentials/credential-issuer-form/credential-issuer-form.svelte';
+
 	import WalletForm from './_partials/wallet-form.svelte';
-	import { CheckCircle2 } from 'lucide-svelte';
-	import { getUserOrganization } from '$lib/utils';
 
 	//
 

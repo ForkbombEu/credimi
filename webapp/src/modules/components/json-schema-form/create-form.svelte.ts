@@ -2,11 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { createFormValidator } from '@sjsf/ajv8-validator';
 import { createForm, ON_CHANGE, ON_INPUT, ON_BLUR } from '@sjsf/form';
+import { preventPageReload } from '@sjsf/form/prevent-page-reload.svelte';
 import { resolver } from '@sjsf/form/resolvers/basic';
 import { translation } from '@sjsf/form/translations/en';
-import { createFormValidator } from '@sjsf/ajv8-validator';
-import { preventPageReload } from '@sjsf/form/prevent-page-reload.svelte';
 import { theme } from '@sjsf/shadcn-theme';
 import { nanoid } from 'nanoid';
 

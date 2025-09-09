@@ -12,22 +12,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { FolderIcon, MessageCircleWarning, SearchIcon } from 'lucide-svelte';
 
-	// Logic - Types
 	import type { FormOptions as SuperformsOptions } from '@/forms';
 	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type {
 		PocketbaseQueryAgentOptions,
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		PocketbaseQueryExpandOption,
 		PocketbaseQueryOptions,
 		PocketbaseQueryResponse
 	} from '@/pocketbase/query';
 	import type { CollectionFormData } from '@/pocketbase/types';
 
-	// Components
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
-	// UI
 	import { m } from '@/i18n';
-	// Logic
 	import { setupComponentPocketbaseSubscriptions } from '@/pocketbase/subscriptions';
 
 	import type {
@@ -113,7 +110,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		queryOptions = {},
 		queryAgentOptions = {},
 		hide = [],
-		subscribe = 'expanded_collections',
 		top,
 		records,
 		emptyState,

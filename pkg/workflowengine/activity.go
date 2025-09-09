@@ -16,15 +16,15 @@ import (
 // ActivityInput represents the input to an activity, including payload and configuration.
 // The payload is a map of string keys to any type of value.
 type ActivityInput struct {
-	Payload map[string]any
-	Config  map[string]string
+	Payload map[string]any    `json:"payload,omitempty"`
+	Config  map[string]string `json:"config,omitempty"`
 }
 
 // ActivityResult represents the result of an activity execution, including output, errors, and logs.
 // It is designed to be extensible, allowing for different types of output and error handling.
 type ActivityResult struct {
-	Output any
-	Log    []string
+	Output any      `json:"output,omitempty"`
+	Log    []string `json:"log,omitempty"`
 }
 
 // BaseActivity provides the common interface for all activities.
@@ -68,3 +68,14 @@ func (a *BaseActivity) NewNonRetryableActivityError(
 	msg := fmt.Sprintf("[%s]: %s", a.Name, errorMsg)
 	return temporal.NewNonRetryableApplicationError(msg, errorType, nil, activityPayload)
 }
+
+// OutputKind represents the expected type of an activity output.
+type OutputKind int
+
+const (
+	OutputAny OutputKind = iota
+	OutputString
+	OutputMap
+	OutputArrayOfString
+	OutputArrayOfMap
+)

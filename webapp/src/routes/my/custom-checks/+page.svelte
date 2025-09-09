@@ -5,15 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Pencil, Plus } from 'lucide-svelte';
+
 	import { CollectionManager } from '@/collections-components';
-	import { m } from '@/i18n';
-	import { pb } from '@/pocketbase';
-	import T from '@/components/ui-custom/t.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { Pencil, Plus } from 'lucide-svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
 
 	let { data } = $props();
 	const organizationId = $derived(data.organization?.id);
@@ -49,7 +50,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<div>
 								<T class="font-bold">{record.name}</T>
 								<T class="mb-2 font-mono text-xs">{record.standard_and_version}</T>
-								<T class="text-sm text-gray-400"><RenderMd content={record.description}></RenderMd></T>
+								<T class="text-sm text-gray-400"
+									><RenderMd content={record.description}></RenderMd></T
+								>
 							</div>
 						</div>
 

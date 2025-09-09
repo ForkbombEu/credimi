@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+
 	import { cn } from '@/components/ui/utils';
 
 	type Props = {
@@ -16,6 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { class: className = '', children }: Props = $props();
 </script>
 
-<div class={cn('grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6 lg:grid-cols-3', className)}>
+<div class={cn('grid grid-cols-1 gap-4 md:grid-cols-2 md:gap-6', className)}>
 	{@render children?.()}
 </div>

@@ -5,38 +5,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <mjml>
-  <mj-head>
-    <mj-title>{{.UserName}} requested to join {{.OrganizationName}}</mj-title>
-    <mj-include path="../_components/attributes.mjml" />
-  </mj-head>
+	<mj-head>
+		<mj-title>{{.UserName}} requested to join {{.OrganizationName}}</mj-title>
+		<mj-include path="../_components/attributes.mjml" />
+	</mj-head>
 
-  <mj-body>
-    <mj-include path="../_components/header.mjml" />
+	<mj-body>
+		<mj-include path="../_components/header.mjml" />
 
-    <mj-section>
-      <mj-column>
-        <mj-text mj-class="big">New membership request
-        </mj-text>
+		<mj-section>
+			<mj-column>
+				<mj-text mj-class="big">New membership request </mj-text>
 
-        <mj-text>
-          Hello {{.Admin}},
-        </mj-text>
+				<mj-text> Hello {{.Admin}}, </mj-text>
 
-        <mj-text>
-          <strong>{{.UserName}}</strong> is asking to join {{.OrganizationName}} on {{.AppName}}.
-        </mj-text>
+				<mj-text>
+					<strong>{{.UserName}}</strong> is asking to join {{.OrganizationName}} on
+					{{.AppName}}.
+				</mj-text>
 
-        <mj-text>
-          Login to your Dashboard to accept or decline this request:
-        </mj-text>
+				<mj-text> Login to your Dashboard to accept or decline this request: </mj-text>
 
 				<mj-button href="{{.DashboardLink}}" mj-class="btn-primary">
-          Go to my Dashboard
-        </mj-button>
+					Go to my Dashboard
+				</mj-button>
+			</mj-column>
+		</mj-section>
 
-      </mj-column>
-    </mj-section>
-
-    <mj-include path="../_components/footer.mjml" />
-  </mj-body>
+		<mj-include path="../_components/footer.mjml" />
+	</mj-body>
 </mjml>

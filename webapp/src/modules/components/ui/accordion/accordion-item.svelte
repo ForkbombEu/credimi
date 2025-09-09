@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Accordion as AccordionPrimitive } from "bits-ui";
-	import { cn } from "@/components/ui/utils.js";
+	import { Accordion as AccordionPrimitive } from 'bits-ui';
+
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -15,4 +16,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}: AccordionPrimitive.ItemProps = $props();
 </script>
 
-<AccordionPrimitive.Item bind:ref class={cn("border-b", className)} {...restProps} />
+<AccordionPrimitive.Item bind:ref class={cn('border-b', className)} {...restProps} />

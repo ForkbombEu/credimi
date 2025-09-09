@@ -6,10 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Pencil } from 'lucide-svelte';
-	import { toast } from 'svelte-sonner';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
-	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
+	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 
 	import { CollectionForm } from '@/collections-components';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
@@ -22,9 +21,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		credential: CredentialsRecord;
+		credential: CredentialsResponse;
 		credentialIssuer: CredentialIssuersResponse;
-		onSuccess: () => void;
+		onSuccess?: () => void;
 	};
 
 	let { credential, credentialIssuer, onSuccess }: Props = $props();
@@ -66,9 +65,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}
 			}}
 			onSuccess={() => {
-				toast.success(m.Credential_updated_successfully());
 				closeSheet();
-				onSuccess();
+				onSuccess?.();
 			}}
 		/>
 	{/snippet}

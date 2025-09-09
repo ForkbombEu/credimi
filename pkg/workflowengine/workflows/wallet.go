@@ -122,11 +122,9 @@ func (w *WalletWorkflow) Workflow(
 	case "apple":
 		var response workflowengine.ActivityResult
 		err = workflow.ExecuteActivity(ctx, httpActivity.Name(), workflowengine.ActivityInput{
-			Config: map[string]string{
+			Payload: map[string]any{
 				"method": "GET",
 				"url":    AppleStoreAPIURL,
-			},
-			Payload: map[string]any{
 				"query_params": map[string]any{
 					"id": apiInput,
 				},

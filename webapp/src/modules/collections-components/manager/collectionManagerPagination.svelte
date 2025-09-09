@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { getCollectionManagerContext } from './collectionManagerContext';
 	import * as Pagination from '@/components/ui/pagination';
+
+	import { getCollectionManagerContext } from './collectionManagerContext';
 
 	//
 

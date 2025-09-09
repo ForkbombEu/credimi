@@ -5,10 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { getEUDIWWorkflowLogsProps } from '$lib/wallet-test-pages/eudiw';
 	import WorkflowLogs from '$wallet-test/_partials/workflow-logs.svelte';
+
 	import Container from './container.svelte';
 	import Section from './section.svelte';
-	import { getEUDIWWorkflowLogsProps } from '$lib/wallet-test-pages/eudiw';
 
 	//
 

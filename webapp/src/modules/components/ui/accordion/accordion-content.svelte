@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Accordion as AccordionPrimitive, type WithoutChild } from "bits-ui";
-	import { cn } from "@/components/ui/utils.js";
+	import { Accordion as AccordionPrimitive, type WithoutChild } from 'bits-ui';
+
+	import { cn } from '@/components/ui/utils.js';
 
 	let {
 		ref = $bindable(null),
@@ -19,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <AccordionPrimitive.Content
 	bind:ref
 	class={cn(
-		"data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down overflow-hidden text-sm transition-all",
+		'overflow-hidden text-sm transition-all data-[state=closed]:animate-accordion-up data-[state=open]:animate-accordion-down',
 		className
 	)}
 	{...restProps}

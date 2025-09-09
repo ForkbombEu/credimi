@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import OrganizationLayout from '@/organizations/components/organizationLayout.svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+
+	import OrganizationLayout from '@/organizations/components/organizationLayout.svelte';
 
 	const { data } = $props();
 	const { organization } = $derived(data);

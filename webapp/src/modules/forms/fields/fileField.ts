@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { SuperForm } from 'sveltekit-superforms';
+
 import { pipe, Tuple } from 'effect';
-import type { FORM_ERROR_PATH } from '../form';
+
 import type { FileManagerValidator, RejectedFile } from '@/components/ui-custom/fileManager.svelte';
 import type { GenericRecord, If, IsArray } from '@/utils/types';
-import type { SuperForm } from 'sveltekit-superforms';
+
+import type { FORM_ERROR_PATH } from '../form';
 
 /* Files validation
  *

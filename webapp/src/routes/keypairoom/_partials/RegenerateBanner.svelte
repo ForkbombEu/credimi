@@ -5,10 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { m } from '@/i18n';
-	import Alert from '@/components/ui-custom/alert.svelte';
 	import { TriangleAlert } from 'lucide-svelte';
+
+	import Alert from '@/components/ui-custom/alert.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n';
 </script>
 
 <Alert variant="warning" icon={TriangleAlert}>

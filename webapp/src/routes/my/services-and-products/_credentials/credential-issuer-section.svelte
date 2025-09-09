@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { runWithLoading } from '$lib/utils';
 	import { String } from 'effect';
-	import { Eye, EyeOff } from 'lucide-svelte';
+	import { Eye, EyeOff, RefreshCwIcon } from 'lucide-svelte';
 
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 
@@ -17,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge';
 	import { Card } from '@/components/ui/card';
 	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
@@ -25,6 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import CredentialIssuerForm from './credential-issuer-form/credential-issuer-form.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';
+	import { fetchCredentialIssuer } from './utils';
 
 	//
 
@@ -51,6 +54,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				onSuccess();
 			});
 	}
+
+	async function refreshCredentialIssuer(url: string) {
+		runWithLoading({
+			fn: () => fetchCredentialIssuer(url),
+			loadingText: 'Updating credential issuer...',
+			errorText: 'Failed to refresh credential issuer'
+		});
+	}
 </script>
 
 <CollectionManager
@@ -60,7 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		filter: `owner.id = '${organizationId}'`,
 		sort: ['created', 'DESC']
 	}}
-	editFormFieldsOptions={{ exclude: ['owner', 'url', 'published'] }}
+	editFormFieldsOptions={{ exclude: ['owner', 'url', 'published', 'imported'] }}
 	subscribe="expanded_collections"
 >
 	{#snippet top({ Header, records })}
@@ -106,45 +117,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<div class="w-0 grow">
 					<div class="flex items-center gap-2">
-						<T class="font-bold">
+						<T class="truncate font-bold">
 							{#if !record.published}
 								{title}
 							{:else}
 								<A
 									href="/marketplace/{Collections.CredentialIssuers}/{record.id}"
-									class="underline underline-offset-2 hover:!no-underline"
+									class="truncate underline underline-offset-2 hover:!no-underline"
 								>
 									{title}
 								</A>
 							{/if}
 						</T>
+						{#if record.imported}
+							<Badge variant="secondary">{m.Imported()}</Badge>
+						{/if}
 					</div>
 
 					<div class="text-xs">
 						<T class="mb-3 mt-0.5 text-xs text-gray-400">
 							{record.description}
 						</T>
-
-						<div class="flex items-center gap-1">
-							<T>URL:</T>
-							<A class="link-sm" target="_blank" href={record.url}>
-								{record.url}
-							</A>
-						</div>
-
-						<div class="flex items-center gap-1">
-							<T>Repository:</T>
-							<A class="link-sm" target="_blank" href={record.repo_url}>
-								{record.repo_url}
-							</A>
-						</div>
-
-						<div class="flex items-center gap-1">
-							<T>Homepage:</T>
-							<A class="link-sm" target="_blank" href={record.homepage_url}>
-								{record.homepage_url}
-							</A>
-						</div>
 					</div>
 				</div>
 
@@ -163,6 +156,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							)}
 					/>
 
+					<Button
+						variant="outline"
+						size="icon"
+						disabled={!record.imported}
+						onclick={() => refreshCredentialIssuer(record.url)}
+					>
+						<RefreshCwIcon />
+					</Button>
+
 					<RecordEdit {record} onSuccess={onEditSuccess}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
 							<Button variant="outline" size="icon" {...triggerAttributes}>
@@ -179,6 +181,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{/snippet}
 					</RecordDelete>
 				</div>
+			</div>
+			<div class="!mt-1 ml-16 text-xs">
+				<div class="flex items-center gap-1">
+					<T>URL:</T>
+					<A class="link-sm" target="_blank" href={record.url}>
+						{record.url}
+					</A>
+				</div>
+
+				<div class="flex items-center gap-1">
+					<T>Repository:</T>
+					<A class="link-sm" target="_blank" href={record.repo_url}>
+						{record.repo_url}
+					</A>
+				</div>
+
+				<div class="flex items-center gap-1">
+					<T>Homepage:</T>
+					<A class="link-sm" target="_blank" href={record.homepage_url}>
+						{record.homepage_url}
+					</A>
+				</div>
+				{#if record.workflow_url}
+					<div class="flex items-center gap-1">
+						<T class="text-nowrap">{m.Import_results() + ': '}</T>
+						<A class="link-sm" target="_blank" href={record.workflow_url}>
+							{record.workflow_url}
+						</A>
+					</div>
+				{/if}
 			</div>
 
 			<Separator />
@@ -211,6 +243,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</div>
 
 							<div class="flex items-center gap-2">
+								{#if credential.imported}
+									<Badge variant="secondary">{m.Imported()}</Badge>
+								{/if}
 								<SwitchWithIcons
 									offIcon={EyeOff}
 									onIcon={Eye}

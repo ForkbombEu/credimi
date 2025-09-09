@@ -5,12 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import CopyButton from '@/components/ui-custom/copyButton.svelte';
 	import type { PublicKeys } from '@/keypairoom/utils';
+
 	import Button from '@/components/ui-custom/button.svelte';
+	import CopyButton from '@/components/ui-custom/copyButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
 	import Separator from '@/components/ui/separator/separator.svelte';
+	import { m } from '@/i18n';
 	import { capitalize } from '@/utils/other';
 
 	interface Props {

@@ -2,8 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import TemporalI18nProvider from './temporal-i18n-provider.svelte';
 import { workflowStatuses } from '@forkbombeu/temporal-ui';
+
+import TemporalI18nProvider from './temporal-i18n-provider.svelte';
 export { TemporalI18nProvider, workflowStatuses };
 
 //

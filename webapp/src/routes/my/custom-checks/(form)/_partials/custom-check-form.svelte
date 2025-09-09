@@ -5,37 +5,41 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+	import type { StandardsWithTestSuites } from '$lib/standards';
+
+	import { yaml } from '@codemirror/lang-yaml';
+	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
+	import PageCardSection from '$lib/layout/page-card-section.svelte';
+	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
+	import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
+	import { String } from 'effect';
+	import { run } from 'json_typegen_wasm';
+	import _ from 'lodash';
+	import { GitBranch, HelpCircle, PlusIcon, UploadIcon } from 'lucide-svelte';
+	import { toast } from 'svelte-sonner';
+	import { fromStore } from 'svelte/store';
+	import { zod } from 'sveltekit-superforms/adapters';
+
+	import type { CustomChecksRecord, CustomChecksResponse } from '@/pocketbase/types';
+
+	import { removeEmptyValues } from '@/collections-components/form';
+	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
+	import LinkExternal from '@/components/ui-custom/linkExternal.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { createForm, Form } from '@/forms';
 	import {
+		CheckboxField,
+		CodeEditorField,
 		Field,
 		FileField,
-		TextareaField,
-		CodeEditorField,
-		CheckboxField
+		TextareaField
 	} from '@/forms/fields';
-	import { zod } from 'sveltekit-superforms/adapters';
 	import { goto, m } from '@/i18n';
-	import { PlusIcon, UploadIcon } from 'lucide-svelte';
-	import PageCardSection from '$lib/layout/page-card-section.svelte';
-	import { yaml } from '@codemirror/lang-yaml';
-	import Button from '@/components/ui-custom/button.svelte';
-	import { readFileAsDataURL, readFileAsString } from '@/utils/files.js';
-	import { getExceptionMessage } from '@/utils/errors.js';
 	import { pb } from '@/pocketbase';
-	import { toast } from 'svelte-sonner';
-	import type { StandardsWithTestSuites } from '$lib/standards';
-	import type { CustomChecksRecord, CustomChecksResponse } from '@/pocketbase/types';
-	import _ from 'lodash';
-	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import { fromStore } from 'svelte/store';
-	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
-	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
-	import { run } from 'json_typegen_wasm';
-	import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
-	import { Record, String } from 'effect';
-	import { removeEmptyValues } from '@/collections-components/form';
-	import T from '@/components/ui-custom/t.svelte';
+	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+	import { getExceptionMessage } from '@/utils/errors.js';
+	import { readFileAsDataURL, readFileAsString } from '@/utils/files.js';
 
 	//
 
@@ -174,6 +178,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let avatarPreviewUrl = $derived(originalLogoUrl);
 
 	let formState = fromStore(form.form);
+
+	// Parse selected standard and version for contextual links
+	const selectedStandardAndVersion = $derived(() => {
+		const value = formState.current.standard_and_version;
+		if (!value || typeof value !== 'string') return null;
+
+		const [standardUid, versionUid] = value.split('/');
+		if (!standardUid || !versionUid) return null;
+
+		const standard = standardsAndTestSuites.find((s) => s.uid === standardUid);
+		if (!standard) return null;
+
+		const version = standard.versions.find((v) => v.uid === versionUid);
+		if (!version) return null;
+
+		return { standard, version };
+	});
+
 	$effect(() => {
 		const logo = formState.current.logo;
 		if (logo) {
@@ -196,6 +218,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			title={m.Standard_and_version()}
 			description={m.Standard_and_Version_description()}
 		>
+			{#snippet headerActions()}
+				{@const selection = selectedStandardAndVersion()}
+				{#if selection}
+					{@const { standard, version } = selection}
+					<div class="flex flex-wrap gap-2">
+						{#if standard.standard_url}
+							<LinkExternal
+								href={standard.standard_url}
+								text="{standard.name} {m.Standard()}"
+								icon={HelpCircle}
+								title={m.Learn_about_standard({ name: standard.name })}
+							/>
+						{/if}
+
+						{#if version.specification_url}
+							<LinkExternal
+								href={version.specification_url}
+								text="{version.name} {m.Spec()}"
+								icon={GitBranch}
+								title={m.View_specification({ name: version.name })}
+							/>
+						{/if}
+					</div>
+				{/if}
+			{/snippet}
+
 			<StandardAndVersionField {form} name="standard_and_version" />
 		</PageCardSection>
 

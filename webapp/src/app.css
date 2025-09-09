@@ -102,7 +102,7 @@
 		--input: 240 5.9% 90%;
 		--ring: 24.6 95% 53.1%;
 		--radius: 0.5rem;
-		
+
 		/* Named colors */
 		--blue-background: 235 100% 91%;
 		--blue-foreground: 233 68% 53%;
@@ -110,6 +110,9 @@
 		--green-background: 118 59% 88%;
 		--green-foreground: 118 58% 39%;
 		--green-outline: 116 55% 56%;
+		--green-light-background: 120 60% 90%;
+		--green-light-foreground: 120 61% 50%;
+		--green-light-outline: 120 59% 65%;
 		--light-blue-background: 186 100% 91%;
 		--light-blue-foreground: 188 77% 35%;
 		--light-blue-outline: 184 75% 59%;
@@ -128,6 +131,19 @@
 		--yellow-background: 46 74% 85%;
 		--yellow-foreground: 40 97% 34%;
 		--yellow-outline: 45 78% 58%;
+
+		/* Subtle link colors */
+		--link-subtle-background: 233 100% 97%;
+		--link-subtle-foreground: 233 60% 45%;
+		--link-subtle-outline: 233 80% 70%;
+
+		--link-help-background: 120 60% 95%;
+		--link-help-foreground: 120 40% 32%;
+		--link-help-outline: 120 50% 60%;
+
+		--link-homepage-background: 31 100% 96%;
+		--link-homepage-foreground: 25 65% 35%;
+		--link-homepage-outline: 31 80% 68%;
 	}
 	.dark {
 		--background: 20 14.3% 4.1%;
@@ -185,34 +201,34 @@
 	.scrollbar-hide::-webkit-scrollbar {
 		display: none; /* Chrome, Safari and Opera */
 	}
-	
+
 	/* Global scrollbar styling that follows app theme */
 	::-webkit-scrollbar {
 		width: 10px;
 		height: 10px;
 	}
-	
+
 	::-webkit-scrollbar-track {
 		background: transparent;
 	}
-	
+
 	/* Light theme scrollbar */
 	::-webkit-scrollbar-thumb {
 		background: hsl(var(--border));
 		border-radius: 6px;
 		transition: background-color 0.2s ease;
 	}
-	
+
 	::-webkit-scrollbar-thumb:hover {
 		background: hsl(var(--border) / 0.8);
 	}
-	
+
 	/* Firefox scrollbar styling */
 	html {
 		scrollbar-width: thin;
 		scrollbar-color: hsl(var(--border)) transparent;
 	}
-	
+
 	.dark html {
 		scrollbar-color: hsl(var(--border)) transparent;
 	}

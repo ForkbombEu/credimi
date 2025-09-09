@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as Sidebar from '@/components/ui/sidebar';
-	import * as Collapsible from '@/components/ui/collapsible';
 	import type { Snippet } from 'svelte';
+
+	import * as Collapsible from '@/components/ui/collapsible';
+	import * as Sidebar from '@/components/ui/sidebar';
 	import { cn } from '@/components/ui/utils';
 
 	type Props = { trigger: Snippet; content: Snippet; active?: boolean };
@@ -17,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const open = $derived(active);
 </script>
 
-<Sidebar.Menu class={cn({ 'ring-primary rounded-sm ring-1 ring-offset-2': active })}>
+<Sidebar.Menu class={cn({ 'rounded-sm ring-1 ring-primary ring-offset-2': active })}>
 	<Collapsible.Root class="group/collapsible" {open}>
 		<Sidebar.MenuItem>
 			<Collapsible.Trigger>

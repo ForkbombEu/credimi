@@ -168,19 +168,16 @@ func (w *EWCWorkflow) Workflow(
 	emailActivity := activities.NewSendMailActivity()
 
 	emailInput := workflowengine.ActivityInput{
-		Config: map[string]string{
-			"recipient": input.Payload["user_mail"].(string),
-		},
 		Payload: map[string]any{
-			"subject": "[CREDIMI] Action required to continue your conformance checks",
-			"body": fmt.Sprintf(`
-		<html>
-			<body>
-				<p>Please click on the following link:</p>
-				<p><a href="%s" target="_blank" rel="noopener">%s</a></p>
-			</body>
-		</html>
-	`, u.String(), u.String()),
+			"recipient": input.Payload["user_mail"].(string),
+			"subject":   "[CREDIMI] Action required to continue your conformance checks",
+			"template":  activities.ContinueConformanceCheckEmailTemplate,
+			"data": map[string]any{
+				"AppName":          input.Config["app_name"],
+				"AppLogo":          input.Config["app_logo"],
+				"UserName":         input.Config["user_name"],
+				"VerificationLink": u.String(),
+			},
 		},
 	}
 	err = emailActivity.Configure(&emailInput)
@@ -233,11 +230,9 @@ func (w *EWCWorkflow) Workflow(
 		HTTPGetActivity := activities.NewHTTPActivity()
 		var response workflowengine.ActivityResult
 		HTTPInput := workflowengine.ActivityInput{
-			Config: map[string]string{
+			Payload: map[string]any{
 				"method": "GET",
 				"url":    input.Config["check_endpoint"].(string),
-			},
-			Payload: map[string]any{
 				"query_params": map[string]any{
 					"sessionId": sessionID,
 				},

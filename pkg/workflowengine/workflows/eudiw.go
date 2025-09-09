@@ -192,19 +192,16 @@ func (w *EudiwWorkflow) Workflow(
 	emailActivity := activities.NewSendMailActivity()
 
 	emailInput := workflowengine.ActivityInput{
-		Config: map[string]string{
-			"recipient": input.Payload["user_mail"].(string),
-		},
 		Payload: map[string]any{
-			"subject": "[CREDIMI] Action required to continue your conformance checks",
-			"body": fmt.Sprintf(`
-		<html>
-			<body>
-				<p>Please click on the following link:</p>
-				<p><a href="%s" target="_blank" rel="noopener">%s</a></p>
-			</body>
-		</html>
-	`, u.String(), u.String()),
+			"recipient": input.Payload["user_mail"].(string),
+			"subject":   "[CREDIMI] Action required to continue your conformance checks",
+			"template":  activities.ContinueConformanceCheckEmailTemplate,
+			"data": map[string]any{
+				"AppName":          input.Config["app_name"],
+				"AppLogo":          input.Config["app_logo"],
+				"UserName":         input.Config["user_name"],
+				"VerificationLink": u.String(),
+			},
 		},
 	}
 	err = emailActivity.Configure(&emailInput)
@@ -217,7 +214,6 @@ func (w *EudiwWorkflow) Workflow(
 		logger.Error("Failed to send mail to user ", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
-
 	startSignalChan := workflow.GetSignalChannel(ctx, EudiwStartCheckSignal)
 	stopSignalChan := workflow.GetSignalChannel(ctx, EudiwStopCheckSignal)
 	selector := workflow.NewSelector(ctx)
@@ -257,7 +253,7 @@ func (w *EudiwWorkflow) Workflow(
 		HTTPActivity := activities.NewHTTPActivity()
 		var checkResponse workflowengine.ActivityResult
 		CheckStatusInput := workflowengine.ActivityInput{
-			Config: map[string]string{
+			Payload: map[string]any{
 				"method": "GET",
 				"url": fmt.Sprintf(
 					"https://verifier-backend.eudiw.dev/ui/presentations/%s",
@@ -304,14 +300,12 @@ func (w *EudiwWorkflow) Workflow(
 		var eventsResponse workflowengine.ActivityResult
 		getLogsInput := workflowengine.ActivityInput{
 			Payload: map[string]any{
-				"expected_status": 200,
-			},
-			Config: map[string]string{
 				"method": "GET",
 				"url": fmt.Sprintf(
 					"https://verifier-backend.eudiw.dev/ui/presentations/%s/events",
 					transactionID,
 				),
+				"expected_status": 200,
 			},
 		}
 		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), getLogsInput).
@@ -326,15 +320,13 @@ func (w *EudiwWorkflow) Workflow(
 			eventsResponse.Output.(map[string]any)["body"].(map[string]any)["events"],
 		)
 		triggerLogsInput := workflowengine.ActivityInput{
-			Config: map[string]string{
+			Payload: map[string]any{
 				"method": "POST",
 				"url": fmt.Sprintf(
 					"%s/%s",
 					input.Config["app_url"].(string),
 					"api/compliance/send-eudiw-log-update",
 				),
-			},
-			Payload: map[string]any{
 				"headers": map[string]any{
 					"Content-Type": "application/json",
 				},

@@ -2,11 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Either, pipe, Effect as _ } from 'effect';
-import type { SelectOption } from '@/components/ui-custom/utils';
-import { pb } from '@/pocketbase';
 import type { ClientResponseError } from 'pocketbase';
+
+import { Either, pipe, Effect as _ } from 'effect';
 import { z, type ZodError } from 'zod';
+
+import type { SelectOption } from '@/components/ui-custom/utils';
+
+import { pb } from '@/pocketbase';
 
 /* Exports */
 

@@ -5,16 +5,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import T from '@/components/ui-custom/t.svelte';
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
+
+	import T from '@/components/ui-custom/t.svelte';
 
 	type Props = HTMLAttributes<HTMLDivElement> & {
 		children: Snippet;
 		title?: string;
+		headerActions?: Snippet;
+		subtitle?: string;
 	};
 
-	const { children, class: className, title, ...restProps }: Props = $props();
+	const {
+		children,
+		class: className,
+		title,
+		headerActions,
+		subtitle,
+		...restProps
+	}: Props = $props();
 </script>
 
 <div
@@ -22,7 +32,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{...restProps}
 >
 	{#if title}
-		<T tag="h4" class="overflow-auto border-b pb-1">{title}</T>
+		<div class="border-b pb-3">
+			<div class="flex items-start justify-between gap-4">
+				<div class="min-w-0 flex-1">
+					<T tag="h4" class="overflow-auto">{title}</T>
+					{#if subtitle}
+						<T class="text-muted-foreground mt-1 text-sm">{subtitle}</T>
+					{/if}
+				</div>
+				{#if headerActions}
+					<div class="flex-shrink-0">
+						{@render headerActions()}
+					</div>
+				{/if}
+			</div>
+		</div>
 	{/if}
 	{@render children?.()}
 </div>

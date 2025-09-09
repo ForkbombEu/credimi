@@ -5,20 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { createForm, Form, SubmitButton } from '@/forms';
-	import { Field, TextareaField } from '@/forms/fields';
-	import { m } from '@/i18n';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
-	import { pb } from '@/pocketbase';
-	import { CollectionField } from '@/collections-components';
-	import T from '@/components/ui-custom/t.svelte';
 
-	import t from './test.json';
+	import { CollectionField } from '@/collections-components';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import CodeEditor from '@/components/ui-custom/codeEditor.svelte';
+	import T from '@/components/ui-custom/t.svelte';
+	import { createForm, Form, SubmitButton } from '@/forms';
+	import { Field } from '@/forms/fields';
 	import CodeEditorField from '@/forms/fields/codeEditorField.svelte';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
+
+	import t from './test.json';
 
 	//
 
@@ -73,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<CodeEditorField {form} name="json" options={{ lang: 'json', maxHeight: 400 }} />
 
-		<div class="space-y-4 rounded-xl border bg-secondary/30 p-4">
+		<div class="bg-secondary/30 space-y-4 rounded-xl border p-4">
 			<Field {form} name="email" options={{ type: 'email' }} />
 			<T>{m.We_will_send_the_instructions_for_proceeding_with_the_test_to_this_email()}</T>
 		</div>

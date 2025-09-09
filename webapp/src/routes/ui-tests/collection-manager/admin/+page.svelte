@@ -5,13 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+	import PocketBase from 'pocketbase';
+
+	import type { TypedPocketBase } from '@/pocketbase/types';
+
 	import { CollectionManager } from '@/collections-components/manager';
 	import List from '@/components/ui-custom/list.svelte';
 	import ListItem from '@/components/ui-custom/listItem.svelte';
-	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
-	import PocketBase from 'pocketbase';
-	import type { TypedPocketBase } from '@/pocketbase/types';
-	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 
 	const pbPromise = init();
 
@@ -64,7 +66,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<List>
 				{#each records as r}
 					<ListItem>
-						<CodeDisplay content={JSON.stringify(r.expand?.role, null, 2)} language="json" />
+						<CodeDisplay
+							content={JSON.stringify(r.expand?.role, null, 2)}
+							language="json"
+						/>
 					</ListItem>
 				{/each}
 			</List>

@@ -87,9 +87,6 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 						},
 					},
 				},
-				Config: map[string]string{
-					"KeepContainer": "true",
-				},
 			},
 			expectError: false,
 			expectLog:   "", // We're not checking log here

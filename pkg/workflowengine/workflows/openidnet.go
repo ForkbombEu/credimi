@@ -120,10 +120,12 @@ func (w *OpenIDNetWorkflow) Workflow(
 		Payload: map[string]any{
 			"variant": variant,
 			"form":    form,
+			"secrets": map[string]any{
+				"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
+			},
 		},
 		Config: map[string]string{
 			"template": template,
-			"token":    utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		},
 	}
 	var stepCIResult workflowengine.ActivityResult
@@ -166,7 +168,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	query.Set("namespace", input.Config["namespace"].(string))
+	query.Set("namespace", namespace)
 	u.RawQuery = query.Encode()
 
 	emailActivity := activities.NewSendMailActivity()
@@ -179,19 +181,17 @@ func (w *OpenIDNetWorkflow) Workflow(
 	}
 
 	emailInput := workflowengine.ActivityInput{
-		Config: map[string]string{
-			"recipient": userMail,
-		},
+
 		Payload: map[string]any{
-			"subject": "[CREDIMI] Action required to continue your conformance checks",
-			"body": fmt.Sprintf(`
-		<html>
-			<body>
-				<p>Please click on the following link:</p>
-				<p><a href="%s" target="_blank" rel="noopener">%s</a></p>
-			</body>
-		</html>
-	`, u.String(), u.String()),
+			"recipient": userMail,
+			"subject":   "[CREDIMI] Action required to continue your conformance checks",
+			"template":  activities.ContinueConformanceCheckEmailTemplate,
+			"data": map[string]any{
+				"AppName":          input.Config["app_name"],
+				"AppLogo":          input.Config["app_logo"],
+				"UserName":         input.Config["user_name"],
+				"VerificationLink": u.String(),
+			},
 		},
 	}
 	err = emailActivity.Configure(&emailInput)
@@ -335,15 +335,13 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	}
 
 	getLogsInput := workflowengine.ActivityInput{
-		Config: map[string]string{
+		Payload: map[string]any{
 			"method": "GET",
 			"url": fmt.Sprintf(
 				"%s/%s",
 				"https://www.certification.openid.net/api/log/",
 				url.PathEscape(input.Payload["rid"].(string)),
 			),
-		},
-		Payload: map[string]any{
 			"headers": map[string]any{
 				"Authorization": fmt.Sprintf("Bearer %s", input.Payload["token"].(string)),
 			},
@@ -418,15 +416,13 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		logs = workflowengine.AsSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
 
 		triggerLogsInput := workflowengine.ActivityInput{
-			Config: map[string]string{
+			Payload: map[string]any{
 				"method": "POST",
 				"url": fmt.Sprintf(
 					"%s/%s",
 					input.Config["app_url"].(string),
 					"api/compliance/send-openidnet-log-update",
 				),
-			},
-			Payload: map[string]any{
 				"headers": map[string]any{
 					"Content-Type": "application/json",
 				},

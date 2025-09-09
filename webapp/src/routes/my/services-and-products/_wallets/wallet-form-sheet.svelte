@@ -5,19 +5,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WalletsResponse } from '@/pocketbase/types';
 	import type { Snippet } from 'svelte';
-	import T from '@/components/ui-custom/t.svelte';
+
+	import { Pencil, Plus } from 'lucide-svelte';
+
+	import type { WalletsResponse } from '@/pocketbase/types';
+
 	import Button from '@/components/ui-custom/button.svelte';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
-	import WalletForm from './wallet-form.svelte';
-	import { Pencil, Plus } from 'lucide-svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
+
+	import WalletForm from './wallet-form.svelte';
 
 	type Props = {
 		walletId?: string;
 		initialData?: Partial<WalletsResponse>;
 		onEditSuccess: () => void;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		customTrigger?: Snippet<[{ sheetTriggerAttributes: any }]>;
 	};
 
@@ -29,7 +34,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if customTrigger}
 			{@render customTrigger({ sheetTriggerAttributes })}
 		{:else}
-			<Button variant={walletId ? "outline" : "default"} size="sm" class={walletId ? "p-2" : ""} {...sheetTriggerAttributes}>
+			<Button
+				variant={walletId ? 'outline' : 'default'}
+				class={walletId ? 'p-2' : ''}
+				{...sheetTriggerAttributes}
+			>
 				{#if walletId}
 					<Pencil />
 				{:else}

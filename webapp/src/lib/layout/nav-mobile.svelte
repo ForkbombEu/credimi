@@ -5,15 +5,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import * as Sheet from '@/components/ui/sheet';
+	import { onNavigate } from '$app/navigation';
 	import { Menu } from 'lucide-svelte';
+
+	import type { LinkWithIcon } from '@/components/types';
+
+	import { AppLogo } from '@/brand';
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
-	import type { LinkWithIcon } from '@/components/types';
-	import { AppLogo } from '@/brand';
-	import NavLink from './nav-link.svelte';
+	import * as Sheet from '@/components/ui/sheet';
 	import { m } from '@/i18n';
-	import { onNavigate } from '$app/navigation';
+
+	import NavLink from './nav-link.svelte';
 
 	//
 

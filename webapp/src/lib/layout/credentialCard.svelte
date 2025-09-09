@@ -5,11 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { String } from 'effect';
+
+	import type { CredentialsResponse } from '@/pocketbase/types';
+
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { localizeHref, m } from '@/i18n';
-	import type { CredentialsResponse } from '@/pocketbase/types';
-	import { String } from 'effect';
 
 	type Props = {
 		credential: CredentialsResponse;

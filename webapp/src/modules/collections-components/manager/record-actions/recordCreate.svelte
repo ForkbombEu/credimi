@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { merge } from 'lodash';
 	import { Plus } from 'lucide-svelte';
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { CollectionName } from '@/pocketbase/collections-models';
 
 	import { CollectionForm } from '@/collections-components';
@@ -15,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
+	import { FormError, SubmitButton } from '@/forms';
 	import { m } from '@/i18n';
 
 	import type { RecordCreateEditProps } from './types';
@@ -40,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const sheetTitle = $derived(formTitle ?? m.Create_record());
 </script>
 
-<Sheet title={sheetTitle}>
+<Sheet title={sheetTitle} class="pb-0">
 	{#snippet trigger({ sheetTriggerAttributes, openSheet })}
 		{#if button}
 			{@render button({
@@ -65,10 +67,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				manager.loadRecords();
 				onSuccess(record, 'create');
 			}}
+			uiOptions={{
+				hide: ['submit_button', 'error']
+			}}
 		>
-			{#snippet submitButtonContent()}
-				{@render SubmitButtonText()}
-			{/snippet}
+			<FormError />
+			<div
+				class="sticky bottom-0 -mx-6 -mt-6 flex justify-end border-t bg-white/70 px-6 py-2 backdrop-blur-sm"
+			>
+				<SubmitButton>
+					{@render SubmitButtonText()}
+				</SubmitButton>
+			</div>
 		</CollectionForm>
 	{/snippet}
 </Sheet>
