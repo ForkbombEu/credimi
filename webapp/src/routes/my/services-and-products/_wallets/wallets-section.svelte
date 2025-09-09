@@ -11,6 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ChevronDown, ChevronUp, Eye, EyeOff, UploadIcon } from 'lucide-svelte';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
+	import type { IconComponent } from '@/components/types';
 	import type { WalletsResponse } from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
@@ -134,7 +135,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<WalletFormSheet walletId={wallet.id} initialData={wallet} {onEditSuccess} />
 					<RecordDelete record={wallet}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
-							<Button variant="outline" size="sm" class="p-2" {...triggerAttributes}>
+							<Button
+								variant="outline"
+								size="icon"
+								class="p-2"
+								{...triggerAttributes}
+							>
 								<Icon />
 							</Button>
 						{/snippet}
@@ -192,27 +198,133 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			<Separator />
 
-			{@render walletActionsManager({ walletId: wallet.id, ownerId: wallet.owner })}
+			{@render walletVersionsManager({
+				wallet,
+				organizationId: organizationId ?? ''
+			})}
+
+			<Separator />
+
+			{@render walletActionsManager({ wallet, ownerId: wallet.owner })}
 		</div>
 	</Card>
 {/snippet}
 
-{#snippet walletActionsManager(props: { walletId: string; ownerId: string })}
+<!-- Versions -->
+
+{#snippet walletVersionsManager(props: { wallet: WalletsResponse; organizationId: string })}
+	{@const wallet = props.wallet}
+	<CollectionManager
+		collection="wallet_versions"
+		queryOptions={{
+			filter: `wallet = '${wallet.id}' && owner.id = '${props.organizationId}'`
+		}}
+		hide={['empty_state']}
+		formFieldsOptions={{
+			exclude: ['owner'],
+			hide: { wallet: wallet.id },
+			placeholders: {
+				android_installer: m.Upload_a_new_file(),
+				ios_installer: m.Upload_a_new_file(),
+				tag: 'e.g. v1.0.0'
+			},
+			labels: {
+				tag: m.Tag(),
+				android_installer: m.Android_installer(),
+				ios_installer: m.iOS_installer()
+			}
+		}}
+	>
+		{#snippet records({ records })}
+			<div>
+				<div class="mb-2 flex items-center justify-between">
+					<T class="text-sm font-semibold">{m.Wallet_versions()}</T>
+					{@render createVersion(wallet)}
+				</div>
+				<ul class="space-y-2">
+					{#each records as record}
+						<li
+							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
+						>
+							{record.tag}
+							<div class="flex items-center gap-2">
+								<div class="flex items-center gap-1">
+									{#if record.ios_installer}
+										<Badge>iOS</Badge>
+									{/if}
+									{#if record.android_installer}
+										<Badge>Android</Badge>
+									{/if}
+								</div>
+
+								<div>
+									<RecordEdit
+										{record}
+										uiOptions={{ hideRequiredIndicator: true }}
+										formTitle={`${m.Wallet()}: ${wallet.name} — ${m.Edit_version()}: ${record.tag}`}
+									>
+										{#snippet button({ triggerAttributes, icon })}
+											<IconButton
+												variant="outline"
+												size="sm"
+												{icon}
+												{...triggerAttributes}
+											/>
+										{/snippet}
+									</RecordEdit>
+									{@render recordDelete(record)}
+								</div>
+							</div>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/snippet}
+
+		{#snippet emptyState()}
+			<div class="flex items-center justify-between">
+				<T class="text-gray-300">
+					{m.No_wallet_versions_available()}
+				</T>
+				{@render createVersion(wallet)}
+			</div>
+		{/snippet}
+	</CollectionManager>
+{/snippet}
+
+{#snippet createVersion(wallet: WalletsResponse)}
+	<RecordCreate
+		uiOptions={{ hideRequiredIndicator: true }}
+		formTitle={`${m.Wallet()}: ${wallet.name} — ${m.Add_new_version()}`}
+	>
+		{#snippet button({ triggerAttributes, icon })}
+			{@render blueButton({ triggerAttributes, icon, text: m.Add_new_version() })}
+		{/snippet}
+	</RecordCreate>
+{/snippet}
+
+<!-- Actions -->
+
+{#snippet walletActionsManager(props: { wallet: WalletsResponse; ownerId: string })}
 	<CollectionManager
 		collection="wallet_actions"
 		hide={['empty_state', 'pagination']}
 		queryOptions={{
-			filter: `wallet.id = '${props.walletId}'`
+			filter: `wallet.id = '${props.wallet.id}'`
 		}}
 		formFieldsOptions={{
 			exclude: ['owner'],
-			hide: { wallet: props.walletId, owner: props.ownerId },
+			hide: { wallet: props.wallet.id, owner: props.ownerId },
 			snippets: { code: codeField },
 			labels: {
 				uid: 'UID'
 			},
 			descriptions: {
 				uid: m.Only_lowercase_letters_and_underscores_are_allowed()
+			},
+			placeholders: {
+				name: m.e_g_Get_Credential(),
+				uid: m.e_g_get_credential_uid()
 			}
 		}}
 	>
@@ -220,17 +332,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div>
 				<div class="mb-2 flex items-center justify-between">
 					<T class="text-sm font-semibold">{m.Wallet_actions()}</T>
-					<RecordCreate>
+					<RecordCreate
+						formTitle={`${m.Wallet()}: ${props.wallet.name} — ${m.Add_new_action()}`}
+					>
 						{#snippet button({ triggerAttributes, icon })}
-							<Button
-								variant="link"
-								size="sm"
-								class="h-8 gap-1 px-2 text-blue-600 hover:cursor-pointer hover:bg-blue-50 hover:no-underline"
-								{...triggerAttributes}
-							>
-								<Icon src={icon} />
-								{m.Add_first_action()}
-							</Button>
+							{@render blueButton({
+								triggerAttributes,
+								icon,
+								text: m.Add_new_action()
+							})}
 						{/snippet}
 					</RecordCreate>
 				</div>
@@ -240,16 +350,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
 						>
 							{record.name}
-							<RecordEdit {record}>
-								{#snippet button({ triggerAttributes, icon })}
-									<IconButton
-										size="sm"
-										variant="outline"
-										{icon}
-										{...triggerAttributes}
-									/>
-								{/snippet}
-							</RecordEdit>
+							<div class="flex items-center gap-1">
+								<RecordEdit
+									{record}
+									formTitle={`${m.Wallet()}: ${props.wallet.name} — ${m.Edit_action()}: ${record.name}`}
+								>
+									{#snippet button({ triggerAttributes, icon })}
+										<IconButton
+											size="sm"
+											variant="outline"
+											{icon}
+											{...triggerAttributes}
+										/>
+									{/snippet}
+								</RecordEdit>
+								{@render recordDelete(record)}
+							</div>
 						</li>
 					{/each}
 				</ul>
@@ -263,10 +379,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</T>
 				<RecordCreate>
 					{#snippet button({ triggerAttributes, icon })}
-						<Button variant="outline" size="sm" {...triggerAttributes}>
-							<Icon src={icon} />
-							{m.Add_first_action()}
-						</Button>
+						{@render blueButton({
+							triggerAttributes,
+							icon,
+							text: m.Add_first_action()
+						})}
 					{/snippet}
 				</RecordCreate>
 			</div>
@@ -300,4 +417,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.Upload_yaml()}
 		</Button>
 	{/snippet}
+{/snippet}
+
+{#snippet blueButton(props: { triggerAttributes: object; icon: IconComponent; text: string })}
+	<Button
+		variant="link"
+		size="sm"
+		class="h-8 gap-1 px-2 text-blue-600 hover:cursor-pointer hover:bg-blue-50 hover:no-underline"
+		{...props.triggerAttributes}
+	>
+		<Icon src={props.icon} />
+		{props.text}
+	</Button>
+{/snippet}
+
+<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+{#snippet recordDelete(record: any)}
+	<RecordDelete {record}>
+		{#snippet button({ triggerAttributes, icon })}
+			<IconButton variant="outline" size="sm" {icon} {...triggerAttributes} />
+		{/snippet}
+	</RecordDelete>
 {/snippet}

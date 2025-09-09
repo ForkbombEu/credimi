@@ -21,6 +21,7 @@ onRecordCreateRequest(
     "wallets",
     "verifiers",
     "custom_checks",
+    "wallet_versions",
     "wallet_actions"
 );
 
@@ -38,5 +39,6 @@ onRecordUpdateRequest(
     "wallets",
     "verifiers",
     "custom_checks",
+    "wallet_versions",
     "wallet_actions"
 );
