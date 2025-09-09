@@ -82,7 +82,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}}
 	beforeSubmit={(data) => {
-		console.log('beforeSubmit', data, activeTab);
 		if (activeTab === 'static' || activeTab === 'default') {
 			data.yaml = '';
 		}
