@@ -139,16 +139,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<TriangleAlert class="h-4 w-4 shrink-0" />
 						<div>
 							<div class="font-medium">Dynamic generation failed</div>
-							<div class="text-xs text-amber-700">Using default credential offer</div>
 						</div>
 					</div>
 				{/if}
 
-				<!-- Always use the same display format regardless of whether it's from YAML or default -->
-				<QrCode src={qrLink} cellSize={10} class={['w-60 rounded-md']} />
-				<div class="w-60 break-all pt-4 text-xs">
-					<a href={qrLink} target="_self">{qrLink}</a>
-				</div>
+				{#if !yamlProcessingError}
+					<!-- Always use the same display format regardless of whether it's from YAML or default -->
+					<QrCode src={qrLink} cellSize={10} class={['w-60 rounded-md']} />
+					<div class="w-60 break-all pt-4 text-xs">
+						<a href={qrLink} target="_self">{qrLink}</a>
+					</div>
+				{/if}
 			{/if}
 		</div>
 	</div>
