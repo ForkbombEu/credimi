@@ -24,8 +24,9 @@ import (
 
 // WorkflowInput represents the input data required to start a workflow.
 type WorkflowInput struct {
-	Payload map[string]any `json:"payload,omitempty"`
-	Config  map[string]any `json:"config,omitempty"`
+	Payload         map[string]any            `json:"payload,omitempty"`
+	Config          map[string]any            `json:"config,omitempty"`
+	ActivityOptions *workflow.ActivityOptions `json:"activityOptions,omitempty"`
 }
 
 // WorkflowResult represents the result of a workflow execution, including a message, errors, and a log.
