@@ -146,13 +146,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<div class="w-0 grow">
 					<div class="flex items-center gap-2">
-						<T class="font-bold">
+						<T class="truncate font-bold">
 							{#if !record.published}
 								{title}
 							{:else}
 								<A
 									href="/marketplace/{Collections.CredentialIssuers}/{record.id}"
-									class="underline underline-offset-2 hover:!no-underline"
+									class="truncate underline underline-offset-2 hover:!no-underline"
 								>
 									{title}
 								</A>
@@ -167,35 +167,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<T class="mb-3 mt-0.5 text-xs text-gray-400">
 							{record.description}
 						</T>
-
-						<div class="flex items-center gap-1">
-							<T>URL:</T>
-							<A class="link-sm" target="_blank" href={record.url}>
-								{record.url}
-							</A>
-						</div>
-
-						<div class="flex items-center gap-1">
-							<T>Repository:</T>
-							<A class="link-sm" target="_blank" href={record.repo_url}>
-								{record.repo_url}
-							</A>
-						</div>
-
-						<div class="flex items-center gap-1">
-							<T>Homepage:</T>
-							<A class="link-sm" target="_blank" href={record.homepage_url}>
-								{record.homepage_url}
-							</A>
-						</div>
-						{#if record.workflow_url}
-							<div class="flex items-center gap-1">
-								<T class="text-nowrap">{m.Import_results()+":"} </T>
-								<A class="link-sm" target="_blank" href={record.workflow_url}>
-									{record.workflow_url}
-								</A>
-							</div>
-						{/if}
 					</div>
 				</div>
 
@@ -239,6 +210,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{/snippet}
 					</RecordDelete>
 				</div>
+			</div>
+			<div class="!mt-1 ml-16 text-xs">
+				<div class="flex items-center gap-1">
+					<T>URL:</T>
+					<A class="link-sm" target="_blank" href={record.url}>
+						{record.url}
+					</A>
+				</div>
+
+				<div class="flex items-center gap-1">
+					<T>Repository:</T>
+					<A class="link-sm" target="_blank" href={record.repo_url}>
+						{record.repo_url}
+					</A>
+				</div>
+
+				<div class="flex items-center gap-1">
+					<T>Homepage:</T>
+					<A class="link-sm" target="_blank" href={record.homepage_url}>
+						{record.homepage_url}
+					</A>
+				</div>
+				{#if record.workflow_url}
+					<div class="flex items-center gap-1">
+						<T class="text-nowrap">{m.Import_results() + ': '}</T>
+						<A class="link-sm" target="_blank" href={record.workflow_url}>
+							{record.workflow_url}
+						</A>
+					</div>
+				{/if}
 			</div>
 
 			<Separator />
