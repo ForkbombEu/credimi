@@ -24,10 +24,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	interface Props {
 		form: SuperForm<Data>;
 		name: FormPathLeaves<Data, string>;
-		credential: CredentialsRecord;
+		credential?: CredentialsRecord;
 		credentialIssuer: CredentialIssuersResponse;
 		options?: Partial<FieldOptions>;
-		onDeepLinkChange?: (deepLink: string, showUrl: boolean) => void;
+		onDeepLinkChange?: (deepLink: string | undefined, showUrl: boolean) => void;
 	}
 
 	const {
@@ -46,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const deepLink = $derived.by(() => {
 		if (String.isNonEmpty(fieldState.current)) {
 			return fieldState.current;
-		} else {
+		} else if (credential) {
 			return createIntentUrl(credential, credentialIssuer.url);
 		}
 	});

@@ -27,6 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 	import { Collections } from '@/pocketbase/types';
 
+	import CredentialForm from './credential-form.svelte';
 	import CredentialIssuerForm from './credential-issuer-form/credential-issuer-form.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';
 	import { fetchCredentialIssuer } from './utils';
@@ -236,6 +237,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										icon,
 										text: m.Add_new_credential()
 									})}
+								{/snippet}
+
+								{#snippet form({ closeSheet })}
+									<CredentialForm
+										credentialIssuer={record}
+										onSuccess={closeSheet}
+									/>
 								{/snippet}
 							</RecordCreate>
 						{/if}

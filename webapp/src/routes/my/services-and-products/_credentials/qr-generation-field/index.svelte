@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		form: SuperForm<Data>;
 		deeplinkName: FormPathLeaves<Data, string>;
 		yaml: FormPathLeaves<Data, string>;
-		credential: CredentialsRecord;
+		credential?: CredentialsRecord;
 		credentialIssuer: CredentialIssuersResponse;
 		options?: Partial<FieldOptions>;
 	}
@@ -194,6 +194,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{credentialIssuer}
 						{options}
 						onDeepLinkChange={(deepLink, showUrl) => {
+							if (!deepLink) return;
 							staticDeepLink = deepLink;
 							staticShowUrl = showUrl;
 						}}
