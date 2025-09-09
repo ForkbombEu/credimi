@@ -48,10 +48,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return fieldState.current || '';
 	});
 
+	let hasInitialized = $state(false);
+
 	$effect(() => {
 		const yamlValue = currentYamlValue();
-		if (yamlValue && yamlValue.trim() && !credentialOffer && !isSubmittingCompliance) {
+		if (
+			yamlValue &&
+			yamlValue.trim() &&
+			!credentialOffer &&
+			!isSubmittingCompliance &&
+			!hasInitialized
+		) {
 			startComplianceTest(yamlValue);
+		}
+		if (!hasInitialized) {
+			hasInitialized = true;
 		}
 	});
 

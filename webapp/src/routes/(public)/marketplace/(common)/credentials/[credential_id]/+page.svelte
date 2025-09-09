@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import { String } from 'effect';
+	import { TriangleAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { z } from 'zod';
 
@@ -28,6 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// State for credential offer from YAML processing
 	let credentialOfferFromYaml = $state<string | null>(null);
 	let isProcessingYaml = $state(false);
+	let yamlProcessingError = $state(false);
 
 	const sections = $derived(
 		generateMarketplaceSection('credentials', {
@@ -52,6 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	onMount(async () => {
 		if (credential.yaml && String.isNonEmpty(credential.yaml)) {
 			isProcessingYaml = true;
+			yamlProcessingError = false;
 			try {
 				const result = await processYamlAndExtractCredentialOffer(credential.yaml);
 				if (result.credentialOffer) {
@@ -59,6 +62,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}
 			} catch (error) {
 				console.error('Failed to process YAML for credential offer:', error);
+				yamlProcessingError = true;
+				credentialOfferFromYaml = null;
 			} finally {
 				isProcessingYaml = false;
 			}
@@ -120,6 +125,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				</div>
 			{:else}
+				<!-- Show warning message if YAML processing failed -->
+				{#if yamlProcessingError}
+					<div
+						class="mb-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
+					>
+						<TriangleAlert class="h-4 w-4 shrink-0" />
+						<div>
+							<div class="font-medium">Dynamic generation failed</div>
+							<div class="text-xs text-amber-700">Using default credential offer</div>
+						</div>
+					</div>
+				{/if}
+
 				<!-- Always use the same display format regardless of whether it's from YAML or default -->
 				<QrCode src={qrLink} cellSize={10} class={['w-60 rounded-md']} />
 				<div class="w-60 break-all pt-4 text-xs">
