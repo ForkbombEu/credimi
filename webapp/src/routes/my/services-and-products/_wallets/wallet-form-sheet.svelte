@@ -22,6 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		walletId?: string;
 		initialData?: Partial<WalletsResponse>;
 		onEditSuccess: () => void;
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		customTrigger?: Snippet<[{ sheetTriggerAttributes: any }]>;
 	};
 
@@ -35,7 +36,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{:else}
 			<Button
 				variant={walletId ? 'outline' : 'default'}
-				size="icon"
 				class={walletId ? 'p-2' : ''}
 				{...sheetTriggerAttributes}
 			>

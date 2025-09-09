@@ -710,6 +710,13 @@
 	"Edit_version": "Edit version",
 	"No_actions_available": "No actions available",
 	"Add_first_action": "Add first action",
-	"Only_lowercase_letters_and_underscores_are_allowed": "Only lowercase letters, numbers and underscores are allowed",
-	"Wallet_actions": "Wallet actions"
+	"Only_lowercase_letters_and_underscores_are_allowed": "Allowed characters: lowercase letters (a-z), numbers (0-9), underscores (_), hyphens (-). Must start with a letter.",
+	"Wallet_actions": "Wallet actions",
+	"Add_new_action": "Add new action",
+	"Android_installer": "Android installer",
+	"iOS_installer": "iOS installer",
+	"Tag": "Tag",
+	"e_g_Get_Credential": "e.g. Get Credential",
+	"e_g_get_credential_uid": "e.g. get-credential",
+	"Edit_action": "Edit action"
 }
