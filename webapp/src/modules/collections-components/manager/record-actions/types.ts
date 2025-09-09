@@ -25,6 +25,7 @@ export type RecordProp<C extends CollectionName> = { record: CollectionResponses
 export type RecordCreateEditProps<C extends CollectionName> = {
 	collection?: C;
 	buttonText?: Snippet;
+	form?: Snippet<[{ closeSheet: () => void }]>;
 } & CollectionFormOptions<C> &
 	TriggerProp &
 	TitleProp;
