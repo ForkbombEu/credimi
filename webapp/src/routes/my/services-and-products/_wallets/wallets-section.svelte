@@ -231,20 +231,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
 						>
 							{record.tag}
-							<RecordEdit
-								{record}
-								uiOptions={{ hideRequiredIndicator: true }}
-								formTitle={`${m.Wallet()}: ${wallet.name} — ${m.Edit_version()}: ${record.tag}`}
-							>
-								{#snippet button({ triggerAttributes, icon })}
-									<IconButton
-										variant="outline"
-										size="sm"
-										{icon}
-										{...triggerAttributes}
-									/>
-								{/snippet}
-							</RecordEdit>
+							<div class="flex items-center gap-2">
+								<div class="flex items-center gap-1">
+									{#if record.ios_installer}
+										<Badge>iOS</Badge>
+									{/if}
+									{#if record.android_installer}
+										<Badge>Android</Badge>
+									{/if}
+								</div>
+
+								<RecordEdit
+									{record}
+									uiOptions={{ hideRequiredIndicator: true }}
+									formTitle={`${m.Wallet()}: ${wallet.name} — ${m.Edit_version()}: ${record.tag}`}
+								>
+									{#snippet button({ triggerAttributes, icon })}
+										<IconButton
+											variant="outline"
+											size="sm"
+											{icon}
+											{...triggerAttributes}
+										/>
+									{/snippet}
+								</RecordEdit>
+							</div>
 						</li>
 					{/each}
 				</ul>
