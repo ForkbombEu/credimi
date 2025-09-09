@@ -5,11 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="Data extends GenericRecord">
-	import type { FormPathLeaves, SuperForm } from 'sveltekit-superforms';
-
-	import { yaml as yamlLang } from '@codemirror/lang-yaml';
+	import { onMount } from 'svelte';
 	import { fromStore } from 'svelte/store';
-	import { stringProxy } from 'sveltekit-superforms';
+	import { stringProxy, type SuperForm } from 'sveltekit-superforms';
 	import { z } from 'zod';
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -18,58 +16,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CodeEditorField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
+	import { QrCode } from '@/qr';
 
 	//
 
 	interface Props {
-		form: SuperForm<Data>;
-		name: FormPathLeaves<Data, string>;
-		isSubmittingCompliance: boolean;
-		credentialOffer: string | null;
-		workflowSteps: unknown[] | null;
-		workflowOutput: unknown[] | null;
-		workflowError: string | null;
+		form: SuperForm<{ deeplink: string; yaml: string }>;
 	}
 
-	let {
-		form,
-		name,
-		isSubmittingCompliance = $bindable(),
-		credentialOffer = $bindable(),
-		workflowSteps = $bindable(),
-		workflowOutput = $bindable(),
-		workflowError = $bindable()
-	}: Props = $props();
+	let { form }: Props = $props();
 
-	const { form: formData } = $derived(form);
-	// eslint-disable-next-line svelte/valid-compile
-	const fieldProxy = stringProxy(formData, name, { empty: 'undefined' });
-	const fieldState = $derived(fromStore(fieldProxy));
+	const yamlField = fromStore(stringProxy(form, 'yaml', { empty: 'undefined' }));
 
-	const currentYamlValue = $derived(() => {
-		return fieldState.current || '';
-	});
-
-	let hasInitialized = $state(false);
-
-	$effect(() => {
-		const yamlValue = currentYamlValue();
-		if (
-			yamlValue &&
-			yamlValue.trim() &&
-			!credentialOffer &&
-			!isSubmittingCompliance &&
-			!hasInitialized
-		) {
-			startComplianceTest(yamlValue);
-		}
-		if (!hasInitialized) {
-			hasInitialized = true;
+	onMount(() => {
+		if (yamlField.current && yamlField.current.trim()) {
+			startComplianceTest(yamlField.current);
 		}
 	});
+
+	//
+
+	let workflowError = $state<string | null>(null);
+	let isSubmittingCompliance = $state(false);
+	let credentialOffer = $state<string | null>(null);
+	let workflowSteps = $state<unknown[] | null>(null);
+	let workflowOutput = $state<unknown[] | null>(null);
 
 	async function startComplianceTest(yamlContent: string) {
-		if (!yamlContent.trim()) {
+		if (!yamlContent.trim() || !yamlContent) {
 			workflowError = 'YAML configuration is required';
 			return;
 		}
@@ -172,24 +146,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<div class="space-y-4">
-	<CodeEditorField
-		{form}
-		{name}
-		options={{
-			lang: yamlLang(),
-			minHeight: 200,
-			label: m.YAML_Configuration(),
-			description: 'Provide the credential configuration in YAML format',
-			useOutput: true,
-			output: editorOutput(),
-			error: workflowError || undefined,
-			running: isSubmittingCompliance,
-			onRun: (yamlContent: string) => {
-				if (yamlContent && yamlContent.trim()) {
-					startComplianceTest(yamlContent);
-				}
-			}
-		}}
-	/>
+<div class="flex max-w-full gap-4 pt-6">
+	<div class="w-0 grow basis-2/3">
+		<CodeEditorField
+			{form}
+			name="yaml"
+			options={{
+				lang: 'yaml',
+				minHeight: 200,
+				label: m.YAML_Configuration(),
+				description: 'Provide the credential configuration in YAML format',
+				useOutput: true,
+				output: editorOutput(),
+				error: workflowError || undefined,
+				running: isSubmittingCompliance,
+				onRun: startComplianceTest
+			}}
+		/>
+	</div>
+
+	{#if credentialOffer}
+		<div class="grow basis-1/3 pt-8">
+			<QrCode src={credentialOffer} class="size-60 rounded-md border" />
+			<div class="max-w-60 break-all pt-4 text-xs">
+				<a href={credentialOffer} target="_self">{credentialOffer}</a>
+			</div>
+		</div>
+	{/if}
 </div>

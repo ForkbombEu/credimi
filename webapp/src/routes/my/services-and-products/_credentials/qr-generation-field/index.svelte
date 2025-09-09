@@ -4,124 +4,222 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-<script lang="ts" generics="Data extends GenericRecord">
-	import type { FormPathLeaves, SuperForm } from 'sveltekit-superforms';
+<script lang="ts">
+	import { createIntentUrl } from '$lib/credentials';
+	import { fromStore } from 'svelte/store';
+	import { stringProxy, type SuperForm } from 'sveltekit-superforms';
 
-	import type { FieldOptions } from '@/forms/fields/types';
 	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	import type { GenericRecord } from '@/utils/types';
 
-	import * as Form from '@/components/ui/form';
+	import T from '@/components/ui-custom/t.svelte';
 	import * as Tabs from '@/components/ui/tabs';
-	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
+	import Field from '@/forms/fields/field.svelte';
+	import { QrCode } from '@/qr';
 
 	import DynamicTab from './dynamic-tab.svelte';
-	import QrDisplay from './qr-display.svelte';
-	import StaticTab from './static-tab.svelte';
 
 	//
 
 	interface Props {
-		form: SuperForm<Data>;
-		deeplinkName: FormPathLeaves<Data, string>;
-		yaml: FormPathLeaves<Data, string>;
+		form: SuperForm<{ deeplink: string; yaml: string }>;
 		credential?: CredentialsRecord;
 		credentialIssuer: CredentialIssuersResponse;
-		options?: Partial<FieldOptions>;
 	}
 
-	const {
-		form,
-		deeplinkName,
-		yaml,
-		options = {},
-		credential,
-		credentialIssuer
-	}: Props = $props();
+	const { form, credential, credentialIssuer }: Props = $props();
 
-	const { form: formData } = $derived(form);
+	/* Field value */
 
-	let activeTab = $state('static');
-	let hasInitialized = $state(false);
+	const deeplinkState = fromStore(stringProxy(form, 'deeplink', { empty: 'undefined' }));
 
-	const shouldAutoSwitchToDynamic = $derived.by(() => {
-		const yamlValue = (($formData as Record<string, unknown>)[yaml] as string) || '';
-		const deeplinkValue = (($formData as Record<string, unknown>)['deeplink'] as string) || '';
-		return !hasInitialized && !deeplinkValue && !!yamlValue && yamlValue.length > 0;
+	/* Tabs */
+
+	type FieldMode = 'default' | 'static' | 'dynamic';
+
+	const modesTabs = {
+		default: { label: 'Default', value: 'default' },
+		static: { label: 'Static', value: 'static' },
+		dynamic: { label: 'Dynamic', value: 'dynamic' }
+	} satisfies Record<FieldMode, { label: string; value: FieldMode }>;
+
+	let activeTab = $state('default');
+
+	/* Default */
+
+	const defaultQr = $derived.by(() => {
+		try {
+			if (credential) {
+				return createIntentUrl(credential, credentialIssuer.url);
+			}
+			return undefined;
+		} catch (error) {
+			console.error(error);
+			return undefined;
+		}
+	});
+
+	const isDefaultDisabled = $derived.by(() => {
+		return !credential || !credential.key;
 	});
 
 	$effect(() => {
-		if (shouldAutoSwitchToDynamic && activeTab === 'static') {
+		if (credential?.yaml) {
 			activeTab = 'dynamic';
+		} else if (credential?.deeplink) {
+			activeTab = 'static';
+		} else if (!isDefaultDisabled) {
+			activeTab = 'default';
 		}
-		hasInitialized = true;
 	});
 
-	let isSubmittingCompliance = $state(false);
-	let credentialOffer = $state<string | null>(null);
-	let workflowSteps = $state<unknown[] | null>(null);
-	let workflowOutput = $state<unknown[] | null>(null);
-	let workflowError = $state<string | null>(null);
+	// //
 
-	let staticDeepLink = $state<string>('');
-	let staticShowUrl = $state<boolean>(true);
+	// const { form: formData } = $derived(form);
 
-	const qrStatus = $derived(() => {
-		const yamlValue = (($formData as Record<string, unknown>)[yaml] as string) || '';
-		const deeplinkValue =
-			(($formData as Record<string, unknown>)[deeplinkName] as string) || '';
+	// let hasInitialized = $state(false);
 
-		if (deeplinkValue) {
-			return {
-				message: 'Using deeplink',
-				variant: 'success' as const
-			};
-		}
+	// const shouldAutoSwitchToDynamic = $derived.by(() => {
+	// 	const yamlValue = (($formData as Record<string, unknown>)[yaml] as string) || '';
+	// 	const deeplinkValue = (($formData as Record<string, unknown>)['deeplink'] as string) || '';
+	// 	return !hasInitialized && !deeplinkValue && !!yamlValue && yamlValue.length > 0;
+	// });
 
-		if (yamlValue) {
-			if (credentialOffer) {
-				return {
-					message: 'Using YAML',
-					variant: 'success' as const
-				};
-			}
-			if (workflowError) {
-				return {
-					message: 'Correct YAML',
-					variant: 'destructive' as const
-				};
-			}
-			return {
-				message: 'Configure YAML',
-				variant: 'default' as const
-			};
-		}
-		return {
-			message: 'Using default',
-			variant: 'default' as const
-		};
-	});
+	// $effect(() => {
+	// 	if (shouldAutoSwitchToDynamic && activeTab === 'static') {
+	// 		activeTab = 'dynamic';
+	// 	}
+	// 	hasInitialized = true;
+	// });
 
-	const staticTabLabel = $derived(() => {
-		const baseLabel = 'Static Generation';
-		if (activeTab === 'static') {
-			return staticShowUrl === false ? `${baseLabel} (Custom)` : `${baseLabel} (Default)`;
-		}
-		return baseLabel;
-	});
+	// let isSubmittingCompliance = $state(false);
+	// let credentialOffer = $state<string | null>(null);
+	// let workflowSteps = $state<unknown[] | null>(null);
+	// let workflowOutput = $state<unknown[] | null>(null);
+	// let workflowError = $state<string | null>(null);
 
-	const dynamicTabLabel = $derived(() => {
-		const baseLabel = 'Dynamic Generation';
-		if (activeTab === 'dynamic') {
-			return credentialOffer ? `${baseLabel} (Active)` : baseLabel;
-		}
-		return baseLabel;
-	});
+	// let staticDeepLink = $state<string>('');
+	// let staticShowUrl = $state<boolean>(true);
+
+	// const qrStatus = $derived(() => {
+	// 	const yamlValue = (($formData as Record<string, unknown>)[yaml] as string) || '';
+	// 	const deeplinkValue =
+	// 		(($formData as Record<string, unknown>)[deeplinkName] as string) || '';
+
+	// 	if (deeplinkValue) {
+	// 		return {
+	// 			message: 'Using deeplink',
+	// 			variant: 'success' as const
+	// 		};
+	// 	}
+
+	// 	if (yamlValue) {
+	// 		if (credentialOffer) {
+	// 			return {
+	// 				message: 'Using YAML',
+	// 				variant: 'success' as const
+	// 			};
+	// 		}
+	// 		if (workflowError) {
+	// 			return {
+	// 				message: 'Correct YAML',
+	// 				variant: 'destructive' as const
+	// 			};
+	// 		}
+	// 		return {
+	// 			message: 'Configure YAML',
+	// 			variant: 'default' as const
+	// 		};
+	// 	}
+	// 	return {
+	// 		message: 'Using default',
+	// 		variant: 'default' as const
+	// 	};
+	// });
+
+	// const staticTabLabel = $derived(() => {
+	// 	const baseLabel = 'Static Generation';
+	// 	if (activeTab === 'static') {
+	// 		return staticShowUrl === false ? `${baseLabel} (Custom)` : `${baseLabel} (Default)`;
+	// 	}
+	// 	return baseLabel;
+	// });
+
+	// const dynamicTabLabel = $derived(() => {
+	// 	const baseLabel = 'Dynamic Generation';
+	// 	if (activeTab === 'dynamic') {
+	// 		return credentialOffer ? `${baseLabel} (Active)` : baseLabel;
+	// 	}
+	// 	return baseLabel;
+	// });
+
+	//
+
+	const qrProps = {
+		cellSize: 10,
+		class: 'size-60 rounded-md border aspect-square'
+	};
 </script>
 
-<Form.Field {form} name={deeplinkName}>
-	<FieldWrapper field={deeplinkName} {options}>
+<Tabs.Root bind:value={activeTab} class="w-full">
+	<Tabs.List class="mb-4 grid w-full grid-cols-3">
+		{#each Object.values(modesTabs) as tab}
+			<Tabs.Trigger value={tab.value} disabled={tab.value === 'default' && isDefaultDisabled}>
+				{tab.label}
+			</Tabs.Trigger>
+		{/each}
+	</Tabs.List>
+
+	<Tabs.Content value={modesTabs.default.value}>
+		{#if defaultQr}
+			<div class="flex gap-4">
+				<div>
+					<T class="mb-3">Autogenerated deeplink:</T>
+					<a
+						href={defaultQr}
+						target="_blank"
+						class="block break-all text-xs leading-5 underline">{defaultQr}</a
+					>
+				</div>
+				<QrCode src={defaultQr} {...qrProps} />
+			</div>
+		{/if}
+	</Tabs.Content>
+
+	<Tabs.Content value={modesTabs.static.value}>
+		<div class="flex gap-4">
+			<div class="grow">
+				<T class="mb-3">Configure a static deeplink with fixed parameters.</T>
+				<Field
+					{form}
+					name="deeplink"
+					options={{ placeholder: 'e.g. openid-credential-offer://?...' }}
+				/>
+			</div>
+			<div class={qrProps.class}>
+				{#if deeplinkState.current}
+					<QrCode src={deeplinkState.current ?? ''} {...qrProps} />
+				{:else}
+					<div
+						class="text-muted-foreground flex aspect-square items-center justify-center p-4"
+					>
+						Type to generate a QR code
+					</div>
+				{/if}
+			</div>
+		</div>
+	</Tabs.Content>
+
+	<Tabs.Content value="dynamic" class="mt-4 min-w-0">
+		<T>
+			Configure the YAML below to generate a dynamic credential offer with runtime parameters.
+		</T>
+		<div class="min-w-0">
+			<DynamicTab {form} />
+		</div>
+	</Tabs.Content>
+</Tabs.Root>
+
+<!-- <FieldWrapper field={deeplinkName} {options}>
 		{#snippet children()}
 			{#if activeTab === 'static' && staticDeepLink}
 				<div class="mb-6">
@@ -224,5 +322,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Tabs.Content>
 			</Tabs.Root>
 		{/snippet}
-	</FieldWrapper>
-</Form.Field>
+	</FieldWrapper> -->
