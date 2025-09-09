@@ -706,5 +706,6 @@
 	"No_wallet_versions_available": "No wallet versions available",
 	"Add_new_version": "Add new version",
 	"Wallet_versions": "Wallet versions",
-	"Upload_a_new_file": "Upload a new file"
+	"Upload_a_new_file": "Upload a new file",
+	"Edit_version": "Edit version"
 }

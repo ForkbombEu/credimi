@@ -27,7 +27,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
+		// eslint-disable-next-line no-undef
 		form: SuperForm<Data>;
+		// eslint-disable-next-line no-undef
 		name: FormPath<Data>;
 		variant?: ComponentProps<typeof Button>['variant'];
 		class?: string;
@@ -44,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class: className,
 		variant = 'outline',
 		options = {},
-		children
+		children: child
 	}: Props = $props();
 
 	const multiple = $derived(options.multiple ?? false);
@@ -73,8 +75,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						onclick={() => fileInput.click()}
 						class={['w-full', className]}
 					>
-						{#if children}
-							{@render children({ addFiles })}
+						{#if child}
+							{@render child()}
 						{:else}
 							<UploadIcon />{options.placeholder}
 						{/if}

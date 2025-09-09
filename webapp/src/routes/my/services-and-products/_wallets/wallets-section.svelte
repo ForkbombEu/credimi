@@ -194,31 +194,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Separator />
 
 			{@render walletVersionsManager({
-				walletId: wallet.id,
+				wallet,
 				organizationId: organizationId ?? ''
 			})}
 		</div>
 	</Card>
 {/snippet}
 
-{#snippet walletVersionsManager(props: { walletId: string; organizationId: string })}
+{#snippet walletVersionsManager(props: { wallet: WalletsResponse; organizationId: string })}
+	{@const wallet = props.wallet}
 	<CollectionManager
 		collection="wallet_versions"
 		queryOptions={{
-			filter: `wallet = '${props.walletId}' && owner.id = '${props.organizationId}'`
+			filter: `wallet = '${wallet.id}' && owner.id = '${props.organizationId}'`
 		}}
 		hide={['empty_state']}
 		formFieldsOptions={{
 			exclude: ['owner'],
-			hide: { wallet: props.walletId },
-			placeholders: { file: m.Upload_a_new_file() }
+			hide: { wallet: wallet.id },
+			placeholders: {
+				android_installer: m.Upload_a_new_file(),
+				ios_installer: m.Upload_a_new_file(),
+				tag: 'e.g. v1.0.0'
+			}
 		}}
 	>
 		{#snippet records({ records })}
 			<div>
 				<div class="mb-2 flex items-center justify-between">
 					<T class="text-sm font-semibold">{m.Wallet_versions()}</T>
-					{@render createVersion()}
+					{@render createVersion(wallet)}
 				</div>
 				<ul class="space-y-2">
 					{#each records as record}
@@ -226,7 +231,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
 						>
 							{record.tag}
-							<RecordEdit {record} uiOptions={{ hideRequiredIndicator: true }}>
+							<RecordEdit
+								{record}
+								uiOptions={{ hideRequiredIndicator: true }}
+								formTitle={`${m.Wallet()}: ${wallet.name} — ${m.Edit_version()}: ${record.tag}`}
+							>
 								{#snippet button({ triggerAttributes, icon })}
 									<IconButton
 										variant="outline"
@@ -247,14 +256,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<T class="text-gray-300">
 					{m.No_wallet_versions_available()}
 				</T>
-				{@render createVersion()}
+				{@render createVersion(wallet)}
 			</div>
 		{/snippet}
 	</CollectionManager>
 {/snippet}
 
-{#snippet createVersion()}
-	<RecordCreate uiOptions={{ hideRequiredIndicator: true }}>
+{#snippet createVersion(wallet: WalletsResponse)}
+	<RecordCreate
+		uiOptions={{ hideRequiredIndicator: true }}
+		formTitle={`${m.Wallet()}: ${wallet.name} — ${m.Add_new_version()}`}
+	>
 		{#snippet button({ triggerAttributes, icon })}
 			<Button
 				variant="ghost"
