@@ -1,11 +1,13 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Snippet } from 'svelte';
+import type { ComponentProps, Snippet } from 'svelte';
 import type { FormPath, SuperForm } from 'sveltekit-superforms';
 
 import type { CollectionFieldModeProp } from '@/collections-components/collectionField.svelte';
+import type { Form } from '@/forms';
 import type { FormOptions } from '@/forms/form';
 import type { FormSnippets } from '@/forms/form.svelte';
 import type { CollectionName } from '@/pocketbase/collections-models';
@@ -28,6 +30,7 @@ export type CollectionFormProps<C extends CollectionName> = CollectionFormOption
 		collection: C;
 		recordId?: RecordIdString;
 		initialData?: Partial<CollectionRecords[C]>;
+		children?: Snippet;
 	};
 
 export type CollectionFormOptions<C extends CollectionName> = {
@@ -81,4 +84,5 @@ export type UIOptions = {
 	hideRequiredIndicator?: boolean;
 	showToastOnSuccess?: boolean;
 	toastText?: string;
+	hide?: ComponentProps<Form<any>>['hide'];
 };

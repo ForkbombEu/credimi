@@ -702,5 +702,9 @@
 	"Official_homepage": "Official homepage",
 	"Source_code_repository": "Source code repository",
 	"Custom_check_homepage": "Custom check homepage",
-	"Custom_check_repository": "Custom check repository"
+	"Custom_check_repository": "Custom check repository",
+	"No_actions_available": "No actions available",
+	"Add_first_action": "Add first action",
+	"Only_lowercase_letters_and_underscores_are_allowed": "Only lowercase letters, numbers and underscores are allowed",
+	"Wallet_actions": "Wallet actions"
 }
