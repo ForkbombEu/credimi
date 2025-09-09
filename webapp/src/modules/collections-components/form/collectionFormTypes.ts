@@ -31,6 +31,7 @@ export type CollectionFormProps<C extends CollectionName> = CollectionFormOption
 		recordId?: RecordIdString;
 		initialData?: Partial<CollectionRecords[C]>;
 		children?: Snippet;
+		beforeSubmit?: (data: CollectionFormData[C]) => MaybePromise<CollectionFormData[C]>;
 	};
 
 export type CollectionFormOptions<C extends CollectionName> = {

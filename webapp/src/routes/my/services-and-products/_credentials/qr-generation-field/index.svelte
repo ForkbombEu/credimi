@@ -4,6 +4,10 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+<script lang="ts" module>
+	export type FieldMode = 'default' | 'static' | 'dynamic';
+</script>
+
 <script lang="ts">
 	import { createIntentUrl } from '$lib/credentials';
 	import { fromStore } from 'svelte/store';
@@ -24,9 +28,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		form: SuperForm<{ deeplink: string; yaml: string }>;
 		credential?: CredentialsRecord;
 		credentialIssuer: CredentialIssuersResponse;
+		activeTab: FieldMode;
 	}
 
-	const { form, credential, credentialIssuer }: Props = $props();
+	let { form, credential, credentialIssuer, activeTab = $bindable('default') }: Props = $props();
 
 	/* Field value */
 
@@ -34,15 +39,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	/* Tabs */
 
-	type FieldMode = 'default' | 'static' | 'dynamic';
-
 	const modesTabs = {
 		default: { label: 'Default', value: 'default' },
 		static: { label: 'Static', value: 'static' },
 		dynamic: { label: 'Dynamic', value: 'dynamic' }
 	} satisfies Record<FieldMode, { label: string; value: FieldMode }>;
-
-	let activeTab = $state('default');
 
 	/* Default */
 
@@ -71,86 +72,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			activeTab = 'default';
 		}
 	});
-
-	// //
-
-	// const { form: formData } = $derived(form);
-
-	// let hasInitialized = $state(false);
-
-	// const shouldAutoSwitchToDynamic = $derived.by(() => {
-	// 	const yamlValue = (($formData as Record<string, unknown>)[yaml] as string) || '';
-	// 	const deeplinkValue = (($formData as Record<string, unknown>)['deeplink'] as string) || '';
-	// 	return !hasInitialized && !deeplinkValue && !!yamlValue && yamlValue.length > 0;
-	// });
-
-	// $effect(() => {
-	// 	if (shouldAutoSwitchToDynamic && activeTab === 'static') {
-	// 		activeTab = 'dynamic';
-	// 	}
-	// 	hasInitialized = true;
-	// });
-
-	// let isSubmittingCompliance = $state(false);
-	// let credentialOffer = $state<string | null>(null);
-	// let workflowSteps = $state<unknown[] | null>(null);
-	// let workflowOutput = $state<unknown[] | null>(null);
-	// let workflowError = $state<string | null>(null);
-
-	// let staticDeepLink = $state<string>('');
-	// let staticShowUrl = $state<boolean>(true);
-
-	// const qrStatus = $derived(() => {
-	// 	const yamlValue = (($formData as Record<string, unknown>)[yaml] as string) || '';
-	// 	const deeplinkValue =
-	// 		(($formData as Record<string, unknown>)[deeplinkName] as string) || '';
-
-	// 	if (deeplinkValue) {
-	// 		return {
-	// 			message: 'Using deeplink',
-	// 			variant: 'success' as const
-	// 		};
-	// 	}
-
-	// 	if (yamlValue) {
-	// 		if (credentialOffer) {
-	// 			return {
-	// 				message: 'Using YAML',
-	// 				variant: 'success' as const
-	// 			};
-	// 		}
-	// 		if (workflowError) {
-	// 			return {
-	// 				message: 'Correct YAML',
-	// 				variant: 'destructive' as const
-	// 			};
-	// 		}
-	// 		return {
-	// 			message: 'Configure YAML',
-	// 			variant: 'default' as const
-	// 		};
-	// 	}
-	// 	return {
-	// 		message: 'Using default',
-	// 		variant: 'default' as const
-	// 	};
-	// });
-
-	// const staticTabLabel = $derived(() => {
-	// 	const baseLabel = 'Static Generation';
-	// 	if (activeTab === 'static') {
-	// 		return staticShowUrl === false ? `${baseLabel} (Custom)` : `${baseLabel} (Default)`;
-	// 	}
-	// 	return baseLabel;
-	// });
-
-	// const dynamicTabLabel = $derived(() => {
-	// 	const baseLabel = 'Dynamic Generation';
-	// 	if (activeTab === 'dynamic') {
-	// 		return credentialOffer ? `${baseLabel} (Active)` : baseLabel;
-	// 	}
-	// 	return baseLabel;
-	// });
 
 	//
 

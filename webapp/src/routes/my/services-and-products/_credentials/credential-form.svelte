@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { SuperForm } from 'sveltekit-superforms';
+
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type {
 		CredentialIssuersResponse,
@@ -19,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
 
-	import QrGenerationField from './qr-generation-field/index.svelte';
+	import QrGenerationField, { type FieldMode } from './qr-generation-field/index.svelte';
 
 	//
 
@@ -50,6 +52,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 		return commonFields;
 	});
+
+	//
+
+	let activeTab = $state<FieldMode>('default');
 </script>
 
 <CollectionForm
@@ -74,6 +80,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			yaml: credential?.yaml,
 			credential_issuer: credentialIssuer.id
 		}
+	}}
+	beforeSubmit={(data) => {
+		console.log('beforeSubmit', data, activeTab);
+		if (activeTab === 'static' || activeTab === 'default') {
+			data.yaml = '';
+		}
+		if (activeTab === 'default') {
+			data.deeplink = '';
+		}
+		return data;
 	}}
 	{onSuccess}
 >
@@ -100,11 +116,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<T tag="h3" class="mb-6">Credential Deeplink</T>
 
 		<QrGenerationField
-			{form}
-			deeplinkName="deeplink"
-			yaml="yaml"
+			form={form as unknown as SuperForm<{ deeplink: string; yaml: string }>}
 			{credential}
 			{credentialIssuer}
+			bind:activeTab
 		/>
 	</div>
 
