@@ -35,14 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Field = keyof CredentialsFormData;
 	const exclude: Field[] = $derived.by(() => {
-		const commonFields: Field[] = [
-			'credential_issuer',
-			'json',
-			'owner',
-			'conformant',
-			'imported',
-			'published'
-		];
+		const commonFields: Field[] = ['json', 'owner', 'conformant', 'imported', 'published'];
 		const editFields: Field[] = [
 			'format',
 			'issuer_name',
@@ -52,12 +45,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'logo',
 			'key'
 		];
-		if (mode === 'edit') {
+		if (mode === 'edit' && credential?.imported) {
 			commonFields.push(...editFields);
 		}
-		// else if (mode === 'create') {
-		// 	commonFields.push('yaml');
-		// }
 		return commonFields;
 	});
 </script>
@@ -81,7 +71,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			deeplink: qr_generation
 		},
 		hide: {
-			yaml: credential?.yaml
+			yaml: credential?.yaml,
+			credential_issuer: credentialIssuer.id
 		}
 	}}
 	{onSuccess}

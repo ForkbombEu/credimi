@@ -42,7 +42,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}: Props = $props();
 
 	const { form: formData } = $derived(form);
-	const fieldProxy = (stringProxy(formData, name, { empty: 'undefined' });
+	// eslint-disable-next-line svelte/valid-compile
+	const fieldProxy = stringProxy(formData, name, { empty: 'undefined' });
 	const fieldState = $derived(fromStore(fieldProxy));
 
 	const currentYamlValue = $derived(() => {
