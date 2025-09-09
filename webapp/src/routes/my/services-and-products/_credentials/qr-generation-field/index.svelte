@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { FieldOptions } from '@/forms/fields/types';
 	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { GenericRecord } from '@/utils/types';
 
 	import * as Form from '@/components/ui/form';
@@ -177,7 +178,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Tabs.List>
 
 				<Tabs.Content value="static" class="mt-4">
-					<div class="text-muted-foreground mb-3 text-sm">
+					<div class="mb-3 text-sm">
 						{#if staticShowUrl === false}
 							You've configured a custom deeplink. Clear the field below to use the
 							default configuration.

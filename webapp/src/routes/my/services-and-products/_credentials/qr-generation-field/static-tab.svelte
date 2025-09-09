@@ -60,5 +60,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="space-y-4">
-	<Input {...options} bind:value={fieldState.current} />
+	<Input
+		{...options}
+		bind:value={fieldState.current}
+		placeholder="e.g. openid-credential-offer://?..."
+	/>
 </div>

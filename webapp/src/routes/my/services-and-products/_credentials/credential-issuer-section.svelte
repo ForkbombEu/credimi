@@ -9,13 +9,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { String } from 'effect';
 	import { Eye, EyeOff, RefreshCwIcon } from 'lucide-svelte';
 
-	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
+	import type { IconComponent } from '@/components/types';
+	import type { CredentialIssuersResponse } from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
-	import { RecordDelete, RecordEdit } from '@/collections-components/manager';
+	import { RecordCreate, RecordDelete, RecordEdit } from '@/collections-components/manager';
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
@@ -67,12 +69,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <CollectionManager
 	collection="credential_issuers"
 	queryOptions={{
-		expand: ['credentials_via_credential_issuer'],
 		filter: `owner.id = '${organizationId}'`,
 		sort: ['created', 'DESC']
 	}}
 	editFormFieldsOptions={{ exclude: ['owner', 'url', 'published', 'imported'] }}
-	subscribe="expanded_collections"
 >
 	{#snippet top({ Header, records })}
 		<Header title={m.Credential_issuers()} {id}>
@@ -85,10 +85,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet records({ records, reloadRecords })}
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			{#each records as record}
-				{@const credentials = record.expand?.credentials_via_credential_issuer ?? []}
 				{@render CredentialIssuerCard({
 					credentialIssuer: record,
-					credentials,
 					onEditSuccess: reloadRecords
 				})}
 			{/each}
@@ -100,10 +98,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet CredentialIssuerCard(props: {
 	credentialIssuer: CredentialIssuersResponse;
-	credentials: CredentialsResponse[];
 	onEditSuccess: () => void;
 })}
-	{@const { credentialIssuer: record, credentials, onEditSuccess } = props}
+	{@const { credentialIssuer: record, onEditSuccess } = props}
 	{@const title = String.isNonEmpty(record.name) ? record.name : '[no_title]'}
 
 	<Card class="!p-4">
@@ -215,64 +212,97 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			<Separator />
 
-			{#if credentials.length === 0}
-				<T class="text-gray-300">{m.No_credentials_available()}</T>
-			{:else}
-				<T>
-					{m.count_available_credentials({
-						number: credentials.length
-					})}
-				</T>
+			<CollectionManager
+				collection="credentials"
+				queryOptions={{ filter: `credential_issuer = '${record.id}'` }}
+				hide={['empty_state']}
+			>
+				{#snippet top({ records })}
+					<div class="flex items-center justify-between">
+						{#if records.length > 0}
+							<T class="text-sm font-semibold">
+								{m.count_available_credentials({
+									number: records.length
+								})}
+							</T>
+						{:else}
+							<T class="text-gray-300">{m.No_credentials_available()}</T>
+						{/if}
+						<RecordCreate>
+							{#snippet button({ triggerAttributes, icon })}
+								{@render blueButton({
+									triggerAttributes,
+									icon,
+									text: m.Add_new_credential()
+								})}
+							{/snippet}
+						</RecordCreate>
+					</div>
+				{/snippet}
 
-				<ul class="space-y-2">
-					{#each credentials as credential}
-						<li
-							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
-						>
-							<div class="min-w-0 flex-1 break-words">
-								{#if !credential.published || !record.published}
-									{credential.name || credential.key}
-								{:else}
-									<A
-										href="/marketplace/credentials/{credential.id}"
-										class="break-words font-medium underline underline-offset-2 hover:!no-underline"
-									>
+				{#snippet records({ records: credentials })}
+					<ul class="space-y-2">
+						{#each credentials as credential}
+							<li
+								class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
+							>
+								<div class="min-w-0 flex-1 break-words">
+									{#if !credential.published || !record.published}
 										{credential.name || credential.key}
-									</A>
-								{/if}
-							</div>
+									{:else}
+										<A
+											href="/marketplace/credentials/{credential.id}"
+											class="break-words font-medium underline underline-offset-2 hover:!no-underline"
+										>
+											{credential.name || credential.key}
+										</A>
+									{/if}
+								</div>
 
-							<div class="flex items-center gap-2">
-								{#if credential.imported}
-									<Badge variant="secondary">{m.Imported()}</Badge>
-								{/if}
-								<SwitchWithIcons
-									offIcon={EyeOff}
-									onIcon={Eye}
-									size="sm"
-									disabled={!record.published}
-									checked={credential.published}
-									onCheckedChange={() =>
-										updatePublished(
-											'credentials',
-											credential.id,
-											!credential.published,
-											onEditSuccess
-										)}
-								/>
+								<div class="flex items-center gap-2">
+									{#if credential.imported}
+										<Badge variant="secondary">{m.Imported()}</Badge>
+									{/if}
+									<SwitchWithIcons
+										offIcon={EyeOff}
+										onIcon={Eye}
+										size="sm"
+										disabled={!record.published}
+										checked={credential.published}
+										onCheckedChange={() =>
+											updatePublished(
+												'credentials',
+												credential.id,
+												!credential.published,
+												onEditSuccess
+											)}
+									/>
 
-								<EditCredentialDialog
-									{credential}
-									credentialIssuer={record}
-									onSuccess={onEditSuccess}
-								/>
-							</div>
-						</li>
-					{/each}
-				</ul>
-			{/if}
+									<EditCredentialDialog
+										{credential}
+										credentialIssuer={record}
+										onSuccess={onEditSuccess}
+									/>
+								</div>
+							</li>
+						{/each}
+					</ul>
+				{/snippet}
+			</CollectionManager>
 		</div>
 	</Card>
+{/snippet}
+
+{#snippet blueButton(props: { triggerAttributes: object; icon: IconComponent; text: string })}
+	<Button
+		variant="link"
+		size="sm"
+		class="h-8 gap-1 px-2 text-blue-600 hover:cursor-pointer hover:bg-blue-50 hover:no-underline"
+		{...props.triggerAttributes}
+	>
+		<Icon src={props.icon} />
+		{props.text}
+	</Button>
 {/snippet}
 
 <style lang="postcss">

@@ -8,11 +8,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 
-	import { CollectionForm } from '@/collections-components/index.js';
+	import { CollectionForm } from '@/collections-components';
+	import { Separator } from '@/components/ui/separator';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
 
-	import DeeplinkField from './deeplink-field.svelte';
+	import QrGenerationField from './qr-generation-field/index.svelte';
 
 	//
 
@@ -43,29 +44,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'owner',
 			'conformant',
 			'published',
-			'imported'
+			'imported',
+			'yaml'
 		],
 		order: ['deeplink'],
 		labels: {
-			published: m.Publish_to_marketplace()
+			published: m.Publish_to_marketplace(),
+			deeplink: 'QR Code Generation'
 		},
 		snippets: {
 			description,
-			deeplink
+			deeplink: qr_generation
 		}
 	}}
-	onSuccess={() => {
-		onSuccess?.();
-	}}
-	uiOptions={{
-		toastText: m.Credential_updated_successfully()
-	}}
+	{onSuccess}
 />
 
 {#snippet description({ form }: FieldSnippetOptions<'credentials'>)}
 	<MarkdownField {form} name="description" />
 {/snippet}
 
-{#snippet deeplink({ form }: FieldSnippetOptions<'credentials'>)}
-	<DeeplinkField {form} {credential} {credentialIssuer} name="deeplink" />
+{#snippet qr_generation({ form }: FieldSnippetOptions<'credentials'>)}
+	<QrGenerationField {form} deeplinkName="deeplink" yaml="yaml" {credential} {credentialIssuer} />
+
+	<div class="py-2">
+		<Separator />
+	</div>
 {/snippet}
