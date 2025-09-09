@@ -234,7 +234,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 				{#if record.workflow_url}
 					<div class="flex items-center gap-1">
-						<T class="text-nowrap">{m.Import_results() + ':'}</T>
+						<T class="text-nowrap">{m.Import_results() + ': '}</T>
 						<A class="link-sm" target="_blank" href={record.workflow_url}>
 							{record.workflow_url}
 						</A>
