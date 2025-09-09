@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Sheet from '@/components/ui-custom/sheet.svelte';
 	import { m } from '@/i18n';
 
-	import EditCredentialForm from './edit-credential-form.svelte';
+	import EditCredentialForm from './credential-form.svelte';
 	//
 
 	type Props = {

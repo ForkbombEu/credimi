@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import EditCredentialForm from '$routes/my/services-and-products/_credentials/edit-credential-form.svelte';
+	import EditCredentialForm from '$routes/my/services-and-products/_credentials/credential-form.svelte';
 	import { String } from 'effect';
 	import { TriangleAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
