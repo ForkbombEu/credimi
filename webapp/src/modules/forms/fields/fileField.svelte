@@ -7,8 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts" generics="Data extends GenericRecord">
 	import type { ComponentProps, Snippet } from 'svelte';
 	import type { Writable } from 'svelte/store';
-	import type { SuperForm, FormPath } from 'sveltekit-superforms';
+	import type { FormPath, SuperForm } from 'sveltekit-superforms';
 
+	import { UploadIcon } from 'lucide-svelte';
 	import { fieldProxy } from 'sveltekit-superforms';
 
 	import type { GenericRecord } from '@/utils/types';
@@ -41,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		form,
 		name,
 		class: className,
-		variant = 'default',
+		variant = 'outline',
 		options = {},
 		children
 	}: Props = $props();
@@ -75,7 +76,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{#if children}
 							{@render children({ addFiles })}
 						{:else}
-							{options.placeholder}
+							<UploadIcon />{options.placeholder}
 						{/if}
 					</Button>
 					<input

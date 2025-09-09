@@ -702,5 +702,9 @@
 	"Official_homepage": "Official homepage",
 	"Source_code_repository": "Source code repository",
 	"Custom_check_homepage": "Custom check homepage",
-	"Custom_check_repository": "Custom check repository"
+	"Custom_check_repository": "Custom check repository",
+	"No_wallet_versions_available": "No wallet versions available",
+	"Add_new_version": "Add new version",
+	"Wallet_versions": "Wallet versions",
+	"Upload_a_new_file": "Upload a new file"
 }

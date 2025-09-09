@@ -35,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{:else}
 			<Button
 				variant={walletId ? 'outline' : 'default'}
-				size="sm"
+				size="icon"
 				class={walletId ? 'p-2' : ''}
 				{...sheetTriggerAttributes}
 			>

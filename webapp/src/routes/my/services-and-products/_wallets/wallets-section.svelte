@@ -12,11 +12,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WalletsResponse } from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
-	import { RecordDelete } from '@/collections-components/manager';
+	import { RecordCreate, RecordDelete, RecordEdit } from '@/collections-components/manager';
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -128,7 +130,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<WalletFormSheet walletId={wallet.id} initialData={wallet} {onEditSuccess} />
 					<RecordDelete record={wallet}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
-							<Button variant="outline" size="sm" class="p-2" {...triggerAttributes}>
+							<Button
+								variant="outline"
+								size="icon"
+								class="p-2"
+								{...triggerAttributes}
+							>
 								<Icon />
 							</Button>
 						{/snippet}
@@ -183,6 +190,81 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</T>
 				{/if}
 			</div>
+
+			<Separator />
+
+			{@render walletVersionsManager({
+				walletId: wallet.id,
+				organizationId: organizationId ?? ''
+			})}
 		</div>
 	</Card>
+{/snippet}
+
+{#snippet walletVersionsManager(props: { walletId: string; organizationId: string })}
+	<CollectionManager
+		collection="wallet_versions"
+		queryOptions={{
+			filter: `wallet = '${props.walletId}' && owner.id = '${props.organizationId}'`
+		}}
+		hide={['empty_state']}
+		formFieldsOptions={{
+			exclude: ['owner'],
+			hide: { wallet: props.walletId },
+			placeholders: { file: m.Upload_a_new_file() }
+		}}
+	>
+		{#snippet records({ records })}
+			<div>
+				<div class="mb-2 flex items-center justify-between">
+					<T class="text-sm font-semibold">{m.Wallet_versions()}</T>
+					{@render createVersion()}
+				</div>
+				<ul class="space-y-2">
+					{#each records as record}
+						<li
+							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
+						>
+							{record.tag}
+							<RecordEdit {record} uiOptions={{ hideRequiredIndicator: true }}>
+								{#snippet button({ triggerAttributes, icon })}
+									<IconButton
+										variant="outline"
+										size="sm"
+										{icon}
+										{...triggerAttributes}
+									/>
+								{/snippet}
+							</RecordEdit>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/snippet}
+
+		{#snippet emptyState()}
+			<div class="flex items-center justify-between">
+				<T class="text-gray-300">
+					{m.No_wallet_versions_available()}
+				</T>
+				{@render createVersion()}
+			</div>
+		{/snippet}
+	</CollectionManager>
+{/snippet}
+
+{#snippet createVersion()}
+	<RecordCreate uiOptions={{ hideRequiredIndicator: true }}>
+		{#snippet button({ triggerAttributes, icon })}
+			<Button
+				variant="ghost"
+				class="text-blue-600 hover:bg-blue-50 hover:text-blue-600"
+				size="sm"
+				{...triggerAttributes}
+			>
+				<Icon src={icon} />
+				{m.Add_new_version()}
+			</Button>
+		{/snippet}
+	</RecordCreate>
 {/snippet}
