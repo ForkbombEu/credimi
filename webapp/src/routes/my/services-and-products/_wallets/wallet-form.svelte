@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase/index.js';
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 
-	import Table, { ConformanceCheckSchema } from './wallet-form-checks-table.svelte';
+	import { ConformanceCheckSchema } from './wallet-form-checks-table.svelte';
 	/** eslint-disable @typescript-eslint/no-explicit-any */
 
 	//
@@ -330,10 +330,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 		<!-- @ts-ignore -->
 		<!-- TODO - Typecheck -->
-		<Table
-			form={editWalletform}
+		<!-- <Table
+			form={editWalletform as any}
 			name="conformance_checks"
 			options={{ label: m.Conformance_Checks() }}
-		/>
+		/> -->
 	</Form>
 </div>

@@ -12,6 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { stringProxy } from 'sveltekit-superforms';
 	import { z } from 'zod';
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { GenericRecord } from '@/utils/types';
 
 	import { CodeEditorField } from '@/forms/fields';
@@ -41,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}: Props = $props();
 
 	const { form: formData } = $derived(form);
-	const fieldProxy = $derived(stringProxy(formData, name, { empty: '' }));
+	const fieldProxy = $derived(stringProxy(formData, name, { empty: 'undefined' }));
 	const fieldState = $derived(fromStore(fieldProxy));
 
 	const currentYamlValue = $derived(() => {

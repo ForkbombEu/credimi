@@ -14,6 +14,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { FieldOptions } from '@/forms/fields/types';
 	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
+	import type { GenericRecord } from '@/utils/types';
 
 	import { Input } from '@/components/ui/input';
 
