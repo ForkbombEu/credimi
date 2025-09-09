@@ -32,6 +32,8 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/workflow"
 )
 
 // IssuerURL is a struct that represents the URL of a credential issuer.
@@ -484,6 +486,15 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 					"test":   "get-credential-deeplink",
 					"author": userID,
 				}
+				ao := &workflow.ActivityOptions{
+					ScheduleToCloseTimeout: time.Minute,
+					StartToCloseTimeout:    time.Second * 30,
+					RetryPolicy: &temporal.RetryPolicy{
+						InitialInterval:    time.Second,
+						BackoffCoefficient: 1.0,
+						MaximumInterval:    time.Minute,
+						MaximumAttempts:    1},
+				}
 				input := workflowengine.WorkflowInput{
 					Payload: map[string]any{
 						"yaml": body.Yaml,
@@ -493,6 +504,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"memo":      memo,
 						"app_url":   appURL,
 					},
+					ActivityOptions: ao,
 				}
 
 				var w workflows.CustomCheckWorkflow
@@ -565,12 +577,12 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"credentialOffer is not present in captures",
 					)
 				}
-				
+
 				// Return both the credential offer and the full workflow output
 				return e.JSON(http.StatusOK, map[string]any{
 					"credentialOffer": deeplink,
-					"steps":          steps,
-					"output":         output,
+					"steps":           steps,
+					"output":          output,
 				})
 			},
 		).Bind(apis.RequireAuth())
