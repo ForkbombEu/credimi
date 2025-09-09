@@ -707,5 +707,9 @@
 	"Add_new_version": "Add new version",
 	"Wallet_versions": "Wallet versions",
 	"Upload_a_new_file": "Upload a new file",
-	"Edit_version": "Edit version"
+	"Edit_version": "Edit version",
+	"No_actions_available": "No actions available",
+	"Add_first_action": "Add first action",
+	"Only_lowercase_letters_and_underscores_are_allowed": "Only lowercase letters, numbers and underscores are allowed",
+	"Wallet_actions": "Wallet actions"
 }

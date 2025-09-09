@@ -7,8 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
-	import { ChevronDown, ChevronUp, Eye, EyeOff } from 'lucide-svelte';
+	import { yaml } from '@codemirror/lang-yaml';
+	import { ChevronDown, ChevronUp, Eye, EyeOff, UploadIcon } from 'lucide-svelte';
 
+	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type { WalletsResponse } from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
@@ -24,8 +26,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { Separator } from '@/components/ui/separator';
+	import { CodeEditorField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
+	import { readFileAsString, startFileUpload } from '@/utils/files';
 
 	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
 
@@ -197,6 +201,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				wallet,
 				organizationId: organizationId ?? ''
 			})}
+
+			<Separator />
+
+			{@render walletActionsManager({ walletId: wallet.id, ownerId: wallet.owner })}
 		</div>
 	</Card>
 {/snippet}
@@ -269,6 +277,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</T>
 				{@render createVersion(wallet)}
 			</div>
+
+			<div class="flex items-center justify-between gap-2">
+				<T class="text-gray-300">
+					{m.No_actions_available()}
+				</T>
+				<RecordCreate>
+					{#snippet button({ triggerAttributes, icon })}
+						<Button variant="outline" size="sm" {...triggerAttributes}>
+							<Icon src={icon} />
+							{m.Add_first_action()}
+						</Button>
+					{/snippet}
+				</RecordCreate>
+			</div>
 		{/snippet}
 	</CollectionManager>
 {/snippet}
@@ -290,4 +312,109 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Button>
 		{/snippet}
 	</RecordCreate>
+{/snippet}
+
+{#snippet walletActionsManager(props: { walletId: string; ownerId: string })}
+	<CollectionManager
+		collection="wallet_actions"
+		hide={['empty_state', 'pagination']}
+		queryOptions={{
+			filter: `wallet.id = '${props.walletId}'`
+		}}
+		formFieldsOptions={{
+			exclude: ['owner'],
+			hide: { wallet: props.walletId, owner: props.ownerId },
+			snippets: { code: codeField },
+			labels: {
+				uid: 'UID'
+			},
+			descriptions: {
+				uid: m.Only_lowercase_letters_and_underscores_are_allowed()
+			}
+		}}
+	>
+		{#snippet records({ records })}
+			<div>
+				<div class="mb-2 flex items-center justify-between">
+					<T class="text-sm font-semibold">{m.Wallet_actions()}</T>
+					<RecordCreate>
+						{#snippet button({ triggerAttributes, icon })}
+							<Button
+								variant="link"
+								size="sm"
+								class="h-8 gap-1 px-2 text-blue-600 hover:cursor-pointer hover:bg-blue-50 hover:no-underline"
+								{...triggerAttributes}
+							>
+								<Icon src={icon} />
+								{m.Add_first_action()}
+							</Button>
+						{/snippet}
+					</RecordCreate>
+				</div>
+				<ul class="space-y-2">
+					{#each records as record}
+						<li
+							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
+						>
+							{record.name}
+							<RecordEdit {record}>
+								{#snippet button({ triggerAttributes, icon })}
+									<IconButton
+										size="sm"
+										variant="outline"
+										{icon}
+										{...triggerAttributes}
+									/>
+								{/snippet}
+							</RecordEdit>
+						</li>
+					{/each}
+				</ul>
+			</div>
+		{/snippet}
+
+		{#snippet emptyState()}
+			<div class="flex items-center justify-between gap-2">
+				<T class="text-gray-300">
+					{m.No_actions_available()}
+				</T>
+				<RecordCreate>
+					{#snippet button({ triggerAttributes, icon })}
+						<Button variant="outline" size="sm" {...triggerAttributes}>
+							<Icon src={icon} />
+							{m.Add_first_action()}
+						</Button>
+					{/snippet}
+				</RecordCreate>
+			</div>
+		{/snippet}
+	</CollectionManager>
+{/snippet}
+
+{#snippet codeField(options: FieldSnippetOptions<'wallet_actions'>)}
+	<CodeEditorField
+		form={options.form}
+		name={options.field}
+		options={{ lang: yaml(), minHeight: 300, maxHeight: 700, labelRight }}
+	/>
+
+	{#snippet labelRight()}
+		<Button
+			variant="secondary"
+			size="sm"
+			onclick={() =>
+				startFileUpload({
+					onLoad: async (file) => {
+						const code = await readFileAsString(file);
+						options.form.form.update((data) => ({
+							...data,
+							code
+						}));
+					}
+				})}
+		>
+			<UploadIcon />
+			{m.Upload_yaml()}
+		</Button>
+	{/snippet}
 {/snippet}
