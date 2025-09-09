@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-export * from './index.generated';
 export * from './extra.generated';
+export * from './index.generated';
 
 //
 
@@ -23,3 +23,5 @@ export const systemFields = [
 export type Data<R extends Record<string, unknown>> = SimplifyDeep<
 	Omit<R, (typeof systemFields)[number]>
 >;
+
+export type { CollectionName } from '@/pocketbase/collections-models';

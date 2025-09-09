@@ -35,6 +35,7 @@ export type CollectionFormProps<C extends CollectionName> = CollectionFormOption
 
 export type CollectionFormOptions<C extends CollectionName> = {
 	onSuccess?: OnCollectionFormSuccess<C>;
+	onError?: (msg: string) => void;
 	fieldsOptions?: Partial<FieldsOptions<C>>;
 	uiOptions?: UIOptions;
 	superformsOptions?: FormOptions<CollectionFormData[C]>;

@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { capitalize } from 'effect/String';
-import { camelCase } from 'lodash';
-import _ from 'lodash';
+import _, { camelCase } from 'lodash';
 import assert from 'node:assert';
 import fs from 'node:fs/promises';
 import path from 'node:path';
@@ -12,8 +11,8 @@ import path from 'node:path';
 import {
 	CollectionsModels,
 	isArrayField,
-	type AnyCollectionModel,
 	type AnyCollectionField,
+	type AnyCollectionModel,
 	type RelationCollectionField
 } from '@/pocketbase/collections-models';
 import { EXPORT_TYPE, formatCode, GENERATED, logCodegenResult, SEPARATOR } from '@/utils/codegen';
@@ -87,7 +86,9 @@ function createCollectionFormDataType(model: AnyCollectionModel): GeneratedColle
 	const collectionName = model.name;
 	const typeName = capitalize(camelCase(model.name)) + FORM_DATA;
 
-	const modelFields = model.fields as AnyCollectionField[];
+	const modelFields = (model.fields as AnyCollectionField[]).filter(
+		(f) => f.name != 'id' && f.name != 'created' && f.name != 'updated'
+	);
 
 	const fields = modelFields.map((f) => {
 		let type: string;

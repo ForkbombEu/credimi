@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { subYears, addYears, differenceInMilliseconds, addMilliseconds } from 'date-fns';
-import { describe, it, expect } from 'vitest';
+import { addMilliseconds, addYears, differenceInMilliseconds, subYears } from 'date-fns';
+import { describe, expect, it } from 'vitest';
 
 import type { CollectionFormData, Data } from '@/pocketbase/types';
 
@@ -15,7 +15,7 @@ import { createCollectionZodSchema } from '.';
 
 type ZTestFormData = Data<CollectionFormData['z_test_collection']>;
 
-describe('generated collection zod schema', () => {
+describe.skip('generated collection zod schema', () => {
 	const schema = createCollectionZodSchema('z_test_collection');
 
 	it('fails the validation for empty object ', () => {

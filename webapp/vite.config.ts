@@ -4,8 +4,7 @@
 
 import { paraglideVitePlugin } from '@inlang/paraglide-js';
 import { sveltekit } from '@sveltejs/kit/vite';
-// These are needed for the json_typegen_wasm plugin
-import wasm from 'vite-plugin-wasm';
+import wasm from 'vite-plugin-wasm'; // These are needed for the json_typegen_wasm plugin
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
@@ -36,8 +35,14 @@ export default defineConfig({
 		]
 	},
 	test: {
-		include: ['src/**/*.{test,spec}.{js,ts}']
+		include: ['src/**/*.{test,spec}.{js,ts}'],
+		environment: 'happy-dom'
 	},
+	resolve: process.env.VITEST
+		? {
+				conditions: ['browser']
+			}
+		: undefined,
 	server: {
 		port: Number(process.env.PORT) || 5100
 	},

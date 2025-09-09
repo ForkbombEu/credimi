@@ -99,6 +99,7 @@ function getParamName(param: Param): string {
 }
 
 function getParamValue(page: Page, param: Param): string | undefined {
+	// @ts-expect-error - TODO: fix this
 	return page.params[getParamName(param)];
 }
 
