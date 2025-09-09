@@ -4,13 +4,17 @@
 
 package apierror
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/pocketbase/pocketbase/core"
+)
 
 type APIError struct {
-	Code    int
-	Domain  string
-	Reason  string
-	Message string
+	Code    int    `json:"status"`
+	Domain  string `json:"error"`
+	Reason  string `json:"reason"`
+	Message string `json:"message"`
 }
 
 // Error implements the error interface.
@@ -25,4 +29,8 @@ func New(code int, domain, reason, message string) *APIError {
 		Reason:  reason,
 		Message: message,
 	}
+}
+
+func (e *APIError) JSON(r *core.RequestEvent) error {
+	return r.JSON(e.Code, e)
 }

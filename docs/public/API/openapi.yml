@@ -5,14 +5,14 @@ components:
       $schema: https://json-schema.org/draft/2020-12/schema
       additionalProperties: false
       properties:
-        Code:
+        error:
+          type: string
+        message:
+          type: string
+        reason:
+          type: string
+        status:
           type: integer
-        Domain:
-          type: string
-        Message:
-          type: string
-        Reason:
-          type: string
       type: object
     ActivityType:
       additionalProperties: false

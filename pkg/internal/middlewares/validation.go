@@ -97,7 +97,7 @@ func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEven
 				"request.body.read",
 				"Failed to read request body",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		request.Body = io.NopCloser(bytes.NewBuffer(raw))
 
@@ -112,7 +112,7 @@ func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEven
 					"request.body.json",
 					"Invalid JSON format for the expected type",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 		}
 		val := reflect.Indirect(reflect.ValueOf(ptr)).Interface()
@@ -126,7 +126,7 @@ func DynamicValidateInputByType(inputType reflect.Type) func(e *core.RequestEven
 				"request.validation",
 				"Validation failed",
 				string(detailsBytes),
-			)
+			).JSON(e)
 		}
 
 		// TODO: Add a way to set the validated value in the context
