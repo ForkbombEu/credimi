@@ -73,7 +73,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			method: 'POST',
 			body: {
 				yaml
-			}
+			},
+			requestKey: null
 		});
 		const responseSchema = z.object({
 			credentialOffer: z.string(),
