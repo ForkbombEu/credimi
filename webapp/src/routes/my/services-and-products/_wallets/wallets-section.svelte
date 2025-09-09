@@ -201,6 +201,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<CollectionManager
 		collection="wallet_actions"
 		hide={['empty_state', 'pagination']}
+		queryOptions={{
+			filter: `wallet.id = '${props.walletId}'`
+		}}
 		formFieldsOptions={{
 			exclude: ['owner'],
 			hide: { wallet: props.walletId, owner: props.ownerId },
