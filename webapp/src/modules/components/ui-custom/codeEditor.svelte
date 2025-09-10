@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { EditorView } from '@codemirror/view';
 
 	import { json } from '@codemirror/lang-json';
+	import { yaml } from '@codemirror/lang-yaml';
 	import { dev } from '$app/environment';
 	import CodeMirror from 'svelte-codemirror-editor';
 	import { dracula } from 'thememirror';
@@ -20,7 +21,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Extension = typeof dracula;
 
 	const langs = {
-		json
+		json,
+		yaml
 	};
 
 	const themes = {

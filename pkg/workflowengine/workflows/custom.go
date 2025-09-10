@@ -32,16 +32,21 @@ func (w *CustomCheckWorkflow) Workflow(
 ) (workflowengine.WorkflowResult, error) {
 	stepCIWorkflowActivity := activities.NewStepCIWorkflowActivity()
 	logger := workflow.GetLogger(ctx)
-	subCtx := workflow.WithActivityOptions(ctx, w.GetOptions())
+
+	opts := w.GetOptions()
+	if input.ActivityOptions != nil {
+		opts = *input.ActivityOptions
+	}
+	ctx = workflow.WithActivityOptions(ctx, opts)
 	runMetadata := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(subCtx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(subCtx).Namespace,
+		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
+		Namespace:    workflow.GetInfo(ctx).Namespace,
 		TemporalUI: fmt.Sprintf(
 			"%s/my/tests/runs/%s/%s",
 			input.Config["app_url"],
-			workflow.GetInfo(subCtx).WorkflowExecution.ID,
-			workflow.GetInfo(subCtx).WorkflowExecution.RunID,
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
 	stepCIInput := workflowengine.ActivityInput{
@@ -52,8 +57,8 @@ func (w *CustomCheckWorkflow) Workflow(
 	}
 	var stepCIResult workflowengine.ActivityResult
 
-	err := workflow.ExecuteActivity(subCtx, stepCIWorkflowActivity.Name(), stepCIInput).
-		Get(subCtx, &stepCIResult)
+	err := workflow.ExecuteActivity(ctx, stepCIWorkflowActivity.Name(), stepCIInput).
+		Get(ctx, &stepCIResult)
 
 	if err != nil {
 		logger.Error(stepCIWorkflowActivity.Name(), "error", err)
