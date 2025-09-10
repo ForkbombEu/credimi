@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WalletForm from '$routes/my/services-and-products/_wallets/wallet-form.svelte';
 	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
 	import { String } from 'effect';
-	import { Code2 } from 'lucide-svelte';
+	import { Code } from 'lucide-svelte';
 	import { z } from 'zod';
 
 	import Card from '@/components/ui-custom/card.svelte';
@@ -146,11 +146,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#each actions as action}
 					{@const stats = getCodeStats(action.code)}
 					<Accordion type="single" class="w-full">
-						<AccordionItem value="code-accordion" class="rounded-lg border">
+						<AccordionItem value="code-accordion" class="bg-card rounded-lg border">
 							<AccordionTrigger class="group px-4 py-3 hover:no-underline">
 								<div class="mr-4 flex w-full items-center justify-between">
 									<div class="flex items-center gap-3">
-										<Code2
+										<Code
 											class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
 										/>
 										<div class="text-left">
@@ -193,30 +193,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	{/snippet}
 </EditSheet>
-
-<!-- {#if isWallet}
-					<WalletFormSheet
-						walletId={marketplaceItem.id}
-						initialData={walletInitialData}
-						onEditSuccess={handleEditSuccess}
-					>
-						{#snippet customTrigger({ sheetTriggerAttributes })}
-							<Button
-								size="sm"
-								class="!h-8 text-xs"
-								onclick={async (event) => {
-									await loadFullWalletDataOnDemand();
-									if (sheetTriggerAttributes?.onclick) {
-										sheetTriggerAttributes.onclick(event);
-									}
-								}}
-							>
-								<PencilIcon />
-								{m.Make_changes()}
-							</Button>
-						{/snippet}
-					</WalletFormSheet>
-				{/if} -->
 
 {#snippet AppStore(url: string)}
 	<a href={url} target="_blank" class="">
