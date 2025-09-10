@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		output?: string;
 		error?: string;
 		onRun?: ((code: string) => void) | undefined;
+		showSplit?: boolean;
 	}
 
 	let {
@@ -25,7 +26,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		running = false,
 		output = '',
 		error = '',
-		onRun = undefined
+		onRun = undefined,
+		showSplit = false
 	}: Props = $props();
 
 	let editorValue = $state(value || '');
@@ -49,7 +51,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function run() {
 		if (onRun) {
-			activeTab = 'split';
+			output = '';
+			error = '';
 			onRun(editorValue);
 		}
 	}
@@ -70,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="border-border rounded-lg border">
 	<!-- Header -->
-	<div class="bg-muted/30 border-border flex items-center justify-between border-b px-4 py-3">
+	<div class="bg-muted/30 border-border flex items-center justify-between border-b px-4">
 		<!-- Tab Navigation -->
 		<div class="flex items-center gap-1">
 			<button
@@ -93,28 +96,54 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					e.stopPropagation();
 					activeTab = 'output';
 				}}
-				class="flex items-center gap-2 rounded-t-md px-3 py-2 text-sm font-medium transition-colors {activeTab ===
+				class="relative flex items-center gap-2 rounded-t-md px-3 py-2 text-sm font-medium transition-colors {activeTab ===
 				'output'
 					? 'bg-background text-foreground border-primary border-b-2'
 					: 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}"
 			>
 				<Monitor class="h-4 w-4" />
 				<span class="hidden sm:inline">Output</span>
+
+				<!-- Output indicator -->
+				{#if (output && output.trim()) || (error && error.trim())}
+					<div class="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center">
+						{#if error && error.trim()}
+							<!-- Error indicator -->
+							<div
+								class="h-3 w-3 animate-pulse rounded-full bg-red-500 ring-2 ring-white"
+							></div>
+						{:else if output && output.trim()}
+							<!-- Success indicator - more subtle -->
+							<div class="h-2 w-2 rounded-full bg-green-500/70"></div>
+						{/if}
+					</div>
+				{/if}
+
+				<!-- Running indicator for output tab -->
+				{#if running && activeTab !== 'output'}
+					<div class="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center">
+						<div
+							class="h-3 w-3 animate-pulse rounded-full bg-yellow-500 ring-2 ring-white"
+						></div>
+					</div>
+				{/if}
 			</button>
-			<button
-				onclick={(e) => {
-					e.preventDefault();
-					e.stopPropagation();
-					activeTab = 'split';
-				}}
-				class="flex items-center gap-2 rounded-t-md px-3 py-2 text-sm font-medium transition-colors {activeTab ===
-				'split'
-					? 'bg-background text-foreground border-primary border-b-2'
-					: 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}"
-			>
-				<SplitSquareHorizontal class="h-4 w-4" />
-				<span class="hidden sm:inline">Split</span>
-			</button>
+			{#if showSplit}
+				<button
+					onclick={(e) => {
+						e.preventDefault();
+						e.stopPropagation();
+						activeTab = 'split';
+					}}
+					class="flex items-center gap-2 rounded-t-md px-3 py-2 text-sm font-medium transition-colors {activeTab ===
+					'split'
+						? 'bg-background text-foreground border-primary border-b-2'
+						: 'text-muted-foreground hover:text-foreground hover:bg-muted/50'}"
+				>
+					<SplitSquareHorizontal class="h-4 w-4" />
+					<span class="hidden sm:inline">Split</span>
+				</button>
+			{/if}
 		</div>
 
 		<!-- Actions -->
@@ -250,7 +279,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		<!-- Split View -->
-		{#if activeTab === 'split'}
+		{#if activeTab === 'split' && showSplit}
 			<div class="flex h-[400px]">
 				<!-- Editor Side -->
 				<div

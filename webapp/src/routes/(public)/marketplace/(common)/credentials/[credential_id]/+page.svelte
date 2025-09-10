@@ -14,7 +14,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import EditCredentialForm from '$routes/my/services-and-products/_credentials/credential-form.svelte';
 	import { String } from 'effect';
-	import { TriangleAlert } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 	import { z } from 'zod';
 
@@ -22,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
-	import { QrCode } from '@/qr/index.js';
+	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	import EditSheet from '../../_utils/edit-sheet.svelte';
 	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
@@ -32,10 +31,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
 
-	// State for credential offer from YAML processing
-	let credentialOfferFromYaml = $state<string | null>(null);
 	let isProcessingYaml = $state(false);
 	let yamlProcessingError = $state(false);
+	let qrLink = $state<string>('');
 
 	const sections = $derived(
 		generateMarketplaceSection('credentials', {
@@ -48,15 +46,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		credential.json as CredentialConfiguration | undefined
 	);
 
-	// If credential has yaml and we got a credential offer from it, use that; otherwise use the default qr link
-	const qrLink = $derived(
-		credentialOfferFromYaml ||
-			(String.isNonEmpty(credential.deeplink)
-				? credential.deeplink
-				: createIntentUrl(credential, credentialIssuer.url))
-	);
-
-	// Process YAML if it exists
 	onMount(async () => {
 		if (credential.yaml && String.isNonEmpty(credential.yaml)) {
 			isProcessingYaml = true;
@@ -64,15 +53,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			try {
 				const result = await processYamlAndExtractCredentialOffer(credential.yaml);
 				if (result.credentialOffer) {
-					credentialOfferFromYaml = result.credentialOffer;
+					qrLink = result.credentialOffer;
 				}
 			} catch (error) {
 				console.error('Failed to process YAML for credential offer:', error);
 				yamlProcessingError = true;
-				credentialOfferFromYaml = null;
+				qrLink = createIntentUrl(credential, credentialIssuer.url);
 			} finally {
 				isProcessingYaml = false;
 			}
+		} else if (String.isNonEmpty(credential.deeplink)) {
+			qrLink = credential.deeplink;
+		} else {
+			qrLink = createIntentUrl(credential, credentialIssuer.url);
 		}
 	});
 
@@ -124,32 +117,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex flex-col items-stretch">
 			<PageHeader title="Credential offer" id="qr" />
 
-			{#if isProcessingYaml}
-				<div class="flex h-60 w-60 items-center justify-center rounded-md border">
-					<div class="text-muted-foreground text-sm">
-						Processing YAML configuration...
-					</div>
-				</div>
-			{:else}
-				<!-- Show warning message if YAML processing failed -->
-				{#if yamlProcessingError}
-					<div
-						class="mb-3 flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800"
-					>
-						<TriangleAlert class="h-4 w-4 shrink-0" />
-						<div>
-							<div class="font-medium">Dynamic generation failed</div>
-						</div>
-					</div>
-				{/if}
+			<QrStateful
+				src={qrLink}
+				isLoading={isProcessingYaml}
+				error={yamlProcessingError ? 'Dynamic generation failed' : undefined}
+				loadingText="Processing YAML configuration..."
+				placeholder="No credential offer available"
+			/>
 
-				{#if !yamlProcessingError}
-					<!-- Always use the same display format regardless of whether it's from YAML or default -->
-					<QrCode src={qrLink} cellSize={10} class={['w-60 rounded-md']} />
-					<div class="w-60 break-all pt-4 text-xs">
-						<a href={qrLink} target="_self">{qrLink}</a>
-					</div>
-				{/if}
+			{#if qrLink && !isProcessingYaml && !yamlProcessingError}
+				<div class="w-60 break-all pt-4 text-xs">
+					<a href={qrLink} target="_self">{qrLink}</a>
+				</div>
 			{/if}
 		</div>
 	</div>
