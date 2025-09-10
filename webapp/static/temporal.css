@@ -4837,10 +4837,10 @@ input[type='search']::-webkit-search-cancel-button {
 
 #temporal-workflow-container span.arrow.arrow-left {
 	border-width: 5px 6px 5px 0 !important;
-	border-color: transparent #1e293b transparent transparent !important;
+	border-color: transparent rgb(var(--color-text-primary)) transparent transparent !important;
 }
 
 #temporal-workflow-container span.arrow.arrow-right {
 	border-width: 5px 0 5px 6px !important;
-	border-color: transparent transparent transparent #1e293b !important;
+	border-color: transparent transparent transparent rgb(var(--color-text-primary)) !important;
 }
