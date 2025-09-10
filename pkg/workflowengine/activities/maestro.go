@@ -73,7 +73,14 @@ func (a *MaestroFlowActivity) Execute(
 			fmt.Sprintf(errCode.Description+": %v", err),
 		)
 	}
-	defer os.Remove(tmpFile.Name())
+	if _, err := tmpFile.WriteString(yamlContent); err != nil {
+		errCode := errorcodes.Codes[errorcodes.TempFileCreationFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf(errCode.Description+": %v", err),
+		)
+	}
+	// defer os.Remove(tmpFile.Name())
 
 	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	exexcutableDir := filepath.Join(binDir, "maestro", "bin")
