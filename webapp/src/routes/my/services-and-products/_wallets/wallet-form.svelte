@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { SuperForm } from 'sveltekit-superforms';
+
 	import _ from 'lodash';
 	import { AlertCircle, Download, Loader2, X } from 'lucide-svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
@@ -73,8 +75,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				formDataStore.update((currentData) => {
 					const updatedData = { ...currentData };
 					Object.keys(response).forEach((key) => {
-						if (key in updatedData) {
-							(updatedData as any)[key] = response[key];
+						if (key in updatedData && key in response) {
+							(updatedData as Record<string, unknown>)[key] =
+								response[key as keyof typeof response];
 						}
 					});
 					return updatedData;
@@ -82,12 +85,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 
 			autoPopulateUrl = '';
-		} catch (error: any) {
-			if (error?.response?.error?.code === 404) {
+		} catch (error: unknown) {
+			const errorObj = error as {
+				response?: { error?: { code?: number; message?: string } };
+			};
+			if (errorObj?.response?.error?.code === 404) {
 				autoPopulateError = m.Wallet_not_found_check_URL();
 			} else {
 				autoPopulateError =
-					error?.response?.error?.message || m.Failed_to_fetch_wallet_metadata();
+					errorObj?.response?.error?.message || m.Failed_to_fetch_wallet_metadata();
 			}
 		} finally {
 			isProcessingWorkflow = false;
@@ -107,21 +113,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const editWalletform = createForm<z.infer<typeof schema>>({
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
-			let wallet: WalletsResponse;
 			const formData = { ...form.data };
 			if (!formData.apk || (formData.apk instanceof File && formData.apk.size === 0)) {
 				delete formData.apk;
 			}
-			if (!formData.logo || (formData.logo instanceof File && formData.logo.size === 0)) {
+
+			const hasValidLogoFile = formData.logo instanceof File && formData.logo.size > 0;
+			if (!formData.logo || !hasValidLogoFile) {
 				delete formData.logo;
+			}
+			if (hasValidLogoFile || !formData.logo_url?.trim()) {
+				delete formData.logo_url;
 			}
 
 			if (walletId) {
 				// Temp fix
 				const data = _.omit(formData, 'conformance_checks');
-				wallet = await pb.collection('wallets').update(walletId, data);
+				await pb.collection('wallets').update(walletId, data);
 			} else {
-				wallet = await pb.collection('wallets').create(formData);
+				await pb.collection('wallets').create(formData);
 			}
 
 			onSuccess?.();
@@ -132,12 +142,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		initialData: {
 			...initialData,
 			logo: undefined,
+			logo_url: initialData.logo_url || '',
 			apk: undefined,
 			conformance_checks: null
 		}
 	});
 
 	const { form: formData } = editWalletform;
+
+	// Type-safe form for the Table component
+	type TableFormData = { conformance_checks?: z.infer<typeof ConformanceCheckSchema>[] };
+	const tableForm = editWalletform as SuperForm<TableFormData>;
 </script>
 
 <div class="flex flex-col">
@@ -314,11 +329,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			placeholder: m.Enter_home_URL()
 		}}
 	/>
-	<!-- @ts-ignore -->
-	<!-- TODO - Typecheck -->
-	<Table
-		form={editWalletform as any}
-		name="conformance_checks"
-		options={{ label: m.Conformance_Checks() }}
-	/>
+	<Table form={tableForm} name="conformance_checks" options={{ label: m.Conformance_Checks() }} />
 </Form>

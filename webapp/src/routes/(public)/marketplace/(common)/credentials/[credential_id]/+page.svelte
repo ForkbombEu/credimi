@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
 
 	import { createIntentUrl } from '$lib/credentials/index.js';
-	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+	import CodeAccordion from '$lib/layout/codeAccordion.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
@@ -100,10 +100,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 
 		{#if credentialConfiguration}
-			<CodeDisplay
+			<CodeAccordion
 				content={JSON.stringify(credentialConfiguration, null, 2)}
 				language="json"
-				class="w-fit max-w-screen-lg overflow-x-clip rounded-xl border border-primary bg-card p-6 text-xs text-card-foreground shadow-sm ring-primary transition-transform hover:-translate-y-2 hover:ring-2"
+				title="Credential Configuration"
+				subtitle="OpenID4VCI Format"
+				badge="JSON"
+				class="w-full"
 			/>
 		{/if}
 	</div>
