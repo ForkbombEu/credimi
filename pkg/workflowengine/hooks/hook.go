@@ -19,6 +19,8 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -107,19 +109,29 @@ func startWorker(client client.Client, config workerConfig, wg *sync.WaitGroup) 
 }
 func startPipelineWorker(client client.Client, wg *sync.WaitGroup) {
 	defer wg.Done()
-	w := worker.New(client, workflows.PipelineTaskQueue, worker.Options{})
-	pipelineWf := &workflows.PipelineWorkflow{}
+	w := worker.New(client, pipeline.PipelineTaskQueue, worker.Options{})
+	pipelineWf := &pipeline.PipelineWorkflow{}
 	w.RegisterWorkflowWithOptions(pipelineWf.Workflow, workflow.RegisterOptions{
 		Name: pipelineWf.Name(),
 	})
-	for _, a := range activities.Registry {
-		act := a.NewFunc().(workflowengine.ExecutableActivity)
-		w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{
-			Name: act.Name(),
-		})
+	for _, step := range registry.Registry {
+		switch step.Kind {
+		case registry.TaskActivity:
+
+			act := step.NewFunc().(workflowengine.ExecutableActivity)
+			w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{
+				Name: act.Name(),
+			})
+		case registry.TaskWorkflow:
+			wf := step.NewFunc().(workflowengine.Workflow)
+			w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{
+				Name: wf.Name(),
+			})
+		}
+
 	}
 	if err := w.Run(worker.InterruptCh()); err != nil {
-		log.Printf("Failed to start worker for %s: %v", workflows.PipelineTaskQueue, err)
+		log.Printf("Failed to start worker for %s: %v", pipeline.PipelineTaskQueue, err)
 	}
 }
 func StartAllWorkersByNamespace(namespace string) {

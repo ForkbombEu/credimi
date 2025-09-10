@@ -70,7 +70,7 @@ func GetValidatedInput[T any](e *core.RequestEvent) (T, error) {
 			"routing",
 			"Input Type Mismatch",
 			errMsg,
-		)
+		).JSON(e)
 	}
 	return typedInput, nil
 }

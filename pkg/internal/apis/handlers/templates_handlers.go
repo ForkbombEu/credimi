@@ -48,6 +48,9 @@ func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		configs, err := walkConfigTemplates(templatesDir)
 		if err != nil {
+			if appErr, ok := err.(*apierror.APIError); ok {
+				return appErr.JSON(e)
+			}
 			return err
 		}
 		return e.JSON(http.StatusOK, configs)
@@ -72,7 +75,7 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 				"request.validation",
 				"filenames are required",
 				"filenames are required",
-			)
+			).JSON(e)
 		}
 
 		var files []io.Reader
@@ -88,7 +91,7 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 					"request.file.open",
 					"Error opening file: "+filename,
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			defer file.Close()
 			files = append(files, file)
@@ -101,7 +104,7 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 				"request.placeholders",
 				"Error getting placeholders",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		return e.JSON(http.StatusOK, placeholders)

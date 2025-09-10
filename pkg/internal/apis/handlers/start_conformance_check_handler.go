@@ -108,7 +108,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"protocol and version",
 				"protocol and version are required",
 				"missing parameters",
-			)
+			).JSON(e)
 		}
 
 		dirPath := os.Getenv("ROOT_DIR") + "/config_templates/" + protocol + "/" + version + "/"
@@ -118,7 +118,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"directory",
 				"directory does not exist for test "+os.Getenv("ROOT_DIR")+protocol+"/"+version,
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		var returns []workflowengine.WorkflowResult
@@ -130,7 +130,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"yaml",
 					"yaml is required for custom check",
 					"missing yaml",
-				)
+				).JSON(e)
 			}
 			var formJSON string
 			if customCheck.Form != nil {
@@ -141,7 +141,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 						"form",
 						"failed to serialize form to JSON",
 						err.Error(),
-					)
+					).JSON(e)
 				}
 				formJSON = string(b)
 			}
@@ -164,7 +164,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"custom-check",
 					"failed to process custom check",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			returns = append(returns, results)
 		}
@@ -177,7 +177,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"author",
 					"author is required",
 					"missing author",
-				)
+				).JSON(e)
 			}
 			memo := map[string]interface{}{
 				"test":     testName,
@@ -204,7 +204,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"json",
 					"failed to process JSON checks",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			returns = append(returns, results)
 		}
@@ -217,7 +217,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"author",
 					"author is required",
 					"missing author",
-				)
+				).JSON(e)
 			}
 			memo := map[string]interface{}{
 				"test":     testName,
@@ -245,7 +245,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 					"variables",
 					"failed to process variables test",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			returns = append(returns, results)
 		}
