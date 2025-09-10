@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"net/http"
@@ -29,6 +30,7 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/types"
 	"go.temporal.io/sdk/client"
@@ -601,6 +603,16 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 type WalletURL struct {
 	URL string `json:"walletURL"`
 }
+type WalletApkRequest struct {
+	GoogleAppID string `json:"google_app_id"`
+	ActionUID   string `json:"action_uid"`
+	Org         string `json:"organization"`
+}
+type WalletStoreResult struct {
+	ResultPath string `json:"result_path"`
+	ActionUID  string `json:"action_uid"`
+	Org        string `json:"organization"`
+}
 
 func HookWalletWorkflow(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
@@ -709,6 +721,204 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 				"owner":         organization,
 			})
 		}).Bind(apis.RequireAuth())
+
+		se.Router.POST("/wallet/get-apk-and-action", func(e *core.RequestEvent) error {
+
+			var req WalletApkRequest
+			if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
+				return apis.NewBadRequestError("invalid JSON input", err)
+			}
+
+			walletCollection, err := app.FindCollectionByNameOrId("wallets")
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"wallets",
+					"failed to find wallets collection",
+					err.Error(),
+				).JSON(e)
+			}
+			walletRecord, err := app.FindFirstRecordByFilter(
+				walletCollection,
+				"google_app_id = {:googleAppID} && owner = {:org}",
+				map[string]any{"googleAppID": req.GoogleAppID, "org": req.Org},
+			)
+			if err != nil {
+				return apierror.New(
+					http.StatusNotFound,
+					"wallet",
+					"wallet not found",
+					err.Error(),
+				).JSON(e)
+			}
+			walletID := walletRecord.Id
+
+			walletActionsColl, err := app.FindCollectionByNameOrId("wallet_actions")
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"wallet_actions",
+					"failed to find wallet_actions collection",
+					err.Error(),
+				).JSON(e)
+			}
+			actionRecord, err := app.FindFirstRecordByFilter(
+				walletActionsColl.Id,
+				"wallet = {:walletID} && uid = {:actionUID} && owner = {:org}",
+				map[string]any{"walletID": walletID, "actionUID": req.ActionUID, "org": req.Org},
+			)
+			if err != nil {
+				return apierror.New(
+					http.StatusNotFound,
+					"wallet_action",
+					"wallet action not found",
+					err.Error(),
+				).JSON(e)
+			}
+			code := actionRecord.GetString("code")
+
+			walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"wallet_versions",
+					"failed to find wallet_version collection",
+					err.Error(),
+				).JSON(e)
+			}
+			versionRecord, err := app.FindFirstRecordByFilter(
+				walletVersionColl.Id,
+				"wallet = {:walletID} && owner = {:org}",
+				map[string]any{"walletID": walletID, "org": req.Org},
+			)
+			if err != nil {
+				return apierror.New(
+					http.StatusNotFound,
+					"wallet_version",
+					"wallet version not found",
+					err.Error(),
+				).JSON(e)
+			}
+			key := versionRecord.BaseFilesPath() + "/" + versionRecord.GetString("android_installer")
+
+			fsys, err := app.NewFilesystem()
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"filesystem",
+					"failed to create pocketbasefilesystem",
+					err.Error(),
+				).JSON(e)
+			}
+			defer fsys.Close()
+
+			blob, err := fsys.GetFile(key)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"filesystem",
+					"failed to get apk file",
+					err.Error(),
+				).JSON(e)
+			}
+			defer blob.Close()
+
+			tmpFile, err := os.CreateTemp("", "*.apk")
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"filesystem",
+					"failed to create tmp apk file",
+					err.Error(),
+				).JSON(e)
+			}
+			defer tmpFile.Close()
+
+			_, err = io.Copy(tmpFile, blob)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"filesystem",
+					"failed to copy apk file",
+					err.Error(),
+				).JSON(e)
+			}
+
+			return e.JSON(http.StatusOK, map[string]any{
+				"code":     code,
+				"apk_path": tmpFile.Name(),
+			})
+		})
+		se.Router.POST("/wallet/store-action-result", func(e *core.RequestEvent) error {
+			var req WalletStoreResult
+			if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
+				return apis.NewBadRequestError("invalid JSON input", err)
+			}
+
+			// Find wallet_actions collection
+			walletActionsColl, err := app.FindCollectionByNameOrId("wallet_actions")
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"wallet_actions",
+					"failed to find wallet_actions collection",
+					err.Error(),
+				).JSON(e)
+			}
+
+			// Get the wallet action record
+			actionRecord, err := app.FindFirstRecordByFilter(
+				walletActionsColl.Id,
+				"uid = {:actionUID} && owner = {:org}",
+				map[string]any{"actionUID": req.ActionUID, "org": req.Org},
+			)
+			if err != nil {
+				return apierror.New(
+					http.StatusNotFound,
+					"wallet_action",
+					"wallet action not found",
+					err.Error(),
+				).JSON(e)
+			}
+
+			f, err := filesystem.NewFileFromPath(req.ResultPath)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"filesystem",
+					"failed to open tmp file",
+					err.Error(),
+				).JSON(e)
+			}
+
+			actionRecord.Set("result", []*filesystem.File{f})
+
+			if err := app.Save(actionRecord); err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"wallet_action",
+					"failed to save wallet action with result file",
+					err.Error(),
+				).JSON(e)
+			}
+
+			// Delete tmp file after successful upload
+			err = os.Remove(req.ResultPath)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"filesystem",
+					"failed to delete tmp file",
+					err.Error(),
+				).JSON(e)
+			}
+
+			return e.JSON(http.StatusOK, map[string]any{
+				"status": "ok",
+				"id":     actionRecord.Id,
+			})
+		})
+
 		return se.Next()
 	})
 }

@@ -65,7 +65,8 @@ func (w *PipelineWorkflow) Workflow(
 			return workflowengine.WorkflowResult{}, fmt.Errorf("global config key %q has non-string value of type %T", k, v)
 		}
 	}
-
+	globalCfg["app_url"] = input.WorkflowInput.Config["app_url"].(string)
+	globalCfg["namespace"] = input.WorkflowInput.Config["namespace"].(string)
 	result := workflowengine.WorkflowResult{}
 	finalOutput := map[string]any{}
 	var steps []StepDefinition
@@ -212,8 +213,9 @@ func (w *PipelineWorkflow) Start(
 		WorkflowDefinition: wfDef,
 		WorkflowInput: workflowengine.WorkflowInput{
 			Config: map[string]any{
-				"app_url": app_url,
-				"global":  wfDef.Config,
+				"app_url":   app_url,
+				"namespace": namespace,
+				"global":    wfDef.Config,
 			},
 			ActivityOptions: &options.ActivityOptions,
 		},

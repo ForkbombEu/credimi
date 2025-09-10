@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"os"
 	"os/exec"
 	"path/filepath"
 
@@ -45,19 +46,48 @@ func (a *MaestroFlowActivity) Execute(
 		)
 	}
 
+	apk, ok := input.Payload["apk"].(string)
+	if !ok || apk == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("%s: 'apk", errCode.Description),
+		)
+	}
+
+	cmd := exec.CommandContext(ctx, "adb", "install", apk)
+	err := cmd.Run()
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf(errCode.Description+": %v", err),
+		)
+	}
+
+	tmpFile, err := os.CreateTemp("", "action.yaml")
+	if err != nil {
+		errCode := errorcodes.Codes[errorcodes.TempFileCreationFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf(errCode.Description+": %v", err),
+		)
+	}
+	defer os.Remove(tmpFile.Name())
+
 	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	exexcutableDir := filepath.Join(binDir, "maestro", "bin")
 	binName := "maestro"
 	binPath := filepath.Join(exexcutableDir, binName)
-	args := []string{"-v"}
+	args := []string{"test", tmpFile.Name(), "--output", "video.mp4"}
 
-	cmd := exec.CommandContext(ctx, binPath, args...)
+	cmd = exec.CommandContext(ctx, binPath, args...)
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
-	err := cmd.Run()
+	err = cmd.Run()
 	stdoutStr := stdoutBuf.String()
 	stderrStr := stderrBuf.String()
 	if err != nil {

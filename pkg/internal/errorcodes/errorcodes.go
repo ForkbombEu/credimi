@@ -55,6 +55,7 @@ var Codes = map[string]Code{
 	CopyFromReaderFailed:           {"CRE902", "Failed to copy from reader"},
 	MkdirFailed:                    {"CRE903", "Failed to create a new folder"},
 	WriteFileFailed:                {"CRE904", "Failed to write to a file"},
+	TempFileCreationFailed:         {"CRE905", "Failed to create a temporary file"},
 }
 
 const (
@@ -101,4 +102,5 @@ const (
 	CopyFromReaderFailed           = "CRE902"
 	MkdirFailed                    = "CRE903"
 	WriteFileFailed                = "CRE904"
+	TempFileCreationFailed         = "CRE905"
 )
