@@ -159,6 +159,7 @@ devtools: generate
 	pre-commit autoupdate
 
 tools: generate $(BIN) $(BIN)/stepci-captured-runner $(BIN)/et-tu-cesr $(BIN)/maestro/
+	mise install
 
 $(BIN)/stepci-captured-runner:
 	wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/download/stepci-captured-runner-$(shell uname)-$(shell uname -m) -O $(BIN)/stepci-captured-runner && chmod +x $(BIN)/stepci-captured-runner
