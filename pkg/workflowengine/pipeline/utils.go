@@ -14,8 +14,8 @@ import (
 const (
 	DefaultNameSpace               = "default"
 	DefaultExecutionTimeout        = "24h"
-	DefaultActivityScheduleTimeout = "10m"
-	DefaultActivityStartTimeout    = "5m"
+	DefaultActivityScheduleTimeout = "1h"
+	DefaultActivityStartTimeout    = "1h"
 	DefaultRetryMaxAttempts        = int32(5)
 	DefaultRetryInitialInterval    = "5s"
 	DefaultRetryMaxInterval        = "1m"
@@ -64,8 +64,8 @@ func PrepareWorkflowOptions(rc RuntimeConfig) WorkflowOptions {
 			),
 		},
 		ActivityOptions: workflow.ActivityOptions{
-			ScheduleToCloseTimeout: time.Minute * 10,
-			StartToCloseTimeout:    time.Minute * 5,
+			ScheduleToCloseTimeout: time.Hour,
+			StartToCloseTimeout:    time.Hour,
 			RetryPolicy:            &rp,
 		},
 	}
