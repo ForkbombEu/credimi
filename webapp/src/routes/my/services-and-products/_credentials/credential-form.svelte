@@ -55,7 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let activeTab = $state<FieldMode>('default');
+	let activeTab = $state<FieldMode>('static');
 </script>
 
 <CollectionForm
@@ -82,11 +82,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}}
 	beforeSubmit={(data) => {
-		if (activeTab === 'static' || activeTab === 'default') {
+		if (activeTab === 'static') {
 			data.yaml = '';
-		}
-		if (activeTab === 'default') {
-			data.deeplink = '';
 		}
 		return data;
 	}}
