@@ -97,7 +97,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 		)
 	}
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityError]
-	apkPath, ok := response.Output.(map[string]any)["apk_path"].(string)
+	apkPath, ok := response.Output.(map[string]any)["body"].(map[string]any)["apk_path"].(string)
 	if !ok || apkPath == "" {
 		appErr := workflowengine.NewAppError(
 			errCode,
@@ -110,7 +110,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	ActionYAML, ok := response.Output.(map[string]any)["code"].(string)
+	ActionYAML, ok := response.Output.(map[string]any)["body"].(map[string]any)["code"].(string)
 	if !ok || ActionYAML == "" {
 		appErr := workflowengine.NewAppError(
 			errCode,
