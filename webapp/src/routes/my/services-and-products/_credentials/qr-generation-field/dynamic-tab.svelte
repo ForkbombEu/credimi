@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CodeEditorField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
-	import { QrCode } from '@/qr';
+	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	//
 
@@ -36,11 +36,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let workflowError = $state<string | null>(null);
+	let workflowError = $state<string>();
 	let isSubmittingCompliance = $state(false);
-	let credentialOffer = $state<string | null>(null);
-	let workflowSteps = $state<unknown[] | null>(null);
-	let workflowOutput = $state<unknown[] | null>(null);
+	let credentialOffer = $state<string>();
+	let workflowSteps = $state<unknown[]>();
+	let workflowOutput = $state<unknown[]>();
 
 	async function startComplianceTest(yamlContent: string) {
 		if (!yamlContent.trim() || !yamlContent) {
@@ -50,10 +50,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		isSubmittingCompliance = true;
 		// Clear previous results
-		credentialOffer = null;
-		workflowSteps = null;
-		workflowOutput = null;
-		workflowError = null;
+		credentialOffer = undefined;
+		workflowSteps = undefined;
+		workflowOutput = undefined;
+		workflowError = undefined;
 
 		try {
 			const result = await processYamlAndExtractCredentialOffer(yamlContent);
@@ -76,6 +76,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			},
 			requestKey: null
 		});
+		console.log(res);
 		const responseSchema = z.object({
 			credentialOffer: z.string(),
 			steps: z.array(z.unknown()),
@@ -148,7 +149,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="flex max-w-full gap-4 pt-6">
-	<div class="w-0 grow basis-2/3">
+	<div class="w-0 grow">
 		<CodeEditorField
 			{form}
 			name="yaml"
@@ -166,12 +167,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	</div>
 
-	{#if credentialOffer}
-		<div class="grow basis-1/3 pt-8">
-			<QrCode src={credentialOffer} class="size-60 rounded-md border" />
+	<div class="pt-8">
+		<QrStateful
+			src={credentialOffer}
+			class="size-60 rounded-md border"
+			placeholder="Run the code to generate a QR code"
+			bind:isLoading={isSubmittingCompliance}
+			bind:error={workflowError}
+		/>
+		{#if credentialOffer}
 			<div class="max-w-60 break-all pt-4 text-xs">
 				<a href={credentialOffer} target="_self">{credentialOffer}</a>
 			</div>
-		</div>
-	{/if}
+		{/if}
+	</div>
 </div>

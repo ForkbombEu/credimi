@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import * as Tabs from '@/components/ui/tabs';
 	import Field from '@/forms/fields/field.svelte';
-	import { QrCode } from '@/qr';
+	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	import DynamicTab from './dynamic-tab.svelte';
 
@@ -63,18 +63,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	// const defaultQr = $derived.by(() => {
-	// 	try {
-	// 		if (credential) {
-	// 			return createIntentUrl(credential, credentialIssuer.url);
-	// 		}
-	// 		return undefined;
-	// 	} catch (error) {
-	// 		console.error(error);
-	// 		return undefined;
-	// 	}
-	// });
-
 	$effect(() => {
 		if (credential?.yaml) {
 			activeTab = 'dynamic';
@@ -84,13 +72,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			activeTab = 'dynamic';
 		}
 	});
-
-	//
-
-	const qrProps = {
-		cellSize: 10,
-		class: 'size-60 rounded-md border aspect-square'
-	};
 </script>
 
 <Tabs.Root bind:value={activeTab} class="w-full">
@@ -112,17 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					options={{ placeholder: 'e.g. openid-credential-offer://?...' }}
 				/>
 			</div>
-			<div class={qrProps.class}>
-				{#if deeplinkState.current}
-					<QrCode src={deeplinkState.current ?? ''} {...qrProps} />
-				{:else}
-					<div
-						class="text-muted-foreground flex aspect-square items-center justify-center p-4"
-					>
-						Type to generate a QR code
-					</div>
-				{/if}
-			</div>
+			<QrStateful src={deeplinkState.current} placeholder="Type to generate a QR code" />
 		</div>
 	</Tabs.Content>
 
