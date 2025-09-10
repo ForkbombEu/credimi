@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
-package workflows
+package pipeline
 
 import (
 	"context"
@@ -10,7 +10,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows/pipeline"
 	"github.com/google/uuid"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/workflow"
@@ -21,10 +20,9 @@ const PipelineTaskQueue = "PipelineTaskQueue"
 type PipelineWorkflow struct{}
 
 type PipelineWorkflowInput struct {
-	WorkflowDefinition *pipeline.WorkflowDefinition
-	WorkflowBlock      *pipeline.WorkflowBlock
+	WorkflowDefinition *WorkflowDefinition
+	WorkflowBlock      *WorkflowBlock
 	WorkflowInput      workflowengine.WorkflowInput
-	ActivityOptions    workflow.ActivityOptions
 }
 
 func (PipelineWorkflow) Name() string {
@@ -32,7 +30,7 @@ func (PipelineWorkflow) Name() string {
 }
 
 func (PipelineWorkflow) GetOptions() workflow.ActivityOptions {
-	return DefaultActivityOptions
+	return workflow.ActivityOptions{}
 }
 
 // Workflow executes all steps in the workflow definition sequentially
@@ -41,7 +39,7 @@ func (w *PipelineWorkflow) Workflow(
 	input PipelineWorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
-	ctx = workflow.WithActivityOptions(ctx, input.ActivityOptions)
+	ctx = workflow.WithActivityOptions(ctx, *input.WorkflowInput.ActivityOptions)
 	runMetadata := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
@@ -70,8 +68,8 @@ func (w *PipelineWorkflow) Workflow(
 
 	result := workflowengine.WorkflowResult{}
 	finalOutput := map[string]any{}
-	var steps []pipeline.StepDefinition
-	var checks map[string]pipeline.WorkflowBlock
+	var steps []StepDefinition
+	var checks map[string]WorkflowBlock
 	switch {
 	case input.WorkflowBlock != nil:
 		steps = input.WorkflowBlock.Steps
@@ -91,35 +89,34 @@ func (w *PipelineWorkflow) Workflow(
 		if subBlock, ok := checks[step.Run]; ok {
 			childOpts := workflow.ChildWorkflowOptions{
 				WorkflowID: fmt.Sprintf(
-					"%s-%s-%s",
-					input.WorkflowDefinition.Name,
+					"%s-%s",
+					workflow.GetInfo(ctx).WorkflowExecution.ID,
 					step.ID,
-					uuid.New().String(),
 				),
 				TaskQueue:         PipelineTaskQueue,
 				ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
 			}
 			ctxChild := workflow.WithChildOptions(ctx, childOpts)
-			ao := pipeline.PrepareActivityOptions(
-				input.ActivityOptions.RetryPolicy,
+			ao := PrepareActivityOptions(
+				input.WorkflowInput.ActivityOptions.RetryPolicy,
 				step.Retry,
 				step.Timeout,
 			)
 
-			localCfg := pipeline.MergeConfigs(globalCfg, step.With.Config)
-			inputs, err := pipeline.ResolveSubworkflowInputs(step, subBlock, globalCfg, finalOutput)
+			localCfg := MergeConfigs(globalCfg, step.With.Config)
+			inputs, err := ResolveSubworkflowInputs(step, subBlock, globalCfg, finalOutput)
 			if err != nil {
 				return result, workflowengine.NewWorkflowError(err, runMetadata)
 			}
 			childWorkflowInput := workflowengine.WorkflowInput{
-				Config:  map[string]any{"global": localCfg},
-				Payload: inputs,
+				Config:          map[string]any{"global": localCfg},
+				Payload:         inputs,
+				ActivityOptions: &ao,
 			}
 
 			childInput := PipelineWorkflowInput{
-				WorkflowBlock:   &subBlock,
-				WorkflowInput:   childWorkflowInput,
-				ActivityOptions: ao,
+				WorkflowBlock: &subBlock,
+				WorkflowInput: childWorkflowInput,
 			}
 			var childResult workflowengine.WorkflowResult
 			err = workflow.ExecuteChildWorkflow(
@@ -137,7 +134,7 @@ func (w *PipelineWorkflow) Workflow(
 
 			finalOutput[step.ID] = make(map[string]any)
 			for k, v := range subBlock.Outputs {
-				res, err := pipeline.ResolveExpressions(v, childResult.Output.(map[string]any))
+				res, err := ResolveExpressions(v, childResult.Output.(map[string]any))
 				if err != nil {
 					errCode := errorcodes.Codes[errorcodes.PipelineParsingError]
 					appErr := workflowengine.NewAppError(
@@ -157,13 +154,13 @@ func (w *PipelineWorkflow) Workflow(
 		}
 
 		finalOutput["inputs"] = input.WorkflowInput.Payload
-		ao := pipeline.PrepareActivityOptions(
-			input.ActivityOptions.RetryPolicy,
+		ao := PrepareActivityOptions(
+			input.WorkflowInput.ActivityOptions.RetryPolicy,
 			step.Retry,
 			step.Timeout,
 		)
-		actCtx := workflow.WithActivityOptions(ctx, ao)
-		_, err := step.Execute(actCtx, globalCfg, &finalOutput)
+
+		_, err := step.Execute(ctx, globalCfg, &finalOutput, ao)
 		if err != nil {
 			logger.Error(step.ID, "step execution error", err)
 			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
@@ -190,13 +187,13 @@ func (w *PipelineWorkflow) Start(
 ) (workflowengine.WorkflowResult, error) {
 	var result workflowengine.WorkflowResult
 
-	var wfDef *pipeline.WorkflowDefinition
-	wfDef, err := pipeline.ParseWorkflow(inputYaml)
+	var wfDef *WorkflowDefinition
+	wfDef, err := ParseWorkflow(inputYaml)
 	if err != nil {
 		return result, err
 	}
 
-	options := pipeline.PrepareWorkflowOptions(wfDef.Runtime)
+	options := PrepareWorkflowOptions(wfDef.Runtime)
 	options.Options.Memo = memo
 	options.Options.ID = fmt.Sprintf("Pipeline-%s-%s", wfDef.Name, uuid.NewString())
 
@@ -218,8 +215,8 @@ func (w *PipelineWorkflow) Start(
 				"app_url": app_url,
 				"global":  wfDef.Config,
 			},
+			ActivityOptions: &options.ActivityOptions,
 		},
-		ActivityOptions: options.ActivityOptions,
 	}
 
 	// Start the workflow execution.

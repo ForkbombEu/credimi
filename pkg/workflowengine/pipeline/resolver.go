@@ -208,12 +208,12 @@ func ResolveInputs(
 	step StepDefinition,
 	globalCfg map[string]string,
 	ctx map[string]any,
-) (*workflowengine.ActivityInput, error) {
+) (map[string]any, map[string]string, error) {
 	stepCfg := make(map[string]string)
 	for k, src := range step.With.Config {
 		val, err := ResolveExpressions(src, ctx)
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 		stepCfg[k] = val.(string)
 	}
@@ -229,25 +229,21 @@ func ResolveInputs(
 		} else {
 			val, err = ResolveExpressions(src.Value, ctx)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 
 		if src.Type != "" {
 			val, err = castType(val, src.Type)
 			if err != nil {
-				return nil, err
+				return nil, nil, err
 			}
 		}
 		payload[k] = val
 	}
 
-	return &workflowengine.ActivityInput{
-		Payload: payload,
-		Config:  cfg,
-	}, nil
+	return payload, cfg, nil
 }
-
 func ResolveSubworkflowInputs(
 	step StepDefinition,
 	subDef WorkflowBlock,
