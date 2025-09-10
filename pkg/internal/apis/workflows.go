@@ -481,7 +481,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"organization",
 						"failed to get organization",
 						err.Error(),
-					)
+					).JSON(e)
 				}
 				memo := map[string]interface{}{
 					"test":   "get-credential-deeplink",
@@ -517,7 +517,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"workflow",
 						"failed to start get deeplink check",
 						errStart.Error(),
-					)
+					).JSON(e)
 				}
 				client, err := temporalclient.GetTemporalClientWithNamespace(
 					namespace,
@@ -528,7 +528,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"temporal",
 						"failed to get temporal client",
 						err.Error(),
-					)
+					).JSON(e)
 				}
 				result, err := workflowengine.WaitForWorkflowResult(client, resStart.WorkflowID, resStart.WorkflowRunID)
 				if err != nil {
@@ -537,7 +537,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"workflow",
 						"failed to get workflow result",
 						err.Error(),
-					)
+					).JSON(e)
 				}
 
 				output, ok := result.Output.([]any)
@@ -547,7 +547,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"workflow",
 						"failed to get workflow output",
 						"output is not an array",
-					)
+					).JSON(e)
 				}
 				steps, ok := output[0].(map[string]any)["steps"].([]any)
 				if !ok || len(steps) == 0 {
@@ -556,7 +556,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"workflow",
 						"failed to get workflow output",
 						"steps are not present or empty",
-					)
+					).JSON(e)
 				}
 
 				captures, ok := steps[0].(map[string]any)["captures"].(map[string]any)
@@ -566,7 +566,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"workflow",
 						"failed to get workflow output",
 						"captures are not present in step",
-					)
+					).JSON(e)
 				}
 
 				deeplink, ok := captures["credentialOffer"].(string)
@@ -576,7 +576,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"workflow",
 						"failed to get workflow output",
 						"credentialOffer is not present in captures",
-					)
+					).JSON(e)
 				}
 
 				// Return both the credential offer and the full workflow output
@@ -587,7 +587,6 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				})
 			},
 		).Bind(apis.RequireAuth())
-
 		se.Router.POST(
 			"/api/credentials_issuers/cleanup_credentials",
 			func(e *core.RequestEvent) error {
