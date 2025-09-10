@@ -12,7 +12,6 @@ import (
 )
 
 const (
-	PipelineTaskQueue              = "PipelineTaskQueue"
 	DefaultNameSpace               = "default"
 	DefaultExecutionTimeout        = "24h"
 	DefaultActivityScheduleTimeout = "10m"
@@ -121,4 +120,12 @@ func (s *WorkflowBlock) ToWorkflowDefinition(name string) *WorkflowDefinition {
 		Config:  s.Config,
 		Steps:   s.Steps,
 	}
+}
+
+func convertStringMap(m map[string]string) map[string]any {
+	res := make(map[string]any, len(m))
+	for k, v := range m {
+		res[k] = v
+	}
+	return res
 }

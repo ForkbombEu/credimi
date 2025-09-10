@@ -7,7 +7,6 @@ package pipeline
 import (
 	"testing"
 
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 )
 
@@ -249,12 +248,13 @@ func TestCastType(t *testing.T) {
 }
 func TestResolveInputs(t *testing.T) {
 	type testCase struct {
-		name      string
-		step      StepDefinition
-		globalCfg map[string]string
-		ctx       map[string]any
-		wantErr   bool
-		expected  *workflowengine.ActivityInput
+		name            string
+		step            StepDefinition
+		globalCfg       map[string]string
+		ctx             map[string]any
+		wantErr         bool
+		expectedPayload map[string]any
+		expectedConfig  map[string]string
 	}
 
 	tests := []testCase{
@@ -272,9 +272,12 @@ func TestResolveInputs(t *testing.T) {
 			},
 			globalCfg: map[string]string{"g": "G"},
 			ctx:       map[string]any{},
-			expected: &workflowengine.ActivityInput{
-				Config:  map[string]string{"key": "value", "g": "G"},
-				Payload: map[string]any{"p": "data"},
+			expectedPayload: map[string]any{
+				"p": "data",
+			},
+			expectedConfig: map[string]string{
+				"key": "value",
+				"g":   "G",
 			},
 		},
 		{
@@ -287,10 +290,10 @@ func TestResolveInputs(t *testing.T) {
 				},
 			},
 			ctx: map[string]any{},
-			expected: &workflowengine.ActivityInput{
-				Config:  map[string]string{},
-				Payload: map[string]any{"num": 123},
+			expectedPayload: map[string]any{
+				"num": 123,
 			},
+			expectedConfig: map[string]string{},
 		},
 		{
 			name: "payload expression resolution",
@@ -302,10 +305,10 @@ func TestResolveInputs(t *testing.T) {
 				},
 			},
 			ctx: map[string]any{"ctx": map[string]any{"key": "ok"}},
-			expected: &workflowengine.ActivityInput{
-				Config:  map[string]string{},
-				Payload: map[string]any{"val": "ok"},
+			expectedPayload: map[string]any{
+				"val": "ok",
 			},
+			expectedConfig: map[string]string{},
 		},
 		{
 			name: "type cast failure (cannot cast map to int)",
@@ -341,30 +344,29 @@ func TestResolveInputs(t *testing.T) {
 				},
 			},
 			ctx: map[string]any{"ctx": map[string]any{"key": 99}},
-			expected: &workflowengine.ActivityInput{
-				Config: map[string]string{},
-				Payload: map[string]any{
-					"nested": map[string]any{
-						"level1": map[string]any{
-							"level2": map[string]any{
-								"value": 99,
-							},
+			expectedPayload: map[string]any{
+				"nested": map[string]any{
+					"level1": map[string]any{
+						"level2": map[string]any{
+							"value": 99,
 						},
-						"array": []any{99, "static"},
 					},
+					"array": []any{99, "static"},
 				},
 			},
+			expectedConfig: map[string]string{},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			got, err := ResolveInputs(tc.step, tc.globalCfg, tc.ctx)
+			payload, cfg, err := ResolveInputs(tc.step, tc.globalCfg, tc.ctx)
 			if tc.wantErr {
 				require.Error(t, err)
 			} else {
 				require.NoError(t, err)
-				require.Equal(t, tc.expected, got)
+				require.Equal(t, tc.expectedPayload, payload)
+				require.Equal(t, tc.expectedConfig, cfg)
 			}
 		})
 	}
