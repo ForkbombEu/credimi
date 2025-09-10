@@ -97,12 +97,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</Tabs.Content>
 
-	<Tabs.Content value="dynamic" class="mt-4 min-w-0">
-		<T>
-			Configure the YAML below to generate a dynamic credential offer with runtime parameters.
-		</T>
-		<div class="min-w-0">
-			<DynamicTab {form} />
-		</div>
+	<Tabs.Content value="dynamic" class="min-w-0">
+		<DynamicTab {form} />
 	</Tabs.Content>
 </Tabs.Root>

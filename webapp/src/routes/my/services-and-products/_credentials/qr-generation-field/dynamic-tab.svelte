@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { GenericRecord } from '@/utils/types';
 
+	import T from '@/components/ui-custom/t.svelte';
 	import { CodeEditorField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
@@ -31,6 +32,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	onMount(() => {
 		if (yamlField.current && yamlField.current.trim()) {
 			startComplianceTest(yamlField.current);
+		}
+	});
+
+	$effect(() => {
+		if (yamlField.current) {
+			workflowError = undefined;
 		}
 	});
 
@@ -76,7 +83,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			},
 			requestKey: null
 		});
-		console.log(res);
 		const responseSchema = z.object({
 			credentialOffer: z.string(),
 			steps: z.array(z.unknown()),
@@ -148,8 +154,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<div class="flex max-w-full gap-4 pt-6">
+<div class="flex max-w-full gap-4">
 	<div class="w-0 grow">
+		<T class="mb-4">
+			Configure the YAML below to generate a dynamic credential offer with runtime parameters.
+		</T>
 		<CodeEditorField
 			{form}
 			name="yaml"
@@ -167,7 +176,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	</div>
 
-	<div class="pt-8">
+	<div>
 		<QrStateful
 			src={credentialOffer}
 			class="size-60 rounded-md border"
@@ -177,7 +186,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 		{#if credentialOffer}
 			<div class="max-w-60 break-all pt-4 text-xs">
-				<a href={credentialOffer} target="_self">{credentialOffer}</a>
+				<a class="hover:underline" href={credentialOffer} target="_self"
+					>{credentialOffer}</a
+				>
 			</div>
 		{/if}
 	</div>
