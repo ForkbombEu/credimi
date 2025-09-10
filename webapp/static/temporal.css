@@ -4827,3 +4827,20 @@ input[type='search']::-webkit-search-cancel-button {
 .\[\&_button\]\:w-full button {
 	width: 100%;
 }
+
+#temporal-workflow-container span.arrow {
+	display: inline-block !important;
+	width: 0 !important;
+	height: 0 !important;
+	border-style: solid !important;
+}
+
+#temporal-workflow-container span.arrow.arrow-left {
+	border-width: 5px 6px 5px 0 !important;
+	border-color: transparent rgb(var(--color-text-primary)) transparent transparent !important;
+}
+
+#temporal-workflow-container span.arrow.arrow-right {
+	border-width: 5px 0 5px 6px !important;
+	border-color: transparent transparent transparent rgb(var(--color-text-primary)) !important;
+}
