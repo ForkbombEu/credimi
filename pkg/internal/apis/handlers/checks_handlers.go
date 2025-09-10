@@ -136,7 +136,7 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		statusParam := e.Request.URL.Query().Get("status")
 		var statusFilters []enums.WorkflowExecutionStatus
@@ -195,7 +195,7 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to list workflows",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		listJSON, err := protojson.Marshal(list)
 		if err != nil {
@@ -204,7 +204,7 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to marshal workflow list",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		finalJSON := make(map[string]interface{})
 		err = json.Unmarshal(listJSON, &finalJSON)
@@ -214,7 +214,7 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to unmarshal workflow list",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		if finalJSON["executions"] == nil {
 			finalJSON["executions"] = []any{}
@@ -226,7 +226,7 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				"workflow",
 				"invalid executions data type",
 				"executions field is not of expected type",
-			)
+			).JSON(e)
 		}
 		finalJSON["executions"] = sortExecutionsByStartTime(executions)
 		return e.JSON(http.StatusOK, finalJSON)
@@ -242,7 +242,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			)
+			).JSON(e)
 		}
 
 		checkID := e.Request.PathValue("checkId")
@@ -253,7 +253,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 				"runId",
 				"runId is required",
 				"missing runId",
-			)
+			).JSON(e)
 		}
 		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
 		if err != nil {
@@ -265,7 +265,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 				"organization",
 				"organization is empty",
 				"missing organization",
-			)
+			).JSON(e)
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
@@ -275,7 +275,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		workflowExecution, err := c.DescribeWorkflowExecution(
 			context.Background(),
@@ -290,7 +290,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow not found",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			invalidArgument := &serviceerror.InvalidArgument{}
 			if errors.As(err, &invalidArgument) {
@@ -299,14 +299,14 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 					"workflow",
 					"invalid workflow ID",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to describe workflow execution",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		weJSON, err := protojson.Marshal(workflowExecution)
 		if err != nil {
@@ -315,7 +315,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to marshal workflow execution",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		finalJSON := make(map[string]interface{})
 		err = json.Unmarshal(weJSON, &finalJSON)
@@ -325,7 +325,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to unmarshal workflow execution",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		return e.JSON(http.StatusOK, finalJSON)
 	}
@@ -340,7 +340,7 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			)
+			).JSON(e)
 		}
 
 		checkID := e.Request.PathValue("checkId")
@@ -351,7 +351,7 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 				"params",
 				"checkId and runId are required",
 				"missing required parameters",
-			)
+			).JSON(e)
 		}
 
 		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
@@ -366,7 +366,7 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		historyIterator := c.GetWorkflowHistory(
@@ -386,7 +386,7 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to get workflow history",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			eventJSON, err := protojson.Marshal(event)
 			if err != nil {
@@ -395,7 +395,7 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to marshal workflow event",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			var eventMap map[string]interface{}
 			err = json.Unmarshal(eventJSON, &eventMap)
@@ -405,7 +405,7 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to unmarshal workflow event",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			history = append(history, eventMap)
 		}
@@ -430,7 +430,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			)
+			).JSON(e)
 		}
 		checkID := e.Request.PathValue("checkId")
 		if checkID == "" {
@@ -439,7 +439,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"checkId",
 				"checkId is required",
 				"missing checkId parameter",
-			)
+			).JSON(e)
 		}
 		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
 		if err != nil {
@@ -451,7 +451,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"organization",
 				"organization is empty",
 				"missing organization",
-			)
+			).JSON(e)
 		}
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 		if err != nil {
@@ -460,7 +460,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		list, err := c.ListWorkflow(
@@ -476,7 +476,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to list workflow executions",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		listJSON, err := protojson.Marshal(list)
 		if err != nil {
@@ -485,7 +485,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to marshal workflow list",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		finalJSON := make(map[string]interface{})
 		err = json.Unmarshal(listJSON, &finalJSON)
@@ -495,7 +495,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to unmarshal workflow list",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		if finalJSON["executions"] == nil {
 			finalJSON["executions"] = []any{}
@@ -507,7 +507,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"workflow",
 				"invalid executions data type",
 				"executions field is not of expected type",
-			)
+			).JSON(e)
 		}
 		finalJSON["executions"] = sortExecutionsByStartTime(executions)
 		return e.JSON(http.StatusOK, finalJSON)
@@ -523,7 +523,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			)
+			).JSON(e)
 		}
 
 		checkID := e.Request.PathValue("checkId")
@@ -534,7 +534,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 				"params",
 				"checkId and runId are required",
 				"missing required parameters",
-			)
+			).JSON(e)
 		}
 
 		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
@@ -549,7 +549,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		workflowExecution, err := c.DescribeWorkflowExecution(
@@ -565,14 +565,14 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow execution not found",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to describe workflow execution",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		workflowName := workflowExecution.GetWorkflowExecutionInfo().GetType().GetName()
@@ -594,7 +594,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to get workflow input",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		var req ReRunCheckRequest
@@ -619,7 +619,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to start workflow",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
@@ -638,7 +638,7 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			)
+			).JSON(e)
 		}
 
 		checkID := e.Request.PathValue("checkId")
@@ -649,7 +649,7 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 				"params",
 				"checkId and runId are required",
 				"missing required parameters",
-			)
+			).JSON(e)
 		}
 
 		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
@@ -664,7 +664,7 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		err = c.CancelWorkflow(context.Background(), checkID, runID)
@@ -676,14 +676,14 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow execution not found",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to cancel workflow execution",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
@@ -706,7 +706,7 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			)
+			).JSON(e)
 		}
 
 		checkID := e.Request.PathValue("checkId")
@@ -717,7 +717,7 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 				"params",
 				"checkId and runId are required",
 				"missing required parameters",
-			)
+			).JSON(e)
 		}
 
 		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
@@ -732,7 +732,7 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		workflowInput, err := getWorkflowInput(checkID, runID, c)
@@ -742,7 +742,7 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to get workflow input",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		if workflowInput.Config == nil {
 			workflowInput.Config = make(map[string]interface{})
@@ -870,7 +870,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			)
+			).JSON(e)
 		}
 
 		checkID := e.Request.PathValue("checkId")
@@ -881,7 +881,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 				"params",
 				"checkId and runId are required",
 				"missing required parameters",
-			)
+			).JSON(e)
 		}
 
 		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
@@ -894,7 +894,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 				"organization",
 				"organization is empty",
 				"missing organization",
-			)
+			).JSON(e)
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
@@ -904,7 +904,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		_, err = c.DescribeWorkflowExecution(context.Background(), checkID, runID)
@@ -916,14 +916,14 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow execution not found",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to describe workflow execution",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		action := e.Request.URL.Query().Get("action")
@@ -937,7 +937,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to send start logs signal",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 		case "stop":
 			err = c.SignalWorkflow(context.Background(), checkID, runID, "stop-logs", struct{}{})
@@ -947,7 +947,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to send stop logs signal",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 		}
 
@@ -974,7 +974,7 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
-			)
+			).JSON(e)
 		}
 
 		checkID := e.Request.PathValue("checkId")
@@ -985,7 +985,7 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 				"params",
 				"checkId and runId are required",
 				"missing required parameters",
-			)
+			).JSON(e)
 		}
 
 		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
@@ -1000,7 +1000,7 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		err = c.TerminateWorkflow(context.Background(), checkID, runID, "Terminated by user", nil)
@@ -1012,14 +1012,14 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow execution not found",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to terminate workflow execution",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{

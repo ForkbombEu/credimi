@@ -52,3 +52,34 @@ export function readFileAsString(file: File): Promise<string> {
 		};
 	});
 }
+
+export function startFileUpload<Multiple extends boolean = false>(
+	options: {
+		accept?: string;
+		multiple?: Multiple;
+		onLoad?: (file: Multiple extends true ? File[] : File) => void | Promise<void>;
+	} = {}
+) {
+	const { accept, multiple = false, onLoad } = options;
+
+	const input = document.createElement('input');
+	input.type = 'file';
+	input.multiple = multiple;
+	if (accept) input.accept = accept;
+
+	input.onchange = async (e) => {
+		if (!(e.target instanceof HTMLInputElement)) return;
+		if (!e.target.files) return;
+		if (multiple) {
+			const files = Array.from(e.target.files);
+			// @ts-expect-error TODO: fix this
+			await onLoad?.(files);
+		} else {
+			const file = e.target.files[0];
+			// @ts-expect-error TODO: fix this
+			await onLoad?.(file);
+		}
+	};
+
+	input.click();
+}

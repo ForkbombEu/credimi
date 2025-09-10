@@ -104,7 +104,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 				"workflowId",
 				"workflowId is required",
 				"missing workflowId",
-			)
+			).JSON(e)
 		}
 		runID := e.Request.PathValue("runId")
 		if runID == "" {
@@ -113,7 +113,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 				"runId",
 				"runId is required",
 				"missing runId",
-			)
+			).JSON(e)
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
@@ -123,7 +123,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		historyIterator := c.GetWorkflowHistory(
@@ -139,7 +139,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 				"workflow",
 				"workflow history not found",
 				"not found",
-			)
+			).JSON(e)
 		}
 		var history []map[string]interface{}
 		for historyIterator.HasNext() {
@@ -152,7 +152,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 						"workflow",
 						"workflow history not found",
 						err.Error(),
-					)
+					).JSON(e)
 				}
 				invalidArgument := &serviceerror.InvalidArgument{}
 				if errors.As(err, &invalidArgument) {
@@ -161,14 +161,14 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 						"workflow",
 						"workflow history not found",
 						err.Error(),
-					)
+					).JSON(e)
 				}
 				return apierror.New(
 					http.StatusInternalServerError,
 					"workflow",
 					"failed to iterate workflow history",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			eventData, err := protojson.Marshal(event)
 			if err != nil {
@@ -177,7 +177,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to marshal history event",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			var eventMap map[string]interface{}
 			if err := json.Unmarshal(eventData, &eventMap); err != nil {
@@ -186,7 +186,7 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 					"workflow",
 					"failed to unmarshal history event",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			history = append(history, eventMap)
 		}
@@ -204,7 +204,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"workflowId",
 				"workflowId is required",
 				"missing workflowId",
-			)
+			).JSON(e)
 		}
 		runID := e.Request.PathValue("runId")
 		if runID == "" {
@@ -213,7 +213,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"runId",
 				"runId is required",
 				"missing runId",
-			)
+			).JSON(e)
 		}
 		authRecord := e.Auth
 
@@ -227,7 +227,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"organization",
 				"organization is empty",
 				"missing organization",
-			)
+			).JSON(e)
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
@@ -237,7 +237,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		workflowExecution, err := c.DescribeWorkflowExecution(
 			context.Background(),
@@ -252,7 +252,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 					"workflow",
 					"workflow not found",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			invalidArgument := &serviceerror.InvalidArgument{}
 			if errors.As(err, &invalidArgument) {
@@ -261,14 +261,14 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 					"workflow",
 					"invalid workflow ID",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to describe workflow execution",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		weJSON, err := protojson.Marshal(workflowExecution)
 		if err != nil {
@@ -277,7 +277,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to marshal workflow execution",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		finalJSON := make(map[string]interface{})
 		err = json.Unmarshal(weJSON, &finalJSON)
@@ -287,7 +287,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to unmarshal workflow execution",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		return e.JSON(http.StatusOK, finalJSON)
 	}
@@ -352,7 +352,7 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		switch req.Signal {
 		case workflows.OpenIDNetStartCheckSignal:
@@ -361,6 +361,10 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 			err = sendTemporalSignal(c, req)
 		}
 		if err != nil {
+			if apiErr, ok := err.(*apierror.APIError); ok {
+				return apiErr.JSON(e)
+			}
+
 			return err
 		}
 		return e.JSON(http.StatusOK, map[string]string{"message": "Signal sent successfully"})
@@ -408,7 +412,7 @@ func sendRealtimeLogs(suiteSubscription string) func(*core.RequestEvent) error {
 				"workflow",
 				"failed to send realtime logs update",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		return e.JSON(http.StatusOK, map[string]string{"message": "Log update sent successfully"})
 	}
@@ -453,7 +457,8 @@ func sendTemporalSignal(c client.Client, input HandleSendTemporalSignalInput) er
 			http.StatusBadRequest,
 			"signal",
 			fmt.Sprintf("failed to send signal: %s", input.Signal),
-			err.Error())
+			err.Error(),
+		)
 	}
 	return nil
 }
@@ -535,7 +540,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				"workflowId",
 				"workflowId is required",
 				"missing workflowId",
-			)
+			).JSON(e)
 		}
 		runID := e.Request.PathValue("runId")
 		if runID == "" {
@@ -544,7 +549,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				"runId",
 				"runId is required",
 				"missing runId",
-			)
+			).JSON(e)
 		}
 
 		namespace, err := GetUserOrganizationID(e.App, e.Auth.Id)
@@ -557,7 +562,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				"organization",
 				"organization is empty",
 				"missing organization",
-			)
+			).JSON(e)
 		}
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 		if err != nil {
@@ -566,15 +571,22 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				"temporal",
 				"unable to create client",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		author, err := getWorkflowAuthor(c, workflowID, runID)
 		if err != nil {
+			if apiErr, ok := err.(*apierror.APIError); ok {
+				return apiErr.JSON(e)
+
+			}
 			return err
 		}
-
-		return handleDeeplinkFromHistory(e, c, workflowID, runID, author)
+		apiErr, ok := handleDeeplinkFromHistory(e, c, workflowID, runID, author).(*apierror.APIError)
+		if ok {
+			return apiErr.JSON(e)
+		}
+		return apiErr
 	}
 }
 

@@ -69,7 +69,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"credential_issuers",
 				"credential issuer endpoints not accessible",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		// Check if a record with the given URL already exists
@@ -80,7 +80,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"credential_issuers",
 				"failed to find credential issuers collection",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		organization, err := handlers.GetUserOrganizationID(e.App, e.Auth.Id)
 		if err != nil {
@@ -88,7 +88,8 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				http.StatusInternalServerError,
 				"organization",
 				"failed to get user organization",
-				err.Error())
+				err.Error(),
+			).JSON(e)
 		}
 		existingRecords, err := e.App.FindRecordsByFilter(
 			collection.Id,
@@ -107,7 +108,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"credential_issuers",
 				"failed to find credential issuer",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		var issuerID string
 		if len(existingRecords) > 0 {
@@ -121,7 +122,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 					fmt.Sprintf("credential_issuers_%s", req.URL),
 					"invalid URL format",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			newRecord := core.NewRecord(collection)
 			newRecord.Set("url", req.URL)
@@ -134,18 +135,18 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 					fmt.Sprintf("credential_issuers_%s", req),
 					"failed to save credential issuer",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 
 			issuerID = newRecord.Id
 		}
-		credIssuerSchemaStr, err := readSchemaFile(
+		credIssuerSchemaStr, apiErr := readSchemaFile(
 			utils.GetEnvironmentVariable(
 				"ROOT_DIR",
 			) + "/" + workflows.CredentialIssuerSchemaPath,
 		)
-		if err != nil {
-			return err
+		if apiErr != nil {
+			return apiErr.JSON(e)
 		}
 
 		appURL := e.App.Settings().Meta.AppURL
@@ -170,7 +171,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to start workflow",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		workflowURL := fmt.Sprintf(
 			"%s/my/tests/runs/%s/%s",
@@ -185,7 +186,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				fmt.Sprintf("credential_issuers_%s", req),
 				"failed to get credential issuer",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		record.Set("workflow_url", workflowURL)
 		if err := e.App.Save(record); err != nil {
@@ -194,7 +195,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				fmt.Sprintf("credential_issuers_%s", req),
 				"failed to save credential issuer",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		//
 		// providers, err := app.FindCollectionByNameOrId("services")
@@ -399,7 +400,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 							"credentials",
 							"failed to unmarshal credentials",
 							err.Error(),
-						)
+						).JSON(e)
 					}
 					var orginalName, originalLogo string
 					if displayList, ok := savedCred["display"].([]any); ok &&
@@ -435,7 +436,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"credentials",
 						"failed to marshal credentials",
 						err.Error(),
-					)
+					).JSON(e)
 				}
 				record.Set("format", format)
 				record.Set("issuer_name", body.IssuerName)
@@ -452,7 +453,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						"credentials",
 						"failed to save credentials",
 						err.Error(),
-					)
+					).JSON(e)
 				}
 				return e.JSON(http.StatusOK, map[string]any{"key": body.CredKey})
 			},
@@ -615,7 +616,8 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					http.StatusInternalServerError,
 					"organization",
 					"failed to get user organization",
-					err.Error())
+					err.Error(),
+				).JSON(e)
 			}
 
 			// Start the workflow
@@ -637,7 +639,7 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					"workflow",
 					"failed to start workflow",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			client, err := temporalclient.GetTemporalClientWithNamespace(
 				organization,
@@ -648,7 +650,7 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					"temporal",
 					"failed to get temporal client",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			result, err := workflowengine.WaitForPartialResult[map[string]any](
 				client,
@@ -664,7 +666,7 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					"workflow",
 					"failed to get partial workflow result",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			storeType := getStringFromMap(result, "storeType")
 			metadata, ok := result["metadata"].(map[string]any)
@@ -674,7 +676,7 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					"workflow",
 					"failed to get partial workflow result",
 					"failed to get metadata",
-				)
+				).JSON(e)
 			}
 			var name, logo, appleAppID, googleAppID, playstoreURL, appstoreURL, homeURL string
 			description := getStringFromMap(metadata, "description")
@@ -768,7 +770,8 @@ func HookStartScheduledWorkflow(app core.App) {
 					http.StatusInternalServerError,
 					"organization",
 					"failed to get user organization",
-					err.Error())
+					err.Error(),
+				).JSON(e)
 			}
 			info, err := workflowengine.GetWorkflowRunInfo(req.WorkflowID, req.RunID, namespace)
 			if err != nil {
@@ -777,7 +780,7 @@ func HookStartScheduledWorkflow(app core.App) {
 					"workflow",
 					"failed to get workflow run info",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 
 			var interval time.Duration
@@ -807,7 +810,7 @@ func HookStartScheduledWorkflow(app core.App) {
 					"schedule",
 					"failed to start scheduled workflow",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			return e.JSON(http.StatusOK, "scheduled workflow started successfully")
 		}).Bind(apis.RequireAuth())
@@ -819,7 +822,8 @@ func HookStartScheduledWorkflow(app core.App) {
 					http.StatusInternalServerError,
 					"organization",
 					"failed to get user organization",
-					err.Error())
+					err.Error(),
+				).JSON(e)
 			}
 
 			schedules, err := workflowengine.ListScheduledWorkflows(namespace)
@@ -829,7 +833,7 @@ func HookStartScheduledWorkflow(app core.App) {
 					"schedule",
 					"failed to list scheduled workflows",
 					err.Error(),
-				)
+				).JSON(e)
 			}
 			return e.JSON(http.StatusOK, schedules)
 		}).Bind(apis.RequireAuth())
@@ -874,7 +878,7 @@ func createNewOrganizationForUser(app core.App, user *core.Record) error {
 	return err
 }
 
-func readSchemaFile(path string) (string, error) {
+func readSchemaFile(path string) (string, *apierror.APIError) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return "", apierror.New(

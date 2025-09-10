@@ -87,6 +87,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			if (w instanceof Error) {
 				console.error(w);
 			} else {
+				workflow = w;
 				emit({
 					type: 'workflow',
 					...w
