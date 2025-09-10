@@ -8,6 +8,6 @@ import RecordEdit from './recordEdit.svelte';
 import RecordSelect from './recordSelect.svelte';
 import RecordShare from './recordShare.svelte';
 
-export { RecordCreate, RecordEdit, RecordDelete, RecordShare, RecordSelect };
+export { RecordCreate, RecordDelete, RecordEdit, RecordSelect, RecordShare };
 
-export type { RecordAction, GlobalRecordAction, HideOption } from './types';
+export type { GlobalRecordAction, HideOption, RecordAction } from './types';

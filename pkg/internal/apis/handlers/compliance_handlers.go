@@ -47,6 +47,11 @@ var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 		{
 			Method:  http.MethodGet,
+			Path:    "/checks/{workflowId}/{runId}/result",
+			Handler: HandleGetWorkflowResult,
+		},
+		{
+			Method:  http.MethodGet,
 			Path:    "/checks/{workflowId}/{runId}/history",
 			Handler: HandleGetWorkflowsHistory,
 		},
@@ -290,6 +295,78 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		return e.JSON(http.StatusOK, finalJSON)
+	}
+}
+
+func HandleGetWorkflowResult() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		workflowID := e.Request.PathValue("workflowId")
+		if workflowID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflowId",
+				"workflowId is required",
+				"missing workflowId",
+			)
+		}
+		runID := e.Request.PathValue("runId")
+		if runID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"runId",
+				"runId is required",
+				"missing runId",
+			)
+		}
+		authRecord := e.Auth
+
+		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		if err != nil {
+			return err
+		}
+		if namespace == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"organization",
+				"organization is empty",
+				"missing organization",
+			)
+		}
+
+		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
+		}
+
+		// Get the workflow result
+		wf := c.GetWorkflow(context.Background(), workflowID, runID)
+		var result workflowengine.WorkflowResult
+
+		err = wf.Get(context.Background(), &result)
+		if err != nil {
+			notFound := &serviceerror.NotFound{}
+			if errors.As(err, &notFound) {
+				return apierror.New(
+					http.StatusNotFound,
+					"workflow",
+					"workflow not found or not completed",
+					err.Error(),
+				)
+			}
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to get workflow result",
+				err.Error(),
+			)
+		}
+
+		return e.JSON(http.StatusOK, result)
 	}
 }
 

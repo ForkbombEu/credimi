@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pipe, Record, String } from 'effect';
-import { merge, cloneDeep } from 'lodash';
+import { cloneDeep, merge } from 'lodash';
 import { ClientResponseError, type CollectionModel } from 'pocketbase';
 import { toast } from 'svelte-sonner';
 import { setError, type FormPathLeaves, type SuperForm } from 'sveltekit-superforms';
@@ -41,7 +41,8 @@ export function setupCollectionForm<C extends CollectionName>({
 	onSuccess = () => {},
 	fieldsOptions = {},
 	superformsOptions = {},
-	uiOptions = {}
+	uiOptions = {},
+	beforeSubmit
 }: CollectionFormProps<C>): SuperForm<CollectionFormData[C]> {
 	const { exclude = [], defaults = {}, hide = {} } = fieldsOptions;
 	const { toastText } = uiOptions;
@@ -103,13 +104,20 @@ export function setupCollectionForm<C extends CollectionName>({
 					Record.map((v) => (v === undefined ? null : v)) // IMPORTANT!
 				);
 
+				let processedData = data as CollectionFormData[C];
+				if (beforeSubmit) {
+					processedData = await beforeSubmit(data as CollectionFormData[C]);
+				}
+
 				let record: CollectionResponses[C];
 				if (recordId) {
 					record = await pb
 						.collection(collection)
-						.update<CollectionResponses[C]>(recordId, data);
+						.update<CollectionResponses[C]>(recordId, processedData);
 				} else {
-					record = await pb.collection(collection).create<CollectionResponses[C]>(data);
+					record = await pb
+						.collection(collection)
+						.create<CollectionResponses[C]>(processedData);
 				}
 
 				const showToast = uiOptions?.showToastOnSuccess ?? true;

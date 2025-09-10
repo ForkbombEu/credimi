@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { merge } from 'lodash';
 	import { Plus } from 'lucide-svelte';
 
+	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { CollectionName } from '@/pocketbase/collections-models';
 
 	import { CollectionForm } from '@/collections-components';
@@ -28,7 +29,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		formTitle,
 		onSuccess = () => {},
 		buttonText,
-		button
+		button,
+		form
 	}: RecordCreateEditProps<C> = $props();
 
 	const { manager, formsOptions } = $derived(getCollectionManagerContext());
@@ -36,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const defaultFormOptions: CollectionFormOptions<C> = {
 		uiOptions: { showToastOnSuccess: true }
 	};
-	const options = $derived(merge(defaultFormOptions, formsOptions.base, formsOptions.create));
+	const options = $derived(merge(defaultFormOptions, formsOptions.base, formsOptions.edit));
 
 	const sheetTitle = $derived(formTitle ?? m.Create_record());
 </script>
@@ -58,27 +60,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet content({ closeSheet })}
-		<CollectionForm
-			collection={manager.collection}
-			{...options}
-			onSuccess={(record) => {
-				closeSheet();
-				manager.loadRecords();
-				onSuccess(record, 'create');
-			}}
-			uiOptions={{
-				hide: ['submit_button', 'error']
-			}}
-		>
-			<FormError />
-			<div
-				class="sticky bottom-0 -mx-6 -mt-6 flex justify-end border-t bg-white/70 px-6 py-2 backdrop-blur-sm"
+		{#if form}
+			{@render form({ closeSheet })}
+		{:else}
+			<CollectionForm
+				collection={manager.collection}
+				{...options}
+				onSuccess={(record) => {
+					closeSheet();
+					manager.loadRecords();
+					onSuccess(record, 'create');
+				}}
+				uiOptions={{
+					hide: ['submit_button', 'error']
+				}}
 			>
-				<SubmitButton>
-					{@render SubmitButtonText()}
-				</SubmitButton>
-			</div>
-		</CollectionForm>
+				<FormError />
+				<div
+					class="sticky bottom-0 -mx-6 -mt-6 flex justify-end border-t bg-white/70 px-6 py-2 backdrop-blur-sm"
+				>
+					<SubmitButton>
+						{@render SubmitButtonText()}
+					</SubmitButton>
+				</div>
+			</CollectionForm>
+		{/if}
 	{/snippet}
 </Sheet>
 

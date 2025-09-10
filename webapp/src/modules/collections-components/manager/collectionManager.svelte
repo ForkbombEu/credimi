@@ -10,21 +10,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	import type { Snippet } from 'svelte';
 
-	import { FolderIcon, SearchIcon, MessageCircleWarning } from 'lucide-svelte';
+	import { FolderIcon, MessageCircleWarning, SearchIcon } from 'lucide-svelte';
 
 	import type { FormOptions as SuperformsOptions } from '@/forms';
 	import type { CollectionName } from '@/pocketbase/collections-models';
-	// Logic - Types
 	import type {
+		PocketbaseQueryAgentOptions,
+		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		PocketbaseQueryExpandOption,
 		PocketbaseQueryOptions,
-		PocketbaseQueryResponse,
-		PocketbaseQueryAgentOptions
+		PocketbaseQueryResponse
 	} from '@/pocketbase/query';
 	import type { CollectionFormData } from '@/pocketbase/types';
 
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
-	// UI
 	import { m } from '@/i18n';
 	import { setupComponentPocketbaseSubscriptions } from '@/pocketbase/subscriptions';
 
@@ -33,7 +32,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		FieldsOptions
 	} from '../form/collectionFormTypes';
 
-	// Logic
 	import { CollectionManager } from './collectionManager.svelte.js';
 	import {
 		setCollectionManagerContext,
@@ -44,7 +42,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Header from './collectionManagerHeader.svelte';
 	import Pagination from './collectionManagerPagination.svelte';
 	import Search from './collectionManagerSearch.svelte';
-	// Components
 	import Card from './recordCard.svelte';
 	import Table from './table/collectionTable.svelte';
 
@@ -74,6 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					Search: typeof Search;
 					Header: typeof Header;
 					Filters: typeof Filters;
+					records: PocketbaseQueryResponse<C, E>[];
 					reloadRecords: () => void;
 				}
 			]
@@ -112,7 +110,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		queryOptions = {},
 		queryAgentOptions = {},
 		hide = [],
-		subscribe = 'expanded_collections',
 		top,
 		records,
 		emptyState,
@@ -167,6 +164,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	Search,
 	Header,
 	Filters,
+	records: manager.records,
 	reloadRecords: () => {
 		manager.loadRecords();
 	}

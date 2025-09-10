@@ -37,10 +37,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		published: false,
 		owner: 'das',
 		conformant: false,
-		imported: false
+		imported: false,
+		yaml: ''
 	};
 </script>
 
+,
 <div class="space-y-6">
 	<div class="flex items-center justify-between">
 		<T tag="h3">{m.Find_solutions()}</T>
