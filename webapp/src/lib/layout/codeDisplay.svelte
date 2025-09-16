@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ClipboardCopy, Check, Sun, Moon } from 'lucide-svelte';
+	import { Check, ClipboardCopy, Moon, Sun } from 'lucide-svelte';
 	import { codeToHtml, type BundledLanguage } from 'shiki';
 
 	import Button from '@/components/ui/button/button.svelte';
@@ -115,6 +115,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			class={preClasses}
 			style="padding: 0; margin: 0; overflow: hidden; position: relative;"
 		>
+			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html highlighted}
 			{@render copyButton()}
 		</div>
