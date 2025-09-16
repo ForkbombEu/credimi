@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { Copy, ExternalLink } from 'lucide-svelte';
+	import { CheckIcon, Copy, ExternalLink } from 'lucide-svelte';
 
 	import T from '@/components/ui-custom/t.svelte';
 
@@ -21,10 +21,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { label, children, value, url, copyable = false }: Props = $props();
 
+	let copied = $state(false);
+
 	const handleCopy = () => {
-		if (url || value) {
-			navigator.clipboard.writeText(url || value || '');
-		}
+		if (!url && !value) return;
+		navigator.clipboard.writeText(url || value || '');
+		copied = true;
+		setTimeout(() => {
+			copied = false;
+		}, 1000);
 	};
 </script>
 
@@ -66,14 +71,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/if}
 				</div>
 				{#if copyable && (url || value)}
-					<button
-						type="button"
-						onclick={handleCopy}
-						class="flex-shrink-0 rounded p-1 transition-colors hover:bg-gray-200"
-						title="Copy {label || 'text'}"
-					>
-						<Copy class="h-3 w-3 text-gray-500" />
-					</button>
+					{#if !copied}
+						<button
+							type="button"
+							onclick={handleCopy}
+							class="flex-shrink-0 rounded p-1 transition-colors hover:bg-gray-200"
+							title="Copy {label || 'text'}"
+						>
+							<Copy class="size-3 text-gray-500" />
+						</button>
+					{:else}
+						<div class="p-1">
+							<CheckIcon class="size-3 text-green-500" />
+						</div>
+					{/if}
 				{/if}
 			</div>
 		</div>
