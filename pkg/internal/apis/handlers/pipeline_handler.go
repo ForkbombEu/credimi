@@ -9,7 +9,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
@@ -58,7 +58,7 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 			"test":   "pipeline-run",
 			"userID": userID,
 		}
-		w := &workflows.PipelineWorkflow{}
+		w := &pipeline.PipelineWorkflow{}
 		result, err := w.Start(input.Yaml, namespace, appURL, memo)
 		if err != nil {
 			return apierror.New(

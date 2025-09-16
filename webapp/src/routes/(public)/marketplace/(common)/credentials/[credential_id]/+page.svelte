@@ -12,19 +12,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import EditCredentialForm from '$routes/my/services-and-products/_credentials/edit-credential-form.svelte';
+	import EditCredentialForm from '$routes/my/services-and-products/_credentials/credential-form.svelte';
 	import { String } from 'effect';
+	import { onMount } from 'svelte';
+	import { z } from 'zod';
 
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import { QrCode } from '@/qr/index.js';
+	import { pb } from '@/pocketbase';
+	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	import EditSheet from '../../_utils/edit-sheet.svelte';
 	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
 
+	//
+
 	let { data } = $props();
 	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
+
+	let isProcessingYaml = $state(false);
+	let yamlProcessingError = $state(false);
+	let qrLink = $state<string>('');
 
 	const sections = $derived(
 		generateMarketplaceSection('credentials', {
@@ -37,11 +46,41 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		credential.json as CredentialConfiguration | undefined
 	);
 
-	const qrLink = $derived(
-		String.isNonEmpty(credential.deeplink)
-			? credential.deeplink
-			: createIntentUrl(credential, credentialIssuer.url)
-	);
+	onMount(async () => {
+		if (credential.yaml && String.isNonEmpty(credential.yaml)) {
+			isProcessingYaml = true;
+			yamlProcessingError = false;
+			try {
+				const result = await processYamlAndExtractCredentialOffer(credential.yaml);
+				if (result.credentialOffer) {
+					qrLink = result.credentialOffer;
+				}
+			} catch (error) {
+				console.error('Failed to process YAML for credential offer:', error);
+				yamlProcessingError = true;
+				qrLink = createIntentUrl(credential, credentialIssuer.url);
+			} finally {
+				isProcessingYaml = false;
+			}
+		} else if (String.isNonEmpty(credential.deeplink)) {
+			qrLink = credential.deeplink;
+		} else {
+			qrLink = createIntentUrl(credential, credentialIssuer.url);
+		}
+	});
+
+	async function processYamlAndExtractCredentialOffer(yaml: string) {
+		const res = await pb.send('api/credentials_issuers/get-credential-deeplink', {
+			method: 'POST',
+			body: {
+				yaml
+			}
+		});
+		const responseSchema = z.object({
+			credentialOffer: z.string()
+		});
+		return responseSchema.parse(res);
+	}
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>
@@ -77,10 +116,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<div class="flex flex-col items-stretch">
 			<PageHeader title="Credential offer" id="qr" />
-			<QrCode src={qrLink} cellSize={10} class={['w-60 rounded-md']} />
-			<div class="w-60 break-all pt-4 text-xs">
-				<a href={qrLink} target="_self">{qrLink}</a>
-			</div>
+
+			<QrStateful
+				src={qrLink}
+				isLoading={isProcessingYaml}
+				error={yamlProcessingError ? 'Dynamic generation failed' : undefined}
+				loadingText="Processing YAML configuration..."
+				placeholder="No credential offer available"
+			/>
+
+			{#if qrLink && !isProcessingYaml && !yamlProcessingError}
+				<div class="w-60 break-all pt-4 text-xs">
+					<a href={qrLink} target="_self">{qrLink}</a>
+				</div>
+			{/if}
 		</div>
 	</div>
 

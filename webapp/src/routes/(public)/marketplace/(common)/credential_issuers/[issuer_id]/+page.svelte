@@ -80,7 +80,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			initialData={credentialIssuer}
 			onSuccess={closeSheet}
 			fieldsOptions={{
-				exclude: ['owner', 'url', 'published']
+				exclude: ['owner', 'url', 'published', 'imported', 'workflow_url']
 			}}
 		/>
 	{/snippet}

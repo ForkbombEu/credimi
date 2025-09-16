@@ -5,7 +5,7 @@
 import { pb } from '@/pocketbase';
 
 export async function fetchCredentialIssuer(url: string) {
-	await pb.send('/credentials_issuers/start-check', {
+	await pb.send('/api/credentials_issuers/start-check', {
 		method: 'POST',
 		body: {
 			credentialIssuerUrl: url

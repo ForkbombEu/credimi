@@ -158,7 +158,7 @@ devtools: generate
 	pre-commit install
 	pre-commit autoupdate
 
-tools: generate $(BIN) $(BIN)/stepci-captured-runner $(BIN)/et-tu-cesr
+tools: generate $(BIN) $(BIN)/stepci-captured-runner $(BIN)/et-tu-cesr $(BIN)/maestro/
 	mise install
 
 $(BIN)/stepci-captured-runner:
@@ -166,6 +166,14 @@ $(BIN)/stepci-captured-runner:
 
 $(BIN)/et-tu-cesr:
 	wget https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-$(shell go env GOOS)-$(shell go env GOARCH) -O $(BIN)/et-tu-cesr && chmod +x $(BIN)/et-tu-cesr
+
+$(BIN)/maestro/:
+	@echo "Downloading Maestro installer..."
+	@mkdir -p $(BIN)/maestro
+	@curl -fsSL "https://get.maestro.mobile.dev" -o $(BIN)/maestro/get-maestro.sh
+	@chmod +x $(BIN)/maestro/get-maestro.sh
+	@MAESTRO_DIR=$(BIN)/maestro $(BIN)/maestro/get-maestro.sh
+	@rm -rf $(BIN)/maestro/tmp
 
 ## Help:
 help: ## Show this help.

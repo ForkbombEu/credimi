@@ -11,13 +11,13 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
 var (
-	yamlPath string
-	apiKey   string
+	yamlPath    string
+	apiKey      string
+	instanceURL string
 )
 
 // NewPipelineCmd creates the "pipeline" command, using the PocketBase URL.
@@ -26,7 +26,6 @@ func NewPipelineCmd() *cobra.Command {
 		Use:   "pipeline",
 		Short: "Start a pipeline workflow",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			pbURL := utils.GetEnvironmentVariable("APP_URL", "https://demo.credimi.io", true)
 
 			// --- authenticate (if apiKey provided) ---
 			var bearerToken string
@@ -34,7 +33,7 @@ func NewPipelineCmd() *cobra.Command {
 				authReq, err := http.NewRequestWithContext(
 					cmd.Context(),
 					"GET",
-					fmt.Sprintf("%s/api/apikey/authenticate", pbURL),
+					fmt.Sprintf("%s/api/apikey/authenticate", instanceURL),
 					nil,
 				)
 				if err != nil {
@@ -92,7 +91,7 @@ func NewPipelineCmd() *cobra.Command {
 			req, err := http.NewRequestWithContext(
 				cmd.Context(),
 				"POST",
-				fmt.Sprintf("%s/api/pipeline/start", pbURL),
+				fmt.Sprintf("%s/api/pipeline/start", instanceURL),
 				bytes.NewBuffer(body),
 			)
 			if err != nil {
@@ -119,6 +118,7 @@ func NewPipelineCmd() *cobra.Command {
 	cmd.Flags().
 		StringVarP(&yamlPath, "path", "p", "", "Path to YAML file (optional, otherwise reads from stdin)")
 	cmd.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
+	cmd.Flags().StringVarP(&instanceURL, "instance", "i", "https://demo.credimi.io", "URL of the PocketBase instance")
 
 	return cmd
 }
