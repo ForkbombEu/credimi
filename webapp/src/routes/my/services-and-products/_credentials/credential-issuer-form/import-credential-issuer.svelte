@@ -120,7 +120,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return;
 			}
 
-			await pb.send('/credentials_issuers/start-check', {
+			await pb.send('/api/credentials_issuers/start-check', {
 				method: 'POST',
 				body: {
 					credentialIssuerUrl: importUrl.trim()

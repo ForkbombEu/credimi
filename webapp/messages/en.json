@@ -448,8 +448,8 @@
 	"Credentials_format": "Credentials format",
 	"Linked_credentials": "Linked credentials",
 	"No_published_credentials_found": "No published credentials found",
-	"Verification_use_case": "Verification use case",
-	"Verification_use_cases": "Verification use cases",
+	"Verification_use_case": "Use case verification",
+	"Verification_use_cases": "Use case verification",
 	"Add_a_verification_use_case": "Add a verification use case",
 	"Add": "Add",
 	"Related_verifier": "Related verifier",
@@ -720,5 +720,7 @@
 	"e_g_get_credential_uid": "e.g. get-credential",
 	"Edit_action": "Edit action",
 	"Add_new_credential": "Add new credential",
-	"Create_credential": "Create credential"
+	"Create_credential": "Create credential",
+	"Copy_UID_and_apps_IDs": "Copy UID and apps IDs",
+	"Save": "Save"
 }

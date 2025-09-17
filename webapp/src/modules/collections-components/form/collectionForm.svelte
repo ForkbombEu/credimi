@@ -117,9 +117,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if buttonContent}
 			{@render buttonContent()}
 		{:else if formMode == 'edit'}
-			{m.Edit_record()}
+			{m.Save()}
 		{:else if formMode == 'create'}
-			{m.Create_record()}
+			{m.Save()}
 		{/if}
 	{/snippet}
 </Form>

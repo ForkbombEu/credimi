@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"time"
 
@@ -38,13 +39,25 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+type WorkflowErrorDetails struct {
+	WorkflowID string `json:"workflowID,omitempty"`
+	RunID      string `json:"runID,omitempty"`
+	Code       string `json:"code,omitempty"`
+	Retryable  bool   `json:"retryable,omitempty"`
+	Summary    string `json:"summary,omitempty"`
+	Link       string `json:"link,omitempty"`
+}
+
 // IssuerURL is a struct that represents the URL of a credential issuer.
 type IssuerURL struct {
 	URL string `json:"credentialIssuerUrl"`
 }
+type CredentialDeeplinkRequest struct {
+	Yaml string `json:"yaml"`
+}
 
 var IssuersRoutes routing.RouteGroup = routing.RouteGroup{
-	BaseURL:                "/credentials_issuers",
+	BaseURL:                "/api/credentials_issuers",
 	AuthenticationRequired: true,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
 		{Func: middlewares.ErrorHandlingMiddleware},
@@ -55,6 +68,12 @@ var IssuersRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:          "/start-check",
 			Handler:       HandleCredentialIssuerStartCheck,
 			RequestSchema: IssuerURL{},
+		},
+		{
+			Method:        http.MethodPost,
+			Path:          "/get-deeplink",
+			Handler:       HandleGetDeeplink,
+			RequestSchema: CredentialDeeplinkRequest{},
 		},
 	},
 }
@@ -464,133 +483,6 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 		)
 
 		se.Router.POST(
-			"/api/credentials_issuers/get-credential-deeplink",
-			func(e *core.RequestEvent) error {
-				var body struct {
-					Yaml string `json:"yaml"`
-				}
-
-				if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
-					return apis.NewBadRequestError("invalid JSON body", err)
-				}
-
-				appURL := e.App.Settings().Meta.AppURL
-				userID := e.Auth.Id
-				namespace, err := handlers.GetUserOrganizationID(e.App, userID)
-				if err != nil {
-					return apierror.New(
-						http.StatusInternalServerError,
-						"organization",
-						"failed to get organization",
-						err.Error(),
-					)
-				}
-				memo := map[string]interface{}{
-					"test":   "get-credential-deeplink",
-					"author": userID,
-				}
-				ao := &workflow.ActivityOptions{
-					ScheduleToCloseTimeout: time.Minute,
-					StartToCloseTimeout:    time.Second * 30,
-					RetryPolicy: &temporal.RetryPolicy{
-						InitialInterval:    time.Second,
-						BackoffCoefficient: 1.0,
-						MaximumInterval:    time.Minute,
-						MaximumAttempts:    1},
-				}
-				input := workflowengine.WorkflowInput{
-					Payload: map[string]any{
-						"yaml": body.Yaml,
-					},
-					Config: map[string]any{
-						"namespace": namespace,
-						"memo":      memo,
-						"app_url":   appURL,
-					},
-					ActivityOptions: ao,
-				}
-
-				var w workflows.CustomCheckWorkflow
-
-				resStart, errStart := w.Start(input)
-				if errStart != nil {
-					return apierror.New(
-						http.StatusBadRequest,
-						"workflow",
-						"failed to start get deeplink check",
-						errStart.Error(),
-					)
-				}
-				client, err := temporalclient.GetTemporalClientWithNamespace(
-					namespace,
-				)
-				if err != nil {
-					return apierror.New(
-						http.StatusInternalServerError,
-						"temporal",
-						"failed to get temporal client",
-						err.Error(),
-					)
-				}
-				result, err := workflowengine.WaitForWorkflowResult(client, resStart.WorkflowID, resStart.WorkflowRunID)
-				if err != nil {
-					return apierror.New(
-						http.StatusInternalServerError,
-						"workflow",
-						"failed to get workflow result",
-						err.Error(),
-					)
-				}
-
-				output, ok := result.Output.([]any)
-				if !ok {
-					return apierror.New(
-						http.StatusInternalServerError,
-						"workflow",
-						"failed to get workflow output",
-						"output is not an array",
-					)
-				}
-				steps, ok := output[0].(map[string]any)["steps"].([]any)
-				if !ok || len(steps) == 0 {
-					return apierror.New(
-						http.StatusInternalServerError,
-						"workflow",
-						"failed to get workflow output",
-						"steps are not present or empty",
-					)
-				}
-
-				captures, ok := steps[0].(map[string]any)["captures"].(map[string]any)
-				if !ok {
-					return apierror.New(
-						http.StatusInternalServerError,
-						"workflow",
-						"failed to get workflow output",
-						"captures are not present in step",
-					)
-				}
-
-				deeplink, ok := captures["credentialOffer"].(string)
-				if !ok {
-					return apierror.New(
-						http.StatusInternalServerError,
-						"workflow",
-						"failed to get workflow output",
-						"credentialOffer is not present in captures",
-					)
-				}
-
-				// Return both the credential offer and the full workflow output
-				return e.JSON(http.StatusOK, map[string]any{
-					"credentialOffer": deeplink,
-					"steps":           steps,
-					"output":          output,
-				})
-			},
-		).Bind(apis.RequireAuth())
-
-		se.Router.POST(
 			"/api/credentials_issuers/cleanup_credentials",
 			func(e *core.RequestEvent) error {
 				var body struct {
@@ -637,6 +529,130 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 		)
 		return se.Next()
 	})
+}
+
+func HandleGetDeeplink() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		var body CredentialDeeplinkRequest
+		if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
+			return apis.NewBadRequestError("invalid JSON body", err)
+		}
+
+		appURL := e.App.Settings().Meta.AppURL
+		userID := e.Auth.Id
+		namespace, err := handlers.GetUserOrganizationID(e.App, userID)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed to get organization",
+				err.Error(),
+			).JSON(e)
+		}
+		memo := map[string]interface{}{
+			"test":   "get-deeplink",
+			"author": userID,
+		}
+		ao := &workflow.ActivityOptions{
+			ScheduleToCloseTimeout: time.Minute,
+			StartToCloseTimeout:    time.Second * 30,
+			RetryPolicy: &temporal.RetryPolicy{
+				InitialInterval:    time.Second,
+				BackoffCoefficient: 1.0,
+				MaximumInterval:    time.Minute,
+				MaximumAttempts:    1},
+		}
+		input := workflowengine.WorkflowInput{
+			Payload: map[string]any{
+				"yaml": body.Yaml,
+			},
+			Config: map[string]any{
+				"namespace": namespace,
+				"memo":      memo,
+				"app_url":   appURL,
+			},
+			ActivityOptions: ao,
+		}
+
+		var w workflows.CustomCheckWorkflow
+
+		resStart, errStart := w.Start(input)
+		if errStart != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"failed to start get deeplink check",
+				errStart.Error(),
+			).JSON(e)
+		}
+		client, err := temporalclient.GetTemporalClientWithNamespace(
+			namespace,
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"failed to get temporal client",
+				err.Error(),
+			).JSON(e)
+		}
+		result, err := workflowengine.WaitForWorkflowResult(client, resStart.WorkflowID, resStart.WorkflowRunID)
+		if err != nil {
+			details := parseWorkflowError(err.Error())
+			return e.JSON(http.StatusInternalServerError, map[string]any{
+				"status":  http.StatusInternalServerError,
+				"error":   "workflow",
+				"reason":  "failed to get workflow result",
+				"details": details,
+			})
+		}
+
+		output, ok := result.Output.([]any)
+		if !ok {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to get workflow output",
+				"output is not an array",
+			).JSON(e)
+		}
+		steps, ok := output[0].(map[string]any)["steps"].([]any)
+		if !ok || len(steps) == 0 {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to get workflow output",
+				"steps are not present or empty",
+			).JSON(e)
+		}
+
+		captures, ok := steps[0].(map[string]any)["captures"].(map[string]any)
+		if !ok {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to get workflow output",
+				"captures are not present in step",
+			).JSON(e)
+		}
+
+		deeplink, ok := captures["deeplink"].(string)
+		if !ok {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to get workflow output",
+				"deeplink is not present in captures",
+			).JSON(e)
+		}
+
+		// Return both the credential offer and the full workflow output
+		return e.JSON(http.StatusOK, map[string]any{
+			"deeplink": deeplink,
+			"steps":    steps,
+			"output":   output,
+		})
+	}
 }
 
 // HookUpdateCredentialsIssuers sets up a hook in the PocketBase application to listen for
@@ -1240,4 +1256,41 @@ func getStringFromMap(m map[string]any, key string) string {
 		}
 	}
 	return ""
+}
+
+func parseWorkflowError(msg string) WorkflowErrorDetails {
+	details := WorkflowErrorDetails{}
+
+	reIDs := regexp.MustCompile(`workflowID: ([^,]+), runID: ([^)]+)`)
+	if matches := reIDs.FindStringSubmatch(msg); len(matches) == 3 {
+		details.WorkflowID = matches[1]
+		details.RunID = matches[2]
+	}
+	reCode := regexp.MustCompile(`\(type: ([^,]+), retryable: (true|false)\)`)
+	if matches := reCode.FindStringSubmatch(msg); len(matches) == 3 {
+		details.Code = matches[1]
+		details.Retryable = matches[2] == "true"
+	}
+	reLink := regexp.MustCompile(`Further information at: (http[^\)]+)`)
+	if matches := reLink.FindStringSubmatch(msg); len(matches) == 2 {
+		details.Link = matches[1]
+	}
+
+	if details.Code != "" {
+		// Split on "<code>:"
+		parts := strings.SplitN(msg, details.Code+":", 2)
+		if len(parts) == 2 {
+			summaryPart := parts[1]
+
+			// Remove "Further information..." section if present
+			if idx := strings.Index(summaryPart, "(Further information"); idx != -1 {
+				summaryPart = summaryPart[:idx]
+			}
+
+			// Trim extra spaces and colons
+			details.Summary = strings.TrimSpace(summaryPart)
+		}
+	}
+
+	return details
 }

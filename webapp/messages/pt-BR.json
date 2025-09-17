@@ -323,5 +323,6 @@
 	"use_case_verification_field_description_published": "Marque esta caixa de seleção para publicar a verificação do caso de uso no mercado",
 	"Waiting_for_logs": "Aguardando logs",
 	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Escaneie este QR com o aplicativo de carteira para iniciar a verificação",
-	"Credential_updated_successfully": "Credencial atualizada com sucesso"
+	"Credential_updated_successfully": "Credencial atualizada com sucesso",
+	"Save": "Salvar"
 }

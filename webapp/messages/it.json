@@ -395,5 +395,6 @@
 	"use_case_verification_field_description_published": "Seleziona questa casella di controllo per pubblicare la verifica del caso d'uso sul marketplace",
 	"Waiting_for_logs": "In attesa dei registri",
 	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Scansiona questo QR con l'app wallet per avviare il controllo",
-	"Credential_updated_successfully": "Credenziale aggiornata con successo"
+	"Credential_updated_successfully": "Credenziale aggiornata con successo",
+	"Save": "Salva"
 }
