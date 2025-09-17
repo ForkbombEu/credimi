@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let workflowError = $state<string>();
 	let isSubmittingCompliance = $state(false);
-	let credentialOffer = $state<string>();
+	let deeplink = $state<string>();
 	let workflowSteps = $state<unknown[]>();
 	let workflowOutput = $state<unknown[]>();
 
@@ -57,14 +57,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		isSubmittingCompliance = true;
 		// Clear previous results
-		credentialOffer = undefined;
+		deeplink = undefined;
 		workflowSteps = undefined;
 		workflowOutput = undefined;
 		workflowError = undefined;
 
 		try {
-			const result = await processYamlAndExtractCredentialOffer(yamlContent);
-			credentialOffer = result.credentialOffer;
+			const result = await processYamlAndExtractDeeplink(yamlContent);
+			deeplink = result.deeplink;
 			workflowSteps = result.steps;
 			workflowOutput = result.output;
 		} catch (error) {
@@ -75,8 +75,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}
 
-	async function processYamlAndExtractCredentialOffer(yaml: string) {
-		const res = await pb.send('api/credentials_issuers/get-credential-deeplink', {
+	async function processYamlAndExtractDeeplink(yaml: string) {
+		const res = await pb.send('api/credentials_issuers/get-deeplink', {
 			method: 'POST',
 			body: {
 				yaml
@@ -84,7 +84,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			requestKey: null
 		});
 		const responseSchema = z.object({
-			credentialOffer: z.string(),
+			deeplink: z.string(),
 			steps: z.array(z.unknown()),
 			output: z.array(z.unknown())
 		});
@@ -110,15 +110,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return ''; // Error will be shown via the error prop
 		}
 
-		if (!credentialOffer && !workflowSteps && !workflowOutput) {
+		if (!deeplink && !workflowSteps && !workflowOutput) {
 			return '';
 		}
 
 		let output = '';
 
-		if (credentialOffer) {
+		if (deeplink) {
 			output += `✅ Compliance Test Completed Successfully!\n\n`;
-			output += `🔗 Credential Offer Generated:\n${credentialOffer}\n\n`;
+			output += `🔗 Credential Offer Generated:\n${deeplink}\n\n`;
 		}
 
 		if (workflowSteps && workflowSteps.length > 0) {
@@ -178,17 +178,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<div>
 		<QrStateful
-			src={credentialOffer}
+			src={deeplink}
 			class="size-60 rounded-md border"
 			placeholder="Run the code to generate a QR code"
 			bind:isLoading={isSubmittingCompliance}
 			bind:error={workflowError}
 		/>
-		{#if credentialOffer}
+		{#if deeplink}
 			<div class="max-w-60 break-all pt-4 text-xs">
-				<a class="hover:underline" href={credentialOffer} target="_self"
-					>{credentialOffer}</a
-				>
+				<a class="hover:underline" href={deeplink} target="_self">{deeplink}</a>
 			</div>
 		{/if}
 	</div>
