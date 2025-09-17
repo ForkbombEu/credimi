@@ -12,15 +12,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
+	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import EditCredentialForm from '$routes/my/services-and-products/_credentials/credential-form.svelte';
 	import { String } from 'effect';
 	import { onMount } from 'svelte';
-	import { z } from 'zod';
 
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import { pb } from '@/pocketbase';
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	import EditSheet from '../../_utils/edit-sheet.svelte';
@@ -51,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			isProcessingYaml = true;
 			yamlProcessingError = false;
 			try {
-				const result = await processYamlAndExtractDeeplink(credential.yaml);
+				const result = await generateDeeplinkFromYaml(credential.yaml);
 				if (result.deeplink) {
 					qrLink = result.deeplink;
 				}
@@ -68,19 +67,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			qrLink = createIntentUrl(credential, credentialIssuer.url);
 		}
 	});
-
-	async function processYamlAndExtractDeeplink(yaml: string) {
-		const res = await pb.send('api/credentials_issuers/get-deeplink', {
-			method: 'POST',
-			body: {
-				yaml
-			}
-		});
-		const responseSchema = z.object({
-			deeplink: z.string()
-		});
-		return responseSchema.parse(res);
-	}
 </script>
 
 <MarketplacePageLayout tableOfContents={sections}>
