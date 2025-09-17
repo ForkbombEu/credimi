@@ -40,10 +40,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet records({ records })}
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-			{#each records as verifier}
+			{#each records as verifier, index}
 				{@const useCasesVerifications =
 					verifier.expand?.use_cases_verifications_via_verifier ?? []}
-				<VerifierCard {verifier} {useCasesVerifications} {organizationId} />
+				<VerifierCard
+					bind:verifier={records[index]}
+					{useCasesVerifications}
+					{organizationId}
+				/>
 			{/each}
 		</div>
 	{/snippet}

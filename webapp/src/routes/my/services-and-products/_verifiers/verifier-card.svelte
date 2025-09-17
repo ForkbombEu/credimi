@@ -37,23 +37,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		organizationId: string;
 	};
 
-	let { verifier, organizationId }: Props = $props();
+	let { verifier = $bindable(), organizationId }: Props = $props();
 	const avatarSrc = $derived(pb.files.getURL(verifier, verifier.logo));
 
 	//
 
-	function updatePublished(recordId: string, published: boolean) {
-		pb.collection('verifiers').update(recordId, { published });
+	async function updatePublished(recordId: string, published: boolean) {
+		const res = await pb.collection('verifiers').update(recordId, { published });
+		verifier.published = res.published;
 	}
 
-	function updateUseCasePublished(recordId: string, published: boolean, onSuccess: () => void) {
-		pb.collection('use_cases_verifications')
-			.update(recordId, {
-				published
-			})
-			.then(() => {
-				onSuccess();
-			});
+	async function updateUseCasePublished(
+		recordId: string,
+		published: boolean,
+		onSuccess: () => void
+	) {
+		await pb.collection('use_cases_verifications').update(recordId, {
+			published
+		});
+		onSuccess();
 	}
 
 	//
