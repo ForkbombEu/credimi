@@ -221,24 +221,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{:else}
 							<T class="text-gray-300">{m.No_credentials_available()}</T>
 						{/if}
-						{#if !record.imported}
-							<RecordCreate>
-								{#snippet button({ triggerAttributes, icon })}
-									{@render blueButton({
-										triggerAttributes,
-										icon,
-										text: m.Add_new_credential()
-									})}
-								{/snippet}
+						<RecordCreate>
+							{#snippet button({ triggerAttributes, icon })}
+								{@render blueButton({
+									triggerAttributes,
+									icon,
+									text: m.Add_new_credential()
+								})}
+							{/snippet}
 
-								{#snippet form({ closeSheet })}
-									<CredentialForm
-										credentialIssuer={record}
-										onSuccess={closeSheet}
-									/>
-								{/snippet}
-							</RecordCreate>
-						{/if}
+							{#snippet form({ closeSheet })}
+								<CredentialForm credentialIssuer={record} onSuccess={closeSheet} />
+							{/snippet}
+						</RecordCreate>
 					</div>
 				{/snippet}
 
