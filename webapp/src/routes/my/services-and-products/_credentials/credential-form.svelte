@@ -94,11 +94,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class="sticky bottom-0 -mx-6 -mt-6 flex justify-end border-t bg-white/70 px-6 py-2 backdrop-blur-sm"
 	>
 		<SubmitButton>
-			{#if mode === 'edit'}
-				{m.Edit_credential()}
-			{:else if mode === 'create'}
-				{m.Create_credential()}
-			{/if}
+			{m.Save()}
 		</SubmitButton>
 	</div>
 </CollectionForm>

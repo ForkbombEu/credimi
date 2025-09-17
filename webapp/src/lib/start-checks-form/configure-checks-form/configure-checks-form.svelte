@@ -19,9 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase/index.js';
 
+	import SectionCard from '../../layout/section-card.svelte';
 	import Footer from '../_utils/footer.svelte';
 	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
-	import SectionCard from '../../layout/section-card.svelte';
 	import { CheckConfigEditorComponent } from './check-config-editor';
 	import { CheckConfigFormEditorComponent } from './check-config-form-editor';
 	import {
@@ -75,7 +75,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/each}
 	{/if}
 
-	{@render SectionDivider(m.Submit())}
+	{@render SectionDivider(m.Save())}
 </div>
 
 <Footer class="!mt-4">
@@ -189,7 +189,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet SectionDivider(text: string)}
 	<div class="flex items-center gap-3 py-1">
 		<Separator class="!w-auto grow" />
-		<p class="text-sm text-muted-foreground">{text}</p>
+		<p class="text-muted-foreground text-sm">{text}</p>
 		<Separator class="!w-auto grow" />
 	</div>
 {/snippet}

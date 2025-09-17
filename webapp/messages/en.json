@@ -721,5 +721,6 @@
 	"Edit_action": "Edit action",
 	"Add_new_credential": "Add new credential",
 	"Create_credential": "Create credential",
-	"Copy_UID_and_apps_IDs": "Copy UID and apps IDs"
+	"Copy_UID_and_apps_IDs": "Copy UID and apps IDs",
+	"Save": "Save"
 }
