@@ -67,11 +67,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<div class="flex flex-col items-stretch">
 			<PageHeader title={m.QR_code()} id="qr" />
-			<!-- <QrCode
-				src={data.useCaseVerification.deeplink}
-				cellSize={10}
-				class={['w-60 rounded-md']}
-			/> -->
 			<QrStateful
 				src={qrLink}
 				isLoading={isProcessingYaml}
