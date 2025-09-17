@@ -5,7 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Moon, Sun } from 'lucide-svelte';
 	import { codeToHtml, type BundledLanguage } from 'shiki';
+
+	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 
 	type Props = {
 		content: string;
@@ -26,12 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			transformers: [
 				{
 					pre(node) {
-						this.addClassToHast(node, [
-							'p-4',
-							'overflow-scroll',
-							'rounded-md',
-							className
-						]);
+						this.addClassToHast(node, ['p-4']);
 					}
 				}
 			]
@@ -65,7 +64,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// );
 </script>
 
-{@html highlighted}
+<div class={['relative overflow-scroll rounded-md border', className]}>
+	<div class="absolute right-2 top-2 z-10 flex flex-col gap-2">
+		<CopyButtonSmall textToCopy={content} square />
+		<IconButton size="sm" icon={isDarkTheme ? Moon : Sun} onclick={toggleTheme} />
+	</div>
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+	{@html highlighted}
+</div>
 
 <!-- 
 {#snippet copyButton()}
