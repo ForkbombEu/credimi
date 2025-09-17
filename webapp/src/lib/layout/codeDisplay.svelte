@@ -64,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// );
 </script>
 
-<div class={['relative flex w-full overflow-hidden rounded-md border', className]}>
+<div class={['relative rounded-md border', className, 'flex w-full overflow-hidden']}>
 	<div class="absolute right-2 top-2 z-10 flex flex-col gap-2">
 		<CopyButtonSmall textToCopy={content} square />
 		<IconButton size="sm" icon={isDarkTheme ? Moon : Sun} onclick={toggleTheme} />
