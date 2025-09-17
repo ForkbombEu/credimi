@@ -46,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					qrLink = result.deeplink;
 				}
 			} catch (error) {
-				console.error('Failed to process YAML for credential offer:', error);
+				console.error('Failed to process YAML for use case verification:', error);
 				yamlProcessingError = true;
 			} finally {
 				isProcessingYaml = false;
