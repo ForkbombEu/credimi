@@ -5,10 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="Data extends GenericRecord">
+	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import { fromStore } from 'svelte/store';
 	import { stringProxy, type SuperForm } from 'sveltekit-superforms';
-	import { z } from 'zod';
 
 	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { GenericRecord } from '@/utils/types';
@@ -16,7 +16,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { CodeEditorField } from '@/forms/fields';
 	import { m } from '@/i18n';
-	import { pb } from '@/pocketbase';
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	//
@@ -63,7 +62,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflowError = undefined;
 
 		try {
-			const result = await processYamlAndExtractDeeplink(yamlContent);
+			const result = await generateDeeplinkFromYaml(yamlContent);
 			deeplink = result.deeplink;
 			workflowSteps = result.steps;
 			workflowOutput = result.output;
@@ -73,22 +72,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		} finally {
 			isSubmittingCompliance = false;
 		}
-	}
-
-	async function processYamlAndExtractDeeplink(yaml: string) {
-		const res = await pb.send('api/credentials_issuers/get-deeplink', {
-			method: 'POST',
-			body: {
-				yaml
-			},
-			requestKey: null
-		});
-		const responseSchema = z.object({
-			deeplink: z.string(),
-			steps: z.array(z.unknown()),
-			output: z.array(z.unknown())
-		});
-		return responseSchema.parse(res);
 	}
 
 	function getStepName(step: unknown, fallback: string): string {

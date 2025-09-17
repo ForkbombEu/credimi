@@ -107,3 +107,20 @@ export function setupPollingWithInvalidation(intervalMs: number) {
 		};
 	});
 }
+
+const deeplinkGenerationResponseSchema = z.object({
+	deeplink: z.string(),
+	steps: z.array(z.unknown()),
+	output: z.array(z.unknown())
+});
+
+export async function generateDeeplinkFromYaml(yaml: string) {
+	const res = await pb.send('api/credentials_issuers/get-deeplink', {
+		method: 'POST',
+		body: {
+			yaml
+		},
+		requestKey: null
+	});
+	return deeplinkGenerationResponseSchema.parse(res);
+}
