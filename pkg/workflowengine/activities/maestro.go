@@ -86,7 +86,7 @@ func (a *MaestroFlowActivity) Execute(
 	exexcutableDir := filepath.Join(binDir, "maestro", "bin")
 	binName := "maestro"
 	binPath := filepath.Join(exexcutableDir, binName)
-	args := []string{"test", tmpFile.Name(), "--output", "video.mp4"}
+	args := []string{"record", "--local", tmpFile.Name(), "video.mp4"}
 
 	cmd = exec.CommandContext(ctx, binPath, args...)
 
