@@ -51,9 +51,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			isProcessingYaml = true;
 			yamlProcessingError = false;
 			try {
-				const result = await processYamlAndExtractCredentialOffer(credential.yaml);
-				if (result.credentialOffer) {
-					qrLink = result.credentialOffer;
+				const result = await processYamlAndExtractDeeplink(credential.yaml);
+				if (result.deeplink) {
+					qrLink = result.deeplink;
 				}
 			} catch (error) {
 				console.error('Failed to process YAML for credential offer:', error);
@@ -69,15 +69,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
-	async function processYamlAndExtractCredentialOffer(yaml: string) {
-		const res = await pb.send('api/credentials_issuers/get-credential-deeplink', {
+	async function processYamlAndExtractDeeplink(yaml: string) {
+		const res = await pb.send('api/credentials_issuers/get-deeplink', {
 			method: 'POST',
 			body: {
 				yaml
 			}
 		});
 		const responseSchema = z.object({
-			credentialOffer: z.string()
+			deeplink: z.string()
 		});
 		return responseSchema.parse(res);
 	}
