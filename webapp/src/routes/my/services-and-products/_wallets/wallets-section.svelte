@@ -20,11 +20,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
+	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { Separator } from '@/components/ui/separator';
 	import { CodeEditorField } from '@/forms/fields';
@@ -69,6 +71,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			expandedDescriptions.add(walletId);
 		}
 		expandedDescriptions = new Set(expandedDescriptions);
+	}
+
+	function getWalletYaml(actionUid: string, wallet: WalletsResponse) {
+		return [
+			`uid: ${actionUid}`,
+			`google_app_id: ${wallet.google_app_id}`,
+			`apple_app_id: ${wallet.apple_app_id}`
+		].join('\n');
 	}
 </script>
 
@@ -351,6 +361,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						>
 							{record.name}
 							<div class="flex items-center gap-1">
+								<Tooltip>
+									<CopyButtonSmall
+										textToCopy={getWalletYaml(record.uid, props.wallet)}
+										square
+									/>
+									{#snippet content()}
+										<p>{m.Copy_UID_and_apps_IDs()}</p>
+									{/snippet}
+								</Tooltip>
 								<RecordEdit
 									{record}
 									formTitle={`${m.Wallet()}: ${props.wallet.name} — ${m.Edit_action()}: ${record.name}`}
