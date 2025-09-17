@@ -7,15 +7,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
+	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
 	import MarketplaceItemCard from '$marketplace/_utils/marketplace-item-card.svelte';
 	import { options } from '$routes/my/services-and-products/_verifiers/use-case-verification-form-options.svelte';
+	import { onMount } from 'svelte';
 
 	import CollectionForm from '@/collections-components/form/collectionForm.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
-	import { QrCode } from '@/qr';
+	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	import EditSheet from '../../_utils/edit-sheet.svelte';
 
@@ -23,12 +25,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 	const { useCaseVerification } = $derived(data);
+	let qrLink = $state<string>('');
+	let isProcessingYaml = $state(false);
+	let yamlProcessingError = $state(false);
 
 	//
 
 	const sections = generateMarketplaceSection('use_cases_verifications', {
 		hasRelatedVerifier: true,
 		hasRelatedCredentials: true
+	});
+
+	onMount(async () => {
+		if (useCaseVerification.deeplink) {
+			isProcessingYaml = true;
+			yamlProcessingError = false;
+			try {
+				const result = await generateDeeplinkFromYaml(useCaseVerification.deeplink);
+				if (result.deeplink) {
+					qrLink = result.deeplink;
+				}
+			} catch (error) {
+				console.error('Failed to process YAML for credential offer:', error);
+				yamlProcessingError = true;
+			} finally {
+				isProcessingYaml = false;
+			}
+		}
 	});
 </script>
 
@@ -44,15 +67,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<div class="flex flex-col items-stretch">
 			<PageHeader title={m.QR_code()} id="qr" />
-			<QrCode
+			<!-- <QrCode
 				src={data.useCaseVerification.deeplink}
 				cellSize={10}
 				class={['w-60 rounded-md']}
+			/> -->
+			<QrStateful
+				src={qrLink}
+				isLoading={isProcessingYaml}
+				error={yamlProcessingError ? 'Dynamic generation failed' : undefined}
+				loadingText="Processing YAML configuration..."
+				placeholder="No credential offer available"
 			/>
 			<div class="w-60 break-all pt-4 text-xs">
-				<a href={data.useCaseVerification.deeplink} target="_self"
-					>{data.useCaseVerification.deeplink}</a
-				>
+				<a href={qrLink} target="_self">{qrLink}</a>
 			</div>
 		</div>
 	</div>
