@@ -169,7 +169,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									/>
 								{/snippet}
 							</RecordEdit>
-							<RecordDelete record={useCaseVerification} />
+							<RecordDelete record={useCaseVerification}>
+								{#snippet button({ triggerAttributes, icon })}
+									<IconButton
+										size="sm"
+										variant="outline"
+										{icon}
+										{...triggerAttributes}
+									/>
+								{/snippet}
+							</RecordDelete>
 						</div>
 					</li>
 				{/each}
