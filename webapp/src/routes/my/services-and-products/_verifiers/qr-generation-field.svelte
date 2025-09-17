@@ -47,7 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let workflowOutput = $state<unknown[]>();
 
 	async function startVerificationTest(yamlContent: string) {
-		if (!yamlContent.trim() || !yamlContent) {
+		if (!yamlContent?.trim()) {
 			workflowError = 'YAML configuration is required';
 			return;
 		}
