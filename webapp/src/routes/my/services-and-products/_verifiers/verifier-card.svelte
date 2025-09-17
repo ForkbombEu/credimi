@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Eye, EyeOff, Pencil, Plus } from 'lucide-svelte';
+	import { Eye, EyeOff, Plus } from 'lucide-svelte';
 
 	import type {
 		CredentialsResponse,
@@ -21,6 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/collections-components/manager';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator';
@@ -136,7 +137,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#each records as useCaseVerification}
 					{@const credentials = useCaseVerification.expand?.credentials ?? []}
 					{@const credentialsPreview = credentialsPreviewString(credentials)}
-					<li class="flex items-center justify-between">
+					<li class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2">
 						<div class="flex-1">
 							<span>{useCaseVerification.name}</span>
 							{#if credentialsPreview}
@@ -159,14 +160,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									)}
 							/>
 							<RecordEdit record={useCaseVerification}>
-								{#snippet button({ triggerAttributes })}
-									<button
-										type="button"
-										class="inline translate-y-0.5 rounded-sm p-1 hover:cursor-pointer hover:bg-gray-100"
+								{#snippet button({ triggerAttributes, icon })}
+									<IconButton
+										size="sm"
+										variant="outline"
+										{icon}
 										{...triggerAttributes}
-									>
-										<Pencil size={14} />
-									</button>
+									/>
 								{/snippet}
 							</RecordEdit>
 							<RecordDelete record={useCaseVerification} />
