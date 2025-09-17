@@ -46,6 +46,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		pb.collection('verifiers').update(recordId, { published });
 	}
 
+	function updateUseCasePublished(recordId: string, published: boolean, onSuccess: () => void) {
+		pb.collection('use_cases_verifications')
+			.update(recordId, {
+				published
+			})
+			.then(() => {
+				onSuccess();
+			});
+	}
+
 	//
 
 	function credentialsPreviewString(credentials: CredentialsResponse[]): string | undefined {
@@ -108,7 +118,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<RecordCreate>
 					{#snippet button({ triggerAttributes })}
 						<button
-							class="flex items-center text-primary underline hover:cursor-pointer hover:no-underline"
+							type="button"
+							class="text-primary flex items-center underline hover:cursor-pointer hover:no-underline"
 							{...triggerAttributes}
 						>
 							<Plus size={14} /><span>{m.Add()}</span>
@@ -118,27 +129,46 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		{/snippet}
 
-		{#snippet records({ records })}
-			<ul class="">
+		{#snippet records({ records, reloadRecords })}
+			<ul class="space-y-2">
 				{#each records as useCaseVerification}
 					{@const credentials = useCaseVerification.expand?.credentials ?? []}
 					{@const credentialsPreview = credentialsPreviewString(credentials)}
-					<li>
-						<span>{useCaseVerification.name}</span>
-						{#if credentialsPreview}
-							<span>({credentialsPreview})</span>
-						{/if}
+					<li class="flex items-center justify-between">
+						<div class="flex-1">
+							<span>{useCaseVerification.name}</span>
+							{#if credentialsPreview}
+								<span class="text-gray-500">({credentialsPreview})</span>
+							{/if}
+						</div>
 
-						<RecordEdit record={useCaseVerification}>
-							{#snippet button({ triggerAttributes })}
-								<button
-									class="inline translate-y-0.5 rounded-sm p-1 hover:cursor-pointer hover:bg-gray-100"
-									{...triggerAttributes}
-								>
-									<Pencil size={14} />
-								</button>
-							{/snippet}
-						</RecordEdit>
+						<div class="flex items-center gap-1">
+							<SwitchWithIcons
+								offIcon={EyeOff}
+								onIcon={Eye}
+								size="sm"
+								checked={useCaseVerification.published}
+								disabled={!verifier.published}
+								onCheckedChange={() =>
+									updateUseCasePublished(
+										useCaseVerification.id,
+										!useCaseVerification.published,
+										reloadRecords
+									)}
+							/>
+							<RecordEdit record={useCaseVerification}>
+								{#snippet button({ triggerAttributes })}
+									<button
+										type="button"
+										class="inline translate-y-0.5 rounded-sm p-1 hover:cursor-pointer hover:bg-gray-100"
+										{...triggerAttributes}
+									>
+										<Pencil size={14} />
+									</button>
+								{/snippet}
+							</RecordEdit>
+							<RecordDelete record={useCaseVerification} />
+						</div>
 					</li>
 				{/each}
 			</ul>

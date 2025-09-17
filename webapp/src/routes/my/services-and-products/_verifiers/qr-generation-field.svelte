@@ -4,16 +4,13 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-<script lang="ts" generics="Data extends GenericRecord">
+<script lang="ts">
 	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import { fromStore } from 'svelte/store';
 	import { stringProxy, type SuperForm } from 'sveltekit-superforms';
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
-	import type { GenericRecord } from '@/utils/types';
-
-	import T from '@/components/ui-custom/t.svelte';
+	import Label from '@/components/ui/label/label.svelte';
 	import { CodeEditorField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import QrStateful from '@/qr/qr-stateful.svelte';
@@ -21,21 +18,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	interface Props {
-		form: SuperForm<{ deeplink: string; yaml: string }>;
+		form: SuperForm<{ deeplink: string; yaml?: string }>;
 	}
 
 	let { form }: Props = $props();
 
-	const yamlField = fromStore(stringProxy(form, 'yaml', { empty: 'undefined' }));
+	const deeplinkField = fromStore(stringProxy(form, 'deeplink', { empty: 'undefined' }));
 
 	onMount(() => {
-		if (yamlField.current && yamlField.current.trim()) {
-			startComplianceTest(yamlField.current);
+		if (deeplinkField.current && deeplinkField.current.trim()) {
+			startVerificationTest(deeplinkField.current);
 		}
 	});
 
 	$effect(() => {
-		if (yamlField.current) {
+		if (deeplinkField.current) {
 			workflowError = undefined;
 		}
 	});
@@ -43,34 +40,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let workflowError = $state<string>();
-	let isSubmittingCompliance = $state(false);
-	let deeplink = $state<string>();
+	let isSubmittingVerification = $state(false);
+	let verificationDeeplink = $state<string>();
 	let workflowSteps = $state<unknown[]>();
 	let workflowOutput = $state<unknown[]>();
 
-	async function startComplianceTest(yamlContent: string) {
-		if (!yamlContent.trim() || !yamlContent) {
+	async function startVerificationTest(yamlContent: string) {
+		if (!yamlContent?.trim()) {
 			workflowError = 'YAML configuration is required';
 			return;
 		}
 
-		isSubmittingCompliance = true;
+		isSubmittingVerification = true;
 		// Clear previous results
-		deeplink = undefined;
+		verificationDeeplink = undefined;
 		workflowSteps = undefined;
 		workflowOutput = undefined;
 		workflowError = undefined;
 
 		try {
 			const result = await generateDeeplinkFromYaml(yamlContent);
-			deeplink = result.deeplink;
+			verificationDeeplink = result.deeplink;
 			workflowSteps = result.steps;
 			workflowOutput = result.output;
 		} catch (error) {
 			console.error('Failed to start compliance test:', error);
 			workflowError = error instanceof Error ? error.message : String(error);
 		} finally {
-			isSubmittingCompliance = false;
+			isSubmittingVerification = false;
 		}
 	}
 
@@ -85,23 +82,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	const editorOutput = $derived(() => {
-		if (isSubmittingCompliance) {
-			return 'Running compliance test...';
+		if (isSubmittingVerification) {
+			return 'Running verification test...';
 		}
 
 		if (workflowError) {
 			return ''; // Error will be shown via the error prop
 		}
 
-		if (!deeplink && !workflowSteps && !workflowOutput) {
+		if (!verificationDeeplink && !workflowSteps && !workflowOutput) {
 			return '';
 		}
 
 		let output = '';
 
-		if (deeplink) {
-			output += `✅ Compliance Test Completed Successfully!\n\n`;
-			output += `🔗 Credential Offer Generated:\n${deeplink}\n\n`;
+		if (verificationDeeplink) {
+			output += `✅ Verification Test Completed Successfully!\n\n`;
+			output += `🔗 Verification Deeplink Generated:\n${verificationDeeplink}\n\n`;
 		}
 
 		if (workflowSteps && workflowSteps.length > 0) {
@@ -139,37 +136,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="flex max-w-full gap-4">
 	<div class="w-0 grow">
-		<T class="mb-4">
-			Configure the YAML below to generate a dynamic credential offer with runtime parameters.
-		</T>
+		<Label>Deeplink</Label>
 		<CodeEditorField
 			{form}
-			name="yaml"
+			name="deeplink"
 			options={{
 				lang: 'yaml',
 				minHeight: 200,
 				label: m.YAML_Configuration(),
-				description: 'Provide the credential configuration in YAML format',
+				description:
+					'Provide the verification configuration in YAML format. You can upload a file or paste/edit it directly.',
 				useOutput: true,
 				output: editorOutput(),
 				error: workflowError || undefined,
-				running: isSubmittingCompliance,
-				onRun: startComplianceTest
+				running: isSubmittingVerification,
+				onRun: startVerificationTest
 			}}
 		/>
 	</div>
 
 	<div>
 		<QrStateful
-			src={deeplink}
+			src={verificationDeeplink}
 			class="size-60 rounded-md border"
 			placeholder="Run the code to generate a QR code"
-			bind:isLoading={isSubmittingCompliance}
+			bind:isLoading={isSubmittingVerification}
 			bind:error={workflowError}
 		/>
-		{#if deeplink}
+		{#if verificationDeeplink}
 			<div class="max-w-60 break-all pt-4 text-xs">
-				<a class="hover:underline" href={deeplink} target="_self">{deeplink}</a>
+				<a class="hover:underline" href={verificationDeeplink} target="_self"
+					>{verificationDeeplink}</a
+				>
 			</div>
 		{/if}
 	</div>

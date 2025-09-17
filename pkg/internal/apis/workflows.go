@@ -69,8 +69,8 @@ var IssuersRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 		{
 			Method:        http.MethodPost,
-			Path:          "/get-credential-deeplink",
-			Handler:       HandleGetCredentialDeeplink,
+			Path:          "/get-deeplink",
+			Handler:       HandleGetDeeplink,
 			RequestSchema: CredentialDeeplinkRequest{},
 		},
 	},
@@ -529,7 +529,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 	})
 }
 
-func HandleGetCredentialDeeplink() func(*core.RequestEvent) error {
+func HandleGetDeeplink() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var body CredentialDeeplinkRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
@@ -548,7 +548,7 @@ func HandleGetCredentialDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		memo := map[string]interface{}{
-			"test":   "get-credential-deeplink",
+			"test":   "get-deeplink",
 			"author": userID,
 		}
 		ao := &workflow.ActivityOptions{
@@ -634,21 +634,21 @@ func HandleGetCredentialDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		deeplink, ok := captures["credentialOffer"].(string)
+		deeplink, ok := captures["deeplink"].(string)
 		if !ok {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				"failed to get workflow output",
-				"credentialOffer is not present in captures",
+				"deeplink is not present in captures",
 			).JSON(e)
 		}
 
 		// Return both the credential offer and the full workflow output
 		return e.JSON(http.StatusOK, map[string]any{
-			"credentialOffer": deeplink,
-			"steps":           steps,
-			"output":          output,
+			"deeplink": deeplink,
+			"steps":    steps,
+			"output":   output,
 		})
 	}
 }

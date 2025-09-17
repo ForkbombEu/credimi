@@ -79,7 +79,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#if buttonText}
 						{@render buttonText?.()}
 					{:else}
-						{m.Edit_record()}
+						{m.Save()}
 					{/if}
 				</SubmitButton>
 			</div>
