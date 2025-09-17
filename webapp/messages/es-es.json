@@ -324,5 +324,6 @@
 	"use_case_verification_field_description_published": "Marque esta casilla de verificación para publicar la verificación del caso de uso en el mercado",
 	"Waiting_for_logs": "Esperando registros",
 	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Escanea este QR con la aplicación de billetera para iniciar el chequeo",
-	"Credential_updated_successfully": "Credencial actualizada exitosamente"
+	"Credential_updated_successfully": "Credencial actualizada exitosamente",
+	"Save": "Guardar"
 }
