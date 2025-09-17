@@ -267,7 +267,9 @@ func FetchNamespaces(app *pocketbase.PocketBase) ([]string, error) {
 		return nil, err
 	}
 
-	namespaces := make([]string, 0, len(records))
+	namespaces := make([]string, 0, len(records)+1)
+	namespaces = append(namespaces, "default")
+	namespaces = append(namespaces, "default")
 	for _, r := range records {
 		namespaces = append(namespaces, r.Id)
 	}
