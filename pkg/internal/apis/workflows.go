@@ -67,6 +67,16 @@ var IssuersRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandleCredentialIssuerStartCheck,
 			RequestSchema: IssuerURL{},
 		},
+	},
+}
+
+var DeepLinkRoutes routing.RouteGroup = routing.RouteGroup{
+	BaseURL:                "/api",
+	AuthenticationRequired: false,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
 		{
 			Method:        http.MethodPost,
 			Path:          "/get-deeplink",
@@ -537,19 +547,9 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 		}
 
 		appURL := e.App.Settings().Meta.AppURL
-		userID := e.Auth.Id
-		namespace, err := handlers.GetUserOrganizationID(e.App, userID)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organization",
-				"failed to get organization",
-				err.Error(),
-			).JSON(e)
-		}
-		memo := map[string]interface{}{
-			"test":   "get-deeplink",
-			"author": userID,
+
+		memo := map[string]any{
+			"test": "get-deeplink",
 		}
 		ao := &workflow.ActivityOptions{
 			ScheduleToCloseTimeout: time.Minute,
@@ -565,7 +565,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 				"yaml": body.Yaml,
 			},
 			Config: map[string]any{
-				"namespace": namespace,
+				"namespace": "default",
 				"memo":      memo,
 				"app_url":   appURL,
 			},
@@ -584,7 +584,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		client, err := temporalclient.GetTemporalClientWithNamespace(
-			namespace,
+			"default",
 		)
 		if err != nil {
 			return apierror.New(
