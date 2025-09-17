@@ -1,0 +1,188 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version: '1.1'
+name: Credimi custom checks obtain a PID_sd_jwt credential from https://dev.issuer.eudiw.dev
+env:
+  ISSUER_BASE_URL: https://dev.issuer.eudiw.dev
+tests:
+  discovery:
+    steps:
+      - name: Check credential issuer metadata
+        http:
+          url: ${{ env.ISSUER_BASE_URL }}/.well-known/openid-credential-issuer
+          method: GET
+          check:
+            status: 200
+            schema:
+              $ref: 'https://raw.githubusercontent.com/ForkbombEu/credimi/refs/heads/main/schemas/credentialissuer/openid-credential-issuer.schema.json'
+          captures:
+            authorization_servers:
+              jsonpath: $.authorization_servers
+            credential_endpoint:
+              jsonpath: $.credential_endpoint
+      - name: Check authorization server metadata from same machine
+        # if autorization_servers is not defined, the authorization server is on the same url as the credential issuer
+        if: not (captures.authorization_servers.0 ~= "https://.*")
+        http:
+          url: ${{ env.ISSUER_BASE_URL }}/.well-known/oauth-authorization-server
+          method: GET
+          check:
+            status: 200
+          captures:
+            pushed_authorization_request_endpoint:
+              jsonpath: $.pushed_authorization_request_endpoint
+            authorization_endpoint:
+              jsonpath: $.authorization_endpoint
+            token_endpoint:
+              jsonpath: $.token_endpoint
+      - name: Check authorization server metadata from another machine
+        # if autorization_servers is defined, the authorization server is on the url defined in the metadata
+        if: (captures.authorization_servers)
+        http:
+          url: ${{ captures.authorization_servers.0 }}/.well-known/oauth-authorization-server
+          method: GET
+          check:
+            status: 200
+          captures:
+            pushed_authorization_request_endpoint:
+              jsonpath: $.pushed_authorization_request_endpoint
+            authorization_endpoint:
+              jsonpath: $.authorization_endpoint
+            token_endpoint:
+              jsonpath: $.token_endpoint
+      - name: Check the call to /par endpoint
+        # if: (captures.pushed_authorization_request_endpoint)
+        http:
+          url: https://dev.issuer.eudiw.dev/pushed_authorizationv2 # ${{ captures.pushed_authorization_request_endpoint }}
+          method: POST
+          form:
+            response_type: code
+            state: af0ifjsldklk
+            client_id: ID
+            scope: eu.europa.ec.eudi.pid_vc_sd_jwt
+            redirect_uri: https://tester.issuer.eudiw.dev/redirect_na
+          headers:
+            Content-Type: application/x-www-form-urlencoded
+            Accept: application/json
+            Authorization: Basic czZCaGRSa3F0Mzo3RmpmcDBaQnIxS3REUmJuZlZkbUl3
+          check:
+            status: 201
+          captures:
+            request_uri:
+              jsonpath: $.request_uri
+            session:
+              cookie: session
+      - name: Check the call to /authorization endpoint
+        # if: (captures.pushed_authorization_request_endpoint)
+        http:
+          url: ${{ captures.authorization_endpoint }}
+          method: GET
+          followRedirects: false
+          params:
+            client_id: ID
+            request_uri: ${{ captures.request_uri }}
+          headers:
+            Accept: application/json
+          check:
+            status: 302
+            headers:
+              Location: https://dev.issuer.eudiw.dev/auth_choice #user login
+          captures:
+            location:
+              header: location
+      - name: Check redirection to /auth_choice page
+        http:
+          url: ${{ captures.location }}
+          method: GET
+          followRedirects: false
+          check:
+            status: 302
+            headers:
+              Location: https://dev.issuer.eudiw.dev/dynamic/
+          captures:
+            second_location:
+              header: location
+      - name: Check redirection to country selection page
+        http:
+          url: ${{ captures.second_location }}
+          method: POST
+          followRedirects: false
+          params:
+            authorization_details: '[{"credential_configuration_id":"eu.europa.ec.eudi.pid_vc_sd_jwt"}]'
+          form:
+            country: sample
+            proceed: Submit
+          headers:
+            Content-Type: application/x-www-form-urlencoded
+          check:
+            status: 302
+          captures:
+            third_location:
+              header: location
+      - name: Verify cookie and session
+        http:
+          url: ${{ captures.third_location }}
+          method: GET
+          followRedirects: false
+          headers:
+            Accept: text/html
+          check:
+            status: 302
+          captures:
+            fourth_location:
+              header: location
+      - name: Verify and obtain authorization response
+        http:
+          url: ${{ captures.fourth_location }}
+          method: GET
+          cookies:
+            session: '.eJztWN9v0zAQ_leiPIFYs4VurMvbWJGYBGNiiBc0WWl8WQ1NHGynY0z879hp2qapf2XwuJfG8919dzv7vrP9GMaoqvkcMEprMaeM_E4FoSVi8LMGLhCUuKKkFGESzoWoeHJ4iGEZEc5rYBHUmNxHcuJQB7J8HR6Er3vAvoA7Vl_HEmmMBP0B_giNtrQ7RhkDDKUg6cLbeGsiEd4gDDkwOeVtvzHYATpFJRUkJ9mwXHSNJIpKDaKVMqtS1k4UFIOcUMN2ZptzDCIlC44-VQ1C8u32IOzkhDSDnACTohBq6ZnRKo0ga2KIMspQgWkmcfeFMCeZQ8ox-n4v0FKvMicEmwEaqR2AzNLSDNBI7QAL-pAuxIMZo8ALi5ATji0BtHJ7CBVOYzNEI3UAzKmgBOtltgQr4XK9RnoN2_IroSMyLj-0fCgQXQKLJxYsnaam9Lxs7UGJ9Jc5DiXsmlN2J2uSRvHkKB5HJ1EcMeDAlqviamBkQWHCq0X6gMq0AFVHF8DaqoWA5sFn4KrOMpCA795fXrSf4AXHI-lptMxeyqn3IHfiPLicdsc9ncu351ftpyf5sNrIclRMP8jfjzeXN9OrzaCnfT09j9tPX6I20yqI6_VvIGQ76OvRe2DBJ_XPVSolpVhTlEHSsz-_k6mRyxXEk-B6vYDKej0Opu3im5R7gF_SX8FVXcyA7fzR0_q8XT21cBbCS57OhjrTQVyZhDUrkz21RKklsYNKdd4HEa3Ju1IzeN_ysM77IJY2eVdqBu87JK4LwJ_lddbeLUBrPLRFmP7_laIhA9seoothUIcx-VdqJu9tA9L69mlOWkP_zrUOWUVp3KKVrbAH9DljfigzedZ2QW0Y_71fenv5915rTMzGJL2DxgzFE0OqNr1ZF_eAxm2KRWo1nnPKilRm59HeAQpO_fjerdiNDWevVk3JyeRW3D3atuN2OdqKu0fIdtwe-1qhOzxr19thVR9V_3i7XGlF3iNGB-6GBe2onqvbpziHc89N2-cyB6qBuewuvKlpGIx_2B0Wsbroc0YX1ePg30H_42ngoXTQXOzlJYJntAJ1SF2_x9SMtMRW16rNTcbxGc5nI8BHeHR8mp-NJtksHuXpMT6ZnORnp7GiuhVMEgaOLRZItbJp1I3F5r3AuTVvWwu0IFw8vyI8vyI8vyI87RVBzZAMZJ0vHK-CElIqoZKqNwXnA-Lq4WGZiU2FOm6Xjuuf437mvL447hd7Z3n7eXvoodN2MLz98xfCvSzc.aDgU8w.Gg0wQeGy_p61PlOYSkaujBjeCVE'
+          check:
+            status: 200
+          captures:
+            state:
+              xpath: /html/body/p[3]
+            code:
+              xpath: /html/body/p[5]
+            iss:
+              xpath: /html/body/p[7]
+      - name: Check the call to /token endpoint
+        http:
+          url: ${{ captures.token_endpoint }}
+          method: POST
+          headers:
+            Accept: application/json
+            Content-Type: application/x-www-form-urlencoded
+          form:
+            grant_type: authorization_code
+            state: af0ifjsldklk
+            code: ${{ captures.code }}
+            redirect_uri: https://tester.issuer.eudiw.dev/redirect_na
+            client_id: ID
+          check:
+            status: 200
+          captures:
+            access_token:
+              jsonpath: $.access_token
+            scope:
+              jsonpath: $.scope
+      - name: Verify the credential call and obtain a valid credential
+        http:
+          url: ${{ captures.credential_endpoint }}
+          method: POST
+          headers:
+            Content-Type: application/json
+            Accept: application/json
+            Authorization: Bearer ${{ captures.access_token }}
+          json:
+            credential_configuration_id: ${{ captures.scope }}
+            proof:
+              proof_type: jwt
+              jwt: eyJ0eXAiOiJvcGVuaWQ0dmNpLXByb29mK2p3dCIsImFsZyI6IkVTMjU2IiwiandrIjp7Imt0eSI6IkVDIiwiY3J2IjoiUC0yNTYiLCJ4Ijoid1V1UDJPbHdIZWZlRS1ZMTZXajdQSEF6WjBKQVF5ZXZxV01mZDUtS21LWSIsInkiOiJZVy1iOE8zVWszTlVyazlvWnBBVDFsYVBlQWdpTlF3RGNvdFdpd0JGUTZFIn19.eyJhdWQiOiJodHRwczovL3ByZXByb2QuaXNzdWVyLmV1ZGl3LmRldi9vaWRjIiwibm9uY2UiOiJTcUdTMzc0eUFheFpIc254aUs5NWVnIiwiaWF0IjoxNzA0ODg2ODU1fQ.IdmxwbfJIKwcaqvADp6bzV2u-o0UwKIVmo_kQkc1rZHQ9MtBDNbO21NoVr99ZEgumTX8UYNFJcr_R95xfO1NiA
+          check:
+            status: 200
+          captures:
+            credential:
+              jsonpath: $.credentials.0.credential

@@ -5,28 +5,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Check, ClipboardCopy, Moon, Sun } from 'lucide-svelte';
 	import { codeToHtml, type BundledLanguage } from 'shiki';
-
-	import Button from '@/components/ui/button/button.svelte';
 
 	type Props = {
 		content: string;
-		class?: string;
-		hideCopyButton?: boolean;
 		language: BundledLanguage;
-		containerClass?: string;
+		class?: string;
 	};
 
-	let {
-		content,
-		class: className = '',
-		hideCopyButton = false,
-		language,
-		containerClass = ''
-	}: Props = $props();
+	let { content, language, class: className = '' }: Props = $props();
 
-	let isCopied = $state(false);
+	// let isCopied = $state(false);
 	let highlighted = $state('');
 	let isDarkTheme = $state(true);
 
@@ -37,7 +26,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			transformers: [
 				{
 					pre(node) {
-						this.addClassToHast(node, 'p-4');
+						this.addClassToHast(node, [
+							'p-4',
+							'overflow-scroll',
+							'rounded-md',
+							className
+						]);
 					}
 				}
 			]
@@ -48,29 +42,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		updateHighlighting();
 	});
 
-	async function copyToClipboard() {
-		if (!content) return;
-
-		try {
-			await navigator.clipboard.writeText(content);
-			isCopied = true;
-			setTimeout(() => {
-				isCopied = false;
-			}, 2000);
-		} catch (err) {
-			console.error('Failed to copy text: ', err);
-		}
-	}
-
 	function toggleTheme() {
 		isDarkTheme = !isDarkTheme;
 	}
 
-	const preClasses = $derived(
-		className || 'rounded-lg border border-slate-200 bg-white p-4 overflow-x-auto text-sm'
-	);
+	// async function copyToClipboard() {
+	// 	if (!content) return;
+
+	// 	try {
+	// 		await navigator.clipboard.writeText(content);
+	// 		isCopied = true;
+	// 		setTimeout(() => {
+	// 			isCopied = false;
+	// 		}, 2000);
+	// 	} catch (err) {
+	// 		console.error('Failed to copy text: ', err);
+	// 	}
+	// }
+
+	// const preClasses = $derived(
+	// 	className || 'rounded-lg border border-slate-200 bg-white p-4 overflow-x-auto text-sm'
+	// );
 </script>
 
+{@html highlighted}
+
+<!-- 
 {#snippet copyButton()}
 	{#if !hideCopyButton && content}
 		<div class="absolute right-2 top-2 z-10 flex flex-col gap-1">
@@ -115,7 +112,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			class={preClasses}
 			style="padding: 0; margin: 0; overflow: hidden; position: relative;"
 		>
-			<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 			{@html highlighted}
 			{@render copyButton()}
 		</div>
@@ -128,4 +124,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render copyButton()}
 	</pre>
 	{/if}
-</div>
+</div> -->
