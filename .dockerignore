@@ -30,3 +30,4 @@ webapp/eslint.config.js
 webapp/node_modules
 webapp/playwright.config.ts
 webapp/README.md
+webapp/dist
