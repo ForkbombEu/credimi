@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import _ from 'lodash';
 	import { AlertCircle, Download, Info, Loader2, X } from 'lucide-svelte';
+	import { ClientResponseError } from 'pocketbase';
+	import { setError } from 'sveltekit-superforms';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
 
@@ -22,9 +24,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase/index.js';
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
+	import { getExceptionMessage } from '@/utils/errors';
 
 	import { ConformanceCheckSchema } from './wallet-form-checks-table.svelte';
-	/** eslint-disable @typescript-eslint/no-explicit-any */
 
 	//
 
@@ -121,38 +123,57 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const editWalletform = createForm<z.infer<typeof schema>>({
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
-			const formData = { ...form.data } as Record<string, unknown>;
-			if (!formData.apk || (formData.apk instanceof File && formData.apk.size === 0)) {
-				delete formData.apk;
+			try {
+				const formData = { ...form.data } as Record<string, unknown>;
+				if (!formData.apk || (formData.apk instanceof File && formData.apk.size === 0)) {
+					delete formData.apk;
+				}
+
+				const hasValidLogoFile = formData.logo instanceof File && formData.logo.size > 0;
+
+				if (shouldRemoveExistingLogo && initialData.logo) {
+					// User explicitly wants to remove existing logo (clicked X button)
+					formData['logo-'] = initialData.logo;
+					delete formData.logo;
+				} else if (!hasValidLogoFile) {
+					// No new file and not removing existing - preserve existing logo
+					delete formData.logo;
+				}
+
+				if (
+					hasValidLogoFile ||
+					!(typeof formData.logo_url === 'string' && formData.logo_url.trim())
+				) {
+					delete formData.logo_url;
+				}
+
+				if (walletId) {
+					// Temp fix
+					const data = _.omit(formData, 'conformance_checks');
+					await pb.collection('wallets').update(walletId, data);
+				} else {
+					await pb.collection('wallets').create(formData);
+				}
+
+				onSuccess?.();
+			} catch (e) {
+				if (e instanceof ClientResponseError) {
+					const details = e.data.data as Record<
+						string,
+						{ message: string; code: string }
+					>;
+
+					if (details && typeof details === 'object') {
+						Object.entries(details).forEach(([path, data]) => {
+							setError(form, `${path}: ${data.message}`);
+						});
+					}
+
+					setError(form, e.message);
+				} else {
+					setError(form, getExceptionMessage(e));
+				}
 			}
-
-			const hasValidLogoFile = formData.logo instanceof File && formData.logo.size > 0;
-
-			if (shouldRemoveExistingLogo && initialData.logo) {
-				// User explicitly wants to remove existing logo (clicked X button)
-				formData['logo-'] = initialData.logo;
-				delete formData.logo;
-			} else if (!hasValidLogoFile) {
-				// No new file and not removing existing - preserve existing logo
-				delete formData.logo;
-			}
-
-			if (
-				hasValidLogoFile ||
-				!(typeof formData.logo_url === 'string' && formData.logo_url.trim())
-			) {
-				delete formData.logo_url;
-			}
-
-			if (walletId) {
-				// Temp fix
-				const data = _.omit(formData, 'conformance_checks');
-				await pb.collection('wallets').update(walletId, data);
-			} else {
-				await pb.collection('wallets').create(formData);
-			}
-
-			onSuccess?.();
 		},
 		options: {
 			dataType: 'form'
