@@ -76,21 +76,21 @@ func PrepareActivityOptions(
 	retry map[string]any,
 	timeout string,
 ) workflow.ActivityOptions {
-	initialInterval, ok := retry["initialInterval"].(string)
+	initialInterval, ok := retry["initial_interval"].(string)
 	if ok {
 		rp.InitialInterval = parseDurationOrDefault(initialInterval, rp.InitialInterval.String())
 	}
 
-	maxInterval, ok := retry["maximumInterval"].(string)
+	maxInterval, ok := retry["maximum_interval"].(string)
 	if ok {
 		rp.MaximumInterval = parseDurationOrDefault(maxInterval, rp.MaximumInterval.String())
 	}
 
-	if retry["maximumAttempts"] != nil {
-		rp.MaximumAttempts = int32(retry["maximumAttempts"].(float64))
+	if retry["maximum_attempts"] != nil {
+		rp.MaximumAttempts = int32(retry["maximum_attempts"].(float64))
 	}
-	if retry["backoffCoefficient"] != nil {
-		rp.BackoffCoefficient = retry["backoffCoefficient"].(float64)
+	if retry["backoff_coefficient"] != nil {
+		rp.BackoffCoefficient = retry["backoff_coefficient"].(float64)
 	}
 	return workflow.ActivityOptions{
 		ScheduleToCloseTimeout: parseDurationOrDefault(timeout, DefaultActivityScheduleTimeout),
