@@ -49,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if !(loadingError && hideIfLoadingError)}
 	<Avatar.Root {...rest} class={cn(rest.class, 'overflow-hidden')}>
 		{#if src}
-			<Avatar.Image {src} alt={alt ?? m.Avatar()} />
+			<Avatar.Image {src} class="object-cover" alt={alt ?? m.Avatar()} />
 		{/if}
 		{#if fallback}
 			<Avatar.Fallback class="rounded-none text-[80%] font-semibold uppercase">
