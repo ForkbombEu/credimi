@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ClipboardCopy, Check, Sun, Moon } from 'lucide-svelte';
+	import { Check, ClipboardCopy, Moon, Sun } from 'lucide-svelte';
 	import { codeToHtml, type BundledLanguage } from 'shiki';
 
 	import Button from '@/components/ui/button/button.svelte';
@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			transformers: [
 				{
 					pre(node) {
-						this.addClassToHast(node, 'p-4');
+						this.addClassToHast(node, ['p-4', 'w-0', 'grow', 'overflow-scroll']);
 					}
 				}
 			]
@@ -109,15 +109,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 {/snippet}
 
-<div class="relative {containerClass}">
+<div class={['relative flex w-full overflow-hidden rounded-md border', containerClass]}>
 	{#if highlighted}
-		<div
-			class={preClasses}
-			style="padding: 0; margin: 0; overflow: hidden; position: relative;"
-		>
-			{@html highlighted}
-			{@render copyButton()}
-		</div>
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html highlighted}
+		{@render copyButton()}
 	{:else}
 		<pre
 			class="{preClasses} relative"

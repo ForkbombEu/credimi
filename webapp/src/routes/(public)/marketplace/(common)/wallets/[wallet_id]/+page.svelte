@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
@@ -12,11 +13,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WalletForm from '$routes/my/services-and-products/_wallets/wallet-form.svelte';
 	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
 	import { String } from 'effect';
+	import { Code } from 'lucide-svelte';
 	import { z } from 'zod';
 
 	import Card from '@/components/ui-custom/card.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import {
+		Accordion,
+		AccordionContent,
+		AccordionItem,
+		AccordionTrigger
+	} from '@/components/ui/accordion';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
@@ -25,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const { wallet } = $derived(data);
+	const { wallet, actions } = $derived(data);
 
 	//
 
@@ -34,9 +42,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const sections = $derived(
 		generateMarketplaceSection('wallets', {
 			hasDescription: !!wallet?.description,
-			hasConformanceChecks: checks.success && checks.data.length > 0
+			hasConformanceChecks: checks.success && checks.data.length > 0,
+			hasActions: actions && actions.length > 0
 		})
 	);
+
+	// Utility function to get code stats
+	function getCodeStats(code: string) {
+		const lines = code.split('\n').length;
+		const chars = code.length;
+		return { lines, chars };
+	}
 
 	//
 
@@ -66,18 +82,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <MarketplacePageLayout tableOfContents={sections}>
 	<div class="grow space-y-6">
 		<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
-		<div class="grid grid-cols-2 gap-6">
-			<InfoBox label="Homepage URL" value={wallet.home_url} />
-			<InfoBox label="Repository URL" value={wallet.repository} />
 
-			{#if String.isNonEmpty(wallet.appstore_url)}
-				{@render AppStore(wallet.appstore_url)}
-			{/if}
+		{#if String.isNonEmpty(wallet.home_url)}
+			<InfoBox label="Homepage URL" url={wallet.home_url} copyable={true} />
+		{/if}
 
-			{#if String.isNonEmpty(wallet.playstore_url)}
-				{@render PlayStore(wallet.playstore_url)}
-			{/if}
-		</div>
+		{#if String.isNonEmpty(wallet.repository)}
+			<InfoBox label="Repository URL" url={wallet.repository} copyable={true} />
+		{/if}
+
+		<!-- App Store Downloads -->
+		{#if String.isNonEmpty(wallet.appstore_url) || String.isNonEmpty(wallet.playstore_url)}
+			<div class="flex gap-3">
+				{#if String.isNonEmpty(wallet.appstore_url)}
+					{@render AppStore(wallet.appstore_url)}
+				{/if}
+
+				{#if String.isNonEmpty(wallet.playstore_url)}
+					{@render PlayStore(wallet.playstore_url)}
+				{/if}
+			</div>
+		{/if}
 	</div>
 	{#if wallet.description && sections.description}
 		<div class="space-y-6">
@@ -110,6 +135,48 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 	{/if}
+
+	{#if actions && actions.length > 0 && sections.actions}
+		<div class="space-y-4">
+			<PageHeader title={sections.actions.label} id={sections.actions.anchor} />
+			<div class="space-y-3">
+				{#each actions as action}
+					{@const stats = getCodeStats(action.code)}
+					<Accordion type="single" class="w-full">
+						<AccordionItem
+							value="code-accordion"
+							class="bg-card hover:ring-primary rounded-lg border hover:ring-2"
+						>
+							<AccordionTrigger class="group px-4 py-3 hover:no-underline">
+								<div class="mr-4 flex w-full items-center justify-between">
+									<div class="flex items-center gap-3">
+										<Code
+											class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
+										/>
+										<div class="text-left">
+											<div class="font-medium">{action.name}</div>
+											<div class="text-muted-foreground text-xs">
+												{action.uid} • {stats.lines} lines • {stats.chars} characters
+											</div>
+										</div>
+									</div>
+									<Badge variant="outline" class="text-xs">YAML</Badge>
+								</div>
+							</AccordionTrigger>
+							<AccordionContent class="px-4">
+								<CodeDisplay
+									content={action.code}
+									language="yaml"
+									class="text-xs"
+									containerClass="max-h-80"
+								/>
+							</AccordionContent>
+						</AccordionItem>
+					</Accordion>
+				{/each}
+			</div>
+		</div>
+	{/if}
 </MarketplacePageLayout>
 
 <EditSheet>
@@ -124,30 +191,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	{/snippet}
 </EditSheet>
-
-<!-- {#if isWallet}
-					<WalletFormSheet
-						walletId={marketplaceItem.id}
-						initialData={walletInitialData}
-						onEditSuccess={handleEditSuccess}
-					>
-						{#snippet customTrigger({ sheetTriggerAttributes })}
-							<Button
-								size="sm"
-								class="!h-8 text-xs"
-								onclick={async (event) => {
-									await loadFullWalletDataOnDemand();
-									if (sheetTriggerAttributes?.onclick) {
-										sheetTriggerAttributes.onclick(event);
-									}
-								}}
-							>
-								<PencilIcon />
-								{m.Make_changes()}
-							</Button>
-						{/snippet}
-					</WalletFormSheet>
-				{/if} -->
 
 {#snippet AppStore(url: string)}
 	<a href={url} target="_blank" class="">

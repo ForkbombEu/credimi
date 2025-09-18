@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class={[
 		'h-8',
 		{
-			'w-8': square
+			'w-8 p-0': square
 		}
 	]}
 	{...rest}

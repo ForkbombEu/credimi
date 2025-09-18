@@ -6,7 +6,12 @@ import { pb } from '@/pocketbase';
 
 export const load = async ({ params, fetch }) => {
 	const wallet = await pb.collection('wallets').getOne(params.wallet_id, { fetch });
+	const actions = await pb.collection('wallet_actions').getFullList({
+		filter: `wallet="${params.wallet_id}"`,
+		fetch
+	});
 	return {
-		wallet
+		wallet,
+		actions
 	};
 };
