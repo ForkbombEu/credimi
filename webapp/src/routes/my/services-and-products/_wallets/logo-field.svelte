@@ -27,46 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { form, walletResponse }: Props = $props();
 	let formState = fromStore(form.form);
 
-	// const existingLogoUrl = $derived.by(() => {
-	// 	if (
-	// 		initialData.logo &&
-	// 		typeof initialData.logo === 'string' &&
-	// 		walletId &&
-	// 		!shouldRemoveExistingLogo
-	// 	) {
-	// 		return pb.files.getURL({ id: walletId, collectionName: 'wallets' }, initialData.logo);
-	// 	}
-	// 	return null;
-	// });
-
-	// let logoUrlError = $state('');
-
-	// let shouldRemoveExistingLogo = $state(false);
-
-	// function removeLogo() {
-	// 	const { form: formDataStore } = editWalletform;
-	// 	formDataStore.update((currentData) => ({
-	// 		...currentData,
-	// 		logo: undefined,
-	// 		logo_url: ''
-	// 	}));
-	// 	shouldRemoveExistingLogo = true;
-	// 	logoUrlError = '';
-	// }
-
-	// $effect(() => {
-	// 	if ($formData.logo instanceof File && $formData.logo.size > 0) {
-	// 		shouldRemoveExistingLogo = false;
-	// 	}
-	// });
-
-	// const logoFilePreview = $derived.by(() => {
-	// 	const logo = formState.current.logo;
-	// 	if (logo && logo.size > 0) {
-	// 		return URL.createObjectURL(formState.current.logo);
-	// 	}
-	// 	return null;
-	// });
+	//
 
 	type LogoMode = 'original' | 'new_file' | 'url' | 'removed';
 
@@ -154,7 +115,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="relative mt-8">
 		<div class="size-28 overflow-hidden rounded-md border">
 			{#if logoPreviewUrl}
-				<img src={logoPreviewUrl} alt={m.Logo_preview()} class="size-full object-cover" />
+				<img
+					src={logoPreviewUrl}
+					alt={m.Logo_preview()}
+					class="size-full object-cover text-center text-xs"
+				/>
 			{:else if logoMode === 'removed'}
 				<div class="bg-muted flex size-full items-center justify-center p-2">
 					<T class="text-muted-foreground text-sm">Logo preview</T>
@@ -182,80 +147,3 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 {/snippet}
-
-<!-- 
-<div class="space-y-4">
-	<div class="text-sm font-medium leading-none">{m.Logo()}</div>
-	{#if $formData.logo instanceof File && $formData.logo.size > 0 && !logoUrlError}
-		{@render logoPreview(URL.createObjectURL($formData.logo))}
-	{:else if existingLogoUrl && !$formData.logo && !logoUrlError}
-		{@render logoPreview(existingLogoUrl, m.Invalid_image_URL_error())}
-	{:else if $formData.logo_url && !logoUrlError}
-		{@render logoPreview($formData.logo_url, m.Invalid_image_URL_error())}
-	{/if}
-
-	{#if logoUrlError}
-		<Alert variant="destructive">
-			<AlertCircle class="h-4 w-4" />
-			<AlertDescription>{logoUrlError}</AlertDescription>
-		</Alert>
-	{/if}
-
-	{#if (!($formData.logo instanceof File && $formData.logo.size > 0) && !existingLogoUrl && !$formData.logo_url) || logoUrlError}
-		<div class="space-y-4">
-			<div class="space-y-2">
-				<FileField
-					form={editWalletform}
-					name="logo"
-					options={{
-						label: '',
-						placeholder: m.Upload_logo(),
-						showFilesList: false
-					}}
-				/>
-			</div>
-			<div class="relative">
-				<div class="absolute inset-0 flex items-center">
-					<span class="border-muted w-full border-t"></span>
-				</div>
-				<div class="relative flex justify-center text-xs uppercase">
-					<span class="bg-background text-muted-foreground px-2">{m.or()}</span>
-				</div>
-			</div>
-			<div class="space-y-2">
-				<Field
-					form={editWalletform}
-					name="logo_url"
-					options={{
-						type: 'url',
-						label: '',
-						placeholder: m.Enter_logo_URL()
-					}}
-				/>
-			</div>
-		</div>
-	{/if}
-</div>
-
-{#snippet logoPreview(src: string, errorMessage?: string)}
-	<div class="relative mb-2 inline-block">
-		<img
-			{src}
-			alt={m.Logo_preview()}
-			class="max-h-32 rounded border"
-			onerror={() => {
-				if (errorMessage) {
-					logoUrlError = errorMessage;
-				}
-			}}
-		/>
-		<Button
-			size="sm"
-			variant="destructive"
-			class="absolute -right-2 -top-2 h-6 w-6 rounded-full p-0"
-			onclick={removeLogo}
-		>
-			<X class="h-4 w-4" />
-		</Button>
-	</div>
-{/snippet} -->
