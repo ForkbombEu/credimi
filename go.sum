@@ -219,8 +219,8 @@ github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/firefart/nonamedreturns v1.0.6 h1:vmiBcKV/3EqKY3ZiPxCINmpS431OcE1S47AQUwhrg8E=
 github.com/firefart/nonamedreturns v1.0.6/go.mod h1:R8NisJnSIpvPWheCq0mNRXJok6D8h7fagJTF8EMEwCo=
-github.com/forkbombeu/credimi-extra v0.0.0-20250917163215-5715b59c9b54 h1:EPEU9NqcV73sAHwhHkINIcrSEFs+ilVuVKHVZhf5KxY=
-github.com/forkbombeu/credimi-extra v0.0.0-20250917163215-5715b59c9b54/go.mod h1:cFOL11ii7DAFeFvOU7Tpmw9APYPkKHQ/NQdNaILkUFQ=
+github.com/forkbombeu/credimi-extra v0.0.0-20250918094626-de85c3fc3739 h1:MV5w0LjEENsTSfi/1lznq6RoUIgNDPgzoBMqX1OZCe8=
+github.com/forkbombeu/credimi-extra v0.0.0-20250918094626-de85c3fc3739/go.mod h1:cFOL11ii7DAFeFvOU7Tpmw9APYPkKHQ/NQdNaILkUFQ=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.8.0 h1:dAwr6QBTBZIkG8roQaJjGof0pp0EeF+tNV7YBP3F/8M=

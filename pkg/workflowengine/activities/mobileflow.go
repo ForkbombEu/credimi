@@ -7,37 +7,36 @@ import (
 	"context"
 	"os/exec"
 
-	"github.com/forkbombeu/credimi-extra/maestro"
+	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
-type MaestroFlowActivity struct {
+type MobileFlowActivity struct {
 	workflowengine.BaseActivity
 }
 
-func NewMaestroFlowActivity() *MaestroFlowActivity {
-	return &MaestroFlowActivity{
+func NewMobileFlowActivity() *MobileFlowActivity {
+	return &MobileFlowActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Run a Maestro flow",
+			Name: "Run a Mobile flow",
 		},
 	}
 }
-func (a *MaestroFlowActivity) Name() string {
+func (a *MobileFlowActivity) Name() string {
 	return a.BaseActivity.Name
 }
-func (a *MaestroFlowActivity) Execute(
+func (a *MobileFlowActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 
-	// Build the input struct for the library function
-	runInput := maestro.RunMaestroFlowInput{
+	runInput := mobile.RunMobileFlowInput{
 		Payload:          input.Payload,
 		GetEnv:           utils.GetEnvironmentVariable,
 		NewActivityError: a.NewActivityError,
-		ErrorCodes: map[string]maestro.ErrorCode{
+		ErrorCodes: map[string]mobile.ErrorCode{
 			"MissingOrInvalidPayload": {
 				Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
 				Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
@@ -54,13 +53,11 @@ func (a *MaestroFlowActivity) Execute(
 		CommandContext: exec.CommandContext,
 	}
 
-	// Call the portable library function
-	res, err := maestro.RunMaestroFlow(ctx, runInput)
+	res, err := mobile.RunMobileFlow(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
 
-	// Return result
 	return workflowengine.ActivityResult{
 		Output: res["output"],
 	}, nil

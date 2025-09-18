@@ -82,9 +82,9 @@ var Registry = map[string]TaskFactory{
 		NewFunc:    func() any { return activities.NewParseWalletURLActivity() },
 		OutputKind: workflowengine.OutputMap,
 	},
-	"maestro-flow": {
+	"mobile-flow": {
 		Kind:       TaskActivity,
-		NewFunc:    func() any { return activities.NewMaestroFlowActivity() },
+		NewFunc:    func() any { return activities.NewMobileFlowActivity() },
 		OutputKind: workflowengine.OutputString,
 	},
 	"mobile-automation": {

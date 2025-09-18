@@ -123,16 +123,16 @@ func (w *MobileAutomationWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	maestroActivity := activities.NewMaestroFlowActivity()
-	var maestroResponse workflowengine.ActivityResult
-	maestroInput := workflowengine.ActivityInput{
+	mobileActivity := activities.NewMobileFlowActivity()
+	var mobileResponse workflowengine.ActivityResult
+	mobileInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
 			"apk":  apkPath,
 			"yaml": ActionYAML,
 		},
 	}
-	err = workflow.ExecuteActivity(ctx, maestroActivity.Name(), maestroInput).
-		Get(ctx, &maestroResponse)
+	err = workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
+		Get(ctx, &mobileResponse)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
@@ -167,7 +167,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 		)
 	}
 	return workflowengine.WorkflowResult{
-		Output: maestroResponse.Output,
+		Output: mobileResponse.Output,
 	}, nil
 
 }

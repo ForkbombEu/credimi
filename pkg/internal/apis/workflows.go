@@ -1061,16 +1061,17 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 			}
 
 			// Delete tmp file after successful upload
-			err = os.Remove(absResultPath)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"filesystem",
-					"failed to delete tmp file",
-					err.Error(),
-				).JSON(e)
-			}
-
+			/*
+				err = os.Remove(absResultPath)
+				if err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"filesystem",
+						"failed to delete tmp file",
+						err.Error(),
+					).JSON(e)
+				}
+			*/
 			return e.JSON(http.StatusOK, map[string]any{
 				"status": "ok",
 				"id":     actionRecord.Id,
