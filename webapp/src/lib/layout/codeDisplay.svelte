@@ -5,21 +5,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Moon, Sun } from 'lucide-svelte';
+	import { Check, ClipboardCopy, Moon, Sun } from 'lucide-svelte';
 	import { codeToHtml, type BundledLanguage } from 'shiki';
 
-	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
-	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import Button from '@/components/ui/button/button.svelte';
 
 	type Props = {
 		content: string;
-		language: BundledLanguage;
 		class?: string;
+		hideCopyButton?: boolean;
+		language: BundledLanguage;
+		containerClass?: string;
 	};
 
-	let { content, language, class: className = '' }: Props = $props();
+	let {
+		content,
+		class: className = '',
+		hideCopyButton = false,
+		language,
+		containerClass = ''
+	}: Props = $props();
 
-	// let isCopied = $state(false);
+	let isCopied = $state(false);
 	let highlighted = $state('');
 	let isDarkTheme = $state(true);
 
@@ -41,39 +48,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		updateHighlighting();
 	});
 
+	async function copyToClipboard() {
+		if (!content) return;
+
+		try {
+			await navigator.clipboard.writeText(content);
+			isCopied = true;
+			setTimeout(() => {
+				isCopied = false;
+			}, 2000);
+		} catch (err) {
+			console.error('Failed to copy text: ', err);
+		}
+	}
+
 	function toggleTheme() {
 		isDarkTheme = !isDarkTheme;
 	}
 
-	// async function copyToClipboard() {
-	// 	if (!content) return;
-
-	// 	try {
-	// 		await navigator.clipboard.writeText(content);
-	// 		isCopied = true;
-	// 		setTimeout(() => {
-	// 			isCopied = false;
-	// 		}, 2000);
-	// 	} catch (err) {
-	// 		console.error('Failed to copy text: ', err);
-	// 	}
-	// }
-
-	// const preClasses = $derived(
-	// 	className || 'rounded-lg border border-slate-200 bg-white p-4 overflow-x-auto text-sm'
-	// );
+	const preClasses = $derived(
+		className || 'rounded-lg border border-slate-200 bg-white p-4 overflow-x-auto text-sm'
+	);
 </script>
 
-<div class={['rounded-md border', className, 'relative flex w-full overflow-hidden']}>
-	<div class="absolute right-2 top-2 z-10 flex flex-col gap-2">
-		<CopyButtonSmall textToCopy={content} square />
-		<IconButton size="sm" icon={isDarkTheme ? Moon : Sun} onclick={toggleTheme} />
-	</div>
-	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-	{@html highlighted}
-</div>
-
-<!-- 
 {#snippet copyButton()}
 	{#if !hideCopyButton && content}
 		<div class="absolute right-2 top-2 z-10 flex flex-col gap-1">
@@ -112,15 +109,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 {/snippet}
 
-<div class="relative {containerClass}">
+<div class={['relative flex w-full overflow-hidden rounded-md border', containerClass]}>
 	{#if highlighted}
-		<div
-			class={preClasses}
-			style="padding: 0; margin: 0; overflow: hidden; position: relative;"
-		>
-			{@html highlighted}
-			{@render copyButton()}
-		</div>
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html highlighted}
+		{@render copyButton()}
 	{:else}
 		<pre
 			class="{preClasses} relative"
@@ -130,4 +123,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render copyButton()}
 	</pre>
 	{/if}
-</div> -->
+</div>

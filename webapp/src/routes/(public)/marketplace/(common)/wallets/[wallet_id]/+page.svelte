@@ -164,12 +164,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</div>
 							</AccordionTrigger>
 							<AccordionContent class="px-4 pb-4">
-								<div class="bg-muted overflow-hidden rounded-md border">
+								<div
+									class="bg-muted flex w-full items-center gap-2 rounded-md border p-4"
+								>
 									<CodeDisplay
 										content={action.code}
 										language="yaml"
 										class="text-xs"
-										containerClass="max-h-80 overflow-y-auto"
+										containerClass="max-h-80"
 									/>
 								</div>
 							</AccordionContent>
