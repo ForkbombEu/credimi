@@ -135,7 +135,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								hide: {
 									owner: organizationId
 								},
-								exclude: ['published']
+								exclude: ['published', 'imported']
 							}}
 							onSuccess={async () => {
 								hasBeenSaved = true;
