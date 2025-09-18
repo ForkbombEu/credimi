@@ -4,13 +4,10 @@
 package activities
 
 import (
-	"bytes"
 	"context"
-	"fmt"
-	"os"
 	"os/exec"
-	"path/filepath"
 
+	"github.com/forkbombeu/credimi-extra/maestro"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -34,79 +31,37 @@ func (a *MaestroFlowActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	var result workflowengine.ActivityResult
 
-	yamlContent, ok := input.Payload["yaml"].(string)
-
-	if !ok || yamlContent == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'yaml", errCode.Description),
-		)
+	// Build the input struct for the library function
+	runInput := maestro.RunMaestroFlowInput{
+		Payload:          input.Payload,
+		GetEnv:           utils.GetEnvironmentVariable,
+		NewActivityError: a.NewActivityError,
+		ErrorCodes: map[string]maestro.ErrorCode{
+			"MissingOrInvalidPayload": {
+				Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+			},
+			"CommandExecutionFailed": {
+				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
+				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
+			},
+			"TempFileCreationFailed": {
+				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
+				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
+			},
+		},
+		CommandContext: exec.CommandContext,
 	}
 
-	apk, ok := input.Payload["apk"].(string)
-	if !ok || apk == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'apk", errCode.Description),
-		)
-	}
-
-	cmd := exec.CommandContext(ctx, "adb", "install", apk)
-	err := cmd.Run()
+	// Call the portable library function
+	res, err := maestro.RunMaestroFlow(ctx, runInput)
 	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf(errCode.Description+": %v", err),
-		)
+		return workflowengine.ActivityResult{}, err
 	}
 
-	tmpFile, err := os.CreateTemp("", "action.yaml")
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.TempFileCreationFailed]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf(errCode.Description+": %v", err),
-		)
-	}
-	if _, err := tmpFile.WriteString(yamlContent); err != nil {
-		errCode := errorcodes.Codes[errorcodes.TempFileCreationFailed]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf(errCode.Description+": %v", err),
-		)
-	}
-	// defer os.Remove(tmpFile.Name())
-
-	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
-	exexcutableDir := filepath.Join(binDir, "maestro", "bin")
-	binName := "maestro"
-	binPath := filepath.Join(exexcutableDir, binName)
-	args := []string{"record", "--local", tmpFile.Name(), "video.mp4"}
-
-	cmd = exec.CommandContext(ctx, binPath, args...)
-
-	var stdoutBuf, stderrBuf bytes.Buffer
-	cmd.Stdout = &stdoutBuf
-	cmd.Stderr = &stderrBuf
-
-	err = cmd.Run()
-	stdoutStr := stdoutBuf.String()
-	stderrStr := stderrBuf.String()
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf(errCode.Description+": %v", err),
-			stderrStr,
-		)
-	}
-
-	result.Output = stdoutStr
-
-	return result, nil
+	// Return result
+	return workflowengine.ActivityResult{
+		Output: res["output"],
+	}, nil
 }

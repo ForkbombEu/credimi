@@ -151,7 +151,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 				"Content-Type": "application/json",
 			},
 			"body": map[string]any{
-				"result_path":  "video.mp4",
+				"result_path":  "/tmp/credimi/video.mp4",
 				"action_uid":   actionID,
 				"organization": namespace,
 			},

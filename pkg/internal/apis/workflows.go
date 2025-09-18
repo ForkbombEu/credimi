@@ -14,6 +14,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -1026,8 +1027,19 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 					err.Error(),
 				).JSON(e)
 			}
+			const safeTmpDir = "/tmp/credimi/"
 
-			f, err := filesystem.NewFileFromPath(req.ResultPath)
+			absResultPath, err := filepath.Abs(req.ResultPath)
+			if err != nil || !strings.HasPrefix(absResultPath, safeTmpDir) {
+				return apierror.New(
+					http.StatusBadRequest,
+					"filesystem",
+					"invalid result file path",
+					"result file path is not allowed",
+				).JSON(e)
+			}
+
+			f, err := filesystem.NewFileFromPath(absResultPath)
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -1049,7 +1061,7 @@ func HookWalletWorkflow(app *pocketbase.PocketBase) {
 			}
 
 			// Delete tmp file after successful upload
-			err = os.Remove(req.ResultPath)
+			err = os.Remove(absResultPath)
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
