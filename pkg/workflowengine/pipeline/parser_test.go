@@ -14,7 +14,7 @@ import (
 func TestStepDefinition_UnmarshalYAML(t *testing.T) {
 	yamlData := `
 id: "step1"
-run: "echo"
+use: "echo"
 with:
   config:
     foo: "bar"
@@ -38,7 +38,7 @@ metadata:
 	require.NoError(t, err)
 	// Top-level fields
 	require.Equal(t, "step1", step.ID)
-	require.Equal(t, "echo", step.Run)
+	require.Equal(t, "echo", step.Use)
 	require.Equal(t, map[string]any{"count": 3}, step.Retry)
 	require.Equal(t, "5m", step.Timeout)
 	require.Equal(t, map[string]interface{}{"note": "example step"}, step.Metadata)
@@ -67,12 +67,12 @@ func TestWorkflowDefinition_UnmarshalYAML(t *testing.T) {
 config:
   globalKey: globalVal
 steps:
-  - run: step1
+  - use: step1
     with:
       config:
         apiKey: "abc123"
       url: "http://example.com"
-  - run: step2
+  - use: step2
     with:
       config:
         image: "alpine:latest"
@@ -91,13 +91,13 @@ steps:
 
 	// Step 1
 	s1 := wf.Steps[0]
-	require.Equal(t, "step1", s1.Run)
+	require.Equal(t, "step1", s1.Use)
 	require.Equal(t, "abc123", s1.With.Config["apiKey"])
 	require.Equal(t, "http://example.com", s1.With.Payload["url"].Value)
 
 	// Step 2
 	s2 := wf.Steps[1]
-	require.Equal(t, "step2", s2.Run)
+	require.Equal(t, "step2", s2.Use)
 	require.Equal(t, "alpine:latest", s2.With.Config["image"])
 	require.Equal(t, []any{"run", "echo"}, s2.With.Payload["args"].Value)
 }

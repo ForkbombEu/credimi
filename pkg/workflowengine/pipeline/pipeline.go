@@ -85,8 +85,8 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	for _, step := range steps {
-		logger.Info("Running step", "id", step.ID, "run", step.Run)
-		if subBlock, ok := checks[step.Run]; ok {
+		logger.Info("Running step", "id", step.ID, "use", step.Use)
+		if subBlock, ok := checks[step.Use]; ok {
 			childOpts := workflow.ChildWorkflowOptions{
 				WorkflowID: fmt.Sprintf(
 					"%s-%s",

@@ -29,7 +29,7 @@ type WorkflowBlock struct {
 
 type StepDefinition struct {
 	ID       string                 `yaml:"id"   json:"id"`
-	Run      string                 `yaml:"run"  json:"run"`
+	Use      string                 `yaml:"use"  json:"use"`
 	With     StepInputs             `yaml:"with" json:"with"`
 	Retry    map[string]any         `yaml:"retry,omitempty"    json:"retry,omitempty"`
 	Timeout  string                 `yaml:"timeout,omitempty"  json:"timeout,omitempty"`
