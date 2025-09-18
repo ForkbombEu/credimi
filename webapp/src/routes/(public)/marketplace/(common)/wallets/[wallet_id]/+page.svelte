@@ -137,16 +137,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	{#if actions && actions.length > 0 && sections.actions}
-		<div class="space-y-6">
+		<div class="space-y-4">
 			<PageHeader title={sections.actions.label} id={sections.actions.anchor} />
-			<div class="text-muted-foreground mb-4 text-sm">
-				{actions.length} action{actions.length === 1 ? '' : 's'} available
-			</div>
 			<div class="space-y-3">
 				{#each actions as action}
 					{@const stats = getCodeStats(action.code)}
 					<Accordion type="single" class="w-full">
-						<AccordionItem value="code-accordion" class="bg-card rounded-lg border">
+						<AccordionItem
+							value="code-accordion"
+							class="bg-card hover:ring-primary rounded-lg border hover:ring-2"
+						>
 							<AccordionTrigger class="group px-4 py-3 hover:no-underline">
 								<div class="mr-4 flex w-full items-center justify-between">
 									<div class="flex items-center gap-3">
@@ -163,17 +163,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									<Badge variant="outline" class="text-xs">YAML</Badge>
 								</div>
 							</AccordionTrigger>
-							<AccordionContent class="px-4 pb-4">
-								<div
-									class="bg-muted flex w-full items-center gap-2 rounded-md border p-4"
-								>
-									<CodeDisplay
-										content={action.code}
-										language="yaml"
-										class="text-xs"
-										containerClass="max-h-80"
-									/>
-								</div>
+							<AccordionContent class="px-4">
+								<CodeDisplay
+									content={action.code}
+									language="yaml"
+									class="text-xs"
+									containerClass="max-h-80"
+								/>
 							</AccordionContent>
 						</AccordionItem>
 					</Accordion>
