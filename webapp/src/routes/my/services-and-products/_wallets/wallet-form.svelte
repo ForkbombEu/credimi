@@ -99,6 +99,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}
 
+	let shouldRemoveExistingLogo = $state(false);
+
 	function removeLogo() {
 		const { form: formDataStore } = editWalletform;
 		formDataStore.update((currentData) => ({
@@ -106,22 +108,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			logo: undefined,
 			logo_url: ''
 		}));
+		shouldRemoveExistingLogo = true;
 		logoUrlError = '';
 	}
+
+	$effect(() => {
+		if ($formData.logo instanceof File && $formData.logo.size > 0) {
+			shouldRemoveExistingLogo = false;
+		}
+	});
 
 	const editWalletform = createForm<z.infer<typeof schema>>({
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
-			const formData = { ...form.data };
+			const formData = { ...form.data } as Record<string, unknown>;
 			if (!formData.apk || (formData.apk instanceof File && formData.apk.size === 0)) {
 				delete formData.apk;
 			}
 
 			const hasValidLogoFile = formData.logo instanceof File && formData.logo.size > 0;
-			if (!formData.logo || !hasValidLogoFile) {
+
+			if (shouldRemoveExistingLogo && initialData.logo) {
+				// User explicitly wants to remove existing logo (clicked X button)
+				formData['logo-'] = initialData.logo;
+				delete formData.logo;
+			} else if (!hasValidLogoFile) {
+				// No new file and not removing existing - preserve existing logo
 				delete formData.logo;
 			}
-			if (hasValidLogoFile || !formData.logo_url?.trim()) {
+
+			if (
+				hasValidLogoFile ||
+				!(typeof formData.logo_url === 'string' && formData.logo_url.trim())
+			) {
 				delete formData.logo_url;
 			}
 
@@ -149,10 +168,45 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { form: formData } = editWalletform;
 
+	const existingLogoUrl = $derived.by(() => {
+		if (
+			initialData.logo &&
+			typeof initialData.logo === 'string' &&
+			walletId &&
+			!shouldRemoveExistingLogo
+		) {
+			return pb.files.getURL({ id: walletId, collectionName: 'wallets' }, initialData.logo);
+		}
+		return null;
+	});
+
 	// // Type-safe form for the Table component
 	// type TableFormData = { conformance_checks?: z.infer<typeof ConformanceCheckSchema>[] };
 	// const tableForm = editWalletform as SuperForm<TableFormData>;
 </script>
+
+{#snippet logoPreview(src: string, errorMessage?: string)}
+	<div class="relative mb-2 inline-block">
+		<img
+			{src}
+			alt={m.Logo_preview()}
+			class="max-h-32 rounded border"
+			onerror={() => {
+				if (errorMessage) {
+					logoUrlError = errorMessage;
+				}
+			}}
+		/>
+		<Button
+			size="sm"
+			variant="destructive"
+			class="absolute -right-2 -top-2 h-6 w-6 rounded-full p-0"
+			onclick={removeLogo}
+		>
+			<X class="h-4 w-4" />
+		</Button>
+	</div>
+{/snippet}
 
 <Card class="bg-secondary border-purple-outline/20 mb-8">
 	<CardContent class="space-y-4 p-6">
@@ -223,43 +277,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="space-y-4">
 			<div class="text-sm font-medium leading-none">{m.Logo()}</div>
 			{#if $formData.logo instanceof File && $formData.logo.size > 0 && !logoUrlError}
-				<div class="relative mb-2 inline-block">
-					<img
-						src={URL.createObjectURL($formData.logo)}
-						alt={m.Logo_preview()}
-						class="max-h-32 rounded border"
-					/>
-					<Button
-						size="sm"
-						variant="destructive"
-						class="absolute -right-2 -top-2 h-6 w-6 rounded-full p-0"
-						onclick={removeLogo}
-					>
-						<X class="h-4 w-4" />
-					</Button>
-				</div>
+				{@render logoPreview(URL.createObjectURL($formData.logo))}
+			{:else if existingLogoUrl && !$formData.logo && !logoUrlError}
+				{@render logoPreview(existingLogoUrl, m.Invalid_image_URL_error())}
 			{:else if $formData.logo_url && !logoUrlError}
-				<div class="relative mb-2 inline-block">
-					<img
-						src={$formData.logo_url}
-						alt={m.Logo_preview()}
-						class="max-h-32 rounded border"
-						onerror={() => {
-							logoUrlError = m.Invalid_image_URL_error();
-						}}
-						onload={() => {
-							logoUrlError = '';
-						}}
-					/>
-					<Button
-						size="sm"
-						variant="destructive"
-						class="absolute -right-2 -top-2 h-6 w-6 rounded-full p-0"
-						onclick={removeLogo}
-					>
-						<X class="h-4 w-4" />
-					</Button>
-				</div>
+				{@render logoPreview($formData.logo_url, m.Invalid_image_URL_error())}
 			{/if}
 
 			{#if logoUrlError}
@@ -269,7 +291,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Alert>
 			{/if}
 
-			{#if (!($formData.logo instanceof File && $formData.logo.size > 0) && !$formData.logo_url) || logoUrlError}
+			{#if (!($formData.logo instanceof File && $formData.logo.size > 0) && !existingLogoUrl && !$formData.logo_url) || logoUrlError}
 				<div class="space-y-4">
 					<div class="space-y-2">
 						<FileField
