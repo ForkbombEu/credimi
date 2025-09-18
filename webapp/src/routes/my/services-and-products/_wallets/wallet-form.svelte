@@ -34,6 +34,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
+	const editWalletform = setupCollectionForm({
+		collection: 'wallets',
+		recordId: walletId,
+		fieldsOptions: {
+			exclude: ['owner', 'conformance_checks']
+		},
+		initialData: initialData,
+		onSuccess: onSuccess
+	});
+
+	//
+
 	let isProcessingWorkflow = $state(false);
 	let autoPopulateUrl = $state('');
 	let autoPopulateError = $state('');
@@ -51,50 +63,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					WalletURL: autoPopulateUrl.trim()
 				}
 			});
+			if (!response) return;
 
-			if (response) {
-				if (response.logo) {
-					response.logo_url = response.logo;
-					delete response.logo;
-				}
-				const { form: formDataStore } = editWalletform;
-				formDataStore.update((currentData) => {
-					const updatedData = { ...currentData };
-					Object.keys(response).forEach((key) => {
-						if (key in updatedData && key in response) {
-							(updatedData as Record<string, unknown>)[key] =
-								response[key as keyof typeof response];
-						}
-					});
-					return updatedData;
-				});
+			if (response.logo) {
+				response.logo_url = response.logo;
+				delete response.logo;
 			}
+
+			const { form: formDataStore } = editWalletform;
+			formDataStore.update((currentData) => {
+				const updatedData = { ...currentData };
+				Object.keys(response).forEach((key) => {
+					if (key in updatedData && key in response) {
+						(updatedData as Record<string, unknown>)[key] =
+							response[key as keyof typeof response];
+					}
+				});
+				return updatedData;
+			});
 
 			autoPopulateUrl = '';
 		} catch (error: unknown) {
-			const errorObj = error as {
-				response?: { error?: { code?: number; message?: string } };
-			};
+			const errorObj = error as ErrorResponse;
 			if (errorObj?.response?.error?.code === 404) {
 				autoPopulateError = m.Wallet_not_found_check_URL();
 			} else {
 				autoPopulateError =
 					errorObj?.response?.error?.message || m.Failed_to_fetch_wallet_metadata();
 			}
-		} finally {
-			isProcessingWorkflow = false;
 		}
+
+		isProcessingWorkflow = false;
 	}
 
-	const editWalletform = setupCollectionForm({
-		collection: 'wallets',
-		recordId: walletId,
-		fieldsOptions: {
-			exclude: ['owner', 'conformance_checks']
-		},
-		initialData: initialData,
-		onSuccess: onSuccess
-	});
+	type ErrorResponse = {
+		response?: { error?: { code?: number; message?: string } };
+	};
 </script>
 
 <Card class="bg-secondary border-purple-outline/20 mb-8">
