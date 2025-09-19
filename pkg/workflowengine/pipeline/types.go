@@ -48,10 +48,12 @@ type InputSource struct {
 
 type RuntimeConfig struct {
 	Temporal struct {
-		Namespace        string `yaml:"namespace,omitempty"        json:"namespace,omitempty"`
-		TaskQueue        string `yaml:"taskQueue,omitempty"        json:"taskQueue,omitempty"`
-		ExecutionTimeout string `yaml:"executionTimeout,omitempty" json:"executionTimeout,omitempty"`
-		RetryPolicy      struct {
+		Namespace              string `yaml:"namespace,omitempty"        json:"namespace,omitempty"`
+		TaskQueue              string `yaml:"taskQueue,omitempty"        json:"taskQueue,omitempty"`
+		ExecutionTimeout       string `yaml:"executionTimeout,omitempty" json:"executionTimeout,omitempty"`
+		StartToCloseTimeout    string `yaml:"startToCloseTimeout,omitempty" json:"startToCloseTimeout,omitempty"`
+		ScheduleToCloseTimeout string `yaml:"scheduleToCloseTimeout,omitempty" json:"scheduleToCloseTimeout,omitempty"`
+		RetryPolicy            struct {
 			MaximumAttempts    int32   `yaml:"maximumAttempts,omitempty"    json:"maximumAttempts,omitempty"`
 			InitialInterval    string  `yaml:"initialInterval,omitempty"    json:"initialInterval,omitempty"`
 			MaximumInterval    string  `yaml:"maximumInterval,omitempty"    json:"maximumInterval,omitempty"`

@@ -8,6 +8,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 )
 
 type TaskKind int
@@ -81,9 +82,13 @@ var Registry = map[string]TaskFactory{
 		NewFunc:    func() any { return activities.NewParseWalletURLActivity() },
 		OutputKind: workflowengine.OutputMap,
 	},
-	"maestro-flow": {
+	"mobile-flow": {
 		Kind:       TaskActivity,
-		NewFunc:    func() any { return activities.NewMaestroFlowActivity() },
+		NewFunc:    func() any { return activities.NewMobileFlowActivity() },
 		OutputKind: workflowengine.OutputString,
+	},
+	"mobile-automation": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.MobileAutomationWorkflow{} },
 	},
 }

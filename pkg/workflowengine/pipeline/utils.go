@@ -64,9 +64,14 @@ func PrepareWorkflowOptions(rc RuntimeConfig) WorkflowOptions {
 			),
 		},
 		ActivityOptions: workflow.ActivityOptions{
-			ScheduleToCloseTimeout: time.Minute * 10,
-			StartToCloseTimeout:    time.Minute * 5,
-			RetryPolicy:            &rp,
+			ScheduleToCloseTimeout: parseDurationOrDefault(
+				rc.Temporal.ScheduleToCloseTimeout,
+				DefaultActivityScheduleTimeout),
+			StartToCloseTimeout: parseDurationOrDefault(
+				rc.Temporal.StartToCloseTimeout,
+				DefaultActivityStartTimeout,
+			),
+			RetryPolicy: &rp,
 		},
 	}
 }
