@@ -406,7 +406,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 					return err
 				}
 				existing, err := app.FindFirstRecordByFilter(collection,
-					"key = {:key} && credential_issuer = {:issuerID}",
+					"name = {:key} && credential_issuer = {:issuerID}",
 					map[string]any{
 						"key":      body.CredKey,
 						"issuerID": body.IssuerID,
@@ -417,7 +417,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				if err != nil {
 					// Create new record
 					record = core.NewRecord(collection)
-					record.Set("name", name)
+					record.Set("display_name", name)
 					record.Set("logo", logo)
 					record.Set("imported", true)
 				} else {
@@ -449,9 +449,9 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 						}
 					}
 
-					savedName := record.GetString("name")
+					savedName := record.GetString("display_name")
 					if savedName == orginalName {
-						record.Set("name", name)
+						record.Set("display_name", name)
 					}
 
 					savedLogo := record.GetString("logo")
@@ -473,7 +473,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				record.Set("issuer_name", body.IssuerName)
 				record.Set("locale", locale)
 				record.Set("json", string(credJSON))
-				record.Set("key", body.CredKey)
+				record.Set("name", body.CredKey)
 				record.Set("credential_issuer", body.IssuerID)
 				record.Set("conformant", body.Conformant)
 				record.Set("owner", body.OrgID)
@@ -524,7 +524,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 
 				var deleted []string
 				for _, rec := range all {
-					key := rec.GetString("key")
+					key := rec.GetString("name")
 					if !validSet[key] {
 						if err := app.Delete(rec); err != nil {
 							return apis.NewBadRequestError("failed to delete record", err)
