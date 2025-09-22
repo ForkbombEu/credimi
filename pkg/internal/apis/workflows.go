@@ -20,6 +20,7 @@ import (
 	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -1001,7 +1002,15 @@ func createNewOrganizationForUser(app core.App, user *core.Record) error {
 			return apis.NewInternalServerError("invalid email format", nil)
 		}
 
-		newOrg.Set("name", emailParts[0]+"'s organization")
+		orgName := emailParts[0] + "'s organization"
+		existsFunc := canonify.MakeExistsFunc(app, "organizations", "canonified_name", "")
+		canonName, err := canonify.Canonify(orgName, existsFunc)
+		if err != nil {
+			return err
+		}
+
+		newOrg.Set("name", orgName)
+		newOrg.Set("canonified_name", canonName)
 		txApp.Save(newOrg)
 
 		ownerRoleRecord, err := txApp.FindFirstRecordByFilter("orgRoles", "name='owner'")
