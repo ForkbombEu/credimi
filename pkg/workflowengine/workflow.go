@@ -14,7 +14,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
-	"github.com/joho/godotenv"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
@@ -125,10 +124,7 @@ func StartWorkflowWithOptions(
 	input WorkflowInput,
 ) (result WorkflowResult, err error) {
 	// Load environment variables.
-	err = godotenv.Load()
-	if err != nil {
-		return WorkflowResult{}, fmt.Errorf("failed to load .env file: %w", err)
-	}
+
 	namespace := "default"
 	if input.Config["namespace"] != nil {
 		namespace = input.Config["namespace"].(string)

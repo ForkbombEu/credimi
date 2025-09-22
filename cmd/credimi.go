@@ -33,9 +33,7 @@ func Start() {
 
 	app.RootCmd.AddCommand(cli.NewPipelineCmd())
 
-	if err := godotenv.Load(); err != nil {
-		log.Fatal(err)
-	}
+	godotenv.Load()
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}

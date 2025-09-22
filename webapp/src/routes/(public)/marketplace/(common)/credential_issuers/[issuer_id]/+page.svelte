@@ -36,26 +36,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="space-y-6">
 		<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
 
-		<InfoBox label="URL">
-			<a href={credentialIssuer.url} class="hover:underline" target="_blank">
-				{credentialIssuer.url}
-			</a>
-		</InfoBox>
+		<InfoBox label="URL" url={credentialIssuer.url} copyable={true} />
 
 		{#if String.isNonEmpty(credentialIssuer.repo_url)}
-			<InfoBox label="Repository">
-				<a href={credentialIssuer.repo_url} class="hover:underline" target="_blank">
-					{credentialIssuer.repo_url}
-				</a>
-			</InfoBox>
+			<InfoBox label="Repository" url={credentialIssuer.repo_url} copyable={true} />
 		{/if}
 
 		{#if String.isNonEmpty(credentialIssuer.homepage_url)}
-			<InfoBox label="Homepage">
-				<a href={credentialIssuer.homepage_url} class="hover:underline" target="_blank">
-					{credentialIssuer.homepage_url}
-				</a>
-			</InfoBox>
+			<InfoBox label="Homepage" url={credentialIssuer.homepage_url} copyable={true} />
 		{/if}
 	</div>
 

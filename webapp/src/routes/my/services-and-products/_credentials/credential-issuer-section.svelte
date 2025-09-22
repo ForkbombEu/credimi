@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Eye, EyeOff, RefreshCwIcon } from 'lucide-svelte';
 
 	import type { IconComponent } from '@/components/types';
-	import type { CredentialIssuersResponse } from '@/pocketbase/types';
+	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
 	import { RecordCreate, RecordDelete, RecordEdit } from '@/collections-components/manager';
@@ -43,19 +43,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	function updatePublished(
-		collection: 'credential_issuers' | 'credentials',
-		recordId: string,
-		published: boolean,
-		onSuccess: () => void
+	async function updateCredentialIssuerPublished(
+		credentialIssuer: CredentialIssuersResponse,
+		published: boolean
 	) {
-		pb.collection(collection)
-			.update(recordId, {
-				published
-			})
-			.then(() => {
-				onSuccess();
-			});
+		const res = await pb
+			.collection('credential_issuers')
+			.update(credentialIssuer.id, { published });
+		credentialIssuer.published = res.published;
+	}
+
+	async function updateCredentialPublished(credential: CredentialsResponse, published: boolean) {
+		const res = await pb.collection('credentials').update(credential.id, { published });
+		credential.published = res.published;
 	}
 
 	async function refreshCredentialIssuer(url: string) {
@@ -137,13 +137,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						onIcon={Eye}
 						size="md"
 						checked={record.published}
-						onCheckedChange={() =>
-							updatePublished(
-								'credential_issuers',
-								record.id,
-								!record.published,
-								onEditSuccess
-							)}
+						onCheckedChange={(value) => updateCredentialIssuerPublished(record, value)}
 					/>
 
 					<Button
@@ -266,13 +260,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										size="sm"
 										disabled={!record.published}
 										checked={credential.published}
-										onCheckedChange={() =>
-											updatePublished(
-												'credentials',
-												credential.id,
-												!credential.published,
-												onEditSuccess
-											)}
+										onCheckedChange={(value) =>
+											updateCredentialPublished(credential, value)}
 									/>
 
 									<EditCredentialDialog
