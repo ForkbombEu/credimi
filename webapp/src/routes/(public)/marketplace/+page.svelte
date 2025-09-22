@@ -9,10 +9,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 
 	import type { PocketbaseQueryOptions } from '@/pocketbase/query';
 
+	import { CollectionTable } from '@/collections-components/manager';
 	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -24,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		marketplaceItemTypes,
 		marketplaceItemTypeSchema
 	} from './_utils';
+	import { snippets } from './_utils/marketplace-table-snippets.svelte';
 
 	//
 
@@ -37,6 +40,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					return null;
 				}
 			}
+		},
+		mode: {
+			encode: (value) => value,
+			decode: (value) => (value === 'table' ? 'table' : 'card')
 		}
 	});
 
@@ -62,7 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// 	}));
 </script>
 
-<CollectionManager collection="marketplace_items" {queryOptions}>
+<CollectionManager collection="marketplace_items" queryOptions={{ perPage: 25, ...queryOptions }}>
 	{#snippet top({ Search })}
 		<PageTop>
 			<div>
@@ -89,8 +96,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet contentWrapper(children)}
 		<PageContent class="bg-secondary grow">
 			<div class="flex flex-col gap-8 sm:flex-row">
-				<div class="w-full sm:w-fit">
+				<div class="w-full space-y-3 sm:w-fit">
 					{@render MarketplaceTableOfContents()}
+					<hr />
+					{@render viewSwitcher()}
 				</div>
 				<div class="grow">
 					{@render children()}
@@ -100,11 +109,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet records({ records })}
-		<PageGrid>
-			{#each records as record (record.id)}
-				<MarketplaceItemCard item={record} />
-			{/each}
-		</PageGrid>
+		{#if params.mode === 'table'}
+			<div in:fly={{ y: 10 }}>
+				<CollectionTable
+					{records}
+					hide={['delete', 'share', 'edit', 'select']}
+					fields={['name', 'type', 'updated']}
+					snippets={{
+						name: snippets.name,
+						type: snippets.type,
+						updated: snippets.updated
+					}}
+					class="bg-background rounded-md"
+					rowCellClass="px-4 py-2"
+					headerClass="bg-background z-10"
+				/>
+			</div>
+		{:else}
+			<div in:fly={{ y: 10 }}>
+				<PageGrid>
+					{#each records as record (record.id)}
+						<MarketplaceItemCard item={record} />
+					{/each}
+				</PageGrid>
+			</div>
+		{/if}
 	{/snippet}
 </CollectionManager>
 
@@ -129,7 +158,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				variant={isActive ? 'default' : 'ghost'}
 				size="sm"
 				onclick={() => (params.type = type)}
-				class={'justify-start '}
+				class="justify-start"
 			>
 				{#if typeData.display?.icon}
 					{@const IconComponent = typeData.display.icon}
@@ -143,4 +172,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Button>
 		{/each}
 	</div>
+{/snippet}
+
+{#snippet viewSwitcher()}
+	<div class="px-3 text-sm">
+		<span>
+			{m.View()}:
+		</span>
+		{@render viewSwitcherLink('table')}
+		<span>/</span>
+		{@render viewSwitcherLink('card')}
+	</div>
+{/snippet}
+
+{#snippet viewSwitcherLink(mode: 'table' | 'card')}
+	<a
+		href="/marketplace?mode={mode}"
+		class={[
+			'hover:underline',
+			{
+				'text-primary font-bold': params.mode === mode
+			}
+		]}
+	>
+		{#if mode === 'table'}
+			{m.Table()}
+		{:else}
+			{m.Cards()}
+		{/if}
+	</a>
 {/snippet}
