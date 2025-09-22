@@ -39,8 +39,8 @@ func MakeExistsFunc(app core.App, collectionName string, canonifiedField string,
 // RegisterCanonifyHooks registers hooks for canonifying names in specified collections.
 //
 // For each collection, it registers two hooks: one for after creating a record, and one for after updating a record.
-// Both hooks canonify the name of the record using the provided function, and save the updated record to persist the canonified field.
-//
+// Both hooks canonify the name of the record using the provided function,
+// and save the updated record to persist the canonified field.
 // The canonified field is named "canonified_name" or "canonified_title" depending on the source field name.
 // The existsFunc parameter is used to check if a canonized name already exists in the collection.
 // If the canonized name already exists, the function returns an error.
