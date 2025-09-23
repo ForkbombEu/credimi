@@ -19,6 +19,13 @@ import { schemaFieldToZodTypeMap } from './config';
 
 export type CollectionZodSchema<C extends CollectionName> = z.ZodObject<CollectionZodRawShapes[C]>;
 
+export interface SchemaContext {
+	/** For org-level entities: organization ID. For entity-level: parent entity ID */
+	parentId?: string;
+	/** ID of current record being edited (to exclude from uniqueness check) */
+	excludeId?: string;
+}
+
 export function getCollectionFields(collection: CollectionName) {
 	const { fields } = getCollectionModel(collection);
 	return (fields as AnyCollectionField[]).filter(
@@ -27,7 +34,8 @@ export function getCollectionFields(collection: CollectionName) {
 }
 
 export function createCollectionZodSchema<C extends CollectionName>(
-	collection: C
+	collection: C,
+	_context?: SchemaContext // eslint-disable-line @typescript-eslint/no-unused-vars
 ): CollectionZodSchema<C> {
 	const collectionFields = getCollectionFields(collection);
 
