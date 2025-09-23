@@ -55,7 +55,7 @@ type RuntimeConfig struct {
 }
 
 type ActivityOptionsConfig struct {
-	ScheduleToCloseTimeout string      `yaml:"schedule_to_close_timeout,omitempty" json:"schedule_to_close_timeout,omitempty"`
+	ScheduleToCloseTimeout string      `yaml:"schedule_to_close_timeout,omitempty" json:"schedule_to_close_timeout,omitempty"` //nolint
 	StartToCloseTimeout    string      `yaml:"start_to_close_timeout,omitempty"    json:"start_to_close_timeout,omitempty"`
 	RetryPolicy            RetryPolicy `yaml:"retry_policy,omitempty"              json:"retry_policy,omitempty"`
 }
