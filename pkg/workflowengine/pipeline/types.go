@@ -28,12 +28,11 @@ type WorkflowBlock struct {
 }
 
 type StepDefinition struct {
-	ID       string                 `yaml:"id"                 json:"id"`
-	Use      string                 `yaml:"use"                json:"use"`
-	With     StepInputs             `yaml:"with"               json:"with"`
-	Retry    map[string]any         `yaml:"retry,omitempty"    json:"retry,omitempty"`
-	Timeout  string                 `yaml:"timeout,omitempty"  json:"timeout,omitempty"`
-	Metadata map[string]interface{} `yaml:"metadata,omitempty" json:"metadata,omitempty"`
+	ID              string                 `yaml:"id"                 json:"id"`
+	Use             string                 `yaml:"use"                json:"use"`
+	With            StepInputs             `yaml:"with"               json:"with"`
+	ActivityOptions *ActivityOptionsConfig `yaml:"activity_options,omitempty" json:"activity_options,omitempty"`
+	Metadata        map[string]interface{} `yaml:"metadata,omitempty" json:"metadata,omitempty"`
 }
 
 type StepInputs struct {
@@ -48,18 +47,25 @@ type InputSource struct {
 
 type RuntimeConfig struct {
 	Temporal struct {
-		Namespace        string `yaml:"namespace,omitempty"         json:"namespace,omitempty"`
-		TaskQueue        string `yaml:"task_queue,omitempty"        json:"task_queue,omitempty"`
-		ExecutionTimeout string `yaml:"execution_timeout,omitempty" json:"execution_timeout,omitempty"`
-		RetryPolicy      struct {
-			MaximumAttempts    int32   `yaml:"maximum_attempts,omitempty"    json:"maximum_attempts,omitempty"`
-			InitialInterval    string  `yaml:"initial_interval,omitempty"    json:"initial_interval,omitempty"`
-			MaximumInterval    string  `yaml:"maximum_interval,omitempty"    json:"maximum_interval,omitempty"`
-			BackoffCoefficient float64 `yaml:"backoff_coefficient,omitempty" json:"backoff_coefficient,omitempty"`
-		} `yaml:"retry_policy" json:"retry_policy"`
+		Namespace        string                `yaml:"namespace,omitempty" json:"namespace,omitempty"`
+		TaskQueue        string                `yaml:"task_queue,omitempty" json:"task_queue,omitempty"`
+		ExecutionTimeout string                `yaml:"execution_timeout,omitempty" json:"execution_timeout,omitempty"`
+		ActivityOptions  ActivityOptionsConfig `yaml:"activity_options,omitempty" json:"activity_options,omitempty"`
 	} `yaml:"temporal" json:"temporal"`
 }
 
+type ActivityOptionsConfig struct {
+	ScheduleToCloseTimeout string      `yaml:"schedule_to_close_timeout,omitempty" json:"schedule_to_close_timeout,omitempty"`
+	StartToCloseTimeout    string      `yaml:"start_to_close_timeout,omitempty"    json:"start_to_close_timeout,omitempty"`
+	RetryPolicy            RetryPolicy `yaml:"retry_policy,omitempty"              json:"retry_policy,omitempty"`
+}
+
+type RetryPolicy struct {
+	MaximumAttempts    int32   `yaml:"maximum_attempts,omitempty"    json:"maximum_attempts,omitempty"`
+	InitialInterval    string  `yaml:"initial_interval,omitempty"    json:"initial_interval,omitempty"`
+	MaximumInterval    string  `yaml:"maximum_interval,omitempty"    json:"maximum_interval,omitempty"`
+	BackoffCoefficient float64 `yaml:"backoff_coefficient,omitempty" json:"backoff_coefficient,omitempty"`
+}
 type WorkflowOptions struct {
 	Namespace       string                      `json:"namespace,omitempty"`
 	Options         client.StartWorkflowOptions `json:"options"`

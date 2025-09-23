@@ -23,8 +23,9 @@ const (
 )
 
 // Convert runtime config to Temporal SDK types
+
 func PrepareWorkflowOptions(rc RuntimeConfig) WorkflowOptions {
-	// Parse timeouts
+	// Set defaults for task queue and namespace
 	taskQueue := PipelineTaskQueue
 	if rc.Temporal.TaskQueue != "" {
 		taskQueue = rc.Temporal.TaskQueue
@@ -34,67 +35,65 @@ func PrepareWorkflowOptions(rc RuntimeConfig) WorkflowOptions {
 		namespace = rc.Temporal.Namespace
 	}
 
-	rp := temporal.RetryPolicy{
-		MaximumAttempts: DefaultRetryMaxAttempts,
-		InitialInterval: parseDurationOrDefault(
-			rc.Temporal.RetryPolicy.InitialInterval,
-			DefaultRetryInitialInterval,
-		),
+	rp := &temporal.RetryPolicy{
+		MaximumAttempts:    DefaultRetryMaxAttempts,
+		InitialInterval:    parseDurationOrDefault(rc.Temporal.ActivityOptions.RetryPolicy.InitialInterval, DefaultRetryInitialInterval),
+		MaximumInterval:    parseDurationOrDefault(rc.Temporal.ActivityOptions.RetryPolicy.MaximumInterval, DefaultRetryMaxInterval),
 		BackoffCoefficient: DefaultRetryBackoff,
-		MaximumInterval: parseDurationOrDefault(
-			rc.Temporal.RetryPolicy.MaximumInterval,
-			DefaultRetryMaxInterval,
-		),
 	}
-	if rc.Temporal.RetryPolicy.MaximumAttempts > 0 {
-		rp.MaximumAttempts = rc.Temporal.RetryPolicy.MaximumAttempts
+
+	if rc.Temporal.ActivityOptions.RetryPolicy.MaximumAttempts > 0 {
+		rp.MaximumAttempts = rc.Temporal.ActivityOptions.RetryPolicy.MaximumAttempts
 	}
-	if rc.Temporal.RetryPolicy.BackoffCoefficient > 0 {
-		rp.BackoffCoefficient = rc.Temporal.RetryPolicy.BackoffCoefficient
+	if rc.Temporal.ActivityOptions.RetryPolicy.BackoffCoefficient > 0 {
+		rp.BackoffCoefficient = rc.Temporal.ActivityOptions.RetryPolicy.BackoffCoefficient
+	}
+
+	ao := workflow.ActivityOptions{
+		ScheduleToCloseTimeout: parseDurationOrDefault(rc.Temporal.ActivityOptions.ScheduleToCloseTimeout, DefaultActivityScheduleTimeout),
+		StartToCloseTimeout:    parseDurationOrDefault(rc.Temporal.ActivityOptions.StartToCloseTimeout, DefaultActivityStartTimeout),
+		RetryPolicy:            rp,
 	}
 
 	return WorkflowOptions{
 		Namespace: namespace,
 		Options: client.StartWorkflowOptions{
-
-			TaskQueue: taskQueue,
-			WorkflowExecutionTimeout: parseDurationOrDefault(
-				rc.Temporal.ExecutionTimeout,
-				DefaultExecutionTimeout,
-			),
+			TaskQueue:                taskQueue,
+			WorkflowExecutionTimeout: parseDurationOrDefault(rc.Temporal.ExecutionTimeout, DefaultExecutionTimeout),
 		},
-		ActivityOptions: workflow.ActivityOptions{
-			ScheduleToCloseTimeout: time.Minute * 10,
-			StartToCloseTimeout:    time.Minute * 5,
-			RetryPolicy:            &rp,
-		},
+		ActivityOptions: ao,
 	}
 }
 
-func PrepareActivityOptions(
-	rp *temporal.RetryPolicy,
-	retry map[string]any,
-	timeout string,
-) workflow.ActivityOptions {
-	initialInterval, ok := retry["initial_interval"].(string)
-	if ok {
-		rp.InitialInterval = parseDurationOrDefault(initialInterval, rp.InitialInterval.String())
+func PrepareActivityOptions(globalAO workflow.ActivityOptions, stepAO *ActivityOptionsConfig) workflow.ActivityOptions {
+	rp := globalAO.RetryPolicy
+	scheduleToClose := globalAO.ScheduleToCloseTimeout
+	startToClose := globalAO.StartToCloseTimeout
+
+	if stepAO != nil {
+		if stepAO.RetryPolicy.MaximumAttempts > 0 {
+			rp.MaximumAttempts = stepAO.RetryPolicy.MaximumAttempts
+		}
+		if stepAO.RetryPolicy.InitialInterval != "" {
+			rp.InitialInterval = parseDurationOrDefault(stepAO.RetryPolicy.InitialInterval, rp.InitialInterval.String())
+		}
+		if stepAO.RetryPolicy.MaximumInterval != "" {
+			rp.MaximumInterval = parseDurationOrDefault(stepAO.RetryPolicy.MaximumInterval, rp.MaximumInterval.String())
+		}
+		if stepAO.RetryPolicy.BackoffCoefficient > 0 {
+			rp.BackoffCoefficient = stepAO.RetryPolicy.BackoffCoefficient
+		}
+		if stepAO.ScheduleToCloseTimeout != "" {
+			scheduleToClose = parseDurationOrDefault(stepAO.ScheduleToCloseTimeout, scheduleToClose.String())
+		}
+		if stepAO.StartToCloseTimeout != "" {
+			startToClose = parseDurationOrDefault(stepAO.StartToCloseTimeout, startToClose.String())
+		}
 	}
 
-	maxInterval, ok := retry["maximum_interval"].(string)
-	if ok {
-		rp.MaximumInterval = parseDurationOrDefault(maxInterval, rp.MaximumInterval.String())
-	}
-
-	if retry["maximum_attempts"] != nil {
-		rp.MaximumAttempts = int32(retry["maximum_attempts"].(float64))
-	}
-	if retry["backoff_coefficient"] != nil {
-		rp.BackoffCoefficient = retry["backoff_coefficient"].(float64)
-	}
 	return workflow.ActivityOptions{
-		ScheduleToCloseTimeout: parseDurationOrDefault(timeout, DefaultActivityScheduleTimeout),
-		StartToCloseTimeout:    parseDurationOrDefault(timeout, DefaultActivityStartTimeout),
+		ScheduleToCloseTimeout: scheduleToClose,
+		StartToCloseTimeout:    startToClose,
 		RetryPolicy:            rp,
 	}
 }
