@@ -6,10 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { userOrganization } from '$lib/app-state';
-	import BackButton from '$lib/layout/back-button.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import { PencilIcon } from 'lucide-svelte';
+	import { ArrowLeft, PencilIcon } from 'lucide-svelte';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -55,9 +54,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/if}
 
 <PageTop hideTopBorder={isCurrentUserOwner} contentClass="!space-y-4">
-	<BackButton href="/marketplace">
-		{m.Back_to_marketplace()}
-	</BackButton>
+	<Button variant="link" class="gap-1 p-0" onclick={() => history.back()}>
+		<ArrowLeft />
+		{m.Back()}
+	</Button>
 
 	<div class="flex items-center gap-6">
 		{#if logo}
