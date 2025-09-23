@@ -116,6 +116,9 @@ func TestCanonifyAllCases(t *testing.T) {
 		})
 	}
 }
+
+// Test cases are derived from the "Big List of Naughty Strings" repository:
+// https://github.com/minimaxir/big-list-of-naughty-strings
 func TestCanonifyBLNS(t *testing.T) {
 	// Load BLNS corpus from testdata
 	data, err := os.ReadFile("testdata/blns.json")
