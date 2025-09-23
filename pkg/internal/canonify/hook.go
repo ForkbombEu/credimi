@@ -55,9 +55,8 @@ func RegisterCanonifyHooks(app *pocketbase.PocketBase) {
 			canonifiedField = "canonified_title"
 		}
 
-		app.OnRecordCreateRequest(col).BindFunc(func(e *core.RecordRequestEvent) error {
+		app.OnRecordCreate(col).BindFunc(func(e *core.RecordEvent) error {
 			name := e.Record.GetString(field)
-
 			existsFunc := MakeExistsFunc(e.App, col, canonifiedField, "")
 			canonName, err := Canonify(name, existsFunc)
 			if err != nil {
@@ -67,7 +66,7 @@ func RegisterCanonifyHooks(app *pocketbase.PocketBase) {
 			return e.Next()
 		})
 
-		app.OnRecordUpdateRequest(col).BindFunc(func(e *core.RecordRequestEvent) error {
+		app.OnRecordUpdate(col).BindFunc(func(e *core.RecordEvent) error {
 			name := e.Record.GetString(field)
 			if name == "" {
 				return nil
