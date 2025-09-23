@@ -24,7 +24,7 @@ type CanonifyOptions struct {
 var DefaultOptions = CanonifyOptions{
 	Separator:   '-',
 	MinLen:      1,
-	Fallback:    "item_name",
+	Fallback:    "item-name",
 	MaxAttempts: 1000000,
 }
 
