@@ -239,13 +239,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							>
 								<div class="min-w-0 flex-1 break-words">
 									{#if !credential.published || !record.published}
-										{credential.name || credential.key}
+										{credential.display_name || credential.name}
 									{:else}
 										<A
 											href="/marketplace/credentials/{credential.id}"
 											class="break-words font-medium underline underline-offset-2 hover:!no-underline"
 										>
-											{credential.name || credential.key}
+											{credential.display_name || credential.name}
 										</A>
 									{/if}
 								</div>

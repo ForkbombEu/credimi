@@ -157,7 +157,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <EditSheet>
 	{#snippet children({ closeSheet })}
-		<T tag="h2" class="mb-4">{m.Edit()} {credential.name}</T>
+		<T tag="h2" class="mb-4">{m.Edit()} {credential.display_name}</T>
 		<EditCredentialForm
 			{credential}
 			{credentialIssuer}
