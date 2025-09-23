@@ -20,7 +20,7 @@ type PipelineInput struct {
 
 var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/pipeline",
-	AuthenticationRequired: false, // TODO should be true
+	AuthenticationRequired: true,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
 		{Func: middlewares.ErrorHandlingMiddleware},
 	},
