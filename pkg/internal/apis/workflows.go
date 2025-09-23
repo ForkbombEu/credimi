@@ -131,9 +131,10 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		var issuerID string
+		var record *core.Record
+		var isNew bool
 		if len(existingRecords) > 0 {
-			issuerID = existingRecords[0].Id
+			record = existingRecords[0]
 		} else {
 			// Create a new record
 			parsedURL, err := url.Parse(req.URL)
@@ -145,12 +146,12 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 					err.Error(),
 				).JSON(e)
 			}
-			newRecord := core.NewRecord(collection)
-			newRecord.Set("url", req.URL)
-			newRecord.Set("owner", organization)
-			newRecord.Set("name", parsedURL.Hostname())
-			newRecord.Set("imported", true)
-			if err := e.App.Save(newRecord); err != nil {
+			record = core.NewRecord(collection)
+			record.Set("url", req.URL)
+			record.Set("owner", organization)
+			record.Set("name", parsedURL.Hostname())
+			record.Set("imported", true)
+			if err := e.App.Save(record); err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
 					fmt.Sprintf("credential_issuers_%s", req),
@@ -158,8 +159,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 					err.Error(),
 				).JSON(e)
 			}
-
-			issuerID = newRecord.Id
+			isNew = true
 		}
 		credIssuerSchemaStr, apiErr := readSchemaFile(
 			utils.GetEnvironmentVariable(
@@ -181,7 +181,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"namespace":     organization,
 			},
 			Payload: map[string]any{
-				"issuerID": issuerID,
+				"issuerID": record.Id,
 				"base_url": req.URL,
 			},
 			ActivityOptions: &opt,
@@ -190,6 +190,16 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 
 		result, err := w.Start(workflowInput)
 		if err != nil {
+			if isNew {
+				if err := e.App.Delete(record); err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"credential_issuers",
+						"failed to delete credential issuer",
+						err.Error(),
+					).JSON(e)
+				}
+			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
@@ -205,6 +215,16 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		)
 		c, err := temporalclient.GetTemporalClientWithNamespace(organization)
 		if err != nil {
+			if isNew {
+				if err := e.App.Delete(record); err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"credential_issuers",
+						"failed to delete credential issuer",
+						err.Error(),
+					).JSON(e)
+				}
+			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
@@ -214,20 +234,21 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		}
 		result, err = workflowengine.WaitForWorkflowResult(c, result.WorkflowID, result.WorkflowRunID)
 		if err != nil {
+			if isNew {
+				if err := e.App.Delete(record); err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"credential_issuers",
+						"failed to delete credential issuer",
+						err.Error(),
+					).JSON(e)
+				}
+			}
 			details := workflowengine.ParseWorkflowError(err.Error())
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
 				details.Summary,
-				err.Error(),
-			).JSON(e)
-		}
-		record, err := e.App.FindRecordById("credential_issuers", issuerID)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				fmt.Sprintf("credential_issuers_%s", req),
-				"failed to get credential issuer",
 				err.Error(),
 			).JSON(e)
 		}
