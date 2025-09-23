@@ -52,6 +52,7 @@ type WorkflowErrorDetails struct {
 	RunID      string `json:"runID,omitempty"`
 	Code       string `json:"code,omitempty"`
 	Retryable  bool   `json:"retryable,omitempty"`
+	Message    string `json:"message,omitempty"`
 	Summary    string `json:"summary,omitempty"`
 	Link       string `json:"link,omitempty"`
 }
@@ -380,18 +381,22 @@ func ParseWorkflowError(msg string) WorkflowErrorDetails {
 	}
 
 	if details.Code != "" {
-		// Split on "<code>:"
+		// Full message = everything after "<code>:"
 		parts := strings.SplitN(msg, details.Code+":", 2)
 		if len(parts) == 2 {
 			summaryPart := parts[1]
 
-			// Remove "Further information..." section if present
 			if idx := strings.Index(summaryPart, "(Further information"); idx != -1 {
 				summaryPart = summaryPart[:idx]
 			}
+			details.Message = strings.TrimSpace(summaryPart)
 
-			// Trim extra spaces and colons
-			details.Summary = strings.TrimSpace(summaryPart)
+			reCompact := regexp.MustCompile(`\]:\s*(.*)$`)
+			if matches := reCompact.FindStringSubmatch(details.Message); len(matches) == 2 {
+				details.Summary = strings.TrimSpace(matches[1])
+			} else {
+				details.Summary = details.Message
+			}
 		}
 	}
 
