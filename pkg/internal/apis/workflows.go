@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -36,15 +35,6 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
-
-type WorkflowErrorDetails struct {
-	WorkflowID string `json:"workflowID,omitempty"`
-	RunID      string `json:"runID,omitempty"`
-	Code       string `json:"code,omitempty"`
-	Retryable  bool   `json:"retryable,omitempty"`
-	Summary    string `json:"summary,omitempty"`
-	Link       string `json:"link,omitempty"`
-}
 
 // IssuerURL is a struct that represents the URL of a credential issuer.
 type IssuerURL struct {
@@ -182,6 +172,8 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 
 		appURL := e.App.Settings().Meta.AppURL
 		// Start the workflow
+		opt := workflows.DefaultActivityOptions
+		opt.RetryPolicy.MaximumAttempts = 1
 		workflowInput := workflowengine.WorkflowInput{
 			Config: map[string]any{
 				"app_url":       appURL,
@@ -192,6 +184,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"issuerID": issuerID,
 				"base_url": req.URL,
 			},
+			ActivityOptions: &opt,
 		}
 		w := workflows.CredentialsIssuersWorkflow{}
 
@@ -210,6 +203,25 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			result.WorkflowID,
 			result.WorkflowRunID,
 		)
+		c, err := temporalclient.GetTemporalClientWithNamespace(organization)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to create client",
+				err.Error(),
+			).JSON(e)
+		}
+		result, err = workflowengine.WaitForWorkflowResult(c, result.WorkflowID, result.WorkflowRunID)
+		if err != nil {
+			details := workflowengine.ParseWorkflowError(err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				details.Summary,
+				err.Error(),
+			).JSON(e)
+		}
 		record, err := e.App.FindRecordById("credential_issuers", issuerID)
 		if err != nil {
 			return apierror.New(
@@ -596,7 +608,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 		}
 		result, err := workflowengine.WaitForWorkflowResult(client, resStart.WorkflowID, resStart.WorkflowRunID)
 		if err != nil {
-			details := parseWorkflowError(err.Error())
+			details := workflowengine.ParseWorkflowError(err.Error())
 			return e.JSON(http.StatusInternalServerError, map[string]any{
 				"status":  http.StatusInternalServerError,
 				"error":   "workflow",
@@ -1046,41 +1058,4 @@ func getStringFromMap(m map[string]any, key string) string {
 		}
 	}
 	return ""
-}
-
-func parseWorkflowError(msg string) WorkflowErrorDetails {
-	details := WorkflowErrorDetails{}
-
-	reIDs := regexp.MustCompile(`workflowID: ([^,]+), runID: ([^)]+)`)
-	if matches := reIDs.FindStringSubmatch(msg); len(matches) == 3 {
-		details.WorkflowID = matches[1]
-		details.RunID = matches[2]
-	}
-	reCode := regexp.MustCompile(`\(type: ([^,]+), retryable: (true|false)\)`)
-	if matches := reCode.FindStringSubmatch(msg); len(matches) == 3 {
-		details.Code = matches[1]
-		details.Retryable = matches[2] == "true"
-	}
-	reLink := regexp.MustCompile(`Further information at: (http[^\)]+)`)
-	if matches := reLink.FindStringSubmatch(msg); len(matches) == 2 {
-		details.Link = matches[1]
-	}
-
-	if details.Code != "" {
-		// Split on "<code>:"
-		parts := strings.SplitN(msg, details.Code+":", 2)
-		if len(parts) == 2 {
-			summaryPart := parts[1]
-
-			// Remove "Further information..." section if present
-			if idx := strings.Index(summaryPart, "(Further information"); idx != -1 {
-				summaryPart = summaryPart[:idx]
-			}
-
-			// Trim extra spaces and colons
-			details.Summary = strings.TrimSpace(summaryPart)
-		}
-	}
-
-	return details
 }
