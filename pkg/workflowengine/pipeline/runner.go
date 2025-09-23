@@ -19,7 +19,6 @@ func (s *StepDefinition) Execute(
 	dataCtx *map[string]any,
 	ao workflow.ActivityOptions,
 ) (any, error) {
-
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
 
 	payload, cfg, err := ResolveInputs(*s, globalCfg, *dataCtx)
@@ -121,9 +120,7 @@ func (s *StepDefinition) Execute(
 			"outputs": result.Output,
 		}
 		return result, nil
-
 	}
 
 	return nil, nil
-
 }

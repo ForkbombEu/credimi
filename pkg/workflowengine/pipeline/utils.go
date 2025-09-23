@@ -36,9 +36,15 @@ func PrepareWorkflowOptions(rc RuntimeConfig) WorkflowOptions {
 	}
 
 	rp := &temporal.RetryPolicy{
-		MaximumAttempts:    DefaultRetryMaxAttempts,
-		InitialInterval:    parseDurationOrDefault(rc.Temporal.ActivityOptions.RetryPolicy.InitialInterval, DefaultRetryInitialInterval),
-		MaximumInterval:    parseDurationOrDefault(rc.Temporal.ActivityOptions.RetryPolicy.MaximumInterval, DefaultRetryMaxInterval),
+		MaximumAttempts: DefaultRetryMaxAttempts,
+		InitialInterval: parseDurationOrDefault(
+			rc.Temporal.ActivityOptions.RetryPolicy.InitialInterval,
+			DefaultRetryInitialInterval,
+		),
+		MaximumInterval: parseDurationOrDefault(
+			rc.Temporal.ActivityOptions.RetryPolicy.MaximumInterval,
+			DefaultRetryMaxInterval,
+		),
 		BackoffCoefficient: DefaultRetryBackoff,
 	}
 
@@ -50,22 +56,34 @@ func PrepareWorkflowOptions(rc RuntimeConfig) WorkflowOptions {
 	}
 
 	ao := workflow.ActivityOptions{
-		ScheduleToCloseTimeout: parseDurationOrDefault(rc.Temporal.ActivityOptions.ScheduleToCloseTimeout, DefaultActivityScheduleTimeout),
-		StartToCloseTimeout:    parseDurationOrDefault(rc.Temporal.ActivityOptions.StartToCloseTimeout, DefaultActivityStartTimeout),
-		RetryPolicy:            rp,
+		ScheduleToCloseTimeout: parseDurationOrDefault(
+			rc.Temporal.ActivityOptions.ScheduleToCloseTimeout,
+			DefaultActivityScheduleTimeout,
+		),
+		StartToCloseTimeout: parseDurationOrDefault(
+			rc.Temporal.ActivityOptions.StartToCloseTimeout,
+			DefaultActivityStartTimeout,
+		),
+		RetryPolicy: rp,
 	}
 
 	return WorkflowOptions{
 		Namespace: namespace,
 		Options: client.StartWorkflowOptions{
-			TaskQueue:                taskQueue,
-			WorkflowExecutionTimeout: parseDurationOrDefault(rc.Temporal.ExecutionTimeout, DefaultExecutionTimeout),
+			TaskQueue: taskQueue,
+			WorkflowExecutionTimeout: parseDurationOrDefault(
+				rc.Temporal.ExecutionTimeout,
+				DefaultExecutionTimeout,
+			),
 		},
 		ActivityOptions: ao,
 	}
 }
 
-func PrepareActivityOptions(globalAO workflow.ActivityOptions, stepAO *ActivityOptionsConfig) workflow.ActivityOptions {
+func PrepareActivityOptions(
+	globalAO workflow.ActivityOptions,
+	stepAO *ActivityOptionsConfig,
+) workflow.ActivityOptions {
 	rp := globalAO.RetryPolicy
 	scheduleToClose := globalAO.ScheduleToCloseTimeout
 	startToClose := globalAO.StartToCloseTimeout
@@ -75,16 +93,25 @@ func PrepareActivityOptions(globalAO workflow.ActivityOptions, stepAO *ActivityO
 			rp.MaximumAttempts = stepAO.RetryPolicy.MaximumAttempts
 		}
 		if stepAO.RetryPolicy.InitialInterval != "" {
-			rp.InitialInterval = parseDurationOrDefault(stepAO.RetryPolicy.InitialInterval, rp.InitialInterval.String())
+			rp.InitialInterval = parseDurationOrDefault(
+				stepAO.RetryPolicy.InitialInterval,
+				rp.InitialInterval.String(),
+			)
 		}
 		if stepAO.RetryPolicy.MaximumInterval != "" {
-			rp.MaximumInterval = parseDurationOrDefault(stepAO.RetryPolicy.MaximumInterval, rp.MaximumInterval.String())
+			rp.MaximumInterval = parseDurationOrDefault(
+				stepAO.RetryPolicy.MaximumInterval,
+				rp.MaximumInterval.String(),
+			)
 		}
 		if stepAO.RetryPolicy.BackoffCoefficient > 0 {
 			rp.BackoffCoefficient = stepAO.RetryPolicy.BackoffCoefficient
 		}
 		if stepAO.ScheduleToCloseTimeout != "" {
-			scheduleToClose = parseDurationOrDefault(stepAO.ScheduleToCloseTimeout, scheduleToClose.String())
+			scheduleToClose = parseDurationOrDefault(
+				stepAO.ScheduleToCloseTimeout,
+				scheduleToClose.String(),
+			)
 		}
 		if stepAO.StartToCloseTimeout != "" {
 			startToClose = parseDurationOrDefault(stepAO.StartToCloseTimeout, startToClose.String())

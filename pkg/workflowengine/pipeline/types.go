@@ -28,11 +28,11 @@ type WorkflowBlock struct {
 }
 
 type StepDefinition struct {
-	ID              string                 `yaml:"id"                 json:"id"`
-	Use             string                 `yaml:"use"                json:"use"`
-	With            StepInputs             `yaml:"with"               json:"with"`
+	ID              string                 `yaml:"id"                         json:"id"`
+	Use             string                 `yaml:"use"                        json:"use"`
+	With            StepInputs             `yaml:"with"                       json:"with"`
 	ActivityOptions *ActivityOptionsConfig `yaml:"activity_options,omitempty" json:"activity_options,omitempty"`
-	Metadata        map[string]interface{} `yaml:"metadata,omitempty" json:"metadata,omitempty"`
+	Metadata        map[string]interface{} `yaml:"metadata,omitempty"         json:"metadata,omitempty"`
 }
 
 type StepInputs struct {
