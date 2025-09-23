@@ -8,13 +8,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
-	"github.com/joho/godotenv"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
@@ -45,6 +45,16 @@ type WorkflowErrorMetadata struct {
 	WorkflowID   string `json:"workflowId,omitempty"`
 	Namespace    string `json:"namespace,omitempty"`
 	TemporalUI   string `json:"temporalUI,omitempty"`
+}
+
+type WorkflowErrorDetails struct {
+	WorkflowID string `json:"workflowID,omitempty"`
+	RunID      string `json:"runID,omitempty"`
+	Code       string `json:"code,omitempty"`
+	Retryable  bool   `json:"retryable,omitempty"`
+	Message    string `json:"message,omitempty"`
+	Summary    string `json:"summary,omitempty"`
+	Link       string `json:"link,omitempty"`
 }
 
 type WorkflowRunInfo struct {
@@ -125,10 +135,7 @@ func StartWorkflowWithOptions(
 	input WorkflowInput,
 ) (result WorkflowResult, err error) {
 	// Load environment variables.
-	err = godotenv.Load()
-	if err != nil {
-		return WorkflowResult{}, fmt.Errorf("failed to load .env file: %w", err)
-	}
+
 	namespace := "default"
 	if input.Config["namespace"] != nil {
 		namespace = input.Config["namespace"].(string)
@@ -353,4 +360,45 @@ func WaitForPartialResult[T any](
 			return result, nil
 		}
 	}
+}
+
+func ParseWorkflowError(msg string) WorkflowErrorDetails {
+	details := WorkflowErrorDetails{}
+
+	reIDs := regexp.MustCompile(`workflowID: ([^,]+), runID: ([^)]+)`)
+	if matches := reIDs.FindStringSubmatch(msg); len(matches) == 3 {
+		details.WorkflowID = matches[1]
+		details.RunID = matches[2]
+	}
+	reCode := regexp.MustCompile(`\(type: ([^,]+), retryable: (true|false)\)`)
+	if matches := reCode.FindStringSubmatch(msg); len(matches) == 3 {
+		details.Code = matches[1]
+		details.Retryable = matches[2] == "true"
+	}
+	reLink := regexp.MustCompile(`Further information at: (http[^\)]+)`)
+	if matches := reLink.FindStringSubmatch(msg); len(matches) == 2 {
+		details.Link = matches[1]
+	}
+
+	if details.Code != "" {
+		// Full message = everything after "<code>:"
+		parts := strings.SplitN(msg, details.Code+":", 2)
+		if len(parts) == 2 {
+			summaryPart := parts[1]
+
+			if idx := strings.Index(summaryPart, "(Further information"); idx != -1 {
+				summaryPart = summaryPart[:idx]
+			}
+			details.Message = strings.TrimSpace(summaryPart)
+
+			reCompact := regexp.MustCompile(`\]:\s*(.*)$`)
+			if matches := reCompact.FindStringSubmatch(details.Message); len(matches) == 2 {
+				details.Summary = strings.TrimSpace(matches[1])
+			} else {
+				details.Summary = details.Message
+			}
+		}
+	}
+
+	return details
 }

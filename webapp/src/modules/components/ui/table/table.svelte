@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}: WithElementRef<HTMLTableAttributes> = $props();
 </script>
 
-<div class="relative w-full overflow-auto">
+<div class="relative w-full">
 	<table bind:this={ref} class={cn('w-full caption-bottom text-sm', className)} {...restProps}>
 		{@render children?.()}
 	</table>

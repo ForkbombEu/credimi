@@ -34,28 +34,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
 
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-			<InfoBox label="URL">
-				<a href={verifier.url} class="hover:underline" target="_blank">
-					{verifier.url}
-				</a>
-			</InfoBox>
+			<InfoBox label="URL" url={verifier.url} copyable={true} />
 
 			{#if String.isNonEmpty(verifier.repository_url)}
-				<InfoBox label="Homepage">
-					<a href={verifier.repository_url} class="hover:underline" target="_blank">
-						{verifier.repository_url}
-					</a>
-				</InfoBox>
+				<InfoBox label="Homepage" url={verifier.repository_url} copyable={true} />
 			{:else}
 				<div></div>
 			{/if}
 
 			<InfoBox label={m.Standard_and_version()}>
-				<ul class="">
-					{#each standardAndVersion as standard}
-						<li>{standard}</li>
-					{/each}
-				</ul>
+				<T>{standardAndVersion.join(', ')}</T>
 			</InfoBox>
 
 			<InfoBox label={m.Signing_algorithms_supported()}>

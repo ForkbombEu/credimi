@@ -4,7 +4,7 @@
 
 import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 
-import { Building2, Layers, Layers3, FolderCheck, Key, ScanEye } from 'lucide-svelte';
+import { Building2, Code, FolderCheck, Key, Layers, Layers3, ScanEye } from 'lucide-svelte';
 
 import type { IconComponent } from '@/components/types';
 
@@ -22,6 +22,7 @@ export interface SectionOptions {
 	hasRelatedCredentials?: boolean;
 	hasCompatibleIssuer?: boolean;
 	hasConformanceChecks?: boolean;
+	hasActions?: boolean;
 }
 
 type SectionDefinition = {
@@ -95,6 +96,12 @@ const SECTION_DEFINITIONS: Record<string, SectionDefinition> = {
 		anchor: 'conformance_checks',
 		label: () => m.Conformance_Checks(),
 		condition: 'hasConformanceChecks'
+	},
+	actions: {
+		icon: Code,
+		anchor: 'actions',
+		label: () => m.Actions(),
+		condition: 'hasActions'
 	}
 };
 
@@ -133,7 +140,8 @@ const PAGE_CONFIGURATIONS: Record<MarketplacePageType, PageSectionConfig> = {
 		sections: [
 			SECTION_DEFINITIONS.general_info,
 			SECTION_DEFINITIONS.description,
-			SECTION_DEFINITIONS.conformance_checks
+			SECTION_DEFINITIONS.conformance_checks,
+			SECTION_DEFINITIONS.actions
 		]
 	}
 };

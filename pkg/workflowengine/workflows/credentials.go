@@ -117,7 +117,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	}).Get(ctx, &issuerResult)
 	if err != nil {
 		logger.Error("CheckCredentialIssuer failed", "error", err)
-		return workflowengine.WorkflowResult{}, err
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 	source, ok := issuerResult.Output.(map[string]any)["source"].(string)
 	if !ok {

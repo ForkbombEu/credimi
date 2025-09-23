@@ -140,7 +140,7 @@ export class CredimiClientError extends Error {
     public readonly data: APIError;
 
     constructor(errorData: APIError) {
-        super(errorData.Message || 'An API error occurred');
+        super(errorData.message || 'An API error occurred');
         this.name = 'CredimiClientError';
         this.data = errorData;
     }
