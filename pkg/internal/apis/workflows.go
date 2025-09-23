@@ -232,7 +232,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		result, err = workflowengine.WaitForWorkflowResult(c, result.WorkflowID, result.WorkflowRunID)
+		_, err = workflowengine.WaitForWorkflowResult(c, result.WorkflowID, result.WorkflowRunID)
 		if err != nil {
 			if isNew {
 				if err := e.App.Delete(record); err != nil {
