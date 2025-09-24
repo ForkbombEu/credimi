@@ -15,6 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import {
 		CollectionManager,
+		RecordClone,
 		RecordCreate,
 		RecordDelete,
 		RecordEdit
@@ -158,6 +159,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										!useCaseVerification.published,
 										reloadRecords
 									)}
+							/>
+							<RecordClone
+								collectionName="use_cases_verifications"
+								record={useCaseVerification}
+								onSuccess={reloadRecords}
 							/>
 							<RecordEdit record={useCaseVerification}>
 								{#snippet button({ triggerAttributes, icon })}

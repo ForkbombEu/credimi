@@ -15,7 +15,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WalletsResponse } from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
-	import { RecordCreate, RecordDelete, RecordEdit } from '@/collections-components/manager';
+	import {
+		RecordClone,
+		RecordCreate,
+		RecordDelete,
+		RecordEdit
+	} from '@/collections-components/manager';
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -338,7 +343,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 		}}
 	>
-		{#snippet records({ records })}
+		{#snippet records({ records, reloadRecords })}
 			<div>
 				<div class="mb-2 flex items-center justify-between">
 					<T class="text-sm font-semibold">{m.Wallet_actions()}</T>
@@ -370,6 +375,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										<p>{m.Copy_UID_and_apps_IDs()}</p>
 									{/snippet}
 								</Tooltip>
+								<RecordClone
+									collectionName="wallet_actions"
+									{record}
+									onSuccess={reloadRecords}
+								/>
 								<RecordEdit
 									{record}
 									formTitle={`${m.Wallet()}: ${props.wallet.name} — ${m.Edit_action()}: ${record.name}`}
