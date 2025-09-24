@@ -13,7 +13,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"regexp"
 	"strings"
 	"time"
 
@@ -36,15 +35,6 @@ import (
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
-
-type WorkflowErrorDetails struct {
-	WorkflowID string `json:"workflowID,omitempty"`
-	RunID      string `json:"runID,omitempty"`
-	Code       string `json:"code,omitempty"`
-	Retryable  bool   `json:"retryable,omitempty"`
-	Summary    string `json:"summary,omitempty"`
-	Link       string `json:"link,omitempty"`
-}
 
 // IssuerURL is a struct that represents the URL of a credential issuer.
 type IssuerURL struct {
@@ -141,9 +131,10 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		var issuerID string
+		var record *core.Record
+		var isNew bool
 		if len(existingRecords) > 0 {
-			issuerID = existingRecords[0].Id
+			record = existingRecords[0]
 		} else {
 			// Create a new record
 			parsedURL, err := url.Parse(req.URL)
@@ -155,12 +146,12 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 					err.Error(),
 				).JSON(e)
 			}
-			newRecord := core.NewRecord(collection)
-			newRecord.Set("url", req.URL)
-			newRecord.Set("owner", organization)
-			newRecord.Set("name", parsedURL.Hostname())
-			newRecord.Set("imported", true)
-			if err := e.App.Save(newRecord); err != nil {
+			record = core.NewRecord(collection)
+			record.Set("url", req.URL)
+			record.Set("owner", organization)
+			record.Set("name", parsedURL.Hostname())
+			record.Set("imported", true)
+			if err := e.App.Save(record); err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
 					fmt.Sprintf("credential_issuers_%s", req),
@@ -168,8 +159,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 					err.Error(),
 				).JSON(e)
 			}
-
-			issuerID = newRecord.Id
+			isNew = true
 		}
 		credIssuerSchemaStr, apiErr := readSchemaFile(
 			utils.GetEnvironmentVariable(
@@ -182,6 +172,8 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 
 		appURL := e.App.Settings().Meta.AppURL
 		// Start the workflow
+		opt := workflows.DefaultActivityOptions
+		opt.RetryPolicy.MaximumAttempts = 1
 		workflowInput := workflowengine.WorkflowInput{
 			Config: map[string]any{
 				"app_url":       appURL,
@@ -189,14 +181,25 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"namespace":     organization,
 			},
 			Payload: map[string]any{
-				"issuerID": issuerID,
+				"issuerID": record.Id,
 				"base_url": req.URL,
 			},
+			ActivityOptions: &opt,
 		}
 		w := workflows.CredentialsIssuersWorkflow{}
 
 		result, err := w.Start(workflowInput)
 		if err != nil {
+			if isNew {
+				if err := e.App.Delete(record); err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"credential_issuers",
+						"failed to delete credential issuer",
+						err.Error(),
+					).JSON(e)
+				}
+			}
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
@@ -210,12 +213,42 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			result.WorkflowID,
 			result.WorkflowRunID,
 		)
-		record, err := e.App.FindRecordById("credential_issuers", issuerID)
+		c, err := temporalclient.GetTemporalClientWithNamespace(organization)
 		if err != nil {
+			if isNew {
+				if err := e.App.Delete(record); err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"credential_issuers",
+						"failed to delete credential issuer",
+						err.Error(),
+					).JSON(e)
+				}
+			}
 			return apierror.New(
 				http.StatusInternalServerError,
-				fmt.Sprintf("credential_issuers_%s", req),
-				"failed to get credential issuer",
+				"workflow",
+				"failed to create client",
+				err.Error(),
+			).JSON(e)
+		}
+		_, err = workflowengine.WaitForWorkflowResult(c, result.WorkflowID, result.WorkflowRunID)
+		if err != nil {
+			if isNew {
+				if err := e.App.Delete(record); err != nil {
+					return apierror.New(
+						http.StatusInternalServerError,
+						"credential_issuers",
+						"failed to delete credential issuer",
+						err.Error(),
+					).JSON(e)
+				}
+			}
+			details := workflowengine.ParseWorkflowError(err.Error())
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				details.Summary,
 				err.Error(),
 			).JSON(e)
 		}
@@ -596,7 +629,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 		}
 		result, err := workflowengine.WaitForWorkflowResult(client, resStart.WorkflowID, resStart.WorkflowRunID)
 		if err != nil {
-			details := parseWorkflowError(err.Error())
+			details := workflowengine.ParseWorkflowError(err.Error())
 			return e.JSON(http.StatusInternalServerError, map[string]any{
 				"status":  http.StatusInternalServerError,
 				"error":   "workflow",
@@ -1046,41 +1079,4 @@ func getStringFromMap(m map[string]any, key string) string {
 		}
 	}
 	return ""
-}
-
-func parseWorkflowError(msg string) WorkflowErrorDetails {
-	details := WorkflowErrorDetails{}
-
-	reIDs := regexp.MustCompile(`workflowID: ([^,]+), runID: ([^)]+)`)
-	if matches := reIDs.FindStringSubmatch(msg); len(matches) == 3 {
-		details.WorkflowID = matches[1]
-		details.RunID = matches[2]
-	}
-	reCode := regexp.MustCompile(`\(type: ([^,]+), retryable: (true|false)\)`)
-	if matches := reCode.FindStringSubmatch(msg); len(matches) == 3 {
-		details.Code = matches[1]
-		details.Retryable = matches[2] == "true"
-	}
-	reLink := regexp.MustCompile(`Further information at: (http[^\)]+)`)
-	if matches := reLink.FindStringSubmatch(msg); len(matches) == 2 {
-		details.Link = matches[1]
-	}
-
-	if details.Code != "" {
-		// Split on "<code>:"
-		parts := strings.SplitN(msg, details.Code+":", 2)
-		if len(parts) == 2 {
-			summaryPart := parts[1]
-
-			// Remove "Further information..." section if present
-			if idx := strings.Index(summaryPart, "(Further information"); idx != -1 {
-				summaryPart = summaryPart[:idx]
-			}
-
-			// Trim extra spaces and colons
-			details.Summary = strings.TrimSpace(summaryPart)
-		}
-	}
-
-	return details
 }

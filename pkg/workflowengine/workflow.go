@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -44,6 +45,16 @@ type WorkflowErrorMetadata struct {
 	WorkflowID   string `json:"workflowId,omitempty"`
 	Namespace    string `json:"namespace,omitempty"`
 	TemporalUI   string `json:"temporalUI,omitempty"`
+}
+
+type WorkflowErrorDetails struct {
+	WorkflowID string `json:"workflowID,omitempty"`
+	RunID      string `json:"runID,omitempty"`
+	Code       string `json:"code,omitempty"`
+	Retryable  bool   `json:"retryable,omitempty"`
+	Message    string `json:"message,omitempty"`
+	Summary    string `json:"summary,omitempty"`
+	Link       string `json:"link,omitempty"`
 }
 
 type WorkflowRunInfo struct {
@@ -349,4 +360,45 @@ func WaitForPartialResult[T any](
 			return result, nil
 		}
 	}
+}
+
+func ParseWorkflowError(msg string) WorkflowErrorDetails {
+	details := WorkflowErrorDetails{}
+
+	reIDs := regexp.MustCompile(`workflowID: ([^,]+), runID: ([^)]+)`)
+	if matches := reIDs.FindStringSubmatch(msg); len(matches) == 3 {
+		details.WorkflowID = matches[1]
+		details.RunID = matches[2]
+	}
+	reCode := regexp.MustCompile(`\(type: ([^,]+), retryable: (true|false)\)`)
+	if matches := reCode.FindStringSubmatch(msg); len(matches) == 3 {
+		details.Code = matches[1]
+		details.Retryable = matches[2] == "true"
+	}
+	reLink := regexp.MustCompile(`Further information at: (http[^\)]+)`)
+	if matches := reLink.FindStringSubmatch(msg); len(matches) == 2 {
+		details.Link = matches[1]
+	}
+
+	if details.Code != "" {
+		// Full message = everything after "<code>:"
+		parts := strings.SplitN(msg, details.Code+":", 2)
+		if len(parts) == 2 {
+			summaryPart := parts[1]
+
+			if idx := strings.Index(summaryPart, "(Further information"); idx != -1 {
+				summaryPart = summaryPart[:idx]
+			}
+			details.Message = strings.TrimSpace(summaryPart)
+
+			reCompact := regexp.MustCompile(`\]:\s*(.*)$`)
+			if matches := reCompact.FindStringSubmatch(details.Message); len(matches) == 2 {
+				details.Summary = strings.TrimSpace(matches[1])
+			} else {
+				details.Summary = details.Message
+			}
+		}
+	}
+
+	return details
 }

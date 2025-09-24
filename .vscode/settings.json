@@ -3,7 +3,10 @@
         "class",
         "className",
         "contentClass",
-        "containerClass"
+        "containerClass",
+        "rowCellClass",
+        "rowClass",
+        "headerClass"
     ],
     "editor.quickSuggestions": {
         "strings": "on"
