@@ -328,7 +328,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			filter: `wallet.id = '${props.wallet.id}'`
 		}}
 		formFieldsOptions={{
-			exclude: ['owner'],
+			exclude: ['owner', 'canonified_name'],
 			hide: { wallet: props.wallet.id, owner: props.ownerId },
 			snippets: { code: codeField },
 			labels: {
