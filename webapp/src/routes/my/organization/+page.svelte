@@ -69,6 +69,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}}
 			initialData={organization}
 			recordId={organization?.id}
+			fieldsOptions={{
+				exclude: ['canonified_name']
+			}}
 		>
 			{#snippet submitButtonContent()}
 				{m.Update_organization_page()}

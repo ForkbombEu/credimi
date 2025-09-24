@@ -37,7 +37,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Field = keyof CredentialsFormData;
 	const exclude: Field[] = $derived.by(() => {
-		const commonFields: Field[] = ['json', 'owner', 'conformant', 'imported', 'published'];
+		const commonFields: Field[] = [
+			'json',
+			'owner',
+			'conformant',
+			'imported',
+			'published',
+			'canonified_name'
+		];
 		const editFields: Field[] = [
 			'format',
 			'issuer_name',
