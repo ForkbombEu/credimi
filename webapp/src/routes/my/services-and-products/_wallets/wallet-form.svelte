@@ -26,8 +26,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		onSuccess?: () => void;
-		initialData?: WalletsResponse;
 		walletId?: string;
+		initialData?: WalletsResponse;
 	};
 
 	let { onSuccess, initialData, walletId }: Props = $props();
