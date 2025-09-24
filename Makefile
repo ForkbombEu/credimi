@@ -191,4 +191,7 @@ kill-pocketbase: ## 🔪 Kill any running PocketBase instance
 	@echo "Killing any existing PocketBase instance..."
 	@-lsof -ti:8090 -sTCP:LISTEN | xargs kill -9 2>/dev/null || true
 
+seed: ## 🌱 Seed the database
+	@$(GOCMD) run main.go migrate up && $(GOCMD) run cmd/seeds/seed.go 
+
 

@@ -37,15 +37,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Field = keyof CredentialsFormData;
 	const exclude: Field[] = $derived.by(() => {
-		const commonFields: Field[] = ['json', 'owner', 'conformant', 'imported', 'published'];
+		const commonFields: Field[] = [
+			'json',
+			'owner',
+			'conformant',
+			'imported',
+			'published',
+			'canonified_name'
+		];
 		const editFields: Field[] = [
 			'format',
 			'issuer_name',
 			'type',
-			'name',
+			'display_name',
 			'locale',
 			'logo',
-			'key'
+			'name'
 		];
 		if (mode === 'edit' && credential?.imported) {
 			commonFields.push(...editFields);
@@ -67,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 	fieldsOptions={{
 		exclude,
-		order: ['deeplink', 'name', 'description'],
+		order: ['deeplink', 'display_name', 'description'],
 		labels: {
 			published: m.Publish_to_marketplace(),
 			deeplink: 'QR Code Generation'

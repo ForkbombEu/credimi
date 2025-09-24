@@ -46,3 +46,9 @@ path = ["deployment/grafana/**/*", "deployment/thirdparty-simulator/**/*"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "temporal.io"
 SPDX-License-Identifier = "MIT"
+
+[[annotations]]
+path = ["pkg/internal/canonify/testdata/*"]
+precedence = "aggregate"
+SPDX-FileCopyrightText = "2015-2020 Max Woolf"
+SPDX-License-Identifier = "MIT"

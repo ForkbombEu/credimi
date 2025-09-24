@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if credential.logo}
 			<Avatar src={credential.logo} class="!rounded-sm" hideIfLoadingError />
 		{/if}
-		<T class="font-semibold">{credential.name}</T>
+		<T class="font-semibold">{credential.display_name}</T>
 	</div>
 
 	<div class="space-y-1">

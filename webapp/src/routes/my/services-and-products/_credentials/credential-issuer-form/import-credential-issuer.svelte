@@ -86,8 +86,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function getCredentialName(credential: unknown): string {
 		if (credential && typeof credential === 'object' && credential !== null) {
-			const cred = credential as { name?: string; key?: string };
-			return cred.name || cred.key || 'Unknown credential';
+			const cred = credential as { display_name?: string; name?: string };
+			return cred.display_name || cred.name || 'Unknown credential';
 		}
 		return 'Unknown credential';
 	}
