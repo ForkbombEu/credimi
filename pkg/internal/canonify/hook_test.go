@@ -67,7 +67,6 @@ func jsonBody(data map[string]any) *bytes.Reader {
 }
 
 func TestCanonifyAPI(t *testing.T) {
-
 	setupTestApp := func(t testing.TB) *tests.TestApp {
 		testApp, err := tests.NewTestApp(testDataDir)
 		require.NoError(t, err)
@@ -81,10 +80,16 @@ func TestCanonifyAPI(t *testing.T) {
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:           "create user with auto canonify",
-			Method:         http.MethodPost,
-			URL:            "/api/collections/users/records",
-			Body:           jsonBody(map[string]any{"name": "Alice Test", "password": "12345678", "passwordConfirm": "12345678"}),
+			Name:   "create user with auto canonify",
+			Method: http.MethodPost,
+			URL:    "/api/collections/users/records",
+			Body: jsonBody(
+				map[string]any{
+					"name":            "Alice Test",
+					"password":        "12345678",
+					"passwordConfirm": "12345678",
+				},
+			),
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				`"canonified_name":"alice-test"`,
@@ -92,10 +97,17 @@ func TestCanonifyAPI(t *testing.T) {
 			TestAppFactory: setupTestApp,
 		},
 		{
-			Name:           "create user cannot override canonified_name",
-			Method:         http.MethodPost,
-			URL:            "/api/collections/users/records",
-			Body:           jsonBody(map[string]any{"name": "Bob", "password": "12345678", "passwordConfirm": "12345678", "canonified_name": "override"}),
+			Name:   "create user cannot override canonified_name",
+			Method: http.MethodPost,
+			URL:    "/api/collections/users/records",
+			Body: jsonBody(
+				map[string]any{
+					"name":            "Bob",
+					"password":        "12345678",
+					"passwordConfirm": "12345678",
+					"canonified_name": "override",
+				},
+			),
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				`"canonified_name":"bob"`,

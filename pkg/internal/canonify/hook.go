@@ -22,7 +22,12 @@ var canonifyCollections = map[string]string{
 	"news":                    "title",
 }
 
-func MakeExistsFunc(app core.App, collectionName string, canonifiedField string, excludeID string) ExistsFunc {
+func MakeExistsFunc(
+	app core.App,
+	collectionName string,
+	canonifiedField string,
+	excludeID string,
+) ExistsFunc {
 	return func(value string) bool {
 		exp := dbx.HashExp{canonifiedField: value}
 
@@ -48,9 +53,7 @@ func MakeExistsFunc(app core.App, collectionName string, canonifiedField string,
 //
 // The function takes a PocketBase application as a parameter, and registers the hooks for the specified collections.
 func RegisterCanonifyHooks(app core.App) {
-
 	for col, field := range canonifyCollections {
-
 		canonifiedField := "canonified_name"
 		if field == "title" {
 			canonifiedField = "canonified_title"

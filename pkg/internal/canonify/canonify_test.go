@@ -45,7 +45,11 @@ func TestCanonifyAllCases(t *testing.T) {
 	}{
 		// === Basic ASCII ===
 		{name: "basic ascii", input: "Hello World!", want: "hello_world"},
-		{name: "multiple spaces", input: "   Multiple   Spaces\tand\nTabs  ", want: "multiple_spaces_and_tabs"},
+		{
+			name:  "multiple spaces",
+			input: "   Multiple   Spaces\tand\nTabs  ",
+			want:  "multiple_spaces_and_tabs",
+		},
 		{name: "punctuation removed", input: "100% fun!", want: "100_fun"},
 		{name: "email-like input", input: "user@domain.com", want: "user_domain_com"},
 		{name: "weird symbols", input: "--weird__chars++", want: "weird_chars"},
@@ -56,24 +60,49 @@ func TestCanonifyAllCases(t *testing.T) {
 		// === Invisible / zero-width characters ===
 		{name: "zero width chars", input: "A\u200B\u200D\uFEFF\u200C\u2060B", want: "ab"},
 		{name: "fallback if empty", input: "\u200B\u200D\u2060", want: "fallback",
-			options: CanonifyOptions{Separator: '_', MinLen: 1, Fallback: "fallback", MaxAttempts: 10}},
-		{name: "function application / invisible times", input: "X\u2061Y\u2062Z\u2063W", want: "xyzw"},
+			options: CanonifyOptions{
+				Separator:   '_',
+				MinLen:      1,
+				Fallback:    "fallback",
+				MaxAttempts: 10,
+			}},
+		{
+			name:  "function application / invisible times",
+			input: "X\u2061Y\u2062Z\u2063W",
+			want:  "xyzw",
+		},
 		{name: "mongolian vowel separator", input: "M\u180Eongolia", want: "mongolia"},
 		{name: "control chars", input: "Hello\x01\x02World\x03", want: "helloworld"},
 		{name: "tabs, newlines, carriage returns", input: "A \tB\nC\rD", want: "a_b_c_d"},
-		{name: "mixed invisible + visible", input: "\u200BStart \uFEFFMiddle\u2060End", want: "start_middleend"},
-		{name: "only invisible chars", input: "\u200B\u200C\u200D\uFEFF\u2060\u2061\u2062\u2063\u180E", want: "fallback",
-			options: CanonifyOptions{Fallback: "fallback"}},
+		{
+			name:  "mixed invisible + visible",
+			input: "\u200BStart \uFEFFMiddle\u2060End",
+			want:  "start_middleend",
+		},
+		{
+			name:    "only invisible chars",
+			input:   "\u200B\u200C\u200D\uFEFF\u2060\u2061\u2062\u2063\u180E",
+			want:    "fallback",
+			options: CanonifyOptions{Fallback: "fallback"},
+		},
 
 		// === Uniqueness / deterministic suffix ===
-		{name: "uniqueness deterministic", input: "John", want: "john_3", existing: []string{"john", "john_1", "john_2"}},
+		{
+			name:     "uniqueness deterministic",
+			input:    "John",
+			want:     "john_3",
+			existing: []string{"john", "john_1", "john_2"},
+		},
 		{name: "exhaust attempts", input: "A", options: CanonifyOptions{MaxAttempts: 3},
 			existing: []string{"a", "a_1", "a_2", "a_3"}, expectErr: true},
 		{name: "nil exists func", input: "x", NotExistsFunc: true, expectErr: true},
 
 		// === Complex normalization ===
-		{name: "ligatures and composed chars", input: "SŌME text—with–various―dashes and ﬁ ligature and café",
-			want: "some_text_with_various_dashes_and_fi_ligature_and_cafe"},
+		{
+			name:  "ligatures and composed chars",
+			input: "SŌME text—with–various―dashes and ﬁ ligature and café",
+			want:  "some_text_with_various_dashes_and_fi_ligature_and_cafe",
+		},
 
 		// === Non-Latin scripts ===
 		{name: "chinese", input: "中文 测试", want: "中文_测试"},
@@ -141,7 +170,14 @@ func TestCanonifyBLNS(t *testing.T) {
 			require.Equal(t, got, got2, "Canonify not deterministic for input %q", s)
 
 			require.NotEmpty(t, got, "Canonify returned empty string for input %q", s)
-			require.GreaterOrEqual(t, len(got), DefaultOptions.MinLen, "output %q too short for input %q", got, s)
+			require.GreaterOrEqual(
+				t,
+				len(got),
+				DefaultOptions.MinLen,
+				"output %q too short for input %q",
+				got,
+				s,
+			)
 			for _, r := range got {
 				if !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == DefaultOptions.Separator) {
 					t.Errorf("unexpected rune %q in output for input %q", r, s)
