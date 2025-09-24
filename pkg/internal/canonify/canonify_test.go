@@ -8,9 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"strings"
 	"testing"
-	"unicode"
 
 	"github.com/stretchr/testify/require"
 )
@@ -156,40 +154,25 @@ func TestCanonifyBLNS(t *testing.T) {
 	var naughty []string
 	require.NoError(t, json.Unmarshal(data, &naughty))
 
+	// Load expected outputs
+	expectedFile := "testdata/expected_blns.json"
+	expData, err := os.ReadFile(expectedFile)
+	require.NoError(t, err, "failed to read %s", expectedFile)
+
+	expected := make(map[string]string)
+	require.NoError(t, json.Unmarshal(expData, &expected))
+
 	for i, s := range naughty {
 		tcName := fmt.Sprintf("blns-%d", i)
 		t.Run(tcName, func(t *testing.T) {
 			db := makeMock()
 
-			// Run twice to check determinism
 			got, err := Canonify(s, db.Exists)
-			got2, err2 := Canonify(s, db.Exists)
-
 			require.NoError(t, err, "Canonify failed on input %q", s)
-			require.NoError(t, err2, "Canonify failed on input %q (second run)", s)
-			require.Equal(t, got, got2, "Canonify not deterministic for input %q", s)
 
-			require.NotEmpty(t, got, "Canonify returned empty string for input %q", s)
-			require.GreaterOrEqual(
-				t,
-				len(got),
-				DefaultOptions.MinLen,
-				"output %q too short for input %q",
-				got,
-				s,
-			)
-			for _, r := range got {
-				if !(unicode.IsLetter(r) || unicode.IsDigit(r) || r == DefaultOptions.Separator) {
-					t.Errorf("unexpected rune %q in output for input %q", r, s)
-				}
-			}
-			require.False(t, strings.HasPrefix(got, string(DefaultOptions.Separator)),
-				"output %q starts with separator", got)
-			require.False(t, strings.HasSuffix(got, string(DefaultOptions.Separator)),
-				"output %q ends with separator", got)
-
-			doubleSep := string([]rune{DefaultOptions.Separator, DefaultOptions.Separator})
-			require.NotContains(t, got, doubleSep)
+			exp, ok := expected[s]
+			require.True(t, ok, "no expected output for input %q", s)
+			require.Equal(t, exp, got, "output changed for input %q", s)
 		})
 	}
 }
