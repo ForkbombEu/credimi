@@ -5,13 +5,13 @@ package canonify
 
 import (
 	"github.com/pocketbase/dbx"
-	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 )
 
 // Collections to automatically canonify
 var canonifyCollections = map[string]string{
 	"users":                   "name",
+	"organizations":           "name",
 	"credential_issuers":      "name",
 	"credentials":             "name",
 	"custom_checks":           "name",
@@ -47,7 +47,8 @@ func MakeExistsFunc(app core.App, collectionName string, canonifiedField string,
 // If the source field is empty, the hooks skip the record and do not perform any action.
 //
 // The function takes a PocketBase application as a parameter, and registers the hooks for the specified collections.
-func RegisterCanonifyHooks(app *pocketbase.PocketBase) {
+func RegisterCanonifyHooks(app core.App) {
+
 	for col, field := range canonifyCollections {
 
 		canonifiedField := "canonified_name"
@@ -55,6 +56,14 @@ func RegisterCanonifyHooks(app *pocketbase.PocketBase) {
 			canonifiedField = "canonified_title"
 		}
 
+		app.OnRecordCreateRequest(col).BindFunc(func(e *core.RecordRequestEvent) error {
+			e.Record.Set(canonifiedField, "")
+			return e.Next()
+		})
+		app.OnRecordUpdateRequest(col).BindFunc(func(e *core.RecordRequestEvent) error {
+			e.Record.Set(canonifiedField, "")
+			return e.Next()
+		})
 		app.OnRecordCreate(col).BindFunc(func(e *core.RecordEvent) error {
 			name := e.Record.GetString(field)
 			existsFunc := MakeExistsFunc(e.App, col, canonifiedField, "")
