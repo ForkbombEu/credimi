@@ -30,6 +30,29 @@ const COLLECTION_PARENT_FIELD_MAP = {
 	[Collections.WalletActions]: 'wallet' as keyof WalletActionsRecord
 } as const;
 
+/**
+ * Check if a name is unique within a collection's parent scope
+ *
+ * This function validates name uniqueness for hierarchical collections where records
+ * belong to a parent entity (e.g., credentials belong to credential_issuers).
+ *
+ * @param collectionName - Collection to check uniqueness within
+ * @param name - Name value to check for uniqueness
+ * @param parentId - ID of the parent record to scope the uniqueness check
+ * @param excludeId - Optional record ID to exclude from the check (useful for updates)
+ * @returns Promise<boolean> - True if name is unique within the parent scope, false otherwise
+ *
+ * @example
+ * ```typescript
+ * // Check if credential name is unique within a credential issuer
+ * const isUnique = await checkNameUniqueness('credentials', 'My Credential', 'issuer123');
+ *
+ * // Check uniqueness while excluding current record (for updates)
+ * const isUniqueForUpdate = await checkNameUniqueness('credentials', 'Updated Name', 'issuer123', 'record456');
+ * ```
+ *
+ * @throws Will log errors but returns false on failure for safety
+ */
 export async function checkNameUniqueness(
 	collectionName: keyof typeof COLLECTION_PARENT_FIELD_MAP,
 	name: string,
