@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pb } from '@/pocketbase';
-import { getCollectionModel } from '@/pocketbase/collections-models';
 import {
 	Collections,
 	type CollectionResponses,
@@ -119,11 +118,6 @@ function getDisplayField(
 type SystemFields = 'id' | 'created' | 'updated';
 type CloneableCollections = 'wallet_actions' | 'credentials' | 'use_cases_verifications';
 
-interface UniqueConstraint {
-	fields: string[];
-	indexName: string;
-}
-
 // Configuration for display fields - easy to update when UI changes
 const COLLECTION_DISPLAY_CONFIG = {
 	wallet_actions: {
@@ -146,96 +140,41 @@ interface CloneOptions<T extends CloneableCollections> {
 }
 
 /**
- * Parse unique constraints from a collection's indexes
- * @param collectionName Collection to analyze
- * @returns UniqueConstraint[] Array of unique constraints
- */
-function parseUniqueConstraints(collectionName: CloneableCollections): UniqueConstraint[] {
-	try {
-		const model = getCollectionModel(collectionName);
-		const indexesString = typeof model.indexes === 'string' ? model.indexes : '[]';
-		const indexes: string[] = JSON.parse(indexesString);
-
-		const uniqueConstraints: UniqueConstraint[] = [];
-
-		for (const indexDef of indexes) {
-			if (indexDef.includes('UNIQUE INDEX')) {
-				// Extract index name and fields from SQL
-				// Example: "CREATE UNIQUE INDEX `idx_name` ON `table` (`field1`, `field2`)"
-				const indexNameMatch = indexDef.match(/UNIQUE INDEX `([^`]+)`/);
-				const fieldsMatch = indexDef.match(/\(([^)]+)\)/);
-
-				if (indexNameMatch && fieldsMatch) {
-					const indexName = indexNameMatch[1];
-					const fieldsStr = fieldsMatch[1];
-
-					// Parse field names, handling newlines and backticks
-					const fields = fieldsStr
-						.split(',')
-						.map((field) => field.trim().replace(/[`\n]/g, ''))
-						.filter((field) => field.length > 0);
-
-					uniqueConstraints.push({
-						indexName,
-						fields
-					});
-				}
-			}
-		}
-
-		return uniqueConstraints;
-	} catch (error) {
-		console.error(`Error parsing unique constraints for ${collectionName}:`, error);
-		return [];
-	}
-}
-
-/**
- * Check if a combination of field values is unique within constraints
+ * Check if a field value is unique within a collection's parent scope
+ * Simple wrapper around the existing parent-field uniqueness pattern
  * @param collectionName Collection to check
- * @param constraint Unique constraint to validate
- * @param fieldValues Field values to check
- * @param excludeId Record ID to exclude from uniqueness check
- * @returns Promise<boolean> True if combination is unique
+ * @param fieldName Field to check (name, key, uid, etc.)
+ * @param fieldValue Value to check for uniqueness
+ * @param parentId Parent record ID to scope the check
+ * @returns Promise<boolean> True if field value is unique within parent scope
  */
-async function isConstraintUnique(
+async function checkFieldUniqueness(
 	collectionName: CloneableCollections,
-	constraint: UniqueConstraint,
-	fieldValues: Record<string, unknown>,
-	excludeId?: string
+	fieldName: string,
+	fieldValue: string,
+	parentId: string
 ): Promise<boolean> {
+	const parentFieldMap = {
+		wallet_actions: 'wallet',
+		credentials: 'credential_issuer',
+		use_cases_verifications: 'verifier'
+	} as const;
+
+	const parentField = parentFieldMap[collectionName];
+
 	try {
-		// Build filter for all fields in the constraint
-		const filterParts = constraint.fields
-			.map((field) => {
-				const value = fieldValues[field];
-				if (typeof value === 'string') {
-					return `${field} = "${value}"`;
-				} else if (value !== undefined && value !== null) {
-					return `${field} = ${value}`;
-				}
-				return null;
-			})
-			.filter((part) => part !== null);
-
-		if (filterParts.length === 0) return true;
-
-		let filter = filterParts.join(' && ');
-		if (excludeId) {
-			filter += ` && id != "${excludeId}"`;
-		}
-
+		const filter = `${parentField} = "${parentId}" && ${fieldName} = "${fieldValue}"`;
 		const records = await pb.collection(collectionName).getList(1, 1, { filter });
 		return records.totalItems === 0;
 	} catch (error) {
-		console.error('Error checking constraint uniqueness:', error);
-		return false;
+		console.error('Error checking field uniqueness:', error);
+		return false; // Assume not unique on error for safety
 	}
 }
 
 /**
  * Generate unique field values with display-field-first approach
- * Always modifies display field for UX, then handles constraint fields for database compliance
+ * Always modifies display field for UX, then handles key constraint fields for database compliance
  * @param collectionName Collection to check against
  * @param cloneData Current clone data object
  * @param originalData Original record data
@@ -262,70 +201,99 @@ async function generateUniqueFieldValues(
 		updatedData[displayField] = displayValue;
 	}
 
-	// Step 2: Handle database constraint fields
-	const uniqueConstraints = parseUniqueConstraints(collectionName);
+	// Step 2: Handle key constraint fields using existing checkNameUniqueness logic
+	const parentFieldMap = {
+		wallet_actions: 'wallet',
+		credentials: 'credential_issuer',
+		use_cases_verifications: 'verifier'
+	} as const;
 
-	for (const constraint of uniqueConstraints) {
-		// Check if this constraint is violated with our current data
-		const isUnique = await isConstraintUnique(collectionName, constraint, updatedData);
+	const parentField = parentFieldMap[collectionName];
+	const parentId = updatedData[parentField] as string;
 
-		if (!isUnique) {
-			// Find constraint fields that need modification (exclude already modified display field)
-			const constraintFields = constraint.fields.filter(
-				(field) =>
-					field !== displayField && // Don't modify display field again
-					(field === 'name' || field === 'uid' || field === 'key') && // Only modifiable fields
-					updatedData[field] // Field has a value
+	if (parentId) {
+		// Check and fix uniqueness for important fields (excluding already modified display field)
+		const fieldsToCheck = ['name', 'key', 'uid'].filter(
+			(field) => field !== displayField && updatedData[field]
+		);
+
+		for (const fieldName of fieldsToCheck) {
+			const fieldValue = updatedData[fieldName] as string;
+
+			// Use existing checkNameUniqueness approach but for any field
+			const isUnique = await checkFieldUniqueness(
+				collectionName,
+				fieldName,
+				fieldValue,
+				parentId
 			);
 
-			if (constraintFields.length > 0) {
-				// Modify the first suitable constraint field
-				const fieldToModify = constraintFields[0];
-				const originalValue = originalData[fieldToModify] as string;
-
-				if (originalValue) {
-					const constraintValue = await generateUniqueFieldValue(
-						collectionName,
-						fieldToModify,
-						originalValue,
-						baseSuffix
-					);
-					updatedData[fieldToModify] = constraintValue;
-				}
-			}
-		}
-	}
-
-	// Step 3: For collections without constraints, fall back to legacy approach (but display field already handled)
-	if (uniqueConstraints.length === 0) {
-		// Apply legacy uniqueness to other important fields (uid, key) that weren't the display field
-		const fieldsToCheck = ['uid', 'key'].filter((field) => field !== displayField);
-
-		const parentFieldMap = {
-			wallet_actions: 'wallet',
-			credentials: 'credential_issuer',
-			use_cases_verifications: 'verifier'
-		} as const;
-
-		const parentField = parentFieldMap[collectionName];
-		const parentId = updatedData[parentField] as string;
-
-		if (parentId) {
-			for (const fieldName of fieldsToCheck) {
-				if (updatedData[fieldName]) {
-					const uniqueValue = await generateUniqueFieldValue(
-						collectionName,
-						fieldName,
-						updatedData[fieldName] as string,
-						baseSuffix
-					);
-					updatedData[fieldName] = uniqueValue;
-				}
+			if (!isUnique) {
+				const uniqueValue = await generateUniqueFieldValue(
+					collectionName,
+					fieldName,
+					fieldValue,
+					baseSuffix
+				);
+				updatedData[fieldName] = uniqueValue;
 			}
 		}
 	}
 
 	return updatedData;
+}
+
+/**
+ * Check if error is a PocketBase unique constraint validation error
+ * @param error Error object from PocketBase
+ * @returns boolean True if it's a uniqueness validation error
+ */
+function isUniqueConstraintError(error: unknown): boolean {
+	if (!error || typeof error !== 'object') return false;
+
+	const errorObj = error as Record<string, unknown>;
+	const response = errorObj?.response as Record<string, unknown> | undefined;
+	const status = errorObj?.status;
+	const errorData = response?.data;
+
+	// Check if it's a 400 error with field-level validation data
+	if (status !== 400 || !errorData || typeof errorData !== 'object') return false;
+
+	// Check if any field has a unique constraint violation
+	const fieldErrors = errorData as Record<string, unknown>;
+	return Object.values(fieldErrors).some((fieldError) => {
+		if (!fieldError || typeof fieldError !== 'object') return false;
+		const error = fieldError as Record<string, unknown>;
+		return error.code === 'validation_not_unique';
+	});
+}
+
+/**
+ * Extract field names that failed uniqueness validation
+ * @param error Error object from PocketBase
+ * @returns string[] Array of field names that failed uniqueness check
+ */
+function getFailedUniqueFields(error: unknown): string[] {
+	if (!error || typeof error !== 'object') return [];
+
+	const errorObj = error as Record<string, unknown>;
+	const response = errorObj?.response as Record<string, unknown> | undefined;
+	const errorData = response?.data;
+
+	if (!errorData || typeof errorData !== 'object') return [];
+
+	const failedFields: string[] = [];
+	const fieldErrors = errorData as Record<string, unknown>;
+
+	for (const [fieldName, fieldError] of Object.entries(fieldErrors)) {
+		if (!fieldError || typeof fieldError !== 'object') continue;
+		const error = fieldError as Record<string, unknown>;
+		if (error.code === 'validation_not_unique') {
+			failedFields.push(fieldName);
+		}
+	}
+
+	return failedFields;
 }
 
 /**
@@ -379,6 +347,9 @@ export async function cloneRecord<T extends CloneableCollections>(
 ): Promise<CollectionResponses[T]> {
 	const { excludeFields = [] } = options;
 
+	// Prepare clone data once to be used in try/catch
+	let uniqueCloneData: Record<string, unknown> | undefined;
+
 	try {
 		// 1. Fetch original record
 		const originalRecord = await pb.collection(collectionName).getOne(recordId);
@@ -401,7 +372,7 @@ export async function cloneRecord<T extends CloneableCollections>(
 		}
 
 		// 4. Apply schema-aware uniqueness handling
-		const uniqueCloneData = await generateUniqueFieldValues(
+		uniqueCloneData = await generateUniqueFieldValues(
 			collectionName,
 			cloneData,
 			originalRecord,
@@ -410,7 +381,77 @@ export async function cloneRecord<T extends CloneableCollections>(
 
 		// 5. Create the cloned record
 		return await pb.collection(collectionName).create(uniqueCloneData);
-	} catch (error) {
+	} catch (error: unknown) {
+		// Check if it's a uniqueness constraint error that we can retry
+		if (isUniqueConstraintError(error) && uniqueCloneData) {
+			console.log('Uniqueness constraint error detected, attempting retry...');
+
+			const failedFields = getFailedUniqueFields(error);
+			console.log('Failed fields:', failedFields);
+
+			// Filter to only fields we can modify (exclude parent references like credential_issuer)
+			const parentFieldMap = {
+				wallet_actions: 'wallet',
+				credentials: 'credential_issuer',
+				use_cases_verifications: 'verifier'
+			} as const;
+
+			const parentField = parentFieldMap[collectionName];
+			const retryableFields = failedFields.filter(
+				(field) =>
+					field !== parentField && // Don't modify parent references
+					['name', 'key', 'uid'].includes(field) && // Only modifiable fields
+					uniqueCloneData &&
+					field in uniqueCloneData // Field exists in our data
+			);
+
+			console.log('Retryable fields:', retryableFields);
+
+			if (retryableFields.length > 0) {
+				// Create updated data with unique values for failed fields
+				const retryCloneData = { ...uniqueCloneData };
+
+				for (const fieldName of retryableFields) {
+					const originalValue = retryCloneData[fieldName] as string;
+					const uniqueValue = await generateUniqueFieldValue(
+						collectionName,
+						fieldName,
+						originalValue || '', // Handle empty strings
+						'_clone'
+					);
+					retryCloneData[fieldName] = uniqueValue;
+					console.log(`Updated ${fieldName}: "${originalValue}" → "${uniqueValue}"`);
+				}
+
+				// Retry the creation with updated data
+				console.log('Retrying clone creation...');
+				try {
+					return await pb.collection(collectionName).create(retryCloneData);
+				} catch (retryError) {
+					console.error('Retry failed:', retryError);
+					// Fall through to original error handling
+				}
+			} else {
+				console.log('No retryable fields found, cannot fix constraint violations');
+			}
+		}
+
+		// Check if it's a validation error with field details
+		const errorObj = error as Record<string, unknown>;
+		const response = errorObj?.response as Record<string, unknown> | undefined;
+		const errorData = response?.data;
+		if (errorData && typeof errorData === 'object') {
+			console.log(
+				'Field-level errors found:',
+				Object.keys(errorData as Record<string, unknown>)
+			);
+			for (const [field, fieldError] of Object.entries(
+				errorData as Record<string, unknown>
+			)) {
+				console.log(`  - Field "${field}":`, fieldError);
+			}
+		}
+
 		console.error(`Error cloning ${collectionName} record:`, error);
 		throw error;
 	}
