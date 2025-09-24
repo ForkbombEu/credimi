@@ -73,7 +73,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		filter: `owner.id = '${organizationId}'`,
 		sort: ['created', 'DESC']
 	}}
-	editFormFieldsOptions={{ exclude: ['owner', 'url', 'published', 'imported'] }}
+	editFormFieldsOptions={{
+		exclude: ['owner', 'url', 'published', 'imported', 'canonified_name']
+	}}
 >
 	{#snippet top({ Header, records })}
 		<Header title={m.Credential_issuers()} {id}>
