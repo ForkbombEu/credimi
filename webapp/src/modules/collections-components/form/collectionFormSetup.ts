@@ -111,7 +111,6 @@ export function setupCollectionForm<C extends CollectionName>({
 					);
 
 					if (!isUnique) {
-						console.log('🔍 Name is not unique, showing error');
 						setError(
 							form,
 							'name',
