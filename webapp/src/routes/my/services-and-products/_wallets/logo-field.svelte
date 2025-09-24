@@ -29,11 +29,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type LogoMode = 'original' | 'new_file' | 'url' | 'removed';
+	type LogoMode = 'fresh' | 'original' | 'new_file' | 'url' | 'removed';
 
 	const logoMode: LogoMode = $derived.by(() => {
 		const currentLogo = formState.current.logo;
-		if (walletResponse?.logo === currentLogo?.name) {
+		if (!walletResponse) {
+			return 'fresh';
+		} else if (walletResponse?.logo === currentLogo?.name) {
 			return 'original';
 		} else if (currentLogo instanceof File && currentLogo.size > 0) {
 			return 'new_file';
@@ -42,7 +44,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		} else if (!currentLogo && !formState.current.logo_url) {
 			return 'removed';
 		} else {
-			throw new Error('Invalid logo mode');
+			console.warn('Unhandled logo mode', currentLogo);
+			return 'fresh';
 		}
 	});
 
@@ -53,10 +56,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return URL.createObjectURL(formState.current.logo);
 		} else if (logoMode === 'url') {
 			return formState.current.logo_url;
-		} else if (logoMode === 'removed') {
-			return undefined;
 		} else {
-			throw new Error('Invalid logo mode');
+			console.warn('Unhandled logo mode', logoMode);
+			return undefined;
 		}
 	});
 
@@ -120,7 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					alt={m.Logo_preview()}
 					class="size-full object-cover text-center text-xs"
 				/>
-			{:else if logoMode === 'removed'}
+			{:else}
 				<div class="bg-muted flex size-full items-center justify-center p-2">
 					<T class="text-muted-foreground text-sm">Logo preview</T>
 				</div>

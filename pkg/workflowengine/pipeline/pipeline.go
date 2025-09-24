@@ -85,8 +85,8 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	for _, step := range steps {
-		logger.Info("Running step", "id", step.ID, "run", step.Run)
-		if subBlock, ok := checks[step.Run]; ok {
+		logger.Info("Running step", "id", step.ID, "use", step.Use)
+		if subBlock, ok := checks[step.Use]; ok {
 			childOpts := workflow.ChildWorkflowOptions{
 				WorkflowID: fmt.Sprintf(
 					"%s-%s",
@@ -98,9 +98,8 @@ func (w *PipelineWorkflow) Workflow(
 			}
 			ctxChild := workflow.WithChildOptions(ctx, childOpts)
 			ao := PrepareActivityOptions(
-				input.WorkflowInput.ActivityOptions.RetryPolicy,
-				step.Retry,
-				step.Timeout,
+				*input.WorkflowInput.ActivityOptions,
+				step.ActivityOptions,
 			)
 
 			localCfg := MergeConfigs(globalCfg, step.With.Config)
@@ -155,9 +154,8 @@ func (w *PipelineWorkflow) Workflow(
 
 		finalOutput["inputs"] = input.WorkflowInput.Payload
 		ao := PrepareActivityOptions(
-			input.WorkflowInput.ActivityOptions.RetryPolicy,
-			step.Retry,
-			step.Timeout,
+			*input.WorkflowInput.ActivityOptions,
+			step.ActivityOptions,
 		)
 
 		_, err := step.Execute(ctx, globalCfg, &finalOutput, ao)

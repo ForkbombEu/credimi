@@ -19,7 +19,6 @@ func (s *StepDefinition) Execute(
 	dataCtx *map[string]any,
 	ao workflow.ActivityOptions,
 ) (any, error) {
-
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
 
 	payload, cfg, err := ResolveInputs(*s, globalCfg, *dataCtx)
@@ -30,7 +29,7 @@ func (s *StepDefinition) Execute(
 		)
 		return nil, appErr
 	}
-	step := registry.Registry[s.Run]
+	step := registry.Registry[s.Use]
 	switch step.Kind {
 	case registry.TaskActivity:
 		ctx = workflow.WithActivityOptions(ctx, ao)
@@ -41,7 +40,7 @@ func (s *StepDefinition) Execute(
 		}
 		var result workflowengine.ActivityResult
 
-		if s.Run == "email" {
+		if s.Use == "email" {
 			cfgAct := act.(workflowengine.ConfigurableActivity)
 
 			if err := cfgAct.Configure(&input); err != nil {
@@ -66,7 +65,7 @@ func (s *StepDefinition) Execute(
 			return result, err
 		}
 		var output any
-		switch registry.Registry[s.Run].OutputKind {
+		switch registry.Registry[s.Use].OutputKind {
 		case workflowengine.OutputMap:
 			output = workflowengine.AsMap(result.Output)
 
@@ -121,9 +120,7 @@ func (s *StepDefinition) Execute(
 			"outputs": result.Output,
 		}
 		return result, nil
-
 	}
 
 	return nil, nil
-
 }
