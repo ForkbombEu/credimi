@@ -1,41 +1,35 @@
 /// <reference path="../pb_data/types.d.ts" />
-migrate((app) => {
-  const collection = app.findCollectionByNameOrId("pbc_678514665")
+migrate(
+    (app) => {
+        const collection = app.findCollectionByNameOrId("pbc_678514665");
 
-  // update collection data
-  unmarshal({
-    "indexes": [
-      "CREATE UNIQUE INDEX `idx_hRrjNsbb0u` ON `credential_issuers` (`canonified_name`)"
-    ]
-  }, collection)
+        // add field canonified_name (no index yet)
+        collection.fields.addAt(
+            5,
+            new Field({
+                autogeneratePattern: "",
+                hidden: false,
+                id: "text2077450625",
+                max: 0,
+                min: 0,
+                name: "canonified_name",
+                pattern: "",
+                presentable: false,
+                primaryKey: false,
+                required: false,
+                system: false,
+                type: "text",
+            }),
+        );
 
-  // add field
-  collection.fields.addAt(5, new Field({
-    "autogeneratePattern": "",
-    "hidden": false,
-    "id": "text2077450625",
-    "max": 0,
-    "min": 0,
-    "name": "canonified_name",
-    "pattern": "",
-    "presentable": false,
-    "primaryKey": false,
-    "required": false,
-    "system": false,
-    "type": "text"
-  }))
+        return app.save(collection);
+    },
+    (app) => {
+        const collection = app.findCollectionByNameOrId("pbc_678514665");
 
-  return app.save(collection)
-}, (app) => {
-  const collection = app.findCollectionByNameOrId("pbc_678514665")
+        // remove field on rollback
+        collection.fields.removeById("text2077450625");
 
-  // update collection data
-  unmarshal({
-    "indexes": []
-  }, collection)
-
-  // remove field
-  collection.fields.removeById("text2077450625")
-
-  return app.save(collection)
-})
+        return app.save(collection);
+    },
+);
