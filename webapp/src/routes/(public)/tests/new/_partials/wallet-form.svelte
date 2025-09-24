@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
 
-	import { CollectionField } from '@/collections-components';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -64,12 +63,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if !workflowStarted}
 	<Form {form} hideRequiredIndicator>
 		<Field {form} name="name" options={{ type: 'text', label: m.Wallet_name() }} />
-		<CollectionField
+		<!-- <CollectionField
 			{form}
 			name="standard"
 			collection="standards"
 			options={{ displayFields: ['name'] }}
-		/>
+		/> -->
 
 		<CodeEditorField {form} name="json" options={{ lang: 'json', maxHeight: 400 }} />
 
