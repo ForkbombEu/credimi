@@ -42,10 +42,9 @@ var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
 	AuthenticationRequired: true,
 }
 
-var templatesDir = path.Join(os.Getenv("ROOT_DIR"), "config_templates")
-
 func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
+		templatesDir := path.Join(os.Getenv("ROOT_DIR"), "config_templates")
 		configs, err := walkConfigTemplates(templatesDir)
 		if err != nil {
 			if appErr, ok := err.(*apierror.APIError); ok {
@@ -83,6 +82,7 @@ func HandlePlaceholdersByFilenames() func(e *core.RequestEvent) error {
 			if !strings.Contains(filename, "/") {
 				continue
 			}
+			templatesDir := path.Join(os.Getenv("ROOT_DIR"), "config_templates")
 			filePath := filepath.Join(templatesDir, requestPayload.TestID, filename)
 			file, err := os.Open(filePath)
 			if err != nil {

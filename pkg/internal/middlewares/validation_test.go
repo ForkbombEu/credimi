@@ -5,6 +5,7 @@
 package middlewares
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"net/http"
@@ -16,11 +17,22 @@ import (
 	"github.com/pocketbase/pocketbase/tools/router"
 )
 
+type mockResponseWriter struct {
+	header http.Header
+	body   bytes.Buffer
+	code   int
+}
+
+func (m *mockResponseWriter) Header() http.Header         { return m.header }
+func (m *mockResponseWriter) Write(b []byte) (int, error) { return m.body.Write(b) }
+func (m *mockResponseWriter) WriteHeader(statusCode int)  { m.code = statusCode }
+
 func mockRequestEvent(body io.Reader) *core.RequestEvent {
 	req, _ := http.NewRequest("POST", "/", body)
 	return &core.RequestEvent{
 		Event: router.Event{
-			Request: req,
+			Request:  req,
+			Response: &mockResponseWriter{header: make(http.Header)},
 		},
 	}
 }
@@ -58,9 +70,6 @@ func TestDynamicValidateInputByType_EmptyBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
-	// if !e.nextCalled {
-	// 	t.Error("expected Next() to be called")
-	// }
 }
 
 func TestDynamicValidateInputByType_InvalidJSON(t *testing.T) {
@@ -69,26 +78,35 @@ func TestDynamicValidateInputByType_InvalidJSON(t *testing.T) {
 	e := &mockRequestEventWithNext{RequestEvent: mockRequestEvent(body)}
 	e.Request.ContentLength = int64(body.Len())
 	err := handler(e.RequestEvent)
-	if err == nil {
-		t.Fatal("expected error for invalid JSON, got nil")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
 	}
-	if !strings.Contains(err.Error(), "Invalid JSON format") {
-		t.Errorf("expected JSON error, got: %v", err)
+
+	resp := e.Response.(*mockResponseWriter)
+	if resp.code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", resp.code)
+	}
+	if !strings.Contains(resp.body.String(), "Invalid JSON format") {
+		t.Errorf("expected JSON error in body, got: %s", resp.body.String())
 	}
 }
 
 func TestDynamicValidateInputByType_ValidationFails(t *testing.T) {
 	handler := DynamicValidateInputByType(reflect.TypeOf(testStruct{}))
-	// Missing required fields
 	body := strings.NewReader(`{"name": "", "email": "not-an-email", "age": -5}`)
 	e := &mockRequestEventWithNext{RequestEvent: mockRequestEvent(body)}
 	e.Request.ContentLength = int64(body.Len())
 	err := handler(e.RequestEvent)
-	if err == nil {
-		t.Fatal("expected validation error, got nil")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
 	}
-	if !strings.Contains(err.Error(), "Validation failed") {
-		t.Errorf("expected validation error, got: %v", err)
+
+	resp := e.Response.(*mockResponseWriter)
+	if resp.code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", resp.code)
+	}
+	if !strings.Contains(resp.body.String(), "Validation failed") {
+		t.Errorf("expected validation error in body, got: %s", resp.body.String())
 	}
 }
 
@@ -101,9 +119,7 @@ func TestDynamicValidateInputByType_ValidationPasses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("expected nil error, got %v", err)
 	}
-	// if !e.nextCalled {
-	// 	t.Error("expected Next() to be called")
-	// }
+
 	val := e.Request.Context().Value(ValidatedInputKey)
 	if val == nil {
 		t.Error("expected validated input in context")
@@ -123,11 +139,16 @@ func TestDynamicValidateInputByType_ReadBodyError(t *testing.T) {
 	e := &mockRequestEventWithNext{RequestEvent: mockRequestEvent(badReader)}
 	e.Request.ContentLength = 10
 	err := handler(e.RequestEvent)
-	if err == nil {
-		t.Fatal("expected error for body read failure, got nil")
+	if err != nil {
+		t.Fatalf("expected nil error, got %v", err)
 	}
-	if !strings.Contains(err.Error(), "Failed to read request body") {
-		t.Errorf("expected body read error, got: %v", err)
+
+	resp := e.Response.(*mockResponseWriter)
+	if resp.code != http.StatusBadRequest {
+		t.Errorf("expected status 400, got %d", resp.code)
+	}
+	if !strings.Contains(resp.body.String(), "Failed to read request body") {
+		t.Errorf("expected body read error in body, got: %s", resp.body.String())
 	}
 }
 
