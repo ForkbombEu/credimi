@@ -4,6 +4,14 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+<script lang="ts" module>
+	export type RowAfterProps<Response extends object> = {
+		Tr: typeof Table.Row;
+		Td: typeof Table.Cell;
+		record: Response;
+	};
+</script>
+
 <script lang="ts" generics="Response extends object">
 	import type { Snippet } from 'svelte';
 
@@ -38,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		rowClass?: string;
 		headerClass?: string;
 		class?: string;
-		rowAfter?: Snippet<[{ Tr: typeof Table.Row; Td: typeof Table.Cell; record: Response }]>;
+		rowAfter?: Snippet<[RowAfterProps<Response>]>;
 	}
 
 	const {
