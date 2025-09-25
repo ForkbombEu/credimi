@@ -38,6 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		rowClass?: string;
 		headerClass?: string;
 		class?: string;
+		rowAfter?: Snippet<[{ Tr: typeof Table.Row; Td: typeof Table.Cell; record: Response }]>;
 	}
 
 	const {
@@ -51,7 +52,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		rowCellClass,
 		rowClass,
 		headerClass,
-		class: className
+		class: className,
+		rowAfter
 	}: Props = $props();
 
 	const hasRightActions = $derived(
@@ -83,7 +85,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Table.Body>
 		{#each records as untypedRecord (untypedRecord)}
 			{@const record = untypedRecord as CollectionResponses[CollectionName]}
-			<Table.Row class={['hover:bg-inherit', rowClass]}>
+			<Table.Row
+				class={['hover:bg-inherit', 'has-[+tr.hide-previous-border]:border-none', rowClass]}
+			>
 				{#if !hide.includes('select')}
 					<Table.Cell class="py-2">
 						<RecordSelect {record} />
@@ -131,6 +135,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Table.Cell>
 				{/if}
 			</Table.Row>
+
+			{@render rowAfter?.({ Tr: Table.Row, Td: Table.Cell, record: untypedRecord })}
 		{/each}
 	</Table.Body>
 </Table.Root>

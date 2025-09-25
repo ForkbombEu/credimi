@@ -9,6 +9,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+	import { CornerDownRight } from 'lucide-svelte';
+	import { nanoid } from 'nanoid';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 
@@ -18,10 +20,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
+	import { localizeHref, m } from '@/i18n';
 
 	import {
+		getIssuerItemCredentials,
 		getMarketplaceItemTypeData,
+		isCredentialIssuer,
+		isVerifier,
 		MarketplaceItemCard,
 		marketplaceItemTypes,
 		marketplaceItemTypeSchema
@@ -43,7 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		mode: {
 			encode: (value) => value,
-			decode: (value) => (value === 'table' ? 'table' : 'card')
+			decode: (value) => (value === 'table' ? 'table' : 'table')
 		}
 	});
 
@@ -123,7 +128,51 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					class="bg-background rounded-md"
 					rowCellClass="px-4 py-2"
 					headerClass="bg-background z-10"
-				/>
+				>
+					{#snippet rowAfter({ Tr, Td, record })}
+						{@const show = isCredentialIssuer(record) || isVerifier(record)}
+						{@const rowId = nanoid()}
+						<Tr
+							id={rowId}
+							class={[
+								'bg-gray-50 px-4',
+								{ hidden: !show, 'hide-previous-border': show }
+							]}
+						>
+							{#if isCredentialIssuer(record)}
+								<Td class="py-1 text-xs" colspan={99}>
+									<div class="flex w-full gap-4">
+										{#await getIssuerItemCredentials(record) then credentials}
+											<div class="flex items-center gap-1 text-gray-400">
+												<CornerDownRight
+													size={16}
+													class="-translate-y-0.5"
+												/>
+												<span>{m.Credentials()} </span>
+												<span class="w-6">
+													({credentials.length})
+												</span>
+											</div>
+											<div class="grid grid-cols-4">
+												<!-- <div class="flex w-0 grow gap-1 overflow-x-scroll"> -->
+												{#each credentials as credential}
+													<a
+														href={localizeHref(
+															`/marketplace/credentials/${credential.id}`
+														)}
+														class="block truncate text-nowrap rounded-sm px-1 py-0.5 transition hover:bg-gray-300"
+													>
+														{credential.display_name}
+													</a>
+												{/each}
+											</div>
+										{/await}
+									</div>
+								</Td>
+							{/if}
+						</Tr>
+					{/snippet}
+				</CollectionTable>
 			</div>
 		{:else}
 			<div in:fly={{ y: 10 }}>
