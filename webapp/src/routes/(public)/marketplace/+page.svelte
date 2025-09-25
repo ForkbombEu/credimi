@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+	import { MinusIcon } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 
@@ -126,7 +127,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet MarketplaceTableOfContents()}
 	{@const isAllActive = params.type === null}
-	<div class="grid grid-cols-2 sm:flex sm:flex-col">
+	<div class="flex flex-col">
+		<!-- <div class="grid grid-cols-2 sm:flex sm:flex-col"> -->
 		<Button
 			variant={isAllActive ? 'default' : 'ghost'}
 			size="sm"
@@ -136,17 +138,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.All()}
 		</Button>
 
-		<div class="spacer relative sm:hidden"></div>
+		<!-- <div class="spacer relative sm:hidden"></div> -->
 
 		{#each marketplaceItemTypes as type}
 			{@const typeData = getMarketplaceItemTypeData(type)}
 			{@const isActive = typeFilter === type}
+			{@const indent = type === 'use_cases_verifications' || type === 'credentials'}
 			<Button
 				variant={isActive ? 'default' : 'ghost'}
 				size="sm"
 				onclick={() => (params.type = type)}
-				class="justify-start"
+				class={['justify-start']}
 			>
+				{#if indent}
+					<div
+						class={{
+							'text-black/20': !isActive,
+							'text-primary-foreground/20': isActive
+						}}
+					>
+						<MinusIcon />
+					</div>
+				{/if}
 				{#if typeData.display?.icon}
 					{@const IconComponent = typeData.display.icon}
 					<IconComponent
@@ -155,7 +168,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							: `opacity-70 ${typeData.display?.textClass}`}"
 					/>
 				{/if}
-				{typeData.display?.labelPlural}
+				<span class="truncate">
+					{typeData.display?.labelPlural}
+				</span>
 			</Button>
 		{/each}
 	</div>
