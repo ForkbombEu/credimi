@@ -93,44 +93,43 @@ function getDisplayField(
 
 	// Try primary display field first
 	if (
-		recordData[config.primary] &&
-		typeof recordData[config.primary] === 'string' &&
-		(recordData[config.primary] as string).trim()
+		recordData[config.primaryField] &&
+		typeof recordData[config.primaryField] === 'string' &&
+		(recordData[config.primaryField] as string).trim()
 	) {
-		return config.primary;
+		return config.primaryField;
 	}
 
-	// Try fallback fields in order
-	for (const fallback of config.fallbacks) {
-		if (
-			recordData[fallback] &&
-			typeof recordData[fallback] === 'string' &&
-			(recordData[fallback] as string).trim()
-		) {
-			return fallback;
-		}
+	// Try fallback field if primary is empty
+	if (
+		config.fallbackField !== config.primaryField &&
+		recordData[config.fallbackField] &&
+		typeof recordData[config.fallbackField] === 'string' &&
+		(recordData[config.fallbackField] as string).trim()
+	) {
+		return config.fallbackField;
 	}
 
 	// Ultimate fallback to primary field even if empty
-	return config.primary;
+	return config.primaryField;
 }
 
 type SystemFields = 'id' | 'created' | 'updated';
 type CloneableCollections = 'wallet_actions' | 'credentials' | 'use_cases_verifications';
 
-// Configuration for display fields - easy to update when UI changes
+// Configuration for display fields and their fallbacks
 const COLLECTION_DISPLAY_CONFIG = {
-	wallet_actions: {
-		primary: 'name',
-		fallbacks: []
+	[Collections.Credentials]: {
+		primaryField: 'display_name',
+		fallbackField: 'name'
 	},
-	credentials: {
-		primary: 'name',
-		fallbacks: ['key']
+	[Collections.UseCasesVerifications]: {
+		primaryField: 'name',
+		fallbackField: 'name'
 	},
-	use_cases_verifications: {
-		primary: 'name',
-		fallbacks: []
+	[Collections.WalletActions]: {
+		primaryField: 'name',
+		fallbackField: 'name'
 	}
 } as const;
 
@@ -189,19 +188,7 @@ async function generateUniqueFieldValues(
 ): Promise<Record<string, unknown>> {
 	const updatedData = { ...cloneData };
 
-	// Step 1: Always modify the display field first (for UX clarity)
-	const displayField = getDisplayField(collectionName, originalData);
-	if (updatedData[displayField]) {
-		const displayValue = await generateUniqueFieldValue(
-			collectionName,
-			displayField,
-			updatedData[displayField] as string,
-			baseSuffix
-		);
-		updatedData[displayField] = displayValue;
-	}
-
-	// Step 2: Handle key constraint fields using existing checkNameUniqueness logic
+	// Get parent field info first
 	const parentFieldMap = {
 		wallet_actions: 'wallet',
 		credentials: 'credential_issuer',
@@ -211,10 +198,24 @@ async function generateUniqueFieldValues(
 	const parentField = parentFieldMap[collectionName];
 	const parentId = updatedData[parentField] as string;
 
+	// Step 1: Always modify the display field first (for UX clarity)
+	const displayField = getDisplayField(collectionName, originalData);
+	if (updatedData[displayField]) {
+		const displayValue = await generateUniqueFieldValue(
+			collectionName,
+			displayField,
+			updatedData[displayField] as string,
+			baseSuffix,
+			parentId
+		);
+		updatedData[displayField] = displayValue;
+	}
+
+	// Step 2: Handle key constraint fields using existing checkNameUniqueness logic
 	if (parentId) {
 		// Check and fix uniqueness for important fields (excluding already modified display field)
 		const fieldsToCheck = ['name', 'key', 'uid'].filter(
-			(field) => field !== displayField && updatedData[field]
+			(field) => field !== displayField && field in updatedData
 		);
 
 		for (const fieldName of fieldsToCheck) {
@@ -233,7 +234,8 @@ async function generateUniqueFieldValues(
 					collectionName,
 					fieldName,
 					fieldValue,
-					baseSuffix
+					baseSuffix,
+					parentId
 				);
 				updatedData[fieldName] = uniqueValue;
 			}
@@ -302,21 +304,39 @@ function getFailedUniqueFields(error: unknown): string[] {
  * @param fieldName Field to make unique
  * @param originalValue Original field value
  * @param baseSuffix Base suffix to use (e.g., '_copy')
+ * @param parentId Parent record ID to scope the uniqueness check
  * @returns Promise<string> Unique field value
  */
 async function generateUniqueFieldValue(
 	collectionName: CloneableCollections,
 	fieldName: string,
 	originalValue: string,
-	baseSuffix: string = '_copy'
+	baseSuffix: string = '_copy',
+	parentId?: string
 ): Promise<string> {
+	const parentFieldMap = {
+		wallet_actions: 'wallet',
+		credentials: 'credential_issuer',
+		use_cases_verifications: 'verifier'
+	} as const;
+
+	const parentField = parentFieldMap[collectionName];
+
+	// Handle empty original values
+	const baseValue = originalValue.trim() || 'untitled';
 	let counter = 1;
-	let candidateValue = `${originalValue}${baseSuffix}_${counter}`;
+	let candidateValue = `${baseValue}${baseSuffix}_${counter}`;
 
 	try {
-		// Keep incrementing until we find a unique value
-		while (true) {
-			const filter = `${fieldName} = "${candidateValue}"`;
+		// Keep incrementing until we find a unique value (with safety limit)
+		const maxIterations = 50;
+		let iterations = 0;
+
+		while (iterations < maxIterations) {
+			const filter = parentId
+				? `${parentField} = "${parentId}" && ${fieldName} = "${candidateValue}"`
+				: `${fieldName} = "${candidateValue}"`;
+
 			const records = await pb.collection(collectionName).getList(1, 1, { filter });
 
 			if (records.totalItems === 0) {
@@ -324,12 +344,19 @@ async function generateUniqueFieldValue(
 			}
 
 			counter++;
-			candidateValue = `${originalValue}${baseSuffix}_${counter}`;
+			candidateValue = `${baseValue}${baseSuffix}_${counter}`;
+			iterations++;
 		}
+
+		// If we've exhausted iterations, fall back to timestamp
+		console.warn(
+			`Max iterations (${maxIterations}) reached for field ${fieldName}, using timestamp fallback`
+		);
+		return `${baseValue}${baseSuffix}_${Date.now()}`;
 	} catch (error) {
 		console.error('Error generating unique field value:', error);
 		// Fallback: append timestamp
-		return `${originalValue}${baseSuffix}_${Date.now()}`;
+		return `${baseValue}${baseSuffix}_${Date.now()}`;
 	}
 }
 
@@ -417,7 +444,8 @@ export async function cloneRecord<T extends CloneableCollections>(
 						collectionName,
 						fieldName,
 						originalValue || '', // Handle empty strings
-						'_clone'
+						'_clone',
+						parentField ? (retryCloneData[parentField] as string) : undefined
 					);
 					retryCloneData[fieldName] = uniqueValue;
 					console.log(`Updated ${fieldName}: "${originalValue}" → "${uniqueValue}"`);
