@@ -8,10 +8,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
 
 	import { CollectionTable } from '@/collections-components/manager';
+	import { m } from '@/i18n';
 
 	import { snippets } from './marketplace-table-snippets.svelte';
-	import TableIssuerRowAfter from './table-issuer-row-after.svelte';
-	import { isCredentialIssuer, isVerifier } from './utils';
+	import TableRowAfter from './table-row-after.svelte';
+	import {
+		getIssuerItemCredentials,
+		getMarketplaceItemTypeData,
+		getVerifierItemUseCases,
+		isCredentialIssuer,
+		isVerifier
+	} from './utils';
 
 	type Props = {
 		records: MarketplaceItemsResponse[];
@@ -34,13 +41,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	headerClass="bg-background z-10"
 >
 	{#snippet rowAfter({ record })}
-		{@const show = isCredentialIssuer(record) || isVerifier(record)}
 		<!-- 
 		Note: instead of using an if to render conditionally
 		We must render the TR no matter what
 		in order for it to get the correct width
 		And we hide it with a 'hidden' class
 		  -->
-		<TableIssuerRowAfter issuer={record} {show} />
+		<TableRowAfter
+			linksPromise={getIssuerItemCredentials(record).then((res) =>
+				res.map((r) => ({
+					title: r.display_name,
+					href: `/marketplace/credentials/${r.id}`
+				}))
+			)}
+			title={m.Credentials()}
+			icon={getMarketplaceItemTypeData('credentials').display.icon}
+			show={isCredentialIssuer(record)}
+		/>
+		<TableRowAfter
+			linksPromise={getVerifierItemUseCases(record).then((res) =>
+				res.map((r) => ({
+					title: r.name,
+					href: `/marketplace/use_cases_verifications/${r.id}`
+				}))
+			)}
+			title={m.Verification_use_cases()}
+			icon={getMarketplaceItemTypeData('use_cases_verifications').display.icon}
+			show={isVerifier(record)}
+		/>
 	{/snippet}
 </CollectionTable>
