@@ -152,6 +152,18 @@ func Resolve(app core.App, collection, path string) (*core.Record, error) {
 	return rec, nil
 }
 
+func Validate(app core.App, collection, path string) (*core.Record, error) {
+	if path == "" || path == "/" {
+		return nil, fmt.Errorf("empty path")
+	}
+	rec, err := Resolve(app, collection, path)
+	if err != nil {
+		return nil, fmt.Errorf("invalid path %q for collection %q: %w", path, collection, err)
+	}
+
+	return rec, nil
+}
+
 func getPathChain(collection string) ([]string, error) {
 	var chain []string
 	cur := collection
