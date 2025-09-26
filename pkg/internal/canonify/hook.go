@@ -18,7 +18,7 @@ func MakeExistsFunc(
 	excludeID string,
 ) func(candidateName string) bool {
 	return func(candidateName string) bool {
-		tpl, ok := canonifyPaths[collectionName]
+		tpl, ok := CanonifyPaths[collectionName]
 		if !ok {
 			return true
 		}
@@ -55,7 +55,7 @@ func MakeExistsFunc(
 //
 // The function takes a PocketBase application as a parameter, and registers the hooks for the specified collections.
 func RegisterCanonifyHooks(app core.App) {
-	for col, tpl := range canonifyPaths {
+	for col, tpl := range CanonifyPaths {
 		app.OnRecordCreateRequest(col).BindFunc(func(e *core.RecordRequestEvent) error {
 			e.Record.Set(tpl.CanonifiedField, "")
 			return e.Next()

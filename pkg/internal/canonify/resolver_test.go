@@ -194,7 +194,7 @@ func TestBuildPath(t *testing.T) {
 			inputRec := createRecord(t, app, tc.Input)
 
 			// Test BuildPath
-			tpl := canonifyPaths[tc.Input.Collection]
+			tpl := CanonifyPaths[tc.Input.Collection]
 			got, err := BuildPath(app, inputRec, tpl, tc.Input.Fields["canonified_name"].(string))
 
 			if tc.Expected.Error {

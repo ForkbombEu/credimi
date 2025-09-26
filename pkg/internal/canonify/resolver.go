@@ -21,7 +21,7 @@ type PathTemplate struct {
 	Parent          *Parent
 }
 
-var canonifyPaths = map[string]PathTemplate{
+var CanonifyPaths = map[string]PathTemplate{
 	"users": {
 		Field:           "name",
 		CanonifiedField: "canonified_name",
@@ -89,7 +89,7 @@ func BuildPath(
 				rec.Collection().Name,
 			)
 		}
-		parentTpl, ok := canonifyPaths[tpl.Parent.Collection]
+		parentTpl, ok := CanonifyPaths[tpl.Parent.Collection]
 		if !ok {
 			return "", fmt.Errorf(
 				"no path template for parent collection %s",
@@ -128,7 +128,7 @@ func Resolve(app core.App, collection, path string) (*core.Record, error) {
 	var rec *core.Record
 
 	for i, col := range chain {
-		tpl, ok := canonifyPaths[col]
+		tpl, ok := CanonifyPaths[col]
 		if !ok {
 			return nil, fmt.Errorf("no path template for collection %s", collection)
 		}
@@ -168,7 +168,7 @@ func getPathChain(collection string) ([]string, error) {
 	var chain []string
 	cur := collection
 	for {
-		tpl, ok := canonifyPaths[cur]
+		tpl, ok := CanonifyPaths[cur]
 		if !ok {
 			return nil, fmt.Errorf("no path template for collection %s", cur)
 		}
