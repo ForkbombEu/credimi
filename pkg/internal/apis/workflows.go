@@ -416,27 +416,8 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
 					return apis.NewBadRequestError("invalid JSON body", err)
 				}
-				var name, locale, logo, format, description string
-				if displayList, ok := body.Credential["display"].([]any); ok &&
-					len(displayList) > 0 {
-					if first, ok := displayList[0].(map[string]any); ok {
-						if credName, ok := first["name"].(string); ok {
-							name = credName
-						}
-						if displayLogo, ok := first["logo"].(map[string]any); ok {
-							// do not broke if URI is nil
-							if uri, ok := displayLogo["uri"].(string); ok {
-								logo = uri
-							}
-						}
-						if credLocale, ok := first["locale"].(string); ok {
-							locale = credLocale
-						}
-						if credDescription, ok := first["description"].(string); ok {
-							description = credDescription
-						}
-					}
-				}
+				name, locale, logo, description := parseCredentialDisplay(body.Credential)
+				var format string
 				if credFormat, ok := body.Credential["format"].(string); ok {
 					format = credFormat
 				}
@@ -581,6 +562,28 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 	})
 }
 
+func parseCredentialDisplay(cred map[string]any) (name, locale, logo, description string) {
+	if displayList, ok := cred["display"].([]any); ok && len(displayList) > 0 {
+		if first, ok := displayList[0].(map[string]any); ok {
+			if n, ok := first["name"].(string); ok {
+				name = n
+			}
+			if l, ok := first["locale"].(string); ok {
+				locale = l
+			}
+			if d, ok := first["description"].(string); ok {
+				description = d
+			}
+			if logoMap, ok := first["logo"].(map[string]any); ok {
+				if uri, ok := logoMap["uri"].(string); ok {
+					logo = uri
+				}
+			}
+		}
+	}
+	return
+}
+
 func HandleGetDeeplink() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var body CredentialDeeplinkRequest
@@ -636,7 +639,11 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		result, err := workflowengine.WaitForWorkflowResult(client, resStart.WorkflowID, resStart.WorkflowRunID)
+		result, err := workflowengine.WaitForWorkflowResult(
+			client,
+			resStart.WorkflowID,
+			resStart.WorkflowRunID,
+		)
 		if err != nil {
 			details := workflowengine.ParseWorkflowError(err.Error())
 			return e.JSON(http.StatusInternalServerError, map[string]any{
