@@ -86,7 +86,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<T class="text-xs text-gray-400">{verifier.url}</T>
 			</div>
 		</div>
-		<div>
+		<div class="flex items-center gap-1">
 			<SwitchWithIcons
 				offIcon={EyeOff}
 				onIcon={Eye}
