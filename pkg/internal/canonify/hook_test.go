@@ -57,7 +57,6 @@ func getOrgIDfromName(collectionNameOrID string, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
 	return record.Id, nil
 }
 
@@ -74,9 +73,11 @@ func TestCanonifyAPI(t *testing.T) {
 
 		return testApp
 	}
-	authToken, _ := generateToken("users", "userA@example.org")
+	authTokenA, _ := generateToken("users", "userA@example.org")
+	authTokenB, _ := generateToken("users", "userB@example.org")
 	userID, _ := getUserIDFromEmail("users", "userA@example.org")
-	orgID, _ := getOrgIDfromName("organizations", "userA's organization")
+	orgAID, _ := getOrgIDfromName("organizations", "userA's organization")
+	orgBID, _ := getOrgIDfromName("organizations", "userB's organization")
 
 	scenarios := []tests.ApiScenario{
 		{
@@ -117,11 +118,11 @@ func TestCanonifyAPI(t *testing.T) {
 		{
 			Name:   "update user name updates canonified_name",
 			Method: http.MethodPatch,
-			URL:    "/api/collections/users/records/" + userID, // replace 1 with a real test record ID
+			URL:    "/api/collections/users/records/" + userID,
 			Body:   jsonBody(map[string]any{"name": "Alice 2"}),
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
-				"Authorization": authToken,
+				"Authorization": authTokenA,
 			},
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -138,7 +139,7 @@ func TestCanonifyAPI(t *testing.T) {
 			}),
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
-				"Authorization": authToken,
+				"Authorization": authTokenA,
 			},
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -152,7 +153,7 @@ func TestCanonifyAPI(t *testing.T) {
 			URL:    "/api/collections/users/records/" + userID,
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
-				"Authorization": authToken,
+				"Authorization": authTokenA,
 			},
 			Body:           jsonBody(map[string]any{"username": "users111111"}),
 			ExpectedStatus: 200,
@@ -169,11 +170,11 @@ func TestCanonifyAPI(t *testing.T) {
 				"name":        "New Issuer Test 😀",
 				"url":         "https://example.com",
 				"description": "A simple credential issuer",
-				"owner":       orgID,
+				"owner":       orgAID,
 			}),
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
-				"Authorization": authToken,
+				"Authorization": authTokenA,
 			},
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -189,12 +190,12 @@ func TestCanonifyAPI(t *testing.T) {
 				"name":            "Issuer Override",
 				"url":             "https://example.com",
 				"description":     "Another issuer",
-				"owner":           orgID,
+				"owner":           orgAID,
 				"canonified_name": "force-this",
 			}),
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
-				"Authorization": authToken,
+				"Authorization": authTokenA,
 			},
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -211,7 +212,7 @@ func TestCanonifyAPI(t *testing.T) {
 			}),
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
-				"Authorization": authToken,
+				"Authorization": authTokenA,
 			},
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -228,11 +229,51 @@ func TestCanonifyAPI(t *testing.T) {
 			}),
 			Headers: map[string]string{
 				"Content-Type":  "application/json",
-				"Authorization": authToken,
+				"Authorization": authTokenA,
 			},
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				`"canonified_name":"test-issuer"`,
+			},
+			TestAppFactory: setupTestApp,
+		},
+		{
+			Name:   "entities can have same canonified_name if different parents",
+			Method: http.MethodPost,
+			URL:    "/api/collections/credential_issuers/records",
+			Body: jsonBody(map[string]any{
+				"name":        "TEST ISSUER",
+				"url":         "https://example.com",
+				"description": "A simple credential issuer",
+				"owner":       orgBID,
+			}),
+			Headers: map[string]string{
+				"Content-Type":  "application/json",
+				"Authorization": authTokenB,
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"canonified_name":"test-issuer"`,
+			},
+			TestAppFactory: setupTestApp,
+		},
+		{
+			Name:   "entities cannot have same canonified_name if same parent",
+			Method: http.MethodPost,
+			URL:    "/api/collections/credential_issuers/records",
+			Body: jsonBody(map[string]any{
+				"name":        "TEST ISSUER",
+				"url":         "https://example.com",
+				"description": "A simple credential issuer",
+				"owner":       orgAID,
+			}),
+			Headers: map[string]string{
+				"Content-Type":  "application/json",
+				"Authorization": authTokenA,
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"canonified_name":"test-issuer-1"`,
 			},
 			TestAppFactory: setupTestApp,
 		},
