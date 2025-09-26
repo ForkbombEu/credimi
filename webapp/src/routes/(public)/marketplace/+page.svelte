@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		mode: {
 			encode: (value) => value,
-			decode: (value) => (value === 'table' ? 'table' : 'table')
+			decode: (value) => (value === 'grid' ? 'grid' : 'table')
 		}
 	});
 
