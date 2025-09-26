@@ -47,10 +47,9 @@ func createRecord(t *testing.T, app core.App, setup RecordSetup) *core.Record {
 	return rec
 }
 
-func createRecordAndSave(t *testing.T, app core.App, setup RecordSetup) *core.Record {
+func createRecordAndSave(t *testing.T, app core.App, setup RecordSetup) {
 	rec := createRecord(t, app, setup)
 	require.NoError(t, app.Save(rec), "failed to save record in %s", setup.Collection)
-	return rec
 }
 
 func TestBuildPath(t *testing.T) {

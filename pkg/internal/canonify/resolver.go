@@ -72,17 +72,29 @@ var canonifyPaths = map[string]PathTemplate{
 }
 
 // BuildPath constructs the path for a record
-func BuildPath(app core.App, rec *core.Record, tpl PathTemplate, candidateName string) (string, error) {
+func BuildPath(
+	app core.App,
+	rec *core.Record,
+	tpl PathTemplate,
+	candidateName string,
+) (string, error) {
 	parts := []string{}
 
 	if tpl.Parent != nil {
 		parentID := rec.GetString(tpl.Parent.Field)
 		if parentID == "" {
-			return "", fmt.Errorf("missing parent %s on %s", tpl.Parent.Field, rec.Collection().Name)
+			return "", fmt.Errorf(
+				"missing parent %s on %s",
+				tpl.Parent.Field,
+				rec.Collection().Name,
+			)
 		}
 		parentTpl, ok := canonifyPaths[tpl.Parent.Collection]
 		if !ok {
-			return "", fmt.Errorf("no path template for parent collection %s", tpl.Parent.Collection)
+			return "", fmt.Errorf(
+				"no path template for parent collection %s",
+				tpl.Parent.Collection,
+			)
 		}
 		parentRec, err := app.FindRecordById(tpl.Parent.Collection, parentID)
 		if err != nil {
