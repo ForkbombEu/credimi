@@ -416,7 +416,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				if err := json.NewDecoder(e.Request.Body).Decode(&body); err != nil {
 					return apis.NewBadRequestError("invalid JSON body", err)
 				}
-				var name, locale, logo, format string
+				var name, locale, logo, format, description string
 				if displayList, ok := body.Credential["display"].([]any); ok &&
 					len(displayList) > 0 {
 					if first, ok := displayList[0].(map[string]any); ok {
@@ -428,6 +428,12 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 							if uri, ok := displayLogo["uri"].(string); ok {
 								logo = uri
 							}
+						}
+						if credLocale, ok := first["locale"].(string); ok {
+							locale = credLocale
+						}
+						if credDescription, ok := first["description"].(string); ok {
+							description = credDescription
 						}
 					}
 				}
@@ -453,6 +459,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 					record = core.NewRecord(collection)
 					record.Set("display_name", name)
 					record.Set("logo", logo)
+
 					record.Set("imported", true)
 				} else {
 					// Update existing record
@@ -506,6 +513,7 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 				record.Set("format", format)
 				record.Set("issuer_name", body.IssuerName)
 				record.Set("locale", locale)
+				record.Set("description", description)
 				record.Set("json", string(credJSON))
 				record.Set("name", body.CredKey)
 				record.Set("credential_issuer", body.IssuerID)
