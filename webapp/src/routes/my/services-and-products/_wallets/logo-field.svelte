@@ -33,14 +33,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const logoMode: LogoMode = $derived.by(() => {
 		const currentLogo = formState.current.logo;
-		if (!walletResponse) {
-			return 'fresh';
-		} else if (walletResponse?.logo === currentLogo?.name) {
-			return 'original';
-		} else if (currentLogo instanceof File && currentLogo.size > 0) {
+		if (currentLogo instanceof File && currentLogo.size > 0) {
 			return 'new_file';
 		} else if (formState.current.logo_url) {
 			return 'url';
+		} else if (!walletResponse) {
+			return 'fresh';
+		} else if (walletResponse?.logo === currentLogo?.name) {
+			return 'original';
 		} else if (!currentLogo && !formState.current.logo_url) {
 			return 'removed';
 		} else {
