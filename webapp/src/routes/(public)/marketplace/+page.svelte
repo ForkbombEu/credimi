@@ -9,12 +9,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+	import { MinusIcon } from 'lucide-svelte';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 
 	import type { PocketbaseQueryOptions } from '@/pocketbase/query';
 
-	import { CollectionTable } from '@/collections-components/manager';
 	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		marketplaceItemTypes,
 		marketplaceItemTypeSchema
 	} from './_utils';
-	import { snippets } from './_utils/marketplace-table-snippets.svelte';
+	import MarketplaceTable from './_utils/marketplace-table.svelte';
 
 	//
 
@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		mode: {
 			encode: (value) => value,
-			decode: (value) => (value === 'table' ? 'table' : 'card')
+			decode: (value) => (value === 'grid' ? 'grid' : 'table')
 		}
 	});
 
@@ -111,19 +111,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet records({ records })}
 		{#if params.mode === 'table'}
 			<div in:fly={{ y: 10 }}>
-				<CollectionTable
-					{records}
-					hide={['delete', 'share', 'edit', 'select']}
-					fields={['name', 'type', 'updated']}
-					snippets={{
-						name: snippets.name,
-						type: snippets.type,
-						updated: snippets.updated
-					}}
-					class="bg-background rounded-md"
-					rowCellClass="px-4 py-2"
-					headerClass="bg-background z-10"
-				/>
+				<MarketplaceTable {records} />
 			</div>
 		{:else}
 			<div in:fly={{ y: 10 }}>
@@ -139,7 +127,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet MarketplaceTableOfContents()}
 	{@const isAllActive = params.type === null}
-	<div class="grid grid-cols-2 sm:flex sm:flex-col">
+	<div class="flex flex-col">
+		<!-- <div class="grid grid-cols-2 sm:flex sm:flex-col"> -->
 		<Button
 			variant={isAllActive ? 'default' : 'ghost'}
 			size="sm"
@@ -149,17 +138,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.All()}
 		</Button>
 
-		<div class="spacer relative sm:hidden"></div>
+		<!-- <div class="spacer relative sm:hidden"></div> -->
 
 		{#each marketplaceItemTypes as type}
 			{@const typeData = getMarketplaceItemTypeData(type)}
 			{@const isActive = typeFilter === type}
+			{@const indent = type === 'use_cases_verifications' || type === 'credentials'}
 			<Button
 				variant={isActive ? 'default' : 'ghost'}
 				size="sm"
 				onclick={() => (params.type = type)}
-				class="justify-start"
+				class={['justify-start']}
 			>
+				{#if indent}
+					<div
+						class={{
+							'text-black/20': !isActive,
+							'text-primary-foreground/20': isActive
+						}}
+					>
+						<MinusIcon />
+					</div>
+				{/if}
 				{#if typeData.display?.icon}
 					{@const IconComponent = typeData.display.icon}
 					<IconComponent
@@ -168,7 +168,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							: `opacity-70 ${typeData.display?.textClass}`}"
 					/>
 				{/if}
-				{typeData.display?.labelPlural}
+				<span class="truncate">
+					{typeData.display?.labelPlural}
+				</span>
 			</Button>
 		{/each}
 	</div>
