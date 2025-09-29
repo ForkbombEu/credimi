@@ -79,38 +79,14 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
+	baseURL, appURL, issuerSchema, issuerID, err := validateInput(input, runMetadata)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+
 	checkIssuer := activities.NewCheckCredentialsIssuerActivity()
 	var issuerResult workflowengine.ActivityResult
-
-	baseURL, ok := input.Payload["base_url"].(string)
-	if !ok || baseURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"base_url",
-			runMetadata,
-		)
-	}
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			runMetadata,
-		)
-	}
-	issuerSchema, ok := input.Config["issuer_schema"].(string)
-	if !ok || issuerSchema == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"issuer_schema",
-			runMetadata,
-		)
-	}
-	issuerID, ok := input.Payload["issuerID"].(string)
-	if !ok || issuerID == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"issuerID",
-			runMetadata,
-		)
-	}
-	err := workflow.ExecuteActivity(ctx, checkIssuer.Name(), workflowengine.ActivityInput{
+	err = workflow.ExecuteActivity(ctx, checkIssuer.Name(), workflowengine.ActivityInput{
 		Payload: map[string]any{
 			"base_url": baseURL,
 		},
@@ -406,4 +382,24 @@ func extractAppErrorDetails(err error) ([]any, error) {
 		return nil, workflowengine.NewAppError(errCode, actErr.Unwrap().Error())
 	}
 	return nil, workflowengine.NewAppError(errCode, err.Error())
+}
+
+func validateInput(input workflowengine.WorkflowInput, runMetadata workflowengine.WorkflowErrorMetadata) (baseURL, appURL, issuerSchema, issuerID string, err error) {
+	baseURL, ok := input.Payload["base_url"].(string)
+	if !ok || baseURL == "" {
+		return "", "", "", "", workflowengine.NewMissingPayloadError("base_url", runMetadata)
+	}
+	appURL, ok = input.Config["app_url"].(string)
+	if !ok || appURL == "" {
+		return "", "", "", "", workflowengine.NewMissingConfigError("app_url", runMetadata)
+	}
+	issuerSchema, ok = input.Config["issuer_schema"].(string)
+	if !ok || issuerSchema == "" {
+		return "", "", "", "", workflowengine.NewMissingConfigError("issuer_schema", runMetadata)
+	}
+	issuerID, ok = input.Payload["issuerID"].(string)
+	if !ok || issuerID == "" {
+		return "", "", "", "", workflowengine.NewMissingPayloadError("issuerID", runMetadata)
+	}
+	return baseURL, appURL, issuerSchema, issuerID, nil
 }
