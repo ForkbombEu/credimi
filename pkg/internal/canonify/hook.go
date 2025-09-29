@@ -4,40 +4,42 @@
 package canonify
 
 import (
-	"github.com/pocketbase/dbx"
+	"database/sql"
+	"errors"
+	"log"
+
 	"github.com/pocketbase/pocketbase/core"
 )
-
-// Collections to automatically canonify
-var canonifyCollections = map[string]string{
-	"users":                   "name",
-	"organizations":           "name",
-	"credential_issuers":      "name",
-	"credentials":             "name",
-	"custom_checks":           "name",
-	"use_cases_verifications": "name",
-	"verifiers":               "name",
-	"wallet_actions":          "name",
-	"wallets":                 "name",
-	"news":                    "title",
-}
 
 func MakeExistsFunc(
 	app core.App,
 	collectionName string,
-	canonifiedField string,
+	rec *core.Record,
 	excludeID string,
-) ExistsFunc {
-	return func(value string) bool {
-		exp := dbx.HashExp{canonifiedField: value}
-
-		records, _ := app.FindAllRecords(collectionName, exp)
-		for _, r := range records {
-			if r.Id != excludeID {
-				return true
-			}
+) func(candidateName string) bool {
+	return func(candidateName string) bool {
+		tpl, ok := CanonifyPaths[collectionName]
+		if !ok {
+			return true
 		}
-		return false
+		path, err := BuildPath(app, rec, tpl, candidateName)
+		if err != nil {
+			log.Printf("failed to build path: %s", err)
+			// if we cannot build path, assume it exists to prevent collision
+			return true
+		}
+
+		existingRec, err := Resolve(app, path)
+		if err != nil {
+			if !errors.Is(err, sql.ErrNoRows) {
+				log.Printf("failed to resolve path: %s", err)
+			}
+			return !errors.Is(err, sql.ErrNoRows)
+		}
+		if excludeID != "" && existingRec.Id == excludeID {
+			return false
+		}
+		return true
 	}
 }
 
@@ -53,45 +55,40 @@ func MakeExistsFunc(
 //
 // The function takes a PocketBase application as a parameter, and registers the hooks for the specified collections.
 func RegisterCanonifyHooks(app core.App) {
-	for col, field := range canonifyCollections {
-		canonifiedField := "canonified_name"
-		if field == "title" {
-			canonifiedField = "canonified_title"
-		}
-
+	for col, tpl := range CanonifyPaths {
 		app.OnRecordCreateRequest(col).BindFunc(func(e *core.RecordRequestEvent) error {
-			e.Record.Set(canonifiedField, "")
+			e.Record.Set(tpl.CanonifiedField, "")
 			return e.Next()
 		})
 		app.OnRecordUpdateRequest(col).BindFunc(func(e *core.RecordRequestEvent) error {
-			e.Record.Set(canonifiedField, "")
+			e.Record.Set(tpl.CanonifiedField, "")
 			return e.Next()
 		})
 		app.OnRecordCreate(col).BindFunc(func(e *core.RecordEvent) error {
-			name := e.Record.GetString(field)
-			existsFunc := MakeExistsFunc(e.App, col, canonifiedField, "")
+			name := e.Record.GetString(tpl.Field)
+			existsFunc := MakeExistsFunc(e.App, col, e.Record, "")
 			canonName, err := Canonify(name, existsFunc)
 			if err != nil {
 				return err
 			}
-			e.Record.Set(canonifiedField, canonName)
+			e.Record.Set(tpl.CanonifiedField, canonName)
 			return e.Next()
 		})
 
 		app.OnRecordUpdate(col).BindFunc(func(e *core.RecordEvent) error {
-			name := e.Record.GetString(field)
+			name := e.Record.GetString(tpl.Field)
 			if name == "" {
 				return nil
 			}
 
-			existsFunc := MakeExistsFunc(e.App, col, canonifiedField, e.Record.Id)
+			existsFunc := MakeExistsFunc(e.App, col, e.Record, e.Record.Id)
 			opts := DefaultOptions
 			opts.Fallback = col
 			canonName, err := CanonifyWithOptions(name, existsFunc, opts)
 			if err != nil {
 				return err
 			}
-			e.Record.Set(canonifiedField, canonName)
+			e.Record.Set(tpl.CanonifiedField, canonName)
 			return e.Next()
 		})
 	}
