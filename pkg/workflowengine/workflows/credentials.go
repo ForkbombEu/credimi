@@ -180,7 +180,6 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 					logo = uri
 				}
 			}
-
 		}
 	}
 
@@ -384,7 +383,10 @@ func extractAppErrorDetails(err error) ([]any, error) {
 	return nil, workflowengine.NewAppError(errCode, err.Error())
 }
 
-func validateInput(input workflowengine.WorkflowInput, runMetadata workflowengine.WorkflowErrorMetadata) (baseURL, appURL, issuerSchema, issuerID string, err error) {
+func validateInput(
+	input workflowengine.WorkflowInput,
+	runMetadata workflowengine.WorkflowErrorMetadata,
+) (baseURL, appURL, issuerSchema, issuerID string, err error) {
 	baseURL, ok := input.Payload["base_url"].(string)
 	if !ok || baseURL == "" {
 		return "", "", "", "", workflowengine.NewMissingPayloadError("base_url", runMetadata)
