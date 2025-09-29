@@ -238,7 +238,6 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 					"api/credentials_issuers/store-or-update-extracted-credentials"),
 				"body": map[string]any{
 					"issuerID":   issuerID,
-					"issuerName": issuerName,
 					"credKey":    credKey,
 					"credential": credential,
 					"conformant": conformant,
@@ -308,6 +307,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			"Successfully retrieved and stored and update credentials from '%s'",
 			source,
 		),
+		Output: issuerName,
 		Log:    logs,
 		Errors: errs,
 	}, nil

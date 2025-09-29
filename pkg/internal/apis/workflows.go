@@ -132,25 +132,25 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		parsedURL, err := url.Parse(req.URL)
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				fmt.Sprintf("credential_issuers_%s", req.URL),
+				"invalid URL format",
+				err.Error(),
+			).JSON(e)
+		}
 		var record *core.Record
 		var isNew bool
 		if len(existingRecords) > 0 {
 			record = existingRecords[0]
 		} else {
 			// Create a new record
-			parsedURL, err := url.Parse(req.URL)
-			if err != nil {
-				return apierror.New(
-					http.StatusBadRequest,
-					fmt.Sprintf("credential_issuers_%s", req.URL),
-					"invalid URL format",
-					err.Error(),
-				).JSON(e)
-			}
+
 			record = core.NewRecord(collection)
 			record.Set("url", req.URL)
 			record.Set("owner", organization)
-			record.Set("name", parsedURL.Hostname())
 			record.Set("imported", true)
 			if err := e.App.Save(record); err != nil {
 				return apierror.New(
@@ -233,7 +233,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		_, err = workflowengine.WaitForWorkflowResult(c, result.WorkflowID, result.WorkflowRunID)
+		result, err = workflowengine.WaitForWorkflowResult(c, result.WorkflowID, result.WorkflowRunID)
 		if err != nil {
 			if isNew {
 				if err := e.App.Delete(record); err != nil {
@@ -253,6 +253,12 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+
+		issuerName, ok := result.Output.(string)
+		if !ok || issuerName == "" {
+			issuerName = parsedURL.Hostname()
+		}
+		record.Set("name", issuerName)
 		record.Set("workflow_url", workflowURL)
 		if err := e.App.Save(record); err != nil {
 			return apierror.New(
@@ -406,7 +412,6 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 			func(e *core.RequestEvent) error {
 				var body struct {
 					IssuerID   string         `json:"issuerID"`
-					IssuerName string         `json:"issuerName"`
 					CredKey    string         `json:"credKey"`
 					Credential map[string]any `json:"credential"`
 					Conformant bool           `json:"conformant"`
@@ -492,7 +497,6 @@ func HookCredentialWorkflow(app *pocketbase.PocketBase) {
 					).JSON(e)
 				}
 				record.Set("format", format)
-				record.Set("issuer_name", body.IssuerName)
 				record.Set("locale", locale)
 				record.Set("description", description)
 				record.Set("json", string(credJSON))
