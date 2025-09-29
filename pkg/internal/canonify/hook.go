@@ -29,7 +29,7 @@ func MakeExistsFunc(
 			return true
 		}
 
-		existingRec, err := Resolve(app, collectionName, path)
+		existingRec, err := Resolve(app, path)
 		if err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
 				log.Printf("failed to resolve path: %s", err)

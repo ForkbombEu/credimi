@@ -27,11 +27,10 @@ type BuildPathTestCase struct {
 	Expected TestExpected
 }
 type ResolveTestCase struct {
-	Name       string
-	Setup      []RecordSetup
-	Collection string
-	Path       string
-	Expected   TestExpected
+	Name     string
+	Setup    []RecordSetup
+	Path     string
+	Expected TestExpected
 }
 
 // createRecord creates a single record
@@ -224,8 +223,7 @@ func TestResolve(t *testing.T) {
 					},
 				},
 			},
-			Collection: "organizations",
-			Path:       "/orga",
+			Path: "/orga",
 			Expected: TestExpected{
 				Result: "orgaid123456789",
 				Error:  false,
@@ -253,8 +251,7 @@ func TestResolve(t *testing.T) {
 					},
 				},
 			},
-			Collection: "credential_issuers",
-			Path:       "/orgb/issuerx",
+			Path: "/orgb/issuerx",
 			Expected: TestExpected{
 				Result: "issuerxid123456",
 				Error:  false,
@@ -292,18 +289,16 @@ func TestResolve(t *testing.T) {
 					},
 				},
 			},
-			Collection: "credentials",
-			Path:       "/orgc/issuery/cred-test",
+			Path: "/orgc/issuery/cred-test",
 			Expected: TestExpected{
 				Result: "credid123456789",
 				Error:  false,
 			},
 		},
 		{
-			Name:       "nonexistent path",
-			Setup:      []RecordSetup{},
-			Collection: "credential_issuers",
-			Path:       "/orgb/Unknown",
+			Name:  "nonexistent path",
+			Setup: []RecordSetup{},
+			Path:  "/orgb/Unknown",
 			Expected: TestExpected{
 				Error: true,
 			},
@@ -318,7 +313,7 @@ func TestResolve(t *testing.T) {
 			}
 
 			// Test Resolve
-			got, err := Resolve(app, tc.Collection, tc.Path)
+			got, err := Resolve(app, tc.Path)
 
 			if tc.Expected.Error {
 				require.Error(t, err)

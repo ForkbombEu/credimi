@@ -15,8 +15,7 @@ import (
 )
 
 type IdentifierValidateRequest struct {
-	Identifier string `json:"identifier"`
-	Collection string `json:"collection"`
+	CanonifiedName string `json:"canonified_name"`
 }
 
 var CanonifyRoutes routing.RouteGroup = routing.RouteGroup{
@@ -49,7 +48,7 @@ func HandleIdentifierValidate() func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		record, err := canonify.Validate(e.App, req.Collection, req.Identifier)
+		record, err := canonify.Validate(e.App, req.CanonifiedName)
 		if err != nil {
 			return apierror.New(
 				http.StatusBadRequest,
