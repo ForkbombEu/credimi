@@ -193,12 +193,18 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		}
 	}
 
-	issuerName := ""
+	var logo, issuerName string
 	if displayList, ok := issuerData["display"].([]any); ok && len(displayList) > 0 {
 		if first, ok := displayList[0].(map[string]any); ok {
 			if name, ok := first["name"].(string); ok {
 				issuerName = name
 			}
+			if logoMap, ok := first["logo"].(map[string]any); ok {
+				if uri, ok := logoMap["uri"].(string); ok {
+					logo = uri
+				}
+			}
+
 		}
 	}
 
@@ -307,7 +313,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			"Successfully retrieved and stored and update credentials from '%s'",
 			source,
 		),
-		Output: issuerName,
+		Output: map[string]any{
+			"issuerName": issuerName,
+			"logo":       logo,
+		},
 		Log:    logs,
 		Errors: errs,
 	}, nil

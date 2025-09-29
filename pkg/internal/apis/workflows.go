@@ -254,11 +254,27 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		issuerName, ok := result.Output.(string)
+		issuerOutput, ok := result.Output.(map[string]any)
+		if !ok {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to parse workflow output",
+				fmt.Sprintf("expected map[string]any, got %T", result.Output),
+			).JSON(e)
+		}
+		issuerName, ok := issuerOutput["name"].(string)
 		if !ok || issuerName == "" {
 			issuerName = parsedURL.Hostname()
 		}
+		var logo string
+		logoURL, ok := issuerOutput["logo"].(string)
+		if ok {
+			logo = logoURL
+
+		}
 		record.Set("name", issuerName)
+		record.Set("logo_url", logo)
 		record.Set("workflow_url", workflowURL)
 		if err := e.App.Save(record); err != nil {
 			return apierror.New(
