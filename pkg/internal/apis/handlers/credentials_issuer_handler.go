@@ -76,7 +76,6 @@ type IssuerURL struct {
 	URL string `json:"credentialIssuerUrl"`
 }
 
-// StoreOrUpdateCredentialsRequest is a struct that represents the request body for the /store-or-update-extracted-credentials endpoint.
 type StoreOrUpdateCredentialsRequest struct {
 	IssuerID   string         `json:"issuerID"`
 	CredKey    string         `json:"credKey"`
@@ -85,7 +84,6 @@ type StoreOrUpdateCredentialsRequest struct {
 	OrgID      string         `json:"orgID"`
 }
 
-// IssuerCleanupCredentialsRequest is a struct that represents the request body for the /cleanup-credentials endpoint.
 type IssuerCleanupCredentialsRequest struct {
 	IssuerID  string   `json:"issuerID"`
 	ValidKeys []string `json:"validKeys"`
@@ -325,7 +323,10 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 	}
 }
 
-// HandleCredentialIssuerStoreOrUpdateExtractedCredentials is an endpoint that handles storing or updating an extracted credential from a credential issuer.
+// HandleCredentialIssuerStoreOrUpdateExtractedCredentials is an endpoint that handles
+//
+//	storing or updating an extracted credential from a credential issuer.
+//
 // It takes a StoreOrUpdateCredentialsRequest as input and returns the extracted credential key.
 // If the credential does not exist, a new record is created.
 // If the credential exists, the record is updated.
