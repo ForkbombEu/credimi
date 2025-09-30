@@ -64,7 +64,7 @@ func createNewOrganizationForUser(app core.App, user *core.Record) error {
 		}
 
 		orgName := emailParts[0] + "'s organization"
-		existsFunc := canonify.MakeExistsFunc(app, "organizations", "canonified_name", "")
+		existsFunc := canonify.MakeExistsFunc(app, "organizations", newOrg, "")
 		canonName, err := canonify.Canonify(orgName, existsFunc)
 		if err != nil {
 			return err
