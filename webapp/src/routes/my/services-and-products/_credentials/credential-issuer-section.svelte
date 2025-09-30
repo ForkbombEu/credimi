@@ -10,16 +10,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Eye, EyeOff, RefreshCwIcon } from 'lucide-svelte';
 
 	import type { IconComponent } from '@/components/types';
-	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
+	import type {
+		CredentialIssuersResponse,
+		CredentialsResponse,
+		OrganizationsResponse
+	} from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
 	import { RecordCreate, RecordDelete, RecordEdit } from '@/collections-components/manager';
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { Card } from '@/components/ui/card';
 	import { Separator } from '@/components/ui/separator';
@@ -36,12 +42,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		organizationId: string;
+		organization?: OrganizationsResponse;
 		id?: string;
 	};
 
-	let { organizationId, id }: Props = $props();
+	let { organizationId, organization, id }: Props = $props();
 
 	//
+
+	function getCredentialCopyText(
+		credential: CredentialsResponse,
+		credentialIssuer: CredentialIssuersResponse
+	) {
+		const organizationName =
+			organization?.canonified_name || organization?.name || 'Unknown Organization';
+		const credentialIssuerName =
+			credentialIssuer.canonified_name ||
+			credentialIssuer.name ||
+			'Unknown Credential Issuer';
+		const credentialName =
+			credential.canonified_name ||
+			credential.display_name ||
+			credential.name ||
+			'Unknown Credential';
+
+		return `${organizationName}/${credentialIssuerName}/${credentialName}`;
+	}
 
 	async function updateCredentialIssuerPublished(
 		credentialIssuer: CredentialIssuersResponse,
@@ -65,6 +91,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			errorText: 'Failed to refresh credential issuer'
 		});
 	}
+
+	const copyTooltipText = `${m.Copy()} ${m.Organization()}/${m.Credential_issuer()}/${m.Credential()}`;
 </script>
 
 <CollectionManager
@@ -256,6 +284,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{#if credential.imported}
 										<Badge variant="secondary">{m.Imported()}</Badge>
 									{/if}
+
+									<Tooltip>
+										<CopyButtonSmall
+											textToCopy={getCredentialCopyText(credential, record)}
+											square
+										/>
+										{#snippet content()}
+											<p>{copyTooltipText}</p>
+										{/snippet}
+									</Tooltip>
+
 									<SwitchWithIcons
 										offIcon={EyeOff}
 										onIcon={Eye}
