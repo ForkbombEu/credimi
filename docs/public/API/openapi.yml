@@ -30,6 +30,14 @@ components:
         token:
           type: string
       type: object
+    BuildIds:
+      additionalProperties: false
+      properties:
+        data:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+      type: object
     Callback:
       additionalProperties: false
       properties:
@@ -102,6 +110,14 @@ components:
         workflow_id:
           type: string
       type: object
+    Data:
+      additionalProperties: false
+      properties:
+        data:
+          type: string
+        metadata:
+          $ref: '#/components/schemas/Metadata'
+      type: object
     DecodedWorkflowSearchAttributes:
       type: object
     Duration:
@@ -111,6 +127,46 @@ components:
           type: integer
         seconds:
           type: integer
+      type: object
+    Execution:
+      additionalProperties: false
+      properties:
+        runId:
+          type: string
+        workflowId:
+          type: string
+      type: object
+    ExecutionInfo:
+      additionalProperties: false
+      properties:
+        closeTime:
+          type: string
+        execution:
+          $ref: '#/components/schemas/Execution'
+        executionDuration:
+          type: string
+        executionTime:
+          type: string
+        historyLength:
+          type: string
+        historySizeBytes:
+          type: string
+        memo:
+          $ref: '#/components/schemas/Memo'
+        rootExecution:
+          $ref: '#/components/schemas/Execution'
+        searchAttributes:
+          $ref: '#/components/schemas/SearchAttributes'
+        startTime:
+          type: string
+        stateTransitionCount:
+          type: string
+        status:
+          type: string
+        taskQueue:
+          type: string
+        type:
+          $ref: '#/components/schemas/Type'
       type: object
     ExportData:
       additionalProperties: false
@@ -147,6 +203,16 @@ components:
           type: string
         stackTrace:
           type: string
+      type: object
+    Fields:
+      additionalProperties: false
+      properties:
+        author:
+          $ref: '#/components/schemas/Data'
+        standard:
+          $ref: '#/components/schemas/Data'
+        test:
+          $ref: '#/components/schemas/Data'
       type: object
     GenerateApiKeyRequest:
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/generate-api-key-request
@@ -210,6 +276,12 @@ components:
         workflowExecutionInfo:
           $ref: '#/components/schemas/WorkflowExecutionInfo'
       type: object
+    IndexedFields:
+      additionalProperties: false
+      properties:
+        BuildIds:
+          $ref: '#/components/schemas/BuildIds'
+      type: object
     ListMyCheckRunsResponse:
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/list-my-check-runs-response
       $schema: https://json-schema.org/draft/2020-12/schema
@@ -227,16 +299,14 @@ components:
       properties:
         executions:
           items:
-            $ref: '#/components/schemas/WorkflowExecution'
+            $ref: '#/components/schemas/ExecutionInfo'
           type: array
       type: object
     Memo:
       additionalProperties: false
       properties:
         fields:
-          additionalProperties:
-            $ref: '#/components/schemas/Payload'
-          type: object
+          $ref: '#/components/schemas/Fields'
       type: object
     MessageState:
       additionalProperties: false
@@ -244,6 +314,14 @@ components:
         details:
           type: string
         state:
+          type: string
+      type: object
+    Metadata:
+      additionalProperties: false
+      properties:
+        encoding:
+          type: string
+        type:
           type: string
       type: object
     MostRecentWorkflowVersionStamp:
@@ -370,6 +448,12 @@ components:
         workflow_id:
           type: string
       type: object
+    SearchAttributes:
+      additionalProperties: false
+      properties:
+        indexedFields:
+          $ref: '#/components/schemas/IndexedFields'
+      type: object
     TaskQueue:
       additionalProperties: false
       properties:
@@ -396,6 +480,12 @@ components:
         status:
           type: string
         time:
+          type: string
+      type: object
+    Type:
+      additionalProperties: false
+      properties:
+        name:
           type: string
       type: object
     UserMetadata:
