@@ -49,7 +49,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function getUseCaseVerificationCopyText(useCaseVerification: UseCasesVerificationsResponse) {
 		const organizationName =
-			organization?.canonified_name || organization?.name || 'Unknown Organization';
+			organization?.canonified_name ||
+			organization?.name ||
+			organizationId ||
+			'Unknown Organization';
 		const verifierName = verifier.canonified_name || verifier.name || 'Unknown Verifier';
 		const useCaseName =
 			useCaseVerification.canonified_name ||

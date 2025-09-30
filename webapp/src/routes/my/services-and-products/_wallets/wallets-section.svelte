@@ -74,7 +74,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function getWalletActionCopyText(actionUid: string, wallet: WalletsResponse) {
 		const organizationName =
-			organization?.canonified_name || organization?.name || 'Unknown Organization';
+			organization?.canonified_name ||
+			organization?.name ||
+			organizationId ||
+			'Unknown Organization';
 		const walletName = wallet.canonified_name || wallet.name || 'Unknown Wallet';
 
 		return `${organizationName}/${walletName}/${actionUid}`;

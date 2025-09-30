@@ -55,7 +55,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		credentialIssuer: CredentialIssuersResponse
 	) {
 		const organizationName =
-			organization?.canonified_name || organization?.name || 'Unknown Organization';
+			organization?.canonified_name ||
+			organization?.name ||
+			organizationId ||
+			'Unknown Organization';
 		const credentialIssuerName =
 			credentialIssuer.canonified_name ||
 			credentialIssuer.name ||
