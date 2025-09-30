@@ -263,7 +263,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				fmt.Sprintf("expected map[string]any, got %T", result.Output),
 			).JSON(e)
 		}
-		issuerName, ok := issuerOutput["name"].(string)
+		issuerName, ok := issuerOutput["issuerName"].(string)
 		if !ok || issuerName == "" {
 			issuerName = parsedURL.Hostname()
 		}
@@ -271,7 +271,6 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		logoURL, ok := issuerOutput["logo"].(string)
 		if ok {
 			logo = logoURL
-
 		}
 		record.Set("name", issuerName)
 		record.Set("logo_url", logo)
