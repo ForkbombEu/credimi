@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type { IconComponent } from '@/components/types';
-	import type { WalletsResponse } from '@/pocketbase/types';
+	import type { OrganizationsResponse, WalletsResponse } from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
 	import { RecordCreate, RecordDelete, RecordEdit } from '@/collections-components/manager';
@@ -42,13 +42,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		organizationId?: string;
+		organization?: OrganizationsResponse;
 		workflows?: WorkflowExecution[];
 		id?: string;
 	};
 
-	let { organizationId, id }: Props = $props();
-
-	//
+	let { organizationId, organization, id }: Props = $props();
 
 	let expandedDescriptions = $state(new Set<string>());
 
@@ -73,13 +72,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		expandedDescriptions = new Set(expandedDescriptions);
 	}
 
-	function getWalletYaml(actionUid: string, wallet: WalletsResponse) {
-		return [
-			`uid: ${actionUid}`,
-			`google_app_id: ${wallet.google_app_id}`,
-			`apple_app_id: ${wallet.apple_app_id}`
-		].join('\n');
+	function getWalletActionCopyText(actionUid: string, wallet: WalletsResponse) {
+		const organizationName =
+			organization?.canonified_name ||
+			organization?.name ||
+			organizationId ||
+			'Unknown Organization';
+		const walletName = wallet.canonified_name || wallet.name || 'Unknown Wallet';
+
+		return `${organizationName}/${walletName}/${actionUid}`;
 	}
+
+	const copyWalletActionTooltipText = `${m.Copy()} ${m.Organization()}/${m.Wallet()}/${m.Actions()}`;
 </script>
 
 <CollectionManager
@@ -363,11 +367,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<div class="flex items-center gap-1">
 								<Tooltip>
 									<CopyButtonSmall
-										textToCopy={getWalletYaml(record.uid, props.wallet)}
+										textToCopy={getWalletActionCopyText(
+											record.uid,
+											props.wallet
+										)}
 										square
 									/>
 									{#snippet content()}
-										<p>{m.Copy_UID_and_apps_IDs()}</p>
+										<p>{copyWalletActionTooltipText}</p>
 									{/snippet}
 								</Tooltip>
 								<RecordEdit
