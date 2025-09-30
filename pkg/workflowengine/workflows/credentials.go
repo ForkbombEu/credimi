@@ -259,7 +259,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			"url": fmt.Sprintf(
 				"%s/%s",
 				appURL,
-				"api/credentials_issuers/cleanup_credentials",
+				"api/credentials_issuers/cleanup-credentials",
 			),
 			"body": map[string]any{
 				"issuerID":  issuerID,
