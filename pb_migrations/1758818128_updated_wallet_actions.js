@@ -5,7 +5,7 @@ migrate((app) => {
   // update collection data
   unmarshal({
     "indexes": [
-      "CREATE UNIQUE INDEX `idx_FV3PchKuqM` ON `wallet_actions` (`owner`, `uid`, `wallet`)",
+      "CREATE UNIQUE INDEX `idx_FV3PchKuqM` ON `wallet_actions` (`owner`, `wallet`)",
       "CREATE UNIQUE INDEX `idx_QSuTX94q9T` ON `wallet_actions` (`wallet`,`canonified_name`)"
     ]
   }, collection)
