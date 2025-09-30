@@ -75,7 +75,6 @@ func setupTestAppWithData(orgID string, setupData TestSetupData) func(t testing.
 			issuerRecord := core.NewRecord(issuerCollection)
 			if setupData.IssuerID != "" {
 				issuerRecord.Set("id", setupData.IssuerID)
-
 			}
 			issuerRecord.Set("url", "https://test-issuer.example.com")
 			issuerRecord.Set("name", "Test Issuer")
