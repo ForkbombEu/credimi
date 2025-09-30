@@ -24,6 +24,7 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.DeepLinkRoutes,
 	handlers.PipelineRoutes,
 	handlers.WorkflowsRoutes,
+	handlers.CanonifyRoutes,
 }
 
 func RegisterMyRoutes(app core.App) {

@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { OrganizationsResponse } from '@/pocketbase/types';
+
 	import { CollectionManager } from '@/collections-components';
 	import { m } from '@/i18n';
 
@@ -15,10 +17,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		organizationId: string;
+		organization?: OrganizationsResponse;
 		id?: string;
 	};
 
-	let { organizationId, id }: Props = $props();
+	let { organizationId, organization, id }: Props = $props();
 </script>
 
 <CollectionManager
@@ -47,6 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					bind:verifier={records[index]}
 					{useCasesVerifications}
 					{organizationId}
+					{organization}
 				/>
 			{/each}
 		</div>
