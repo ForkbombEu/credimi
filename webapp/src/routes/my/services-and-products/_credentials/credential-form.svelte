@@ -69,6 +69,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	collection="credentials"
 	recordId={credential?.id}
 	initialData={credential}
+	schemaContext={{
+		parentId: credentialIssuer.id,
+		excludeId: credential?.id
+	}}
 	uiOptions={{
 		hide: ['submit_button', 'error']
 	}}

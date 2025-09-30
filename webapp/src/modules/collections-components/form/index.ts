@@ -5,6 +5,6 @@
 import type { CollectionFormOptions } from './collectionFormTypes';
 
 import CollectionForm from './collectionForm.svelte';
-import { removeEmptyValues } from './collectionFormSetup';
+import { removeEmptyValues, setupCollectionForm } from './collectionFormSetup';
 
-export { CollectionForm, type CollectionFormOptions, removeEmptyValues };
+export { CollectionForm, removeEmptyValues, setupCollectionForm, type CollectionFormOptions };

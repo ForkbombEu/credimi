@@ -17,7 +17,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
-	import { RecordCreate, RecordDelete, RecordEdit } from '@/collections-components/manager';
+	import {
+		RecordClone,
+		RecordCreate,
+		RecordDelete,
+		RecordEdit
+	} from '@/collections-components/manager';
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -264,7 +269,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{/snippet}
 
-				{#snippet records({ records: credentials })}
+				{#snippet records({ records: credentials, reloadRecords })}
 					<ul class="space-y-2">
 						{#each credentials as credential}
 							<li
@@ -308,11 +313,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											updateCredentialPublished(credential, value)}
 									/>
 
+									{#if !credential.imported}
+										<RecordClone
+											collectionName="credentials"
+											record={credential}
+											onSuccess={reloadRecords}
+										/>
+									{/if}
+
 									<EditCredentialDialog
 										{credential}
 										credentialIssuer={record}
 										onSuccess={onEditSuccess}
 									/>
+
+									<RecordDelete record={credential}>
+										{#snippet button({ triggerAttributes, icon: Icon })}
+											<Button
+												variant="outline"
+												size="icon"
+												{...triggerAttributes}
+											>
+												<Icon />
+											</Button>
+										{/snippet}
+									</RecordDelete>
 								</div>
 							</li>
 						{/each}
