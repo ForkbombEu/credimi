@@ -91,8 +91,7 @@ type IssuerCleanupCredentialsRequest struct {
 
 // HandleCredentialIssuerStartCheck handles the /start-check endpoint for credential issuers.
 // It is expected that the request body will contain the URL of the credential issuer.
-// The handler will check if the credential issuer exists or not, if it does not exist, it will start the workflow to create the credential issuer.
-// If the credential issuer exists, the handler will return the workflow URL and the credential issuer URL.
+// The handler will check if the credential issuer exists or not.
 // If the handler fails to start the workflow, it will return an error with the status code 500.
 // If the handler fails to save the credential issuer, it will return an error with the status code 500.
 // The response will contain the credential issuer URL and the workflow URL in a JSON object.
