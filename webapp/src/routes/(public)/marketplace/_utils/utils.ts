@@ -55,6 +55,7 @@ export type MarketplaceItem = {
 	updated: string;
 	organization_id: string;
 	organization_name: string;
+	children: { id: string; name: string }[] | null;
 };
 
 /* -- Marketplace item type mapping to display data -- */
