@@ -410,7 +410,7 @@ func (w *EudiwWorkflow) Start(
 		TaskQueue:                EudiwTaskQueue,
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
-	namespace := "default"
+	namespace := DefaultNamespace
 	if input.Config["namespace"] != nil {
 		namespace = input.Config["namespace"].(string)
 	}

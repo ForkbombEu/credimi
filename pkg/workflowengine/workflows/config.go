@@ -30,3 +30,5 @@ var DefaultActivityOptions = workflow.ActivityOptions{
 	StartToCloseTimeout:    time.Minute * 5,
 	RetryPolicy:            retryPolicy,
 }
+
+var DefaultNamespace = "default"

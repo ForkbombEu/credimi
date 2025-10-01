@@ -106,7 +106,6 @@ func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *
 	if err := w.Run(shutdownCh); err != nil {
 		log.Printf("Failed to start worker for %s: %v", config.TaskQueue, err)
 	}
-
 }
 
 func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
@@ -114,7 +113,10 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 	w := worker.New(c, pipeline.PipelineTaskQueue, worker.Options{})
 
 	pipelineWf := &pipeline.PipelineWorkflow{}
-	w.RegisterWorkflowWithOptions(pipelineWf.Workflow, workflow.RegisterOptions{Name: pipelineWf.Name()})
+	w.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
 
 	for _, step := range registry.Registry {
 		switch step.Kind {
@@ -135,7 +137,6 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 	if err := w.Run(shutdownCh); err != nil {
 		log.Printf("Failed to start worker for %s: %v", pipeline.PipelineTaskQueue, err)
 	}
-
 }
 
 var workerCancels sync.Map
@@ -268,7 +269,6 @@ func StartAllWorkersByNamespace(namespace string) {
 		<-ctx.Done()
 		log.Printf("Workers for namespace %s stopped", namespace)
 	}()
-
 }
 
 func StopAllWorkersByNamespace(namespace string) {

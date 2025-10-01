@@ -192,7 +192,10 @@ func (w *WalletWorkflow) Workflow(
 		}).Get(ctx, &jsonResult)
 		if err != nil {
 			logger.Error("ParseJSON failed", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 		metadata, ok = jsonResult.Output.(map[string]any)
 		if !ok {
@@ -202,7 +205,10 @@ func (w *WalletWorkflow) Workflow(
 				fmt.Sprintf("%s: output", json.Name()),
 				jsonResult.Output,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 	}
 
