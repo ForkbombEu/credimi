@@ -18,9 +18,12 @@ var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.ConformanceRoutes,
 	handlers.TemplateRoutes,
-	IssuersRoutes,
-	DeepLinkRoutes,
+	handlers.IssuersRoutes,
+	handlers.IssuerTemporalInternalRoutes,
+	handlers.WalletRoutes,
+	handlers.DeepLinkRoutes,
 	handlers.PipelineRoutes,
+	handlers.WorkflowsRoutes,
 	handlers.CanonifyRoutes,
 }
 
