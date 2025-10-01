@@ -21,7 +21,7 @@ services:
       - SCHEMAS_PATH=schemas
       - SMTP_HOST=smtp.apps.forkbomb.eu
       - SMTP_PORT=1025
-      - TEMPORAL_ADDRESS=localhost:7233
+      - TEMPORAL_ADDRESS=temporal:7233
       - PORT=5100
     ports:
       - 8090:8090
@@ -31,6 +31,8 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     devices:
       - "/dev/kvm:/dev/kvm"
+    networks:
+      - temporal-network
   elasticsearch:
     container_name: temporal-elasticsearch
     environment:
