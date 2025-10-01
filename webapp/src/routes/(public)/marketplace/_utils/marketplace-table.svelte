@@ -5,6 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ComponentProps } from 'svelte';
+
+	import { X } from 'lucide-svelte';
+
 	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
 
 	import { CollectionTable } from '@/collections-components/manager';
@@ -13,11 +17,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { snippets } from './marketplace-table-snippets.svelte';
 	import TableRowAfter from './table-row-after.svelte';
 	import {
-		getIssuerItemCredentials,
 		getMarketplaceItemTypeData,
-		getVerifierItemUseCases,
 		isCredentialIssuer,
-		isVerifier
+		isVerifier,
+		type MarketplaceItem
 	} from './utils';
 
 	type Props = {
@@ -25,6 +28,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { records }: Props = $props();
+
+	/* Row after data */
+
+	/**
+	  Note: We cannot use an if to render conditionally.
+	  We must always render the TR in order for it to get the correct width.
+	  Then, we hide it with a 'hidden' class
+	*/
+
+	type RowAfterProps = ComponentProps<typeof TableRowAfter>;
+
+	// Dummy row data
+	const dummyRowAfterProps: RowAfterProps = {
+		items: [],
+		title: '',
+		icon: X,
+		show: false
+	};
+
+	function getRowAfterProps(record: MarketplaceItemsResponse): RowAfterProps {
+		if (!isCredentialIssuer(record) && !isVerifier(record)) return dummyRowAfterProps;
+		const children = (record as MarketplaceItem).children ?? [];
+		return {
+			items: children.map((r) => ({
+				title: r.name,
+				href: `/marketplace/${record.type === 'credential_issuers' ? 'credentials' : 'use_cases_verifications'}/${r.id}`
+			})),
+			title:
+				record.type === 'credential_issuers' ? m.Credentials() : m.Verification_use_cases(),
+			icon: getMarketplaceItemTypeData(record.type as MarketplaceItem['type']).display.icon,
+			show: true
+		};
+	}
 </script>
 
 <CollectionTable
@@ -41,33 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	headerClass="bg-background z-10"
 >
 	{#snippet rowAfter({ record })}
-		<!-- 
-		Note: instead of using an if to render conditionally
-		We must render the TR no matter what
-		in order for it to get the correct width
-		And we hide it with a 'hidden' class
-		  -->
-		<TableRowAfter
-			linksPromise={getIssuerItemCredentials(record).then((res) =>
-				res.map((r) => ({
-					title: r.display_name,
-					href: `/marketplace/credentials/${r.id}`
-				}))
-			)}
-			title={m.Credentials()}
-			icon={getMarketplaceItemTypeData('credentials').display.icon}
-			show={isCredentialIssuer(record)}
-		/>
-		<TableRowAfter
-			linksPromise={getVerifierItemUseCases(record).then((res) =>
-				res.map((r) => ({
-					title: r.name,
-					href: `/marketplace/use_cases_verifications/${r.id}`
-				}))
-			)}
-			title={m.Verification_use_cases()}
-			icon={getMarketplaceItemTypeData('use_cases_verifications').display.icon}
-			show={isVerifier(record)}
-		/>
+		{@const props = getRowAfterProps(record)}
+		<TableRowAfter {...props} />
 	{/snippet}
 </CollectionTable>
