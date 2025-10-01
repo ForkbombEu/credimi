@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		mode: {
 			encode: (value) => value,
-			decode: (value) => (value === 'grid' ? 'grid' : 'table')
+			decode: (value) => (value === 'cards' ? 'cards' : 'table')
 		}
 	});
 
@@ -109,17 +109,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet records({ records })}
-		{#if params.mode === 'table'}
-			<div in:fly={{ y: 10 }}>
-				<MarketplaceTable {records} />
-			</div>
-		{:else}
+		{#if params.mode === 'cards'}
 			<div in:fly={{ y: 10 }}>
 				<PageGrid>
 					{#each records as record (record.id)}
 						<MarketplaceItemCard item={record} />
 					{/each}
 				</PageGrid>
+			</div>
+		{:else}
+			<div in:fly={{ y: 10 }}>
+				<MarketplaceTable {records} />
 			</div>
 		{/if}
 	{/snippet}
@@ -183,11 +183,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</span>
 		{@render viewSwitcherLink('table')}
 		<span>/</span>
-		{@render viewSwitcherLink('card')}
+		{@render viewSwitcherLink('cards')}
 	</div>
 {/snippet}
 
-{#snippet viewSwitcherLink(mode: 'table' | 'card')}
+{#snippet viewSwitcherLink(mode: typeof params.mode)}
 	<a
 		href="/marketplace?mode={mode}"
 		class={[
