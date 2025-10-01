@@ -56,7 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div>
 		<QrGenerationField
 			{form}
-			fieldName="yaml"
+			fieldName="deeplink"
 			label={m.YAML_Configuration()}
 			description={m.Provide_configuration_in_YAML_format()}
 			placeholder={m.Run_the_code_to_generate_QR_code()}
