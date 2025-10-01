@@ -7,6 +7,7 @@ package workflows
 import (
 	"fmt"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -49,9 +50,81 @@ func (w *CustomCheckWorkflow) Workflow(
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
+	yaml, ok := input.Payload["yaml"].(string)
+	if !ok || yaml == "" {
+		id, ok := input.Payload["id"].(string)
+		if !ok || id == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+				"id or yaml",
+				runMetadata,
+			)
+		}
+		var HTTPActivity = activities.NewHTTPActivity()
+		var HTTPResponse workflowengine.ActivityResult
+		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), workflowengine.ActivityInput{
+			Payload: map[string]any{
+				"method": "POST",
+				"url": fmt.Sprintf(
+					"%s/%s",
+					input.Config["app_url"].(string),
+					"api/canonify/identifier/validate",
+				),
+				"body": map[string]any{
+					"canonified_name": id,
+				},
+				"expected_status": 200,
+			},
+		}).Get(ctx, &HTTPResponse)
+		if err != nil {
+			logger.Error(HTTPActivity.Name(), "error", err)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		}
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		output, ok := HTTPResponse.Output.(map[string]any)
+		if !ok {
+			appErr := workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("%s: invalid output format", errCode.Description),
+				HTTPResponse.Output,
+			)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		}
+
+		body, ok := output["body"].(map[string]any)
+		if !ok {
+			appErr := workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("%s: missing body in output", errCode.Description),
+				output,
+			)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		}
+
+		record, ok := body["record"].(map[string]any)
+		if !ok {
+			appErr := workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("%s: missing record in body", errCode.Description),
+				body,
+			)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		}
+
+		yaml, ok = record["yaml"].(string)
+		if !ok || yaml == "" {
+			appErr := workflowengine.NewAppError(
+				errCode,
+				"missing yaml in custom check record",
+				record,
+			)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		}
+		input.Payload["yaml"] = yaml
+	}
+
 	stepCIInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
-			"yaml": input.Payload["yaml"],
+			"yaml": yaml,
 			"env":  input.Config["env"],
 		},
 	}

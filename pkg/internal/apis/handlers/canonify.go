@@ -20,7 +20,7 @@ type IdentifierValidateRequest struct {
 
 var CanonifyRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/canonify",
-	AuthenticationRequired: true,
+	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
 		{Func: middlewares.ErrorHandlingMiddleware},
 	},
