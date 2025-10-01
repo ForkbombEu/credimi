@@ -1,0 +1,271 @@
+<!--
+SPDX-FileCopyrightText: 2025 Forkbomb BV
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
+<script lang="ts">
+	import type { SuperForm } from 'sveltekit-superforms';
+
+	import { generateDeeplinkFromYaml } from '$lib/utils';
+	import { onMount } from 'svelte';
+	import { fromStore } from 'svelte/store';
+	import { stringProxy } from 'sveltekit-superforms';
+
+	import { CodeEditorField } from '@/forms/fields';
+	import { m } from '@/i18n';
+	import QrStateful from '@/qr/qr-stateful.svelte';
+
+	//
+
+	interface StructuredError {
+		summary: string;
+		link?: string;
+		fullMessage: string;
+	}
+
+	interface Props {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		form: SuperForm<any>;
+		fieldName: string;
+		label?: string;
+		description?: string;
+		placeholder?: string;
+		successMessage?: string;
+		loadingMessage?: string;
+		enableStructuredErrors?: boolean;
+	}
+
+	let {
+		form,
+		fieldName,
+		label = m.YAML_Configuration(),
+		description = m.Provide_configuration_in_YAML_format(),
+		placeholder = m.Run_the_code_to_generate_QR_code(),
+		successMessage = m.Test_Completed_Successfully(),
+		loadingMessage = m.Running_test(),
+		enableStructuredErrors = true
+	}: Props = $props();
+
+	const fieldProxy = fromStore(stringProxy(form, fieldName, { empty: 'undefined' }));
+
+	onMount(() => {
+		if (fieldProxy.current && fieldProxy.current.trim()) {
+			startWorkflowTest(fieldProxy.current);
+		}
+	});
+
+	$effect(() => {
+		if (fieldProxy.current) {
+			workflowError = undefined;
+		}
+	});
+
+	//
+
+	let workflowError = $state<string | StructuredError>();
+	let isSubmittingWorkflow = $state(false);
+	let generatedDeeplink = $state<string>();
+	let workflowSteps = $state<unknown[]>();
+	let workflowOutput = $state<unknown[]>();
+
+	function parseError(error: unknown): string | StructuredError {
+		if (!enableStructuredErrors) {
+			return error instanceof Error ? error.message : String(error);
+		}
+
+		try {
+			const errorObj = error as Record<string, unknown>;
+			const nestedDetails = (errorObj?.response as Record<string, unknown>)
+				?.details as Record<string, unknown>;
+			if (nestedDetails?.summary && nestedDetails?.link) {
+				return {
+					summary: String(nestedDetails.summary),
+					link: String(nestedDetails.link),
+					fullMessage: String(nestedDetails.message || nestedDetails.summary)
+				};
+			}
+
+			const directDetails = errorObj?.details as Record<string, unknown>;
+			if (directDetails?.summary && directDetails?.link) {
+				return {
+					summary: String(directDetails.summary),
+					link: String(directDetails.link),
+					fullMessage: String(directDetails.message || directDetails.summary)
+				};
+			}
+
+			return error instanceof Error ? error.message : String(error);
+		} catch {
+			return error instanceof Error ? error.message : String(error);
+		}
+	}
+
+	async function startWorkflowTest(yamlContent: string) {
+		if (!yamlContent?.trim()) {
+			workflowError = 'YAML configuration is required';
+			return;
+		}
+
+		isSubmittingWorkflow = true;
+		// Clear previous results
+		generatedDeeplink = undefined;
+		workflowSteps = undefined;
+		workflowOutput = undefined;
+		workflowError = undefined;
+
+		try {
+			const result = await generateDeeplinkFromYaml(yamlContent);
+			generatedDeeplink = result.deeplink;
+			workflowSteps = result.steps;
+			workflowOutput = result.output;
+		} catch (error) {
+			workflowError = parseError(error);
+		} finally {
+			isSubmittingWorkflow = false;
+		}
+	}
+
+	function getStepName(step: unknown, fallback: string): string {
+		if (step && typeof step === 'object' && step !== null) {
+			const obj = step as Record<string, unknown>;
+			if (typeof obj.name === 'string') {
+				return obj.name;
+			}
+		}
+		return fallback;
+	}
+
+	const editorOutput = $derived(() => {
+		if (isSubmittingWorkflow) {
+			return loadingMessage;
+		}
+
+		if (workflowError) {
+			return ''; // Error will be shown via the error prop
+		}
+
+		if (!generatedDeeplink && !workflowSteps && !workflowOutput) {
+			return '';
+		}
+
+		let output = '';
+
+		if (generatedDeeplink) {
+			output += `✅ ${successMessage}\n\n`;
+			output += `🔗 Generated Deeplink:\n${generatedDeeplink}\n\n`;
+		}
+
+		if (workflowSteps && workflowSteps.length > 0) {
+			output += `📋 Workflow Execution Summary:\n`;
+			output += `   Total Steps: ${workflowSteps.length}\n`;
+			workflowSteps.forEach((step, index) => {
+				const stepName = getStepName(step, `Step ${index + 1}`);
+				const stepObj = step as Record<string, unknown>;
+				const status = stepObj.status || stepObj.result || '✓';
+				output += `   ${index + 1}. ${stepName} - ${status}\n`;
+			});
+			output += '\n';
+		}
+
+		if (workflowOutput && workflowOutput.length > 0) {
+			output += `🧪 Test Results Summary:\n`;
+			output += `   Total Tests: ${workflowOutput.length}\n`;
+			workflowOutput.forEach((test, index) => {
+				const testName = getStepName(test, `Test ${index + 1}`);
+				const testObj = test as Record<string, unknown>;
+				const status = testObj.status || testObj.result || 'PASSED';
+				output += `   ${index + 1}. ${testName} - ${status}\n`;
+			});
+			output += '\n';
+		}
+
+		if (workflowOutput && workflowOutput.length > 0) {
+			output += `📊 Detailed Results:\n`;
+			output += JSON.stringify({ steps: workflowSteps, output: workflowOutput }, null, 2);
+		}
+
+		return output;
+	});
+
+	// Helper function for code editor error display
+	const codeEditorErrorDisplay = $derived(() => {
+		if (typeof workflowError === 'string') {
+			return workflowError;
+		}
+		if (workflowError && typeof workflowError === 'object' && 'summary' in workflowError) {
+			let errorMessage = `❌ ${workflowError.summary}`;
+			if (workflowError.link) {
+				errorMessage += `\n\n🔗 View detailed workflow information:\n${workflowError.link}`;
+			}
+			return errorMessage;
+		}
+		return undefined;
+	});
+</script>
+
+{#snippet error()}
+	{#if workflowError && typeof workflowError === 'object' && 'summary' in workflowError}
+		{@const error = workflowError as StructuredError}
+		<div class="space-y-2 text-center">
+			<div class="text-sm font-medium">{error.summary}</div>
+			{#if error.link}
+				<div>
+					<a
+						href={error.link}
+						target="_blank"
+						class="text-xs text-blue-600 underline hover:text-blue-800"
+					>
+						{m.View_workflow_details()}
+					</a>
+				</div>
+			{/if}
+		</div>
+	{/if}
+{/snippet}
+
+<div class="flex max-w-full gap-4">
+	<div class="w-0 grow">
+		<CodeEditorField
+			{form}
+			name={fieldName}
+			options={{
+				lang: 'yaml',
+				minHeight: 200,
+				label,
+				description,
+				useOutput: true,
+				output: editorOutput(),
+				error: codeEditorErrorDisplay(),
+				running: isSubmittingWorkflow,
+				onRun: startWorkflowTest
+			}}
+		/>
+	</div>
+
+	<div>
+		<QrStateful
+			src={generatedDeeplink}
+			class="size-60 rounded-md border"
+			{placeholder}
+			bind:isLoading={isSubmittingWorkflow}
+			error={typeof workflowError === 'string' ? workflowError : undefined}
+			hasStructuredError={!!(
+				workflowError &&
+				typeof workflowError === 'object' &&
+				'summary' in workflowError
+			)}
+		>
+			{#if workflowError && typeof workflowError === 'object' && 'summary' in workflowError}
+				{@render error()}
+			{/if}
+		</QrStateful>
+		{#if generatedDeeplink}
+			<div class="max-w-60 break-all pt-4 text-xs">
+				<a class="hover:underline" href={generatedDeeplink} target="_self">
+					{generatedDeeplink}
+				</a>
+			</div>
+		{/if}
+	</div>
+</div>
