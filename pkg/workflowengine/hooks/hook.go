@@ -220,6 +220,7 @@ func StartAllWorkersByNamespace(namespace string) {
 			},
 			Activities: []workflowengine.ExecutableActivity{
 				activities.NewStepCIWorkflowActivity(),
+				activities.NewHTTPActivity(),
 			},
 		},
 		{
