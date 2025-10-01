@@ -9,21 +9,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type {
 		CredentialsResponse,
+		OrganizationsResponse,
 		UseCasesVerificationsResponse,
 		VerifiersResponse
 	} from '@/pocketbase/types';
 
 	import {
 		CollectionManager,
+		RecordClone,
 		RecordCreate,
 		RecordDelete,
 		RecordEdit
 	} from '@/collections-components/manager';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
+	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
@@ -36,12 +40,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		verifier: VerifiersResponse;
 		useCasesVerifications: UseCasesVerificationsResponse[];
 		organizationId: string;
+		organization?: OrganizationsResponse;
 	};
 
-	let { verifier = $bindable(), organizationId }: Props = $props();
+	let { verifier = $bindable(), organizationId, organization }: Props = $props();
 	const avatarSrc = $derived(pb.files.getURL(verifier, verifier.logo));
 
 	//
+
+	function getUseCaseVerificationCopyText(useCaseVerification: UseCasesVerificationsResponse) {
+		const organizationName =
+			organization?.canonified_name ||
+			organization?.name ||
+			organizationId ||
+			'Unknown Organization';
+		const verifierName = verifier.canonified_name || verifier.name || 'Unknown Verifier';
+		const useCaseName =
+			useCaseVerification.canonified_name ||
+			useCaseVerification.name ||
+			'Unknown Use Case Verification';
+
+		return `${organizationName}/${verifierName}/${useCaseName}`;
+	}
 
 	async function updatePublished(recordId: string, published: boolean) {
 		const res = await pb.collection('verifiers').update(recordId, { published });
@@ -59,8 +79,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onSuccess();
 	}
 
-	//
-
 	function credentialsPreviewString(credentials: CredentialsResponse[]): string | undefined {
 		if (credentials.length === 0) return undefined;
 		let preview = '';
@@ -73,6 +91,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 		return preview;
 	}
+
+	const copyUseCaseVerificationTooltipText = `${m.Copy()} ${m.Organization()}/${m.Verifier()}/${m.Use_case_verification()}`;
 </script>
 
 <Card class="bg-card" contentClass="space-y-4 p-4">
@@ -146,6 +166,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</div>
 
 						<div class="flex items-center gap-1">
+							<Tooltip>
+								<CopyButtonSmall
+									textToCopy={getUseCaseVerificationCopyText(useCaseVerification)}
+									square
+								/>
+								{#snippet content()}
+									<p>{copyUseCaseVerificationTooltipText}</p>
+								{/snippet}
+							</Tooltip>
+
 							<SwitchWithIcons
 								offIcon={EyeOff}
 								onIcon={Eye}
@@ -158,6 +188,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										!useCaseVerification.published,
 										reloadRecords
 									)}
+							/>
+							<RecordClone
+								collectionName="use_cases_verifications"
+								record={useCaseVerification}
+								onSuccess={reloadRecords}
 							/>
 							<RecordEdit record={useCaseVerification}>
 								{#snippet button({ triggerAttributes, icon })}

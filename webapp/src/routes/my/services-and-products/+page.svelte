@@ -20,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 	const organizationId = $derived(data.organization?.id ?? '');
+	const organization = $derived(data.organization);
 
 	//
 
@@ -47,19 +48,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 	<div class="grow space-y-12 self-stretch md:self-start">
 		<div class="space-y-4">
-			<CredentialIssuerSection {organizationId} id={tableOfContents[0].anchor} />
+			<CredentialIssuerSection
+				{organizationId}
+				{organization}
+				id={tableOfContents[0].anchor}
+			/>
 		</div>
 
 		<div class="space-y-4">
 			<WalletsSection
 				{organizationId}
+				{organization}
 				workflows={data.workflows}
 				id={tableOfContents[1].anchor}
 			/>
 		</div>
 
 		<div class="space-y-4">
-			<VerifiersSection {organizationId} id={tableOfContents[2].anchor} />
+			<VerifiersSection {organizationId} {organization} id={tableOfContents[2].anchor} />
 		</div>
 	</div>
 </div>

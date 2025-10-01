@@ -15,6 +15,7 @@ import (
 	"net/url"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apis"
+	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -60,11 +61,8 @@ func Setup(app *pocketbase.PocketBase) {
 	canonify.RegisterCanonifyHooks(app)
 	apis.HookAtUserCreation(app)
 	apis.HookAtUserLogin(app)
-	apis.HookStartScheduledWorkflow(app)
 	// apis.IssuersRoutes.Add(app)
-	apis.HookCredentialWorkflow(app)
-	apis.HookWalletWorkflow(app)
-	apis.HookUpdateCredentialsIssuers(app)
+	handlers.HookUpdateCredentialsIssuers(app)
 
 	jsvm.MustRegister(app, jsvm.Config{
 		HooksWatch: true,

@@ -723,6 +723,7 @@
 	"Create_credential": "Create credential",
 	"Copy_UID_and_apps_IDs": "Copy UID and apps IDs",
 	"Save": "Save",
+	"Clone": "Clone",
 	"Table": "Table",
 	"Cards": "Cards",
 	"Static": "Static",
@@ -741,5 +742,6 @@
 	"Test_Completed_Successfully": "Test Completed Successfully!",
 	"Provide_configuration_in_YAML_format": "Provide the configuration in YAML format",
 	"Provide_credential_configuration_in_YAML_format": "Provide the credential configuration in YAML format",
-	"openid_credential_offer_placeholder": "e.g. openid-credential-offer://?..."
+	"openid_credential_offer_placeholder": "e.g. openid-credential-offer://?...",
+	"Copy": "Copy"
 }

@@ -57,7 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		autoPopulateError = '';
 
 		try {
-			const response = await pb.send('/wallet/start-check', {
+			const response = await pb.send('api/wallet/start-check', {
 				method: 'POST',
 				body: {
 					WalletURL: autoPopulateUrl.trim()
