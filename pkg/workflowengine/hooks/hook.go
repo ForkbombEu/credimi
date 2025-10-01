@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -25,12 +26,10 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
-	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // WorkersHook sets up a hook for the PocketBase application to
@@ -43,36 +42,22 @@ import (
 //   - app: The PocketBase application instance to which the hook is attached.
 func WorkersHook(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		c, err := client.NewNamespaceClient(client.Options{})
-		if err != nil {
-			log.Fatalln("Unable to create client", err)
-		}
-		defer c.Close()
-
 		namespaces, err := FetchNamespaces(app)
 		if err != nil {
 			log.Fatalf("Failed to fetch namespaces: %v", err)
 		}
-		for _, ns := range namespaces {
-			_, err = c.Describe(context.Background(), ns)
-			if err == nil {
-				go StartAllWorkersByNamespace(ns)
-				continue
-			}
-			var notFound *serviceerror.NamespaceNotFound
-			if !errors.As(err, &notFound) {
-				log.Fatalln("unexpected error while describing namespace", err)
-			}
 
-			err = c.Register(context.Background(), &workflowservice.RegisterNamespaceRequest{
-				Namespace:                        ns,
-				WorkflowExecutionRetentionPeriod: durationpb.New(7 * 24 * time.Hour),
-			})
-			if err != nil {
-				log.Printf("Unable to create namespace %s: %v", ns, err)
+		log.Printf("[WorkersHook] Ensuring %d namespace(s) are ready...", len(namespaces))
+
+		for _, ns := range namespaces {
+			if err := ensureNamespaceReadyWithRetry(ns); err != nil {
+				log.Fatalf("[WorkersHook] Failed to connect to namespace %q: %v", ns, err)
 			}
+			log.Printf("[WorkersHook] Starting workers for namespace %q", ns)
 			go StartAllWorkersByNamespace(ns)
 		}
+
+		log.Printf("[WorkersHook] All namespaces ready, workers started")
 		return se.Next()
 	})
 	app.OnTerminate().BindFunc(func(_ *core.TerminateEvent) error {
@@ -107,6 +92,7 @@ func startWorker(client client.Client, config workerConfig, wg *sync.WaitGroup) 
 		log.Printf("Failed to start worker for %s: %v", config.TaskQueue, err)
 	}
 }
+
 func startPipelineWorker(client client.Client, wg *sync.WaitGroup) {
 	defer wg.Done()
 	w := worker.New(client, pipeline.PipelineTaskQueue, worker.Options{})
@@ -128,12 +114,12 @@ func startPipelineWorker(client client.Client, wg *sync.WaitGroup) {
 				Name: wf.Name(),
 			})
 		}
-
 	}
 	if err := w.Run(worker.InterruptCh()); err != nil {
 		log.Printf("Failed to start worker for %s: %v", pipeline.PipelineTaskQueue, err)
 	}
 }
+
 func StartAllWorkersByNamespace(namespace string) {
 	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 	if err != nil {
@@ -270,9 +256,61 @@ func FetchNamespaces(app *pocketbase.PocketBase) ([]string, error) {
 
 	namespaces := make([]string, 0, len(records)+1)
 	namespaces = append(namespaces, "default")
-	namespaces = append(namespaces, "default")
 	for _, r := range records {
 		namespaces = append(namespaces, r.Id)
 	}
 	return namespaces, nil
+}
+
+func ensureNamespaceReadyWithRetry(namespace string) error {
+	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
+	log.Printf("[WorkersHook] Connecting to Temporal at %s for namespace %q", hostPort, namespace)
+
+	deadline := time.Now().Add(90 * time.Second)
+	attempt := 0
+
+	nc, err := client.NewNamespaceClient(client.Options{
+		HostPort: hostPort,
+		ConnectionOptions: client.ConnectionOptions{
+			TLS: nil,
+		},
+	})
+	if err != nil {
+		return err
+	}
+	defer nc.Close()
+
+	for {
+		attempt++
+		start := time.Now()
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+
+		_, err = nc.Describe(ctx, namespace)
+		cancel()
+		elapsed := time.Since(start)
+
+		if err == nil {
+			log.Printf("[WorkersHook] Namespace %q ready after %d attempt(s) in %v", namespace, attempt, elapsed)
+			return nil
+		}
+
+		var notFound *serviceerror.NamespaceNotFound
+		if errors.As(err, &notFound) {
+			log.Printf("[WorkersHook] Namespace %q not found, will be created later", namespace)
+			return nil
+		}
+
+		log.Printf("[WorkersHook] Attempt %d failed in %v: namespace=%s err=%v", attempt, elapsed, namespace, err)
+
+		if time.Now().After(deadline) {
+			return err
+		}
+
+		backoff := time.Duration(attempt) * time.Second
+		if backoff > 5*time.Second {
+			backoff = 5 * time.Second
+		}
+		log.Printf("[WorkersHook] Sleeping %v before retry...", backoff)
+		time.Sleep(backoff)
+	}
 }
