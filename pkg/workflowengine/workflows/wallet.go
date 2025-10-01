@@ -205,13 +205,6 @@ func (w *WalletWorkflow) Workflow(
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 		}
 	}
-	namespace, ok := input.Config["namespace"].(string)
-	if !ok || namespace == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"namespace",
-			runMetadata,
-		)
-	}
 
 	metadataReady = true
 	// Code to store metdata directly into PB
@@ -260,6 +253,7 @@ func (w *WalletWorkflow) Workflow(
 // Errors:
 //   - Returns an error if the Temporal client cannot be created or if the workflow execution fails.
 func (w *WalletWorkflow) Start(
+	namespace string,
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
@@ -268,5 +262,5 @@ func (w *WalletWorkflow) Start(
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
-	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }

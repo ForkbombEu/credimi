@@ -130,16 +130,11 @@ func NewStepCIOutputError(field string, output any, metadata WorkflowErrorMetada
 }
 
 func StartWorkflowWithOptions(
+	namespace string,
 	options client.StartWorkflowOptions,
 	name string,
 	input WorkflowInput,
 ) (result WorkflowResult, err error) {
-	// Load environment variables.
-
-	namespace := "default"
-	if input.Config["namespace"] != nil {
-		namespace = input.Config["namespace"].(string)
-	}
 	c, err := temporalclient.GetTemporalClientWithNamespace(
 		namespace,
 	)

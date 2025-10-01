@@ -144,11 +144,12 @@ func (w *CustomCheckWorkflow) Workflow(
 }
 
 func (w *CustomCheckWorkflow) Start(
+	namespace string,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "custom" + "-" + uuid.NewString(),
 		TaskQueue: CustomCheckTaskQueque,
 	}
-	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }

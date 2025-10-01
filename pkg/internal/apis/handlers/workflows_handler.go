@@ -53,7 +53,7 @@ func HandleScheduledWorkflowStart() func(*core.RequestEvent) error {
 			return apis.NewBadRequestError("invalid JSON input", err)
 		}
 
-		namespace, err := GetUserOrganizationID(e.App, e.Auth.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -107,12 +107,12 @@ func HandleScheduledWorkflowStart() func(*core.RequestEvent) error {
 
 func HandleListScheduledWorkflows() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		namespace, err := GetUserOrganizationID(e.App, e.Auth.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"organization",
-				"failed to get user organization",
+				"failed to get user organization name",
 				err.Error(),
 			).JSON(e)
 		}
