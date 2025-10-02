@@ -743,5 +743,9 @@
 	"Provide_configuration_in_YAML_format": "Provide the configuration in YAML format",
 	"Provide_credential_configuration_in_YAML_format": "Provide the credential configuration in YAML format",
 	"openid_credential_offer_placeholder": "e.g. openid-credential-offer://?...",
-	"Copy": "Copy"
+	"Copy": "Copy",
+	"Optional": "Optional",
+	"Import_new_credential_issuer": "Import new credential issuer",
+	"import_new_credential_issuer_description": "Import a new credential issuer by providing its URL. This will create a new issuer record, fetch the issuer's well-known metadata and automatically discover available credentials. If the URL already exists in your organization, you'll be given the option to use the existing one.",
+	"importing": "Importing..."
 }
