@@ -50,7 +50,7 @@ export type MarketplaceItem = {
 	type: MarketplaceItemType;
 	name: string;
 	description: string | null;
-	avatar: { [key: string]: unknown; image_file: string } | null;
+	avatar_file: string | null;
 	avatar_url: string | null;
 	updated: string;
 	organization_id: string;
@@ -142,9 +142,9 @@ export function getMarketplaceItemData(item: MarketplaceItem) {
 		item.type === 'custom_checks'
 			? `/my/tests/new?${queryParams.customCheckId}=${item.id}`
 			: localizeHref(`/marketplace/${item.type}/${item.id}`);
-
-	const logo = item.avatar
-		? pb.files.getURL(item.avatar, item.avatar.image_file)
+	
+	const logo = item.avatar_file
+		? pb.files.getURL({ collectionName: item.type, id: item.id }, item.avatar_file)
 		: item.avatar_url
 			? item.avatar_url
 			: undefined;
