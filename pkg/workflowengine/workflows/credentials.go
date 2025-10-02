@@ -26,6 +26,7 @@ import (
 // CredentialsTaskQueue is the task queue for the credentials workflow.
 const (
 	CredentialsTaskQueue       = "CredentialsTaskQueue"
+	CredentialsIssuerDataQuery = "getCredentialsIssuerData"
 	CredentialIssuerSchemaPath = "schemas/credentialissuer/openid-credential-issuer.schema.json"
 	CredentialSchemaPath       = "schemas/credentialissuer/credential_config.schema.json"
 )
@@ -79,6 +80,21 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
+
+	credentialsIssuerDataReady := false
+	var issuerName, logo string
+	var credentialsNumber int
+
+	workflow.SetQueryHandler(ctx, CredentialsIssuerDataQuery, func() (map[string]any, error) {
+		if !credentialsIssuerDataReady {
+			return nil, workflowengine.NotReadyError{}
+		}
+		return map[string]any{
+			"issuerName":        issuerName,
+			"logo":              logo,
+			"credentialsNumber": credentialsNumber,
+		}, nil
+	})
 	baseURL, appURL, issuerSchema, issuerID, err := validateInput(input, runMetadata)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -169,7 +185,6 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		}
 	}
 
-	var logo, issuerName string
 	if displayList, ok := issuerData["display"].([]any); ok && len(displayList) > 0 {
 		if first, ok := displayList[0].(map[string]any); ok {
 			if name, ok := first["name"].(string); ok {
@@ -193,6 +208,9 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
+
+	credentialsNumber = len(credConfigs)
+	credentialsIssuerDataReady = true
 
 	HTTPActivity := activities.NewHTTPActivity()
 	validKeys := []string{}

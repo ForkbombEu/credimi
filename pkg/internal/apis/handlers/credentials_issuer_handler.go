@@ -167,7 +167,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			// Create a new record
 
 			record = core.NewRecord(collection)
-			record.Set("url", req.URL)
+			record.Set("url", parsedURL.String())
 			record.Set("owner", organization)
 			record.Set("imported", true)
 			if err := e.App.Save(record); err != nil {
@@ -251,11 +251,15 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		result, err = workflowengine.WaitForWorkflowResult(
+		issuerResult, err := workflowengine.WaitForPartialResult[map[string]any](
 			c,
 			result.WorkflowID,
 			result.WorkflowRunID,
+			workflows.CredentialsIssuerDataQuery,
+			100*time.Millisecond,
+			1*time.Minute,
 		)
+
 		if err != nil {
 			if isNew {
 				if err := e.App.Delete(record); err != nil {
@@ -276,23 +280,19 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		issuerOutput, ok := result.Output.(map[string]any)
+		issuerName := getStringFromMap(issuerResult, "issuerName")
+		if issuerName == "" {
+			issuerName = parsedURL.Hostname()
+		}
+		logo := getStringFromMap(issuerResult, "logo")
+		credentialsNumber, ok := issuerResult["credentialsNumber"].(float64)
 		if !ok {
 			return apierror.New(
 				http.StatusInternalServerError,
-				"workflow",
-				"failed to parse workflow output",
-				fmt.Sprintf("expected map[string]any, got %T", result.Output),
+				"",
+				"failed to parse credentials number",
+				"unxexpected credentials number format",
 			).JSON(e)
-		}
-		issuerName, ok := issuerOutput["issuerName"].(string)
-		if !ok || issuerName == "" {
-			issuerName = parsedURL.Hostname()
-		}
-		var logo string
-		logoURL, ok := issuerOutput["logo"].(string)
-		if ok {
-			logo = logoURL
 		}
 		record.Set("name", issuerName)
 		record.Set("logo_url", logo)
@@ -319,9 +319,9 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		// 	return err
 		// }
 
-		return e.JSON(http.StatusOK, map[string]string{
-			"credentialIssuerUrl": req.URL,
-			"workflowUrl":         workflowURL,
+		return e.JSON(http.StatusOK, map[string]any{
+			"credentialsNumber": credentialsNumber,
+			"record":            record.FieldsData(),
 		})
 	}
 }
