@@ -747,5 +747,8 @@
 	"Optional": "Optional",
 	"Import_new_credential_issuer": "Import new credential issuer",
 	"import_new_credential_issuer_description": "Import a new credential issuer by providing its URL. This will create a new issuer record, fetch the issuer's well-known metadata and automatically discover available credentials. If the URL already exists in your organization, you'll be given the option to use the existing one.",
-	"importing": "Importing..."
+	"importing": "Importing...",
+	"Credential_issuer_imported_successfully": "Credential issuer imported successfully",
+	"All_credentials_imported_successfully": "All credentials imported successfully",
+	"Importing_credentials": "Importing credentials ({count}/{total})"
 }

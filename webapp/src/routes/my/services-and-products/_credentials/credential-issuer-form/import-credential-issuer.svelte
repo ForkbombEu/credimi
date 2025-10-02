@@ -5,14 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import type { UnsubscribeFunc } from 'pocketbase';
 
 	import { CheckCircle2, Download, Loader2 } from 'lucide-svelte';
+	import { onDestroy, onMount } from 'svelte';
 	import { fromStore } from 'svelte/store';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
 
-	import type { CredentialIssuersResponse } from '@/pocketbase/types';
+	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 
 	import { Alert, AlertDescription } from '@/components/ui/alert';
 	import { createForm, Form, SubmitButton } from '@/forms';
@@ -23,13 +24,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		organizationId: string;
-		currentIssuers?: CredentialIssuersResponse[];
-		after?: Snippet<[{ formState: typeof formState }]>;
-		onImported?: (issuerId: string) => void;
+		onImport?: (issuer: CredentialIssuersResponse) => void;
+		isLoading?: boolean;
 	};
 
-	let { organizationId, currentIssuers = [], after, onImported }: Props = $props();
+	let { onImport, isLoading = $bindable(false) }: Props = $props();
 
 	// //
 
@@ -207,47 +206,58 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	// let isImporting = $state(false);
 
-	let importedIssuer = $state<CredentialIssuersResponse>();
+	/* Credential issuer import */
+
+	type Result = {
+		credentialsNumber: number;
+		record: CredentialIssuersResponse;
+	};
+
+	let result = $state<Result>();
 
 	const form = createForm({
 		adapter: zod(z.object({ url: z.string().url() })),
 		onSubmit: async ({ form: { data } }) => {
-			const url = data.url.trim();
-			// isImporting = true;
-			// await new Promise((res) => setTimeout(res, 2000));
-			// throw new Error('Test error');
-			// isImporting = false;
-
-			await pb.send('/api/credentials_issuers/start-check', {
+			const res = await pb.send('/api/credentials_issuers/start-check', {
 				method: 'POST',
 				body: {
-					credentialIssuerUrl: url
+					credentialIssuerUrl: data.url.trim()
 				}
 			});
-
-			const records = await pb.collection('credential_issuers').getFullList({
-				filter: `owner = "${organizationId}" && url = "${url}"`,
-				expand: 'credentials_via_credential_issuer'
-			});
-			if (records.length != 1) throw new Error('Unexpected number of records');
-
-			importedIssuer = records[0];
+			result = res as Result;
+			onImport?.(result.record);
 		}
 	});
+
 	const isSubmitting = fromStore(form.submitting);
+	$effect(() => {
+		isLoading = isSubmitting.current;
+	});
 
-	// let importUrl = $state('');
-	// const trimmedImportUrl = $derived(importUrl.trim());
+	/* Counting credentials */
+	// We subscribe to all the credentials, then we filter them by the credential issuer
 
-	// const isValidUrl = new Debounced(() => z.string().url().safeParse(trimmedImportUrl).success);
-	// isValidUrl.setImmediately(false)
+	const credentials = $state<CredentialsResponse[]>([]);
 
-	// let isProcessingImport = $state(false);
+	let unsub: UnsubscribeFunc;
+	onMount(async () => {
+		unsub = await pb.collection('credentials').subscribe('*', (event) => {
+			if (event.action === 'create') credentials.push(event.record);
+		});
+	});
+	onDestroy(async () => {
+		await unsub();
+	});
 
-	// async function importFromUrl() {
-	// 	if (!importUrl.trim()) return;
-	// 	isProcessingImport = true;
-	// }
+	const validCredentials = $derived(
+		credentials.filter((c) => c.credential_issuer === result?.record.id)
+	);
+	const hasAllCredentials = $derived(
+		Boolean(result?.credentialsNumber && validCredentials.length == result.credentialsNumber)
+	);
+	$effect(() => {
+		if (hasAllCredentials) unsub();
+	});
 </script>
 
 <div class="bg-secondary border-purple-outline/20 mb-8 rounded-lg border">
@@ -264,7 +274,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 
-		{#if !importedIssuer}
+		{#if !result}
 			<Form {form} hide={['submit_button', 'loading_state']} class="space-y-2">
 				<div class="flex gap-2">
 					<div class="grow">
@@ -294,7 +304,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Alert class="border-green-200 bg-green-50">
 				<CheckCircle2 class="h-4 w-4 text-green-600" />
 				<AlertDescription class="text-green-800">
-					<p>Credential issuer imported successfully.</p>
+					<p>{m.Credential_issuer_imported_successfully()}</p>
+					{#if hasAllCredentials}
+						<p>{m.All_credentials_imported_successfully()}</p>
+					{:else}
+						<p>
+							{m.Importing_credentials({
+								count: validCredentials.length,
+								total: result.credentialsNumber
+							})}
+						</p>
+					{/if}
 					<!-- {currentImportSuccess}
 				{#if displayIssuer}
 					{@const credentials = getCredentials(displayIssuer)}
@@ -446,12 +466,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		{/if} -->
 	</div>
-
-	{#if importedIssuer}
-		<div class="">
-			<pre>{JSON.stringify(importedIssuer, null, 2)}</pre>
-		</div>
-	{/if}
 </div>
 
 <!-- {@render after?.({ formState })} -->
