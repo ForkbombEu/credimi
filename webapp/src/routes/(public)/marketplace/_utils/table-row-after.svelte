@@ -15,21 +15,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		linksPromise: Promise<Link[]>;
+		items: Link[];
 		title: string;
 		icon: IconComponent;
 		show: boolean;
 	};
 
-	let { linksPromise, title, icon, show }: Props = $props();
-
-	let items = $state<Link[]>([]);
-
-	$effect(() => {
-		linksPromise.then((res) => {
-			items = res;
-		});
-	});
+	let { items, title, icon, show }: Props = $props();
 
 	let accordionValue = $state<string | undefined>();
 	const isOpen = $derived(Boolean(accordionValue));

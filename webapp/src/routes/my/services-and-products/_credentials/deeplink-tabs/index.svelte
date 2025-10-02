@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import * as Tabs from '@/components/ui/tabs';
 	import Field from '@/forms/fields/field.svelte';
+	import { m } from '@/i18n';
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	import DynamicTab from './dynamic-tab.svelte';
@@ -44,16 +45,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const modesTabs = $derived({
 		static: {
-			label: 'Static' + (credential?.deeplink || isDeeplinkTainted ? '' : ' (Imported)'),
+			label:
+				m.Static() +
+				(credential?.deeplink || isDeeplinkTainted ? '' : ` (${m.Imported()})`),
 			value: 'static'
 		},
-		dynamic: { label: 'Dynamic', value: 'dynamic' }
+		dynamic: { label: m.Dynamic(), value: 'dynamic' }
 	} satisfies Record<FieldMode, { label: string; value: FieldMode }>);
 
 	/* Default */
 
 	onMount(() => {
-		if (credential?.key && !credential.deeplink) {
+		if (credential?.name && !credential.deeplink) {
 			form.form.update(
 				(data) => {
 					return { ...data, deeplink: createIntentUrl(credential, credentialIssuer.url) };
@@ -66,7 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	$effect(() => {
 		if (credential?.yaml) {
 			activeTab = 'dynamic';
-		} else if (credential?.key) {
+		} else if (credential?.name) {
 			activeTab = 'static';
 		} else {
 			activeTab = 'dynamic';
@@ -86,14 +89,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Tabs.Content value={modesTabs.static.value}>
 		<div class="flex gap-4">
 			<div class="grow">
-				<T class="mb-3">Configure a static deeplink with fixed parameters.</T>
+				<T class="mb-3">{m.Configure_static_deeplink()}</T>
 				<Field
 					{form}
 					name="deeplink"
-					options={{ placeholder: 'e.g. openid-credential-offer://?...' }}
+					options={{ placeholder: m.openid_credential_offer_placeholder() }}
 				/>
 			</div>
-			<QrStateful src={deeplinkState.current} placeholder="Type to generate a QR code" />
+			<QrStateful src={deeplinkState.current} placeholder={m.Type_to_generate_QR_code()} />
 		</div>
 	</Tabs.Content>
 

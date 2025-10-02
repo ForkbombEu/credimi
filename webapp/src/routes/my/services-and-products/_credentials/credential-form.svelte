@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
 
-	import QrGenerationField, { type FieldMode } from './qr-generation-field/index.svelte';
+	import QrGenerationField, { type FieldMode } from './deeplink-tabs/index.svelte';
 
 	//
 
@@ -78,10 +78,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 	fieldsOptions={{
 		exclude,
-		order: ['deeplink', 'display_name', 'description'],
+		order: ['deeplink', 'name', 'display_name', 'description'],
 		labels: {
 			published: m.Publish_to_marketplace(),
-			deeplink: 'QR Code Generation'
+			deeplink: m.QR_Code_Generation()
 		},
 		snippets: {
 			description,
@@ -89,7 +89,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		hide: {
 			yaml: credential?.yaml,
-			credential_issuer: credentialIssuer.id
+			credential_issuer: credentialIssuer.id,
+			display_name: credential?.display_name
 		}
 	}}
 	beforeSubmit={(data) => {
@@ -116,7 +117,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet qr_generation({ form }: FieldSnippetOptions<'credentials'>)}
 	<div>
-		<T tag="h3" class="mb-6">Credential Deeplink</T>
+		<T tag="h3" class="mb-6">{m.Credential_Deeplink()}</T>
 
 		<QrGenerationField
 			form={form as unknown as SuperForm<{ deeplink: string; yaml: string }>}
@@ -130,5 +131,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Separator />
 	</div>
 
-	<T tag="h3">Metadata</T>
+	<T tag="h3">{m.Metadata()}</T>
 {/snippet}
