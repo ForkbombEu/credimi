@@ -62,7 +62,7 @@ export async function checkNameUniqueness(
 
 	try {
 		// Escape quotes in the name to prevent filter syntax errors
-		const escapedName = name.replace(/"/g, '\\"');
+		const escapedName = name.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
 
 		const filter = excludeId
 			? `${parentField} = "${parentId}" && name = "${escapedName}" && id != "${excludeId}"`
