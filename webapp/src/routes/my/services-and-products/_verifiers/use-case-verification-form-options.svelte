@@ -28,11 +28,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			descriptions: {
 				name: m.verifier_field_description_cryptographic_binding_methods(),
 				description: m.use_case_verification_field_description_description(),
-				deeplink: m.YAML_Configuration_section_description(),
+				yaml: m.YAML_Configuration_section_description(),
 				credentials: m.use_case_verification_field_description_credentials(),
 				published: m.use_case_verification_field_description_published()
 			},
-			order: ['name', 'deeplink', 'credentials', 'description'],
+			order: ['name', 'yaml', 'credentials', 'description'],
 			relations: {
 				credentials: {
 					mode: 'select',
@@ -42,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			exclude: ['published', 'canonified_name'],
 			snippets: {
 				description,
-				deeplink: yaml_editor
+				yaml: yaml_editor
 			}
 		};
 	}
@@ -56,7 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div>
 		<QrGenerationField
 			{form}
-			fieldName="deeplink"
+			fieldName="yaml"
 			label={m.YAML_Configuration()}
 			description={m.Provide_configuration_in_YAML_format()}
 			placeholder={m.Run_the_code_to_generate_QR_code()}
