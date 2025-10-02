@@ -61,9 +61,12 @@ export async function checkNameUniqueness(
 	const parentField = COLLECTION_PARENT_FIELD_MAP[collectionName];
 
 	try {
+		// Escape quotes in the name to prevent filter syntax errors
+		const escapedName = name.replace(/"/g, '\\"');
+
 		const filter = excludeId
-			? `${parentField} = "${parentId}" && name = "${name}" && id != "${excludeId}"`
-			: `${parentField} = "${parentId}" && name = "${name}"`;
+			? `${parentField} = "${parentId}" && name = "${escapedName}" && id != "${excludeId}"`
+			: `${parentField} = "${parentId}" && name = "${escapedName}"`;
 
 		const records = await pb.collection(collectionName).getList(1, 1, { filter });
 		return records.totalItems === 0;
