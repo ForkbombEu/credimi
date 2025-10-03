@@ -410,8 +410,11 @@ func (w *EudiwWorkflow) Start(
 		TaskQueue:                EudiwTaskQueue,
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
-
-	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+	namespace := DefaultNamespace
+	if input.Config["namespace"] != nil {
+		namespace = input.Config["namespace"].(string)
+	}
+	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 func BuildQRDeepLink(
 	clientID, requestURI string,

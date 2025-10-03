@@ -117,6 +117,7 @@ func (w *VLEIValidationWorkflow) Workflow(
 }
 
 func (w *VLEIValidationWorkflow) Start(
+	namespace string,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	workflowOptions := client.StartWorkflowOptions{
@@ -124,7 +125,7 @@ func (w *VLEIValidationWorkflow) Start(
 		TaskQueue:                VLEIValidationTaskQueue,
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
-	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
 type VLEIValidationLocalWorkflow struct{}
@@ -166,6 +167,7 @@ func (w *VLEIValidationLocalWorkflow) Workflow(
 }
 
 func (w *VLEIValidationLocalWorkflow) Start(
+	namespace string,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	workflowOptions := client.StartWorkflowOptions{
@@ -173,7 +175,7 @@ func (w *VLEIValidationLocalWorkflow) Start(
 		TaskQueue:                VLEIValidationLocalTaskQueue,
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
-	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
 // validateCESRFromString runs CESR parsing + validation inside a workflow.

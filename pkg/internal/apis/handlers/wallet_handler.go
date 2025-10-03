@@ -56,12 +56,19 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-
+		orgName, err := GetOrganizationCanonifiedName(e.App, organization)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed to get organization",
+				err.Error(),
+			).JSON(e)
+		}
 		// Start the workflow
 		workflowInput := workflowengine.WorkflowInput{
 			Config: map[string]any{
-				"app_url":   e.App.Settings().Meta.AppURL,
-				"namespace": organization,
+				"app_url": e.App.Settings().Meta.AppURL,
 			},
 			Payload: map[string]any{
 				"url": req.URL,
@@ -69,7 +76,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 		}
 		w := workflows.WalletWorkflow{}
 
-		workflowInfo, err := w.Start(workflowInput)
+		workflowInfo, err := w.Start(orgName, workflowInput)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -79,7 +86,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		client, err := temporalclient.GetTemporalClientWithNamespace(
-			organization,
+			orgName,
 		)
 		if err != nil {
 			return apierror.New(
@@ -146,16 +153,4 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 			"owner":         organization,
 		})
 	}
-}
-
-func getStringFromMap(m map[string]any, key string) string {
-	if m == nil {
-		return ""
-	}
-	if val, ok := m[key]; ok {
-		if s, ok := val.(string); ok {
-			return s
-		}
-	}
-	return ""
 }

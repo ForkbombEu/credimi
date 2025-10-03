@@ -26,6 +26,7 @@ import (
 // CredentialsTaskQueue is the task queue for the credentials workflow.
 const (
 	CredentialsTaskQueue       = "CredentialsTaskQueue"
+	CredentialsIssuerDataQuery = "getCredentialsIssuerData"
 	CredentialIssuerSchemaPath = "schemas/credentialissuer/openid-credential-issuer.schema.json"
 	CredentialSchemaPath       = "schemas/credentialissuer/credential_config.schema.json"
 )
@@ -79,6 +80,21 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
+
+	credentialsIssuerDataReady := false
+	var issuerName, logo string
+	var credentialsNumber int
+
+	workflow.SetQueryHandler(ctx, CredentialsIssuerDataQuery, func() (map[string]any, error) {
+		if !credentialsIssuerDataReady {
+			return nil, workflowengine.NotReadyError{}
+		}
+		return map[string]any{
+			"issuerName":        issuerName,
+			"logo":              logo,
+			"credentialsNumber": credentialsNumber,
+		}, nil
+	})
 	baseURL, appURL, issuerSchema, issuerID, err := validateInput(input, runMetadata)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
@@ -169,7 +185,6 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		}
 	}
 
-	var logo, issuerName string
 	if displayList, ok := issuerData["display"].([]any); ok && len(displayList) > 0 {
 		if first, ok := displayList[0].(map[string]any); ok {
 			if name, ok := first["name"].(string); ok {
@@ -194,6 +209,9 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 
+	credentialsNumber = len(credConfigs)
+	credentialsIssuerDataReady = true
+
 	HTTPActivity := activities.NewHTTPActivity()
 	validKeys := []string{}
 	for credKey, credential := range credConfigs {
@@ -202,10 +220,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			conformant = false
 		}
 
-		namespace, ok := input.Config["namespace"].(string)
-		if !ok || namespace == "" {
+		orgID, ok := input.Config["orgID"].(string)
+		if !ok || orgID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-				"namespace",
+				"orgID",
 				runMetadata,
 			)
 		}
@@ -222,7 +240,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 					"credKey":    credKey,
 					"credential": credential,
 					"conformant": conformant,
-					"orgID":      namespace,
+					"orgID":      orgID,
 				},
 				"expected_status": 200,
 			},
@@ -312,6 +330,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 // Errors:
 //   - Returns an error if the Temporal client cannot be created or if the workflow execution fails.
 func (w *CredentialsIssuersWorkflow) Start(
+	namespace string,
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
@@ -320,7 +339,7 @@ func (w *CredentialsIssuersWorkflow) Start(
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
-	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
 func extractInvalidCredentialsFromErrorDetails(

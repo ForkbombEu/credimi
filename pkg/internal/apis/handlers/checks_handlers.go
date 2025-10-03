@@ -125,9 +125,14 @@ type ReRunCheckRequest struct {
 func HandleListMyChecks() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organizations",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 		if err != nil {
@@ -255,9 +260,14 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 				"missing runId",
 			).JSON(e)
 		}
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -354,9 +364,14 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
@@ -441,9 +456,14 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"missing checkId parameter",
 			).JSON(e)
 		}
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -537,9 +557,14 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
@@ -609,6 +634,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 		}
 
 		result, err := workflowengine.StartWorkflowWithOptions(
+			namespace,
 			workflowOptions,
 			workflowName,
 			workflowInput,
@@ -652,9 +678,14 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
@@ -720,9 +751,14 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
@@ -884,9 +920,14 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -988,9 +1029,14 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 
 		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
