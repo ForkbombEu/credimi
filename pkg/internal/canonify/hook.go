@@ -78,7 +78,7 @@ func RegisterCanonifyHooks(app core.App) {
 		app.OnRecordUpdate(col).BindFunc(func(e *core.RecordEvent) error {
 			name := e.Record.GetString(tpl.Field)
 			if name == "" {
-				return nil
+				return e.Next()
 			}
 
 			existsFunc := MakeExistsFunc(e.App, col, e.Record, e.Record.Id)
