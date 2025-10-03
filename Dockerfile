@@ -22,13 +22,6 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     build-essential make bash curl git tmux wget ca-certificates unzip 
 WORKDIR /app
 
-# install temporal
-ARG TARFILE=temporal_cli_latest_linux_amd64.tar.gz
-RUN wget 'https://temporal.download/cli/archive/latest?platform=linux&arch=amd64' -O $TARFILE
-RUN tar xf $TARFILE
-RUN rm $TARFILE
-RUN mv temporal /usr/local/bin
-
 # install credimi
 COPY --from=builder /src/credimi /usr/local/bin/credimi
 RUN chmod +x /usr/local/bin/credimi
@@ -65,9 +58,6 @@ RUN wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/do
 
 #install et-tu-cesr
 RUN wget https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-linux-amd64 -O .bin/et-tu-cesr && chmod +x .bin/et-tu-cesr
-
-
-
 
 # copy everything
 COPY . ./
