@@ -77,7 +77,10 @@ func (w *CustomCheckWorkflow) Workflow(
 		}).Get(ctx, &HTTPResponse)
 		if err != nil {
 			logger.Error(HTTPActivity.Name(), "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		output, ok := HTTPResponse.Output.(map[string]any)
@@ -87,7 +90,10 @@ func (w *CustomCheckWorkflow) Workflow(
 				fmt.Sprintf("%s: invalid output format", errCode.Description),
 				HTTPResponse.Output,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 
 		body, ok := output["body"].(map[string]any)
@@ -97,7 +103,10 @@ func (w *CustomCheckWorkflow) Workflow(
 				fmt.Sprintf("%s: missing body in output", errCode.Description),
 				output,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 
 		record, ok := body["record"].(map[string]any)
@@ -107,7 +116,10 @@ func (w *CustomCheckWorkflow) Workflow(
 				fmt.Sprintf("%s: missing record in body", errCode.Description),
 				body,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 
 		yaml, ok = record["yaml"].(string)
@@ -117,7 +129,10 @@ func (w *CustomCheckWorkflow) Workflow(
 				"missing yaml in custom check record",
 				record,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 		input.Payload["yaml"] = yaml
 	}
@@ -144,11 +159,12 @@ func (w *CustomCheckWorkflow) Workflow(
 }
 
 func (w *CustomCheckWorkflow) Start(
+	namespace string,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "custom" + "-" + uuid.NewString(),
 		TaskQueue: CustomCheckTaskQueque,
 	}
-	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }

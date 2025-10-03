@@ -202,10 +202,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			conformant = false
 		}
 
-		namespace, ok := input.Config["namespace"].(string)
-		if !ok || namespace == "" {
+		orgID, ok := input.Config["orgID"].(string)
+		if !ok || orgID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-				"namespace",
+				"orgID",
 				runMetadata,
 			)
 		}
@@ -222,7 +222,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 					"credKey":    credKey,
 					"credential": credential,
 					"conformant": conformant,
-					"orgID":      namespace,
+					"orgID":      orgID,
 				},
 				"expected_status": 200,
 			},
@@ -312,6 +312,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 // Errors:
 //   - Returns an error if the Temporal client cannot be created or if the workflow execution fails.
 func (w *CredentialsIssuersWorkflow) Start(
+	namespace string,
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
@@ -320,7 +321,7 @@ func (w *CredentialsIssuersWorkflow) Start(
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
-	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
 func extractInvalidCredentialsFromErrorDetails(

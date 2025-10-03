@@ -62,7 +62,7 @@ type WorkflowStarterParams struct {
 	YAMLData  string
 	Email     string
 	AppURL    string
-	Namespace interface{}
+	Namespace string
 	Memo      map[string]interface{}
 	Author    Author
 	TestName  string
@@ -91,14 +91,27 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 		appURL := e.App.Settings().Meta.AppURL
 		userID := e.Auth.Id
 		email := e.Auth.GetString("email")
-		namespace, err := GetUserOrganizationID(e.App, userID)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, userID)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
+		}
+		orgID, err := GetUserOrganizationID(e.App, userID)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization ID",
+				err.Error(),
+			).JSON(e)
+		}
 		appName := e.App.Settings().Meta.AppName
 		logoUrl := fmt.Sprintf("%s/logos/%s_logo-transp_emblem.png", appURL, strings.ToLower(appName))
 		userName := e.Auth.GetString("name")
-
-		if err != nil {
-			return err
-		}
 
 		protocol := e.Request.PathValue("protocol")
 		version := e.Request.PathValue("version")
@@ -238,6 +251,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				logoUrl,
 				appName,
 				userName,
+				orgID,
 			)
 			if err != nil {
 				return apierror.New(
@@ -564,7 +578,6 @@ func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, 
 		Config: map[string]any{
 			"app_url":    appURL,
 			"server_url": parsedData.ServerURL, // TODO update with the real one
-			"namespace":  namespace,
 			"memo":       memo,
 		},
 		Payload: map[string]any{
@@ -573,7 +586,7 @@ func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, 
 	}
 
 	var workflow workflows.VLEIValidationWorkflow
-	results, err := workflow.Start(input)
+	results, err := workflow.Start(namespace, input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
@@ -590,7 +603,7 @@ func processJSONChecks(
 	testData string,
 	email,
 	appURL string,
-	namespace interface{},
+	namespace string,
 	memo map[string]interface{},
 	author Author,
 	testName string,
@@ -629,7 +642,7 @@ func processVariablesTest(
 	variables []Variable,
 	email,
 	appURL string,
-	namespace interface{},
+	namespace string,
 	dirPath string,
 	memo map[string]interface{},
 	author Author,
@@ -637,6 +650,7 @@ func processVariablesTest(
 	logoUrl string,
 	appName string,
 	userName string,
+	orgID string,
 ) (workflowengine.WorkflowResult, error) {
 	values := make(map[string]interface{})
 	configValues, err := app.FindCollectionByNameOrId("config_values")
@@ -650,7 +664,7 @@ func processVariablesTest(
 		record.Set("value", variable.Value)
 		record.Set("field_name", variable.FieldName)
 		record.Set("template_path", testName)
-		record.Set("owner", namespace)
+		record.Set("owner", orgID)
 		if err := app.Save(record); err != nil {
 			return workflowengine.WorkflowResult{}, apierror.New(
 				http.StatusBadRequest,
@@ -717,7 +731,7 @@ func processVariablesTest(
 func processCustomChecks(
 	testData string,
 	appURL string,
-	namespace interface{},
+	namespace string,
 	memo map[string]interface{},
 	formJSON string,
 ) (workflowengine.WorkflowResult, error) {
@@ -736,16 +750,15 @@ func processCustomChecks(
 			"yaml": yaml,
 		},
 		Config: map[string]any{
-			"namespace": namespace,
-			"memo":      memo,
-			"app_url":   appURL,
-			"env":       formJSON,
+			"memo":    memo,
+			"app_url": appURL,
+			"env":     formJSON,
 		},
 	}
 
 	var w workflows.CustomCheckWorkflow
 
-	results, errStart := w.Start(input)
+	results, errStart := w.Start(namespace, input)
 	if errStart != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,

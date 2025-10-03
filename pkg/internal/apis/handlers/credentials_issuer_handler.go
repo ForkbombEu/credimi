@@ -131,6 +131,15 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		orgName, err := GetOrganizationCanonifiedName(e.App, organization)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed to get organization canonified name",
+				err.Error(),
+			).JSON(e)
+		}
 		existingRecords, err := e.App.FindRecordsByFilter(
 			collection.Id,
 			"url = {:url} && owner = {:owner}",
@@ -197,7 +206,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			Config: map[string]any{
 				"app_url":       appURL,
 				"issuer_schema": credIssuerSchemaStr,
-				"namespace":     organization,
+				"orgID":         organization,
 			},
 			Payload: map[string]any{
 				"issuerID": record.Id,
@@ -207,7 +216,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 		}
 		w := workflows.CredentialsIssuersWorkflow{}
 
-		result, err := w.Start(workflowInput)
+		result, err := w.Start(orgName, workflowInput)
 		if err != nil {
 			if isNew {
 				if err := e.App.Delete(record); err != nil {
@@ -232,7 +241,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			result.WorkflowID,
 			result.WorkflowRunID,
 		)
-		c, err := temporalclient.GetTemporalClientWithNamespace(organization)
+		c, err := temporalclient.GetTemporalClientWithNamespace(orgName)
 		if err != nil {
 			if isNew {
 				if err := e.App.Delete(record); err != nil {

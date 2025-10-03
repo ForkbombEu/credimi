@@ -21,7 +21,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
-	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
@@ -97,9 +96,14 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
@@ -222,9 +226,14 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 		}
 		authRecord := e.Auth
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -320,9 +329,14 @@ func HandleGetWorkflowResult() func(*core.RequestEvent) error {
 		}
 		authRecord := e.Auth
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -449,33 +463,6 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 }
 
 ///
-
-func GetUserOrganizationID(app core.App, userID string) (string, error) {
-	orgAuthCollection, err := app.FindCollectionByNameOrId("orgAuthorizations")
-	if err != nil {
-		return "", apierror.New(
-			http.StatusInternalServerError,
-			"collection",
-			"failed to find orgAuthorizations collection",
-			err.Error(),
-		)
-	}
-
-	authOrgRecords, err := app.FindFirstRecordByFilter(
-		orgAuthCollection.Id,
-		"user={:user}",
-		dbx.Params{"user": userID},
-	)
-	if err != nil {
-		return "", apierror.New(
-			http.StatusInternalServerError,
-			"get user namespace",
-			"failed to find orgAuthorizations record",
-			err.Error(),
-		)
-	}
-	return authOrgRecords.GetString("organization"), nil
-}
 
 func sendRealtimeLogs(suiteSubscription string) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -629,9 +616,14 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationID(e.App, e.Auth.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 		if namespace == "" {
 			return apierror.New(

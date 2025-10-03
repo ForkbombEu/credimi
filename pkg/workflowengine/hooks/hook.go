@@ -87,54 +87,64 @@ type workerConfig struct {
 	Activities []workflowengine.ExecutableActivity
 }
 
-func startWorker(client client.Client, config workerConfig, wg *sync.WaitGroup) {
+func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
 	defer wg.Done()
-	w := worker.New(client, config.TaskQueue, worker.Options{})
+	w := worker.New(c, config.TaskQueue, worker.Options{})
 
 	for _, wf := range config.Workflows {
-		w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{
-			Name: wf.Name(),
-		})
+		w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
 	}
 
 	for _, act := range config.Activities {
-		w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{
-			Name: act.Name(),
-		})
+		w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
 	}
-
-	if err := w.Run(worker.InterruptCh()); err != nil {
+	shutdownCh := make(chan interface{})
+	go func() {
+		<-ctx.Done()
+		close(shutdownCh)
+	}()
+	if err := w.Run(shutdownCh); err != nil {
 		log.Printf("Failed to start worker for %s: %v", config.TaskQueue, err)
 	}
 }
-func startPipelineWorker(client client.Client, wg *sync.WaitGroup) {
+
+func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
 	defer wg.Done()
-	w := worker.New(client, pipeline.PipelineTaskQueue, worker.Options{})
+	w := worker.New(c, pipeline.PipelineTaskQueue, worker.Options{})
+
 	pipelineWf := &pipeline.PipelineWorkflow{}
-	w.RegisterWorkflowWithOptions(pipelineWf.Workflow, workflow.RegisterOptions{
-		Name: pipelineWf.Name(),
-	})
+	w.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
 	for _, step := range registry.Registry {
 		switch step.Kind {
 		case registry.TaskActivity:
-
 			act := step.NewFunc().(workflowengine.ExecutableActivity)
-			w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{
-				Name: act.Name(),
-			})
+			w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
 		case registry.TaskWorkflow:
 			wf := step.NewFunc().(workflowengine.Workflow)
-			w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{
-				Name: wf.Name(),
-			})
+			w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
 		}
-
 	}
-	if err := w.Run(worker.InterruptCh()); err != nil {
+
+	shutdownCh := make(chan interface{})
+	go func() {
+		<-ctx.Done()
+		close(shutdownCh)
+	}()
+	if err := w.Run(shutdownCh); err != nil {
 		log.Printf("Failed to start worker for %s: %v", pipeline.PipelineTaskQueue, err)
 	}
 }
+
+var workerCancels sync.Map
+
 func StartAllWorkersByNamespace(namespace string) {
+	ctx, cancel := context.WithCancel(context.Background())
+	workerCancels.Store(namespace, cancel)
+
 	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 	if err != nil {
 		log.Fatalf("Failed to connect to Temporal: %v", err)
@@ -248,13 +258,25 @@ func StartAllWorkersByNamespace(namespace string) {
 
 	for _, config := range workers {
 		wg.Add(1)
-		go startWorker(c, config, &wg)
+		go startWorker(ctx, c, config, &wg)
 	}
 
 	wg.Add(1)
-	go startPipelineWorker(c, &wg)
+	go startPipelineWorker(ctx, c, &wg)
 
-	wg.Wait()
+	go func() {
+		wg.Wait()
+		<-ctx.Done()
+		log.Printf("Workers for namespace %s stopped", namespace)
+	}()
+}
+
+func StopAllWorkersByNamespace(namespace string) {
+	if cancel, ok := workerCancels.Load(namespace); ok {
+		cancel.(context.CancelFunc)()
+		workerCancels.Delete(namespace)
+		log.Printf("Stopped workers for namespace %s", namespace)
+	}
 }
 
 func FetchNamespaces(app *pocketbase.PocketBase) ([]string, error) {

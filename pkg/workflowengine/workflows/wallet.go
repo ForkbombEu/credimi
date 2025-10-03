@@ -192,7 +192,10 @@ func (w *WalletWorkflow) Workflow(
 		}).Get(ctx, &jsonResult)
 		if err != nil {
 			logger.Error("ParseJSON failed", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 		metadata, ok = jsonResult.Output.(map[string]any)
 		if !ok {
@@ -202,15 +205,11 @@ func (w *WalletWorkflow) Workflow(
 				fmt.Sprintf("%s: output", json.Name()),
 				jsonResult.Output,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
-	}
-	namespace, ok := input.Config["namespace"].(string)
-	if !ok || namespace == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"namespace",
-			runMetadata,
-		)
 	}
 
 	metadataReady = true
@@ -260,6 +259,7 @@ func (w *WalletWorkflow) Workflow(
 // Errors:
 //   - Returns an error if the Temporal client cannot be created or if the workflow execution fails.
 func (w *WalletWorkflow) Start(
+	namespace string,
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
@@ -268,5 +268,5 @@ func (w *WalletWorkflow) Start(
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
-	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
