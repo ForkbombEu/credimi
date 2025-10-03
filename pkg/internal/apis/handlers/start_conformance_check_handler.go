@@ -110,7 +110,11 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		appName := e.App.Settings().Meta.AppName
-		logoUrl := fmt.Sprintf("%s/logos/%s_logo-transp_emblem.png", appURL, strings.ToLower(appName))
+		logoUrl := fmt.Sprintf(
+			"%s/logos/%s_logo-transp_emblem.png",
+			appURL,
+			strings.ToLower(appName),
+		)
 		userName := e.Auth.GetString("name")
 
 		protocol := e.Request.PathValue("protocol")

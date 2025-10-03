@@ -31,7 +31,6 @@ func (a *MobileFlowActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-
 	runInput := mobile.RunMobileFlowInput{
 		Payload:          input.Payload,
 		GetEnv:           utils.GetEnvironmentVariable,

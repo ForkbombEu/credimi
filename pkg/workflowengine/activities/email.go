@@ -109,8 +109,10 @@ func (a *SendMailActivity) Execute(
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return workflowengine.ActivityResult{}, a.NewActivityError(
 			errCode.Code,
-			fmt.Sprintf("%s: either 'body' or both 'template' and 'data' must be provided in payload",
-				errCode.Description),
+			fmt.Sprintf(
+				"%s: either 'body' or both 'template' and 'data' must be provided in payload",
+				errCode.Description,
+			),
 		)
 	}
 

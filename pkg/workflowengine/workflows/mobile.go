@@ -26,7 +26,6 @@ func (w *MobileAutomationWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 	runMetadata := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
@@ -169,5 +168,4 @@ func (w *MobileAutomationWorkflow) Workflow(
 	return workflowengine.WorkflowResult{
 		Output: mobileResponse.Output,
 	}, nil
-
 }

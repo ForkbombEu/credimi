@@ -26,7 +26,6 @@ func NewPipelineCmd() *cobra.Command {
 		Use:   "pipeline",
 		Short: "Start a pipeline workflow",
 		RunE: func(cmd *cobra.Command, args []string) error {
-
 			// --- authenticate (if apiKey provided) ---
 			var bearerToken string
 			if apiKey != "" {
@@ -118,7 +117,8 @@ func NewPipelineCmd() *cobra.Command {
 	cmd.Flags().
 		StringVarP(&yamlPath, "path", "p", "", "Path to YAML file (optional, otherwise reads from stdin)")
 	cmd.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
-	cmd.Flags().StringVarP(&instanceURL, "instance", "i", "https://demo.credimi.io", "URL of the PocketBase instance")
+	cmd.Flags().
+		StringVarP(&instanceURL, "instance", "i", "https://demo.credimi.io", "URL of the PocketBase instance")
 
 	return cmd
 }

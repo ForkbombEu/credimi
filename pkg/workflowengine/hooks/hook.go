@@ -311,7 +311,12 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 		elapsed := time.Since(start)
 
 		if err == nil {
-			log.Printf("[WorkersHook] Namespace %q ready after %d attempt(s) in %v", namespace, attempt, elapsed)
+			log.Printf(
+				"[WorkersHook] Namespace %q ready after %d attempt(s) in %v",
+				namespace,
+				attempt,
+				elapsed,
+			)
 			return nil
 		}
 
@@ -321,7 +326,13 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 			return nil
 		}
 
-		log.Printf("[WorkersHook] Attempt %d failed in %v: namespace=%s err=%v", attempt, elapsed, namespace, err)
+		log.Printf(
+			"[WorkersHook] Attempt %d failed in %v: namespace=%s err=%v",
+			attempt,
+			elapsed,
+			namespace,
+			err,
+		)
 
 		if time.Now().After(deadline) {
 			return err

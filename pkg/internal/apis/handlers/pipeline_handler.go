@@ -77,6 +77,5 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 			"message": "Workflow started successfully",
 			"result":  result,
 		})
-
 	}
 }
