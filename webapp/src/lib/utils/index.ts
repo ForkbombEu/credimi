@@ -115,7 +115,7 @@ const deeplinkGenerationResponseSchema = z.object({
 });
 
 export async function generateDeeplinkFromYaml(yaml: string) {
-	const res = await pb.send('api/credentials_issuers/get-deeplink', {
+	const res = await pb.send('api/get-deeplink', {
 		method: 'POST',
 		body: {
 			yaml

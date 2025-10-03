@@ -20,7 +20,7 @@ type PipelineInput struct {
 
 var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/pipeline",
-	AuthenticationRequired: false, // TODO should be true
+	AuthenticationRequired: true,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
 		{Func: middlewares.ErrorHandlingMiddleware},
 	},
@@ -48,9 +48,14 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 
 		if e.Auth != nil {
 			userID = e.Auth.Id
-			namespace, err = GetUserOrganizationID(e.App, userID)
+			namespace, err = GetUserOrganizationCanonifiedName(e.App, userID)
 			if err != nil {
-				return err
+				return apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"unable to get user organization canonified name",
+					err.Error(),
+				).JSON(e)
 			}
 		}
 

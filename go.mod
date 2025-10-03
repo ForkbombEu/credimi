@@ -27,6 +27,7 @@ require (
 	go.temporal.io/sdk v1.33.0
 	golang.org/x/crypto v0.37.0
 	golang.org/x/sys v0.32.0
+	golang.org/x/text v0.24.0
 	google.golang.org/grpc v1.71.0
 	google.golang.org/protobuf v1.36.6
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
@@ -294,7 +295,6 @@ require (
 	golang.org/x/sync v0.13.0 // indirect
 	golang.org/x/telemetry v0.0.0-20240522233618-39ace7a40ae7 // indirect
 	golang.org/x/term v0.31.0 // indirect
-	golang.org/x/text v0.24.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	golang.org/x/tools v0.32.0 // indirect
 	golang.org/x/vuln v1.1.4 // indirect

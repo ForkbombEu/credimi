@@ -79,45 +79,21 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
+	baseURL, appURL, issuerSchema, issuerID, err := validateInput(input, runMetadata)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+
 	checkIssuer := activities.NewCheckCredentialsIssuerActivity()
 	var issuerResult workflowengine.ActivityResult
-
-	baseURL, ok := input.Payload["base_url"].(string)
-	if !ok || baseURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"base_url",
-			runMetadata,
-		)
-	}
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			runMetadata,
-		)
-	}
-	issuerSchema, ok := input.Config["issuer_schema"].(string)
-	if !ok || issuerSchema == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"issuer_schema",
-			runMetadata,
-		)
-	}
-	issuerID, ok := input.Payload["issuerID"].(string)
-	if !ok || issuerID == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"issuerID",
-			runMetadata,
-		)
-	}
-	err := workflow.ExecuteActivity(ctx, checkIssuer.Name(), workflowengine.ActivityInput{
+	err = workflow.ExecuteActivity(ctx, checkIssuer.Name(), workflowengine.ActivityInput{
 		Payload: map[string]any{
 			"base_url": baseURL,
 		},
 	}).Get(ctx, &issuerResult)
 	if err != nil {
 		logger.Error("CheckCredentialIssuer failed", "error", err)
-		return workflowengine.WorkflowResult{}, err
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 	source, ok := issuerResult.Output.(map[string]any)["source"].(string)
 	if !ok {
@@ -193,11 +169,16 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		}
 	}
 
-	issuerName := ""
+	var logo, issuerName string
 	if displayList, ok := issuerData["display"].([]any); ok && len(displayList) > 0 {
 		if first, ok := displayList[0].(map[string]any); ok {
 			if name, ok := first["name"].(string); ok {
 				issuerName = name
+			}
+			if logoMap, ok := first["logo"].(map[string]any); ok {
+				if uri, ok := logoMap["uri"].(string); ok {
+					logo = uri
+				}
 			}
 		}
 	}
@@ -221,10 +202,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			conformant = false
 		}
 
-		namespace, ok := input.Config["namespace"].(string)
-		if !ok || namespace == "" {
+		orgID, ok := input.Config["orgID"].(string)
+		if !ok || orgID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-				"namespace",
+				"orgID",
 				runMetadata,
 			)
 		}
@@ -238,11 +219,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 					"api/credentials_issuers/store-or-update-extracted-credentials"),
 				"body": map[string]any{
 					"issuerID":   issuerID,
-					"issuerName": issuerName,
 					"credKey":    credKey,
 					"credential": credential,
 					"conformant": conformant,
-					"orgID":      namespace,
+					"orgID":      orgID,
 				},
 				"expected_status": 200,
 			},
@@ -279,7 +259,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			"url": fmt.Sprintf(
 				"%s/%s",
 				appURL,
-				"api/credentials_issuers/cleanup_credentials",
+				"api/credentials_issuers/cleanup-credentials",
 			),
 			"body": map[string]any{
 				"issuerID":  issuerID,
@@ -308,6 +288,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			"Successfully retrieved and stored and update credentials from '%s'",
 			source,
 		),
+		Output: map[string]any{
+			"issuerName": issuerName,
+			"logo":       logo,
+		},
 		Log:    logs,
 		Errors: errs,
 	}, nil
@@ -328,6 +312,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 // Errors:
 //   - Returns an error if the Temporal client cannot be created or if the workflow execution fails.
 func (w *CredentialsIssuersWorkflow) Start(
+	namespace string,
 	input workflowengine.WorkflowInput,
 ) (result workflowengine.WorkflowResult, err error) {
 	workflowOptions := client.StartWorkflowOptions{
@@ -336,7 +321,7 @@ func (w *CredentialsIssuersWorkflow) Start(
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
-	return workflowengine.StartWorkflowWithOptions(workflowOptions, w.Name(), input)
+	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
 func extractInvalidCredentialsFromErrorDetails(
@@ -397,4 +382,27 @@ func extractAppErrorDetails(err error) ([]any, error) {
 		return nil, workflowengine.NewAppError(errCode, actErr.Unwrap().Error())
 	}
 	return nil, workflowengine.NewAppError(errCode, err.Error())
+}
+
+func validateInput(
+	input workflowengine.WorkflowInput,
+	runMetadata workflowengine.WorkflowErrorMetadata,
+) (baseURL, appURL, issuerSchema, issuerID string, err error) {
+	baseURL, ok := input.Payload["base_url"].(string)
+	if !ok || baseURL == "" {
+		return "", "", "", "", workflowengine.NewMissingPayloadError("base_url", runMetadata)
+	}
+	appURL, ok = input.Config["app_url"].(string)
+	if !ok || appURL == "" {
+		return "", "", "", "", workflowengine.NewMissingConfigError("app_url", runMetadata)
+	}
+	issuerSchema, ok = input.Config["issuer_schema"].(string)
+	if !ok || issuerSchema == "" {
+		return "", "", "", "", workflowengine.NewMissingConfigError("issuer_schema", runMetadata)
+	}
+	issuerID, ok = input.Payload["issuerID"].(string)
+	if !ok || issuerID == "" {
+		return "", "", "", "", workflowengine.NewMissingPayloadError("issuerID", runMetadata)
+	}
+	return baseURL, appURL, issuerSchema, issuerID, nil
 }

@@ -26,6 +26,7 @@ import { createForm, type FormOptions } from '@/forms';
 import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { getCollectionModel } from '@/pocketbase/collections-models';
+import { checkNameUniqueness } from '@/pocketbase/utils';
 import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 import { getExceptionMessage } from '@/utils/errors';
 import { ensureArray } from '@/utils/other';
@@ -42,7 +43,8 @@ export function setupCollectionForm<C extends CollectionName>({
 	fieldsOptions = {},
 	superformsOptions = {},
 	uiOptions = {},
-	beforeSubmit
+	beforeSubmit,
+	schemaContext
 }: CollectionFormProps<C>): SuperForm<CollectionFormData[C]> {
 	const { exclude = [], defaults = {}, hide = {} } = fieldsOptions;
 	const { toastText } = uiOptions;
@@ -99,6 +101,26 @@ export function setupCollectionForm<C extends CollectionName>({
 
 		onSubmit: async ({ form }) => {
 			try {
+				// Check name uniqueness before submitting (if context provided)
+				if (schemaContext?.parentId && form.data.name) {
+					const isUnique = await checkNameUniqueness(
+						collection as Parameters<typeof checkNameUniqueness>[0],
+						form.data.name as string,
+						schemaContext.parentId,
+						schemaContext.excludeId
+					);
+
+					if (!isUnique) {
+						setError(
+							form,
+							'name',
+							'This name is already in use. Please choose a different name.'
+						);
+						toast.error('This name is already in use. Please choose a different name.');
+						return;
+					}
+				}
+
 				const data = pipe(
 					cleanFormDataFiles(form.data, initialData, collectionModel),
 					Record.map((v) => (v === undefined ? null : v)) // IMPORTANT!

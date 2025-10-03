@@ -90,5 +90,8 @@ var Registry = map[string]TaskFactory{
 	"mobile-automation": {
 		Kind:    TaskWorkflow,
 		NewFunc: func() any { return &workflows.MobileAutomationWorkflow{} },
+	"custom-check": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.CustomCheckWorkflow{} },
 	},
 }

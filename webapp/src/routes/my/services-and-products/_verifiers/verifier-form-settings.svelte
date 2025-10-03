@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	export const settings: Partial<FieldsOptions<'verifiers'>> = {
-		exclude: ['owner', 'conformance_checks', 'published'],
+		exclude: ['owner', 'conformance_checks', 'published', 'canonified_name'],
 		snippets: {
 			standard_and_version,
 			description

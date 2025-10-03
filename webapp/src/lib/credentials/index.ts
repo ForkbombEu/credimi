@@ -10,9 +10,9 @@ export function createIntentUrl(
 	credential: CredentialsRecord,
 	credentialIssuerUrl: string
 ): string {
-	if (!credential.key) throw new Error('Credential key is required');
+	if (!credential.name) throw new Error('Credential name is required');
 	const data = {
-		credential_configuration_ids: [credential.key],
+		credential_configuration_ids: [credential.name],
 		credential_issuer: credentialIssuerUrl
 	};
 

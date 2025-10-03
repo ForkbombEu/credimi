@@ -224,7 +224,7 @@ func ResolveInputs(
 		var val any
 		var err error
 
-		if shouldSkipInString(step.Run, k, src.Value) {
+		if shouldSkipInString(step.Use, k, src.Value) {
 			val = src.Value
 		} else {
 			val, err = ResolveExpressions(src.Value, ctx)
@@ -263,7 +263,7 @@ func ResolveSubworkflowInputs(
 		var err error
 
 		// Handle expression resolution
-		if shouldSkipInString(step.Run, k, src.Value) {
+		if shouldSkipInString(step.Use, k, src.Value) {
 			val = src.Value
 		} else {
 			val, err = ResolveExpressions(src.Value, ctx)

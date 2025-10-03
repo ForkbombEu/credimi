@@ -45,7 +45,7 @@ func TestAddTemplatingRoutes(t *testing.T) {
 				"Authorization": "Bearer " + authToken,
 			},
 			Delay:           0,
-			ExpectedContent: []string{"variants"},
+			ExpectedContent: []string{"suites"},
 			Timeout:         5 * time.Second,
 			ExpectedStatus:  http.StatusOK,
 			TestAppFactory:  setupTestApp,

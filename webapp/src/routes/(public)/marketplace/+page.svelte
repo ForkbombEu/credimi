@@ -9,6 +9,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+	import { MinusIcon } from 'lucide-svelte';
+	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 
 	import type { PocketbaseQueryOptions } from '@/pocketbase/query';
@@ -24,6 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		marketplaceItemTypes,
 		marketplaceItemTypeSchema
 	} from './_utils';
+	import MarketplaceTable from './_utils/marketplace-table.svelte';
 
 	//
 
@@ -37,6 +40,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					return null;
 				}
 			}
+		},
+		mode: {
+			encode: (value) => value,
+			decode: (value) => (value === 'cards' ? 'cards' : 'table')
 		}
 	});
 
@@ -62,7 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// 	}));
 </script>
 
-<CollectionManager collection="marketplace_items" {queryOptions}>
+<CollectionManager collection="marketplace_items" queryOptions={{ perPage: 25, ...queryOptions }}>
 	{#snippet top({ Search })}
 		<PageTop>
 			<div>
@@ -89,8 +96,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet contentWrapper(children)}
 		<PageContent class="bg-secondary grow">
 			<div class="flex flex-col gap-8 sm:flex-row">
-				<div class="w-full sm:w-fit">
+				<div class="w-full space-y-3 sm:w-fit">
 					{@render MarketplaceTableOfContents()}
+					<hr />
+					{@render viewSwitcher()}
 				</div>
 				<div class="grow">
 					{@render children()}
@@ -100,17 +109,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet records({ records })}
-		<PageGrid>
-			{#each records as record (record.id)}
-				<MarketplaceItemCard item={record} />
-			{/each}
-		</PageGrid>
+		{#if params.mode === 'cards'}
+			<div in:fly={{ y: 10 }}>
+				<PageGrid>
+					{#each records as record (record.id)}
+						<MarketplaceItemCard item={record} />
+					{/each}
+				</PageGrid>
+			</div>
+		{:else}
+			<div in:fly={{ y: 10 }}>
+				<MarketplaceTable {records} />
+			</div>
+		{/if}
 	{/snippet}
 </CollectionManager>
 
 {#snippet MarketplaceTableOfContents()}
 	{@const isAllActive = params.type === null}
-	<div class="grid grid-cols-2 sm:flex sm:flex-col">
+	<div class="flex flex-col">
+		<!-- <div class="grid grid-cols-2 sm:flex sm:flex-col"> -->
 		<Button
 			variant={isAllActive ? 'default' : 'ghost'}
 			size="sm"
@@ -120,17 +138,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.All()}
 		</Button>
 
-		<div class="spacer relative sm:hidden"></div>
+		<!-- <div class="spacer relative sm:hidden"></div> -->
 
 		{#each marketplaceItemTypes as type}
 			{@const typeData = getMarketplaceItemTypeData(type)}
 			{@const isActive = typeFilter === type}
+			{@const indent = type === 'use_cases_verifications' || type === 'credentials'}
 			<Button
 				variant={isActive ? 'default' : 'ghost'}
 				size="sm"
 				onclick={() => (params.type = type)}
-				class={'justify-start '}
+				class={['justify-start']}
 			>
+				{#if indent}
+					<div
+						class={{
+							'text-black/20': !isActive,
+							'text-primary-foreground/20': isActive
+						}}
+					>
+						<MinusIcon />
+					</div>
+				{/if}
 				{#if typeData.display?.icon}
 					{@const IconComponent = typeData.display.icon}
 					<IconComponent
@@ -139,8 +168,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							: `opacity-70 ${typeData.display?.textClass}`}"
 					/>
 				{/if}
-				{typeData.display?.labelPlural}
+				<span class="truncate">
+					{typeData.display?.labelPlural}
+				</span>
 			</Button>
 		{/each}
 	</div>
+{/snippet}
+
+{#snippet viewSwitcher()}
+	<div class="px-3 text-sm">
+		<span>
+			{m.View()}:
+		</span>
+		{@render viewSwitcherLink('table')}
+		<span>/</span>
+		{@render viewSwitcherLink('cards')}
+	</div>
+{/snippet}
+
+{#snippet viewSwitcherLink(mode: typeof params.mode)}
+	<a
+		href="/marketplace?mode={mode}"
+		class={[
+			'hover:underline',
+			{
+				'text-primary font-bold': params.mode === mode
+			}
+		]}
+	>
+		{#if mode === 'table'}
+			{m.Table()}
+		{:else}
+			{m.Cards()}
+		{/if}
+	</a>
 {/snippet}

@@ -37,11 +37,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	onMount(async () => {
-		if (useCaseVerification.deeplink) {
+		if (useCaseVerification.yaml) {
 			isProcessingYaml = true;
 			yamlProcessingError = false;
 			try {
-				const result = await generateDeeplinkFromYaml(useCaseVerification.deeplink);
+				const result = await generateDeeplinkFromYaml(useCaseVerification.yaml);
 				if (result.deeplink) {
 					qrLink = result.deeplink;
 				}

@@ -115,7 +115,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									recordId={importedIssuerId}
 									initialData={credentialIssuer}
 									fieldsOptions={{
-										exclude: ['published', 'owner', 'url']
+										exclude: [
+											'published',
+											'owner',
+											'url',
+											'canonified_name',
+											'imported'
+										]
 									}}
 									onSuccess={async () => {
 										hasBeenSaved = true;
@@ -135,7 +141,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								hide: {
 									owner: organizationId
 								},
-								exclude: ['published']
+								exclude: ['published', 'imported', 'canonified_name']
 							}}
 							onSuccess={async () => {
 								hasBeenSaved = true;

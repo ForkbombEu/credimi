@@ -7,6 +7,11 @@ import { CheckCheck, CheckCircle, QrCode, ShieldCheck, Users, Wallet } from 'luc
 import { z } from 'zod';
 
 import type { CollectionName } from '@/pocketbase/collections-models';
+import type {
+	CredentialsResponse,
+	MarketplaceItemsResponse,
+	UseCasesVerificationsResponse
+} from '@/pocketbase/types';
 
 import { localizeHref, m } from '@/i18n';
 import { pb } from '@/pocketbase';
@@ -45,11 +50,12 @@ export type MarketplaceItem = {
 	type: MarketplaceItemType;
 	name: string;
 	description: string | null;
-	avatar: { [key: string]: unknown; image_file: string } | null;
+	avatar_file: string | null;
 	avatar_url: string | null;
 	updated: string;
 	organization_id: string;
 	organization_name: string;
+	children: { id: string; name: string }[] | null;
 };
 
 /* -- Marketplace item type mapping to display data -- */
@@ -136,12 +142,46 @@ export function getMarketplaceItemData(item: MarketplaceItem) {
 		item.type === 'custom_checks'
 			? `/my/tests/new?${queryParams.customCheckId}=${item.id}`
 			: localizeHref(`/marketplace/${item.type}/${item.id}`);
-
-	const logo = item.avatar
-		? pb.files.getURL(item.avatar, item.avatar.image_file)
+	
+	const logo = item.avatar_file
+		? pb.files.getURL({ collectionName: item.type, id: item.id }, item.avatar_file)
 		: item.avatar_url
 			? item.avatar_url
 			: undefined;
 
 	return { href, logo, ...getMarketplaceItemTypeData(item.type) };
+}
+
+//
+
+export function isCredentialIssuer(item: MarketplaceItemsResponse): boolean {
+	return item.type === marketplaceItemTypes[1];
+}
+
+export function getIssuerItemCredentials(
+	item: MarketplaceItemsResponse
+): Promise<CredentialsResponse[]> {
+	if (!isCredentialIssuer(item)) {
+		throw new Error('Item is not a credential issuer');
+	}
+	return pb.collection('credentials').getFullList({
+		filter: `credential_issuer = '${item.id}'`,
+		requestKey: null
+	});
+}
+
+export function isVerifier(item: MarketplaceItemsResponse): boolean {
+	return item.type === marketplaceItemTypes[3];
+}
+
+export function getVerifierItemUseCases(
+	item: MarketplaceItemsResponse
+): Promise<UseCasesVerificationsResponse[]> {
+	if (!isVerifier(item)) {
+		throw new Error('Item is not a verifier');
+	}
+	return pb.collection('use_cases_verifications').getFullList({
+		filter: `verifier = '${item.id}'`,
+		requestKey: null
+	});
 }

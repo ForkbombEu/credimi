@@ -24,16 +24,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		contentClass?: string;
 		trigger?: Snippet<[{ props: GenericRecord; openDialog: () => void }]>;
 		content?: Snippet<[{ Footer: typeof Footer; closeDialog: () => void }]>;
+		onclose?: () => void;
 	};
 
 	let {
 		title,
 		description,
 		open = $bindable(false),
-		class: className = '',
 		contentClass = '',
 		trigger,
 		content,
+		onclose,
 		...rest
 	}: Props = $props();
 
@@ -46,7 +47,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<Dialog.Root bind:open {...rest}>
+<Dialog.Root
+	bind:open
+	{...rest}
+	onOpenChange={(open) => {
+		if (!open) onclose?.();
+	}}
+>
 	<Dialog.Trigger>
 		{#snippet child({ props })}
 			{@render trigger?.({ props, openDialog })}
