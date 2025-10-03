@@ -750,5 +750,7 @@
 	"importing": "Importing...",
 	"Credential_issuer_imported_successfully": "Credential issuer imported successfully",
 	"All_credentials_imported_successfully": "All credentials imported successfully",
-	"Importing_credentials": "Importing credentials ({count}/{total})"
+	"Importing_credentials": "Importing credentials ({count}/{total})",
+	"hide": "Hide",
+	"show": "Show"
 }

@@ -7,20 +7,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { UnsubscribeFunc } from 'pocketbase';
 
-	import { CheckCircle2, Download, Loader2 } from 'lucide-svelte';
+	import { CheckCircle2, ChevronDownIcon, ChevronUpIcon, Download, Loader2 } from 'lucide-svelte';
 	import { onDestroy, onMount } from 'svelte';
+	import { slide } from 'svelte/transition';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
 
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 
 	import { getCollectionManagerContext } from '@/collections-components/manager/collectionManagerContext';
+	import Button from '@/components/ui-custom/button.svelte';
 	import { Alert, AlertDescription } from '@/components/ui/alert';
+	import { ScrollArea } from '@/components/ui/scroll-area/index';
 	import { createForm, Form, SubmitButton } from '@/forms';
 	import { Field } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
-
 	//
 
 	type Props = {
@@ -94,23 +96,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (hasAllCredentials) unsub();
 	});
 
-	/* Credentuals display */
+	/* Credentials display */
 
-	// function getCredentialName(credential: unknown): string {
-	// 	if (credential && typeof credential === 'object' && credential !== null) {
-	// 		const cred = credential as { display_name?: string; name?: string };
-	// 		return cred.display_name || cred.name || 'Unknown credential';
-	// 	}
-	// 	return 'Unknown credential';
-	// }
+	let showCredentials = $state(false);
 
-	// function getCredentialFormat(credential: unknown): string | null {
-	// 	if (credential && typeof credential === 'object' && credential !== null) {
-	// 		const cred = credential as { format?: string };
-	// 		return cred.format || null;
-	// 	}
-	// 	return null;
-	// }
+	const credentialsText = $derived.by(() => {
+		if (hasAllCredentials) {
+			return m.All_credentials_imported_successfully() + ` (${validCredentials.length})`;
+		} else {
+			return m.Importing_credentials({
+				count: validCredentials.length,
+				total: result?.credentialsNumber ?? 0
+			});
+		}
+	});
 
 	/* Temp fix for imported issuer not showing */
 
@@ -170,18 +169,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<CheckCircle2 class="h-4 w-4 text-green-600" />
 				<AlertDescription class="text-green-800">
 					<p>{m.Credential_issuer_imported_successfully()}</p>
-					{#if hasAllCredentials}
-						<p>{m.All_credentials_imported_successfully()}</p>
-					{:else}
-						<p>
-							{m.Importing_credentials({
-								count: validCredentials.length,
-								total: result.credentialsNumber
-							})}
-						</p>
-					{/if}
+					{@render credentialsList(validCredentials, credentialsText)}
 				</AlertDescription>
 			</Alert>
 		{/if}
 	</div>
 </div>
+
+{#snippet credentialsList(credentials: CredentialsResponse[], text: string)}
+	<div>
+		<div class="flex items-center justify-between gap-2">
+			<p>{text}</p>
+			<Button
+				variant="ghost"
+				class="h-6 px-2"
+				size="sm"
+				onclick={() => (showCredentials = !showCredentials)}
+			>
+				{showCredentials ? m.hide() : m.show()}
+				{#if showCredentials}
+					<ChevronUpIcon size={14} />
+				{:else}
+					<ChevronDownIcon size={14} />
+				{/if}
+			</Button>
+		</div>
+
+		{#if showCredentials}
+			<div class="mt-2" transition:slide>
+				<ScrollArea class="mt h-[200px] rounded-md border px-3 py-2">
+					<ul class="list-inside list-disc">
+						{#each credentials as credential}
+							<li>
+								{credential.display_name || credential.name}
+							</li>
+						{/each}
+					</ul>
+				</ScrollArea>
+			</div>
+		{/if}
+	</div>
+{/snippet}
