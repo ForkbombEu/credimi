@@ -69,6 +69,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			activeTab = 'output';
 		}
 	});
+
+
+	$effect(() => {
+		if ((output && output.trim()) || (error && error.trim())) {
+			activeTab = 'output';
+		}
+	});
+
 </script>
 
 <div class="border-border rounded-lg border">

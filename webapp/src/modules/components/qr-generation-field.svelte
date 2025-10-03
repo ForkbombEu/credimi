@@ -198,6 +198,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			if (workflowError.link) {
 				errorMessage += `\n\n🔗 View detailed workflow information:\n${workflowError.link}`;
 			}
+			if (workflowError.fullMessage) {
+				errorMessage += `\n\n📝 Full Error Message:\n${workflowError.fullMessage}`;
+			}
 			return errorMessage;
 		}
 		return undefined;
@@ -209,17 +212,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@const error = workflowError as StructuredError}
 		<div class="space-y-2 text-center">
 			<div class="text-sm font-medium">{error.summary}</div>
-			{#if error.link}
-				<div>
-					<a
-						href={error.link}
-						target="_blank"
-						class="text-xs text-blue-600 underline hover:text-blue-800"
-					>
-						{m.View_workflow_details()}
-					</a>
-				</div>
-			{/if}
 		</div>
 	{/if}
 {/snippet}
