@@ -294,7 +294,7 @@ func FetchNamespaces(app *pocketbase.PocketBase) ([]string, error) {
 	namespaces = append(namespaces, "default")
 	namespaces = append(namespaces, "default")
 	for _, r := range records {
-		namespaces = append(namespaces, r.Id)
+		namespaces = append(namespaces, r.GetString("canonified_name"))
 	}
 	return namespaces, nil
 }
