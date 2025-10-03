@@ -18,12 +18,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	interface StructuredError {
-		summary: string;
-		link?: string;
-		fullMessage: string;
-	}
-
 	interface Props {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		form: SuperForm<any>;
@@ -44,7 +38,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		placeholder = m.Run_the_code_to_generate_QR_code(),
 		successMessage = m.Test_Completed_Successfully(),
 		loadingMessage = m.Running_test(),
-		enableStructuredErrors = true
 	}: Props = $props();
 
 	const fieldProxy = fromStore(stringProxy(form, fieldName, { empty: 'undefined' }));
@@ -63,43 +56,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let workflowError = $state<string | StructuredError>();
+	let workflowError = $state<unknown>();
 	let isSubmittingWorkflow = $state(false);
 	let generatedDeeplink = $state<string>();
 	let workflowSteps = $state<unknown[]>();
 	let workflowOutput = $state<unknown[]>();
 
-	function parseError(error: unknown): string | StructuredError {
-		if (!enableStructuredErrors) {
-			return error instanceof Error ? error.message : String(error);
-		}
-
-		try {
-			const errorObj = error as Record<string, unknown>;
-			const nestedDetails = (errorObj?.response as Record<string, unknown>)
-				?.details as Record<string, unknown>;
-			if (nestedDetails?.summary && nestedDetails?.link) {
-				return {
-					summary: String(nestedDetails.summary),
-					link: String(nestedDetails.link),
-					fullMessage: String(nestedDetails.message || nestedDetails.summary)
-				};
-			}
-
-			const directDetails = errorObj?.details as Record<string, unknown>;
-			if (directDetails?.summary && directDetails?.link) {
-				return {
-					summary: String(directDetails.summary),
-					link: String(directDetails.link),
-					fullMessage: String(directDetails.message || directDetails.summary)
-				};
-			}
-
-			return error instanceof Error ? error.message : String(error);
-		} catch {
-			return error instanceof Error ? error.message : String(error);
-		}
-	}
 
 	async function startWorkflowTest(yamlContent: string) {
 		if (!yamlContent?.trim()) {
@@ -120,7 +82,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			workflowSteps = result.steps;
 			workflowOutput = result.output;
 		} catch (error) {
-			workflowError = parseError(error);
+			workflowError = error;
 		} finally {
 			isSubmittingWorkflow = false;
 		}
@@ -193,15 +155,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (typeof workflowError === 'string') {
 			return workflowError;
 		}
-		if (workflowError && typeof workflowError === 'object' && 'summary' in workflowError) {
-			let errorMessage = `❌ ${workflowError.summary}`;
-			if (workflowError.link) {
-				errorMessage += `\n\n🔗 View detailed workflow information:\n${workflowError.link}`;
-			}
-			if (workflowError.fullMessage) {
-				errorMessage += `\n\n📝 Full Error Message:\n${workflowError.fullMessage}`;
-			}
-			return errorMessage;
+		if (workflowError && typeof workflowError === 'object') {
+			return JSON.stringify(workflowError, null, 2);
 		}
 		return undefined;
 	});
@@ -209,7 +164,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet error()}
 	{#if workflowError && typeof workflowError === 'object' && 'summary' in workflowError}
-		{@const error = workflowError as StructuredError}
+		{@const error = workflowError}
 		<div class="space-y-2 text-center">
 			<div class="text-sm font-medium">{error.summary}</div>
 		</div>

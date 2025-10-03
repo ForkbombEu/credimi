@@ -6,7 +6,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { FileText, Monitor, Play, SplitSquareHorizontal } from 'lucide-svelte';
-	import { onMount } from 'svelte';
 
 	import { Button } from '@/components/ui/button';
 
@@ -64,15 +63,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}
 
-	onMount(() => {
-		if (output || error) {
-			activeTab = 'output';
-		}
-	});
-
-
 	$effect(() => {
-		if ((output && output.trim()) || (error && error.trim())) {
+		if (error && error.trim()) {
 			activeTab = 'output';
 		}
 	});
@@ -239,8 +231,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{:else if error && error.trim()}
 					<div class="h-[400px] overflow-auto">
-						<div class="h-full border-l-4 border-red-500 bg-red-50 p-4">
-							<div class="mb-2 flex items-center">
+							<div class="flex items-center p-4">
 								<svg
 									class="mr-2 h-5 w-5 text-red-500"
 									viewBox="0 0 24 24"
@@ -253,9 +244,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<h3 class="font-medium text-red-800">Execution Error</h3>
 							</div>
 							<pre
-								class="overflow-auto whitespace-pre-wrap rounded bg-red-100/50 p-3 font-mono text-sm leading-relaxed text-red-700">{error}</pre>
+								class="overflow-auto whitespace-pre-wrap rounded bg-red-100/50 p-3 font-mono text-sm leading-relaxed text-red-700  border-l-4 border-red-500">{error}</pre>
 						</div>
-					</div>
 				{:else if output && output.trim()}
 					<div class="h-[400px] overflow-auto">
 						<pre
