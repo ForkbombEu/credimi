@@ -95,9 +95,8 @@ func RegisterRoutesWithValidation(
 	routes []RouteDefinition,
 	needsAuth bool,
 ) {
-	log.Println("Registering routes with validation")
-
 	for _, route := range routes {
+		log.Printf("ADD [V] %s", route.Path)
 		inputType := reflect.TypeOf(route.RequestSchema)
 
 		validatorMiddleware := middlewares.DynamicValidateInputByType(inputType)
@@ -166,6 +165,7 @@ func RegisterRoutesWithoutValidation(
 	routes []RouteDefinition,
 ) {
 	for _, route := range routes {
+		log.Printf("ADD %s", route.Path)
 		switch route.Method {
 		case http.MethodPost:
 			group.POST(route.Path, route.Handler()).
