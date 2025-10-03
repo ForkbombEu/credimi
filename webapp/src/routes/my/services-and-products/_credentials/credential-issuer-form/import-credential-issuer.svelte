@@ -216,7 +216,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let result = $state<Result>();
 
 	const form = createForm({
-		adapter: zod(z.object({ url: z.string().url() })),
+		adapter: zod(z.object({ 
+			url: z.string().regex(
+				/^(https?:\/\/)?([\da-z\.-]+)\.([a-z\.]{2,6})([\/\w \.-]*)*\/?$/,
+				'Please enter a valid URL'
+			)
+		})),
 		onSubmit: async ({ form: { data } }) => {
 			const res = await pb.send('/api/credentials_issuers/start-check', {
 				method: 'POST',
@@ -282,7 +287,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{form}
 							name="url"
 							options={{
-								type: 'url',
 								placeholder:
 									'Enter credential issuer URL (e.g., https://example.com/issuer)',
 								hideLabel: true
