@@ -452,7 +452,8 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 			err = sendTemporalSignal(c, req)
 		}
 		if err != nil {
-			if apiErr, ok := err.(*apierror.APIError); ok {
+			apiErr := &apierror.APIError{}
+			if errors.As(err, &apiErr) {
 				return apiErr.JSON(e)
 			}
 
@@ -645,13 +646,14 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 
 		author, err := getWorkflowAuthor(c, workflowID, runID)
 		if err != nil {
-			if apiErr, ok := err.(*apierror.APIError); ok {
+			apiErr := &apierror.APIError{}
+			if errors.As(err, &apiErr) {
 				return apiErr.JSON(e)
-
 			}
 			return err
 		}
-		apiErr, ok := handleDeeplinkFromHistory(e, c, workflowID, runID, author).(*apierror.APIError)
+		apiErr := &apierror.APIError{}
+		ok := errors.As(handleDeeplinkFromHistory(e, c, workflowID, runID, author), &apiErr)
 		if ok {
 			return apiErr.JSON(e)
 		}
