@@ -663,16 +663,16 @@ func readSchemaFile(path string) (string, *apierror.APIError) {
 //   - If the "envVariables" field is missing or the interval is invalid, the hook exits without action.
 //   - Logs fatal errors if JSON unmarshalling or Temporal client/schedule creation fails.
 func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
-	app.OnRecordAfterUpdateSuccess().BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Collection().Name != "features" || e.Record.Get("name") != "updateIssuers" {
-			return nil
+	app.OnRecordAfterUpdateSuccess("features").BindFunc(func(e *core.RecordEvent) error {
+		if e.Record.Get("name") != "updateIssuers" {
+			return e.Next()
 		}
 		if e.Record.Get("active") == false {
-			return nil
+			return e.Next()
 		}
 		envVariables := e.Record.Get("envVariables")
 		if envVariables == nil {
-			return nil
+			return e.Next()
 		}
 		result := struct {
 			Interval string `json:"interval"`
@@ -682,7 +682,7 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 			log.Fatal(errJSON)
 		}
 		if result.Interval == "" {
-			return nil
+			return e.Next()
 		}
 		var interval time.Duration
 		switch result.Interval {
@@ -730,6 +730,6 @@ func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
 		}
 		_, _ = scheduleHandle.Describe(ctx)
 
-		return nil
+		return e.Next()
 	})
 }
