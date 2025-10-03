@@ -28,6 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
@@ -113,21 +114,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		exclude: ['owner', 'url', 'published', 'imported', 'canonified_name']
 	}}
 >
-	{#snippet top({ Header, records })}
+	{#snippet top({ Header })}
 		<Header title={m.Credential_issuers()} {id}>
 			{#snippet right()}
-				<CredentialIssuerForm {organizationId} currentIssuers={records} />
+				<CredentialIssuerForm {organizationId} />
 			{/snippet}
 		</Header>
 	{/snippet}
 
 	{#snippet records({ records, reloadRecords })}
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-			{#each records as record}
-				{@render CredentialIssuerCard({
-					credentialIssuer: record,
-					onEditSuccess: reloadRecords
-				})}
+			{#each records as record (record.name)}
+				{@render CredentialIssuerCard(record, reloadRecords)}
 			{/each}
 		</div>
 	{/snippet}
@@ -135,11 +133,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!--  -->
 
-{#snippet CredentialIssuerCard(props: {
-	credentialIssuer: CredentialIssuersResponse;
-	onEditSuccess: () => void;
-})}
-	{@const { credentialIssuer: record, onEditSuccess } = props}
+{#snippet CredentialIssuerCard(record: CredentialIssuersResponse, onEditSuccess: () => void)}
 	{@const title = String.isNonEmpty(record.name) ? record.name : '[no_title]'}
 
 	<Card class="!p-4">
@@ -154,7 +148,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="flex w-0 grow items-center gap-2">
 					<T class="truncate font-bold">
 						{#if !record.published}
-							{title}
+							{record.name}
 						{:else}
 							<A
 								href="/marketplace/{Collections.CredentialIssuers}/{record.id}"
@@ -168,48 +162,48 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<Badge variant="secondary">{m.Imported()}</Badge>
 					{/if}
 				</div>
+			</div>
 
-				<div class="flex items-center gap-2">
-					<SwitchWithIcons
-						offIcon={EyeOff}
-						onIcon={Eye}
-						size="md"
-						checked={record.published}
-						onCheckedChange={(value) => updateCredentialIssuerPublished(record, value)}
-					/>
+			<div class="flex items-center justify-end gap-2">
+				<SwitchWithIcons
+					offIcon={EyeOff}
+					onIcon={Eye}
+					size="md"
+					checked={record.published}
+					onCheckedChange={(value) => updateCredentialIssuerPublished(record, value)}
+				/>
 
-					<Button
-						variant="outline"
-						size="icon"
-						disabled={!record.imported}
-						onclick={() => refreshCredentialIssuer(record.url)}
-					>
-						<RefreshCwIcon />
-					</Button>
+				<Button
+					variant="outline"
+					size="icon"
+					disabled={!record.imported}
+					onclick={() => refreshCredentialIssuer(record.url)}
+				>
+					<RefreshCwIcon />
+				</Button>
 
-					<RecordEdit {record} onSuccess={onEditSuccess}>
-						{#snippet button({ triggerAttributes, icon: Icon })}
-							<Button variant="outline" size="icon" {...triggerAttributes}>
-								<Icon />
-							</Button>
-						{/snippet}
-					</RecordEdit>
+				<RecordEdit {record} onSuccess={onEditSuccess}>
+					{#snippet button({ triggerAttributes, icon: Icon })}
+						<Button variant="outline" size="icon" {...triggerAttributes}>
+							<Icon />
+						</Button>
+					{/snippet}
+				</RecordEdit>
 
-					<RecordDelete {record}>
-						{#snippet button({ triggerAttributes, icon: Icon })}
-							<Button variant="outline" size="icon" {...triggerAttributes}>
-								<Icon />
-							</Button>
-						{/snippet}
-					</RecordDelete>
-				</div>
+				<RecordDelete {record}>
+					{#snippet button({ triggerAttributes, icon: Icon })}
+						<Button variant="outline" size="icon" {...triggerAttributes}>
+							<Icon />
+						</Button>
+					{/snippet}
+				</RecordDelete>
 			</div>
 
 			<Separator />
 
 			{#snippet infoLink(props: { label: string; href?: string })}
 				<div class="flex items-center gap-1">
-					<T>{props.label}:</T>
+					<T class="text-nowrap">{props.label}:</T>
 					{#if props.href}
 						<A class="link-sm block truncate" target="_blank" href={props.href}>
 							{props.href}
@@ -288,7 +282,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{/if}
 								</div>
 
-								<div class="flex items-center gap-2">
+								<div class="flex items-center gap-1">
 									{#if credential.imported}
 										<Badge variant="secondary">{m.Imported()}</Badge>
 									{/if}
@@ -328,14 +322,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									/>
 
 									<RecordDelete record={credential}>
-										{#snippet button({ triggerAttributes, icon: Icon })}
-											<Button
+										{#snippet button({ triggerAttributes, icon })}
+											<IconButton
 												variant="outline"
-												size="icon"
+												size="sm"
+												{icon}
 												{...triggerAttributes}
-											>
-												<Icon />
-											</Button>
+											/>
 										{/snippet}
 									</RecordDelete>
 								</div>

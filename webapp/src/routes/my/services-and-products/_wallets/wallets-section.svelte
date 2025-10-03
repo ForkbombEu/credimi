@@ -89,6 +89,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	const copyWalletActionTooltipText = `${m.Copy()} ${m.Organization()}/${m.Wallet()}/${m.Actions()}`;
+
+	//
+
+	pb.collection('credential_issuers').subscribe('*', (event) => {
+		console.log(event);
+	});
 </script>
 
 <CollectionManager
