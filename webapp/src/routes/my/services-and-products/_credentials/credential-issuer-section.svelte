@@ -203,7 +203,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{#snippet infoLink(props: { label: string; href?: string })}
 				<div class="flex items-center gap-1">
-					<T>{props.label}:</T>
+					<T class="text-nowrap">{props.label}:</T>
 					{#if props.href}
 						<A class="link-sm block truncate" target="_blank" href={props.href}>
 							{props.href}
