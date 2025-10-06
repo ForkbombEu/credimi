@@ -78,7 +78,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			/>
 
 			<div class="flex gap-6">
-				<InfoBox label="Issuer" value={credential.issuer_name} />
 				<InfoBox label="Format" value={credential.format} />
 				<InfoBox label="Locale" value={credential.locale} />
 			</div>
@@ -97,7 +96,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					)}
 				/>
 			</div>
-			<InfoBox label="Type" value={credential.type} />
 		</div>
 
 		<div class="flex flex-col items-stretch">
@@ -113,7 +111,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{#if qrLink && !isProcessingYaml && !yamlProcessingError}
 				<div class="w-60 break-all pt-4 text-xs">
-					<a href={qrLink} target="_self">{qrLink}</a>
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+					<a href={qrLink} target="_blank">{qrLink}</a>
 				</div>
 			{/if}
 		</div>

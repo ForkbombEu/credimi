@@ -23,14 +23,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		updated: '2024-12-12',
 		credential_issuer: 'das',
 		json: {},
-		key: 'das',
 		description: 'Lorem ipsum',
 		format: 'jwt_vc_json',
-		issuer_name: 'das',
 		logo: 'das',
 		name: 'das',
 		locale: 'en',
-		type: 'plc',
 		collectionId: '',
 		collectionName: Collections.Credentials,
 		deeplink: '',
@@ -38,7 +35,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		owner: 'das',
 		conformant: false,
 		imported: false,
-		yaml: ''
+		yaml: '',
+		canonified_name: 'das',
+		display_name: 'das'
 	};
 </script>
 
@@ -70,7 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			{#snippet records({ records })}
 				<PageGrid>
-					{#each records as credential, i}
+					{#each records as credential, i (credential.id)}
 						{@const isLast = i == MAX_ITEMS - 1}
 						<CredentialCard {credential} class={isLast ? 'hidden lg:flex' : ''} />
 					{/each}

@@ -120,7 +120,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				id={sections.conformance_checks.anchor}
 			/>
 			<div class="space-y-2">
-				{#each checks.data as check}
+				{#each checks.data as check (check.runId)}
 					{@const badgeColor = statuses[check.status]}
 					<Card contentClass="flex justify-between items-center p-4">
 						<div>
@@ -140,7 +140,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="space-y-4">
 			<PageHeader title={sections.actions.label} id={sections.actions.anchor} />
 			<div class="space-y-3">
-				{#each actions as action}
+				{#each actions as action (action.id)}
 					{@const stats = getCodeStats(action.code)}
 					<Accordion type="single" class="w-full">
 						<AccordionItem
@@ -156,7 +156,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										<div class="text-left">
 											<div class="font-medium">{action.name}</div>
 											<div class="text-muted-foreground text-xs">
-												{action.uid} • {stats.lines} lines • {stats.chars} characters
+												{stats.lines} lines • {stats.chars} characters
 											</div>
 										</div>
 									</div>
