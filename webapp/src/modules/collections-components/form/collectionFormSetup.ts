@@ -44,6 +44,7 @@ export function setupCollectionForm<C extends CollectionName>({
 	superformsOptions = {},
 	uiOptions = {},
 	beforeSubmit,
+	refineSchema = (schema) => schema,
 	schemaContext
 }: CollectionFormProps<C>): SuperForm<CollectionFormData[C]> {
 	const { exclude = [], defaults = {}, hide = {} } = fieldsOptions;
@@ -55,7 +56,7 @@ export function setupCollectionForm<C extends CollectionName>({
 
 	/* Schema creation */
 
-	const baseSchema = createCollectionZodSchema(collection) as z.AnyZodObject;
+	const baseSchema = refineSchema(createCollectionZodSchema(collection)) as z.AnyZodObject;
 	const schema = baseSchema.omit(Object.fromEntries(exclude.map((key) => [key, true])));
 
 	/* Initial data processing */

@@ -66,12 +66,19 @@ export const yamlStringSchema = z
 	.string()
 	.nonempty()
 	.superRefine((value, ctx) => {
+		let res: unknown;
 		try {
-			parseYaml(value);
+			res = parseYaml(value);
 		} catch (e) {
 			ctx.addIssue({
 				code: z.ZodIssueCode.custom,
 				message: `Invalid YAML: ${getExceptionMessage(e)}`
+			});
+		}
+		if (typeof res !== 'object') {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `Invalid YAML: Not a JSON object`
 			});
 		}
 	});
