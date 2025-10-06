@@ -16,7 +16,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type {
 		PocketbaseQueryAgentOptions,
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		PocketbaseQueryExpandOption,
 		PocketbaseQueryOptions,
 		PocketbaseQueryResponse

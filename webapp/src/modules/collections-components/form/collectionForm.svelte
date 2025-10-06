@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts" generics="C extends CollectionName">
 	import type { CollectionField } from 'pocketbase';
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type { CollectionFormData } from '@/pocketbase/types';
 	import type { KeyOf } from '@/utils/types';
