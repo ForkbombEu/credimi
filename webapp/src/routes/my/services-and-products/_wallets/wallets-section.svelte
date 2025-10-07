@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
-
 	import { yaml } from '@codemirror/lang-yaml';
 	import { ChevronDown, ChevronUp, Eye, EyeOff, UploadIcon } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -49,7 +47,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		organizationId?: string;
 		organization?: OrganizationsResponse;
-		workflows?: WorkflowExecution[];
 		id?: string;
 	};
 
