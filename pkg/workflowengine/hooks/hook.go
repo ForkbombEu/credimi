@@ -11,6 +11,7 @@ package hooks
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"reflect"
 	"sync"
@@ -28,6 +29,7 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 )
@@ -55,6 +57,7 @@ func WorkersHook(app *pocketbase.PocketBase) {
 			}
 			log.Printf("[WorkersHook] Starting workers for namespace %q", ns)
 			go StartAllWorkersByNamespace(ns)
+			StartWorkerManagerWorkflow(ns, "")
 		}
 
 		log.Printf("[WorkersHook] All namespaces ready, workers started")
@@ -70,6 +73,132 @@ type workerConfig struct {
 	TaskQueue  string
 	Workflows  []workflowengine.Workflow
 	Activities []workflowengine.ExecutableActivity
+}
+
+var OrgWorkers = []workerConfig{
+	{
+		TaskQueue: workflows.OpenIDNetTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			&workflows.OpenIDNetWorkflow{},
+			&workflows.OpenIDNetLogsWorkflow{},
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewStepCIWorkflowActivity(),
+			activities.NewSendMailActivity(),
+			activities.NewHTTPActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.EWCTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			&workflows.EWCWorkflow{},
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewStepCIWorkflowActivity(),
+			activities.NewSendMailActivity(),
+			activities.NewHTTPActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.EudiwTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			&workflows.EudiwWorkflow{},
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewStepCIWorkflowActivity(),
+			activities.NewSendMailActivity(),
+			activities.NewHTTPActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.CredentialsTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			&workflows.CredentialsIssuersWorkflow{},
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewCheckCredentialsIssuerActivity(),
+			activities.NewJSONActivity(
+				map[string]reflect.Type{
+					"map": reflect.TypeOf(
+						map[string]any{},
+					),
+				},
+			),
+			activities.NewSchemaValidationActivity(),
+			activities.NewHTTPActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.WalletTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			&workflows.WalletWorkflow{},
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewParseWalletURLActivity(),
+			activities.NewDockerActivity(),
+			activities.NewJSONActivity(
+				map[string]reflect.Type{
+					"map": reflect.TypeOf(
+						map[string]any{},
+					),
+				},
+			),
+			activities.NewHTTPActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.CustomCheckTaskQueque,
+		Workflows: []workflowengine.Workflow{
+			&workflows.CustomCheckWorkflow{},
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewStepCIWorkflowActivity(),
+			activities.NewHTTPActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.VLEIValidationTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			&workflows.VLEIValidationWorkflow{},
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewHTTPActivity(),
+			activities.NewCESRParsingActivity(),
+			activities.NewCESRValidateActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.VLEIValidationLocalTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			&workflows.VLEIValidationLocalWorkflow{},
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewCESRParsingActivity(),
+			activities.NewCESRValidateActivity(),
+		},
+	},
+}
+
+var DefaultWorkers = []workerConfig{
+	{
+		TaskQueue: workflows.CustomCheckTaskQueque,
+		Workflows: []workflowengine.Workflow{
+			&workflows.CustomCheckWorkflow{},
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewStepCIWorkflowActivity(),
+			activities.NewHTTPActivity(),
+		},
+	},
+	{
+		TaskQueue: workflows.WorkerManagerTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			&workflows.WorkerManagerWorkflow{},
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewHTTPActivity(),
+		},
+	},
 }
 
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
@@ -137,108 +266,12 @@ func StartAllWorkersByNamespace(namespace string) {
 
 	var wg sync.WaitGroup
 
-	workers := []workerConfig{
-		{
-			TaskQueue: workflows.OpenIDNetTaskQueue,
-			Workflows: []workflowengine.Workflow{
-				&workflows.OpenIDNetWorkflow{},
-				&workflows.OpenIDNetLogsWorkflow{},
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewStepCIWorkflowActivity(),
-				activities.NewSendMailActivity(),
-				activities.NewHTTPActivity(),
-			},
-		},
-		{
-			TaskQueue: workflows.EWCTaskQueue,
-			Workflows: []workflowengine.Workflow{
-				&workflows.EWCWorkflow{},
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewStepCIWorkflowActivity(),
-				activities.NewSendMailActivity(),
-				activities.NewHTTPActivity(),
-			},
-		},
-		{
-			TaskQueue: workflows.EudiwTaskQueue,
-			Workflows: []workflowengine.Workflow{
-				&workflows.EudiwWorkflow{},
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewStepCIWorkflowActivity(),
-				activities.NewSendMailActivity(),
-				activities.NewHTTPActivity(),
-			},
-		},
-		{
-			TaskQueue: workflows.CredentialsTaskQueue,
-			Workflows: []workflowengine.Workflow{
-				&workflows.CredentialsIssuersWorkflow{},
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewCheckCredentialsIssuerActivity(),
-				activities.NewJSONActivity(
-					map[string]reflect.Type{
-						"map": reflect.TypeOf(
-							map[string]any{},
-						),
-					},
-				),
-				activities.NewSchemaValidationActivity(),
-				activities.NewHTTPActivity(),
-			},
-		},
-		{
-			TaskQueue: workflows.WalletTaskQueue,
-			Workflows: []workflowengine.Workflow{
-				&workflows.WalletWorkflow{},
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewParseWalletURLActivity(),
-				activities.NewDockerActivity(),
-				activities.NewJSONActivity(
-					map[string]reflect.Type{
-						"map": reflect.TypeOf(
-							map[string]any{},
-						),
-					},
-				),
-				activities.NewHTTPActivity(),
-			},
-		},
-		{
-			TaskQueue: workflows.CustomCheckTaskQueque,
-			Workflows: []workflowengine.Workflow{
-				&workflows.CustomCheckWorkflow{},
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewStepCIWorkflowActivity(),
-				activities.NewHTTPActivity(),
-			},
-		},
-		{
-			TaskQueue: workflows.VLEIValidationTaskQueue,
-			Workflows: []workflowengine.Workflow{
-				&workflows.VLEIValidationWorkflow{},
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewHTTPActivity(),
-				activities.NewCESRParsingActivity(),
-				activities.NewCESRValidateActivity(),
-			},
-		},
-		{
-			TaskQueue: workflows.VLEIValidationLocalTaskQueue,
-			Workflows: []workflowengine.Workflow{
-				&workflows.VLEIValidationLocalWorkflow{},
-			},
-			Activities: []workflowengine.ExecutableActivity{
-				activities.NewCESRParsingActivity(),
-				activities.NewCESRValidateActivity(),
-			},
-		},
+	var workers []workerConfig
+
+	if namespace == "default" {
+		workers = DefaultWorkers
+	} else {
+		workers = OrgWorkers
 	}
 
 	for _, config := range workers {
@@ -345,4 +378,61 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 		log.Printf("[WorkersHook] Sleeping %v before retry...", backoff)
 		time.Sleep(backoff)
 	}
+}
+func StartWorkerManagerWorkflow(namespace, oldNamespace string) {
+	go func() {
+		if err := executeWorkerManagerWorkflow(namespace, oldNamespace); err != nil {
+			log.Printf("[WorkerManagerWorkflow] Failed for namespace %s: %v", namespace, err)
+		} else {
+			log.Printf("[WorkerManagerWorkflow] Successfully started for namespace %s", namespace)
+		}
+	}()
+}
+
+func executeWorkerManagerWorkflow(namespace, oldNamespace string) error {
+	serverURL := utils.GetEnvironmentVariable("SERVER_URL", "http://localhost:8050")
+
+	ao := &workflow.ActivityOptions{
+		ScheduleToCloseTimeout: time.Minute,
+		StartToCloseTimeout:    30 * time.Second,
+		RetryPolicy: &temporal.RetryPolicy{
+			InitialInterval:    time.Second,
+			BackoffCoefficient: 1.0,
+			MaximumInterval:    time.Minute,
+			MaximumAttempts:    1,
+		},
+	}
+
+	input := workflowengine.WorkflowInput{
+		Payload: map[string]any{
+			"namespace":     namespace,
+			"old_namespace": oldNamespace,
+		},
+		Config: map[string]any{
+			"server_url": serverURL,
+		},
+		ActivityOptions: ao,
+	}
+
+	var w workflows.WorkerManagerWorkflow
+	resStart, err := w.Start("default", input)
+	if err != nil {
+		return fmt.Errorf("failed to start workflow: %w", err)
+	}
+
+	c, err := temporalclient.GetTemporalClientWithNamespace("default")
+	if err != nil {
+		return fmt.Errorf("unable to create client: %w", err)
+	}
+
+	_, err = workflowengine.WaitForWorkflowResult(
+		c,
+		resStart.WorkflowID,
+		resStart.WorkflowRunID,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to start mobile automation worker for organization: %w", err)
+	}
+
+	return nil
 }

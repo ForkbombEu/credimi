@@ -78,7 +78,7 @@ func Test_Workflow(t *testing.T) {
 					},
 					"required": ["name"]
 				}`,
-			"namespace": "test_namespace",
+			"orgID": "test_namespace",
 		},
 		Payload: map[string]any{
 			"issuerID": "test_issuer",
