@@ -280,7 +280,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 					).JSON(e)
 				}
 			}
-			details := workflowengine.ParseWorkflowError(err.Error())
+			details := workflowengine.ParseWorkflowError(err)
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
