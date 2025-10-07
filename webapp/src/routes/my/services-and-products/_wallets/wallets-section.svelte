@@ -8,8 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
 	import { yaml } from '@codemirror/lang-yaml';
+	import { yamlStringSchema } from '$lib/utils';
 	import { ChevronDown, ChevronUp, Eye, EyeOff, UploadIcon } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
+	import { z } from 'zod';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type { IconComponent } from '@/components/types';
@@ -338,6 +340,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		queryOptions={{
 			filter: `wallet.id = '${props.wallet.id}'`
 		}}
+		formRefineSchema={(schema) =>
+			schema.extend({
+				code: yamlStringSchema as unknown as z.ZodString
+			})}
 		formFieldsOptions={{
 			exclude: ['owner', 'canonified_name'],
 			hide: { wallet: props.wallet.id, owner: props.ownerId },
