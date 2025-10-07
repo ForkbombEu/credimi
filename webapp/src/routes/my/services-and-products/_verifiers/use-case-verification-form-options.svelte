@@ -5,9 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
+	import { yamlStringSchema } from '$lib/utils';
+	import { z } from 'zod';
+
 	import type {
-		FieldSnippetOptions,
-		FieldsOptions
+		CollectionFormProps,
+		FieldSnippetOptions
 	} from '@/collections-components/form/collectionFormTypes';
 
 	import QrGenerationField from '@/components/qr-generation-field.svelte';
@@ -19,30 +22,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export function options(
 		organizationId: string,
 		verifierId: string
-	): Partial<FieldsOptions<'use_cases_verifications'>> {
+	): Partial<CollectionFormProps<'use_cases_verifications'>> {
 		return {
-			hide: {
-				owner: organizationId,
-				verifier: verifierId
-			},
-			descriptions: {
-				name: m.verifier_field_description_cryptographic_binding_methods(),
-				description: m.use_case_verification_field_description_description(),
-				yaml: m.YAML_Configuration_section_description(),
-				credentials: m.use_case_verification_field_description_credentials(),
-				published: m.use_case_verification_field_description_published()
-			},
-			order: ['name', 'yaml', 'credentials', 'description'],
-			relations: {
-				credentials: {
-					mode: 'select',
-					displayFields: ['name']
+			refineSchema: (schema) =>
+				schema.extend({
+					yaml: yamlStringSchema as unknown as z.ZodString
+				}),
+			fieldsOptions: {
+				hide: {
+					owner: organizationId,
+					verifier: verifierId
+				},
+				descriptions: {
+					name: m.verifier_field_description_cryptographic_binding_methods(),
+					description: m.use_case_verification_field_description_description(),
+					yaml: m.YAML_Configuration_section_description(),
+					credentials: m.use_case_verification_field_description_credentials(),
+					published: m.use_case_verification_field_description_published()
+				},
+				order: ['name', 'yaml', 'credentials', 'description'],
+				relations: {
+					credentials: {
+						mode: 'select',
+						displayFields: ['name']
+					}
+				},
+				exclude: ['published', 'canonified_name'],
+				snippets: {
+					description,
+					yaml: yaml_editor
 				}
-			},
-			exclude: ['published', 'canonified_name'],
-			snippets: {
-				description,
-				yaml: yaml_editor
 			}
 		};
 	}

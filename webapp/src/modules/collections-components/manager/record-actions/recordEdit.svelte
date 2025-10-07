@@ -32,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const { manager, formsOptions } = $derived(getCollectionManagerContext());
+	const { manager, formsOptions, formRefineSchema } = $derived(getCollectionManagerContext());
 
 	const defaultFormOptions: CollectionFormOptions<C> = {
 		uiOptions: { showToastOnSuccess: true }
@@ -59,7 +59,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<CollectionForm
 			collection={manager.collection}
 			recordId={record.id}
-			initialData={record}
+			initialData={record as unknown as undefined}
+			refineSchema={formRefineSchema}
 			{...options}
 			onSuccess={(record) => {
 				closeSheet();

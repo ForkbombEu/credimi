@@ -75,6 +75,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				placeholder="No credential offer available"
 			/>
 			<div class="w-60 break-all pt-4 text-xs">
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a href={qrLink} target="_self">{qrLink}</a>
 			</div>
 		</div>
@@ -96,7 +97,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			/>
 
 			<div class="flex flex-col gap-2">
-				{#each data.marketplaceCredentials as marketplaceCredential}
+				{#each data.marketplaceCredentials as marketplaceCredential (marketplaceCredential.id)}
 					<MarketplaceItemCard item={marketplaceCredential} />
 				{/each}
 			</div>
@@ -111,7 +112,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			collection="use_cases_verifications"
 			recordId={useCaseVerification.id}
 			initialData={useCaseVerification}
-			fieldsOptions={options(useCaseVerification.owner, useCaseVerification.verifier)}
+			{...options(useCaseVerification.owner, useCaseVerification.verifier)}
 			onSuccess={closeSheet}
 		/>
 	{/snippet}
