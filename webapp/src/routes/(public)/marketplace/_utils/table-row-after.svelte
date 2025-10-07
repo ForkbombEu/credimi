@@ -51,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{@const podium = items.slice(0, 3)}
 								{@const rest = items.slice(3).length}
 
-								{#each podium as link}
+								{#each podium as link (link.href)}
 									<a href={localizeHref(link.href ?? '')} class="pill">
 										{link.title}
 									</a>
@@ -68,7 +68,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#if items.length > 0}
 						<Accordion.Content class="[&>div]:pb-1">
 							<div class="grid grid-cols-2 pl-[58px] md:grid-cols-3 lg:grid-cols-4">
-								{#each items as link}
+								{#each items as link (link.href)}
 									<a
 										href={localizeHref(link.href ?? '')}
 										class="pill truncate text-xs"

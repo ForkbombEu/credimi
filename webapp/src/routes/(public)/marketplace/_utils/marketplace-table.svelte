@@ -53,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return {
 			items: children.map((r) => ({
 				title: r.name,
-				href: `/marketplace/${record.type === 'credential_issuers' ? 'credentials' : 'use_cases_verifications'}/${r.id}`
+				href: `/marketplace/${record.type === 'credential_issuers' ? 'credentials' : 'use_cases_verifications'}/${r.canonified_name}`
 			})),
 			title:
 				record.type === 'credential_issuers' ? m.Credentials() : m.Verification_use_cases(),
