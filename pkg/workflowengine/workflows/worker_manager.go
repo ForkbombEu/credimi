@@ -96,7 +96,7 @@ func (w *WorkerManagerWorkflow) Start(
 ) (workflowengine.WorkflowResult, error) {
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "worker-manager" + "-" + uuid.NewString(),
-		TaskQueue: CustomCheckTaskQueque,
+		TaskQueue: WorkerManagerTaskQueue,
 	}
 	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }

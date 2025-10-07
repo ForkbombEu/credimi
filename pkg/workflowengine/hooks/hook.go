@@ -399,7 +399,7 @@ func executeWorkerManagerWorkflow(namespace, oldNamespace string) error {
 			InitialInterval:    time.Second,
 			BackoffCoefficient: 1.0,
 			MaximumInterval:    time.Minute,
-			MaximumAttempts:    1,
+			MaximumAttempts:    5,
 		},
 	}
 
