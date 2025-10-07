@@ -102,7 +102,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 			resStart.WorkflowRunID,
 		)
 		if err != nil {
-			details := workflowengine.ParseWorkflowError(err.Error())
+			details := workflowengine.ParseWorkflowError(err)
 			return e.JSON(http.StatusInternalServerError, map[string]any{
 				"status":  http.StatusInternalServerError,
 				"error":   "workflow",
