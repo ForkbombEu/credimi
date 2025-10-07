@@ -37,8 +37,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
-	import { Collections } from '@/pocketbase/types';
 
+	import LabelLink from '../_partials/label-link.svelte';
 	import CredentialForm from './credential-form.svelte';
 	import CredentialIssuerForm from './credential-issuer-form/credential-issuer-form.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';
@@ -134,8 +134,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <!--  -->
 
 {#snippet CredentialIssuerCard(record: CredentialIssuersResponse, onEditSuccess: () => void)}
-	{@const title = String.isNonEmpty(record.name) ? record.name : '[no_title]'}
-
 	<Card class="!p-4">
 		<div class="space-y-4">
 			<div class="flex items-start justify-between gap-6">
@@ -147,16 +145,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				<div class="flex w-0 grow items-center gap-2">
 					<T class="truncate font-bold">
-						{#if !record.published}
-							{record.name}
-						{:else}
-							<A
-								href="/marketplace/{Collections.CredentialIssuers}/{record.id}"
-								class="truncate underline underline-offset-2 hover:!no-underline"
-							>
-								{title}
-							</A>
-						{/if}
+						<LabelLink
+							label={String.isNonEmpty(record.name) ? record.name : '[no_title]'}
+							href="/marketplace/credential_issuers/{record.canonified_name}"
+							published={record.published}
+						/>
 					</T>
 					{#if record.imported}
 						<Badge variant="secondary">{m.Imported()}</Badge>
@@ -265,22 +258,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				{#snippet records({ records: credentials, reloadRecords })}
 					<ul class="space-y-2">
-						{#each credentials as credential}
+						{#each credentials as credential (credential.id)}
 							<li
 								class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
 							>
-								<div class="min-w-0 flex-1 break-words">
-									{#if !credential.published || !record.published}
-										{credential.display_name || credential.name}
-									{:else}
-										<A
-											href="/marketplace/credentials/{credential.id}"
-											class="break-words font-medium underline underline-offset-2 hover:!no-underline"
-										>
-											{credential.display_name || credential.name}
-										</A>
-									{/if}
-								</div>
+								<LabelLink
+									label={credential.display_name || credential.name}
+									href="/marketplace/credentials/{credential.canonified_name}"
+									published={credential.published && record.published}
+									class="min-w-0 flex-1 break-words"
+								/>
 
 								<div class="flex items-center gap-1">
 									{#if credential.imported}

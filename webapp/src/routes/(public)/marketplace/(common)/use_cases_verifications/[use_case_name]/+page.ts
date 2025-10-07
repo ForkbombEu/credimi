@@ -13,7 +13,7 @@ export const load = async ({ params, fetch }) => {
 			expand: ['verifier', 'credentials']
 		},
 		{ fetch }
-	).getOne(params.use_case_id);
+	).getFirstListItem(`canonified_name = '${params.use_case_name}'`);
 
 	const verifierMarketplaceItem = await pb
 		.collection('marketplace_items')

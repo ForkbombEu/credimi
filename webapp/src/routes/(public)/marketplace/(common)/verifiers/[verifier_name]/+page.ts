@@ -13,7 +13,7 @@ export const load = async ({ params, fetch }) => {
 			expand: ['use_cases_verifications_via_verifier']
 		},
 		{ fetch }
-	).getOne(params.verifier_id);
+	).getFirstListItem(`canonified_name = '${params.verifier_name}'`);
 
 	const useCasesVerifications = verifier.expand?.use_cases_verifications_via_verifier ?? [];
 

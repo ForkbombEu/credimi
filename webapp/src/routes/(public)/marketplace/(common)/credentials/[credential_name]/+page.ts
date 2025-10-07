@@ -16,7 +16,7 @@ export const load = async ({ params, fetch }) => {
 				expand: ['credential_issuer']
 			},
 			{ fetch }
-		).getOne(params.credential_id);
+		).getFirstListItem(`canonified_name = '${params.credential_name}'`);
 
 		const credentialIssuerMarketplaceEntry = await pb
 			.collection('marketplace_items')

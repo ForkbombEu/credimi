@@ -14,7 +14,7 @@ export const load = async ({ params, fetch }) => {
 			expand: ['credentials_via_credential_issuer']
 		},
 		{ fetch }
-	).getOne(params.issuer_id);
+	).getFirstListItem(`canonified_name = '${params.issuer_name}'`);
 
 	const credentialsIds = (credentialIssuer.expand?.credentials_via_credential_issuer ?? []).map(
 		(credential) => credential.id
@@ -22,10 +22,13 @@ export const load = async ({ params, fetch }) => {
 
 	const credentialsFilters = credentialsIds.map((id) => `id = '${id}'`).join(' || ');
 
-	const credentialsMarketplaceItems = credentialsFilters.length > 0 ? await pb.collection('marketplace_items').getFullList(1, {
-		filter: credentialsFilters,
-		fetch
-	}) : [];
+	const credentialsMarketplaceItems =
+		credentialsFilters.length > 0
+			? await pb.collection('marketplace_items').getFullList(1, {
+					filter: credentialsFilters,
+					fetch
+				})
+			: [];
 
 	return {
 		credentialIssuer,
