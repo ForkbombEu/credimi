@@ -235,7 +235,10 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 		return e.JSON(http.StatusOK, finalJSON)
 	}
 }
-func getWorkflowExecutionWithFallback(namespace, workflowID, runID string) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
+
+func getWorkflowExecutionWithFallback(
+	namespace, workflowID, runID string,
+) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
 	exec, err := fetchWorkflowExecution(namespace, workflowID, runID)
 	if err == nil && exec != nil {
 		return exec, nil
@@ -249,7 +252,9 @@ func getWorkflowExecutionWithFallback(namespace, workflowID, runID string) (*wor
 	return nil, err
 }
 
-func fetchWorkflowExecution(namespace, workflowID, runID string) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
+func fetchWorkflowExecution(
+	namespace, workflowID, runID string,
+) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
 	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 	if err != nil {
 		return nil, fmt.Errorf("get client for namespace %q: %w", namespace, err)
@@ -263,7 +268,9 @@ func fetchWorkflowExecution(namespace, workflowID, runID string) (*workflowservi
 	return exec, nil
 }
 
-func marshalWorkflowExecution(exec *workflowservice.DescribeWorkflowExecutionResponse) (map[string]any, error) {
+func marshalWorkflowExecution(
+	exec *workflowservice.DescribeWorkflowExecutionResponse,
+) (map[string]any, error) {
 	data, err := protojson.Marshal(exec)
 	if err != nil {
 		return nil, fmt.Errorf("marshal execution: %w", err)
@@ -277,7 +284,9 @@ func marshalWorkflowExecution(exec *workflowservice.DescribeWorkflowExecutionRes
 	return result, nil
 }
 
-func getWorkflowHistoryWithFallback(namespace, workflowID, runID string) ([]map[string]interface{}, error) {
+func getWorkflowHistoryWithFallback(
+	namespace, workflowID, runID string,
+) ([]map[string]interface{}, error) {
 	history, err := fetchWorkflowHistory(namespace, workflowID, runID)
 	if err == nil && len(history) > 0 {
 		return history, nil
@@ -472,7 +481,8 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 			err = sendTemporalSignal(c, req)
 		}
 		if err != nil {
-			if apiErr, ok := err.(*apierror.APIError); ok {
+			apiErr := &apierror.APIError{}
+			if errors.As(err, &apiErr) {
 				return apiErr.JSON(e)
 			}
 
@@ -665,13 +675,14 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 
 		author, err := getWorkflowAuthor(c, workflowID, runID)
 		if err != nil {
-			if apiErr, ok := err.(*apierror.APIError); ok {
+			apiErr := &apierror.APIError{}
+			if errors.As(err, &apiErr) {
 				return apiErr.JSON(e)
-
 			}
 			return err
 		}
-		apiErr, ok := handleDeeplinkFromHistory(e, c, workflowID, runID, author).(*apierror.APIError)
+		apiErr := &apierror.APIError{}
+		ok := errors.As(handleDeeplinkFromHistory(e, c, workflowID, runID, author), &apiErr)
 		if ok {
 			return apiErr.JSON(e)
 		}
