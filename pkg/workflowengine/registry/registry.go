@@ -96,3 +96,8 @@ var Registry = map[string]TaskFactory{
 		NewFunc: func() any { return &workflows.CustomCheckWorkflow{} },
 	},
 }
+
+// Denylist of task keys that should NOT be registered in the pipeline worker
+var PipelineWorkerDenylist = map[string]struct{}{
+	"mobile-automation": {},
+}

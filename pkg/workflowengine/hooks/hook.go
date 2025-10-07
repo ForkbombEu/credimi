@@ -232,7 +232,10 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 		workflow.RegisterOptions{Name: pipelineWf.Name()},
 	)
 
-	for _, step := range registry.Registry {
+	for key, step := range registry.Registry {
+		if _, skip := registry.PipelineWorkerDenylist[key]; skip {
+			continue
+		}
 		switch step.Kind {
 		case registry.TaskActivity:
 			act := step.NewFunc().(workflowengine.ExecutableActivity)
