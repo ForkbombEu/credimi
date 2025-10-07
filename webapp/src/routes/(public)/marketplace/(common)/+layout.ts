@@ -10,15 +10,15 @@ import { pb } from '@/pocketbase';
 import type { MarketplaceItem } from '../_utils/utils.js';
 
 export const load = async ({ params, fetch }) => {
-	const id = Object.values(params)
+	const canonifiedName = Object.values(params)
 		.filter((p) => String.isNonEmpty(p))
 		.at(0);
 	// TODO - Redirect to marketplace filter with the collection filter
-	if (!id) throw error(500);
+	if (!canonifiedName) throw error(500);
 
 	const marketplaceItem = (await pb
 		.collection('marketplace_items')
-		.getOne(id, { fetch })) as MarketplaceItem;
+		.getFirstListItem(`canonified_name = '${canonifiedName}'`, { fetch })) as MarketplaceItem;
 
 	return {
 		marketplaceItem

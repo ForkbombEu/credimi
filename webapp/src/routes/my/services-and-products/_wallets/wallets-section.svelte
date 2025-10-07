@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
-
 	import { yaml } from '@codemirror/lang-yaml';
 	import { yamlStringSchema } from '$lib/utils';
 	import { ChevronDown, ChevronUp, Eye, EyeOff, UploadIcon } from 'lucide-svelte';
@@ -24,7 +22,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		RecordDelete,
 		RecordEdit
 	} from '@/collections-components/manager';
-	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
@@ -44,6 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
 
+	import LabelLink from '../_partials/label-link.svelte';
 	import WalletFormSheet from './wallet-form-sheet.svelte';
 
 	//
@@ -51,7 +49,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		organizationId?: string;
 		organization?: OrganizationsResponse;
-		workflows?: WorkflowExecution[];
 		id?: string;
 	};
 
@@ -138,13 +135,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Avatar src={avatarSrc} fallback={wallet.name} class="rounded-sm border" />
 				<div class="flex-1">
 					<div class="flex items-center gap-2">
-						<T class="font-bold">
-							{#if !wallet.published}
-								{wallet.name}
-							{:else}
-								<A href="/marketplace/wallets/{wallet.id}">{wallet.name}</A>
-							{/if}
-						</T>
+						<LabelLink
+							label={wallet.name}
+							href="/marketplace/wallets/{wallet.canonified_name}"
+							published={wallet.published}
+						/>
 					</div>
 					{#if wallet.appstore_url}
 						<T class="text-xs text-gray-400">{wallet.appstore_url}</T>
