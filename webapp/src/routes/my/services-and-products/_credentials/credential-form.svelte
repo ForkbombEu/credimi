@@ -45,15 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'published',
 			'canonified_name'
 		];
-		const editFields: Field[] = [
-			'format',
-			'issuer_name',
-			'type',
-			'display_name',
-			'locale',
-			'logo',
-			'name'
-		];
+		const editFields: Field[] = ['format', 'display_name', 'locale', 'logo', 'name'];
 		if (mode === 'edit' && credential?.imported) {
 			commonFields.push(...editFields);
 		}

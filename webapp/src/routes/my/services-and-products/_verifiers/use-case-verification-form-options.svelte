@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			relations: {
 				credentials: {
 					mode: 'select',
-					displayFields: ['issuer_name', 'name']
+					displayFields: ['name']
 				}
 			},
 			exclude: ['published', 'canonified_name'],
