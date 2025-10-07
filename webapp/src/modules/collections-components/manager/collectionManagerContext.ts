@@ -6,6 +6,7 @@ import type { CollectionFormOptions } from '@/collections-components/form';
 import type { CollectionName } from '@/pocketbase/collections-models';
 import type { PocketbaseQueryExpandOption } from '@/pocketbase/query';
 import type { FilterMode } from '@/pocketbase/query/query.js';
+import type { CollectionZodSchema } from '@/pocketbase/zod-schema/index.js';
 
 import { setupDerivedContext } from '@/utils/svelte-context';
 
@@ -36,6 +37,7 @@ export type CollectionManagerContext<
 	manager: CollectionManager<C, Expand>;
 	filters: FiltersOption;
 	formsOptions: Record<FormPropType, CollectionFormOptions<C>>;
+	formRefineSchema: (schema: CollectionZodSchema<C>) => CollectionZodSchema<C>;
 };
 
 type FormPropType = 'base' | 'create' | 'edit';

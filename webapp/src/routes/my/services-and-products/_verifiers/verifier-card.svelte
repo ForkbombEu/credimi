@@ -132,13 +132,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </Card>
 
 {#snippet useCasesVerificationsList()}
+	{@const opts = options(organizationId, verifier.id)}
 	<CollectionManager
 		collection="use_cases_verifications"
 		queryOptions={{
 			filter: `verifier = '${verifier.id}' && owner.id = '${organizationId}'`,
 			expand: ['credentials']
 		}}
-		formFieldsOptions={options(organizationId, verifier.id)}
+		formRefineSchema={opts.refineSchema}
+		formFieldsOptions={opts.fieldsOptions}
 	>
 		{#snippet top()}
 			<div class="flex items-center justify-between pb-1">
