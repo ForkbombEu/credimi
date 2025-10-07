@@ -415,3 +415,15 @@ type WorkflowIdentifier struct {
 	WorkflowID string `json:"workflowId"      validate:"required"`
 	RunID      string `json:"runId,omitempty"`
 }
+
+func getStringFromMap(m map[string]any, key string) string {
+	if m == nil {
+		return ""
+	}
+	if val, ok := m[key]; ok {
+		if s, ok := val.(string); ok {
+			return s
+		}
+	}
+	return ""
+}

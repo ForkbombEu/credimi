@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { merge } from 'lodash';
 	import { Plus } from 'lucide-svelte';
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { CollectionName } from '@/pocketbase/collections-models';
 
 	import { CollectionForm } from '@/collections-components';

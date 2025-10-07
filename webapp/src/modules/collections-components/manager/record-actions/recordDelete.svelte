@@ -9,7 +9,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { onDestroy } from 'svelte';
 	import { toast } from 'svelte-sonner';
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type { CollectionResponses } from '@/pocketbase/types';
 	import type { MaybePromise } from '@/utils/types';

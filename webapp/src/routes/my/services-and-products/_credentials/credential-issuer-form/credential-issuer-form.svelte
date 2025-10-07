@@ -24,45 +24,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		organizationId: string;
-		currentIssuers?: CredentialIssuersResponse[];
 	};
 
-	let { organizationId, currentIssuers = [] }: Props = $props();
+	let { organizationId }: Props = $props();
 
 	//
 
-	let isSheetOpen = $state(false);
-	let importedIssuerId = $state<string | undefined>();
-	let hasBeenSaved = $state(false);
+	let isImporting = $state(false);
+	let importedIssuer = $state<CredentialIssuersResponse>();
 	let showCleanupDialog = $state(false);
 
-	async function handleCleanup() {
-		if (importedIssuerId && !hasBeenSaved) {
-			await pb.collection('credential_issuers').delete(importedIssuerId);
-		}
-		importedIssuerId = undefined;
-		hasBeenSaved = false;
+	async function discard() {
+		if (!importedIssuer) return;
+		await pb.collection('credential_issuers').delete(importedIssuer.id);
+		importedIssuer = undefined;
 		showCleanupDialog = false;
 	}
 
-	function confirmCleanup() {
-		handleCleanup();
-	}
-
-	function cancelCleanup() {
-		importedIssuerId = undefined;
-		hasBeenSaved = false;
+	function cancelDiscard() {
+		importedIssuer = undefined;
 		showCleanupDialog = false;
 	}
-
-	$effect(() => {
-		if (!isSheetOpen && importedIssuerId && !hasBeenSaved) {
-			showCleanupDialog = true;
-		}
-	});
 </script>
 
-<Sheet bind:open={isSheetOpen}>
+<Sheet
+	beforeClose={(prevent) => {
+		if (!importedIssuer) return;
+		prevent();
+		showCleanupDialog = true;
+	}}
+>
 	{#snippet trigger({ sheetTriggerAttributes })}
 		<Button variant={'default'} size="sm" {...sheetTriggerAttributes}>
 			<Plus />
@@ -75,110 +66,107 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T tag="h3">Add new credential issuer</T>
 
 			<ImportCredentialIssuer
-				{organizationId}
-				{currentIssuers}
-				onImported={(issuerId) => {
-					importedIssuerId = issuerId;
+				onImport={(issuer) => {
+					importedIssuer = issuer;
 				}}
-			>
-				{#snippet after({ formState: { loading, credentialIssuer, importMode } })}
-					{#if loading}
-						<div
-							class={[
-								'rounded-lg border bg-slate-200 py-10 text-center',
-								'flex items-center justify-center gap-2',
-								'animate-pulse'
-							]}
-						>
-							<Spinner size={16} />
-							<T class="text-muted-foreground">
-								{m.Loading_workflow_data_may_take_some_seconds()}
-							</T>
-						</div>
-					{:else if importMode === true}
-						<!-- Show form for import mode -->
-						<div class="space-y-4">
-							<div class="text-muted-foreground text-sm">
-								{#if importedIssuerId}
-									Review and edit the imported credential issuer details below:
-								{:else}
-									After importing, you can review and edit the credential issuer
-									details below:
-								{/if}
-							</div>
-							<div
-								class:pointer-events-none={!importedIssuerId}
-								class:opacity-50={!importedIssuerId}
-							>
-								<CollectionForm
-									collection="credential_issuers"
-									recordId={importedIssuerId}
-									initialData={credentialIssuer}
-									fieldsOptions={{
-										exclude: [
-											'published',
-											'owner',
-											'url',
-											'canonified_name',
-											'imported'
-										]
-									}}
-									onSuccess={async () => {
-										hasBeenSaved = true;
-										closeSheet();
-									}}
-									uiOptions={{
-										showToastOnSuccess: true
-									}}
-								></CollectionForm>
-							</div>
-						</div>
-					{:else}
-						<!-- Manual form -->
-						<CollectionForm
-							collection="credential_issuers"
-							fieldsOptions={{
-								hide: {
-									owner: organizationId
-								},
-								exclude: ['published', 'imported', 'canonified_name']
-							}}
-							onSuccess={async () => {
-								hasBeenSaved = true;
+				bind:isLoading={isImporting}
+			/>
+
+			{#if isImporting}
+				<div
+					class={[
+						'rounded-lg border bg-slate-200 py-10 text-center',
+						'flex items-center justify-center gap-2',
+						'animate-pulse'
+					]}
+				>
+					<Spinner size={16} />
+					<T class="text-muted-foreground">
+						{m.importing()}
+					</T>
+				</div>
+			{:else if importedIssuer}
+				<div class="space-y-4">
+					<p class="text-muted-foreground text-sm">
+						Review and edit the imported credential issuer details below:
+					</p>
+
+					<CollectionForm
+						collection="credential_issuers"
+						recordId={importedIssuer.id}
+						initialData={importedIssuer}
+						fieldsOptions={{
+							exclude: [
+								'published',
+								'owner',
+								'url',
+								'canonified_name',
+								'imported',
+								'workflow_url'
+							]
+						}}
+						onSuccess={() => {
+							importedIssuer = undefined;
+							closeSheet();
+						}}
+						uiOptions={{
+							showToastOnSuccess: true
+						}}
+					/>
+				</div>
+			{:else}
+				<!-- Manual form -->
+				<CollectionForm
+					collection="credential_issuers"
+					fieldsOptions={{
+						hide: {
+							owner: organizationId
+						},
+						exclude: ['published', 'imported', 'canonified_name', 'workflow_url']
+					}}
+					onSuccess={closeSheet}
+					uiOptions={{
+						showToastOnSuccess: true
+					}}
+				/>
+			{/if}
+		</div>
+
+		<!-- Cleanup Confirmation Dialog -->
+		<AlertDialog.Root bind:open={showCleanupDialog}>
+			<AlertDialog.Content>
+				<AlertDialog.Header>
+					<AlertDialog.Title>Delete imported credential issuer?</AlertDialog.Title>
+					<AlertDialog.Description>
+						You have imported a credential issuer but haven't saved it yet. Would you
+						like to delete it or keep it?
+					</AlertDialog.Description>
+				</AlertDialog.Header>
+				<AlertDialog.Footer>
+					<div class="flex justify-center gap-2">
+						<Button
+							variant="destructive"
+							onclick={async () => {
+								await discard();
 								closeSheet();
 							}}
-							uiOptions={{
-								showToastOnSuccess: true
+						>
+							<Trash class="mr-2 h-4 w-4" />
+							Delete
+						</Button>
+						<Button
+							variant="outline"
+							onclick={() => {
+								cancelDiscard();
+								closeSheet();
 							}}
-						></CollectionForm>
-					{/if}
-				{/snippet}
-			</ImportCredentialIssuer>
-		</div>
+						>
+							<X class="mr-2 h-4 w-4" />
+							Keep
+						</Button>
+					</div>
+				</AlertDialog.Footer>
+			</AlertDialog.Content>
+		</AlertDialog.Root>
 	{/snippet}
 </Sheet>
-
-<!-- Cleanup Confirmation Dialog -->
-<AlertDialog.Root bind:open={showCleanupDialog}>
-	<AlertDialog.Content>
-		<AlertDialog.Header>
-			<AlertDialog.Title>Delete imported credential issuer?</AlertDialog.Title>
-			<AlertDialog.Description>
-				You have imported a credential issuer but haven't saved it yet. Would you like to
-				delete it or keep it?
-			</AlertDialog.Description>
-		</AlertDialog.Header>
-		<AlertDialog.Footer>
-			<div class="flex justify-center gap-2">
-				<Button variant="destructive" onclick={confirmCleanup}>
-					<Trash class="mr-2 h-4 w-4" />
-					Delete
-				</Button>
-				<Button variant="outline" onclick={cancelCleanup}>
-					<X class="mr-2 h-4 w-4" />
-					Keep
-				</Button>
-			</div>
-		</AlertDialog.Footer>
-	</AlertDialog.Content>
-</AlertDialog.Root>

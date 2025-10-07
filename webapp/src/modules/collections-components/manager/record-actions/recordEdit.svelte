@@ -9,7 +9,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Pencil from 'lucide-svelte/icons/pencil';
 
 	import type { CollectionFormOptions } from '@/collections-components/form/collectionFormTypes';
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type { CollectionResponses } from '@/pocketbase/types';
 

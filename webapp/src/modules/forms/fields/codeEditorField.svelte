@@ -10,7 +10,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { formFieldProxy } from 'sveltekit-superforms';
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { GenericRecord } from '@/utils/types';
 
 	import CodeEditor from '@/components/ui-custom/codeEditor.svelte';

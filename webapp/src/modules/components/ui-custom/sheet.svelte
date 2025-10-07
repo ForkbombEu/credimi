@@ -26,8 +26,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		contentClass?: string;
 		trigger?: Snippet<[{ sheetTriggerAttributes: GenericRecord; openSheet: () => void }]>;
 		children?: Snippet;
-		content?: Snippet<[{ closeSheet: () => void }]>;
+		content?: Snippet<[{ closeSheet: () => Promise<void> }]>;
 		hideTrigger?: boolean;
+		beforeClose?: (prevent: () => void) => void | Promise<void>;
 	}
 
 	let {
@@ -39,21 +40,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		trigger,
 		children,
 		content,
-		hideTrigger = false
+		hideTrigger = false,
+		beforeClose = () => {}
 	}: Props = $props();
 
 	//
 
-	function closeSheet() {
-		isOpen = false;
-	}
-
 	function openSheet() {
 		isOpen = true;
 	}
+
+	async function closeSheet() {
+		let prevented = false;
+		await beforeClose(() => {
+			prevented = true;
+		});
+		if (!prevented) {
+			isOpen = false;
+		}
+	}
 </script>
 
-<Sheet.Root bind:open={isOpen}>
+<Sheet.Root
+	bind:open={
+		() => isOpen,
+		async (v) => {
+			if (v === true) isOpen = v;
+			else await closeSheet();
+		}
+	}
+>
 	{#if !hideTrigger}
 		<Sheet.Trigger>
 			{#snippet child({ props })}
