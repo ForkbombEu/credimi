@@ -2,23 +2,21 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { error } from '@sveltejs/kit';
-import { String } from 'effect';
-
 import { pb } from '@/pocketbase';
 
 import type { MarketplaceItem } from '../_utils/utils.js';
 
+import { getRestParams } from './_utils';
+
 export const load = async ({ params, fetch }) => {
-	const canonifiedName = Object.values(params)
-		.filter((p) => String.isNonEmpty(p))
-		.at(0);
-	// TODO - Redirect to marketplace filter with the collection filter
-	if (!canonifiedName) throw error(500);
+	const { entity, organization } = getRestParams(params.rest ?? '');
 
 	const marketplaceItem = (await pb
 		.collection('marketplace_items')
-		.getFirstListItem(`canonified_name = '${canonifiedName}'`, { fetch })) as MarketplaceItem;
+		.getFirstListItem(
+			`canonified_name = '${entity}' && organization_canonified_name = '${organization}'`,
+			{ fetch }
+		)) as MarketplaceItem;
 
 	return {
 		marketplaceItem

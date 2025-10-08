@@ -5,16 +5,19 @@
 import { pb } from '@/pocketbase/index.js';
 import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
+import { getFilterFromRestParams } from '../../_utils';
+
 //
 
 export const load = async ({ params, fetch }) => {
+	const filter = getFilterFromRestParams(params.rest);
 	const credentialIssuer = await new PocketbaseQueryAgent(
 		{
 			collection: 'credential_issuers',
 			expand: ['credentials_via_credential_issuer']
 		},
 		{ fetch }
-	).getFirstListItem(`canonified_name = '${params.issuer_name}'`);
+	).getFirstListItem(filter);
 
 	const credentialsIds = (credentialIssuer.expand?.credentials_via_credential_issuer ?? []).map(
 		(credential) => credential.id
