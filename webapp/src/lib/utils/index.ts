@@ -8,7 +8,7 @@ import { invalidateAll } from '$app/navigation';
 import { userOrganization } from '$lib/app-state';
 import { Record as R } from 'effect';
 import { onMount } from 'svelte';
-import { parse as parseYaml } from 'yaml';
+import { isCollection, parseAllDocuments } from 'yaml';
 import { z } from 'zod';
 
 import { verifyUser } from '@/auth/verifyUser';
@@ -66,21 +66,21 @@ export const yamlStringSchema = z
 	.string()
 	.nonempty()
 	.superRefine((value, ctx) => {
-		let res: unknown;
-		const issues: string[] = [];
-		try {
-			res = parseYaml(value);
-		} catch (e) {
-			issues.push(getExceptionMessage(e));
-		}
-		if (typeof res !== 'object') {
-			issues.push('Not a JSON object');
-		}
-		if (issues.length > 0) {
-			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
-				message: `Invalid YAML: ${issues.join(' | ')}`
-			});
+		const docs = parseAllDocuments(value);
+		for (const [index, doc] of Object.entries(docs)) {
+			const i = parseInt(index) + 1;
+			const prefix = docs.length > 1 ? `Document ${i}: ` : '';
+			if (doc.errors.length > 0) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: `${prefix}${doc.errors.join(' | ')}`
+				});
+			} else if (!isCollection(doc.contents)) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: `${prefix}Not a JSON object`
+				});
+			}
 		}
 	});
 
