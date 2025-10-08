@@ -74,7 +74,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 			"url": fmt.Sprintf(
 				"%s/%s",
 				input.Config["app_url"].(string),
-				"wallet/get-apk-and-action",
+				"api/wallet/get-apk-and-action",
 			),
 			"headers": map[string]any{
 				"Content-Type": "application/json",
@@ -144,7 +144,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 			"url": fmt.Sprintf(
 				"%s/%s",
 				input.Config["app_url"].(string),
-				"wallet/store-action-result",
+				"api/wallet/store-action-result",
 			),
 			"headers": map[string]any{
 				"Content-Type": "application/json",
