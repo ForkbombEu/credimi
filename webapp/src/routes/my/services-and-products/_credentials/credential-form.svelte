@@ -7,6 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SuperForm } from 'sveltekit-superforms';
 
+	import { yamlStringSchema } from '$lib/utils';
+	import { ZodOptional, ZodString } from 'zod';
+
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type {
 		CredentialIssuersResponse,
@@ -45,15 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'published',
 			'canonified_name'
 		];
-		const editFields: Field[] = [
-			'format',
-			'issuer_name',
-			'type',
-			'display_name',
-			'locale',
-			'logo',
-			'name'
-		];
+		const editFields: Field[] = ['format', 'display_name', 'locale', 'logo', 'name'];
 		if (mode === 'edit' && credential?.imported) {
 			commonFields.push(...editFields);
 		}
@@ -76,6 +71,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	uiOptions={{
 		hide: ['submit_button', 'error']
 	}}
+	refineSchema={(schema) =>
+		schema.extend({
+			yaml: yamlStringSchema.optional() as unknown as ZodOptional<ZodString>
+		})}
 	fieldsOptions={{
 		exclude,
 		order: ['deeplink', 'name', 'display_name', 'description'],

@@ -55,7 +55,8 @@ export type MarketplaceItem = {
 	updated: string;
 	organization_id: string;
 	organization_name: string;
-	children: { id: string; name: string }[] | null;
+	children: { id: string; name: string; canonified_name: string }[] | null;
+	canonified_name: string;
 };
 
 /* -- Marketplace item type mapping to display data -- */
@@ -141,8 +142,8 @@ export function getMarketplaceItemData(item: MarketplaceItem) {
 	const href =
 		item.type === 'custom_checks'
 			? `/my/tests/new?${queryParams.customCheckId}=${item.id}`
-			: localizeHref(`/marketplace/${item.type}/${item.id}`);
-	
+			: localizeHref(`/marketplace/${item.type}/${item.canonified_name}`);
+
 	const logo = item.avatar_file
 		? pb.files.getURL({ collectionName: item.type, id: item.id }, item.avatar_file)
 		: item.avatar_url

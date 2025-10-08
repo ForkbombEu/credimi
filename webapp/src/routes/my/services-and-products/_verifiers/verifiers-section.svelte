@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet records({ records })}
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-			{#each records as verifier, index}
+			{#each records as verifier, index (verifier.id)}
 				{@const useCasesVerifications =
 					verifier.expand?.use_cases_verifications_via_verifier ?? []}
 				<VerifierCard

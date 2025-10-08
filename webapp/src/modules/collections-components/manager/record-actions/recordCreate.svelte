@@ -32,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		form
 	}: RecordCreateEditProps<C> = $props();
 
-	const { manager, formsOptions } = $derived(getCollectionManagerContext());
+	const { manager, formsOptions, formRefineSchema } = $derived(getCollectionManagerContext());
 
 	const defaultFormOptions: CollectionFormOptions<C> = {
 		uiOptions: { showToastOnSuccess: true }
@@ -73,6 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				uiOptions={{
 					hide: ['submit_button', 'error']
 				}}
+				refineSchema={formRefineSchema}
 			>
 				<FormError />
 				<div
