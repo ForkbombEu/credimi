@@ -51,9 +51,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!isCredentialIssuer(record) && !isVerifier(record)) return dummyRowAfterProps;
 		const children = (record as MarketplaceItem).children ?? [];
 		return {
-			items: children.map((r) => ({
-				title: r.name,
-				href: `/marketplace/${record.type === 'credential_issuers' ? 'credentials' : 'use_cases_verifications'}/${r.canonified_name}`
+			items: children.map((c) => ({
+				title: c.name,
+				href: `/marketplace/${record.type === 'credential_issuers' ? 'credentials' : 'use_cases_verifications'}/${record.organization_canonified_name}/${c.canonified_name}`
 			})),
 			title:
 				record.type === 'credential_issuers' ? m.Credentials() : m.Verification_use_cases(),

@@ -147,7 +147,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<T class="truncate font-bold">
 						<LabelLink
 							label={String.isNonEmpty(record.name) ? record.name : '[no_title]'}
-							href="/marketplace/credential_issuers/{record.canonified_name}"
+							href="/marketplace/credential_issuers/{organization?.canonified_name}/{record.canonified_name}"
 							published={record.published}
 						/>
 					</T>
@@ -264,7 +264,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							>
 								<LabelLink
 									label={credential.display_name || credential.name}
-									href="/marketplace/credentials/{credential.canonified_name}"
+									href="/marketplace/credentials/{organization?.canonified_name}/{credential.canonified_name}"
 									published={credential.published && record.published}
 									class="min-w-0 flex-1 break-words"
 								/>

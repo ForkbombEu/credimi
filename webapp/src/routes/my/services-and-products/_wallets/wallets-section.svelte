@@ -137,7 +137,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<div class="flex items-center gap-2">
 						<LabelLink
 							label={wallet.name}
-							href="/marketplace/wallets/{wallet.canonified_name}"
+							href="/marketplace/wallets/{organization?.canonified_name}/{wallet.canonified_name}"
 							published={wallet.published}
 						/>
 					</div>
