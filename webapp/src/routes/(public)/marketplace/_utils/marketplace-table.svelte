@@ -66,7 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <CollectionTable
 	{records}
 	hide={['delete', 'share', 'edit', 'select']}
-	fields={['name', 'type', 'updated']}
+	fields={['name', 'organization_name', 'type', 'updated']}
 	snippets={{
 		name: snippets.name,
 		type: snippets.type,
