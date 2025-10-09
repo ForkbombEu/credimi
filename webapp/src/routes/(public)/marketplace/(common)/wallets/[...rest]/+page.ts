@@ -4,10 +4,11 @@
 
 import { pb } from '@/pocketbase';
 
+import { getFilterFromRestParams } from '../../_utils';
+
 export const load = async ({ params, fetch }) => {
-	const wallet = await pb
-		.collection('wallets')
-		.getFirstListItem(`canonified_name = '${params.wallet_name}'`, { fetch });
+	const filter = getFilterFromRestParams(params.rest);
+	const wallet = await pb.collection('wallets').getFirstListItem(filter, { fetch });
 
 	const actions = await pb.collection('wallet_actions').getFullList({
 		filter: `wallet="${wallet.id}"`,

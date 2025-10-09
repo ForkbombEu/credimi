@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageTop from '$lib/layout/pageTop.svelte';
 	import { ArrowLeft, PencilIcon } from 'lucide-svelte';
 
+	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -65,11 +66,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		<div class="space-y-3">
-			<div class="space-y-1">
+			<div>
+				<div class="-space-y-0.5">
+					<A
+						class="block"
+						href="/organizations/{marketplaceItem.organization_canonified_name}"
+					>
+						{marketplaceItem.organization_name}
+					</A>
+					<T tag="h1">{marketplaceItem.name}</T>
+				</div>
+
 				{#if display}
-					<MarketplaceItemTypeDisplay data={display} />
+					<div class="pt-4">
+						<MarketplaceItemTypeDisplay data={display} />
+					</div>
 				{/if}
-				<T tag="h1">{marketplaceItem.name}</T>
 			</div>
 		</div>
 	</div>

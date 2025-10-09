@@ -104,7 +104,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<p class="font-semibold">
 					<LabelLink
 						label={verifier.name}
-						href="/marketplace/verifiers/{verifier.canonified_name}"
+						href="/marketplace/verifiers/{organization?.canonified_name}/{verifier.canonified_name}"
 						published={verifier.published}
 					/>
 				</p>
@@ -168,7 +168,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<div class="flex-1">
 							<LabelLink
 								label={useCaseVerification.name}
-								href="/marketplace/use_cases_verifications/{useCaseVerification.canonified_name}"
+								href="/marketplace/use_cases_verifications/{organization?.canonified_name}/{useCaseVerification.canonified_name}"
 								published={useCaseVerification.published}
 							/>
 							{#if credentialsPreview}
