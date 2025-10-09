@@ -382,6 +382,7 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 		time.Sleep(backoff)
 	}
 }
+
 func StartWorkerManagerWorkflow(namespace, oldNamespace string) {
 	go func() {
 		if err := executeWorkerManagerWorkflow(namespace, oldNamespace); err != nil {
@@ -393,7 +394,7 @@ func StartWorkerManagerWorkflow(namespace, oldNamespace string) {
 }
 
 func executeWorkerManagerWorkflow(namespace, oldNamespace string) error {
-	serverURL := utils.GetEnvironmentVariable("SERVER_URL", "http://localhost:8050")
+	serverURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
 
 	ao := &workflow.ActivityOptions{
 		ScheduleToCloseTimeout: time.Minute,
