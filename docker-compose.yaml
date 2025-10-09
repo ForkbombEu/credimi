@@ -92,7 +92,7 @@ services:
       - SERVICE_FQDN_CREDIMI_8090
       - ADDRESS_GRAFANA=http://grafana:8085
       - ADDRESS_UI=http://localhost:5100
-      - APP_PATH=${COOLIFY_URL:-http://localhost:8090}
+      - APP_PATH=${COOLIFY_URL:-http://credimi:8090}
       - ROOT_DIR=/app
       - DATA_DB_PATH=/app/pb_data/data.db
       - MAIL_SENDER=no-reply@credimi.io
@@ -101,6 +101,7 @@ services:
       - SMTP_HOST=smtp.apps.forkbomb.eu
       - SMTP_PORT=1025
       - TEMPORAL_ADDRESS=temporal:7233
+      - MAESTRO_WORKER=http://maestro-worker:8050
       - PORT=5100
     ports:
       - 8090:8090
@@ -114,6 +115,6 @@ services:
       - temporal-network
 networks:
   temporal-network:
-    driver: bridge
+    external: true
     name: temporal-network
 
