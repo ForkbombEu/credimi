@@ -45,13 +45,6 @@ func (w *MobileAutomationWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	namespace, ok := input.Config["namespace"].(string)
-	if !ok || namespace == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"namespace",
-			runMetadata,
-		)
-	}
 	actionID, ok := input.Payload["action_id"].(string)
 	if !ok || actionID == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
@@ -82,7 +75,6 @@ func (w *MobileAutomationWorkflow) Workflow(
 			"body": map[string]any{
 				"wallet_identifier": walletID,
 				"action_identifier": actionID,
-				"organization":      namespace,
 			},
 			"expected_status": 200,
 		},
@@ -152,7 +144,6 @@ func (w *MobileAutomationWorkflow) Workflow(
 			"body": map[string]any{
 				"result_path":       "/tmp/credimi/video.mp4",
 				"action_identifier": actionID,
-				"organization":      namespace,
 			},
 			"expected_status": 200,
 		},

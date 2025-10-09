@@ -41,7 +41,7 @@ var WalletRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 	},
 }
-var WalletPublicRoutes routing.RouteGroup = routing.RouteGroup{
+var WalletTemoralInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/wallet",
 	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
@@ -70,13 +70,11 @@ type WalletURL struct {
 type WalletApkRequest struct {
 	WalletIdentifier string `json:"wallet_identifier"`
 	ActionIdentifier string `json:"action_identifier"`
-	Org              string `json:"organization"`
 }
 
 type WalletStoreResult struct {
 	ResultPath       string `json:"result_path"`
 	ActionIdentifier string `json:"action_identifier"`
-	Org              string `json:"organization"`
 }
 
 func HandleWalletStartCheck() func(*core.RequestEvent) error {
@@ -233,8 +231,8 @@ func HandleWalletGetApkAndAction() func(*core.RequestEvent) error {
 		}
 		versionRecord, err := app.FindFirstRecordByFilter(
 			walletVersionColl.Id,
-			"wallet = {:walletID} && owner = {:org}",
-			map[string]any{"walletID": walletRecord.Id, "org": req.Org},
+			"wallet = {:walletID}",
+			map[string]any{"walletID": walletRecord.Id},
 		)
 		if err != nil {
 			return apierror.New(
