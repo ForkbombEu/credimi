@@ -41,7 +41,7 @@ var WalletRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 	},
 }
-var WalletTemoralInternalRoutes routing.RouteGroup = routing.RouteGroup{
+var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/wallet",
 	AuthenticationRequired: false,
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
