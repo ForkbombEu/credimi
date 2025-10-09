@@ -95,10 +95,16 @@ var Registry = map[string]TaskFactory{
 		Kind:    TaskWorkflow,
 		NewFunc: func() any { return &workflows.CustomCheckWorkflow{} },
 	},
+	"check-file-exists": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewCheckFileExistsActivity() },
+		OutputKind: workflowengine.OutputBool,
+	},
 }
 
 // Denylist of task keys that should NOT be registered in the pipeline worker
 var PipelineWorkerDenylist = map[string]struct{}{
 	"mobile-flow":       {},
 	"mobile-automation": {},
+	"check-file-exists": {},
 }

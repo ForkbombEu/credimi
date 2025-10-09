@@ -74,8 +74,13 @@ func (s *StepDefinition) Execute(
 
 		case workflowengine.OutputArrayOfString:
 			output = workflowengine.AsSliceOfStrings(result.Output)
+
 		case workflowengine.OutputArrayOfMap:
 			output = workflowengine.AsSliceOfMaps(result.Output)
+
+		case workflowengine.OutputBool:
+			output = workflowengine.AsBool(result.Output)
+
 		case workflowengine.OutputAny:
 			output = result
 		}

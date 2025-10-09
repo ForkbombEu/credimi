@@ -78,4 +78,5 @@ const (
 	OutputMap
 	OutputArrayOfString
 	OutputArrayOfMap
+	OutputBool
 )

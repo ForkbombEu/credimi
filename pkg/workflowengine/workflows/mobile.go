@@ -122,37 +122,66 @@ func (w *MobileAutomationWorkflow) Workflow(
 			"yaml": ActionYAML,
 		},
 	}
-	err = workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
+	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
 		Get(ctx, &mobileResponse)
+	var checkVideoResult workflowengine.ActivityResult
+	checkVideoInput := workflowengine.ActivityInput{
+		Payload: map[string]any{
+			"path": "/tmp/credimi/video.mp4",
+		},
+	}
+	checkVideoActivity := activities.NewCheckFileExistsActivity()
+	err = workflow.ExecuteActivity(ctx, checkVideoActivity.Name(), checkVideoInput).Get(ctx, &checkVideoResult)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
 			runMetadata,
 		)
 	}
-	storeResultInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"method": "POST",
-			"url": fmt.Sprintf(
-				"%s/%s",
-				input.Config["app_url"].(string),
-				"api/wallet/store-action-result",
-			),
-			"headers": map[string]any{
-				"Content-Type": "application/json",
-			},
-			"body": map[string]any{
-				"result_path":       "/tmp/credimi/video.mp4",
-				"action_identifier": actionID,
-			},
-			"expected_status": 200,
-		},
-	}
-	err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeResultInput).
-		Get(ctx, &response)
-	if err != nil {
+	videoExists, ok := checkVideoResult.Output.(bool)
+	if !ok {
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			err,
+			workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf(
+					"%s: 'output' must be a boolean", errCode.Description),
+				checkVideoResult,
+			),
+			runMetadata,
+		)
+	}
+	if videoExists {
+		storeResultInput := workflowengine.ActivityInput{
+			Payload: map[string]any{
+				"method": "POST",
+				"url": fmt.Sprintf(
+					"%s/%s",
+					input.Config["app_url"].(string),
+					"api/wallet/store-action-result",
+				),
+				"headers": map[string]any{
+					"Content-Type": "application/json",
+				},
+				"body": map[string]any{
+					"result_path":       "/tmp/credimi/video.mp4",
+					"action_identifier": actionID,
+				},
+				"expected_status": 200,
+			},
+		}
+		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeResultInput).
+			Get(ctx, &response)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
+		}
+	}
+	if executeErr != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			executeErr,
 			runMetadata,
 		)
 	}
