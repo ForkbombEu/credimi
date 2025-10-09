@@ -61,7 +61,6 @@ func HandleIdentifierValidate() func(*core.RequestEvent) error {
 			"message": "valid identifier",
 			"record":  record.FieldsData(),
 		})
-
 	}
 }
 

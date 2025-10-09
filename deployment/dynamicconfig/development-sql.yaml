@@ -1,0 +1,12 @@
+# SPDX-FileCopyrightText: 2021 temporal.io
+#
+# SPDX-License-Identifier: MIT
+limit.maxIDLength:
+  - value: 255
+    constraints: {}
+  - value: 128
+    constraints:
+      namespace: default
+system.forceSearchAttributesCacheRefreshOnRead:
+  - value: true # Dev setup only. Please don't turn this on in production.
+    constraints: {}

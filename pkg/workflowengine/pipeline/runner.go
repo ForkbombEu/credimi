@@ -74,8 +74,13 @@ func (s *StepDefinition) Execute(
 
 		case workflowengine.OutputArrayOfString:
 			output = workflowengine.AsSliceOfStrings(result.Output)
+
 		case workflowengine.OutputArrayOfMap:
 			output = workflowengine.AsSliceOfMaps(result.Output)
+
+		case workflowengine.OutputBool:
+			output = workflowengine.AsBool(result.Output)
+
 		case workflowengine.OutputAny:
 			output = result
 		}
@@ -87,6 +92,10 @@ func (s *StepDefinition) Execute(
 		}
 		return result, nil
 	case registry.TaskWorkflow:
+		taskqueue := PipelineTaskQueue
+		if step.TaskQueue != "" {
+			taskqueue = step.TaskQueue
+		}
 		w := step.NewFunc().(workflowengine.Workflow)
 		if cfg["app_url"] == "" {
 			cfg["app_url"] = "http://localhost:8090"
@@ -104,7 +113,7 @@ func (s *StepDefinition) Execute(
 				workflow.GetInfo(ctx).WorkflowExecution.ID,
 				s.ID,
 			),
-			TaskQueue:         PipelineTaskQueue,
+			TaskQueue:         taskqueue,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
 		}
 		ctxChild := workflow.WithChildOptions(ctx, opts)
