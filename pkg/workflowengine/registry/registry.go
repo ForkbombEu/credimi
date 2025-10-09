@@ -22,6 +22,7 @@ type TaskFactory struct {
 	Kind       TaskKind
 	NewFunc    func() any
 	OutputKind workflowengine.OutputKind
+	TaskQueue  string
 }
 
 // Registry maps activity keys to their factory.
@@ -88,8 +89,9 @@ var Registry = map[string]TaskFactory{
 		OutputKind: workflowengine.OutputString,
 	},
 	"mobile-automation": {
-		Kind:    TaskWorkflow,
-		NewFunc: func() any { return &workflows.MobileAutomationWorkflow{} },
+		Kind:      TaskWorkflow,
+		NewFunc:   func() any { return &workflows.MobileAutomationWorkflow{} },
+		TaskQueue: workflows.MobileAutomationTaskQueue,
 	},
 	"custom-check": {
 		Kind:    TaskWorkflow,
@@ -106,5 +108,4 @@ var Registry = map[string]TaskFactory{
 var PipelineWorkerDenylist = map[string]struct{}{
 	"mobile-flow":       {},
 	"mobile-automation": {},
-	"check-file-exists": {},
 }

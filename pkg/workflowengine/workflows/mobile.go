@@ -12,6 +12,8 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+const MobileAutomationTaskQueue = "MobileAutomationTaskQueue"
+
 type MobileAutomationWorkflow struct {
 }
 
