@@ -67,6 +67,16 @@ export const yamlStringSchema = z
 	.nonempty()
 	.superRefine((value, ctx) => {
 		const docs = parseAllDocuments(value);
+
+		// @ts-expect-error - `docs.empty` may exist but is not typed
+		if (docs.empty) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: 'Empty YAML document'
+			});
+			return;
+		}
+
 		for (const [index, doc] of Object.entries(docs)) {
 			const i = parseInt(index) + 1;
 			const prefix = docs.length > 1 ? `Document ${i}: ` : '';
