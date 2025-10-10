@@ -22,8 +22,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
-	import EditSheet from '../../_utils/edit-sheet.svelte';
 	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
+	import EditSheet from '../../../marketplace/[...path]/_partials/edit-sheet.svelte';
 
 	//
 

@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import EditSheet from '../../_utils/edit-sheet.svelte';
+	import EditSheet from '../../../marketplace/[...path]/_partials/edit-sheet.svelte';
 
 	//
 
