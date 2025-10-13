@@ -4,12 +4,30 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+<script module lang="ts">
+	import { pb } from '@/pocketbase';
+
+	import { pageDetails } from './types';
+
+	export async function getWalletDetails(itemId: string, fetchFn = fetch) {
+		const wallet = await pb.collection('wallets').getOne(itemId, { fetch: fetchFn });
+
+		const actions = await pb.collection('wallet_actions').getFullList({
+			filter: `wallet="${wallet.id}"`,
+			fetch
+		});
+
+		return pageDetails('wallets', {
+			wallet,
+			actions
+		});
+	}
+</script>
+
 <script lang="ts">
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
-	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
+	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import WalletForm from '$routes/my/services-and-products/_wallets/wallet-form.svelte';
 	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
 	import { String } from 'effect';
@@ -28,24 +46,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
-	import EditSheet from '../../../marketplace/[...path]/_partials/edit-sheet.svelte';
+	import EditSheet from './edit-sheet.svelte';
+	import LayoutWithToc from './layout-with-toc.svelte';
+	import { sections as s } from './sections';
 
 	//
 
-	let { data } = $props();
-	const { wallet, actions } = $derived(data);
+	type Props = Awaited<ReturnType<typeof getWalletDetails>>;
+	let { wallet, actions }: Props = $props();
 
 	//
 
 	const checks = $derived(z.array(ConformanceCheckSchema).safeParse(wallet.conformance_checks));
-
-	const sections = $derived(
-		generateMarketplaceSection('wallets', {
-			hasDescription: !!wallet?.description,
-			hasConformanceChecks: checks.success && checks.data.length > 0,
-			hasActions: actions && actions.length > 0
-		})
-	);
 
 	// Utility function to get code stats
 	function getCodeStats(code: string) {
@@ -79,9 +91,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 </script>
 
-<MarketplacePageLayout tableOfContents={sections}>
+<LayoutWithToc sections={[s.general_info, s.description, s.conformance_checks, s.actions]}>
 	<div class="grow space-y-6">
-		<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
+		<PageHeaderIndexed indexItem={s.general_info} />
 
 		{#if String.isNonEmpty(wallet.home_url)}
 			<InfoBox label="Homepage URL" url={wallet.home_url} copyable={true} />
@@ -104,9 +116,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		{/if}
 	</div>
-	{#if wallet.description && sections.description}
+
+	{#if wallet.description}
 		<div class="space-y-6">
-			<PageHeader title={sections.description.label} id={sections.description.anchor} />
+			<PageHeaderIndexed indexItem={s.description} />
 			<div class="prose">
 				<RenderMd content={wallet.description} />
 			</div>
@@ -115,10 +128,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#if checks.success}
 		<div>
-			<PageHeader
-				title={sections.conformance_checks.label}
-				id={sections.conformance_checks.anchor}
-			/>
+			<PageHeaderIndexed indexItem={s.conformance_checks} />
 			<div class="space-y-2">
 				{#each checks.data as check (check.runId)}
 					{@const badgeColor = statuses[check.status]}
@@ -136,9 +146,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/if}
 
-	{#if actions && actions.length > 0 && sections.actions}
+	{#if actions && actions.length > 0}
 		<div class="space-y-4">
-			<PageHeader title={sections.actions.label} id={sections.actions.anchor} />
+			<PageHeaderIndexed indexItem={s.actions} />
 			<div class="space-y-3">
 				{#each actions as action (action.id)}
 					{@const stats = getCodeStats(action.code)}
@@ -177,7 +187,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 	{/if}
-</MarketplacePageLayout>
+</LayoutWithToc>
 
 <EditSheet>
 	{#snippet children({ closeSheet })}
@@ -193,6 +203,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </EditSheet>
 
 {#snippet AppStore(url: string)}
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 	<a href={url} target="_blank" class="">
 		<svg
 			id="livetype"
@@ -324,6 +335,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet PlayStore(url: string)}
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 	<a href={url} target="_blank" class="shrink-0">
 		<img
 			class="h-16"

@@ -10,13 +10,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { pageDetails } from './types';
 
-	export async function getCredentialIssuersDetails(itemId: string) {
+	export async function getCredentialIssuersDetails(itemId: string, fetchFn = fetch) {
 		const credentialIssuer = await new PocketbaseQueryAgent(
 			{
 				collection: 'credential_issuers',
 				expand: ['credentials_via_credential_issuer']
 			},
-			{ fetch }
+			{ fetch: fetchFn }
 		).getOne(itemId);
 
 		const credentialsIds = (
@@ -29,7 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			credentialsFilters.length > 0
 				? await pb.collection('marketplace_items').getFullList(1, {
 						filter: credentialsFilters,
-						fetch
+						fetch: fetchFn
 					})
 				: [];
 

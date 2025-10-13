@@ -17,7 +17,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import CredentialIssuersPage from './_partials/credential-issuers-page.svelte';
+	import CredentialsPage from './_partials/credentials-page.svelte';
 	import { editFormState } from './_partials/edit-sheet.svelte';
+	import UseCaseVerificationPage from './_partials/use-case-verification-page.svelte';
+	import VerifierPage from './_partials/verifier-page.svelte';
+	import WalletPage from './_partials/wallet-page.svelte';
 
 	//
 
@@ -59,7 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <!-- General page content -->
 
 <PageTop hideTopBorder={isCurrentUserOwner} contentClass="!space-y-4">
-	<Button variant="link" class="gap-1 p-0" onclick={() => history.back()}>
+	<Button variant="link" class="gap-1 p-0" href="/marketplace">
 		<ArrowLeft />
 		{m.Back()}
 	</Button>
@@ -95,4 +99,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if pageDetails.type == 'credential_issuers'}
 	<CredentialIssuersPage {...pageDetails} />
+{:else if pageDetails.type == 'credentials'}
+	<CredentialsPage {...pageDetails} />
+{:else if pageDetails.type == 'wallets'}
+	<WalletPage {...pageDetails} />
+{:else if pageDetails.type == 'verifiers'}
+	<VerifierPage {...pageDetails} />
+{:else if pageDetails.type == 'use_cases_verifications'}
+	<UseCaseVerificationPage {...pageDetails} />
 {/if}

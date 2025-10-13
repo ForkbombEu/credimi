@@ -26,12 +26,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { sections, class: className, title, ...props }: Props = $props();
 </script>
 
-<div class="space-y-4">
+<div class={['space-y-4', className]}>
 	{#if title}
 		<p class="border-b pb-1 text-lg font-semibold">{title}</p>
 	{/if}
 
-	<ul class={['space-y-4', className]} {...props}>
+	<ul class="space-y-4" {...props}>
 		{#each sections as section (section.id)}
 			<li>
 				<a href="#{section.anchor}" class="flex items-center gap-2 hover:underline">

@@ -4,15 +4,48 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+<script module lang="ts">
+	import { pb } from '@/pocketbase/index.js';
+	import { PocketbaseQueryAgent } from '@/pocketbase/query/agent.js';
+	import { Collections } from '@/pocketbase/types/index.generated.js';
+
+	export async function getCredentialsDetails(itemId: string, fetchFn = fetch) {
+		const credential = await new PocketbaseQueryAgent(
+			{
+				collection: 'credentials',
+				expand: ['credential_issuer']
+			},
+			{ fetch: fetchFn }
+		).getOne(itemId);
+
+		const credentialIssuerMarketplaceEntry = await pb
+			.collection('marketplace_items')
+			.getFirstListItem(
+				`id = '${credential.credential_issuer}' && type = '${Collections.CredentialIssuers}'`,
+				{ fetch: fetchFn }
+			);
+
+		const credentialIssuer = credential.expand?.credential_issuer;
+		if (!credentialIssuer) throw new Error('Credential issuer not found');
+
+		return pageDetails('credentials', {
+			credential,
+			credentialIssuer,
+			credentialIssuerMarketplaceEntry
+		});
+	}
+</script>
+
 <script lang="ts">
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
 
 	import { createIntentUrl } from '$lib/credentials/index.js';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
+	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import { generateDeeplinkFromYaml } from '$lib/utils';
+	import { MarketplaceItemCard } from '$marketplace/_utils';
 	import EditCredentialForm from '$routes/my/services-and-products/_credentials/credential-form.svelte';
 	import { String } from 'effect';
 	import { onMount } from 'svelte';
@@ -22,24 +55,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
-	import { MarketplaceItemCard, generateMarketplaceSection } from '../../../_utils/index.js';
-	import EditSheet from '../../../marketplace/[...path]/_partials/edit-sheet.svelte';
+	import EditSheet from './edit-sheet.svelte';
+	import LayoutWithToc from './layout-with-toc.svelte';
+	import { sections as sec } from './sections';
+	import { pageDetails } from './types';
 
 	//
 
-	let { data } = $props();
-	const { credential, credentialIssuer, credentialIssuerMarketplaceEntry } = $derived(data);
+	type Props = Awaited<ReturnType<typeof getCredentialsDetails>>;
+	let { credential, credentialIssuer, credentialIssuerMarketplaceEntry }: Props = $props();
+
+	//
 
 	let isProcessingYaml = $state(false);
 	let yamlProcessingError = $state(false);
 	let qrLink = $state<string>('');
-
-	const sections = $derived(
-		generateMarketplaceSection('credentials', {
-			hasDescription: !!credential?.description,
-			hasCompatibleIssuer: !!credentialIssuerMarketplaceEntry
-		})
-	);
 
 	const credentialConfiguration = $derived(
 		credential.json as CredentialConfiguration | undefined
@@ -69,13 +99,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<MarketplacePageLayout tableOfContents={sections}>
+<LayoutWithToc
+	sections={[
+		sec.credential_properties,
+		sec.description,
+		sec.credential_subjects,
+		sec.compatible_issuer
+	]}
+>
 	<div class="flex flex-col items-start gap-6 md:flex-row">
 		<div class="grow space-y-6">
-			<PageHeader
-				title={sections.credential_properties.label}
-				id={sections.credential_properties.anchor}
-			/>
+			<PageHeaderIndexed indexItem={sec.credential_properties} />
 
 			<div class="flex gap-6">
 				<InfoBox label="Format" value={credential.format} />
@@ -118,20 +152,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 
-	{#if credential.description && sections.description}
-		<div class="space-y-6">
-			<PageHeader title={sections.description.label} id={sections.description.anchor} />
-			<div class="prose">
-				<RenderMd content={credential.description} />
-			</div>
+	<div class="space-y-6">
+		<PageHeaderIndexed indexItem={sec.description} />
+		<div class="prose">
+			<RenderMd content={credential.description} />
 		</div>
-	{/if}
+	</div>
 
 	<div class="space-y-6">
-		<PageHeader
-			title={sections.credential_subjects.label}
-			id={sections.credential_subjects.anchor}
-		/>
+		<PageHeaderIndexed indexItem={sec.credential_subjects} />
 
 		{#if credentialConfiguration}
 			<CodeDisplay
@@ -143,16 +172,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div>
-		<PageHeader
-			title={sections.compatible_issuer.label}
-			id={sections.compatible_issuer.anchor}
-		/>
-
-		{#if credentialIssuerMarketplaceEntry}
-			<MarketplaceItemCard item={credentialIssuerMarketplaceEntry} />
-		{/if}
+		<PageHeaderIndexed indexItem={sec.compatible_issuer} />
+		<MarketplaceItemCard item={credentialIssuerMarketplaceEntry} />
 	</div>
-</MarketplacePageLayout>
+</LayoutWithToc>
 
 <EditSheet>
 	{#snippet children({ closeSheet })}

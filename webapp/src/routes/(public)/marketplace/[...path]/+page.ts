@@ -9,6 +9,10 @@ import { error } from '@sveltejs/kit';
 import { pb } from '@/pocketbase/index.js';
 
 import { getCredentialIssuersDetails } from './_partials/credential-issuers-page.svelte';
+import { getCredentialsDetails } from './_partials/credentials-page.svelte';
+import { getUseCaseVerificationDetails } from './_partials/use-case-verification-page.svelte';
+import { getVerifierDetails } from './_partials/verifier-page.svelte';
+import { getWalletDetails } from './_partials/wallet-page.svelte';
 
 //
 
@@ -22,7 +26,7 @@ export const load = async ({ params, fetch }) => {
 			{ fetch }
 		)) as MarketplaceItem;
 
-	const pageDetails = await getPageDetails(marketplaceItem);
+	const pageDetails = await getPageDetails(marketplaceItem, fetch);
 
 	return {
 		marketplaceItem,
@@ -40,10 +44,18 @@ function parsePath(path: string) {
 	};
 }
 
-function getPageDetails(item: MarketplaceItem) {
+function getPageDetails(item: MarketplaceItem, fetchFn = fetch) {
 	switch (item.type) {
 		case 'credential_issuers':
-			return getCredentialIssuersDetails(item.id);
+			return getCredentialIssuersDetails(item.id, fetchFn);
+		case 'credentials':
+			return getCredentialsDetails(item.id, fetchFn);
+		case 'wallets':
+			return getWalletDetails(item.id, fetchFn);
+		case 'verifiers':
+			return getVerifierDetails(item.id, fetchFn);
+		case 'use_cases_verifications':
+			return getUseCaseVerificationDetails(item.id, fetchFn);
 		default:
 			error(404);
 	}

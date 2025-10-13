@@ -4,12 +4,49 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+<script module lang="ts">
+	import { pb } from '@/pocketbase/index.js';
+	import { PocketbaseQueryAgent } from '@/pocketbase/query/agent.js';
+	import { partitionPromises } from '@/utils/promise';
+
+	import { pageDetails } from './types';
+
+	export async function getVerifierDetails(itemId: string, fetchFn = fetch) {
+		const verifier = await new PocketbaseQueryAgent(
+			{
+				collection: 'verifiers',
+				expand: ['use_cases_verifications_via_verifier']
+			},
+			{ fetch: fetchFn }
+		).getOne(itemId);
+
+		const useCasesVerifications = verifier.expand?.use_cases_verifications_via_verifier ?? [];
+
+		const [marketplaceUseCasesVerifications] = await partitionPromises(
+			useCasesVerifications.map((v) =>
+				pb.collection('marketplace_items').getOne(v.id, { fetch })
+			)
+		);
+
+		const [marketplaceCredentials] = await partitionPromises(
+			useCasesVerifications
+				.flatMap((v) => v.credentials)
+				.map((c) => pb.collection('marketplace_items').getOne(c, { fetch }))
+		);
+
+		return pageDetails('verifiers', {
+			verifier,
+			marketplaceCredentials,
+			marketplaceUseCasesVerifications
+		});
+	}
+</script>
+
 <script lang="ts">
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
-	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import { MarketplaceItemCard, generateMarketplaceSection } from '$marketplace/_utils/index.js';
+	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
+	import { MarketplaceItemCard } from '$marketplace/_utils/index.js';
 	import { settings } from '$routes/my/services-and-products/_verifiers/verifier-form-settings.svelte';
 	import { String } from 'effect';
 
@@ -18,20 +55,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import EditSheet from '../../../marketplace/[...path]/_partials/edit-sheet.svelte';
+	import EditSheet from './edit-sheet.svelte';
+	import LayoutWithToc from './layout-with-toc.svelte';
+	import { sections as s } from './sections';
 
 	//
 
-	let { data } = $props();
-	const { verifier, marketplaceCredentials, marketplaceUseCasesVerifications } = $derived(data);
+	type Props = Awaited<ReturnType<typeof getVerifierDetails>>;
+	let { verifier, marketplaceCredentials, marketplaceUseCasesVerifications }: Props = $props();
 
-	const sections = generateMarketplaceSection('verifiers');
+	//
+
 	const standardAndVersion = $derived(verifier.standard_and_version.split(','));
 </script>
 
-<MarketplacePageLayout tableOfContents={sections}>
+<LayoutWithToc sections={[]}>
 	<div class="space-y-6">
-		<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
+		<PageHeaderIndexed indexItem={s.general_info} />
 
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			<InfoBox label="URL" url={verifier.url} copyable={true} />
@@ -61,10 +101,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="space-y-6">
-		<PageHeader
-			title={sections.description?.label ?? ''}
-			id={sections.description?.anchor ?? ''}
-		/>
+		<PageHeaderIndexed indexItem={s.description} />
 
 		<div class="prose">
 			<RenderMd content={verifier.description} />
@@ -72,11 +109,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="space-y-6">
-		<PageHeader title={sections.credentials.label} id={sections.credentials.anchor} />
+		<PageHeaderIndexed indexItem={s.credentials} />
 
 		{#if marketplaceCredentials.length > 0}
 			<PageGrid>
-				{#each marketplaceCredentials as credential}
+				{#each marketplaceCredentials as credential (credential.id)}
 					<MarketplaceItemCard item={credential} />
 				{/each}
 			</PageGrid>
@@ -86,14 +123,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="space-y-6">
-		<PageHeader
-			title={sections.use_case_verifications.label}
-			id={sections.use_case_verifications.anchor}
-		/>
+		<PageHeaderIndexed indexItem={s.use_case_verifications} />
 
 		{#if marketplaceUseCasesVerifications.length > 0}
 			<PageGrid>
-				{#each marketplaceUseCasesVerifications as useCaseVerification}
+				{#each marketplaceUseCasesVerifications as useCaseVerification (useCaseVerification.id)}
 					<MarketplaceItemCard item={useCaseVerification} />
 				{/each}
 			</PageGrid>
@@ -101,7 +135,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T>{m.No_published_verification_use_cases_found()}</T>
 		{/if}
 	</div>
-</MarketplacePageLayout>
+</LayoutWithToc>
 
 <EditSheet>
 	{#snippet children({ closeSheet })}
