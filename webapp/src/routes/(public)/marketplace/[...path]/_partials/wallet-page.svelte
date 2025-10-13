@@ -127,20 +127,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<DescriptionSection description={wallet.description} />
 
 	<PageSection indexItem={s.conformance_checks} empty={!checks.success}>
-		<div class="space-y-2">
-			{#each checks.data as check (check.runId)}
-				{@const badgeColor = statuses[check.status]}
-				<Card contentClass="flex justify-between items-center p-4">
-					<div>
-						<p class="font-bold">{check.standard}</p>
-						<p>{check.test}</p>
-					</div>
-					<Badge class="{badgeColor} text-black hover:{badgeColor}">
-						{check.status}
-					</Badge>
-				</Card>
-			{/each}
-		</div>
+		<!-- Seems redudant, given `empty` prop, but it's needed for type checking -->
+		{#if checks.success}
+			<div class="space-y-2">
+				{#each checks.data as check (check.runId)}
+					{@const badgeColor = statuses[check.status]}
+					<Card contentClass="flex justify-between items-center p-4">
+						<div>
+							<p class="font-bold">{check.standard}</p>
+							<p>{check.test}</p>
+						</div>
+						<Badge class="{badgeColor} text-black hover:{badgeColor}">
+							{check.status}
+						</Badge>
+					</Card>
+				{/each}
+			</div>
+		{/if}
 	</PageSection>
 
 	<PageSection indexItem={s.actions} empty={actions.length === 0}>
