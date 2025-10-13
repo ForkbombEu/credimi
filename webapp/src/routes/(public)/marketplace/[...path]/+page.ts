@@ -8,8 +8,8 @@ import { error } from '@sveltejs/kit';
 
 import { pb } from '@/pocketbase/index.js';
 
-import { getCredentialIssuersDetails } from './_partials/credential-issuers-page.svelte';
-import { getCredentialsDetails } from './_partials/credentials-page.svelte';
+import { getCredentialIssuersDetails } from './_partials/credential-issuer-page.svelte';
+import { getCredentialsDetails } from './_partials/credential-page.svelte';
 import { getUseCaseVerificationDetails } from './_partials/use-case-verification-page.svelte';
 import { getVerifierDetails } from './_partials/verifier-page.svelte';
 import { getWalletDetails } from './_partials/wallet-page.svelte';
