@@ -36,73 +36,61 @@ import { m } from '@/i18n';
 
 export const sections = {
 	general_info: {
-		id: 'general_info',
 		icon: Building2,
 		anchor: 'general_info',
 		label: m.General_info()
 	},
 	credential_properties: {
-		id: 'credential_properties',
 		icon: Building2,
 		anchor: 'credential_properties',
 		label: m.Credential_properties()
 	},
 	description: {
-		id: 'description',
 		icon: Layers,
 		anchor: 'description',
 		label: m.Description()
 	},
 	credential_subjects: {
-		id: 'credential_subjects',
 		icon: Layers3,
 		anchor: 'credential_subject',
 		label: m.Credential_subject()
 	},
 	compatible_issuer: {
-		id: 'compatible_issuer',
 		icon: FolderCheck,
 		anchor: 'compatible_issuer',
 		label: m.Compatible_issuer()
 	},
 	credentials: {
-		id: 'credentials',
 		icon: Layers,
 		anchor: 'credentials',
 		label: m.Supported_credentials()
 	},
 	linked_credentials: {
-		id: 'linked_credentials',
 		icon: Key,
 		anchor: 'credentials',
 		label: m.Linked_credentials()
 	},
 	use_case_verifications: {
-		id: 'use_case_verifications',
 		icon: ScanEye,
 		anchor: 'use_case_verifications',
 		label: m.Use_case_verifications()
 	},
 	related_verifier: {
-		id: 'related_verifier',
 		icon: Layers3,
 		anchor: 'related_verifier',
 		label: m.Related_verifier()
 	},
 	related_credentials: {
-		id: 'related_credentials',
 		icon: Key,
 		anchor: 'related_credentials',
 		label: m.Related_credentials()
 	},
 	conformance_checks: {
-		id: 'conformance_checks',
 		icon: Layers3,
 		anchor: 'conformance_checks',
 		label: m.Conformance_Checks()
 	},
 	actions: {
-		id: 'actions',
 		icon: Code,
 		anchor: 'actions',
 		label: m.Actions()

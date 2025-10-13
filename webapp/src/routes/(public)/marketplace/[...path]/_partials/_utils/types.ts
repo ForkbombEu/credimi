@@ -4,7 +4,7 @@
 
 import type { Merge } from 'type-fest';
 
-import type { MarketplaceItemType } from '../../_utils';
+import type { MarketplaceItemType } from '../../../_utils';
 
 //
 

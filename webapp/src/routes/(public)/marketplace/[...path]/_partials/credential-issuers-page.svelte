@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase/index.js';
 	import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
-	import { pageDetails } from './types';
+	import { pageDetails } from './_utils/types';
 
 	export async function getCredentialIssuersDetails(itemId: string, fetchFn = fetch) {
 		const credentialIssuer = await new PocketbaseQueryAgent(
@@ -52,9 +52,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import EditSheet from './edit-sheet.svelte';
-	import LayoutWithToc from './layout-with-toc.svelte';
-	import { sections as s } from './sections';
+	import EditSheet from './_utils/edit-sheet.svelte';
+	import LayoutWithToc from './_utils/layout-with-toc.svelte';
+	import { sections as s } from './_utils/sections';
 
 	//
 

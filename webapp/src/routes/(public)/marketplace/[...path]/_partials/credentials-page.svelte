@@ -55,10 +55,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
-	import EditSheet from './edit-sheet.svelte';
-	import LayoutWithToc from './layout-with-toc.svelte';
-	import { sections as sec } from './sections';
-	import { pageDetails } from './types';
+	import EditSheet from './_utils/edit-sheet.svelte';
+	import LayoutWithToc from './_utils/layout-with-toc.svelte';
+	import { sections as sec } from './_utils/sections';
+	import { pageDetails } from './_utils/types';
 
 	//
 

@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IconComponent } from '@/components/types';
 
 	export interface IndexItem {
-		id: string;
 		icon?: IconComponent;
 		anchor: string;
 		label: string;
@@ -32,7 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	<ul class="space-y-4" {...props}>
-		{#each sections as section (section.id)}
+		{#each sections as section (section.anchor)}
 			<li>
 				<a href="#{section.anchor}" class="flex items-center gap-2 hover:underline">
 					{#if section.icon}

@@ -16,9 +16,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
+	import { editFormState } from './_partials/_utils/edit-sheet.svelte';
 	import CredentialIssuersPage from './_partials/credential-issuers-page.svelte';
 	import CredentialsPage from './_partials/credentials-page.svelte';
-	import { editFormState } from './_partials/edit-sheet.svelte';
 	import UseCaseVerificationPage from './_partials/use-case-verification-page.svelte';
 	import VerifierPage from './_partials/verifier-page.svelte';
 	import WalletPage from './_partials/wallet-page.svelte';

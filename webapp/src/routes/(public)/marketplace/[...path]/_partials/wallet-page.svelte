@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script module lang="ts">
 	import { pb } from '@/pocketbase';
 
-	import { pageDetails } from './types';
+	import { pageDetails } from './_utils/types';
 
 	export async function getWalletDetails(itemId: string, fetchFn = fetch) {
 		const wallet = await pb.collection('wallets').getOne(itemId, { fetch: fetchFn });
@@ -46,9 +46,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
-	import EditSheet from './edit-sheet.svelte';
-	import LayoutWithToc from './layout-with-toc.svelte';
-	import { sections as s } from './sections';
+	import EditSheet from './_utils/edit-sheet.svelte';
+	import LayoutWithToc from './_utils/layout-with-toc.svelte';
+	import { sections as s } from './_utils/sections';
 
 	//
 
