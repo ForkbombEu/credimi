@@ -1,4 +1,4 @@
-# YAML: Dynemic generation QR codes and Wallet Actions
+# YAML: Dynamic generation QR codes and Wallet Actions
 
 The Credimi Marketplace dynamically generates QR codes for both Credential Offers (OpenID4VCI) and Presentation Requests (OpenID4VP). 
 
