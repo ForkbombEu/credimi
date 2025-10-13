@@ -39,20 +39,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import MarketplaceItemCard from '$marketplace/_utils/marketplace-item-card.svelte';
 	import { options } from '$routes/my/services-and-products/_verifiers/use-case-verification-form-options.svelte';
 	import { onMount } from 'svelte';
 
 	import CollectionForm from '@/collections-components/form/collectionForm.svelte';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
+	import DescriptionSection from './_utils/description-section.svelte';
 	import EditSheet from './_utils/edit-sheet.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
+	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
 
 	//
@@ -85,18 +85,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<LayoutWithToc sections={[]}>
+<LayoutWithToc sections={[s.description, s.qr_code, s.related_verifier, s.related_credentials]}>
 	<div class="flex items-start gap-6">
-		<div class="grow space-y-6">
-			<PageHeaderIndexed indexItem={s.general_info} />
+		<DescriptionSection description={useCaseVerification.description} class="grow" />
 
-			<div class="prose">
-				<RenderMd content={useCaseVerification.description} />
-			</div>
-		</div>
-
-		<div class="flex flex-col items-stretch">
-			<PageHeaderIndexed indexItem={s.qr_code} />
+		<PageSection indexItem={s.qr_code} class="flex flex-col items-stretch space-y-0">
 			<QrStateful
 				src={qrLink}
 				isLoading={isProcessingYaml}
@@ -108,24 +101,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a href={qrLink} target="_self">{qrLink}</a>
 			</div>
-		</div>
+		</PageSection>
 	</div>
 
 	<div class="flex w-full flex-col gap-6 sm:flex-row">
-		<div class="shrink-0 grow basis-1">
-			<PageHeaderIndexed indexItem={s.related_verifier} />
+		<PageSection indexItem={s.related_verifier} class="shrink-0 grow basis-1">
 			<MarketplaceItemCard item={verifierMarketplaceItem} />
-		</div>
+		</PageSection>
 
-		<div class="shrink-0 grow basis-1">
-			<PageHeaderIndexed indexItem={s.related_credentials} />
-
+		<PageSection
+			indexItem={s.related_credentials}
+			empty={marketplaceCredentials.length === 0}
+			class="shrink-0 grow basis-1"
+		>
 			<div class="flex flex-col gap-2">
 				{#each marketplaceCredentials as marketplaceCredential (marketplaceCredential.id)}
 					<MarketplaceItemCard item={marketplaceCredential} />
 				{/each}
 			</div>
-		</div>
+		</PageSection>
 	</div>
 </LayoutWithToc>
 

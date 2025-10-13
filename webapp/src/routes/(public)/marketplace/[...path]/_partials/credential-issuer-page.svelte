@@ -42,7 +42,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import { MarketplaceItemCard } from '$marketplace/_utils';
 	import { String } from 'effect';
 
@@ -52,7 +51,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import DescriptionSection from './_utils/description-section.svelte';
 	import EditSheet from './_utils/edit-sheet.svelte';
-	import EmptyState from './_utils/empty-state.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
@@ -79,19 +77,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<DescriptionSection description={credentialIssuer.description} />
 
-	<div class="space-y-6">
-		<PageHeaderIndexed indexItem={s.credentials} />
-
+	<PageSection indexItem={s.credentials} empty={credentialsMarketplaceItems.length === 0}>
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			{#each credentialsMarketplaceItems as credential (credential.id)}
 				<MarketplaceItemCard item={credential} />
-			{:else}
-				<EmptyState>
-					<T>No credentials found</T>
-				</EmptyState>
 			{/each}
 		</div>
-	</div>
+	</PageSection>
 </LayoutWithToc>
 
 <EditSheet>

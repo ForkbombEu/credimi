@@ -45,18 +45,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
-	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import { MarketplaceItemCard } from '$marketplace/_utils/index.js';
 	import { settings } from '$routes/my/services-and-products/_verifiers/verifier-form-settings.svelte';
 	import { String } from 'effect';
 
 	import { CollectionForm } from '@/collections-components/index.js';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
+	import DescriptionSection from './_utils/description-section.svelte';
 	import EditSheet from './_utils/edit-sheet.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
+	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
 
 	//
@@ -69,10 +69,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const standardAndVersion = $derived(verifier.standard_and_version.split(','));
 </script>
 
-<LayoutWithToc sections={[]}>
-	<div class="space-y-6">
-		<PageHeaderIndexed indexItem={s.general_info} />
-
+<LayoutWithToc sections={[s.general_info, s.description, s.credentials, s.use_case_verifications]}>
+	<PageSection indexItem={s.general_info}>
 		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
 			<InfoBox label="URL" url={verifier.url} copyable={true} />
 
@@ -98,43 +96,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<T>{verifier.format.join(', ')}</T>
 			</InfoBox>
 		</div>
-	</div>
+	</PageSection>
 
-	<div class="space-y-6">
-		<PageHeaderIndexed indexItem={s.description} />
+	<DescriptionSection description={verifier.description} />
 
-		<div class="prose">
-			<RenderMd content={verifier.description} />
-		</div>
-	</div>
+	<PageSection indexItem={s.credentials} empty={marketplaceCredentials.length === 0}>
+		<PageGrid>
+			{#each marketplaceCredentials as credential (credential.id)}
+				<MarketplaceItemCard item={credential} />
+			{/each}
+		</PageGrid>
+	</PageSection>
 
-	<div class="space-y-6">
-		<PageHeaderIndexed indexItem={s.credentials} />
-
-		{#if marketplaceCredentials.length > 0}
-			<PageGrid>
-				{#each marketplaceCredentials as credential (credential.id)}
-					<MarketplaceItemCard item={credential} />
-				{/each}
-			</PageGrid>
-		{:else}
-			<T>{m.No_published_credentials_found()}</T>
-		{/if}
-	</div>
-
-	<div class="space-y-6">
-		<PageHeaderIndexed indexItem={s.use_case_verifications} />
-
-		{#if marketplaceUseCasesVerifications.length > 0}
-			<PageGrid>
-				{#each marketplaceUseCasesVerifications as useCaseVerification (useCaseVerification.id)}
-					<MarketplaceItemCard item={useCaseVerification} />
-				{/each}
-			</PageGrid>
-		{:else}
-			<T>{m.No_published_verification_use_cases_found()}</T>
-		{/if}
-	</div>
+	<PageSection
+		indexItem={s.use_case_verifications}
+		empty={marketplaceUseCasesVerifications.length === 0}
+	>
+		<PageGrid>
+			{#each marketplaceUseCasesVerifications as useCaseVerification (useCaseVerification.id)}
+				<MarketplaceItemCard item={useCaseVerification} />
+			{/each}
+		</PageGrid>
+	</PageSection>
 </LayoutWithToc>
 
 <EditSheet>

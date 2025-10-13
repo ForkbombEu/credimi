@@ -42,20 +42,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createIntentUrl } from '$lib/credentials/index.js';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import { MarketplaceItemCard } from '$marketplace/_utils';
 	import EditCredentialForm from '$routes/my/services-and-products/_credentials/credential-form.svelte';
 	import { String } from 'effect';
 	import { onMount } from 'svelte';
 
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
+	import DescriptionSection from './_utils/description-section.svelte';
 	import EditSheet from './_utils/edit-sheet.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
+	import PageSection from './_utils/page-section.svelte';
 	import { sections as sec } from './_utils/sections';
 	import { pageDetails } from './_utils/types';
 
@@ -96,44 +96,55 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			qrLink = createIntentUrl(credential, credentialIssuer.url);
 		}
 	});
+
+	// Emptiness checks
+
+	const signingAlgorithms = $derived(
+		credentialConfiguration?.credential_signing_alg_values_supported?.join(', ')
+	);
+
+	const cryptographicBindingMethods = $derived(
+		credentialConfiguration?.cryptographic_binding_methods_supported?.join(', ')
+	);
+
+	const isCredentialPropertiesEmpty = $derived(
+		String.isEmpty(credential.format) &&
+			String.isEmpty(credential.locale) &&
+			!signingAlgorithms &&
+			!cryptographicBindingMethods
+	);
 </script>
 
 <LayoutWithToc
 	sections={[
 		sec.credential_properties,
+		sec.qr_code,
 		sec.description,
 		sec.credential_subjects,
 		sec.compatible_issuer
 	]}
 >
 	<div class="flex flex-col items-start gap-6 md:flex-row">
-		<div class="grow space-y-6">
-			<PageHeaderIndexed indexItem={sec.credential_properties} />
-
+		<PageSection
+			indexItem={sec.credential_properties}
+			class="grow"
+			empty={isCredentialPropertiesEmpty}
+		>
 			<div class="flex gap-6">
 				<InfoBox label="Format" value={credential.format} />
 				<InfoBox label="Locale" value={credential.locale} />
 			</div>
 
 			<div class="flex gap-6">
-				<InfoBox
-					label="Signing algorithms supported"
-					value={credentialConfiguration?.credential_signing_alg_values_supported?.join(
-						', '
-					)}
-				/>
+				<InfoBox label="Signing algorithms supported" value={signingAlgorithms} />
 				<InfoBox
 					label="Cryptographic binding methods supported"
-					value={credentialConfiguration?.cryptographic_binding_methods_supported?.join(
-						', '
-					)}
+					value={cryptographicBindingMethods}
 				/>
 			</div>
-		</div>
+		</PageSection>
 
-		<div class="flex flex-col items-stretch">
-			<PageHeaderIndexed indexItem={sec.qr_code} />
-
+		<PageSection indexItem={sec.qr_code} class="flex flex-col items-stretch !space-y-0">
 			<QrStateful
 				src={qrLink}
 				isLoading={isProcessingYaml}
@@ -148,32 +159,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<a href={qrLink} target="_blank">{qrLink}</a>
 				</div>
 			{/if}
-		</div>
+		</PageSection>
 	</div>
 
-	<div class="space-y-6">
-		<PageHeaderIndexed indexItem={sec.description} />
-		<div class="prose">
-			<RenderMd content={credential.description} />
-		</div>
-	</div>
+	<DescriptionSection description={credential.description} />
 
-	<div class="space-y-6">
-		<PageHeaderIndexed indexItem={sec.credential_subjects} />
+	<PageSection indexItem={sec.credential_subjects} empty={!credentialConfiguration}>
+		<CodeDisplay
+			content={JSON.stringify(credentialConfiguration, null, 2)}
+			language="json"
+			class="border-primary bg-card text-card-foreground ring-primary w-fit max-w-screen-lg overflow-x-clip rounded-xl border p-6 text-xs shadow-sm transition-transform hover:-translate-y-2 hover:ring-2"
+		/>
+	</PageSection>
 
-		{#if credentialConfiguration}
-			<CodeDisplay
-				content={JSON.stringify(credentialConfiguration, null, 2)}
-				language="json"
-				class="border-primary bg-card text-card-foreground ring-primary w-fit max-w-screen-lg overflow-x-clip rounded-xl border p-6 text-xs shadow-sm transition-transform hover:-translate-y-2 hover:ring-2"
-			/>
-		{/if}
-	</div>
-
-	<div>
-		<PageHeaderIndexed indexItem={sec.compatible_issuer} />
+	<PageSection indexItem={sec.compatible_issuer}>
 		<MarketplaceItemCard item={credentialIssuerMarketplaceEntry} />
-	</div>
+	</PageSection>
 </LayoutWithToc>
 
 <EditSheet>

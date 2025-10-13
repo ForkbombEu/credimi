@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ClassValue } from 'svelte/elements';
+
 	import { marked } from 'marked';
 
 	import RenderHTML from '@/components/ui-custom/renderHTML.svelte';
@@ -16,9 +18,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		description?: string;
+		class?: ClassValue;
 	};
 
-	let { description }: Props = $props();
+	let { description, class: className = '' }: Props = $props();
 
 	const content = $derived(marked.parse(description ?? '', { async: false }));
 
@@ -30,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<PageSection indexItem={s.description} empty={isEmpty}>
+<PageSection indexItem={s.description} empty={isEmpty} class={className}>
 	<div class="prose">
 		<RenderHTML {content} />
 	</div>

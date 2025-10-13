@@ -27,7 +27,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import WalletForm from '$routes/my/services-and-products/_wallets/wallet-form.svelte';
 	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
 	import { String } from 'effect';
@@ -35,7 +34,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { z } from 'zod';
 
 	import Card from '@/components/ui-custom/card.svelte';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import {
 		Accordion,
@@ -46,8 +44,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
+	import DescriptionSection from './_utils/description-section.svelte';
 	import EditSheet from './_utils/edit-sheet.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
+	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
 
 	//
@@ -89,12 +89,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		Pending: 'bg-purple-200',
 		Retrying: 'bg-red-200'
 	};
+
+	// Emptiness checks
+
+	const isGeneralInfoEmpty = $derived(
+		String.isEmpty(wallet.home_url) &&
+			String.isEmpty(wallet.repository) &&
+			String.isEmpty(wallet.appstore_url) &&
+			String.isEmpty(wallet.playstore_url)
+	);
 </script>
 
 <LayoutWithToc sections={[s.general_info, s.description, s.conformance_checks, s.actions]}>
-	<div class="grow space-y-6">
-		<PageHeaderIndexed indexItem={s.general_info} />
-
+	<PageSection indexItem={s.general_info} empty={isGeneralInfoEmpty}>
 		{#if String.isNonEmpty(wallet.home_url)}
 			<InfoBox label="Homepage URL" url={wallet.home_url} copyable={true} />
 		{/if}
@@ -115,78 +122,65 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 		{/if}
-	</div>
+	</PageSection>
 
-	{#if wallet.description}
-		<div class="space-y-6">
-			<PageHeaderIndexed indexItem={s.description} />
-			<div class="prose">
-				<RenderMd content={wallet.description} />
-			</div>
+	<DescriptionSection description={wallet.description} />
+
+	<PageSection indexItem={s.conformance_checks} empty={!checks.success}>
+		<div class="space-y-2">
+			{#each checks.data as check (check.runId)}
+				{@const badgeColor = statuses[check.status]}
+				<Card contentClass="flex justify-between items-center p-4">
+					<div>
+						<p class="font-bold">{check.standard}</p>
+						<p>{check.test}</p>
+					</div>
+					<Badge class="{badgeColor} text-black hover:{badgeColor}">
+						{check.status}
+					</Badge>
+				</Card>
+			{/each}
 		</div>
-	{/if}
+	</PageSection>
 
-	{#if checks.success}
-		<div>
-			<PageHeaderIndexed indexItem={s.conformance_checks} />
-			<div class="space-y-2">
-				{#each checks.data as check (check.runId)}
-					{@const badgeColor = statuses[check.status]}
-					<Card contentClass="flex justify-between items-center p-4">
-						<div>
-							<p class="font-bold">{check.standard}</p>
-							<p>{check.test}</p>
-						</div>
-						<Badge class="{badgeColor} text-black hover:{badgeColor}">
-							{check.status}
-						</Badge>
-					</Card>
-				{/each}
-			</div>
-		</div>
-	{/if}
-
-	{#if actions && actions.length > 0}
-		<div class="space-y-4">
-			<PageHeaderIndexed indexItem={s.actions} />
-			<div class="space-y-3">
-				{#each actions as action (action.id)}
-					{@const stats = getCodeStats(action.code)}
-					<Accordion type="single" class="w-full">
-						<AccordionItem
-							value="code-accordion"
-							class="bg-card hover:ring-primary rounded-lg border hover:ring-2"
-						>
-							<AccordionTrigger class="group px-4 py-3 hover:no-underline">
-								<div class="mr-4 flex w-full items-center justify-between">
-									<div class="flex items-center gap-3">
-										<Code
-											class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
-										/>
-										<div class="text-left">
-											<div class="font-medium">{action.name}</div>
-											<div class="text-muted-foreground text-xs">
-												{stats.lines} lines • {stats.chars} characters
-											</div>
+	<PageSection indexItem={s.actions} empty={actions.length === 0}>
+		<div class="space-y-3">
+			{#each actions as action (action.id)}
+				{@const stats = getCodeStats(action.code)}
+				<Accordion type="single" class="w-full">
+					<AccordionItem
+						value="code-accordion"
+						class="bg-card hover:ring-primary rounded-lg border hover:ring-2"
+					>
+						<AccordionTrigger class="group px-4 py-3 hover:no-underline">
+							<div class="mr-4 flex w-full items-center justify-between">
+								<div class="flex items-center gap-3">
+									<Code
+										class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
+									/>
+									<div class="text-left">
+										<div class="font-medium">{action.name}</div>
+										<div class="text-muted-foreground text-xs">
+											{stats.lines} lines • {stats.chars} characters
 										</div>
 									</div>
-									<Badge variant="outline" class="text-xs">YAML</Badge>
 								</div>
-							</AccordionTrigger>
-							<AccordionContent class="px-4">
-								<CodeDisplay
-									content={action.code}
-									language="yaml"
-									class="text-xs"
-									containerClass="max-h-80"
-								/>
-							</AccordionContent>
-						</AccordionItem>
-					</Accordion>
-				{/each}
-			</div>
+								<Badge variant="outline" class="text-xs">YAML</Badge>
+							</div>
+						</AccordionTrigger>
+						<AccordionContent class="px-4">
+							<CodeDisplay
+								content={action.code}
+								language="yaml"
+								class="text-xs"
+								containerClass="max-h-80"
+							/>
+						</AccordionContent>
+					</AccordionItem>
+				</Accordion>
+			{/each}
 		</div>
-	{/if}
+	</PageSection>
 </LayoutWithToc>
 
 <EditSheet>
