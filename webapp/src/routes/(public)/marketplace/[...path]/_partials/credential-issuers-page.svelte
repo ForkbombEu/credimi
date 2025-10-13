@@ -41,19 +41,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import EmptyState from '$lib/layout/empty-state.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import { MarketplaceItemCard } from '$marketplace/_utils';
 	import { String } from 'effect';
 
 	import { CollectionForm } from '@/collections-components/index.js';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
+	import DescriptionSection from './_utils/description-section.svelte';
 	import EditSheet from './_utils/edit-sheet.svelte';
+	import EmptyState from './_utils/empty-state.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
+	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
 
 	//
@@ -64,9 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <LayoutWithToc sections={[s.general_info, s.description, s.credentials]}>
-	<div class="space-y-6">
-		<PageHeaderIndexed indexItem={s.general_info} />
-
+	<PageSection indexItem={s.general_info}>
 		<InfoBox label="URL" url={credentialIssuer.url} copyable={true} />
 
 		{#if String.isNonEmpty(credentialIssuer.repo_url)}
@@ -76,20 +75,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if String.isNonEmpty(credentialIssuer.homepage_url)}
 			<InfoBox label="Homepage" url={credentialIssuer.homepage_url} copyable={true} />
 		{/if}
-	</div>
+	</PageSection>
 
-	<div class="space-y-6">
-		<PageHeaderIndexed indexItem={s.description} />
-		{#if credentialIssuer.description}
-			<div class="prose">
-				<RenderMd content={credentialIssuer.description} />
-			</div>
-		{:else}
-			<EmptyState>
-				<T>{m.No_information_available()}</T>
-			</EmptyState>
-		{/if}
-	</div>
+	<DescriptionSection description={credentialIssuer.description} />
 
 	<div class="space-y-6">
 		<PageHeaderIndexed indexItem={s.credentials} />

@@ -4,7 +4,7 @@
 
 import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 
-import { Building2, Code, FolderCheck, Key, Layers, Layers3, ScanEye } from 'lucide-svelte';
+import { Building2, Code, FolderCheck, Key, Layers, Layers3, QrCode, ScanEye } from 'lucide-svelte';
 
 import { m } from '@/i18n';
 
@@ -94,6 +94,11 @@ export const sections = {
 		icon: Code,
 		anchor: 'actions',
 		label: m.Actions()
+	},
+	qr_code: {
+		icon: QrCode,
+		anchor: 'qr_code',
+		label: m.QR_code()
 	}
 } satisfies Record<string, IndexItem>;
 

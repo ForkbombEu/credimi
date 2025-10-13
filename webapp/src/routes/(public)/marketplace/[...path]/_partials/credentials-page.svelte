@@ -42,7 +42,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createIntentUrl } from '$lib/credentials/index.js';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import { MarketplaceItemCard } from '$marketplace/_utils';
@@ -133,7 +132,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		<div class="flex flex-col items-stretch">
-			<PageHeader title="Credential offer" id="qr" />
+			<PageHeaderIndexed indexItem={sec.qr_code} />
 
 			<QrStateful
 				src={qrLink}

@@ -39,7 +39,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import MarketplaceItemCard from '$marketplace/_utils/marketplace-item-card.svelte';
@@ -97,7 +96,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		<div class="flex flex-col items-stretch">
-			<PageHeader title={m.QR_code()} id="qr" />
+			<PageHeaderIndexed indexItem={s.qr_code} />
 			<QrStateful
 				src={qrLink}
 				isLoading={isProcessingYaml}
