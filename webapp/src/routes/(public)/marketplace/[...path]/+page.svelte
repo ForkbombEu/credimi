@@ -17,8 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import { editFormState } from './_partials/_utils/edit-sheet.svelte';
-	import CredentialIssuersPage from './_partials/credential-issuer-page.svelte';
-	import CredentialsPage from './_partials/credentials-page.svelte';
+	import CredentialIssuerPage from './_partials/credential-issuer-page.svelte';
+	import CredentialPage from './_partials/credential-page.svelte';
 	import UseCaseVerificationPage from './_partials/use-case-verification-page.svelte';
 	import VerifierPage from './_partials/verifier-page.svelte';
 	import WalletPage from './_partials/wallet-page.svelte';
@@ -98,9 +98,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <!-- Type-specific page -->
 
 {#if pageDetails.type == 'credential_issuers'}
-	<CredentialIssuersPage {...pageDetails} />
+	<CredentialIssuerPage {...pageDetails} />
 {:else if pageDetails.type == 'credentials'}
-	<CredentialsPage {...pageDetails} />
+	<CredentialPage {...pageDetails} />
 {:else if pageDetails.type == 'wallets'}
 	<WalletPage {...pageDetails} />
 {:else if pageDetails.type == 'verifiers'}
