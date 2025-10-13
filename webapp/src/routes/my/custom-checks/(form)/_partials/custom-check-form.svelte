@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
 	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
-	import { jsonStringSchema, yamlStringSchema } from '$lib/utils';
+	import { jsonStringSchema, stepciYamlSchema } from '$lib/utils';
 	import { String } from 'effect';
 	import { run } from 'json_typegen_wasm';
 	import _ from 'lodash';
@@ -58,7 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			input_json_schema: true
 		})
 		.extend({
-			yaml: yamlStringSchema,
+			yaml: stepciYamlSchema,
 			input_json_sample: jsonStringSchema.optional()
 		});
 
