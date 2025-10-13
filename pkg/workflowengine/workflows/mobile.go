@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/workflow"
@@ -47,6 +48,8 @@ func (w *MobileAutomationWorkflow) Workflow(
 			runMetadata,
 		)
 	}
+	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
+
 	actionID, ok := input.Payload["action_id"].(string)
 	if !ok || actionID == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
@@ -54,10 +57,10 @@ func (w *MobileAutomationWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	walletID, ok := input.Payload["wallet_id"].(string)
-	if !ok || walletID == "" {
+	versionID, ok := input.Payload["version_id"].(string)
+	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"wallet_id",
+			"version_id",
 			runMetadata,
 		)
 	}
@@ -68,15 +71,15 @@ func (w *MobileAutomationWorkflow) Workflow(
 			"method": "POST",
 			"url": fmt.Sprintf(
 				"%s/%s",
-				input.Config["app_url"].(string),
-				"api/wallet/get-apk-and-action",
+				mobileServerURL,
+				"fetch-apk-and-action",
 			),
 			"headers": map[string]any{
 				"Content-Type": "application/json",
 			},
 			"body": map[string]any{
-				"wallet_identifier": walletID,
-				"action_identifier": actionID,
+				"version_identifier": versionID,
+				"action_identifier":  actionID,
 			},
 			"expected_status": 200,
 		},
@@ -159,8 +162,8 @@ func (w *MobileAutomationWorkflow) Workflow(
 				"method": "POST",
 				"url": fmt.Sprintf(
 					"%s/%s",
-					input.Config["app_url"].(string),
-					"api/wallet/store-action-result",
+					mobileServerURL,
+					"store-action-result",
 				),
 				"headers": map[string]any{
 					"Content-Type": "application/json",

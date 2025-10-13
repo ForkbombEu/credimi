@@ -69,15 +69,15 @@ func (w *WorkerManagerWorkflow) Workflow(
 		Payload: map[string]any{
 			"method": "POST",
 			"url": fmt.Sprintf(
-				"%s/%s",
+				"%s/%s/%s",
 				serverURL,
 				"process",
+				namespace,
 			),
 			"body": map[string]string{
-				"namespace":     namespace,
 				"old_namespace": oldNamespace,
 			},
-			"expected_status": 200,
+			"expected_status": 202,
 		},
 	}).Get(ctx, &HTTPResponse)
 

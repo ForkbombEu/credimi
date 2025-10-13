@@ -5,12 +5,13 @@
 package handlers
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
 	"path/filepath"
-	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -49,16 +50,19 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	},
 	Routes: []routing.RouteDefinition{
 		{
-			Method:        http.MethodPost,
-			Path:          "/get-apk-and-action",
-			Handler:       HandleWalletGetApkAndAction,
-			RequestSchema: WalletApkRequest{},
+			Method:         http.MethodPost,
+			Path:           "/get-apk-md5",
+			Handler:        HandleWalletGetMD5,
+			RequestSchema:  WalletMD5Request{},
+			ResponseSchema: WalletMD5Response{},
 		},
 		{
-			Method:        http.MethodPost,
-			Path:          "/store-action-result",
-			Handler:       HandleWalletStoreActionResult,
-			RequestSchema: WalletStoreResult{},
+			Method:  http.MethodPost,
+			Path:    "/store-action-result",
+			Handler: HandleWalletStoreActionResult,
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				apis.BodyLimit(500 << 20),
+			},
 		},
 	},
 }
@@ -192,48 +196,35 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 	}
 }
 
-func HandleWalletGetApkAndAction() func(*core.RequestEvent) error {
+type WalletMD5Request struct {
+	WalletVersionIdentifier string `json:"wallet_version_identifier"`
+	WalletIdentifier        string `json:"wallet_identifier"`
+}
+
+type WalletMD5Response struct {
+	AndroidInstaller string `json:"apk_name"`
+	MD5              string `json:"md5"`
+	RecordID         string `json:"record_id"`
+}
+
+func HandleWalletGetMD5() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		app := e.App
-		var req WalletApkRequest
+		var req WalletMD5Request
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
 			return apis.NewBadRequestError("invalid JSON input", err)
 		}
 
-		walletRecord, err := canonify.Resolve(app, req.WalletIdentifier)
-		if err != nil {
+		// Validate that at least one identifier is provided
+		if req.WalletVersionIdentifier == "" && req.WalletIdentifier == "" {
 			return apierror.New(
-				http.StatusNotFound,
-				"wallet",
-				"wallet not found",
-				err.Error(),
+				http.StatusBadRequest,
+				"identifier",
+				"no identifier provided",
+				"at least one identifier must be provided",
 			).JSON(e)
 		}
-		actionRecord, err := canonify.Resolve(app, req.ActionIdentifier)
-		if err != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"wallet_action",
-				"wallet action not found",
-				err.Error(),
-			).JSON(e)
-		}
-		code := actionRecord.GetString("code")
 
-		walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"wallet_versions",
-				"failed to find wallet_versions collection",
-				err.Error(),
-			).JSON(e)
-		}
-		versionRecord, err := app.FindFirstRecordByFilter(
-			walletVersionColl.Id,
-			"wallet = {:walletID}",
-			map[string]any{"walletID": walletRecord.Id},
-		)
+		record, err := getWalletVersionRecord(e.App, req.WalletVersionIdentifier, req.WalletIdentifier)
 		if err != nil {
 			return apierror.New(
 				http.StatusNotFound,
@@ -242,98 +233,175 @@ func HandleWalletGetApkAndAction() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		key := versionRecord.BaseFilesPath() + "/" + versionRecord.GetString("android_installer")
 
-		fsys, err := app.NewFilesystem()
+		// Get android_installer field value
+		androidInstaller := record.GetString("android_installer")
+		if androidInstaller == "" {
+			return apierror.New(
+				http.StatusNotFound,
+				"android_installer",
+				"no android_installer file found for this wallet version",
+				"android_installer field is empty",
+			).JSON(e)
+		}
+
+		// Get MD5 from PocketBase's file metadata
+		md5Hash, err := getFileMD5FromPocketBase(e.App, record, androidInstaller)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"filesystem",
-				"failed to create pocketbase filesystem",
+				"failed to get file MD5",
 				err.Error(),
 			).JSON(e)
 		}
-		defer fsys.Close()
 
-		blob, err := fsys.GetFile(key)
+		return e.JSON(http.StatusOK, WalletMD5Response{
+			AndroidInstaller: androidInstaller,
+			RecordID:         record.Id,
+			MD5:              md5Hash,
+		})
+	}
+}
+
+// getWalletVersionRecord retrieves a wallet_version record based on provided identifiers
+func getWalletVersionRecord(app core.App, versionIdentifier, walletIdentifier string) (*core.Record, error) {
+	if versionIdentifier != "" {
+		record, err := canonify.Resolve(app, versionIdentifier)
 		if err != nil {
+			return nil, err
+		}
+		return record, nil
+	}
+	walletRecord, err := canonify.Resolve(app, walletIdentifier)
+	if err != nil {
+		return nil, err
+	}
+
+	walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
+	if err != nil {
+		return nil, err
+	}
+
+	records, err := app.FindRecordsByFilter(
+		walletVersionColl.Id,
+		"wallet = {:walletID}",
+		"-created",
+		1,
+		0,
+		map[string]any{"walletID": walletRecord.Id},
+	)
+	if err != nil || len(records) == 0 {
+		return nil, err
+	}
+
+	return records[0], nil
+}
+
+// getFileMD5FromPocketBase retrieves the MD5 hash from PocketBase's file metadata
+func getFileMD5FromPocketBase(app core.App, record *core.Record, filename string) (string, error) {
+	fsys, err := app.NewFilesystem()
+	if err != nil {
+		return "", err
+	}
+	defer fsys.Close()
+
+	filePath := record.BaseFilesPath() + "/" + filename
+	attrs, err := fsys.Attributes(filePath)
+	if err != nil {
+		return "", err
+	}
+	if attrs.MD5 != nil {
+		return hex.EncodeToString(attrs.MD5), nil
+	}
+	return "", err
+}
+
+func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+
+		if err := e.Request.ParseMultipartForm(500 << 20); err != nil {
 			return apierror.New(
-				http.StatusInternalServerError,
-				"filesystem",
-				"failed to get apk file",
+				http.StatusBadRequest,
+				"multipart",
+				"failed to parse multipart form",
 				err.Error(),
 			).JSON(e)
 		}
-		defer blob.Close()
 
-		tmpFile, err := os.CreateTemp("", "*.apk")
+		ActionIdentifier := e.Request.FormValue("action_identifier")
+		if ActionIdentifier == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"action_identifier",
+				"action_identifier is required",
+				"missing action_identifier in form",
+			).JSON(e)
+		}
+		actionRecord, err := canonify.Resolve(e.App, ActionIdentifier)
+		if err != nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"wallet_action",
+				"record not found",
+				err.Error(),
+			).JSON(e)
+		}
+		action := actionRecord.GetString("canonified_name")
+		file, header, err := e.Request.FormFile("result")
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"file",
+				"failed to read file",
+				err.Error(),
+			).JSON(e)
+		}
+		defer file.Close()
+		tmpFile, err := os.CreateTemp("", fmt.Sprintf("result_%s_*%s", action, filepath.Ext(header.Filename)))
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"filesystem",
-				"failed to create tmp apk file",
+				"failed to create temp file",
 				err.Error(),
 			).JSON(e)
 		}
 		defer tmpFile.Close()
 
-		if _, err := io.Copy(tmpFile, blob); err != nil {
+		if _, err := io.Copy(tmpFile, file); err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"filesystem",
-				"failed to copy apk file",
+				"failed to write temp file",
 				err.Error(),
 			).JSON(e)
 		}
 
-		return e.JSON(http.StatusOK, map[string]any{
-			"code":     code,
-			"apk_path": tmpFile.Name(),
-		})
-	}
-}
-
-func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		app := e.App
-		var req WalletStoreResult
-		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
-			return apis.NewBadRequestError("invalid JSON input", err)
-		}
-
-		actionRecord, err := canonify.Resolve(app, req.ActionIdentifier)
+		absResultPath, err := filepath.Abs(tmpFile.Name())
 		if err != nil {
 			return apierror.New(
-				http.StatusNotFound,
-				"wallet_action",
-				"wallet action not found",
-				err.Error(),
-			).JSON(e)
-		}
-
-		const safeTmpDir = "/tmp/credimi/"
-		absResultPath, err := filepath.Abs(req.ResultPath)
-		if err != nil || !strings.HasPrefix(absResultPath, safeTmpDir) {
-			return apierror.New(
-				http.StatusBadRequest,
+				http.StatusInternalServerError,
 				"filesystem",
-				"invalid result file path",
-				"result file path is not allowed",
+				"invalid temp file path",
+				err.Error(),
 			).JSON(e)
 		}
 
 		f, err := filesystem.NewFileFromPath(absResultPath)
 		if err != nil {
+			_ = os.Remove(absResultPath)
 			return apierror.New(
 				http.StatusInternalServerError,
 				"filesystem",
-				"failed to open tmp file",
+				"failed to wrap file",
 				err.Error(),
 			).JSON(e)
 		}
 
 		actionRecord.Set("result", []*filesystem.File{f})
-		if err := app.Save(actionRecord); err != nil {
+		if err := e.App.Save(actionRecord); err != nil {
+			_ = os.Remove(absResultPath)
 			return apierror.New(
 				http.StatusInternalServerError,
 				"wallet_action",
@@ -341,12 +409,20 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-
-		_ = os.Remove(absResultPath)
+		err = os.Remove(absResultPath)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"filesystem",
+				"failed to remove temp file",
+				err.Error(),
+			).JSON(e)
+		}
 
 		return e.JSON(http.StatusOK, map[string]any{
-			"status": "ok",
-			"id":     actionRecord.Id,
+			"status":   "success",
+			"action":   action,
+			"fileName": header.Filename,
 		})
 	}
 }

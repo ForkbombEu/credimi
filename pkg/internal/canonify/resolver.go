@@ -65,6 +65,12 @@ var CanonifyPaths = map[string]PathTemplate{
 		Parent:          &Parent{Collection: "wallets", Field: "wallet"},
 		PathLength:      3,
 	},
+	"wallet_versions": {
+		Field:           "tag",
+		CanonifiedField: "canonified_tag",
+		Parent:          &Parent{Collection: "wallets", Field: "wallet"},
+		PathLength:      3,
+	},
 	"verifiers": {
 		Field:           "name",
 		CanonifiedField: "canonified_name",
