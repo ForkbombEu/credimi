@@ -9,20 +9,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import { onMount } from 'svelte';
-	import { fromStore } from 'svelte/store';
-	import { stringProxy } from 'sveltekit-superforms';
+	import { fromStore, type Writable } from 'svelte/store';
+	import { formFieldProxy } from 'sveltekit-superforms';
 
 	import { CodeEditorField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	//
-
-	interface StructuredError {
-		summary: string;
-		link?: string;
-		fullMessage: string;
-	}
 
 	interface Props {
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -43,63 +37,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		description = m.Provide_configuration_in_YAML_format(),
 		placeholder = m.Run_the_code_to_generate_QR_code(),
 		successMessage = m.Test_Completed_Successfully(),
-		loadingMessage = m.Running_test(),
-		enableStructuredErrors = true
+		loadingMessage = m.Running_test()
 	}: Props = $props();
 
-	const fieldProxy = fromStore(stringProxy(form, fieldName, { empty: 'undefined' }));
+	const fieldProxy = formFieldProxy(form, fieldName);
+	const value = fromStore(fieldProxy.value as Writable<string>);
+	const errors = fromStore(fieldProxy.errors);
+
+	const hasErrors = $derived.by(() => {
+		const count = errors.current?.length;
+		return Boolean(count && count > 0);
+	});
 
 	onMount(() => {
-		if (fieldProxy.current && fieldProxy.current.trim()) {
-			startWorkflowTest(fieldProxy.current);
-		}
+		form.validate(fieldProxy.path, { update: true }).then(() => {
+			const shouldRun = Boolean(value.current.trim()) && !hasErrors;
+			if (shouldRun) startWorkflowTest(value.current);
+		});
 	});
 
 	$effect(() => {
-		if (fieldProxy.current) {
-			workflowError = undefined;
-		}
+		if (value.current) workflowError = undefined;
 	});
 
 	//
 
-	let workflowError = $state<string | StructuredError>();
+	let workflowError = $state<unknown>();
 	let isSubmittingWorkflow = $state(false);
 	let generatedDeeplink = $state<string>();
 	let workflowSteps = $state<unknown[]>();
 	let workflowOutput = $state<unknown[]>();
-
-	function parseError(error: unknown): string | StructuredError {
-		if (!enableStructuredErrors) {
-			return error instanceof Error ? error.message : String(error);
-		}
-
-		try {
-			const errorObj = error as Record<string, unknown>;
-			const nestedDetails = (errorObj?.response as Record<string, unknown>)
-				?.details as Record<string, unknown>;
-			if (nestedDetails?.summary && nestedDetails?.link) {
-				return {
-					summary: String(nestedDetails.summary),
-					link: String(nestedDetails.link),
-					fullMessage: String(nestedDetails.message || nestedDetails.summary)
-				};
-			}
-
-			const directDetails = errorObj?.details as Record<string, unknown>;
-			if (directDetails?.summary && directDetails?.link) {
-				return {
-					summary: String(directDetails.summary),
-					link: String(directDetails.link),
-					fullMessage: String(directDetails.message || directDetails.summary)
-				};
-			}
-
-			return error instanceof Error ? error.message : String(error);
-		} catch {
-			return error instanceof Error ? error.message : String(error);
-		}
-	}
 
 	async function startWorkflowTest(yamlContent: string) {
 		if (!yamlContent?.trim()) {
@@ -120,7 +87,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			workflowSteps = result.steps;
 			workflowOutput = result.output;
 		} catch (error) {
-			workflowError = parseError(error);
+			workflowError = error;
 		} finally {
 			isSubmittingWorkflow = false;
 		}
@@ -193,12 +160,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (typeof workflowError === 'string') {
 			return workflowError;
 		}
-		if (workflowError && typeof workflowError === 'object' && 'summary' in workflowError) {
-			let errorMessage = `❌ ${workflowError.summary}`;
-			if (workflowError.link) {
-				errorMessage += `\n\n🔗 View detailed workflow information:\n${workflowError.link}`;
-			}
-			return errorMessage;
+		if (workflowError && typeof workflowError === 'object') {
+			return JSON.stringify(workflowError, null, 2);
 		}
 		return undefined;
 	});
@@ -206,20 +169,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet error()}
 	{#if workflowError && typeof workflowError === 'object' && 'summary' in workflowError}
-		{@const error = workflowError as StructuredError}
+		{@const error = workflowError}
 		<div class="space-y-2 text-center">
 			<div class="text-sm font-medium">{error.summary}</div>
-			{#if error.link}
-				<div>
-					<a
-						href={error.link}
-						target="_blank"
-						class="text-xs text-blue-600 underline hover:text-blue-800"
-					>
-						{m.View_workflow_details()}
-					</a>
-				</div>
-			{/if}
 		</div>
 	{/if}
 {/snippet}
@@ -238,7 +190,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				output: editorOutput(),
 				error: codeEditorErrorDisplay(),
 				running: isSubmittingWorkflow,
-				onRun: startWorkflowTest
+				onRun: startWorkflowTest,
+				canRun: !hasErrors
 			}}
 		/>
 	</div>
@@ -262,6 +215,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</QrStateful>
 		{#if generatedDeeplink}
 			<div class="max-w-60 break-all pt-4 text-xs">
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a class="hover:underline" href={generatedDeeplink} target="_self">
 					{generatedDeeplink}
 				</a>

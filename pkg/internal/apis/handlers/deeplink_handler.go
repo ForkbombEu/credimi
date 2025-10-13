@@ -68,16 +68,15 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 				"yaml": body.Yaml,
 			},
 			Config: map[string]any{
-				"namespace": "default",
-				"memo":      memo,
-				"app_url":   appURL,
+				"memo":    memo,
+				"app_url": appURL,
 			},
 			ActivityOptions: ao,
 		}
 
 		var w workflows.CustomCheckWorkflow
 
-		resStart, errStart := w.Start(input)
+		resStart, errStart := w.Start("default", input)
 		if errStart != nil {
 			return apierror.New(
 				http.StatusBadRequest,
@@ -103,7 +102,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 			resStart.WorkflowRunID,
 		)
 		if err != nil {
-			details := workflowengine.ParseWorkflowError(err.Error())
+			details := workflowengine.ParseWorkflowError(err)
 			return e.JSON(http.StatusInternalServerError, map[string]any{
 				"status":  http.StatusInternalServerError,
 				"error":   "workflow",

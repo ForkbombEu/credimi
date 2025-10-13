@@ -8,7 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { merge } from 'lodash';
 	import { Plus } from 'lucide-svelte';
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { CollectionName } from '@/pocketbase/collections-models';
 
 	import { CollectionForm } from '@/collections-components';
@@ -33,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		form
 	}: RecordCreateEditProps<C> = $props();
 
-	const { manager, formsOptions } = $derived(getCollectionManagerContext());
+	const { manager, formsOptions, formRefineSchema } = $derived(getCollectionManagerContext());
 
 	const defaultFormOptions: CollectionFormOptions<C> = {
 		uiOptions: { showToastOnSuccess: true }
@@ -74,6 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				uiOptions={{
 					hide: ['submit_button', 'error']
 				}}
+				refineSchema={formRefineSchema}
 			>
 				<FormError />
 				<div

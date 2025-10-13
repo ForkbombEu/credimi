@@ -21,7 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { credential, class: className = '' }: Props = $props();
 
 	const properties: Record<string, string> = {};
-	if (isValid(credential.issuer_name)) properties[m.Issuer()] = credential.issuer_name;
 	if (isValid(credential.format)) properties[m.Format()] = credential.format;
 	if (isValid(credential.locale)) properties[m.Locale()] = credential.locale.toUpperCase();
 
@@ -30,9 +29,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
+<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 <a
-	href={localizeHref(`/marketplace/credentials/${credential.id}`)}
-	class="flex flex-col gap-6 rounded-xl border border-primary bg-card p-6 text-card-foreground shadow-sm ring-primary transition-transform hover:-translate-y-2 hover:ring-2 {className}"
+	href={localizeHref(`/marketplace/credentials/${credential.canonified_name}`)}
+	class="border-primary bg-card text-card-foreground ring-primary flex flex-col gap-6 rounded-xl border p-6 shadow-sm transition-transform hover:-translate-y-2 hover:ring-2 {className}"
 >
 	<div class="flex items-center gap-2">
 		{#if credential.logo}
@@ -42,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="space-y-1">
-		{#each Object.entries(properties) as [key, value]}
+		{#each Object.entries(properties) as [key, value] (key)}
 			<T class="text-sm text-slate-400">{key}: <span class="text-primary">{value}</span></T>
 		{/each}
 	</div>

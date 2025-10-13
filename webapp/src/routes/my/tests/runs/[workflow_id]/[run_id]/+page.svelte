@@ -5,12 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { WorkflowQrPoller } from '$lib/workflows';
+	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { onMount } from 'svelte';
 
 	import Spinner from '@/components/ui-custom/spinner.svelte';
@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { toUserTimezone } from '@/utils/toUserTimezone';
 
+	import { _getWorkflow } from './+layout';
 	import EudiwTop from './_partials/eudiw-top.svelte';
 	import EwcTop from './_partials/ewc-top.svelte';
 	import OpenidnetTop from './_partials/openidnet-top.svelte';
@@ -28,7 +29,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type IframeMessage,
 		type PageMessage
 	} from './_partials/page-events';
-	import { _getWorkflow } from './+layout';
 
 	//
 
@@ -197,13 +197,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if memo}
 	{#if memo.author == 'ewc'}
-		<EwcTop {workflowId} namespace={organization.id} />
+		<EwcTop {workflowId} namespace={organization.canonified_name} />
 	{:else}
 		<div class="bg-temporal padding-x space-y-8 pt-4">
 			{#if memo.author == 'openid_conformance_suite'}
-				<OpenidnetTop {workflowId} {runId} namespace={organization.id} />
+				<OpenidnetTop {workflowId} {runId} namespace={organization.canonified_name} />
 			{:else if memo.author == 'eudiw'}
-				<EudiwTop {workflowId} namespace={organization.id} />
+				<EudiwTop {workflowId} namespace={organization.canonified_name} />
 			{/if}
 
 			<Separator />

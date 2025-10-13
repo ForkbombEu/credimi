@@ -32,6 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import LabelLink from '../_partials/label-link.svelte';
 	import { options } from './use-case-verification-form-options.svelte';
 
 	//
@@ -100,9 +101,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex items-center gap-4">
 			<Avatar src={avatarSrc} fallback={verifier.name} class="rounded-sm border" />
 			<div>
-				<div class="flex items-center gap-2">
-					<T class="font-bold">{verifier.name}</T>
-				</div>
+				<p class="font-semibold">
+					<LabelLink
+						label={verifier.name}
+						href="/marketplace/verifiers/{organization?.canonified_name}/{verifier.canonified_name}"
+						published={verifier.published}
+					/>
+				</p>
 				<T class="text-xs text-gray-400">{verifier.url}</T>
 			</div>
 		</div>
@@ -127,13 +132,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </Card>
 
 {#snippet useCasesVerificationsList()}
+	{@const opts = options(organizationId, verifier.id)}
 	<CollectionManager
 		collection="use_cases_verifications"
 		queryOptions={{
 			filter: `verifier = '${verifier.id}' && owner.id = '${organizationId}'`,
 			expand: ['credentials']
 		}}
-		formFieldsOptions={options(organizationId, verifier.id)}
+		formRefineSchema={opts.refineSchema}
+		formFieldsOptions={opts.fieldsOptions}
 	>
 		{#snippet top()}
 			<div class="flex items-center justify-between pb-1">
@@ -154,12 +161,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		{#snippet records({ records, reloadRecords })}
 			<ul class="space-y-2">
-				{#each records as useCaseVerification}
+				{#each records as useCaseVerification (useCaseVerification.id)}
 					{@const credentials = useCaseVerification.expand?.credentials ?? []}
 					{@const credentialsPreview = credentialsPreviewString(credentials)}
 					<li class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2">
 						<div class="flex-1">
-							<span>{useCaseVerification.name}</span>
+							<LabelLink
+								label={useCaseVerification.name}
+								href="/marketplace/use_cases_verifications/{organization?.canonified_name}/{useCaseVerification.canonified_name}"
+								published={useCaseVerification.published}
+							/>
 							{#if credentialsPreview}
 								<span class="text-gray-500">({credentialsPreview})</span>
 							{/if}

@@ -55,6 +55,7 @@ type WorkflowErrorDetails struct {
 	Message    string `json:"message,omitempty"`
 	Summary    string `json:"summary,omitempty"`
 	Link       string `json:"link,omitempty"`
+	Payload    any    `json:"payload,omitempty"`
 }
 
 type WorkflowRunInfo struct {
@@ -130,16 +131,11 @@ func NewStepCIOutputError(field string, output any, metadata WorkflowErrorMetada
 }
 
 func StartWorkflowWithOptions(
+	namespace string,
 	options client.StartWorkflowOptions,
 	name string,
 	input WorkflowInput,
 ) (result WorkflowResult, err error) {
-	// Load environment variables.
-
-	namespace := "default"
-	if input.Config["namespace"] != nil {
-		namespace = input.Config["namespace"].(string)
-	}
 	c, err := temporalclient.GetTemporalClientWithNamespace(
 		namespace,
 	)
@@ -362,9 +358,9 @@ func WaitForPartialResult[T any](
 	}
 }
 
-func ParseWorkflowError(msg string) WorkflowErrorDetails {
+func ParseWorkflowError(err error) WorkflowErrorDetails {
+	msg := err.Error()
 	details := WorkflowErrorDetails{}
-
 	reIDs := regexp.MustCompile(`workflowID: ([^,]+), runID: ([^)]+)`)
 	if matches := reIDs.FindStringSubmatch(msg); len(matches) == 3 {
 		details.WorkflowID = matches[1]
@@ -399,6 +395,20 @@ func ParseWorkflowError(msg string) WorkflowErrorDetails {
 			}
 		}
 	}
+	details.Payload = extractAppErrorPayload(err)
 
 	return details
+}
+
+func extractAppErrorPayload(err error) []any {
+	var appErr *temporal.ApplicationError
+	if errors.As(err, &appErr) {
+		var details []any
+		derr := appErr.Details(&details)
+		if derr == nil {
+			return details
+		}
+		return nil
+	}
+	return nil
 }

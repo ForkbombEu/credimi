@@ -6,7 +6,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { FileText, Monitor, Play, SplitSquareHorizontal } from 'lucide-svelte';
-	import { onMount } from 'svelte';
 
 	import { Button } from '@/components/ui/button';
 
@@ -19,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		error?: string;
 		onRun?: ((code: string) => void) | undefined;
 		showSplit?: boolean;
+		canRun?: boolean;
 	}
 
 	let {
@@ -27,7 +27,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		output = '',
 		error = '',
 		onRun = undefined,
-		showSplit = false
+		showSplit = false,
+		canRun = true
 	}: Props = $props();
 
 	let editorValue = $state(value || '');
@@ -64,8 +65,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}
 
-	onMount(() => {
-		if (output || error) {
+	$effect(() => {
+		if (error && error.trim()) {
 			activeTab = 'output';
 		}
 	});
@@ -170,7 +171,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						run();
 					}}
 					size="sm"
-					disabled={running}
+					disabled={running || !canRun}
 					class="h-8 px-3 text-xs"
 				>
 					<Play class="mr-1 h-3 w-3" />
@@ -231,22 +232,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{:else if error && error.trim()}
 					<div class="h-[400px] overflow-auto">
-						<div class="h-full border-l-4 border-red-500 bg-red-50 p-4">
-							<div class="mb-2 flex items-center">
-								<svg
-									class="mr-2 h-5 w-5 text-red-500"
-									viewBox="0 0 24 24"
-									fill="currentColor"
-								>
-									<path
-										d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
-									/>
-								</svg>
-								<h3 class="font-medium text-red-800">Execution Error</h3>
-							</div>
-							<pre
-								class="overflow-auto whitespace-pre-wrap rounded bg-red-100/50 p-3 font-mono text-sm leading-relaxed text-red-700">{error}</pre>
+						<div class="flex items-center p-4">
+							<svg
+								class="mr-2 h-5 w-5 text-red-500"
+								viewBox="0 0 24 24"
+								fill="currentColor"
+							>
+								<path
+									d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"
+								/>
+							</svg>
+							<h3 class="font-medium text-red-800">Execution Error</h3>
 						</div>
+						<pre
+							class="overflow-auto whitespace-pre-wrap rounded border-l-4 border-red-500 bg-red-100/50 p-3 font-mono text-sm leading-relaxed text-red-700">{error}</pre>
 					</div>
 				{:else if output && output.trim()}
 					<div class="h-[400px] overflow-auto">

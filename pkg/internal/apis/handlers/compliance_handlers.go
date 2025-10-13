@@ -21,13 +21,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
-	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/subscriptions"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"google.golang.org/protobuf/encoding/protojson"
 )
@@ -97,9 +97,14 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 
 		workflowID := e.Request.PathValue("workflowId")
@@ -121,79 +126,26 @@ func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		history, err := getWorkflowHistoryWithFallback(namespace, workflowID, runID)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			).JSON(e)
-		}
-
-		historyIterator := c.GetWorkflowHistory(
-			context.Background(),
-			workflowID,
-			runID,
-			false,
-			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-		)
-		if historyIterator == nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"workflow",
-				"workflow history not found",
-				"not found",
-			).JSON(e)
-		}
-		var history []map[string]interface{}
-		for historyIterator.HasNext() {
-			event, err := historyIterator.Next()
-			if err != nil {
-				notFound := &serviceerror.NotFound{}
-				if errors.As(err, &notFound) {
-					return apierror.New(
-						http.StatusNotFound,
-						"workflow",
-						"workflow history not found",
-						err.Error(),
-					).JSON(e)
-				}
-				invalidArgument := &serviceerror.InvalidArgument{}
-				if errors.As(err, &invalidArgument) {
-					return apierror.New(
-						http.StatusNotFound,
-						"workflow",
-						"workflow history not found",
-						err.Error(),
-					).JSON(e)
-				}
+			var notFound *serviceerror.NotFound
+			var invalidArg *serviceerror.InvalidArgument
+			switch {
+			case errors.As(err, &notFound), errors.As(err, &invalidArg):
+				return apierror.New(
+					http.StatusNotFound,
+					"workflow",
+					"workflow history not found",
+					err.Error(),
+				).JSON(e)
+			default:
 				return apierror.New(
 					http.StatusInternalServerError,
 					"workflow",
-					"failed to iterate workflow history",
+					"failed to get workflow history",
 					err.Error(),
 				).JSON(e)
 			}
-			eventData, err := protojson.Marshal(event)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to marshal history event",
-					err.Error(),
-				).JSON(e)
-			}
-			var eventMap map[string]interface{}
-			if err := json.Unmarshal(eventData, &eventMap); err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to unmarshal history event",
-					err.Error(),
-				).JSON(e)
-			}
-			history = append(history, eventMap)
 		}
 
 		return e.JSON(http.StatusOK, history)
@@ -211,6 +163,7 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"missing workflowId",
 			).JSON(e)
 		}
+
 		runID := e.Request.PathValue("runId")
 		if runID == "" {
 			return apierror.New(
@@ -220,11 +173,16 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 				"missing runId",
 			).JSON(e)
 		}
-		authRecord := e.Auth
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		authRecord := e.Auth
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -235,69 +193,149 @@ func HandleGetWorkflow() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		exec, err := getWorkflowExecutionWithFallback(namespace, workflowID, runID)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			).JSON(e)
-		}
-		workflowExecution, err := c.DescribeWorkflowExecution(
-			context.Background(),
-			workflowID,
-			runID,
-		)
-		if err != nil {
-			notFound := &serviceerror.NotFound{}
-			if errors.As(err, &notFound) {
+			var notFound *serviceerror.NotFound
+			var invalidArg *serviceerror.InvalidArgument
+			switch {
+			case errors.As(err, &notFound):
 				return apierror.New(
 					http.StatusNotFound,
 					"workflow",
 					"workflow not found",
 					err.Error(),
 				).JSON(e)
-			}
-			invalidArgument := &serviceerror.InvalidArgument{}
-			if errors.As(err, &invalidArgument) {
+			case errors.As(err, &invalidArg):
 				return apierror.New(
 					http.StatusBadRequest,
 					"workflow",
 					"invalid workflow ID",
 					err.Error(),
 				).JSON(e)
+			default:
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to describe workflow execution",
+					err.Error(),
+				).JSON(e)
 			}
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to describe workflow execution",
-				err.Error(),
-			).JSON(e)
 		}
-		weJSON, err := protojson.Marshal(workflowExecution)
+
+		finalJSON, err := marshalWorkflowExecution(exec)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"workflow",
-				"failed to marshal workflow execution",
+				"failed to process workflow execution",
 				err.Error(),
 			).JSON(e)
 		}
-		finalJSON := make(map[string]interface{})
-		err = json.Unmarshal(weJSON, &finalJSON)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to unmarshal workflow execution",
-				err.Error(),
-			).JSON(e)
-		}
+
 		return e.JSON(http.StatusOK, finalJSON)
 	}
 }
 
+func getWorkflowExecutionWithFallback(
+	namespace, workflowID, runID string,
+) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
+	exec, err := fetchWorkflowExecution(namespace, workflowID, runID)
+	if err == nil && exec != nil {
+		return exec, nil
+	}
+
+	var notFound *serviceerror.NotFound
+	if errors.As(err, &notFound) {
+		return fetchWorkflowExecution("default", workflowID, runID)
+	}
+
+	return nil, err
+}
+
+func fetchWorkflowExecution(
+	namespace, workflowID, runID string,
+) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
+	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("get client for namespace %q: %w", namespace, err)
+	}
+
+	exec, err := c.DescribeWorkflowExecution(context.Background(), workflowID, runID)
+	if err != nil {
+		return nil, err
+	}
+
+	return exec, nil
+}
+
+func marshalWorkflowExecution(
+	exec *workflowservice.DescribeWorkflowExecutionResponse,
+) (map[string]any, error) {
+	data, err := protojson.Marshal(exec)
+	if err != nil {
+		return nil, fmt.Errorf("marshal execution: %w", err)
+	}
+
+	var result map[string]any
+	if err := json.Unmarshal(data, &result); err != nil {
+		return nil, fmt.Errorf("unmarshal execution: %w", err)
+	}
+
+	return result, nil
+}
+
+func getWorkflowHistoryWithFallback(
+	namespace, workflowID, runID string,
+) ([]map[string]interface{}, error) {
+	history, err := fetchWorkflowHistory(namespace, workflowID, runID)
+	if err == nil && len(history) > 0 {
+		return history, nil
+	}
+
+	var notFound *serviceerror.NotFound
+	if errors.As(err, &notFound) {
+		return fetchWorkflowHistory("default", workflowID, runID)
+	}
+
+	return nil, err
+}
+
+func fetchWorkflowHistory(namespace, workflowID, runID string) ([]map[string]interface{}, error) {
+	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	if err != nil {
+		return nil, fmt.Errorf("get client for namespace %q: %w", namespace, err)
+	}
+
+	iter := c.GetWorkflowHistory(
+		context.Background(),
+		workflowID,
+		runID,
+		false,
+		enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	)
+	if iter == nil {
+		return nil, fmt.Errorf("no history iterator for namespace %s", namespace)
+	}
+
+	var history []map[string]interface{}
+	for iter.HasNext() {
+		event, err := iter.Next()
+		if err != nil {
+			return nil, err
+		}
+		eventData, err := protojson.Marshal(event)
+		if err != nil {
+			return nil, fmt.Errorf("marshal event: %w", err)
+		}
+		var eventMap map[string]interface{}
+		if err := json.Unmarshal(eventData, &eventMap); err != nil {
+			return nil, fmt.Errorf("unmarshal event: %w", err)
+		}
+		history = append(history, eventMap)
+	}
+
+	return history, nil
+}
 func HandleGetWorkflowResult() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		workflowID := e.Request.PathValue("workflowId")
@@ -320,9 +358,14 @@ func HandleGetWorkflowResult() func(*core.RequestEvent) error {
 		}
 		authRecord := e.Auth
 
-		namespace, err := GetUserOrganizationID(e.App, authRecord.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -438,7 +481,8 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 			err = sendTemporalSignal(c, req)
 		}
 		if err != nil {
-			if apiErr, ok := err.(*apierror.APIError); ok {
+			apiErr := &apierror.APIError{}
+			if errors.As(err, &apiErr) {
 				return apiErr.JSON(e)
 			}
 
@@ -449,33 +493,6 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 }
 
 ///
-
-func GetUserOrganizationID(app core.App, userID string) (string, error) {
-	orgAuthCollection, err := app.FindCollectionByNameOrId("orgAuthorizations")
-	if err != nil {
-		return "", apierror.New(
-			http.StatusInternalServerError,
-			"collection",
-			"failed to find orgAuthorizations collection",
-			err.Error(),
-		)
-	}
-
-	authOrgRecords, err := app.FindFirstRecordByFilter(
-		orgAuthCollection.Id,
-		"user={:user}",
-		dbx.Params{"user": userID},
-	)
-	if err != nil {
-		return "", apierror.New(
-			http.StatusInternalServerError,
-			"get user namespace",
-			"failed to find orgAuthorizations record",
-			err.Error(),
-		)
-	}
-	return authOrgRecords.GetString("organization"), nil
-}
 
 func sendRealtimeLogs(suiteSubscription string) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -629,9 +646,14 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		namespace, err := GetUserOrganizationID(e.App, e.Auth.Id)
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
 		if err != nil {
-			return err
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
 		}
 		if namespace == "" {
 			return apierror.New(
@@ -653,13 +675,14 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 
 		author, err := getWorkflowAuthor(c, workflowID, runID)
 		if err != nil {
-			if apiErr, ok := err.(*apierror.APIError); ok {
+			apiErr := &apierror.APIError{}
+			if errors.As(err, &apiErr) {
 				return apiErr.JSON(e)
-
 			}
 			return err
 		}
-		apiErr, ok := handleDeeplinkFromHistory(e, c, workflowID, runID, author).(*apierror.APIError)
+		apiErr := &apierror.APIError{}
+		ok := errors.As(handleDeeplinkFromHistory(e, c, workflowID, runID, author), &apiErr)
 		if ok {
 			return apiErr.JSON(e)
 		}

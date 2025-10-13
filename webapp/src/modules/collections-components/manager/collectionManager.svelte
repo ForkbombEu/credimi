@@ -16,12 +16,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type {
 		PocketbaseQueryAgentOptions,
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
 		PocketbaseQueryExpandOption,
 		PocketbaseQueryOptions,
 		PocketbaseQueryResponse
 	} from '@/pocketbase/query';
 	import type { CollectionFormData } from '@/pocketbase/types';
+	import type { CollectionZodSchema } from '@/pocketbase/zod-schema';
 
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import { m } from '@/i18n';
@@ -87,6 +87,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		hide: ('empty_state' | 'pagination')[];
 
+		formRefineSchema: (schema: CollectionZodSchema<C>) => CollectionZodSchema<C>;
+
 		formUIOptions: CollectionFormUIOptions;
 		createFormUIOptions: CollectionFormUIOptions;
 		editFormUIOptions: CollectionFormUIOptions;
@@ -147,7 +149,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				superformsOptions: rest.editFormSuperformsOptions,
 				fieldsOptions: rest.editFormFieldsOptions
 			}
-		}
+		},
+		formRefineSchema: rest.formRefineSchema ?? ((schema) => schema)
 	});
 
 	setCollectionManagerContext(() => context);

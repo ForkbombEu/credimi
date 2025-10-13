@@ -56,12 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		<div class="space-y-4">
-			<WalletsSection
-				{organizationId}
-				{organization}
-				workflows={data.workflows}
-				id={tableOfContents[1].anchor}
-			/>
+			<WalletsSection {organizationId} {organization} id={tableOfContents[1].anchor} />
 		</div>
 
 		<div class="space-y-4">

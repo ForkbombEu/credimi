@@ -43,20 +43,21 @@ export type MarketplaceItemType = z.infer<typeof marketplaceItemTypeSchema>;
 // Since `marketplace_items` is a view collection, that merges multiple collections,
 // pocketbase says that each field is of type `json` and not the actual type.
 
-export type MarketplaceItem = {
-	collectionId: string;
-	collectionName: string;
+export interface MarketplaceItem {
 	id: string;
 	type: MarketplaceItemType;
 	name: string;
 	description: string | null;
-	avatar: { [key: string]: unknown; image_file: string } | null;
-	avatar_url: string | null;
 	updated: string;
+	avatar_file: string | null;
+	avatar_url: string | null;
 	organization_id: string;
+	children: { id: string; name: string; canonified_name: string }[] | null;
+	canonified_name: string;
 	organization_name: string;
-	children: { id: string; name: string }[] | null;
-};
+	organization_canonified_name: string;
+	path: string;
+}
 
 /* -- Marketplace item type mapping to display data -- */
 
@@ -141,10 +142,10 @@ export function getMarketplaceItemData(item: MarketplaceItem) {
 	const href =
 		item.type === 'custom_checks'
 			? `/my/tests/new?${queryParams.customCheckId}=${item.id}`
-			: localizeHref(`/marketplace/${item.type}/${item.id}`);
+			: localizeHref(`/marketplace/${item.path}`);
 
-	const logo = item.avatar
-		? pb.files.getURL(item.avatar, item.avatar.image_file)
+	const logo = item.avatar_file
+		? pb.files.getURL({ collectionName: item.type, id: item.id }, item.avatar_file)
 		: item.avatar_url
 			? item.avatar_url
 			: undefined;

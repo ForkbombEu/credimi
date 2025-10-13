@@ -38,9 +38,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			class="size-10 !rounded-sm border"
 			fallback={typed.name.slice(0, 2)}
 		/>
-		<a {href} class="hover:underline">
-			<T class="overflow-hidden text-ellipsis font-semibold">{typed.name}</T>
-		</a>
+		<div>
+			<a {href} class="hover:underline">
+				<T class="overflow-hidden text-ellipsis font-semibold">{typed.name}</T>
+			</a>
+		</div>
 		{#if isCurrentUserOwner}
 			<Badge class="block rounded-md">{m.Yours()}</Badge>
 		{/if}

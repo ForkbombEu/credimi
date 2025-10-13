@@ -10,7 +10,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { formFieldProxy } from 'sveltekit-superforms';
 
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { GenericRecord } from '@/utils/types';
 
 	import CodeEditor from '@/components/ui-custom/codeEditor.svelte';
@@ -33,6 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				output?: string;
 				error?: string;
 				running?: boolean;
+				canRun?: boolean;
 			};
 	}
 
@@ -51,6 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				output={options.output}
 				error={options.error}
 				running={options.running}
+				canRun={options.canRun}
 			/>
 		{:else}
 			<CodeEditor

@@ -71,9 +71,9 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 		expectedKeys = append(expectedKeys, key)
 	}
 
-	parts := strings.Split(input, ":")
+	parts := strings.Split(input, "+")
 	if len(parts) != len(expectedKeys) {
-		expectedFormat := strings.Join(expectedKeys, ":")
+		expectedFormat := strings.Join(expectedKeys, "+")
 		return nil, fmt.Errorf(
 			"expected %d parts in variant input (format: %s), got %d",
 			len(expectedKeys),

@@ -9,7 +9,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Pencil from 'lucide-svelte/icons/pencil';
 
 	import type { CollectionFormOptions } from '@/collections-components/form/collectionFormTypes';
-	// eslint-disable-next-line @typescript-eslint/no-unused-vars
 	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type { CollectionResponses } from '@/pocketbase/types';
 
@@ -33,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const { manager, formsOptions } = $derived(getCollectionManagerContext());
+	const { manager, formsOptions, formRefineSchema } = $derived(getCollectionManagerContext());
 
 	const defaultFormOptions: CollectionFormOptions<C> = {
 		uiOptions: { showToastOnSuccess: true }
@@ -60,7 +59,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<CollectionForm
 			collection={manager.collection}
 			recordId={record.id}
-			initialData={record}
+			initialData={record as unknown as undefined}
+			refineSchema={formRefineSchema}
 			{...options}
 			onSuccess={(record) => {
 				closeSheet();

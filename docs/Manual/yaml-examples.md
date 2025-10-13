@@ -41,7 +41,7 @@ env:
   base_url: "https://labs-openid-interop.vididentity.net"
 
 tests:
-  VID-Identity: 
+  - name: "POST /api/issuance-pre-auth"
     steps:
       - name: "Create pre-auth issuance"
         http:
@@ -82,7 +82,7 @@ name: "Findynet/Procivis"
 env:
   base_url: https://issuer.procivis.pensiondemo.findy.fi
 tests:
-  procivis-get-credential:
+  - name: "pension-credential:"
     steps:
       - name: "Get rehabilitation pension credential"
         http:
@@ -90,7 +90,7 @@ tests:
           url: ${{ env.base_url }}/pensioncredential-rehabilitation.json
           captures:
            deeplink:
-             jsonpath: $ 
+             jsonpath: $         
 ```
 
 ---
@@ -103,7 +103,7 @@ This example read the QR from: [https://ewc.pre.vc-dts.sicpa.com/demo/fakephotoi
 
 ```yaml
 version: "1.1"
-name: "Sicpa Test Issuer"
+
 tests:
   get-deeplink:
     steps:
@@ -132,39 +132,6 @@ tests:
 ## OpenID4VP examples
 
 ### 4) OpenID4VP — Get Presentation Request (POST)
-
-Use this to create a **presentation request** (often session‑based) and capture the `openid4vp://...` deeplink.
-
-The example below integrates with the verification on [https://labs-openid-interop.vididentity.net/](https://labs-openid-interop.vididentity.net/).
-
-```yaml
-version: "1.0"
-name: "VID Identity – issuance-pre-auth"
-
-env:
-  base_url: "https://labs-openid-interop.vididentity.net"
-
-tests:
-  - name: "POST /api/issuance-pre-auth"
-    steps:
-      - name: "Create pre-auth issuance"
-        http:
-          method: POST
-          url: ${{ env.base_url }}/api/presentations
-          headers:
-            accept: "application/json, text/plain, */*"
-          json:
-            scope: "SDJWTCredential"
-          captures:
-            deeplink:
-              jsonpath: $.rawOpenid4vp
-            qr:
-              jsonpath: $.qrBase64
-            sessionId:
-              jsonpath: $.sessionId
-```
-
-### 5) OpenID4VP — Get Presentation Request (POST)
 
 Use this to create a **presentation request** (often session‑based) and capture the `openid4vp://...` deeplink.
 
@@ -198,9 +165,8 @@ tests:
           captures:
             deeplink:
               jsonpath: $.authorizationRequestUri
+          
 ```
-
-
 
 ---
 
@@ -252,3 +218,4 @@ appId: com.didroom.wallet
 ---
 
 👉 Use these as templates. Replace placeholders with your issuer/verifier endpoints and JSONPaths.
+

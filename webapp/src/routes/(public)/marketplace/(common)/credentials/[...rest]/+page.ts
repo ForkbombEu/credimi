@@ -8,15 +8,18 @@ import { pb } from '@/pocketbase/index.js';
 import { PocketbaseQueryAgent } from '@/pocketbase/query/agent.js';
 import { Collections } from '@/pocketbase/types/index.generated.js';
 
+import { getFilterFromRestParams } from '../../_utils';
+
 export const load = async ({ params, fetch }) => {
 	try {
+		const filter = getFilterFromRestParams(params.rest);
 		const credential = await new PocketbaseQueryAgent(
 			{
 				collection: 'credentials',
 				expand: ['credential_issuer']
 			},
 			{ fetch }
-		).getOne(params.credential_id);
+		).getFirstListItem(filter);
 
 		const credentialIssuerMarketplaceEntry = await pb
 			.collection('marketplace_items')

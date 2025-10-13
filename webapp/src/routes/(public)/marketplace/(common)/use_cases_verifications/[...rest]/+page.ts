@@ -6,14 +6,17 @@ import { pb } from '@/pocketbase/index.js';
 import { PocketbaseQueryAgent } from '@/pocketbase/query/agent.js';
 import { partitionPromises } from '@/utils/promise';
 
+import { getFilterFromRestParams } from '../../_utils';
+
 export const load = async ({ params, fetch }) => {
+	const filter = getFilterFromRestParams(params.rest);
 	const useCaseVerification = await new PocketbaseQueryAgent(
 		{
 			collection: 'use_cases_verifications',
 			expand: ['verifier', 'credentials']
 		},
 		{ fetch }
-	).getOne(params.use_case_id);
+	).getFirstListItem(filter);
 
 	const verifierMarketplaceItem = await pb
 		.collection('marketplace_items')

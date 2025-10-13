@@ -6,7 +6,7 @@ import type Pocketbase from 'pocketbase';
 import type { Simplify } from 'type-fest';
 
 import type { CollectionName } from '@/pocketbase/collections-models';
-import type { CollectionResponses, CollectionExpands } from '@/pocketbase/types';
+import type { CollectionExpands, CollectionResponses } from '@/pocketbase/types';
 
 import { pb } from '@/pocketbase';
 
@@ -69,5 +69,11 @@ export class PocketbaseQueryAgent<
 			.getList<
 				PocketbaseQueryResponse<C, E>
 			>(page, this.listOptions.perPage, this.listOptions);
+	}
+
+	getFirstListItem(filter: string) {
+		return this.pocketbase
+			.collection(this.collection)
+			.getFirstListItem<PocketbaseQueryResponse<C, E>>(filter, this.listOptions);
 	}
 }

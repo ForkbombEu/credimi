@@ -5,16 +5,19 @@
 import { pb } from '@/pocketbase/index.js';
 import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
+import { getFilterFromRestParams } from '../../_utils';
+
 //
 
 export const load = async ({ params, fetch }) => {
+	const filter = getFilterFromRestParams(params.rest);
 	const credentialIssuer = await new PocketbaseQueryAgent(
 		{
 			collection: 'credential_issuers',
 			expand: ['credentials_via_credential_issuer']
 		},
 		{ fetch }
-	).getOne(params.issuer_id);
+	).getFirstListItem(filter);
 
 	const credentialsIds = (credentialIssuer.expand?.credentials_via_credential_issuer ?? []).map(
 		(credential) => credential.id
@@ -22,10 +25,13 @@ export const load = async ({ params, fetch }) => {
 
 	const credentialsFilters = credentialsIds.map((id) => `id = '${id}'`).join(' || ');
 
-	const credentialsMarketplaceItems = credentialsFilters.length > 0 ? await pb.collection('marketplace_items').getFullList(1, {
-		filter: credentialsFilters,
-		fetch
-	}) : [];
+	const credentialsMarketplaceItems =
+		credentialsFilters.length > 0
+			? await pb.collection('marketplace_items').getFullList(1, {
+					filter: credentialsFilters,
+					fetch
+				})
+			: [];
 
 	return {
 		credentialIssuer,

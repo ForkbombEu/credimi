@@ -205,7 +205,7 @@ func (w *ZenroomWorkflow) Start(
 ) (result workflowengine.WorkflowResult, err error) {
 	// Load environment variables.
 	godotenv.Load()
-	namespace := "default"
+	namespace := DefaultNamespace
 	if input.Config["namespace"] != nil {
 		namespace = input.Config["namespace"].(string)
 	}

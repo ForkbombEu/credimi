@@ -5,10 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
-
 	import { yaml } from '@codemirror/lang-yaml';
+	import { yamlStringSchema } from '$lib/utils';
 	import { ChevronDown, ChevronUp, Eye, EyeOff, UploadIcon } from 'lucide-svelte';
+	import { SvelteSet } from 'svelte/reactivity';
+	import { z } from 'zod';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type { IconComponent } from '@/components/types';
@@ -21,7 +22,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		RecordDelete,
 		RecordEdit
 	} from '@/collections-components/manager';
-	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
@@ -41,6 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
 
+	import LabelLink from '../_partials/label-link.svelte';
 	import WalletFormSheet from './wallet-form-sheet.svelte';
 
 	//
@@ -48,7 +49,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		organizationId?: string;
 		organization?: OrganizationsResponse;
-		workflows?: WorkflowExecution[];
 		id?: string;
 	};
 
@@ -74,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		} else {
 			expandedDescriptions.add(walletId);
 		}
-		expandedDescriptions = new Set(expandedDescriptions);
+		expandedDescriptions = new SvelteSet(expandedDescriptions);
 	}
 
 	function getWalletActionCopyText(actionUid: string, wallet: WalletsResponse) {
@@ -89,6 +89,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	const copyWalletActionTooltipText = `${m.Copy()} ${m.Organization()}/${m.Wallet()}/${m.Actions()}`;
+
+	//
+
+	pb.collection('credential_issuers').subscribe('*', (event) => {
+		console.log(event);
+	});
 </script>
 
 <CollectionManager
@@ -129,13 +135,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Avatar src={avatarSrc} fallback={wallet.name} class="rounded-sm border" />
 				<div class="flex-1">
 					<div class="flex items-center gap-2">
-						<T class="font-bold">
-							{#if !wallet.published}
-								{wallet.name}
-							{:else}
-								<A href="/marketplace/wallets/{wallet.id}">{wallet.name}</A>
-							{/if}
-						</T>
+						<LabelLink
+							label={wallet.name}
+							href="/marketplace/wallets/{organization?.canonified_name}/{wallet.canonified_name}"
+							published={wallet.published}
+						/>
 					</div>
 					{#if wallet.appstore_url}
 						<T class="text-xs text-gray-400">{wallet.appstore_url}</T>
@@ -203,7 +207,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			<div class="flex flex-wrap gap-2">
 				{#if conformanceChecks && conformanceChecks.length > 0}
-					{#each conformanceChecks as check}
+					{#each conformanceChecks as check (check)}
 						<Badge variant={check.status === 'success' ? 'secondary' : 'destructive'}>
 							{check.test}
 						</Badge>
@@ -261,7 +265,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{@render createVersion(wallet)}
 				</div>
 				<ul class="space-y-2">
-					{#each records as record}
+					{#each records as record (record.id)}
 						<li
 							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
 						>
@@ -331,19 +335,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		queryOptions={{
 			filter: `wallet.id = '${props.wallet.id}'`
 		}}
+		formRefineSchema={(schema) =>
+			schema.extend({
+				code: yamlStringSchema as unknown as z.ZodString
+			})}
 		formFieldsOptions={{
 			exclude: ['owner', 'canonified_name'],
 			hide: { wallet: props.wallet.id, owner: props.ownerId },
 			snippets: { code: codeField },
-			labels: {
-				uid: 'UID'
-			},
-			descriptions: {
-				uid: m.Only_lowercase_letters_and_underscores_are_allowed()
-			},
 			placeholders: {
-				name: m.e_g_Get_Credential(),
-				uid: m.e_g_get_credential_uid()
+				name: m.e_g_Get_Credential()
 			}
 		}}
 	>
@@ -364,7 +365,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</RecordCreate>
 				</div>
 				<ul class="space-y-2">
-					{#each records as record}
+					{#each records as record (record.id)}
 						<li
 							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
 						>
@@ -373,7 +374,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								<Tooltip>
 									<CopyButtonSmall
 										textToCopy={getWalletActionCopyText(
-											record.uid,
+											record.canonified_name,
 											props.wallet
 										)}
 										square
