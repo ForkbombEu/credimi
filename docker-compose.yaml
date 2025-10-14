@@ -15,7 +15,6 @@ services:
       - ADDRESS_TEMPORAL=http://localhost:8280
       - ADDRESS_GRAFANA=http://grafana:8085
       - ADDRESS_UI=http://localhost:5100
-      - APP_PATH=${COOLIFY_URL:-http://localhost:8090}
       - ROOT_DIR=/app
       - DATA_DB_PATH=/app/pb_data/data.db
       - MAIL_SENDER=no-reply@credimi.io
