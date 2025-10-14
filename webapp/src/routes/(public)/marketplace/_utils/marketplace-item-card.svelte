@@ -35,7 +35,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <a
 	{href}
-	class="border-primary bg-card text-card-foreground ring-primary relative flex flex-col justify-between gap-2 overflow-hidden rounded-lg border p-6 shadow-sm transition-all hover:-translate-y-2 hover:ring-2 {className}"
+	class={[
+		'border-primary bg-card text-card-foreground ring-primary relative',
+		'flex flex-col justify-between gap-2',
+		'overflow-visible rounded-lg border p-6 shadow-sm transition-all hover:-translate-y-2 hover:ring-2',
+		className
+	]}
 >
 	<div class="space-y-3">
 		<div>

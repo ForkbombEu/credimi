@@ -34,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="max-w-prose space-y-6">
 			<div class="space-y-2">
 				{#if date}
-					<div class="flex gap-1 text-muted-foreground">
+					<div class="text-muted-foreground flex gap-1">
 						<T tag="small" class="text-balance !font-normal">Published on:</T>
 						<T tag="small" class="text-balance !font-semibold">
 							{date.toLocaleDateString()}
@@ -45,13 +45,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<T tag="h1" class="text-balance !font-bold">{title}</T>
 			</div>
 
-			<T tag="p" class="text-balance !font-bold text-primary">
+			<T tag="p" class="text-primary text-balance !font-bold">
 				{description}
 			</T>
 
 			{#if tags.length}
 				<div class="flex flex-wrap items-center gap-2">
-					{#each tags as tag}
+					{#each tags as tag (tag)}
 						<Button
 							size="sm"
 							variant="outline"
@@ -78,6 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<!-- Main Content -->
 		<div class="mx-auto max-w-screen-lg flex-1">
 			<div class="prose prose-h1:text-3xl" id="content-area">
+				<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 				{@html body}
 			</div>
 		</div>
