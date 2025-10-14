@@ -27,11 +27,13 @@ import (
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // WorkersHook sets up a hook for the PocketBase application to
@@ -358,8 +360,14 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 
 		var notFound *serviceerror.NamespaceNotFound
 		if errors.As(err, &notFound) {
-			log.Printf("[WorkersHook] Namespace %q not found, will be created later", namespace)
-			return nil
+			err = nc.Register(context.Background(), &workflowservice.RegisterNamespaceRequest{
+				Namespace:                        namespace,
+				WorkflowExecutionRetentionPeriod: durationpb.New(7 * 24 * time.Hour),
+			})
+			if err != nil {
+				log.Printf("[WorkersHook] Unable to create namespace %s: %v", namespace, err)
+			}
+			log.Printf("[WorkersHook] Created namespace %s", namespace)
 		}
 
 		log.Printf(
