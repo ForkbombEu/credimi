@@ -17,7 +17,6 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
-	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // HookNamespaceOrgs sets up hooks for the "organizations" collection.
@@ -53,7 +52,7 @@ func HookNamespaceOrgs(app *pocketbase.PocketBase) {
 }
 
 // ensureNamespaceAndWorkers ensures the given namespace exists in Temporal.
-// If not, it creates it with a retention period of 7 days.
+// If not, it creates it
 // It then starts all workers for that namespace in a goroutine.
 func ensureNamespaceAndWorkers(namespace string) {
 	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
@@ -77,8 +76,7 @@ func ensureNamespaceAndWorkers(namespace string) {
 		if errors.As(err, &notFound) {
 			// Register the new namespace
 			err = c.Register(context.Background(), &workflowservice.RegisterNamespaceRequest{
-				Namespace:                        namespace,
-				WorkflowExecutionRetentionPeriod: durationpb.New(7 * 24 * time.Hour),
+				Namespace: namespace,
 			})
 			if err != nil {
 				log.Printf("Unable to create namespace %s: %v", namespace, err)
