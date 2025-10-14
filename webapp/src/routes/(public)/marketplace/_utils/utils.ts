@@ -69,7 +69,7 @@ export type MarketplaceItemDisplayData = {
 
 type MarketplaceItemsDisplayConfig = Record<MarketplaceItemType, MarketplaceItemDisplayData>;
 
-const marketplaceItemsDisplayConfig: MarketplaceItemsDisplayConfig = {
+export const marketplaceItemsDisplayConfig = {
 	wallets: {
 		label: m.Wallet(),
 		labelPlural: m.Wallets(),
@@ -124,7 +124,7 @@ const marketplaceItemsDisplayConfig: MarketplaceItemsDisplayConfig = {
 		outlineClass: 'border-[hsl(var(--orange-outline))]',
 		icon: CheckCircle
 	}
-};
+} satisfies MarketplaceItemsDisplayConfig;
 
 export function getMarketplaceItemTypeData(type: MarketplaceItemType) {
 	const display = marketplaceItemsDisplayConfig[type];
