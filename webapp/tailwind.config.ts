@@ -7,6 +7,7 @@ import type { Config } from 'tailwindcss';
 import { THEME_CONTENT } from '@sjsf/shadcn-theme/preset';
 import tailwindcssContainerQueries from '@tailwindcss/container-queries';
 import tailwindcssTypography from '@tailwindcss/typography';
+import scrollbar from 'tailwind-scrollbar';
 import tailwindcssAnimate from 'tailwindcss-animate';
 import { fontFamily } from 'tailwindcss/defaultTheme';
 
@@ -113,7 +114,7 @@ const config: Config = {
 			}
 		}
 	},
-	plugins: [tailwindcssAnimate, tailwindcssTypography, tailwindcssContainerQueries]
+	plugins: [tailwindcssAnimate, tailwindcssTypography, tailwindcssContainerQueries, scrollbar]
 };
 
 export default config;
