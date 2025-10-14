@@ -57,12 +57,10 @@ func (w *MobileAutomationWorkflow) Workflow(
 			runMetadata,
 		)
 	}
+
 	versionID, ok := input.Payload["version_id"].(string)
 	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"version_id",
-			runMetadata,
-		)
+		versionID = ""
 	}
 	var HTTPActivity = activities.NewHTTPActivity()
 	var response workflowengine.ActivityResult
