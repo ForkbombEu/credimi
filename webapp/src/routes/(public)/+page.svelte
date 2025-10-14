@@ -87,6 +87,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </PageContent>
 
 {#snippet row(items: MarketplaceItemsResponse[])}
+	<!-- Try: https://stackoverflow.com/questions/22955465/overflow-y-scroll-is-hiding-overflowing-elements-on-the-horizontal-line -->
 	<div class="scrollbar-none overflow-x-scroll">
 		<div class="flex gap-4">
 			{#each items as item (item.id)}
