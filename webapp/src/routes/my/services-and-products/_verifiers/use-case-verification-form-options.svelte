@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import { yamlStringSchema } from '$lib/utils';
+	import { stepciYamlSchema } from '$lib/utils';
 	import { z } from 'zod';
 
 	import type {
@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return {
 			refineSchema: (schema) =>
 				schema.extend({
-					yaml: yamlStringSchema as unknown as z.ZodString
+					yaml: stepciYamlSchema as unknown as z.ZodString
 				}),
 			fieldsOptions: {
 				hide: {
