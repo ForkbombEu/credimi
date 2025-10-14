@@ -4,12 +4,29 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+<script module lang="ts">
+	import { pb } from '@/pocketbase';
+
+	import { pageDetails } from './_utils/types';
+
+	export async function getWalletDetails(itemId: string, fetchFn = fetch) {
+		const wallet = await pb.collection('wallets').getOne(itemId, { fetch: fetchFn });
+
+		const actions = await pb.collection('wallet_actions').getFullList({
+			filter: `wallet="${wallet.id}"`,
+			fetch
+		});
+
+		return pageDetails('wallets', {
+			wallet,
+			actions
+		});
+	}
+</script>
+
 <script lang="ts">
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import MarketplacePageLayout from '$lib/layout/marketplace-page-layout.svelte';
-	import PageHeader from '$lib/layout/pageHeader.svelte';
-	import { generateMarketplaceSection } from '$marketplace/_utils/index.js';
 	import WalletForm from '$routes/my/services-and-products/_wallets/wallet-form.svelte';
 	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
 	import { String } from 'effect';
@@ -17,7 +34,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { z } from 'zod';
 
 	import Card from '@/components/ui-custom/card.svelte';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import {
 		Accordion,
@@ -28,24 +44,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
-	import EditSheet from '../../_utils/edit-sheet.svelte';
+	import DescriptionSection from './_utils/description-section.svelte';
+	import EditSheet from './_utils/edit-sheet.svelte';
+	import LayoutWithToc from './_utils/layout-with-toc.svelte';
+	import PageSection from './_utils/page-section.svelte';
+	import { sections as s } from './_utils/sections';
 
 	//
 
-	let { data } = $props();
-	const { wallet, actions } = $derived(data);
+	type Props = Awaited<ReturnType<typeof getWalletDetails>>;
+	let { wallet, actions }: Props = $props();
 
 	//
 
 	const checks = $derived(z.array(ConformanceCheckSchema).safeParse(wallet.conformance_checks));
-
-	const sections = $derived(
-		generateMarketplaceSection('wallets', {
-			hasDescription: !!wallet?.description,
-			hasConformanceChecks: checks.success && checks.data.length > 0,
-			hasActions: actions && actions.length > 0
-		})
-	);
 
 	// Utility function to get code stats
 	function getCodeStats(code: string) {
@@ -77,12 +89,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		Pending: 'bg-purple-200',
 		Retrying: 'bg-red-200'
 	};
+
+	// Emptiness checks
+
+	const isGeneralInfoEmpty = $derived(
+		String.isEmpty(wallet.home_url) &&
+			String.isEmpty(wallet.repository) &&
+			String.isEmpty(wallet.appstore_url) &&
+			String.isEmpty(wallet.playstore_url)
+	);
 </script>
 
-<MarketplacePageLayout tableOfContents={sections}>
-	<div class="grow space-y-6">
-		<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
-
+<LayoutWithToc sections={[s.general_info, s.description, s.conformance_checks, s.actions]}>
+	<PageSection indexItem={s.general_info} empty={isGeneralInfoEmpty}>
 		{#if String.isNonEmpty(wallet.home_url)}
 			<InfoBox label="Homepage URL" url={wallet.home_url} copyable={true} />
 		{/if}
@@ -103,22 +122,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 		{/if}
-	</div>
-	{#if wallet.description && sections.description}
-		<div class="space-y-6">
-			<PageHeader title={sections.description.label} id={sections.description.anchor} />
-			<div class="prose">
-				<RenderMd content={wallet.description} />
-			</div>
-		</div>
-	{/if}
+	</PageSection>
 
-	{#if checks.success}
-		<div>
-			<PageHeader
-				title={sections.conformance_checks.label}
-				id={sections.conformance_checks.anchor}
-			/>
+	<DescriptionSection description={wallet.description} />
+
+	<PageSection indexItem={s.conformance_checks} empty={!checks.success}>
+		<!-- Seems redudant, given `empty` prop, but it's needed for type checking -->
+		{#if checks.success}
 			<div class="space-y-2">
 				{#each checks.data as check (check.runId)}
 					{@const badgeColor = statuses[check.status]}
@@ -133,51 +143,48 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Card>
 				{/each}
 			</div>
-		</div>
-	{/if}
+		{/if}
+	</PageSection>
 
-	{#if actions && actions.length > 0 && sections.actions}
-		<div class="space-y-4">
-			<PageHeader title={sections.actions.label} id={sections.actions.anchor} />
-			<div class="space-y-3">
-				{#each actions as action (action.id)}
-					{@const stats = getCodeStats(action.code)}
-					<Accordion type="single" class="w-full">
-						<AccordionItem
-							value="code-accordion"
-							class="bg-card hover:ring-primary rounded-lg border hover:ring-2"
-						>
-							<AccordionTrigger class="group px-4 py-3 hover:no-underline">
-								<div class="mr-4 flex w-full items-center justify-between">
-									<div class="flex items-center gap-3">
-										<Code
-											class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
-										/>
-										<div class="text-left">
-											<div class="font-medium">{action.name}</div>
-											<div class="text-muted-foreground text-xs">
-												{stats.lines} lines • {stats.chars} characters
-											</div>
+	<PageSection indexItem={s.actions} empty={actions.length === 0}>
+		<div class="space-y-3">
+			{#each actions as action (action.id)}
+				{@const stats = getCodeStats(action.code)}
+				<Accordion type="single" class="w-full">
+					<AccordionItem
+						value="code-accordion"
+						class="bg-card hover:ring-primary rounded-lg border hover:ring-2"
+					>
+						<AccordionTrigger class="group px-4 py-3 hover:no-underline">
+							<div class="mr-4 flex w-full items-center justify-between">
+								<div class="flex items-center gap-3">
+									<Code
+										class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
+									/>
+									<div class="text-left">
+										<div class="font-medium">{action.name}</div>
+										<div class="text-muted-foreground text-xs">
+											{stats.lines} lines • {stats.chars} characters
 										</div>
 									</div>
-									<Badge variant="outline" class="text-xs">YAML</Badge>
 								</div>
-							</AccordionTrigger>
-							<AccordionContent class="px-4">
-								<CodeDisplay
-									content={action.code}
-									language="yaml"
-									class="text-xs"
-									containerClass="max-h-80"
-								/>
-							</AccordionContent>
-						</AccordionItem>
-					</Accordion>
-				{/each}
-			</div>
+								<Badge variant="outline" class="text-xs">YAML</Badge>
+							</div>
+						</AccordionTrigger>
+						<AccordionContent class="px-4">
+							<CodeDisplay
+								content={action.code}
+								language="yaml"
+								class="text-xs"
+								containerClass="max-h-80"
+							/>
+						</AccordionContent>
+					</AccordionItem>
+				</Accordion>
+			{/each}
 		</div>
-	{/if}
-</MarketplacePageLayout>
+	</PageSection>
+</LayoutWithToc>
 
 <EditSheet>
 	{#snippet children({ closeSheet })}
@@ -193,6 +200,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </EditSheet>
 
 {#snippet AppStore(url: string)}
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 	<a href={url} target="_blank" class="">
 		<svg
 			id="livetype"
@@ -324,6 +332,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet PlayStore(url: string)}
+	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 	<a href={url} target="_blank" class="shrink-0">
 		<img
 			class="h-16"

@@ -24,43 +24,51 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const tableOfContents = [
-		{
+	const tableOfContents = {
+		credential_issuers: {
 			label: m.Credential_issuers(),
 			anchor: 'credential-issuers'
 		},
-		{
+		wallets: {
 			label: m.Wallets(),
 			anchor: 'wallets'
 		},
-		{
+		verifiers: {
 			label: m.Verifiers(),
 			anchor: 'verifiers'
 		}
-	] satisfies Array<IndexItem>;
+	} satisfies Record<string, IndexItem>;
 </script>
 
 <SmoothPageScroll />
 
 <div class="flex flex-col items-start gap-14 md:flex-row md:gap-10">
 	<div class="relative top-5 self-stretch md:sticky md:self-start">
-		<PageIndex title={m.Sections()} sections={tableOfContents} class="top-5 md:sticky" />
+		<PageIndex
+			title={m.Sections()}
+			sections={Object.values(tableOfContents)}
+			class="top-5 md:sticky"
+		/>
 	</div>
 	<div class="grow space-y-12 self-stretch md:self-start">
 		<div class="space-y-4">
 			<CredentialIssuerSection
 				{organizationId}
 				{organization}
-				id={tableOfContents[0].anchor}
+				id={tableOfContents.credential_issuers.anchor}
 			/>
 		</div>
 
 		<div class="space-y-4">
-			<WalletsSection {organizationId} {organization} id={tableOfContents[1].anchor} />
+			<WalletsSection {organizationId} {organization} id={tableOfContents.wallets.anchor} />
 		</div>
 
 		<div class="space-y-4">
-			<VerifiersSection {organizationId} {organization} id={tableOfContents[2].anchor} />
+			<VerifiersSection
+				{organizationId}
+				{organization}
+				id={tableOfContents.verifiers.anchor}
+			/>
 		</div>
 	</div>
 </div>

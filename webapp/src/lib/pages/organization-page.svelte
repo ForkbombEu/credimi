@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BackButton from '$lib/layout/back-button.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
-	import PageHeader from '$lib/layout/pageHeader.svelte';
+	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import PageIndex from '$lib/layout/pageIndex.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
 	import { Building2, Layers } from 'lucide-svelte';
@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const sections: Record<string, IndexItem> = {
+	const sections = {
 		general_info: {
 			icon: Building2,
 			anchor: 'general_info',
@@ -47,7 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			anchor: 'services-and-products',
 			label: m.Services_and_products()
 		}
-	};
+	} satisfies Record<string, IndexItem>;
 
 	const organizationLogoUrl = $derived(pb.files.getURL(organization, organization.logo));
 </script>
@@ -79,7 +79,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<div class="max-w-prose grow space-y-12">
 		<div class="space-y-6">
-			<PageHeader title={sections.general_info.label} id={sections.general_info.anchor} />
+			<PageHeaderIndexed indexItem={sections.general_info} />
 			<div class="flex gap-6">
 				<InfoBox label="Legal entity">{organization.legal_entity}</InfoBox>
 				<InfoBox label="Country">{organization.country}</InfoBox>
@@ -88,6 +88,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			<div class="flex gap-6">
 				<InfoBox label="Website">
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 					<a href={organization.external_website_url} target="_blank">
 						{organization.external_website_url}
 					</a>
@@ -101,13 +102,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		<div>
-			<PageHeader
-				title={sections.services_and_products.label}
-				id={sections.services_and_products.anchor}
-			/>
+			<PageHeaderIndexed indexItem={sections.services_and_products} />
 
 			<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-				{#each marketplaceItems as item}
+				{#each marketplaceItems as item (item.id)}
 					<MarketplaceItemCard {item} />
 				{/each}
 			</div>

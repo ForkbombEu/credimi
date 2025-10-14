@@ -6,8 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { userOrganization } from '$lib/app-state';
-	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
+	import { getMarketplaceItemData, MarketplaceItemTypeDisplay } from '$marketplace/_utils';
 	import { ArrowLeft, PencilIcon } from 'lucide-svelte';
 
 	import A from '@/components/ui-custom/a.svelte';
@@ -16,13 +16,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import { getMarketplaceItemData, MarketplaceItemTypeDisplay } from '../_utils';
-	import { editFormState } from './_utils/edit-sheet.svelte';
+	import { editFormState } from './_partials/_utils/edit-sheet.svelte';
+	import CredentialIssuerPage from './_partials/credential-issuer-page.svelte';
+	import CredentialPage from './_partials/credential-page.svelte';
+	import UseCaseVerificationPage from './_partials/use-case-verification-page.svelte';
+	import VerifierPage from './_partials/verifier-page.svelte';
+	import WalletPage from './_partials/wallet-page.svelte';
 
 	//
 
-	let { children, data } = $props();
-	const { marketplaceItem } = $derived(data);
+	let { data } = $props();
+	const { marketplaceItem, pageDetails } = $derived(data);
 
 	const { logo, display } = $derived(getMarketplaceItemData(marketplaceItem));
 
@@ -30,6 +34,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		userOrganization.current?.id === marketplaceItem.organization_id
 	);
 </script>
+
+<!-- Owner edit topbar -->
 
 {#if isCurrentUserOwner}
 	<div class="border-t-primary border-t-2 bg-[#E2DCF8] py-2">
@@ -54,8 +60,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 {/if}
 
+<!-- General page content -->
+
 <PageTop hideTopBorder={isCurrentUserOwner} contentClass="!space-y-4">
-	<Button variant="link" class="gap-1 p-0" onclick={() => history.back()}>
+	<Button variant="link" class="gap-1 p-0" href="/marketplace">
 		<ArrowLeft />
 		{m.Back()}
 	</Button>
@@ -87,6 +95,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </PageTop>
 
-<PageContent class="bg-secondary grow" contentClass="flex flex-col md:flex-row gap-12 items-start">
-	{@render children()}
-</PageContent>
+<!-- Type-specific page -->
+
+{#if pageDetails.type == 'credential_issuers'}
+	<CredentialIssuerPage {...pageDetails} />
+{:else if pageDetails.type == 'credentials'}
+	<CredentialPage {...pageDetails} />
+{:else if pageDetails.type == 'wallets'}
+	<WalletPage {...pageDetails} />
+{:else if pageDetails.type == 'verifiers'}
+	<VerifierPage {...pageDetails} />
+{:else if pageDetails.type == 'use_cases_verifications'}
+	<UseCaseVerificationPage {...pageDetails} />
+{/if}

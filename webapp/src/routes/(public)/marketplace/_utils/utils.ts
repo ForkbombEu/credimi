@@ -7,11 +7,7 @@ import { CheckCheck, CheckCircle, QrCode, ShieldCheck, Users, Wallet } from 'luc
 import { z } from 'zod';
 
 import type { CollectionName } from '@/pocketbase/collections-models';
-import type {
-	CredentialsResponse,
-	MarketplaceItemsResponse,
-	UseCasesVerificationsResponse
-} from '@/pocketbase/types';
+import type { MarketplaceItemsResponse } from '@/pocketbase/types';
 
 import { localizeHref, m } from '@/i18n';
 import { pb } from '@/pocketbase';
@@ -71,9 +67,7 @@ export type MarketplaceItemDisplayData = {
 	icon: typeof Wallet;
 };
 
-type MarketplaceItemsDisplayConfig = {
-	[Type in MarketplaceItemType]: MarketplaceItemDisplayData;
-};
+type MarketplaceItemsDisplayConfig = Record<MarketplaceItemType, MarketplaceItemDisplayData>;
 
 const marketplaceItemsDisplayConfig: MarketplaceItemsDisplayConfig = {
 	wallets: {
@@ -159,30 +153,6 @@ export function isCredentialIssuer(item: MarketplaceItemsResponse): boolean {
 	return item.type === marketplaceItemTypes[1];
 }
 
-export function getIssuerItemCredentials(
-	item: MarketplaceItemsResponse
-): Promise<CredentialsResponse[]> {
-	if (!isCredentialIssuer(item)) {
-		throw new Error('Item is not a credential issuer');
-	}
-	return pb.collection('credentials').getFullList({
-		filter: `credential_issuer = '${item.id}'`,
-		requestKey: null
-	});
-}
-
 export function isVerifier(item: MarketplaceItemsResponse): boolean {
 	return item.type === marketplaceItemTypes[3];
-}
-
-export function getVerifierItemUseCases(
-	item: MarketplaceItemsResponse
-): Promise<UseCasesVerificationsResponse[]> {
-	if (!isVerifier(item)) {
-		throw new Error('Item is not a verifier');
-	}
-	return pb.collection('use_cases_verifications').getFullList({
-		filter: `verifier = '${item.id}'`,
-		requestKey: null
-	});
 }
