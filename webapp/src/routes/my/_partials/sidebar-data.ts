@@ -3,12 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { appSections } from '$lib/app-state';
-import { workflowStatuses } from '$lib/temporal';
-import { GlobeIcon, LockIcon, UserIcon } from 'lucide-svelte';
+import { GlobeIcon, LockIcon, TestTubeIcon, UserIcon } from 'lucide-svelte';
 
 import { m } from '@/i18n';
 
 import type { SidebarGroup } from './sidebar';
+
+// @ts-expect-error - Issue with svelte <script module> exports
+import { WorkflowStatusesSidebarSection } from './statuses-section.svelte';
 
 //
 
@@ -25,12 +27,14 @@ export const data: SidebarGroup[] = [
 	},
 	{
 		title: m.Test_runs(),
-		items: workflowStatuses
-			.filter((status) => status !== null)
-			.map((status) => ({
-				title: status,
-				url: `/my/tests/runs?status=${status}`
-			}))
+		items: [
+			{
+				title: m.Test_runs(),
+				url: '/my/tests/runs',
+				icon: TestTubeIcon
+			},
+			WorkflowStatusesSidebarSection
+		]
 	},
 	{
 		title: m.Settings(),

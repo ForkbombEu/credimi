@@ -2,7 +2,11 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { Snippet } from 'svelte';
+
 import type { IconComponent } from '@/components/types';
+
+//
 
 export type SidebarItem = {
 	title: string;
@@ -14,5 +18,5 @@ export type SidebarItem = {
 
 export type SidebarGroup = {
 	title: string;
-	items: SidebarItem[];
+	items: (SidebarItem | Snippet)[];
 };
