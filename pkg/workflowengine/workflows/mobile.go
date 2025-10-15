@@ -49,19 +49,35 @@ func (w *MobileAutomationWorkflow) Workflow(
 		)
 	}
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
+	var actionID string
+	actionCode, actionCodeOk := input.Payload["action_code"].(string)
+	versionID, versionIDOk := input.Payload["version_id"].(string)
 
-	actionID, ok := input.Payload["action_id"].(string)
-	if !ok || actionID == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"action_uid",
-			runMetadata,
-		)
+	// If action_code is present, version_id is REQUIRED
+	if actionCodeOk && actionCode != "" {
+		if !versionIDOk || versionID == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+				"version_id",
+				runMetadata,
+			)
+		}
+	}
+	// If action_code is NOT present -> action_id is REQUIRED
+	if !actionCodeOk || actionCode == "" {
+		actionIDValue, actionIDOk := input.Payload["action_id"].(string)
+		if !actionIDOk || actionIDValue == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+				"action_id",
+				runMetadata,
+			)
+		}
+		actionID = actionIDValue
+
+		if !versionIDOk {
+			versionID = ""
+		}
 	}
 
-	versionID, ok := input.Payload["version_id"].(string)
-	if !ok {
-		versionID = ""
-	}
 	var HTTPActivity = activities.NewHTTPActivity()
 	var response workflowengine.ActivityResult
 	getDataInput := workflowengine.ActivityInput{
@@ -104,25 +120,28 @@ func (w *MobileAutomationWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	ActionYAML, ok := response.Output.(map[string]any)["body"].(map[string]any)["code"].(string)
-	if !ok || ActionYAML == "" {
-		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: 'code'", errCode.Description),
-			response.Output,
-		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			appErr,
-			runMetadata,
-		)
+
+	if actionCode == "" {
+		actionCode, ok = response.Output.(map[string]any)["body"].(map[string]any)["code"].(string)
+		if !ok || actionCode == "" {
+			appErr := workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf(
+					"%s: 'code'", errCode.Description),
+				response.Output,
+			)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
+		}
 	}
 	mobileActivity := activities.NewMobileFlowActivity()
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
 			"apk":  apkPath,
-			"yaml": ActionYAML,
+			"yaml": actionCode,
 		},
 	}
 	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
