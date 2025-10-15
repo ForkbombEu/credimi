@@ -51,14 +51,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function confirmNameChange() {
 		showNameChangeWarning = false;
-		if (pendingData) {
-			pendingSubmitResolve?.(pendingData);
+		if (pendingData && pendingSubmitResolve) {
+			pendingSubmitResolve(pendingData);
 		}
+		pendingSubmitResolve = null;
+		pendingSubmitReject = null;
+		pendingData = null;
 	}
 
 	function cancelNameChange() {
 		showNameChangeWarning = false;
-		pendingSubmitReject?.(new Error('User cancelled'));
+		if (pendingSubmitReject) {
+			pendingSubmitReject(new Error('User cancelled'));
+		}
+		pendingSubmitResolve = null;
+		pendingSubmitReject = null;
+		pendingData = null;
 	}
 </script>
 
