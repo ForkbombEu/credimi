@@ -10,11 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Eye, EyeOff, RefreshCwIcon } from 'lucide-svelte';
 
 	import type { IconComponent } from '@/components/types';
-	import type {
-		CredentialIssuersResponse,
-		CredentialsResponse,
-		OrganizationsResponse
-	} from '@/pocketbase/types';
+	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
 	import {
@@ -38,7 +34,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
-	import LabelLink from '../_partials/label-link.svelte';
+	import { setDashboardNavbar } from '../+layout@.svelte';
+	import LabelLink from '../services-and-products/_partials/label-link.svelte';
 	import CredentialForm from './credential-form.svelte';
 	import CredentialIssuerForm from './credential-issuer-form/credential-issuer-form.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';
@@ -46,13 +43,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type Props = {
-		organizationId: string;
-		organization?: OrganizationsResponse;
-		id?: string;
-	};
-
-	let { organizationId, organization, id }: Props = $props();
+	let { data } = $props();
+	let { organization } = $derived(data);
 
 	//
 
@@ -63,7 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const organizationName =
 			organization?.canonified_name ||
 			organization?.name ||
-			organizationId ||
+			organization.id ||
 			'Unknown Organization';
 		const credentialIssuerName =
 			credentialIssuer.canonified_name ||
@@ -102,34 +94,40 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	const copyTooltipText = `${m.Copy()} ${m.Organization()}/${m.Credential_issuer()}/${m.Credential()}`;
+
+	setDashboardNavbar({ title: 'Credential Issuers and Credentials', right: navbarRight });
 </script>
 
 <CollectionManager
 	collection="credential_issuers"
 	queryOptions={{
-		filter: `owner.id = '${organizationId}'`,
+		filter: `owner.id = '${organization.id}'`,
 		sort: ['created', 'DESC']
 	}}
 	editFormFieldsOptions={{
 		exclude: ['owner', 'url', 'published', 'imported', 'canonified_name']
 	}}
 >
-	{#snippet top({ Header })}
+	<!-- {#snippet top({ Header })}
 		<Header title={m.Credential_issuers()} {id}>
 			{#snippet right()}
 				<CredentialIssuerForm {organizationId} />
 			{/snippet}
 		</Header>
-	{/snippet}
+	{/snippet} -->
 
 	{#snippet records({ records, reloadRecords })}
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+		<div class="">
 			{#each records as record (record)}
 				{@render CredentialIssuerCard(record, reloadRecords)}
 			{/each}
 		</div>
 	{/snippet}
 </CollectionManager>
+
+{#snippet navbarRight()}
+	<CredentialIssuerForm organizationId={organization.id} />
+{/snippet}
 
 <!--  -->
 

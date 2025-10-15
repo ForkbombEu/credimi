@@ -41,6 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
 
+	import { setDashboardNavbar } from '../+layout@.svelte';
 	import LabelLink from '../services-and-products/_partials/label-link.svelte';
 	import WalletFormSheet from './wallet-form-sheet.svelte';
 
@@ -87,6 +88,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
+	setDashboardNavbar({ title: 'Wallets', right: navbarRight });
+
 	pb.collection('credential_issuers').subscribe('*', (event) => {
 		console.log(event);
 	});
@@ -100,20 +103,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 	editFormFieldsOptions={{ exclude: ['owner', 'published'] }}
 >
-	{#snippet top({ Header, reloadRecords })}
-		{#snippet right()}
-			<WalletFormSheet onEditSuccess={reloadRecords} />
-		{/snippet}
-	{/snippet}
-
 	{#snippet records({ records, reloadRecords })}
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+		<div class="space-y-4">
 			{#each records as record (record.id)}
 				{@render WalletCard(record, reloadRecords)}
 			{/each}
 		</div>
 	{/snippet}
 </CollectionManager>
+
+{#snippet navbarRight()}
+	<WalletFormSheet />
+{/snippet}
 
 {#snippet WalletCard(wallet: WalletsResponse, onEditSuccess: () => void)}
 	<Card class="bg-background">

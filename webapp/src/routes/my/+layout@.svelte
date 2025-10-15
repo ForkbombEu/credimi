@@ -4,52 +4,30 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-<!-- <script lang="ts">
-	import BaseLayout from '$lib/layout/baseLayout.svelte';
-	import PageContent from '$lib/layout/pageContent.svelte';
-	import PageTop from '$lib/layout/pageTop.svelte';
-	import { CheckCheck, GlobeIcon, Shapes, TestTubeDiagonalIcon, User } from 'lucide-svelte';
+<script module lang="ts">
+	import { onMount, type Snippet } from 'svelte';
 
-	import NavigationTabs from '@/components/ui-custom/navigationTabs.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
-	import { currentUser } from '@/pocketbase';
+	type DashboardNavbar = {
+		title: string | undefined;
+		right: (() => ReturnType<Snippet>) | undefined;
+	};
 
-	//
+	export const dashboardNavbar: DashboardNavbar = $state({
+		title: 'Dashboard',
+		right: undefined
+	});
 
-	let { children, data } = $props();
-</script> -->
-<!-- 
-<BaseLayout>
-	<PageTop contentClass="!pb-0">
-		<T tag="h1">{m.hello_user({ username: $currentUser?.name! })}</T>
-
-		<NavigationTabs
-			tabs={[
-				{
-					title: m.Services_and_products(),
-					href: '/my/services-and-products',
-					icon: Shapes
-				},
-				{ title: m.Test_runs(), href: '/my/tests/runs', icon: TestTubeDiagonalIcon },
-				{ title: m.Custom_checks(), href: '/my/custom-checks', icon: CheckCheck },
-				{
-					title: m.Organization(),
-					href: '/my/organization',
-					icon: GlobeIcon,
-					notification: data.isOrganizationNotEdited
-				},
-				{ title: m.Profile(), href: '/my/profile', icon: User }
-			]}
-		/>
-	</PageTop>
-
-	<PageContent class="grow bg-secondary">
-		{@render children?.()}
-	</PageContent>
-</BaseLayout> -->
+	export function setDashboardNavbar(navbar: Partial<DashboardNavbar>) {
+		onMount(() => {
+			dashboardNavbar.title = navbar.title;
+			dashboardNavbar.right = navbar.right;
+		});
+	}
+</script>
 
 <script lang="ts">
+	import { onNavigate } from '$app/navigation';
+
 	import { Separator } from '@/components/ui/separator/index.js';
 	import * as Sidebar from '@/components/ui/sidebar/index.js';
 
@@ -57,16 +35,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import AppSidebar from './_partials/sidebar.svelte';
 
 	let { children } = $props();
+
+	onNavigate(() => {
+		dashboardNavbar.title = undefined;
+		dashboardNavbar.right = undefined;
+	});
 </script>
 
 <Sidebar.Provider>
 	<AppSidebar {data} />
 	<Sidebar.Inset>
-		<header class="flex shrink-0 items-center gap-2 border-b px-4">
-			<Sidebar.Trigger class="-ml-1" />
-			<Separator orientation="vertical" class="mr-2 h-4" />
+		<header class="bg-background sticky top-0 z-10 flex h-14 shrink-0 border-b">
+			<div class="flex items-center">
+				<div class="p-2">
+					<Sidebar.Trigger />
+				</div>
+				<Separator orientation="vertical" class="mr-2 h-4" />
+			</div>
+			<div class="flex grow items-center justify-between gap-2 py-2 pl-2 pr-4">
+				<p class="font-semibold">{dashboardNavbar.title}</p>
+				{@render dashboardNavbar.right?.()}
+			</div>
 		</header>
-		<div class="flex flex-1 flex-col gap-6 p-8">
+		<div class="flex flex-1 flex-col gap-6 p-4">
 			{@render children?.()}
 		</div>
 	</Sidebar.Inset>

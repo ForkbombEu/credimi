@@ -24,9 +24,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		organizationId: string;
+		onImport?: (issuer: CredentialIssuersResponse) => void;
 	};
 
-	let { organizationId }: Props = $props();
+	let { organizationId, onImport }: Props = $props();
 
 	//
 
@@ -55,7 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 >
 	{#snippet trigger({ sheetTriggerAttributes })}
-		<Button variant={'default'} size="sm" {...sheetTriggerAttributes}>
+		<Button variant="default" size="sm" {...sheetTriggerAttributes}>
 			<Plus />
 			{m.Add_new_credential_issuer()}
 		</Button>
@@ -68,6 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<ImportCredentialIssuer
 				onImport={(issuer) => {
 					importedIssuer = issuer;
+					onImport?.(issuer);
 				}}
 				bind:isLoading={isImporting}
 			/>
