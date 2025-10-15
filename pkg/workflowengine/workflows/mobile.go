@@ -78,6 +78,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 			versionID = ""
 		}
 	}
+	recorded, _ := input.Payload["recorded"].(bool)
 
 	var HTTPActivity = activities.NewHTTPActivity()
 	var response workflowengine.ActivityResult
@@ -141,8 +142,9 @@ func (w *MobileAutomationWorkflow) Workflow(
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
-			"apk":  apkPath,
-			"yaml": actionCode,
+			"apk":      apkPath,
+			"yaml":     actionCode,
+			"recorded": recorded,
 		},
 	}
 	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
@@ -153,66 +155,70 @@ func (w *MobileAutomationWorkflow) Workflow(
 			"path": "/tmp/credimi/video.mp4",
 		},
 	}
-	checkVideoActivity := activities.NewCheckFileExistsActivity()
-	err = workflow.ExecuteActivity(ctx, checkVideoActivity.Name(), checkVideoInput).Get(ctx, &checkVideoResult)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			err,
-			runMetadata,
-		)
-	}
-	videoExists, ok := checkVideoResult.Output.(bool)
-	if !ok {
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"%s: 'output' must be a boolean", errCode.Description),
-				checkVideoResult,
-			),
-			runMetadata,
-		)
-	}
-	if videoExists {
-		storeResultInput := workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"method": "POST",
-				"url": fmt.Sprintf(
-					"%s/%s",
-					mobileServerURL,
-					"store-action-result",
-				),
-				"headers": map[string]any{
-					"Content-Type": "application/json",
-				},
-				"body": map[string]any{
-					"result_path":       "/tmp/credimi/video.mp4",
-					"action_identifier": actionID,
-				},
-				"expected_status": 200,
-			},
-		}
-		if actionCodeOk {
-			walletIdentifier := deriveWalletIdentifier(versionID)
-			storeResultInput.Payload["body"].(map[string]any)["wallet_identifier"] = walletIdentifier
-			storeResultInput.Payload["body"].(map[string]any)["action_code"] = actionCode
-		}
-		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeResultInput).
-			Get(ctx, &response)
+	if recorded {
+
+		checkVideoActivity := activities.NewCheckFileExistsActivity()
+		err = workflow.ExecuteActivity(ctx, checkVideoActivity.Name(), checkVideoInput).Get(ctx, &checkVideoResult)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
 				runMetadata,
 			)
 		}
+		videoExists, ok := checkVideoResult.Output.(bool)
+		if !ok {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf(
+						"%s: 'output' must be a boolean", errCode.Description),
+					checkVideoResult,
+				),
+				runMetadata,
+			)
+		}
+		if videoExists {
+			storeResultInput := workflowengine.ActivityInput{
+				Payload: map[string]any{
+					"method": "POST",
+					"url": fmt.Sprintf(
+						"%s/%s",
+						mobileServerURL,
+						"store-action-result",
+					),
+					"headers": map[string]any{
+						"Content-Type": "application/json",
+					},
+					"body": map[string]any{
+						"result_path":       "/tmp/credimi/video.mp4",
+						"action_identifier": actionID,
+					},
+					"expected_status": 200,
+				},
+			}
+			if actionCodeOk {
+				walletIdentifier := deriveWalletIdentifier(versionID)
+				storeResultInput.Payload["body"].(map[string]any)["wallet_identifier"] = walletIdentifier
+				storeResultInput.Payload["body"].(map[string]any)["action_code"] = actionCode
+			}
+			err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeResultInput).
+				Get(ctx, &response)
+			if err != nil {
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+					err,
+					runMetadata,
+				)
+			}
+		}
+		if executeErr != nil {
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				executeErr,
+				runMetadata,
+			)
+		}
 	}
-	if executeErr != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			executeErr,
-			runMetadata,
-		)
-	}
+
 	return workflowengine.WorkflowResult{
 		Output: mobileResponse.Output,
 	}, nil
