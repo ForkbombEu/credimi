@@ -102,6 +102,11 @@ var Registry = map[string]TaskFactory{
 		NewFunc:    func() any { return activities.NewCheckFileExistsActivity() },
 		OutputKind: workflowengine.OutputBool,
 	},
+	"openid-net": {
+		Kind:      TaskWorkflow,
+		NewFunc:   func() any { return &workflows.OpenIDNetWorkflow{} },
+		TaskQueue: workflows.OpenIDNetTaskQueue,
+	},
 }
 
 // Denylist of task keys that should NOT be registered in the pipeline worker
