@@ -753,5 +753,8 @@
 	"Importing_credentials": "Importing credentials ({count}/{total})",
 	"hide": "Hide",
 	"show": "Show",
-	"No_information_available": "No information available"
+	"No_information_available": "No information available",
+	"Change_Organization_Name": "Change Organization Name?",
+	"Rename_organization_warning": "If you rename your organization, you will lose visibility of all your previous test runs (because the organization's internal namespace will be changed). Are you sure you want to proceed?",
+	"Continue": "Continue"
 }
