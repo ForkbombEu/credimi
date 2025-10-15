@@ -328,24 +328,52 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-
+		var actionRecord *core.Record
+		var err error
 		ActionIdentifier := e.Request.FormValue("action_identifier")
 		if ActionIdentifier == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"action_identifier",
-				"action_identifier is required",
-				"missing action_identifier in form",
-			).JSON(e)
-		}
-		actionRecord, err := canonify.Resolve(e.App, ActionIdentifier)
-		if err != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"wallet_action",
-				"record not found",
-				err.Error(),
-			).JSON(e)
+			collection, err := e.App.FindCollectionByNameOrId("wallet_actions")
+			if err != nil {
+				return apierror.New(
+					http.StatusNotFound,
+					"wallet_action",
+					"collection not found",
+					err.Error(),
+				).JSON(e)
+			}
+			actionRecord = core.NewRecord(collection)
+			walletRecord, err := canonify.Resolve(e.App, e.Request.FormValue("wallet_identifier"))
+			if err != nil {
+				return apierror.New(
+					http.StatusNotFound,
+					"wallet",
+					"wallet not found",
+					err.Error(),
+				).JSON(e)
+			}
+			actionRecord.Set("name", "pipeline_result")
+			actionRecord.Set("wallet", walletRecord.Id)
+			actionRecord.Set("owner", walletRecord.GetString("owner"))
+			actionRecord.Set("code", e.Request.FormValue("action_code"))
+
+			if err := e.App.Save(actionRecord); err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"database",
+					"failed to save record",
+					err.Error(),
+				).JSON(e)
+			}
+		} else {
+			actionRecord, err = canonify.Resolve(e.App, ActionIdentifier)
+			if err != nil {
+				return apierror.New(
+					http.StatusNotFound,
+					"wallet_action",
+					"record not found",
+					err.Error(),
+				).JSON(e)
+			}
 		}
 		action := actionRecord.GetString("canonified_name")
 		file, header, err := e.Request.FormFile("result")

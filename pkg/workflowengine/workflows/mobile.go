@@ -5,6 +5,7 @@ package workflows
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -192,6 +193,11 @@ func (w *MobileAutomationWorkflow) Workflow(
 				"expected_status": 200,
 			},
 		}
+		if actionCodeOk {
+			walletIdentifier := deriveWalletIdentifier(versionID)
+			storeResultInput.Payload["body"].(map[string]any)["wallet_identifier"] = walletIdentifier
+			storeResultInput.Payload["body"].(map[string]any)["action_code"] = actionCode
+		}
 		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeResultInput).
 			Get(ctx, &response)
 		if err != nil {
@@ -210,4 +216,15 @@ func (w *MobileAutomationWorkflow) Workflow(
 	return workflowengine.WorkflowResult{
 		Output: mobileResponse.Output,
 	}, nil
+}
+
+func deriveWalletIdentifier(versionID string) string {
+	if versionID == "" {
+		return ""
+	}
+	parts := strings.Split(versionID, "/")
+	if len(parts) < 2 {
+		return ""
+	}
+	return strings.Join(parts[:len(parts)-1], "/")
 }
