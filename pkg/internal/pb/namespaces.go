@@ -17,6 +17,7 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
+	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 // HookNamespaceOrgs sets up hooks for the "organizations" collection.
@@ -76,7 +77,8 @@ func ensureNamespaceAndWorkers(namespace string) {
 		if errors.As(err, &notFound) {
 			// Register the new namespace
 			err = c.Register(context.Background(), &workflowservice.RegisterNamespaceRequest{
-				Namespace: namespace,
+				Namespace:                        namespace,
+				WorkflowExecutionRetentionPeriod: durationpb.New(365 * 24 * time.Hour),
 			})
 			if err != nil {
 				log.Printf("Unable to create namespace %s: %v", namespace, err)
