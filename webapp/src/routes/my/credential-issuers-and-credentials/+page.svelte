@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import LabelLink from '$lib/layout/label-link.svelte';
 	import { runWithLoading } from '$lib/utils';
 	import { String } from 'effect';
 	import { Eye, EyeOff, RefreshCwIcon } from 'lucide-svelte';
@@ -35,7 +36,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
-	import LabelLink from '../services-and-products/_partials/label-link.svelte';
 	import CredentialForm from './credential-form.svelte';
 	import CredentialIssuerForm from './credential-issuer-form/credential-issuer-form.svelte';
 	import EditCredentialDialog from './edit-credential-dialog.svelte';

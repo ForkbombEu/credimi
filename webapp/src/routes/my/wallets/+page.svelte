@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { yaml } from '@codemirror/lang-yaml';
+	import LabelLink from '$lib/layout/label-link.svelte';
 	import { yamlStringSchema } from '$lib/utils';
 	import { ChevronDown, ChevronUp, Eye, EyeOff, UploadIcon } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -42,7 +43,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
-	import LabelLink from '../services-and-products/_partials/label-link.svelte';
 	import WalletFormSheet from './wallet-form-sheet.svelte';
 
 	//
@@ -149,7 +149,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						onCheckedChange={() =>
 							updatePublished(wallet.id, !wallet.published, onEditSuccess)}
 					/>
-					<WalletFormSheet walletId={wallet.id} initialData={wallet} {onEditSuccess} />
+					<WalletFormSheet walletId={wallet.id} initialData={wallet} />
 					<RecordDelete record={wallet}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
 							<Button

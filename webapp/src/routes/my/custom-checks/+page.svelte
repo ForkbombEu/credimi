@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { appSections } from '$lib/app-state';
 	import { Pencil, Plus } from 'lucide-svelte';
 
 	import { CollectionManager } from '@/collections-components';
@@ -16,8 +17,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import { setDashboardNavbar } from '../+layout@.svelte';
+
 	let { data } = $props();
-	const organizationId = $derived(data.organization?.id);
+	const organizationId = $derived(data.organization.id);
+
+	const { custom_checks } = appSections;
+	setDashboardNavbar({ title: custom_checks.label, right: navbarRight });
 </script>
 
 <div class="space-y-4">
@@ -25,20 +31,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		collection="custom_checks"
 		queryOptions={{ filter: `owner.id = "${organizationId}"` }}
 	>
-		{#snippet top({ Header })}
-			<Header title={m.Custom_checks()} hideCreate>
-				{#snippet right()}
-					<Button href="/my/custom-checks/new">
-						<Plus />
-						{m.Add_a_custom_check()}
-					</Button>
-				{/snippet}
-			</Header>
-		{/snippet}
-
 		{#snippet records({ records, Card })}
 			<div class="space-y-2">
-				{#each records as record}
+				{#each records as record (record.id)}
 					{@const logo = pb.files.getURL(record, record.logo)}
 					<Card {record} class="bg-background !pl-4" hide={['share', 'select', 'edit']}>
 						<div class="flex items-start gap-4">
@@ -65,3 +60,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 	</CollectionManager>
 </div>
+
+{#snippet navbarRight()}
+	<Button href="/my/custom-checks/new">
+		<Plus />
+		{m.Add_a_custom_check()}
+	</Button>
+{/snippet}
