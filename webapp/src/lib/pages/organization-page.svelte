@@ -77,7 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<PageIndex sections={Object.values(sections)} />
 	</div>
 
-	<div class="max-w-prose grow space-y-12">
+	<div class="grow space-y-12">
 		<div class="space-y-6">
 			<PageHeaderIndexed indexItem={sections.general_info} />
 			<div class="flex gap-6">
