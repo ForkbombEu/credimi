@@ -26,6 +26,7 @@ func MergeConfigs(global, step map[string]string) map[string]string {
 
 var stepPayloadExclusions = map[string][]string{
 	"rest-chain": {"yaml"},
+	"openidnet":  {"template"},
 }
 
 // helper to check if a string is exactly a single ${{ ... }} ref
