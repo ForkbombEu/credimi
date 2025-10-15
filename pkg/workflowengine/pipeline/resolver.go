@@ -26,7 +26,7 @@ func MergeConfigs(global, step map[string]string) map[string]string {
 
 var stepPayloadExclusions = map[string][]string{
 	"rest-chain": {"yaml"},
-	"openidnet":  {"template"},
+	"openid-net": {"config", "template"},
 }
 
 // helper to check if a string is exactly a single ${{ ... }} ref
@@ -211,10 +211,16 @@ func ResolveInputs(
 	ctx map[string]any,
 ) (map[string]any, map[string]string, error) {
 	stepCfg := make(map[string]string)
+	var val any
+	var err error
 	for k, src := range step.With.Config {
-		val, err := ResolveExpressions(src, ctx)
-		if err != nil {
-			return nil, nil, err
+		if shouldSkipInString(step.Use, k, src) {
+			val = src
+		} else {
+			val, err = ResolveExpressions(src, ctx)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
 		stepCfg[k] = val.(string)
 	}
