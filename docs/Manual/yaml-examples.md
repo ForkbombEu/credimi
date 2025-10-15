@@ -90,7 +90,7 @@ tests:
           url: ${{ env.base_url }}/pensioncredential-rehabilitation.json
           captures:
            deeplink:
-             jsonpath: $ 
+             jsonpath: $
 ```
 
 ---
@@ -145,7 +145,7 @@ env:
   base_url: "https://labs-openid-interop.vididentity.net"
 
 tests:
-  - name: "POST /api/issuance-pre-auth"
+  VID-Identity–issuance-pre-auth:
     steps:
       - name: "Create pre-auth issuance"
         http:
@@ -173,13 +173,13 @@ The example below integrates with the "Rent a car" verification on [https://funk
 ```yaml
 version: "1.0"
 
-name: "Funke Animo - Renta a Car verification "
+name: "Funke Animo - Government ID verification"
 
 env:
   base_url: "https://funke.animo.id"
 
 tests:
-  - name: "POST /api/issuance-pre-auth"
+  Animo-rent-a-car:
     steps:
       - name: "Create pre-auth issuance"
         http:
@@ -188,13 +188,13 @@ tests:
           headers:
             accept: "application/json, text/plain, */*"
           json:
-            presentationDefinitionId: c01ea0f3-34df-41d5-89d1-50ef3d181855__0
-            requestScheme: openid4vp://
+            presentationDefinitionId: 019368ed-3787-7669-b7f4-8c012238e90d__3
+            requestScheme: 'openid4vp://'
             responseMode: direct_post.jwt
             requestSignerType: x5c
             transactionAuthorizationType: none
             version: v1.draft24
-            queryLanguage: dcql
+            queryLanguage: dcql          
           captures:
             deeplink:
               jsonpath: $.authorizationRequestUri
@@ -206,7 +206,9 @@ tests:
 
 # Wallet actions
 
-These YAML snippets describe **[Maestro](https://maestro.dev/) flows** that run on a mobile wallet. They consume the deeplinks captured by StepCI and automate user interactions (open app, accept, verify).
+These YAML snippets describe **[Maestro](https://maestro.dev/) flows** that run on a mobile wallet. They consume the deeplinks captured by StepCI and automate user interactions (open app, accept, verify). 
+
+The  snippets can be created with **[Maestro Studio](https://maestro.dev/#maestro-studio)** which you can download and install on Windows/Linux/Mac, you'll also need Android Studio and/or Xcode to run it.
 
 
 
