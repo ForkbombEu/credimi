@@ -5,13 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
-	import { page } from '$app/state';
-	import OrganizationPageDemo from '$lib/pages/organization-page.svelte';
-	import { InfoIcon, Pencil, Undo } from 'lucide-svelte';
+	import { ArrowUpRight, InfoIcon } from 'lucide-svelte';
 
 	import { CollectionForm } from '@/collections-components/index.js';
-	import { PageCard } from '@/components/layout/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -20,13 +16,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const { organization, marketplaceItems, isOrganizationNotEdited } = $derived(data);
-
-	const isEdit = $derived(Boolean(page.url.searchParams.get('edit')));
-
-	// svelte-ignore state_referenced_locally
-	let showOrganizationForm = $state(isEdit);
+	let { organization, isOrganizationNotEdited } = $derived(data);
 </script>
+
+<div class="flex items-center justify-between">
+	<T tag="h3">{m.Update_your_organization_page()}</T>
+	<Button variant="outline" href="/organizations/{organization.canonified_name}">
+		{m.Page_preview()}
+		<ArrowUpRight />
+	</Button>
+</div>
 
 {#if isOrganizationNotEdited}
 	<Alert variant="info" icon={InfoIcon} class="mb-8">
@@ -36,6 +35,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Alert>
 {/if}
 
+{#key organization}
+	<CollectionForm
+		collection="organizations"
+		initialData={organization}
+		recordId={organization.id}
+		onSuccess={(org) => {
+			organization = org;
+		}}
+		fieldsOptions={{
+			exclude: ['canonified_name']
+		}}
+	>
+		{#snippet submitButtonContent()}
+			{m.Update_organization_page()}
+		{/snippet}
+	</CollectionForm>
+{/key}
+
+<!-- 
 {#if !showOrganizationForm}
 	<div class="mb-6 flex items-center justify-between">
 		<T tag="h3">{m.Page_preview()}</T>
@@ -60,7 +78,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<PageCard>
-		<!-- TODO - Set owner via hook -->
 		<CollectionForm
 			collection="organizations"
 			onSuccess={() => {
@@ -79,3 +96,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</CollectionForm>
 	</PageCard>
 {/if}
+-->
