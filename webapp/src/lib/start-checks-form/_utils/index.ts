@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { StartCheckResult } from '$start-checks-form/response-types';
 import {
 	type ConfigField,
-	namedConfigFieldSchema,
 	type NamedConfigField,
 	checksConfigFieldsResponseSchema,
-	type StartCheckResult
+	namedConfigFieldSchema
 } from '$start-checks-form/types';
 
 import { appName } from '@/brand';

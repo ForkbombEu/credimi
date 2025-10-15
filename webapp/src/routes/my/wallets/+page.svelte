@@ -216,7 +216,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{@render walletVersionsManager({
 				wallet,
-				organizationId: organizationId ?? ''
+				organizationId: organization.id
 			})}
 
 			<Separator />
