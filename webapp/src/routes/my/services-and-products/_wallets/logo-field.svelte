@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { fromStore } from 'svelte/store';
 
-	import type { WalletsFormData, WalletsResponse } from '@/pocketbase/types';
+	import type { CredentialsResponse, WalletsResponse } from '@/pocketbase/types';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -19,27 +19,53 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type Props = {
-		form: SuperForm<WalletsFormData>;
-		walletResponse?: WalletsResponse;
+	type LogoFieldConfig = {
+		fileFieldName?: 'logo';
 	};
 
-	let { form, walletResponse }: Props = $props();
+	type Props = {
+		// eslint-disable-next-line @typescript-eslint/no-explicit-any
+		form: SuperForm<any>;
+		recordResponse?: WalletsResponse | CredentialsResponse;
+		config?: LogoFieldConfig;
+	};
+
+	let { form, recordResponse, config }: Props = $props();
 	let formState = fromStore(form.form);
 
 	//
 
+	// Determine which file field name to use
+	// Both collections now use 'logo' for file uploads
+	const logoFileFieldName = $derived(config?.fileFieldName || 'logo');
+
 	type LogoMode = 'fresh' | 'original' | 'new_file' | 'url' | 'removed';
 
 	const logoMode: LogoMode = $derived.by(() => {
-		const currentLogo = formState.current.logo;
+		const currentLogo = formState.current[logoFileFieldName as keyof typeof formState.current];
+
+		// Check for file upload first
 		if (currentLogo instanceof File && currentLogo.size > 0) {
 			return 'new_file';
-		} else if (formState.current.logo_url) {
+		}
+
+		// Check for logo_url field
+		if (formState.current.logo_url) {
 			return 'url';
-		} else if (!walletResponse) {
+		}
+
+		// Check for logo string (URL) - fallback for credentials
+		if (typeof currentLogo === 'string' && currentLogo) {
+			return 'url';
+		}
+
+		if (!recordResponse) {
 			return 'fresh';
-		} else if (walletResponse?.logo === currentLogo?.name) {
+		} else if (
+			currentLogo instanceof File &&
+			(recordResponse.logo === currentLogo.name ||
+				('logo_file' in recordResponse && recordResponse.logo_file === currentLogo.name))
+		) {
 			return 'original';
 		} else if (!currentLogo && !formState.current.logo_url) {
 			return 'removed';
@@ -50,11 +76,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	const logoPreviewUrl = $derived.by(() => {
-		if (logoMode === 'original' && walletResponse) {
-			return pb.files.getURL(walletResponse, walletResponse.logo);
-		} else if (logoMode === 'new_file' && formState.current.logo) {
-			return URL.createObjectURL(formState.current.logo);
+		if (logoMode === 'original' && recordResponse) {
+			// Both collections use 'logo' field for file uploads
+			const logoFile = recordResponse.logo;
+			return logoFile ? pb.files.getURL(recordResponse, logoFile) : undefined;
+		} else if (logoMode === 'new_file') {
+			const currentLogo =
+				formState.current[logoFileFieldName as keyof typeof formState.current];
+			if (currentLogo instanceof File) {
+				return URL.createObjectURL(currentLogo);
+			}
 		} else if (logoMode === 'url') {
+			// Both collections now use logo_url for URL display
 			return formState.current.logo_url;
 		} else {
 			console.warn('Unhandled logo mode', logoMode);
@@ -74,14 +107,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function removeLogoFile() {
 		form.form.update((data) => {
-			data.logo = undefined;
+			// Both collections use 'logo' field for file uploads
+			if ('logo' in data) {
+				data.logo = undefined;
+			}
 			return data;
 		});
 	}
 
 	function removeLogoUrl() {
 		form.form.update((data) => {
-			data.logo_url = undefined;
+			if ('logo_url' in data) {
+				data.logo_url = undefined;
+			}
 			return data;
 		});
 	}

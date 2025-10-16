@@ -377,7 +377,7 @@ func HandleCredentialIssuerStoreOrUpdateExtractedCredentials() func(*core.Reques
 			// Create new record
 			record = core.NewRecord(collection)
 			record.Set("display_name", name)
-			record.Set("logo", logo)
+			record.Set("logo_url", logo)
 
 			record.Set("imported", true)
 		} else {
@@ -414,9 +414,9 @@ func HandleCredentialIssuerStoreOrUpdateExtractedCredentials() func(*core.Reques
 				record.Set("display_name", name)
 			}
 
-			savedLogo := record.GetString("logo")
+			savedLogo := record.GetString("logo_url")
 			if savedLogo == originalLogo {
-				record.Set("logo", logo)
+				record.Set("logo_url", logo)
 			}
 		}
 

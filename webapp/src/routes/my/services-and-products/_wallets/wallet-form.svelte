@@ -170,7 +170,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<MarkdownField form={editWalletform} name="description" height={80} />
 
-		<LogoField form={editWalletform} walletResponse={initialData} />
+		<LogoField form={editWalletform} recordResponse={initialData} />
 
 		<Field
 			form={editWalletform}

@@ -24,6 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
 
+	import LogoField from '../_wallets/logo-field.svelte';
 	import QrGenerationField, { type FieldMode } from './deeplink-tabs/index.svelte';
 
 	//
@@ -48,7 +49,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'published',
 			'canonified_name'
 		];
-		const editFields: Field[] = ['format', 'display_name', 'locale', 'logo', 'name'];
+		// For imported credentials, exclude optional fields (NOT name - it's required!)
+		const editFields: Field[] = ['format', 'display_name', 'locale'];
 		if (mode === 'edit' && credential?.imported) {
 			commonFields.push(...editFields);
 		}
@@ -77,19 +79,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})}
 	fieldsOptions={{
 		exclude,
-		order: ['deeplink', 'name', 'display_name', 'description'],
+		order: ['name', 'description', 'deeplink'],
 		labels: {
 			published: m.Publish_to_marketplace(),
 			deeplink: m.QR_Code_Generation()
 		},
 		snippets: {
 			description,
-			deeplink: qr_generation
+			deeplink: qr_generation,
+			logo: logo_snippet
 		},
 		hide: {
 			yaml: credential?.yaml,
 			credential_issuer: credentialIssuer.id,
-			display_name: credential?.display_name
+			display_name: credential?.display_name,
+			// Hide logo_url field - it's rendered inside LogoField snippet instead
+			logo_url: credential?.logo_url,
+			// For imported credentials, hide name field but keep it in form data (it's required)
+			...(mode === 'edit' && credential?.imported ? { name: credential.name } : {})
 		}
 	}}
 	beforeSubmit={(data) => {
@@ -111,7 +118,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </CollectionForm>
 
 {#snippet description({ form }: FieldSnippetOptions<'credentials'>)}
-	<MarkdownField {form} name="description" />
+	<MarkdownField {form} name="description" height={200} />
+{/snippet}
+
+{#snippet logo_snippet({ form }: FieldSnippetOptions<'credentials'>)}
+	<LogoField {form} recordResponse={credential} />
 {/snippet}
 
 {#snippet qr_generation({ form }: FieldSnippetOptions<'credentials'>)}
