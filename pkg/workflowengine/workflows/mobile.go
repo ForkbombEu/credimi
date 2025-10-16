@@ -89,8 +89,19 @@ func (w *MobileAutomationWorkflow) Workflow(
 			versionID = ""
 		}
 	}
-	recorded, _ := input.Payload["recorded"].(bool)
 
+	recorded, _ := input.Payload["recorded"].(bool)
+	var parameters map[string]string
+	if rawParams, exists := input.Payload["parameters"]; exists {
+		var ok bool
+		parameters, ok = rawParams.(map[string]string)
+		if !ok {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+				"parameters",
+				runMetadata,
+			)
+		}
+	}
 	var HTTPActivity = activities.NewHTTPActivity()
 	var response workflowengine.ActivityResult
 	getDataInput := workflowengine.ActivityInput{
@@ -153,9 +164,10 @@ func (w *MobileAutomationWorkflow) Workflow(
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
-			"apk":      apkPath,
-			"yaml":     actionCode,
-			"recorded": recorded,
+			"apk":        apkPath,
+			"yaml":       actionCode,
+			"recorded":   recorded,
+			"parameters": parameters,
 		},
 	}
 	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
