@@ -437,6 +437,12 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		resultURL := fmt.Sprintf(
+			"%s/api/files/wallet_actions/%s/%s/",
+			e.App.Settings().Meta.AppURL,
+			actionRecord.Id,
+			tmpFile.Name(),
+		)
 		err = os.Remove(absResultPath)
 		if err != nil {
 			return apierror.New(
@@ -448,9 +454,10 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
-			"status":   "success",
-			"action":   action,
-			"fileName": header.Filename,
+			"status":     "success",
+			"action":     action,
+			"fileName":   header.Filename,
+			"result_url": resultURL,
 		})
 	}
 }

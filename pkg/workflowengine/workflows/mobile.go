@@ -23,6 +23,12 @@ func (MobileAutomationWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
+type MobileWorflowOutput struct {
+	TestRunURL     string `json:"test_run_url"`
+	ResultVideoURL string `json:"result_video_url,omitempty"`
+	FlowOutput     any    `json:"flow_output"`
+}
+
 func (MobileAutomationWorkflow) Name() string {
 	return "Run a mobile automation workflow"
 }
@@ -31,17 +37,22 @@ func (w *MobileAutomationWorkflow) Workflow(
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
+
+	var output MobileWorflowOutput
+	testRunURL := fmt.Sprintf(
+		"%s/my/tests/runs/%s/%s",
+		input.Config["app_url"],
+		workflow.GetInfo(ctx).WorkflowExecution.ID,
+		workflow.GetInfo(ctx).WorkflowExecution.RunID,
+	)
 	runMetadata := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
+		TemporalUI:   testRunURL,
 	}
+	output.TestRunURL = testRunURL
+
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -155,6 +166,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 			"path": "/tmp/credimi/video.mp4",
 		},
 	}
+	output.FlowOutput = mobileResponse.Output
 	if recorded {
 
 		checkVideoActivity := activities.NewCheckFileExistsActivity()
@@ -202,14 +214,29 @@ func (w *MobileAutomationWorkflow) Workflow(
 				storeResultInput.Payload["body"].(map[string]any)["wallet_identifier"] = walletIdentifier
 				storeResultInput.Payload["body"].(map[string]any)["action_code"] = actionCode
 			}
+			var storeResultResponse workflowengine.ActivityResult
 			err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeResultInput).
-				Get(ctx, &response)
+				Get(ctx, &storeResultResponse)
 			if err != nil {
 				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 					err,
 					runMetadata,
 				)
 			}
+			resultURL, ok := storeResultResponse.Output.(map[string]any)["body"].(map[string]any)["result_url"].(string)
+			if !ok || resultURL == "" {
+				appErr := workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf(
+						"%s: 'result_url'", errCode.Description),
+					storeResultResponse.Output,
+				)
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+					appErr,
+					runMetadata,
+				)
+			}
+			output.ResultVideoURL = resultURL
 		}
 	}
 	if executeErr != nil {
@@ -220,7 +247,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 	}
 
 	return workflowengine.WorkflowResult{
-		Output: mobileResponse.Output,
+		Output: output,
 	}, nil
 }
 
