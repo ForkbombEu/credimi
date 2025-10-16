@@ -753,5 +753,6 @@
 	"Importing_credentials": "Importing credentials ({count}/{total})",
 	"hide": "Hide",
 	"show": "Show",
-	"No_information_available": "No information available"
+	"No_information_available": "No information available",
+	"Dashboard": "Dashboard"
 }

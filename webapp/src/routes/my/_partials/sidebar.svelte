@@ -26,14 +26,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Sidebar.Root {...restProps} class={[className]} bind:ref>
-	<Sidebar.Header class="flex flex-row items-center justify-between">
-		<AppLogo />
+	<Sidebar.Header
+		class="border-b-primary/50 flex flex-row items-center justify-between border-b px-4 pb-[7px]"
+	>
+		<div class="flex size-8 items-center justify-center overflow-hidden">
+			<AppLogo />
+		</div>
 		<UserNav />
 	</Sidebar.Header>
-	<Sidebar.Content>
+	<Sidebar.Content class="gap-0">
 		{#each data as group (group.title)}
 			<Sidebar.Group>
-				<Sidebar.GroupLabel>{group.title}</Sidebar.GroupLabel>
+				{#if group.title}
+					<Sidebar.GroupLabel>{group.title}</Sidebar.GroupLabel>
+				{/if}
 				<Sidebar.GroupContent>
 					<Sidebar.Menu>
 						{#each group.items as item (item)}

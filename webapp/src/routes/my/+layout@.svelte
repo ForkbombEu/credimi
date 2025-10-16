@@ -26,8 +26,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import { onNavigate } from '$app/navigation';
-
 	import { Separator } from '@/components/ui/separator/index.js';
 	import * as Sidebar from '@/components/ui/sidebar/index.js';
 
@@ -36,10 +34,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { children } = $props();
 
-	onNavigate(() => {
-		dashboardNavbar.title = undefined;
-		dashboardNavbar.right = undefined;
-	});
+	// onNavigate(() => {
+	// 	dashboardNavbar.title = undefined;
+	// 	dashboardNavbar.right = undefined;
+	// });
 </script>
 
 <Sidebar.Provider>

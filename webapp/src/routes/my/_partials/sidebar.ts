@@ -17,6 +17,6 @@ export type SidebarItem = {
 };
 
 export type SidebarGroup = {
-	title: string;
+	title?: string;
 	items: (SidebarItem | Snippet)[];
 };
