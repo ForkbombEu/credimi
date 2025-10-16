@@ -211,12 +211,12 @@ func (w *MobileAutomationWorkflow) Workflow(
 				)
 			}
 		}
-		if executeErr != nil {
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				executeErr,
-				runMetadata,
-			)
-		}
+	}
+	if executeErr != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			executeErr,
+			runMetadata,
+		)
 	}
 
 	return workflowengine.WorkflowResult{
