@@ -105,7 +105,6 @@ func NewWorkflowError(err error, metadata WorkflowErrorMetadata, extraPayload ..
 		credimiErr.Error(),
 		appErr.Type(),
 		details,
-		metadata,
 	)
 }
 

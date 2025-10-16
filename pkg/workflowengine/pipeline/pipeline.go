@@ -41,7 +41,7 @@ func (w *PipelineWorkflow) Workflow(
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, *input.WorkflowInput.ActivityOptions)
 
-	errorsList := []error{}
+	errorsList := []string{}
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
 	runMetadata := workflowengine.WorkflowErrorMetadata{
@@ -137,12 +137,11 @@ func (w *PipelineWorkflow) Workflow(
 
 				if step.ContinueOnError {
 					if output := workflowengine.ExtractOutputFromError(err); output != nil {
-						fmt.Println("HERRRRRRRRREE", output)
 						finalOutput[step.ID] = make(map[string]any)
 						finalOutput[step.ID].(map[string]any)["outputs"] = output
 					}
 
-					errorsList = append(errorsList, err)
+					errorsList = append(errorsList, err.Error())
 					continue
 				}
 				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
@@ -194,7 +193,7 @@ func (w *PipelineWorkflow) Workflow(
 					finalOutput[step.ID].(map[string]any)["outputs"] = output
 				}
 
-				errorsList = append(errorsList, err)
+				errorsList = append(errorsList, err.Error())
 				continue
 			}
 			return result, workflowengine.NewWorkflowError(appErr, runMetadata)
