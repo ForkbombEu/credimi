@@ -57,7 +57,19 @@ func (a *BaseActivity) NewActivityError(
 	activityPayload ...any,
 ) error {
 	msg := fmt.Sprintf("[%s]: %s", a.Name, errorMsg)
-	return temporal.NewApplicationError(msg, errorType, activityPayload)
+
+	// Flatten payloads into a single []any
+	var flatPayload []any
+	for _, p := range activityPayload {
+		switch v := p.(type) {
+		case []any:
+			flatPayload = append(flatPayload, v...)
+		default:
+			flatPayload = append(flatPayload, v)
+		}
+	}
+
+	return temporal.NewApplicationError(msg, errorType, flatPayload)
 }
 
 func (a *BaseActivity) NewNonRetryableActivityError(
@@ -66,6 +78,8 @@ func (a *BaseActivity) NewNonRetryableActivityError(
 	activityPayload ...any,
 ) error {
 	msg := fmt.Sprintf("[%s]: %s", a.Name, errorMsg)
+	// NewNonRetryableActivityError returns a non-retryable application error with a message, type, and optional payload.
+	// This error is used to indicate that the activity should not be retried upon failure.
 	return temporal.NewNonRetryableApplicationError(msg, errorType, nil, activityPayload)
 }
 

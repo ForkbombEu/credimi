@@ -33,6 +33,7 @@ type StepDefinition struct {
 	With            StepInputs             `yaml:"with"                       json:"with"`
 	ActivityOptions *ActivityOptionsConfig `yaml:"activity_options,omitempty" json:"activity_options,omitempty"`
 	Metadata        map[string]interface{} `yaml:"metadata,omitempty"         json:"metadata,omitempty"`
+	ContinueOnError bool                   `yaml:"continue_on_error,omitempty" json:"continue_on_error,omitempty"`
 }
 
 type StepInputs struct {

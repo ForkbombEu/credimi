@@ -41,6 +41,7 @@ func (w *PipelineWorkflow) Workflow(
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, *input.WorkflowInput.ActivityOptions)
 
+	errorsList := []error{}
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
 	runMetadata := workflowengine.WorkflowErrorMetadata{
@@ -133,6 +134,17 @@ func (w *PipelineWorkflow) Workflow(
 			).Get(ctxChild, &childResult)
 			if err != nil {
 				logger.Error(step.ID, "child workflow execution error", err)
+
+				if step.ContinueOnError {
+					if output := workflowengine.ExtractOutputFromError(err); output != nil {
+						fmt.Println("HERRRRRRRRREE", output)
+						finalOutput[step.ID] = make(map[string]any)
+						finalOutput[step.ID].(map[string]any)["outputs"] = output
+					}
+
+					errorsList = append(errorsList, err)
+					continue
+				}
 				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 					err,
 					runMetadata,
@@ -175,10 +187,29 @@ func (w *PipelineWorkflow) Workflow(
 				fmt.Sprintf("error executing step %s: %s", step.ID, err.Error()),
 				step.ID,
 			)
+
+			if step.ContinueOnError {
+				if output := workflowengine.ExtractOutputFromError(err); output != nil {
+					finalOutput[step.ID] = make(map[string]any)
+					finalOutput[step.ID].(map[string]any)["outputs"] = output
+				}
+
+				errorsList = append(errorsList, err)
+				continue
+			}
 			return result, workflowengine.NewWorkflowError(appErr, runMetadata)
 		}
 	}
 	delete(finalOutput, "inputs")
+	if len(errorsList) > 0 {
+		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+		appErr := workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("workflow completed with %d step errors", len(errorsList)),
+		)
+		return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList)
+	}
+
 	return workflowengine.WorkflowResult{
 		Output: finalOutput,
 	}, nil

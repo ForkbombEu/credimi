@@ -26,7 +26,7 @@ func (MobileAutomationWorkflow) GetOptions() workflow.ActivityOptions {
 type MobileWorflowOutput struct {
 	TestRunURL     string `json:"test_run_url"`
 	ResultVideoURL string `json:"result_video_url,omitempty"`
-	FlowOutput     any    `json:"flow_output"`
+	FlowOutput     any    `json:"flow_output,omitempty"`
 }
 
 func (MobileAutomationWorkflow) Name() string {
