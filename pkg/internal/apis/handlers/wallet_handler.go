@@ -438,10 +438,10 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		resultURL := fmt.Sprintf(
-			"%s/api/files/wallet_actions/%s/%s/",
+			"%s/api/files/wallet_actions/%s/%s",
 			e.App.Settings().Meta.AppURL,
 			actionRecord.Id,
-			tmpFile.Name(),
+			actionRecord.GetString("result"),
 		)
 		err = os.Remove(absResultPath)
 		if err != nil {
