@@ -91,10 +91,10 @@ func (w *MobileAutomationWorkflow) Workflow(
 	}
 
 	recorded, _ := input.Payload["recorded"].(bool)
-	var parameters map[string]string
+	var parameters map[string]any
 	if rawParams, exists := input.Payload["parameters"]; exists {
 		var ok bool
-		parameters, ok = rawParams.(map[string]string)
+		parameters, ok = rawParams.(map[string]any)
 		if !ok {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
 				"parameters",
