@@ -40,15 +40,18 @@ func (w *PipelineWorkflow) Workflow(
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, *input.WorkflowInput.ActivityOptions)
+
+	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
+	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
 	runMetadata := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
+		WorkflowID:   workflowID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
 		TemporalUI: fmt.Sprintf(
 			"%s/my/tests/runs/%s/%s",
 			input.WorkflowInput.Config["app_url"],
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
+			workflowID,
+			runID,
 		),
 	}
 	global := map[string]any{}
@@ -68,7 +71,11 @@ func (w *PipelineWorkflow) Workflow(
 	globalCfg["app_url"] = input.WorkflowInput.Config["app_url"].(string)
 	globalCfg["namespace"] = input.WorkflowInput.Config["namespace"].(string)
 	result := workflowengine.WorkflowResult{}
+
 	finalOutput := map[string]any{}
+	finalOutput["workflow-id"] = workflowID
+	finalOutput["workflow-run-id"] = runID
+
 	var steps []StepDefinition
 	var checks map[string]WorkflowBlock
 	switch {
