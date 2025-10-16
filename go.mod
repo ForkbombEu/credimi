@@ -10,7 +10,7 @@ require (
 	github.com/ForkbombEu/et-tu-cesr v0.0.0-20250730082655-1822692d6150
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/go-connections v0.5.0
-	github.com/forkbombeu/credimi-extra v0.0.0-20250918094626-de85c3fc3739
+	github.com/forkbombeu/credimi-extra v0.0.0-20251016101143-01c2486382d0
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/go-sprout/sprout v1.0.0
 	github.com/google/uuid v1.6.0
@@ -23,8 +23,8 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/spf13/cobra v1.9.1
 	github.com/stretchr/testify v1.11.1
-	go.temporal.io/api v1.46.0
-	go.temporal.io/sdk v1.33.0
+	go.temporal.io/api v1.51.0
+	go.temporal.io/sdk v1.36.0
 	golang.org/x/crypto v0.37.0
 	golang.org/x/sys v0.32.0
 	golang.org/x/text v0.24.0
@@ -151,7 +151,7 @@ require (
 	github.com/gostaticanalysis/comment v1.5.0 // indirect
 	github.com/gostaticanalysis/forcetypeassert v0.2.0 // indirect
 	github.com/gostaticanalysis/nilerr v0.1.1 // indirect
-	github.com/grpc-ecosystem/go-grpc-middleware v1.4.0 // indirect
+	github.com/grpc-ecosystem/go-grpc-middleware/v2 v2.3.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.26.3 // indirect
 	github.com/hashicorp/go-immutable-radix/v2 v2.1.0 // indirect
 	github.com/hashicorp/go-version v1.7.0 // indirect
@@ -213,7 +213,6 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.1 // indirect
-	github.com/pborman/uuid v1.2.1 // indirect
 	github.com/pelletier/go-toml v1.9.5 // indirect
 	github.com/pelletier/go-toml/v2 v2.2.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
