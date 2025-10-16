@@ -255,6 +255,9 @@ func (w *MobileAutomationWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			executeErr,
 			runMetadata,
+			map[string]any{
+				"output": output,
+			},
 		)
 	}
 
