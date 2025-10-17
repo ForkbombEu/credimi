@@ -89,8 +89,8 @@ export const marketplaceItemsDisplayConfig = {
 		icon: CheckCheck
 	},
 	credential_issuers: {
-		label: m.Credential_issuer(),
-		labelPlural: m.Credential_issuers(),
+		label: m.Issuer(),
+		labelPlural: m.Issuers(),
 		bgClass: 'bg-[hsl(var(--green-foreground))]',
 		textClass: 'text-[hsl(var(--green-foreground))]',
 		backgroundClass: 'bg-[hsl(var(--green-background))]',
