@@ -15,5 +15,7 @@ export const load = async ({ fetch, parent }) => {
 		fetch
 	});
 
-	return { organization, marketplaceItems };
+	const isOrganizationNotEdited = organization.created === organization.updated;
+
+	return { organization, marketplaceItems, isOrganizationNotEdited };
 };
