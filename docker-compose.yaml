@@ -100,7 +100,7 @@ services:
       - SMTP_HOST=smtp.apps.forkbomb.eu
       - SMTP_PORT=1025
       - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
-      - MAESTRO_WORKER=http://maestro-worker:8050
+      - MAESTRO_WORKER=https://android.next.credimi.io
       - PORT=5100
     ports:
       - 8090:8090
