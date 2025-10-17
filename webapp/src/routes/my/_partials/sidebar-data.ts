@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { appSections } from '$lib/app-state';
+import { appSections } from '$lib/marketplace/sections';
 import { GlobeIcon, HomeIcon, LockIcon, StoreIcon, TestTubeIcon, UserIcon } from 'lucide-svelte';
 
 import { m } from '@/i18n';

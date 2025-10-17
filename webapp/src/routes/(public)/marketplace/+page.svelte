@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { appSections } from '$lib/app-state';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
+	import { appSections } from '$lib/marketplace/sections';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 

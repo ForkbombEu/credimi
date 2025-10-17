@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { appSections } from '$lib/app-state';
+	import { appSections } from '$lib/marketplace/sections';
 	import { Plus } from 'lucide-svelte';
 
 	import { CollectionManager } from '@/collections-components';
