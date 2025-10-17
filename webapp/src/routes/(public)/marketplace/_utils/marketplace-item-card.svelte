@@ -6,7 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { userOrganization } from '$lib/app-state';
+	import { String } from 'effect';
 	import { truncate } from 'lodash';
+	import removeMd from 'remove-markdown';
 
 	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
 
@@ -31,33 +33,45 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { href, logo, display } = $derived(getMarketplaceItemData(item));
 
 	const isCurrentUserOwner = $derived(userOrganization.current?.id === item.organization_id);
+
+	const description = $derived.by(() => {
+		const cleaned = removeMd(item.description ?? '');
+		return truncate(cleaned, { length: 100 });
+	});
 </script>
 
 <a
 	{href}
 	class={[
 		'border-primary bg-card text-card-foreground ring-primary relative',
-		'flex flex-col justify-between gap-2',
-		'overflow-visible rounded-lg border p-6 shadow-sm transition-all hover:-translate-y-2 hover:ring-2',
+		'flex flex-col justify-between gap-4',
+		'overflow-visible rounded-lg border p-4 shadow-sm transition-all hover:-translate-y-2 hover:ring-2',
 		className
 	]}
 >
-	<div class="space-y-3">
+	<div class="flex items-start justify-between gap-4">
 		<div>
 			<p class="text-muted-foreground text-xs">{item.organization_name}</p>
 			<T class="overflow-hidden text-ellipsis font-semibold">{item.name}</T>
 		</div>
-		{#if display}
-			<MarketplaceItemTypeDisplay data={display} />
-		{/if}
-		{#if item.description}
-			<T class="text-muted-foreground pt-1 text-sm">
-				{truncate(item.description, { length: 100 })}
-			</T>
-		{/if}
+
+		<div class="flex flex-row-reverse flex-wrap items-start gap-1">
+			{#if display}
+				<MarketplaceItemTypeDisplay data={display} />
+			{/if}
+			{#if isCurrentUserOwner}
+				<Badge class="block w-fit rounded-md py-[4px]">{m.Yours()}</Badge>
+			{/if}
+		</div>
 	</div>
 
-	<div class="flex items-end justify-between gap-2">
+	{#if String.isNonEmpty(description)}
+		<T class="text-muted-foreground pt-1 text-sm">
+			{description}
+		</T>
+	{/if}
+
+	<div class="flex items-end justify-between gap-2 pt-1">
 		<T class="text-muted-foreground text-xs">
 			{m.Last_update()}: {new Date(item.updated).toLocaleDateString()}
 		</T>
@@ -68,10 +82,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			fallback={item.name.slice(0, 2)}
 		/>
 	</div>
-
-	{#if isCurrentUserOwner}
-		<div class="absolute right-0 top-0 p-1">
-			<Badge class="block rounded-md">{m.Yours()}</Badge>
-		</div>
-	{/if}
 </a>

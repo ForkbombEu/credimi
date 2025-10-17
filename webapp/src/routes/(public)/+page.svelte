@@ -67,9 +67,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Button variant="default" href="/marketplace">{m.Explore_Marketplace()}</Button>
 		</div>
 
-		{@render row(issuers)}
-		{@render row(verifiers)}
-		{@render row(wallets)}
+		<div class="space-y-2">
+			{@render row(issuers)}
+			{@render row(verifiers)}
+			{@render row(wallets)}
+		</div>
 	</div>
 
 	<!-- <MarketplaceSection
@@ -88,7 +90,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet row(items: MarketplaceItemsResponse[])}
 	<!-- Try: https://stackoverflow.com/questions/22955465/overflow-y-scroll-is-hiding-overflowing-elements-on-the-horizontal-line -->
-	<div class="scrollbar-none overflow-x-scroll">
+	<div class="scrollbar-none -mx-2 -mt-3 overflow-x-scroll px-2 pt-3">
 		<div class="flex gap-4">
 			{#each items as item (item.id)}
 				<MarketplaceItemCard {item} class="min-w-[300px] grow" />
