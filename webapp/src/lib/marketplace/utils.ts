@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { queryParams } from '$routes/my/tests/new/+page.svelte';
 import { CheckCheck, CheckCircle, QrCode, ShieldCheck, Users, Wallet } from 'lucide-svelte';
 import { z } from 'zod';
 
@@ -132,10 +131,12 @@ export function getMarketplaceItemTypeData(type: MarketplaceItemType) {
 	return { display, filter };
 }
 
+export const CUSTOM_CHECK_QUERY_PARAM = 'custom_check_id';
+
 export function getMarketplaceItemData(item: MarketplaceItem) {
 	const href =
 		item.type === 'custom_checks'
-			? `/my/tests/new?${queryParams.customCheckId}=${item.id}`
+			? `/my/tests/new?${CUSTOM_CHECK_QUERY_PARAM}=${item.id}`
 			: localizeHref(`/marketplace/${item.path}`);
 
 	const logo = item.avatar_file

@@ -13,7 +13,6 @@ const config = {
 			'@': './src/modules',
 			$lib: './src/lib',
 			$zencode: './client_zencode',
-			$routes: './src/routes',
 			'$start-checks-form': './src/lib/start-checks-form',
 			$root: '..'
 		},
