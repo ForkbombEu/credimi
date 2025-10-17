@@ -78,7 +78,7 @@ services:
     networks:
       - temporal-network
     ports:
-      - 8080:8080
+      - 8322:8080
   credimi:
     depends_on:
       - temporal
