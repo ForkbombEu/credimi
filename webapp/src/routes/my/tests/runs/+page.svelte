@@ -36,11 +36,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 	let { workflows, selectedStatuses } = $derived(data);
 
-	let latestCheckRuns: StartCheckResultWithMeta[] = $state(
-		browser ? ensureArray(LatestCheckRunsStorage.get()) : []
-	);
-	const latestRunIds = $derived(latestCheckRuns.map((run) => run.WorkflowRunID));
+	let latestCheckRuns: StartCheckResultWithMeta[] = $state([]);
+	if (browser) latestCheckRuns = ensureArray(LatestCheckRunsStorage.get());
 
+	const latestRunIds = $derived(latestCheckRuns.map((run) => run.workflowRunId));
 	const latestWorkflows = $derived(workflows.filter((w) => latestRunIds.includes(w.runId)));
 	const oldWorkflows = $derived(Array.difference(workflows, latestWorkflows));
 
@@ -127,12 +126,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					className="w-full"
 				>
 					{#snippet bottom()}
-						<Button href="/my/tests/new" variant="outline" class="mt-4 text-primary">
+						<Button href="/my/tests/new" variant="outline" class="text-primary mt-4">
 							<SparkleIcon />
 							{m.Start_a_new_check()}
 							<Badge
 								variant="outline"
-								class="!hover:no-underline border-primary text-xs text-primary"
+								class="!hover:no-underline border-primary text-primary text-xs"
 							>
 								{m.Beta()}
 							</Badge>
