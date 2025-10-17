@@ -73,7 +73,7 @@ services:
       - temporal
     environment:
       - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
-      - TEMPORAL_CORS_ORIGINS=http://localhost:8080
+      - TEMPORAL_CORS_ORIGINS=http://localhost:3000
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
     networks:
       - temporal-network
