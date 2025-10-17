@@ -42,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import { MarketplaceItemCard } from '$marketplace/_utils';
+	import { MarketplaceItemCard } from '$lib/marketplace';
 	import { String } from 'effect';
 
 	import { CollectionForm } from '@/collections-components/index.js';

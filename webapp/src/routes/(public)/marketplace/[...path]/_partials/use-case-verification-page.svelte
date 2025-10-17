@@ -39,8 +39,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import MarketplaceItemCard from '$lib/marketplace/marketplace-item-card.svelte';
 	import { generateDeeplinkFromYaml } from '$lib/utils';
-	import MarketplaceItemCard from '$marketplace/_utils/marketplace-item-card.svelte';
 	import { onMount } from 'svelte';
 
 	import QrStateful from '@/qr/qr-stateful.svelte';

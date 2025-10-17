@@ -17,8 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import { MarketplaceItemCard } from './_utils';
-	import MarketplaceTable from './_utils/marketplace-table.svelte';
+	import { MarketplaceItemCard } from '../../../lib/marketplace';
+	import MarketplaceTable from '../../../lib/marketplace/marketplace-table.svelte';
 
 	//
 

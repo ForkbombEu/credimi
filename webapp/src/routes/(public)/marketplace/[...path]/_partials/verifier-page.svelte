@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
-	import { MarketplaceItemCard } from '$marketplace/_utils/index.js';
+	import { MarketplaceItemCard } from '$lib/marketplace/index.js';
 	import { String } from 'effect';
 
 	import T from '@/components/ui-custom/t.svelte';

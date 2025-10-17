@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { userOrganization } from '$lib/app-state';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import { getMarketplaceItemData, MarketplaceItemTypeDisplay } from '$marketplace/_utils';
+	import { getMarketplaceItemData, MarketplaceItemTypeDisplay } from '$lib/marketplace';
 	import { ArrowLeft, PencilIcon } from 'lucide-svelte';
 
 	import A from '@/components/ui-custom/a.svelte';

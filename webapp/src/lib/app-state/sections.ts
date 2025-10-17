@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { marketplaceItemsDisplayConfig } from '$marketplace/_utils';
+import { marketplaceItemsDisplayConfig } from '$lib/marketplace';
 
 import type { IconComponent } from '@/components/types';
 

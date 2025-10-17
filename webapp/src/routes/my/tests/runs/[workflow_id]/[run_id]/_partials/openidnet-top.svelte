@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { getOpenIDNetWorkflowLogsProps } from '$lib/wallet-test-pages/openidnet';
-	import WorkflowLogs from '$wallet-test/_partials/workflow-logs.svelte';
+	import WorkflowLogs from '$lib/workflows/workflow-logs.svelte';
 
 	import Container from './container.svelte';
 	import Section from './section.svelte';

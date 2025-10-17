@@ -42,8 +42,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { createIntentUrl } from '$lib/credentials/index.js';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
+	import { MarketplaceItemCard } from '$lib/marketplace';
 	import { generateDeeplinkFromYaml } from '$lib/utils';
-	import { MarketplaceItemCard } from '$marketplace/_utils';
 	import { String } from 'effect';
 	import { onMount } from 'svelte';
 
