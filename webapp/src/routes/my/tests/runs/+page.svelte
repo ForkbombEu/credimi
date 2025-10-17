@@ -33,11 +33,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 	let { workflows = [], selectedStatus } = $derived(data);
 
-	let latestCheckRuns: StartCheckResultWithMeta[] = $state(
-		browser ? ensureArray(LatestCheckRunsStorage.get()) : []
-	);
-	const latestRunIds = $derived(latestCheckRuns.map((run) => run.WorkflowRunID));
+	let latestCheckRuns: StartCheckResultWithMeta[] = $state([]);
+	if (browser) latestCheckRuns = ensureArray(LatestCheckRunsStorage.get());
 
+	const latestRunIds = $derived(latestCheckRuns.map((run) => run.workflowRunId));
 	const latestWorkflows = $derived(workflows.filter((w) => latestRunIds.includes(w.runId)));
 	const oldWorkflows = $derived(Array.difference(workflows, latestWorkflows));
 

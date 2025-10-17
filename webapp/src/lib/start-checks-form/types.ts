@@ -45,4 +45,18 @@ export type ChecksConfigFieldsResponse = z.infer<typeof checksConfigFieldsRespon
 
 //
 
-export type { StartCheckResult, StartChecksResponse } from './response-types';
+export type StartCheckResult = {
+	workflowId: string;
+	workflowRunId: string;
+	message: string;
+	errors: null | string;
+	output: null | string;
+	log: null | string;
+	author: string;
+};
+
+export type StartChecksResponse = {
+	'protocol/version': string;
+	message: string;
+	results: StartCheckResult[];
+};

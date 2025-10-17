@@ -7,16 +7,58 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { ArrowUpRight, InfoIcon } from 'lucide-svelte';
 
+	import type { OrganizationsFormData } from '@/pocketbase/types';
+
 	import { CollectionForm } from '@/collections-components/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import * as AlertDialog from '@/components/ui/alert-dialog';
 	import { m } from '@/i18n/index.js';
 
 	//
 
 	let { data } = $props();
 	let { organization, isOrganizationNotEdited } = $derived(data);
+
+	// Organization name change warning
+	let showNameChangeWarning = $state(false);
+	let pendingSubmitResolve: ((value: OrganizationsFormData) => void) | null = null;
+	let pendingSubmitReject: ((reason?: unknown) => void) | null = null;
+	let pendingData: OrganizationsFormData | null = null;
+
+	async function handleBeforeSubmit(data: OrganizationsFormData): Promise<OrganizationsFormData> {
+		const nameChanged = data.name !== organization?.name;
+		if (!nameChanged) {
+			return data;
+		}
+		return new Promise<OrganizationsFormData>((resolve, reject) => {
+			pendingData = data;
+			pendingSubmitResolve = resolve;
+			pendingSubmitReject = reject;
+			showNameChangeWarning = true;
+		});
+	}
+
+	function confirmNameChange() {
+		showNameChangeWarning = false;
+		if (pendingData && pendingSubmitResolve) {
+			pendingSubmitResolve(pendingData);
+		}
+		pendingSubmitResolve = null;
+		pendingSubmitReject = null;
+		pendingData = null;
+	}
+
+	function cancelNameChange() {
+		showNameChangeWarning = false;
+		if (pendingSubmitReject) {
+			pendingSubmitReject(new Error('User cancelled'));
+		}
+		pendingSubmitResolve = null;
+		pendingSubmitReject = null;
+		pendingData = null;
+	}
 </script>
 
 <div class="flex items-center justify-between">
@@ -26,6 +68,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<ArrowUpRight />
 	</Button>
 </div>
+
+<AlertDialog.Root bind:open={showNameChangeWarning}>
+	<AlertDialog.Content class="!z-[60]">
+		<AlertDialog.Header>
+			<AlertDialog.Title>{m.Change_Organization_Name()}</AlertDialog.Title>
+			<AlertDialog.Description>
+				<strong>{m.Warning()}:</strong>
+				{m.Rename_organization_warning()}
+			</AlertDialog.Description>
+		</AlertDialog.Header>
+		<AlertDialog.Footer>
+			<Button variant="outline" onclick={cancelNameChange}>{m.Cancel()}</Button>
+			<Button onclick={confirmNameChange}>{m.Continue()}</Button>
+		</AlertDialog.Footer>
+	</AlertDialog.Content>
+</AlertDialog.Root>
 
 {#if isOrganizationNotEdited}
 	<Alert variant="info" icon={InfoIcon} class="mb-8">
@@ -80,6 +138,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<PageCard>
 		<CollectionForm
 			collection="organizations"
+			beforeSubmit={handleBeforeSubmit}
 			onSuccess={() => {
 				invalidateAll();
 				showOrganizationForm = false;

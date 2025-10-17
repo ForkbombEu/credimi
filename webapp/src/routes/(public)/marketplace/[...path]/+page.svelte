@@ -16,7 +16,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import { editFormState } from './_partials/_utils/edit-sheet.svelte';
 	import CredentialIssuerPage from './_partials/credential-issuer-page.svelte';
 	import CredentialPage from './_partials/credential-page.svelte';
 	import UseCaseVerificationPage from './_partials/use-case-verification-page.svelte';
@@ -45,13 +44,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T>{m.This_item_is_yours({ item: display.label })}</T>
 			<div class="flex items-center gap-3">
 				<T>{m.Last_edited()}: {new Date(marketplaceItem.updated).toLocaleDateString()}</T>
-				<Button
+				<!-- <Button
 					size="sm"
 					class="!h-8 text-xs"
 					onclick={() => {
 						editFormState.open = true;
 					}}
-				>
+				> -->
+				<Button size="sm" class="!h-8 text-xs" href="/my/services-and-products">
 					<PencilIcon />
 					{m.Make_changes()}
 				</Button>
