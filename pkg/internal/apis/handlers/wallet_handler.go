@@ -102,7 +102,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 			workflowInfo.WorkflowRunID,
 			workflows.AppMetadataQuery,
 			100*time.Millisecond,
-			30*time.Second,
+			60*time.Second,
 		)
 		if err != nil {
 			return apierror.New(
