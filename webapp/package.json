@@ -107,6 +107,7 @@
 		"@types/node": "^22.13.11",
 		"@types/to-json-schema": "^0.2.4",
 		"ajv": "8",
+		"caniuse-lite": "^1.0.30001746",
 		"carta-md": "^4.11.1",
 		"date-fns": "^2.29.3",
 		"date-fns-tz": "^1.3.7",

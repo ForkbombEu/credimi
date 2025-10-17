@@ -169,8 +169,11 @@ tests:
 			expectedErrorMsg: errorcodes.Codes[errorcodes.StepCIRunFailed],
 		},
 		{
-			name:             "Failure - incorrect secrets",
-			payload:          map[string]any{"yaml": "version: 1.0", "secrets": map[string]string{"wrongToken": "invalid-token"}},
+			name: "Failure - incorrect secrets",
+			payload: map[string]any{
+				"yaml":    "version: 1.0",
+				"secrets": map[string]string{"wrongToken": "invalid-token"},
+			},
 			expectedError:    true,
 			expectedErrorMsg: errorcodes.Codes[errorcodes.StepCIRunFailed],
 		},

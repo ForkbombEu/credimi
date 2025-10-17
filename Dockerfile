@@ -5,6 +5,13 @@
 FROM golang:1.24-alpine AS builder
 WORKDIR /src
 
+RUN apk update && apk add --no-cache git
+ARG CREDIMI_EXTRA_PAT
+ENV CREDIMI_EXTRA_PAT ${CREDIMI_EXTRA_PAT}
+RUN git config --global url."${CREDIMI_EXTRA_PAT}".insteadOf "https://github.com/"
+RUN echo 🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥
+RUN echo ${CREDIMI_EXTRA_PAT}
+RUN echo 🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥
 COPY go.mod go.sum .
 RUN go mod download
 COPY . ./
@@ -21,13 +28,6 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     && apt-get -y --no-install-recommends install \
     build-essential make bash curl git tmux wget ca-certificates unzip 
 WORKDIR /app
-
-# install temporal
-ARG TARFILE=temporal_cli_latest_linux_amd64.tar.gz
-RUN wget 'https://temporal.download/cli/archive/latest?platform=linux&arch=amd64' -O $TARFILE
-RUN tar xf $TARFILE
-RUN rm $TARFILE
-RUN mv temporal /usr/local/bin
 
 # install credimi
 COPY --from=builder /src/credimi /usr/local/bin/credimi
@@ -65,14 +65,6 @@ RUN wget https://github.com/ForkbombEu/stepci-captured-runner/releases/latest/do
 
 #install et-tu-cesr
 RUN wget https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-linux-amd64 -O .bin/et-tu-cesr && chmod +x .bin/et-tu-cesr
-
-# install Maestro
-RUN mkdir -p /app/.bin/maestro \
-    && curl -fsSL "https://get.maestro.mobile.dev" -o /app/.bin/maestro/get-maestro.sh \
-    && chmod +x /app/.bin/maestro/get-maestro.sh \
-    && MAESTRO_DIR=/app/.bin/maestro /app/.bin/maestro/get-maestro.sh \
-    && rm -rf /app/.bin/maestro/tmp
-
 
 # copy everything
 COPY . ./

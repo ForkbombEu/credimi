@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"errors"
 	"net/http"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -82,7 +83,8 @@ func GenerateApiKey() func(e *core.RequestEvent) error {
 		service := NewApiKeyService(NewAppAdapter(e.App))
 		apiKey, err := service.GenerateApiKey(user, input.Name)
 		if err != nil {
-			if apiErr, ok := err.(*apierror.APIError); ok {
+			apiErr := &apierror.APIError{}
+			if errors.As(err, &apiErr) {
 				return apiErr.JSON(e)
 			}
 			return err
@@ -107,7 +109,8 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 		service := NewApiKeyService(NewAppAdapter(e.App))
 		authRecord, err := service.AuthenticateApiKey(apiKey)
 		if err != nil {
-			if apiErr, ok := err.(*apierror.APIError); ok {
+			apiErr := &apierror.APIError{}
+			if errors.As(err, &apiErr) {
 				return apiErr.JSON(e)
 			}
 			return err
@@ -115,7 +118,8 @@ func AuthenticateApiKey() func(e *core.RequestEvent) error {
 
 		response, err := generateAuthenticateApiKeyResponse(authRecord)
 		if err != nil {
-			if apiErr, ok := err.(*apierror.APIError); ok {
+			apiErr := &apierror.APIError{}
+			if errors.As(err, &apiErr) {
 				return apiErr.JSON(e)
 			}
 			return err
