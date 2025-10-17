@@ -44,6 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Sidebar.Menu>
 						{#each group.items as item (item)}
 							{#if typeof item === 'function'}
+								<!-- @ts-expect-error - Item is a function -->
 								{@render item()}
 							{:else}
 								{@const isActive = page.url.pathname.endsWith(item.url)}

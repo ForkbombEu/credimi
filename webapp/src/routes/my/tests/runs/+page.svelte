@@ -31,7 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	let { workflows, selectedStatuses } = $derived(data);
+	let { workflows = [], selectedStatus } = $derived(data);
 
 	let latestCheckRuns: StartCheckResultWithMeta[] = $state(
 		browser ? ensureArray(LatestCheckRunsStorage.get()) : []
@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	onMount(() => {
 		const interval = setInterval(async () => {
-			const newWorkflows = await fetchWorkflows({ statuses: selectedStatuses });
+			const newWorkflows = await fetchWorkflows({ status: selectedStatus });
 			if (newWorkflows instanceof Error) warn(newWorkflows);
 			else workflows = groupWorkflowsWithChildren(newWorkflows);
 		}, 5000);
@@ -110,7 +110,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	{#if oldWorkflows.length === 0 && latestWorkflows.length === 0}
-		{#if selectedStatuses.length === 0}
+		{#if selectedStatus}
+			<EmptyState icon={SearchIcon} title={m.No_check_runs_with_this_status()} />
+		{:else}
 			<EmptyState
 				icon={TestTube2}
 				title={m.No_check_runs_yet()}
@@ -130,8 +132,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Button>
 				{/snippet}
 			</EmptyState>
-		{:else}
-			<EmptyState icon={SearchIcon} title={m.No_check_runs_with_this_status()} />
 		{/if}
 	{/if}
 </div>

@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { page } from '$app/state';
 	import { TemporalI18nProvider, workflowStatuses } from '$lib/temporal';
+	import { WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows';
 	import { slide } from 'svelte/transition';
 
 	import * as Sidebar from '@/components/ui/sidebar/index.js';
@@ -28,8 +29,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Sidebar.MenuItem>
 						<Sidebar.MenuButton {isActive}>
 							{#snippet child({ props })}
+								{@const href = `/my/tests/runs?${WORKFLOW_STATUS_QUERY_PARAM}=${status}`}
 								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-								<a href="/my/tests/runs?status={status}" {...props}>
+								<a {href} {...props}>
 									<WorkflowStatus {status} />
 								</a>
 							{/snippet}

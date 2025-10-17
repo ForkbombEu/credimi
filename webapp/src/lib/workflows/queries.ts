@@ -6,7 +6,7 @@ import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workf
 import type { WorkflowStatusType } from '$lib/temporal';
 
 import { toWorkflowExecution, type HistoryEvent } from '@forkbombeu/temporal-ui';
-import { Array, String } from 'effect';
+import { Array } from 'effect';
 import { z } from 'zod';
 
 import { pb } from '@/pocketbase';
@@ -20,6 +20,8 @@ import {
 
 //
 
+export const WORKFLOW_STATUS_QUERY_PARAM = 'status';
+
 const WORKFLOWS_API = '/api/compliance/checks';
 
 const workflowApi = (workflowId: string, runId: string) =>
@@ -29,19 +31,16 @@ const workflowApi = (workflowId: string, runId: string) =>
 
 type FetchWorkflowsOptions = {
 	fetch?: typeof fetch;
-	statuses?: WorkflowStatusType[];
+	status?: WorkflowStatusType | undefined;
 };
 
 export async function fetchWorkflows(
 	options: FetchWorkflowsOptions = {}
 ): Promise<WorkflowExecution[] | Error> {
-	const { fetch: fetchFn = fetch, statuses = [] } = options;
+	const { fetch: fetchFn = fetch, status } = options;
 
 	let url = WORKFLOWS_API;
-	if (statuses.length > 0) {
-		const formattedStatuses = statuses.map((status) => String.pascalToSnake(status));
-		url += `?status=${formattedStatuses.join(',')}`;
-	}
+	if (status) url += `?${WORKFLOW_STATUS_QUERY_PARAM}=${status}`;
 
 	return tryPromise(async () => {
 		const data = await pb.send(url, {

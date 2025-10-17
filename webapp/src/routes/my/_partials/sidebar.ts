@@ -18,5 +18,5 @@ export type SidebarItem = {
 
 export type SidebarGroup = {
 	title?: string;
-	items: (SidebarItem | Snippet)[];
+	items: (SidebarItem | Snippet | (() => ReturnType<Snippet>))[];
 };

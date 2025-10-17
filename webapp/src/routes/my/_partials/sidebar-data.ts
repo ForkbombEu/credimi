@@ -9,7 +9,6 @@ import { m } from '@/i18n';
 
 import type { SidebarGroup } from './sidebar';
 
-// @ts-expect-error - Issue with svelte <script module> exports
 import { WorkflowStatusesSidebarSection } from './statuses-section.svelte';
 
 //
