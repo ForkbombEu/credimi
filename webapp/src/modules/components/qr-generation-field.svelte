@@ -9,8 +9,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import { onMount } from 'svelte';
-	import { fromStore } from 'svelte/store';
-	import { stringProxy } from 'sveltekit-superforms';
+	import { fromStore, type Writable } from 'svelte/store';
+	import { formFieldProxy } from 'sveltekit-superforms';
 
 	import { CodeEditorField } from '@/forms/fields';
 	import { m } from '@/i18n';
@@ -37,21 +37,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		description = m.Provide_configuration_in_YAML_format(),
 		placeholder = m.Run_the_code_to_generate_QR_code(),
 		successMessage = m.Test_Completed_Successfully(),
-		loadingMessage = m.Running_test(),
+		loadingMessage = m.Running_test()
 	}: Props = $props();
 
-	const fieldProxy = fromStore(stringProxy(form, fieldName, { empty: 'undefined' }));
+	const fieldProxy = formFieldProxy(form, fieldName);
+	const value = fromStore(fieldProxy.value as Writable<string>);
+	const errors = fromStore(fieldProxy.errors);
+
+	const hasErrors = $derived.by(() => {
+		const count = errors.current?.length;
+		return Boolean(count && count > 0);
+	});
 
 	onMount(() => {
-		if (fieldProxy.current && fieldProxy.current.trim()) {
-			startWorkflowTest(fieldProxy.current);
-		}
+		form.validate(fieldProxy.path, { update: true }).then(() => {
+			const shouldRun = Boolean(value.current.trim()) && !hasErrors;
+			if (shouldRun) startWorkflowTest(value.current);
+		});
 	});
 
 	$effect(() => {
-		if (fieldProxy.current) {
-			workflowError = undefined;
-		}
+		if (value.current) workflowError = undefined;
 	});
 
 	//
@@ -61,7 +67,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let generatedDeeplink = $state<string>();
 	let workflowSteps = $state<unknown[]>();
 	let workflowOutput = $state<unknown[]>();
-
 
 	async function startWorkflowTest(yamlContent: string) {
 		if (!yamlContent?.trim()) {
@@ -185,7 +190,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				output: editorOutput(),
 				error: codeEditorErrorDisplay(),
 				running: isSubmittingWorkflow,
-				onRun: startWorkflowTest
+				onRun: startWorkflowTest,
+				canRun: !hasErrors
 			}}
 		/>
 	</div>
@@ -209,6 +215,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</QrStateful>
 		{#if generatedDeeplink}
 			<div class="max-w-60 break-all pt-4 text-xs">
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a class="hover:underline" href={generatedDeeplink} target="_self">
 					{generatedDeeplink}
 				</a>

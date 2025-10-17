@@ -41,7 +41,7 @@ env:
   base_url: "https://labs-openid-interop.vididentity.net"
 
 tests:
-  - name: "POST /api/issuance-pre-auth"
+  VID-Identity: 
     steps:
       - name: "Create pre-auth issuance"
         http:
@@ -82,7 +82,7 @@ name: "Findynet/Procivis"
 env:
   base_url: https://issuer.procivis.pensiondemo.findy.fi
 tests:
-  - name: "pension-credential:"
+  procivis-get-credential:
     steps:
       - name: "Get rehabilitation pension credential"
         http:
@@ -90,7 +90,7 @@ tests:
           url: ${{ env.base_url }}/pensioncredential-rehabilitation.json
           captures:
            deeplink:
-             jsonpath: $         
+             jsonpath: $
 ```
 
 ---
@@ -103,7 +103,7 @@ This example read the QR from: [https://ewc.pre.vc-dts.sicpa.com/demo/fakephotoi
 
 ```yaml
 version: "1.1"
-
+name: "Sicpa Test Issuer"
 tests:
   get-deeplink:
     steps:
@@ -135,18 +135,51 @@ tests:
 
 Use this to create a **presentation request** (often session‑based) and capture the `openid4vp://...` deeplink.
 
+The example below integrates with the verification on [https://labs-openid-interop.vididentity.net/](https://labs-openid-interop.vididentity.net/).
+
+```yaml
+version: "1.0"
+name: "VID Identity – issuance-pre-auth"
+
+env:
+  base_url: "https://labs-openid-interop.vididentity.net"
+
+tests:
+  VID-Identity–issuance-pre-auth:
+    steps:
+      - name: "Create pre-auth issuance"
+        http:
+          method: POST
+          url: ${{ env.base_url }}/api/presentations
+          headers:
+            accept: "application/json, text/plain, */*"
+          json:
+            scope: "SDJWTCredential"
+          captures:
+            deeplink:
+              jsonpath: $.rawOpenid4vp
+            qr:
+              jsonpath: $.qrBase64
+            sessionId:
+              jsonpath: $.sessionId
+```
+
+### 5) OpenID4VP — Get Presentation Request (POST)
+
+Use this to create a **presentation request** (often session‑based) and capture the `openid4vp://...` deeplink.
+
 The example below integrates with the "Rent a car" verification on [https://funke.animo.id](https://funke.animo.id).
 
 ```yaml
 version: "1.0"
 
-name: "Funke Animo - Renta a Car verification "
+name: "Funke Animo - Government ID verification"
 
 env:
   base_url: "https://funke.animo.id"
 
 tests:
-  - name: "POST /api/issuance-pre-auth"
+  Animo-rent-a-car:
     steps:
       - name: "Create pre-auth issuance"
         http:
@@ -155,24 +188,27 @@ tests:
           headers:
             accept: "application/json, text/plain, */*"
           json:
-            presentationDefinitionId: c01ea0f3-34df-41d5-89d1-50ef3d181855__0
-            requestScheme: openid4vp://
+            presentationDefinitionId: 019368ed-3787-7669-b7f4-8c012238e90d__3
+            requestScheme: 'openid4vp://'
             responseMode: direct_post.jwt
             requestSignerType: x5c
             transactionAuthorizationType: none
             version: v1.draft24
-            queryLanguage: dcql
+            queryLanguage: dcql          
           captures:
             deeplink:
               jsonpath: $.authorizationRequestUri
-          
 ```
+
+
 
 ---
 
 # Wallet actions
 
-These YAML snippets describe **[Maestro](https://maestro.dev/) flows** that run on a mobile wallet. They consume the deeplinks captured by StepCI and automate user interactions (open app, accept, verify).
+These YAML snippets describe **[Maestro](https://maestro.dev/) flows** that run on a mobile wallet. They consume the deeplinks captured by StepCI and automate user interactions (open app, accept, verify). 
+
+The  snippets can be created with **[Maestro Studio](https://maestro.dev/#maestro-studio)** which you can download and install on Windows/Linux/Mac, you'll also need Android Studio and/or Xcode to run it.
 
 
 
@@ -218,4 +254,3 @@ appId: com.didroom.wallet
 ---
 
 👉 Use these as templates. Replace placeholders with your issuer/verifier endpoints and JSONPaths.
-

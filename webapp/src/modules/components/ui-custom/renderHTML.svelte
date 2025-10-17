@@ -5,18 +5,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import DOMPurify from 'dompurify';
+	import type { ClassValue } from 'svelte/elements';
 
-	import { cn } from '../ui/utils';
+	import DOMPurify from 'dompurify';
 
 	type Props = {
 		content: string;
-		class?: string;
+		class?: ClassValue;
 	};
 
 	const { content, class: className }: Props = $props();
 </script>
 
-<div class={cn('prose-strong:text-current', className)}>
+<div class={['prose-strong:text-current', className]}>
+	<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 	{@html DOMPurify.sanitize(content)}
 </div>

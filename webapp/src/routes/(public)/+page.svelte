@@ -7,11 +7,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import FakeTable from '$lib/layout/fakeTable.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
-	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
 	import { Sparkle } from 'lucide-svelte';
 
-	import { CollectionManager } from '@/collections-components';
+	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
+
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -19,35 +19,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { featureFlags } from '@/features';
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
-	import { Collections } from '@/pocketbase/types';
 
-	import MarketplaceSection from './_sections/marketplace-section.svelte';
 	import { MarketplaceItemCard } from './marketplace/_utils';
 
-	const MAX_SOLUTION_ITEMS = 3;
-	// const schema = z.object({
-	// 	name: z.string(),
-	// 	email: z.string().email()
-	// });
 	//
-	// const form = createForm({
-	// 	adapter: zod(schema),
-	// 	onSubmit: async ({ form: { data } }) => {
-	// 		try {
-	// 			await pb.collection('waitlist').create({
-	// 				email: data.email,
-	// 				name: data.name
-	// 			});
-	// 			formSuccess = true;
-	// 		} catch {
-	// 			throw new Error(
-	// 				m.An_error_occurred_while_submitting_your_request_Please_try_again()
-	// 			);
-	// 		}
-	// 	}
-	// });
-	// let formSuccess = $state(false);
-	const excludeFromSolutions = Collections.Credentials;
+
+	let { data } = $props();
+	const { wallets, issuers, verifiers } = $derived(data);
 </script>
 
 {#if $featureFlags.DEMO}
@@ -75,7 +53,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Button variant="secondary" href={$currentUser ? '/my/tests/new' : '/login'}>
 			<Icon src={Sparkle} />
 			{m.Start_a_new_check()}
-			<Badge variant="outline" class="border-primary text-xs text-primary">
+			<Badge variant="outline" class="border-primary text-primary text-xs">
 				{m.Beta()}
 			</Badge>
 		</Button>
@@ -89,80 +67,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Button variant="default" href="/marketplace">{m.Explore_Marketplace()}</Button>
 		</div>
 
-		<CollectionManager
-			collection="marketplace_items"
-			queryOptions={{
-				perPage: MAX_SOLUTION_ITEMS,
-				filter: `type != '${excludeFromSolutions}'`
-			}}
-			hide={['pagination']}
-		>
-			{#snippet records({ records })}
-				<PageGrid>
-					{#each records as item, i}
-						{@const isLast = i === MAX_SOLUTION_ITEMS - 1}
-						<MarketplaceItemCard {item} class={isLast ? 'hidden lg:flex' : ''} />
-					{/each}
-				</PageGrid>
-			{/snippet}
-		</CollectionManager>
+		{@render row(issuers)}
+		{@render row(verifiers)}
+		{@render row(wallets)}
 	</div>
-	<MarketplaceSection
+
+	<!-- <MarketplaceSection
 		collection={Collections.Credentials}
 		findLabel={m.Find_credentials()}
 		allLabel={m.All_credentials()}
-	/>
-</PageContent>
+	/> -->
 
-<PageContent class="border-y-primaryborder-y-2" contentClass="!space-y-8">
-	<div id="waitlist" class="scroll-mt-20">
-		<!-- <T tag="h2" class="text-balance"> -->
-		<!-- 	{m._Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List()} -->
-		<!-- </T> -->
-		<!-- <T class="mt-1 text-balance font-medium"> -->
-		<!-- 	{m.Be_the_first_to_explore_credimi_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_()} -->
-		<!-- </T> -->
-	</div>
-
-	<!-- {#if !formSuccess} -->
-	<!-- 	<Form {form} hide={['submit_button']} class=" !space-y-3" hideRequiredIndicator> -->
-	<!-- 		<div class="flex w-full max-w-3xl flex-col gap-2 md:flex-row md:gap-6"> -->
-	<!-- 			<div class="grow"> -->
-	<!-- 				<Field -->
-	<!-- 					{form} -->
-	<!-- 					name="name" -->
-	<!-- 					options={{ -->
-	<!-- 						label: m.Your_name(), -->
-	<!-- 						placeholder: m.John_Doe(), -->
-	<!-- 						class: 'bg-secondary/40 ' -->
-	<!-- 					}} -->
-	<!-- 				/> -->
-	<!-- 			</div> -->
-	<!-- 			<div class="grow"> -->
-	<!-- 				<Field -->
-	<!-- 					{form} -->
-	<!-- 					name="email" -->
-	<!-- 					options={{ -->
-	<!-- 						label: m.Your_email(), -->
-	<!-- 						placeholder: m.e_g_hellomycompany_com(), -->
-	<!-- 						class: 'bg-secondary/40' -->
-	<!-- 					}} -->
-	<!-- 				/> -->
-	<!-- 			</div> -->
-	<!-- 		</div> -->
-	<!-- 		<SubmitButton>{m.Join_the_Waitlist()}</SubmitButton> -->
-	<!-- 	</Form> -->
-	<!-- {:else} -->
-	<!-- 	<Alert variant="info"> -->
-	<!-- 		<p class="font-bold">{m.Request_sent_()}</p> -->
-	<!-- 		<p> -->
-	<!-- 			{m.Thanks_for_your_interest_We_will_write_to_you_soon()} -->
-	<!-- 		</p> -->
-	<!-- 	</Alert> -->
-	<!-- {/if} -->
-</PageContent>
-
-<PageContent class="bg-secondary" contentClass="space-y-12">
 	<div class="space-y-6">
 		<div>
 			<T tag="h3">{m.Compare_by_test_results()}</T>
@@ -170,3 +85,64 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<FakeTable />
 	</div>
 </PageContent>
+
+{#snippet row(items: MarketplaceItemsResponse[])}
+	<!-- Try: https://stackoverflow.com/questions/22955465/overflow-y-scroll-is-hiding-overflowing-elements-on-the-horizontal-line -->
+	<div class="scrollbar-none overflow-x-scroll">
+		<div class="flex gap-4">
+			{#each items as item (item.id)}
+				<MarketplaceItemCard {item} class="min-w-[300px] grow" />
+			{/each}
+		</div>
+	</div>
+{/snippet}
+
+<!-- 
+<PageContent class="border-y-primaryborder-y-2" contentClass="!space-y-8">
+	<div id="waitlist" class="scroll-mt-20">
+		 <T tag="h2" class="text-balance"> 
+		 	{m._Stay_Ahead_in_Digital_Identity_Compliance_Join_Our_Early_Access_List()} 
+		 </T> 
+		 <T class="mt-1 text-balance font-medium"> 
+		 	{m.Be_the_first_to_explore_credimi_the_ultimate_compliance_testing_tool_for_decentralized_identity_Get_exclusive_updates_early_access_and_a_direct_line_to_our_team_()} 
+		 </T> 
+	</div>
+
+	 {#if !formSuccess} 
+	 	<Form {form} hide={['submit_button']} class=" !space-y-3" hideRequiredIndicator> 
+	 		<div class="flex w-full max-w-3xl flex-col gap-2 md:flex-row md:gap-6"> 
+	 			<div class="grow"> 
+	 				<Field 
+	 					{form} 
+	 					name="name" 
+	 					options={{ 
+	 						label: m.Your_name(), 
+	 						placeholder: m.John_Doe(), 
+	 						class: 'bg-secondary/40 ' 
+	 					}} 
+	 				/> 
+	 			</div> 
+	 			<div class="grow"> 
+	 				<Field 
+	 					{form} 
+	 					name="email" 
+	 					options={{ 
+	 						label: m.Your_email(), 
+	 						placeholder: m.e_g_hellomycompany_com(), 
+	 						class: 'bg-secondary/40' 
+	 					}} 
+	 				/> 
+	 			</div> 
+	 		</div> 
+	 		<SubmitButton>{m.Join_the_Waitlist()}</SubmitButton> 
+	 	</Form> 
+	 {:else} 
+	 	<Alert variant="info"> 
+	 		<p class="font-bold">{m.Request_sent_()}</p> 
+	 		<p> 
+	 			{m.Thanks_for_your_interest_We_will_write_to_you_soon()} 
+	 		</p> 
+	 	</Alert> 
+	 {/if} 
+</PageContent>
+-->

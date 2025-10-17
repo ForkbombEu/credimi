@@ -1,0 +1,102 @@
+<!--
+SPDX-FileCopyrightText: 2025 Forkbomb BV
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
+<script module lang="ts">
+	import { pb } from '@/pocketbase/index.js';
+	import { PocketbaseQueryAgent } from '@/pocketbase/query';
+
+	import { pageDetails } from './_utils/types';
+
+	export async function getCredentialIssuersDetails(itemId: string, fetchFn = fetch) {
+		const credentialIssuer = await new PocketbaseQueryAgent(
+			{
+				collection: 'credential_issuers',
+				expand: ['credentials_via_credential_issuer']
+			},
+			{ fetch: fetchFn }
+		).getOne(itemId);
+
+		const credentialsIds = (
+			credentialIssuer.expand?.credentials_via_credential_issuer ?? []
+		).map((credential) => credential.id);
+
+		const credentialsFilters = credentialsIds.map((id) => `id = '${id}'`).join(' || ');
+
+		const credentialsMarketplaceItems =
+			credentialsFilters.length > 0
+				? await pb.collection('marketplace_items').getFullList(1, {
+						filter: credentialsFilters,
+						fetch: fetchFn
+					})
+				: [];
+
+		return pageDetails('credential_issuers', {
+			credentialIssuer,
+			credentialsMarketplaceItems
+		});
+	}
+</script>
+
+<script lang="ts">
+	import InfoBox from '$lib/layout/infoBox.svelte';
+	import { MarketplaceItemCard } from '$marketplace/_utils';
+	import { String } from 'effect';
+
+	import { CollectionForm } from '@/collections-components/index.js';
+	import T from '@/components/ui-custom/t.svelte';
+	import { m } from '@/i18n';
+
+	import DescriptionSection from './_utils/description-section.svelte';
+	import EditSheet from './_utils/edit-sheet.svelte';
+	import LayoutWithToc from './_utils/layout-with-toc.svelte';
+	import PageSection from './_utils/page-section.svelte';
+	import { sections as s } from './_utils/sections';
+
+	//
+
+	type Props = Awaited<ReturnType<typeof getCredentialIssuersDetails>>;
+
+	let { credentialIssuer, credentialsMarketplaceItems }: Props = $props();
+</script>
+
+<LayoutWithToc sections={[s.general_info, s.description, s.credentials]}>
+	<PageSection indexItem={s.general_info}>
+		<InfoBox label="URL" url={credentialIssuer.url} copyable={true} />
+
+		{#if String.isNonEmpty(credentialIssuer.repo_url)}
+			<InfoBox label="Repository" url={credentialIssuer.repo_url} copyable={true} />
+		{/if}
+
+		{#if String.isNonEmpty(credentialIssuer.homepage_url)}
+			<InfoBox label="Homepage" url={credentialIssuer.homepage_url} copyable={true} />
+		{/if}
+	</PageSection>
+
+	<DescriptionSection description={credentialIssuer.description} />
+
+	<PageSection indexItem={s.credentials} empty={credentialsMarketplaceItems.length === 0}>
+		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+			{#each credentialsMarketplaceItems as credential (credential.id)}
+				<MarketplaceItemCard item={credential} />
+			{/each}
+		</div>
+	</PageSection>
+</LayoutWithToc>
+
+<EditSheet>
+	{#snippet children({ closeSheet })}
+		<T tag="h2" class="mb-4">{m.Edit()} {credentialIssuer.name}</T>
+		<CollectionForm
+			collection="credential_issuers"
+			recordId={credentialIssuer.id}
+			initialData={credentialIssuer}
+			onSuccess={closeSheet}
+			fieldsOptions={{
+				exclude: ['owner', 'url', 'published', 'imported', 'workflow_url']
+			}}
+		/>
+	{/snippet}
+</EditSheet>

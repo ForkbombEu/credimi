@@ -128,6 +128,7 @@
 		"sqlite3": "^5.1.7",
 		"svelte-codemirror-editor": "^1.4.1",
 		"svelte-loading-spinners": "^0.3.6",
+		"tailwind-scrollbar": "^4.0.2",
 		"thememirror": "^2.0.1",
 		"to-json-schema": "^0.2.5",
 		"type-fest": "^4.37.0",

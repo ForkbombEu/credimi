@@ -32,6 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				output?: string;
 				error?: string;
 				running?: boolean;
+				canRun?: boolean;
 			};
 	}
 
@@ -50,6 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				output={options.output}
 				error={options.error}
 				running={options.running}
+				canRun={options.canRun}
 			/>
 		{:else}
 			<CodeEditor

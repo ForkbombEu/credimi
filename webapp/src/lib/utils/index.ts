@@ -6,9 +6,11 @@ import { error } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { invalidateAll } from '$app/navigation';
 import { userOrganization } from '$lib/app-state';
+import stepciJsonSchema from '$root/schemas/stepci/schema.json';
+import Ajv from 'ajv';
 import { Record as R } from 'effect';
 import { onMount } from 'svelte';
-import { isCollection, parseAllDocuments } from 'yaml';
+import { isCollection, parseAllDocuments, parse as parseYaml } from 'yaml';
 import { z } from 'zod';
 
 import { verifyUser } from '@/auth/verifyUser';
@@ -67,6 +69,16 @@ export const yamlStringSchema = z
 	.nonempty()
 	.superRefine((value, ctx) => {
 		const docs = parseAllDocuments(value);
+
+		// @ts-expect-error - `docs.empty` may exist but is not typed
+		if (docs.empty) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: 'Empty YAML document'
+			});
+			return;
+		}
+
 		for (const [index, doc] of Object.entries(docs)) {
 			const i = parseInt(index) + 1;
 			const prefix = docs.length > 1 ? `Document ${i}: ` : '';
@@ -98,6 +110,33 @@ export const jsonStringSchema = z.string().superRefine((v, ctx) => {
 		ctx.addIssue({
 			code: z.ZodIssueCode.custom,
 			message: `Invalid JSON object: ${message}`
+		});
+	}
+});
+
+//
+
+const ajv = new Ajv({ allowUnionTypes: true });
+const validateStepci = ajv.compile(stepciJsonSchema);
+
+export const stepciYamlSchema = z.string().superRefine((v, ctx) => {
+	let res: unknown;
+	try {
+		res = parseYaml(v);
+	} catch (e) {
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			message: `Invalid YAML document: ${getExceptionMessage(e)}`
+		});
+		return;
+	}
+
+	const isValid = validateStepci(res);
+	if (!isValid) {
+		const error = ajv.errorsText(validateStepci.errors);
+		ctx.addIssue({
+			code: z.ZodIssueCode.custom,
+			message: `Invalid YAML document: ${error}`
 		});
 	}
 });
