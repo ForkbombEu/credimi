@@ -149,7 +149,7 @@ var OrgWorkers = []workerConfig{
 		},
 	},
 	{
-		TaskQueue: workflows.CustomCheckTaskQueque,
+		TaskQueue: workflows.CustomCheckTaskQueue,
 		Workflows: []workflowengine.Workflow{
 			&workflows.CustomCheckWorkflow{},
 		},
@@ -183,7 +183,7 @@ var OrgWorkers = []workerConfig{
 
 var DefaultWorkers = []workerConfig{
 	{
-		TaskQueue: workflows.CustomCheckTaskQueque,
+		TaskQueue: workflows.CustomCheckTaskQueue,
 		Workflows: []workflowengine.Workflow{
 			&workflows.CustomCheckWorkflow{},
 		},

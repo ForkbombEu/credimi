@@ -15,7 +15,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-const CustomCheckTaskQueque = "custom-check-task-queue"
+const CustomCheckTaskQueue = "custom-check-task-queue"
 
 type CustomCheckWorkflow struct{}
 
@@ -164,7 +164,7 @@ func (w *CustomCheckWorkflow) Start(
 ) (workflowengine.WorkflowResult, error) {
 	workflowOptions := client.StartWorkflowOptions{
 		ID:        "custom" + "-" + uuid.NewString(),
-		TaskQueue: CustomCheckTaskQueque,
+		TaskQueue: CustomCheckTaskQueue,
 	}
 	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }

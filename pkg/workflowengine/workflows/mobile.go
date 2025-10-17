@@ -23,7 +23,7 @@ func (MobileAutomationWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
-type MobileWorflowOutput struct {
+type MobileWorkflowOutput struct {
 	TestRunURL     string `json:"test_run_url"`
 	ResultVideoURL string `json:"result_video_url,omitempty"`
 	FlowOutput     any    `json:"flow_output,omitempty"`
@@ -38,7 +38,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 ) (workflowengine.WorkflowResult, error) {
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 
-	var output MobileWorflowOutput
+	var output MobileWorkflowOutput
 	testRunURL := fmt.Sprintf(
 		"%s/my/tests/runs/%s/%s",
 		input.Config["app_url"],
