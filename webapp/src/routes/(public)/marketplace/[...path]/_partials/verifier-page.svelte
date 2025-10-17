@@ -46,15 +46,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import { MarketplaceItemCard } from '$marketplace/_utils/index.js';
-	import { settings } from '$routes/my/services-and-products/_verifiers/verifier-form-settings.svelte';
 	import { String } from 'effect';
 
-	import { CollectionForm } from '@/collections-components/index.js';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
 	import DescriptionSection from './_utils/description-section.svelte';
-	import EditSheet from './_utils/edit-sheet.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
@@ -120,6 +117,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</PageSection>
 </LayoutWithToc>
 
+<!-- 
 <EditSheet>
 	{#snippet children({ closeSheet })}
 		<T tag="h2" class="mb-4">{m.Edit()} {verifier.name}</T>
@@ -139,3 +137,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</CollectionForm>
 	{/snippet}
 </EditSheet>
+-->

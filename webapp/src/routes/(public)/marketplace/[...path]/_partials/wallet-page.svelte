@@ -27,14 +27,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import WalletForm from '$routes/my/services-and-products/_wallets/wallet-form.svelte';
-	import { ConformanceCheckSchema } from '$services-and-products/_wallets/wallet-form-checks-table.svelte';
+	import { ConformanceCheckSchema } from '$lib/types/checks';
 	import { String } from 'effect';
 	import { Code } from 'lucide-svelte';
 	import { z } from 'zod';
 
 	import Card from '@/components/ui-custom/card.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import {
 		Accordion,
 		AccordionContent,
@@ -42,10 +40,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		AccordionTrigger
 	} from '@/components/ui/accordion';
 	import { Badge } from '@/components/ui/badge';
-	import { m } from '@/i18n';
 
 	import DescriptionSection from './_utils/description-section.svelte';
-	import EditSheet from './_utils/edit-sheet.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
@@ -186,6 +182,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</PageSection>
 </LayoutWithToc>
 
+<!-- 
 <EditSheet>
 	{#snippet children({ closeSheet })}
 		<T tag="h2" class="mb-4">{m.Edit()} {wallet.name}</T>
@@ -198,6 +195,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	{/snippet}
 </EditSheet>
+-->
 
 {#snippet AppStore(url: string)}
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->

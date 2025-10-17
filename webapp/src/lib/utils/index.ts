@@ -17,7 +17,6 @@ import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
 //
 
-// @ts-expect-error - Wrong expectations by svelte
 export { loading, runWithLoading } from '$lib/layout/global-loading.svelte';
 export * from './schemas';
 

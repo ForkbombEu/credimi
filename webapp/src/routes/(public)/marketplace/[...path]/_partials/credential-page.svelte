@@ -44,16 +44,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import { MarketplaceItemCard } from '$marketplace/_utils';
-	import EditCredentialForm from '$routes/my/services-and-products/_credentials/credential-form.svelte';
 	import { String } from 'effect';
 	import { onMount } from 'svelte';
 
-	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	import DescriptionSection from './_utils/description-section.svelte';
-	import EditSheet from './_utils/edit-sheet.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
 	import { sections as sec } from './_utils/sections';
@@ -177,6 +173,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</PageSection>
 </LayoutWithToc>
 
+<!-- 
 <EditSheet>
 	{#snippet children({ closeSheet })}
 		<T tag="h2" class="mb-4">{m.Edit()} {credential.display_name}</T>
@@ -189,3 +186,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	{/snippet}
 </EditSheet>
+-->

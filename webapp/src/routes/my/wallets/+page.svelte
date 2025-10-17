@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ConformanceCheck } from '$lib/types/checks';
+
 	import { yaml } from '@codemirror/lang-yaml';
 	import LabelLink from '$lib/layout/label-link.svelte';
 	import { yamlStringSchema } from '$lib/utils';
@@ -39,8 +41,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 	import { readFileAsString, startFileUpload } from '@/utils/files';
-
-	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
 	import WalletFormSheet from './wallet-form-sheet.svelte';
