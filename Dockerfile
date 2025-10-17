@@ -5,6 +5,13 @@
 FROM golang:1.24-alpine AS builder
 WORKDIR /src
 
+RUN apk update && apk add --no-cache git
+ARG CREDIMI_EXTRA_PAT
+ENV CREDIMI_EXTRA_PAT ${CREDIMI_EXTRA_PAT}
+RUN git config --global url."${CREDIMI_EXTRA_PAT}".insteadOf "https://github.com/"
+RUN echo 🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥
+RUN echo ${CREDIMI_EXTRA_PAT}
+RUN echo 🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥🟥
 COPY go.mod go.sum .
 RUN go mod download
 COPY . ./
