@@ -46,8 +46,8 @@ services:
       - ENABLE_ES=true
       - ES_SEEDS=elasticsearch
       - ES_VERSION=v7
-      - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}
-      - TEMPORAL_CLI_ADDRESS=${SERVICE_FQDN_TEMPORAL}
+      - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
+      - TEMPORAL_CLI_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
     image: temporalio/auto-setup:${TEMPORAL_VERSION}
     networks:
       - temporal-network
@@ -60,8 +60,8 @@ services:
     depends_on:
       - temporal
     environment:
-      - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}
-      - TEMPORAL_CLI_ADDRESS=${SERVICE_FQDN_TEMPORAL}
+      - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
+      - TEMPORAL_CLI_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
     image: temporalio/admin-tools:${TEMPORAL_ADMINTOOLS_VERSION}
     networks:
       - temporal-network
@@ -72,7 +72,7 @@ services:
     depends_on:
       - temporal
     environment:
-      - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}
+      - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:8080
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
     networks:
@@ -99,7 +99,7 @@ services:
       - SCHEMAS_PATH=schemas
       - SMTP_HOST=smtp.apps.forkbomb.eu
       - SMTP_PORT=1025
-      - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}
+      - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
       - MAESTRO_WORKER=http://maestro-worker:8050
       - PORT=5100
     ports:
