@@ -114,6 +114,6 @@ services:
       - temporal-network
 networks:
   temporal-network:
-    external: true
+    # external: true
     name: temporal-network
 
