@@ -8,10 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
+	import A from '@/components/ui-custom/a.svelte';
 	import { Form, createForm } from '@/forms';
 	import { Field } from '@/forms/fields';
-	import { m } from '@/i18n';
-	import { goto } from '@/i18n';
+	import { goto, m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
 	import { currentEmail } from './+layout.svelte';
@@ -53,17 +53,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}}
 	/>
 
-	<Field
-		{form}
-		name="password"
-		options={{
-			type: 'password',
-			label: m.Your_password(),
-			placeholder: '•••••'
-		}}
-	/>
+	<div>
+		<Field
+			{form}
+			name="password"
+			options={{
+				type: 'password',
+				label: m.Your_password(),
+				placeholder: '•••••'
+			}}
+		/>
+		<A class="block text-right text-sm" href="/forgot-password">{m.Forgot_password()}</A>
+	</div>
 
-	{#snippet submitButtonContent()}
-		{m.Log_in()}
+	{#snippet submitButton({ SubmitButton })}
+		<SubmitButton class="w-full">
+			{m.Log_in()}
+		</SubmitButton>
 	{/snippet}
 </Form>
