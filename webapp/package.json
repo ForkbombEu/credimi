@@ -121,6 +121,7 @@
 		"nanoid": "^5.1.5",
 		"pocketbase": "~0.25.2",
 		"qrcode-generator": "^1.4.4",
+		"remove-markdown": "^0.6.2",
 		"runed": "^0.15.4",
 		"scrollama": "^3.2.0",
 		"sqlite": "^5.1.1",
