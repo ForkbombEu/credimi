@@ -33,8 +33,6 @@ export const load = async ({ fetch, url }) => {
 		});
 	}
 
-	console.log(parsedStatus, workflows);
-
 	return {
 		workflows: groupWorkflowsWithChildren(workflows),
 		selectedStatus: parsedStatus

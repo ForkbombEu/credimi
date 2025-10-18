@@ -5,11 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { browser } from '$app/environment';
 	import {
 		LatestCheckRunsStorage,
 		type StartCheckResultWithMeta
 	} from '$lib/start-checks-form/_utils';
+	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
 	import {
 		fetchWorkflows,
 		groupWorkflowsWithChildren,
@@ -110,7 +112,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#if oldWorkflows.length === 0 && latestWorkflows.length === 0}
 		{#if selectedStatus}
-			<EmptyState icon={SearchIcon} title={m.No_check_runs_with_this_status()} />
+			<EmptyState icon={SearchIcon} title={m.No_check_runs_with_this_status()}>
+				{#snippet bottom()}
+					<TemporalI18nProvider>
+						<div class="pt-2">
+							<WorkflowStatus status={selectedStatus} />
+						</div>
+					</TemporalI18nProvider>
+				{/snippet}
+			</EmptyState>
 		{:else}
 			<EmptyState
 				icon={TestTube2}

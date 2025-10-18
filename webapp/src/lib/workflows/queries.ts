@@ -6,7 +6,7 @@ import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workf
 import type { WorkflowStatusType } from '$lib/temporal';
 
 import { toWorkflowExecution, type HistoryEvent } from '@forkbombeu/temporal-ui';
-import { Array } from 'effect';
+import { Array, String } from 'effect';
 import { z } from 'zod';
 
 import { pb } from '@/pocketbase';
@@ -40,7 +40,10 @@ export async function fetchWorkflows(
 	const { fetch: fetchFn = fetch, status } = options;
 
 	let url = WORKFLOWS_API;
-	if (status) url += `?${WORKFLOW_STATUS_QUERY_PARAM}=${status}`;
+	if (status) {
+		const formattedStatus = String.pascalToSnake(status);
+		url += `?${WORKFLOW_STATUS_QUERY_PARAM}=${formattedStatus}`;
+	}
 
 	return tryPromise(async () => {
 		const data = await pb.send(url, {
@@ -58,8 +61,7 @@ export async function fetchWorkflows(
 		const errors = parsed.filter((execution) => execution instanceof Error);
 		if (errors.length > 0) warn(errors);
 
-		const executions = Array.difference(parsed, errors) as WorkflowExecution[];
-		return executions;
+		return Array.difference(parsed, errors) as WorkflowExecution[];
 	}, 'Failed to fetch user workflows');
 }
 
