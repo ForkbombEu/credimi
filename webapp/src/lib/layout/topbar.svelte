@@ -78,7 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const allItems = $derived([...leftItems, ...rightItems]);
 </script>
 
-<BaseTopbar class="border-none bg-card">
+<BaseTopbar class="bg-card border-none">
 	{#snippet left()}
 		<div class="flex min-w-0 items-center space-x-4 overflow-hidden">
 			<Button variant="link" href={href('/')} class="shrink-0">
@@ -86,7 +86,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Button>
 
 			<div class="hidden lg:flex lg:flex-row lg:items-center lg:gap-1">
-				{#each leftItems as item}
+				{#each leftItems as item (item)}
 					<NavLink link={item} variant="desktop" />
 				{/each}
 			</div>
@@ -96,7 +96,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet right()}
 		<div class="flex items-center gap-2">
 			<div class="hidden lg:flex lg:flex-row">
-				{#each rightItems as item}
+				{#each rightItems as item (item)}
 					<NavLink
 						link={item}
 						variant="desktop"

@@ -1,14 +1,7 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { cn } from "@/components/ui/utils.js";
+	import type { WithElementRef } from "bits-ui";
+	import type { HTMLAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
@@ -22,8 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	bind:this={ref}
 	data-sidebar="menu-sub"
 	class={cn(
-		'mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l border-sidebar-border px-2.5 py-0.5',
-		'group-data-[collapsible=icon]:hidden',
+		"border-sidebar-border mx-3.5 flex min-w-0 translate-x-px flex-col gap-1 border-l px-2.5 py-0.5",
+		"group-data-[collapsible=icon]:hidden",
 		className
 	)}
 	{...restProps}

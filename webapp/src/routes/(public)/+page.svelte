@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
-	import { MarketplaceItemCard } from './marketplace/_utils';
+	import { MarketplaceItemCard } from '../../lib/marketplace';
 
 	//
 

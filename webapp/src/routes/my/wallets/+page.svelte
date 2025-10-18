@@ -5,7 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ConformanceCheck } from '$lib/types/checks';
+
 	import { yaml } from '@codemirror/lang-yaml';
+	import LabelLink from '$lib/layout/label-link.svelte';
 	import { yamlStringSchema } from '$lib/utils';
 	import { ChevronDown, ChevronUp, Eye, EyeOff, UploadIcon } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
@@ -13,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type { IconComponent } from '@/components/types';
-	import type { OrganizationsResponse, WalletsResponse } from '@/pocketbase/types';
+	import type { WalletsResponse } from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
 	import {
@@ -39,20 +42,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 	import { readFileAsString, startFileUpload } from '@/utils/files';
 
-	import type { ConformanceCheck } from './wallet-form-checks-table.svelte';
-
-	import LabelLink from '../_partials/label-link.svelte';
+	import { setDashboardNavbar } from '../+layout@.svelte';
 	import WalletFormSheet from './wallet-form-sheet.svelte';
 
 	//
 
-	type Props = {
-		organizationId?: string;
-		organization?: OrganizationsResponse;
-		id?: string;
-	};
-
-	let { organizationId, organization, id }: Props = $props();
+	let { data } = $props();
+	let { organization } = $derived(data);
 
 	let expandedDescriptions = $state(new Set<string>());
 
@@ -81,7 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const organizationName =
 			organization?.canonified_name ||
 			organization?.name ||
-			organizationId ||
+			organization.id ||
 			'Unknown Organization';
 		const walletName = wallet.canonified_name || wallet.name || 'Unknown Wallet';
 
@@ -92,6 +88,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
+	setDashboardNavbar({ title: 'Wallets', right: navbarRight });
+
 	pb.collection('credential_issuers').subscribe('*', (event) => {
 		console.log(event);
 	});
@@ -100,27 +98,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <CollectionManager
 	collection="wallets"
 	queryOptions={{
-		filter: `owner.id = '${organizationId}'`,
+		filter: `owner.id = '${organization.id}'`,
 		sort: ['created', 'DESC']
 	}}
 	editFormFieldsOptions={{ exclude: ['owner', 'published'] }}
 >
-	{#snippet top({ Header, reloadRecords })}
-		<Header title="Wallets" {id}>
-			{#snippet right()}
-				<WalletFormSheet onEditSuccess={reloadRecords} />
-			{/snippet}
-		</Header>
-	{/snippet}
-
 	{#snippet records({ records, reloadRecords })}
-		<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+		<div class="space-y-4">
 			{#each records as record (record.id)}
 				{@render WalletCard(record, reloadRecords)}
 			{/each}
 		</div>
 	{/snippet}
 </CollectionManager>
+
+{#snippet navbarRight()}
+	<WalletFormSheet />
+{/snippet}
 
 {#snippet WalletCard(wallet: WalletsResponse, onEditSuccess: () => void)}
 	<Card class="bg-background">
@@ -155,7 +149,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						onCheckedChange={() =>
 							updatePublished(wallet.id, !wallet.published, onEditSuccess)}
 					/>
-					<WalletFormSheet walletId={wallet.id} initialData={wallet} {onEditSuccess} />
+					<WalletFormSheet walletId={wallet.id} initialData={wallet} />
 					<RecordDelete record={wallet}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
 							<Button
@@ -223,7 +217,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			{@render walletVersionsManager({
 				wallet,
-				organizationId: organizationId ?? ''
+				organizationId: organization.id
 			})}
 
 			<Separator />

@@ -21,12 +21,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		walletId?: string;
 		initialData?: WalletsResponse;
-		onEditSuccess: () => void;
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
 		customTrigger?: Snippet<[{ sheetTriggerAttributes: any }]>;
 	};
 
-	let { walletId, initialData, onEditSuccess, customTrigger }: Props = $props();
+	let { walletId, initialData, customTrigger }: Props = $props();
 </script>
 
 <Sheet>
@@ -56,7 +55,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{walletId}
 				{initialData}
 				onSuccess={() => {
-					onEditSuccess();
 					closeSheet();
 					// Wallet will be automatically updated via CollectionManager subscription
 				}}

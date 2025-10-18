@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
+	import { m } from '@/i18n';
+	import { getExceptionMessage } from '@/utils/errors';
 	import { toast } from 'svelte-sonner';
 
 	const loadingState = $state({
@@ -46,8 +48,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import * as AlertDialog from '@/components/ui/alert-dialog';
-	import { m } from '@/i18n';
-	import { getExceptionMessage } from '@/utils/errors';
 
 	//
 

@@ -15,7 +15,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 
-	import { getCollectionManagerContext } from '@/collections-components/manager/collectionManagerContext';
 	import Button from '@/components/ui-custom/button.svelte';
 	import { Alert, AlertDescription } from '@/components/ui/alert';
 	import { ScrollArea } from '@/components/ui/scroll-area/index';
@@ -61,9 +60,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			});
 			result = res as Result;
 			onImport?.(result.record);
-
-			// Temp fix for imported issuer not showing
-			updateManagerRecord(result.record);
 		}
 	});
 
@@ -110,19 +106,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			});
 		}
 	});
-
-	/* Temp fix for imported issuer not showing */
-
-	const { manager } = getCollectionManagerContext();
-
-	function updateManagerRecord(record: CredentialIssuersResponse) {
-		const records = manager.records as CredentialIssuersResponse[];
-		const managerRecord = records.find((r) => r.id === result?.record.id);
-		if (!managerRecord) return;
-		const recordIndex = records.indexOf(managerRecord);
-		// @ts-expect-error - manager.records is not typed
-		manager.records[recordIndex] = record;
-	}
 </script>
 
 <div class="bg-secondary border-purple-outline/20 mb-8 rounded-lg border">
@@ -199,7 +182,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="mt-2" transition:slide>
 				<ScrollArea class="mt h-[200px] rounded-md border px-3 py-2">
 					<ul class="list-inside list-disc">
-						{#each credentials as credential}
+						{#each credentials as credential (credential.id)}
 							<li>
 								{credential.display_name || credential.name}
 							</li>

@@ -1,14 +1,7 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { cn } from "@/components/ui/utils.js";
+	import type { WithElementRef } from "bits-ui";
+	import type { HTMLAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
@@ -21,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <li
 	bind:this={ref}
 	data-sidebar="menu-item"
-	class={cn('group/menu-item relative', className)}
+	class={cn("group/menu-item relative", className)}
 	{...restProps}
 >
 	{@render children?.()}

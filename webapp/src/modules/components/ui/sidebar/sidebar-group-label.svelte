@@ -1,15 +1,8 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { Snippet } from 'svelte';
-	import type { HTMLAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { cn } from "@/components/ui/utils.js";
+	import type { WithElementRef } from "bits-ui";
+	import type { Snippet } from "svelte";
+	import type { HTMLAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
@@ -23,12 +16,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const mergedProps = $derived({
 		class: cn(
-			'text-sidebar-foreground/70 ring-sidebar-ring flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium outline-none transition-[margin,opa] duration-200 ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0',
-			'group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0',
+			"text-sidebar-foreground/70 ring-sidebar-ring flex h-8 shrink-0 items-center rounded-md px-2 text-xs font-medium outline-none transition-[margin,opa] duration-200 ease-linear focus-visible:ring-2 [&>svg]:size-4 [&>svg]:shrink-0",
+			"group-data-[collapsible=icon]:-mt-8 group-data-[collapsible=icon]:opacity-0",
 			className
 		),
-		'data-sidebar': 'group-label',
-		...restProps
+		"data-sidebar": "group-label",
+		...restProps,
 	});
 </script>
 

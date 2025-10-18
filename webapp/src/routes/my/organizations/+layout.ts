@@ -7,5 +7,6 @@ import { error } from '@sveltejs/kit';
 import { loadFeatureFlags } from '@/features';
 
 export const load = async ({ fetch }) => {
+	error(404);
 	if (!(await loadFeatureFlags(fetch)).ORGANIZATIONS) error(404);
 };

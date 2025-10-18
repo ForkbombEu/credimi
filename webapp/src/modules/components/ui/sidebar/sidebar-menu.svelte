@@ -1,14 +1,7 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { cn } from "@/components/ui/utils.js";
+	import type { WithElementRef } from "bits-ui";
+	import type { HTMLAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
@@ -21,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <ul
 	bind:this={ref}
 	data-sidebar="menu"
-	class={cn('flex w-full min-w-0 flex-col gap-1', className)}
+	class={cn("flex w-full min-w-0 flex-col gap-1", className)}
 	{...restProps}
 >
 	{@render children?.()}

@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import LabelLink from '$lib/layout/label-link.svelte';
 	import { Eye, EyeOff, Plus } from 'lucide-svelte';
 
 	import type {
@@ -32,7 +33,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
-	import LabelLink from '../_partials/label-link.svelte';
 	import { options } from './use-case-verification-form-options.svelte';
 
 	//

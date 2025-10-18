@@ -1,18 +1,9 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { ComponentProps } from 'svelte';
-
-	import PanelLeft from 'lucide-svelte/icons/panel-left';
-
-	import { Button } from '@/components/ui/button/index.js';
-	import { cn } from '@/components/ui/utils.js';
-
-	import { useSidebar } from './context.svelte.js';
+	import { Button } from "@/components/ui/button/index.js";
+	import { cn } from "@/components/ui/utils.js";
+	import PanelLeft from "@lucide/svelte/icons/panel-left";
+	import type { ComponentProps } from "svelte";
+	import { useSidebar } from "./context.svelte.js";
 
 	let {
 		ref = $bindable(null),
@@ -35,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	data-sidebar="trigger"
 	variant="ghost"
 	size="icon"
-	class={cn('h-7 w-7', className)}
+	class={cn("h-7 w-7", className)}
 	{...restProps}
 >
 	<PanelLeft />

@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { LogOut } from 'lucide-svelte';
-	import { Store } from 'runed';
+	import { fromStore } from 'svelte/store';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import DropdownMenuLink from '@/components/ui-custom/dropdownMenuLink.svelte';
@@ -15,10 +15,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 
-	const userState = new Store(currentUser);
-	const user = $derived(userState.current!);
-	$effect(() => {
-		if (!user) throw new Error('User not found');
+	//
+
+	const userState = fromStore(currentUser);
+
+	const user = $derived.by(() => {
+		if (!userState.current) throw new Error('User not found');
+		return userState.current;
 	});
 </script>
 
@@ -34,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<DropdownMenu.Label class="font-normal">
 			<div class="flex flex-col space-y-1">
 				<p class="text-sm font-medium leading-none">{user.name}</p>
-				<p class="text-xs leading-none text-muted-foreground">{user.email}</p>
+				<p class="text-muted-foreground text-xs leading-none">{user.email}</p>
 			</div>
 		</DropdownMenu.Label>
 		<DropdownMenu.Separator />

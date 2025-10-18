@@ -4,15 +4,10 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-<script module>
-	export const queryParams = {
-		customCheckId: 'custom_check_id'
-	};
-</script>
-
 <script lang="ts">
 	import { page } from '$app/state';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
+	import { CUSTOM_CHECK_QUERY_PARAM } from '$lib/marketplace';
 	import { StartChecksFormComponent } from '$start-checks-form';
 
 	import { m } from '@/i18n';
@@ -21,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 	const customCheckId = $derived(
-		page.url.searchParams.get(queryParams.customCheckId) ?? undefined
+		page.url.searchParams.get(CUSTOM_CHECK_QUERY_PARAM) ?? undefined
 	);
 </script>
 
