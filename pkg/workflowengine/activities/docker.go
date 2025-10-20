@@ -211,6 +211,16 @@ func (a *DockerActivity) Execute(
 		)
 	}
 
+	if inspect.State.ExitCode != 0 {
+		errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
+		return result, a.NewActivityError(
+			errCode.Code,
+			fmt.Sprintf("Docker command failed with exit code %d", inspect.State.ExitCode),
+			resp.ID,
+			stdoutBuf.String(),
+			stderrBuf.String(),
+		)
+	}
 	result.Log = append(result.Log, combinedBuf.String())
 	result.Output = map[string]any{
 		"containerID": resp.ID,

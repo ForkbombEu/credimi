@@ -5,39 +5,60 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { enhance } from '$app/forms';
+	import { ArrowLeftIcon } from 'lucide-svelte';
+	import { zod } from 'sveltekit-superforms/adapters';
+	import { z } from 'zod';
 
+	import A from '@/components/ui-custom/a.svelte';
+	import Alert from '@/components/ui-custom/alert.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { Button } from '@/components/ui/button/index.js';
-	import { Input } from '@/components/ui/input/index.js';
-	import Label from '@/components/ui/label/label.svelte';
+	import { createForm, Form } from '@/forms';
+	import { Field } from '@/forms/fields';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
 
-	let { form } = $props();
+	//
 
-	// TODO - Translations
+	let state: 'form' | 'success' = $state('form');
+
+	const form = createForm({
+		adapter: zod(
+			z.object({
+				email: z.string().email()
+			})
+		),
+		onSubmit: async ({ form }) => {
+			await pb.collection('users').requestPasswordReset(form.data.email);
+			state = 'success';
+		}
+	});
 </script>
 
-{#if !form}
-	<form method="post" use:enhance class="space-y-8">
-		<div class="space-y-1">
-			<T tag="h4">Forgot password?</T>
-			<T>Please enter here your email to recover your password.</T>
-		</div>
-		<Label class="space-y-2">
-			<span>Your email</span>
-			<Input
-				type="email"
-				name="email"
-				id="email"
-				placeholder="name@foundation.org"
-				required
-			/>
-		</Label>
-		<Button type="submit" class="w-full">Recover password</Button>
-	</form>
-{:else if form.success}
-	<div class="space-y-4">
-		<T tag="h4">Reset email sent successfully!</T>
-		<T>Please click the link in the email to reset your password.</T>
+{#if state === 'form'}
+	<A href="/login" class="flex items-center gap-1 pb-4 text-sm">
+		<ArrowLeftIcon size={16} />
+		<span>{m.Back()}</span>
+	</A>
+
+	<div class="space-y-1">
+		<T tag="h4">{m.Forgot_password()}</T>
+		<T>{m.forgot_password_description()}</T>
 	</div>
+
+	<Form {form} class="space-y-4" hideRequiredIndicator>
+		<Field
+			{form}
+			name="email"
+			options={{ type: 'email', label: m.Your_email(), placeholder: 'name@example.org' }}
+		/>
+
+		{#snippet submitButton({ SubmitButton })}
+			<SubmitButton class="w-full">{m.Recover_password()}</SubmitButton>
+		{/snippet}
+	</Form>
+{:else if state === 'success'}
+	<Alert variant="success" class="-rotate-1 space-y-2 bg-green-50">
+		<T tag="h4">{m.Password_reset_email_sent_successfully()}</T>
+		<T>{m.Please_click_the_link_in_the_email_to_reset_your_password()}</T>
+	</Alert>
 {/if}

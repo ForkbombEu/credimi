@@ -677,19 +677,13 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 		if err != nil {
 			apiErr := &apierror.APIError{}
 			if errors.As(err, &apiErr) {
-				return apiErr.JSON(e)
+				return apiErr
 			}
 			return err
 		}
-		apiErr := &apierror.APIError{}
-		ok := errors.As(handleDeeplinkFromHistory(e, c, workflowID, runID, author), &apiErr)
-		if ok {
-			return apiErr.JSON(e)
-		}
-		return apiErr
+		return handleDeeplinkFromHistory(e, c, workflowID, runID, author)
 	}
 }
-
 func getWorkflowAuthor(c client.Client, workflowID, runID string) (string, error) {
 	workflowExecution, err := c.DescribeWorkflowExecution(
 		context.Background(),
@@ -765,7 +759,7 @@ func handleDeeplinkFromHistory(
 			"workflow",
 			"workflow history not found",
 			"not found",
-		)
+		).JSON(e)
 	}
 
 	for historyIterator.HasNext() {
@@ -776,7 +770,7 @@ func handleDeeplinkFromHistory(
 				"workflow",
 				"failed to iterate workflow history",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		eventData, err := protojson.Marshal(event)
 		if err != nil {
@@ -794,7 +788,7 @@ func handleDeeplinkFromHistory(
 				"workflow",
 				"failed to unmarshal history event",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 
 		if attrRaw, ok := eventMap["activityTaskCompletedEventAttributes"]; ok {
@@ -819,7 +813,7 @@ func handleDeeplinkFromHistory(
 								"author is %q, expected openid_conformance_suite, ewc or eudiw",
 								author,
 							),
-						)
+						).JSON(e)
 					}
 				}
 			}
@@ -892,7 +886,7 @@ func getDeeplinkEudiw(e *core.RequestEvent, first map[string]any) error {
 				"deeplink",
 				"failed to build QR deep link",
 				err.Error(),
-			)
+			).JSON(e)
 		}
 		return e.JSON(http.StatusOK, map[string]any{
 			"deeplink": deeplink,
