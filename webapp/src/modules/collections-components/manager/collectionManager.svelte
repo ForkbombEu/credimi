@@ -60,7 +60,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					Card: typeof Card;
 					Table: typeof Table;
 					Pagination: typeof Pagination;
+					totalRecords: number;
 					reloadRecords: () => void;
+					pageRange: string;
 				}
 			]
 		>;
@@ -72,7 +74,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					Header: typeof Header;
 					Filters: typeof Filters;
 					records: PocketbaseQueryResponse<C, E>[];
+					totalRecords: number;
 					reloadRecords: () => void;
+					pageRange: string;
 				}
 			]
 		>;
@@ -168,6 +172,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	Header,
 	Filters,
 	records: manager.records,
+	totalRecords: manager.totalItems,
+	pageRange: manager.currentRange,
 	reloadRecords: () => {
 		manager.loadRecords();
 	}
@@ -191,6 +197,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			Card,
 			Table,
 			Pagination,
+			totalRecords: manager.totalItems,
+			pageRange: manager.currentRange,
 			reloadRecords: () => {
 				manager.loadRecords();
 			}
