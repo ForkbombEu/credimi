@@ -8,14 +8,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ConformanceCheck } from '$lib/types/checks';
 
 	import { yaml } from '@codemirror/lang-yaml';
+	import BlueButton from '$lib/layout/blue-button.svelte';
 	import LabelLink from '$lib/layout/label-link.svelte';
+	import PublishedSwitch from '$lib/layout/published-switch.svelte';
 	import { yamlStringSchema } from '$lib/utils';
-	import { ChevronDown, ChevronUp, Eye, EyeOff, UploadIcon } from 'lucide-svelte';
+	import { ChevronDown, ChevronUp, UploadIcon } from 'lucide-svelte';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { z } from 'zod';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
-	import type { IconComponent } from '@/components/types';
 	import type { WalletsResponse } from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
@@ -29,10 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import RenderMd from '@/components/ui-custom/renderMD.svelte';
-	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
@@ -53,16 +52,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let expandedDescriptions = $state(new Set<string>());
 
 	//
-
-	function updatePublished(recordId: string, published: boolean, onSuccess: () => void) {
-		pb.collection('wallets')
-			.update(recordId, {
-				published
-			})
-			.then(() => {
-				onSuccess();
-			});
-	}
 
 	function toggleDescriptionExpansion(walletId: string) {
 		if (expandedDescriptions.has(walletId)) {
@@ -103,10 +92,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 	editFormFieldsOptions={{ exclude: ['owner', 'published'] }}
 >
-	{#snippet records({ records, reloadRecords })}
-		<div class="space-y-4">
+	{#snippet records({ records })}
+		<div class="space-y-6">
 			{#each records as record (record.id)}
-				{@render WalletCard(record, reloadRecords)}
+				{@render WalletCard(record)}
 			{/each}
 		</div>
 	{/snippet}
@@ -116,7 +105,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<WalletFormSheet />
 {/snippet}
 
-{#snippet WalletCard(wallet: WalletsResponse, onEditSuccess: () => void)}
+{#snippet WalletCard(wallet: WalletsResponse)}
 	<Card class="bg-background">
 		{@const conformanceChecks = wallet.conformance_checks as
 			| ConformanceCheck[]
@@ -125,30 +114,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@const avatarSrc = wallet.logo ? pb.files.getURL(wallet, wallet.logo) : wallet.logo_url}
 
 		<div class="space-y-4">
-			<div class="flex flex-row items-start justify-between gap-4">
-				<Avatar src={avatarSrc} fallback={wallet.name} class="rounded-sm border" />
-				<div class="flex-1">
-					<div class="flex items-center gap-2">
-						<LabelLink
-							label={wallet.name}
-							href="/marketplace/wallets/{organization?.canonified_name}/{wallet.canonified_name}"
-							published={wallet.published}
-						/>
-					</div>
-					{#if wallet.appstore_url}
-						<T class="text-xs text-gray-400">{wallet.appstore_url}</T>
-					{/if}
+			<div class="flex flex-row items-center justify-between gap-4">
+				<div class="flex items-center gap-3">
+					<Avatar src={avatarSrc} fallback={wallet.name} class="rounded-sm border" />
+					<LabelLink
+						label={wallet.name}
+						href="/marketplace/wallets/{organization?.canonified_name}/{wallet.canonified_name}"
+						published={wallet.published}
+					/>
 				</div>
 
 				<div class="flex items-center gap-1">
-					<SwitchWithIcons
-						offIcon={EyeOff}
-						onIcon={Eye}
-						size="md"
-						checked={wallet.published}
-						onCheckedChange={() =>
-							updatePublished(wallet.id, !wallet.published, onEditSuccess)}
-					/>
+					<PublishedSwitch record={wallet} field="published" />
 					<WalletFormSheet walletId={wallet.id} initialData={wallet} />
 					<RecordDelete record={wallet}>
 						{#snippet button({ triggerAttributes, icon: Icon })}
@@ -315,7 +292,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		formTitle={`${m.Wallet()}: ${wallet.name} — ${m.Add_new_version()}`}
 	>
 		{#snippet button({ triggerAttributes, icon })}
-			{@render blueButton({ triggerAttributes, icon, text: m.Add_new_version() })}
+			<BlueButton {icon} text={m.Add_new_version()} {...triggerAttributes} />
 		{/snippet}
 	</RecordCreate>
 {/snippet}
@@ -350,11 +327,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						formTitle={`${m.Wallet()}: ${props.wallet.name} — ${m.Add_new_action()}`}
 					>
 						{#snippet button({ triggerAttributes, icon })}
-							{@render blueButton({
-								triggerAttributes,
-								icon,
-								text: m.Add_new_action()
-							})}
+							<BlueButton {icon} text={m.Add_new_action()} {...triggerAttributes} />
 						{/snippet}
 					</RecordCreate>
 				</div>
@@ -410,11 +383,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</T>
 				<RecordCreate>
 					{#snippet button({ triggerAttributes, icon })}
-						{@render blueButton({
-							triggerAttributes,
-							icon,
-							text: m.Add_first_action()
-						})}
+						<BlueButton {icon} text={m.Add_first_action()} {...triggerAttributes} />
 					{/snippet}
 				</RecordCreate>
 			</div>
@@ -448,18 +417,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.Upload_yaml()}
 		</Button>
 	{/snippet}
-{/snippet}
-
-{#snippet blueButton(props: { triggerAttributes: object; icon: IconComponent; text: string })}
-	<Button
-		variant="link"
-		size="sm"
-		class="h-8 gap-1 px-2 text-blue-600 hover:cursor-pointer hover:bg-blue-50 hover:no-underline"
-		{...props.triggerAttributes}
-	>
-		<Icon src={props.icon} />
-		{props.text}
-	</Button>
 {/snippet}
 
 <!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->

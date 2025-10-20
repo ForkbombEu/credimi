@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import BlueButton from '$lib/layout/blue-button.svelte';
 	import LabelLink from '$lib/layout/label-link.svelte';
-	import { Eye, EyeOff, Plus } from 'lucide-svelte';
+	import PublishedSwitch from '$lib/layout/published-switch.svelte';
 
 	import type {
 		CredentialsResponse,
@@ -26,7 +27,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Card from '@/components/ui-custom/card.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Separator } from '@/components/ui/separator';
@@ -64,22 +64,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return `${organizationName}/${verifierName}/${useCaseName}`;
 	}
 
-	async function updatePublished(recordId: string, published: boolean) {
-		const res = await pb.collection('verifiers').update(recordId, { published });
-		verifier.published = res.published;
-	}
-
-	async function updateUseCasePublished(
-		recordId: string,
-		published: boolean,
-		onSuccess: () => void
-	) {
-		await pb.collection('use_cases_verifications').update(recordId, {
-			published
-		});
-		onSuccess();
-	}
-
 	function credentialsPreviewString(credentials: CredentialsResponse[]): string | undefined {
 		if (credentials.length === 0) return undefined;
 		let preview = '';
@@ -112,13 +96,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 		<div class="flex items-center gap-1">
-			<SwitchWithIcons
-				offIcon={EyeOff}
-				onIcon={Eye}
-				size="md"
-				checked={verifier.published}
-				onCheckedChange={() => updatePublished(verifier.id, !verifier.published)}
-			/>
+			<PublishedSwitch record={verifier} field="published" />
 			<RecordEdit record={verifier} />
 			<RecordDelete record={verifier} />
 		</div>
@@ -141,26 +119,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}}
 		formRefineSchema={opts.refineSchema}
 		formFieldsOptions={opts.fieldsOptions}
+		hide={['empty_state']}
 	>
 		{#snippet top()}
-			<div class="flex items-center justify-between pb-1">
+			<div class="flex items-center justify-between">
 				<T class="font-semibold">{m.Verification_use_cases()}</T>
 				<RecordCreate>
-					{#snippet button({ triggerAttributes })}
-						<button
-							type="button"
-							class="text-primary flex items-center underline hover:cursor-pointer hover:no-underline"
+					{#snippet button({ triggerAttributes, icon })}
+						<BlueButton
+							{icon}
+							text={m.Add_a_verification_use_case()}
 							{...triggerAttributes}
-						>
-							<Plus size={14} /><span>{m.Add()}</span>
-						</button>
+						/>
 					{/snippet}
 				</RecordCreate>
 			</div>
 		{/snippet}
 
 		{#snippet records({ records, reloadRecords })}
-			<ul class="space-y-2">
+			<ul class="space-y-2 pt-1">
 				{#each records as useCaseVerification (useCaseVerification.id)}
 					{@const credentials = useCaseVerification.expand?.credentials ?? []}
 					{@const credentialsPreview = credentialsPreviewString(credentials)}
@@ -187,19 +164,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/snippet}
 							</Tooltip>
 
-							<SwitchWithIcons
-								offIcon={EyeOff}
-								onIcon={Eye}
-								size="sm"
-								checked={useCaseVerification.published}
-								disabled={!verifier.published}
-								onCheckedChange={() =>
-									updateUseCasePublished(
-										useCaseVerification.id,
-										!useCaseVerification.published,
-										reloadRecords
-									)}
-							/>
+							<PublishedSwitch record={useCaseVerification} field="published" />
 							<RecordClone
 								collectionName="use_cases_verifications"
 								record={useCaseVerification}
@@ -229,12 +194,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</li>
 				{/each}
 			</ul>
-		{/snippet}
-
-		{#snippet emptyState()}
-			<div class="rounded-sm border p-1">
-				<T class="text-center text-gray-400">{m.Add_a_verification_use_case()}</T>
-			</div>
 		{/snippet}
 	</CollectionManager>
 {/snippet}

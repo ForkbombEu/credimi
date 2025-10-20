@@ -5,15 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import PublishedSwitch from '$lib/layout/published-switch.svelte';
 	import { appSections } from '$lib/marketplace/sections';
+	import { String } from 'effect';
 	import { Pencil, Plus } from 'lucide-svelte';
+	import removeMd from 'remove-markdown';
 
 	import { CollectionManager } from '@/collections-components';
+	import { RecordDelete } from '@/collections-components/manager';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import Card from '@/components/ui-custom/card.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
@@ -31,29 +36,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		collection="custom_checks"
 		queryOptions={{ filter: `owner.id = "${organizationId}"` }}
 	>
-		{#snippet records({ records, Card })}
+		{#snippet records({ records })}
 			<div class="space-y-2">
 				{#each records as record (record.id)}
 					{@const logo = pb.files.getURL(record, record.logo)}
-					<Card {record} class="bg-background !pl-4" hide={['share', 'select', 'edit']}>
-						<div class="flex items-start gap-4">
-							<Avatar
-								src={logo}
-								class="rounded-sm"
-								fallback={record.name.slice(0, 2)}
-							/>
-							<div>
-								<T class="font-bold">{record.name}</T>
-								<T class="mb-2 font-mono text-xs">{record.standard_and_version}</T>
-								<T class="text-sm text-gray-400"
-									><RenderMd content={record.description}></RenderMd></T
-								>
+					{@const content = removeMd(record.description)}
+
+					<Card class="bg-background" contentClass="p-4">
+						<div class="flex items-center justify-between">
+							<div class="flex items-center gap-4">
+								<Avatar
+									src={logo}
+									class="rounded-sm"
+									fallback={record.name.slice(0, 2)}
+								/>
+								<div>
+									<T class="font-bold">{record.name}</T>
+									<T class="mb-2 font-mono text-xs">
+										{record.standard_and_version}
+									</T>
+								</div>
+							</div>
+
+							<div class="flex gap-1">
+								<PublishedSwitch {record} field="public" />
+								<IconButton
+									href="/my/custom-checks/edit-{record.id}"
+									icon={Pencil}
+								/>
+								<RecordDelete {record} />
 							</div>
 						</div>
 
-						{#snippet right()}
-							<IconButton href="/my/custom-checks/edit-{record.id}" icon={Pencil} />
-						{/snippet}
+						{#if String.isNonEmpty(content)}
+							<div class="space-y-3 pt-3">
+								<Separator />
+								<T class="text-sm text-gray-400">{content}</T>
+							</div>
+						{/if}
 					</Card>
 				{/each}
 			</div>

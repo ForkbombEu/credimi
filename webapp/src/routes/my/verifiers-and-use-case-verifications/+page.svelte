@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	formFieldsOptions={settings}
 >
 	{#snippet records({ records })}
-		<div class="">
+		<div class="space-y-6">
 			{#each records as verifier, index (verifier.id)}
 				{@const useCasesVerifications =
 					verifier.expand?.use_cases_verifications_via_verifier ?? []}
@@ -54,7 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </CollectionManager>
 
 {#snippet navbarRight()}
-	<Sheet>
+	<Sheet title={m.Create_verifier()}>
 		{#snippet trigger({ sheetTriggerAttributes })}
 			<Button {...sheetTriggerAttributes}>
 				<Plus />

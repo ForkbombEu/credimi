@@ -7,9 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import LabelLink from '$lib/layout/label-link.svelte';
+	import PublishedSwitch from '$lib/layout/published-switch.svelte';
 	import { runWithLoading } from '$lib/utils';
 	import { String } from 'effect';
-	import { Eye, EyeOff, RefreshCwIcon } from 'lucide-svelte';
+	import { RefreshCwIcon } from 'lucide-svelte';
 	import removeMd from 'remove-markdown';
 
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
@@ -26,14 +27,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { Card } from '@/components/ui/card';
 	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
-	import { pb } from '@/pocketbase';
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
 	import CredentialForm from './credential-form.svelte';
@@ -68,18 +67,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'Unknown Credential';
 
 		return `${organizationName}/${credentialIssuerName}/${credentialName}`;
-	}
-
-	async function updateCredentialIssuerPublished(
-		credentialIssuer: CredentialIssuersResponse,
-		published: boolean
-	) {
-		await pb.collection('credential_issuers').update(credentialIssuer.id, { published });
-	}
-
-	async function updateCredentialPublished(credential: CredentialsResponse, published: boolean) {
-		const res = await pb.collection('credentials').update(credential.id, { published });
-		credential.published = res.published;
 	}
 
 	async function refreshCredentialIssuer(url: string) {
@@ -122,7 +109,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet CredentialIssuerCard(record: CredentialIssuersResponse, onEditSuccess: () => void)}
 	<Card class="!space-y-4 !p-4">
-		<div class="flex items-center justify-between">
+		<div class="flex items-center justify-between gap-4">
 			<div class="flex items-center justify-between gap-3">
 				<Avatar
 					src={record.logo_url}
@@ -140,13 +127,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 
 			<div class="flex items-center gap-2">
-				<SwitchWithIcons
-					offIcon={EyeOff}
-					onIcon={Eye}
-					size="md"
-					checked={record.published}
-					onCheckedChange={(value) => updateCredentialIssuerPublished(record, value)}
-				/>
+				<PublishedSwitch {record} field="published" />
 
 				<Button
 					variant="outline"
@@ -254,14 +235,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{/snippet}
 								</Tooltip>
 
-								<SwitchWithIcons
-									offIcon={EyeOff}
-									onIcon={Eye}
-									size="sm"
+								<PublishedSwitch
 									disabled={!record.published}
-									checked={credential.published}
-									onCheckedChange={(value) =>
-										updateCredentialPublished(credential, value)}
+									record={credential}
+									field="published"
 								/>
 
 								{#if !credential.imported}
