@@ -282,6 +282,15 @@ func (w *MobileAutomationWorkflow) Workflow(
 		}
 	}
 
+	uninstallErr := uninstallFuture.Get(ctx, nil)
+	if uninstallErr != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			uninstallErr,
+			runMetadata,
+			pkgID,
+		)
+	}
+
 	if executeErr != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			executeErr,
@@ -289,14 +298,6 @@ func (w *MobileAutomationWorkflow) Workflow(
 			map[string]any{
 				"output": output,
 			},
-		)
-	}
-	uninstallErr := uninstallFuture.Get(ctx, nil)
-	if uninstallErr != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			uninstallErr,
-			runMetadata,
-			pkgID,
 		)
 	}
 
