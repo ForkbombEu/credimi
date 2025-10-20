@@ -51,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						editFormState.open = true;
 					}}
 				> -->
-				<Button size="sm" class="!h-8 text-xs" href="/my/services-and-products">
+				<Button size="sm" class="!h-8 text-xs" href="/my">
 					<PencilIcon />
 					{m.Make_changes()}
 				</Button>

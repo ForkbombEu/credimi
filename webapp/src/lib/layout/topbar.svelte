@@ -65,7 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					icon: Sparkle
 				},
 				{
-					href: '/my/services-and-products',
+					href: '/my',
 					title: m.Go_to_Dashboard(),
 					icon: LayoutDashboardIcon
 				}
