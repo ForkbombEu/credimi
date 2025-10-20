@@ -32,7 +32,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		form
 	}: RecordCreateEditProps<C> = $props();
 
-	const { manager, formsOptions, formRefineSchema } = $derived(getCollectionManagerContext());
+	const { manager, formsOptions, formRefineSchema, createForm } = $derived(
+		getCollectionManagerContext()
+	);
 
 	const defaultFormOptions: CollectionFormOptions<C> = {
 		uiOptions: { showToastOnSuccess: true }
@@ -61,6 +63,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet content({ closeSheet })}
 		{#if form}
 			{@render form({ closeSheet })}
+		{:else if createForm}
+			{@render createForm({ closeSheet })}
 		{:else}
 			<CollectionForm
 				collection={manager.collection}

@@ -8,7 +8,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ConformanceCheck } from '$lib/types/checks';
 
 	import { yaml } from '@codemirror/lang-yaml';
-	import BlueButton from '$lib/layout/blue-button.svelte';
+	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
+	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { yamlStringSchema } from '$lib/utils';
 	import { PencilIcon, UploadIcon } from 'lucide-svelte';
@@ -18,17 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WalletsResponse } from '@/pocketbase/types';
 
 	import { CollectionManager } from '@/collections-components';
-	import {
-		RecordClone,
-		RecordCreate,
-		RecordDelete,
-		RecordEdit
-	} from '@/collections-components/manager';
 	import Button from '@/components/ui-custom/button.svelte';
-	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { Separator } from '@/components/ui/separator';
 	import { CodeEditorField } from '@/forms/fields';
@@ -45,21 +38,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { organization } = $derived(data);
 
 	setDashboardNavbar({ title: 'Wallets', right: navbarRight });
-
-	//
-
-	function getWalletActionCopyText(actionUid: string, wallet: WalletsResponse) {
-		const organizationName =
-			organization?.canonified_name ||
-			organization?.name ||
-			organization.id ||
-			'Unknown Organization';
-		const walletName = wallet.canonified_name || wallet.name || 'Unknown Wallet';
-
-		return `${organizationName}/${walletName}/${actionUid}`;
-	}
-
-	const copyWalletActionTooltipText = `${m.Copy()} ${m.Organization()}/${m.Wallet()}/${m.Actions()}`;
 </script>
 
 <CollectionManager
@@ -156,78 +134,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 		}}
 	>
-		{#snippet records({ records })}
-			<div>
-				<div class="mb-2 flex items-center justify-between">
-					<T class="text-sm font-semibold">{m.Wallet_versions()}</T>
-					{@render createVersion(wallet)}
-				</div>
-				<ul class="space-y-2">
-					{#each records as record (record.id)}
-						<li
-							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
-						>
-							{record.tag}
-							<div class="flex items-center gap-2">
-								<div class="flex items-center gap-1">
-									{#if record.ios_installer}
-										<Badge>iOS</Badge>
-									{/if}
-									{#if record.android_installer}
-										<Badge>Android</Badge>
-									{/if}
-								</div>
-
-								<div>
-									<RecordEdit
-										{record}
-										uiOptions={{ hideRequiredIndicator: true }}
-										formTitle={`${m.Wallet()}: ${wallet.name} — ${m.Edit_version()}: ${record.tag}`}
-									>
-										{#snippet button({ triggerAttributes, icon })}
-											<IconButton
-												variant="outline"
-												size="sm"
-												{icon}
-												{...triggerAttributes}
-											/>
-										{/snippet}
-									</RecordEdit>
-									{@render recordDelete(record)}
-								</div>
-							</div>
-						</li>
-					{/each}
-				</ul>
-			</div>
+		{#snippet top()}
+			<DashboardCardManagerTop
+				label={m.Wallet_versions()}
+				buttonText={m.Add_new_version()}
+				recordCreateOptions={{
+					uiOptions: { hideRequiredIndicator: true },
+					formTitle: `${m.Wallet()}: ${wallet.name} — ${m.Add_new_version()}`
+				}}
+			/>
 		{/snippet}
 
-		{#snippet emptyState()}
-			<div class="flex items-center justify-between">
-				<T class="text-gray-300">
-					{m.No_wallet_versions_available()}
-				</T>
-				{@render createVersion(wallet)}
-			</div>
+		{#snippet records({ records })}
+			<DashboardCardManagerUI {records} nameField="tag" hideClone>
+				{#snippet actions({ record })}
+					<div class="flex items-center gap-1">
+						{#if record.ios_installer}
+							<Badge>iOS</Badge>
+						{/if}
+						{#if record.android_installer}
+							<Badge>Android</Badge>
+						{/if}
+					</div>
+				{/snippet}
+			</DashboardCardManagerUI>
 		{/snippet}
 	</CollectionManager>
-{/snippet}
-
-{#snippet createVersion(wallet: WalletsResponse)}
-	<RecordCreate
-		uiOptions={{ hideRequiredIndicator: true }}
-		formTitle={`${m.Wallet()}: ${wallet.name} — ${m.Add_new_version()}`}
-	>
-		{#snippet button({ triggerAttributes, icon })}
-			<BlueButton {icon} text={m.Add_new_version()} {...triggerAttributes} />
-		{/snippet}
-	</RecordCreate>
 {/snippet}
 
 {#snippet walletActionsManager(props: { wallet: WalletsResponse; ownerId: string })}
 	<CollectionManager
 		collection="wallet_actions"
-		hide={['empty_state', 'pagination']}
+		hide={['empty_state']}
 		queryOptions={{
 			filter: `wallet.id = '${props.wallet.id}'`
 		}}
@@ -244,74 +182,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 		}}
 	>
-		{#snippet records({ records, reloadRecords })}
-			<div>
-				<div class="mb-2 flex items-center justify-between">
-					<T class="text-sm font-semibold">{m.Wallet_actions()}</T>
-					<RecordCreate
-						formTitle={`${m.Wallet()}: ${props.wallet.name} — ${m.Add_new_action()}`}
-					>
-						{#snippet button({ triggerAttributes, icon })}
-							<BlueButton {icon} text={m.Add_new_action()} {...triggerAttributes} />
-						{/snippet}
-					</RecordCreate>
-				</div>
-				<ul class="space-y-2">
-					{#each records as record (record.id)}
-						<li
-							class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2"
-						>
-							{record.name}
-							<div class="flex items-center gap-1">
-								<Tooltip>
-									<CopyButtonSmall
-										textToCopy={getWalletActionCopyText(
-											record.canonified_name,
-											props.wallet
-										)}
-										square
-									/>
-									{#snippet content()}
-										<p>{copyWalletActionTooltipText}</p>
-									{/snippet}
-								</Tooltip>
-								<RecordClone
-									collectionName="wallet_actions"
-									{record}
-									onSuccess={reloadRecords}
-								/>
-								<RecordEdit
-									{record}
-									formTitle={`${m.Wallet()}: ${props.wallet.name} — ${m.Edit_action()}: ${record.name}`}
-								>
-									{#snippet button({ triggerAttributes, icon })}
-										<IconButton
-											size="sm"
-											variant="outline"
-											{icon}
-											{...triggerAttributes}
-										/>
-									{/snippet}
-								</RecordEdit>
-								{@render recordDelete(record)}
-							</div>
-						</li>
-					{/each}
-				</ul>
-			</div>
+		{#snippet top()}
+			<DashboardCardManagerTop
+				label={m.Wallet_actions()}
+				buttonText={m.Add_new_action()}
+				recordCreateOptions={{
+					formTitle: `${m.Wallet()}: ${props.wallet.name} — ${m.Add_new_action()}`
+				}}
+			/>
 		{/snippet}
 
-		{#snippet emptyState()}
-			<div class="flex items-center justify-between gap-2">
-				<T class="text-gray-300">
-					{m.No_actions_available()}
-				</T>
-				<RecordCreate>
-					{#snippet button({ triggerAttributes, icon })}
-						<BlueButton {icon} text={m.Add_first_action()} {...triggerAttributes} />
-					{/snippet}
-				</RecordCreate>
-			</div>
+		{#snippet records({ records })}
+			<DashboardCardManagerUI
+				{records}
+				nameField="name"
+				textToCopy={(record) =>
+					`${organization.canonified_name}/${props.wallet.canonified_name}/${record.canonified_name}`}
+			/>
 		{/snippet}
 	</CollectionManager>
 {/snippet}
@@ -342,13 +229,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.Upload_yaml()}
 		</Button>
 	{/snippet}
-{/snippet}
-
-<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
-{#snippet recordDelete(record: any)}
-	<RecordDelete {record}>
-		{#snippet button({ triggerAttributes, icon })}
-			<IconButton variant="outline" size="sm" {icon} {...triggerAttributes} />
-		{/snippet}
-	</RecordDelete>
 {/snippet}

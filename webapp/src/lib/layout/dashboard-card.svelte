@@ -19,6 +19,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { String } from 'effect';
+	import { truncate } from 'lodash';
+	import { ArrowDown, ArrowUp } from 'lucide-svelte';
 	import removeMd from 'remove-markdown';
 
 	import type { OrganizationsRecord } from '@/pocketbase/types';
@@ -27,12 +29,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { Separator } from '@/components/ui/separator';
 
 	import LabelLink from './label-link.svelte';
 	import PublishedSwitch from './published-switch.svelte';
+
+	//
 
 	type Props = {
 		record: R;
@@ -58,8 +63,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		editAction
 	}: Props = $props();
 
-	const description = $derived(removeMd(record.description ?? ''));
 	const linkEntries = $derived(Object.entries(links));
+
+	const description = $derived(removeMd(record.description ?? ''));
+
+	const maxDescriptionLength = 400;
+	const truncatedDescription = $derived(truncate(description, { length: maxDescriptionLength }));
+	const shouldTruncateDescription = $derived(description.length > maxDescriptionLength);
+	let isDescriptionExpanded = $state(false);
 </script>
 
 <Card id={record.canonified_name} class="bg-card" contentClass="space-y-4 p-4 scroll-mt-5">
@@ -102,7 +113,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="space-y-3 text-xs">
 			{#if String.isNonEmpty(description)}
 				<T class="mt-0.5 leading-normal text-gray-400">
-					{description}
+					{#if !shouldTruncateDescription}
+						{description}
+					{:else if shouldTruncateDescription}
+						{#if isDescriptionExpanded}
+							{description}
+						{:else}
+							{truncatedDescription}
+						{/if}
+					{/if}
+					{#if shouldTruncateDescription}
+						{@const icon = isDescriptionExpanded ? ArrowUp : ArrowDown}
+						{@const label = isDescriptionExpanded ? 'Collapse' : 'Expand'}
+						<button
+							class="text-primary inline-flex items-baseline gap-0.5 hover:underline"
+							onclick={() => (isDescriptionExpanded = !isDescriptionExpanded)}
+						>
+							<Icon src={icon} size="14" class="translate-y-0.5" />
+							{label}
+						</button>
+					{/if}
 				</T>
 			{/if}
 

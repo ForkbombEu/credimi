@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { label, href, published, class: classValue }: Props = $props();
 </script>
 
-<T class={['font-semibold', classValue]}>
+<T class={['font-medium', classValue]}>
 	{#if !published}
 		{label}
 	{:else}

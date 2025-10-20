@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		PocketbaseQueryOptions,
 		PocketbaseQueryResponse
 	} from '@/pocketbase/query';
-	import type { CollectionFormData } from '@/pocketbase/types';
+	import type { CollectionFormData, CollectionResponses } from '@/pocketbase/types';
 	import type { CollectionZodSchema } from '@/pocketbase/zod-schema';
 
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
@@ -53,6 +53,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		Partial<Snippets>;
 
 	type Snippets = {
+		createForm: Snippet<[{ closeSheet: () => void }]>;
+		editForm: Snippet<[{ record: CollectionResponses[C]; closeSheet: () => void }]>;
+
 		records: Snippet<
 			[
 				{
@@ -154,7 +157,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				fieldsOptions: rest.editFormFieldsOptions
 			}
 		},
-		formRefineSchema: rest.formRefineSchema ?? ((schema) => schema)
+		formRefineSchema: rest.formRefineSchema ?? ((schema) => schema),
+		createForm: rest.createForm,
+		editForm: rest.editForm
 	});
 
 	setCollectionManagerContext(() => context);
