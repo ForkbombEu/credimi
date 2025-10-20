@@ -220,7 +220,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								class="min-w-0 flex-1 break-words"
 							/>
 
-							<div class="flex items-center gap-1">
+							<div class="flex items-center gap-2">
 								{#if credential.imported}
 									<Badge variant="secondary">{m.Imported()}</Badge>
 								{/if}
@@ -236,6 +236,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</Tooltip>
 
 								<PublishedSwitch
+									size="sm"
 									disabled={!record.published}
 									record={credential}
 									field="published"

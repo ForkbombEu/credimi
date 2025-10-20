@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script module lang="ts">
 	type BaseRecord = {
 		id: string;
-		collectionName: string;
+		collectionId: string;
 	};
 </script>
 
@@ -42,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (onPublishedChange) {
 			onPublishedChange({ record, published });
 		} else {
-			pb.collection(record.collectionName).update(record.id, { [fieldKey]: published });
+			pb.collection(record.collectionId).update(record.id, { [fieldKey]: published });
 		}
 	}
 </script>

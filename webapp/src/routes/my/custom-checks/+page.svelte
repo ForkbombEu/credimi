@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		queryOptions={{ filter: `owner.id = "${organizationId}"` }}
 	>
 		{#snippet records({ records })}
-			<div class="space-y-2">
+			<div class="space-y-6">
 				{#each records as record (record.id)}
 					{@const logo = pb.files.getURL(record, record.logo)}
 					{@const content = removeMd(record.description)}
