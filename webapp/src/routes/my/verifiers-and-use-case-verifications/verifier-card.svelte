@@ -80,7 +80,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const copyUseCaseVerificationTooltipText = `${m.Copy()} ${m.Organization()}/${m.Verifier()}/${m.Use_case_verification()}`;
 </script>
 
-<Card class="bg-card" contentClass="space-y-4 p-4">
+<Card id={verifier.canonified_name} class="bg-card" contentClass="space-y-4 p-4">
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-4">
 			<Avatar src={avatarSrc} fallback={verifier.name} class="rounded-sm border" />
@@ -95,7 +95,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<T class="text-xs text-gray-400">{verifier.url}</T>
 			</div>
 		</div>
-		<div class="flex items-center gap-1">
+		<div class="flex items-center gap-2">
 			<PublishedSwitch record={verifier} field="published" />
 			<RecordEdit record={verifier} />
 			<RecordDelete record={verifier} />
@@ -153,7 +153,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{/if}
 						</div>
 
-						<div class="flex items-center gap-1">
+						<div class="flex items-center gap-2">
 							<Tooltip>
 								<CopyButtonSmall
 									textToCopy={getUseCaseVerificationCopyText(useCaseVerification)}
@@ -164,7 +164,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/snippet}
 							</Tooltip>
 
-							<PublishedSwitch record={useCaseVerification} field="published" />
+							<PublishedSwitch
+								record={useCaseVerification}
+								size="sm"
+								field="published"
+							/>
 							<RecordClone
 								collectionName="use_cases_verifications"
 								record={useCaseVerification}
