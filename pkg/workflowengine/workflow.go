@@ -78,9 +78,19 @@ func NewWorkflowError(err error, metadata WorkflowErrorMetadata, extraPayload ..
 		return err
 	}
 
+	var detailsRaw any
+	if derr := appErr.Details(&detailsRaw); derr != nil {
+		detailsRaw = nil
+	}
+
 	var details []any
-	if derr := appErr.Details(&details); derr != nil {
-		details = nil
+	switch v := detailsRaw.(type) {
+	case nil:
+
+	case []any:
+		details = v
+	default:
+		details = []any{v}
 	}
 
 	for _, p := range extraPayload {
@@ -91,8 +101,8 @@ func NewWorkflowError(err error, metadata WorkflowErrorMetadata, extraPayload ..
 			details = append(details, v)
 		}
 	}
-
 	details = append(details, metadata)
+
 	credimiErr := utils.CredimiError{
 		Code:      appErr.Type(),
 		Component: "workflow engine",
