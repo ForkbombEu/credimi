@@ -1,17 +1,8 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	// @ts-nocheck
-
-	import { Pagination as PaginationPrimitive } from 'bits-ui';
-	import ChevronLeft from 'lucide-svelte/icons/chevron-left';
-
-	import { buttonVariants } from '@/components/ui/button/index.js';
-	import { cn } from '@/components/ui/utils.js';
+	import { Pagination as PaginationPrimitive } from "bits-ui";
+	import ChevronLeft from "@lucide/svelte/icons/chevron-left";
+	import { buttonVariants } from "@/components/ui/button/index.js";
+	import { cn } from "@/components/ui/utils.js";
 
 	let {
 		ref = $bindable(null),
@@ -30,8 +21,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	bind:ref
 	class={cn(
 		buttonVariants({
-			variant: 'ghost',
-			class: 'gap-1 pl-2.5'
+			variant: "ghost",
+			class: "gap-1 pl-2.5",
 		}),
 		className
 	)}
