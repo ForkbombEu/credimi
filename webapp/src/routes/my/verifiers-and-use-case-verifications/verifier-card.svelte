@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import BlueButton from '$lib/layout/blue-button.svelte';
+	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import LabelLink from '$lib/layout/label-link.svelte';
 	import PublishedSwitch from '$lib/layout/published-switch.svelte';
 
@@ -23,13 +24,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		RecordDelete,
 		RecordEdit
 	} from '@/collections-components/manager';
-	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import Card from '@/components/ui-custom/card.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
-	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
@@ -40,20 +38,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		verifier: VerifiersResponse;
 		useCasesVerifications: UseCasesVerificationsResponse[];
-		organizationId: string;
-		organization?: OrganizationsResponse;
+		organization: OrganizationsResponse;
 	};
 
-	let { verifier = $bindable(), organizationId, organization }: Props = $props();
-	const avatarSrc = $derived(pb.files.getURL(verifier, verifier.logo));
+	let { verifier = $bindable(), organization }: Props = $props();
 
 	//
 
 	function getUseCaseVerificationCopyText(useCaseVerification: UseCasesVerificationsResponse) {
 		const organizationName =
-			organization?.canonified_name ||
-			organization?.name ||
-			organizationId ||
+			organization.canonified_name ||
+			organization.name ||
+			organization.id ||
 			'Unknown Organization';
 		const verifierName = verifier.canonified_name || verifier.name || 'Unknown Verifier';
 		const useCaseName =
@@ -80,41 +76,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const copyUseCaseVerificationTooltipText = `${m.Copy()} ${m.Organization()}/${m.Verifier()}/${m.Use_case_verification()}`;
 </script>
 
-<Card id={verifier.canonified_name} class="bg-card" contentClass="space-y-4 p-4">
-	<div class="flex items-center justify-between">
-		<div class="flex items-center gap-4">
-			<Avatar src={avatarSrc} fallback={verifier.name} class="rounded-sm border" />
-			<div>
-				<p class="font-semibold">
-					<LabelLink
-						label={verifier.name}
-						href="/marketplace/verifiers/{organization?.canonified_name}/{verifier.canonified_name}"
-						published={verifier.published}
-					/>
-				</p>
-				<T class="text-xs text-gray-400">{verifier.url}</T>
-			</div>
-		</div>
-		<div class="flex items-center gap-2">
-			<PublishedSwitch record={verifier} field="published" />
-			<RecordEdit record={verifier} />
-			<RecordDelete record={verifier} />
-		</div>
-	</div>
-
-	<Separator />
-
-	<div class="space-y-0.5 text-sm">
+<DashboardCard
+	record={verifier}
+	{organization}
+	avatar={(v) => pb.files.getURL(v, v.logo)}
+	links={{
+		URL: verifier.url
+	}}
+>
+	{#snippet content()}
 		{@render useCasesVerificationsList()}
-	</div>
-</Card>
+	{/snippet}
+</DashboardCard>
 
 {#snippet useCasesVerificationsList()}
-	{@const opts = options(organizationId, verifier.id)}
+	{@const opts = options(organization.id, verifier.id)}
 	<CollectionManager
 		collection="use_cases_verifications"
 		queryOptions={{
-			filter: `verifier = '${verifier.id}' && owner.id = '${organizationId}'`,
+			filter: `verifier = '${verifier.id}' && owner.id = '${organization.id}'`,
 			expand: ['credentials']
 		}}
 		formRefineSchema={opts.refineSchema}

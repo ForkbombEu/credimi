@@ -9,11 +9,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { yaml } from '@codemirror/lang-yaml';
 	import BlueButton from '$lib/layout/blue-button.svelte';
-	import LabelLink from '$lib/layout/label-link.svelte';
-	import PublishedSwitch from '$lib/layout/published-switch.svelte';
+	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { yamlStringSchema } from '$lib/utils';
-	import { ChevronDown, ChevronUp, UploadIcon } from 'lucide-svelte';
-	import { SvelteSet } from 'svelte/reactivity';
+	import { PencilIcon, UploadIcon } from 'lucide-svelte';
 	import { z } from 'zod';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
@@ -26,12 +24,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		RecordDelete,
 		RecordEdit
 	} from '@/collections-components/manager';
-	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import Card from '@/components/ui-custom/card.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import RenderMd from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { Badge } from '@/components/ui/badge';
@@ -49,18 +44,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 	let { organization } = $derived(data);
 
-	let expandedDescriptions = $state(new Set<string>());
+	setDashboardNavbar({ title: 'Wallets', right: navbarRight });
 
 	//
-
-	function toggleDescriptionExpansion(walletId: string) {
-		if (expandedDescriptions.has(walletId)) {
-			expandedDescriptions.delete(walletId);
-		} else {
-			expandedDescriptions.add(walletId);
-		}
-		expandedDescriptions = new SvelteSet(expandedDescriptions);
-	}
 
 	function getWalletActionCopyText(actionUid: string, wallet: WalletsResponse) {
 		const organizationName =
@@ -74,14 +60,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	const copyWalletActionTooltipText = `${m.Copy()} ${m.Organization()}/${m.Wallet()}/${m.Actions()}`;
-
-	//
-
-	setDashboardNavbar({ title: 'Wallets', right: navbarRight });
-
-	pb.collection('credential_issuers').subscribe('*', (event) => {
-		console.log(event);
-	});
 </script>
 
 <CollectionManager
@@ -95,116 +73,65 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet records({ records })}
 		<div class="space-y-6">
 			{#each records as record (record.id)}
-				{@render WalletCard(record)}
+				{@const conformanceChecks = record.conformance_checks as
+					| ConformanceCheck[]
+					| null
+					| undefined}
+
+				<DashboardCard
+					{record}
+					{organization}
+					avatar={(w) => (w.logo ? pb.files.getURL(w, w.logo) : w.logo_url)}
+				>
+					{#snippet editAction()}
+						<WalletFormSheet walletId={record.id} initialData={record}>
+							{#snippet customTrigger({ sheetTriggerAttributes })}
+								<IconButton icon={PencilIcon} {...sheetTriggerAttributes} />
+							{/snippet}
+						</WalletFormSheet>
+					{/snippet}
+
+					{#snippet content()}
+						<div class="flex flex-wrap gap-2">
+							{#if conformanceChecks && conformanceChecks.length > 0}
+								{#each conformanceChecks as check (check)}
+									<Badge
+										variant={check.status === 'success'
+											? 'secondary'
+											: 'destructive'}
+									>
+										{check.test}
+									</Badge>
+								{/each}
+							{:else}
+								<T class="text-gray-300">
+									{m.No_conformance_checks_available()}
+								</T>
+							{/if}
+						</div>
+
+						<Separator />
+
+						{@render walletVersionsManager({
+							wallet: record,
+							organizationId: organization.id
+						})}
+
+						<Separator />
+
+						{@render walletActionsManager({ wallet: record, ownerId: record.owner })}
+					{/snippet}
+				</DashboardCard>
 			{/each}
 		</div>
 	{/snippet}
 </CollectionManager>
 
+<!--  -->
+
 {#snippet navbarRight()}
 	<WalletFormSheet />
 {/snippet}
-
-{#snippet WalletCard(wallet: WalletsResponse)}
-	<Card class="bg-background">
-		{@const conformanceChecks = wallet.conformance_checks as
-			| ConformanceCheck[]
-			| null
-			| undefined}
-		{@const avatarSrc = wallet.logo ? pb.files.getURL(wallet, wallet.logo) : wallet.logo_url}
-
-		<div class="space-y-4">
-			<div class="flex flex-row items-center justify-between gap-4">
-				<div class="flex items-center gap-3">
-					<Avatar src={avatarSrc} fallback={wallet.name} class="rounded-sm border" />
-					<LabelLink
-						label={wallet.name}
-						href="/marketplace/wallets/{organization?.canonified_name}/{wallet.canonified_name}"
-						published={wallet.published}
-					/>
-				</div>
-
-				<div class="flex items-center gap-1">
-					<PublishedSwitch record={wallet} field="published" />
-					<WalletFormSheet walletId={wallet.id} initialData={wallet} />
-					<RecordDelete record={wallet}>
-						{#snippet button({ triggerAttributes, icon: Icon })}
-							<Button
-								variant="outline"
-								size="icon"
-								class="p-2"
-								{...triggerAttributes}
-							>
-								<Icon />
-							</Button>
-						{/snippet}
-					</RecordDelete>
-				</div>
-			</div>
-
-			{#if wallet.description}
-				<Separator />
-				{@const isExpanded = expandedDescriptions.has(wallet.id)}
-				{@const descriptionText = wallet.description.replace(/<[^>]*>/g, '').trim()}
-				{@const needsExpansion = descriptionText.length > 100}
-				<div class="mt-1 text-xs text-gray-400">
-					<div
-						class="transition-all duration-200 ease-in-out {isExpanded
-							? ''
-							: 'line-clamp-2'}"
-					>
-						<RenderMd content={wallet.description} />
-					</div>
-
-					{#if needsExpansion}
-						<button
-							class="text-primary mt-1 flex items-center gap-1 text-xs transition-colors duration-150 hover:underline"
-							onclick={() => toggleDescriptionExpansion(wallet.id)}
-							type="button"
-						>
-							{#if isExpanded}
-								{m.Show_less()}
-								<ChevronUp class="h-3 w-3" />
-							{:else}
-								{m.Show_more()}
-								<ChevronDown class="h-3 w-3" />
-							{/if}
-						</button>
-					{/if}
-				</div>
-			{/if}
-
-			<Separator />
-
-			<div class="flex flex-wrap gap-2">
-				{#if conformanceChecks && conformanceChecks.length > 0}
-					{#each conformanceChecks as check (check)}
-						<Badge variant={check.status === 'success' ? 'secondary' : 'destructive'}>
-							{check.test}
-						</Badge>
-					{/each}
-				{:else}
-					<T class="text-gray-300">
-						{m.No_conformance_checks_available()}
-					</T>
-				{/if}
-			</div>
-
-			<Separator />
-
-			{@render walletVersionsManager({
-				wallet,
-				organizationId: organization.id
-			})}
-
-			<Separator />
-
-			{@render walletActionsManager({ wallet, ownerId: wallet.owner })}
-		</div>
-	</Card>
-{/snippet}
-
-<!-- Versions -->
 
 {#snippet walletVersionsManager(props: { wallet: WalletsResponse; organizationId: string })}
 	{@const wallet = props.wallet}
@@ -296,8 +223,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 	</RecordCreate>
 {/snippet}
-
-<!-- Actions -->
 
 {#snippet walletActionsManager(props: { wallet: WalletsResponse; ownerId: string })}
 	<CollectionManager
