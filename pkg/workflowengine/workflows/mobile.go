@@ -130,13 +130,27 @@ func (w *MobileAutomationWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityError]
+	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 	apkPath, ok := response.Output.(map[string]any)["body"].(map[string]any)["apk_path"].(string)
 	if !ok || apkPath == "" {
 		appErr := workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf(
 				"%s: 'apk_path'", errCode.Description),
+			response.Output,
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			runMetadata,
+		)
+	}
+
+	pkgID, ok := response.Output.(map[string]any)["body"].(map[string]any)["package_id"].(string)
+	if !ok || pkgID == "" {
+		appErr := workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf(
+				"%s: 'package_id'", errCode.Description),
 			response.Output,
 		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
@@ -160,11 +174,18 @@ func (w *MobileAutomationWorkflow) Workflow(
 			)
 		}
 	}
-	mobileActivity := activities.NewMobileFlowActivity()
+	installActivity := activities.NewApkInstallActivity()
+	installInput := workflowengine.ActivityInput{
+		Payload: map[string]any{"apk": apkPath},
+	}
+	if err := workflow.ExecuteActivity(ctx, installActivity.Name(), installInput).Get(ctx, nil); err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+	}
+
+	mobileActivity := activities.NewRunMobileFlowActivity()
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
-			"apk":        apkPath,
 			"yaml":       actionCode,
 			"recorded":   recorded,
 			"parameters": parameters,
@@ -179,6 +200,15 @@ func (w *MobileAutomationWorkflow) Workflow(
 		},
 	}
 	output.FlowOutput = mobileResponse.Output
+
+	uninstallActivity := activities.NewApkUninstallActivity()
+	uninstallInput := workflowengine.ActivityInput{
+		Payload: map[string]any{
+			"package": pkgID,
+		},
+	}
+
+	uninstallFuture := workflow.ExecuteActivity(ctx, uninstallActivity.Name(), uninstallInput)
 	if recorded {
 
 		checkVideoActivity := activities.NewCheckFileExistsActivity()
@@ -251,6 +281,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 			output.ResultVideoURL = resultURL
 		}
 	}
+
 	if executeErr != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			executeErr,
@@ -258,6 +289,14 @@ func (w *MobileAutomationWorkflow) Workflow(
 			map[string]any{
 				"output": output,
 			},
+		)
+	}
+	uninstallErr := uninstallFuture.Get(ctx, nil)
+	if uninstallErr != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			uninstallErr,
+			runMetadata,
+			pkgID,
 		)
 	}
 

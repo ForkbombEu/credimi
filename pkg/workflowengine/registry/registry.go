@@ -85,9 +85,20 @@ var Registry = map[string]TaskFactory{
 	},
 	"mobile-flow": {
 		Kind:       TaskActivity,
-		NewFunc:    func() any { return activities.NewMobileFlowActivity() },
+		NewFunc:    func() any { return activities.NewRunMobileFlowActivity() },
 		OutputKind: workflowengine.OutputString,
 	},
+	"apk-install": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewApkInstallActivity() },
+		OutputKind: workflowengine.OutputString,
+	},
+	"apk-uninstall": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewApkUninstallActivity() },
+		OutputKind: workflowengine.OutputString,
+	},
+
 	"mobile-automation": {
 		Kind:      TaskWorkflow,
 		NewFunc:   func() any { return &workflows.MobileAutomationWorkflow{} },
@@ -113,4 +124,6 @@ var Registry = map[string]TaskFactory{
 var PipelineWorkerDenylist = map[string]struct{}{
 	"mobile-flow":       {},
 	"mobile-automation": {},
+	"apk-install":       {},
+	"apk-uninstall":     {},
 }
