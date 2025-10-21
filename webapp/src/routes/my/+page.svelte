@@ -5,8 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { appSections } from '$lib/marketplace/sections';
-	import { TestTube } from 'lucide-svelte';
+	import { appSections, testRunsSection } from '$lib/marketplace/sections';
 
 	import type { IconComponent } from '@/components/types';
 
@@ -34,7 +33,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#each Object.values(appSections) as section (section)}
 			{@render cardLink(`/my/${section.id}`, section.icon, section.label, section.textClass)}
 		{/each}
-		{@render cardLink(`/my/tests/runs`, TestTube, m.Test_runs(), 'text-black', 'sm:col-span-2')}
+		{@render cardLink(
+			testRunsSection.id,
+			testRunsSection.icon,
+			testRunsSection.label,
+			testRunsSection.textClass,
+			'sm:col-span-2'
+		)}
 	</div>
 </div>
 

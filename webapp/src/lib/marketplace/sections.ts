@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { TestTube2 } from 'lucide-svelte';
+
 import type { IconComponent } from '@/components/types';
 
 import { m } from '@/i18n';
@@ -47,6 +49,13 @@ export const appSections = {
 		textClass: marketplaceItemsDisplayConfig.custom_checks.textClass
 	}
 } as const satisfies Record<string, AppSection>;
+
+export const testRunsSection = {
+	label: m.Test_runs(),
+	id: '/my/tests/runs',
+	icon: TestTube2,
+	textClass: 'text-black'
+};
 
 //
 

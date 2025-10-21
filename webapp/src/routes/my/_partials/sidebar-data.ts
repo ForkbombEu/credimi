@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { appSections } from '$lib/marketplace/sections';
-import { GlobeIcon, HomeIcon, LockIcon, StoreIcon, TestTubeIcon, UserIcon } from 'lucide-svelte';
+import { appSections, testRunsSection } from '$lib/marketplace/sections';
+import { GlobeIcon, HomeIcon, LockIcon, StoreIcon, UserIcon } from 'lucide-svelte';
 
 import { m } from '@/i18n';
 
@@ -39,12 +39,12 @@ export const data: SidebarGroup[] = [
 		})
 	},
 	{
-		title: m.Test_runs(),
+		title: testRunsSection.label,
 		items: [
 			{
-				title: m.Test_runs(),
-				url: '/my/tests/runs',
-				icon: TestTubeIcon
+				title: testRunsSection.label,
+				url: testRunsSection.id,
+				icon: testRunsSection.icon
 			},
 			WorkflowStatusesSidebarSection
 		]
