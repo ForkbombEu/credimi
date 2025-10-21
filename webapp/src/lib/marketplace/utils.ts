@@ -133,11 +133,16 @@ export function getMarketplaceItemTypeData(type: MarketplaceItemType) {
 
 export const CUSTOM_CHECK_QUERY_PARAM = 'custom_check_id';
 
-export function getMarketplaceItemData(item: MarketplaceItem) {
+export function getMarketplaceItemUrl(item: MarketplaceItem) {
 	const href =
 		item.type === 'custom_checks'
 			? `/my/tests/new?${CUSTOM_CHECK_QUERY_PARAM}=${item.id}`
-			: localizeHref(`/marketplace/${item.path}`);
+			: `/marketplace/${item.path}`;
+	return localizeHref(href);
+}
+
+export function getMarketplaceItemData(item: MarketplaceItem) {
+	const href = getMarketplaceItemUrl(item);
 
 	const logo = item.avatar_file
 		? pb.files.getURL({ collectionName: item.type, id: item.id }, item.avatar_file)

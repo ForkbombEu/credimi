@@ -39,13 +39,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	function getVerificationPublicUrl(ucv: UseCasesVerificationsResponse) {
-		return `/marketplace/use_cases_verifications/${getVerificationPath(ucv)}`;
+		return `/marketplace/use_cases_verifications/${organization.canonified_name}/${ucv.canonified_name}`;
 	}
 </script>
 
 <DashboardCard
 	record={verifier}
-	{organization}
 	avatar={(v) => pb.files.getURL(v, v.logo)}
 	links={{
 		URL: verifier.url

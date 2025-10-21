@@ -56,7 +56,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#each records as record (record.id)}
 				<DashboardCard
 					{record}
-					{organization}
 					avatar={(w) => (w.logo ? pb.files.getURL(w, w.logo) : w.logo_url)}
 				>
 					{#snippet content()}
