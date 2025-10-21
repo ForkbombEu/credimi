@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <CollectionManager
 	queryOptions={{
 		filter: `
-		custom_checks_via_owner.public = true || 
+		custom_checks_via_owner.published = true || 
 		credentials_via_owner.published = true || 
 		credential_issuers_via_owner.published = true || 
 		wallets_via_owner.published = true ||

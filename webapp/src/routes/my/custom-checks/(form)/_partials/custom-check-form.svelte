@@ -329,7 +329,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<PageCardSection title={m.Make_public()} description={m.Make_public_section_description()}>
 			<CheckboxField
 				{form}
-				name="public"
+				name="published"
 				options={{
 					label: `${m.Make_public()}`
 				}}

@@ -16,12 +16,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import PageGrid from '$lib/layout/pageGrid.svelte';
+	import { MarketplaceItemCard } from '$lib/marketplace';
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-
-	import { MarketplaceItemCard } from '../marketplace/_utils';
 
 	let { findLabel, allLabel, collection }: SectionData = $props();
 
@@ -43,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		{#snippet records({ records })}
 			<PageGrid>
-				{#each records as item, i}
+				{#each records as item, i (item.id)}
 					{@const isLast = i == MAX_ITEMS - 1}
 					<MarketplaceItemCard {item} class={isLast ? 'hidden lg:flex' : ''} />
 				{/each}

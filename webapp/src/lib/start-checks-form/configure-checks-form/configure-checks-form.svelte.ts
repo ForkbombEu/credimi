@@ -8,8 +8,8 @@ import { pipe, Record } from 'effect';
 import { goto } from '@/i18n';
 import { pb } from '@/pocketbase';
 
+import type { StartChecksResponse } from '$start-checks-form/types';
 import type { SelectChecksSubmitData } from '../select-checks-form';
-import type { StartChecksResponse } from '../types';
 
 import { CheckConfigEditor } from './check-config-editor';
 import { CheckConfigFormEditor } from './check-config-form-editor';

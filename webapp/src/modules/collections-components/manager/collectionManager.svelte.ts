@@ -11,12 +11,12 @@ import type { RecordIdString } from '@/pocketbase/types';
 
 import { pb } from '@/pocketbase';
 import {
-	type PocketbaseQueryOptions,
-	type PocketbaseQueryExpandOption,
-	type PocketbaseQueryResponse,
-	PocketbaseQueryOptionsEditor,
 	type PocketbaseQueryAgentOptions,
-	PocketbaseQueryAgent
+	type PocketbaseQueryExpandOption,
+	type PocketbaseQueryOptions,
+	type PocketbaseQueryResponse,
+	PocketbaseQueryAgent,
+	PocketbaseQueryOptionsEditor
 } from '@/pocketbase/query';
 
 //
@@ -67,6 +67,15 @@ export class CollectionManager<
 	currentPage = $state(1);
 	totalItems = $state(0);
 	loadingError = $state<ClientResponseError>();
+	currentRange = $derived.by(() => {
+		if (!this.query.hasPagination()) return `1 - ${this.records.length}`;
+		else {
+			const pageSize = this.query.getPageSize() ?? 1;
+			const start = 1 + (this.currentPage - 1) * pageSize;
+			const end = Math.min(this.currentPage * pageSize, this.totalItems);
+			return `${start} - ${end}`;
+		}
+	});
 
 	private previousFilter: string | undefined;
 
@@ -80,10 +89,11 @@ export class CollectionManager<
 		try {
 			if (this.query.hasPagination()) {
 				const result = await this.queryAgent.getList(this.currentPage);
-				this.totalItems = result.totalItems;
 				this.records = result.items;
+				this.totalItems = result.totalItems;
 			} else {
 				this.records = await this.queryAgent.getFullList();
+				this.totalItems = this.records.length;
 			}
 		} catch (e) {
 			console.error(e);

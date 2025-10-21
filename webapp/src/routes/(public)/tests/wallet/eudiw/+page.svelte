@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import { getEUDIWWorkflowLogsProps } from '$lib/wallet-test-pages/eudiw';
+	import WorkflowLogs from '$lib/workflows/workflow-logs.svelte';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -15,7 +16,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import FeedbackForms from '../_partials/feedback-forms.svelte';
 	import QrLink from '../_partials/qr-link.svelte';
 	import Step from '../_partials/step.svelte';
-	import WorkflowLogs from '../_partials/workflow-logs.svelte';
 
 	//
 
@@ -31,7 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if qr}
 			<Step n="1" text="Scan this QR with the wallet app to start the check">
 				<div
-					class="ml-16 mt-4 flex flex-col items-center justify-center rounded-md bg-primary/10 p-2 sm:flex-row"
+					class="bg-primary/10 ml-16 mt-4 flex flex-col items-center justify-center rounded-md p-2 sm:flex-row"
 				>
 					<QrLink {qr} />
 				</div>

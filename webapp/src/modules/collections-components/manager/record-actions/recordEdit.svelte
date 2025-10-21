@@ -32,7 +32,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const { manager, formsOptions, formRefineSchema } = $derived(getCollectionManagerContext());
+	const { manager, formsOptions, formRefineSchema, editForm } = $derived(
+		getCollectionManagerContext()
+	);
 
 	const defaultFormOptions: CollectionFormOptions<C> = {
 		uiOptions: { showToastOnSuccess: true }
@@ -56,33 +58,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet content({ closeSheet })}
-		<CollectionForm
-			collection={manager.collection}
-			recordId={record.id}
-			initialData={record as unknown as undefined}
-			refineSchema={formRefineSchema}
-			{...options}
-			onSuccess={(record) => {
-				closeSheet();
-				manager.loadRecords();
-				onSuccess(record, 'create');
-			}}
-			uiOptions={{
-				hide: ['submit_button', 'error']
-			}}
-		>
-			<FormError />
-			<div
-				class="sticky bottom-0 -mx-6 -mt-6 flex justify-end border-t bg-white/70 px-6 py-2 backdrop-blur-sm"
+		{#if editForm}
+			{@render editForm({ record: record as never, closeSheet })}
+		{:else}
+			<CollectionForm
+				collection={manager.collection}
+				recordId={record.id}
+				initialData={record as unknown as undefined}
+				refineSchema={formRefineSchema}
+				{...options}
+				onSuccess={(record) => {
+					closeSheet();
+					manager.loadRecords();
+					onSuccess(record, 'create');
+				}}
+				uiOptions={{
+					hide: ['submit_button', 'error']
+				}}
 			>
-				<SubmitButton>
-					{#if buttonText}
-						{@render buttonText?.()}
-					{:else}
-						{m.Save()}
-					{/if}
-				</SubmitButton>
-			</div>
-		</CollectionForm>
+				<FormError />
+				<div
+					class="sticky bottom-0 -mx-6 -mt-6 flex justify-end border-t bg-white/70 px-6 py-2 backdrop-blur-sm"
+				>
+					<SubmitButton>
+						{#if buttonText}
+							{@render buttonText?.()}
+						{:else}
+							{m.Save()}
+						{/if}
+					</SubmitButton>
+				</div>
+			</CollectionForm>
+		{/if}
 	{/snippet}
 </Sheet>

@@ -19,7 +19,7 @@ export const load = async ({ fetch, parent }) => {
 	let customChecks: CustomChecksResponse[] = [];
 	try {
 		customChecks = await pb.collection('custom_checks').getFullList({
-			filter: `owner = '${organization.id}' || public = true`,
+			filter: `owner = '${organization.id}' || published = true`,
 			fetch
 		});
 	} catch (e) {

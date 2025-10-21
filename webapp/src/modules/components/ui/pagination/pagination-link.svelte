@@ -1,21 +1,12 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	// @ts-nocheck
-
-	import { Pagination as PaginationPrimitive } from 'bits-ui';
-
-	import { type Props, buttonVariants } from '@/components/ui/button/index.js';
-	import { cn } from '@/components/ui/utils.js';
+	import { Pagination as PaginationPrimitive } from "bits-ui";
+	import { cn } from "@/components/ui/utils.js";
+	import { type Props, buttonVariants } from "@/components/ui/button/index.js";
 
 	let {
 		ref = $bindable(null),
 		class: className,
-		size = 'icon',
+		size = "icon",
 		isActive = false,
 		page,
 		children,
@@ -35,8 +26,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{page}
 	class={cn(
 		buttonVariants({
-			variant: isActive ? 'outline' : 'ghost',
-			size
+			variant: isActive ? "outline" : "ghost",
+			size,
 		}),
 		className
 	)}

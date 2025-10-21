@@ -20,6 +20,8 @@ import {
 
 //
 
+export const WORKFLOW_STATUS_QUERY_PARAM = 'status';
+
 const WORKFLOWS_API = '/api/compliance/checks';
 
 const workflowApi = (workflowId: string, runId: string) =>
@@ -29,18 +31,18 @@ const workflowApi = (workflowId: string, runId: string) =>
 
 type FetchWorkflowsOptions = {
 	fetch?: typeof fetch;
-	statuses?: WorkflowStatusType[];
+	status?: WorkflowStatusType | undefined;
 };
 
 export async function fetchWorkflows(
 	options: FetchWorkflowsOptions = {}
 ): Promise<WorkflowExecution[] | Error> {
-	const { fetch: fetchFn = fetch, statuses = [] } = options;
+	const { fetch: fetchFn = fetch, status } = options;
 
 	let url = WORKFLOWS_API;
-	if (statuses.length > 0) {
-		const formattedStatuses = statuses.map((status) => String.pascalToSnake(status));
-		url += `?status=${formattedStatuses.join(',')}`;
+	if (status) {
+		const formattedStatus = String.pascalToSnake(status);
+		url += `?${WORKFLOW_STATUS_QUERY_PARAM}=${formattedStatus}`;
 	}
 
 	return tryPromise(async () => {
@@ -59,8 +61,7 @@ export async function fetchWorkflows(
 		const errors = parsed.filter((execution) => execution instanceof Error);
 		if (errors.length > 0) warn(errors);
 
-		const executions = Array.difference(parsed, errors) as WorkflowExecution[];
-		return executions;
+		return Array.difference(parsed, errors) as WorkflowExecution[];
 	}, 'Failed to fetch user workflows');
 }
 

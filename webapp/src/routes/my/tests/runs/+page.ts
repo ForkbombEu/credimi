@@ -3,16 +3,30 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { error } from '@sveltejs/kit';
-import { fetchWorkflows, groupWorkflowsWithChildren } from '$lib/workflows/index.js';
+import { isWorkflowStatus, type WorkflowStatusType } from '$lib/temporal';
+import {
+	fetchWorkflows,
+	groupWorkflowsWithChildren,
+	WORKFLOW_STATUS_QUERY_PARAM
+} from '$lib/workflows/index.js';
 
-import { getWorkflowStatusesFromUrl } from './utils';
+import { redirect } from '@/i18n/index.js';
 
 //
 
 export const load = async ({ fetch, url }) => {
-	const statuses = getWorkflowStatusesFromUrl(url);
+	const status = url.searchParams.get(WORKFLOW_STATUS_QUERY_PARAM);
 
-	const workflows = await fetchWorkflows({ fetch, statuses });
+	let parsedStatus: WorkflowStatusType | undefined = undefined;
+	if (status) {
+		if (isWorkflowStatus(status)) {
+			parsedStatus = status;
+		} else {
+			redirect('/my/tests/runs');
+		}
+	}
+
+	const workflows = await fetchWorkflows({ fetch, status: parsedStatus });
 	if (workflows instanceof Error) {
 		error(500, {
 			message: workflows.message
@@ -21,6 +35,6 @@ export const load = async ({ fetch, url }) => {
 
 	return {
 		workflows: groupWorkflowsWithChildren(workflows),
-		selectedStatuses: statuses
+		selectedStatus: parsedStatus
 	};
 };
