@@ -6,7 +6,11 @@ import type { IconComponent } from '@/components/types';
 
 import { m } from '@/i18n';
 
-import { marketplaceItemsDisplayConfig } from './utils';
+import {
+	marketplaceItemsDisplayConfig,
+	type MarketplaceItem,
+	type MarketplaceItemType
+} from './utils';
 
 //
 
@@ -43,3 +47,21 @@ export const appSections = {
 		textClass: marketplaceItemsDisplayConfig.custom_checks.textClass
 	}
 } as const satisfies Record<string, AppSection>;
+
+//
+
+type SectionId = (typeof appSections)[keyof typeof appSections]['id'];
+
+const marketplaceTypeToSectionId: Record<MarketplaceItemType, SectionId> = {
+	wallets: 'wallets',
+	credential_issuers: 'credential-issuers-and-credentials',
+	verifiers: 'verifiers-and-use-case-verifications',
+	custom_checks: 'custom-checks',
+	use_cases_verifications: 'verifiers-and-use-case-verifications',
+	credentials: 'credential-issuers-and-credentials'
+};
+
+export function marketplaceItemToSectionHref(item: MarketplaceItem): string {
+	const sectionId = marketplaceTypeToSectionId[item.type];
+	return `/my/${sectionId}`;
+}

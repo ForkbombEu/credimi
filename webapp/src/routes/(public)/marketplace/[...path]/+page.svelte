@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { userOrganization } from '$lib/app-state';
 	import PageTop from '$lib/layout/pageTop.svelte';
 	import { getMarketplaceItemData, MarketplaceItemTypeDisplay } from '$lib/marketplace';
+	import { marketplaceItemToSectionHref } from '$lib/marketplace/sections';
 	import { ArrowLeft, PencilIcon } from 'lucide-svelte';
 
 	import A from '@/components/ui-custom/a.svelte';
@@ -44,14 +45,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T>{m.This_item_is_yours({ item: display.label })}</T>
 			<div class="flex items-center gap-3">
 				<T>{m.Last_edited()}: {new Date(marketplaceItem.updated).toLocaleDateString()}</T>
-				<!-- <Button
+				<Button
 					size="sm"
 					class="!h-8 text-xs"
-					onclick={() => {
-						editFormState.open = true;
-					}}
-				> -->
-				<Button size="sm" class="!h-8 text-xs" href="/my">
+					href={marketplaceItemToSectionHref(marketplaceItem)}
+				>
 					<PencilIcon />
 					{m.Make_changes()}
 				</Button>
