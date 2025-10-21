@@ -19,6 +19,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { currentUser, pb } from '@/pocketbase';
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 
+	import { setDashboardNavbar } from '../+layout@.svelte';
+
 	//
 
 	const detectedTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -38,6 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			onSubmit: async ({ form }) => {
 				const dataToUpdate = { ...form.data };
 				delete dataToUpdate.verified;
+				// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
 				$currentUser = await pb.collection('users').update($currentUser?.id!, dataToUpdate);
 			},
 			initialData: {
@@ -51,6 +54,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 		})
 	);
+
+	setDashboardNavbar({
+		title: m.Profile()
+	});
 </script>
 
 <div class="space-y-6">

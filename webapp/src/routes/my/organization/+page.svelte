@@ -16,10 +16,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as AlertDialog from '@/components/ui/alert-dialog';
 	import { m } from '@/i18n/index.js';
 
+	import { setDashboardNavbar } from '../+layout@.svelte';
+
 	//
 
 	let { data } = $props();
 	let { organization, isOrganizationNotEdited } = $derived(data);
+
+	setDashboardNavbar({
+		title: m.Organization(),
+		right: navbarRight
+	});
+
+	//
 
 	// Organization name change warning
 	let showNameChangeWarning = $state(false);
@@ -61,13 +70,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<div class="flex items-center justify-between">
-	<T tag="h3">{m.Update_your_organization_page()}</T>
+{#snippet navbarRight()}
 	<Button variant="outline" href="/organizations/{organization.canonified_name}">
 		{m.Page_preview()}
 		<ArrowUpRight />
 	</Button>
-</div>
+{/snippet}
 
 <AlertDialog.Root bind:open={showNameChangeWarning}>
 	<AlertDialog.Content class="!z-[60]">
@@ -86,7 +94,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </AlertDialog.Root>
 
 {#if isOrganizationNotEdited}
-	<Alert variant="info" icon={InfoIcon} class="mb-8">
+	<Alert variant="info" icon={InfoIcon}>
 		<T>
 			{m.Edit_your_organization_information_to_better_represent_your_services_and_products_on_the_marketplace()}
 		</T>

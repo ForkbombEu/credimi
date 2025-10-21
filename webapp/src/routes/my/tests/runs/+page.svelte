@@ -30,10 +30,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n/index.js';
 	import { ensureArray, warn } from '@/utils/other';
 
+	import { setDashboardNavbar } from '../../+layout@.svelte';
+
 	//
 
 	let { data } = $props();
 	let { workflows = [], selectedStatus } = $derived(data);
+
+	setDashboardNavbar({
+		title: m.Test_runs()
+	});
+
+	//
 
 	let latestCheckRuns: StartCheckResultWithMeta[] = $state([]);
 	if (browser) latestCheckRuns = ensureArray(LatestCheckRunsStorage.get());
@@ -41,8 +49,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const latestRunIds = $derived(latestCheckRuns.map((run) => run.workflowRunId));
 	const latestWorkflows = $derived(workflows.filter((w) => latestRunIds.includes(w.runId)));
 	const oldWorkflows = $derived(Array.difference(workflows, latestWorkflows));
-
-	//
 
 	onMount(() => {
 		const interval = setInterval(async () => {
