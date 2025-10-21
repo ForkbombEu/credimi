@@ -67,24 +67,30 @@ export const jsonStringSchema = z.string().superRefine((v, ctx) => {
 const ajv = new Ajv({ allowUnionTypes: true });
 const validateStepci = ajv.compile(stepciJsonSchema);
 
-export const stepciYamlSchema = z.string().superRefine((v, ctx) => {
-	let res: unknown;
-	try {
-		res = parseYaml(v);
-	} catch (e) {
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			message: `Invalid YAML document: ${getExceptionMessage(e)}`
-		});
-		return;
-	}
+export function refineAsStepciYaml(schema: z.ZodString | z.ZodOptional<z.ZodString>) {
+	return schema.superRefine((v, ctx) => {
+		if (!v) return;
 
-	const isValid = validateStepci(res);
-	if (!isValid) {
-		const error = ajv.errorsText(validateStepci.errors);
-		ctx.addIssue({
-			code: z.ZodIssueCode.custom,
-			message: `Invalid YAML document: ${error}`
-		});
-	}
-});
+		let res: unknown;
+		try {
+			res = parseYaml(v);
+		} catch (e) {
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `Invalid YAML document: ${getExceptionMessage(e)}`
+			});
+			return;
+		}
+
+		const isValid = validateStepci(res);
+		if (!isValid) {
+			const error = ajv.errorsText(validateStepci.errors);
+			ctx.addIssue({
+				code: z.ZodIssueCode.custom,
+				message: `Invalid YAML document: ${error}`
+			});
+		}
+	});
+}
+
+export const stepciYamlSchema = refineAsStepciYaml(z.string());

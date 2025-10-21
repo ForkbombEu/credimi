@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SuperForm } from 'sveltekit-superforms';
 
-	import { stepciYamlSchema } from '$lib/utils';
-	import { ZodOptional, ZodString } from 'zod';
+	import { refineAsStepciYaml } from '$lib/utils';
+	import { z } from 'zod';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type {
@@ -73,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 	refineSchema={(schema) =>
 		schema.extend({
-			yaml: stepciYamlSchema.optional() as unknown as ZodOptional<ZodString>
+			yaml: refineAsStepciYaml(z.string().optional()) as unknown as z.ZodOptional<z.ZodString>
 		})}
 	fieldsOptions={{
 		exclude,
