@@ -13,8 +13,6 @@ services:
       - ES_JAVA_OPTS=-Xms256m -Xmx256m
       - xpack.security.enabled=false
     image: elasticsearch:${ELASTICSEARCH_VERSION}
-    networks:
-      - temporal-network
     expose:
       - 9200
     volumes:
@@ -25,8 +23,6 @@ services:
       POSTGRES_PASSWORD: temporal
       POSTGRES_USER: temporal
     image: postgres:${POSTGRESQL_VERSION}
-    networks:
-      - temporal-network
     expose:
       - 5432
     volumes:
@@ -49,8 +45,6 @@ services:
       - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
       - TEMPORAL_CLI_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
     image: temporalio/auto-setup:${TEMPORAL_VERSION}
-    networks:
-      - temporal-network
     ports:
       - 7233:7233
     volumes:
@@ -63,8 +57,6 @@ services:
       - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
-    networks:
-      - temporal-network
     ports:
       - 8322:8080
   credimi:
@@ -95,12 +87,4 @@ services:
     volumes:
       - ./pb_data/:/app/pb_data
       - /var/run/docker.sock:/var/run/docker.sock
-    devices:
-      - "/dev/kvm:/dev/kvm"
-    networks:
-      - temporal-network
-networks:
-  temporal-network:
-    # external: true
-    name: temporal-network
 
