@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
 
-	import QrGenerationField, { type FieldMode } from './deeplink-tabs/index.svelte';
+	import QrGenerationField, { type FieldMode } from './qr-generation-field.svelte';
 
 	//
 

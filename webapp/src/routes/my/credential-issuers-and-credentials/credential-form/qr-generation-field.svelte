@@ -79,7 +79,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Tabs.Root bind:value={activeTab} class="w-full">
 	<Tabs.List class="mb-4 w-full">
-		{#each Object.values(modesTabs) as tab}
+		{#each Object.values(modesTabs) as tab (tab)}
 			<Tabs.Trigger class="grow basis-1" value={tab.value}>
 				{tab.label}
 			</Tabs.Trigger>
