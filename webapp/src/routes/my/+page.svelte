@@ -6,6 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { appSections } from '$lib/marketplace/sections';
+	import { TestTube } from 'lucide-svelte';
+
+	import type { IconComponent } from '@/components/types';
 
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -13,6 +16,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { currentUser } from '@/pocketbase';
 
 	import { setDashboardNavbar } from './+layout@.svelte';
+
+	//
 
 	setDashboardNavbar({
 		title: m.Dashboard()
@@ -25,19 +30,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<T tag="p">{m.Welcome_dashboard_sentence()}</T>
 	</div>
 
-	<div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+	<div class="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr]">
 		{#each Object.values(appSections) as section (section)}
-			<a
-				href="/my/{section.id}"
-				class={[
-					'bg-secondary block space-y-2 rounded-lg p-4',
-					section.textClass,
-					'transition-transform hover:-translate-y-2 hover:ring-2'
-				]}
-			>
-				<Icon size={24} src={section.icon} />
-				<T tag="h3">{section.label}</T>
-			</a>
+			{@render cardLink(`/my/${section.id}`, section.icon, section.label, section.textClass)}
 		{/each}
+		{@render cardLink(`/my/tests/runs`, TestTube, m.Test_runs(), 'text-black', 'sm:col-span-2')}
 	</div>
 </div>
+
+{#snippet cardLink(
+	href: string,
+	icon: IconComponent,
+	label: string,
+	textClass: string,
+	className?: string
+)}
+	<a
+		{href}
+		class={[
+			'bg-secondary block space-y-2 rounded-lg p-4',
+			textClass,
+			'transition-transform hover:-translate-y-2 hover:ring-2',
+			className
+		]}
+	>
+		<Icon size={24} src={icon} />
+		<T tag="h3">{label}</T>
+	</a>
+{/snippet}
