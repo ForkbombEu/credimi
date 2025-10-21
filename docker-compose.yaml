@@ -28,7 +28,6 @@ services:
     volumes:
       - /var/lib/postgresql/data
   temporal:
-    container_name: temporal
     depends_on:
       - postgresql
       - elasticsearch
@@ -42,8 +41,8 @@ services:
       - ENABLE_ES=true
       - ES_SEEDS=elasticsearch
       - ES_VERSION=v7
-      - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
-      - TEMPORAL_CLI_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
+      - TEMPORAL_ADDRESS=temporal:7233
+      - TEMPORAL_CLI_ADDRESS=temporal:7233
     image: temporalio/auto-setup:${TEMPORAL_VERSION}
     ports:
       - 7233:7233
@@ -54,7 +53,7 @@ services:
     depends_on:
       - temporal
     environment:
-      - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
+      - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
     ports:
@@ -79,7 +78,7 @@ services:
       - SCHEMAS_PATH=schemas
       - SMTP_HOST=smtp.apps.forkbomb.eu
       - SMTP_PORT=1025
-      - TEMPORAL_ADDRESS=${SERVICE_FQDN_TEMPORAL}:7233
+      - TEMPORAL_ADDRESS=temporal:7233
       - MAESTRO_WORKER=https://android.next.credimi.io
       - PORT=5100
     ports:
