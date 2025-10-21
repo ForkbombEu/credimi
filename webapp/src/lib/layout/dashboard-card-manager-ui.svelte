@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		nameField: StringKey<R>;
+		fallbackNameField?: StringKey<R>;
 		publicUrl?: (record: R) => string;
 		textToCopy?: (record: R) => string;
 		records: R[];
@@ -28,6 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let {
 		nameField,
+		fallbackNameField,
 		publicUrl,
 		textToCopy,
 		records,
@@ -42,6 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<DashboardCardManagerItem
 				{record}
 				{nameField}
+				{fallbackNameField}
 				publicUrl={publicUrl?.(record)}
 				textToCopy={textToCopy?.(record)}
 				{hideClone}

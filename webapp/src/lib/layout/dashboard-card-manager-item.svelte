@@ -28,22 +28,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		record: R;
 		nameField: StringKey<R>;
+		fallbackNameField?: StringKey<R>;
 		publicUrl?: string;
 		textToCopy?: string;
 		actions?: Snippet;
 		hideClone?: boolean;
 	};
 
-	let { record, nameField, publicUrl, textToCopy, actions, hideClone }: Props = $props();
+	let { record, nameField, fallbackNameField, publicUrl, textToCopy, actions, hideClone }: Props =
+		$props();
+
+	const name = $derived(
+		// @ts-expect-error - Slight type mismatch
+		(record[nameField] as string) || (record[fallbackNameField as string] as string)
+	);
 </script>
 
 <li class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2 hover:ring-2">
 	{#if publicUrl && 'published' in record && typeof record.published === 'boolean'}
-		<LabelLink
-			label={record[nameField] as string}
-			href={publicUrl}
-			published={record.published}
-		/>
+		<LabelLink label={name} href={publicUrl} published={record.published} />
 	{:else}
 		<T class="font-medium">{record[nameField] as string}</T>
 	{/if}

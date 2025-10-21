@@ -115,6 +115,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<DashboardCardManagerUI
 				records={credentials}
 				nameField="display_name"
+				fallbackNameField="name"
 				hideClone={issuer.imported}
 				textToCopy={getCredentialPath}
 				publicUrl={getCredentialPublicUrl}
