@@ -39,15 +39,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	{#snippet records({ records })}
 		<div class="space-y-6">
-			{#each records as verifier, index (verifier.id)}
-				{@const useCasesVerifications =
-					verifier.expand?.use_cases_verifications_via_verifier ?? []}
-				<VerifierCard
-					bind:verifier={records[index]}
-					{useCasesVerifications}
-					organizationId={organization.id}
-					{organization}
-				/>
+			{#each records as verifier (verifier)}
+				<VerifierCard {verifier} {organization} />
 			{/each}
 		</div>
 	{/snippet}
@@ -62,7 +55,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Button>
 		{/snippet}
 		{#snippet content({ closeSheet })}
-			<CollectionForm collection="verifiers" onSuccess={closeSheet} />
+			<CollectionForm
+				collection="verifiers"
+				onSuccess={closeSheet}
+				fieldsOptions={settings}
+			/>
 		{/snippet}
 	</Sheet>
 {/snippet}

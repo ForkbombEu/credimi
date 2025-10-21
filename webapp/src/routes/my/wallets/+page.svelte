@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { yamlStringSchema } from '$lib/utils';
-	import { PencilIcon, UploadIcon } from 'lucide-svelte';
+	import { UploadIcon } from 'lucide-svelte';
 	import { z } from 'zod';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
@@ -20,7 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
-	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { Separator } from '@/components/ui/separator';
@@ -31,6 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
 	import WalletFormSheet from './wallet-form-sheet.svelte';
+	import WalletForm from './wallet-form.svelte';
 
 	//
 
@@ -46,30 +46,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		filter: `owner.id = '${organization.id}'`,
 		sort: ['created', 'DESC']
 	}}
-	editFormFieldsOptions={{ exclude: ['owner', 'published'] }}
 >
+	{#snippet editForm({ record: wallet, closeSheet })}
+		<WalletForm walletId={wallet.id} initialData={wallet} onSuccess={() => closeSheet()} />
+	{/snippet}
+
 	{#snippet records({ records })}
 		<div class="space-y-6">
 			{#each records as record (record.id)}
-				{@const conformanceChecks = record.conformance_checks as
-					| ConformanceCheck[]
-					| null
-					| undefined}
-
 				<DashboardCard
 					{record}
 					{organization}
 					avatar={(w) => (w.logo ? pb.files.getURL(w, w.logo) : w.logo_url)}
 				>
-					{#snippet editAction()}
-						<WalletFormSheet walletId={record.id} initialData={record}>
-							{#snippet customTrigger({ sheetTriggerAttributes })}
-								<IconButton icon={PencilIcon} {...sheetTriggerAttributes} />
-							{/snippet}
-						</WalletFormSheet>
-					{/snippet}
-
 					{#snippet content()}
+						{@const conformanceChecks = record.conformance_checks as
+							| ConformanceCheck[]
+							| null
+							| undefined}
 						<div class="flex flex-wrap gap-2">
 							{#if conformanceChecks && conformanceChecks.length > 0}
 								{#each conformanceChecks as check (check)}
@@ -82,7 +76,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									</Badge>
 								{/each}
 							{:else}
-								<T class="text-gray-300">
+								<T class="text-sm text-gray-300">
 									{m.No_conformance_checks_available()}
 								</T>
 							{/if}

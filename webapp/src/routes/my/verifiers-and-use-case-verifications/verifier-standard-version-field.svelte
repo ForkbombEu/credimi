@@ -86,7 +86,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Select.Trigger>
 
 				<Select.Content>
-					{#each options as item}
+					{#each options as item (item)}
 						<Select.Item value={item.value} disabled={item.disabled}>
 							{item.label ?? item.value}
 						</Select.Item>
