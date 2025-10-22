@@ -155,3 +155,9 @@ func convertStringMap(m map[string]string) map[string]any {
 	}
 	return res
 }
+
+func SetPayloadValue(payload map[string]InputSource, key string, val any) {
+	src := payload[key]
+	src.Value = val
+	payload[key] = src
+}

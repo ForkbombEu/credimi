@@ -61,36 +61,18 @@ func (w *MobileAutomationWorkflow) Workflow(
 		)
 	}
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
-	var actionID string
-	actionCode, actionCodeOk := input.Payload["action_code"].(string)
-	versionID, versionIDOk := input.Payload["version_id"].(string)
-
-	// If action_code is present, version_id is REQUIRED
-	if actionCodeOk && actionCode != "" {
-		if !versionIDOk || versionID == "" {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-				"version_id",
-				runMetadata,
-			)
-		}
+	actionID, _ := input.Payload["action_id"].(string)
+	versionID, _ := input.Payload["version_id"].(string)
+	actionCode, ok := input.Payload["action_code"].(string)
+	if !ok || actionCode == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"action_code",
+			runMetadata,
+		)
 	}
-	// If action_code is NOT present -> action_id is REQUIRED
-	if !actionCodeOk || actionCode == "" {
-		actionIDValue, actionIDOk := input.Payload["action_id"].(string)
-		if !actionIDOk || actionIDValue == "" {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-				"action_id",
-				runMetadata,
-			)
-		}
-		actionID = actionIDValue
-
-		if !versionIDOk {
-			versionID = ""
-		}
-	}
-
 	recorded, _ := input.Payload["recorded"].(bool)
+	storedActionCode, _ := input.Payload["store_action_code"].(bool)
+
 	var parameters map[string]any
 	if rawParams, exists := input.Payload["parameters"]; exists {
 		var ok bool
@@ -101,85 +83,6 @@ func (w *MobileAutomationWorkflow) Workflow(
 				runMetadata,
 			)
 		}
-	}
-	var HTTPActivity = activities.NewHTTPActivity()
-	var response workflowengine.ActivityResult
-	getDataInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"method": "POST",
-			"url": fmt.Sprintf(
-				"%s/%s",
-				mobileServerURL,
-				"fetch-apk-and-action",
-			),
-			"headers": map[string]any{
-				"Content-Type": "application/json",
-			},
-			"body": map[string]any{
-				"version_identifier": versionID,
-				"action_identifier":  actionID,
-			},
-			"expected_status": 200,
-		},
-	}
-	err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), getDataInput).
-		Get(ctx, &response)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			err,
-			runMetadata,
-		)
-	}
-	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-	apkPath, ok := response.Output.(map[string]any)["body"].(map[string]any)["apk_path"].(string)
-	if !ok || apkPath == "" {
-		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: 'apk_path'", errCode.Description),
-			response.Output,
-		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			appErr,
-			runMetadata,
-		)
-	}
-
-	pkgID, ok := response.Output.(map[string]any)["body"].(map[string]any)["package_id"].(string)
-	if !ok || pkgID == "" {
-		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf(
-				"%s: 'package_id'", errCode.Description),
-			response.Output,
-		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			appErr,
-			runMetadata,
-		)
-	}
-
-	if actionCode == "" {
-		actionCode, ok = response.Output.(map[string]any)["body"].(map[string]any)["code"].(string)
-		if !ok || actionCode == "" {
-			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"%s: 'code'", errCode.Description),
-				response.Output,
-			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				runMetadata,
-			)
-		}
-	}
-	installActivity := activities.NewApkInstallActivity()
-	installInput := workflowengine.ActivityInput{
-		Payload: map[string]any{"apk": apkPath},
-	}
-	if err := workflow.ExecuteActivity(ctx, installActivity.Name(), installInput).Get(ctx, nil); err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 
 	mobileActivity := activities.NewRunMobileFlowActivity()
@@ -193,26 +96,17 @@ func (w *MobileAutomationWorkflow) Workflow(
 	}
 	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
 		Get(ctx, &mobileResponse)
-	var checkVideoResult workflowengine.ActivityResult
-	checkVideoInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"path": "/tmp/credimi/video.mp4",
-		},
-	}
 	output.FlowOutput = mobileResponse.Output
 
-	uninstallActivity := activities.NewApkUninstallActivity()
-	uninstallInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"package": pkgID,
-		},
-	}
-
-	uninstallFuture := workflow.ExecuteActivity(ctx, uninstallActivity.Name(), uninstallInput)
 	if recorded {
-
+		var checkVideoResult workflowengine.ActivityResult
+		checkVideoInput := workflowengine.ActivityInput{
+			Payload: map[string]any{
+				"path": "/tmp/credimi/video.mp4",
+			},
+		}
 		checkVideoActivity := activities.NewCheckFileExistsActivity()
-		err = workflow.ExecuteActivity(ctx, checkVideoActivity.Name(), checkVideoInput).Get(ctx, &checkVideoResult)
+		err := workflow.ExecuteActivity(ctx, checkVideoActivity.Name(), checkVideoInput).Get(ctx, &checkVideoResult)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
@@ -251,11 +145,12 @@ func (w *MobileAutomationWorkflow) Workflow(
 					"expected_status": 200,
 				},
 			}
-			if actionCodeOk {
+			if !storedActionCode {
 				walletIdentifier := deriveWalletIdentifier(versionID)
 				storeResultInput.Payload["body"].(map[string]any)["wallet_identifier"] = walletIdentifier
 				storeResultInput.Payload["body"].(map[string]any)["action_code"] = actionCode
 			}
+			HTTPActivity := activities.NewHTTPActivity()
 			var storeResultResponse workflowengine.ActivityResult
 			err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeResultInput).
 				Get(ctx, &storeResultResponse)
@@ -267,6 +162,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 			}
 			resultURL, ok := storeResultResponse.Output.(map[string]any)["body"].(map[string]any)["result_url"].(string)
 			if !ok || resultURL == "" {
+				errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 				appErr := workflowengine.NewAppError(
 					errCode,
 					fmt.Sprintf(
@@ -280,15 +176,6 @@ func (w *MobileAutomationWorkflow) Workflow(
 			}
 			output.ResultVideoURL = resultURL
 		}
-	}
-
-	uninstallErr := uninstallFuture.Get(ctx, nil)
-	if uninstallErr != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			uninstallErr,
-			runMetadata,
-			pkgID,
-		)
 	}
 
 	if executeErr != nil {

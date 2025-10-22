@@ -10,6 +10,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+
 	"github.com/google/uuid"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/workflow"
@@ -92,6 +93,19 @@ func (w *PipelineWorkflow) Workflow(
 		appErr := workflowengine.NewAppError(errCode, "no workflow definition or block provided")
 		return result, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
+	for _, hook := range setupHooks {
+		if err := hook(ctx, &steps, *input.WorkflowInput.ActivityOptions); err != nil {
+			return result, workflowengine.NewWorkflowError(err, runMetadata)
+		}
+	}
+	defer func() {
+		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
+		for _, hook := range cleanupHooks {
+			if err := hook(cleanupCtx, steps, *input.WorkflowInput.ActivityOptions); err != nil {
+				logger.Error("cleanup hook error", "error", err)
+			}
+		}
+	}()
 
 	for _, step := range steps {
 		logger.Info("Running step", "id", step.ID, "use", step.Use)
