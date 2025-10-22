@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		PocketbaseQueryOptions,
 		PocketbaseQueryResponse
 	} from '@/pocketbase/query';
-	import type { CollectionFormData } from '@/pocketbase/types';
+	import type { CollectionFormData, CollectionResponses } from '@/pocketbase/types';
 	import type { CollectionZodSchema } from '@/pocketbase/zod-schema';
 
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
@@ -53,6 +53,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		Partial<Snippets>;
 
 	type Snippets = {
+		createForm: Snippet<[{ closeSheet: () => void }]>;
+		editForm: Snippet<[{ record: CollectionResponses[C]; closeSheet: () => void }]>;
+
 		records: Snippet<
 			[
 				{
@@ -60,7 +63,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					Card: typeof Card;
 					Table: typeof Table;
 					Pagination: typeof Pagination;
+					totalRecords: number;
 					reloadRecords: () => void;
+					pageRange: string;
 				}
 			]
 		>;
@@ -72,7 +77,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					Header: typeof Header;
 					Filters: typeof Filters;
 					records: PocketbaseQueryResponse<C, E>[];
+					totalRecords: number;
 					reloadRecords: () => void;
+					pageRange: string;
 				}
 			]
 		>;
@@ -150,7 +157,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				fieldsOptions: rest.editFormFieldsOptions
 			}
 		},
-		formRefineSchema: rest.formRefineSchema ?? ((schema) => schema)
+		formRefineSchema: rest.formRefineSchema ?? ((schema) => schema),
+		createForm: rest.createForm,
+		editForm: rest.editForm
 	});
 
 	setCollectionManagerContext(() => context);
@@ -168,6 +177,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	Header,
 	Filters,
 	records: manager.records,
+	totalRecords: manager.totalItems,
+	pageRange: manager.currentRange,
 	reloadRecords: () => {
 		manager.loadRecords();
 	}
@@ -191,6 +202,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			Card,
 			Table,
 			Pagination,
+			totalRecords: manager.totalItems,
+			pageRange: manager.currentRange,
 			reloadRecords: () => {
 				manager.loadRecords();
 			}

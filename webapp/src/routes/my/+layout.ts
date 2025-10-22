@@ -18,7 +18,7 @@ import { PocketbaseQueryAgent } from '@/pocketbase/query';
 //
 
 export const load = async ({ fetch, url }) => {
-	if (!browser) return;
+	// if (!browser) return;
 	const featureFlags = await loadFeatureFlags(fetch);
 
 	// Auth
@@ -28,7 +28,7 @@ export const load = async ({ fetch, url }) => {
 
 	// Keypairoom
 
-	if (featureFlags.KEYPAIROOM) {
+	if (featureFlags.KEYPAIROOM && browser) {
 		const publicKeys = await getUserPublicKeys();
 		if (!publicKeys) redirect('/keypairoom');
 

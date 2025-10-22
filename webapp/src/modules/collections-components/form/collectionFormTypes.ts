@@ -20,7 +20,7 @@ import type {
 	CollectionRelatedCollections as Related
 } from '@/pocketbase/types';
 import type { CollectionZodSchema, SchemaContext } from '@/pocketbase/zod-schema';
-import type { GenericRecord, KeyOf, MaybePromise } from '@/utils/types';
+import type { GenericRecord, KeyOf, MaybePromise, State } from '@/utils/types';
 
 import type { CollectionInputRecordProps } from '../types';
 
@@ -31,7 +31,9 @@ export type CollectionFormProps<C extends CollectionName> = CollectionFormOption
 		collection: C;
 		recordId?: RecordIdString;
 		initialData?: Partial<CollectionRecords[C]>;
-		children?: Snippet;
+		children?: Snippet<
+			[{ formState: State<CollectionFormData[C]>; form: SuperForm<CollectionFormData[C]> }]
+		>;
 		beforeSubmit?: (data: CollectionFormData[C]) => MaybePromise<CollectionFormData[C]>;
 		schemaContext?: SchemaContext;
 		refineSchema?: (schema: CollectionZodSchema<C>) => CollectionZodSchema<C>;

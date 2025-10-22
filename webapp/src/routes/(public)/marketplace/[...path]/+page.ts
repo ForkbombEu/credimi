@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MarketplaceItem } from '$marketplace/_utils';
+import type { MarketplaceItem } from '$lib/marketplace';
 
 import { error } from '@sveltejs/kit';
 

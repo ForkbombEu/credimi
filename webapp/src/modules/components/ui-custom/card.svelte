@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { ComponentProps, Snippet } from 'svelte';
 
-	import { Root, Content, Header, Footer } from '@/components/ui/card';
+	import { Content, Footer, Header, Root } from '@/components/ui/card';
 
 	type Props = ComponentProps<typeof Root> & {
 		contentClass?: string;

@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Plus, Info } from 'lucide-svelte';
+	import { Info, Plus } from 'lucide-svelte';
 
 	import type { WebauthnCredentialsResponse } from '@/pocketbase/types';
 
@@ -20,19 +20,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
 	import {
-		registerUser,
+		isPlatformAuthenticatorAvailable,
 		isWebauthnSupported,
-		isPlatformAuthenticatorAvailable
+		registerUser
 	} from '@/webauthn';
 
+	import { setDashboardNavbar } from '../../+layout@.svelte';
+
+	//
+
+	setDashboardNavbar({
+		title: m.Webauthn()
+	});
+
 	const platformAuthenticatorAvailable = isPlatformAuthenticatorAvailable();
+	// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
 	const userEmailAddress = $currentUser?.email!;
 
 	// ts helper
 
 	function getCredentialId(record: WebauthnCredentialsResponse): string {
-		// @ts-expect-error
-		return record.credential.ID ?? '';
+		// @ts-expect-error - ID actually exists
+		return record.credential?.ID ?? '';
 	}
 </script>
 
@@ -50,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		{#snippet records({ records })}
 			<div class="space-y-2 py-4">
-				{#each records as record}
+				{#each records as record (record)}
 					{@const label = record.description
 						? record.description
 						: getCredentialId(record)}

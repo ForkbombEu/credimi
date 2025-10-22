@@ -755,11 +755,14 @@
 	"hide": "Hide",
 	"show": "Show",
 	"No_information_available": "No information available",
+	"Dashboard": "Dashboard",
 	"Change_Organization_Name": "Change Organization Name?",
 	"Rename_organization_warning": "If you rename your organization, you will lose visibility of all your previous test runs (because the organization's internal namespace will be changed). Are you sure you want to proceed?",
 	"Continue": "Continue",
 	"forgot_password_description": "Please enter here your email to recover your password.",
 	"Recover_password": "Recover password",
 	"Password_reset_email_sent_successfully": "Password reset email sent successfully!",
-	"Please_click_the_link_in_the_email_to_reset_your_password": "Please click the link in the email to reset your password. You can now close this page."
+	"Please_click_the_link_in_the_email_to_reset_your_password": "Please click the link in the email to reset your password. You can now close this page.",
+	"Welcome_user": "Welcome, {username}!",
+	"Welcome_dashboard_sentence": "Manage here your organization and its resources."
 }

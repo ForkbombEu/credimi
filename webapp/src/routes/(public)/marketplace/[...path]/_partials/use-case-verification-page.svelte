@@ -39,18 +39,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import MarketplaceItemCard from '$lib/marketplace/marketplace-item-card.svelte';
 	import { generateDeeplinkFromYaml } from '$lib/utils';
-	import MarketplaceItemCard from '$marketplace/_utils/marketplace-item-card.svelte';
-	import { options } from '$routes/my/services-and-products/_verifiers/use-case-verification-form-options.svelte';
 	import { onMount } from 'svelte';
 
-	import CollectionForm from '@/collections-components/form/collectionForm.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n/index.js';
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	import DescriptionSection from './_utils/description-section.svelte';
-	import EditSheet from './_utils/edit-sheet.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
@@ -123,6 +118,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </LayoutWithToc>
 
+<!-- 
 <EditSheet>
 	{#snippet children({ closeSheet })}
 		<T tag="h2" class="mb-4">{m.Edit()} {useCaseVerification.name}</T>
@@ -135,3 +131,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	{/snippet}
 </EditSheet>
+-->
