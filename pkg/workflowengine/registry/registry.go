@@ -118,6 +118,10 @@ var Registry = map[string]TaskFactory{
 		NewFunc:   func() any { return &workflows.OpenIDNetWorkflow{} },
 		TaskQueue: workflows.OpenIDNetTaskQueue,
 	},
+	"credential-offer": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.GetCredentialOfferWorkflow{} },
+	},
 }
 
 // Denylist of task keys that should NOT be registered in the pipeline worker
