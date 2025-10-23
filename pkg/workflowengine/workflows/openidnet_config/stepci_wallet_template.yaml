@@ -23,6 +23,7 @@ tests:
           headers:
             Content-Type: application/json
             accept: application/json
+          # prettier-ignore
           json: 
             [[.form | toYAML | nindent 12 | trim]]
           captures:
@@ -97,7 +98,7 @@ tests:
           auth:
             $ref: "#/components/token"
           captures:
-            result:
+            deeplink:
               jsonpath: $.browser.urls[0]
             rid:
               jsonpath: $.id

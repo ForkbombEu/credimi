@@ -15,7 +15,7 @@ import (
 
 func (s *StepDefinition) Execute(
 	ctx workflow.Context,
-	globalCfg map[string]string,
+	globalCfg map[string]any,
 	dataCtx *map[string]any,
 	ao workflow.ActivityOptions,
 ) (any, error) {
@@ -36,7 +36,7 @@ func (s *StepDefinition) Execute(
 		act := step.NewFunc().(workflowengine.Activity)
 		input := workflowengine.ActivityInput{
 			Payload: payload,
-			Config:  cfg,
+			Config:  convertMapAnyToString(cfg),
 		}
 		var result workflowengine.ActivityResult
 
@@ -102,9 +102,12 @@ func (s *StepDefinition) Execute(
 		}
 		input := workflowengine.WorkflowInput{
 			Payload:         payload,
-			Config:          convertStringMap(cfg),
+			Config:          cfg,
 			ActivityOptions: &ao,
 		}
+
+		var memo map[string]any
+		memo, _ = input.Config["memo"].(map[string]any)
 
 		var result workflowengine.WorkflowResult
 		opts := workflow.ChildWorkflowOptions{
@@ -115,6 +118,7 @@ func (s *StepDefinition) Execute(
 			),
 			TaskQueue:         taskqueue,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
+			Memo:              memo,
 		}
 		ctxChild := workflow.WithChildOptions(ctx, opts)
 		err = workflow.ExecuteChildWorkflow(

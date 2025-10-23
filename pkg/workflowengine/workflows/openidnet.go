@@ -140,7 +140,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		logger.Error("StepCIExecution failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
-	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["result"].(string)
+	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["deeplink"].(string)
 	if !ok {
 		result = ""
 	}

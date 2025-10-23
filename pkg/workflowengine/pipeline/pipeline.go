@@ -56,20 +56,11 @@ func (w *PipelineWorkflow) Workflow(
 			runID,
 		),
 	}
-	global := map[string]any{}
+	globalCfg := map[string]any{}
 	if g, ok := input.WorkflowInput.Config["global"].(map[string]any); ok {
-		global = g
+		globalCfg = g
 	}
 
-	// Normalize to string map
-	globalCfg := make(map[string]string)
-	for k, v := range global {
-		if str, ok := v.(string); ok {
-			globalCfg[k] = str
-		} else {
-			return workflowengine.WorkflowResult{}, fmt.Errorf("global config key %q has non-string value of type %T", k, v)
-		}
-	}
 	globalCfg["app_url"] = input.WorkflowInput.Config["app_url"].(string)
 	globalCfg["namespace"] = input.WorkflowInput.Config["namespace"].(string)
 	result := workflowengine.WorkflowResult{}
