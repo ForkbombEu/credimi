@@ -1,8 +1,9 @@
+import { stat } from './../../../../pb_data/types.d';
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
+import { ListMyChecksResponseSchema, type ListMyChecksResponse, type WorkflowExecution } from './../credimiClient.generated';
 import type { WorkflowStatusType } from '$lib/temporal';
 
 import { toWorkflowExecution, type HistoryEvent } from '@forkbombeu/temporal-ui';
@@ -17,6 +18,7 @@ import {
 	workflowResponseSchema,
 	type WorkflowResponse
 } from './types';
+import { client } from '$lib/prova';
 
 //
 
@@ -46,18 +48,8 @@ export async function fetchWorkflows(
 	}
 
 	return tryPromise(async () => {
-		const data = await pb.send(url, {
-			method: 'GET',
-			fetch: fetchFn
-		});
-
-		const schema = z.object({
-			executions: z.array(workflowExecutionInfoSchema)
-		});
-		const parsed = schema
-			.parse(data)
-			.executions.map((exec) => workflowResponseToExecution({ workflowExecutionInfo: exec }));
-
+		const data = await client.listMyChecks({fetch: fetchFn, ...statuses})
+		const parsed = data.executions.map((exec) => workflowResponseToExecution({ workflowExecutionInfo: exec }));
 		const errors = parsed.filter((execution) => execution instanceof Error);
 		if (errors.length > 0) warn(errors);
 
@@ -99,7 +91,6 @@ export async function fetchWorkflowHistory(
 
 function workflowResponseToExecution(data: WorkflowResponse): WorkflowExecution | Error {
 	return tryFn(() => {
-		// @ts-expect-error Slight type mismatch
 		const workflowExecution = toWorkflowExecution(data);
 
 		/* HACK */
