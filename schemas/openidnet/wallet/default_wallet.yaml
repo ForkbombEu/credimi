@@ -54,3 +54,16 @@ form:
               "field_options": []
             }
       `}}
+    dcql: >
+      {{
+          credimi `
+            {
+              "credimi_id": "oid_client_dcql",
+              "field_id": "dcql",
+              "field_label": "i18n_dcql",
+              "field_description": "i18n_decql_description",
+              "field_default_value": "{\"credentials\":[{\"id\":\"voucher_credential\",\"format\":\"dc+sd-jwt\",\"meta\":{\"vct_values\":[\"credimi_test_discount\"]},\"claims\":[{\"path\":[\"has_discount_from_voucher\"]}]}]}",
+              "field_type": "object",
+              "field_options": []
+            }
+      `}}

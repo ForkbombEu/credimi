@@ -1,15 +1,15 @@
 variant:
-    credential_format: sd_jwt_vc
-    client_id_scheme: x509_san_dns
+    credential_format: iso_mdl
+    client_id_prefix: web-origin
     request_method: request_uri_signed
-    response_mode: w3c_dc_api.jwt
+    response_mode: direct_post.jwt
 form:
     alias: >-
         {{
 
            credimi `
               {
-                "credimi_id": "sd_jwt_vc_x509_san_dns_request_uri_signed_w3c_dc_api_jwt_oid_alias",
+                "credimi_id": "iso_mdl_web-origin_request_uri_signed_direct_post_jwt_oid_alias",
                 "field_default_value": "",
                 "field_description": "i18n_test_alias_description",
                 "field_id": "testalias",
@@ -61,7 +61,22 @@ form:
                     "field_id": "jwks",
                     "field_label": "i18n_jwks",
                     "field_description": "i18n_jwks_description",
-                    "field_default_value": "{\"keys\":[{\"kty\":\"EC\",\"alg\":\"ES256\",\"crv\":\"P-256\",\"d\":\"q7hdBRr1PiXNqy9SRXVU8zHJPLthQR2ckomdsngeXKc\",\"x\":\"9u3DxePiwDiRR0B2cNo1P0DZsHgOts7zyFqHNcRJDMQ\",\"y\":\"aHspcI5Ug5Xyc5nByxd0O2TcJwYJbXgnaiiIPeGFB94\",\"x5c\":[\"MIIBkDCCATWgAwIBAgIUZDBMNTEQs6qbrNaFnk2GWvOtVwowCgYIKoZIzj0EAwIwHTEbMBkGA1UEAwwSY2xpZW50LmV4YW1wbGUuY29tMB4XDTI1MDcyODEyNTg0OFoXDTI4MDQyMzEyNTg0OFowHTEbMBkGA1UEAwwSY2xpZW50LmV4YW1wbGUuY29tMFkwEwYHKoZIzj0CAQYIKoZIzj0DAQcDQgAE9u3DxePiwDiRR0B2cNo1P0DZsHgOts7zyFqHNcRJDMRoeylwjlSDlfJzmcHLF3Q7ZNwnBglteCdqKIg94YUH3qNTMFEwHQYDVR0OBBYEFCzPdCbvBoZcb34Tyc1aeJ1OkELzMB8GA1UdIwQYMBaAFCzPdCbvBoZcb34Tyc1aeJ1OkELzMA8GA1UdEwEB/wQFMAMBAf8wCgYIKoZIzj0EAwIDSQAwRgIhAJSHxJBLBPUicUTB2rNQ5l3SHL2R7yZDanoYozMzI3VbAiEA4ZrbuOpoo903E4Fzul+zkWNN5nqUMHM0+sIXEg8DWaA=\"]}]}",
+                    "field_default_value": "{\"keys\":[{\"kty\":\"EC\",\"alg\":\"ES256\",\"crv\":\"P-256\",\"d\":\"GSbo9TpmGaLgxxO6RNx6QnvcfykQJS7vUVgTe8vy9W0\",\"x\":\"m5uKsE35t3sP7gjmirUewufx2Gt2n6J7fSW68apB2Lo\",\"y\":\"-V54TpMI8RbpB40hbAocIjnaHX5WP6NHjWkHfdCSAyU\"}]}",
+                    "field_type": "object",
+                    "field_options": []
+                  }
+            `}}
+
+        dcql: >
+            {{
+
+                credimi `
+                  {
+                    "credimi_id": "oid_client_dcql",
+                    "field_id": "dcql",
+                    "field_label": "i18n_dcql",
+                    "field_description": "i18n_decql_description",
+                    "field_default_value": "{\"credentials\":[{\"id\":\"voucher_credential\",\"format\":\"dc+sd-jwt\",\"meta\":{\"vct_values\":[\"credimi_test_discount\"]},\"claims\":[{\"path\":[\"has_discount_from_voucher\"]}]}]}",
                     "field_type": "object",
                     "field_options": []
                   }
@@ -92,21 +107,6 @@ form:
                     "field_label": "i18n_authorization_encrypted_response_enc",
                     "field_description": "i18n_authorization_encrypted_response_enc_description",
                     "field_default_value": "",
-                    "field_type": "string",
-                    "field_options": []
-                  }
-            `}}
-
-        client_id: >
-            {{
-
-                credimi `
-                  {
-                    "credimi_id": "oid_client_id",
-                    "field_id": "client_id",
-                    "field_label": "i18n_client_id",
-                    "field_description": "i18n_client_id_description",
-                    "field_default_value": "did:web:app.altme.io:issuer",
                     "field_type": "string",
                     "field_options": []
                   }

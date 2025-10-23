@@ -1,6 +1,6 @@
 variant:
     credential_format: sd_jwt_vc
-    client_id_scheme: pre_registered
+    client_id_prefix: pre_registered
     request_method: request_uri_signed
     response_mode: direct_post.jwt
 form:
@@ -62,6 +62,21 @@ form:
                     "field_label": "i18n_jwks",
                     "field_description": "i18n_jwks_description",
                     "field_default_value": "{\"keys\":[{\"kty\":\"EC\",\"alg\":\"ES256\",\"crv\":\"P-256\",\"d\":\"GSbo9TpmGaLgxxO6RNx6QnvcfykQJS7vUVgTe8vy9W0\",\"x\":\"m5uKsE35t3sP7gjmirUewufx2Gt2n6J7fSW68apB2Lo\",\"y\":\"-V54TpMI8RbpB40hbAocIjnaHX5WP6NHjWkHfdCSAyU\"}]}",
+                    "field_type": "object",
+                    "field_options": []
+                  }
+            `}}
+
+        dcql: >
+            {{
+
+                credimi `
+                  {
+                    "credimi_id": "oid_client_dcql",
+                    "field_id": "dcql",
+                    "field_label": "i18n_dcql",
+                    "field_description": "i18n_decql_description",
+                    "field_default_value": "{\"credentials\":[{\"id\":\"voucher_credential\",\"format\":\"dc+sd-jwt\",\"meta\":{\"vct_values\":[\"credimi_test_discount\"]},\"claims\":[{\"path\":[\"has_discount_from_voucher\"]}]}]}",
                     "field_type": "object",
                     "field_options": []
                   }

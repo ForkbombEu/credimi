@@ -140,9 +140,9 @@ func (w *OpenIDNetWorkflow) Workflow(
 		logger.Error("StepCIExecution failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
-	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["result"].(string)
+	deeplink, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["deeplink"].(string)
 	if !ok {
-		result = ""
+		deeplink = ""
 	}
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
@@ -160,7 +160,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	}
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
-	query.Set("qr", result)
+	query.Set("qr", deeplink)
 	namespace, ok := input.Config["namespace"].(string)
 	if !ok || namespace == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(

@@ -1,15 +1,15 @@
 variant:
     credential_format: sd_jwt_vc
-    client_id_scheme: did
-    request_method: request_uri_unsigned
-    response_mode: w3c_dc_api.jwt
+    client_id_prefix: web-origin
+    request_method: request_uri_signed
+    response_mode: direct_post
 form:
     alias: >-
         {{
 
            credimi `
               {
-                "credimi_id": "sd_jwt_vc_did_request_uri_unsigned_w3c_dc_api_jwt_oid_alias",
+                "credimi_id": "sd_jwt_vc_web-origin_request_uri_signed_direct_post_oid_alias",
                 "field_default_value": "",
                 "field_description": "i18n_test_alias_description",
                 "field_id": "testalias",
@@ -67,47 +67,17 @@ form:
                   }
             `}}
 
-        authorization_encrypted_response_alg: >
+        dcql: >
             {{
 
                 credimi `
                   {
-                  "credimi_id": "oid_authorization_encrypted_response_alg",
-                    "field_id": "authorization_encrypted_response_alg",
-                    "field_label": "i18n_authorization_encrypted_response_alg",
-                    "field_description": "i18n_authorization_encrypted_response_alg_description",
-                    "field_default_value": "",
-                    "field_type": "string",
-                    "field_options": []
-                  }
-            `}}
-
-        authorization_encrypted_response_enc: >
-            {{
-
-                credimi `
-                  {
-                    "credimi_id": "oid_authorization_encrypted_response_enc",
-                    "field_id": "authorization_encrypted_response_enc",
-                    "field_label": "i18n_authorization_encrypted_response_enc",
-                    "field_description": "i18n_authorization_encrypted_response_enc_description",
-                    "field_default_value": "",
-                    "field_type": "string",
-                    "field_options": []
-                  }
-            `}}
-
-        client_id: >
-            {{
-
-                credimi `
-                  {
-                    "credimi_id": "oid_client_id",
-                    "field_id": "client_id",
-                    "field_label": "i18n_client_id",
-                    "field_description": "i18n_client_id_description",
-                    "field_default_value": "did:web:app.altme.io:issuer",
-                    "field_type": "string",
+                    "credimi_id": "oid_client_dcql",
+                    "field_id": "dcql",
+                    "field_label": "i18n_dcql",
+                    "field_description": "i18n_decql_description",
+                    "field_default_value": "{\"credentials\":[{\"id\":\"voucher_credential\",\"format\":\"dc+sd-jwt\",\"meta\":{\"vct_values\":[\"credimi_test_discount\"]},\"claims\":[{\"path\":[\"has_discount_from_voucher\"]}]}]}",
+                    "field_type": "object",
                     "field_options": []
                   }
             `}}
