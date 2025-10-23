@@ -39,8 +39,9 @@ type SaveVariablesAndStartRequestInput struct {
 }
 
 type openID4VPTestInputFile struct {
-	Variant json.RawMessage `json:"variant" yaml:"variant" validate:"required,oneof=json variables yaml"`
-	Form    any             `json:"form"    yaml:"form"`
+	Variant  json.RawMessage `json:"variant" yaml:"variant" validate:"required,oneof=json variables yaml"`
+	Form     any             `json:"form"    yaml:"form"`
+	TestName string          `json:"test" yaml:"test" validate:"required"`
 }
 type vLEICheckInput struct {
 	CredentialID string `json:"credentialID"`
@@ -375,6 +376,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 		Payload: map[string]any{
 			"variant":   string(parsedData.Variant),
 			"form":      parsedData.Form,
+			"test_name": parsedData.TestName,
 			"user_mail": email,
 		},
 		Config: map[string]any{

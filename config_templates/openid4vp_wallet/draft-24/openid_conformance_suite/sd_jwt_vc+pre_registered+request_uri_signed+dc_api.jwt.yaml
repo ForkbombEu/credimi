@@ -1,15 +1,15 @@
 variant:
-    credential_format: iso_mdl
-    client_id_prefix: x509_san_dns
+    credential_format: sd_jwt_vc
+    client_id_prefix: pre_registered
     request_method: request_uri_signed
-    response_mode: direct_post.jwt
+    response_mode: dc_api.jwt
 form:
     alias: >-
         {{
 
            credimi `
               {
-                "credimi_id": "iso_mdl_x509_san_dns_request_uri_signed_direct_post_jwt_oid_alias",
+                "credimi_id": "sd_jwt_vc_pre_registered_request_uri_signed_dc_api_jwt_oid_alias",
                 "field_default_value": "",
                 "field_description": "i18n_test_alias_description",
                 "field_id": "testalias",
