@@ -97,3 +97,24 @@ form:
                   }
             `}}
 
+test: >
+    {{
+
+
+        credimi `
+          {
+            "credimi_id": "oid_test",
+            "field_id": "test",
+            "field_label": "i18n_test",
+            "field_description": "i18n_test_description",
+            "field_default_value": "oid4vp-1final-wallet-happy-flow-no-state",
+            "field_type": "string",
+            "field_options": [
+              "oid4vp-1final-wallet-happy-flow-no-state",
+              "oid4vp-1final-wallet-happy-flow-with-state-and-redirect",
+              "oid4vp-1final-wallet-negative-test-response-uri-not-client-id",
+              "oid4vp-1final-wallet-negative-test-invalid-request-object-signature"
+            ]
+          }
+    `}}
+

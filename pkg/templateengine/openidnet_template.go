@@ -104,6 +104,11 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 		return nil, fmt.Errorf("missing 'form' key in default YAML")
 	}
 
+	testNode := findMapKey(rootNode.Content[0], "test")
+	if testNode == nil {
+		return nil, fmt.Errorf("missing 'test' key in default YAML")
+	}
+
 	aliasNode := findMapKey(formNode, "alias")
 	if aliasNode == nil {
 		return nil, fmt.Errorf("missing 'alias' key in form")
@@ -198,6 +203,8 @@ func ParseInput(input, defaultFile, configFile string) ([]byte, error) {
 			variantNode,
 			{Kind: yaml.ScalarNode, Tag: "!!str", Value: "form"},
 			formNode,
+			{Kind: yaml.ScalarNode, Tag: "!!str", Value: "test"},
+			testNode,
 		},
 	}
 

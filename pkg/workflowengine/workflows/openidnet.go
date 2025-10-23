@@ -109,6 +109,13 @@ func (w *OpenIDNetWorkflow) Workflow(
 			runMetadata,
 		)
 	}
+	testName, ok := input.Payload["test_name"].(string)
+	if !ok || testName == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"test_name",
+			runMetadata,
+		)
+	}
 	template, ok := input.Config["template"].(string)
 	if !ok || template == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -120,6 +127,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		Payload: map[string]any{
 			"variant": variant,
 			"form":    form,
+			"test":    testName,
 			"secrets": map[string]any{
 				"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 			},

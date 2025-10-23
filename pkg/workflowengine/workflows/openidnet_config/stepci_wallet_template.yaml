@@ -37,7 +37,7 @@ tests:
           url: https://www.certification.openid.net/api/runner
           params:
             plan: ${{captures.plan_id}}
-            test: oid4vp-1final-wallet-happy-flow-no-state
+            test: [[.test]]
             runnerVariant: "{}"
           auth:
             $ref: "#/components/token"
