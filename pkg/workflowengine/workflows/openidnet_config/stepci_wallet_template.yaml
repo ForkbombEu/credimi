@@ -16,85 +16,44 @@ tests:
           method: POST
           url: https://www.certification.openid.net/api/plan
           params:
-            planName: oid4vp-id2-wallet-test-plan
+            planName: oid4vp-1final-wallet-test-plan
             variant: [[.variant | toJSON]]
           auth:
             $ref: "#/components/token"
           headers:
             Content-Type: application/json
             accept: application/json
-          # prettier-ignore
-          json: 
+          json:
+            #prettier-ignore
             [[.form | toYAML | nindent 12 | trim]]
           captures:
             plan_id:
               jsonpath: $.id
           check:
             status: 201
-            schema:
-              properties:
-                id:
-                  type: string
-                modules:
-                  items:
-                    properties:
-                      instances:
-                        items:
-                          type: object
-                        type: array
-                      testModule:
-                        type: string
-                      variant:
-                        type: object
-                    required:
-                      - testModule
-                      - variant
-                      - instances
-                    type: object
-                  type: array
-                name:
-                  type: string
-              required:
-                - name
-                - id
-                - modules
-              type: object
       - name: Start Test Runner
         http:
           method: POST
           url: https://www.certification.openid.net/api/runner
           params:
             plan: ${{captures.plan_id}}
-            test: oid4vp-id2-wallet-happy-flow-no-state
-            variant: "{}"
+            test: [[.test]]
+            runnerVariant: "{}"
           auth:
             $ref: "#/components/token"
           headers:
             Content-Type: application/json
             accept: application/json
+          body: ""
           captures:
-            id:
+            runner_id:
               jsonpath: $.id
           check:
             status: 201
-            schema:
-              properties:
-                id:
-                  type: string
-                name:
-                  type: string
-                url:
-                  format: uri
-                  type: string
-              required:
-                - name
-                - id
-                - url
-              type: object
-      - name: Get Runner Info
+      - name: Start Test
         http:
           method: GET
-          url: https://www.certification.openid.net/api/runner/${{captures.id}}
+          url: https://www.certification.openid.net/api/runner/${{captures.runner_id}}
           auth:
             $ref: "#/components/token"
           captures:
@@ -104,98 +63,3 @@ tests:
               jsonpath: $.id
           check:
             status: 200
-            schema:
-              properties:
-                browser:
-                  properties:
-                    browserApiRequests:
-                      items:
-                        type: object
-                      type: array
-                    runners:
-                      items:
-                        type: object
-                      type: array
-                    show_qr_code:
-                      type: boolean
-                    urls:
-                      items:
-                        format: uri
-                        type: string
-                      type: array
-                    urlsWithMethod:
-                      items:
-                        properties:
-                          method:
-                            type: string
-                          url:
-                            format: uri
-                            type: string
-                        required:
-                          - url
-                          - method
-                        type: object
-                      type: array
-                    visited:
-                      items:
-                        type: object
-                      type: array
-                    visitedUrlsWithMethod:
-                      items:
-                        type: object
-                      type: array
-                  required:
-                    - browserApiRequests
-                    - urls
-                    - show_qr_code
-                    - visited
-                    - visitedUrlsWithMethod
-                  type: object
-                created:
-                  format: date-time
-                  type: string
-                error:
-                  nullable: true
-                  type: string
-                exposed:
-                  properties:
-                    client_id:
-                      type: string
-                    nonce:
-                      type: string
-                    response_uri:
-                      format: uri
-                      type: string
-                    state:
-                      nullable: true
-                      type: string
-                  required:
-                    - response_uri
-                  type: object
-                id:
-                  type: string
-                name:
-                  type: string
-                owner:
-                  properties:
-                    iss:
-                      format: uri
-                      type: string
-                    sub:
-                      type: string
-                  required:
-                    - sub
-                    - iss
-                  type: object
-                updated:
-                  format: date-time
-                  type: string
-              required:
-                - owner
-                - created
-                - browser
-                - name
-                - exposed
-                - id
-                - updated
-              type: object

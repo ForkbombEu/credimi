@@ -1,6 +1,6 @@
 variant_order:
   - credential_format
-  - client_id_scheme
+  - client_id_prefix
   - request_method
   - response_mode
 
@@ -8,10 +8,11 @@ variant_keys:
   credential_format:
     - sd_jwt_vc
     - iso_mdl
-  client_id_scheme:
+  client_id_prefix:
     - did
     - pre_registered
     - redirect_uri
+    - web-origin
     - x509_san_dns
   request_method:
     - request_uri_signed
@@ -19,8 +20,8 @@ variant_keys:
   response_mode:
     - direct_post
     - direct_post.jwt
-    - w3c_dc_api
-    - w3c_dc_api.jwt
+    - dc_api
+    - dc_api.jwt
 
 optional_fields:
   client:
@@ -44,7 +45,7 @@ optional_fields:
 
     client_id:
       values:
-        client_id_scheme:
+        client_id_prefix:
           - did
           - pre_registered
           - x509_san_dns
@@ -66,7 +67,7 @@ optional_fields:
       values:
         response_mode:
           - direct_post.jwt
-          - w3c_dc_api.jwt
+          - dc_api.jwt
       template: >
         {{
             credimi `
@@ -84,7 +85,7 @@ optional_fields:
       values:
         response_mode:
           - direct_post.jwt
-          - w3c_dc_api.jwt
+          - dc_api.jwt
       template: >
         {{
             credimi `
