@@ -353,24 +353,6 @@ func (w *GetCredentialOfferWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
-// Workflow is the main workflow function for the CredentialsIssuersWorkflow.
-// It performs the following steps:
-//  1. Executes the CheckCredentialsIssuerActivity to validate the credentials issuer.
-//  2. Parses the raw JSON response from the issuer using the JSONActivity.
-//  3. Iterates through the credential configurations supported by the issuer and:
-//     - Sends each credential to the "store-or-update-extracted-credentials" endpoint.
-//     - Logs the stored credentials.
-//  4. Executes a cleanup operation to remove invalid credentials by calling the
-//     "cleanup_credentials" endpoint.
-//  5. Returns a WorkflowResult containing a success message and logs.
-//
-// Parameters:
-// - ctx: The workflow context.
-// - input: The input for the workflow, containing configuration and payload data.
-//
-// Returns:
-// - workflowengine.WorkflowResult: The result of the workflow execution, including logs.
-// - error: An error if any step in the workflow fails.
 func (w *GetCredentialOfferWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
@@ -437,16 +419,75 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
 	}
-	credentialOffer, ok := responseBody["credential_offer"].(string)
+	dynamic, ok := responseBody["dynamic"].(bool)
 	if !ok {
 		wErr := workflowengine.NewAppError(
 			errCode,
-			"credential_offer is not a string",
+			"dynamic is not a bool",
+			result.Output,
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+	}
+	if !dynamic {
+		credentialOffer, ok := responseBody["credential_offer"].(string)
+		if !ok {
+			wErr := workflowengine.NewAppError(
+				errCode,
+				"credential_offer is not a string",
+				result.Output,
+			)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+		}
+
+		return workflowengine.WorkflowResult{
+			Message: "Successfully retrieved credential offer",
+			Output:  credentialOffer,
+		}, nil
+	}
+	code, ok := responseBody["code"].(string)
+	if !ok {
+		wErr := workflowengine.NewAppError(
+			errCode,
+			"yaml code is not a string",
 			result.Output,
 		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
 	}
 
+	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	var stepCIResult workflowengine.ActivityResult
+	stepCIInput := workflowengine.ActivityInput{
+		Payload: map[string]any{
+			"yaml": code,
+		},
+	}
+
+	err = workflow.ExecuteActivity(ctx, stepCIActivity.Name(), stepCIInput).Get(ctx, &stepCIResult)
+	if err != nil {
+		logger.Error("StepCIActivity failed", "error", err)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			runMetadata,
+		)
+	}
+	captures, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
+	if !ok {
+		wErr := workflowengine.NewAppError(
+			errCode,
+			"captures is not a map",
+			result.Output,
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+	}
+	credentialOffer, ok := captures["deeplink"].(string)
+	if !ok {
+		wErr := workflowengine.NewAppError(
+			errCode,
+			"deeplink missing or invalid from captures",
+			result.Output,
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+	}
 	return workflowengine.WorkflowResult{
 		Message: "Successfully retrieved credential offer",
 		Output:  credentialOffer,

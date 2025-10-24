@@ -4,6 +4,7 @@
 package workflows
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -140,10 +141,11 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 		input          workflowengine.WorkflowInput
 		mockActivities func(env *testsuite.TestWorkflowEnvironment)
 		expectedErr    bool
+		expectedOutput string
 		errorCode      errorcodes.Code
 	}{
 		{
-			name: "Success: retrieves credential offer",
+			name: "Success: retrieves static credential offer",
 			input: workflowengine.WorkflowInput{
 				Config: map[string]any{
 					"app_url": "https://example.com",
@@ -154,23 +156,70 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
-					Name: httpAct.Name(),
-				})
+				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
-							"body": map[string]any{"credential_offer": "test-offer"},
+							"body": map[string]any{
+								"dynamic":          false,
+								"credential_offer": "static-offer",
+							},
 						},
 					}, nil)
 			},
+			expectedOutput: "static-offer",
+		},
+		{
+			name: "Success: retrieves dynamic credential offer via StepCI",
+			input: workflowengine.WorkflowInput{
+				Config:  map[string]any{"app_url": "https://example.com"},
+				Payload: map[string]any{"credential_id": "dynamic_cred"},
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				httpAct := activities.NewHTTPActivity()
+				stepCIAct := activities.NewStepCIWorkflowActivity()
+				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
+				env.RegisterActivityWithOptions(stepCIAct.Execute, activity.RegisterOptions{Name: stepCIAct.Name()})
+				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"body": map[string]any{"dynamic": true, "code": "yaml-content"},
+						},
+					}, nil)
+				env.OnActivity(stepCIAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{"captures": map[string]any{"deeplink": "dynamic-deeplink"}},
+					}, nil)
+			},
+			expectedOutput: "dynamic-deeplink",
+		},
+		{
+			name: "Failure: StepCI activity fails",
+			input: workflowengine.WorkflowInput{
+				Config:  map[string]any{"app_url": "https://example.com"},
+				Payload: map[string]any{"credential_id": "test_cred"},
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				httpAct := activities.NewHTTPActivity()
+				stepCIAct := activities.NewStepCIWorkflowActivity()
+				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
+				env.RegisterActivityWithOptions(stepCIAct.Execute, activity.RegisterOptions{Name: stepCIAct.Name()})
+
+				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{"body": map[string]any{"dynamic": true, "code": "valid-yaml"}},
+					}, nil)
+
+				env.OnActivity(stepCIAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{}, fmt.Errorf("CRE301: stepCI execution failed"))
+			},
+			expectedErr: true,
+			errorCode:   errorcodes.Codes[errorcodes.CommandExecutionFailed],
 		},
 		{
 			name: "Failure: missing credential_id",
 			input: workflowengine.WorkflowInput{
-				Config: map[string]any{
-					"app_url": "https://example.com",
-				},
+				Config:  map[string]any{"app_url": "https://example.com"},
 				Payload: map[string]any{},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
@@ -183,34 +232,21 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 				Config:  map[string]any{},
 				Payload: map[string]any{"credential_id": "test_cred"},
 			},
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewHTTPActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
-					Name: httpAct.Name(),
-				})
-			},
-			expectedErr: true,
-			errorCode:   errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
+			expectedErr:    true,
+			errorCode:      errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
 		},
 		{
-			name: "Failure: invalid HTTP output",
+			name: "Failure: invalid HTTP output (body not a map)",
 			input: workflowengine.WorkflowInput{
-				Config: map[string]any{
-					"app_url": "https://example.com",
-				},
-				Payload: map[string]any{
-					"credential_id": "test_cred",
-				},
+				Config:  map[string]any{"app_url": "https://example.com"},
+				Payload: map[string]any{"credential_id": "test_cred"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
-					Name: httpAct.Name(),
-				})
+				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{
-						Output: map[string]any{"body": "not-a-map"},
-					}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"body": "not-a-map"}}, nil)
 			},
 			expectedErr: true,
 			errorCode:   errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
@@ -226,19 +262,21 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			var wf GetCredentialOfferWorkflow
 			env.ExecuteWorkflow(wf.Workflow, tc.input)
 
+			require.True(t, env.IsWorkflowCompleted())
+
 			if tc.expectedErr {
-				require.True(t, env.IsWorkflowCompleted())
 				err := env.GetWorkflowError()
 				require.Error(t, err)
-				require.Contains(t, err.Error(), tc.errorCode.Code)
+				if tc.errorCode.Code != "" {
+					require.Contains(t, err.Error(), tc.errorCode.Code)
+				}
 			} else {
-				require.True(t, env.IsWorkflowCompleted())
 				require.NoError(t, env.GetWorkflowError())
 
 				var result workflowengine.WorkflowResult
 				require.NoError(t, env.GetWorkflowResult(&result))
 				require.Equal(t, "Successfully retrieved credential offer", result.Message)
-				require.Equal(t, "test-offer", result.Output)
+				require.Equal(t, tc.expectedOutput, result.Output)
 			}
 		})
 	}

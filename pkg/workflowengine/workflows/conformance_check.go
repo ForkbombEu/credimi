@@ -77,7 +77,7 @@ func RunStepCIAndSendMail(
 			)
 	}
 
-	baseURL := fmt.Sprintf("%s/tests/wallet/suite", cfg.AppURL)
+	baseURL := fmt.Sprintf("%s/tests/wallet/%s", cfg.Suite, cfg.AppURL)
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
@@ -132,7 +132,7 @@ func (w *StartCheckWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
+	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 	logger := workflow.GetLogger(ctx)
 	runMeta := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
@@ -156,9 +156,14 @@ func (w *StartCheckWorkflow) Workflow(
 		if !ok {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("form", runMeta)
 		}
+		test, ok := input.Payload["test"].(string)
+		if !ok {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("test", runMeta)
+		}
 		stepCIPayload = map[string]any{
 			"variant": variant,
 			"form":    form,
+			"test":    test,
 			"secrets": map[string]any{
 				"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 			},

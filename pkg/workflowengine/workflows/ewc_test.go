@@ -43,7 +43,7 @@ func Test_EWCWorkflow(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"deep_link": "test_content", "session_id": "12345"}}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"deeplink": "test_content", "session_id": "12345"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -73,7 +73,7 @@ func Test_EWCWorkflow(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"deep_link": "test_content", "session_id": "12345"}}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"deeplink": "test_content", "session_id": "12345"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -103,7 +103,7 @@ func Test_EWCWorkflow(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"deep_link": "test_content", "session_id": "12345"}}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"deeplink": "test_content", "session_id": "12345"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).

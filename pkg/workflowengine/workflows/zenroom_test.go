@@ -46,7 +46,7 @@ Then print the data
 Given I have a 'string' named 'broken'
 `,
 			expectError:     true,
-			expectErrorCode: errorcodes.Codes[errorcodes.ZenroomExecutionFailed],
+			expectErrorCode: errorcodes.Codes[errorcodes.CommandExecutionFailed],
 		},
 	}
 
@@ -85,7 +85,7 @@ Given I have a 'string' named 'broken'
 			if tc.expectError {
 				require.Error(t, err, "Expected an error but got none")
 				require.Contains(t, err.Error(), tc.expectErrorCode.Code)
-				require.Contains(t, err.Error(), tc.expectErrorCode.Description)
+				require.Contains(t, err.Error(), "Docker command failed")
 			} else {
 				require.NoError(t, err, "Expected no error but got one")
 				for _, key := range tc.expectOutputs {

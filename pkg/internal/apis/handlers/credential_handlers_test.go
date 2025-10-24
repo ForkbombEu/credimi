@@ -111,6 +111,71 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 				return app
 			},
 		},
+		{
+			Name:           "valid dynamic credential with code (yaml field present)",
+			Method:         http.MethodGet,
+			URL:            "/api/credential/get-credential-offer?credential_identifier=usera-s-organization/issuer-789/cred789",
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"dynamic":true`,
+				`"code"`,
+				`"print('hello world')"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupCredentialApp(t)
+
+				issuerColl, err := app.FindCollectionByNameOrId("credential_issuers")
+				require.NoError(t, err)
+				issuer := core.NewRecord(issuerColl)
+				issuer.Set("url", "https://issuer.example")
+				issuer.Set("owner", orgID)
+				issuer.Set("name", "Issuer 789")
+				require.NoError(t, app.Save(issuer))
+
+				coll, err := app.FindCollectionByNameOrId("credentials")
+				require.NoError(t, err)
+				record := core.NewRecord(coll)
+				record.Set("name", "cred789")
+				record.Set("owner", orgID)
+				record.Set("credential_issuer", issuer.Id)
+				record.Set("yaml", "print('hello world')")
+				require.NoError(t, app.Save(record))
+
+				return app
+			},
+		},
+		{
+			Name:           "credential with empty code — should not be dynamic",
+			Method:         http.MethodGet,
+			URL:            "/api/credential/get-credential-offer?credential_identifier=usera-s-organization/issuer-987/cred987",
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"credential_offer"`,
+				`"openid-credential-offer://?credential_offer=%7B%22credential_configuration_ids%22%3A%5B%22cred987%22%5D%2C%22credential_issuer%22%3A%22https%3A%2F%2Fissuer.example%22%7D"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupCredentialApp(t)
+
+				issuerColl, err := app.FindCollectionByNameOrId("credential_issuers")
+				require.NoError(t, err)
+				issuer := core.NewRecord(issuerColl)
+				issuer.Set("url", "https://issuer.example")
+				issuer.Set("owner", orgID)
+				issuer.Set("name", "Issuer 987")
+				require.NoError(t, app.Save(issuer))
+
+				coll, err := app.FindCollectionByNameOrId("credentials")
+				require.NoError(t, err)
+				record := core.NewRecord(coll)
+				record.Set("name", "cred987")
+				record.Set("owner", orgID)
+				record.Set("credential_issuer", issuer.Id)
+				record.Set("yaml", "")
+				require.NoError(t, app.Save(record))
+
+				return app
+			},
+		},
 	}
 
 	for _, scenario := range scenarios {
