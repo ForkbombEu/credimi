@@ -147,13 +147,14 @@ func (s *WorkflowBlock) ToWorkflowDefinition(name string) *WorkflowDefinition {
 		Steps:   s.Steps,
 	}
 }
-
-func convertStringMap(m map[string]string) map[string]any {
-	res := make(map[string]any, len(m))
+func convertMapAnyToString(m map[string]any) map[string]string {
+	result := make(map[string]string, len(m))
 	for k, v := range m {
-		res[k] = v
+		if str, ok := v.(string); ok {
+			result[k] = str
+		}
 	}
-	return res
+	return result
 }
 
 func SetPayloadValue(payload map[string]InputSource, key string, val any) {

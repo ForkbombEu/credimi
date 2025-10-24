@@ -101,8 +101,6 @@ form:
   server:
     authorization_endpoint: openid-vc://`
 
-	fmt.Printf("Input: %s\n", input)
-
 	expected := `variant:
   credential_format: iso_mdl
   client_id_scheme: did

@@ -55,7 +55,7 @@ metadata:
 	require.Equal(t, map[string]interface{}{"note": "example step"}, step.Metadata)
 
 	// StepInputs
-	require.Equal(t, map[string]string{"foo": "bar"}, step.With.Config)
+	require.Equal(t, map[string]any{"foo": "bar"}, step.With.Config)
 
 	payload := step.With.Payload
 

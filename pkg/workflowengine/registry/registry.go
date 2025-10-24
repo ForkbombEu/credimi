@@ -122,6 +122,14 @@ var Registry = map[string]TaskFactory{
 		Kind:    TaskWorkflow,
 		NewFunc: func() any { return &workflows.GetCredentialOfferWorkflow{} },
 	},
+	"conformance-check": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.StartCheckWorkflow{} },
+	},
+	"openidnet-logs": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.OpenIDNetLogsWorkflow{} },
+	},
 }
 
 // Denylist of task keys that should NOT be registered in the pipeline worker

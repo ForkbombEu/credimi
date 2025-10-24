@@ -834,13 +834,13 @@ func getDeeplinkOpenIDConformanceSuite(e *core.RequestEvent, first map[string]an
 		var out struct {
 			Output struct {
 				Captures struct {
-					Result any `json:"result"`
+					Deeplink any `json:"deeplink"`
 				} `json:"captures"`
 			} `json:"Output"`
 		}
 		json.Unmarshal(decoded, &out)
 		return e.JSON(http.StatusOK, map[string]any{
-			"deeplink": out.Output.Captures.Result,
+			"deeplink": out.Output.Captures.Deeplink,
 		})
 	}
 	return nil
