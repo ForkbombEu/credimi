@@ -353,24 +353,6 @@ func (w *GetCredentialOfferWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
-// Workflow is the main workflow function for the CredentialsIssuersWorkflow.
-// It performs the following steps:
-//  1. Executes the CheckCredentialsIssuerActivity to validate the credentials issuer.
-//  2. Parses the raw JSON response from the issuer using the JSONActivity.
-//  3. Iterates through the credential configurations supported by the issuer and:
-//     - Sends each credential to the "store-or-update-extracted-credentials" endpoint.
-//     - Logs the stored credentials.
-//  4. Executes a cleanup operation to remove invalid credentials by calling the
-//     "cleanup_credentials" endpoint.
-//  5. Returns a WorkflowResult containing a success message and logs.
-//
-// Parameters:
-// - ctx: The workflow context.
-// - input: The input for the workflow, containing configuration and payload data.
-//
-// Returns:
-// - workflowengine.WorkflowResult: The result of the workflow execution, including logs.
-// - error: An error if any step in the workflow fails.
 func (w *GetCredentialOfferWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
