@@ -5,6 +5,7 @@
 docs/.vitepress/cache/
 /tmp
 /pb_data
+/pb_data*
 .DS_Store
 .bin
 .env
