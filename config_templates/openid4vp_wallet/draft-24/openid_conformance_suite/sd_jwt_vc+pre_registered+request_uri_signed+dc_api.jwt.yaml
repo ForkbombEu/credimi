@@ -35,7 +35,21 @@ form:
         `}}
 
     server:
-        authorization_endpoint: "openid-vc://"
+        authorization_endpoint: >
+            {{
+
+                credimi `
+                  {
+                    "credimi_id": "oid_authorization_endpoint",
+                    "field_id": "authorization_endpoint",
+                    "field_label": "i18n_authorization_endpoint",
+                    "field_description": "i18n_authorization_endpoint_description",
+                    "field_default_value": "openid-vc://",
+                    "field_type": "string",
+                    "field_options": []
+                  }
+            `}}
+
     client:
         jwks: >
             {{
