@@ -13,6 +13,11 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+type CollectionSeed struct {
+	Collection string           `json:"collection"`
+	Records    []map[string]any `json:"records"`
+}
+
 func main() {
 	app := pocketbase.New()
 
@@ -20,7 +25,6 @@ func main() {
 		log.Fatal("Failed to initialize:", err)
 	}
 
-	// Seed the database
 	seedPath := "seeds/data.json"
 	if err := seed(app, seedPath); err != nil {
 		log.Fatal("Failed to seed:", err)
@@ -32,29 +36,37 @@ func main() {
 func seed(app core.App, jsonPath string) error {
 	data, err := os.ReadFile(jsonPath)
 	if err != nil {
-		return err
+		return fmt.Errorf("read seed file: %w", err)
 	}
 
-	var collections map[string][]map[string]any
-	if err := json.Unmarshal(data, &collections); err != nil {
-		return err
+	// Try two formats for compatibility
+	var ordered []CollectionSeed
+	if err := json.Unmarshal(data, &ordered); err != nil {
+		// fallback to legacy map format
+		var unordered map[string][]map[string]any
+		if err2 := json.Unmarshal(data, &unordered); err2 != nil {
+			return fmt.Errorf("invalid seed JSON format: %w", err)
+		}
+		for name, recs := range unordered {
+			ordered = append(ordered, CollectionSeed{Collection: name, Records: recs})
+		}
 	}
 
-	for collectionName, records := range collections {
-		collection, err := app.FindCollectionByNameOrId(collectionName)
+	for _, col := range ordered {
+		collection, err := app.FindCollectionByNameOrId(col.Collection)
 		if err != nil {
-			log.Printf("⚠️ Collection %q not found, skipping...", collectionName)
+			log.Printf("⚠️ Collection %q not found, skipping...", col.Collection)
 			continue
 		}
 
-		for _, r := range records {
+		for _, r := range col.Records {
 			record := core.NewRecord(collection)
 			record.Load(r)
 
 			if err := app.Save(record); err != nil {
-				return fmt.Errorf("failed to populate %s: %w", collectionName, err)
+				return fmt.Errorf("failed to populate %s: %w", col.Collection, err)
 			}
-			log.Printf("✅ Inserted into %s: %v", collectionName, record.Id)
+			log.Printf("✅ Inserted into %s: %v", col.Collection, record.Id)
 		}
 	}
 

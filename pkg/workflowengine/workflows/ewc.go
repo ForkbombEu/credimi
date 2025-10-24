@@ -137,10 +137,10 @@ func (w *EWCWorkflow) Workflow(
 		)
 	}
 
-	deepLink, ok := result["deep_link"].(string)
+	deepLink, ok := result["deeplink"].(string)
 	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
-			"deep_link",
+			"deeplink",
 			stepCIResult.Output,
 			runMetadata,
 		)

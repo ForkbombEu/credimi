@@ -427,3 +427,5 @@ func getStringFromMap(m map[string]any, key string) string {
 	}
 	return ""
 }
+
+const testDataDir = "../../../../test_pb_data"

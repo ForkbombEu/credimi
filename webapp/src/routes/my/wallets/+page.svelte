@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { yamlStringSchema } from '$lib/utils';
-	import { UploadIcon } from 'lucide-svelte';
+	import { EyeIcon, UploadIcon } from 'lucide-svelte';
 	import { z } from 'zod';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
@@ -167,7 +167,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				code: yamlStringSchema as unknown as z.ZodString
 			})}
 		formFieldsOptions={{
-			exclude: ['owner', 'canonified_name'],
+			exclude: ['owner', 'canonified_name', 'result'],
 			hide: { wallet: props.wallet.id, owner: props.ownerId },
 			snippets: { code: codeField },
 			placeholders: {
@@ -191,7 +191,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				nameField="name"
 				textToCopy={(record) =>
 					`${organization.canonified_name}/${props.wallet.canonified_name}/${record.canonified_name}`}
-			/>
+			>
+				{#snippet actions({ record })}
+					{#if record.result}
+						<Button
+							size="sm"
+							variant="outline"
+							class="h-8 border border-blue-500"
+							href={pb.files.getURL(record, record.result)}
+							target="_blank"
+						>
+							<EyeIcon />
+							View result
+						</Button>
+					{/if}
+				{/snippet}
+			</DashboardCardManagerUI>
 		{/snippet}
 	</CollectionManager>
 {/snippet}

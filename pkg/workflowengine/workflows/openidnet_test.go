@@ -150,6 +150,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 					Payload: map[string]any{
 						"variant":   "test-variant",
 						"form":      mock.Anything,
+						"test_name": "test-name",
 						"user_mail": "user@test.org",
 					},
 					Config: map[string]any{

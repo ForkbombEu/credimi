@@ -15,7 +15,7 @@ type WorkflowDefinition struct {
 	Name    string                   `yaml:"name"                    json:"name"`
 	Runtime RuntimeConfig            `yaml:"runtime"                 json:"runtime"`
 	Checks  map[string]WorkflowBlock `yaml:"custom_checks,omitempty" json:"custom_checks,omitempty"`
-	Config  map[string]string        `yaml:"config,omitempty"        json:"config,omitempty"`
+	Config  map[string]any           `yaml:"config,omitempty"        json:"config,omitempty"`
 	Steps   []StepDefinition         `yaml:"steps,omitempty"         json:"steps,omitempty"`
 }
 
@@ -23,7 +23,7 @@ type WorkflowBlock struct {
 	Description string            `yaml:"description,omitempty" json:"description,omitempty"`
 	Inputs      map[string]string `yaml:"inputs,omitempty"      json:"inputs,omitempty"`
 	Outputs     map[string]string `yaml:"outputs,omitempty"     json:"outputs,omitempty"`
-	Config      map[string]string `yaml:"config,omitempty"      json:"config,omitempty"`
+	Config      map[string]any    `yaml:"config,omitempty"      json:"config,omitempty"`
 	Steps       []StepDefinition  `yaml:"steps,omitempty"       json:"steps,omitempty"`
 }
 
@@ -33,10 +33,11 @@ type StepDefinition struct {
 	With            StepInputs             `yaml:"with"                       json:"with"`
 	ActivityOptions *ActivityOptionsConfig `yaml:"activity_options,omitempty" json:"activity_options,omitempty"`
 	Metadata        map[string]interface{} `yaml:"metadata,omitempty"         json:"metadata,omitempty"`
+	ContinueOnError bool                   `yaml:"continue_on_error,omitempty" json:"continue_on_error,omitempty"`
 }
 
 type StepInputs struct {
-	Config  map[string]string      `yaml:"config,omitempty"  json:"config,omitempty"`
+	Config  map[string]any         `yaml:"config,omitempty"  json:"config,omitempty"`
 	Payload map[string]InputSource `yaml:"payload,omitempty" json:"payload,omitempty"`
 }
 

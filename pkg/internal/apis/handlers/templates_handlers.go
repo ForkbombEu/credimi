@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -47,7 +48,8 @@ func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 		templatesDir := path.Join(os.Getenv("ROOT_DIR"), "config_templates")
 		configs, err := walkConfigTemplates(templatesDir)
 		if err != nil {
-			if appErr, ok := err.(*apierror.APIError); ok {
+			appErr := &apierror.APIError{}
+			if errors.As(err, &appErr) {
 				return appErr.JSON(e)
 			}
 			return err

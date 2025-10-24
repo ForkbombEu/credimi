@@ -254,7 +254,10 @@ func (w *OpenIDNetWorkflow) Workflow(
 
 	return workflowengine.WorkflowResult{
 		Message: "Check completed successfully",
-		Log:     subWorkflowResponse.Log,
+		Output: map[string]any{
+			"deeplink": deeplink,
+		},
+		Log: subWorkflowResponse.Log,
 	}, nil
 }
 

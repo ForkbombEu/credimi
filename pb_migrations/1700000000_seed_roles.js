@@ -6,11 +6,11 @@
 
 /// <reference path="../pb_data/types.d.ts" />
 
-/** @type {Array<{name:string, level:number}>} */
+/** @type {Array<{name:string, level:number, id:string}>} */
 const roles = [
-    { name: "owner", level: 0 },
-    { name: "admin", level: 1 },
-    { name: "member", level: 9 },
+    { name: "owner", level: 0, id : "owner0000000000" },
+    { name: "admin", level: 1, id : "admin0000000000" },
+    { name: "member", level: 9, id : "member000000000" },
 ];
 
 //

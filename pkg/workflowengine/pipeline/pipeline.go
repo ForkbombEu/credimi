@@ -10,6 +10,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+
 	"github.com/google/uuid"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/workflow"
@@ -40,34 +41,34 @@ func (w *PipelineWorkflow) Workflow(
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, *input.WorkflowInput.ActivityOptions)
+
+	errorsList := []string{}
+	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
+	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
 	runMetadata := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
+		WorkflowID:   workflowID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
 		TemporalUI: fmt.Sprintf(
 			"%s/my/tests/runs/%s/%s",
 			input.WorkflowInput.Config["app_url"],
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
+			workflowID,
+			runID,
 		),
 	}
-	global := map[string]any{}
+	globalCfg := map[string]any{}
 	if g, ok := input.WorkflowInput.Config["global"].(map[string]any); ok {
-		global = g
+		globalCfg = g
 	}
 
-	// Normalize to string map
-	globalCfg := make(map[string]string)
-	for k, v := range global {
-		if str, ok := v.(string); ok {
-			globalCfg[k] = str
-		} else {
-			return workflowengine.WorkflowResult{}, fmt.Errorf("global config key %q has non-string value of type %T", k, v)
-		}
-	}
-
+	globalCfg["app_url"] = input.WorkflowInput.Config["app_url"].(string)
+	globalCfg["namespace"] = input.WorkflowInput.Config["namespace"].(string)
 	result := workflowengine.WorkflowResult{}
+
 	finalOutput := map[string]any{}
+	finalOutput["workflow-id"] = workflowID
+	finalOutput["workflow-run-id"] = runID
+
 	var steps []StepDefinition
 	var checks map[string]WorkflowBlock
 	switch {
@@ -83,6 +84,19 @@ func (w *PipelineWorkflow) Workflow(
 		appErr := workflowengine.NewAppError(errCode, "no workflow definition or block provided")
 		return result, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
+	for _, hook := range setupHooks {
+		if err := hook(ctx, &steps, *input.WorkflowInput.ActivityOptions); err != nil {
+			return result, workflowengine.NewWorkflowError(err, runMetadata)
+		}
+	}
+	defer func() {
+		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
+		for _, hook := range cleanupHooks {
+			if err := hook(cleanupCtx, steps, *input.WorkflowInput.ActivityOptions); err != nil {
+				logger.Error("cleanup hook error", "error", err)
+			}
+		}
+	}()
 
 	for _, step := range steps {
 		logger.Info("Running step", "id", step.ID, "use", step.Use)
@@ -125,6 +139,16 @@ func (w *PipelineWorkflow) Workflow(
 			).Get(ctxChild, &childResult)
 			if err != nil {
 				logger.Error(step.ID, "child workflow execution error", err)
+
+				if step.ContinueOnError {
+					if output := workflowengine.ExtractOutputFromError(err); output != nil {
+						finalOutput[step.ID] = make(map[string]any)
+						finalOutput[step.ID].(map[string]any)["outputs"] = output
+					}
+
+					errorsList = append(errorsList, err.Error())
+					continue
+				}
 				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 					err,
 					runMetadata,
@@ -167,10 +191,29 @@ func (w *PipelineWorkflow) Workflow(
 				fmt.Sprintf("error executing step %s: %s", step.ID, err.Error()),
 				step.ID,
 			)
+
+			if step.ContinueOnError {
+				if output := workflowengine.ExtractOutputFromError(err); output != nil {
+					finalOutput[step.ID] = make(map[string]any)
+					finalOutput[step.ID].(map[string]any)["outputs"] = output
+				}
+
+				errorsList = append(errorsList, err.Error())
+				continue
+			}
 			return result, workflowengine.NewWorkflowError(appErr, runMetadata)
 		}
 	}
 	delete(finalOutput, "inputs")
+	if len(errorsList) > 0 {
+		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+		appErr := workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("workflow completed with %d step errors", len(errorsList)),
+		)
+		return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList)
+	}
+
 	return workflowengine.WorkflowResult{
 		Output: finalOutput,
 	}, nil
@@ -210,8 +253,9 @@ func (w *PipelineWorkflow) Start(
 		WorkflowDefinition: wfDef,
 		WorkflowInput: workflowengine.WorkflowInput{
 			Config: map[string]any{
-				"app_url": app_url,
-				"global":  wfDef.Config,
+				"app_url":   app_url,
+				"namespace": namespace,
+				"global":    wfDef.Config,
 			},
 			ActivityOptions: &options.ActivityOptions,
 		},
