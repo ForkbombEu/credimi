@@ -130,6 +130,10 @@ var Registry = map[string]TaskFactory{
 		Kind:    TaskWorkflow,
 		NewFunc: func() any { return &workflows.OpenIDNetLogsWorkflow{} },
 	},
+	"use-case-verification-deeplink": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.GetUseCaseVerificationDeeplinkWorkflow{} },
+	},
 }
 
 // Denylist of task keys that should NOT be registered in the pipeline worker
