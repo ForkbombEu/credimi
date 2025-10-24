@@ -20,6 +20,8 @@ import (
 
 type GetCredentialOfferResponse struct {
 	CredentialOffer string `json:"credential_offer"`
+	Dynamic         bool   `json:"dynamic"`
+	Code            string `json:"code"`
 }
 
 var CredentialTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
@@ -61,6 +63,13 @@ func HandleGetCredentialOffer() func(*core.RequestEvent) error {
 		}
 
 		var response GetCredentialOfferResponse
+		code := record.GetString("yaml")
+		if code != "" {
+			response.Dynamic = true
+			response.Code = code
+			return e.JSON(http.StatusOK, response)
+		}
+
 		deeplink := record.GetString("deeplink")
 		if deeplink != "" {
 			response.CredentialOffer = deeplink

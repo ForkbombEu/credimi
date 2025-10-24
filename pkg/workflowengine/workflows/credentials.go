@@ -437,16 +437,75 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
 	}
-	credentialOffer, ok := responseBody["credential_offer"].(string)
+	dynamic, ok := responseBody["dynamic"].(bool)
 	if !ok {
 		wErr := workflowengine.NewAppError(
 			errCode,
-			"credential_offer is not a string",
+			"dynamic is not a bool",
+			result.Output,
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+	}
+	if !dynamic {
+		credentialOffer, ok := responseBody["credential_offer"].(string)
+		if !ok {
+			wErr := workflowengine.NewAppError(
+				errCode,
+				"credential_offer is not a string",
+				result.Output,
+			)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+		}
+
+		return workflowengine.WorkflowResult{
+			Message: "Successfully retrieved credential offer",
+			Output:  credentialOffer,
+		}, nil
+	}
+	code, ok := responseBody["code"].(string)
+	if !ok {
+		wErr := workflowengine.NewAppError(
+			errCode,
+			"yaml code is not a string",
 			result.Output,
 		)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
 	}
 
+	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	var stepCIResult workflowengine.ActivityResult
+	stepCIInput := workflowengine.ActivityInput{
+		Payload: map[string]any{
+			"yaml": code,
+		},
+	}
+
+	err = workflow.ExecuteActivity(ctx, stepCIActivity.Name(), stepCIInput).Get(ctx, &stepCIResult)
+	if err != nil {
+		logger.Error("StepCIActivity failed", "error", err)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			runMetadata,
+		)
+	}
+	captures, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
+	if !ok {
+		wErr := workflowengine.NewAppError(
+			errCode,
+			"captures is not a map",
+			result.Output,
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+	}
+	credentialOffer, ok := captures["deeplink"].(string)
+	if !ok {
+		wErr := workflowengine.NewAppError(
+			errCode,
+			"deeplink missing or invalid from captures",
+			result.Output,
+		)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+	}
 	return workflowengine.WorkflowResult{
 		Message: "Successfully retrieved credential offer",
 		Output:  credentialOffer,
