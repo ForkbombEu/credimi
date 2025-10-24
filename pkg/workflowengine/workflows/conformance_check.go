@@ -77,7 +77,7 @@ func RunStepCIAndSendMail(
 			)
 	}
 
-	baseURL := fmt.Sprintf("%s/tests/wallet/suite", cfg.AppURL)
+	baseURL := fmt.Sprintf("%s/tests/wallet/%s", cfg.Suite, cfg.AppURL)
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
