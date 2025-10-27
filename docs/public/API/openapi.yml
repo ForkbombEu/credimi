@@ -238,14 +238,6 @@ components:
             $ref: '#/components/schemas/Payload'
           type: object
       type: object
-    MessageState:
-      additionalProperties: false
-      properties:
-        details:
-          type: string
-        state:
-          type: string
-      type: object
     MostRecentWorkflowVersionStamp:
       additionalProperties: false
       properties:
@@ -421,19 +413,25 @@ components:
           $ref: '#/components/schemas/Callbacks'
         canBeTerminated:
           type: boolean
+        children:
+          items:
+            $ref: '#/components/schemas/WorkflowExecution'
+          type: array
         defaultWorkflowTaskTimeout:
           $ref: '#/components/schemas/Duration'
         details:
           $ref: '#/components/schemas/Payload'
+        displayName:
+          type: string
         endTime:
           type: string
+        execution:
+          $ref: '#/components/schemas/WorkflowIdentifier'
         executionTime:
           type: string
         historyEvents:
           type: string
         historySizeBytes:
-          type: string
-        id:
           type: string
         isRunning:
           type: boolean
@@ -441,9 +439,7 @@ components:
           $ref: '#/components/schemas/Memo'
         mostRecentWorkerVersionStamp:
           $ref: '#/components/schemas/MostRecentWorkflowVersionStamp'
-        name:
-          type: string
-        parent:
+        parentExecution:
           $ref: '#/components/schemas/WorkflowIdentifier'
         parentNamespaceId:
           type: string
@@ -463,8 +459,6 @@ components:
           $ref: '#/components/schemas/PendingWorkflowTaskInfo'
         rootExecution:
           $ref: '#/components/schemas/WorkflowIdentifier'
-        runId:
-          type: string
         searchAttributes:
           $ref: '#/components/schemas/DecodedWorkflowSearchAttributes'
         startTime:
@@ -472,11 +466,13 @@ components:
         stateTransitionCount:
           type: string
         status:
-          $ref: '#/components/schemas/MessageState'
+          type: string
         summary:
           $ref: '#/components/schemas/Payload'
         taskQueue:
           type: string
+        type:
+          $ref: '#/components/schemas/WorkflowType'
         url:
           type: string
         versioningInfo:
@@ -537,6 +533,12 @@ components:
           type: string
       type: object
     WorkflowSearchAttributes:
+      type: object
+    WorkflowType:
+      additionalProperties: false
+      properties:
+        name:
+          type: string
       type: object
 info:
   contact:

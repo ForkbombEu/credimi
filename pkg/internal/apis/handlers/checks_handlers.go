@@ -12,6 +12,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
+	"slices"
 	"strings"
 	"time"
 
@@ -211,8 +213,8 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		finalJSON := make(map[string]interface{})
-		err = json.Unmarshal(listJSON, &finalJSON)
+		var resp ListMyChecksResponse
+		err = json.Unmarshal(listJSON, &resp)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -221,20 +223,9 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		if finalJSON["executions"] == nil {
-			finalJSON["executions"] = []any{}
-		}
-		executions, ok := (finalJSON["executions"]).([]any)
-		if !ok {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"invalid executions data type",
-				"executions field is not of expected type",
-			).JSON(e)
-		}
-		finalJSON["executions"] = sortExecutionsByStartTime(executions)
-		return e.JSON(http.StatusOK, finalJSON)
+		hierarchy := buildExecutionHierarchy(resp.Executions)
+		resp.Executions = hierarchy
+		return e.JSON(http.StatusOK, resp)
 	}
 }
 
@@ -507,8 +498,8 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		finalJSON := make(map[string]interface{})
-		err = json.Unmarshal(listJSON, &finalJSON)
+		var resp ListMyCheckRunsResponse
+		err = json.Unmarshal(listJSON, &resp)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -517,20 +508,9 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		if finalJSON["executions"] == nil {
-			finalJSON["executions"] = []any{}
-		}
-		executions, ok := (finalJSON["executions"]).([]any)
-		if !ok {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"invalid executions data type",
-				"executions field is not of expected type",
-			).JSON(e)
-		}
-		finalJSON["executions"] = sortExecutionsByStartTime(executions)
-		return e.JSON(http.StatusOK, finalJSON)
+		hierarchy := buildExecutionHierarchy(resp.Executions)
+		resp.Executions = hierarchy
+		return e.JSON(http.StatusOK, resp)
 	}
 }
 
@@ -1077,4 +1057,62 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 			"namespace": namespace,
 		})
 	}
+}
+
+var uuidRegex = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
+
+func computeDisplayName(workflowID string) string {
+	switch {
+	case strings.HasPrefix(workflowID, "OpenIDNetCheckWorkflow"):
+		return "View logs workflow"
+	case strings.HasPrefix(workflowID, "EWCWorkflow"):
+		return "View logs workflow"
+	default:
+		cleanID := uuidRegex.ReplaceAllString(workflowID, "")
+		cleanID = strings.ReplaceAll(cleanID, "--", "-")
+		cleanID = strings.Trim(cleanID, "-")
+
+		return cleanID
+	}
+}
+
+func buildExecutionHierarchy(executions []*WorkflowExecution) []*WorkflowExecution {
+	// Create a map from RunID to *WorkflowExecution
+	execMap := make(map[string]*WorkflowExecution)
+	for i := range executions {
+		execMap[executions[i].Execution.RunID] = executions[i]
+	}
+
+	var roots []*WorkflowExecution
+
+	for _, exec := range execMap {
+		if exec.ParentExecution != nil {
+			if parent, ok := execMap[exec.ParentExecution.RunID]; ok {
+				exec.DisplayName = computeDisplayName(exec.Execution.WorkflowID)
+				parent.Children = append(parent.Children, exec)
+				continue
+			}
+		}
+		roots = append(roots, exec)
+	}
+
+	// Recursive sort by start time
+	var sortFn func(list []*WorkflowExecution)
+	sortFn = func(list []*WorkflowExecution) {
+		sortExecutionsByStartTime(list)
+		for _, e := range list {
+			if len(e.Children) > 0 {
+				sortFn(e.Children)
+			}
+		}
+	}
+	sortFn(roots)
+
+	return roots
+}
+
+func sortExecutionsByStartTime(executions []*WorkflowExecution) {
+	slices.SortFunc(executions, func(a, b *WorkflowExecution) int {
+		return strings.Compare(b.StartTime, a.StartTime)
+	})
 }
