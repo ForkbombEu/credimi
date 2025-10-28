@@ -12,13 +12,8 @@ import (
 )
 
 func LogoHooks(app core.App) {
-	app.OnRecordCreate().BindFunc(func(e *core.RecordEvent) error {
-		return HandleLogo(e)
-	})
-
-	app.OnRecordUpdate().BindFunc(func(e *core.RecordEvent) error {
-		return HandleLogo(e)
-	})
+	app.OnRecordCreate().BindFunc(HandleLogo)
+	app.OnRecordUpdate().BindFunc(HandleLogo)
 }
 
 func HandleLogo(e *core.RecordEvent) error {
