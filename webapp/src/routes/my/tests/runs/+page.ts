@@ -4,11 +4,7 @@
 
 import { error } from '@sveltejs/kit';
 import { isWorkflowStatus, type WorkflowStatusType } from '$lib/temporal';
-import {
-	fetchWorkflows,
-	groupWorkflowsWithChildren,
-	WORKFLOW_STATUS_QUERY_PARAM
-} from '$lib/workflows/index.js';
+import { fetchWorkflows, WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows/index.js';
 
 import { redirect } from '@/i18n/index.js';
 
@@ -34,7 +30,7 @@ export const load = async ({ fetch, url }) => {
 	}
 
 	return {
-		workflows: groupWorkflowsWithChildren(workflows),
+		workflows: workflows.executions,
 		selectedStatus: parsedStatus
 	};
 };
