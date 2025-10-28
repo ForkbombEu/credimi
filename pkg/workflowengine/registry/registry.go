@@ -130,6 +130,10 @@ var Registry = map[string]TaskFactory{
 		Kind:    TaskWorkflow,
 		NewFunc: func() any { return &workflows.OpenIDNetLogsWorkflow{} },
 	},
+	"ewc-status": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.EWCStatusWorkflow{} },
+	},
 	"use-case-verification-deeplink": {
 		Kind:    TaskWorkflow,
 		NewFunc: func() any { return &workflows.GetUseCaseVerificationDeeplinkWorkflow{} },

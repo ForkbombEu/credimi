@@ -146,7 +146,7 @@ func ConformanceCheckHook(
 			}
 
 			defaultPayload["session_id"] = sessionID
-			suiteTemplatePath = workflows.EWCTemplateFolderPath
+			suiteTemplatePath = workflows.EWCTemplateFolderPath + "/" + checkName + ".yaml"
 		case "eudiw":
 
 			var id string
@@ -160,7 +160,7 @@ func ConformanceCheckHook(
 
 			defaultPayload["id"] = id
 			defaultPayload["nonce"] = nonce
-			suiteTemplatePath = workflows.EudiwTemplateFolderPath
+			suiteTemplatePath = workflows.EudiwTemplateFolderPath + "/" + checkName + ".yaml"
 		default:
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 			return workflowengine.NewAppError(
