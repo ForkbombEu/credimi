@@ -18,12 +18,10 @@ import (
 func MobileAutomationSetupHook(
 	ctx workflow.Context,
 	steps *[]StepDefinition,
-	ao workflow.ActivityOptions,
+	input workflowengine.WorkflowInput,
 ) error {
 	logger := workflow.GetLogger(ctx)
-
-	// Use the activity options from the pipeline input
-	ctx = workflow.WithActivityOptions(ctx, ao)
+	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 
 	httpActivity := activities.NewHTTPActivity()
 	installActivity := activities.NewApkInstallActivity()
@@ -127,7 +125,7 @@ func MobileAutomationSetupHook(
 		}
 		SetPayloadValue(step.With.Payload, "package_id", packageID)
 
-		mobileAo := ao
+		mobileAo := *input.ActivityOptions
 		mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 		mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
 		installInput := workflowengine.ActivityInput{Payload: map[string]any{"apk": apkPath}}
@@ -142,10 +140,10 @@ func MobileAutomationSetupHook(
 func MobileAutomationCleanupHook(
 	ctx workflow.Context,
 	steps []StepDefinition,
-	ao workflow.ActivityOptions,
+	input workflowengine.WorkflowInput,
 ) error {
 	logger := workflow.GetLogger(ctx)
-	mobileAo := ao
+	mobileAo := *input.ActivityOptions
 	mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 	mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
 

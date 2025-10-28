@@ -56,13 +56,7 @@ func (w *PipelineWorkflow) Workflow(
 			runID,
 		),
 	}
-	globalCfg := map[string]any{}
-	if g, ok := input.WorkflowInput.Config["global"].(map[string]any); ok {
-		globalCfg = g
-	}
 
-	globalCfg["app_url"] = input.WorkflowInput.Config["app_url"].(string)
-	globalCfg["namespace"] = input.WorkflowInput.Config["namespace"].(string)
 	result := workflowengine.WorkflowResult{}
 
 	finalOutput := map[string]any{}
@@ -85,14 +79,14 @@ func (w *PipelineWorkflow) Workflow(
 		return result, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 	for _, hook := range setupHooks {
-		if err := hook(ctx, &steps, *input.WorkflowInput.ActivityOptions); err != nil {
+		if err := hook(ctx, &steps, input.WorkflowInput); err != nil {
 			return result, workflowengine.NewWorkflowError(err, runMetadata)
 		}
 	}
 	defer func() {
 		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
 		for _, hook := range cleanupHooks {
-			if err := hook(cleanupCtx, steps, *input.WorkflowInput.ActivityOptions); err != nil {
+			if err := hook(cleanupCtx, steps, input.WorkflowInput); err != nil {
 				logger.Error("cleanup hook error", "error", err)
 			}
 		}
@@ -116,8 +110,8 @@ func (w *PipelineWorkflow) Workflow(
 				step.ActivityOptions,
 			)
 
-			localCfg := MergeConfigs(globalCfg, step.With.Config)
-			inputs, err := ResolveSubworkflowInputs(step, subBlock, globalCfg, finalOutput)
+			localCfg := MergeConfigs(input.WorkflowInput.Config, step.With.Config)
+			inputs, err := ResolveSubworkflowInputs(step, subBlock, input.WorkflowInput.Config, finalOutput)
 			if err != nil {
 				return result, workflowengine.NewWorkflowError(err, runMetadata)
 			}
@@ -182,7 +176,7 @@ func (w *PipelineWorkflow) Workflow(
 			step.ActivityOptions,
 		)
 
-		_, err := step.Execute(ctx, globalCfg, &finalOutput, ao)
+		_, err := step.Execute(ctx, input.WorkflowInput.Config, &finalOutput, ao)
 		if err != nil {
 			logger.Error(step.ID, "step execution error", err)
 			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
@@ -222,8 +216,7 @@ func (w *PipelineWorkflow) Workflow(
 // Start launches the pipeline workflow via Temporal client
 func (w *PipelineWorkflow) Start(
 	inputYaml string,
-	namespace string,
-	app_url string,
+	config map[string]any,
 	memo map[string]any,
 ) (workflowengine.WorkflowResult, error) {
 	var result workflowengine.WorkflowResult
@@ -238,8 +231,8 @@ func (w *PipelineWorkflow) Start(
 	options.Options.Memo = memo
 	options.Options.ID = fmt.Sprintf("Pipeline-%s-%s", wfDef.Name, uuid.NewString())
 
-	if namespace != "" {
-		options.Namespace = namespace
+	if ns, ok := config["namespace"].(string); ok && ns != "" {
+		options.Namespace = ns
 	}
 
 	c, err := temporalclient.GetTemporalClientWithNamespace(
@@ -248,15 +241,16 @@ func (w *PipelineWorkflow) Start(
 	if err != nil {
 		return result, fmt.Errorf("unable to create client: %w", err)
 	}
+	for k, v := range wfDef.Config {
+		if _, exists := config[k]; !exists {
+			config[k] = v
+		}
+	}
 
 	input := PipelineWorkflowInput{
 		WorkflowDefinition: wfDef,
 		WorkflowInput: workflowengine.WorkflowInput{
-			Config: map[string]any{
-				"app_url":   app_url,
-				"namespace": namespace,
-				"global":    wfDef.Config,
-			},
+			Config:          config,
 			ActivityOptions: &options.ActivityOptions,
 		},
 	}

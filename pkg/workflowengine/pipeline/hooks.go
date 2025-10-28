@@ -5,15 +5,17 @@
 package pipeline
 
 import (
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"go.temporal.io/sdk/workflow"
 )
 
-type SetupFunc func(ctx workflow.Context, steps *[]StepDefinition, ao workflow.ActivityOptions) error
-type CleanupFunc func(ctx workflow.Context, steps []StepDefinition, ao workflow.ActivityOptions) error
+type SetupFunc func(ctx workflow.Context, steps *[]StepDefinition, input workflowengine.WorkflowInput) error
+type CleanupFunc func(ctx workflow.Context, steps []StepDefinition, input workflowengine.WorkflowInput) error
 
 var (
 	setupHooks = []SetupFunc{
 		MobileAutomationSetupHook,
+		ConformanceCheckHook,
 	}
 
 	cleanupHooks = []CleanupFunc{

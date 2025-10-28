@@ -76,7 +76,10 @@ func RunStepCIAndSendMail(
 				cfg.RunMeta,
 			)
 	}
-
+	suite := cfg.Suite
+	if suite == "openid_conformance_suite" {
+		suite = "openidnet"
+	}
 	baseURL := fmt.Sprintf("%s/tests/wallet/%s", cfg.Suite, cfg.AppURL)
 	u, err := url.Parse(baseURL)
 	if err != nil {
@@ -147,7 +150,7 @@ func (w *StartCheckWorkflow) Workflow(
 
 	var stepCIPayload map[string]any
 	switch suite {
-	case "openidnet":
+	case "openid_conformance_suite":
 		variant, ok := input.Payload["variant"].(string)
 		if !ok {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("variant", runMeta)
@@ -198,7 +201,7 @@ func (w *StartCheckWorkflow) Workflow(
 	}
 
 	switch suite {
-	case "openidnet":
+	case "openid_conformance_suite":
 		rid, _ := setupResult.Captures["rid"].(string)
 		child := OpenIDNetLogsWorkflow{}
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{

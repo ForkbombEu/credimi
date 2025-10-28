@@ -162,3 +162,54 @@ func SetPayloadValue(payload map[string]InputSource, key string, val any) {
 	src.Value = val
 	payload[key] = src
 }
+
+func SetConfigValue(config *map[string]any, key string, val any) {
+	if *config == nil {
+		*config = make(map[string]any)
+	}
+	(*config)[key] = val
+}
+
+func MergePayload(dst map[string]InputSource, src map[string]any) {
+	for k, v := range src {
+		if vMap, ok := v.(map[string]any); ok {
+			// If dst already has a map, recurse
+			if existing, exists := dst[k]; exists {
+				if existingMap, ok := existing.Value.(map[string]any); ok {
+					mergeMaps(existingMap, vMap)
+					dst[k] = InputSource{Value: existingMap}
+					continue
+				}
+			}
+			dst[k] = InputSource{Value: vMap}
+		} else {
+			if _, exists := dst[k]; !exists {
+				dst[k] = InputSource{Value: v}
+			}
+		}
+	}
+}
+
+func mergeMaps(dst, src map[string]any) {
+	for k, v := range src {
+		switch vTyped := v.(type) {
+		case map[string]any:
+			if existing, exists := dst[k]; exists {
+				if existingMap, ok := existing.(map[string]any); ok {
+					mergeMaps(existingMap, vTyped)
+					dst[k] = existingMap
+					continue
+				}
+			}
+			dst[k] = vTyped
+		case []any:
+			if existing, exists := dst[k]; !exists || existing == nil {
+				dst[k] = vTyped
+			}
+		default:
+			if _, exists := dst[k]; !exists {
+				dst[k] = v
+			}
+		}
+	}
+}
