@@ -11,6 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts" generics="R extends BaseSystemFields">
 	import type { Snippet } from 'svelte';
 
+	import { path as makePath } from '$lib/utils';
+
 	import type { StringKey } from '@/utils/types';
 
 	import { RecordClone, RecordDelete, RecordEdit } from '@/collections-components/manager';
@@ -45,7 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <li class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2 hover:ring-2">
-	<LabelLink label={name} href={publicUrl} {published} textToCopy={path.join('/')} />
+	<LabelLink label={name} href={publicUrl} {published} textToCopy={makePath(path)} />
 
 	<div class="flex items-center gap-2">
 		{@render actions?.()}

@@ -10,6 +10,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CheckIcon, CopyIcon } from 'lucide-svelte';
 
 	import Button, { type ButtonProps } from '@/components/ui/button/button.svelte';
+	import * as Tooltip from '@/components/ui/tooltip';
+	import { m } from '@/i18n';
 
 	import Icon from './icon.svelte';
 	//
@@ -21,6 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		square?: boolean;
 		variant?: ComponentProps<typeof Button>['variant'];
 		size?: 'sm' | 'xs';
+		hideTooltip?: boolean;
 	};
 
 	let {
@@ -30,6 +33,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		square = false,
 		variant = 'outline',
 		size = 'sm',
+		hideTooltip = false,
+		class: className = '',
 		...rest
 	}: Props = $props();
 
@@ -44,25 +49,46 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<Button
-	{variant}
-	class={{
-		'h-8': size == 'sm',
-		'h-6': size == 'xs',
-		'p-0': square,
-		'w-8': square && size == 'sm',
-		'w-6': square && size == 'xs'
-	}}
-	{...rest}
-	onclick={copyText}
->
-	<Icon
-		src={isCopied ? CheckIcon : CopyIcon}
-		class={{
-			'text-green-600': isCopied,
-			'!size-4': size == 'sm',
-			'!size-[14px]': size == 'xs'
-		}}
-	/>
-	{@render children?.()}
-</Button>
+{#if !hideTooltip}
+	<Tooltip.Provider>
+		<Tooltip.Root>
+			<Tooltip.Trigger>
+				{@render button()}
+			</Tooltip.Trigger>
+			<Tooltip.Content class="dark !text-xs">
+				<p>{m.Copy()}: <span class="font-mono">{textToCopy}</span></p>
+			</Tooltip.Content>
+		</Tooltip.Root>
+	</Tooltip.Provider>
+{:else}
+	{@render button()}
+{/if}
+
+{#snippet button()}
+	<Button
+		{variant}
+		class={[
+			'text-gray-400',
+			{
+				'h-8': size == 'sm',
+				'h-6': size == 'xs',
+				'p-0': square,
+				'w-8': square && size == 'sm',
+				'w-6': square && size == 'xs'
+			},
+			className
+		]}
+		{...rest}
+		onclick={copyText}
+	>
+		<Icon
+			src={isCopied ? CheckIcon : CopyIcon}
+			class={{
+				'text-green-600': isCopied,
+				'!size-4': size == 'sm',
+				'!size-[14px]': size == 'xs'
+			}}
+		/>
+		{@render children?.()}
+	</Button>
+{/snippet}

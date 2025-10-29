@@ -12,6 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { getMarketplaceItemUrl, type MarketplaceItem } from '$lib/marketplace';
+	import { path as makePath } from '$lib/utils';
 	import { String } from 'effect';
 	import { truncate } from 'lodash';
 	import { ArrowDown, ArrowUp } from 'lucide-svelte';
@@ -94,7 +95,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						label={record.name}
 						href={publicUrl}
 						published={record.published}
-						textToCopy={path.join('/')}
+						textToCopy={makePath(path)}
 					/>
 					{#if badge}
 						<Badge variant="secondary">{badge}</Badge>
