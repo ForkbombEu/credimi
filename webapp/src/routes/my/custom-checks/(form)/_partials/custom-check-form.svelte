@@ -23,23 +23,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CustomChecksRecord, CustomChecksResponse } from '@/pocketbase/types';
 
 	import { removeEmptyValues } from '@/collections-components/form';
-	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import { mockFile } from '@/collections-components/form/collectionFormSetup';
 	import Button from '@/components/ui-custom/button.svelte';
 	import LinkExternal from '@/components/ui-custom/linkExternal.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import { createForm, Form } from '@/forms';
 	import {
 		CheckboxField,
 		CodeEditorField,
 		Field,
-		FileField,
+		LogoField,
 		TextareaField
 	} from '@/forms/fields';
 	import { goto, m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 	import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 	import { getExceptionMessage } from '@/utils/errors.js';
-	import { readFileAsDataURL, readFileAsString } from '@/utils/files.js';
+	import { readFileAsString } from '@/utils/files.js';
 
 	//
 
@@ -86,6 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		options: {
 			dataType: 'form'
 		},
+		// @ts-expect-error - Slight type mismatch, but it works
 		initialData: createInitialData(record)
 	});
 
@@ -101,12 +101,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	function createInitialData(record?: CustomChecksResponse) {
 		if (!record) return undefined;
-		let input_json_sample = JSON.stringify(record.input_json_sample, null, 2);
-		if (input_json_sample == 'null') input_json_sample = '';
-		return {
-			..._.omit(record, 'logo', 'input_json_schema'),
-			input_json_sample
-		};
+		const data = _.omit(record, 'input_json_schema');
+		if (record.input_json_sample) {
+			data.input_json_sample = JSON.stringify(record.input_json_sample, null, 2);
+		}
+		if (record.logo) {
+			// @ts-expect-error - We need to rewrite the the logo from string to file
+			data.logo = mockFile(record.logo, { mimeTypes: ['image/png'] });
+		}
+		return data;
 	}
 
 	const { errors } = form;
@@ -175,8 +178,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return pb.files.getURL(record, record.logo);
 	});
 
-	let avatarPreviewUrl = $derived(originalLogoUrl);
-
 	let formState = fromStore(form.form);
 
 	// Parse selected standard and version for contextual links
@@ -194,17 +195,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!version) return null;
 
 		return { standard, version };
-	});
-
-	$effect(() => {
-		const logo = formState.current.logo;
-		if (logo) {
-			readFileAsDataURL(logo).then((dataURL) => {
-				avatarPreviewUrl = dataURL;
-			});
-		} else {
-			avatarPreviewUrl = originalLogoUrl;
-		}
 	});
 </script>
 
@@ -251,26 +241,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
 				<Field {form} name="name" options={{ label: m.Name() }} />
 
-				<div class="flex items-start gap-4">
-					<div class="grow">
-						<FileField
-							{form}
-							variant="outline"
-							name="logo"
-							options={{ label: m.Upload_logo() }}
-						>
-							<UploadIcon />
-							<T>{m.Upload_logo()}</T>
-						</FileField>
-					</div>
-					<div class="pt-2">
-						<Avatar
-							src={avatarPreviewUrl}
-							alt={record?.name}
-							class="size-16 rounded-md border"
-						/>
-					</div>
-				</div>
+				<LogoField {form} name="logo" label="AO" initialPreviewUrl={originalLogoUrl} />
 
 				<Field
 					{form}
