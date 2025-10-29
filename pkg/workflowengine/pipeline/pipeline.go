@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -253,6 +254,48 @@ func (w *PipelineWorkflow) Start(
 			Config:          config,
 			ActivityOptions: &options.ActivityOptions,
 		},
+	}
+
+	if wfDef.Runtime.Schedule.Interval != nil {
+
+		ctx := context.Background()
+		scheduleID := fmt.Sprintf("schedule_id_%s", options.Options.ID)
+		scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
+			ID: scheduleID,
+			Spec: client.ScheduleSpec{
+				Intervals: []client.ScheduleIntervalSpec{
+					{
+						Every: *wfDef.Runtime.Schedule.Interval,
+					},
+				},
+			},
+			Action: &client.ScheduleWorkflowAction{
+				ID:        fmt.Sprintf("scheduled_%s", options.Options.ID),
+				Workflow:  w.Name(),
+				TaskQueue: options.Options.TaskQueue,
+				Args:      []any{input},
+				Memo:      memo,
+			},
+		})
+		if err != nil {
+			return result, fmt.Errorf("failed to start scheduled workflow from pipeline %s: %w", wfDef.Name, err)
+
+		}
+
+		_, err = scheduleHandle.Describe(ctx)
+		if err != nil {
+			return result, fmt.Errorf("failed to describe scheduled workflow from pipeline %s: %w", wfDef.Name, err)
+		}
+		result = workflowengine.WorkflowResult{
+			WorkflowID: scheduleHandle.GetID(),
+			Message: fmt.Sprintf(
+				"Workflow %s scheduled successfully with ID %s",
+				w.Name(),
+				scheduleHandle.GetID(),
+			),
+		}
+		return result, nil
+
 	}
 
 	// Start the workflow execution.
