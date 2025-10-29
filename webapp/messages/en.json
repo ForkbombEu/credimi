@@ -768,5 +768,7 @@
 	"Workflow_YAML": "Workflow YAML",
 	"Expand": "Expand",
 	"Collapse": "Collapse",
-	"Copy_canonified_name": "Copy canonified name"
+	"Copy_canonified_name": "Copy canonified name",
+	"No_deeplink_available": "No deeplink available",
+	"Processing_YAML_configuration": "Processing YAML configuration..."
 }
