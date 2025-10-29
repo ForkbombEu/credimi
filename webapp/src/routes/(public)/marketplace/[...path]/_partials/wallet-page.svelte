@@ -5,21 +5,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script module lang="ts">
-	import { pb } from '@/pocketbase';
-
 	import { pageDetails } from './_utils/types';
 
 	export async function getWalletDetails(itemId: string, fetchFn = fetch) {
-		const wallet = await pb.collection('wallets').getOne(itemId, { fetch: fetchFn });
+		const wallet = await new PocketbaseQueryAgent(
+			{
+				collection: 'wallets',
+				expand: ['owner', 'wallet_actions_via_wallet']
+			},
+			{ fetch: fetchFn }
+		).getOne(itemId);
 
-		const actions = await pb.collection('wallet_actions').getFullList({
-			filter: `wallet="${wallet.id}"`,
-			fetch
-		});
+		const actions = wallet.expand?.wallet_actions_via_wallet ?? [];
+
+		const organization = wallet.expand?.owner;
+		if (!organization) throw new Error();
 
 		return pageDetails('wallets', {
 			wallet,
-			actions
+			actions,
+			organization
 		});
 	}
 </script>
@@ -28,11 +33,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { ConformanceCheckSchema } from '$lib/types/checks';
+	import { path } from '$lib/utils';
 	import { String } from 'effect';
 	import { Code } from 'lucide-svelte';
 	import { z } from 'zod';
 
 	import Card from '@/components/ui-custom/card.svelte';
+	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import {
 		Accordion,
 		AccordionContent,
@@ -40,6 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		AccordionTrigger
 	} from '@/components/ui/accordion';
 	import { Badge } from '@/components/ui/badge';
+	import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
 	import DescriptionSection from './_utils/description-section.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
@@ -49,7 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = Awaited<ReturnType<typeof getWalletDetails>>;
-	let { wallet, actions }: Props = $props();
+	let { wallet, actions, organization }: Props = $props();
 
 	//
 
@@ -158,7 +166,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
 									/>
 									<div class="text-left">
-										<div class="font-medium">{action.name}</div>
+										<div class="flex items-center gap-1">
+											<div class="font-medium">{action.name}</div>
+											<CopyButtonSmall
+												textToCopy={path([
+													organization?.canonified_name,
+													wallet.canonified_name,
+													action.canonified_name
+												])}
+												square
+												variant="ghost"
+												size="xs"
+											/>
+										</div>
 										<div class="text-muted-foreground text-xs">
 											{stats.lines} lines • {stats.chars} characters
 										</div>

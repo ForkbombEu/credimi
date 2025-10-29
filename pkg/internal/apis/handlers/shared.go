@@ -27,13 +27,12 @@ type WorkflowExecutionInfo struct {
 }
 
 type WorkflowExecution struct {
-	Name                         string                           `json:"name"`
-	ID                           string                           `json:"id"`
-	RunID                        string                           `json:"runId"`
+	Execution                    *WorkflowIdentifier              `json:"execution"`
+	Type                         WorkflowType                     `json:"type"`
 	StartTime                    string                           `json:"startTime"`
 	EndTime                      string                           `json:"endTime"`
 	ExecutionTime                string                           `json:"executionTime"`
-	Status                       MessageState                     `json:"status"`
+	Status                       string                           `json:"status"`
 	TaskQueue                    *string                          `json:"taskQueue,omitempty"`
 	HistoryEvents                string                           `json:"historyEvents"`
 	HistorySizeBytes             string                           `json:"historySizeBytes"`
@@ -48,7 +47,7 @@ type WorkflowExecution struct {
 	PendingWorkflowTask          *PendingWorkflowTaskInfo         `json:"pendingWorkflowTask,omitempty"`
 	StateTransitionCount         string                           `json:"stateTransitionCount"`
 	ParentNamespaceID            *string                          `json:"parentNamespaceId,omitempty"`
-	Parent                       *WorkflowIdentifier              `json:"parent,omitempty"`
+	ParentExecution              *WorkflowIdentifier              `json:"parentExecution,omitempty"`
 	URL                          string                           `json:"url"`
 	IsRunning                    bool                             `json:"isRunning"`
 	DefaultWorkflowTaskTimeout   *Duration                        `json:"defaultWorkflowTaskTimeout,omitempty"`
@@ -57,6 +56,8 @@ type WorkflowExecution struct {
 	VersioningInfo               *VersioningInfo                  `json:"versioningInfo,omitempty"`
 	Summary                      *Payload                         `json:"summary,omitempty"`
 	Details                      *Payload                         `json:"details,omitempty"`
+	DisplayName                  string                           `json:"displayName"`
+	Children                     []*WorkflowExecution             `json:"children,omitempty"`
 }
 
 type WorkflowExecutionAPIResponse struct {
@@ -140,7 +141,7 @@ type ReRunCheckResponse struct {
 
 // ListMyChecksResponse represents the response containing list of workflow executions
 type ListMyChecksResponse struct {
-	Executions []WorkflowExecution `json:"executions" validate:"required"`
+	Executions []*WorkflowExecution `json:"executions" validate:"required"`
 }
 
 // GetMyCheckRunResponse represents the response for getting a specific check run
@@ -156,7 +157,7 @@ type GetMyCheckRunResponse struct {
 
 // ListMyCheckRunsResponse represents the response containing list of runs for a specific check
 type ListMyCheckRunsResponse struct {
-	Executions []WorkflowExecution `json:"executions" validate:"required"`
+	Executions []*WorkflowExecution `json:"executions" validate:"required"`
 }
 
 // GetMyCheckRunHistoryResponse represents the response containing workflow execution history
@@ -408,6 +409,10 @@ type Memo struct {
 // VersioningInfo represents versioning information
 type VersioningInfo struct {
 	UseVersioning *bool `json:"useVersioning,omitempty"`
+}
+
+type WorkflowType struct {
+	Name string `json:"name,omitempty"`
 }
 
 // WorkflowIdentifier represents a workflow identifier

@@ -57,6 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<DashboardCard
 					{record}
 					avatar={(w) => (w.logo ? pb.files.getURL(w, w.logo) : w.logo_url)}
+					path={[organization.canonified_name, record.canonified_name]}
 				>
 					{#snippet content()}
 						{@const conformanceChecks = record.conformance_checks as
@@ -139,7 +140,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 
 		{#snippet records({ records })}
-			<DashboardCardManagerUI {records} nameField="tag" hideClone>
+			<DashboardCardManagerUI
+				{records}
+				nameField="tag"
+				hideClone
+				path={(r) => [
+					organization.canonified_name,
+					props.wallet.canonified_name,
+					r.canonified_tag
+				]}
+			>
 				{#snippet actions({ record })}
 					<div class="flex items-center gap-1">
 						{#if record.ios_installer}
@@ -189,8 +199,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<DashboardCardManagerUI
 				{records}
 				nameField="name"
-				textToCopy={(record) =>
-					`${organization.canonified_name}/${props.wallet.canonified_name}/${record.canonified_name}`}
+				path={(r) => [
+					organization.canonified_name,
+					props.wallet.canonified_name,
+					r.canonified_name
+				]}
 			>
 				{#snippet actions({ record })}
 					{#if record.result}
