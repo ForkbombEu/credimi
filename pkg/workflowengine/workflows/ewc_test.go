@@ -142,6 +142,13 @@ func Test_EWCWorkflow(t *testing.T) {
 						"template":       "test-template",
 						"check_endpoint": "test/endpoint",
 						"namespace":      "test-namespace",
+						"app_name":       "Credimi",
+						"app_logo":       "https://logo.png",
+						"user_name":      "John Doe",
+						"memo": map[string]any{
+							"standard": "openid4vp_wallet",
+							"author":   "ewc",
+						},
 					},
 				})
 
@@ -165,6 +172,107 @@ func Test_EWCWorkflow(t *testing.T) {
 				require.Error(t, env.GetWorkflowResult(&result))
 				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Code)
 				require.Contains(t, env.GetWorkflowResult(&result).Error(), tc.errorCode.Description)
+			}
+		})
+	}
+}
+
+func Test_EWCStatusWorkflow(t *testing.T) {
+	testCases := []struct {
+		name          string
+		mockResponse  workflowengine.ActivityResult
+		expectRunning bool
+		expectedErr   bool
+	}{
+		{
+			name: "Workflow completes when status is success",
+			mockResponse: workflowengine.ActivityResult{Output: map[string]any{
+				"body": map[string]any{
+					"status": "success",
+					"claims": []string{"claim1", "claim2"},
+				},
+			}},
+			expectRunning: false,
+			expectedErr:   false,
+		},
+		{
+			name: "Workflow keeps polling when status is pending",
+			mockResponse: workflowengine.ActivityResult{Output: map[string]any{
+				"body": map[string]any{
+					"status": "pending",
+					"reason": "ok",
+				},
+			}},
+			expectRunning: true,
+			expectedErr:   false,
+		},
+		{
+			name: "Workflow fails when status is failed",
+			mockResponse: workflowengine.ActivityResult{Output: map[string]any{
+				"body": map[string]any{
+					"status": "failed",
+					"reason": "failure reason",
+				},
+			}},
+			expectRunning: false,
+			expectedErr:   true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			testSuite := &testsuite.WorkflowTestSuite{}
+			env := testSuite.NewTestWorkflowEnvironment()
+
+			callCount := 0
+			HTTPActivity := activities.NewHTTPActivity()
+			env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
+				Name: HTTPActivity.Name(),
+			})
+
+			env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
+				Run(func(_ mock.Arguments) {
+					callCount++
+				}).
+				Return(tc.mockResponse, nil)
+
+			var w EWCStatusWorkflow
+
+			done := make(chan struct{})
+			go func() {
+				env.RegisterDelayedCallback(func() {
+					env.SignalWorkflow(EwcStartCheckSignal, nil)
+				}, time.Second*30)
+
+				env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
+					Payload: map[string]any{
+						"session_id": "12345",
+					},
+					Config: map[string]any{
+						"app_url":        "https://test-app.com",
+						"check_endpoint": "https://api.test/ewc",
+						"interval":       float64(time.Second * 10),
+					},
+				})
+
+				close(done)
+			}()
+
+			if tc.expectRunning {
+				env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*45)
+
+				<-done
+				require.Greater(t, callCount, 1, "Expected multiple HTTP calls for ongoing polling")
+			} else {
+				<-done
+				var result workflowengine.WorkflowResult
+				if tc.expectedErr {
+					require.Error(t, env.GetWorkflowResult(&result))
+				} else {
+					require.NoError(t, env.GetWorkflowResult(&result))
+					require.NotEmpty(t, result.Message)
+				}
+				require.GreaterOrEqual(t, callCount, 1)
 			}
 		})
 	}

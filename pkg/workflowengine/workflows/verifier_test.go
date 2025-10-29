@@ -124,6 +124,7 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 			tc.mockActivities(env)
 
 			var wf GetUseCaseVerificationDeeplinkWorkflow
+			tc.input.ActivityOptions = &DefaultActivityOptions
 			env.ExecuteWorkflow(wf.Workflow, tc.input)
 
 			require.True(t, env.IsWorkflowCompleted())

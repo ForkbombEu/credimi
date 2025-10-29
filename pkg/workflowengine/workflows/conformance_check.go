@@ -173,7 +173,7 @@ func (w *StartCheckWorkflow) Workflow(
 			},
 		}
 	case "ewc":
-		ewcSessionID, ok := input.Payload["session_id"].(string)
+		ewcSessionID, ok = input.Payload["session_id"].(string)
 		if !ok {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("session_id", runMeta)
 		}
@@ -200,7 +200,6 @@ func (w *StartCheckWorkflow) Workflow(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
-
 	switch suite {
 	case "openid_conformance_suite":
 		rid, ok := setupResult.Captures["rid"].(string)
@@ -215,7 +214,7 @@ func (w *StartCheckWorkflow) Workflow(
 			WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-log",
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
 		})
-		var logResult workflowengine.WorkflowResult
+
 		childCtx, _ := workflow.NewDisconnectedContext(ctx)
 		err = workflow.ExecuteChildWorkflow(
 			childCtx,
@@ -243,7 +242,6 @@ func (w *StartCheckWorkflow) Workflow(
 			Output: map[string]any{
 				"deeplink": setupResult.Captures["deeplink"],
 			},
-			Log: logResult.Log,
 		}, nil
 	case "ewc":
 		standard, ok := input.Config["memo"].(map[string]any)["standard"].(string)
@@ -270,7 +268,6 @@ func (w *StartCheckWorkflow) Workflow(
 			WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-status",
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
 		})
-		var logResult workflowengine.WorkflowResult
 		childCtx, _ := workflow.NewDisconnectedContext(ctx)
 		err = workflow.ExecuteChildWorkflow(
 			childCtx,
@@ -299,7 +296,6 @@ func (w *StartCheckWorkflow) Workflow(
 			Output: map[string]any{
 				"deeplink": setupResult.Captures["deeplink"],
 			},
-			Log: logResult.Log,
 		}, nil
 	default:
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(

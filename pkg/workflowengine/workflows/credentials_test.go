@@ -258,7 +258,7 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			testSuite := &testsuite.WorkflowTestSuite{}
 			env := testSuite.NewTestWorkflowEnvironment()
 			tc.mockActivities(env)
-
+			tc.input.ActivityOptions = &DefaultActivityOptions
 			var wf GetCredentialOfferWorkflow
 			env.ExecuteWorkflow(wf.Workflow, tc.input)
 
