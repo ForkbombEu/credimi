@@ -99,6 +99,11 @@ export const sections = {
 		icon: QrCode,
 		anchor: 'qr_code',
 		label: m.QR_code()
+	},
+	workflow_yaml: {
+		icon: Code,
+		anchor: 'workflow_yaml',
+		label: m.Workflow_YAML()
 	}
 } satisfies Record<string, IndexItem>;
 
