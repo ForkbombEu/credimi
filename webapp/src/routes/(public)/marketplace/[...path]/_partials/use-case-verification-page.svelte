@@ -45,6 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
+	import CodeSection from './_utils/code-section.svelte';
 	import DescriptionSection from './_utils/description-section.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
@@ -78,9 +79,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 		}
 	});
+
+	//
 </script>
 
-<LayoutWithToc sections={[s.description, s.qr_code, s.related_verifier, s.related_credentials]}>
+<LayoutWithToc
+	sections={[
+		s.description,
+		s.qr_code,
+		s.workflow_yaml,
+		s.related_verifier,
+		s.related_credentials
+	]}
+>
 	<div class="flex items-start gap-6">
 		<DescriptionSection description={useCaseVerification.description} class="grow" />
 
@@ -98,6 +109,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</PageSection>
 	</div>
+
+	<CodeSection indexItem={s.workflow_yaml} code={useCaseVerification.yaml} language="yaml" />
 
 	<div class="flex w-full flex-col gap-6 sm:flex-row">
 		<PageSection indexItem={s.related_verifier} class="shrink-0 grow basis-1">

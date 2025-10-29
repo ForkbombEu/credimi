@@ -5,17 +5,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ClassValue } from 'svelte/elements';
+
+	import clsx from 'clsx';
 	import { Check, ClipboardCopy, Moon, Sun } from 'lucide-svelte';
-	import { codeToHtml, type BundledLanguage } from 'shiki';
+	import { codeToHtml, type BundledLanguage, type BundledTheme } from 'shiki';
 
 	import Button from '@/components/ui/button/button.svelte';
+
+	//
 
 	type Props = {
 		content: string;
 		class?: string;
 		hideCopyButton?: boolean;
 		language: BundledLanguage;
+		theme?: BundledTheme;
 		containerClass?: string;
+		contentClass?: ClassValue;
 	};
 
 	let {
@@ -23,21 +30,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class: className = '',
 		hideCopyButton = false,
 		language,
-		containerClass = ''
+		containerClass = '',
+		theme,
+		contentClass = ''
 	}: Props = $props();
+
+	//
 
 	let isCopied = $state(false);
 	let highlighted = $state('');
 	let isDarkTheme = $state(true);
 
+	const actualTheme: BundledTheme = $derived(
+		theme || (isDarkTheme ? 'catppuccin-frappe' : 'github-light')
+	);
+
 	async function updateHighlighting() {
+		const classes = ['p-4 w-0 grow overflow-scroll', clsx(contentClass)];
+		// Calculate classes outside `await` and `transformers`
+		// so that Svelte's reactivity system can track changes
+
 		highlighted = await codeToHtml(content, {
 			lang: language,
-			theme: isDarkTheme ? 'vitesse-dark' : 'github-light',
+			theme: actualTheme,
 			transformers: [
 				{
 					pre(node) {
-						this.addClassToHast(node, ['p-4', 'w-0', 'grow', 'overflow-scroll']);
+						this.addClassToHast(node, classes);
 					}
 				}
 			]
@@ -67,9 +86,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	const preClasses = $derived(
-		className || 'rounded-lg border border-slate-200 bg-white p-4 overflow-x-auto text-sm'
+		className || 'border border-slate-200 bg-white p-4 overflow-x-auto text-sm'
 	);
 </script>
+
+<div class={['relative flex w-full overflow-hidden rounded-md border', containerClass]}>
+	{#if highlighted}
+		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
+		{@html highlighted}
+		{@render copyButton()}
+	{:else}
+		<pre
+			class={['relative', preClasses]}
+			class:language-json={language === 'json'}
+			class:language-yaml={language === 'yaml'}>
+		{content}
+		{@render copyButton()}
+	</pre>
+	{/if}
+</div>
 
 {#snippet copyButton()}
 	{#if !hideCopyButton && content}
@@ -108,19 +143,3 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/if}
 {/snippet}
-
-<div class={['relative flex w-full overflow-hidden rounded-md border', containerClass]}>
-	{#if highlighted}
-		<!-- eslint-disable-next-line svelte/no-at-html-tags -->
-		{@html highlighted}
-		{@render copyButton()}
-	{:else}
-		<pre
-			class="{preClasses} relative"
-			class:language-json={language === 'json'}
-			class:language-yaml={language === 'yaml'}>
-		{content}
-		{@render copyButton()}
-	</pre>
-	{/if}
-</div>

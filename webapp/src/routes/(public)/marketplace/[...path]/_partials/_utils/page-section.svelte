@@ -23,13 +23,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		empty?: boolean;
 		children?: Snippet;
 		class?: ClassValue;
+		right?: Snippet;
 	};
 
-	let { indexItem, empty = false, children, class: className = '' }: Props = $props();
+	let { indexItem, empty = false, children, class: className = '', right }: Props = $props();
 </script>
 
 <div class={['space-y-6', className]}>
-	<PageHeaderIndexed {indexItem} />
+	<PageHeaderIndexed {indexItem} {right} />
 
 	{#if empty}
 		<EmptyState>
