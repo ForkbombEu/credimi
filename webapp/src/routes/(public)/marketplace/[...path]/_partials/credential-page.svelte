@@ -37,10 +37,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
 
 	import { createIntentUrl } from '$lib/credentials/index.js';
-	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { MarketplaceItemCard } from '$lib/marketplace';
 	import { generateDeeplinkFromYaml } from '$lib/utils';
@@ -49,6 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import QrStateful from '@/qr/qr-stateful.svelte';
 
+	import CodeSection from './_utils/code-section.svelte';
 	import DescriptionSection from './_utils/description-section.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
@@ -109,17 +110,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			!signingAlgorithms &&
 			!cryptographicBindingMethods
 	);
+
+	//
+
+	const sections: IndexItem[] = $derived.by(() => {
+		const sections = [
+			sec.credential_properties,
+			sec.qr_code,
+			sec.description,
+			sec.credential_subjects,
+			sec.compatible_issuer
+		];
+		if (credential.yaml) {
+			sections.splice(4, 0, sec.workflow_yaml);
+		}
+		return sections;
+	});
 </script>
 
-<LayoutWithToc
-	sections={[
-		sec.credential_properties,
-		sec.qr_code,
-		sec.description,
-		sec.credential_subjects,
-		sec.compatible_issuer
-	]}
->
+<LayoutWithToc {sections}>
 	<div class="flex flex-col items-start gap-6 md:flex-row">
 		<PageSection
 			indexItem={sec.credential_properties}
@@ -160,13 +169,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<DescriptionSection description={credential.description} />
 
-	<PageSection indexItem={sec.credential_subjects} empty={!credentialConfiguration}>
-		<CodeDisplay
-			content={JSON.stringify(credentialConfiguration, null, 2)}
-			language="json"
-			class="border-primary bg-card text-card-foreground ring-primary w-fit max-w-screen-lg overflow-x-clip rounded-xl border p-6 text-xs shadow-sm transition-transform hover:-translate-y-2 hover:ring-2"
-		/>
-	</PageSection>
+	<CodeSection
+		indexItem={sec.credential_subjects}
+		code={credentialConfiguration ? JSON.stringify(credentialConfiguration, null, 2) : null}
+		language="json"
+	/>
+
+	{#if credential.yaml}
+		<CodeSection indexItem={sec.workflow_yaml} code={credential.yaml} language="yaml" />
+	{/if}
 
 	<PageSection indexItem={sec.compatible_issuer}>
 		<MarketplaceItemCard item={credentialIssuerMarketplaceEntry} />

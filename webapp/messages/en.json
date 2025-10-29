@@ -764,5 +764,8 @@
 	"Password_reset_email_sent_successfully": "Password reset email sent successfully!",
 	"Please_click_the_link_in_the_email_to_reset_your_password": "Please click the link in the email to reset your password. You can now close this page.",
 	"Welcome_user": "Welcome, {username}!",
-	"Welcome_dashboard_sentence": "Manage here your organization and its resources."
+	"Welcome_dashboard_sentence": "Manage here your organization and its resources.",
+	"Workflow_YAML": "Workflow YAML",
+	"Expand": "Expand",
+	"Collapse": "Collapse"
 }
