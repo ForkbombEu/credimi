@@ -767,5 +767,6 @@
 	"Welcome_dashboard_sentence": "Manage here your organization and its resources.",
 	"Workflow_YAML": "Workflow YAML",
 	"Expand": "Expand",
-	"Collapse": "Collapse"
+	"Collapse": "Collapse",
+	"Copy_canonified_name": "Copy canonified name"
 }

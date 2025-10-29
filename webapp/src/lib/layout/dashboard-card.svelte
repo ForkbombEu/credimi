@@ -41,6 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		badge?: string;
 		actions?: Snippet;
 		editAction?: Snippet;
+		path: string[];
 	};
 
 	let {
@@ -51,7 +52,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		subtitle,
 		badge,
 		actions,
-		editAction
+		editAction,
+		path
 	}: Props = $props();
 
 	//
@@ -88,7 +90,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Avatar src={avatar(record)} fallback={record.name} class="rounded-sm border" />
 			<div>
 				<div class="flex items-center gap-2">
-					<LabelLink label={record.name} href={publicUrl} published={record.published} />
+					<LabelLink
+						label={record.name}
+						href={publicUrl}
+						published={record.published}
+						textToCopy={path.join('/')}
+					/>
 					{#if badge}
 						<Badge variant="secondary">{badge}</Badge>
 					{/if}
