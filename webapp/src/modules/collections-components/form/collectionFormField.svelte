@@ -19,6 +19,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		relationFieldOptions?: RelationFieldOptions<C>;
 		description?: string;
 		placeholder?: string;
+		recordId?: string;
+		collectionName: string;
 	};
 </script>
 
@@ -43,7 +45,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		placeholder,
 		hidden = false,
 		snippet,
-		relationFieldOptions = {}
+		relationFieldOptions = {},
+		collectionName,
+		recordId
 	}: CollectionFormFieldProps<C> = $props();
 
 	//
@@ -62,7 +66,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{@render snippet({
 		form: form as unknown as SuperForm<CollectionFormData[C]>,
 		field: name as FormPath<CollectionFormData[C]>,
-		formData: $formData as CollectionFormData[C]
+		formData: $formData as CollectionFormData[C],
+		recordId,
+		collectionName
 	})}
 {:else if config.type == 'text' || config.type == 'url' || config.type == 'date' || config.type == 'email'}
 	<Field {form} {name} options={{ label, description, placeholder, type: config.type }} />
