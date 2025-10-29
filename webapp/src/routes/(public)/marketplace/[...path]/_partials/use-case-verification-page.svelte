@@ -84,7 +84,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="flex items-start gap-6">
 		<DescriptionSection description={useCaseVerification.description} class="grow" />
 
-		<PageSection indexItem={s.qr_code} class="flex flex-col items-stretch space-y-0">
+		<PageSection indexItem={s.qr_code} class="space-y-0! flex flex-col items-stretch">
 			<QrStateful
 				src={qrLink}
 				isLoading={isProcessingYaml}

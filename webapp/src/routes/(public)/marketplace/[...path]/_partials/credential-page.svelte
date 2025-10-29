@@ -140,7 +140,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</PageSection>
 
-		<PageSection indexItem={sec.qr_code} class="flex flex-col items-stretch !space-y-0">
+		<PageSection indexItem={sec.qr_code} class="flex flex-col items-stretch">
 			<QrStateful
 				src={qrLink}
 				isLoading={isProcessingYaml}

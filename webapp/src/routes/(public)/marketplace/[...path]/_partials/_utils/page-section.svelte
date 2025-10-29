@@ -29,7 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class={['space-y-6', className]}>
-	<PageHeaderIndexed {indexItem} />
+	<PageHeaderIndexed {indexItem} class="!mb-0" />
 
 	{#if empty}
 		<EmptyState>
