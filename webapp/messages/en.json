@@ -767,5 +767,7 @@
 	"Welcome_dashboard_sentence": "Manage here your organization and its resources.",
 	"Workflow_YAML": "Workflow YAML",
 	"Expand": "Expand",
-	"Collapse": "Collapse"
+	"Collapse": "Collapse",
+	"No_deeplink_available": "No deeplink available",
+	"Processing_YAML_configuration": "Processing YAML configuration..."
 }

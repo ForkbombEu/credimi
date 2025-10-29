@@ -6,17 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script module lang="ts">
 	import { pb } from '@/pocketbase/index.js';
-	import { PocketbaseQueryAgent } from '@/pocketbase/query/agent.js';
 	import { Collections } from '@/pocketbase/types/index.generated.js';
 
 	export async function getCredentialsDetails(itemId: string, fetchFn = fetch) {
-		const credential = await new PocketbaseQueryAgent(
-			{
-				collection: 'credentials',
-				expand: ['credential_issuer']
-			},
-			{ fetch: fetchFn }
-		).getOne(itemId);
+		const credential = await pb.collection('credentials').getOne(itemId, { fetch: fetchFn });
 
 		const credentialIssuerMarketplaceEntry = await pb
 			.collection('marketplace_items')
@@ -25,12 +18,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{ fetch: fetchFn }
 			);
 
-		const credentialIssuer = credential.expand?.credential_issuer;
-		if (!credentialIssuer) throw new Error('Credential issuer not found');
-
 		return pageDetails('credentials', {
 			credential,
-			credentialIssuer,
 			credentialIssuerMarketplaceEntry
 		});
 	}
@@ -40,14 +29,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
 
-	import { createIntentUrl } from '$lib/credentials/index.js';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { MarketplaceItemCard } from '$lib/marketplace';
-	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import { String } from 'effect';
-	import { onMount } from 'svelte';
-
-	import QrStateful from '@/qr/qr-stateful.svelte';
 
 	import CodeSection from './_utils/code-section.svelte';
 	import DescriptionSection from './_utils/description-section.svelte';
@@ -55,44 +39,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageSection from './_utils/page-section.svelte';
 	import { sections as sec } from './_utils/sections';
 	import { pageDetails } from './_utils/types';
+	import QrSection from './qr-section.svelte';
 
 	//
 
 	type Props = Awaited<ReturnType<typeof getCredentialsDetails>>;
-	let { credential, credentialIssuer, credentialIssuerMarketplaceEntry }: Props = $props();
+	let { credential, credentialIssuerMarketplaceEntry }: Props = $props();
 
 	//
-
-	let isProcessingYaml = $state(false);
-	let yamlProcessingError = $state(false);
-	let qrLink = $state<string>('');
 
 	const credentialConfiguration = $derived(
 		credential.json as CredentialConfiguration | undefined
 	);
-
-	onMount(async () => {
-		if (credential.yaml && String.isNonEmpty(credential.yaml)) {
-			isProcessingYaml = true;
-			yamlProcessingError = false;
-			try {
-				const result = await generateDeeplinkFromYaml(credential.yaml);
-				if (result.deeplink) {
-					qrLink = result.deeplink;
-				}
-			} catch (error) {
-				console.error('Failed to process YAML for credential offer:', error);
-				yamlProcessingError = true;
-				qrLink = createIntentUrl(credential, credentialIssuer.url);
-			} finally {
-				isProcessingYaml = false;
-			}
-		} else if (String.isNonEmpty(credential.deeplink)) {
-			qrLink = credential.deeplink;
-		} else {
-			qrLink = createIntentUrl(credential, credentialIssuer.url);
-		}
-	});
 
 	// Emptiness checks
 
@@ -149,22 +107,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</PageSection>
 
-		<PageSection indexItem={sec.qr_code} class="flex flex-col items-stretch !space-y-0">
-			<QrStateful
-				src={qrLink}
-				isLoading={isProcessingYaml}
-				error={yamlProcessingError ? 'Dynamic generation failed' : undefined}
-				loadingText="Processing YAML configuration..."
-				placeholder="No credential offer available"
-			/>
-
-			{#if qrLink && !isProcessingYaml && !yamlProcessingError}
-				<div class="w-60 break-all pt-4 text-xs">
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-					<a href={qrLink} target="_blank">{qrLink}</a>
-				</div>
-			{/if}
-		</PageSection>
+		<QrSection yaml={credential.yaml} deeplink={credential.deeplink} />
 	</div>
 
 	<DescriptionSection description={credential.description} />
