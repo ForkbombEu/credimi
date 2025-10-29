@@ -834,7 +834,7 @@ func getDeeplinkEWC(e *core.RequestEvent, first map[string]any) error {
 		var out struct {
 			Output struct {
 				Captures struct {
-					Deeplink string `json:"deep_link"`
+					Deeplink string `json:"deeplink"`
 				} `json:"captures"`
 			} `json:"Output"`
 		}

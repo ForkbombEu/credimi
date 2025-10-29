@@ -47,6 +47,10 @@ type InputSource struct {
 }
 
 type RuntimeConfig struct {
+	Schedule struct {
+		Interval *time.Duration `yaml:"interval,omitempty" json:"interval,omitempty"`
+	}
+	Debug    bool `yaml:"debug,omitempty" json:"debug,omitempty"`
 	Temporal struct {
 		Namespace        string                `yaml:"namespace,omitempty" json:"namespace,omitempty"`
 		TaskQueue        string                `yaml:"task_queue,omitempty" json:"task_queue,omitempty"`

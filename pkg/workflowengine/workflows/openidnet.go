@@ -94,7 +94,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
-	stepCIWorkflowActivity := activities.NewStepCIWorkflowActivity()
+
 	variant, ok := input.Payload["variant"].(string)
 	if !ok || variant == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
@@ -123,34 +123,13 @@ func (w *OpenIDNetWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	stepCIInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"variant": variant,
-			"form":    form,
-			"test":    testName,
-			"secrets": map[string]any{
-				"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
-			},
-		},
-		Config: map[string]string{
-			"template": template,
-		},
-	}
-	var stepCIResult workflowengine.ActivityResult
-	err := stepCIWorkflowActivity.Configure(&stepCIInput)
-	if err != nil {
-		logger.Error(" StepCI configure failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
-	err = workflow.ExecuteActivity(ctx, stepCIWorkflowActivity.Name(), stepCIInput).
-		Get(ctx, &stepCIResult)
-	if err != nil {
-		logger.Error("StepCIExecution failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
-	deeplink, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["deeplink"].(string)
+	suite, ok := input.Config["memo"].(map[string]any)["author"].(string)
 	if !ok {
-		deeplink = ""
+		return workflowengine.WorkflowResult{},
+			workflowengine.NewMissingConfigError(
+				"author",
+				runMetadata,
+			)
 	}
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
@@ -159,61 +138,33 @@ func (w *OpenIDNetWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	baseURL := appURL + "/tests/wallet/openidnet"
-	u, err := url.Parse(baseURL)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
-		appErr := workflowengine.NewAppError(errCode, baseURL)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
-	}
-	query := u.Query()
-	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
-	query.Set("qr", deeplink)
-	namespace, ok := input.Config["namespace"].(string)
-	if !ok || namespace == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"namespace",
-			runMetadata,
-		)
-	}
-	query.Set("namespace", namespace)
-	u.RawQuery = query.Encode()
-
-	emailActivity := activities.NewSendMailActivity()
-	userMail, ok := input.Payload["user_mail"].(string)
-	if !ok || userMail == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"user_mail",
-			runMetadata,
-		)
-	}
-
-	emailInput := workflowengine.ActivityInput{
-
-		Payload: map[string]any{
-			"recipient": userMail,
-			"subject":   "[CREDIMI] Action required to continue your conformance checks",
-			"template":  activities.ContinueConformanceCheckEmailTemplate,
-			"data": map[string]any{
-				"AppName":          input.Config["app_name"],
-				"AppLogo":          input.Config["app_logo"],
-				"UserName":         input.Config["user_name"],
-				"VerificationLink": u.String(),
-			},
+	stepCIPayload := map[string]any{
+		"variant": variant,
+		"form":    form,
+		"test":    testName,
+		"secrets": map[string]any{
+			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		},
 	}
-	err = emailActivity.Configure(&emailInput)
-	if err != nil {
-		logger.Error("Email activity configure failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
-	err = workflow.ExecuteActivity(ctx, emailActivity.Name(), emailInput).Get(ctx, nil)
-	if err != nil {
-		logger.Error("Failed to send mail to user ", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+	cfg := StepCIAndEmailConfig{
+		AppURL:        appURL,
+		AppName:       input.Config["app_name"].(string),
+		AppLogo:       input.Config["app_logo"].(string),
+		UserName:      input.Config["user_name"].(string),
+		UserMail:      input.Payload["user_mail"].(string),
+		Template:      template,
+		StepCIPayload: stepCIPayload,
+		Namespace:     input.Config["namespace"].(string),
+		RunMeta:       runMetadata,
+		Suite:         suite,
 	}
 
-	rid, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["rid"].(string)
+	result, err := RunStepCIAndSendMail(ctx, cfg)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+
+	rid, ok := result.Captures["rid"].(string)
 	if !ok {
 		rid = ""
 	}
@@ -254,10 +205,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 
 	return workflowengine.WorkflowResult{
 		Message: "Check completed successfully",
-		Output: map[string]any{
-			"deeplink": deeplink,
-		},
-		Log: subWorkflowResponse.Log,
+		Log:     subWorkflowResponse.Log,
 	}, nil
 }
 

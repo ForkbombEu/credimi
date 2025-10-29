@@ -58,6 +58,7 @@ var Codes = map[string]Code{
 	MkdirFailed:                    {"CRE903", "Failed to create a new folder"},
 	WriteFileFailed:                {"CRE904", "Failed to write to a file"},
 	TempFileCreationFailed:         {"CRE905", "Failed to create a temporary file"},
+	ReadFileFailed:                 {"CRE906", "Failed to read a file"},
 }
 
 const (
@@ -107,4 +108,5 @@ const (
 	MkdirFailed                    = "CRE903"
 	WriteFileFailed                = "CRE904"
 	TempFileCreationFailed         = "CRE905"
+	ReadFileFailed                 = "CRE906"
 )

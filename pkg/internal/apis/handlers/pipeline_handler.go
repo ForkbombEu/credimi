@@ -4,7 +4,9 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
@@ -42,12 +44,18 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 			return err
 		}
 		appURL := e.App.Settings().Meta.AppURL
-
-		var userID string
-		var namespace string
+		appName := e.App.Settings().Meta.AppName
+		logoUrl := fmt.Sprintf(
+			"%s/logos/%s_logo-transp_emblem.png",
+			appURL,
+			strings.ToLower(appName),
+		)
+		var userID, userMail, userName, namespace string
 
 		if e.Auth != nil {
 			userID = e.Auth.Id
+			userMail = e.Auth.GetString("email")
+			userName = e.Auth.GetString("name")
 			namespace, err = GetUserOrganizationCanonifiedName(e.App, userID)
 			if err != nil {
 				return apierror.New(
@@ -63,8 +71,16 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 			"test":   "pipeline-run",
 			"userID": userID,
 		}
+		config := map[string]any{
+			"namespace": namespace,
+			"app_url":   appURL,
+			"app_name":  appName,
+			"app_logo":  logoUrl,
+			"user_name": userName,
+			"user_mail": userMail,
+		}
 		w := &pipeline.PipelineWorkflow{}
-		result, err := w.Start(input.Yaml, namespace, appURL, memo)
+		result, err := w.Start(input.Yaml, config, memo)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

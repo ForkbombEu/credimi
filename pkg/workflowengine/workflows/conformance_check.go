@@ -76,8 +76,11 @@ func RunStepCIAndSendMail(
 				cfg.RunMeta,
 			)
 	}
-
-	baseURL := fmt.Sprintf("%s/tests/wallet/%s", cfg.Suite, cfg.AppURL)
+	suite := cfg.Suite
+	if suite == "openid_conformance_suite" {
+		suite = "openidnet"
+	}
+	baseURL := fmt.Sprintf("%s/tests/wallet/%s", cfg.AppURL, suite)
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
@@ -146,8 +149,9 @@ func (w *StartCheckWorkflow) Workflow(
 	}
 
 	var stepCIPayload map[string]any
+	var ewcSessionID string
 	switch suite {
-	case "openidnet":
+	case "openid_conformance_suite":
 		variant, ok := input.Payload["variant"].(string)
 		if !ok {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("variant", runMeta)
@@ -169,12 +173,12 @@ func (w *StartCheckWorkflow) Workflow(
 			},
 		}
 	case "ewc":
-		sessionID, ok := input.Payload["session_id"].(string)
+		ewcSessionID, ok := input.Payload["session_id"].(string)
 		if !ok {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("session_id", runMeta)
 		}
 		stepCIPayload = map[string]any{
-			"session_id": sessionID,
+			"session_id": ewcSessionID,
 		}
 	default:
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", suite)
@@ -198,8 +202,14 @@ func (w *StartCheckWorkflow) Workflow(
 	}
 
 	switch suite {
-	case "openidnet":
-		rid, _ := setupResult.Captures["rid"].(string)
+	case "openid_conformance_suite":
+		rid, ok := setupResult.Captures["rid"].(string)
+		if !ok {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+				"rid",
+				runMeta,
+			)
+		}
 		child := OpenIDNetLogsWorkflow{}
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-log",
@@ -236,12 +246,65 @@ func (w *StartCheckWorkflow) Workflow(
 			Log: logResult.Log,
 		}, nil
 	case "ewc":
-		// For EWC you can just inline your polling loop (or factor it to another child workflow).
-		return workflowengine.WorkflowResult{
-			Message: "EWC setup complete; polling managed separately",
-			Output:  map[string]any{"session_id": setupResult.Captures["session_id"]},
-		}, nil
-	}
+		standard, ok := input.Config["memo"].(map[string]any)["standard"].(string)
+		if !ok {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+				"standard",
+				runMeta,
+			)
+		}
+		var checkEndpoint string
+		switch standard {
+		case "openid4vp_wallet":
+			checkEndpoint = "https://ewc.api.forkbomb.eu/verificationStatus"
+		case "openid4vci_wallet":
+			checkEndpoint = "https://ewc.api.forkbomb.eu/issueStatus"
+		default:
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+				fmt.Sprintf("unsupported standard %s", standard),
+				runMeta,
+			)
+		}
+		child := EWCStatusWorkflow{}
+		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
+			WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-status",
+			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
+		})
+		var logResult workflowengine.WorkflowResult
+		childCtx, _ := workflow.NewDisconnectedContext(ctx)
+		err = workflow.ExecuteChildWorkflow(
+			childCtx,
+			child.Name(),
+			workflowengine.WorkflowInput{
+				Payload: map[string]any{
+					"session_id": ewcSessionID,
+				},
+				Config: map[string]any{
+					"app_url":        cfg.AppURL,
+					"interval":       1.0,
+					"check_endpoint": checkEndpoint,
+				},
+			}).GetChildWorkflowExecution().Get(ctx, nil)
 
-	return workflowengine.WorkflowResult{}, nil
+		if err != nil {
+			logger.Error("Failed to execute child workflow", "error", err)
+			errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				workflowengine.NewAppError(errCode, err.Error(), nil),
+				cfg.RunMeta,
+			)
+		}
+		return workflowengine.WorkflowResult{
+			Message: "Check completed successfully",
+			Output: map[string]any{
+				"deeplink": setupResult.Captures["deeplink"],
+			},
+			Log: logResult.Log,
+		}, nil
+	default:
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			fmt.Sprintf("unsupported suite %s", suite),
+			runMeta,
+		)
+	}
 }
