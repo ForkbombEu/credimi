@@ -33,7 +33,7 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
-	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
+	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 
 	runMetadata := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
