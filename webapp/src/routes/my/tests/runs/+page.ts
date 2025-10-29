@@ -30,7 +30,7 @@ export const load = async ({ fetch, url }) => {
 	}
 
 	return {
-		workflows: workflows.executions,
+		workflows,
 		selectedStatus: parsedStatus
 	};
 };

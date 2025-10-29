@@ -45,14 +45,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			size="icon"
 			onclick={() => (isExpanded = !isExpanded)}
 			class={[
-				'hover:bg-secondary size-5 shrink-0 [&_svg]:size-3',
+				'hover:bg-secondary size-5 shrink-0 [&_svg]:size-2',
 				{ invisible: !hasChildren }
 			]}
 		>
 			<TriangleIcon
 				stroke=""
-				class={clsx('fill-primary rotate-90 stroke-none transition-all', {
-					'rotate-180': isExpanded
+				class={clsx('fill-primary stroke-none transition-all', {
+					'rotate-180': isExpanded,
+					'rotate-90': !isExpanded
 				})}
 			/>
 		</Button>

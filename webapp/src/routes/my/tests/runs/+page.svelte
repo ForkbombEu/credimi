@@ -51,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const interval = setInterval(async () => {
 			const newWorkflows = await fetchWorkflows({ status: selectedStatus });
 			if (newWorkflows instanceof Error) warn(newWorkflows);
-			else workflows = newWorkflows.executions;
+			else workflows = newWorkflows;
 		}, 5000);
 
 		return () => {

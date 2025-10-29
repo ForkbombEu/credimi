@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-/* Auto-generated from json */
+/* Auto-generated from queries.test.json and edited by hand */
 
 export interface FetchWorkflowsResponse {
-	executions: WorkflowExecutionWithChildren[];
+	executions: WorkflowExecutionWithChildren[] | null;
 }
 
 export interface WorkflowExecutionWithChildren {

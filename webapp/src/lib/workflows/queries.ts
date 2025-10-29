@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { pb } from '@/pocketbase';
 import { warn } from '@/utils/other';
 
-import type { FetchWorkflowsResponse } from './queries.types';
+import type { FetchWorkflowsResponse, WorkflowExecutionWithChildren } from './queries.types';
 
 import { workflowResponseSchema, type WorkflowResponse } from './types';
 
@@ -34,7 +34,10 @@ type FetchWorkflowsOptions = {
 
 export async function fetchWorkflows(
 	options: FetchWorkflowsOptions = {}
-): Promise<FetchWorkflowsResponse | Error> {
+): Promise<WorkflowExecutionWithChildren[] | Error> {
+	// const test = await import('./queries.test.json');
+	// return test.default.executions;
+
 	const { fetch: fetchFn = fetch, status } = options;
 
 	let url = WORKFLOWS_API;
@@ -44,12 +47,12 @@ export async function fetchWorkflows(
 	}
 
 	return tryPromise(async () => {
-		const data = await pb.send(url, {
+		const data: FetchWorkflowsResponse = await pb.send(url, {
 			method: 'GET',
 			fetch: fetchFn
 		});
 
-		return data as FetchWorkflowsResponse;
+		return data.executions ?? [];
 	}, 'Failed to fetch user workflows');
 }
 
