@@ -5,21 +5,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script module lang="ts">
-	import { pb } from '@/pocketbase';
+	import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
 	import { pageDetails } from './_utils/types';
 
 	export async function getWalletDetails(itemId: string, fetchFn = fetch) {
-		const wallet = await pb.collection('wallets').getOne(itemId, { fetch: fetchFn });
-
-		const actions = await pb.collection('wallet_actions').getFullList({
-			filter: `wallet="${wallet.id}"`,
-			fetch
-		});
+		const wallet = await new PocketbaseQueryAgent(
+			{
+				collection: 'wallets',
+				expand: ['wallet_actions_via_wallet', 'wallet_versions_via_wallet']
+			},
+			{ fetch: fetchFn }
+		).getOne(itemId);
 
 		return pageDetails('wallets', {
-			wallet,
-			actions
+			wallet
 		});
 	}
 </script>
@@ -29,9 +29,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { ConformanceCheckSchema } from '$lib/types/checks';
 	import { String } from 'effect';
-	import { Code } from 'lucide-svelte';
+	import { Code, DownloadIcon } from 'lucide-svelte';
 	import { z } from 'zod';
 
+	import type { WalletVersionsResponse } from '@/pocketbase/types';
+
+	import Button from '@/components/ui-custom/button.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
 	import {
 		Accordion,
@@ -40,6 +43,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		AccordionTrigger
 	} from '@/components/ui/accordion';
 	import { Badge } from '@/components/ui/badge';
+	import { ScrollArea } from '@/components/ui/scroll-area';
+	import { pb } from '@/pocketbase';
 
 	import DescriptionSection from './_utils/description-section.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
@@ -49,20 +54,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = Awaited<ReturnType<typeof getWalletDetails>>;
-	let { wallet, actions }: Props = $props();
+	let { wallet }: Props = $props();
+	const { wallet_actions_via_wallet: actions = [], wallet_versions_via_wallet: versions = [] } =
+		$derived(wallet.expand ?? {});
 
-	//
+	// misc derived values
 
 	const checks = $derived(z.array(ConformanceCheckSchema).safeParse(wallet.conformance_checks));
 
-	// Utility function to get code stats
 	function getCodeStats(code: string) {
 		const lines = code.split('\n').length;
 		const chars = code.length;
 		return { lines, chars };
 	}
 
-	//
+	const isGeneralInfoEmpty = $derived(
+		String.isEmpty(wallet.home_url) &&
+			String.isEmpty(wallet.repository) &&
+			String.isEmpty(wallet.appstore_url) &&
+			String.isEmpty(wallet.playstore_url)
+	);
 
 	const statuses: Record<string, string> = {
 		Running: 'bg-blue-300',
@@ -86,17 +97,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		Retrying: 'bg-red-200'
 	};
 
-	// Emptiness checks
-
-	const isGeneralInfoEmpty = $derived(
-		String.isEmpty(wallet.home_url) &&
-			String.isEmpty(wallet.repository) &&
-			String.isEmpty(wallet.appstore_url) &&
-			String.isEmpty(wallet.playstore_url)
-	);
+	function getDownloadLinks(version: WalletVersionsResponse): { label: string; url: string }[] {
+		return [
+			{
+				label: 'Android',
+				url: version.android_installer
+			},
+			{
+				label: 'iOS',
+				url: version.ios_installer
+			}
+		]
+			.filter((l) => l.url)
+			.map((l) => ({
+				label: l.label,
+				url: pb.files.getURL(version, l.url)
+			}));
+	}
 </script>
 
-<LayoutWithToc sections={[s.general_info, s.description, s.conformance_checks, s.actions]}>
+<LayoutWithToc
+	sections={[s.general_info, s.description, s.conformance_checks, s.actions, s.versions]}
+>
 	<PageSection indexItem={s.general_info} empty={isGeneralInfoEmpty}>
 		{#if String.isNonEmpty(wallet.home_url)}
 			<InfoBox label="Homepage URL" url={wallet.home_url} copyable={true} />
@@ -180,22 +202,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/each}
 		</div>
 	</PageSection>
-</LayoutWithToc>
 
-<!-- 
-<EditSheet>
-	{#snippet children({ closeSheet })}
-		<T tag="h2" class="mb-4">{m.Edit()} {wallet.name}</T>
-		<WalletForm
-			walletId={wallet.id}
-			initialData={wallet}
-			onSuccess={() => {
-				closeSheet();
-			}}
-		/>
-	{/snippet}
-</EditSheet>
--->
+	<PageSection indexItem={s.versions} empty={versions.length === 0}>
+		<ScrollArea class="max-h-[300px] [&>div>div]:space-y-1">
+			{@const sortedVersions = versions.sort((a, b) => b.tag.localeCompare(a.tag))}
+			{#each sortedVersions as version (version.id)}
+				{@const downloadLinks = getDownloadLinks(version)}
+				<div class="bg-card flex items-center justify-between rounded-lg border px-4 py-2">
+					<p>{version.tag}</p>
+					<div class="flex gap-2">
+						{#each downloadLinks as link (link.label)}
+							<Button
+								href={link.url}
+								target="_blank"
+								size="sm"
+								variant="outline"
+								class="h-7 text-xs"
+								download
+							>
+								<DownloadIcon class="size-4" />
+								{link.label}
+							</Button>
+						{/each}
+					</div>
+				</div>
+			{/each}
+		</ScrollArea>
+	</PageSection>
+</LayoutWithToc>
 
 {#snippet AppStore(url: string)}
 	<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
