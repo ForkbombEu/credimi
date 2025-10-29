@@ -233,6 +233,11 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 		pipelineWf.Workflow,
 		workflow.RegisterOptions{Name: pipelineWf.Name()},
 	)
+	debugAct := pipeline.NewDebugActivity()
+	w.RegisterActivityWithOptions(
+		debugAct.Execute,
+		activity.RegisterOptions{Name: debugAct.Name()},
+	)
 
 	for key, step := range registry.Registry {
 		if _, skip := registry.PipelineWorkerDenylist[key]; skip {

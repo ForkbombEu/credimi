@@ -22,9 +22,10 @@ const PipelineTaskQueue = "PipelineTaskQueue"
 type PipelineWorkflow struct{}
 
 type PipelineWorkflowInput struct {
-	WorkflowDefinition *WorkflowDefinition
-	WorkflowBlock      *WorkflowBlock
-	WorkflowInput      workflowengine.WorkflowInput
+	WorkflowDefinition *WorkflowDefinition          `yaml:"workflow_definition" json:"workflow_definition"`
+	WorkflowBlock      *WorkflowBlock               `yaml:"workflow_block,omitempty"      json:"workflow_block,omitempty"`
+	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"   json:"workflow_input"`
+	Debug              bool                         `yaml:"debug,omitempty"              json:"debug,omitempty"`
 }
 
 func (PipelineWorkflow) Name() string {
@@ -92,8 +93,13 @@ func (w *PipelineWorkflow) Workflow(
 			}
 		}
 	}()
-
+	var previousStepID string
 	for _, step := range steps {
+
+		if step.Use == "debug" {
+			runDebugActivity(ctx, logger, previousStepID, finalOutput)
+			continue
+		}
 		logger.Info("Running step", "id", step.ID, "use", step.Use)
 		if subBlock, ok := checks[step.Use]; ok {
 			childOpts := workflow.ChildWorkflowOptions{
@@ -198,6 +204,10 @@ func (w *PipelineWorkflow) Workflow(
 			}
 			return result, workflowengine.NewWorkflowError(appErr, runMetadata)
 		}
+		if input.Debug {
+			runDebugActivity(ctx, logger, step.ID, finalOutput)
+		}
+		previousStepID = step.ID
 	}
 	delete(finalOutput, "inputs")
 	if len(errorsList) > 0 {
@@ -254,6 +264,7 @@ func (w *PipelineWorkflow) Start(
 			Config:          config,
 			ActivityOptions: &options.ActivityOptions,
 		},
+		Debug: wfDef.Runtime.Debug,
 	}
 
 	if wfDef.Runtime.Schedule.Interval != nil {
