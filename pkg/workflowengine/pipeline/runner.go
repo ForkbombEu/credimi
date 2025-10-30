@@ -6,6 +6,7 @@ package pipeline
 import (
 	"fmt"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -114,7 +115,7 @@ func (s *StepDefinition) Execute(
 			WorkflowID: fmt.Sprintf(
 				"%s-%s",
 				workflow.GetInfo(ctx).WorkflowExecution.ID,
-				s.ID,
+				canonify.CanonifyPlain(s.ID),
 			),
 			TaskQueue:         taskqueue,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,

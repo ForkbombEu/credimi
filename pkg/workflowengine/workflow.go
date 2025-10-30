@@ -163,6 +163,14 @@ func StartWorkflowWithOptions(
 		options.Memo = input.Config["memo"].(map[string]any)
 	}
 
+	if options.Memo == nil {
+		options.Memo = make(map[string]any)
+	}
+
+	if options.Memo["test"] == nil {
+		options.Memo["test"] = name
+	}
+
 	// Start the workflow execution.
 	w, err := c.ExecuteWorkflow(context.Background(), options, name, input)
 	if err != nil {
