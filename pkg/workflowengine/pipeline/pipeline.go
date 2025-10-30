@@ -7,6 +7,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -106,7 +107,7 @@ func (w *PipelineWorkflow) Workflow(
 				WorkflowID: fmt.Sprintf(
 					"%s-%s",
 					workflow.GetInfo(ctx).WorkflowExecution.ID,
-					step.ID,
+					canonify.CanonifyPlain(step.ID),
 				),
 				TaskQueue:         PipelineTaskQueue,
 				ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
@@ -238,9 +239,10 @@ func (w *PipelineWorkflow) Start(
 		return result, err
 	}
 
+	memo["test"] = wfDef.Name
 	options := PrepareWorkflowOptions(wfDef.Runtime)
 	options.Options.Memo = memo
-	options.Options.ID = fmt.Sprintf("Pipeline-%s-%s", wfDef.Name, uuid.NewString())
+	options.Options.ID = fmt.Sprintf("Pipeline-%s-%s", canonify.CanonifyPlain(wfDef.Name), uuid.NewString())
 
 	if ns, ok := config["namespace"].(string); ok && ns != "" {
 		options.Namespace = ns

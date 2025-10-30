@@ -56,8 +56,16 @@ type WorkflowExecution struct {
 	VersioningInfo               *VersioningInfo                  `json:"versioningInfo,omitempty"`
 	Summary                      *Payload                         `json:"summary,omitempty"`
 	Details                      *Payload                         `json:"details,omitempty"`
-	DisplayName                  string                           `json:"displayName"`
-	Children                     []*WorkflowExecution             `json:"children,omitempty"`
+}
+
+type WorkflowExecutionSummary struct {
+	Execution   *WorkflowIdentifier         `json:"execution" validate:"required"`
+	Type        WorkflowType                `json:"type" validate:"required"`
+	StartTime   string                      `json:"startTime"`
+	EndTime     string                      `json:"endTime"`
+	Status      string                      `json:"status" validate:"required"`
+	DisplayName string                      `json:"displayName" validate:"required"`
+	Children    []*WorkflowExecutionSummary `json:"children,omitempty"`
 }
 
 type WorkflowExecutionAPIResponse struct {
@@ -141,7 +149,7 @@ type ReRunCheckResponse struct {
 
 // ListMyChecksResponse represents the response containing list of workflow executions
 type ListMyChecksResponse struct {
-	Executions []*WorkflowExecution `json:"executions" validate:"required"`
+	Executions []*WorkflowExecutionSummary `json:"executions" validate:"required"`
 }
 
 // GetMyCheckRunResponse represents the response for getting a specific check run

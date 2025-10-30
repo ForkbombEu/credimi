@@ -227,7 +227,7 @@ components:
       properties:
         executions:
           items:
-            $ref: '#/components/schemas/WorkflowExecution'
+            $ref: '#/components/schemas/WorkflowExecutionSummary'
           type: array
       type: object
     Memo:
@@ -413,16 +413,10 @@ components:
           $ref: '#/components/schemas/Callbacks'
         canBeTerminated:
           type: boolean
-        children:
-          items:
-            $ref: '#/components/schemas/WorkflowExecution'
-          type: array
         defaultWorkflowTaskTimeout:
           $ref: '#/components/schemas/Duration'
         details:
           $ref: '#/components/schemas/Payload'
-        displayName:
-          type: string
         endTime:
           type: string
         execution:
@@ -523,6 +517,26 @@ components:
           type: string
         versioningInfo:
           $ref: '#/components/schemas/VersioningInfo'
+      type: object
+    WorkflowExecutionSummary:
+      additionalProperties: false
+      properties:
+        children:
+          items:
+            $ref: '#/components/schemas/WorkflowExecutionSummary'
+          type: array
+        displayName:
+          type: string
+        endTime:
+          type: string
+        execution:
+          $ref: '#/components/schemas/WorkflowIdentifier'
+        startTime:
+          type: string
+        status:
+          type: string
+        type:
+          $ref: '#/components/schemas/WorkflowType'
       type: object
     WorkflowIdentifier:
       additionalProperties: false

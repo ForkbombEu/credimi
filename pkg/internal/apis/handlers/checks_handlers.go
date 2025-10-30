@@ -213,8 +213,10 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		var resp ListMyChecksResponse
-		err = json.Unmarshal(listJSON, &resp)
+		var execs struct {
+			Executions []*WorkflowExecution `json:"executions"`
+		}
+		err = json.Unmarshal(listJSON, &execs)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -223,7 +225,9 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		hierarchy := buildExecutionHierarchy(resp.Executions)
+		hierarchy := buildExecutionHierarchy(execs.Executions)
+
+		resp := ListMyChecksResponse{}
 		resp.Executions = hierarchy
 		return e.JSON(http.StatusOK, resp)
 	}
@@ -498,8 +502,10 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		var resp ListMyCheckRunsResponse
-		err = json.Unmarshal(listJSON, &resp)
+		var execs struct {
+			Executions []*WorkflowExecution `json:"executions"`
+		}
+		err = json.Unmarshal(listJSON, &execs)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -508,7 +514,8 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		hierarchy := buildExecutionHierarchy(resp.Executions)
+		hierarchy := buildExecutionHierarchy(execs.Executions)
+		var resp ListMyChecksResponse
 		resp.Executions = hierarchy
 		return e.JSON(http.StatusOK, resp)
 	}
@@ -1059,60 +1066,92 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 	}
 }
 
+func computeParentDisplayName(encoded string) string {
+	if encoded == "" {
+		return ""
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		// fallback: return original string if decode fails
+		decoded = []byte(encoded)
+	}
+
+	clean := strings.Trim(string(decoded), `"`)
+
+	return clean
+}
+
 var uuidRegex = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
 
-func computeDisplayName(workflowID string) string {
+func computeChildDisplayName(workflowID string) string {
 	switch {
 	case strings.HasPrefix(workflowID, "OpenIDNetCheckWorkflow"):
 		return "View logs workflow"
 	case strings.HasPrefix(workflowID, "EWCWorkflow"):
 		return "View logs workflow"
 	default:
-		cleanID := uuidRegex.ReplaceAllString(workflowID, "")
-		cleanID = strings.ReplaceAll(cleanID, "--", "-")
-		cleanID = strings.Trim(cleanID, "-")
-
-		return cleanID
+		loc := uuidRegex.FindStringIndex(workflowID)
+		if loc != nil && loc[1] < len(workflowID) {
+			return workflowID[loc[1]+1:]
+		}
+		return workflowID
 	}
 }
 
-func buildExecutionHierarchy(executions []*WorkflowExecution) []*WorkflowExecution {
-	// Create a map from RunID to *WorkflowExecution
-	execMap := make(map[string]*WorkflowExecution)
-	for i := range executions {
-		execMap[executions[i].Execution.RunID] = executions[i]
+func buildExecutionHierarchy(executions []*WorkflowExecution) []*WorkflowExecutionSummary {
+
+	summaryMap := make(map[string]*WorkflowExecutionSummary)
+	for _, exec := range executions {
+		summaryMap[exec.Execution.RunID] = &WorkflowExecutionSummary{
+			Execution: exec.Execution,
+			Type:      exec.Type,
+			StartTime: exec.StartTime,
+			EndTime:   exec.EndTime,
+			Status:    exec.Status,
+		}
 	}
 
-	var roots []*WorkflowExecution
+	var roots []*WorkflowExecutionSummary
+	for _, exec := range executions {
+		current := summaryMap[exec.Execution.RunID]
 
-	for _, exec := range execMap {
 		if exec.ParentExecution != nil {
-			if parent, ok := execMap[exec.ParentExecution.RunID]; ok {
-				exec.DisplayName = computeDisplayName(exec.Execution.WorkflowID)
-				parent.Children = append(parent.Children, exec)
+			if parent, ok := summaryMap[exec.ParentExecution.RunID]; ok {
+
+				current.DisplayName = computeChildDisplayName(exec.Execution.WorkflowID)
+				parent.Children = append(parent.Children, current)
 				continue
 			}
 		}
-		roots = append(roots, exec)
-	}
 
-	// Recursive sort by start time
-	var sortFn func(list []*WorkflowExecution)
-	sortFn = func(list []*WorkflowExecution) {
-		sortExecutionsByStartTime(list)
-		for _, e := range list {
-			if len(e.Children) > 0 {
-				sortFn(e.Children)
+		var parentDisplay string
+		if exec.Memo != nil {
+			if field, ok := exec.Memo.Fields["test"]; ok {
+				parentDisplay = computeParentDisplayName(*field.Data)
 			}
 		}
+		current.DisplayName = parentDisplay
+		roots = append(roots, current)
 	}
-	sortFn(roots)
+
+	sortExecutionSummaries(roots, false)
 
 	return roots
 }
 
-func sortExecutionsByStartTime(executions []*WorkflowExecution) {
-	slices.SortFunc(executions, func(a, b *WorkflowExecution) int {
+func sortExecutionSummaries(list []*WorkflowExecutionSummary, ascending bool) {
+	slices.SortFunc(list, func(a, b *WorkflowExecutionSummary) int {
+		if ascending {
+			return strings.Compare(a.StartTime, b.StartTime)
+		}
 		return strings.Compare(b.StartTime, a.StartTime)
 	})
+
+	for _, e := range list {
+		if len(e.Children) > 0 {
+			// Children sorted opposite to parent
+			sortExecutionSummaries(e.Children, !ascending)
+		}
+	}
 }
