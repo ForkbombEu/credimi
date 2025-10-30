@@ -1,56 +1,22 @@
+// SPDX-FileCopyrightText: 2025 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import type { RecordListOptions } from 'pocketbase';
+
+import { Record } from 'effect';
 
 import type { CollectionName } from '@/pocketbase/collections-models';
 
 import { ensureArray } from '@/utils/other';
 
-import type {
-	ExcludeParam,
-	ExpandOption,
-	FilterParam,
-	Query,
-	QueryParams,
-	SearchParam,
-	SortParam
-} from './types';
+import type { ExcludeParam, FilterParam, QueryParams, SearchParam, SortParam } from './types';
+
+import { ensureSortArray } from './utils';
 
 //
 
-export function build<C extends CollectionName, E extends ExpandOption<C> = never>(
-	query: Query<C, E>
-): RecordListOptions {
-	const {
-		expand,
-		perPage = 25,
-		page = 1,
-		fetch: fetchFn = fetch,
-		requestKey = null,
-		sort,
-		search,
-		filter,
-		excludeIDs,
-		...rest
-	} = query;
-
-	const listOptions: RecordListOptions = {
-		page,
-		perPage,
-		fetch: fetchFn,
-		requestKey
-	};
-
-	if (expand) listOptions.expand = expand.join(',');
-	if (sort) listOptions.sort = buildSortParam(sort);
-
-	const filters: string[] = [];
-	if (filter) filters.push(buildFilterParam(filter));
-	if (search) filters.push(buildSearchParam(search));
-	if (excludeIDs) filters.push(buildExcludeParam(excludeIDs));
-
-	return listOptions;
-}
-
-function buildParams(query: QueryParams<never>): RecordListOptions {
+export function build<C extends CollectionName = never>(query: QueryParams<C>): RecordListOptions {
 	const { sort, search, filter, excludeIDs, page = 1, perPage = 25 } = query;
 	const listOptions: RecordListOptions = {
 		page,
@@ -65,11 +31,13 @@ function buildParams(query: QueryParams<never>): RecordListOptions {
 	if (excludeIDs) filters.push(buildExcludeParam(excludeIDs));
 	if (filters.length > 0) listOptions.filter = filters.map((i) => `(${i})`).join(AND);
 
-	return listOptions;
+	return Record.filter(listOptions as never, Boolean);
 }
 
+// Partials
+
 function buildSortParam(sort: SortParam<never>): string {
-	const base = ensureArray(sort);
+	const base = ensureSortArray(sort);
 	if (base.length === 0) throw new EmptyParamError('sort');
 	return base
 		.map(([field, order]) => {
@@ -108,4 +76,9 @@ function buildExcludeParam(exclude: ExcludeParam): string {
 const QUOTE = '"';
 const OR = ' || ';
 const AND = ' && ';
-class EmptyParamError extends Error {}
+
+class EmptyParamError extends Error {
+	constructor(message?: string) {
+		super('Empty param: ' + message);
+	}
+}
