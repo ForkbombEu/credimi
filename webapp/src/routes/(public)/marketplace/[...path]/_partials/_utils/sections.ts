@@ -4,7 +4,17 @@
 
 import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 
-import { Building2, Code, FolderCheck, Key, Layers, Layers3, QrCode, ScanEye } from 'lucide-svelte';
+import {
+	Building2,
+	Code,
+	FolderCheck,
+	Key,
+	Layers,
+	Layers3,
+	QrCode,
+	ScanEye,
+	SquareStackIcon
+} from 'lucide-svelte';
 
 import { m } from '@/i18n';
 
@@ -99,6 +109,16 @@ export const sections = {
 		icon: QrCode,
 		anchor: 'qr_code',
 		label: m.QR_code()
+	},
+	workflow_yaml: {
+		icon: Code,
+		anchor: 'workflow_yaml',
+		label: m.Workflow_YAML()
+	},
+	versions: {
+		icon: SquareStackIcon,
+		anchor: 'versions',
+		label: m.Wallet_versions()
 	}
 } satisfies Record<string, IndexItem>;
 

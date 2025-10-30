@@ -5,95 +5,97 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { invalidateAll } from '$app/navigation';
-	import { page } from '$app/state';
-	import OrganizationPageDemo from '$lib/pages/organization-page.svelte';
-	import { InfoIcon, Pencil, Undo } from 'lucide-svelte';
-
-	import type { OrganizationsFormData } from '@/pocketbase/types';
+	import { ArrowUpRight, CheckIcon, InfoIcon, XIcon } from 'lucide-svelte';
 
 	import { CollectionForm } from '@/collections-components/index.js';
-	import { PageCard } from '@/components/layout/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import * as AlertDialog from '@/components/ui/alert-dialog';
+	import { SubmitButton } from '@/forms';
 	import { m } from '@/i18n/index.js';
+
+	import { setDashboardNavbar } from '../+layout@.svelte';
 
 	//
 
 	let { data } = $props();
-	const { organization, marketplaceItems, isOrganizationNotEdited } = $derived(data);
+	let { organization, isOrganizationNotEdited } = $derived(data);
 
-	const isEdit = $derived(Boolean(page.url.searchParams.get('edit')));
+	setDashboardNavbar({
+		title: m.Organization(),
+		right: navbarRight
+	});
 
-	// svelte-ignore state_referenced_locally
-	let showOrganizationForm = $state(isEdit);
+	//
 
-	// Organization name change warning
-	let showNameChangeWarning = $state(false);
-	let pendingSubmitResolve: ((value: OrganizationsFormData) => void) | null = null;
-	let pendingSubmitReject: ((reason?: unknown) => void) | null = null;
-	let pendingData: OrganizationsFormData | null = null;
-
-	async function handleBeforeSubmit(data: OrganizationsFormData): Promise<OrganizationsFormData> {
-		const nameChanged = data.name !== organization?.name;
-		if (!nameChanged) {
-			return data;
-		}
-		return new Promise<OrganizationsFormData>((resolve, reject) => {
-			pendingData = data;
-			pendingSubmitResolve = resolve;
-			pendingSubmitReject = reject;
-			showNameChangeWarning = true;
-		});
-	}
-
-	function confirmNameChange() {
-		showNameChangeWarning = false;
-		if (pendingData && pendingSubmitResolve) {
-			pendingSubmitResolve(pendingData);
-		}
-		pendingSubmitResolve = null;
-		pendingSubmitReject = null;
-		pendingData = null;
-	}
-
-	function cancelNameChange() {
-		showNameChangeWarning = false;
-		if (pendingSubmitReject) {
-			pendingSubmitReject(new Error('User cancelled'));
-		}
-		pendingSubmitResolve = null;
-		pendingSubmitReject = null;
-		pendingData = null;
-	}
+	let updateLocked = $state(true);
 </script>
 
-<AlertDialog.Root bind:open={showNameChangeWarning}>
-	<AlertDialog.Content class="!z-[60]">
-		<AlertDialog.Header>
-			<AlertDialog.Title>{m.Change_Organization_Name()}</AlertDialog.Title>
-			<AlertDialog.Description>
-				<strong>{m.Warning()}:</strong>
-				{m.Rename_organization_warning()}
-			</AlertDialog.Description>
-		</AlertDialog.Header>
-		<AlertDialog.Footer>
-			<Button variant="outline" onclick={cancelNameChange}>{m.Cancel()}</Button>
-			<Button onclick={confirmNameChange}>{m.Continue()}</Button>
-		</AlertDialog.Footer>
-	</AlertDialog.Content>
-</AlertDialog.Root>
+{#snippet navbarRight()}
+	<Button variant="outline" href="/organizations/{organization.canonified_name}">
+		{m.Page_preview()}
+		<ArrowUpRight />
+	</Button>
+{/snippet}
 
 {#if isOrganizationNotEdited}
-	<Alert variant="info" icon={InfoIcon} class="mb-8">
+	<Alert variant="info" icon={InfoIcon}>
 		<T>
 			{m.Edit_your_organization_information_to_better_represent_your_services_and_products_on_the_marketplace()}
 		</T>
 	</Alert>
 {/if}
 
+{#key organization}
+	<CollectionForm
+		collection="organizations"
+		initialData={organization}
+		recordId={organization.id}
+		onSuccess={(org) => {
+			organization = org;
+		}}
+		fieldsOptions={{
+			exclude: ['canonified_name']
+		}}
+	>
+		{#snippet submitButton()}
+			<!-- Hack to hide default button -->
+		{/snippet}
+
+		{#snippet children({ formState, form })}
+			{@const isNameChanged = formState.current.name !== organization?.name}
+			{@const isSubmitDisabled = isNameChanged && updateLocked}
+
+			{#if isNameChanged}
+				<Alert variant="warning" class="space-y-2">
+					<T class="font-bold">{m.Warning()}:</T>
+					<T>{m.Change_Organization_Name()}</T>
+					<T>
+						{m.Rename_organization_warning()}
+					</T>
+					<div class="flex justify-end gap-2">
+						<Button variant="outline" onclick={() => (updateLocked = false)}>
+							<CheckIcon />
+							{m.Continue()}
+						</Button>
+						<Button variant="outline" onclick={() => form.reset()}>
+							<XIcon />
+							{m.Cancel()}
+						</Button>
+					</div>
+				</Alert>
+			{/if}
+
+			<div class="flex justify-end">
+				<SubmitButton disabled={isSubmitDisabled}>
+					{m.Update_organization_page()}
+				</SubmitButton>
+			</div>
+		{/snippet}
+	</CollectionForm>
+{/key}
+
+<!-- 
 {#if !showOrganizationForm}
 	<div class="mb-6 flex items-center justify-between">
 		<T tag="h3">{m.Page_preview()}</T>
@@ -118,7 +120,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<PageCard>
-		<!-- TODO - Set owner via hook -->
 		<CollectionForm
 			collection="organizations"
 			beforeSubmit={handleBeforeSubmit}
@@ -138,3 +139,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</CollectionForm>
 	</PageCard>
 {/if}
+-->

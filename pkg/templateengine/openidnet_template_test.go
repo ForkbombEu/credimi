@@ -142,7 +142,24 @@ func TestParseInput(t *testing.T) {
 				"default_field": "default_value",
 			},
 		},
+		"test": `        {{
+
+        credimi` + " ` " + `
+          {
+            "credimi_id": "oid_test",
+            "field_id": "test",
+            "field_label": "i18n_test",
+            "field_description": "i18n_test_description",
+            "field_default_value": "default_value",
+            "field_options": [
+              "test1",
+			  "test2",
+			  "test3"
+            ]
+          }
+        ` + "` " + `}}`,
 	}
+
 	defaultFile := writeTempYAML(t, defaultData)
 	defer os.Remove(defaultFile)
 
@@ -181,7 +198,7 @@ func TestParseInput(t *testing.T) {
 	}{
 		{
 			name:  "Valid input",
-			input: "test1:test2:test3:test4",
+			input: "test1+test2+test3+test4",
 			wantForm: map[string]any{
 				"alias": `{{
         
@@ -211,7 +228,7 @@ func TestParseInput(t *testing.T) {
 		},
 		{
 			name:      "Not allowed variant value",
-			input:     "tes1:invalid:test3:test4",
+			input:     "tes1+invalid+test3+test4",
 			wantForm:  nil,
 			wantError: true,
 		},

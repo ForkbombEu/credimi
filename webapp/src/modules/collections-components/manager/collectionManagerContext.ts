@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { Snippet } from 'svelte';
+
 import type { CollectionFormOptions } from '@/collections-components/form';
 import type { CollectionName } from '@/pocketbase/collections-models';
 import type { PocketbaseQueryExpandOption } from '@/pocketbase/query';
 import type { FilterMode } from '@/pocketbase/query/query.js';
+import type { CollectionResponses } from '@/pocketbase/types/index.js';
 import type { CollectionZodSchema } from '@/pocketbase/zod-schema/index.js';
 
 import { setupDerivedContext } from '@/utils/svelte-context';
@@ -38,6 +41,9 @@ export type CollectionManagerContext<
 	filters: FiltersOption;
 	formsOptions: Record<FormPropType, CollectionFormOptions<C>>;
 	formRefineSchema: (schema: CollectionZodSchema<C>) => CollectionZodSchema<C>;
+
+	createForm?: Snippet<[{ closeSheet: () => void }]>;
+	editForm?: Snippet<[{ record: CollectionResponses[C]; closeSheet: () => void }]>;
 };
 
 type FormPropType = 'base' | 'create' | 'edit';

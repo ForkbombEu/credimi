@@ -13,9 +13,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	interface Props {
 		class?: string;
+		scrollToTop?: boolean;
 	}
 
-	let { class: className = '' }: Props = $props();
+	let { class: className = '', scrollToTop = true }: Props = $props();
 
 	//
 
@@ -24,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const show = $derived(perPage && manager.totalItems > perPage);
 
 	$effect(() => {
-		if (manager.currentPage) {
+		if (manager.currentPage && scrollToTop) {
 			window.scrollTo({ top: 0, behavior: 'instant' });
 		}
 	});

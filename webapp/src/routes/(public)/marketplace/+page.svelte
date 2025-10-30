@@ -6,10 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import PageGrid from '$lib/layout/pageGrid.svelte';
+	import { appSections } from '$lib/marketplace/sections';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 
-	import type { IconComponent } from '@/components/types';
 	import type { PocketbaseQueryOptions } from '@/pocketbase/query';
 
 	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
@@ -17,46 +17,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
-	import { MarketplaceItemCard, marketplaceItemsDisplayConfig } from './_utils';
-	import MarketplaceTable from './_utils/marketplace-table.svelte';
+	import { MarketplaceItemCard } from '../../../lib/marketplace';
+	import MarketplaceTable from '../../../lib/marketplace/marketplace-table.svelte';
 
 	//
 
-	type Tab = {
-		label: string;
-		param: string;
-		icon: IconComponent;
-		textClass: string;
-	};
-
-	const tabs = {
-		wallets: {
-			label: m.Wallets(),
-			param: 'wallets',
-			icon: marketplaceItemsDisplayConfig.wallets.icon,
-			textClass: marketplaceItemsDisplayConfig.wallets.textClass
-		},
-		credential_issuers: {
-			label: `${m.Credential_issuers()} / ${m.Credentials()}`,
-			param: 'credential-issuers-and-credentials',
-			icon: marketplaceItemsDisplayConfig.credential_issuers.icon,
-			textClass: marketplaceItemsDisplayConfig.credential_issuers.textClass
-		},
-		verifiers: {
-			label: ` ${m.Verifiers()} / ${m.Use_case_verifications()}`,
-			param: 'verifiers-and-use-case-verifications',
-			icon: marketplaceItemsDisplayConfig.verifiers.icon,
-			textClass: marketplaceItemsDisplayConfig.verifiers.textClass
-		},
-		custom_checks: {
-			label: m.Custom_checks(),
-			param: 'custom-checks',
-			icon: marketplaceItemsDisplayConfig.custom_checks.icon,
-			textClass: marketplaceItemsDisplayConfig.custom_checks.textClass
-		}
-	} as const satisfies Record<string, Tab>;
-
-	const tabsParams = Object.values(tabs).map((t) => t.param);
+	const tabsParams = Object.values(appSections).map((t) => t.id);
 	type TabParam = (typeof tabsParams)[number];
 
 	const params = queryParameters({
@@ -100,8 +66,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</T>
 
 				<div class="flex flex-col gap-2 md:flex-row md:gap-0">
-					{#each Object.values(tabs) as tab (tab.param)}
-						{@const isActive = params.tab === tab.param}
+					{#each Object.values(appSections) as tab (tab.id)}
+						{@const isActive = params.tab === tab.id}
 						<button
 							class={[
 								'group rounded-md md:rounded-b-none md:rounded-t-md md:p-2',
@@ -110,7 +76,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									'shadow-md md:shadow-none': isActive
 								}
 							]}
-							onclick={() => (params.tab = tab.param)}
+							onclick={() => (params.tab = tab.id)}
 						>
 							<div
 								class={[

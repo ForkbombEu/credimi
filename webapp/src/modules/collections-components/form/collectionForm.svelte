@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts" generics="C extends CollectionName">
 	import type { CollectionField } from 'pocketbase';
 
+	import { fromStore } from 'svelte/store';
+
 	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type { CollectionFormData } from '@/pocketbase/types';
 	import type { KeyOf } from '@/utils/types';
@@ -62,6 +64,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// Note: form was previously derived, but this was causing issues with the form context
 	// On error, the form would not be updated correctly
 
+	const formState = fromStore(form.form);
+
 	/* Fields */
 
 	const fieldsConfigs = $derived(
@@ -106,11 +110,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Form {form} {hideRequiredIndicator} hide={uiOptions.hide} submitButton={submitButtonArea}>
-	{#each fields as field}
+	{#each fields as field (field)}
 		<CollectionFormField {...field} />
 	{/each}
 
-	{@render children?.()}
+	{@render children?.({ formState, form })}
 
 	{#snippet submitButtonContent()}
 		{#if buttonContent}

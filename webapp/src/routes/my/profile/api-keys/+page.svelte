@@ -22,6 +22,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { currentUser, pb } from '@/pocketbase';
 
+	import { setDashboardNavbar } from '../../+layout@.svelte';
+
+	setDashboardNavbar({
+		title: m.API_Keys()
+	});
+
+	//
+
 	const apiKeyNameSchema = z.object({
 		name: z
 			.string()
@@ -106,7 +114,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="space-y-6">
 	<div>
-		<T tag="h4">{m.API_Keys()}</T>
+		<!-- <T tag="h4">{m.API_Keys()}</T> -->
 		<T class="text-muted-foreground">
 			{m.API_keys_for_automated_testing()}
 		</T>

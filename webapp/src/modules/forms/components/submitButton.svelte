@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const { children, ...props }: ButtonProps = $props();
+	const { children, disabled = false, ...props }: ButtonProps = $props();
 
 	const { form } = $derived(getFormContext());
 	const { allErrors } = $derived(form);
@@ -26,6 +26,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const submitting = fromStore(form.submitting);
 </script>
 
-<Form.Button {...props} disabled={formHasErrors || submitting.current}>
+<Form.Button {...props} disabled={formHasErrors || submitting.current || disabled}>
 	{@render children?.()}
 </Form.Button>

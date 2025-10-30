@@ -109,6 +109,13 @@ func (w *OpenIDNetWorkflow) Workflow(
 			runMetadata,
 		)
 	}
+	testName, ok := input.Payload["test_name"].(string)
+	if !ok || testName == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			"test_name",
+			runMetadata,
+		)
+	}
 	template, ok := input.Config["template"].(string)
 	if !ok || template == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -120,6 +127,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		Payload: map[string]any{
 			"variant": variant,
 			"form":    form,
+			"test":    testName,
 			"secrets": map[string]any{
 				"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 			},
@@ -140,9 +148,9 @@ func (w *OpenIDNetWorkflow) Workflow(
 		logger.Error("StepCIExecution failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
-	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["result"].(string)
+	deeplink, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)["deeplink"].(string)
 	if !ok {
-		result = ""
+		deeplink = ""
 	}
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
@@ -160,7 +168,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	}
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
-	query.Set("qr", result)
+	query.Set("qr", deeplink)
 	namespace, ok := input.Config["namespace"].(string)
 	if !ok || namespace == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(

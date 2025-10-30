@@ -27,6 +27,10 @@ export type ValueOf<T> = T[keyof T];
 
 export type InferArrayType<T> = T extends (infer U)[] ? U : T;
 
+export type StringKey<R extends Record<string, unknown>> = {
+	[K in keyof R]: R[K] extends string ? K : never;
+}[keyof R];
+
 // Reactivity
 
 export type State<T> = {
