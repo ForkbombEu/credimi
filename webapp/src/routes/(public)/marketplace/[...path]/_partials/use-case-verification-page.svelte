@@ -40,64 +40,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import MarketplaceItemCard from '$lib/marketplace/marketplace-item-card.svelte';
-	import { generateDeeplinkFromYaml } from '$lib/utils';
-	import { onMount } from 'svelte';
 
-	import QrStateful from '@/qr/qr-stateful.svelte';
-
+	import CodeSection from './_utils/code-section.svelte';
 	import DescriptionSection from './_utils/description-section.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
+	import QrSection from './qr-section.svelte';
 
 	//
 
 	type Props = Awaited<ReturnType<typeof getUseCaseVerificationDetails>>;
 	let { useCaseVerification, verifierMarketplaceItem, marketplaceCredentials }: Props = $props();
-
-	let qrLink = $state<string>('');
-	let isProcessingYaml = $state(false);
-	let yamlProcessingError = $state(false);
-
-	//
-
-	onMount(async () => {
-		if (useCaseVerification.yaml) {
-			isProcessingYaml = true;
-			yamlProcessingError = false;
-			try {
-				const result = await generateDeeplinkFromYaml(useCaseVerification.yaml);
-				if (result.deeplink) {
-					qrLink = result.deeplink;
-				}
-			} catch (error) {
-				console.error('Failed to process YAML for use case verification:', error);
-				yamlProcessingError = true;
-			} finally {
-				isProcessingYaml = false;
-			}
-		}
-	});
 </script>
 
-<LayoutWithToc sections={[s.description, s.qr_code, s.related_verifier, s.related_credentials]}>
+<LayoutWithToc
+	sections={[
+		s.description,
+		s.qr_code,
+		s.workflow_yaml,
+		s.related_verifier,
+		s.related_credentials
+	]}
+>
 	<div class="flex items-start gap-6">
 		<DescriptionSection description={useCaseVerification.description} class="grow" />
-
-		<PageSection indexItem={s.qr_code} class="flex flex-col items-stretch space-y-0">
-			<QrStateful
-				src={qrLink}
-				isLoading={isProcessingYaml}
-				error={yamlProcessingError ? 'Dynamic generation failed' : undefined}
-				loadingText="Processing YAML configuration..."
-				placeholder="No credential offer available"
-			/>
-			<div class="w-60 break-all pt-4 text-xs">
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-				<a href={qrLink} target="_self">{qrLink}</a>
-			</div>
-		</PageSection>
+		<QrSection yaml={useCaseVerification.yaml} />
 	</div>
+
+	<CodeSection indexItem={s.workflow_yaml} code={useCaseVerification.yaml} language="yaml" />
 
 	<div class="flex w-full flex-col gap-6 sm:flex-row">
 		<PageSection indexItem={s.related_verifier} class="shrink-0 grow basis-1">
