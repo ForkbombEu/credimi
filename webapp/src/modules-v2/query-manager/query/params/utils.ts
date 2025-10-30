@@ -8,7 +8,7 @@ import type { CollectionName } from '@/pocketbase/collections-models';
 import type { CollectionResponses } from '@/pocketbase/types';
 import type { KeyOf } from '@/utils/types';
 
-import { SortOrderSchema, type SortParam, type SortParamItem } from './types';
+import type { SortParam, SortParamItem } from './types';
 
 //
 
@@ -24,7 +24,7 @@ export type Field<C extends CollectionName> = KeyOf<CollectionResponses[C]>;
 export function ensureSortArray(sort: SortParam<never> | undefined): SortParamItem<never>[] {
 	if (!sort) {
 		return [];
-	} else if (sort.length == 2 && SortOrderSchema.safeParse(sort[1]).success) {
+	} else if (sort.length == 2 && typeof sort[1] === 'string') {
 		return [sort as never];
 	} else {
 		return sort as SortParamItem<never>[];
