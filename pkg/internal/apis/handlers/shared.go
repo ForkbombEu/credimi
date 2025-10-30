@@ -30,7 +30,7 @@ type WorkflowExecution struct {
 	Execution                    *WorkflowIdentifier              `json:"execution"`
 	Type                         WorkflowType                     `json:"type"`
 	StartTime                    string                           `json:"startTime"`
-	EndTime                      string                           `json:"endTime"`
+	CloseTime                    string                           `json:"closeTime"`
 	ExecutionTime                string                           `json:"executionTime"`
 	Status                       string                           `json:"status"`
 	TaskQueue                    *string                          `json:"taskQueue,omitempty"`
@@ -165,7 +165,7 @@ type GetMyCheckRunResponse struct {
 
 // ListMyCheckRunsResponse represents the response containing list of runs for a specific check
 type ListMyCheckRunsResponse struct {
-	Executions []*WorkflowExecution `json:"executions" validate:"required"`
+	Executions []*WorkflowExecutionSummary `json:"executions" validate:"required"`
 }
 
 // GetMyCheckRunHistoryResponse represents the response containing workflow execution history

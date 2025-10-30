@@ -225,7 +225,7 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		hierarchy := buildExecutionHierarchy(execs.Executions)
+		hierarchy := buildExecutionHierarchy(execs.Executions, authRecord.GetString("Timezone"))
 
 		resp := ListMyChecksResponse{}
 		resp.Executions = hierarchy
@@ -514,7 +514,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		hierarchy := buildExecutionHierarchy(execs.Executions)
+		hierarchy := buildExecutionHierarchy(execs.Executions, authRecord.GetString("Timezone"))
 		var resp ListMyChecksResponse
 		resp.Executions = hierarchy
 		return e.JSON(http.StatusOK, resp)
@@ -1099,15 +1099,20 @@ func computeChildDisplayName(workflowID string) string {
 	}
 }
 
-func buildExecutionHierarchy(executions []*WorkflowExecution) []*WorkflowExecutionSummary {
+func buildExecutionHierarchy(executions []*WorkflowExecution, userTimezone string) []*WorkflowExecutionSummary {
 
+	loc, err := time.LoadLocation(userTimezone)
+	if err != nil {
+		loc = time.Local
+	}
 	summaryMap := make(map[string]*WorkflowExecutionSummary)
 	for _, exec := range executions {
+
 		summaryMap[exec.Execution.RunID] = &WorkflowExecutionSummary{
 			Execution: exec.Execution,
 			Type:      exec.Type,
 			StartTime: exec.StartTime,
-			EndTime:   exec.EndTime,
+			EndTime:   exec.CloseTime,
 			Status:    exec.Status,
 		}
 	}
@@ -1135,23 +1140,43 @@ func buildExecutionHierarchy(executions []*WorkflowExecution) []*WorkflowExecuti
 		roots = append(roots, current)
 	}
 
-	sortExecutionSummaries(roots, false)
+	sortExecutionSummaries(roots, loc, false)
 
 	return roots
 }
 
-func sortExecutionSummaries(list []*WorkflowExecutionSummary, ascending bool) {
+func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location, ascending bool) {
 	slices.SortFunc(list, func(a, b *WorkflowExecutionSummary) int {
+		t1, _ := time.Parse(time.RFC3339, a.StartTime)
+		t2, _ := time.Parse(time.RFC3339, b.StartTime)
 		if ascending {
-			return strings.Compare(a.StartTime, b.StartTime)
+			if t1.Before(t2) {
+				return -1
+			}
+			if t1.After(t2) {
+				return 1
+			}
+			return 0
 		}
-		return strings.Compare(b.StartTime, a.StartTime)
+		if t1.After(t2) {
+			return -1
+		}
+		if t1.Before(t2) {
+			return 1
+		}
+		return 0
 	})
 
 	for _, e := range list {
+		if t, err := time.Parse(time.RFC3339, e.StartTime); err == nil {
+			e.StartTime = t.In(loc).Format("02/01/2006, 15:04:05")
+		}
+		if t, err := time.Parse(time.RFC3339, e.EndTime); err == nil {
+			e.EndTime = t.In(loc).Format("02/01/2006, 15:04:05")
+		}
+
 		if len(e.Children) > 0 {
-			// Children sorted opposite to parent
-			sortExecutionSummaries(e.Children, !ascending)
+			sortExecutionSummaries(e.Children, loc, !ascending)
 		}
 	}
 }

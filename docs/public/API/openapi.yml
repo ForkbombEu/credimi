@@ -102,8 +102,6 @@ components:
         workflow_id:
           type: string
       type: object
-    DecodedWorkflowSearchAttributes:
-      type: object
     Duration:
       additionalProperties: false
       properties:
@@ -217,7 +215,7 @@ components:
       properties:
         executions:
           items:
-            $ref: '#/components/schemas/WorkflowExecution'
+            $ref: '#/components/schemas/WorkflowExecutionSummary'
           type: array
       type: object
     ListMyChecksResponse:
@@ -237,14 +235,6 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/Payload'
           type: object
-      type: object
-    MostRecentWorkflowVersionStamp:
-      additionalProperties: false
-      properties:
-        useVersioning:
-          type: boolean
-        workflowVersionTimestamp:
-          type: string
       type: object
     Payload:
       additionalProperties: false
@@ -403,74 +393,6 @@ components:
       properties:
         useVersioning:
           type: boolean
-      type: object
-    WorkflowExecution:
-      additionalProperties: false
-      properties:
-        assignedBuildId:
-          type: string
-        callbacks:
-          $ref: '#/components/schemas/Callbacks'
-        canBeTerminated:
-          type: boolean
-        defaultWorkflowTaskTimeout:
-          $ref: '#/components/schemas/Duration'
-        details:
-          $ref: '#/components/schemas/Payload'
-        endTime:
-          type: string
-        execution:
-          $ref: '#/components/schemas/WorkflowIdentifier'
-        executionTime:
-          type: string
-        historyEvents:
-          type: string
-        historySizeBytes:
-          type: string
-        isRunning:
-          type: boolean
-        memo:
-          $ref: '#/components/schemas/Memo'
-        mostRecentWorkerVersionStamp:
-          $ref: '#/components/schemas/MostRecentWorkflowVersionStamp'
-        parentExecution:
-          $ref: '#/components/schemas/WorkflowIdentifier'
-        parentNamespaceId:
-          type: string
-        pendingActivities:
-          items:
-            $ref: '#/components/schemas/PendingActivityInfo'
-          type: array
-        pendingChildren:
-          items:
-            $ref: '#/components/schemas/PendingChildren'
-          type: array
-        pendingNexusOperations:
-          items:
-            $ref: '#/components/schemas/PendingNexusOperation'
-          type: array
-        pendingWorkflowTask:
-          $ref: '#/components/schemas/PendingWorkflowTaskInfo'
-        rootExecution:
-          $ref: '#/components/schemas/WorkflowIdentifier'
-        searchAttributes:
-          $ref: '#/components/schemas/DecodedWorkflowSearchAttributes'
-        startTime:
-          type: string
-        stateTransitionCount:
-          type: string
-        status:
-          type: string
-        summary:
-          $ref: '#/components/schemas/Payload'
-        taskQueue:
-          type: string
-        type:
-          $ref: '#/components/schemas/WorkflowType'
-        url:
-          type: string
-        versioningInfo:
-          $ref: '#/components/schemas/VersioningInfo'
       type: object
     WorkflowExecutionConfigWithMetadata:
       additionalProperties: false
