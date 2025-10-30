@@ -23,7 +23,8 @@ describe('utils', () => {
 				['name', 'ASC'],
 				['age', 'DESC']
 			],
-			search: ['John', ['name', 'email']]
+			search: 'John',
+			searchFields: ['name', 'email']
 		};
 
 		const built = serialize(queryParams);

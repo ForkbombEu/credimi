@@ -16,7 +16,8 @@ describe('build', () => {
 			perPage: 10,
 			filter: ['name = "John"', 'age > 18'],
 			sort: ['name', 'ASC'],
-			search: ['John', ['name', 'url']],
+			search: 'John',
+			searchFields: ['name', 'url'],
 			excludeIDs: ['1', '2']
 		});
 

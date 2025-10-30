@@ -2,20 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Array, Tuple } from 'effect';
+import { Tuple } from 'effect';
 import z from 'zod';
 
 import type { CollectionName } from '@/pocketbase/collections-models';
 
-import { ensureArray } from '@/utils/other';
-
-import { DEFAULT_PAGE, DEFAULT_PER_PAGE, type Field } from './utils';
+import { DEFAULT_PAGE, DEFAULT_PER_PAGE, maybeArray, type Field, type MaybeArray } from './utils';
 
 /* Sort */
 
-export type SortParam<C extends CollectionName> = MaybeArray<
-	[Field<C>, z.infer<typeof SortOrderSchema>]
->;
+export type SortParamItem<C extends CollectionName> = [Field<C>, z.infer<typeof SortOrderSchema>];
+export type SortParam<C extends CollectionName> = MaybeArray<SortParamItem<C>>;
 
 export const SortOrderSchema = z.enum(['ASC', 'DESC']);
 
@@ -66,33 +63,10 @@ export type FilterParam = z.infer<typeof FilterParamSchema>;
 const FilterParamSchema = maybeArray(z.union([CompoundFilterSchema, z.string()]));
 // `compound` must go first because it's more specific
 
-/* Search */
-
-export type SearchParam<C extends CollectionName> = [text: string, fields: MaybeArray<Field<C>>];
-
-const SearchParamSchema = z.codec(z.string(), z.tuple([z.string(), maybeArray(z.string())]), {
-	decode: (value, ctx) => {
-		const parts = value.split(DIV);
-		if (parts.length !== 2) {
-			return codecError(ctx, value, 'Invalid search param');
-		}
-		const text = parts[0];
-		const fields = parts[1].split(SEP);
-		if (Array.isNonEmptyArray(fields)) {
-			return Tuple.make(text, fields);
-		} else {
-			return codecError(ctx, value, 'Invalid search param');
-		}
-	},
-	encode: ([text, fields]) => {
-		return [text, ensureArray(fields).join(SEP)].join(DIV);
-	}
-});
-
 /* Exclude */
 
 export type ExcludeParam = z.infer<typeof ExcludeParamSchema>;
-const ExcludeParamSchema = nonEmptyArray(z.string());
+const ExcludeParamSchema = maybeArray(z.string());
 
 /* Query params */
 
@@ -101,7 +75,8 @@ export type QueryParams<C extends CollectionName> = Partial<{
 	perPage: number;
 	filter: FilterParam;
 	sort: SortParam<C>;
-	search: SearchParam<C>;
+	search: string;
+	searchFields: MaybeArray<Field<C>>;
 	excludeIDs: ExcludeParam;
 }>;
 
@@ -111,7 +86,8 @@ export const QueryParamsSchema = z
 		perPage: z.coerce.number().default(DEFAULT_PER_PAGE),
 		filter: FilterParamSchema,
 		sort: SortParamSchema,
-		search: SearchParamSchema,
+		search: z.string(),
+		searchFields: maybeArray(z.string()),
 		excludeIDs: ExcludeParamSchema
 	})
 	.partial();
@@ -120,16 +96,6 @@ export const QueryParamsSchema = z
 
 const DIV = '+';
 const SEP = '--';
-
-type MaybeArray<T> = T | T[];
-
-function nonEmptyArray<Z extends z.ZodTypeAny>(schema: Z) {
-	return z.tuple([schema], schema);
-}
-
-function maybeArray<Z extends z.ZodTypeAny>(schema: Z) {
-	return z.union([schema, nonEmptyArray(schema)]);
-}
 
 function codecError<T>(ctx: z.core.ParsePayload<T>, value: T, message: string) {
 	ctx.issues.push({

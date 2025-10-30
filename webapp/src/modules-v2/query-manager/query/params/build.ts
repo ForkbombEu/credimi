@@ -10,14 +10,29 @@ import type { CollectionName } from '@/pocketbase/collections-models';
 
 import { ensureArray } from '@/utils/other';
 
-import type { ExcludeParam, FilterParam, QueryParams, SearchParam, SortParam } from './types';
+import type { ExcludeParam, FilterParam, QueryParams, SortParam } from './types';
 
-import { ensureSortArray } from './utils';
+import {
+	DEFAULT_PAGE,
+	DEFAULT_PER_PAGE,
+	ensureSortArray,
+	type Field,
+	type MaybeArray
+} from './utils';
 
 //
 
 export function build<C extends CollectionName = never>(query: QueryParams<C>): RecordListOptions {
-	const { sort, search, filter, excludeIDs, page = 1, perPage = 25 } = query;
+	const {
+		sort,
+		search,
+		searchFields = [],
+		filter,
+		excludeIDs,
+		page = DEFAULT_PAGE,
+		perPage = DEFAULT_PER_PAGE
+	} = query;
+
 	const listOptions: RecordListOptions = {
 		page,
 		perPage
@@ -27,7 +42,7 @@ export function build<C extends CollectionName = never>(query: QueryParams<C>): 
 
 	const filters: string[] = [];
 	if (filter) filters.push(buildFilterParam(filter));
-	if (search) filters.push(buildSearchParam(search));
+	if (search) filters.push(buildSearchParam(search, searchFields));
 	if (excludeIDs) filters.push(buildExcludeParam(excludeIDs));
 	if (filters.length > 0) listOptions.filter = filters.map((i) => `(${i})`).join(AND);
 
@@ -58,11 +73,10 @@ function buildFilterParam(filter: FilterParam): string {
 	return items.map((i) => `(${i})`).join(AND);
 }
 
-function buildSearchParam(search: SearchParam<never>): string {
-	const [text, fields] = search;
-	if (fields.length === 0) throw new EmptyParamError('search');
-	const fieldsArray = ensureArray(fields);
-	return fieldsArray.map((f) => `${f} ~ ${QUOTE}${text}${QUOTE}`).join(OR);
+function buildSearchParam(searchText: string, fields: MaybeArray<Field<never>>): string {
+	const base = ensureArray(fields);
+	if (base.length === 0) throw new EmptyParamError('search');
+	return base.map((f) => `${f} ~ ${QUOTE}${searchText}${QUOTE}`).join(OR);
 }
 
 function buildExcludeParam(exclude: ExcludeParam): string {

@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { type CollectionName } from '@/pocketbase/collections-models';
+import { ensureArray } from '@/utils/other';
 
 import type { ExcludeParam, QueryParams } from './types';
 
@@ -26,8 +27,7 @@ export class Manager<C extends CollectionName> {
 	//
 
 	setSearch(text: string) {
-		if (!this.params.search) return;
-		this.params.search[0] = text;
+		this.params.search = text;
 	}
 
 	clearSearch() {
@@ -41,11 +41,7 @@ export class Manager<C extends CollectionName> {
 	//
 
 	addExclude(exclude: ExcludeParam) {
-		if (!this.params.excludeIDs) {
-			this.params.excludeIDs = exclude;
-		} else {
-			this.params.excludeIDs.concat(exclude);
-		}
+		this.params.excludeIDs = ensureArray(this.params.excludeIDs).concat(exclude);
 	}
 
 	//

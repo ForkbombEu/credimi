@@ -41,16 +41,18 @@ export function merge<C extends CollectionName>(
 	const result: QueryParams<C> = {
 		perPage: params2.perPage ?? params1.perPage,
 		page: params2.page ?? params1.page,
-		search: params2.search ?? params1.search
+		search: params2.search ?? params1.search,
+		searchFields: params2.searchFields ?? params1.searchFields,
+		sort: params2.sort ?? params1.sort
 	};
 
-	const filter = ensureArray(params1.filter).concat(ensureArray(params2.filter));
+	const exclude = [params1.excludeIDs, params2.excludeIDs].flatMap(ensureArray);
+	if (Array.isNonEmptyArray(exclude)) result.excludeIDs = exclude;
+
+	const filter = [params1.filter, params2.filter].flatMap(ensureArray);
 	if (Array.isNonEmptyArray(filter)) result.filter = filter;
 
-	const excludeIDs = ensureArray(params1.excludeIDs).concat(ensureArray(params2.excludeIDs));
-	if (Array.isNonEmptyArray(excludeIDs)) result.excludeIDs = excludeIDs;
-
-	const sort = ensureSortArray(params1.sort).concat(ensureSortArray(params2.sort));
+	const sort = [params1.sort, params2.sort].flatMap(ensureSortArray as never);
 	if (Array.isNonEmptyArray(sort)) result.sort = sort as never;
 
 	return Record.filter(result as never, Boolean);
