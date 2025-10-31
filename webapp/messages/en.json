@@ -770,5 +770,7 @@
 	"Collapse": "Collapse",
 	"No_deeplink_available": "No deeplink available",
 	"Processing_YAML_configuration": "Processing YAML configuration...",
-	"Pipelines": "Pipelines"
+	"Pipelines": "Pipelines",
+	"New_pipeline": "New pipeline",
+	"Edit_pipeline": "Edit pipeline"
 }
