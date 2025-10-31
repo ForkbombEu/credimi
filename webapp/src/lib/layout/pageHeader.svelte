@@ -34,7 +34,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	{id}
-	class="mb-6 flex scroll-mt-5 items-center justify-between border-b border-secondary-foreground {className}"
+	class={[
+		'border-secondary-foreground mb-6 flex scroll-mt-5 items-center justify-between border-b',
+		className
+	]}
 >
 	{#if title}
 		<T tag="h2">{title}:</T>
