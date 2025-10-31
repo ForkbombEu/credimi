@@ -48,10 +48,36 @@ func CanonifyWithOptions(in string, exists ExistsFunc, opts CanonifyOptions) (st
 	if exists == nil {
 		return "", errors.New("exists func is required")
 	}
+
+	out := canonifyCore(in, opts)
+
+	// Now check uniqueness deterministically: try out, out-1, out-2, ...
+	if !exists(out) {
+		return out, nil
+	}
+
+	// Try suffixes deterministically
+	// We'll append "-<counter>" using decimal; this is simple, deterministic and readable.
+	for i := 1; i <= opts.MaxAttempts; i++ {
+		candidate := fmt.Sprintf("%s%c%d", out, opts.Separator, i)
+		if !exists(candidate) {
+			return candidate, nil
+		}
+	}
+	return "", ErrExhaustedAttempts
+}
+
+// CanonifyPlain computes the canonical string without checking uniqueness.
+func CanonifyPlain(in string) string {
+	return canonifyCore(in, DefaultOptions)
+}
+
+func canonifyCore(in string, opts CanonifyOptions) string {
 	sep := opts.Separator
 	if sep == 0 {
 		sep = DefaultOptions.Separator
 	}
+
 	// Step 1: Remove invisible/control runes + normalize (NFKD).
 	clean := removeInvisibleAndControl(in)
 
@@ -80,31 +106,18 @@ func CanonifyWithOptions(in string, exists ExistsFunc, opts CanonifyOptions) (st
 	}
 	out := b.String()
 
-	// collapse multiple separators (already done via prevSep logic), trim leading/trailing
 	out = strings.Trim(out, string(sep))
 
-	// if empty, use fallback
+	// fallback if empty or too short
 	if len(out) < opts.MinLen {
 		if opts.Fallback == "" {
-			opts.Fallback = DefaultOptions.Fallback
-		}
-		out = opts.Fallback
-	}
-
-	// Now check uniqueness deterministically: try out, out-1, out-2, ...
-	if !exists(out) {
-		return out, nil
-	}
-
-	// Try suffixes deterministically
-	// We'll append "-<counter>" using decimal; this is simple, deterministic and readable.
-	for i := 1; i <= opts.MaxAttempts; i++ {
-		candidate := fmt.Sprintf("%s%c%d", out, sep, i)
-		if !exists(candidate) {
-			return candidate, nil
+			out = DefaultOptions.Fallback
+		} else {
+			out = opts.Fallback
 		}
 	}
-	return "", ErrExhaustedAttempts
+
+	return out
 }
 
 // removeInvisibleAndControl removes invisible, zero-width, and control characters

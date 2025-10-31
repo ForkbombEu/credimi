@@ -11,7 +11,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"slices"
 	"strconv"
 	"strings"
 
@@ -414,23 +413,6 @@ func HandleGetWorkflowResult() func(*core.RequestEvent) error {
 }
 
 type Execution = map[string]any
-
-func sortExecutionsByStartTime(executions []any) []any {
-	slices.SortFunc(executions, func(execA, execB any) int {
-		execAMap, okA := execA.(Execution)
-		execBMap, okB := execB.(Execution)
-		if !okA || !okB {
-			return 0
-		}
-		startTimeA, okA := execAMap["startTime"].(string)
-		startTimeB, okB := execBMap["startTime"].(string)
-		if !okA || !okB {
-			return 0
-		}
-		return strings.Compare(startTimeB, startTimeA)
-	})
-	return executions
-}
 
 //
 
@@ -852,7 +834,7 @@ func getDeeplinkEWC(e *core.RequestEvent, first map[string]any) error {
 		var out struct {
 			Output struct {
 				Captures struct {
-					Deeplink string `json:"deep_link"`
+					Deeplink string `json:"deeplink"`
 				} `json:"captures"`
 			} `json:"Output"`
 		}

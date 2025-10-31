@@ -5,11 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowUpRight, CheckIcon, InfoIcon, XIcon } from 'lucide-svelte';
+	import { ArrowUpRight, CheckIcon, CopyIcon, InfoIcon, XIcon } from 'lucide-svelte';
 
 	import { CollectionForm } from '@/collections-components/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
+	import CopyButton from '@/components/ui-custom/copyButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { SubmitButton } from '@/forms';
 	import { m } from '@/i18n/index.js';
@@ -32,10 +33,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#snippet navbarRight()}
-	<Button variant="outline" href="/organizations/{organization.canonified_name}">
-		{m.Page_preview()}
-		<ArrowUpRight />
-	</Button>
+	<div class="flex items-center gap-2">
+		<CopyButton textToCopy={organization.canonified_name} icon={CopyIcon}></CopyButton>
+		<Button variant="outline" href="/organizations/{organization.canonified_name}">
+			{m.Page_preview()}
+			<ArrowUpRight />
+		</Button>
+	</div>
 {/snippet}
 
 {#if isOrganizationNotEdited}

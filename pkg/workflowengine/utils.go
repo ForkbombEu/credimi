@@ -50,3 +50,10 @@ func AsMap(v any) map[string]any {
 	}
 	return nil
 }
+
+func AsBool(v any) bool {
+	if b, ok := v.(bool); ok {
+		return b
+	}
+	return false
+}

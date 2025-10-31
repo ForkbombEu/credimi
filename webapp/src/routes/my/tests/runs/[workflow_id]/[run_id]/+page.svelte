@@ -186,9 +186,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</table>
 	</div>
 
-	{#if execution.status === 'Running'}
-		<WorkflowQrPoller {workflowId} {runId} containerClass="size-40" />
-	{/if}
+	<WorkflowQrPoller {workflowId} {runId} containerClass="size-40" />
 </div>
 
 <div class="bg-temporal padding-x py-2">

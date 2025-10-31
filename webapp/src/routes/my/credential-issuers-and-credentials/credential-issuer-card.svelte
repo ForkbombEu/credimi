@@ -51,10 +51,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		});
 	}
 
-	function getCredentialPath(credential: CredentialsResponse) {
-		return `${organization.canonified_name}/${issuer.canonified_name}/${credential.canonified_name}`;
-	}
-
 	function getCredentialPublicUrl(credential: CredentialsResponse) {
 		return `/marketplace/credentials/${organization.canonified_name}/${credential.canonified_name}`;
 	}
@@ -70,6 +66,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		[m.Homepage()]: issuer.homepage_url,
 		[m.Import_results()]: issuer.workflow_url
 	}}
+	path={[organization.canonified_name, issuer.canonified_name]}
 >
 	{#snippet actions()}
 		<Button
@@ -117,7 +114,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				nameField="display_name"
 				fallbackNameField="name"
 				hideClone={issuer.imported}
-				textToCopy={getCredentialPath}
+				path={(r) => [
+					organization.canonified_name,
+					issuer.canonified_name,
+					r.canonified_name
+				]}
 				publicUrl={getCredentialPublicUrl}
 			>
 				{#snippet actions({ record: credential })}

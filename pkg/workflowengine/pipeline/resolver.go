@@ -13,8 +13,8 @@ import (
 )
 
 // mergeConfigs merges global config with step-level config
-func MergeConfigs(global, step map[string]string) map[string]string {
-	res := make(map[string]string)
+func MergeConfigs(global, step map[string]any) map[string]any {
+	res := make(map[string]any)
 	for k, v := range global {
 		res[k] = v
 	}
@@ -25,7 +25,8 @@ func MergeConfigs(global, step map[string]string) map[string]string {
 }
 
 var stepPayloadExclusions = map[string][]string{
-	"rest-chain": {"yaml"},
+	"rest-chain":        {"yaml"},
+	"conformance-check": {"config", "template"},
 }
 
 // helper to check if a string is exactly a single ${{ ... }} ref
@@ -206,16 +207,22 @@ func shouldSkipInString(stepRun, key string, val any) bool {
 // ResolveInputs builds activity input for a step
 func ResolveInputs(
 	step StepDefinition,
-	globalCfg map[string]string,
+	globalCfg map[string]any,
 	ctx map[string]any,
-) (map[string]any, map[string]string, error) {
-	stepCfg := make(map[string]string)
+) (map[string]any, map[string]any, error) {
+	stepCfg := make(map[string]any)
+	var val any
+	var err error
 	for k, src := range step.With.Config {
-		val, err := ResolveExpressions(src, ctx)
-		if err != nil {
-			return nil, nil, err
+		if shouldSkipInString(step.Use, k, src) {
+			val = src
+		} else {
+			val, err = ResolveExpressions(src, ctx)
+			if err != nil {
+				return nil, nil, err
+			}
 		}
-		stepCfg[k] = val.(string)
+		stepCfg[k] = val
 	}
 	cfg := MergeConfigs(globalCfg, stepCfg)
 
@@ -247,7 +254,7 @@ func ResolveInputs(
 func ResolveSubworkflowInputs(
 	step StepDefinition,
 	subDef WorkflowBlock,
-	globalCfg map[string]string,
+	globalCfg map[string]any,
 	ctx map[string]any, // merged context (workflow inputs + previous outputs)
 ) (map[string]any, error) {
 	resolvedInputs := make(map[string]any)

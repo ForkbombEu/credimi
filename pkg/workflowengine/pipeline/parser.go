@@ -26,7 +26,7 @@ func (s *StepInputs) UnmarshalYAML(value *yaml.Node) error {
 	}
 
 	s.Payload = make(map[string]InputSource)
-	s.Config = make(map[string]string)
+	s.Config = make(map[string]any)
 
 	for k, v := range tmp {
 		if k == "config" {

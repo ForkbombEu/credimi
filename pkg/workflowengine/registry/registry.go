@@ -22,6 +22,7 @@ type TaskFactory struct {
 	Kind       TaskKind
 	NewFunc    func() any
 	OutputKind workflowengine.OutputKind
+	TaskQueue  string
 }
 
 // Registry maps activity keys to their factory.
@@ -82,13 +83,67 @@ var Registry = map[string]TaskFactory{
 		NewFunc:    func() any { return activities.NewParseWalletURLActivity() },
 		OutputKind: workflowengine.OutputMap,
 	},
-	"maestro-flow": {
+	"mobile-flow": {
 		Kind:       TaskActivity,
-		NewFunc:    func() any { return activities.NewMaestroFlowActivity() },
+		NewFunc:    func() any { return activities.NewRunMobileFlowActivity() },
 		OutputKind: workflowengine.OutputString,
+	},
+	"apk-install": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewApkInstallActivity() },
+		OutputKind: workflowengine.OutputString,
+	},
+	"apk-uninstall": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewApkUninstallActivity() },
+		OutputKind: workflowengine.OutputString,
+	},
+
+	"mobile-automation": {
+		Kind:      TaskWorkflow,
+		NewFunc:   func() any { return &workflows.MobileAutomationWorkflow{} },
+		TaskQueue: workflows.MobileAutomationTaskQueue,
 	},
 	"custom-check": {
 		Kind:    TaskWorkflow,
 		NewFunc: func() any { return &workflows.CustomCheckWorkflow{} },
 	},
+	"check-file-exists": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewCheckFileExistsActivity() },
+		OutputKind: workflowengine.OutputBool,
+	},
+	"openid-net": {
+		Kind:      TaskWorkflow,
+		NewFunc:   func() any { return &workflows.OpenIDNetWorkflow{} },
+		TaskQueue: workflows.OpenIDNetTaskQueue,
+	},
+	"credential-offer": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.GetCredentialOfferWorkflow{} },
+	},
+	"conformance-check": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.StartCheckWorkflow{} },
+	},
+	"openidnet-logs": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.OpenIDNetLogsWorkflow{} },
+	},
+	"ewc-status": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.EWCStatusWorkflow{} },
+	},
+	"use-case-verification-deeplink": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return &workflows.GetUseCaseVerificationDeeplinkWorkflow{} },
+	},
+}
+
+// Denylist of task keys that should NOT be registered in the pipeline worker
+var PipelineWorkerDenylist = map[string]struct{}{
+	"mobile-flow":       {},
+	"mobile-automation": {},
+	"apk-install":       {},
+	"apk-uninstall":     {},
 }

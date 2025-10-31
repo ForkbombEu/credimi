@@ -13,27 +13,27 @@ import (
 func TestMergeConfigs(t *testing.T) {
 	tests := []struct {
 		name     string
-		global   map[string]string
-		step     map[string]string
-		expected map[string]string
+		global   map[string]any
+		step     map[string]any
+		expected map[string]any
 	}{
 		{
 			name:     "step overrides global",
-			global:   map[string]string{"a": "1", "b": "2"},
-			step:     map[string]string{"b": "3"},
-			expected: map[string]string{"a": "1", "b": "3"},
+			global:   map[string]any{"a": "1", "b": "2"},
+			step:     map[string]any{"b": "3"},
+			expected: map[string]any{"a": "1", "b": "3"},
 		},
 		{
 			name:     "empty step",
-			global:   map[string]string{"a": "1"},
-			step:     map[string]string{},
-			expected: map[string]string{"a": "1"},
+			global:   map[string]any{"a": "1"},
+			step:     map[string]any{},
+			expected: map[string]any{"a": "1"},
 		},
 		{
 			name:     "empty global",
-			global:   map[string]string{},
-			step:     map[string]string{"c": "x"},
-			expected: map[string]string{"c": "x"},
+			global:   map[string]any{},
+			step:     map[string]any{"c": "x"},
+			expected: map[string]any{"c": "x"},
 		},
 	}
 
@@ -250,11 +250,11 @@ func TestResolveInputs(t *testing.T) {
 	type testCase struct {
 		name            string
 		step            StepDefinition
-		globalCfg       map[string]string
+		globalCfg       map[string]any
 		ctx             map[string]any
 		wantErr         bool
 		expectedPayload map[string]any
-		expectedConfig  map[string]string
+		expectedConfig  map[string]any
 	}
 
 	tests := []testCase{
@@ -262,7 +262,7 @@ func TestResolveInputs(t *testing.T) {
 			name: "payload from value",
 			step: StepDefinition{
 				With: StepInputs{
-					Config: map[string]string{
+					Config: map[string]any{
 						"key": "value",
 					},
 					Payload: map[string]InputSource{
@@ -270,12 +270,12 @@ func TestResolveInputs(t *testing.T) {
 					},
 				},
 			},
-			globalCfg: map[string]string{"g": "G"},
+			globalCfg: map[string]any{"g": "G"},
 			ctx:       map[string]any{},
 			expectedPayload: map[string]any{
 				"p": "data",
 			},
-			expectedConfig: map[string]string{
+			expectedConfig: map[string]any{
 				"key": "value",
 				"g":   "G",
 			},
@@ -293,7 +293,7 @@ func TestResolveInputs(t *testing.T) {
 			expectedPayload: map[string]any{
 				"num": 123,
 			},
-			expectedConfig: map[string]string{},
+			expectedConfig: map[string]any{},
 		},
 		{
 			name: "payload expression resolution",
@@ -308,7 +308,7 @@ func TestResolveInputs(t *testing.T) {
 			expectedPayload: map[string]any{
 				"val": "ok",
 			},
-			expectedConfig: map[string]string{},
+			expectedConfig: map[string]any{},
 		},
 		{
 			name: "type cast failure (cannot cast map to int)",
@@ -354,7 +354,7 @@ func TestResolveInputs(t *testing.T) {
 					"array": []any{99, "static"},
 				},
 			},
-			expectedConfig: map[string]string{},
+			expectedConfig: map[string]any{},
 		},
 	}
 

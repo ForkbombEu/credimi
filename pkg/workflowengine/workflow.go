@@ -78,10 +78,30 @@ func NewWorkflowError(err error, metadata WorkflowErrorMetadata, extraPayload ..
 		return err
 	}
 
-	var originalDetails any
-	if err := appErr.Details(&originalDetails); err != nil {
-		originalDetails = nil
+	var detailsRaw any
+	if derr := appErr.Details(&detailsRaw); derr != nil {
+		detailsRaw = nil
 	}
+
+	var details []any
+	switch v := detailsRaw.(type) {
+	case nil:
+
+	case []any:
+		details = v
+	default:
+		details = []any{v}
+	}
+
+	for _, p := range extraPayload {
+		switch v := p.(type) {
+		case []any:
+			details = append(details, v...)
+		default:
+			details = append(details, v)
+		}
+	}
+	details = append(details, metadata)
 
 	credimiErr := utils.CredimiError{
 		Code:      appErr.Type(),
@@ -91,15 +111,11 @@ func NewWorkflowError(err error, metadata WorkflowErrorMetadata, extraPayload ..
 		Context:   []string{fmt.Sprintf("Further information at: %s", metadata.TemporalUI)},
 	}
 
-	newErr := temporal.NewApplicationError(
+	return temporal.NewApplicationError(
 		credimiErr.Error(),
 		appErr.Type(),
-		originalDetails,
-		extraPayload,
-		metadata,
+		details,
 	)
-
-	return newErr
 }
 
 func NewAppError(code errorcodes.Code, field string, payload ...any) error {
@@ -145,6 +161,14 @@ func StartWorkflowWithOptions(
 
 	if input.Config["memo"] != nil {
 		options.Memo = input.Config["memo"].(map[string]any)
+	}
+
+	if options.Memo == nil {
+		options.Memo = make(map[string]any)
+	}
+
+	if options.Memo["test"] == nil {
+		options.Memo["test"] = name
 	}
 
 	// Start the workflow execution.
@@ -410,5 +434,24 @@ func extractAppErrorPayload(err error) []any {
 		}
 		return nil
 	}
+	return nil
+}
+
+func ExtractOutputFromError(err error) map[string]any {
+	payload := extractAppErrorPayload(err)
+	if payload == nil {
+		return nil
+	}
+
+	for _, item := range payload {
+		if itemMap, ok := item.(map[string]any); ok {
+			if out, ok := itemMap["output"]; ok {
+				if outMap, ok := out.(map[string]any); ok {
+					return outMap
+				}
+			}
+		}
+	}
+
 	return nil
 }

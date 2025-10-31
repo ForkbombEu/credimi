@@ -45,7 +45,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": 12345}}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": 12345, "deeplink": "test"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -75,7 +75,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": 12345}}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": 12345, "deeplink": "test"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -104,7 +104,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": 12345}}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": 12345, "deeplink": "test"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -150,12 +150,20 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 					Payload: map[string]any{
 						"variant":   "test-variant",
 						"form":      mock.Anything,
+						"test_name": "test-name",
 						"user_mail": "user@test.org",
 					},
 					Config: map[string]any{
 						"app_url":   "https://test-app.com",
 						"template":  "test-template",
 						"namespace": "test-namespace",
+						"app_name":  "Credimi",
+						"app_logo":  "https://logo.png",
+						"user_name": "John Doe",
+						"memo": map[string]any{
+							"standard": "openid4vp_wallet",
+							"author":   "openid_conformance_suite",
+						},
 					},
 				})
 				close(done)

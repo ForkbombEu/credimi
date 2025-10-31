@@ -9,27 +9,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { TemporalI18nProvider } from '$lib/temporal';
-	import { CornerDownRight } from 'lucide-svelte';
 
-	import A from '@/components/ui-custom/a.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
 	import { toUserTimezone } from '@/utils/toUserTimezone';
 
-	import type { WorkflowWithChildren } from './utils';
+	import type { WorkflowExecutionWithChildren } from './queries.types';
 
 	import { getWorkflowMemo, type WorkflowMemo } from './memo';
+	import WorkflowTree from './workflow-tree.svelte';
 
 	//
 
 	type Props = {
-		workflows: WorkflowWithChildren[];
+		workflows: WorkflowExecutionWithChildren[];
 		headerRight?: Snippet<[{ Th: typeof Table.Head }]>;
 		rowRight?: Snippet<
 			[
 				{
-					workflow: WorkflowWithChildren;
+					workflow: WorkflowExecutionWithChildren;
 					Td: typeof Table.Cell;
 					workflowMemo: WorkflowMemo | undefined;
 				}
@@ -52,48 +50,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
-			{#each workflows as workflow (workflow.runId)}
-				{@const path = `/my/tests/runs/${workflow.id}/${workflow.runId}`}
+			{#each workflows as workflow (workflow.execution.runId)}
+				{@const { execution } = workflow}
 				{@const status = toWorkflowStatusReadable(workflow.status)}
 				{@const memo = getWorkflowMemo(workflow)}
 				{@const start = toUserTimezone(workflow.startTime)}
 				{@const end = toUserTimezone(workflow.endTime)}
 
 				<Table.Row>
-					<Table.Cell>
+					<Table.Cell class="align-top">
 						{#if status !== null}
 							<WorkflowStatus {status} />
 						{/if}
 					</Table.Cell>
 
 					<Table.Cell class="font-medium">
-						{#if memo}
-							<A href={path}>
-								<T>{memo.standard} / {memo.author}</T>
-								<T>{memo.test}</T>
-							</A>
-							<T class="mt-1 text-xs text-gray-400">
-								{workflow.id}
-							</T>
-						{:else}
-							<A href={path}>
-								{workflow.id}
-							</A>
-						{/if}
-
-						{#if workflow.children}
-							{#each workflow.children as child}
-								<div class="pt-2">
-									<A
-										href={`/my/tests/runs/${child.id}/${child.runId}`}
-										class="flex gap-0.5"
-									>
-										<CornerDownRight size="15" />
-										<T class="-translate-y-[1px]">{m.View_logs_workflow()}</T>
-									</A>
-								</div>
-							{/each}
-						{/if}
+						{@const label = memo
+							? `${memo.standard} / ${memo.author}`
+							: execution.workflowId}
+						<WorkflowTree {workflow} {label} root />
 					</Table.Cell>
 
 					{@render rowRight?.({ workflow, Td: Table.Cell, workflowMemo: memo })}

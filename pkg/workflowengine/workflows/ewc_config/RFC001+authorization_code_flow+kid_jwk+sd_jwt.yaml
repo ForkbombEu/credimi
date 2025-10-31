@@ -22,7 +22,7 @@ tests:
           captures:
             qr:
               jsonpath: $.qr
-            deep_link:
+            deeplink:
               jsonpath: $.deepLink
             session_id:
               jsonpath: $.sessionId

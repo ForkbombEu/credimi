@@ -12,12 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type StartCheckResultWithMeta
 	} from '$lib/start-checks-form/_utils';
 	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
-	import {
-		fetchWorkflows,
-		groupWorkflowsWithChildren,
-		WorkflowQrPoller,
-		WorkflowsTable
-	} from '$lib/workflows';
+	import { fetchWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import { Array } from 'effect';
 	import { SearchIcon, SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -27,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge/index.js';
 	import { Separator } from '@/components/ui/separator/index.js';
-	import { m } from '@/i18n/index.js';
+	import { m } from '@/i18n';
 	import { ensureArray, warn } from '@/utils/other';
 
 	import { setDashboardNavbar } from '../../+layout@.svelte';
@@ -35,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	let { workflows = [], selectedStatus } = $derived(data);
+	let { workflows, selectedStatus } = $derived(data);
 
 	setDashboardNavbar({
 		title: m.Test_runs()
@@ -47,14 +42,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	if (browser) latestCheckRuns = ensureArray(LatestCheckRunsStorage.get());
 
 	const latestRunIds = $derived(latestCheckRuns.map((run) => run.workflowRunId));
-	const latestWorkflows = $derived(workflows.filter((w) => latestRunIds.includes(w.runId)));
+	const latestWorkflows = $derived(
+		workflows.filter((w) => latestRunIds.includes(w.execution.runId))
+	);
 	const oldWorkflows = $derived(Array.difference(workflows, latestWorkflows));
 
 	onMount(() => {
 		const interval = setInterval(async () => {
 			const newWorkflows = await fetchWorkflows({ status: selectedStatus });
 			if (newWorkflows instanceof Error) warn(newWorkflows);
-			else workflows = groupWorkflowsWithChildren(newWorkflows);
+			else workflows = newWorkflows;
 		}, 5000);
 
 		return () => {
@@ -94,8 +91,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Td>
 						{#if workflow.status === 'Running'}
 							<WorkflowQrPoller
-								workflowId={workflow.id}
-								runId={workflow.runId}
+								workflowId={workflow.execution.workflowId}
+								runId={workflow.execution.runId}
 								containerClass="size-32"
 							/>
 						{/if}

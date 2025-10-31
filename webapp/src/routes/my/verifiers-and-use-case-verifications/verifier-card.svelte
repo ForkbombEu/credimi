@@ -34,10 +34,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const managerOptions = options(organization.id, verifier.id);
 
-	function getVerificationPath(ucv: UseCasesVerificationsResponse) {
-		return `${organization.canonified_name}/${verifier.canonified_name}/${ucv.canonified_name}`;
-	}
-
 	function getVerificationPublicUrl(ucv: UseCasesVerificationsResponse) {
 		return `/marketplace/use_cases_verifications/${organization.canonified_name}/${ucv.canonified_name}`;
 	}
@@ -49,6 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	links={{
 		URL: verifier.url
 	}}
+	path={[organization.canonified_name, verifier.canonified_name]}
 >
 	{#snippet content()}
 		{@render useCasesVerificationsManager()}
@@ -80,8 +77,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<DashboardCardManagerUI
 				{records}
 				nameField="name"
-				textToCopy={getVerificationPath}
 				publicUrl={getVerificationPublicUrl}
+				path={(r) => [
+					organization.canonified_name,
+					verifier.canonified_name,
+					r.canonified_name
+				]}
 			/>
 		{/snippet}
 	</CollectionManager>

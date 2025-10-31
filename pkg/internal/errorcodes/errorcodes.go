@@ -41,6 +41,7 @@ var Codes = map[string]Code{
 	PipelineParsingError:           {"CRE227", "Failed to parse pipeline yaml"},
 	PipelineInputError:             {"CRE228", "Failed to resolve pipeline inputs"},
 	PipelineExecutionError:         {"CRE229", "Failed to execute pipeline worflow"},
+	ChildWorkflowExecutionError:    {"CRE230", "Failed to execute child workflow"},
 	CommandExecutionFailed:         {"CRE301", "Command execution failed"},
 	StepCIRunFailed:                {"CRE302", "StepCI run failed"},
 	UnexpectedStepCIOutput:         {"CRE303", "Unexpected output from StepCI run"},
@@ -56,6 +57,8 @@ var Codes = map[string]Code{
 	CopyFromReaderFailed:           {"CRE902", "Failed to copy from reader"},
 	MkdirFailed:                    {"CRE903", "Failed to create a new folder"},
 	WriteFileFailed:                {"CRE904", "Failed to write to a file"},
+	TempFileCreationFailed:         {"CRE905", "Failed to create a temporary file"},
+	ReadFileFailed:                 {"CRE906", "Failed to read a file"},
 }
 
 const (
@@ -88,6 +91,7 @@ const (
 	PipelineParsingError           = "CRE227"
 	PipelineInputError             = "CRE228"
 	PipelineExecutionError         = "CRE229"
+	ChildWorkflowExecutionError    = "CRE230"
 	CommandExecutionFailed         = "CRE301"
 	StepCIRunFailed                = "CRE302"
 	UnexpectedStepCIOutput         = "CRE303"
@@ -103,4 +107,6 @@ const (
 	CopyFromReaderFailed           = "CRE902"
 	MkdirFailed                    = "CRE903"
 	WriteFileFailed                = "CRE904"
+	TempFileCreationFailed         = "CRE905"
+	ReadFileFailed                 = "CRE906"
 )
