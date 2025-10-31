@@ -1,29 +1,27 @@
+// SPDX-FileCopyrightText: 2025 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 import type { NonEmptyTuple, Simplify } from 'type-fest';
 
 import type { CollectionName } from '@/pocketbase/collections-models';
 import type { CollectionExpands, CollectionResponses } from '@/pocketbase/types';
 import type { KeyOf } from '@/utils/types';
 
-import type { QueryParams } from './params/params';
+import type { QueryParams } from './params';
 
 /* Main */
 
 export type Query<C extends CollectionName, E extends ExpandOption<C> = never> = BaseQuery<C, E> &
 	QueryParams<C> &
-	QueryOptions;
+	Options;
 
-export type QueryResult<C extends CollectionName, E extends ExpandOption<C> = never> = {
-	query: Query<C, E>;
-	records: QueryResponseItem<C, E>[];
-	totalItems: number;
-};
-
-type BaseQuery<C extends CollectionName, E extends ExpandOption<C> = never> = {
+export type BaseQuery<C extends CollectionName, E extends ExpandOption<C> = never> = {
 	collection: C;
 	expand?: E;
 };
 
-type QueryOptions = Partial<{
+export type Options = Partial<{
 	fetch: typeof fetch;
 	requestKey: string | null;
 	url: URL;
@@ -43,7 +41,15 @@ type ResolvedExpand<C extends CollectionName, E extends ExpandOption<C> = never>
 
 // Response
 
-export type QueryResponseItem<C extends CollectionName, E extends ExpandOption<C> = never> =
+export type Response<C extends CollectionName, E extends ExpandOption<C> = never> = {
+	records: ResponseRecord<C, E>[];
+	totalItems: number;
+	rootParams: QueryParams<C>;
+	urlParams: QueryParams<C>;
+	requestKey?: string | null;
+};
+
+export type ResponseRecord<C extends CollectionName, E extends ExpandOption<C> = never> =
 	ResolvedExpand<C, E> extends never
 		? CollectionResponses[C]
 		: Simplify<CollectionResponses[C] & { expand: ResolvedExpand<C, E> }>;

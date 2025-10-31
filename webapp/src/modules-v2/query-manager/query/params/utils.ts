@@ -4,9 +4,10 @@
 
 import { z } from 'zod';
 
-import type { CollectionName } from '@/pocketbase/collections-models';
 import type { CollectionResponses } from '@/pocketbase/types';
 import type { KeyOf } from '@/utils/types';
+
+import { getCollectionModel, type CollectionName } from '@/pocketbase/collections-models';
 
 import type { SortParam, SortParamItem } from './types';
 
@@ -35,4 +36,9 @@ export type MaybeArray<T> = T | T[];
 
 export function maybeArray<Z extends z.ZodTypeAny>(schema: Z) {
 	return z.union([schema, z.array(schema)]);
+}
+
+export function getSearchableFields<C extends CollectionName>(collection: C): Field<C>[] {
+	const model = getCollectionModel(collection);
+	return model.fields.map((f) => f.name) as Field<C>[];
 }

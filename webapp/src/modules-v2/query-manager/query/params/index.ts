@@ -6,7 +6,8 @@ import type { QueryParams } from './types';
 
 import { build } from './build';
 import { deserialize, merge, serialize } from './functions';
+import { getSearchableFields } from './utils';
 
 //
 
-export { build, deserialize, merge, serialize, type QueryParams };
+export { build, deserialize, getSearchableFields, merge, serialize, type QueryParams };
