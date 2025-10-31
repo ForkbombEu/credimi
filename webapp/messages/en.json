@@ -769,5 +769,6 @@
 	"Expand": "Expand",
 	"Collapse": "Collapse",
 	"No_deeplink_available": "No deeplink available",
-	"Processing_YAML_configuration": "Processing YAML configuration..."
+	"Processing_YAML_configuration": "Processing YAML configuration...",
+	"Pipelines": "Pipelines"
 }
