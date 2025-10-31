@@ -17,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apis"
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/logo"
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
@@ -61,6 +62,7 @@ func Setup(app *pocketbase.PocketBase) {
 	canonify.RegisterCanonifyHooks(app)
 	apis.HookAtUserCreation(app)
 	apis.HookAtUserLogin(app)
+	logo.LogoHooks(app)
 	// apis.IssuersRoutes.Add(app)
 	handlers.HookUpdateCredentialsIssuers(app)
 
