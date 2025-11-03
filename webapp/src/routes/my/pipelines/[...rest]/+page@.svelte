@@ -5,10 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
+	import BackButton from '$lib/layout/back-button.svelte';
 
 	import { setupCollectionForm } from '@/collections-components/form';
-	import { Form } from '@/forms';
+	import T from '@/components/ui-custom/t.svelte';
+	import { Button } from '@/components/ui/button';
+	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 
 	import PipelineBuilderComponent from './logic/pipeline-builder.svelte';
@@ -35,9 +37,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const builder = new PipelineBuilder();
 </script>
 
-<FocusPageLayout backButton={{ href: '/my/pipelines', title: m.Back() }} {title}>
-	<Form {form}>
-		<!-- <PageCardSection title={m.Metadata()}>
+<div class="bg-secondary flex h-screen flex-col gap-6 p-6">
+	<div class="flex items-center justify-between">
+		<div class="flex items-center gap-3">
+			<BackButton href="/my/pipelines" class="h-6">
+				{m.Back()}
+			</BackButton>
+			<Separator orientation="vertical" class="self-stretch bg-slate-400" />
+			<T tag="h3">{title}</T>
+		</div>
+
+		<Button>{m.Save()}</Button>
+	</div>
+	<!-- <PageCardSection title={m.Metadata()}>
 			<div class="flex items-start gap-6">
 				<div class="grow">
 					<Field {form} name="name" options={{ label: m.Name() }} />
@@ -53,6 +65,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<MarkdownField {form} name="description" options={{ label: m.Description() }} />
 		</PageCardSection> -->
 
-		<PipelineBuilderComponent {builder} />
-	</Form>
-</FocusPageLayout>
+	<PipelineBuilderComponent {builder} />
+</div>

@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { href, children, class: className = '' }: Props = $props();
 </script>
 
-<Button {href} variant="link" class="p-0 {className}">
+<Button {href} variant="link" class={['p-0', className]}>
 	<ArrowLeft size={16} />
 	{@render children()}
 </Button>

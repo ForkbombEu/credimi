@@ -772,5 +772,9 @@
 	"Processing_YAML_configuration": "Processing YAML configuration...",
 	"Pipelines": "Pipelines",
 	"New_pipeline": "New pipeline",
-	"Edit_pipeline": "Edit pipeline"
+	"Edit_pipeline": "Edit pipeline",
+	"No_wallet_versions_found": "No wallet versions found",
+	"Add_step": "Add step",
+	"Steps_sequence": "Steps sequence",
+	"YAML_preview": "YAML preview"
 }

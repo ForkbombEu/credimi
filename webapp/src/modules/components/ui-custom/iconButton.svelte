@@ -5,9 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { SetFieldType } from 'type-fest';
-
-	import { Record } from 'effect';
 	import { X } from 'lucide-svelte';
 
 	import type { IconComponent } from '../types';
@@ -18,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type ButtonSize = 'md' | 'sm' | 'lg';
+	type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 	interface Props extends Omit<ButtonProps, 'size'> {
 		icon?: IconComponent;
@@ -35,6 +32,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	const configs: Record<ButtonSize, ButtonConfig> = {
+		xs: {
+			iconSize: 14,
+			sizeClass: 'size-6'
+		},
 		sm: {
 			iconSize: 16,
 			sizeClass: 'size-8'

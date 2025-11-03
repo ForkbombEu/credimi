@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { z } from 'zod';
-import type { Step } from './types';
-import { StepType } from './types';
+import { WalletStepForm, type WalletStepData } from './wallet.svelte.js';
 
 //
 
 export class PipelineBuilder {
+	private currentWallet = $state<CurrentWallet>();
+
 	private _steps: Step[] = $state([]);
 	get steps() {
 		return this._steps;
@@ -24,7 +24,24 @@ export class PipelineBuilder {
 	}
 
 	initAddStep(type: StepType) {
-		this._state = getStepState(type);
+		const cleanup = $effect.root(() => {
+			if (type === StepType.Wallet) {
+				this._state = new WalletStepForm({
+					initialData: this.currentWallet,
+					onSelect: (data: WalletStepData) => {
+						this._steps.push({ ...data, type: StepType.Wallet });
+						this.currentWallet = {
+							wallet: data.wallet,
+							version: data.version
+						};
+						this._state = new IdleState();
+						cleanup();
+					}
+				});
+			} else {
+				throw new Error(`Unknown step type: ${type}`);
+			}
+		});
 	}
 
 	discardAddStep() {
@@ -34,50 +51,23 @@ export class PipelineBuilder {
 	}
 }
 
+export enum StepType {
+	Wallet = 'wallet',
+	Credential = 'credential',
+	CustomCheck = 'custom_check',
+	UseCaseVerification = 'use_case_verification'
+}
+
 type BuilderState = IdleState | AddStepState;
 
 export class IdleState {}
 
-export abstract class AddStepState {
-	abstract schema: z.ZodTypeAny;
-}
+export abstract class AddStepState {}
 
-export class AddWalletState extends AddStepState {
-	schema = z.object({
-		type: z.literal(StepType.Wallet),
-		walletId: z.string(),
-		versionId: z.string(),
-		actionId: z.string()
-	});
-}
+type BaseStep<T extends StepType, Data extends Record<string, unknown>> = Data & { type: T };
+type WalletStep = BaseStep<StepType.Wallet, WalletStepData>;
+type Step = WalletStep;
 
-export class AddCredentialState extends AddStepState {
-	schema = z.object({
-		credentialId: z.string()
-	});
-}
+//
 
-export class AddCustomCheckState extends AddStepState {
-	schema = z.object({
-		customCheckId: z.string()
-	});
-}
-
-export class AddUseCaseVerificationState extends AddStepState {
-	schema = z.object({
-		useCaseVerificationId: z.string()
-	});
-}
-
-function getStepState(type: StepType): AddStepState {
-	switch (type) {
-		case StepType.Wallet:
-			return new AddWalletState();
-		case StepType.Credential:
-			return new AddCredentialState();
-		case StepType.CustomCheck:
-			return new AddCustomCheckState();
-		case StepType.UseCaseVerification:
-			return new AddUseCaseVerificationState();
-	}
-}
+type CurrentWallet = Omit<WalletStepData, 'action'>;
