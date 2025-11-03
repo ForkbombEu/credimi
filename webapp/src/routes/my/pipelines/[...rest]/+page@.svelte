@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const builder = new PipelineBuilder();
 </script>
 
-<div class="bg-secondary flex h-screen flex-col gap-6 p-6">
+<div class="bg-secondary flex h-screen flex-col gap-4 p-6">
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-3">
 			<BackButton href="/my/pipelines" class="h-6">

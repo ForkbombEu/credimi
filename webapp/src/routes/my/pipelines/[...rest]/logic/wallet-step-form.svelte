@@ -9,14 +9,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { XIcon } from 'lucide-svelte';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n/index.js';
 
 	import type { WalletStepForm } from './wallet.svelte.js';
 
-	import ItemCard from './item-card.svelte';
+	import ItemCard from './utils/item-card.svelte';
 	import SearchInput from './utils/search-input.svelte';
 	import WithEmptyState from './utils/with-empty-state.svelte';
+	import WithLabel from './utils/with-label.svelte';
 
 	//
 
@@ -30,9 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="space-y-4">
 	{#if form.data.wallet}
 		{@const data = getMarketplaceItemData(form.data.wallet)}
-		<div class="flex flex-col gap-2 border-y py-4">
-			<div class="space-y-1">
-				<T class="text-muted-foreground text-sm">{m.Wallet()}</T>
+		<div class="flex flex-col gap-2 border-b pb-4">
+			<WithLabel label={m.Wallet()}>
 				<ItemCard
 					avatar={data.logo}
 					title={form.data.wallet.name}
@@ -48,11 +47,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						/>
 					{/snippet}
 				</ItemCard>
-			</div>
+			</WithLabel>
 
 			{#if form.data.version}
-				<div class="space-y-1">
-					<T class="text-muted-foreground text-sm">{m.Version()}</T>
+				<WithLabel label={m.Version()}>
 					<ItemCard title={form.data.version.tag}>
 						{#snippet right()}
 							<IconButton
@@ -64,14 +62,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							/>
 						{/snippet}
 					</ItemCard>
-				</div>
+				</WithLabel>
 			{/if}
 		</div>
 	{/if}
 
 	{#if form.state === 'select-wallet'}
 		<div class="space-y-4">
-			<SearchInput search={form.walletSearch} />
+			<WithLabel label={m.Wallet()}>
+				<SearchInput search={form.walletSearch} />
+			</WithLabel>
 
 			<WithEmptyState items={form.foundWallets} emptyText={m.No_results_found()}>
 				{#snippet item({ item })}
@@ -85,20 +85,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</WithEmptyState>
 		</div>
 	{:else if form.state === 'select-version'}
-		<WithEmptyState items={form.foundVersions} emptyText={m.No_wallet_versions_found()}>
-			{#snippet item({ item })}
-				<ItemCard title={item.tag} onClick={() => form.selectVersion(item)} />
-			{/snippet}
-		</WithEmptyState>
+		<WithLabel label={m.Version()}>
+			<WithEmptyState items={form.foundVersions} emptyText={m.No_wallet_versions_found()}>
+				{#snippet item({ item })}
+					<ItemCard title={item.tag} onClick={() => form.selectVersion(item)} />
+				{/snippet}
+			</WithEmptyState>
+		</WithLabel>
 	{:else if form.state === 'select-action'}
 		<div class="space-y-4">
-			<SearchInput search={form.actionSearch} placeholder="Search for an action" />
+			<WithLabel label={m.Wallet_action()}>
+				<SearchInput search={form.actionSearch} placeholder={m.Search()} />
+			</WithLabel>
 
-			<div class="flex flex-col gap-2">
-				{#each form.foundActions as action (action.id)}
-					<ItemCard title={action.name} onClick={() => form.selectAction(action)} />
-				{/each}
-			</div>
+			<WithEmptyState items={form.foundActions} emptyText={m.No_actions_available()}>
+				{#snippet item({ item })}
+					<ItemCard title={item.name} onClick={() => form.selectAction(item)} />
+				{/snippet}
+			</WithEmptyState>
 		</div>
 	{/if}
 </div>

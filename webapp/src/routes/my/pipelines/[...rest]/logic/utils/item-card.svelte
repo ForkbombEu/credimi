@@ -31,14 +31,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render content?.()}
 	</button>
 {:else}
-	<div class={['bg-gray-100', classes]}>
+	<div class={['bg-slate-100', classes]}>
 		{@render content?.()}
 	</div>
 {/if}
 
 {#snippet content()}
 	{#if avatar}
-		<Avatar src={avatar} fallback={title} class="shrink-0 rounded-md" />
+		<Avatar src={avatar} fallback={title} class="shrink-0 rounded-md border" />
 	{/if}
 
 	<div class="grow">

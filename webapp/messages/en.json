@@ -776,5 +776,7 @@
 	"No_wallet_versions_found": "No wallet versions found",
 	"Add_step": "Add step",
 	"Steps_sequence": "Steps sequence",
-	"YAML_preview": "YAML preview"
+	"YAML_preview": "YAML preview",
+	"Wallet_action": "Wallet action",
+	"Credential_deeplink": "Credential deeplink"
 }

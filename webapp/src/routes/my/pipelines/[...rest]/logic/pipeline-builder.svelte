@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { fly } from 'svelte/transition';
 
 	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
 	import ScrollArea from '@/components/ui/scroll-area/scroll-area.svelte';
 	import { m } from '@/i18n';
 
@@ -20,6 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		StepType
 	} from './pipeline-builder.svelte.js';
 	import Column from './utils/column.svelte';
+	import { getStepDisplayData } from './utils/display-data';
 
 	//
 
@@ -29,26 +31,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="grid grow grid-cols-3 gap-4">
 	<Column title="Add step">
 		{#if builder.state instanceof IdleState}
-			<div class="grid grid-cols-2 gap-2" in:fly>
-				{#each Object.values(StepType) as step (step)}
-					<Button
-						variant="outline"
-						class="shrink-0 grow basis-1"
-						onclick={() => builder.initAddStep(step)}
-					>
-						{step}
-					</Button>
-				{/each}
-			</div>
+			{@render stepButtons()}
 		{:else if builder.state instanceof AddStepState}
 			<div in:fly>
-				<Button variant="link" class="p-0" onclick={() => builder.discardAddStep()}>
-					<ArrowLeftIcon />
-					{m.Back()}
-				</Button>
 				<AddStepForm state={builder.state} />
 			</div>
 		{/if}
+
+		{#snippet titleRight()}
+			{#if builder.state instanceof AddStepState}
+				<Button variant="link" class="h-6 !p-0" onclick={() => builder.discardAddStep()}>
+					<ArrowLeftIcon />
+					{m.Back()}
+				</Button>
+			{/if}
+		{/snippet}
 	</Column>
 
 	<Column title={m.Steps_sequence()}>
@@ -63,3 +60,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Column title={m.YAML_preview()} class="card">YAML PREview</Column>
 </div>
+
+<!--  -->
+
+{#snippet stepButtons()}
+	<div class="flex flex-col gap-2" in:fly>
+		{#each Object.values(StepType) as step (step)}
+			{@const { icon, label, textClass, outlineClass } = getStepDisplayData(step)}
+			<Button
+				variant="outline"
+				class={['!justify-start', `hover:${textClass}`, textClass, outlineClass]}
+				onclick={() => builder.initAddStep(step)}
+			>
+				<Icon src={icon} />
+				{label}
+			</Button>
+		{/each}
+	</div>
+{/snippet}
