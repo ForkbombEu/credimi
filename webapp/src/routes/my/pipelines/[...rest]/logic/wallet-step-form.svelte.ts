@@ -9,7 +9,8 @@ import {
 	type WalletActionsResponse,
 	type WalletVersionsResponse
 } from '@/pocketbase/types';
-import { AddStepState } from './pipeline-builder.svelte.js';
+import { StepFormState } from './types.js';
+import { searchMarketplace } from './utils/search-marketplace.js';
 import { Search } from './utils/search.svelte.js';
 
 //
@@ -25,7 +26,7 @@ type Props = {
 	initialData?: Partial<WalletStepData>;
 };
 
-export class WalletStepForm extends AddStepState {
+export class WalletStepForm extends StepFormState {
 	constructor(private props: Props) {
 		super();
 		if (props.initialData) this.data = props.initialData;
@@ -67,11 +68,7 @@ export class WalletStepForm extends AddStepState {
 	});
 
 	async searchWallet(text: string) {
-		const result = await pb.collection('marketplace_items').getList(1, 10, {
-			filter: `path ~ "${text}" && type = "${Collections.Wallets}"`,
-			requestKey: null
-		});
-		this.foundWallets = result.items as MarketplaceItem[];
+		this.foundWallets = await searchMarketplace(text, Collections.Wallets);
 	}
 
 	async selectWallet(wallet: MarketplaceItem) {

@@ -13,13 +13,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ScrollArea from '@/components/ui/scroll-area/scroll-area.svelte';
 	import { m } from '@/i18n';
 
+	import type { PipelineBuilder } from './pipeline-builder.svelte.js';
+
 	import AddStepForm from './add-step-form.svelte';
-	import {
-		AddStepState,
-		IdleState,
-		type PipelineBuilder,
-		StepType
-	} from './pipeline-builder.svelte.js';
+	import { IdleState, StepFormState, StepType } from './types';
 	import Column from './utils/column.svelte';
 	import { getStepDisplayData } from './utils/display-data';
 
@@ -32,14 +29,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Column title="Add step">
 		{#if builder.state instanceof IdleState}
 			{@render stepButtons()}
-		{:else if builder.state instanceof AddStepState}
+		{:else if builder.state instanceof StepFormState}
 			<div in:fly>
 				<AddStepForm state={builder.state} />
 			</div>
 		{/if}
 
 		{#snippet titleRight()}
-			{#if builder.state instanceof AddStepState}
+			{#if builder.state instanceof StepFormState}
 				<Button variant="link" class="h-6 !p-0" onclick={() => builder.discardAddStep()}>
 					<ArrowLeftIcon />
 					{m.Back()}

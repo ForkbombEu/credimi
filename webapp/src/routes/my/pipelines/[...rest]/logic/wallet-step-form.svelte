@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import type { WalletStepForm } from './wallet.svelte.js';
+	import type { WalletStepForm } from './wallet-step-form.svelte.js';
 
 	import ItemCard from './utils/item-card.svelte';
 	import SearchInput from './utils/search-input.svelte';
