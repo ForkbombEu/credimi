@@ -34,4 +34,8 @@ export class BaseStepForm<T> extends StepFormState {
 	async selectItem(item: MarketplaceItem) {
 		this.props.onSelect(item);
 	}
+
+	get collection() {
+		return this.props.collection;
+	}
 }

@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ClassValue } from 'svelte/elements';
 
 	import T from '@/components/ui-custom/t.svelte';
+	import { ScrollArea } from '@/components/ui/scroll-area';
 
 	type Props = {
 		items: T[];
@@ -21,11 +22,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if items.length > 0}
-	<div class={['space-y-2', containerClass]}>
+	<ScrollArea class={['[&_div_div]:space-y-2', containerClass]}>
 		{#each items as item (item)}
 			{@render itemSnippet?.({ item })}
 		{/each}
-	</div>
+	</ScrollArea>
 {:else}
 	<div class="flex flex-col items-center justify-center rounded-md bg-gray-100 p-4">
 		<T class="text-muted-foreground text-sm">{emptyText}</T>

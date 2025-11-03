@@ -15,10 +15,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { PipelineBuilder } from './pipeline-builder.svelte.js';
 
-	import AddStepForm from './add-step-form.svelte';
+	import BaseStepFormComponent from './base-step-form.svelte';
+	import { BaseStepForm } from './base-step-form.svelte.js';
 	import { IdleState, StepFormState, StepType } from './types';
 	import Column from './utils/column.svelte';
 	import { getStepDisplayData } from './utils/display-data';
+	import WalletStepFormComponent from './wallet-step-form.svelte';
+	import { WalletStepForm } from './wallet-step-form.svelte.js';
 
 	//
 
@@ -30,9 +33,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if builder.state instanceof IdleState}
 			{@render stepButtons()}
 		{:else if builder.state instanceof StepFormState}
-			<div in:fly>
-				<AddStepForm state={builder.state} />
-			</div>
+			{#if builder.state instanceof WalletStepForm}
+				<WalletStepFormComponent form={builder.state} class="grow" />
+			{:else if builder.state instanceof BaseStepForm}
+				<BaseStepFormComponent form={builder.state} class="grow" />
+			{/if}
 		{/if}
 
 		{#snippet titleRight()}

@@ -3,10 +3,10 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 export enum StepType {
-	Wallet = 'wallet',
-	Credential = 'credential',
-	CustomCheck = 'custom_check',
-	UseCaseVerification = 'use_case_verification'
+	Wallet = 'wallets',
+	Credential = 'credentials',
+	CustomCheck = 'custom_checks',
+	UseCaseVerification = 'use_cases_verifications'
 }
 
 export type BaseStep<T extends StepType, Data extends Record<string, unknown>> = Data & { type: T };

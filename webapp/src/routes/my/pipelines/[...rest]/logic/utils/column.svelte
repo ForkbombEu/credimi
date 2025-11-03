@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render titleRight?.()}
 	</div>
 
-	<div class="grow p-4">
+	<div class="flex grow flex-col p-4">
 		{@render children?.()}
 	</div>
 </div>

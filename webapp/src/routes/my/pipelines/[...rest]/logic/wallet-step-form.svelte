@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ClassValue } from 'svelte/elements';
+
 	import { getMarketplaceItemData } from '$lib/marketplace/utils.js';
 	import { XIcon } from 'lucide-svelte';
 
@@ -22,12 +24,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		form: WalletStepForm;
+		class?: ClassValue;
 	};
 
-	let { form }: Props = $props();
+	let { form, class: className }: Props = $props();
 </script>
 
-<div class="space-y-4">
+<div class={['flex flex-col gap-4', className]}>
 	{#if form.data.wallet}
 		{@const data = getMarketplaceItemData(form.data.wallet)}
 		<div class="flex flex-col gap-2 border-b pb-4">
