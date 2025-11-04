@@ -190,7 +190,6 @@ export class PipelineBuilder {
 
 	shiftStep(item: BuilderStep, change: number) {
 		this.run((data) => {
-			// Find by ID since object references may have changed after create()
 			const index = data.steps.findIndex((s) => s.id === item.id);
 			if (index === -1) return;
 			const newIndex = index + change;
