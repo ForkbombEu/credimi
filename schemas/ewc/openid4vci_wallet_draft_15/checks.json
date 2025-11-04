@@ -1,0 +1,9 @@
+{
+    "checks": [
+        "RFC001+authorization_code_flow+kid_jwk+sd_jwt",
+        "RFC001+authorization_code_flow+x509+sd_jwt",
+        "RFC001+pre-authorization_code_flow_no_pin+x509+mdl",
+        "RFC001+pre-authorization_code_flow_no_pin+x509+sd_jwt",
+        "RFC005+authorization_code_flow+jwk+sd_jwt"
+    ]
+}
