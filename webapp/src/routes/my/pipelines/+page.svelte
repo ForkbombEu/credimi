@@ -6,10 +6,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { Plus } from 'lucide-svelte';
+	import { Pencil, Plus } from 'lucide-svelte';
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
@@ -28,7 +29,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<DashboardCard
 					record={pipeline}
 					avatar={() => pb.files.getURL(organization, organization.logo)}
-				/>
+				>
+					{#snippet editAction()}
+						<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} />
+					{/snippet}
+				</DashboardCard>
 			{/each}
 		</div>
 	{/snippet}

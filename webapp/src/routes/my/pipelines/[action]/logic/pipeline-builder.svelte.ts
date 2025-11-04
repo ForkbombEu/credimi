@@ -3,16 +3,11 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pb } from '@/pocketbase/index.js';
-import type {
-	CollectionResponses,
-	CredentialsResponse,
-	CustomChecksResponse,
-	UseCasesVerificationsResponse
-} from '@/pocketbase/types/index.generated.js';
+import type { CollectionResponses } from '@/pocketbase/types/index.generated.js';
 import { create } from 'mutative';
 import { nanoid } from 'nanoid';
 import { BaseStepForm } from './base-step-form.svelte.js';
-import { IdleState, StepFormState, StepType, type BaseStep } from './types.js';
+import { IdleState, StepFormState, StepType } from './types.js';
 import { WalletStepForm, type WalletStepData } from './wallet-step-form.svelte.js';
 
 //
@@ -148,7 +143,8 @@ export class PipelineBuilder {
 						organization: data.wallet.organization_name,
 						data: data,
 						type: StepType.Wallet,
-						yaml: data.action.code
+						yaml: data.action.code,
+						recordId: data.action.id
 					});
 				}
 			});
@@ -173,7 +169,8 @@ export class PipelineBuilder {
 						organization: item.organization_name,
 						data: data as never,
 						type: collection,
-						yaml: yaml
+						yaml: yaml,
+						recordId: item.id
 					});
 				}
 			});
@@ -217,15 +214,5 @@ export class PipelineBuilder {
 // Types
 
 type BuilderState = IdleState | StepFormState;
-
-export type BuilderStep = WalletStep | CredentialStep | CustomCheckStep | UseCaseVerificationStep;
-
-type WalletStep = BaseStep<StepType.Wallet, WalletStepData>;
-type CredentialStep = BaseStep<StepType.Credential, CredentialsResponse>;
-type CustomCheckStep = BaseStep<StepType.CustomCheck, CustomChecksResponse>;
-type UseCaseVerificationStep = BaseStep<
-	StepType.UseCaseVerification,
-	UseCasesVerificationsResponse
->;
 
 type CurrentWallet = Omit<WalletStepData, 'action'>;

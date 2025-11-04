@@ -70,7 +70,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	$effect(() => {
 		form.form.update((data) => {
-			data.steps = JSON.stringify({ steps: builder.steps });
+			data.steps = JSON.stringify({
+				steps: builder.steps.map((s) => ({
+					type: s.type,
+					id: s.recordId
+				}))
+			});
 			return data;
 		});
 	});
