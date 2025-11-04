@@ -30,12 +30,6 @@ export class WalletStepForm extends StepFormState {
 	constructor(private props: Props) {
 		super();
 		if (props.initialData) this.data = props.initialData;
-
-		$effect(() => {
-			if (this.state === 'ready') {
-				this.props.onSelect(this.data as WalletStepData);
-			}
-		});
 	}
 
 	data = $state<Partial<WalletStepData>>({});
@@ -99,7 +93,7 @@ export class WalletStepForm extends StepFormState {
 	}
 
 	selectAction(action: WalletActionsResponse) {
-		this.data.action = action;
+		this.props.onSelect({ ...this.data, action } as WalletStepData);
 	}
 
 	//
@@ -113,6 +107,5 @@ export class WalletStepForm extends StepFormState {
 
 	removeVersion() {
 		this.data.version = undefined;
-		this.foundActions = [];
 	}
 }

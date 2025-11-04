@@ -17,34 +17,73 @@ import { WalletStepForm, type WalletStepData } from './wallet-step-form.svelte.j
 
 //
 
+type PipelineBuilderData = {
+	steps: BuilderStep[];
+	lastWallet: CurrentWallet | undefined;
+	state: BuilderState;
+};
+
+type History = {
+	past: PipelineBuilderData[];
+	future: PipelineBuilderData[];
+};
+
 export class PipelineBuilder {
-	private currentWallet = $state<CurrentWallet>();
-	public readonly yaml = $derived.by<string>(() => {
-		return this.steps.map((step) => step.yaml).join('\n---\n');
+	private data = $state<PipelineBuilderData>({
+		steps: [],
+		lastWallet: undefined,
+		state: new IdleState()
 	});
 
-	private _steps: BuilderStep[] = $state([]);
-	get steps() {
-		return this._steps;
-	}
+	readonly yaml = $derived.by(() => {
+		return this.data.steps.map((s) => s.yaml).join('\n---\n');
+	});
 
-	private stepsHistory = {
-		past: [] as Array<BuilderStep[]>,
-		future: [] as Array<BuilderStep[]>
+	private history: History = {
+		past: [],
+		future: []
 	};
 
-	private _state: BuilderState = $state(new IdleState());
+	private run(action: (data: PipelineBuilderData) => void) {
+		this.history.past.push(this.data);
+		const nextData = create(this.data, action);
+		this.data = nextData;
+		this.history.future = [];
+	}
+
+	undo() {
+		const previousData = this.history.past.pop();
+		if (!previousData) return;
+		this.history.future.push(this.data);
+		this.data = previousData;
+	}
+
+	redo() {
+		const nextData = this.history.future.pop();
+		if (!nextData) return;
+		this.history.past.push(this.data);
+		this.data = nextData;
+	}
+
+	//
+
 	get state() {
-		return this._state;
+		return this.data.state;
+	}
+
+	get steps() {
+		return this.data.steps;
 	}
 
 	constructor(steps: BuilderStep[] = []) {
-		this._steps = steps;
+		this.data.steps = steps;
 	}
 
 	discardAddStep() {
-		if (this._state instanceof StepFormState) {
-			this._state = new IdleState();
+		if (this.state instanceof StepFormState) {
+			this.run((data) => {
+				data.state = new IdleState();
+			});
 		}
 	}
 
@@ -84,31 +123,34 @@ export class PipelineBuilder {
 	}
 
 	addStep(step: Omit<BuilderStep, 'id'>) {
-		this.run((steps) => {
-			steps.push({ ...step, id: nanoid(5) } as BuilderStep);
+		this.run((data) => {
+			data.steps.push({ ...step, id: nanoid(5) } as BuilderStep);
+			data.state = new IdleState();
+			this.effectCleanup?.();
 		});
-		this.effectCleanup?.();
-		this.effectCleanup = undefined;
-		this._state = new IdleState();
 	}
 
+	private currentWallet: CurrentWallet | undefined = undefined;
+
 	private initWalletStepForm() {
-		this._state = new WalletStepForm({
-			initialData: this.currentWallet,
-			onSelect: (data: WalletStepData) => {
-				this.currentWallet = {
-					wallet: data.wallet,
-					version: data.version
-				};
-				this.addStep({
-					name: data.action.name,
-					path: data.wallet.path + '/' + data.action.canonified_name,
-					organization: data.wallet.organization_name,
-					data: data,
-					type: StepType.Wallet,
-					yaml: data.action.code
-				});
-			}
+		this.run((data) => {
+			data.state = new WalletStepForm({
+				initialData: this.currentWallet,
+				onSelect: (data: WalletStepData) => {
+					this.currentWallet = {
+						wallet: data.wallet,
+						version: data.version
+					};
+					this.addStep({
+						name: data.action.name,
+						path: data.wallet.path + '/' + data.action.canonified_name,
+						organization: data.wallet.organization_name,
+						data: data,
+						type: StepType.Wallet,
+						yaml: data.action.code
+					});
+				}
+			});
 		});
 	}
 
@@ -119,64 +161,44 @@ export class PipelineBuilder {
 			id: string
 		) => Promise<{ data: CollectionResponses[T]; yaml: string }>
 	) {
-		this._state = new BaseStepForm({
-			collection,
-			onSelect: async (item) => {
-				const { data, yaml } = await getter(collection, item.id);
-				this.addStep({
-					name: item.name,
-					path: item.path,
-					organization: item.organization_name,
-					data: data as never,
-					type: collection,
-					yaml: yaml
-				});
-			}
+		this.run((data) => {
+			data.state = new BaseStepForm({
+				collection,
+				onSelect: async (item) => {
+					const { data, yaml } = await getter(collection, item.id);
+					this.addStep({
+						name: item.name,
+						path: item.path,
+						organization: item.organization_name,
+						data: data as never,
+						type: collection,
+						yaml: yaml
+					});
+				}
+			});
 		});
 	}
 
 	//
 
 	deleteStep(step: BuilderStep) {
-		this.run((steps) => {
-			steps = steps.filter((s) => s.id !== step.id);
+		this.run((data) => {
+			data.steps = data.steps.filter((s) => s.id !== step.id);
 		});
 	}
 
 	shiftStep(item: BuilderStep, change: number) {
-		this.run((steps) => {
-			const index = this._steps.indexOf(item);
+		this.run((data) => {
+			const index = data.steps.indexOf(item);
 			if (!this.canShiftStep(item, change)) return;
-			steps.splice(index, 1);
-			steps.splice(index + change, 0, item);
+			data.steps.splice(index, 1);
+			data.steps.splice(index + change, 0, item);
 		});
 	}
 
 	canShiftStep(item: BuilderStep, change: number) {
-		const index = this._steps.indexOf(item);
-		return index !== -1 && (change < 0 ? index > 0 : index < this._steps.length - 1);
-	}
-
-	//
-
-	run(action: (steps: BuilderStep[]) => void) {
-		const newState = create(this._steps, (state) => {
-			action(state);
-		});
-		this.stepsHistory.past.push(this.steps);
-		this.stepsHistory.future = [];
-		this._steps = newState;
-	}
-
-	undo() {
-		this._steps = this.stepsHistory.past.pop() || [];
-		this.stepsHistory.future.push(this._steps);
-		console.log(this.stepsHistory);
-	}
-
-	redo() {
-		this._steps = this.stepsHistory.future.pop() || [];
-		this.stepsHistory.past.push(this._steps);
+		const index = this.steps.indexOf(item);
+		return index !== -1 && (change < 0 ? index > 0 : index < this.steps.length - 1);
 	}
 }
 

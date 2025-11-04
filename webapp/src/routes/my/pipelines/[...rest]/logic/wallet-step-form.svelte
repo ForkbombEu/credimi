@@ -63,6 +63,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</ItemCard>
 			</WithLabel>
 		{/if}
+
+		{#if form.data.action}
+			<WithLabel label={m.Wallet_action()}>
+				<ItemCard title={form.data.action.name}>
+					{#snippet right()}
+						<IconButton
+							icon={XIcon}
+							variant="ghost"
+							size="xs"
+							class="hover:bg-gray-200"
+							onclick={() => form.removeAction()}
+						/>
+					{/snippet}
+				</ItemCard>
+			</WithLabel>
+		{/if}
 	</div>
 {/if}
 
