@@ -190,16 +190,27 @@ export class PipelineBuilder {
 
 	shiftStep(item: BuilderStep, change: number) {
 		this.run((data) => {
-			const index = data.steps.indexOf(item);
-			if (!this.canShiftStep(item, change)) return;
-			data.steps.splice(index, 1);
-			data.steps.splice(index + change, 0, item);
+			// Find by ID since object references may have changed after create()
+			const index = data.steps.findIndex((s) => s.id === item.id);
+			if (index === -1) return;
+			const newIndex = index + change;
+			if (newIndex < 0 || newIndex >= data.steps.length || newIndex === index) return;
+
+			// Remove the item from its current position
+			const [movedItem] = data.steps.splice(index, 1);
+			// After removal, elements after 'index' shift down by 1
+			// When moving forward (newIndex > index), insert at newIndex (which is now valid)
+			// When moving backward (newIndex < index), insert at newIndex (no shift happened before it)
+			data.steps.splice(newIndex, 0, movedItem);
 		});
 	}
 
 	canShiftStep(item: BuilderStep, change: number) {
-		const index = this.steps.indexOf(item);
-		return index !== -1 && (change < 0 ? index > 0 : index < this.steps.length - 1);
+		const index = this.steps.findIndex((s) => s.id === item.id);
+		if (index === -1) return { canShift: false, newIndex: index };
+		const finalIndex = index + change;
+		const canShift = finalIndex >= 0 && finalIndex < this.steps.length && finalIndex !== index;
+		return { canShift, newIndex: finalIndex };
 	}
 
 	isReady() {

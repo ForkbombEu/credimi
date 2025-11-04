@@ -9,7 +9,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { jsonStringSchema } from '$lib/utils';
 	import { RedoIcon, SaveIcon, UndoIcon } from 'lucide-svelte';
 	import { nanoid } from 'nanoid';
-	import { fromStore } from 'svelte/store';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
 
@@ -45,12 +44,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			})
 		),
 		onSubmit: async ({ form }) => {
-			console.log(form.data);
 			try {
 				await pb
 					.collection('pipelines')
 					.create({ ...form.data, canonified_name: nanoid(5) });
-				goto('/my/pipelines');
+				await goto('/my/pipelines');
 			} catch (error) {
 				console.error(error);
 			}
@@ -76,9 +74,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return data;
 		});
 	});
-
-	const x = fromStore(form.allErrors);
-	$inspect(x);
 </script>
 
 <div class="bg-secondary flex h-screen flex-col gap-4 overflow-hidden p-6">

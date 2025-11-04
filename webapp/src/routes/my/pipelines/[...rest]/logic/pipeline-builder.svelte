@@ -33,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { builder }: { builder: PipelineBuilder } = $props();
 </script>
 
-<div class="grid grow grid-cols-3 gap-4 overflow-hidden lg:grid-cols-[max(400px)_max(400px)_1fr]">
+<div class="grid grow grid-cols-3 gap-4 overflow-hidden xl:grid-cols-[max(400px)_max(400px)_1fr]">
 	<Column title="Add step">
 		{#if builder.state instanceof IdleState}
 			{@render stepButtons()}
