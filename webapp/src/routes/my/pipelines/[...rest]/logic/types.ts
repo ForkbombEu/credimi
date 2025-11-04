@@ -9,7 +9,14 @@ export enum StepType {
 	UseCaseVerification = 'use_cases_verifications'
 }
 
-export type BaseStep<T extends StepType, Data extends Record<string, unknown>> = Data & { type: T };
+export type BaseStep<T extends StepType, Data extends Record<string, unknown>> = {
+	type: T;
+	id: string;
+	name: string;
+	path: string;
+	organization: string;
+	data: Data;
+};
 
 export abstract class StepFormState {}
 

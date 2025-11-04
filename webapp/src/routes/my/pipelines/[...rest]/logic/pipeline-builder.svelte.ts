@@ -8,6 +8,7 @@ import type {
 	CustomChecksResponse,
 	UseCasesVerificationsResponse
 } from '@/pocketbase/types/index.generated.js';
+import { nanoid } from 'nanoid';
 import { BaseStepForm } from './base-step-form.svelte.js';
 import { IdleState, StepFormState, StepType, type BaseStep } from './types.js';
 import { WalletStepForm, type WalletStepData } from './wallet-step-form.svelte.js';
@@ -43,56 +44,53 @@ export class PipelineBuilder {
 	initAddStep(type: StepType) {
 		this.effectCleanup = $effect.root(() => {
 			if (type === StepType.Wallet) {
-				this._state = new WalletStepForm({
-					initialData: this.currentWallet,
-					onSelect: (data: WalletStepData) => {
-						this.currentWallet = {
-							wallet: data.wallet,
-							version: data.version
-						};
-						this.finalizeAddStep({ ...data, type: StepType.Wallet });
-					}
-				});
-			} else if (type === StepType.Credential) {
-				this._state = new BaseStepForm({
-					collection: 'credentials',
-					onSelect: async (item) => {
-						const credential = await pb.collection('credentials').getOne(item.id);
-						this.finalizeAddStep({ credential, type: StepType.Credential });
-					}
-				});
-			} else if (type === StepType.CustomCheck) {
-				this._state = new BaseStepForm({
-					collection: 'custom_checks',
-					onSelect: async (item) => {
-						const customCheck = await pb.collection('custom_checks').getOne(item.id);
-						this.finalizeAddStep({ customCheck, type: StepType.CustomCheck });
-					}
-				});
-			} else if (type === StepType.UseCaseVerification) {
-				this._state = new BaseStepForm({
-					collection: 'use_cases_verifications',
-					onSelect: async (item) => {
-						const useCaseVerification = await pb
-							.collection('use_cases_verifications')
-							.getOne(item.id);
-						this.finalizeAddStep({
-							useCaseVerification,
-							type: StepType.UseCaseVerification
-						});
-					}
-				});
+				this.initWalletStepForm();
 			} else {
-				throw new Error(`Unknown step type: ${type}`);
+				this.initBaseStepForm(type);
 			}
 		});
 	}
 
-	finalizeAddStep(step: BuilderStep) {
-		this._steps.push(step);
+	addStep(step: Omit<BuilderStep, 'id'>) {
+		this._steps.push({ ...step, id: nanoid(5) } as BuilderStep);
 		this.effectCleanup?.();
 		this.effectCleanup = undefined;
 		this._state = new IdleState();
+	}
+
+	private initWalletStepForm() {
+		this._state = new WalletStepForm({
+			initialData: this.currentWallet,
+			onSelect: (data: WalletStepData) => {
+				this.currentWallet = {
+					wallet: data.wallet,
+					version: data.version
+				};
+				this.addStep({
+					name: data.action.name,
+					path: data.wallet.path + '/' + data.action.canonified_name,
+					organization: data.wallet.organization_name,
+					data: data,
+					type: StepType.Wallet
+				});
+			}
+		});
+	}
+
+	private initBaseStepForm(collection: StepType) {
+		this._state = new BaseStepForm({
+			collection,
+			onSelect: async (item) => {
+				const data = await pb.collection(collection).getOne(item.id);
+				this.addStep({
+					name: item.name,
+					path: item.path,
+					organization: item.organization_name,
+					data: data as never,
+					type: collection
+				});
+			}
+		});
 	}
 }
 
@@ -100,14 +98,14 @@ export class PipelineBuilder {
 
 type BuilderState = IdleState | StepFormState;
 
-type BuilderStep = WalletStep | CredentialStep | CustomCheckStep | UseCaseVerificationStep;
+export type BuilderStep = WalletStep | CredentialStep | CustomCheckStep | UseCaseVerificationStep;
 
 type WalletStep = BaseStep<StepType.Wallet, WalletStepData>;
-type CredentialStep = BaseStep<StepType.Credential, { credential: CredentialsResponse }>;
-type CustomCheckStep = BaseStep<StepType.CustomCheck, { customCheck: CustomChecksResponse }>;
+type CredentialStep = BaseStep<StepType.Credential, CredentialsResponse>;
+type CustomCheckStep = BaseStep<StepType.CustomCheck, CustomChecksResponse>;
 type UseCaseVerificationStep = BaseStep<
 	StepType.UseCaseVerification,
-	{ useCaseVerification: UseCasesVerificationsResponse }
+	UseCasesVerificationsResponse
 >;
 
 type CurrentWallet = Omit<WalletStepData, 'action'>;

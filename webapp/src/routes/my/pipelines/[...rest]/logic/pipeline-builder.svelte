@@ -17,6 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import BaseStepFormComponent from './base-step-form.svelte';
 	import { BaseStepForm } from './base-step-form.svelte.js';
+	import StepCard from './step-card.svelte';
 	import { IdleState, StepFormState, StepType } from './types';
 	import Column from './utils/column.svelte';
 	import { getStepDisplayData } from './utils/display-data';
@@ -53,11 +54,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Column>
 
 	<Column title={m.Steps_sequence()}>
-		<ScrollArea class="grow">
+		<ScrollArea class="grow [&>div>div]:space-y-2 [&>div>div]:p-4">
 			{#each builder.steps as step (step)}
-				<div>
-					<h1>{step.type}</h1>
-				</div>
+				<StepCard {step} />
 			{/each}
 		</ScrollArea>
 	</Column>
@@ -70,13 +69,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet stepButtons()}
 	<div class="flex flex-col gap-2 p-4" in:fly>
 		{#each Object.values(StepType) as step (step)}
-			{@const { icon, label, textClass, outlineClass } = getStepDisplayData(step)}
+			{@const { icon, label, textClass } = getStepDisplayData(step)}
 			<Button
 				variant="outline"
-				class={['!justify-start', `hover:${textClass}`, textClass, outlineClass]}
+				class={['!justify-start']}
 				onclick={() => builder.initAddStep(step)}
 			>
-				<Icon src={icon} />
+				<Icon src={icon} class={textClass} />
 				{label}
 			</Button>
 		{/each}

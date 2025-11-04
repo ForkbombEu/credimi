@@ -9,18 +9,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { CheckIcon, CopyIcon } from 'lucide-svelte';
 
-	import Button, { type ButtonProps } from '@/components/ui/button/button.svelte';
+	import Button, {
+		type ButtonProps,
+		type ButtonVariant
+	} from '@/components/ui/button/button.svelte';
+
+	import Icon from './icon.svelte';
 
 	//
 
-	type Props = ButtonProps & {
+	type Props = Omit<ButtonProps, 'size'> & {
 		delay?: number;
 		textToCopy: string;
 		children?: Snippet;
 		square?: boolean;
+		variant?: ButtonVariant;
+		size?: ButtonProps['size'] | 'mini';
 	};
 
-	let { textToCopy, delay = 1000, children, square = false, ...rest }: Props = $props();
+	let {
+		textToCopy,
+		delay = 1000,
+		children,
+		square = false,
+		variant = 'outline',
+		size = 'default',
+		class: className,
+		...rest
+	}: Props = $props();
 
 	let isCopied = $state(false);
 
@@ -34,21 +50,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Button
-	variant="outline"
+	{variant}
 	class={[
-		'h-8',
+		className,
 		{
-			'w-8 p-0': square
+			'h-8': size === 'default',
+			'h-5': size === 'mini',
+			'p-0': square,
+			'w-8': square && size === 'default',
+			'w-5': square && size === 'mini'
 		}
 	]}
 	{...rest}
 	onclick={copyText}
 >
-	{#if !isCopied}
-		<CopyIcon />
-	{:else}
-		<CheckIcon class="text-green-600" />
-	{/if}
-
+	<Icon
+		src={isCopied ? CheckIcon : CopyIcon}
+		class={{
+			'text-green-600': isCopied,
+			'!size-3': size === 'mini',
+			'!size-6': size === 'default'
+		}}
+	/>
 	{@render children?.()}
 </Button>

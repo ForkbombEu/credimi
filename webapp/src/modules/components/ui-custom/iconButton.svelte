@@ -53,6 +53,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const currentConfig = $derived(configs[size]);
 </script>
 
-<Button variant="outline" {...rest} size="icon" class="{currentConfig.sizeClass} {rest.class}">
+<Button variant="outline" {...rest} size="icon" class={[currentConfig.sizeClass, rest.class]}>
 	<Icon src={icon ?? X} size={currentConfig.iconSize} />
 </Button>
