@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+	import { String } from 'effect';
 	import { ArrowLeftIcon } from 'lucide-svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
@@ -22,6 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { IdleState, StepFormState, StepType } from './types';
 	import Column from './utils/column.svelte';
 	import { getStepDisplayData } from './utils/display-data';
+	import EmptyState from './utils/empty-state.svelte';
 	import WalletStepFormComponent from './wallet-step-form.svelte';
 	import { WalletStepForm } from './wallet-step-form.svelte.js';
 
@@ -30,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { builder }: { builder: PipelineBuilder } = $props();
 </script>
 
-<div class="grid grow grid-cols-3 gap-4 overflow-hidden">
+<div class="grid grow grid-cols-3 gap-4 overflow-hidden lg:grid-cols-[max(400px)_max(400px)_1fr]">
 	<Column title="Add step">
 		{#if builder.state instanceof IdleState}
 			{@render stepButtons()}
@@ -55,16 +58,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Column>
 
 	<Column title={m.Steps_sequence()}>
-		<ScrollArea class="grow [&>div>div]:space-y-2 [&>div>div]:p-4">
-			{#each builder.steps as step (step.id)}
-				<div animate:flip={{ duration: 300 }}>
-					<StepCard {step} {builder} />
-				</div>
-			{/each}
-		</ScrollArea>
+		{#if builder.steps.length > 0}
+			<ScrollArea class="grow [&>div>div]:space-y-2 [&>div>div]:p-4">
+				{#each builder.steps as step (step.id)}
+					<div animate:flip={{ duration: 300 }}>
+						<StepCard {step} {builder} />
+					</div>
+				{/each}
+			</ScrollArea>
+		{:else}
+			<EmptyState text={m.Pipeline_steps_will_appear_here()} />
+		{/if}
 	</Column>
 
-	<Column title={m.YAML_preview()} class="card">YAML PREview</Column>
+	<Column title={m.YAML_preview()} class="card overflow-hidden">
+		{#if String.isEmpty(builder.yaml)}
+			<EmptyState text={m.YAML_preview_will_appear_here()} />
+		{:else}
+			<CodeDisplay
+				content={builder.yaml}
+				language="yaml"
+				containerClass="rounded-none grow"
+				contentClass="text-sm"
+			/>
+		{/if}
+	</Column>
 </div>
 
 <!--  -->

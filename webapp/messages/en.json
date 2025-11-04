@@ -779,5 +779,7 @@
 	"YAML_preview": "YAML preview",
 	"Wallet_action": "Wallet action",
 	"Credential_deeplink": "Credential deeplink",
-	"Redo": "Redo"
+	"Redo": "Redo",
+	"Pipeline_steps_will_appear_here": "Pipeline steps will appear here",
+	"YAML_preview_will_appear_here": "YAML preview will appear here"
 }

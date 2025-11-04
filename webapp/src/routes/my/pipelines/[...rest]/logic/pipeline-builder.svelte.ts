@@ -19,6 +19,9 @@ import { WalletStepForm, type WalletStepData } from './wallet-step-form.svelte.j
 
 export class PipelineBuilder {
 	private currentWallet = $state<CurrentWallet>();
+	public readonly yaml = $derived.by<string>(() => {
+		return this.steps.map((step) => step.yaml).join('\n---\n');
+	});
 
 	private _steps: BuilderStep[] = $state([]);
 	get steps() {
@@ -57,7 +60,7 @@ export class PipelineBuilder {
 					const data = await pb.collection(collection).getOne(id);
 					return {
 						data: data,
-						yaml: data.yaml
+						yaml: data.yaml ?? data.deeplink
 					};
 				});
 			} else if (type === StepType.CustomCheck) {

@@ -8,8 +8,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 	import type { ClassValue } from 'svelte/elements';
 
-	import T from '@/components/ui-custom/t.svelte';
 	import { ScrollArea } from '@/components/ui/scroll-area';
+
+	import EmptyState from './empty-state.svelte';
 
 	type Props = {
 		items: T[];
@@ -28,9 +29,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/each}
 	</ScrollArea>
 {:else}
-	<div class="p-4">
-		<div class="flex flex-col items-center justify-center rounded-md bg-slate-100 p-4">
-			<T class="text-muted-foreground text-sm">{emptyText}</T>
-		</div>
-	</div>
+	<EmptyState text={emptyText} />
 {/if}
