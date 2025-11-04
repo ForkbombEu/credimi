@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { ClassValue } from 'svelte/elements';
-
 	import { getMarketplaceItemData } from '$lib/marketplace/utils.js';
 	import { XIcon } from 'lucide-svelte';
 
@@ -24,88 +22,81 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		form: WalletStepForm;
-		class?: ClassValue;
 	};
 
-	let { form, class: className }: Props = $props();
+	let { form }: Props = $props();
 </script>
 
-<div class={['flex flex-col gap-4', className]}>
-	{#if form.data.wallet}
-		{@const data = getMarketplaceItemData(form.data.wallet)}
-		<div class="flex flex-col gap-2 border-b pb-4">
-			<WithLabel label={m.Wallet()}>
-				<ItemCard
-					avatar={data.logo}
-					title={form.data.wallet.name}
-					subtitle={form.data.wallet.organization_name}
-				>
+{#if form.data.wallet}
+	{@const data = getMarketplaceItemData(form.data.wallet)}
+	<div class="flex flex-col gap-4 border-b p-4">
+		<WithLabel label={m.Wallet()}>
+			<ItemCard
+				avatar={data.logo}
+				title={form.data.wallet.name}
+				subtitle={form.data.wallet.organization_name}
+			>
+				{#snippet right()}
+					<IconButton
+						icon={XIcon}
+						variant="ghost"
+						size="xs"
+						class="hover:bg-gray-200"
+						onclick={() => form.removeWallet()}
+					/>
+				{/snippet}
+			</ItemCard>
+		</WithLabel>
+
+		{#if form.data.version}
+			<WithLabel label={m.Version()}>
+				<ItemCard title={form.data.version.tag}>
 					{#snippet right()}
 						<IconButton
 							icon={XIcon}
 							variant="ghost"
 							size="xs"
 							class="hover:bg-gray-200"
-							onclick={() => form.removeWallet()}
+							onclick={() => form.removeVersion()}
 						/>
 					{/snippet}
 				</ItemCard>
 			</WithLabel>
+		{/if}
+	</div>
+{/if}
 
-			{#if form.data.version}
-				<WithLabel label={m.Version()}>
-					<ItemCard title={form.data.version.tag}>
-						{#snippet right()}
-							<IconButton
-								icon={XIcon}
-								variant="ghost"
-								size="xs"
-								class="hover:bg-gray-200"
-								onclick={() => form.removeVersion()}
-							/>
-						{/snippet}
-					</ItemCard>
-				</WithLabel>
-			{/if}
-		</div>
-	{/if}
+{#if form.state === 'select-wallet'}
+	<WithLabel label={m.Wallet()} class="p-4">
+		<SearchInput search={form.walletSearch} />
+	</WithLabel>
 
-	{#if form.state === 'select-wallet'}
-		<div class="space-y-4">
-			<WithLabel label={m.Wallet()}>
-				<SearchInput search={form.walletSearch} />
-			</WithLabel>
+	<WithEmptyState items={form.foundWallets} emptyText={m.No_results_found()}>
+		{#snippet item({ item })}
+			<ItemCard
+				avatar={getMarketplaceItemData(item).logo}
+				title={item.name}
+				subtitle={item.organization_name}
+				onClick={() => form.selectWallet(item)}
+			/>
+		{/snippet}
+	</WithEmptyState>
+{:else if form.state === 'select-version'}
+	<WithLabel label={m.Version()} class="p-4 pb-0" />
 
-			<WithEmptyState items={form.foundWallets} emptyText={m.No_results_found()}>
-				{#snippet item({ item })}
-					<ItemCard
-						avatar={getMarketplaceItemData(item).logo}
-						title={item.name}
-						subtitle={item.organization_name}
-						onClick={() => form.selectWallet(item)}
-					/>
-				{/snippet}
-			</WithEmptyState>
-		</div>
-	{:else if form.state === 'select-version'}
-		<WithLabel label={m.Version()}>
-			<WithEmptyState items={form.foundVersions} emptyText={m.No_wallet_versions_found()}>
-				{#snippet item({ item })}
-					<ItemCard title={item.tag} onClick={() => form.selectVersion(item)} />
-				{/snippet}
-			</WithEmptyState>
-		</WithLabel>
-	{:else if form.state === 'select-action'}
-		<div class="space-y-4">
-			<WithLabel label={m.Wallet_action()}>
-				<SearchInput search={form.actionSearch} placeholder={m.Search()} />
-			</WithLabel>
+	<WithEmptyState items={form.foundVersions} emptyText={m.No_wallet_versions_found()}>
+		{#snippet item({ item })}
+			<ItemCard title={item.tag} onClick={() => form.selectVersion(item)} />
+		{/snippet}
+	</WithEmptyState>
+{:else if form.state === 'select-action'}
+	<WithLabel label={m.Wallet_action()} class="p-4">
+		<SearchInput search={form.actionSearch} placeholder={m.Search()} />
+	</WithLabel>
 
-			<WithEmptyState items={form.foundActions} emptyText={m.No_actions_available()}>
-				{#snippet item({ item })}
-					<ItemCard title={item.name} onClick={() => form.selectAction(item)} />
-				{/snippet}
-			</WithEmptyState>
-		</div>
-	{/if}
-</div>
+	<WithEmptyState items={form.foundActions} emptyText={m.No_actions_available()}>
+		{#snippet item({ item })}
+			<ItemCard title={item.name} onClick={() => form.selectAction(item)} />
+		{/snippet}
+	</WithEmptyState>
+{/if}

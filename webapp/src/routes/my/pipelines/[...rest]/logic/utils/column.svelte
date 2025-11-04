@@ -12,11 +12,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		children?: Snippet;
 		class?: string;
+		contentClass?: string;
 		title: string;
 		titleRight?: Snippet;
 	};
 
-	let { children, class: className = '', title, titleRight }: Props = $props();
+	let { children, class: className, contentClass, title, titleRight }: Props = $props();
 </script>
 
 <div class={['flex flex-col overflow-hidden rounded-lg border bg-white shadow-sm', className]}>
@@ -25,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render titleRight?.()}
 	</div>
 
-	<div class="flex grow flex-col p-4">
+	<div class={['flex grow flex-col overflow-hidden', contentClass]}>
 		{@render children?.()}
 	</div>
 </div>

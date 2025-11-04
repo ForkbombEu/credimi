@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if items.length > 0}
-	<ScrollArea class={['[&_div_div]:space-y-2', containerClass]}>
+	<ScrollArea class={['grow [&>div>div]:space-y-2 [&>div>div]:p-4', containerClass]}>
 		{#each items as item (item)}
 			{@render itemSnippet?.({ item })}
 		{/each}

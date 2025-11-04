@@ -11,13 +11,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		label: string;
-		children: Snippet;
+		children?: Snippet;
+		class?: string;
 	};
 
-	let { label, children }: Props = $props();
+	let { label, children, class: className }: Props = $props();
 </script>
 
-<div class="space-y-1">
+<div class={['space-y-1', className]}>
 	<T class="text-muted-foreground text-sm">{label}</T>
 	{@render children?.()}
 </div>
