@@ -383,7 +383,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 		}
 	case "draft-24":
 		templateStr, err = readTemplateFile(
-			os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePathDraft24,
+			os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePathDr24,
 		)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err

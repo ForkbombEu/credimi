@@ -32,12 +32,12 @@ type SignalData struct {
 
 // OpenIDNetTaskQueue is the task queue for OpenIDNet workflows.
 const (
-	OpenIDNetTaskQueue                 = "OpenIDNetTaskQueue"
-	OpenIDNetStepCITemplatePathv1_0    = "pkg/workflowengine/workflows/openidnet_config/stepci_wallet_template_v1_0.yaml"
-	OpenIDNetStepCITemplatePathDraft24 = "pkg/workflowengine/workflows/openidnet_config/stepci_wallet_template_draft_24.yaml"
-	OpenIDNetSubscription              = "openidnet-logs"
-	OpenIDNetStartCheckSignal          = "start-openidnet-check-log-update"
-	OpenIDNetStopCheckSignal           = "stop-openidnet-check-log-update"
+	OpenIDNetTaskQueue              = "OpenIDNetTaskQueue"
+	OpenIDNetStepCITemplatePathv1_0 = "pkg/workflowengine/workflows/openidnet_config/stepci_wallet_template_v1_0.yaml"
+	OpenIDNetStepCITemplatePathDr24 = "pkg/workflowengine/workflows/openidnet_config/stepci_wallet_template_draft_24.yaml"
+	OpenIDNetSubscription           = "openidnet-logs"
+	OpenIDNetStartCheckSignal       = "start-openidnet-check-log-update"
+	OpenIDNetStopCheckSignal        = "stop-openidnet-check-log-update"
 )
 
 // OpenIDNetWorkflow is a workflow that performs conformance checks on the OpenID certification site.
