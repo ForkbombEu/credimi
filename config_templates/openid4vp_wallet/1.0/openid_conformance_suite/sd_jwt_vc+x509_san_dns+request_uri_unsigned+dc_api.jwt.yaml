@@ -1,0 +1,135 @@
+variant:
+    credential_format: sd_jwt_vc
+    client_id_prefix: x509_san_dns
+    request_method: request_uri_unsigned
+    response_mode: dc_api.jwt
+form:
+    alias: >-
+        {{
+
+           credimi `
+              {
+                "credimi_id": "sd_jwt_vc_x509_san_dns_request_uri_unsigned_dc_api_jwt_oid_alias",
+                "field_default_value": "",
+                "field_description": "i18n_test_alias_description",
+                "field_id": "testalias",
+                "field_label": "i18n_testalias",
+                "field_options": [],
+                "field_type": "string"
+              }
+           `
+        uuidv4}}
+    description: >
+        {{
+
+            credimi `
+              {
+                "credimi_id": "oid_description",
+                "field_id": "description",
+                "field_label": "i18n_description",
+                "field_description": "i18n_description_description",
+                "field_default_value": "",
+                "field_type": "string",
+                "field_options": []
+              }
+        `}}
+
+    server:
+        authorization_endpoint: "openid4vp://"
+    client:
+        jwks: >
+            {{
+
+                credimi `
+                  {
+                    "credimi_id": "oid_client_jwks",
+                    "field_id": "jwks",
+                    "field_label": "i18n_jwks",
+                    "field_description": "i18n_jwks_description",
+                    "field_default_value": "{\"keys\":[{\"kty\":\"EC\",\"alg\":\"ES256\",\"crv\":\"P-256\",\"d\":\"GSbo9TpmGaLgxxO6RNx6QnvcfykQJS7vUVgTe8vy9W0\",\"x\":\"m5uKsE35t3sP7gjmirUewufx2Gt2n6J7fSW68apB2Lo\",\"y\":\"-V54TpMI8RbpB40hbAocIjnaHX5WP6NHjWkHfdCSAyU\"}]}",
+                    "field_type": "object",
+                    "field_options": []
+                  }
+            `}}
+
+        dcql: >
+            {{
+
+                credimi `
+                  {
+                    "credimi_id": "oid_client_dcql",
+                    "field_id": "dcql",
+                    "field_label": "i18n_dcql",
+                    "field_description": "i18n_decql_description",
+                    "field_default_value": "{\"credentials\":[{\"id\":\"voucher_credential\",\"format\":\"dc+sd-jwt\",\"meta\":{\"vct_values\":[\"credimi_test_discount\"]},\"claims\":[{\"path\":[\"has_discount_from_voucher\"]}]}]}",
+                    "field_type": "object",
+                    "field_options": []
+                  }
+            `}}
+
+        authorization_encrypted_response_alg: >
+            {{
+
+                credimi `
+                  {
+                  "credimi_id": "oid_authorization_encrypted_response_alg",
+                    "field_id": "authorization_encrypted_response_alg",
+                    "field_label": "i18n_authorization_encrypted_response_alg",
+                    "field_description": "i18n_authorization_encrypted_response_alg_description",
+                    "field_default_value": "",
+                    "field_type": "string",
+                    "field_options": []
+                  }
+            `}}
+
+        authorization_encrypted_response_enc: >
+            {{
+
+                credimi `
+                  {
+                    "credimi_id": "oid_authorization_encrypted_response_enc",
+                    "field_id": "authorization_encrypted_response_enc",
+                    "field_label": "i18n_authorization_encrypted_response_enc",
+                    "field_description": "i18n_authorization_encrypted_response_enc_description",
+                    "field_default_value": "",
+                    "field_type": "string",
+                    "field_options": []
+                  }
+            `}}
+
+        client_id: >
+            {{
+
+                credimi `
+                  {
+                    "credimi_id": "oid_client_id",
+                    "field_id": "client_id",
+                    "field_label": "i18n_client_id",
+                    "field_description": "i18n_client_id_description",
+                    "field_default_value": "did:web:app.altme.io:issuer",
+                    "field_type": "string",
+                    "field_options": []
+                  }
+            `}}
+
+test: >
+    {{
+
+
+        credimi `
+          {
+            "credimi_id": "oid_test",
+            "field_id": "test",
+            "field_label": "i18n_test",
+            "field_description": "i18n_test_description",
+            "field_default_value": "oid4vp-1final-wallet-happy-flow-no-state",
+            "field_type": "string",
+            "field_options": [
+              "oid4vp-1final-wallet-happy-flow-no-state",
+              "oid4vp-1final-wallet-happy-flow-with-state-and-redirect",
+              "oid4vp-1final-wallet-negative-test-response-uri-not-client-id",
+              "oid4vp-1final-wallet-negative-test-invalid-request-object-signature"
+            ]
+          }
+    `}}
+
