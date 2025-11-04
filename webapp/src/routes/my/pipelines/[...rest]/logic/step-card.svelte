@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 
-	import type { BuilderStep } from './pipeline-builder.svelte.js';
+	import type { BuilderStep, PipelineBuilder } from './pipeline-builder.svelte.js';
 
 	import { getStepDisplayData } from './utils/display-data';
 
@@ -19,15 +19,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		step: BuilderStep;
+		builder: PipelineBuilder;
 	};
 
-	let { step }: Props = $props();
+	let { step, builder }: Props = $props();
 
 	const { icon, label, textClass, outlineClass, backgroundClass } = getStepDisplayData(step.type);
 	const pathWithoutType = $derived(step.path.split('/').slice(1).join('/'));
 </script>
 
-<div class={['group overflow-hidden rounded-md border hover:ring', outlineClass]}>
+<div class={['bg-card group overflow-hidden rounded-md border hover:ring', outlineClass]}>
 	<div class={['h-1', backgroundClass]}></div>
 	<div>
 		<div class="flex items-center justify-between py-1 pl-3 pr-1">
@@ -37,9 +38,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 
 			<div class="flex items-center">
-				<IconButton icon={ArrowUpIcon} variant="ghost" size="sm" />
-				<IconButton icon={ArrowDownIcon} variant="ghost" size="sm" />
-				<IconButton icon={TrashIcon} variant="ghost" size="sm" />
+				<IconButton
+					icon={ArrowUpIcon}
+					variant="ghost"
+					size="sm"
+					onclick={() => builder.shiftStep(step, -1)}
+					disabled={!builder.canShiftStep(step, -1)}
+				/>
+				<IconButton
+					icon={ArrowDownIcon}
+					variant="ghost"
+					size="sm"
+					onclick={() => builder.shiftStep(step, 1)}
+					disabled={!builder.canShiftStep(step, 1)}
+				/>
+				<IconButton
+					icon={TrashIcon}
+					variant="ghost"
+					size="sm"
+					onclick={() => builder.deleteStep(step)}
+				/>
 				<!-- <IconButton icon={EllipsisIcon} size="sm" class="flex group-hover:hidden" /> -->
 			</div>
 		</div>

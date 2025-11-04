@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { ArrowLeftIcon } from 'lucide-svelte';
+	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -55,8 +56,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Column title={m.Steps_sequence()}>
 		<ScrollArea class="grow [&>div>div]:space-y-2 [&>div>div]:p-4">
-			{#each builder.steps as step (step)}
-				<StepCard {step} />
+			{#each builder.steps as step (step.id)}
+				<div animate:flip={{ duration: 300 }}>
+					<StepCard {step} {builder} />
+				</div>
 			{/each}
 		</ScrollArea>
 	</Column>

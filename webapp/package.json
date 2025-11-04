@@ -119,6 +119,7 @@
 		"lodash": "^4.17.21",
 		"marked": "^15.0.9",
 		"mjml": "^4.15.3",
+		"mutative": "^1.3.0",
 		"nanoid": "^5.1.5",
 		"pocketbase": "~0.25.2",
 		"qrcode-generator": "^1.4.4",

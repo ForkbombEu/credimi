@@ -28,7 +28,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/each}
 	</ScrollArea>
 {:else}
-	<div class="flex flex-col items-center justify-center rounded-md bg-gray-100 p-4">
-		<T class="text-muted-foreground text-sm">{emptyText}</T>
+	<div class="p-4">
+		<div class="flex flex-col items-center justify-center rounded-md bg-slate-100 p-4">
+			<T class="text-muted-foreground text-sm">{emptyText}</T>
+		</div>
 	</div>
 {/if}

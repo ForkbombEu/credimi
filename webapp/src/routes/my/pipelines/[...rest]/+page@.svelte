@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import BackButton from '$lib/layout/back-button.svelte';
+	import { RedoIcon, UndoIcon } from 'lucide-svelte';
 
 	import { setupCollectionForm } from '@/collections-components/form';
 	import T from '@/components/ui-custom/t.svelte';
@@ -47,7 +48,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T tag="h3">{title}</T>
 		</div>
 
-		<Button>{m.Save()}</Button>
+		<div class="flex items-center gap-2">
+			<Button variant="outline" onclick={() => builder.undo()}>
+				<UndoIcon />
+				{m.Undo()}
+			</Button>
+			<Button variant="outline" onclick={() => builder.redo()}>
+				<RedoIcon />
+				{m.Redo()}
+			</Button>
+		</div>
 	</div>
 	<!-- <PageCardSection title={m.Metadata()}>
 			<div class="flex items-start gap-6">
