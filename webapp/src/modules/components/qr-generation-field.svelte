@@ -196,7 +196,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	</div>
 
-	<div>
+	<div class="pt-8">
 		<QrStateful
 			src={generatedDeeplink}
 			class="size-60 rounded-md border"

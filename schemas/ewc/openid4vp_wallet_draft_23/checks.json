@@ -1,0 +1,12 @@
+{
+    "checks": [
+        "RFC002+did_jwk+direct_post+get+pex+sd_jwt",
+        "RFC002+did_web+direct_post+get+pex+sd_jwt",
+        "RFC002+x509+direct_post.jwt+post+pex+sd_jwt",
+        "RFC002+x509+direct_post+get+dcql+sd_jwt",
+        "RFC002+x509+direct_post+get+pex+mdl",
+        "RFC002+x509+direct_post+get+pex+sd_jwt",
+        "RFC002+x509+direct_post+get+pex+tx_data+sd_jwt",
+        "RFC002+x509+direct_post+post+pex+sd_jwt"
+    ]
+}

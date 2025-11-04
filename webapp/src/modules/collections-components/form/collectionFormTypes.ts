@@ -78,6 +78,8 @@ export type FieldSnippetOptions<C extends CollectionName, T = CollectionFormData
 	form: SuperForm<T & GenericRecord>;
 	field: FormPath<T & GenericRecord>;
 	formData: Partial<T>;
+	recordId?: string;
+	collectionName: string;
 };
 
 export type FieldSnippet<C extends CollectionName, T = CollectionFormData[C]> = (

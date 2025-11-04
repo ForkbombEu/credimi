@@ -34,6 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const {
 		collection,
+		recordId,
 		fieldsOptions = {},
 		uiOptions = {},
 		submitButtonContent: buttonContent,
@@ -94,7 +95,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const fields = $derived<CollectionFormFieldProps<C>[]>(
 		fieldsConfigs.map((fieldConfig) => {
 			const name = fieldConfig.name as KeyOf<CollectionFormData[C]>;
-
 			return {
 				fieldConfig,
 				hidden: Object.keys(hide).includes(name),
@@ -103,7 +103,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				// @ts-expect-error - Slight type mismatch
 				relationFieldOptions: relations[name],
 				description: descriptions[name],
-				placeholder: placeholders[name]
+				placeholder: placeholders[name],
+				collectionName: collection,
+				recordId
 			};
 		})
 	);

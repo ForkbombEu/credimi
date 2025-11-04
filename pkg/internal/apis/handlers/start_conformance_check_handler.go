@@ -68,6 +68,7 @@ type WorkflowStarterParams struct {
 	Author    Author
 	TestName  string
 	Protocol  string
+	Version   string
 	AppName   string
 	LogoUrl   string
 	UserName  string
@@ -164,6 +165,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"test":     "custom-check",
 				"standard": protocol,
 				"author":   id,
+				"version":  version,
 			}
 			results, err := processCustomChecks(
 				customCheck.Yaml,
@@ -208,6 +210,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				author,
 				testName,
 				protocol,
+				version,
 				logoUrl,
 				appName,
 				userName,
@@ -249,6 +252,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				memo,
 				author,
 				protocol,
+				version,
 				logoUrl,
 				appName,
 				userName,
@@ -324,6 +328,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 	appURL := i.AppURL
 	namespace := i.Namespace
 	memo := i.Memo
+	version := i.Version
 
 	if yamlData == "" {
 		return workflowengine.WorkflowResult{}, apierror.New(
@@ -366,12 +371,32 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			err.Error(),
 		)
 	}
-	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
-	)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, err
+
+	var templateStr string
+	switch version {
+	case "1.0":
+		templateStr, err = readTemplateFile(
+			os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePathv1_0,
+		)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, err
+		}
+	case "draft-24":
+		templateStr, err = readTemplateFile(
+			os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePathDr24,
+		)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, err
+		}
+	default:
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"version",
+			"invalid version",
+			"invalid version",
+		)
 	}
+
 	input := workflowengine.WorkflowInput{
 		Payload: map[string]any{
 			"variant":   string(parsedData.Variant),
@@ -610,6 +635,7 @@ func processJSONChecks(
 	author Author,
 	testName string,
 	protocol string,
+	version string,
 	logoUrl string,
 	appName string,
 	userName string,
@@ -623,6 +649,7 @@ func processJSONChecks(
 		Author:    author,
 		TestName:  testName,
 		Protocol:  protocol,
+		Version:   version,
 		LogoUrl:   logoUrl,
 		AppName:   appName,
 		UserName:  userName,
@@ -649,6 +676,7 @@ func processVariablesTest(
 	memo map[string]interface{},
 	author Author,
 	protocol string,
+	version string,
 	logoUrl string,
 	appName string,
 	userName string,
@@ -714,6 +742,7 @@ func processVariablesTest(
 		Author:    author,
 		TestName:  testName,
 		Protocol:  protocol,
+		Version:   version,
 		LogoUrl:   logoUrl,
 		AppName:   appName,
 		UserName:  userName,
