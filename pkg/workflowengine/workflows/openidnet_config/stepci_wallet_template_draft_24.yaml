@@ -1,0 +1,64 @@
+# SPDX-FileCopyrightText: 2025 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version: "1.0"
+components:
+  token:
+    bearer:
+      token: ${{secrets.token}}
+
+tests:
+  OPENID4VP:
+    steps:
+      - name: Create Test Plan
+        http:
+          method: POST
+          url: https://www.certification.openid.net/api/plan
+          params:
+            planName: oid4vp-id2-wallet-test-plan
+            variant: [[.variant | toJSON]]
+          auth:
+            $ref: "#/components/token"
+          headers:
+            Content-Type: application/json
+            accept: application/json
+          json:
+            #prettier-ignore
+            [[.form | toYAML | nindent 12 | trim]]
+          captures:
+            plan_id:
+              jsonpath: $.id
+          check:
+            status: 201
+      - name: Start Test Runner
+        http:
+          method: POST
+          url: https://www.certification.openid.net/api/runner
+          params:
+            plan: ${{captures.plan_id}}
+            test: [[.test]]
+            variant: "{}"
+          auth:
+            $ref: "#/components/token"
+          headers:
+            Content-Type: application/json
+            accept: application/json
+          captures:
+            id:
+              jsonpath: $.id
+          check:
+            status: 201
+      - name: Start Test
+        http:
+          method: GET
+          url: https://www.certification.openid.net/api/runner/${{captures.id}}
+          auth:
+            $ref: "#/components/token"
+          captures:
+            deeplink:
+              jsonpath: $.browser.urls[0]
+            rid:
+              jsonpath: $.id
+          check:
+            status: 200
