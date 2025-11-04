@@ -781,5 +781,6 @@
 	"Credential_deeplink": "Credential deeplink",
 	"Redo": "Redo",
 	"Pipeline_steps_will_appear_here": "Pipeline steps will appear here",
-	"YAML_preview_will_appear_here": "YAML preview will appear here"
+	"YAML_preview_will_appear_here": "YAML preview will appear here",
+	"save_pipeline_description": "Before saving, add some metadata to your pipeline."
 }

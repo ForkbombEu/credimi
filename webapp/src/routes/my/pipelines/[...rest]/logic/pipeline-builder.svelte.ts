@@ -35,9 +35,23 @@ export class PipelineBuilder {
 		state: new IdleState()
 	});
 
+	constructor(steps: BuilderStep[] = []) {
+		this.data.steps = steps;
+	}
+
+	get state() {
+		return this.data.state;
+	}
+
+	get steps() {
+		return this.data.steps;
+	}
+
 	readonly yaml = $derived.by(() => {
-		return this.data.steps.map((s) => s.yaml).join('\n---\n');
+		return this.steps.map((s) => s.yaml).join('\n---\n');
 	});
+
+	// State management
 
 	private history: History = {
 		past: [],
@@ -67,24 +81,11 @@ export class PipelineBuilder {
 
 	//
 
-	get state() {
-		return this.data.state;
-	}
-
-	get steps() {
-		return this.data.steps;
-	}
-
-	constructor(steps: BuilderStep[] = []) {
-		this.data.steps = steps;
-	}
-
 	discardAddStep() {
-		if (this.state instanceof StepFormState) {
-			this.run((data) => {
-				data.state = new IdleState();
-			});
-		}
+		if (!(this.state instanceof StepFormState)) return;
+		this.run((data) => {
+			data.state = new IdleState();
+		});
 	}
 
 	// Needed for Svelte 5 reactivity
@@ -122,7 +123,7 @@ export class PipelineBuilder {
 		});
 	}
 
-	addStep(step: Omit<BuilderStep, 'id'>) {
+	private addStep(step: Omit<BuilderStep, 'id'>) {
 		this.run((data) => {
 			data.steps.push({ ...step, id: nanoid(5) } as BuilderStep);
 			data.state = new IdleState();
@@ -199,6 +200,10 @@ export class PipelineBuilder {
 	canShiftStep(item: BuilderStep, change: number) {
 		const index = this.steps.indexOf(item);
 		return index !== -1 && (change < 0 ? index > 0 : index < this.steps.length - 1);
+	}
+
+	isReady() {
+		return this.steps.length > 0;
 	}
 }
 
