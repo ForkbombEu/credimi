@@ -1,0 +1,15 @@
+sessionId: >-
+    {{
+
+       credimi `
+          {
+            "credimi_id": "RFC002_did_web_direct_post_get_pex_sd_jwt_session_id",
+            "field_default_value": "",
+            "field_description": "i18n_session_id_description",
+            "field_id": "session_id",
+            "field_label": "i18n_session_id",
+            "field_options": [],
+            "field_type": "string"
+          }
+       `
+    uuidv4}}

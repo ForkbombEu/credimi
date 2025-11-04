@@ -1,0 +1,30 @@
+nonce: >-
+    {{
+
+       credimi `
+          {
+            "credimi_id": "eudiw_issuer_18_nonce",
+            "field_default_value": "",
+            "field_description": "i18n_nonce_description",
+            "field_id": "nonce",
+            "field_label": "i18n_nonce",
+            "field_options": [],
+            "field_type": "string"
+          }
+       `
+    uuidv4}}
+id: >-
+    {{
+
+       credimi `
+          {
+            "credimi_id": "eudiw_issuer_18_id",
+            "field_default_value": "",
+            "field_description": "i18n_id_description",
+            "field_id": "id",
+            "field_label": "i18n_id",
+            "field_options": [],
+            "field_type": "string"
+          }
+       `
+    uuidv4}}
