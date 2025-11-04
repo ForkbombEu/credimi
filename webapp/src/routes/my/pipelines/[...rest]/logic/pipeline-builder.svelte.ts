@@ -190,26 +190,23 @@ export class PipelineBuilder {
 
 	shiftStep(item: BuilderStep, change: number) {
 		this.run((data) => {
-			const index = data.steps.findIndex((s) => s.id === item.id);
-			if (index === -1) return;
-			const newIndex = index + change;
-			if (newIndex < 0 || newIndex >= data.steps.length || newIndex === index) return;
-
-			// Remove the item from its current position
-			const [movedItem] = data.steps.splice(index, 1);
-			// After removal, elements after 'index' shift down by 1
-			// When moving forward (newIndex > index), insert at newIndex (which is now valid)
-			// When moving backward (newIndex < index), insert at newIndex (no shift happened before it)
-			data.steps.splice(newIndex, 0, movedItem);
+			const indices = this.calculateShiftIndices(item, change, data.steps);
+			if (!indices) return;
+			const [movedItem] = data.steps.splice(indices.index, 1);
+			data.steps.splice(indices.newIndex, 0, movedItem);
 		});
 	}
 
 	canShiftStep(item: BuilderStep, change: number) {
-		const index = this.steps.findIndex((s) => s.id === item.id);
-		if (index === -1) return { canShift: false, newIndex: index };
-		const finalIndex = index + change;
-		const canShift = finalIndex >= 0 && finalIndex < this.steps.length && finalIndex !== index;
-		return { canShift, newIndex: finalIndex };
+		return this.calculateShiftIndices(item, change, this.steps) !== null;
+	}
+
+	private calculateShiftIndices(item: BuilderStep, change: number, steps: BuilderStep[]) {
+		const index = steps.findIndex((s) => s.id === item.id);
+		if (index === -1) return null;
+		const newIndex = index + change;
+		if (newIndex < 0 || newIndex >= steps.length || newIndex === index) return null;
+		return { index, newIndex };
 	}
 
 	isReady() {
