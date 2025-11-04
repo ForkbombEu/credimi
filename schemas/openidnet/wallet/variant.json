@@ -1,5 +1,5 @@
 {
-    "variants": [
+    "checks": [
         "sd_jwt_vc+did+request_uri_signed+direct_post",
         "sd_jwt_vc+did+request_uri_signed+direct_post.jwt",
         "sd_jwt_vc+did+request_uri_signed+dc_api",
