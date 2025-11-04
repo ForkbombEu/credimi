@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <CollectionManager collection="pipelines">
 	{#snippet records({ records })}
-		<div class="space-y-6">
+		<div class="space-y-4">
 			{#each records as pipeline (pipeline.id)}
 				<DashboardCard
 					record={pipeline}

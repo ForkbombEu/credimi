@@ -76,14 +76,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<div class="bg-secondary flex h-screen flex-col gap-4 overflow-hidden p-6">
+<div class="bg-secondary flex h-screen flex-col gap-4 overflow-hidden px-4 pb-4 pt-2">
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-3">
 			<BackButton href="/my/pipelines" class="h-6">
 				{m.Back()}
 			</BackButton>
 			<Separator orientation="vertical" class="self-stretch bg-slate-400" />
-			<T tag="h3">{title}</T>
+			<T tag="h3" class="text-xl">{title}</T>
 		</div>
 
 		<div class="flex items-center gap-2">
