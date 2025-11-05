@@ -136,7 +136,7 @@ func ConformanceCheckHook(
 			defaultPayload["form"] = form
 			defaultPayload["test"] = testVal
 
-			suiteTemplatePath = workflows.OpenIDNetStepCITemplatePath
+			suiteTemplatePath = workflows.OpenIDNetStepCITemplatePathv1_0
 
 		case "ewc":
 
