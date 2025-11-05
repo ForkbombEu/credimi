@@ -1,6 +1,6 @@
 variant:
     credential_format: sd_jwt_vc
-    client_id_prefix: did
+    client_id_scheme: did
     request_method: request_uri_unsigned
     response_mode: direct_post
 form:
@@ -66,21 +66,6 @@ form:
                   }
             `}}
 
-        dcql: >
-            {{
-
-                credimi `
-                  {
-                    "credimi_id": "oid_client_dcql",
-                    "field_id": "dcql",
-                    "field_label": "i18n_dcql",
-                    "field_description": "i18n_decql_description",
-                    "field_default_value": "{\"credentials\":[{\"id\":\"voucher_credential\",\"format\":\"dc+sd-jwt\",\"meta\":{\"vct_values\":[\"credimi_test_discount\"]},\"claims\":[{\"path\":[\"has_discount_from_voucher\"]}]}]}",
-                    "field_type": "object",
-                    "field_options": []
-                  }
-            `}}
-
         client_id: >
             {{
 
@@ -106,13 +91,12 @@ test: >
             "field_id": "test",
             "field_label": "i18n_test",
             "field_description": "i18n_test_description",
-            "field_default_value": "oid4vp-1final-wallet-happy-flow-no-state",
+            "field_default_value": "oid4vp-id2-wallet-happy-flow-no-state",
             "field_type": "string",
             "field_options": [
-              "oid4vp-1final-wallet-happy-flow-no-state",
-              "oid4vp-1final-wallet-happy-flow-with-state-and-redirect",
-              "oid4vp-1final-wallet-negative-test-response-uri-not-client-id",
-              "oid4vp-1final-wallet-negative-test-invalid-request-object-signature"
+              "oid4vp-id2-wallet-happy-flow-no-state",
+              "oid4vp-id2-wallet-happy-flow-with-state-and-redirect",
+              "oid4vp-id2-wallet-negative-test-response-uri-not-client-id"
             ]
           }
     `}}

@@ -218,7 +218,10 @@ function mockInitialDataFiles<C extends CollectionName>(
 	) as Partial<CollectionFormData[C]>;
 }
 
-function mockFile(filename: string, fileFieldConfig: FileCollectionField) {
+export function mockFile(
+	filename: string,
+	fileFieldConfig: Pick<FileCollectionField, 'mimeTypes'>
+) {
 	let fileOptions: FilePropertyBag | undefined = undefined;
 	const mimeTypes = fileFieldConfig.mimeTypes;
 	if (Array.isArray(mimeTypes) && mimeTypes.length > 0) {
