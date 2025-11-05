@@ -17,8 +17,8 @@ RUN go mod download
 COPY . ./
 ENV GOCACHE=/go-cache
 ENV GOMODCACHE=/gomod-cache
-RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache \
-    go build -o credimi main.go
+RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache go generate pkg/gen.go
+RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache go build -o credimi main.go
 
 FROM debian:12-slim
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
