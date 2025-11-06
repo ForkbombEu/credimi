@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"os"
 	"reflect"
+	"sort"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -86,7 +88,7 @@ func generatePipelineSchema() (map[string]any, error) {
 	json.Unmarshal(activityOptionsJSON, &activityOptionsMap)
 
 	var oneOfSchemas []map[string]any
-	for stepKey := range registry.Registry {
+	for _, stepKey := range sortedRegistryKeys() {
 		stepSchema := generateSingleStepSchema(&reflector, stepKey, activityOptionsMap)
 		if stepSchema != nil {
 			oneOfSchemas = append(oneOfSchemas, stepSchema)
@@ -148,7 +150,7 @@ func generatePipelineSchema() (map[string]any, error) {
 func newSchemaListCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "list",
-		Short: "Output a JSON map of stepName -> full step schema",
+		Short: "Output a TypeScript map of stepName -> full step schema",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			reflector := jsonschema.Reflector{
 				AllowAdditionalProperties: false,
@@ -170,18 +172,26 @@ func newSchemaListCmd() *cobra.Command {
 				}
 			}
 
-			out, err := json.MarshalIndent(stepSchemas, "", "  ")
+			// Marshal schemas as formatted JSON
+			jsonBytes, err := json.MarshalIndent(stepSchemas, "", "  ")
 			if err != nil {
 				return fmt.Errorf("failed to marshal step schema map: %w", err)
 			}
 
+			// Wrap in a TypeScript module export
+			tsContent := fmt.Sprintf("export default %s as const;\n", string(jsonBytes))
+
 			if outputPath != "" {
-				if err := os.WriteFile(outputPath, out, 0644); err != nil {
-					return fmt.Errorf("failed to write schema to file: %w", err)
+				// Ensure .ts extension
+				if !strings.HasSuffix(outputPath, ".ts") {
+					outputPath += ".ts"
+				}
+				if err := os.WriteFile(outputPath, []byte(tsContent), 0644); err != nil {
+					return fmt.Errorf("failed to write TypeScript schema to file: %w", err)
 				}
 				fmt.Printf("✅ Step schema map saved to %s\n", outputPath)
 			} else {
-				fmt.Println(string(out))
+				fmt.Println(tsContent)
 			}
 
 			return nil
@@ -215,23 +225,6 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string, a
 			},
 			"with": map[string]any{
 				"type": "object",
-				"properties": func() map[string]any {
-					props := map[string]any{
-						"config": map[string]any{
-							"type":                 "object",
-							"additionalProperties": true,
-						},
-					}
-					payloadBytes, _ := json.Marshal(payloadSchema)
-					var payloadMap map[string]any
-					_ = json.Unmarshal(payloadBytes, &payloadMap)
-					if p, ok := payloadMap["properties"].(map[string]any); ok {
-						for k, v := range p {
-							props[k] = v
-						}
-					}
-					return props
-				}(),
 			},
 			"activity_options": map[string]any{
 				"$ref": "#/$defs/ActivityOptions",
@@ -251,5 +244,41 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string, a
 		},
 	}
 
+	// --- Merge payload properties & required fields ---
+	payloadBytes, _ := json.Marshal(payloadSchema)
+	var payloadMap map[string]any
+	_ = json.Unmarshal(payloadBytes, &payloadMap)
+
+	with := stepVariant["properties"].(map[string]any)["with"].(map[string]any)
+
+	props := map[string]any{
+		"config": map[string]any{
+			"type":                 "object",
+			"additionalProperties": true,
+		},
+	}
+
+	if p, ok := payloadMap["properties"].(map[string]any); ok {
+		for k, v := range p {
+			props[k] = v
+		}
+	}
+
+	with["properties"] = props
+
+	// Preserve required fields from payload
+	if req, ok := payloadMap["required"].([]any); ok && len(req) > 0 {
+		with["required"] = req
+	}
+
 	return stepVariant
+}
+
+func sortedRegistryKeys() []string {
+	keys := make([]string, 0, len(registry.Registry))
+	for key := range registry.Registry {
+		keys = append(keys, key)
+	}
+	sort.Strings(keys)
+	return keys
 }

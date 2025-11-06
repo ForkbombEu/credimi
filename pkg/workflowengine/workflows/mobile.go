@@ -26,7 +26,7 @@ type MobileAutomationWorkflow struct {
 type MobileAutomationWorkflowPayload struct {
 	ActionID         string            `json:"action_id,omitempty" yaml:"action_id,omitempty"`
 	VersionID        string            `json:"version_id,omitempty" yaml:"version_id,omitempty"`
-	ActionCode       string            `json:"action_code" yaml:"action_code"`
+	ActionCode       string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
 	Video            bool              `json:"video,omitempty" yaml:"video,omitempty"`
 	StoredActionCode bool              `json:"stored_action_code,omitempty" yaml:"stored_action_code,omitempty"`
 	PackageID        string            `json:"package_id,omitempty" yaml:"package_id,omitempty"`
@@ -36,7 +36,7 @@ type MobileAutomationWorkflowPayload struct {
 type MobileAutomationWorkflowPipelinePayload struct {
 	ActionID   string            `json:"action_id,omitempty" yaml:"action_id,omitempty"`
 	VersionID  string            `json:"version_id,omitempty" yaml:"version_id,omitempty"`
-	ActionCode string            `json:"action_code" yaml:"action_code"`
+	ActionCode string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
 	Video      bool              `json:"video,omitempty" yaml:"video,omitempty"`
 	Parameters map[string]string `json:"parameters,omitempty" yaml:"parameters,omitempty"`
 }

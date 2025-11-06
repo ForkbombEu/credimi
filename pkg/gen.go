@@ -12,4 +12,4 @@ package pkg
 //go:generate go run ../cmd/template/template.go -d ../schemas/eudiw/default_template.yaml -i ../schemas/eudiw/checks.json -o ../config_templates/openid4vp_verifier/draft-23/eudiw/
 // //go:generate go run generate_client/generate_client.go
 //go:generate sh -c "cd .. && go run main.go pipeline schema -o schemas/pipeline/pipeline_schema.json"
-//go:generate sh -c "cd .. && go run main.go pipeline schema list -o schemas/pipeline/pipeline_steps_list.json"
+//go:generate sh -c "cd .. && go run main.go pipeline schema list -o schemas/pipeline/pipeline_steps_list"
