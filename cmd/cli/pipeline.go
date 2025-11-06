@@ -120,5 +120,7 @@ func NewPipelineCmd() *cobra.Command {
 	cmd.Flags().
 		StringVarP(&instanceURL, "instance", "i", "https://demo.credimi.io", "URL of the PocketBase instance")
 
+	cmd.AddCommand(NewSchemaCmd())
+
 	return cmd
 }

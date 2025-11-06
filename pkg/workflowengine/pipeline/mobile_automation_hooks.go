@@ -38,7 +38,7 @@ func MobileAutomationSetupHook(
 		logger.Info("MobileAutomationSetupHook: processing step", "id", step.ID)
 
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPayload](step.With.Payload)
+		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPipelinePayload](step.With.Payload)
 		if err != nil {
 			return workflowengine.NewAppError(
 				errCode,

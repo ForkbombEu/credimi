@@ -130,7 +130,14 @@ type StartCheckWorkflowPayload struct {
 	Form      *Form  `json:"form,omitempty" yaml:"form,omitempty"`
 	TestName  string `json:"test,omitempty" yaml:"test,omitempty"`
 	SessionID string `json:"session_id,omitempty" yaml:"session_id,omitempty"`
-	UserMail  string `json:"user_mail" yaml:"user_mail"`
+	UserMail  string `json:"user_mail" yaml:"user_mail" validate:"required"`
+}
+
+type StartCheckWorkflowPipelinePayload struct {
+	CheckID   string `json:"check_id" yaml:"check_id" validate:"required"`
+	Form      *Form  `json:"form,omitempty" yaml:"form,omitempty"`
+	TestName  string `json:"test,omitempty" yaml:"test,omitempty"`
+	SessionID string `json:"session_id,omitempty" yaml:"session_id,omitempty"`
 }
 
 func (StartCheckWorkflow) Name() string {

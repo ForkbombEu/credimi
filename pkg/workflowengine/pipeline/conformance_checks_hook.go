@@ -43,7 +43,7 @@ func ConformanceCheckHook(
 				fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
 			)
 		}
-		payload, err := workflowengine.DecodePayload[workflows.StartCheckWorkflowPayload](rawPayload)
+		payload, err := workflowengine.DecodePayload[workflows.StartCheckWorkflowPipelinePayload](rawPayload)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 

@@ -19,11 +19,12 @@ const (
 )
 
 type TaskFactory struct {
-	Kind        TaskKind
-	NewFunc     func() any
-	PayloadType reflect.Type
-	OutputKind  workflowengine.OutputKind
-	TaskQueue   string
+	Kind                TaskKind
+	NewFunc             func() any
+	PayloadType         reflect.Type
+	PipelinePayloadType reflect.Type
+	OutputKind          workflowengine.OutputKind
+	TaskQueue           string
 }
 
 // Registry maps activity keys to their factory.
@@ -95,10 +96,11 @@ var Registry = map[string]TaskFactory{
 		OutputKind:  workflowengine.OutputMap,
 	},
 	"mobile-automation": {
-		Kind:        TaskWorkflow,
-		NewFunc:     func() any { return &workflows.MobileAutomationWorkflow{} },
-		PayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
-		TaskQueue:   workflows.MobileAutomationTaskQueue,
+		Kind:                TaskWorkflow,
+		NewFunc:             func() any { return &workflows.MobileAutomationWorkflow{} },
+		PayloadType:         reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
+		TaskQueue:           workflows.MobileAutomationTaskQueue,
+		PipelinePayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
 	},
 	"custom-check": {
 		Kind:        TaskWorkflow,
@@ -111,9 +113,10 @@ var Registry = map[string]TaskFactory{
 		PayloadType: reflect.TypeOf(workflows.GetCredentialOfferWorkflowPayload{}),
 	},
 	"conformance-check": {
-		Kind:        TaskWorkflow,
-		NewFunc:     func() any { return &workflows.StartCheckWorkflow{} },
-		PayloadType: reflect.TypeOf(workflows.StartCheckWorkflowPayload{}),
+		Kind:                TaskWorkflow,
+		NewFunc:             func() any { return &workflows.StartCheckWorkflow{} },
+		PayloadType:         reflect.TypeOf(workflows.StartCheckWorkflowPayload{}),
+		PipelinePayloadType: reflect.TypeOf(workflows.StartCheckWorkflowPipelinePayload{}),
 	},
 	"use-case-verification-deeplink": {
 		Kind:        TaskWorkflow,
