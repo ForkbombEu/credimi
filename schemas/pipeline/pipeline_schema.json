@@ -64,38 +64,6 @@
             "items": {
               "oneOf": [
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -139,38 +107,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -214,38 +150,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -289,38 +193,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -451,38 +323,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -663,38 +503,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -738,38 +546,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -813,38 +589,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -888,38 +632,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -978,38 +690,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -1076,38 +756,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -1155,38 +803,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -1235,38 +851,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -1289,48 +873,101 @@
                     "with": {
                       "oneOf": [
                         {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action_code": {
+                              "type": "string"
+                            },
+                            "action_id": {
+                              "type": "string"
+                            },
+                            "config": {
+                              "additionalProperties": true,
+                              "type": "object"
+                            },
+                            "parameters": {
+                              "additionalProperties": {
+                                "type": "string"
+                              },
+                              "type": "object"
+                            },
+                            "version_id": {
+                              "type": "string"
+                            },
+                            "video": {
+                              "type": "boolean"
+                            }
+                          },
                           "required": [
                             "action_id"
-                          ]
+                          ],
+                          "type": "object"
                         },
                         {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action_code": {
+                              "type": "string"
+                            },
+                            "action_id": {
+                              "type": "string"
+                            },
+                            "config": {
+                              "additionalProperties": true,
+                              "type": "object"
+                            },
+                            "parameters": {
+                              "additionalProperties": {
+                                "type": "string"
+                              },
+                              "type": "object"
+                            },
+                            "version_id": {
+                              "type": "string"
+                            },
+                            "video": {
+                              "type": "boolean"
+                            }
+                          },
                           "required": [
                             "action_id",
                             "version_id"
-                          ]
+                          ],
+                          "type": "object"
                         },
                         {
+                          "additionalProperties": false,
+                          "properties": {
+                            "action_code": {
+                              "type": "string"
+                            },
+                            "action_id": {
+                              "type": "string"
+                            },
+                            "config": {
+                              "additionalProperties": true,
+                              "type": "object"
+                            },
+                            "parameters": {
+                              "additionalProperties": {
+                                "type": "string"
+                              },
+                              "type": "object"
+                            },
+                            "version_id": {
+                              "type": "string"
+                            },
+                            "video": {
+                              "type": "boolean"
+                            }
+                          },
                           "required": [
                             "action_code",
                             "version_id"
-                          ]
-                        }
-                      ],
-                      "properties": {
-                        "action_code": {
-                          "type": "string"
-                        },
-                        "action_id": {
-                          "type": "string"
-                        },
-                        "config": {
-                          "additionalProperties": true,
+                          ],
                           "type": "object"
-                        },
-                        "parameters": {
-                          "additionalProperties": {
-                            "type": "string"
-                          },
-                          "type": "object"
-                        },
-                        "version_id": {
-                          "type": "string"
-                        },
-                        "video": {
-                          "type": "boolean"
                         }
-                      },
-                      "type": "object"
+                      ]
                     }
                   },
                   "required": [
@@ -1341,38 +978,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -1428,38 +1033,6 @@
                   "type": "object"
                 },
                 {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
                   "additionalProperties": false,
                   "properties": {
                     "activity_options": {
@@ -1585,38 +1158,6 @@
       "items": {
         "oneOf": [
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -1660,38 +1201,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -1735,38 +1244,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -1810,38 +1287,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -1972,38 +1417,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -2184,38 +1597,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -2259,38 +1640,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -2334,38 +1683,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -2409,38 +1726,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -2499,38 +1784,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -2597,38 +1850,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -2676,38 +1897,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -2756,38 +1945,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -2810,48 +1967,101 @@
               "with": {
                 "oneOf": [
                   {
+                    "additionalProperties": false,
+                    "properties": {
+                      "action_code": {
+                        "type": "string"
+                      },
+                      "action_id": {
+                        "type": "string"
+                      },
+                      "config": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "parameters": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "version_id": {
+                        "type": "string"
+                      },
+                      "video": {
+                        "type": "boolean"
+                      }
+                    },
                     "required": [
                       "action_id"
-                    ]
+                    ],
+                    "type": "object"
                   },
                   {
+                    "additionalProperties": false,
+                    "properties": {
+                      "action_code": {
+                        "type": "string"
+                      },
+                      "action_id": {
+                        "type": "string"
+                      },
+                      "config": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "parameters": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "version_id": {
+                        "type": "string"
+                      },
+                      "video": {
+                        "type": "boolean"
+                      }
+                    },
                     "required": [
                       "action_id",
                       "version_id"
-                    ]
+                    ],
+                    "type": "object"
                   },
                   {
+                    "additionalProperties": false,
+                    "properties": {
+                      "action_code": {
+                        "type": "string"
+                      },
+                      "action_id": {
+                        "type": "string"
+                      },
+                      "config": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "parameters": {
+                        "additionalProperties": {
+                          "type": "string"
+                        },
+                        "type": "object"
+                      },
+                      "version_id": {
+                        "type": "string"
+                      },
+                      "video": {
+                        "type": "boolean"
+                      }
+                    },
                     "required": [
                       "action_code",
                       "version_id"
-                    ]
-                  }
-                ],
-                "properties": {
-                  "action_code": {
-                    "type": "string"
-                  },
-                  "action_id": {
-                    "type": "string"
-                  },
-                  "config": {
-                    "additionalProperties": true,
+                    ],
                     "type": "object"
-                  },
-                  "parameters": {
-                    "additionalProperties": {
-                      "type": "string"
-                    },
-                    "type": "object"
-                  },
-                  "version_id": {
-                    "type": "string"
-                  },
-                  "video": {
-                    "type": "boolean"
                   }
-                },
-                "type": "object"
+                ]
               }
             },
             "required": [
@@ -2862,38 +2072,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {
@@ -2949,38 +2127,6 @@
             "type": "object"
           },
           {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
             "additionalProperties": false,
             "properties": {
               "activity_options": {

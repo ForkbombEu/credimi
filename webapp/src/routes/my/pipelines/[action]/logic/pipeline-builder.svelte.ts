@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pb } from '@/pocketbase/index.js';
-import type { CollectionResponses } from '@/pocketbase/types/index.generated.js';
 import { create } from 'mutative';
 import { nanoid } from 'nanoid';
 import { BaseStepForm } from './base-step-form.svelte.js';
@@ -44,7 +43,7 @@ export class PipelineBuilder {
 	}
 
 	readonly yaml = $derived.by(() => {
-		return this.steps.map((s) => s.yaml).join('\n---\n');
+		return '# TODO';
 	});
 
 	// State management
@@ -91,30 +90,8 @@ export class PipelineBuilder {
 		this.effectCleanup = $effect.root(() => {
 			if (type === StepType.WalletAction) {
 				this.initWalletStepForm();
-			} else if (type === StepType.Credential) {
-				this.initBaseStepForm(type, async (collection, id) => {
-					const data = await pb.collection(collection).getOne(id);
-					return {
-						data: data,
-						yaml: data.yaml ?? data.deeplink
-					};
-				});
-			} else if (type === StepType.CustomCheck) {
-				this.initBaseStepForm(type, async (collection, id) => {
-					const data = await pb.collection(collection).getOne(id);
-					return {
-						data: data,
-						yaml: data.yaml
-					};
-				});
-			} else if (type === StepType.UseCaseVerification) {
-				this.initBaseStepForm(type, async (collection, id) => {
-					const data = await pb.collection(collection).getOne(id);
-					return {
-						data: data,
-						yaml: data.yaml
-					};
-				});
+			} else {
+				this.initBaseStepForm(type);
 			}
 		});
 	}
@@ -144,7 +121,6 @@ export class PipelineBuilder {
 						organization: data.wallet.organization_name,
 						data: data,
 						type: StepType.WalletAction,
-						yaml: data.action.code,
 						recordId: data.action.id
 					});
 				}
@@ -152,25 +128,18 @@ export class PipelineBuilder {
 		});
 	}
 
-	private initBaseStepForm<T extends MarketplaceStepType>(
-		collection: T,
-		getter: (
-			collection: T,
-			id: string
-		) => Promise<{ data: CollectionResponses[T]; yaml: string }>
-	) {
+	private initBaseStepForm<T extends MarketplaceStepType>(collection: T) {
 		this.run((data) => {
 			data.state = new BaseStepForm({
 				collection,
 				onSelect: async (item) => {
-					const { data, yaml } = await getter(collection, item.id);
+					const data = await pb.collection(collection).getOne(item.id);
 					this.addStep({
 						name: item.name,
 						path: item.path,
 						organization: item.organization_name,
 						data: data as never,
 						type: collection,
-						yaml: yaml,
 						recordId: item.id
 					});
 				}
