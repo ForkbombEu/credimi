@@ -225,23 +225,6 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string, a
 			},
 			"with": map[string]any{
 				"type": "object",
-				"properties": func() map[string]any {
-					props := map[string]any{
-						"config": map[string]any{
-							"type":                 "object",
-							"additionalProperties": true,
-						},
-					}
-					payloadBytes, _ := json.Marshal(payloadSchema)
-					var payloadMap map[string]any
-					_ = json.Unmarshal(payloadBytes, &payloadMap)
-					if p, ok := payloadMap["properties"].(map[string]any); ok {
-						for k, v := range p {
-							props[k] = v
-						}
-					}
-					return props
-				}(),
 			},
 			"activity_options": map[string]any{
 				"$ref": "#/$defs/ActivityOptions",
@@ -259,6 +242,33 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string, a
 		"$defs": map[string]any{
 			"ActivityOptions": activityOptionsMap,
 		},
+	}
+
+	// --- Merge payload properties & required fields ---
+	payloadBytes, _ := json.Marshal(payloadSchema)
+	var payloadMap map[string]any
+	_ = json.Unmarshal(payloadBytes, &payloadMap)
+
+	with := stepVariant["properties"].(map[string]any)["with"].(map[string]any)
+
+	props := map[string]any{
+		"config": map[string]any{
+			"type":                 "object",
+			"additionalProperties": true,
+		},
+	}
+
+	if p, ok := payloadMap["properties"].(map[string]any); ok {
+		for k, v := range p {
+			props[k] = v
+		}
+	}
+
+	with["properties"] = props
+
+	// Preserve required fields from payload
+	if req, ok := payloadMap["required"].([]any); ok && len(req) > 0 {
+		with["required"] = req
 	}
 
 	return stepVariant

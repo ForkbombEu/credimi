@@ -100,7 +100,7 @@ var Registry = map[string]TaskFactory{
 		NewFunc:             func() any { return &workflows.MobileAutomationWorkflow{} },
 		PayloadType:         reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
 		TaskQueue:           workflows.MobileAutomationTaskQueue,
-		PipelinePayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
+		PipelinePayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPipelinePayload{}),
 	},
 	"custom-check": {
 		Kind:        TaskWorkflow,

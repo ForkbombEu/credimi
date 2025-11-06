@@ -61,6 +61,9 @@ export default {
             "type": "string"
           }
         },
+        "required": [
+          "credential_id"
+        ],
         "type": "object"
       }
     },
@@ -135,17 +138,11 @@ export default {
             "additionalProperties": true,
             "type": "object"
           },
-          "package_id": {
-            "type": "string"
-          },
           "parameters": {
             "additionalProperties": {
               "type": "string"
             },
             "type": "object"
-          },
-          "stored_action_code": {
-            "type": "boolean"
           },
           "version_id": {
             "type": "string"
@@ -226,6 +223,9 @@ export default {
             "type": "string"
           }
         },
+        "required": [
+          "use_case_id"
+        ],
         "type": "object"
       }
     },

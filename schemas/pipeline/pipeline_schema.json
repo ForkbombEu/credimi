@@ -125,6 +125,9 @@
                           "type": "string"
                         }
                       },
+                      "required": [
+                        "url"
+                      ],
                       "type": "object"
                     }
                   },
@@ -197,6 +200,9 @@
                           "type": "string"
                         }
                       },
+                      "required": [
+                        "rawCESR"
+                      ],
                       "type": "object"
                     }
                   },
@@ -269,6 +275,9 @@
                           "type": "string"
                         }
                       },
+                      "required": [
+                        "events"
+                      ],
                       "type": "object"
                     }
                   },
@@ -428,6 +437,9 @@
                           "type": "string"
                         }
                       },
+                      "required": [
+                        "check_id"
+                      ],
                       "type": "object"
                     }
                   },
@@ -637,6 +649,9 @@
                           "type": "string"
                         }
                       },
+                      "required": [
+                        "image"
+                      ],
                       "type": "object"
                     }
                   },
@@ -709,6 +724,9 @@
                           "type": "object"
                         }
                       },
+                      "required": [
+                        "base_url"
+                      ],
                       "type": "object"
                     }
                   },
@@ -781,6 +799,9 @@
                           "type": "string"
                         }
                       },
+                      "required": [
+                        "credential_id"
+                      ],
                       "type": "object"
                     }
                   },
@@ -943,6 +964,9 @@
                           "type": "string"
                         }
                       },
+                      "required": [
+                        "recipient"
+                      ],
                       "type": "object"
                     }
                   },
@@ -1037,6 +1061,10 @@
                           "type": "string"
                         }
                       },
+                      "required": [
+                        "method",
+                        "url"
+                      ],
                       "type": "object"
                     }
                   },
@@ -1112,6 +1140,10 @@
                           "type": "string"
                         }
                       },
+                      "required": [
+                        "rawJSON",
+                        "struct_type"
+                      ],
                       "type": "object"
                     }
                   },
@@ -1188,6 +1220,10 @@
                         },
                         "subschema": true
                       },
+                      "required": [
+                        "schema",
+                        "data"
+                      ],
                       "type": "object"
                     }
                   },
@@ -1262,17 +1298,11 @@
                           "additionalProperties": true,
                           "type": "object"
                         },
-                        "package_id": {
-                          "type": "string"
-                        },
                         "parameters": {
                           "additionalProperties": {
                             "type": "string"
                           },
                           "type": "object"
-                        },
-                        "stored_action_code": {
-                          "type": "boolean"
                         },
                         "version_id": {
                           "type": "string"
@@ -1365,6 +1395,9 @@
                           "type": "string"
                         }
                       },
+                      "required": [
+                        "yaml"
+                      ],
                       "type": "object"
                     }
                   },
@@ -1437,6 +1470,9 @@
                           "type": "string"
                         }
                       },
+                      "required": [
+                        "use_case_id"
+                      ],
                       "type": "object"
                     }
                   },
@@ -1591,6 +1627,9 @@
                     "type": "string"
                   }
                 },
+                "required": [
+                  "url"
+                ],
                 "type": "object"
               }
             },
@@ -1663,6 +1702,9 @@
                     "type": "string"
                   }
                 },
+                "required": [
+                  "rawCESR"
+                ],
                 "type": "object"
               }
             },
@@ -1735,6 +1777,9 @@
                     "type": "string"
                   }
                 },
+                "required": [
+                  "events"
+                ],
                 "type": "object"
               }
             },
@@ -1894,6 +1939,9 @@
                     "type": "string"
                   }
                 },
+                "required": [
+                  "check_id"
+                ],
                 "type": "object"
               }
             },
@@ -2103,6 +2151,9 @@
                     "type": "string"
                   }
                 },
+                "required": [
+                  "image"
+                ],
                 "type": "object"
               }
             },
@@ -2175,6 +2226,9 @@
                     "type": "object"
                   }
                 },
+                "required": [
+                  "base_url"
+                ],
                 "type": "object"
               }
             },
@@ -2247,6 +2301,9 @@
                     "type": "string"
                   }
                 },
+                "required": [
+                  "credential_id"
+                ],
                 "type": "object"
               }
             },
@@ -2409,6 +2466,9 @@
                     "type": "string"
                   }
                 },
+                "required": [
+                  "recipient"
+                ],
                 "type": "object"
               }
             },
@@ -2503,6 +2563,10 @@
                     "type": "string"
                   }
                 },
+                "required": [
+                  "method",
+                  "url"
+                ],
                 "type": "object"
               }
             },
@@ -2578,6 +2642,10 @@
                     "type": "string"
                   }
                 },
+                "required": [
+                  "rawJSON",
+                  "struct_type"
+                ],
                 "type": "object"
               }
             },
@@ -2654,6 +2722,10 @@
                   },
                   "subschema": true
                 },
+                "required": [
+                  "schema",
+                  "data"
+                ],
                 "type": "object"
               }
             },
@@ -2728,17 +2800,11 @@
                     "additionalProperties": true,
                     "type": "object"
                   },
-                  "package_id": {
-                    "type": "string"
-                  },
                   "parameters": {
                     "additionalProperties": {
                       "type": "string"
                     },
                     "type": "object"
-                  },
-                  "stored_action_code": {
-                    "type": "boolean"
                   },
                   "version_id": {
                     "type": "string"
@@ -2831,6 +2897,9 @@
                     "type": "string"
                   }
                 },
+                "required": [
+                  "yaml"
+                ],
                 "type": "object"
               }
             },
@@ -2903,6 +2972,9 @@
                     "type": "string"
                   }
                 },
+                "required": [
+                  "use_case_id"
+                ],
                 "type": "object"
               }
             },
