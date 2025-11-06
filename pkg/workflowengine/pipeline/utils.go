@@ -4,6 +4,8 @@
 package pipeline
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"go.temporal.io/sdk/client"
@@ -157,10 +159,18 @@ func convertMapAnyToString(m map[string]any) map[string]string {
 	return result
 }
 
-func SetPayloadValue(payload map[string]InputSource, key string, val any) {
-	src := payload[key]
-	src.Value = val
-	payload[key] = src
+// SetPayloadValue sets a key/value pair in the given payload map.
+// If the key exists, it overwrites it; otherwise, it adds it.
+func SetPayloadValue(payload *map[string]any, key string, val any) error {
+	if payload == nil {
+		return fmt.Errorf("payload is nil")
+	}
+	if *payload == nil {
+		*payload = make(map[string]any)
+	}
+
+	(*payload)[key] = val
+	return nil
 }
 
 func SetConfigValue(config *map[string]any, key string, val any) {
@@ -170,46 +180,43 @@ func SetConfigValue(config *map[string]any, key string, val any) {
 	(*config)[key] = val
 }
 
-func MergePayload(dst map[string]InputSource, src map[string]any) {
-	for k, v := range src {
-		if vMap, ok := v.(map[string]any); ok {
-			// If dst already has a map, recurse
-			if existing, exists := dst[k]; exists {
-				if existingMap, ok := existing.Value.(map[string]any); ok {
-					mergeMaps(existingMap, vMap)
-					dst[k] = InputSource{Value: existingMap}
-					continue
-				}
-			}
-			dst[k] = InputSource{Value: vMap}
-		} else {
-			if _, exists := dst[k]; !exists {
-				dst[k] = InputSource{Value: v}
-			}
-		}
+// MergePayload merges all keys from src into dst recursively.
+func MergePayload(dst, src *map[string]any) error {
+	if dst == nil || src == nil {
+		return nil
 	}
+	if *dst == nil {
+		*dst = make(map[string]any)
+	}
+	mergeMaps(*dst, *src)
+	return nil
 }
 
 func mergeMaps(dst, src map[string]any) {
 	for k, v := range src {
-		switch vTyped := v.(type) {
-		case map[string]any:
-			if existing, exists := dst[k]; exists {
-				if existingMap, ok := existing.(map[string]any); ok {
-					mergeMaps(existingMap, vTyped)
-					dst[k] = existingMap
-					continue
-				}
-			}
-			dst[k] = vTyped
-		case []any:
-			if existing, exists := dst[k]; !exists || existing == nil {
-				dst[k] = vTyped
-			}
-		default:
-			if _, exists := dst[k]; !exists {
-				dst[k] = v
+		if existing, ok := dst[k]; ok {
+			// recursive merge if both are maps
+			dstMap, dstIsMap := existing.(map[string]any)
+			srcMap, srcIsMap := v.(map[string]any)
+			if dstIsMap && srcIsMap {
+				mergeMaps(dstMap, srcMap)
+				continue
 			}
 		}
+		dst[k] = deepCopy(v)
 	}
+}
+
+// deepCopy makes a deep copy of arbitrary JSON/YAML-compatible data.
+func deepCopy(v any) any {
+	b, err := json.Marshal(v)
+	if err != nil {
+		// fallback: return original reference if not serializable
+		return v
+	}
+	var copy any
+	if err := json.Unmarshal(b, &copy); err != nil {
+		return v
+	}
+	return copy
 }

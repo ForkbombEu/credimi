@@ -111,8 +111,8 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 			Config: map[string]any{
 				"app_url": e.App.Settings().Meta.AppURL,
 			},
-			Payload: map[string]any{
-				"url": req.URL,
+			Payload: workflows.WalletWorkflowPayload{
+				URL: req.URL,
 			},
 		}
 		w := workflows.WalletWorkflow{}

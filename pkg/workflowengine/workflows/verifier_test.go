@@ -31,8 +31,8 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 				Config: map[string]any{
 					"app_url": "https://example.com",
 				},
-				Payload: map[string]any{
-					"use_case_id": "test_use_case",
+				Payload: GetUseCaseVerificationDeeplinkWorkflowPayload{
+					UseCaseIdentifier: "test_use_case",
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
@@ -59,7 +59,7 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 			name: "Failure: missing use_case_id",
 			input: workflowengine.WorkflowInput{
 				Config:  map[string]any{"app_url": "https://example.com"},
-				Payload: map[string]any{},
+				Payload: GetUseCaseVerificationDeeplinkWorkflowPayload{},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
 			expectedErr:    true,
@@ -68,8 +68,10 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 		{
 			name: "Failure: missing app_url",
 			input: workflowengine.WorkflowInput{
-				Config:  map[string]any{},
-				Payload: map[string]any{"use_case_id": "test_use_case"},
+				Config: map[string]any{},
+				Payload: GetUseCaseVerificationDeeplinkWorkflowPayload{
+					UseCaseIdentifier: "test_use_case",
+				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
 			expectedErr:    true,
@@ -78,8 +80,10 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 		{
 			name: "Failure: invalid HTTP output (body not a map)",
 			input: workflowengine.WorkflowInput{
-				Config:  map[string]any{"app_url": "https://example.com"},
-				Payload: map[string]any{"use_case_id": "test_use_case"},
+				Config: map[string]any{"app_url": "https://example.com"},
+				Payload: GetUseCaseVerificationDeeplinkWorkflowPayload{
+					UseCaseIdentifier: "test_use_case",
+				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
@@ -96,8 +100,8 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 				Config: map[string]any{
 					"app_url": "https://example.com",
 				},
-				Payload: map[string]any{
-					"use_case_id": "test_use_case",
+				Payload: GetUseCaseVerificationDeeplinkWorkflowPayload{
+					UseCaseIdentifier: "test_use_case",
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {

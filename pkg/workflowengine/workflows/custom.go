@@ -6,6 +6,7 @@ package workflows
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -17,7 +18,13 @@ import (
 
 const CustomCheckTaskQueue = "custom-check-task-queue"
 
+// CustomCheckWorkflow is a workflow that performs a custom check.
 type CustomCheckWorkflow struct{}
+
+type CustomCheckWorkflowPayload struct {
+	Yaml string `json:"yaml,omitempty" yaml:"yaml,omitempty"`
+	ID   string `json:"id,omitempty" yaml:"id,omitempty"`
+}
 
 func (CustomCheckWorkflow) Name() string {
 	return "Custom Check Workflow"
@@ -50,29 +57,32 @@ func (w *CustomCheckWorkflow) Workflow(
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
-	yaml, ok := input.Payload["yaml"].(string)
-	if !ok || yaml == "" {
-		id, ok := input.Payload["id"].(string)
-		if !ok || id == "" {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-				"id or yaml",
+	payload, err := workflowengine.DecodePayload[CustomCheckWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+	}
+	yaml := payload.Yaml
+	if yaml == "" {
+		if payload.ID == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+				fmt.Errorf("yaml or id must be provided"),
 				runMetadata,
 			)
 		}
 		var HTTPActivity = activities.NewHTTPActivity()
 		var HTTPResponse workflowengine.ActivityResult
 		err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"method": "POST",
-				"url": fmt.Sprintf(
+			Payload: activities.HTTPActivityPayload{
+				Method: http.MethodPost,
+				URL: fmt.Sprintf(
 					"%s/%s",
 					input.Config["app_url"].(string),
 					"api/canonify/identifier/validate",
 				),
-				"body": map[string]any{
-					"canonified_name": id,
+				Body: map[string]any{
+					"canonified_name": payload.ID,
 				},
-				"expected_status": 200,
+				ExpectedStatus: 200,
 			},
 		}).Get(ctx, &HTTPResponse)
 		if err != nil {
@@ -121,9 +131,9 @@ func (w *CustomCheckWorkflow) Workflow(
 				runMetadata,
 			)
 		}
-
-		yaml, ok = record["yaml"].(string)
-		if !ok || yaml == "" {
+		var storedYaml string
+		storedYaml, ok = record["yaml"].(string)
+		if !ok || storedYaml == "" {
 			appErr := workflowengine.NewAppError(
 				errCode,
 				"missing yaml in custom check record",
@@ -134,18 +144,19 @@ func (w *CustomCheckWorkflow) Workflow(
 				runMetadata,
 			)
 		}
-		input.Payload["yaml"] = yaml
-	}
+		yaml = storedYaml
 
+	}
+	env, _ := input.Config["env"].(string)
 	stepCIInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"yaml": yaml,
-			"env":  input.Config["env"],
+		Payload: activities.StepCIWorkflowActivityPayload{
+			Yaml: yaml,
+			Env:  env,
 		},
 	}
 	var stepCIResult workflowengine.ActivityResult
 
-	err := workflow.ExecuteActivity(ctx, stepCIWorkflowActivity.Name(), stepCIInput).
+	err = workflow.ExecuteActivity(ctx, stepCIWorkflowActivity.Name(), stepCIInput).
 		Get(ctx, &stepCIResult)
 
 	if err != nil {

@@ -23,6 +23,10 @@ type CESRParsingActivity struct {
 	workflowengine.BaseActivity
 }
 
+type CESRParsingActivityPayload struct {
+	RawCESR string `json:"rawCESR" yaml:"rawCESR" validate:"required"`
+}
+
 func NewCESRParsingActivity() *CESRParsingActivity {
 	return &CESRParsingActivity{
 		BaseActivity: workflowengine.BaseActivity{
@@ -42,30 +46,19 @@ func (a *CESRParsingActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	result := workflowengine.ActivityResult{}
-	// Get rawCESR
-	raw, ok := input.Payload["rawCESR"]
-	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-	if !ok {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'rawCESR'", errCode.Description),
-		)
+
+	payload, err := workflowengine.DecodePayload[CESRParsingActivityPayload](input.Payload)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
-	rawStr, ok := raw.(string)
-	if !ok {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'rawCESR' must be a string", errCode.Description),
-			raw,
-		)
-	}
-	events, err := cesr.ParseCESR(rawStr)
+
+	events, err := cesr.ParseCESR(payload.RawCESR)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CESRParsingError]
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			rawStr,
+			payload.RawCESR,
 		)
 	}
 	result.Output = events
@@ -75,6 +68,10 @@ func (a *CESRParsingActivity) Execute(
 // CESRValidateActivity is an activity that validates CESR credential events
 type CESRValidateActivity struct {
 	workflowengine.BaseActivity
+}
+
+type CesrValidateActivityPayload struct {
+	Events string `json:"events" yaml:"events" validate:"required"`
 }
 
 func NewCESRValidateActivity() *CESRValidateActivity {
@@ -96,34 +93,24 @@ func (a *CESRValidateActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	result := workflowengine.ActivityResult{}
-	eventsJSON, ok := input.Payload["events"]
-	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-	if !ok {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'events'", errCode.Description),
-		)
+
+	payload, err := workflowengine.DecodePayload[CesrValidateActivityPayload](input.Payload)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
-	eventsStr, ok := eventsJSON.(string)
-	if !ok {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'events' must be a string", errCode.Description),
-			eventsJSON,
-		)
-	}
+
 	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	binName := "et-tu-cesr"
 	binPath := fmt.Sprintf("%s/%s", binDir, binName)
 	command := "validate-parsed-credentials"
-	args := []string{command, eventsStr}
+	args := []string{command, payload.Events}
 	cmd := exec.CommandContext(ctx, binPath, args...)
 
 	var stdoutBuf, stderrBuf bytes.Buffer
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
-	err := cmd.Run()
+	err = cmd.Run()
 	stdoutStr := stdoutBuf.String()
 	stderrStr := stderrBuf.String()
 	if err != nil {

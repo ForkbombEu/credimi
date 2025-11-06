@@ -38,9 +38,9 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 					"issuer_schema": "{}",
 					"orgID":         "org123",
 				},
-				Payload: map[string]any{
-					"issuerID": "issuer123",
-					"base_url": "baseurl",
+				Payload: CredentialsIssuersWorkflowPayload{
+					IssuerID: "issuer123",
+					BaseURL:  "baseurl",
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
@@ -76,7 +76,7 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 					"issuer_schema": "{}",
 					"orgID":         "org123",
 				},
-				Payload: map[string]any{},
+				Payload: CredentialsIssuersWorkflowPayload{},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 
@@ -92,9 +92,9 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 					"issuer_schema": "{}",
 					"orgID":         "org123",
 				},
-				Payload: map[string]any{
-					"issuerID": "issuer123",
-					"base_url": "baseurl",
+				Payload: CredentialsIssuersWorkflowPayload{
+					IssuerID: "issuer123",
+					BaseURL:  "baseurl",
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
@@ -150,8 +150,8 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 				Config: map[string]any{
 					"app_url": "https://example.com",
 				},
-				Payload: map[string]any{
-					"credential_id": "test_cred",
+				Payload: GetCredentialOfferWorkflowPayload{
+					CredentialID: "test_cred",
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
@@ -173,7 +173,7 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			name: "Success: retrieves dynamic credential offer via StepCI",
 			input: workflowengine.WorkflowInput{
 				Config:  map[string]any{"app_url": "https://example.com"},
-				Payload: map[string]any{"credential_id": "dynamic_cred"},
+				Payload: GetCredentialOfferWorkflowPayload{CredentialID: "dynamic_cred"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
@@ -197,7 +197,7 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			name: "Failure: StepCI activity fails",
 			input: workflowengine.WorkflowInput{
 				Config:  map[string]any{"app_url": "https://example.com"},
-				Payload: map[string]any{"credential_id": "test_cred"},
+				Payload: GetCredentialOfferWorkflowPayload{CredentialID: "test_cred"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
@@ -220,7 +220,7 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			name: "Failure: missing credential_id",
 			input: workflowengine.WorkflowInput{
 				Config:  map[string]any{"app_url": "https://example.com"},
-				Payload: map[string]any{},
+				Payload: GetCredentialOfferWorkflowPayload{},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
 			expectedErr:    true,
@@ -230,7 +230,7 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			name: "Failure: missing app_url",
 			input: workflowengine.WorkflowInput{
 				Config:  map[string]any{},
-				Payload: map[string]any{"credential_id": "test_cred"},
+				Payload: GetCredentialOfferWorkflowPayload{CredentialID: "test_cred"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
 			expectedErr:    true,
@@ -240,7 +240,7 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			name: "Failure: invalid HTTP output (body not a map)",
 			input: workflowengine.WorkflowInput{
 				Config:  map[string]any{"app_url": "https://example.com"},
-				Payload: map[string]any{"credential_id": "test_cred"},
+				Payload: GetCredentialOfferWorkflowPayload{CredentialID: "test_cred"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()

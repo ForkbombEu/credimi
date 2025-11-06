@@ -17,6 +17,11 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
+// ParseWalletURLActivityPayload is a struct that represents the input payload for the ParseWalletURLActivity.
+type ParseWalletURLActivityPayload struct {
+	URL string `json:"url" yaml:"url" validate:"required"`
+}
+
 type ParseWalletURLActivity struct {
 	workflowengine.BaseActivity
 }
@@ -49,16 +54,13 @@ func (a *ParseWalletURLActivity) Execute(
 		storeType string
 	)
 
-	fullURL, ok := input.Payload["url"].(string)
-	if !ok {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'url'", errCode.Description),
-		)
+	// Decode the input payload into a ParseWalletURLActivityPayload struct
+	payload, err := workflowengine.DecodePayload[ParseWalletURLActivityPayload](input.Payload)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
-	parsed, err := url.Parse(TrimInput(fullURL))
+	parsed, err := url.Parse(TrimInput(payload.URL))
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
 		return result, a.NewActivityError(
@@ -71,7 +73,8 @@ func (a *ParseWalletURLActivity) Execute(
 
 	switch {
 	case strings.Contains(host, "play.google.com"):
-		apiInput = fullURL
+		apiInput =
+			payload.URL
 		storeType = "google"
 
 	case strings.Contains(host, "apps.apple.com"):
@@ -82,7 +85,7 @@ func (a *ParseWalletURLActivity) Execute(
 			return result, a.NewNonRetryableActivityError(
 				errCode.Code,
 				fmt.Sprintf("%s: 'url' is not a correct Apple store URL", errCode.Description),
-				fullURL,
+				payload.URL,
 			)
 		}
 		apiInput = matches[1]
@@ -93,7 +96,7 @@ func (a *ParseWalletURLActivity) Execute(
 		return result, a.NewNonRetryableActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: 'url' does not match a supported store type", errCode.Description),
-			fullURL,
+			payload.URL,
 		)
 	}
 

@@ -9,7 +9,6 @@ import (
 	"context"
 	"fmt"
 	"html/template"
-	"io"
 	"strconv"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -21,6 +20,16 @@ import (
 // SendMailActivity is an activity that sends an email using SMTP.
 type SendMailActivity struct {
 	workflowengine.BaseActivity
+}
+
+// SendMailActivityPayload is the input payload for the SendMailActivity.
+type SendMailActivityPayload struct {
+	Sender    string         `json:"sender,omitempty" yaml:"sender,omitempty"`
+	Recipient string         `json:"recipient" yaml:"recipient" validate:"required"`
+	Subject   string         `json:"subject,omitempty" yaml:"subject,omitempty"`
+	Body      string         `json:"body,omitempty" yaml:"body,omitempty"`
+	Template  string         `json:"template,omitempty" yaml:"template,omitempty"`
+	Data      map[string]any `json:"data,omitempty" yaml:"data,omitempty"`
 }
 
 func NewSendMailActivity() *SendMailActivity {
@@ -45,9 +54,14 @@ func (a *SendMailActivity) Configure(
 	if input.Config == nil {
 		input.Config = make(map[string]string)
 	}
+	payload, err := workflowengine.DecodePayload[SendMailActivityPayload](input.Payload)
+	if err != nil {
+		return a.NewMissingOrInvalidPayloadError(err)
+	}
 	input.Config["smtp_host"] = utils.GetEnvironmentVariable("SMTP_HOST", "smtp.apps.forkbomb.eu")
 	input.Config["smtp_port"] = utils.GetEnvironmentVariable("SMTP_PORT", "1025")
-	input.Payload["sender"] = utils.GetEnvironmentVariable("MAIL_SENDER", "no-reply@credimi.io")
+	payload.Sender = utils.GetEnvironmentVariable("MAIL_SENDER", "no-reply@credimi.io")
+	input.Payload = payload
 	return nil
 }
 
@@ -56,39 +70,27 @@ func (a *SendMailActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
-	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+	payload, err := workflowengine.DecodePayload[SendMailActivityPayload](input.Payload)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
+	}
+
 	m := gomail.NewMessage()
-	recipient, ok := input.Payload["recipient"].(string)
-	if !ok {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'recipient'", errCode.Description),
-		)
-	}
-	subject, ok := input.Payload["subject"].(string)
-	if !ok {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'subject'", errCode.Description),
-		)
-	}
-	m.SetHeader("From", input.Payload["sender"].(string))
-	m.SetHeader("To", recipient)
-	m.SetHeader("Subject", subject)
-	body, hasBody := input.Payload["body"].(string)
-	inputTemplate, hasTemplate := input.Payload["template"].(string)
-	data, hasData := input.Payload["data"].(map[string]any)
+	m.SetHeader("From", payload.Sender)
+	m.SetHeader("To", payload.Recipient)
+	m.SetHeader("Subject", payload.Subject)
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 	switch {
-	case hasBody && hasTemplate:
+	case payload.Body != "" && payload.Template != "":
 		return workflowengine.ActivityResult{}, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: 'body' and 'template' cannot both be provided in payload",
 				errCode.Description),
 		)
-	case hasBody:
-		m.SetBody("text/plain", body)
-	case hasTemplate && hasData:
-		tmpl, err := template.New("email").Parse(inputTemplate)
+	case payload.Body != "":
+		m.SetBody("text/plain", payload.Body)
+	case payload.Template != "" && payload.Data != nil:
+		tmpl, err := template.New("email").Parse(payload.Template)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 			return workflowengine.ActivityResult{}, a.NewActivityError(
@@ -97,7 +99,7 @@ func (a *SendMailActivity) Execute(
 			)
 		}
 		var bodyBuffer bytes.Buffer
-		if err := tmpl.Execute(&bodyBuffer, data); err != nil {
+		if err := tmpl.Execute(&bodyBuffer, payload.Data); err != nil {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 			return workflowengine.ActivityResult{}, a.NewActivityError(
 				errCode.Code,
@@ -114,18 +116,6 @@ func (a *SendMailActivity) Execute(
 				errCode.Description,
 			),
 		)
-	}
-
-	// Attach any files if necessary
-	attachments, ok := input.Payload["attachments"].(map[string][]byte)
-	if ok {
-		for filename, attachedBytes := range attachments {
-			attached := gomail.SetCopyFunc(func(w io.Writer) error {
-				_, err := w.Write(attachedBytes)
-				return err
-			})
-			m.Attach(filename, attached)
-		}
 	}
 
 	SMTPPort, err := strconv.Atoi(input.Config["smtp_port"])

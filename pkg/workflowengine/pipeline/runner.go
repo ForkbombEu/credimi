@@ -22,7 +22,7 @@ func (s *StepDefinition) Execute(
 ) (any, error) {
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
 
-	payload, cfg, err := ResolveInputs(*s, globalCfg, *dataCtx)
+	err := ResolveInputs(s, globalCfg, *dataCtx)
 	if err != nil {
 		appErr := workflowengine.NewAppError(
 			errCode,
@@ -33,11 +33,19 @@ func (s *StepDefinition) Execute(
 	step := registry.Registry[s.Use]
 	switch step.Kind {
 	case registry.TaskActivity:
+		payload, err := s.DecodePayload()
+		if err != nil {
+			appErr := workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("error decoding payload for step %s: %s", s.ID, err.Error()),
+			)
+			return nil, appErr
+		}
 		ctx = workflow.WithActivityOptions(ctx, ao)
 		act := step.NewFunc().(workflowengine.Activity)
 		input := workflowengine.ActivityInput{
 			Payload: payload,
-			Config:  convertMapAnyToString(cfg),
+			Config:  convertMapAnyToString(s.With.Config),
 		}
 		var result workflowengine.ActivityResult
 
@@ -93,17 +101,26 @@ func (s *StepDefinition) Execute(
 		}
 		return result, nil
 	case registry.TaskWorkflow:
+		payload, err := s.DecodePayload()
+		if err != nil {
+			appErr := workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("error decoding payload for step %s: %s", s.ID, err.Error()),
+			)
+			return nil, appErr
+		}
 		taskqueue := PipelineTaskQueue
 		if step.TaskQueue != "" {
 			taskqueue = step.TaskQueue
 		}
 		w := step.NewFunc().(workflowengine.Workflow)
-		if cfg["app_url"] == "" {
-			cfg["app_url"] = "http://localhost:8090"
+		appURL, ok := s.With.Config["app_url"].(string)
+		if ok && appURL == "" {
+			s.With.Config["app_url"] = "http://localhost:8090"
 		}
 		input := workflowengine.WorkflowInput{
 			Payload:         payload,
-			Config:          cfg,
+			Config:          s.With.Config,
 			ActivityOptions: &ao,
 		}
 

@@ -8,8 +8,6 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
 // mergeConfigs merges global config with step-level config
@@ -153,42 +151,6 @@ func ResolveExpressions(val any, ctx map[string]any) (any, error) {
 	}
 }
 
-func castType(val any, typeStr string) (any, error) {
-	switch typeStr {
-	case "string", "":
-		return fmt.Sprintf("%v", val), nil
-	case "int":
-		switch v := val.(type) {
-		case int:
-			return v, nil
-		case string:
-			return strconv.Atoi(v)
-		default:
-			return nil, fmt.Errorf("cannot cast %T to int", val)
-		}
-	case "map":
-		m, ok := val.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("cannot cast %T to map", val)
-		}
-		return m, nil
-	case "[]string":
-		return workflowengine.AsSliceOfStrings(val), nil
-	case "[]map":
-		return workflowengine.AsSliceOfMaps(val), nil
-	case "bytes", "[]byte":
-		switch v := val.(type) {
-		case string:
-			return []byte(v), nil
-		case []byte:
-			return v, nil
-		default:
-			return nil, fmt.Errorf("cannot convert %T to []byte", val)
-		}
-	default:
-		return val, nil
-	}
-}
 func shouldSkipInString(stepRun, key string, val any) bool {
 	if strVal, ok := val.(string); ok {
 		if !isFullRef(strVal) {
@@ -206,10 +168,10 @@ func shouldSkipInString(stepRun, key string, val any) bool {
 
 // ResolveInputs builds activity input for a step
 func ResolveInputs(
-	step StepDefinition,
+	step *StepDefinition,
 	globalCfg map[string]any,
 	ctx map[string]any,
-) (map[string]any, map[string]any, error) {
+) error {
 	stepCfg := make(map[string]any)
 	var val any
 	var err error
@@ -219,76 +181,49 @@ func ResolveInputs(
 		} else {
 			val, err = ResolveExpressions(src, ctx)
 			if err != nil {
-				return nil, nil, err
+				return err
 			}
 		}
 		stepCfg[k] = val
 	}
-	cfg := MergeConfigs(globalCfg, stepCfg)
+	step.With.Config = MergeConfigs(globalCfg, stepCfg)
 
-	payload := make(map[string]any)
-	for k, src := range step.With.Payload {
-		var val any
-		var err error
-
-		if shouldSkipInString(step.Use, k, src.Value) {
-			val = src.Value
-		} else {
-			val, err = ResolveExpressions(src.Value, ctx)
-			if err != nil {
-				return nil, nil, err
-			}
+	for k, v := range step.With.Payload {
+		if shouldSkipInString(step.Use, k, v) {
+			continue
 		}
-
-		if src.Type != "" {
-			val, err = castType(val, src.Type)
-			if err != nil {
-				return nil, nil, err
-			}
+		rv, err := ResolveExpressions(v, ctx)
+		if err != nil {
+			return fmt.Errorf("resolving payload key %q: %w", k, err)
 		}
-		payload[k] = val
+		step.With.Payload[k] = rv
 	}
 
-	return payload, cfg, nil
+	return nil
 }
 func ResolveSubworkflowInputs(
-	step StepDefinition,
+	step *StepDefinition,
 	subDef WorkflowBlock,
 	globalCfg map[string]any,
 	ctx map[string]any, // merged context (workflow inputs + previous outputs)
-) (map[string]any, error) {
-	resolvedInputs := make(map[string]any)
+) error {
 
 	// Iterate declared inputs of the subworkflow
-	for k := range subDef.Inputs {
-		src, ok := step.With.Payload[k]
+	for inputName := range subDef.Inputs {
+		val, ok := step.With.Payload[inputName]
 		if !ok {
-			return nil, fmt.Errorf("missing payload for subworkflow input %q", k)
+			return fmt.Errorf("missing payload for subworkflow input %q", inputName)
 		}
 
-		var val any
-		var err error
-
-		// Handle expression resolution
-		if shouldSkipInString(step.Use, k, src.Value) {
-			val = src.Value
-		} else {
-			val, err = ResolveExpressions(src.Value, ctx)
-			if err != nil {
-				return nil, fmt.Errorf("failed to resolve input %q: %w", k, err)
-			}
+		if shouldSkipInString(step.Use, inputName, val) {
+			continue
 		}
 
-		// Cast to type if defined
-		if src.Type != "" {
-			val, err = castType(val, src.Type)
-			if err != nil {
-				return nil, fmt.Errorf("failed to cast input %q: %w", k, err)
-			}
+		rv, err := ResolveExpressions(val, ctx)
+		if err != nil {
+			return fmt.Errorf("failed to resolve subworkflow input %q: %w", inputName, err)
 		}
-
-		resolvedInputs[k] = val
+		step.With.Payload[inputName] = rv
 	}
-
-	return resolvedInputs, nil
+	return nil
 }

@@ -10,13 +10,14 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"go.temporal.io/sdk/temporal"
 )
 
 // ActivityInput represents the input to an activity, including payload and configuration.
 // The payload is a map of string keys to any type of value.
 type ActivityInput struct {
-	Payload map[string]any    `json:"payload,omitempty"`
+	Payload any               `json:"payload,omitempty"`
 	Config  map[string]string `json:"config,omitempty"`
 }
 
@@ -32,6 +33,7 @@ type Activity interface {
 	Name() string
 	NewActivityError(errorType string, errorMsg string, payload ...any) error
 	NewNonRetryableActivityError(errorType string, errorMsg string, payload ...any) error
+	NewMissingOrInvalidPayloadError(err error) error
 }
 
 // BaseActivity provides a default implementation of the Activity interface.
@@ -81,6 +83,13 @@ func (a *BaseActivity) NewNonRetryableActivityError(
 	// NewNonRetryableActivityError returns a non-retryable application error with a message, type, and optional payload.
 	// This error is used to indicate that the activity should not be retried upon failure.
 	return temporal.NewNonRetryableApplicationError(msg, errorType, nil, activityPayload)
+}
+
+func (a *BaseActivity) NewMissingOrInvalidPayloadError(err error) error {
+	return a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+		fmt.Sprintf("%s: %v", errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description, err),
+	)
 }
 
 // OutputKind represents the expected type of an activity output.

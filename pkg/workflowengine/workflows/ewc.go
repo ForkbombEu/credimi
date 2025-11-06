@@ -10,6 +10,7 @@ package workflows
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -28,8 +29,13 @@ const (
 	EwcStopCheckSignal    = "stop-ewc-check-signal"
 )
 
-// EWCWorkflow is a workflow that performs conformance checks on the OpenID certification site.
+// EWCWorkflow is a workflow that performs conformance checks on the EWC suite.
 type EWCWorkflow struct{}
+
+type EWCWorkflowPayload struct {
+	SessionID string `json:"session_id" yaml:"session_id" validate:"required"`
+	UserMail  string `json:"user_mail" yaml:"user_mail" validate:"required"`
+}
 
 // Name returns the name of the EWCWorkflow.
 func (EWCWorkflow) Name() string {
@@ -89,13 +95,11 @@ func (w *EWCWorkflow) Workflow(
 		),
 	}
 
-	sessionID, ok := input.Payload["session_id"].(string)
-	if !ok || sessionID == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"session_id",
-			runMetadata,
-		)
+	payload, err := workflowengine.DecodePayload[EWCWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
 	}
+
 	template, ok := input.Config["template"].(string)
 	if !ok || template == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -118,8 +122,8 @@ func (w *EWCWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	stepCIPayload := map[string]any{
-		"session_id": sessionID,
+	stepCIPayload := activities.StepCIWorkflowActivityPayload{
+		Data: map[string]any{"session_id": payload.SessionID},
 	}
 	suite, ok := input.Config["memo"].(map[string]any)["author"].(string)
 	if !ok {
@@ -134,7 +138,7 @@ func (w *EWCWorkflow) Workflow(
 		AppName:       input.Config["app_name"].(string),
 		AppLogo:       input.Config["app_logo"].(string),
 		UserName:      input.Config["user_name"].(string),
-		UserMail:      input.Payload["user_mail"].(string),
+		UserMail:      payload.UserMail,
 		Template:      template,
 		StepCIPayload: stepCIPayload,
 		Namespace:     input.Config["namespace"].(string),
@@ -147,7 +151,7 @@ func (w *EWCWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	sessionID, ok = result.Captures["session_id"].(string)
+	sessionID, ok := result.Captures["session_id"].(string)
 	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 			"session_id",
@@ -192,7 +196,13 @@ func (w *EWCWorkflow) Start(
 	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
+// EWCStatusWorkflow is a workflow that checks the status of an EWC check.
 type EWCStatusWorkflow struct{}
+
+// EWCStatusWorkflowPayload is the payload for the EWCStatusWorkflow.
+type EWCStatusWorkflowPayload struct {
+	SessionID string `json:"session_id"`
+}
 
 // Name returns the human-readable name for this workflow.
 func (EWCStatusWorkflow) Name() string {
@@ -224,12 +234,9 @@ func (w *EWCStatusWorkflow) Workflow(
 		),
 	}
 
-	sessionID, ok := input.Payload["session_id"].(string)
-	if !ok || sessionID == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"session_id",
-			runMetadata,
-		)
+	payload, err := workflowengine.DecodePayload[EWCStatusWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
 	}
 
 	appURL, ok := input.Config["app_url"].(string)
@@ -253,7 +260,7 @@ func (w *EWCStatusWorkflow) Workflow(
 		)
 	}
 
-	result, err := pollEWCCheck(ctx, interval, checkEndpoint, sessionID, runMetadata)
+	result, err := pollEWCCheck(ctx, interval, checkEndpoint, payload.SessionID, runMetadata)
 	return result, err
 }
 
@@ -284,13 +291,13 @@ func pollEWCCheck(
 		})
 	}
 	httpInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"method": "GET",
-			"url":    checkEndpoint,
-			"query_params": map[string]any{
+		Payload: activities.HTTPActivityPayload{
+			Method: http.MethodGet,
+			URL:    checkEndpoint,
+			QueryParams: map[string]string{
 				"sessionId": sessionID,
 			},
-			"expected_status": 200,
+			ExpectedStatus: 200,
 		},
 	}
 	for {

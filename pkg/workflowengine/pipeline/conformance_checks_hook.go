@@ -35,17 +35,33 @@ func ConformanceCheckHook(
 			continue
 		}
 		logger.Info("ConformanceCheckHook: processing step", "step", step.ID)
+		rawPayload, err := step.DecodePayload()
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
+			)
+		}
+		payload, err := workflowengine.DecodePayload[workflows.StartCheckWorkflowPayload](rawPayload)
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 
-		checkID, ok := step.With.Payload["check_id"].Value.(string)
-		if !ok {
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
+			)
+		}
+
+		if payload.CheckID == "" {
 			return workflowengine.NewAppError(
 				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-				fmt.Sprintf("missing or invalid check_id for step %s", step.ID),
+				fmt.Sprintf("missing check_id for step %s", step.ID),
 			)
 		}
 
 		rootDir := utils.GetEnvironmentVariable("ROOT_DIR", true)
-		configTemplatePath := fmt.Sprintf("%s/config_templates/%s.yaml", rootDir, checkID)
+		configTemplatePath := fmt.Sprintf("%s/config_templates/%s.yaml", rootDir, payload.CheckID)
 		content, err := os.ReadFile(configTemplatePath)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.ReadFileFailed]
@@ -62,7 +78,6 @@ func ConformanceCheckHook(
 				fmt.Sprintf("failed to extract credimi JSON from %s: %v", configTemplatePath, err),
 			)
 		}
-
 		var tpl map[string]any
 		if err := yaml.Unmarshal([]byte(extractedContent), &tpl); err != nil {
 			errCode := errorcodes.Codes[errorcodes.TemplateRenderFailed]
@@ -73,7 +88,8 @@ func ConformanceCheckHook(
 		}
 
 		tpl = extractValues(tpl).(map[string]any)
-		parts := strings.Split(filepath.ToSlash(checkID), "/")
+
+		parts := strings.Split(filepath.ToSlash(payload.CheckID), "/")
 		var suite, standard, checkName string
 		if len(parts) >= 2 {
 			suite = parts[len(parts)-2]
@@ -95,10 +111,9 @@ func ConformanceCheckHook(
 			)
 		}
 
-		defaultPayload := map[string]any{
-			"user_mail": userMail,
-			"suite":     suite,
-		}
+		defaultPayload := make(map[string]any)
+		SetPayloadValue(&defaultPayload, "user_mail", userMail)
+		SetPayloadValue(&defaultPayload, "suite", suite)
 
 		var suiteTemplatePath string
 		switch suite {
@@ -132,20 +147,20 @@ func ConformanceCheckHook(
 				testVal = tVal
 			}
 
-			defaultPayload["variant"] = string(variantJSON)
-			defaultPayload["form"] = form
-			defaultPayload["test"] = testVal
+			SetPayloadValue(&defaultPayload, "variant", string(variantJSON))
+			SetPayloadValue(&defaultPayload, "form", form)
+			SetPayloadValue(&defaultPayload, "test", testVal)
 
 			suiteTemplatePath = workflows.OpenIDNetStepCITemplatePathv1_0
 
 		case "ewc":
 
 			var sessionID string
-			if sID, ok := tpl["session_id"].(string); ok {
+			if sID, ok := tpl["sessionId"].(string); ok {
 				sessionID = sID
 			}
 
-			defaultPayload["session_id"] = sessionID
+			SetPayloadValue(&defaultPayload, "session_id", sessionID)
 			suiteTemplatePath = workflows.EWCTemplateFolderPath + "/" + checkName + ".yaml"
 		case "eudiw":
 
@@ -158,8 +173,8 @@ func ConformanceCheckHook(
 				nonce = tNonce
 			}
 
-			defaultPayload["id"] = id
-			defaultPayload["nonce"] = nonce
+			SetPayloadValue(&defaultPayload, "id", id)
+			SetPayloadValue(&defaultPayload, "nonce", nonce)
 			suiteTemplatePath = workflows.EudiwTemplateFolderPath + "/" + checkName + ".yaml"
 		default:
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
@@ -178,7 +193,9 @@ func ConformanceCheckHook(
 				fmt.Sprintf("failed to read template file %s: %v", templatePath, err),
 			)
 		}
-		MergePayload(step.With.Payload, defaultPayload)
+
+		MergePayload(&defaultPayload, &step.With.Payload)
+		step.With.Payload = defaultPayload
 		SetConfigValue(&step.With.Config, "template", string(template))
 	}
 

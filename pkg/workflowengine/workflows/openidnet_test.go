@@ -45,7 +45,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": 12345, "deeplink": "test"}}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": "12345", "deeplink": "test"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -75,7 +75,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": 12345, "deeplink": "test"}}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": "12345", "deeplink": "test"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -104,7 +104,7 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 				})
 
 				env.OnActivity(StepCIActivity.Name(), mock.Anything, mock.Anything).
-					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": 12345, "deeplink": "test"}}}, nil)
+					Return(workflowengine.ActivityResult{Output: map[string]any{"captures": map[string]any{"rid": "12345", "deeplink": "test"}}}, nil)
 				env.OnActivity(MailActivity.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
@@ -147,11 +147,11 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 					)
 				}, time.Second*30)
 				env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
-					Payload: map[string]any{
-						"variant":   "test-variant",
-						"form":      mock.Anything,
-						"test_name": "test-name",
-						"user_mail": "user@test.org",
+					Payload: OpenIDNetWorkflowPayload{
+						Variant:  "test-variant",
+						Form:     Form{Alias: "test-alias"},
+						TestName: "test-name",
+						UserMail: "user@test.org",
 					},
 					Config: map[string]any{
 						"app_url":   "https://test-app.com",
@@ -235,9 +235,9 @@ func Test_LogSubWorkflow(t *testing.T) {
 					env.SignalWorkflow(OpenIDNetStartCheckSignal, nil)
 				}, time.Second*30)
 				env.ExecuteWorkflow(logsWorkflow.Workflow, workflowengine.WorkflowInput{
-					Payload: map[string]any{
-						"rid":   "12345",
-						"token": "test-token",
+					Payload: OpenIDNetLogsWorkflowPayload{
+						Rid:   "12345",
+						Token: "test-token",
 					},
 					Config: map[string]any{
 						"app_url":  "https://test-app.com",

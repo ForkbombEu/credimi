@@ -9,6 +9,7 @@ package workflows
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -42,6 +43,34 @@ const (
 
 // OpenIDNetWorkflow is a workflow that performs conformance checks on the OpenID certification site.
 type OpenIDNetWorkflow struct{}
+
+// OpenIDNetWorkflowPayload represents the payload for the OpenIDNetWorkflow.
+type OpenIDNetWorkflowPayload struct {
+	Variant  string `json:"variant" yaml:"variant" validate:"required"`
+	Form     Form   `json:"form" yaml:"form" validate:"required"`
+	UserMail string `json:"user_mail" yaml:"user_mail" validate:"required"`
+	TestName string `json:"test" yaml:"test" validate:"required"`
+}
+
+type Form struct {
+	Alias       string `json:"alias" yaml:"alias" validate:"required"`
+	Description string `json:"description" yaml:"description"`
+	Client      struct {
+		PresentationDefinition string `json:"presentation_definition,omitempty" yaml:"presentation_definition,omitempty"`
+		JWKS                   struct {
+			Keys []map[string]any `json:"keys" yaml:"keys"`
+		} `json:"jwks" yaml:"jwks"`
+		DCQL struct {
+			Credentials []map[string]any `json:"credentials" yaml:"credentials"`
+		} `json:"dcql,omitempty" yaml:"dcql,omitempty"`
+		ClientID                          string `json:"client_id,omitempty" yaml:"client_id,omitempty"`
+		AuthorizationEncryptedResponseEnc string `json:"authorization_encrypted_response_enc,omitempty" yaml:"authorization_encrypted_response_enc,omitempty"`
+		AuthorizationEncryptedResponseAlg string `json:"authorization_encrypted_response_alg,omitempty" yaml:"authorization_encrypted_response_alg,omitempty"`
+	} `json:"client" yaml:"client" validate:"required"`
+	Server struct {
+		AuthorizationEndpoint string `json:"authorization_endpoint" yaml:"authorization_endpoint"`
+	} `json:"server" yaml:"server"`
+}
 
 // Name returns the name of the OpenIDNetWorkflow.
 func (OpenIDNetWorkflow) Name() string {
@@ -95,28 +124,11 @@ func (w *OpenIDNetWorkflow) Workflow(
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
+	payload, err := workflowengine.DecodePayload[OpenIDNetWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+	}
 
-	variant, ok := input.Payload["variant"].(string)
-	if !ok || variant == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"variant",
-			runMetadata,
-		)
-	}
-	form, ok := input.Payload["form"]
-	if !ok || form == nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"form",
-			runMetadata,
-		)
-	}
-	testName, ok := input.Payload["test_name"].(string)
-	if !ok || testName == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"test_name",
-			runMetadata,
-		)
-	}
 	template, ok := input.Config["template"].(string)
 	if !ok || template == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -134,16 +146,18 @@ func (w *OpenIDNetWorkflow) Workflow(
 	}
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"app_url",
 			runMetadata,
 		)
 	}
-	stepCIPayload := map[string]any{
-		"variant": variant,
-		"form":    form,
-		"test":    testName,
-		"secrets": map[string]any{
+	stepCIPayload := activities.StepCIWorkflowActivityPayload{
+		Data: map[string]any{
+			"variant": payload.Variant,
+			"form":    payload.Form,
+			"test":    payload.TestName,
+		},
+		Secrets: map[string]string{
 			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		},
 	}
@@ -152,7 +166,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		AppName:       input.Config["app_name"].(string),
 		AppLogo:       input.Config["app_logo"].(string),
 		UserName:      input.Config["user_name"].(string),
-		UserMail:      input.Payload["user_mail"].(string),
+		UserMail:      payload.UserMail,
 		Template:      template,
 		StepCIPayload: stepCIPayload,
 		Namespace:     input.Config["namespace"].(string),
@@ -177,9 +191,9 @@ func (w *OpenIDNetWorkflow) Workflow(
 		ctx,
 		child.Name(),
 		workflowengine.WorkflowInput{
-			Payload: map[string]any{
-				"rid":   rid,
-				"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+			Payload: OpenIDNetLogsWorkflowPayload{
+				Rid:   rid,
+				Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 			},
 			Config: map[string]any{
 				"app_url":  appURL,
@@ -244,6 +258,11 @@ func (w *OpenIDNetWorkflow) Start(
 // OpenIDNetLogsWorkflow is a workflow that drains logs from the OpenID certification site.
 type OpenIDNetLogsWorkflow struct{}
 
+type OpenIDNetLogsWorkflowPayload struct {
+	Rid   string `json:"rid" yaml:"rid" validate:"required"`
+	Token string `json:"token" yaml:"token" validate:"required"`
+}
+
 // Name returns the name of the OpenIDNetLogsWorkflow.
 func (OpenIDNetLogsWorkflow) Name() string {
 	return "Drain logs from https://www.certification.openid.net"
@@ -297,21 +316,25 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		),
 	}
 
+	payload, err := workflowengine.DecodePayload[OpenIDNetLogsWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+	}
 	getLogsInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"method": "GET",
-			"url": fmt.Sprintf(
+		Payload: activities.HTTPActivityPayload{
+			Method: http.MethodGet,
+			URL: fmt.Sprintf(
 				"%s/%s",
 				"https://www.certification.openid.net/api/log/",
-				url.PathEscape(input.Payload["rid"].(string)),
+				url.PathEscape(payload.Rid),
 			),
-			"headers": map[string]any{
-				"Authorization": fmt.Sprintf("Bearer %s", input.Payload["token"].(string)),
+			Headers: map[string]string{
+				"Authorization": fmt.Sprintf("Bearer %s", payload.Token),
 			},
-			"query_params": map[string]any{
+			QueryParams: map[string]string{
 				"public": "false",
 			},
-			"expected_status": 200,
+			ExpectedStatus: 200,
 		},
 	}
 	var logs []map[string]any
@@ -379,24 +402,24 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		logs = workflowengine.AsSliceOfMaps(HTTPResponse.Output.(map[string]any)["body"])
 
 		triggerLogsInput := workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"method": "POST",
-				"url": fmt.Sprintf(
+			Payload: activities.HTTPActivityPayload{
+				Method: http.MethodPost,
+				URL: fmt.Sprintf(
 					"%s/%s",
 					input.Config["app_url"].(string),
 					"api/compliance/send-openidnet-log-update",
 				),
-				"headers": map[string]any{
+				Headers: map[string]string{
 					"Content-Type": "application/json",
 				},
-				"body": map[string]any{
+				Body: map[string]any{
 					"workflow_id": strings.TrimSuffix(
 						workflow.GetInfo(subCtx).WorkflowExecution.ID,
 						"-log",
 					),
 					"logs": logs,
 				},
-				"expected_status": 200,
+				ExpectedStatus: 200,
 			},
 		}
 

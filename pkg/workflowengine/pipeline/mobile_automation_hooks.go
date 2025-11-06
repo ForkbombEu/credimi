@@ -27,7 +27,7 @@ func MobileAutomationSetupHook(
 	installActivity := activities.NewApkInstallActivity()
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
 
-	// iterate by index and mutate in-place
+	installedApks := make(map[string]struct{})
 	for i := range *steps {
 		step := &(*steps)[i]
 
@@ -38,30 +38,28 @@ func MobileAutomationSetupHook(
 		logger.Info("MobileAutomationSetupHook: processing step", "id", step.ID)
 
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		var actionID string
-		actionCode, actionCodeOk := step.With.Payload["action_code"].Value.(string)
-		versionID, versionIDOk := step.With.Payload["version_id"].Value.(string)
+		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPayload](step.With.Payload)
+		if err != nil {
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
+			)
+		}
 		// If action_code is present, version_id is REQUIRED
-		if actionCodeOk && actionCode != "" {
-			if !versionIDOk || versionID == "" {
+		if payload.ActionCode != "" {
+			if payload.VersionID == "" {
 				return workflowengine.NewAppError(
 					errCode,
 					fmt.Sprintf("missing or invalid version_id for step %s", step.ID))
 			}
 		}
 		// If action_code is NOT present -> action_id is REQUIRED
-		if !actionCodeOk || actionCode == "" {
-			actionIDValue, actionIDOk := step.With.Payload["action_id"].Value.(string)
-			if !actionIDOk || actionIDValue == "" {
+		if payload.ActionCode == "" {
+			if payload.ActionID == "" {
 				return workflowengine.NewAppError(
 					errCode,
 					fmt.Sprintf("missing or invalid action_id for step %s", step.ID),
 				)
-			}
-			actionID = actionIDValue
-
-			if !versionIDOk {
-				versionID = ""
 			}
 		}
 
@@ -73,8 +71,8 @@ func MobileAutomationSetupHook(
 					"Content-Type": "application/json",
 				},
 				"body": map[string]any{
-					"version_identifier": versionID,
-					"action_identifier":  actionID,
+					"version_identifier": payload.VersionID,
+					"action_identifier":  payload.ActionID,
 				},
 				"expected_status": 200,
 			},
@@ -110,7 +108,7 @@ func MobileAutomationSetupHook(
 				body,
 			)
 		}
-
+		actionCode := payload.ActionCode
 		if actionCode == "" {
 			actionCode, ok = body["code"].(string)
 			if !ok || actionCode == "" {
@@ -120,10 +118,15 @@ func MobileAutomationSetupHook(
 					body,
 				)
 			}
-			SetPayloadValue(step.With.Payload, "action_code", actionCode)
-			SetPayloadValue(step.With.Payload, "stored_action_code", true)
+			SetPayloadValue(&step.With.Payload, "action_code", actionCode)
+			SetPayloadValue(&step.With.Payload, "stored_action_code", true)
 		}
-		SetPayloadValue(step.With.Payload, "package_id", packageID)
+		SetPayloadValue(&step.With.Payload, "package_id", packageID)
+
+		if _, ok := installedApks[apkPath]; ok {
+			logger.Info("APK already installed, skipping", "apk_path", apkPath, "step", step.ID)
+			continue
+		}
 
 		mobileAo := *input.ActivityOptions
 		mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
@@ -132,6 +135,7 @@ func MobileAutomationSetupHook(
 		if err := workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).Get(ctx, nil); err != nil {
 			return err
 		}
+		installedApks[apkPath] = struct{}{}
 	}
 
 	return nil
@@ -149,14 +153,23 @@ func MobileAutomationCleanupHook(
 
 	uninstallActivity := activities.NewApkUninstallActivity()
 
+	uninstalledPackages := make(map[string]struct{})
 	for _, step := range steps {
 
 		if step.Use != "mobile-automation" {
 			continue
 		}
 
-		packageID, ok := step.With.Payload["package_id"].Value.(string)
-		if packageID == "" || !ok {
+		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPayload](step.With.Payload)
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
+			)
+		}
+
+		if payload.PackageID == "" {
 			logger.Error("MobileAutomationCleanupHook: no package_id found.", "step", step.ID)
 			return workflowengine.NewAppError(
 				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
@@ -164,13 +177,19 @@ func MobileAutomationCleanupHook(
 			)
 		}
 
-		logger.Info("MobileAutomationCleanupHook: uninstalling package", "package", packageID, "step", step.ID)
+		logger.Info("MobileAutomationCleanupHook: uninstalling package", "package", payload.PackageID, "step", step.ID)
+		if _, ok := uninstalledPackages[payload.PackageID]; ok {
+			logger.Info("Package already uninstalled, skipping", "package", payload.PackageID)
+			continue
+		}
 
-		uninstallInput := workflowengine.ActivityInput{Payload: map[string]any{"package": packageID}}
+		uninstallInput := workflowengine.ActivityInput{Payload: map[string]any{"package": payload.PackageID}}
 		if err := workflow.ExecuteActivity(mobileCtx, uninstallActivity.Name(), uninstallInput).Get(ctx, nil); err != nil {
-			logger.Error("MobileAutomationCleanupHook: uninstall failed", "package", packageID, "error", err)
+			logger.Error("MobileAutomationCleanupHook: uninstall failed", "package", payload.PackageID, "error", err)
 			return err
 		}
+
+		uninstalledPackages[payload.PackageID] = struct{}{}
 	}
 
 	return nil

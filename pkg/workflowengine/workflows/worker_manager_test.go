@@ -17,7 +17,7 @@ import (
 func Test_WorkerManagerWorkflow(t *testing.T) {
 	testCases := []struct {
 		name           string
-		inputPayload   map[string]any
+		inputPayload   WorkerManagerWorkflowPayload
 		inputConfig    map[string]any
 		mockActivities func(env *testsuite.TestWorkflowEnvironment)
 		expectedErr    bool
@@ -25,9 +25,9 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 	}{
 		{
 			name: "Workflow succeeds with valid namespace and old_namespace",
-			inputPayload: map[string]any{
-				"namespace":     "test-namespace",
-				"old_namespace": "old-test-namespace",
+			inputPayload: WorkerManagerWorkflowPayload{
+				Namespace:    "test-namespace",
+				OldNamespace: "old-test-namespace",
 			},
 			inputConfig: map[string]any{
 				"server_url": "https://test-server.com",
@@ -47,8 +47,8 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 		},
 		{
 			name: "Workflow fails when namespace missing",
-			inputPayload: map[string]any{
-				"old_namespace": "old-test-namespace",
+			inputPayload: WorkerManagerWorkflowPayload{
+				OldNamespace: "old-test-namespace",
 			},
 			inputConfig: map[string]any{
 				"server_url": "https://test-server.com",
@@ -56,22 +56,12 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
 			expectedErr:    true,
 		},
-		{
-			name: "Workflow fails when old_namespace missing",
-			inputPayload: map[string]any{
-				"namespace": "test-namespace",
-			},
-			inputConfig: map[string]any{
-				"server_url": "https://test-server.com",
-			},
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
-			expectedErr:    true,
-		},
+
 		{
 			name: "Workflow fails when server_url missing in config",
-			inputPayload: map[string]any{
-				"namespace":     "test-namespace",
-				"old_namespace": "old-test-namespace",
+			inputPayload: WorkerManagerWorkflowPayload{
+				Namespace:    "test-namespace",
+				OldNamespace: "old-test-namespace",
 			},
 			inputConfig:    map[string]any{},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},

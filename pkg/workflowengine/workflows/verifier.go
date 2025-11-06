@@ -10,6 +10,7 @@ package workflows
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -17,7 +18,15 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+// GetUseCaseVerificationDeeplinkWorkflow is a workflow that
+// get the deeplink for a use case verification.
 type GetUseCaseVerificationDeeplinkWorkflow struct{}
+
+// GetUseCaseVerificationDeeplinkWorkflowPayload is the payload
+// for the GetUseCaseVerificationDeeplinkWorkflow.
+type GetUseCaseVerificationDeeplinkWorkflowPayload struct {
+	UseCaseIdentifier string `json:"use_case_id" yaml:"use_case_id" validate:"required"`
+}
 
 func (w *GetUseCaseVerificationDeeplinkWorkflow) Name() string {
 	return "Get use case verification deeplink"
@@ -46,13 +55,12 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
-	useCaseIdenitifier, ok := input.Payload["use_case_id"].(string)
-	if !ok || useCaseIdenitifier == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"use_case_id",
-			runMetadata,
-		)
+
+	payload, err := workflowengine.DecodePayload[GetUseCaseVerificationDeeplinkWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
 	}
+
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -63,20 +71,20 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 	act := activities.NewHTTPActivity()
 	var result workflowengine.ActivityResult
 	request := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"method": "GET",
-			"url": fmt.Sprintf(
+		Payload: activities.HTTPActivityPayload{
+			Method: http.MethodGet,
+			URL: fmt.Sprintf(
 				"%s/%s",
 				input.Config["app_url"],
 				"api/verifier/get-use-case-verification-deeplink",
 			),
-			"query_params": map[string]any{
-				"use_case_identifier": useCaseIdenitifier,
+			QueryParams: map[string]string{
+				"use_case_identifier": payload.UseCaseIdentifier,
 			},
-			"expected_status": 200,
+			ExpectedStatus: 200,
 		},
 	}
-	err := workflow.ExecuteActivity(ctx, act.Name(), request).Get(ctx, &result)
+	err = workflow.ExecuteActivity(ctx, act.Name(), request).Get(ctx, &result)
 	if err != nil {
 		logger.Error("HTTPActivity failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
@@ -108,8 +116,8 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
 	var stepCIResult workflowengine.ActivityResult
 	stepCIInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"yaml": code,
+		Payload: activities.StepCIWorkflowActivityPayload{
+			Yaml: code,
 		},
 	}
 

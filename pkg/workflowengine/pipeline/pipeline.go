@@ -119,13 +119,13 @@ func (w *PipelineWorkflow) Workflow(
 			)
 
 			localCfg := MergeConfigs(input.WorkflowInput.Config, step.With.Config)
-			inputs, err := ResolveSubworkflowInputs(step, subBlock, input.WorkflowInput.Config, finalOutput)
+			err := ResolveSubworkflowInputs(&step, subBlock, input.WorkflowInput.Config, finalOutput)
 			if err != nil {
 				return result, workflowengine.NewWorkflowError(err, runMetadata)
 			}
 			childWorkflowInput := workflowengine.WorkflowInput{
 				Config:          map[string]any{"global": localCfg},
-				Payload:         inputs,
+				Payload:         step.With.Payload,
 				ActivityOptions: &ao,
 			}
 

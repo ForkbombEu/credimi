@@ -213,9 +213,9 @@ func Test_StartCheckWorkflow(t *testing.T) {
 
 			tc.mockActivities(env)
 
-			payload := map[string]any{
-				"user_mail": "test@example.org",
-				"suite":     tc.suite,
+			payload := StartCheckWorkflowPayload{
+				UserMail: "test@example.org",
+				Suite:    tc.suite,
 			}
 
 			config := map[string]any{
@@ -229,13 +229,13 @@ func Test_StartCheckWorkflow(t *testing.T) {
 			}
 
 			if tc.suite == "openid_conformance_suite" {
-				payload["variant"] = "test-variant"
-				payload["form"] = map[string]any{"field": "value"}
-				payload["test"] = "test-name"
+				payload.Variant = "test-variant"
+				payload.Form = &Form{Alias: "test-alias"}
+				payload.TestName = "test-name"
 			}
 
 			if tc.suite == "ewc" {
-				payload["session_id"] = "sess-123"
+				payload.SessionID = "test-session-id"
 				config["check_endpoint"] = "https://test-ewc.com"
 			}
 

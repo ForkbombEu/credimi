@@ -23,6 +23,12 @@ type JSONActivity struct {
 	StructRegistry map[string]reflect.Type // Maps type names to their reflect.Type
 }
 
+// JSONActivityPayload is the input payload for the JSONActivity.
+type JSONActivityPayload struct {
+	RawJSON    string `json:"rawJSON" yaml:"rawJSON" validate:"required"`
+	StructType string `json:"struct_type" yaml:"struct_type" validate:"required"`
+}
+
 func NewJSONActivity(structRegistry map[string]reflect.Type) *JSONActivity {
 	return &JSONActivity{
 		BaseActivity: &workflowengine.BaseActivity{
@@ -43,52 +49,34 @@ func (a *JSONActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	result := workflowengine.ActivityResult{}
-	// Get rawJSON
-	raw, ok := input.Payload["rawJSON"]
-	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-	if !ok {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'rawJSON'", errCode.Description),
-		)
-	}
-	rawStr, ok := raw.(string)
-	if !ok {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'rawJSON' must be a string", errCode.Description),
-			raw,
-		)
-	}
 
-	// Get struct type name
-	structTypeName, ok := input.Payload["structType"].(string)
-	if !ok {
-		structTypeName = "map" // Default to map[string]any
+	payload, err := workflowengine.DecodePayload[JSONActivityPayload](input.Payload)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
 	// Look up the struct type from the registry
-	structType, ok := a.StructRegistry[structTypeName]
+	structType, ok := a.StructRegistry[payload.StructType]
 	if !ok {
 		errCode := errorcodes.Codes[errorcodes.UnregisteredStructType]
 		return result, a.NewActivityError(
 			errCode.Code,
-			fmt.Sprintf("%s: '%s'", errCode.Description, structTypeName),
-			structTypeName,
+			fmt.Sprintf("%s: '%s'", errCode.Description, payload.StructType),
+			payload.StructType,
 		)
 	}
 
 	// Create a new instance of the struct
 	target := reflect.New(structType).Interface()
 
-	decoder := json.NewDecoder(strings.NewReader(rawStr))
+	decoder := json.NewDecoder(strings.NewReader(payload.RawJSON))
 
 	if err := decoder.Decode(target); err != nil {
 		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			rawStr,
+			payload.RawJSON,
 		)
 	}
 	result.Output = reflect.ValueOf(target).Elem().Interface()

@@ -253,6 +253,17 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 		}
 	}
 
+	for _, step := range registry.PipelineInternalRegistry {
+		switch step.Kind {
+		case registry.TaskActivity:
+			act := step.NewFunc().(workflowengine.ExecutableActivity)
+			w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+		case registry.TaskWorkflow:
+			wf := step.NewFunc().(workflowengine.Workflow)
+			w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
+		}
+	}
+
 	shutdownCh := make(chan interface{})
 	go func() {
 		<-ctx.Done()
@@ -421,9 +432,9 @@ func executeWorkerManagerWorkflow(namespace, oldNamespace string) error {
 	}
 
 	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"namespace":     namespace,
-			"old_namespace": oldNamespace,
+		Payload: workflows.WorkerManagerWorkflowPayload{
+			Namespace:    namespace,
+			OldNamespace: oldNamespace,
 		},
 		Config: map[string]any{
 			"server_url": serverURL,

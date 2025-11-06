@@ -133,9 +133,9 @@ func Test_EWCWorkflow(t *testing.T) {
 					env.SignalWorkflow(EwcStartCheckSignal, nil)
 				}, time.Second*30)
 				env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
-					Payload: map[string]any{
-						"session_id": "12345",
-						"user_mail":  "test@example.org",
+					Payload: EWCWorkflowPayload{
+						SessionID: "12345",
+						UserMail:  "test@example.org",
 					},
 					Config: map[string]any{
 						"app_url":        "https://test-app.com",
@@ -245,8 +245,8 @@ func Test_EWCStatusWorkflow(t *testing.T) {
 				}, time.Second*30)
 
 				env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
-					Payload: map[string]any{
-						"session_id": "12345",
+					Payload: EWCStatusWorkflowPayload{
+						SessionID: "12345",
 					},
 					Config: map[string]any{
 						"app_url":        "https://test-app.com",

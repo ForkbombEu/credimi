@@ -28,9 +28,9 @@ func Test_DebugActivity_Execute(t *testing.T) {
 	}
 
 	input := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"step":    stepID,
-			"outputs": outputs,
+		Payload: DebugActivityPayload{
+			Step:    stepID,
+			Outputs: outputs,
 		},
 	}
 

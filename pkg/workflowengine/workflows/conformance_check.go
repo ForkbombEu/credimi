@@ -23,7 +23,7 @@ type StepCIAndEmailConfig struct {
 	UserMail      string
 	Namespace     string
 	Template      string
-	StepCIPayload map[string]any
+	StepCIPayload activities.StepCIWorkflowActivityPayload
 	Secrets       map[string]any
 	RunMeta       workflowengine.WorkflowErrorMetadata
 	Suite         string
@@ -95,11 +95,11 @@ func RunStepCIAndSendMail(
 
 	emailActivity := activities.NewSendMailActivity()
 	emailInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"recipient": cfg.UserMail,
-			"subject":   "[CREDIMI] Action required to continue your conformance checks",
-			"template":  activities.ContinueConformanceCheckEmailTemplate,
-			"data": map[string]any{
+		Payload: activities.SendMailActivityPayload{
+			Recipient: cfg.UserMail,
+			Subject:   "[CREDIMI] Action required to continue your conformance checks",
+			Template:  activities.ContinueConformanceCheckEmailTemplate,
+			Data: map[string]any{
 				"AppName":          cfg.AppName,
 				"AppLogo":          cfg.AppLogo,
 				"UserName":         cfg.UserName,
@@ -123,6 +123,16 @@ func RunStepCIAndSendMail(
 
 type StartCheckWorkflow struct{}
 
+type StartCheckWorkflowPayload struct {
+	Suite     string `json:"suite" yaml:"suite"`
+	CheckID   string `json:"check_id" yaml:"check_id" validate:"required"`
+	Variant   string `json:"variant,omitempty" yaml:"variant,omitempty"`
+	Form      *Form  `json:"form,omitempty" yaml:"form,omitempty"`
+	TestName  string `json:"test,omitempty" yaml:"test,omitempty"`
+	SessionID string `json:"session_id,omitempty" yaml:"session_id,omitempty"`
+	UserMail  string `json:"user_mail" yaml:"user_mail"`
+}
+
 func (StartCheckWorkflow) Name() string {
 	return "Start conformance check"
 }
@@ -142,70 +152,79 @@ func (w *StartCheckWorkflow) Workflow(
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
 	}
-
-	suite, ok := input.Payload["suite"].(string)
-	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("suite", runMeta)
+	payload, err := workflowengine.DecodePayload[StartCheckWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMeta)
 	}
 
-	var stepCIPayload map[string]any
+	var stepCIPayload activities.StepCIWorkflowActivityPayload
 	var ewcSessionID string
-	switch suite {
+	switch payload.Suite {
 	case "openid_conformance_suite":
-		variant, ok := input.Payload["variant"].(string)
-		if !ok {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("variant", runMeta)
+		if payload.Variant == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+				fmt.Errorf("variant is required for suite %s", payload.Suite),
+				runMeta,
+			)
 		}
-		form, ok := input.Payload["form"].(map[string]any)
-		if !ok {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("form", runMeta)
+		if payload.Form == nil {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+				fmt.Errorf("form is required for suite %s", payload.Suite),
+				runMeta,
+			)
 		}
-		test, ok := input.Payload["test"].(string)
-		if !ok {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("test", runMeta)
+		if payload.TestName == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+				fmt.Errorf("test is required for suite %s", payload.Suite),
+				runMeta,
+			)
 		}
-		stepCIPayload = map[string]any{
-			"variant": variant,
-			"form":    form,
-			"test":    test,
-			"secrets": map[string]any{
-				"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
-			},
+		stepCIPayload.Data = map[string]any{
+			"variant": payload.Variant,
+			"form":    *payload.Form,
+			"test":    payload.TestName,
+		}
+		stepCIPayload.Secrets = map[string]string{
+			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		}
 	case "ewc":
-		ewcSessionID, ok = input.Payload["session_id"].(string)
-		if !ok {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError("session_id", runMeta)
+		if payload.SessionID == "" {
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+				fmt.Errorf("session_id is required for suite %s", payload.Suite),
+				runMeta,
+			)
 		}
-		stepCIPayload = map[string]any{
-			"session_id": ewcSessionID,
+
+		stepCIPayload.Data = map[string]any{
+			"session_id": payload.SessionID,
 		}
 	default:
-		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", suite)
+		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", payload.Suite)
 	}
 	cfg := StepCIAndEmailConfig{
 		AppURL:        input.Config["app_url"].(string),
 		AppName:       input.Config["app_name"].(string),
 		AppLogo:       input.Config["app_logo"].(string),
 		UserName:      input.Config["user_name"].(string),
-		UserMail:      input.Payload["user_mail"].(string),
+		UserMail:      payload.UserMail,
 		Template:      input.Config["template"].(string),
 		StepCIPayload: stepCIPayload,
 		Namespace:     input.Config["namespace"].(string),
 		RunMeta:       runMeta,
-		Suite:         suite,
+		Suite:         payload.Suite,
 	}
 
 	setupResult, err := RunStepCIAndSendMail(ctx, cfg)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
-	switch suite {
+	switch payload.Suite {
 	case "openid_conformance_suite":
 		rid, ok := setupResult.Captures["rid"].(string)
 		if !ok {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
+			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 				"rid",
+				setupResult.Captures,
 				runMeta,
 			)
 		}
@@ -220,9 +239,9 @@ func (w *StartCheckWorkflow) Workflow(
 			childCtx,
 			child.Name(),
 			workflowengine.WorkflowInput{
-				Payload: map[string]any{
-					"rid":   rid,
-					"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
+				Payload: OpenIDNetLogsWorkflowPayload{
+					Rid:   rid,
+					Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 				},
 				Config: map[string]any{
 					"app_url":  cfg.AppURL,
@@ -273,8 +292,8 @@ func (w *StartCheckWorkflow) Workflow(
 			childCtx,
 			child.Name(),
 			workflowengine.WorkflowInput{
-				Payload: map[string]any{
-					"session_id": ewcSessionID,
+				Payload: EWCStatusWorkflowPayload{
+					SessionID: ewcSessionID,
 				},
 				Config: map[string]any{
 					"app_url":        cfg.AppURL,
@@ -299,7 +318,7 @@ func (w *StartCheckWorkflow) Workflow(
 		}, nil
 	default:
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			fmt.Sprintf("unsupported suite %s", suite),
+			fmt.Sprintf("unsupported suite %s", payload.Suite),
 			runMeta,
 		)
 	}

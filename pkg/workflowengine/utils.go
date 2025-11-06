@@ -4,8 +4,31 @@
 package workflowengine
 
 import (
+	"encoding/json"
 	"fmt"
+
+	"github.com/go-playground/validator/v10"
 )
+
+var validate = validator.New()
+
+// DecodePayload decodes a JSON payload into a given type.
+// It returns the decoded object and an error if the decoding fails.
+// This allows for the decoding of arbitrary JSON payloads into Go types.
+func DecodePayload[T any](input any) (T, error) {
+	var t T
+	b, err := json.Marshal(input)
+	if err != nil {
+		return t, err
+	}
+	if err := json.Unmarshal(b, &t); err != nil {
+		return t, err
+	}
+	if err := validate.Struct(t); err != nil {
+		return t, err
+	}
+	return t, nil
+}
 
 func AsSliceOfMaps(val any) []map[string]any {
 	if v, ok := val.([]map[string]any); ok {

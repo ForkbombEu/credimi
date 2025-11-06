@@ -24,22 +24,22 @@ func TestSchemaValidationActivity_Execute(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		payload         map[string]any
+		payload         SchemaValidationActivityPayload
 		expectErr       bool
 		expectedErrCode errorcodes.Code
 		expectedErrMsg  string
 	}{
 		{
 			name: "Success - valid schema and data",
-			payload: map[string]any{
-				"schema": `{
+			payload: SchemaValidationActivityPayload{
+				Schema: `{
 					"type": "object",
 					"properties": {
 						"name": { "type": "string" }
 					},
 					"required": ["name"]
 				}`,
-				"data": map[string]any{
+				Data: map[string]any{
 					"name": "Credimi",
 				},
 			},
@@ -47,8 +47,8 @@ func TestSchemaValidationActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Success - valid schema with subschema",
-			payload: map[string]any{
-				"schema": `{
+			payload: SchemaValidationActivityPayload{
+				Schema: `{
 					"$schema": "http://json-schema.org/draft-07/schema#",
 					"type": "object",
 					"properties": {
@@ -56,7 +56,7 @@ func TestSchemaValidationActivity_Execute(t *testing.T) {
 					},
 					"required": ["person"]
 				}`,
-				"subschema": []any{
+				SubSchema: []any{
 					`{
 						"$id": "person.json",
 						"type": "object",
@@ -67,7 +67,7 @@ func TestSchemaValidationActivity_Execute(t *testing.T) {
 						"required": ["name", "age"]
 					}`,
 				},
-				"data": map[string]any{
+				Data: map[string]any{
 					"person": map[string]any{
 						"name": "Alice",
 						"age":  30,
@@ -78,19 +78,8 @@ func TestSchemaValidationActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - missing schema",
-			payload: map[string]any{
-				"data": map[string]any{
-					"name": "Credimi",
-				},
-			},
-			expectErr:       true,
-			expectedErrCode: errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-		},
-		{
-			name: "Failure - schema not a string",
-			payload: map[string]any{
-				"schema": 123,
-				"data": map[string]any{
+			payload: SchemaValidationActivityPayload{
+				Data: map[string]any{
 					"name": "Credimi",
 				},
 			},
@@ -99,26 +88,18 @@ func TestSchemaValidationActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - missing data",
-			payload: map[string]any{
-				"schema": `{"type":"object"}`,
+			payload: SchemaValidationActivityPayload{
+				Schema: `{"type":"object"}`,
 			},
 			expectErr:       true,
 			expectedErrCode: errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
 		},
-		{
-			name: "Failure - data not a map",
-			payload: map[string]any{
-				"schema": `{"type":"object"}`,
-				"data":   "string-not-map",
-			},
-			expectErr:       true,
-			expectedErrCode: errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-		},
+
 		{
 			name: "Failure - invalid schema JSON",
-			payload: map[string]any{
-				"schema": `{"type":`,
-				"data": map[string]any{
+			payload: SchemaValidationActivityPayload{
+				Schema: `{"type":`,
+				Data: map[string]any{
 					"name": "Credimi",
 				},
 			},
@@ -127,15 +108,15 @@ func TestSchemaValidationActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - schema validation fails",
-			payload: map[string]any{
-				"schema": `{
+			payload: SchemaValidationActivityPayload{
+				Schema: `{
 					"type": "object",
 					"properties": {
 						"age": { "type": "integer" }
 					},
 					"required": ["age"]
 				}`,
-				"data": map[string]any{
+				Data: map[string]any{
 					"age": "not-an-integer",
 				},
 			},
@@ -145,10 +126,10 @@ func TestSchemaValidationActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - invalid subschema type",
-			payload: map[string]any{
-				"schema":    `{"type":"object"}`,
-				"data":      map[string]any{},
-				"subschema": 123, // invalid
+			payload: SchemaValidationActivityPayload{
+				Schema:    `{"type":"object"}`,
+				Data:      map[string]any{},
+				SubSchema: 123, // invalid
 			},
 			expectErr:       true,
 			expectedErrCode: errorcodes.Codes[errorcodes.MissingOrInvalidPayload],

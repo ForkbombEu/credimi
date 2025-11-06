@@ -5,8 +5,10 @@ package workflows
 
 import (
 	"fmt"
+	"net/http"
 	"strings"
 
+	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -16,7 +18,19 @@ import (
 
 const MobileAutomationTaskQueue = "MobileAutomationTaskQueue"
 
+// MobileAutomationWorkflow is a workflow that runs a mobile automation flow
 type MobileAutomationWorkflow struct {
+}
+
+// MobileAutomationWorkflowPayload is the payload for the mobile automation workflow
+type MobileAutomationWorkflowPayload struct {
+	ActionID         string            `json:"action_id,omitempty" yaml:"action_id,omitempty"`
+	VersionID        string            `json:"version_id,omitempty" yaml:"version_id,omitempty"`
+	ActionCode       string            `json:"action_code" yaml:"action_code"`
+	Video            bool              `json:"video,omitempty" yaml:"video,omitempty"`
+	StoredActionCode bool              `json:"stored_action_code,omitempty" yaml:"stored_action_code,omitempty"`
+	PackageID        string            `json:"package_id,omitempty" yaml:"package_id,omitempty"`
+	Parameters       map[string]string `json:"parameters,omitempty" yaml:"parameters,omitempty"`
 }
 
 func (MobileAutomationWorkflow) GetOptions() workflow.ActivityOptions {
@@ -53,6 +67,11 @@ func (w *MobileAutomationWorkflow) Workflow(
 	}
 	output.TestRunURL = testRunURL
 
+	payload, err := workflowengine.DecodePayload[MobileAutomationWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+	}
+
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -61,48 +80,25 @@ func (w *MobileAutomationWorkflow) Workflow(
 		)
 	}
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
-	actionID, _ := input.Payload["action_id"].(string)
-	versionID, _ := input.Payload["version_id"].(string)
-	actionCode, ok := input.Payload["action_code"].(string)
-	if !ok || actionCode == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"action_code",
-			runMetadata,
-		)
-	}
-	recorded, _ := input.Payload["recorded"].(bool)
-	storedActionCode, _ := input.Payload["store_action_code"].(bool)
-
-	var parameters map[string]any
-	if rawParams, exists := input.Payload["parameters"]; exists {
-		var ok bool
-		parameters, ok = rawParams.(map[string]any)
-		if !ok {
-			return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-				"parameters",
-				runMetadata,
-			)
-		}
-	}
 
 	mobileActivity := activities.NewRunMobileFlowActivity()
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"yaml":       actionCode,
-			"recorded":   recorded,
-			"parameters": parameters,
+		Payload: mobile.RunMobileFlowPayload{
+			Yaml:       payload.ActionCode,
+			Recorded:   payload.Video,
+			Parameters: payload.Parameters,
 		},
 	}
 	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
 		Get(ctx, &mobileResponse)
 	output.FlowOutput = mobileResponse.Output
 
-	if recorded {
+	if payload.Video {
 		var checkVideoResult workflowengine.ActivityResult
 		checkVideoInput := workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"path": "/tmp/credimi/video.mp4",
+			Payload: activities.CheckFileExistsActivityPayload{
+				Path: "/tmp/credimi/video.mp4",
 			},
 		}
 		checkVideoActivity := activities.NewCheckFileExistsActivity()
@@ -128,27 +124,27 @@ func (w *MobileAutomationWorkflow) Workflow(
 		}
 		if videoExists {
 			storeResultInput := workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"method": "POST",
-					"url": fmt.Sprintf(
+				Payload: activities.HTTPActivityPayload{
+					Method: http.MethodPost,
+					URL: fmt.Sprintf(
 						"%s/%s",
 						mobileServerURL,
 						"store-action-result",
 					),
-					"headers": map[string]any{
+					Headers: map[string]string{
 						"Content-Type": "application/json",
 					},
-					"body": map[string]any{
+					Body: map[string]any{
 						"result_path":       "/tmp/credimi/video.mp4",
-						"action_identifier": actionID,
+						"action_identifier": payload.ActionID,
 					},
-					"expected_status": 200,
+					ExpectedStatus: 200,
 				},
 			}
-			if !storedActionCode {
-				walletIdentifier := deriveWalletIdentifier(versionID)
-				storeResultInput.Payload["body"].(map[string]any)["wallet_identifier"] = walletIdentifier
-				storeResultInput.Payload["body"].(map[string]any)["action_code"] = actionCode
+			if !payload.StoredActionCode {
+				walletIdentifier := deriveWalletIdentifier(payload.VersionID)
+				storeResultInput.Payload.(activities.HTTPActivityPayload).Body.(map[string]any)["wallet_identifier"] = walletIdentifier
+				storeResultInput.Payload.(activities.HTTPActivityPayload).Body.(map[string]any)["action_code"] = payload.ActionCode
 			}
 			HTTPActivity := activities.NewHTTPActivity()
 			var storeResultResponse workflowengine.ActivityResult

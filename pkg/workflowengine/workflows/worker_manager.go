@@ -5,6 +5,7 @@ package workflows
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -16,6 +17,12 @@ import (
 const WorkerManagerTaskQueue = "worker-manager-task-queue"
 
 type WorkerManagerWorkflow struct{}
+
+// WorkerManagerWorkflowPayload is the payload for the worker manager workflow.
+type WorkerManagerWorkflowPayload struct {
+	Namespace    string `json:"namespace" yaml:"namespace" validate:"required"`
+	OldNamespace string `json:"old_namespace,omitempty" yaml:"old_namespace,omitempty"`
+}
 
 func (WorkerManagerWorkflow) Name() string {
 	return "Send namespaces names to start workers"
@@ -35,26 +42,18 @@ func (w *WorkerManagerWorkflow) Workflow(
 	if input.ActivityOptions != nil {
 		opts = *input.ActivityOptions
 	}
+
 	ctx = workflow.WithActivityOptions(ctx, opts)
 	runMetadata := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
 	}
-	namespace, ok := input.Payload["namespace"].(string)
-	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"namespace",
-			runMetadata,
-		)
+	payload, err := workflowengine.DecodePayload[WorkerManagerWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
 	}
-	oldNamespace, ok := input.Payload["old_namespace"].(string)
-	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"old_namespace",
-			runMetadata,
-		)
-	}
+
 	serverURL, ok := input.Config["server_url"].(string)
 	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -65,19 +64,19 @@ func (w *WorkerManagerWorkflow) Workflow(
 
 	var HTTPActivity = activities.NewHTTPActivity()
 	var HTTPResponse workflowengine.ActivityResult
-	err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"method": "POST",
-			"url": fmt.Sprintf(
+	err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), workflowengine.ActivityInput{
+		Payload: activities.HTTPActivityPayload{
+			Method: http.MethodPost,
+			URL: fmt.Sprintf(
 				"%s/%s/%s",
 				serverURL,
 				"process",
-				namespace,
+				payload.Namespace,
 			),
-			"body": map[string]string{
-				"old_namespace": oldNamespace,
+			Body: map[string]string{
+				"old_namespace": payload.OldNamespace,
 			},
-			"expected_status": 202,
+			ExpectedStatus: 202,
 		},
 	}).Get(ctx, &HTTPResponse)
 
@@ -86,7 +85,7 @@ func (w *WorkerManagerWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 	return workflowengine.WorkflowResult{
-		Message: fmt.Sprintf("Send namespace '%s' to start workers successfully", namespace),
+		Message: fmt.Sprintf("Send namespace '%s' to start workers successfully", payload.Namespace),
 	}, nil
 }
 

@@ -34,7 +34,7 @@ func (a *ApkInstallActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 
-	runInput := mobile.RunMobileFlowInput{
+	runInput := mobile.MobileActivityInput{
 		Payload:          input.Payload,
 		GetEnv:           utils.GetEnvironmentVariable,
 		NewActivityError: a.NewActivityError,
@@ -86,7 +86,7 @@ func (a *ApkUninstallActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 
-	runInput := mobile.RunMobileFlowInput{
+	runInput := mobile.MobileActivityInput{
 		Payload:          input.Payload,
 		GetEnv:           utils.GetEnvironmentVariable,
 		NewActivityError: a.NewActivityError,
@@ -138,7 +138,7 @@ func (a *RunMobileFlowActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 
-	runInput := mobile.RunMobileFlowInput{
+	runInput := mobile.MobileActivityInput{
 		Payload:          input.Payload,
 		GetEnv:           utils.GetEnvironmentVariable,
 		NewActivityError: a.NewActivityError,

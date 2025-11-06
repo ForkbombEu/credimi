@@ -5,15 +5,19 @@ package activities
 
 import (
 	"context"
-	"fmt"
 	"os"
 
-	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
 type CheckFileExistsActivity struct {
 	workflowengine.BaseActivity
+	Input CheckFileExistsActivityPayload
+}
+
+// CheckFileExistsActivityPayload is the input payload for the CheckFileExistsActivity.
+type CheckFileExistsActivityPayload struct {
+	Path string `json:"path" yaml:"path" validate:"required"`
 }
 
 func NewCheckFileExistsActivity() *CheckFileExistsActivity {
@@ -29,15 +33,12 @@ func (a *CheckFileExistsActivity) Name() string {
 }
 
 func (a *CheckFileExistsActivity) Execute(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-	path, ok := input.Payload["path"].(string)
-	if !ok {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return workflowengine.ActivityResult{}, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'path'", errCode.Description),
-		)
+
+	payload, err := workflowengine.DecodePayload[CheckFileExistsActivityPayload](input.Payload)
+	if err != nil {
+		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(err)
 	}
-	_, err := os.Stat(path)
+	_, err = os.Stat(payload.Path)
 	exists := err == nil
 	return workflowengine.ActivityResult{
 		Output: exists,

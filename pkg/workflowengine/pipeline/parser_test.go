@@ -52,25 +52,20 @@ metadata:
 	require.Equal(t, "1s", step.ActivityOptions.RetryPolicy.InitialInterval)
 	require.Equal(t, "10s", step.ActivityOptions.RetryPolicy.MaximumInterval)
 	require.Equal(t, 2.0, step.ActivityOptions.RetryPolicy.BackoffCoefficient)
-	require.Equal(t, map[string]interface{}{"note": "example step"}, step.Metadata)
+	require.Equal(t, map[string]any{"note": "example step"}, step.Metadata)
 
-	// StepInputs
+	// StepInputs.Config
 	require.Equal(t, map[string]any{"foo": "bar"}, step.With.Config)
 
-	payload := step.With.Payload
-
 	// scalar input
-	require.Contains(t, payload, "scalar_input")
-	require.Equal(t, "hello", payload["scalar_input"].Value)
+	require.Equal(t, "hello", step.With.Payload["scalar_input"])
 
 	// map input
-	require.Contains(t, payload, "map_input")
 	expectedMap := map[string]any{"key1": "value1", "key2": 42}
-	require.Equal(t, expectedMap, payload["map_input"].Value)
+	require.Equal(t, expectedMap, step.With.Payload["map_input"])
 
 	// list input
-	require.Contains(t, payload, "list_input")
-	require.Equal(t, []any{1, 2, 3}, payload["list_input"].Value)
+	require.Equal(t, []any{1, 2, 3}, step.With.Payload["list_input"])
 }
 
 func TestWorkflowDefinition_UnmarshalYAML(t *testing.T) {
@@ -96,20 +91,22 @@ steps:
         - run
         - echo
 `
+
 	var wf WorkflowDefinition
 	err := yaml.Unmarshal([]byte(yml), &wf)
 	require.NoError(t, err)
 
 	// Global config
 	require.Equal(t, "globalVal", wf.Config["globalKey"])
-
 	require.Len(t, wf.Steps, 2)
 
 	// Step 1
 	s1 := wf.Steps[0]
 	require.Equal(t, "step1", s1.Use)
 	require.Equal(t, "abc123", s1.With.Config["apiKey"])
-	require.Equal(t, "http://example.com", s1.With.Payload["url"].Value)
+
+	require.Equal(t, "http://example.com", s1.With.Payload["url"])
+
 	require.NotNil(t, s1.ActivityOptions)
 	require.Equal(t, "20m", s1.ActivityOptions.ScheduleToCloseTimeout)
 	require.Equal(t, "15m", s1.ActivityOptions.StartToCloseTimeout)
@@ -119,7 +116,8 @@ steps:
 	s2 := wf.Steps[1]
 	require.Equal(t, "step2", s2.Use)
 	require.Equal(t, "alpine:latest", s2.With.Config["image"])
-	require.Equal(t, []any{"run", "echo"}, s2.With.Payload["args"].Value)
-	// Step2 does not define activity_options, should be nil
+
+	require.Equal(t, []any{"run", "echo"}, s2.With.Payload["args"])
+
 	require.Nil(t, s2.ActivityOptions)
 }

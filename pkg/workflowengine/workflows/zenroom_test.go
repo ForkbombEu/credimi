@@ -65,18 +65,22 @@ Given I have a 'string' named 'broken'
 				Name: zenroomActivity.Name(),
 			})
 
-			input := workflowengine.WorkflowInput{
-				Payload: map[string]any{
-					"contract": tc.contract,
-				},
+			payload := ZenroomWorkflowPayload{
+				Contract: tc.contract,
 			}
-			if tc.keys != "" {
-				input.Payload["keys"] = tc.keys
-			}
-			if tc.data != "" {
-				input.Payload["data"] = tc.data
+			if tc.contract != "" {
+				payload.Contract = tc.contract
 			}
 
+			if tc.keys != "" {
+				payload.Keys = tc.keys
+			}
+			if tc.data != "" {
+				payload.Data = tc.data
+			}
+			input := workflowengine.WorkflowInput{
+				Payload: payload,
+			}
 			env.ExecuteWorkflow(w.Name(), input)
 
 			var result workflowengine.WorkflowResult

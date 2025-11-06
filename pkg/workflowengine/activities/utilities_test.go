@@ -34,8 +34,8 @@ func TestCheckFileExistsActivity_Execute(t *testing.T) {
 		{
 			name: "Success - file exists",
 			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"path": tmpFile.Name(),
+				Payload: CheckFileExistsActivityPayload{
+					Path: tmpFile.Name(),
 				},
 			},
 			expectExists: true,
@@ -43,8 +43,8 @@ func TestCheckFileExistsActivity_Execute(t *testing.T) {
 		{
 			name: "Success - file does not exist",
 			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"path": "/nonexistent/path/to/file.txt",
+				Payload: CheckFileExistsActivityPayload{
+					Path: "/nonexistent/path/to/file.txt",
 				},
 			},
 			expectExists: false,
@@ -52,17 +52,7 @@ func TestCheckFileExistsActivity_Execute(t *testing.T) {
 		{
 			name: "Failure - missing path key",
 			input: workflowengine.ActivityInput{
-				Payload: map[string]any{},
-			},
-			expectError:     true,
-			expectedErrCode: errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-		},
-		{
-			name: "Failure - invalid path type (non-string)",
-			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"path": 12345,
-				},
+				Payload: CheckFileExistsActivityPayload{},
 			},
 			expectError:     true,
 			expectedErrCode: errorcodes.Codes[errorcodes.MissingOrInvalidPayload],

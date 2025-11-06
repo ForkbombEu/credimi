@@ -24,7 +24,7 @@ import (
 
 // WorkflowInput represents the input data required to start a workflow.
 type WorkflowInput struct {
-	Payload         map[string]any            `json:"payload,omitempty"`
+	Payload         any                       `json:"payload,omitempty"`
 	Config          map[string]any            `json:"config,omitempty"`
 	ActivityOptions *workflow.ActivityOptions `json:"activityOptions,omitempty"`
 }
@@ -125,11 +125,14 @@ func NewAppError(code errorcodes.Code, field string, payload ...any) error {
 		payload...)
 }
 
-// newMissingPayloadError returns a WorkflowError for a missing or invalid payload key.
-func NewMissingPayloadError(key string, metadata WorkflowErrorMetadata) error {
+// NewMissingOrInvalidPayloadError returns a WorkflowError for a missing or invalid payload.
+// It creates an ApplicationError with the given error and code, and then wraps it in a WorkflowError with the given runMetadata.
+// The error is returned with code errorcodes.MissingOrInvalidPayload.
+// The error message is set to err.Error().
+func NewMissingOrInvalidPayloadError(err error, runMetadata WorkflowErrorMetadata) error {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-	appErr := NewAppError(errCode, key)
-	return NewWorkflowError(appErr, metadata)
+	appErr := NewAppError(errCode, err.Error())
+	return NewWorkflowError(appErr, runMetadata)
 }
 
 // newMissingConfigError returns a WorkflowError for a missing or invalid config key.
