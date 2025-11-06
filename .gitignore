@@ -5,6 +5,7 @@
 docs/.vitepress/cache/
 /tmp
 /pb_data
+/pb_data*
 .DS_Store
 .bin
 .env
@@ -20,3 +21,8 @@ coverage.out
 coverage.svg
 .generated-go-semantic-release-changelog.md
 .semrel/
+#/config_templates/**
+#!/config_templates/**/
+#!/config_templates/**/version.yaml
+#!/config_templates/**/standard.yaml
+#!/config_templates/**/metadata.yaml

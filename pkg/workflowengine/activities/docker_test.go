@@ -37,9 +37,9 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 		{
 			name: "Success -valid input",
 			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"image": "alpine:latest",
-					"cmd":   []string{"echo", "hello world"},
+				Payload: DockerActivityPayload{
+					Image: "alpine:latest",
+					Cmd:   []string{"echo", "hello world"},
 				},
 				Config: map[string]string{},
 			},
@@ -49,10 +49,10 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 		{
 			name: "Success - environment variables set",
 			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"image": "alpine:latest",
-					"cmd":   []string{"sh", "-c", "echo $FOO"},
-					"env":   []string{"FOO=bar"},
+				Payload: DockerActivityPayload{
+					Image: "alpine:latest",
+					Cmd:   []string{"sh", "-c", "echo $FOO"},
+					Env:   []string{"FOO=bar"},
 				},
 				Config: map[string]string{},
 			},
@@ -62,10 +62,10 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 		{
 			name: "Success - port exposed",
 			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"image": "alpine:latest",
-					"cmd":   []string{"sh", "-c", "sleep 5"},
-					"ports": []string{"8080:80"},
+				Payload: DockerActivityPayload{
+					Image: "alpine:latest",
+					Cmd:   []string{"sh", "-c", "sleep 5"},
+					Ports: []string{"8080:80"},
 				},
 				Config: map[string]string{
 					"HostIP": "127.0.0.1",
@@ -78,10 +78,10 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 		{
 			name: "Success - custom network config (bridge)",
 			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"image": "alpine:latest",
-					"cmd":   []string{"sh", "-c", "sleep 2"},
-					"networkConfig": &network.NetworkingConfig{
+				Payload: DockerActivityPayload{
+					Image: "alpine:latest",
+					Cmd:   []string{"sh", "-c", "sleep 2"},
+					NetworkConfig: &network.NetworkingConfig{
 						EndpointsConfig: map[string]*network.EndpointSettings{
 							"bridge": {},
 						},
@@ -94,16 +94,16 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 		{
 			name: "Failure - missing image",
 			input: workflowengine.ActivityInput{
-				Payload: map[string]any{},
+				Payload: DockerActivityPayload{},
 			},
 			expectError: true,
 		},
 		{
 			name: "Failure - invalid port mapping",
 			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"image": "alpine:latest",
-					"ports": []string{"8080"},
+				Payload: DockerActivityPayload{
+					Image: "alpine:latest",
+					Ports: []string{"8080"},
 				},
 			},
 			expectError: true,

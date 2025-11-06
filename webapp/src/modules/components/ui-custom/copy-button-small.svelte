@@ -5,14 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Snippet } from 'svelte';
-
 	import { CheckIcon, CopyIcon } from 'lucide-svelte';
 
-	import Button, {
-		type ButtonProps,
-		type ButtonVariant
-	} from '@/components/ui/button/button.svelte';
+	import Button, { type ButtonProps } from '@/components/ui/button/button.svelte';
+	import * as Tooltip from '@/components/ui/tooltip';
+	import { m } from '@/i18n';
 
 	import Icon from './icon.svelte';
 
@@ -21,10 +18,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = Omit<ButtonProps, 'size'> & {
 		delay?: number;
 		textToCopy: string;
-		children?: Snippet;
 		square?: boolean;
-		variant?: ButtonVariant;
-		size?: ButtonProps['size'] | 'mini';
+		size?: ButtonProps['size'] | 'xs' | 'mini';
+		hideTooltip?: boolean;
 	};
 
 	let {
@@ -35,6 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		variant = 'outline',
 		size = 'default',
 		class: className,
+		hideTooltip = false,
 		...rest
 	}: Props = $props();
 
@@ -49,28 +46,50 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<Button
-	{variant}
-	class={[
-		className,
-		{
-			'h-8': size === 'default',
-			'h-5': size === 'mini',
-			'p-0': square,
-			'w-8': square && size === 'default',
-			'w-5': square && size === 'mini'
-		}
-	]}
-	{...rest}
-	onclick={copyText}
->
-	<Icon
-		src={isCopied ? CheckIcon : CopyIcon}
-		class={{
-			'text-green-600': isCopied,
-			'!size-3': size === 'mini',
-			'!size-6': size === 'default'
-		}}
-	/>
-	{@render children?.()}
-</Button>
+{#if !hideTooltip}
+	<Tooltip.Provider>
+		<Tooltip.Root>
+			<Tooltip.Trigger>
+				{@render button()}
+			</Tooltip.Trigger>
+			<Tooltip.Content class="dark !text-xs">
+				<p>{m.Copy()}: <span class="font-mono">{textToCopy}</span></p>
+			</Tooltip.Content>
+		</Tooltip.Root>
+	</Tooltip.Provider>
+{:else}
+	{@render button()}
+{/if}
+
+{#snippet button()}
+	<Button
+		{variant}
+		class={[
+			'text-gray-400',
+			{
+				'h-8': size == 'sm',
+				'h-6': size == 'xs',
+				'h-5': size === 'mini',
+				'p-0': square,
+				'w-8': square && (size == 'sm' || size === 'default'),
+				'w-6': square && size == 'xs',
+				'w-5': square && size === 'mini'
+			},
+			className
+		]}
+		{...rest}
+		onclick={copyText}
+	>
+		<Icon
+			src={isCopied ? CheckIcon : CopyIcon}
+			class={{
+				'text-green-600': isCopied,
+				'!size-4': size == 'sm',
+				'!size-[14px]': size == 'xs',
+				'!size-3': size === 'mini',
+				'!size-6': size === 'default'
+			}}
+		/>
+		{@render children?.()}
+	</Button>
+{/snippet}

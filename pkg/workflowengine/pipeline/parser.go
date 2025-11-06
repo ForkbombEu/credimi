@@ -5,8 +5,11 @@
 package pipeline
 
 import (
+	"encoding/json"
 	"fmt"
+	"reflect"
 
+	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"gopkg.in/yaml.v3"
 )
 
@@ -22,45 +25,48 @@ func ParseWorkflow(yamlStr string) (*WorkflowDefinition, error) {
 func (s *StepInputs) UnmarshalYAML(value *yaml.Node) error {
 	var tmp map[string]any
 	if err := value.Decode(&tmp); err != nil {
-		return err
+		return fmt.Errorf("invalid step inputs: %w", err)
 	}
 
-	s.Payload = make(map[string]InputSource)
-	s.Config = make(map[string]string)
+	s.Config = make(map[string]any)
+	payload := make(map[string]any)
 
-	for k, v := range tmp {
-		if k == "config" {
-			cfgBytes, err := yaml.Marshal(v)
-			if err != nil {
-				return err
+	for key, val := range tmp {
+		if key == "config" {
+			cfgMap, ok := val.(map[string]any)
+			if !ok {
+				return fmt.Errorf("invalid config section: expected map, got %T", val)
 			}
-			if err := yaml.Unmarshal(cfgBytes, &s.Config); err != nil {
-				return err
-			}
-		} else {
-			// everything else goes into Payload
-			switch val := v.(type) {
-			case map[string]any:
-				if _, ok := val["type"]; ok {
-					if _, ok := val["value"]; ok {
-						var src InputSource
-						nodeBytes, err := yaml.Marshal(val)
-						if err != nil {
-							return err
-						}
-						if err := yaml.Unmarshal(nodeBytes, &src); err != nil {
-							return err
-						}
-						s.Payload[k] = src
-						continue
-					}
-				}
-				// otherwise store whole map as Value
-				s.Payload[k] = InputSource{Value: val}
-			default:
-				s.Payload[k] = InputSource{Value: val}
-			}
+			s.Config = cfgMap
+			continue
 		}
+
+		payload[key] = val
 	}
+
+	s.Payload = payload
 	return nil
+}
+
+func (s *StepDefinition) DecodePayload() (any, error) {
+	desc, ok := registry.Registry[s.Use]
+	if !ok {
+		return nil, fmt.Errorf("unknown step type: %s", s.Use)
+	}
+	if desc.PayloadType == nil {
+		return nil, fmt.Errorf("no input type registered for %s", s.Use)
+	}
+
+	data, err := json.Marshal(s.With.Payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload map: %w", err)
+	}
+
+	valPtr := reflect.New(desc.PayloadType).Interface()
+
+	if err := json.Unmarshal(data, valPtr); err != nil {
+		return nil, fmt.Errorf("failed to decode payload for %s: %w", s.ID, err)
+	}
+
+	return valPtr, nil
 }

@@ -6,6 +6,7 @@ package pipeline
 import (
 	"fmt"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -15,13 +16,13 @@ import (
 
 func (s *StepDefinition) Execute(
 	ctx workflow.Context,
-	globalCfg map[string]string,
+	globalCfg map[string]any,
 	dataCtx *map[string]any,
 	ao workflow.ActivityOptions,
 ) (any, error) {
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
 
-	payload, cfg, err := ResolveInputs(*s, globalCfg, *dataCtx)
+	err := ResolveInputs(s, globalCfg, *dataCtx)
 	if err != nil {
 		appErr := workflowengine.NewAppError(
 			errCode,
@@ -32,11 +33,19 @@ func (s *StepDefinition) Execute(
 	step := registry.Registry[s.Use]
 	switch step.Kind {
 	case registry.TaskActivity:
+		payload, err := s.DecodePayload()
+		if err != nil {
+			appErr := workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("error decoding payload for step %s: %s", s.ID, err.Error()),
+			)
+			return nil, appErr
+		}
 		ctx = workflow.WithActivityOptions(ctx, ao)
 		act := step.NewFunc().(workflowengine.Activity)
 		input := workflowengine.ActivityInput{
 			Payload: payload,
-			Config:  cfg,
+			Config:  convertMapAnyToString(s.With.Config),
 		}
 		var result workflowengine.ActivityResult
 
@@ -74,8 +83,13 @@ func (s *StepDefinition) Execute(
 
 		case workflowengine.OutputArrayOfString:
 			output = workflowengine.AsSliceOfStrings(result.Output)
+
 		case workflowengine.OutputArrayOfMap:
 			output = workflowengine.AsSliceOfMaps(result.Output)
+
+		case workflowengine.OutputBool:
+			output = workflowengine.AsBool(result.Output)
+
 		case workflowengine.OutputAny:
 			output = result
 		}
@@ -87,25 +101,42 @@ func (s *StepDefinition) Execute(
 		}
 		return result, nil
 	case registry.TaskWorkflow:
+		payload, err := s.DecodePayload()
+		if err != nil {
+			appErr := workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("error decoding payload for step %s: %s", s.ID, err.Error()),
+			)
+			return nil, appErr
+		}
+		taskqueue := PipelineTaskQueue
+		if step.TaskQueue != "" {
+			taskqueue = step.TaskQueue
+		}
 		w := step.NewFunc().(workflowengine.Workflow)
-		if cfg["app_url"] == "" {
-			cfg["app_url"] = "http://localhost:8090"
+		appURL, ok := s.With.Config["app_url"].(string)
+		if ok && appURL == "" {
+			s.With.Config["app_url"] = "http://localhost:8090"
 		}
 		input := workflowengine.WorkflowInput{
 			Payload:         payload,
-			Config:          convertStringMap(cfg),
+			Config:          s.With.Config,
 			ActivityOptions: &ao,
 		}
+
+		var memo map[string]any
+		memo, _ = input.Config["memo"].(map[string]any)
 
 		var result workflowengine.WorkflowResult
 		opts := workflow.ChildWorkflowOptions{
 			WorkflowID: fmt.Sprintf(
 				"%s-%s",
 				workflow.GetInfo(ctx).WorkflowExecution.ID,
-				s.ID,
+				canonify.CanonifyPlain(s.ID),
 			),
-			TaskQueue:         PipelineTaskQueue,
+			TaskQueue:         taskqueue,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
+			Memo:              memo,
 		}
 		ctxChild := workflow.WithChildOptions(ctx, opts)
 		err = workflow.ExecuteChildWorkflow(

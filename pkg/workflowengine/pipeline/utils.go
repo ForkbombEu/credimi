@@ -4,6 +4,8 @@
 package pipeline
 
 import (
+	"encoding/json"
+	"fmt"
 	"time"
 
 	"go.temporal.io/sdk/client"
@@ -147,11 +149,74 @@ func (s *WorkflowBlock) ToWorkflowDefinition(name string) *WorkflowDefinition {
 		Steps:   s.Steps,
 	}
 }
-
-func convertStringMap(m map[string]string) map[string]any {
-	res := make(map[string]any, len(m))
+func convertMapAnyToString(m map[string]any) map[string]string {
+	result := make(map[string]string, len(m))
 	for k, v := range m {
-		res[k] = v
+		if str, ok := v.(string); ok {
+			result[k] = str
+		}
 	}
-	return res
+	return result
+}
+
+// SetPayloadValue sets a key/value pair in the given payload map.
+// If the key exists, it overwrites it; otherwise, it adds it.
+func SetPayloadValue(payload *map[string]any, key string, val any) error {
+	if payload == nil {
+		return fmt.Errorf("payload is nil")
+	}
+	if *payload == nil {
+		*payload = make(map[string]any)
+	}
+
+	(*payload)[key] = val
+	return nil
+}
+
+func SetConfigValue(config *map[string]any, key string, val any) {
+	if *config == nil {
+		*config = make(map[string]any)
+	}
+	(*config)[key] = val
+}
+
+// MergePayload merges all keys from src into dst recursively.
+func MergePayload(dst, src *map[string]any) error {
+	if dst == nil || src == nil {
+		return nil
+	}
+	if *dst == nil {
+		*dst = make(map[string]any)
+	}
+	mergeMaps(*dst, *src)
+	return nil
+}
+
+func mergeMaps(dst, src map[string]any) {
+	for k, v := range src {
+		if existing, ok := dst[k]; ok {
+			// recursive merge if both are maps
+			dstMap, dstIsMap := existing.(map[string]any)
+			srcMap, srcIsMap := v.(map[string]any)
+			if dstIsMap && srcIsMap {
+				mergeMaps(dstMap, srcMap)
+				continue
+			}
+		}
+		dst[k] = deepCopy(v)
+	}
+}
+
+// deepCopy makes a deep copy of arbitrary JSON/YAML-compatible data.
+func deepCopy(v any) any {
+	b, err := json.Marshal(v)
+	if err != nil {
+		// fallback: return original reference if not serializable
+		return v
+	}
+	var copy any
+	if err := json.Unmarshal(b, &copy); err != nil {
+		return v
+	}
+	return copy
 }

@@ -23,15 +23,15 @@ func TestParseWalletURLActivity_Execute(t *testing.T) {
 	})
 	tests := []struct {
 		name       string
-		payload    map[string]any
+		payload    ParseWalletURLActivityPayload
 		wantOutput map[string]any
 		expectErr  bool
 		errCode    errorcodes.Code
 	}{
 		{
 			name: "valid Google Play URL",
-			payload: map[string]any{
-				"url": "https://play.google.com/store/apps/details?id=com.example.wallet",
+			payload: ParseWalletURLActivityPayload{
+				URL: "https://play.google.com/store/apps/details?id=com.example.wallet",
 			},
 			wantOutput: map[string]any{
 				"api_input":  "https://play.google.com/store/apps/details?id=com.example.wallet",
@@ -41,8 +41,8 @@ func TestParseWalletURLActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "valid Apple App Store URL",
-			payload: map[string]any{
-				"url": "https://apps.apple.com/us/app/example-wallet/id1234567890",
+			payload: ParseWalletURLActivityPayload{
+				URL: "https://apps.apple.com/us/app/example-wallet/id1234567890",
 			},
 			wantOutput: map[string]any{
 				"api_input":  "1234567890",
@@ -52,30 +52,30 @@ func TestParseWalletURLActivity_Execute(t *testing.T) {
 		},
 		{
 			name:      "missing url field",
-			payload:   map[string]any{},
+			payload:   ParseWalletURLActivityPayload{},
 			expectErr: true,
 			errCode:   errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
 		},
 		{
 			name: "invalid url format",
-			payload: map[string]any{
-				"url": "::::://bad-url",
+			payload: ParseWalletURLActivityPayload{
+				URL: "::::://bad-url",
 			},
 			expectErr: true,
 			errCode:   errorcodes.Codes[errorcodes.ParseURLFailed],
 		},
 		{
 			name: "apple url without id",
-			payload: map[string]any{
-				"url": "https://apps.apple.com/us/app/example-wallet/",
+			payload: ParseWalletURLActivityPayload{
+				URL: "https://apps.apple.com/us/app/example-wallet/",
 			},
 			expectErr: true,
 			errCode:   errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
 		},
 		{
 			name: "unsupported store domain",
-			payload: map[string]any{
-				"url": "https://example.com/wallet",
+			payload: ParseWalletURLActivityPayload{
+				URL: "https://example.com/wallet",
 			},
 			expectErr: true,
 			errCode:   errorcodes.Codes[errorcodes.MissingOrInvalidPayload],

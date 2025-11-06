@@ -21,20 +21,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		nameField: StringKey<R>;
 		fallbackNameField?: StringKey<R>;
 		publicUrl?: (record: R) => string;
-		textToCopy?: (record: R) => string;
 		records: R[];
 		actions?: Snippet<[{ record: R }]>;
 		hideClone?: boolean;
+		path: (record: R) => string[];
 	};
 
 	let {
 		nameField,
 		fallbackNameField,
 		publicUrl,
-		textToCopy,
 		records,
 		actions: actionsSnippet,
-		hideClone
+		hideClone,
+		path
 	}: Props = $props();
 </script>
 
@@ -46,8 +46,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{nameField}
 				{fallbackNameField}
 				publicUrl={publicUrl?.(record)}
-				textToCopy={textToCopy?.(record)}
 				{hideClone}
+				path={path(record)}
 			>
 				{#snippet actions()}
 					{@render actionsSnippet?.({ record })}

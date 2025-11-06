@@ -40,7 +40,7 @@ type SaveVariablesAndStartRequestInput struct {
 
 type openID4VPTestInputFile struct {
 	Variant  json.RawMessage `json:"variant" yaml:"variant" validate:"required,oneof=json variables yaml"`
-	Form     any             `json:"form"    yaml:"form"`
+	Form     workflows.Form  `json:"form"    yaml:"form"`
 	TestName string          `json:"test" yaml:"test" validate:"required"`
 }
 type vLEICheckInput struct {
@@ -68,6 +68,7 @@ type WorkflowStarterParams struct {
 	Author    Author
 	TestName  string
 	Protocol  string
+	Version   string
 	AppName   string
 	LogoUrl   string
 	UserName  string
@@ -111,7 +112,11 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		appName := e.App.Settings().Meta.AppName
-		logoUrl := fmt.Sprintf("%s/logos/%s_logo-transp_emblem.png", appURL, strings.ToLower(appName))
+		logoUrl := fmt.Sprintf(
+			"%s/logos/%s_logo-transp_emblem.png",
+			appURL,
+			strings.ToLower(appName),
+		)
 		userName := e.Auth.GetString("name")
 
 		protocol := e.Request.PathValue("protocol")
@@ -164,6 +169,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				"test":     "custom-check",
 				"standard": protocol,
 				"author":   id,
+				"version":  version,
 			}
 			results, err := processCustomChecks(
 				customCheck.Yaml,
@@ -208,6 +214,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				author,
 				testName,
 				protocol,
+				version,
 				logoUrl,
 				appName,
 				userName,
@@ -249,6 +256,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				memo,
 				author,
 				protocol,
+				version,
 				logoUrl,
 				appName,
 				userName,
@@ -324,6 +332,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 	appURL := i.AppURL
 	namespace := i.Namespace
 	memo := i.Memo
+	version := i.Version
 
 	if yamlData == "" {
 		return workflowengine.WorkflowResult{}, apierror.New(
@@ -366,18 +375,38 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			err.Error(),
 		)
 	}
-	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePath,
-	)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, err
+
+	var templateStr string
+	switch version {
+	case "1.0":
+		templateStr, err = readTemplateFile(
+			os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePathv1_0,
+		)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, err
+		}
+	case "draft-24":
+		templateStr, err = readTemplateFile(
+			os.Getenv("ROOT_DIR") + "/" + workflows.OpenIDNetStepCITemplatePathDr24,
+		)
+		if err != nil {
+			return workflowengine.WorkflowResult{}, err
+		}
+	default:
+		return workflowengine.WorkflowResult{}, apierror.New(
+			http.StatusBadRequest,
+			"version",
+			"invalid version",
+			"invalid version",
+		)
 	}
+
 	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"variant":   string(parsedData.Variant),
-			"form":      parsedData.Form,
-			"test_name": parsedData.TestName,
-			"user_mail": email,
+		Payload: workflows.OpenIDNetWorkflowPayload{
+			Variant:  string(parsedData.Variant),
+			Form:     parsedData.Form,
+			TestName: parsedData.TestName,
+			UserMail: email,
 		},
 		Config: map[string]any{
 			"app_url":   appURL,
@@ -445,9 +474,9 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 		)
 	}
 	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"session_id": parsedData.SessionID,
-			"user_mail":  email,
+		Payload: workflows.EWCWorkflowPayload{
+			SessionID: parsedData.SessionID,
+			UserMail:  email,
 		},
 		Config: map[string]any{
 			"app_url":        appURL,
@@ -501,10 +530,10 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 		)
 	}
 	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"nonce":     parsedData.Nonce,
-			"id":        parsedData.ID,
-			"user_mail": email,
+		Payload: workflows.EudiwWorkflowPayload{
+			Nonce:    parsedData.Nonce,
+			ID:       parsedData.ID,
+			UserMail: email,
 		},
 		Config: map[string]any{
 			"app_url":   appURL,
@@ -579,11 +608,11 @@ func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, 
 	input := workflowengine.WorkflowInput{
 		Config: map[string]any{
 			"app_url":    appURL,
-			"server_url": parsedData.ServerURL, // TODO update with the real one
+			"server_url": parsedData.ServerURL,
 			"memo":       memo,
 		},
-		Payload: map[string]any{
-			"credentialID": parsedData.CredentialID,
+		Payload: workflows.VLEIValidationWorkflowPayload{
+			CredentialID: parsedData.CredentialID,
 		},
 	}
 
@@ -610,6 +639,7 @@ func processJSONChecks(
 	author Author,
 	testName string,
 	protocol string,
+	version string,
 	logoUrl string,
 	appName string,
 	userName string,
@@ -623,6 +653,7 @@ func processJSONChecks(
 		Author:    author,
 		TestName:  testName,
 		Protocol:  protocol,
+		Version:   version,
 		LogoUrl:   logoUrl,
 		AppName:   appName,
 		UserName:  userName,
@@ -649,6 +680,7 @@ func processVariablesTest(
 	memo map[string]interface{},
 	author Author,
 	protocol string,
+	version string,
 	logoUrl string,
 	appName string,
 	userName string,
@@ -714,6 +746,7 @@ func processVariablesTest(
 		Author:    author,
 		TestName:  testName,
 		Protocol:  protocol,
+		Version:   version,
 		LogoUrl:   logoUrl,
 		AppName:   appName,
 		UserName:  userName,
@@ -748,8 +781,8 @@ func processCustomChecks(
 	}
 
 	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"yaml": yaml,
+		Payload: workflows.CustomCheckWorkflowPayload{
+			Yaml: yaml,
 		},
 		Config: map[string]any{
 			"memo":    memo,

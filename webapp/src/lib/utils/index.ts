@@ -90,3 +90,9 @@ export async function generateDeeplinkFromYaml(yaml: string) {
 	});
 	return deeplinkGenerationResponseSchema.parse(res);
 }
+
+//
+
+export function path(chunks: string[]) {
+	return chunks.join('/');
+}

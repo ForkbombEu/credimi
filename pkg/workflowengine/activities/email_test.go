@@ -29,8 +29,10 @@ func (m *MockDialer) DialAndSend(msg *gomail.Message) error {
 func TestSendMailActivity_Configure(t *testing.T) {
 	activity := NewSendMailActivity()
 	input := &workflowengine.ActivityInput{
-		Config:  make(map[string]string),
-		Payload: make(map[string]any),
+		Config: make(map[string]string),
+		Payload: SendMailActivityPayload{
+			Recipient: "test@example.com",
+		},
 	}
 	tests := []struct {
 		name     string
@@ -55,7 +57,9 @@ func TestSendMailActivity_Configure(t *testing.T) {
 			require.NoError(t, err)
 			require.Equal(t, "smtp.example.com", input.Config["smtp_host"])
 			require.Equal(t, "587", input.Config["smtp_port"])
-			require.Equal(t, "sender@example.com", input.Payload["sender"])
+			payload, err := workflowengine.DecodePayload[SendMailActivityPayload](input.Payload)
+			require.NoError(t, err)
+			require.Equal(t, "sender@example.com", payload.Sender)
 		})
 	}
 }
@@ -89,14 +93,14 @@ func TestSendMailActivity_Execute(t *testing.T) {
 			name: "Success - email sent successfully",
 			input: workflowengine.ActivityInput{
 				Config: map[string]string{
-					"smtp_host": "localhost", // point to the smtpmock server
+					"smtp_host": "localhost",
 					"smtp_port": "2525",
 				},
-				Payload: map[string]interface{}{
-					"sender":    "sender@example.com",
-					"recipient": "recipient@example.com",
-					"subject":   "Test Email",
-					"body":      "<html><body>Test email body</body></html>",
+				Payload: SendMailActivityPayload{
+					Sender:    "sender@example.com",
+					Recipient: "recipient@example.com",
+					Subject:   "Test Email",
+					Body:      "<html><body>Test email body</body></html>",
 				},
 			},
 			expectedOutput: "Email sent successfully",
@@ -108,10 +112,10 @@ func TestSendMailActivity_Execute(t *testing.T) {
 					"smtp_host": "localhost",
 					"smtp_port": "2525",
 				},
-				Payload: map[string]interface{}{
-					"sender":  "sender@example.com",
-					"subject": "Test Email",
-					"body":    "<html><body>Test email body</body></html>",
+				Payload: SendMailActivityPayload{
+					Sender:  "sender@example.com",
+					Subject: "Test Email",
+					Body:    "<html><body>Test email body</body></html>",
 				},
 			},
 			expectedOutput:  "Email sending failed",

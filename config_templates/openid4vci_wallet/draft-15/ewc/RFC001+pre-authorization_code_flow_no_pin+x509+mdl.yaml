@@ -1,15 +1,15 @@
-sessionId: >
-  {{
+sessionId: >-
+    {{
 
-      credimi `
-        {
-          "credimi_id": "06_session_id",
-          "field_id": "session_id",
-          "field_label": "i18n_session_id",
-          "field_description": "i18n_description_session_id",
-          "field_default_value": "",
-          "field_type": "string",
-          "field_options": []
-        }
-
-  ` uuidv4}}
+       credimi `
+          {
+            "credimi_id": "RFC001_pre_authorization_code_flow_no_pin_x509_mdl_session_id",
+            "field_default_value": "",
+            "field_description": "i18n_session_id_description",
+            "field_id": "session_id",
+            "field_label": "i18n_session_id",
+            "field_options": [],
+            "field_type": "string"
+          }
+       `
+    uuidv4}}

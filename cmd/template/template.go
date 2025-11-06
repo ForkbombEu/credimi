@@ -12,14 +12,15 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/templateengine"
 	"github.com/spf13/cobra"
 )
 
-// Variants represents a collection of variant strings.
-type Variants struct {
-	Variants []string `json:"variants"`
+// Checks represents a list of check names.
+type Checks struct {
+	Checks []string `json:"checks"`
 }
 
 func main() {
@@ -31,7 +32,7 @@ func main() {
 	// Define the root command using Cobra
 	rootCmd := &cobra.Command{
 		Use:   "parse-input",
-		Short: "Parses the input string using OpenID4VP and saves output to files",
+		Short: "Parses the input check names  and saves output to files",
 		Run: func(_ *cobra.Command, _ []string) {
 			info, err := os.Stat(outputDir)
 			if err != nil {
@@ -43,25 +44,47 @@ func main() {
 				return
 			}
 
-			var variants Variants
+			var checks Checks
 			data, err := os.ReadFile(input)
 			if err != nil {
 				log.Printf("failed to read %s: %s\n", input, err)
 				return
 			}
-			if err := json.Unmarshal(data, &variants); err != nil {
+			if err := json.Unmarshal(data, &checks); err != nil {
 				log.Printf("failed to parse %s: %s\n", input, err)
 				return
 			}
 
-			for _, variantString := range variants.Variants {
-				result, err := templateengine.ParseInput(variantString, defaultPath, configPath)
-				if err != nil {
-					fmt.Println("Error processing variant:", err)
+			for _, checkString := range checks.Checks {
+				cleanPath := filepath.ToSlash(input)
+				parts := strings.Split(cleanPath, "/")
+
+				if len(parts) < 3 {
+					log.Printf("Skipping invalid path: %s", input)
 					continue
 				}
 
-				filename := fmt.Sprintf("%s.yaml", filepath.Clean(variantString))
+				suite := parts[2]
+
+				var result []byte
+
+				switch suite {
+				case "openidnet":
+					result, err = templateengine.ParseOpenidnetInput(checkString, defaultPath, configPath)
+				case "ewc":
+					result, err = templateengine.ParseEwcInput(checkString, defaultPath)
+				case "eudiw":
+					result, err = templateengine.ParseEudiwInput(checkString, defaultPath)
+				default:
+					log.Printf("Unknown suite '%s' in path %s — skipping", suite, input)
+					continue
+				}
+				if err != nil {
+					log.Printf("Error processing %s: %v", checkString, err)
+					continue
+				}
+
+				filename := fmt.Sprintf("%s.yaml", filepath.Clean(checkString))
 				filePath := filepath.Join(outputDir, filename)
 				if err := os.WriteFile(filePath, result, 0600); err != nil {
 					fmt.Println("Error writing file:", err)
@@ -82,7 +105,6 @@ func main() {
 
 	rootCmd.MarkFlagRequired("input")
 	rootCmd.MarkFlagRequired("default")
-	rootCmd.MarkFlagRequired("config")
 	rootCmd.MarkFlagRequired("output")
 
 	if err := rootCmd.Execute(); err != nil {

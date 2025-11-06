@@ -16,8 +16,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const testDataDir = "../../../../test_pb_data"
-
 type TestSetupData struct {
 	IssuerID          string
 	CreateIssuer      bool

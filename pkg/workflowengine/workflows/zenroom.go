@@ -28,6 +28,13 @@ const ZenroomTaskQueue = "ZenroomTaskQueue"
 
 type ZenroomWorkflow struct{}
 
+type ZenroomWorkflowPayload struct {
+	Contract string `json:"contract" yaml:"contract" validate:"required"`
+	Keys     string `json:"keys" yaml:"keys"`
+	Data     string `json:"data" yaml:"data"`
+	Config   string `json:"config" yaml:"config"`
+}
+
 func (w *ZenroomWorkflow) Name() string {
 	return "Run a Zenroom contract from the docker image"
 }
@@ -42,7 +49,6 @@ func (w *ZenroomWorkflow) Workflow(
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
-
 	runMetadata := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
@@ -55,49 +61,49 @@ func (w *ZenroomWorkflow) Workflow(
 		),
 	}
 
+	payload, err := workflowengine.DecodePayload[ZenroomWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+	}
+
 	var sideEffectResult struct {
 		TmpDir  string
 		CmdArgs []string
 	}
 
-	err := workflow.SideEffect(ctx, func(_ workflow.Context) interface{} {
+	err = workflow.SideEffect(ctx, func(_ workflow.Context) interface{} {
 		tmpDirLocal, err := os.MkdirTemp("", "zenroom-workflow-")
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.MkdirFailed]
 			return workflowengine.NewAppError(errCode, err.Error())
 		}
 
-		contract, ok := input.Payload["contract"].(string)
-		if !ok || contract == "" {
-			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-			return workflowengine.NewAppError(errCode, "contract")
-		}
 		errCode := errorcodes.Codes[errorcodes.WriteFileFailed]
 		contractPath := filepath.Join(tmpDirLocal, "contract.zen")
-		if err := os.WriteFile(contractPath, []byte(contract), 0600); err != nil {
+		if err := os.WriteFile(contractPath, []byte(payload.Contract), 0600); err != nil {
 			return workflowengine.NewAppError(errCode, err.Error())
 		}
 
 		cmdArgsLocal := make([]string, 0)
 
-		if keys, ok := input.Payload["keys"].(string); ok {
+		if payload.Keys != "" {
 			keysPath := filepath.Join(tmpDirLocal, "keys.json")
-			if err := os.WriteFile(keysPath, []byte(keys), 0600); err != nil {
+			if err := os.WriteFile(keysPath, []byte(payload.Keys), 0600); err != nil {
 				return workflowengine.NewAppError(errCode, err.Error())
 			}
 			cmdArgsLocal = append(cmdArgsLocal, "-k", "/tmp/keys.json")
 		}
 
-		if data, ok := input.Payload["data"].(string); ok {
+		if payload.Data != "" {
 			dataPath := filepath.Join(tmpDirLocal, "data.json")
-			if err := os.WriteFile(dataPath, []byte(data), 0600); err != nil {
+			if err := os.WriteFile(dataPath, []byte(payload.Data), 0600); err != nil {
 				return workflowengine.NewAppError(errCode, err.Error())
 			}
 			cmdArgsLocal = append(cmdArgsLocal, "-a", "/tmp/data.json")
 		}
 
-		if config, ok := input.Payload["config"].(string); ok {
-			cmdArgsLocal = append(cmdArgsLocal, "-c", config)
+		if payload.Config != "" {
+			cmdArgsLocal = append(cmdArgsLocal, "-c", payload.Config)
 		}
 
 		cmdArgsLocal = append(cmdArgsLocal, "-z", "/tmp/contract.zen")
@@ -116,10 +122,10 @@ func (w *ZenroomWorkflow) Workflow(
 	}
 
 	activityInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"image":  "ghcr.io/dyne/zenroom:latest",
-			"cmd":    sideEffectResult.CmdArgs,
-			"mounts": []string{sideEffectResult.TmpDir + ":/tmp"},
+		Payload: activities.DockerActivityPayload{
+			Image:  "ghcr.io/dyne/zenroom:latest",
+			Cmd:    sideEffectResult.CmdArgs,
+			Mounts: []string{sideEffectResult.TmpDir + ":/tmp"},
 		},
 	}
 
