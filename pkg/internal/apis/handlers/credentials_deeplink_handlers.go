@@ -23,7 +23,7 @@ var DeepLinkCredential routing.RouteGroup = routing.RouteGroup{
 	},
 	Routes: []routing.RouteDefinition{
 		{
-			Method:  http.MethodPost,
+			Method:  http.MethodGet,
 			Path:    "/credential/deeplink",
 			Handler: HandleGetCredentialDeeplink,
 		},
