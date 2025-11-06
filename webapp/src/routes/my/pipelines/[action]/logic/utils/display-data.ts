@@ -6,7 +6,7 @@ import { marketplaceItemsDisplayConfig, type MarketplaceItemDisplayData } from '
 
 import { m } from '@/i18n/index.js';
 
-import { StepType } from '../types-steps.js';
+import { StepType } from '../types';
 
 //
 
@@ -14,7 +14,7 @@ const { wallets, credential_issuers, custom_checks, use_cases_verifications } =
 	marketplaceItemsDisplayConfig;
 
 const stepDisplayDataMap: Record<StepType, MarketplaceItemDisplayData> = {
-	[StepType.Wallet]: { ...wallets, label: m.Wallet_action() },
+	[StepType.WalletAction]: { ...wallets, label: m.Wallet_action() },
 	[StepType.Credential]: {
 		...credential_issuers,
 		label: m.Credential_deeplink()

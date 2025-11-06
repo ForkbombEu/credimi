@@ -29,6 +29,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<DashboardCard
 					record={pipeline}
 					avatar={() => pb.files.getURL(organization, organization.logo)}
+					path={[organization.canonified_name, pipeline.canonified_name]}
 				>
 					{#snippet editAction()}
 						<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} />
