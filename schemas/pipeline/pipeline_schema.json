@@ -1287,6 +1287,25 @@
                       "type": "string"
                     },
                     "with": {
+                      "oneOf": [
+                        {
+                          "required": [
+                            "action_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "action_id",
+                            "version_id"
+                          ]
+                        },
+                        {
+                          "required": [
+                            "action_code",
+                            "version_id"
+                          ]
+                        }
+                      ],
                       "properties": {
                         "action_code": {
                           "type": "string"
@@ -2789,6 +2808,25 @@
                 "type": "string"
               },
               "with": {
+                "oneOf": [
+                  {
+                    "required": [
+                      "action_id"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "action_id",
+                      "version_id"
+                    ]
+                  },
+                  {
+                    "required": [
+                      "action_code",
+                      "version_id"
+                    ]
+                  }
+                ],
                 "properties": {
                   "action_code": {
                     "type": "string"

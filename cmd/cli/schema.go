@@ -9,7 +9,6 @@ import (
 	"os"
 	"reflect"
 	"sort"
-	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -19,8 +18,7 @@ import (
 )
 
 var (
-	outputPath    string
-	UINeededSteps = []string{"mobile-automation", "credential-offer", "use-case-verification-deeplink"}
+	outputPath string
 )
 
 // NewSchemaCmd creates the "schema" subcommand for pipeline
@@ -69,7 +67,6 @@ func NewSchemaCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (if not specified, prints to stdout)")
-	cmd.AddCommand(newSchemaListCmd())
 
 	return cmd
 }
@@ -147,61 +144,6 @@ func generatePipelineSchema() (map[string]any, error) {
 	return schemaMap, nil
 }
 
-func newSchemaListCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "list",
-		Short: "Output a TypeScript map of stepName -> full step schema",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			reflector := jsonschema.Reflector{
-				AllowAdditionalProperties: false,
-				DoNotReference:            true,
-			}
-
-			stepDefSchema := reflector.Reflect(&pipeline.StepDefinition{})
-			activityOptionsSchema := stepDefSchema.Properties.Value("activity_options")
-
-			activityOptionsJSON, _ := json.Marshal(activityOptionsSchema)
-			var activityOptionsMap map[string]any
-			json.Unmarshal(activityOptionsJSON, &activityOptionsMap)
-
-			stepSchemas := make(map[string]any)
-			for _, stepKey := range UINeededSteps {
-				stepSchema := generateSingleStepSchema(&reflector, stepKey, activityOptionsMap)
-				if stepSchema != nil {
-					stepSchemas[stepKey] = stepSchema
-				}
-			}
-
-			// Marshal schemas as formatted JSON
-			jsonBytes, err := json.MarshalIndent(stepSchemas, "", "  ")
-			if err != nil {
-				return fmt.Errorf("failed to marshal step schema map: %w", err)
-			}
-
-			// Wrap in a TypeScript module export
-			tsContent := fmt.Sprintf("export default %s as const;\n", string(jsonBytes))
-
-			if outputPath != "" {
-				// Ensure .ts extension
-				if !strings.HasSuffix(outputPath, ".ts") {
-					outputPath += ".ts"
-				}
-				if err := os.WriteFile(outputPath, []byte(tsContent), 0644); err != nil {
-					return fmt.Errorf("failed to write TypeScript schema to file: %w", err)
-				}
-				fmt.Printf("✅ Step schema map saved to %s\n", outputPath)
-			} else {
-				fmt.Println(tsContent)
-			}
-
-			return nil
-		},
-	}
-
-	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (if not specified, prints to stdout)")
-	return cmd
-}
-
 func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string, activityOptionsMap map[string]any) map[string]any {
 	factory, ok := registry.Registry[stepKey]
 	if !ok {
@@ -269,6 +211,13 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string, a
 	// Preserve required fields from payload
 	if req, ok := payloadMap["required"].([]any); ok && len(req) > 0 {
 		with["required"] = req
+	}
+	if stepKey == "mobile-automation" {
+		with["oneOf"] = []map[string]any{
+			{"required": []string{"action_id"}},
+			{"required": []string{"action_id", "version_id"}},
+			{"required": []string{"action_code", "version_id"}},
+		}
 	}
 
 	return stepVariant
