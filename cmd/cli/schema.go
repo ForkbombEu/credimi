@@ -181,9 +181,6 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string, a
 		},
 		"required":             []string{"id", "use", "with"},
 		"additionalProperties": false,
-		"$defs": map[string]any{
-			"ActivityOptions": activityOptionsMap,
-		},
 	}
 
 	// --- Merge payload properties & required fields ---
@@ -213,10 +210,68 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string, a
 		with["required"] = req
 	}
 	if stepKey == "mobile-automation" {
-		with["oneOf"] = []map[string]any{
-			{"required": []string{"action_id"}},
-			{"required": []string{"action_id", "version_id"}},
-			{"required": []string{"action_code", "version_id"}},
+		with := []map[string]any{
+			{
+				"type": "object",
+				"properties": map[string]any{
+					"action_id":   map[string]any{"type": "string"},
+					"version_id":  map[string]any{"type": "string"},
+					"action_code": map[string]any{"type": "string"},
+					"video":       map[string]any{"type": "boolean"},
+					"parameters": map[string]any{
+						"type":                 "object",
+						"additionalProperties": map[string]any{"type": "string"},
+					},
+					"config": map[string]any{
+						"type":                 "object",
+						"additionalProperties": true,
+					},
+				},
+				"required":             []string{"action_id"},
+				"additionalProperties": false,
+			},
+			{
+				"type": "object",
+				"properties": map[string]any{
+					"action_id":   map[string]any{"type": "string"},
+					"version_id":  map[string]any{"type": "string"},
+					"action_code": map[string]any{"type": "string"},
+					"video":       map[string]any{"type": "boolean"},
+					"parameters": map[string]any{
+						"type":                 "object",
+						"additionalProperties": map[string]any{"type": "string"},
+					},
+					"config": map[string]any{
+						"type":                 "object",
+						"additionalProperties": true,
+					},
+				},
+				"required":             []string{"action_id", "version_id"},
+				"additionalProperties": false,
+			},
+			{
+				"type": "object",
+				"properties": map[string]any{
+					"action_id":   map[string]any{"type": "string"},
+					"version_id":  map[string]any{"type": "string"},
+					"action_code": map[string]any{"type": "string"},
+					"video":       map[string]any{"type": "boolean"},
+					"parameters": map[string]any{
+						"type":                 "object",
+						"additionalProperties": map[string]any{"type": "string"},
+					},
+					"config": map[string]any{
+						"type":                 "object",
+						"additionalProperties": true,
+					},
+				},
+				"required":             []string{"action_code", "version_id"},
+				"additionalProperties": false,
+			},
+		}
+
+		stepVariant["properties"].(map[string]any)["with"] = map[string]any{
+			"oneOf": with,
 		}
 	}
 
