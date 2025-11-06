@@ -22,6 +22,7 @@ export type BaseStep<T extends StepType, Data extends Record<string, unknown>> =
 	organization: string;
 	recordId: string;
 	data: Data;
+	continueOnError?: boolean;
 };
 
 export enum StepType {
@@ -38,15 +39,19 @@ export type MarketplaceStepType =
 
 //
 
-export type BuilderStep = WalletStep | CredentialStep | CustomCheckStep | UseCaseVerificationStep;
+export type BuilderStep =
+	| WalletActionStep
+	| CredentialStep
+	| CustomCheckStep
+	| UseCaseVerificationStep;
 
-type WalletStep = BaseStep<StepType.WalletAction, WalletStepData>;
+export type WalletActionStep = BaseStep<StepType.WalletAction, WalletStepData>;
 
-type CredentialStep = BaseStep<StepType.Credential, CredentialsResponse>;
+export type CredentialStep = BaseStep<StepType.Credential, CredentialsResponse>;
 
-type CustomCheckStep = BaseStep<StepType.CustomCheck, CustomChecksResponse>;
+export type CustomCheckStep = BaseStep<StepType.CustomCheck, CustomChecksResponse>;
 
-type UseCaseVerificationStep = BaseStep<
+export type UseCaseVerificationStep = BaseStep<
 	StepType.UseCaseVerification,
 	UseCasesVerificationsResponse
 >;

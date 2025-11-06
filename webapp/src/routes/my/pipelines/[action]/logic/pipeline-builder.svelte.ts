@@ -6,6 +6,7 @@ import { pb } from '@/pocketbase/index.js';
 import { create } from 'mutative';
 import { nanoid } from 'nanoid';
 import { BaseStepForm } from './base-step-form.svelte.js';
+import { buildYaml } from './functions.js';
 import type { BuilderStep, MarketplaceStepType, WalletStepData } from './types';
 import { IdleState, StepFormState, StepType } from './types';
 import { WalletStepForm } from './wallet-step-form.svelte.js';
@@ -42,9 +43,7 @@ export class PipelineBuilder {
 		return this.data.steps;
 	}
 
-	readonly yaml = $derived.by(() => {
-		return '# TODO';
-	});
+	readonly yaml = $derived(buildYaml(this.steps));
 
 	// State management
 
