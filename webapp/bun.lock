@@ -26,6 +26,7 @@
         "effect": "^3.14.1",
         "front-matter": "^4.0.2",
         "fuse.js": "^7.1.0",
+        "json-schema-to-ts": "^3.1.1",
         "json-schema-to-typescript": "^15.0.4",
         "json_typegen_wasm": "^0.7.0",
         "lodash": "^4.17.21",

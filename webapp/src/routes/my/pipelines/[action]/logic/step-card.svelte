@@ -11,7 +11,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 
-	import type { BuilderStep, PipelineBuilder } from './pipeline-builder.svelte.js';
+	import type { PipelineBuilder } from './pipeline-builder.svelte.js';
+	import type { BuilderStep } from './types.js';
 
 	import { getStepDisplayData } from './utils/display-data';
 

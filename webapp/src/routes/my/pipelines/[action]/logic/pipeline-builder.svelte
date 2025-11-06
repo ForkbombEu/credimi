@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BaseStepFormComponent from './base-step-form.svelte';
 	import { BaseStepForm } from './base-step-form.svelte.js';
 	import StepCard from './step-card.svelte';
-	import { IdleState, StepFormState, StepType } from './types';
+	import { IdleState, StepFormState, StepType } from './types.js';
 	import Column from './utils/column.svelte';
 	import { getStepDisplayData } from './utils/display-data';
 	import EmptyState from './utils/empty-state.svelte';

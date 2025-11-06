@@ -7,8 +7,9 @@ import type { CollectionResponses } from '@/pocketbase/types/index.generated.js'
 import { create } from 'mutative';
 import { nanoid } from 'nanoid';
 import { BaseStepForm } from './base-step-form.svelte.js';
-import { IdleState, StepFormState, StepType } from './types.js';
-import { WalletStepForm, type WalletStepData } from './wallet-step-form.svelte.js';
+import type { BuilderStep, MarketplaceStepType, WalletStepData } from './types';
+import { IdleState, StepFormState, StepType } from './types';
+import { WalletStepForm } from './wallet-step-form.svelte.js';
 
 //
 
@@ -88,7 +89,7 @@ export class PipelineBuilder {
 
 	initAddStep(type: StepType) {
 		this.effectCleanup = $effect.root(() => {
-			if (type === StepType.Wallet) {
+			if (type === StepType.WalletAction) {
 				this.initWalletStepForm();
 			} else if (type === StepType.Credential) {
 				this.initBaseStepForm(type, async (collection, id) => {
@@ -142,7 +143,7 @@ export class PipelineBuilder {
 						path: data.wallet.path + '/' + data.action.canonified_name,
 						organization: data.wallet.organization_name,
 						data: data,
-						type: StepType.Wallet,
+						type: StepType.WalletAction,
 						yaml: data.action.code,
 						recordId: data.action.id
 					});
@@ -151,7 +152,7 @@ export class PipelineBuilder {
 		});
 	}
 
-	private initBaseStepForm<T extends StepType>(
+	private initBaseStepForm<T extends MarketplaceStepType>(
 		collection: T,
 		getter: (
 			collection: T,

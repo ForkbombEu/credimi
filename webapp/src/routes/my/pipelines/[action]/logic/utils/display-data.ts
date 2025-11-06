@@ -6,7 +6,7 @@ import { marketplaceItemsDisplayConfig, type MarketplaceItemDisplayData } from '
 
 import { m } from '@/i18n/index.js';
 
-import { StepType } from '../types.js';
+import { StepType } from '../types-steps.js';
 
 //
 

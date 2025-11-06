@@ -9,17 +9,11 @@ import {
 	type WalletActionsResponse,
 	type WalletVersionsResponse
 } from '@/pocketbase/types';
-import { StepFormState } from './types.js';
+import { StepFormState, type WalletStepData } from './types.js';
 import { searchMarketplace } from './utils/search-marketplace.js';
 import { Search } from './utils/search.svelte.js';
 
 //
-
-export type WalletStepData = {
-	wallet: MarketplaceItem;
-	version: WalletVersionsResponse;
-	action: WalletActionsResponse;
-};
 
 type Props = {
 	onSelect: (step: WalletStepData) => void;
