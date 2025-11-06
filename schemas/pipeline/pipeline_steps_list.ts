@@ -1,4 +1,4 @@
-{
+export default {
   "credential-offer": {
     "$defs": {
       "ActivityOptions": {
@@ -236,4 +236,4 @@
     ],
     "type": "object"
   }
-}
+} as const;

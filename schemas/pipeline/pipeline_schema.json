@@ -112,6 +112,78 @@
                       "type": "object"
                     },
                     "use": {
+                      "const": "appstore-url-validation",
+                      "type": "string"
+                    },
+                    "with": {
+                      "properties": {
+                        "config": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "use",
+                    "with"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "$defs": {
+                    "ActivityOptions": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "retry_policy": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "backoff_coefficient": {
+                              "type": "number"
+                            },
+                            "initial_interval": {
+                              "type": "string"
+                            },
+                            "maximum_attempts": {
+                              "type": "integer"
+                            },
+                            "maximum_interval": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "schedule_to_close_timeout": {
+                          "type": "string"
+                        },
+                        "start_to_close_timeout": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "properties": {
+                    "activity_options": {
+                      "$ref": "#/$defs/ActivityOptions"
+                    },
+                    "continue_on_error": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "use": {
                       "const": "cesr-parse",
                       "type": "string"
                     },
@@ -184,38 +256,175 @@
                       "type": "object"
                     },
                     "use": {
-                      "const": "http-request",
+                      "const": "cesr-validate",
                       "type": "string"
                     },
                     "with": {
                       "properties": {
-                        "body": true,
                         "config": {
                           "additionalProperties": true,
                           "type": "object"
                         },
-                        "expected_status": {
-                          "type": "integer"
-                        },
-                        "headers": {
-                          "additionalProperties": {
-                            "type": "string"
+                        "events": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "use",
+                    "with"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "$defs": {
+                    "ActivityOptions": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "retry_policy": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "backoff_coefficient": {
+                              "type": "number"
+                            },
+                            "initial_interval": {
+                              "type": "string"
+                            },
+                            "maximum_attempts": {
+                              "type": "integer"
+                            },
+                            "maximum_interval": {
+                              "type": "string"
+                            }
                           },
                           "type": "object"
                         },
-                        "method": {
+                        "schedule_to_close_timeout": {
                           "type": "string"
                         },
-                        "query_params": {
-                          "additionalProperties": {
-                            "type": "string"
-                          },
+                        "start_to_close_timeout": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "properties": {
+                    "activity_options": {
+                      "$ref": "#/$defs/ActivityOptions"
+                    },
+                    "continue_on_error": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "use": {
+                      "const": "conformance-check",
+                      "type": "string"
+                    },
+                    "with": {
+                      "properties": {
+                        "check_id": {
+                          "type": "string"
+                        },
+                        "config": {
+                          "additionalProperties": true,
                           "type": "object"
                         },
-                        "timeout": {
+                        "form": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "alias": {
+                              "type": "string"
+                            },
+                            "client": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "authorization_encrypted_response_alg": {
+                                  "type": "string"
+                                },
+                                "authorization_encrypted_response_enc": {
+                                  "type": "string"
+                                },
+                                "client_id": {
+                                  "type": "string"
+                                },
+                                "dcql": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "credentials": {
+                                      "items": {
+                                        "type": "object"
+                                      },
+                                      "type": "array"
+                                    }
+                                  },
+                                  "required": [
+                                    "credentials"
+                                  ],
+                                  "type": "object"
+                                },
+                                "jwks": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "keys": {
+                                      "items": {
+                                        "type": "object"
+                                      },
+                                      "type": "array"
+                                    }
+                                  },
+                                  "required": [
+                                    "keys"
+                                  ],
+                                  "type": "object"
+                                },
+                                "presentation_definition": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "jwks"
+                              ],
+                              "type": "object"
+                            },
+                            "description": {
+                              "type": "string"
+                            },
+                            "server": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "authorization_endpoint": {
+                                  "type": "string"
+                                }
+                              },
+                              "required": [
+                                "authorization_endpoint"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "alias",
+                            "description",
+                            "client",
+                            "server"
+                          ],
+                          "type": "object"
+                        },
+                        "session_id": {
                           "type": "string"
                         },
-                        "url": {
+                        "test": {
                           "type": "string"
                         }
                       },
@@ -487,6 +696,406 @@
                       "type": "object"
                     },
                     "use": {
+                      "const": "credential-issuer-validation",
+                      "type": "string"
+                    },
+                    "with": {
+                      "properties": {
+                        "base_url": {
+                          "type": "string"
+                        },
+                        "config": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "use",
+                    "with"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "$defs": {
+                    "ActivityOptions": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "retry_policy": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "backoff_coefficient": {
+                              "type": "number"
+                            },
+                            "initial_interval": {
+                              "type": "string"
+                            },
+                            "maximum_attempts": {
+                              "type": "integer"
+                            },
+                            "maximum_interval": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "schedule_to_close_timeout": {
+                          "type": "string"
+                        },
+                        "start_to_close_timeout": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "properties": {
+                    "activity_options": {
+                      "$ref": "#/$defs/ActivityOptions"
+                    },
+                    "continue_on_error": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "use": {
+                      "const": "credential-offer",
+                      "type": "string"
+                    },
+                    "with": {
+                      "properties": {
+                        "config": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "credential_id": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "use",
+                    "with"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "$defs": {
+                    "ActivityOptions": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "retry_policy": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "backoff_coefficient": {
+                              "type": "number"
+                            },
+                            "initial_interval": {
+                              "type": "string"
+                            },
+                            "maximum_attempts": {
+                              "type": "integer"
+                            },
+                            "maximum_interval": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "schedule_to_close_timeout": {
+                          "type": "string"
+                        },
+                        "start_to_close_timeout": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "properties": {
+                    "activity_options": {
+                      "$ref": "#/$defs/ActivityOptions"
+                    },
+                    "continue_on_error": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "use": {
+                      "const": "custom-check",
+                      "type": "string"
+                    },
+                    "with": {
+                      "properties": {
+                        "config": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "id": {
+                          "type": "string"
+                        },
+                        "yaml": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "use",
+                    "with"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "$defs": {
+                    "ActivityOptions": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "retry_policy": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "backoff_coefficient": {
+                              "type": "number"
+                            },
+                            "initial_interval": {
+                              "type": "string"
+                            },
+                            "maximum_attempts": {
+                              "type": "integer"
+                            },
+                            "maximum_interval": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "schedule_to_close_timeout": {
+                          "type": "string"
+                        },
+                        "start_to_close_timeout": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "properties": {
+                    "activity_options": {
+                      "$ref": "#/$defs/ActivityOptions"
+                    },
+                    "continue_on_error": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "use": {
+                      "const": "email",
+                      "type": "string"
+                    },
+                    "with": {
+                      "properties": {
+                        "body": {
+                          "type": "string"
+                        },
+                        "config": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "data": {
+                          "type": "object"
+                        },
+                        "recipient": {
+                          "type": "string"
+                        },
+                        "sender": {
+                          "type": "string"
+                        },
+                        "subject": {
+                          "type": "string"
+                        },
+                        "template": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "use",
+                    "with"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "$defs": {
+                    "ActivityOptions": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "retry_policy": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "backoff_coefficient": {
+                              "type": "number"
+                            },
+                            "initial_interval": {
+                              "type": "string"
+                            },
+                            "maximum_attempts": {
+                              "type": "integer"
+                            },
+                            "maximum_interval": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "schedule_to_close_timeout": {
+                          "type": "string"
+                        },
+                        "start_to_close_timeout": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "properties": {
+                    "activity_options": {
+                      "$ref": "#/$defs/ActivityOptions"
+                    },
+                    "continue_on_error": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "use": {
+                      "const": "http-request",
+                      "type": "string"
+                    },
+                    "with": {
+                      "properties": {
+                        "body": true,
+                        "config": {
+                          "additionalProperties": true,
+                          "type": "object"
+                        },
+                        "expected_status": {
+                          "type": "integer"
+                        },
+                        "headers": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        },
+                        "method": {
+                          "type": "string"
+                        },
+                        "query_params": {
+                          "additionalProperties": {
+                            "type": "string"
+                          },
+                          "type": "object"
+                        },
+                        "timeout": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "required": [
+                    "id",
+                    "use",
+                    "with"
+                  ],
+                  "type": "object"
+                },
+                {
+                  "$defs": {
+                    "ActivityOptions": {
+                      "additionalProperties": false,
+                      "properties": {
+                        "retry_policy": {
+                          "additionalProperties": false,
+                          "properties": {
+                            "backoff_coefficient": {
+                              "type": "number"
+                            },
+                            "initial_interval": {
+                              "type": "string"
+                            },
+                            "maximum_attempts": {
+                              "type": "integer"
+                            },
+                            "maximum_interval": {
+                              "type": "string"
+                            }
+                          },
+                          "type": "object"
+                        },
+                        "schedule_to_close_timeout": {
+                          "type": "string"
+                        },
+                        "start_to_close_timeout": {
+                          "type": "string"
+                        }
+                      },
+                      "type": "object"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "properties": {
+                    "activity_options": {
+                      "$ref": "#/$defs/ActivityOptions"
+                    },
+                    "continue_on_error": {
+                      "type": "boolean"
+                    },
+                    "id": {
+                      "type": "string"
+                    },
+                    "metadata": {
+                      "additionalProperties": true,
+                      "type": "object"
+                    },
+                    "use": {
                       "const": "json-parse",
                       "type": "string"
                     },
@@ -562,7 +1171,7 @@
                       "type": "object"
                     },
                     "use": {
-                      "const": "cesr-validate",
+                      "const": "jsonschema-validation",
                       "type": "string"
                     },
                     "with": {
@@ -571,9 +1180,13 @@
                           "additionalProperties": true,
                           "type": "object"
                         },
-                        "events": {
+                        "data": {
+                          "type": "object"
+                        },
+                        "schema": {
                           "type": "string"
-                        }
+                        },
+                        "subschema": true
                       },
                       "type": "object"
                     }
@@ -727,384 +1340,6 @@
                       "type": "object"
                     },
                     "use": {
-                      "const": "use-case-verification-deeplink",
-                      "type": "string"
-                    },
-                    "with": {
-                      "properties": {
-                        "config": {
-                          "additionalProperties": true,
-                          "type": "object"
-                        },
-                        "use_case_id": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "use",
-                    "with"
-                  ],
-                  "type": "object"
-                },
-                {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "additionalProperties": false,
-                  "properties": {
-                    "activity_options": {
-                      "$ref": "#/$defs/ActivityOptions"
-                    },
-                    "continue_on_error": {
-                      "type": "boolean"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "metadata": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
-                    "use": {
-                      "const": "custom-check",
-                      "type": "string"
-                    },
-                    "with": {
-                      "properties": {
-                        "config": {
-                          "additionalProperties": true,
-                          "type": "object"
-                        },
-                        "id": {
-                          "type": "string"
-                        },
-                        "yaml": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "use",
-                    "with"
-                  ],
-                  "type": "object"
-                },
-                {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "additionalProperties": false,
-                  "properties": {
-                    "activity_options": {
-                      "$ref": "#/$defs/ActivityOptions"
-                    },
-                    "continue_on_error": {
-                      "type": "boolean"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "metadata": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
-                    "use": {
-                      "const": "credential-offer",
-                      "type": "string"
-                    },
-                    "with": {
-                      "properties": {
-                        "config": {
-                          "additionalProperties": true,
-                          "type": "object"
-                        },
-                        "credential_id": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "use",
-                    "with"
-                  ],
-                  "type": "object"
-                },
-                {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "additionalProperties": false,
-                  "properties": {
-                    "activity_options": {
-                      "$ref": "#/$defs/ActivityOptions"
-                    },
-                    "continue_on_error": {
-                      "type": "boolean"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "metadata": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
-                    "use": {
-                      "const": "conformance-check",
-                      "type": "string"
-                    },
-                    "with": {
-                      "properties": {
-                        "check_id": {
-                          "type": "string"
-                        },
-                        "config": {
-                          "additionalProperties": true,
-                          "type": "object"
-                        },
-                        "form": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "alias": {
-                              "type": "string"
-                            },
-                            "client": {
-                              "additionalProperties": false,
-                              "properties": {
-                                "authorization_encrypted_response_alg": {
-                                  "type": "string"
-                                },
-                                "authorization_encrypted_response_enc": {
-                                  "type": "string"
-                                },
-                                "client_id": {
-                                  "type": "string"
-                                },
-                                "dcql": {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "credentials": {
-                                      "items": {
-                                        "type": "object"
-                                      },
-                                      "type": "array"
-                                    }
-                                  },
-                                  "required": [
-                                    "credentials"
-                                  ],
-                                  "type": "object"
-                                },
-                                "jwks": {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "keys": {
-                                      "items": {
-                                        "type": "object"
-                                      },
-                                      "type": "array"
-                                    }
-                                  },
-                                  "required": [
-                                    "keys"
-                                  ],
-                                  "type": "object"
-                                },
-                                "presentation_definition": {
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "jwks"
-                              ],
-                              "type": "object"
-                            },
-                            "description": {
-                              "type": "string"
-                            },
-                            "server": {
-                              "additionalProperties": false,
-                              "properties": {
-                                "authorization_endpoint": {
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "authorization_endpoint"
-                              ],
-                              "type": "object"
-                            }
-                          },
-                          "required": [
-                            "alias",
-                            "description",
-                            "client",
-                            "server"
-                          ],
-                          "type": "object"
-                        },
-                        "session_id": {
-                          "type": "string"
-                        },
-                        "test": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "use",
-                    "with"
-                  ],
-                  "type": "object"
-                },
-                {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "additionalProperties": false,
-                  "properties": {
-                    "activity_options": {
-                      "$ref": "#/$defs/ActivityOptions"
-                    },
-                    "continue_on_error": {
-                      "type": "boolean"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "metadata": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
-                    "use": {
                       "const": "rest-chain",
                       "type": "string"
                     },
@@ -1189,7 +1424,7 @@
                       "type": "object"
                     },
                     "use": {
-                      "const": "appstore-url-validation",
+                      "const": "use-case-verification-deeplink",
                       "type": "string"
                     },
                     "with": {
@@ -1198,243 +1433,8 @@
                           "additionalProperties": true,
                           "type": "object"
                         },
-                        "url": {
+                        "use_case_id": {
                           "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "use",
-                    "with"
-                  ],
-                  "type": "object"
-                },
-                {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "additionalProperties": false,
-                  "properties": {
-                    "activity_options": {
-                      "$ref": "#/$defs/ActivityOptions"
-                    },
-                    "continue_on_error": {
-                      "type": "boolean"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "metadata": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
-                    "use": {
-                      "const": "email",
-                      "type": "string"
-                    },
-                    "with": {
-                      "properties": {
-                        "body": {
-                          "type": "string"
-                        },
-                        "config": {
-                          "additionalProperties": true,
-                          "type": "object"
-                        },
-                        "data": {
-                          "type": "object"
-                        },
-                        "recipient": {
-                          "type": "string"
-                        },
-                        "sender": {
-                          "type": "string"
-                        },
-                        "subject": {
-                          "type": "string"
-                        },
-                        "template": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "use",
-                    "with"
-                  ],
-                  "type": "object"
-                },
-                {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "additionalProperties": false,
-                  "properties": {
-                    "activity_options": {
-                      "$ref": "#/$defs/ActivityOptions"
-                    },
-                    "continue_on_error": {
-                      "type": "boolean"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "metadata": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
-                    "use": {
-                      "const": "jsonschema-validation",
-                      "type": "string"
-                    },
-                    "with": {
-                      "properties": {
-                        "config": {
-                          "additionalProperties": true,
-                          "type": "object"
-                        },
-                        "data": {
-                          "type": "object"
-                        },
-                        "schema": {
-                          "type": "string"
-                        },
-                        "subschema": true
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "required": [
-                    "id",
-                    "use",
-                    "with"
-                  ],
-                  "type": "object"
-                },
-                {
-                  "$defs": {
-                    "ActivityOptions": {
-                      "additionalProperties": false,
-                      "properties": {
-                        "retry_policy": {
-                          "additionalProperties": false,
-                          "properties": {
-                            "backoff_coefficient": {
-                              "type": "number"
-                            },
-                            "initial_interval": {
-                              "type": "string"
-                            },
-                            "maximum_attempts": {
-                              "type": "integer"
-                            },
-                            "maximum_interval": {
-                              "type": "string"
-                            }
-                          },
-                          "type": "object"
-                        },
-                        "schedule_to_close_timeout": {
-                          "type": "string"
-                        },
-                        "start_to_close_timeout": {
-                          "type": "string"
-                        }
-                      },
-                      "type": "object"
-                    }
-                  },
-                  "additionalProperties": false,
-                  "properties": {
-                    "activity_options": {
-                      "$ref": "#/$defs/ActivityOptions"
-                    },
-                    "continue_on_error": {
-                      "type": "boolean"
-                    },
-                    "id": {
-                      "type": "string"
-                    },
-                    "metadata": {
-                      "additionalProperties": true,
-                      "type": "object"
-                    },
-                    "use": {
-                      "const": "credential-issuer-validation",
-                      "type": "string"
-                    },
-                    "with": {
-                      "properties": {
-                        "base_url": {
-                          "type": "string"
-                        },
-                        "config": {
-                          "additionalProperties": true,
-                          "type": "object"
                         }
                       },
                       "type": "object"
@@ -1578,6 +1578,78 @@
                 "type": "object"
               },
               "use": {
+                "const": "appstore-url-validation",
+                "type": "string"
+              },
+              "with": {
+                "properties": {
+                  "config": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "use",
+              "with"
+            ],
+            "type": "object"
+          },
+          {
+            "$defs": {
+              "ActivityOptions": {
+                "additionalProperties": false,
+                "properties": {
+                  "retry_policy": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "backoff_coefficient": {
+                        "type": "number"
+                      },
+                      "initial_interval": {
+                        "type": "string"
+                      },
+                      "maximum_attempts": {
+                        "type": "integer"
+                      },
+                      "maximum_interval": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "schedule_to_close_timeout": {
+                    "type": "string"
+                  },
+                  "start_to_close_timeout": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "properties": {
+              "activity_options": {
+                "$ref": "#/$defs/ActivityOptions"
+              },
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "use": {
                 "const": "cesr-parse",
                 "type": "string"
               },
@@ -1650,38 +1722,175 @@
                 "type": "object"
               },
               "use": {
-                "const": "http-request",
+                "const": "cesr-validate",
                 "type": "string"
               },
               "with": {
                 "properties": {
-                  "body": true,
                   "config": {
                     "additionalProperties": true,
                     "type": "object"
                   },
-                  "expected_status": {
-                    "type": "integer"
-                  },
-                  "headers": {
-                    "additionalProperties": {
-                      "type": "string"
+                  "events": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "use",
+              "with"
+            ],
+            "type": "object"
+          },
+          {
+            "$defs": {
+              "ActivityOptions": {
+                "additionalProperties": false,
+                "properties": {
+                  "retry_policy": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "backoff_coefficient": {
+                        "type": "number"
+                      },
+                      "initial_interval": {
+                        "type": "string"
+                      },
+                      "maximum_attempts": {
+                        "type": "integer"
+                      },
+                      "maximum_interval": {
+                        "type": "string"
+                      }
                     },
                     "type": "object"
                   },
-                  "method": {
+                  "schedule_to_close_timeout": {
                     "type": "string"
                   },
-                  "query_params": {
-                    "additionalProperties": {
-                      "type": "string"
-                    },
+                  "start_to_close_timeout": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "properties": {
+              "activity_options": {
+                "$ref": "#/$defs/ActivityOptions"
+              },
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "use": {
+                "const": "conformance-check",
+                "type": "string"
+              },
+              "with": {
+                "properties": {
+                  "check_id": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "additionalProperties": true,
                     "type": "object"
                   },
-                  "timeout": {
+                  "form": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "alias": {
+                        "type": "string"
+                      },
+                      "client": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "authorization_encrypted_response_alg": {
+                            "type": "string"
+                          },
+                          "authorization_encrypted_response_enc": {
+                            "type": "string"
+                          },
+                          "client_id": {
+                            "type": "string"
+                          },
+                          "dcql": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "credentials": {
+                                "items": {
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "credentials"
+                            ],
+                            "type": "object"
+                          },
+                          "jwks": {
+                            "additionalProperties": false,
+                            "properties": {
+                              "keys": {
+                                "items": {
+                                  "type": "object"
+                                },
+                                "type": "array"
+                              }
+                            },
+                            "required": [
+                              "keys"
+                            ],
+                            "type": "object"
+                          },
+                          "presentation_definition": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "jwks"
+                        ],
+                        "type": "object"
+                      },
+                      "description": {
+                        "type": "string"
+                      },
+                      "server": {
+                        "additionalProperties": false,
+                        "properties": {
+                          "authorization_endpoint": {
+                            "type": "string"
+                          }
+                        },
+                        "required": [
+                          "authorization_endpoint"
+                        ],
+                        "type": "object"
+                      }
+                    },
+                    "required": [
+                      "alias",
+                      "description",
+                      "client",
+                      "server"
+                    ],
+                    "type": "object"
+                  },
+                  "session_id": {
                     "type": "string"
                   },
-                  "url": {
+                  "test": {
                     "type": "string"
                   }
                 },
@@ -1953,6 +2162,406 @@
                 "type": "object"
               },
               "use": {
+                "const": "credential-issuer-validation",
+                "type": "string"
+              },
+              "with": {
+                "properties": {
+                  "base_url": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "use",
+              "with"
+            ],
+            "type": "object"
+          },
+          {
+            "$defs": {
+              "ActivityOptions": {
+                "additionalProperties": false,
+                "properties": {
+                  "retry_policy": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "backoff_coefficient": {
+                        "type": "number"
+                      },
+                      "initial_interval": {
+                        "type": "string"
+                      },
+                      "maximum_attempts": {
+                        "type": "integer"
+                      },
+                      "maximum_interval": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "schedule_to_close_timeout": {
+                    "type": "string"
+                  },
+                  "start_to_close_timeout": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "properties": {
+              "activity_options": {
+                "$ref": "#/$defs/ActivityOptions"
+              },
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "use": {
+                "const": "credential-offer",
+                "type": "string"
+              },
+              "with": {
+                "properties": {
+                  "config": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "credential_id": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "use",
+              "with"
+            ],
+            "type": "object"
+          },
+          {
+            "$defs": {
+              "ActivityOptions": {
+                "additionalProperties": false,
+                "properties": {
+                  "retry_policy": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "backoff_coefficient": {
+                        "type": "number"
+                      },
+                      "initial_interval": {
+                        "type": "string"
+                      },
+                      "maximum_attempts": {
+                        "type": "integer"
+                      },
+                      "maximum_interval": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "schedule_to_close_timeout": {
+                    "type": "string"
+                  },
+                  "start_to_close_timeout": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "properties": {
+              "activity_options": {
+                "$ref": "#/$defs/ActivityOptions"
+              },
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "use": {
+                "const": "custom-check",
+                "type": "string"
+              },
+              "with": {
+                "properties": {
+                  "config": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "id": {
+                    "type": "string"
+                  },
+                  "yaml": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "use",
+              "with"
+            ],
+            "type": "object"
+          },
+          {
+            "$defs": {
+              "ActivityOptions": {
+                "additionalProperties": false,
+                "properties": {
+                  "retry_policy": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "backoff_coefficient": {
+                        "type": "number"
+                      },
+                      "initial_interval": {
+                        "type": "string"
+                      },
+                      "maximum_attempts": {
+                        "type": "integer"
+                      },
+                      "maximum_interval": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "schedule_to_close_timeout": {
+                    "type": "string"
+                  },
+                  "start_to_close_timeout": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "properties": {
+              "activity_options": {
+                "$ref": "#/$defs/ActivityOptions"
+              },
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "use": {
+                "const": "email",
+                "type": "string"
+              },
+              "with": {
+                "properties": {
+                  "body": {
+                    "type": "string"
+                  },
+                  "config": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "data": {
+                    "type": "object"
+                  },
+                  "recipient": {
+                    "type": "string"
+                  },
+                  "sender": {
+                    "type": "string"
+                  },
+                  "subject": {
+                    "type": "string"
+                  },
+                  "template": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "use",
+              "with"
+            ],
+            "type": "object"
+          },
+          {
+            "$defs": {
+              "ActivityOptions": {
+                "additionalProperties": false,
+                "properties": {
+                  "retry_policy": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "backoff_coefficient": {
+                        "type": "number"
+                      },
+                      "initial_interval": {
+                        "type": "string"
+                      },
+                      "maximum_attempts": {
+                        "type": "integer"
+                      },
+                      "maximum_interval": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "schedule_to_close_timeout": {
+                    "type": "string"
+                  },
+                  "start_to_close_timeout": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "properties": {
+              "activity_options": {
+                "$ref": "#/$defs/ActivityOptions"
+              },
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "use": {
+                "const": "http-request",
+                "type": "string"
+              },
+              "with": {
+                "properties": {
+                  "body": true,
+                  "config": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "expected_status": {
+                    "type": "integer"
+                  },
+                  "headers": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "method": {
+                    "type": "string"
+                  },
+                  "query_params": {
+                    "additionalProperties": {
+                      "type": "string"
+                    },
+                    "type": "object"
+                  },
+                  "timeout": {
+                    "type": "string"
+                  },
+                  "url": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "use",
+              "with"
+            ],
+            "type": "object"
+          },
+          {
+            "$defs": {
+              "ActivityOptions": {
+                "additionalProperties": false,
+                "properties": {
+                  "retry_policy": {
+                    "additionalProperties": false,
+                    "properties": {
+                      "backoff_coefficient": {
+                        "type": "number"
+                      },
+                      "initial_interval": {
+                        "type": "string"
+                      },
+                      "maximum_attempts": {
+                        "type": "integer"
+                      },
+                      "maximum_interval": {
+                        "type": "string"
+                      }
+                    },
+                    "type": "object"
+                  },
+                  "schedule_to_close_timeout": {
+                    "type": "string"
+                  },
+                  "start_to_close_timeout": {
+                    "type": "string"
+                  }
+                },
+                "type": "object"
+              }
+            },
+            "additionalProperties": false,
+            "properties": {
+              "activity_options": {
+                "$ref": "#/$defs/ActivityOptions"
+              },
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "use": {
                 "const": "json-parse",
                 "type": "string"
               },
@@ -2028,7 +2637,7 @@
                 "type": "object"
               },
               "use": {
-                "const": "cesr-validate",
+                "const": "jsonschema-validation",
                 "type": "string"
               },
               "with": {
@@ -2037,9 +2646,13 @@
                     "additionalProperties": true,
                     "type": "object"
                   },
-                  "events": {
+                  "data": {
+                    "type": "object"
+                  },
+                  "schema": {
                     "type": "string"
-                  }
+                  },
+                  "subschema": true
                 },
                 "type": "object"
               }
@@ -2193,384 +2806,6 @@
                 "type": "object"
               },
               "use": {
-                "const": "use-case-verification-deeplink",
-                "type": "string"
-              },
-              "with": {
-                "properties": {
-                  "config": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "use_case_id": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "id",
-              "use",
-              "with"
-            ],
-            "type": "object"
-          },
-          {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "additionalProperties": false,
-            "properties": {
-              "activity_options": {
-                "$ref": "#/$defs/ActivityOptions"
-              },
-              "continue_on_error": {
-                "type": "boolean"
-              },
-              "id": {
-                "type": "string"
-              },
-              "metadata": {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              "use": {
-                "const": "custom-check",
-                "type": "string"
-              },
-              "with": {
-                "properties": {
-                  "config": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "id": {
-                    "type": "string"
-                  },
-                  "yaml": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "id",
-              "use",
-              "with"
-            ],
-            "type": "object"
-          },
-          {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "additionalProperties": false,
-            "properties": {
-              "activity_options": {
-                "$ref": "#/$defs/ActivityOptions"
-              },
-              "continue_on_error": {
-                "type": "boolean"
-              },
-              "id": {
-                "type": "string"
-              },
-              "metadata": {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              "use": {
-                "const": "credential-offer",
-                "type": "string"
-              },
-              "with": {
-                "properties": {
-                  "config": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "credential_id": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "id",
-              "use",
-              "with"
-            ],
-            "type": "object"
-          },
-          {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "additionalProperties": false,
-            "properties": {
-              "activity_options": {
-                "$ref": "#/$defs/ActivityOptions"
-              },
-              "continue_on_error": {
-                "type": "boolean"
-              },
-              "id": {
-                "type": "string"
-              },
-              "metadata": {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              "use": {
-                "const": "conformance-check",
-                "type": "string"
-              },
-              "with": {
-                "properties": {
-                  "check_id": {
-                    "type": "string"
-                  },
-                  "config": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "form": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "alias": {
-                        "type": "string"
-                      },
-                      "client": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "authorization_encrypted_response_alg": {
-                            "type": "string"
-                          },
-                          "authorization_encrypted_response_enc": {
-                            "type": "string"
-                          },
-                          "client_id": {
-                            "type": "string"
-                          },
-                          "dcql": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "credentials": {
-                                "items": {
-                                  "type": "object"
-                                },
-                                "type": "array"
-                              }
-                            },
-                            "required": [
-                              "credentials"
-                            ],
-                            "type": "object"
-                          },
-                          "jwks": {
-                            "additionalProperties": false,
-                            "properties": {
-                              "keys": {
-                                "items": {
-                                  "type": "object"
-                                },
-                                "type": "array"
-                              }
-                            },
-                            "required": [
-                              "keys"
-                            ],
-                            "type": "object"
-                          },
-                          "presentation_definition": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "jwks"
-                        ],
-                        "type": "object"
-                      },
-                      "description": {
-                        "type": "string"
-                      },
-                      "server": {
-                        "additionalProperties": false,
-                        "properties": {
-                          "authorization_endpoint": {
-                            "type": "string"
-                          }
-                        },
-                        "required": [
-                          "authorization_endpoint"
-                        ],
-                        "type": "object"
-                      }
-                    },
-                    "required": [
-                      "alias",
-                      "description",
-                      "client",
-                      "server"
-                    ],
-                    "type": "object"
-                  },
-                  "session_id": {
-                    "type": "string"
-                  },
-                  "test": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "id",
-              "use",
-              "with"
-            ],
-            "type": "object"
-          },
-          {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "additionalProperties": false,
-            "properties": {
-              "activity_options": {
-                "$ref": "#/$defs/ActivityOptions"
-              },
-              "continue_on_error": {
-                "type": "boolean"
-              },
-              "id": {
-                "type": "string"
-              },
-              "metadata": {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              "use": {
                 "const": "rest-chain",
                 "type": "string"
               },
@@ -2655,7 +2890,7 @@
                 "type": "object"
               },
               "use": {
-                "const": "appstore-url-validation",
+                "const": "use-case-verification-deeplink",
                 "type": "string"
               },
               "with": {
@@ -2664,243 +2899,8 @@
                     "additionalProperties": true,
                     "type": "object"
                   },
-                  "url": {
+                  "use_case_id": {
                     "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "id",
-              "use",
-              "with"
-            ],
-            "type": "object"
-          },
-          {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "additionalProperties": false,
-            "properties": {
-              "activity_options": {
-                "$ref": "#/$defs/ActivityOptions"
-              },
-              "continue_on_error": {
-                "type": "boolean"
-              },
-              "id": {
-                "type": "string"
-              },
-              "metadata": {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              "use": {
-                "const": "email",
-                "type": "string"
-              },
-              "with": {
-                "properties": {
-                  "body": {
-                    "type": "string"
-                  },
-                  "config": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "data": {
-                    "type": "object"
-                  },
-                  "recipient": {
-                    "type": "string"
-                  },
-                  "sender": {
-                    "type": "string"
-                  },
-                  "subject": {
-                    "type": "string"
-                  },
-                  "template": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "id",
-              "use",
-              "with"
-            ],
-            "type": "object"
-          },
-          {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "additionalProperties": false,
-            "properties": {
-              "activity_options": {
-                "$ref": "#/$defs/ActivityOptions"
-              },
-              "continue_on_error": {
-                "type": "boolean"
-              },
-              "id": {
-                "type": "string"
-              },
-              "metadata": {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              "use": {
-                "const": "jsonschema-validation",
-                "type": "string"
-              },
-              "with": {
-                "properties": {
-                  "config": {
-                    "additionalProperties": true,
-                    "type": "object"
-                  },
-                  "data": {
-                    "type": "object"
-                  },
-                  "schema": {
-                    "type": "string"
-                  },
-                  "subschema": true
-                },
-                "type": "object"
-              }
-            },
-            "required": [
-              "id",
-              "use",
-              "with"
-            ],
-            "type": "object"
-          },
-          {
-            "$defs": {
-              "ActivityOptions": {
-                "additionalProperties": false,
-                "properties": {
-                  "retry_policy": {
-                    "additionalProperties": false,
-                    "properties": {
-                      "backoff_coefficient": {
-                        "type": "number"
-                      },
-                      "initial_interval": {
-                        "type": "string"
-                      },
-                      "maximum_attempts": {
-                        "type": "integer"
-                      },
-                      "maximum_interval": {
-                        "type": "string"
-                      }
-                    },
-                    "type": "object"
-                  },
-                  "schedule_to_close_timeout": {
-                    "type": "string"
-                  },
-                  "start_to_close_timeout": {
-                    "type": "string"
-                  }
-                },
-                "type": "object"
-              }
-            },
-            "additionalProperties": false,
-            "properties": {
-              "activity_options": {
-                "$ref": "#/$defs/ActivityOptions"
-              },
-              "continue_on_error": {
-                "type": "boolean"
-              },
-              "id": {
-                "type": "string"
-              },
-              "metadata": {
-                "additionalProperties": true,
-                "type": "object"
-              },
-              "use": {
-                "const": "credential-issuer-validation",
-                "type": "string"
-              },
-              "with": {
-                "properties": {
-                  "base_url": {
-                    "type": "string"
-                  },
-                  "config": {
-                    "additionalProperties": true,
-                    "type": "object"
                   }
                 },
                 "type": "object"
