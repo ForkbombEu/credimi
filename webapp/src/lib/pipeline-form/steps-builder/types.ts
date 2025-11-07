@@ -5,16 +5,13 @@
 import type { MarketplaceItem } from '$lib/marketplace/index.js';
 
 import {
-	type CredentialsResponse,
-	type CustomChecksResponse,
-	type UseCasesVerificationsResponse,
 	type WalletActionsResponse,
 	type WalletVersionsResponse
 } from '@/pocketbase/types/index.generated.js';
 
 /* Steps types */
 
-export type BaseStep<T extends StepType, Data extends Record<string, unknown>> = {
+export type BaseStep<T extends StepType, Data> = {
 	type: T;
 	id: string;
 	name: string;
@@ -38,22 +35,9 @@ export type MarketplaceStepType =
 
 //
 
-export type BuilderStep =
-	| WalletActionStep
-	| CredentialStep
-	| CustomCheckStep
-	| UseCaseVerificationStep;
+export type BuilderStep = WalletActionStep | BaseStep<MarketplaceStepType, MarketplaceItem>;
 
 export type WalletActionStep = BaseStep<StepType.WalletAction, WalletStepData>;
-
-export type CredentialStep = BaseStep<StepType.Credential, CredentialsResponse>;
-
-export type CustomCheckStep = BaseStep<StepType.CustomCheck, CustomChecksResponse>;
-
-export type UseCaseVerificationStep = BaseStep<
-	StepType.UseCaseVerification,
-	UseCasesVerificationsResponse
->;
 
 export type WalletStepData = {
 	wallet: MarketplaceItem;

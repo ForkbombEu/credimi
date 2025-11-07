@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { ActivityOptions } from '$pipeline-form/pipeline.types.generated';
+import type { ActivityOptions } from '$pipeline-form/types.generated';
 import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
 import { createForm } from '@/forms';
 import { getExceptionMessage } from '@/utils/errors';
@@ -54,7 +54,7 @@ export class ActivityOptionsForm {
 // Schema
 
 const ajv = new Ajv({ allowUnionTypes: true });
-const validateActivityOptions = ajv.compile(PipelineSchema.$defs.ActivityOptions);
+export const validateActivityOptions = ajv.compile(PipelineSchema.$defs.ActivityOptions);
 
 const activtyOptionsStringSchema = z.string().superRefine((v, ctx) => {
 	let res: unknown;
@@ -77,3 +77,7 @@ const activtyOptionsStringSchema = z.string().superRefine((v, ctx) => {
 		});
 	}
 });
+
+export function isActivityOptions(value: unknown): value is ActivityOptions {
+	return validateActivityOptions(value);
+}

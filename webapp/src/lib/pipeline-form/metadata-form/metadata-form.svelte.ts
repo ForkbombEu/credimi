@@ -10,7 +10,7 @@ import Component from './metadata-form.svelte';
 
 //
 
-type Metadata = z.infer<typeof metadataSchema>;
+export type Metadata = z.infer<typeof metadataSchema>;
 
 export class MetadataForm {
 	constructor() {}
@@ -41,13 +41,9 @@ export class MetadataForm {
 
 	isOpen = $state(false);
 	readonly Component = Component;
-
-	getValueOrThrow(): Metadata {
-		return metadataSchema.parse(this.#value);
-	}
 }
 
-const metadataSchema = z.object({
+export const metadataSchema = z.object({
 	description: z.string().min(3),
 	published: z.boolean().optional(),
 	name: z.string().min(3)

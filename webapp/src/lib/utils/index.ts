@@ -10,8 +10,6 @@ import slugify from 'slugify';
 import { onMount } from 'svelte';
 import { z } from 'zod';
 
-import type { GenericRecord } from '@/utils/types';
-
 import { verifyUser } from '@/auth/verifyUser';
 import { loadFeatureFlags } from '@/features';
 import { redirect } from '@/i18n';
@@ -98,7 +96,7 @@ export function path(chunks: string[]) {
 	return chunks.join('/');
 }
 
-export function getPath<T extends GenericRecord>(record: T) {
+export function getPath<T extends object>(record: T) {
 	if ('__canonified_path__' in record) {
 		return record.__canonified_path__ as string;
 	}

@@ -5,7 +5,7 @@
 import { getPath } from '$lib/utils';
 import { Array, pipe, String } from 'effect';
 
-import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as Pipeline } from './pipeline.types.generated';
+import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as Pipeline } from './types.generated';
 
 import {
 	StepType,

@@ -2,17 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { slug } from '$lib/utils/index.js';
+import { runWithLoading, slug } from '$lib/utils/index.js';
 import { goto } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
 import type { PipelinesFormData } from '@/pocketbase/types/extra.generated.js';
 import { stringify } from 'yaml';
 import { ActivityOptionsForm } from './activity-options-form/activity-options-form.svelte.js';
+import { convertBuilderSteps, formatYaml } from './functions.js';
 import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
 import Component from './pipeline-form.svelte';
-import { convertBuilderSteps, formatYaml } from './pipeline.functions.js';
-import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as Pipeline } from './pipeline.types.generated';
+import { serializeStep } from './serde.js';
 import { StepsBuilder } from './steps-builder/steps-builder.svelte.js';
+import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as Pipeline } from './types.generated';
 
 //
 
@@ -45,13 +46,17 @@ export class PipelineForm {
 			this.metadataForm.isOpen = true;
 		} else {
 			const data: Omit<PipelinesFormData, 'owner'> = {
-				...this.metadataForm.getValueOrThrow(),
+				...this.metadataForm.value,
 				canonified_name: slug(this.metadataForm.value.name),
-				steps: JSON.stringify(this.stepsBuilder.steps),
+				steps: JSON.stringify(this.stepsBuilder.steps.map(serializeStep)),
 				yaml: this.yamlString
 			};
-			await pb.collection('pipelines').create(data);
-			goto('/my/pipelines');
+			runWithLoading({
+				fn: async () => {
+					await pb.collection('pipelines').create(data);
+					goto('/my/pipelines');
+				}
+			});
 		}
 	}
 }
