@@ -78,7 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 		</A>
 	</div>
-	{#if hasChildren && isExpanded}
+	{#if hasChildren && isExpanded && workflow.children}
 		<ul class="space-y-2 pl-6 pt-2" transition:slide>
 			{#each workflow.children as child (child.execution.runId)}
 				<WorkflowTreeBranch workflow={child} />

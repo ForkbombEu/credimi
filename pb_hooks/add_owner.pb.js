@@ -23,7 +23,8 @@ onRecordCreateRequest(
     "custom_checks",
     "wallet_versions",
     "wallet_actions",
-    "credentials"
+    "credentials",
+    "pipelines"
 );
 
 onRecordUpdateRequest(
@@ -42,5 +43,6 @@ onRecordUpdateRequest(
     "custom_checks",
     "wallet_versions",
     "wallet_actions",
-    "credentials"
+    "credentials",
+    "pipelines"
 );

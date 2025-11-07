@@ -7,11 +7,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import clsx from 'clsx';
+
 	import type { Link } from '@/components/types';
 
 	import T from '@/components/ui-custom/t.svelte';
 
 	import BackButton from './back-button.svelte';
+
+	//
 
 	type Props = {
 		title?: string;
@@ -25,11 +29,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { title, description, top, class: className, backButton, children }: Props = $props();
 </script>
 
-<div class="bg-secondary min-h-screen space-y-10 p-6 {className}">
+<div class={['bg-secondary min-h-screen space-y-10 p-6', className]}>
 	{#if backButton}
-		{@const { href, title, class: className, ...rest } = backButton}
+		{@const { href, title, class: classes, ...rest } = backButton}
 		{#if href}
-			<BackButton {href} {...rest}>
+			<BackButton {href} class={clsx(classes)} {...rest}>
 				{title}
 			</BackButton>
 		{/if}
@@ -44,6 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 			{#if description}
 				<T tag="p" class="text-center">
+					<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 					{@html description}
 				</T>
 			{/if}

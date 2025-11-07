@@ -6,6 +6,7 @@ import { error } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { invalidateAll } from '$app/navigation';
 import { userOrganization } from '$lib/app-state';
+import slugify from 'slugify';
 import { onMount } from 'svelte';
 import { z } from 'zod';
 
@@ -60,8 +61,6 @@ export async function getUserOrganization(options = { fetch }) {
 
 //
 
-//
-
 export function setupPollingWithInvalidation(intervalMs: number) {
 	onMount(() => {
 		const interval = setInterval(() => {
@@ -95,4 +94,20 @@ export async function generateDeeplinkFromYaml(yaml: string) {
 
 export function path(chunks: string[]) {
 	return chunks.join('/');
+}
+
+export function getPath<T extends object>(record: T) {
+	if ('__canonified_path__' in record) {
+		return record.__canonified_path__ as string;
+	}
+	return '__no_path__';
+}
+
+export function slug(string: string) {
+	return slugify(string, {
+		replacement: '-',
+		remove: /[*+~.()'"!:@]/g,
+		lower: true,
+		strict: true
+	});
 }

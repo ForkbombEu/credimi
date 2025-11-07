@@ -6,12 +6,14 @@ import type {
 	CredentialIssuersResponse,
 	CredentialsResponse,
 	CustomChecksResponse,
+	PipelinesResponse,
 	UseCasesVerificationsResponse,
 	VerifiersResponse,
 	WalletsResponse
 } from '@/pocketbase/types';
 
 export type DashboardRecord =
+	| PipelinesResponse
 	| CredentialIssuersResponse
 	| CredentialsResponse
 	| VerifiersResponse

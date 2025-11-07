@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { TestTube2 } from 'lucide-svelte';
+import { TestTube2, WaypointsIcon } from 'lucide-svelte';
 
 import type { IconComponent } from '@/components/types';
 
@@ -47,6 +47,12 @@ export const appSections = {
 		id: 'custom-checks',
 		icon: marketplaceItemsDisplayConfig.custom_checks.icon,
 		textClass: marketplaceItemsDisplayConfig.custom_checks.textClass
+	},
+	pipelines: {
+		label: m.Pipelines(),
+		id: 'pipelines',
+		icon: WaypointsIcon,
+		textClass: 'text-orange-600'
 	}
 } as const satisfies Record<string, AppSection>;
 

@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { ComponentProps, Snippet } from 'svelte';
-
 	import { CheckIcon, CopyIcon } from 'lucide-svelte';
 
 	import Button, { type ButtonProps } from '@/components/ui/button/button.svelte';
@@ -14,15 +12,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import Icon from './icon.svelte';
+
 	//
 
 	type Props = Omit<ButtonProps, 'size'> & {
 		delay?: number;
 		textToCopy: string;
-		children?: Snippet;
 		square?: boolean;
-		variant?: ComponentProps<typeof Button>['variant'];
-		size?: 'sm' | 'xs';
+		size?: ButtonProps['size'] | 'xs' | 'mini';
 		hideTooltip?: boolean;
 	};
 
@@ -32,9 +29,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		children,
 		square = false,
 		variant = 'outline',
-		size = 'sm',
+		size = 'default',
+		class: className,
 		hideTooltip = false,
-		class: className = '',
 		...rest
 	}: Props = $props();
 
@@ -72,9 +69,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{
 				'h-8': size == 'sm',
 				'h-6': size == 'xs',
+				'h-5': size === 'mini',
 				'p-0': square,
-				'w-8': square && size == 'sm',
-				'w-6': square && size == 'xs'
+				'w-8': square && (size == 'sm' || size === 'default'),
+				'w-6': square && size == 'xs',
+				'w-5': square && size === 'mini'
 			},
 			className
 		]}
@@ -86,7 +85,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			class={{
 				'text-green-600': isCopied,
 				'!size-4': size == 'sm',
-				'!size-[14px]': size == 'xs'
+				'!size-[14px]': size == 'xs',
+				'!size-3': size === 'mini',
+				'!size-6': size === 'default'
 			}}
 		/>
 		{@render children?.()}
