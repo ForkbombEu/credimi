@@ -875,9 +875,6 @@
                         {
                           "additionalProperties": false,
                           "properties": {
-                            "action_code": {
-                              "type": "string"
-                            },
                             "action_id": {
                               "type": "string"
                             },
@@ -891,9 +888,6 @@
                               },
                               "type": "object"
                             },
-                            "version_id": {
-                              "type": "string"
-                            },
                             "video": {
                               "type": "boolean"
                             }
@@ -906,9 +900,6 @@
                         {
                           "additionalProperties": false,
                           "properties": {
-                            "action_code": {
-                              "type": "string"
-                            },
                             "action_id": {
                               "type": "string"
                             },
@@ -939,9 +930,6 @@
                           "additionalProperties": false,
                           "properties": {
                             "action_code": {
-                              "type": "string"
-                            },
-                            "action_id": {
                               "type": "string"
                             },
                             "config": {
@@ -1148,10 +1136,6 @@
           "type": "object"
         }
       },
-      "required": [
-        "schedule",
-        "temporal"
-      ],
       "type": "object"
     },
     "steps": {
@@ -1969,9 +1953,6 @@
                   {
                     "additionalProperties": false,
                     "properties": {
-                      "action_code": {
-                        "type": "string"
-                      },
                       "action_id": {
                         "type": "string"
                       },
@@ -1985,9 +1966,6 @@
                         },
                         "type": "object"
                       },
-                      "version_id": {
-                        "type": "string"
-                      },
                       "video": {
                         "type": "boolean"
                       }
@@ -2000,9 +1978,6 @@
                   {
                     "additionalProperties": false,
                     "properties": {
-                      "action_code": {
-                        "type": "string"
-                      },
                       "action_id": {
                         "type": "string"
                       },
@@ -2033,9 +2008,6 @@
                     "additionalProperties": false,
                     "properties": {
                       "action_code": {
-                        "type": "string"
-                      },
-                      "action_id": {
                         "type": "string"
                       },
                       "config": {
@@ -2178,8 +2150,7 @@
     }
   },
   "required": [
-    "name",
-    "runtime"
+    "name"
   ],
   "type": "object"
 }
