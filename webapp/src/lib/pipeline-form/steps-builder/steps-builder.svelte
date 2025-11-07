@@ -16,21 +16,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ScrollArea from '@/components/ui/scroll-area/scroll-area.svelte';
 	import { m } from '@/i18n';
 
-	import type { PipelineBuilder } from './pipeline-builder.svelte.js';
+	import type { StepsBuilder } from './steps-builder.svelte.js';
 
 	import BaseStepFormComponent from './base-step-form.svelte';
 	import { BaseStepForm } from './base-step-form.svelte.js';
-	import StepCard from './step-card.svelte';
 	import { IdleState, StepFormState, StepType } from './types.js';
 	import Column from './utils/column.svelte';
-	import { getStepDisplayData } from './utils/display-data';
+	import { getStepDisplayData } from './utils/display-data.js';
 	import EmptyState from './utils/empty-state.svelte';
+	import StepCard from './utils/step-card.svelte';
 	import WalletStepFormComponent from './wallet-step-form.svelte';
 	import { WalletStepForm } from './wallet-step-form.svelte.js';
 
 	//
 
-	let { builder }: { builder: PipelineBuilder } = $props();
+	let { builder }: { builder: StepsBuilder } = $props();
 </script>
 
 <div class="grid grow grid-cols-3 gap-4 overflow-hidden xl:grid-cols-[max(400px)_max(400px)_1fr]">
@@ -72,11 +72,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Column>
 
 	<Column title={m.YAML_preview()} class="card overflow-hidden">
-		{#if String.isEmpty(builder.yaml)}
+		{#if String.isEmpty(builder.yamlPreview)}
 			<EmptyState text={m.YAML_preview_will_appear_here()} />
 		{:else}
 			<CodeDisplay
-				content={builder.yaml}
+				content={builder.yamlPreview}
 				language="yaml"
 				containerClass="rounded-none grow"
 				contentClass="text-sm"

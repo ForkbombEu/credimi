@@ -7,33 +7,35 @@ import { create } from 'mutative';
 import { nanoid } from 'nanoid';
 import slugify from 'slugify';
 import { BaseStepForm } from './base-step-form.svelte.js';
-import { buildYaml } from './functions.js';
+import Component from './steps-builder.svelte';
 import type { BuilderStep, MarketplaceStepType, WalletStepData } from './types';
 import { IdleState, StepFormState, StepType } from './types';
 import { WalletStepForm } from './wallet-step-form.svelte.js';
 
 //
 
-type PipelineBuilderData = {
+type StepsBuilderData = {
 	steps: BuilderStep[];
 	lastWallet: CurrentWallet | undefined;
 	state: BuilderState;
 };
 
-type History = {
-	past: PipelineBuilderData[];
-	future: PipelineBuilderData[];
+type Props = {
+	steps: BuilderStep[];
+	yamlPreview: () => string;
 };
 
-export class PipelineBuilder {
-	private data = $state<PipelineBuilderData>({
+export class StepsBuilder {
+	readonly Component = Component;
+
+	private data = $state<StepsBuilderData>({
 		steps: [],
 		lastWallet: undefined,
 		state: new IdleState()
 	});
 
-	constructor(steps: BuilderStep[] = []) {
-		this.data.steps = steps;
+	constructor(private props: Props) {
+		this.data.steps = props.steps;
 	}
 
 	get state() {
@@ -44,7 +46,9 @@ export class PipelineBuilder {
 		return this.data.steps;
 	}
 
-	readonly yaml = $derived(buildYaml({ steps: this.steps }));
+	get yamlPreview() {
+		return this.props.yamlPreview();
+	}
 
 	// State management
 
@@ -53,7 +57,7 @@ export class PipelineBuilder {
 		future: []
 	};
 
-	private run(action: (data: PipelineBuilderData) => void) {
+	private run(action: (data: StepsBuilderData) => void) {
 		this.history.past.push(this.data);
 		const nextData = create(this.data, action);
 		this.data = nextData;
@@ -186,6 +190,11 @@ export class PipelineBuilder {
 type BuilderState = IdleState | StepFormState;
 
 type CurrentWallet = Omit<WalletStepData, 'action'>;
+
+type History = {
+	past: StepsBuilderData[];
+	future: StepsBuilderData[];
+};
 
 // Utils
 

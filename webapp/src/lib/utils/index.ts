@@ -9,6 +9,8 @@ import { userOrganization } from '$lib/app-state';
 import { onMount } from 'svelte';
 import { z } from 'zod';
 
+import type { GenericRecord } from '@/utils/types';
+
 import { verifyUser } from '@/auth/verifyUser';
 import { loadFeatureFlags } from '@/features';
 import { redirect } from '@/i18n';
@@ -60,8 +62,6 @@ export async function getUserOrganization(options = { fetch }) {
 
 //
 
-//
-
 export function setupPollingWithInvalidation(intervalMs: number) {
 	onMount(() => {
 		const interval = setInterval(() => {
@@ -95,4 +95,10 @@ export async function generateDeeplinkFromYaml(yaml: string) {
 
 export function path(chunks: string[]) {
 	return chunks.join('/');
+}
+
+export function getPath<T extends GenericRecord>(record: T) {
+	if ('__canonified_path__' in record) {
+		return record.__canonified_path__;
+	}
 }

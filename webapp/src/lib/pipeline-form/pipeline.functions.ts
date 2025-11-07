@@ -3,12 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { Array, pipe, String } from 'effect';
-import { stringify } from 'yaml';
 
-import type {
-	ActivityOptions,
-	HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as PipelineSchema
-} from './types.generated';
+import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as Pipeline } from './pipeline.types.generated';
 
 import {
 	StepType,
@@ -17,46 +13,23 @@ import {
 	type CustomCheckStep,
 	type UseCaseVerificationStep,
 	type WalletActionStep
-} from './types';
+} from './steps-builder/types';
 
-// Types
+/*
+ * TOC
+ * -  Steps processing
+ * -  YAML formatting
+ */
 
-type YamlSteps = NonNullable<PipelineSchema['steps']>[number];
+/* Steps processing */
+
+type YamlSteps = NonNullable<Pipeline['steps']>[number];
 type YamlStepId = YamlSteps['use'];
 type YamlStep<Id extends YamlStepId> = Extract<YamlSteps, { use: Id }>;
 type AnyYamlStep = YamlStep<YamlStepId>;
 
-//
-
-const DEFAULT_ACTIVITY_OPTIONS: ActivityOptions = {
-	schedule_to_close_timeout: '20m',
-	start_to_close_timeout: '20m',
-	retry_policy: {
-		maximum_attempts: 1
-	}
-};
-
-type BuildYamlProps = {
-	steps: BuilderStep[];
-	activityOptions?: ActivityOptions;
-};
-
-export function buildYaml(props: BuildYamlProps): string {
-	const { steps, activityOptions = DEFAULT_ACTIVITY_OPTIONS } = props;
-
-	const convertedSteps = pipe(steps, Array.map(convertStep), linkIds);
-
-	const yaml: PipelineSchema = {
-		name: '',
-		runtime: {
-			temporal: {
-				activity_options: activityOptions
-			}
-		},
-		steps: convertedSteps
-	};
-
-	return pipe(yaml, stringify, format);
+export function convertBuilderSteps(steps: BuilderStep[]): AnyYamlStep[] {
+	return pipe(steps, Array.map(convertStep), linkIds);
 }
 
 function convertStep(step: BuilderStep): AnyYamlStep {
@@ -156,7 +129,9 @@ function linkIds(steps: AnyYamlStep[]): AnyYamlStep[] {
 	return steps;
 }
 
-function format(yaml: string): string {
+/* YAML formatting */
+
+export function formatYaml(yaml: string): string {
 	return pipe(
 		yaml,
 		// Adding spaces

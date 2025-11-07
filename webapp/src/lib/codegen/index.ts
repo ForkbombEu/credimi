@@ -12,7 +12,7 @@ const map: [string, string][] = [
 	],
 	[
 		'../schemas/pipeline/pipeline_schema.json',
-		'./src/routes/my/pipelines/[action]/logic/types.generated.ts'
+		'./src/lib/pipeline-form/pipeline.types.generated.ts'
 	]
 ];
 
