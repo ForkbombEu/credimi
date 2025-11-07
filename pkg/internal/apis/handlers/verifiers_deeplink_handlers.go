@@ -33,7 +33,6 @@ var DeepLinkVerifiers routing.RouteGroup = routing.RouteGroup{
 	},
 }
 
-// HandleGetDeeplinkFromRecord recupera un record per id, estrae lo YAML e ottiene il deeplink via POST interno.
 func HandleVerificationDeeplink() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		id := e.Request.URL.Query().Get("id")
