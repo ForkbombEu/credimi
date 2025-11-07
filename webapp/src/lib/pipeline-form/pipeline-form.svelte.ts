@@ -20,10 +20,11 @@ export class PipelineForm {
 		yamlPreview: () => this.yamlString
 	});
 	readonly activityOptionsForm = new ActivityOptionsForm();
+
 	readonly metadataForm = new MetadataForm();
 
 	readonly yaml: Pipeline = $derived({
-		name: this.metadataForm.value.name,
+		name: this.metadataForm.value.name ?? '',
 		runtime: {
 			temporal: {
 				activity_options: this.activityOptionsForm.value

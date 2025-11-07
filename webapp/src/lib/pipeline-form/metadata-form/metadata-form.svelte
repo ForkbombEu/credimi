@@ -37,7 +37,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet content()}
 		<div>
-			<T tag="h4">{m.Metadata()}</T>
 			<T class="text-muted-foreground mb-6">{m.save_pipeline_description()}</T>
 			<Form form={f}>
 				<div class="flex items-start gap-6">

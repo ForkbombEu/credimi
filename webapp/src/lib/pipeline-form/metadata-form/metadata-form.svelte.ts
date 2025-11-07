@@ -3,30 +3,41 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { createForm } from '@/forms';
-import { fromStore } from 'svelte/store';
 import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 import Component from './metadata-form.svelte';
 
 //
 
+type Metadata = z.infer<typeof metadataSchema>;
+
 export class MetadataForm {
+	#value: Partial<Metadata> = $state({});
+	get value() {
+		return this.#value;
+	}
+
 	readonly superform = createForm({
-		adapter: zod(
-			z.object({
-				description: z.string().min(3),
-				published: z.boolean().default(false),
-				name: z.string().min(3)
-			})
-		),
+		adapter: zod(metadataSchema),
 		onSubmit: async ({ form }) => {
+			this.#value = form.data;
 			this.isOpen = false;
 		}
 	});
 
-	private readonly formState = fromStore(this.superform.form);
-	readonly value = $derived(this.formState.current);
+	constructor() {
+		$effect(() => {
+			if (!this.isOpen) return;
+			this.superform.form.update((data) => ({ ...data, ...this.#value }));
+		});
+	}
 
 	isOpen = $state(false);
 	readonly Component = Component;
 }
+
+const metadataSchema = z.object({
+	description: z.string().min(3),
+	published: z.boolean().default(false),
+	name: z.string().min(3)
+});

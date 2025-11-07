@@ -46,11 +46,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet content()}
 		<div bind:this={container} class="space-y-6">
 			<T tag="h4">{m.parameters()}</T>
+
 			<Form form={form.superform}>
 				<CodeEditorField
 					form={form.superform}
 					name="code"
-					options={{ label: m.YAML_Configuration(), lang: 'yaml', minHeight: 200 }}
+					options={{
+						label: m.YAML_Configuration(),
+						lang: 'yaml',
+						minHeight: 200
+					}}
 				/>
 			</Form>
 		</div>

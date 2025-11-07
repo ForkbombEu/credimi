@@ -7,7 +7,7 @@ import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
 import { createForm } from '@/forms';
 import { getExceptionMessage } from '@/utils/errors';
 import Ajv from 'ajv';
-import { fromStore } from 'svelte/store';
+import type { SuperForm } from 'sveltekit-superforms';
 import { zod } from 'sveltekit-superforms/adapters';
 import { parse as parseYaml, stringify } from 'yaml';
 import { z } from 'zod';
@@ -24,20 +24,32 @@ export const DEFAULT_ACTIVITY_OPTIONS: ActivityOptions = {
 };
 
 export class ActivityOptionsForm {
-	readonly superform = createForm({
-		adapter: zod(
-			z.object({
-				code: activtyOptionsStringSchema
-			})
-		),
-		initialData: { code: stringify(DEFAULT_ACTIVITY_OPTIONS) },
-		onSubmit: () => {
-			this.isOpen = false;
-		}
-	});
+	#value: ActivityOptions = $state(DEFAULT_ACTIVITY_OPTIONS);
+	get value() {
+		return this.#value;
+	}
 
-	private readonly formState = fromStore(this.superform.form);
-	readonly value: ActivityOptions = $derived(parseYaml(this.formState.current.code));
+	readonly superform: SuperForm<{ code: string }>;
+
+	constructor() {
+		this.superform = createForm({
+			adapter: zod(
+				z.object({
+					code: activtyOptionsStringSchema
+				})
+			),
+			initialData: { code: stringify(this.#value) },
+			onSubmit: ({ form }) => {
+				this.#value = parseYaml(form.data.code);
+				this.isOpen = false;
+			}
+		});
+
+		$effect(() => {
+			if (!this.isOpen) return;
+			this.superform.form.set({ code: stringify(this.#value) });
+		});
+	}
 
 	readonly Component = Component;
 	isOpen = $state(false);
