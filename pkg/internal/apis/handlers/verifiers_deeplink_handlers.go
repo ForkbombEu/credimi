@@ -75,7 +75,23 @@ func HandleVerificationDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		resp, err := http.Post("http://localhost:8090/api/get-deeplink", "application/json", bytes.NewBuffer(bodyData))
+		baseURL := e.App.Settings().Meta.AppURL
+		url := baseURL + "/api/get-deeplink"
+
+		ctx := e.Request.Context()
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(bodyData))
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"request",
+				"failed to create request to /api/get-deeplink",
+				err.Error(),
+			).JSON(e)
+		}
+		req.Header.Set("Content-Type", "application/json")
+
+		client := &http.Client{}
+		resp, err := client.Do(req)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
