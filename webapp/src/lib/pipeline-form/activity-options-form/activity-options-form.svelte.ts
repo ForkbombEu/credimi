@@ -15,6 +15,10 @@ import Component from './activity-options-form.svelte';
 
 //
 
+type Props = {
+	initialData?: ActivityOptions;
+};
+
 export const DEFAULT_ACTIVITY_OPTIONS: ActivityOptions = {
 	schedule_to_close_timeout: '20m',
 	start_to_close_timeout: '20m',
@@ -24,7 +28,11 @@ export const DEFAULT_ACTIVITY_OPTIONS: ActivityOptions = {
 };
 
 export class ActivityOptionsForm {
-	#value: ActivityOptions = $state(DEFAULT_ACTIVITY_OPTIONS);
+	constructor(props: Props) {
+		this.#value = props.initialData ?? DEFAULT_ACTIVITY_OPTIONS;
+	}
+
+	#value: ActivityOptions = $state({});
 	get value() {
 		return this.#value;
 	}

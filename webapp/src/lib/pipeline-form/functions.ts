@@ -10,9 +10,7 @@ import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDe
 import {
 	StepType,
 	type BuilderStep,
-	type CredentialStep,
-	type CustomCheckStep,
-	type UseCaseVerificationStep,
+	type MarketplaceItemStep,
 	type WalletActionStep
 } from './steps-builder/types';
 
@@ -34,17 +32,10 @@ export function convertBuilderSteps(steps: BuilderStep[]): AnyYamlStep[] {
 }
 
 function convertStep(step: BuilderStep): AnyYamlStep {
-	switch (step.type) {
-		case StepType.WalletAction:
-			return convertWalletActionStep(step);
-		case StepType.Credential:
-			return convertCredentialStep(step);
-		case StepType.CustomCheck:
-			return convertCustomCheckStep(step);
-		case StepType.UseCaseVerification:
-			return convertUseCaseVerificationStep(step);
-		default:
-			throw new Error(`Unknown step type`);
+	if (step.type === StepType.WalletAction) {
+		return convertWalletActionStep(step);
+	} else {
+		return convertMarketplaceItemStep(step);
 	}
 }
 
@@ -72,7 +63,20 @@ function convertWalletActionStep(step: WalletActionStep): YamlStep<'mobile-autom
 	return yamlStep;
 }
 
-function convertCredentialStep(step: CredentialStep): YamlStep<'credential-offer'> {
+function convertMarketplaceItemStep(step: MarketplaceItemStep) {
+	switch (step.type) {
+		case StepType.Credential:
+			return convertCredentialStep(step);
+		case StepType.CustomCheck:
+			return convertCustomCheckStep(step);
+		case StepType.UseCaseVerification:
+			return convertUseCaseVerificationStep(step);
+		default:
+			throw new Error(`Unknown step type`);
+	}
+}
+
+function convertCredentialStep(step: MarketplaceItemStep): YamlStep<'credential-offer'> {
 	return {
 		use: 'credential-offer',
 		id: step.id,
@@ -83,7 +87,7 @@ function convertCredentialStep(step: CredentialStep): YamlStep<'credential-offer
 	};
 }
 
-function convertCustomCheckStep(step: CustomCheckStep): YamlStep<'custom-check'> {
+function convertCustomCheckStep(step: MarketplaceItemStep): YamlStep<'custom-check'> {
 	return {
 		use: 'custom-check',
 		id: step.id,
@@ -95,7 +99,7 @@ function convertCustomCheckStep(step: CustomCheckStep): YamlStep<'custom-check'>
 }
 
 function convertUseCaseVerificationStep(
-	step: UseCaseVerificationStep
+	step: MarketplaceItemStep
 ): YamlStep<'use-case-verification-deeplink'> {
 	return {
 		use: 'use-case-verification-deeplink',

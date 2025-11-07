@@ -11,24 +11,40 @@ import { ActivityOptionsForm } from './activity-options-form/activity-options-fo
 import { convertBuilderSteps, formatYaml } from './functions.js';
 import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
 import Component from './pipeline-form.svelte';
-import { serializeStep } from './serde.js';
+import { serializeStep, type PipelineData } from './serde.js';
 import { StepsBuilder } from './steps-builder/steps-builder.svelte.js';
 import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as Pipeline } from './types.generated';
 
 //
 
+type Props = {
+	mode: 'create' | 'edit';
+	pipeline?: PipelineData;
+};
+
 export class PipelineForm {
 	readonly Component = Component;
 
-	readonly stepsBuilder = new StepsBuilder({
-		steps: [],
-		yamlPreview: () => this.yamlString
-	});
-	readonly activityOptionsForm = new ActivityOptionsForm();
+	readonly stepsBuilder: StepsBuilder;
+	readonly activityOptionsForm: ActivityOptionsForm;
+	readonly metadataForm: MetadataForm;
 
-	readonly metadataForm = new MetadataForm();
+	constructor(private props: Props) {
+		this.stepsBuilder = new StepsBuilder({
+			steps: props.pipeline?.steps ?? [],
+			yamlPreview: () => this.yamlString
+		});
 
-	readonly yaml: Pipeline = $derived({
+		this.activityOptionsForm = new ActivityOptionsForm({
+			initialData: props.pipeline?.activityOptions
+		});
+
+		this.metadataForm = new MetadataForm({
+			initialData: props.pipeline?.metadata
+		});
+	}
+
+	readonly yaml: Pipeline = $derived.by(() => ({
 		name: this.metadataForm.value?.name ?? '',
 		runtime: {
 			temporal: {
@@ -36,7 +52,8 @@ export class PipelineForm {
 			}
 		},
 		steps: convertBuilderSteps(this.stepsBuilder.steps)
-	});
+	}));
+
 	readonly yamlString: string = $derived(formatYaml(stringify(this.yaml)));
 
 	//
@@ -53,7 +70,11 @@ export class PipelineForm {
 			};
 			runWithLoading({
 				fn: async () => {
-					await pb.collection('pipelines').create(data);
+					if (this.props.mode === 'edit' && this.props.pipeline) {
+						await pb.collection('pipelines').update(this.props.pipeline.id, data);
+					} else {
+						await pb.collection('pipelines').create(data);
+					}
 					goto('/my/pipelines');
 				}
 			});

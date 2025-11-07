@@ -35,7 +35,9 @@ export type MarketplaceStepType =
 
 //
 
-export type BuilderStep = WalletActionStep | BaseStep<MarketplaceStepType, MarketplaceItem>;
+export type BuilderStep = WalletActionStep | MarketplaceItemStep;
+
+export type MarketplaceItemStep = BaseStep<MarketplaceStepType, MarketplaceItem>;
 
 export type WalletActionStep = BaseStep<StepType.WalletAction, WalletStepData>;
 

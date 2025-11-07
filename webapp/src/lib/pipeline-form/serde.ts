@@ -11,7 +11,7 @@ import { pb } from '@/pocketbase';
 import { Collections } from '@/pocketbase/types/index.js';
 
 import type { Metadata } from './metadata-form/metadata-form.svelte.js';
-import type { ActivityOptions } from './types.generated.js';
+import type { ActivityOptions, Pipeline } from './types';
 
 import { isActivityOptions } from './activity-options-form/activity-options-form.svelte.js';
 import { metadataSchema } from './metadata-form/metadata-form.svelte.js';
@@ -20,6 +20,7 @@ import { StepType, type BuilderStep } from './steps-builder/types.js';
 //
 
 export type PipelineData = {
+	id: string;
 	metadata: Metadata;
 	steps: BuilderStep[];
 	activityOptions: ActivityOptions;
@@ -32,17 +33,19 @@ export async function fetchPipeline(id: string, options = { fetch }): Promise<Pi
 
 	const metadata = metadataSchema.parse(baseData);
 
-	const activityOptions = parse(baseData.yaml);
+	const activityOptions = (parse(baseData.yaml) as Pipeline)?.runtime?.temporal?.activity_options;
 	if (!isActivityOptions(activityOptions)) {
 		throw new Error('Invalid activity options');
 	}
 
-	const steps = JSON.parse(baseData.steps as string) as SerializedStep[];
+	const steps = baseData.steps as SerializedStep[];
+	const deserializedSteps = await Promise.all(steps.map((s) => deserializeStep(s, options)));
 
 	return {
+		id,
 		metadata,
 		activityOptions,
-		steps: await Promise.all(steps.map(deserializeStep))
+		steps: deserializedSteps
 	};
 }
 
@@ -52,6 +55,7 @@ export function serializeStep(step: BuilderStep) {
 	const continueOnError = step.continueOnError ?? false;
 	if (step.type === StepType.WalletAction) {
 		return {
+			id: step.id,
 			type: step.type,
 			actionId: step.data.action.id,
 			walletId: step.data.wallet.id,
@@ -60,6 +64,7 @@ export function serializeStep(step: BuilderStep) {
 		};
 	} else {
 		return {
+			id: step.id,
 			type: step.type,
 			recordId: step.data.id,
 			continueOnError
@@ -69,16 +74,25 @@ export function serializeStep(step: BuilderStep) {
 
 type SerializedStep = ReturnType<typeof serializeStep>;
 
-async function deserializeStep(step: SerializedStep): Promise<BuilderStep> {
+async function deserializeStep(step: SerializedStep, options = { fetch }): Promise<BuilderStep> {
 	if (step.type === StepType.WalletAction) {
-		const action = await pb.collection('wallet_actions').getOne(step.actionId);
+		const action = await pb.collection('wallet_actions').getOne(step.actionId, {
+			fetch: options.fetch,
+			requestKey: null
+		});
 		const walletItem: MarketplaceItem = await pb
 			.collection('marketplace_items')
-			.getFirstListItem(`type = "${Collections.Wallets}" && id = "${action.wallet}"`);
-		const version = await pb.collection('wallet_versions').getOne(step.versionId);
+			.getFirstListItem(`type = "${Collections.Wallets}" && id = "${action.wallet}"`, {
+				fetch: options.fetch,
+				requestKey: null
+			});
+		const version = await pb.collection('wallet_versions').getOne(step.versionId, {
+			fetch: options.fetch,
+			requestKey: null
+		});
 		return {
 			type: StepType.WalletAction,
-			id: action.id,
+			id: step.id,
 			name: action.name,
 			path: getPath(action),
 			organization: walletItem.organization_name,
@@ -91,10 +105,13 @@ async function deserializeStep(step: SerializedStep): Promise<BuilderStep> {
 	} else {
 		const record: MarketplaceItem = await pb
 			.collection('marketplace_items')
-			.getOne(step.recordId);
+			.getOne(step.recordId, {
+				fetch: options.fetch,
+				requestKey: null
+			});
 		return {
 			type: step.type,
-			id: record.id,
+			id: step.id,
 			name: record.name,
 			path: getPath(record),
 			organization: record.organization_name,

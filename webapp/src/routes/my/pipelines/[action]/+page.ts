@@ -3,8 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { error } from '@sveltejs/kit';
-
-import { pb } from '@/pocketbase/index.js';
+import { fetchPipeline } from '$lib/pipeline-form/serde.js';
 
 //
 
@@ -13,11 +12,15 @@ export const load = async ({ params, fetch }) => {
 	if (res.mode === 'create') {
 		return res;
 	} else {
-		const record = await pb.collection('pipelines').getOne(res.id, { fetch });
-		return {
-			...res,
-			record
-		};
+		try {
+			const pipeline = await fetchPipeline(res.id, { fetch });
+			return {
+				...res,
+				pipeline
+			};
+		} catch {
+			error(404);
+		}
 	}
 };
 

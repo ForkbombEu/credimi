@@ -10,10 +10,16 @@ import Component from './metadata-form.svelte';
 
 //
 
+type Props = {
+	initialData?: Metadata;
+};
+
 export type Metadata = z.infer<typeof metadataSchema>;
 
 export class MetadataForm {
-	constructor() {}
+	constructor(props: Props) {
+		this.#value = props.initialData;
+	}
 
 	#value = $state<Metadata>();
 	get value() {
