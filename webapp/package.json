@@ -128,6 +128,7 @@
 		"remove-markdown": "^0.6.2",
 		"runed": "^0.15.4",
 		"scrollama": "^3.2.0",
+		"slugify": "^1.6.6",
 		"sqlite": "^5.1.1",
 		"sqlite3": "^5.1.7",
 		"svelte-codemirror-editor": "^1.4.1",

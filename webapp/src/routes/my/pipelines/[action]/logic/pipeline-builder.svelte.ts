@@ -5,6 +5,7 @@
 import { pb } from '@/pocketbase/index.js';
 import { create } from 'mutative';
 import { nanoid } from 'nanoid';
+import slugify from 'slugify';
 import { BaseStepForm } from './base-step-form.svelte.js';
 import { buildYaml } from './functions.js';
 import type { BuilderStep, MarketplaceStepType, WalletStepData } from './types';
@@ -95,9 +96,9 @@ export class PipelineBuilder {
 		});
 	}
 
-	private addStep(step: Omit<BuilderStep, 'id'>) {
+	private addStep(step: BuilderStep) {
 		this.run((data) => {
-			data.steps.push({ ...step, id: nanoid(5) } as BuilderStep);
+			data.steps.push(step);
 			data.state = new IdleState();
 			this.effectCleanup?.();
 		});
@@ -115,12 +116,12 @@ export class PipelineBuilder {
 						version: data.version
 					};
 					this.addStep({
+						id: createId(data.action.canonified_name),
 						name: data.action.name,
 						path: data.wallet.path + '/' + data.action.canonified_name,
 						organization: data.wallet.organization_name,
 						data: data,
-						type: StepType.WalletAction,
-						recordId: data.action.id
+						type: StepType.WalletAction
 					});
 				}
 			});
@@ -134,12 +135,12 @@ export class PipelineBuilder {
 				onSelect: async (item) => {
 					const data = await pb.collection(collection).getOne(item.id);
 					this.addStep({
+						id: createId(item.canonified_name),
 						name: item.name,
 						path: item.path,
 						organization: item.organization_name,
 						data: data as never,
-						type: collection,
-						recordId: item.id
+						type: collection
 					});
 				}
 			});
@@ -185,3 +186,14 @@ export class PipelineBuilder {
 type BuilderState = IdleState | StepFormState;
 
 type CurrentWallet = Omit<WalletStepData, 'action'>;
+
+// Utils
+
+function createId(base: string): string {
+	return slugify(`${base}--${nanoid(5)}`, {
+		replacement: '-',
+		remove: /[*+~.()'"!:@]/g,
+		lower: true,
+		strict: true
+	});
+}

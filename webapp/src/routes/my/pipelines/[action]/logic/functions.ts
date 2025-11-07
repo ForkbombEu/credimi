@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { nanoid } from 'nanoid';
+import { pipe } from 'effect';
 import { stringify } from 'yaml';
 
 import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as PipelineSchema } from './types.generated';
@@ -20,14 +20,14 @@ import {
 
 type YamlSteps = NonNullable<PipelineSchema['steps']>[number];
 type YamlStepId = YamlSteps['use'];
-type Step<Id extends YamlStepId> = Extract<YamlSteps, { use: Id }>;
-type AnyYamlStep = Step<YamlStepId>;
+type YamlStep<Id extends YamlStepId> = Extract<YamlSteps, { use: Id }>;
+type AnyYamlStep = YamlStep<YamlStepId>;
 
 //
 
 export function buildYaml(steps: BuilderStep[]): string {
 	const convertedSteps = steps.map(convertStep);
-	return stringify(linkIds(convertedSteps));
+	return pipe(convertedSteps, linkIds, stringify, format);
 }
 
 function convertStep(step: BuilderStep): AnyYamlStep {
@@ -47,26 +47,32 @@ function convertStep(step: BuilderStep): AnyYamlStep {
 
 const DEFAULT_DEEPLINK_STEP_ID = 'get-deeplink';
 
-function convertWalletActionStep(step: WalletActionStep): Step<'mobile-automation'> {
-	return {
+function convertWalletActionStep(step: WalletActionStep): YamlStep<'mobile-automation'> {
+	const yamlStep: YamlStep<'mobile-automation'> = {
 		use: 'mobile-automation',
-		id: generateStepId(step.data.action.canonified_name),
+		id: step.id,
 		continue_on_error: step.continueOnError ?? false,
 		with: {
 			action_id: step.data.action.canonified_name,
 			version_id: step.data.version.canonified_tag,
-			video: true,
-			parameters: {
-				deeplink: '${{' + DEFAULT_DEEPLINK_STEP_ID + '.outputs}}'
-			}
+			video: true
 		}
 	};
+
+	const actionYaml = step.data.action.code;
+	if (actionYaml.includes('${DL}') || actionYaml.includes('${deeplink}')) {
+		yamlStep.with.parameters = {
+			deeplink: '${{' + DEFAULT_DEEPLINK_STEP_ID + '.outputs}}'
+		};
+	}
+
+	return yamlStep;
 }
 
-function convertCredentialStep(step: CredentialStep): Step<'credential-offer'> {
+function convertCredentialStep(step: CredentialStep): YamlStep<'credential-offer'> {
 	return {
 		use: 'credential-offer',
-		id: generateStepId(step.data.canonified_name),
+		id: step.id,
 		continue_on_error: step.continueOnError ?? false,
 		with: {
 			credential_id: step.path
@@ -74,10 +80,10 @@ function convertCredentialStep(step: CredentialStep): Step<'credential-offer'> {
 	};
 }
 
-function convertCustomCheckStep(step: CustomCheckStep): Step<'custom-check'> {
+function convertCustomCheckStep(step: CustomCheckStep): YamlStep<'custom-check'> {
 	return {
 		use: 'custom-check',
-		id: generateStepId(step.data.canonified_name),
+		id: step.id,
 		continue_on_error: step.continueOnError ?? false,
 		with: {
 			check_id: step.path
@@ -87,10 +93,10 @@ function convertCustomCheckStep(step: CustomCheckStep): Step<'custom-check'> {
 
 function convertUseCaseVerificationStep(
 	step: UseCaseVerificationStep
-): Step<'use-case-verification-deeplink'> {
+): YamlStep<'use-case-verification-deeplink'> {
 	return {
 		use: 'use-case-verification-deeplink',
-		id: generateStepId(step.data.canonified_name),
+		id: step.id,
 		continue_on_error: step.continueOnError ?? false,
 		with: {
 			use_case_id: step.path
@@ -121,6 +127,6 @@ function linkIds(steps: AnyYamlStep[]): AnyYamlStep[] {
 	return steps;
 }
 
-function generateStepId(text: string): string {
-	return text + '__' + nanoid(5);
+function format(yaml: string): string {
+	return yaml.replaceAll('- use:', `\n- use:`);
 }

@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const { mode, record } = $derived(data);
+	const { mode } = $derived(data);
 
 	//
 
@@ -72,8 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		form.form.update((data) => {
 			data.steps = JSON.stringify({
 				steps: builder.steps.map((s) => ({
-					type: s.type,
-					id: s.recordId
+					type: s.type
 				}))
 			});
 			return data;

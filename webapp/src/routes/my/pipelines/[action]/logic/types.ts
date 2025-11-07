@@ -20,7 +20,6 @@ export type BaseStep<T extends StepType, Data extends Record<string, unknown>> =
 	name: string;
 	path: string;
 	organization: string;
-	recordId: string;
 	data: Data;
 	continueOnError?: boolean;
 };
