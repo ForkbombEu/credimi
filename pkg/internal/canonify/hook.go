@@ -91,5 +91,15 @@ func RegisterCanonifyHooks(app core.App) {
 			e.Record.Set(tpl.CanonifiedField, canonName)
 			return e.Next()
 		})
+
+		app.OnRecordEnrich(col).BindFunc(func(e *core.RecordEnrichEvent) error {
+			path, err := BuildPath(e.App, e.Record, tpl, "")
+			if err != nil {
+				return err
+			}
+			e.Record.WithCustomData(true)
+			e.Record.Set("__canonified_path__", path)
+			return e.Next()
+		})
 	}
 }
