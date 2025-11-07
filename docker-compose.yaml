@@ -43,6 +43,7 @@ services:
       - ES_VERSION=v7
       - TEMPORAL_ADDRESS=temporal:7233
       - TEMPORAL_CLI_ADDRESS=temporal:7233
+      - LOG_LEVEL=debug
     image: temporalio/auto-setup:${TEMPORAL_VERSION}
     ports:
       - 7233:7233
