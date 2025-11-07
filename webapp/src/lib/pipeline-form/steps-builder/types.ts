@@ -17,6 +17,7 @@ export type BaseStep<T extends StepType, Data> = {
 	name: string;
 	path: string;
 	organization: string;
+	avatar?: string;
 	data: Data;
 	continueOnError?: boolean;
 };

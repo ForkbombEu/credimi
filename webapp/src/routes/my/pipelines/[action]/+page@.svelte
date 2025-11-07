@@ -10,7 +10,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	const { data } = $props();
-	console.log('data', data);
 	const form = new PipelineForm(data);
 </script>
 

@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MarketplaceItem } from '$lib/marketplace/utils.js';
-
+import { getMarketplaceItemData, type MarketplaceItem } from '$lib/marketplace/utils.js';
 import { getPath } from '$lib/utils/index.js';
 import { parse } from 'yaml';
 
@@ -90,12 +89,15 @@ async function deserializeStep(step: SerializedStep, options = { fetch }): Promi
 			fetch: options.fetch,
 			requestKey: null
 		});
+		const avatar = getMarketplaceItemData(walletItem).logo;
 		return {
 			type: StepType.WalletAction,
 			id: step.id,
 			name: action.name,
 			path: getPath(action),
 			organization: walletItem.organization_name,
+			avatar: avatar,
+			continueOnError: step.continueOnError ?? false,
 			data: {
 				wallet: walletItem,
 				version: version,
@@ -109,12 +111,14 @@ async function deserializeStep(step: SerializedStep, options = { fetch }): Promi
 				fetch: options.fetch,
 				requestKey: null
 			});
+		const avatar = getMarketplaceItemData(record).logo;
 		return {
 			type: step.type,
 			id: step.id,
 			name: record.name,
 			path: getPath(record),
 			organization: record.organization_name,
+			avatar: avatar,
 			data: record
 		};
 	}

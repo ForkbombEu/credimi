@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { getMarketplaceItemData, type MarketplaceItem } from '$lib/marketplace/utils.js';
 import { pb } from '@/pocketbase/index.js';
 import { create } from 'mutative';
 import { nanoid } from 'nanoid';
@@ -102,7 +103,7 @@ export class StepsBuilder {
 
 	private addStep(step: BuilderStep) {
 		this.run((data) => {
-			data.steps.push(step);
+			data.steps.push({ ...step, continueOnError: true });
 			data.state = new IdleState();
 			this.effectCleanup?.();
 		});
@@ -115,6 +116,7 @@ export class StepsBuilder {
 			data.state = new WalletStepForm({
 				initialData: this.currentWallet,
 				onSelect: (data: WalletStepData) => {
+					const avatar = getMarketplaceItemData(data.wallet).logo;
 					this.currentWallet = {
 						wallet: data.wallet,
 						version: data.version
@@ -125,7 +127,8 @@ export class StepsBuilder {
 						path: data.wallet.path + '/' + data.action.canonified_name,
 						organization: data.wallet.organization_name,
 						data: data,
-						type: StepType.WalletAction
+						type: StepType.WalletAction,
+						avatar: avatar
 					});
 				}
 			});
@@ -137,14 +140,16 @@ export class StepsBuilder {
 			data.state = new BaseStepForm({
 				collection,
 				onSelect: async (item) => {
-					const data = await pb.collection(collection).getOne(item.id);
+					const data: MarketplaceItem = await pb.collection(collection).getOne(item.id);
+					const avatar = getMarketplaceItemData(data).logo;
 					this.addStep({
 						id: createId(item.canonified_name),
 						name: item.name,
 						path: item.path,
 						organization: item.organization_name,
 						data: data as never,
-						type: collection
+						type: collection,
+						avatar: avatar
 					});
 				}
 			});
@@ -178,6 +183,14 @@ export class StepsBuilder {
 		const newIndex = index + change;
 		if (newIndex < 0 || newIndex >= steps.length || newIndex === index) return null;
 		return { index, newIndex };
+	}
+
+	setContinueOnError(step: BuilderStep, continueOnError: boolean) {
+		this.run((data) => {
+			const index = data.steps.findIndex((s) => s.id === step.id);
+			if (index === -1) return;
+			data.steps[index].continueOnError = continueOnError;
+		});
 	}
 
 	isReady() {
