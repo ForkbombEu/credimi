@@ -30,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#snippet trigger({ props })}
 		<Button variant="outline" {...props}>
 			<PencilIcon />
-			{m.Metadata()}
+			{m.Info()}
 		</Button>
 	{/snippet}
 
