@@ -13,7 +13,7 @@ import (
 type WorkflowDefinition struct {
 	Version string                   `yaml:"version,omitempty"       json:"version,omitempty"`
 	Name    string                   `yaml:"name"                    json:"name"`
-	Runtime RuntimeConfig            `yaml:"runtime"                 json:"runtime"`
+	Runtime RuntimeConfig            `yaml:"runtime,omitempty"       json:"runtime,omitempty"`
 	Checks  map[string]WorkflowBlock `yaml:"custom_checks,omitempty" json:"custom_checks,omitempty"`
 	Config  map[string]any           `yaml:"config,omitempty"        json:"config,omitempty"`
 	Steps   []StepDefinition         `yaml:"steps,omitempty"         json:"steps,omitempty"`
@@ -44,14 +44,14 @@ type StepInputs struct {
 type RuntimeConfig struct {
 	Schedule struct {
 		Interval *time.Duration `yaml:"interval,omitempty" json:"interval,omitempty"`
-	} `yaml:"schedule,omitempty" json:"schedule"`
+	} `yaml:"schedule,omitempty" json:"schedule,omitempty"`
 	Debug    bool `yaml:"debug,omitempty" json:"debug,omitempty"`
 	Temporal struct {
 		Namespace        string                `yaml:"namespace,omitempty" json:"namespace,omitempty"`
 		TaskQueue        string                `yaml:"task_queue,omitempty" json:"task_queue,omitempty"`
 		ExecutionTimeout string                `yaml:"execution_timeout,omitempty" json:"execution_timeout,omitempty"`
 		ActivityOptions  ActivityOptionsConfig `yaml:"activity_options,omitempty" json:"activity_options,omitempty"`
-	} `yaml:"temporal" json:"temporal"`
+	} `yaml:"temporal,omitempty" json:"temporal,omitempty"`
 }
 
 type ActivityOptionsConfig struct {

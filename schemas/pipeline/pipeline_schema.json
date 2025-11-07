@@ -1136,10 +1136,6 @@
           "type": "object"
         }
       },
-      "required": [
-        "schedule",
-        "temporal"
-      ],
       "type": "object"
     },
     "steps": {
@@ -2154,8 +2150,7 @@
     }
   },
   "required": [
-    "name",
-    "runtime"
+    "name"
   ],
   "type": "object"
 }
