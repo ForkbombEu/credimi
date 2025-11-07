@@ -2,10 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pipe } from 'effect';
+import { Array, pipe, String } from 'effect';
 import { stringify } from 'yaml';
 
-import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as PipelineSchema } from './types.generated';
+import type {
+	ActivityOptions,
+	HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as PipelineSchema
+} from './types.generated';
 
 import {
 	StepType,
@@ -25,9 +28,35 @@ type AnyYamlStep = YamlStep<YamlStepId>;
 
 //
 
-export function buildYaml(steps: BuilderStep[]): string {
-	const convertedSteps = steps.map(convertStep);
-	return pipe(convertedSteps, linkIds, stringify, format);
+const DEFAULT_ACTIVITY_OPTIONS: ActivityOptions = {
+	schedule_to_close_timeout: '20m',
+	start_to_close_timeout: '20m',
+	retry_policy: {
+		maximum_attempts: 1
+	}
+};
+
+type BuildYamlProps = {
+	steps: BuilderStep[];
+	activityOptions?: ActivityOptions;
+};
+
+export function buildYaml(props: BuildYamlProps): string {
+	const { steps, activityOptions = DEFAULT_ACTIVITY_OPTIONS } = props;
+
+	const convertedSteps = pipe(steps, Array.map(convertStep), linkIds);
+
+	const yaml: PipelineSchema = {
+		name: '',
+		runtime: {
+			temporal: {
+				activity_options: activityOptions
+			}
+		},
+		steps: convertedSteps
+	};
+
+	return pipe(yaml, stringify, format);
 }
 
 function convertStep(step: BuilderStep): AnyYamlStep {
@@ -128,5 +157,25 @@ function linkIds(steps: AnyYamlStep[]): AnyYamlStep[] {
 }
 
 function format(yaml: string): string {
-	return yaml.replaceAll('- use:', `\n- use:`);
+	return pipe(
+		yaml,
+		// Adding spaces
+		addNewlineBefore('runtime:'),
+		addNewlineBefore('steps:'),
+		addNewlineBefore('  - use:'),
+		// Correcting first step newline
+		replaceWith('\n  - use:', (t) => t.replace('\n', ''), false)
+	);
+}
+
+function addNewlineBefore(token: string, all = true) {
+	return replaceWith(token, (token) => `\n${token}`, all);
+}
+
+function replaceWith(token: string, transform: (token: string) => string, all = true) {
+	if (all) {
+		return String.replaceAll(token, transform(token));
+	} else {
+		return String.replace(token, transform(token));
+	}
 }

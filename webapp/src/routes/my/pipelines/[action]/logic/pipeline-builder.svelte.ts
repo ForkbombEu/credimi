@@ -44,7 +44,7 @@ export class PipelineBuilder {
 		return this.data.steps;
 	}
 
-	readonly yaml = $derived(buildYaml(this.steps));
+	readonly yaml = $derived(buildYaml({ steps: this.steps }));
 
 	// State management
 
