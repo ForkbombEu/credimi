@@ -23,16 +23,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	const { form }: Props = $props();
-
-	//
-
-	let container = $state<HTMLDivElement>();
-
-	$effect(() => {
-		if (!container) return;
-		const title = container.querySelector('[data-layout="object-field-meta"]');
-		title?.remove();
-	});
 </script>
 
 <Dialog bind:open={form.isOpen}>
@@ -44,12 +34,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet content()}
-		<div bind:this={container} class="space-y-6">
+		{@const f = form.mountForm()}
+		<div class="space-y-6">
 			<T tag="h4">{m.parameters()}</T>
 
-			<Form form={form.superform}>
+			<Form form={f}>
 				<CodeEditorField
-					form={form.superform}
+					form={f}
 					name="code"
 					options={{
 						label: m.YAML_Configuration(),

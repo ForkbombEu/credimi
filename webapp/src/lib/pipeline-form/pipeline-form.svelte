@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import BackButton from '$lib/layout/back-button.svelte';
-	import { RedoIcon, UndoIcon } from 'lucide-svelte';
+	import { RedoIcon, SaveIcon, UndoIcon } from 'lucide-svelte';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { Button } from '@/components/ui/button';
@@ -37,22 +37,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T tag="h3" class="text-xl">{m.New_pipeline()}</T>
 		</div>
 
-		<div class="flex items-center gap-2">
-			<metadata.Component form={metadata} />
-			<activityOptions.Component form={activityOptions} />
-
-			<Button variant="outline" onclick={() => builder.undo()}>
+		<div>
+			<Button variant="ghost" onclick={() => builder.undo()}>
 				<UndoIcon />
 				{m.Undo()}
 			</Button>
-			<Button variant="outline" onclick={() => builder.redo()}>
+			<Button variant="ghost" onclick={() => builder.redo()}>
 				<RedoIcon />
 				{m.Redo()}
 			</Button>
-			<!-- <Button disabled={!builder.isReady()} onclick={save}>
+		</div>
+
+		<div class="flex items-center gap-2">
+			<metadata.Component form={metadata} />
+			<activityOptions.Component form={activityOptions} />
+			<Button disabled={!builder.isReady()} onclick={() => form.save()}>
 				<SaveIcon />
 				{m.Save()}
-			</Button> -->
+			</Button>
 		</div>
 	</div>
 

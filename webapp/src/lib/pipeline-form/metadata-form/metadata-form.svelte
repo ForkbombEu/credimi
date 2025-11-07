@@ -24,7 +24,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	const { form }: Props = $props();
-	const f = form.superform;
 </script>
 
 <Dialog bind:open={form.isOpen} title={m.Metadata()}>
@@ -36,6 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet content()}
+		{@const f = form.mountForm()}
 		<div>
 			<T class="text-muted-foreground mb-6">{m.save_pipeline_description()}</T>
 			<Form form={f}>

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { getPath } from '$lib/utils';
 import { Array, pipe, String } from 'effect';
 
 import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as Pipeline } from './pipeline.types.generated';
@@ -55,8 +56,8 @@ function convertWalletActionStep(step: WalletActionStep): YamlStep<'mobile-autom
 		id: step.id,
 		continue_on_error: step.continueOnError ?? false,
 		with: {
-			action_id: step.data.action.canonified_name,
-			version_id: step.data.version.canonified_tag,
+			action_id: getPath(step.data.action),
+			version_id: getPath(step.data.version),
 			video: true
 		}
 	};
@@ -77,7 +78,7 @@ function convertCredentialStep(step: CredentialStep): YamlStep<'credential-offer
 		id: step.id,
 		continue_on_error: step.continueOnError ?? false,
 		with: {
-			credential_id: step.path
+			credential_id: getPath(step.data)
 		}
 	};
 }
@@ -88,7 +89,7 @@ function convertCustomCheckStep(step: CustomCheckStep): YamlStep<'custom-check'>
 		id: step.id,
 		continue_on_error: step.continueOnError ?? false,
 		with: {
-			check_id: step.path
+			check_id: getPath(step.data)
 		}
 	};
 }
@@ -101,7 +102,7 @@ function convertUseCaseVerificationStep(
 		id: step.id,
 		continue_on_error: step.continueOnError ?? false,
 		with: {
-			use_case_id: step.path
+			use_case_id: getPath(step.data)
 		}
 	};
 }

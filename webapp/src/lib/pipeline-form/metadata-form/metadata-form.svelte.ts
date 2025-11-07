@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { createForm } from '@/forms';
+import type { SuperForm } from 'sveltekit-superforms';
 import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 import Component from './metadata-form.svelte';
@@ -12,32 +13,42 @@ import Component from './metadata-form.svelte';
 type Metadata = z.infer<typeof metadataSchema>;
 
 export class MetadataForm {
-	#value: Partial<Metadata> = $state({});
+	constructor() {}
+
+	#value = $state<Metadata>();
 	get value() {
 		return this.#value;
 	}
 
-	readonly superform = createForm({
-		adapter: zod(metadataSchema),
-		onSubmit: async ({ form }) => {
-			this.#value = form.data;
-			this.isOpen = false;
-		}
-	});
+	superform: SuperForm<Metadata> | undefined;
 
-	constructor() {
-		$effect(() => {
-			if (!this.isOpen) return;
-			this.superform.form.update((data) => ({ ...data, ...this.#value }));
+	mountForm() {
+		this.superform = createForm({
+			adapter: zod(metadataSchema),
+			initialData: this.#value,
+			onSubmit: async ({ form }) => {
+				this.#value = form.data;
+				this.isOpen = false;
+			}
 		});
+		return this.superform;
+	}
+
+	#isValid = $state(false);
+	get isValid() {
+		return this.#isValid;
 	}
 
 	isOpen = $state(false);
 	readonly Component = Component;
+
+	getValueOrThrow(): Metadata {
+		return metadataSchema.parse(this.#value);
+	}
 }
 
 const metadataSchema = z.object({
 	description: z.string().min(3),
-	published: z.boolean().default(false),
+	published: z.boolean().optional(),
 	name: z.string().min(3)
 });

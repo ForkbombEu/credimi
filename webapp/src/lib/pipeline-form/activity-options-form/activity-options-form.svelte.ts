@@ -29,9 +29,9 @@ export class ActivityOptionsForm {
 		return this.#value;
 	}
 
-	readonly superform: SuperForm<{ code: string }>;
+	superform: SuperForm<{ code: string }> | undefined;
 
-	constructor() {
+	mountForm() {
 		this.superform = createForm({
 			adapter: zod(
 				z.object({
@@ -44,11 +44,7 @@ export class ActivityOptionsForm {
 				this.isOpen = false;
 			}
 		});
-
-		$effect(() => {
-			if (!this.isOpen) return;
-			this.superform.form.set({ code: stringify(this.#value) });
-		});
+		return this.superform;
 	}
 
 	readonly Component = Component;
