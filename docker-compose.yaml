@@ -79,7 +79,7 @@ services:
       - RUN_STEPCI_PATH=pkg/OpenID4VP/stepci/runStepCI.js
       - SCHEMAS_PATH=schemas
       - MAESTRO_WORKER=https://android.next.credimi.io
-      - TEMPORAL_ADDRESS=localhost:7233
+      - TEMPORAL_ADDRESS=temporal:7233
       - PORT=5100
     ports:
       - 8090:8090
