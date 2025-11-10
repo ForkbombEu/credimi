@@ -86,7 +86,7 @@ func generatePipelineSchema() (map[string]any, error) {
 
 	var oneOfSchemas []map[string]any
 	for _, stepKey := range sortedRegistryKeys() {
-		stepSchema := generateSingleStepSchema(&reflector, stepKey, activityOptionsMap)
+		stepSchema := generateSingleStepSchema(&reflector, stepKey)
 		if stepSchema != nil {
 			oneOfSchemas = append(oneOfSchemas, stepSchema)
 		}
@@ -144,7 +144,7 @@ func generatePipelineSchema() (map[string]any, error) {
 	return schemaMap, nil
 }
 
-func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string, activityOptionsMap map[string]any) map[string]any {
+func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) map[string]any {
 	factory, ok := registry.Registry[stepKey]
 	if !ok {
 		return nil

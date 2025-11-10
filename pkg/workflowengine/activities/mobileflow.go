@@ -13,6 +13,52 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
+type StartEmulatorActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStartEmulatorActivity() *StartEmulatorActivity {
+	return &StartEmulatorActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Start emulator",
+		},
+	}
+}
+
+func (a *StartEmulatorActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StartEmulatorActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+
+	runInput := mobile.MobileActivityInput{
+		Payload:          input.Payload,
+		GetEnv:           utils.GetEnvironmentVariable,
+		NewActivityError: a.NewActivityError,
+		ErrorCodes: map[string]mobile.ErrorCode{
+			"MissingOrInvalidPayload": {
+				Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+			},
+			"CommandExecutionFailed": {
+				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
+				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
+			},
+		},
+	}
+	res, err := mobile.StartEmulator(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{
+		Output: res,
+	}, nil
+}
+
 type ApkInstallActivity struct {
 	workflowengine.BaseActivity
 }
@@ -47,10 +93,6 @@ func (a *ApkInstallActivity) Execute(
 				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
 				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
 			},
-			"TempFileCreationFailed": {
-				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
-				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
-			},
 		},
 		CommandContext: exec.CommandContext,
 	}
@@ -65,23 +107,23 @@ func (a *ApkInstallActivity) Execute(
 	}, nil
 }
 
-type ApkUninstallActivity struct {
+type StopEmulatorActivity struct {
 	workflowengine.BaseActivity
 }
 
-func NewApkUninstallActivity() *ApkUninstallActivity {
-	return &ApkUninstallActivity{
+func NewStopEmulatorActivity() *StopEmulatorActivity {
+	return &StopEmulatorActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Uninstall APK from device",
+			Name: "Stop emulator",
 		},
 	}
 }
 
-func (a *ApkUninstallActivity) Name() string {
+func (a *StopEmulatorActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
-func (a *ApkUninstallActivity) Execute(
+func (a *StopEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
@@ -99,15 +141,10 @@ func (a *ApkUninstallActivity) Execute(
 				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
 				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
 			},
-			"TempFileCreationFailed": {
-				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
-				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
-			},
 		},
-		CommandContext: exec.CommandContext,
 	}
 
-	res, err := mobile.ApkUninstall(ctx, runInput)
+	res, err := mobile.StopEmulator(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}

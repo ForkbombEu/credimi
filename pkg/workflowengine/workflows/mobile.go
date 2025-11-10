@@ -29,7 +29,7 @@ type MobileAutomationWorkflowPayload struct {
 	ActionCode       string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
 	Video            bool              `json:"video,omitempty" yaml:"video,omitempty"`
 	StoredActionCode bool              `json:"stored_action_code,omitempty" yaml:"stored_action_code,omitempty"`
-	PackageID        string            `json:"package_id,omitempty" yaml:"package_id,omitempty"`
+	EmulatorSerial   string            `json:"emulator_serial,omitempty" yaml:"emulator_serial,omitempty"`
 	Parameters       map[string]string `json:"parameters,omitempty" yaml:"parameters,omitempty"`
 }
 
@@ -93,9 +93,10 @@ func (w *MobileAutomationWorkflow) Workflow(
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
 		Payload: mobile.RunMobileFlowPayload{
-			Yaml:       payload.ActionCode,
-			Recorded:   payload.Video,
-			Parameters: payload.Parameters,
+			EmulatorSerial: payload.EmulatorSerial,
+			Yaml:           payload.ActionCode,
+			Recorded:       payload.Video,
+			Parameters:     payload.Parameters,
 		},
 	}
 	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).

@@ -202,10 +202,10 @@ type WalletMD5Request struct {
 }
 
 type WalletMD5Response struct {
-	AndroidInstaller string `json:"apk_name"`
-	MD5              string `json:"md5"`
-	RecordID         string `json:"record_id"`
-	PackageID        string `json:"package_id"`
+	AndroidInstaller  string `json:"apk_name"`
+	MD5               string `json:"md5"`
+	RecordID          string `json:"record_id"`
+	VersionIdentifier string `json:"version_id"`
 }
 
 func HandleWalletGetMD5() func(*core.RequestEvent) error {
@@ -225,7 +225,7 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		walletRecord, versionRecord, err := getWalletAndVersionRecord(e.App, req.WalletVersionIdentifier, req.WalletIdentifier)
+		versionRecord, err := getVersionRecord(e.App, req.WalletVersionIdentifier, req.WalletIdentifier)
 		if err != nil {
 			return apierror.New(
 				http.StatusNotFound,
@@ -246,7 +246,6 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		package_id := walletRecord.GetString("google_app_id")
 		// Get MD5 from PocketBase's file metadata
 		md5Hash, err := getFileMD5FromPocketBase(e.App, versionRecord, androidInstaller)
 		if err != nil {
@@ -257,37 +256,37 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		versionIdentifier := req.WalletVersionIdentifier
+		if versionIdentifier == "" {
+			versionIdentifier = fmt.Sprintf("%s:%s", req.WalletIdentifier, versionRecord.GetString("canonified_tag"))
+		}
 
 		return e.JSON(http.StatusOK, WalletMD5Response{
-			AndroidInstaller: androidInstaller,
-			RecordID:         versionRecord.Id,
-			MD5:              md5Hash,
-			PackageID:        package_id,
+			AndroidInstaller:  androidInstaller,
+			RecordID:          versionRecord.Id,
+			MD5:               md5Hash,
+			VersionIdentifier: versionIdentifier,
 		})
 	}
 }
 
 // getWalletAndVersionRecord retrieves a wallet_version record based on provided identifiers
-func getWalletAndVersionRecord(app core.App, versionIdentifier, walletIdentifier string) (*core.Record, *core.Record, error) {
+func getVersionRecord(app core.App, versionIdentifier, walletIdentifier string) (*core.Record, error) {
 	if versionIdentifier != "" {
 		versionRecord, err := canonify.Resolve(app, versionIdentifier)
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
-		walletRecord, err := app.FindRecordById("wallets", versionRecord.GetString("wallet"))
-		if err != nil {
-			return nil, nil, err
-		}
-		return walletRecord, versionRecord, nil
+		return versionRecord, nil
 	}
 	walletRecord, err := canonify.Resolve(app, walletIdentifier)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	versionRecords, err := app.FindRecordsByFilter(
@@ -299,10 +298,10 @@ func getWalletAndVersionRecord(app core.App, versionIdentifier, walletIdentifier
 		map[string]any{"walletID": walletRecord.Id},
 	)
 	if err != nil || len(versionRecords) == 0 {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return walletRecord, versionRecords[0], nil
+	return versionRecords[0], nil
 }
 
 // getFileMD5FromPocketBase retrieves the MD5 hash from PocketBase's file metadata

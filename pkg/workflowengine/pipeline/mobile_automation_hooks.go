@@ -24,10 +24,11 @@ func MobileAutomationSetupHook(
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 
 	httpActivity := activities.NewHTTPActivity()
+	startEmuActivity := activities.NewStartEmulatorActivity()
 	installActivity := activities.NewApkInstallActivity()
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
 
-	installedApks := make(map[string]struct{})
+	startedEmulators := make(map[string]string)
 	for i := range *steps {
 		step := &(*steps)[i]
 
@@ -100,11 +101,11 @@ func MobileAutomationSetupHook(
 				body,
 			)
 		}
-		packageID, ok := body["package_id"].(string)
+		versionIdentifier, ok := body["version_id"].(string)
 		if !ok {
 			return workflowengine.NewAppError(
 				errCode,
-				fmt.Sprintf("%s: missing package_id in response for step %s", errCode.Description, step.ID),
+				fmt.Sprintf("%s: missing version_id in response for step %s", errCode.Description, step.ID),
 				body,
 			)
 		}
@@ -121,21 +122,37 @@ func MobileAutomationSetupHook(
 			SetPayloadValue(&step.With.Payload, "action_code", actionCode)
 			SetPayloadValue(&step.With.Payload, "stored_action_code", true)
 		}
-		SetPayloadValue(&step.With.Payload, "package_id", packageID)
+		SetPayloadValue(&step.With.Payload, "version_id", versionIdentifier)
 
-		if _, ok := installedApks[apkPath]; ok {
-			logger.Info("APK already installed, skipping", "apk_path", apkPath, "step", step.ID)
+		if serial, ok := startedEmulators[versionIdentifier]; ok {
+			logger.Info("Emulator already started, skipping start", "version", versionIdentifier, "serial", serial)
+			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 			continue
 		}
 
 		mobileAo := *input.ActivityOptions
 		mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 		mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
-		installInput := workflowengine.ActivityInput{Payload: map[string]any{"apk": apkPath}}
+		startResult := workflowengine.ActivityResult{}
+		startEmuInput := workflowengine.ActivityInput{Payload: map[string]any{"version_id": versionIdentifier}}
+		if err := workflow.ExecuteActivity(mobileCtx, startEmuActivity.Name(), startEmuInput).Get(ctx, &startResult); err != nil {
+			return err
+		}
+		serial, ok := startResult.Output.(map[string]any)["serial"].(string)
+		if !ok {
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("%s: missing serial in response for step %s", errCode.Description, step.ID),
+				startResult.Output,
+			)
+		}
+		SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
+
+		installInput := workflowengine.ActivityInput{Payload: map[string]any{"apk": apkPath, "emulator_serial": serial}}
 		if err := workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).Get(ctx, nil); err != nil {
 			return err
 		}
-		installedApks[apkPath] = struct{}{}
+		startedEmulators[versionIdentifier] = serial
 	}
 
 	return nil
@@ -151,9 +168,9 @@ func MobileAutomationCleanupHook(
 	mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 	mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
 
-	uninstallActivity := activities.NewApkUninstallActivity()
+	stopActivity := activities.NewStopEmulatorActivity()
 
-	uninstalledPackages := make(map[string]struct{})
+	stoppedEmulators := make(map[string]struct{})
 	for _, step := range steps {
 
 		if step.Use != "mobile-automation" {
@@ -169,27 +186,27 @@ func MobileAutomationCleanupHook(
 			)
 		}
 
-		if payload.PackageID == "" {
-			logger.Error("MobileAutomationCleanupHook: no package_id found.", "step", step.ID)
+		if payload.EmulatorSerial == "" {
+			logger.Error("MobileAutomationCleanupHook: no emulator serial found.", "step", step.ID)
 			return workflowengine.NewAppError(
 				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-				fmt.Sprintf("missing or invalid package_id for step %s", step.ID),
+				fmt.Sprintf("missing or invalid emulator serial	 for step %s", step.ID),
 			)
 		}
 
-		logger.Info("MobileAutomationCleanupHook: uninstalling package", "package", payload.PackageID, "step", step.ID)
-		if _, ok := uninstalledPackages[payload.PackageID]; ok {
-			logger.Info("Package already uninstalled, skipping", "package", payload.PackageID)
+		logger.Info("MobileAutomationCleanupHook: stopping emulator", "emulator", payload.EmulatorSerial, "step", step.ID)
+		if _, ok := stoppedEmulators[payload.EmulatorSerial]; ok {
+			logger.Info("Emulator already stopped", "package", payload.EmulatorSerial)
 			continue
 		}
 
-		uninstallInput := workflowengine.ActivityInput{Payload: map[string]any{"package": payload.PackageID}}
-		if err := workflow.ExecuteActivity(mobileCtx, uninstallActivity.Name(), uninstallInput).Get(ctx, nil); err != nil {
-			logger.Error("MobileAutomationCleanupHook: uninstall failed", "package", payload.PackageID, "error", err)
+		uninstallInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": payload.EmulatorSerial}}
+		if err := workflow.ExecuteActivity(mobileCtx, stopActivity.Name(), uninstallInput).Get(ctx, nil); err != nil {
+			logger.Error("MobileAutomationCleanupHook: error stopping emulator", payload.EmulatorSerial, "error", err)
 			return err
 		}
 
-		uninstalledPackages[payload.PackageID] = struct{}{}
+		stoppedEmulators[payload.EmulatorSerial] = struct{}{}
 	}
 
 	return nil
