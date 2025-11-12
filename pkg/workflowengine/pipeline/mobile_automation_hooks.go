@@ -26,6 +26,7 @@ func MobileAutomationSetupHook(
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
 	installActivity := activities.NewApkInstallActivity()
+	unlockActivity := activities.NewUnlockEmulatorActivity()
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
 
 	startedEmulators := make(map[string]string)
@@ -153,6 +154,10 @@ func MobileAutomationSetupHook(
 			return err
 		}
 		startedEmulators[versionIdentifier] = serial
+		unlockInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": serial}}
+		if err := workflow.ExecuteActivity(mobileCtx, unlockActivity.Name(), unlockInput).Get(ctx, nil); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -196,12 +201,12 @@ func MobileAutomationCleanupHook(
 
 		logger.Info("MobileAutomationCleanupHook: stopping emulator", "emulator", payload.EmulatorSerial, "step", step.ID)
 		if _, ok := stoppedEmulators[payload.EmulatorSerial]; ok {
-			logger.Info("Emulator already stopped", "package", payload.EmulatorSerial)
+			logger.Info("Emulator already stopped", "emulator", payload.EmulatorSerial)
 			continue
 		}
 
-		uninstallInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": payload.EmulatorSerial}}
-		if err := workflow.ExecuteActivity(mobileCtx, stopActivity.Name(), uninstallInput).Get(ctx, nil); err != nil {
+		stopInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": payload.EmulatorSerial}}
+		if err := workflow.ExecuteActivity(mobileCtx, stopActivity.Name(), stopInput).Get(ctx, nil); err != nil {
 			logger.Error("MobileAutomationCleanupHook: error stopping emulator", payload.EmulatorSerial, "error", err)
 			return err
 		}

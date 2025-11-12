@@ -107,6 +107,53 @@ func (a *ApkInstallActivity) Execute(
 	}, nil
 }
 
+type UnlockEmulatorActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewUnlockEmulatorActivity() *UnlockEmulatorActivity {
+	return &UnlockEmulatorActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Unlock emulator",
+		},
+	}
+}
+
+func (a *UnlockEmulatorActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *UnlockEmulatorActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := mobile.MobileActivityInput{
+		Payload:          input.Payload,
+		GetEnv:           utils.GetEnvironmentVariable,
+		NewActivityError: a.NewActivityError,
+		ErrorCodes: map[string]mobile.ErrorCode{
+			"MissingOrInvalidPayload": {
+				Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+			},
+			"CommandExecutionFailed": {
+				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
+				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
+			},
+		},
+		CommandContext: exec.CommandContext,
+	}
+
+	res, err := mobile.UnlockEmulator(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{
+		Output: res,
+	}, nil
+}
+
 type StopEmulatorActivity struct {
 	workflowengine.BaseActivity
 }

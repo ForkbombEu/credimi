@@ -143,8 +143,5 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 
 // Denylist of task keys that should NOT be registered in the pipeline worker
 var PipelineWorkerDenylist = map[string]struct{}{
-	"mobile-flow":       {},
 	"mobile-automation": {},
-	"apk-install":       {},
-	"apk-uninstall":     {},
 }
