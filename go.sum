@@ -219,12 +219,10 @@ github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/firefart/nonamedreturns v1.0.6 h1:vmiBcKV/3EqKY3ZiPxCINmpS431OcE1S47AQUwhrg8E=
 github.com/firefart/nonamedreturns v1.0.6/go.mod h1:R8NisJnSIpvPWheCq0mNRXJok6D8h7fagJTF8EMEwCo=
-github.com/forkbombeu/avdctl v0.0.0-20251111113813-259f40f497bf h1:PuQaUJJeMSRzANvc7vbp2tmSyllTlliPiTa2ENTmAx8=
-github.com/forkbombeu/avdctl v0.0.0-20251111113813-259f40f497bf/go.mod h1:2PyuTviG6/ts65ybsWFKYqE9wiRWwm9minyEaClSbZI=
-github.com/forkbombeu/credimi-extra v0.0.0-20251111161424-f23d8f313ef0 h1:NoyzRMrvMBpbbX2vJlQQ53mtP94hvcHDG3ttBzr5KKo=
-github.com/forkbombeu/credimi-extra v0.0.0-20251111161424-f23d8f313ef0/go.mod h1:eJ+rypQhX7RK9D8FIXxW6NIuFAser3gpaqKrw3dCU/k=
-github.com/forkbombeu/credimi-extra v0.0.0-20251111171856-d28b9e58fad2 h1:/0V1LyDR9vCUHRO23A2koaHvaxSXOXlrxbbq/9iML/8=
-github.com/forkbombeu/credimi-extra v0.0.0-20251111171856-d28b9e58fad2/go.mod h1:eJ+rypQhX7RK9D8FIXxW6NIuFAser3gpaqKrw3dCU/k=
+github.com/forkbombeu/avdctl v0.0.0-20251112131033-d0667fb23574 h1:YO2SEldr1tZuvK8tR5EmxWrQvOsT0bjGDuoJhUE+gok=
+github.com/forkbombeu/avdctl v0.0.0-20251112131033-d0667fb23574/go.mod h1:2PyuTviG6/ts65ybsWFKYqE9wiRWwm9minyEaClSbZI=
+github.com/forkbombeu/credimi-extra v0.0.0-20251112135752-b8f2fd7c0842 h1:A0jDfcf7qKnqLzoSYO71vlYZwYzRFV7ogptz+w/xw8A=
+github.com/forkbombeu/credimi-extra v0.0.0-20251112135752-b8f2fd7c0842/go.mod h1:QTpuZQh6RS/Lyru/aTUO+nhTfegkDXT1VunfQkfkGrE=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.8.0 h1:dAwr6QBTBZIkG8roQaJjGof0pp0EeF+tNV7YBP3F/8M=
