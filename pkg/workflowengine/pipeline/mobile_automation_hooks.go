@@ -26,7 +26,7 @@ func MobileAutomationSetupHook(
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
 	installActivity := activities.NewApkInstallActivity()
-	unlockActivity := activities.NewUnlockEmulatorActivity()
+	// unlockActivity := activities.NewUnlockEmulatorActivity()
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
 
 	startedEmulators := make(map[string]string)
@@ -154,10 +154,10 @@ func MobileAutomationSetupHook(
 			return err
 		}
 		startedEmulators[versionIdentifier] = serial
-		unlockInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": serial}}
-		if err := workflow.ExecuteActivity(mobileCtx, unlockActivity.Name(), unlockInput).Get(ctx, nil); err != nil {
-			return err
-		}
+		// unlockInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": serial}}
+		// if err := workflow.ExecuteActivity(mobileCtx, unlockActivity.Name(), unlockInput).Get(ctx, nil); err != nil {
+		// 	return err
+		// }
 	}
 
 	return nil

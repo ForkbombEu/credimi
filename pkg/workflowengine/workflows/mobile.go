@@ -97,7 +97,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 			Yaml:           payload.ActionCode,
 			Recorded:       payload.Video,
 			Parameters:     payload.Parameters,
-			WorkflowID:     workflow.GetInfo(ctx).WorkflowExecution.ID,
+			WorkflowId:     workflow.GetInfo(ctx).WorkflowExecution.ID,
 		},
 	}
 	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
