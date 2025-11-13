@@ -5,6 +5,9 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
+	"io"
 	"net/http"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -52,14 +55,88 @@ func HandleGetCredentialDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		deeplink, ok := rec.Get("deeplink").(string)
-		if !ok || deeplink == "" {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"credential",
-				"deeplink not found",
-				"field 'deeplink' is missing or empty",
-			).JSON(e)
+		var deeplink string
+
+		yamlStr := rec.GetString("yaml")
+		if yamlStr == "" {
+			dl, ok := rec.Get("deeplink").(string)
+			if !ok || dl == "" {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"credential",
+					"deeplink not found",
+					"field 'deeplink' is missing or empty",
+				).JSON(e)
+			}
+			deeplink = dl
+		} else {
+			bodyData, err := json.Marshal(map[string]string{"yaml": yamlStr})
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"marshal",
+					"failed to encode yaml body",
+					err.Error(),
+				).JSON(e)
+			}
+
+			baseURL := e.App.Settings().Meta.AppURL
+			url := baseURL + "/api/get-deeplink"
+
+			ctx := e.Request.Context()
+			req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(bodyData))
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"request",
+					"failed to create request to /api/get-deeplink",
+					err.Error(),
+				).JSON(e)
+			}
+			req.Header.Set("Content-Type", "application/json")
+
+			client := &http.Client{}
+			resp, err := client.Do(req)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"request",
+					"failed to call internal /api/get-deeplink endpoint",
+					err.Error(),
+				).JSON(e)
+			}
+			defer resp.Body.Close()
+
+			respBody, _ := io.ReadAll(resp.Body)
+			if resp.StatusCode != http.StatusOK {
+				return apierror.New(
+					resp.StatusCode,
+					"get-deeplink",
+					"internal endpoint returned an error",
+					string(respBody),
+				).JSON(e)
+			}
+
+			var result map[string]any
+			if err := json.Unmarshal(respBody, &result); err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"json",
+					"failed to parse /api/get-deeplink response",
+					err.Error(),
+				).JSON(e)
+			}
+
+			dl, ok := result["deeplink"].(string)
+			if !ok || dl == "" {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"deeplink",
+					"deeplink missing in response",
+					"field 'deeplink' is not present or empty",
+				).JSON(e)
+			}
+			deeplink = dl
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
