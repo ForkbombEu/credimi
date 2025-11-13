@@ -6,6 +6,7 @@ package workflows
 import (
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"strings"
 
 	"github.com/forkbombeu/credimi-extra/mobile"
@@ -19,8 +20,7 @@ import (
 const MobileAutomationTaskQueue = "MobileAutomationTaskQueue"
 
 // MobileAutomationWorkflow is a workflow that runs a mobile automation flow
-type MobileAutomationWorkflow struct {
-}
+type MobileAutomationWorkflow struct{}
 
 // MobileAutomationWorkflowPayload is the payload for the mobile automation workflow
 type MobileAutomationWorkflowPayload struct {
@@ -54,6 +54,7 @@ type MobileWorkflowOutput struct {
 func (MobileAutomationWorkflow) Name() string {
 	return "Run a mobile automation workflow"
 }
+
 func (w *MobileAutomationWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
@@ -108,7 +109,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 		var checkVideoResult workflowengine.ActivityResult
 		checkVideoInput := workflowengine.ActivityInput{
 			Payload: activities.CheckFileExistsActivityPayload{
-				Path: "/tmp/credimi/video.mp4",
+				Path: filepath.Join("/credimi/workflows", runMetadata.WorkflowID, "video.mp4"),
 			},
 		}
 		checkVideoActivity := activities.NewCheckFileExistsActivity()
@@ -145,7 +146,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 						"Content-Type": "application/json",
 					},
 					Body: map[string]any{
-						"result_path":       "/tmp/credimi/video.mp4",
+						"result_path":       filepath.Join("/credimi", "workflows", runMetadata.WorkflowID, "video.mp4"),
 						"action_identifier": payload.ActionID,
 					},
 					ExpectedStatus: 200,
