@@ -5,7 +5,10 @@
 package handlers
 
 import (
+	"encoding/json"
+	"io"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -14,6 +17,26 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func mockGetDeeplinkServer(t *testing.T, statusCode int, response map[string]interface{}) *httptest.Server {
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/get-deeplink", r.URL.Path)
+		require.Equal(t, "POST", r.Method)
+		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+		body, err := io.ReadAll(r.Body)
+		require.NoError(t, err)
+
+		var requestData map[string]string
+		err = json.Unmarshal(body, &requestData)
+		require.NoError(t, err)
+		require.Contains(t, requestData, "yaml")
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(statusCode)
+		json.NewEncoder(w).Encode(response)
+	}))
+}
+
 func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 	return func(t testing.TB) *tests.TestApp {
 		app, err := tests.NewTestApp(testDataDir)
@@ -21,7 +44,6 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 		canonify.RegisterCanonifyHooks(app)
 		DeepLinkCredential.Add(app)
 
-		// Crea issuer e credential se necessario
 		coll, _ := app.FindCollectionByNameOrId("credential_issuers")
 		issuerRecord := core.NewRecord(coll)
 		issuerRecord.Set("id", "issuer123456789")
@@ -91,6 +113,140 @@ func TestGetCredentialDeeplink(t *testing.T) {
 				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
 
 				r.Set("deeplink", "")
+				require.NoError(t, app.Save(r))
+
+				return app
+			},
+		},
+		{
+			Name:   "get credential deeplink with yaml - success",
+			Method: http.MethodGet,
+			URL: func() string {
+				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential"
+			}(),
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"deeplink":"mock-deeplink-from-yaml"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupDeeplinkApp(orgID)(t)
+
+				mockServer := mockGetDeeplinkServer(t.(*testing.T), http.StatusOK, map[string]interface{}{
+					"deeplink": "mock-deeplink-from-yaml",
+				})
+				t.Cleanup(mockServer.Close)
+
+				app.Settings().Meta.AppURL = mockServer.URL
+
+				coll, _ := app.FindCollectionByNameOrId("credentials")
+				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
+				r.Set("deeplink", "")
+				r.Set("yaml", "test: yaml content")
+				require.NoError(t, app.Save(r))
+
+				return app
+			},
+		},
+		{
+			Name:   "get credential deeplink with yaml - internal endpoint error",
+			Method: http.MethodGet,
+			URL: func() string {
+				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential"
+			}(),
+			ExpectedStatus:  500,
+			ExpectedContent: []string{`"error":"get-deeplink"`, `"reason":"internal endpoint returned an error"`},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupDeeplinkApp(orgID)(t)
+
+				mockServer := mockGetDeeplinkServer(t.(*testing.T), http.StatusInternalServerError, map[string]interface{}{
+					"error": "internal server error",
+				})
+				t.Cleanup(mockServer.Close)
+
+				app.Settings().Meta.AppURL = mockServer.URL
+
+				coll, _ := app.FindCollectionByNameOrId("credentials")
+				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
+				r.Set("deeplink", "")
+				r.Set("yaml", "test: yaml content")
+				require.NoError(t, app.Save(r))
+
+				return app
+			},
+		},
+		{
+			Name:   "get credential deeplink with yaml - invalid response",
+			Method: http.MethodGet,
+			URL: func() string {
+				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential"
+			}(),
+			ExpectedStatus:  500,
+			ExpectedContent: []string{`"error":"deeplink"`, `"reason":"deeplink missing in response"`},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupDeeplinkApp(orgID)(t)
+
+				mockServer := mockGetDeeplinkServer(t.(*testing.T), http.StatusOK, map[string]interface{}{
+					"wrong_field": "value",
+				})
+				t.Cleanup(mockServer.Close)
+
+				app.Settings().Meta.AppURL = mockServer.URL
+
+				coll, _ := app.FindCollectionByNameOrId("credentials")
+				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
+				r.Set("deeplink", "")
+				r.Set("yaml", "test: yaml content")
+				require.NoError(t, app.Save(r))
+
+				return app
+			},
+		},
+		{
+			Name:   "get credential deeplink - http call network error",
+			Method: http.MethodGet,
+			URL: func() string {
+				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential"
+			}(),
+			ExpectedStatus:  500,
+			ExpectedContent: []string{`"error":"request"`, `"failed to call internal /api/get-deeplink endpoint"`},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupDeeplinkApp(orgID)(t)
+
+				app.Settings().Meta.AppURL = "http://this-domain-does-not-exist-12345.local"
+
+				coll, _ := app.FindCollectionByNameOrId("credentials")
+				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
+				r.Set("deeplink", "")
+				r.Set("yaml", "test: yaml content")
+				require.NoError(t, app.Save(r))
+
+				return app
+			},
+		},
+		{
+			Name:   "get credential deeplink - json unmarshal error",
+			Method: http.MethodGet,
+			URL: func() string {
+				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential"
+			}(),
+			ExpectedStatus:  500,
+			ExpectedContent: []string{`"error":"json"`, `"failed to parse /api/get-deeplink response"`},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupDeeplinkApp(orgID)(t)
+
+				mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+					w.Header().Set("Content-Type", "application/json")
+					w.WriteHeader(http.StatusOK)
+					w.Write([]byte(`{"deeplink": "value`))
+				}))
+				t.Cleanup(mockServer.Close)
+
+				app.Settings().Meta.AppURL = mockServer.URL
+
+				coll, _ := app.FindCollectionByNameOrId("credentials")
+				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
+				r.Set("deeplink", "")
+				r.Set("yaml", "test: yaml content")
 				require.NoError(t, app.Save(r))
 
 				return app
