@@ -13,14 +13,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 
-	import type { WorkflowChildren, WorkflowExecutionWithChildren } from './queries.types';
+	import type { WorkflowExecutionWithChildren } from './queries.types';
 
 	import WorkflowTreeBranch from './workflow-tree.svelte';
 
 	//
 
 	type Props = {
-		workflow: WorkflowExecutionWithChildren | WorkflowChildren;
+		workflow: WorkflowExecutionWithChildren;
 		label?: string;
 		root?: boolean;
 	};

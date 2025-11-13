@@ -12,11 +12,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
-	import { toUserTimezone } from '@/utils/toUserTimezone';
 
 	import type { WorkflowExecutionWithChildren } from './queries.types';
 
-	import { getWorkflowMemo, type WorkflowMemo } from './memo';
 	import WorkflowTree from './workflow-tree.svelte';
 
 	//
@@ -29,7 +27,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{
 					workflow: WorkflowExecutionWithChildren;
 					Td: typeof Table.Cell;
-					workflowMemo: WorkflowMemo | undefined;
 				}
 			]
 		>;
@@ -51,11 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Header>
 		<Table.Body>
 			{#each workflows as workflow (workflow.execution.runId)}
-				{@const { execution } = workflow}
 				{@const status = toWorkflowStatusReadable(workflow.status)}
-				{@const memo = getWorkflowMemo(workflow)}
-				{@const start = toUserTimezone(workflow.startTime)}
-				{@const end = toUserTimezone(workflow.endTime)}
 
 				<Table.Row>
 					<Table.Cell class="align-top">
@@ -65,19 +58,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Table.Cell>
 
 					<Table.Cell class="font-medium">
-						{@const label = memo
-							? `${memo.standard} / ${memo.author}`
-							: execution.workflowId}
-						<WorkflowTree {workflow} {label} root />
+						<WorkflowTree {workflow} label={workflow.displayName} root />
 					</Table.Cell>
 
-					{@render rowRight?.({ workflow, Td: Table.Cell, workflowMemo: memo })}
+					{@render rowRight?.({ workflow, Td: Table.Cell })}
 
 					<Table.Cell class="text-right">
-						{start}
+						{workflow.startTime}
 					</Table.Cell>
-					<Table.Cell class={['text-right', { 'text-gray-300': !end }]}>
-						{end ?? 'N/A'}
+
+					<Table.Cell class={['text-right', { 'text-gray-300': !workflow.endTime }]}>
+						{workflow.endTime ?? 'N/A'}
 					</Table.Cell>
 				</Table.Row>
 			{:else}
