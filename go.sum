@@ -219,15 +219,8 @@ github.com/felixge/httpsnoop v1.0.4 h1:NFTV2Zj1bL4mc9sqWACXbQFVBBg2W3GPvqp8/ESS2
 github.com/felixge/httpsnoop v1.0.4/go.mod h1:m8KPJKqk1gH5J9DgRY2ASl2lWCfGKXixSwevea8zH2U=
 github.com/firefart/nonamedreturns v1.0.6 h1:vmiBcKV/3EqKY3ZiPxCINmpS431OcE1S47AQUwhrg8E=
 github.com/firefart/nonamedreturns v1.0.6/go.mod h1:R8NisJnSIpvPWheCq0mNRXJok6D8h7fagJTF8EMEwCo=
-github.com/forkbombeu/avdctl v0.0.0-20251112131033-d0667fb23574 h1:YO2SEldr1tZuvK8tR5EmxWrQvOsT0bjGDuoJhUE+gok=
-github.com/forkbombeu/avdctl v0.0.0-20251112131033-d0667fb23574/go.mod h1:2PyuTviG6/ts65ybsWFKYqE9wiRWwm9minyEaClSbZI=
+github.com/forkbombeu/avdctl v0.0.0-20251113103924-610fd9bfdd9b h1:iS/Pi3sqnqQfEt75endZn3yIJyTXD/0LWorxw8T93oA=
 github.com/forkbombeu/avdctl v0.0.0-20251113103924-610fd9bfdd9b/go.mod h1:2PyuTviG6/ts65ybsWFKYqE9wiRWwm9minyEaClSbZI=
-github.com/forkbombeu/credimi-extra v0.0.0-20251112135752-b8f2fd7c0842 h1:A0jDfcf7qKnqLzoSYO71vlYZwYzRFV7ogptz+w/xw8A=
-github.com/forkbombeu/credimi-extra v0.0.0-20251112135752-b8f2fd7c0842/go.mod h1:QTpuZQh6RS/Lyru/aTUO+nhTfegkDXT1VunfQkfkGrE=
-github.com/forkbombeu/credimi-extra v0.0.0-20251112153143-32dd3f44cd0d h1:aVBGW8W147KRdqwjzQ24E0GtX8EpUg85ygein7Tp2jU=
-github.com/forkbombeu/credimi-extra v0.0.0-20251112153143-32dd3f44cd0d/go.mod h1:QTpuZQh6RS/Lyru/aTUO+nhTfegkDXT1VunfQkfkGrE=
-github.com/forkbombeu/credimi-extra v0.0.0-20251112174238-4e47247398e0 h1:UrKhKfg5SnraZi4PE2r4J+yau1TZSLIH72POmiL5KuM=
-github.com/forkbombeu/credimi-extra v0.0.0-20251112174238-4e47247398e0/go.mod h1:QTpuZQh6RS/Lyru/aTUO+nhTfegkDXT1VunfQkfkGrE=
 github.com/forkbombeu/credimi-extra v0.0.0-20251113111530-b60ef6307dfa h1:vo8hE+WwN/UUim3agMID4dzLxsmb82pzOsnD7S3+Pl0=
 github.com/forkbombeu/credimi-extra v0.0.0-20251113111530-b60ef6307dfa/go.mod h1:YWsjhftREC3m2aujWW75yTQ6svt9qTH6ZHyLwwnY/bI=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
