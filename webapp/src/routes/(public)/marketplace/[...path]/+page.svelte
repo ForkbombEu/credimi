@@ -20,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import CredentialIssuerPage from './_partials/credential-issuer-page.svelte';
 	import CredentialPage from './_partials/credential-page.svelte';
+	import PipelinePage from './_partials/pipeline-page.svelte';
 	import UseCaseVerificationPage from './_partials/use-case-verification-page.svelte';
 	import VerifierPage from './_partials/verifier-page.svelte';
 	import WalletPage from './_partials/wallet-page.svelte';
@@ -114,4 +115,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<VerifierPage {...pageDetails} />
 {:else if pageDetails.type == 'use_cases_verifications'}
 	<UseCaseVerificationPage {...pageDetails} />
+{:else if pageDetails.type == 'pipelines'}
+	<PipelinePage {...pageDetails} />
 {/if}
