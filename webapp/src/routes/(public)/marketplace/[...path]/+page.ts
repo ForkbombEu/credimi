@@ -10,6 +10,7 @@ import { pb } from '@/pocketbase/index.js';
 
 import { getCredentialIssuersDetails } from './_partials/credential-issuer-page.svelte';
 import { getCredentialsDetails } from './_partials/credential-page.svelte';
+import { getPipelineDetails } from './_partials/pipeline-page.svelte';
 import { getUseCaseVerificationDetails } from './_partials/use-case-verification-page.svelte';
 import { getVerifierDetails } from './_partials/verifier-page.svelte';
 import { getWalletDetails } from './_partials/wallet-page.svelte';
@@ -56,6 +57,8 @@ function getPageDetails(item: MarketplaceItem, fetchFn = fetch) {
 			return getVerifierDetails(item.id, fetchFn);
 		case 'use_cases_verifications':
 			return getUseCaseVerificationDetails(item.id, fetchFn);
+		case 'pipelines':
+			return getPipelineDetails(item.id, fetchFn);
 		default:
 			error(404);
 	}
