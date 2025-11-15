@@ -5,9 +5,8 @@
 min_version = '2025.1.8'
 
 [tools]
-go = "1.24.6"
+go = "1.25.3"
 bun = "latest"
 "aqua:dyne/slangroom-exec" = "latest"
 goreleaser = "latest"
 pre-commit = "latest"
-java = "17"

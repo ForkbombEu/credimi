@@ -27,13 +27,12 @@ type WorkflowExecutionInfo struct {
 }
 
 type WorkflowExecution struct {
-	Name                         string                           `json:"name"`
-	ID                           string                           `json:"id"`
-	RunID                        string                           `json:"runId"`
+	Execution                    *WorkflowIdentifier              `json:"execution"`
+	Type                         WorkflowType                     `json:"type"`
 	StartTime                    string                           `json:"startTime"`
-	EndTime                      string                           `json:"endTime"`
+	CloseTime                    string                           `json:"closeTime"`
 	ExecutionTime                string                           `json:"executionTime"`
-	Status                       MessageState                     `json:"status"`
+	Status                       string                           `json:"status"`
 	TaskQueue                    *string                          `json:"taskQueue,omitempty"`
 	HistoryEvents                string                           `json:"historyEvents"`
 	HistorySizeBytes             string                           `json:"historySizeBytes"`
@@ -48,7 +47,7 @@ type WorkflowExecution struct {
 	PendingWorkflowTask          *PendingWorkflowTaskInfo         `json:"pendingWorkflowTask,omitempty"`
 	StateTransitionCount         string                           `json:"stateTransitionCount"`
 	ParentNamespaceID            *string                          `json:"parentNamespaceId,omitempty"`
-	Parent                       *WorkflowIdentifier              `json:"parent,omitempty"`
+	ParentExecution              *WorkflowIdentifier              `json:"parentExecution,omitempty"`
 	URL                          string                           `json:"url"`
 	IsRunning                    bool                             `json:"isRunning"`
 	DefaultWorkflowTaskTimeout   *Duration                        `json:"defaultWorkflowTaskTimeout,omitempty"`
@@ -57,6 +56,16 @@ type WorkflowExecution struct {
 	VersioningInfo               *VersioningInfo                  `json:"versioningInfo,omitempty"`
 	Summary                      *Payload                         `json:"summary,omitempty"`
 	Details                      *Payload                         `json:"details,omitempty"`
+}
+
+type WorkflowExecutionSummary struct {
+	Execution   *WorkflowIdentifier         `json:"execution" validate:"required"`
+	Type        WorkflowType                `json:"type" validate:"required"`
+	StartTime   string                      `json:"startTime"`
+	EndTime     string                      `json:"endTime"`
+	Status      string                      `json:"status" validate:"required"`
+	DisplayName string                      `json:"displayName" validate:"required"`
+	Children    []*WorkflowExecutionSummary `json:"children,omitempty"`
 }
 
 type WorkflowExecutionAPIResponse struct {
@@ -140,7 +149,7 @@ type ReRunCheckResponse struct {
 
 // ListMyChecksResponse represents the response containing list of workflow executions
 type ListMyChecksResponse struct {
-	Executions []WorkflowExecution `json:"executions" validate:"required"`
+	Executions []*WorkflowExecutionSummary `json:"executions" validate:"required"`
 }
 
 // GetMyCheckRunResponse represents the response for getting a specific check run
@@ -156,7 +165,7 @@ type GetMyCheckRunResponse struct {
 
 // ListMyCheckRunsResponse represents the response containing list of runs for a specific check
 type ListMyCheckRunsResponse struct {
-	Executions []WorkflowExecution `json:"executions" validate:"required"`
+	Executions []*WorkflowExecutionSummary `json:"executions" validate:"required"`
 }
 
 // GetMyCheckRunHistoryResponse represents the response containing workflow execution history
@@ -410,6 +419,10 @@ type VersioningInfo struct {
 	UseVersioning *bool `json:"useVersioning,omitempty"`
 }
 
+type WorkflowType struct {
+	Name string `json:"name,omitempty"`
+}
+
 // WorkflowIdentifier represents a workflow identifier
 type WorkflowIdentifier struct {
 	WorkflowID string `json:"workflowId"      validate:"required"`
@@ -427,3 +440,5 @@ func getStringFromMap(m map[string]any, key string) string {
 	}
 	return ""
 }
+
+const testDataDir = "../../../../test_pb_data"

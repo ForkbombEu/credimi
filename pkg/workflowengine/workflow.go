@@ -24,7 +24,7 @@ import (
 
 // WorkflowInput represents the input data required to start a workflow.
 type WorkflowInput struct {
-	Payload         map[string]any            `json:"payload,omitempty"`
+	Payload         any                       `json:"payload,omitempty"`
 	Config          map[string]any            `json:"config,omitempty"`
 	ActivityOptions *workflow.ActivityOptions `json:"activityOptions,omitempty"`
 }
@@ -78,10 +78,30 @@ func NewWorkflowError(err error, metadata WorkflowErrorMetadata, extraPayload ..
 		return err
 	}
 
-	var originalDetails any
-	if err := appErr.Details(&originalDetails); err != nil {
-		originalDetails = nil
+	var detailsRaw any
+	if derr := appErr.Details(&detailsRaw); derr != nil {
+		detailsRaw = nil
 	}
+
+	var details []any
+	switch v := detailsRaw.(type) {
+	case nil:
+
+	case []any:
+		details = v
+	default:
+		details = []any{v}
+	}
+
+	for _, p := range extraPayload {
+		switch v := p.(type) {
+		case []any:
+			details = append(details, v...)
+		default:
+			details = append(details, v)
+		}
+	}
+	details = append(details, metadata)
 
 	credimiErr := utils.CredimiError{
 		Code:      appErr.Type(),
@@ -91,15 +111,11 @@ func NewWorkflowError(err error, metadata WorkflowErrorMetadata, extraPayload ..
 		Context:   []string{fmt.Sprintf("Further information at: %s", metadata.TemporalUI)},
 	}
 
-	newErr := temporal.NewApplicationError(
+	return temporal.NewApplicationError(
 		credimiErr.Error(),
 		appErr.Type(),
-		originalDetails,
-		extraPayload,
-		metadata,
+		details,
 	)
-
-	return newErr
 }
 
 func NewAppError(code errorcodes.Code, field string, payload ...any) error {
@@ -109,11 +125,14 @@ func NewAppError(code errorcodes.Code, field string, payload ...any) error {
 		payload...)
 }
 
-// newMissingPayloadError returns a WorkflowError for a missing or invalid payload key.
-func NewMissingPayloadError(key string, metadata WorkflowErrorMetadata) error {
+// NewMissingOrInvalidPayloadError returns a WorkflowError for a missing or invalid payload.
+// It creates an ApplicationError with the given error and code, and then wraps it in a WorkflowError with the given runMetadata.
+// The error is returned with code errorcodes.MissingOrInvalidPayload.
+// The error message is set to err.Error().
+func NewMissingOrInvalidPayloadError(err error, runMetadata WorkflowErrorMetadata) error {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-	appErr := NewAppError(errCode, key)
-	return NewWorkflowError(appErr, metadata)
+	appErr := NewAppError(errCode, err.Error())
+	return NewWorkflowError(appErr, runMetadata)
 }
 
 // newMissingConfigError returns a WorkflowError for a missing or invalid config key.
@@ -145,6 +164,14 @@ func StartWorkflowWithOptions(
 
 	if input.Config["memo"] != nil {
 		options.Memo = input.Config["memo"].(map[string]any)
+	}
+
+	if options.Memo == nil {
+		options.Memo = make(map[string]any)
+	}
+
+	if options.Memo["test"] == nil {
+		options.Memo["test"] = name
 	}
 
 	// Start the workflow execution.
@@ -410,5 +437,24 @@ func extractAppErrorPayload(err error) []any {
 		}
 		return nil
 	}
+	return nil
+}
+
+func ExtractOutputFromError(err error) map[string]any {
+	payload := extractAppErrorPayload(err)
+	if payload == nil {
+		return nil
+	}
+
+	for _, item := range payload {
+		if itemMap, ok := item.(map[string]any); ok {
+			if out, ok := itemMap["output"]; ok {
+				if outMap, ok := out.(map[string]any); ok {
+					return outMap
+				}
+			}
+		}
+	}
+
 	return nil
 }

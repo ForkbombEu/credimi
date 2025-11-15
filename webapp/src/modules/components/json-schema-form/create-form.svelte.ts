@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { createFormValidator } from '@sjsf/ajv8-validator';
-import { createForm, ON_CHANGE, ON_INPUT, ON_BLUR } from '@sjsf/form';
+import { createForm, ON_BLUR, ON_CHANGE, ON_INPUT } from '@sjsf/form';
 import { preventPageReload } from '@sjsf/form/prevent-page-reload.svelte';
 import { resolver } from '@sjsf/form/resolvers/basic';
 import { translation } from '@sjsf/form/translations/en';
@@ -19,6 +19,7 @@ type CreateJsonSchemaFormOptions = {
 	hideTitle?: boolean;
 	preventPageReload?: boolean;
 	onUpdate?: (data: OnUpdateData) => void;
+	onSubmit?: (data: unknown) => void;
 	initialValue?: unknown;
 };
 
@@ -27,6 +28,7 @@ export function createJsonSchemaForm(schema: object, options?: CreateJsonSchemaF
 	const form = createForm({
 		idPrefix: nanoid(5),
 		resolver,
+		onSubmit: options?.onSubmit,
 		initialValue,
 		theme,
 		validator: createFormValidator({}),

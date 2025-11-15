@@ -136,10 +136,10 @@ func Test_EudiwWorkflow(t *testing.T) {
 					env.SignalWorkflow(EudiwStartCheckSignal, nil)
 				}, time.Second*30)
 				env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
-					Payload: map[string]any{
-						"nonce":     "12345",
-						"id":        "12345",
-						"user_mail": "test@example.org",
+					Payload: EudiwWorkflowPayload{
+						Nonce:    "12345",
+						ID:       "12345",
+						UserMail: "test@example.org",
 					},
 					Config: map[string]any{
 						"app_url":   "https://test-app.com",

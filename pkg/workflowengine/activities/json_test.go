@@ -62,11 +62,11 @@ func TestParseJSONActivity_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			payload := map[string]any{
-				"structType": "DummyStruct",
+			payload := JSONActivityPayload{
+				StructType: "DummyStruct",
 			}
 			if tt.rawJSON != "" {
-				payload["rawJSON"] = tt.rawJSON
+				payload.RawJSON = tt.rawJSON
 			}
 
 			input := workflowengine.ActivityInput{

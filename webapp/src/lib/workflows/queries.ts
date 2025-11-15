@@ -6,17 +6,15 @@ import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workf
 import type { WorkflowStatusType } from '$lib/temporal';
 
 import { toWorkflowExecution, type HistoryEvent } from '@forkbombeu/temporal-ui';
-import { Array, String } from 'effect';
+import { String } from 'effect';
 import { z } from 'zod';
 
 import { pb } from '@/pocketbase';
 import { warn } from '@/utils/other';
 
-import {
-	workflowExecutionInfoSchema,
-	workflowResponseSchema,
-	type WorkflowResponse
-} from './types';
+import type { FetchWorkflowsResponse, WorkflowExecutionWithChildren } from './queries.types';
+
+import { workflowResponseSchema, type WorkflowResponse } from './types';
 
 //
 
@@ -36,7 +34,10 @@ type FetchWorkflowsOptions = {
 
 export async function fetchWorkflows(
 	options: FetchWorkflowsOptions = {}
-): Promise<WorkflowExecution[] | Error> {
+): Promise<WorkflowExecutionWithChildren[] | Error> {
+	// const test = await import('./queries.test.json');
+	// return test.default.executions;
+
 	const { fetch: fetchFn = fetch, status } = options;
 
 	let url = WORKFLOWS_API;
@@ -46,22 +47,12 @@ export async function fetchWorkflows(
 	}
 
 	return tryPromise(async () => {
-		const data = await pb.send(url, {
+		const data: FetchWorkflowsResponse = await pb.send(url, {
 			method: 'GET',
 			fetch: fetchFn
 		});
 
-		const schema = z.object({
-			executions: z.array(workflowExecutionInfoSchema)
-		});
-		const parsed = schema
-			.parse(data)
-			.executions.map((exec) => workflowResponseToExecution({ workflowExecutionInfo: exec }));
-
-		const errors = parsed.filter((execution) => execution instanceof Error);
-		if (errors.length > 0) warn(errors);
-
-		return Array.difference(parsed, errors) as WorkflowExecution[];
+		return data.executions ?? [];
 	}, 'Failed to fetch user workflows');
 }
 

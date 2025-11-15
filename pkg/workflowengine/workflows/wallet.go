@@ -10,6 +10,7 @@ package workflows
 
 import (
 	"fmt"
+	"net/http"
 	"reflect"
 	"time"
 
@@ -30,6 +31,11 @@ const (
 
 // Wallet is a workflow that imports wallet metadata from app stores urls.
 type WalletWorkflow struct{}
+
+// WalletWorkflowPayload is a struct that represents the input payload for the WalletWorkflow.
+type WalletWorkflowPayload struct {
+	URL string `json:"url" yaml:"url" validate:"required"`
+}
 
 // Name returns the name of the workflow.
 func (w *WalletWorkflow) Name() string {
@@ -73,12 +79,10 @@ func (w *WalletWorkflow) Workflow(
 			"storeType": storeType,
 		}, nil
 	})
-	fullURL, ok := input.Payload["url"].(string)
-	if !ok || fullURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"url",
-			runMetadata,
-		)
+
+	payload, err := workflowengine.DecodePayload[WalletWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
 	}
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
@@ -90,9 +94,9 @@ func (w *WalletWorkflow) Workflow(
 
 	urlParser := activities.NewParseWalletURLActivity()
 	var parsedResult workflowengine.ActivityResult
-	err := workflow.ExecuteActivity(ctx, urlParser.Name(), workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"url": fullURL,
+	err = workflow.ExecuteActivity(ctx, urlParser.Name(), workflowengine.ActivityInput{
+		Payload: activities.ParseWalletURLActivityPayload{
+			URL: payload.URL,
 		},
 	}).Get(ctx, &parsedResult)
 	if err != nil {
@@ -122,13 +126,13 @@ func (w *WalletWorkflow) Workflow(
 	case "apple":
 		var response workflowengine.ActivityResult
 		err = workflow.ExecuteActivity(ctx, httpActivity.Name(), workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"method": "GET",
-				"url":    AppleStoreAPIURL,
-				"query_params": map[string]any{
+			Payload: activities.HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    AppleStoreAPIURL,
+				QueryParams: map[string]string{
 					"id": apiInput,
 				},
-				"expected_status": 200,
+				ExpectedStatus: 200,
 			},
 		}).Get(ctx, &response)
 		if err != nil {
@@ -155,9 +159,9 @@ func (w *WalletWorkflow) Workflow(
 		docker := activities.NewDockerActivity()
 		var result workflowengine.ActivityResult
 		err = workflow.ExecuteActivity(ctx, docker.Name(), workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"image": "ghcr.io/forkbombeu/appraccon:latest",
-				"cmd":   []string{apiInput},
+			Payload: activities.DockerActivityPayload{
+				Image: "ghcr.io/forkbombeu/appraccon:latest",
+				Cmd:   []string{apiInput},
 			},
 		}).Get(ctx, &result)
 		if err != nil {
@@ -185,9 +189,9 @@ func (w *WalletWorkflow) Workflow(
 		})
 		var jsonResult workflowengine.ActivityResult
 		err = workflow.ExecuteActivity(ctx, json.Name(), workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"rawJSON":    stdout,
-				"structType": "map",
+			Payload: activities.JSONActivityPayload{
+				RawJSON:    stdout,
+				StructType: "map",
 			},
 		}).Get(ctx, &jsonResult)
 		if err != nil {

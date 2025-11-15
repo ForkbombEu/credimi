@@ -6,20 +6,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script module lang="ts">
 	import { PocketbaseQueryAgent } from '@/pocketbase/query';
-
 	import { pageDetails } from './_utils/types';
 
 	export async function getWalletDetails(itemId: string, fetchFn = fetch) {
 		const wallet = await new PocketbaseQueryAgent(
 			{
 				collection: 'wallets',
-				expand: ['wallet_actions_via_wallet', 'wallet_versions_via_wallet']
+				expand: ['owner', 'wallet_actions_via_wallet', 'wallet_versions_via_wallet']
 			},
 			{ fetch: fetchFn }
 		).getOne(itemId);
 
+		const actions = wallet.expand?.wallet_actions_via_wallet ?? [];
+		const versions = wallet.expand?.wallet_versions_via_wallet ?? [];
+
+		const organization = wallet.expand?.owner;
+		if (!organization) throw new Error();
+
 		return pageDetails('wallets', {
-			wallet
+			wallet,
+			actions,
+			organization,
+      versions
 		});
 	}
 </script>
@@ -28,6 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { ConformanceCheckSchema } from '$lib/types/checks';
+	import { path } from '$lib/utils';
 	import { String } from 'effect';
 	import { Code, DownloadIcon } from 'lucide-svelte';
 	import { z } from 'zod';
@@ -36,6 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
+	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import {
 		Accordion,
 		AccordionContent,
@@ -54,9 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = Awaited<ReturnType<typeof getWalletDetails>>;
-	let { wallet }: Props = $props();
-	const { wallet_actions_via_wallet: actions = [], wallet_versions_via_wallet: versions = [] } =
-		$derived(wallet.expand ?? {});
+	let { wallet, actions, organization, versions }: Props = $props();
 
 	// misc derived values
 
@@ -180,7 +188,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
 									/>
 									<div class="text-left">
-										<div class="font-medium">{action.name}</div>
+										<div class="flex items-center gap-1">
+											<div class="font-medium">{action.name}</div>
+											<CopyButtonSmall
+												textToCopy={path([
+													organization?.canonified_name,
+													wallet.canonified_name,
+													action.canonified_name
+												])}
+												square
+												variant="ghost"
+												size="xs"
+											/>
+										</div>
 										<div class="text-muted-foreground text-xs">
 											{stats.lines} lines • {stats.chars} characters
 										</div>

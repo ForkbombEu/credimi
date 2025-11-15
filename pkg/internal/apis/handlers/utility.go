@@ -31,7 +31,11 @@ func GetUserOrganizationCanonifiedName(app core.App, userID string) (string, err
 	if err != nil {
 		return "", err
 	}
-	orgRecord, err := app.FindFirstRecordByFilter("organizations", "id={:id}", dbx.Params{"id": orgID})
+	orgRecord, err := app.FindFirstRecordByFilter(
+		"organizations",
+		"id={:id}",
+		dbx.Params{"id": orgID},
+	)
 	if err != nil {
 		return "", err
 	}
@@ -39,7 +43,11 @@ func GetUserOrganizationCanonifiedName(app core.App, userID string) (string, err
 }
 
 func GetOrganizationCanonifiedName(app core.App, orgID string) (string, error) {
-	orgRecord, err := app.FindFirstRecordByFilter("organizations", "id={:id}", dbx.Params{"id": orgID})
+	orgRecord, err := app.FindFirstRecordByFilter(
+		"organizations",
+		"id={:id}",
+		dbx.Params{"id": orgID},
+	)
 	if err != nil {
 		return "", err
 	}

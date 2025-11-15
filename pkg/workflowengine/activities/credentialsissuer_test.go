@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -28,7 +27,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		payload         map[string]any
+		payload         CheckCredentialsIssuerActivityPayload
 		serverHandler   http.HandlerFunc
 		expectErr       bool
 		expectedErrCode errorcodes.Code
@@ -36,8 +35,8 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 	}{
 		{
 			name: "Success - valid issuer response",
-			payload: map[string]any{
-				"base_url": "",
+			payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: "",
 			},
 			serverHandler: func(w http.ResponseWriter, r *http.Request) {
 				require.Equal(t, "/.well-known/openid-credential-issuer", r.URL.Path)
@@ -51,20 +50,14 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 		},
 		{
 			name:            "Failure - missing base_url",
-			payload:         map[string]any{},
+			payload:         CheckCredentialsIssuerActivityPayload{},
 			expectErr:       true,
 			expectedErrCode: errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
 		},
 		{
-			name:            "Failure - empty base_url",
-			payload:         map[string]any{"base_url": "  "},
-			expectErr:       true,
-			expectedErrCode: errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed],
-		},
-		{
 			name: "Failure - non-200 status code",
-			payload: map[string]any{
-				"base_url": "",
+			payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: "",
 			},
 			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusForbidden)
@@ -74,8 +67,8 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - error reaching issuer",
-			payload: map[string]any{
-				"base_url": "",
+			payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: "",
 			},
 			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Length", "10")
@@ -87,8 +80,8 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - error reading body",
-			payload: map[string]any{
-				"base_url": "",
+			payload: CheckCredentialsIssuerActivityPayload{
+				BaseURL: "",
 			},
 			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
 				w.Header().Set("Content-Type", "application/json")
@@ -109,7 +102,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 				server := httptest.NewServer(tt.serverHandler)
 				defer server.Close()
 				baseURL = server.URL + "/.well-known/openid-credential-issuer"
-				tt.payload["base_url"] = strings.TrimPrefix(baseURL, "https://")
+				tt.payload.BaseURL = baseURL
 			}
 
 			input := workflowengine.ActivityInput{

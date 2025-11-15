@@ -9,6 +9,7 @@ package workflows
 
 import (
 	"fmt"
+	"net/http"
 	"net/url"
 	"time"
 
@@ -29,8 +30,14 @@ const (
 	EudiwSubscription       = "eudiw-logs"
 )
 
-// EudiwWorkflow is a workflow that performs conformance checks on the OpenID certification site.
+// EudiwWorkflow is a workflow that performs conformance checks on the EUDIW suite.
 type EudiwWorkflow struct{}
+
+type EudiwWorkflowPayload struct {
+	ID       string `json:"id" yaml:"id" validate:"required"`
+	Nonce    string `json:"nonce" yaml:"nonce" validate:"required"`
+	UserMail string `json:"user_mail" yaml:"user_mail" validate:"required"`
+}
 
 // Name returns the name of the EudiwWorkflow.
 func (EudiwWorkflow) Name() string {
@@ -92,19 +99,9 @@ func (w *EudiwWorkflow) Workflow(
 		),
 	}
 
-	nonce, ok := input.Payload["nonce"].(string)
-	if !ok || nonce == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"nonce",
-			runMetadata,
-		)
-	}
-	id, ok := input.Payload["id"].(string)
-	if !ok || id == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"id",
-			runMetadata,
-		)
+	payload, err := workflowengine.DecodePayload[EudiwWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
 	}
 	template, ok := input.Config["template"].(string)
 	if !ok || template == "" {
@@ -116,15 +113,17 @@ func (w *EudiwWorkflow) Workflow(
 
 	stepCIWorkflowActivity := activities.NewStepCIWorkflowActivity()
 	stepCIInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"nonce": nonce,
-			"id":    id,
+		Payload: activities.StepCIWorkflowActivityPayload{
+			Data: map[string]any{
+				"nonce": payload.Nonce,
+				"id":    payload.ID,
+			},
 		},
 		Config: map[string]string{
 			"template": template,
 		},
 	}
-	err := stepCIWorkflowActivity.Configure(&stepCIInput)
+	err = stepCIWorkflowActivity.Configure(&stepCIInput)
 	if err != nil {
 		logger.Error(" StepCI configure failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
@@ -192,11 +191,11 @@ func (w *EudiwWorkflow) Workflow(
 	emailActivity := activities.NewSendMailActivity()
 
 	emailInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"recipient": input.Payload["user_mail"].(string),
-			"subject":   "[CREDIMI] Action required to continue your conformance checks",
-			"template":  activities.ContinueConformanceCheckEmailTemplate,
-			"data": map[string]any{
+		Payload: activities.SendMailActivityPayload{
+			Recipient: payload.UserMail,
+			Subject:   "[CREDIMI] Action required to continue your conformance checks",
+			Template:  activities.ContinueConformanceCheckEmailTemplate,
+			Data: map[string]any{
 				"AppName":          input.Config["app_name"],
 				"AppLogo":          input.Config["app_logo"],
 				"UserName":         input.Config["user_name"],
@@ -253,9 +252,9 @@ func (w *EudiwWorkflow) Workflow(
 		HTTPActivity := activities.NewHTTPActivity()
 		var checkResponse workflowengine.ActivityResult
 		CheckStatusInput := workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"method": "GET",
-				"url": fmt.Sprintf(
+			Payload: activities.HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL: fmt.Sprintf(
 					"https://verifier-backend.eudiw.dev/ui/presentations/%s",
 					transactionID,
 				),
@@ -299,13 +298,13 @@ func (w *EudiwWorkflow) Workflow(
 		var events []map[string]any
 		var eventsResponse workflowengine.ActivityResult
 		getLogsInput := workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"method": "GET",
-				"url": fmt.Sprintf(
+			Payload: activities.HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL: fmt.Sprintf(
 					"https://verifier-backend.eudiw.dev/ui/presentations/%s/events",
 					transactionID,
 				),
-				"expected_status": 200,
+				ExpectedStatus: 200,
 			},
 		}
 		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), getLogsInput).
@@ -320,21 +319,21 @@ func (w *EudiwWorkflow) Workflow(
 			eventsResponse.Output.(map[string]any)["body"].(map[string]any)["events"],
 		)
 		triggerLogsInput := workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"method": "POST",
-				"url": fmt.Sprintf(
+			Payload: activities.HTTPActivityPayload{
+				Method: http.MethodPost,
+				URL: fmt.Sprintf(
 					"%s/%s",
 					input.Config["app_url"].(string),
 					"api/compliance/send-eudiw-log-update",
 				),
-				"headers": map[string]any{
+				Headers: map[string]string{
 					"Content-Type": "application/json",
 				},
-				"body": map[string]any{
+				Body: map[string]any{
 					"workflow_id": workflow.GetInfo(ctx).WorkflowExecution.ID,
 					"logs":        events,
 				},
-				"expected_status": 200,
+				ExpectedStatus: 200,
 			},
 		}
 

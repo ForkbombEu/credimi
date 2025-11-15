@@ -1,28 +1,31 @@
-{
-    "users": [
-        {
-            "name": "userA",
-            "canonified_name": "usera",
-            "email": "userA@example.org",
-            "password": "userAuserA",
-            "emailVisibility": true,
-            "verified": true
-        },
-        {
-            "name": "userB",
-            "canonified_name": "userb",
-            "email": "userB@example.org",
-            "password": "userBuserB",
-            "emailVisibility": true,
-            "verified": true
-        },
-        {
-            "name": "userC",
-            "canonified_name": "userc",
-            "email": "userC@example.org",
-            "password": "userCuserC",
-            "emailVisibility": true,
-            "verified": true
-        }
-    ]
-}
+[
+    {
+        "collection": "users",
+        "records": [
+            {
+                "name": "userA",
+                "canonified_name": "usera",
+                "email": "userA@example.org",
+                "password": "userAuserA",
+                "emailVisibility": true,
+                "verified": true
+            },
+            {
+                "name": "userB",
+                "canonified_name": "userb",
+                "email": "userB@example.org",
+                "password": "userBuserB",
+                "emailVisibility": true,
+                "verified": true
+            },
+            {
+                "name": "userC",
+                "canonified_name": "userc",
+                "email": "userC@example.org",
+                "password": "userCuserC",
+                "emailVisibility": true,
+                "verified": true
+            }
+        ]
+    }
+]

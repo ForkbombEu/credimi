@@ -24,6 +24,17 @@ type HTTPActivity struct {
 	workflowengine.BaseActivity
 }
 
+// HTTPActivityPayload is the input payload for the HTTP activity.
+type HTTPActivityPayload struct {
+	Method         string            `json:"method" yaml:"method" validate:"required"`
+	URL            string            `json:"url" yaml:"url" validate:"required"`
+	QueryParams    map[string]string `json:"query_params,omitempty" yaml:"query_params,omitempty"`
+	Timeout        string            `json:"timeout,omitempty" yaml:"timeout,omitempty"`
+	Headers        map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
+	Body           any               `json:"body,omitempty" yaml:"body,omitempty"`
+	ExpectedStatus int               `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
+}
+
 func NewHTTPActivity() *HTTPActivity {
 	return &HTTPActivity{
 		BaseActivity: workflowengine.BaseActivity{
@@ -47,23 +58,13 @@ func (a *HTTPActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
-	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-	method, ok := input.Payload["method"].(string)
-	if !ok || method == "" {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'method'", errCode.Description),
-		)
+	payload, err := workflowengine.DecodePayload[HTTPActivityPayload](input.Payload)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
-	url, ok := input.Payload["url"].(string)
-	if !ok || url == "" {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'url'", errCode.Description),
-		)
-	}
-	if queryParams, ok := input.Payload["query_params"].(map[string]any); ok {
-		parsedURL, err := URL.Parse(url)
+	url := payload.URL
+	if payload.QueryParams != nil {
+		parsedURL, err := URL.Parse(TrimInput(url))
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
 			return result, a.NewActivityError(
@@ -75,57 +76,47 @@ func (a *HTTPActivity) Execute(
 
 		// Add query parameters
 		query := parsedURL.Query()
-		for key, value := range queryParams {
-			if strValue, ok := value.(string); ok {
-				query.Add(key, strValue)
-			}
+		for key, value := range payload.QueryParams {
+			query.Add(key, value)
 		}
-
 		parsedURL.RawQuery = query.Encode()
 		url = parsedURL.String() // Update the URL with query parameters
 	}
 
 	timeout := 10 * time.Second
-	if tStr, ok := input.Payload["timeout"].(string); ok {
-		if t, err := strconv.Atoi(tStr); err == nil {
+	if payload.Timeout != "" {
+		if t, err := strconv.Atoi(payload.Timeout); err == nil {
 			timeout = time.Duration(t) * time.Second
 		}
 	}
-	headers := map[string]string{}
-	if rawHeaders, ok := input.Payload["headers"].(map[string]any); ok {
-		for k, v := range rawHeaders {
-			if vs, ok := v.(string); ok {
-				headers[k] = vs
-			}
-		}
-	}
+
 	var body io.Reader
-	if input.Payload["body"] != nil {
-		jsonBody, err := json.Marshal(input.Payload["body"])
+	if payload.Body != nil {
+		jsonBody, err := json.Marshal(payload.Body)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
 			return result, a.NewActivityError(
 				errCode.Code,
 				fmt.Sprintf("%s for request body: %v", errCode.Description, err),
-				input.Payload["body"],
+				payload.Body,
 			)
 		}
 		body = bytes.NewBuffer(jsonBody)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), method, url, body)
+	req, err := http.NewRequestWithContext(context.Background(), payload.Method, url, body)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CreateHTTPRequestFailed]
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			method,
+			payload.Method,
 			url,
 			body,
 		)
 	}
 
-	for k, v := range headers {
+	for k, v := range payload.Headers {
 		req.Header.Set(k, v)
 	}
 	if body != nil && req.Header.Get("Content-Type") == "" {
@@ -160,16 +151,15 @@ func (a *HTTPActivity) Execute(
 		output = string(respBody)
 	}
 
-	if input.Payload["expected_status"] != nil {
-		expectedStatus := int(input.Payload["expected_status"].(float64))
-		if resp.StatusCode != expectedStatus {
+	if payload.ExpectedStatus != 0 {
+		if resp.StatusCode != payload.ExpectedStatus {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
 			return result, a.NewActivityError(
 				errCode.Code,
 				fmt.Sprintf(
 					"%s: expected '%d', got '%d'",
 					errCode.Description,
-					expectedStatus,
+					payload.ExpectedStatus,
 					resp.StatusCode,
 				),
 				output,

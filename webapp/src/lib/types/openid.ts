@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { OpenidCredentialIssuerSchema } from './openid-credential-issuer';
+import type { OpenidCredentialIssuer } from './openid-credential-issuer.generated';
 
-export type { OpenidCredentialIssuerSchema };
+export type { OpenidCredentialIssuer };
 export type CredentialConfiguration =
-	OpenidCredentialIssuerSchema['credential_configurations_supported'][string];
+	OpenidCredentialIssuer['credential_configurations_supported'][string];
 export type CredentialDefinition = NonNullable<CredentialConfiguration['credential_definition']>;
 export type CredentialSubject = NonNullable<CredentialDefinition['credentialSubject']>;

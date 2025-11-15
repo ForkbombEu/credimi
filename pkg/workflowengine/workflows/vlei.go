@@ -6,6 +6,7 @@ package workflows
 import (
 	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -21,7 +22,13 @@ const (
 	VLEIValidationLocalTaskQueue = "VLEIValidationLocalTaskQueue"
 )
 
+// VLEIValidationWorkflow is a workflow that validates a vLEI credential from a server request.
 type VLEIValidationWorkflow struct{}
+
+// VLEIValidationWorkflowPayload is the payload for the vLEI validation workflow.
+type VLEIValidationWorkflowPayload struct {
+	CredentialID string `json:"credential_id" yaml:"credential_id" validate:"required"`
+}
 
 func (w *VLEIValidationWorkflow) Name() string {
 	return "Validate vLEI credential from server request"
@@ -50,6 +57,11 @@ func (w *VLEIValidationWorkflow) Workflow(
 		),
 	}
 
+	payload, err := workflowengine.DecodePayload[VLEIValidationWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+	}
+
 	serverURL, ok := input.Config["server_url"].(string)
 	if !ok || serverURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -58,22 +70,14 @@ func (w *VLEIValidationWorkflow) Workflow(
 		)
 	}
 
-	credentialID, ok := input.Payload["credentialID"].(string)
-	if !ok || credentialID == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"credentialID",
-			runMetadata,
-		)
-	}
-
 	// Fetch raw CESR from server
 	HTTPActivity := activities.NewHTTPActivity()
 	var serverResponse workflowengine.ActivityResult
 	request := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"method":          "GET",
-			"url":             fmt.Sprintf("%s/oobi/%s", serverURL, credentialID),
-			"expected_status": 200,
+		Payload: activities.HTTPActivityPayload{
+			Method:         http.MethodGet,
+			URL:            fmt.Sprintf("%s/oobi/%s", serverURL, payload.CredentialID),
+			ExpectedStatus: 200,
 		},
 	}
 	if err := workflow.ExecuteActivity(ctx, HTTPActivity.Name(), request).
@@ -112,7 +116,7 @@ func (w *VLEIValidationWorkflow) Workflow(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
-	result.Message += fmt.Sprintf(" for credential: '%s'", credentialID)
+	result.Message += fmt.Sprintf(" for credential: '%s'", payload.CredentialID)
 	return result, nil
 }
 
@@ -128,7 +132,13 @@ func (w *VLEIValidationWorkflow) Start(
 	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
+// VLEIValidationLocalWorkflow is a workflow that validates a vLEI credential from a local file.
 type VLEIValidationLocalWorkflow struct{}
+
+// VLEIValidationLocalWorkflowPayload is the payload for the vLEI validation workflow.
+type VLEIValidationLocalWorkflowPayload struct {
+	CESR string `json:"cesr" yaml:"cesr" validate:"required"`
+}
 
 func (w *VLEIValidationLocalWorkflow) Name() string {
 	return "Validate vLEI from cesr file"
@@ -155,15 +165,12 @@ func (w *VLEIValidationLocalWorkflow) Workflow(
 		),
 	}
 
-	cesrStr, ok := input.Payload["rawCESR"].(string)
-	if !ok || cesrStr == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"rawCESR",
-			runMetadata,
-		)
+	payload, err := workflowengine.DecodePayload[VLEIValidationLocalWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
 	}
 
-	return validateCESRFromString(ctx, cesrStr, runMetadata)
+	return validateCESRFromString(ctx, payload.CESR, runMetadata)
 }
 
 func (w *VLEIValidationLocalWorkflow) Start(
@@ -189,7 +196,7 @@ func validateCESRFromString(
 	parseCESR := activities.NewCESRParsingActivity()
 	var parsedResult workflowengine.ActivityResult
 	err := workflow.ExecuteActivity(ctx, parseCESR.Name(), workflowengine.ActivityInput{
-		Payload: map[string]any{"rawCESR": rawCESR},
+		Payload: activities.CESRParsingActivityPayload{RawCESR: rawCESR},
 	}).Get(ctx, &parsedResult)
 	if err != nil {
 		logger.Error("ParseCESR failed", "error", err)
@@ -206,7 +213,7 @@ func validateCESRFromString(
 	validateCESR := activities.NewCESRValidateActivity()
 	var validateResult workflowengine.ActivityResult
 	err = workflow.ExecuteActivity(ctx, validateCESR.Name(), workflowengine.ActivityInput{
-		Payload: map[string]any{"events": string(eventsBytes)},
+		Payload: activities.CesrValidateActivityPayload{Events: string(eventsBytes)},
 	}).Get(ctx, &validateResult)
 	if err != nil {
 		logger.Error("CESRValidation failed", "error", err)

@@ -10,7 +10,7 @@ package workflows
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
+	"net/http"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -29,8 +29,13 @@ const (
 	EwcStopCheckSignal    = "stop-ewc-check-signal"
 )
 
-// EWCWorkflow is a workflow that performs conformance checks on the OpenID certification site.
+// EWCWorkflow is a workflow that performs conformance checks on the EWC suite.
 type EWCWorkflow struct{}
+
+type EWCWorkflowPayload struct {
+	SessionID string `json:"session_id" yaml:"session_id" validate:"required"`
+	UserMail  string `json:"user_mail" yaml:"user_mail" validate:"required"`
+}
 
 // Name returns the name of the EWCWorkflow.
 func (EWCWorkflow) Name() string {
@@ -77,7 +82,6 @@ func (w *EWCWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 	runMetadata := workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
@@ -91,15 +95,11 @@ func (w *EWCWorkflow) Workflow(
 		),
 	}
 
-	stepCIWorkflowActivity := activities.NewStepCIWorkflowActivity()
-
-	sessionID, ok := input.Payload["session_id"].(string)
-	if !ok || sessionID == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingPayloadError(
-			"session_id",
-			runMetadata,
-		)
+	payload, err := workflowengine.DecodePayload[EWCWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
 	}
+
 	template, ok := input.Config["template"].(string)
 	if !ok || template == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -107,206 +107,62 @@ func (w *EWCWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	stepCIInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"session_id": sessionID,
-		},
-		Config: map[string]string{
-			"template": template,
-		},
-	}
-	err := stepCIWorkflowActivity.Configure(&stepCIInput)
-	if err != nil {
-		logger.Error(" StepCI configure failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
-	var stepCIResult workflowengine.ActivityResult
-	err = workflow.ExecuteActivity(ctx, stepCIWorkflowActivity.Name(), stepCIInput).
-		Get(ctx, &stepCIResult)
-	if err != nil {
-		logger.Error("StepCIExecution failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
-	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
-	if !ok {
-		msg := fmt.Sprintf("unexpected output type: %T", stepCIResult.Output)
-		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
-			msg,
-			stepCIResult.Output,
+
+	appURL, ok := input.Config["app_url"].(string)
+	if !ok || appURL == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"app_url",
 			runMetadata,
 		)
+	}
+	checkEndpoint, ok := input.Config["check_endpoint"].(string)
+	if !ok || checkEndpoint == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"check_endpoint",
+			runMetadata,
+		)
+	}
+	stepCIPayload := activities.StepCIWorkflowActivityPayload{
+		Data: map[string]any{"session_id": payload.SessionID},
+	}
+	suite, ok := input.Config["memo"].(map[string]any)["author"].(string)
+	if !ok {
+		return workflowengine.WorkflowResult{},
+			workflowengine.NewMissingConfigError(
+				"author",
+				runMetadata,
+			)
+	}
+	cfg := StepCIAndEmailConfig{
+		AppURL:        appURL,
+		AppName:       input.Config["app_name"].(string),
+		AppLogo:       input.Config["app_logo"].(string),
+		UserName:      input.Config["user_name"].(string),
+		UserMail:      payload.UserMail,
+		Template:      template,
+		StepCIPayload: stepCIPayload,
+		Namespace:     input.Config["namespace"].(string),
+		RunMeta:       runMetadata,
+		Suite:         suite,
 	}
 
-	deepLink, ok := result["deep_link"].(string)
-	if !ok {
-		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
-			"deep_link",
-			stepCIResult.Output,
-			runMetadata,
-		)
+	result, err := RunStepCIAndSendMail(ctx, cfg)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, err
 	}
-	sessionID, ok = result["session_id"].(string)
+
+	sessionID, ok := result.Captures["session_id"].(string)
 	if !ok {
 		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 			"session_id",
-			stepCIResult.Output,
+			result.Captures,
 			runMetadata,
 		)
 	}
-	baseURL := input.Config["app_url"].(string) + "/tests/wallet/ewc"
-	u, err := url.Parse(baseURL)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
-		appErr := workflowengine.NewAppError(errCode, baseURL)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
-	}
-	query := u.Query()
-	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
-	query.Set("qr", deepLink)
-	query.Set("namespace", input.Config["namespace"].(string))
-	u.RawQuery = query.Encode()
-	emailActivity := activities.NewSendMailActivity()
 
-	emailInput := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"recipient": input.Payload["user_mail"].(string),
-			"subject":   "[CREDIMI] Action required to continue your conformance checks",
-			"template":  activities.ContinueConformanceCheckEmailTemplate,
-			"data": map[string]any{
-				"AppName":          input.Config["app_name"],
-				"AppLogo":          input.Config["app_logo"],
-				"UserName":         input.Config["user_name"],
-				"VerificationLink": u.String(),
-			},
-		},
-	}
-	err = emailActivity.Configure(&emailInput)
-	if err != nil {
-		logger.Error("Email activity configure failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
-	err = workflow.ExecuteActivity(ctx, emailActivity.Name(), emailInput).Get(ctx, nil)
-	if err != nil {
-		logger.Error("Failed to send mail to user ", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
-
-	startSignalChan := workflow.GetSignalChannel(ctx, EwcStartCheckSignal)
-	stopSignalChan := workflow.GetSignalChannel(ctx, EwcStopCheckSignal)
-	selector := workflow.NewSelector(ctx)
-	var isPolling bool
-	var timerFuture workflow.Future
-	var startTimer func()
-	startTimer = func() {
-		timerCtx, _ := workflow.WithCancel(ctx)
-		timerFuture = workflow.NewTimer(timerCtx, time.Second)
-		selector.AddFuture(timerFuture, func(_ workflow.Future) {
-			if isPolling {
-				startTimer()
-			}
-		})
-	}
-
-	for {
-		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalData struct{}
-			c.Receive(ctx, &signalData)
-			isPolling = true
-			startTimer()
-		})
-
-		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalData struct{}
-			c.Receive(ctx, &signalData)
-			isPolling = false
-		})
-
-		selector.Select(ctx)
-
-		if !isPolling {
-			continue
-		}
-
-		HTTPGetActivity := activities.NewHTTPActivity()
-		var response workflowengine.ActivityResult
-		HTTPInput := workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"method": "GET",
-				"url":    input.Config["check_endpoint"].(string),
-				"query_params": map[string]any{
-					"sessionId": sessionID,
-				},
-				"expected_status": 200,
-			},
-		}
-		err := workflow.ExecuteActivity(ctx, HTTPGetActivity.Name(), HTTPInput).Get(ctx, &response)
-		if err != nil {
-			logger.Error("HTTP GET failed", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				err,
-				runMetadata,
-			)
-		}
-		bodyJSON, err := json.Marshal(response.Output.(map[string]any)["body"])
-		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-			appErr := workflowengine.NewAppError(
-				errCode,
-				err.Error(),
-				response.Output.(map[string]any)["body"],
-			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				runMetadata,
-			)
-		}
-		var parsed EWCResponseBody
-		err = json.Unmarshal(bodyJSON, &parsed)
-		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
-			appErr := workflowengine.NewAppError(errCode, err.Error(), bodyJSON)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				appErr,
-				runMetadata,
-			)
-		}
-		errCode := errorcodes.Codes[errorcodes.EWCCheckFailed]
-		failedErr := workflowengine.NewAppError(errCode, parsed.Reason, parsed)
-		switch parsed.Status {
-		case "success":
-			return workflowengine.WorkflowResult{
-				Message: "EWC check completed successfully",
-				Log:     parsed.Claims,
-			}, nil
-
-		case "pending":
-			if parsed.Reason != "ok" {
-				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-					failedErr,
-					runMetadata,
-				)
-			}
-		case "failed":
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				failedErr,
-				runMetadata,
-			)
-
-		default:
-			failedErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"unexpected status from '%s': %s",
-					input.Config["check_endpoint"].(string),
-					parsed.Status,
-				),
-				parsed)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-				failedErr,
-				runMetadata,
-			)
-		}
-	}
+	interval := time.Second
+	workflowResult, err := pollEWCCheck(ctx, interval, checkEndpoint, sessionID, runMetadata)
+	return workflowResult, err
 }
 
 // Start initializes and starts the EWCWorkflow execution.
@@ -338,4 +194,188 @@ func (w *EWCWorkflow) Start(
 		namespace = input.Config["namespace"].(string)
 	}
 	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+}
+
+// EWCStatusWorkflow is a workflow that checks the status of an EWC check.
+type EWCStatusWorkflow struct{}
+
+// EWCStatusWorkflowPayload is the payload for the EWCStatusWorkflow.
+type EWCStatusWorkflowPayload struct {
+	SessionID string `json:"session_id"`
+}
+
+// Name returns the human-readable name for this workflow.
+func (EWCStatusWorkflow) Name() string {
+	return "Drain  EWC check status conformance endpoint"
+}
+
+// GetOptions returns the default activity options for this workflow.
+func (EWCStatusWorkflow) GetOptions() workflow.ActivityOptions {
+	return DefaultActivityOptions
+}
+
+// Workflow continuously polls EWC Status and pushes updates to the backend.
+// It can be paused/resumed by Temporal signals.
+func (w *EWCStatusWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
+
+	runMetadata := workflowengine.WorkflowErrorMetadata{
+		WorkflowName: w.Name(),
+		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
+		Namespace:    workflow.GetInfo(ctx).Namespace,
+		TemporalUI: fmt.Sprintf(
+			"%s/my/tests/runs/%s/%s",
+			input.Config["app_url"],
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			workflow.GetInfo(ctx).WorkflowExecution.RunID,
+		),
+	}
+
+	payload, err := workflowengine.DecodePayload[EWCStatusWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+	}
+
+	appURL, ok := input.Config["app_url"].(string)
+	if !ok || appURL == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"app_url",
+			runMetadata,
+		)
+	}
+
+	interval := time.Second
+	if v, ok := input.Config["interval"].(float64); ok {
+		interval = time.Duration(v)
+	}
+
+	checkEndpoint, ok := input.Config["check_endpoint"].(string)
+	if !ok || checkEndpoint == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"check_endpoint",
+			runMetadata,
+		)
+	}
+
+	result, err := pollEWCCheck(ctx, interval, checkEndpoint, payload.SessionID, runMetadata)
+	return result, err
+}
+
+func pollEWCCheck(
+	ctx workflow.Context,
+	interval time.Duration,
+	checkEndpoint string,
+	sessionID string,
+	runMetadata workflowengine.WorkflowErrorMetadata,
+) (workflowengine.WorkflowResult, error) {
+	logger := workflow.GetLogger(ctx)
+
+	startSignalChan := workflow.GetSignalChannel(ctx, EwcStartCheckSignal)
+	stopSignalChan := workflow.GetSignalChannel(ctx, EwcStopCheckSignal)
+	selector := workflow.NewSelector(ctx)
+
+	var isPolling bool
+	var timerFuture workflow.Future
+	var startTimer func()
+
+	startTimer = func() {
+		timerCtx, _ := workflow.WithCancel(ctx)
+		timerFuture = workflow.NewTimer(timerCtx, interval)
+		selector.AddFuture(timerFuture, func(_ workflow.Future) {
+			if isPolling {
+				startTimer()
+			}
+		})
+	}
+	httpInput := workflowengine.ActivityInput{
+		Payload: activities.HTTPActivityPayload{
+			Method: http.MethodGet,
+			URL:    checkEndpoint,
+			QueryParams: map[string]string{
+				"sessionId": sessionID,
+			},
+			ExpectedStatus: 200,
+		},
+	}
+	for {
+		// Listen for start signal
+		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+			var signalData struct{}
+			c.Receive(ctx, &signalData)
+			if !isPolling {
+				isPolling = true
+				startTimer()
+				logger.Info("EWC polling started")
+			}
+		})
+
+		// Listen for stop signal
+		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+			var signalData struct{}
+			c.Receive(ctx, &signalData)
+			isPolling = false
+			logger.Info("EWC polling stopped")
+		})
+
+		selector.Select(ctx)
+		if !isPolling {
+			continue
+		}
+
+		// Perform the HTTP GET to check endpoint
+		httpActivity := activities.NewHTTPActivity()
+		var response workflowengine.ActivityResult
+
+		err := workflow.ExecuteActivity(ctx, httpActivity.Name(), httpInput).Get(ctx, &response)
+		if err != nil {
+			logger.Error("EWC HTTP check failed", "error", err)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		}
+
+		bodyJSON, err := json.Marshal(response.Output.(map[string]any)["body"])
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
+			appErr := workflowengine.NewAppError(errCode, err.Error(), response.Output.(map[string]any)["body"])
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		}
+
+		var parsed EWCResponseBody
+		err = json.Unmarshal(bodyJSON, &parsed)
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
+			appErr := workflowengine.NewAppError(errCode, err.Error(), bodyJSON)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		}
+
+		errCode := errorcodes.Codes[errorcodes.EWCCheckFailed]
+		failedErr := workflowengine.NewAppError(errCode, parsed.Reason, parsed)
+
+		switch parsed.Status {
+		case "success":
+			return workflowengine.WorkflowResult{
+				Message: "EWC check completed successfully",
+				Log:     parsed.Claims,
+			}, nil
+
+		case "pending":
+			if parsed.Reason != "ok" {
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(failedErr, runMetadata)
+			}
+			// continue polling
+
+		case "failed":
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(failedErr, runMetadata)
+
+		default:
+			failedErr := workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("unexpected status from '%s': %s", checkEndpoint, parsed.Status),
+				parsed,
+			)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(failedErr, runMetadata)
+		}
+	}
 }

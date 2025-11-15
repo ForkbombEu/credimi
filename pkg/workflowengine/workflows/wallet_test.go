@@ -19,7 +19,7 @@ import (
 func Test_WalletWorkflow(t *testing.T) {
 	testCases := []struct {
 		name           string
-		payload        map[string]any
+		payload        WalletWorkflowPayload
 		config         map[string]any
 		expectError    bool
 		errorCode      errorcodes.Code
@@ -27,9 +27,8 @@ func Test_WalletWorkflow(t *testing.T) {
 	}{
 		{
 			name: "Valid Workflow Run (Google URL)",
-			payload: map[string]any{
-				"walletID": "12345",
-				"url":      "https://com.example.wallet",
+			payload: WalletWorkflowPayload{
+				URL: "https://com.example.wallet",
 			},
 			config: map[string]any{
 				"namespace": "namespace",
@@ -64,9 +63,8 @@ func Test_WalletWorkflow(t *testing.T) {
 		},
 		{
 			name: "Valid Workflow Run (Apple URL)",
-			payload: map[string]any{
-				"walletID": "12345",
-				"url":      "https://com.example.wallet",
+			payload: WalletWorkflowPayload{
+				URL: "https://com.example.wallet",
 			},
 			config: map[string]any{
 				"namespace": "namespace",
@@ -92,9 +90,8 @@ func Test_WalletWorkflow(t *testing.T) {
 		},
 		{
 			name: "Invalid Workflow Run",
-			payload: map[string]any{
-				"walletID": "12345",
-				"url":      "Invalid",
+			payload: WalletWorkflowPayload{
+				URL: "https://com.example.wallet",
 			},
 			config: map[string]any{
 				"namespace": "namespace",

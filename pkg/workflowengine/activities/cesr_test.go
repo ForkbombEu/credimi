@@ -102,8 +102,8 @@ func TestCESRParsing_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			payload := map[string]any{
-				"rawCESR": tt.rawCESR,
+			payload := CESRParsingActivityPayload{
+				RawCESR: tt.rawCESR,
 			}
 
 			input := workflowengine.ActivityInput{
@@ -180,22 +180,22 @@ func TestCESRValidate_Execute(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		payload          map[string]interface{}
+		payload          CesrValidateActivityPayload
 		expectedError    bool
 		expectedErrorMsg errorcodes.Code
 		expectedOutput   string
 	}{
 		{
 			name: "Success - validation correct",
-			payload: map[string]interface{}{
-				"events": ValidCRED,
+			payload: CesrValidateActivityPayload{
+				Events: ValidCRED,
 			},
 			expectedOutput: "1 credential bodies valid",
 		},
 		{
 			name: "Failure - validation fails",
-			payload: map[string]any{
-				"events": InvalidCRED,
+			payload: CesrValidateActivityPayload{
+				Events: InvalidCRED,
 			},
 			expectedError:    true,
 			expectedErrorMsg: errorcodes.Codes[errorcodes.CommandExecutionFailed],

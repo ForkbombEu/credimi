@@ -7,6 +7,7 @@ import (
 	"database/sql"
 	"errors"
 	"log"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 )
@@ -55,6 +56,27 @@ func MakeExistsFunc(
 //
 // The function takes a PocketBase application as a parameter, and registers the hooks for the specified collections.
 func RegisterCanonifyHooks(app core.App) {
+
+	app.OnRecordEnrich("marketplace_items").BindFunc(func(e *core.RecordEnrichEvent) error {
+		colType := e.Record.GetString("type")
+		colType = strings.Trim(colType, `"`)
+		tpl := CanonifyPaths[colType]
+		col, err := e.App.FindCollectionByNameOrId(colType)
+		if err != nil {
+			return err
+		}
+		rec, err := e.App.FindRecordById(col.Name, e.Record.Id)
+		if err != nil {
+			return err
+		}
+		path, err := BuildPath(e.App, rec, tpl, "")
+		if err != nil {
+			return err
+		}
+		e.Record.WithCustomData(true)
+		e.Record.Set("__canonified_path__", path)
+		return e.Next()
+	})
 	for col, tpl := range CanonifyPaths {
 		app.OnRecordCreateRequest(col).BindFunc(func(e *core.RecordRequestEvent) error {
 			e.Record.Set(tpl.CanonifiedField, "")
@@ -89,6 +111,16 @@ func RegisterCanonifyHooks(app core.App) {
 				return err
 			}
 			e.Record.Set(tpl.CanonifiedField, canonName)
+			return e.Next()
+		})
+
+		app.OnRecordEnrich(col).BindFunc(func(e *core.RecordEnrichEvent) error {
+			path, err := BuildPath(e.App, e.Record, tpl, "")
+			if err != nil {
+				return err
+			}
+			e.Record.WithCustomData(true)
+			e.Record.Set("__canonified_path__", path)
 			return e.Next()
 		})
 	}

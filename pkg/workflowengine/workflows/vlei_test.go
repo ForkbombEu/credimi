@@ -19,7 +19,7 @@ import (
 func Test_VLEIValidationWorkflow(t *testing.T) {
 	testCases := []struct {
 		name           string
-		payload        map[string]any
+		payload        VLEIValidationWorkflowPayload
 		config         map[string]any
 		expectError    bool
 		errorCode      errorcodes.Code
@@ -28,8 +28,8 @@ func Test_VLEIValidationWorkflow(t *testing.T) {
 	}{
 		{
 			name: "Valid Workflow Run",
-			payload: map[string]any{
-				"credentialID": "12345",
+			payload: VLEIValidationWorkflowPayload{
+				CredentialID: "12345",
 			},
 			config: map[string]any{
 				"server_url": "http://example.com",
@@ -65,8 +65,8 @@ func Test_VLEIValidationWorkflow(t *testing.T) {
 		},
 		{
 			name: "Invalid Workflow Run",
-			payload: map[string]any{
-				"credentialID": "12345",
+			payload: VLEIValidationWorkflowPayload{
+				CredentialID: "12345",
 			},
 			config: map[string]any{
 				"server_url": "http://example.com",
@@ -135,7 +135,7 @@ func Test_VLEIValidationWorkflow(t *testing.T) {
 func Test_VLEIValidationLocalWorkflow(t *testing.T) {
 	testCases := []struct {
 		name           string
-		payload        map[string]any
+		payload        VLEIValidationLocalWorkflowPayload
 		config         map[string]any
 		schema         string
 		expectError    bool
@@ -145,9 +145,8 @@ func Test_VLEIValidationLocalWorkflow(t *testing.T) {
 	}{
 		{
 			name: "Valid Workflow Run",
-			payload: map[string]any{
-				"credentialID": "12345",
-				"rawCESR":      `[{"test": "test", "v": "A12345"}]`,
+			payload: VLEIValidationLocalWorkflowPayload{
+				CESR: `[{"test": "test", "v": "A12345"}]`,
 			},
 			config: map[string]any{
 				"app_url": "http://app.example.com",
@@ -174,9 +173,8 @@ func Test_VLEIValidationLocalWorkflow(t *testing.T) {
 		},
 		{
 			name: "Invalid Workflow Run",
-			payload: map[string]any{
-				"credentialID": "12345",
-				"rawCESR":      `[{"test": "test", "v": "A12345"}]`,
+			payload: VLEIValidationLocalWorkflowPayload{
+				CESR: `[{"test": "test", "v": "A12345"}]`,
 			},
 			config: map[string]any{
 				"server_url": "http://example.com",

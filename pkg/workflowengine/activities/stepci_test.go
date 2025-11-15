@@ -26,7 +26,7 @@ func TestStepCIActivity_Configure(t *testing.T) {
 	tests := []struct {
 		name             string
 		config           map[string]string
-		payload          map[string]any
+		payload          StepCIWorkflowActivityPayload
 		expectedYAML     string
 		expectError      bool
 		expectedErrorMsg errorcodes.Code
@@ -36,8 +36,10 @@ func TestStepCIActivity_Configure(t *testing.T) {
 			config: map[string]string{
 				"template": `hello: [[ .name ]]`,
 			},
-			payload: map[string]any{
-				"name": "world",
+			payload: StepCIWorkflowActivityPayload{
+				Data: map[string]any{
+					"name": "world",
+				},
 			},
 			expectedYAML: "hello: world",
 		},
@@ -51,8 +53,10 @@ func TestStepCIActivity_Configure(t *testing.T) {
 			name: "Failure - invalid template syntax",
 			config: map[string]string{
 				"template": `[[ .name ]`},
-			payload: map[string]any{
-				"name": "bad",
+			payload: StepCIWorkflowActivityPayload{
+				Data: map[string]any{
+					"name": "bad",
+				},
 			},
 			expectError:      true,
 			expectedErrorMsg: errorcodes.Codes[errorcodes.TemplateRenderFailed],
@@ -76,9 +80,9 @@ func TestStepCIActivity_Configure(t *testing.T) {
 				}
 			} else {
 				require.NoError(t, err)
-				yaml, ok := input.Payload["yaml"].(string)
-				require.True(t, ok, "expected payload to contain string field 'yaml'")
-				require.Equal(t, tc.expectedYAML, strings.TrimSpace(yaml))
+				payload, err := workflowengine.DecodePayload[StepCIWorkflowActivityPayload](input.Payload)
+				require.NoError(t, err)
+				require.Equal(t, tc.expectedYAML, strings.TrimSpace(payload.Yaml))
 			}
 		})
 	}
@@ -123,7 +127,7 @@ func TestStepCIActivity_Execute(t *testing.T) {
 
 	tests := []struct {
 		name             string
-		payload          map[string]any
+		payload          StepCIWorkflowActivityPayload
 		expectedError    bool
 		expectedErrorMsg errorcodes.Code
 		expectedCaptures any
@@ -131,8 +135,8 @@ func TestStepCIActivity_Execute(t *testing.T) {
 	}{
 		{
 			name: "Success - valid execution",
-			payload: map[string]any{
-				"yaml": `
+			payload: StepCIWorkflowActivityPayload{
+				Yaml: `
 version: "1.1"
 tests:
   example:
@@ -155,29 +159,32 @@ tests:
             test:
               jsonpath: $.id
 `,
-				"secrets": map[string]string{"test_secret": "https://httpbin.org/status/404"},
+				Secrets: map[string]string{"test_secret": "https://httpbin.org/status/404"},
 			},
 
 			expectedCaptures: map[string]any{"test": float64(1)},
 		},
 		{
 			name: "Failure - missing runner binary",
-			payload: map[string]any{
-				"yaml": "version: 1.0",
+			payload: StepCIWorkflowActivityPayload{
+				Yaml: "version: 1.0",
 			},
 			expectedError:    true,
 			expectedErrorMsg: errorcodes.Codes[errorcodes.StepCIRunFailed],
 		},
 		{
-			name:             "Failure - incorrect secrets",
-			payload:          map[string]any{"yaml": "version: 1.0", "secrets": map[string]string{"wrongToken": "invalid-token"}},
+			name: "Failure - incorrect secrets",
+			payload: StepCIWorkflowActivityPayload{
+				Yaml:    "version: 1.0",
+				Secrets: map[string]string{"wrongToken": "invalid-token"},
+			},
 			expectedError:    true,
 			expectedErrorMsg: errorcodes.Codes[errorcodes.StepCIRunFailed],
 		},
 		{
 			name: "Failure - stepCI fails",
-			payload: map[string]any{
-				"yaml": `
+			payload: StepCIWorkflowActivityPayload{
+				Yaml: `
 version: "1.1"
 tests:
   example:
@@ -198,7 +205,7 @@ tests:
             test:
               jsonpath: $
 `,
-				"secrets": map[string]string{"test_secret": "https://httpbin.org/status/404"},
+				Secrets: map[string]string{"test_secret": "https://httpbin.org/status/404"},
 			},
 			expectedError:    true,
 			expectedErrorMsg: errorcodes.Codes[errorcodes.StepCIRunFailed],
@@ -211,7 +218,7 @@ tests:
 			require.NoError(t, err, "Failed to create temporary YAML file")
 			defer os.Remove(tmpYAMLFile.Name()) // Ensure the file is removed after the test
 
-			_, err = tmpYAMLFile.WriteString(tc.payload["yaml"].(string))
+			_, err = tmpYAMLFile.WriteString(tc.payload.Yaml)
 			require.NoError(t, err, "Failed to write to temporary YAML file")
 			activity := &StepCIWorkflowActivity{}
 			input := workflowengine.ActivityInput{

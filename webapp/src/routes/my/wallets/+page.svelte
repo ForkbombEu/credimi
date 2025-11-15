@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { yamlStringSchema } from '$lib/utils';
-	import { UploadIcon } from 'lucide-svelte';
+	import { EyeIcon, UploadIcon } from 'lucide-svelte';
 	import { z } from 'zod';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
@@ -57,6 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<DashboardCard
 					{record}
 					avatar={(w) => (w.logo ? pb.files.getURL(w, w.logo) : w.logo_url)}
+					path={[organization.canonified_name, record.canonified_name]}
 				>
 					{#snippet content()}
 						{@const conformanceChecks = record.conformance_checks as
@@ -139,7 +140,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 
 		{#snippet records({ records })}
-			<DashboardCardManagerUI {records} nameField="tag" hideClone>
+			<DashboardCardManagerUI
+				{records}
+				nameField="tag"
+				hideClone
+				path={(r) => [
+					organization.canonified_name,
+					props.wallet.canonified_name,
+					r.canonified_tag
+				]}
+			>
 				{#snippet actions({ record })}
 					<div class="flex items-center gap-1">
 						{#if record.ios_installer}
@@ -167,7 +177,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				code: yamlStringSchema as unknown as z.ZodString
 			})}
 		formFieldsOptions={{
-			exclude: ['owner', 'canonified_name'],
+			exclude: ['owner', 'canonified_name', 'result'],
 			hide: { wallet: props.wallet.id, owner: props.ownerId },
 			snippets: { code: codeField },
 			placeholders: {
@@ -189,9 +199,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<DashboardCardManagerUI
 				{records}
 				nameField="name"
-				textToCopy={(record) =>
-					`${organization.canonified_name}/${props.wallet.canonified_name}/${record.canonified_name}`}
-			/>
+				path={(r) => [
+					organization.canonified_name,
+					props.wallet.canonified_name,
+					r.canonified_name
+				]}
+			>
+				{#snippet actions({ record })}
+					{#if record.result}
+						<Button
+							size="sm"
+							variant="outline"
+							class="h-8 border border-blue-500"
+							href={pb.files.getURL(record, record.result)}
+							target="_blank"
+						>
+							<EyeIcon />
+							View result
+						</Button>
+					{/if}
+				{/snippet}
+			</DashboardCardManagerUI>
 		{/snippet}
 	</CollectionManager>
 {/snippet}

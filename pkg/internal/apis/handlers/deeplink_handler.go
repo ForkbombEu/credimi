@@ -64,8 +64,8 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 				MaximumAttempts:    1},
 		}
 		input := workflowengine.WorkflowInput{
-			Payload: map[string]any{
-				"yaml": body.Yaml,
+			Payload: workflows.CustomCheckWorkflowPayload{
+				Yaml: body.Yaml,
 			},
 			Config: map[string]any{
 				"memo":    memo,

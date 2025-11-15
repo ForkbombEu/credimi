@@ -11,14 +11,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts" generics="R extends BaseSystemFields">
 	import type { Snippet } from 'svelte';
 
+	import { path as makePath } from '$lib/utils';
+
 	import type { StringKey } from '@/utils/types';
 
 	import { RecordClone, RecordDelete, RecordEdit } from '@/collections-components/manager';
-	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import T from '@/components/ui-custom/t.svelte';
-	import Tooltip from '@/components/ui-custom/tooltip.svelte';
-	import { m } from '@/i18n';
 
 	import LabelLink from './label-link.svelte';
 	import PublishedSwitch from './published-switch.svelte';
@@ -30,38 +28,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		nameField: StringKey<R>;
 		fallbackNameField?: StringKey<R>;
 		publicUrl?: string;
-		textToCopy?: string;
 		actions?: Snippet;
 		hideClone?: boolean;
+		path: string[];
 	};
 
-	let { record, nameField, fallbackNameField, publicUrl, textToCopy, actions, hideClone }: Props =
+	let { record, nameField, fallbackNameField, publicUrl, actions, hideClone, path }: Props =
 		$props();
 
 	const name = $derived(
 		// @ts-expect-error - Slight type mismatch
 		(record[nameField] as string) || (record[fallbackNameField as string] as string)
 	);
+
+	const published = $derived(
+		'published' in record && typeof record.published === 'boolean' ? record.published : false
+	);
 </script>
 
 <li class="bg-muted flex items-center justify-between rounded-md p-2 pl-3 pr-2 hover:ring-2">
-	{#if publicUrl && 'published' in record && typeof record.published === 'boolean'}
-		<LabelLink label={name} href={publicUrl} published={record.published} />
-	{:else}
-		<T class="font-medium">{record[nameField] as string}</T>
-	{/if}
+	<LabelLink label={name} href={publicUrl} {published} textToCopy={makePath(path)} />
 
 	<div class="flex items-center gap-2">
 		{@render actions?.()}
-
-		{#if textToCopy}
-			<Tooltip>
-				<CopyButtonSmall {textToCopy} square />
-				{#snippet content()}
-					<p>{m.Copy()}: {textToCopy}</p>
-				{/snippet}
-			</Tooltip>
-		{/if}
 
 		{#if 'published' in record && typeof record.published === 'boolean'}
 			<PublishedSwitch
