@@ -50,7 +50,7 @@ func HandleVerificationDeeplink() func(*core.RequestEvent) error {
 			return apierror.New(
 				http.StatusNotFound,
 				"resolve",
-				"failed to resolve credential path",
+				"failed to resolve verification path",
 				err.Error(),
 			).JSON(e)
 		}
