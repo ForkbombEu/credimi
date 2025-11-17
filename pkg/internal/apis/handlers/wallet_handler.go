@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -51,10 +52,10 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	Routes: []routing.RouteDefinition{
 		{
 			Method:         http.MethodPost,
-			Path:           "/get-apk-md5",
+			Path:           "/get-apk-md5-or-etag",
 			Handler:        HandleWalletGetMD5,
-			RequestSchema:  WalletMD5Request{},
-			ResponseSchema: WalletMD5Response{},
+			RequestSchema:  WalletMD5OrETagRequest{},
+			ResponseSchema: WalletMD5OrETagResponse{},
 		},
 		{
 			Method:  http.MethodPost,
@@ -196,21 +197,21 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 	}
 }
 
-type WalletMD5Request struct {
+type WalletMD5OrETagRequest struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	WalletIdentifier        string `json:"wallet_identifier"`
 }
 
-type WalletMD5Response struct {
+type WalletMD5OrETagResponse struct {
 	AndroidInstaller  string `json:"apk_name"`
-	MD5               string `json:"md5"`
+	ApkIdentifier     string `json:"apk_identifier"`
 	RecordID          string `json:"record_id"`
 	VersionIdentifier string `json:"version_id"`
 }
 
 func HandleWalletGetMD5() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		var req WalletMD5Request
+		var req WalletMD5OrETagRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
 			return apis.NewBadRequestError("invalid JSON input", err)
 		}
@@ -246,13 +247,13 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		// Get MD5 from PocketBase's file metadata
-		md5Hash, err := getFileMD5FromPocketBase(e.App, versionRecord, androidInstaller)
+		// Get MD5 or ETag from PocketBase's file metadata
+		identifier, err := getFileMD5OrETagFromPocketBase(e.App, versionRecord, androidInstaller)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"filesystem",
-				"failed to get file MD5",
+				"failed to get file MD5 or ETag",
 				err.Error(),
 			).JSON(e)
 		}
@@ -261,10 +262,10 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 			versionIdentifier = fmt.Sprintf("%s:%s", req.WalletIdentifier, versionRecord.GetString("canonified_tag"))
 		}
 
-		return e.JSON(http.StatusOK, WalletMD5Response{
+		return e.JSON(http.StatusOK, WalletMD5OrETagResponse{
 			AndroidInstaller:  androidInstaller,
 			RecordID:          versionRecord.Id,
-			MD5:               md5Hash,
+			ApkIdentifier:     identifier,
 			VersionIdentifier: versionIdentifier,
 		})
 	}
@@ -304,8 +305,8 @@ func getVersionRecord(app core.App, versionIdentifier, walletIdentifier string) 
 	return versionRecords[0], nil
 }
 
-// getFileMD5FromPocketBase retrieves the MD5 hash from PocketBase's file metadata
-func getFileMD5FromPocketBase(app core.App, record *core.Record, filename string) (string, error) {
+// getFileMD5orEtagFromPocketBase retrieves the MD5 hash or ETag from PocketBase's file metadata
+func getFileMD5OrETagFromPocketBase(app core.App, record *core.Record, filename string) (string, error) {
 	fsys, err := app.NewFilesystem()
 	if err != nil {
 		return "", err
@@ -317,10 +318,16 @@ func getFileMD5FromPocketBase(app core.App, record *core.Record, filename string
 	if err != nil {
 		return "", err
 	}
+	if attrs == nil {
+		return "", fmt.Errorf("missing file attributes for %s", filePath)
+	}
+	if attrs.ETag != "" {
+		return strings.Trim(attrs.ETag, `"`), nil
+	}
 	if attrs.MD5 != nil {
 		return hex.EncodeToString(attrs.MD5), nil
 	}
-	return "", err
+	return "", nil
 }
 
 func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
