@@ -208,9 +208,9 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				"issuer_schema": credIssuerSchemaStr,
 				"orgID":         organization,
 			},
-			Payload: map[string]any{
-				"issuerID": record.Id,
-				"base_url": req.URL,
+			Payload: workflows.CredentialsIssuersWorkflowPayload{
+				IssuerID: record.Id,
+				BaseURL:  req.URL,
 			},
 			ActivityOptions: &opt,
 		}

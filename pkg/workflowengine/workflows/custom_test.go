@@ -18,7 +18,7 @@ import (
 func Test_CustomCheckWorkflow(t *testing.T) {
 	testCases := []struct {
 		name           string
-		inputPayload   map[string]any
+		inputPayload   CustomCheckWorkflowPayload
 		mockActivities func(env *testsuite.TestWorkflowEnvironment)
 		expectedErr    bool
 		errorCode      errorcodes.Code
@@ -26,8 +26,8 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 	}{
 		{
 			name: "Workflow succeeds when yaml is provided in payload",
-			inputPayload: map[string]any{
-				"yaml": "test-yaml-content",
+			inputPayload: CustomCheckWorkflowPayload{
+				Yaml: "test-yaml-content",
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
@@ -44,8 +44,8 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 		},
 		{
 			name: "Workflow fetches yaml via HTTP when only id is provided",
-			inputPayload: map[string]any{
-				"id": "custom-check-id",
+			inputPayload: CustomCheckWorkflowPayload{
+				ID: "custom-check-id",
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
@@ -75,7 +75,7 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 		},
 		{
 			name:         "Workflow fails when yaml missing in HTTP response",
-			inputPayload: map[string]any{"id": "broken-id"},
+			inputPayload: CustomCheckWorkflowPayload{ID: "broken-id"},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{

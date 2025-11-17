@@ -35,7 +35,8 @@ path = [
     "webapp/src/modules/i18n/paraglide/.prettierignore",
     "webapp/static/emails/_emailData.d.ts",
     "webapp/static/hero.png",
-    "webapp/static/pages/**/*"
+    "webapp/static/pages/**/*",
+    "webapp/src/lib/workflows/queries.test.json"
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Forkbomb BV"

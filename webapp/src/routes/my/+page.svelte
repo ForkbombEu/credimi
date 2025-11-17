@@ -37,8 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			testRunsSection.id,
 			testRunsSection.icon,
 			testRunsSection.label,
-			testRunsSection.textClass,
-			'sm:col-span-2'
+			testRunsSection.textClass
 		)}
 	</div>
 </div>

@@ -40,7 +40,7 @@ type SaveVariablesAndStartRequestInput struct {
 
 type openID4VPTestInputFile struct {
 	Variant  json.RawMessage `json:"variant" yaml:"variant" validate:"required,oneof=json variables yaml"`
-	Form     any             `json:"form"    yaml:"form"`
+	Form     workflows.Form  `json:"form"    yaml:"form"`
 	TestName string          `json:"test" yaml:"test" validate:"required"`
 }
 type vLEICheckInput struct {
@@ -112,7 +112,11 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		appName := e.App.Settings().Meta.AppName
-		logoUrl := fmt.Sprintf("%s/logos/%s_logo-transp_emblem.png", appURL, strings.ToLower(appName))
+		logoUrl := fmt.Sprintf(
+			"%s/logos/%s_logo-transp_emblem.png",
+			appURL,
+			strings.ToLower(appName),
+		)
 		userName := e.Auth.GetString("name")
 
 		protocol := e.Request.PathValue("protocol")
@@ -398,11 +402,11 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 	}
 
 	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"variant":   string(parsedData.Variant),
-			"form":      parsedData.Form,
-			"test_name": parsedData.TestName,
-			"user_mail": email,
+		Payload: workflows.OpenIDNetWorkflowPayload{
+			Variant:  string(parsedData.Variant),
+			Form:     parsedData.Form,
+			TestName: parsedData.TestName,
+			UserMail: email,
 		},
 		Config: map[string]any{
 			"app_url":   appURL,
@@ -470,9 +474,9 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 		)
 	}
 	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"session_id": parsedData.SessionID,
-			"user_mail":  email,
+		Payload: workflows.EWCWorkflowPayload{
+			SessionID: parsedData.SessionID,
+			UserMail:  email,
 		},
 		Config: map[string]any{
 			"app_url":        appURL,
@@ -526,10 +530,10 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 		)
 	}
 	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"nonce":     parsedData.Nonce,
-			"id":        parsedData.ID,
-			"user_mail": email,
+		Payload: workflows.EudiwWorkflowPayload{
+			Nonce:    parsedData.Nonce,
+			ID:       parsedData.ID,
+			UserMail: email,
 		},
 		Config: map[string]any{
 			"app_url":   appURL,
@@ -604,11 +608,11 @@ func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, 
 	input := workflowengine.WorkflowInput{
 		Config: map[string]any{
 			"app_url":    appURL,
-			"server_url": parsedData.ServerURL, // TODO update with the real one
+			"server_url": parsedData.ServerURL,
 			"memo":       memo,
 		},
-		Payload: map[string]any{
-			"credentialID": parsedData.CredentialID,
+		Payload: workflows.VLEIValidationWorkflowPayload{
+			CredentialID: parsedData.CredentialID,
 		},
 	}
 
@@ -777,8 +781,8 @@ func processCustomChecks(
 	}
 
 	input := workflowengine.WorkflowInput{
-		Payload: map[string]any{
-			"yaml": yaml,
+		Payload: workflows.CustomCheckWorkflowPayload{
+			Yaml: yaml,
 		},
 		Config: map[string]any{
 			"memo":    memo,

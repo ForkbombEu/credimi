@@ -102,8 +102,6 @@ components:
         workflow_id:
           type: string
       type: object
-    DecodedWorkflowSearchAttributes:
-      type: object
     Duration:
       additionalProperties: false
       properties:
@@ -217,7 +215,7 @@ components:
       properties:
         executions:
           items:
-            $ref: '#/components/schemas/WorkflowExecution'
+            $ref: '#/components/schemas/WorkflowExecutionSummary'
           type: array
       type: object
     ListMyChecksResponse:
@@ -227,7 +225,7 @@ components:
       properties:
         executions:
           items:
-            $ref: '#/components/schemas/WorkflowExecution'
+            $ref: '#/components/schemas/WorkflowExecutionSummary'
           type: array
       type: object
     Memo:
@@ -237,22 +235,6 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/Payload'
           type: object
-      type: object
-    MessageState:
-      additionalProperties: false
-      properties:
-        details:
-          type: string
-        state:
-          type: string
-      type: object
-    MostRecentWorkflowVersionStamp:
-      additionalProperties: false
-      properties:
-        useVersioning:
-          type: boolean
-        workflowVersionTimestamp:
-          type: string
       type: object
     Payload:
       additionalProperties: false
@@ -412,76 +394,6 @@ components:
         useVersioning:
           type: boolean
       type: object
-    WorkflowExecution:
-      additionalProperties: false
-      properties:
-        assignedBuildId:
-          type: string
-        callbacks:
-          $ref: '#/components/schemas/Callbacks'
-        canBeTerminated:
-          type: boolean
-        defaultWorkflowTaskTimeout:
-          $ref: '#/components/schemas/Duration'
-        details:
-          $ref: '#/components/schemas/Payload'
-        endTime:
-          type: string
-        executionTime:
-          type: string
-        historyEvents:
-          type: string
-        historySizeBytes:
-          type: string
-        id:
-          type: string
-        isRunning:
-          type: boolean
-        memo:
-          $ref: '#/components/schemas/Memo'
-        mostRecentWorkerVersionStamp:
-          $ref: '#/components/schemas/MostRecentWorkflowVersionStamp'
-        name:
-          type: string
-        parent:
-          $ref: '#/components/schemas/WorkflowIdentifier'
-        parentNamespaceId:
-          type: string
-        pendingActivities:
-          items:
-            $ref: '#/components/schemas/PendingActivityInfo'
-          type: array
-        pendingChildren:
-          items:
-            $ref: '#/components/schemas/PendingChildren'
-          type: array
-        pendingNexusOperations:
-          items:
-            $ref: '#/components/schemas/PendingNexusOperation'
-          type: array
-        pendingWorkflowTask:
-          $ref: '#/components/schemas/PendingWorkflowTaskInfo'
-        rootExecution:
-          $ref: '#/components/schemas/WorkflowIdentifier'
-        runId:
-          type: string
-        searchAttributes:
-          $ref: '#/components/schemas/DecodedWorkflowSearchAttributes'
-        startTime:
-          type: string
-        stateTransitionCount:
-          type: string
-        status:
-          $ref: '#/components/schemas/MessageState'
-        summary:
-          $ref: '#/components/schemas/Payload'
-        taskQueue:
-          type: string
-        url:
-          type: string
-        versioningInfo:
-          $ref: '#/components/schemas/VersioningInfo'
-      type: object
     WorkflowExecutionConfigWithMetadata:
       additionalProperties: false
       properties:
@@ -528,6 +440,26 @@ components:
         versioningInfo:
           $ref: '#/components/schemas/VersioningInfo'
       type: object
+    WorkflowExecutionSummary:
+      additionalProperties: false
+      properties:
+        children:
+          items:
+            $ref: '#/components/schemas/WorkflowExecutionSummary'
+          type: array
+        displayName:
+          type: string
+        endTime:
+          type: string
+        execution:
+          $ref: '#/components/schemas/WorkflowIdentifier'
+        startTime:
+          type: string
+        status:
+          type: string
+        type:
+          $ref: '#/components/schemas/WorkflowType'
+      type: object
     WorkflowIdentifier:
       additionalProperties: false
       properties:
@@ -537,6 +469,12 @@ components:
           type: string
       type: object
     WorkflowSearchAttributes:
+      type: object
+    WorkflowType:
+      additionalProperties: false
+      properties:
+        name:
+          type: string
       type: object
 info:
   contact:

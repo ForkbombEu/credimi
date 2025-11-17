@@ -29,6 +29,18 @@ type DockerActivity struct {
 	workflowengine.BaseActivity
 }
 
+// DockerActivityInput is the input payload for the Docker activity.
+type DockerActivityPayload struct {
+	Image         string                    `json:"image" yaml:"image" validate:"required"`
+	Cmd           []string                  `json:"cmd,omitempty" yaml:"cmd,omitempty"`
+	User          string                    `json:"user,omitempty" yaml:"user,omitempty"`
+	Env           []string                  `json:"env,omitempty" yaml:"env,omitempty"`
+	Ports         []string                  `json:"ports,omitempty" yaml:"ports,omitempty"`
+	Mounts        []string                  `json:"mounts,omitempty" yaml:"mounts,omitempty"`
+	ContainerName string                    `json:"containerName,omitempty" yaml:"containerName,omitempty"`
+	NetworkConfig *network.NetworkingConfig `json:"networkConfig,omitempty" yaml:"networkConfig,omitempty"`
+}
+
 func NewDockerActivity() *DockerActivity {
 	return &DockerActivity{
 		BaseActivity: workflowengine.BaseActivity{
@@ -57,15 +69,10 @@ func (a *DockerActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
 
-	imageRaw, ok := input.Payload["image"].(string)
-	if !ok || imageRaw == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'image'", errCode.Description),
-		)
+	payload, err := workflowengine.DecodePayload[DockerActivityPayload](input.Payload)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
-
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerClientCreationFailed]
@@ -76,33 +83,23 @@ func (a *DockerActivity) Execute(
 	}
 	defer cli.Close()
 
-	out, err := cli.ImagePull(ctx, imageRaw, image.PullOptions{})
+	out, err := cli.ImagePull(ctx, payload.Image, image.PullOptions{})
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerPullImageFailed]
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			imageRaw,
+			payload.Image,
 		)
 	}
 	defer out.Close()
 	io.Copy(io.Discard, out)
 
-	cmd := workflowengine.AsSliceOfStrings(input.Payload["cmd"])
-	user, _ := input.Payload["user"].(string)
-	env := workflowengine.AsSliceOfStrings(input.Payload["env"])
-	ports := workflowengine.AsSliceOfStrings(input.Payload["ports"])
-	mounts := workflowengine.AsSliceOfStrings(input.Payload["mounts"])
-	containerName, ok := input.Payload["containerName"].(string)
-	if !ok {
-		containerName = ""
-	}
-
 	hostIP := input.Config["HostIP"]
 	if hostIP == "" {
 		hostIP = "0.0.0.0" // Default to "0.0.0.0" if not provided
 	}
-	exposedPorts, portBindings, err := buildPortMappings(hostIP, ports)
+	exposedPorts, portBindings, err := buildPortMappings(hostIP, payload.Ports)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewActivityError(
@@ -111,16 +108,11 @@ func (a *DockerActivity) Execute(
 		)
 	}
 
-	var networkConfig *network.NetworkingConfig
-	if rawNetworkConfig, ok := input.Payload["networkConfig"].(*network.NetworkingConfig); ok {
-		networkConfig = rawNetworkConfig
-	}
-
 	config := &container.Config{
-		Image:        imageRaw,
-		Cmd:          cmd,
-		User:         user,
-		Env:          env,
+		Image:        payload.Image,
+		Cmd:          payload.Cmd,
+		User:         payload.User,
+		Env:          payload.Env,
 		ExposedPorts: exposedPorts,
 		AttachStdout: true,
 		AttachStderr: true,
@@ -128,19 +120,19 @@ func (a *DockerActivity) Execute(
 
 	hostConfig := &container.HostConfig{
 		PortBindings: portBindings,
-		Binds:        mounts,
+		Binds:        payload.Mounts,
 	}
 
-	resp, err := cli.ContainerCreate(ctx, config, hostConfig, networkConfig, nil, containerName)
+	resp, err := cli.ContainerCreate(ctx, config, hostConfig, payload.NetworkConfig, nil, payload.ContainerName)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerCreateContainerFailed]
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			containerName,
+			payload.ContainerName,
 			config,
 			hostConfig,
-			networkConfig,
+			payload.NetworkConfig,
 		)
 	}
 
@@ -149,10 +141,10 @@ func (a *DockerActivity) Execute(
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			containerName,
+			resp.ID,
 			config,
 			hostConfig,
-			networkConfig,
+			payload.NetworkConfig,
 		)
 	}
 

@@ -69,6 +69,14 @@ type StepCIWorkflowActivity struct {
 	workflowengine.BaseActivity
 }
 
+// StepCIWorkflowActivityPayload is the input for the StepCIWorkflowActivity
+type StepCIWorkflowActivityPayload struct {
+	Yaml    string            `json:"yaml" yaml:"yaml"`
+	Data    map[string]any    `json:"data,omitempty" yaml:"data,omitempty"`
+	Secrets map[string]string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
+	Env     string            `json:"env,omitempty" yaml:"env,omitempty"`
+}
+
 func NewStepCIWorkflowActivity() *StepCIWorkflowActivity {
 	return &StepCIWorkflowActivity{
 		BaseActivity: workflowengine.BaseActivity{
@@ -89,8 +97,11 @@ func (a *StepCIWorkflowActivity) Configure(input *workflowengine.ActivityInput) 
 			errCode.Description+": 'template'",
 		)
 	}
-
-	rendered, err := RenderYAML(yamlString, input.Payload)
+	payload, err := workflowengine.DecodePayload[StepCIWorkflowActivityPayload](input.Payload)
+	if err != nil {
+		return a.NewMissingOrInvalidPayloadError(err)
+	}
+	rendered, err := RenderYAML(yamlString, payload.Data)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.TemplateRenderFailed]
 		return a.NewActivityError(
@@ -99,7 +110,8 @@ func (a *StepCIWorkflowActivity) Configure(input *workflowengine.ActivityInput) 
 		)
 	}
 
-	input.Payload["yaml"] = rendered
+	payload.Yaml = rendered
+	input.Payload = payload
 	return nil
 }
 
@@ -109,20 +121,14 @@ func (a *StepCIWorkflowActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
 
-	yamlContent, ok := input.Payload["yaml"].(string)
-
-	if !ok || yamlContent == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'yaml", errCode.Description),
-		)
+	payload, err := workflowengine.DecodePayload[StepCIWorkflowActivityPayload](input.Payload)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
-	secrets := make(map[string]any)
-	s, ok := input.Payload["secrets"].(map[string]any)
-	if ok {
-		secrets = s
+	secrets := make(map[string]string)
+	if payload.Secrets != nil {
+		secrets = payload.Secrets
 	}
 	secretBytes, err := json.Marshal(secrets)
 	if err != nil {
@@ -135,11 +141,10 @@ func (a *StepCIWorkflowActivity) Execute(
 	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	binName := "stepci-captured-runner"
 	binPath := fmt.Sprintf("%s/%s", binDir, binName)
-	args := []string{yamlContent, "-s", string(secretBytes)}
+	args := []string{payload.Yaml, "-s", string(secretBytes)}
 
-	yamlEnv, _ := input.Payload["env"].(string)
-	if yamlEnv != "" {
-		args = append(args, "--env", yamlEnv)
+	if payload.Env != "" {
+		args = append(args, "--env", payload.Env)
 	}
 
 	cmd := exec.CommandContext(ctx, binPath, args...)

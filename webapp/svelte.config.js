@@ -14,6 +14,7 @@ const config = {
 			$lib: './src/lib',
 			$zencode: './client_zencode',
 			'$start-checks-form': './src/lib/start-checks-form',
+			'$pipeline-form': './src/lib/pipeline-form',
 			$root: '..'
 		},
 		version: { name: process.env.npm_package_version }

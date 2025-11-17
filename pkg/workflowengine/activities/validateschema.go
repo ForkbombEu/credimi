@@ -20,6 +20,13 @@ type SchemaValidationActivity struct {
 	*workflowengine.BaseActivity
 }
 
+// SchemaValidationActivityPayload is the input payload for the SchemaValidationActivity.
+type SchemaValidationActivityPayload struct {
+	Schema    string         `json:"schema" yaml:"schema" validate:"required"`
+	Data      map[string]any `json:"data" yaml:"data" validate:"required"`
+	SubSchema any            `json:"subschema,omitempty" yaml:"subschema,omitempty"`
+}
+
 func NewSchemaValidationActivity() *SchemaValidationActivity {
 	return &SchemaValidationActivity{
 		BaseActivity: &workflowengine.BaseActivity{
@@ -41,24 +48,14 @@ func (a *SchemaValidationActivity) Execute(
 	compiler := jsonschema.NewCompiler()
 	schemaID := "/schema.json"
 
-	schemaStr, ok := input.Payload["schema"].(string)
-	if !ok {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'schema' must be a string", errCode.Description),
-		)
+	payload, err := workflowengine.DecodePayload[SchemaValidationActivityPayload](input.Payload)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
 
-	data, ok := input.Payload["data"].(map[string]any)
-	if !ok {
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: 'data'", errCode.Description),
-		)
-	}
 	var subSchemaStrs []string
-	if v, ok := input.Payload["subschema"]; ok {
-		switch subs := v.(type) {
+	if payload.SubSchema != nil {
+		switch subs := payload.SubSchema.(type) {
 		case string:
 			subSchemaStrs = []string{subs}
 		case []interface{}:
@@ -82,12 +79,12 @@ func (a *SchemaValidationActivity) Execute(
 
 	errCodeUnMarshal := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
 	errCodeInvalidSchema := errorcodes.Codes[errorcodes.InvalidSchema]
-	mainSchema, err := jsonschema.UnmarshalJSON(strings.NewReader(schemaStr))
+	mainSchema, err := jsonschema.UnmarshalJSON(strings.NewReader(payload.Schema))
 	if err != nil {
 		return result, a.NewActivityError(
 			errCodeUnMarshal.Code,
 			fmt.Sprintf("%s: %v", errCodeUnMarshal.Description, err),
-			schemaStr,
+			payload.Schema,
 		)
 	}
 	for i, sub := range subSchemaStrs {
@@ -125,7 +122,7 @@ func (a *SchemaValidationActivity) Execute(
 		)
 	}
 
-	rawBytes, err := json.Marshal(data)
+	rawBytes, err := json.Marshal(payload.Data)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
 		return result, a.NewActivityError(
@@ -156,7 +153,7 @@ func (a *SchemaValidationActivity) Execute(
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			data,
+			payload.Data,
 		)
 	}
 

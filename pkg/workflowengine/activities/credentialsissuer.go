@@ -30,6 +30,10 @@ type CheckCredentialsIssuerActivity struct {
 	workflowengine.BaseActivity
 }
 
+type CheckCredentialsIssuerActivityPayload struct {
+	BaseURL string `json:"base_url" yaml:"base_url" validate:"required"`
+}
+
 func NewCheckCredentialsIssuerActivity() *CheckCredentialsIssuerActivity {
 	return &CheckCredentialsIssuerActivity{
 		BaseActivity: workflowengine.BaseActivity{
@@ -77,17 +81,12 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	result := workflowengine.ActivityResult{}
 
-	baseURL, ok := input.Payload["base_url"].(string)
-	if !ok || baseURL == "" {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		if !ok {
-			return result, a.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s: 'baseURL'", errCode.Description),
-			)
-		}
+	payload, err := workflowengine.DecodePayload[CheckCredentialsIssuerActivityPayload](input.Payload)
+	if err != nil {
+		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
-	cleanURL := TrimInput(baseURL)
+
+	cleanURL := TrimInput(payload.BaseURL)
 	if !strings.HasPrefix(cleanURL, "https://") && !strings.HasPrefix(cleanURL, "http://") {
 		cleanURL = "https://" + cleanURL
 	}
@@ -103,7 +102,7 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 			return workflowengine.ActivityResult{
 				Output: map[string]any{
 					"rawJSON":  federationJSON,
-					"base_url": baseURL,
+					"base_url": payload.BaseURL,
 					"source":   ".well-known/openid-federation",
 				},
 			}, nil
@@ -133,7 +132,7 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 	return workflowengine.ActivityResult{
 		Output: map[string]any{
 			"rawJSON":  issuerJSON,
-			"base_url": baseURL,
+			"base_url": payload.BaseURL,
 			"source":   ".well-known/openid-credential-issuer",
 		},
 	}, nil

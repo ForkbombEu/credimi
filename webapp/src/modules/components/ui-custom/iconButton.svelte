@@ -5,20 +5,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { SetFieldType } from 'type-fest';
-
-	import { Record } from 'effect';
 	import { X } from 'lucide-svelte';
 
 	import type { IconComponent } from '../types';
 	import type { ButtonProps } from '../ui/button';
 
-	import Button from '../ui/button/button.svelte';
+	import Button from './button.svelte';
 	import Icon from './icon.svelte';
 
 	//
 
-	type ButtonSize = 'md' | 'sm' | 'lg';
+	type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
 
 	interface Props extends Omit<ButtonProps, 'size'> {
 		icon?: IconComponent;
@@ -35,6 +32,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	const configs: Record<ButtonSize, ButtonConfig> = {
+		xs: {
+			iconSize: 14,
+			sizeClass: 'size-6'
+		},
 		sm: {
 			iconSize: 16,
 			sizeClass: 'size-8'
@@ -52,6 +53,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const currentConfig = $derived(configs[size]);
 </script>
 
-<Button variant="outline" {...rest} size="icon" class="{currentConfig.sizeClass} {rest.class}">
+<Button variant="outline" {...rest} size="icon" class={[currentConfig.sizeClass, rest.class]}>
 	<Icon src={icon ?? X} size={currentConfig.iconSize} />
 </Button>

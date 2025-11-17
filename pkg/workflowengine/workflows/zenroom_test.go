@@ -46,7 +46,7 @@ Then print the data
 Given I have a 'string' named 'broken'
 `,
 			expectError:     true,
-			expectErrorCode: errorcodes.Codes[errorcodes.ZenroomExecutionFailed],
+			expectErrorCode: errorcodes.Codes[errorcodes.CommandExecutionFailed],
 		},
 	}
 
@@ -65,18 +65,22 @@ Given I have a 'string' named 'broken'
 				Name: zenroomActivity.Name(),
 			})
 
-			input := workflowengine.WorkflowInput{
-				Payload: map[string]any{
-					"contract": tc.contract,
-				},
+			payload := ZenroomWorkflowPayload{
+				Contract: tc.contract,
 			}
-			if tc.keys != "" {
-				input.Payload["keys"] = tc.keys
-			}
-			if tc.data != "" {
-				input.Payload["data"] = tc.data
+			if tc.contract != "" {
+				payload.Contract = tc.contract
 			}
 
+			if tc.keys != "" {
+				payload.Keys = tc.keys
+			}
+			if tc.data != "" {
+				payload.Data = tc.data
+			}
+			input := workflowengine.WorkflowInput{
+				Payload: payload,
+			}
 			env.ExecuteWorkflow(w.Name(), input)
 
 			var result workflowengine.WorkflowResult
@@ -85,7 +89,7 @@ Given I have a 'string' named 'broken'
 			if tc.expectError {
 				require.Error(t, err, "Expected an error but got none")
 				require.Contains(t, err.Error(), tc.expectErrorCode.Code)
-				require.Contains(t, err.Error(), tc.expectErrorCode.Description)
+				require.Contains(t, err.Error(), "Docker command failed")
 			} else {
 				require.NoError(t, err, "Expected no error but got one")
 				for _, key := range tc.expectOutputs {

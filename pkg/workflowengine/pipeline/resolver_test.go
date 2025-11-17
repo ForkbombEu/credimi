@@ -13,27 +13,27 @@ import (
 func TestMergeConfigs(t *testing.T) {
 	tests := []struct {
 		name     string
-		global   map[string]string
-		step     map[string]string
-		expected map[string]string
+		global   map[string]any
+		step     map[string]any
+		expected map[string]any
 	}{
 		{
 			name:     "step overrides global",
-			global:   map[string]string{"a": "1", "b": "2"},
-			step:     map[string]string{"b": "3"},
-			expected: map[string]string{"a": "1", "b": "3"},
+			global:   map[string]any{"a": "1", "b": "2"},
+			step:     map[string]any{"b": "3"},
+			expected: map[string]any{"a": "1", "b": "3"},
 		},
 		{
 			name:     "empty step",
-			global:   map[string]string{"a": "1"},
-			step:     map[string]string{},
-			expected: map[string]string{"a": "1"},
+			global:   map[string]any{"a": "1"},
+			step:     map[string]any{},
+			expected: map[string]any{"a": "1"},
 		},
 		{
 			name:     "empty global",
-			global:   map[string]string{},
-			step:     map[string]string{"c": "x"},
-			expected: map[string]string{"c": "x"},
+			global:   map[string]any{},
+			step:     map[string]any{"c": "x"},
+			expected: map[string]any{"c": "x"},
 		},
 	}
 
@@ -211,133 +211,74 @@ func TestResolveExpressions(t *testing.T) {
 	}
 }
 
-func TestCastType(t *testing.T) {
-	tests := []struct {
-		name     string
-		val      any
-		typeStr  string
-		expected any
-		wantErr  bool
-	}{
-		{"string from int", 42, "string", "42", false},
-		{"string from string", "hello", "string", "hello", false},
-		{"int from string", "123", "int", 123, false},
-		{"int from int", 99, "int", 99, false},
-		{"int invalid string", "abc", "int", nil, true},
-		{"map success", map[string]any{"a": 1}, "map", map[string]any{"a": 1}, false},
-		{"map invalid", "notmap", "map", nil, true},
-		{"slice of string", []any{"a", "b"}, "[]string", []string{"a", "b"}, false},
-		{"slice of map", []any{map[string]any{"x": 1}}, "[]map", []map[string]any{{"x": 1}}, false},
-		{"bytes from string", "data", "[]byte", []byte("data"), false},
-		{"bytes from []byte", []byte("ok"), "[]byte", []byte("ok"), false},
-		{"bytes invalid", 123, "[]byte", nil, true},
-		{"unknown type returns original", 42, "unknown", 42, false},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := castType(tc.val, tc.typeStr)
-			if tc.wantErr {
-				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.expected, got)
-			}
-		})
-	}
-}
 func TestResolveInputs(t *testing.T) {
-	type testCase struct {
+	tests := []struct {
 		name            string
 		step            StepDefinition
-		globalCfg       map[string]string
+		globalCfg       map[string]any
 		ctx             map[string]any
 		wantErr         bool
 		expectedPayload map[string]any
-		expectedConfig  map[string]string
-	}
-
-	tests := []testCase{
+		expectedConfig  map[string]any
+	}{
 		{
-			name: "payload from value",
+			name: "payload from scalar value",
 			step: StepDefinition{
 				With: StepInputs{
-					Config: map[string]string{
-						"key": "value",
-					},
-					Payload: map[string]InputSource{
-						"p": {Value: "data"},
-					},
+					Config:  map[string]any{"key": "value"},
+					Payload: map[string]any{"p": "data"},
 				},
 			},
-			globalCfg: map[string]string{"g": "G"},
+			globalCfg: map[string]any{"g": "G"},
 			ctx:       map[string]any{},
 			expectedPayload: map[string]any{
 				"p": "data",
 			},
-			expectedConfig: map[string]string{
+			expectedConfig: map[string]any{
 				"key": "value",
 				"g":   "G",
 			},
 		},
 		{
-			name: "payload int conversion from string",
+			name: "payload int",
 			step: StepDefinition{
 				With: StepInputs{
-					Payload: map[string]InputSource{
-						"num": {Value: "123", Type: "int"},
-					},
+					Payload: map[string]any{"num": 123},
 				},
 			},
 			ctx: map[string]any{},
 			expectedPayload: map[string]any{
 				"num": 123,
 			},
-			expectedConfig: map[string]string{},
+			expectedConfig: map[string]any{},
 		},
 		{
 			name: "payload expression resolution",
 			step: StepDefinition{
 				With: StepInputs{
-					Payload: map[string]InputSource{
-						"val": {Value: "${{ ctx.key }}"},
-					},
+					Payload: map[string]any{"val": "${{ ctx.key }}"},
 				},
 			},
 			ctx: map[string]any{"ctx": map[string]any{"key": "ok"}},
 			expectedPayload: map[string]any{
 				"val": "ok",
 			},
-			expectedConfig: map[string]string{},
-		},
-		{
-			name: "type cast failure (cannot cast map to int)",
-			step: StepDefinition{
-				With: StepInputs{
-					Payload: map[string]InputSource{
-						"num": {Value: map[string]any{}, Type: "int"},
-					},
-				},
-			},
-			ctx:     map[string]any{},
-			wantErr: true,
+			expectedConfig: map[string]any{},
 		},
 		{
 			name: "nested payload map and array expressions",
 			step: StepDefinition{
 				With: StepInputs{
-					Payload: map[string]InputSource{
-						"nested": {
-							Value: map[string]any{
-								"level1": map[string]any{
-									"level2": map[string]any{
-										"value": "${{ ctx.key }}",
-									},
+					Payload: map[string]any{
+						"nested": map[string]any{
+							"level1": map[string]any{
+								"level2": map[string]any{
+									"value": "${{ ctx.key }}",
 								},
-								"array": []any{
-									"${{ ctx.key }}",
-									"static",
-								},
+							},
+							"array": []any{
+								"${{ ctx.key }}",
+								"static",
 							},
 						},
 					},
@@ -354,20 +295,23 @@ func TestResolveInputs(t *testing.T) {
 					"array": []any{99, "static"},
 				},
 			},
-			expectedConfig: map[string]string{},
+			expectedConfig: map[string]any{},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			payload, cfg, err := ResolveInputs(tc.step, tc.globalCfg, tc.ctx)
+			step := tc.step
+
+			err := ResolveInputs(&step, tc.globalCfg, tc.ctx)
 			if tc.wantErr {
 				require.Error(t, err)
-			} else {
-				require.NoError(t, err)
-				require.Equal(t, tc.expectedPayload, payload)
-				require.Equal(t, tc.expectedConfig, cfg)
+				return
 			}
+			require.NoError(t, err)
+
+			require.Equal(t, tc.expectedPayload, step.With.Payload)
+			require.Equal(t, tc.expectedConfig, step.With.Config)
 		})
 	}
 }

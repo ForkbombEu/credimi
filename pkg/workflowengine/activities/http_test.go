@@ -26,7 +26,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 	tests := []struct {
 		name            string
 		handlerFunc     http.HandlerFunc
-		input           workflowengine.ActivityInput
+		payload         HTTPActivityPayload
 		expectError     bool
 		expectedErrCode errorcodes.Code
 		expectStatus    int
@@ -38,11 +38,9 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(`{"message": "ok"}`))
 			},
-			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"method": "GET",
-					"url":    "", // Set dynamically
-				},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "", // Set dynamically
 			},
 			expectStatus:   http.StatusOK,
 			expectResponse: map[string]any{"message": "ok"},
@@ -57,16 +55,14 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				w.WriteHeader(http.StatusCreated)
 				json.NewEncoder(w).Encode(map[string]any{"received": payload["key"]})
 			},
-			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"method": "POST",
-					"url":    "",
-					"headers": map[string]any{
-						"Content-Type": "application/json",
-					},
-					"body": map[string]any{
-						"key": "value",
-					},
+			payload: HTTPActivityPayload{
+				Method: http.MethodPost,
+				URL:    "",
+				Headers: map[string]string{
+					"Content-Type": "application/json",
+				},
+				Body: map[string]any{
+					"key": "value",
 				},
 			},
 			expectStatus:   http.StatusCreated,
@@ -77,12 +73,10 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			handlerFunc: func(_ http.ResponseWriter, _ *http.Request) {
 				time.Sleep(2 * time.Second)
 			},
-			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"method":  "GET",
-					"url":     "",
-					"timeout": "1",
-				},
+			payload: HTTPActivityPayload{
+				Method:  http.MethodGet,
+				URL:     "",
+				Timeout: "1",
 			},
 			expectError:     true,
 			expectedErrCode: errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed],
@@ -92,11 +86,9 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
 				w.Write([]byte("plain response"))
 			},
-			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"method": "GET",
-					"url":    "",
-				},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
 			},
 			expectStatus:   http.StatusOK,
 			expectResponse: "plain response",
@@ -109,13 +101,11 @@ func TestHTTPActivity_Execute(t *testing.T) {
 				w.WriteHeader(http.StatusOK)
 				_, _ = w.Write([]byte(`{"message": "query received"}`))
 			},
-			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"method": "GET",
-					"url":    "", // Set dynamically
-					"query_params": map[string]any{
-						"key": "value",
-					},
+			payload: HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL:    "",
+				QueryParams: map[string]string{
+					"key": "value",
 				},
 			},
 			expectStatus:   http.StatusOK,
@@ -126,12 +116,10 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 			},
-			input: workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"expected_status": http.StatusOK,
-					"method":          "GET",
-					"url":             "",
-				},
+			payload: HTTPActivityPayload{
+				ExpectedStatus: http.StatusOK,
+				Method:         http.MethodGet,
+				URL:            "",
 			},
 			expectError:     true,
 			expectedErrCode: errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode],
@@ -143,12 +131,15 @@ func TestHTTPActivity_Execute(t *testing.T) {
 			if tt.handlerFunc != nil {
 				server := httptest.NewServer(tt.handlerFunc)
 				defer server.Close()
-				tt.input.Payload["url"] = server.URL
+				tt.payload.URL = server.URL
 			}
 
 			a := HTTPActivity{}
 			var result workflowengine.ActivityResult
-			future, err := env.ExecuteActivity(a.Execute, tt.input)
+			input := workflowengine.ActivityInput{
+				Payload: tt.payload,
+			}
+			future, err := env.ExecuteActivity(a.Execute, input)
 
 			if tt.expectError {
 				require.Error(t, err)
