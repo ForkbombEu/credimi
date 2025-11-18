@@ -18,7 +18,7 @@ import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDe
 //
 
 type Props = {
-	mode: 'create' | 'edit';
+	mode: 'create' | 'edit' | 'view';
 	pipeline?: PipelineData;
 };
 
@@ -40,7 +40,12 @@ export class PipelineForm {
 		});
 
 		this.metadataForm = new MetadataForm({
-			initialData: props.pipeline?.metadata
+			initialData: props.mode === 'view' ? undefined : props.pipeline?.metadata,
+			onSubmit: async () => {
+				if (!this.saveAfterMetadataFormSubmit) return;
+				await this.save();
+				this.saveAfterMetadataFormSubmit = false;
+			}
 		});
 	}
 
@@ -58,9 +63,14 @@ export class PipelineForm {
 
 	//
 
+	private saveAfterMetadataFormSubmit = $state(false);
+
 	async save() {
 		if (!this.metadataForm.value) {
 			this.metadataForm.isOpen = true;
+			if (this.props.mode === 'create' || this.props.mode === 'view') {
+				this.saveAfterMetadataFormSubmit = true;
+			}
 		} else {
 			const data: Omit<PipelinesFormData, 'owner'> = {
 				...this.metadataForm.value,

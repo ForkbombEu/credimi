@@ -23,6 +23,8 @@ export type PipelineData = {
 	metadata: Metadata;
 	steps: BuilderStep[];
 	activityOptions: ActivityOptions;
+	yaml: string;
+	description: string;
 };
 
 export async function fetchPipeline(id: string, options = { fetch }): Promise<PipelineData> {
@@ -44,7 +46,9 @@ export async function fetchPipeline(id: string, options = { fetch }): Promise<Pi
 		id,
 		metadata,
 		activityOptions,
-		steps: deserializedSteps
+		steps: deserializedSteps,
+		yaml: baseData.yaml,
+		description: baseData.description
 	};
 }
 

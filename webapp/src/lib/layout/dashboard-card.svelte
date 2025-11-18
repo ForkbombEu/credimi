@@ -43,6 +43,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		actions?: Snippet;
 		editAction?: Snippet;
 		path: string[];
+		hideDelete?: boolean;
+		hidePublish?: boolean;
 	};
 
 	let {
@@ -54,7 +56,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		badge,
 		actions,
 		editAction,
-		path
+		path,
+		hideDelete = false,
+		hidePublish = false
 	}: Props = $props();
 
 	//
@@ -108,15 +112,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 		<div class="flex items-center gap-2">
 			{@render actions?.()}
-			<PublishedSwitch record={record as DashboardRecord} field="published" />
+			{#if !hidePublish}
+				<PublishedSwitch record={record as DashboardRecord} field="published" />
+			{/if}
 			{#if editAction}
 				{@render editAction()}
 			{:else}
 				<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
 				<RecordEdit record={record as any} />
 			{/if}
-			<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
-			<RecordDelete record={record as any} />
+			{#if !hideDelete}
+				<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+				<RecordDelete record={record as any} />
+			{/if}
 		</div>
 	</div>
 

@@ -51,6 +51,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return { filter: `type = 'verifiers' || type = 'use_cases_verifications'` };
 			case 'custom-checks':
 				return { filter: `type = 'custom_checks'` };
+			case 'pipelines':
+				return { filter: `type = 'pipelines'` };
 			default:
 				return {};
 		}

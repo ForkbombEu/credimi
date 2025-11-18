@@ -11,6 +11,7 @@ import {
 	Key,
 	Layers,
 	Layers3,
+	ListOrdered,
 	QrCode,
 	ScanEye,
 	SquareStackIcon
@@ -114,6 +115,11 @@ export const sections = {
 		icon: Code,
 		anchor: 'workflow_yaml',
 		label: m.Workflow_YAML()
+	},
+	pipeline_steps: {
+		icon: ListOrdered,
+		anchor: 'pipeline_steps',
+		label: m.Steps_sequence()
 	},
 	versions: {
 		icon: SquareStackIcon,
