@@ -73,7 +73,8 @@ const marketplaceTypeToSectionId: Record<MarketplaceItemType, SectionId> = {
 	verifiers: 'verifiers-and-use-case-verifications',
 	custom_checks: 'custom-checks',
 	use_cases_verifications: 'verifiers-and-use-case-verifications',
-	credentials: 'credential-issuers-and-credentials'
+	credentials: 'credential-issuers-and-credentials',
+	pipelines: 'pipelines'
 };
 
 export function marketplaceItemToSectionHref(item: MarketplaceItem): string {

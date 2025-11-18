@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { error } from '@sveltejs/kit';
 import { fetchPipeline } from '$lib/pipeline-form/serde.js';
+import { error } from '@sveltejs/kit';
 
 //
 
@@ -29,6 +29,11 @@ function getModeFromParam(param: string) {
 	if (parts.length == 2 && parts[0] == 'edit') {
 		return {
 			mode: 'edit' as const,
+			id: parts[1]
+		};
+	} else if (parts.length == 2 && parts[0] == 'view') {
+		return {
+			mode: 'view' as const,
 			id: parts[1]
 		};
 	} else if (parts.length == 1 && parts[0] == 'new') {

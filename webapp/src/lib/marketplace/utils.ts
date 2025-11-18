@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { CheckCheck, CheckCircle, QrCode, ShieldCheck, Users, Wallet } from 'lucide-svelte';
+import { CheckCheck, CheckCircle, QrCode, ShieldCheck, Users, Wallet, WaypointsIcon } from 'lucide-svelte';
 import { z } from 'zod';
 
 import type { CollectionName } from '@/pocketbase/collections-models';
@@ -26,7 +26,8 @@ export const marketplaceItemTypes = [
 	'credentials',
 	'verifiers',
 	'use_cases_verifications',
-	'custom_checks'
+	'custom_checks',
+	'pipelines'
 ] as const satisfies CollectionName[];
 
 export const marketplaceItemTypeSchema = z.enum(marketplaceItemTypes);
@@ -122,6 +123,15 @@ export const marketplaceItemsDisplayConfig = {
 		backgroundClass: 'bg-[hsl(var(--orange-background))]',
 		outlineClass: 'border-[hsl(var(--orange-outline))]',
 		icon: CheckCircle
+	},
+	pipelines: {
+		label: m.Pipeline(),
+		labelPlural: m.Pipelines(),
+		bgClass: 'bg-orange-600',
+		textClass: 'text-orange-600',
+		backgroundClass: 'bg-orange-100',
+		outlineClass: 'border-orange-600',
+		icon: WaypointsIcon
 	}
 } satisfies MarketplaceItemsDisplayConfig;
 
@@ -145,7 +155,12 @@ export function getMarketplaceItemData(item: MarketplaceItem) {
 	const href = getMarketplaceItemUrl(item);
 
 	const logo = item.avatar_file
-		? pb.files.getURL({ collectionName: item.type, id: item.id }, item.avatar_file)
+		? pb.files.getURL(
+				item.type === 'pipelines'
+					? { collectionName: 'organizations', id: item.organization_id }
+					: { collectionName: item.type, id: item.id },
+				item.avatar_file
+			)
 		: item.avatar_url
 			? item.avatar_url
 			: undefined;

@@ -17,7 +17,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { cloneRecord } from '@/pocketbase/utils';
 
-	type CloneableCollections = 'wallet_actions' | 'credentials' | 'use_cases_verifications';
+	type CloneableCollections =
+		| 'wallet_actions'
+		| 'credentials'
+		| 'use_cases_verifications'
+		| 'pipelines';
 
 	//
 
@@ -60,6 +64,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return 'Credential';
 			case 'use_cases_verifications':
 				return 'Verification Use Case';
+			case 'pipelines':
+				return 'Pipeline';
 			default:
 				return 'Record';
 		}

@@ -771,6 +771,7 @@
 	"Copy_canonified_name": "Copy canonified name",
 	"No_deeplink_available": "No deeplink available",
 	"Processing_YAML_configuration": "Processing YAML configuration...",
+	"Pipeline": "Pipeline",
 	"Pipelines": "Pipelines",
 	"New_pipeline": "New pipeline",
 	"Edit_pipeline": "Edit pipeline",
