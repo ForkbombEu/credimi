@@ -81,11 +81,6 @@ func (w *PipelineWorkflow) Workflow(
 		appErr := workflowengine.NewAppError(errCode, "no workflow definition or block provided")
 		return result, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
-	for _, hook := range setupHooks {
-		if err := hook(ctx, &steps, input.WorkflowInput); err != nil {
-			return result, workflowengine.NewWorkflowError(err, runMetadata)
-		}
-	}
 	defer func() {
 		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
 		for _, hook := range cleanupHooks {
@@ -94,6 +89,11 @@ func (w *PipelineWorkflow) Workflow(
 			}
 		}
 	}()
+	for _, hook := range setupHooks {
+		if err := hook(ctx, &steps, input.WorkflowInput); err != nil {
+			return result, workflowengine.NewWorkflowError(err, runMetadata)
+		}
+	}
 	var previousStepID string
 	for _, step := range steps {
 
