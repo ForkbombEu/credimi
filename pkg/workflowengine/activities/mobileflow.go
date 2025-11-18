@@ -93,6 +93,10 @@ func (a *ApkInstallActivity) Execute(
 				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
 				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
 			},
+			"TempFileCreationFailed": {
+				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
+				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
+			},
 		},
 		CommandContext: exec.CommandContext,
 	}
