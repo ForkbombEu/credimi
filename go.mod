@@ -107,11 +107,7 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/firefart/nonamedreturns v1.0.6 // indirect
-<<<<<<< HEAD
-	github.com/forkbombeu/avdctl v0.0.0-20251112131033-d0667fb23574 // indirect
-=======
 	github.com/forkbombeu/avdctl v0.0.0-20251113154628-afb901fbc33e // indirect
->>>>>>> main
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect

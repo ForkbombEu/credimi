@@ -2,7 +2,15 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { CheckCheck, CheckCircle, QrCode, ShieldCheck, Users, Wallet, WaypointsIcon } from 'lucide-svelte';
+import {
+	CheckCheck,
+	CheckCircle,
+	QrCode,
+	ShieldCheck,
+	Users,
+	Wallet,
+	WaypointsIcon
+} from 'lucide-svelte';
 import { z } from 'zod';
 
 import type { CollectionName } from '@/pocketbase/collections-models';

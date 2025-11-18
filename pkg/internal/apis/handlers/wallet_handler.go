@@ -52,17 +52,10 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	Routes: []routing.RouteDefinition{
 		{
 			Method:         http.MethodPost,
-<<<<<<< HEAD
-			Path:           "/get-apk-md5",
-			Handler:        HandleWalletGetMD5,
-			RequestSchema:  WalletMD5Request{},
-			ResponseSchema: WalletMD5Response{},
-=======
 			Path:           "/get-apk-md5-or-etag",
 			Handler:        HandleWalletGetMD5,
 			RequestSchema:  WalletMD5OrETagRequest{},
 			ResponseSchema: WalletMD5OrETagResponse{},
->>>>>>> main
 		},
 		{
 			Method:  http.MethodPost,
@@ -204,35 +197,21 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 	}
 }
 
-<<<<<<< HEAD
-type WalletMD5Request struct {
-=======
 type WalletMD5OrETagRequest struct {
->>>>>>> main
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	WalletIdentifier        string `json:"wallet_identifier"`
 }
 
-<<<<<<< HEAD
-type WalletMD5Response struct {
-	AndroidInstaller  string `json:"apk_name"`
-	MD5               string `json:"md5"`
-=======
 type WalletMD5OrETagResponse struct {
 	AndroidInstaller  string `json:"apk_name"`
 	ApkIdentifier     string `json:"apk_identifier"`
->>>>>>> main
 	RecordID          string `json:"record_id"`
 	VersionIdentifier string `json:"version_id"`
 }
 
 func HandleWalletGetMD5() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-<<<<<<< HEAD
-		var req WalletMD5Request
-=======
 		var req WalletMD5OrETagRequest
->>>>>>> main
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
 			return apis.NewBadRequestError("invalid JSON input", err)
 		}
@@ -268,22 +247,13 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-<<<<<<< HEAD
-		// Get MD5 from PocketBase's file metadata
-		md5Hash, err := getFileMD5FromPocketBase(e.App, versionRecord, androidInstaller)
-=======
 		// Get MD5 or ETag from PocketBase's file metadata
 		identifier, err := getFileMD5OrETagFromPocketBase(e.App, versionRecord, androidInstaller)
->>>>>>> main
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"filesystem",
-<<<<<<< HEAD
-				"failed to get file MD5",
-=======
 				"failed to get file MD5 or ETag",
->>>>>>> main
 				err.Error(),
 			).JSON(e)
 		}
@@ -292,17 +262,10 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 			versionIdentifier = fmt.Sprintf("%s:%s", req.WalletIdentifier, versionRecord.GetString("canonified_tag"))
 		}
 
-<<<<<<< HEAD
-		return e.JSON(http.StatusOK, WalletMD5Response{
-			AndroidInstaller:  androidInstaller,
-			RecordID:          versionRecord.Id,
-			MD5:               md5Hash,
-=======
 		return e.JSON(http.StatusOK, WalletMD5OrETagResponse{
 			AndroidInstaller:  androidInstaller,
 			RecordID:          versionRecord.Id,
 			ApkIdentifier:     identifier,
->>>>>>> main
 			VersionIdentifier: versionIdentifier,
 		})
 	}
@@ -342,13 +305,8 @@ func getVersionRecord(app core.App, versionIdentifier, walletIdentifier string) 
 	return versionRecords[0], nil
 }
 
-<<<<<<< HEAD
-// getFileMD5FromPocketBase retrieves the MD5 hash from PocketBase's file metadata
-func getFileMD5FromPocketBase(app core.App, record *core.Record, filename string) (string, error) {
-=======
 // getFileMD5orEtagFromPocketBase retrieves the MD5 hash or ETag from PocketBase's file metadata
 func getFileMD5OrETagFromPocketBase(app core.App, record *core.Record, filename string) (string, error) {
->>>>>>> main
 	fsys, err := app.NewFilesystem()
 	if err != nil {
 		return "", err
@@ -360,12 +318,6 @@ func getFileMD5OrETagFromPocketBase(app core.App, record *core.Record, filename 
 	if err != nil {
 		return "", err
 	}
-<<<<<<< HEAD
-	if attrs.MD5 != nil {
-		return hex.EncodeToString(attrs.MD5), nil
-	}
-	return "", err
-=======
 	if attrs == nil {
 		return "", fmt.Errorf("missing file attributes for %s", filePath)
 	}
@@ -376,7 +328,6 @@ func getFileMD5OrETagFromPocketBase(app core.App, record *core.Record, filename 
 		return hex.EncodeToString(attrs.MD5), nil
 	}
 	return "", nil
->>>>>>> main
 }
 
 func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
