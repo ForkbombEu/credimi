@@ -7,13 +7,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { runWithLoading } from '$lib/utils';
-	import { CogIcon, Pencil, PlayIcon, Plus } from 'lucide-svelte';
+	import { CogIcon, Eye, Pencil, PlayIcon, Plus } from 'lucide-svelte';
 
 	import type { PipelinesResponse } from '@/pocketbase/types';
 
-	import { CollectionManager } from '@/collections-components';
+	import { CollectionManager, RecordClone } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
@@ -40,33 +41,93 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<CollectionManager collection="pipelines">
-	{#snippet records({ records })}
-		<div class="space-y-4">
-			{#each records as pipeline (pipeline.id)}
-				<DashboardCard
-					record={pipeline}
-					avatar={() => pb.files.getURL(organization, organization.logo)}
-					path={[organization.canonified_name, pipeline.canonified_name]}
-				>
-					{#snippet editAction()}
-						<Button onclick={() => runPipeline(pipeline)}>
-							<PlayIcon />{m.Run_now()}
-						</Button>
-						<Button
-							href="/my/pipelines/settings-{pipeline.id}"
-							variant="outline"
-							size="icon"
-						>
-							<CogIcon />
-						</Button>
-						<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} />
-					{/snippet}
-				</DashboardCard>
-			{/each}
-		</div>
-	{/snippet}
-</CollectionManager>
+<!-- Your Pipelines Section -->
+<div class="mb-8">
+	<T tag="h2" class="mb-4 text-lg font-semibold">{m.My()} {m.Pipelines()}</T>
+	<CollectionManager
+		collection="pipelines"
+		queryOptions={{
+			filter: `owner = '${organization.id}'`,
+			sort: ['created', 'DESC']
+		}}
+		hide={['pagination']}
+	>
+		{#snippet records({ records })}
+			<div class="space-y-4">
+				{#each records as pipeline (pipeline.id)}
+					<DashboardCard
+						record={pipeline}
+						avatar={() => pb.files.getURL(organization, organization.logo)}
+						path={[organization.canonified_name, pipeline.canonified_name]}
+						badge={m.Yours()}
+					>
+						{#snippet editAction()}
+							<Button onclick={() => runPipeline(pipeline)}>
+								<PlayIcon />{m.Run_now()}
+							</Button>
+							<Button
+								href="/my/pipelines/settings-{pipeline.id}"
+								variant="outline"
+								size="icon"
+							>
+								<CogIcon />
+							</Button>
+							<RecordClone record={pipeline} collectionName="pipelines" />
+							<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} />
+						{/snippet}
+					</DashboardCard>
+				{/each}
+			</div>
+		{/snippet}
+
+		{#snippet emptyState({ EmptyState })}
+			<EmptyState
+				title={m.No_items_here()}
+				description={m.Start_by_adding_a_record_to_this_collection_()}
+			/>
+		{/snippet}
+	</CollectionManager>
+</div>
+
+<!-- Other Pipelines Section -->
+<div>
+	<T tag="h2" class="mb-4 text-lg font-semibold">{m.All()} {m.Pipelines()}</T>
+	<CollectionManager
+		collection="pipelines"
+		queryOptions={{
+			filter: `owner != '${organization.id}'`,
+			sort: ['created', 'DESC'],
+			expand: ['owner']
+		}}
+		hide={['pagination', 'empty_state']}
+	>
+		{#snippet records({ records })}
+			<div class="space-y-4">
+				{#each records as pipeline (pipeline.id)}
+					{@const ownerOrg = pipeline.expand?.owner}
+					<DashboardCard
+						record={pipeline}
+						avatar={() =>
+							ownerOrg
+								? pb.files.getURL(ownerOrg, ownerOrg.logo)
+								: pb.files.getURL(organization, organization.logo)}
+						path={[organization.canonified_name, pipeline.canonified_name]}
+						hideDelete={true}
+						hidePublish={true}
+					>
+						{#snippet editAction()}
+							<Button onclick={() => runPipeline(pipeline)}>
+								<PlayIcon />{m.Run_now()}
+							</Button>
+							<RecordClone record={pipeline} collectionName="pipelines" />
+							<IconButton href="/my/pipelines/view-{pipeline.id}" icon={Eye} />
+						{/snippet}
+					</DashboardCard>
+				{/each}
+			</div>
+		{/snippet}
+	</CollectionManager>
+</div>
 
 {#snippet navbarRight()}
 	<Button href="/my/pipelines/new">

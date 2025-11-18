@@ -118,7 +118,11 @@ function getDisplayField(
 }
 
 type SystemFields = 'id' | 'created' | 'updated';
-type CloneableCollections = 'wallet_actions' | 'credentials' | 'use_cases_verifications';
+type CloneableCollections =
+	| 'wallet_actions'
+	| 'credentials'
+	| 'use_cases_verifications'
+	| 'pipelines';
 
 // Configuration for display fields and their fallbacks
 const COLLECTION_DISPLAY_CONFIG = {
@@ -131,6 +135,10 @@ const COLLECTION_DISPLAY_CONFIG = {
 		fallbackField: 'name'
 	},
 	[Collections.WalletActions]: {
+		primaryField: 'name',
+		fallbackField: 'name'
+	},
+	[Collections.Pipelines]: {
 		primaryField: 'name',
 		fallbackField: 'name'
 	}

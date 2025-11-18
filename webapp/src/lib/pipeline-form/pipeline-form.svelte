@@ -25,6 +25,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const metadata = form.metadataForm;
 	const activityOptions = form.activityOptionsForm;
 	const builder = form.stepsBuilder;
+
+	const isViewMode = $derived(form['props'].mode === 'view');
+	const saveButtonText = $derived(isViewMode ? m.Create_record() : m.Save());
 </script>
 
 <div class="bg-secondary flex h-screen flex-col gap-4 overflow-hidden px-4 pb-4 pt-2">
@@ -53,7 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<activityOptions.Component form={activityOptions} />
 			<Button disabled={!builder.isReady()} onclick={() => form.save()}>
 				<SaveIcon />
-				{m.Save()}
+				{saveButtonText}
 			</Button>
 		</div>
 	</div>

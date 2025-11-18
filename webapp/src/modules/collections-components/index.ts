@@ -7,5 +7,13 @@ import CollectionSearch from './collectionSearch.svelte';
 import CollectionSelect from './collectionSelect.svelte';
 import CollectionForm from './form/collectionForm.svelte';
 import CollectionManager from './manager/collectionManager.svelte';
+import { RecordClone } from './manager/record-actions';
 
-export { CollectionSearch, CollectionSelect, CollectionForm, CollectionField, CollectionManager };
+export {
+	CollectionField,
+	CollectionForm,
+	CollectionManager,
+	CollectionSearch,
+	CollectionSelect,
+	RecordClone
+};
