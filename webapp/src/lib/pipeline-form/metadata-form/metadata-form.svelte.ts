@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { createForm } from '@/forms';
+import { tick } from 'svelte';
 import type { SuperForm } from 'sveltekit-superforms';
 import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
@@ -12,12 +13,13 @@ import Component from './metadata-form.svelte';
 
 type Props = {
 	initialData?: Metadata;
+	onSubmit?: () => void | Promise<void>;
 };
 
 export type Metadata = z.infer<typeof metadataSchema>;
 
 export class MetadataForm {
-	constructor(props: Props) {
+	constructor(private props: Props) {
 		this.#value = props.initialData;
 	}
 
@@ -34,6 +36,8 @@ export class MetadataForm {
 			initialData: this.#value,
 			onSubmit: async ({ form }) => {
 				this.#value = form.data;
+				await tick();
+				await this.props.onSubmit?.();
 				this.isOpen = false;
 			}
 		});
