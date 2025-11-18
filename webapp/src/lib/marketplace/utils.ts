@@ -125,7 +125,7 @@ export const marketplaceItemsDisplayConfig = {
 		icon: CheckCircle
 	},
 	pipelines: {
-		label: m.Pipelines(),
+		label: m.Pipeline(),
 		labelPlural: m.Pipelines(),
 		bgClass: 'bg-orange-600',
 		textClass: 'text-orange-600',

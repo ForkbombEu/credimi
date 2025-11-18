@@ -13,15 +13,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	export async function getPipelineDetails(itemId: string, fetchFn = fetch) {
 		const pipelineData = await fetchPipeline(itemId, { fetch: fetchFn });
-		const rawPipeline = await pb.collection('pipelines').getOne(itemId, {
-			fetch: fetchFn,
-			requestKey: null
-		});
 
 		return pageDetails('pipelines', {
 			pipelineData,
-			yaml: rawPipeline.yaml,
-			description: rawPipeline.description
+			yaml: pipelineData.yaml,
+			description: pipelineData.description
 		});
 	}
 </script>
