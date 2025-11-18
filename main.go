@@ -6,6 +6,7 @@ package main
 
 import "github.com/forkbombeu/credimi/cmd"
 
+
 func main() {
 	cmd.Start()
 }

@@ -7,22 +7,33 @@ name: 🐹 lint
 on:
   pull_request:
     paths:
-      - '**.go'
-      - 'go.mod'
-      - 'go.sum'
-
-permissions:
-  contents: read
+      - "**.go"
+      - "go.mod"
+      - "go.sum"
 
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - uses: actions/setup-go@v5
-      with:
-        go-version: stable
-    - uses: docker://morphy/revive-action:v2
-    - uses: golang/govulncheck-action@v1
-    - uses: golangci/golangci-lint-action@v8
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@v5
+        with:
+          go-version: stable
+      - uses: docker://morphy/revive-action:v2
+      - name: git settings
+        env:
+          CREDIMI_EXTRA_PAT: ${{ secrets.CREDIMI_EXTRA_PAT }}
+        run: |
+          echo "Testing with token in line"
+          git ls-remote "https://x-access-token:${CREDIMI_EXTRA_PAT}@github.com/forkbombeu/credimi-extra.git" || echo "Fetch failed"
+          git config --global url."https://x-access-token:${CREDIMI_EXTRA_PAT}@github.com/ForkbombEu/credimi-extra".insteadOf "https://github.com/forkbombeu/credimi-extra"
+          echo "Testing after url"
+          git ls-remote https://github.com/forkbombeu/credimi-extra
+        shell: bash
+      - uses: golang/govulncheck-action@v1
+        with:
+          repo-checkout: false
+      - uses: golangci/golangci-lint-action@v8
