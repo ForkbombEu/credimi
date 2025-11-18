@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Info } from 'lucide-svelte';
 	import { nanoid } from 'nanoid';
-	import { onMount, onDestroy, type ComponentProps, type Snippet } from 'svelte';
+	import { onDestroy, onMount, type ComponentProps, type Snippet } from 'svelte';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import * as Accordion from '@/components/ui/accordion/index.js';
@@ -99,10 +99,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			type="single"
 			class="flex w-full flex-col gap-1"
 		>
-			{#each logs as log}
+			{#each logs as log (log.time)}
 				{@const status = log.status ?? LogStatus.INFO}
 				<Accordion.Item
-					class={['rounded-md border-none bg-background px-2', props.accordionItemClass]}
+					class={['bg-background rounded-md border-none px-2', props.accordionItemClass]}
 				>
 					<Accordion.Trigger
 						class="flex items-center justify-between gap-2 hover:no-underline"
@@ -134,7 +134,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 						{#if log.time}
 							<p
-								class="shrink-0 text-nowrap text-right text-xs text-muted-foreground"
+								class="text-muted-foreground shrink-0 text-nowrap text-right text-xs"
 							>
 								{new Date(log.time).toLocaleString()}
 							</p>
@@ -144,7 +144,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Accordion.Content>
 						<div
 							class={[
-								'-mb-2 flex w-full gap-2 overflow-x-scroll rounded-md bg-secondary p-2',
+								'bg-secondary -mb-2 flex w-full gap-2 overflow-x-scroll rounded-md p-2',
 								props.codeClass
 							]}
 						>
