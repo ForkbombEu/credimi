@@ -81,7 +81,9 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 ) (workflowengine.ActivityResult, error) {
 	result := workflowengine.ActivityResult{}
 
-	payload, err := workflowengine.DecodePayload[CheckCredentialsIssuerActivityPayload](input.Payload)
+	payload, err := workflowengine.DecodePayload[CheckCredentialsIssuerActivityPayload](
+		input.Payload,
+	)
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}

@@ -17,7 +17,9 @@ import (
 const testDataDir = "../../../test_pb_data/"
 
 func setupTestApp(t testing.TB) *tests.TestApp {
-	app, err := tests.NewTestApp(testDataDir) // qui la metti che punta a test_pb_data con il path relativo rispetto al tuo test file
+	app, err := tests.NewTestApp(
+		testDataDir,
+	) // qui la metti che punta a test_pb_data con il path relativo rispetto al tuo test file
 	require.NoError(t, err)
 	LogoHooks(app)
 
@@ -42,7 +44,6 @@ func getOrgIDfromName(collectionNameOrID string, name string) (string, error) {
 }
 
 func TestLogoHooks_Valid(t *testing.T) {
-
 	app := setupTestApp(t)
 	defer app.Cleanup()
 	coll, err := app.FindCollectionByNameOrId("wallets")
@@ -52,15 +53,26 @@ func TestLogoHooks_Valid(t *testing.T) {
 	record.Set("owner", own)
 	record.Set("logo", "")
 
-	record.Set("logo_url", "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/25/de/dc/25dedc8b-0e66-70cd-1530-082a007ef642/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/100x100bb.jpg")
+	record.Set(
+		"logo_url",
+		"https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/25/de/dc/25dedc8b-0e66-70cd-1530-082a007ef642/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/100x100bb.jpg",
+	)
 
-	require.Empty(t, record.GetString("logo"), "The logo field should have been set by LogoHooks after saving")
+	require.Empty(
+		t,
+		record.GetString("logo"),
+		"The logo field should have been set by LogoHooks after saving",
+	)
 
 	err = app.Save(record)
 	require.NoError(t, err)
 
 	logoField := record.GetString("logo")
-	require.NotEmpty(t, logoField, "The logo field shouldn't have been set by LogoHooks after saving")
+	require.NotEmpty(
+		t,
+		logoField,
+		"The logo field shouldn't have been set by LogoHooks after saving",
+	)
 
 	logokey := record.BaseFilesPath() + "/" + record.GetString("logo")
 
@@ -102,7 +114,10 @@ func TestLogoHooks_UpdateAddLogoURL(t *testing.T) {
 
 	require.Empty(t, record.GetString("logo"), "Logo field should be empty initially")
 
-	record.Set("logo_url", "https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/25/de/dc/25dedc8b-0e66-70cd-1530-082a007ef642/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/100x100bb.jpg")
+	record.Set(
+		"logo_url",
+		"https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/25/de/dc/25dedc8b-0e66-70cd-1530-082a007ef642/AppIcon-0-0-1x_U007ephone-0-1-85-220.png/100x100bb.jpg",
+	)
 
 	err = app.Save(record)
 	require.NoError(t, err)

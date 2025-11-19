@@ -32,8 +32,10 @@ func (a *CheckFileExistsActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
-func (a *CheckFileExistsActivity) Execute(_ context.Context, input workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-
+func (a *CheckFileExistsActivity) Execute(
+	_ context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
 	payload, err := workflowengine.DecodePayload[CheckFileExistsActivityPayload](input.Payload)
 	if err != nil {
 		return workflowengine.ActivityResult{}, a.NewMissingOrInvalidPayloadError(err)

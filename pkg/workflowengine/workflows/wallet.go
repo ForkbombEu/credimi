@@ -82,7 +82,10 @@ func (w *WalletWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[WalletWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {

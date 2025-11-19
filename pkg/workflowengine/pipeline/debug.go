@@ -18,7 +18,7 @@ type DebugActivity struct {
 }
 
 type DebugActivityPayload struct {
-	Step    string         `json:"step" yaml:"step"`
+	Step    string         `json:"step"    yaml:"step"`
 	Outputs map[string]any `json:"outputs" yaml:"outputs"`
 }
 
@@ -38,7 +38,6 @@ func (a *DebugActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-
 	payload, _ := workflowengine.DecodePayload[DebugActivityPayload](input.Payload)
 	return workflowengine.ActivityResult{
 		Output: map[string]any{
@@ -48,7 +47,12 @@ func (a *DebugActivity) Execute(
 	}, nil
 }
 
-func runDebugActivity(ctx workflow.Context, logger log.Logger, stepID string, finalOutput map[string]any) {
+func runDebugActivity(
+	ctx workflow.Context,
+	logger log.Logger,
+	stepID string,
+	finalOutput map[string]any,
+) {
 	debugAO := workflow.ActivityOptions{
 		StartToCloseTimeout:    30 * time.Second,
 		ScheduleToCloseTimeout: 30 * time.Second,

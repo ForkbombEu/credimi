@@ -56,7 +56,6 @@ func MakeExistsFunc(
 //
 // The function takes a PocketBase application as a parameter, and registers the hooks for the specified collections.
 func RegisterCanonifyHooks(app core.App) {
-
 	app.OnRecordEnrich("marketplace_items").BindFunc(func(e *core.RecordEnrichEvent) error {
 		colType := e.Record.GetString("type")
 		colType = strings.Trim(colType, `"`)

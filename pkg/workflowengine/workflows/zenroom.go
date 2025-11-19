@@ -30,9 +30,9 @@ type ZenroomWorkflow struct{}
 
 type ZenroomWorkflowPayload struct {
 	Contract string `json:"contract" yaml:"contract" validate:"required"`
-	Keys     string `json:"keys" yaml:"keys"`
-	Data     string `json:"data" yaml:"data"`
-	Config   string `json:"config" yaml:"config"`
+	Keys     string `json:"keys"     yaml:"keys"`
+	Data     string `json:"data"     yaml:"data"`
+	Config   string `json:"config"   yaml:"config"`
 }
 
 func (w *ZenroomWorkflow) Name() string {
@@ -63,7 +63,10 @@ func (w *ZenroomWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[ZenroomWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 
 	var sideEffectResult struct {

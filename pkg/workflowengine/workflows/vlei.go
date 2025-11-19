@@ -59,7 +59,10 @@ func (w *VLEIValidationWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[VLEIValidationWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 
 	serverURL, ok := input.Config["server_url"].(string)
@@ -167,7 +170,10 @@ func (w *VLEIValidationLocalWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[VLEIValidationLocalWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 
 	return validateCESRFromString(ctx, payload.CESR, runMetadata)

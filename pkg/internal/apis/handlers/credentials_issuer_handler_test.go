@@ -34,7 +34,7 @@ type TestCredential struct {
 	Conformant  bool
 }
 
-func getOrgIDfromName(collectionNameOrID string, name string) (string, error) {
+func getOrgIDfromName(name string) (string, error) { //nolint
 	app, err := tests.NewTestApp(testDataDir)
 	if err != nil {
 		return "", err
@@ -43,7 +43,7 @@ func getOrgIDfromName(collectionNameOrID string, name string) (string, error) {
 
 	filter := fmt.Sprintf(`name="%s"`, name)
 
-	record, err := app.FindFirstRecordByFilter(collectionNameOrID, filter)
+	record, err := app.FindFirstRecordByFilter("organizations", filter)
 	if err != nil {
 		return "", err
 	}
@@ -134,7 +134,7 @@ func setupTestAppWithData(orgID string, setupData TestSetupData) func(t testing.
 }
 
 func TestCredentialIssuersAPI(t *testing.T) {
-	orgID, err := getOrgIDfromName("organizations", "userA's organization")
+	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
 	scenarios := []tests.ApiScenario{

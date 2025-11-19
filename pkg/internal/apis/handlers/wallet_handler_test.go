@@ -48,7 +48,7 @@ func NewTestFile(name string, content []byte) *filesystem.File {
 }
 
 func TestWalletGetAPKMD5(t *testing.T) {
-	orgID, err := getOrgIDfromName("organizations", "userA's organization")
+	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
 	scenarios := []tests.ApiScenario{
@@ -167,7 +167,7 @@ func TestWalletGetAPKMD5(t *testing.T) {
 }
 
 func TestWalletStoreActionResult(t *testing.T) {
-	orgID, err := getOrgIDfromName("organizations", "userA's organization")
+	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
 	successBodyBuf, successMp, err := tests.MockMultipartData(

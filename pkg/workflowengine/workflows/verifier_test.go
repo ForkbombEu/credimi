@@ -37,9 +37,15 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
+				env.RegisterActivityWithOptions(
+					httpAct.Execute,
+					activity.RegisterOptions{Name: httpAct.Name()},
+				)
 				stepCIAct := activities.NewStepCIWorkflowActivity()
-				env.RegisterActivityWithOptions(stepCIAct.Execute, activity.RegisterOptions{Name: stepCIAct.Name()})
+				env.RegisterActivityWithOptions(
+					stepCIAct.Execute,
+					activity.RegisterOptions{Name: stepCIAct.Name()},
+				)
 				env.OnActivity(stepCIAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
@@ -87,7 +93,10 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
+				env.RegisterActivityWithOptions(
+					httpAct.Execute,
+					activity.RegisterOptions{Name: httpAct.Name()},
+				)
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"body": "not-a-map"}}, nil)
 			},
@@ -106,9 +115,15 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
+				env.RegisterActivityWithOptions(
+					httpAct.Execute,
+					activity.RegisterOptions{Name: httpAct.Name()},
+				)
 				stepCIAct := activities.NewStepCIWorkflowActivity()
-				env.RegisterActivityWithOptions(stepCIAct.Execute, activity.RegisterOptions{Name: stepCIAct.Name()})
+				env.RegisterActivityWithOptions(
+					stepCIAct.Execute,
+					activity.RegisterOptions{Name: stepCIAct.Name()},
+				)
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{"body": map[string]any{"code": "valid-yaml"}},

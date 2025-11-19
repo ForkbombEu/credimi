@@ -43,7 +43,9 @@ func ConformanceCheckHook(
 				fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
 			)
 		}
-		payload, err := workflowengine.DecodePayload[workflows.StartCheckWorkflowPipelinePayload](rawPayload)
+		payload, err := workflowengine.DecodePayload[workflows.StartCheckWorkflowPipelinePayload](
+			rawPayload,
+		)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 
@@ -203,7 +205,9 @@ func ConformanceCheckHook(
 }
 
 func extractCredimiJSON(yamlContent string) (string, error) {
-	re := regexp.MustCompile(`\{\{\s*credimi\s*` + "`" + `([\s\S]*?)` + "`" + `\s*([a-zA-Z0-9_]+)?\s*\}\}`)
+	re := regexp.MustCompile(
+		`\{\{\s*credimi\s*` + "`" + `([\s\S]*?)` + "`" + `\s*([a-zA-Z0-9_]+)?\s*\}\}`,
+	)
 	var firstErr error
 
 	extracted := re.ReplaceAllStringFunc(yamlContent, func(match string) string {

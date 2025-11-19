@@ -214,9 +214,9 @@ func deepCopy(v any) any {
 		// fallback: return original reference if not serializable
 		return v
 	}
-	var copy any
-	if err := json.Unmarshal(b, &copy); err != nil {
+	var c any
+	if err := json.Unmarshal(b, &c); err != nil {
 		return v
 	}
-	return copy
+	return c
 }

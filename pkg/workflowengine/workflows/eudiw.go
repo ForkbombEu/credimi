@@ -34,8 +34,8 @@ const (
 type EudiwWorkflow struct{}
 
 type EudiwWorkflowPayload struct {
-	ID       string `json:"id" yaml:"id" validate:"required"`
-	Nonce    string `json:"nonce" yaml:"nonce" validate:"required"`
+	ID       string `json:"id"        yaml:"id"        validate:"required"`
+	Nonce    string `json:"nonce"     yaml:"nonce"     validate:"required"`
 	UserMail string `json:"user_mail" yaml:"user_mail" validate:"required"`
 }
 
@@ -101,7 +101,10 @@ func (w *EudiwWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[EudiwWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 	template, ok := input.Config["template"].(string)
 	if !ok || template == "" {

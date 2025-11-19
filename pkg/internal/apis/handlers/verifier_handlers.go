@@ -61,6 +61,5 @@ func HandleGetUseCaseVerificationDeeplink() func(*core.RequestEvent) error {
 		response.Code = record.GetString("yaml")
 
 		return e.JSON(http.StatusOK, response)
-
 	}
 }

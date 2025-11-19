@@ -98,7 +98,12 @@ func ensureNamespaceAndWorkers(namespace string) {
 
 	go hooks.StartAllWorkersByNamespace(namespace)
 }
-func waitForNamespaceReady(c client.NamespaceClient, namespace string, timeout time.Duration) error {
+
+func waitForNamespaceReady(
+	c client.NamespaceClient,
+	namespace string,
+	timeout time.Duration,
+) error {
 	deadline := time.Now().Add(timeout)
 	attempt := 0
 
@@ -121,7 +126,11 @@ func waitForNamespaceReady(c client.NamespaceClient, namespace string, timeout t
 		if backoff > 5*time.Second {
 			backoff = 5 * time.Second
 		}
-		log.Printf("Waiting %v before retrying namespace readiness (attempt %d)...", backoff, attempt)
+		log.Printf(
+			"Waiting %v before retrying namespace readiness (attempt %d)...",
+			backoff,
+			attempt,
+		)
 		time.Sleep(backoff)
 	}
 }
