@@ -49,7 +49,7 @@ function convertWalletActionStep(step: WalletActionStep): YamlStep<'mobile-autom
 		with: {
 			action_id: getPath(step.data.action),
 			version_id: getPath(step.data.version),
-			video: true
+			video: step.video ?? false
 		}
 	};
 

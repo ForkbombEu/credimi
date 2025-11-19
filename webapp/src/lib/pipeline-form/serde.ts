@@ -63,7 +63,8 @@ export function serializeStep(step: BuilderStep) {
 			actionId: step.data.action.id,
 			walletId: step.data.wallet.id,
 			versionId: step.data.version.id,
-			continueOnError
+			continueOnError,
+			video: step.video ?? false
 		};
 	} else {
 		return {
@@ -102,6 +103,7 @@ async function deserializeStep(step: SerializedStep, options = { fetch }): Promi
 			organization: walletItem.organization_name,
 			avatar: avatar,
 			continueOnError: step.continueOnError ?? false,
+			video: step.video ?? false,
 			data: {
 				wallet: walletItem,
 				version: version,
