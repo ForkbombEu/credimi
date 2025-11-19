@@ -400,6 +400,7 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 			},
 		},
 		Servers: []Server{
+			{URL: "https://credimi.io", Description: "Production server"},
 			{URL: "https://demo.credimi.io", Description: "Demo server"},
 			{URL: "http://localhost:8090/", Description: "Localhost server"},
 		},

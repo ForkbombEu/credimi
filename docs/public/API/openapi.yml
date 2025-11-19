@@ -856,6 +856,8 @@ paths:
           description: An unexpected error occurred.
       summary: Terminate a specific check run
 servers:
+  - description: Production server
+    url: https://credimi.io
   - description: Demo server
     url: https://demo.credimi.io
   - description: Localhost server
