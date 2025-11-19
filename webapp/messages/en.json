@@ -787,5 +787,6 @@
 	"save_pipeline_description": "Before saving, add some metadata to your pipeline.",
 	"parameters": "Parameters",
 	"Continue_on_error": "Continue on error",
-	"Run_now": "Run now"
+	"Run_now": "Run now",
+	"Record_video_of_wallet_action": "Turn on/off video recording of wallet action"
 }
