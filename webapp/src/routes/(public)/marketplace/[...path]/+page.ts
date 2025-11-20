@@ -18,21 +18,38 @@ import { getWalletDetails } from './_partials/wallet-page.svelte';
 //
 
 export const load = async ({ params, fetch }) => {
-	const { type, organization, item } = parsePath(params.path);
+	const fullPath = params.path;
 
-	const marketplaceItem = (await pb
-		.collection('marketplace_items')
-		.getFirstListItem(
-			`type = '${type}' && organization_canonified_name = '${organization}' && canonified_name = '${item}'`,
-			{ fetch }
-		)) as MarketplaceItem;
+	try {
+		// Try exact path match (new format with parents for credentials and use_cases_verifications)
+		const marketplaceItem = (await pb
+			.collection('marketplace_items')
+			.getFirstListItem(`path = '${fullPath}'`, { fetch })) as MarketplaceItem;
 
-	const pageDetails = await getPageDetails(marketplaceItem, fetch);
+		const pageDetails = await getPageDetails(marketplaceItem, fetch);
 
-	return {
-		marketplaceItem,
-		pageDetails
-	};
+		return {
+			marketplaceItem,
+			pageDetails
+		};
+	} catch {
+		// Fallback to old format (3 segments without parent for backwards compatibility)
+		const { type, organization, item } = parsePath(fullPath);
+
+		const marketplaceItem = (await pb
+			.collection('marketplace_items')
+			.getFirstListItem(
+				`type = '${type}' && organization_canonified_name = '${organization}' && canonified_name = '${item}'`,
+				{ fetch }
+			)) as MarketplaceItem;
+
+		const pageDetails = await getPageDetails(marketplaceItem, fetch);
+
+		return {
+			marketplaceItem,
+			pageDetails
+		};
+	}
 };
 
 function parsePath(path: string) {
