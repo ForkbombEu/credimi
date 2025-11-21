@@ -50,7 +50,7 @@ export async function getUserOrganization(options = { fetch }) {
 			expand: ['organization'],
 			filter: `user.id = "${pb.authStore.record?.id}"`
 		},
-		{ fetch: options.fetch }
+		{ fetch: options.fetch, requestKey: null }
 	).getFullList();
 
 	const org = organizationAuth.at(0)?.expand?.organization;

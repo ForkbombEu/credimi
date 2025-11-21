@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CopyPlus } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
-	import type { CollectionResponses } from '@/pocketbase/types';
+	import type { CollectionResponses, WalletActionsResponse } from '@/pocketbase/types';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
@@ -41,11 +41,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	async function handleClone() {
 		if (isCloning) return;
-
 		isCloning = true;
 
+		const excludeFields: Array<keyof CollectionResponses[CloneableCollections]> = [];
+		if (collectionName === 'wallet_actions') {
+			// @ts-expect-error - result is not a system field
+			excludeFields.push('result' satisfies keyof WalletActionsResponse);
+		}
+
 		try {
-			await cloneRecord(collectionName, record.id);
+			await cloneRecord(collectionName, record.id, { excludeFields });
 			toast.success(`${getCollectionDisplayName(collectionName)} cloned successfully`);
 			onSuccess();
 		} catch (error) {

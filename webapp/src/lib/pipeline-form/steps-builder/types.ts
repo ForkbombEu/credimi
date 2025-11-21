@@ -20,6 +20,7 @@ export type BaseStep<T extends StepType, Data> = {
 	avatar?: string;
 	data: Data;
 	continueOnError?: boolean;
+	video?: boolean;
 };
 
 export enum StepType {

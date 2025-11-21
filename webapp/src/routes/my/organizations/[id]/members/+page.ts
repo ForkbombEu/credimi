@@ -12,7 +12,8 @@ export const load = async ({ params, fetch }) => {
 	const userAuthorization = await pb
 		.collection('orgAuthorizations')
 		.getFirstListItem(`user = "${pb.authStore.model!.id}" && organization = "${params.id}"`, {
-			fetch
+			fetch,
+			requestKey: null
 		});
 
 	const userRole = await pb.collection('orgRoles').getOne(userAuthorization.role, { fetch });
