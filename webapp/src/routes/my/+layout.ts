@@ -64,7 +64,7 @@ export const load = async ({ fetch, url }) => {
 			expand: ['organization'],
 			filter: `user.id = "${pb.authStore.record?.id}"`
 		},
-		{ fetch }
+		{ fetch, requestKey: null }
 	).getFullList();
 
 	const organization = organizationAuth.at(0)?.expand?.organization;
