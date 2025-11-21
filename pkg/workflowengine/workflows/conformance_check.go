@@ -85,7 +85,7 @@ func RunStepCIAndSendMail(
 	if suite == OpenIDConformanceSuite {
 		suite = "openidnet"
 	}
-	baseURL := fmt.Sprintf("%s/tests/wallet/%s", cfg.AppURL, suite)
+	baseURL := utils.JoinURL(cfg.AppURL, "tests", "wallet", suite)
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]

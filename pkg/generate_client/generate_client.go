@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net/url"
 	"os"
 	"path"
 	"reflect"
@@ -245,9 +246,11 @@ func main() {
 	log.Println("Processing routes...")
 	for _, group := range routeGroups {
 		for _, route := range group.Routes {
+			// Use url.JoinPath for proper URL path joining instead of file path.Join
+			joinedPath, _ := url.JoinPath(group.BaseURL, route.Path)
 			r := RouteInfo{
 				Method:                 route.Method,
-				Path:                   path.Join(group.BaseURL, route.Path),
+				Path:                   joinedPath,
 				GoHandlerName:          getFuncName(route.Handler),
 				Summary:                route.Summary,
 				Description:            route.Description,

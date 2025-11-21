@@ -70,7 +70,7 @@ func MobileAutomationSetupHook(
 		req := workflowengine.ActivityInput{
 			Payload: map[string]any{
 				"method": "POST",
-				"url":    fmt.Sprintf("%s/%s", mobileServerURL, "fetch-apk-and-action"),
+				"url":    utils.JoinURL(mobileServerURL, "fetch-apk-and-action"),
 				"headers": map[string]any{
 					"Content-Type": "application/json",
 				},
