@@ -17,7 +17,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func mockGetDeeplinkServer(t *testing.T, statusCode int, response map[string]interface{}) *httptest.Server {
+func mockGetDeeplinkServer(
+	t *testing.T,
+	statusCode int,
+	response map[string]interface{},
+) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/get-deeplink", r.URL.Path)
 		require.Equal(t, "POST", r.Method)
@@ -65,7 +69,7 @@ func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 }
 
 func TestGetCredentialDeeplink(t *testing.T) {
-	orgID, err := getOrgIDfromName("organizations", "userA's organization")
+	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
 	scenarios := []tests.ApiScenario{
@@ -77,17 +81,21 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			}(),
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
-				`"deeplink":"openid-credential-offer://`,
+				"openid-credential-offer://",
 			},
 			TestAppFactory: setupDeeplinkApp(orgID),
 		},
 		{
-			Name:            "get credential deeplink - missing id",
-			Method:          http.MethodGet,
-			URL:             "/api/credential/deeplink",
-			ExpectedStatus:  400,
-			ExpectedContent: []string{`"error":"request"`, `"reason":"missing credential id"`, `"message":"id parameter is required"`},
-			TestAppFactory:  setupDeeplinkApp(orgID),
+			Name:           "get credential deeplink - missing id",
+			Method:         http.MethodGet,
+			URL:            "/api/credential/deeplink",
+			ExpectedStatus: 400,
+			ExpectedContent: []string{
+				`"error":"request"`,
+				`"reason":"missing credential id"`,
+				`"message":"id parameter is required"`,
+			},
+			TestAppFactory: setupDeeplinkApp(orgID),
 		},
 		{
 			Name:   "get credential deeplink - invalid credential path",
@@ -95,9 +103,13 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL: func() string {
 				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-2/test-credential"
 			}(),
-			ExpectedStatus:  404,
-			ExpectedContent: []string{`"error":"resolve"`, `"reason":"failed to resolve credential path"`, `"message":"sql: no rows in result set"`},
-			TestAppFactory:  setupDeeplinkApp(orgID),
+			ExpectedStatus: 404,
+			ExpectedContent: []string{
+				`"error":"resolve"`,
+				`"reason":"failed to resolve credential path"`,
+				`"message":"sql: no rows in result set"`,
+			},
+			TestAppFactory: setupDeeplinkApp(orgID),
 		},
 		{
 			Name:   "get credential deeplink - empty deeplink",
@@ -105,8 +117,12 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL: func() string {
 				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential"
 			}(),
-			ExpectedStatus:  500,
-			ExpectedContent: []string{`"error":"credential"`, `"reason":"deeplink not found"`, `"message":"field 'deeplink' is missing or empty"`},
+			ExpectedStatus: 500,
+			ExpectedContent: []string{
+				`"error":"credential"`,
+				`"reason":"deeplink not found"`,
+				`"message":"field 'deeplink' is missing or empty"`,
+			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 				coll, _ := app.FindCollectionByNameOrId("credentials")
@@ -126,14 +142,18 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			}(),
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
-				`"deeplink":"mock-deeplink-from-yaml"`,
+				`mock-deeplink-from-yaml`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(t.(*testing.T), http.StatusOK, map[string]interface{}{
-					"deeplink": "mock-deeplink-from-yaml",
-				})
+				mockServer := mockGetDeeplinkServer(
+					t.(*testing.T),
+					http.StatusOK,
+					map[string]interface{}{
+						"deeplink": "mock-deeplink-from-yaml",
+					},
+				)
 				t.Cleanup(mockServer.Close)
 
 				app.Settings().Meta.AppURL = mockServer.URL
@@ -153,14 +173,21 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL: func() string {
 				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential"
 			}(),
-			ExpectedStatus:  500,
-			ExpectedContent: []string{`"error":"get-deeplink"`, `"reason":"internal endpoint returned an error"`},
+			ExpectedStatus: 500,
+			ExpectedContent: []string{
+				`"error":"get-deeplink"`,
+				`"reason":"internal endpoint returned an error"`,
+			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(t.(*testing.T), http.StatusInternalServerError, map[string]interface{}{
-					"error": "internal server error",
-				})
+				mockServer := mockGetDeeplinkServer(
+					t.(*testing.T),
+					http.StatusInternalServerError,
+					map[string]interface{}{
+						"error": "internal server error",
+					},
+				)
 				t.Cleanup(mockServer.Close)
 
 				app.Settings().Meta.AppURL = mockServer.URL
@@ -180,14 +207,21 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL: func() string {
 				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential"
 			}(),
-			ExpectedStatus:  500,
-			ExpectedContent: []string{`"error":"deeplink"`, `"reason":"deeplink missing in response"`},
+			ExpectedStatus: 500,
+			ExpectedContent: []string{
+				`"error":"deeplink"`,
+				`"reason":"deeplink missing in response"`,
+			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(t.(*testing.T), http.StatusOK, map[string]interface{}{
-					"wrong_field": "value",
-				})
+				mockServer := mockGetDeeplinkServer(
+					t.(*testing.T),
+					http.StatusOK,
+					map[string]interface{}{
+						"wrong_field": "value",
+					},
+				)
 				t.Cleanup(mockServer.Close)
 
 				app.Settings().Meta.AppURL = mockServer.URL
@@ -207,8 +241,11 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL: func() string {
 				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential"
 			}(),
-			ExpectedStatus:  500,
-			ExpectedContent: []string{`"error":"request"`, `"failed to call internal /api/get-deeplink endpoint"`},
+			ExpectedStatus: 500,
+			ExpectedContent: []string{
+				`"error":"request"`,
+				`"failed to call internal /api/get-deeplink endpoint"`,
+			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 
@@ -229,16 +266,21 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			URL: func() string {
 				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential"
 			}(),
-			ExpectedStatus:  500,
-			ExpectedContent: []string{`"error":"json"`, `"failed to parse /api/get-deeplink response"`},
+			ExpectedStatus: 500,
+			ExpectedContent: []string{
+				`"error":"json"`,
+				`"failed to parse /api/get-deeplink response"`,
+			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 
-				mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(`{"deeplink": "value`))
-				}))
+				mockServer := httptest.NewServer(
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusOK)
+						w.Write([]byte(`{"deeplink": "value`))
+					}),
+				)
 				t.Cleanup(mockServer.Close)
 
 				app.Settings().Meta.AppURL = mockServer.URL

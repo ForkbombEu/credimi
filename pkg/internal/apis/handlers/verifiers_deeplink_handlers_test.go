@@ -49,17 +49,21 @@ func setupYamlApp(orgID string) func(t testing.TB) *tests.TestApp {
 }
 
 func TestGetVerificationDeeplink(t *testing.T) {
-	orgID, err := getOrgIDfromName("organizations", "userA's organization")
+	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:            "get verification deeplink - missing id",
-			Method:          http.MethodGet,
-			URL:             "/api/verification/deeplink",
-			ExpectedStatus:  400,
-			ExpectedContent: []string{`"error":"request"`, `"reason":"missing record id"`, `"message":"id parameter is required"`},
-			TestAppFactory:  setupYamlApp(orgID),
+			Name:           "get verification deeplink - missing id",
+			Method:         http.MethodGet,
+			URL:            "/api/verification/deeplink",
+			ExpectedStatus: 400,
+			ExpectedContent: []string{
+				`"error":"request"`,
+				`"reason":"missing record id"`,
+				`"message":"id parameter is required"`,
+			},
+			TestAppFactory: setupYamlApp(orgID),
 		},
 		{
 			Name:   "get verification deeplink - invalid verification path",
@@ -67,9 +71,13 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			URL: func() string {
 				return "/api/verification/deeplink?id=usera-s-organization/test-verifier-2/test-use-cases"
 			}(),
-			ExpectedStatus:  404,
-			ExpectedContent: []string{`"error":"resolve"`, `"reason":"failed to resolve verification path"`, `"message":"sql: no rows in result set"`},
-			TestAppFactory:  setupYamlApp(orgID),
+			ExpectedStatus: 404,
+			ExpectedContent: []string{
+				`"error":"resolve"`,
+				`"reason":"failed to resolve verification path"`,
+				`"message":"sql: no rows in result set"`,
+			},
+			TestAppFactory: setupYamlApp(orgID),
 		},
 		{
 			Name:   "get verification deeplink with yaml - success",
@@ -79,14 +87,18 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			}(),
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
-				`"deeplink":"mock-deeplink-from-yaml"`,
+				`mock-deeplink-from-yaml`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(t.(*testing.T), http.StatusOK, map[string]interface{}{
-					"deeplink": "mock-deeplink-from-yaml",
-				})
+				mockServer := mockGetDeeplinkServer(
+					t.(*testing.T),
+					http.StatusOK,
+					map[string]interface{}{
+						"deeplink": "mock-deeplink-from-yaml",
+					},
+				)
 				t.Cleanup(mockServer.Close)
 				app.Settings().Meta.AppURL = mockServer.URL
 				ver, _ := app.FindCollectionByNameOrId("use_cases_verifications")
@@ -106,14 +118,21 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			URL: func() string {
 				return "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases"
 			}(),
-			ExpectedStatus:  500,
-			ExpectedContent: []string{`"error":"get-deeplink"`, `"reason":"internal endpoint returned an error"`},
+			ExpectedStatus: 500,
+			ExpectedContent: []string{
+				`"error":"get-deeplink"`,
+				`"reason":"internal endpoint returned an error"`,
+			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(t.(*testing.T), http.StatusInternalServerError, map[string]interface{}{
-					"error": "internal server error",
-				})
+				mockServer := mockGetDeeplinkServer(
+					t.(*testing.T),
+					http.StatusInternalServerError,
+					map[string]interface{}{
+						"error": "internal server error",
+					},
+				)
 				t.Cleanup(mockServer.Close)
 
 				app.Settings().Meta.AppURL = mockServer.URL
@@ -132,14 +151,21 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			URL: func() string {
 				return "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases"
 			}(),
-			ExpectedStatus:  500,
-			ExpectedContent: []string{`"error":"deeplink"`, `"reason":"deeplink missing in response"`},
+			ExpectedStatus: 500,
+			ExpectedContent: []string{
+				`"error":"deeplink"`,
+				`"reason":"deeplink missing in response"`,
+			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(t.(*testing.T), http.StatusOK, map[string]interface{}{
-					"wrong_field": "value",
-				})
+				mockServer := mockGetDeeplinkServer(
+					t.(*testing.T),
+					http.StatusOK,
+					map[string]interface{}{
+						"wrong_field": "value",
+					},
+				)
 				t.Cleanup(mockServer.Close)
 
 				app.Settings().Meta.AppURL = mockServer.URL
@@ -158,8 +184,11 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			URL: func() string {
 				return "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases"
 			}(),
-			ExpectedStatus:  500,
-			ExpectedContent: []string{`"error":"request"`, `"failed to call internal /api/get-deeplink endpoint"`},
+			ExpectedStatus: 500,
+			ExpectedContent: []string{
+				`"error":"request"`,
+				`"failed to call internal /api/get-deeplink endpoint"`,
+			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
@@ -179,16 +208,21 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			URL: func() string {
 				return "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases"
 			}(),
-			ExpectedStatus:  500,
-			ExpectedContent: []string{`"error":"json"`, `"failed to parse /api/get-deeplink response"`},
+			ExpectedStatus: 500,
+			ExpectedContent: []string{
+				`"error":"json"`,
+				`"failed to parse /api/get-deeplink response"`,
+			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					w.Header().Set("Content-Type", "application/json")
-					w.WriteHeader(http.StatusOK)
-					w.Write([]byte(`{"deeplink": "value`))
-				}))
+				mockServer := httptest.NewServer(
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(http.StatusOK)
+						w.Write([]byte(`{"deeplink": "value`))
+					}),
+				)
 				t.Cleanup(mockServer.Close)
 
 				app.Settings().Meta.AppURL = mockServer.URL
