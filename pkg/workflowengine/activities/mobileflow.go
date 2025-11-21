@@ -33,7 +33,6 @@ func (a *StartEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-
 	runInput := mobile.MobileActivityInput{
 		Payload:          input.Payload,
 		GetEnv:           utils.GetEnvironmentVariable,
@@ -79,7 +78,6 @@ func (a *ApkInstallActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-
 	runInput := mobile.MobileActivityInput{
 		Payload:          input.Payload,
 		GetEnv:           utils.GetEnvironmentVariable,
@@ -178,7 +176,6 @@ func (a *StopEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-
 	runInput := mobile.MobileActivityInput{
 		Payload:          input.Payload,
 		GetEnv:           utils.GetEnvironmentVariable,
@@ -225,7 +222,6 @@ func (a *RunMobileFlowActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-
 	runInput := mobile.MobileActivityInput{
 		Payload:          input.Payload,
 		GetEnv:           utils.GetEnvironmentVariable,

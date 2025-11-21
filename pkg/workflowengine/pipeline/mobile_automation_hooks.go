@@ -40,7 +40,9 @@ func MobileAutomationSetupHook(
 		logger.Info("MobileAutomationSetupHook: processing step", "id", step.ID)
 
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPipelinePayload](step.With.Payload)
+		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPipelinePayload](
+			step.With.Payload,
+		)
 		if err != nil {
 			return workflowengine.NewAppError(
 				errCode,
@@ -98,7 +100,11 @@ func MobileAutomationSetupHook(
 		if !ok {
 			return workflowengine.NewAppError(
 				errCode,
-				fmt.Sprintf("%s: missing apk_path in response for step %s", errCode.Description, step.ID),
+				fmt.Sprintf(
+					"%s: missing apk_path in response for step %s",
+					errCode.Description,
+					step.ID,
+				),
 				body,
 			)
 		}
@@ -106,7 +112,11 @@ func MobileAutomationSetupHook(
 		if !ok {
 			return workflowengine.NewAppError(
 				errCode,
-				fmt.Sprintf("%s: missing version_id in response for step %s", errCode.Description, step.ID),
+				fmt.Sprintf(
+					"%s: missing version_id in response for step %s",
+					errCode.Description,
+					step.ID,
+				),
 				body,
 			)
 		}
@@ -116,7 +126,11 @@ func MobileAutomationSetupHook(
 			if !ok || actionCode == "" {
 				return workflowengine.NewAppError(
 					errCode,
-					fmt.Sprintf("%s: missing action_code in response for step %s", errCode.Description, step.ID),
+					fmt.Sprintf(
+						"%s: missing action_code in response for step %s",
+						errCode.Description,
+						step.ID,
+					),
 					body,
 				)
 			}
@@ -126,7 +140,13 @@ func MobileAutomationSetupHook(
 		SetPayloadValue(&step.With.Payload, "version_id", versionIdentifier)
 
 		if serial, ok := startedEmulators[versionIdentifier]; ok {
-			logger.Info("Emulator already started, skipping start", "version", versionIdentifier, "serial", serial)
+			logger.Info(
+				"Emulator already started, skipping start",
+				"version",
+				versionIdentifier,
+				"serial",
+				serial,
+			)
 			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 			continue
 		}
@@ -135,21 +155,31 @@ func MobileAutomationSetupHook(
 		mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 		mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
 		startResult := workflowengine.ActivityResult{}
-		startEmuInput := workflowengine.ActivityInput{Payload: map[string]any{"version_id": versionIdentifier}}
-		if err := workflow.ExecuteActivity(mobileCtx, startEmuActivity.Name(), startEmuInput).Get(ctx, &startResult); err != nil {
+		startEmuInput := workflowengine.ActivityInput{
+			Payload: map[string]any{"version_id": versionIdentifier},
+		}
+		err = workflow.ExecuteActivity(mobileCtx, startEmuActivity.Name(), startEmuInput).
+			Get(ctx, &startResult)
+		if err != nil {
 			return err
 		}
 		serial, ok := startResult.Output.(map[string]any)["serial"].(string)
 		if !ok {
 			return workflowengine.NewAppError(
 				errCode,
-				fmt.Sprintf("%s: missing serial in response for step %s", errCode.Description, step.ID),
+				fmt.Sprintf(
+					"%s: missing serial in response for step %s",
+					errCode.Description,
+					step.ID,
+				),
 				startResult.Output,
 			)
 		}
 		SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 
-		installInput := workflowengine.ActivityInput{Payload: map[string]any{"apk": apkPath, "emulator_serial": serial}}
+		installInput := workflowengine.ActivityInput{
+			Payload: map[string]any{"apk": apkPath, "emulator_serial": serial},
+		}
 		if err := workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).Get(ctx, nil); err != nil {
 			return err
 		}
@@ -177,12 +207,13 @@ func MobileAutomationCleanupHook(
 
 	stoppedEmulators := make(map[string]struct{})
 	for _, step := range steps {
-
 		if step.Use != "mobile-automation" {
 			continue
 		}
 
-		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPayload](step.With.Payload)
+		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPayload](
+			step.With.Payload,
+		)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 			return workflowengine.NewAppError(
@@ -199,15 +230,28 @@ func MobileAutomationCleanupHook(
 			)
 		}
 
-		logger.Info("MobileAutomationCleanupHook: stopping emulator", "emulator", payload.EmulatorSerial, "step", step.ID)
+		logger.Info(
+			"MobileAutomationCleanupHook: stopping emulator",
+			"emulator",
+			payload.EmulatorSerial,
+			"step",
+			step.ID,
+		)
 		if _, ok := stoppedEmulators[payload.EmulatorSerial]; ok {
 			logger.Info("Emulator already stopped", "emulator", payload.EmulatorSerial)
 			continue
 		}
 
-		stopInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": payload.EmulatorSerial}}
+		stopInput := workflowengine.ActivityInput{
+			Payload: map[string]any{"emulator_serial": payload.EmulatorSerial},
+		}
 		if err := workflow.ExecuteActivity(mobileCtx, stopActivity.Name(), stopInput).Get(ctx, nil); err != nil {
-			logger.Error("MobileAutomationCleanupHook: error stopping emulator", payload.EmulatorSerial, "error", err)
+			logger.Error(
+				"MobileAutomationCleanupHook: error stopping emulator",
+				payload.EmulatorSerial,
+				"error",
+				err,
+			)
 			return err
 		}
 

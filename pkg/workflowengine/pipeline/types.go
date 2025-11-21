@@ -28,11 +28,11 @@ type WorkflowBlock struct {
 }
 
 type StepDefinition struct {
-	ID              string                 `yaml:"id"                         json:"id"`
-	Use             string                 `yaml:"use"                        json:"use"`
-	With            StepInputs             `yaml:"with"                       json:"with"`
-	ActivityOptions *ActivityOptionsConfig `yaml:"activity_options,omitempty" json:"activity_options,omitempty"`
-	Metadata        map[string]interface{} `yaml:"metadata,omitempty"         json:"metadata,omitempty"`
+	ID              string                 `yaml:"id"                          json:"id"`
+	Use             string                 `yaml:"use"                         json:"use"`
+	With            StepInputs             `yaml:"with"                        json:"with"`
+	ActivityOptions *ActivityOptionsConfig `yaml:"activity_options,omitempty"  json:"activity_options,omitempty"`
+	Metadata        map[string]interface{} `yaml:"metadata,omitempty"          json:"metadata,omitempty"`
 	ContinueOnError bool                   `yaml:"continue_on_error,omitempty" json:"continue_on_error,omitempty"`
 }
 
@@ -45,7 +45,7 @@ type RuntimeConfig struct {
 	Schedule struct {
 		Interval *time.Duration `yaml:"interval,omitempty" json:"interval,omitempty"`
 	} `yaml:"schedule,omitempty" json:"schedule,omitempty"`
-	Debug    bool `yaml:"debug,omitempty" json:"debug,omitempty"`
+	Debug    bool `yaml:"debug,omitempty"    json:"debug,omitempty"`
 	Temporal struct {
 		Namespace        string                `yaml:"namespace,omitempty" json:"namespace,omitempty"`
 		TaskQueue        string                `yaml:"task_queue,omitempty" json:"task_queue,omitempty"`

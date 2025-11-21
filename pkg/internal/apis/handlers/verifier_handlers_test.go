@@ -23,7 +23,7 @@ func setupVerifierApp(t testing.TB) *tests.TestApp {
 }
 
 func TestGetUseCaseVerificationDeeplink(t *testing.T) {
-	orgID, err := getOrgIDfromName("organizations", "userA's organization")
+	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
 	scenarios := []tests.ApiScenario{

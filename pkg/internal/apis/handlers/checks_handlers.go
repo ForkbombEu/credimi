@@ -1082,7 +1082,9 @@ func computeParentDisplayName(encoded string) string {
 	return clean
 }
 
-var uuidRegex = regexp.MustCompile(`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`)
+var uuidRegex = regexp.MustCompile(
+	`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`,
+)
 
 func computeChildDisplayName(workflowID string) string {
 	switch {
@@ -1099,15 +1101,16 @@ func computeChildDisplayName(workflowID string) string {
 	}
 }
 
-func buildExecutionHierarchy(executions []*WorkflowExecution, userTimezone string) []*WorkflowExecutionSummary {
-
+func buildExecutionHierarchy(
+	executions []*WorkflowExecution,
+	userTimezone string,
+) []*WorkflowExecutionSummary {
 	loc, err := time.LoadLocation(userTimezone)
 	if err != nil {
 		loc = time.Local
 	}
 	summaryMap := make(map[string]*WorkflowExecutionSummary)
 	for _, exec := range executions {
-
 		summaryMap[exec.Execution.RunID] = &WorkflowExecutionSummary{
 			Execution: exec.Execution,
 			Type:      exec.Type,
@@ -1117,13 +1120,13 @@ func buildExecutionHierarchy(executions []*WorkflowExecution, userTimezone strin
 		}
 	}
 
-	var roots []*WorkflowExecutionSummary
+	roots := make([]*WorkflowExecutionSummary, 0, len(executions))
+
 	for _, exec := range executions {
 		current := summaryMap[exec.Execution.RunID]
 
 		if exec.ParentExecution != nil {
 			if parent, ok := summaryMap[exec.ParentExecution.RunID]; ok {
-
 				current.DisplayName = computeChildDisplayName(exec.Execution.WorkflowID)
 				parent.Children = append(parent.Children, current)
 				continue

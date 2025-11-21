@@ -71,10 +71,10 @@ type StepCIWorkflowActivity struct {
 
 // StepCIWorkflowActivityPayload is the input for the StepCIWorkflowActivity
 type StepCIWorkflowActivityPayload struct {
-	Yaml    string            `json:"yaml" yaml:"yaml"`
-	Data    map[string]any    `json:"data,omitempty" yaml:"data,omitempty"`
+	Yaml    string            `json:"yaml"              yaml:"yaml"`
+	Data    map[string]any    `json:"data,omitempty"    yaml:"data,omitempty"`
 	Secrets map[string]string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
-	Env     string            `json:"env,omitempty" yaml:"env,omitempty"`
+	Env     string            `json:"env,omitempty"     yaml:"env,omitempty"`
 }
 
 func NewStepCIWorkflowActivity() *StepCIWorkflowActivity {

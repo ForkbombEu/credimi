@@ -23,7 +23,7 @@ type CustomCheckWorkflow struct{}
 
 type CustomCheckWorkflowPayload struct {
 	Yaml string `json:"yaml,omitempty" yaml:"yaml,omitempty"`
-	ID   string `json:"id,omitempty" yaml:"id,omitempty"`
+	ID   string `json:"id,omitempty"   yaml:"id,omitempty"`
 }
 
 func (CustomCheckWorkflow) Name() string {
@@ -59,7 +59,10 @@ func (w *CustomCheckWorkflow) Workflow(
 	}
 	payload, err := workflowengine.DecodePayload[CustomCheckWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 	yaml := payload.Yaml
 	if yaml == "" {
@@ -145,7 +148,6 @@ func (w *CustomCheckWorkflow) Workflow(
 			)
 		}
 		yaml = storedYaml
-
 	}
 	env, _ := input.Config["env"].(string)
 	stepCIInput := workflowengine.ActivityInput{
