@@ -37,7 +37,7 @@ type CredentialsIssuersWorkflow struct{}
 
 // CredentialsIssuersWorkflowPayload is the payload for the CredentialsIssuersWorkflow.
 type CredentialsIssuersWorkflowPayload struct {
-	BaseURL  string `json:"base_url" yaml:"base_url" validate:"required"`
+	BaseURL  string `json:"base_url"  yaml:"base_url"  validate:"required"`
 	IssuerID string `json:"issuer_id" yaml:"issuer_id" validate:"required"`
 }
 
@@ -386,7 +386,10 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[GetCredentialOfferWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
@@ -446,7 +449,10 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 				"credential_offer is not a string",
 				result.Output,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				wErr,
+				runMetadata,
+			)
 		}
 
 		return workflowengine.WorkflowResult{
@@ -567,7 +573,6 @@ func validateInput(
 	input workflowengine.WorkflowInput,
 	runMetadata workflowengine.WorkflowErrorMetadata,
 ) (baseURL, appURL, issuerSchema, issuerID string, err error) {
-
 	payload, err := workflowengine.DecodePayload[CredentialsIssuersWorkflowPayload](input.Payload)
 	if err != nil {
 		return "", "", "", "", workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)

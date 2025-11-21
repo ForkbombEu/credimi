@@ -56,9 +56,14 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 		),
 	}
 
-	payload, err := workflowengine.DecodePayload[GetUseCaseVerificationDeeplinkWorkflowPayload](input.Payload)
+	payload, err := workflowengine.DecodePayload[GetUseCaseVerificationDeeplinkWorkflowPayload](
+		input.Payload,
+	)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 
 	appURL, ok := input.Config["app_url"].(string)

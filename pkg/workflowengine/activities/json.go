@@ -25,7 +25,7 @@ type JSONActivity struct {
 
 // JSONActivityPayload is the input payload for the JSONActivity.
 type JSONActivityPayload struct {
-	RawJSON    string `json:"rawJSON" yaml:"rawJSON" validate:"required"`
+	RawJSON    string `json:"rawJSON"     yaml:"rawJSON"     validate:"required"`
 	StructType string `json:"struct_type" yaml:"struct_type" validate:"required"`
 }
 

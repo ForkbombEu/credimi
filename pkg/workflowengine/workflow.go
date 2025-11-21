@@ -126,7 +126,7 @@ func NewAppError(code errorcodes.Code, field string, payload ...any) error {
 }
 
 // NewMissingOrInvalidPayloadError returns a WorkflowError for a missing or invalid payload.
-// It creates an ApplicationError with the given error and code, and then wraps it in a WorkflowError with the given runMetadata.
+// It creates an ApplicationError with the given error and code, and then wraps it in a WorkflowError.
 // The error is returned with code errorcodes.MissingOrInvalidPayload.
 // The error message is set to err.Error().
 func NewMissingOrInvalidPayloadError(err error, runMetadata WorkflowErrorMetadata) error {

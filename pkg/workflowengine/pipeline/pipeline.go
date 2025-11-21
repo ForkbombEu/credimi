@@ -11,7 +11,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-
 	"github.com/google/uuid"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
@@ -23,10 +22,10 @@ const PipelineTaskQueue = "PipelineTaskQueue"
 type PipelineWorkflow struct{}
 
 type PipelineWorkflowInput struct {
-	WorkflowDefinition *WorkflowDefinition          `yaml:"workflow_definition" json:"workflow_definition"`
-	WorkflowBlock      *WorkflowBlock               `yaml:"workflow_block,omitempty"      json:"workflow_block,omitempty"`
-	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"   json:"workflow_input"`
-	Debug              bool                         `yaml:"debug,omitempty"              json:"debug,omitempty"`
+	WorkflowDefinition *WorkflowDefinition          `yaml:"workflow_definition"      json:"workflow_definition"`
+	WorkflowBlock      *WorkflowBlock               `yaml:"workflow_block,omitempty" json:"workflow_block,omitempty"`
+	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"           json:"workflow_input"`
+	Debug              bool                         `yaml:"debug,omitempty"          json:"debug,omitempty"`
 }
 
 func (PipelineWorkflow) Name() string {
@@ -96,7 +95,6 @@ func (w *PipelineWorkflow) Workflow(
 	}
 	var previousStepID string
 	for _, step := range steps {
-
 		if step.Use == "debug" {
 			runDebugActivity(ctx, logger, previousStepID, finalOutput)
 			continue
@@ -119,7 +117,12 @@ func (w *PipelineWorkflow) Workflow(
 			)
 
 			localCfg := MergeConfigs(input.WorkflowInput.Config, step.With.Config)
-			err := ResolveSubworkflowInputs(&step, subBlock, input.WorkflowInput.Config, finalOutput)
+			err := ResolveSubworkflowInputs(
+				&step,
+				subBlock,
+				input.WorkflowInput.Config,
+				finalOutput,
+			)
 			if err != nil {
 				return result, workflowengine.NewWorkflowError(err, runMetadata)
 			}
@@ -242,7 +245,11 @@ func (w *PipelineWorkflow) Start(
 	memo["test"] = wfDef.Name
 	options := PrepareWorkflowOptions(wfDef.Runtime)
 	options.Options.Memo = memo
-	options.Options.ID = fmt.Sprintf("Pipeline-%s-%s", canonify.CanonifyPlain(wfDef.Name), uuid.NewString())
+	options.Options.ID = fmt.Sprintf(
+		"Pipeline-%s-%s",
+		canonify.CanonifyPlain(wfDef.Name),
+		uuid.NewString(),
+	)
 
 	if ns, ok := config["namespace"].(string); ok && ns != "" {
 		options.Namespace = ns
@@ -270,7 +277,6 @@ func (w *PipelineWorkflow) Start(
 	}
 
 	if wfDef.Runtime.Schedule.Interval != nil {
-
 		ctx := context.Background()
 		scheduleID := fmt.Sprintf("schedule_id_%s", options.Options.ID)
 		scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
@@ -291,13 +297,20 @@ func (w *PipelineWorkflow) Start(
 			},
 		})
 		if err != nil {
-			return result, fmt.Errorf("failed to start scheduled workflow from pipeline %s: %w", wfDef.Name, err)
-
+			return result, fmt.Errorf(
+				"failed to start scheduled workflow from pipeline %s: %w",
+				wfDef.Name,
+				err,
+			)
 		}
 
 		_, err = scheduleHandle.Describe(ctx)
 		if err != nil {
-			return result, fmt.Errorf("failed to describe scheduled workflow from pipeline %s: %w", wfDef.Name, err)
+			return result, fmt.Errorf(
+				"failed to describe scheduled workflow from pipeline %s: %w",
+				wfDef.Name,
+				err,
+			)
 		}
 		result = workflowengine.WorkflowResult{
 			WorkflowID: scheduleHandle.GetID(),
@@ -308,7 +321,6 @@ func (w *PipelineWorkflow) Start(
 			),
 		}
 		return result, nil
-
 	}
 
 	// Start the workflow execution.

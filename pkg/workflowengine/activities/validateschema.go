@@ -22,8 +22,8 @@ type SchemaValidationActivity struct {
 
 // SchemaValidationActivityPayload is the input payload for the SchemaValidationActivity.
 type SchemaValidationActivityPayload struct {
-	Schema    string         `json:"schema" yaml:"schema" validate:"required"`
-	Data      map[string]any `json:"data" yaml:"data" validate:"required"`
+	Schema    string         `json:"schema"              yaml:"schema"              validate:"required"`
+	Data      map[string]any `json:"data"                yaml:"data"                validate:"required"`
 	SubSchema any            `json:"subschema,omitempty" yaml:"subschema,omitempty"`
 }
 

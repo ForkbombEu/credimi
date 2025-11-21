@@ -76,7 +76,10 @@ func HandleGetCredentialOffer() func(*core.RequestEvent) error {
 			return e.JSON(http.StatusOK, response)
 		}
 
-		issuerRecord, err := e.App.FindRecordById("credential_issuers", record.GetString("credential_issuer"))
+		issuerRecord, err := e.App.FindRecordById(
+			"credential_issuers",
+			record.GetString("credential_issuer"),
+		)
 		if err != nil {
 			return apierror.New(
 				http.StatusNotFound,
@@ -101,7 +104,10 @@ func HandleGetCredentialOffer() func(*core.RequestEvent) error {
 		}
 
 		encoded := url.QueryEscape(string(jsonData))
-		response.CredentialOffer = fmt.Sprintf("openid-credential-offer://?credential_offer=%s", encoded)
+		response.CredentialOffer = fmt.Sprintf(
+			"openid-credential-offer://?credential_offer=%s",
+			encoded,
+		)
 
 		return e.JSON(http.StatusOK, response)
 	}

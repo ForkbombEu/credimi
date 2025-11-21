@@ -20,7 +20,7 @@ type WorkerManagerWorkflow struct{}
 
 // WorkerManagerWorkflowPayload is the payload for the worker manager workflow.
 type WorkerManagerWorkflowPayload struct {
-	Namespace    string `json:"namespace" yaml:"namespace" validate:"required"`
+	Namespace    string `json:"namespace"               yaml:"namespace"               validate:"required"`
 	OldNamespace string `json:"old_namespace,omitempty" yaml:"old_namespace,omitempty"`
 }
 
@@ -51,7 +51,10 @@ func (w *WorkerManagerWorkflow) Workflow(
 	}
 	payload, err := workflowengine.DecodePayload[WorkerManagerWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 
 	serverURL, ok := input.Config["server_url"].(string)
@@ -85,7 +88,10 @@ func (w *WorkerManagerWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
 	return workflowengine.WorkflowResult{
-		Message: fmt.Sprintf("Send namespace '%s' to start workers successfully", payload.Namespace),
+		Message: fmt.Sprintf(
+			"Send namespace '%s' to start workers successfully",
+			payload.Namespace,
+		),
 	}, nil
 }
 

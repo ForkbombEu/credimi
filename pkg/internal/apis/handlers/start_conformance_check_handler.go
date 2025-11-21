@@ -41,7 +41,7 @@ type SaveVariablesAndStartRequestInput struct {
 type openID4VPTestInputFile struct {
 	Variant  json.RawMessage `json:"variant" yaml:"variant" validate:"required,oneof=json variables yaml"`
 	Form     workflows.Form  `json:"form"    yaml:"form"`
-	TestName string          `json:"test" yaml:"test" validate:"required"`
+	TestName string          `json:"test"    yaml:"test"    validate:"required"`
 }
 type vLEICheckInput struct {
 	CredentialID string `json:"credentialID"`
