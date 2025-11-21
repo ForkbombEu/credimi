@@ -50,7 +50,7 @@ func HandleVerificationDeeplink() func(*core.RequestEvent) error {
 			return apierror.New(
 				http.StatusNotFound,
 				"resolve",
-				"failed to resolve credential path",
+				"failed to resolve verification path",
 				err.Error(),
 			).JSON(e)
 		}
@@ -132,8 +132,6 @@ func HandleVerificationDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		return e.JSON(http.StatusOK, map[string]any{
-			"deeplink": deeplink,
-		})
+		return e.String(http.StatusOK, deeplink)
 	}
 }
