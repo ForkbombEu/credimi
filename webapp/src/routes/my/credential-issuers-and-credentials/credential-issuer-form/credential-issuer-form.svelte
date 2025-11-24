@@ -105,8 +105,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								'url',
 								'canonified_name',
 								'imported',
-								'workflow_url'
-							]
+								'workflow_url',
+								'logo_url'
+							],
+							snippets: {
+								logo
+							}
 						}}
 						onSuccess={() => {
 							importedIssuer = undefined;
