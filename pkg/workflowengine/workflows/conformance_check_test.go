@@ -264,6 +264,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 			payload := StartCheckWorkflowPayload{
 				UserMail: "test@example.org",
 				Suite:    tc.suite,
+				CheckID:  "test-check-id",
 			}
 
 			config := map[string]any{

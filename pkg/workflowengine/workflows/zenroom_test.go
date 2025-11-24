@@ -80,6 +80,9 @@ Given I have a 'string' named 'broken'
 			}
 			input := workflowengine.WorkflowInput{
 				Payload: payload,
+				Config: map[string]any{
+					"app_url": "http://app.example.com",
+				},
 			}
 			env.ExecuteWorkflow(w.Name(), input)
 
