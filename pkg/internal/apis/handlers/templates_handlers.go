@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"os"
@@ -158,6 +159,7 @@ type SuiteMetadata struct {
 type Suite struct {
 	SuiteMetadata
 	Files []string `json:"files" yaml:"files"`
+	Paths []string `json:"paths" yaml:"paths"`
 }
 
 type Version struct {
@@ -277,15 +279,24 @@ func walkConfigTemplates(dir string, filter bool) (Standards, error) {
 				}
 
 				files := []string{}
+				paths := []string{}
 				for _, f := range fileEntries {
 					if !f.IsDir() && f.Name() != "metadata.yaml" {
 						files = append(files, f.Name())
+						paths = append(paths, fmt.Sprintf(
+							"%s/%s/%s/%s",
+							standardMeta.UID,
+							versionMeta.UID,
+							suiteMeta.UID,
+							strings.TrimSuffix(f.Name(), filepath.Ext(f.Name())),
+						))
 					}
 				}
 
 				suites = append(suites, Suite{
 					SuiteMetadata: suiteMeta,
 					Files:         files,
+					Paths:         paths,
 				})
 			}
 

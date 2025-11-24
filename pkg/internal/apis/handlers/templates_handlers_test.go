@@ -65,6 +65,7 @@ func TestWalkConfigTemplates(t *testing.T) {
 	suite1Yaml, _ := yaml.Marshal(suite1Meta)
 	require.NoError(t, os.WriteFile(filepath.Join(suite1Dir, "metadata.yaml"), suite1Yaml, 0644))
 	ewcFiles := []string{"ewc_file1.json", "ewc_file2.json"}
+	ewcPaths := []string{"openid4vp/draft-24/ewc/ewc_file1", "openid4vp/draft-24/ewc/ewc_file2"}
 	for _, fname := range ewcFiles {
 		require.NoError(t, os.WriteFile(filepath.Join(suite1Dir, fname), []byte("{}"), 0644))
 	}
@@ -81,6 +82,10 @@ func TestWalkConfigTemplates(t *testing.T) {
 	suite2Yaml, _ := yaml.Marshal(suite2Meta)
 	require.NoError(t, os.WriteFile(filepath.Join(suite2Dir, "metadata.yaml"), suite2Yaml, 0644))
 	conformanceFiles := []string{"conformance_file1.json", "conformance_file2.json"}
+	conformancePaths := []string{
+		"openid4vp/draft-24/openid_conformance_suite/conformance_file1",
+		"openid4vp/draft-24/openid_conformance_suite/conformance_file2",
+	}
 	for _, fname := range conformanceFiles {
 		require.NoError(t, os.WriteFile(filepath.Join(suite2Dir, fname), []byte("{}"), 0644))
 	}
@@ -104,9 +109,13 @@ func TestWalkConfigTemplates(t *testing.T) {
 				{
 					VersionMetadata: versionMeta,
 					Suites: []Suite{
-						{SuiteMetadata: suite3Meta, Files: []string{}},
-						{SuiteMetadata: suite1Meta, Files: ewcFiles},
-						{SuiteMetadata: suite2Meta, Files: conformanceFiles},
+						{SuiteMetadata: suite3Meta, Files: []string{}, Paths: []string{}},
+						{SuiteMetadata: suite1Meta, Files: ewcFiles, Paths: ewcPaths},
+						{
+							SuiteMetadata: suite2Meta,
+							Files:         conformanceFiles,
+							Paths:         conformancePaths,
+						},
 					},
 				},
 			},
@@ -126,7 +135,7 @@ func TestWalkConfigTemplates(t *testing.T) {
 				{
 					VersionMetadata: versionMeta,
 					Suites: []Suite{
-						{SuiteMetadata: suite1Meta, Files: ewcFiles},
+						{SuiteMetadata: suite1Meta, Files: ewcFiles, Paths: ewcPaths},
 					},
 				},
 			},
