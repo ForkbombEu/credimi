@@ -27,6 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type CollectionFormProps,
 		type FieldsOptions
 	} from './collectionFormTypes';
+	import { setCollectionFormContext } from './context';
 
 	/* Props and unpacking */
 
@@ -109,6 +110,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			};
 		})
 	);
+
+	//
+
+	setCollectionFormContext(() => ({
+		recordId: props.recordId,
+		collectionName: props.collection,
+		initialData: props.initialData,
+		form
+	}));
 </script>
 
 <Form {form} {hideRequiredIndicator} hide={uiOptions.hide} submitButton={submitButtonArea}>
