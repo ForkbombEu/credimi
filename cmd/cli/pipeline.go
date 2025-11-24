@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +33,7 @@ func NewPipelineCmd() *cobra.Command {
 				authReq, err := http.NewRequestWithContext(
 					cmd.Context(),
 					"GET",
-					fmt.Sprintf("%s/api/apikey/authenticate", instanceURL),
+					utils.JoinURL(instanceURL, "api", "apikey", "authenticate"),
 					nil,
 				)
 				if err != nil {
@@ -90,7 +91,7 @@ func NewPipelineCmd() *cobra.Command {
 			req, err := http.NewRequestWithContext(
 				cmd.Context(),
 				"POST",
-				fmt.Sprintf("%s/api/pipeline/start", instanceURL),
+				utils.JoinURL(instanceURL, "api", "pipeline", "start"),
 				bytes.NewBuffer(body),
 			)
 			if err != nil {

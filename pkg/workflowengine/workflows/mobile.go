@@ -141,7 +141,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 			storeResultInput := workflowengine.ActivityInput{
 				Payload: activities.HTTPActivityPayload{
 					Method: http.MethodPost,
-					URL: utils.JoinURL(mobileServerURL, "store-action-result"),
+					URL:    utils.JoinURL(mobileServerURL, "store-action-result"),
 					Headers: map[string]string{
 						"Content-Type": "application/json",
 					},

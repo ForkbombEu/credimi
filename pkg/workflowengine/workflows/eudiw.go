@@ -172,7 +172,12 @@ func (w *EudiwWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	baseURL := utils.JoinURL(input.Config["app_url"].(string), "tests", "wallet", "eudiw") // TODO use the correct one
+	baseURL := utils.JoinURL(
+		input.Config["app_url"].(string),
+		"tests",
+		"wallet",
+		"eudiw",
+	) // TODO use the correct one
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
@@ -258,8 +263,8 @@ func (w *EudiwWorkflow) Workflow(
 		CheckStatusInput := workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodGet,
-				URL: fmt.Sprintf(
-					"https://verifier-backend.eudiw.dev/ui/presentations/%s",
+				URL: utils.JoinURL(
+					"https://verifier-backend.eudiw.dev/ui/presentations",
 					transactionID,
 				),
 			},
@@ -304,9 +309,10 @@ func (w *EudiwWorkflow) Workflow(
 		getLogsInput := workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodGet,
-				URL: fmt.Sprintf(
-					"https://verifier-backend.eudiw.dev/ui/presentations/%s/events",
+				URL: utils.JoinURL(
+					"https://verifier-backend.eudiw.dev/ui/presentations",
 					transactionID,
+					"events",
 				),
 				ExpectedStatus: 200,
 			},

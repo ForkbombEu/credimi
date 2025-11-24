@@ -9,9 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
-	"net/url"
 	"os"
-	"path"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -21,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	api "github.com/forkbombeu/credimi/pkg/internal/apis"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/hypersequent/zen"
 	"github.com/invopop/jsonschema"
 	"gopkg.in/yaml.v3"
@@ -247,7 +246,7 @@ func main() {
 	for _, group := range routeGroups {
 		for _, route := range group.Routes {
 			// Use url.JoinPath for proper URL path joining instead of file path.Join
-			joinedPath, _ := url.JoinPath(group.BaseURL, route.Path)
+			joinedPath := utils.JoinURL(group.BaseURL, route.Path)
 			r := RouteInfo{
 				Method:                 route.Method,
 				Path:                   joinedPath,

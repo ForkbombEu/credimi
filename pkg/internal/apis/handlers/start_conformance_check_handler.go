@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	engine "github.com/forkbombeu/credimi/pkg/templateengine"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -112,11 +113,12 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		appName := e.App.Settings().Meta.AppName
-		logoUrl := fmt.Sprintf(
-			"%s/logos/%s_logo-transp_emblem.png",
+		logoURL := utils.JoinURL(
 			appURL,
-			strings.ToLower(appName),
+			"logos",
+			fmt.Sprintf("%s_logo-transp_emblem.png", strings.ToLower(appName)),
 		)
+
 		userName := e.Auth.GetString("name")
 
 		protocol := e.Request.PathValue("protocol")
@@ -215,7 +217,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				testName,
 				protocol,
 				version,
-				logoUrl,
+				logoURL,
 				appName,
 				userName,
 			)
@@ -257,7 +259,7 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 				author,
 				protocol,
 				version,
-				logoUrl,
+				logoURL,
 				appName,
 				userName,
 				orgID,
