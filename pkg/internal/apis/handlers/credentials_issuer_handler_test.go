@@ -117,7 +117,7 @@ func setupTestAppWithData(orgID string, setupData TestSetupData) func(t testing.
 				credRecord.Set("display_name", cred.DisplayName)
 				credRecord.Set("locale", cred.Locale)
 				credRecord.Set("description", cred.Description)
-				credRecord.Set("logo", cred.LogoURI)
+				credRecord.Set("logo_url", cred.LogoURI)
 				credRecord.Set("format", cred.Format)
 				credRecord.Set("json", string(jsonBytes))
 				credRecord.Set("credential_issuer", issuerID)
