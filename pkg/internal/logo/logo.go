@@ -10,6 +10,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -64,5 +65,31 @@ func DownloadImage(ctx context.Context, imageURL string) (*filesystem.File, erro
 		return nil, fmt.Errorf("empty image")
 	}
 
-	return filesystem.NewFileFromBytes(data, "image.jpg")
+	filename := extractFilenameFromURL(imageURL)
+	return filesystem.NewFileFromBytes(data, filename)
+}
+
+func extractFilenameFromURL(imageURL string) string {
+	parts := strings.Split(imageURL, "/")
+	if len(parts) == 0 || parts[len(parts)-1] == "" {
+		cleanURL := strings.ReplaceAll(imageURL, "://", "_")
+		cleanURL = strings.ReplaceAll(cleanURL, "/", "_")
+		cleanURL = strings.ReplaceAll(cleanURL, "?", "_")
+		return cleanURL + ".jpg"
+	}
+
+	lastPart := parts[len(parts)-1]
+	if idx := strings.Index(lastPart, "?"); idx != -1 {
+		lastPart = lastPart[:idx]
+	}
+
+	if idx := strings.Index(lastPart, "#"); idx != -1 {
+		lastPart = lastPart[:idx]
+	}
+
+	if !strings.Contains(lastPart, ".") {
+		lastPart = lastPart + ".jpg"
+	}
+
+	return lastPart
 }
