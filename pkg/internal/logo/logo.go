@@ -44,7 +44,10 @@ func downloadWithCustomClient(ctx context.Context, urlStr string) (*filesystem.F
 		Timeout: 30 * time.Second,
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
-				return net.DialTimeout(network, addr, 10*time.Second)
+				dialer := &net.Dialer{
+					Timeout: 10 * time.Second,
+				}
+				return dialer.DialContext(ctx, network, addr)
 			},
 		},
 	}
@@ -54,7 +57,9 @@ func downloadWithCustomClient(ctx context.Context, urlStr string) (*filesystem.F
 		return nil, err
 	}
 
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+	req.Header.Set("User-Agent",
+		"Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "+
+			"(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
 	req.Header.Set("Accept-Language", "it-IT,it;q=0.9,en;q=0.8")
 	req.Header.Set("Accept-Encoding", "gzip, deflate, br")
