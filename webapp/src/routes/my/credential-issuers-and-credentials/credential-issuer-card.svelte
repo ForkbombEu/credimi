@@ -58,7 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <DashboardCard
 	record={issuer}
-	avatar={(r) => r.logo_url}
+	avatar={(i) => (i.logo ? pb.files.getURL(i, i.logo) : i.logo_url)}
 	badge={issuer.imported ? m.Imported() : undefined}
 	links={{
 		URL: issuer.url,
