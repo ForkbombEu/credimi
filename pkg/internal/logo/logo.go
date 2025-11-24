@@ -22,8 +22,18 @@ func LogoHooks(app core.App) {
 }
 
 func HandleLogo(e *core.RecordEvent) error {
+	logo := e.Record.GetUnsavedFiles("logo")
+	if len(logo) > 0 {
+		return e.Next()
+	}
+
 	logoURL := e.Record.GetString("logo_url")
 	if logoURL == "" {
+		return e.Next()
+	}
+
+	originalLogoURL := e.Record.Original().GetString("logo_url")
+	if originalLogoURL == logoURL {
 		return e.Next()
 	}
 
