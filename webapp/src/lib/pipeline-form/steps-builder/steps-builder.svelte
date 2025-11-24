@@ -18,15 +18,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
-	import BaseStepFormComponent from './base-step-form.svelte';
-	import { BaseStepForm } from './base-step-form.svelte.js';
+	import BaseStepFormComponent from './steps/base-step-form.svelte';
+	import { BaseStepForm } from './steps/base-step-form.svelte.js';
+	import ConformanceCheckStepFormComponent from './steps/conformance-check-step-form.svelte';
+	import { ConformanceCheckStepForm } from './steps/conformance-check-step-form.svelte.js';
+	import WalletStepFormComponent from './steps/wallet-step-form.svelte';
+	import { WalletStepForm } from './steps/wallet-step-form.svelte.js';
 	import { IdleState, StepFormState, StepType } from './types.js';
 	import Column from './utils/column.svelte';
 	import { getStepDisplayData } from './utils/display-data.js';
 	import EmptyState from './utils/empty-state.svelte';
 	import StepCard from './utils/step-card.svelte';
-	import WalletStepFormComponent from './wallet-step-form.svelte';
-	import { WalletStepForm } from './wallet-step-form.svelte.js';
 
 	//
 
@@ -41,6 +43,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="flex grow flex-col overflow-hidden" in:fly>
 				{#if builder.state instanceof WalletStepForm}
 					<WalletStepFormComponent form={builder.state} />
+				{:else if builder.state instanceof ConformanceCheckStepForm}
+					<ConformanceCheckStepFormComponent form={builder.state} />
 				{:else if builder.state instanceof BaseStepForm}
 					<BaseStepFormComponent form={builder.state} />
 				{/if}

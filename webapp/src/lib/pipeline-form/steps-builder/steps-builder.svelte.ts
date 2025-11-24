@@ -7,11 +7,12 @@ import { pb } from '@/pocketbase/index.js';
 import { create } from 'mutative';
 import { nanoid } from 'nanoid';
 import slugify from 'slugify';
-import { BaseStepForm } from './base-step-form.svelte.js';
 import Component from './steps-builder.svelte';
+import { BaseStepForm } from './steps/base-step-form.svelte.js';
+import { ConformanceCheckStepForm } from './steps/conformance-check-step-form.svelte.js';
+import { WalletStepForm } from './steps/wallet-step-form.svelte.js';
 import type { BuilderStep, MarketplaceStepType, WalletStepData } from './types';
 import { IdleState, StepFormState, StepType } from './types';
-import { WalletStepForm } from './wallet-step-form.svelte.js';
 
 //
 
@@ -95,6 +96,8 @@ export class StepsBuilder {
 		this.effectCleanup = $effect.root(() => {
 			if (type === StepType.WalletAction) {
 				this.initWalletStepForm();
+			} else if (type === StepType.ConformanceCheck) {
+				this.initConformanceCheckStepForm();
 			} else {
 				this.initBaseStepForm(type);
 			}
@@ -153,6 +156,12 @@ export class StepsBuilder {
 					});
 				}
 			});
+		});
+	}
+
+	private initConformanceCheckStepForm() {
+		this.run((data) => {
+			data.state = new ConformanceCheckStepForm();
 		});
 	}
 

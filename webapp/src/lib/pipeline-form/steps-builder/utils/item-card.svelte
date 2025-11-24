@@ -18,9 +18,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		title: string;
 		onClick?: () => void;
 		right?: Snippet;
+		children?: Snippet;
 	};
 
-	let { avatar, title, onClick, subtitle, right }: Props = $props();
+	let { avatar, title, onClick, subtitle, right, children }: Props = $props();
 	const isInteractive = $derived(onClick !== undefined);
 
 	const classes = 'flex w-full items-center gap-3 rounded-md  p-2 text-left';
@@ -46,6 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if subtitle}
 			<T class="text-muted-foreground text-xs">{subtitle}</T>
 		{/if}
+		{@render children?.()}
 	</div>
 
 	<div class="shrink-0">
