@@ -88,7 +88,7 @@ func extractFilenameFromURL(imageURL string) string {
 	}
 
 	if !strings.Contains(lastPart, ".") {
-		lastPart = lastPart + ".jpg"
+		lastPart += ".jpg"
 	}
 
 	return lastPart
