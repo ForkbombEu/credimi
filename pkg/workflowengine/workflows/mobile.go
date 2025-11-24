@@ -62,9 +62,9 @@ func (w *MobileAutomationWorkflow) Workflow(
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 
 	var output MobileWorkflowOutput
-	testRunURL := fmt.Sprintf(
-		"%s/my/tests/runs/%s/%s",
-		input.Config["app_url"],
+	testRunURL := utils.JoinURL(
+		input.Config["app_url"].(string),
+		"my", "tests", "runs",
 		workflow.GetInfo(ctx).WorkflowExecution.ID,
 		workflow.GetInfo(ctx).WorkflowExecution.RunID,
 	)
@@ -141,11 +141,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 			storeResultInput := workflowengine.ActivityInput{
 				Payload: activities.HTTPActivityPayload{
 					Method: http.MethodPost,
-					URL: fmt.Sprintf(
-						"%s/%s",
-						mobileServerURL,
-						"store-action-result",
-					),
+					URL:    utils.JoinURL(mobileServerURL, "store-action-result"),
 					Headers: map[string]string{
 						"Content-Type": "application/json",
 					},

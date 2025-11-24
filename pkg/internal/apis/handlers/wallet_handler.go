@@ -20,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/apis"
@@ -467,12 +468,15 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		resultURL := fmt.Sprintf(
-			"%s/api/files/wallet_actions/%s/%s",
+		resultURL := utils.JoinURL(
 			e.App.Settings().Meta.AppURL,
+			"api",
+			"files",
+			"wallet_actions",
 			actionRecord.Id,
 			actionRecord.GetString("result"),
 		)
+
 		err = os.Remove(absResultPath)
 		if err != nil {
 			return apierror.New(

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -91,9 +92,9 @@ func (w *EudiwWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -171,7 +172,12 @@ func (w *EudiwWorkflow) Workflow(
 			runMetadata,
 		)
 	}
-	baseURL := input.Config["app_url"].(string) + "/tests/wallet/eudiw" // TODO use the correct one
+	baseURL := utils.JoinURL(
+		input.Config["app_url"].(string),
+		"tests",
+		"wallet",
+		"eudiw",
+	) // TODO use the correct one
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
@@ -257,8 +263,8 @@ func (w *EudiwWorkflow) Workflow(
 		CheckStatusInput := workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodGet,
-				URL: fmt.Sprintf(
-					"https://verifier-backend.eudiw.dev/ui/presentations/%s",
+				URL: utils.JoinURL(
+					"https://verifier-backend.eudiw.dev/ui/presentations",
 					transactionID,
 				),
 			},
@@ -303,9 +309,10 @@ func (w *EudiwWorkflow) Workflow(
 		getLogsInput := workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodGet,
-				URL: fmt.Sprintf(
-					"https://verifier-backend.eudiw.dev/ui/presentations/%s/events",
+				URL: utils.JoinURL(
+					"https://verifier-backend.eudiw.dev/ui/presentations",
 					transactionID,
+					"events",
 				),
 				ExpectedStatus: 200,
 			},
@@ -324,10 +331,9 @@ func (w *EudiwWorkflow) Workflow(
 		triggerLogsInput := workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodPost,
-				URL: fmt.Sprintf(
-					"%s/%s",
+				URL: utils.JoinURL(
 					input.Config["app_url"].(string),
-					"api/compliance/send-eudiw-log-update",
+					"api", "compliance", "send-eudiw-log-update",
 				),
 				Headers: map[string]string{
 					"Content-Type": "application/json",

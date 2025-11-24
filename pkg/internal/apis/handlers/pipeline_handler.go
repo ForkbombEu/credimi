@@ -11,6 +11,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
@@ -45,11 +46,12 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 		}
 		appURL := e.App.Settings().Meta.AppURL
 		appName := e.App.Settings().Meta.AppName
-		logoUrl := fmt.Sprintf(
-			"%s/logos/%s_logo-transp_emblem.png",
+		logoURL := utils.JoinURL(
 			appURL,
-			strings.ToLower(appName),
+			"logos",
+			fmt.Sprintf("%s_logo-transp_emblem.png", strings.ToLower(appName)),
 		)
+
 		var userID, userMail, userName, namespace string
 
 		if e.Auth != nil {
@@ -75,7 +77,7 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 			"namespace": namespace,
 			"app_url":   appURL,
 			"app_name":  appName,
-			"app_logo":  logoUrl,
+			"app_logo":  logoURL,
 			"user_name": userName,
 			"user_mail": userMail,
 		}

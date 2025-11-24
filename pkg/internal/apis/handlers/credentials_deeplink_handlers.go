@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
@@ -79,7 +80,7 @@ func HandleGetCredentialDeeplink() func(*core.RequestEvent) error {
 		}
 
 		baseURL := e.App.Settings().Meta.AppURL
-		url := baseURL + "/api/get-deeplink"
+		url := utils.JoinURL(baseURL, "api", "get-deeplink")
 
 		ctx := e.Request.Context()
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(bodyData))

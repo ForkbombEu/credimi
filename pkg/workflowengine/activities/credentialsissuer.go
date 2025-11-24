@@ -17,6 +17,7 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
@@ -95,10 +96,8 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 	cleanURL = strings.TrimRight(cleanURL, "/")
 	if !strings.HasSuffix(cleanURL, "/.well-known/openid-credential-issuer") {
 		// 1. Try federation
-		federationURL := strings.TrimSuffix(
-			cleanURL,
-			"/.well-known/openid-federation",
-		) + "/.well-known/openid-federation"
+		baseForFederation := strings.TrimSuffix(cleanURL, "/.well-known/openid-federation")
+		federationURL := utils.JoinURL(baseForFederation, ".well-known", "openid-federation")
 		federationJSON, err := fetchJSONFromURL(ctx, federationURL, true, a)
 		if err == nil {
 			return workflowengine.ActivityResult{
@@ -122,10 +121,8 @@ func (a *CheckCredentialsIssuerActivity) Execute(
 		}
 	}
 	// 2. Fallback to credential issuer
-	issuerURL := strings.TrimSuffix(
-		cleanURL,
-		"/.well-known/openid-credential-issuer",
-	) + "/.well-known/openid-credential-issuer"
+	baseForIssuer := strings.TrimSuffix(cleanURL, "/.well-known/openid-credential-issuer")
+	issuerURL := utils.JoinURL(baseForIssuer, ".well-known", "openid-credential-issuer")
 	issuerJSON, err := fetchJSONFromURL(ctx, issuerURL, false, a)
 	if err != nil {
 		return result, err

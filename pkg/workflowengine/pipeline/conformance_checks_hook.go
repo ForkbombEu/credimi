@@ -63,7 +63,7 @@ func ConformanceCheckHook(
 		}
 
 		rootDir := utils.GetEnvironmentVariable("ROOT_DIR", true)
-		configTemplatePath := fmt.Sprintf("%s/config_templates/%s.yaml", rootDir, payload.CheckID)
+		configTemplatePath := filepath.Join(rootDir, "config_templates", payload.CheckID+".yaml")
 		content, err := os.ReadFile(configTemplatePath)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.ReadFileFailed]
@@ -185,8 +185,7 @@ func ConformanceCheckHook(
 				fmt.Sprintf("missing or invalid suite for step %s", step.ID),
 			)
 		}
-
-		templatePath := fmt.Sprintf("%s/%s", rootDir, suiteTemplatePath)
+		templatePath := filepath.Join(rootDir, suiteTemplatePath)
 		template, err := os.ReadFile(templatePath)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.ReadFileFailed]

@@ -235,12 +235,15 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		workflowURL := fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
+		workflowURL := utils.JoinURL(
 			e.App.Settings().Meta.AppURL,
+			"my",
+			"tests",
+			"runs",
 			result.WorkflowID,
 			result.WorkflowRunID,
 		)
+
 		c, err := temporalclient.GetTemporalClientWithNamespace(orgName)
 		if err != nil {
 			if isNew {

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -70,8 +71,7 @@ func (w *WorkerManagerWorkflow) Workflow(
 	err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), workflowengine.ActivityInput{
 		Payload: activities.HTTPActivityPayload{
 			Method: http.MethodPost,
-			URL: fmt.Sprintf(
-				"%s/%s/%s",
+			URL: utils.JoinURL(
 				serverURL,
 				"process",
 				payload.Namespace,
