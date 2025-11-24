@@ -2,3 +2,4 @@ name: EWC Interoperability Test Bed
 homepage: https://eudiwalletconsortium.org/
 repository: https://github.com/EWC-consortium
 description: This is the EWC Interoperability Test Bed (ITB) and implements the conformance towards EWC RFCs; build towards the Large Scale Pilot (LSP) usecases. The project is co-funded by the European Union.
+show_in_pipeline_gui: true

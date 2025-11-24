@@ -11,6 +11,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -45,8 +46,22 @@ var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
 
 func HandleGetConfigsTemplates() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
+		onlyShow := false
+		if v := e.Request.URL.Query().Get("only_show_in_pipeline_gui"); v != "" {
+			parsed, err := strconv.ParseBool(v)
+			if err != nil {
+				return apierror.New(
+					http.StatusBadRequest,
+					"only_show_in_pipeline_gui",
+					"invalid value for only_show_in_pipeline_gui",
+					err.Error(),
+				)
+			}
+			onlyShow = parsed
+		}
+
 		templatesDir := path.Join(os.Getenv("ROOT_DIR"), "config_templates")
-		configs, err := walkConfigTemplates(templatesDir)
+		configs, err := walkConfigTemplates(templatesDir, onlyShow)
 		if err != nil {
 			appErr := &apierror.APIError{}
 			if errors.As(err, &appErr) {
@@ -131,12 +146,13 @@ type VersionMetadata struct {
 }
 
 type SuiteMetadata struct {
-	UID         string `json:"uid"         yaml:"uid"`
-	Name        string `json:"name"        yaml:"name"`
-	Homepage    string `json:"homepage"    yaml:"homepage"`
-	Repository  string `json:"repository"  yaml:"repository"`
-	Help        string `json:"help"        yaml:"help"`
-	Description string `json:"description" yaml:"description"`
+	UID               string `json:"uid"                  yaml:"uid"`
+	Name              string `json:"name"                 yaml:"name"`
+	Homepage          string `json:"homepage"             yaml:"homepage"`
+	Repository        string `json:"repository"           yaml:"repository"`
+	Help              string `json:"help"                 yaml:"help"`
+	Description       string `json:"description"          yaml:"description"`
+	ShowInPipelineGUI bool   `json:"show_in_pipeline_gui" yaml:"show_in_pipeline_gui"`
 }
 
 type Suite struct {
@@ -156,7 +172,7 @@ type Standard struct {
 
 type Standards []Standard
 
-func walkConfigTemplates(dir string) (Standards, error) {
+func walkConfigTemplates(dir string, filter bool) (Standards, error) {
 	var standards = make(Standards, 0)
 
 	readDir := func(path string) ([]os.DirEntry, error) {
@@ -175,7 +191,6 @@ func walkConfigTemplates(dir string) (Standards, error) {
 	readYaml := func(path string, out interface{}) error {
 		data, err := os.ReadFile(path)
 		if err != nil {
-			// If file doesn't exist, just skip (not an error)
 			if os.IsNotExist(err) {
 				return nil
 			}
@@ -206,6 +221,7 @@ func walkConfigTemplates(dir string) (Standards, error) {
 		if !entry.IsDir() {
 			continue
 		}
+
 		standardUID := entry.Name()
 		standardPath := filepath.Join(dir, standardUID)
 
@@ -220,6 +236,7 @@ func walkConfigTemplates(dir string) (Standards, error) {
 		}
 
 		var versions []Version
+
 		for _, vEntry := range versionEntries {
 			if !vEntry.IsDir() {
 				continue
@@ -250,6 +267,10 @@ func walkConfigTemplates(dir string) (Standards, error) {
 					return nil, err
 				}
 
+				if filter && !suiteMeta.ShowInPipelineGUI {
+					continue
+				}
+
 				fileEntries, err := readDir(suitePath)
 				if err != nil {
 					return nil, err
@@ -268,10 +289,17 @@ func walkConfigTemplates(dir string) (Standards, error) {
 				})
 			}
 
+			if filter && len(suites) == 0 {
+				continue
+			}
+
 			versions = append(versions, Version{
 				VersionMetadata: versionMeta,
 				Suites:          suites,
 			})
+		}
+		if filter && len(versions) == 0 {
+			continue
 		}
 
 		standards = append(standards, Standard{
