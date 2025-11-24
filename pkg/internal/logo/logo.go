@@ -22,8 +22,8 @@ func LogoHooks(app core.App) {
 }
 
 func HandleLogo(e *core.RecordEvent) error {
-	logo := e.Record.GetUnsavedFiles("logo")
-	if len(logo) > 0 {
+	logos := e.Record.GetUnsavedFiles("logo")
+	if len(logos) > 0 {
 		return e.Next()
 	}
 
