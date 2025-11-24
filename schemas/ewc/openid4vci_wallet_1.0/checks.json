@@ -1,0 +1,12 @@
+{
+    "checks": [
+        "authorization_code_flow+did:web+sd_jwt.yaml",
+        "authorization_code_flow+jwk+sd_jwt.yaml",
+        "authorization_code_flow+kid-jwk+sd_jwt.yaml",
+        "authorization_code_flow+x509+mDL.yaml",
+        "authorization_code_flow+x509+sd_jwt.yaml",
+        "pre-authorization_code_flow+PIN+x509+sd_jwt.yaml",
+        "pre-authorization_code_flow+no_PIN+x509+mDL.yaml",
+        "pre-authorization_code_flow+no_PIN+x509+sd_jwt.yaml"
+    ]
+}

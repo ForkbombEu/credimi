@@ -1,0 +1,12 @@
+{
+    "checks": [
+        "x509+get+direct_post+DCQL.yaml",
+        "x509+get+direct_post+mDL.yaml",
+        "x509+post+direct_post+DCQL.yaml",
+        "x509+post+direct_post+tx.yaml",
+        "x509+post+direct_post.jwt+DCQL.yaml",
+        "did:jwk+post+direct_post+DCQL.yaml",
+        "did:web+get+direct_post+DCQL.yaml",
+        "did:web+post+direct_post+DCQL.yaml"
+    ]
+}
