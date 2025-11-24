@@ -187,3 +187,6 @@ seed: ## 🌱 Seed the database
 	@$(GOCMD) run main.go migrate up && $(GOCMD) run cmd/seeds/seed.go 
 
 
+dev-import-logo:
+	RUN_LOGO_IMPORT=true go run main.go serve --dev
+
