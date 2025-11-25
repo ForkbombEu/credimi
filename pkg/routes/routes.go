@@ -63,7 +63,6 @@ func Setup(app *pocketbase.PocketBase) {
 	apis.HookAtUserCreation(app)
 	apis.HookAtUserLogin(app)
 	logo.LogoHooks(app)
-	logo.RunLogoImport(app)
 	// apis.IssuersRoutes.Add(app)
 	handlers.HookUpdateCredentialsIssuers(app)
 
