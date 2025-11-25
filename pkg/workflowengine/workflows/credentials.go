@@ -404,7 +404,7 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 			Method: http.MethodGet,
 			URL: utils.JoinURL(
 				input.Config["app_url"].(string),
-				"api", "credentials", "get-credential-offer",
+				"api", "credential", "get-credential-offer",
 			),
 			QueryParams: map[string]string{
 				"credential_identifier": payload.CredentialID,

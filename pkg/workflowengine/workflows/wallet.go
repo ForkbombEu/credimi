@@ -221,32 +221,6 @@ func (w *WalletWorkflow) Workflow(
 	}
 
 	metadataReady = true
-	// Code to store metdata directly into PB
-	/*storeInput := workflowengine.ActivityInput{
-		Config: map[string]string{
-			"method": "POST",
-			"url": fmt.Sprintf(
-				"%s/%s",
-				appURL,
-				"api/wallet/store-or-update-wallet-data"),
-		},
-		Payload: map[string]any{
-			"body": map[string]any{
-				"metadata": metadata,
-				"url":      fullURL,
-				"type":     storeType,
-				"orgID":    namespace,
-			},
-			"expected_status": 200,
-		},
-	}
-	var storeResponse workflowengine.ActivityResult
-	err = workflow.ExecuteActivity(ctx, httpActivity.Name(), storeInput).
-		Get(ctx, &storeResponse)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
-	*/
 	return workflowengine.WorkflowResult{
 		Message: "Worflow completed successfully",
 	}, nil
