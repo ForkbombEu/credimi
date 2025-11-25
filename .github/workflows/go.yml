@@ -39,6 +39,8 @@ jobs:
     name: 🧪 Test
     runs-on: ubuntu-latest
     needs: lint
+    env:
+      ROOT_DIR: ${{ github.workspace }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -46,7 +48,5 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: stable
-      - name: List files for debugging
-        run: ls
       - name: Run go tests
         run: go test -v ./...
