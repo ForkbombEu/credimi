@@ -31,11 +31,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const status = $derived(toWorkflowStatusReadable(workflow.status));
 	const hasChildren = $derived(workflow.children?.length && workflow.children.length > 0);
 
-	// eslint-disable-next-line svelte/prefer-writable-derived
-	let isExpanded = $state(false);
-	$effect(() => {
-		isExpanded = root;
-	});
+	let isExpanded = $state(true);
+	// $effect(() => {
+	// 	isExpanded = root;
+	// });
 </script>
 
 <svelte:element this={root ? 'div' : 'li'}>
