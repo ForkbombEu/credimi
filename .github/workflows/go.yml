@@ -46,5 +46,7 @@ jobs:
       - uses: actions/setup-go@v6
         with:
           go-version: stable
+      - name: List files for debugging
+        run: ls -R
       - name: Run go tests
         run: go test -v ./...
