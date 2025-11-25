@@ -46,6 +46,8 @@ func HandleVerificationDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
+		redirect := e.Request.URL.Query().Get("redirect") == "true"
+
 		rec, err := canonify.Resolve(e.App, id)
 		if err != nil {
 			return apierror.New(
@@ -131,6 +133,11 @@ func HandleVerificationDeeplink() func(*core.RequestEvent) error {
 				"deeplink missing in response",
 				"field 'deeplink' is not present or empty",
 			).JSON(e)
+		}
+		if redirect {
+			e.Response.Header().Set("Location", deeplink)
+			e.Response.WriteHeader(http.StatusMovedPermanently)
+			return e.Next()
 		}
 
 		return e.String(http.StatusOK, deeplink)

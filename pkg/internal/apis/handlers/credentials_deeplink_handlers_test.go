@@ -20,7 +20,7 @@ import (
 func mockGetDeeplinkServer(
 	t *testing.T,
 	statusCode int,
-	response map[string]interface{},
+	response map[string]any,
 ) *httptest.Server {
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/get-deeplink", r.URL.Path)
@@ -112,6 +112,23 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			TestAppFactory: setupDeeplinkApp(orgID),
 		},
 		{
+			Name:   "get credential deeplink - redirect",
+			Method: http.MethodGet,
+			URL: func() string {
+				return "/api/credential/deeplink?id=usera-s-organization/test-issuer-1/test-credential&redirect=true"
+			}(),
+			ExpectedStatus: http.StatusMovedPermanently,
+			TestAppFactory: setupDeeplinkApp(orgID),
+
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				require.Equal(
+					t.(*testing.T),
+					"openid-credential-offer://...",
+					res.Header.Get("Location"),
+				)
+			},
+		},
+		{
 			Name:   "get credential deeplink - empty deeplink",
 			Method: http.MethodGet,
 			URL: func() string {
@@ -150,7 +167,7 @@ func TestGetCredentialDeeplink(t *testing.T) {
 				mockServer := mockGetDeeplinkServer(
 					t.(*testing.T),
 					http.StatusOK,
-					map[string]interface{}{
+					map[string]any{
 						"deeplink": "mock-deeplink-from-yaml",
 					},
 				)
@@ -184,7 +201,7 @@ func TestGetCredentialDeeplink(t *testing.T) {
 				mockServer := mockGetDeeplinkServer(
 					t.(*testing.T),
 					http.StatusInternalServerError,
-					map[string]interface{}{
+					map[string]any{
 						"error": "internal server error",
 					},
 				)
@@ -218,7 +235,7 @@ func TestGetCredentialDeeplink(t *testing.T) {
 				mockServer := mockGetDeeplinkServer(
 					t.(*testing.T),
 					http.StatusOK,
-					map[string]interface{}{
+					map[string]any{
 						"wrong_field": "value",
 					},
 				)
