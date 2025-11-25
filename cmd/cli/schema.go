@@ -39,8 +39,9 @@ func NewSchemaCmd() *cobra.Command {
 			}
 
 			var output []byte
-			if outputPath != "" && (len(outputPath) > 5 && outputPath[len(outputPath)-5:] == ".yaml" ||
-				len(outputPath) > 4 && outputPath[len(outputPath)-4:] == ".yml") {
+			if outputPath != "" &&
+				(len(outputPath) > 5 && outputPath[len(outputPath)-5:] == ".yaml" ||
+					len(outputPath) > 4 && outputPath[len(outputPath)-4:] == ".yml") {
 				var jsonMap map[string]any
 				if err := json.Unmarshal(jsonData, &jsonMap); err != nil {
 					return fmt.Errorf("failed to unmarshal JSON: %w", err)
@@ -66,7 +67,8 @@ func NewSchemaCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output file path (if not specified, prints to stdout)")
+	cmd.Flags().
+		StringVarP(&outputPath, "output", "o", "", "Output file path (if not specified, prints to stdout)")
 
 	return cmd
 }
@@ -108,7 +110,8 @@ func generatePipelineSchema() (map[string]any, error) {
 		}
 	}
 
-	if customChecksProperty, ok := schema.Properties.Get("custom_checks"); ok && customChecksProperty != nil {
+	if customChecksProperty, ok := schema.Properties.Get("custom_checks"); ok &&
+		customChecksProperty != nil {
 		if customChecksProperty.AdditionalProperties != nil {
 			wbSchema := customChecksProperty.AdditionalProperties
 			if stepsProperty, ok := wbSchema.Properties.Get("steps"); ok && stepsProperty != nil {

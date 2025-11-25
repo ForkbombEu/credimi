@@ -11,6 +11,7 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"path/filepath"
 
 	"github.com/ForkbombEu/et-tu-cesr/cesr"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -101,7 +102,8 @@ func (a *CESRValidateActivity) Execute(
 
 	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	binName := "et-tu-cesr"
-	binPath := fmt.Sprintf("%s/%s", binDir, binName)
+	binPath := filepath.Join(binDir, binName)
+
 	command := "validate-parsed-credentials"
 	args := []string{command, payload.Events}
 	cmd := exec.CommandContext(ctx, binPath, args...)

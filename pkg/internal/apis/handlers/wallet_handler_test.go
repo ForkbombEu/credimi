@@ -48,14 +48,14 @@ func NewTestFile(name string, content []byte) *filesystem.File {
 }
 
 func TestWalletGetAPKMD5(t *testing.T) {
-	orgID, err := getOrgIDfromName("organizations", "userA's organization")
+	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "get APK MD5 with valid wallet identifier",
 			Method: http.MethodPost,
-			URL:    "/api/wallet/get-apk-md5",
+			URL:    "/api/wallet/get-apk-md5-or-etag",
 			Body: jsonBody(map[string]any{
 				"wallet_identifier":         "usera-s-organization/wallet123",
 				"wallet_version_identifier": "",
@@ -63,7 +63,7 @@ func TestWalletGetAPKMD5(t *testing.T) {
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				`"apk_name"`,
-				`"md5"`,
+				`"apk_identifier"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
@@ -91,7 +91,7 @@ func TestWalletGetAPKMD5(t *testing.T) {
 		{
 			Name:   "get APK MD5 with valid version identifier",
 			Method: http.MethodPost,
-			URL:    "/api/wallet/get-apk-md5",
+			URL:    "/api/wallet/get-apk-md5-or-etag",
 			Body: jsonBody(map[string]any{
 				"wallet_identifier":         "",
 				"wallet_version_identifier": "usera-s-organization/wallet234/2-0-0",
@@ -99,7 +99,7 @@ func TestWalletGetAPKMD5(t *testing.T) {
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				`"apk_name"`,
-				`"md5"`,
+				`"apk_identifier"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
@@ -127,7 +127,7 @@ func TestWalletGetAPKMD5(t *testing.T) {
 		{
 			Name:           "get APK MD5 with missing identifiers",
 			Method:         http.MethodPost,
-			URL:            "/api/wallet/get-apk-md5",
+			URL:            "/api/wallet/get-apk-md5-or-etag",
 			Body:           jsonBody(map[string]any{}),
 			ExpectedStatus: 400,
 			ExpectedContent: []string{
@@ -139,7 +139,7 @@ func TestWalletGetAPKMD5(t *testing.T) {
 		{
 			Name:           "get APK MD5 with non-existent wallet",
 			Method:         http.MethodPost,
-			URL:            "/api/wallet/get-apk-md5",
+			URL:            "/api/wallet/get-apk-md5-or-etag",
 			Body:           jsonBody(map[string]any{"wallet_identifier": "nonexistent"}),
 			ExpectedStatus: 404,
 			ExpectedContent: []string{
@@ -151,7 +151,7 @@ func TestWalletGetAPKMD5(t *testing.T) {
 		{
 			Name:           "get APK MD5 with invalid JSON",
 			Method:         http.MethodPost,
-			URL:            "/api/wallet/get-apk-md5",
+			URL:            "/api/wallet/get-apk-md5-or-etag",
 			Body:           bytes.NewReader([]byte(`{invalid json}`)),
 			ExpectedStatus: 400,
 			ExpectedContent: []string{
@@ -167,7 +167,7 @@ func TestWalletGetAPKMD5(t *testing.T) {
 }
 
 func TestWalletStoreActionResult(t *testing.T) {
-	orgID, err := getOrgIDfromName("organizations", "userA's organization")
+	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
 	successBodyBuf, successMp, err := tests.MockMultipartData(

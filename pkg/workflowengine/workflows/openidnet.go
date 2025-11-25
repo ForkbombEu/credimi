@@ -46,14 +46,14 @@ type OpenIDNetWorkflow struct{}
 
 // OpenIDNetWorkflowPayload represents the payload for the OpenIDNetWorkflow.
 type OpenIDNetWorkflowPayload struct {
-	Variant  string `json:"variant" yaml:"variant" validate:"required"`
-	Form     Form   `json:"form" yaml:"form" validate:"required"`
+	Variant  string `json:"variant"   yaml:"variant"   validate:"required"`
+	Form     Form   `json:"form"      yaml:"form"      validate:"required"`
 	UserMail string `json:"user_mail" yaml:"user_mail" validate:"required"`
-	TestName string `json:"test" yaml:"test" validate:"required"`
+	TestName string `json:"test"      yaml:"test"      validate:"required"`
 }
 
 type Form struct {
-	Alias       string `json:"alias" yaml:"alias" validate:"required"`
+	Alias       string `json:"alias"       yaml:"alias"       validate:"required"`
 	Description string `json:"description" yaml:"description"`
 	Client      struct {
 		PresentationDefinition string `json:"presentation_definition,omitempty" yaml:"presentation_definition,omitempty"`
@@ -64,12 +64,12 @@ type Form struct {
 			Credentials []map[string]any `json:"credentials" yaml:"credentials"`
 		} `json:"dcql,omitempty" yaml:"dcql,omitempty"`
 		ClientID                          string `json:"client_id,omitempty" yaml:"client_id,omitempty"`
-		AuthorizationEncryptedResponseEnc string `json:"authorization_encrypted_response_enc,omitempty" yaml:"authorization_encrypted_response_enc,omitempty"`
-		AuthorizationEncryptedResponseAlg string `json:"authorization_encrypted_response_alg,omitempty" yaml:"authorization_encrypted_response_alg,omitempty"`
-	} `json:"client" yaml:"client" validate:"required"`
+		AuthorizationEncryptedResponseEnc string `json:"authorization_encrypted_response_enc,omitempty" yaml:"authorization_encrypted_response_enc,omitempty"` //nolint:lll
+		AuthorizationEncryptedResponseAlg string `json:"authorization_encrypted_response_alg,omitempty" yaml:"authorization_encrypted_response_alg,omitempty"` //nolint:lll
+	} `json:"client"      yaml:"client"      validate:"required"`
 	Server struct {
 		AuthorizationEndpoint string `json:"authorization_endpoint" yaml:"authorization_endpoint"`
-	} `json:"server" yaml:"server"`
+	} `json:"server"      yaml:"server"`
 }
 
 // Name returns the name of the OpenIDNetWorkflow.
@@ -117,16 +117,19 @@ func (w *OpenIDNetWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
 	}
 	payload, err := workflowengine.DecodePayload[OpenIDNetWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 
 	template, ok := input.Config["template"].(string)
@@ -259,7 +262,7 @@ func (w *OpenIDNetWorkflow) Start(
 type OpenIDNetLogsWorkflow struct{}
 
 type OpenIDNetLogsWorkflowPayload struct {
-	Rid   string `json:"rid" yaml:"rid" validate:"required"`
+	Rid   string `json:"rid"   yaml:"rid"   validate:"required"`
 	Token string `json:"token" yaml:"token" validate:"required"`
 }
 
@@ -308,9 +311,9 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(subCtx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(subCtx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(subCtx).WorkflowExecution.ID,
 			workflow.GetInfo(subCtx).WorkflowExecution.RunID,
 		),
@@ -318,14 +321,16 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[OpenIDNetLogsWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 	getLogsInput := workflowengine.ActivityInput{
 		Payload: activities.HTTPActivityPayload{
 			Method: http.MethodGet,
-			URL: fmt.Sprintf(
-				"%s/%s",
-				"https://www.certification.openid.net/api/log/",
+			URL: utils.JoinURL(
+				"https://www.certification.openid.net/api/log",
 				url.PathEscape(payload.Rid),
 			),
 			Headers: map[string]string{
@@ -404,10 +409,9 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		triggerLogsInput := workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodPost,
-				URL: fmt.Sprintf(
-					"%s/%s",
+				URL: utils.JoinURL(
 					input.Config["app_url"].(string),
-					"api/compliance/send-openidnet-log-update",
+					"api", "compliance", "send-openidnet-log-update",
 				),
 				Headers: map[string]string{
 					"Content-Type": "application/json",

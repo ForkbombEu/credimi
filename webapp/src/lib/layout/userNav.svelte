@@ -18,28 +18,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	const userState = fromStore(currentUser);
-
-	const user = $derived.by(() => {
-		if (!userState.current) throw new Error('User not found');
-		return userState.current;
-	});
+	const user = $derived(userState.current);
 </script>
 
 <DropdownMenu.Root>
 	<DropdownMenu.Trigger>
 		{#snippet child({ props })}
 			<Button variant="ghost" {...props} class="relative size-10 rounded-full border p-1">
-				<UserAvatar {user} class="size-8" />
+				{#if user}
+					<UserAvatar {user} class="size-8" />
+				{/if}
 			</Button>
 		{/snippet}
 	</DropdownMenu.Trigger>
 	<DropdownMenu.Content class="w-56" align="end">
-		<DropdownMenu.Label class="font-normal">
-			<div class="flex flex-col space-y-1">
-				<p class="text-sm font-medium leading-none">{user.name}</p>
-				<p class="text-muted-foreground text-xs leading-none">{user.email}</p>
-			</div>
-		</DropdownMenu.Label>
+		{#if user}
+			<DropdownMenu.Label class="font-normal">
+				<div class="flex flex-col space-y-1">
+					<p class="text-sm font-medium leading-none">{user.name}</p>
+					<p class="text-muted-foreground text-xs leading-none">{user.email}</p>
+				</div>
+			</DropdownMenu.Label>
+		{/if}
 		<DropdownMenu.Separator />
 
 		<DropdownMenu.Group>

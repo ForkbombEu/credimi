@@ -10,6 +10,7 @@ import (
 )
 
 type SetupFunc func(ctx workflow.Context, steps *[]StepDefinition, input workflowengine.WorkflowInput) error
+
 type CleanupFunc func(ctx workflow.Context, steps []StepDefinition, input workflowengine.WorkflowInput) error
 
 var (

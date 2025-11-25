@@ -8,20 +8,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { version } from '$app/environment';
 	import { page } from '$app/state';
 	import {
+		ChevronUp,
+		CircleHelp,
+		File,
 		Flame,
 		Home,
 		Inbox,
-		CircleHelp,
-		SquareStack,
-		ChevronUp,
 		LogOut,
-		File,
-		User,
-		SquareArrowOutUpRight
+		SquareArrowOutUpRight,
+		SquareStack,
+		User
 	} from 'lucide-svelte';
 
-	import { AppLogo } from '@/brand';
-	import { appName } from '@/brand';
+	import { AppLogo, appName } from '@/brand';
 	import SidebarGroup from '@/components/layout/sidebar/sidebarGroup.svelte';
 	import SidebarItemIcon from '@/components/layout/sidebar/sidebarItemIcon.svelte';
 	import SidebarLink from '@/components/layout/sidebar/sidebarLink.svelte';
@@ -43,11 +42,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const authorizationsQuery = new PocketbaseQueryAgent({
-		collection: 'orgAuthorizations',
-		filter: `user = "${pb.authStore.record!.id}"`,
-		expand: ['organization', 'role']
-	});
+	const authorizationsQuery = new PocketbaseQueryAgent(
+		{
+			collection: 'orgAuthorizations',
+			filter: `user = "${pb.authStore.record!.id}"`,
+			expand: ['organization', 'role']
+		},
+		{ requestKey: null }
+	);
 
 	const sidebarState = Sidebar.useSidebar();
 
@@ -92,7 +94,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Sidebar.Menu>
 
 					{#await authorizationsQuery.getFullList() then authorizations}
-						{#each authorizations as authorization}
+						{#each authorizations as authorization (authorization.id)}
 							{@const organization = authorization.expand?.organization!}
 							{@const role = authorization.expand?.role!}
 							{@const active = page.url.pathname.includes(
@@ -227,7 +229,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex w-full overflow-hidden border-t p-2">
 			<T
 				tag="small"
-				class="text-wrap font-mono text-xs leading-normal text-secondary-foreground/50"
+				class="text-secondary-foreground/50 text-wrap font-mono text-xs leading-normal"
 			>
 				{appName} – Version {version}
 			</T>

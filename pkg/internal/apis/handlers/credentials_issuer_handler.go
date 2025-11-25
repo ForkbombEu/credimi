@@ -235,12 +235,15 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		workflowURL := fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
+		workflowURL := utils.JoinURL(
 			e.App.Settings().Meta.AppURL,
+			"my",
+			"tests",
+			"runs",
 			result.WorkflowID,
 			result.WorkflowRunID,
 		)
+
 		c, err := temporalclient.GetTemporalClientWithNamespace(orgName)
 		if err != nil {
 			if isNew {
@@ -599,14 +602,14 @@ func checkEndpointExists(ctx context.Context, urlToCheck string) error {
 	if parsedURL.Scheme != "http" && parsedURL.Scheme != "https" {
 		return fmt.Errorf("unsupported URL scheme")
 	}
-
-	ips, err := net.LookupIP(parsedURL.Hostname())
+	resolver := net.Resolver{}
+	ips, err := resolver.LookupIPAddr(ctx, parsedURL.Hostname())
 	if err != nil {
 		return fmt.Errorf("could not resolve host: %w", err)
 	}
-	for _, ip := range ips {
-		if isPrivateIP(ip) {
-			return fmt.Errorf("refusing to connect to private/internal IP: %s", ip)
+	for _, addr := range ips {
+		if isPrivateIP(addr.IP) {
+			return fmt.Errorf("refusing to connect to private/internal IP: %s", addr.IP)
 		}
 	}
 

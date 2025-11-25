@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"testing"
 
@@ -140,7 +141,7 @@ func TestCESRValidate_Execute(t *testing.T) {
 	env.RegisterActivity(activity.Execute)
 
 	tmpBinDir := t.TempDir()
-	binPath := fmt.Sprintf("%s/et-tu-cesr", tmpBinDir)
+	binPath := filepath.Join(tmpBinDir, "et-tu-cesr")
 
 	// Determine the platform and architecture
 	OS := runtime.GOOS

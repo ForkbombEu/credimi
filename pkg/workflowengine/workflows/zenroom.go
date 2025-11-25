@@ -16,6 +16,7 @@ import (
 	dockerclient "github.com/docker/docker/client"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	workflowengine "github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -30,9 +31,9 @@ type ZenroomWorkflow struct{}
 
 type ZenroomWorkflowPayload struct {
 	Contract string `json:"contract" yaml:"contract" validate:"required"`
-	Keys     string `json:"keys" yaml:"keys"`
-	Data     string `json:"data" yaml:"data"`
-	Config   string `json:"config" yaml:"config"`
+	Keys     string `json:"keys"     yaml:"keys"`
+	Data     string `json:"data"     yaml:"data"`
+	Config   string `json:"config"   yaml:"config"`
 }
 
 func (w *ZenroomWorkflow) Name() string {
@@ -53,9 +54,9 @@ func (w *ZenroomWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -63,7 +64,10 @@ func (w *ZenroomWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[ZenroomWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 
 	var sideEffectResult struct {

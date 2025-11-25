@@ -15,6 +15,11 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+const (
+	OpenIDConformanceSuite = "openid_conformance_suite"
+	EWCSuite               = "ewc"
+)
+
 type StepCIAndEmailConfig struct {
 	AppURL        string
 	AppName       string
@@ -77,10 +82,10 @@ func RunStepCIAndSendMail(
 			)
 	}
 	suite := cfg.Suite
-	if suite == "openid_conformance_suite" {
+	if suite == OpenIDConformanceSuite {
 		suite = "openidnet"
 	}
-	baseURL := fmt.Sprintf("%s/tests/wallet/%s", cfg.AppURL, suite)
+	baseURL := utils.JoinURL(cfg.AppURL, "tests", "wallet", suite)
 	u, err := url.Parse(baseURL)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
@@ -124,19 +129,19 @@ func RunStepCIAndSendMail(
 type StartCheckWorkflow struct{}
 
 type StartCheckWorkflowPayload struct {
-	Suite     string `json:"suite" yaml:"suite"`
-	CheckID   string `json:"check_id" yaml:"check_id" validate:"required"`
-	Variant   string `json:"variant,omitempty" yaml:"variant,omitempty"`
-	Form      *Form  `json:"form,omitempty" yaml:"form,omitempty"`
-	TestName  string `json:"test,omitempty" yaml:"test,omitempty"`
+	Suite     string `json:"suite"                yaml:"suite"`
+	CheckID   string `json:"check_id"             yaml:"check_id"             validate:"required"`
+	Variant   string `json:"variant,omitempty"    yaml:"variant,omitempty"`
+	Form      *Form  `json:"form,omitempty"       yaml:"form,omitempty"`
+	TestName  string `json:"test,omitempty"       yaml:"test,omitempty"`
 	SessionID string `json:"session_id,omitempty" yaml:"session_id,omitempty"`
-	UserMail  string `json:"user_mail" yaml:"user_mail" validate:"required"`
+	UserMail  string `json:"user_mail"            yaml:"user_mail"            validate:"required"`
 }
 
 type StartCheckWorkflowPipelinePayload struct {
-	CheckID   string `json:"check_id" yaml:"check_id" validate:"required"`
-	Form      *Form  `json:"form,omitempty" yaml:"form,omitempty"`
-	TestName  string `json:"test,omitempty" yaml:"test,omitempty"`
+	CheckID   string `json:"check_id"             yaml:"check_id"             validate:"required"`
+	Form      *Form  `json:"form,omitempty"       yaml:"form,omitempty"`
+	TestName  string `json:"test,omitempty"       yaml:"test,omitempty"`
 	SessionID string `json:"session_id,omitempty" yaml:"session_id,omitempty"`
 }
 
@@ -161,13 +166,16 @@ func (w *StartCheckWorkflow) Workflow(
 	}
 	payload, err := workflowengine.DecodePayload[StartCheckWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMeta)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMeta,
+		)
 	}
 
 	var stepCIPayload activities.StepCIWorkflowActivityPayload
 	var ewcSessionID string
 	switch payload.Suite {
-	case "openid_conformance_suite":
+	case OpenIDConformanceSuite:
 		if payload.Variant == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 				fmt.Errorf("variant is required for suite %s", payload.Suite),
@@ -194,7 +202,7 @@ func (w *StartCheckWorkflow) Workflow(
 		stepCIPayload.Secrets = map[string]string{
 			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		}
-	case "ewc":
+	case EWCSuite:
 		if payload.SessionID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 				fmt.Errorf("session_id is required for suite %s", payload.Suite),
@@ -226,7 +234,7 @@ func (w *StartCheckWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 	switch payload.Suite {
-	case "openid_conformance_suite":
+	case OpenIDConformanceSuite:
 		rid, ok := setupResult.Captures["rid"].(string)
 		if !ok {
 			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
@@ -269,7 +277,7 @@ func (w *StartCheckWorkflow) Workflow(
 				"deeplink": setupResult.Captures["deeplink"],
 			},
 		}, nil
-	case "ewc":
+	case EWCSuite:
 		standard, ok := input.Config["memo"].(map[string]any)["standard"].(string)
 		if !ok {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(

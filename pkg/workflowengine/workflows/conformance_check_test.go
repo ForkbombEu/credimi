@@ -34,10 +34,19 @@ func Test_StartCheckWorkflow(t *testing.T) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				sendMail := activities.NewSendMailActivity()
 
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
-				env.RegisterActivityWithOptions(sendMail.Execute, activity.RegisterOptions{Name: sendMail.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					sendMail.Execute,
+					activity.RegisterOptions{Name: sendMail.Name()},
+				)
 				childOpenID := OpenIDNetLogsWorkflow{}
-				env.RegisterWorkflowWithOptions(childOpenID.Workflow, workflow.RegisterOptions{Name: childOpenID.Name()})
+				env.RegisterWorkflowWithOptions(
+					childOpenID.Workflow,
+					workflow.RegisterOptions{Name: childOpenID.Name()},
+				)
 
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
@@ -67,11 +76,20 @@ func Test_StartCheckWorkflow(t *testing.T) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				sendMail := activities.NewSendMailActivity()
 
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
-				env.RegisterActivityWithOptions(sendMail.Execute, activity.RegisterOptions{Name: sendMail.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					sendMail.Execute,
+					activity.RegisterOptions{Name: sendMail.Name()},
+				)
 
 				childEWC := EWCStatusWorkflow{}
-				env.RegisterWorkflowWithOptions(childEWC.Workflow, workflow.RegisterOptions{Name: childEWC.Name()})
+				env.RegisterWorkflowWithOptions(
+					childEWC.Workflow,
+					workflow.RegisterOptions{Name: childEWC.Name()},
+				)
 
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
@@ -109,8 +127,14 @@ func Test_StartCheckWorkflow(t *testing.T) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				sendMail := activities.NewSendMailActivity()
 
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
-				env.RegisterActivityWithOptions(sendMail.Execute, activity.RegisterOptions{Name: sendMail.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					sendMail.Execute,
+					activity.RegisterOptions{Name: sendMail.Name()},
+				)
 
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, errors.New("StepCI execution failed"))
@@ -125,8 +149,14 @@ func Test_StartCheckWorkflow(t *testing.T) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				sendMail := activities.NewSendMailActivity()
 
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
-				env.RegisterActivityWithOptions(sendMail.Execute, activity.RegisterOptions{Name: sendMail.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					sendMail.Execute,
+					activity.RegisterOptions{Name: sendMail.Name()},
+				)
 
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, errors.New("StepCI connection timeout"))
@@ -141,8 +171,14 @@ func Test_StartCheckWorkflow(t *testing.T) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				sendMail := activities.NewSendMailActivity()
 
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
-				env.RegisterActivityWithOptions(sendMail.Execute, activity.RegisterOptions{Name: sendMail.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					sendMail.Execute,
+					activity.RegisterOptions{Name: sendMail.Name()},
+				)
 
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
@@ -161,8 +197,14 @@ func Test_StartCheckWorkflow(t *testing.T) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				sendMail := activities.NewSendMailActivity()
 
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
-				env.RegisterActivityWithOptions(sendMail.Execute, activity.RegisterOptions{Name: sendMail.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					sendMail.Execute,
+					activity.RegisterOptions{Name: sendMail.Name()},
+				)
 
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
@@ -183,8 +225,14 @@ func Test_StartCheckWorkflow(t *testing.T) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				sendMail := activities.NewSendMailActivity()
 
-				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{Name: stepCI.Name()})
-				env.RegisterActivityWithOptions(sendMail.Execute, activity.RegisterOptions{Name: sendMail.Name()})
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					sendMail.Execute,
+					activity.RegisterOptions{Name: sendMail.Name()},
+				)
 
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
@@ -216,6 +264,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 			payload := StartCheckWorkflowPayload{
 				UserMail: "test@example.org",
 				Suite:    tc.suite,
+				CheckID:  "test-check-id",
 			}
 
 			config := map[string]any{
@@ -250,7 +299,12 @@ func Test_StartCheckWorkflow(t *testing.T) {
 			if tc.expectErr {
 				require.Error(t, env.GetWorkflowError(), "Expected workflow to fail")
 				errMsg := env.GetWorkflowError().Error()
-				require.Contains(t, errMsg, tc.errorContains, "Error message should contain expected text")
+				require.Contains(
+					t,
+					errMsg,
+					tc.errorContains,
+					"Error message should contain expected text",
+				)
 			} else {
 				require.NoError(t, env.GetWorkflowError(), "Expected workflow to succeed")
 

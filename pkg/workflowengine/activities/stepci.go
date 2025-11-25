@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"html"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -71,10 +72,10 @@ type StepCIWorkflowActivity struct {
 
 // StepCIWorkflowActivityPayload is the input for the StepCIWorkflowActivity
 type StepCIWorkflowActivityPayload struct {
-	Yaml    string            `json:"yaml" yaml:"yaml"`
-	Data    map[string]any    `json:"data,omitempty" yaml:"data,omitempty"`
+	Yaml    string            `json:"yaml"              yaml:"yaml"`
+	Data    map[string]any    `json:"data,omitempty"    yaml:"data,omitempty"`
 	Secrets map[string]string `json:"secrets,omitempty" yaml:"secrets,omitempty"`
-	Env     string            `json:"env,omitempty" yaml:"env,omitempty"`
+	Env     string            `json:"env,omitempty"     yaml:"env,omitempty"`
 }
 
 func NewStepCIWorkflowActivity() *StepCIWorkflowActivity {
@@ -140,7 +141,7 @@ func (a *StepCIWorkflowActivity) Execute(
 	}
 	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	binName := "stepci-captured-runner"
-	binPath := fmt.Sprintf("%s/%s", binDir, binName)
+	binPath := filepath.Join(binDir, binName)
 	args := []string{payload.Yaml, "-s", string(secretBytes)}
 
 	if payload.Env != "" {

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -34,7 +35,7 @@ type EWCWorkflow struct{}
 
 type EWCWorkflowPayload struct {
 	SessionID string `json:"session_id" yaml:"session_id" validate:"required"`
-	UserMail  string `json:"user_mail" yaml:"user_mail" validate:"required"`
+	UserMail  string `json:"user_mail"  yaml:"user_mail"  validate:"required"`
 }
 
 // Name returns the name of the EWCWorkflow.
@@ -87,9 +88,9 @@ func (w *EWCWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -97,7 +98,10 @@ func (w *EWCWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[EWCWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 
 	template, ok := input.Config["template"].(string)
@@ -226,9 +230,9 @@ func (w *EWCStatusWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -236,7 +240,10 @@ func (w *EWCStatusWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[EWCStatusWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 
 	appURL, ok := input.Config["app_url"].(string)
@@ -332,14 +339,24 @@ func pollEWCCheck(
 		err := workflow.ExecuteActivity(ctx, httpActivity.Name(), httpInput).Get(ctx, &response)
 		if err != nil {
 			logger.Error("EWC HTTP check failed", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				err,
+				runMetadata,
+			)
 		}
 
 		bodyJSON, err := json.Marshal(response.Output.(map[string]any)["body"])
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-			appErr := workflowengine.NewAppError(errCode, err.Error(), response.Output.(map[string]any)["body"])
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			appErr := workflowengine.NewAppError(
+				errCode,
+				err.Error(),
+				response.Output.(map[string]any)["body"],
+			)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 
 		var parsed EWCResponseBody
@@ -347,7 +364,10 @@ func pollEWCCheck(
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
 			appErr := workflowengine.NewAppError(errCode, err.Error(), bodyJSON)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+			)
 		}
 
 		errCode := errorcodes.Codes[errorcodes.EWCCheckFailed]
@@ -362,12 +382,18 @@ func pollEWCCheck(
 
 		case "pending":
 			if parsed.Reason != "ok" {
-				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(failedErr, runMetadata)
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+					failedErr,
+					runMetadata,
+				)
 			}
 			// continue polling
 
 		case "failed":
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(failedErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				failedErr,
+				runMetadata,
+			)
 
 		default:
 			failedErr := workflowengine.NewAppError(
@@ -375,7 +401,10 @@ func pollEWCCheck(
 				fmt.Sprintf("unexpected status from '%s': %s", checkEndpoint, parsed.Status),
 				parsed,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(failedErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				failedErr,
+				runMetadata,
+			)
 		}
 	}
 }

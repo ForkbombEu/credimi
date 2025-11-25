@@ -26,12 +26,13 @@ type HTTPActivity struct {
 
 // HTTPActivityPayload is the input payload for the HTTP activity.
 type HTTPActivityPayload struct {
-	Method         string            `json:"method" yaml:"method" validate:"required"`
-	URL            string            `json:"url" yaml:"url" validate:"required"`
-	QueryParams    map[string]string `json:"query_params,omitempty" yaml:"query_params,omitempty"`
-	Timeout        string            `json:"timeout,omitempty" yaml:"timeout,omitempty"`
-	Headers        map[string]string `json:"headers,omitempty" yaml:"headers,omitempty"`
-	Body           any               `json:"body,omitempty" yaml:"body,omitempty"`
+	Method string `json:"method" yaml:"method" validate:"required"`
+	URL    string `json:"url"    yaml:"url"    validate:"required"`
+
+	QueryParams    map[string]string `json:"query_params,omitempty"    yaml:"query_params,omitempty"`
+	Timeout        string            `json:"timeout,omitempty"         yaml:"timeout,omitempty"`
+	Headers        map[string]string `json:"headers,omitempty"         yaml:"headers,omitempty"`
+	Body           any               `json:"body,omitempty"            yaml:"body,omitempty"`
 	ExpectedStatus int               `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
 }
 

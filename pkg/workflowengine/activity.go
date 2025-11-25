@@ -88,7 +88,11 @@ func (a *BaseActivity) NewNonRetryableActivityError(
 func (a *BaseActivity) NewMissingOrInvalidPayloadError(err error) error {
 	return a.NewActivityError(
 		errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-		fmt.Sprintf("%s: %v", errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description, err),
+		fmt.Sprintf(
+			"%s: %v",
+			errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+			err,
+		),
 	)
 }
 

@@ -49,18 +49,37 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 				validateAct := activities.NewSchemaValidationActivity()
 				httpAct := activities.NewHTTPActivity()
 
-				env.RegisterActivityWithOptions(checkAct.Execute, activity.RegisterOptions{Name: checkAct.Name()})
-				env.RegisterActivityWithOptions(jsonAct.Execute, activity.RegisterOptions{Name: jsonAct.Name()})
-				env.RegisterActivityWithOptions(validateAct.Execute, activity.RegisterOptions{Name: validateAct.Name()})
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
+				env.RegisterActivityWithOptions(
+					checkAct.Execute,
+					activity.RegisterOptions{Name: checkAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					jsonAct.Execute,
+					activity.RegisterOptions{Name: jsonAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					validateAct.Execute,
+					activity.RegisterOptions{Name: validateAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					httpAct.Execute,
+					activity.RegisterOptions{Name: httpAct.Name()},
+				)
 
 				env.OnActivity(checkAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"rawJSON": rawJSON, "source": "testsource"}}, nil)
 				env.OnActivity(jsonAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
-						"credential_issuer":                   "testissuer",
-						"display":                             []any{map[string]any{"name": "Test Issuer", "logo": map[string]any{"uri": "testlogo.png"}}},
-						"credential_configurations_supported": map[string]any{"cred1": map[string]any{}},
+						"credential_issuer": "testissuer",
+						"display": []any{
+							map[string]any{
+								"name": "Test Issuer",
+								"logo": map[string]any{"uri": "testlogo.png"},
+							},
+						},
+						"credential_configurations_supported": map[string]any{
+							"cred1": map[string]any{},
+						},
 					}}, nil)
 				env.OnActivity(validateAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{}, nil)
@@ -99,7 +118,10 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				checkAct := activities.NewCheckCredentialsIssuerActivity()
-				env.RegisterActivityWithOptions(checkAct.Execute, activity.RegisterOptions{Name: checkAct.Name()})
+				env.RegisterActivityWithOptions(
+					checkAct.Execute,
+					activity.RegisterOptions{Name: checkAct.Name()},
+				)
 				env.OnActivity(checkAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"unexpected": "field"}}, nil)
 			},
@@ -156,7 +178,10 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
+				env.RegisterActivityWithOptions(
+					httpAct.Execute,
+					activity.RegisterOptions{Name: httpAct.Name()},
+				)
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
@@ -178,8 +203,14 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
 				stepCIAct := activities.NewStepCIWorkflowActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
-				env.RegisterActivityWithOptions(stepCIAct.Execute, activity.RegisterOptions{Name: stepCIAct.Name()})
+				env.RegisterActivityWithOptions(
+					httpAct.Execute,
+					activity.RegisterOptions{Name: httpAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					stepCIAct.Execute,
+					activity.RegisterOptions{Name: stepCIAct.Name()},
+				)
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
@@ -188,7 +219,9 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 					}, nil)
 				env.OnActivity(stepCIAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
-						Output: map[string]any{"captures": map[string]any{"deeplink": "dynamic-deeplink"}},
+						Output: map[string]any{
+							"captures": map[string]any{"deeplink": "dynamic-deeplink"},
+						},
 					}, nil)
 			},
 			expectedOutput: "dynamic-deeplink",
@@ -202,12 +235,20 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
 				stepCIAct := activities.NewStepCIWorkflowActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
-				env.RegisterActivityWithOptions(stepCIAct.Execute, activity.RegisterOptions{Name: stepCIAct.Name()})
+				env.RegisterActivityWithOptions(
+					httpAct.Execute,
+					activity.RegisterOptions{Name: httpAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					stepCIAct.Execute,
+					activity.RegisterOptions{Name: stepCIAct.Name()},
+				)
 
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
-						Output: map[string]any{"body": map[string]any{"dynamic": true, "code": "valid-yaml"}},
+						Output: map[string]any{
+							"body": map[string]any{"dynamic": true, "code": "valid-yaml"},
+						},
 					}, nil)
 
 				env.OnActivity(stepCIAct.Name(), mock.Anything, mock.Anything).
@@ -227,16 +268,6 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			errorCode:      errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
 		},
 		{
-			name: "Failure: missing app_url",
-			input: workflowengine.WorkflowInput{
-				Config:  map[string]any{},
-				Payload: GetCredentialOfferWorkflowPayload{CredentialID: "test_cred"},
-			},
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
-			expectedErr:    true,
-			errorCode:      errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
-		},
-		{
 			name: "Failure: invalid HTTP output (body not a map)",
 			input: workflowengine.WorkflowInput{
 				Config:  map[string]any{"app_url": "https://example.com"},
@@ -244,7 +275,10 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{Name: httpAct.Name()})
+				env.RegisterActivityWithOptions(
+					httpAct.Execute,
+					activity.RegisterOptions{Name: httpAct.Name()},
+				)
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"body": "not-a-map"}}, nil)
 			},

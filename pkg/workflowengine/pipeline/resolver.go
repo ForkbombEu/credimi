@@ -207,7 +207,6 @@ func ResolveSubworkflowInputs(
 	globalCfg map[string]any,
 	ctx map[string]any, // merged context (workflow inputs + previous outputs)
 ) error {
-
 	// Iterate declared inputs of the subworkflow
 	for inputName := range subDef.Inputs {
 		val, ok := step.With.Payload[inputName]

@@ -24,12 +24,12 @@ type SendMailActivity struct {
 
 // SendMailActivityPayload is the input payload for the SendMailActivity.
 type SendMailActivityPayload struct {
-	Sender    string         `json:"sender,omitempty" yaml:"sender,omitempty"`
-	Recipient string         `json:"recipient" yaml:"recipient" validate:"required"`
-	Subject   string         `json:"subject,omitempty" yaml:"subject,omitempty"`
-	Body      string         `json:"body,omitempty" yaml:"body,omitempty"`
+	Sender    string         `json:"sender,omitempty"   yaml:"sender,omitempty"`
+	Recipient string         `json:"recipient"          yaml:"recipient"          validate:"required"`
+	Subject   string         `json:"subject,omitempty"  yaml:"subject,omitempty"`
+	Body      string         `json:"body,omitempty"     yaml:"body,omitempty"`
 	Template  string         `json:"template,omitempty" yaml:"template,omitempty"`
-	Data      map[string]any `json:"data,omitempty" yaml:"data,omitempty"`
+	Data      map[string]any `json:"data,omitempty"     yaml:"data,omitempty"`
 }
 
 func NewSendMailActivity() *SendMailActivity {

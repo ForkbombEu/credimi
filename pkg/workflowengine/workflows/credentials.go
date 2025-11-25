@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -37,7 +38,7 @@ type CredentialsIssuersWorkflow struct{}
 
 // CredentialsIssuersWorkflowPayload is the payload for the CredentialsIssuersWorkflow.
 type CredentialsIssuersWorkflowPayload struct {
-	BaseURL  string `json:"base_url" yaml:"base_url" validate:"required"`
+	BaseURL  string `json:"base_url"  yaml:"base_url"  validate:"required"`
 	IssuerID string `json:"issuer_id" yaml:"issuer_id" validate:"required"`
 }
 
@@ -80,9 +81,9 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -238,10 +239,9 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		storeInput := workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodPost,
-				URL: fmt.Sprintf(
-					"%s/%s",
+				URL: utils.JoinURL(
 					appURL,
-					"api/credentials_issuers/store-or-update-extracted-credentials"),
+					"api", "credentials_issuers", "store-or-update-extracted-credentials"),
 				Body: map[string]any{
 					"issuerID":   issuerID,
 					"credKey":    credKey,
@@ -281,10 +281,9 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	cleanupInput := workflowengine.ActivityInput{
 		Payload: activities.HTTPActivityPayload{
 			Method: http.MethodPost,
-			URL: fmt.Sprintf(
-				"%s/%s",
+			URL: utils.JoinURL(
 				appURL,
-				"api/credentials_issuers/cleanup-credentials",
+				"api", "credentials_issuers", "cleanup-credentials",
 			),
 			Body: map[string]any{
 				"issuerID":  issuerID,
@@ -376,9 +375,9 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -386,7 +385,10 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[GetCredentialOfferWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
@@ -400,10 +402,9 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 	request := workflowengine.ActivityInput{
 		Payload: activities.HTTPActivityPayload{
 			Method: http.MethodGet,
-			URL: fmt.Sprintf(
-				"%s/%s",
-				input.Config["app_url"],
-				"api/credential/get-credential-offer",
+			URL: utils.JoinURL(
+				input.Config["app_url"].(string),
+				"api", "credentials", "get-credential-offer",
 			),
 			QueryParams: map[string]string{
 				"credential_identifier": payload.CredentialID,
@@ -446,7 +447,10 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 				"credential_offer is not a string",
 				result.Output,
 			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+				wErr,
+				runMetadata,
+			)
 		}
 
 		return workflowengine.WorkflowResult{
@@ -567,7 +571,6 @@ func validateInput(
 	input workflowengine.WorkflowInput,
 	runMetadata workflowengine.WorkflowErrorMetadata,
 ) (baseURL, appURL, issuerSchema, issuerID string, err error) {
-
 	payload, err := workflowengine.DecodePayload[CredentialsIssuersWorkflowPayload](input.Payload)
 	if err != nil {
 		return "", "", "", "", workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)

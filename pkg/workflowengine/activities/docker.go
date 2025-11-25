@@ -31,12 +31,13 @@ type DockerActivity struct {
 
 // DockerActivityInput is the input payload for the Docker activity.
 type DockerActivityPayload struct {
-	Image         string                    `json:"image" yaml:"image" validate:"required"`
-	Cmd           []string                  `json:"cmd,omitempty" yaml:"cmd,omitempty"`
-	User          string                    `json:"user,omitempty" yaml:"user,omitempty"`
-	Env           []string                  `json:"env,omitempty" yaml:"env,omitempty"`
-	Ports         []string                  `json:"ports,omitempty" yaml:"ports,omitempty"`
-	Mounts        []string                  `json:"mounts,omitempty" yaml:"mounts,omitempty"`
+	Image string `json:"image" yaml:"image" validate:"required"`
+
+	Cmd           []string                  `json:"cmd,omitempty"           yaml:"cmd,omitempty"`
+	User          string                    `json:"user,omitempty"          yaml:"user,omitempty"`
+	Env           []string                  `json:"env,omitempty"           yaml:"env,omitempty"`
+	Ports         []string                  `json:"ports,omitempty"         yaml:"ports,omitempty"`
+	Mounts        []string                  `json:"mounts,omitempty"        yaml:"mounts,omitempty"`
 	ContainerName string                    `json:"containerName,omitempty" yaml:"containerName,omitempty"`
 	NetworkConfig *network.NetworkingConfig `json:"networkConfig,omitempty" yaml:"networkConfig,omitempty"`
 }
@@ -123,7 +124,14 @@ func (a *DockerActivity) Execute(
 		Binds:        payload.Mounts,
 	}
 
-	resp, err := cli.ContainerCreate(ctx, config, hostConfig, payload.NetworkConfig, nil, payload.ContainerName)
+	resp, err := cli.ContainerCreate(
+		ctx,
+		config,
+		hostConfig,
+		payload.NetworkConfig,
+		nil,
+		payload.ContainerName,
+	)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerCreateContainerFailed]
 		return result, a.NewActivityError(

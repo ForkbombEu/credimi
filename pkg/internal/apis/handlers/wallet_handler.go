@@ -20,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/apis"
@@ -226,7 +227,11 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		versionRecord, err := getVersionRecord(e.App, req.WalletVersionIdentifier, req.WalletIdentifier)
+		versionRecord, err := getVersionRecord(
+			e.App,
+			req.WalletVersionIdentifier,
+			req.WalletIdentifier,
+		)
 		if err != nil {
 			return apierror.New(
 				http.StatusNotFound,
@@ -259,7 +264,11 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 		}
 		versionIdentifier := req.WalletVersionIdentifier
 		if versionIdentifier == "" {
-			versionIdentifier = fmt.Sprintf("%s:%s", req.WalletIdentifier, versionRecord.GetString("canonified_tag"))
+			versionIdentifier = fmt.Sprintf(
+				"%s:%s",
+				req.WalletIdentifier,
+				versionRecord.GetString("canonified_tag"),
+			)
 		}
 
 		return e.JSON(http.StatusOK, WalletMD5OrETagResponse{
@@ -272,7 +281,10 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 }
 
 // getWalletAndVersionRecord retrieves a wallet_version record based on provided identifiers
-func getVersionRecord(app core.App, versionIdentifier, walletIdentifier string) (*core.Record, error) {
+func getVersionRecord(
+	app core.App,
+	versionIdentifier, walletIdentifier string,
+) (*core.Record, error) {
 	if versionIdentifier != "" {
 		versionRecord, err := canonify.Resolve(app, versionIdentifier)
 		if err != nil {
@@ -306,7 +318,11 @@ func getVersionRecord(app core.App, versionIdentifier, walletIdentifier string) 
 }
 
 // getFileMD5orEtagFromPocketBase retrieves the MD5 hash or ETag from PocketBase's file metadata
-func getFileMD5OrETagFromPocketBase(app core.App, record *core.Record, filename string) (string, error) {
+func getFileMD5OrETagFromPocketBase(
+	app core.App,
+	record *core.Record,
+	filename string,
+) (string, error) {
 	fsys, err := app.NewFilesystem()
 	if err != nil {
 		return "", err
@@ -332,7 +348,6 @@ func getFileMD5OrETagFromPocketBase(app core.App, record *core.Record, filename 
 
 func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-
 		if err := e.Request.ParseMultipartForm(500 << 20); err != nil {
 			return apierror.New(
 				http.StatusBadRequest,
@@ -399,7 +414,10 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		defer file.Close()
-		tmpFile, err := os.CreateTemp("", fmt.Sprintf("result_%s_*%s", action, filepath.Ext(header.Filename)))
+		tmpFile, err := os.CreateTemp(
+			"",
+			fmt.Sprintf("result_%s_*%s", action, filepath.Ext(header.Filename)),
+		)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -450,12 +468,15 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		resultURL := fmt.Sprintf(
-			"%s/api/files/wallet_actions/%s/%s",
+		resultURL := utils.JoinURL(
 			e.App.Settings().Meta.AppURL,
+			"api",
+			"files",
+			"wallet_actions",
 			actionRecord.Id,
 			actionRecord.GetString("result"),
 		)
+
 		err = os.Remove(absResultPath)
 		if err != nil {
 			return apierror.New(

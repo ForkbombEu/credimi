@@ -24,21 +24,21 @@ type MobileAutomationWorkflow struct{}
 
 // MobileAutomationWorkflowPayload is the payload for the mobile automation workflow
 type MobileAutomationWorkflowPayload struct {
-	ActionID         string            `json:"action_id,omitempty" yaml:"action_id,omitempty"`
-	VersionID        string            `json:"version_id,omitempty" yaml:"version_id,omitempty"`
-	ActionCode       string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
-	Video            bool              `json:"video,omitempty" yaml:"video,omitempty"`
+	ActionID         string            `json:"action_id,omitempty"          yaml:"action_id,omitempty"`
+	VersionID        string            `json:"version_id,omitempty"         yaml:"version_id,omitempty"`
+	ActionCode       string            `json:"action_code,omitempty"        yaml:"action_code,omitempty"`
+	Video            bool              `json:"video,omitempty"              yaml:"video,omitempty"`
 	StoredActionCode bool              `json:"stored_action_code,omitempty" yaml:"stored_action_code,omitempty"`
-	EmulatorSerial   string            `json:"emulator_serial,omitempty" yaml:"emulator_serial,omitempty"`
-	Parameters       map[string]string `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	EmulatorSerial   string            `json:"emulator_serial,omitempty"    yaml:"emulator_serial,omitempty"`
+	Parameters       map[string]string `json:"parameters,omitempty"         yaml:"parameters,omitempty"`
 }
 
 type MobileAutomationWorkflowPipelinePayload struct {
-	ActionID   string            `json:"action_id,omitempty" yaml:"action_id,omitempty"`
-	VersionID  string            `json:"version_id,omitempty" yaml:"version_id,omitempty"`
+	ActionID   string            `json:"action_id,omitempty"   yaml:"action_id,omitempty"`
+	VersionID  string            `json:"version_id,omitempty"  yaml:"version_id,omitempty"`
 	ActionCode string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
-	Video      bool              `json:"video,omitempty" yaml:"video,omitempty"`
-	Parameters map[string]string `json:"parameters,omitempty" yaml:"parameters,omitempty"`
+	Video      bool              `json:"video,omitempty"       yaml:"video,omitempty"`
+	Parameters map[string]string `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
 }
 
 func (MobileAutomationWorkflow) GetOptions() workflow.ActivityOptions {
@@ -62,9 +62,9 @@ func (w *MobileAutomationWorkflow) Workflow(
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 
 	var output MobileWorkflowOutput
-	testRunURL := fmt.Sprintf(
-		"%s/my/tests/runs/%s/%s",
-		input.Config["app_url"],
+	testRunURL := utils.JoinURL(
+		input.Config["app_url"].(string),
+		"my", "tests", "runs",
 		workflow.GetInfo(ctx).WorkflowExecution.ID,
 		workflow.GetInfo(ctx).WorkflowExecution.RunID,
 	)
@@ -78,7 +78,10 @@ func (w *MobileAutomationWorkflow) Workflow(
 
 	payload, err := workflowengine.DecodePayload[MobileAutomationWorkflowPayload](input.Payload)
 	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			runMetadata,
+		)
 	}
 
 	appURL, ok := input.Config["app_url"].(string)
@@ -113,7 +116,8 @@ func (w *MobileAutomationWorkflow) Workflow(
 			},
 		}
 		checkVideoActivity := activities.NewCheckFileExistsActivity()
-		err := workflow.ExecuteActivity(ctx, checkVideoActivity.Name(), checkVideoInput).Get(ctx, &checkVideoResult)
+		err := workflow.ExecuteActivity(ctx, checkVideoActivity.Name(), checkVideoInput).
+			Get(ctx, &checkVideoResult)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
@@ -137,16 +141,17 @@ func (w *MobileAutomationWorkflow) Workflow(
 			storeResultInput := workflowengine.ActivityInput{
 				Payload: activities.HTTPActivityPayload{
 					Method: http.MethodPost,
-					URL: fmt.Sprintf(
-						"%s/%s",
-						mobileServerURL,
-						"store-action-result",
-					),
+					URL:    utils.JoinURL(mobileServerURL, "store-action-result"),
 					Headers: map[string]string{
 						"Content-Type": "application/json",
 					},
 					Body: map[string]any{
-						"result_path":       filepath.Join("/credimi", "workflows", runMetadata.WorkflowID, "video.mp4"),
+						"result_path": filepath.Join(
+							"/credimi",
+							"workflows",
+							runMetadata.WorkflowID,
+							"video.mp4",
+						),
 						"action_identifier": payload.ActionID,
 					},
 					ExpectedStatus: 200,
@@ -154,7 +159,8 @@ func (w *MobileAutomationWorkflow) Workflow(
 			}
 			if !payload.StoredActionCode {
 				walletIdentifier := deriveWalletIdentifier(payload.VersionID)
-				storeResultInput.Payload.(activities.HTTPActivityPayload).Body.(map[string]any)["wallet_identifier"] = walletIdentifier
+				storeResultInput.Payload.(activities.HTTPActivityPayload).
+					Body.(map[string]any)["wallet_identifier"] = walletIdentifier
 				storeResultInput.Payload.(activities.HTTPActivityPayload).Body.(map[string]any)["action_code"] = payload.ActionCode
 			}
 			HTTPActivity := activities.NewHTTPActivity()
