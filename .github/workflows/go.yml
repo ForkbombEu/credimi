@@ -45,8 +45,12 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
-      - uses: actions/setup-go@v6
-        with:
-          go-version: stable
+      - uses: jdx/mise-action@v2
+      - name: git config for credimi-extra
+        env:
+          CREDIMI_EXTRA_PAT: ${{ secrets.CREDIMI_EXTRA_PAT }}
+        run: |
+          git config --global url."https://x-access-token:${CREDIMI_EXTRA_PAT}@github.com/ForkbombEu/credimi-extra".insteadOf "https://github.com/forkbombeu/credimi-extra"
+        shell: bash
       - name: Run go tests
-        run: go test -v ./...
+        run: make test
