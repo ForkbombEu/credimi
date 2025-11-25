@@ -6,6 +6,7 @@ package workflows
 import (
 	"fmt"
 	"net/url"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -213,6 +214,7 @@ func (w *StartCheckWorkflow) Workflow(
 		stepCIPayload.Data = map[string]any{
 			"session_id": payload.SessionID,
 		}
+		ewcSessionID = payload.SessionID
 	default:
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", payload.Suite)
 	}
@@ -260,7 +262,7 @@ func (w *StartCheckWorkflow) Workflow(
 				},
 				Config: map[string]any{
 					"app_url":  cfg.AppURL,
-					"interval": 1.0,
+					"interval": time.Second,
 				},
 			}).GetChildWorkflowExecution().Get(ctx, nil)
 		if err != nil {
@@ -312,7 +314,7 @@ func (w *StartCheckWorkflow) Workflow(
 				},
 				Config: map[string]any{
 					"app_url":        cfg.AppURL,
-					"interval":       1.0,
+					"interval":       time.Second * 5,
 					"check_endpoint": checkEndpoint,
 				},
 			}).GetChildWorkflowExecution().Get(ctx, nil)
