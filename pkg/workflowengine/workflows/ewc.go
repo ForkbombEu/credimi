@@ -30,7 +30,7 @@ const (
 	EwcStopCheckSignal    = "stop-ewc-check-signal"
 )
 
-// EWCWorkflow is a workflow that performs conformance checks on the EWC suite.
+// EWCWorkflow is a workflow that performs conformance checks on the EWC test suite.
 type EWCWorkflow struct{}
 
 type EWCWorkflowPayload struct {
