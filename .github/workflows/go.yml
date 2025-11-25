@@ -49,4 +49,4 @@ jobs:
         with:
           go-version: stable
       - name: Run go tests
-        run: go test -v ./...
+        run: make test
