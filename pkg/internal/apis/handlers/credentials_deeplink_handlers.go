@@ -143,7 +143,7 @@ func HandleGetCredentialDeeplink() func(*core.RequestEvent) error {
 
 		if redirect {
 			e.Response.Header().Set("Location", deeplink)
-			e.Response.WriteHeader(http.StatusMovedPermanently)
+			e.Response.WriteHeader(http.StatusMovedPermanently) // 301
 			return e.Next()
 		}
 		return e.String(http.StatusOK, deeplink)
