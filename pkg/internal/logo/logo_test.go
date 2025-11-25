@@ -31,7 +31,7 @@ func setupTestApp(t testing.TB) *tests.TestApp {
 	return app
 }
 
-func getOrgIDfromName(collectionNameOrID string, name string) (string, error) {
+func getOrgIDfromName(name string) (string, error) {
 	app, err := tests.NewTestApp(testDataDir)
 	if err != nil {
 		return "", err
@@ -40,7 +40,7 @@ func getOrgIDfromName(collectionNameOrID string, name string) (string, error) {
 
 	filter := fmt.Sprintf(`name="%s"`, name)
 
-	record, err := app.FindFirstRecordByFilter(collectionNameOrID, filter)
+	record, err := app.FindFirstRecordByFilter("organizations", filter)
 	if err != nil {
 		return "", err
 	}
@@ -62,7 +62,7 @@ func TestLogoHooks_Valid(t *testing.T) {
 	coll, err := app.FindCollectionByNameOrId("wallets")
 	require.NoError(t, err)
 	record := core.NewRecord(coll)
-	own, _ := getOrgIDfromName("organizations", "userA's organization")
+	own, _ := getOrgIDfromName("userA's organization")
 	record.Set("owner", own)
 	record.Set("logo", "")
 
@@ -124,7 +124,7 @@ func TestLogoHooks_UpdateAddLogoURL(t *testing.T) {
 	require.NoError(t, err)
 
 	record := core.NewRecord(coll)
-	own, _ := getOrgIDfromName("organizations", "userA's organization")
+	own, _ := getOrgIDfromName("userA's organization")
 	record.Set("owner", own)
 	record.Set("logo", "")
 	record.Set("logo_url", "")
@@ -169,7 +169,7 @@ func TestLogoHooks_InvalidURL(t *testing.T) {
 	require.NoError(t, err)
 
 	record := core.NewRecord(coll)
-	own, _ := getOrgIDfromName("organizations", "userA's organization")
+	own, _ := getOrgIDfromName("userA's organization")
 	record.Set("owner", own)
 	record.Set("logo", "")
 	record.Set("logo_url", "https://invalid-domain-that-does-not-exist-12345.com/logo.png")
@@ -197,7 +197,7 @@ func TestLogoHooks_HTTPError(t *testing.T) {
 	require.NoError(t, err)
 
 	record := core.NewRecord(coll)
-	own, _ := getOrgIDfromName("organizations", "userA's organization")
+	own, _ := getOrgIDfromName("userA's organization")
 	record.Set("owner", own)
 	record.Set("logo_url", ts.URL+"/notfound.png")
 
@@ -262,7 +262,7 @@ func TestLogoHooks_WithUnsavedFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	record := core.NewRecord(coll)
-	own, _ := getOrgIDfromName("organizations", "userA's organization")
+	own, _ := getOrgIDfromName("userA's organization")
 	record.Set("owner", own)
 	record.Set("logo_url", "https://example.com/logo.png")
 
