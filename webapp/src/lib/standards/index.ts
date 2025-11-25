@@ -4,7 +4,7 @@
 
 import type { ClientResponseError } from 'pocketbase';
 
-import { Either, pipe, Effect as _ } from 'effect';
+import { Effect as _, Either, pipe } from 'effect';
 import { z, type ZodError } from 'zod';
 
 import type { SelectOption } from '@/components/ui-custom/utils';
@@ -16,14 +16,18 @@ import { pb } from '@/pocketbase';
 export type StandardsWithTestSuites = z.infer<typeof templateBlueprintsResponseSchema>;
 
 export function getStandardsWithTestSuites(
-	options = { fetch }
+	options: { fetch?: typeof fetch; forPipeline?: boolean } = {}
 ): Promise<StandardsWithTestSuites | Error> {
+	const { fetch: fetchFn = fetch, forPipeline = false } = options;
+	let url = '/api/template/blueprints';
+	if (forPipeline) url += '?only_show_in_pipeline_gui=true';
+
 	return pipe(
 		_.tryPromise({
 			try: () =>
-				pb.send('/api/template/blueprints', {
+				pb.send(url, {
 					method: 'GET',
-					fetch: options.fetch
+					fetch: fetchFn
 				}),
 			catch: (e) => e as ClientResponseError
 		}),
@@ -84,7 +88,8 @@ const suiteMetadataSchema = z.object({
 });
 
 const suiteSchema = suiteMetadataSchema.extend({
-	files: z.array(z.string())
+	files: z.array(z.string()),
+	paths: z.array(z.string())
 });
 
 export type Suite = z.infer<typeof suiteSchema>;

@@ -9,14 +9,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { m } from '@/i18n/index.js';
 
+	import type { StepType } from '../types';
 	import type { BaseStepForm } from './base-step-form.svelte.js';
-	import type { StepType } from './types.js';
 
-	import { getStepDisplayData } from './utils/display-data.js';
-	import ItemCard from './utils/item-card.svelte';
-	import SearchInput from './utils/search-input.svelte';
-	import WithEmptyState from './utils/with-empty-state.svelte';
-	import WithLabel from './utils/with-label.svelte';
+	import { getStepDisplayData } from '../utils/display-data.js';
+	import ItemCard from '../utils/item-card.svelte';
+	import SearchInput from '../utils/search-input.svelte';
+	import WithEmptyState from '../utils/with-empty-state.svelte';
+	import WithLabel from '../utils/with-label.svelte';
 
 	//
 

@@ -9,9 +9,9 @@ import {
 	type WalletActionsResponse,
 	type WalletVersionsResponse
 } from '@/pocketbase/types';
-import { StepFormState, type WalletStepData } from './types.js';
-import { searchMarketplace } from './utils/search-marketplace.js';
-import { Search } from './utils/search.svelte.js';
+import { StepFormState, type WalletStepData } from '../types.js';
+import { searchMarketplace } from '../utils/search-marketplace.js';
+import { Search } from '../utils/search.svelte.js';
 
 //
 
