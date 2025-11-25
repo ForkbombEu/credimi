@@ -37,7 +37,22 @@ WEBENV			= $(WEBAPP)/.env
 BIN				= $(ROOT_DIR)/.bin
 DEPS 			= mise git temporal wget
 DEV_DEPS		= pre-commit
-K 				:= $(foreach exec,$(DEPS), $(if $(shell which $(exec)),some string,$(error "🥶 `$(exec)` not found in PATH please install it")))
+TEST_DEPS		= mise
+
+# Generic tool checker
+define require_tools
+	@missing=0; \
+	for t in $(1); do \
+		if ! command -v $$t >/dev/null 2>&1; then \
+			echo "🧧 \`$$t\` not found in PATH, please install it." >&2; \
+			missing=1; \
+		fi; \
+	done; \
+	if [ $$missing -ne 0 ]; then \
+		echo "🥶 Missing required tools, aborting."; \
+		exit 1; \
+	fi
+endef
 
 all: help
 .PHONY: submodules version dev test lint tidy purge build docker doc clean tools help w devtools
@@ -77,9 +92,11 @@ $(DATA):
 	mkdir -p $(DATA)
 
 dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mode
+	$(call require_tools,$(DEPS) $(DEV_DEPS))
 	DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev
 
 test: ## 🧪 run tests with coverage
+	$(call require_tools,$(TEST_DEPS))
 	$(GOTEST) $(GODIRS) -v -race -buildvcs --tags=unit
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
@@ -94,6 +111,7 @@ coverage: devtools # ☂️ run test and open code coverage report
 	$(GOTOOL) go-cover-treemap -coverprofile $(COVOUT) > coverage.svg && open coverage.svg
 
 lint: devtools ## 📑 lint rules checks
+	$(call require_tools,$(TEST_DEPS))
 	$(GOMOD) tidy -diff
 	$(GOMOD) verify
 	$(GOCMD) vet $(SUBDIRS)
