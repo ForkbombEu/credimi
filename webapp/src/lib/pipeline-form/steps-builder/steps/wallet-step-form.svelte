@@ -6,9 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { getMarketplaceItemData } from '$lib/marketplace/utils.js';
-	import { XIcon } from 'lucide-svelte';
 
-	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n/index.js';
 
 	import type { WalletStepForm } from './wallet-step-form.svelte.js';
@@ -35,32 +33,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				avatar={data.logo}
 				title={form.data.wallet.name}
 				subtitle={form.data.wallet.organization_name}
-			>
-				{#snippet right()}
-					<IconButton
-						icon={XIcon}
-						variant="ghost"
-						size="xs"
-						class="hover:bg-gray-200"
-						onclick={() => form.removeWallet()}
-					/>
-				{/snippet}
-			</ItemCard>
+				onDiscard={() => form.removeWallet()}
+			/>
 		</WithLabel>
-
 		{#if form.data.version}
 			<WithLabel label={m.Version()}>
-				<ItemCard title={form.data.version.tag}>
-					{#snippet right()}
-						<IconButton
-							icon={XIcon}
-							variant="ghost"
-							size="xs"
-							class="hover:bg-gray-200"
-							onclick={() => form.removeVersion()}
-						/>
-					{/snippet}
-				</ItemCard>
+				<ItemCard title={form.data.version.tag} onDiscard={() => form.removeVersion()} />
 			</WithLabel>
 		{/if}
 	</div>

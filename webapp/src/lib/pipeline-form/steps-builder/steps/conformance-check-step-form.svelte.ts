@@ -80,7 +80,23 @@ export class ConformanceCheckStepForm extends StepFormState {
 	}
 
 	async selectTest(test: Test) {
-		this.data.test = test;
+		this.props.onSelect(test);
+	}
+
+	//
+
+	discardSuite() {
+		this.data.suite = undefined;
+	}
+
+	discardVersion() {
+		this.discardSuite();
+		this.data.version = undefined;
+	}
+
+	discardStandard() {
+		this.discardVersion();
+		this.data.standard = undefined;
 	}
 }
 

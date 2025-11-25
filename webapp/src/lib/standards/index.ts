@@ -16,9 +16,9 @@ import { pb } from '@/pocketbase';
 export type StandardsWithTestSuites = z.infer<typeof templateBlueprintsResponseSchema>;
 
 export function getStandardsWithTestSuites(
-	options: { fetchFn?: typeof fetch; forPipeline?: boolean } = {}
+	options: { fetch?: typeof fetch; forPipeline?: boolean } = {}
 ): Promise<StandardsWithTestSuites | Error> {
-	const { fetchFn = fetch, forPipeline = false } = options;
+	const { fetch: fetchFn = fetch, forPipeline = false } = options;
 	let url = '/api/template/blueprints';
 	if (forPipeline) url += '?only_show_in_pipeline_gui=true';
 

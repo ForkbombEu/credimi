@@ -60,45 +60,58 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="space-y-2 border-b p-4">
 				{#if form.data.standard}
 					<WithLabel label={m.Standard()}>
-						<ItemCard title={form.data.standard.name} />
+						<ItemCard
+							title={form.data.standard.name}
+							onDiscard={() => form.discardStandard()}
+						/>
 					</WithLabel>
 				{/if}
 				{#if form.data.version}
-					<WithLabel label={m.Version()}></WithLabel>
-					<ItemCard title={form.data.version.name} />
+					<WithLabel label={m.Version()}>
+						<ItemCard
+							title={form.data.version.name}
+							onDiscard={() => form.discardVersion()}
+						/>
+					</WithLabel>
 				{/if}
 				{#if form.data.suite}
 					<WithLabel label={m.Suite()}>
-						<ItemCard title={form.data.suite.name} />
-					</WithLabel>
-				{/if}
-				{#if form.data.test}
-					<WithLabel label={m.Test()}>
-						<ItemCard title={form.data.test} />
+						<ItemCard
+							title={form.data.suite.name}
+							onDiscard={() => form.discardSuite()}
+						/>
 					</WithLabel>
 				{/if}
 			</div>
 		{/if}
 
-		<WithLabel label={m.Select_item({ item: selectLabel.toLowerCase() })} class="space-y-2 p-4">
-			{#if form.state == 'select-standard'}
-				{#each standards as standard (standard.uid)}
-					<ItemCard title={standard.name} onClick={() => form.selectStandard(standard)} />
-				{/each}
-			{:else if form.state === 'select-version'}
-				{#each form.availableVersions as version (version.uid)}
-					<ItemCard title={version.name} onClick={() => form.selectVersion(version)} />
-				{/each}
-			{:else if form.state === 'select-suite'}
-				{#each form.availableSuites as suite (suite.uid)}
-					<ItemCard title={suite.name} onClick={() => form.selectSuite(suite)} />
-				{/each}
-			{:else if form.state === 'select-test'}
-				{#each form.availableTests as test (test)}
-					{@const testName = test.split('/').at(-1)?.replaceAll('+', ' ')}
-					<ItemCard title={testName ?? test} onClick={() => form.selectTest(test)} />
-				{/each}
-			{/if}
+		<WithLabel label={m.Select_item({ item: selectLabel.toLowerCase() })} class="p-4">
+			<div class="space-y-2 pt-1">
+				{#if form.state == 'select-standard'}
+					{#each standards as standard (standard.uid)}
+						<ItemCard
+							title={standard.name}
+							onClick={() => form.selectStandard(standard)}
+						/>
+					{/each}
+				{:else if form.state === 'select-version'}
+					{#each form.availableVersions as version (version.uid)}
+						<ItemCard
+							title={version.name}
+							onClick={() => form.selectVersion(version)}
+						/>
+					{/each}
+				{:else if form.state === 'select-suite'}
+					{#each form.availableSuites as suite (suite.uid)}
+						<ItemCard title={suite.name} onClick={() => form.selectSuite(suite)} />
+					{/each}
+				{:else if form.state === 'select-test'}
+					{#each form.availableTests as test (test)}
+						{@const testName = test.split('/').at(-1)?.replaceAll('+', ' ')}
+						<ItemCard title={testName ?? test} onClick={() => form.selectTest(test)} />
+					{/each}
+				{/if}
+			</div>
 		</WithLabel>
 	{/if}
 	<!-- {#if form.state === 'error'}

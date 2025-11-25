@@ -161,7 +161,18 @@ export class StepsBuilder {
 
 	private initConformanceCheckStepForm() {
 		this.run((data) => {
-			data.state = new ConformanceCheckStepForm();
+			data.state = new ConformanceCheckStepForm({
+				onSelect: (checkId: string) => {
+					this.addStep({
+						id: createId(checkId),
+						type: StepType.ConformanceCheck,
+						name: checkId,
+						path: checkId,
+						organization: 'Conformance Check',
+						data: { checkId }
+					});
+				}
+			});
 		});
 	}
 
