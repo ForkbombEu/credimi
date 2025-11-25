@@ -119,7 +119,7 @@ func NewPipelineCmd() *cobra.Command {
 		StringVarP(&yamlPath, "path", "p", "", "Path to YAML file (optional, otherwise reads from stdin)")
 	cmd.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
 	cmd.Flags().
-		StringVarP(&instanceURL, "instance", "i", "https://demo.credimi.io", "URL of the PocketBase instance")
+		StringVarP(&instanceURL, "instance", "i", "https://credimi.io", "URL of the PocketBase instance")
 
 	cmd.AddCommand(NewSchemaCmd())
 
