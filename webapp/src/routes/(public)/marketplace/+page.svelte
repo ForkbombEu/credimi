@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import PageGrid from '$lib/layout/pageGrid.svelte';
+	import ConformanceChecksTable from '$lib/marketplace/conformance-checks-table/conformance-checks-table.svelte';
 	import { appSections } from '$lib/marketplace/sections';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
@@ -21,6 +22,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import MarketplaceTable from '../../../lib/marketplace/marketplace-table.svelte';
 
 	//
+
+	let { data } = $props();
 
 	const tabsParams = Object.values(appSections).map((t) => t.id);
 	type TabParam = (typeof tabsParams)[number];
@@ -59,7 +62,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<CollectionManager collection="marketplace_items" queryOptions={{ perPage: 25, ...queryOptions }}>
+<CollectionManager
+	collection="marketplace_items"
+	queryOptions={{ perPage: 25, ...queryOptions }}
+	hide={['pagination']}
+>
 	{#snippet top()}
 		<div class="bg-secondary pb-10 pt-10 md:pb-0">
 			<div class="mx-auto max-w-screen-xl px-4 md:px-8">
@@ -141,18 +148,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	{/snippet}
 
-	{#snippet records({ records })}
-		{#if params.mode === 'cards'}
-			<div in:fly={{ y: 10 }}>
+	{#snippet records({ records, Pagination })}
+		{#if params.mode === 'cards' && params.tab !== 'conformance-checks'}
+			<div in:fly={{ y: 10 }} class="space-y-4">
 				<PageGrid>
 					{#each records as record (record.id)}
 						<MarketplaceItemCard item={record} />
 					{/each}
 				</PageGrid>
+				<Pagination />
+			</div>
+		{:else if params.tab === 'conformance-checks'}
+			<div in:fly={{ y: 10 }} class="rounded-lg rounded-tr-none bg-white">
+				<ConformanceChecksTable standardsWithTestSuites={data.conformanceChecks} />
 			</div>
 		{:else}
-			<div in:fly={{ y: 10 }}>
+			<div in:fly={{ y: 10 }} class="space-y-4">
 				<MarketplaceTable {records} />
+				<Pagination />
 			</div>
 		{/if}
 	{/snippet}

@@ -795,5 +795,6 @@
 	"Test": "Test",
 	"Your_wallets": "Your wallets",
 	"Public_wallets": "Public wallets",
-	"public_wallets_description": "Here you can add wallet actions to public wallets."
+	"public_wallets_description": "Here you can add wallet actions to public wallets.",
+	"Checks": "Checks"
 }

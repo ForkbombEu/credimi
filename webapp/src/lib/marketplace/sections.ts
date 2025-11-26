@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { TestTube2, WaypointsIcon } from 'lucide-svelte';
+import { SheetIcon, TestTube2, WaypointsIcon } from 'lucide-svelte';
 
 import type { IconComponent } from '@/components/types';
 
@@ -53,6 +53,12 @@ export const appSections = {
 		id: 'pipelines',
 		icon: WaypointsIcon,
 		textClass: 'text-orange-600'
+	},
+	conformance_checks: {
+		label: m.Conformance_Checks(),
+		id: 'conformance-checks',
+		icon: SheetIcon,
+		textClass: 'text-red-500'
 	}
 } as const satisfies Record<string, AppSection>;
 
