@@ -25,7 +25,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { organization }: Props = $props();
 </script>
 
-<T tag="h2" class="mt-8">{m.Public_wallets()}</T>
+<div class="mt-8">
+	<T tag="h2">{m.Public_wallets()}</T>
+	<T class="text-muted-foreground">{m.public_wallets_description()}</T>
+</div>
 
 <CollectionManager
 	collection="wallets"
@@ -38,6 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{record}
 					avatar={(w) => (w.logo ? pb.files.getURL(w, w.logo) : w.logo_url)}
 					path={[organization.canonified_name, record.canonified_name]}
+					hideActions
 				>
 					{#snippet content()}
 						<WalletActionsManager wallet={record} {organization} />
