@@ -52,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	function getCredentialPublicUrl(credential: CredentialsResponse) {
-		return `/marketplace/credentials/${organization.canonified_name}/${credential.canonified_name}`;
+		return `/marketplace/credentials/${organization.canonified_name}/${issuer.canonified_name}/${credential.canonified_name}`;
 	}
 </script>
 

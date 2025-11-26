@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import * as Resizable from '@/components/ui/resizable/index.js';
 	import ScrollArea from '@/components/ui/scroll-area/scroll-area.svelte';
 	import { m } from '@/i18n';
 
@@ -35,7 +36,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { builder }: { builder: StepsBuilder } = $props();
 </script>
 
-<div class="grid grow grid-cols-3 gap-4 overflow-hidden xl:grid-cols-[max(400px)_max(400px)_1fr]">
+<!-- <div class="grid grow grid-cols-3 gap-4 overflow-hidden xl:grid-cols-[max(400px)_max(400px)_1fr]"> -->
+<Resizable.PaneGroup direction="horizontal" class="gap-2">
 	<Column title="Add step">
 		{#if builder.state instanceof IdleState}
 			{@render stepButtons()}
@@ -61,6 +63,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 	</Column>
 
+	<Resizable.Handle class="hover:bg-primary" />
+
 	<Column title={m.Steps_sequence()}>
 		{#if builder.steps.length > 0}
 			<ScrollArea class="grow [&>div>div]:space-y-2 [&>div>div]:p-4">
@@ -75,6 +79,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</Column>
 
+	<Resizable.Handle class="hover:bg-primary" />
+
 	<Column title={m.YAML_preview()} class="card overflow-hidden">
 		{#if String.isEmpty(builder.yamlPreview)}
 			<EmptyState text={m.YAML_preview_will_appear_here()} />
@@ -87,7 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			/>
 		{/if}
 	</Column>
-</div>
+</Resizable.PaneGroup>
 
 <!--  -->
 

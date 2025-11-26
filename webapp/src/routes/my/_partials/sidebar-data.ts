@@ -3,13 +3,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { appSections, testRunsSection } from '$lib/marketplace/sections';
+import { workflowStatuses } from '$lib/temporal';
+import { WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows';
 import { GlobeIcon, HomeIcon, LockIcon, StoreIcon, UserIcon } from 'lucide-svelte';
 
 import { m } from '@/i18n';
 
-import type { SidebarGroup } from './sidebar';
+import type { SidebarGroup, SidebarItem } from './sidebar';
 
-import { WorkflowStatusesSidebarSection } from './statuses-section.svelte';
+import { IDS } from '../wallets/utils';
+import WorkflowItem from './components/workflow-item.svelte';
 
 //
 
@@ -31,10 +34,24 @@ export const data: SidebarGroup[] = [
 	{
 		title: m.Services_and_products(),
 		items: Object.values(appSections).map((section) => {
+			let children: SidebarItem[] | undefined;
+			if (section.id === 'wallets') {
+				children = [
+					{
+						title: m.Your_wallets(),
+						url: `/my/wallets#${IDS.YOUR_WALLETS}`
+					},
+					{
+						title: m.Public_wallets(),
+						url: `/my/wallets#${IDS.PUBLIC_WALLETS}`
+					}
+				];
+			}
 			return {
 				title: section.label,
 				url: `/my/${section.id}`,
-				icon: section.icon
+				icon: section.icon,
+				children
 			};
 		})
 	},
@@ -44,9 +61,15 @@ export const data: SidebarGroup[] = [
 			{
 				title: testRunsSection.label,
 				url: testRunsSection.id,
-				icon: testRunsSection.icon
-			},
-			WorkflowStatusesSidebarSection
+				icon: testRunsSection.icon,
+				children: workflowStatuses
+					.filter((status) => status !== null)
+					.map((status) => ({
+						title: status,
+						url: `/my/tests/runs?${WORKFLOW_STATUS_QUERY_PARAM}=${status}`,
+						component: WorkflowItem
+					}))
+			}
 		]
 	},
 	{
