@@ -54,7 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="flex flex-col items-center space-y-2">
 	<div
 		class={[
-			'flex flex-col items-center justify-center rounded-sm border bg-gray-50',
+			'flex flex-col items-center justify-center rounded-sm border bg-gray-50 aspect-square !shrink-0',
 			containerClass
 		]}
 	>
