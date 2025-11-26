@@ -6,5 +6,12 @@ import type { CollectionFormOptions } from './collectionFormTypes';
 
 import CollectionForm from './collectionForm.svelte';
 import { removeEmptyValues, setupCollectionForm } from './collectionFormSetup';
+import { getCollectionFormContext } from './context';
 
-export { CollectionForm, removeEmptyValues, setupCollectionForm, type CollectionFormOptions };
+export {
+	CollectionForm,
+	getCollectionFormContext,
+	removeEmptyValues,
+	setupCollectionForm,
+	type CollectionFormOptions
+};

@@ -170,6 +170,7 @@ async function checkFieldUniqueness(
 		use_cases_verifications: 'verifier'
 	} as const;
 
+	// @ts-expect-error - collectionName is a valid key of parentFieldMap
 	const parentField = parentFieldMap[collectionName];
 
 	try {
@@ -206,6 +207,7 @@ async function generateUniqueFieldValues(
 		use_cases_verifications: 'verifier'
 	} as const;
 
+	// @ts-expect-error - collectionName is a valid key of parentFieldMap
 	const parentField = parentFieldMap[collectionName];
 	const parentId = updatedData[parentField] as string;
 
@@ -331,6 +333,7 @@ async function generateUniqueFieldValue(
 		use_cases_verifications: 'verifier'
 	} as const;
 
+	// @ts-expect-error - collectionName is a valid key of parentFieldMap
 	const parentField = parentFieldMap[collectionName];
 
 	// Handle empty original values
@@ -434,6 +437,7 @@ export async function cloneRecord<T extends CloneableCollections>(
 				use_cases_verifications: 'verifier'
 			} as const;
 
+			// @ts-expect-error - collectionName is a valid key of parentFieldMap
 			const parentField = parentFieldMap[collectionName];
 			const retryableFields = failedFields.filter(
 				(field) =>

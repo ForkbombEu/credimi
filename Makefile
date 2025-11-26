@@ -205,3 +205,4 @@ seed: ## 🌱 Seed the database
 	@$(GOCMD) run main.go migrate up && $(GOCMD) run cmd/seeds/seed.go 
 
 
+
