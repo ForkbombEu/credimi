@@ -792,5 +792,8 @@
 	"Conformance_check": "Conformance check",
 	"Select_item": "Select {item}",
 	"Suite": "Test suite",
-	"Test": "Test"
+	"Test": "Test",
+	"Your_wallets": "Your wallets",
+	"Public_wallets": "Public wallets",
+	"public_wallets_description": "Here you can add wallet actions to public wallets."
 }

@@ -39,7 +39,7 @@ export const languagesDisplay: Record<Locale, { flag: string; name: string }> = 
 	de: { flag: '🇩🇪', name: 'Deutsch' },
 	fr: { flag: '🇫🇷', name: 'Français' },
 	da: { flag: '🇩🇰', name: 'Dansk' },
-	'pt-br': { flag: '🇧🇷', name: 'Português' },
+	'pt-BR': { flag: '🇧🇷', name: 'Português' },
 	'es-es': { flag: '🇪🇸', name: 'Español' }
 };
 

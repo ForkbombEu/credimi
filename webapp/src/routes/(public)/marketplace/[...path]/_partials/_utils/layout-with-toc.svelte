@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <PageContent class="bg-secondary grow" contentClass="flex flex-col md:flex-row gap-12 items-start">
 	<PageIndex {sections} class="top-5 md:sticky" />
 
-	<div class="grow space-y-16">
+	<div class="w-full grow space-y-16 md:w-auto">
 		{@render children()}
 	</div>
 </PageContent>
