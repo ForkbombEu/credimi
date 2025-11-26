@@ -72,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</div>
 	{#if showQrLink && deeplink}
-		<div class="max-w-60 break-all text-center text-xs">
+		<div class="max-w-sm break-all text-center text-xs">
 			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 			<a class="text-primary hover:underline" href={deeplink} target="_self"> {deeplink}</a>
 		</div>
