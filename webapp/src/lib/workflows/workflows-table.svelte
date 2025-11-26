@@ -51,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{@const status = toWorkflowStatusReadable(workflow.status)}
 
 				<Table.Row>
-					<Table.Cell class="align-top">
+					<Table.Cell>
 						{#if status !== null}
 							<WorkflowStatus {status} />
 						{/if}
