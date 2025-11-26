@@ -23,23 +23,28 @@ export type BaseStep<T extends StepType, Data> = {
 	video?: boolean;
 };
 
+//
+
 export enum StepType {
 	WalletAction = 'wallet_actions',
 	Credential = 'credentials',
 	UseCaseVerification = 'use_cases_verifications',
+	ConformanceCheck = 'conformance_checks',
 	CustomCheck = 'custom_checks'
 }
+
+export type BuilderStep = WalletActionStep | MarketplaceItemStep | ConformanceCheckStep;
+
+//
 
 export type MarketplaceStepType =
 	| StepType.Credential
 	| StepType.CustomCheck
 	| StepType.UseCaseVerification;
 
-//
-
-export type BuilderStep = WalletActionStep | MarketplaceItemStep;
-
 export type MarketplaceItemStep = BaseStep<MarketplaceStepType, MarketplaceItem>;
+
+//
 
 export type WalletActionStep = BaseStep<StepType.WalletAction, WalletStepData>;
 
@@ -48,6 +53,10 @@ export type WalletStepData = {
 	version: WalletVersionsResponse;
 	action: WalletActionsResponse;
 };
+
+//
+
+export type ConformanceCheckStep = BaseStep<StepType.ConformanceCheck, { checkId: string }>;
 
 /* Builder states */
 

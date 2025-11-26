@@ -5,17 +5,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	import T from '@/components/ui-custom/t.svelte';
 
 	type Props = {
-		text: string;
+		text?: string;
+		children?: Snippet;
 	};
 
-	let { text }: Props = $props();
+	let { text, children }: Props = $props();
 </script>
 
 <div class="p-4">
-	<div class="flex flex-col items-center justify-center rounded-md bg-slate-100 p-4">
-		<T class="text-muted-foreground text-sm">{text}</T>
+	<div
+		class="text-muted-foreground flex items-center justify-center gap-2 rounded-md bg-slate-100 p-4 text-sm"
+	>
+		{#if children}
+			{@render children()}
+		{:else if text}
+			<T>{text}</T>
+		{/if}
 	</div>
 </div>

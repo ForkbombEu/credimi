@@ -10,6 +10,7 @@ import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDe
 import {
 	StepType,
 	type BuilderStep,
+	type ConformanceCheckStep,
 	type MarketplaceItemStep,
 	type WalletActionStep
 } from './steps-builder/types';
@@ -34,12 +35,14 @@ export function convertBuilderSteps(steps: BuilderStep[]): AnyYamlStep[] {
 function convertStep(step: BuilderStep): AnyYamlStep {
 	if (step.type === StepType.WalletAction) {
 		return convertWalletActionStep(step);
+	} else if (step.type === StepType.ConformanceCheck) {
+		return convertConformanceCheckStep(step);
 	} else {
 		return convertMarketplaceItemStep(step);
 	}
 }
 
-const DEFAULT_DEEPLINK_STEP_ID = 'get-deeplink';
+const DEEPLINK_STEP_ID_PLACEHOLDER = 'get-deeplink';
 
 function convertWalletActionStep(step: WalletActionStep): YamlStep<'mobile-automation'> {
 	const yamlStep: YamlStep<'mobile-automation'> = {
@@ -56,7 +59,7 @@ function convertWalletActionStep(step: WalletActionStep): YamlStep<'mobile-autom
 	const actionYaml = step.data.action.code;
 	if (actionYaml.includes('${DL}') || actionYaml.includes('${deeplink}')) {
 		yamlStep.with.parameters = {
-			deeplink: '${{' + DEFAULT_DEEPLINK_STEP_ID + '.outputs}}'
+			deeplink: '${{' + DEEPLINK_STEP_ID_PLACEHOLDER + '}}'
 		};
 	}
 
@@ -111,6 +114,17 @@ function convertUseCaseVerificationStep(
 	};
 }
 
+function convertConformanceCheckStep(step: ConformanceCheckStep): YamlStep<'conformance-check'> {
+	return {
+		use: 'conformance-check',
+		id: step.id,
+		continue_on_error: step.continueOnError ?? false,
+		with: {
+			check_id: step.data.checkId
+		}
+	};
+}
+
 function linkIds(steps: AnyYamlStep[]): AnyYamlStep[] {
 	for (const [index, step] of steps.entries()) {
 		if (!(step.use === 'mobile-automation')) continue;
@@ -118,17 +132,22 @@ function linkIds(steps: AnyYamlStep[]): AnyYamlStep[] {
 		if (!step.with.parameters) continue;
 		if (!('deeplink' in step.with.parameters)) continue;
 
-		const previousStepId = steps
+		const previousStep = steps
 			.slice(0, index)
 			.toReversed()
 			.filter((s) => s.use != 'mobile-automation')
-			.at(0)?.id;
+			.at(0);
 
-		if (!previousStepId) continue;
+		if (!previousStep) continue;
+
+		let deeplinkPath = '.outputs';
+		if (previousStep.use === 'conformance-check') {
+			deeplinkPath += '.deeplink';
+		}
 
 		step.with.parameters.deeplink = step.with.parameters.deeplink.replace(
-			DEFAULT_DEEPLINK_STEP_ID,
-			previousStepId
+			DEEPLINK_STEP_ID_PLACEHOLDER,
+			previousStep.id + deeplinkPath
 		);
 	}
 	return steps;

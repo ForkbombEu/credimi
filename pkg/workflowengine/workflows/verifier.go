@@ -28,6 +28,7 @@ type GetUseCaseVerificationDeeplinkWorkflowPayload struct {
 	UseCaseIdentifier string `json:"use_case_id" yaml:"use_case_id" validate:"required"`
 }
 
+// Name returns the name of the workflow.
 func (w *GetUseCaseVerificationDeeplinkWorkflow) Name() string {
 	return "Get use case verification deeplink"
 }

@@ -56,7 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							size="sm"
 							variant="outline"
 							class="border-primary text-primary"
-							href={`tags?${URL_SEARCH_PARAM_NAME}=${tag}`}
+							href={`/pages/tags?${URL_SEARCH_PARAM_NAME}=${tag}`}
 						>
 							{getTagTranslation(tag)}
 						</Button>

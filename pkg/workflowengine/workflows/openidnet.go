@@ -41,7 +41,7 @@ const (
 	OpenIDNetStopCheckSignal        = "stop-openidnet-check-log-update"
 )
 
-// OpenIDNetWorkflow is a workflow that performs conformance checks on the OpenID certification site.
+// OpenIDNetWorkflow is a workflow that start a conformance checks on the OpenID certification site.
 type OpenIDNetWorkflow struct{}
 
 // OpenIDNetWorkflowPayload represents the payload for the OpenIDNetWorkflow.

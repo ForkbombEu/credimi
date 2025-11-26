@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { marketplaceItemsDisplayConfig, type MarketplaceItemDisplayData } from '$lib/marketplace';
+import { SheetIcon } from 'lucide-svelte';
 
 import { m } from '@/i18n/index.js';
 
@@ -20,7 +21,16 @@ const stepDisplayDataMap: Record<StepType, MarketplaceItemDisplayData> = {
 		label: m.Credential_deeplink()
 	},
 	[StepType.CustomCheck]: custom_checks,
-	[StepType.UseCaseVerification]: use_cases_verifications
+	[StepType.UseCaseVerification]: use_cases_verifications,
+	[StepType.ConformanceCheck]: {
+		icon: SheetIcon,
+		label: m.Conformance_check(),
+		labelPlural: m.Conformance_Checks(),
+		bgClass: 'bg-red-500',
+		textClass: 'text-red-500',
+		backgroundClass: 'bg-red-500',
+		outlineClass: 'border-red-500'
+	}
 };
 
 export function getStepDisplayData(stepType: StepType) {

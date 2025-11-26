@@ -788,5 +788,12 @@
 	"parameters": "Parameters",
 	"Continue_on_error": "Continue on error",
 	"Run_now": "Run now",
-	"Record_video_of_wallet_action": "Turn on/off video recording of wallet action"
+	"Record_video_of_wallet_action": "Turn on/off video recording of wallet action",
+	"Conformance_check": "Conformance check",
+	"Select_item": "Select {item}",
+	"Suite": "Test suite",
+	"Test": "Test",
+	"Your_wallets": "Your wallets",
+	"Public_wallets": "Public wallets",
+	"public_wallets_description": "Here you can add wallet actions to public wallets."
 }

@@ -17,15 +17,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <a
-	href={localizeHref(`/${slug}`)}
-	class="flex flex-col justify-between gap-4 rounded-lg border border-primary bg-card p-6 text-card-foreground shadow-sm ring-primary transition-all hover:-translate-y-2 hover:ring-2"
+	href={localizeHref(`/pages/${slug}`)}
+	class="border-primary bg-card text-card-foreground ring-primary flex flex-col justify-between gap-4 rounded-lg border p-6 shadow-sm transition-all hover:-translate-y-2 hover:ring-2"
 >
 	<div>
 		<T tag="h4" class="text-balance font-bold">
 			{title}
 		</T>
 
-		<T class="text-sm text-muted-foreground">
+		<T class="text-muted-foreground text-sm">
 			{new Date(date).toLocaleDateString(undefined, {
 				year: 'numeric',
 				month: 'short',
@@ -35,14 +35,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	{#if description}
-		<T tag="p" class="line-clamp-3 text-primary">
+		<T tag="p" class="text-primary line-clamp-3">
 			{description}
 		</T>
 	{/if}
 
 	<div class="tags flex flex-wrap items-center gap-1.5">
 		{#each tags as tag}
-			<span class="rounded-lg border border-primary px-1.5 text-xs text-primary">
+			<span class="border-primary text-primary rounded-lg border px-1.5 text-xs">
 				{getTagTranslation(tag)}
 			</span>
 		{/each}
