@@ -7,14 +7,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { ComponentProps, Snippet } from 'svelte';
 
-	import { page } from '$app/state';
 	import UserNav from '$lib/layout/userNav.svelte';
 
 	import { AppLogo } from '@/brand';
-	import Icon from '@/components/ui-custom/icon.svelte';
 	import * as Sidebar from '@/components/ui/sidebar/index.js';
 
 	import type { SidebarGroup } from './sidebar';
+
+	import SidebarItem from './sidebar-item.svelte';
 
 	//
 
@@ -46,22 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{#if typeof item === 'function'}
 								{@render (item as Snippet)()}
 							{:else}
-								{@const isActive = page.url.pathname.endsWith(item.url)}
-								<Sidebar.MenuItem>
-									<Sidebar.MenuButton {isActive}>
-										{#snippet child({ props })}
-											<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-											<a href={item.url} {...props}>
-												{#if item.icon}
-													<Icon src={item.icon} />
-												{/if}
-												<span class="text-nowrap">
-													{item.title}
-												</span>
-											</a>
-										{/snippet}
-									</Sidebar.MenuButton>
-								</Sidebar.MenuItem>
+								<SidebarItem {item} />
 							{/if}
 						{/each}
 					</Sidebar.Menu>

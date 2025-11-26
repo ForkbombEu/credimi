@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import { IDS } from './utils';
 	import WalletActionsManager from './wallet-actions-manager.svelte';
 
 	//
@@ -25,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { organization }: Props = $props();
 </script>
 
-<div class="mt-8">
+<div class="mt-8" id={IDS.PUBLIC_WALLETS}>
 	<T tag="h2">{m.Public_wallets()}</T>
 	<T class="text-muted-foreground">{m.public_wallets_description()}</T>
 </div>

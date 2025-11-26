@@ -22,6 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
 	import PublicWallets from './public-wallets.svelte';
+	import { IDS } from './utils';
 	import WalletActionsManager from './wallet-actions-manager.svelte';
 	import WalletFormSheet from './wallet-form-sheet.svelte';
 	import WalletForm from './wallet-form.svelte';
@@ -34,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	setDashboardNavbar({ title: 'Wallets', right: navbarRight });
 </script>
 
-<T tag="h2">{m.Your_wallets()}</T>
+<T tag="h2" id={IDS.YOUR_WALLETS}>{m.Your_wallets()}</T>
 
 <CollectionManager
 	collection="wallets"
