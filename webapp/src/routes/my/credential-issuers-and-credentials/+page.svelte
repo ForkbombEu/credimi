@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
+
 	import { CollectionManager } from '@/collections-components';
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
@@ -26,7 +28,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		sort: ['created', 'DESC']
 	}}
 	editFormFieldsOptions={{
-		exclude: ['owner', 'url', 'published', 'imported', 'canonified_name', 'workflow_url']
+		exclude: [
+			'owner',
+			'url',
+			'published',
+			'imported',
+			'logo_url',
+			'canonified_name',
+			'workflow_url'
+		],
+		snippets: {
+			logo
+		}
 	}}
 >
 	{#snippet records({ records })}
@@ -40,4 +53,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet navbarRight()}
 	<CredentialIssuerForm organizationId={organization.id} />
+{/snippet}
+
+{#snippet logo()}
+	<CollectionLogoField />
 {/snippet}

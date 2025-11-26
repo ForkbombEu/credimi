@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
 	import { Plus, Trash, X } from 'lucide-svelte';
 
 	import type { CredentialIssuersResponse } from '@/pocketbase/types';
@@ -104,8 +105,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								'url',
 								'canonified_name',
 								'imported',
-								'workflow_url'
-							]
+								'workflow_url',
+								'logo_url'
+							],
+							snippets: {
+								logo
+							}
 						}}
 						onSuccess={() => {
 							importedIssuer = undefined;
@@ -124,7 +129,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						hide: {
 							owner: organizationId
 						},
-						exclude: ['published', 'imported', 'canonified_name', 'workflow_url']
+						exclude: [
+							'published',
+							'imported',
+							'canonified_name',
+							'workflow_url',
+							'logo_url'
+						],
+						snippets: {
+							logo
+						}
 					}}
 					onSuccess={closeSheet}
 					uiOptions={{
@@ -172,3 +186,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</AlertDialog.Root>
 	{/snippet}
 </Sheet>
+
+<!--  -->
+
+{#snippet logo()}
+	<CollectionLogoField />
+{/snippet}

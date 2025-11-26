@@ -28,7 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		label?: string;
 	};
 
-	let { form, name, initialPreviewUrl, label = m.Upload_logo() }: Props = $props();
+	let { form, name, initialPreviewUrl, label = m.Logo() }: Props = $props();
 
 	//
 
