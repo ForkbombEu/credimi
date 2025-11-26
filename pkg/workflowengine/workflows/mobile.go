@@ -153,6 +153,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 							"video.mp4",
 						),
 						"action_identifier": payload.ActionID,
+						"instance_url":      appURL,
 					},
 					ExpectedStatus: 200,
 				},
