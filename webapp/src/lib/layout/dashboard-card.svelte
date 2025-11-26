@@ -45,6 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		path: string[];
 		hideDelete?: boolean;
 		hidePublish?: boolean;
+		hideActions?: boolean;
 	};
 
 	let {
@@ -58,7 +59,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		editAction,
 		path,
 		hideDelete = false,
-		hidePublish = false
+		hidePublish = false,
+		hideActions = false
 	}: Props = $props();
 
 	//
@@ -110,22 +112,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 		</div>
-		<div class="flex items-center gap-2">
-			{@render actions?.()}
-			{#if !hidePublish}
-				<PublishedSwitch record={record as DashboardRecord} field="published" />
-			{/if}
-			{#if editAction}
-				{@render editAction()}
-			{:else}
-				<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
-				<RecordEdit record={record as any} />
-			{/if}
-			{#if !hideDelete}
-				<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
-				<RecordDelete record={record as any} />
-			{/if}
-		</div>
+		{#if !hideActions}
+			<div class="flex items-center gap-2">
+				{@render actions?.()}
+				{#if !hidePublish}
+					<PublishedSwitch record={record as DashboardRecord} field="published" />
+				{/if}
+				{#if editAction}
+					{@render editAction()}
+				{:else}
+					<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+					<RecordEdit record={record as any} />
+				{/if}
+				{#if !hideDelete}
+					<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
+					<RecordDelete record={record as any} />
+				{/if}
+			</div>
+		{/if}
 	</div>
 
 	{#if String.isNonEmpty(description) || Boolean(links?.length)}

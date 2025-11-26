@@ -13,13 +13,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		margin?: boolean;
 		class?: ClassValue;
 		children?: Snippet;
+		id?: string;
 	}
 
-	let { tag = 'p', margin = false, class: classValue, children }: Props = $props();
+	let { tag = 'p', margin = false, class: classValue, children, id }: Props = $props();
 </script>
 
 {#if tag == 'h1'}
-	<h1 class={['scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl', classValue]}>
+	<h1 class={['scroll-m-20 text-4xl font-extrabold tracking-tight lg:text-5xl', classValue]} {id}>
 		{@render children?.()}
 	</h1>
 {:else if tag == 'h2'}
@@ -28,25 +29,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'scroll-m-20 pb-2 text-3xl font-semibold tracking-tight transition-colors first:mt-0',
 			classValue
 		]}
+		{id}
 	>
 		{@render children?.()}
 	</h2>
 {:else if tag == 'h3'}
-	<h3 class={['scroll-m-20 text-2xl font-semibold tracking-tight', classValue]}>
+	<h3 class={['scroll-m-20 text-2xl font-semibold tracking-tight', classValue]} {id}>
 		{@render children?.()}
 	</h3>
 {:else if tag == 'h4'}
-	<h4 class={['scroll-m-20 text-xl font-semibold tracking-tight', classValue]}>
+	<h4 class={['scroll-m-20 text-xl font-semibold tracking-tight', classValue]} {id}>
 		{@render children?.()}
 	</h4>
 {:else if tag == 'p'}
-	<p class={['block', margin ? 'leading-7 [&:not(:first-child)]:mt-6' : '', classValue]}>
+	<p class={['block', margin ? 'leading-7 [&:not(:first-child)]:mt-6' : '', classValue]} {id}>
 		{@render children?.()}
 	</p>
 {:else if tag == 'small'}
-	<small class={['text-sm font-medium leading-none', classValue]}>{@render children?.()}</small>
+	<small class={['text-sm font-medium leading-none', classValue]} {id}>
+		{@render children?.()}
+	</small>
 {:else if tag == 'huge'}
-	<h1 class={['scroll-m-20 text-5xl font-extrabold tracking-tight lg:text-6xl', classValue]}>
+	<h1 class={['scroll-m-20 text-5xl font-extrabold tracking-tight lg:text-6xl', classValue]} {id}>
 		{@render children?.()}
 	</h1>
 {/if}
