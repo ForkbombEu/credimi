@@ -5,6 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script module lang="ts">
+	import { Array } from 'effect';
+
+	import type { WalletActionsResponse } from '@/pocketbase/types';
+
 	import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
 	import { pageDetails } from './_utils/types';
@@ -26,17 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const organization = wallet.expand?.owner;
 		if (!organization) throw new Error();
 
-		const actionsWithOrganizations = await Promise.all(
-			actions.map(async (action) => {
-				const org = await pb
-					.collection('organizations')
-					.getOne(action.owner, { requestKey: null });
-				return {
-					...action,
-					organization: org
-				};
-			})
-		);
+		const actionsWithOrganizations = await getActionsWithOrganizations(actions);
 
 		return pageDetails('wallets', {
 			wallet,
@@ -44,6 +38,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			organization,
 			versions
 		});
+	}
+
+	async function getActionsWithOrganizations(actions: WalletActionsResponse[]) {
+		const actionsOrganizationIds = Array.dedupe(actions.map((a) => a.owner));
+
+		const actionsOrganizations = await Promise.all(
+			actionsOrganizationIds.map((id) => pb.collection('organizations').getOne(id))
+		);
+
+		return actions.map((action) => ({
+			...action,
+			organization: actionsOrganizations.find((o) => o.id === action.owner)
+		}));
 	}
 </script>
 
@@ -221,7 +228,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											{stats.lines} lines • {stats.chars} characters
 										</div> -->
 										<T class="text-muted-foreground text-xs">
-											{action.organization.name}
+											{action.organization?.name}
 										</T>
 									</div>
 								</div>
