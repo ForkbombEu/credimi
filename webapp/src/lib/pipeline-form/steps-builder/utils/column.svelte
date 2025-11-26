@@ -8,6 +8,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import T from '@/components/ui-custom/t.svelte';
+	import * as Resizable from '@/components/ui/resizable/index.js';
+	import { cn } from '@/components/ui/utils';
 
 	type Props = {
 		children?: Snippet;
@@ -18,9 +20,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { children, class: className, contentClass, title, titleRight }: Props = $props();
+
+	const classes = cn(
+		'flex flex-col overflow-hidden rounded-lg border bg-white shadow-sm',
+		className
+	);
 </script>
 
-<div class={['flex flex-col overflow-hidden rounded-lg border bg-white shadow-sm', className]}>
+<Resizable.Pane class={classes}>
 	<div class="flex items-center justify-between border-b bg-slate-100 px-4 py-2">
 		<T class="font-semibold">{title}</T>
 		{@render titleRight?.()}
@@ -29,4 +36,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class={['flex grow flex-col overflow-hidden', contentClass]}>
 		{@render children?.()}
 	</div>
-</div>
+</Resizable.Pane>
