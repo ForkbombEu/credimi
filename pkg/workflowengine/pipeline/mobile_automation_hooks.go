@@ -66,6 +66,14 @@ func MobileAutomationSetupHook(
 				)
 			}
 		}
+		appURL, ok := input.Config["app_url"].(string)
+		if !ok {
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("missing or invalid app_url for step %s", step.ID),
+			)
+		}
 
 		req := workflowengine.ActivityInput{
 			Payload: map[string]any{
@@ -75,6 +83,7 @@ func MobileAutomationSetupHook(
 					"Content-Type": "application/json",
 				},
 				"body": map[string]any{
+					"instance_url":       appURL,
 					"version_identifier": payload.VersionID,
 					"action_identifier":  payload.ActionID,
 				},
