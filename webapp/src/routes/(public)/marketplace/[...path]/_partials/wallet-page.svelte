@@ -6,7 +6,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script module lang="ts">
 	import { PocketbaseQueryAgent } from '@/pocketbase/query';
+
 	import { pageDetails } from './_utils/types';
+
+	//
 
 	export async function getWalletDetails(itemId: string, fetchFn = fetch) {
 		const wallet = await new PocketbaseQueryAgent(
@@ -23,11 +26,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const organization = wallet.expand?.owner;
 		if (!organization) throw new Error();
 
+		const actionsWithOrganizations = await Promise.all(
+			actions.map(async (action) => {
+				const org = await pb
+					.collection('organizations')
+					.getOne(action.owner, { requestKey: null });
+				return {
+					...action,
+					organization: org
+				};
+			})
+		);
+
 		return pageDetails('wallets', {
 			wallet,
-			actions,
+			actionsWithOrganizations,
 			organization,
-      versions
+			versions
 		});
 	}
 </script>
@@ -46,6 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import {
 		Accordion,
 		AccordionContent,
@@ -64,17 +80,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = Awaited<ReturnType<typeof getWalletDetails>>;
-	let { wallet, actions, organization, versions }: Props = $props();
+	let { wallet, actionsWithOrganizations, organization, versions }: Props = $props();
 
 	// misc derived values
 
 	const checks = $derived(z.array(ConformanceCheckSchema).safeParse(wallet.conformance_checks));
 
-	function getCodeStats(code: string) {
-		const lines = code.split('\n').length;
-		const chars = code.length;
-		return { lines, chars };
-	}
+	// function getCodeStats(code: string) {
+	// 	const lines = code.split('\n').length;
+	// 	const chars = code.length;
+	// 	return { lines, chars };
+	// }
 
 	const isGeneralInfoEmpty = $derived(
 		String.isEmpty(wallet.home_url) &&
@@ -172,10 +188,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</PageSection>
 
-	<PageSection indexItem={s.actions} empty={actions.length === 0}>
+	<PageSection indexItem={s.actions} empty={actionsWithOrganizations.length === 0}>
 		<div class="space-y-3">
-			{#each actions as action (action.id)}
-				{@const stats = getCodeStats(action.code)}
+			{#each actionsWithOrganizations as action (action.id)}
+				<!-- {@const stats = getCodeStats(action.code)} -->
 				<Accordion type="single" class="w-full">
 					<AccordionItem
 						value="code-accordion"
@@ -201,9 +217,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 												size="xs"
 											/>
 										</div>
-										<div class="text-muted-foreground text-xs">
+										<!-- <div class="text-muted-foreground text-xs">
 											{stats.lines} lines • {stats.chars} characters
-										</div>
+										</div> -->
+										<T class="text-muted-foreground text-xs">
+											{action.organization.name}
+										</T>
 									</div>
 								</div>
 								<Badge variant="outline" class="text-xs">YAML</Badge>
