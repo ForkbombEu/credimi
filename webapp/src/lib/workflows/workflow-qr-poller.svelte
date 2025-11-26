@@ -21,9 +21,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflowId: string;
 		runId: string;
 		containerClass?: string;
+		showQrLink?: boolean;
 	};
 
-	let { workflowId, runId, containerClass }: Props = $props();
+	let { workflowId, runId, containerClass, showQrLink }: Props = $props();
 
 	let deeplink = $state<string>();
 	let attempt = $state(0);
@@ -50,22 +51,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<div
-	class={[
-		'flex aspect-square !shrink-0 flex-col items-center justify-center overflow-hidden rounded-sm border bg-gray-50',
-		containerClass
-	]}
->
-	{#if deeplink}
-		<QrCode src={deeplink} class="h-full w-full" />
-	{:else if attempt < maxAttempts}
-		<Spinner size={20} />
-		<T class="px-3 pt-2 text-center text-xs text-gray-400">
-			{m.Loading_QR_code()}
-		</T>
-	{:else}
-		<T class="px-3 text-center text-xs text-gray-400">
-			{m.The_QR_code_may_be_not_available_for_this_test()}
-		</T>
+<div class="flex flex-col items-center space-y-2">
+	<div
+		class={[
+			'flex flex-col items-center justify-center rounded-sm border bg-gray-50',
+			containerClass
+		]}
+	>
+		{#if deeplink}
+			<QrCode src={deeplink} class="h-full w-full" />
+		{:else if attempt < maxAttempts}
+			<Spinner size={20} />
+			<T class="px-3 pt-2 text-center text-xs text-gray-400">
+				{m.Loading_QR_code()}
+			</T>
+		{:else}
+			<T class="px-3 text-center text-xs text-gray-400">
+				{m.The_QR_code_may_be_not_available_for_this_test()}
+			</T>
+		{/if}
+	</div>
+	{#if showQrLink && deeplink}
+		<div class="max-w-60 break-all text-center text-xs">
+			<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+			<a class="text-primary hover:underline" href={deeplink} target="_self"> {deeplink}</a>
+		</div>
 	{/if}
 </div>
