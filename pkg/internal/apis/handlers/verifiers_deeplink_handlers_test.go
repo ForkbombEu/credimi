@@ -95,7 +95,7 @@ func TestGetVerificationDeeplink(t *testing.T) {
 				mockServer := mockGetDeeplinkServer(
 					t.(*testing.T),
 					http.StatusOK,
-					map[string]interface{}{
+					map[string]any{
 						"deeplink": "mock-deeplink-from-yaml",
 					},
 				)
@@ -110,6 +110,41 @@ func TestGetVerificationDeeplink(t *testing.T) {
 				require.NoError(t, err)
 
 				return app
+			},
+		},
+		{
+			Name:   "get verification deeplink - redirect",
+			Method: http.MethodGet,
+			URL: func() string {
+				return "/api/verification/deeplink?id=usera-s-organization/test-verifier/test-use-cases&redirect=true"
+			}(),
+			ExpectedStatus:  http.StatusMovedPermanently,
+			ExpectedContent: []string{}, // redirect = no body
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupYamlApp(orgID)(t)
+
+				mockServer := mockGetDeeplinkServer(
+					t.(*testing.T),
+					http.StatusOK,
+					map[string]any{
+						"deeplink": "mock-deeplink-from-yaml",
+					},
+				)
+				t.Cleanup(mockServer.Close)
+
+				app.Settings().Meta.AppURL = mockServer.URL
+
+				ver, _ := app.FindCollectionByNameOrId("use_cases_verifications")
+				r, err := app.FindFirstRecordByFilter(ver.Name, `name="test use cases"`)
+				require.NoError(t, err)
+
+				r.Set("yaml", "test: yaml content")
+				require.NoError(t, app.Save(r))
+
+				return app
+			},
+			AfterTestFunc: func(t testing.TB, app *tests.TestApp, res *http.Response) {
+				require.Equal(t.(*testing.T), "mock-deeplink-from-yaml", res.Header.Get("Location"))
 			},
 		},
 		{
@@ -129,7 +164,7 @@ func TestGetVerificationDeeplink(t *testing.T) {
 				mockServer := mockGetDeeplinkServer(
 					t.(*testing.T),
 					http.StatusInternalServerError,
-					map[string]interface{}{
+					map[string]any{
 						"error": "internal server error",
 					},
 				)
@@ -162,7 +197,7 @@ func TestGetVerificationDeeplink(t *testing.T) {
 				mockServer := mockGetDeeplinkServer(
 					t.(*testing.T),
 					http.StatusOK,
-					map[string]interface{}{
+					map[string]any{
 						"wrong_field": "value",
 					},
 				)

@@ -41,7 +41,7 @@ const (
 	OpenIDNetStopCheckSignal        = "stop-openidnet-check-log-update"
 )
 
-// OpenIDNetWorkflow is a workflow that performs conformance checks on the OpenID certification site.
+// OpenIDNetWorkflow is a workflow that start a conformance checks on the OpenID certification site.
 type OpenIDNetWorkflow struct{}
 
 // OpenIDNetWorkflowPayload represents the payload for the OpenIDNetWorkflow.
@@ -117,9 +117,9 @@ func (w *OpenIDNetWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -311,9 +311,9 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(subCtx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(subCtx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(subCtx).WorkflowExecution.ID,
 			workflow.GetInfo(subCtx).WorkflowExecution.RunID,
 		),
@@ -329,9 +329,8 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 	getLogsInput := workflowengine.ActivityInput{
 		Payload: activities.HTTPActivityPayload{
 			Method: http.MethodGet,
-			URL: fmt.Sprintf(
-				"%s/%s",
-				"https://www.certification.openid.net/api/log/",
+			URL: utils.JoinURL(
+				"https://www.certification.openid.net/api/log",
 				url.PathEscape(payload.Rid),
 			),
 			Headers: map[string]string{
@@ -410,10 +409,9 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 		triggerLogsInput := workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodPost,
-				URL: fmt.Sprintf(
-					"%s/%s",
+				URL: utils.JoinURL(
 					input.Config["app_url"].(string),
-					"api/compliance/send-openidnet-log-update",
+					"api", "compliance", "send-openidnet-log-update",
 				),
 				Headers: map[string]string{
 					"Content-Type": "application/json",

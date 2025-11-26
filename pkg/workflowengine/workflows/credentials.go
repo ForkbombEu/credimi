@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -80,9 +81,9 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -238,10 +239,9 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		storeInput := workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodPost,
-				URL: fmt.Sprintf(
-					"%s/%s",
+				URL: utils.JoinURL(
 					appURL,
-					"api/credentials_issuers/store-or-update-extracted-credentials"),
+					"api", "credentials_issuers", "store-or-update-extracted-credentials"),
 				Body: map[string]any{
 					"issuerID":   issuerID,
 					"credKey":    credKey,
@@ -281,10 +281,9 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	cleanupInput := workflowengine.ActivityInput{
 		Payload: activities.HTTPActivityPayload{
 			Method: http.MethodPost,
-			URL: fmt.Sprintf(
-				"%s/%s",
+			URL: utils.JoinURL(
 				appURL,
-				"api/credentials_issuers/cleanup-credentials",
+				"api", "credentials_issuers", "cleanup-credentials",
 			),
 			Body: map[string]any{
 				"issuerID":  issuerID,
@@ -376,9 +375,9 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -403,10 +402,9 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 	request := workflowengine.ActivityInput{
 		Payload: activities.HTTPActivityPayload{
 			Method: http.MethodGet,
-			URL: fmt.Sprintf(
-				"%s/%s",
-				input.Config["app_url"],
-				"api/credential/get-credential-offer",
+			URL: utils.JoinURL(
+				input.Config["app_url"].(string),
+				"api", "credential", "get-credential-offer",
 			),
 			QueryParams: map[string]string{
 				"credential_identifier": payload.CredentialID,

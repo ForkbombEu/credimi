@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"html"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"text/template"
 	"time"
@@ -140,7 +141,7 @@ func (a *StepCIWorkflowActivity) Execute(
 	}
 	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
 	binName := "stepci-captured-runner"
-	binPath := fmt.Sprintf("%s/%s", binDir, binName)
+	binPath := filepath.Join(binDir, binName)
 	args := []string{payload.Yaml, "-s", string(secretBytes)}
 
 	if payload.Env != "" {

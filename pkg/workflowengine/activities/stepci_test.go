@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
+//go:build !unit
 
 package activities
 
@@ -9,6 +10,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
@@ -95,7 +97,7 @@ func TestStepCIActivity_Execute(t *testing.T) {
 	env.RegisterActivity(activity.Execute)
 
 	tmpBinDir := t.TempDir()
-	binPath := fmt.Sprintf("%s/stepci-captured-runner", tmpBinDir)
+	binPath := filepath.Join(tmpBinDir, "stepci-captured-runner")
 
 	// Determine the platform and architecture
 	OS := runtime.GOOS

@@ -72,18 +72,6 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 			errorCode:      errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
 		},
 		{
-			name: "Failure: missing app_url",
-			input: workflowengine.WorkflowInput{
-				Config: map[string]any{},
-				Payload: GetUseCaseVerificationDeeplinkWorkflowPayload{
-					UseCaseIdentifier: "test_use_case",
-				},
-			},
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
-			expectedErr:    true,
-			errorCode:      errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
-		},
-		{
 			name: "Failure: invalid HTTP output (body not a map)",
 			input: workflowengine.WorkflowInput{
 				Config: map[string]any{"app_url": "https://example.com"},

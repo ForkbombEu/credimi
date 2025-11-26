@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
@@ -44,6 +45,8 @@ func HandleVerificationDeeplink() func(*core.RequestEvent) error {
 				"id parameter is required",
 			).JSON(e)
 		}
+
+		redirect := e.Request.URL.Query().Get("redirect") == "true"
 
 		rec, err := canonify.Resolve(e.App, id)
 		if err != nil {
@@ -76,7 +79,7 @@ func HandleVerificationDeeplink() func(*core.RequestEvent) error {
 		}
 
 		baseURL := e.App.Settings().Meta.AppURL
-		url := baseURL + "/api/get-deeplink"
+		url := utils.JoinURL(baseURL, "api", "get-deeplink")
 
 		ctx := e.Request.Context()
 		req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewBuffer(bodyData))
@@ -130,6 +133,11 @@ func HandleVerificationDeeplink() func(*core.RequestEvent) error {
 				"deeplink missing in response",
 				"field 'deeplink' is not present or empty",
 			).JSON(e)
+		}
+		if redirect {
+			e.Response.Header().Set("Location", deeplink)
+			e.Response.WriteHeader(http.StatusMovedPermanently) // 301
+			return e.Next()
 		}
 
 		return e.String(http.StatusOK, deeplink)

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +33,7 @@ func NewPipelineCmd() *cobra.Command {
 				authReq, err := http.NewRequestWithContext(
 					cmd.Context(),
 					"GET",
-					fmt.Sprintf("%s/api/apikey/authenticate", instanceURL),
+					utils.JoinURL(instanceURL, "api", "apikey", "authenticate"),
 					nil,
 				)
 				if err != nil {
@@ -90,7 +91,7 @@ func NewPipelineCmd() *cobra.Command {
 			req, err := http.NewRequestWithContext(
 				cmd.Context(),
 				"POST",
-				fmt.Sprintf("%s/api/pipeline/start", instanceURL),
+				utils.JoinURL(instanceURL, "api", "pipeline", "start"),
 				bytes.NewBuffer(body),
 			)
 			if err != nil {
@@ -118,7 +119,7 @@ func NewPipelineCmd() *cobra.Command {
 		StringVarP(&yamlPath, "path", "p", "", "Path to YAML file (optional, otherwise reads from stdin)")
 	cmd.Flags().StringVarP(&apiKey, "api-key", "k", "", "API key for authentication")
 	cmd.Flags().
-		StringVarP(&instanceURL, "instance", "i", "https://demo.credimi.io", "URL of the PocketBase instance")
+		StringVarP(&instanceURL, "instance", "i", "https://credimi.io", "URL of the PocketBase instance")
 
 	cmd.AddCommand(NewSchemaCmd())
 

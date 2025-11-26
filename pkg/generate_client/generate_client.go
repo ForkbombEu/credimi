@@ -10,7 +10,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"path"
 	"reflect"
 	"regexp"
 	"runtime"
@@ -20,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	api "github.com/forkbombeu/credimi/pkg/internal/apis"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/hypersequent/zen"
 	"github.com/invopop/jsonschema"
 	"gopkg.in/yaml.v3"
@@ -245,9 +245,11 @@ func main() {
 	log.Println("Processing routes...")
 	for _, group := range routeGroups {
 		for _, route := range group.Routes {
+			// Use url.JoinPath for proper URL path joining instead of file path.Join
+			joinedPath := utils.JoinURL(group.BaseURL, route.Path)
 			r := RouteInfo{
 				Method:                 route.Method,
-				Path:                   path.Join(group.BaseURL, route.Path),
+				Path:                   joinedPath,
 				GoHandlerName:          getFuncName(route.Handler),
 				Summary:                route.Summary,
 				Description:            route.Description,
@@ -400,6 +402,7 @@ func generateOpenAPIYAML(routes []RouteInfo, typesToProcess map[string]interface
 			},
 		},
 		Servers: []Server{
+			{URL: "https://credimi.io", Description: "Production server"},
 			{URL: "https://demo.credimi.io", Description: "Demo server"},
 			{URL: "http://localhost:8090/", Description: "Localhost server"},
 		},

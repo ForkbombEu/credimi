@@ -5,6 +5,7 @@
 package workflow
 
 // FidesIssuersURL is the URL to fetch issuers from the Fides API.
+// Note: This is a constant with query parameters, so string concatenation is acceptable here.
 const FidesIssuersURL = "https://credential-catalog.fides.community/api/public/credentialtype?" + params
 const params = "includeAllDetails=false&size=200"
 

@@ -10,6 +10,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/google/uuid"
 	"go.temporal.io/api/enums/v1"
@@ -51,9 +52,9 @@ func (w *PipelineWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflowID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.WorkflowInput.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.WorkflowInput.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflowID,
 			runID,
 		),

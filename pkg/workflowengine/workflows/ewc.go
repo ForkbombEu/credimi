@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -87,9 +88,9 @@ func (w *EWCWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -164,7 +165,7 @@ func (w *EWCWorkflow) Workflow(
 	}
 
 	interval := time.Second
-	workflowResult, err := pollEWCCheck(ctx, interval, checkEndpoint, sessionID, runMetadata)
+	workflowResult, err := pollEWCCheck(ctx, interval, checkEndpoint, sessionID, runMetadata, false)
 	return workflowResult, err
 }
 
@@ -229,9 +230,9 @@ func (w *EWCStatusWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -266,7 +267,7 @@ func (w *EWCStatusWorkflow) Workflow(
 		)
 	}
 
-	result, err := pollEWCCheck(ctx, interval, checkEndpoint, payload.SessionID, runMetadata)
+	result, err := pollEWCCheck(ctx, interval, checkEndpoint, payload.SessionID, runMetadata, true)
 	return result, err
 }
 
@@ -276,6 +277,7 @@ func pollEWCCheck(
 	checkEndpoint string,
 	sessionID string,
 	runMetadata workflowengine.WorkflowErrorMetadata,
+	startImmediately bool,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 
@@ -283,7 +285,9 @@ func pollEWCCheck(
 	stopSignalChan := workflow.GetSignalChannel(ctx, EwcStopCheckSignal)
 	selector := workflow.NewSelector(ctx)
 
-	var isPolling bool
+	// If flag is true → start polling right away
+	isPolling := startImmediately
+
 	var timerFuture workflow.Future
 	var startTimer func()
 
@@ -296,6 +300,13 @@ func pollEWCCheck(
 			}
 		})
 	}
+
+	// Automatically start timer if startImmediately == true
+	if startImmediately {
+		startTimer()
+		logger.Info("EWC polling started (startImmediately=true)")
+	}
+
 	httpInput := workflowengine.ActivityInput{
 		Payload: activities.HTTPActivityPayload{
 			Method: http.MethodGet,
@@ -306,32 +317,33 @@ func pollEWCCheck(
 			ExpectedStatus: 200,
 		},
 	}
+
 	for {
-		// Listen for start signal
 		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+			// Signals become OPTIONAL
 			var signalData struct{}
 			c.Receive(ctx, &signalData)
+
 			if !isPolling {
 				isPolling = true
 				startTimer()
-				logger.Info("EWC polling started")
+				logger.Info("EWC polling started (signal)")
 			}
 		})
 
-		// Listen for stop signal
 		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 			var signalData struct{}
 			c.Receive(ctx, &signalData)
 			isPolling = false
-			logger.Info("EWC polling stopped")
+			logger.Info("EWC polling stopped (signal)")
 		})
 
 		selector.Select(ctx)
+
 		if !isPolling {
 			continue
 		}
 
-		// Perform the HTTP GET to check endpoint
 		httpActivity := activities.NewHTTPActivity()
 		var response workflowengine.ActivityResult
 
@@ -347,11 +359,7 @@ func pollEWCCheck(
 		bodyJSON, err := json.Marshal(response.Output.(map[string]any)["body"])
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-			appErr := workflowengine.NewAppError(
-				errCode,
-				err.Error(),
-				response.Output.(map[string]any)["body"],
-			)
+			appErr := workflowengine.NewAppError(errCode, err.Error(), response.Output)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
 				runMetadata,
@@ -359,8 +367,7 @@ func pollEWCCheck(
 		}
 
 		var parsed EWCResponseBody
-		err = json.Unmarshal(bodyJSON, &parsed)
-		if err != nil {
+		if err := json.Unmarshal(bodyJSON, &parsed); err != nil {
 			errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
 			appErr := workflowengine.NewAppError(errCode, err.Error(), bodyJSON)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(

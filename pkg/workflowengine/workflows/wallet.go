@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -58,9 +59,9 @@ func (w *WalletWorkflow) Workflow(
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: fmt.Sprintf(
-			"%s/my/tests/runs/%s/%s",
-			input.Config["app_url"],
+		TemporalUI: utils.JoinURL(
+			input.Config["app_url"].(string),
+			"my", "tests", "runs",
 			workflow.GetInfo(ctx).WorkflowExecution.ID,
 			workflow.GetInfo(ctx).WorkflowExecution.RunID,
 		),
@@ -220,32 +221,6 @@ func (w *WalletWorkflow) Workflow(
 	}
 
 	metadataReady = true
-	// Code to store metdata directly into PB
-	/*storeInput := workflowengine.ActivityInput{
-		Config: map[string]string{
-			"method": "POST",
-			"url": fmt.Sprintf(
-				"%s/%s",
-				appURL,
-				"api/wallet/store-or-update-wallet-data"),
-		},
-		Payload: map[string]any{
-			"body": map[string]any{
-				"metadata": metadata,
-				"url":      fullURL,
-				"type":     storeType,
-				"orgID":    namespace,
-			},
-			"expected_status": 200,
-		},
-	}
-	var storeResponse workflowengine.ActivityResult
-	err = workflow.ExecuteActivity(ctx, httpActivity.Name(), storeInput).
-		Get(ctx, &storeResponse)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-	}
-	*/
 	return workflowengine.WorkflowResult{
 		Message: "Worflow completed successfully",
 	}, nil
