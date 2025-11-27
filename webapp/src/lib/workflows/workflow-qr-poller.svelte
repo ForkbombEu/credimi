@@ -29,8 +29,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let attempt = $state(0);
 	const maxAttempts = 5;
 
+	let interval: ReturnType<typeof setInterval>;
+
 	onMount(() => {
-		const interval = setInterval(async () => {
+		interval = setInterval(async () => {
 			attempt++;
 			try {
 				const res = await pb.send(`/api/compliance/deeplink/${workflowId}/${runId}`, {
@@ -48,11 +50,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		return () => clearInterval(interval);
 	});
+
+	$effect(() => {
+		if (attempt >= maxAttempts) {
+			clearInterval(interval);
+		}
+	});
 </script>
 
 <div
 	class={[
-		'flex aspect-square !shrink-0 flex-col items-center justify-center overflow-hidden rounded-sm border bg-gray-50',
+		'flex aspect-square max-w-60 !shrink-0 flex-col items-center justify-center overflow-hidden rounded-sm border bg-gray-50',
 		containerClass
 	]}
 >

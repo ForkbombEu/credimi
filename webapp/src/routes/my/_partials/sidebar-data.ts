@@ -33,27 +33,29 @@ export const data: SidebarGroup[] = [
 	},
 	{
 		title: m.Services_and_products(),
-		items: Object.values(appSections).map((section) => {
-			let children: SidebarItem[] | undefined;
-			if (section.id === 'wallets') {
-				children = [
-					{
-						title: m.Your_wallets(),
-						url: `/my/wallets#${IDS.YOUR_WALLETS}`
-					},
-					{
-						title: m.Public_wallets(),
-						url: `/my/wallets#${IDS.PUBLIC_WALLETS}`
-					}
-				];
-			}
-			return {
-				title: section.label,
-				url: `/my/${section.id}`,
-				icon: section.icon,
-				children
-			};
-		})
+		items: Object.values(appSections)
+			.filter((section) => section.id !== 'conformance-checks')
+			.map((section) => {
+				let children: SidebarItem[] | undefined;
+				if (section.id === 'wallets') {
+					children = [
+						{
+							title: m.Your_wallets(),
+							url: `/my/wallets#${IDS.YOUR_WALLETS}`
+						},
+						{
+							title: m.Public_wallets(),
+							url: `/my/wallets#${IDS.PUBLIC_WALLETS}`
+						}
+					];
+				}
+				return {
+					title: section.label,
+					url: `/my/${section.id}`,
+					icon: section.icon,
+					children
+				};
+			})
 	},
 	{
 		title: testRunsSection.label,

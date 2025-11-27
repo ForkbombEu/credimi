@@ -17,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		items: Link[];
 		title: string;
-		icon: IconComponent;
+		icon?: IconComponent;
 		show: boolean;
 	};
 
@@ -35,9 +35,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<Accordion.Trigger
 						class="flex justify-start gap-3 border-none px-4 py-1 hover:bg-slate-200 hover:no-underline"
 					>
-						<div class="flex w-[38px] justify-center">
-							<Icon src={icon} class="text-gray-400" size={12} />
-						</div>
+						{#if icon}
+							<div class="flex w-[38px] justify-center">
+								<Icon src={icon} class="text-gray-400" size={12} />
+							</div>
+						{/if}
 						<p class="py-1">
 							{title}
 							{#if items.length > 0}
@@ -52,6 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{@const rest = items.slice(3).length}
 
 								{#each podium as link (link)}
+									<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 									<a href={localizeHref(link.href ?? '')} class="pill">
 										{link.title}
 									</a>
@@ -67,7 +70,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 					{#if items.length > 0}
 						<Accordion.Content class="[&>div]:pb-1">
-							<div class="grid grid-cols-2 pl-[58px] md:grid-cols-3 lg:grid-cols-4">
+							<div
+								class={[
+									'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
+									icon ? 'pl-[58px]' : 'pl-2'
+								]}
+							>
 								{#each items as link (link)}
 									<a
 										href={localizeHref(link.href ?? '')}
