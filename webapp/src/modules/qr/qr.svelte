@@ -88,7 +88,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if showLink && src}
 				<div class={linkClass || 'w-60 break-all text-xs'}>
 					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-					<a class="text-primary hover:underline" href={src} target="_self">{src}</a>
+					<a class="text-primary hover:underline" href={src} aria-label={m.Credential_Deeplink()}>
+						{src}
+					</a>
 				</div>
 			{/if}
 		</div>
