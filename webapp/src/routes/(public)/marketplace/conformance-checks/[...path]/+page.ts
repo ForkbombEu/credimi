@@ -8,7 +8,7 @@ import { error } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { get } from 'svelte/store';
 
-import { currentUser } from '@/pb';
+import { currentUser } from '@/pocketbase';
 
 import { startCheck } from './_partials/utils';
 
@@ -43,7 +43,15 @@ export const load = async ({ params, parent }) => {
 		let qrWorkflow: { workflowId: string; runId: string } | undefined;
 
 		if (browser && get(currentUser)) {
-			qrWorkflow = await startCheck(standard.uid, version.uid, suite.uid, file);
+			const res = await startCheck(standard.uid, version.uid, suite.uid, file);
+			if (res instanceof Error) {
+				console.error(res);
+			} else {
+				qrWorkflow = {
+					workflowId: res.workflowId,
+					runId: res.runId
+				};
+			}
 		}
 
 		return pageDetails('file-page', {

@@ -107,43 +107,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div> -->
 			</div>
 		</div>
-		<!-- <PageTop>
-			<div>
-				<T tag="h1">
-					<span> {m.Marketplace()}</span>
-					{#if typeFilter}
-						{@const typeData = getMarketplaceItemTypeData(typeFilter)}
-						<span>/</span>
-						<span class={typeData.display?.textClass}>
-							{typeData.display?.labelPlural}
-						</span>
-					{/if}
-				</T>
-			</div>
-			<div class="flex items-center gap-2">
-				<Search
-					containerClass="grow"
-					class="border-primary bg-secondary                                                                                                                                                                                                                                                                                                              "
-				/>
-			</div>
-		</PageTop> -->
 	{/snippet}
 
 	{#snippet contentWrapper(children)}
 		<div class="bg-secondary min-h-[300px] grow">
 			<div class="mx-auto max-w-screen-xl px-4 pb-8 md:px-8">
-				{@render children()}
-			</div>
-			<!-- <div class="flex flex-col gap-8 sm:flex-row">
-				<div class="w-full space-y-3 sm:w-fit">
-					{@render MarketplaceTableOfContents()}
-					<hr />
-					{@render viewSwitcher()}
-				</div>
-				<div class="grow">
+				{#if params.tab === 'conformance-checks'}
+					<div in:fly={{ y: 10 }} class="rounded-lg rounded-tr-none bg-white">
+						<ConformanceChecksTable standardsWithTestSuites={data.conformanceChecks} />
+					</div>
+				{:else}
 					{@render children()}
-				</div>
-			</div> -->
+				{/if}
+			</div>
 		</div>
 	{/snippet}
 
@@ -157,10 +133,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</PageGrid>
 				<Pagination />
 			</div>
-		{:else if params.tab === 'conformance-checks'}
-			<div in:fly={{ y: 10 }} class="rounded-lg rounded-tr-none bg-white">
-				<ConformanceChecksTable standardsWithTestSuites={data.conformanceChecks} />
-			</div>
 		{:else}
 			<div in:fly={{ y: 10 }} class="space-y-4">
 				<MarketplaceTable {records} />
@@ -169,87 +141,3 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	{/snippet}
 </CollectionManager>
-
-<!--
-{#snippet MarketplaceTabs()}
-	{@const isAllActive = params.type === null}
-	<div class="flex flex-col">
-		<Button
-			variant={isAllActive ? 'default' : 'ghost'}
-			size="sm"
-			onclick={() => (params.type = null)}
-			class="justify-start"
-		>
-			{m.All()}
-		</Button>
-
-
-		{#each marketplaceItemTypes as type (type)}
-			{@const typeData = getMarketplaceItemTypeData(type)}
-			{@const isActive = typeFilter === type}
-			{@const indent = type === 'use_cases_verifications' || type === 'credentials'}
-			<Button
-				variant={isActive ? 'default' : 'ghost'}
-				size="sm"
-				onclick={() => (params.type = type)}
-				class={['justify-start']}
-			>
-				{#if indent}
-					<div
-						class={{
-							'text-black/20': !isActive,
-							'text-primary-foreground/20': isActive
-						}}
-					>
-						<MinusIcon />
-					</div>
-				{/if}
-				{#if typeData.display?.icon}
-					{@const IconComponent = typeData.display.icon}
-					<IconComponent
-						class="size-4 shrink-0 {isActive
-							? 'text-primary-foreground'
-							: `opacity-70 ${typeData.display?.textClass}`}"
-					/>
-				{/if}
-				<span class="truncate">
-					{typeData.display?.labelPlural}
-				</span>
-			</Button>
-		{/each}
-	</div>
-{/snippet}
--->
-
-<!-- 
-{#snippet viewSwitcher()}
-	<div class="px-3 text-sm">
-		<span>
-			{m.View()}:
-		</span>
-		{@render viewSwitcherLink('table')}
-		<span>/</span>
-		{@render viewSwitcherLink('cards')}
-	</div>
-{/snippet}
--->
-
-<!-- 
-{#snippet viewSwitcherLink(mode: typeof params.mode)}
-	<a
-		href="/marketplace?mode={mode}"
-		class={[
-			'hover:underline',
-			{
-				'text-primary font-bold': params.mode === mode
-			}
-		]}
-	>
-		{#if mode === 'table'}
-			{m.Table()}
-		{:else}
-			{m.Cards()}
-		{/if}
-	</a>
-{/snippet}
--->

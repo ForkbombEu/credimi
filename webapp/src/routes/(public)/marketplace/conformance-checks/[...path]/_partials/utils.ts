@@ -14,34 +14,38 @@ export async function startCheck(
 	suiteUid: string,
 	file: string
 ) {
-	const standardAndVersionPath = `${standardUid}/${versionUid}`;
+	try {
+		const standardAndVersionPath = `${standardUid}/${versionUid}`;
 
-	const { specific_fields } = await getChecksConfigsFields(standardAndVersionPath, [
-		`${suiteUid}/${file}.yaml`
-	]);
+		const { specific_fields } = await getChecksConfigsFields(standardAndVersionPath, [
+			`${suiteUid}/${file}.yaml`
+		]);
 
-	const configs_with_fields: ConfigsWithFields = {};
-	for (const [key, value] of Record.toEntries(specific_fields)) {
-		configs_with_fields[key] = value.fields.map((field) => ({
-			credimi_id: field.credimi_id,
-			value: field.field_default_value ?? '',
-			field_name: field.field_id
-		}));
+		const configs_with_fields: ConfigsWithFields = {};
+		for (const [key, value] of Record.toEntries(specific_fields)) {
+			configs_with_fields[key] = value.fields.map((field) => ({
+				credimi_id: field.credimi_id,
+				value: field.field_default_value ?? '',
+				field_name: field.field_id
+			}));
+		}
+
+		const workflowsResponse = await startChecks(standardAndVersionPath, {
+			configs_with_fields,
+			configs_with_json: {},
+			custom_checks: {}
+		});
+
+		const result = workflowsResponse.results.at(0);
+		if (!result) throw new Error('No result found');
+
+		return {
+			workflowId: result.workflowId,
+			runId: result.workflowRunId
+		};
+	} catch (error) {
+		return error as Error;
 	}
-
-	const workflowsResponse = await startChecks(standardAndVersionPath, {
-		configs_with_fields,
-		configs_with_json: {},
-		custom_checks: {}
-	});
-
-	const result = workflowsResponse.results.at(0);
-	if (!result) throw new Error('No result found');
-
-	return {
-		workflowId: result.workflowId,
-		runId: result.workflowRunId
-	};
 }
 
 type ConfigsWithFields = StartChecksData['configs_with_fields'];
