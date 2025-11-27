@@ -52,14 +52,19 @@ export function configFieldComparator(a: ConfigField, b: ConfigField) {
 
 //
 
-export async function getChecksConfigsFields(suiteAndVersionPath: string, filenames: string[]) {
+export async function getChecksConfigsFields(
+	suiteAndVersionPath: string,
+	filenames: string[],
+	options = { fetch }
+) {
 	const data = await pb.send('/api/template/placeholders', {
 		method: 'POST',
 		body: {
 			test_id: suiteAndVersionPath,
 			filenames
 		},
-		requestKey: null
+		requestKey: null,
+		fetch: options.fetch
 	});
 	return checksConfigFieldsResponseSchema.parse(data);
 }

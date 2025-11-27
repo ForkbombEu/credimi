@@ -14,7 +14,7 @@ import { startCheck } from './_partials/utils';
 
 //
 
-export const load = async ({ params, parent }) => {
+export const load = async ({ params, parent, fetch }) => {
 	const { path } = params;
 	const { conformanceChecks } = await parent();
 
@@ -43,7 +43,7 @@ export const load = async ({ params, parent }) => {
 		let qrWorkflow: Awaited<ReturnType<typeof startCheck>> | undefined;
 
 		if (browser && get(currentUser)) {
-			qrWorkflow = await startCheck(standard.uid, version.uid, suite.uid, file);
+			qrWorkflow = await startCheck(standard.uid, version.uid, suite.uid, file, { fetch });
 		}
 
 		return pageDetails('file-page', {

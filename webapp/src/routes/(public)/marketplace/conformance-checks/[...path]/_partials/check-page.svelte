@@ -8,8 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 
 	import { WorkflowQrPoller } from '$lib/workflows';
+	import { ArrowRightIcon } from 'lucide-svelte';
 
 	import A from '@/components/ui-custom/a.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
 	import RenderMD from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { localizeHref, m } from '@/i18n';
@@ -77,5 +79,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</EmptyQr>
 	{:else if qrWorkflow}
 		<WorkflowQrPoller workflowId={qrWorkflow.workflowId} runId={qrWorkflow.runId} />
+		<Button
+			variant="secondary"
+			class="hover:bg-primary/10 border-primary border"
+			href="/my/tests/runs/{qrWorkflow.workflowId}/{qrWorkflow.runId}"
+		>
+			{m.View_check_status()}
+			<ArrowRightIcon />
+		</Button>
 	{/if}
 {/snippet}

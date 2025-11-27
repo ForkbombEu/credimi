@@ -12,14 +12,17 @@ export async function startCheck(
 	standardUid: string,
 	versionUid: string,
 	suiteUid: string,
-	file: string
+	file: string,
+	options = { fetch }
 ) {
 	try {
 		const standardAndVersionPath = `${standardUid}/${versionUid}`;
 
-		const { specific_fields } = await getChecksConfigsFields(standardAndVersionPath, [
-			`${suiteUid}/${file}.yaml`
-		]);
+		const { specific_fields } = await getChecksConfigsFields(
+			standardAndVersionPath,
+			[`${suiteUid}/${file}.yaml`],
+			options
+		);
 
 		const configs_with_fields: ConfigsWithFields = {};
 		for (const [key, value] of Record.toEntries(specific_fields)) {
@@ -30,11 +33,15 @@ export async function startCheck(
 			}));
 		}
 
-		const workflowsResponse = await startChecks(standardAndVersionPath, {
-			configs_with_fields,
-			configs_with_json: {},
-			custom_checks: {}
-		});
+		const workflowsResponse = await startChecks(
+			standardAndVersionPath,
+			{
+				configs_with_fields,
+				configs_with_json: {},
+				custom_checks: {}
+			},
+			options
+		);
 
 		const result = workflowsResponse.results.at(0);
 		if (!result) throw new Error('No result found');

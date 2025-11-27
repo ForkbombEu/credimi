@@ -185,11 +185,13 @@ export type StartChecksData = ReturnType<ConfigureChecksForm['getFormData']>;
 
 export function startChecks(
 	standardAndVersionPath: string,
-	data: StartChecksData
+	data: StartChecksData,
+	options = { fetch }
 ): Promise<StartChecksResponse> {
 	return pb.send(`/api/compliance/${standardAndVersionPath}/save-variables-and-start`, {
 		method: 'POST',
 		body: data,
-		requestKey: null
+		requestKey: null,
+		fetch: options.fetch
 	});
 }
