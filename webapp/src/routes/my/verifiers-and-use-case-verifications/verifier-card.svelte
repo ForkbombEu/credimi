@@ -35,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const managerOptions = options(organization.id, verifier.id);
 
 	function getVerificationPublicUrl(ucv: UseCasesVerificationsResponse) {
-		return `/marketplace/use_cases_verifications/${organization.canonified_name}/${ucv.canonified_name}`;
+		return `/marketplace/use_cases_verifications/${organization.canonified_name}/${verifier.canonified_name}/${ucv.canonified_name}`;
 	}
 </script>
 

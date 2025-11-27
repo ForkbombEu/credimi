@@ -52,13 +52,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	function getCredentialPublicUrl(credential: CredentialsResponse) {
-		return `/marketplace/credentials/${organization.canonified_name}/${credential.canonified_name}`;
+		return `/marketplace/credentials/${organization.canonified_name}/${issuer.canonified_name}/${credential.canonified_name}`;
 	}
 </script>
 
 <DashboardCard
 	record={issuer}
-	avatar={(r) => r.logo_url}
+	avatar={(i) => (i.logo ? pb.files.getURL(i, i.logo) : i.logo_url)}
 	badge={issuer.imported ? m.Imported() : undefined}
 	links={{
 		URL: issuer.url,
