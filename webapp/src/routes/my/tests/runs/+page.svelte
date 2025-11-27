@@ -87,13 +87,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Th>
 				{/snippet}
 
-				{#snippet rowRight({ workflow, Td })}
+				{#snippet rowRight({ workflow, Td, status })}
 					<Td>
-						<WorkflowQrPoller
-							workflowId={workflow.execution.workflowId}
-							runId={workflow.execution.runId}
-							containerClass="size-32"
-						/>
+						{#if status === 'Running'}
+							<WorkflowQrPoller
+								workflowId={workflow.execution.workflowId}
+								runId={workflow.execution.runId}
+								containerClass="size-32"
+							/>
+						{/if}
 					</Td>
 				{/snippet}
 			</WorkflowsTable>

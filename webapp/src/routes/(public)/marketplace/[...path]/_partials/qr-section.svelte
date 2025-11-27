@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { generateDeeplinkFromYaml } from '$lib/utils';
 
 	import { m } from '@/i18n';
-	import QrStateful from '@/qr/qr-stateful.svelte';
+	import { QrCode } from '@/qr';
 	import { getExceptionMessage } from '@/utils/errors';
 
 	import PageSection from './_utils/page-section.svelte';
@@ -66,19 +66,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageSection indexItem={sections.qr_code} class="flex flex-col items-stretch space-y-0">
-	<div class="space-y-4">
-		<QrStateful
-			src={qrLink}
-			{isLoading}
-			error={yamlError}
-			loadingText={m.Processing_YAML_configuration()}
-			placeholder={m.No_deeplink_available()}
-		/>
-		{#if qrLink}
-			<div class="w-60 break-all text-xs">
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-				<a href={qrLink} target="_self">{qrLink}</a>
-			</div>
-		{/if}
-	</div>
+	<QrCode
+		src={qrLink}
+		{isLoading}
+		error={yamlError}
+		loadingText={m.Processing_YAML_configuration()}
+		placeholder={m.No_deeplink_available()}
+		showLink={true}
+	/>
 </PageSection>
