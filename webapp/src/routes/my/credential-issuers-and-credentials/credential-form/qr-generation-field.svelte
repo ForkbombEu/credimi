@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Tabs from '@/components/ui/tabs';
 	import Field from '@/forms/fields/field.svelte';
 	import { m } from '@/i18n';
-	import QrStateful from '@/qr/qr-stateful.svelte';
+	import { QrCode } from '@/qr';
 
 	import DynamicTab from './dynamic-tab.svelte';
 
@@ -96,7 +96,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					options={{ placeholder: m.openid_credential_offer_placeholder() }}
 				/>
 			</div>
-			<QrStateful src={deeplinkState.current} placeholder={m.Type_to_generate_QR_code()} />
+			<QrCode src={deeplinkState.current} placeholder={m.Type_to_generate_QR_code()} />
 		</div>
 	</Tabs.Content>
 

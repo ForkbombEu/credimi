@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { CodeEditorField } from '@/forms/fields';
 	import { m } from '@/i18n';
-	import QrStateful from '@/qr/qr-stateful.svelte';
+	import { QrCode } from '@/qr';
 
 	//
 
@@ -197,7 +197,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="pt-8">
-		<QrStateful
+		<QrCode
 			src={generatedDeeplink}
 			class="size-60 rounded-md border"
 			{placeholder}
@@ -212,7 +212,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if workflowError && typeof workflowError === 'object' && 'summary' in workflowError}
 				{@render error()}
 			{/if}
-		</QrStateful>
+		</QrCode>
 		{#if generatedDeeplink}
 			<div class="max-w-60 break-all pt-4 text-xs">
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
