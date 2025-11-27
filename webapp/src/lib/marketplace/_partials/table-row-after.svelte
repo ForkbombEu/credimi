@@ -54,6 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{@const rest = items.slice(3).length}
 
 								{#each podium as link (link)}
+									<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 									<a href={localizeHref(link.href ?? '')} class="pill">
 										{link.title}
 									</a>

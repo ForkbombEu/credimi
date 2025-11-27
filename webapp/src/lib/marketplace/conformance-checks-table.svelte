@@ -7,11 +7,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { StandardsWithTestSuites } from '$lib/standards';
 
-	import T from '@/components/ui-custom/t.svelte';
+	import { CheckCheck } from 'lucide-svelte';
+
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
 
-	import TableRowAfter from '../table-row-after.svelte';
+	import TableNameCell from './_partials/table-name-cell.svelte';
+	import TableRowAfter from './_partials/table-row-after.svelte';
 
 	//
 
@@ -40,17 +42,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#each rows as { standard, version, suite } (standard.uid + version.uid + suite.uid)}
 			<Table.Row>
 				<Table.Cell>
-					<div class="flex items-center gap-1">
-						<a
-							href={`/marketplace/conformance-checks/${standard.uid}/${version.uid}/${suite.uid}`}
-							class="hover:underline"
-						>
-							<T class="overflow-hidden text-ellipsis font-semibold">
-								{standard.name}
-							</T>
-						</a>
-						<!-- <CopyButtonSmall textToCopy={typed.path} square variant="ghost" size="xs" /> -->
-					</div>
+					<TableNameCell
+						name={standard.name}
+						href={`/marketplace/conformance-checks/${standard.uid}/${version.uid}/${suite.uid}`}
+					/>
 				</Table.Cell>
 				<Table.Cell>{version.name}</Table.Cell>
 				<Table.Cell>{suite.name}</Table.Cell>
@@ -63,6 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						title: suite.files[i].replace('.yaml', ''),
 						href: `/marketplace/conformance-checks/${p}`
 					}))}
+					icon={CheckCheck}
 				/>
 			{/if}
 		{/each}

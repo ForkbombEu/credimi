@@ -6,7 +6,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import PageGrid from '$lib/layout/pageGrid.svelte';
-	import ConformanceChecksTable from '$lib/marketplace/conformance-checks-table/conformance-checks-table.svelte';
+	import { MarketplaceItemCard } from '$lib/marketplace';
+	import ConformanceChecksTable from '$lib/marketplace/conformance-checks-table.svelte';
+	import MarketplaceTable from '$lib/marketplace/marketplace-table.svelte';
 	import { appSections } from '$lib/marketplace/sections';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
@@ -17,9 +19,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-
-	import { MarketplaceItemCard } from '../../../lib/marketplace';
-	import MarketplaceTable from '../../../lib/marketplace/marketplace-table.svelte';
 
 	//
 

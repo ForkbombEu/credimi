@@ -11,13 +11,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
 
-	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
 	import { getMarketplaceItemData, MarketplaceItemTypeDisplay, type MarketplaceItem } from '.';
+	import TableNameCell from './_partials/table-name-cell.svelte';
 
 	//
 
@@ -33,22 +32,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{@const typed = record as MarketplaceItem}
 	{@const { logo, href } = getMarketplaceItemData(typed)}
 	{@const isCurrentUserOwner = userOrganization.current?.id === typed.organization_id}
-	<div class="flex items-center gap-3">
-		<Avatar
-			src={logo ?? ''}
-			class="size-10 !rounded-sm border"
-			fallback={typed.name.slice(0, 2)}
-		/>
-		<div class="flex items-center gap-1">
-			<a {href} class="hover:underline">
-				<T class="overflow-hidden text-ellipsis font-semibold">{typed.name}</T>
-			</a>
-			<CopyButtonSmall textToCopy={typed.path} square variant="ghost" size="xs" />
-		</div>
+
+	<TableNameCell {logo} name={typed.name} textToCopy={typed.path} {href}>
 		{#if isCurrentUserOwner}
 			<Badge class="block rounded-md">{m.Yours()}</Badge>
 		{/if}
-	</div>
+	</TableNameCell>
 {/snippet}
 
 {#snippet type(record: MarketplaceItemsResponse)}

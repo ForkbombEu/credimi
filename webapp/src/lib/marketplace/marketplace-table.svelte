@@ -14,8 +14,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CollectionTable } from '@/collections-components/manager';
 	import { m } from '@/i18n';
 
+	import TableRowAfter from './_partials/table-row-after.svelte';
 	import { snippets } from './marketplace-table-snippets.svelte';
-	import TableRowAfter from './table-row-after.svelte';
 	import {
 		getMarketplaceItemTypeData,
 		isCredentialIssuer,
