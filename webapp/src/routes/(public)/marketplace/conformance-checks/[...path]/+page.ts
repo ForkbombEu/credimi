@@ -40,18 +40,10 @@ export const load = async ({ params, parent }) => {
 	if (!file) {
 		return pageDetails('collection-page', baseData);
 	} else {
-		let qrWorkflow: { workflowId: string; runId: string } | undefined;
+		let qrWorkflow: Awaited<ReturnType<typeof startCheck>> | undefined;
 
 		if (browser && get(currentUser)) {
-			const res = await startCheck(standard.uid, version.uid, suite.uid, file);
-			if (res instanceof Error) {
-				console.error(res);
-			} else {
-				qrWorkflow = {
-					workflowId: res.workflowId,
-					runId: res.runId
-				};
-			}
+			qrWorkflow = await startCheck(standard.uid, version.uid, suite.uid, file);
 		}
 
 		return pageDetails('file-page', {

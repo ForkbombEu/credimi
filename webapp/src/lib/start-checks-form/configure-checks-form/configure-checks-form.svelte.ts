@@ -189,6 +189,7 @@ export function startChecks(
 ): Promise<StartChecksResponse> {
 	return pb.send(`/api/compliance/${standardAndVersionPath}/save-variables-and-start`, {
 		method: 'POST',
-		body: data
+		body: data,
+		requestKey: null
 	});
 }

@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import PageSection from '../../../[...path]/_partials/_utils/page-section.svelte';
 	import { sections as s } from '../../../[...path]/_partials/_utils/sections';
+	import EmptyQr from './components/empty-qr.svelte';
 	import PageLayout from './components/page-layout.svelte';
 
 	//
@@ -60,24 +61,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet nruQrCode()}
 	{#if !$currentUser}
-		<div
-			class={[
-				'aspect-square size-60 shrink-0 overflow-hidden rounded-md border',
-				'flex items-center justify-center',
-				'text-muted-foreground bg-gray-50',
-				'text-center text-sm'
-			]}
-		>
+		<EmptyQr>
 			<RenderMD
 				content={m.conformance_check_qr_code_login_cta({ link: localizeHref('/login') })}
-				class="prose-a:text-primary text-balance p-3"
+				class="prose-a:text-primary text-balance"
 			/>
-		</div>
+		</EmptyQr>
 	{/if}
 {/snippet}
 
 {#snippet loggedQr()}
-	{#if qrWorkflow}
+	{#if qrWorkflow instanceof Error}
+		<EmptyQr>
+			<p>{qrWorkflow.message}</p>
+		</EmptyQr>
+	{:else if qrWorkflow}
 		<WorkflowQrPoller workflowId={qrWorkflow.workflowId} runId={qrWorkflow.runId} />
 	{/if}
 {/snippet}
