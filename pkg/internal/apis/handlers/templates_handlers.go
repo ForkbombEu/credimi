@@ -156,6 +156,7 @@ type SuiteMetadata struct {
 	Help              string `json:"help"                 yaml:"help"`
 	Description       string `json:"description"          yaml:"description"`
 	ShowInPipelineGUI bool   `json:"show_in_pipeline_gui" yaml:"show_in_pipeline_gui"`
+	Logo              string `json:"logo"                 yaml:"logo"`
 }
 
 type Suite struct {
