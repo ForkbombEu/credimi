@@ -5,6 +5,12 @@
 import type { Merge } from 'type-fest';
 
 import { error } from '@sveltejs/kit';
+import { browser } from '$app/environment';
+import { get } from 'svelte/store';
+
+import { currentUser } from '@/pb';
+
+import { startCheck } from './_partials/utils';
 
 //
 
@@ -34,9 +40,16 @@ export const load = async ({ params, parent }) => {
 	if (!file) {
 		return pageDetails('collection-page', baseData);
 	} else {
+		let qrWorkflow: { workflowId: string; runId: string } | undefined;
+
+		if (browser && get(currentUser)) {
+			qrWorkflow = await startCheck(standard.uid, version.uid, suite.uid, file);
+		}
+
 		return pageDetails('file-page', {
 			...baseData,
-			file
+			file,
+			qrWorkflow
 		});
 	}
 };

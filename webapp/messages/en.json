@@ -796,5 +796,6 @@
 	"Your_wallets": "Your wallets",
 	"Public_wallets": "Public wallets",
 	"public_wallets_description": "Here you can add wallet actions to public wallets.",
-	"Checks": "Checks"
+	"Checks": "Checks",
+	"conformance_check_qr_code_login_cta": "[Log in]({link}) to start the conformance check"
 }

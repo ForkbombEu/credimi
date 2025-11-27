@@ -7,12 +7,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 
-	import { resource } from 'runed';
+	import { WorkflowQrPoller } from '$lib/workflows';
 
 	import A from '@/components/ui-custom/a.svelte';
+	import RenderMD from '@/components/ui-custom/renderMD.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
-	import QrStateful from '@/qr/qr-stateful.svelte';
+	import { localizeHref, m } from '@/i18n';
+	import { currentUser } from '@/pocketbase';
 
 	import type { PageData } from '../+page';
 
@@ -24,19 +25,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = Extract<PageData, { type: 'file-page' }>;
 
-	let { standard, version, suite, file, basePath }: Props = $props();
+	let { standard, version, suite, file, basePath, qrWorkflow }: Props = $props();
 
 	//
 
 	const tocSections: IndexItem[] = [s.description, s.qr_code];
-
-	const res = resource(
-		() => file,
-		// eslint-disable-next-line @typescript-eslint/no-unused-vars
-		async (file) => {
-			throw new Error('Not implemented');
-		}
-	);
 </script>
 
 <PageLayout {tocSections}>
@@ -58,21 +51,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				indexItem={s.qr_code}
 				class="flex w-full flex-col items-stretch space-y-0 md:w-auto"
 			>
-				<div class="space-y-4">
-					<QrStateful
-						src={res.current}
-						isLoading={res.loading}
-						error={res.error?.message}
-						placeholder={m.No_deeplink_available()}
-					/>
-					{#if res.current}
-						<div class="w-60 break-all text-xs">
-							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-							<a href={res.current} target="_blank">{res.current}</a>
-						</div>
-					{/if}
-				</div>
+				{@render nruQrCode()}
+				{@render loggedQr()}
 			</PageSection>
 		</div>
 	{/snippet}
 </PageLayout>
+
+{#snippet nruQrCode()}
+	{#if !$currentUser}
+		<div
+			class={[
+				'aspect-square size-60 shrink-0 overflow-hidden rounded-md border',
+				'flex items-center justify-center',
+				'text-muted-foreground bg-gray-50',
+				'text-center text-sm'
+			]}
+		>
+			<RenderMD
+				content={m.conformance_check_qr_code_login_cta({ link: localizeHref('/login') })}
+				class="prose-a:text-primary text-balance p-3"
+			/>
+		</div>
+	{/if}
+{/snippet}
+
+{#snippet loggedQr()}
+	{#if qrWorkflow}
+		<WorkflowQrPoller workflowId={qrWorkflow.workflowId} runId={qrWorkflow.runId} />
+	{/if}
+{/snippet}
