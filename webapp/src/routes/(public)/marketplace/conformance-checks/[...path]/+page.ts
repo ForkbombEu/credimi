@@ -5,16 +5,10 @@
 import type { Merge } from 'type-fest';
 
 import { error } from '@sveltejs/kit';
-import { browser } from '$app/environment';
-import { get } from 'svelte/store';
-
-import { currentUser } from '@/pocketbase';
-
-import { startCheck } from './_partials/utils';
 
 //
 
-export const load = async ({ params, parent, fetch }) => {
+export const load = async ({ params, parent }) => {
 	const { path } = params;
 	const { conformanceChecks } = await parent();
 
@@ -40,16 +34,9 @@ export const load = async ({ params, parent, fetch }) => {
 	if (!file) {
 		return pageDetails('collection-page', baseData);
 	} else {
-		let qrWorkflow: Awaited<ReturnType<typeof startCheck>> | undefined;
-
-		if (browser && get(currentUser)) {
-			qrWorkflow = await startCheck(standard.uid, version.uid, suite.uid, file, { fetch });
-		}
-
 		return pageDetails('file-page', {
 			...baseData,
-			file,
-			qrWorkflow
+			file
 		});
 	}
 };
