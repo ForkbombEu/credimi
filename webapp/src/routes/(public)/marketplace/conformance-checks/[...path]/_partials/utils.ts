@@ -56,3 +56,5 @@ export async function startCheck(
 }
 
 type ConfigsWithFields = StartChecksData['configs_with_fields'];
+
+export type StartCheckResult = Awaited<ReturnType<typeof startCheck>>;

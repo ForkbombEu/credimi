@@ -9,10 +9,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { WorkflowQrPoller } from '$lib/workflows';
 	import { ArrowRightIcon } from 'lucide-svelte';
+	import { onMount } from 'svelte';
 
 	import A from '@/components/ui-custom/a.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import RenderMD from '@/components/ui-custom/renderMD.svelte';
+	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { localizeHref, m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
@@ -23,16 +25,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { sections as s } from '../../../[...path]/_partials/_utils/sections';
 	import EmptyQr from './components/empty-qr.svelte';
 	import PageLayout from './components/page-layout.svelte';
+	import { startCheck, type StartCheckResult } from './utils';
 
 	//
 
 	type Props = Extract<PageData, { type: 'file-page' }>;
 
-	let { standard, version, suite, file, basePath, qrWorkflow }: Props = $props();
+	let { standard, version, suite, file, basePath }: Props = $props();
 
 	//
 
 	const tocSections: IndexItem[] = [s.description, s.qr_code];
+
+	let qrWorkflow = $state<StartCheckResult>();
+	let loading = $state(true);
+	onMount(async () => {
+		if (!$currentUser) return;
+		qrWorkflow = await startCheck(standard.uid, version.uid, suite.uid, file);
+		loading = false;
+	});
 </script>
 
 <PageLayout {tocSections}>
@@ -73,7 +84,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet loggedQr()}
-	{#if qrWorkflow instanceof Error}
+	{#if loading}
+		<EmptyQr>
+			<Spinner />
+			{m.Loading()}
+		</EmptyQr>
+	{:else if qrWorkflow instanceof Error}
 		<EmptyQr>
 			<p>{qrWorkflow.message}</p>
 		</EmptyQr>
