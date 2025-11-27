@@ -49,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			<PageSection
 				indexItem={s.qr_code}
-				class="flex w-full flex-col items-stretch space-y-0 md:w-auto"
+				class="flex w-full min-w-60 shrink-0 flex-col items-stretch space-y-0 md:w-auto"
 			>
 				{@render nruQrCode()}
 				{@render loggedQr()}
