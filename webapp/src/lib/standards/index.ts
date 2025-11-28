@@ -92,8 +92,6 @@ const suiteSchema = suiteMetadataSchema.extend({
 	paths: z.array(z.string())
 });
 
-export type Suite = z.infer<typeof suiteSchema>;
-
 const versionSchema = versionMetadataSchema.extend({
 	suites: z.array(suiteSchema)
 });
@@ -103,3 +101,7 @@ const standardSchema = standardMetadataSchema.extend({
 });
 
 const templateBlueprintsResponseSchema = z.array(standardSchema);
+
+export type Suite = z.infer<typeof suiteSchema>;
+export type Version = z.infer<typeof versionSchema>;
+export type Standard = z.infer<typeof standardSchema>;

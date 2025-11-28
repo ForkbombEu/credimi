@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	engine "github.com/forkbombeu/credimi/pkg/templateengine"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"gopkg.in/yaml.v3"
@@ -28,9 +29,10 @@ var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL: "/api/template",
 	Routes: []routing.RouteDefinition{
 		{
-			Method:  "GET",
-			Path:    "/blueprints",
-			Handler: HandleGetConfigsTemplates,
+			Method:              "GET",
+			Path:                "/blueprints",
+			Handler:             HandleGetConfigsTemplates,
+			ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
 		},
 		{
 			Method:        "POST",
@@ -154,6 +156,7 @@ type SuiteMetadata struct {
 	Help              string `json:"help"                 yaml:"help"`
 	Description       string `json:"description"          yaml:"description"`
 	ShowInPipelineGUI bool   `json:"show_in_pipeline_gui" yaml:"show_in_pipeline_gui"`
+	Logo              string `json:"logo"                 yaml:"logo"`
 }
 
 type Suite struct {

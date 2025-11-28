@@ -21,6 +21,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	setDashboardNavbar({
 		title: m.Dashboard()
 	});
+
+	const sections = Object.values(appSections).filter(
+		(section) => section.id !== 'conformance-checks'
+	);
 </script>
 
 <div class="flex grow flex-col items-center justify-center gap-8">
@@ -30,7 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<div class="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr]">
-		{#each Object.values(appSections) as section (section)}
+		{#each sections as section (section)}
 			{@render cardLink(`/my/${section.id}`, section.icon, section.label, section.textClass)}
 		{/each}
 		{@render cardLink(

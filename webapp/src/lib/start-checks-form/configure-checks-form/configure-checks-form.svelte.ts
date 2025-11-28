@@ -66,12 +66,9 @@ export class ConfigureChecksForm {
 	async submit() {
 		this.isLoading = true;
 		try {
-			const response: StartChecksResponse = await pb.send(
-				`/api/compliance/${this.props.standardAndVersionPath}/save-variables-and-start`,
-				{
-					method: 'POST',
-					body: this.getFormData()
-				}
+			const response: StartChecksResponse = await startChecks(
+				this.props.standardAndVersionPath,
+				this.getFormData()
 			);
 			LatestCheckRunsStorage.set(
 				response.results.map((res) => ({
@@ -90,7 +87,7 @@ export class ConfigureChecksForm {
 	getFormData() {
 		type Entries = {
 			credimi_id: string;
-			value: unknown;
+			value: any;
 			field_name: string;
 		};
 		const configs_with_fields = pipe(
@@ -181,3 +178,20 @@ type InvalidFormEntry = {
 	text: string;
 	id: string;
 };
+
+//
+
+export type StartChecksData = ReturnType<ConfigureChecksForm['getFormData']>;
+
+export function startChecks(
+	standardAndVersionPath: string,
+	data: StartChecksData,
+	options = { fetch }
+): Promise<StartChecksResponse> {
+	return pb.send(`/api/compliance/${standardAndVersionPath}/save-variables-and-start`, {
+		method: 'POST',
+		body: data,
+		requestKey: null,
+		fetch: options.fetch
+	});
+}
