@@ -18,5 +18,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if rest.type === 'collection-page'}
 	<CollectionPage {...rest} />
 {:else if rest.type === 'file-page'}
-	<CheckPage {...rest} />
+	<CheckPage {...rest} namespace={organization?.canonified_name} />
 {/if}

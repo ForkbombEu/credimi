@@ -9,24 +9,34 @@ import { warn } from '@/utils/other';
 
 //
 
-export function setupEWCConnections(workflowId: Getter<string>, namespace: Getter<string>) {
+export function setupEWCConnections(
+	workflowId: Getter<string | undefined>,
+	namespace: Getter<string | undefined>
+) {
 	$effect(() => {
+		const _workflowId = workflowId();
+		const _namespace = namespace();
+		if (!_workflowId || !_namespace) return;
+
 		function unload() {
-			closeEWCConnections(workflowId(), namespace());
+			if (!_workflowId || !_namespace) return;
+			closeEWCConnections(_workflowId, _namespace);
 		}
 
 		window.addEventListener('beforeunload', unload);
 
-		pb.send('/api/compliance/send-temporal-signal', {
-			method: 'POST',
-			body: {
-				workflow_id: workflowId(),
-				namespace: namespace(),
-				signal: 'start-ewc-check-signal'
-			}
-		}).catch((err) => {
-			warn(err);
-		});
+		setTimeout(() => {
+			pb.send('/api/compliance/send-temporal-signal', {
+				method: 'POST',
+				body: {
+					workflow_id: _workflowId,
+					namespace: _namespace,
+					signal: 'start-ewc-check-signal'
+				}
+			}).catch((err) => {
+				warn(err);
+			});
+		}, 2000);
 
 		return () => {
 			window.removeEventListener('beforeunload', unload);
