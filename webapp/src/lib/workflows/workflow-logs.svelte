@@ -82,6 +82,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let accordionValue = $state<string>();
 	const containerId = 'container' + nanoid(4);
+
+	//
+
+	function logKey(log: WorkflowLog, index: number) {
+		return log.time?.toString() + index.toString();
+	}
 </script>
 
 <svelte:window on:beforeunload|preventDefault={stopLogs} />
@@ -99,7 +105,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			type="single"
 			class="flex w-full flex-col gap-1"
 		>
-			{#each logs as log (log.time)}
+			{#each logs as log, i (logKey(log, i))}
 				{@const status = log.status ?? LogStatus.INFO}
 				<Accordion.Item
 					class={['bg-background rounded-md border-none px-2', props.accordionItemClass]}
