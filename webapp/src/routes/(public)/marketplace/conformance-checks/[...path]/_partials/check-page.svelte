@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 
+	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc.svelte';
 	import { WorkflowQrPoller } from '$lib/workflows';
 	import { ArrowRightIcon } from 'lucide-svelte';
 	import { onMount } from 'svelte';
@@ -29,9 +30,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type Props = Extract<PageData, { type: 'file-page' }>;
+	type Props = Extract<PageData, { type: 'file-page' }> & { namespace: string | undefined };
 
-	let { standard, version, suite, file, basePath }: Props = $props();
+	let { standard, version, suite, file, basePath, namespace }: Props = $props();
 
 	//
 
@@ -44,6 +45,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		qrWorkflow = await startCheck(standard.uid, version.uid, suite.uid, file);
 		loading = false;
 	});
+
+	setupEWCConnections(
+		() => {
+			if (!qrWorkflow) return undefined;
+			if (qrWorkflow instanceof Error) return undefined;
+			return qrWorkflow.workflowId;
+		},
+		() => namespace
+	);
 </script>
 
 <PageLayout {tocSections} logo={suite.logo}>
