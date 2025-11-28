@@ -9,12 +9,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { TemporalI18nProvider } from '$lib/temporal';
+	import { EllipsisVerticalIcon } from 'lucide-svelte';
 
+	import Popover from '@/components/ui-custom/popover.svelte';
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
 
 	import type { WorkflowExecutionWithChildren } from './queries.types';
 
+	import WorkflowActions from './workflow-actions.svelte';
 	import WorkflowTree from './workflow-tree.svelte';
 
 	//
@@ -37,7 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <TemporalI18nProvider>
-	<Table.Root class="rounded-lg bg-white">
+	<Table.Root class="max-w-full rounded-lg bg-white">
 		<Table.Header>
 			<Table.Row>
 				<Table.Head>{m.Status()}</Table.Head>
@@ -45,6 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{@render headerRight?.({ Th: Table.Head })}
 				<Table.Head class="text-right">{m.Start_time()}</Table.Head>
 				<Table.Head class="text-right">{m.End_time()}</Table.Head>
+				<Table.Head class="text-right">{m.Actions()}</Table.Head>
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
@@ -70,6 +74,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 					<Table.Cell class={['text-right', { 'text-gray-300': !workflow.endTime }]}>
 						{workflow.endTime ?? 'N/A'}
+					</Table.Cell>
+
+					<Table.Cell class="flex justify-end">
+						<Popover
+							buttonVariants={{ size: 'icon', variant: 'ghost' }}
+							containerClass="max-w-[200px] p-2"
+						>
+							{#snippet trigger()}
+								<EllipsisVerticalIcon />
+							{/snippet}
+							{#snippet content()}
+								<WorkflowActions
+									containerClass="flex-col"
+									execution={workflow.execution}
+									{status}
+								/>
+							{/snippet}
+						</Popover>
 					</Table.Cell>
 				</Table.Row>
 			{:else}

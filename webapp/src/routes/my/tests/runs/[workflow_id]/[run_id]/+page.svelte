@@ -11,6 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { WorkflowQrPoller } from '$lib/workflows';
+	import WorkflowActions from '$lib/workflows/workflow-actions.svelte';
 	import { onMount } from 'svelte';
 
 	import Spinner from '@/components/ui-custom/spinner.svelte';
@@ -184,6 +185,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</tr>
 			</tbody>
 		</table>
+
+		<WorkflowActions
+			execution={{ runId, workflowId }}
+			status={execution.status}
+			containerClass="pt-6"
+		/>
 	</div>
 
 	<WorkflowQrPoller {workflowId} {runId} showQrLink={true} containerClass="size-40" />

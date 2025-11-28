@@ -799,5 +799,8 @@
 	"Checks": "Checks",
 	"conformance_check_qr_code_login_cta": "[Log in]({link}) to start the conformance check",
 	"View_check_status": "View check status",
-	"Pipeline_started_successfully": "Pipeline started successfully"
+	"Pipeline_started_successfully": "Pipeline started successfully",
+	"Terminate": "Terminate",
+	"Schedule": "Schedule",
+	"Swagger": "Swagger"
 }
