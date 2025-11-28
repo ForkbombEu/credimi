@@ -6,21 +6,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { userOrganization } from '$lib/app-state';
-	import BackButton from '$lib/layout/back-button.svelte';
-	import PageTop from '$lib/layout/pageTop.svelte';
-	import { getMarketplaceItemData, MarketplaceItemTypeDisplay } from '$lib/marketplace';
+	import { getMarketplaceItemData } from '$lib/marketplace';
 	import { marketplaceItemToSectionHref } from '$lib/marketplace/sections';
 	import { PencilIcon } from 'lucide-svelte';
 
-	import A from '@/components/ui-custom/a.svelte';
-	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
-	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
 	import CredentialIssuerPage from './_partials/credential-issuer-page.svelte';
 	import CredentialPage from './_partials/credential-page.svelte';
+	import MarketplacePageTop from './_partials/marketplace-page-top.svelte';
 	import PipelinePage from './_partials/pipeline-page.svelte';
 	import UseCaseVerificationPage from './_partials/use-case-verification-page.svelte';
 	import VerifierPage from './_partials/verifier-page.svelte';
@@ -63,45 +59,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!-- General page content -->
 
-<PageTop hideTopBorder={isCurrentUserOwner} contentClass="!space-y-4">
-	<BackButton href="/marketplace">
-		{m.Back_to_marketplace()}
-	</BackButton>
-
-	<div class="flex items-center gap-6">
-		{#if logo}
-			<Avatar src={logo} class="size-32 rounded-md border" hideIfLoadingError />
-		{/if}
-
-		<div class="space-y-3">
-			<div>
-				<div class="space-y-1">
-					<A
-						class="block"
-						href="/organizations/{marketplaceItem.organization_canonified_name}"
-					>
-						{marketplaceItem.organization_name}
-					</A>
-					<div class="flex items-center gap-2">
-						<T tag="h1">{marketplaceItem.name}</T>
-						<CopyButtonSmall
-							textToCopy={marketplaceItem.path}
-							square
-							variant="ghost"
-							size="xs"
-						/>
-					</div>
-				</div>
-
-				{#if display}
-					<div class="pt-4">
-						<MarketplaceItemTypeDisplay data={display} />
-					</div>
-				{/if}
-			</div>
-		</div>
-	</div>
-</PageTop>
+<MarketplacePageTop
+	title={marketplaceItem.name}
+	textToCopy={marketplaceItem.path}
+	badge={display}
+	hideTopBorder={isCurrentUserOwner}
+	{logo}
+	linkAboveTitle={{
+		href: `/organizations/${marketplaceItem.organization_canonified_name}`,
+		title: marketplaceItem.organization_name
+	}}
+/>
 
 <!-- Type-specific page -->
 

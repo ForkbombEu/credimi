@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const tocSections: IndexItem[] = [s.description, s.checks];
 </script>
 
-<PageLayout {tocSections}>
+<PageLayout {tocSections} logo={suite.logo}>
 	{#snippet top()}
 		<T tag="h1">
 			{standard.name} • {version.name}

@@ -186,7 +186,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</table>
 	</div>
 
-	<WorkflowQrPoller {workflowId} {runId} containerClass="size-40" />
+	<WorkflowQrPoller {workflowId} {runId} showQrLink={true} containerClass="size-40" />
 </div>
 
 <div class="bg-temporal padding-x py-2">

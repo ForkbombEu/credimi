@@ -27,6 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{
 					workflow: WorkflowExecutionWithChildren;
 					Td: typeof Table.Cell;
+					status: ReturnType<typeof toWorkflowStatusReadable>;
 				}
 			]
 		>;
@@ -51,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{@const status = toWorkflowStatusReadable(workflow.status)}
 
 				<Table.Row>
-					<Table.Cell class="align-top">
+					<Table.Cell>
 						{#if status !== null}
 							<WorkflowStatus {status} />
 						{/if}
@@ -61,7 +62,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<WorkflowTree {workflow} label={workflow.displayName} root />
 					</Table.Cell>
 
-					{@render rowRight?.({ workflow, Td: Table.Cell })}
+					{@render rowRight?.({ workflow, Td: Table.Cell, status })}
 
 					<Table.Cell class="text-right">
 						{workflow.startTime}
