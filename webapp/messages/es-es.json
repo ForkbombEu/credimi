@@ -302,8 +302,6 @@
 	"Select_a_version": "Seleccione una versión",
 	"Next_step": "Siguiente paso",
 	"Current_selection": "Selección actual",
-	"json_configuration_is_edited_fields_are_disabled": "La configuración de JSON se edita manualmente. Los campos están deshabilitados.",
-	"reset_json_and_use_fields": "Restablecer JSON y usar campos",
 	"Shared_fields": "Campos compartidos",
 	"Standard_version": "Versión estándar",
 	"JSON_configuration": "Configuración JSON",
@@ -325,5 +323,7 @@
 	"Waiting_for_logs": "Esperando registros",
 	"Scan_this_QR_with_the_wallet_app_to_start_the_check": "Escanea este QR con la aplicación de billetera para iniciar el chequeo",
 	"Credential_updated_successfully": "Credencial actualizada exitosamente",
-	"Save": "Guardar"
+	"Save": "Guardar",
+	"json_configuration_is_edited_fields_are_disabled": "La configuración de JSON se edita manualmente. Los campos están deshabilitados.",
+	"reset_json_and_use_fields": "Restablecer JSON y usar campos"
 }
