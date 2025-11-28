@@ -45,6 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<TableNameCell
 						name={standard.name}
 						href={`/marketplace/conformance-checks/${standard.uid}/${version.uid}/${suite.uid}`}
+						logo={suite.logo}
 					/>
 				</Table.Cell>
 				<Table.Cell>{version.name}</Table.Cell>

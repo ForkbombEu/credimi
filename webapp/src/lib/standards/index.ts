@@ -31,6 +31,7 @@ export function getStandardsWithTestSuites(
 				}),
 			catch: (e) => e as ClientResponseError
 		}),
+		_.tap((res) => console.log('response', res)),
 		_.andThen((response) =>
 			_.try({
 				try: () => templateBlueprintsResponseSchema.parse(response),
@@ -84,7 +85,8 @@ const suiteMetadataSchema = z.object({
 	homepage: z.string(),
 	repository: z.string(),
 	help: z.string(),
-	description: z.string()
+	description: z.string(),
+	logo: z.string().optional()
 });
 
 const suiteSchema = suiteMetadataSchema.extend({
