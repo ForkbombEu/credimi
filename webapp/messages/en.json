@@ -798,5 +798,8 @@
 	"public_wallets_description": "Here you can add wallet actions to public wallets.",
 	"Checks": "Checks",
 	"conformance_check_qr_code_login_cta": "[Log in]({link}) to start the conformance check",
-	"View_check_status": "View check status"
+	"View_check_status": "View check status",
+	"Terminate": "Terminate",
+	"Schedule": "Schedule",
+	"Swagger": "Swagger"
 }
