@@ -11,16 +11,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let restProps: SonnerProps = $props();
 </script>
 
-<Sonner
-	theme={$mode}
-	class="toaster group"
-	toastOptions={{
-		classes: {
-			toast: 'group toast group-[.toaster]:bg-background group-[.toaster]:text-foreground group-[.toaster]:border-border group-[.toaster]:shadow-lg',
-			description: 'group-[.toast]:text-muted-foreground',
-			actionButton: 'group-[.toast]:bg-primary group-[.toast]:text-primary-foreground',
-			cancelButton: 'group-[.toast]:bg-muted group-[.toast]:text-muted-foreground'
-		}
-	}}
-	{...restProps}
-/>
+<Sonner theme={$mode} class="toaster group" {...restProps} />
+
+<style global>
+	/* Override Sonner toast action button to match default button style */
+	:global([data-sonner-toast][data-styled='true'] [data-button]) {
+		background: hsl(var(--primary)) !important;
+		color: hsl(var(--primary-foreground)) !important;
+		border: none !important;
+		height: 32px !important;
+		padding: 0 12px !important;
+		font-size: 14px !important;
+		border-radius: 6px !important;
+		font-weight: 500 !important;
+		transition: all 0.2s !important;
+	}
+
+	:global([data-sonner-toast][data-styled='true'] [data-button]:hover) {
+		background: hsl(var(--primary) / 0.9) !important;
+	}
+</style>
