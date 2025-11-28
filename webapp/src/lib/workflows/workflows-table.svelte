@@ -76,7 +76,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{workflow.endTime ?? 'N/A'}
 					</Table.Cell>
 
-					<Table.Cell>
+					<Table.Cell class="flex justify-end">
 						<Popover
 							buttonVariants={{ size: 'icon', variant: 'ghost' }}
 							containerClass="max-w-[200px] p-2"
