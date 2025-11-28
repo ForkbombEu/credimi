@@ -46,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<PageLayout {tocSections}>
+<PageLayout {tocSections} logo={suite.logo}>
 	{#snippet top()}
 		<A class="block" href={basePath}>
 			{standard.name} / {version.name} / {suite.name}
