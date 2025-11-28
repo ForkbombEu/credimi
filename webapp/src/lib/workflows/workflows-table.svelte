@@ -15,6 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { WorkflowExecutionWithChildren } from './queries.types';
 
+	import WorkflowActions from './workflow-actions.svelte';
 	import WorkflowTree from './workflow-tree.svelte';
 
 	//
@@ -37,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <TemporalI18nProvider>
-	<Table.Root class="rounded-lg bg-white">
+	<Table.Root class="max-w-full rounded-lg bg-white">
 		<Table.Header>
 			<Table.Row>
 				<Table.Head>{m.Status()}</Table.Head>
@@ -45,6 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{@render headerRight?.({ Th: Table.Head })}
 				<Table.Head class="text-right">{m.Start_time()}</Table.Head>
 				<Table.Head class="text-right">{m.End_time()}</Table.Head>
+				<Table.Head class="text-right">{m.Actions()}</Table.Head>
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
@@ -70,6 +72,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 					<Table.Cell class={['text-right', { 'text-gray-300': !workflow.endTime }]}>
 						{workflow.endTime ?? 'N/A'}
+					</Table.Cell>
+
+					<Table.Cell>
+						<WorkflowActions execution={workflow.execution} {status} />
 					</Table.Cell>
 				</Table.Row>
 			{:else}

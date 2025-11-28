@@ -42,8 +42,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Sidebar.Provider>
 	<AppSidebar {data} />
-	<Sidebar.Inset>
-		<header class="bg-background sticky top-0 z-10 flex h-14 shrink-0 border-b">
+	<Sidebar.Inset class="overflow-x-hidden">
+		<header class="bg-background sticky top-0 flex h-14 shrink-0 border-b">
 			<div class="flex items-center">
 				<div class="p-2">
 					<Sidebar.Trigger />
@@ -55,7 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{@render dashboardNavbar.right?.()}
 			</div>
 		</header>
-		<div class="flex flex-1 flex-col gap-6 p-4">
+		<div class="flex w-full flex-1 flex-col gap-6 overflow-x-hidden p-4">
 			{@render children?.()}
 		</div>
 	</Sidebar.Inset>
