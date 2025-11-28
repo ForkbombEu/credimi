@@ -20,7 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { Badge } from '@/components/ui/badge/index.js';
 	import { Separator } from '@/components/ui/separator/index.js';
 	import { m } from '@/i18n';
 	import { ensureArray, warn } from '@/utils/other';
@@ -125,23 +124,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/snippet}
 			</EmptyState>
 		{:else}
-			<EmptyState
-				icon={TestTube2}
-				title={m.No_check_runs_yet()}
-				description={m.Start_a_new_check_run_to_see_it_here()}
-				className="w-full"
-			>
+			<EmptyState icon={TestTube2} title={m.No_test_runs_yet()} className="w-full">
 				{#snippet bottom()}
-					<Button href="/my/tests/new" variant="outline" class="text-primary mt-4">
-						<SparkleIcon />
-						{m.Start_a_new_check()}
-						<Badge
-							variant="outline"
-							class="!hover:no-underline border-primary text-primary text-xs"
-						>
-							{m.Beta()}
-						</Badge>
-					</Button>
+					<div class="mt-4 space-y-3">
+						<p class="text-muted-foreground text-sm">{m.Start_a_new_test_run()}</p>
+						<div class="flex flex-col gap-2">
+							<Button href="/my/pipelines">
+								<SparkleIcon />
+								{m.Execute_a_pipeline()}
+							</Button>
+							<Button href="/my/tests/new">
+								{m.Start_a_manual_conformance_check()}
+							</Button>
+						</div>
+					</div>
 				{/snippet}
 			</EmptyState>
 		{/if}
