@@ -9,7 +9,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { TemporalI18nProvider } from '$lib/temporal';
+	import { EllipsisVerticalIcon } from 'lucide-svelte';
 
+	import Popover from '@/components/ui-custom/popover.svelte';
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
 
@@ -75,7 +77,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Table.Cell>
 
 					<Table.Cell>
-						<WorkflowActions execution={workflow.execution} {status} />
+						<Popover
+							buttonVariants={{ size: 'icon', variant: 'ghost' }}
+							containerClass="max-w-[200px] p-2"
+						>
+							{#snippet trigger()}
+								<EllipsisVerticalIcon />
+							{/snippet}
+							{#snippet content()}
+								<WorkflowActions
+									containerClass="flex-col"
+									execution={workflow.execution}
+									{status}
+								/>
+							{/snippet}
+						</Popover>
 					</Table.Cell>
 				</Table.Row>
 			{:else}

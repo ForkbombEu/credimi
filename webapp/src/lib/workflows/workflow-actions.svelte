@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WorkflowStatus } from '@forkbombeu/temporal-ui/dist/types/workflows';
 	import type { ClassValue } from 'svelte/elements';
 
-	import { XIcon } from 'lucide-svelte';
+	import { Code, Hourglass, XIcon } from 'lucide-svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n';
@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { execution, status, containerClass }: Props = $props();
 </script>
 
-<div class={containerClass}>
+<div class={['flex gap-2', containerClass]}>
 	<Button
 		variant="outline"
 		onclick={() => cancelWorkflow(execution)}
@@ -35,5 +35,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		<XIcon />
 		{m.Terminate()}
+	</Button>
+	<Button disabled variant="outline" size="sm">
+		<Hourglass />
+		{m.Schedule()}
+	</Button>
+	<Button disabled variant="outline" size="sm">
+		<Code />
+		{m.Swagger()}
 	</Button>
 </div>

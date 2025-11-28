@@ -189,7 +189,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<WorkflowActions
 			execution={{ runId, workflowId }}
 			status={execution.status}
-			containerClass="pt-4"
+			containerClass="pt-6"
 		/>
 	</div>
 
