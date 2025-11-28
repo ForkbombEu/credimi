@@ -98,30 +98,31 @@ func RunStepCIAndSendMail(
 	q.Set("qr", deepLink)
 	q.Set("namespace", cfg.Namespace)
 	u.RawQuery = q.Encode()
-
-	emailActivity := activities.NewSendMailActivity()
-	emailInput := workflowengine.ActivityInput{
-		Payload: activities.SendMailActivityPayload{
-			Recipient: cfg.UserMail,
-			Subject:   "[CREDIMI] Action required to continue your conformance checks",
-			Template:  activities.ContinueConformanceCheckEmailTemplate,
-			Data: map[string]any{
-				"AppName":          cfg.AppName,
-				"AppLogo":          cfg.AppLogo,
-				"UserName":         cfg.UserName,
-				"VerificationLink": u.String(),
+	// Commented on 28.11.2025 because some email activity fail
+	/*
+		emailActivity := activities.NewSendMailActivity()
+		emailInput := workflowengine.ActivityInput{
+			Payload: activities.SendMailActivityPayload{
+				Recipient: cfg.UserMail,
+				Subject:   "[CREDIMI] Action required to continue your conformance checks",
+				Template:  activities.ContinueConformanceCheckEmailTemplate,
+				Data: map[string]any{
+					"AppName":          cfg.AppName,
+					"AppLogo":          cfg.AppLogo,
+					"UserName":         cfg.UserName,
+					"VerificationLink": u.String(),
+				},
 			},
-		},
-	}
-	if err := emailActivity.Configure(&emailInput); err != nil {
-		logger.Error("Email configure failed", "error", err)
-		return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMeta)
-	}
-	if err := workflow.ExecuteActivity(ctx, emailActivity.Name(), emailInput).Get(ctx, nil); err != nil {
-		logger.Error("Failed to send mail", "error", err)
-		return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMeta)
-	}
-
+		}
+		if err := emailActivity.Configure(&emailInput); err != nil {
+			logger.Error("Email configure failed", "error", err)
+			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMeta)
+		}
+		if err := workflow.ExecuteActivity(ctx, emailActivity.Name(), emailInput).Get(ctx, nil); err != nil {
+			logger.Error("Failed to send mail", "error", err)
+			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMeta)
+		}
+	*/
 	return StepCIAndEmailResult{
 		Captures: captures,
 	}, nil
