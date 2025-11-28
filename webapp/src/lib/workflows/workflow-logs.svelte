@@ -85,6 +85,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
+	// Needed because sometimes the same log is sent multiple times
+	// or multiple logs have the same timestamp
 	function logKey(log: WorkflowLog, index: number) {
 		return log.time?.toString() + index.toString();
 	}
