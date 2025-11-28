@@ -6,6 +6,7 @@ import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 
 import {
 	Building2,
+	CheckCheck,
 	Code,
 	FolderCheck,
 	Key,
@@ -125,6 +126,11 @@ export const sections = {
 		icon: SquareStackIcon,
 		anchor: 'versions',
 		label: m.Wallet_versions()
+	},
+	checks: {
+		icon: CheckCheck,
+		anchor: 'checks',
+		label: m.Checks()
 	}
 } satisfies Record<string, IndexItem>;
 
