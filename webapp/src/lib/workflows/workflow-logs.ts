@@ -56,36 +56,38 @@ export function createWorkflowLogHandlers(props: HandlerOptions) {
 		? `${workflowId}${workflowSignalSuffix}`
 		: workflowId;
 
-	async function startLogs() {
-		try {
-			await pb.realtime.subscribe(channel, (data) => {
-				const parseResult = z.array(z.unknown()).safeParse(data);
-				if (!parseResult.success) throw new Error('Unexpected data shape');
-				onUpdate(
-					parseResult.data
-						.map((datum) => {
-							try {
-								return logTransformer(datum);
-							} catch (e) {
-								console.error('Log transformer error:', e);
-								return { status: LogStatus.INFO, rawLog: datum };
-							}
-						})
-						.sort((a, b) => (a.time ?? 0) - (b.time ?? 0))
-				);
-			});
-			await pb.send('/api/compliance/send-temporal-signal', {
-				method: 'POST',
-				body: {
-					workflow_id: signalWorkflowId,
-					namespace,
-					signal: startSignal
-				},
-				requestKey: null
-			});
-		} catch (e) {
-			console.error('Start signal error:', e);
-		}
+	function startLogs() {
+		setTimeout(async () => {
+			try {
+				await pb.realtime.subscribe(channel, (data) => {
+					const parseResult = z.array(z.unknown()).safeParse(data);
+					if (!parseResult.success) throw new Error('Unexpected data shape');
+					onUpdate(
+						parseResult.data
+							.map((datum) => {
+								try {
+									return logTransformer(datum);
+								} catch (e) {
+									console.error('Log transformer error:', e);
+									return { status: LogStatus.INFO, rawLog: datum };
+								}
+							})
+							.sort((a, b) => (a.time ?? 0) - (b.time ?? 0))
+					);
+				});
+				await pb.send('/api/compliance/send-temporal-signal', {
+					method: 'POST',
+					body: {
+						workflow_id: signalWorkflowId,
+						namespace,
+						signal: startSignal
+					},
+					requestKey: null
+				});
+			} catch (e) {
+				console.error('Start signal error:', e);
+			}
+		}, 2000);
 	}
 
 	async function stopLogs() {
