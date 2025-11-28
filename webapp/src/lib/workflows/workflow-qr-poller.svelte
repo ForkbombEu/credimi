@@ -8,8 +8,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { onMount } from 'svelte';
 	import { z } from 'zod';
 
-	import Spinner from '@/components/ui-custom/spinner.svelte';
-	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 	import { QrCode } from '@/qr';
@@ -21,11 +19,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflowId: string;
 		runId: string;
 		containerClass?: string;
+		showQrLink?: boolean;
 	};
 
-	let { workflowId, runId, containerClass }: Props = $props();
+	let { workflowId, runId, containerClass, showQrLink }: Props = $props();
 
 	let deeplink = $state<string>();
+	let isLoading = $state(true);
 	let attempt = $state(0);
 	const maxAttempts = 5;
 
@@ -41,10 +41,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				});
 				const data = z.object({ deeplink: z.string() }).parse(res);
 				deeplink = data.deeplink;
+				isLoading = false;
 
 				clearInterval(interval);
 			} catch (error) {
 				warn(error);
+				if (attempt >= maxAttempts) {
+					isLoading = false;
+				}
 			}
 		}, 2000);
 
@@ -58,22 +62,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<div
-	class={[
-		'flex aspect-square max-w-60 !shrink-0 flex-col items-center justify-center overflow-hidden rounded-sm border bg-gray-50',
-		containerClass
-	]}
->
-	{#if deeplink}
-		<QrCode src={deeplink} class="h-full w-full" />
-	{:else if attempt < maxAttempts}
-		<Spinner size={20} />
-		<T class="px-3 pt-2 text-center text-xs text-gray-400">
-			{m.Loading_QR_code()}
-		</T>
-	{:else}
-		<T class="px-3 text-center text-xs text-gray-400">
-			{m.The_QR_code_may_be_not_available_for_this_test()}
-		</T>
-	{/if}
-</div>
+<QrCode
+	src={deeplink}
+	{isLoading}
+	placeholder={m.The_QR_code_may_be_not_available_for_this_test()}
+	class={containerClass}
+	showLink={showQrLink}
+/>

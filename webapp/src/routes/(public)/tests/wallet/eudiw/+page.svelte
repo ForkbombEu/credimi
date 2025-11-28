@@ -12,9 +12,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
+	import { QrCode } from '@/qr';
 
 	import FeedbackForms from '../_partials/feedback-forms.svelte';
-	import QrLink from '../_partials/qr-link.svelte';
 	import Step from '../_partials/step.svelte';
 
 	//
@@ -33,7 +33,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div
 					class="bg-primary/10 ml-16 mt-4 flex flex-col items-center justify-center rounded-md p-2 sm:flex-row"
 				>
-					<QrLink {qr} />
+					<QrCode
+						src={qr}
+						class="size-40 rounded-sm"
+						showLink={true}
+						linkClass="max-w-sm break-all p-4 font-mono text-xs"
+					/>
 				</div>
 			</Step>
 		{:else}
