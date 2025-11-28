@@ -734,7 +734,7 @@
 	"Metadata": "Metadata",
 	"Configure_static_deeplink": "Configure a static deeplink with fixed parameters.",
 	"Configure_dynamic_credential_offer": "Configure the YAML below to generate a dynamic credential offer with runtime parameters.",
-	"View_workflow_details": "View workflow details",
+	"View_workflow_details": "Click to view workflow details",
 	"Compliance_Test_Completed_Successfully": "Compliance Test Completed Successfully!",
 	"Running_compliance_test": "Running conformance test...",
 	"Running_test": "Running test...",
@@ -798,5 +798,6 @@
 	"public_wallets_description": "Here you can add wallet actions to public wallets.",
 	"Checks": "Checks",
 	"conformance_check_qr_code_login_cta": "[Log in]({link}) to start the conformance check",
-	"View_check_status": "View check status"
+	"View_check_status": "View check status",
+	"Pipeline_started_successfully": "Pipeline started successfully"
 }

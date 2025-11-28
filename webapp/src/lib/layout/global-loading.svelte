@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
+	import { toast } from 'svelte-sonner';
+
 	import { m } from '@/i18n';
 	import { getExceptionMessage } from '@/utils/errors';
-	import { toast } from 'svelte-sonner';
 
 	const loadingState = $state({
 		text: undefined as string | undefined,
@@ -25,19 +26,46 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	};
 
-	export async function runWithLoading(props: {
-		fn: () => Promise<void> | void;
+	export async function runWithLoading<T = void>(props: {
+		fn: () => Promise<T> | T;
 		loadingText?: string;
 		successText?: string;
 		errorText?: string;
-	}) {
-		loading.show(props.loadingText);
+		minDisplayTime?: number;
+		showSuccessToast?: boolean;
+	}): Promise<T | undefined> {
+		const startTime = Date.now();
+		const minTime = props.minDisplayTime ?? 1000;
+		let spinnerShown = false;
+
+		// Only show spinner if operation takes longer than 1 second
+		const spinnerTimeout = setTimeout(() => {
+			spinnerShown = true;
+			loading.show(props.loadingText);
+		}, 1000);
+
 		try {
-			await props.fn();
-			loading.hide();
-			toast.success(props.successText ?? m.Success());
+			const result = await props.fn();
+			clearTimeout(spinnerTimeout);
+
+			if (spinnerShown) {
+				const elapsed = Date.now() - startTime;
+				const remaining = minTime - elapsed;
+				if (remaining > 0) {
+					await new Promise((resolve) => setTimeout(resolve, remaining));
+				}
+				loading.hide();
+			}
+
+			const showToast = props.showSuccessToast ?? true;
+			if (showToast) {
+				toast.success(props.successText ?? m.Success());
+			}
+			return result;
 		} catch (e) {
+			clearTimeout(spinnerTimeout);
 			loadingState.error = props.errorText ?? getExceptionMessage(e);
+			return undefined;
 		}
 	}
 </script>
