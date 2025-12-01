@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SuperForm } from 'sveltekit-superforms';
 
+	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
 	import { refineAsStepciYaml } from '$lib/utils';
 	import { z } from 'zod';
 
@@ -84,7 +85,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		snippets: {
 			description,
-			deeplink: qr_generation
+			deeplink: qr_generation,
+			logo
 		},
 		hide: {
 			yaml: credential?.yaml,
@@ -131,4 +133,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<T tag="h3">{m.Metadata()}</T>
+{/snippet}
+
+{#snippet logo()}
+	<CollectionLogoField />
 {/snippet}
