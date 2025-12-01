@@ -813,5 +813,8 @@
 	"weekly": "Weekly",
 	"monthly": "Monthly",
 	"Schedule_workflow": "Schedule workflow",
-	"Workflow_scheduled_successfully": "Workflow scheduled successfully"
+	"Workflow_scheduled_successfully": "Workflow scheduled successfully",
+	"View_scheduled_workflows": "View scheduled workflows",
+	"Scheduled_workflows": "Scheduled workflows",
+	"Back_to_workflows": "Back to workflows"
 }

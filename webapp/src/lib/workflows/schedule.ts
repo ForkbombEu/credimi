@@ -74,3 +74,13 @@ export function createScheduleWorkflowForm(props: {
 		}
 	});
 }
+
+//
+
+export async function loadScheduledWorkflows(options = { fetch }) {
+	const res = await pb.send('/api/workflow/list-scheduled-workflows', {
+		requestKey: null,
+		fetch: options.fetch
+	});
+	return res as string[];
+}
