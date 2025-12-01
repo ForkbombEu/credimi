@@ -268,7 +268,7 @@ func StartScheduledWorkflowWithOptions(
 		return fmt.Errorf("unable to create Temporal client for namespace %q: %w", namespace, err)
 	}
 	ctx := context.Background()
-	scheduleID := fmt.Sprintf("schedule_id_%s", workflowID)
+	scheduleID := fmt.Sprintf("Schedule_ID_%s", workflowID)
 	scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
 		ID: scheduleID,
 		Spec: client.ScheduleSpec{
@@ -279,49 +279,24 @@ func StartScheduledWorkflowWithOptions(
 			},
 		},
 		Action: &client.ScheduleWorkflowAction{
-			ID:        fmt.Sprintf("scheduled_%s", workflowID),
+			ID:        fmt.Sprintf("Scheduled_%s", workflowID),
 			Workflow:  runInfo.Name,
 			TaskQueue: runInfo.TaskQueue,
 			Args:      []any{runInfo.Input},
 			Memo:      runInfo.Memo,
 		},
+		Memo: map[string]any{
+			"test":                 runInfo.Memo["test"],
+			"original_workflow_id": workflowID,
+		},
 	})
+
 	if err != nil {
-		return fmt.Errorf("failed to start scheduledID from workflowID: %s", workflowID)
+		return fmt.Errorf("failed to start scheduledID from workflowID: %s: %w", workflowID, err)
 	}
 	_, _ = scheduleHandle.Describe(ctx)
 
 	return nil
-}
-func ListScheduledWorkflows(namespace string) ([]string, error) {
-	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"unable to create Temporal client for namespace %q: %w",
-			namespace,
-			err,
-		)
-	}
-
-	ctx := context.Background()
-
-	iter, err := c.ScheduleClient().List(ctx, client.ScheduleListOptions{
-		PageSize: 100,
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list schedules: %w", err)
-	}
-
-	var schedules []string
-	for iter.HasNext() {
-		sched, err := iter.Next()
-		if err != nil {
-			return nil, fmt.Errorf("failed to list schedules: %w", err)
-		}
-		schedules = append(schedules, sched.ID)
-	}
-
-	return schedules, nil
 }
 
 // Wait for final workflow result

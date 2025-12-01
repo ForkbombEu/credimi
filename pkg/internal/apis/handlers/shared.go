@@ -4,6 +4,12 @@
 
 package handlers
 
+import (
+	"encoding/base64"
+	"strings"
+	"time"
+)
+
 type MessageState struct {
 	State   string `json:"state"`
 	Details string `json:"details"`
@@ -429,6 +435,35 @@ type WorkflowIdentifier struct {
 	RunID      string `json:"runId,omitempty"`
 }
 
+type ScheduleInfo struct {
+	ID string `json:"ID" validate:"required"`
+
+	Spec         *ScheduleSpec `json:"Spec,omitempty"`
+	WorkflowType *WorkflowType `json:"WorkflowType,omitempty"`
+	Paused       bool          `json:"Paused,omitempty"`
+	Memo         *Memo         `json:"Memo,omitempty"`
+}
+
+type ScheduleInfoSummary struct {
+	ID string `json:"id" validate:"required"`
+
+	Spec               *ScheduleSpec `json:"spec,omitempty"`
+	WorkflowType       *WorkflowType `json:"workflowType,omitempty"`
+	DisplayName        string        `json:"display_name,omitempty"`
+	OriginalWorkflowID string        `json:"original_workflow_id,omitempty"`
+	Paused             bool          `json:"paused,omitempty"`
+}
+
+type ScheduleSpec struct {
+	Intervals    []ScheduleIntervalSpec `json:"Intervals,omitempty"`
+	TimeZoneName string                 `json:"TimeZoneName,omitempty"`
+}
+
+type ScheduleIntervalSpec struct {
+	Every  time.Duration `json:"Every,omitempty"`
+	Offset time.Duration `json:"Offset,omitempty"`
+}
+
 func getStringFromMap(m map[string]any, key string) string {
 	if m == nil {
 		return ""
@@ -439,6 +474,22 @@ func getStringFromMap(m map[string]any, key string) string {
 		}
 	}
 	return ""
+}
+
+func decodeFromTemporalPayload(encoded string) string {
+	if encoded == "" {
+		return ""
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		// fallback: return original string if decode fails
+		decoded = []byte(encoded)
+	}
+
+	clean := strings.Trim(string(decoded), `"`)
+
+	return clean
 }
 
 const testDataDir = "../../../../test_pb_data"
