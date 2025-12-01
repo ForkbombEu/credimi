@@ -87,8 +87,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{#snippet content()}
 								<WorkflowActions
 									containerClass="flex-col"
-									execution={workflow.execution}
-									{status}
+									workflow={{
+										...workflow.execution,
+										status,
+										name: workflow.displayName
+									}}
 								/>
 							{/snippet}
 						</Popover>

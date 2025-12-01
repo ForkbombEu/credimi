@@ -806,5 +806,12 @@
 	"Pipeline_started_successfully": "Pipeline started successfully",
 	"Terminate": "Terminate",
 	"Schedule": "Schedule",
-	"Swagger": "Swagger"
+	"Swagger": "Swagger",
+	"every_minute": "Every minute",
+	"hourly": "Hourly",
+	"daily": "Daily",
+	"weekly": "Weekly",
+	"monthly": "Monthly",
+	"Schedule_workflow": "Schedule workflow",
+	"Workflow_scheduled_successfully": "Workflow scheduled successfully"
 }

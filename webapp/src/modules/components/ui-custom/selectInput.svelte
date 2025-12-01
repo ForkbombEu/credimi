@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		controlAttrs?: ControlAttrs;
 		type: T;
 		value?: V;
-		trigger?: Snippet<[{ value: V | undefined }]>;
+		trigger?: Snippet<[{ value: V | undefined; label: string | undefined }]>;
 		onValueChange?: (value: V) => void;
 	};
 </script>
@@ -70,18 +70,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<!-- Formsnap Fix -->
 	<!-- Reference: https://formsnap.dev/docs/recipes/bits-ui-select -->
 	{#if maybeArrayIsValue(value)}
-		{#each ensureArray(value) as item}
+		{#each ensureArray(value) as item (item)}
 			<input name={controlAttrs?.name ?? rest.name} hidden value={item} />
 		{/each}
 	{/if}
 	<!-- Formsnap Fix -->
 
 	<Select.Trigger {...controlAttrs}>
+		{@const label = items?.find((item) => item.value === value)?.label}
 		{#if maybeArrayIsValue(value)}
 			{#if trigger}
-				{@render trigger({ value })}
+				{@render trigger({ value, label })}
 			{:else}
-				{value}
+				{label}
 			{/if}
 		{:else}
 			{placeholder ?? m.Select_a_value()}
@@ -90,7 +91,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Select.Content>
 		{#if items?.length}
-			{#each items as item}
+			{#each items as item (item)}
 				<Select.Item value={item.value} disabled={item.disabled}>
 					{item.label ?? item.value}
 				</Select.Item>
