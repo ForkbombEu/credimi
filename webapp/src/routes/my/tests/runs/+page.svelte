@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
+	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { browser } from '$app/environment';
 	import {
 		LatestCheckRunsStorage,
@@ -80,22 +80,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 
 			<WorkflowsTable workflows={latestWorkflows}>
-				{#snippet headerRight({ Th })}
-					<Th>
-						{m.QR_code()}
-					</Th>
-				{/snippet}
-
-				{#snippet rowRight({ workflow, Td, status })}
-					<Td>
-						{#if status === 'Running'}
-							<WorkflowQrPoller
-								workflowId={workflow.execution.workflowId}
-								runId={workflow.execution.runId}
-								containerClass="size-32"
-							/>
-						{/if}
-					</Td>
+				{#snippet nameRight({ workflow })}
+					{@const status = toWorkflowStatusReadable(workflow.status)}
+					{#if status === 'Running'}
+						<WorkflowQrPoller
+							workflowId={workflow.execution.workflowId}
+							runId={workflow.execution.runId}
+							containerClass="size-32"
+						/>
+					{/if}
 				{/snippet}
 			</WorkflowsTable>
 		</div>
