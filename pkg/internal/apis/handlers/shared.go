@@ -464,6 +464,38 @@ type ScheduleIntervalSpec struct {
 	Offset time.Duration `json:"Offset,omitempty"`
 }
 
+// ListMySchedulesResponse represents a response for listing schedules
+type ListMySchedulesResponse struct {
+	Schedules []*ScheduleInfoSummary `json:"schedules,omitempty" validate:"required"`
+}
+
+// CancelScheduleResponse represents a response for canceling a schedule
+type CancelScheduleResponse struct {
+	Message    string `json:"message"    validate:"required"`
+	ScheduleID string `json:"scheduleId" validate:"required"`
+	Status     string `json:"status"     validate:"required"`
+	Time       string `json:"time"       validate:"required"`
+	Namespace  string `json:"namespace"  validate:"required"`
+}
+
+// PauseScheduleResponse represents a response for pausing a schedule
+type PauseScheduleResponse struct {
+	Message    string `json:"message"    validate:"required"`
+	ScheduleID string `json:"scheduleId" validate:"required"`
+	Status     string `json:"status"     validate:"required"`
+	Time       string `json:"time"       validate:"required"`
+	Namespace  string `json:"namespace"  validate:"required"`
+}
+
+// ResumeScheduleResponse represents a response for resuming a schedule
+type ResumeScheduleResponse struct {
+	Message    string `json:"message"    validate:"required"`
+	ScheduleID string `json:"scheduleId" validate:"required"`
+	Status     string `json:"status"     validate:"required"`
+	Time       string `json:"time"       validate:"required"`
+	Namespace  string `json:"namespace"  validate:"required"`
+}
+
 func getStringFromMap(m map[string]any, key string) string {
 	if m == nil {
 		return ""

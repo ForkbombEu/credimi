@@ -29,7 +29,7 @@ type ScheduleWorkflowRequest = {
 };
 
 export async function scheduleWorkflow(data: ScheduleWorkflowRequest) {
-	const res = await pb.send('/api/workflow/start-scheduled-workflow', {
+	const res = await pb.send('/api/my/schedules/start', {
 		method: 'POST',
 		body: {
 			workflowID: data.workflowID,
@@ -78,7 +78,7 @@ export function createScheduleWorkflowForm(props: {
 //
 
 export async function loadScheduledWorkflows(options = { fetch }) {
-	const res = await pb.send('/api/workflow/list-scheduled-workflows', {
+	const res = await pb.send('/api/my/schedules', {
 		requestKey: null,
 		fetch: options.fetch
 	});

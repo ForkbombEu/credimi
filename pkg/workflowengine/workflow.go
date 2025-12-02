@@ -258,47 +258,6 @@ func GetWorkflowRunInfo(workflowID, runID, namespace string) (WorkflowRunInfo, e
 	return runInfo, nil
 }
 
-func StartScheduledWorkflowWithOptions(
-	runInfo WorkflowRunInfo,
-	workflowID, namespace string,
-	interval time.Duration,
-) error {
-	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-	if err != nil {
-		return fmt.Errorf("unable to create Temporal client for namespace %q: %w", namespace, err)
-	}
-	ctx := context.Background()
-	scheduleID := fmt.Sprintf("Schedule_ID_%s", workflowID)
-	scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
-		ID: scheduleID,
-		Spec: client.ScheduleSpec{
-			Intervals: []client.ScheduleIntervalSpec{
-				{
-					Every: interval,
-				},
-			},
-		},
-		Action: &client.ScheduleWorkflowAction{
-			ID:        fmt.Sprintf("Scheduled_%s", workflowID),
-			Workflow:  runInfo.Name,
-			TaskQueue: runInfo.TaskQueue,
-			Args:      []any{runInfo.Input},
-			Memo:      runInfo.Memo,
-		},
-		Memo: map[string]any{
-			"test":                 runInfo.Memo["test"],
-			"original_workflow_id": workflowID,
-		},
-	})
-
-	if err != nil {
-		return fmt.Errorf("failed to start scheduledID from workflowID: %s: %w", workflowID, err)
-	}
-	_, _ = scheduleHandle.Describe(ctx)
-
-	return nil
-}
-
 // Wait for final workflow result
 func WaitForWorkflowResult(c client.Client, workflowID, runID string) (WorkflowResult, error) {
 	var result WorkflowResult
