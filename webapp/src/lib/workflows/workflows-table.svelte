@@ -7,45 +7,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { TemporalI18nProvider } from '$lib/temporal';
-	import { EllipsisVerticalIcon } from 'lucide-svelte';
 
-	import Popover from '@/components/ui-custom/popover.svelte';
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
 
 	import type { WorkflowExecutionWithChildren } from './queries.types';
 
-	import WorkflowActions from './workflow-actions.svelte';
-	import WorkflowTree from './workflow-tree.svelte';
+	import WorkflowTableRow from './workflow-table-row.svelte';
 
 	//
 
 	type Props = {
 		workflows: WorkflowExecutionWithChildren[];
-		headerRight?: Snippet<[{ Th: typeof Table.Head }]>;
-		rowRight?: Snippet<
-			[
-				{
-					workflow: WorkflowExecutionWithChildren;
-					Td: typeof Table.Cell;
-					status: ReturnType<typeof toWorkflowStatusReadable>;
-				}
-			]
-		>;
+		nameRight?: Snippet<[{ workflow: WorkflowExecutionWithChildren }]>;
 	};
 
-	let { workflows, headerRight, rowRight }: Props = $props();
+	let { workflows, nameRight }: Props = $props();
 </script>
 
 <TemporalI18nProvider>
 	<Table.Root class="max-w-full rounded-lg bg-white">
 		<Table.Header>
 			<Table.Row>
-				<Table.Head>{m.Status()}</Table.Head>
+				<Table.Head>{m.Type()}</Table.Head>
 				<Table.Head>{m.Workflow()}</Table.Head>
-				{@render headerRight?.({ Th: Table.Head })}
+				<Table.Head>{m.Status()}</Table.Head>
 				<Table.Head class="text-right">{m.Start_time()}</Table.Head>
 				<Table.Head class="text-right">{m.End_time()}</Table.Head>
 				<Table.Head class="text-right">{m.Actions()}</Table.Head>
@@ -53,47 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Header>
 		<Table.Body>
 			{#each workflows as workflow (workflow.execution.runId)}
-				{@const status = toWorkflowStatusReadable(workflow.status)}
-
-				<Table.Row>
-					<Table.Cell>
-						{#if status !== null}
-							<WorkflowStatus {status} />
-						{/if}
-					</Table.Cell>
-
-					<Table.Cell class="font-medium">
-						<WorkflowTree {workflow} label={workflow.displayName} root />
-					</Table.Cell>
-
-					{@render rowRight?.({ workflow, Td: Table.Cell, status })}
-
-					<Table.Cell class="text-right">
-						{workflow.startTime}
-					</Table.Cell>
-
-					<Table.Cell class={['text-right', { 'text-gray-300': !workflow.endTime }]}>
-						{workflow.endTime ?? 'N/A'}
-					</Table.Cell>
-
-					<Table.Cell class="flex justify-end">
-						<Popover
-							buttonVariants={{ size: 'icon', variant: 'ghost' }}
-							containerClass="max-w-[200px] p-2"
-						>
-							{#snippet trigger()}
-								<EllipsisVerticalIcon />
-							{/snippet}
-							{#snippet content()}
-								<WorkflowActions
-									containerClass="flex-col"
-									execution={workflow.execution}
-									{status}
-								/>
-							{/snippet}
-						</Popover>
-					</Table.Cell>
-				</Table.Row>
+				<WorkflowTableRow {workflow} {nameRight} />
 			{:else}
 				<Table.Row class="hover:bg-transparent">
 					<Table.Cell colspan={5} class="text-center text-gray-300 py-20">
