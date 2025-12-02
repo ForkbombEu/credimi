@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -34,6 +35,22 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandlePipelineStart,
 			RequestSchema: PipelineInput{},
 			Description:   "Start a pipeline workflow from a YAML file",
+		},
+	},
+}
+
+var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
+	BaseURL:                "/api/pipeline",
+	AuthenticationRequired: false,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{
+			Method:      http.MethodGet,
+			Path:        "/get-yaml",
+			Handler:     HandleGetPipelineYAML,
+			Description: "Get a pipeline YAML from a pipeline ID",
 		},
 	},
 }
@@ -95,5 +112,31 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 			"message": "Workflow started successfully",
 			"result":  result,
 		})
+	}
+}
+
+func HandleGetPipelineYAML() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		pipelineIdentifier := e.Request.URL.Query().Get("pipeline_identifier")
+		if pipelineIdentifier == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"pipeline_identifier",
+				"pipeline_identifier is required",
+				"missing pipeline_identifier",
+			).JSON(e)
+		}
+
+		record, err := canonify.Resolve(e.App, pipelineIdentifier)
+		if err != nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"pipeline_identifier",
+				"pipeline not found",
+				err.Error(),
+			).JSON(e)
+		}
+		yaml := record.GetString("yaml")
+		return e.String(http.StatusOK, yaml)
 	}
 }

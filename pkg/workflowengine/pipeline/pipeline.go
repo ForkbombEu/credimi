@@ -13,7 +13,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/google/uuid"
-	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 )
@@ -23,10 +22,9 @@ const PipelineTaskQueue = "PipelineTaskQueue"
 type PipelineWorkflow struct{}
 
 type PipelineWorkflowInput struct {
-	WorkflowDefinition *WorkflowDefinition          `yaml:"workflow_definition"      json:"workflow_definition"`
-	WorkflowBlock      *WorkflowBlock               `yaml:"workflow_block,omitempty" json:"workflow_block,omitempty"`
-	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"           json:"workflow_input"`
-	Debug              bool                         `yaml:"debug,omitempty"          json:"debug,omitempty"`
+	WorkflowDefinition *WorkflowDefinition          `yaml:"workflow_definition" json:"workflow_definition"`
+	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"      json:"workflow_input"`
+	Debug              bool                         `yaml:"debug,omitempty"     json:"debug,omitempty"`
 }
 
 func (PipelineWorkflow) Name() string {
@@ -62,94 +60,49 @@ func (w *PipelineWorkflow) Workflow(
 
 	result := workflowengine.WorkflowResult{}
 
-	finalOutput := map[string]any{}
-	finalOutput["workflow-id"] = workflowID
-	finalOutput["workflow-run-id"] = runID
-
-	var steps []StepDefinition
-	var checks map[string]WorkflowBlock
-	switch {
-	case input.WorkflowBlock != nil:
-		steps = input.WorkflowBlock.Steps
-
-	case input.WorkflowDefinition != nil:
-		steps = input.WorkflowDefinition.Steps
-		checks = input.WorkflowDefinition.Checks
-
-	default:
-		errCode := errorcodes.Codes[errorcodes.PipelineParsingError]
-		appErr := workflowengine.NewAppError(errCode, "no workflow definition or block provided")
-		return result, workflowengine.NewWorkflowError(appErr, runMetadata)
+	// Final workflow output returned
+	finalOutput := map[string]any{
+		"workflow-id":     workflowID,
+		"workflow-run-id": runID,
 	}
+
 	defer func() {
 		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
 		for _, hook := range cleanupHooks {
-			if err := hook(cleanupCtx, steps, input.WorkflowInput); err != nil {
+			if err := hook(cleanupCtx, input.WorkflowDefinition.Steps, input.WorkflowInput); err != nil {
 				logger.Error("cleanup hook error", "error", err)
 			}
 		}
 	}()
 	for _, hook := range setupHooks {
-		if err := hook(ctx, &steps, input.WorkflowInput); err != nil {
+		if err := hook(ctx, &input.WorkflowDefinition.Steps, input.WorkflowInput); err != nil {
 			return result, workflowengine.NewWorkflowError(err, runMetadata)
 		}
 	}
 	var previousStepID string
-	for _, step := range steps {
-		if step.Use == "debug" {
-			runDebugActivity(ctx, logger, previousStepID, finalOutput)
-			continue
+	for _, step := range input.WorkflowDefinition.Steps {
+		stepInputs := map[string]any{
+			"inputs": input.WorkflowInput.Payload,
 		}
-		logger.Info("Running step", "id", step.ID, "use", step.Use)
-		if subBlock, ok := checks[step.Use]; ok {
-			childOpts := workflow.ChildWorkflowOptions{
-				WorkflowID: fmt.Sprintf(
-					"%s-%s",
-					workflow.GetInfo(ctx).WorkflowExecution.ID,
-					canonify.CanonifyPlain(step.ID),
-				),
-				TaskQueue:         PipelineTaskQueue,
-				ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
-			}
-			ctxChild := workflow.WithChildOptions(ctx, childOpts)
-			ao := PrepareActivityOptions(
-				*input.WorkflowInput.ActivityOptions,
-				step.ActivityOptions,
-			)
+		for k, v := range finalOutput {
+			stepInputs[k] = v
+		}
+		switch step.Use {
+		case "debug":
+			runDebugActivity(ctx, logger, previousStepID, finalOutput, input.WorkflowInput.Payload)
+			continue
+		case "child-pipeline":
+			logger.Info("Running step", "id", step.ID, "use", step.Use)
 
-			localCfg := MergeConfigs(input.WorkflowInput.Config, step.With.Config)
-			err := ResolveSubworkflowInputs(
-				&step,
-				subBlock,
-				input.WorkflowInput.Config,
-				finalOutput,
-			)
+			childOut, err := runChildPipeline(ctx, step, input, w.Name(), stepInputs, runMetadata)
 			if err != nil {
-				return result, workflowengine.NewWorkflowError(err, runMetadata)
-			}
-			childWorkflowInput := workflowengine.WorkflowInput{
-				Config:          map[string]any{"global": localCfg},
-				Payload:         step.With.Payload,
-				ActivityOptions: &ao,
-			}
-
-			childInput := PipelineWorkflowInput{
-				WorkflowBlock: &subBlock,
-				WorkflowInput: childWorkflowInput,
-			}
-			var childResult workflowengine.WorkflowResult
-			err = workflow.ExecuteChildWorkflow(
-				ctxChild,
-				w.Name(),
-				childInput,
-			).Get(ctxChild, &childResult)
-			if err != nil {
-				logger.Error(step.ID, "child workflow execution error", err)
-
+				logger.Error(step.ID, "step execution error", err)
 				if step.ContinueOnError {
-					if output := workflowengine.ExtractOutputFromError(err); output != nil {
-						finalOutput[step.ID] = make(map[string]any)
-						finalOutput[step.ID].(map[string]any)["outputs"] = output
+					if out := workflowengine.ExtractOutputFromError(err); out != nil {
+						childOut = out
+					}
+					finalOutput[step.ID] = map[string]any{
+						"outputs": childOut,
 					}
 
 					errorsList = append(errorsList, err.Error())
@@ -161,67 +114,53 @@ func (w *PipelineWorkflow) Workflow(
 				)
 			}
 
-			finalOutput[step.ID] = make(map[string]any)
-			for k, v := range subBlock.Outputs {
-				res, err := ResolveExpressions(v, childResult.Output.(map[string]any))
-				if err != nil {
-					errCode := errorcodes.Codes[errorcodes.PipelineParsingError]
-					appErr := workflowengine.NewAppError(
-						errCode,
-						fmt.Sprintf(
-							"error resolving expressions for step %s: %s",
-							step.ID,
-							err.Error(),
-						),
-					)
-					return result, workflowengine.NewWorkflowError(appErr, runMetadata)
-				}
-				finalOutput[step.ID].(map[string]any)["outputs"] = make(map[string]any)
-				finalOutput[step.ID].(map[string]any)["outputs"].(map[string]any)[k] = res
+			finalOutput[step.ID] = map[string]any{
+				"outputs": childOut,
 			}
-			continue
+		default:
+			logger.Info("Running step", "id", step.ID, "use", step.Use)
+
+			ao := PrepareActivityOptions(
+				*input.WorkflowInput.ActivityOptions,
+				step.ActivityOptions,
+			)
+
+			stepOutput, err := step.Execute(ctx, input.WorkflowInput.Config, stepInputs, ao)
+			if err != nil {
+				logger.Error(step.ID, "step execution error", err)
+				errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+				appErr := workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf("error executing step %s: %s", step.ID, err.Error()),
+					step.ID,
+				)
+
+				if step.ContinueOnError {
+					if out := workflowengine.ExtractOutputFromError(err); out != nil {
+						stepOutput = out
+					}
+					finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
+					errorsList = append(errorsList, err.Error())
+					continue
+				}
+				return result, workflowengine.NewWorkflowError(appErr, runMetadata)
+			}
+
+			finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
+			if input.Debug {
+				runDebugActivity(ctx, logger, step.ID, finalOutput, input.WorkflowInput.Payload)
+			}
+			previousStepID = step.ID
 		}
 
-		finalOutput["inputs"] = input.WorkflowInput.Payload
-		ao := PrepareActivityOptions(
-			*input.WorkflowInput.ActivityOptions,
-			step.ActivityOptions,
-		)
-
-		_, err := step.Execute(ctx, input.WorkflowInput.Config, &finalOutput, ao)
-		if err != nil {
-			logger.Error(step.ID, "step execution error", err)
+		if len(errorsList) > 0 {
 			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 			appErr := workflowengine.NewAppError(
 				errCode,
-				fmt.Sprintf("error executing step %s: %s", step.ID, err.Error()),
-				step.ID,
+				fmt.Sprintf("workflow completed with %d step errors", len(errorsList)),
 			)
-
-			if step.ContinueOnError {
-				if output := workflowengine.ExtractOutputFromError(err); output != nil {
-					finalOutput[step.ID] = make(map[string]any)
-					finalOutput[step.ID].(map[string]any)["outputs"] = output
-				}
-
-				errorsList = append(errorsList, err.Error())
-				continue
-			}
-			return result, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList)
 		}
-		if input.Debug {
-			runDebugActivity(ctx, logger, step.ID, finalOutput)
-		}
-		previousStepID = step.ID
-	}
-	delete(finalOutput, "inputs")
-	if len(errorsList) > 0 {
-		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		appErr := workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("workflow completed with %d step errors", len(errorsList)),
-		)
-		return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList)
 	}
 
 	return workflowengine.WorkflowResult{
@@ -251,13 +190,13 @@ func (w *PipelineWorkflow) Start(
 		canonify.CanonifyPlain(wfDef.Name),
 		uuid.NewString(),
 	)
-
-	if ns, ok := config["namespace"].(string); ok && ns != "" {
-		options.Namespace = ns
+	namespace, ok := config["namespace"].(string)
+	if !ok || namespace == "" {
+		return result, fmt.Errorf("namespace is required")
 	}
 
 	c, err := temporalclient.GetTemporalClientWithNamespace(
-		options.Namespace,
+		namespace,
 	)
 	if err != nil {
 		return result, fmt.Errorf("unable to create client: %w", err)

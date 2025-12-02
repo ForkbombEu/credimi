@@ -201,28 +201,3 @@ func ResolveInputs(
 
 	return nil
 }
-func ResolveSubworkflowInputs(
-	step *StepDefinition,
-	subDef WorkflowBlock,
-	globalCfg map[string]any,
-	ctx map[string]any, // merged context (workflow inputs + previous outputs)
-) error {
-	// Iterate declared inputs of the subworkflow
-	for inputName := range subDef.Inputs {
-		val, ok := step.With.Payload[inputName]
-		if !ok {
-			return fmt.Errorf("missing payload for subworkflow input %q", inputName)
-		}
-
-		if shouldSkipInString(step.Use, inputName, val) {
-			continue
-		}
-
-		rv, err := ResolveExpressions(val, ctx)
-		if err != nil {
-			return fmt.Errorf("failed to resolve subworkflow input %q: %w", inputName, err)
-		}
-		step.With.Payload[inputName] = rv
-	}
-	return nil
-}
