@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { TriangleAlert } from 'lucide-svelte';
 
+	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
@@ -88,9 +89,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if showLink && src}
 				<div class={linkClass || 'w-60 break-all text-xs'}>
 					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-					<a class="text-primary hover:underline" href={src} aria-label={m.Credential_Deeplink()}>
+					<a
+						class="text-primary hover:underline"
+						href={src}
+						aria-label={m.Credential_Deeplink()}
+					>
 						{src}
 					</a>
+					<CopyButtonSmall variant="ghost" size="xs" textToCopy={src} />
 				</div>
 			{/if}
 		</div>
