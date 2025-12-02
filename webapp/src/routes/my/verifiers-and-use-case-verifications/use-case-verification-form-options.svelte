@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
+	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
 	import { stepciYamlSchema } from '$lib/utils';
 	import { z } from 'zod';
 
@@ -15,7 +15,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/collections-components/form/collectionFormTypes';
 
 	import QrGenerationField from '@/components/qr-generation-field.svelte';
-	import { LogoField } from '@/forms/fields';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
 
@@ -79,13 +78,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 {/snippet}
 
-{#snippet logo({
-	form,
-	formData,
-	recordId,
-	collectionName
-}: FieldSnippetOptions<'use_cases_verifications'>)}
-	{@const fileName = formData.logo?.name}
-	{@const initialPreviewUrl = `${PUBLIC_POCKETBASE_URL}/api/files/${collectionName}/${recordId}/${fileName}`}
-	<LogoField {form} name="logo" initialPreviewUrl={fileName ? initialPreviewUrl : undefined} />
+{#snippet logo()}
+	<CollectionLogoField />
 {/snippet}
