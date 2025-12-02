@@ -187,7 +187,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</table>
 
 		<WorkflowActions
-			workflow={{ runId, workflowId, status: execution.status }}
+			workflow={{
+				runId,
+				workflowId,
+				status: execution.status,
+				name: memo?.test ?? execution.id
+			}}
 			containerClass="pt-6"
 		/>
 	</div>
