@@ -7,7 +7,9 @@ package handlers
 import (
 	"encoding/base64"
 	"strings"
-	"time"
+
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"go.temporal.io/sdk/client"
 )
 
 type MessageState struct {
@@ -438,30 +440,20 @@ type WorkflowIdentifier struct {
 type ScheduleInfo struct {
 	ID string `json:"ID" validate:"required"`
 
-	Spec         *ScheduleSpec `json:"Spec,omitempty"`
-	WorkflowType *WorkflowType `json:"WorkflowType,omitempty"`
-	Paused       bool          `json:"Paused,omitempty"`
-	Memo         *Memo         `json:"Memo,omitempty"`
+	Spec         *client.ScheduleSpec `json:"Spec,omitempty"`
+	WorkflowType *WorkflowType        `json:"WorkflowType,omitempty"`
+	Paused       bool                 `json:"Paused,omitempty"`
+	Memo         *Memo                `json:"Memo,omitempty"`
 }
 
 type ScheduleInfoSummary struct {
 	ID string `json:"id" validate:"required"`
 
-	Spec               *ScheduleSpec `json:"spec,omitempty"`
-	WorkflowType       *WorkflowType `json:"workflowType,omitempty"`
-	DisplayName        string        `json:"display_name,omitempty"`
-	OriginalWorkflowID string        `json:"original_workflow_id,omitempty"`
-	Paused             bool          `json:"paused,omitempty"`
-}
-
-type ScheduleSpec struct {
-	Intervals    []ScheduleIntervalSpec `json:"Intervals,omitempty"`
-	TimeZoneName string                 `json:"TimeZoneName,omitempty"`
-}
-
-type ScheduleIntervalSpec struct {
-	Every  time.Duration `json:"Every,omitempty"`
-	Offset time.Duration `json:"Offset,omitempty"`
+	ScheduleMode       workflowengine.ScheduleMode `json:"schedule_mode,omitempty"`
+	WorkflowType       *WorkflowType               `json:"workflowType,omitempty"`
+	DisplayName        string                      `json:"display_name,omitempty"`
+	OriginalWorkflowID string                      `json:"original_workflow_id,omitempty"`
+	Paused             bool                        `json:"paused,omitempty"`
 }
 
 // ListMySchedulesResponse represents a response for listing schedules

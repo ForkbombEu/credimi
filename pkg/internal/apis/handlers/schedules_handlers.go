@@ -251,9 +251,11 @@ func listScheduledWorkflows(namespace string) ([]*ScheduleInfoSummary, error) {
 				originalWorkflowID = decodeFromTemporalPayload(*field.Data)
 			}
 		}
+		scheduleMode := workflowengine.ParseScheduleMode(schedInfo.Spec.Calendars)
+
 		schedInfoSummary := ScheduleInfoSummary{
 			ID:                 schedInfo.ID,
-			Spec:               schedInfo.Spec,
+			ScheduleMode:       scheduleMode,
 			WorkflowType:       schedInfo.WorkflowType,
 			DisplayName:        displayName,
 			OriginalWorkflowID: originalWorkflowID,

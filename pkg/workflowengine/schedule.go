@@ -169,3 +169,76 @@ func buildMonthlyCalendarSpecs(mode ScheduleMode) []client.ScheduleCalendarSpec 
 
 	return specs
 }
+
+func ParseScheduleMode(calendars []client.ScheduleCalendarSpec) ScheduleMode {
+	mode := ScheduleMode{}
+
+	if len(calendars) == 0 {
+		return mode
+	}
+
+	if isDaily(calendars) {
+		mode.Mode = "daily"
+		mode.Day = nil
+		return mode
+	}
+
+	if isWeekly(calendars) {
+		mode.Mode = "weekly"
+		v := calendars[0].DayOfWeek[0].Start
+		mode.Day = &v
+		return mode
+	}
+
+	mode.Mode = "monthly"
+	v := extractMonthlyDay(calendars)
+	mode.Day = &v
+	return mode
+}
+
+func isDaily(cals []client.ScheduleCalendarSpec) bool {
+	if len(cals) != 1 {
+		return false
+	}
+	c := cals[0]
+
+	// Month = 1..12
+	if len(c.Month) != 1 || c.Month[0].Start != 1 || c.Month[0].End != 12 {
+		return false
+	}
+
+	// DayOfMonth = 1..31
+	if len(c.DayOfMonth) != 1 || c.DayOfMonth[0].Start != 1 || c.DayOfMonth[0].End != 31 {
+		return false
+	}
+
+	// DayOfWeek = 0..6
+	if len(c.DayOfWeek) != 1 || c.DayOfWeek[0].Start != 0 || c.DayOfWeek[0].End != 6 {
+		return false
+	}
+
+	return true
+}
+
+func isWeekly(cals []client.ScheduleCalendarSpec) bool {
+	if len(cals) != 1 {
+		return false
+	}
+
+	c := cals[0]
+	return len(c.DayOfWeek) > 0
+}
+
+func extractMonthlyDay(cals []client.ScheduleCalendarSpec) int {
+	maxDay := 1
+	for _, c := range cals {
+		if len(c.DayOfMonth) == 0 {
+			continue
+		}
+		d := c.DayOfMonth[0].Start
+		if d > maxDay {
+			maxDay = d
+		}
+	}
+	return maxDay - 1
+}
