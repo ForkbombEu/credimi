@@ -26,11 +26,7 @@ const scheduleModeSchema = z.union([
 	}),
 	z.object({
 		mode: z.literal('monthly'),
-		day: z
-			.number()
-			.min(1)
-			.max(31)
-			.transform((val) => val - 1)
+		day: z.number().min(1).max(31)
 	})
 ]);
 
@@ -46,6 +42,9 @@ export const scheduleWorkflowFormSchema = z.object({
 });
 
 export async function scheduleWorkflow(data: z.infer<typeof scheduleWorkflowFormSchema>) {
+	if (data.schedule_mode.mode === 'monthly') {
+		data.schedule_mode.day = data.schedule_mode.day - 1;
+	}
 	return pb.send('/api/my/schedules/start', {
 		method: 'POST',
 		body: data
