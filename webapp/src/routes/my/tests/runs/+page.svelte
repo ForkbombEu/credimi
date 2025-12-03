@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
 	import { fetchWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import { Array } from 'effect';
-	import { SearchIcon, SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
+	import { HourglassIcon, SearchIcon, SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -32,7 +32,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { workflows, selectedStatus } = $derived(data);
 
 	setDashboardNavbar({
-		title: m.Test_runs()
+		title: m.Test_runs(),
+		right: navbarRight
 	});
 
 	//
@@ -58,6 +59,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		};
 	});
 </script>
+
+{#snippet navbarRight()}
+	<Button href="/my/tests/runs/scheduled" variant="outline">
+		<HourglassIcon />
+		{m.View_scheduled_workflows()}
+	</Button>
+{/snippet}
 
 <div class="grow space-y-8">
 	{#if latestWorkflows.length > 0}

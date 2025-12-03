@@ -13,6 +13,7 @@ import (
 var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 	handlers.ChecksRoutes,
 	handlers.ApiKeyRoutes,
+	handlers.SchedulesRoutes,
 }
 
 var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
@@ -27,7 +28,6 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.DeepLinkRoutes,
 	handlers.PipelineRoutes,
 	handlers.PipelineTemporalInternalRoutes,
-	handlers.WorkflowsRoutes,
 	handlers.CanonifyRoutes,
 	handlers.DeepLinkCredential,
 	handlers.DeepLinkVerifiers,

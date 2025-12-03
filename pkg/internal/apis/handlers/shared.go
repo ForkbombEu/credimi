@@ -4,6 +4,15 @@
 
 package handlers
 
+import (
+	"encoding/base64"
+	"strings"
+	"time"
+
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"go.temporal.io/sdk/client"
+)
+
 type MessageState struct {
 	State   string `json:"state"`
 	Details string `json:"details"`
@@ -429,6 +438,59 @@ type WorkflowIdentifier struct {
 	RunID      string `json:"runId,omitempty"`
 }
 
+type ScheduleInfo struct {
+	ID string `json:"ID" validate:"required"`
+
+	Spec            *client.ScheduleSpec `json:"Spec,omitempty"`
+	WorkflowType    *WorkflowType        `json:"WorkflowType,omitempty"`
+	NextActionTimes []time.Time          `json:"NextActionTimes,omitempty"`
+	Paused          bool                 `json:"Paused,omitempty"`
+	Memo            *Memo                `json:"Memo,omitempty"`
+}
+
+type ScheduleInfoSummary struct {
+	ID string `json:"id" validate:"required"`
+
+	ScheduleMode       workflowengine.ScheduleMode `json:"schedule_mode,omitempty"`
+	WorkflowType       *WorkflowType               `json:"workflowType,omitempty"`
+	DisplayName        string                      `json:"display_name,omitempty"`
+	OriginalWorkflowID string                      `json:"original_workflow_id,omitempty"`
+	NextActionTime     string                      `json:"next_action_time,omitempty"`
+	Paused             bool                        `json:"paused,omitempty"`
+}
+
+// ListMySchedulesResponse represents a response for listing schedules
+type ListMySchedulesResponse struct {
+	Schedules []*ScheduleInfoSummary `json:"schedules,omitempty" validate:"required"`
+}
+
+// CancelScheduleResponse represents a response for canceling a schedule
+type CancelScheduleResponse struct {
+	Message    string `json:"message"    validate:"required"`
+	ScheduleID string `json:"scheduleId" validate:"required"`
+	Status     string `json:"status"     validate:"required"`
+	Time       string `json:"time"       validate:"required"`
+	Namespace  string `json:"namespace"  validate:"required"`
+}
+
+// PauseScheduleResponse represents a response for pausing a schedule
+type PauseScheduleResponse struct {
+	Message    string `json:"message"    validate:"required"`
+	ScheduleID string `json:"scheduleId" validate:"required"`
+	Status     string `json:"status"     validate:"required"`
+	Time       string `json:"time"       validate:"required"`
+	Namespace  string `json:"namespace"  validate:"required"`
+}
+
+// ResumeScheduleResponse represents a response for resuming a schedule
+type ResumeScheduleResponse struct {
+	Message    string `json:"message"    validate:"required"`
+	ScheduleID string `json:"scheduleId" validate:"required"`
+	Status     string `json:"status"     validate:"required"`
+	Time       string `json:"time"       validate:"required"`
+	Namespace  string `json:"namespace"  validate:"required"`
+}
+
 func getStringFromMap(m map[string]any, key string) string {
 	if m == nil {
 		return ""
@@ -439,6 +501,22 @@ func getStringFromMap(m map[string]any, key string) string {
 		}
 	}
 	return ""
+}
+
+func decodeFromTemporalPayload(encoded string) string {
+	if encoded == "" {
+		return ""
+	}
+
+	decoded, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		// fallback: return original string if decode fails
+		decoded = []byte(encoded)
+	}
+
+	clean := strings.Trim(string(decoded), `"`)
+
+	return clean
 }
 
 const testDataDir = "../../../../test_pb_data"
