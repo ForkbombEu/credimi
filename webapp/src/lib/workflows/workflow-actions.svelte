@@ -82,7 +82,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Button
 				variant="outline"
 				onclick={() => action.onclick(workflow)}
-				disabled={action.disabled?.(workflow)}
+				disabled={action.disabled ? action.disabled(workflow) : false}
 				size="sm"
 			>
 				<action.icon />
@@ -97,7 +97,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			label: action.label,
 			icon: action.icon,
 			onclick: () => action.onclick(workflow),
-			disabled: action.disabled?.(workflow)
+			disabled: action.disabled ? action.disabled(workflow) : false
 		}))}
 		trigger={dropdownTrigger}
 	/>
