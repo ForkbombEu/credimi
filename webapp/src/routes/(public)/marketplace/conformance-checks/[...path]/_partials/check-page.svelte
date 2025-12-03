@@ -94,24 +94,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet loggedQr()}
-	{#if loading}
-		<EmptyQr>
-			<Spinner />
-			{m.Loading()}
-		</EmptyQr>
-	{:else if qrWorkflow instanceof Error}
-		<EmptyQr>
-			<p>{qrWorkflow.message}</p>
-		</EmptyQr>
-	{:else if qrWorkflow}
-		<WorkflowQrPoller workflowId={qrWorkflow.workflowId} runId={qrWorkflow.runId} />
-		<Button
-			variant="secondary"
-			class="hover:bg-primary/10 border-primary border"
-			href="/my/tests/runs/{qrWorkflow.workflowId}/{qrWorkflow.runId}"
-		>
-			{m.View_check_status()}
-			<ArrowRightIcon />
-		</Button>
+	{#if $currentUser}
+		{#if loading}
+			<EmptyQr>
+				<Spinner />
+				{m.Loading()}
+			</EmptyQr>
+		{:else if qrWorkflow instanceof Error}
+			<EmptyQr>
+				<p>{qrWorkflow.message}</p>
+			</EmptyQr>
+		{:else if qrWorkflow}
+			<pre>{qrWorkflow}</pre>
+			<WorkflowQrPoller
+				workflowId={qrWorkflow.workflowId}
+				runId={qrWorkflow.runId}
+				showQrLink
+			/>
+			<Button
+				variant="secondary"
+				class="hover:bg-primary/10 border-primary border"
+				href="/my/tests/runs/{qrWorkflow.workflowId}/{qrWorkflow.runId}"
+			>
+				{m.View_check_status()}
+				<ArrowRightIcon />
+			</Button>
+		{/if}
 	{/if}
 {/snippet}

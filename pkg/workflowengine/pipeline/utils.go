@@ -29,14 +29,6 @@ const (
 func PrepareWorkflowOptions(rc RuntimeConfig) WorkflowOptions {
 	// Set defaults for task queue and namespace
 	taskQueue := PipelineTaskQueue
-	if rc.Temporal.TaskQueue != "" {
-		taskQueue = rc.Temporal.TaskQueue
-	}
-	namespace := DefaultNameSpace
-	if rc.Temporal.Namespace != "" {
-		namespace = rc.Temporal.Namespace
-	}
-
 	rp := &temporal.RetryPolicy{
 		MaximumAttempts: DefaultRetryMaxAttempts,
 		InitialInterval: parseDurationOrDefault(
@@ -70,7 +62,6 @@ func PrepareWorkflowOptions(rc RuntimeConfig) WorkflowOptions {
 	}
 
 	return WorkflowOptions{
-		Namespace: namespace,
 		Options: client.StartWorkflowOptions{
 			TaskQueue: taskQueue,
 			WorkflowExecutionTimeout: parseDurationOrDefault(
@@ -138,17 +129,6 @@ func parseDurationOrDefault(s, def string) time.Duration {
 	return d
 }
 
-// Adapter: turn SubWorkflowDefinition into a WorkflowDefinition
-func (s *WorkflowBlock) ToWorkflowDefinition(name string) *WorkflowDefinition {
-	return &WorkflowDefinition{
-
-		Name:    name,
-		Runtime: RuntimeConfig{},
-		Checks:  map[string]WorkflowBlock{},
-		Config:  s.Config,
-		Steps:   s.Steps,
-	}
-}
 func convertMapAnyToString(m map[string]any) map[string]string {
 	result := make(map[string]string, len(m))
 	for k, v := range m {

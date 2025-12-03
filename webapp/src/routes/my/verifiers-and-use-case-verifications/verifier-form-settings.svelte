@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
+	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
+
 	import type {
 		FieldSnippetOptions,
 		FieldsOptions
@@ -21,7 +23,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		exclude: ['owner', 'conformance_checks', 'published', 'canonified_name'],
 		snippets: {
 			standard_and_version,
-			description
+			description,
+			logo
 		},
 		descriptions: {
 			name: m.verifier_field_description_name(),
@@ -45,4 +48,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet description({ form }: FieldSnippetOptions<'verifiers'>)}
 	<MarkdownField {form} name="description" />
+{/snippet}
+
+{#snippet logo()}
+	<CollectionLogoField />
 {/snippet}

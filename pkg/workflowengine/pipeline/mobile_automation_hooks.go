@@ -6,6 +6,7 @@ package pipeline
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -30,173 +31,187 @@ func MobileAutomationSetupHook(
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
 
 	startedEmulators := make(map[string]string)
+	if alreadyStartedEmu, ok := input.Config["started_emulators"].(map[string]any); ok {
+		for k, v := range alreadyStartedEmu {
+			if strVal, ok := v.(string); ok {
+				startedEmulators[k] = strVal
+			}
+		}
+	}
+
 	for i := range *steps {
 		step := &(*steps)[i]
+		switch step.Use {
+		case "child-pipeline":
+			SetConfigValue(&step.With.Config, "started_emulators", startedEmulators)
+		case "mobile-automation":
+			SetConfigValue(&step.With.Config, "started_emulators", startedEmulators)
+			SetConfigValue(&step.With.Config, "app_url", input.Config["app_url"])
 
-		if step.Use != "mobile-automation" {
-			continue
-		}
+			logger.Info("MobileAutomationSetupHook: processing step", "id", step.ID)
 
-		logger.Info("MobileAutomationSetupHook: processing step", "id", step.ID)
-
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPipelinePayload](
-			step.With.Payload,
-		)
-		if err != nil {
-			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+			payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPipelinePayload](
+				step.With.Payload,
 			)
-		}
-		// If action_code is present, version_id is REQUIRED
-		if payload.ActionCode != "" {
-			if payload.VersionID == "" {
+			if err != nil {
 				return workflowengine.NewAppError(
 					errCode,
-					fmt.Sprintf("missing or invalid version_id for step %s", step.ID))
-			}
-		}
-		// If action_code is NOT present -> action_id is REQUIRED
-		if payload.ActionCode == "" {
-			if payload.ActionID == "" {
-				return workflowengine.NewAppError(
-					errCode,
-					fmt.Sprintf("missing or invalid action_id for step %s", step.ID),
+					fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
 				)
 			}
-		}
-		appURL, ok := input.Config["app_url"].(string)
-		if !ok {
-			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("missing or invalid app_url for step %s", step.ID),
-			)
-		}
+			// If action_code is present, version_id is REQUIRED
+			if payload.ActionCode != "" {
+				if payload.VersionID == "" {
+					return workflowengine.NewAppError(
+						errCode,
+						fmt.Sprintf("missing or invalid version_id for step %s", step.ID))
+				}
+			}
+			// If action_code is NOT present -> action_id is REQUIRED
+			if payload.ActionCode == "" {
+				if payload.ActionID == "" {
+					return workflowengine.NewAppError(
+						errCode,
+						fmt.Sprintf("missing or invalid action_id for step %s", step.ID),
+					)
+				}
+			}
+			appURL, ok := input.Config["app_url"].(string)
+			if !ok {
+				errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+				return workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf("missing or invalid app_url for step %s", step.ID),
+				)
+			}
 
-		req := workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"method": "POST",
-				"url":    utils.JoinURL(mobileServerURL, "fetch-apk-and-action"),
-				"headers": map[string]any{
-					"Content-Type": "application/json",
+			req := workflowengine.ActivityInput{
+				Payload: map[string]any{
+					"method": "POST",
+					"url":    utils.JoinURL(mobileServerURL, "fetch-apk-and-action"),
+					"headers": map[string]any{
+						"Content-Type": "application/json",
+					},
+					"body": map[string]any{
+						"instance_url":       appURL,
+						"version_identifier": payload.VersionID,
+						"action_identifier":  payload.ActionID,
+					},
+					"expected_status": 200,
 				},
-				"body": map[string]any{
-					"instance_url":       appURL,
-					"version_identifier": payload.VersionID,
-					"action_identifier":  payload.ActionID,
-				},
-				"expected_status": 200,
-			},
-		}
+			}
 
-		var res workflowengine.ActivityResult
-		if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), req).Get(ctx, &res); err != nil {
-			return err
-		}
-		errCode = errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		body, ok := res.Output.(map[string]any)["body"].(map[string]any)
-		if !ok {
-			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("invalid HTTP response format for step %s", step.ID),
-				res.Output,
-			)
-		}
+			var res workflowengine.ActivityResult
+			if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), req).Get(ctx, &res); err != nil {
+				return err
+			}
+			errCode = errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+			body, ok := res.Output.(map[string]any)["body"].(map[string]any)
+			if !ok {
+				return workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf("invalid HTTP response format for step %s", step.ID),
+					res.Output,
+				)
+			}
 
-		apkPath, ok := body["apk_path"].(string)
-		if !ok {
-			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"%s: missing apk_path in response for step %s",
-					errCode.Description,
-					step.ID,
-				),
-				body,
-			)
-		}
-		versionIdentifier, ok := body["version_id"].(string)
-		if !ok {
-			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"%s: missing version_id in response for step %s",
-					errCode.Description,
-					step.ID,
-				),
-				body,
-			)
-		}
-		actionCode := payload.ActionCode
-		if actionCode == "" {
-			actionCode, ok = body["code"].(string)
-			if !ok || actionCode == "" {
+			apkPath, ok := body["apk_path"].(string)
+			if !ok {
 				return workflowengine.NewAppError(
 					errCode,
 					fmt.Sprintf(
-						"%s: missing action_code in response for step %s",
+						"%s: missing apk_path in response for step %s",
 						errCode.Description,
 						step.ID,
 					),
 					body,
 				)
 			}
-			SetPayloadValue(&step.With.Payload, "action_code", actionCode)
-			SetPayloadValue(&step.With.Payload, "stored_action_code", true)
-		}
-		SetPayloadValue(&step.With.Payload, "version_id", versionIdentifier)
+			versionIdentifier, ok := body["version_id"].(string)
+			if !ok {
+				return workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf(
+						"%s: missing version_id in response for step %s",
+						errCode.Description,
+						step.ID,
+					),
+					body,
+				)
+			}
+			versionIdentifier = strings.TrimPrefix(versionIdentifier, "/")
+			actionCode := payload.ActionCode
+			if actionCode == "" {
+				actionCode, ok = body["code"].(string)
+				if !ok || actionCode == "" {
+					return workflowengine.NewAppError(
+						errCode,
+						fmt.Sprintf(
+							"%s: missing action_code in response for step %s",
+							errCode.Description,
+							step.ID,
+						),
+						body,
+					)
+				}
+				SetPayloadValue(&step.With.Payload, "action_code", actionCode)
+				SetPayloadValue(&step.With.Payload, "stored_action_code", true)
+			}
+			SetPayloadValue(&step.With.Payload, "version_id", versionIdentifier)
 
-		if serial, ok := startedEmulators[versionIdentifier]; ok {
-			logger.Info(
-				"Emulator already started, skipping start",
-				"version",
-				versionIdentifier,
-				"serial",
-				serial,
-			)
+			if serial, ok := startedEmulators[versionIdentifier]; ok {
+				logger.Info(
+					"Emulator already started, skipping start",
+					"version",
+					versionIdentifier,
+					"serial",
+					serial,
+				)
+				SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
+				continue
+			}
+
+			mobileAo := *input.ActivityOptions
+			mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
+			mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
+			startResult := workflowengine.ActivityResult{}
+			startEmuInput := workflowengine.ActivityInput{
+				Payload: map[string]any{"version_id": versionIdentifier},
+			}
+			err = workflow.ExecuteActivity(mobileCtx, startEmuActivity.Name(), startEmuInput).
+				Get(ctx, &startResult)
+			if err != nil {
+				return err
+			}
+			serial, ok := startResult.Output.(map[string]any)["serial"].(string)
+			if !ok {
+				return workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf(
+						"%s: missing serial in response for step %s",
+						errCode.Description,
+						step.ID,
+					),
+					startResult.Output,
+				)
+			}
 			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
+
+			installInput := workflowengine.ActivityInput{
+				Payload: map[string]any{"apk": apkPath, "emulator_serial": serial},
+			}
+			if err := workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).Get(ctx, nil); err != nil {
+				return err
+			}
+			startedEmulators[versionIdentifier] = serial
+			// unlockInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": serial}}
+			// if err := workflow.ExecuteActivity(mobileCtx, unlockActivity.Name(), unlockInput).Get(ctx, nil); err != nil {
+			// 	return err
+			// }
+		default:
 			continue
 		}
-
-		mobileAo := *input.ActivityOptions
-		mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
-		mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
-		startResult := workflowengine.ActivityResult{}
-		startEmuInput := workflowengine.ActivityInput{
-			Payload: map[string]any{"version_id": versionIdentifier},
-		}
-		err = workflow.ExecuteActivity(mobileCtx, startEmuActivity.Name(), startEmuInput).
-			Get(ctx, &startResult)
-		if err != nil {
-			return err
-		}
-		serial, ok := startResult.Output.(map[string]any)["serial"].(string)
-		if !ok {
-			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"%s: missing serial in response for step %s",
-					errCode.Description,
-					step.ID,
-				),
-				startResult.Output,
-			)
-		}
-		SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
-
-		installInput := workflowengine.ActivityInput{
-			Payload: map[string]any{"apk": apkPath, "emulator_serial": serial},
-		}
-		if err := workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).Get(ctx, nil); err != nil {
-			return err
-		}
-		startedEmulators[versionIdentifier] = serial
-		// unlockInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": serial}}
-		// if err := workflow.ExecuteActivity(mobileCtx, unlockActivity.Name(), unlockInput).Get(ctx, nil); err != nil {
-		// 	return err
-		// }
 	}
 
 	return nil

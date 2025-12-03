@@ -1,0 +1,156 @@
+<!--
+SPDX-FileCopyrightText: 2025 Forkbomb BV
+
+SPDX-License-Identifier: AGPL-3.0-or-later
+-->
+
+<script lang="ts">
+	import type { Snippet } from 'svelte';
+
+	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
+	import clsx from 'clsx';
+	import { EllipsisVerticalIcon, TriangleIcon } from 'lucide-svelte';
+
+	import Button from '@/components/ui-custom/button.svelte';
+	import Popover from '@/components/ui-custom/popover.svelte';
+	import * as Table from '@/components/ui/table';
+	import { localizeHref } from '@/i18n';
+
+	import type { WorkflowExecutionWithChildren } from './queries.types';
+
+	import WorkflowActions from './workflow-actions.svelte';
+	import WorkflowTableRow from './workflow-table-row.svelte';
+
+	//
+
+	type Props = {
+		workflow: WorkflowExecutionWithChildren;
+		depth?: number;
+		nameRight?: Snippet<[{ workflow: WorkflowExecutionWithChildren }]>;
+	};
+
+	let { workflow, depth = 0, nameRight }: Props = $props();
+
+	const status = $derived(toWorkflowStatusReadable(workflow.status));
+
+	const isRoot = $derived(depth === 0);
+	const isChild = $derived(!isRoot);
+
+	let isExpanded = $state(true);
+
+	const href = $derived(
+		localizeHref(`/my/tests/runs/${workflow.execution.workflowId}/${workflow.execution.runId}`)
+	);
+</script>
+
+<tr
+	class={[
+		'hover:bg-transparent',
+		{
+			'bg-slate-100 text-xs hover:bg-slate-100': isChild,
+			'[&>td]:!py-0': isChild,
+			'border-b': !isExpanded && isRoot
+		}
+	]}
+>
+	<Table.Cell class="text-muted-foreground">
+		<div class="block w-full max-w-[100px] truncate text-ellipsis md:max-w-[180px]">
+			{workflow.type.name}
+		</div>
+	</Table.Cell>
+
+	{#if isRoot}
+		<Table.Cell class={['flex justify-between font-medium', isChild && '!py-0']}>
+			<div class="flex items-center gap-2">
+				<a {href} class="text-primary hover:underline">
+					{workflow.displayName}
+				</a>
+
+				{#if workflow.children && workflow.children.length > 0}
+					<Button
+						variant="ghost"
+						size="icon"
+						class="size-6 shrink-0 [&_svg]:size-3"
+						onclick={() => (isExpanded = !isExpanded)}
+					>
+						<TriangleIcon
+							class={clsx(
+								'fill-primary stroke-none transition-transform duration-200',
+								{
+									'rotate-180': !isExpanded
+								}
+							)}
+						/>
+					</Button>
+				{/if}
+			</div>
+
+			{@render nameRight?.({ workflow })}
+		</Table.Cell>
+	{:else}
+		<Table.Cell
+			class={['flex']}
+			style="padding-top: 0px!important; padding-bottom: 0px!important"
+		>
+			<div style={`padding-left: ${(depth - 1) * 16}px`}>
+				<div class="border-l border-slate-300 py-2 pl-2">
+					<a {href} class="text-primary hover:underline">
+						{workflow.displayName}
+					</a>
+				</div>
+			</div>
+		</Table.Cell>
+	{/if}
+
+	<Table.Cell>
+		{#if status !== null}
+			<div class={[isChild && 'scale-75']}>
+				<WorkflowStatus {status} />
+			</div>
+		{/if}
+	</Table.Cell>
+
+	<Table.Cell
+		class={['text-right', isChild && 'text-muted-foreground text-[10px] leading-[13px]']}
+	>
+		{workflow.startTime}
+	</Table.Cell>
+
+	<Table.Cell
+		class={[
+			'text-right',
+			{
+				'text-gray-300': !workflow.endTime,
+				'text-muted-foreground text-[10px] leading-[13px]': isChild
+			}
+		]}
+	>
+		{workflow.endTime ?? 'N/A'}
+	</Table.Cell>
+
+	<Table.Cell class="flex justify-end">
+		{#if isRoot}
+			<Popover
+				buttonVariants={{ size: 'icon', variant: 'ghost' }}
+				containerClass="max-w-[200px] p-2"
+			>
+				{#snippet trigger()}
+					<EllipsisVerticalIcon />
+				{/snippet}
+				{#snippet content()}
+					<WorkflowActions
+						containerClass="flex-col"
+						execution={workflow.execution}
+						{status}
+					/>
+				{/snippet}
+			</Popover>
+		{/if}
+	</Table.Cell>
+</tr>
+
+{#if workflow.children && isExpanded}
+	{#each workflow.children as children (children.execution.runId)}
+		<WorkflowTableRow workflow={children} depth={depth + 1} />
+	{/each}
+{/if}

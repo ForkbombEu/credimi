@@ -5,10 +5,13 @@ package pipeline
 
 import (
 	"fmt"
+	"net/http"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/workflow"
@@ -17,12 +20,12 @@ import (
 func (s *StepDefinition) Execute(
 	ctx workflow.Context,
 	globalCfg map[string]any,
-	dataCtx *map[string]any,
+	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
 ) (any, error) {
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
 
-	err := ResolveInputs(s, globalCfg, *dataCtx)
+	err := ResolveInputs(s, globalCfg, dataCtx)
 	if err != nil {
 		appErr := workflowengine.NewAppError(
 			errCode,
@@ -94,12 +97,7 @@ func (s *StepDefinition) Execute(
 			output = result
 		}
 
-		if output != nil {
-			(*dataCtx)[s.ID] = map[string]any{
-				"outputs": output,
-			}
-		}
-		return result, nil
+		return output, nil
 	case registry.TaskWorkflow:
 		payload, err := s.DecodePayload()
 		if err != nil {
@@ -147,11 +145,132 @@ func (s *StepDefinition) Execute(
 		if err != nil {
 			return result, err
 		}
-		(*dataCtx)[s.ID] = map[string]any{
-			"outputs": result.Output,
-		}
-		return result, nil
+		return result.Output, nil
 	}
 
 	return nil, nil
+}
+
+// runChildPipeline executes a nested child pipeline and returns its outputs
+func runChildPipeline(
+	ctx workflow.Context,
+	step StepDefinition,
+	input PipelineWorkflowInput,
+	workflowName string,
+	dataCtx map[string]any,
+	runMetadata workflowengine.WorkflowErrorMetadata,
+) (any, error) {
+	// Fetch child pipeline YAML
+	yaml, err := fetchChildPipelineYAML(ctx, step, input, runMetadata)
+	if err != nil {
+		return nil, err
+	}
+
+	// Parse workflow definition
+	wfDef, err := ParseWorkflow(yaml)
+	if err != nil {
+		return nil, workflowengine.NewWorkflowError(
+			workflowengine.NewAppError(
+				errorcodes.Codes[errorcodes.PipelineParsingError],
+				err.Error(),
+			),
+			runMetadata,
+		)
+	}
+
+	memo := map[string]any{"test": wfDef.Name}
+	options := PrepareWorkflowOptions(wfDef.Runtime)
+	options.Options.Memo = memo
+
+	childOpts := workflow.ChildWorkflowOptions{
+		WorkflowID: fmt.Sprintf(
+			"%s-%s-%s",
+			workflow.GetInfo(ctx).WorkflowExecution.ID,
+			canonify.CanonifyPlain(step.ID),
+			wfDef.Name,
+		),
+		TaskQueue:         PipelineTaskQueue,
+		ParentClosePolicy: enums.PARENT_CLOSE_POLICY_TERMINATE,
+	}
+
+	ctxChild := workflow.WithChildOptions(ctx, childOpts)
+	ao := PrepareActivityOptions(options.ActivityOptions, step.ActivityOptions)
+	err = ResolveInputs(&step, input.WorkflowInput.Config, dataCtx)
+	if err != nil {
+		return nil, err
+	}
+	childInput := PipelineWorkflowInput{
+		WorkflowDefinition: wfDef,
+		WorkflowInput: workflowengine.WorkflowInput{
+			Config:          step.With.Config,
+			Payload:         step.With.Payload,
+			ActivityOptions: &ao,
+		},
+		Debug: wfDef.Runtime.Debug,
+	}
+
+	var childResult workflowengine.WorkflowResult
+	err = workflow.ExecuteChildWorkflow(
+		ctxChild,
+		workflowName,
+		childInput,
+	).Get(ctxChild, &childResult)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return childResult.Output, nil
+}
+
+// fetchChildPipelineYAML fetches the pipeline YAML from HTTPActivity
+func fetchChildPipelineYAML(
+	ctx workflow.Context,
+	step StepDefinition,
+	input PipelineWorkflowInput,
+	meta workflowengine.WorkflowErrorMetadata,
+) (string, error) {
+	pipelineID, ok := step.With.Payload["pipeline_id"].(string)
+	if !ok || pipelineID == "" {
+		return "", workflowengine.NewWorkflowError(fmt.Errorf("missing pipeline_id"), meta)
+	}
+
+	appURL, ok := input.WorkflowInput.Config["app_url"].(string)
+	if !ok || appURL == "" {
+		return "", workflowengine.NewWorkflowError(
+			workflowengine.NewMissingConfigError("app_url", meta),
+			meta,
+		)
+	}
+
+	act := activities.NewHTTPActivity()
+	var response workflowengine.ActivityResult
+	req := workflowengine.ActivityInput{
+		Payload: activities.HTTPActivityPayload{
+			Method: http.MethodGet,
+			URL:    utils.JoinURL(appURL, "api", "pipeline", "get-yaml"),
+			QueryParams: map[string]string{
+				"pipeline_identifier": pipelineID,
+			},
+			ExpectedStatus: 200,
+		},
+	}
+
+	if err := workflow.ExecuteActivity(ctx, act.Name(), req).Get(ctx, &response); err != nil {
+		return "", workflowengine.NewWorkflowError(err, meta)
+	}
+
+	body, ok := response.Output.(map[string]any)["body"].(string)
+	if !ok {
+		return "", workflowengine.NewWorkflowError(
+			workflowengine.NewAppError(
+				errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
+				"invalid HTTP output",
+				response.Output,
+			),
+			meta,
+		)
+	}
+
+	return body, nil
 }

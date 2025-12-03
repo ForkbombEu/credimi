@@ -6,7 +6,9 @@ package handlers
 import (
 	"bytes"
 	"io"
+	"mime/multipart"
 	"net/http"
+	"net/textproto"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -170,37 +172,43 @@ func TestWalletStoreActionResult(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
-	successBodyBuf, successMp, err := tests.MockMultipartData(
-		map[string]string{
-			"wallet_identifier": "usera-s-organization/wallet123",
-			"action_code":       "test_action",
-		},
-		"result",
-	)
-	require.NoError(t, err)
-	fileWriter, err := successMp.CreateFormFile("result", "result.txt")
-	require.NoError(t, err)
-	_, err = fileWriter.Write([]byte("dummy file content"))
-	require.NoError(t, err)
-	require.NoError(t, successMp.Close())
+	// Prepare the success multipart request with MP4
+	var successBody bytes.Buffer
+	successWriter := multipart.NewWriter(&successBody)
 
-	missingFileBuf, missingFileMp, err := tests.MockMultipartData(
-		map[string]string{
-			"wallet_identifier": "usera-s-organization/wallet123",
-			"action_code":       "test_action",
-		},
-	)
+	// add form fields
+	_ = successWriter.WriteField("wallet_identifier", "usera-s-organization/wallet123")
+	_ = successWriter.WriteField("action_code", "test_action")
+
+	partHeader := textproto.MIMEHeader{}
+	partHeader.Set("Content-Disposition", `form-data; name="result"; filename="test.mp4"`)
+	partHeader.Set("Content-Type", "video/mp4")
+
+	fileWriter, err := successWriter.CreatePart(partHeader)
 	require.NoError(t, err)
-	require.NoError(t, missingFileMp.Close())
+
+	// write minimal valid MP4 header
+	mp4Header := []byte{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'm', 'p', '4', '2'}
+	_, err = fileWriter.Write(mp4Header)
+	require.NoError(t, err)
+
+	require.NoError(t, successWriter.Close())
+
+	// Prepare missing file multipart request
+	var missingBody bytes.Buffer
+	missingWriter := multipart.NewWriter(&missingBody)
+	_ = missingWriter.WriteField("wallet_identifier", "usera-s-organization/wallet123")
+	_ = missingWriter.WriteField("action_code", "test_action")
+	require.NoError(t, missingWriter.Close())
 
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "store wallet action result successfully",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-action-result",
-			Body:   bytes.NewReader(successBodyBuf.Bytes()),
+			Body:   bytes.NewReader(successBody.Bytes()),
 			Headers: map[string]string{
-				"Content-Type": successMp.FormDataContentType(),
+				"Content-Type": successWriter.FormDataContentType(),
 			},
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
@@ -209,6 +217,8 @@ func TestWalletStoreActionResult(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
+
+				// Create wallet record
 				walletColl, err := app.FindCollectionByNameOrId("wallets")
 				require.NoError(t, err)
 				walletRecord := core.NewRecord(walletColl)
@@ -222,9 +232,9 @@ func TestWalletStoreActionResult(t *testing.T) {
 			Name:   "store wallet action result missing file",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-action-result",
-			Body:   bytes.NewReader(missingFileBuf.Bytes()),
+			Body:   bytes.NewReader(missingBody.Bytes()),
 			Headers: map[string]string{
-				"Content-Type": missingFileMp.FormDataContentType(),
+				"Content-Type": missingWriter.FormDataContentType(),
 			},
 			ExpectedStatus: 400,
 			ExpectedContent: []string{

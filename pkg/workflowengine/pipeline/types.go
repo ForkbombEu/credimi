@@ -11,20 +11,11 @@ import (
 )
 
 type WorkflowDefinition struct {
-	Version string                   `yaml:"version,omitempty"       json:"version,omitempty"`
-	Name    string                   `yaml:"name"                    json:"name"`
-	Runtime RuntimeConfig            `yaml:"runtime,omitempty"       json:"runtime,omitempty"`
-	Checks  map[string]WorkflowBlock `yaml:"custom_checks,omitempty" json:"custom_checks,omitempty"`
-	Config  map[string]any           `yaml:"config,omitempty"        json:"config,omitempty"`
-	Steps   []StepDefinition         `yaml:"steps,omitempty"         json:"steps,omitempty"`
-}
-
-type WorkflowBlock struct {
-	Description string            `yaml:"description,omitempty" json:"description,omitempty"`
-	Inputs      map[string]string `yaml:"inputs,omitempty"      json:"inputs,omitempty"`
-	Outputs     map[string]string `yaml:"outputs,omitempty"     json:"outputs,omitempty"`
-	Config      map[string]any    `yaml:"config,omitempty"      json:"config,omitempty"`
-	Steps       []StepDefinition  `yaml:"steps,omitempty"       json:"steps,omitempty"`
+	Version string           `yaml:"version,omitempty" json:"version,omitempty"`
+	Name    string           `yaml:"name"              json:"name"`
+	Runtime RuntimeConfig    `yaml:"runtime,omitempty" json:"runtime,omitempty"`
+	Config  map[string]any   `yaml:"config,omitempty"  json:"config,omitempty"`
+	Steps   []StepDefinition `yaml:"steps,omitempty"   json:"steps,omitempty"`
 }
 
 type StepDefinition struct {
@@ -47,8 +38,6 @@ type RuntimeConfig struct {
 	} `yaml:"schedule,omitempty" json:"schedule,omitempty"`
 	Debug    bool `yaml:"debug,omitempty"    json:"debug,omitempty"`
 	Temporal struct {
-		Namespace        string                `yaml:"namespace,omitempty" json:"namespace,omitempty"`
-		TaskQueue        string                `yaml:"task_queue,omitempty" json:"task_queue,omitempty"`
 		ExecutionTimeout string                `yaml:"execution_timeout,omitempty" json:"execution_timeout,omitempty"`
 		ActivityOptions  ActivityOptionsConfig `yaml:"activity_options,omitempty" json:"activity_options,omitempty"`
 	} `yaml:"temporal,omitempty" json:"temporal,omitempty"`
@@ -67,7 +56,6 @@ type RetryPolicy struct {
 	BackoffCoefficient float64 `yaml:"backoff_coefficient,omitempty" json:"backoff_coefficient,omitempty"`
 }
 type WorkflowOptions struct {
-	Namespace       string                      `json:"namespace,omitempty"`
 	Options         client.StartWorkflowOptions `json:"options"`
 	Timeout         time.Duration               `json:"timeout,omitempty"`
 	ActivityOptions workflow.ActivityOptions    `json:"activityOptions"`
