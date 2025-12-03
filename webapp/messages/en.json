@@ -835,5 +835,6 @@
 	"Schedule_cancelled_successfully": "Schedule cancelled successfully",
 	"Schedule_paused_successfully": "Schedule paused successfully",
 	"Schedule_resumed_successfully": "Schedule resumed successfully",
-	"No_scheduled_workflows": "No scheduled workflows"
+	"No_scheduled_workflows": "No scheduled workflows",
+	"next_run": "Next run"
 }

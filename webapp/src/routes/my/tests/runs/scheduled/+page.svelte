@@ -61,6 +61,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{m.interval()}
 				</Table.Head>
 				<Table.Head>
+					{m.next_run()}
+				</Table.Head>
+				<Table.Head>
 					{m.Status()}
 				</Table.Head>
 				<Table.Head>
@@ -92,6 +95,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</span>
 							{/if}
 						</T>
+					</Table.Cell>
+					<Table.Cell>
+						{workflow.next_action_time}
 					</Table.Cell>
 					<Table.Cell>
 						{workflow.paused ? m.Paused() : m.Running()}

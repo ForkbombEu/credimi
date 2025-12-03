@@ -108,6 +108,7 @@ export type WorkflowSchedule = {
 	workflowType?: { name?: string };
 	display_name: string;
 	original_workflow_id: string;
+	next_action_time?: string;
 	paused?: boolean;
 };
 
