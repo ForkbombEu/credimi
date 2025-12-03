@@ -84,6 +84,16 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 			workflows.EWCTemplateFolderPath,
 			checkName+".yaml",
 		)
+		// Validation: checkName must not contain path separators
+		if strings.Contains(checkName, "/") || strings.Contains(checkName, "\\") ||
+			strings.Contains(checkName, "..") {
+			return apierror.New(
+				http.StatusBadRequest,
+				"request",
+				"invalid check name",
+				"checkName must not contain slashes or parent directory references",
+			).JSON(e)
+		}
 		templateData, err := os.ReadFile(templatePath)
 
 		if err != nil {
