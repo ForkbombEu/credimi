@@ -151,15 +151,6 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 
 func validateScheduleMode(mode *workflowengine.ScheduleMode) error {
 	now := time.Now()
-	// Validate hour range
-	if mode.Hour == nil {
-		v := now.Hour()
-		mode.Hour = &v
-	}
-	if *mode.Hour < 0 || *mode.Hour > 23 {
-		return fmt.Errorf("hour must be between 0 and 23")
-	}
-
 	switch mode.Mode {
 	case "daily":
 

@@ -16,7 +16,6 @@ import (
 // ScheduleMode represents the scheduling configuration
 type ScheduleMode struct {
 	Mode string `json:"mode"` // "daily", "weekly", "monthly"
-	Hour *int   `json:"hour"` // 0-23
 	Day  *int   `json:"day"`  // 0-6 for weekly (0=Sunday), 0-30 for monthly
 }
 
@@ -90,7 +89,7 @@ func buildCalendarSpec(mode ScheduleMode) []client.ScheduleCalendarSpec {
 		return []client.ScheduleCalendarSpec{{
 			Second: []client.ScheduleRange{{Start: now.Second()}},
 			Minute: []client.ScheduleRange{{Start: now.Minute()}},
-			Hour:   []client.ScheduleRange{{Start: *mode.Hour}},
+			Hour:   []client.ScheduleRange{{Start: now.Hour()}},
 			Month:  []client.ScheduleRange{{Start: 1, End: 12}},
 			DayOfMonth: []client.ScheduleRange{{
 				Start: 1, End: 31,
@@ -102,7 +101,7 @@ func buildCalendarSpec(mode ScheduleMode) []client.ScheduleCalendarSpec {
 		return []client.ScheduleCalendarSpec{{
 			Second:    []client.ScheduleRange{{Start: now.Second()}},
 			Minute:    []client.ScheduleRange{{Start: now.Minute()}},
-			Hour:      []client.ScheduleRange{{Start: *mode.Hour}},
+			Hour:      []client.ScheduleRange{{Start: now.Hour()}},
 			DayOfWeek: []client.ScheduleRange{{Start: *mode.Day}},
 			Month:     []client.ScheduleRange{{Start: 1, End: 12}},
 		}}
@@ -123,7 +122,7 @@ func buildMonthlyCalendarSpecs(mode ScheduleMode) []client.ScheduleCalendarSpec 
 		return []client.ScheduleCalendarSpec{{
 			Second: []client.ScheduleRange{{Start: now.Second()}},
 			Minute: []client.ScheduleRange{{Start: now.Minute()}},
-			Hour:   []client.ScheduleRange{{Start: *mode.Hour}},
+			Hour:   []client.ScheduleRange{{Start: now.Hour()}},
 			Month:  []client.ScheduleRange{{Start: 1, End: 12}},
 			DayOfMonth: []client.ScheduleRange{{
 				Start: dayIndex,
@@ -160,7 +159,7 @@ func buildMonthlyCalendarSpecs(mode ScheduleMode) []client.ScheduleCalendarSpec 
 		specs = append(specs, client.ScheduleCalendarSpec{
 			Second: []client.ScheduleRange{{Start: now.Second()}},
 			Minute: []client.ScheduleRange{{Start: now.Minute()}},
-			Hour:   []client.ScheduleRange{{Start: *mode.Hour}},
+			Hour:   []client.ScheduleRange{{Start: now.Hour()}},
 			Month:  []client.ScheduleRange{{Start: int(m)}},
 			DayOfMonth: []client.ScheduleRange{{
 				Start: d,
