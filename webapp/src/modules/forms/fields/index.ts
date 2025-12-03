@@ -9,6 +9,7 @@ import Field from './field.svelte';
 import FileField from './fileField.svelte';
 import LogoField from './logo-field.svelte';
 import PlaceholderHighlightCodeEditorField from './placeholderHighlightCodeEditorField.svelte';
+import SelectFieldAny from './select-field-any.svelte';
 import SelectField from './selectField.svelte';
 import SwitchField from './switchField.svelte';
 import TextareaField from './textareaField.svelte';
@@ -22,6 +23,7 @@ export {
 	LogoField,
 	PlaceholderHighlightCodeEditorField,
 	SelectField,
+	SelectFieldAny,
 	SwitchField,
 	TextareaField
 };

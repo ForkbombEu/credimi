@@ -32,14 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	const { form, name, options = {} }: Props = $props();
-	const {
-		label,
-		description,
-		type = 'single' as SelectType,
-		items = [],
-		trigger,
-		...rest
-	} = $derived(options);
+	const { type = 'single' as SelectType, items = [], trigger, ...rest } = $derived(options);
 
 	//
 
@@ -59,6 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{type}
 				value={$value as unknown as undefined}
 				controlAttrs={props}
+				trigger={trigger as undefined}
 				onValueChange={(data) => ($value = data)}
 			/>
 		{/snippet}

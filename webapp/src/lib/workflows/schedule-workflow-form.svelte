@@ -6,15 +6,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import { Label } from '@/components/ui/label';
-	import { SelectField } from '@/forms/fields';
+	import { Field, SelectField, SelectFieldAny } from '@/forms/fields';
 	import Form from '@/forms/form.svelte';
 	import { m } from '@/i18n';
 
-	import {
-		createScheduleWorkflowForm,
-		SCHEDULING_INTERVALS,
-		schedulingIntervalLabels
-	} from './schedule';
+	import { createScheduleWorkflowForm, scheduleModeOptions } from './schedule';
+	import { dayOptions } from './schedule.utils';
 
 	//
 
@@ -34,6 +31,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			isOpen = false;
 		}
 	});
+
+	const formData = form.form;
 </script>
 
 <Dialog bind:open={isOpen} title={m.Schedule_workflow()}>
@@ -48,14 +47,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			<SelectField
 				{form}
-				name="interval"
+				name="schedule_mode.mode"
 				options={{
-					items: SCHEDULING_INTERVALS.map((interval) => ({
-						label: schedulingIntervalLabels[interval],
-						value: interval
-					}))
+					items: scheduleModeOptions,
+					label: m.interval()
 				}}
 			/>
+
+			{#if $formData.schedule_mode.mode === 'weekly'}
+				<SelectFieldAny
+					{form}
+					name="schedule_mode.day"
+					options={{
+						items: dayOptions,
+						placeholder: m.Select_a_weekday(),
+						label: m.weekday()
+					}}
+				/>
+			{:else if $formData.schedule_mode.mode === 'monthly'}
+				<Field
+					{form}
+					name="schedule_mode.day"
+					options={{ type: 'number', label: m.input_a_day() }}
+				/>
+			{/if}
 
 			{#snippet submitButtonContent()}
 				{m.Schedule()}
