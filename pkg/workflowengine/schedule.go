@@ -224,9 +224,18 @@ func isWeekly(cals []client.ScheduleCalendarSpec) bool {
 	if len(cals) != 1 {
 		return false
 	}
-
 	c := cals[0]
-	return len(c.DayOfWeek) > 0
+
+	// DayOfMonth = 1..31
+	if len(c.DayOfMonth) != 1 || c.DayOfMonth[0].Start != 1 || c.DayOfMonth[0].End != 31 {
+		return false
+	}
+
+	if len(c.DayOfWeek) != 1 || c.DayOfWeek[0].Start != 0 || c.DayOfWeek[0].End != 6 {
+		return true
+	}
+
+	return false
 }
 
 func extractMonthlyDay(cals []client.ScheduleCalendarSpec) int {
