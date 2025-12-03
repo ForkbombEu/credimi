@@ -7,6 +7,7 @@ package handlers
 import (
 	"encoding/base64"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"go.temporal.io/sdk/client"
@@ -440,10 +441,11 @@ type WorkflowIdentifier struct {
 type ScheduleInfo struct {
 	ID string `json:"ID" validate:"required"`
 
-	Spec         *client.ScheduleSpec `json:"Spec,omitempty"`
-	WorkflowType *WorkflowType        `json:"WorkflowType,omitempty"`
-	Paused       bool                 `json:"Paused,omitempty"`
-	Memo         *Memo                `json:"Memo,omitempty"`
+	Spec            *client.ScheduleSpec `json:"Spec,omitempty"`
+	WorkflowType    *WorkflowType        `json:"WorkflowType,omitempty"`
+	NextActionTimes []time.Time          `json:"NextActionTimes,omitempty"`
+	Paused          bool                 `json:"Paused,omitempty"`
+	Memo            *Memo                `json:"Memo,omitempty"`
 }
 
 type ScheduleInfoSummary struct {
@@ -453,6 +455,7 @@ type ScheduleInfoSummary struct {
 	WorkflowType       *WorkflowType               `json:"workflowType,omitempty"`
 	DisplayName        string                      `json:"display_name,omitempty"`
 	OriginalWorkflowID string                      `json:"original_workflow_id,omitempty"`
+	NextActionTime     string                      `json:"next_action_time,omitempty"`
 	Paused             bool                        `json:"paused,omitempty"`
 }
 
