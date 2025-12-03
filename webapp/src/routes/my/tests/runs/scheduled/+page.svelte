@@ -88,7 +88,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</span>
 							{:else if workflow.schedule_mode?.mode === 'monthly'}
 								<span class="text-muted-foreground text-sm">
-									{workflow.schedule_mode?.day}
+									({m.Day().toLowerCase()}: {workflow.schedule_mode?.day})
 								</span>
 							{/if}
 						</T>

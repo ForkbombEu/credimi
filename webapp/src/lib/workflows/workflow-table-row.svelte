@@ -12,7 +12,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { EllipsisVerticalIcon, TriangleIcon } from 'lucide-svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
-	import Popover from '@/components/ui-custom/popover.svelte';
 	import * as Table from '@/components/ui/table';
 	import { localizeHref } from '@/i18n';
 
@@ -62,6 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if isRoot}
 		<Table.Cell class={['flex justify-between font-medium', isChild && '!py-0']}>
 			<div class="flex items-center gap-2">
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a {href} class="text-primary hover:underline">
 					{workflow.displayName}
 				</a>
@@ -94,6 +94,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			<div style={`padding-left: ${(depth - 1) * 16}px`}>
 				<div class="border-l border-slate-300 py-2 pl-2">
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 					<a {href} class="text-primary hover:underline">
 						{workflow.displayName}
 					</a>
@@ -129,23 +130,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Table.Cell>
 
 	<Table.Cell class="flex justify-end">
-		{#if isRoot}
-			<Popover
-				buttonVariants={{ size: 'icon', variant: 'ghost' }}
-				containerClass="max-w-[200px] p-2"
-			>
-				{#snippet trigger()}
-					<EllipsisVerticalIcon />
-				{/snippet}
-				{#snippet content()}
-					<WorkflowActions
-						containerClass="flex-col"
-						execution={workflow.execution}
-						{status}
-					/>
-				{/snippet}
-			</Popover>
-		{/if}
+		<WorkflowActions
+			mode="dropdown"
+			workflow={{
+				workflowId: workflow.execution.workflowId,
+				runId: workflow.execution.runId,
+				status: status,
+				name: workflow.displayName
+			}}
+			dropdownTriggerVariants={{ size: 'icon', variant: 'ghost' }}
+		>
+			{#snippet dropdownTrigger()}
+				<EllipsisVerticalIcon />
+			{/snippet}
+		</WorkflowActions>
 	</Table.Cell>
 </tr>
 
