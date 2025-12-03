@@ -193,6 +193,17 @@ var DefaultWorkers = []workerConfig{
 		},
 	},
 	{
+		TaskQueue: workflows.ConformanceCheckTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			&workflows.StartCheckWorkflow{},
+			&workflows.EWCStatusWorkflow{},
+		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewStepCIWorkflowActivity(),
+			activities.NewHTTPActivity(),
+		},
+	},
+	{
 		TaskQueue: workflows.WorkerManagerTaskQueue,
 		Workflows: []workflowengine.Workflow{
 			&workflows.WorkerManagerWorkflow{},
