@@ -186,15 +186,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</tbody>
 		</table>
 
-		<WorkflowActions
-			workflow={{
-				runId,
-				workflowId,
-				status: execution.status,
-				name: memo?.test ?? execution.id
-			}}
-			mode="buttons"
-		/>
+		<div class="pt-6">
+			<WorkflowActions
+				workflow={{
+					runId,
+					workflowId,
+					status: execution.status,
+					name: memo?.test ?? execution.id
+				}}
+				mode="buttons"
+			/>
+		</div>
 	</div>
 
 	<WorkflowQrPoller {workflowId} {runId} showQrLink={true} containerClass="size-40" />
