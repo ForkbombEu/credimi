@@ -52,7 +52,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		redirect := e.Request.URL.Query().Get("redirect") == "true"
+		redirect := e.Request.URL.Query().Get("redirect") == RedirectFlagTrue
 
 		parts := strings.Split(filepath.ToSlash(id), "/")
 		var suite, standard, checkName string
