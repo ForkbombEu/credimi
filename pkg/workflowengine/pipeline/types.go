@@ -25,6 +25,8 @@ type StepDefinition struct {
 	ActivityOptions *ActivityOptionsConfig `yaml:"activity_options,omitempty"  json:"activity_options,omitempty"`
 	Metadata        map[string]interface{} `yaml:"metadata,omitempty"          json:"metadata,omitempty"`
 	ContinueOnError bool                   `yaml:"continue_on_error,omitempty" json:"continue_on_error,omitempty"`
+	OnError         []*StepDefinition      `yaml:"on_error,omitempty"          json:"on_error,omitempty" jsonschema:"-"`
+	OnSuccess       []*StepDefinition      `yaml:"on_success,omitempty"        json:"on_success,omitempty" jsonschema:"-"`
 }
 
 type StepInputs struct {
