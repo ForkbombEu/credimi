@@ -5,6 +5,7 @@
 package pipeline
 
 import (
+	"context"
 	"fmt"
 	"math/rand"
 	"net"
@@ -198,7 +199,7 @@ func MobileAutomationSetupHook(
 					startResult.Output,
 				)
 			}
-			driverPort, err := findFreePort(7000, 7999)
+			driverPort, err := findFreePort(context.Background(), 7000, 7999)
 			if err != nil {
 				errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
 				return workflowengine.NewAppError(
@@ -301,7 +302,7 @@ func MobileAutomationCleanupHook(
 }
 
 // findFreePort randomly picks ports within [start, end] until it finds a free one.
-func findFreePort(start, end int) (int, error) {
+func findFreePort(ctx context.Context, start, end int) (int, error) {
 	if start > end {
 		return 0, fmt.Errorf("invalid range: %d > %d", start, end)
 	}
@@ -318,13 +319,13 @@ func findFreePort(start, end int) (int, error) {
 		tried[p] = true
 
 		// IPv4 try
-		ipv4, err4 := lc.Listen(nil, "tcp4", fmt.Sprintf("127.0.0.1:%d", p))
+		ipv4, err4 := lc.Listen(ctx, "tcp4", fmt.Sprintf("127.0.0.1:%d", p))
 		if err4 != nil {
 			continue
 		}
 
 		// IPv6 try
-		ipv6, err6 := lc.Listen(nil, "tcp6", fmt.Sprintf("[::1]:%d", p))
+		ipv6, err6 := lc.Listen(ctx, "tcp6", fmt.Sprintf("[::1]:%d", p))
 		if err6 != nil {
 			_ = ipv4.Close()
 			continue
