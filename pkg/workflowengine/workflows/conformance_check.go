@@ -255,6 +255,16 @@ func (w *StartCheckWorkflow) Workflow(
 				runMeta,
 			)
 		}
+
+		deeplink, ok := setupResult.Captures["deeplink"].(string)
+		if !ok {
+			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+				"deeplink",
+				setupResult.Captures,
+				runMeta,
+			)
+		}
+
 		child := OpenIDNetLogsWorkflow{}
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-log",
@@ -286,7 +296,7 @@ func (w *StartCheckWorkflow) Workflow(
 		return workflowengine.WorkflowResult{
 			Message: "Check completed successfully",
 			Output: map[string]any{
-				"deeplink": setupResult.Captures["deeplink"],
+				"deeplink": deeplink,
 			},
 		}, nil
 	case EWCSuite:
@@ -309,6 +319,16 @@ func (w *StartCheckWorkflow) Workflow(
 				runMeta,
 			)
 		}
+
+		deeplink, ok := setupResult.Captures["deeplink"].(string)
+		if !ok {
+			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+				"deeplink",
+				setupResult.Captures,
+				runMeta,
+			)
+		}
+
 		child := EWCStatusWorkflow{}
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-status",
@@ -340,7 +360,7 @@ func (w *StartCheckWorkflow) Workflow(
 		return workflowengine.WorkflowResult{
 			Message: "Check completed successfully",
 			Output: map[string]any{
-				"deeplink": setupResult.Captures["deeplink"],
+				"deeplink": deeplink,
 			},
 		}, nil
 	default:
