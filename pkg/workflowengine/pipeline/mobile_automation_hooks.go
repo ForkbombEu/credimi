@@ -5,10 +5,7 @@
 package pipeline
 
 import (
-	"context"
 	"fmt"
-	"math/rand"
-	"net"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -33,13 +30,9 @@ func MobileAutomationSetupHook(
 	// unlockActivity := activities.NewUnlockEmulatorActivity()
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
 
-	startedEmulators := make(map[string]string)
+	startedEmulators := make(map[string]any)
 	if alreadyStartedEmu, ok := input.Config["started_emulators"].(map[string]any); ok {
-		for k, v := range alreadyStartedEmu {
-			if strVal, ok := v.(string); ok {
-				startedEmulators[k] = strVal
-			}
-		}
+		startedEmulators = alreadyStartedEmu
 	}
 
 	for i := range *steps {
@@ -163,7 +156,7 @@ func MobileAutomationSetupHook(
 			}
 			SetPayloadValue(&step.With.Payload, "version_id", versionIdentifier)
 
-			if serial, ok := startedEmulators[versionIdentifier]; ok {
+			if serial, ok := startedEmulators[versionIdentifier].(map[string]any)["serial"].(string); ok {
 				logger.Info(
 					"Emulator already started, skipping start",
 					"version",
@@ -171,6 +164,19 @@ func MobileAutomationSetupHook(
 					"serial",
 					serial,
 				)
+				driverPort, ok := startedEmulators[versionIdentifier].(map[string]any)["driver_host_port"].(float64)
+				if !ok {
+					return workflowengine.NewAppError(
+						errCode,
+						fmt.Sprintf(
+							"%s: missing driver_host_port in response for step %s",
+							errCode.Description,
+							step.ID,
+						),
+						startedEmulators[versionIdentifier],
+					)
+				}
+				SetPayloadValue(&step.With.Payload, "driver_host_port", int(driverPort))
 				SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 				continue
 			}
@@ -199,28 +205,40 @@ func MobileAutomationSetupHook(
 					startResult.Output,
 				)
 			}
-			driverPort, err := findFreePort(context.Background(), 7000, 7999)
-			if err != nil {
-				errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
-				return workflowengine.NewAppError(
-					errCode,
-					fmt.Sprintf(errCode.Description+": %v", err),
-				)
-			}
+
 			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
-			SetPayloadValue(&step.With.Payload, "driver_host_port", driverPort)
 
 			installInput := workflowengine.ActivityInput{
 				Payload: map[string]any{
-					"apk":              apkPath,
-					"emulator_serial":  serial,
-					"driver_host_port": driverPort,
+					"apk":             apkPath,
+					"emulator_serial": serial,
 				},
 			}
-			if err := workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).Get(ctx, nil); err != nil {
+			installOutput := workflowengine.ActivityResult{}
+			err = workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).
+				Get(ctx, &installOutput)
+			if err != nil {
 				return err
 			}
-			startedEmulators[versionIdentifier] = serial
+
+			driverPort, ok := installOutput.Output.(map[string]any)["driver_host_port"].(float64)
+			if !ok {
+				return workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf(
+						"%s: missing driver_host_port in response for step %s",
+						errCode.Description,
+						step.ID,
+					),
+					installOutput.Output,
+				)
+			}
+			SetPayloadValue(&step.With.Payload, "driver_host_port", int(driverPort))
+
+			startedEmulators[versionIdentifier] = map[string]any{
+				"serial":           serial,
+				"driver_host_port": int(driverPort),
+			}
 			// unlockInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": serial}}
 			// if err := workflow.ExecuteActivity(mobileCtx, unlockActivity.Name(), unlockInput).Get(ctx, nil); err != nil {
 			// 	return err
@@ -299,42 +317,4 @@ func MobileAutomationCleanupHook(
 	}
 
 	return nil
-}
-
-// findFreePort randomly picks ports within [start, end] until it finds a free one.
-func findFreePort(ctx context.Context, start, end int) (int, error) {
-	if start > end {
-		return 0, fmt.Errorf("invalid range: %d > %d", start, end)
-	}
-
-	portRange := end - start + 1
-	tried := make(map[int]bool)
-	lc := net.ListenConfig{}
-
-	for len(tried) < portRange {
-		p := start + rand.Intn(portRange)
-		if tried[p] {
-			continue
-		}
-		tried[p] = true
-
-		// IPv4 try
-		ipv4, err4 := lc.Listen(ctx, "tcp4", fmt.Sprintf("127.0.0.1:%d", p))
-		if err4 != nil {
-			continue
-		}
-
-		// IPv6 try
-		ipv6, err6 := lc.Listen(ctx, "tcp6", fmt.Sprintf("[::1]:%d", p))
-		if err6 != nil {
-			_ = ipv4.Close()
-			continue
-		}
-
-		_ = ipv4.Close()
-		_ = ipv6.Close()
-		return p, nil
-	}
-
-	return 0, fmt.Errorf("no free port found in %d..%d", start, end)
 }
