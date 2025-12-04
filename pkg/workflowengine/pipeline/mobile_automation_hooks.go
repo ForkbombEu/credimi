@@ -155,32 +155,45 @@ func MobileAutomationSetupHook(
 				SetPayloadValue(&step.With.Payload, "stored_action_code", true)
 			}
 			SetPayloadValue(&step.With.Payload, "version_id", versionIdentifier)
-
-			if serial, ok := startedEmulators[versionIdentifier].(map[string]any)["serial"].(string); ok {
-				logger.Info(
-					"Emulator already started, skipping start",
-					"version",
-					versionIdentifier,
-					"serial",
-					serial,
-				)
-				driverPort, ok := startedEmulators[versionIdentifier].(map[string]any)["driver_host_port"].(float64)
+			if emuRaw, exists := startedEmulators[versionIdentifier]; exists {
+				emuMap, ok := emuRaw.(map[string]any)
 				if !ok {
 					return workflowengine.NewAppError(
 						errCode,
 						fmt.Sprintf(
-							"%s: missing driver_host_port in response for step %s",
-							errCode.Description,
+							"invalid emulator record type for version %s in step %s",
+							versionIdentifier,
 							step.ID,
 						),
-						startedEmulators[versionIdentifier],
+						emuRaw,
 					)
 				}
-				SetPayloadValue(&step.With.Payload, "driver_host_port", int(driverPort))
-				SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
-				continue
-			}
 
+				if serial, ok := emuMap["serial"].(string); ok {
+					logger.Info(
+						"Emulator already started, skipping start",
+						"version",
+						versionIdentifier,
+						"serial",
+						serial,
+					)
+					driverPort, ok := emuMap["driver_host_port"].(float64)
+					if !ok {
+						return workflowengine.NewAppError(
+							errCode,
+							fmt.Sprintf(
+								"%s: missing driver_host_port in response for step %s",
+								errCode.Description,
+								step.ID,
+							),
+							startedEmulators[versionIdentifier],
+						)
+					}
+					SetPayloadValue(&step.With.Payload, "driver_host_port", int(driverPort))
+					SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
+					continue
+				}
+			}
 			mobileAo := *input.ActivityOptions
 			mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 			mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
