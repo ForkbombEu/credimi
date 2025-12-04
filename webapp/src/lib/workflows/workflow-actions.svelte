@@ -48,12 +48,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const actions: WorkflowAction[] = [
 		{
-			label: m.Terminate(),
+			label: m.Cancel(),
 			icon: XIcon,
 			onclick: ({ workflowId, runId }) =>
 				runWithLoading({
 					fn: async () => {
-						await pb.send(`/api/my/checks/${workflowId}/runs/${runId}/terminate`, {
+						await pb.send(`/api/my/checks/${workflowId}/runs/${runId}/cancel`, {
 							method: 'POST'
 						});
 					}
