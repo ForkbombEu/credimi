@@ -6,6 +6,8 @@ package pipeline
 
 import (
 	"fmt"
+	"math/rand"
+	"net"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -196,10 +198,23 @@ func MobileAutomationSetupHook(
 					startResult.Output,
 				)
 			}
+			driverPort, err := findFreePort(7000, 7999)
+			if err != nil {
+				errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
+				return workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf(errCode.Description+": %v", err),
+				)
+			}
 			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
+			SetPayloadValue(&step.With.Payload, "driver_host_port", driverPort)
 
 			installInput := workflowengine.ActivityInput{
-				Payload: map[string]any{"apk": apkPath, "emulator_serial": serial},
+				Payload: map[string]any{
+					"apk":              apkPath,
+					"emulator_serial":  serial,
+					"driver_host_port": driverPort,
+				},
 			}
 			if err := workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).Get(ctx, nil); err != nil {
 				return err
@@ -283,4 +298,42 @@ func MobileAutomationCleanupHook(
 	}
 
 	return nil
+}
+
+// findFreePort randomly picks ports within [start, end] until it finds a free one.
+func findFreePort(start, end int) (int, error) {
+	if start > end {
+		return 0, fmt.Errorf("invalid range: %d > %d", start, end)
+	}
+
+	portRange := end - start + 1
+	tried := make(map[int]bool)
+	lc := net.ListenConfig{}
+
+	for len(tried) < portRange {
+		p := start + rand.Intn(portRange)
+		if tried[p] {
+			continue
+		}
+		tried[p] = true
+
+		// IPv4 try
+		ipv4, err4 := lc.Listen(nil, "tcp4", fmt.Sprintf("127.0.0.1:%d", p))
+		if err4 != nil {
+			continue
+		}
+
+		// IPv6 try
+		ipv6, err6 := lc.Listen(nil, "tcp6", fmt.Sprintf("[::1]:%d", p))
+		if err6 != nil {
+			_ = ipv4.Close()
+			continue
+		}
+
+		_ = ipv4.Close()
+		_ = ipv6.Close()
+		return p, nil
+	}
+
+	return 0, fmt.Errorf("no free port found in %d..%d", start, end)
 }
