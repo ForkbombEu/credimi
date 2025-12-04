@@ -87,16 +87,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 			{#if showLink && src}
-				<div class={linkClass || 'w-60 break-all text-xs'}>
-					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-					<a
-						class="text-primary hover:underline"
-						href={src}
-						aria-label={m.Credential_Deeplink()}
+				<div class="space-y-1">
+					<div class={linkClass || 'w-60 break-all text-xs'}>
+						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+						<a
+							class="text-primary hover:underline"
+							href={src}
+							aria-label={m.Credential_Deeplink()}
+						>
+							{src}
+						</a>
+					</div>
+					<CopyButtonSmall
+						variant="ghost"
+						size="mini"
+						class="-mx-2 px-2"
+						textToCopy={src}
 					>
-						{src}
-					</a>
-					<CopyButtonSmall variant="ghost" size="xs" textToCopy={src} />
+						{m.Copy()}
+					</CopyButtonSmall>
 				</div>
 			{/if}
 		</div>

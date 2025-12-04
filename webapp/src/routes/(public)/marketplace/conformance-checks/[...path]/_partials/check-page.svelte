@@ -105,7 +105,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<p>{qrWorkflow.message}</p>
 			</EmptyQr>
 		{:else if qrWorkflow}
-			<pre>{qrWorkflow}</pre>
 			<WorkflowQrPoller
 				workflowId={qrWorkflow.workflowId}
 				runId={qrWorkflow.runId}
