@@ -31,7 +31,6 @@ type MobileAutomationWorkflowPayload struct {
 	StoredActionCode bool              `json:"stored_action_code,omitempty" yaml:"stored_action_code,omitempty"`
 	EmulatorSerial   string            `json:"emulator_serial,omitempty"    yaml:"emulator_serial,omitempty"`
 	Parameters       map[string]string `json:"parameters,omitempty"         yaml:"parameters,omitempty"`
-	DriverHostPort   int               `json:"driver_host_port,omitempty"   yaml:"driver_host_port,omitempty"`
 }
 
 type MobileAutomationWorkflowPipelinePayload struct {
@@ -99,7 +98,6 @@ func (w *MobileAutomationWorkflow) Workflow(
 	mobileInput := workflowengine.ActivityInput{
 		Payload: mobile.RunMobileFlowPayload{
 			EmulatorSerial: payload.EmulatorSerial,
-			DriverHostPort: payload.DriverHostPort,
 			Yaml:           payload.ActionCode,
 			Recorded:       payload.Video,
 			Parameters:     payload.Parameters,

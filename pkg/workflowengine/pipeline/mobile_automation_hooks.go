@@ -30,9 +30,13 @@ func MobileAutomationSetupHook(
 	// unlockActivity := activities.NewUnlockEmulatorActivity()
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
 
-	startedEmulators := make(map[string]any)
+	startedEmulators := make(map[string]string)
 	if alreadyStartedEmu, ok := input.Config["started_emulators"].(map[string]any); ok {
-		startedEmulators = alreadyStartedEmu
+		for k, v := range alreadyStartedEmu {
+			if strVal, ok := v.(string); ok {
+				startedEmulators[k] = strVal
+			}
+		}
 	}
 
 	for i := range *steps {
@@ -155,45 +159,19 @@ func MobileAutomationSetupHook(
 				SetPayloadValue(&step.With.Payload, "stored_action_code", true)
 			}
 			SetPayloadValue(&step.With.Payload, "version_id", versionIdentifier)
-			if emuRaw, exists := startedEmulators[versionIdentifier]; exists {
-				emuMap, ok := emuRaw.(map[string]any)
-				if !ok {
-					return workflowengine.NewAppError(
-						errCode,
-						fmt.Sprintf(
-							"invalid emulator record type for version %s in step %s",
-							versionIdentifier,
-							step.ID,
-						),
-						emuRaw,
-					)
-				}
 
-				if serial, ok := emuMap["serial"].(string); ok {
-					logger.Info(
-						"Emulator already started, skipping start",
-						"version",
-						versionIdentifier,
-						"serial",
-						serial,
-					)
-					driverPort, ok := emuMap["driver_host_port"].(float64)
-					if !ok {
-						return workflowengine.NewAppError(
-							errCode,
-							fmt.Sprintf(
-								"%s: missing driver_host_port in response for step %s",
-								errCode.Description,
-								step.ID,
-							),
-							startedEmulators[versionIdentifier],
-						)
-					}
-					SetPayloadValue(&step.With.Payload, "driver_host_port", int(driverPort))
-					SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
-					continue
-				}
+			if serial, ok := startedEmulators[versionIdentifier]; ok {
+				logger.Info(
+					"Emulator already started, skipping start",
+					"version",
+					versionIdentifier,
+					"serial",
+					serial,
+				)
+				SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
+				continue
 			}
+
 			mobileAo := *input.ActivityOptions
 			mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 			mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
@@ -218,40 +196,15 @@ func MobileAutomationSetupHook(
 					startResult.Output,
 				)
 			}
-
 			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 
 			installInput := workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"apk":             apkPath,
-					"emulator_serial": serial,
-				},
+				Payload: map[string]any{"apk": apkPath, "emulator_serial": serial},
 			}
-			installOutput := workflowengine.ActivityResult{}
-			err = workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).
-				Get(ctx, &installOutput)
-			if err != nil {
+			if err := workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).Get(ctx, nil); err != nil {
 				return err
 			}
-
-			driverPort, ok := installOutput.Output.(map[string]any)["driver_host_port"].(float64)
-			if !ok {
-				return workflowengine.NewAppError(
-					errCode,
-					fmt.Sprintf(
-						"%s: missing driver_host_port in response for step %s",
-						errCode.Description,
-						step.ID,
-					),
-					installOutput.Output,
-				)
-			}
-			SetPayloadValue(&step.With.Payload, "driver_host_port", int(driverPort))
-
-			startedEmulators[versionIdentifier] = map[string]any{
-				"serial":           serial,
-				"driver_host_port": int(driverPort),
-			}
+			startedEmulators[versionIdentifier] = serial
 			// unlockInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": serial}}
 			// if err := workflow.ExecuteActivity(mobileCtx, unlockActivity.Name(), unlockInput).Get(ctx, nil); err != nil {
 			// 	return err
