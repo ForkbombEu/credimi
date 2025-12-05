@@ -231,11 +231,6 @@ func (w *StartCheckWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", payload.Suite)
 	}
 	cfg := StepCIAndEmailConfig{
-		AppURL:        appURL,
-		AppName:       input.Config["app_name"].(string),
-		AppLogo:       input.Config["app_logo"].(string),
-		UserName:      input.Config["user_name"].(string),
-		UserMail:      payload.UserMail,
 		Template:      input.Config["template"].(string),
 		StepCIPayload: stepCIPayload,
 		Namespace:     input.Config["namespace"].(string),
@@ -245,7 +240,7 @@ func (w *StartCheckWorkflow) Workflow(
 	}
 
 	if payload.SendMail {
-		cfg.AppURL = input.Config["app_url"].(string)
+		cfg.AppURL = appURL
 		cfg.AppName = input.Config["app_name"].(string)
 		cfg.AppLogo = input.Config["app_logo"].(string)
 		cfg.UserName = input.Config["user_name"].(string)
