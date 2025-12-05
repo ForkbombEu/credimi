@@ -35,8 +35,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Form.Field {form} {name}>
 	<FieldWrapper field={name} {options}>
-		{#snippet children()}
-			<MarkdownEditor bind:value={$valueProxy} {height} />
-		{/snippet}
+		<MarkdownEditor bind:value={$valueProxy} {height} />
 	</FieldWrapper>
 </Form.Field>

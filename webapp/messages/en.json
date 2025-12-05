@@ -837,6 +837,7 @@
 	"Schedule_resumed_successfully": "Schedule resumed successfully",
 	"No_scheduled_workflows": "No scheduled workflows",
 	"next_run": "Next run",
+	"DCQL_Query": "DCQL Query",
 	"You_have_unsaved_changes": "You have unsaved changes",
 	"Are_you_sure_you_want_to_exit_the_form": "Are you sure you want to exit the form? You will lose your changes."
 }

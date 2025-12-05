@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ClassValue } from 'svelte/elements';
 
 	import clsx from 'clsx';
-	import { Check, ClipboardCopy, Moon, Sun } from 'lucide-svelte';
+	import { Check, ClipboardCopy } from 'lucide-svelte';
 	import { codeToHtml, type BundledLanguage, type BundledTheme } from 'shiki';
 
 	import Button from '@/components/ui/button/button.svelte';
@@ -81,9 +81,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}
 
-	function toggleTheme() {
-		isDarkTheme = !isDarkTheme;
-	}
+	// function toggleTheme() {
+	// 	isDarkTheme = !isDarkTheme;
+	// }
 
 	const preClasses = $derived(
 		className || 'border border-slate-200 bg-white p-4 overflow-x-auto text-sm'
@@ -124,7 +124,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</Button>
 
-			{#if highlighted}
+			<!-- {#if highlighted}
 				<Button
 					type="button"
 					variant="ghost"
@@ -139,7 +139,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<Moon class="h-3 w-3 text-slate-600" />
 					{/if}
 				</Button>
-			{/if}
+			{/if} -->
 		</div>
 	{/if}
 {/snippet}
