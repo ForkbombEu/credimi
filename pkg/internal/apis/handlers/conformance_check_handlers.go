@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 	"time"
 
@@ -60,6 +61,15 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 			suite = parts[len(parts)-2]
 			standard = parts[0]
 			checkName = parts[len(parts)-1]
+		}
+		var validCheckName = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
+		if !validCheckName.MatchString(checkName) {
+			return apierror.New(
+				http.StatusBadRequest,
+				"request",
+				"invalid check name",
+				"checkName may only contain letters, numbers, dash and underscore",
+			).JSON(e)
 		}
 		appURL := e.App.Settings().Meta.AppURL
 		memo := map[string]any{
