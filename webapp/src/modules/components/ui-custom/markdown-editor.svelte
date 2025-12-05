@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		height?: number;
 	};
 
-	let { value = $bindable(), height = 200 }: Props = $props();
+	let { value = $bindable(), height = 300 }: Props = $props();
 
 	//
 
