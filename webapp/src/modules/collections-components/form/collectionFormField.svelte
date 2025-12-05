@@ -89,7 +89,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		options={{ label, items, type: multiple ? 'multiple' : 'single', description, placeholder }}
 	/>
 {:else if config.type == 'editor'}
-	<MarkdownField {form} {name} height={80} />
+	<MarkdownField {form} {name} />
 {:else if config.type == 'relation'}
 	{@const collectionName = getCollectionNameFromId(config.collectionId) as C}
 	<CollectionField

@@ -6,8 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Carta, MarkdownEditor, type Plugin } from 'carta-md';
-	import DOMPurify from 'dompurify';
 	import 'carta-md/default.css';
+	import DOMPurify from 'dompurify';
 	import { onMount } from 'svelte';
 
 	import MarkdownEditorIcon from './markdown-editor-image-icon.svelte';
@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		height?: number;
 	};
 
-	let { value = $bindable(), height = 300 }: Props = $props();
+	let { value = $bindable(), height = 200 }: Props = $props();
 
 	//
 
@@ -55,24 +55,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<div class="resizable-container" style="height: {height}px;">
-	<MarkdownEditor bind:value {carta} />
+<div style="--carta-height: {height}px;">
+	<MarkdownEditor mode="tabs" bind:value {carta} />
 </div>
 
 <style lang="postcss">
-	.resizable-container {
-		resize: both;
-		overflow: auto;
-		min-height: 120px;
-		min-width: 200px;
-		border: 1px solid hsl(var(--border));
-		border-radius: 6px;
-		width: 100%;
-	}
-
-	:global(.carta-input),
-	:global(.carta-renderer) {
-		min-height: 120px;
-		overflow: auto;
+	:global(.carta-input, .carta-renderer, .carta-input-wrapper) {
+		height: var(--carta-height) !important;
+		min-height: var(--carta-height) !important;
 	}
 </style>
