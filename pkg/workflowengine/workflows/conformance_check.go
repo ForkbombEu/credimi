@@ -178,7 +178,13 @@ func (w *StartCheckWorkflow) Workflow(
 			runMeta,
 		)
 	}
-
+	appURL := input.Config["app_url"].(string)
+	if appURL == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"app_url",
+			runMeta,
+		)
+	}
 	var stepCIPayload activities.StepCIWorkflowActivityPayload
 	var ewcSessionID string
 	switch payload.Suite {
@@ -234,7 +240,7 @@ func (w *StartCheckWorkflow) Workflow(
 	}
 
 	if payload.SendMail {
-		cfg.AppURL = input.Config["app_url"].(string)
+		cfg.AppURL = appURL
 		cfg.AppName = input.Config["app_name"].(string)
 		cfg.AppLogo = input.Config["app_logo"].(string)
 		cfg.UserName = input.Config["user_name"].(string)
@@ -281,7 +287,7 @@ func (w *StartCheckWorkflow) Workflow(
 					Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 				},
 				Config: map[string]any{
-					"app_url":  cfg.AppURL,
+					"app_url":  appURL,
 					"interval": time.Second,
 				},
 			}).GetChildWorkflowExecution().Get(ctx, nil)
@@ -343,7 +349,7 @@ func (w *StartCheckWorkflow) Workflow(
 					SessionID: ewcSessionID,
 				},
 				Config: map[string]any{
-					"app_url":        cfg.AppURL,
+					"app_url":        appURL,
 					"interval":       time.Second * 5,
 					"check_endpoint": checkEndpoint,
 				},
