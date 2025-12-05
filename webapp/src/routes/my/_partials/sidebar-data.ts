@@ -5,7 +5,15 @@
 import { appSections, testRunsSection } from '$lib/marketplace/sections';
 import { workflowStatuses } from '$lib/temporal';
 import { WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows';
-import { GlobeIcon, HomeIcon, HourglassIcon, LockIcon, StoreIcon, UserIcon } from 'lucide-svelte';
+import {
+	GlobeIcon,
+	HomeIcon,
+	HourglassIcon,
+	LockIcon,
+	SheetIcon,
+	StoreIcon,
+	UserIcon
+} from 'lucide-svelte';
 
 import { m } from '@/i18n';
 
@@ -32,7 +40,7 @@ export const data: SidebarGroup[] = [
 		]
 	},
 	{
-		title: m.Services_and_products(),
+		title: m.marketplace_items(),
 		items: Object.values(appSections)
 			.filter((section) => section.id !== 'conformance-checks')
 			.map((section) => {
@@ -58,10 +66,10 @@ export const data: SidebarGroup[] = [
 			})
 	},
 	{
-		title: testRunsSection.label,
+		title: m.workflows(),
 		items: [
 			{
-				title: testRunsSection.label,
+				title: m.workflow_runs(),
 				url: testRunsSection.id,
 				icon: testRunsSection.icon,
 				children: workflowStatuses
@@ -76,6 +84,16 @@ export const data: SidebarGroup[] = [
 				title: m.Scheduled_workflows(),
 				url: '/my/tests/runs/scheduled',
 				icon: HourglassIcon
+			}
+		]
+	},
+	{
+		title: m.tools(),
+		items: [
+			{
+				title: m.manual_conformance_checks(),
+				url: '/my/tests/new',
+				icon: SheetIcon
 			}
 		]
 	},

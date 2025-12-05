@@ -52,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Button>
 		<Button variant="secondary" href={$currentUser ? '/my/pipelines/new' : '/login'}>
 			<Icon src={Sparkle} />
-			{m.Start_a_new_check()}
+			{m.automated_conformance_interop()}
 			<Badge variant="outline" class="border-primary text-primary text-xs">
 				{m.Beta()}
 			</Badge>
