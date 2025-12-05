@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SuperForm } from 'sveltekit-superforms';
 
+	import QrFieldWrapper from '$lib/layout/qr-field-wrapper.svelte';
 	import { generateDeeplinkFromYaml } from '$lib/utils';
 	import { onMount } from 'svelte';
 	import { fromStore, type Writable } from 'svelte/store';
@@ -165,6 +166,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 		return undefined;
 	});
+
+	//
+
+	const { constraints } = formFieldProxy(form, fieldName);
 </script>
 
 {#snippet error()}
@@ -176,50 +181,53 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 {/snippet}
 
-<div class="flex max-w-full gap-4">
-	<div class="w-0 grow">
-		<CodeEditorField
-			{form}
-			name={fieldName}
-			options={{
-				lang: 'yaml',
-				minHeight: 200,
-				label,
-				description,
-				useOutput: true,
-				output: editorOutput(),
-				error: codeEditorErrorDisplay(),
-				running: isSubmittingWorkflow,
-				onRun: startWorkflowTest,
-				canRun: !hasErrors
-			}}
-		/>
-	</div>
+<QrFieldWrapper {label} required={$constraints?.required}>
+	<div class="flex max-w-full gap-4">
+		<div class="w-0 grow">
+			<CodeEditorField
+				{form}
+				name={fieldName}
+				options={{
+					lang: 'yaml',
+					minHeight: 200,
+					hideLabel: true,
+					label,
+					description,
+					useOutput: true,
+					output: editorOutput(),
+					error: codeEditorErrorDisplay(),
+					running: isSubmittingWorkflow,
+					onRun: startWorkflowTest,
+					canRun: !hasErrors
+				}}
+			/>
+		</div>
 
-	<div class="pt-8">
-		<QrCode
-			src={generatedDeeplink}
-			class="size-60 rounded-md border"
-			{placeholder}
-			bind:isLoading={isSubmittingWorkflow}
-			error={typeof workflowError === 'string' ? workflowError : undefined}
-			hasStructuredError={!!(
-				workflowError &&
-				typeof workflowError === 'object' &&
-				'summary' in workflowError
-			)}
-		>
-			{#if workflowError && typeof workflowError === 'object' && 'summary' in workflowError}
-				{@render error()}
+		<div>
+			<QrCode
+				src={generatedDeeplink}
+				class="size-60 rounded-md border"
+				{placeholder}
+				bind:isLoading={isSubmittingWorkflow}
+				error={typeof workflowError === 'string' ? workflowError : undefined}
+				hasStructuredError={!!(
+					workflowError &&
+					typeof workflowError === 'object' &&
+					'summary' in workflowError
+				)}
+			>
+				{#if workflowError && typeof workflowError === 'object' && 'summary' in workflowError}
+					{@render error()}
+				{/if}
+			</QrCode>
+			{#if generatedDeeplink}
+				<div class="max-w-60 break-all pt-4 text-xs">
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+					<a class="hover:underline" href={generatedDeeplink} target="_self">
+						{generatedDeeplink}
+					</a>
+				</div>
 			{/if}
-		</QrCode>
-		{#if generatedDeeplink}
-			<div class="max-w-60 break-all pt-4 text-xs">
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-				<a class="hover:underline" href={generatedDeeplink} target="_self">
-					{generatedDeeplink}
-				</a>
-			</div>
-		{/if}
+		</div>
 	</div>
-</div>
+</QrFieldWrapper>

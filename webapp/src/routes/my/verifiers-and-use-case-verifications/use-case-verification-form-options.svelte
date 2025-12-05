@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					credentials: m.use_case_verification_field_description_credentials(),
 					published: m.use_case_verification_field_description_published()
 				},
-				order: ['name', 'yaml', 'credentials', 'description'],
+				order: ['name', 'description', 'yaml', 'credentials'],
 				relations: {
 					credentials: {
 						mode: 'select',
@@ -64,18 +64,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet yaml_editor({ form }: FieldSnippetOptions<'use_cases_verifications'>)}
-	<div>
-		<QrGenerationField
-			{form}
-			fieldName="yaml"
-			label={m.YAML_Configuration()}
-			description={m.Provide_configuration_in_YAML_format()}
-			placeholder={m.Run_the_code_to_generate_QR_code()}
-			successMessage={m.Test_Completed_Successfully()}
-			loadingMessage={m.Running_test()}
-			enableStructuredErrors={true}
-		/>
-	</div>
+	<QrGenerationField
+		{form}
+		fieldName="yaml"
+		label={m.YAML_Configuration()}
+		description={m.Provide_configuration_in_YAML_format()}
+		placeholder={m.Run_the_code_to_generate_QR_code()}
+		successMessage={m.Test_Completed_Successfully()}
+		loadingMessage={m.Running_test()}
+		enableStructuredErrors={true}
+	/>
 {/snippet}
 
 {#snippet logo()}

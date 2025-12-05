@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { SuperForm } from 'sveltekit-superforms';
 
 	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
+	import QrFieldWrapper from '$lib/layout/qr-field-wrapper.svelte';
 	import { refineAsStepciYaml } from '$lib/utils';
 	import { z } from 'zod';
 
@@ -19,7 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/pocketbase/types';
 
 	import { CollectionForm } from '@/collections-components';
-	import Label from '@/components/ui/label/label.svelte';
 	import { FormError, SubmitButton } from '@/forms';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
@@ -122,17 +122,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet qr_generation({ form }: FieldSnippetOptions<'credentials'>)}
-	<div class="space-y-2">
-		<Label>{m.Credential_Deeplink()}</Label>
-		<div class="rounded-md border border-blue-200 bg-blue-50 p-4">
-			<QrGenerationField
-				form={form as unknown as SuperForm<{ deeplink: string; yaml: string }>}
-				{credential}
-				{credentialIssuer}
-				bind:activeTab
-			/>
-		</div>
-	</div>
+	<QrFieldWrapper label={m.Credential_Deeplink()}>
+		<QrGenerationField
+			form={form as unknown as SuperForm<{ deeplink: string; yaml: string }>}
+			{credential}
+			{credentialIssuer}
+			bind:activeTab
+		/>
+	</QrFieldWrapper>
 {/snippet}
 
 {#snippet logo()}
