@@ -178,7 +178,13 @@ func (w *StartCheckWorkflow) Workflow(
 			runMeta,
 		)
 	}
-
+	appURL := input.Config["app_url"].(string)
+	if appURL == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"app_url",
+			runMeta,
+		)
+	}
 	var stepCIPayload activities.StepCIWorkflowActivityPayload
 	var ewcSessionID string
 	switch payload.Suite {
@@ -225,6 +231,11 @@ func (w *StartCheckWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", payload.Suite)
 	}
 	cfg := StepCIAndEmailConfig{
+		AppURL:        appURL,
+		AppName:       input.Config["app_name"].(string),
+		AppLogo:       input.Config["app_logo"].(string),
+		UserName:      input.Config["user_name"].(string),
+		UserMail:      payload.UserMail,
 		Template:      input.Config["template"].(string),
 		StepCIPayload: stepCIPayload,
 		Namespace:     input.Config["namespace"].(string),
@@ -281,7 +292,7 @@ func (w *StartCheckWorkflow) Workflow(
 					Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 				},
 				Config: map[string]any{
-					"app_url":  cfg.AppURL,
+					"app_url":  appURL,
 					"interval": time.Second,
 				},
 			}).GetChildWorkflowExecution().Get(ctx, nil)
@@ -343,7 +354,7 @@ func (w *StartCheckWorkflow) Workflow(
 					SessionID: ewcSessionID,
 				},
 				Config: map[string]any{
-					"app_url":        cfg.AppURL,
+					"app_url":        appURL,
 					"interval":       time.Second * 5,
 					"check_endpoint": checkEndpoint,
 				},
