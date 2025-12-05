@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" module>
 	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
+	import QrFieldWrapper from '$lib/layout/qr-field-wrapper.svelte';
 	import { stepciYamlSchema } from '$lib/utils';
 	import { z } from 'zod';
 
@@ -64,16 +65,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet yaml_editor({ form }: FieldSnippetOptions<'use_cases_verifications'>)}
-	<QrGenerationField
-		{form}
-		fieldName="yaml"
-		label={m.YAML_Configuration()}
-		description={m.Provide_configuration_in_YAML_format()}
-		placeholder={m.Run_the_code_to_generate_QR_code()}
-		successMessage={m.Test_Completed_Successfully()}
-		loadingMessage={m.Running_test()}
-		enableStructuredErrors={true}
-	/>
+	<QrFieldWrapper label={m.YAML_Configuration()} required class="!p-3">
+		<QrGenerationField
+			{form}
+			fieldName="yaml"
+			description={m.Provide_configuration_in_YAML_format()}
+			placeholder={m.Run_the_code_to_generate_QR_code()}
+			successMessage={m.Test_Completed_Successfully()}
+			loadingMessage={m.Running_test()}
+			enableStructuredErrors={true}
+			hideLabel
+		/>
+	</QrFieldWrapper>
 {/snippet}
 
 {#snippet logo()}
