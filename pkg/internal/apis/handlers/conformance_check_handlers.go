@@ -130,7 +130,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 			ActivityOptions: ao,
 		}
 
-		var w workflows.StartCheckWorkflow
+		w := workflows.NewStartCheckWorkflow()
 
 		resStart, errStart := w.Start("default", input)
 		if errStart != nil {

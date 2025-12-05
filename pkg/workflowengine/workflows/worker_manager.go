@@ -17,7 +17,9 @@ import (
 
 const WorkerManagerTaskQueue = "worker-manager-task-queue"
 
-type WorkerManagerWorkflow struct{}
+type WorkerManagerWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 // WorkerManagerWorkflowPayload is the payload for the worker manager workflow.
 type WorkerManagerWorkflowPayload struct {
@@ -25,6 +27,11 @@ type WorkerManagerWorkflowPayload struct {
 	OldNamespace string `json:"old_namespace,omitempty" yaml:"old_namespace,omitempty"`
 }
 
+func NewWorkerManagerWorkflow() *WorkerManagerWorkflow {
+	w := &WorkerManagerWorkflow{}
+	w.WorkflowFunc = w.ExecuteWorkflow
+	return w
+}
 func (WorkerManagerWorkflow) Name() string {
 	return "Send namespaces names to start workers"
 }
@@ -32,8 +39,14 @@ func (WorkerManagerWorkflow) Name() string {
 func (WorkerManagerWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
-
 func (w *WorkerManagerWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
@@ -45,7 +58,7 @@ func (w *WorkerManagerWorkflow) Workflow(
 	}
 
 	ctx = workflow.WithActivityOptions(ctx, opts)
-	runMetadata := workflowengine.WorkflowErrorMetadata{
+	runMetadata := &workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
