@@ -12,13 +12,16 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/google/uuid"
 	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"
 )
 
 const (
-	OpenIDConformanceSuite = "openid_conformance_suite"
-	EWCSuite               = "ewc"
+	OpenIDConformanceSuite    = "openid_conformance_suite"
+	EWCSuite                  = "ewc"
+	ConformanceCheckTaskQueue = "ConformanceCheckTaskQueue"
 )
 
 type StepCIAndEmailConfig struct {
@@ -33,6 +36,7 @@ type StepCIAndEmailConfig struct {
 	Secrets       map[string]any
 	RunMeta       workflowengine.WorkflowErrorMetadata
 	Suite         string
+	SendMail      bool
 }
 
 type StepCIAndEmailResult struct {
@@ -72,34 +76,34 @@ func RunStepCIAndSendMail(
 				cfg.RunMeta,
 			)
 	}
+	// Send mail only if SendMail is true
+	if cfg.SendMail {
+		deepLink, ok := captures["deeplink"].(string)
+		if !ok {
+			return StepCIAndEmailResult{},
+				workflowengine.NewStepCIOutputError(
+					"StepCI unexpected output: missing deeplink in captures",
+					captures,
+					cfg.RunMeta,
+				)
+		}
+		suite := cfg.Suite
+		if suite == OpenIDConformanceSuite {
+			suite = "openidnet"
+		}
+		baseURL := utils.JoinURL(cfg.AppURL, "tests", "wallet", suite)
+		u, err := url.Parse(baseURL)
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
+			appErr := workflowengine.NewAppError(errCode, baseURL)
+			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(appErr, cfg.RunMeta)
+		}
+		q := u.Query()
+		q.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
+		q.Set("qr", deepLink)
+		q.Set("namespace", cfg.Namespace)
+		u.RawQuery = q.Encode()
 
-	deepLink, ok := captures["deeplink"].(string)
-	if !ok {
-		return StepCIAndEmailResult{},
-			workflowengine.NewStepCIOutputError(
-				"StepCI unexpected output: missing deeplink in captures",
-				captures,
-				cfg.RunMeta,
-			)
-	}
-	suite := cfg.Suite
-	if suite == OpenIDConformanceSuite {
-		suite = "openidnet"
-	}
-	baseURL := utils.JoinURL(cfg.AppURL, "tests", "wallet", suite)
-	u, err := url.Parse(baseURL)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
-		appErr := workflowengine.NewAppError(errCode, baseURL)
-		return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(appErr, cfg.RunMeta)
-	}
-	q := u.Query()
-	q.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
-	q.Set("qr", deepLink)
-	q.Set("namespace", cfg.Namespace)
-	u.RawQuery = q.Encode()
-	// Commented on 28.11.2025 because some email activity fail
-	/*
 		emailActivity := activities.NewSendMailActivity()
 		emailInput := workflowengine.ActivityInput{
 			Payload: activities.SendMailActivityPayload{
@@ -122,7 +126,7 @@ func RunStepCIAndSendMail(
 			logger.Error("Failed to send mail", "error", err)
 			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMeta)
 		}
-	*/
+	}
 	return StepCIAndEmailResult{
 		Captures: captures,
 	}, nil
@@ -137,7 +141,8 @@ type StartCheckWorkflowPayload struct {
 	Form      *Form  `json:"form,omitempty"       yaml:"form,omitempty"`
 	TestName  string `json:"test,omitempty"       yaml:"test,omitempty"`
 	SessionID string `json:"session_id,omitempty" yaml:"session_id,omitempty"`
-	UserMail  string `json:"user_mail"            yaml:"user_mail"            validate:"required"`
+	UserMail  string `json:"user_mail"            yaml:"user_mail"`
+	SendMail  bool   `json:"send_mail"            yaml:"send_mail"`
 }
 
 type StartCheckWorkflowPipelinePayload struct {
@@ -220,16 +225,20 @@ func (w *StartCheckWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unsupported suite: %s", payload.Suite)
 	}
 	cfg := StepCIAndEmailConfig{
-		AppURL:        input.Config["app_url"].(string),
-		AppName:       input.Config["app_name"].(string),
-		AppLogo:       input.Config["app_logo"].(string),
-		UserName:      input.Config["user_name"].(string),
-		UserMail:      payload.UserMail,
 		Template:      input.Config["template"].(string),
 		StepCIPayload: stepCIPayload,
 		Namespace:     input.Config["namespace"].(string),
 		RunMeta:       runMeta,
 		Suite:         payload.Suite,
+		SendMail:      payload.SendMail,
+	}
+
+	if payload.SendMail {
+		cfg.AppURL = input.Config["app_url"].(string)
+		cfg.AppName = input.Config["app_name"].(string)
+		cfg.AppLogo = input.Config["app_logo"].(string)
+		cfg.UserName = input.Config["user_name"].(string)
+		cfg.UserMail = payload.UserMail
 	}
 
 	setupResult, err := RunStepCIAndSendMail(ctx, cfg)
@@ -246,6 +255,16 @@ func (w *StartCheckWorkflow) Workflow(
 				runMeta,
 			)
 		}
+
+		deeplink, ok := setupResult.Captures["deeplink"].(string)
+		if !ok {
+			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+				"deeplink",
+				setupResult.Captures,
+				runMeta,
+			)
+		}
+
 		child := OpenIDNetLogsWorkflow{}
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-log",
@@ -277,7 +296,7 @@ func (w *StartCheckWorkflow) Workflow(
 		return workflowengine.WorkflowResult{
 			Message: "Check completed successfully",
 			Output: map[string]any{
-				"deeplink": setupResult.Captures["deeplink"],
+				"deeplink": deeplink,
 			},
 		}, nil
 	case EWCSuite:
@@ -300,6 +319,16 @@ func (w *StartCheckWorkflow) Workflow(
 				runMeta,
 			)
 		}
+
+		deeplink, ok := setupResult.Captures["deeplink"].(string)
+		if !ok {
+			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
+				"deeplink",
+				setupResult.Captures,
+				runMeta,
+			)
+		}
+
 		child := EWCStatusWorkflow{}
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-status",
@@ -331,7 +360,7 @@ func (w *StartCheckWorkflow) Workflow(
 		return workflowengine.WorkflowResult{
 			Message: "Check completed successfully",
 			Output: map[string]any{
-				"deeplink": setupResult.Captures["deeplink"],
+				"deeplink": deeplink,
 			},
 		}, nil
 	default:
@@ -340,4 +369,15 @@ func (w *StartCheckWorkflow) Workflow(
 			runMeta,
 		)
 	}
+}
+
+func (w *StartCheckWorkflow) Start(
+	namespace string,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	workflowOptions := client.StartWorkflowOptions{
+		ID:        "conformance-check" + "-" + uuid.NewString(),
+		TaskQueue: ConformanceCheckTaskQueue,
+	}
+	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }

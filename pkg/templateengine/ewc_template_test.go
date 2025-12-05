@@ -39,7 +39,7 @@ func TestParseEwcInput(t *testing.T) {
 	}{
 		{
 			name:  "Valid input",
-			input: "test1+test2+test3",
+			input: "test1-test2-test3",
 			want: map[string]any{
 				"sessionId": `{{
         

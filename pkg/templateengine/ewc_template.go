@@ -29,8 +29,7 @@ func ParseEwcInput(input, defaultFile string) ([]byte, error) {
 		return nil, fmt.Errorf("failed to extract Credimi JSON: %w", err)
 	}
 
-	prefix := strings.ReplaceAll(input, "+", "_")
-	prefix = strings.ReplaceAll(prefix, "-", "_")
+	prefix := strings.ReplaceAll(input, "-", "_")
 	sessionIDJSON["credimi_id"] = fmt.Sprintf("%s_%s", prefix, sessionIDJSON["credimi_id"])
 
 	updatedTemplate, err := generateCredimiTemplate(sessionIDJSON, afterContent)

@@ -491,6 +491,8 @@ type ResumeScheduleResponse struct {
 	Namespace  string `json:"namespace"  validate:"required"`
 }
 
+const RedirectFlagTrue = "true"
+
 func getStringFromMap(m map[string]any, key string) string {
 	if m == nil {
 		return ""

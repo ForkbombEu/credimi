@@ -46,7 +46,7 @@ func HandleGetCredentialDeeplink() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		redirect := e.Request.URL.Query().Get("redirect") == "true"
+		redirect := e.Request.URL.Query().Get("redirect") == RedirectFlagTrue
 
 		rec, err := canonify.Resolve(e.App, id)
 		if err != nil {

@@ -205,7 +205,6 @@ func Test_StartCheckWorkflow(t *testing.T) {
 					sendMail.Execute,
 					activity.RegisterOptions{Name: sendMail.Name()},
 				)
-
 				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
@@ -216,7 +215,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 					}, nil)
 			},
 			expectErr:     true,
-			errorContains: "missing deeplink",
+			errorContains: "deeplink",
 		},
 		{
 			name:  "Missing rid in captures - OpenID",
