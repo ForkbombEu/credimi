@@ -21,7 +21,7 @@ export const data: SidebarGroup[] = [
 		items: [
 			{
 				title: m.Home(),
-				url: '/my',
+				url: '/',
 				icon: HomeIcon
 			},
 			{
