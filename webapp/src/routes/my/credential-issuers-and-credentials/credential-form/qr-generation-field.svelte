@@ -78,9 +78,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Tabs.Root bind:value={activeTab} class="w-full">
-	<Tabs.List class="mb-4 w-full">
+	<Tabs.List class="mb-4 w-full gap-1 bg-black/10">
 		{#each Object.values(modesTabs) as tab (tab)}
-			<Tabs.Trigger class="grow basis-1" value={tab.value}>
+			<Tabs.Trigger
+				class={[
+					'grow basis-1',
+					'data-[state=inactive]:bg-white/40 data-[state=inactive]:text-black data-[state=inactive]:hover:bg-white/80'
+				]}
+				value={tab.value}
+			>
 				{tab.label}
 			</Tabs.Trigger>
 		{/each}
