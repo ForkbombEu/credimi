@@ -125,7 +125,7 @@ func Test_EWCWorkflow(t *testing.T) {
 			env := testSuite.NewTestWorkflowEnvironment()
 
 			callCount = 0
-			var w EWCWorkflow
+			w := NewEWCWorkflow()
 			tc.mockActivities(env)
 			done := make(chan struct{})
 			go func() {
@@ -236,7 +236,7 @@ func Test_EWCStatusWorkflow(t *testing.T) {
 				}).
 				Return(tc.mockResponse, nil)
 
-			var w EWCStatusWorkflow
+			w := NewEWCStatusWorkflow()
 
 			done := make(chan struct{})
 			go func() {

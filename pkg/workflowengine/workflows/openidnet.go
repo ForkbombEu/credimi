@@ -42,7 +42,9 @@ const (
 )
 
 // OpenIDNetWorkflow is a workflow that start a conformance checks on the OpenID certification site.
-type OpenIDNetWorkflow struct{}
+type OpenIDNetWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 // OpenIDNetWorkflowPayload represents the payload for the OpenIDNetWorkflow.
 type OpenIDNetWorkflowPayload struct {
@@ -50,6 +52,12 @@ type OpenIDNetWorkflowPayload struct {
 	Form     Form   `json:"form"      yaml:"form"      validate:"required"`
 	UserMail string `json:"user_mail" yaml:"user_mail" validate:"required"`
 	TestName string `json:"test"      yaml:"test"      validate:"required"`
+}
+
+func NewOpenIDNetWorkflow() *OpenIDNetWorkflow {
+	w := &OpenIDNetWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 type Form struct {
@@ -82,7 +90,14 @@ func (OpenIDNetWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
-// Workflow is the main workflow function for the OpenIDNetWorkflow. It orchestrates
+func (w *OpenIDNetWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+// ExecuteWorkflow is the main workflow function for the OpenIDNetWorkflow. It orchestrates
 // the execution of various activities and child workflows to perform conformance checks
 // and send notifications to the user.
 //
@@ -107,28 +122,18 @@ func (OpenIDNetWorkflow) GetOptions() workflow.ActivityOptions {
 //   - The workflow uses a selector to wait for either a signal or the child workflow's completion.
 //   - If the signal data indicates failure, the workflow terminates with a failure message.
 //   - The workflow relies on environment variables (e.g., OPENIDNET_TOKEN) for configuration.
-func (w *OpenIDNetWorkflow) Workflow(
+func (w *OpenIDNetWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
+
 	payload, err := workflowengine.DecodePayload[OpenIDNetWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -136,7 +141,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 	if !ok || template == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"template",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	suite, ok := input.Config["memo"].(map[string]any)["author"].(string)
@@ -144,14 +149,14 @@ func (w *OpenIDNetWorkflow) Workflow(
 		return workflowengine.WorkflowResult{},
 			workflowengine.NewMissingConfigError(
 				"author",
-				runMetadata,
+				input.RunMetadata,
 			)
 	}
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"app_url",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	stepCIPayload := activities.StepCIWorkflowActivityPayload{
@@ -173,7 +178,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		Template:      template,
 		StepCIPayload: stepCIPayload,
 		Namespace:     input.Config["namespace"].(string),
-		RunMeta:       runMetadata,
+		RunMetadata:   input.RunMetadata,
 		Suite:         suite,
 	}
 
@@ -187,7 +192,7 @@ func (w *OpenIDNetWorkflow) Workflow(
 		rid = ""
 	}
 
-	child := OpenIDNetLogsWorkflow{}
+	child := NewOpenIDNetLogsWorkflow()
 	ctx = child.Configure(ctx)
 
 	logsWorkflow := workflow.ExecuteChildWorkflow(
@@ -218,7 +223,10 @@ func (w *OpenIDNetWorkflow) Workflow(
 	if subWorkflowResponse.Message == "Failed" {
 		errCode := errorcodes.Codes[errorcodes.OpenIDnetCheckFailed]
 		appErr := workflowengine.NewAppError(errCode, errCode.Description, subWorkflowResponse.Log)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 
 	return workflowengine.WorkflowResult{
@@ -259,11 +267,19 @@ func (w *OpenIDNetWorkflow) Start(
 }
 
 // OpenIDNetLogsWorkflow is a workflow that drains logs from the OpenID certification site.
-type OpenIDNetLogsWorkflow struct{}
+type OpenIDNetLogsWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 type OpenIDNetLogsWorkflowPayload struct {
 	Rid   string `json:"rid"   yaml:"rid"   validate:"required"`
 	Token string `json:"token" yaml:"token" validate:"required"`
+}
+
+func NewOpenIDNetLogsWorkflow() *OpenIDNetLogsWorkflow {
+	w := &OpenIDNetLogsWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 // Name returns the name of the OpenIDNetLogsWorkflow.
@@ -276,7 +292,14 @@ func (OpenIDNetLogsWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
-// Workflow is the main workflow function for the OpenIDNetLogsWorkflow.
+func (w *OpenIDNetLogsWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+// ExecuteWorkflow is the main workflow function for the OpenIDNetLogsWorkflow.
 // It periodically fetches logs from a specified URL and processes them
 // based on the provided input configuration. The workflow listens for
 // signals to trigger additional activities and terminates when a specific
@@ -300,30 +323,19 @@ func (OpenIDNetLogsWorkflow) GetOptions() workflow.ActivityOptions {
 //   - Terminates when the logs contain a "result" field with a value of
 //     "INTERRUPTED" or "FINISHED".
 //   - Sends logs to a specified endpoint when triggered by a signal.
-func (w *OpenIDNetLogsWorkflow) Workflow(
+func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 
 	subCtx := workflow.WithActivityOptions(ctx, w.GetOptions())
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(subCtx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(subCtx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(subCtx).WorkflowExecution.ID,
-			workflow.GetInfo(subCtx).WorkflowExecution.RunID,
-		),
-	}
 
 	payload, err := workflowengine.DecodePayload[OpenIDNetLogsWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	getLogsInput := workflowengine.ActivityInput{
@@ -400,7 +412,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 			logger.Error("Failed to get logs", "error", err)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 
@@ -433,7 +445,7 @@ func (w *OpenIDNetLogsWorkflow) Workflow(
 			logger.Error("Failed to send logs", "error", err)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 

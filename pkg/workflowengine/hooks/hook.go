@@ -81,8 +81,8 @@ var OrgWorkers = []workerConfig{
 	{
 		TaskQueue: workflows.OpenIDNetTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			&workflows.OpenIDNetWorkflow{},
-			&workflows.OpenIDNetLogsWorkflow{},
+			workflows.NewOpenIDNetWorkflow(),
+			workflows.NewOpenIDNetLogsWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
@@ -93,7 +93,7 @@ var OrgWorkers = []workerConfig{
 	{
 		TaskQueue: workflows.EWCTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			&workflows.EWCWorkflow{},
+			workflows.NewEWCWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
@@ -104,7 +104,7 @@ var OrgWorkers = []workerConfig{
 	{
 		TaskQueue: workflows.EudiwTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			&workflows.EudiwWorkflow{},
+			workflows.NewEudiwWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
@@ -115,7 +115,7 @@ var OrgWorkers = []workerConfig{
 	{
 		TaskQueue: workflows.CredentialsTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			&workflows.CredentialsIssuersWorkflow{},
+			workflows.NewCredentialsIssuersWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewCheckCredentialsIssuerActivity(),
@@ -133,7 +133,7 @@ var OrgWorkers = []workerConfig{
 	{
 		TaskQueue: workflows.WalletTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			&workflows.WalletWorkflow{},
+			workflows.NewWalletWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewParseWalletURLActivity(),
@@ -151,7 +151,7 @@ var OrgWorkers = []workerConfig{
 	{
 		TaskQueue: workflows.CustomCheckTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			&workflows.CustomCheckWorkflow{},
+			workflows.NewCustomCheckWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
@@ -161,7 +161,7 @@ var OrgWorkers = []workerConfig{
 	{
 		TaskQueue: workflows.VLEIValidationTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			&workflows.VLEIValidationWorkflow{},
+			workflows.NewVLEIValidationWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewHTTPActivity(),
@@ -172,7 +172,7 @@ var OrgWorkers = []workerConfig{
 	{
 		TaskQueue: workflows.VLEIValidationLocalTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			&workflows.VLEIValidationLocalWorkflow{},
+			workflows.NewVLEIValidationLocalWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewCESRParsingActivity(),
@@ -185,7 +185,7 @@ var DefaultWorkers = []workerConfig{
 	{
 		TaskQueue: workflows.CustomCheckTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			&workflows.CustomCheckWorkflow{},
+			workflows.NewCustomCheckWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
@@ -195,8 +195,8 @@ var DefaultWorkers = []workerConfig{
 	{
 		TaskQueue: workflows.ConformanceCheckTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			&workflows.StartCheckWorkflow{},
-			&workflows.EWCStatusWorkflow{},
+			workflows.NewStartCheckWorkflow(),
+			workflows.NewEWCStatusWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
@@ -206,7 +206,7 @@ var DefaultWorkers = []workerConfig{
 	{
 		TaskQueue: workflows.WorkerManagerTaskQueue,
 		Workflows: []workflowengine.Workflow{
-			&workflows.WorkerManagerWorkflow{},
+			workflows.NewWorkerManagerWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewHTTPActivity(),
@@ -239,7 +239,7 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 	defer wg.Done()
 	w := worker.New(c, pipeline.PipelineTaskQueue, worker.Options{})
 
-	pipelineWf := &pipeline.PipelineWorkflow{}
+	pipelineWf := pipeline.NewPipelineWorkflow()
 	w.RegisterWorkflowWithOptions(
 		pipelineWf.Workflow,
 		workflow.RegisterOptions{Name: pipelineWf.Name()},
@@ -453,7 +453,7 @@ func executeWorkerManagerWorkflow(namespace, oldNamespace string) error {
 		ActivityOptions: ao,
 	}
 
-	var w workflows.WorkerManagerWorkflow
+	w := workflows.NewWorkerManagerWorkflow()
 	resStart, err := w.Start("default", input)
 	if err != nil {
 		return fmt.Errorf("failed to start workflow: %w", err)

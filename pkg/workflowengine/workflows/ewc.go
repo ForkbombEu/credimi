@@ -2,9 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-// Package workflows provides implementations of workflows for the OpenID certification site.
-// It includes the OpenIDNetWorkflow for conformance checks and the OpenIDNetLogsWorkflow
-// for draining logs from the OpenID certification site.
 package workflows
 
 import (
@@ -14,7 +11,6 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -31,11 +27,19 @@ const (
 )
 
 // EWCWorkflow is a workflow that performs conformance checks on the EWC suite.
-type EWCWorkflow struct{}
+type EWCWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 type EWCWorkflowPayload struct {
 	SessionID string `json:"session_id" yaml:"session_id" validate:"required"`
 	UserMail  string `json:"user_mail"  yaml:"user_mail"  validate:"required"`
+}
+
+func NewEWCWorkflow() *EWCWorkflow {
+	w := &EWCWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 // Name returns the name of the EWCWorkflow.
@@ -55,7 +59,14 @@ type EWCResponseBody struct {
 	Claims    []string `json:"claims,omitempty"`
 }
 
-// Workflow is the main workflow function for the EWCWorkflow. It orchestrates
+func (w *EWCWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+// ExecuteWorkflow is the main workflow function for the EWCWorkflow. It orchestrates
 // the execution of various activities to perform conformance checks
 // and send notifications to the user.
 //
@@ -79,28 +90,17 @@ type EWCResponseBody struct {
 // Notes:
 //   - The workflow uses a selector to wait for either a signal or the next API call.
 //   - If the signal data indicates failure, the workflow terminates with a failure message.
-func (w *EWCWorkflow) Workflow(
+func (w *EWCWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
 
 	payload, err := workflowengine.DecodePayload[EWCWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -108,7 +108,7 @@ func (w *EWCWorkflow) Workflow(
 	if !ok || template == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"template",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -116,14 +116,14 @@ func (w *EWCWorkflow) Workflow(
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"app_url",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	checkEndpoint, ok := input.Config["check_endpoint"].(string)
 	if !ok || checkEndpoint == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"check_endpoint",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	stepCIPayload := activities.StepCIWorkflowActivityPayload{
@@ -134,7 +134,7 @@ func (w *EWCWorkflow) Workflow(
 		return workflowengine.WorkflowResult{},
 			workflowengine.NewMissingConfigError(
 				"author",
-				runMetadata,
+				input.RunMetadata,
 			)
 	}
 	cfg := StepCIAndEmailConfig{
@@ -146,7 +146,7 @@ func (w *EWCWorkflow) Workflow(
 		Template:      template,
 		StepCIPayload: stepCIPayload,
 		Namespace:     input.Config["namespace"].(string),
-		RunMeta:       runMetadata,
+		RunMetadata:   input.RunMetadata,
 		Suite:         suite,
 	}
 
@@ -160,12 +160,19 @@ func (w *EWCWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 			"session_id",
 			result.Captures,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
 	interval := time.Second
-	workflowResult, err := pollEWCCheck(ctx, interval, checkEndpoint, sessionID, runMetadata, false)
+	workflowResult, err := pollEWCCheck(
+		ctx,
+		interval,
+		checkEndpoint,
+		sessionID,
+		input.RunMetadata,
+		false,
+	)
 	return workflowResult, err
 }
 
@@ -201,11 +208,19 @@ func (w *EWCWorkflow) Start(
 }
 
 // EWCStatusWorkflow is a workflow that checks the status of an EWC check.
-type EWCStatusWorkflow struct{}
+type EWCStatusWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 // EWCStatusWorkflowPayload is the payload for the EWCStatusWorkflow.
 type EWCStatusWorkflowPayload struct {
 	SessionID string `json:"session_id"`
+}
+
+func NewEWCStatusWorkflow() *EWCStatusWorkflow {
+	w := &EWCStatusWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 // Name returns the human-readable name for this workflow.
@@ -218,31 +233,26 @@ func (EWCStatusWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
+func (w *EWCStatusWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
 // Workflow continuously polls EWC Status and pushes updates to the backend.
 // It can be paused/resumed by Temporal signals.
-func (w *EWCStatusWorkflow) Workflow(
+func (w *EWCStatusWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
-
 	payload, err := workflowengine.DecodePayload[EWCStatusWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -250,7 +260,7 @@ func (w *EWCStatusWorkflow) Workflow(
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"app_url",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -263,11 +273,18 @@ func (w *EWCStatusWorkflow) Workflow(
 	if !ok || checkEndpoint == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"check_endpoint",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
-	result, err := pollEWCCheck(ctx, interval, checkEndpoint, payload.SessionID, runMetadata, true)
+	result, err := pollEWCCheck(
+		ctx,
+		interval,
+		checkEndpoint,
+		payload.SessionID,
+		input.RunMetadata,
+		true,
+	)
 	return result, err
 }
 
@@ -276,7 +293,7 @@ func pollEWCCheck(
 	interval time.Duration,
 	checkEndpoint string,
 	sessionID string,
-	runMetadata workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
 	startImmediately bool,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)

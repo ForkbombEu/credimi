@@ -74,7 +74,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 			ActivityOptions: ao,
 		}
 
-		var w workflows.CustomCheckWorkflow
+		w := workflows.NewCustomCheckWorkflow()
 
 		resStart, errStart := w.Start("default", input)
 		if errStart != nil {

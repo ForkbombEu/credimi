@@ -106,7 +106,7 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 
 			tc.mockActivities(env)
 
-			var w CustomCheckWorkflow
+			w := NewCustomCheckWorkflow()
 			env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
 				Payload: tc.inputPayload,
 				Config: map[string]any{
