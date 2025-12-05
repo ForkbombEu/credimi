@@ -836,5 +836,6 @@
 	"Schedule_paused_successfully": "Schedule paused successfully",
 	"Schedule_resumed_successfully": "Schedule resumed successfully",
 	"No_scheduled_workflows": "No scheduled workflows",
-	"next_run": "Next run"
+	"next_run": "Next run",
+	"DCQL_Query": "DCQL Query"
 }

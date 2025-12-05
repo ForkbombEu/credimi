@@ -16,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/collections-components/form/collectionFormTypes';
 
 	import QrGenerationField from '@/components/qr-generation-field.svelte';
+	import CodeEditorField from '@/forms/fields/codeEditorField.svelte';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
 
@@ -53,7 +54,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				snippets: {
 					description,
 					yaml: yaml_editor,
-					logo
+					logo,
+					dcql_query
 				}
 			}
 		};
@@ -81,4 +83,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet logo()}
 	<CollectionLogoField />
+{/snippet}
+
+{#snippet dcql_query({ form }: FieldSnippetOptions<'use_cases_verifications'>)}
+	<CodeEditorField
+		{form}
+		name="dcql_query"
+		options={{
+			lang: 'json',
+			minHeight: 300,
+			label: m.DCQL_Query()
+		}}
+	/>
 {/snippet}

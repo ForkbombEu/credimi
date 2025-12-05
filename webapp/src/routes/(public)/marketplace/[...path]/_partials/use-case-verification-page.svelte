@@ -59,6 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		s.description,
 		s.qr_code,
 		s.workflow_yaml,
+		s.dcql_query,
 		s.related_verifier,
 		s.related_credentials
 	]}
@@ -69,6 +70,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 
 	<CodeSection indexItem={s.workflow_yaml} code={useCaseVerification.yaml} language="yaml" />
+
+	<CodeSection indexItem={s.dcql_query} code={useCaseVerification.dcql_query} language="json" />
 
 	<div class="flex w-full flex-col gap-6 sm:flex-row">
 		<PageSection indexItem={s.related_verifier} class="shrink-0 grow basis-1">
