@@ -839,5 +839,11 @@
 	"next_run": "Next run",
 	"DCQL_Query": "DCQL Query",
 	"You_have_unsaved_changes": "You have unsaved changes",
-	"Are_you_sure_you_want_to_exit_the_form": "Are you sure you want to exit the form? You will lose your changes."
+	"Are_you_sure_you_want_to_exit_the_form": "Are you sure you want to exit the form? You will lose your changes.",
+	"automated_conformance_interop": "Automated Conformance / Interop",
+	"marketplace_items": "Marketplace items",
+	"workflows": "Workflows",
+	"workflow_runs": "Workflow runs",
+	"tools": "Tools",
+	"manual_conformance_checks": "Manual conformance checks"
 }
