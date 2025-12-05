@@ -5,8 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import BackButton from '$lib/layout/back-button.svelte';
-	import { RedoIcon, SaveIcon, UndoIcon } from 'lucide-svelte';
+	import { ArrowLeftIcon, RedoIcon, SaveIcon, UndoIcon } from 'lucide-svelte';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { Button } from '@/components/ui/button';
@@ -33,9 +32,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="bg-secondary flex h-screen flex-col gap-4 overflow-hidden px-4 pb-4 pt-2">
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-3">
-			<BackButton href="/my/pipelines" class="h-6">
+			<Button class="h-6" onclick={() => form.exit()} variant="link">
+				<ArrowLeftIcon />
 				{m.Back()}
-			</BackButton>
+			</Button>
 			<Separator orientation="vertical" class="self-stretch bg-slate-400" />
 			<T tag="h3" class="text-xl">{m.New_pipeline()}</T>
 		</div>

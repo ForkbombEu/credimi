@@ -5,7 +5,7 @@
 import { appSections, testRunsSection } from '$lib/marketplace/sections';
 import { workflowStatuses } from '$lib/temporal';
 import { WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows';
-import { GlobeIcon, HomeIcon, LockIcon, StoreIcon, UserIcon } from 'lucide-svelte';
+import { GlobeIcon, HomeIcon, HourglassIcon, LockIcon, StoreIcon, UserIcon } from 'lucide-svelte';
 
 import { m } from '@/i18n';
 
@@ -71,6 +71,11 @@ export const data: SidebarGroup[] = [
 						url: `/my/tests/runs?${WORKFLOW_STATUS_QUERY_PARAM}=${status}`,
 						component: WorkflowItem
 					}))
+			},
+			{
+				title: m.Scheduled_workflows(),
+				url: '/my/tests/runs/scheduled',
+				icon: HourglassIcon
 			}
 		]
 	},

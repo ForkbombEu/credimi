@@ -1066,22 +1066,6 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 	}
 }
 
-func computeParentDisplayName(encoded string) string {
-	if encoded == "" {
-		return ""
-	}
-
-	decoded, err := base64.StdEncoding.DecodeString(encoded)
-	if err != nil {
-		// fallback: return original string if decode fails
-		decoded = []byte(encoded)
-	}
-
-	clean := strings.Trim(string(decoded), `"`)
-
-	return clean
-}
-
 var uuidRegex = regexp.MustCompile(
 	`[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}`,
 )
@@ -1136,7 +1120,7 @@ func buildExecutionHierarchy(
 		var parentDisplay string
 		if exec.Memo != nil {
 			if field, ok := exec.Memo.Fields["test"]; ok {
-				parentDisplay = computeParentDisplayName(*field.Data)
+				parentDisplay = decodeFromTemporalPayload(*field.Data)
 			}
 		}
 		current.DisplayName = parentDisplay

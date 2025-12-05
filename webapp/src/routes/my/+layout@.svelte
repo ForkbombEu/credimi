@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script module lang="ts">
-	import { onMount, type Snippet } from 'svelte';
+	import { type Snippet } from 'svelte';
 
 	type DashboardNavbar = {
 		title: string | undefined;
@@ -18,14 +18,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	export function setDashboardNavbar(navbar: Partial<DashboardNavbar>) {
-		onMount(() => {
-			dashboardNavbar.title = navbar.title;
-			dashboardNavbar.right = navbar.right;
+		$effect(() => {
+			if (page.url) {
+				dashboardNavbar.title = navbar.title;
+				dashboardNavbar.right = navbar.right;
+			}
 		});
 	}
 </script>
 
 <script lang="ts">
+	import { page } from '$app/state';
+
 	import { Separator } from '@/components/ui/separator/index.js';
 	import * as Sidebar from '@/components/ui/sidebar/index.js';
 
