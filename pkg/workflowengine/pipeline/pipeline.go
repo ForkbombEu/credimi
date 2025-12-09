@@ -152,15 +152,15 @@ func (w *PipelineWorkflow) Workflow(
 			}
 			previousStepID = step.ID
 		}
+	}
 
-		if len(errorsList) > 0 {
-			errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-			appErr := workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("workflow completed with %d step errors", len(errorsList)),
-			)
-			return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList)
-		}
+	if len(errorsList) > 0 {
+		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+		appErr := workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("workflow completed with %d step errors", len(errorsList)),
+		)
+		return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList)
 	}
 
 	return workflowengine.WorkflowResult{
