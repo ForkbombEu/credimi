@@ -9,9 +9,18 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-type SetupFunc func(ctx workflow.Context, steps *[]StepDefinition, input workflowengine.WorkflowInput) error
+type SetupFunc func(
+	ctx workflow.Context,
+	steps *[]StepDefinition,
+	input workflowengine.WorkflowInput,
+) error
 
-type CleanupFunc func(ctx workflow.Context, steps []StepDefinition, input workflowengine.WorkflowInput, output *map[string]any) error
+type CleanupFunc func(
+	ctx workflow.Context,
+	steps []StepDefinition,
+	input workflowengine.WorkflowInput,
+	output *map[string]any,
+) error
 
 var (
 	setupHooks = []SetupFunc{

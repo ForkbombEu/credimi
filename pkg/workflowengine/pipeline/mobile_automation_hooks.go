@@ -212,7 +212,11 @@ func MobileAutomationSetupHook(
 			},
 		}
 		var recordResult workflowengine.ActivityResult
-		if err := workflow.ExecuteActivity(mobileCtx, recordActivity.Name(), startRecordInput).Get(ctx, &recordResult); err != nil {
+		if err := workflow.ExecuteActivity(
+			mobileCtx,
+			recordActivity.Name(),
+			startRecordInput,
+		).Get(ctx, &recordResult); err != nil {
 			return err
 		}
 		adbPID, ok := recordResult.Output.(map[string]any)["adb_process"].(float64)
@@ -323,7 +327,8 @@ func MobileAutomationCleanupHook(
 							"ffmpeg_process": payload.RecordingFfmpegPid,
 						},
 					}
-					if err := workflow.ExecuteActivity(mobileCtx, stopRecordingActivity.Name(), stopRecordInput).Get(ctx, nil); err != nil {
+					if err := workflow.ExecuteActivity(
+						mobileCtx, stopRecordingActivity.Name(), stopRecordInput).Get(ctx, nil); err != nil {
 						logger.Error(
 							"MobileAutomationCleanupHook: error stopping recording",
 							payload.EmulatorSerial,
