@@ -69,7 +69,7 @@ func (w *PipelineWorkflow) Workflow(
 	defer func() {
 		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
 		for _, hook := range cleanupHooks {
-			if err := hook(cleanupCtx, input.WorkflowDefinition.Steps, input.WorkflowInput); err != nil {
+			if err := hook(cleanupCtx, input.WorkflowDefinition.Steps, input.WorkflowInput, &finalOutput); err != nil {
 				logger.Error("cleanup hook error", "error", err)
 			}
 		}
@@ -125,6 +125,13 @@ func (w *PipelineWorkflow) Workflow(
 				step.ActivityOptions,
 			)
 
+			if step.Use == "mobile_automation" {
+				step.With.Payload["run_identifier"] = getPipelineRunIdentifier(
+					workflow.GetInfo(ctx).Namespace,
+					workflowID,
+					runID,
+				)
+			}
 			stepOutput, err := step.Execute(ctx, input.WorkflowInput.Config, stepInputs, ao)
 			if err != nil {
 				logger.Error(step.ID, "step execution error", err)

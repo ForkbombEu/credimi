@@ -202,6 +202,102 @@ func (a *StopEmulatorActivity) Execute(
 	}, nil
 }
 
+type StartRecordingActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStartRecordingActivity() *StartRecordingActivity {
+	return &StartRecordingActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Start recording emulator screen",
+		},
+	}
+}
+
+func (a *StartRecordingActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StartRecordingActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := mobile.MobileActivityInput{
+		Payload:          input.Payload,
+		GetEnv:           utils.GetEnvironmentVariable,
+		NewActivityError: a.NewActivityError,
+		ErrorCodes: map[string]mobile.ErrorCode{
+			"MissingOrInvalidPayload": {
+				Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+			},
+			"CommandExecutionFailed": {
+				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
+				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
+			},
+			"TempFileCreationFailed": {
+				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
+				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
+			},
+		},
+	}
+
+	res, err := mobile.StartRecordVideo(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{
+		Output: res,
+	}, nil
+}
+
+type StopRecordingActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStopRecordingActivity() *StopRecordingActivity {
+	return &StopRecordingActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Stop recording emulator screen",
+		},
+	}
+}
+
+func (a *StopRecordingActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StopRecordingActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := mobile.MobileActivityInput{
+		Payload:          input.Payload,
+		GetEnv:           utils.GetEnvironmentVariable,
+		NewActivityError: a.NewActivityError,
+		ErrorCodes: map[string]mobile.ErrorCode{
+			"MissingOrInvalidPayload": {
+				Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+				Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+			},
+			"CommandExecutionFailed": {
+				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
+				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
+			},
+		},
+	}
+
+	res, err := mobile.StopRecordVideo(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{
+		Output: res,
+	}, nil
+}
+
 type RunMobileFlowActivity struct {
 	workflowengine.BaseActivity
 }

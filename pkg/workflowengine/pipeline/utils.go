@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
@@ -199,4 +200,8 @@ func deepCopy(v any) any {
 		return v
 	}
 	return c
+}
+
+func getPipelineRunIdentifier(namespace, workflowID, runID string) string {
+	return canonify.CanonifyPlain(fmt.Sprintf("%s-%s-%s", namespace, workflowID, runID))
 }
