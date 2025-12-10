@@ -131,7 +131,7 @@ func Test_WalletWorkflow(t *testing.T) {
 			env := testSuite.NewTestWorkflowEnvironment()
 			tc.mockActivities(env)
 
-			w := &WalletWorkflow{}
+			w := NewWalletWorkflow()
 			env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
 				Payload: tc.payload,
 				Config:  tc.config,

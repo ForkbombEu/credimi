@@ -34,7 +34,7 @@ type StepCIAndEmailConfig struct {
 	Template      string
 	StepCIPayload activities.StepCIWorkflowActivityPayload
 	Secrets       map[string]any
-	RunMeta       workflowengine.WorkflowErrorMetadata
+	RunMetadata   *workflowengine.WorkflowErrorMetadata
 	Suite         string
 	SendMail      bool
 }
@@ -58,13 +58,13 @@ func RunStepCIAndSendMail(
 	}
 	if err := stepCIActivity.Configure(&stepCIInput); err != nil {
 		logger.Error("StepCI configure failed", "error", err)
-		return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMeta)
+		return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMetadata)
 	}
 
 	var stepCIResult workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(ctx, stepCIActivity.Name(), stepCIInput).Get(ctx, &stepCIResult); err != nil {
 		logger.Error("StepCIExecution failed", "error", err)
-		return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMeta)
+		return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMetadata)
 	}
 
 	captures, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
@@ -73,7 +73,7 @@ func RunStepCIAndSendMail(
 			workflowengine.NewStepCIOutputError(
 				"StepCI unexpected output",
 				stepCIResult.Output,
-				cfg.RunMeta,
+				cfg.RunMetadata,
 			)
 	}
 	// Send mail only if SendMail is true
@@ -84,7 +84,7 @@ func RunStepCIAndSendMail(
 				workflowengine.NewStepCIOutputError(
 					"StepCI unexpected output: missing deeplink in captures",
 					captures,
-					cfg.RunMeta,
+					cfg.RunMetadata,
 				)
 		}
 		suite := cfg.Suite
@@ -96,7 +96,7 @@ func RunStepCIAndSendMail(
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
 			appErr := workflowengine.NewAppError(errCode, baseURL)
-			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(appErr, cfg.RunMeta)
+			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(appErr, cfg.RunMetadata)
 		}
 		q := u.Query()
 		q.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
@@ -120,11 +120,11 @@ func RunStepCIAndSendMail(
 		}
 		if err := emailActivity.Configure(&emailInput); err != nil {
 			logger.Error("Email configure failed", "error", err)
-			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMeta)
+			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMetadata)
 		}
 		if err := workflow.ExecuteActivity(ctx, emailActivity.Name(), emailInput).Get(ctx, nil); err != nil {
 			logger.Error("Failed to send mail", "error", err)
-			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMeta)
+			return StepCIAndEmailResult{}, workflowengine.NewWorkflowError(err, cfg.RunMetadata)
 		}
 	}
 	return StepCIAndEmailResult{
@@ -132,7 +132,9 @@ func RunStepCIAndSendMail(
 	}, nil
 }
 
-type StartCheckWorkflow struct{}
+type StartCheckWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 type StartCheckWorkflowPayload struct {
 	Suite     string `json:"suite"                yaml:"suite"`
@@ -152,6 +154,12 @@ type StartCheckWorkflowPipelinePayload struct {
 	SessionID string `json:"session_id,omitempty" yaml:"session_id,omitempty"`
 }
 
+func NewStartCheckWorkflow() *StartCheckWorkflow {
+	w := &StartCheckWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
+}
+
 func (StartCheckWorkflow) Name() string {
 	return "Start conformance check"
 }
@@ -160,29 +168,43 @@ func (StartCheckWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
+// Workflow starts the conformance check workflow.
 func (w *StartCheckWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+// executeWorkflow starts the conformance check workflow.
+//
+// It takes the workflow input and starts the conformance check workflow.
+// The workflow input should contain the suite, check_id, variant, form, test and session_id.
+// The function first decodes the workflow input and checks if the required fields are present.
+// If not, it returns an error.
+// Then it runs the StepCIAndEmail function with the decoded input and returns the result.
+// If the StepCIAndEmail function returns an error, it logs the error and returns the error.
+// If the StepCIAndEmail function returns a successful result, it runs the child workflow depending on the suite.
+// If the child workflow returns an error, it logs the error and returns the error.
+// If the child workflow returns a successful result, it returns the successful result.
+func (w *StartCheckWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 	logger := workflow.GetLogger(ctx)
-	runMeta := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-	}
 	payload, err := workflowengine.DecodePayload[StartCheckWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMeta,
+			input.RunMetadata,
 		)
 	}
 	appURL := input.Config["app_url"].(string)
 	if appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"app_url",
-			runMeta,
+			input.RunMetadata,
 		)
 	}
 	var stepCIPayload activities.StepCIWorkflowActivityPayload
@@ -192,19 +214,19 @@ func (w *StartCheckWorkflow) Workflow(
 		if payload.Variant == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 				fmt.Errorf("variant is required for suite %s", payload.Suite),
-				runMeta,
+				input.RunMetadata,
 			)
 		}
 		if payload.Form == nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 				fmt.Errorf("form is required for suite %s", payload.Suite),
-				runMeta,
+				input.RunMetadata,
 			)
 		}
 		if payload.TestName == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 				fmt.Errorf("test is required for suite %s", payload.Suite),
-				runMeta,
+				input.RunMetadata,
 			)
 		}
 		stepCIPayload.Data = map[string]any{
@@ -219,7 +241,7 @@ func (w *StartCheckWorkflow) Workflow(
 		if payload.SessionID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 				fmt.Errorf("session_id is required for suite %s", payload.Suite),
-				runMeta,
+				input.RunMetadata,
 			)
 		}
 
@@ -234,7 +256,7 @@ func (w *StartCheckWorkflow) Workflow(
 		Template:      input.Config["template"].(string),
 		StepCIPayload: stepCIPayload,
 		Namespace:     input.Config["namespace"].(string),
-		RunMeta:       runMeta,
+		RunMetadata:   input.RunMetadata,
 		Suite:         payload.Suite,
 		SendMail:      payload.SendMail,
 	}
@@ -258,7 +280,7 @@ func (w *StartCheckWorkflow) Workflow(
 			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 				"rid",
 				setupResult.Captures,
-				runMeta,
+				input.RunMetadata,
 			)
 		}
 
@@ -267,7 +289,7 @@ func (w *StartCheckWorkflow) Workflow(
 			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 				"deeplink",
 				setupResult.Captures,
-				runMeta,
+				input.RunMetadata,
 			)
 		}
 
@@ -296,7 +318,7 @@ func (w *StartCheckWorkflow) Workflow(
 			errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				workflowengine.NewAppError(errCode, err.Error(), nil),
-				cfg.RunMeta,
+				cfg.RunMetadata,
 			)
 		}
 		return workflowengine.WorkflowResult{
@@ -310,7 +332,7 @@ func (w *StartCheckWorkflow) Workflow(
 		if !ok {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 				"standard",
-				runMeta,
+				input.RunMetadata,
 			)
 		}
 		var checkEndpoint string
@@ -322,7 +344,7 @@ func (w *StartCheckWorkflow) Workflow(
 		default:
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 				fmt.Sprintf("unsupported standard %s", standard),
-				runMeta,
+				input.RunMetadata,
 			)
 		}
 
@@ -331,11 +353,11 @@ func (w *StartCheckWorkflow) Workflow(
 			return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 				"deeplink",
 				setupResult.Captures,
-				runMeta,
+				input.RunMetadata,
 			)
 		}
 
-		child := EWCStatusWorkflow{}
+		child := NewEWCStatusWorkflow()
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-status",
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
@@ -360,7 +382,7 @@ func (w *StartCheckWorkflow) Workflow(
 			errCode := errorcodes.Codes[errorcodes.ChildWorkflowExecutionError]
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				workflowengine.NewAppError(errCode, err.Error(), nil),
-				cfg.RunMeta,
+				cfg.RunMetadata,
 			)
 		}
 		return workflowengine.WorkflowResult{
@@ -372,7 +394,7 @@ func (w *StartCheckWorkflow) Workflow(
 	default:
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			fmt.Sprintf("unsupported suite %s", payload.Suite),
-			runMeta,
+			input.RunMetadata,
 		)
 	}
 }

@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -31,11 +30,19 @@ const (
 )
 
 // Wallet is a workflow that imports wallet metadata from app stores urls.
-type WalletWorkflow struct{}
+type WalletWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 // WalletWorkflowPayload is a struct that represents the input payload for the WalletWorkflow.
 type WalletWorkflowPayload struct {
 	URL string `json:"url" yaml:"url" validate:"required"`
+}
+
+func NewWalletWorkflow() *WalletWorkflow {
+	w := &WalletWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 // Name returns the name of the workflow.
@@ -47,25 +54,19 @@ func (w *WalletWorkflow) Name() string {
 func (w *WalletWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
-
 func (w *WalletWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+func (w *WalletWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
-
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
 
 	var metadata map[string]any
 	var storeType string
@@ -85,14 +86,14 @@ func (w *WalletWorkflow) Workflow(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"app_url",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -105,7 +106,10 @@ func (w *WalletWorkflow) Workflow(
 	}).Get(ctx, &parsedResult)
 	if err != nil {
 		logger.Error("ParseWalletURL failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 	apiInput, ok := parsedResult.Output.(map[string]any)["api_input"].(string)
@@ -114,7 +118,10 @@ func (w *WalletWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("%s: api_input", urlParser.Name()),
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 	storeType, ok = parsedResult.Output.(map[string]any)["store_type"].(string)
 	if !ok {
@@ -122,7 +129,10 @@ func (w *WalletWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("%s: store", urlParser.Name()),
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 	httpActivity := activities.NewHTTPActivity()
 
@@ -143,7 +153,7 @@ func (w *WalletWorkflow) Workflow(
 			logger.Error("HTTP failed", "error", err)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		result, ok := response.Output.(map[string]any)["body"]
@@ -154,7 +164,7 @@ func (w *WalletWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		metadata = workflowengine.AsSliceOfMaps(result.(map[string]any)["results"])[0]
@@ -172,7 +182,7 @@ func (w *WalletWorkflow) Workflow(
 			logger.Error("Docker failed", "error", err)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		stdout, ok := result.Output.(map[string]any)["stdout"].(string)
@@ -183,7 +193,7 @@ func (w *WalletWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		json := activities.NewJSONActivity(map[string]reflect.Type{
@@ -202,7 +212,7 @@ func (w *WalletWorkflow) Workflow(
 			logger.Error("ParseJSON failed", "error", err)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		metadata, ok = jsonResult.Output.(map[string]any)
@@ -215,7 +225,7 @@ func (w *WalletWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 	}

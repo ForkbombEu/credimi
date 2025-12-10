@@ -20,12 +20,20 @@ import (
 
 // GetUseCaseVerificationDeeplinkWorkflow is a workflow that
 // get the deeplink for a use case verification.
-type GetUseCaseVerificationDeeplinkWorkflow struct{}
+type GetUseCaseVerificationDeeplinkWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 // GetUseCaseVerificationDeeplinkWorkflowPayload is the payload
 // for the GetUseCaseVerificationDeeplinkWorkflow.
 type GetUseCaseVerificationDeeplinkWorkflowPayload struct {
 	UseCaseIdentifier string `json:"use_case_id" yaml:"use_case_id" validate:"required"`
+}
+
+func NewGetUseCaseVerificationDeeplinkWorkflow() *GetUseCaseVerificationDeeplinkWorkflow {
+	w := &GetUseCaseVerificationDeeplinkWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 // Name returns the name of the workflow.
@@ -42,20 +50,15 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
-
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
 
 	payload, err := workflowengine.DecodePayload[GetUseCaseVerificationDeeplinkWorkflowPayload](
 		input.Payload,
@@ -63,7 +66,7 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -71,7 +74,7 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"app_url",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	act := activities.NewHTTPActivity()
@@ -94,7 +97,7 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 		logger.Error("HTTPActivity failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
@@ -105,7 +108,10 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 			"output is not a map",
 			result.Output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			wErr,
+			input.RunMetadata,
+		)
 	}
 
 	code, ok := responseBody["code"].(string)
@@ -115,7 +121,10 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 			"yaml code is not a string",
 			result.Output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			wErr,
+			input.RunMetadata,
+		)
 	}
 
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
@@ -131,7 +140,7 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 		logger.Error("StepCIActivity failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	captures, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
@@ -141,7 +150,10 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 			"captures is not a map",
 			result.Output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			wErr,
+			input.RunMetadata,
+		)
 	}
 	deeplink, ok := captures["deeplink"].(string)
 	if !ok {
@@ -150,7 +162,10 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) Workflow(
 			"deeplink missing or invalid from captures",
 			result.Output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			wErr,
+			input.RunMetadata,
+		)
 	}
 	return workflowengine.WorkflowResult{
 		Message: "Successfully retrieved  use case verification deeplink",

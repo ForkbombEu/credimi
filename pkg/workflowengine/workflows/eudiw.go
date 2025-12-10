@@ -32,12 +32,20 @@ const (
 )
 
 // EudiwWorkflow is a workflow that performs conformance checks on the EUDIW suite.
-type EudiwWorkflow struct{}
+type EudiwWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 type EudiwWorkflowPayload struct {
 	ID       string `json:"id"        yaml:"id"        validate:"required"`
 	Nonce    string `json:"nonce"     yaml:"nonce"     validate:"required"`
 	UserMail string `json:"user_mail" yaml:"user_mail" validate:"required"`
+}
+
+func NewEudiwWorkflow() *EudiwWorkflow {
+	w := &EudiwWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 // Name returns the name of the EudiwWorkflow.
@@ -57,7 +65,14 @@ type EudiwResponseBody struct {
 	Claims    []string `json:"claims,omitempty"`
 }
 
-// Workflow is the main workflow function for the EudiwWorkflow. It orchestrates
+func (w *EudiwWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+// ExecuteWorkflow is the main workflow function for the EudiwWorkflow. It orchestrates
 // the execution of various activities to perform conformance checks
 // and send notifications to the user.
 //
@@ -81,37 +96,25 @@ type EudiwResponseBody struct {
 // Notes:
 //   - The workflow uses a selector to wait for either a signal or the next API call.
 //   - If the signal data indicates failure, the workflow terminates with a failure message.
-func (w *EudiwWorkflow) Workflow(
+func (w *EudiwWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
-
 	payload, err := workflowengine.DecodePayload[EudiwWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	template, ok := input.Config["template"].(string)
 	if !ok || template == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"template",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -130,14 +133,20 @@ func (w *EudiwWorkflow) Workflow(
 	err = stepCIWorkflowActivity.Configure(&stepCIInput)
 	if err != nil {
 		logger.Error(" StepCI configure failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 	var stepCIResult workflowengine.ActivityResult
 	err = workflow.ExecuteActivity(ctx, stepCIWorkflowActivity.Name(), stepCIInput).
 		Get(ctx, &stepCIResult)
 	if err != nil {
 		logger.Error("StepCIExecution failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 	result, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
 	if !ok {
@@ -145,7 +154,7 @@ func (w *EudiwWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 			msg,
 			stepCIResult.Output,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	clientID, ok := result["client_id"].(string)
@@ -153,7 +162,7 @@ func (w *EudiwWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 			"client_id",
 			stepCIResult.Output,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	requestURI, ok := result["request_uri"].(string)
@@ -161,7 +170,7 @@ func (w *EudiwWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 			"request_uri",
 			stepCIResult.Output,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	transactionID, ok := result["transaction_id"].(string)
@@ -169,7 +178,7 @@ func (w *EudiwWorkflow) Workflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewStepCIOutputError(
 			"transaction_id",
 			stepCIResult.Output,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	baseURL := utils.JoinURL(
@@ -182,7 +191,10 @@ func (w *EudiwWorkflow) Workflow(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
 		appErr := workflowengine.NewAppError(errCode, baseURL)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 	qr, err := BuildQRDeepLink(
 		clientID,
@@ -190,7 +202,10 @@ func (w *EudiwWorkflow) Workflow(
 	)
 	if err != nil {
 		logger.Error("Failed to build QR deep link", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 	query := u.Query()
 	query.Set("workflow-id", workflow.GetInfo(ctx).WorkflowExecution.ID)
@@ -215,12 +230,18 @@ func (w *EudiwWorkflow) Workflow(
 	err = emailActivity.Configure(&emailInput)
 	if err != nil {
 		logger.Error("Email activity configure failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 	err = workflow.ExecuteActivity(ctx, emailActivity.Name(), emailInput).Get(ctx, nil)
 	if err != nil {
 		logger.Error("Failed to send mail to user ", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 	startSignalChan := workflow.GetSignalChannel(ctx, EudiwStartCheckSignal)
 	stopSignalChan := workflow.GetSignalChannel(ctx, EudiwStopCheckSignal)
@@ -274,7 +295,7 @@ func (w *EudiwWorkflow) Workflow(
 		if err != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 
@@ -288,7 +309,7 @@ func (w *EudiwWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 
@@ -301,7 +322,7 @@ func (w *EudiwWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		var events []map[string]any
@@ -322,7 +343,7 @@ func (w *EudiwWorkflow) Workflow(
 		if err != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		events = workflowengine.AsSliceOfMaps(
@@ -352,7 +373,7 @@ func (w *EudiwWorkflow) Workflow(
 			logger.Error("Failed to send logs", "error", err)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		errCode = errorcodes.Codes[errorcodes.EudiwCheckFailed]
@@ -375,7 +396,7 @@ func (w *EudiwWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				failedErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 
 		default:
@@ -388,7 +409,7 @@ func (w *EudiwWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				failedErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 	}
@@ -434,7 +455,7 @@ func BuildQRDeepLink(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
 		appErr := workflowengine.NewAppError(errCode, baseURL)
-		return "", workflowengine.NewWorkflowError(appErr, workflowengine.WorkflowErrorMetadata{
+		return "", workflowengine.NewWorkflowError(appErr, &workflowengine.WorkflowErrorMetadata{
 			WorkflowName: "EudiwWorkflow",
 		})
 	}

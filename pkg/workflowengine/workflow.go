@@ -27,6 +27,7 @@ type WorkflowInput struct {
 	Payload         any                       `json:"payload,omitempty"`
 	Config          map[string]any            `json:"config,omitempty"`
 	ActivityOptions *workflow.ActivityOptions `json:"activityOptions,omitempty"`
+	RunMetadata     *WorkflowErrorMetadata    `json:"runMetadata,omitempty"`
 }
 
 // WorkflowResult represents the result of a workflow execution, including a message, errors, and a log.
@@ -68,11 +69,56 @@ type WorkflowRunInfo struct {
 // Workflow defines the interface for a workflow, including its execution, name, and options.
 type Workflow interface {
 	Workflow(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error)
+	// Teardown(ctx workflow.Context, input WorkflowInput) error
+	ExecuteWorkflow(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error)
 	Name() string
 	GetOptions() workflow.ActivityOptions
 }
 
-func NewWorkflowError(err error, metadata WorkflowErrorMetadata, extraPayload ...any) error {
+// WorkflowFn represents a function that executes a workflow.
+type WorkflowFn func(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error)
+
+func BuildWorkflow(
+	w Workflow,
+) WorkflowFn {
+	return func(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error) {
+		// ---- runtime metadata ----
+		info := workflow.GetInfo(ctx)
+		input.RunMetadata = &WorkflowErrorMetadata{
+			WorkflowName: w.Name(),
+			WorkflowID:   info.WorkflowExecution.ID,
+			Namespace:    info.Namespace,
+			TemporalUI: utils.JoinURL(
+				input.Config["app_url"].(string),
+				"my", "tests", "runs",
+				info.WorkflowExecution.ID,
+				info.WorkflowExecution.RunID,
+			),
+		}
+
+		/*
+			defer func() {
+				if !errors.Is(ctx.Err(), workflow.ErrCanceled) {
+					return
+				}
+				dctx, _ := workflow.NewDisconnectedContext(ctx)
+				if err := w.Teardown(dctx, input); err != nil {
+					workflow.GetLogger(ctx).Error("teardown failed", "error", err)
+				}
+			}()
+		*/
+		// ---- activity options composition ----
+		ao := w.GetOptions()
+		if input.ActivityOptions != nil {
+			ao = *input.ActivityOptions
+		}
+		ctx = workflow.WithActivityOptions(ctx, ao)
+
+		return w.ExecuteWorkflow(ctx, input)
+	}
+}
+
+func NewWorkflowError(err error, metadata *WorkflowErrorMetadata, extraPayload ...any) error {
 	var appErr *temporal.ApplicationError
 	if !temporal.IsApplicationError(err) || !errors.As(err, &appErr) {
 		return err
@@ -129,21 +175,21 @@ func NewAppError(code errorcodes.Code, field string, payload ...any) error {
 // It creates an ApplicationError with the given error and code, and then wraps it in a WorkflowError.
 // The error is returned with code errorcodes.MissingOrInvalidPayload.
 // The error message is set to err.Error().
-func NewMissingOrInvalidPayloadError(err error, runMetadata WorkflowErrorMetadata) error {
+func NewMissingOrInvalidPayloadError(err error, runMetadata *WorkflowErrorMetadata) error {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 	appErr := NewAppError(errCode, err.Error())
 	return NewWorkflowError(appErr, runMetadata)
 }
 
 // newMissingConfigError returns a WorkflowError for a missing or invalid config key.
-func NewMissingConfigError(key string, metadata WorkflowErrorMetadata) error {
+func NewMissingConfigError(key string, metadata *WorkflowErrorMetadata) error {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 	appErr := NewAppError(errCode, key)
 	return NewWorkflowError(appErr, metadata)
 }
 
 // newStepCIOutputError returns a WorkflowError for unexpected or invalid StepCI output.
-func NewStepCIOutputError(field string, output any, metadata WorkflowErrorMetadata) error {
+func NewStepCIOutputError(field string, output any, metadata *WorkflowErrorMetadata) error {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedStepCIOutput]
 	appErr := NewAppError(errCode, field, output)
 	return NewWorkflowError(appErr, metadata)

@@ -76,7 +76,7 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 
 			tc.mockActivities(env)
 
-			var w WorkerManagerWorkflow
+			w := NewWorkerManagerWorkflow()
 			env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
 				Payload: tc.inputPayload,
 				Config:  tc.inputConfig,

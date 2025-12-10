@@ -27,6 +27,10 @@ type PipelineWorkflowInput struct {
 	Debug              bool                         `yaml:"debug,omitempty"     json:"debug,omitempty"`
 }
 
+func NewPipelineWorkflow() *PipelineWorkflow {
+	return &PipelineWorkflow{}
+}
+
 func (PipelineWorkflow) Name() string {
 	return "Dynamic Pipeline Workflow"
 }
@@ -46,7 +50,7 @@ func (w *PipelineWorkflow) Workflow(
 	errorsList := []string{}
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
-	runMetadata := workflowengine.WorkflowErrorMetadata{
+	runMetadata := &workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflowID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
