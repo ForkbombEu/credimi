@@ -30,6 +30,10 @@ export type RecordCreateEditProps<C extends CollectionName> = {
 	TriggerProp &
 	TitleProp;
 
+export type RecordEditProps<C extends CollectionName> = RecordCreateEditProps<C> & {
+	record: CollectionResponses[C];
+};
+
 export type RecordAction = 'delete' | 'share' | 'edit' | 'select';
 export type GlobalRecordAction = RecordAction | 'create';
 
