@@ -168,7 +168,7 @@ func TestWalletGetAPKMD5(t *testing.T) {
 	}
 }
 
-func TestWalletStoreActionResult(t *testing.T) {
+func TestWalletStorePipelineResult(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -177,8 +177,8 @@ func TestWalletStoreActionResult(t *testing.T) {
 	successWriter := multipart.NewWriter(&successBody)
 
 	// add form fields
-	_ = successWriter.WriteField("wallet_identifier", "usera-s-organization/wallet123")
-	_ = successWriter.WriteField("action_code", "test_action")
+	_ = successWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
+	_ = successWriter.WriteField("version_identifier", "usera-s-organization/wallet123/1-0-0")
 
 	partHeader := textproto.MIMEHeader{}
 	partHeader.Set("Content-Disposition", `form-data; name="result"; filename="test.mp4"`)
@@ -197,15 +197,15 @@ func TestWalletStoreActionResult(t *testing.T) {
 	// Prepare missing file multipart request
 	var missingBody bytes.Buffer
 	missingWriter := multipart.NewWriter(&missingBody)
-	_ = missingWriter.WriteField("wallet_identifier", "usera-s-organization/wallet123")
-	_ = missingWriter.WriteField("action_code", "test_action")
+	_ = missingWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
+	_ = missingWriter.WriteField("version_identifier", "usera-s-organization/wallet123/1-0-0")
 	require.NoError(t, missingWriter.Close())
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:   "store wallet action result successfully",
+			Name:   "store  pipeline result successfully",
 			Method: http.MethodPost,
-			URL:    "/api/wallet/store-action-result",
+			URL:    "/api/wallet/store-pipeline-result",
 			Body:   bytes.NewReader(successBody.Bytes()),
 			Headers: map[string]string{
 				"Content-Type": successWriter.FormDataContentType(),
@@ -217,21 +217,14 @@ func TestWalletStoreActionResult(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
-
-				// Create wallet record
-				walletColl, err := app.FindCollectionByNameOrId("wallets")
-				require.NoError(t, err)
-				walletRecord := core.NewRecord(walletColl)
-				walletRecord.Set("name", "wallet123")
-				walletRecord.Set("owner", orgID)
-				require.NoError(t, app.Save(walletRecord))
+				setupWalletPipelineTestRecords(t, app, orgID)
 				return app
 			},
 		},
 		{
-			Name:   "store wallet action result missing file",
+			Name:   "store pipeline result missing file",
 			Method: http.MethodPost,
-			URL:    "/api/wallet/store-action-result",
+			URL:    "/api/wallet/store-pipeline-result",
 			Body:   bytes.NewReader(missingBody.Bytes()),
 			Headers: map[string]string{
 				"Content-Type": missingWriter.FormDataContentType(),
@@ -243,12 +236,7 @@ func TestWalletStoreActionResult(t *testing.T) {
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
-				walletColl, err := app.FindCollectionByNameOrId("wallets")
-				require.NoError(t, err)
-				walletRecord := core.NewRecord(walletColl)
-				walletRecord.Set("name", "wallet123")
-				walletRecord.Set("owner", orgID)
-				require.NoError(t, app.Save(walletRecord))
+				setupWalletPipelineTestRecords(t, app, orgID)
 				return app
 			},
 		},
@@ -257,4 +245,41 @@ func TestWalletStoreActionResult(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
+}
+
+func setupWalletPipelineTestRecords(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+) {
+	t.Helper()
+
+	// Wallet
+	walletColl, err := app.FindCollectionByNameOrId("wallets")
+	require.NoError(t, err)
+	wallet := core.NewRecord(walletColl)
+	wallet.Set("name", "wallet123")
+	wallet.Set("owner", orgID)
+	require.NoError(t, app.Save(wallet))
+
+	// Pipeline
+	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+	pipeline := core.NewRecord(pipelineColl)
+	pipeline.Set("name", "pipeline123")
+	pipeline.Set("owner", orgID)
+	pipeline.Set("description", "Test pipeline")
+	pipeline.Set("steps", map[string]string{"step1": "do something"})
+	pipeline.Set("yaml", "name: Test Pipeline")
+	require.NoError(t, app.Save(pipeline))
+
+	// Pipeline Results
+	pipelineResultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	run := core.NewRecord(pipelineResultsColl)
+	run.Set("workflow_id", "workflow123")
+	run.Set("run_id", "run123")
+	run.Set("owner", orgID)
+	run.Set("pipeline", pipeline.Id)
+	require.NoError(t, app.Save(run))
 }

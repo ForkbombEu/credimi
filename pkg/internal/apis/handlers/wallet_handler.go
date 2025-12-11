@@ -60,8 +60,8 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 		{
 			Method:  http.MethodPost,
-			Path:    "/store-action-result",
-			Handler: HandleWalletStoreActionResult,
+			Path:    "/store-pipeline-result",
+			Handler: HandleWalletStorePipelineResult,
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				apis.BodyLimit(500 << 20),
 			},
@@ -346,7 +346,7 @@ func getFileMD5OrETagFromPocketBase(
 	return "", nil
 }
 
-func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
+func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if err := e.Request.ParseMultipartForm(500 << 20); err != nil {
 			return apierror.New(
@@ -356,54 +356,25 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		var actionRecord *core.Record
-		var err error
-		ActionIdentifier := e.Request.FormValue("action_identifier")
-		if ActionIdentifier == "" {
-			collection, err := e.App.FindCollectionByNameOrId("wallet_actions")
-			if err != nil {
-				return apierror.New(
-					http.StatusNotFound,
-					"wallet_action",
-					"collection not found",
-					err.Error(),
-				).JSON(e)
-			}
-			actionRecord = core.NewRecord(collection)
-			walletRecord, err := canonify.Resolve(e.App, e.Request.FormValue("wallet_identifier"))
-			if err != nil {
-				return apierror.New(
-					http.StatusNotFound,
-					"wallet",
-					"wallet not found",
-					err.Error(),
-				).JSON(e)
-			}
-			actionRecord.Set("name", "pipeline_result")
-			actionRecord.Set("wallet", walletRecord.Id)
-			actionRecord.Set("owner", walletRecord.GetString("owner"))
-			actionRecord.Set("code", e.Request.FormValue("action_code"))
 
-			if err := e.App.Save(actionRecord); err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"database",
-					"failed to save record",
-					err.Error(),
-				).JSON(e)
-			}
-		} else {
-			actionRecord, err = canonify.Resolve(e.App, ActionIdentifier)
-			if err != nil {
-				return apierror.New(
-					http.StatusNotFound,
-					"wallet_action",
-					"record not found",
-					err.Error(),
-				).JSON(e)
-			}
+		versionIdentifier := e.Request.FormValue("version_identifier")
+		runIdentifier := e.Request.FormValue("run_identifier")
+
+		resultRecord, err := canonify.Resolve(e.App, runIdentifier)
+		if err != nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"pipeline_results",
+				"record not found",
+				err.Error(),
+			).JSON(e)
 		}
-		action := actionRecord.GetString("canonified_name")
+
+		versionName := strings.ReplaceAll(
+			strings.Trim(versionIdentifier, "/"),
+			"/",
+			"-",
+		)
 		file, header, err := e.Request.FormFile("result")
 		if err != nil {
 			return apierror.New(
@@ -416,7 +387,7 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 		defer file.Close()
 		tmpFile, err := os.CreateTemp(
 			"",
-			fmt.Sprintf("result_%s_*%s", action, filepath.Ext(header.Filename)),
+			fmt.Sprintf("result_%s_*%s", versionName, filepath.Ext(header.Filename)),
 		)
 		if err != nil {
 			return apierror.New(
@@ -458,24 +429,45 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		actionRecord.Set("result", []*filesystem.File{f})
-		if err := e.App.Save(actionRecord); err != nil {
+		existingFiles := resultRecord.Get("video_results")
+
+		var files []*filesystem.File
+
+		if existingFiles != nil {
+			if existingSlice, ok := existingFiles.([]*filesystem.File); ok {
+				files = append(files, existingSlice...)
+			}
+		}
+
+		files = append(files, f)
+
+		resultRecord.Set("video_results", files)
+
+		resultRecord.Set("video_results", []*filesystem.File{f})
+		if err := e.App.Save(resultRecord); err != nil {
 			_ = os.Remove(absResultPath)
 			return apierror.New(
 				http.StatusInternalServerError,
-				"wallet_action",
-				"failed to save wallet action with result file",
+				"pipeline_results",
+				"failed to save record with result file",
 				err.Error(),
 			).JSON(e)
 		}
-		resultURL := utils.JoinURL(
-			e.App.Settings().Meta.AppURL,
-			"api",
-			"files",
-			"wallet_actions",
-			actionRecord.Id,
-			actionRecord.GetString("result"),
-		)
+
+		names := resultRecord.GetStringSlice("video_results")
+		urls := make([]string, 0, len(names))
+
+		for _, filename := range names {
+			url := utils.JoinURL(
+				e.App.Settings().Meta.AppURL,
+				"api",
+				"files",
+				"pipeline_results",
+				resultRecord.Id,
+				filename,
+			)
+			urls = append(urls, url)
+		}
 
 		err = os.Remove(absResultPath)
 		if err != nil {
@@ -488,10 +480,10 @@ func HandleWalletStoreActionResult() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
-			"status":     "success",
-			"action":     action,
-			"fileName":   header.Filename,
-			"result_url": resultURL,
+			"status":      "success",
+			"version":     versionName,
+			"fileName":    header.Filename,
+			"result_urls": urls,
 		})
 	}
 }

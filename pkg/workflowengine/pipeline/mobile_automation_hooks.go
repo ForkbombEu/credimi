@@ -7,7 +7,6 @@ package pipeline
 import (
 	"fmt"
 	"net/http"
-	"path/filepath"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -340,17 +339,12 @@ func MobileAutomationCleanupHook(
 					storeResultInput := workflowengine.ActivityInput{
 						Payload: activities.HTTPActivityPayload{
 							Method: http.MethodPost,
-							URL:    utils.JoinURL(mobileServerURL, "store-action-result"),
+							URL:    utils.JoinURL(mobileServerURL, "store-pipeline-result"),
 							Headers: map[string]string{
 								"Content-Type": "application/json",
 							},
 							Body: map[string]any{
-								"result_path": filepath.Join(
-									"/credimi",
-									"workflows",
-									workflow.GetInfo(ctx).WorkflowExecution.ID,
-									"video.mp4",
-								),
+								"video_path":     payload.VideoPath,
 								"run_identifier": payload.RunIdentifier,
 								"instance_url":   appURL,
 							},
@@ -364,13 +358,13 @@ func MobileAutomationCleanupHook(
 						return err
 					}
 
-					resultURL, ok := storeResultResponse.Output.(map[string]any)["body"].(map[string]any)["result_url"].(string)
-					if !ok || resultURL == "" {
+					resultURLS, ok := storeResultResponse.Output.(map[string]any)["body"].(map[string]any)["result_urls"].([]string)
+					if !ok || resultURLS == nil || len(resultURLS) == 0 {
 						errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 						appErr := workflowengine.NewAppError(
 							errCode,
 							fmt.Sprintf(
-								"%s: 'result_url'", errCode.Description),
+								"%s: 'result_urls'", errCode.Description),
 							storeResultResponse.Output,
 						)
 						return appErr
@@ -379,7 +373,7 @@ func MobileAutomationCleanupHook(
 						*output = make(map[string]any)
 					}
 
-					(*output)["result_video_url"] = resultURL
+					(*output)["result_video_urls"] = resultURLS
 				}
 			}
 		}
