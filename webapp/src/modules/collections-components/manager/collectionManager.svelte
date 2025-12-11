@@ -49,6 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		collection: C;
+		onMount?: (manager: CollectionManager<C, E>) => void;
 	} & Partial<Options> &
 		Partial<Snippets>;
 
@@ -126,6 +127,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		filters = [],
 		emptyStateTitle = m.No_items_here(),
 		emptyStateDescription = m.Start_by_adding_a_record_to_this_collection_(),
+		onMount,
 		...rest
 	}: Props = $props();
 	//
@@ -136,6 +138,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			queryAgent: queryAgentOptions
 		})
 	);
+
+	$effect(() => {
+		onMount?.(manager);
+	});
 
 	const context = $derived<CollectionManagerContext<C, E>>({
 		manager,
