@@ -26,7 +26,6 @@ import { createForm, type FormOptions } from '@/forms';
 import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { getCollectionModel } from '@/pocketbase/collections-models';
-import { checkNameUniqueness } from '@/pocketbase/utils';
 import { createCollectionZodSchema } from '@/pocketbase/zod-schema';
 import { getExceptionMessage } from '@/utils/errors';
 import { ensureArray } from '@/utils/other';
@@ -44,8 +43,7 @@ export function setupCollectionForm<C extends CollectionName>({
 	superformsOptions = {},
 	uiOptions = {},
 	beforeSubmit,
-	refineSchema = (schema) => schema,
-	schemaContext
+	refineSchema = (schema) => schema
 }: CollectionFormProps<C>): SuperForm<CollectionFormData[C]> {
 	const { exclude = [], defaults = {}, hide = {} } = fieldsOptions;
 	const { toastText } = uiOptions;
@@ -102,26 +100,6 @@ export function setupCollectionForm<C extends CollectionName>({
 
 		onSubmit: async ({ form }) => {
 			try {
-				// Check name uniqueness before submitting (if context provided)
-				if (schemaContext?.parentId && form.data.name) {
-					const isUnique = await checkNameUniqueness(
-						collection as Parameters<typeof checkNameUniqueness>[0],
-						form.data.name as string,
-						schemaContext.parentId,
-						schemaContext.excludeId
-					);
-
-					if (!isUnique) {
-						setError(
-							form,
-							'name',
-							'This name is already in use. Please choose a different name.'
-						);
-						toast.error('This name is already in use. Please choose a different name.');
-						return;
-					}
-				}
-
 				const data = pipe(
 					cleanFormDataFiles(form.data, initialData, collectionModel),
 					Record.map((v) => (v === undefined ? null : v)) // IMPORTANT!
@@ -144,17 +122,21 @@ export function setupCollectionForm<C extends CollectionName>({
 				}
 
 				const showToast = uiOptions?.showToastOnSuccess ?? true;
-				if (showToast) {
-					const text = toastText
-						? toastText
-						: recordId
-							? m.Record_updated_successfully()
-							: m.Record_created_successfully();
+				try {
+					if (showToast) {
+						const text = toastText
+							? toastText
+							: recordId
+								? m.Record_updated_successfully()
+								: m.Record_created_successfully();
 
-					toast.success(text);
+						toast.success(text);
+					}
+				} catch (e) {
+					console.error(e);
 				}
 
-				onSuccess(record, recordId ? 'edit' : 'create');
+				await onSuccess(record, recordId ? 'edit' : 'create');
 			} catch (e) {
 				if (e instanceof ClientResponseError) {
 					const details = e.data.data as Record<

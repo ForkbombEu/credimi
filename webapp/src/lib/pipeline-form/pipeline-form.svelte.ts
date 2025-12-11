@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { beforeNavigate } from '$app/navigation';
 import { runWithLoading, slug } from '$lib/utils/index.js';
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
@@ -47,6 +48,14 @@ export class PipelineForm {
 				this.saveAfterMetadataFormSubmit = false;
 			}
 		});
+
+		beforeNavigate(({ cancel }) => {
+			if (!this.validateExit()) cancel();
+		});
+	}
+
+	get mode() {
+		return this.props.mode;
 	}
 
 	readonly yaml: Pipeline = $derived.by(() => ({
@@ -105,14 +114,13 @@ export class PipelineForm {
 		}
 	});
 
-	exit() {
+	validateExit() {
 		if (this.hasChanges) {
-			const result = confirm(
+			return confirm(
 				m.You_have_unsaved_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form()
 			);
-			if (result) goto('/my/pipelines');
 		} else {
-			goto('/my/pipelines');
+			return true;
 		}
 	}
 }
