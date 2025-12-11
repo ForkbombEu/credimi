@@ -42,6 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Header from './collectionManagerHeader.svelte';
 	import Pagination from './collectionManagerPagination.svelte';
 	import Search from './collectionManagerSearch.svelte';
+	import EditForm from './forms/edit-form.svelte';
 	import Card from './recordCard.svelte';
 	import Table from './table/collectionTable.svelte';
 
@@ -220,3 +221,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<EmptyState title={emptyStateTitle} description={emptyStateDescription} icon={FolderIcon} />
 	{/if}
 {/snippet}
+
+<EditForm />
