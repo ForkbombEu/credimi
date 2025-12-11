@@ -34,8 +34,6 @@ services:
       - TEMPORAL_CLI_ADDRESS=temporal:7233
       - LOG_LEVEL=debug
     image: temporalio/auto-setup:${TEMPORAL_VERSION:-1.29.1}
-    ports:
-      - 7233:7233
     volumes:
       - ./deployment/dynamicconfig:/etc/temporal/config/dynamicconfig
   temporal_ui:
@@ -47,5 +45,3 @@ services:
       - TEMPORAL_CORS_ORIGINS=http://localhost:3000
       - TEMPORAL_UI_PORT=8280
     image: temporalio/ui:${TEMPORAL_UI_VERSION:-2.43.2}
-    ports:
-      - 8280:8280
