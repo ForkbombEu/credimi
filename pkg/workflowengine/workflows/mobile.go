@@ -34,7 +34,6 @@ type MobileAutomationWorkflowPipelinePayload struct {
 	ActionID   string            `json:"action_id,omitempty"   yaml:"action_id,omitempty"`
 	VersionID  string            `json:"version_id,omitempty"  yaml:"version_id,omitempty"`
 	ActionCode string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
-	Video      bool              `json:"video,omitempty"       yaml:"video,omitempty"`
 	Parameters map[string]string `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
 }
 
