@@ -7,10 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { PipelineForm } from '$pipeline-form/pipeline-form.svelte.js';
 
-	//
-
-	const { data } = $props();
-	const form = new PipelineForm(data);
+	const form = new PipelineForm({ mode: 'create' });
 </script>
 
 <form.Component {form} />

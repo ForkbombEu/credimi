@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import type { ComponentProps, Snippet } from 'svelte';
 
 	import { CopyPlus } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
@@ -31,9 +31,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onSuccess?: () => void;
 		/** Custom button renderer */
 		button?: Snippet<[{ triggerAttributes: object; icon: typeof CopyPlus }]>;
+		size?: ComponentProps<typeof IconButton>['size'];
 	};
 
-	const { record, collectionName, onSuccess = () => {}, button }: Props = $props();
+	const { record, collectionName, onSuccess = () => {}, button, size = 'sm' }: Props = $props();
 
 	//
 
@@ -83,11 +84,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Tooltip>
 		<IconButton
 			variant="outline"
-			size="sm"
+			{size}
 			icon={CopyPlus}
 			disabled={isCloning}
 			onclick={handleClone}
-			class="h-8 w-8 p-0"
 		/>
 		{#snippet content()}
 			<p>{m.Clone()}</p>

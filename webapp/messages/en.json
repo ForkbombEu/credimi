@@ -845,5 +845,7 @@
 	"workflows": "Workflows",
 	"workflow_runs": "Workflow runs",
 	"tools": "Tools",
-	"manual_conformance_checks": "Manual conformance checks"
+	"manual_conformance_checks": "Manual conformance checks",
+	"manual_mode": "Manual mode",
+	"blocks_mode": "Blocks mode"
 }
