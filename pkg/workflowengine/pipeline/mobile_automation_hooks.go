@@ -21,9 +21,11 @@ func MobileAutomationSetupHook(
 	ctx workflow.Context,
 	steps *[]StepDefinition,
 	input workflowengine.WorkflowInput,
+	runData *map[string]any,
 ) error {
 	logger := workflow.GetLogger(ctx)
-
+	fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
+	fmt.Println(*runData)
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 
 	httpActivity := activities.NewHTTPActivity()
@@ -34,13 +36,12 @@ func MobileAutomationSetupHook(
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
 
 	startedEmulators := make(map[string]any)
-	if alreadyStartedEmu, ok := input.Config["started_emulators"].(map[string]any); ok {
+	if alreadyStartedEmu, ok := (*runData)["started_emulators"].(map[string]any); ok {
 		startedEmulators = alreadyStartedEmu
 	}
 
 	for i := range *steps {
 		step := &(*steps)[i]
-		SetConfigValue(&step.With.Config, "started_emulators", startedEmulators)
 
 		if step.Use != "mobile-automation" {
 			continue
@@ -160,7 +161,31 @@ func MobileAutomationSetupHook(
 		}
 		SetPayloadValue(&step.With.Payload, "version_id", versionIdentifier)
 
-		if serial, ok := startedEmulators[versionIdentifier]; ok {
+		if emuInfo, ok := startedEmulators[versionIdentifier]; ok {
+			emuInfoMap, ok := emuInfo.(map[string]any)
+			if !ok {
+				return workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf(
+						"%s: invalid emulator info for step %s",
+						errCode.Description,
+						step.ID,
+					),
+					emuInfo,
+				)
+			}
+			serial, ok := emuInfoMap["serial"].(string)
+			if !ok || serial == "" {
+				return workflowengine.NewAppError(
+					errCode,
+					fmt.Sprintf(
+						"%s: missing serial in emulator info for step %s",
+						errCode.Description,
+						step.ID,
+					),
+					emuInfo,
+				)
+			}
 			logger.Info(
 				"Emulator already started, skipping start",
 				"version",
@@ -218,7 +243,7 @@ func MobileAutomationSetupHook(
 		).Get(ctx, &recordResult); err != nil {
 			return err
 		}
-		adbPID, ok := recordResult.Output.(map[string]any)["adb_process"].(float64)
+		adbPID, ok := recordResult.Output.(map[string]any)["adb_process_pid"].(float64)
 		if !ok {
 			return workflowengine.NewAppError(
 				errCode,
@@ -230,7 +255,7 @@ func MobileAutomationSetupHook(
 				recordResult.Output,
 			)
 		}
-		ffmpegPID, ok := recordResult.Output.(map[string]any)["ffmpeg_process"].(float64)
+		ffmpegPID, ok := recordResult.Output.(map[string]any)["ffmpeg_process_pid"].(float64)
 		if !ok {
 			return workflowengine.NewAppError(
 				errCode,
@@ -242,17 +267,31 @@ func MobileAutomationSetupHook(
 				recordResult.Output,
 			)
 		}
+		videoPath, ok := recordResult.Output.(map[string]any)["video_path"].(string)
+		if !ok {
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf(
+					"%s: missing video_path in start record video response for step %s",
+					errCode.Description,
+					step.ID,
+				),
+				recordResult.Output,
+			)
+		}
 		SetPayloadValue(&step.With.Payload, "recording_adb_pid", int(adbPID))
 		SetPayloadValue(&step.With.Payload, "recording_ffmpeg_pid", int(ffmpegPID))
 		startedEmulators[versionIdentifier] = map[string]any{
-			"serial":    serial,
-			"recording": true,
+			"serial":     serial,
+			"recording":  true,
+			"video_path": videoPath,
 		}
 		// unlockInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": serial}}
 		// if err := workflow.ExecuteActivity(mobileCtx, unlockActivity.Name(), unlockInput).Get(ctx, nil); err != nil {
 		// 	return err
 		// }
 	}
+	SetRunDataValue(runData, "started_emulators", startedEmulators)
 
 	return nil
 }
@@ -261,10 +300,13 @@ func MobileAutomationCleanupHook(
 	ctx workflow.Context,
 	steps []StepDefinition,
 	input workflowengine.WorkflowInput,
+	runData map[string]any,
 	output *map[string]any,
 ) error {
 	logger := workflow.GetLogger(ctx)
 	mobileAo := *input.ActivityOptions
+	fmt.Println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb")
+	fmt.Println(runData)
 	mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 	mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
@@ -281,6 +323,8 @@ func MobileAutomationCleanupHook(
 	httpActivity := activities.NewHTTPActivity()
 
 	stoppedEmulators := make(map[string]struct{})
+	var cleanupErrs []error
+
 	for _, step := range steps {
 		if step.Use != "mobile-automation" {
 			continue
@@ -317,63 +361,89 @@ func MobileAutomationCleanupHook(
 			continue
 		}
 
-		if startedEmulators, ok := input.Config["started_emulators"].(map[string]any); ok {
+		if startedEmulators, ok := runData["started_emulators"].(map[string]any); ok {
 			if emuInfo, ok := startedEmulators[payload.VersionID].(map[string]any); ok {
 				if recording, ok := emuInfo["recording"].(bool); ok && recording {
 					stopRecordInput := workflowengine.ActivityInput{
 						Payload: map[string]any{
-							"adb_process":    payload.RecordingAdbPid,
-							"ffmpeg_process": payload.RecordingFfmpegPid,
+							"adb_process_pid":    payload.RecordingAdbPid,
+							"ffmpeg_process_pid": payload.RecordingFfmpegPid,
 						},
 					}
 					if err := workflow.ExecuteActivity(
-						mobileCtx, stopRecordingActivity.Name(), stopRecordInput).Get(ctx, nil); err != nil {
-						logger.Error(
-							"MobileAutomationCleanupHook: error stopping recording",
-							payload.EmulatorSerial,
-							"error",
-							err,
-						)
-						return err
+						mobileCtx, stopRecordingActivity.Name(), stopRecordInput,
+					).Get(ctx, nil); err != nil {
+						logger.Error("cleanup: stop recording failed", "error", err)
+						cleanupErrs = append(cleanupErrs, err)
 					}
-					storeResultInput := workflowengine.ActivityInput{
-						Payload: activities.HTTPActivityPayload{
-							Method: http.MethodPost,
-							URL:    utils.JoinURL(mobileServerURL, "store-pipeline-result"),
-							Headers: map[string]string{
-								"Content-Type": "application/json",
-							},
-							Body: map[string]any{
-								"video_path":     payload.VideoPath,
-								"run_identifier": payload.RunIdentifier,
-								"instance_url":   appURL,
-							},
-							ExpectedStatus: 200,
-						},
-					}
-					var storeResultResponse workflowengine.ActivityResult
-					err = workflow.ExecuteActivity(ctx, httpActivity.Name(), storeResultInput).
-						Get(ctx, &storeResultResponse)
-					if err != nil {
-						return err
-					}
-
-					resultURLS, ok := storeResultResponse.Output.(map[string]any)["body"].(map[string]any)["result_urls"].([]string)
-					if !ok || resultURLS == nil || len(resultURLS) == 0 {
-						errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+					videoPath, ok := emuInfo["video_path"].(string)
+					if !ok || videoPath == "" {
+						errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 						appErr := workflowengine.NewAppError(
 							errCode,
 							fmt.Sprintf(
-								"%s: 'result_urls'", errCode.Description),
-							storeResultResponse.Output,
+								"%s: missing or invalid video path for emulator %s",
+								errCode.Description,
+								payload.EmulatorSerial,
+							),
 						)
-						return appErr
-					}
-					if *output == nil {
-						*output = make(map[string]any)
-					}
+						cleanupErrs = append(cleanupErrs, appErr)
+					} else {
+						runIdentifier, ok := runData["run_identifier"].(string)
+						if !ok || runIdentifier == "" {
+							errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+							appErr := workflowengine.NewAppError(
+								errCode,
+								fmt.Sprintf(
+									"%s: missing or invalid run identifier in run data",
+									errCode.Description,
+								),
+							)
+							cleanupErrs = append(cleanupErrs, appErr)
+						} else {
+							storeResultInput := workflowengine.ActivityInput{
+								Payload: activities.HTTPActivityPayload{
+									Method: http.MethodPost,
+									URL:    utils.JoinURL(mobileServerURL, "store-pipeline-result"),
+									Headers: map[string]string{
+										"Content-Type": "application/json",
+									},
+									Body: map[string]any{
+										"video_path":     videoPath,
+										"run_identifier": runIdentifier,
+										"instance_url":   appURL,
+									},
+									ExpectedStatus: 200,
+								},
+							}
+							var storeResultResponse workflowengine.ActivityResult
+							if err := workflow.ExecuteActivity(
+								ctx, httpActivity.Name(), storeResultInput,
+							).Get(ctx, &storeResultResponse); err != nil {
+								logger.Error("cleanup: store result failed", "error", err)
+								cleanupErrs = append(cleanupErrs, err)
+							} else {
+								resultURLSRaw, ok := storeResultResponse.Output.(map[string]any)["body"].(map[string]any)["result_urls"]
+								resultURLS := workflowengine.AsSliceOfStrings(resultURLSRaw)
+								if !ok || resultURLS == nil || len(resultURLS) == 0 {
+									errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+									appErr := workflowengine.NewAppError(
+										errCode,
+										fmt.Sprintf(
+											"%s: 'result_urls'", errCode.Description),
+										storeResultResponse.Output,
+									)
+									cleanupErrs = append(cleanupErrs, appErr)
+								}
+								if *output == nil {
+									*output = make(map[string]any)
+								}
 
-					(*output)["result_video_urls"] = resultURLS
+								existing, _ := (*output)["result_video_urls"].([]string)
+								(*output)["result_video_urls"] = append(existing, resultURLS...)
+							}
+						}
+					}
 				}
 			}
 		}
@@ -392,6 +462,15 @@ func MobileAutomationCleanupHook(
 		}
 
 		stoppedEmulators[payload.EmulatorSerial] = struct{}{}
+	}
+
+	if len(cleanupErrs) > 0 {
+		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+		return workflowengine.NewAppError(
+			errCode,
+			"one or more errors occurred during mobile automation cleanup",
+			cleanupErrs,
+		)
 	}
 
 	return nil

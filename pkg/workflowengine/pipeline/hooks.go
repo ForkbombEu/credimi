@@ -13,12 +13,14 @@ type SetupFunc func(
 	ctx workflow.Context,
 	steps *[]StepDefinition,
 	input workflowengine.WorkflowInput,
+	runData *map[string]any,
 ) error
 
 type CleanupFunc func(
 	ctx workflow.Context,
 	steps []StepDefinition,
 	input workflowengine.WorkflowInput,
+	runData map[string]any,
 	output *map[string]any,
 ) error
 

@@ -190,7 +190,7 @@ func (a *StartRecordingActivity) Execute(
 		true,
 	)
 
-	res, err := mobile.StartRecordVideo(ctx, runInput)
+	res, err := mobile.StartVideoRecording(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
@@ -225,7 +225,7 @@ func (a *StopRecordingActivity) Execute(
 		true,
 	)
 
-	res, err := mobile.StopRecordVideo(ctx, runInput)
+	res, err := mobile.StopVideoRecording(runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}

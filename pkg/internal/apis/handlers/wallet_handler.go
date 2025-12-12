@@ -464,6 +464,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 				"files",
 				"pipeline_results",
 				resultRecord.Id,
+				resultRecord.GetString("video_results"),
 				filename,
 			)
 			urls = append(urls, url)

@@ -161,6 +161,13 @@ func SetConfigValue(config *map[string]any, key string, val any) {
 	(*config)[key] = val
 }
 
+func SetRunDataValue(runData *map[string]any, key string, val any) {
+	if *runData == nil {
+		*runData = make(map[string]any)
+	}
+	(*runData)[key] = val
+}
+
 // MergePayload merges all keys from src into dst recursively.
 func MergePayload(dst, src *map[string]any) error {
 	if dst == nil || src == nil {
@@ -203,5 +210,6 @@ func deepCopy(v any) any {
 }
 
 func getPipelineRunIdentifier(namespace, workflowID, runID string) string {
-	return canonify.CanonifyPlain(fmt.Sprintf("%s-%s-%s", namespace, workflowID, runID))
+	id := fmt.Sprintf("%s-%s", workflowID, runID)
+	return fmt.Sprintf("%s/%s", namespace, canonify.CanonifyPlain(id))
 }
