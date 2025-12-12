@@ -24,8 +24,6 @@ func MobileAutomationSetupHook(
 	runData *map[string]any,
 ) error {
 	logger := workflow.GetLogger(ctx)
-	fmt.Println("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA")
-	fmt.Println(*runData)
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 
 	httpActivity := activities.NewHTTPActivity()
@@ -305,8 +303,7 @@ func MobileAutomationCleanupHook(
 ) error {
 	logger := workflow.GetLogger(ctx)
 	mobileAo := *input.ActivityOptions
-	fmt.Println("BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBb")
-	fmt.Println(runData)
+
 	mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 	mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
 	mobileServerURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
