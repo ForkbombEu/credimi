@@ -15,7 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { PocketbaseQueryOptions } from '@/pocketbase/query';
 
-	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
+	import CollectionManagerComponent from '@/collections-components/manager/collectionManager.svelte';
+	import { CollectionManager } from '@/collections-components/manager/collectionManager.svelte.js';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
@@ -43,6 +44,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	});
 
+	let manager: CollectionManager<'marketplace_items'> | undefined;
+
 	const queryOptions: PocketbaseQueryOptions<'marketplace_items'> = $derived.by(() => {
 		switch (params.tab) {
 			case 'wallets':
@@ -59,14 +62,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return {};
 		}
 	});
+
+	$effect(() => {
+		if (manager && params.tab) {
+			manager.query.clearSearch();
+		}
+	});
 </script>
 
-<CollectionManager
+<CollectionManagerComponent
 	collection="marketplace_items"
-	queryOptions={{ perPage: 25, ...queryOptions }}
+	queryOptions={{ perPage: 25, searchFields: ['name'], ...queryOptions }}
 	hide={['pagination']}
+	onMount={(m) => {
+		manager = m as CollectionManager<'marketplace_items'>;
+	}}
 >
-	{#snippet top()}
+	{#snippet top({ Search })}
 		<div class="bg-secondary pb-10 pt-10 md:pb-0">
 			<div class="mx-auto max-w-screen-xl px-4 md:px-8">
 				<T tag="h1" class="mb-8">
@@ -102,9 +114,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/each}
 				</div>
 
-				<!-- <div class="bg-white px-4 pb-6 pt-4">
-					<Search />
-				</div> -->
+				{#if params.tab !== 'conformance-checks'}
+					<div class="bg-white px-4 pb-6 pt-4">
+						<Search />
+					</div>
+				{/if}
 			</div>
 		</div>
 	{/snippet}
@@ -140,4 +154,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		{/if}
 	{/snippet}
-</CollectionManager>
+</CollectionManagerComponent>
