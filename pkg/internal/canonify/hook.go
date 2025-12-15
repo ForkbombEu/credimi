@@ -105,7 +105,7 @@ func RegisterCanonifyHooks(app core.App) {
 			if name == "" {
 				return e.Next()
 			}
-			if name == "workflow_id" {
+			if tpl.Field == "workflow_id" {
 				name = fmt.Sprintf("%s-%s", name, e.Record.GetString("run_id"))
 			}
 			existsFunc := MakeExistsFunc(e.App, col, e.Record, e.Record.Id)

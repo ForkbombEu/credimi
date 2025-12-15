@@ -375,15 +375,17 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			"/",
 			"-",
 		)
+		filename := versionName + "_result_video"
 		videoFilename, videoURLs, err := saveUploadedFileToRecord(
-			e, resultRecord, "result_video", "video_results",
+			e, resultRecord, "result_video", "video_results", filename,
 		)
 		if err != nil {
 			return err
 		}
 
+		filename = versionName + "_screenshot"
 		frameFilename, frameURLs, err := saveUploadedFileToRecord(
-			e, resultRecord, "last_frame", "screenshots",
+			e, resultRecord, "last_frame", "screenshots", filename,
 		)
 		if err != nil {
 			return err
@@ -391,7 +393,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, map[string]any{
 			"status":               "success",
-			"version":              versionName,
+			"version":              versionIdentifier,
 			"video_file_name":      videoFilename,
 			"result_urls":          videoURLs,
 			"last_frame_file_name": frameFilename,
@@ -405,6 +407,7 @@ func saveUploadedFileToRecord(
 	record *core.Record,
 	formField string,
 	recordField string,
+	filename string,
 ) (string, []string, error) {
 	file, fileHeader, err := e.Request.FormFile(formField)
 	if err != nil {
@@ -416,10 +419,9 @@ func saveUploadedFileToRecord(
 		).JSON(e)
 	}
 	defer file.Close()
-
 	tmp, err := os.CreateTemp(
 		"",
-		fmt.Sprintf("%s_*%s", formField, filepath.Ext(fileHeader.Filename)),
+		fmt.Sprintf("%s_*%s", filename, filepath.Ext(fileHeader.Filename)),
 	)
 	if err != nil {
 		return "", nil, apierror.New(
