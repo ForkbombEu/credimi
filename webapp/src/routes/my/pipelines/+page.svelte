@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { getPath, runWithLoading } from '$lib/utils';
-	import { CogIcon, Eye, Pencil, PlayIcon, Plus } from 'lucide-svelte';
+	import { Eye, Pencil, PlayIcon, Plus } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	import type { PipelinesResponse } from '@/pocketbase/types';
@@ -87,14 +87,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<Button onclick={() => runPipeline(pipeline)}>
 								<PlayIcon />{m.Run_now()}
 							</Button>
-							<Button
+							<!-- <Button
 								href="/my/pipelines/settings-{pipeline.id}"
 								variant="outline"
 								size="icon"
 							>
 								<CogIcon />
-							</Button>
-							<RecordClone record={pipeline} collectionName="pipelines" />
+							</Button> -->
+							<RecordClone record={pipeline} size="md" collectionName="pipelines" />
 							<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} />
 						{/snippet}
 					</DashboardCard>

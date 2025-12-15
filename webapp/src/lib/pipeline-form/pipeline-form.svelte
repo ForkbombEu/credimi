@@ -5,14 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowLeftIcon, RedoIcon, SaveIcon, UndoIcon } from 'lucide-svelte';
+	import { PencilIcon, RedoIcon, SaveIcon, UndoIcon } from 'lucide-svelte';
 
-	import T from '@/components/ui-custom/t.svelte';
 	import { Button } from '@/components/ui/button';
-	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 
 	import type { PipelineForm } from './pipeline-form.svelte.js';
+
+	import PipelineFormLayout from './pipeline-form-layout.svelte';
 
 	//
 
@@ -27,39 +27,44 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const isViewMode = $derived(form['props'].mode === 'view');
 	const saveButtonText = $derived(isViewMode ? m.Create_record() : m.Save());
+
+	const title = $derived.by(() => {
+		if (form.mode === 'create') {
+			return m.New_pipeline();
+		} else if (form.mode === 'edit') {
+			return m.Edit_pipeline();
+		} else {
+			return m.View();
+		}
+	});
 </script>
 
-<div class="bg-secondary flex h-screen flex-col gap-4 overflow-hidden px-4 pb-4 pt-2">
-	<div class="flex items-center justify-between">
-		<div class="flex items-center gap-3">
-			<Button class="h-6" onclick={() => form.exit()} variant="link">
-				<ArrowLeftIcon />
-				{m.Back()}
-			</Button>
-			<Separator orientation="vertical" class="self-stretch bg-slate-400" />
-			<T tag="h3" class="text-xl">{m.New_pipeline()}</T>
-		</div>
+<PipelineFormLayout {title} class="h-screen overflow-hidden">
+	{#snippet topbarMiddle()}
+		<Button variant="ghost" onclick={() => builder.undo()}>
+			<UndoIcon />
+			{m.Undo()}
+		</Button>
+		<Button variant="ghost" onclick={() => builder.redo()}>
+			<RedoIcon />
+			{m.Redo()}
+		</Button>
+	{/snippet}
 
-		<div>
-			<Button variant="ghost" onclick={() => builder.undo()}>
-				<UndoIcon />
-				{m.Undo()}
+	{#snippet topbarRight()}
+		{#if form.mode === 'create'}
+			<Button href="/my/pipelines/new/manual" variant="ghost">
+				<PencilIcon />
+				{m.manual_mode()}
 			</Button>
-			<Button variant="ghost" onclick={() => builder.redo()}>
-				<RedoIcon />
-				{m.Redo()}
-			</Button>
-		</div>
-
-		<div class="flex items-center gap-2">
-			<metadata.Component form={metadata} />
-			<activityOptions.Component form={activityOptions} />
-			<Button disabled={!builder.isReady()} onclick={() => form.save()}>
-				<SaveIcon />
-				{saveButtonText}
-			</Button>
-		</div>
-	</div>
+		{/if}
+		<metadata.Component form={metadata} />
+		<activityOptions.Component form={activityOptions} />
+		<Button disabled={!builder.isReady()} onclick={() => form.save()}>
+			<SaveIcon />
+			{saveButtonText}
+		</Button>
+	{/snippet}
 
 	<builder.Component {builder} />
-</div>
+</PipelineFormLayout>
