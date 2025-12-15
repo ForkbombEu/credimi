@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			code: yamlStringSchema as unknown as z.ZodString
 		})}
 	formFieldsOptions={{
-		exclude: ['owner', 'canonified_name', 'result'],
+		exclude: ['owner', 'canonified_name', 'result', 'published'],
 		hide: { wallet: wallet.id },
 		snippets: { code: codeField },
 		placeholders: {
