@@ -51,8 +51,7 @@ function convertWalletActionStep(step: WalletActionStep): YamlStep<'mobile-autom
 		continue_on_error: step.continueOnError ?? false,
 		with: {
 			action_id: getPath(step.data.action),
-			version_id: getPath(step.data.version),
-			video: step.video ?? false
+			version_id: getPath(step.data.version)
 		}
 	};
 
