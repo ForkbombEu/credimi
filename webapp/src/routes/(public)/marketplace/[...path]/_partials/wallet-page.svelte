@@ -129,6 +129,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	function getDownloadLinks(version: WalletVersionsResponse): { label: string; url: string }[] {
+		if (!version.downloadable) return [];
 		return [
 			{
 				label: 'Android',

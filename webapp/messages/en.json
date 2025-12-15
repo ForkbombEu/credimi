@@ -847,5 +847,6 @@
 	"tools": "Tools",
 	"manual_conformance_checks": "Manual conformance checks",
 	"manual_mode": "Manual mode",
-	"blocks_mode": "Blocks mode"
+	"blocks_mode": "Blocks mode",
+	"Allow_installer_download": "Allow installer download"
 }
