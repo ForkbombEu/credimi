@@ -73,7 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			path={(r) => [organization.canonified_name, wallet.canonified_name, r.canonified_name]}
 		>
 			{#snippet actions({ record })}
-				<WalletActionTags action={record} />
+				<WalletActionTags action={record} containerClass="justify-end" />
 				{#if record.result}
 					<Button
 						size="sm"

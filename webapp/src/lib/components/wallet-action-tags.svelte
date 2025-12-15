@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const tags = $derived(action.tags.split(',').map((tag) => tag.trim()));
 </script>
 
-<div class={['flex items-center gap-1 pr-2', containerClass]}>
+<div class={['flex flex-wrap items-center gap-1 pr-2', containerClass]}>
 	{#each tags as tag, index (index)}
 		<Badge variant="secondary" {...rest}>
 			{tag}

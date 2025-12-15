@@ -38,21 +38,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}: Props = $props();
 </script>
 
-<div>
-	<ul class="space-y-2">
-		{#each records as record (record.id)}
-			<DashboardCardManagerItem
-				{record}
-				{nameField}
-				{fallbackNameField}
-				publicUrl={publicUrl?.(record)}
-				{hideClone}
-				path={path(record)}
-			>
-				{#snippet actions()}
-					{@render actionsSnippet?.({ record })}
-				{/snippet}
-			</DashboardCardManagerItem>
-		{/each}
-	</ul>
-</div>
+<ul class="space-y-2">
+	{#each records as record (record.id)}
+		<DashboardCardManagerItem
+			{record}
+			{nameField}
+			{fallbackNameField}
+			publicUrl={publicUrl?.(record)}
+			{hideClone}
+			path={path(record)}
+		>
+			{#snippet actions()}
+				{@render actionsSnippet?.({ record })}
+			{/snippet}
+		</DashboardCardManagerItem>
+	{/each}
+</ul>
