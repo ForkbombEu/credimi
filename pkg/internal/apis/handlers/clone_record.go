@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -35,13 +36,14 @@ var CloneRecord routing.RouteGroup = routing.RouteGroup{
 }
 
 type CloneConfig struct {
-	CollectionName string
-	AbsoluteFields []string
-	UniqueFields   []string
-	AutoFields     []string
+	makeUnique []string
+	exclude    []string
 }
 
-var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
+var (
+	rng          = rand.New(rand.NewSource(time.Now().UnixNano()))
+	systemFields = []string{"id", "created", "updated"}
+)
 
 func makeUniqueValue(original string) string {
 	randomDigits := fmt.Sprintf("%04d", rng.Intn(10000))
@@ -50,49 +52,35 @@ func makeUniqueValue(original string) string {
 
 var CloneConfigs = map[string]CloneConfig{
 	"credentials": {
-		CollectionName: "credentials",
-		AbsoluteFields: []string{"id", "created", "updated"},
-		UniqueFields:   []string{"name"},
-		AutoFields:     []string{"canonified_name"},
+		makeUnique: []string{"name"},
+		exclude:    []string{"canonified_name"},
 	},
 }
 
 func cloneRecord(app core.App, originalRecord *core.Record, config CloneConfig) (*core.Record, error) {
-	clonedRecord := core.NewRecord(originalRecord.Collection())
-
-	absoluteFields := make(map[string]bool)
-	for _, field := range config.AbsoluteFields {
-		absoluteFields[field] = true
-	}
-
-	autoFields := make(map[string]bool)
-	for _, field := range config.AutoFields {
-		autoFields[field] = true
-	}
-
-	uniqueFields := make(map[string]bool)
-	for _, field := range config.UniqueFields {
-		uniqueFields[field] = true
-	}
+	newRecord := core.NewRecord(originalRecord.Collection())
 
 	for key, value := range originalRecord.FieldsData() {
-		if absoluteFields[key] || autoFields[key] {
+		if slices.Contains(systemFields, key) {
 			continue
 		}
-		if uniqueFields[key] {
+		if slices.Contains(config.exclude, key) {
+			continue
+		}
+		if slices.Contains(config.makeUnique, key) {
 			if strVal, ok := value.(string); ok && strVal != "" {
-				uniqueValue := makeUniqueValue(strVal)
-				clonedRecord.Set(key, uniqueValue)
+				newRecord.Set(key, makeUniqueValue(strVal))
 				continue
 			}
 		}
-		clonedRecord.Set(key, value)
-	}
-	if err := app.Save(clonedRecord); err != nil {
-		return nil, err
+		newRecord.Set(key, value)
 	}
 
-	return clonedRecord, nil
+	if err := app.Save(newRecord); err != nil {
+		return nil, fmt.Errorf("failed to save base record: %w", err)
+	}
+
+	return newRecord, nil
 }
 
 type CloneRequest struct {
