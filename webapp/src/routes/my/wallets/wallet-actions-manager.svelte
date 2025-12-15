@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { yaml } from '@codemirror/lang-yaml';
+	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import { yamlStringSchema } from '$lib/utils';
@@ -47,7 +48,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		hide: { wallet: wallet.id },
 		snippets: { code: codeField },
 		placeholders: {
-			name: m.e_g_Get_Credential()
+			name: m.e_g_Get_Credential(),
+			tags: 'e.g. v.0.01, Above 18 credential'
+		},
+		descriptions: {
+			tags: m.separate_items_by_commas()
 		}
 	}}
 >
@@ -68,6 +73,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			path={(r) => [organization.canonified_name, wallet.canonified_name, r.canonified_name]}
 		>
 			{#snippet actions({ record })}
+				<WalletActionTags action={record} />
 				{#if record.result}
 					<Button
 						size="sm"
