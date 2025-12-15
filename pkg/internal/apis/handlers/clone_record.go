@@ -34,11 +34,11 @@ var CloneRecord routing.RouteGroup = routing.RouteGroup{
 	},
 }
 
-type CloneConfig interface {
-	CollectionName() string
-	AbsoluteFields() []string
-	UniqueFields() []string
-	AutoFields() []string
+type CloneConfig struct {
+	CollectionName string
+	AbsoluteFields []string
+	UniqueFields   []string
+	AutoFields     []string
 }
 
 var rng = rand.New(rand.NewSource(time.Now().UnixNano()))
@@ -48,87 +48,35 @@ func makeUniqueValue(original string) string {
 	return original + "_copy" + randomDigits
 }
 
-type CredentialConfig struct{}
-
-func NewCredentialConfig() CloneConfig {
-	return &CredentialConfig{}
+var CloneConfigs = map[string]CloneConfig{
+	"credentials": {
+		CollectionName: "credentials",
+		AbsoluteFields: []string{"id", "created", "updated"},
+		UniqueFields:   []string{"name"},
+		AutoFields:     []string{"canonified_name"},
+	},
 }
-
-func (c *CredentialConfig) CollectionName() string {
-	return "credentials"
-}
-
-func (c *CredentialConfig) AbsoluteFields() []string {
-	return []string{
-		"id", "created", "updated",
-	}
-}
-
-func (c *CredentialConfig) UniqueFields() []string {
-	return []string{
-		"name",
-	}
-}
-
-func (c *CredentialConfig) AutoFields() []string {
-	return []string{
-		"canonified_name",
-	}
-}
-
-type CloneConfigRegistry struct {
-	configs map[string]CloneConfig
-}
-
-func NewCloneConfigRegistry() *CloneConfigRegistry {
-	return &CloneConfigRegistry{
-		configs: make(map[string]CloneConfig),
-	}
-}
-
-func (r *CloneConfigRegistry) Register(config CloneConfig) {
-	r.configs[config.CollectionName()] = config
-}
-
-func (r *CloneConfigRegistry) Get(collectionName string) (CloneConfig, bool) {
-	config, exists := r.configs[collectionName]
-	return config, exists
-}
-
-var cloneRegistry = func() *CloneConfigRegistry {
-	registry := NewCloneConfigRegistry()
-	registry.Register(NewCredentialConfig())
-	return registry
-}()
 
 func cloneRecord(app core.App, originalRecord *core.Record, config CloneConfig) (*core.Record, error) {
-	collection, err := app.FindCollectionByNameOrId(originalRecord.Collection().Id)
-	if err != nil {
-		return nil, err
-	}
-
-	clonedRecord := core.NewRecord(collection)
+	clonedRecord := core.NewRecord(originalRecord.Collection())
 
 	absoluteFields := make(map[string]bool)
-	for _, field := range config.AbsoluteFields() {
+	for _, field := range config.AbsoluteFields {
 		absoluteFields[field] = true
 	}
 
 	autoFields := make(map[string]bool)
-	for _, field := range config.AutoFields() {
+	for _, field := range config.AutoFields {
 		autoFields[field] = true
 	}
 
 	uniqueFields := make(map[string]bool)
-	for _, field := range config.UniqueFields() {
+	for _, field := range config.UniqueFields {
 		uniqueFields[field] = true
 	}
 
 	for key, value := range originalRecord.FieldsData() {
-		if absoluteFields[key] {
-			continue
-		}
-		if autoFields[key] {
+		if absoluteFields[key] || autoFields[key] {
 			continue
 		}
 		if uniqueFields[key] {
@@ -166,7 +114,7 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 		if req.ID == "" || req.Collection == "" {
 			return apis.NewBadRequestError("id and collection are required", nil)
 		}
-		config, exists := cloneRegistry.Get(req.Collection)
+		config, exists := CloneConfigs[req.Collection]
 		if !exists {
 			return apis.NewBadRequestError(
 				fmt.Sprintf("Collection '%s' not supported for cloning", req.Collection), nil,
@@ -174,9 +122,12 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 		}
 		originalRecord, err := e.App.FindRecordById(req.Collection, req.ID)
 		if err != nil {
-			return apis.NewBadRequestError(
-				fmt.Sprintf("record '%s' not find", req.ID), nil,
-			)
+			return apierror.New(
+				http.StatusNotFound,
+				"not_found",
+				fmt.Sprintf("Record '%s' not found in collection '%s'", req.ID, req.Collection),
+				err.Error(),
+			).JSON(e)
 		}
 
 		clonedRecord, err := cloneRecord(e.App, originalRecord, config)
