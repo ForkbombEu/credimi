@@ -10,7 +10,7 @@ require (
 	github.com/ForkbombEu/et-tu-cesr v0.0.0-20250730082655-1822692d6150
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/go-connections v0.5.0
-	github.com/forkbombeu/credimi-extra v0.0.0-20251212162439-268a5041d5ff
+	github.com/forkbombeu/credimi-extra v0.0.0-20251215082340-77cb5c39a933
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/go-sprout/sprout v1.0.0
 	github.com/google/uuid v1.6.0

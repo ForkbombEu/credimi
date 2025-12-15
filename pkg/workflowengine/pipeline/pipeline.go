@@ -149,6 +149,7 @@ func (w *PipelineWorkflow) Workflow(
 					errCode,
 					fmt.Sprintf("error executing step %s: %s", step.ID, err.Error()),
 					step.ID,
+					finalOutput,
 				)
 
 				if step.ContinueOnError {
@@ -176,7 +177,7 @@ func (w *PipelineWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("workflow completed with %d step errors", len(errorsList)),
 		)
-		return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList)
+		return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList, finalOutput)
 	}
 
 	if len(cleanupErrors) > 0 {
@@ -185,7 +186,12 @@ func (w *PipelineWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("workflow completed with %d cleanup errors", len(cleanupErrors)),
 		)
-		return result, workflowengine.NewWorkflowError(appErr, runMetadata, cleanupErrors)
+		return result, workflowengine.NewWorkflowError(
+			appErr,
+			runMetadata,
+			cleanupErrors,
+			finalOutput,
+		)
 	}
 
 	return workflowengine.WorkflowResult{

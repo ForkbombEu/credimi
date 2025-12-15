@@ -375,116 +375,128 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			"/",
 			"-",
 		)
-		file, header, err := e.Request.FormFile("result")
-		if err != nil {
-			return apierror.New(
-				http.StatusBadRequest,
-				"file",
-				"failed to read file",
-				err.Error(),
-			).JSON(e)
-		}
-		defer file.Close()
-		tmpFile, err := os.CreateTemp(
-			"",
-			fmt.Sprintf("result_%s_*%s", versionName, filepath.Ext(header.Filename)),
+		videoFilename, videoURLs, err := saveUploadedFileToRecord(
+			e, resultRecord, "result_video", "video_results",
 		)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"filesystem",
-				"failed to create temp file",
-				err.Error(),
-			).JSON(e)
-		}
-		defer tmpFile.Close()
-
-		if _, err := io.Copy(tmpFile, file); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"filesystem",
-				"failed to write temp file",
-				err.Error(),
-			).JSON(e)
+			return err
 		}
 
-		absResultPath, err := filepath.Abs(tmpFile.Name())
+		frameFilename, frameURLs, err := saveUploadedFileToRecord(
+			e, resultRecord, "last_frame", "screenshots",
+		)
 		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"filesystem",
-				"invalid temp file path",
-				err.Error(),
-			).JSON(e)
-		}
-
-		f, err := filesystem.NewFileFromPath(absResultPath)
-		if err != nil {
-			_ = os.Remove(absResultPath)
-			return apierror.New(
-				http.StatusInternalServerError,
-				"filesystem",
-				"failed to wrap file",
-				err.Error(),
-			).JSON(e)
-		}
-
-		existingFiles := resultRecord.Get("video_results")
-
-		var files []*filesystem.File
-
-		if existingFiles != nil {
-			if existingSlice, ok := existingFiles.([]*filesystem.File); ok {
-				files = append(files, existingSlice...)
-			}
-		}
-
-		files = append(files, f)
-
-		resultRecord.Set("video_results", files)
-
-		resultRecord.Set("video_results", []*filesystem.File{f})
-		if err := e.App.Save(resultRecord); err != nil {
-			_ = os.Remove(absResultPath)
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline_results",
-				"failed to save record with result file",
-				err.Error(),
-			).JSON(e)
-		}
-
-		names := resultRecord.GetStringSlice("video_results")
-		urls := make([]string, 0, len(names))
-
-		for _, filename := range names {
-			url := utils.JoinURL(
-				e.App.Settings().Meta.AppURL,
-				"api",
-				"files",
-				"pipeline_results",
-				resultRecord.Id,
-				resultRecord.GetString("video_results"),
-				filename,
-			)
-			urls = append(urls, url)
-		}
-
-		err = os.Remove(absResultPath)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"filesystem",
-				"failed to remove temp file",
-				err.Error(),
-			).JSON(e)
+			return err
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
-			"status":      "success",
-			"version":     versionName,
-			"fileName":    header.Filename,
-			"result_urls": urls,
+			"status":               "success",
+			"version":              versionName,
+			"video_file_name":      videoFilename,
+			"result_urls":          videoURLs,
+			"last_frame_file_name": frameFilename,
+			"last_frame_urls":      frameURLs,
 		})
 	}
+}
+
+func saveUploadedFileToRecord(
+	e *core.RequestEvent,
+	record *core.Record,
+	formField string,
+	recordField string,
+) (string, []string, error) {
+	file, fileHeader, err := e.Request.FormFile(formField)
+	if err != nil {
+		return "", nil, apierror.New(
+			http.StatusBadRequest,
+			"file",
+			fmt.Sprintf("failed to read file for field %s", formField),
+			err.Error(),
+		).JSON(e)
+	}
+	defer file.Close()
+
+	tmp, err := os.CreateTemp(
+		"",
+		fmt.Sprintf("%s_*%s", formField, filepath.Ext(fileHeader.Filename)),
+	)
+	if err != nil {
+		return "", nil, apierror.New(
+			http.StatusInternalServerError,
+			"filesystem",
+			"failed to create temp file",
+			err.Error(),
+		).JSON(e)
+	}
+	defer tmp.Close()
+
+	if _, err := io.Copy(tmp, file); err != nil {
+		return "", nil, apierror.New(
+			http.StatusInternalServerError,
+			"filesystem",
+			"failed to write temp file",
+			err.Error(),
+		).JSON(e)
+	}
+
+	absPath, err := filepath.Abs(tmp.Name())
+	if err != nil {
+		return "", nil, apierror.New(
+			http.StatusInternalServerError,
+			"filesystem",
+			"invalid temp file path",
+			err.Error(),
+		).JSON(e)
+	}
+
+	f, err := filesystem.NewFileFromPath(absPath)
+	if err != nil {
+		os.Remove(absPath)
+		return "", nil, apierror.New(
+			http.StatusInternalServerError,
+			"filesystem",
+			"failed to wrap file",
+			err.Error(),
+		).JSON(e)
+	}
+
+	existing := record.Get(recordField)
+	var files []*filesystem.File
+
+	if existing != nil {
+		if slice, ok := existing.([]*filesystem.File); ok {
+			files = append(files, slice...)
+		}
+	}
+	files = append(files, f)
+
+	record.Set(recordField, files)
+
+	if err := e.App.Save(record); err != nil {
+		os.Remove(absPath)
+		return "", nil, apierror.New(
+			http.StatusInternalServerError,
+			"pipeline_results",
+			"failed to save record with uploaded file",
+			err.Error(),
+		).JSON(e)
+	}
+
+	names := record.GetStringSlice(recordField)
+	urls := make([]string, 0, len(names))
+
+	for _, fn := range names {
+		url := utils.JoinURL(
+			e.App.Settings().Meta.AppURL,
+			"api", "files", "pipeline_results",
+			record.Id,
+			record.GetString(recordField),
+			fn,
+		)
+		urls = append(urls, url)
+	}
+
+	os.Remove(absPath)
+	return fileHeader.Filename, urls, nil
 }
