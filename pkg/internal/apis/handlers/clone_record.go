@@ -7,6 +7,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"math/rand"
 	"net/http"
 	"slices"
@@ -17,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
 
@@ -60,6 +62,25 @@ var CloneConfigs = map[string]CloneConfig{
 func cloneRecord(app core.App, originalRecord *core.Record, config CloneConfig) (*core.Record, error) {
 	newRecord := core.NewRecord(originalRecord.Collection())
 
+	collection, err := app.FindCollectionByNameOrId(originalRecord.Collection().Name)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get collection: %w", err)
+	}
+
+	fileFields := make(map[string]bool)
+	for _, field := range collection.Fields {
+		if field.Type() == "file" {
+			fileFields[field.GetName()] = true
+		}
+	}
+
+	fileFieldValues := make(map[string]string)
+	for fieldName := range fileFields {
+		if fileName := originalRecord.GetString(fieldName); fileName != "" {
+			fileFieldValues[fieldName] = fileName
+		}
+	}
+
 	for key, value := range originalRecord.FieldsData() {
 		if slices.Contains(systemFields, key) {
 			continue
@@ -67,6 +88,12 @@ func cloneRecord(app core.App, originalRecord *core.Record, config CloneConfig) 
 		if slices.Contains(config.exclude, key) {
 			continue
 		}
+
+		if fileFields[key] {
+			newRecord.Set(key, nil)
+			continue
+		}
+
 		if slices.Contains(config.makeUnique, key) {
 			if strVal, ok := value.(string); ok && strVal != "" {
 				newRecord.Set(key, makeUniqueValue(strVal))
@@ -78,6 +105,12 @@ func cloneRecord(app core.App, originalRecord *core.Record, config CloneConfig) 
 
 	if err := app.Save(newRecord); err != nil {
 		return nil, fmt.Errorf("failed to save base record: %w", err)
+	}
+
+	if len(fileFieldValues) > 0 {
+		if err := cloneFiles(app, originalRecord, newRecord, fileFieldValues); err != nil {
+			app.Logger().Error(fmt.Sprintf("Error cloning files: %v", err))
+		}
 	}
 
 	return newRecord, nil
@@ -134,4 +167,65 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, response)
 	}
+}
+
+func cloneFiles(app core.App, originalRecord, newRecord *core.Record, fileFieldValues map[string]string) error {
+	if len(fileFieldValues) == 0 {
+		return nil
+	}
+
+	fs, err := app.NewFilesystem()
+	if err != nil {
+		return fmt.Errorf("failed to create filesystem: %w", err)
+	}
+	defer fs.Close()
+
+	originalBasePath := originalRecord.BaseFilesPath()
+	filesMap := make(map[string]interface{})
+
+	for fieldName, fileName := range fileFieldValues {
+		originalPath := originalBasePath + "/" + fileName
+
+		reader, err := fs.GetFile(originalPath)
+		if err != nil {
+			app.Logger().Warn(fmt.Sprintf("File not found, skipping: %s", originalPath))
+			filesMap[fieldName] = nil
+			continue
+		}
+
+		fileBytes, err := io.ReadAll(reader)
+		reader.Close()
+		if err != nil {
+			app.Logger().Warn(fmt.Sprintf("Failed to read file, skipping: %s", fileName))
+			filesMap[fieldName] = nil
+			continue
+		}
+
+		file, err := filesystem.NewFileFromBytes(fileBytes, fileName)
+		if err != nil {
+			app.Logger().Warn(fmt.Sprintf("Failed to create file, skipping: %s", fileName))
+			filesMap[fieldName] = nil
+			continue
+		}
+
+		filesMap[fieldName] = file
+	}
+
+	hasFiles := false
+	for fieldName, file := range filesMap {
+		if file != nil {
+			newRecord.Set(fieldName, file)
+			hasFiles = true
+		} else {
+			newRecord.Set(fieldName, nil)
+		}
+	}
+
+	if hasFiles {
+		if err := app.Save(newRecord); err != nil {
+			return fmt.Errorf("failed to save with files: %w", err)
+		}
+	}
+
+	return nil
 }
