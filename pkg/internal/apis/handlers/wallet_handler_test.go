@@ -181,7 +181,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	_ = successWriter.WriteField("version_identifier", "usera-s-organization/wallet123/1-0-0")
 
 	partHeader := textproto.MIMEHeader{}
-	partHeader.Set("Content-Disposition", `form-data; name="result"; filename="test.mp4"`)
+	partHeader.Set("Content-Disposition", `form-data; name="result_video"; filename="test.mp4"`)
 	partHeader.Set("Content-Type", "video/mp4")
 
 	fileWriter, err := successWriter.CreatePart(partHeader)
@@ -190,6 +190,12 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	// write minimal valid MP4 header
 	mp4Header := []byte{0x00, 0x00, 0x00, 0x18, 'f', 't', 'y', 'p', 'm', 'p', '4', '2'}
 	_, err = fileWriter.Write(mp4Header)
+	require.NoError(t, err)
+
+	frameWriter, err := successWriter.CreateFormFile("last_frame", "frame.txt")
+	require.NoError(t, err)
+
+	_, err = frameWriter.Write([]byte("test frame content"))
 	require.NoError(t, err)
 
 	require.NoError(t, successWriter.Close())
@@ -213,7 +219,8 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				`"status":"success"`,
-				`"fileName"`,
+				`"last_frame_file_name"`,
+				`"video_file_name"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
@@ -222,7 +229,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			},
 		},
 		{
-			Name:   "store pipeline result missing file",
+			Name:   "store pipeline result missing files",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
 			Body:   bytes.NewReader(missingBody.Bytes()),
@@ -232,7 +239,8 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			ExpectedStatus: 400,
 			ExpectedContent: []string{
 				`"file"`,
-				`"failed to read file"`,
+				`failed to read file for field result_video"`,
+				`failed to read file for field last_frame"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
