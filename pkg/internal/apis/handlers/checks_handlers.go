@@ -234,25 +234,17 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"organizations",
-				"unable to get user organization id",
+				"unable to get user organization ca",
 				err.Error(),
 			).JSON(e)
 		}
 
-		hierarchy, err := buildExecutionHierarchy(
+		hierarchy := buildExecutionHierarchy(
 			e.App,
 			execs.Executions,
 			owner,
 			authRecord.GetString("Timezone"),
 		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to build execution hierarchy",
-				err.Error(),
-			).JSON(e)
-		}
 
 		resp := ListMyChecksResponse{}
 		resp.Executions = hierarchy
@@ -548,24 +540,17 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"organizations",
-				"unable to get user organization id",
+				"unable to get user organization canonified name",
 				err.Error(),
 			).JSON(e)
 		}
-		hierarchy, err := buildExecutionHierarchy(
+		hierarchy := buildExecutionHierarchy(
 			e.App,
 			execs.Executions,
 			owner,
 			authRecord.GetString("Timezone"),
 		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to build execution hierarchy",
-				err.Error(),
-			).JSON(e)
-		}
+
 		var resp ListMyChecksResponse
 		resp.Executions = hierarchy
 		return e.JSON(http.StatusOK, resp)
@@ -1141,7 +1126,7 @@ func buildExecutionHierarchy(
 	executions []*WorkflowExecution,
 	owner string,
 	userTimezone string,
-) ([]*WorkflowExecutionSummary, error) {
+) []*WorkflowExecutionSummary {
 	loc, err := time.LoadLocation(userTimezone)
 	if err != nil {
 		loc = time.Local
@@ -1179,10 +1164,8 @@ func buildExecutionHierarchy(
 
 		w := pipeline.PipelineWorkflow{}
 		if current.Type.Name == w.Name() {
-			results, err := computePipelineResults(app, owner, *current)
-			if err != nil {
-				return nil, err
-			}
+			results := computePipelineResults(app, owner, *current)
+
 			current.Results = results
 		}
 		current.DisplayName = parentDisplay
@@ -1191,7 +1174,7 @@ func buildExecutionHierarchy(
 
 	sortExecutionSummaries(roots, loc, false)
 
-	return roots, nil
+	return roots
 }
 
 func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location, ascending bool) {
@@ -1234,16 +1217,17 @@ func computePipelineResults(
 	app core.App,
 	owner string,
 	exec WorkflowExecutionSummary,
-) ([]PipelineResults, error) {
+) []PipelineResults {
 	identifier := fmt.Sprintf("%s/%s-%s",
 		owner,
 		canonify.CanonifyPlain(exec.Execution.WorkflowID),
 		canonify.CanonifyPlain(exec.Execution.RunID),
 	)
 
-	record, err := canonify.Resolve(app, identifier)
-	if err != nil {
-		return nil, err
+	record, _ := canonify.Resolve(app, identifier)
+
+	if record == nil {
+		return nil
 	}
 
 	videos := record.GetStringSlice("video_results")
@@ -1282,7 +1266,7 @@ func computePipelineResults(
 		}
 	}
 
-	return results, nil
+	return results
 }
 
 func baseKey(filename, marker string) (string, bool) {
