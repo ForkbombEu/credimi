@@ -38,8 +38,9 @@ var CloneRecord routing.RouteGroup = routing.RouteGroup{
 }
 
 type CloneConfig struct {
-	makeUnique []string
-	exclude    []string
+	makeUnique   []string
+	exclude      []string
+	CanDuplicate func(e *core.RequestEvent, originalRecord *core.Record) (bool, error)
 }
 
 var (
@@ -56,6 +57,35 @@ var CloneConfigs = map[string]CloneConfig{
 	"credentials": {
 		makeUnique: []string{"name"},
 		exclude:    []string{"canonified_name"},
+		CanDuplicate: func(e *core.RequestEvent, originalRecord *core.Record) (bool, error) {
+			auth := e.Auth
+			if auth == nil {
+				return false, apis.NewUnauthorizedError("Authentication required", nil)
+			}
+			authID := auth.Id
+			if authID == "" {
+				return false, apis.NewUnauthorizedError("Invalid user", nil)
+			}
+			orgID := originalRecord.GetString("owner")
+			if orgID == "" {
+				return false, apis.NewForbiddenError("Record has no owner", nil)
+			}
+			orgRecord, err := e.App.FindRecordById("organizations", orgID)
+			if err != nil || orgRecord == nil {
+				return false, apis.NewForbiddenError("Not authorized for this organization", nil)
+			}
+
+			authzRecord, err := e.App.FindFirstRecordByData("orgAuthorizations", "user", authID)
+			if err != nil || authzRecord == nil {
+				return false, apis.NewForbiddenError("No user in orgAuthorizations", nil)
+			}
+			authzRecordID, err := e.App.FindFirstRecordByData("orgAuthorizations", "organization", orgID)
+			if err != nil || authzRecordID == nil {
+				return false, apis.NewForbiddenError("No 'organization' in orgAuthorizations", nil)
+			}
+
+			return true, nil
+		},
 	},
 }
 
@@ -149,6 +179,23 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 				fmt.Sprintf("Record '%s' not found in collection '%s'", req.ID, req.Collection),
 				err.Error(),
 			).JSON(e)
+		}
+
+		if config.CanDuplicate != nil {
+			allowed, authErr := config.CanDuplicate(e, originalRecord)
+			if authErr != nil {
+				return authErr
+			}
+			if !allowed {
+				return apis.NewForbiddenError(
+					"Not authorized to clone this record",
+					nil,
+				)
+			}
+		} else {
+			if e.Auth == nil {
+				return apis.NewUnauthorizedError("Authentication required", nil)
+			}
 		}
 
 		clonedRecord, err := cloneRecord(e.App, originalRecord, config)
