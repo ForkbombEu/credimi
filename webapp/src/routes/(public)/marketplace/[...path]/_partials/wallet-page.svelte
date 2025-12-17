@@ -55,6 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { ConformanceCheckSchema } from '$lib/types/checks';
@@ -206,7 +207,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						class="bg-card hover:ring-primary rounded-lg border hover:ring-2"
 					>
 						<AccordionTrigger class="group px-4 py-3 hover:no-underline">
-							<div class="mr-4 flex w-full items-center justify-between">
+							<div class="flex w-full items-center justify-between gap-4">
 								<div class="flex items-center gap-3">
 									<Code
 										class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
@@ -233,7 +234,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										</T>
 									</div>
 								</div>
-								<Badge variant="outline" class="text-xs">YAML</Badge>
+								<div class="flex items-center gap-1">
+									<WalletActionTags {action} containerClass="justify-end" />
+								</div>
 							</div>
 						</AccordionTrigger>
 						<AccordionContent class="px-4">
