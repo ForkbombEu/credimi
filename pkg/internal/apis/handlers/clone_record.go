@@ -71,7 +71,8 @@ func Duplicate(e *core.RequestEvent, originalRecord *core.Record) (bool, error) 
 	if orgID == "" {
 		return false, apis.NewForbiddenError("Record has no owner", nil)
 	}
-	authRecord, err := e.App.FindFirstRecordByFilter("orgAuthorizations", "user={:user} && organization={:org}", dbx.Params{"user": auth.Id, "org": orgID})
+	authRecord, err := e.App.FindFirstRecordByFilter("orgAuthorizations", "user={:user} && organization={:org}",
+		dbx.Params{"user": auth.Id, "org": orgID})
 	if err != nil || authRecord == nil {
 		return false, apis.NewForbiddenError("Not authorized for this organization", nil)
 	}
