@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
@@ -55,38 +56,26 @@ func makeUniqueValue(original string) string {
 
 var CloneConfigs = map[string]CloneConfig{
 	"credentials": {
-		makeUnique: []string{"name"},
-		exclude:    []string{"canonified_name"},
-		CanDuplicate: func(e *core.RequestEvent, originalRecord *core.Record) (bool, error) {
-			auth := e.Auth
-			if auth == nil {
-				return false, apis.NewUnauthorizedError("Authentication required", nil)
-			}
-			authID := auth.Id
-			if authID == "" {
-				return false, apis.NewUnauthorizedError("Invalid user", nil)
-			}
-			orgID := originalRecord.GetString("owner")
-			if orgID == "" {
-				return false, apis.NewForbiddenError("Record has no owner", nil)
-			}
-			orgRecord, err := e.App.FindRecordById("organizations", orgID)
-			if err != nil || orgRecord == nil {
-				return false, apis.NewForbiddenError("Not authorized for this organization", nil)
-			}
-
-			authzRecord, err := e.App.FindFirstRecordByData("orgAuthorizations", "user", authID)
-			if err != nil || authzRecord == nil {
-				return false, apis.NewForbiddenError("No user in orgAuthorizations", nil)
-			}
-			authzRecordID, err := e.App.FindFirstRecordByData("orgAuthorizations", "organization", orgID)
-			if err != nil || authzRecordID == nil {
-				return false, apis.NewForbiddenError("No 'organization' in orgAuthorizations", nil)
-			}
-
-			return true, nil
-		},
+		makeUnique:   []string{"name"},
+		exclude:      []string{"canonified_name"},
+		CanDuplicate: Duplicate,
 	},
+}
+
+func Duplicate(e *core.RequestEvent, originalRecord *core.Record) (bool, error) {
+	auth := e.Auth
+	if auth == nil {
+		return false, apis.NewUnauthorizedError("Authentication required", nil)
+	}
+	orgID := originalRecord.GetString("owner")
+	if orgID == "" {
+		return false, apis.NewForbiddenError("Record has no owner", nil)
+	}
+	authRecord, err := e.App.FindFirstRecordByFilter("orgAuthorizations", "user={:user} && organization={:org}", dbx.Params{"user": auth.Id, "org": orgID})
+	if err != nil || authRecord == nil {
+		return false, apis.NewForbiddenError("Not authorized for this organization", nil)
+	}
+	return true, nil
 }
 
 func cloneRecord(app core.App, originalRecord *core.Record, config CloneConfig) (*core.Record, error) {
@@ -192,10 +181,8 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 					nil,
 				)
 			}
-		} else {
-			if e.Auth == nil {
-				return apis.NewUnauthorizedError("Authentication required", nil)
-			}
+		} else if e.Auth == nil {
+			return apis.NewUnauthorizedError("Authentication required", nil)
 		}
 
 		clonedRecord, err := cloneRecord(e.App, originalRecord, config)
