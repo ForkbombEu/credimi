@@ -30,14 +30,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { getStepDisplayData } from './utils/display-data.js';
 	import EmptyState from './utils/empty-state.svelte';
 	import StepCard from './utils/step-card.svelte';
+	import type { WithComponentProps } from '$lib/with-component';
 
 	//
+\
 
-	type Props = {
-		self: StepsBuilder;
-	};
-
-	let { self: builder }: Props = $props();
+	let { self: builder }: WithComponentProps<StepsBuilder> = $props();
 </script>
 
 <!-- <div class="grid grow grid-cols-3 gap-4 overflow-hidden xl:grid-cols-[max(400px)_max(400px)_1fr]"> -->

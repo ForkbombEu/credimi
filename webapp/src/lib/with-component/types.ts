@@ -6,6 +6,10 @@ import type { Component } from 'svelte';
 
 //
 
+export interface WithComponentProps<T extends WithComponent = WithComponent> {
+	self: T;
+}
+
 export interface WithComponent {
-	Component: Component<{ self: WithComponent }, Record<string, never>, ''>;
+	Component: Component<WithComponentProps, Record<string, never>, ''>;
 }
