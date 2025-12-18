@@ -5,29 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
-	import { ArrowDownIcon, ArrowUpIcon, TrashIcon, VideoIcon } from 'lucide-svelte';
+	import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from 'lucide-svelte';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
 	import Label from '@/components/ui/label/label.svelte';
-	import Switch from '@/components/ui/switch/switch.svelte';
 	import { m } from '@/i18n/index.js';
-
-	import type { StepsBuilder } from '../steps-builder.svelte.js';
-	import type { BuilderStep } from '../types.js';
-
-	import { getStepDisplayData } from '../../steps/_partials/display-data.js';
-	import { StepType } from '../types.js';
 
 	//
 
 	type Props = {
-		step: BuilderStep;
+		index: number;
 		builder: StepsBuilder;
 	};
 
@@ -46,21 +37,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 
 			<div class="flex items-center">
-				{#if step.type === StepType.WalletAction}
-					<Tooltip>
-						<div class="mr-1 flex items-center gap-1.5 px-2">
-							<Icon src={VideoIcon} size={14} class="text-gray-500" />
-							<Switch
-								checked={step.video ?? false}
-								onCheckedChange={(checked) => builder.setVideo(step, checked)}
-								class="scale-75"
-							/>
-						</div>
-						{#snippet content()}
-							<p class="text-xs">{m.Record_video_of_wallet_action()}</p>
-						{/snippet}
-					</Tooltip>
-				{/if}
 				<IconButton
 					icon={ArrowUpIcon}
 					variant="ghost"
@@ -99,18 +75,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 			</div>
 		</div>
-
-		{#if step.type === StepType.WalletAction}
-			<WalletActionTags
-				action={step.data.action}
-				containerClass="px-3 pb-2"
-				variant="outline"
-			/>
-		{/if}
-
-		<p class="text-muted-foreground block truncate px-3 pb-2 font-mono text-[10px]">
-			{step.path}
-		</p>
 
 		<Label class="flex cursor-pointer items-center gap-1 bg-slate-50 px-3 py-1">
 			<Checkbox

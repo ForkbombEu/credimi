@@ -54,7 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Column title={m.Steps_sequence()}>
 		{#if builder.steps.length > 0}
 			<ScrollArea class="grow [&>div>div]:space-y-2 [&>div>div]:p-4">
-				{#each builder.steps as step (step)}
+				{#each builder.steps as step, index (step)}
 					<div animate:flip={{ duration: 300 }}>
 						<StepCard {builder} {step} />
 					</div>
