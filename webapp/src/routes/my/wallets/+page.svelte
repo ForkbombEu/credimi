@@ -123,7 +123,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			labels: {
 				tag: m.Tag(),
 				android_installer: m.Android_installer(),
-				ios_installer: m.iOS_installer()
+				ios_installer: m.iOS_installer(),
+				downloadable: m.Allow_installer_download()
 			}
 		}}
 	>

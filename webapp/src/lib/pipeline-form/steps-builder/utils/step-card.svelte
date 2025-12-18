@@ -81,6 +81,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 
+		{#if step.type === StepType.WalletAction}
+			<WalletActionTags
+				action={step.data.action}
+				containerClass="px-3 pb-2"
+				variant="outline"
+			/>
+		{/if}
+
 		<p class="text-muted-foreground block truncate px-3 pb-2 font-mono text-[10px]">
 			{step.path}
 		</p>
