@@ -58,11 +58,11 @@ var CloneConfigs = map[string]CloneConfig{
 	"credentials": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},
-		CanDuplicate: Duplicate,
+		CanDuplicate: canDuplicateRecordWithOwnerField,
 	},
 }
 
-func Duplicate(e *core.RequestEvent, originalRecord *core.Record) (bool, error) {
+func canDuplicateRecordWithOwnerField(e *core.RequestEvent, originalRecord *core.Record) (bool, error) {
 	auth := e.Auth
 	if auth == nil {
 		return false, apis.NewUnauthorizedError("Authentication required", nil)
@@ -81,11 +81,7 @@ func Duplicate(e *core.RequestEvent, originalRecord *core.Record) (bool, error) 
 
 func cloneRecord(app core.App, originalRecord *core.Record, config CloneConfig) (*core.Record, error) {
 	newRecord := core.NewRecord(originalRecord.Collection())
-
-	collection, err := app.FindCollectionByNameOrId(originalRecord.Collection().Name)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get collection: %w", err)
-	}
+	collection := originalRecord.Collection()
 
 	fileFields := make(map[string]bool)
 	for _, field := range collection.Fields {
