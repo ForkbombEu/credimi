@@ -12,10 +12,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { WalletStepForm } from './wallet-step-form.svelte.js';
 
-	import ItemCard from '../utils/item-card.svelte';
-	import SearchInput from '../utils/search-input.svelte';
-	import WithEmptyState from '../utils/with-empty-state.svelte';
-	import WithLabel from '../utils/with-label.svelte';
+	import ItemCard from '../_partials/item-card.svelte';
+	import SearchInput from '../_partials/search-input.svelte';
+	import WithEmptyState from '../_partials/with-empty-state.svelte';
+	import WithLabel from '../_partials/with-label.svelte';
 
 	//
 

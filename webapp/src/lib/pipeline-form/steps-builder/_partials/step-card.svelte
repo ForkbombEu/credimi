@@ -21,8 +21,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StepsBuilder } from '../steps-builder.svelte.js';
 	import type { BuilderStep } from '../types.js';
 
+	import { getStepDisplayData } from '../../steps/_partials/display-data.js';
 	import { StepType } from '../types.js';
-	import { getStepDisplayData } from './display-data';
 
 	//
 

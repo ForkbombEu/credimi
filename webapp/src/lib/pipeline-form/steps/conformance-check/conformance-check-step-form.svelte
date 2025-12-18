@@ -13,9 +13,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { ConformanceCheckStepForm } from './conformance-check-step-form.svelte.js';
 
-	import EmptyState from '../utils/empty-state.svelte';
-	import ItemCard from '../utils/item-card.svelte';
-	import WithLabel from '../utils/with-label.svelte';
+	import EmptyState from '../_partials/empty-state.svelte';
+	import ItemCard from '../_partials/item-card.svelte';
+	import WithLabel from '../_partials/with-label.svelte';
 
 	type Props = {
 		form: ConformanceCheckStepForm;

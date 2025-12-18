@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { Renderable } from '$lib/renderable';
 import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/standards/index.js';
 import { resource } from 'runed';
 import { tick } from 'svelte';
-import { StepFormState } from '../types.js';
 
 //
 
@@ -13,7 +13,7 @@ type Props = {
 	onSelect: (checkId: string) => void;
 };
 
-export class ConformanceCheckStepForm extends StepFormState {
+export class ConformanceCheckStepForm extends  implements Renderable<ConformanceCheckStepForm> {
 	constructor(private props: Props) {
 		super();
 	}
@@ -99,6 +99,8 @@ export class ConformanceCheckStepForm extends StepFormState {
 		this.data.standard = undefined;
 	}
 }
+
+// 
 
 type FormData = {
 	standard: Standard;

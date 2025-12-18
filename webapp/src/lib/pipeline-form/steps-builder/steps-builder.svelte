@@ -5,11 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { SelfProp } from '$lib/renderable';
-
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
+	import { Render, type SelfProp } from '$lib/renderable';
 	import { String } from 'effect';
-	import { ArrowLeftIcon } from 'lucide-svelte';
+	import { ArrowLeftIcon, BugIcon } from 'lucide-svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
 
@@ -21,43 +20,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
-	import BaseStepFormComponent from './steps/base-step-form.svelte';
-	import { BaseStepForm } from './steps/base-step-form.svelte.js';
-	import ConformanceCheckStepFormComponent from './steps/conformance-check-step-form.svelte';
-	import { ConformanceCheckStepForm } from './steps/conformance-check-step-form.svelte.js';
-	import WalletStepFormComponent from './steps/wallet-step-form.svelte';
-	import { WalletStepForm } from './steps/wallet-step-form.svelte.js';
-	import { IdleState, StepFormState, StepType } from './types.js';
-	import Column from './utils/column.svelte';
-	import { getStepDisplayData } from './utils/display-data.js';
-	import EmptyState from './utils/empty-state.svelte';
-	import StepCard from './utils/step-card.svelte';
+	import Column from './_partials/column.svelte';
+	import EmptyState from './_partials/empty-state.svelte';
+	import StepCard from './_partials/step-card.svelte';
 
 	//
 
 	let { self: builder }: SelfProp<StepsBuilder> = $props();
 </script>
 
-<!-- <div class="grid grow grid-cols-3 gap-4 overflow-hidden xl:grid-cols-[max(400px)_max(400px)_1fr]"> -->
 <Resizable.PaneGroup direction="horizontal" class="gap-2">
 	<Column title="Add step">
-		{#if builder.state instanceof IdleState}
+		{#if builder.state.id == 'idle'}
 			{@render stepButtons()}
-		{:else if builder.state instanceof StepFormState}
+		{:else if builder.state.id == 'form'}
 			<div class="flex grow flex-col overflow-hidden" in:fly>
-				{#if builder.state instanceof WalletStepForm}
-					<WalletStepFormComponent form={builder.state} />
-				{:else if builder.state instanceof ConformanceCheckStepForm}
-					<ConformanceCheckStepFormComponent form={builder.state} />
-				{:else if builder.state instanceof BaseStepForm}
-					<BaseStepFormComponent form={builder.state} />
-				{/if}
+				<Render item={builder.state.form} />
 			</div>
 		{/if}
 
 		{#snippet titleRight()}
-			{#if builder.state instanceof StepFormState}
-				<Button variant="link" class="h-6 !p-0" onclick={() => builder.discardAddStep()}>
+			{#if builder.state.id == 'form'}
+				<Button variant="link" class="h-6 !p-0" onclick={() => builder.exitFormState()}>
 					<ArrowLeftIcon />
 					{m.Back()}
 				</Button>
@@ -70,9 +54,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Column title={m.Steps_sequence()}>
 		{#if builder.steps.length > 0}
 			<ScrollArea class="grow [&>div>div]:space-y-2 [&>div>div]:p-4">
-				{#each builder.steps as step (step.id)}
+				{#each builder.steps as step (step)}
 					<div animate:flip={{ duration: 300 }}>
-						<StepCard {step} {builder} />
+						<StepCard {builder} {step} />
 					</div>
 				{/each}
 			</ScrollArea>
@@ -101,16 +85,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet stepButtons()}
 	<div class="flex flex-col gap-2 p-4" in:fly>
-		{#each Object.values(StepType) as step (step)}
-			{@const { icon, label, textClass } = getStepDisplayData(step)}
+		{#each builder.configs as config (config.id)}
+			{@const { icon, label, class: classes } = config.display}
 			<Button
 				variant="outline"
-				class={['!justify-start']}
-				onclick={() => builder.initAddStep(step)}
+				class="!justify-start"
+				onclick={() => builder.initAddStep(config.id)}
 			>
-				<Icon src={icon} class={textClass} />
-				{label}
+				<Icon src={icon} class={classes.text} />
+				{label.singular}
 			</Button>
 		{/each}
+
+		<Button variant="outline" class="!justify-start" onclick={() => builder.addDebugStep()}>
+			<Icon src={BugIcon} />
+			{m.Debug()}
+		</Button>
 	</div>
 {/snippet}

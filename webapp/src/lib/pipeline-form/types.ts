@@ -3,59 +3,38 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EntityUIData } from '$lib/globals/entities.js';
-import type { Component, Snippet } from 'svelte';
-import type { SetFieldType, Simplify } from 'type-fest';
+import type { Renderable } from '$lib/renderable';
+import type { Snippet } from 'svelte';
 
 import type * as t from './types.generated.js';
 
-//
+/* Core types */
 
 export type Pipeline = t.HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition;
 
 export type ActivityOptions = t.ActivityOptions;
 
+/* Pipeline Step types (derived) */
+
 export type PipelineStep = NonNullable<Pipeline['steps']>[number];
 
-export type BasePipelineStep = Simplify<
-	SetFieldType<
-		SetFieldType<Omit<PipelineStep, 'with'>, 'metadata', Record<string, unknown>>,
-		'use',
-		string
-	>
->;
+// export type PipelineStepType = PipelineStep['use'];
 
-export type PipelineStepType = PipelineStep['use'];
+// export type PipelineStepByType<T extends PipelineStepType> = Simplify<
+// 	Extract<PipelineStep, { use: T }>
+// >;
 
-export type PipelineStepByType<T extends PipelineStepType> = Simplify<
-	Extract<PipelineStep, { use: T }>
->;
-
-export interface Config<ID = string, YamlStep = unknown, UIStepData = unknown> {
+export interface PipelineStepConfig<ID = string, YamlStep = unknown, UIStepData = unknown> {
 	id: ID;
 	serialize: (step: UIStepData) => YamlStep;
 	deserialize: (step: YamlStep) => Promise<UIStepData>;
 	display: EntityUIData;
-	form?: UIStepDataForm;
+	initForm: (onSubmit: (step: PipelineStep) => void) => PipelineDataForm;
 	snippet?: Snippet<[{ data: UIStepData; display: EntityUIData }]>;
 }
 
-export interface WithComponent {
-	readonly Component: Component<{ readonly self: WithComponent }>;
-}
-
-export interface UIStepDataForm extends WithComponent {
-	onSubmit: (handler: (step: unknown) => void) => void;
-}
-
-export interface StepsForm {
-	configs: Config[];
-	state: 'idle' | 'form';
-	steps: BasePipelineStep[];
-	selectStep: (id: string) => void;
-	handleStepFormSubmit: (step: BasePipelineStep) => void;
-	exitStepForm: () => void;
-	shiftStep: (id: string, direction: 'up' | 'down') => void;
-	deleteStep: (id: string) => void;
+export interface PipelineDataForm extends Renderable {
+	onSubmit: (handler: (step: PipelineStep) => void) => void;
 }
 
 // interface WithComponentBase<T> {

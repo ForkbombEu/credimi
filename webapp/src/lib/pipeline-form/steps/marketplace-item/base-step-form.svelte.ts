@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { MarketplaceItem } from '$lib/marketplace/utils.js';
-import { StepFormState, type MarketplaceStepType } from '../types.js';
 import { searchMarketplace } from '../utils/search-marketplace.js';
 import { Search } from '../utils/search.svelte.js';
 
