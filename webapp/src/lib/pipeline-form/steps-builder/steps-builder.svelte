@@ -33,7 +33,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let { builder }: { builder: StepsBuilder } = $props();
+	type Props = {
+		self: StepsBuilder;
+	};
+
+	let { self: builder }: Props = $props();
 </script>
 
 <!-- <div class="grid grow grid-cols-3 gap-4 overflow-hidden xl:grid-cols-[max(400px)_max(400px)_1fr]"> -->

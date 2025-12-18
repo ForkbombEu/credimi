@@ -14,7 +14,7 @@ import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
 import Component from './pipeline-form.svelte';
 import { serializeStep, type PipelineData } from './serde.js';
 import { StepsBuilder } from './steps-builder/steps-builder.svelte.js';
-import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as Pipeline } from './types.generated';
+import type { Pipeline } from './types';
 
 //
 
