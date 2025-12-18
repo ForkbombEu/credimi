@@ -47,11 +47,12 @@ export interface UIStepDataForm extends WithComponent {
 	onSubmit: (handler: (step: unknown) => void) => void;
 }
 
-interface StepsForm {
+export interface StepsForm {
 	configs: Config[];
 	state: 'idle' | 'form';
+	steps: BasePipelineStep[];
 	selectStep: (id: string) => void;
-	handleStepFormSubmit: (step: unknown) => void;
+	handleStepFormSubmit: (step: BasePipelineStep) => void;
 	exitStepForm: () => void;
 	shiftStep: (id: string, direction: 'up' | 'down') => void;
 	deleteStep: (id: string) => void;

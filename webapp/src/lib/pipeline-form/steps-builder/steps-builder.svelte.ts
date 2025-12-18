@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { getMarketplaceItemData, type MarketplaceItem } from '$lib/marketplace/utils.js';
+import type { WithComponent } from '$lib/with-component/types';
 import { pb } from '@/pocketbase/index.js';
 import { create } from 'mutative';
 import { nanoid } from 'nanoid';
@@ -27,7 +28,7 @@ type Props = {
 	yamlPreview: () => string;
 };
 
-export class StepsBuilder {
+export class StepsBuilder implements WithComponent {
 	readonly Component = Component;
 
 	private data = $state<StepsBuilderData>({
@@ -247,3 +248,8 @@ function createId(base: string): string {
 		strict: true
 	});
 }
+
+const x: WithComponent = new StepsBuilder({
+	steps: [],
+	yamlPreview: () => ''
+});
