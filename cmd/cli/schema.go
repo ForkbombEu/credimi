@@ -94,6 +94,9 @@ func generatePipelineSchema() (map[string]any, error) {
 		}
 	}
 
+	// Add special step schemas
+	oneOfSchemas = append(oneOfSchemas, generateSpecialStepSchemas()...)
+
 	if stepsProperty, ok := schema.Properties.Get("steps"); ok && stepsProperty != nil {
 		if stepsProperty.Items != nil {
 			newItemsSchema := &jsonschema.Schema{
@@ -107,27 +110,6 @@ func generatePipelineSchema() (map[string]any, error) {
 			}
 			// Replace the entire items schema
 			stepsProperty.Items = newItemsSchema
-		}
-	}
-
-	if customChecksProperty, ok := schema.Properties.Get("custom_checks"); ok &&
-		customChecksProperty != nil {
-		if customChecksProperty.AdditionalProperties != nil {
-			wbSchema := customChecksProperty.AdditionalProperties
-			if stepsProperty, ok := wbSchema.Properties.Get("steps"); ok && stepsProperty != nil {
-				if stepsProperty.Items != nil {
-					newItemsSchema := &jsonschema.Schema{
-						OneOf: make([]*jsonschema.Schema, len(oneOfSchemas)),
-					}
-					for i, variant := range oneOfSchemas {
-						variantBytes, _ := json.Marshal(variant)
-						var variantSchema jsonschema.Schema
-						json.Unmarshal(variantBytes, &variantSchema)
-						newItemsSchema.OneOf[i] = &variantSchema
-					}
-					stepsProperty.Items = newItemsSchema
-				}
-			}
 		}
 	}
 
@@ -284,4 +266,53 @@ func sortedRegistryKeys() []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func generateSpecialStepSchemas() []map[string]any {
+	return []map[string]any{
+		debugStepSchema(),
+		childPipelineStepSchema(),
+	}
+}
+
+func debugStepSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"use": map[string]any{
+				"type":  "string",
+				"const": "debug",
+			},
+		},
+		"required":             []string{"use"},
+		"additionalProperties": false,
+	}
+}
+
+func childPipelineStepSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"id": map[string]any{
+				"type": "string",
+			},
+			"use": map[string]any{
+				"type":  "string",
+				"const": "child-pipeline",
+			},
+			"with": map[string]any{
+				"type":                 "object",
+				"additionalProperties": true,
+			},
+			"metadata": map[string]any{
+				"type":                 "object",
+				"additionalProperties": true,
+			},
+			"continue_on_error": map[string]any{
+				"type": "boolean",
+			},
+		},
+		"required":             []string{"id", "use", "with"},
+		"additionalProperties": false,
+	}
 }

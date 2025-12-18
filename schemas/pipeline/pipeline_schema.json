@@ -1100,6 +1100,48 @@
               "with"
             ],
             "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "use": {
+                "const": "debug",
+                "type": "string"
+              }
+            },
+            "required": [
+              "use"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "use": {
+                "const": "child-pipeline",
+                "type": "string"
+              },
+              "with": {
+                "additionalProperties": true,
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "use",
+              "with"
+            ],
+            "type": "object"
           }
         ]
       },
