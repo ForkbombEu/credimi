@@ -226,9 +226,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 												size="xs"
 											/>
 										</div>
-										<!-- <div class="text-muted-foreground text-xs">
-											{stats.lines} lines • {stats.chars} characters
-										</div> -->
 										<T class="text-muted-foreground text-xs">
 											{action.organization?.name}
 										</T>
