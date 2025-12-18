@@ -43,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			code: yamlStringSchema as unknown as z.ZodString
 		})}
 	formFieldsOptions={{
-		exclude: ['owner', 'canonified_name', 'result'],
+		exclude: ['owner', 'canonified_name'],
 		hide: { wallet: wallet.id },
 		snippets: { code: codeField },
 		placeholders: {
@@ -70,7 +70,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{records}
 			nameField="name"
 			path={(r) => [organization.canonified_name, wallet.canonified_name, r.canonified_name]}
-		/>
+		>
+			{#snippet actions({ record })}
+				<WalletActionTags action={record} containerClass="justify-end" />
+			{/snippet}
+		</DashboardCardManagerUI>
 	{/snippet}
 </CollectionManager>
 
