@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from 'lucide-svelte';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
@@ -16,8 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n/index.js';
 
 	import type { StepsBuilder } from '../steps-builder.svelte.js';
-	import type { BuilderStep } from '../types.js';
 
+	import { StepType, type BuilderStep } from '../types.js';
 	import { getStepDisplayData } from './display-data';
 
 	//
