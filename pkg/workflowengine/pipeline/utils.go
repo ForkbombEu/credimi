@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
@@ -160,6 +161,13 @@ func SetConfigValue(config *map[string]any, key string, val any) {
 	(*config)[key] = val
 }
 
+func SetRunDataValue(runData *map[string]any, key string, val any) {
+	if *runData == nil {
+		*runData = make(map[string]any)
+	}
+	(*runData)[key] = val
+}
+
 // MergePayload merges all keys from src into dst recursively.
 func MergePayload(dst, src *map[string]any) error {
 	if dst == nil || src == nil {
@@ -199,4 +207,9 @@ func deepCopy(v any) any {
 		return v
 	}
 	return c
+}
+
+func getPipelineRunIdentifier(namespace, workflowID, runID string) string {
+	id := fmt.Sprintf("%s-%s", workflowID, runID)
+	return fmt.Sprintf("%s/%s", namespace, canonify.CanonifyPlain(id))
 }
