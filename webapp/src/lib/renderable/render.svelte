@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Renderable, SelfProps } from './types';
+	import type { Renderable } from './types';
 
-	let { self }: SelfProps<Renderable> = $props();
+	let { item }: { item: Renderable } = $props();
 </script>
 
-<self.Component {self} />
+<item.Component self={item} />

@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { Renderable } from '$lib/renderable';
 import { createForm } from '@/forms';
 import { tick } from 'svelte';
 import type { SuperForm } from 'sveltekit-superforms';
@@ -18,7 +19,9 @@ type Props = {
 
 export type Metadata = z.infer<typeof metadataSchema>;
 
-export class MetadataForm {
+export class MetadataForm implements Renderable<MetadataForm> {
+	readonly Component = Component;
+
 	constructor(private props: Props) {
 		this.#value = props.initialData;
 	}
@@ -50,7 +53,6 @@ export class MetadataForm {
 	}
 
 	isOpen = $state(false);
-	readonly Component = Component;
 }
 
 export const metadataSchema = z.object({

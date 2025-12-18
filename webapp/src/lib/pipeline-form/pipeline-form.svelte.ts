@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { beforeNavigate } from '$app/navigation';
+import type { Renderable } from '$lib/renderable';
 import { runWithLoading, slug } from '$lib/utils/index.js';
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
@@ -23,7 +24,7 @@ type Props = {
 	pipeline?: PipelineData;
 };
 
-export class PipelineForm {
+export class PipelineForm implements Renderable<PipelineForm> {
 	readonly Component = Component;
 
 	readonly stepsBuilder: StepsBuilder;
