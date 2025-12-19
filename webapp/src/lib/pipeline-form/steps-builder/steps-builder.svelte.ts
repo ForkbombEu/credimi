@@ -4,7 +4,7 @@
 
 import type { Renderable } from '$lib/renderable';
 import { StateManager } from '$lib/state-manager/state-manager';
-import type { PipelineDataForm, PipelineStep, PipelineStepConfig } from '../types';
+import type { PipelineStep, PipelineStepConfig, PipelineStepDataForm } from '../types';
 import Component from './steps-builder.svelte';
 
 //
@@ -17,7 +17,7 @@ type Props = {
 
 type StepsBuilderState = {
 	steps: PipelineStep[];
-	state: { id: 'idle' } | { id: 'form'; form: PipelineDataForm };
+	state: { id: 'idle' } | { id: 'form'; form: PipelineStepDataForm };
 };
 
 export class StepsBuilder implements Renderable<StepsBuilder> {
@@ -66,19 +66,17 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			const config = this.props.configs.find((c) => c.id === type);
 			if (!config) return;
 
-			let form: PipelineDataForm | undefined;
 			const effectCleanup = $effect.root(() => {
-				form = config.initForm((step) => {
+				const form = config.initForm();
+				form.onSubmit((step) => {
 					this.stateManager.run((data) => {
 						data.steps.push(step);
 						data.state = { id: 'idle' };
 						effectCleanup();
 					});
 				});
+				data.state = { id: 'form', form };
 			});
-
-			if (!form) throw new Error(`Failed to initialize form for step type: ${type}`);
-			data.state = { id: 'form', form };
 		});
 	}
 

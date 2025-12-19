@@ -6,19 +6,13 @@ import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/s
 import { resource } from 'runed';
 import { tick } from 'svelte';
 
-import type { PipelineDataForm, PipelineStep } from '$lib/pipeline-form/types';
+import { BasePipelineStepDataForm } from '$lib/pipeline-form/types';
 import Component from './conformance-check-step-form.svelte';
 
 //
 
-type Props = {
-	onSelect: (checkId: string) => void;
-};
-
-export class ConformanceCheckStepForm implements PipelineDataForm<ConformanceCheckStepForm> {
+export class ConformanceCheckStepForm extends BasePipelineStepDataForm<ConformanceCheckStepForm> {
 	readonly Component = Component;
-
-	constructor(private props: Props) {}
 
 	standardsWithTestSuites = resource(
 		() => {},
@@ -55,14 +49,6 @@ export class ConformanceCheckStepForm implements PipelineDataForm<ConformanceChe
 
 	//
 
-	private submitHandler: (step: PipelineStep) => void = () => {};
-
-	onSubmit(handler: (step: PipelineStep) => void) {
-		this.submitHandler = handler;
-	}
-
-	//
-
 	availableVersions = $derived(this.data.standard?.versions ?? []);
 	availableSuites = $derived(this.data.version?.suites ?? []);
 	availableTests = $derived(this.data.suite?.paths ?? []);
@@ -92,7 +78,7 @@ export class ConformanceCheckStepForm implements PipelineDataForm<ConformanceChe
 	}
 
 	selectTest(test: Test) {
-		this.submitHandler({
+		this.handleSubmit({
 			id: test,
 			use: 'conformance-check',
 			with: {
@@ -120,7 +106,7 @@ export class ConformanceCheckStepForm implements PipelineDataForm<ConformanceChe
 
 //
 
-type FormData = {
+export type FormData = {
 	standard: Standard;
 	version: Version;
 	suite: Suite;
