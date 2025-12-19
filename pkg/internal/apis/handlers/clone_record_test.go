@@ -220,7 +220,7 @@ func TestCloneFiles_NoFileFieldValues(t *testing.T) {
 	originalRecord := core.NewRecord(coll)
 	newRecord := core.NewRecord(coll)
 
-	err = cloneFiles(app, originalRecord, newRecord, map[string]string{})
+	err = cloneFiles(app, originalRecord, newRecord, map[string]interface{}{})
 	require.NoError(t, err, "Should succeed with empty file field values")
 }
 
@@ -271,7 +271,7 @@ func TestCloneFiles_SingleFile(t *testing.T) {
 	newRecord.Set("canonified_name", "new_record_copy2345")
 	newRecord.Set("credential_issuer", issuerRecord.Id)
 
-	fileFieldValues := map[string]string{
+	fileFieldValues := map[string]interface{}{
 		"logo": originalFilename,
 	}
 
@@ -326,7 +326,7 @@ func TestCloneFiles_FileNotFound(t *testing.T) {
 	newRecord.Set("canonified_name", "new_notfound_test")
 	newRecord.Set("credential_issuer", issuerRecord.Id)
 
-	fileFieldValues := map[string]string{
+	fileFieldValues := map[string]interface{}{
 		"logo": "non_existent_file_12345.jpg",
 	}
 
@@ -335,5 +335,99 @@ func TestCloneFiles_FileNotFound(t *testing.T) {
 
 	logoValue := newRecord.Get("logo")
 	require.Empty(t, logoValue, "Field should be empty when file not found")
+
+}
+
+func TestCloneFiles_MoreFiles(t *testing.T) {
+	app := setupTestApp(t)
+	defer app.Cleanup()
+	own, _ := getTestOrgID()
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+
+	collpip, _ := app.FindCollectionByNameOrId("pipelines")
+	pipRecord := core.NewRecord(collpip)
+	pipRecord.Set("id", "tikklnj1uh32237")
+	pipRecord.Set("name", "test pipeline")
+	pipRecord.Set("canonified_name", "test_pipeline")
+	pipRecord.Set("description", "my pipeline")
+	pipRecord.Set("steps", "{[]}")
+	pipRecord.Set("yaml", "yaml")
+	pipRecord.Set("owner", own)
+	require.NoError(t, app.Save(pipRecord))
+
+	originalRecord := core.NewRecord(coll)
+	originalRecord.Set("id", "original1234567")
+	originalRecord.Set("owner", own)
+	originalRecord.Set("pipeline", pipRecord.Id)
+	originalRecord.Set("workflow_id", "123")
+	originalRecord.Set("run_id", "456")
+	originalRecord.Set("canonified_identifier", "123-456")
+
+	testData := []byte{
+		0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x10, 0x4A, 0x46, 0x49, 0x46, 0x00, 0x01, 0x01,
+		0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0xFF, 0xDB, 0x00, 0x43, 0x00, 0xFF,
+		0xC9, 0x00, 0x0B, 0x08, 0x00, 0x01, 0x00, 0x01, 0x01, 0x01, 0x11, 0x00, 0xFF,
+		0xCC, 0x00, 0x06, 0x00, 0x10, 0x10, 0x05, 0xFF, 0xDA, 0x00, 0x08, 0x01, 0x01,
+		0x00, 0x00, 0x3F, 0x00, 0xD2, 0xCF, 0x20, 0xFF, 0xD9,
+	}
+
+	testFile1, err := filesystem.NewFileFromBytes(testData, "screenshot1.jpg")
+	require.NoError(t, err)
+
+	testFile2, err := filesystem.NewFileFromBytes(testData, "screenshot2.png")
+	require.NoError(t, err)
+
+	originalRecord.Set("screenshots", []*filesystem.File{testFile1, testFile2})
+	err = app.Save(originalRecord)
+	require.NoError(t, err)
+
+	screenshotsValue := originalRecord.Get("screenshots")
+	require.NotNil(t, screenshotsValue, "screenshots should not be nil")
+
+	newRecord := core.NewRecord(coll)
+	newRecord.Set("id", "new456789012345")
+	newRecord.Set("owner", own)
+	newRecord.Set("workflow_id", "123")
+	newRecord.Set("run_id", "456")
+	newRecord.Set("pipeline", pipRecord.Id)
+	originalRecord.Set("canonified_identifier", "123-456-1")
+
+	fileFieldValues := map[string]interface{}{
+		"screenshots": screenshotsValue,
+	}
+
+	err = cloneFiles(app, originalRecord, newRecord, fileFieldValues)
+	require.NoError(t, err, "Should clone multiple files successfully")
+
+	clonedValue := newRecord.Get("screenshots")
+	require.NotNil(t, clonedValue, "Cloned screenshots should not be nil")
+
+	fsys, err := app.NewFilesystem()
+	require.NoError(t, err)
+	defer fsys.Close()
+
+	var clonedFilenames []string
+
+	switch v := clonedValue.(type) {
+	case []string:
+		clonedFilenames = v
+	case []interface{}:
+		for _, item := range v {
+			if str, ok := item.(string); ok {
+				clonedFilenames = append(clonedFilenames, str)
+			}
+		}
+	default:
+		t.Fatalf("Unexpected type for cloned screenshots: %T", v)
+	}
+
+	require.Len(t, clonedFilenames, 2, "Should have cloned 2 files")
+
+	for i, filename := range clonedFilenames {
+		filePath := newRecord.BaseFilesPath() + "/" + filename
+		_, err := fsys.GetFile(filePath)
+		require.NoError(t, err, "Cloned file %d should exist: %s", i+1, filename)
+	}
 
 }

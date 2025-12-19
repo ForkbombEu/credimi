@@ -90,10 +90,11 @@ func cloneRecord(app core.App, originalRecord *core.Record, config CloneConfig) 
 		}
 	}
 
-	fileFieldValues := make(map[string]string)
+	fileFieldValues := make(map[string]interface{})
 	for fieldName := range fileFields {
-		if fileName := originalRecord.GetString(fieldName); fileName != "" {
-			fileFieldValues[fieldName] = fileName
+		value := originalRecord.Get(fieldName)
+		if value != nil {
+			fileFieldValues[fieldName] = value
 		}
 	}
 
@@ -106,7 +107,6 @@ func cloneRecord(app core.App, originalRecord *core.Record, config CloneConfig) 
 		}
 
 		if fileFields[key] {
-			newRecord.Set(key, nil)
 			continue
 		}
 
@@ -200,7 +200,7 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 	}
 }
 
-func cloneFiles(app core.App, originalRecord, newRecord *core.Record, fileFieldValues map[string]string) error {
+func cloneFiles(app core.App, originalRecord, newRecord *core.Record, fileFieldValues map[string]interface{}) error {
 	if len(fileFieldValues) == 0 {
 		return nil
 	}
@@ -212,40 +212,32 @@ func cloneFiles(app core.App, originalRecord, newRecord *core.Record, fileFieldV
 	defer fs.Close()
 
 	originalBasePath := originalRecord.BaseFilesPath()
-	filesMap := make(map[string]interface{})
-
-	for fieldName, fileName := range fileFieldValues {
-		originalPath := originalBasePath + "/" + fileName
-
-		reader, err := fs.GetFile(originalPath)
-		if err != nil {
-			app.Logger().Warn(fmt.Sprintf("File not found, skipping: %s", originalPath))
-			filesMap[fieldName] = nil
-			continue
-		}
-
-		fileBytes, err := io.ReadAll(reader)
-		reader.Close()
-		if err != nil {
-			app.Logger().Warn(fmt.Sprintf("Failed to read file, skipping: %s", fileName))
-			filesMap[fieldName] = nil
-			continue
-		}
-
-		file, err := filesystem.NewFileFromBytes(fileBytes, fileName)
-		if err != nil {
-			app.Logger().Warn(fmt.Sprintf("Failed to create file, skipping: %s", fileName))
-			filesMap[fieldName] = nil
-			continue
-		}
-
-		filesMap[fieldName] = file
-	}
-
 	hasFiles := false
-	for fieldName, file := range filesMap {
-		if file != nil {
-			newRecord.Set(fieldName, file)
+
+	for fieldName, value := range fileFieldValues {
+		fileNames := extractFileNames(value)
+
+		if len(fileNames) == 0 {
+			newRecord.Set(fieldName, nil)
+			continue
+		}
+
+		var files []*filesystem.File
+		for _, fileName := range fileNames {
+			file, err := cloneSingleFile(fs, originalBasePath, fileName)
+			if err != nil {
+				app.Logger().Warn(fmt.Sprintf("Failed to clone file %s: %v", fileName, err))
+				continue
+			}
+			files = append(files, file)
+		}
+
+		if len(files) > 0 {
+			if len(files) == 1 {
+				newRecord.Set(fieldName, files[0])
+			} else {
+				newRecord.Set(fieldName, files)
+			}
 			hasFiles = true
 		} else {
 			newRecord.Set(fieldName, nil)
@@ -259,4 +251,54 @@ func cloneFiles(app core.App, originalRecord, newRecord *core.Record, fileFieldV
 	}
 
 	return nil
+}
+
+func extractFileNames(value interface{}) []string {
+	switch v := value.(type) {
+	case string:
+		if v == "" {
+			return nil
+		}
+		return []string{v}
+	case []string:
+		var result []string
+		for _, s := range v {
+			if s != "" {
+				result = append(result, s)
+			}
+		}
+		return result
+	case []interface{}:
+		var result []string
+		for _, item := range v {
+			if s, ok := item.(string); ok && s != "" {
+				result = append(result, s)
+			}
+		}
+		return result
+	default:
+		return nil
+	}
+}
+
+func cloneSingleFile(fs *filesystem.System, basePath, fileName string) (*filesystem.File, error) {
+	originalPath := basePath + "/" + fileName
+
+	reader, err := fs.GetFile(originalPath)
+	if err != nil {
+		return nil, fmt.Errorf("file not found: %w", err)
+	}
+	defer reader.Close()
+
+	fileBytes, err := io.ReadAll(reader)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read: %w", err)
+	}
+
+	file, err := filesystem.NewFileFromBytes(fileBytes, fileName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create file: %w", err)
+	}
+
+	return file, nil
 }
