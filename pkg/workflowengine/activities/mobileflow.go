@@ -33,29 +33,19 @@ func (a *StartEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	runInput := mobile.MobileActivityInput{
-		Payload:          input.Payload,
-		GetEnv:           utils.GetEnvironmentVariable,
-		NewActivityError: a.NewActivityError,
-		ErrorCodes: map[string]mobile.ErrorCode{
-			"MissingOrInvalidPayload": {
-				Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-				Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
-			},
-			"CommandExecutionFailed": {
-				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
-				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
-			},
-		},
-	}
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		false,
+	)
+
 	res, err := mobile.StartEmulator(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
 
-	return workflowengine.ActivityResult{
-		Output: res,
-	}, nil
+	return workflowengine.ActivityResult{Output: res}, nil
 }
 
 type ApkInstallActivity struct {
@@ -78,35 +68,24 @@ func (a *ApkInstallActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	runInput := mobile.MobileActivityInput{
-		Payload:          input.Payload,
-		GetEnv:           utils.GetEnvironmentVariable,
-		NewActivityError: a.NewActivityError,
-		ErrorCodes: map[string]mobile.ErrorCode{
-			"MissingOrInvalidPayload": {
-				Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-				Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
-			},
-			"CommandExecutionFailed": {
-				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
-				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
-			},
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		map[string]mobile.ErrorCode{
 			"TempFileCreationFailed": {
 				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
 				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
 			},
 		},
-		CommandContext: exec.CommandContext,
-	}
+		true,
+	)
 
 	res, err := mobile.ApkInstall(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
 
-	return workflowengine.ActivityResult{
-		Output: res,
-	}, nil
+	return workflowengine.ActivityResult{Output: res}, nil
 }
 
 type UnlockEmulatorActivity struct {
@@ -129,31 +108,19 @@ func (a *UnlockEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	runInput := mobile.MobileActivityInput{
-		Payload:          input.Payload,
-		GetEnv:           utils.GetEnvironmentVariable,
-		NewActivityError: a.NewActivityError,
-		ErrorCodes: map[string]mobile.ErrorCode{
-			"MissingOrInvalidPayload": {
-				Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-				Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
-			},
-			"CommandExecutionFailed": {
-				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
-				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
-			},
-		},
-		CommandContext: exec.CommandContext,
-	}
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
 
 	res, err := mobile.UnlockEmulator(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
 
-	return workflowengine.ActivityResult{
-		Output: res,
-	}, nil
+	return workflowengine.ActivityResult{Output: res}, nil
 }
 
 type StopEmulatorActivity struct {
@@ -176,30 +143,94 @@ func (a *StopEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	runInput := mobile.MobileActivityInput{
-		Payload:          input.Payload,
-		GetEnv:           utils.GetEnvironmentVariable,
-		NewActivityError: a.NewActivityError,
-		ErrorCodes: map[string]mobile.ErrorCode{
-			"MissingOrInvalidPayload": {
-				Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-				Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
-			},
-			"CommandExecutionFailed": {
-				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
-				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
-			},
-		},
-	}
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		false,
+	)
 
 	res, err := mobile.StopEmulator(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
 
-	return workflowengine.ActivityResult{
-		Output: res,
-	}, nil
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type StartRecordingActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStartRecordingActivity() *StartRecordingActivity {
+	return &StartRecordingActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Start recording emulator screen",
+		},
+	}
+}
+
+func (a *StartRecordingActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StartRecordingActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		map[string]mobile.ErrorCode{
+			"TempFileCreationFailed": {
+				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
+				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
+			},
+		},
+		true,
+	)
+
+	res, err := mobile.StartVideoRecording(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type StopRecordingActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStopRecordingActivity() *StopRecordingActivity {
+	return &StopRecordingActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Stop recording emulator screen",
+		},
+	}
+}
+
+func (a *StopRecordingActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StopRecordingActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.StopVideoRecording(runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
 }
 
 type RunMobileFlowActivity struct {
@@ -222,26 +253,17 @@ func (a *RunMobileFlowActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	runInput := mobile.MobileActivityInput{
-		Payload:          input.Payload,
-		GetEnv:           utils.GetEnvironmentVariable,
-		NewActivityError: a.NewActivityError,
-		ErrorCodes: map[string]mobile.ErrorCode{
-			"MissingOrInvalidPayload": {
-				Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
-				Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
-			},
-			"CommandExecutionFailed": {
-				Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
-				Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
-			},
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		map[string]mobile.ErrorCode{
 			"TempFileCreationFailed": {
 				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
 				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
 			},
 		},
-		CommandContext: exec.CommandContext,
-	}
+		true,
+	)
 
 	res, err := mobile.RunMobileFlow(ctx, runInput)
 	if err != nil {
@@ -251,4 +273,39 @@ func (a *RunMobileFlowActivity) Execute(
 	return workflowengine.ActivityResult{
 		Output: res["output"],
 	}, nil
+}
+
+func buildMobileInput(
+	payload any,
+	newErr func(code string, msg string, details ...any) error,
+	extraErrorCodes map[string]mobile.ErrorCode,
+	withCommand bool,
+) mobile.MobileActivityInput {
+	baseCodes := map[string]mobile.ErrorCode{
+		"MissingOrInvalidPayload": {
+			Code:        errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code,
+			Description: errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Description,
+		},
+		"CommandExecutionFailed": {
+			Code:        errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
+			Description: errorcodes.Codes[errorcodes.CommandExecutionFailed].Description,
+		},
+	}
+
+	for k, v := range extraErrorCodes {
+		baseCodes[k] = v
+	}
+
+	in := mobile.MobileActivityInput{
+		Payload:          payload,
+		GetEnv:           utils.GetEnvironmentVariable,
+		NewActivityError: newErr,
+		ErrorCodes:       baseCodes,
+	}
+
+	if withCommand {
+		in.CommandContext = exec.CommandContext
+	}
+
+	return in
 }

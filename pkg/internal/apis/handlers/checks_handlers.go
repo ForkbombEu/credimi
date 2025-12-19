@@ -12,16 +12,20 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"path/filepath"
 	"regexp"
 	"slices"
 	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/api/enums/v1"
@@ -225,7 +229,22 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		hierarchy := buildExecutionHierarchy(execs.Executions, authRecord.GetString("Timezone"))
+		owner, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organizations",
+				"unable to get user organization ca",
+				err.Error(),
+			).JSON(e)
+		}
+
+		hierarchy := buildExecutionHierarchy(
+			e.App,
+			execs.Executions,
+			owner,
+			authRecord.GetString("Timezone"),
+		)
 
 		resp := ListMyChecksResponse{}
 		resp.Executions = hierarchy
@@ -505,6 +524,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 		var execs struct {
 			Executions []*WorkflowExecution `json:"executions"`
 		}
+
 		err = json.Unmarshal(listJSON, &execs)
 		if err != nil {
 			return apierror.New(
@@ -514,7 +534,23 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		hierarchy := buildExecutionHierarchy(execs.Executions, authRecord.GetString("Timezone"))
+
+		owner, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organizations",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
+		}
+		hierarchy := buildExecutionHierarchy(
+			e.App,
+			execs.Executions,
+			owner,
+			authRecord.GetString("Timezone"),
+		)
+
 		var resp ListMyChecksResponse
 		resp.Executions = hierarchy
 		return e.JSON(http.StatusOK, resp)
@@ -1086,7 +1122,9 @@ func computeChildDisplayName(workflowID string) string {
 }
 
 func buildExecutionHierarchy(
+	app core.App,
 	executions []*WorkflowExecution,
+	owner string,
 	userTimezone string,
 ) []*WorkflowExecutionSummary {
 	loc, err := time.LoadLocation(userTimezone)
@@ -1122,6 +1160,13 @@ func buildExecutionHierarchy(
 			if field, ok := exec.Memo.Fields["test"]; ok {
 				parentDisplay = decodeFromTemporalPayload(*field.Data)
 			}
+		}
+
+		w := pipeline.PipelineWorkflow{}
+		if current.Type.Name == w.Name() {
+			results := computePipelineResults(app, owner, *current)
+
+			current.Results = results
 		}
 		current.DisplayName = parentDisplay
 		roots = append(roots, current)
@@ -1166,4 +1211,71 @@ func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location
 			sortExecutionSummaries(e.Children, loc, !ascending)
 		}
 	}
+}
+
+func computePipelineResults(
+	app core.App,
+	owner string,
+	exec WorkflowExecutionSummary,
+) []PipelineResults {
+	identifier := fmt.Sprintf("%s/%s-%s",
+		owner,
+		canonify.CanonifyPlain(exec.Execution.WorkflowID),
+		canonify.CanonifyPlain(exec.Execution.RunID),
+	)
+
+	record, _ := canonify.Resolve(app, identifier)
+
+	if record == nil {
+		return nil
+	}
+
+	videos := record.GetStringSlice("video_results")
+	screenshots := record.GetStringSlice("screenshots")
+
+	screenshotMap := make(map[string]string, len(screenshots))
+
+	for _, name := range screenshots {
+		if key, ok := baseKey(name, "_screenshot_"); ok {
+			screenshotMap[key] = name
+		}
+	}
+
+	results := make([]PipelineResults, 0, len(videos))
+
+	for _, name := range videos {
+		if key, ok := baseKey(name, "_result_video_"); ok {
+			if screenshot, ok := screenshotMap[key]; ok {
+				results = append(results, PipelineResults{
+					Video: utils.JoinURL(
+						app.Settings().Meta.AppURL,
+						"api", "files", "pipeline_results",
+						record.Id,
+						record.GetString("video_results"),
+						name,
+					),
+					Screenshot: utils.JoinURL(
+						app.Settings().Meta.AppURL,
+						"api", "files", "pipeline_results",
+						record.Id,
+						record.GetString("screenshots"),
+						screenshot,
+					),
+				})
+			}
+		}
+	}
+
+	return results
+}
+
+func baseKey(filename, marker string) (string, bool) {
+	name := strings.TrimSuffix(filename, filepath.Ext(filename))
+
+	idx := strings.LastIndex(name, marker)
+	if idx == -1 {
+		return "", false
+	}
+
+	return name[:idx], true
 }

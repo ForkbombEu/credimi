@@ -5,7 +5,6 @@
 package handlers
 
 import (
-	"fmt"
 	"io"
 	"strings"
 	"testing"
@@ -16,24 +15,6 @@ import (
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 	"github.com/stretchr/testify/require"
 )
-
-func getUserRecordFromName(name string) (*core.Record, error) {
-	app, err := tests.NewTestApp(testDataDir)
-
-	if err != nil {
-		return nil, err
-	}
-	defer app.Cleanup()
-
-	filter := fmt.Sprintf(`name="%s"`, name)
-
-	record, err := app.FindFirstRecordByFilter("users", filter)
-	if err != nil {
-		return nil, err
-	}
-
-	return record, nil
-}
 
 func getTestOrgID() (string, error) {
 	app, err := tests.NewTestApp(testDataDir)

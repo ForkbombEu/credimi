@@ -25,13 +25,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { class: className, containerClass = '' }: Props = $props();
 
-	const { manager } = getCollectionManagerContext();
+	const { manager } = $derived(getCollectionManagerContext());
 
 	let searchText = $state('');
 	const deboucedSearch = new Debounced(() => searchText, 500);
 
 	$effect(() => {
 		manager.query.setSearch(deboucedSearch.current);
+	});
+
+	$effect(() => {
+		if (!manager.query.hasSearch()) {
+			searchText = '';
+		}
 	});
 </script>
 

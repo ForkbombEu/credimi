@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { beforeNavigate } from '$app/navigation';
 import { runWithLoading, slug } from '$lib/utils/index.js';
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
@@ -47,6 +48,15 @@ export class PipelineForm {
 				this.saveAfterMetadataFormSubmit = false;
 			}
 		});
+
+		beforeNavigate(({ cancel }) => {
+			if (this.isSaving) return;
+			if (!this.validateExit()) cancel();
+		});
+	}
+
+	get mode() {
+		return this.props.mode;
 	}
 
 	readonly yaml: Pipeline = $derived.by(() => ({
@@ -65,6 +75,7 @@ export class PipelineForm {
 
 	private saveAfterMetadataFormSubmit = $state(false);
 
+	private isSaving = false;
 	async save() {
 		if (!this.metadataForm.value) {
 			this.metadataForm.isOpen = true;
@@ -80,6 +91,7 @@ export class PipelineForm {
 			};
 			runWithLoading({
 				fn: async () => {
+					this.isSaving = true;
 					if (this.props.mode === 'edit' && this.props.pipeline) {
 						await pb.collection('pipelines').update(this.props.pipeline.id, data);
 					} else {
@@ -105,14 +117,13 @@ export class PipelineForm {
 		}
 	});
 
-	exit() {
+	validateExit() {
 		if (this.hasChanges) {
-			const result = confirm(
+			return confirm(
 				m.You_have_unsaved_changes() + '\n' + m.Are_you_sure_you_want_to_exit_the_form()
 			);
-			if (result) goto('/my/pipelines');
 		} else {
-			goto('/my/pipelines');
+			return true;
 		}
 	}
 }

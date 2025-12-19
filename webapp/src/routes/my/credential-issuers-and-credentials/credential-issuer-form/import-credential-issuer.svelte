@@ -43,12 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const form = createForm({
 		adapter: zod(
 			z.object({
-				url: z
-					.string()
-					.regex(
-						/^(https?:\/\/)?([\da-z.-]+)\.([a-z.]{2,6})([/\w .-]*)*\/?$/,
-						'Please enter a valid URL'
-					)
+				url: z.string()
 			})
 		),
 		onSubmit: async ({ form: { data } }) => {

@@ -75,6 +75,7 @@ type WorkflowExecutionSummary struct {
 	Status      string                      `json:"status"             validate:"required"`
 	DisplayName string                      `json:"displayName"        validate:"required"`
 	Children    []*WorkflowExecutionSummary `json:"children,omitempty"`
+	Results     []PipelineResults           `json:"results,omitempty"`
 }
 
 type WorkflowExecutionAPIResponse struct {
@@ -85,6 +86,11 @@ type WorkflowExecutionAPIResponse struct {
 	ExecutionConfig        *WorkflowExecutionConfigWithMetadata `json:"executionConfig,omitempty"`
 	Callbacks              *Callbacks                           `json:"callbacks,omitempty"`
 	PendingWorkflowTask    *PendingWorkflowTaskInfo             `json:"pendingWorkflowTask,omitempty"`
+}
+
+type PipelineResults struct {
+	Video      string `json:"video,omitempty"`
+	Screenshot string `json:"screenshot,omitempty"`
 }
 
 type WorkflowStatus string

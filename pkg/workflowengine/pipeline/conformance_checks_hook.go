@@ -25,6 +25,7 @@ func ConformanceCheckHook(
 	ctx workflow.Context,
 	steps *[]StepDefinition,
 	input workflowengine.WorkflowInput,
+	runData *map[string]any,
 ) error {
 	logger := workflow.GetLogger(ctx)
 

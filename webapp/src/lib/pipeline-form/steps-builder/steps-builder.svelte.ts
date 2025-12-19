@@ -213,14 +213,6 @@ export class StepsBuilder {
 		});
 	}
 
-	setVideo(step: BuilderStep, video: boolean) {
-		this.run((data) => {
-			const index = data.steps.findIndex((s) => s.id === step.id);
-			if (index === -1) return;
-			data.steps[index].video = video;
-		});
-	}
-
 	isReady() {
 		return this.steps.length > 0;
 	}
