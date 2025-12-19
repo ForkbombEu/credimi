@@ -21,10 +21,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { action, containerClass, ...rest }: Props = $props();
 
-	const tags = $derived(action.tags.split(',').map((tag) => tag.trim()));
+	const tags = $derived(
+		action.tags
+			.split(',')
+			.map((tag) => tag.trim())
+			.filter(Boolean)
+	);
 </script>
 
-<div class={['flex flex-wrap items-center gap-1 pr-2', containerClass]}>
+<div class={['flex flex-wrap items-center gap-1', containerClass]}>
 	{#each tags as tag, index (index)}
 		<Badge variant="secondary" {...rest}>
 			{tag}
