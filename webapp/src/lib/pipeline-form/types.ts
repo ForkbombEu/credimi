@@ -33,7 +33,8 @@ export interface PipelineStepConfig<ID = string, YamlStep = unknown, UIStepData 
 	snippet?: Snippet<[{ data: UIStepData; display: EntityUIData }]>;
 }
 
-export interface PipelineDataForm extends Renderable {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export interface PipelineDataForm<T = any> extends Renderable<T> {
 	onSubmit: (handler: (step: PipelineStep) => void) => void;
 }
 

@@ -2,10 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Renderable } from '$lib/renderable';
 import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/standards/index.js';
 import { resource } from 'runed';
 import { tick } from 'svelte';
+
+import type { PipelineDataForm, PipelineStep } from '$lib/pipeline-form/types';
+import Component from './conformance-check-step-form.svelte';
 
 //
 
@@ -13,10 +15,10 @@ type Props = {
 	onSelect: (checkId: string) => void;
 };
 
-export class ConformanceCheckStepForm extends  implements Renderable<ConformanceCheckStepForm> {
-	constructor(private props: Props) {
-		super();
-	}
+export class ConformanceCheckStepForm implements PipelineDataForm<ConformanceCheckStepForm> {
+	readonly Component = Component;
+
+	constructor(private props: Props) {}
 
 	standardsWithTestSuites = resource(
 		() => {},
@@ -51,6 +53,16 @@ export class ConformanceCheckStepForm extends  implements Renderable<Conformance
 		}
 	});
 
+	//
+
+	private submitHandler: (step: PipelineStep) => void = () => {};
+
+	onSubmit(handler: (step: PipelineStep) => void) {
+		this.submitHandler = handler;
+	}
+
+	//
+
 	availableVersions = $derived(this.data.standard?.versions ?? []);
 	availableSuites = $derived(this.data.version?.suites ?? []);
 	availableTests = $derived(this.data.suite?.paths ?? []);
@@ -75,12 +87,18 @@ export class ConformanceCheckStepForm extends  implements Renderable<Conformance
 		this.data.suite = suite;
 		await tick();
 		if (this.availableTests?.length === 1) {
-			await this.selectTest(this.availableTests[0]);
+			this.selectTest(this.availableTests[0]);
 		}
 	}
 
-	async selectTest(test: Test) {
-		this.props.onSelect(test);
+	selectTest(test: Test) {
+		this.submitHandler({
+			id: test,
+			use: 'conformance-check',
+			with: {
+				check_id: test
+			}
+		});
 	}
 
 	//
@@ -100,7 +118,7 @@ export class ConformanceCheckStepForm extends  implements Renderable<Conformance
 	}
 }
 
-// 
+//
 
 type FormData = {
 	standard: Standard;

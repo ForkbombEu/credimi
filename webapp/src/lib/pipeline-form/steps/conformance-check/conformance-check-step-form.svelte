@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { SelfProp } from '$lib/renderable';
+
 	import { TriangleAlert } from 'lucide-svelte';
 
 	import Spinner from '@/components/ui-custom/spinner.svelte';
@@ -17,11 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ItemCard from '../_partials/item-card.svelte';
 	import WithLabel from '../_partials/with-label.svelte';
 
-	type Props = {
-		form: ConformanceCheckStepForm;
-	};
+	//
 
-	let { form }: Props = $props();
+	let { self: form }: SelfProp<ConformanceCheckStepForm> = $props();
 
 	const hasSelection = $derived(
 		form.data.standard || form.data.version || form.data.suite || form.data.test
