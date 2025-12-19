@@ -65,8 +65,9 @@ func (w *PipelineWorkflow) Workflow(
 
 	// Final workflow output returned
 	finalOutput := map[string]any{
-		"workflow-id":     workflowID,
-		"workflow-run-id": runID,
+		"workflow-id":          workflowID,
+		"workflow-run-id":      runID,
+		"result_video_warning": "Video recordings are limited to 30 minutes. Tests exceeding this duration may result in an incomplete video.",
 	}
 
 	runData := map[string]any{
