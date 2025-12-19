@@ -846,6 +846,9 @@
 	"workflow_runs": "Workflow runs",
 	"tools": "Tools",
 	"manual_conformance_checks": "Manual conformance checks",
+	"Results": "Results",
 	"manual_mode": "Manual mode",
-	"blocks_mode": "Blocks mode"
+	"blocks_mode": "Blocks mode",
+	"separate_items_by_commas": "Separate items by commas",
+	"Allow_installer_download": "Allow installer download"
 }

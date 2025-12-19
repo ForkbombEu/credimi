@@ -9,9 +9,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import clsx from 'clsx';
-	import { EllipsisVerticalIcon, TriangleIcon } from 'lucide-svelte';
+	import { EllipsisVerticalIcon, ImageIcon, TriangleIcon, VideoIcon } from 'lucide-svelte';
+
+	import type { IconComponent } from '@/components/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
 	import * as Table from '@/components/ui/table';
 	import { localizeHref } from '@/i18n';
 
@@ -111,6 +114,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	</Table.Cell>
 
+	<Table.Cell>
+		{#if workflow.results && workflow.results.length > 0}
+			<div class="flex items-center gap-2">
+				{#each workflow.results as result (result.video)}
+					<div class="flex items-center gap-1">
+						{@render mediaPreview({
+							image: result.screenshot,
+							href: result.video,
+							icon: VideoIcon
+						})}
+						{@render mediaPreview({
+							image: result.screenshot,
+							href: result.screenshot,
+							icon: ImageIcon
+						})}
+					</div>
+				{/each}
+			</div>
+		{/if}
+	</Table.Cell>
+
 	<Table.Cell
 		class={['text-right', isChild && 'text-muted-foreground text-[10px] leading-[13px]']}
 	>
@@ -152,3 +176,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<WorkflowTableRow workflow={children} depth={depth + 1} />
 	{/each}
 {/if}
+
+{#snippet mediaPreview(props: { image: string; href: string; icon: IconComponent })}
+	{@const { image, href, icon } = props}
+	<a
+		{href}
+		target="_blank"
+		class="relative size-10 shrink-0 overflow-hidden rounded-md border border-slate-300 hover:cursor-pointer hover:ring-2"
+	>
+		<img src={image} alt="Media" class="size-10 shrink-0" />
+		<div class="absolute inset-0 flex items-center justify-center bg-black/30">
+			<Icon src={icon} class="size-4  text-white" />
+		</div>
+	</a>
+{/snippet}
