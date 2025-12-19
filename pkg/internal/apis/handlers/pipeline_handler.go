@@ -19,7 +19,8 @@ import (
 )
 
 type PipelineInput struct {
-	Yaml string `json:"yaml"`
+	Yaml               string `json:"yaml"`
+	PipelineIdentifier string `json:"pipeline_identifier"`
 }
 
 var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
@@ -68,23 +69,59 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 			"logos",
 			fmt.Sprintf("%s_logo-transp_emblem.png", strings.ToLower(appName)),
 		)
-
-		var userID, userMail, userName, namespace string
-
-		if e.Auth != nil {
-			userID = e.Auth.Id
-			userMail = e.Auth.GetString("email")
-			userName = e.Auth.GetString("name")
-			namespace, err = GetUserOrganizationCanonifiedName(e.App, userID)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"organization",
-					"unable to get user organization canonified name",
-					err.Error(),
-				).JSON(e)
-			}
+		if e.Auth == nil {
+			return apierror.New(
+				http.StatusUnauthorized,
+				"auth",
+				"authentication required",
+				"user not authenticated",
+			).JSON(e)
 		}
+
+		userID := e.Auth.Id
+		userMail := e.Auth.GetString("email")
+		userName := e.Auth.GetString("name")
+		orgID, err := GetUserOrganizationID(e.App, userID)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization ID",
+				err.Error(),
+			).JSON(e)
+		}
+		namespace, err := GetUserOrganizationCanonifiedName(e.App, userID)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				err.Error(),
+			).JSON(e)
+		}
+
+		coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"collection",
+				"failed to get collection",
+				err.Error(),
+			).JSON(e)
+		}
+
+		pipelineRecord, err := canonify.Resolve(e.App, input.PipelineIdentifier)
+		if err != nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"pipeline_identifier",
+				"pipeline not found",
+				err.Error(),
+			).JSON(e)
+		}
+		record := core.NewRecord(coll)
+		record.Set("owner", orgID)
+		record.Set("pipeline", pipelineRecord.Id)
 
 		memo := map[string]any{
 			"test":   "pipeline-run",
@@ -106,7 +143,19 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 				"workflow",
 				"failed to start workflow",
 				err.Error(),
-			)
+			).JSON(e)
+		}
+
+		record.Set("workflow_id", result.WorkflowID)
+		record.Set("run_id", result.WorkflowRunID)
+
+		if err := e.App.Save(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipeline",
+				"failed to save pipeline record",
+				err.Error(),
+			).JSON(e)
 		}
 		return e.JSON(http.StatusOK, map[string]any{
 			"message": "Workflow started successfully",

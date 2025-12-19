@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { LayoutDashboardIcon, Sparkle } from 'lucide-svelte';
+	import { LayoutDashboardIcon } from 'lucide-svelte';
 	import { fromStore } from 'svelte/store';
 
 	import type { LinkWithIcon } from '@/components/types';
@@ -58,18 +58,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		];
 
 		if (!DEMO && AUTH && user) {
-			items.push(
-				{
-					href: '/my/tests/new',
-					title: m.Start_a_new_check(),
-					icon: Sparkle
-				},
-				{
-					href: '/my',
-					title: m.Go_to_Dashboard(),
-					icon: LayoutDashboardIcon
-				}
-			);
+			items.push({
+				href: '/my',
+				title: m.Go_to_Dashboard(),
+				icon: LayoutDashboardIcon
+			});
 		}
 
 		return items;
@@ -97,11 +90,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div class="flex items-center gap-2">
 			<div class="hidden lg:flex lg:flex-row">
 				{#each rightItems as item (item)}
-					<NavLink
-						link={item}
-						variant="desktop"
-						badge={item.href?.endsWith('/my/tests/new') ? m.Beta() : undefined}
-					/>
+					<NavLink link={item} variant="desktop" />
 				{/each}
 			</div>
 

@@ -4,6 +4,8 @@
 
 import { checkAuthFlagAndUser } from '$lib/utils';
 
+//
+
 export const load = async ({ fetch }) => {
 	await checkAuthFlagAndUser({ fetch });
 };

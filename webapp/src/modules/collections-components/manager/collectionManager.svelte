@@ -42,6 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Header from './collectionManagerHeader.svelte';
 	import Pagination from './collectionManagerPagination.svelte';
 	import Search from './collectionManagerSearch.svelte';
+	import EditForm from './forms/edit-form.svelte';
 	import Card from './recordCard.svelte';
 	import Table from './table/collectionTable.svelte';
 
@@ -49,6 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		collection: C;
+		onMount?: (manager: CollectionManager<C, E>) => void;
 	} & Partial<Options> &
 		Partial<Snippets>;
 
@@ -126,6 +128,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		filters = [],
 		emptyStateTitle = m.No_items_here(),
 		emptyStateDescription = m.Start_by_adding_a_record_to_this_collection_(),
+		onMount,
 		...rest
 	}: Props = $props();
 	//
@@ -136,6 +139,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			queryAgent: queryAgentOptions
 		})
 	);
+
+	$effect(() => {
+		onMount?.(manager);
+	});
 
 	const context = $derived<CollectionManagerContext<C, E>>({
 		manager,
@@ -220,3 +227,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<EmptyState title={emptyStateTitle} description={emptyStateDescription} icon={FolderIcon} />
 	{/if}
 {/snippet}
+
+<EditForm />

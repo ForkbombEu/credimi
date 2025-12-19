@@ -72,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
-			{#each schedules as workflow (workflow.id)}
+			{#each schedules ?? [] as workflow (workflow.id)}
 				<Table.Row>
 					<Table.Cell>
 						<T>{workflow.display_name}</T>

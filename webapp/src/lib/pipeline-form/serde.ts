@@ -63,8 +63,7 @@ export function serializeStep(step: BuilderStep) {
 			actionId: step.data.action.id,
 			walletId: step.data.wallet.id,
 			versionId: step.data.version.id,
-			continueOnError,
-			video: step.video ?? false
+			continueOnError
 		};
 	} else if (step.type === StepType.ConformanceCheck) {
 		return {
@@ -110,7 +109,6 @@ async function deserializeStep(step: SerializedStep, options = { fetch }): Promi
 			organization: walletItem.organization_name,
 			avatar: avatar,
 			continueOnError: step.continueOnError ?? false,
-			video: step.video ?? false,
 			data: {
 				wallet: walletItem,
 				version: version,
@@ -125,8 +123,7 @@ async function deserializeStep(step: SerializedStep, options = { fetch }): Promi
 			path: step.checkId,
 			organization: 'Conformance Check',
 			data: { checkId: step.checkId },
-			continueOnError: step.continueOnError ?? false,
-			video: step.video ?? false
+			continueOnError: step.continueOnError ?? false
 		};
 	} else {
 		const record: MarketplaceItem = await pb
@@ -144,8 +141,7 @@ async function deserializeStep(step: SerializedStep, options = { fetch }): Promi
 			organization: record.organization_name,
 			avatar: avatar,
 			data: record,
-			continueOnError: step.continueOnError ?? false,
-			video: step.video ?? false
+			continueOnError: step.continueOnError ?? false
 		};
 	}
 }
