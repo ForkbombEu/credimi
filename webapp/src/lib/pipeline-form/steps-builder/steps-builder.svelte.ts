@@ -65,6 +65,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		this.stateManager.run((data) => {
 			const config = this.props.configs.find((c) => c.id === type);
 			if (!config) return;
+
 			let form: PipelineDataForm | undefined;
 			const effectCleanup = $effect.root(() => {
 				form = config.initForm((step) => {
@@ -75,6 +76,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 					});
 				});
 			});
+
 			if (!form) throw new Error(`Failed to initialize form for step type: ${type}`);
 			data.state = { id: 'form', form };
 		});
@@ -133,5 +135,9 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	// TODO: Convert to "hasChanges"
 	hasSteps() {
 		return this.steps.length > 0;
+	}
+
+	getConfig(type: string) {
+		return this.props.configs.find((c) => c.id === type);
 	}
 }

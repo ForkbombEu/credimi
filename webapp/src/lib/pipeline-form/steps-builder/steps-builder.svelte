@@ -56,7 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<ScrollArea class="grow [&>div>div]:space-y-2 [&>div>div]:p-4">
 				{#each builder.steps as step, index (step)}
 					<div animate:flip={{ duration: 300 }}>
-						<StepCard {builder} {step} />
+						<StepCard {builder} {step} {index} />
 					</div>
 				{/each}
 			</ScrollArea>
@@ -86,14 +86,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet stepButtons()}
 	<div class="flex flex-col gap-2 p-4" in:fly>
 		{#each builder.configs as config (config.id)}
-			{@const { icon, label, class: classes } = config.display}
+			{@const { icon, labels, classes } = config.display}
 			<Button
 				variant="outline"
 				class="!justify-start"
 				onclick={() => builder.initAddStep(config.id)}
 			>
 				<Icon src={icon} class={classes.text} />
-				{label.singular}
+				{labels.singular}
 			</Button>
 		{/each}
 

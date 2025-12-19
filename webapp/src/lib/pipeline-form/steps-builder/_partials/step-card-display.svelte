@@ -12,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { BuilderStep } from '../types.js';
 
-	import { getStepDisplayData } from './display-data';
+	import { getStepDisplayData } from './display-data.js';
 
 	//
 

@@ -9,11 +9,11 @@ import type { IconComponent } from '@/components/types';
 export type EntityUIData = {
 	id: string;
 	icon: IconComponent;
-	label: {
+	labels: {
 		singular: string;
 		plural: string;
 	};
-	class: {
+	classes: {
 		bg: string;
 		text: string;
 		border: string;

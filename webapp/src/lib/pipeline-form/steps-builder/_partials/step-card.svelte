@@ -5,63 +5,75 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { PipelineStep } from '$lib/pipeline-form/types';
+
 	import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from 'lucide-svelte';
 
-	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
 	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n/index.js';
 
+	import type { StepsBuilder } from '../steps-builder.svelte.js';
+
 	//
 
 	type Props = {
 		index: number;
+		step: PipelineStep;
 		builder: StepsBuilder;
 	};
 
-	let { step = $bindable(), builder }: Props = $props();
+	let { builder, step, index }: Props = $props();
 
-	const { icon, label, textClass, outlineClass, backgroundClass } = getStepDisplayData(step.type);
+	const config = $derived(builder.getConfig(step.use));
+	const display = $derived(config?.display);
+	const classes = $derived(display?.classes);
 </script>
 
-<div class={['bg-card group overflow-hidden rounded-md border hover:ring', outlineClass]}>
-	<div class={['h-1', backgroundClass]}></div>
+<div class={['bg-card group overflow-hidden rounded-md border hover:ring', classes?.border]}>
+	<div class={['h-1', classes?.bg]}></div>
 	<div>
 		<div class="flex items-center justify-between py-1 pl-3 pr-1">
-			<div class={['flex items-center gap-1', textClass]}>
-				<Icon src={icon} size={12} />
-				<p class="text-xs">{label}</p>
-			</div>
+			{#if display}
+				<div class={['flex items-center gap-1', classes?.text]}>
+					<Icon src={display.icon} size={12} />
+					<p class="text-xs">{display.labels.singular}</p>
+				</div>
+			{/if}
 
 			<div class="flex items-center">
 				<IconButton
 					icon={ArrowUpIcon}
 					variant="ghost"
 					size="sm"
-					onclick={() => builder.shiftStep(step, -1)}
-					disabled={!builder.canShiftStep(step, -1)}
+					onclick={() => builder.shiftStep(index, -1)}
+					disabled={!builder.canShiftStep(index, -1)}
 				/>
 				<IconButton
 					icon={ArrowDownIcon}
 					variant="ghost"
 					size="sm"
-					onclick={() => builder.shiftStep(step, 1)}
-					disabled={!builder.canShiftStep(step, 1)}
+					onclick={() => builder.shiftStep(index, 1)}
+					disabled={!builder.canShiftStep(index, 1)}
 				/>
 				<IconButton
 					icon={TrashIcon}
 					variant="ghost"
 					size="sm"
-					onclick={() => builder.deleteStep(step)}
+					onclick={() => builder.deleteStep(index)}
 				/>
 			</div>
 		</div>
 
-		<div class="flex items-center gap-3 p-3 pb-4 pt-1">
-			<Avatar src={step.avatar} fallback={step.name} class="size-8 rounded-lg border" />
+		<div class="p-3 pb-4 pt-1">
+			{#if config && display}
+				{@render config.snippet?.({ data: step, display })}
+			{:else}
+				<h1>{step.use}</h1>
+			{/if}
+			<!-- <Avatar src={step.avatar} fallback={step.name} class="size-8 rounded-lg border" />
 			<div class="space-y-1">
 				<div class="flex items-center gap-1">
 					<h1>{step.name}</h1>
@@ -73,16 +85,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						class="text-gray-400"
 					/>
 				</div>
-			</div>
+			</div> -->
 		</div>
 
-		<Label class="flex cursor-pointer items-center gap-1 bg-slate-50 px-3 py-1">
-			<Checkbox
-				class="flex size-[10px] items-center justify-center"
-				checked={step.continueOnError}
-				onCheckedChange={(checked) => builder.setContinueOnError(step, checked)}
-			/>
-			<span class="text-xs text-slate-500">{m.Continue_on_error()}</span>
-		</Label>
+		{#if step.use !== 'debug'}
+			<Label class="flex cursor-pointer items-center gap-1 bg-slate-50 px-3 py-1">
+				<Checkbox
+					class="flex size-[10px] items-center justify-center"
+					checked={step.continue_on_error}
+					onCheckedChange={(checked) => builder.setContinueOnError(index, checked)}
+				/>
+				<span class="text-xs text-slate-500">{m.Continue_on_error()}</span>
+			</Label>
+		{/if}
 	</div>
 </div>
