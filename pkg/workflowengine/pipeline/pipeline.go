@@ -115,6 +115,14 @@ func (w *PipelineWorkflow) Workflow(
 			childOut, err := runChildPipeline(ctx, step, input, w.Name(), stepInputs, runMetadata)
 			if err != nil {
 				logger.Error(step.ID, "step execution error", err)
+				if len(step.OnError) > 0 {
+					logger.Info("Executing onError steps for step",
+						"step_id", step.ID,
+						"count", len(step.OnError),
+						"continue_on_error", step.ContinueOnError)
+
+					ExecuteEventStepsOnError(ctx, step.OnError, stepInputs, errorsList, input)
+				}
 				if step.ContinueOnError {
 					if out := workflowengine.ExtractOutputFromError(err); out != nil {
 						childOut = out
@@ -130,6 +138,10 @@ func (w *PipelineWorkflow) Workflow(
 					err,
 					runMetadata,
 				)
+			}
+			if len(step.OnSuccess) > 0 {
+				logger.Info("Executing onSuccess steps for step", "step_id", step.ID, "count", len(step.OnSuccess))
+				ExecuteEventStepsOnSuccess(ctx, step.OnSuccess, stepInputs, errorsList, input)
 			}
 
 			finalOutput[step.ID] = map[string]any{
@@ -153,7 +165,14 @@ func (w *PipelineWorkflow) Workflow(
 					step.ID,
 					finalOutput,
 				)
+				if len(step.OnError) > 0 {
+					logger.Info("Executing onError steps for step",
+						"step_id", step.ID,
+						"count", len(step.OnError),
+						"continue_on_error", step.ContinueOnError)
 
+					ExecuteEventStepsOnError(ctx, step.OnError, stepInputs, errorsList, input)
+				}
 				if step.ContinueOnError {
 					if out := workflowengine.ExtractOutputFromError(err); out != nil {
 						stepOutput = out
@@ -163,6 +182,11 @@ func (w *PipelineWorkflow) Workflow(
 					continue
 				}
 				return result, workflowengine.NewWorkflowError(appErr, runMetadata)
+			}
+
+			if len(step.OnSuccess) > 0 {
+				logger.Info("Executing onSuccess steps for step", "step_id", step.ID, "count", len(step.OnSuccess))
+				ExecuteEventStepsOnSuccess(ctx, step.OnSuccess, stepInputs, errorsList, input)
 			}
 
 			finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
@@ -311,4 +335,54 @@ func (w *PipelineWorkflow) Start(
 		),
 	}
 	return result, nil
+}
+
+func ExecuteEventStepsOnError(
+	ctx workflow.Context,
+	eventSteps []*OnErrorStepDefinition,
+	stepInputs map[string]any,
+	existingErrors []string,
+	input PipelineWorkflowInput,
+) []string {
+	errorsList := existingErrors
+	if errorsList == nil {
+		errorsList = []string{}
+	}
+	for _, eventStep := range eventSteps {
+		aO := PrepareActivityOptions(
+			*input.WorkflowInput.ActivityOptions,
+			eventStep.ActivityOptions,
+		)
+
+		_, execErr := eventStep.ExecuteOnError(ctx, input.WorkflowInput.Config, stepInputs, aO)
+		if execErr != nil {
+			errorsList = append(errorsList, execErr.Error())
+		}
+	}
+	return errorsList
+}
+
+func ExecuteEventStepsOnSuccess(
+	ctx workflow.Context,
+	eventSteps []*OnSuccessStepDefinition,
+	stepInputs map[string]any,
+	existingErrors []string,
+	input PipelineWorkflowInput,
+) []string {
+	errorsList := existingErrors
+	if errorsList == nil {
+		errorsList = []string{}
+	}
+	for _, eventStep := range eventSteps {
+		aO := PrepareActivityOptions(
+			*input.WorkflowInput.ActivityOptions,
+			eventStep.ActivityOptions,
+		)
+
+		_, execErr := eventStep.ExecuteOnSuccess(ctx, input.WorkflowInput.Config, stepInputs, aO)
+		if execErr != nil {
+			errorsList = append(errorsList, execErr.Error())
+		}
+	}
+	return errorsList
 }
