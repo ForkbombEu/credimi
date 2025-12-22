@@ -9,8 +9,12 @@ package workflowengine
 import (
 	"context"
 	"fmt"
+	"os/exec"
+	"syscall"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/temporal"
 )
 
@@ -94,6 +98,45 @@ func (a *BaseActivity) NewMissingOrInvalidPayloadError(err error) error {
 			err,
 		),
 	)
+}
+
+func RunCommandWithCancellation(
+	ctx context.Context,
+	cmd *exec.Cmd,
+	heartbeatInterval time.Duration,
+) error {
+	// Ensure child processes are killed as well
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+
+	done := make(chan error, 1)
+
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+
+	go func() {
+		done <- cmd.Wait()
+	}()
+
+	ticker := time.NewTicker(heartbeatInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			if cmd.Process != nil {
+				// Kill process group
+				_ = syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+			}
+			return ctx.Err()
+
+		case err := <-done:
+			return err
+
+		case <-ticker.C:
+			activity.RecordHeartbeat(ctx, "running")
+		}
+	}
 }
 
 // OutputKind represents the expected type of an activity output.

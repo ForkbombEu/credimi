@@ -108,7 +108,7 @@ func Test_VLEIValidationWorkflow(t *testing.T) {
 			env := testSuite.NewTestWorkflowEnvironment()
 			tc.mockActivities(env)
 
-			w := &VLEIValidationWorkflow{}
+			w := NewVLEIValidationWorkflow()
 			env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
 				Payload: tc.payload,
 				Config:  tc.config,
@@ -208,7 +208,7 @@ func Test_VLEIValidationLocalWorkflow(t *testing.T) {
 			env := testSuite.NewTestWorkflowEnvironment()
 			tc.mockActivities(env)
 
-			w := &VLEIValidationLocalWorkflow{}
+			w := NewVLEIValidationLocalWorkflow()
 			env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
 				Payload: tc.payload,
 				Config:  tc.config,

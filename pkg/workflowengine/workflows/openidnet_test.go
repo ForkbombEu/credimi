@@ -125,11 +125,12 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 			testSuite := &testsuite.WorkflowTestSuite{}
 			env := testSuite.NewTestWorkflowEnvironment()
 			callCount = 0
-			var w OpenIDNetWorkflow
+			w := NewOpenIDNetWorkflow()
 			env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{
 				Name: w.Name(),
 			})
-			var child OpenIDNetLogsWorkflow
+
+			child := NewOpenIDNetLogsWorkflow()
 			env.RegisterWorkflowWithOptions(child.Workflow, workflow.RegisterOptions{
 				Name: child.Name(),
 			})
@@ -193,9 +194,10 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 
 func Test_LogSubWorkflow(t *testing.T) {
 	testCases := []struct {
-		name          string
-		mockResponse  workflowengine.ActivityResult
-		expectRunning bool
+		name           string
+		mockResponse   workflowengine.ActivityResult
+		expectRunning  bool
+		expectedCancel bool
 	}{
 		{
 			name: "Workflow completes when result is FINISHED",
@@ -211,6 +213,14 @@ func Test_LogSubWorkflow(t *testing.T) {
 			}},
 			expectRunning: true,
 		},
+		{
+			name: "Workflow stops when pipeline cancel signal is received",
+			mockResponse: workflowengine.ActivityResult{Output: map[string]any{
+				"body": []map[string]any{{"result": "RUNNING"}},
+			}},
+			expectRunning:  false,
+			expectedCancel: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -223,7 +233,7 @@ func Test_LogSubWorkflow(t *testing.T) {
 			env.RegisterActivityWithOptions(HTTPActivity.Execute, activity.RegisterOptions{
 				Name: HTTPActivity.Name(),
 			})
-			var logsWorkflow OpenIDNetLogsWorkflow
+			w := NewOpenIDNetLogsWorkflow()
 			env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
 				Run(func(_ mock.Arguments) {
 					callCount++
@@ -234,7 +244,10 @@ func Test_LogSubWorkflow(t *testing.T) {
 				env.RegisterDelayedCallback(func() {
 					env.SignalWorkflow(OpenIDNetStartCheckSignal, nil)
 				}, time.Second*30)
-				env.ExecuteWorkflow(logsWorkflow.Workflow, workflowengine.WorkflowInput{
+				if tc.expectedCancel {
+					env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*45)
+				}
+				env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
 					Payload: OpenIDNetLogsWorkflowPayload{
 						Rid:   "12345",
 						Token: "test-token",
@@ -256,9 +269,17 @@ func Test_LogSubWorkflow(t *testing.T) {
 			} else {
 				<-done
 				var result workflowengine.WorkflowResult
-				require.NoError(t, env.GetWorkflowResult(&result))
-				require.NotEmpty(t, result.Log)
-				require.Equal(t, 2, callCount) // Only two activity call (no looping)
+				err := env.GetWorkflowResult(&result)
+
+				if tc.expectedCancel {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), "canceled")
+				} else {
+					require.NoError(t, err)
+
+					require.NotEmpty(t, result.Log)
+					require.Equal(t, 2, callCount) // Only two activity call (no looping)
+				}
 			}
 		})
 	}

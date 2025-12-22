@@ -27,10 +27,11 @@ type CleanupFunc func(
 var (
 	setupHooks = []SetupFunc{
 		MobileAutomationSetupHook,
-		ConformanceCheckHook,
+		ConformanceCheckSetupHook,
 	}
 
 	cleanupHooks = []CleanupFunc{
 		MobileAutomationCleanupHook,
+		ConformanceCheckCleanupHook,
 	}
 )

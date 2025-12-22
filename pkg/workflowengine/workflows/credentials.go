@@ -34,12 +34,20 @@ const (
 )
 
 // CredentialsIssuersWorkflow is a workflow that validates and imports credential issuer metadata.
-type CredentialsIssuersWorkflow struct{}
+type CredentialsIssuersWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 // CredentialsIssuersWorkflowPayload is the payload for the CredentialsIssuersWorkflow.
 type CredentialsIssuersWorkflowPayload struct {
 	BaseURL  string `json:"base_url"  yaml:"base_url"  validate:"required"`
 	IssuerID string `json:"issuer_id" yaml:"issuer_id" validate:"required"`
+}
+
+func NewCredentialsIssuersWorkflow() *CredentialsIssuersWorkflow {
+	w := &CredentialsIssuersWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 // Name returns the name of the workflow.
@@ -50,6 +58,13 @@ func (w *CredentialsIssuersWorkflow) Name() string {
 // GetOptions returns the activity options for the workflow.
 func (w *CredentialsIssuersWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
+}
+
+func (w *CredentialsIssuersWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
 }
 
 // Workflow is the main workflow function for the CredentialsIssuersWorkflow.
@@ -70,24 +85,12 @@ func (w *CredentialsIssuersWorkflow) GetOptions() workflow.ActivityOptions {
 // Returns:
 // - workflowengine.WorkflowResult: The result of the workflow execution, including logs.
 // - error: An error if any step in the workflow fails.
-func (w *CredentialsIssuersWorkflow) Workflow(
+func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
-
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
 
 	credentialsIssuerDataReady := false
 	var issuerName, logo string
@@ -103,7 +106,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			"credentialsNumber": credentialsNumber,
 		}, nil
 	})
-	baseURL, appURL, issuerSchema, issuerID, err := validateInput(input, runMetadata)
+	baseURL, appURL, issuerSchema, issuerID, err := validateInput(input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
@@ -117,7 +120,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	}).Get(ctx, &issuerResult)
 	if err != nil {
 		logger.Error("CheckCredentialIssuer failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 	source, ok := issuerResult.Output.(map[string]any)["source"].(string)
 	if !ok {
@@ -126,7 +132,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("%s: source", checkIssuer.Name()),
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 	rawJSON, ok := issuerResult.Output.(map[string]any)["rawJSON"].(string)
 	if !ok {
@@ -135,7 +144,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("%s: rawJSON", checkIssuer.Name()),
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 
 	parseJSON := activities.NewJSONActivity(
@@ -159,7 +171,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	}).Get(ctx, &result)
 	if err != nil {
 		logger.Error("ParseJSON failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 	issuerData, ok := result.Output.(map[string]any)
 	if !ok {
@@ -168,7 +183,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("%s: output", parseJSON.Name()),
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 	validateJSON := activities.NewSchemaValidationActivity()
 	validateErr := workflow.ExecuteActivity(ctx, validateJSON.Name(), workflowengine.ActivityInput{
@@ -182,12 +200,12 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		if err != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 
 		errs["JSONSchemaValidation"] = details
-		invalidCred, err = extractInvalidCredentialsFromErrorDetails(details, runMetadata)
+		invalidCred, err = extractInvalidCredentialsFromErrorDetails(details, input.RunMetadata)
 		if err != nil {
 			return workflowengine.WorkflowResult{}, err
 		}
@@ -214,7 +232,10 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			errCode,
 			"rawJSON should contains credential_configurations_supported",
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 
 	credentialsNumber = len(credConfigs)
@@ -232,7 +253,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 		if !ok || orgID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 				"orgID",
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 
@@ -267,7 +288,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 
@@ -302,7 +323,7 @@ func (w *CredentialsIssuersWorkflow) Workflow(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 			logs,
 		)
 	}
@@ -349,12 +370,19 @@ func (w *CredentialsIssuersWorkflow) Start(
 }
 
 // GetCredentialOfferWorkflow is a workflow that gets a credential offer from a stored credential.
-type GetCredentialOfferWorkflow struct{}
+type GetCredentialOfferWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 type GetCredentialOfferWorkflowPayload struct {
 	CredentialID string `json:"credential_id" yaml:"credential_id" validate:"required"`
 }
 
+func NewGetCredentialOfferWorkflow() *GetCredentialOfferWorkflow {
+	w := &GetCredentialOfferWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
+}
 func (w *GetCredentialOfferWorkflow) Name() string {
 	return "Get a credential offer"
 }
@@ -364,37 +392,50 @@ func (w *GetCredentialOfferWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
+// Workflow is the main workflow function for the GetCredentialOfferWorkflow.
+// It executes the following steps:
+//  1. Executes the CheckCredentialsIssuerActivity to validate the credentials issuer.
+//  2. Parses the raw JSON response from the issuer using the JSONActivity.
+//  3. Iterates through the credential configurations supported by the issuer and:
+//     - Sends each credential to the "store-or-update-extracted-credentials" endpoint.
+//     - Logs the stored credentials.
+//  4. Executes a cleanup operation to remove invalid credentials by calling the
+//     "cleanup_credentials" endpoint.
+//  5. Returns a WorkflowResult containing a success message and logs.
+//
+// Parameters:
+// - ctx: The workflow context.
+// - input: The input for the workflow, containing configuration and payload data.
+//
+// Returns:
+// - workflowengine.WorkflowResult: The result of the workflow execution, including logs.
+// - error: An error if any step in the workflow fails.
 func (w *GetCredentialOfferWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
-
 	payload, err := workflowengine.DecodePayload[GetCredentialOfferWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"app_url",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	act := activities.NewHTTPActivity()
@@ -417,7 +458,7 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 		logger.Error("HTTPActivity failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
@@ -428,7 +469,10 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 			"output is not a map",
 			result.Output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			wErr,
+			input.RunMetadata,
+		)
 	}
 	dynamic, ok := responseBody["dynamic"].(bool)
 	if !ok {
@@ -437,7 +481,10 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 			"dynamic is not a bool",
 			result.Output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			wErr,
+			input.RunMetadata,
+		)
 	}
 	if !dynamic {
 		credentialOffer, ok := responseBody["credential_offer"].(string)
@@ -449,7 +496,7 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				wErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 
@@ -465,7 +512,10 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 			"yaml code is not a string",
 			result.Output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			wErr,
+			input.RunMetadata,
+		)
 	}
 
 	stepCIActivity := activities.NewStepCIWorkflowActivity()
@@ -480,7 +530,7 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 		logger.Error("StepCIActivity failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	captures, ok := stepCIResult.Output.(map[string]any)["captures"].(map[string]any)
@@ -490,7 +540,10 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 			"captures is not a map",
 			result.Output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			wErr,
+			input.RunMetadata,
+		)
 	}
 	credentialOffer, ok := captures["deeplink"].(string)
 	if !ok {
@@ -499,7 +552,10 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 			"deeplink missing or invalid from captures",
 			result.Output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(wErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			wErr,
+			input.RunMetadata,
+		)
 	}
 	return workflowengine.WorkflowResult{
 		Message: "Successfully retrieved credential offer",
@@ -509,7 +565,7 @@ func (w *GetCredentialOfferWorkflow) Workflow(
 
 func extractInvalidCredentialsFromErrorDetails(
 	details []any,
-	runMetadata workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
 ) (map[string]bool, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityErrorDetails]
 	invalidCred := map[string]bool{}
@@ -569,20 +625,25 @@ func extractAppErrorDetails(err error) ([]any, error) {
 
 func validateInput(
 	input workflowengine.WorkflowInput,
-	runMetadata workflowengine.WorkflowErrorMetadata,
 ) (baseURL, appURL, issuerSchema, issuerID string, err error) {
 	payload, err := workflowengine.DecodePayload[CredentialsIssuersWorkflowPayload](input.Payload)
 	if err != nil {
-		return "", "", "", "", workflowengine.NewMissingOrInvalidPayloadError(err, runMetadata)
+		return "", "", "", "", workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			input.RunMetadata,
+		)
 	}
 
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
-		return "", "", "", "", workflowengine.NewMissingConfigError("app_url", runMetadata)
+		return "", "", "", "", workflowengine.NewMissingConfigError("app_url", input.RunMetadata)
 	}
 	issuerSchema, ok = input.Config["issuer_schema"].(string)
 	if !ok || issuerSchema == "" {
-		return "", "", "", "", workflowengine.NewMissingConfigError("issuer_schema", runMetadata)
+		return "", "", "", "", workflowengine.NewMissingConfigError(
+			"issuer_schema",
+			input.RunMetadata,
+		)
 	}
 
 	return payload.BaseURL, appURL, issuerSchema, payload.IssuerID, nil

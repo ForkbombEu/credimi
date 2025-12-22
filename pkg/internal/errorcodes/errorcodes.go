@@ -42,6 +42,7 @@ var Codes = map[string]Code{
 	PipelineInputError:             {"CRE228", "Failed to resolve pipeline inputs"},
 	PipelineExecutionError:         {"CRE229", "Failed to execute pipeline worflow"},
 	ChildWorkflowExecutionError:    {"CRE230", "Failed to execute child workflow"},
+	WorkflowCancellationError:      {"CRE231", "Workflow was cancelled"},
 	CommandExecutionFailed:         {"CRE301", "Command execution failed"},
 	StepCIRunFailed:                {"CRE302", "StepCI run failed"},
 	UnexpectedStepCIOutput:         {"CRE303", "Unexpected output from StepCI run"},
@@ -92,6 +93,7 @@ const (
 	PipelineInputError             = "CRE228"
 	PipelineExecutionError         = "CRE229"
 	ChildWorkflowExecutionError    = "CRE230"
+	WorkflowCancellationError      = "CRE231"
 	CommandExecutionFailed         = "CRE301"
 	StepCIRunFailed                = "CRE302"
 	UnexpectedStepCIOutput         = "CRE303"
