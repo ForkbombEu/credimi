@@ -284,12 +284,12 @@ func MobileAutomationSetupHook(
 			"recording":  true,
 			"video_path": videoPath,
 		}
+		SetRunDataValue(runData, "started_emulators", startedEmulators)
 		// unlockInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": serial}}
 		// if err := workflow.ExecuteActivity(mobileCtx, unlockActivity.Name(), unlockInput).Get(ctx, nil); err != nil {
 		// 	return err
 		// }
 	}
-	SetRunDataValue(runData, "started_emulators", startedEmulators)
 
 	return nil
 }
@@ -405,8 +405,8 @@ func cleanupRecording(
 		return
 	}
 
-	recording, _ := emuInfo["recording"].(bool)
-	if !recording {
+	recording, ok := emuInfo["recording"].(bool)
+	if !ok || !recording {
 		return
 	}
 
@@ -440,8 +440,8 @@ func cleanupRecording(
 		return
 	}
 
-	lastFramePath, _ := stopResult.Output.(map[string]any)["last_frame_path"].(string)
-	if lastFramePath == "" {
+	lastFramePath, ok := stopResult.Output.(map[string]any)["last_frame_path"].(string)
+	if !ok || lastFramePath == "" {
 		*cleanupErrs = append(*cleanupErrs,
 			workflowengine.NewAppError(
 				errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
@@ -452,8 +452,8 @@ func cleanupRecording(
 		return
 	}
 
-	runIdentifier, _ := runData["run_identifier"].(string)
-	if runIdentifier == "" {
+	runIdentifier, ok := runData["run_identifier"].(string)
+	if !ok || runIdentifier == "" {
 		*cleanupErrs = append(*cleanupErrs,
 			workflowengine.NewAppError(
 				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
@@ -492,7 +492,17 @@ func cleanupRecording(
 		return
 	}
 
-	body, _ := storeResult.Output.(map[string]any)["body"].(map[string]any)
+	body, ok := storeResult.Output.(map[string]any)["body"].(map[string]any)
+	if !ok {
+		*cleanupErrs = append(*cleanupErrs,
+			workflowengine.NewAppError(
+				errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
+				"missing body in store result",
+				storeResult.Output,
+			),
+		)
+		return
+	}
 	resultURLs := workflowengine.AsSliceOfStrings(body["result_urls"])
 	frameURLs := workflowengine.AsSliceOfStrings(body["screenshot_urls"])
 
