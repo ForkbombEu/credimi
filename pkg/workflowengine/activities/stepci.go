@@ -139,9 +139,10 @@ func (a *StepCIWorkflowActivity) Execute(
 			fmt.Sprintf("%s: %v", errCode.Description, err),
 		)
 	}
+
 	binDir := utils.GetEnvironmentVariable("BIN", ".bin")
-	binName := "stepci-captured-runner"
-	binPath := filepath.Join(binDir, binName)
+	binPath := filepath.Join(binDir, "stepci-captured-runner")
+
 	args := []string{payload.Yaml, "-s", string(secretBytes)}
 
 	if payload.Env != "" {
@@ -154,34 +155,39 @@ func (a *StepCIWorkflowActivity) Execute(
 	cmd.Stdout = &stdoutBuf
 	cmd.Stderr = &stderrBuf
 
-	err = cmd.Run()
-	stdoutStr := stdoutBuf.String()
-	stderrStr := stderrBuf.String()
+	err = workflowengine.RunCommandWithCancellation(ctx, cmd, 2*time.Second)
 	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
+		// Temporal cancellation → propagate cleanly
+		if ctx.Err() != nil {
+			return result, ctx.Err()
+		}
+
 		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf(errCode.Description+": %v", err),
-			stderrStr, // pass only stderr here
+			errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
+			err.Error(),
+			stderrBuf.String(),
 		)
 	}
-	var outputJSON StepCICliReturns
-	if err := json.Unmarshal(stdoutBuf.Bytes(), &outputJSON); err != nil {
+	stdoutStr := stdoutBuf.String()
+
+	var output StepCICliReturns
+	if err := json.Unmarshal(stdoutBuf.Bytes(), &output); err != nil {
 		result.Output = stdoutStr
-		return result, nil //nolint:all
+		return result, nil
 	}
 
-	result.Output = outputJSON
-	if !outputJSON.Passed {
-		errCode := errorcodes.Codes[errorcodes.StepCIRunFailed]
+	result.Output = output
+
+	if !output.Passed {
 		return result, a.NewActivityError(
-			errCode.Code,
-			errCode.Description,
-			outputJSON,
+			errorcodes.Codes[errorcodes.StepCIRunFailed].Code,
+			"stepci run failed",
+			output,
 		)
 	}
 
 	return result, nil
+
 }
 
 func RenderYAML(yamlString string, data map[string]any) (string, error) {

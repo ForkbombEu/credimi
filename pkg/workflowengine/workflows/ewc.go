@@ -300,10 +300,12 @@ func pollEWCCheck(
 
 	startSignalChan := workflow.GetSignalChannel(ctx, EwcStartCheckSignal)
 	stopSignalChan := workflow.GetSignalChannel(ctx, EwcStopCheckSignal)
+	pipelineCancelChan := workflow.GetSignalChannel(ctx, PipelineCancelSignal)
 	selector := workflow.NewSelector(ctx)
 
 	// If flag is true → start polling right away
 	isPolling := startImmediately
+	var cancelled bool
 
 	var timerFuture workflow.Future
 	var startTimer func()
@@ -334,28 +336,36 @@ func pollEWCCheck(
 			ExpectedStatus: 200,
 		},
 	}
+	var signalData struct{}
+	selector.AddReceive(pipelineCancelChan, func(c workflow.ReceiveChannel, _ bool) {
+		c.Receive(ctx, &signalData)
+		cancelled = true
+	})
+	selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+		c.Receive(ctx, &signalData)
+
+		if !isPolling {
+			isPolling = true
+			startTimer()
+			logger.Info("EWC polling started (signal)")
+		}
+	})
+
+	selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+		c.Receive(ctx, &signalData)
+		isPolling = false
+		logger.Info("EWC polling stopped (signal)")
+	})
 
 	for {
-		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			// Signals become OPTIONAL
-			var signalData struct{}
-			c.Receive(ctx, &signalData)
-
-			if !isPolling {
-				isPolling = true
-				startTimer()
-				logger.Info("EWC polling started (signal)")
-			}
-		})
-
-		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalData struct{}
-			c.Receive(ctx, &signalData)
-			isPolling = false
-			logger.Info("EWC polling stopped (signal)")
-		})
 
 		selector.Select(ctx)
+
+		if cancelled {
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+				runMetadata,
+			)
+		}
 
 		if !isPolling {
 			continue

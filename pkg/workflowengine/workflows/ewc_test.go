@@ -179,10 +179,11 @@ func Test_EWCWorkflow(t *testing.T) {
 
 func Test_EWCStatusWorkflow(t *testing.T) {
 	testCases := []struct {
-		name          string
-		mockResponse  workflowengine.ActivityResult
-		expectRunning bool
-		expectedErr   bool
+		name           string
+		mockResponse   workflowengine.ActivityResult
+		expectRunning  bool
+		expectedErr    bool
+		expectedCancel bool
 	}{
 		{
 			name: "Workflow completes when status is success",
@@ -217,6 +218,18 @@ func Test_EWCStatusWorkflow(t *testing.T) {
 			expectRunning: false,
 			expectedErr:   true,
 		},
+		{
+			name: "Workflow stops when pipeline cancel signal is received",
+			mockResponse: workflowengine.ActivityResult{Output: map[string]any{
+				"body": map[string]any{
+					"status": "pending",
+					"reason": "ok",
+				},
+			}},
+			expectRunning:  false,
+			expectedErr:    true,
+			expectedCancel: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -244,6 +257,10 @@ func Test_EWCStatusWorkflow(t *testing.T) {
 					env.SignalWorkflow(EwcStartCheckSignal, nil)
 				}, time.Second*30)
 
+				if tc.expectedCancel {
+					env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*45)
+				}
+
 				env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
 					Payload: EWCStatusWorkflowPayload{
 						SessionID: "12345",
@@ -267,7 +284,13 @@ func Test_EWCStatusWorkflow(t *testing.T) {
 				<-done
 				var result workflowengine.WorkflowResult
 				if tc.expectedErr {
-					require.Error(t, env.GetWorkflowResult(&result))
+					err := env.GetWorkflowResult(&result)
+					require.Error(t, err)
+
+					if tc.expectedCancel {
+						require.Contains(t, err.Error(), "canceled")
+					}
+
 				} else {
 					require.NoError(t, env.GetWorkflowResult(&result))
 					require.NotEmpty(t, result.Message)

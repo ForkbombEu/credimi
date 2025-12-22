@@ -14,10 +14,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
-const PipelineTaskQueue = "PipelineTaskQueue"
+const (
+	PipelineTaskQueue = "PipelineTaskQueue"
+)
 
 type PipelineWorkflow struct{}
 
@@ -88,9 +91,9 @@ func (w *PipelineWorkflow) Workflow(
 		runData = input.ParentRunData
 	}
 	defer func() {
-		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
+
 		for _, hook := range cleanupHooks {
-			if err := hook(cleanupCtx, input.WorkflowDefinition.Steps, input.WorkflowInput, runData, &finalOutput); err != nil {
+			if err := hook(ctx, input.WorkflowDefinition.Steps, input.WorkflowInput, runData, &finalOutput); err != nil {
 				logger.Error("cleanup hook error", "error", err)
 				cleanupErrors = append(cleanupErrors, err)
 			}
@@ -98,6 +101,14 @@ func (w *PipelineWorkflow) Workflow(
 	}()
 	for _, hook := range setupHooks {
 		if err := hook(ctx, &input.WorkflowDefinition.Steps, input.WorkflowInput, &runData); err != nil {
+			if temporal.IsTimeoutError(err) {
+				return workflowengine.WorkflowResult{}, err
+			}
+			if temporal.IsCanceledError(err) {
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+					runMetadata,
+				)
+			}
 			return result, workflowengine.NewWorkflowError(err, runMetadata)
 		}
 	}
@@ -118,6 +129,15 @@ func (w *PipelineWorkflow) Workflow(
 
 			childOut, err := runChildPipeline(ctx, step, input, w.Name(), stepInputs, runMetadata)
 			if err != nil {
+				if temporal.IsTimeoutError(err) {
+					return workflowengine.WorkflowResult{}, err
+				}
+
+				if temporal.IsCanceledError(err) {
+					return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+						runMetadata,
+					)
+				}
 				logger.Error(step.ID, "step execution error", err)
 				if step.ContinueOnError {
 					if out := workflowengine.ExtractOutputFromError(err); out != nil {
@@ -149,6 +169,11 @@ func (w *PipelineWorkflow) Workflow(
 
 			stepOutput, err := step.Execute(ctx, input.WorkflowInput.Config, stepInputs, ao)
 			if err != nil {
+				if temporal.IsCanceledError(err) {
+					return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+						runMetadata,
+					)
+				}
 				logger.Error(step.ID, "step execution error", err)
 				errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 				appErr := workflowengine.NewAppError(

@@ -69,7 +69,6 @@ type WorkflowRunInfo struct {
 // Workflow defines the interface for a workflow, including its execution, name, and options.
 type Workflow interface {
 	Workflow(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error)
-	// Teardown(ctx workflow.Context, input WorkflowInput) error
 	ExecuteWorkflow(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error)
 	Name() string
 	GetOptions() workflow.ActivityOptions
@@ -84,6 +83,7 @@ func BuildWorkflow(
 	return func(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error) {
 		// ---- runtime metadata ----
 		info := workflow.GetInfo(ctx)
+		logger := workflow.GetLogger(ctx)
 		input.RunMetadata = &WorkflowErrorMetadata{
 			WorkflowName: w.Name(),
 			WorkflowID:   info.WorkflowExecution.ID,
@@ -96,17 +96,6 @@ func BuildWorkflow(
 			),
 		}
 
-		/*
-			defer func() {
-				if !errors.Is(ctx.Err(), workflow.ErrCanceled) {
-					return
-				}
-				dctx, _ := workflow.NewDisconnectedContext(ctx)
-				if err := w.Teardown(dctx, input); err != nil {
-					workflow.GetLogger(ctx).Error("teardown failed", "error", err)
-				}
-			}()
-		*/
 		// ---- activity options composition ----
 		ao := w.GetOptions()
 		if input.ActivityOptions != nil {
@@ -114,7 +103,24 @@ func BuildWorkflow(
 		}
 		ctx = workflow.WithActivityOptions(ctx, ao)
 
-		return w.ExecuteWorkflow(ctx, input)
+		result, err := w.ExecuteWorkflow(ctx, input)
+
+		if err != nil {
+			if temporal.IsTimeoutError(err) {
+				return result, err
+			}
+
+			if temporal.IsCanceledError(err) {
+				logger.Info("Workflow was canceled", "WorkflowID", info.WorkflowExecution.ID)
+				return result, NewWorkflowCancellationError(input.RunMetadata)
+			}
+
+			return result, NewWorkflowError(
+				err,
+				input.RunMetadata,
+			)
+		}
+		return result, nil
 	}
 }
 
@@ -162,6 +168,12 @@ func NewWorkflowError(err error, metadata *WorkflowErrorMetadata, extraPayload .
 		appErr.Type(),
 		details,
 	)
+}
+
+func NewWorkflowCancellationError(metadata *WorkflowErrorMetadata) error {
+	errCode := errorcodes.Codes[errorcodes.WorkflowCancellationError]
+
+	return temporal.NewCanceledError(errCode.Code, errCode.Description, metadata)
 }
 
 func NewAppError(code errorcodes.Code, field string, payload ...any) error {

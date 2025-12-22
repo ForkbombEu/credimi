@@ -194,9 +194,10 @@ func Test_OpenIDNETWorkflows(t *testing.T) {
 
 func Test_LogSubWorkflow(t *testing.T) {
 	testCases := []struct {
-		name          string
-		mockResponse  workflowengine.ActivityResult
-		expectRunning bool
+		name           string
+		mockResponse   workflowengine.ActivityResult
+		expectRunning  bool
+		expectedCancel bool
 	}{
 		{
 			name: "Workflow completes when result is FINISHED",
@@ -211,6 +212,14 @@ func Test_LogSubWorkflow(t *testing.T) {
 				"body": []map[string]any{{"result": "RUNNING"}},
 			}},
 			expectRunning: true,
+		},
+		{
+			name: "Workflow stops when pipeline cancel signal is received",
+			mockResponse: workflowengine.ActivityResult{Output: map[string]any{
+				"body": []map[string]any{{"result": "RUNNING"}},
+			}},
+			expectRunning:  false,
+			expectedCancel: true,
 		},
 	}
 
@@ -235,6 +244,9 @@ func Test_LogSubWorkflow(t *testing.T) {
 				env.RegisterDelayedCallback(func() {
 					env.SignalWorkflow(OpenIDNetStartCheckSignal, nil)
 				}, time.Second*30)
+				if tc.expectedCancel {
+					env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*45)
+				}
 				env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{
 					Payload: OpenIDNetLogsWorkflowPayload{
 						Rid:   "12345",
@@ -257,9 +269,17 @@ func Test_LogSubWorkflow(t *testing.T) {
 			} else {
 				<-done
 				var result workflowengine.WorkflowResult
-				require.NoError(t, env.GetWorkflowResult(&result))
-				require.NotEmpty(t, result.Log)
-				require.Equal(t, 2, callCount) // Only two activity call (no looping)
+				err := env.GetWorkflowResult(&result)
+
+				if tc.expectedCancel {
+					require.Error(t, err)
+					require.Contains(t, err.Error(), "canceled")
+				} else {
+					require.NoError(t, err)
+
+					require.NotEmpty(t, result.Log)
+					require.Equal(t, 2, callCount) // Only two activity call (no looping)
+				}
 			}
 		})
 	}

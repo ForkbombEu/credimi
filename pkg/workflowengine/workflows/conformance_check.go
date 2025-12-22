@@ -22,6 +22,7 @@ const (
 	OpenIDConformanceSuite    = "openid_conformance_suite"
 	EWCSuite                  = "ewc"
 	ConformanceCheckTaskQueue = "ConformanceCheckTaskQueue"
+	PipelineCancelSignal      = "pipeline_cancel_signal"
 )
 
 type StepCIAndEmailConfig struct {
@@ -273,6 +274,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
+	var childID string
 	switch payload.Suite {
 	case OpenIDConformanceSuite:
 		rid, ok := setupResult.Captures["rid"].(string)
@@ -294,8 +296,9 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 		}
 
 		child := OpenIDNetLogsWorkflow{}
+		childID = workflow.GetInfo(ctx).WorkflowExecution.ID + "-log"
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
-			WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-log",
+			WorkflowID:        childID,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
 		})
 
@@ -325,6 +328,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			Message: "Check completed successfully",
 			Output: map[string]any{
 				"deeplink": deeplink,
+				"child_id": childID,
 			},
 		}, nil
 	case EWCSuite:
@@ -358,8 +362,9 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 		}
 
 		child := NewEWCStatusWorkflow()
+		childID = workflow.GetInfo(ctx).WorkflowExecution.ID + "-status"
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
-			WorkflowID:        workflow.GetInfo(ctx).WorkflowExecution.ID + "-status",
+			WorkflowID:        childID,
 			ParentClosePolicy: enums.PARENT_CLOSE_POLICY_ABANDON,
 		})
 		childCtx, _ := workflow.NewDisconnectedContext(ctx)
@@ -389,6 +394,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			Message: "Check completed successfully",
 			Output: map[string]any{
 				"deeplink": deeplink,
+				"child_id": childID,
 			},
 		}, nil
 	default:

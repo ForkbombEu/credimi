@@ -212,11 +212,14 @@ func (w *OpenIDNetWorkflow) ExecuteWorkflow(
 	var subWorkflowResponse workflowengine.WorkflowResult
 	err = logsWorkflow.Get(ctx, &subWorkflowResponse)
 	if err != nil {
-		if !temporal.IsCanceledError(err) {
-			logger.Error("Child workflow failed", "error", err)
-			subWorkflowResponse = workflowengine.WorkflowResult{
-				Log: fmt.Sprintf("Child workflow failed: %s", err.Error()),
-			}
+		if temporal.IsCanceledError(err) {
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+				input.RunMetadata,
+			)
+		}
+		logger.Error("Child workflow failed", "error", err)
+		subWorkflowResponse = workflowengine.WorkflowResult{
+			Log: fmt.Sprintf("Child workflow failed: %s", err.Error()),
 		}
 	}
 
@@ -357,10 +360,11 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 	var logs []map[string]any
 	startSignalChan := workflow.GetSignalChannel(subCtx, OpenIDNetStartCheckSignal)
 	stopSignalChan := workflow.GetSignalChannel(subCtx, OpenIDNetStopCheckSignal)
-
+	pipelineCancelChan := workflow.GetSignalChannel(subCtx, PipelineCancelSignal)
 	selector := workflow.NewSelector(subCtx)
 
 	var isPolling bool
+	var cancelled bool
 
 	var timerFuture workflow.Future
 	var startTimer func()
@@ -377,26 +381,37 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 		})
 	}
 
+	var signalVal any
+	selector.AddReceive(pipelineCancelChan, func(c workflow.ReceiveChannel, _ bool) {
+		c.Receive(subCtx, &signalVal)
+		cancelled = true
+	})
+
+	// Always listen for pause/resume signals
+	selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+		c.Receive(subCtx, &signalVal)
+		if !isPolling {
+			isPolling = true
+			startTimer()
+			logger.Info("Received start signal, unpausing workflow")
+		}
+	})
+	selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
+		c.Receive(subCtx, &signalVal)
+		isPolling = false
+		logger.Info("Received stop signal, pausing workflow")
+	})
+
 	for {
-		// Always listen for pause/resume signals
-		selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalVal any
-			c.Receive(subCtx, &signalVal)
-			if !isPolling {
-				isPolling = true
-				startTimer()
-				logger.Info("Received start signal, unpausing workflow")
-			}
-		})
-		selector.AddReceive(stopSignalChan, func(c workflow.ReceiveChannel, _ bool) {
-			var signalVal any
-			c.Receive(subCtx, &signalVal)
-			isPolling = false
-			logger.Info("Received stop signal, pausing workflow")
-		})
 
 		// Wait for a signal or timer
 		selector.Select(subCtx)
+
+		if cancelled {
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+				input.RunMetadata,
+			)
+		}
 
 		if !isPolling {
 			continue
