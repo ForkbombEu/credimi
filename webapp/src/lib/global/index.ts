@@ -4,3 +4,6 @@
 
 export * from './entities';
 export * from './sections';
+export { EntityTag };
+
+import EntityTag from './entity-tag.svelte';
