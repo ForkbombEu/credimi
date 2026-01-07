@@ -1139,6 +1139,7 @@ func buildExecutionHierarchy(
 			StartTime: exec.StartTime,
 			EndTime:   exec.CloseTime,
 			Status:    exec.Status,
+			Failure:   exec.Failure,
 		}
 	}
 

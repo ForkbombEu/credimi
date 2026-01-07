@@ -23,4 +23,16 @@ export interface WorkflowExecutionWithChildren {
 		screenshot: string;
 	}>;
 	children?: Array<WorkflowExecutionWithChildren>;
+	failure?: {
+		message?: string;
+		source?: string;
+		stackTrace?: string;
+		cause?: {
+			message?: string;
+			source?: string;
+			stackTrace?: string;
+			cause?: any;
+		};
+		failureInfo?: Record<string, string>;
+	};
 }

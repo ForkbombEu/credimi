@@ -154,6 +154,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</TemporalI18nProvider>
 		{/if}
 
+		{#if execution.failure?.cause?.message}
+			<div class="mt-2 text-sm text-muted-foreground">
+				<span class="italic">Failure reason:</span> {execution.failure.cause.message}
+			</div>
+		{/if}
+
 		<table class="mt-6 text-sm">
 			<tbody>
 				<tr>

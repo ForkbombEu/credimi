@@ -108,8 +108,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Table.Cell>
 		{#if status !== null}
-			<div class={[isChild && 'scale-75']}>
-				<WorkflowStatus {status} />
+			<div class="flex flex-col gap-1">
+				<div class={[isChild && 'scale-75']}>
+					<WorkflowStatus {status} />
+				</div>
+				{#if workflow.failure?.cause?.message}
+					<div class="text-xs text-muted-foreground italic">
+						{workflow.failure.cause.message}
+					</div>
+				{/if}
 			</div>
 		{/if}
 	</Table.Cell>

@@ -65,6 +65,7 @@ type WorkflowExecution struct {
 	VersioningInfo               *VersioningInfo                  `json:"versioningInfo,omitempty"`
 	Summary                      *Payload                         `json:"summary,omitempty"`
 	Details                      *Payload                         `json:"details,omitempty"`
+	Failure                      *Failure                         `json:"failure,omitempty"`
 }
 
 type WorkflowExecutionSummary struct {
@@ -76,6 +77,7 @@ type WorkflowExecutionSummary struct {
 	DisplayName string                      `json:"displayName"        validate:"required"`
 	Children    []*WorkflowExecutionSummary `json:"children,omitempty"`
 	Results     []PipelineResults           `json:"results,omitempty"`
+	Failure     *Failure                    `json:"failure,omitempty"`
 }
 
 type WorkflowExecutionAPIResponse struct {
