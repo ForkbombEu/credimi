@@ -100,14 +100,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet stepButtons()}
 	<div class="flex flex-col gap-2 p-4" in:fly>
 		{#each Object.values(StepType) as step (step)}
-			{@const { icon, label, textClass } = getStepDisplayData(step)}
+			{@const { icon, labels, classes } = getStepDisplayData(step)}
 			<Button
 				variant="outline"
 				class={['!justify-start']}
 				onclick={() => builder.initAddStep(step)}
 			>
-				<Icon src={icon} class={textClass} />
-				{label}
+				<Icon src={icon} class={classes.text} />
+				{labels.singular}
 			</Button>
 		{/each}
 	</div>
