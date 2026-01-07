@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { IconComponent } from '@/components/types';
+	import { baseSections, entities } from '$lib/global';
 
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -20,9 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		title: m.Dashboard()
 	});
 
-	const sections = Object.values(appSections).filter(
-		(section) => section.id !== 'conformance-checks'
-	);
+	const sections = [...baseSections, entities.test_runs];
 </script>
 
 <div class="flex grow flex-col items-center justify-center gap-8">
@@ -33,34 +31,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<div class="grid grid-cols-1 gap-4 sm:grid-cols-[1fr_1fr]">
 		{#each sections as section (section)}
-			{@render cardLink(`/my/${section.id}`, section.icon, section.label, section.textClass)}
+			<a
+				href={`/my/${section.slug}`}
+				class={[
+					'bg-secondary block space-y-2 rounded-lg p-4',
+					section.classes.text,
+					'transition-transform hover:-translate-y-2 hover:ring-2'
+				]}
+			>
+				<Icon size={24} src={section.icon} />
+				<T tag="h3">{section.labels.plural}</T>
+			</a>
 		{/each}
-		{@render cardLink(
-			testRunsSection.id,
-			testRunsSection.icon,
-			testRunsSection.label,
-			testRunsSection.textClass
-		)}
 	</div>
 </div>
-
-{#snippet cardLink(
-	href: string,
-	icon: IconComponent,
-	label: string,
-	textClass: string,
-	className?: string
-)}
-	<a
-		{href}
-		class={[
-			'bg-secondary block space-y-2 rounded-lg p-4',
-			textClass,
-			'transition-transform hover:-translate-y-2 hover:ring-2',
-			className
-		]}
-	>
-		<Icon size={24} src={icon} />
-		<T tag="h3">{label}</T>
-	</a>
-{/snippet}

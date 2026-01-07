@@ -155,7 +155,7 @@ export const entities = {
 	},
 
 	test_runs: {
-		slug: 'test-runs',
+		slug: 'tests/runs',
 		icon: TestTube2,
 		labels: {
 			singular: m.Test_run(),

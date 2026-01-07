@@ -31,7 +31,7 @@ export const marketplaceSections: EntityData[] = [...baseSections, entities.conf
 function joinEntityData(entity1: EntityData, entity2: EntityData): EntityData {
 	return {
 		...entity1,
-		slug: entity1.slug + '-' + entity2.slug,
+		slug: entity1.slug + '-and-' + entity2.slug,
 		labels: {
 			singular: `${entity1.labels.singular} / ${entity2.labels.singular}`,
 			plural: `${entity1.labels.plural} / ${entity2.labels.plural}`
