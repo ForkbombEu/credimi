@@ -111,9 +111,10 @@ func NewWorkflowError(err error, metadata WorkflowErrorMetadata, extraPayload ..
 		Context:   []string{fmt.Sprintf("Further information at: %s", metadata.TemporalUI)},
 	}
 
-	return temporal.NewApplicationError(
+	return temporal.NewApplicationErrorWithCause(
 		credimiErr.Error(),
 		appErr.Type(),
+		appErr,
 		details,
 	)
 }

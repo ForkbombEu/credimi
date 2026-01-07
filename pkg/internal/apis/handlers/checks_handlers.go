@@ -244,6 +244,7 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			execs.Executions,
 			owner,
 			authRecord.GetString("Timezone"),
+			c,
 		)
 
 		resp := ListMyChecksResponse{}
@@ -549,6 +550,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 			execs.Executions,
 			owner,
 			authRecord.GetString("Timezone"),
+			c,
 		)
 
 		var resp ListMyChecksResponse
@@ -1126,6 +1128,7 @@ func buildExecutionHierarchy(
 	executions []*WorkflowExecution,
 	owner string,
 	userTimezone string,
+	c client.Client,
 ) []*WorkflowExecutionSummary {
 	loc, err := time.LoadLocation(userTimezone)
 	if err != nil {
@@ -1133,14 +1136,28 @@ func buildExecutionHierarchy(
 	}
 	summaryMap := make(map[string]*WorkflowExecutionSummary)
 	for _, exec := range executions {
-		summaryMap[exec.Execution.RunID] = &WorkflowExecutionSummary{
+		summary := &WorkflowExecutionSummary{
 			Execution: exec.Execution,
 			Type:      exec.Type,
 			StartTime: exec.StartTime,
 			EndTime:   exec.CloseTime,
 			Status:    exec.Status,
-			Failure:   exec.Failure,
 		}
+
+		if enums.WorkflowExecutionStatus(
+			enums.WorkflowExecutionStatus_value[exec.Status],
+		) == enums.WORKFLOW_EXECUTION_STATUS_FAILED {
+			if failure := fetchWorkflowFailure(
+				context.Background(),
+				c,
+				exec.Execution.WorkflowID,
+				exec.Execution.RunID,
+			); failure != nil {
+				summary.FailureReason = failure
+			}
+		}
+
+		summaryMap[exec.Execution.RunID] = summary
 	}
 
 	roots := make([]*WorkflowExecutionSummary, 0, len(executions))
@@ -1176,6 +1193,48 @@ func buildExecutionHierarchy(
 	sortExecutionSummaries(roots, loc, false)
 
 	return roots
+}
+
+func fetchWorkflowFailure(
+	ctx context.Context,
+	c client.Client,
+	workflowID string,
+	runID string,
+) *string {
+	iter := c.GetWorkflowHistory(
+		ctx,
+		workflowID,
+		runID,
+		false, // isLongPoll — false, workflow is already closed
+		enums.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT,
+	)
+
+	if !iter.HasNext() {
+		return nil
+	}
+
+	event, err := iter.Next()
+	if err != nil {
+		return nil
+	}
+
+	attrs := event.GetWorkflowExecutionFailedEventAttributes()
+	if attrs == nil {
+		return nil
+	}
+
+	failure := attrs.GetFailure()
+	if failure == nil {
+		return nil
+	}
+
+	cause := failure.GetCause()
+	if cause == nil {
+		return nil
+	}
+
+	msg := cause.GetMessage()
+	return &msg
 }
 
 func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location, ascending bool) {

@@ -65,19 +65,18 @@ type WorkflowExecution struct {
 	VersioningInfo               *VersioningInfo                  `json:"versioningInfo,omitempty"`
 	Summary                      *Payload                         `json:"summary,omitempty"`
 	Details                      *Payload                         `json:"details,omitempty"`
-	Failure                      *Failure                         `json:"failure,omitempty"`
 }
 
 type WorkflowExecutionSummary struct {
-	Execution   *WorkflowIdentifier         `json:"execution"          validate:"required"`
-	Type        WorkflowType                `json:"type"               validate:"required"`
-	StartTime   string                      `json:"startTime"`
-	EndTime     string                      `json:"endTime"`
-	Status      string                      `json:"status"             validate:"required"`
-	DisplayName string                      `json:"displayName"        validate:"required"`
-	Children    []*WorkflowExecutionSummary `json:"children,omitempty"`
-	Results     []PipelineResults           `json:"results,omitempty"`
-	Failure     *Failure                    `json:"failure,omitempty"`
+	Execution     *WorkflowIdentifier         `json:"execution"          validate:"required"`
+	Type          WorkflowType                `json:"type"               validate:"required"`
+	StartTime     string                      `json:"startTime"`
+	EndTime       string                      `json:"endTime"`
+	Status        string                      `json:"status"             validate:"required"`
+	DisplayName   string                      `json:"displayName"        validate:"required"`
+	Children      []*WorkflowExecutionSummary `json:"children,omitempty"`
+	Results       []PipelineResults           `json:"results,omitempty"`
+	FailureReason *string                     `json:"failure_reason,omitempty"`
 }
 
 type WorkflowExecutionAPIResponse struct {
