@@ -30,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 {#if tags.length > 0}
-	<div class={['flex flex-wrap items-center gap-1 pr-2', containerClass]}>
+	<div class={['flex flex-wrap items-center gap-1', containerClass]}>
 		{#each tags as tag, index (index)}
 			<Badge variant="secondary" {...rest}>
 				{tag}
