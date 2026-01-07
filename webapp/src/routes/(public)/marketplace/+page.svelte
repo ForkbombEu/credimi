@@ -5,11 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { baseSections, entities } from '$lib/global';
 	import PageGrid from '$lib/layout/pageGrid.svelte';
 	import { MarketplaceItemCard } from '$lib/marketplace';
 	import ConformanceChecksTable from '$lib/marketplace/conformance-checks-table.svelte';
 	import MarketplaceTable from '$lib/marketplace/marketplace-table.svelte';
-	import { appSections } from '$lib/marketplace/sections';
 	import { fly } from 'svelte/transition';
 	import { queryParameters } from 'sveltekit-search-params';
 
@@ -25,7 +25,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 
-	const tabsParams = Object.values(appSections).map((t) => t.id);
+	const sections = [...baseSections, entities.conformance_checks];
+
+	const tabsParams = sections.map((t) => t.slug);
 	type TabParam = (typeof tabsParams)[number];
 
 	const params = queryParameters({
@@ -86,8 +88,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</T>
 
 				<div class="flex flex-col gap-2 md:flex-row md:gap-0">
-					{#each Object.values(appSections) as tab (tab.id)}
-						{@const isActive = params.tab === tab.id}
+					{#each sections as tab (tab.slug)}
+						{@const isActive = params.tab === tab.slug}
 						<button
 							class={[
 								'group rounded-md md:rounded-b-none md:rounded-t-md md:p-2',
@@ -96,7 +98,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									'shadow-md md:shadow-none': isActive
 								}
 							]}
-							onclick={() => (params.tab = tab.id)}
+							onclick={() => (params.tab = tab.slug)}
 						>
 							<div
 								class={[
@@ -107,8 +109,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									}
 								]}
 							>
-								<Icon src={tab.icon} class={[tab.textClass, 'shrink-0']} />
-								{tab.label}
+								<Icon src={tab.icon} class={[tab.classes.text, 'shrink-0']} />
+								{tab.labels.plural}
 							</div>
 						</button>
 					{/each}
