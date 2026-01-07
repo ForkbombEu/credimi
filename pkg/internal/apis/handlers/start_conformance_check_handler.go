@@ -618,7 +618,7 @@ func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, 
 		},
 	}
 
-	w := workflows.NewVLEIValidationLocalWorkflow()
+	w := workflows.NewVLEIValidationWorkflow()
 	results, err := w.Start(namespace, input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
