@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { appSections, testRunsSection } from '$lib/marketplace/sections';
-
 	import type { IconComponent } from '@/components/types';
 
 	import Icon from '@/components/ui-custom/icon.svelte';
