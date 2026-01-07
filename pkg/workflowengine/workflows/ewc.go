@@ -305,7 +305,7 @@ func pollEWCCheck(
 
 	// If flag is true → start polling right away
 	isPolling := startImmediately
-	var cancelled bool
+	var canceled bool
 
 	var timerFuture workflow.Future
 	var startTimer func()
@@ -339,7 +339,7 @@ func pollEWCCheck(
 	var signalData struct{}
 	selector.AddReceive(pipelineCancelChan, func(c workflow.ReceiveChannel, _ bool) {
 		c.Receive(ctx, &signalData)
-		cancelled = true
+		canceled = true
 	})
 	selector.AddReceive(startSignalChan, func(c workflow.ReceiveChannel, _ bool) {
 		c.Receive(ctx, &signalData)
@@ -361,7 +361,7 @@ func pollEWCCheck(
 
 		selector.Select(ctx)
 
-		if cancelled {
+		if canceled {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
 				runMetadata,
 			)

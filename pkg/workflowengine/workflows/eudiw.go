@@ -50,7 +50,7 @@ func NewEudiwWorkflow() *EudiwWorkflow {
 
 // Name returns the name of the EudiwWorkflow.
 func (EudiwWorkflow) Name() string {
-	return "Conformance check on EUDIW"
+	return "Conformance check on EUDI Wallet"
 }
 
 // GetOptions Configure sets up the workflow with the necessary options.

@@ -364,7 +364,7 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 	selector := workflow.NewSelector(subCtx)
 
 	var isPolling bool
-	var cancelled bool
+	var canceled bool
 
 	var timerFuture workflow.Future
 	var startTimer func()
@@ -384,7 +384,7 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 	var signalVal any
 	selector.AddReceive(pipelineCancelChan, func(c workflow.ReceiveChannel, _ bool) {
 		c.Receive(subCtx, &signalVal)
-		cancelled = true
+		canceled = true
 	})
 
 	// Always listen for pause/resume signals
@@ -407,7 +407,7 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 		// Wait for a signal or timer
 		selector.Select(subCtx)
 
-		if cancelled {
+		if canceled {
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
 				input.RunMetadata,
 			)

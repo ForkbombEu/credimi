@@ -197,7 +197,7 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 	}
 	stdout, ok := output["stdout"].(string)
 	if !ok {
-		appErr := workflowengine.NewAppError(errCode, "invalid stderr ", output["stout"])
+		appErr := workflowengine.NewAppError(errCode, "invalid stdout ", output["stout"])
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			appErr,
 			input.RunMetadata,

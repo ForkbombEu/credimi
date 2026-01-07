@@ -295,7 +295,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			)
 		}
 
-		child := OpenIDNetLogsWorkflow{}
+		child := NewOpenIDNetLogsWorkflow()
 		childID = workflow.GetInfo(ctx).WorkflowExecution.ID + "-log"
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        childID,
