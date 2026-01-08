@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MarketplaceItem } from '$lib/marketplace/utils.js';
-import { searchMarketplace } from '../utils/search-marketplace.js';
-import { Search } from '../utils/search.svelte.js';
+import type { MarketplaceItem } from '$lib/marketplace';
+import { StepFormState } from '$lib/pipeline-form/steps-builder/types';
+import { Search } from '$lib/pipeline-form/steps/_partials/search.svelte';
+import { searchMarketplace } from './utils/search-marketplace';
 
 //
 

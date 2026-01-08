@@ -51,6 +51,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		});
 
 		beforeNavigate(({ cancel }) => {
+			if (this.isSaving) return;
 			if (!this.validateExit()) cancel();
 		});
 	}
@@ -75,6 +76,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 
 	private saveAfterMetadataFormSubmit = $state(false);
 
+	private isSaving = false;
 	async save() {
 		if (!this.metadataForm.value) {
 			this.metadataForm.isOpen = true;
@@ -90,6 +92,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			};
 			runWithLoading({
 				fn: async () => {
+					this.isSaving = true;
 					if (this.props.mode === 'edit' && this.props.pipeline) {
 						await pb.collection('pipelines').update(this.props.pipeline.id, data);
 					} else {

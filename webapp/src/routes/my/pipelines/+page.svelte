@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { runWithLoading } from '$lib/utils';
+	import { getPath, runWithLoading } from '$lib/utils';
 	import { Eye, Pencil, PlayIcon, Plus } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
@@ -34,7 +34,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return await pb.send('/api/pipeline/start', {
 					method: 'POST',
 					body: {
-						yaml: pipeline.yaml
+						yaml: pipeline.yaml,
+						pipeline_identifier: getPath(pipeline)
 					}
 				});
 			},

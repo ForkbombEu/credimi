@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import { yamlStringSchema } from '$lib/utils';
-	import { EyeIcon, UploadIcon } from 'lucide-svelte';
+	import { UploadIcon } from 'lucide-svelte';
 	import { z } from 'zod';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
@@ -20,7 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import { CodeEditorField } from '@/forms/fields';
 	import { m } from '@/i18n';
-	import { pb } from '@/pocketbase';
 	import { readFileAsString, startFileUpload } from '@/utils/files';
 
 	//
@@ -44,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			code: yamlStringSchema as unknown as z.ZodString
 		})}
 	formFieldsOptions={{
-		exclude: ['owner', 'canonified_name', 'result'],
+		exclude: ['owner', 'canonified_name', 'published'],
 		hide: { wallet: wallet.id },
 		snippets: { code: codeField },
 		placeholders: {
@@ -74,18 +73,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			{#snippet actions({ record })}
 				<WalletActionTags action={record} containerClass="justify-end" />
-				{#if record.result}
-					<Button
-						size="sm"
-						variant="outline"
-						class="h-8 border border-blue-500"
-						href={pb.files.getURL(record, record.result)}
-						target="_blank"
-					>
-						<EyeIcon />
-						View result
-					</Button>
-				{/if}
 			{/snippet}
 		</DashboardCardManagerUI>
 	{/snippet}

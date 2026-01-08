@@ -18,5 +18,9 @@ export interface WorkflowExecutionWithChildren {
 	endTime?: string;
 	status: string;
 	displayName: string;
+	results?: Array<{
+		video: string;
+		screenshot: string;
+	}>;
 	children?: Array<WorkflowExecutionWithChildren>;
 }

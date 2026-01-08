@@ -14,14 +14,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CollectionTable } from '@/collections-components/manager';
 	import { m } from '@/i18n';
 
+	import type { MarketplaceItem } from './types';
+
 	import TableRowAfter from './_partials/table-row-after.svelte';
 	import { snippets } from './marketplace-table-snippets.svelte';
-	import {
-		getMarketplaceItemTypeData,
-		isCredentialIssuer,
-		isVerifier,
-		type MarketplaceItem
-	} from './utils';
+	import { getMarketplaceItemTypeEntityData, isCredentialIssuer, isVerifier } from './utils';
+
+	//
 
 	type Props = {
 		records: MarketplaceItemsResponse[];
@@ -57,7 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			})),
 			title:
 				record.type === 'credential_issuers' ? m.Credentials() : m.Verification_use_cases(),
-			icon: getMarketplaceItemTypeData(record.type as MarketplaceItem['type']).display.icon,
+			icon: getMarketplaceItemTypeEntityData(record.type as MarketplaceItem['type']).icon,
 			show: true
 		};
 	}

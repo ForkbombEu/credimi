@@ -24,20 +24,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { step, index, showContinueOnError = true }: Props = $props();
 
-	const { icon, label, textClass, outlineClass, backgroundClass } = getStepDisplayData(step.type);
+	const { icon, labels, classes } = getStepDisplayData(step.type);
 </script>
 
-<div class={['bg-card overflow-hidden rounded-md border', outlineClass]}>
-	<div class={['h-1', backgroundClass]}></div>
+<div class={['bg-card overflow-hidden rounded-md border', classes.border]}>
+	<div class={['h-1', classes.bg]}></div>
 	<div>
 		<div class="flex items-center justify-between py-1 pl-3 pr-3">
 			<div class="flex items-center gap-2">
 				{#if index !== undefined}
 					<span class="text-muted-foreground text-xs font-medium">#{index + 1}</span>
 				{/if}
-				<div class={['flex items-center gap-1', textClass]}>
+				<div class={['flex items-center gap-1', classes.text]}>
 					<Icon src={icon} size={12} />
-					<p class="text-xs">{label}</p>
+					<p class="text-xs">{labels.singular}</p>
 				</div>
 			</div>
 			{#if showContinueOnError && step.continueOnError}

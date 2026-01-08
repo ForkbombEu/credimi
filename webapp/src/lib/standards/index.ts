@@ -31,7 +31,6 @@ export function getStandardsWithTestSuites(
 				}),
 			catch: (e) => e as ClientResponseError
 		}),
-		_.tap((res) => console.log('response', res)),
 		_.andThen((response) =>
 			_.try({
 				try: () => templateBlueprintsResponseSchema.parse(response),

@@ -200,7 +200,6 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 				"type": "object",
 				"properties": map[string]any{
 					"action_id": map[string]any{"type": "string"},
-					"video":     map[string]any{"type": "boolean"},
 					"parameters": map[string]any{
 						"type":                 "object",
 						"additionalProperties": map[string]any{"type": "string"},
@@ -218,7 +217,6 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 				"properties": map[string]any{
 					"action_id":  map[string]any{"type": "string"},
 					"version_id": map[string]any{"type": "string"},
-					"video":      map[string]any{"type": "boolean"},
 					"parameters": map[string]any{
 						"type":                 "object",
 						"additionalProperties": map[string]any{"type": "string"},
@@ -236,7 +234,6 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 				"properties": map[string]any{
 					"version_id":  map[string]any{"type": "string"},
 					"action_code": map[string]any{"type": "string"},
-					"video":       map[string]any{"type": "boolean"},
 					"parameters": map[string]any{
 						"type":                 "object",
 						"additionalProperties": map[string]any{"type": "string"},

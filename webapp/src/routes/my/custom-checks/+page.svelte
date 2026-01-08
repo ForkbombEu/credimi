@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { entities } from '$lib/global/entities';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { appSections } from '$lib/marketplace/sections';
 	import { Pencil, Plus } from 'lucide-svelte';
 
 	import { CollectionManager } from '@/collections-components';
@@ -22,8 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 	const organizationId = $derived(data.organization.id);
 
-	const { custom_checks } = appSections;
-	setDashboardNavbar({ title: custom_checks.label, right: navbarRight });
+	setDashboardNavbar({ title: entities.custom_checks.labels.plural, right: navbarRight });
 </script>
 
 <CollectionManager

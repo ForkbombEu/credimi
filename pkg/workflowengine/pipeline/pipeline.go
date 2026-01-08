@@ -22,9 +22,10 @@ const PipelineTaskQueue = "PipelineTaskQueue"
 type PipelineWorkflow struct{}
 
 type PipelineWorkflowInput struct {
-	WorkflowDefinition *WorkflowDefinition          `yaml:"workflow_definition" json:"workflow_definition"`
-	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"      json:"workflow_input"`
-	Debug              bool                         `yaml:"debug,omitempty"     json:"debug,omitempty"`
+	WorkflowDefinition *WorkflowDefinition          `yaml:"workflow_definition"       json:"workflow_definition"`
+	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"            json:"workflow_input"`
+	Debug              bool                         `yaml:"debug,omitempty"           json:"debug,omitempty"`
+	ParentRunData      map[string]any               `yaml:"parent_run_data,omitempty" json:"parent_run_data,omitempty"`
 }
 
 func (PipelineWorkflow) Name() string {
@@ -44,6 +45,8 @@ func (w *PipelineWorkflow) Workflow(
 	ctx = workflow.WithActivityOptions(ctx, *input.WorkflowInput.ActivityOptions)
 
 	errorsList := []string{}
+	cleanupErrors := []error{}
+
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
 	runMetadata := workflowengine.WorkflowErrorMetadata{
@@ -64,18 +67,33 @@ func (w *PipelineWorkflow) Workflow(
 	finalOutput := map[string]any{
 		"workflow-id":     workflowID,
 		"workflow-run-id": runID,
+		"result_video_warning": "Video recordings are limited to 30 minutes. " +
+			"Tests exceeding this duration may result in an incomplete video.",
 	}
 
+	runData := map[string]any{
+		"run_identifier": getPipelineRunIdentifier(
+			workflow.GetInfo(ctx).Namespace,
+			workflowID,
+			runID,
+		),
+	}
+
+	if input.ParentRunData != nil {
+		// For child pipelines, inherit parent run data
+		runData = input.ParentRunData
+	}
 	defer func() {
 		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
 		for _, hook := range cleanupHooks {
-			if err := hook(cleanupCtx, input.WorkflowDefinition.Steps, input.WorkflowInput); err != nil {
+			if err := hook(cleanupCtx, input.WorkflowDefinition.Steps, input.WorkflowInput, runData, &finalOutput); err != nil {
 				logger.Error("cleanup hook error", "error", err)
+				cleanupErrors = append(cleanupErrors, err)
 			}
 		}
 	}()
 	for _, hook := range setupHooks {
-		if err := hook(ctx, &input.WorkflowDefinition.Steps, input.WorkflowInput); err != nil {
+		if err := hook(ctx, &input.WorkflowDefinition.Steps, input.WorkflowInput, &runData); err != nil {
 			return result, workflowengine.NewWorkflowError(err, runMetadata)
 		}
 	}
@@ -133,6 +151,7 @@ func (w *PipelineWorkflow) Workflow(
 					errCode,
 					fmt.Sprintf("error executing step %s: %s", step.ID, err.Error()),
 					step.ID,
+					finalOutput,
 				)
 
 				if step.ContinueOnError {
@@ -160,7 +179,21 @@ func (w *PipelineWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("workflow completed with %d step errors", len(errorsList)),
 		)
-		return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList)
+		return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList, finalOutput)
+	}
+
+	if len(cleanupErrors) > 0 {
+		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+		appErr := workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("workflow completed with %d cleanup errors", len(cleanupErrors)),
+		)
+		return result, workflowengine.NewWorkflowError(
+			appErr,
+			runMetadata,
+			cleanupErrors,
+			finalOutput,
+		)
 	}
 
 	return workflowengine.WorkflowResult{

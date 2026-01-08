@@ -21,14 +21,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <T class={['flex items-center gap-1 font-medium', classValue]}>
-	{#if !published}
-		<span>
-			{label}
-		</span>
-	{:else}
+	{#if published && href}
 		<A class="underline underline-offset-2 hover:!no-underline" {href}>
 			{label}
 		</A>
+	{:else}
+		<span>
+			{label}
+		</span>
 	{/if}
 	{#if textToCopy}
 		<CopyButtonSmall {textToCopy} square variant="ghost" size="xs" />

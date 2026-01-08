@@ -78,6 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/components/ui/accordion';
 	import { Badge } from '@/components/ui/badge';
 	import { ScrollArea } from '@/components/ui/scroll-area';
+	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
 	import DescriptionSection from './_utils/description-section.svelte';
@@ -226,16 +227,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 												size="xs"
 											/>
 										</div>
-										<!-- <div class="text-muted-foreground text-xs">
-											{stats.lines} lines • {stats.chars} characters
-										</div> -->
 										<T class="text-muted-foreground text-xs">
 											{action.organization?.name}
 										</T>
 									</div>
 								</div>
-								<div class="flex items-center gap-1">
+								<div class="flex items-center gap-2 pr-2">
 									<WalletActionTags {action} containerClass="justify-end" />
+									{#if !action.published}
+										<Badge variant="outline">
+											{m.private()}
+										</Badge>
+									{/if}
 								</div>
 							</div>
 						</AccordionTrigger>
