@@ -148,9 +148,9 @@ function convertUtilityStep(step: UtilityStep): AnyYamlStep {
 			}
 		} as AnyYamlStep;
 	} else if (step.type === StepType.Debug) {
-		// Debug step uses the pipeline debug activity which is handled internally
-		// We'll use http-request as a placeholder since there's no direct debug step in the registry
-		// The backend handles debug through the runtime.debug flag
+		// Debug step: We don't have a dedicated debug activity in the registry,
+		// so we create a no-op step that can be used as a breakpoint marker.
+		// The step will succeed immediately without external dependencies.
 		const debugStep = step as DebugStep;
 		return {
 			use: 'http-request',
@@ -158,10 +158,12 @@ function convertUtilityStep(step: UtilityStep): AnyYamlStep {
 			continue_on_error: debugStep.continueOnError ?? false,
 			with: {
 				method: 'GET',
-				url: 'https://httpbin.org/status/200' // Simple debug endpoint
+				url: 'http://localhost:1', // Minimal localhost request that will timeout safely
+				timeout: '1' // 1 second timeout to fail fast
 			},
 			metadata: {
-				debug: true
+				debug: true,
+				description: 'Debug breakpoint - this step is expected to fail quickly'
 			}
 		} as AnyYamlStep;
 	} else if (step.type === StepType.HttpRequest) {

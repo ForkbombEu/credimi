@@ -99,10 +99,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Label for="request-body">{m.Request_Body()}</Label>
 				<Textarea
 					id="request-body"
-					placeholder='{"key": "value"}'
+					placeholder="Request body (JSON, XML, plain text, etc.)"
 					bind:value={form.httpRequestData.body}
-					class="min-h-24"
+					class="min-h-24 font-mono text-sm"
 				/>
+				<p class="text-muted-foreground text-xs">
+					Enter the request body in the appropriate format for your API
+				</p>
 			</div>
 		</div>
 	{:else if form.isDebug}
