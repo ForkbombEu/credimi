@@ -5,13 +5,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { SelfProp } from '$lib/renderable';
+
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
-	import { getMarketplaceItemData } from '$lib/marketplace/utils.js';
+	import { getMarketplaceItemData } from '$lib/marketplace';
 
 	import { Badge } from '@/components/ui/badge/index.js';
 	import { m } from '@/i18n/index.js';
 
-	import type { WalletStepForm } from './wallet-step-form.svelte.js';
+	import type { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
 	import ItemCard from '../_partials/item-card.svelte';
 	import SearchInput from '../_partials/search-input.svelte';
@@ -20,11 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type Props = {
-		form: WalletStepForm;
-	};
-
-	let { form }: Props = $props();
+	let { self: form }: SelfProp<WalletActionStepForm> = $props();
 </script>
 
 {#if form.data.wallet}

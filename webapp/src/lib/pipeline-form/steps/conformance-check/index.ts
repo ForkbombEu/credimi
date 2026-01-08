@@ -4,6 +4,7 @@
 
 import type { TypedPipelineStepConfig } from '$lib/pipeline-form/types';
 
+import { entities } from '$lib/global/entities.js';
 import { getStandardsWithTestSuites } from '$lib/standards';
 
 import { ConformanceCheckStepForm, type FormData } from './conformance-check-step-form.svelte.js';
@@ -12,6 +13,9 @@ import { ConformanceCheckStepForm, type FormData } from './conformance-check-ste
 
 export const conformanceCheckStepConfig: TypedPipelineStepConfig<'conformance-check', FormData> = {
 	id: 'conformance-check',
+	display: entities.conformance_checks,
+
+	initForm: () => new ConformanceCheckStepForm(),
 
 	serialize: ({ test }) => ({ check_id: test }),
 
@@ -36,13 +40,5 @@ export const conformanceCheckStepConfig: TypedPipelineStepConfig<'conformance-ch
 			suite,
 			test
 		};
-	},
-
-	display: {
-		icon: 'check',
-		label: 'Conformance Check',
-		description: 'Conformance Check'
-	},
-
-	initForm: () => new ConformanceCheckStepForm()
+	}
 };

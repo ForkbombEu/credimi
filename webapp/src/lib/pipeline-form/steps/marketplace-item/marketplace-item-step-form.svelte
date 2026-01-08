@@ -4,15 +4,15 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-<script lang="ts" generics="T">
-	import { getMarketplaceItemData } from '$lib/marketplace/utils.js';
+<script lang="ts">
+	import type { SelfProp } from '$lib/renderable';
+
+	import { getMarketplaceItemLogo } from '$lib/marketplace/utils.js';
 
 	import { m } from '@/i18n/index.js';
 
-	import type { StepType } from '../types';
-	import type { BaseStepForm } from './base-step-form.svelte.js';
+	import type { MarketplaceItemStepForm } from './marketplace-item-step-form.svelte.js';
 
-	import { getStepDisplayData } from '../_partials/display-data.js';
 	import ItemCard from '../_partials/item-card.svelte';
 	import SearchInput from '../_partials/search-input.svelte';
 	import WithEmptyState from '../_partials/with-empty-state.svelte';
@@ -20,13 +20,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type Props = {
-		form: BaseStepForm<T>;
-	};
+	let { self: form }: SelfProp<MarketplaceItemStepForm> = $props();
 
-	let { form }: Props = $props();
-
-	const { labels } = $derived(getStepDisplayData(form.collection as StepType));
+	const { labels } = $derived(form.entityData);
 </script>
 
 <WithLabel label={labels.singular} class="p-4">
@@ -36,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <WithEmptyState items={form.foundItems} emptyText={m.No_results_found()}>
 	{#snippet item({ item })}
 		<ItemCard
-			avatar={getMarketplaceItemData(item).logo}
+			avatar={getMarketplaceItemLogo(item)}
 			title={item.name}
 			subtitle={item.organization_name}
 			onClick={() => form.selectItem(item)}

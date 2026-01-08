@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { EntityUIData } from '$lib/globals/entities.js';
+import type { EntityData } from '$lib/global';
 import type { Renderable } from '$lib/renderable';
 import type { Snippet } from 'svelte';
 import type { Simplify } from 'type-fest';
@@ -15,17 +15,19 @@ export type Pipeline = t.HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelin
 
 export type ActivityOptions = t.ActivityOptions;
 
-/* Pipeline Step types (derived) */
-
 export type PipelineStep = NonNullable<Pipeline['steps']>[number];
+
+export type PipelineStepType = PipelineStep['use'];
+
+/* Pipeline Step Config types */
 
 export interface PipelineStepConfig<ID = string, Serialized = unknown, Deserialized = unknown> {
 	id: ID;
 	serialize: (step: Deserialized) => Serialized;
 	deserialize: (step: Serialized) => Promise<Deserialized>;
-	display: EntityUIData;
+	display: EntityData;
 	initForm: () => PipelineStepDataForm;
-	snippet?: Snippet<[{ data: Deserialized; display: EntityUIData }]>;
+	snippet?: Snippet<[{ data: Deserialized; display: EntityData }]>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -34,8 +36,6 @@ export interface PipelineStepDataForm<T = any> extends Renderable<T> {
 }
 
 /* Typed helpers */
-
-export type PipelineStepType = PipelineStep['use'];
 
 export type PipelineStepByType<T extends PipelineStepType> = Simplify<
 	Extract<PipelineStep, { use: T }>
