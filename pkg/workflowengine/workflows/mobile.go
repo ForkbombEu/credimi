@@ -30,6 +30,7 @@ type MobileAutomationWorkflowPayload struct {
 	VideoPath          string            `json:"video_path,omitempty"           yaml:"video_path,omitempty"`
 	RecordingAdbPid    int               `json:"recording_adb_pid,omitempty"    yaml:"recording_adb_pid,omitempty"`
 	RecordingFfmpegPid int               `json:"recording_ffmpeg_pid,omitempty" yaml:"recording_ffmpeg_pid,omitempty"`
+	RecordingLogcatPid int               `json:"recording_logcat_pid,omitempty" yaml:"recording_logcat_pid,omitempty"`
 }
 
 type MobileAutomationWorkflowPipelinePayload struct {
