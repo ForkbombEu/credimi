@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { userOrganization } from '$lib/app-state';
+	import EntityTag from '$lib/global/entity-tag.svelte';
 
 	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
 
@@ -15,8 +16,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
-	import { getMarketplaceItemData, MarketplaceItemTypeDisplay, type MarketplaceItem } from '.';
+	import type { MarketplaceItem } from './types';
+
 	import TableNameCell from './_partials/table-name-cell.svelte';
+	import { getMarketplaceItemData } from './utils';
 
 	//
 
@@ -42,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet type(record: MarketplaceItemsResponse)}
 	{@const { display } = getMarketplaceItemData(record as MarketplaceItem)}
-	<MarketplaceItemTypeDisplay data={display} />
+	<EntityTag data={display} />
 {/snippet}
 
 {#snippet updated(record: MarketplaceItemsResponse)}

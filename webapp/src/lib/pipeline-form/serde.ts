@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getMarketplaceItemData, type MarketplaceItem } from '$lib/marketplace/utils.js';
+import { getMarketplaceItemData, type MarketplaceItem } from '$lib/marketplace';
 import { getPath } from '$lib/utils/index.js';
 import { parse } from 'yaml';
 
