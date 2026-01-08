@@ -142,11 +142,9 @@ function convertUtilityStep(step: UtilityStep): AnyYamlStep {
 			id: emailStep.id,
 			continue_on_error: emailStep.continueOnError ?? false,
 			with: {
-				payload: {
-					recipient: emailStep.data.recipient,
-					...(emailStep.data.subject && { subject: emailStep.data.subject }),
-					...(emailStep.data.body && { body: emailStep.data.body })
-				}
+				recipient: emailStep.data.recipient,
+				...(emailStep.data.subject && { subject: emailStep.data.subject }),
+				...(emailStep.data.body && { body: emailStep.data.body })
 			}
 		} as AnyYamlStep;
 	} else if (step.type === StepType.Debug) {
@@ -159,10 +157,8 @@ function convertUtilityStep(step: UtilityStep): AnyYamlStep {
 			id: debugStep.id,
 			continue_on_error: debugStep.continueOnError ?? false,
 			with: {
-				payload: {
-					method: 'GET',
-					url: 'https://httpbin.org/status/200' // Simple debug endpoint
-				}
+				method: 'GET',
+				url: 'https://httpbin.org/status/200' // Simple debug endpoint
 			},
 			metadata: {
 				debug: true
@@ -175,14 +171,12 @@ function convertUtilityStep(step: UtilityStep): AnyYamlStep {
 			id: httpStep.id,
 			continue_on_error: httpStep.continueOnError ?? false,
 			with: {
-				payload: {
-					method: httpStep.data.method,
-					url: httpStep.data.url,
-					...(httpStep.data.headers && Object.keys(httpStep.data.headers).length > 0
-						? { headers: httpStep.data.headers }
-						: {}),
-					...(httpStep.data.body && { body: httpStep.data.body })
-				}
+				method: httpStep.data.method,
+				url: httpStep.data.url,
+				...(httpStep.data.headers && Object.keys(httpStep.data.headers).length > 0
+					? { headers: httpStep.data.headers }
+					: {}),
+				...(httpStep.data.body && { body: httpStep.data.body })
 			}
 		} as AnyYamlStep;
 	}
