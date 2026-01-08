@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -140,6 +141,8 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 		payloadType = factory.PipelinePayloadType
 	}
 
+	xOneOfGroups := extractXOneOfGroups(payloadType)
+
 	payloadSchema := reflector.Reflect(reflect.New(payloadType).Interface())
 
 	stepVariant := map[string]any{
@@ -252,6 +255,22 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 			"oneOf": with,
 		}
 	}
+	if len(xOneOfGroups) > 0 {
+		var variants []map[string]any
+		for _, fields := range xOneOfGroups {
+			for _, f := range fields {
+				variants = append(variants, map[string]any{
+					"type":                 "object",
+					"properties":           props,
+					"required":             []string{f},
+					"additionalProperties": false,
+				})
+			}
+		}
+		stepVariant["properties"].(map[string]any)["with"] = map[string]any{
+			"oneOf": variants,
+		}
+	}
 
 	return stepVariant
 }
@@ -312,4 +331,30 @@ func childPipelineStepSchema() map[string]any {
 		"required":             []string{"id", "use", "with"},
 		"additionalProperties": false,
 	}
+}
+
+func extractXOneOfGroups(t reflect.Type) map[string][]string {
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	groups := map[string][]string{}
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+
+		tag := field.Tag.Get("xoneof")
+		if tag == "" {
+			continue
+		}
+
+		jsonName := strings.Split(field.Tag.Get("json"), ",")[0]
+		if jsonName == "" || jsonName == "-" {
+			continue
+		}
+
+		groups[tag] = append(groups[tag], jsonName)
+	}
+
+	return groups
 }

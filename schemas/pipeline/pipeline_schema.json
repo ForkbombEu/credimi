@@ -647,19 +647,46 @@
                 "type": "string"
               },
               "with": {
-                "properties": {
-                  "config": {
-                    "additionalProperties": true,
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "check_id": {
+                        "type": "string"
+                      },
+                      "config": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "yaml": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "yaml"
+                    ],
                     "type": "object"
                   },
-                  "id": {
-                    "type": "string"
-                  },
-                  "yaml": {
-                    "type": "string"
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "check_id": {
+                        "type": "string"
+                      },
+                      "config": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "yaml": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "check_id"
+                    ],
+                    "type": "object"
                   }
-                },
-                "type": "object"
+                ]
               }
             },
             "required": [
