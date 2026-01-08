@@ -214,8 +214,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			},
 			ActivityOptions: &opt,
 		}
-		w := workflows.CredentialsIssuersWorkflow{}
-
+		w := workflows.NewCredentialsIssuersWorkflow()
 		result, err := w.Start(orgName, workflowInput)
 		if err != nil {
 			if isNew {

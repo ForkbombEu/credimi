@@ -141,7 +141,7 @@ func TestGetMatchApiKeyRecord_Found(t *testing.T) {
 	hashed, err := hasher.HashKey(apiKey)
 	assert.NoError(t, err)
 
-	records := []*core.Record{}
+	records := make([]*core.Record, 0, 1)
 	dummyCollection := &core.Collection{}
 	dummyCollection.Name = "api_keys"
 	record := core.NewRecord(dummyCollection)
@@ -165,7 +165,7 @@ func TestGetMatchApiKeyRecord_NotFound(t *testing.T) {
 	apiKeysBytes := []byte("test-key")
 	generator := &CryptoKeyGenerator{}
 	apiKey := generator.EncodeKey(apiKeysBytes)
-	records := []*core.Record{}
+	records := make([]*core.Record, 0, 1)
 
 	_, err := repo.FindMatchingApiKeyRecord(records, apiKey, hasher)
 	assert.Error(t, err)
@@ -180,7 +180,7 @@ func TestGetMatchApiKeyRecord_MaliciousInput(t *testing.T) {
 	generator := &CryptoKeyGenerator{}
 	apiKey := generator.EncodeKey(apiKeysBytes)
 
-	records := []*core.Record{}
+	records := make([]*core.Record, 0, 1)
 	dummyCollection := &core.Collection{}
 	dummyCollection.Name = "api_keys"
 	record := core.NewRecord(dummyCollection)

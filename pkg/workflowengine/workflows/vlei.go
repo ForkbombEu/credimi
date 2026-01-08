@@ -24,11 +24,19 @@ const (
 )
 
 // VLEIValidationWorkflow is a workflow that validates a vLEI credential from a server request.
-type VLEIValidationWorkflow struct{}
+type VLEIValidationWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 // VLEIValidationWorkflowPayload is the payload for the vLEI validation workflow.
 type VLEIValidationWorkflowPayload struct {
 	CredentialID string `json:"credential_id" yaml:"credential_id" validate:"required"`
+}
+
+func NewVLEIValidationWorkflow() *VLEIValidationWorkflow {
+	w := &VLEIValidationWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 func (w *VLEIValidationWorkflow) Name() string {
@@ -45,25 +53,20 @@ func (w *VLEIValidationWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
+	return w.WorkflowFunc(ctx, input)
+}
 
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
+func (w *VLEIValidationWorkflow) ExecuteWorkflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 
 	payload, err := workflowengine.DecodePayload[VLEIValidationWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -71,7 +74,7 @@ func (w *VLEIValidationWorkflow) Workflow(
 	if !ok || serverURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"server_url",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -89,7 +92,7 @@ func (w *VLEIValidationWorkflow) Workflow(
 		Get(ctx, &serverResponse); err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -101,7 +104,7 @@ func (w *VLEIValidationWorkflow) Workflow(
 				"invalid output type",
 				serverResponse.Output,
 			),
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -113,11 +116,11 @@ func (w *VLEIValidationWorkflow) Workflow(
 				"missing 'body'",
 				serverResponse.Output,
 			),
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
-	result, err := validateCESRFromString(ctx, cesrStr, runMetadata)
+	result, err := validateCESRFromString(ctx, cesrStr, input.RunMetadata)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
@@ -138,11 +141,19 @@ func (w *VLEIValidationWorkflow) Start(
 }
 
 // VLEIValidationLocalWorkflow is a workflow that validates a vLEI credential from a local file.
-type VLEIValidationLocalWorkflow struct{}
+type VLEIValidationLocalWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 // VLEIValidationLocalWorkflowPayload is the payload for the vLEI validation workflow.
 type VLEIValidationLocalWorkflowPayload struct {
 	CESR string `json:"cesr" yaml:"cesr" validate:"required"`
+}
+
+func NewVLEIValidationLocalWorkflow() *VLEIValidationLocalWorkflow {
+	w := &VLEIValidationLocalWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 func (w *VLEIValidationLocalWorkflow) Name() string {
@@ -157,29 +168,24 @@ func (w *VLEIValidationLocalWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
+	return w.WorkflowFunc(ctx, input)
+}
 
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
+func (w *VLEIValidationLocalWorkflow) ExecuteWorkflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
 
 	payload, err := workflowengine.DecodePayload[VLEIValidationLocalWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
-	return validateCESRFromString(ctx, payload.CESR, runMetadata)
+	return validateCESRFromString(ctx, payload.CESR, input.RunMetadata)
 }
 
 func (w *VLEIValidationLocalWorkflow) Start(
@@ -198,7 +204,7 @@ func (w *VLEIValidationLocalWorkflow) Start(
 func validateCESRFromString(
 	ctx workflow.Context,
 	rawCESR string,
-	runMetadata workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 

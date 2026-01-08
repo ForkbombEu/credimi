@@ -97,30 +97,30 @@ var Registry = map[string]TaskFactory{
 	},
 	"mobile-automation": {
 		Kind:                TaskWorkflow,
-		NewFunc:             func() any { return &workflows.MobileAutomationWorkflow{} },
+		NewFunc:             func() any { return workflows.NewMobileAutomationWorkflow() },
 		PayloadType:         reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
 		TaskQueue:           workflows.MobileAutomationTaskQueue,
 		PipelinePayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPipelinePayload{}),
 	},
 	"custom-check": {
 		Kind:        TaskWorkflow,
-		NewFunc:     func() any { return &workflows.CustomCheckWorkflow{} },
+		NewFunc:     func() any { return workflows.NewCustomCheckWorkflow() },
 		PayloadType: reflect.TypeOf(workflows.CustomCheckWorkflowPayload{}),
 	},
 	"credential-offer": {
 		Kind:        TaskWorkflow,
-		NewFunc:     func() any { return &workflows.GetCredentialOfferWorkflow{} },
+		NewFunc:     func() any { return workflows.NewGetCredentialOfferWorkflow() },
 		PayloadType: reflect.TypeOf(workflows.GetCredentialOfferWorkflowPayload{}),
 	},
 	"conformance-check": {
 		Kind:                TaskWorkflow,
-		NewFunc:             func() any { return &workflows.StartCheckWorkflow{} },
+		NewFunc:             func() any { return workflows.NewStartCheckWorkflow() },
 		PayloadType:         reflect.TypeOf(workflows.StartCheckWorkflowPayload{}),
 		PipelinePayloadType: reflect.TypeOf(workflows.StartCheckWorkflowPipelinePayload{}),
 	},
 	"use-case-verification-deeplink": {
 		Kind:        TaskWorkflow,
-		NewFunc:     func() any { return &workflows.GetUseCaseVerificationDeeplinkWorkflow{} },
+		NewFunc:     func() any { return workflows.NewGetUseCaseVerificationDeeplinkWorkflow() },
 		PayloadType: reflect.TypeOf(workflows.GetUseCaseVerificationDeeplinkWorkflowPayload{}),
 	},
 }
@@ -128,11 +128,11 @@ var Registry = map[string]TaskFactory{
 var PipelineInternalRegistry = map[string]TaskFactory{
 	"openidnet-logs": {
 		Kind:    TaskWorkflow,
-		NewFunc: func() any { return &workflows.OpenIDNetLogsWorkflow{} },
+		NewFunc: func() any { return workflows.NewOpenIDNetLogsWorkflow() },
 	},
 	"ewc-status": {
 		Kind:    TaskWorkflow,
-		NewFunc: func() any { return &workflows.EWCStatusWorkflow{} },
+		NewFunc: func() any { return workflows.NewEWCStatusWorkflow() },
 	},
 	"check-file-exists": {
 		Kind:       TaskActivity,

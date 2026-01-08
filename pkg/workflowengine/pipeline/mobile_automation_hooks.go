@@ -301,6 +301,7 @@ func MobileAutomationCleanupHook(
 	runData map[string]any,
 	output *map[string]any,
 ) error {
+	ctx, _ = workflow.NewDisconnectedContext(ctx)
 	logger := workflow.GetLogger(ctx)
 	mobileAo := *input.ActivityOptions
 
