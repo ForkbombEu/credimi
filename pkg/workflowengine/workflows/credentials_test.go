@@ -136,7 +136,7 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 			env := testSuite.NewTestWorkflowEnvironment()
 			tc.mockActivities(env)
 
-			var wf CredentialsIssuersWorkflow
+			wf := NewCredentialsIssuersWorkflow()
 			env.ExecuteWorkflow(wf.Workflow, tc.input)
 
 			if tc.expectedErr {
@@ -293,7 +293,7 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 			env := testSuite.NewTestWorkflowEnvironment()
 			tc.mockActivities(env)
 			tc.input.ActivityOptions = &DefaultActivityOptions
-			var wf GetCredentialOfferWorkflow
+			wf := NewGetCredentialOfferWorkflow()
 			env.ExecuteWorkflow(wf.Workflow, tc.input)
 
 			require.True(t, env.IsWorkflowCompleted())

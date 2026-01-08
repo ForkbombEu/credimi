@@ -14,7 +14,9 @@ import (
 const MobileAutomationTaskQueue = "MobileAutomationTaskQueue"
 
 // MobileAutomationWorkflow is a workflow that runs a mobile automation flow
-type MobileAutomationWorkflow struct{}
+type MobileAutomationWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 // MobileAutomationWorkflowPayload is the payload for the mobile automation workflow
 type MobileAutomationWorkflowPayload struct {
@@ -37,6 +39,12 @@ type MobileAutomationWorkflowPipelinePayload struct {
 	Parameters map[string]string `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
 }
 
+func NewMobileAutomationWorkflow() *MobileAutomationWorkflow {
+	w := &MobileAutomationWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
+}
+
 func (MobileAutomationWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
@@ -55,6 +63,17 @@ func (w *MobileAutomationWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+// ExecuteWorkflow executes a mobile automation workflow, given the input payload.
+// It first creates a test run URL and then executes the RunMobileFlowActivity with the given payload.
+// If the video flag is set, it checks if the video file exists and if it does, stores the result in the mobile server.
+// Finally, it returns a WorkflowResult containing the test run URL and the result video URL.
+func (w *MobileAutomationWorkflow) ExecuteWorkflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
 	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
 
 	var output MobileWorkflowOutput
@@ -64,19 +83,14 @@ func (w *MobileAutomationWorkflow) Workflow(
 		workflow.GetInfo(ctx).WorkflowExecution.ID,
 		workflow.GetInfo(ctx).WorkflowExecution.RunID,
 	)
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI:   testRunURL,
-	}
+
 	output.TestRunURL = testRunURL
 
 	payload, err := workflowengine.DecodePayload[MobileAutomationWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -84,7 +98,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 	if !ok || appURL == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"app_url",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -105,7 +119,7 @@ func (w *MobileAutomationWorkflow) Workflow(
 	if executeErr != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			executeErr,
-			runMetadata,
+			input.RunMetadata,
 			map[string]any{
 				"output": output,
 			},

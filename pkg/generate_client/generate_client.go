@@ -237,7 +237,7 @@ func main() {
 		)
 	}
 
-	var routes []RouteInfo
+	routes := []RouteInfo{}
 	typesToProcess := make(map[string]interface{})
 
 	typesToProcess["APIError"] = apierror.APIError{}
