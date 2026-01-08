@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { appSections, testRunsSection } from '$lib/marketplace/sections';
+import { baseSections, entities } from '$lib/global';
 import { workflowStatuses } from '$lib/temporal';
 import { WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows';
 import {
@@ -41,48 +41,46 @@ export const data: SidebarGroup[] = [
 	},
 	{
 		title: m.marketplace_items(),
-		items: Object.values(appSections)
-			.filter((section) => section.id !== 'conformance-checks')
-			.map((section) => {
-				let children: SidebarItem[] | undefined;
-				if (section.id === 'wallets') {
-					children = [
-						{
-							title: m.Your_wallets(),
-							url: `/my/wallets#${IDS.YOUR_WALLETS}`
-						},
-						{
-							title: m.Public_wallets(),
-							url: `/my/wallets#${IDS.PUBLIC_WALLETS}`
-						}
-					];
-				}
-				return {
-					title: section.label,
-					url: `/my/${section.id}`,
-					icon: section.icon,
-					children
-				};
-			})
+		items: baseSections.map((section) => {
+			let children: SidebarItem[] | undefined;
+			if (section.slug === 'wallets') {
+				children = [
+					{
+						title: m.Your_wallets(),
+						url: `/my/wallets#${IDS.YOUR_WALLETS}`
+					},
+					{
+						title: m.Public_wallets(),
+						url: `/my/wallets#${IDS.PUBLIC_WALLETS}`
+					}
+				];
+			}
+			return {
+				title: section.labels.plural,
+				url: `/my/${section.slug}`,
+				icon: section.icon,
+				children
+			};
+		})
 	},
 	{
 		title: m.workflows(),
 		items: [
 			{
-				title: m.workflow_runs(),
-				url: testRunsSection.id,
-				icon: testRunsSection.icon,
+				title: entities.test_runs.labels.plural,
+				url: `/my/${entities.test_runs.slug}`,
+				icon: entities.test_runs.icon,
 				children: workflowStatuses
 					.filter((status) => status !== null)
 					.map((status) => ({
 						title: status,
-						url: `/my/tests/runs?${WORKFLOW_STATUS_QUERY_PARAM}=${status}`,
+						url: `/my/${entities.test_runs.slug}?${WORKFLOW_STATUS_QUERY_PARAM}=${status}`,
 						component: WorkflowItem
 					}))
 			},
 			{
 				title: m.Scheduled_workflows(),
-				url: '/my/tests/runs/scheduled',
+				url: `/my/${entities.test_runs.slug}/scheduled`,
 				icon: HourglassIcon
 			}
 		]

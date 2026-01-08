@@ -30,16 +30,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { step = $bindable(), builder }: Props = $props();
 
-	const { icon, label, textClass, outlineClass, backgroundClass } = getStepDisplayData(step.type);
+	const { icon, labels, classes } = getStepDisplayData(step.type);
 </script>
 
-<div class={['bg-card group overflow-hidden rounded-md border hover:ring', outlineClass]}>
-	<div class={['h-1', backgroundClass]}></div>
+<div class={['bg-card group overflow-hidden rounded-md border hover:ring', classes.border]}>
+	<div class={['h-1', classes.bg]}></div>
 	<div>
 		<div class="flex items-center justify-between py-1 pl-3 pr-1">
-			<div class={['flex items-center gap-1', textClass]}>
+			<div class={['flex items-center gap-1', classes.text]}>
 				<Icon src={icon} size={12} />
-				<p class="text-xs">{label}</p>
+				<p class="text-xs">{labels.singular}</p>
 			</div>
 
 			<div class="flex items-center">

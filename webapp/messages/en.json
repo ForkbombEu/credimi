@@ -851,5 +851,6 @@
 	"blocks_mode": "Blocks mode",
 	"separate_items_by_commas": "Separate items by commas",
 	"Allow_installer_download": "Allow installer download",
+	"Credential_deeplinks": "Credential deeplinks",
 	"private": "Private"
 }

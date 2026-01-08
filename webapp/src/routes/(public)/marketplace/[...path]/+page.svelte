@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { userOrganization } from '$lib/app-state';
 	import { getMarketplaceItemData } from '$lib/marketplace';
-	import { marketplaceItemToSectionHref } from '$lib/marketplace/sections';
+	import { marketplaceItemToSectionHref } from '$lib/marketplace/utils';
 	import { PencilIcon } from 'lucide-svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div
 			class="mx-auto flex max-w-screen-xl flex-wrap items-center justify-between gap-3 px-4 text-sm md:px-8"
 		>
-			<T>{m.This_item_is_yours({ item: display.label })}</T>
+			<T>{m.This_item_is_yours({ item: display.labels.singular })}</T>
 			<div class="flex items-center gap-3">
 				<T>{m.Last_edited()}: {new Date(marketplaceItem.updated).toLocaleDateString()}</T>
 				<Button
