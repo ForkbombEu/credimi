@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { PipelineStep } from '$lib/pipeline-form/types';
-
 	import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from 'lucide-svelte';
 
 	import Icon from '@/components/ui-custom/icon.svelte';
@@ -15,19 +13,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import type { StepsBuilder } from '../steps-builder.svelte.js';
+	import type { EnrichedStep, StepsBuilder } from '../steps-builder.svelte.js';
 
 	//
 
 	type Props = {
 		index: number;
-		step: PipelineStep;
+		step: EnrichedStep;
 		builder: StepsBuilder;
 	};
 
 	let { builder, step, index }: Props = $props();
 
-	const config = $derived(builder.getConfig(step.use));
+	const config = $derived(builder.getConfig(step[0].use));
 	const display = $derived(config?.display);
 	const classes = $derived(display?.classes);
 </script>
@@ -71,7 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if config && display}
 				{@render config.snippet?.({ data: step, display })}
 			{:else}
-				<h1>{step.use}</h1>
+				<h1>{step[0].use}</h1>
 			{/if}
 			<!-- <Avatar src={step.avatar} fallback={step.name} class="size-8 rounded-lg border" />
 			<div class="space-y-1">
@@ -88,11 +86,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div> -->
 		</div>
 
-		{#if step.use !== 'debug'}
+		{#if step[0].use !== 'debug'}
 			<Label class="flex cursor-pointer items-center gap-1 bg-slate-50 px-3 py-1">
 				<Checkbox
 					class="flex size-[10px] items-center justify-center"
-					checked={step.continue_on_error}
+					checked={step[0].continue_on_error}
 					onCheckedChange={(checked) => builder.setContinueOnError(index, checked)}
 				/>
 				<span class="text-xs text-slate-500">{m.Continue_on_error()}</span>

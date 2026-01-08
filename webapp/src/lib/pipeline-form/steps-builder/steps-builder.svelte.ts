@@ -6,8 +6,8 @@ import type { Renderable } from '$lib/renderable';
 import { StateManager } from '$lib/state-manager/state-manager';
 import { nanoid } from 'nanoid';
 import type {
+	AnyPipelineStepConfig,
 	PipelineStep,
-	PipelineStepConfig,
 	PipelineStepDataForm,
 	PipelineStepWithId
 } from '../types';
@@ -15,14 +15,16 @@ import Component from './steps-builder.svelte';
 
 //
 
+export type EnrichedStep = [PipelineStep, Record<string, unknown>];
+
 type Props = {
-	configs: PipelineStepConfig[];
-	steps: PipelineStep[];
+	configs: AnyPipelineStepConfig[];
+	steps: EnrichedStep[];
 	yamlPreview: () => string;
 };
 
 type StepsBuilderState = {
-	steps: PipelineStep[];
+	steps: EnrichedStep[];
 	state: { id: 'idle' } | { id: 'form'; form: PipelineStepDataForm };
 };
 
@@ -74,14 +76,15 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 			const effectCleanup = $effect.root(() => {
 				const form = config.initForm();
-				form.onSubmit((data) => {
+				form.onSubmit((formData) => {
 					const step: PipelineStepWithId = {
 						id: nanoid(5),
 						use: config.id,
-						with: config.serialize(data) as Record<string, unknown>
+						with: config.serialize(formData) as Record<string, unknown>,
+						continue_on_error: false
 					};
 					this.stateManager.run((data) => {
-						data.steps.push(step);
+						data.steps.push([step, formData]);
 						data.state = { id: 'idle' };
 						effectCleanup();
 					});
@@ -93,7 +96,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	addDebugStep() {
 		this.stateManager.run((data) => {
-			data.steps.push({ use: 'debug' });
+			data.steps.push([{ use: 'debug' }, {}]);
 		});
 	}
 
@@ -106,8 +109,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	setContinueOnError(index: number, continueOnError: boolean) {
 		this.stateManager.run((data) => {
 			const step = data.steps[index];
-			if (!step || step.use == 'debug') return;
-			step.continue_on_error = continueOnError;
+			if (!step || step[0].use == 'debug') return;
+			step[0].continue_on_error = continueOnError;
 		});
 	}
 

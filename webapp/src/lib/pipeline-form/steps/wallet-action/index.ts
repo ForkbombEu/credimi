@@ -3,9 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { MarketplaceItem } from '$lib/marketplace';
-import type { TypedPipelineStepConfig } from '$lib/pipeline-form/types';
 
 import { entities } from '$lib/global/entities';
+import {
+	DEEPLINK_STEP_ID_PLACEHOLDER,
+	type PipelineStepByType,
+	type PipelineStepData,
+	type TypedPipelineStepConfig
+} from '$lib/pipeline-form/types';
+import { getPath } from '$lib/utils';
 
 import { pb } from '@/pocketbase';
 import { Collections } from '@/pocketbase/types';
@@ -22,12 +28,24 @@ export const walletActionStepConfig: TypedPipelineStepConfig<
 	WalletActionStepData
 > = {
 	id: 'mobile-automation',
+
 	display: entities.wallets,
+
 	initForm: () => new WalletActionStepForm(),
-	serialize: (data) => ({
-		action_id: data.action.id,
-		version_id: data.version.id
-	}),
+
+	serialize: ({ action, version }) => {
+		const _with: PipelineStepData<PipelineStepByType<'mobile-automation'>> = {
+			action_id: getPath(action),
+			version_id: getPath(version)
+		};
+		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
+			_with.parameters = {
+				deeplink: '${{' + DEEPLINK_STEP_ID_PLACEHOLDER + '}}'
+			};
+		}
+		return _with;
+	},
+
 	deserialize: async (data) => {
 		if (!('action_id' in data) || !('version_id' in data)) {
 			throw new Error('Invalid data');

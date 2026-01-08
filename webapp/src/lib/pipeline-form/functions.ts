@@ -2,129 +2,63 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getPath } from '$lib/utils';
-import { Array, pipe, String } from 'effect';
+import { pipe, String } from 'effect';
+import { stringify } from 'yaml';
 
-import type { HttpsGithubComForkbombeuCredimiPkgWorkflowenginePipelineWorkflowDefinition as Pipeline } from './types.generated';
+import { pb } from '@/pocketbase';
+
+import type { EnrichedStep } from './steps-builder/steps-builder.svelte';
 
 import {
-	StepType,
-	type BuilderStep,
-	type ConformanceCheckStep,
-	type MarketplaceItemStep,
-	type WalletActionStep
-} from './steps-builder/types';
+	DEEPLINK_STEP_ID_PLACEHOLDER,
+	type ActivityOptions,
+	type EnrichedPipeline,
+	type Pipeline,
+	type PipelineStep
+} from './types';
 
-/*
- * TOC
- * -  Steps processing
- * -  YAML formatting
- */
+/* Fetching pipeline */
 
-/* Steps processing */
-
-type YamlSteps = NonNullable<Pipeline['steps']>[number];
-type YamlStepId = YamlSteps['use'];
-type YamlStep<Id extends YamlStepId> = Extract<YamlSteps, { use: Id }>;
-type AnyYamlStep = YamlStep<YamlStepId>;
-
-export function convertBuilderSteps(steps: BuilderStep[]): AnyYamlStep[] {
-	return pipe(steps, Array.map(convertStep), linkIds);
-}
-
-function convertStep(step: BuilderStep): AnyYamlStep {
-	if (step.type === StepType.WalletAction) {
-		return convertWalletActionStep(step);
-	} else if (step.type === StepType.ConformanceCheck) {
-		return convertConformanceCheckStep(step);
-	} else {
-		return convertMarketplaceItemStep(step);
-	}
-}
-
-const DEEPLINK_STEP_ID_PLACEHOLDER = 'get-deeplink';
-
-function convertWalletActionStep(step: WalletActionStep): YamlStep<'mobile-automation'> {
-	const yamlStep: YamlStep<'mobile-automation'> = {
-		use: 'mobile-automation',
-		id: step.id,
-		continue_on_error: step.continueOnError ?? false,
-		with: {
-			action_id: getPath(step.data.action),
-			version_id: getPath(step.data.version)
-		}
-	};
-
-	const actionYaml = step.data.action.code;
-	if (actionYaml.includes('${DL}') || actionYaml.includes('${deeplink}')) {
-		yamlStep.with.parameters = {
-			deeplink: '${{' + DEEPLINK_STEP_ID_PLACEHOLDER + '}}'
-		};
-	}
-
-	return yamlStep;
-}
-
-function convertMarketplaceItemStep(step: MarketplaceItemStep) {
-	switch (step.type) {
-		case StepType.Credential:
-			return convertCredentialStep(step);
-		case StepType.CustomCheck:
-			return convertCustomCheckStep(step);
-		case StepType.UseCaseVerification:
-			return convertUseCaseVerificationStep(step);
-		default:
-			throw new Error(`Unknown step type`);
-	}
-}
-
-function convertCredentialStep(step: MarketplaceItemStep): YamlStep<'credential-offer'> {
+export async function fetchPipeline(id: string, options = { fetch }): Promise<EnrichedPipeline> {
+	const pipeline = await pb.collection('pipelines').getOne(id, { fetch: options.fetch });
 	return {
-		use: 'credential-offer',
-		id: step.id,
-		continue_on_error: step.continueOnError ?? false,
-		with: {
-			credential_id: getPath(step.data)
-		}
+		metadata: pipeline,
+		activity_options: pipeline.runtime.temporal.activity_options as ActivityOptions,
+		steps: pipeline.steps as EnrichedStep[]
 	};
 }
 
-function convertCustomCheckStep(step: MarketplaceItemStep): YamlStep<'custom-check'> {
-	return {
-		use: 'custom-check',
-		id: step.id,
-		continue_on_error: step.continueOnError ?? false,
-		with: {
-			check_id: getPath(step.data)
-		}
+/* YAML processing */
+
+export function createPipelineYaml(
+	name: string,
+	steps: PipelineStep[],
+	activity_options: ActivityOptions
+): string {
+	const linkedSteps = linkIds(steps);
+
+	const pipeline: Pipeline = {
+		name,
+		runtime: {
+			temporal: {
+				activity_options
+			}
+		},
+		steps: linkedSteps
 	};
+
+	return pipe(
+		stringify(pipeline),
+		// Adding spaces
+		addNewlineBefore('runtime:'),
+		addNewlineBefore('steps:'),
+		addNewlineBefore('  - use:'),
+		// Correcting first step newline
+		replaceWith('\n  - use:', (t) => t.replace('\n', ''), false)
+	);
 }
 
-function convertUseCaseVerificationStep(
-	step: MarketplaceItemStep
-): YamlStep<'use-case-verification-deeplink'> {
-	return {
-		use: 'use-case-verification-deeplink',
-		id: step.id,
-		continue_on_error: step.continueOnError ?? false,
-		with: {
-			use_case_id: getPath(step.data)
-		}
-	};
-}
-
-function convertConformanceCheckStep(step: ConformanceCheckStep): YamlStep<'conformance-check'> {
-	return {
-		use: 'conformance-check',
-		id: step.id,
-		continue_on_error: step.continueOnError ?? false,
-		with: {
-			check_id: step.data.checkId
-		}
-	};
-}
-
-function linkIds(steps: AnyYamlStep[]): AnyYamlStep[] {
+function linkIds(steps: PipelineStep[]): PipelineStep[] {
 	for (const [index, step] of steps.entries()) {
 		if (!(step.use === 'mobile-automation')) continue;
 
@@ -137,7 +71,7 @@ function linkIds(steps: AnyYamlStep[]): AnyYamlStep[] {
 			.filter((s) => s.use != 'mobile-automation')
 			.at(0);
 
-		if (!previousStep) continue;
+		if (!previousStep || !('id' in previousStep)) continue;
 
 		let deeplinkPath = '.outputs';
 		if (previousStep.use === 'conformance-check') {
@@ -152,19 +86,7 @@ function linkIds(steps: AnyYamlStep[]): AnyYamlStep[] {
 	return steps;
 }
 
-/* YAML formatting */
-
-export function formatYaml(yaml: string): string {
-	return pipe(
-		yaml,
-		// Adding spaces
-		addNewlineBefore('runtime:'),
-		addNewlineBefore('steps:'),
-		addNewlineBefore('  - use:'),
-		// Correcting first step newline
-		replaceWith('\n  - use:', (t) => t.replace('\n', ''), false)
-	);
-}
+// Utils
 
 function addNewlineBefore(token: string, all = true) {
 	return replaceWith(token, (token) => `\n${token}`, all);

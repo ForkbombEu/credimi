@@ -4,24 +4,23 @@
 
 import { beforeNavigate } from '$app/navigation';
 import type { Renderable } from '$lib/renderable';
-import { runWithLoading, slug } from '$lib/utils/index.js';
+import { runWithLoading } from '$lib/utils/index.js';
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
 import type { PipelinesFormData } from '@/pocketbase/types/extra.generated.js';
-import { stringify } from 'yaml';
 import { ActivityOptionsForm } from './activity-options-form/activity-options-form.svelte.js';
-import { convertBuilderSteps, formatYaml } from './functions.js';
+import { createPipelineYaml } from './functions.js';
 import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
 import Component from './pipeline-form.svelte';
-import { serializeStep, type PipelineData } from './serde.js';
+import { configs } from './steps';
 import { StepsBuilder } from './steps-builder/steps-builder.svelte.js';
-import type { Pipeline } from './types';
+import type { EnrichedPipeline } from './types';
 
 //
 
 type Props = {
 	mode: 'create' | 'edit' | 'view';
-	pipeline?: PipelineData;
+	pipeline?: EnrichedPipeline;
 };
 
 export class PipelineForm implements Renderable<PipelineForm> {
@@ -34,11 +33,12 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	constructor(private props: Props) {
 		this.stepsBuilder = new StepsBuilder({
 			steps: props.pipeline?.steps ?? [],
-			yamlPreview: () => this.yamlString
+			yamlPreview: () => this.yamlString,
+			configs
 		});
 
 		this.activityOptionsForm = new ActivityOptionsForm({
-			initialData: props.pipeline?.activityOptions
+			initialData: props.pipeline?.activity_options
 		});
 
 		this.metadataForm = new MetadataForm({
@@ -60,23 +60,20 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		return this.props.mode;
 	}
 
-	readonly yaml: Pipeline = $derived.by(() => ({
-		name: this.metadataForm.value?.name ?? '',
-		runtime: {
-			temporal: {
-				activity_options: this.activityOptionsForm.value
-			}
-		},
-		steps: convertBuilderSteps(this.stepsBuilder.steps)
-	}));
-
-	readonly yamlString: string = $derived(formatYaml(stringify(this.yaml)));
+	readonly yamlString: string = $derived.by(() =>
+		createPipelineYaml(
+			this.metadataForm.value?.name ?? '',
+			this.stepsBuilder.steps.map(([step]) => step),
+			this.activityOptionsForm.value
+		)
+	);
 
 	//
 
 	private saveAfterMetadataFormSubmit = $state(false);
 
 	private isSaving = false;
+
 	async save() {
 		if (!this.metadataForm.value) {
 			this.metadataForm.isOpen = true;
@@ -84,17 +81,17 @@ export class PipelineForm implements Renderable<PipelineForm> {
 				this.saveAfterMetadataFormSubmit = true;
 			}
 		} else {
-			const data: Omit<PipelinesFormData, 'owner'> = {
+			const data: Omit<PipelinesFormData, 'owner' | 'canonified_name'> = {
 				...this.metadataForm.value,
-				canonified_name: slug(this.metadataForm.value.name),
-				steps: JSON.stringify(this.stepsBuilder.steps.map(serializeStep)),
 				yaml: this.yamlString
 			};
 			runWithLoading({
 				fn: async () => {
 					this.isSaving = true;
 					if (this.props.mode === 'edit' && this.props.pipeline) {
-						await pb.collection('pipelines').update(this.props.pipeline.id, data);
+						await pb
+							.collection('pipelines')
+							.update(this.props.pipeline.metadata.id, data);
 					} else {
 						await pb.collection('pipelines').create(data);
 					}
@@ -107,12 +104,10 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	//
 
 	hasChanges = $derived.by(() => {
-		if (this.props.mode === 'view') {
-			return false;
-		} else if (this.props.mode === 'create') {
+		if (this.props.mode === 'create') {
 			return this.stepsBuilder.steps.length > 0;
 		} else if (this.props.mode === 'edit') {
-			return this.props.pipeline?.yaml !== this.yamlString;
+			return this.props.pipeline?.metadata.yaml !== this.yamlString;
 		} else {
 			return false;
 		}

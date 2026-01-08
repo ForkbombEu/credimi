@@ -7,6 +7,9 @@ import type { Renderable } from '$lib/renderable';
 import type { Snippet } from 'svelte';
 import type { Simplify } from 'type-fest';
 
+import type { PipelinesResponse } from '@/pocketbase/types/index.generated.js';
+
+import type { EnrichedStep } from './steps-builder/steps-builder.svelte.js';
 import type * as t from './types.generated.js';
 
 /* Core types */
@@ -55,6 +58,9 @@ export type TypedPipelineStepConfig<T extends PipelineStepType, Deserialized> = 
 	PipelineStepConfig<T, PipelineStepData<PipelineStepByType<T>>, Deserialized>
 >;
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export type AnyPipelineStepConfig = PipelineStepConfig<any, any, any>;
+
 /* Utilities */
 
 export abstract class BasePipelineStepDataForm<Deserialized, T>
@@ -67,4 +73,14 @@ export abstract class BasePipelineStepDataForm<Deserialized, T>
 	onSubmit(handler: (data: Deserialized) => void) {
 		this.handleSubmit = handler;
 	}
+}
+
+export const DEEPLINK_STEP_ID_PLACEHOLDER = 'get-deeplink';
+
+/* Enriched pipeline */
+
+export interface EnrichedPipeline {
+	metadata: PipelinesResponse;
+	activity_options: ActivityOptions;
+	steps: EnrichedStep[];
 }

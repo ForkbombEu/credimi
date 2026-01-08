@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { fetchPipeline } from '$lib/pipeline-form/serde.js';
+import { fetchPipeline } from '$lib/pipeline-form/functions';
 
 import { redirect } from '@/i18n/index.js';
 

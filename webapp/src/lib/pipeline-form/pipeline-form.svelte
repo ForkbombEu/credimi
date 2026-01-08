@@ -58,7 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 		<Render item={metadata} />
 		<Render item={activityOptions} />
-		<Button disabled={!builder.isReady()} onclick={() => form.save()}>
+		<Button disabled={!builder.hasSteps()} onclick={() => form.save()}>
 			<SaveIcon />
 			{saveButtonText}
 		</Button>
