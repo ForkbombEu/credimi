@@ -4,7 +4,13 @@
 
 import type { Renderable } from '$lib/renderable';
 import { StateManager } from '$lib/state-manager/state-manager';
-import type { PipelineStep, PipelineStepConfig, PipelineStepDataForm } from '../types';
+import { nanoid } from 'nanoid';
+import type {
+	PipelineStep,
+	PipelineStepConfig,
+	PipelineStepDataForm,
+	PipelineStepWithId
+} from '../types';
 import Component from './steps-builder.svelte';
 
 //
@@ -68,7 +74,12 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 			const effectCleanup = $effect.root(() => {
 				const form = config.initForm();
-				form.onSubmit((step) => {
+				form.onSubmit((data) => {
+					const step: PipelineStepWithId = {
+						id: nanoid(5),
+						use: config.id,
+						with: config.serialize(data) as Record<string, unknown>
+					};
 					this.stateManager.run((data) => {
 						data.steps.push(step);
 						data.state = { id: 'idle' };

@@ -10,17 +10,25 @@ import {
 	type WalletActionsResponse,
 	type WalletVersionsResponse
 } from '@/pocketbase/types';
-import { type WalletStepData } from '../types.js';
-import { searchMarketplace } from './utils/search-marketplace.js';
-import { Search } from './utils/search.svelte.js';
-import Component from './wallet-step-form.svelte';
+import { searchMarketplace } from '../_partials/search-marketplace';
+import { Search } from '../_partials/search.svelte.js';
+import Component from './wallet-action-step-form.svelte';
 
 //
 
-export class WalletStepForm extends BasePipelineStepDataForm<WalletStepForm> {
+export interface WalletActionStepData {
+	wallet: MarketplaceItem;
+	version: WalletVersionsResponse;
+	action: WalletActionsResponse;
+}
+
+export class WalletActionStepForm extends BasePipelineStepDataForm<
+	WalletActionStepData,
+	WalletActionStepForm
+> {
 	readonly Component = Component;
 
-	data = $state<Partial<WalletStepData>>({});
+	data = $state<Partial<WalletActionStepData>>({});
 
 	state = $derived.by(() => {
 		const { wallet, version, action } = this.data;
@@ -81,7 +89,7 @@ export class WalletStepForm extends BasePipelineStepDataForm<WalletStepForm> {
 	}
 
 	selectAction(action: WalletActionsResponse) {
-		this.props.onSelect({ ...this.data, action } as WalletStepData);
+		this.handleSubmit({ ...this.data, action } as WalletActionStepData);
 	}
 
 	//

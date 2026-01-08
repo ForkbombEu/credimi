@@ -23,17 +23,10 @@ export const credentialsStepConfig: TypedPipelineStepConfig<'credential-offer', 
 	initForm: () =>
 		new MarketplaceItemStepForm({
 			collection: 'credentials',
-			entityData: entities.credentials,
-			onSelect: (item) => ({
-				use: 'credential-offer',
-				id: item.path,
-				with: { credential_id: item.path }
-			})
+			entityData: entities.credentials
 		}),
 	serialize: (item) => ({ credential_id: item.path }),
-	deserialize: async ({ credential_id }) => {
-		return getMarketplaceItemByPath(credential_id);
-	}
+	deserialize: ({ credential_id }) => getMarketplaceItemByPath(credential_id)
 };
 
 //
@@ -47,17 +40,10 @@ export const useCaseVerificationStepConfig: TypedPipelineStepConfig<
 	initForm: () =>
 		new MarketplaceItemStepForm({
 			collection: 'use_cases_verifications',
-			entityData: entities.use_cases_verifications,
-			onSelect: (item) => ({
-				use: 'use-case-verification-deeplink',
-				id: item.path,
-				with: { use_case_id: item.path }
-			})
+			entityData: entities.use_cases_verifications
 		}),
 	serialize: (item) => ({ use_case_id: item.path }),
-	deserialize: async ({ use_case_id }) => {
-		return getMarketplaceItemByPath(use_case_id);
-	}
+	deserialize: ({ use_case_id }) => getMarketplaceItemByPath(use_case_id)
 };
 
 //
@@ -68,17 +54,11 @@ export const customCheckStepConfig: TypedPipelineStepConfig<'custom-check', Mark
 	initForm: () =>
 		new MarketplaceItemStepForm({
 			collection: 'custom_checks',
-			entityData: entities.custom_checks,
-			onSelect: (item) => ({
-				use: 'custom-check',
-				id: item.path,
-				with: {
-					check_id: item.path
-				}
-			})
+			entityData: entities.custom_checks
 		}),
-	serialize: (item) => ({ custom_check_id: item.path }),
-	deserialize: async (data) => {
-		return getMarketplaceItemByPath(data['with'] as string);
+	serialize: (item) => ({ check_id: item.path }),
+	deserialize: async ({ check_id }) => {
+		if (!check_id) throw new Error('Missing check_id');
+		return getMarketplaceItemByPath(check_id);
 	}
 };

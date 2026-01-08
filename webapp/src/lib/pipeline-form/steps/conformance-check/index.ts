@@ -13,6 +13,7 @@ import { ConformanceCheckStepForm, type FormData } from './conformance-check-ste
 
 export const conformanceCheckStepConfig: TypedPipelineStepConfig<'conformance-check', FormData> = {
 	id: 'conformance-check',
+
 	display: entities.conformance_checks,
 
 	initForm: () => new ConformanceCheckStepForm(),

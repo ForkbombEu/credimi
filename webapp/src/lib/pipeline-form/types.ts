@@ -21,21 +21,27 @@ export type PipelineStepType = PipelineStep['use'];
 
 /* Pipeline Step Config types */
 
-export interface PipelineStepConfig<ID = string, Serialized = unknown, Deserialized = unknown> {
+export interface PipelineStepConfig<
+	ID extends PipelineStepType = never,
+	Serialized = unknown,
+	Deserialized = unknown
+> {
 	id: ID;
 	serialize: (step: Deserialized) => Serialized;
 	deserialize: (step: Serialized) => Promise<Deserialized>;
 	display: EntityData;
-	initForm: () => PipelineStepDataForm;
+	initForm: () => PipelineStepDataForm<Deserialized>;
 	snippet?: Snippet<[{ data: Deserialized; display: EntityData }]>;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface PipelineStepDataForm<T = any> extends Renderable<T> {
-	onSubmit: (handler: (step: PipelineStep) => void) => void;
+export interface PipelineStepDataForm<Deserialized = unknown, T = any> extends Renderable<T> {
+	onSubmit: (handler: (step: Deserialized) => void) => void;
 }
 
 /* Typed helpers */
+
+export type PipelineStepWithId = Extract<PipelineStep, { id: string }>;
 
 export type PipelineStepByType<T extends PipelineStepType> = Simplify<
 	Extract<PipelineStep, { use: T }>
@@ -51,12 +57,14 @@ export type TypedPipelineStepConfig<T extends PipelineStepType, Deserialized> = 
 
 /* Utilities */
 
-export abstract class BasePipelineStepDataForm<T> implements PipelineStepDataForm<T> {
+export abstract class BasePipelineStepDataForm<Deserialized, T>
+	implements PipelineStepDataForm<Deserialized, T>
+{
 	abstract Component: Renderable<T>['Component'];
 
-	handleSubmit: (step: PipelineStep) => void = () => {};
+	protected handleSubmit: (step: Deserialized) => void = () => {};
 
-	onSubmit(handler: (step: PipelineStep) => void) {
+	onSubmit(handler: (data: Deserialized) => void) {
 		this.handleSubmit = handler;
 	}
 }

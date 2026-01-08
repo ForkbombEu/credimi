@@ -5,8 +5,8 @@
 import type { EntityData } from '$lib/global';
 import type { MarketplaceItem, MarketplaceItemType } from '$lib/marketplace';
 import { Search } from '$lib/pipeline-form/steps/_partials/search.svelte';
-import { BasePipelineStepDataForm, type PipelineStep } from '$lib/pipeline-form/types';
-import { pb } from '@/pocketbase';
+import { BasePipelineStepDataForm } from '$lib/pipeline-form/types';
+import { searchMarketplace } from '../_partials/search-marketplace';
 import Component from './marketplace-item-step-form.svelte';
 
 //
@@ -23,11 +23,13 @@ type MarketplaceStepCollection = (typeof collections)[number];
 
 type Props = {
 	collection: MarketplaceStepCollection;
-	onSelect: (item: MarketplaceItem) => PipelineStep;
 	entityData: EntityData;
 };
 
-export class MarketplaceItemStepForm extends BasePipelineStepDataForm<MarketplaceItemStepForm> {
+export class MarketplaceItemStepForm extends BasePipelineStepDataForm<
+	MarketplaceItem,
+	MarketplaceItemStepForm
+> {
 	readonly Component = Component;
 
 	constructor(private props: Props) {
@@ -47,7 +49,7 @@ export class MarketplaceItemStepForm extends BasePipelineStepDataForm<Marketplac
 	}
 
 	async selectItem(item: MarketplaceItem) {
-		this.handleSubmit(this.props.onSelect(item));
+		this.handleSubmit(item);
 	}
 
 	get collection() {
@@ -57,14 +59,4 @@ export class MarketplaceItemStepForm extends BasePipelineStepDataForm<Marketplac
 	get entityData() {
 		return this.props.entityData;
 	}
-}
-
-//
-
-async function searchMarketplace(path: string, type: MarketplaceItemType) {
-	const result = await pb.collection('marketplace_items').getList(1, 10, {
-		filter: pb.filter('path ~ {:path} && type = {:type}', { path, type }),
-		requestKey: null
-	});
-	return result.items as MarketplaceItem[];
 }

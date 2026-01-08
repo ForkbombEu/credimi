@@ -11,7 +11,10 @@ import Component from './conformance-check-step-form.svelte';
 
 //
 
-export class ConformanceCheckStepForm extends BasePipelineStepDataForm<ConformanceCheckStepForm> {
+export class ConformanceCheckStepForm extends BasePipelineStepDataForm<
+	FormData,
+	ConformanceCheckStepForm
+> {
 	readonly Component = Component;
 
 	standardsWithTestSuites = resource(
@@ -78,13 +81,7 @@ export class ConformanceCheckStepForm extends BasePipelineStepDataForm<Conforman
 	}
 
 	selectTest(test: Test) {
-		this.handleSubmit({
-			id: test,
-			use: 'conformance-check',
-			with: {
-				check_id: test
-			}
-		});
+		this.handleSubmit({ ...this.data, test } as FormData);
 	}
 
 	//
