@@ -17,7 +17,9 @@ import type {
 	MarketplaceStepType,
 	WalletStepData,
 	UtilityStepType,
-	UtilityStepData
+	EmailStepData,
+	HttpRequestStepData,
+	DebugStepData
 } from './types';
 import { IdleState, StepFormState, StepType } from './types';
 
@@ -193,7 +195,7 @@ export class StepsBuilder {
 		this.run((data) => {
 			data.state = new UtilityStepForm({
 				stepType,
-				onSubmit: (stepData: UtilityStepData) => {
+				onSubmit: (stepData: EmailStepData | HttpRequestStepData | DebugStepData) => {
 					const stepName =
 						stepType === StepType.Email
 							? 'Email'

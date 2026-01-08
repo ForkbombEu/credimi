@@ -2,28 +2,35 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { StepFormState, type UtilityStepType, StepType } from '../types.js';
+import {
+	StepFormState,
+	type UtilityStepType,
+	StepType,
+	type EmailStepData,
+	type HttpRequestStepData,
+	type DebugStepData
+} from '../types.js';
 
 //
 
-type Props<T> = {
+type Props = {
 	stepType: UtilityStepType;
-	onSubmit: (data: T) => void;
+	onSubmit: (data: EmailStepData | HttpRequestStepData | DebugStepData) => void;
 };
 
-export class UtilityStepForm<T = any> extends StepFormState {
-	constructor(private props: Props<T>) {
+export class UtilityStepForm extends StepFormState {
+	constructor(private props: Props) {
 		super();
 	}
 
 	// Form data for each utility step type
-	emailData = $state({
+	emailData = $state<EmailStepData>({
 		recipient: '',
 		subject: '',
 		body: ''
 	});
 
-	httpRequestData = $state({
+	httpRequestData = $state<HttpRequestStepData>({
 		method: 'GET',
 		url: '',
 		headers: {},
@@ -60,12 +67,12 @@ export class UtilityStepForm<T = any> extends StepFormState {
 	submit() {
 		if (!this.canSubmit()) return;
 
-		let data: any = {};
+		let data: EmailStepData | HttpRequestStepData | DebugStepData;
 		if (this.isEmail) {
 			data = { ...this.emailData };
 		} else if (this.isHttpRequest) {
 			data = { ...this.httpRequestData };
-		} else if (this.isDebug) {
+		} else {
 			data = {};
 		}
 

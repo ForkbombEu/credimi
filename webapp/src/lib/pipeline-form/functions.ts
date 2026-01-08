@@ -13,7 +13,10 @@ import {
 	type ConformanceCheckStep,
 	type MarketplaceItemStep,
 	type WalletActionStep,
-	type UtilityStep
+	type UtilityStep,
+	type EmailStep,
+	type DebugStep,
+	type HttpRequestStep
 } from './steps-builder/types';
 
 /*
@@ -133,15 +136,16 @@ function convertConformanceCheckStep(step: ConformanceCheckStep): YamlStep<'conf
 
 function convertUtilityStep(step: UtilityStep): AnyYamlStep {
 	if (step.type === StepType.Email) {
+		const emailStep = step as EmailStep;
 		return {
 			use: 'email',
-			id: step.id,
-			continue_on_error: step.continueOnError ?? false,
+			id: emailStep.id,
+			continue_on_error: emailStep.continueOnError ?? false,
 			with: {
 				payload: {
-					recipient: step.data.recipient,
-					...(step.data.subject && { subject: step.data.subject }),
-					...(step.data.body && { body: step.data.body })
+					recipient: emailStep.data.recipient,
+					...(emailStep.data.subject && { subject: emailStep.data.subject }),
+					...(emailStep.data.body && { body: emailStep.data.body })
 				}
 			}
 		} as AnyYamlStep;
@@ -149,10 +153,11 @@ function convertUtilityStep(step: UtilityStep): AnyYamlStep {
 		// Debug step uses the pipeline debug activity which is handled internally
 		// We'll use http-request as a placeholder since there's no direct debug step in the registry
 		// The backend handles debug through the runtime.debug flag
+		const debugStep = step as DebugStep;
 		return {
 			use: 'http-request',
-			id: step.id,
-			continue_on_error: step.continueOnError ?? false,
+			id: debugStep.id,
+			continue_on_error: debugStep.continueOnError ?? false,
 			with: {
 				payload: {
 					method: 'GET',
@@ -164,18 +169,19 @@ function convertUtilityStep(step: UtilityStep): AnyYamlStep {
 			}
 		} as AnyYamlStep;
 	} else if (step.type === StepType.HttpRequest) {
+		const httpStep = step as HttpRequestStep;
 		return {
 			use: 'http-request',
-			id: step.id,
-			continue_on_error: step.continueOnError ?? false,
+			id: httpStep.id,
+			continue_on_error: httpStep.continueOnError ?? false,
 			with: {
 				payload: {
-					method: step.data.method,
-					url: step.data.url,
-					...(step.data.headers && Object.keys(step.data.headers).length > 0
-						? { headers: step.data.headers }
+					method: httpStep.data.method,
+					url: httpStep.data.url,
+					...(httpStep.data.headers && Object.keys(httpStep.data.headers).length > 0
+						? { headers: httpStep.data.headers }
 						: {}),
-					...(step.data.body && { body: step.data.body })
+					...(httpStep.data.body && { body: httpStep.data.body })
 				}
 			}
 		} as AnyYamlStep;

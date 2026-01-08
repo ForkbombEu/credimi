@@ -84,9 +84,11 @@ export type HttpRequestStepData = {
 	body?: string;
 };
 
-export type UtilityStepData = EmailStepData | DebugStepData | HttpRequestStepData;
+export type EmailStep = BaseStep<StepType.Email, EmailStepData>;
+export type DebugStep = BaseStep<StepType.Debug, DebugStepData>;
+export type HttpRequestStep = BaseStep<StepType.HttpRequest, HttpRequestStepData>;
 
-export type UtilityStep = BaseStep<UtilityStepType, UtilityStepData>;
+export type UtilityStep = EmailStep | DebugStep | HttpRequestStep;
 
 /* Builder states */
 
