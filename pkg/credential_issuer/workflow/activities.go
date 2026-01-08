@@ -76,7 +76,7 @@ func fetchIssuersRecursive(ctx context.Context, after int) ([]string, error) {
 }
 
 func extractHrefsFromAPIResponse(root FidesResponse) []string {
-	hrefs := []string{}
+	hrefs := make([]string, 0, len(root.Content))
 	for _, item := range root.Content {
 		trimmedHref := removeWellKnownSuffix(item.IssuanceURL)
 		hrefs = append(hrefs, trimmedHref)
