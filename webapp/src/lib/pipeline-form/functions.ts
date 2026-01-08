@@ -75,25 +75,25 @@ export function createPipelineYaml(
 		addNewlineBefore('runtime:'),
 		addNewlineBefore('steps:'),
 		addNewlineBefore('  - use:'),
+		addNewlineBefore('  - id:'),
 		// Correcting first step newline
-		replaceWith('\n  - use:', (t) => t.replace('\n', ''), false)
+		replaceWith('steps:\n\n', (t) => t.replace('\n\n', '\n'), false)
 	);
 }
 
 function linkIds(steps: PipelineStep[]): PipelineStep[] {
 	for (const [index, step] of steps.entries()) {
 		if (!(step.use === 'mobile-automation')) continue;
-
 		if (!step.with.parameters) continue;
 		if (!('deeplink' in step.with.parameters)) continue;
 
 		const previousStep = steps
 			.slice(0, index)
 			.toReversed()
-			.filter((s) => s.use != 'mobile-automation')
+			.filter((s) => s.use != 'mobile-automation' && s.use !== 'debug')
 			.at(0);
 
-		if (!previousStep || !('id' in previousStep)) continue;
+		if (!previousStep) continue;
 
 		let deeplinkPath = '.outputs';
 		if (previousStep.use === 'conformance-check') {
