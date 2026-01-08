@@ -166,7 +166,7 @@ func (a *DockerActivity) Execute(
 	for {
 		select {
 		case <-ctx.Done():
-			_ = cli.ContainerKill(context.Background(), resp.ID, "SIGKILL")
+			_ = cli.ContainerKill(context.Background(), resp.ID, "SIGTERM")
 			_ = cli.ContainerRemove(
 				context.Background(),
 				resp.ID,
