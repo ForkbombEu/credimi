@@ -11,7 +11,14 @@ import Component from './steps-builder.svelte';
 import { BaseStepForm } from './steps/base-step-form.svelte.js';
 import { ConformanceCheckStepForm } from './steps/conformance-check-step-form.svelte.js';
 import { WalletStepForm } from './steps/wallet-step-form.svelte.js';
-import type { BuilderStep, MarketplaceStepType, WalletStepData } from './types';
+import { UtilityStepForm } from './steps/utility-step-form.svelte.js';
+import type {
+	BuilderStep,
+	MarketplaceStepType,
+	WalletStepData,
+	UtilityStepType,
+	UtilityStepData
+} from './types';
 import { IdleState, StepFormState, StepType } from './types';
 
 //
@@ -98,6 +105,12 @@ export class StepsBuilder {
 				this.initWalletStepForm();
 			} else if (type === StepType.ConformanceCheck) {
 				this.initConformanceCheckStepForm();
+			} else if (
+				type === StepType.Email ||
+				type === StepType.Debug ||
+				type === StepType.HttpRequest
+			) {
+				this.initUtilityStepForm(type);
 			} else {
 				this.initBaseStepForm(type);
 			}
@@ -170,6 +183,30 @@ export class StepsBuilder {
 						path: checkId,
 						organization: 'Conformance Check',
 						data: { checkId }
+					});
+				}
+			});
+		});
+	}
+
+	private initUtilityStepForm(stepType: UtilityStepType) {
+		this.run((data) => {
+			data.state = new UtilityStepForm({
+				stepType,
+				onSubmit: (stepData: UtilityStepData) => {
+					const stepName =
+						stepType === StepType.Email
+							? 'Email'
+							: stepType === StepType.Debug
+								? 'Debug'
+								: 'HTTP Request';
+					this.addStep({
+						id: createId(stepType),
+						type: stepType,
+						name: stepName,
+						path: stepType,
+						organization: 'Utils',
+						data: stepData as never
 					});
 				}
 			});

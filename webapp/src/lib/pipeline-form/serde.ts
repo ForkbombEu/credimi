@@ -72,6 +72,17 @@ export function serializeStep(step: BuilderStep) {
 			checkId: step.data.checkId,
 			continueOnError
 		};
+	} else if (
+		step.type === StepType.Email ||
+		step.type === StepType.Debug ||
+		step.type === StepType.HttpRequest
+	) {
+		return {
+			id: step.id,
+			type: step.type,
+			data: step.data,
+			continueOnError
+		};
 	} else {
 		return {
 			id: step.id,
@@ -123,6 +134,26 @@ async function deserializeStep(step: SerializedStep, options = { fetch }): Promi
 			path: step.checkId,
 			organization: 'Conformance Check',
 			data: { checkId: step.checkId },
+			continueOnError: step.continueOnError ?? false
+		};
+	} else if (
+		step.type === StepType.Email ||
+		step.type === StepType.Debug ||
+		step.type === StepType.HttpRequest
+	) {
+		const stepName =
+			step.type === StepType.Email
+				? 'Email'
+				: step.type === StepType.Debug
+					? 'Debug'
+					: 'HTTP Request';
+		return {
+			type: step.type,
+			id: step.id,
+			name: stepName,
+			path: step.type,
+			organization: 'Utils',
+			data: step.data,
 			continueOnError: step.continueOnError ?? false
 		};
 	} else {

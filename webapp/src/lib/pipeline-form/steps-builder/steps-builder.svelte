@@ -25,6 +25,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ConformanceCheckStepForm } from './steps/conformance-check-step-form.svelte.js';
 	import WalletStepFormComponent from './steps/wallet-step-form.svelte';
 	import { WalletStepForm } from './steps/wallet-step-form.svelte.js';
+	import UtilityStepFormComponent from './steps/utility-step-form.svelte';
+	import { UtilityStepForm } from './steps/utility-step-form.svelte.js';
 	import { IdleState, StepFormState, StepType } from './types.js';
 	import Column from './utils/column.svelte';
 	import { getStepDisplayData } from './utils/display-data.js';
@@ -47,6 +49,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<WalletStepFormComponent form={builder.state} />
 				{:else if builder.state instanceof ConformanceCheckStepForm}
 					<ConformanceCheckStepFormComponent form={builder.state} />
+				{:else if builder.state instanceof UtilityStepForm}
+					<UtilityStepFormComponent form={builder.state} />
 				{:else if builder.state instanceof BaseStepForm}
 					<BaseStepFormComponent form={builder.state} />
 				{/if}

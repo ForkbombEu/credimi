@@ -4,6 +4,7 @@
 
 import { marketplaceItemsDisplayConfig, type MarketplaceItemDisplayData } from '$lib/marketplace';
 import { appSections } from '$lib/marketplace/sections';
+import { Mail, Bug, Globe } from 'lucide-svelte';
 
 import { m } from '@/i18n/index.js';
 
@@ -32,6 +33,33 @@ const stepDisplayDataMap: Record<StepType, MarketplaceItemDisplayData> = {
 		textClass: conformance_checks.textClass,
 		backgroundClass: 'bg-red-500',
 		outlineClass: 'border-red-500'
+	},
+	[StepType.Email]: {
+		icon: Mail,
+		label: m.Utils_Email(),
+		labelPlural: m.Utils_Email(),
+		bgClass: 'bg-[hsl(var(--cyan-foreground))]',
+		textClass: 'text-[hsl(var(--cyan-foreground))]',
+		backgroundClass: 'bg-[hsl(var(--cyan-background))]',
+		outlineClass: 'border-[hsl(var(--cyan-outline))]'
+	},
+	[StepType.Debug]: {
+		icon: Bug,
+		label: m.Utils_Debug(),
+		labelPlural: m.Utils_Debug(),
+		bgClass: 'bg-[hsl(var(--yellow-foreground))]',
+		textClass: 'text-[hsl(var(--yellow-foreground))]',
+		backgroundClass: 'bg-[hsl(var(--yellow-background))]',
+		outlineClass: 'border-[hsl(var(--yellow-outline))]'
+	},
+	[StepType.HttpRequest]: {
+		icon: Globe,
+		label: m.Utils_HTTP_Request(),
+		labelPlural: m.Utils_HTTP_Request(),
+		bgClass: 'bg-[hsl(var(--indigo-foreground))]',
+		textClass: 'text-[hsl(var(--indigo-foreground))]',
+		backgroundClass: 'bg-[hsl(var(--indigo-background))]',
+		outlineClass: 'border-[hsl(var(--indigo-outline))]'
 	}
 };
 

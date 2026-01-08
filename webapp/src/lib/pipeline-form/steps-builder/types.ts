@@ -30,10 +30,17 @@ export enum StepType {
 	Credential = 'credentials',
 	UseCaseVerification = 'use_cases_verifications',
 	ConformanceCheck = 'conformance_checks',
-	CustomCheck = 'custom_checks'
+	CustomCheck = 'custom_checks',
+	Email = 'email',
+	Debug = 'debug',
+	HttpRequest = 'http_request'
 }
 
-export type BuilderStep = WalletActionStep | MarketplaceItemStep | ConformanceCheckStep;
+export type BuilderStep =
+	| WalletActionStep
+	| MarketplaceItemStep
+	| ConformanceCheckStep
+	| UtilityStep;
 
 //
 
@@ -57,6 +64,29 @@ export type WalletStepData = {
 //
 
 export type ConformanceCheckStep = BaseStep<StepType.ConformanceCheck, { checkId: string }>;
+
+//
+
+export type UtilityStepType = StepType.Email | StepType.Debug | StepType.HttpRequest;
+
+export type EmailStepData = {
+	recipient: string;
+	subject?: string;
+	body?: string;
+};
+
+export type DebugStepData = Record<string, never>; // Empty object, debug doesn't need specific data
+
+export type HttpRequestStepData = {
+	method: string;
+	url: string;
+	headers?: Record<string, string>;
+	body?: string;
+};
+
+export type UtilityStepData = EmailStepData | DebugStepData | HttpRequestStepData;
+
+export type UtilityStep = BaseStep<UtilityStepType, UtilityStepData>;
 
 /* Builder states */
 

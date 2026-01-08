@@ -12,7 +12,8 @@ import {
 	type BuilderStep,
 	type ConformanceCheckStep,
 	type MarketplaceItemStep,
-	type WalletActionStep
+	type WalletActionStep,
+	type UtilityStep
 } from './steps-builder/types';
 
 /*
@@ -37,6 +38,12 @@ function convertStep(step: BuilderStep): AnyYamlStep {
 		return convertWalletActionStep(step);
 	} else if (step.type === StepType.ConformanceCheck) {
 		return convertConformanceCheckStep(step);
+	} else if (
+		step.type === StepType.Email ||
+		step.type === StepType.Debug ||
+		step.type === StepType.HttpRequest
+	) {
+		return convertUtilityStep(step);
 	} else {
 		return convertMarketplaceItemStep(step);
 	}
@@ -122,6 +129,58 @@ function convertConformanceCheckStep(step: ConformanceCheckStep): YamlStep<'conf
 			check_id: step.data.checkId
 		}
 	};
+}
+
+function convertUtilityStep(step: UtilityStep): AnyYamlStep {
+	if (step.type === StepType.Email) {
+		return {
+			use: 'email',
+			id: step.id,
+			continue_on_error: step.continueOnError ?? false,
+			with: {
+				payload: {
+					recipient: step.data.recipient,
+					...(step.data.subject && { subject: step.data.subject }),
+					...(step.data.body && { body: step.data.body })
+				}
+			}
+		} as AnyYamlStep;
+	} else if (step.type === StepType.Debug) {
+		// Debug step uses the pipeline debug activity which is handled internally
+		// We'll use http-request as a placeholder since there's no direct debug step in the registry
+		// The backend handles debug through the runtime.debug flag
+		return {
+			use: 'http-request',
+			id: step.id,
+			continue_on_error: step.continueOnError ?? false,
+			with: {
+				payload: {
+					method: 'GET',
+					url: 'https://httpbin.org/status/200' // Simple debug endpoint
+				}
+			},
+			metadata: {
+				debug: true
+			}
+		} as AnyYamlStep;
+	} else if (step.type === StepType.HttpRequest) {
+		return {
+			use: 'http-request',
+			id: step.id,
+			continue_on_error: step.continueOnError ?? false,
+			with: {
+				payload: {
+					method: step.data.method,
+					url: step.data.url,
+					...(step.data.headers && Object.keys(step.data.headers).length > 0
+						? { headers: step.data.headers }
+						: {}),
+					...(step.data.body && { body: step.data.body })
+				}
+			}
+		} as AnyYamlStep;
+	}
+	throw new Error(`Unknown utility step type: ${step.type}`);
 }
 
 function linkIds(steps: AnyYamlStep[]): AnyYamlStep[] {
