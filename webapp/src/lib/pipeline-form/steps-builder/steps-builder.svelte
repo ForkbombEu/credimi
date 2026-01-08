@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
 	import { String } from 'effect';
-	import { ArrowLeftIcon, BugIcon } from 'lucide-svelte';
+	import { ArrowLeftIcon } from 'lucide-svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
 
@@ -20,9 +20,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
+	import { configs } from '../steps/index.js';
 	import Column from './_partials/column.svelte';
 	import EmptyState from './_partials/empty-state.svelte';
 	import StepCard from './_partials/step-card.svelte';
+	import { debugEntityData, getStepDisplayData } from './_partials/utils.js';
 
 	//
 
@@ -85,8 +87,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet stepButtons()}
 	<div class="flex flex-col gap-2 p-4" in:fly>
-		{#each builder.configs as config (config.id)}
-			{@const { icon, labels, classes } = config.display}
+		{#each configs as config (config.id)}
+			{@const { icon, labels, classes } = getStepDisplayData(config.id)}
 			<Button
 				variant="outline"
 				class="!justify-start"
@@ -98,8 +100,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/each}
 
 		<Button variant="outline" class="!justify-start" onclick={() => builder.addDebugStep()}>
-			<Icon src={BugIcon} />
-			{m.Debug()}
+			<Icon src={debugEntityData.icon} class={debugEntityData.classes.text} />
+			{debugEntityData.labels.singular}
 		</Button>
 	</div>
 {/snippet}

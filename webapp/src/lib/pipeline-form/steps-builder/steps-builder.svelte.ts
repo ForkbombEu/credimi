@@ -5,12 +5,8 @@
 import type { Renderable } from '$lib/renderable';
 import { StateManager } from '$lib/state-manager/state-manager';
 import { nanoid } from 'nanoid';
-import type {
-	AnyPipelineStepConfig,
-	PipelineStep,
-	PipelineStepDataForm,
-	PipelineStepWithId
-} from '../types';
+import { configs } from '../steps';
+import type { PipelineStep, PipelineStepDataForm, PipelineStepWithId } from '../types';
 import Component from './steps-builder.svelte';
 
 //
@@ -18,7 +14,6 @@ import Component from './steps-builder.svelte';
 export type EnrichedStep = [PipelineStep, Record<string, unknown>];
 
 type Props = {
-	configs: AnyPipelineStepConfig[];
 	steps: EnrichedStep[];
 	yamlPreview: () => string;
 };
@@ -58,10 +53,6 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		return this.props.yamlPreview();
 	}
 
-	get configs() {
-		return this.props.configs;
-	}
-
 	undo() {
 		this.stateManager.undo();
 	}
@@ -73,11 +64,11 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	// Core functionality
 
 	initAddStep(type: string) {
-		const config = this.props.configs.find((c) => c.id === type);
+		const config = configs.find((c) => c.id === type);
 		if (!config) return;
 
 		this.stateManager.run((data) => {
-			const config = this.props.configs.find((c) => c.id === type);
+			const config = configs.find((c) => c.id === type);
 			if (!config) return;
 
 			const effectCleanup = $effect.root(() => {
@@ -153,9 +144,5 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	// TODO: Convert to "hasChanges"
 	hasSteps() {
 		return this.steps.length > 0;
-	}
-
-	getConfig(type: string) {
-		return this.props.configs.find((c) => c.id === type);
 	}
 }

@@ -12,7 +12,6 @@ import { ActivityOptionsForm } from './activity-options-form/activity-options-fo
 import { createPipelineYaml } from './functions.js';
 import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
 import Component from './pipeline-form.svelte';
-import { configs } from './steps';
 import { StepsBuilder } from './steps-builder/steps-builder.svelte.js';
 import type { EnrichedPipeline } from './types';
 
@@ -33,8 +32,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	constructor(private props: Props) {
 		this.stepsBuilder = new StepsBuilder({
 			steps: props.pipeline?.steps ?? [],
-			yamlPreview: () => this.yamlString,
-			configs
+			yamlPreview: () => this.yamlString
 		});
 
 		this.activityOptionsForm = new ActivityOptionsForm({

@@ -15,6 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { EnrichedStep, StepsBuilder } from '../steps-builder.svelte.js';
 
+	import { getStepDisplayData } from './utils.js';
+
 	//
 
 	type Props = {
@@ -25,21 +27,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { builder, step, index }: Props = $props();
 
-	const config = $derived(builder.getConfig(step[0].use));
-	const display = $derived(config?.display);
-	const classes = $derived(display?.classes);
+	const { classes, labels, icon, snippet } = $derived(getStepDisplayData(step[0].use));
 </script>
 
-<div class={['bg-card group overflow-hidden rounded-md border hover:ring', classes?.border]}>
+<div class={['bg-card group overflow-hidden rounded-md border hover:ring', classes.border]}>
 	<div class={['h-1', classes?.bg]}></div>
 	<div>
 		<div class="flex items-center justify-between py-1 pl-3 pr-1">
-			{#if display}
-				<div class={['flex items-center gap-1', classes?.text]}>
-					<Icon src={display.icon} size={12} />
-					<p class="text-xs">{display.labels.singular}</p>
-				</div>
-			{/if}
+			<div class={['flex items-center gap-1', classes.text]}>
+				<Icon src={icon} size={12} />
+				<p class="text-xs">{labels.singular}</p>
+			</div>
 
 			<div class="flex items-center">
 				<IconButton
@@ -66,8 +64,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		<div class="p-3 pb-4 pt-1">
-			{#if config && display}
-				{@render config.snippet?.({ data: step, display })}
+			{#if snippet}
+				{@render snippet()}
 			{:else}
 				<h1>{step[0].use}</h1>
 			{/if}
