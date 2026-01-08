@@ -5,40 +5,45 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script module lang="ts">
-	import { fetchPipeline } from '$lib/pipeline-form/serde';
+	import { enrichPipeline } from '$lib/pipeline-form/functions';
 
-	import { pb } from '@/pocketbase';
+	import { pb } from '@/pocketbase/index.js';
 
 	import { pageDetails } from './_utils/types';
 
+	//
+
 	export async function getPipelineDetails(itemId: string, fetchFn = fetch) {
-		const pipelineData = await fetchPipeline(itemId, { fetch: fetchFn });
+		const pipelineRecord = await pb.collection('pipelines').getOne(itemId, { fetch: fetchFn });
+		const pipeline = await enrichPipeline(pipelineRecord);
 
 		return pageDetails('pipelines', {
-			pipelineData,
-			yaml: pipelineData.yaml,
-			description: pipelineData.description
+			yaml: pipelineRecord.yaml,
+			description: pipelineRecord.description,
+			pipeline
 		});
 	}
 </script>
 
 <script lang="ts">
+	import Alert from '@/components/ui-custom/alert.svelte';
+
 	import CodeSection from './_utils/code-section.svelte';
 	import DescriptionSection from './_utils/description-section.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
-	import PipelineStepsDisplay from './pipeline-steps-display.svelte';
 
 	type Props = Awaited<ReturnType<typeof getPipelineDetails>>;
-	let { pipelineData, yaml, description }: Props = $props();
+	let { yaml, description, pipeline }: Props = $props();
 </script>
 
 <LayoutWithToc sections={[s.description, s.pipeline_steps, s.workflow_yaml]}>
 	<DescriptionSection {description} />
 
-	<PageSection indexItem={s.pipeline_steps} empty={pipelineData.steps.length === 0}>
-		<PipelineStepsDisplay steps={pipelineData.steps} />
+	<PageSection indexItem={s.pipeline_steps} empty={pipeline.steps.length === 0}>
+		<Alert variant="warning">Displaying steps is not implemented yet</Alert>
+		<!-- <PipelineStepsDisplay steps={pipeline.steps} /> -->
 	</PageSection>
 
 	<CodeSection indexItem={s.workflow_yaml} code={yaml} language="yaml" />

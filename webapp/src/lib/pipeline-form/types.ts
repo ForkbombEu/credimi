@@ -38,7 +38,7 @@ export interface PipelineStepConfig<
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface PipelineStepDataForm<Deserialized = unknown, T = any> extends Renderable<T> {
+export interface PipelineStepDataForm<Deserialized = any, T = any> extends Renderable<T> {
 	onSubmit: (handler: (step: Deserialized) => void) => void;
 }
 
@@ -81,6 +81,6 @@ export const DEEPLINK_STEP_ID_PLACEHOLDER = 'get-deeplink';
 
 export interface EnrichedPipeline {
 	metadata: PipelinesResponse;
-	activity_options: ActivityOptions;
+	activity_options?: ActivityOptions;
 	steps: EnrichedStep[];
 }

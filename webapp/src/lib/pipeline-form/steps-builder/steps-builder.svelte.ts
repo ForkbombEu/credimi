@@ -35,7 +35,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		steps: [],
 		state: { id: 'idle' }
 	});
-	private stateManager = new StateManager(this._state);
+	private stateManager = new StateManager(
+		() => this._state,
+		(state) => (this._state = state)
+	);
 
 	constructor(private props: Props) {
 		this._state.steps = props.steps;
@@ -70,6 +73,9 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	// Core functionality
 
 	initAddStep(type: string) {
+		const config = this.props.configs.find((c) => c.id === type);
+		if (!config) return;
+
 		this.stateManager.run((data) => {
 			const config = this.props.configs.find((c) => c.id === type);
 			if (!config) return;

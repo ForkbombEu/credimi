@@ -7,7 +7,10 @@ import { create } from 'mutative';
 //
 
 export class StateManager<State> {
-	constructor(public state: State) {}
+	constructor(
+		readonly getter: () => State,
+		readonly setter: (state: State) => void
+	) {}
 
 	private history: History<State> = {
 		past: [],
@@ -15,24 +18,24 @@ export class StateManager<State> {
 	};
 
 	run(action: (state: State) => void) {
-		this.history.past.push(this.state);
-		const nextState = create(this.state, action);
-		this.state = nextState;
+		this.history.past.push(this.getter());
+		const nextState = create(this.getter(), action);
+		this.setter(nextState);
 		this.history.future = [];
 	}
 
 	undo() {
 		const previousData = this.history.past.pop();
 		if (!previousData) return;
-		this.history.future.push(this.state);
-		this.state = previousData;
+		this.history.future.push(this.getter());
+		this.setter(previousData);
 	}
 
 	redo() {
 		const nextState = this.history.future.pop();
 		if (!nextState) return;
-		this.history.past.push(this.state);
-		this.state = nextState;
+		this.history.past.push(this.getter());
+		this.setter(nextState);
 	}
 }
 

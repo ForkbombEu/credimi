@@ -3,12 +3,13 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pipe, String } from 'effect';
-import { stringify } from 'yaml';
+import { parse, stringify } from 'yaml';
 
-import { pb } from '@/pocketbase';
+import type { PipelinesResponse } from '@/pocketbase/types';
 
-import type { EnrichedStep } from './steps-builder/steps-builder.svelte';
+import type { EnrichedStep } from './steps-builder/steps-builder.svelte.js';
 
+import { configs } from './steps';
 import {
 	DEEPLINK_STEP_ID_PLACEHOLDER,
 	type ActivityOptions,
@@ -19,12 +20,33 @@ import {
 
 /* Fetching pipeline */
 
-export async function fetchPipeline(id: string, options = { fetch }): Promise<EnrichedPipeline> {
-	const pipeline = await pb.collection('pipelines').getOne(id, { fetch: options.fetch });
+export async function enrichPipeline(pipelineRecord: PipelinesResponse): Promise<EnrichedPipeline> {
+	const pipelineYaml = parse(pipelineRecord.yaml) as Pipeline;
+	const steps = pipelineYaml.steps ?? [];
+
+	const enrichedSteps: EnrichedStep[] = [];
+	for (const step of steps) {
+		if (step.use === 'debug') {
+			enrichedSteps.push([step, {}]);
+		} else {
+			try {
+				const config = configs.find((c) => c.id === step.use);
+				if (!config) throw new Error(`Unknown step type: ${step.use}`);
+				const data = await config.deserialize(step.with);
+				enrichedSteps.push([step, data]);
+			} catch (e) {
+				console.error(step);
+				console.error(e);
+				// TODO: Push 404 step
+				enrichedSteps.push([step, {}]);
+			}
+		}
+	}
+
 	return {
-		metadata: pipeline,
-		activity_options: pipeline.runtime.temporal.activity_options as ActivityOptions,
-		steps: pipeline.steps as EnrichedStep[]
+		metadata: pipelineRecord,
+		activity_options: pipelineYaml.runtime?.temporal?.activity_options,
+		steps: enrichedSteps
 	};
 }
 

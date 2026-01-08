@@ -50,23 +50,46 @@ export const walletActionStepConfig: TypedPipelineStepConfig<
 		if (!('action_id' in data) || !('version_id' in data)) {
 			throw new Error('Invalid data');
 		}
-		const [orgId, walletId, actionId] = data.action_id.split('/');
-		const versionId = data.version_id.split('/')[2];
-		const wallet = (await pb
-			.collection('marketplace_items')
-			.getFirstListItem('type = {:type} && id = {:walletId}', {
+		const [orgId, walletId, actionId] = data.action_id.split('/').filter(Boolean);
+		const versionId = data.version_id.split('/').filter(Boolean)[2];
+
+		const wallet: MarketplaceItem = await pb.collection('marketplace_items').getFirstListItem(
+			pb.filter('type = {:type} && canonified_name = {:walletId}', {
 				type: Collections.Wallets,
 				walletId
-			})) as MarketplaceItem;
-		const action = await pb
-			.collection('wallet_actions')
-			.getFirstListItem('owner.canonified_name = {:orgId} && id = {:actionId}', {
-				orgId,
-				actionId
-			});
-		const version = await pb
-			.collection('wallet_versions')
-			.getOne('wallet = {:walletId} && id = {:versionId}', { walletId, versionId });
+			})
+		);
+
+		const action = await pb.collection('wallet_actions').getFirstListItem(
+			pb.filter(
+				[
+					'owner.canonified_name={:orgId}',
+					'wallet.canonified_name={:walletId}',
+					'canonified_name={:actionId}'
+				].join('&&'),
+				{
+					orgId,
+					walletId,
+					actionId
+				}
+			)
+		);
+
+		const version = await pb.collection('wallet_versions').getFirstListItem(
+			pb.filter(
+				[
+					'owner.canonified_name = {:orgId}',
+					'wallet.canonified_name = {:walletId}',
+					'canonified_tag = {:versionId}'
+				].join('&&'),
+				{
+					orgId,
+					walletId,
+					versionId
+				}
+			)
+		);
+
 		return {
 			wallet: wallet,
 			version: version,
