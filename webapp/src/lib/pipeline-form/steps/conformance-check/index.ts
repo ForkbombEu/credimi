@@ -41,5 +41,11 @@ export const conformanceCheckStepConfig: TypedPipelineStepConfig<'conformance-ch
 			suite,
 			test
 		};
-	}
+	},
+
+	cardData: ({ suite, test }) => ({
+		title: test.split('/').at(-1)?.replaceAll('+', ' ') ?? '',
+		copyText: test,
+		avatar: suite.logo
+	})
 };

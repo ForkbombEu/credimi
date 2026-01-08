@@ -6,7 +6,7 @@ import type { MarketplaceItem } from '$lib/marketplace/types.js';
 import type { TypedPipelineStepConfig } from '$lib/pipeline-form/types';
 
 import { entities } from '$lib/global/entities.js';
-import { getMarketplaceItemByPath } from '$lib/marketplace/utils.js';
+import { getMarketplaceItemByPath, getMarketplaceItemLogo } from '$lib/marketplace/utils.js';
 
 import { m } from '@/i18n/index.js';
 
@@ -26,7 +26,8 @@ export const credentialsStepConfig: TypedPipelineStepConfig<'credential-offer', 
 			entityData: entities.credentials
 		}),
 	serialize: (item) => ({ credential_id: item.path }),
-	deserialize: ({ credential_id }) => getMarketplaceItemByPath(credential_id)
+	deserialize: ({ credential_id }) => getMarketplaceItemByPath(credential_id),
+	cardData: getMarketplaceItemCardData
 };
 
 //
@@ -43,7 +44,8 @@ export const useCaseVerificationStepConfig: TypedPipelineStepConfig<
 			entityData: entities.use_cases_verifications
 		}),
 	serialize: (item) => ({ use_case_id: item.path }),
-	deserialize: ({ use_case_id }) => getMarketplaceItemByPath(use_case_id)
+	deserialize: ({ use_case_id }) => getMarketplaceItemByPath(use_case_id),
+	cardData: getMarketplaceItemCardData
 };
 
 //
@@ -60,5 +62,16 @@ export const customCheckStepConfig: TypedPipelineStepConfig<'custom-check', Mark
 	deserialize: async ({ check_id }) => {
 		if (!check_id) throw new Error('Missing check_id');
 		return getMarketplaceItemByPath(check_id);
-	}
+	},
+	cardData: getMarketplaceItemCardData
 };
+
+//
+
+function getMarketplaceItemCardData(item: MarketplaceItem) {
+	return {
+		title: item.name,
+		copyText: item.path,
+		avatar: getMarketplaceItemLogo(item)
+	};
+}

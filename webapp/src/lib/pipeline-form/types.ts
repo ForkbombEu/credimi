@@ -4,7 +4,6 @@
 
 import type { EntityData } from '$lib/global';
 import type { Renderable } from '$lib/renderable';
-import type { Snippet } from 'svelte';
 import type { Simplify } from 'type-fest';
 
 import type { PipelinesResponse } from '@/pocketbase/types/index.generated.js';
@@ -34,7 +33,11 @@ export interface PipelineStepConfig<
 	deserialize: (step: Serialized) => Promise<Deserialized>;
 	display: EntityData;
 	initForm: () => PipelineStepDataForm<Deserialized>;
-	snippet?: Snippet<[{ data: Deserialized; display: EntityData }]>;
+	cardData: (data: Deserialized) => {
+		title: string;
+		copyText?: string;
+		avatar?: string;
+	};
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

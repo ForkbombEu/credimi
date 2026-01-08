@@ -15,7 +15,8 @@ import {
 	type ActivityOptions,
 	type EnrichedPipeline,
 	type Pipeline,
-	type PipelineStep
+	type PipelineStep,
+	type PipelineStepType
 } from './types';
 
 /* Fetching pipeline */
@@ -81,6 +82,8 @@ export function createPipelineYaml(
 	);
 }
 
+const unlinkableSteps: PipelineStepType[] = ['mobile-automation', 'debug'];
+
 function linkIds(steps: PipelineStep[]): PipelineStep[] {
 	for (const [index, step] of steps.entries()) {
 		if (!(step.use === 'mobile-automation')) continue;
@@ -90,10 +93,10 @@ function linkIds(steps: PipelineStep[]): PipelineStep[] {
 		const previousStep = steps
 			.slice(0, index)
 			.toReversed()
-			.filter((s) => s.use != 'mobile-automation' && s.use !== 'debug')
+			.filter((s) => !unlinkableSteps.includes(s.use))
 			.at(0);
 
-		if (!previousStep) continue;
+		if (!previousStep || !('id' in previousStep)) continue;
 
 		let deeplinkPath = '.outputs';
 		if (previousStep.use === 'conformance-check') {

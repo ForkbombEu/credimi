@@ -2,9 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MarketplaceItem } from '$lib/marketplace';
-
 import { entities } from '$lib/global/entities';
+import { getMarketplaceItemLogo, type MarketplaceItem } from '$lib/marketplace';
 import {
 	DEEPLINK_STEP_ID_PLACEHOLDER,
 	type PipelineStepByType,
@@ -30,6 +29,11 @@ export const walletActionStepConfig: TypedPipelineStepConfig<
 	id: 'mobile-automation',
 
 	display: entities.wallets,
+	cardData: ({ action, wallet }) => ({
+		title: action.name,
+		copyText: getPath(action),
+		avatar: getMarketplaceItemLogo(wallet)
+	}),
 
 	initForm: () => new WalletActionStepForm(),
 

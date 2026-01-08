@@ -7,6 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from 'lucide-svelte';
 
+	import Avatar from '@/components/ui-custom/avatar.svelte';
+	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
@@ -15,7 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { EnrichedStep, StepsBuilder } from '../steps-builder.svelte.js';
 
-	import { getStepDisplayData } from './utils.js';
+	import { getStepCardData, getStepDisplayData } from './utils.js';
 
 	//
 
@@ -27,7 +29,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { builder, step, index }: Props = $props();
 
-	const { classes, labels, icon, snippet } = $derived(getStepDisplayData(step[0].use));
+	const { classes, labels, icon } = $derived(getStepDisplayData(step[0].use));
+	const { title, copyText, avatar } = $derived(getStepCardData(step));
 </script>
 
 <div class={['bg-card group overflow-hidden rounded-md border hover:ring', classes.border]}>
@@ -63,22 +66,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 
-		{#if snippet}
-			<div class="p-3 pb-4 pt-1">
-				{@render snippet()}
-				<!-- <Avatar src={step.avatar} fallback={step.name} class="size-8 rounded-lg border" />
+		{#if step[0].use !== 'debug'}
+			<div class="flex items-center gap-3 p-3 pb-4 pt-1">
+				<Avatar src={avatar} fallback={title} class="size-8 rounded-md border" />
 				<div class="space-y-1">
 					<div class="flex items-center gap-1">
-						<h1>{step.name}</h1>
-						<CopyButtonSmall
-						textToCopy={step.path}
-						variant="ghost"
-						square
-						size="mini"
-						class="text-gray-400"
-						/>
-						</div>
-						</div> -->
+						<h1>{title}</h1>
+						{#if copyText}
+							<CopyButtonSmall
+								textToCopy={copyText}
+								variant="ghost"
+								square
+								size="mini"
+								class="text-gray-400"
+							/>
+						{/if}
+					</div>
+				</div>
 			</div>
 		{/if}
 
