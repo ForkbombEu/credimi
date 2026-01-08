@@ -63,26 +63,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 
-		<div class="p-3 pb-4 pt-1">
-			{#if snippet}
+		{#if snippet}
+			<div class="p-3 pb-4 pt-1">
 				{@render snippet()}
-			{:else}
-				<h1>{step[0].use}</h1>
-			{/if}
-			<!-- <Avatar src={step.avatar} fallback={step.name} class="size-8 rounded-lg border" />
-			<div class="space-y-1">
-				<div class="flex items-center gap-1">
-					<h1>{step.name}</h1>
-					<CopyButtonSmall
+				<!-- <Avatar src={step.avatar} fallback={step.name} class="size-8 rounded-lg border" />
+				<div class="space-y-1">
+					<div class="flex items-center gap-1">
+						<h1>{step.name}</h1>
+						<CopyButtonSmall
 						textToCopy={step.path}
 						variant="ghost"
 						square
 						size="mini"
 						class="text-gray-400"
-					/>
-				</div>
-			</div> -->
-		</div>
+						/>
+						</div>
+						</div> -->
+			</div>
+		{/if}
 
 		{#if step[0].use !== 'debug'}
 			<Label class="flex cursor-pointer items-center gap-1 bg-slate-50 px-3 py-1">
