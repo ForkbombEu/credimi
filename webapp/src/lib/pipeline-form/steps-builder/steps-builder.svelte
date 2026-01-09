@@ -101,6 +101,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Button>
 		{/each}
 
+		<div
+			class="text-muted-foreground -mb-1 pt-2 text-[10px] font-medium uppercase tracking-normal"
+		>
+			{m.utils()}
+		</div>
 		<Button variant="outline" class="!justify-start" onclick={() => builder.addDebugStep()}>
 			<Icon src={debugEntityData.icon} class={debugEntityData.classes.text} />
 			{debugEntityData.labels.singular}

@@ -105,13 +105,12 @@ export function createPipelineYaml(
 
 function generateIds(steps: PipelineStep[]): PipelineStep[] {
 	for (const [index, step] of steps.entries()) {
+		if (!('id' in step)) continue;
+
 		const config = configs.find((c) => c.use === step.use);
-		if (!config) {
-			throw new Error(`Unknown step type: ${step.use}`);
-		}
-		if ('id' in step) {
-			step.id = `${slugify(config.makeId(step.with))}-${(index + 1).toString().padStart(4, '0')}`;
-		}
+		if (!config) throw new Error(`Unknown step type: ${step.use}`);
+
+		step.id = `${slugify(config.makeId(step.with))}-${(index + 1).toString().padStart(4, '0')}`;
 	}
 	return steps;
 }

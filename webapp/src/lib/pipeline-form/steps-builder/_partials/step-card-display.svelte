@@ -73,7 +73,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<p class="pt-2 text-xs opacity-60">{step[1].description}</p>
 					{/if}
 				</div>
-			{:else if step[0].use !== 'debug'}
+			{:else if step[0].use === 'debug'}
+				<div class="text-xs text-gray-500">{m.debug_step_description()}</div>
+			{:else}
 				<div class="flex items-center gap-3">
 					<Avatar src={avatar} fallback={title} class="size-8 rounded-sm border" />
 					<div class="space-y-1">
