@@ -17,6 +17,17 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+const (
+	searchAttrEmulatorSerial = "emulator_serial"
+	searchAttrVersionID      = "version_id"
+	searchAttrBootStatus     = "boot_status"
+	bootStatusStarting       = "starting"
+	bootStatusStarted        = "started"
+	bootStatusBooted         = "booted"
+	bootStatusRecording      = "recording"
+	bootStatusStopped        = "stopped"
+)
+
 func MobileAutomationSetupHook(
 	ctx workflow.Context,
 	steps *[]StepDefinition,
@@ -37,6 +48,7 @@ func MobileAutomationSetupHook(
 	if alreadyStartedEmu, ok := (*runData)["started_emulators"].(map[string]any); ok {
 		startedEmulators = alreadyStartedEmu
 	}
+	metrics := getEmulatorMetrics(runData)
 
 	for i := range *steps {
 		step := &(*steps)[i]
@@ -184,13 +196,26 @@ func MobileAutomationSetupHook(
 					emuInfo,
 				)
 			}
+			bootStatus, ok := emuInfoMap["boot_status"].(string)
+			if !ok || bootStatus == "" {
+				bootStatus = bootStatusStarted
+				updateEmulatorStatus(startedEmulators, versionIdentifier, map[string]any{
+					"boot_status": bootStatus,
+					"serial":      serial,
+				})
+			}
 			logger.Info(
 				"Emulator already started, skipping start",
 				"version",
 				versionIdentifier,
 				"serial",
 				serial,
+				"boot_status",
+				bootStatus,
 			)
+			upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatus)
+			metrics["active_emulators"] = countActiveEmulators(startedEmulators)
+			updateEmulatorGauges(ctx, metrics)
 			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 			continue
 		}
@@ -199,14 +224,25 @@ func MobileAutomationSetupHook(
 		mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 		mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
 		startResult := workflowengine.ActivityResult{}
+		metrics["pending_starts"]++
+		updateEmulatorGauges(ctx, metrics)
+		updateEmulatorStatus(startedEmulators, versionIdentifier, map[string]any{
+			"boot_status": bootStatusStarting,
+		})
+		upsertEmulatorSearchAttributes(ctx, versionIdentifier, "", bootStatusStarting)
 		startEmuInput := workflowengine.ActivityInput{
 			Payload: map[string]any{"version_id": versionIdentifier},
 		}
 		err = workflow.ExecuteActivity(mobileCtx, startEmuActivity.Name(), startEmuInput).
 			Get(ctx, &startResult)
 		if err != nil {
+			metrics["pending_starts"]--
+			updateEmulatorGauges(ctx, metrics)
+			incrementEmulatorCounter(ctx, metrics, "failed_starts")
 			return err
 		}
+		metrics["pending_starts"]--
+		updateEmulatorGauges(ctx, metrics)
 		serial, ok := startResult.Output.(map[string]any)["serial"].(string)
 		if !ok {
 			return workflowengine.NewAppError(
@@ -233,6 +269,14 @@ func MobileAutomationSetupHook(
 		}
 		SetPayloadValue(&step.With.Payload, "clone_name", cloneName)
 		SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
+		updateEmulatorStatus(startedEmulators, versionIdentifier, map[string]any{
+			"serial":      serial,
+			"boot_status": bootStatusStarted,
+		})
+		upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatusStarted)
+		SetRunDataValue(runData, "started_emulators", startedEmulators)
+		metrics["active_emulators"] = countActiveEmulators(startedEmulators)
+		updateEmulatorGauges(ctx, metrics)
 
 		installInput := workflowengine.ActivityInput{
 			Payload: map[string]any{"apk": apkPath, "emulator_serial": serial},
@@ -240,6 +284,10 @@ func MobileAutomationSetupHook(
 		if err := workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).Get(mobileCtx, nil); err != nil {
 			return err
 		}
+		updateEmulatorStatus(startedEmulators, versionIdentifier, map[string]any{
+			"boot_status": bootStatusBooted,
+		})
+		upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatusBooted)
 		startRecordInput := workflowengine.ActivityInput{
 			Payload: map[string]any{
 				"emulator_serial": serial,
@@ -305,11 +353,15 @@ func MobileAutomationSetupHook(
 		SetPayloadValue(&step.With.Payload, "recording_adb_pid", int(adbPID))
 		SetPayloadValue(&step.With.Payload, "recording_ffmpeg_pid", int(ffmpegPID))
 		SetPayloadValue(&step.With.Payload, "recording_logcat_pid", int(logcatPID))
-		startedEmulators[versionIdentifier] = map[string]any{
-			"serial":     serial,
-			"recording":  true,
-			"video_path": videoPath,
-		}
+		updateEmulatorStatus(startedEmulators, versionIdentifier, map[string]any{
+			"serial":      serial,
+			"recording":   true,
+			"video_path":  videoPath,
+			"boot_status": bootStatusRecording,
+		})
+		upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatusRecording)
+		metrics["active_emulators"] = countActiveEmulators(startedEmulators)
+		updateEmulatorGauges(ctx, metrics)
 		SetRunDataValue(runData, "started_emulators", startedEmulators)
 		// unlockInput := workflowengine.ActivityInput{Payload: map[string]any{"emulator_serial": serial}}
 		// if err := workflow.ExecuteActivity(mobileCtx, unlockActivity.Name(), unlockInput).Get(ctx, nil); err != nil {
@@ -340,6 +392,8 @@ func MobileAutomationCleanupHook(
 			"missing or invalid app_url in workflow input config",
 		)
 	}
+	metrics := getEmulatorMetrics(&runData)
+	startedEmulators, _ := runData["started_emulators"].(map[string]any)
 
 	stoppedEmulators := make(map[string]struct{})
 	var cleanupErrs []error
@@ -377,6 +431,7 @@ func MobileAutomationCleanupHook(
 			input,
 			output,
 			&cleanupErrs,
+			metrics,
 		)
 
 		// Always stop emulator
@@ -394,8 +449,16 @@ func MobileAutomationCleanupHook(
 				"error",
 				err,
 			)
+			incrementEmulatorCounter(ctx, metrics, "cleanup_errors")
 			return err // stopping emulator is fatal
 		}
+		updateEmulatorStatus(startedEmulators, payload.VersionID, map[string]any{
+			"boot_status": bootStatusStopped,
+			"recording":   false,
+		})
+		upsertEmulatorSearchAttributes(ctx, payload.VersionID, payload.EmulatorSerial, bootStatusStopped)
+		metrics["active_emulators"] = countActiveEmulators(startedEmulators)
+		updateEmulatorGauges(ctx, metrics)
 
 		stoppedEmulators[payload.EmulatorSerial] = struct{}{}
 	}
@@ -419,6 +482,7 @@ func cleanupRecording(
 	input workflowengine.WorkflowInput,
 	output *map[string]any,
 	cleanupErrs *[]error,
+	metrics map[string]int,
 ) {
 	logger := workflow.GetLogger(ctx)
 
@@ -445,6 +509,7 @@ func cleanupRecording(
 				"missing video_path for emulator "+payload.EmulatorSerial,
 			),
 		)
+		incrementEmulatorCounter(ctx, metrics, "cleanup_errors")
 		return
 	}
 
@@ -465,6 +530,7 @@ func cleanupRecording(
 	).Get(ctx, &stopResult); err != nil {
 		logger.Error("cleanup: stop recording failed", "error", err)
 		*cleanupErrs = append(*cleanupErrs, err)
+		incrementEmulatorCounter(ctx, metrics, "cleanup_errors")
 		return
 	}
 
@@ -477,6 +543,7 @@ func cleanupRecording(
 				stopResult.Output,
 			),
 		)
+		incrementEmulatorCounter(ctx, metrics, "cleanup_errors")
 		return
 	}
 
@@ -488,6 +555,7 @@ func cleanupRecording(
 				"missing run_identifier in run data",
 			),
 		)
+		incrementEmulatorCounter(ctx, metrics, "cleanup_errors")
 		return
 	}
 
@@ -517,6 +585,7 @@ func cleanupRecording(
 	).Get(ctx, &storeResult); err != nil {
 		logger.Error("cleanup: store result failed", "error", err)
 		*cleanupErrs = append(*cleanupErrs, err)
+		incrementEmulatorCounter(ctx, metrics, "cleanup_errors")
 		return
 	}
 
@@ -529,6 +598,7 @@ func cleanupRecording(
 				storeResult.Output,
 			),
 		)
+		incrementEmulatorCounter(ctx, metrics, "cleanup_errors")
 		return
 	}
 	resultURLs := workflowengine.AsSliceOfStrings(body["result_urls"])
@@ -542,6 +612,7 @@ func cleanupRecording(
 				storeResult.Output,
 			),
 		)
+		incrementEmulatorCounter(ctx, metrics, "cleanup_errors")
 		return
 	}
 
@@ -553,4 +624,104 @@ func cleanupRecording(
 		append((*output)["result_video_urls"].([]string), resultURLs...)
 	(*output)["screenshot_urls"] =
 		append((*output)["screenshot_urls"].([]string), frameURLs...)
+}
+
+func upsertEmulatorSearchAttributes(
+	ctx workflow.Context,
+	versionID string,
+	serial string,
+	bootStatus string,
+) {
+	if versionID == "" && serial == "" && bootStatus == "" {
+		return
+	}
+	attrs := map[string]any{}
+	if versionID != "" {
+		attrs[searchAttrVersionID] = versionID
+	}
+	if serial != "" {
+		attrs[searchAttrEmulatorSerial] = serial
+	}
+	if bootStatus != "" {
+		attrs[searchAttrBootStatus] = bootStatus
+	}
+	if len(attrs) == 0 {
+		return
+	}
+	if err := workflow.UpsertSearchAttributes(ctx, attrs); err != nil {
+		workflow.GetLogger(ctx).Error(
+			"failed to upsert search attributes",
+			"error",
+			err,
+			"attributes",
+			attrs,
+		)
+	}
+}
+
+func getEmulatorMetrics(runData *map[string]any) map[string]int {
+	metrics, ok := (*runData)["emulator_metrics"].(map[string]int)
+	if ok {
+		return metrics
+	}
+	metrics = map[string]int{
+		"active_emulators": 0,
+		"pending_starts":   0,
+		"failed_starts":    0,
+		"cleanup_errors":   0,
+	}
+	(*runData)["emulator_metrics"] = metrics
+	return metrics
+}
+
+func updateEmulatorGauges(ctx workflow.Context, metrics map[string]int) {
+	metricsHandler := workflow.GetMetricsHandler(ctx)
+	metricsHandler.Gauge("active_emulators").Update(float64(metrics["active_emulators"]))
+	metricsHandler.Gauge("pending_starts").Update(float64(metrics["pending_starts"]))
+}
+
+func incrementEmulatorCounter(
+	ctx workflow.Context,
+	metrics map[string]int,
+	metricName string,
+) {
+	metrics[metricName]++
+	workflow.GetMetricsHandler(ctx).Counter(metricName).Inc(1)
+}
+
+func updateEmulatorStatus(
+	startedEmulators map[string]any,
+	versionID string,
+	fields map[string]any,
+) map[string]any {
+	if startedEmulators == nil {
+		return nil
+	}
+	entry, ok := startedEmulators[versionID].(map[string]any)
+	if !ok {
+		entry = map[string]any{
+			"version_id": versionID,
+		}
+	}
+	for key, value := range fields {
+		entry[key] = value
+	}
+	startedEmulators[versionID] = entry
+	return entry
+}
+
+func countActiveEmulators(startedEmulators map[string]any) int {
+	activeCount := 0
+	for _, entry := range startedEmulators {
+		status, ok := entry.(map[string]any)
+		if !ok {
+			continue
+		}
+		bootStatus, _ := status["boot_status"].(string)
+		if bootStatus == bootStatusStopped {
+			continue
+		}
+		activeCount++
+	}
+	return activeCount
 }
