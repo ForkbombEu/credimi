@@ -20,7 +20,7 @@ export interface Config<ID extends string = string, Serialized = unknown, Deseri
 	display: EntityData;
 	initForm: () => DataForm<Deserialized>;
 	cardData: (data: Deserialized) => CardData;
-	makeId: (data: Deserialized) => string;
+	makeId: (data: Serialized) => string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

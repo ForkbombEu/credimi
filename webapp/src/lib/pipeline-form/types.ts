@@ -31,8 +31,6 @@ export type PipelineStepData<Step extends PipelineStep> = Step extends { with: i
 
 // Other
 
-export const DEEPLINK_STEP_ID_PLACEHOLDER = 'get-deeplink';
-
 export interface EnrichedPipeline {
 	record: PipelinesResponse;
 	activity_options?: ActivityOptions;

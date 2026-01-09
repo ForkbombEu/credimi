@@ -11,6 +11,7 @@ import { m } from '@/i18n/index.js';
 
 import type { TypedConfig } from '../types';
 
+import { getLastPathSegment } from '../_partials/misc';
 import { MarketplaceItemStepForm } from './marketplace-item-step-form.svelte.js';
 
 //
@@ -29,7 +30,7 @@ export const credentialsStepConfig: TypedConfig<'credential-offer', MarketplaceI
 	serialize: (item) => ({ credential_id: item.path }),
 	deserialize: ({ credential_id }) => getMarketplaceItemByPath(credential_id),
 	cardData: getMarketplaceItemCardData,
-	makeId
+	makeId: ({ credential_id }) => getLastPathSegment(credential_id)
 };
 
 //
@@ -48,7 +49,7 @@ export const useCaseVerificationStepConfig: TypedConfig<
 	serialize: (item) => ({ use_case_id: item.path }),
 	deserialize: ({ use_case_id }) => getMarketplaceItemByPath(use_case_id),
 	cardData: getMarketplaceItemCardData,
-	makeId
+	makeId: ({ use_case_id }) => getLastPathSegment(use_case_id)
 };
 
 //
@@ -67,7 +68,7 @@ export const customCheckStepConfig: TypedConfig<'custom-check', MarketplaceItem>
 		return getMarketplaceItemByPath(check_id);
 	},
 	cardData: getMarketplaceItemCardData,
-	makeId
+	makeId: ({ check_id }) => getLastPathSegment(check_id ?? 'custom-check-unknown')
 };
 
 //
@@ -78,8 +79,4 @@ function getMarketplaceItemCardData(item: MarketplaceItem) {
 		copyText: item.path,
 		avatar: getMarketplaceItemLogo(item)
 	};
-}
-
-function makeId(item: MarketplaceItem) {
-	return item.path;
 }

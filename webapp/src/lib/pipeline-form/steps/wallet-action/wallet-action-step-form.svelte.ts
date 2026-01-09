@@ -25,6 +25,17 @@ export interface WalletActionStepData {
 export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, WalletActionStepForm> {
 	readonly Component = Component;
 
+	constructor() {
+		super();
+		if (walletActionStepFormState.lastSelectedWallet) {
+			this.data = {
+				wallet: walletActionStepFormState.lastSelectedWallet.wallet,
+				version: walletActionStepFormState.lastSelectedWallet.version,
+				action: undefined
+			};
+		}
+	}
+
 	data = $state<Partial<WalletActionStepData>>({});
 
 	state = $derived.by(() => {
@@ -86,6 +97,10 @@ export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, Wal
 	}
 
 	selectAction(action: WalletActionsResponse) {
+		walletActionStepFormState.lastSelectedWallet = {
+			wallet: this.data.wallet!,
+			version: this.data.version!
+		};
 		this.handleSubmit({ ...this.data, action } as WalletActionStepData);
 	}
 
@@ -102,3 +117,13 @@ export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, Wal
 		this.data.version = undefined;
 	}
 }
+
+//
+
+type WalletActionStepFormState = {
+	lastSelectedWallet: { wallet: MarketplaceItem; version: WalletVersionsResponse } | undefined;
+};
+
+export const walletActionStepFormState = $state<WalletActionStepFormState>({
+	lastSelectedWallet: undefined
+});

@@ -5,6 +5,7 @@
 import { pipe, String } from 'effect';
 import * as _ from 'lodash';
 import { ClientResponseError } from 'pocketbase';
+import slugify from 'slugify';
 import { parse, stringify } from 'yaml';
 
 import type { GenericRecord } from '@/utils/types.js';
@@ -15,7 +16,6 @@ import { getExceptionMessage } from '@/utils/errors.js';
 import { configs } from './steps';
 import { Enrich404Error, type EnrichedStep } from './steps-builder/types';
 import {
-	DEEPLINK_STEP_ID_PLACEHOLDER,
 	type ActivityOptions,
 	type EnrichedPipeline,
 	type Pipeline,
@@ -77,7 +77,7 @@ export function createPipelineYaml(
 	activity_options: ActivityOptions
 ): string {
 	// Cloning because addProgressiveStepIds and linkIds modify the original steps array
-	const processedSteps = pipe(_.cloneDeep(steps), addProgressiveStepIds, linkIds);
+	const processedSteps = pipe(_.cloneDeep(steps), generateIds, linkIds);
 
 	const pipeline: Pipeline = {
 		name,
@@ -101,14 +101,21 @@ export function createPipelineYaml(
 	);
 }
 
-function addProgressiveStepIds(steps: PipelineStep[]): PipelineStep[] {
+//
+
+function generateIds(steps: PipelineStep[]): PipelineStep[] {
 	for (const [index, step] of steps.entries()) {
-		if ('id' in step) {
-			step.id = `${step.id}-${(index + 1).toString().padStart(4, '0')}`;
-		}
+		if (!('id' in step)) continue;
+
+		const config = configs.find((c) => c.use === step.use);
+		if (!config) throw new Error(`Unknown step type: ${step.use}`);
+
+		step.id = `${slugify(config.makeId(step.with))}-${(index + 1).toString().padStart(4, '0')}`;
 	}
 	return steps;
 }
+
+//
 
 const unlinkableSteps: PipelineStepType[] = ['mobile-automation', 'debug'];
 
@@ -131,10 +138,7 @@ function linkIds(steps: PipelineStep[]): PipelineStep[] {
 			deeplinkPath += '.deeplink';
 		}
 
-		step.with.parameters.deeplink = step.with.parameters.deeplink.replace(
-			DEEPLINK_STEP_ID_PLACEHOLDER,
-			previousStep.id + deeplinkPath
-		);
+		step.with.parameters.deeplink = '${{' + previousStep.id + deeplinkPath + '}}';
 	}
 	return steps;
 }

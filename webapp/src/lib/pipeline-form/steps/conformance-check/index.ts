@@ -7,6 +7,7 @@ import { getStandardsWithTestSuites } from '$lib/standards';
 
 import type { TypedConfig } from '../types';
 
+import { getLastPathSegment } from '../_partials/misc';
 import { ConformanceCheckStepForm, type FormData } from './conformance-check-step-form.svelte.js';
 
 //
@@ -20,7 +21,7 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 
 	serialize: ({ test }) => ({ check_id: test }),
 
-	makeId: ({ test }) => test,
+	makeId: ({ check_id }) => getLastPathSegment(check_id),
 
 	deserialize: async ({ check_id }) => {
 		const chunks = check_id.split('/');
