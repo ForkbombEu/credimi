@@ -29,11 +29,14 @@ export const walletActionStepConfig: TypedPipelineStepConfig<
 	id: 'mobile-automation',
 
 	display: entities.wallets,
+
 	cardData: ({ action, wallet }) => ({
 		title: action.name,
 		copyText: getPath(action),
 		avatar: getMarketplaceItemLogo(wallet)
 	}),
+
+	makeId: ({ action }) => getPath(action),
 
 	initForm: () => new WalletActionStepForm(),
 

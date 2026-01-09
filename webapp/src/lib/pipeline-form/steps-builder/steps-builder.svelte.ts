@@ -5,10 +5,16 @@
 import type { Renderable } from '$lib/renderable';
 import { StateManager } from '$lib/state-manager/state-manager';
 import type { GenericRecord } from '@/utils/types';
-import { nanoid } from 'nanoid';
+import slugify from 'slugify';
 import { configs } from '../steps';
 import type { PipelineStep, PipelineStepDataForm, PipelineStepWithId } from '../types';
 import Component from './steps-builder.svelte';
+
+//
+
+slugify.extend({
+	'/': '-'
+});
 
 //
 
@@ -83,8 +89,8 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 				form.onSubmit((formData) => {
 					const step: PipelineStepWithId = {
 						use: config.id,
-						id: nanoid(5),
-						continue_on_error: false,
+						id: slugify(config.makeId(formData)),
+						continue_on_error: true,
 						with: config.serialize(formData) as Record<string, unknown>
 					};
 					this.stateManager.run((data) => {

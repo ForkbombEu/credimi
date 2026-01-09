@@ -70,7 +70,7 @@ export function createPipelineYaml(
 	steps: PipelineStep[],
 	activity_options: ActivityOptions
 ): string {
-	const linkedSteps = linkIds(steps);
+	const processedSteps = pipe(steps, addProgressiveStepIds, linkIds);
 
 	const pipeline: Pipeline = {
 		name,
@@ -79,7 +79,7 @@ export function createPipelineYaml(
 				activity_options
 			}
 		},
-		steps: linkedSteps
+		steps: processedSteps
 	};
 
 	return pipe(
@@ -92,6 +92,15 @@ export function createPipelineYaml(
 		// Correcting first step newline
 		replaceWith('steps:\n\n', (t) => t.replace('\n\n', '\n'), false)
 	);
+}
+
+function addProgressiveStepIds(steps: PipelineStep[]): PipelineStep[] {
+	for (const [index, step] of steps.entries()) {
+		if ('id' in step) {
+			step.id = `${step.id}-${(index + 1).toString().padStart(4, '0')}`;
+		}
+	}
+	return steps;
 }
 
 const unlinkableSteps: PipelineStepType[] = ['mobile-automation', 'debug'];

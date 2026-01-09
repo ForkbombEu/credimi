@@ -38,6 +38,7 @@ export interface PipelineStepConfig<
 		copyText?: string;
 		avatar?: string;
 	};
+	makeId: (data: Deserialized) => string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any

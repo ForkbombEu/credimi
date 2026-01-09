@@ -20,6 +20,8 @@ export const conformanceCheckStepConfig: TypedPipelineStepConfig<'conformance-ch
 
 	serialize: ({ test }) => ({ check_id: test }),
 
+	makeId: ({ test }) => test,
+
 	deserialize: async ({ check_id }) => {
 		const chunks = check_id.split('/');
 		if (chunks.length !== 4) throw new Error('Invalid check_id');

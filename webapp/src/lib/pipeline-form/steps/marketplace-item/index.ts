@@ -27,7 +27,8 @@ export const credentialsStepConfig: TypedPipelineStepConfig<'credential-offer', 
 		}),
 	serialize: (item) => ({ credential_id: item.path }),
 	deserialize: ({ credential_id }) => getMarketplaceItemByPath(credential_id),
-	cardData: getMarketplaceItemCardData
+	cardData: getMarketplaceItemCardData,
+	makeId
 };
 
 //
@@ -45,7 +46,8 @@ export const useCaseVerificationStepConfig: TypedPipelineStepConfig<
 		}),
 	serialize: (item) => ({ use_case_id: item.path }),
 	deserialize: ({ use_case_id }) => getMarketplaceItemByPath(use_case_id),
-	cardData: getMarketplaceItemCardData
+	cardData: getMarketplaceItemCardData,
+	makeId
 };
 
 //
@@ -63,7 +65,8 @@ export const customCheckStepConfig: TypedPipelineStepConfig<'custom-check', Mark
 		if (!check_id) throw new Error('Missing check_id');
 		return getMarketplaceItemByPath(check_id);
 	},
-	cardData: getMarketplaceItemCardData
+	cardData: getMarketplaceItemCardData,
+	makeId
 };
 
 //
@@ -74,4 +77,8 @@ function getMarketplaceItemCardData(item: MarketplaceItem) {
 		copyText: item.path,
 		avatar: getMarketplaceItemLogo(item)
 	};
+}
+
+function makeId(item: MarketplaceItem) {
+	return item.path;
 }
