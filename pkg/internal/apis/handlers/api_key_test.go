@@ -239,8 +239,16 @@ func TestGetMatchApiKeyRecord_TimingAttackResistance(t *testing.T) {
 	repo := &DefaultRecordRepository{}
 	hasher := NewBcryptKeyHasher()
 
+	// Invalid hashes of different types
+	invalidHashes := []string{
+		"short",
+		"medium-length-invalid-hash",
+		"very-long-invalid-hash-that-should-take-similar-time-to-process",
+		"$2a$10$invalid.but.proper.length.hash.format",
+	}
+
 	// Create records with different hash formats
-	records := []*core.Record{}
+	records := make([]*core.Record, 0, 1+len(invalidHashes))
 	dummyCollection := &core.Collection{}
 	dummyCollection.Name = "api_keys"
 
@@ -250,14 +258,6 @@ func TestGetMatchApiKeyRecord_TimingAttackResistance(t *testing.T) {
 	validRecord := core.NewRecord(dummyCollection)
 	validRecord.Set("key", validHash)
 	records = append(records, validRecord)
-
-	// Invalid hashes of different types
-	invalidHashes := []string{
-		"short",
-		"medium-length-invalid-hash",
-		"very-long-invalid-hash-that-should-take-similar-time-to-process",
-		"$2a$10$invalid.but.proper.length.hash.format",
-	}
 
 	for _, invalidHash := range invalidHashes {
 		record := core.NewRecord(dummyCollection)
