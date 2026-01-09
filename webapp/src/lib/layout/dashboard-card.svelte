@@ -76,17 +76,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let publicUrl = $state('');
 	$effect(() => {
+		if (!record.published) return;
 		pb.collection('marketplace_items')
 			.getOne(record.id)
 			.then((item) => {
 				publicUrl = getMarketplaceItemUrl(item as unknown as MarketplaceItem);
-			})
-			.catch((error) => {
-				console.warn(
-					"Probably not a marketplace item since it's not published",
-					'\n-\n',
-					error
-				);
 			});
 	});
 </script>
