@@ -26,6 +26,7 @@ type MobileAutomationWorkflowPayload struct {
 	ActionCode         string            `json:"action_code,omitempty"          yaml:"action_code,omitempty"`
 	StoredActionCode   bool              `json:"stored_action_code,omitempty"   yaml:"stored_action_code,omitempty"`
 	EmulatorSerial     string            `json:"emulator_serial,omitempty"      yaml:"emulator_serial,omitempty"`
+	CloneName          string            `json:"clone_name,omitempty"           yaml:"clone_name,omitempty"`
 	Parameters         map[string]string `json:"parameters,omitempty"           yaml:"parameters,omitempty"`
 	VideoPath          string            `json:"video_path,omitempty"           yaml:"video_path,omitempty"`
 	RecordingAdbPid    int               `json:"recording_adb_pid,omitempty"    yaml:"recording_adb_pid,omitempty"`
