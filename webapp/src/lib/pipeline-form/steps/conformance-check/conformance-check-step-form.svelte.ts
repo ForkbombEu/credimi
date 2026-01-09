@@ -5,18 +5,14 @@
 import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/standards/index.js';
 import { resource } from 'runed';
 import { tick } from 'svelte';
-import { StepFormState } from '../types.js';
+
+import { BaseDataForm } from '../types';
+import Component from './conformance-check-step-form.svelte';
 
 //
 
-type Props = {
-	onSelect: (checkId: string) => void;
-};
-
-export class ConformanceCheckStepForm extends StepFormState {
-	constructor(private props: Props) {
-		super();
-	}
+export class ConformanceCheckStepForm extends BaseDataForm<FormData, ConformanceCheckStepForm> {
+	readonly Component = Component;
 
 	standardsWithTestSuites = resource(
 		() => {},
@@ -51,6 +47,8 @@ export class ConformanceCheckStepForm extends StepFormState {
 		}
 	});
 
+	//
+
 	availableVersions = $derived(this.data.standard?.versions ?? []);
 	availableSuites = $derived(this.data.version?.suites ?? []);
 	availableTests = $derived(this.data.suite?.paths ?? []);
@@ -75,12 +73,12 @@ export class ConformanceCheckStepForm extends StepFormState {
 		this.data.suite = suite;
 		await tick();
 		if (this.availableTests?.length === 1) {
-			await this.selectTest(this.availableTests[0]);
+			this.selectTest(this.availableTests[0]);
 		}
 	}
 
-	async selectTest(test: Test) {
-		this.props.onSelect(test);
+	selectTest(test: Test) {
+		this.handleSubmit({ ...this.data, test } as FormData);
 	}
 
 	//
@@ -100,7 +98,9 @@ export class ConformanceCheckStepForm extends StepFormState {
 	}
 }
 
-type FormData = {
+//
+
+export type FormData = {
 	standard: Standard;
 	version: Version;
 	suite: Suite;

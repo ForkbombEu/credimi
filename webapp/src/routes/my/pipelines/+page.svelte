@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { getPath, runWithLoading } from '$lib/utils';
-	import { Eye, Pencil, PlayIcon, Plus } from 'lucide-svelte';
+	import { Pencil, PlayIcon, Plus } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
 	import type { PipelinesResponse } from '@/pocketbase/types';
@@ -141,8 +141,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<Button onclick={() => runPipeline(pipeline)}>
 								<PlayIcon />{m.Run_now()}
 							</Button>
-							<RecordClone record={pipeline} collectionName="pipelines" />
-							<IconButton href="/my/pipelines/view-{pipeline.id}" icon={Eye} />
+							<RecordClone record={pipeline} size="md" collectionName="pipelines" />
+							<!-- <IconButton href="/my/pipelines/view-{pipeline.id}" icon={Eye} /> -->
 						{/snippet}
 					</DashboardCard>
 				{/each}

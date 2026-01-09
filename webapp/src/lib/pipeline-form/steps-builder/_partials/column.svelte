@@ -21,9 +21,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { children, class: className, contentClass, title, titleRight }: Props = $props();
 
-	const classes = cn(
-		'flex flex-col overflow-hidden rounded-lg border bg-white shadow-sm',
-		className
+	const classes = $derived(
+		cn('flex flex-col overflow-hidden rounded-lg border bg-white shadow-sm', className)
 	);
 </script>
 

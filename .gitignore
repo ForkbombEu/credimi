@@ -26,3 +26,4 @@ coverage.svg
 #!/config_templates/**/version.yaml
 #!/config_templates/**/standard.yaml
 #!/config_templates/**/metadata.yaml
+node_modules/
