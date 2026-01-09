@@ -29,11 +29,13 @@ func ExecuteStep(
 ) (any, error) {
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
 	s := &StepDefinition{
-		ID:              id,
-		Use:             use,
-		With:            with,
-		ActivityOptions: activityOptions,
-		Metadata:        nil,
+		StepSpec: StepSpec{
+			ID:              id,
+			Use:             use,
+			With:            with,
+			ActivityOptions: activityOptions,
+			Metadata:        nil,
+		},
 		ContinueOnError: false,
 	}
 
@@ -197,7 +199,7 @@ func runChildPipeline(
 	input PipelineWorkflowInput,
 	workflowName string,
 	dataCtx map[string]any,
-	runMetadata workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
 ) (any, error) {
 	// Fetch child pipeline YAML
 	yaml, err := fetchChildPipelineYAML(ctx, step, input, runMetadata)
@@ -267,7 +269,7 @@ func fetchChildPipelineYAML(
 	ctx workflow.Context,
 	step StepDefinition,
 	input PipelineWorkflowInput,
-	meta workflowengine.WorkflowErrorMetadata,
+	meta *workflowengine.WorkflowErrorMetadata,
 ) (string, error) {
 	pipelineID, ok := step.With.Payload["pipeline_id"].(string)
 	if !ok || pipelineID == "" {

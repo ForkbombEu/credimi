@@ -76,23 +76,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let publicUrl = $state('');
 	$effect(() => {
+		if (!record.published) return;
 		pb.collection('marketplace_items')
 			.getOne(record.id)
 			.then((item) => {
 				publicUrl = getMarketplaceItemUrl(item as unknown as MarketplaceItem);
-			})
-			.catch((error) => {
-				console.warn(
-					"Probably not a marketplace item since it's not published",
-					'\n-\n',
-					error
-				);
 			});
 	});
 </script>
 
 <Card id={record.canonified_name} class="bg-card scroll-mt-5" contentClass="space-y-4 p-4">
-	<div class="flex items-center justify-between">
+	<div class="flex items-center justify-between gap-3">
 		<div class="flex items-center gap-4">
 			<Avatar src={avatar(record)} fallback={record.name} class="rounded-sm border" />
 			<div>

@@ -14,10 +14,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
-const PipelineTaskQueue = "PipelineTaskQueue"
+const (
+	PipelineTaskQueue = "PipelineTaskQueue"
+)
 
 type PipelineWorkflow struct{}
 
@@ -26,6 +29,10 @@ type PipelineWorkflowInput struct {
 	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"            json:"workflow_input"`
 	Debug              bool                         `yaml:"debug,omitempty"           json:"debug,omitempty"`
 	ParentRunData      map[string]any               `yaml:"parent_run_data,omitempty" json:"parent_run_data,omitempty"`
+}
+
+func NewPipelineWorkflow() *PipelineWorkflow {
+	return &PipelineWorkflow{}
 }
 
 func (PipelineWorkflow) Name() string {
@@ -49,7 +56,7 @@ func (w *PipelineWorkflow) Workflow(
 
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
-	runMetadata := workflowengine.WorkflowErrorMetadata{
+	runMetadata := &workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflowID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
@@ -67,6 +74,8 @@ func (w *PipelineWorkflow) Workflow(
 	finalOutput := map[string]any{
 		"workflow-id":     workflowID,
 		"workflow-run-id": runID,
+		"result_video_warning": "Video recordings are limited to 30 minutes. " +
+			"Tests exceeding this duration may result in an incomplete video.",
 	}
 
 	runData := map[string]any{
@@ -82,9 +91,9 @@ func (w *PipelineWorkflow) Workflow(
 		runData = input.ParentRunData
 	}
 	defer func() {
-		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
+
 		for _, hook := range cleanupHooks {
-			if err := hook(cleanupCtx, input.WorkflowDefinition.Steps, input.WorkflowInput, runData, &finalOutput); err != nil {
+			if err := hook(ctx, input.WorkflowDefinition.Steps, input.WorkflowInput, runData, &finalOutput); err != nil {
 				logger.Error("cleanup hook error", "error", err)
 				cleanupErrors = append(cleanupErrors, err)
 			}
@@ -92,6 +101,14 @@ func (w *PipelineWorkflow) Workflow(
 	}()
 	for _, hook := range setupHooks {
 		if err := hook(ctx, &input.WorkflowDefinition.Steps, input.WorkflowInput, &runData); err != nil {
+			if temporal.IsTimeoutError(err) {
+				return workflowengine.WorkflowResult{}, err
+			}
+			if temporal.IsCanceledError(err) {
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+					runMetadata,
+				)
+			}
 			return result, workflowengine.NewWorkflowError(err, runMetadata)
 		}
 	}
@@ -112,6 +129,15 @@ func (w *PipelineWorkflow) Workflow(
 
 			childOut, err := runChildPipeline(ctx, step, input, w.Name(), stepInputs, runMetadata)
 			if err != nil {
+				if temporal.IsTimeoutError(err) {
+					return workflowengine.WorkflowResult{}, err
+				}
+
+				if temporal.IsCanceledError(err) {
+					return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+						runMetadata,
+					)
+				}
 				logger.Error(step.ID, "step execution error", err)
 				if len(step.OnError) > 0 {
 					logger.Info("Executing onError steps for step",
@@ -155,6 +181,11 @@ func (w *PipelineWorkflow) Workflow(
 
 			stepOutput, err := step.Execute(ctx, input.WorkflowInput.Config, stepInputs, ao)
 			if err != nil {
+				if temporal.IsCanceledError(err) {
+					return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+						runMetadata,
+					)
+				}
 				logger.Error(step.ID, "step execution error", err)
 				errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 				appErr := workflowengine.NewAppError(

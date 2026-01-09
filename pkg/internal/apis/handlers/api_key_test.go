@@ -141,7 +141,7 @@ func TestGetMatchApiKeyRecord_Found(t *testing.T) {
 	hashed, err := hasher.HashKey(apiKey)
 	assert.NoError(t, err)
 
-	records := []*core.Record{}
+	records := make([]*core.Record, 0, 1)
 	dummyCollection := &core.Collection{}
 	dummyCollection.Name = "api_keys"
 	record := core.NewRecord(dummyCollection)
@@ -165,7 +165,7 @@ func TestGetMatchApiKeyRecord_NotFound(t *testing.T) {
 	apiKeysBytes := []byte("test-key")
 	generator := &CryptoKeyGenerator{}
 	apiKey := generator.EncodeKey(apiKeysBytes)
-	records := []*core.Record{}
+	records := make([]*core.Record, 0, 1)
 
 	_, err := repo.FindMatchingApiKeyRecord(records, apiKey, hasher)
 	assert.Error(t, err)
@@ -180,7 +180,7 @@ func TestGetMatchApiKeyRecord_MaliciousInput(t *testing.T) {
 	generator := &CryptoKeyGenerator{}
 	apiKey := generator.EncodeKey(apiKeysBytes)
 
-	records := []*core.Record{}
+	records := make([]*core.Record, 0, 1)
 	dummyCollection := &core.Collection{}
 	dummyCollection.Name = "api_keys"
 	record := core.NewRecord(dummyCollection)
@@ -239,8 +239,16 @@ func TestGetMatchApiKeyRecord_TimingAttackResistance(t *testing.T) {
 	repo := &DefaultRecordRepository{}
 	hasher := NewBcryptKeyHasher()
 
+	// Invalid hashes of different types
+	invalidHashes := []string{
+		"short",
+		"medium-length-invalid-hash",
+		"very-long-invalid-hash-that-should-take-similar-time-to-process",
+		"$2a$10$invalid.but.proper.length.hash.format",
+	}
+
 	// Create records with different hash formats
-	records := []*core.Record{}
+	records := make([]*core.Record, 0, 1+len(invalidHashes))
 	dummyCollection := &core.Collection{}
 	dummyCollection.Name = "api_keys"
 
@@ -250,14 +258,6 @@ func TestGetMatchApiKeyRecord_TimingAttackResistance(t *testing.T) {
 	validRecord := core.NewRecord(dummyCollection)
 	validRecord.Set("key", validHash)
 	records = append(records, validRecord)
-
-	// Invalid hashes of different types
-	invalidHashes := []string{
-		"short",
-		"medium-length-invalid-hash",
-		"very-long-invalid-hash-that-should-take-similar-time-to-process",
-		"$2a$10$invalid.but.proper.length.hash.format",
-	}
 
 	for _, invalidHash := range invalidHashes {
 		record := core.NewRecord(dummyCollection)

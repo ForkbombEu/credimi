@@ -5,41 +5,52 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script module lang="ts">
-	import { fetchPipeline } from '$lib/pipeline-form/serde';
-
-	import { pb } from '@/pocketbase';
+	import { getEnrichedPipeline } from '$lib/pipeline-form/functions';
 
 	import { pageDetails } from './_utils/types';
 
+	//
+
 	export async function getPipelineDetails(itemId: string, fetchFn = fetch) {
-		const pipelineData = await fetchPipeline(itemId, { fetch: fetchFn });
+		const pipeline = await getEnrichedPipeline(itemId, { fetch: fetchFn });
 
 		return pageDetails('pipelines', {
-			pipelineData,
-			yaml: pipelineData.yaml,
-			description: pipelineData.description
+			pipeline
 		});
 	}
 </script>
 
 <script lang="ts">
+	import StepCardDisplay from '$lib/pipeline-form/steps-builder/_partials/step-card-display.svelte';
+
 	import CodeSection from './_utils/code-section.svelte';
 	import DescriptionSection from './_utils/description-section.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
-	import PipelineStepsDisplay from './pipeline-steps-display.svelte';
+
+	//
 
 	type Props = Awaited<ReturnType<typeof getPipelineDetails>>;
-	let { pipelineData, yaml, description }: Props = $props();
+	let { pipeline }: Props = $props();
 </script>
 
 <LayoutWithToc sections={[s.description, s.pipeline_steps, s.workflow_yaml]}>
-	<DescriptionSection {description} />
+	<DescriptionSection description={pipeline.record.description} />
 
-	<PageSection indexItem={s.pipeline_steps} empty={pipelineData.steps.length === 0}>
-		<PipelineStepsDisplay steps={pipelineData.steps} />
+	<PageSection indexItem={s.pipeline_steps} empty={pipeline.steps.length === 0}>
+		<div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+			{#each pipeline.steps as step, index (index)}
+				<StepCardDisplay {step} readonly>
+					{#snippet topRight()}
+						<div class="text-muted-foreground pr-2 text-xs">
+							#{index + 1}
+						</div>
+					{/snippet}
+				</StepCardDisplay>
+			{/each}
+		</div>
 	</PageSection>
 
-	<CodeSection indexItem={s.workflow_yaml} code={yaml} language="yaml" />
+	<CodeSection indexItem={s.workflow_yaml} code={pipeline.record.yaml} language="yaml" />
 </LayoutWithToc>

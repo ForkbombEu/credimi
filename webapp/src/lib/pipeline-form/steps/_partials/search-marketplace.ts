@@ -8,9 +8,9 @@ import { pb } from '@/pocketbase';
 
 //
 
-export async function searchMarketplace(text: string, type: MarketplaceItemType) {
+export async function searchMarketplace(path: string, type: MarketplaceItemType) {
 	const result = await pb.collection('marketplace_items').getList(1, 10, {
-		filter: `path ~ "${text}" && type = "${type}"`,
+		filter: pb.filter('path ~ {:path} && type = {:type}', { path, type }),
 		requestKey: null
 	});
 	return result.items as MarketplaceItem[];

@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Render, type SelfProp } from '$lib/renderable';
 	import { PencilIcon, RedoIcon, SaveIcon, UndoIcon } from 'lucide-svelte';
 
 	import { Button } from '@/components/ui/button';
@@ -16,25 +17,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type Props = {
-		form: PipelineForm;
-	};
+	const { self: form }: SelfProp<PipelineForm> = $props();
 
-	const { form }: Props = $props();
 	const metadata = form.metadataForm;
 	const activityOptions = form.activityOptionsForm;
 	const builder = form.stepsBuilder;
 
-	const isViewMode = $derived(form['props'].mode === 'view');
-	const saveButtonText = $derived(isViewMode ? m.Create_record() : m.Save());
+	const saveButtonText = $derived(m.Save());
 
 	const title = $derived.by(() => {
 		if (form.mode === 'create') {
 			return m.New_pipeline();
-		} else if (form.mode === 'edit') {
-			return m.Edit_pipeline();
 		} else {
-			return m.View();
+			return m.Edit_pipeline();
 		}
 	});
 </script>
@@ -58,13 +53,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{m.manual_mode()}
 			</Button>
 		{/if}
-		<metadata.Component form={metadata} />
-		<activityOptions.Component form={activityOptions} />
-		<Button disabled={!builder.isReady()} onclick={() => form.save()}>
+		<Render item={metadata} />
+		<Render item={activityOptions} />
+		<Button disabled={!form.canSave} onclick={() => form.save()}>
 			<SaveIcon />
 			{saveButtonText}
 		</Button>
 	{/snippet}
 
-	<builder.Component {builder} />
+	<Render item={builder} />
 </PipelineFormLayout>

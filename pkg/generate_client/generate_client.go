@@ -237,7 +237,12 @@ func main() {
 		)
 	}
 
-	var routes []RouteInfo
+	totalRoutes := 0
+	for _, group := range routeGroups {
+		totalRoutes += len(group.Routes)
+	}
+	routes := make([]RouteInfo, 0, totalRoutes)
+
 	typesToProcess := make(map[string]interface{})
 
 	typesToProcess["APIError"] = apierror.APIError{}

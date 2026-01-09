@@ -5,25 +5,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { SelfProp } from '$lib/renderable';
+
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
-	import { getMarketplaceItemData } from '$lib/marketplace/utils.js';
+	import { getMarketplaceItemData } from '$lib/marketplace';
 
-	import { m } from '@/i18n/index.js';
+	import { Badge } from '@/components/ui/badge';
+	import { m } from '@/i18n';
 
-	import type { WalletStepForm } from './wallet-step-form.svelte.js';
+	import type { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 
-	import ItemCard from '../utils/item-card.svelte';
-	import SearchInput from '../utils/search-input.svelte';
-	import WithEmptyState from '../utils/with-empty-state.svelte';
-	import WithLabel from '../utils/with-label.svelte';
+	import ItemCard from '../_partials/item-card.svelte';
+	import SearchInput from '../_partials/search-input.svelte';
+	import WithEmptyState from '../_partials/with-empty-state.svelte';
+	import WithLabel from '../_partials/with-label.svelte';
 
 	//
 
-	type Props = {
-		form: WalletStepForm;
-	};
-
-	let { form }: Props = $props();
+	let { self: form }: SelfProp<WalletActionStepForm> = $props();
 </script>
 
 {#if form.data.wallet}
@@ -76,7 +75,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<WithEmptyState items={form.foundActions} emptyText={m.No_actions_available()}>
 		{#snippet item({ item })}
 			<ItemCard title={item.name} onClick={() => form.selectAction(item)}>
-				<WalletActionTags action={item} containerClass="mt-1" variant="outline" />
+				<div class="space-y-2 pt-1">
+					{#if !item.published}
+						<Badge variant="secondary">
+							{m.private()}
+						</Badge>
+					{/if}
+					<WalletActionTags action={item} variant="outline" />
+				</div>
 			</ItemCard>
 		{/snippet}
 	</WithEmptyState>

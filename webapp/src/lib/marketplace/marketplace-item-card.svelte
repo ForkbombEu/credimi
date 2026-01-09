@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { userOrganization } from '$lib/app-state';
+	import EntityTag from '$lib/global/entity-tag.svelte';
 	import { String } from 'effect';
 	import { truncate } from 'lodash';
 	import removeMd from 'remove-markdown';
@@ -17,8 +18,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
-	import { getMarketplaceItemData, type MarketplaceItem } from '.';
-	import MarketplaceItemTypeDisplay from './marketplace-item-type-display.svelte';
+	import type { MarketplaceItem } from './types';
+
+	import { getMarketplaceItemData } from './utils';
 
 	//
 
@@ -57,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<div class="flex flex-row-reverse flex-wrap items-start gap-1">
 			{#if display}
-				<MarketplaceItemTypeDisplay data={display} />
+				<EntityTag data={display} />
 			{/if}
 			{#if isCurrentUserOwner}
 				<Badge class="block w-fit rounded-md py-[4px]">{m.Yours()}</Badge>
