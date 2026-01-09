@@ -75,7 +75,7 @@ export function isVerifier(item: MarketplaceItemsResponse): boolean {
 export function getMarketplaceItemByPath(path: string): Promise<MarketplaceItem> {
 	return pb
 		.collection('marketplace_items')
-		.getFirstListItem(pb.filter('path = {:path}', { path }));
+		.getFirstListItem(pb.filter('path ~ {:path}', { path }));
 }
 
 //
