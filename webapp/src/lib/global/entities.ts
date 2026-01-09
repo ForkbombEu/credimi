@@ -26,7 +26,7 @@ export type EntityData = {
 	icon: IconComponent;
 	labels: {
 		singular: string;
-		plural: string;
+		plural?: string;
 	};
 	classes: {
 		bg: string;

@@ -851,6 +851,9 @@
 	"blocks_mode": "Blocks mode",
 	"separate_items_by_commas": "Separate items by commas",
 	"Allow_installer_download": "Allow installer download",
+	"Debug": "Debug",
 	"Credential_deeplinks": "Credential deeplinks",
-	"private": "Private"
+	"private": "Private",
+	"enrich_error_title": "The element could not be displayed",
+	"enrich_error_description": "The element is not available at this time, its owner may have made it private or deleted."
 }

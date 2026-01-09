@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { Renderable } from '$lib/renderable';
 import type { ActivityOptions } from '$pipeline-form/types.generated';
 import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
 import { createForm } from '@/forms';
@@ -27,7 +28,9 @@ export const DEFAULT_ACTIVITY_OPTIONS: ActivityOptions = {
 	}
 };
 
-export class ActivityOptionsForm {
+export class ActivityOptionsForm implements Renderable<ActivityOptionsForm> {
+	readonly Component = Component;
+
 	constructor(props: Props) {
 		this.#value = props.initialData ?? DEFAULT_ACTIVITY_OPTIONS;
 	}
@@ -55,7 +58,6 @@ export class ActivityOptionsForm {
 		return this.superform;
 	}
 
-	readonly Component = Component;
 	isOpen = $state(false);
 }
 

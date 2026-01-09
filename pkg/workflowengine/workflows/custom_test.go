@@ -45,7 +45,7 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 		{
 			name: "Workflow fetches yaml via HTTP when only id is provided",
 			inputPayload: CustomCheckWorkflowPayload{
-				ID: "custom-check-id",
+				CheckID: "custom-check-id",
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
@@ -75,7 +75,7 @@ func Test_CustomCheckWorkflow(t *testing.T) {
 		},
 		{
 			name:         "Workflow fails when yaml missing in HTTP response",
-			inputPayload: CustomCheckWorkflowPayload{ID: "broken-id"},
+			inputPayload: CustomCheckWorkflowPayload{CheckID: "broken-id"},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				stepCI := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(stepCI.Execute, activity.RegisterOptions{
