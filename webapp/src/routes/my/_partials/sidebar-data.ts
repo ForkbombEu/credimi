@@ -56,7 +56,7 @@ export const data: SidebarGroup[] = [
 				];
 			}
 			return {
-				title: section.labels.plural,
+				title: section.labels.plural ?? '',
 				url: `/my/${section.slug}`,
 				icon: section.icon,
 				children

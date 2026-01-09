@@ -25,8 +25,8 @@ type CustomCheckWorkflow struct {
 }
 
 type CustomCheckWorkflowPayload struct {
-	Yaml string `json:"yaml,omitempty" yaml:"yaml,omitempty"`
-	ID   string `json:"id,omitempty"   yaml:"id,omitempty"`
+	Yaml    string `json:"yaml,omitempty" xoneof:"custom_check"`
+	CheckID string `json:"check_id,omitempty" xoneof:"custom_check"`
 }
 
 func NewCustomCheckWorkflow() *CustomCheckWorkflow {
@@ -71,7 +71,7 @@ func (w *CustomCheckWorkflow) ExecuteWorkflow(
 	}
 	yaml := payload.Yaml
 	if yaml == "" {
-		if payload.ID == "" {
+		if payload.CheckID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 				fmt.Errorf("yaml or id must be provided"),
 				input.RunMetadata,
@@ -87,7 +87,7 @@ func (w *CustomCheckWorkflow) ExecuteWorkflow(
 					"api", "canonify", "identifier", "validate",
 				),
 				Body: map[string]any{
-					"canonified_name": payload.ID,
+					"canonified_name": payload.CheckID,
 				},
 				ExpectedStatus: 200,
 			},

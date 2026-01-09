@@ -9,6 +9,7 @@ import (
 	"os"
 	"reflect"
 	"sort"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -94,6 +95,9 @@ func generatePipelineSchema() (map[string]any, error) {
 		}
 	}
 
+	// Add special step schemas
+	oneOfSchemas = append(oneOfSchemas, generateSpecialStepSchemas()...)
+
 	if stepsProperty, ok := schema.Properties.Get("steps"); ok && stepsProperty != nil {
 		if stepsProperty.Items != nil {
 			newItemsSchema := &jsonschema.Schema{
@@ -107,27 +111,6 @@ func generatePipelineSchema() (map[string]any, error) {
 			}
 			// Replace the entire items schema
 			stepsProperty.Items = newItemsSchema
-		}
-	}
-
-	if customChecksProperty, ok := schema.Properties.Get("custom_checks"); ok &&
-		customChecksProperty != nil {
-		if customChecksProperty.AdditionalProperties != nil {
-			wbSchema := customChecksProperty.AdditionalProperties
-			if stepsProperty, ok := wbSchema.Properties.Get("steps"); ok && stepsProperty != nil {
-				if stepsProperty.Items != nil {
-					newItemsSchema := &jsonschema.Schema{
-						OneOf: make([]*jsonschema.Schema, len(oneOfSchemas)),
-					}
-					for i, variant := range oneOfSchemas {
-						variantBytes, _ := json.Marshal(variant)
-						var variantSchema jsonschema.Schema
-						json.Unmarshal(variantBytes, &variantSchema)
-						newItemsSchema.OneOf[i] = &variantSchema
-					}
-					stepsProperty.Items = newItemsSchema
-				}
-			}
 		}
 	}
 
@@ -157,6 +140,8 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 	if factory.PipelinePayloadType != nil {
 		payloadType = factory.PipelinePayloadType
 	}
+
+	xOneOfGroups := extractXOneOfGroups(payloadType)
 
 	payloadSchema := reflector.Reflect(reflect.New(payloadType).Interface())
 
@@ -270,6 +255,22 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 			"oneOf": with,
 		}
 	}
+	if len(xOneOfGroups) > 0 {
+		var variants []map[string]any
+		for _, fields := range xOneOfGroups {
+			for _, f := range fields {
+				variants = append(variants, map[string]any{
+					"type":                 "object",
+					"properties":           props,
+					"required":             []string{f},
+					"additionalProperties": false,
+				})
+			}
+		}
+		stepVariant["properties"].(map[string]any)["with"] = map[string]any{
+			"oneOf": variants,
+		}
+	}
 
 	return stepVariant
 }
@@ -281,4 +282,79 @@ func sortedRegistryKeys() []string {
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func generateSpecialStepSchemas() []map[string]any {
+	return []map[string]any{
+		debugStepSchema(),
+		childPipelineStepSchema(),
+	}
+}
+
+func debugStepSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"use": map[string]any{
+				"type":  "string",
+				"const": "debug",
+			},
+		},
+		"required":             []string{"use"},
+		"additionalProperties": false,
+	}
+}
+
+func childPipelineStepSchema() map[string]any {
+	return map[string]any{
+		"type": "object",
+		"properties": map[string]any{
+			"id": map[string]any{
+				"type": "string",
+			},
+			"use": map[string]any{
+				"type":  "string",
+				"const": "child-pipeline",
+			},
+			"with": map[string]any{
+				"type":                 "object",
+				"additionalProperties": true,
+			},
+			"metadata": map[string]any{
+				"type":                 "object",
+				"additionalProperties": true,
+			},
+			"continue_on_error": map[string]any{
+				"type": "boolean",
+			},
+		},
+		"required":             []string{"id", "use", "with"},
+		"additionalProperties": false,
+	}
+}
+
+func extractXOneOfGroups(t reflect.Type) map[string][]string {
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+
+	groups := map[string][]string{}
+
+	for i := 0; i < t.NumField(); i++ {
+		field := t.Field(i)
+
+		tag := field.Tag.Get("xoneof")
+		if tag == "" {
+			continue
+		}
+
+		jsonName := strings.Split(field.Tag.Get("json"), ",")[0]
+		if jsonName == "" || jsonName == "-" {
+			continue
+		}
+
+		groups[tag] = append(groups[tag], jsonName)
+	}
+
+	return groups
 }

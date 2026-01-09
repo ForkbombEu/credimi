@@ -2,64 +2,20 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MarketplaceItem } from '$lib/marketplace/index.js';
+import type { GenericRecord } from '@/utils/types';
 
-import {
-	type WalletActionsResponse,
-	type WalletVersionsResponse
-} from '@/pocketbase/types/index.generated.js';
+import { m } from '@/i18n';
 
-/* Steps types */
-
-export type BaseStep<T extends StepType, Data> = {
-	type: T;
-	id: string;
-	name: string;
-	path: string;
-	organization: string;
-	avatar?: string;
-	data: Data;
-	continueOnError?: boolean;
-	video?: boolean;
-};
+import type { PipelineStep } from '../types';
 
 //
 
-export enum StepType {
-	WalletAction = 'wallet_actions',
-	Credential = 'credentials',
-	UseCaseVerification = 'use_cases_verifications',
-	ConformanceCheck = 'conformance_checks',
-	CustomCheck = 'custom_checks'
+export type EnrichedStep = [PipelineStep, GenericRecord | Enrich404Error | Error];
+
+export class Enrich404Error extends Error {
+	constructor() {
+		super(m.enrich_error_title());
+	}
+
+	description = m.enrich_error_description();
 }
-
-export type BuilderStep = WalletActionStep | MarketplaceItemStep | ConformanceCheckStep;
-
-//
-
-export type MarketplaceStepType =
-	| StepType.Credential
-	| StepType.CustomCheck
-	| StepType.UseCaseVerification;
-
-export type MarketplaceItemStep = BaseStep<MarketplaceStepType, MarketplaceItem>;
-
-//
-
-export type WalletActionStep = BaseStep<StepType.WalletAction, WalletStepData>;
-
-export type WalletStepData = {
-	wallet: MarketplaceItem;
-	version: WalletVersionsResponse;
-	action: WalletActionsResponse;
-};
-
-//
-
-export type ConformanceCheckStep = BaseStep<StepType.ConformanceCheck, { checkId: string }>;
-
-/* Builder states */
-
-export abstract class StepFormState {}
-
-export class IdleState {}

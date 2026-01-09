@@ -647,19 +647,46 @@
                 "type": "string"
               },
               "with": {
-                "properties": {
-                  "config": {
-                    "additionalProperties": true,
+                "oneOf": [
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "check_id": {
+                        "type": "string"
+                      },
+                      "config": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "yaml": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "yaml"
+                    ],
                     "type": "object"
                   },
-                  "id": {
-                    "type": "string"
-                  },
-                  "yaml": {
-                    "type": "string"
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "check_id": {
+                        "type": "string"
+                      },
+                      "config": {
+                        "additionalProperties": true,
+                        "type": "object"
+                      },
+                      "yaml": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "check_id"
+                    ],
+                    "type": "object"
                   }
-                },
-                "type": "object"
+                ]
               }
             },
             "required": [
@@ -1082,6 +1109,48 @@
                 "required": [
                   "use_case_id"
                 ],
+                "type": "object"
+              }
+            },
+            "required": [
+              "id",
+              "use",
+              "with"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "use": {
+                "const": "debug",
+                "type": "string"
+              }
+            },
+            "required": [
+              "use"
+            ],
+            "type": "object"
+          },
+          {
+            "additionalProperties": false,
+            "properties": {
+              "continue_on_error": {
+                "type": "boolean"
+              },
+              "id": {
+                "type": "string"
+              },
+              "metadata": {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              "use": {
+                "const": "child-pipeline",
+                "type": "string"
+              },
+              "with": {
+                "additionalProperties": true,
                 "type": "object"
               }
             },
