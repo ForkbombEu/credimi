@@ -6,9 +6,9 @@ package logo
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -19,6 +19,26 @@ import (
 )
 
 const testDataDir = "../../../test_pb_data/"
+
+type roundTripperFunc func(req *http.Request) (*http.Response, error)
+
+func (fn roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
+}
+
+func setDownloadHTTPClient(
+	t *testing.T,
+	handler func(req *http.Request) (*http.Response, error),
+) {
+	t.Helper()
+	original := downloadHTTPClient
+	downloadHTTPClient = &http.Client{
+		Transport: roundTripperFunc(handler),
+	}
+	t.Cleanup(func() {
+		downloadHTTPClient = original
+	})
+}
 
 func setupTestApp(t testing.TB) *tests.TestApp {
 	app, err := tests.NewTestApp(
@@ -48,13 +68,15 @@ func getTestOrgID() (string, error) {
 }
 
 func TestLogoHooks_Valid(t *testing.T) {
-	// Crea un server di test per simulare il download
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("fake logo image data"))
-	}))
-	defer ts.Close()
+	setDownloadHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+		header := make(http.Header)
+		header.Set("Content-Type", "image/jpeg")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("fake logo image data")),
+			Header:     header,
+		}, nil
+	})
 
 	app := setupTestApp(t)
 	defer app.Cleanup()
@@ -65,7 +87,7 @@ func TestLogoHooks_Valid(t *testing.T) {
 	record.Set("owner", own)
 	record.Set("logo", "")
 
-	record.Set("logo_url", ts.URL+"/logo.jpg")
+	record.Set("logo_url", "https://example.com/logo.jpg")
 
 	require.Empty(
 		t,
@@ -109,12 +131,15 @@ func TestLogoHooks_Valid(t *testing.T) {
 }
 
 func TestLogoHooks_UpdateAddLogoURL(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("fake logo image data"))
-	}))
-	defer ts.Close()
+	setDownloadHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+		header := make(http.Header)
+		header.Set("Content-Type", "image/jpeg")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("fake logo image data")),
+			Header:     header,
+		}, nil
+	})
 
 	app := setupTestApp(t)
 	defer app.Cleanup()
@@ -133,7 +158,7 @@ func TestLogoHooks_UpdateAddLogoURL(t *testing.T) {
 
 	require.Empty(t, record.GetString("logo"), "Logo field should be empty initially")
 
-	record.Set("logo_url", ts.URL+"/logo.jpg")
+	record.Set("logo_url", "https://example.com/logo.jpg")
 
 	err = app.Save(record)
 	require.NoError(t, err)
@@ -161,6 +186,10 @@ func TestLogoHooks_UpdateAddLogoURL(t *testing.T) {
 }
 
 func TestLogoHooks_InvalidURL(t *testing.T) {
+	setDownloadHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+		return nil, errors.New("download failed")
+	})
+
 	app := setupTestApp(t)
 	defer app.Cleanup()
 
@@ -171,7 +200,7 @@ func TestLogoHooks_InvalidURL(t *testing.T) {
 	own, _ := getTestOrgID()
 	record.Set("owner", own)
 	record.Set("logo", "")
-	record.Set("logo_url", "https://invalid-domain-that-does-not-exist-12345.com/logo.png")
+	record.Set("logo_url", "https://example.com/logo.png")
 
 	err = app.Save(record)
 	require.NoError(t, err, "Save should succeed even if logo download fails")
@@ -184,10 +213,13 @@ func TestLogoHooks_InvalidURL(t *testing.T) {
 }
 
 func TestLogoHooks_HTTPError(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-	defer ts.Close()
+	setDownloadHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+		return &http.Response{
+			StatusCode: http.StatusNotFound,
+			Body:       io.NopCloser(strings.NewReader("")),
+			Header:     make(http.Header),
+		}, nil
+	})
 
 	app := setupTestApp(t)
 	defer app.Cleanup()
@@ -198,7 +230,7 @@ func TestLogoHooks_HTTPError(t *testing.T) {
 	record := core.NewRecord(coll)
 	own, _ := getTestOrgID()
 	record.Set("owner", own)
-	record.Set("logo_url", ts.URL+"/notfound.png")
+	record.Set("logo_url", "https://example.com/notfound.png")
 
 	err = app.Save(record)
 	require.NoError(t, err, "Save should succeed even if download fails")
@@ -293,7 +325,11 @@ func TestLogoHooks_WithUnsavedFiles(t *testing.T) {
 }
 
 func TestDownloadImage_InvalidURL(t *testing.T) {
-	file, err := DownloadImage(context.Background(), "http://[::1]:namedport/logo.png")
+	setDownloadHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+		return nil, errors.New("dial failed")
+	})
+
+	file, err := DownloadImage(context.Background(), "https://example.com/logo.png")
 
 	require.Error(t, err)
 	require.Nil(t, file)
@@ -318,32 +354,38 @@ func TestDownloadImage_MalformedURL(t *testing.T) {
 }
 
 func TestDownloadImage_ContextInRequest(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Context().Err() != nil {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			return
-		}
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test image"))
-	}))
-	defer ts.Close()
+	var contextValue any
+	setDownloadHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+		contextValue = req.Context().Value("testKey")
+		header := make(http.Header)
+		header.Set("Content-Type", "image/jpeg")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("test image")),
+			Header:     header,
+		}, nil
+	})
 
 	ctx := context.WithValue(context.Background(), "testKey", "testValue")
-	file, err := DownloadImage(ctx, ts.URL+"/test.jpg")
+	file, err := DownloadImage(ctx, "https://example.com/test.jpg")
 
 	require.NoError(t, err)
 	require.NotNil(t, file)
+	require.Equal(t, "testValue", contextValue)
 }
 
 func TestDownloadImage_EmptyImage(t *testing.T) {
-	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "image/jpeg")
-		w.WriteHeader(http.StatusOK)
-	}))
-	defer ts.Close()
+	setDownloadHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+		header := make(http.Header)
+		header.Set("Content-Type", "image/jpeg")
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader("")),
+			Header:     header,
+		}, nil
+	})
 
-	file, err := DownloadImage(context.Background(), ts.URL+"/empty.jpg")
+	file, err := DownloadImage(context.Background(), "https://example.com/empty.jpg")
 
 	require.Error(t, err)
 	require.Nil(t, file)

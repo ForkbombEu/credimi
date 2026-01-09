@@ -19,6 +19,12 @@ import (
 	_ "modernc.org/sqlite/lib"
 )
 
+type httpDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+var fidesHTTPClient httpDoer = http.DefaultClient
+
 // FetchIssuersActivity retrieves a list of issuers by recursively fetching data from the API.
 func FetchIssuersActivity(ctx context.Context) (FetchIssuersActivityResponse, error) {
 	// Start with offset 0.
@@ -42,7 +48,11 @@ func fetchIssuersRecursive(ctx context.Context, after int) ([]string, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := fidesHTTPClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform HTTP request: %w", err)
 	}

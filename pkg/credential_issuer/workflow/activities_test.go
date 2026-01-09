@@ -5,6 +5,9 @@
 package workflow
 
 import (
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -13,15 +16,38 @@ import (
 	_ "modernc.org/sqlite/lib"
 )
 
+type roundTripperFunc func(req *http.Request) (*http.Response, error)
+
+func (fn roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
+}
+
 func TestFetchIssuersActivity(t *testing.T) {
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestActivityEnvironment()
 	env.RegisterActivity(FetchIssuersActivity)
 
+	originalClient := fidesHTTPClient
+	fidesHTTPClient = &http.Client{
+		Transport: roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+			body := `{"content":[{"issuanceUrl":"https://example.com/issuer/.well-known/openid-credential-issuer"}],` +
+				`"page":{"size":1,"number":0,"totalElements":1,"totalPages":0}}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     make(http.Header),
+			}, nil
+		}),
+	}
+	t.Cleanup(func() {
+		fidesHTTPClient = originalClient
+	})
+
 	val, err := env.ExecuteActivity(FetchIssuersActivity)
 	var result FetchIssuersActivityResponse
 	assert.NoError(t, val.Get(&result))
 	assert.NoError(t, err)
+	assert.Equal(t, []string{"https://example.com/issuer"}, result.Issuers)
 }
 
 func TestExtractHrefsFromApiResponse(t *testing.T) {

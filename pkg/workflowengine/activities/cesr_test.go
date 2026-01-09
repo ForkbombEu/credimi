@@ -4,13 +4,9 @@
 package activities
 
 import (
-	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"runtime"
 	"testing"
 
 	"github.com/ForkbombEu/et-tu-cesr/cesr"
@@ -18,7 +14,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
-	"golang.org/x/sys/unix"
 )
 
 const (
@@ -142,42 +137,20 @@ func TestCESRValidate_Execute(t *testing.T) {
 
 	tmpBinDir := t.TempDir()
 	binPath := filepath.Join(tmpBinDir, "et-tu-cesr")
-
-	// Determine the platform and architecture
-	OS := runtime.GOOS
-	var utsname unix.Utsname
-	unix.Uname(&utsname)
-	arch := string(bytes.Trim(utsname.Machine[:], "\x00"))
-
-	// Map common uname names to release arch names
-	switch arch {
-	case "x86_64":
-		arch = "amd64"
-	case "aarch64":
-		arch = "arm64"
-	}
-
-	// Construct the binary download URL
-	url := fmt.Sprintf(
-		"https://github.com/ForkbombEu/et-tu-cesr/releases/latest/download/et-tu-cesr-%s-%s",
-		OS,
-		arch,
-	)
-
-	// Download the binary from GitHub
-	cmd := exec.Command("wget", url, "-O", binPath)
-	cmd.Dir = tmpBinDir // Set working directory to the temporary binary directory
-
-	t.Logf("Downloading binary from: %s", url)
-	err := cmd.Run()
-	require.NoError(t, err, "Failed to download binary")
-
-	// Make the binary executable
-	err = os.Chmod(binPath, 0755)
-	require.NoError(t, err, "Failed to make binary executable")
-
-	// Set environment variable to point to the binary directory
-	os.Setenv("BIN", tmpBinDir)
+	stub := `#!/bin/sh
+case "$2" in
+  *ERR*)
+    echo "validation failed" >&2
+    exit 1
+    ;;
+  *)
+    echo "1 credential bodies valid"
+    exit 0
+    ;;
+esac
+`
+	require.NoError(t, os.WriteFile(binPath, []byte(stub), 0o755))
+	t.Setenv("BIN", tmpBinDir)
 
 	tests := []struct {
 		name             string

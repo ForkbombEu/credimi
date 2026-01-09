@@ -31,8 +31,11 @@ require (
 	google.golang.org/protobuf v1.36.8
 	gopkg.in/gomail.v2 v2.0.0-20160411212932-81ebce5c23df
 	gopkg.in/yaml.v3 v3.0.1
-	modernc.org/sqlite v1.36.2
+modernc.org/sqlite v1.36.2
 )
+
+replace github.com/forkbombeu/credimi-extra => ../credimi-extra
+replace github.com/forkbombeu/avdctl => ../avdctl
 
 require (
 	4d63.com/gocheckcompilerdirectives v1.3.0 // indirect

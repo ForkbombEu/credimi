@@ -21,6 +21,12 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
+type httpDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+var issuerHTTPClient httpDoer = http.DefaultClient
+
 // Credential is a struct that represents the credential issuer metadata
 // as defined in the OpenID4VP specification. It includes various fields
 // such as credential definition, supported signing algorithms, cryptographic
@@ -154,13 +160,17 @@ func fetchJSONFromURL(
 		)
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	client := issuerHTTPClient
+	if client == nil {
+		client = http.DefaultClient
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]
 		return "", a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			req,
+			url,
 		)
 	}
 	defer resp.Body.Close()
@@ -180,7 +190,7 @@ func fetchJSONFromURL(
 		return "", a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			resp.Body,
+			url,
 		)
 	}
 

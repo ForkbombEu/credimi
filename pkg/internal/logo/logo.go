@@ -16,6 +16,12 @@ import (
 	"github.com/pocketbase/pocketbase/tools/filesystem"
 )
 
+type httpDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+var downloadHTTPClient httpDoer = http.DefaultClient
+
 func LogoHooks(app core.App) {
 	app.OnRecordCreate().BindFunc(HandleLogo)
 	app.OnRecordUpdate().BindFunc(HandleLogo)
@@ -55,7 +61,10 @@ func DownloadImage(ctx context.Context, imageURL string) (*filesystem.File, erro
 
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 
-	client := &http.Client{}
+	client := downloadHTTPClient
+	if client == nil {
+		client = http.DefaultClient
+	}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("download failed: %w", err)

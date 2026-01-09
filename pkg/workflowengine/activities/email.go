@@ -22,6 +22,14 @@ type SendMailActivity struct {
 	workflowengine.BaseActivity
 }
 
+type mailDialer interface {
+	DialAndSend(msg ...*gomail.Message) error
+}
+
+var newMailDialer = func(host string, port int, username string, password string) mailDialer {
+	return gomail.NewDialer(host, port, username, password)
+}
+
 // SendMailActivityPayload is the input payload for the SendMailActivity.
 type SendMailActivityPayload struct {
 	Sender    string         `json:"sender,omitempty"   yaml:"sender,omitempty"`
@@ -128,14 +136,14 @@ func (a *SendMailActivity) Execute(
 		)
 	}
 
-	d := gomail.NewDialer(
+	dialer := newMailDialer(
 		input.Config["smtp_host"],
 		SMTPPort,
 		utils.GetEnvironmentVariable("MAIL_USERNAME"),
 		utils.GetEnvironmentVariable("MAIL_PASSWORD"),
 	)
 
-	if err := d.DialAndSend(m); err != nil {
+	if err := dialer.DialAndSend(m); err != nil {
 		errCode := errorcodes.Codes[errorcodes.EmailSendFailed]
 		return workflowengine.ActivityResult{}, a.NewActivityError(
 			errCode.Code,
