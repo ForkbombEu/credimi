@@ -29,11 +29,13 @@ func ExecuteStep(
 ) (any, error) {
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
 	s := &StepDefinition{
-		ID:              id,
-		Use:             use,
-		With:            with,
-		ActivityOptions: activityOptions,
-		Metadata:        nil,
+		StepSpec: StepSpec{
+			ID:              id,
+			Use:             use,
+			With:            with,
+			ActivityOptions: activityOptions,
+			Metadata:        nil,
+		},
 		ContinueOnError: false,
 	}
 
