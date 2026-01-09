@@ -8,6 +8,7 @@ import { runWithLoading } from '$lib/utils/index.js';
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
 import type { PipelinesFormData } from '@/pocketbase/types/extra.generated.js';
+import * as _ from 'lodash';
 import { ActivityOptionsForm } from './activity-options-form/activity-options-form.svelte.js';
 import { createPipelineYaml } from './functions.js';
 import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
@@ -102,13 +103,26 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	//
 
 	hasChanges = $derived.by(() => {
-		if (this.props.mode === 'create') {
-			return this.stepsBuilder.steps.length > 0;
-		} else if (this.props.mode === 'edit') {
-			return this.props.pipeline?.metadata.yaml !== this.yamlString;
-		} else {
-			return false;
-		}
+		const { pipeline } = this.props;
+
+		const stepsChanged = !_.isEqual(
+			this.stepsBuilder.steps.map(([step]) => step),
+			pipeline?.steps.map(([step]) => step)
+		);
+
+		const activityOptionsChanged = !_.isEqual(
+			this.activityOptionsForm.value,
+			pipeline?.activity_options
+		);
+
+		const nameChanged = this.metadataForm.value?.name !== pipeline?.metadata.name;
+		const descChanged = this.metadataForm.value?.description !== pipeline?.metadata.description;
+
+		return stepsChanged || activityOptionsChanged || nameChanged || descChanged;
+	});
+
+	canSave = $derived.by(() => {
+		return this.hasChanges && this.stepsBuilder.steps.length > 0;
 	});
 
 	validateExit() {

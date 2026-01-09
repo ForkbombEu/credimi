@@ -151,11 +151,4 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 		if (newIndex < 0 || newIndex >= this.steps.length || newIndex === index) return null;
 		return { index, newIndex };
 	}
-
-	// Utilities
-
-	// TODO: Convert to "hasChanges"
-	hasSteps() {
-		return this.steps.length > 0;
-	}
 }
