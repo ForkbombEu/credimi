@@ -57,7 +57,7 @@ Given I have a 'string' named 'broken'
 			env := testSuite.NewTestWorkflowEnvironment()
 			env.SetTestTimeout(10 * time.Minute)
 
-			var w ZenroomWorkflow
+			w := NewZenroomWorkflow()
 			env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{
 				Name: w.Name(),
 			})

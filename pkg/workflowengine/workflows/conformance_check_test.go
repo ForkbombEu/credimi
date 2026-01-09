@@ -42,7 +42,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 					sendMail.Execute,
 					activity.RegisterOptions{Name: sendMail.Name()},
 				)
-				childOpenID := OpenIDNetLogsWorkflow{}
+				childOpenID := NewOpenIDNetLogsWorkflow()
 				env.RegisterWorkflowWithOptions(
 					childOpenID.Workflow,
 					workflow.RegisterOptions{Name: childOpenID.Name()},
@@ -85,7 +85,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 					activity.RegisterOptions{Name: sendMail.Name()},
 				)
 
-				childEWC := EWCStatusWorkflow{}
+				childEWC := NewEWCStatusWorkflow()
 				env.RegisterWorkflowWithOptions(
 					childEWC.Workflow,
 					workflow.RegisterOptions{Name: childEWC.Name()},
@@ -255,7 +255,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 			testSuite := &testsuite.WorkflowTestSuite{}
 			env := testSuite.NewTestWorkflowEnvironment()
 
-			w := StartCheckWorkflow{}
+			w := NewStartCheckWorkflow()
 			env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 			tc.mockActivities(env)

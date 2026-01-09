@@ -135,7 +135,7 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 			"user_name": userName,
 			"user_mail": userMail,
 		}
-		w := &pipeline.PipelineWorkflow{}
+		w := pipeline.NewPipelineWorkflow()
 		result, err := w.Start(input.Yaml, config, memo)
 		if err != nil {
 			return apierror.New(

@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/image"
@@ -22,6 +23,7 @@ import (
 	"github.com/docker/go-connections/nat"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"go.temporal.io/sdk/activity"
 )
 
 // DockerActivity is an activity that runs a Docker image with the specified command and environment variables.
@@ -155,80 +157,94 @@ func (a *DockerActivity) Execute(
 			payload.NetworkConfig,
 		)
 	}
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
 
 	statusCh, errCh := cli.ContainerWait(ctx, resp.ID, container.WaitConditionNotRunning)
-	select {
-	case err := <-errCh:
-		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.DockerWaitContainerFailed]
-			return result, a.NewActivityError(
-				errCode.Code,
-				fmt.Sprintf("%s: %v", errCode.Description, err),
+	var stdoutBuf, stderrBuf, combinedBuf bytes.Buffer
+
+	for {
+		select {
+		case <-ctx.Done():
+			_ = cli.ContainerKill(context.Background(), resp.ID, "SIGTERM")
+			_ = cli.ContainerRemove(
+				context.Background(),
 				resp.ID,
+				container.RemoveOptions{Force: true},
 			)
+			return result, ctx.Err()
+
+		case err := <-errCh:
+			if err != nil {
+				errCode := errorcodes.Codes[errorcodes.DockerWaitContainerFailed]
+				return result, a.NewActivityError(
+					errCode.Code,
+					fmt.Sprintf("%s: %v", errCode.Description, err),
+					resp.ID,
+				)
+			}
+
+		case <-statusCh:
+			inspect, err := cli.ContainerInspect(ctx, resp.ID)
+			if err != nil {
+				errCode := errorcodes.Codes[errorcodes.DockerInspectContainerFailed]
+				return result, a.NewActivityError(
+					errCode.Code,
+					fmt.Sprintf("%s: %v", errCode.Description, err),
+					resp.ID,
+				)
+			}
+
+			logs, err := cli.ContainerLogs(
+				ctx,
+				resp.ID,
+				container.LogsOptions{ShowStdout: true, ShowStderr: true},
+			)
+			if err != nil {
+				errCode := errorcodes.Codes[errorcodes.DockerFetchLogsFailed]
+				return result, a.NewActivityError(
+					errCode.Code,
+					fmt.Sprintf("%s: %v", errCode.Description, err),
+					resp.ID,
+				)
+			}
+			defer logs.Close()
+
+			multiStdout := io.MultiWriter(&stdoutBuf, &combinedBuf)
+			multiStderr := io.MultiWriter(&stderrBuf, &combinedBuf)
+			_, err = stdcopy.StdCopy(multiStdout, multiStderr, logs)
+			if err != nil {
+				errCode := errorcodes.Codes[errorcodes.CopyFromReaderFailed]
+				return result, a.NewActivityError(
+					errCode.Code,
+					fmt.Sprintf("%s: %v", errCode.Description, err),
+				)
+			}
+
+			if inspect.State.ExitCode != 0 {
+				errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
+				return result, a.NewActivityError(
+					errCode.Code,
+					fmt.Sprintf("Docker command failed with exit code %d", inspect.State.ExitCode),
+					resp.ID,
+					stdoutBuf.String(),
+					stderrBuf.String(),
+				)
+			}
+
+			result.Log = append(result.Log, combinedBuf.String())
+			result.Output = map[string]any{
+				"containerID": resp.ID,
+				"stdout":      stdoutBuf.String(),
+				"stderr":      stderrBuf.String(),
+				"exitCode":    inspect.State.ExitCode,
+			}
+			return result, nil
+
+		case <-ticker.C:
+			activity.RecordHeartbeat(ctx, "")
 		}
-	case <-statusCh:
 	}
-
-	inspect, err := cli.ContainerInspect(ctx, resp.ID)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.DockerInspectContainerFailed]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			resp.ID,
-		)
-	}
-
-	// Collect logs
-	logs, err := cli.ContainerLogs(
-		ctx,
-		resp.ID,
-		container.LogsOptions{ShowStdout: true, ShowStderr: true},
-	)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.DockerFetchLogsFailed]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-			resp.ID,
-		)
-	}
-	defer logs.Close()
-
-	var stdoutBuf, stderrBuf bytes.Buffer
-	var combinedBuf bytes.Buffer
-
-	multiStdout := io.MultiWriter(&stdoutBuf, &combinedBuf)
-	multiStderr := io.MultiWriter(&stderrBuf, &combinedBuf)
-
-	_, err = stdcopy.StdCopy(multiStdout, multiStderr, logs)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.CopyFromReaderFailed]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("%s: %v", errCode.Description, err),
-		)
-	}
-
-	if inspect.State.ExitCode != 0 {
-		errCode := errorcodes.Codes[errorcodes.CommandExecutionFailed]
-		return result, a.NewActivityError(
-			errCode.Code,
-			fmt.Sprintf("Docker command failed with exit code %d", inspect.State.ExitCode),
-			resp.ID,
-			stdoutBuf.String(),
-			stderrBuf.String(),
-		)
-	}
-	result.Log = append(result.Log, combinedBuf.String())
-	result.Output = map[string]any{
-		"containerID": resp.ID,
-		"stdout":      stdoutBuf.String(),
-		"stderr":      stderrBuf.String(),
-		"exitCode":    inspect.State.ExitCode,
-	}
-	return result, nil
 }
 
 // buildPortMappings takes a slice of port mappings as strings (e.g., "8080:80") and returns
