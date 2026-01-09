@@ -26,13 +26,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import Alert from '@/components/ui-custom/alert.svelte';
+	import StepCardDisplay from '$lib/pipeline-form/steps-builder/_partials/step-card-display.svelte';
 
 	import CodeSection from './_utils/code-section.svelte';
 	import DescriptionSection from './_utils/description-section.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
 	import { sections as s } from './_utils/sections';
+
+	//
 
 	type Props = Awaited<ReturnType<typeof getPipelineDetails>>;
 	let { yaml, description, pipeline }: Props = $props();
@@ -42,8 +44,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<DescriptionSection {description} />
 
 	<PageSection indexItem={s.pipeline_steps} empty={pipeline.steps.length === 0}>
-		<Alert variant="warning">Displaying steps is not implemented yet</Alert>
-		<!-- <PipelineStepsDisplay steps={pipeline.steps} /> -->
+		<div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+			{#each pipeline.steps as step, index (index)}
+				<StepCardDisplay {step} readonly>
+					{#snippet topRight()}
+						<div class="text-muted-foreground pr-2 text-xs">
+							#{index + 1}
+						</div>
+					{/snippet}
+				</StepCardDisplay>
+			{/each}
+		</div>
 	</PageSection>
 
 	<CodeSection indexItem={s.workflow_yaml} code={yaml} language="yaml" />

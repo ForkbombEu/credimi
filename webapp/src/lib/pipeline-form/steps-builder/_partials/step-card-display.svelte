@@ -5,64 +5,95 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
+	import { TriangleAlert } from 'lucide-svelte';
+
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
+	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import type { BuilderStep } from '../types.js';
-
-	import { getStepDisplayData } from './display-data.js';
+	import { Enrich404Error, type EnrichedStep } from '../steps-builder.svelte.js';
+	import { getStepCardData, getStepDisplayData } from './utils.js';
 
 	//
 
 	type Props = {
-		step: BuilderStep;
-		index?: number;
-		showContinueOnError?: boolean;
+		step: EnrichedStep;
+		topRight?: Snippet;
+		onContinueOnErrorChange?: (checked: boolean) => void;
+		readonly?: boolean;
 	};
 
-	let { step, index, showContinueOnError = true }: Props = $props();
+	let { step, topRight, onContinueOnErrorChange, readonly = false }: Props = $props();
 
-	const { icon, labels, classes } = getStepDisplayData(step.type);
+	const { classes, labels, icon } = $derived(getStepDisplayData(step[0].use));
+	const { title, copyText, avatar } = $derived(getStepCardData(step));
 </script>
 
-<div class={['bg-card overflow-hidden rounded-md border', classes.border]}>
-	<div class={['h-1', classes.bg]}></div>
+<div
+	class={[
+		'bg-card group overflow-hidden rounded-md border ',
+		classes.border,
+		!readonly && 'hover:ring'
+	]}
+>
+	<div class={['h-1', classes?.bg]}></div>
 	<div>
-		<div class="flex items-center justify-between py-1 pl-3 pr-3">
-			<div class="flex items-center gap-2">
-				{#if index !== undefined}
-					<span class="text-muted-foreground text-xs font-medium">#{index + 1}</span>
-				{/if}
-				<div class={['flex items-center gap-1', classes.text]}>
-					<Icon src={icon} size={12} />
-					<p class="text-xs">{labels.singular}</p>
-				</div>
+		<div class="flex items-center justify-between py-1 pl-3 pr-1">
+			<div class={['flex items-center gap-1', classes.text]}>
+				<Icon src={icon} size={12} />
+				<p class="text-xs">{labels.singular}</p>
 			</div>
-			{#if showContinueOnError && step.continueOnError}
-				<span class="text-muted-foreground text-xs italic">{m.Continue_on_error()}</span>
+
+			{@render topRight?.()}
+		</div>
+
+		<div class="p-3 pb-4 pt-2">
+			{#if step[1] instanceof Enrich404Error || step[1] instanceof Error}
+				<div class="flex items-center gap-2 rounded-md bg-red-700 p-3 text-white">
+					<TriangleAlert size={12} />
+					<p class="text-xs">{step[1].message}</p>
+				</div>
+			{:else if step[0].use !== 'debug'}
+				<div class="flex items-center gap-3">
+					<Avatar src={avatar} fallback={title} class="size-8 rounded-sm border" />
+					<div class="space-y-1">
+						<div class="flex items-center gap-1">
+							<h1>{title}</h1>
+							{#if copyText}
+								<CopyButtonSmall
+									textToCopy={copyText}
+									variant="ghost"
+									square
+									size="mini"
+									class="text-gray-400"
+								/>
+							{/if}
+						</div>
+					</div>
+				</div>
 			{/if}
 		</div>
 
-		<div class="flex items-center gap-3 p-3 pb-4 pt-1">
-			<Avatar src={step.avatar} fallback={step.name} class="size-8 rounded-lg border" />
-			<div class="min-w-0 flex-1 space-y-1">
-				<div class="flex items-center gap-1">
-					<h1 class="truncate">{step.name}</h1>
-					<CopyButtonSmall
-						textToCopy={step.path}
-						variant="ghost"
-						square
-						size="mini"
-						class="shrink-0 text-gray-400"
-					/>
-				</div>
-			</div>
-		</div>
-
-		<p class="text-muted-foreground block truncate px-3 pb-2 font-mono text-[10px]">
-			{step.path}
-		</p>
+		{#if step[0].use !== 'debug'}
+			<Label
+				class={[
+					'flex items-center gap-1 bg-slate-50 px-3 py-1',
+					{ 'cursor-pointer': !readonly }
+				]}
+			>
+				<Checkbox
+					class="flex size-[10px] items-center justify-center disabled:cursor-default"
+					checked={step[0].continue_on_error}
+					disabled={readonly}
+					onCheckedChange={(checked) => onContinueOnErrorChange?.(checked)}
+				/>
+				<span class="text-xs text-slate-500">{m.Continue_on_error()}</span>
+			</Label>
+		{/if}
 	</div>
 </div>
