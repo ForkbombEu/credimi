@@ -224,9 +224,11 @@ func TestResolveInputs(t *testing.T) {
 		{
 			name: "payload from scalar value",
 			step: StepDefinition{
-				With: StepInputs{
-					Config:  map[string]any{"key": "value"},
-					Payload: map[string]any{"p": "data"},
+				StepSpec: StepSpec{
+					With: StepInputs{
+						Config:  map[string]any{"key": "value"},
+						Payload: map[string]any{"p": "data"},
+					},
 				},
 			},
 			globalCfg: map[string]any{"g": "G"},
@@ -242,8 +244,10 @@ func TestResolveInputs(t *testing.T) {
 		{
 			name: "payload int",
 			step: StepDefinition{
-				With: StepInputs{
-					Payload: map[string]any{"num": 123},
+				StepSpec: StepSpec{
+					With: StepInputs{
+						Payload: map[string]any{"num": 123},
+					},
 				},
 			},
 			ctx: map[string]any{},
@@ -255,8 +259,10 @@ func TestResolveInputs(t *testing.T) {
 		{
 			name: "payload expression resolution",
 			step: StepDefinition{
-				With: StepInputs{
-					Payload: map[string]any{"val": "${{ ctx.key }}"},
+				StepSpec: StepSpec{
+					With: StepInputs{
+						Payload: map[string]any{"val": "${{ ctx.key }}"},
+					},
 				},
 			},
 			ctx: map[string]any{"ctx": map[string]any{"key": "ok"}},
@@ -268,17 +274,19 @@ func TestResolveInputs(t *testing.T) {
 		{
 			name: "nested payload map and array expressions",
 			step: StepDefinition{
-				With: StepInputs{
-					Payload: map[string]any{
-						"nested": map[string]any{
-							"level1": map[string]any{
-								"level2": map[string]any{
-									"value": "${{ ctx.key }}",
+				StepSpec: StepSpec{
+					With: StepInputs{
+						Payload: map[string]any{
+							"nested": map[string]any{
+								"level1": map[string]any{
+									"level2": map[string]any{
+										"value": "${{ ctx.key }}",
+									},
 								},
-							},
-							"array": []any{
-								"${{ ctx.key }}",
-								"static",
+								"array": []any{
+									"${{ ctx.key }}",
+									"static",
+								},
 							},
 						},
 					},
