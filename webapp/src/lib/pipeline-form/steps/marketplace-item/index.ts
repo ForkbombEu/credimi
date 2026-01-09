@@ -3,19 +3,20 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { MarketplaceItem } from '$lib/marketplace/types.js';
-import type { TypedPipelineStepConfig } from '$lib/pipeline-form/types';
 
 import { entities } from '$lib/global/entities.js';
 import { getMarketplaceItemByPath, getMarketplaceItemLogo } from '$lib/marketplace/utils.js';
 
 import { m } from '@/i18n/index.js';
 
+import type { TypedConfig } from '../types';
+
 import { MarketplaceItemStepForm } from './marketplace-item-step-form.svelte.js';
 
 //
 
-export const credentialsStepConfig: TypedPipelineStepConfig<'credential-offer', MarketplaceItem> = {
-	id: 'credential-offer',
+export const credentialsStepConfig: TypedConfig<'credential-offer', MarketplaceItem> = {
+	use: 'credential-offer',
 	display: {
 		...entities.credentials,
 		labels: { ...entities.credentials.labels, singular: m.Credential_Deeplink() }
@@ -33,11 +34,11 @@ export const credentialsStepConfig: TypedPipelineStepConfig<'credential-offer', 
 
 //
 
-export const useCaseVerificationStepConfig: TypedPipelineStepConfig<
+export const useCaseVerificationStepConfig: TypedConfig<
 	'use-case-verification-deeplink',
 	MarketplaceItem
 > = {
-	id: 'use-case-verification-deeplink',
+	use: 'use-case-verification-deeplink',
 	display: entities.use_cases_verifications,
 	initForm: () =>
 		new MarketplaceItemStepForm({
@@ -52,8 +53,8 @@ export const useCaseVerificationStepConfig: TypedPipelineStepConfig<
 
 //
 
-export const customCheckStepConfig: TypedPipelineStepConfig<'custom-check', MarketplaceItem> = {
-	id: 'custom-check',
+export const customCheckStepConfig: TypedConfig<'custom-check', MarketplaceItem> = {
+	use: 'custom-check',
 	display: entities.custom_checks,
 	initForm: () =>
 		new MarketplaceItemStepForm({

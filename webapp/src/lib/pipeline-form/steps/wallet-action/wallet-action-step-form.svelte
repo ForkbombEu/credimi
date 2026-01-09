@@ -10,8 +10,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import { getMarketplaceItemData } from '$lib/marketplace';
 
-	import { Badge } from '@/components/ui/badge/index.js';
-	import { m } from '@/i18n/index.js';
+	import { Badge } from '@/components/ui/badge';
+	import { m } from '@/i18n';
 
 	import type { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
 

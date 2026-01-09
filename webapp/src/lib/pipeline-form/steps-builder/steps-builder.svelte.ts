@@ -4,11 +4,11 @@
 
 import type { Renderable } from '$lib/renderable';
 import { StateManager } from '$lib/state-manager/state-manager';
-import type { GenericRecord } from '@/utils/types';
 import slugify from 'slugify';
-import { configs } from '../steps';
-import type { PipelineStep, PipelineStepDataForm, PipelineStepWithId } from '../types';
+import * as pipelinestep from '../steps';
+import type { PipelineStep } from '../types';
 import Component from './steps-builder.svelte';
+import type { EnrichedStep } from './types';
 
 //
 
@@ -18,28 +18,20 @@ slugify.extend({
 
 //
 
-export type EnrichedStep = [PipelineStep, GenericRecord | Enrich404Error | Error];
-
-export class Enrich404Error extends Error {
-	constructor() {
-		super('Resource not found');
-	}
-}
-
 type Props = {
 	steps: EnrichedStep[];
 	yamlPreview: () => string;
 };
 
-type StepsBuilderState = {
+type State = {
 	steps: EnrichedStep[];
-	state: { id: 'idle' } | { id: 'form'; form: PipelineStepDataForm };
+	state: { id: 'idle' } | { id: 'form'; form: pipelinestep.DataForm };
 };
 
 export class StepsBuilder implements Renderable<StepsBuilder> {
 	readonly Component = Component;
 
-	private _state = $state<StepsBuilderState>({
+	private _state = $state<State>({
 		steps: [],
 		state: { id: 'idle' }
 	});
@@ -77,21 +69,21 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	// Core functionality
 
 	initAddStep(type: string) {
-		const config = configs.find((c) => c.id === type);
+		const config = pipelinestep.configs.find((c) => c.use === type);
 		if (!config) return;
 
 		this.stateManager.run((data) => {
-			const config = configs.find((c) => c.id === type);
+			const config = pipelinestep.configs.find((c) => c.use === type);
 			if (!config) return;
 
 			const effectCleanup = $effect.root(() => {
 				const form = config.initForm();
 				form.onSubmit((formData) => {
-					const step: PipelineStepWithId = {
-						use: config.id,
+					const step: PipelineStep = {
+						use: config.use as never,
 						id: slugify(config.makeId(formData)),
 						continue_on_error: true,
-						with: config.serialize(formData) as Record<string, unknown>
+						with: config.serialize(formData)
 					};
 					this.stateManager.run((data) => {
 						data.steps.push([step, formData]);

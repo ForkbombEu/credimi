@@ -7,13 +7,14 @@ import { getMarketplaceItemLogo, type MarketplaceItem } from '$lib/marketplace';
 import {
 	DEEPLINK_STEP_ID_PLACEHOLDER,
 	type PipelineStepByType,
-	type PipelineStepData,
-	type TypedPipelineStepConfig
+	type PipelineStepData
 } from '$lib/pipeline-form/types';
 import { getPath } from '$lib/utils';
 
 import { pb } from '@/pocketbase';
 import { Collections } from '@/pocketbase/types';
+
+import type { TypedConfig } from '../types';
 
 import {
 	WalletActionStepForm,
@@ -22,11 +23,8 @@ import {
 
 //
 
-export const walletActionStepConfig: TypedPipelineStepConfig<
-	'mobile-automation',
-	WalletActionStepData
-> = {
-	id: 'mobile-automation',
+export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActionStepData> = {
+	use: 'mobile-automation',
 
 	display: entities.wallets,
 

@@ -7,13 +7,13 @@ import * as _ from 'lodash';
 import { ClientResponseError } from 'pocketbase';
 import { parse, stringify } from 'yaml';
 
-import type { PipelinesResponse } from '@/pocketbase/types';
 import type { GenericRecord } from '@/utils/types.js';
 
+import { pb } from '@/pocketbase';
 import { getExceptionMessage } from '@/utils/errors.js';
 
 import { configs } from './steps';
-import { Enrich404Error, type EnrichedStep } from './steps-builder/steps-builder.svelte.js';
+import { Enrich404Error, type EnrichedStep } from './steps-builder/types';
 import {
 	DEEPLINK_STEP_ID_PLACEHOLDER,
 	type ActivityOptions,
@@ -25,9 +25,14 @@ import {
 
 /* Fetching pipeline */
 
-export async function enrichPipeline(pipelineRecord: PipelinesResponse): Promise<EnrichedPipeline> {
-	const pipelineYaml = parse(pipelineRecord.yaml) as Pipeline;
-	const steps = pipelineYaml.steps ?? [];
+export async function getEnrichedPipeline(
+	id: string,
+	options = { fetch }
+): Promise<EnrichedPipeline> {
+	const record = await pb.collection('pipelines').getOne(id, { fetch: options.fetch });
+
+	const yaml = parse(record.yaml) as Pipeline;
+	const steps = yaml.steps ?? [];
 
 	const enrichedSteps: EnrichedStep[] = [];
 	for (const step of steps) {
@@ -35,7 +40,7 @@ export async function enrichPipeline(pipelineRecord: PipelinesResponse): Promise
 			enrichedSteps.push([step, {}]);
 		} else {
 			try {
-				const config = configs.find((c) => c.id === step.use);
+				const config = configs.find((c) => c.use === step.use);
 				if (!config) throw new Error(`Unknown step type: ${step.use}`);
 				const data = await config.deserialize(step.with);
 				enrichedSteps.push([step, data]);
@@ -58,8 +63,8 @@ export async function enrichPipeline(pipelineRecord: PipelinesResponse): Promise
 	}
 
 	return {
-		metadata: pipelineRecord,
-		activity_options: pipelineYaml.runtime?.temporal?.activity_options,
+		record,
+		activity_options: yaml.runtime?.temporal?.activity_options,
 		steps: enrichedSteps
 	};
 }

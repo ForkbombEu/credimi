@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { MarketplaceItem } from '$lib/marketplace';
-import { BasePipelineStepDataForm } from '$lib/pipeline-form/types.js';
 import { pb } from '@/pocketbase/index.js';
 import {
 	Collections,
@@ -12,6 +11,7 @@ import {
 } from '@/pocketbase/types';
 import { searchMarketplace } from '../_partials/search-marketplace';
 import { Search } from '../_partials/search.svelte.js';
+import { BaseDataForm } from '../types.js';
 import Component from './wallet-action-step-form.svelte';
 
 //
@@ -22,10 +22,7 @@ export interface WalletActionStepData {
 	action: WalletActionsResponse;
 }
 
-export class WalletActionStepForm extends BasePipelineStepDataForm<
-	WalletActionStepData,
-	WalletActionStepForm
-> {
+export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, WalletActionStepForm> {
 	readonly Component = Component;
 
 	data = $state<Partial<WalletActionStepData>>({});

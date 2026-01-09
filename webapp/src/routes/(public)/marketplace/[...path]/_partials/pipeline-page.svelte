@@ -5,21 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script module lang="ts">
-	import { enrichPipeline } from '$lib/pipeline-form/functions';
-
-	import { pb } from '@/pocketbase/index.js';
+	import { getEnrichedPipeline } from '$lib/pipeline-form/functions';
 
 	import { pageDetails } from './_utils/types';
 
 	//
 
 	export async function getPipelineDetails(itemId: string, fetchFn = fetch) {
-		const pipelineRecord = await pb.collection('pipelines').getOne(itemId, { fetch: fetchFn });
-		const pipeline = await enrichPipeline(pipelineRecord);
+		const pipeline = await getEnrichedPipeline(itemId, { fetch: fetchFn });
 
 		return pageDetails('pipelines', {
-			yaml: pipelineRecord.yaml,
-			description: pipelineRecord.description,
 			pipeline
 		});
 	}
@@ -37,11 +32,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = Awaited<ReturnType<typeof getPipelineDetails>>;
-	let { yaml, description, pipeline }: Props = $props();
+	let { pipeline }: Props = $props();
 </script>
 
 <LayoutWithToc sections={[s.description, s.pipeline_steps, s.workflow_yaml]}>
-	<DescriptionSection {description} />
+	<DescriptionSection description={pipeline.record.description} />
 
 	<PageSection indexItem={s.pipeline_steps} empty={pipeline.steps.length === 0}>
 		<div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -57,5 +52,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</PageSection>
 
-	<CodeSection indexItem={s.workflow_yaml} code={yaml} language="yaml" />
+	<CodeSection indexItem={s.workflow_yaml} code={pipeline.record.yaml} language="yaml" />
 </LayoutWithToc>

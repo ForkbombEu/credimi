@@ -2,17 +2,17 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { TypedPipelineStepConfig } from '$lib/pipeline-form/types';
-
 import { entities } from '$lib/global/entities.js';
 import { getStandardsWithTestSuites } from '$lib/standards';
+
+import type { TypedConfig } from '../types';
 
 import { ConformanceCheckStepForm, type FormData } from './conformance-check-step-form.svelte.js';
 
 //
 
-export const conformanceCheckStepConfig: TypedPipelineStepConfig<'conformance-check', FormData> = {
-	id: 'conformance-check',
+export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormData> = {
+	use: 'conformance-check',
 
 	display: entities.conformance_checks,
 

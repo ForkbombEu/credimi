@@ -23,16 +23,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const activityOptions = form.activityOptionsForm;
 	const builder = form.stepsBuilder;
 
-	const isViewMode = $derived(form['props'].mode === 'view');
-	const saveButtonText = $derived(isViewMode ? m.Create_record() : m.Save());
+	const saveButtonText = $derived(m.Save());
 
 	const title = $derived.by(() => {
 		if (form.mode === 'create') {
 			return m.New_pipeline();
-		} else if (form.mode === 'edit') {
-			return m.Edit_pipeline();
 		} else {
-			return m.View();
+			return m.Edit_pipeline();
 		}
 	});
 </script>

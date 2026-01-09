@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import * as steps from '$lib/pipeline-form/steps';
 	import { TriangleAlert } from 'lucide-svelte';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
@@ -16,8 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import { Enrich404Error, type EnrichedStep } from '../steps-builder.svelte.js';
-	import { getStepCardData, getStepDisplayData } from './utils.js';
+	import { type EnrichedStep, Enrich404Error } from '../types';
 
 	//
 
@@ -30,19 +30,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { step, topRight, onContinueOnErrorChange, readonly = false }: Props = $props();
 
-	const { classes, labels, icon } = $derived(getStepDisplayData(step[0].use));
-	const { title, copyText, avatar } = $derived(getStepCardData(step));
+	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
+
+	const { title, copyText, avatar } = $derived.by(() => {
+		if (step[0].use === 'debug') {
+			return { title: m.Debug() };
+		} else {
+			const config = steps.configs.find((c) => c.use === step[0].use);
+			if (!config) throw new Error(`Unknown step type: ${step[0].use}`);
+			return config.cardData(step[1]);
+		}
+	});
 </script>
 
 <div
 	class={[
-		'bg-card group overflow-hidden rounded-md border ',
+		'bg-card group flex flex-col overflow-hidden rounded-md border',
 		classes.border,
 		!readonly && 'hover:ring'
 	]}
 >
 	<div class={['h-1', classes?.bg]}></div>
-	<div>
+
+	<div class="grow">
 		<div class="flex items-center justify-between py-1 pl-3 pr-1">
 			<div class={['flex items-center gap-1', classes.text]}>
 				<Icon src={icon} size={12} />
@@ -78,22 +88,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 			{/if}
 		</div>
-
-		{#if step[0].use !== 'debug'}
-			<Label
-				class={[
-					'flex items-center gap-1 bg-slate-50 px-3 py-1',
-					{ 'cursor-pointer': !readonly }
-				]}
-			>
-				<Checkbox
-					class="flex size-[10px] items-center justify-center disabled:cursor-default"
-					checked={step[0].continue_on_error}
-					disabled={readonly}
-					onCheckedChange={(checked) => onContinueOnErrorChange?.(checked)}
-				/>
-				<span class="text-xs text-slate-500">{m.Continue_on_error()}</span>
-			</Label>
-		{/if}
 	</div>
+
+	{#if step[0].use !== 'debug'}
+		<Label
+			class={[
+				'flex items-center gap-1 bg-slate-50 px-3 py-1',
+				{ 'cursor-pointer': !readonly }
+			]}
+		>
+			<Checkbox
+				class="flex size-[10px] items-center justify-center disabled:cursor-default"
+				checked={step[0].continue_on_error}
+				disabled={readonly}
+				onCheckedChange={(checked) => onContinueOnErrorChange?.(checked)}
+			/>
+			<span class="text-xs text-slate-500">{m.Continue_on_error()}</span>
+		</Label>
+	{/if}
 </div>

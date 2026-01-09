@@ -4,9 +4,9 @@
 
 import type { EntityData } from '$lib/global';
 import type { MarketplaceItem, MarketplaceItemType } from '$lib/marketplace';
-import { Search } from '$lib/pipeline-form/steps/_partials/search.svelte';
-import { BasePipelineStepDataForm } from '$lib/pipeline-form/types';
 import { searchMarketplace } from '../_partials/search-marketplace';
+import { Search } from '../_partials/search.svelte';
+import { BaseDataForm } from '../types';
 import Component from './marketplace-item-step-form.svelte';
 
 //
@@ -26,7 +26,7 @@ type Props = {
 	entityData: EntityData;
 };
 
-export class MarketplaceItemStepForm extends BasePipelineStepDataForm<
+export class MarketplaceItemStepForm extends BaseDataForm<
 	MarketplaceItem,
 	MarketplaceItemStepForm
 > {

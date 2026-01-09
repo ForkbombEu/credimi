@@ -20,15 +20,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
+	import * as steps from '../steps';
 	import { configs } from '../steps/index.js';
 	import Column from './_partials/column.svelte';
 	import EmptyState from './_partials/empty-state.svelte';
 	import StepCard from './_partials/step-card.svelte';
-	import { debugEntityData, getStepDisplayData } from './_partials/utils.js';
 
 	//
 
 	let { self: builder }: SelfProp<StepsBuilder> = $props();
+
+	const { debugEntityData } = steps;
 </script>
 
 <Resizable.PaneGroup direction="horizontal" class="gap-2">
@@ -87,12 +89,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet stepButtons()}
 	<div class="flex flex-col gap-2 p-4" in:fly>
-		{#each configs as config (config.id)}
-			{@const { icon, labels, classes } = getStepDisplayData(config.id)}
+		{#each configs as config (config.use)}
+			{@const { icon, labels, classes } = steps.getDisplayData(config.use)}
 			<Button
 				variant="outline"
 				class="!justify-start"
-				onclick={() => builder.initAddStep(config.id)}
+				onclick={() => builder.initAddStep(config.use)}
 			>
 				<Icon src={icon} class={classes.text} />
 				{labels.singular}

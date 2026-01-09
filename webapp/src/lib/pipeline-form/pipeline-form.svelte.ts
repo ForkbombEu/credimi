@@ -8,7 +8,7 @@ import { runWithLoading } from '$lib/utils/index.js';
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
 import type { PipelinesFormData } from '@/pocketbase/types/extra.generated.js';
-import * as _ from 'lodash';
+import _ from 'lodash';
 import { ActivityOptionsForm } from './activity-options-form/activity-options-form.svelte.js';
 import { createPipelineYaml } from './functions.js';
 import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
@@ -19,7 +19,7 @@ import type { EnrichedPipeline } from './types';
 //
 
 type Props = {
-	mode: 'create' | 'edit' | 'view';
+	mode: 'create' | 'edit';
 	pipeline?: EnrichedPipeline;
 };
 
@@ -41,7 +41,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 		});
 
 		this.metadataForm = new MetadataForm({
-			initialData: props.mode === 'view' ? undefined : props.pipeline?.metadata,
+			initialData: props.pipeline?.record,
 			onSubmit: async () => {
 				if (!this.saveAfterMetadataFormSubmit) return;
 				await this.save();
@@ -76,7 +76,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	async save() {
 		if (!this.metadataForm.value) {
 			this.metadataForm.isOpen = true;
-			if (this.props.mode === 'create' || this.props.mode === 'view') {
+			if (this.props.mode === 'create') {
 				this.saveAfterMetadataFormSubmit = true;
 			}
 		} else {
@@ -90,7 +90,7 @@ export class PipelineForm implements Renderable<PipelineForm> {
 					if (this.props.mode === 'edit' && this.props.pipeline) {
 						await pb
 							.collection('pipelines')
-							.update(this.props.pipeline.metadata.id, data);
+							.update(this.props.pipeline.record.id, data);
 					} else {
 						await pb.collection('pipelines').create(data);
 					}
@@ -115,8 +115,8 @@ export class PipelineForm implements Renderable<PipelineForm> {
 			pipeline?.activity_options
 		);
 
-		const nameChanged = this.metadataForm.value?.name !== pipeline?.metadata.name;
-		const descChanged = this.metadataForm.value?.description !== pipeline?.metadata.description;
+		const nameChanged = this.metadataForm.value?.name !== pipeline?.record.name;
+		const descChanged = this.metadataForm.value?.description !== pipeline?.record.description;
 
 		return stepsChanged || activityOptionsChanged || nameChanged || descChanged;
 	});
