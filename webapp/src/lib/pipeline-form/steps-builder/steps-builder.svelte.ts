@@ -4,17 +4,12 @@
 
 import type { Renderable } from '$lib/renderable';
 import { StateManager } from '$lib/state-manager/state-manager';
-import slugify from 'slugify';
 import * as pipelinestep from '../steps';
 import type { PipelineStep } from '../types';
 import Component from './steps-builder.svelte';
 import type { EnrichedStep } from './types';
 
 //
-
-slugify.extend({
-	'/': '-'
-});
 
 //
 
@@ -81,7 +76,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 				form.onSubmit((formData) => {
 					const step: PipelineStep = {
 						use: config.use as never,
-						id: slugify(config.makeId(formData)),
+						id: '', // will be written later
 						continue_on_error: true,
 						with: config.serialize(formData)
 					};

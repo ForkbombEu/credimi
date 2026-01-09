@@ -4,11 +4,7 @@
 
 import { entities } from '$lib/global/entities';
 import { getMarketplaceItemLogo, type MarketplaceItem } from '$lib/marketplace';
-import {
-	DEEPLINK_STEP_ID_PLACEHOLDER,
-	type PipelineStepByType,
-	type PipelineStepData
-} from '$lib/pipeline-form/types';
+import { type PipelineStepByType, type PipelineStepData } from '$lib/pipeline-form/types';
 import { getPath } from '$lib/utils';
 
 import { pb } from '@/pocketbase';
@@ -16,6 +12,7 @@ import { Collections } from '@/pocketbase/types';
 
 import type { TypedConfig } from '../types';
 
+import { getLastPathSegment } from '../_partials/misc';
 import {
 	WalletActionStepForm,
 	type WalletActionStepData
@@ -34,7 +31,13 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 		avatar: getMarketplaceItemLogo(wallet)
 	}),
 
-	makeId: ({ action }) => getPath(action),
+	makeId: (data) => {
+		if (!('action_id' in data) || !('version_id' in data)) {
+			console.log(data);
+			throw new Error('Invalid data');
+		}
+		return getLastPathSegment(data.action_id);
+	},
 
 	initForm: () => new WalletActionStepForm(),
 
@@ -45,7 +48,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 		};
 		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
-				deeplink: '${{' + DEEPLINK_STEP_ID_PLACEHOLDER + '}}'
+				deeplink: '<deeplink-placeholder>' // will be written later
 			};
 		}
 		return _with;
