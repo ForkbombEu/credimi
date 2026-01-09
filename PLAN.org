@@ -2,7 +2,7 @@
 #+AUTHOR: Credimi Team
 #+DATE: 2025-01-09
 
-* TODO [#A] Deterministic Pipeline Execution with Resource Pooling
+* WIP [#A] Deterministic Pipeline Execution with Resource Pooling
   Goal: Eliminate non-deterministic pipeline behavior by implementing a resource pool-based execution model with proper synchronization, QEMU tuning, and controlled parallelism.
   
   Context: Pipelines exhibit non-deterministic failures when 3+ AVD instances run concurrently. Failures occur in batches (multiple pipelines fail together, not individually), producing different results between identical runs. No resource exhaustion detected, but race conditions suspected in emulator lifecycle management.
@@ -17,7 +17,7 @@
   
   Strategy: Implement a resource pool manager with semaphore-based concurrency control, enhance avdctl determinism, add comprehensive state tracking in Temporal, and tune QEMU for stable headless execution.
 
-** TODO [#A] Diagnostic instrumentation and race condition detection
+** DONE [#A] Diagnostic instrumentation and race condition detection
    Why: Before fixing, we need to identify the exact failure modes and timing issues. Current setup lacks visibility into AVD lifecycle state transitions and concurrent access patterns.
    
    Change:
@@ -331,4 +331,3 @@
    - Corrupted videos detected before upload (never stored in PocketBase)
    - Recording never exceeds 300s (enforced by timeout)
    - Upload succeeds reliably for 50MB+ files
-

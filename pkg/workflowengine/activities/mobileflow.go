@@ -5,13 +5,21 @@ package activities
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
+	"time"
 
 	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
+	"go.temporal.io/sdk/activity"
 )
+
+var mobileTracer = otel.Tracer("credimi/workflowengine/mobile")
 
 type StartEmulatorActivity struct {
 	workflowengine.BaseActivity
@@ -33,7 +41,17 @@ func (a *StartEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx, span := mobileTracer.Start(ctx, "StartEmulatorActivity")
+	defer span.End()
+	annotateActivitySpan(ctx, span)
+
+	stopHeartbeat := startActivityHeartbeat(ctx, 10*time.Second, map[string]any{
+		"stage": "start_emulator",
+	})
+	defer stopHeartbeat()
+
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -42,6 +60,7 @@ func (a *StartEmulatorActivity) Execute(
 
 	res, err := mobile.StartEmulator(ctx, runInput)
 	if err != nil {
+		span.RecordError(err)
 		return workflowengine.ActivityResult{}, err
 	}
 
@@ -68,7 +87,17 @@ func (a *ApkInstallActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx, span := mobileTracer.Start(ctx, "ApkInstallActivity")
+	defer span.End()
+	annotateActivitySpan(ctx, span)
+
+	stopHeartbeat := startActivityHeartbeat(ctx, 10*time.Second, map[string]any{
+		"stage": "apk_install",
+	})
+	defer stopHeartbeat()
+
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		map[string]mobile.ErrorCode{
@@ -82,6 +111,7 @@ func (a *ApkInstallActivity) Execute(
 
 	res, err := mobile.ApkInstall(ctx, runInput)
 	if err != nil {
+		span.RecordError(err)
 		return workflowengine.ActivityResult{}, err
 	}
 
@@ -108,7 +138,12 @@ func (a *UnlockEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx, span := mobileTracer.Start(ctx, "UnlockEmulatorActivity")
+	defer span.End()
+	annotateActivitySpan(ctx, span)
+
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -117,6 +152,7 @@ func (a *UnlockEmulatorActivity) Execute(
 
 	res, err := mobile.UnlockEmulator(ctx, runInput)
 	if err != nil {
+		span.RecordError(err)
 		return workflowengine.ActivityResult{}, err
 	}
 
@@ -143,7 +179,12 @@ func (a *StopEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx, span := mobileTracer.Start(ctx, "StopEmulatorActivity")
+	defer span.End()
+	annotateActivitySpan(ctx, span)
+
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -152,6 +193,7 @@ func (a *StopEmulatorActivity) Execute(
 
 	res, err := mobile.StopEmulator(ctx, runInput)
 	if err != nil {
+		span.RecordError(err)
 		return workflowengine.ActivityResult{}, err
 	}
 
@@ -178,7 +220,17 @@ func (a *StartRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx, span := mobileTracer.Start(ctx, "StartRecordingActivity")
+	defer span.End()
+	annotateActivitySpan(ctx, span)
+
+	stopHeartbeat := startActivityHeartbeat(ctx, 10*time.Second, map[string]any{
+		"stage": "start_recording",
+	})
+	defer stopHeartbeat()
+
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		map[string]mobile.ErrorCode{
@@ -192,6 +244,7 @@ func (a *StartRecordingActivity) Execute(
 
 	res, err := mobile.StartVideoRecording(ctx, runInput)
 	if err != nil {
+		span.RecordError(err)
 		return workflowengine.ActivityResult{}, err
 	}
 
@@ -218,15 +271,26 @@ func (a *StopRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx, span := mobileTracer.Start(ctx, "StopRecordingActivity")
+	defer span.End()
+	annotateActivitySpan(ctx, span)
+
+	stopHeartbeat := startActivityHeartbeat(ctx, 10*time.Second, map[string]any{
+		"stage": "stop_recording",
+	})
+	defer stopHeartbeat()
+
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
 		true,
 	)
 
-	res, err := mobile.StopVideoRecording(runInput)
+	res, err := mobile.StopVideoRecording(ctx, runInput)
 	if err != nil {
+		span.RecordError(err)
 		return workflowengine.ActivityResult{}, err
 	}
 
@@ -253,7 +317,17 @@ func (a *RunMobileFlowActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx, span := mobileTracer.Start(ctx, "RunMobileFlowActivity")
+	defer span.End()
+	annotateActivitySpan(ctx, span)
+
+	stopHeartbeat := startActivityHeartbeat(ctx, 10*time.Second, map[string]any{
+		"stage": "run_mobile_flow",
+	})
+	defer stopHeartbeat()
+
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		map[string]mobile.ErrorCode{
@@ -267,6 +341,7 @@ func (a *RunMobileFlowActivity) Execute(
 
 	res, err := mobile.RunMobileFlow(ctx, runInput)
 	if err != nil {
+		span.RecordError(err)
 		return workflowengine.ActivityResult{}, err
 	}
 
@@ -276,6 +351,7 @@ func (a *RunMobileFlowActivity) Execute(
 }
 
 func buildMobileInput(
+	ctx context.Context,
 	payload any,
 	newErr func(code string, msg string, details ...any) error,
 	extraErrorCodes map[string]mobile.ErrorCode,
@@ -296,11 +372,35 @@ func buildMobileInput(
 		baseCodes[k] = v
 	}
 
+	activityInfo := activity.GetInfo(ctx)
+	correlationID := fmt.Sprintf("%s/%s", activityInfo.WorkflowExecution.ID, activityInfo.ActivityID)
+	logger := activity.GetLogger(ctx)
+	baseFields := []any{
+		"correlation_id", correlationID,
+		"workflow_id", activityInfo.WorkflowExecution.ID,
+		"activity_id", activityInfo.ActivityID,
+	}
+
+	logInfo := func(message string, keyValues ...any) {
+		fields := append([]any{}, baseFields...)
+		fields = append(fields, keyValues...)
+		logger.Info(message, fields...)
+	}
+
+	logError := func(message string, keyValues ...any) {
+		fields := append([]any{}, baseFields...)
+		fields = append(fields, keyValues...)
+		logger.Error(message, fields...)
+	}
+
 	in := mobile.MobileActivityInput{
 		Payload:          payload,
 		GetEnv:           utils.GetEnvironmentVariable,
 		NewActivityError: newErr,
 		ErrorCodes:       baseCodes,
+		CorrelationID:    correlationID,
+		LogInfo:          logInfo,
+		LogError:         logError,
 	}
 
 	if withCommand {
@@ -308,4 +408,37 @@ func buildMobileInput(
 	}
 
 	return in
+}
+
+func annotateActivitySpan(ctx context.Context, span trace.Span) {
+	activityInfo := activity.GetInfo(ctx)
+	span.SetAttributes(
+		attribute.String("workflow.id", activityInfo.WorkflowExecution.ID),
+		attribute.String("activity.id", activityInfo.ActivityID),
+	)
+}
+
+func startActivityHeartbeat(
+	ctx context.Context,
+	interval time.Duration,
+	details map[string]any,
+) func() {
+	stopChan := make(chan struct{})
+	go func() {
+		ticker := time.NewTicker(interval)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ticker.C:
+				activity.RecordHeartbeat(ctx, details)
+			case <-ctx.Done():
+				return
+			case <-stopChan:
+				return
+			}
+		}
+	}()
+	return func() {
+		close(stopChan)
+	}
 }

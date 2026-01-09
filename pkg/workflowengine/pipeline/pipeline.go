@@ -90,6 +90,14 @@ func (w *PipelineWorkflow) Workflow(
 		// For child pipelines, inherit parent run data
 		runData = input.ParentRunData
 	}
+	if err := workflow.SetQueryHandler(ctx, "GetEmulatorStatus", func() (map[string]any, error) {
+		if status, ok := runData["started_emulators"].(map[string]any); ok {
+			return status, nil
+		}
+		return map[string]any{}, nil
+	}); err != nil {
+		logger.Error("failed to register GetEmulatorStatus query handler", "error", err)
+	}
 	defer func() {
 
 		for _, hook := range cleanupHooks {
