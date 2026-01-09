@@ -89,6 +89,12 @@ var CanonifyPaths = map[string]PathTemplate{
 		Parent:          &Parent{Collection: "organizations", Field: "owner"},
 		PathLength:      2,
 	},
+	"pipeline_results": {
+		Field:           "workflow_id",
+		CanonifiedField: "canonified_identifier",
+		Parent:          &Parent{Collection: "organizations", Field: "owner"},
+		PathLength:      2,
+	},
 	"news": {
 		Field:           "title",
 		CanonifiedField: "canonified_title",

@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { SuperForm } from 'sveltekit-superforms';
 
 	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
+	import QrFieldWrapper from '$lib/layout/qr-field-wrapper.svelte';
 	import { refineAsStepciYaml } from '$lib/utils';
 	import { z } from 'zod';
 
@@ -19,8 +20,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/pocketbase/types';
 
 	import { CollectionForm } from '@/collections-components';
-	import T from '@/components/ui-custom/t.svelte';
-	import { Separator } from '@/components/ui/separator';
 	import { FormError, SubmitButton } from '@/forms';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
@@ -47,7 +46,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'conformant',
 			'imported',
 			'published',
-			'canonified_name'
+			'canonified_name',
+			'logo_url'
 		];
 		const editFields: Field[] = ['format', 'display_name', 'locale', 'logo_url', 'name'];
 		if (mode === 'edit' && credential?.imported) {
@@ -78,7 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})}
 	fieldsOptions={{
 		exclude,
-		order: ['deeplink', 'name', 'display_name', 'description'],
+		order: ['name', 'display_name', 'description', 'deeplink', 'logo'],
 		labels: {
 			published: m.Publish_to_marketplace(),
 			deeplink: m.QR_Code_Generation()
@@ -92,6 +92,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			yaml: credential?.yaml,
 			credential_issuer: credentialIssuer.id,
 			display_name: credential?.display_name
+		},
+		placeholders: {
+			name: 'e.g. Above 18',
+			format: 'e.g. jwt_vc_json',
+			locale: 'e.g. en-US'
 		}
 	}}
 	beforeSubmit={(data) => {
@@ -117,22 +122,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet qr_generation({ form }: FieldSnippetOptions<'credentials'>)}
-	<div>
-		<T tag="h3" class="mb-6">{m.Credential_Deeplink()}</T>
-
+	<QrFieldWrapper label={m.Credential_Deeplink()}>
 		<QrGenerationField
 			form={form as unknown as SuperForm<{ deeplink: string; yaml: string }>}
 			{credential}
 			{credentialIssuer}
 			bind:activeTab
 		/>
-	</div>
-
-	<div class="py-2">
-		<Separator />
-	</div>
-
-	<T tag="h3">{m.Metadata()}</T>
+	</QrFieldWrapper>
 {/snippet}
 
 {#snippet logo()}

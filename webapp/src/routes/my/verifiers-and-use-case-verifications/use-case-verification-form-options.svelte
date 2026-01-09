@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts" module>
 	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
+	import QrFieldWrapper from '$lib/layout/qr-field-wrapper.svelte';
 	import { stepciYamlSchema } from '$lib/utils';
 	import { z } from 'zod';
 
@@ -15,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/collections-components/form/collectionFormTypes';
 
 	import QrGenerationField from '@/components/qr-generation-field.svelte';
+	import CodeEditorField from '@/forms/fields/codeEditorField.svelte';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
 
@@ -41,7 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					credentials: m.use_case_verification_field_description_credentials(),
 					published: m.use_case_verification_field_description_published()
 				},
-				order: ['name', 'yaml', 'credentials', 'description'],
+				order: ['name', 'description', 'yaml', 'credentials'],
 				relations: {
 					credentials: {
 						mode: 'select',
@@ -52,7 +54,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				snippets: {
 					description,
 					yaml: yaml_editor,
-					logo
+					logo,
+					dcql_query
 				}
 			}
 		};
@@ -64,20 +67,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet yaml_editor({ form }: FieldSnippetOptions<'use_cases_verifications'>)}
-	<div>
+	<QrFieldWrapper label={m.YAML_Configuration()} required class="!p-3">
 		<QrGenerationField
 			{form}
 			fieldName="yaml"
-			label={m.YAML_Configuration()}
 			description={m.Provide_configuration_in_YAML_format()}
 			placeholder={m.Run_the_code_to_generate_QR_code()}
 			successMessage={m.Test_Completed_Successfully()}
 			loadingMessage={m.Running_test()}
 			enableStructuredErrors={true}
+			hideLabel
 		/>
-	</div>
+	</QrFieldWrapper>
 {/snippet}
 
 {#snippet logo()}
 	<CollectionLogoField />
+{/snippet}
+
+{#snippet dcql_query({ form }: FieldSnippetOptions<'use_cases_verifications'>)}
+	<CodeEditorField
+		{form}
+		name="dcql_query"
+		options={{
+			lang: 'json',
+			minHeight: 300,
+			label: m.DCQL_Query()
+		}}
+	/>
 {/snippet}

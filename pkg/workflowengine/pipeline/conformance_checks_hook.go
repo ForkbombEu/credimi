@@ -6,6 +6,7 @@ package pipeline
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -21,10 +22,11 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func ConformanceCheckHook(
+func ConformanceCheckSetupHook(
 	ctx workflow.Context,
 	steps *[]StepDefinition,
 	input workflowengine.WorkflowInput,
+	runData *map[string]any,
 ) error {
 	logger := workflow.GetLogger(ctx)
 
@@ -308,4 +310,58 @@ func extractValues(node any) any {
 	default:
 		return n
 	}
+}
+
+func ConformanceCheckCleanupHook(
+	ctx workflow.Context,
+	steps []StepDefinition,
+	_ workflowengine.WorkflowInput,
+	_ map[string]any,
+	output *map[string]any,
+) error {
+	cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
+	for _, step := range steps {
+		if step.Use != "conformance-check" {
+			continue
+		}
+		if !errors.Is(ctx.Err(), workflow.ErrCanceled) {
+			continue
+		}
+
+		stepOut, ok := (*output)[step.ID]
+		if !ok {
+			continue
+		}
+
+		stepOutMap, ok := stepOut.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		outputsVal, ok := stepOutMap["outputs"]
+		if !ok {
+			continue
+		}
+
+		outputsMap, ok := outputsVal.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		id, ok := outputsMap["child_id"].(string)
+		if !ok || id == "" {
+			continue
+		}
+
+		future := workflow.SignalExternalWorkflow(cleanupCtx, id, "", workflows.PipelineCancelSignal, struct{}{})
+		if err := future.Get(cleanupCtx, nil); err != nil {
+			return workflowengine.NewAppError(
+				errorcodes.Codes[errorcodes.ChildWorkflowExecutionError],
+				fmt.Sprintf("failed to signal cancellation to child workflow %s: %v", id, err),
+			)
+
+		}
+
+	}
+	return nil
 }

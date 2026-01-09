@@ -33,6 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Table.Head>{m.Type()}</Table.Head>
 				<Table.Head>{m.Workflow()}</Table.Head>
 				<Table.Head>{m.Status()}</Table.Head>
+				<Table.Head>{m.Results()}</Table.Head>
 				<Table.Head class="text-right">{m.Start_time()}</Table.Head>
 				<Table.Head class="text-right">{m.End_time()}</Table.Head>
 				<Table.Head class="text-right">{m.Actions()}</Table.Head>
@@ -43,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<WorkflowTableRow {workflow} {nameRight} />
 			{:else}
 				<Table.Row class="hover:bg-transparent">
-					<Table.Cell colspan={5} class="text-center text-gray-300 py-20">
+					<Table.Cell colspan={6} class="text-center text-gray-300 py-20">
 						{m.Test_runs_will_appear_here()}
 					</Table.Cell>
 				</Table.Row>

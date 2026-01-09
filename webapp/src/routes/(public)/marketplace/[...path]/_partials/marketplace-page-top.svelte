@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { EntityTag, type EntityData } from '$lib/global';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import { MarketplaceItemTypeDisplay, type MarketplaceItemDisplayData } from '$lib/marketplace';
 
 	import type { Link } from '@/components/types';
 
@@ -25,7 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		linkAboveTitle?: Link;
 		title: string;
 		textToCopy?: string;
-		badge?: MarketplaceItemDisplayData;
+		badge?: EntityData;
 	};
 
 	let { hideTopBorder, logo, linkAboveTitle, title, textToCopy, badge }: Props = $props();
@@ -59,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 				{#if badge}
 					<div class="pt-4">
-						<MarketplaceItemTypeDisplay data={badge} />
+						<EntityTag data={badge} />
 					</div>
 				{/if}
 			</div>

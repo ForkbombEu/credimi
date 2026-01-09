@@ -55,7 +55,7 @@ func (a *HTTPActivity) Name() string {
 // It returns an error if the request fails or if the response status code is not 2xx.
 // The timeout for the request can be configured in seconds.
 func (a *HTTPActivity) Execute(
-	_ context.Context,
+	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
@@ -105,7 +105,7 @@ func (a *HTTPActivity) Execute(
 		body = bytes.NewBuffer(jsonBody)
 	}
 
-	req, err := http.NewRequestWithContext(context.Background(), payload.Method, url, body)
+	req, err := http.NewRequestWithContext(ctx, payload.Method, url, body)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CreateHTTPRequestFailed]
 		return result, a.NewActivityError(

@@ -6,6 +6,7 @@ package canonify
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"log"
 	"strings"
 
@@ -87,6 +88,9 @@ func RegisterCanonifyHooks(app core.App) {
 		})
 		app.OnRecordCreate(col).BindFunc(func(e *core.RecordEvent) error {
 			name := e.Record.GetString(tpl.Field)
+			if tpl.Field == "workflow_id" {
+				name = fmt.Sprintf("%s-%s", name, e.Record.GetString("run_id"))
+			}
 			existsFunc := MakeExistsFunc(e.App, col, e.Record, "")
 			canonName, err := Canonify(name, existsFunc)
 			if err != nil {
@@ -101,7 +105,9 @@ func RegisterCanonifyHooks(app core.App) {
 			if name == "" {
 				return e.Next()
 			}
-
+			if tpl.Field == "workflow_id" {
+				name = fmt.Sprintf("%s-%s", name, e.Record.GetString("run_id"))
+			}
 			existsFunc := MakeExistsFunc(e.App, col, e.Record, e.Record.Id)
 			opts := DefaultOptions
 			opts.Fallback = col

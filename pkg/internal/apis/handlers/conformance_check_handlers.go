@@ -55,7 +55,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 
 		redirect := e.Request.URL.Query().Get("redirect") == RedirectFlagTrue
 
-		parts := strings.Split(filepath.ToSlash(id), "/")
+		parts := strings.Split(strings.Trim(filepath.ToSlash(id), "/"), "/")
 		var suite, standard, checkName string
 		if len(parts) >= 2 {
 			suite = parts[len(parts)-2]
@@ -130,7 +130,7 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 			ActivityOptions: ao,
 		}
 
-		var w workflows.StartCheckWorkflow
+		w := workflows.NewStartCheckWorkflow()
 
 		resStart, errStart := w.Start("default", input)
 		if errStart != nil {

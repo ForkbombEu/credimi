@@ -5,8 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import { getMarketplaceItemData } from '$lib/marketplace/utils.js';
 
+	import { Badge } from '@/components/ui/badge/index.js';
 	import { m } from '@/i18n/index.js';
 
 	import type { WalletStepForm } from './wallet-step-form.svelte.js';
@@ -74,7 +76,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<WithEmptyState items={form.foundActions} emptyText={m.No_actions_available()}>
 		{#snippet item({ item })}
-			<ItemCard title={item.name} onClick={() => form.selectAction(item)} />
+			<ItemCard title={item.name} onClick={() => form.selectAction(item)}>
+				<div class="space-y-2 pt-1">
+					{#if !item.published}
+						<Badge variant="secondary">
+							{m.private()}
+						</Badge>
+					{/if}
+					<WalletActionTags action={item} variant="outline" />
+				</div>
+			</ItemCard>
 		{/snippet}
 	</WithEmptyState>
 {/if}

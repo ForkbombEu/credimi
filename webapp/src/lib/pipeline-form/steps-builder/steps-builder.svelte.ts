@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getMarketplaceItemData, type MarketplaceItem } from '$lib/marketplace/utils.js';
+import { getMarketplaceItemLogo, type MarketplaceItem } from '$lib/marketplace';
 import { pb } from '@/pocketbase/index.js';
 import { create } from 'mutative';
 import { nanoid } from 'nanoid';
@@ -119,7 +119,7 @@ export class StepsBuilder {
 			data.state = new WalletStepForm({
 				initialData: this.currentWallet,
 				onSelect: (data: WalletStepData) => {
-					const avatar = getMarketplaceItemData(data.wallet).logo;
+					const avatar = getMarketplaceItemLogo(data.wallet);
 					this.currentWallet = {
 						wallet: data.wallet,
 						version: data.version
@@ -144,7 +144,7 @@ export class StepsBuilder {
 				collection,
 				onSelect: async (item) => {
 					const data: MarketplaceItem = await pb.collection(collection).getOne(item.id);
-					const avatar = getMarketplaceItemData(data).logo;
+					const avatar = getMarketplaceItemLogo(data);
 					this.addStep({
 						id: createId(item.canonified_name),
 						name: item.name,
@@ -210,14 +210,6 @@ export class StepsBuilder {
 			const index = data.steps.findIndex((s) => s.id === step.id);
 			if (index === -1) return;
 			data.steps[index].continueOnError = continueOnError;
-		});
-	}
-
-	setVideo(step: BuilderStep, video: boolean) {
-		this.run((data) => {
-			const index = data.steps.findIndex((s) => s.id === step.id);
-			if (index === -1) return;
-			data.steps[index].video = video;
 		});
 	}
 

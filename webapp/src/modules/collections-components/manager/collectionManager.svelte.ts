@@ -18,6 +18,7 @@ import {
 	PocketbaseQueryAgent,
 	PocketbaseQueryOptionsEditor
 } from '@/pocketbase/query';
+import type { RecordEditProps } from './record-actions/types';
 
 //
 
@@ -128,5 +129,20 @@ export class CollectionManager<
 
 	deselectRecord(id: RecordIdString) {
 		this.selectedRecords = Array.remove(this.selectedRecords, this.selectedRecords.indexOf(id));
+	}
+
+	/* Forms */
+
+	isEditFormOpen = $state(false);
+	editFormProps = $state<RecordEditProps<C>>();
+
+	openEditForm(props: RecordEditProps<C>) {
+		this.isEditFormOpen = true;
+		this.editFormProps = props;
+	}
+
+	closeEditForm() {
+		this.isEditFormOpen = false;
+		this.editFormProps = undefined;
 	}
 }

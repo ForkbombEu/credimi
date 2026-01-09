@@ -5,13 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Sparkle } from 'lucide-svelte';
-
 	import { AppLogo } from '@/brand';
 	import Button from '@/components/ui-custom/button.svelte';
-	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 	import LanguageSelect from '@/i18n/languageSelect.svelte';
 	import { appVersion } from '@/utils/appVersion';
@@ -140,38 +136,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<span class="pl-1 text-sm text-white/40">{appVersion}</span>
 						</T>
 					</div>
-					<p class="border-b border-b-muted">{m.Test_and_find_decentralized_IDs()}</p>
+					<p class="border-b-muted border-b">{m.Test_and_find_decentralized_IDs()}</p>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row">
 					<LanguageSelect />
-					<Button
-						variant="default"
-						class="grow basis-1 bg-white text-primary hover:bg-white/90 sm:grow-0"
-						href="/my/tests/new"
-					>
-						<Icon src={Sparkle} />
-						{m.Start_a_new_check()}
-						<Badge
-							variant="outline"
-							class="!hover:no-underline border-primary py-1 text-xs text-primary"
-						>
-							{m.Beta()}
-						</Badge>
-					</Button>
 					<Button variant="ghost" class="grow basis-1 border sm:grow-0" href="/login">
 						{m.Login()}
 					</Button>
 				</div>
 			</div>
 			<div class="grid grid-cols-1 gap-12 pt-12 sm:grid-cols-2 md:grid-cols-4">
-				{#each footer_data as category}
+				{#each footer_data as category (category.label)}
 					<div class="flex flex-row gap-2">
 						<div class="flex flex-col gap-2">
 							<T tag="small">{category.label}</T>
-							{#each category.links as item}
-								<a href={item.url} class="text-xs text-muted-foreground"
-									>{item.label}</a
-								>
+							{#each category.links as item (item.label)}
+								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve, svelte/no-navigation-without-resolve -->
+								<a href={item.url} class="text-muted-foreground text-xs">
+									{item.label}
+								</a>
 							{/each}
 						</div>
 					</div>

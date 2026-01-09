@@ -5,22 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowDownIcon, ArrowUpIcon, TrashIcon, VideoIcon } from 'lucide-svelte';
+	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
+	import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from 'lucide-svelte';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
 	import Label from '@/components/ui/label/label.svelte';
-	import Switch from '@/components/ui/switch/switch.svelte';
 	import { m } from '@/i18n/index.js';
 
 	import type { StepsBuilder } from '../steps-builder.svelte.js';
-	import type { BuilderStep } from '../types.js';
 
-	import { StepType } from '../types.js';
+	import { StepType, type BuilderStep } from '../types.js';
 	import { getStepDisplayData } from './display-data';
 
 	//
@@ -32,34 +30,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { step = $bindable(), builder }: Props = $props();
 
-	const { icon, label, textClass, outlineClass, backgroundClass } = getStepDisplayData(step.type);
+	const { icon, labels, classes } = getStepDisplayData(step.type);
 </script>
 
-<div class={['bg-card group overflow-hidden rounded-md border hover:ring', outlineClass]}>
-	<div class={['h-1', backgroundClass]}></div>
+<div class={['bg-card group overflow-hidden rounded-md border hover:ring', classes.border]}>
+	<div class={['h-1', classes.bg]}></div>
 	<div>
 		<div class="flex items-center justify-between py-1 pl-3 pr-1">
-			<div class={['flex items-center gap-1', textClass]}>
+			<div class={['flex items-center gap-1', classes.text]}>
 				<Icon src={icon} size={12} />
-				<p class="text-xs">{label}</p>
+				<p class="text-xs">{labels.singular}</p>
 			</div>
 
 			<div class="flex items-center">
-				{#if step.type === StepType.WalletAction}
-					<Tooltip>
-						<div class="mr-1 flex items-center gap-1.5 px-2">
-							<Icon src={VideoIcon} size={14} class="text-gray-500" />
-							<Switch
-								checked={step.video ?? false}
-								onCheckedChange={(checked) => builder.setVideo(step, checked)}
-								class="scale-75"
-							/>
-						</div>
-						{#snippet content()}
-							<p class="text-xs">{m.Record_video_of_wallet_action()}</p>
-						{/snippet}
-					</Tooltip>
-				{/if}
 				<IconButton
 					icon={ArrowUpIcon}
 					variant="ghost"
@@ -98,6 +81,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 			</div>
 		</div>
+
+		{#if step.type === StepType.WalletAction}
+			<WalletActionTags
+				action={step.data.action}
+				containerClass="px-3 pb-2"
+				variant="outline"
+			/>
+		{/if}
 
 		<p class="text-muted-foreground block truncate px-3 pb-2 font-mono text-[10px]">
 			{step.path}

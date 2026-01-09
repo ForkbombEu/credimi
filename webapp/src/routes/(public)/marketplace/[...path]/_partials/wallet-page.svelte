@@ -55,6 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { ConformanceCheckSchema } from '$lib/types/checks';
@@ -77,6 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/components/ui/accordion';
 	import { Badge } from '@/components/ui/badge';
 	import { ScrollArea } from '@/components/ui/scroll-area';
+	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
 	import DescriptionSection from './_utils/description-section.svelte';
@@ -129,6 +131,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	function getDownloadLinks(version: WalletVersionsResponse): { label: string; url: string }[] {
+		if (!version.downloadable) return [];
 		return [
 			{
 				label: 'Android',
@@ -205,7 +208,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						class="bg-card hover:ring-primary rounded-lg border hover:ring-2"
 					>
 						<AccordionTrigger class="group px-4 py-3 hover:no-underline">
-							<div class="mr-4 flex w-full items-center justify-between">
+							<div class="flex w-full items-center justify-between gap-4">
 								<div class="flex items-center gap-3">
 									<Code
 										class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
@@ -224,15 +227,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 												size="xs"
 											/>
 										</div>
-										<!-- <div class="text-muted-foreground text-xs">
-											{stats.lines} lines • {stats.chars} characters
-										</div> -->
 										<T class="text-muted-foreground text-xs">
 											{action.organization?.name}
 										</T>
 									</div>
 								</div>
-								<Badge variant="outline" class="text-xs">YAML</Badge>
+								<div class="flex items-center gap-2 pr-2">
+									<WalletActionTags {action} containerClass="justify-end" />
+									{#if !action.published}
+										<Badge variant="outline">
+											{m.private()}
+										</Badge>
+									{/if}
+								</div>
 							</div>
 						</AccordionTrigger>
 						<AccordionContent class="px-4">

@@ -16,13 +16,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { CredentialIssuersResponse, CredentialsRecord } from '@/pocketbase/types';
 
+	import QrGenerationField from '@/components/qr-generation-field.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import * as Tabs from '@/components/ui/tabs';
 	import Field from '@/forms/fields/field.svelte';
 	import { m } from '@/i18n';
 	import { QrCode } from '@/qr';
-
-	import DynamicTab from './dynamic-tab.svelte';
 
 	//
 
@@ -78,29 +77,57 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Tabs.Root bind:value={activeTab} class="w-full">
-	<Tabs.List class="mb-4 w-full">
+	<Tabs.List class="mb-4 w-full gap-1 bg-black/10">
 		{#each Object.values(modesTabs) as tab (tab)}
-			<Tabs.Trigger class="grow basis-1" value={tab.value}>
+			<Tabs.Trigger
+				class={[
+					'grow basis-1',
+					'data-[state=inactive]:bg-white/40 data-[state=inactive]:text-black data-[state=inactive]:hover:bg-white/80'
+				]}
+				value={tab.value}
+			>
 				{tab.label}
 			</Tabs.Trigger>
 		{/each}
 	</Tabs.List>
 
 	<Tabs.Content value={modesTabs.static.value}>
+		{@render tabDescription(m.Configure_static_deeplink())}
+
 		<div class="flex gap-4">
 			<div class="grow">
-				<T class="mb-3">{m.Configure_static_deeplink()}</T>
 				<Field
 					{form}
 					name="deeplink"
-					options={{ placeholder: m.openid_credential_offer_placeholder() }}
+					options={{
+						placeholder: m.openid_credential_offer_placeholder()
+					}}
 				/>
 			</div>
-			<QrCode src={deeplinkState.current} placeholder={m.Type_to_generate_QR_code()} />
+			<div class="pt-8">
+				<QrCode src={deeplinkState.current} placeholder={m.Type_to_generate_QR_code()} />
+			</div>
 		</div>
 	</Tabs.Content>
 
 	<Tabs.Content value="dynamic" class="min-w-0">
-		<DynamicTab {form} />
+		{@render tabDescription(m.Configure_dynamic_credential_offer())}
+
+		<QrGenerationField
+			{form}
+			fieldName="yaml"
+			label={m.YAML_Configuration()}
+			description={m.Provide_credential_configuration_in_YAML_format()}
+			placeholder={m.Run_the_code_to_generate_QR_code()}
+			successMessage={m.Compliance_Test_Completed_Successfully()}
+			loadingMessage={m.Running_compliance_test()}
+			enableStructuredErrors={true}
+		/>
 	</Tabs.Content>
 </Tabs.Root>
+
+{#snippet tabDescription(label: string)}
+	<div class="-mx-4 -mt-3 mb-4 border-b border-b-blue-200 px-4 pb-2">
+		<T class="text-center text-sm text-blue-500">{label}</T>
+	</div>
+{/snippet}

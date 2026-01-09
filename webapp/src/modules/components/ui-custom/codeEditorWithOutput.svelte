@@ -72,9 +72,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<div class="border-border rounded-lg border">
+<div class="border-border overflow-hidden rounded-lg border bg-white">
 	<!-- Header -->
-	<div class="bg-muted/30 border-border flex items-center justify-between border-b px-4">
+	<div class="bg-muted border-border flex items-center justify-between border-b px-2">
 		<!-- Tab Navigation -->
 		<div class="flex items-center gap-1">
 			<button
@@ -148,7 +148,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		<!-- Actions -->
-		<div class="flex items-center gap-2">
+		<div class="flex items-center gap-2 pt-1">
 			<!-- Status -->
 			<div class="flex items-center gap-2">
 				<div

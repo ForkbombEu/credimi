@@ -2,8 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { marketplaceItemsDisplayConfig, type MarketplaceItemDisplayData } from '$lib/marketplace';
-import { appSections } from '$lib/marketplace/sections';
+import { entities, type EntityData } from '$lib/global';
 
 import { m } from '@/i18n/index.js';
 
@@ -11,28 +10,18 @@ import { StepType } from '../types';
 
 //
 
-const { wallets, credential_issuers, custom_checks, use_cases_verifications } =
-	marketplaceItemsDisplayConfig;
-
-const { conformance_checks } = appSections;
-
-const stepDisplayDataMap: Record<StepType, MarketplaceItemDisplayData> = {
-	[StepType.WalletAction]: { ...wallets, label: m.Wallet_action() },
-	[StepType.Credential]: {
-		...credential_issuers,
-		label: m.Credential_deeplink()
+const stepDisplayDataMap: Record<StepType, EntityData> = {
+	[StepType.WalletAction]: {
+		...entities.wallets,
+		labels: { singular: m.Wallet_action(), plural: m.Wallet_actions() }
 	},
-	[StepType.CustomCheck]: custom_checks,
-	[StepType.UseCaseVerification]: use_cases_verifications,
-	[StepType.ConformanceCheck]: {
-		icon: conformance_checks.icon,
-		label: m.Conformance_check(),
-		labelPlural: conformance_checks.label,
-		bgClass: 'bg-red-500',
-		textClass: conformance_checks.textClass,
-		backgroundClass: 'bg-red-500',
-		outlineClass: 'border-red-500'
-	}
+	[StepType.Credential]: {
+		...entities.credentials,
+		labels: { singular: m.Credential_deeplink(), plural: m.Credential_deeplinks() }
+	},
+	[StepType.CustomCheck]: entities.custom_checks,
+	[StepType.UseCaseVerification]: entities.use_cases_verifications,
+	[StepType.ConformanceCheck]: entities.conformance_checks
 };
 
 export function getStepDisplayData(stepType: StepType) {

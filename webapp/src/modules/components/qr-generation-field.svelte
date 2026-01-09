@@ -28,6 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		successMessage?: string;
 		loadingMessage?: string;
 		enableStructuredErrors?: boolean;
+		hideLabel?: boolean;
 	}
 
 	let {
@@ -37,7 +38,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		description = m.Provide_configuration_in_YAML_format(),
 		placeholder = m.Run_the_code_to_generate_QR_code(),
 		successMessage = m.Test_Completed_Successfully(),
-		loadingMessage = m.Running_test()
+		loadingMessage = m.Running_test(),
+		hideLabel = false
 	}: Props = $props();
 
 	const fieldProxy = formFieldProxy(form, fieldName);
@@ -184,6 +186,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			options={{
 				lang: 'yaml',
 				minHeight: 200,
+				hideLabel,
 				label,
 				description,
 				useOutput: true,
@@ -196,7 +199,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	</div>
 
-	<div class="pt-8">
+	<div class={{ 'pt-8': !hideLabel }}>
 		<QrCode
 			src={generatedDeeplink}
 			class="size-60 rounded-md border"

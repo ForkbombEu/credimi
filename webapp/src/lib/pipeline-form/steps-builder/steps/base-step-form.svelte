@@ -26,10 +26,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { form }: Props = $props();
 
-	const { label } = $derived(getStepDisplayData(form.collection as StepType));
+	const { labels } = $derived(getStepDisplayData(form.collection as StepType));
 </script>
 
-<WithLabel {label} class="p-4">
+<WithLabel label={labels.singular} class="p-4">
 	<SearchInput search={form.search} />
 </WithLabel>
 
