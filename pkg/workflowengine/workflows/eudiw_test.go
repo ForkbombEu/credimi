@@ -128,7 +128,7 @@ func Test_EudiwWorkflow(t *testing.T) {
 			env := testSuite.NewTestWorkflowEnvironment()
 
 			callCount = 0
-			var w EudiwWorkflow
+			w := NewEudiwWorkflow()
 			tc.mockActivities(env)
 			done := make(chan struct{})
 			go func() {

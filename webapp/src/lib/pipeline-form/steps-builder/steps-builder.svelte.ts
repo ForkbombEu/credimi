@@ -2,240 +2,144 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { getMarketplaceItemData, type MarketplaceItem } from '$lib/marketplace/utils.js';
-import { pb } from '@/pocketbase/index.js';
-import { create } from 'mutative';
-import { nanoid } from 'nanoid';
-import slugify from 'slugify';
+import type { Renderable } from '$lib/renderable';
+import { StateManager } from '$lib/state-manager/state-manager';
+import { onDestroy } from 'svelte';
+import * as pipelinestep from '../steps';
+import { walletActionStepFormState } from '../steps/wallet-action/wallet-action-step-form.svelte.js';
+import type { PipelineStep } from '../types';
 import Component from './steps-builder.svelte';
-import { BaseStepForm } from './steps/base-step-form.svelte.js';
-import { ConformanceCheckStepForm } from './steps/conformance-check-step-form.svelte.js';
-import { WalletStepForm } from './steps/wallet-step-form.svelte.js';
-import type { BuilderStep, MarketplaceStepType, WalletStepData } from './types';
-import { IdleState, StepFormState, StepType } from './types';
+import type { EnrichedStep } from './types';
 
 //
 
-type StepsBuilderData = {
-	steps: BuilderStep[];
-	lastWallet: CurrentWallet | undefined;
-	state: BuilderState;
-};
-
 type Props = {
-	steps: BuilderStep[];
+	steps: EnrichedStep[];
 	yamlPreview: () => string;
 };
 
-export class StepsBuilder {
+type State = {
+	steps: EnrichedStep[];
+	state: { id: 'idle' } | { id: 'form'; form: pipelinestep.DataForm };
+};
+
+export class StepsBuilder implements Renderable<StepsBuilder> {
 	readonly Component = Component;
 
-	private data = $state<StepsBuilderData>({
+	private _state = $state<State>({
 		steps: [],
-		lastWallet: undefined,
-		state: new IdleState()
+		state: { id: 'idle' }
 	});
+	private stateManager = new StateManager(
+		() => this._state,
+		(state) => (this._state = state)
+	);
 
 	constructor(private props: Props) {
-		this.data.steps = props.steps;
+		this._state.steps = props.steps;
+
+		onDestroy(() => {
+			walletActionStepFormState.lastSelectedWallet = undefined;
+		});
 	}
 
+	// Shortcuts
+
 	get state() {
-		return this.data.state;
+		return this._state.state;
 	}
 
 	get steps() {
-		return this.data.steps;
+		return this._state.steps;
 	}
 
 	get yamlPreview() {
 		return this.props.yamlPreview();
 	}
 
-	// State management
-
-	private history: History = {
-		past: [],
-		future: []
-	};
-
-	private run(action: (data: StepsBuilderData) => void) {
-		this.history.past.push(this.data);
-		const nextData = create(this.data, action);
-		this.data = nextData;
-		this.history.future = [];
-	}
-
 	undo() {
-		const previousData = this.history.past.pop();
-		if (!previousData) return;
-		this.history.future.push(this.data);
-		this.data = previousData;
+		this.stateManager.undo();
 	}
 
 	redo() {
-		const nextData = this.history.future.pop();
-		if (!nextData) return;
-		this.history.past.push(this.data);
-		this.data = nextData;
+		this.stateManager.redo();
 	}
 
-	//
+	// Core functionality
 
-	discardAddStep() {
-		if (!(this.state instanceof StepFormState)) return;
-		this.run((data) => {
-			data.state = new IdleState();
-		});
-	}
+	initAddStep(type: string) {
+		const config = pipelinestep.configs.find((c) => c.use === type);
+		if (!config) return;
 
-	// Needed for Svelte 5 reactivity
-	private effectCleanup: (() => void) | undefined = undefined;
+		this.stateManager.run((data) => {
+			const config = pipelinestep.configs.find((c) => c.use === type);
+			if (!config) return;
 
-	initAddStep(type: StepType) {
-		this.effectCleanup = $effect.root(() => {
-			if (type === StepType.WalletAction) {
-				this.initWalletStepForm();
-			} else if (type === StepType.ConformanceCheck) {
-				this.initConformanceCheckStepForm();
-			} else {
-				this.initBaseStepForm(type);
-			}
-		});
-	}
-
-	private addStep(step: BuilderStep) {
-		this.run((data) => {
-			data.steps.push({ ...step, continueOnError: true });
-			data.state = new IdleState();
-			this.effectCleanup?.();
-		});
-	}
-
-	private currentWallet: CurrentWallet | undefined = undefined;
-
-	private initWalletStepForm() {
-		this.run((data) => {
-			data.state = new WalletStepForm({
-				initialData: this.currentWallet,
-				onSelect: (data: WalletStepData) => {
-					const avatar = getMarketplaceItemData(data.wallet).logo;
-					this.currentWallet = {
-						wallet: data.wallet,
-						version: data.version
+			const effectCleanup = $effect.root(() => {
+				const form = config.initForm();
+				form.onSubmit((formData) => {
+					const step: PipelineStep = {
+						use: config.use as never,
+						id: '', // will be written later
+						continue_on_error: true,
+						with: config.serialize(formData)
 					};
-					this.addStep({
-						id: createId(data.action.canonified_name),
-						name: data.action.name,
-						path: data.wallet.path + '/' + data.action.canonified_name,
-						organization: data.wallet.organization_name,
-						data: data,
-						type: StepType.WalletAction,
-						avatar: avatar
+					this.stateManager.run((data) => {
+						data.steps.push([step, formData]);
+						data.state = { id: 'idle' };
+						effectCleanup();
 					});
-				}
+				});
+				data.state = { id: 'form', form };
 			});
 		});
 	}
 
-	private initBaseStepForm<T extends MarketplaceStepType>(collection: T) {
-		this.run((data) => {
-			data.state = new BaseStepForm({
-				collection,
-				onSelect: async (item) => {
-					const data: MarketplaceItem = await pb.collection(collection).getOne(item.id);
-					const avatar = getMarketplaceItemData(data).logo;
-					this.addStep({
-						id: createId(item.canonified_name),
-						name: item.name,
-						path: item.path,
-						organization: item.organization_name,
-						data: data as never,
-						type: collection,
-						avatar: avatar
-					});
-				}
-			});
+	addDebugStep() {
+		this.stateManager.run((data) => {
+			data.steps.push([{ use: 'debug' }, {}]);
 		});
 	}
 
-	private initConformanceCheckStepForm() {
-		this.run((data) => {
-			data.state = new ConformanceCheckStepForm({
-				onSelect: (checkId: string) => {
-					this.addStep({
-						id: createId(checkId),
-						type: StepType.ConformanceCheck,
-						name: checkId,
-						path: checkId,
-						organization: 'Conformance Check',
-						data: { checkId }
-					});
-				}
-			});
+	deleteStep(index: number) {
+		this.stateManager.run((data) => {
+			data.steps.splice(index, 1);
 		});
 	}
 
-	//
-
-	deleteStep(step: BuilderStep) {
-		this.run((data) => {
-			data.steps = data.steps.filter((s) => s.id !== step.id);
+	setContinueOnError(index: number, continueOnError: boolean) {
+		this.stateManager.run((data) => {
+			const step = data.steps[index];
+			if (!step || step[0].use == 'debug') return;
+			step[0].continue_on_error = continueOnError;
 		});
 	}
 
-	shiftStep(item: BuilderStep, change: number) {
-		this.run((data) => {
-			const indices = this.calculateShiftIndices(item, change, data.steps);
+	exitFormState() {
+		if (!(this.state.id == 'form')) return;
+		this.stateManager.run((data) => {
+			data.state = { id: 'idle' };
+		});
+	}
+
+	// Ordering
+
+	shiftStep(index: number, change: number) {
+		this.stateManager.run((data) => {
+			const indices = this.calculateShiftIndices(index, change);
 			if (!indices) return;
 			const [movedItem] = data.steps.splice(indices.index, 1);
 			data.steps.splice(indices.newIndex, 0, movedItem);
 		});
 	}
 
-	canShiftStep(item: BuilderStep, change: number) {
-		return this.calculateShiftIndices(item, change, this.steps) !== null;
+	canShiftStep(index: number, change: number) {
+		return this.calculateShiftIndices(index, change) !== null;
 	}
 
-	private calculateShiftIndices(item: BuilderStep, change: number, steps: BuilderStep[]) {
-		const index = steps.findIndex((s) => s.id === item.id);
-		if (index === -1) return null;
+	private calculateShiftIndices(index: number, change: number) {
 		const newIndex = index + change;
-		if (newIndex < 0 || newIndex >= steps.length || newIndex === index) return null;
+		if (newIndex < 0 || newIndex >= this.steps.length || newIndex === index) return null;
 		return { index, newIndex };
 	}
-
-	setContinueOnError(step: BuilderStep, continueOnError: boolean) {
-		this.run((data) => {
-			const index = data.steps.findIndex((s) => s.id === step.id);
-			if (index === -1) return;
-			data.steps[index].continueOnError = continueOnError;
-		});
-	}
-
-	isReady() {
-		return this.steps.length > 0;
-	}
-}
-
-// Types
-
-type BuilderState = IdleState | StepFormState;
-
-type CurrentWallet = Omit<WalletStepData, 'action'>;
-
-type History = {
-	past: StepsBuilderData[];
-	future: StepsBuilderData[];
-};
-
-// Utils
-
-function createId(base: string): string {
-	return slugify(`${base}--${nanoid(5)}`, {
-		replacement: '-',
-		remove: /[*+~.()'"!:@]/g,
-		lower: true,
-		strict: true
-	});
 }

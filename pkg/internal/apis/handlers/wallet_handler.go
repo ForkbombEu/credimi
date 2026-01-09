@@ -117,8 +117,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				URL: req.URL,
 			},
 		}
-		w := workflows.WalletWorkflow{}
-
+		w := workflows.NewWalletWorkflow()
 		workflowInfo, err := w.Start(orgName, workflowInput)
 		if err != nil {
 			return apierror.New(

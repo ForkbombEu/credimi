@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { fetchPipeline } from '$lib/pipeline-form/serde.js';
+import { getEnrichedPipeline } from '$lib/pipeline-form/functions';
 
 import { redirect } from '@/i18n/index.js';
 
@@ -10,8 +10,7 @@ import { redirect } from '@/i18n/index.js';
 
 export const load = async ({ fetch, params }) => {
 	try {
-		// Try to fetch a "blocks" pipeline
-		const pipeline = await fetchPipeline(params.id, { fetch });
+		const pipeline = await getEnrichedPipeline(params.id, { fetch });
 		return {
 			pipeline
 		};

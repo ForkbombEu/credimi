@@ -20,11 +20,19 @@ import (
 const CustomCheckTaskQueue = "custom-check-task-queue"
 
 // CustomCheckWorkflow is a workflow that performs a custom check.
-type CustomCheckWorkflow struct{}
+type CustomCheckWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 type CustomCheckWorkflowPayload struct {
-	Yaml string `json:"yaml,omitempty" yaml:"yaml,omitempty"`
-	ID   string `json:"id,omitempty"   yaml:"id,omitempty"`
+	Yaml    string `json:"yaml,omitempty" xoneof:"custom_check"`
+	CheckID string `json:"check_id,omitempty" xoneof:"custom_check"`
+}
+
+func NewCustomCheckWorkflow() *CustomCheckWorkflow {
+	w := &CustomCheckWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 func (CustomCheckWorkflow) Name() string {
@@ -39,6 +47,13 @@ func (w *CustomCheckWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+func (w *CustomCheckWorkflow) ExecuteWorkflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
 	stepCIWorkflowActivity := activities.NewStepCIWorkflowActivity()
 	logger := workflow.GetLogger(ctx)
 
@@ -47,30 +62,19 @@ func (w *CustomCheckWorkflow) Workflow(
 		opts = *input.ActivityOptions
 	}
 	ctx = workflow.WithActivityOptions(ctx, opts)
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
 	payload, err := workflowengine.DecodePayload[CustomCheckWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	yaml := payload.Yaml
 	if yaml == "" {
-		if payload.ID == "" {
+		if payload.CheckID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 				fmt.Errorf("yaml or id must be provided"),
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		var HTTPActivity = activities.NewHTTPActivity()
@@ -83,7 +87,7 @@ func (w *CustomCheckWorkflow) Workflow(
 					"api", "canonify", "identifier", "validate",
 				),
 				Body: map[string]any{
-					"canonified_name": payload.ID,
+					"canonified_name": payload.CheckID,
 				},
 				ExpectedStatus: 200,
 			},
@@ -92,7 +96,7 @@ func (w *CustomCheckWorkflow) Workflow(
 			logger.Error(HTTPActivity.Name(), "error", err)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				err,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
@@ -105,7 +109,7 @@ func (w *CustomCheckWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 
@@ -118,7 +122,7 @@ func (w *CustomCheckWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 
@@ -131,7 +135,7 @@ func (w *CustomCheckWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		var storedYaml string
@@ -144,7 +148,7 @@ func (w *CustomCheckWorkflow) Workflow(
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 		yaml = storedYaml
@@ -163,7 +167,10 @@ func (w *CustomCheckWorkflow) Workflow(
 
 	if err != nil {
 		logger.Error(stepCIWorkflowActivity.Name(), "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 	result := stepCIResult.Output.(map[string]any)
 	return workflowengine.WorkflowResult{
