@@ -219,6 +219,19 @@ func MobileAutomationSetupHook(
 				startResult.Output,
 			)
 		}
+		cloneName, ok := startResult.Output.(map[string]any)["clone_name"].(string)
+		if !ok {
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf(
+					"%s: missing clone_name in response for step %s",
+					errCode.Description,
+					step.ID,
+				),
+				startResult.Output,
+			)
+		}
+		SetPayloadValue(&step.With.Payload, "clone_name", cloneName)
 		SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 
 		installInput := workflowengine.ActivityInput{
@@ -371,7 +384,7 @@ func MobileAutomationCleanupHook(
 			mobileCtx,
 			activities.NewStopEmulatorActivity().Name(),
 			workflowengine.ActivityInput{
-				Payload: map[string]any{"emulator_serial": payload.EmulatorSerial},
+				Payload: map[string]any{"emulator_serial": payload.EmulatorSerial, "clone_name": payload.CloneName},
 			},
 		).Get(ctx, nil); err != nil {
 			logger.Error(
