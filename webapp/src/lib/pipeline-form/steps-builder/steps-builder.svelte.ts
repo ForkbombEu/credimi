@@ -4,6 +4,7 @@
 
 import type { Renderable } from '$lib/renderable';
 import { StateManager } from '$lib/state-manager/state-manager';
+import type { GenericRecord } from '@/utils/types';
 import { nanoid } from 'nanoid';
 import { configs } from '../steps';
 import type { PipelineStep, PipelineStepDataForm, PipelineStepWithId } from '../types';
@@ -11,7 +12,13 @@ import Component from './steps-builder.svelte';
 
 //
 
-export type EnrichedStep = [PipelineStep, Record<string, unknown>];
+export type EnrichedStep = [PipelineStep, GenericRecord | Enrich404Error | Error];
+
+export class Enrich404Error extends Error {
+	constructor() {
+		super('Resource not found');
+	}
+}
 
 type Props = {
 	steps: EnrichedStep[];

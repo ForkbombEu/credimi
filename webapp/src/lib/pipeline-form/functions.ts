@@ -3,13 +3,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pipe, String } from 'effect';
+import { ClientResponseError } from 'pocketbase';
 import { parse, stringify } from 'yaml';
 
 import type { PipelinesResponse } from '@/pocketbase/types';
+import type { GenericRecord } from '@/utils/types.js';
 
-import type { EnrichedStep } from './steps-builder/steps-builder.svelte.js';
+import { getExceptionMessage } from '@/utils/errors.js';
 
 import { configs } from './steps';
+import { Enrich404Error, type EnrichedStep } from './steps-builder/steps-builder.svelte.js';
 import {
 	DEEPLINK_STEP_ID_PLACEHOLDER,
 	type ActivityOptions,
@@ -36,10 +39,19 @@ export async function enrichPipeline(pipelineRecord: PipelinesResponse): Promise
 				const data = await config.deserialize(step.with);
 				enrichedSteps.push([step, data]);
 			} catch (e) {
-				console.error(step);
-				console.error(e);
-				// TODO: Push 404 step
-				enrichedSteps.push([step, {}]);
+				let error: Error | Enrich404Error | GenericRecord = {};
+				if (e instanceof ClientResponseError) {
+					if (e.status === 404) {
+						error = new Enrich404Error();
+					} else {
+						error = new Error(e.message);
+					}
+				} else if (e instanceof Error) {
+					error = e;
+				} else {
+					error = new Error(getExceptionMessage(e));
+				}
+				enrichedSteps.push([step, error]);
 			}
 		}
 	}

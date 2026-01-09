@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from 'lucide-svelte';
+	import { ArrowDownIcon, ArrowUpIcon, TrashIcon, TriangleAlert } from 'lucide-svelte';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
@@ -15,8 +15,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import type { EnrichedStep, StepsBuilder } from '../steps-builder.svelte.js';
-
+	import {
+		Enrich404Error,
+		type EnrichedStep,
+		type StepsBuilder
+	} from '../steps-builder.svelte.js';
 	import { getStepCardData, getStepDisplayData } from './utils.js';
 
 	//
@@ -42,49 +45,58 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<p class="text-xs">{labels.singular}</p>
 			</div>
 
-			<div class="flex items-center">
+			<div
+				class="flex items-center gap-1 pr-1 opacity-30 transition-opacity group-hover:opacity-100"
+			>
 				<IconButton
 					icon={ArrowUpIcon}
 					variant="ghost"
-					size="sm"
+					size="xs"
 					onclick={() => builder.shiftStep(index, -1)}
 					disabled={!builder.canShiftStep(index, -1)}
 				/>
 				<IconButton
 					icon={ArrowDownIcon}
 					variant="ghost"
-					size="sm"
+					size="xs"
 					onclick={() => builder.shiftStep(index, 1)}
 					disabled={!builder.canShiftStep(index, 1)}
 				/>
 				<IconButton
 					icon={TrashIcon}
 					variant="ghost"
-					size="sm"
+					size="xs"
 					onclick={() => builder.deleteStep(index)}
 				/>
 			</div>
 		</div>
 
-		{#if step[0].use !== 'debug'}
-			<div class="flex items-center gap-3 p-3 pb-4 pt-1">
-				<Avatar src={avatar} fallback={title} class="size-8 rounded-md border" />
-				<div class="space-y-1">
-					<div class="flex items-center gap-1">
-						<h1>{title}</h1>
-						{#if copyText}
-							<CopyButtonSmall
-								textToCopy={copyText}
-								variant="ghost"
-								square
-								size="mini"
-								class="text-gray-400"
-							/>
-						{/if}
+		<div class="p-3 pb-4 pt-2">
+			{#if step[1] instanceof Enrich404Error || step[1] instanceof Error}
+				<div class="flex items-center gap-2 rounded-md bg-red-700 p-3 text-white">
+					<TriangleAlert size={12} />
+					<p class="text-xs">{step[1].message}</p>
+				</div>
+			{:else if step[0].use !== 'debug'}
+				<div class="flex items-center gap-3">
+					<Avatar src={avatar} fallback={title} class="size-8 rounded-sm border" />
+					<div class="space-y-1">
+						<div class="flex items-center gap-1">
+							<h1>{title}</h1>
+							{#if copyText}
+								<CopyButtonSmall
+									textToCopy={copyText}
+									variant="ghost"
+									square
+									size="mini"
+									class="text-gray-400"
+								/>
+							{/if}
+						</div>
 					</div>
 				</div>
-			</div>
-		{/if}
+			{/if}
+		</div>
 
 		{#if step[0].use !== 'debug'}
 			<Label class="flex cursor-pointer items-center gap-1 bg-slate-50 px-3 py-1">
