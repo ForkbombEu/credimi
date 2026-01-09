@@ -26,6 +26,17 @@ import (
 
 const ZenroomTaskQueue = "ZenroomTaskQueue"
 
+type dockerContainerRemover interface {
+	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
+}
+
+var dockerClientFactory = func() (dockerContainerRemover, error) {
+	return dockerclient.NewClientWithOpts(
+		dockerclient.FromEnv,
+		dockerclient.WithAPIVersionNegotiation(),
+	)
+}
+
 type ZenroomWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
@@ -149,10 +160,7 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	cli, err := dockerclient.NewClientWithOpts(
-		dockerclient.FromEnv,
-		dockerclient.WithAPIVersionNegotiation(),
-	)
+	cli, err := dockerClientFactory()
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerClientCreationFailed]
 		appErr := workflowengine.NewAppError(errCode, err.Error())

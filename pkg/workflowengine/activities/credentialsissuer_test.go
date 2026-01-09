@@ -4,9 +4,11 @@
 package activities
 
 import (
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
-	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -15,6 +17,38 @@ import (
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 )
+
+type roundTripperFunc func(req *http.Request) (*http.Response, error)
+
+func (fn roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
+}
+
+func setIssuerHTTPClient(
+	t testing.TB,
+	handler func(req *http.Request) (*http.Response, error),
+) {
+	t.Helper()
+	original := issuerHTTPClient
+	issuerHTTPClient = &http.Client{
+		Transport: roundTripperFunc(handler),
+	}
+	t.Cleanup(func() {
+		issuerHTTPClient = original
+	})
+}
+
+type errorReadCloser struct {
+	err error
+}
+
+func (reader *errorReadCloser) Read(_ []byte) (int, error) {
+	return 0, reader.err
+}
+
+func (reader *errorReadCloser) Close() error {
+	return nil
+}
 
 func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 	var ts testsuite.WorkflowTestSuite
@@ -28,7 +62,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 	tests := []struct {
 		name            string
 		payload         CheckCredentialsIssuerActivityPayload
-		serverHandler   http.HandlerFunc
+		responseHandler func(req *http.Request) (*http.Response, error)
 		expectErr       bool
 		expectedErrCode errorcodes.Code
 		expectedOutput  map[string]any
@@ -36,12 +70,15 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 		{
 			name: "Success - valid issuer response",
 			payload: CheckCredentialsIssuerActivityPayload{
-				BaseURL: "",
+				BaseURL: "https://issuer.example.com/.well-known/openid-credential-issuer",
 			},
-			serverHandler: func(w http.ResponseWriter, r *http.Request) {
+			responseHandler: func(r *http.Request) (*http.Response, error) {
 				require.Equal(t, "/.well-known/openid-credential-issuer", r.URL.Path)
-				w.WriteHeader(http.StatusOK)
-				fmt.Fprint(w, `{"issuer":"example.com"}`)
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"issuer":"example.com"}`)),
+					Header:     make(http.Header),
+				}, nil
 			},
 			expectErr: false,
 			expectedOutput: map[string]any{
@@ -57,10 +94,15 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 		{
 			name: "Failure - non-200 status code",
 			payload: CheckCredentialsIssuerActivityPayload{
-				BaseURL: "",
+				BaseURL: "https://issuer.example.com/.well-known/openid-credential-issuer",
 			},
-			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusForbidden)
+			responseHandler: func(r *http.Request) (*http.Response, error) {
+				require.Equal(t, "/.well-known/openid-credential-issuer", r.URL.Path)
+				return &http.Response{
+					StatusCode: http.StatusForbidden,
+					Body:       io.NopCloser(strings.NewReader("")),
+					Header:     make(http.Header),
+				}, nil
 			},
 			expectErr:       true,
 			expectedErrCode: errorcodes.Codes[errorcodes.IsNotCredentialIssuer],
@@ -68,12 +110,11 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 		{
 			name: "Failure - error reaching issuer",
 			payload: CheckCredentialsIssuerActivityPayload{
-				BaseURL: "",
+				BaseURL: "https://issuer.example.com/.well-known/openid-credential-issuer",
 			},
-			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
-				w.Header().Set("Content-Length", "10")
-				conn, _, _ := w.(http.Hijacker).Hijack()
-				conn.Close()
+			responseHandler: func(r *http.Request) (*http.Response, error) {
+				require.Equal(t, "/.well-known/openid-credential-issuer", r.URL.Path)
+				return nil, errors.New("connection failed")
 			},
 			expectErr:       true,
 			expectedErrCode: errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed],
@@ -81,14 +122,15 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 		{
 			name: "Failure - error reading body",
 			payload: CheckCredentialsIssuerActivityPayload{
-				BaseURL: "",
+				BaseURL: "https://issuer.example.com/.well-known/openid-credential-issuer",
 			},
-			serverHandler: func(w http.ResponseWriter, _ *http.Request) {
-				w.Header().Set("Content-Type", "application/json")
-				w.WriteHeader(http.StatusOK)
-				w.Write([]byte(`{"partial":`))
-				conn, _, _ := w.(http.Hijacker).Hijack()
-				conn.Close() // simulate read failure
+			responseHandler: func(r *http.Request) (*http.Response, error) {
+				require.Equal(t, "/.well-known/openid-credential-issuer", r.URL.Path)
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       &errorReadCloser{err: fmt.Errorf("read failed")},
+					Header:     make(http.Header),
+				}, nil
 			},
 			expectErr:       true,
 			expectedErrCode: errorcodes.Codes[errorcodes.ReadFromReaderFailed],
@@ -97,13 +139,12 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var baseURL string
-			if tt.serverHandler != nil {
-				server := httptest.NewServer(tt.serverHandler)
-				defer server.Close()
-				baseURL = server.URL + "/.well-known/openid-credential-issuer"
-				tt.payload.BaseURL = baseURL
-			}
+			setIssuerHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+				if tt.responseHandler == nil {
+					return nil, errors.New("unexpected request")
+				}
+				return tt.responseHandler(req)
+			})
 
 			input := workflowengine.ActivityInput{
 				Payload: tt.payload,
@@ -122,7 +163,7 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 				for k, v := range tt.expectedOutput {
 					require.Equal(t, v, result.Output.(map[string]any)[k])
 				}
-				require.Contains(t, result.Output.(map[string]any)["base_url"], baseURL)
+				require.Contains(t, result.Output.(map[string]any)["base_url"], tt.payload.BaseURL)
 			}
 		})
 	}

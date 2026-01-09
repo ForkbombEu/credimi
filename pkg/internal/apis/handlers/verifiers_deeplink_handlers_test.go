@@ -5,8 +5,10 @@
 package handlers
 
 import (
+	"errors"
+	"io"
 	"net/http"
-	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -92,15 +94,14 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(
-					t.(*testing.T),
-					http.StatusOK,
-					map[string]any{
-						"deeplink": "mock-deeplink-from-yaml",
-					},
-				)
-				t.Cleanup(mockServer.Close)
-				app.Settings().Meta.AppURL = mockServer.URL
+				setDeeplinkHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+					assertDeeplinkRequest(t, req)
+					return buildJSONResponse(
+						http.StatusOK,
+						map[string]any{"deeplink": "mock-deeplink-from-yaml"},
+					), nil
+				})
+				app.Settings().Meta.AppURL = "https://example.com"
 				ver, _ := app.FindCollectionByNameOrId("use_cases_verifications")
 				r, err := app.FindFirstRecordByFilter(ver.Name, `name="test use cases"`)
 				require.NoError(t, err)
@@ -123,16 +124,14 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(
-					t.(*testing.T),
-					http.StatusOK,
-					map[string]any{
-						"deeplink": "mock-deeplink-from-yaml",
-					},
-				)
-				t.Cleanup(mockServer.Close)
-
-				app.Settings().Meta.AppURL = mockServer.URL
+				setDeeplinkHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+					assertDeeplinkRequest(t, req)
+					return buildJSONResponse(
+						http.StatusOK,
+						map[string]any{"deeplink": "mock-deeplink-from-yaml"},
+					), nil
+				})
+				app.Settings().Meta.AppURL = "https://example.com"
 
 				ver, _ := app.FindCollectionByNameOrId("use_cases_verifications")
 				r, err := app.FindFirstRecordByFilter(ver.Name, `name="test use cases"`)
@@ -161,16 +160,14 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(
-					t.(*testing.T),
-					http.StatusInternalServerError,
-					map[string]any{
-						"error": "internal server error",
-					},
-				)
-				t.Cleanup(mockServer.Close)
-
-				app.Settings().Meta.AppURL = mockServer.URL
+				setDeeplinkHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+					assertDeeplinkRequest(t, req)
+					return buildJSONResponse(
+						http.StatusInternalServerError,
+						map[string]any{"error": "internal server error"},
+					), nil
+				})
+				app.Settings().Meta.AppURL = "https://example.com"
 
 				ver, _ := app.FindCollectionByNameOrId("use_cases_verifications")
 				r, _ := app.FindFirstRecordByFilter(ver.Name, `name="test use cases"`)
@@ -194,16 +191,14 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(
-					t.(*testing.T),
-					http.StatusOK,
-					map[string]any{
-						"wrong_field": "value",
-					},
-				)
-				t.Cleanup(mockServer.Close)
-
-				app.Settings().Meta.AppURL = mockServer.URL
+				setDeeplinkHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+					assertDeeplinkRequest(t, req)
+					return buildJSONResponse(
+						http.StatusOK,
+						map[string]any{"wrong_field": "value"},
+					), nil
+				})
+				app.Settings().Meta.AppURL = "https://example.com"
 
 				ver, _ := app.FindCollectionByNameOrId("use_cases_verifications")
 				r, _ := app.FindFirstRecordByFilter(ver.Name, `name="test use cases"`)
@@ -227,7 +222,11 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				app.Settings().Meta.AppURL = "http://this-domain-does-not-exist-12345.local"
+				setDeeplinkHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+					assertDeeplinkRequest(t, req)
+					return nil, errors.New("network error")
+				})
+				app.Settings().Meta.AppURL = "https://example.com"
 
 				ver, _ := app.FindCollectionByNameOrId("use_cases_verifications")
 				r, _ := app.FindFirstRecordByFilter(ver.Name, `name="test use cases"`)
@@ -251,16 +250,15 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				mockServer := httptest.NewServer(
-					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						w.Header().Set("Content-Type", "application/json")
-						w.WriteHeader(http.StatusOK)
-						w.Write([]byte(`{"deeplink": "value`))
-					}),
-				)
-				t.Cleanup(mockServer.Close)
-
-				app.Settings().Meta.AppURL = mockServer.URL
+				setDeeplinkHTTPClient(t, func(req *http.Request) (*http.Response, error) {
+					assertDeeplinkRequest(t, req)
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       io.NopCloser(strings.NewReader(`{"deeplink": "value`)),
+						Header:     make(http.Header),
+					}, nil
+				})
+				app.Settings().Meta.AppURL = "https://example.com"
 
 				ver, _ := app.FindCollectionByNameOrId("use_cases_verifications")
 				r, _ := app.FindFirstRecordByFilter(ver.Name, `name="test use cases"`)

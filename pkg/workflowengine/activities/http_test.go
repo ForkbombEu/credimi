@@ -5,9 +5,11 @@
 package activities
 
 import (
+	"context"
 	"encoding/json"
+	"io"
 	"net/http"
-	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -17,6 +19,20 @@ import (
 	"go.temporal.io/sdk/testsuite"
 )
 
+func setHTTPClientFactory(
+	t testing.TB,
+	handler func(req *http.Request) (*http.Response, error),
+) {
+	t.Helper()
+	original := httpClientFactory
+	httpClientFactory = func(_ time.Duration) httpActivityDoer {
+		return &http.Client{Transport: roundTripperFunc(handler)}
+	}
+	t.Cleanup(func() {
+		httpClientFactory = original
+	})
+}
+
 func TestHTTPActivity_Execute(t *testing.T) {
 	activity := NewHTTPActivity()
 	var ts testsuite.WorkflowTestSuite
@@ -25,7 +41,7 @@ func TestHTTPActivity_Execute(t *testing.T) {
 
 	tests := []struct {
 		name            string
-		handlerFunc     http.HandlerFunc
+		handlerFunc     func(req *http.Request) (*http.Response, error)
 		payload         HTTPActivityPayload
 		expectError     bool
 		expectedErrCode errorcodes.Code
@@ -34,30 +50,38 @@ func TestHTTPActivity_Execute(t *testing.T) {
 	}{
 		{
 			name: "Success - GET request without headers/body",
-			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(`{"message": "ok"}`))
+			handlerFunc: func(_ *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"message": "ok"}`)),
+					Header:     make(http.Header),
+				}, nil
 			},
 			payload: HTTPActivityPayload{
 				Method: http.MethodGet,
-				URL:    "", // Set dynamically
+				URL:    "https://example.com",
 			},
 			expectStatus:   http.StatusOK,
 			expectResponse: map[string]any{"message": "ok"},
 		},
 		{
 			name: "Success - POST request with body and headers",
-			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+			handlerFunc: func(r *http.Request) (*http.Response, error) {
 				require.Equal(t, "application/json", r.Header.Get("Content-Type"))
-				w.Header().Set("X-Test", "value")
 				var payload map[string]any
-				json.NewDecoder(r.Body).Decode(&payload)
-				w.WriteHeader(http.StatusCreated)
-				json.NewEncoder(w).Encode(map[string]any{"received": payload["key"]})
+				require.NoError(t, json.NewDecoder(r.Body).Decode(&payload))
+				respBody, _ := json.Marshal(map[string]any{"received": payload["key"]})
+				header := make(http.Header)
+				header.Set("X-Test", "value")
+				return &http.Response{
+					StatusCode: http.StatusCreated,
+					Body:       io.NopCloser(strings.NewReader(string(respBody))),
+					Header:     header,
+				}, nil
 			},
 			payload: HTTPActivityPayload{
 				Method: http.MethodPost,
-				URL:    "",
+				URL:    "https://example.com",
 				Headers: map[string]string{
 					"Content-Type": "application/json",
 				},
@@ -70,12 +94,12 @@ func TestHTTPActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - timeout",
-			handlerFunc: func(_ http.ResponseWriter, _ *http.Request) {
-				time.Sleep(2 * time.Second)
+			handlerFunc: func(_ *http.Request) (*http.Response, error) {
+				return nil, context.DeadlineExceeded
 			},
 			payload: HTTPActivityPayload{
 				Method:  http.MethodGet,
-				URL:     "",
+				URL:     "https://example.com",
 				Timeout: "1",
 			},
 			expectError:     true,
@@ -83,27 +107,34 @@ func TestHTTPActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Success - non-JSON response is returned as string",
-			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
-				w.Write([]byte("plain response"))
+			handlerFunc: func(_ *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader("plain response")),
+					Header:     make(http.Header),
+				}, nil
 			},
 			payload: HTTPActivityPayload{
 				Method: http.MethodGet,
-				URL:    "",
+				URL:    "https://example.com",
 			},
 			expectStatus:   http.StatusOK,
 			expectResponse: "plain response",
 		},
 		{
 			name: "Success - GET request with query parameters",
-			handlerFunc: func(w http.ResponseWriter, r *http.Request) {
+			handlerFunc: func(r *http.Request) (*http.Response, error) {
 				query := r.URL.Query()
 				require.Equal(t, "value", query.Get("key"))
-				w.WriteHeader(http.StatusOK)
-				_, _ = w.Write([]byte(`{"message": "query received"}`))
+				return &http.Response{
+					StatusCode: http.StatusOK,
+					Body:       io.NopCloser(strings.NewReader(`{"message": "query received"}`)),
+					Header:     make(http.Header),
+				}, nil
 			},
 			payload: HTTPActivityPayload{
 				Method: http.MethodGet,
-				URL:    "",
+				URL:    "https://example.com",
 				QueryParams: map[string]string{
 					"key": "value",
 				},
@@ -113,13 +144,17 @@ func TestHTTPActivity_Execute(t *testing.T) {
 		},
 		{
 			name: "Failure - unexpected status code",
-			handlerFunc: func(w http.ResponseWriter, _ *http.Request) {
-				w.WriteHeader(http.StatusInternalServerError)
+			handlerFunc: func(_ *http.Request) (*http.Response, error) {
+				return &http.Response{
+					StatusCode: http.StatusInternalServerError,
+					Body:       io.NopCloser(strings.NewReader("")),
+					Header:     make(http.Header),
+				}, nil
 			},
 			payload: HTTPActivityPayload{
 				ExpectedStatus: http.StatusOK,
 				Method:         http.MethodGet,
-				URL:            "",
+				URL:            "https://example.com",
 			},
 			expectError:     true,
 			expectedErrCode: errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode],
@@ -128,11 +163,12 @@ func TestHTTPActivity_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if tt.handlerFunc != nil {
-				server := httptest.NewServer(tt.handlerFunc)
-				defer server.Close()
-				tt.payload.URL = server.URL
-			}
+			setHTTPClientFactory(t, func(req *http.Request) (*http.Response, error) {
+				if tt.handlerFunc == nil {
+					return nil, context.Canceled
+				}
+				return tt.handlerFunc(req)
+			})
 
 			a := HTTPActivity{}
 			var result workflowengine.ActivityResult

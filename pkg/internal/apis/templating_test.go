@@ -7,6 +7,8 @@ package apis
 
 import (
 	"net/http"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
@@ -24,6 +26,45 @@ func TestAddTemplatingRoutes(t *testing.T) {
 	require.NoError(t, err)
 
 	setupTestApp := func(t testing.TB) *tests.TestApp {
+		rootDir := t.TempDir()
+		templatesDir := filepath.Join(rootDir, "config_templates", "test-standard", "v1", "suite-a")
+		require.NoError(t, os.MkdirAll(templatesDir, 0o755))
+
+		require.NoError(
+			t,
+			os.WriteFile(
+				filepath.Join(rootDir, "config_templates", "test-standard", "standard.yaml"),
+				[]byte("uid: test-standard\nname: Test Standard\n"),
+				0o644,
+			),
+		)
+		require.NoError(
+			t,
+			os.WriteFile(
+				filepath.Join(rootDir, "config_templates", "test-standard", "v1", "version.yaml"),
+				[]byte("uid: v1\nname: Version 1\n"),
+				0o644,
+			),
+		)
+		require.NoError(
+			t,
+			os.WriteFile(
+				filepath.Join(templatesDir, "metadata.yaml"),
+				[]byte("uid: suite-a\nname: Suite A\nshow_in_pipeline_gui: true\n"),
+				0o644,
+			),
+		)
+		require.NoError(
+			t,
+			os.WriteFile(filepath.Join(templatesDir, "suite.json"), []byte("{}"), 0o644),
+		)
+
+		originalRoot := os.Getenv("ROOT_DIR")
+		require.NoError(t, os.Setenv("ROOT_DIR", rootDir))
+		t.Cleanup(func() {
+			_ = os.Setenv("ROOT_DIR", originalRoot)
+		})
+
 		testApp, err := tests.NewTestApp(testDataDir)
 		if err != nil {
 			t.Fatal(err)
