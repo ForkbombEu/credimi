@@ -64,9 +64,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		<div class="p-3 pb-4 pt-2">
 			{#if step[1] instanceof Enrich404Error || step[1] instanceof Error}
-				<div class="flex items-center gap-2 rounded-md bg-red-700 p-3 text-white">
-					<TriangleAlert size={12} />
-					<p class="text-xs">{step[1].message}</p>
+				<div class="rounded-md bg-red-700 p-3 text-white">
+					<div class="flex items-center gap-2">
+						<TriangleAlert size={12} />
+						<p class="text-xs">{step[1].message}</p>
+					</div>
+					{#if step[1] instanceof Enrich404Error}
+						<p class="pt-2 text-xs opacity-60">{step[1].description}</p>
+					{/if}
 				</div>
 			{:else if step[0].use !== 'debug'}
 				<div class="flex items-center gap-3">
