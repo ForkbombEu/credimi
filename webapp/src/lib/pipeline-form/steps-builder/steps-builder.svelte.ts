@@ -4,12 +4,12 @@
 
 import type { Renderable } from '$lib/renderable';
 import { StateManager } from '$lib/state-manager/state-manager';
+import { onDestroy } from 'svelte';
 import * as pipelinestep from '../steps';
+import { walletActionStepFormState } from '../steps/wallet-action/wallet-action-step-form.svelte.js';
 import type { PipelineStep } from '../types';
 import Component from './steps-builder.svelte';
 import type { EnrichedStep } from './types';
-
-//
 
 //
 
@@ -37,6 +37,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	constructor(private props: Props) {
 		this._state.steps = props.steps;
+
+		onDestroy(() => {
+			walletActionStepFormState.lastSelectedWallet = undefined;
+		});
 	}
 
 	// Shortcuts
