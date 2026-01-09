@@ -75,10 +75,10 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 				const form = config.initForm();
 				form.onSubmit((formData) => {
 					const step: PipelineStepWithId = {
-						id: nanoid(5),
 						use: config.id,
-						with: config.serialize(formData) as Record<string, unknown>,
-						continue_on_error: false
+						id: nanoid(5),
+						continue_on_error: false,
+						with: config.serialize(formData) as Record<string, unknown>
 					};
 					this.stateManager.run((data) => {
 						data.steps.push([step, formData]);
