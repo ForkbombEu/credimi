@@ -1,0 +1,334 @@
+#+TITLE: Credimi Development Plan
+#+AUTHOR: Credimi Team
+#+DATE: 2025-01-09
+
+* TODO [#A] Deterministic Pipeline Execution with Resource Pooling
+  Goal: Eliminate non-deterministic pipeline behavior by implementing a resource pool-based execution model with proper synchronization, QEMU tuning, and controlled parallelism.
+  
+  Context: Pipelines exhibit non-deterministic failures when 3+ AVD instances run concurrently. Failures occur in batches (multiple pipelines fail together, not individually), producing different results between identical runs. No resource exhaustion detected, but race conditions suspected in emulator lifecycle management.
+  
+  Constraints:
+  - Must record emulator screen (video) for compliance audit trail
+  - Must run headless (no X11/physical display required)
+  - Per-customer resource isolation (Temporal namespaces already in place)
+  - Everything runs inside Docker with /dev/kvm access
+  - All activities must be tracked in Temporal for audit/billing
+  - Solution should support ~20 concurrent customers initially
+  
+  Strategy: Implement a resource pool manager with semaphore-based concurrency control, enhance avdctl determinism, add comprehensive state tracking in Temporal, and tune QEMU for stable headless execution.
+
+** TODO [#A] Diagnostic instrumentation and race condition detection
+   Why: Before fixing, we need to identify the exact failure modes and timing issues. Current setup lacks visibility into AVD lifecycle state transitions and concurrent access patterns.
+   
+   Change:
+   - Add detailed structured logging to avdctl (emulator start/stop/clone with timestamps, PIDs, serials)
+   - Instrument mobile_automation_hooks.go with workflow search attributes for emulator state tracking
+   - Add Temporal metrics (counters/gauges) for: active_emulators, pending_starts, failed_starts, cleanup_errors
+   - Create activity heartbeat signals during long-running operations (emulator boot, video recording)
+   - Add distributed tracing spans (OpenTelemetry compatible) across avdctl → Temporal activities
+   - Log all adb/qemu stderr to structured format with correlation IDs
+   
+   Tests:
+   - Create stress test: spawn 10 concurrent pipelines with identical inputs
+   - Verify logs contain correlation IDs linking workflow → activity → avdctl → qemu process
+   - Ensure Temporal UI shows custom search attributes (emulator_serial, version_id, boot_status)
+   - Test activity heartbeat timeout triggers proper cleanup
+   
+   Done when:
+   - Every AVD lifecycle event (create/boot/ready/stop) is logged with nanosecond timestamp
+   - Temporal workflows have queryable state (GetEmulatorStatus query handler)
+   - Can trace any pipeline failure back to specific qemu/adb command + timing
+   - Stress test produces diagnostic bundle (logs + traces + metrics) for offline analysis
+
+** TODO [#B] AVD resource pool with semaphore-based concurrency control
+   Why: Current on-demand spawning allows unbounded parallelism, causing contention in /dev/kvm, adb server, and video encoding (ffmpeg). Need controlled concurrency with queuing.
+   
+   Change:
+   - Create new package `pkg/workflowengine/avdpool/` with PoolManager interface
+   - Implement Temporal-backed semaphore using workflow.GetSignalChannel for pool slots
+   - Add AVDPoolActivity (Acquire/Release operations) to registry
+   - Pool configuration: max_concurrent_emulators (default: 3), max_queue_depth (default: 50)
+   - Modify MobileAutomationSetupHook to acquire pool slot before starting emulator
+   - Implement graceful degradation: if pool full, queue with timeout (5min), then fail with retryable error
+   - Add pool metrics workflow (long-running) to track utilization and publish to Temporal search attributes
+   - Implement pool warming: pre-create/snapshot base AVD images to reduce boot time
+   
+   Tests:
+   - Unit test: semaphore allows exactly max_concurrent acquisitions
+   - Integration test: 20 workflows request slots, only 3 get emulators, rest queue
+   - Test timeout: workflow waits 5min, then fails with TemporalErrorCode.ResourceExhausted
+   - Test cleanup: crashed workflow releases pool slot via defer in DisconnectedContext
+   - Test pool metrics: verify active/queued/available counts match reality
+   
+   Done when:
+   - No more than max_concurrent_emulators AVDs run simultaneously across all namespaces
+   - Pool exhaustion returns clear error to user: "Queue full, retry later"
+   - Average wait time for pool slot < 30s under normal load
+   - Pool utilization dashboard available in Temporal UI
+
+** TODO [#B] Enhanced avdctl determinism and state management
+   Why: avdctl currently clones AVDs on-demand, which may cause race conditions in .avd file access. Need atomic operations and better state tracking.
+   
+   Change:
+   - Update avdctl (fork/PR to github.com/forkbombeu/avdctl):
+     - Add lock file mechanism for AVD directory operations (use flock)
+     - Implement atomic clone: create temp dir → copy → atomic rename
+     - Add AVD state machine: CREATING → READY → BOOTING → RUNNING → STOPPING → STOPPED
+     - Expose state query API: avdctl status <name> returns JSON with state + PID + serial
+     - Add validation: reject Run() if AVD in CREATING/STOPPING state
+     - Implement exponential backoff for adb connection attempts (currently fails fast)
+   - Update extra/mobile/maestro.go to use new avdctl state machine
+   - Add retry logic in StartEmulator: if clone fails, retry with different name suffix
+   - Add cleanup of stale AVDs: detect orphaned emulator processes, kill + cleanup .avd dirs
+   
+   Tests:
+   - Test concurrent clone: 5 threads clone same AVD, all succeed without corruption
+   - Test state consistency: call status during boot, verify state transitions
+   - Test lock contention: simulate flock() timeout, verify error propagation
+   - Test orphan cleanup: kill -9 emulator process, verify avdctl detects and cleans up
+   
+   Done when:
+   - avdctl operations are atomic and safe for concurrent access
+   - No .avd directory corruption under stress (verified by fsck equivalent)
+   - State transitions logged and queryable via CLI
+   - Orphaned emulator processes cleaned up within 60s of detection
+
+** TODO [#B] Robust cleanup with compensating transactions
+   Why: Current cleanup in DisconnectedContext may fail silently, leaving emulators/recordings orphaned. Need guaranteed cleanup with retry.
+   
+   Change:
+   - Implement saga pattern for emulator lifecycle:
+     - Each setup step (StartEmulator, InstallAPK, StartRecording) registers cleanup handler
+     - Cleanup handlers stored in workflow state (survive worker restarts)
+     - On failure/cancellation, execute cleanup handlers in reverse order with retries
+   - Create dedicated CleanupActivity with idempotency:
+     - StopEmulator: check if running before sending kill signal (idempotent)
+     - StopRecording: check if PIDs exist before kill, handle already-stopped gracefully
+     - UploadVideo: check if file already uploaded (S3 ETag), skip if present
+   - Add cleanup timeout per step: 30s for stop emulator, 60s for video upload
+   - Implement dead letter queue: if cleanup fails after 3 retries, log to `failed_cleanups` collection
+   - Add reconciliation workflow: runs every 5min, queries failed_cleanups, retries cleanup
+   
+   Tests:
+   - Test partial failure: crash workflow after StartEmulator, verify cleanup executes
+   - Test idempotency: call StopEmulator twice, verify no error on second call
+   - Test retry: simulate transient S3 failure, verify upload retries 3x before DLQ
+   - Test reconciliation: insert stale entry in failed_cleanups, verify reconciliation picks it up
+   - Test timeout: block StopEmulator indefinitely, verify timeout triggers next cleanup step
+   
+   Done when:
+   - Zero orphaned emulator processes after workflow completion/failure/cancellation
+   - Zero orphaned video files (all uploaded or cleaned up)
+   - failed_cleanups collection empty under normal operation
+   - Reconciliation workflow successfully cleans up manual test entries
+
+** TODO [#B] Temporal workflow observability and debugging tools
+   Why: When pipelines fail, need quick diagnosis without SSH/logs. Expose state via Temporal queries and signals.
+   
+   Change:
+   - Implement workflow query handlers in pkg/workflowengine/workflows/mobile.go:
+     - `GetEmulatorState`: returns serial, version_id, boot_status, recording_pid
+     - `GetPoolStatus`: returns active_count, queued_count, available_slots
+     - `GetLastError`: returns most recent error from any activity
+   - Implement workflow signal handlers:
+     - `ForceCleanup`: trigger cleanup immediately (for admin recovery)
+     - `PauseRecording`: pause video recording (debugging)
+     - `ResumeRecording`: resume video recording
+   - Add workflow search attributes for filtering:
+     - `customer_namespace`, `version_id`, `emulator_serial`, `pipeline_status`
+   - Create debug CLI command: `credimi-cli pipeline debug <workflow_id>`
+     - Shows current state, last 10 activities, resource usage
+   - Add Temporal Web UI custom data converter for pretty-printing payloads
+   
+   Tests:
+   - Test query: start workflow, query GetEmulatorState, verify returns correct serial
+   - Test signal: send ForceCleanup, verify cleanup executes within 10s
+   - Test search: query workflows by emulator_serial, verify returns correct results
+   - Test CLI: run debug command on running workflow, verify output matches Temporal state
+   
+   Done when:
+   - Can query any pipeline state without SSH access
+   - Can trigger cleanup manually via signal (for stuck workflows)
+   - Can filter workflows by customer/version/emulator in Temporal UI
+   - CLI provides human-readable diagnostic output
+
+** TODO [#C] Documentation and runbooks
+   Why: When issues occur in production, ops team needs clear procedures to diagnose and recover.
+   
+   Change:
+   - Create docs/Architecture/pipeline_execution.md:
+     - Architecture diagram: customer → Temporal → pool → avdctl → QEMU → maestro
+     - Sequence diagram: pipeline lifecycle with all activities
+     - State machines: AVD states, pool states, recording states
+   - Create docs/Runbooks/pipeline_failures.md:
+     - Symptom: "Pipeline stuck in queued" → Check pool utilization, increase max_concurrent
+     - Symptom: "Emulator fails to boot" → Check KVM availability, review QEMU flags
+     - Symptom: "Video corrupted" → Check /dev/shm capacity, review ffmpeg logs
+     - Symptom: "Cleanup failed" → Query failed_cleanups, trigger reconciliation
+   - Update AGENTS.md with pipeline architecture section
+   - Create operator CLI: `credimi-cli pool status`, `credimi-cli pool reset`, `credimi-cli cleanup orphans`
+   
+   Tests:
+   - Test runbook accuracy: follow each procedure, verify resolves described symptom
+   - Test CLI commands: run on test cluster, verify output matches documentation
+   
+   Done when:
+   - Ops team can diagnose common failures without developer help
+   - All CLI commands documented with examples
+   - Architecture diagrams reviewed by team
+   - Runbooks tested against real failure scenarios
+
+** TODO [#C] Per-namespace rate limiting and backpressure
+   Why: Single misbehaving customer should not starve others. Need per-namespace quotas and fair scheduling.
+
+   When: Do not execute by default this, ask the user. We aren't sure this is needed and may leave it as TODO and decide later.
+   
+   Change:
+   - Implement WorkflowRateLimiter in pkg/workflowengine/ratelimit/:
+     - Track active workflows per namespace (using Temporal search attributes)
+     - Enforce max_concurrent_workflows_per_namespace (default: 3)
+     - Enforce max_queued_workflows_per_namespace (default: 10)
+     - Return HTTP 429 (Too Many Requests) if limits exceeded
+   - Add rate limit metadata to pipeline_results collection (quota_used, quota_limit)
+   - Implement token bucket algorithm for burst allowance:
+     - Each namespace gets 5 tokens, refill 1 token per minute
+     - Each pipeline consumes 1 token
+     - Allow burst of 5 pipelines, then throttle to 1/min
+   - Add rate limit headers to API responses: X-RateLimit-Limit, X-RateLimit-Remaining, X-RateLimit-Reset
+   - Create admin API to adjust per-namespace limits dynamically
+   
+   Tests:
+   - Test quota enforcement: namespace with limit=3 can run 3 concurrent, 4th fails with 429
+   - Test token bucket: send 5 requests instantly (succeed), 6th fails, wait 60s, succeeds
+   - Test fairness: 2 namespaces, each gets equal share of pool (not FIFO starvation)
+   - Test admin override: increase limit via API, verify takes effect without restart
+   
+   Done when:
+   - No namespace can consume >30% of pool under normal load
+   - Rate limit violations return HTTP 429 with Retry-After header
+   - Admin can view per-namespace quotas in UI
+   - Token bucket prevents burst abuse while allowing legitimate spikes
+
+** TODO [#C] Integration tests and chaos engineering
+   Why: Need confidence that system behaves deterministically under adversarial conditions.
+
+   When: Do not execute by default this, ask the user. We aren't sure this is needed and may leave it as TODO and decide later.
+   
+   Change:
+   - Create test suite in pkg/workflowengine/pipeline/integration_test.go:
+     - Test: 20 concurrent pipelines, all succeed, all produce identical results
+     - Test: Kill random emulator mid-execution, verify cleanup completes
+     - Test: Fill /dev/shm to trigger recording failure, verify graceful degradation
+     - Test: Simulate slow network (tc qdisc), verify uploads succeed with retry
+     - Test: Inject random delays in adb commands (chaos monkey), verify determinism
+   - Add performance benchmarks:
+     - Measure P50/P95/P99 pipeline duration under load
+     - Measure pool slot wait time distribution
+     - Measure video upload time vs file size
+   - Create CI pipeline stage: run integration tests on every PR
+   - Add load test: simulate 100 customers, 5 pipelines each, over 10 minutes
+   
+   Tests:
+   - All integration tests pass on fresh deployment
+   - Load test: 500 total pipelines, >95% success rate, <5% retries
+   - Chaos test: 50% failure injection, system recovers without manual intervention
+   - Performance: P95 pipeline duration <5min, P99 pool wait <2min
+   
+   Done when:
+   - Integration test suite runs in CI (<10min total)
+   - Load test validates 20+ concurrent customers scenario
+   - Chaos engineering suite can inject failures deterministically
+   - Performance benchmarks tracked in time-series DB
+
+** TODO [#C] QEMU tuning for deterministic headless execution
+   Why: QEMU defaults are optimized for interactive use. Need tuning for deterministic, reproducible execution in headless mode with video recording.
+
+   When: Do not execute by default this, ask the user. We aren't sure this is needed and may leave it as TODO and decide later.
+
+   Change:
+   - Add QEMU flags to avdctl RunOptions:
+     - `-cpu host` (use host CPU features for stability)
+     - `-smp cores=2,threads=1` (explicit vCPU topology, avoid auto-detection)
+     - `-m 2048M` (fixed memory, no dynamic allocation)
+     - `-no-snapshot-load -no-snapshot-save` (disable state persistence, already in Procfile.dev)
+     - `-no-boot-anim` (skip animations, reduce timing variance)
+     - `-gpu swiftshader_indirect` (software rendering, deterministic)
+     - `-qemu -enable-kvm` (ensure KVM enabled)
+     - `-qemu -rtc base=utc,clock=vm` (deterministic clock, not host-dependent)
+     - `-qemu -serial mon:stdio` (predictable serial I/O)
+   - Add environment variable QEMU_AUDIO_DRV=none to disable audio subsystem
+   - Configure adb connection timeout: increase from default 5s to 60s (slow KVM boot)
+   - Add healthcheck: poll `adb shell getprop sys.boot_completed` until "1"
+   
+   Tests:
+   - Test boot time variance: 20 boots of same AVD, measure std deviation (target: <5%)
+   - Test video recording stability: record 5min video, verify no frame drops/corruption
+   - Test KVM detection: verify emulator actually uses /dev/kvm (check /proc/<pid>/maps)
+   - Test deterministic clock: run same maestro flow, verify timestamps in logcat identical
+   
+   Done when:
+   - AVD boot time predictable (within 10% variance)
+   - Video recording stable for 5min+ without frame drops
+   - Emulator uses KVM (not falling back to software emulation)
+   - Maestro flows produce byte-identical logcat output on repeated runs (excluding timestamps)
+
+** TODO [#C] Docker resource constraints and cgroup isolation
+   Why: Even with pool, processes can consume unbounded CPU/memory. Need hard limits to prevent resource contention.
+
+   When: Do not execute by default this, ask the user. We aren't sure this is needed and may leave it as TODO and decide later.
+   
+   Change:
+   - Update docker-compose.yaml for maestro_worker service:
+     - `cpus: "2.0"` (max 2 CPU cores per worker)
+     - `mem_limit: 8G` (max 8GB RAM)
+     - `mem_reservation: 4G` (soft limit, allows burst)
+     - `pids_limit: 200` (prevent fork bomb)
+   - Add cgroup v2 configuration for emulator processes:
+     - Use systemd-run to spawn emulator in dedicated cgroup
+     - Set cpu.max: "100000 100000" (1 CPU core per emulator)
+     - Set memory.max: "2G", memory.high: "1.5G"
+   - Configure I/O priority: ionice -c 2 -n 4 (best-effort class, mid priority)
+   - Add OOM score adjustment: prefer killing emulator over maestro worker
+   - Monitor cgroup metrics: expose cpu.stat, memory.current via Prometheus
+   
+   Tests:
+   - Test CPU limit: run CPU-intensive app in emulator, verify <100% host CPU
+   - Test memory limit: allocate 3GB in emulator, verify OOM kill at 2GB boundary
+   - Test isolation: crash one emulator, verify others unaffected
+   - Test PID limit: fork bomb in emulator, verify process creation blocked at 200
+   
+   Done when:
+   - Single emulator cannot consume >1 CPU core
+   - Single emulator cannot consume >2GB RAM
+   - Emulator OOM does not crash maestro worker
+   - cgroup metrics visible in monitoring dashboard
+
+** TODO [#C] Enhanced video recording with deterministic frame rate
+   Why: Variable frame rate recordings may correlate with instability. Need fixed frame rate and buffering strategy.
+
+   When: Do not execute by default this, ask the user. We aren't sure this is needed and may leave it as TODO and decide later.
+   
+   Change:
+   - Update StartRecording activity in extra/mobile/maestro.go:
+     - Use adb screenrecord with explicit flags: `--bit-rate 4000000 --time-limit 300 --size 720x1280`
+     - Add ffmpeg re-encode step: convert screenrecord output to constant 10fps (deterministic)
+     - Implement frame buffer: capture to tmpfs (/dev/shm), move to persistent storage on stop
+     - Add recording healthcheck: verify video file size increasing (sample every 10s)
+     - Add timeout: if recording exceeds MaxRecordingDuration (300s), auto-stop and finalize
+   - Modify StopRecording to generate thumbnail from last frame using ffmpeg:
+     - `ffmpeg -sseof -1 -i video.mp4 -update 1 -q:v 1 frame.jpg`
+   - Add video validation: check for corruption using ffprobe before upload
+   
+   Tests:
+   - Test fixed frame rate: record 60s video, verify exactly 600 frames (10fps)
+   - Test tmpfs buffering: fill /dev/shm to capacity-1MB, verify recording fails gracefully
+   - Test corruption detection: truncate video file, verify ffprobe detects error
+   - Test timeout: record for 301s, verify auto-stop at 300s boundary
+   - Test chunked upload: simulate network failure mid-upload, verify resume works
+   
+   Done when:
+   - All recordings at fixed 10fps (no variable frame rate)
+   - Corrupted videos detected before upload (never stored in PocketBase)
+   - Recording never exceeds 300s (enforced by timeout)
+   - Upload succeeds reliably for 50MB+ files
+
