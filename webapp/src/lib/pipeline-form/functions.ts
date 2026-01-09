@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { pipe, String } from 'effect';
+import * as _ from 'lodash';
 import { ClientResponseError } from 'pocketbase';
 import { parse, stringify } from 'yaml';
 
@@ -70,7 +71,8 @@ export function createPipelineYaml(
 	steps: PipelineStep[],
 	activity_options: ActivityOptions
 ): string {
-	const processedSteps = pipe(steps, addProgressiveStepIds, linkIds);
+	// Cloning because addProgressiveStepIds and linkIds modify the original steps array
+	const processedSteps = pipe(_.cloneDeep(steps), addProgressiveStepIds, linkIds);
 
 	const pipeline: Pipeline = {
 		name,

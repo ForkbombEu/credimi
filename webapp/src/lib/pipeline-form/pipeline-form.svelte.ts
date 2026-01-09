@@ -60,9 +60,9 @@ export class PipelineForm implements Renderable<PipelineForm> {
 
 	readonly yamlString: string = $derived.by(() =>
 		createPipelineYaml(
-			$state.snapshot(this.metadataForm.value?.name ?? ''),
-			$state.snapshot(this.stepsBuilder.steps.map(([step]) => step)),
-			$state.snapshot(this.activityOptionsForm.value)
+			this.metadataForm.value?.name ?? '',
+			this.stepsBuilder.steps.map(([step]) => step),
+			this.activityOptionsForm.value
 		)
 	);
 
