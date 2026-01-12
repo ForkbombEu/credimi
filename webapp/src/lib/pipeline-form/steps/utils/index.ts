@@ -85,18 +85,34 @@ export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormD
 
 	initForm: () => new HttpRequestStepForm(),
 
-	serialize: (data) => ({
-		method: data.method,
-		url: data.url,
-		body: data.body ? JSON.parse(data.body) : undefined,
-		headers: data.headers || undefined
-	}),
-
-	deserialize: async (data) => {
+	serialize: (data) => {
+		let bodyValue: any = undefined;
+		if (data.body && data.body.trim()) {
+			try {
+				bodyValue = JSON.parse(data.body);
+			} catch {
+				bodyValue = data.body;
+			}
+		}
 		return {
 			method: data.method,
 			url: data.url,
-			body: data.body ? JSON.stringify(data.body, null, 2) : undefined,
+			body: bodyValue,
+			headers: data.headers || undefined
+		};
+	},
+
+	deserialize: async (data) => {
+		let bodyString = '';
+		if (data.body) {
+			bodyString = typeof data.body === 'string' 
+				? data.body 
+				: JSON.stringify(data.body, null, 2);
+		}
+		return {
+			method: data.method,
+			url: data.url,
+			body: bodyString,
 			headers: data.headers
 		};
 	},
