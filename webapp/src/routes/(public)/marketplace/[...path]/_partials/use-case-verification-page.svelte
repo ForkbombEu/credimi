@@ -20,10 +20,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{ fetch: fetchFn }
 		).getOne(itemId);
 
-		const verifierMarketplaceItem = await pb
-			.collection('marketplace_items')
-			.getOne(useCaseVerification.verifier, { fetch: fetchFn });
+		// Handle potentially missing verifier
+		const [verifierMarketplaceItems] = await partitionPromises([
+			pb.collection('marketplace_items').getOne(useCaseVerification.verifier, { fetch: fetchFn })
+		]);
+		const verifierMarketplaceItem = verifierMarketplaceItems[0] ?? null;
 
+		// Handle potentially missing credentials
 		const [marketplaceCredentials] = await partitionPromises(
 			useCaseVerification.credentials.map((c) =>
 				pb.collection('marketplace_items').getOne(c, { fetch: fetchFn })
@@ -39,6 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import NotFoundCard from '$lib/components/not-found-card.svelte';
 	import MarketplaceItemCard from '$lib/marketplace/marketplace-item-card.svelte';
 
 	import CodeSection from './_utils/code-section.svelte';
@@ -75,7 +79,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<div class="flex w-full flex-col gap-6 sm:flex-row">
 		<PageSection indexItem={s.related_verifier} class="shrink-0 grow basis-1">
-			<MarketplaceItemCard item={verifierMarketplaceItem} />
+			{#if verifierMarketplaceItem}
+				<MarketplaceItemCard item={verifierMarketplaceItem} />
+			{:else}
+				<NotFoundCard />
+			{/if}
 		</PageSection>
 
 		<PageSection

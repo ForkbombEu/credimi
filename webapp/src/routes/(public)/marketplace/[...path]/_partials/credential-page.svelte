@@ -7,16 +7,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script module lang="ts">
 	import { pb } from '@/pocketbase/index.js';
 	import { Collections } from '@/pocketbase/types/index.generated.js';
+	import { partitionPromises } from '@/utils/promise';
 
 	export async function getCredentialsDetails(itemId: string, fetchFn = fetch) {
 		const credential = await pb.collection('credentials').getOne(itemId, { fetch: fetchFn });
 
-		const credentialIssuerMarketplaceEntry = await pb
-			.collection('marketplace_items')
-			.getFirstListItem(
-				`id = '${credential.credential_issuer}' && type = '${Collections.CredentialIssuers}'`,
-				{ fetch: fetchFn }
-			);
+		// Handle potentially missing credential issuer
+		const [credentialIssuerMarketplaceEntries] = await partitionPromises([
+			pb
+				.collection('marketplace_items')
+				.getFirstListItem(
+					`id = '${credential.credential_issuer}' && type = '${Collections.CredentialIssuers}'`,
+					{ fetch: fetchFn }
+				)
+		]);
+		const credentialIssuerMarketplaceEntry = credentialIssuerMarketplaceEntries[0] ?? null;
 
 		return pageDetails('credentials', {
 			credential,
@@ -29,6 +34,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 	import type { CredentialConfiguration } from '$lib/types/openid.js';
 
+	import NotFoundCard from '$lib/components/not-found-card.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { MarketplaceItemCard } from '$lib/marketplace';
 	import { String } from 'effect';
@@ -123,7 +129,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	<PageSection indexItem={sec.compatible_issuer}>
-		<MarketplaceItemCard item={credentialIssuerMarketplaceEntry} />
+		{#if credentialIssuerMarketplaceEntry}
+			<MarketplaceItemCard item={credentialIssuerMarketplaceEntry} />
+		{:else}
+			<NotFoundCard />
+		{/if}
 	</PageSection>
 </LayoutWithToc>
 
