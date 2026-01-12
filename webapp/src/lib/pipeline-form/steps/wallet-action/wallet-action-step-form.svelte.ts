@@ -9,24 +9,34 @@ import {
 	type WalletActionsResponse,
 	type WalletVersionsResponse
 } from '@/pocketbase/types';
-import { StepFormState, type WalletStepData } from '../types.js';
-import { searchMarketplace } from '../utils/search-marketplace.js';
-import { Search } from '../utils/search.svelte.js';
+import { searchMarketplace } from '../_partials/search-marketplace';
+import { Search } from '../_partials/search.svelte.js';
+import { BaseDataForm } from '../types.js';
+import Component from './wallet-action-step-form.svelte';
 
 //
 
-type Props = {
-	onSelect: (step: WalletStepData) => void;
-	initialData?: Partial<WalletStepData>;
-};
+export interface WalletActionStepData {
+	wallet: MarketplaceItem;
+	version: WalletVersionsResponse;
+	action: WalletActionsResponse;
+}
 
-export class WalletStepForm extends StepFormState {
-	constructor(private props: Props) {
+export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, WalletActionStepForm> {
+	readonly Component = Component;
+
+	constructor() {
 		super();
-		if (props.initialData) this.data = props.initialData;
+		if (walletActionStepFormState.lastSelectedWallet) {
+			this.data = {
+				wallet: walletActionStepFormState.lastSelectedWallet.wallet,
+				version: walletActionStepFormState.lastSelectedWallet.version,
+				action: undefined
+			};
+		}
 	}
 
-	data = $state<Partial<WalletStepData>>({});
+	data = $state<Partial<WalletActionStepData>>({});
 
 	state = $derived.by(() => {
 		const { wallet, version, action } = this.data;
@@ -87,7 +97,11 @@ export class WalletStepForm extends StepFormState {
 	}
 
 	selectAction(action: WalletActionsResponse) {
-		this.props.onSelect({ ...this.data, action } as WalletStepData);
+		walletActionStepFormState.lastSelectedWallet = {
+			wallet: this.data.wallet!,
+			version: this.data.version!
+		};
+		this.handleSubmit({ ...this.data, action } as WalletActionStepData);
 	}
 
 	//
@@ -103,3 +117,13 @@ export class WalletStepForm extends StepFormState {
 		this.data.version = undefined;
 	}
 }
+
+//
+
+type WalletActionStepFormState = {
+	lastSelectedWallet: { wallet: MarketplaceItem; version: WalletVersionsResponse } | undefined;
+};
+
+export const walletActionStepFormState = $state<WalletActionStepFormState>({
+	lastSelectedWallet: undefined
+});

@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { SelfProp } from '$lib/renderable';
+
 	import { PencilIcon } from 'lucide-svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -19,11 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type Props = {
-		form: MetadataForm;
-	};
-
-	const { form }: Props = $props();
+	const { self: form }: SelfProp<MetadataForm> = $props();
 </script>
 
 <Dialog bind:open={form.isOpen} title={m.Metadata()}>

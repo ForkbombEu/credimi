@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { appSections } from '$lib/marketplace/sections';
+	import { entities } from '$lib/global/entities';
 	import { Plus } from 'lucide-svelte';
 
 	import { CollectionManager } from '@/collections-components';
@@ -23,9 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 	let { organization } = $derived(data);
 
-	const { verifiers } = appSections;
-
-	setDashboardNavbar({ title: verifiers.label, right: navbarRight });
+	setDashboardNavbar({ title: entities.verifiers.labels.plural, right: navbarRight });
 </script>
 
 <CollectionManager

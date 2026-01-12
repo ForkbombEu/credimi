@@ -14,10 +14,13 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
-const PipelineTaskQueue = "PipelineTaskQueue"
+const (
+	PipelineTaskQueue = "PipelineTaskQueue"
+)
 
 type PipelineWorkflow struct{}
 
@@ -26,6 +29,10 @@ type PipelineWorkflowInput struct {
 	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"            json:"workflow_input"`
 	Debug              bool                         `yaml:"debug,omitempty"           json:"debug,omitempty"`
 	ParentRunData      map[string]any               `yaml:"parent_run_data,omitempty" json:"parent_run_data,omitempty"`
+}
+
+func NewPipelineWorkflow() *PipelineWorkflow {
+	return &PipelineWorkflow{}
 }
 
 func (PipelineWorkflow) Name() string {
@@ -49,7 +56,7 @@ func (w *PipelineWorkflow) Workflow(
 
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
 	runID := workflow.GetInfo(ctx).WorkflowExecution.RunID
-	runMetadata := workflowengine.WorkflowErrorMetadata{
+	runMetadata := &workflowengine.WorkflowErrorMetadata{
 		WorkflowName: w.Name(),
 		WorkflowID:   workflowID,
 		Namespace:    workflow.GetInfo(ctx).Namespace,
@@ -84,9 +91,9 @@ func (w *PipelineWorkflow) Workflow(
 		runData = input.ParentRunData
 	}
 	defer func() {
-		cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
+
 		for _, hook := range cleanupHooks {
-			if err := hook(cleanupCtx, input.WorkflowDefinition.Steps, input.WorkflowInput, runData, &finalOutput); err != nil {
+			if err := hook(ctx, input.WorkflowDefinition.Steps, input.WorkflowInput, runData, &finalOutput); err != nil {
 				logger.Error("cleanup hook error", "error", err)
 				cleanupErrors = append(cleanupErrors, err)
 			}
@@ -94,6 +101,14 @@ func (w *PipelineWorkflow) Workflow(
 	}()
 	for _, hook := range setupHooks {
 		if err := hook(ctx, &input.WorkflowDefinition.Steps, input.WorkflowInput, &runData); err != nil {
+			if temporal.IsTimeoutError(err) {
+				return workflowengine.WorkflowResult{}, err
+			}
+			if temporal.IsCanceledError(err) {
+				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+					runMetadata,
+				)
+			}
 			return result, workflowengine.NewWorkflowError(err, runMetadata)
 		}
 	}
@@ -114,7 +129,24 @@ func (w *PipelineWorkflow) Workflow(
 
 			childOut, err := runChildPipeline(ctx, step, input, w.Name(), stepInputs, runMetadata)
 			if err != nil {
+				if temporal.IsTimeoutError(err) {
+					return workflowengine.WorkflowResult{}, err
+				}
+
+				if temporal.IsCanceledError(err) {
+					return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+						runMetadata,
+					)
+				}
 				logger.Error(step.ID, "step execution error", err)
+				if len(step.OnError) > 0 {
+					logger.Info("Executing onError steps for step",
+						"step_id", step.ID,
+						"count", len(step.OnError),
+						"continue_on_error", step.ContinueOnError)
+
+					ExecuteEventStepsOnError(ctx, step.OnError, stepInputs, errorsList, input)
+				}
 				if step.ContinueOnError {
 					if out := workflowengine.ExtractOutputFromError(err); out != nil {
 						childOut = out
@@ -131,6 +163,10 @@ func (w *PipelineWorkflow) Workflow(
 					runMetadata,
 				)
 			}
+			if len(step.OnSuccess) > 0 {
+				logger.Info("Executing onSuccess steps for step", "step_id", step.ID, "count", len(step.OnSuccess))
+				ExecuteEventStepsOnSuccess(ctx, step.OnSuccess, stepInputs, errorsList, input)
+			}
 
 			finalOutput[step.ID] = map[string]any{
 				"outputs": childOut,
@@ -145,6 +181,11 @@ func (w *PipelineWorkflow) Workflow(
 
 			stepOutput, err := step.Execute(ctx, input.WorkflowInput.Config, stepInputs, ao)
 			if err != nil {
+				if temporal.IsCanceledError(err) {
+					return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+						runMetadata,
+					)
+				}
 				logger.Error(step.ID, "step execution error", err)
 				errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 				appErr := workflowengine.NewAppError(
@@ -153,7 +194,14 @@ func (w *PipelineWorkflow) Workflow(
 					step.ID,
 					finalOutput,
 				)
+				if len(step.OnError) > 0 {
+					logger.Info("Executing onError steps for step",
+						"step_id", step.ID,
+						"count", len(step.OnError),
+						"continue_on_error", step.ContinueOnError)
 
+					ExecuteEventStepsOnError(ctx, step.OnError, stepInputs, errorsList, input)
+				}
 				if step.ContinueOnError {
 					if out := workflowengine.ExtractOutputFromError(err); out != nil {
 						stepOutput = out
@@ -163,6 +211,11 @@ func (w *PipelineWorkflow) Workflow(
 					continue
 				}
 				return result, workflowengine.NewWorkflowError(appErr, runMetadata)
+			}
+
+			if len(step.OnSuccess) > 0 {
+				logger.Info("Executing onSuccess steps for step", "step_id", step.ID, "count", len(step.OnSuccess))
+				ExecuteEventStepsOnSuccess(ctx, step.OnSuccess, stepInputs, errorsList, input)
 			}
 
 			finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
@@ -311,4 +364,54 @@ func (w *PipelineWorkflow) Start(
 		),
 	}
 	return result, nil
+}
+
+func ExecuteEventStepsOnError(
+	ctx workflow.Context,
+	eventSteps []*OnErrorStepDefinition,
+	stepInputs map[string]any,
+	existingErrors []string,
+	input PipelineWorkflowInput,
+) []string {
+	errorsList := existingErrors
+	if errorsList == nil {
+		errorsList = []string{}
+	}
+	for _, eventStep := range eventSteps {
+		aO := PrepareActivityOptions(
+			*input.WorkflowInput.ActivityOptions,
+			eventStep.ActivityOptions,
+		)
+
+		_, execErr := eventStep.ExecuteOnError(ctx, input.WorkflowInput.Config, stepInputs, aO)
+		if execErr != nil {
+			errorsList = append(errorsList, execErr.Error())
+		}
+	}
+	return errorsList
+}
+
+func ExecuteEventStepsOnSuccess(
+	ctx workflow.Context,
+	eventSteps []*OnSuccessStepDefinition,
+	stepInputs map[string]any,
+	existingErrors []string,
+	input PipelineWorkflowInput,
+) []string {
+	errorsList := existingErrors
+	if errorsList == nil {
+		errorsList = []string{}
+	}
+	for _, eventStep := range eventSteps {
+		aO := PrepareActivityOptions(
+			*input.WorkflowInput.ActivityOptions,
+			eventStep.ActivityOptions,
+		)
+
+		_, execErr := eventStep.ExecuteOnSuccess(ctx, input.WorkflowInput.Config, stepInputs, aO)
+		if execErr != nil {
+			errorsList = append(errorsList, execErr.Error())
+		}
+	}
+	return errorsList
 }

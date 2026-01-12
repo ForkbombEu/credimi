@@ -17,13 +17,27 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-func (s *StepDefinition) Execute(
+func ExecuteStep(
+	id string,
+	use string,
+	with StepInputs,
+	activityOptions *ActivityOptionsConfig,
 	ctx workflow.Context,
 	globalCfg map[string]any,
 	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
 ) (any, error) {
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
+	s := &StepDefinition{
+		StepSpec: StepSpec{
+			ID:              id,
+			Use:             use,
+			With:            with,
+			ActivityOptions: activityOptions,
+			Metadata:        nil,
+		},
+		ContinueOnError: false,
+	}
 
 	err := ResolveInputs(s, globalCfg, dataCtx)
 	if err != nil {
@@ -151,6 +165,33 @@ func (s *StepDefinition) Execute(
 	return nil, nil
 }
 
+func (s *StepDefinition) Execute(
+	ctx workflow.Context,
+	globalCfg map[string]any,
+	dataCtx map[string]any,
+	ao workflow.ActivityOptions,
+) (any, error) {
+	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
+}
+
+func (s *OnErrorStepDefinition) ExecuteOnError(
+	ctx workflow.Context,
+	globalCfg map[string]any,
+	dataCtx map[string]any,
+	ao workflow.ActivityOptions,
+) (any, error) {
+	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
+}
+
+func (s *OnSuccessStepDefinition) ExecuteOnSuccess(
+	ctx workflow.Context,
+	globalCfg map[string]any,
+	dataCtx map[string]any,
+	ao workflow.ActivityOptions,
+) (any, error) {
+	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
+}
+
 // runChildPipeline executes a nested child pipeline and returns its outputs
 func runChildPipeline(
 	ctx workflow.Context,
@@ -158,7 +199,7 @@ func runChildPipeline(
 	input PipelineWorkflowInput,
 	workflowName string,
 	dataCtx map[string]any,
-	runMetadata workflowengine.WorkflowErrorMetadata,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
 ) (any, error) {
 	// Fetch child pipeline YAML
 	yaml, err := fetchChildPipelineYAML(ctx, step, input, runMetadata)
@@ -228,7 +269,7 @@ func fetchChildPipelineYAML(
 	ctx workflow.Context,
 	step StepDefinition,
 	input PipelineWorkflowInput,
-	meta workflowengine.WorkflowErrorMetadata,
+	meta *workflowengine.WorkflowErrorMetadata,
 ) (string, error) {
 	pipelineID, ok := step.With.Payload["pipeline_id"].(string)
 	if !ok || pipelineID == "" {

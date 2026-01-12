@@ -219,6 +219,19 @@ func MobileAutomationSetupHook(
 				startResult.Output,
 			)
 		}
+		cloneName, ok := startResult.Output.(map[string]any)["clone_name"].(string)
+		if !ok {
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf(
+					"%s: missing clone_name in response for step %s",
+					errCode.Description,
+					step.ID,
+				),
+				startResult.Output,
+			)
+		}
+		SetPayloadValue(&step.With.Payload, "clone_name", cloneName)
 		SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 
 		installInput := workflowengine.ActivityInput{
@@ -265,6 +278,18 @@ func MobileAutomationSetupHook(
 				recordResult.Output,
 			)
 		}
+		logcatPID, ok := recordResult.Output.(map[string]any)["logcat_process_pid"].(float64)
+		if !ok {
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf(
+					"%s: missing logcat_process in start record video response for step %s",
+					errCode.Description,
+					step.ID,
+				),
+				recordResult.Output,
+			)
+		}
 		videoPath, ok := recordResult.Output.(map[string]any)["video_path"].(string)
 		if !ok {
 			return workflowengine.NewAppError(
@@ -279,6 +304,7 @@ func MobileAutomationSetupHook(
 		}
 		SetPayloadValue(&step.With.Payload, "recording_adb_pid", int(adbPID))
 		SetPayloadValue(&step.With.Payload, "recording_ffmpeg_pid", int(ffmpegPID))
+		SetPayloadValue(&step.With.Payload, "recording_logcat_pid", int(logcatPID))
 		startedEmulators[versionIdentifier] = map[string]any{
 			"serial":     serial,
 			"recording":  true,
@@ -301,6 +327,7 @@ func MobileAutomationCleanupHook(
 	runData map[string]any,
 	output *map[string]any,
 ) error {
+	ctx, _ = workflow.NewDisconnectedContext(ctx)
 	logger := workflow.GetLogger(ctx)
 	mobileAo := *input.ActivityOptions
 
@@ -357,7 +384,7 @@ func MobileAutomationCleanupHook(
 			mobileCtx,
 			activities.NewStopEmulatorActivity().Name(),
 			workflowengine.ActivityInput{
-				Payload: map[string]any{"emulator_serial": payload.EmulatorSerial},
+				Payload: map[string]any{"emulator_serial": payload.EmulatorSerial, "clone_name": payload.CloneName},
 			},
 		).Get(ctx, nil); err != nil {
 			logger.Error(
@@ -432,6 +459,7 @@ func cleanupRecording(
 				"video_path":         videoPath,
 				"adb_process_pid":    payload.RecordingAdbPid,
 				"ffmpeg_process_pid": payload.RecordingFfmpegPid,
+				"logcat_process_pid": payload.RecordingLogcatPid,
 			},
 		},
 	).Get(ctx, &stopResult); err != nil {

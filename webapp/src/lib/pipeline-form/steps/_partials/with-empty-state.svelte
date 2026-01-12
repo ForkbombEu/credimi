@@ -12,6 +12,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import EmptyState from './empty-state.svelte';
 
+	//
+
 	type Props = {
 		items: T[];
 		emptyText: string;

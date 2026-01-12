@@ -16,7 +16,6 @@ import (
 	dockerclient "github.com/docker/docker/client"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	temporalclient "github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	workflowengine "github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/google/uuid"
@@ -27,13 +26,21 @@ import (
 
 const ZenroomTaskQueue = "ZenroomTaskQueue"
 
-type ZenroomWorkflow struct{}
+type ZenroomWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
 type ZenroomWorkflowPayload struct {
 	Contract string `json:"contract" yaml:"contract" validate:"required"`
 	Keys     string `json:"keys"     yaml:"keys"`
 	Data     string `json:"data"     yaml:"data"`
 	Config   string `json:"config"   yaml:"config"`
+}
+
+func NewZenroomWorkflow() *ZenroomWorkflow {
+	w := &ZenroomWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 func (w *ZenroomWorkflow) Name() string {
@@ -43,30 +50,24 @@ func (w *ZenroomWorkflow) Name() string {
 func (w *ZenroomWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
-
 func (w *ZenroomWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+func (w *ZenroomWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
-	runMetadata := workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   workflow.GetInfo(ctx).WorkflowExecution.ID,
-		Namespace:    workflow.GetInfo(ctx).Namespace,
-		TemporalUI: utils.JoinURL(
-			input.Config["app_url"].(string),
-			"my", "tests", "runs",
-			workflow.GetInfo(ctx).WorkflowExecution.ID,
-			workflow.GetInfo(ctx).WorkflowExecution.RunID,
-		),
-	}
 
 	payload, err := workflowengine.DecodePayload[ZenroomWorkflowPayload](input.Payload)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -122,7 +123,10 @@ func (w *ZenroomWorkflow) Workflow(
 	}).Get(&sideEffectResult)
 	if err != nil {
 		logger.Error("Failed to prepare files inside SideEffect", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 
 	activityInput := workflowengine.ActivityInput{
@@ -140,7 +144,10 @@ func (w *ZenroomWorkflow) Workflow(
 	err = workflow.ExecuteActivity(ctx, activity.Name(), activityInput).Get(ctx, &result)
 	if err != nil {
 		logger.Error("Activity failed", "error", err)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 	cli, err := dockerclient.NewClientWithOpts(
 		dockerclient.FromEnv,
@@ -149,7 +156,10 @@ func (w *ZenroomWorkflow) Workflow(
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerClientCreationFailed]
 		appErr := workflowengine.NewAppError(errCode, err.Error())
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 	output, ok := result.Output.(map[string]any)
 	errCode := errorcodes.Codes[errorcodes.UnexpectedDockerOutput]
@@ -159,7 +169,7 @@ func (w *ZenroomWorkflow) Workflow(
 			appErr := workflowengine.NewAppError(errCode, msg, result.Output)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 	}
@@ -172,17 +182,26 @@ func (w *ZenroomWorkflow) Workflow(
 	exitCode, ok := output["exitCode"].(float64)
 	if !ok {
 		appErr := workflowengine.NewAppError(errCode, "invalid exit code", output["exitCode"])
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 	stderr, ok := output["stderr"].(string)
 	if !ok {
 		appErr := workflowengine.NewAppError(errCode, "invalid stderr ", output["stderr"])
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 	stdout, ok := output["stdout"].(string)
 	if !ok {
-		appErr := workflowengine.NewAppError(errCode, "invalid stderr ", output["stout"])
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		appErr := workflowengine.NewAppError(errCode, "invalid stdout ", output["stout"])
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 	if int(exitCode) != 0 {
 		errCode := errorcodes.Codes[errorcodes.ZenroomExecutionFailed]
@@ -192,7 +211,10 @@ func (w *ZenroomWorkflow) Workflow(
 			stderr,
 			stdout,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 	// Parse stdout as JSON
 	var parsedOutput map[string]any
@@ -200,7 +222,10 @@ func (w *ZenroomWorkflow) Workflow(
 		logger.Error("Failed to parse stdout JSON", "error", err)
 		errCode := errorcodes.Codes[errorcodes.JSONUnmarshalFailed]
 		appErr := workflowengine.NewAppError(errCode, err.Error(), stdout)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 
 	return workflowengine.WorkflowResult{
