@@ -67,7 +67,7 @@ export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 	}),
 
 	makeId: (data) => {
-		const username = data.recipient.split('@')[0] || 'email';
+		const username = (data.recipient || 'email').split('@')[0] || 'email';
 		return `email-${username}`;
 	}
 };
@@ -126,5 +126,9 @@ export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormD
 		avatar: undefined
 	}),
 
-	makeId: (data) => `http-${data.method.toLowerCase()}-${getLastPathSegment(data.url)}`
+	makeId: (data) => {
+		const method = (data.method || 'request').toLowerCase();
+		const urlPath = getLastPathSegment(data.url || 'unknown');
+		return `http-${method}-${urlPath}`;
+	}
 };
