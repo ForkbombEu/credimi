@@ -49,9 +49,7 @@ func fetchIssuersRecursive(ctx context.Context, after int) ([]string, error) {
 	}
 
 	client := fidesHTTPClient
-	if client == nil {
-		client = http.DefaultClient
-	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to perform HTTP request: %w", err)

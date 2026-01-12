@@ -62,9 +62,7 @@ func DownloadImage(ctx context.Context, imageURL string) (*filesystem.File, erro
 	req.Header.Set("User-Agent", "Mozilla/5.0")
 
 	client := downloadHTTPClient
-	if client == nil {
-		client = http.DefaultClient
-	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("download failed: %w", err)

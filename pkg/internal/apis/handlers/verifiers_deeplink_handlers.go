@@ -94,9 +94,7 @@ func HandleVerificationDeeplink() func(*core.RequestEvent) error {
 		req.Header.Set("Content-Type", "application/json")
 
 		client := deeplinkHTTPClient
-		if client == nil {
-			client = http.DefaultClient
-		}
+
 		resp, err := client.Do(req)
 		if err != nil {
 			return apierror.New(

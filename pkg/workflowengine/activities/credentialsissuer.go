@@ -21,10 +21,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
-type httpDoer interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
 var issuerHTTPClient httpDoer = http.DefaultClient
 
 // Credential is a struct that represents the credential issuer metadata
@@ -161,9 +157,7 @@ func fetchJSONFromURL(
 	}
 
 	client := issuerHTTPClient
-	if client == nil {
-		client = http.DefaultClient
-	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]

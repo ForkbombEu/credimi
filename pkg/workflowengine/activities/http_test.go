@@ -25,7 +25,7 @@ func setHTTPClientFactory(
 ) {
 	t.Helper()
 	original := httpClientFactory
-	httpClientFactory = func(_ time.Duration) httpActivityDoer {
+	httpClientFactory = func(_ time.Duration) httpDoer {
 		return &http.Client{Transport: roundTripperFunc(handler)}
 	}
 	t.Cleanup(func() {

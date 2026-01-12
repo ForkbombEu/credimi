@@ -7,7 +7,6 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
-	"time"
 
 	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -44,11 +43,6 @@ func (a *StartEmulatorActivity) Execute(
 	ctx, span := mobileTracer.Start(ctx, "StartEmulatorActivity")
 	defer span.End()
 	annotateActivitySpan(ctx, span)
-
-	stopHeartbeat := startActivityHeartbeat(ctx, 10*time.Second, map[string]any{
-		"stage": "start_emulator",
-	})
-	defer stopHeartbeat()
 
 	runInput := buildMobileInput(
 		ctx,
@@ -90,11 +84,6 @@ func (a *ApkInstallActivity) Execute(
 	ctx, span := mobileTracer.Start(ctx, "ApkInstallActivity")
 	defer span.End()
 	annotateActivitySpan(ctx, span)
-
-	stopHeartbeat := startActivityHeartbeat(ctx, 10*time.Second, map[string]any{
-		"stage": "apk_install",
-	})
-	defer stopHeartbeat()
 
 	runInput := buildMobileInput(
 		ctx,
@@ -224,11 +213,6 @@ func (a *StartRecordingActivity) Execute(
 	defer span.End()
 	annotateActivitySpan(ctx, span)
 
-	stopHeartbeat := startActivityHeartbeat(ctx, 10*time.Second, map[string]any{
-		"stage": "start_recording",
-	})
-	defer stopHeartbeat()
-
 	runInput := buildMobileInput(
 		ctx,
 		input.Payload,
@@ -275,11 +259,6 @@ func (a *StopRecordingActivity) Execute(
 	defer span.End()
 	annotateActivitySpan(ctx, span)
 
-	stopHeartbeat := startActivityHeartbeat(ctx, 10*time.Second, map[string]any{
-		"stage": "stop_recording",
-	})
-	defer stopHeartbeat()
-
 	runInput := buildMobileInput(
 		ctx,
 		input.Payload,
@@ -320,11 +299,6 @@ func (a *RunMobileFlowActivity) Execute(
 	ctx, span := mobileTracer.Start(ctx, "RunMobileFlowActivity")
 	defer span.End()
 	annotateActivitySpan(ctx, span)
-
-	stopHeartbeat := startActivityHeartbeat(ctx, 10*time.Second, map[string]any{
-		"stage": "run_mobile_flow",
-	})
-	defer stopHeartbeat()
 
 	runInput := buildMobileInput(
 		ctx,
@@ -416,29 +390,4 @@ func annotateActivitySpan(ctx context.Context, span trace.Span) {
 		attribute.String("workflow.id", activityInfo.WorkflowExecution.ID),
 		attribute.String("activity.id", activityInfo.ActivityID),
 	)
-}
-
-func startActivityHeartbeat(
-	ctx context.Context,
-	interval time.Duration,
-	details map[string]any,
-) func() {
-	stopChan := make(chan struct{})
-	go func() {
-		ticker := time.NewTicker(interval)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				activity.RecordHeartbeat(ctx, details)
-			case <-ctx.Done():
-				return
-			case <-stopChan:
-				return
-			}
-		}
-	}()
-	return func() {
-		close(stopChan)
-	}
 }

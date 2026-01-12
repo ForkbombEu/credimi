@@ -24,11 +24,7 @@ type HTTPActivity struct {
 	workflowengine.BaseActivity
 }
 
-type httpActivityDoer interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
-var httpClientFactory = func(timeout time.Duration) httpActivityDoer {
+var httpClientFactory = func(timeout time.Duration) httpDoer {
 	return &http.Client{Timeout: timeout}
 }
 
@@ -132,9 +128,7 @@ func (a *HTTPActivity) Execute(
 	}
 
 	client := httpClientFactory(timeout)
-	if client == nil {
-		client = &http.Client{Timeout: timeout}
-	}
+
 	resp, err := client.Do(req)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]

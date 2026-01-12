@@ -19,12 +19,6 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
 
-type httpDoer interface {
-	Do(req *http.Request) (*http.Response, error)
-}
-
-var deeplinkHTTPClient httpDoer = http.DefaultClient
-
 var DeepLinkCredential routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api",
 	AuthenticationRequired: false,
@@ -104,9 +98,7 @@ func HandleGetCredentialDeeplink() func(*core.RequestEvent) error {
 			req.Header.Set("Content-Type", "application/json")
 
 			client := deeplinkHTTPClient
-			if client == nil {
-				client = http.DefaultClient
-			}
+
 			resp, err := client.Do(req)
 			if err != nil {
 				return apierror.New(

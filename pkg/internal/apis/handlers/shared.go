@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"encoding/base64"
+	"net/http"
 	"strings"
 	"time"
 
@@ -526,5 +527,11 @@ func decodeFromTemporalPayload(encoded string) string {
 
 	return clean
 }
+
+type httpDoer interface {
+	Do(req *http.Request) (*http.Response, error)
+}
+
+var deeplinkHTTPClient httpDoer = http.DefaultClient
 
 const testDataDir = "../../../../test_pb_data"

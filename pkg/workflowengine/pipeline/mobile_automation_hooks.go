@@ -14,18 +14,22 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
 const (
-	searchAttrEmulatorSerial = "emulator_serial"
-	searchAttrVersionID      = "version_id"
-	searchAttrBootStatus     = "boot_status"
-	bootStatusStarting       = "starting"
-	bootStatusStarted        = "started"
-	bootStatusBooted         = "booted"
-	bootStatusRecording      = "recording"
-	bootStatusStopped        = "stopped"
+	bootStatusStarting  = "starting"
+	bootStatusStarted   = "started"
+	bootStatusBooted    = "booted"
+	bootStatusRecording = "recording"
+	bootStatusStopped   = "stopped"
+)
+
+var (
+	VersionIDAttr      = temporal.NewSearchAttributeKeyString("version_id")
+	EmulatorSerialAttr = temporal.NewSearchAttributeKeyString("emulator_serial")
+	BootStatusAttr     = temporal.NewSearchAttributeKeyKeyword("boot_status")
 )
 
 func MobileAutomationSetupHook(
@@ -61,33 +65,11 @@ func MobileAutomationSetupHook(
 
 		logger.Info("MobileAutomationSetupHook: processing step", "id", step.ID)
 
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPipelinePayload](
-			step.With.Payload,
-		)
+		payload, err := decodeAndValidatePayload(step.ID, step.With.Payload)
 		if err != nil {
-			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("error decoding payload for step %s: %s", step.ID, err.Error()),
-			)
+			return err
 		}
-		// If action_code is present, version_id is REQUIRED
-		if payload.ActionCode != "" {
-			if payload.VersionID == "" {
-				return workflowengine.NewAppError(
-					errCode,
-					fmt.Sprintf("missing or invalid version_id for step %s", step.ID))
-			}
-		}
-		// If action_code is NOT present -> action_id is REQUIRED
-		if payload.ActionCode == "" {
-			if payload.ActionID == "" {
-				return workflowengine.NewAppError(
-					errCode,
-					fmt.Sprintf("missing or invalid action_id for step %s", step.ID),
-				)
-			}
-		}
+
 		appURL, ok := input.Config["app_url"].(string)
 		if !ok {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
@@ -117,7 +99,7 @@ func MobileAutomationSetupHook(
 		if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), req).Get(ctx, &res); err != nil {
 			return err
 		}
-		errCode = errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 		body, ok := res.Output.(map[string]any)["body"].(map[string]any)
 		if !ok {
 			return workflowengine.NewAppError(
@@ -475,6 +457,40 @@ func MobileAutomationCleanupHook(
 	return nil
 }
 
+func decodeAndValidatePayload(
+	stepID string,
+	payloadRaw any,
+) (*workflows.MobileAutomationWorkflowPipelinePayload, error) {
+
+	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+
+	payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPipelinePayload](payloadRaw)
+	if err != nil {
+		return nil, workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("error decoding payload for step %s: %s", stepID, err.Error()),
+		)
+	}
+
+	// If action_code is present → version_id is required
+	if payload.ActionCode != "" && payload.VersionID == "" {
+		return nil, workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("missing or invalid version_id for step %s", stepID),
+		)
+	}
+
+	// If action_code is NOT present → action_id is required
+	if payload.ActionCode == "" && payload.ActionID == "" {
+		return nil, workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("missing or invalid action_id for step %s", stepID),
+		)
+	}
+
+	return &payload, nil
+}
+
 func cleanupRecording(
 	ctx workflow.Context,
 	payload workflows.MobileAutomationWorkflowPayload,
@@ -632,29 +648,26 @@ func upsertEmulatorSearchAttributes(
 	serial string,
 	bootStatus string,
 ) {
-	if versionID == "" && serial == "" && bootStatus == "" {
-		return
-	}
-	attrs := map[string]any{}
+	var updates []temporal.SearchAttributeUpdate
+
 	if versionID != "" {
-		attrs[searchAttrVersionID] = versionID
+		updates = append(updates, VersionIDAttr.ValueSet(versionID))
 	}
 	if serial != "" {
-		attrs[searchAttrEmulatorSerial] = serial
+		updates = append(updates, EmulatorSerialAttr.ValueSet(serial))
 	}
 	if bootStatus != "" {
-		attrs[searchAttrBootStatus] = bootStatus
+		updates = append(updates, BootStatusAttr.ValueSet(bootStatus))
 	}
-	if len(attrs) == 0 {
+
+	if len(updates) == 0 {
 		return
 	}
-	if err := workflow.UpsertSearchAttributes(ctx, attrs); err != nil {
+
+	if err := workflow.UpsertTypedSearchAttributes(ctx, updates...); err != nil {
 		workflow.GetLogger(ctx).Error(
-			"failed to upsert search attributes",
-			"error",
-			err,
-			"attributes",
-			attrs,
+			"failed to upsert typed search attributes",
+			"error", err,
 		)
 	}
 }
