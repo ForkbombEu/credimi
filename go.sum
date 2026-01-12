@@ -644,10 +644,10 @@ github.com/firefart/nonamedreturns v1.0.6 h1:vmiBcKV/3EqKY3ZiPxCINmpS431OcE1S47A
 github.com/firefart/nonamedreturns v1.0.6/go.mod h1:R8NisJnSIpvPWheCq0mNRXJok6D8h7fagJTF8EMEwCo=
 github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90/go.mod h1:R/bRT+9gY/C5z7JzPU0zXsXHKM4/ayA+zqcVNZzPa1k=
 github.com/fogleman/gg v1.3.0/go.mod h1:R/bRT+9gY/C5z7JzPU0zXsXHKM4/ayA+zqcVNZzPa1k=
-github.com/forkbombeu/avdctl v0.0.0-20251117141832-94a8ef48fc9b h1:Hcga7FlNFKa+dexMtGuSTCv36BbeytMH6G+QIZnbHQw=
-github.com/forkbombeu/avdctl v0.0.0-20251117141832-94a8ef48fc9b/go.mod h1:2PyuTviG6/ts65ybsWFKYqE9wiRWwm9minyEaClSbZI=
-github.com/forkbombeu/credimi-extra v0.0.0-20260109110935-d9a29adf3f94 h1:AK0BU/sdIj6VweEoGNZVQAtkqeXKtTEytvafWq7Ywq8=
-github.com/forkbombeu/credimi-extra v0.0.0-20260109110935-d9a29adf3f94/go.mod h1:31A5rHv7SJ1cDmnP0hy+gApNw9aIZjOGBNBeH3pNsQw=
+github.com/forkbombeu/avdctl v0.0.0-20260109145658-b946a33434d4 h1:44KPJuYSaY5TR8SE6vTph3z3LVYdLBSF4OHYiyENjJY=
+github.com/forkbombeu/avdctl v0.0.0-20260109145658-b946a33434d4/go.mod h1:ifFonF84yvVOlr0ZTIRdLnLyj9HJMgB+JcWsXduk9R4=
+github.com/forkbombeu/credimi-extra v0.0.0-20260112082451-2b359cf653b6 h1:pn44xFrU4cq907nElp/2C7ucOSbQ7HsC0tJhdvHGyZk=
+github.com/forkbombeu/credimi-extra v0.0.0-20260112082451-2b359cf653b6/go.mod h1:CvHBv3942PRdUcc44ulQ+BnSzwSfBNMJPaJ6Ga+0ZX4=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.8.0 h1:dAwr6QBTBZIkG8roQaJjGof0pp0EeF+tNV7YBP3F/8M=
