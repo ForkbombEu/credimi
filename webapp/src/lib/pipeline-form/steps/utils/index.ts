@@ -56,7 +56,7 @@ export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 			recipient: data.recipient,
 			subject: data.subject || '',
 			body: data.body || '',
-			sender: data.sender
+			sender: data.sender || ''
 		};
 	},
 
