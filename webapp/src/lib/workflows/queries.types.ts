@@ -6,14 +6,6 @@ export interface FetchWorkflowsResponse {
 	executions: Array<WorkflowExecutionWithChildren>;
 }
 
-export interface Failure {
-	message?: string;
-	source?: string;
-	stackTrace?: string;
-	cause?: Failure;
-	failureInfo?: Record<string, string>;
-}
-
 export interface WorkflowExecutionWithChildren {
 	execution: {
 		workflowId: string;
@@ -31,5 +23,5 @@ export interface WorkflowExecutionWithChildren {
 		screenshot: string;
 	}>;
 	children?: Array<WorkflowExecutionWithChildren>;
-	failure?: Failure;
+	failure_reason?: string;
 }

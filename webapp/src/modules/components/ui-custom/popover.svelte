@@ -18,13 +18,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		content: Snippet;
 		buttonVariants?: Parameters<typeof buttonVariants>[0];
 		containerClass?: ClassValue;
+		triggerClass?: ClassValue;
 	};
 
-	let { trigger, content, buttonVariants: buttonVariantsProps, containerClass }: Props = $props();
+	let {
+		trigger,
+		content,
+		buttonVariants: buttonVariantsProps,
+		containerClass,
+		triggerClass
+	}: Props = $props();
 </script>
 
 <Popover.Root>
-	<Popover.Trigger class={buttonVariants({ variant: 'outline', ...buttonVariantsProps })}>
+	<Popover.Trigger
+		class={[buttonVariants({ variant: 'outline', ...buttonVariantsProps }), triggerClass]}
+	>
 		{@render trigger()}
 	</Popover.Trigger>
 	<Popover.Content class={containerClass}>
