@@ -6,6 +6,7 @@ import type { AnyConfig } from './types';
 
 import { conformanceCheckStepConfig } from './conformance-check';
 import * as marketplaceSteps from './marketplace-item';
+import * as utilsSteps from './utils';
 import { walletActionStepConfig } from './wallet-action';
 
 //
@@ -15,7 +16,9 @@ export const configs: AnyConfig[] = [
 	marketplaceSteps.credentialsStepConfig,
 	marketplaceSteps.useCaseVerificationStepConfig,
 	conformanceCheckStepConfig,
-	marketplaceSteps.customCheckStepConfig
+	marketplaceSteps.customCheckStepConfig,
+	utilsSteps.emailStepConfig,
+	utilsSteps.httpRequestStepConfig
 ];
 
 export * from './types';

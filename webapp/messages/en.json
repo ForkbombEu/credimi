@@ -857,5 +857,13 @@
 	"enrich_error_title": "The element could not be displayed",
 	"enrich_error_description": "The element is not available at this time, its owner may have made it private or deleted.",
 	"debug_step_description": "This step enables extra logging from the previous step, insert this if you need more details of the pipeline execution.",
-	"utils": "Utils"
+	"utils": "Utils",
+	"Recipient": "Recipient",
+	"Subject": "Subject",
+	"Body": "Body",
+	"Method": "Method",
+	"URL": "URL",
+	"HTTP_Request": "HTTP Request",
+	"Utils": "Utils",
+	"Email": "Email"
 }
