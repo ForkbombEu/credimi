@@ -195,7 +195,7 @@ func MobileAutomationSetupHook(
 				"boot_status",
 				bootStatus,
 			)
-			upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatus)
+			// upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatus)
 			metrics["active_emulators"] = countActiveEmulators(startedEmulators)
 			updateEmulatorGauges(ctx, metrics)
 			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
@@ -211,7 +211,7 @@ func MobileAutomationSetupHook(
 		updateEmulatorStatus(startedEmulators, versionIdentifier, map[string]any{
 			"boot_status": bootStatusStarting,
 		})
-		upsertEmulatorSearchAttributes(ctx, versionIdentifier, "", bootStatusStarting)
+		// upsertEmulatorSearchAttributes(ctx, versionIdentifier, "", bootStatusStarting)
 		startEmuInput := workflowengine.ActivityInput{
 			Payload: map[string]any{"version_id": versionIdentifier},
 		}
@@ -255,7 +255,7 @@ func MobileAutomationSetupHook(
 			"serial":      serial,
 			"boot_status": bootStatusStarted,
 		})
-		upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatusStarted)
+		// upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatusStarted)
 		SetRunDataValue(runData, "started_emulators", startedEmulators)
 		metrics["active_emulators"] = countActiveEmulators(startedEmulators)
 		updateEmulatorGauges(ctx, metrics)
@@ -269,7 +269,7 @@ func MobileAutomationSetupHook(
 		updateEmulatorStatus(startedEmulators, versionIdentifier, map[string]any{
 			"boot_status": bootStatusBooted,
 		})
-		upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatusBooted)
+		// upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatusBooted)
 		startRecordInput := workflowengine.ActivityInput{
 			Payload: map[string]any{
 				"emulator_serial": serial,
@@ -341,7 +341,7 @@ func MobileAutomationSetupHook(
 			"video_path":  videoPath,
 			"boot_status": bootStatusRecording,
 		})
-		upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatusRecording)
+		// upsertEmulatorSearchAttributes(ctx, versionIdentifier, serial, bootStatusRecording)
 		metrics["active_emulators"] = countActiveEmulators(startedEmulators)
 		updateEmulatorGauges(ctx, metrics)
 		SetRunDataValue(runData, "started_emulators", startedEmulators)
@@ -438,7 +438,7 @@ func MobileAutomationCleanupHook(
 			"boot_status": bootStatusStopped,
 			"recording":   false,
 		})
-		upsertEmulatorSearchAttributes(ctx, payload.VersionID, payload.EmulatorSerial, bootStatusStopped)
+		// upsertEmulatorSearchAttributes(ctx, payload.VersionID, payload.EmulatorSerial, bootStatusStopped)
 		metrics["active_emulators"] = countActiveEmulators(startedEmulators)
 		updateEmulatorGauges(ctx, metrics)
 
@@ -642,6 +642,7 @@ func cleanupRecording(
 		append((*output)["screenshot_urls"].([]string), frameURLs...)
 }
 
+/*
 func upsertEmulatorSearchAttributes(
 	ctx workflow.Context,
 	versionID string,
@@ -671,6 +672,7 @@ func upsertEmulatorSearchAttributes(
 		)
 	}
 }
+*/
 
 func getEmulatorMetrics(runData *map[string]any) map[string]int {
 	metrics, ok := (*runData)["emulator_metrics"].(map[string]int)
