@@ -5,6 +5,9 @@
 package handlers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -200,8 +203,14 @@ func buildScoreboardResponse(app core.App, ownerID string, userSpecific bool) (*
 
 // aggregateWalletResults aggregates wallet test results
 func aggregateWalletResults(app core.App, ownerID string, userSpecific bool) ([]ScoreboardEntry, error) {
-	// Placeholder: Query wallet_actions and pipeline_results to aggregate data
-	// For now, returning placeholder data
+	// TODO: Implement real database queries
+	// - Query wallets collection filtered by ownerID if userSpecific=true
+	// - Join with wallet_actions and pipeline_results to get test run data
+	// - Calculate success/failure counts and rates from actual test results
+	// - Group by wallet and aggregate metrics
+	
+	// Placeholder: For now, returning example data
+	// In production, this would query the database based on ownerID and userSpecific parameters
 	entries := []ScoreboardEntry{
 		{
 			ID:           "wallet_1",
@@ -219,7 +228,13 @@ func aggregateWalletResults(app core.App, ownerID string, userSpecific bool) ([]
 
 // aggregateIssuerResults aggregates credential issuer test results
 func aggregateIssuerResults(app core.App, ownerID string, userSpecific bool) ([]ScoreboardEntry, error) {
-	// Placeholder: Query credential_issuers and pipeline_results to aggregate data
+	// TODO: Implement real database queries
+	// - Query credential_issuers collection filtered by ownerID if userSpecific=true
+	// - Join with pipeline_results to get test run data
+	// - Calculate success/failure counts and rates from actual test results
+	// - Group by issuer and aggregate metrics
+	
+	// Placeholder: For now, returning example data
 	entries := []ScoreboardEntry{
 		{
 			ID:           "issuer_1",
@@ -237,7 +252,13 @@ func aggregateIssuerResults(app core.App, ownerID string, userSpecific bool) ([]
 
 // aggregateVerifierResults aggregates verifier test results
 func aggregateVerifierResults(app core.App, ownerID string, userSpecific bool) ([]ScoreboardEntry, error) {
-	// Placeholder: Query verifiers and pipeline_results to aggregate data
+	// TODO: Implement real database queries
+	// - Query verifiers collection filtered by ownerID if userSpecific=true
+	// - Join with use_cases_verifications and pipeline_results to get test run data
+	// - Calculate success/failure counts and rates from actual test results
+	// - Group by verifier and aggregate metrics
+	
+	// Placeholder: For now, returning example data
 	entries := []ScoreboardEntry{
 		{
 			ID:           "verifier_1",
@@ -255,7 +276,13 @@ func aggregateVerifierResults(app core.App, ownerID string, userSpecific bool) (
 
 // aggregatePipelineResults aggregates pipeline test results
 func aggregatePipelineResults(app core.App, ownerID string, userSpecific bool) ([]ScoreboardEntry, error) {
-	// Placeholder: Query pipelines and pipeline_results to aggregate data
+	// TODO: Implement real database queries
+	// - Query pipelines collection filtered by ownerID if userSpecific=true
+	// - Join with pipeline_results to get test run data
+	// - Calculate success/failure counts and rates from actual test results
+	// - Group by pipeline and aggregate metrics
+	
+	// Placeholder: For now, returning example data
 	entries := []ScoreboardEntry{
 		{
 			ID:           "pipeline_1",
@@ -331,9 +358,15 @@ func entryToSpan(entry ScoreboardEntry, now int64) OTelSpan {
 		status = "ERROR"
 	}
 
+	// Generate OpenTelemetry-compliant IDs
+	// TraceID: 32-character hex string (16 bytes)
+	// SpanID: 16-character hex string (8 bytes)
+	traceID := generateOTelTraceID()
+	spanID := generateOTelSpanID()
+
 	return OTelSpan{
-		TraceID:   entry.ID + "_trace",
-		SpanID:    entry.ID + "_span",
+		TraceID:   traceID,
+		SpanID:    spanID,
 		Name:      entry.Name,
 		Kind:      "SPAN_KIND_INTERNAL",
 		StartTime: now - int64(time.Hour),
@@ -353,4 +386,26 @@ func entryToSpan(entry ScoreboardEntry, now int64) OTelSpan {
 			Message: "",
 		},
 	}
+}
+
+// generateOTelTraceID generates a 32-character hex string for OpenTelemetry TraceID
+func generateOTelTraceID() string {
+	b := make([]byte, 16) // 16 bytes = 32 hex characters
+	_, err := rand.Read(b)
+	if err != nil {
+		// Fallback to timestamp-based generation if random fails
+		return fmt.Sprintf("%032d", time.Now().UnixNano())
+	}
+	return hex.EncodeToString(b)
+}
+
+// generateOTelSpanID generates a 16-character hex string for OpenTelemetry SpanID
+func generateOTelSpanID() string {
+	b := make([]byte, 8) // 8 bytes = 16 hex characters
+	_, err := rand.Read(b)
+	if err != nil {
+		// Fallback to timestamp-based generation if random fails
+		return fmt.Sprintf("%016d", time.Now().UnixNano()%10000000000000000)
+	}
+	return hex.EncodeToString(b)
 }

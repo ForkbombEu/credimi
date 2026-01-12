@@ -173,7 +173,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										{formatDuration(span.startTimeUnixNano, span.endTimeUnixNano)}
 									</td>
 									<td class="whitespace-nowrap px-6 py-4 text-sm text-gray-500">
-										{getAttributeValue(span, 'test.success_rate') || 'N/A'}%
+										{(() => {
+											const rate = getAttributeValue(span, 'test.success_rate');
+											return rate !== undefined && rate !== null ? `${rate}%` : 'N/A';
+										})()}
 									</td>
 								</tr>
 							{/each}

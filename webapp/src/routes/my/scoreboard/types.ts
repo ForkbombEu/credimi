@@ -14,7 +14,7 @@ export interface ScoreboardEntry {
 
 export interface OTelAttribute {
 	key: string;
-	value: any;
+	value: string | number | boolean;
 }
 
 export interface OTelStatus {
