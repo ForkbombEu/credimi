@@ -53,7 +53,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{
 			'!bg-slate-100 text-xs ': isChild,
 			'[&>td]:!py-0': isChild,
-			'border-b': !isExpanded && isRoot
+			'border-b':
+				(!isExpanded && isRoot) || !workflow.children || workflow.children.length === 0
 		}
 	]}
 >

@@ -852,5 +852,6 @@
 	"separate_items_by_commas": "Separate items by commas",
 	"Allow_installer_download": "Allow installer download",
 	"private": "Private",
-	"details": "Details"
+	"details": "Details",
+	"reason": "Reason"
 }
