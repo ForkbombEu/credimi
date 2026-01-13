@@ -6,6 +6,7 @@ import type { MarketplaceItem } from '$lib/marketplace/types.js';
 
 import { entities } from '$lib/global/entities.js';
 import { getMarketplaceItemByPath, getMarketplaceItemLogo } from '$lib/marketplace/utils.js';
+import { getPath } from '$lib/utils';
 
 import { m } from '@/i18n/index.js';
 
@@ -27,7 +28,7 @@ export const credentialsStepConfig: TypedConfig<'credential-offer', MarketplaceI
 			collection: 'credentials',
 			entityData: entities.credentials
 		}),
-	serialize: (item) => ({ credential_id: item.path }),
+	serialize: (item) => ({ credential_id: getPath(item) }),
 	deserialize: ({ credential_id }) => getMarketplaceItemByPath(credential_id),
 	cardData: getMarketplaceItemCardData,
 	makeId: ({ credential_id }) => getLastPathSegment(credential_id)
@@ -46,7 +47,7 @@ export const useCaseVerificationStepConfig: TypedConfig<
 			collection: 'use_cases_verifications',
 			entityData: entities.use_cases_verifications
 		}),
-	serialize: (item) => ({ use_case_id: item.path }),
+	serialize: (item) => ({ use_case_id: getPath(item) }),
 	deserialize: ({ use_case_id }) => getMarketplaceItemByPath(use_case_id),
 	cardData: getMarketplaceItemCardData,
 	makeId: ({ use_case_id }) => getLastPathSegment(use_case_id)
@@ -62,7 +63,7 @@ export const customCheckStepConfig: TypedConfig<'custom-check', MarketplaceItem>
 			collection: 'custom_checks',
 			entityData: entities.custom_checks
 		}),
-	serialize: (item) => ({ check_id: item.path }),
+	serialize: (item) => ({ check_id: getPath(item) }),
 	deserialize: async ({ check_id }) => {
 		if (!check_id) throw new Error('Missing check_id');
 		return getMarketplaceItemByPath(check_id);
