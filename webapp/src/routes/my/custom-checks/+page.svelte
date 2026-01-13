@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					avatar={(r) => pb.files.getURL(r, r.logo)}
 					subtitle={record.standard_and_version}
 					path={[data.organization.canonified_name, record.canonified_name]}
-					showClone={true}
+					showClone
 				>
 					{#snippet editAction()}
 						<IconButton href="/my/custom-checks/edit-{record.id}" icon={Pencil} />
