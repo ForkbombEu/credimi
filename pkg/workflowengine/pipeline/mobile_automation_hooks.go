@@ -20,11 +20,12 @@ import (
 func MobileAutomationSetupHook(
 	ctx workflow.Context,
 	steps *[]StepDefinition,
-	input workflowengine.WorkflowInput,
+	ao *workflow.ActivityOptions,
+	config map[string]any,
 	runData *map[string]any,
 ) error {
 	logger := workflow.GetLogger(ctx)
-	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
+	ctx = workflow.WithActivityOptions(ctx, *ao)
 
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
@@ -45,7 +46,7 @@ func MobileAutomationSetupHook(
 			continue
 		}
 
-		SetConfigValue(&step.With.Config, "app_url", input.Config["app_url"])
+		SetConfigValue(&step.With.Config, "app_url", config["app_url"])
 
 		logger.Info("MobileAutomationSetupHook: processing step", "id", step.ID)
 
@@ -76,7 +77,7 @@ func MobileAutomationSetupHook(
 				)
 			}
 		}
-		appURL, ok := input.Config["app_url"].(string)
+		appURL, ok := config["app_url"].(string)
 		if !ok {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 			return workflowengine.NewAppError(
@@ -195,7 +196,7 @@ func MobileAutomationSetupHook(
 			continue
 		}
 
-		mobileAo := *input.ActivityOptions
+		mobileAo := *ao
 		mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 		mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
 		startResult := workflowengine.ActivityResult{}
@@ -323,17 +324,18 @@ func MobileAutomationSetupHook(
 func MobileAutomationCleanupHook(
 	ctx workflow.Context,
 	steps []StepDefinition,
-	input workflowengine.WorkflowInput,
+	ao *workflow.ActivityOptions,
+	config map[string]any,
 	runData map[string]any,
 	output *map[string]any,
 ) error {
 	ctx, _ = workflow.NewDisconnectedContext(ctx)
 	logger := workflow.GetLogger(ctx)
-	mobileAo := *input.ActivityOptions
+	mobileAo := *ao
 
 	mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 	mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
-	appURL, ok := input.Config["app_url"].(string)
+	appURL, ok := config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.NewAppError(
 			errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
@@ -374,9 +376,9 @@ func MobileAutomationCleanupHook(
 			mobileCtx,
 			payload,
 			runData,
-			input,
 			output,
 			&cleanupErrs,
+			appURL,
 		)
 
 		// Always stop emulator
@@ -416,9 +418,9 @@ func cleanupRecording(
 	ctx workflow.Context,
 	payload workflows.MobileAutomationWorkflowPayload,
 	runData map[string]any,
-	input workflowengine.WorkflowInput,
 	output *map[string]any,
 	cleanupErrs *[]error,
+	appURL string,
 ) {
 	logger := workflow.GetLogger(ctx)
 
@@ -509,7 +511,7 @@ func cleanupRecording(
 					"last_frame_path":    lastFramePath,
 					"run_identifier":     runIdentifier,
 					"version_identifier": payload.VersionID,
-					"instance_url":       input.Config["app_url"],
+					"instance_url":       appURL,
 				},
 				ExpectedStatus: 200,
 			},

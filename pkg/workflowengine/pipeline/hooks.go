@@ -5,21 +5,22 @@
 package pipeline
 
 import (
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"go.temporal.io/sdk/workflow"
 )
 
 type SetupFunc func(
 	ctx workflow.Context,
 	steps *[]StepDefinition,
-	input workflowengine.WorkflowInput,
+	ao *workflow.ActivityOptions,
+	config map[string]any,
 	runData *map[string]any,
 ) error
 
 type CleanupFunc func(
 	ctx workflow.Context,
 	steps []StepDefinition,
-	input workflowengine.WorkflowInput,
+	ao *workflow.ActivityOptions,
+	config map[string]any,
 	runData map[string]any,
 	output *map[string]any,
 ) error

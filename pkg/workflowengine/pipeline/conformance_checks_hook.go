@@ -25,7 +25,8 @@ import (
 func ConformanceCheckSetupHook(
 	ctx workflow.Context,
 	steps *[]StepDefinition,
-	input workflowengine.WorkflowInput,
+	_ *workflow.ActivityOptions,
+	config map[string]any,
 	runData *map[string]any,
 ) error {
 	logger := workflow.GetLogger(ctx)
@@ -107,7 +108,7 @@ func ConformanceCheckSetupHook(
 		}
 		SetConfigValue(&step.With.Config, "memo", memo)
 
-		userMail, ok := input.Config["user_mail"].(string)
+		userMail, ok := config["user_mail"].(string)
 		if !ok {
 			return workflowengine.NewAppError(
 				errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
@@ -315,7 +316,8 @@ func extractValues(node any) any {
 func ConformanceCheckCleanupHook(
 	ctx workflow.Context,
 	steps []StepDefinition,
-	_ workflowengine.WorkflowInput,
+	_ *workflow.ActivityOptions,
+	_ map[string]any,
 	_ map[string]any,
 	output *map[string]any,
 ) error {

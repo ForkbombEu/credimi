@@ -83,3 +83,63 @@ func TestGetPipelineYAML(t *testing.T) {
 		scenario.Test(t)
 	}
 }
+
+func TestSetPipelineExecutionResults(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	scenarios := []tests.ApiScenario{
+		{
+			Name:           "missing request body",
+			Method:         http.MethodPost,
+			URL:            "/api/pipeline/pipeline-execution-results",
+			ExpectedStatus: 404,
+			ExpectedContent: []string{
+				"pipeline not found",
+			},
+			TestAppFactory: setupPipelineApp,
+		},
+		{
+			Name:   "valid pipeline execution result",
+			Method: http.MethodPost,
+			URL:    "/api/pipeline/pipeline-execution-results",
+			Body: jsonBody(map[string]any{
+				"owner":       "usera-s-organization",
+				"pipeline_id": "usera-s-organization/pipeline123",
+				"workflow_id": "workflow-xyz",
+				"run_id":      "run-001",
+			}),
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"owner"`,
+				`"pipeline"`,
+				`"workflow_id"`,
+				`"run_id"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupPipelineApp(t)
+
+				coll, err := app.FindCollectionByNameOrId("pipelines")
+				require.NoError(t, err)
+
+				record := core.NewRecord(coll)
+				record.Set("id", "pipeline1234567")
+				record.Set("owner", orgID)
+				record.Set("name", "pipeline123")
+				record.Set("description", "test-description")
+				record.Set(
+					"steps",
+					map[string]any{"rest-chain": map[string]any{"yaml": "example-yaml-content"}},
+				)
+				record.Set("yaml", "example-yaml-content")
+				require.NoError(t, app.Save(record))
+
+				return app
+			},
+		},
+	}
+
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}
