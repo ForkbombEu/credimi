@@ -32,5 +32,4 @@ export type HttpRequestFormData = {
 	method: string;
 	url: string;
 	body?: string;
-	headers?: Record<string, string>;
 };

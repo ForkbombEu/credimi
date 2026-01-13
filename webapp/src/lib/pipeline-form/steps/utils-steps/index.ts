@@ -8,7 +8,6 @@ import { m } from '@/i18n';
 
 import type { TypedConfig } from '../types';
 
-import { getLastPathSegment } from '../_partials/misc';
 import { EmailStepForm, type EmailFormData } from './email-step-form.svelte.js';
 import { HttpRequestStepForm, type HttpRequestFormData } from './http-request-step-form.svelte.js';
 
@@ -46,9 +45,9 @@ export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 
 	serialize: (data) => ({
 		recipient: data.recipient,
-		subject: data.subject || undefined,
-		body: data.body || undefined,
-		sender: data.sender || undefined
+		subject: data.subject,
+		body: data.body,
+		sender: data.sender || ''
 	}),
 
 	deserialize: async (data) => {
@@ -62,8 +61,7 @@ export const emailStepConfig: TypedConfig<'email', EmailFormData> = {
 
 	cardData: (data) => ({
 		title: m.Email(),
-		copyText: data.recipient,
-		avatar: undefined
+		copyText: data.recipient
 	}),
 
 	makeId: (data) => {
@@ -100,8 +98,7 @@ export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormD
 		return {
 			method: data.method,
 			url: data.url,
-			body: bodyValue,
-			headers: data.headers || undefined
+			body: bodyValue
 		};
 	},
 
@@ -114,20 +111,21 @@ export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormD
 		return {
 			method: data.method,
 			url: data.url,
-			body: bodyString,
-			headers: data.headers || undefined
+			body: bodyString
 		};
 	},
 
 	cardData: (data) => ({
 		title: `${data.method} Request`,
 		copyText: data.url,
-		avatar: undefined
+		meta: {
+			url: data.url
+		}
 	}),
 
 	makeId: (data) => {
 		const method = (data.method || 'request').toLowerCase();
-		const urlPath = getLastPathSegment(data.url || 'unknown');
+		const urlPath = new URL(data.url || 'unknown').host;
 		return `http-${method}-${urlPath}`;
 	}
 };

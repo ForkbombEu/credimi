@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { EntityData } from '$lib/global/entities.js';
+
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
 	import { String } from 'effect';
@@ -98,10 +100,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.utils()}
 		</div>
 
-		<Button variant="outline" class="!justify-start" onclick={() => builder.addDebugStep()}>
-			<Icon src={debugEntityData.icon} class={debugEntityData.classes.text} />
-			{debugEntityData.labels.singular}
-		</Button>
+		{@render baseStepButton(debugEntityData, () => builder.addDebugStep())}
 
 		{#each steps.utilsConfigs as config (config.use)}
 			{@render stepButton(config)}
@@ -110,13 +109,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet stepButton(config: steps.AnyConfig)}
-	{@const { icon, labels, classes } = steps.getDisplayData(config.use)}
-	<Button
-		variant="outline"
-		class="!justify-start"
-		onclick={() => builder.initAddStep(config.use)}
-	>
-		<Icon src={icon} class={classes.text} />
-		{labels.singular}
+	{@render baseStepButton(steps.getDisplayData(config.use), () =>
+		builder.initAddStep(config.use)
+	)}
+{/snippet}
+
+{#snippet baseStepButton(displayData: EntityData, onClick: () => void)}
+	<Button variant="outline" class="!justify-start" onclick={onClick}>
+		<Icon src={displayData.icon} class={displayData.classes.text} />
+		{displayData.labels.singular}
 	</Button>
 {/snippet}
