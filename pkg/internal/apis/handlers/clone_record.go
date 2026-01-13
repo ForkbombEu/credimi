@@ -60,6 +60,26 @@ var CloneConfigs = map[string]CloneConfig{
 		exclude:      []string{"canonified_name"},
 		CanDuplicate: canDuplicateRecordWithOwnerField,
 	},
+	"wallet_actions": {
+		makeUnique:   []string{"name"},
+		exclude:      []string{"canonified_name"},
+		CanDuplicate: canDuplicateRecordWithOwnerField,
+	},
+	"use_cases_verifications": {
+		makeUnique:   []string{"name"},
+		exclude:      []string{"canonified_name"},
+		CanDuplicate: canDuplicateRecordWithOwnerField,
+	},
+	"pipelines": {
+		makeUnique:   []string{"name"},
+		exclude:      []string{"canonified_name"},
+		CanDuplicate: canDuplicateRecordWithOwnerField,
+	},
+	"custom_checks": {
+		makeUnique:   []string{"name"},
+		exclude:      []string{"canonified_name"},
+		CanDuplicate: canDuplicateRecordWithOwnerField,
+	},
 }
 
 func canDuplicateRecordWithOwnerField(e *core.RequestEvent, originalRecord *core.Record) (bool, error) {
