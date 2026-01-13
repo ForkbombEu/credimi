@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Mail, Globe } from 'lucide-svelte';
+import { Globe, Mail } from 'lucide-svelte';
 
 import { m } from '@/i18n';
 
@@ -89,7 +89,7 @@ export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormD
 	initForm: () => new HttpRequestStepForm(),
 
 	serialize: (data) => {
-		let bodyValue: any = undefined;
+		let bodyValue: unknown = undefined;
 		if (data.body && data.body.trim()) {
 			try {
 				bodyValue = JSON.parse(data.body);
@@ -108,9 +108,8 @@ export const httpRequestStepConfig: TypedConfig<'http-request', HttpRequestFormD
 	deserialize: async (data) => {
 		let bodyString = '';
 		if (data.body) {
-			bodyString = typeof data.body === 'string' 
-				? data.body 
-				: JSON.stringify(data.body, null, 2);
+			bodyString =
+				typeof data.body === 'string' ? data.body : JSON.stringify(data.body, null, 2);
 		}
 		return {
 			method: data.method,

@@ -21,7 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
 	import * as steps from '../steps';
-	import { configs } from '../steps/index.js';
 	import Column from './_partials/column.svelte';
 	import EmptyState from './_partials/empty-state.svelte';
 	import StepCard from './_partials/step-card.svelte';
@@ -89,16 +88,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet stepButtons()}
 	<div class="flex flex-col gap-2 p-4" in:fly>
-		{#each configs as config (config.use)}
-			{@const { icon, labels, classes } = steps.getDisplayData(config.use)}
-			<Button
-				variant="outline"
-				class="!justify-start"
-				onclick={() => builder.initAddStep(config.use)}
-			>
-				<Icon src={icon} class={classes.text} />
-				{labels.singular}
-			</Button>
+		{#each steps.coreConfigs as config (config.use)}
+			{@render stepButton(config)}
 		{/each}
 
 		<div
@@ -106,9 +97,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			{m.utils()}
 		</div>
+
 		<Button variant="outline" class="!justify-start" onclick={() => builder.addDebugStep()}>
 			<Icon src={debugEntityData.icon} class={debugEntityData.classes.text} />
 			{debugEntityData.labels.singular}
 		</Button>
+
+		{#each steps.utilsConfigs as config (config.use)}
+			{@render stepButton(config)}
+		{/each}
 	</div>
+{/snippet}
+
+{#snippet stepButton(config: steps.AnyConfig)}
+	{@const { icon, labels, classes } = steps.getDisplayData(config.use)}
+	<Button
+		variant="outline"
+		class="!justify-start"
+		onclick={() => builder.initAddStep(config.use)}
+	>
+		<Icon src={icon} class={classes.text} />
+		{labels.singular}
+	</Button>
 {/snippet}
