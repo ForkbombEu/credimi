@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Pencil, PlayIcon, Plus } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
+	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 	import type { PipelinesResponse } from '@/pocketbase/types';
 
 	import { CollectionManager, RecordClone } from '@/collections-components';
@@ -20,6 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
+	import SchedulePipelineForm from './_partials/schedule-pipeline-form.svelte';
 
 	let { data } = $props();
 	let { organization } = $derived(data);
@@ -61,6 +63,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			});
 		}
 	}
+
+	//
+
+	type PipelineWithSchedule = PocketbaseQueryResponse<
+		'pipelines',
+		['pipeline_results_via_pipeline']
+	>;
+
+	function getPipelineSchedule(pipeline: PipelineWithSchedule) {
+		return pipeline.expand?.pipeline_results_via_pipeline?.find(
+			(res) => res.owner === organization.id
+		);
+	}
+
+	function isPipelineScheduled(pipeline: PipelineWithSchedule) {
+		return getPipelineSchedule(pipeline) !== undefined;
+	}
 </script>
 
 <!-- Your Pipelines Section -->
@@ -70,7 +89,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		collection="pipelines"
 		queryOptions={{
 			filter: `owner = '${organization.id}'`,
-			sort: ['created', 'DESC']
+			sort: ['created', 'DESC'],
+			expand: ['pipeline_results_via_pipeline']
 		}}
 		hide={['pagination']}
 	>
@@ -96,6 +116,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							</Button> -->
 							<RecordClone record={pipeline} size="md" collectionName="pipelines" />
 							<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} />
+						{/snippet}
+
+						{#snippet content()}
+							{@const schedule = getPipelineSchedule(pipeline)}
+							<div class="flex justify-between">
+								{#if schedule}
+									<T>{schedule.workflow_id}</T>
+								{/if}
+
+								{#if !schedule}
+									<SchedulePipelineForm {pipeline} />
+								{/if}
+							</div>
 						{/snippet}
 					</DashboardCard>
 				{/each}

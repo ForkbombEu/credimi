@@ -3,45 +3,53 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
+
 <script lang="ts">
+	import { CalendarIcon } from 'lucide-svelte';
+
+	import type { PipelinesResponse } from '@/pocketbase/types';
+
+	import Button from '@/components/ui-custom/button.svelte';
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import { Label } from '@/components/ui/label';
 	import { Field, SelectField, SelectFieldAny } from '@/forms/fields';
 	import Form from '@/forms/form.svelte';
 	import { m } from '@/i18n';
 
-	import { createScheduleWorkflowForm, scheduleModeOptions } from './schedule';
-	import { dayOptions } from './schedule.utils';
+	import { createSchedulePipelineForm } from './schedule';
+	import { dayOptions, scheduleModeOptions } from './schedule.utils';
 
 	//
 
 	type Props = {
-		workflowID: string;
-		runID: string;
-		workflowName: string;
-		isOpen?: boolean;
+		pipeline: PipelinesResponse;
 	};
 
-	let { workflowID, runID, workflowName, isOpen = $bindable(false) }: Props = $props();
+	let { pipeline }: Props = $props();
 
-	const form = createScheduleWorkflowForm({
-		workflowID,
-		runID,
-		onSuccess: () => {
-			isOpen = false;
-		}
+	let isOpen = $state(false);
+
+	const form = createSchedulePipelineForm(pipeline.id, () => {
+		// isOpen = false;
 	});
 
 	const formData = form.form;
 </script>
 
 <Dialog bind:open={isOpen} title={m.Schedule_workflow()}>
+	{#snippet trigger({ props })}
+		<Button {...props} size="sm" variant="ghost">
+			<CalendarIcon />
+			{m.Schedule()}
+		</Button>
+	{/snippet}
+
 	{#snippet content()}
 		<Form {form}>
 			<div class="space-y-2">
 				<Label>{m.Workflow()}</Label>
 				<div class="rounded-md bg-slate-100 p-2">
-					{workflowName}
+					{pipeline.name}
 				</div>
 			</div>
 

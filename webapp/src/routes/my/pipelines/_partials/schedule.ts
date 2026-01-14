@@ -8,40 +8,22 @@ import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 
 import type { IconComponent } from '@/components/types';
-import type { SelectOption } from '@/components/ui-custom/utils';
+import type { SchedulesResponse } from '@/pocketbase/types';
 
 import { createForm } from '@/forms';
 import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 
-//
-
-const scheduleModeSchema = z.union([
-	z.object({
-		mode: z.literal('daily')
-	}),
-	z.object({
-		mode: z.literal('weekly'),
-		day: z.number().min(0).max(6)
-	}),
-	z.object({
-		mode: z.literal('monthly'),
-		day: z.number().min(1).max(31)
-	})
-]);
-
-type ScheduleMode = z.infer<typeof scheduleModeSchema>;
-type ScheduleModeName = ScheduleMode['mode'];
+import { scheduleModeSchema } from './schedule.utils';
 
 //
 
-export const scheduleWorkflowFormSchema = z.object({
-	workflow_id: z.string(),
-	run_id: z.string(),
+const schedulePipelineFormSchema = z.object({
+	pipeline_id: z.string(),
 	schedule_mode: scheduleModeSchema
 });
 
-export async function scheduleWorkflow(data: z.infer<typeof scheduleWorkflowFormSchema>) {
+async function schedulePipeline(data: z.infer<typeof schedulePipelineFormSchema>) {
 	if (data.schedule_mode.mode === 'monthly') {
 		data.schedule_mode.day = data.schedule_mode.day - 1;
 	}
@@ -51,66 +33,19 @@ export async function scheduleWorkflow(data: z.infer<typeof scheduleWorkflowForm
 	});
 }
 
-export function createScheduleWorkflowForm(props: {
-	workflowID: string;
-	runID: string;
-	onSuccess: () => void;
-}) {
-	const { workflowID, runID, onSuccess } = props;
+export function createSchedulePipelineForm(pipeline_id: string, onSuccess: () => void) {
 	return createForm({
-		adapter: zod(scheduleWorkflowFormSchema),
+		adapter: zod(schedulePipelineFormSchema),
 		onSubmit: async ({ form }) => {
-			await scheduleWorkflow(form.data);
-			toast.success(m.Workflow_scheduled_successfully());
-			onSuccess();
+			await schedulePipeline(form.data);
+			toast.success(m.Pipeline_scheduled_successfully());
+			// onSuccess();
 		},
 		initialData: {
-			workflow_id: workflowID,
-			run_id: runID
+			pipeline_id
 		}
 	});
 }
-
-//
-
-export const scheduleModeOptions: SelectOption<ScheduleModeName>[] = [
-	{
-		label: m.daily(),
-		value: 'daily'
-	},
-	{
-		label: m.weekly(),
-		value: 'weekly'
-	},
-	{
-		label: m.monthly(),
-		value: 'monthly'
-	}
-];
-
-//
-
-export async function loadScheduledWorkflows(options = { fetch }) {
-	const res = await pb.send('/api/my/schedules', {
-		requestKey: null,
-		fetch: options.fetch
-	});
-	return res as ListSchedulesResponse;
-}
-
-type ListSchedulesResponse = {
-	schedules?: WorkflowSchedule[];
-};
-
-export type WorkflowSchedule = {
-	id: string;
-	schedule_mode?: ScheduleMode;
-	workflowType?: { name?: string };
-	display_name: string;
-	original_workflow_id: string;
-	next_action_time?: string;
-	paused?: boolean;
-};
 
 //
 
@@ -120,7 +55,7 @@ type ScheduleAction = {
 	icon: IconComponent;
 	action: (scheduleId: string, options?: { fetch: typeof fetch }) => Promise<void>;
 	successMessage: string;
-	disabled?: (schedule: WorkflowSchedule) => boolean;
+	disabled?: (schedule: SchedulesResponse | undefined) => boolean;
 };
 
 export const scheduleActions: ScheduleAction[] = [
@@ -149,7 +84,7 @@ export const scheduleActions: ScheduleAction[] = [
 				fetch: options.fetch
 			});
 		},
-		disabled: (schedule) => Boolean(schedule.paused)
+		disabled: (schedule) => Boolean(schedule)
 	},
 	{
 		type: 'resume',
@@ -163,6 +98,6 @@ export const scheduleActions: ScheduleAction[] = [
 				fetch: options.fetch
 			});
 		},
-		disabled: (schedule) => !schedule.paused
+		disabled: (schedule) => Boolean(schedule)
 	}
 ];
