@@ -58,3 +58,15 @@ export const scheduleModeOptions: SelectOption<ScheduleModeName>[] = Record.toEn
 	label,
 	value: name
 }));
+
+//
+
+export function scheduleModeLabel(mode: ScheduleMode) {
+	if (mode.mode === 'daily') {
+		return m.daily();
+	} else if (mode.mode === 'weekly') {
+		return m.weekly() + ' (' + getDayLabel(mode.day) + ')';
+	} else {
+		return m.monthly() + ' (' + mode.day + ')';
+	}
+}

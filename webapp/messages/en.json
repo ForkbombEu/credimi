@@ -860,5 +860,7 @@
 	"utils": "Utils",
 	"record": "Record",
 	"data_cloned_successfully": "{data_type} cloned successfully",
-	"failed_to_clone_data": "failed to clone {data_type}"
+	"failed_to_clone_data": "failed to clone {data_type}",
+	"scheduled": "Scheduled",
+	"Pipeline_execution_is_not_scheduled": "Pipeline execution is not scheduled"
 }

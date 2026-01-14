@@ -4,56 +4,97 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-<!-- <Table.Row>
-	<Table.Cell>
-		<T>{workflow.display_name}</T>
-		{#if workflow.display_name != workflow.workflowType?.name}
-			<T class="text-muted-foreground text-sm">
-				{workflow.workflowType?.name}
-			</T>
-		{/if}
-	</Table.Cell>
-	<Table.Cell>
-		<T>
-			{workflow.schedule_mode?.mode}
-			{#if workflow.schedule_mode?.mode === 'weekly'}
-				<span class="text-muted-foreground text-sm">
-					({getDayLabel(workflow.schedule_mode?.day)?.toLowerCase()})
-				</span>
-			{:else if workflow.schedule_mode?.mode === 'monthly'}
-				<span class="text-muted-foreground text-sm">
-					({m.Day().toLowerCase()}: {workflow.schedule_mode?.day})
-				</span>
-			{/if}
-		</T>
-	</Table.Cell>
-	<Table.Cell>
-		{workflow.next_action_time}
-	</Table.Cell>
-	<Table.Cell>
-		{workflow.paused ? m.Paused() : m.Running()}
-	</Table.Cell>
-	<Table.Cell>
-		<DropdownMenu
-			buttonVariants={{ size: 'icon', variant: 'ghost' }}
-			items={scheduleActions.map((action) => ({
-				label: action.label,
-				icon: action.icon,
-				disabled: !action.disabled ? false : action.disabled(workflow),
-				onclick: () =>
-					runWithLoading({
-						fn: async () => {
-							await action.action(workflow.id);
-							await refreshSchedules();
-						},
-						successText: action.successMessage,
-						showSuccessToast: true
-					})
-			}))}
-		>
-			{#snippet trigger()}
-				<EllipsisVerticalIcon />
-			{/snippet}
-		</DropdownMenu>
-	</Table.Cell>
-</Table.Row> -->
+<script lang="ts">
+	import { runWithLoading } from '$lib/utils';
+	import { EllipsisIcon, PauseIcon, PlayIcon, XIcon } from 'lucide-svelte';
+
+	import type { IconComponent } from '@/components/types';
+	import type { SchedulesResponse } from '@/pocketbase/types';
+
+	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
+
+	//
+
+	type Props = {
+		schedule: SchedulesResponse;
+	};
+
+	let { schedule }: Props = $props();
+
+	//
+
+	type ScheduleAction = {
+		type: 'cancel' | 'pause' | 'resume';
+		label: string;
+		icon: IconComponent;
+		action: (scheduleId: string, options?: { fetch: typeof fetch }) => Promise<void>;
+		successMessage: string;
+		disabled?: (schedule: SchedulesResponse | undefined) => boolean;
+	};
+
+	export const scheduleActions: ScheduleAction[] = [
+		{
+			type: 'cancel',
+			label: m.Cancel(),
+			icon: XIcon,
+			successMessage: m.Schedule_cancelled_successfully(),
+			action: async (scheduleId: string, options = { fetch }) => {
+				return await pb.send(`/api/my/schedules/${scheduleId}/cancel`, {
+					method: 'POST',
+					requestKey: null,
+					fetch: options.fetch
+				});
+			}
+		},
+		{
+			type: 'pause',
+			label: m.Pause(),
+			icon: PauseIcon,
+			successMessage: m.Schedule_paused_successfully(),
+			action: async (scheduleId: string, options = { fetch }) => {
+				return await pb.send(`/api/my/schedules/${scheduleId}/pause`, {
+					method: 'POST',
+					requestKey: null,
+					fetch: options.fetch
+				});
+			},
+			disabled: (schedule) => false
+		},
+		{
+			type: 'resume',
+			label: m.Resume(),
+			icon: PlayIcon,
+			successMessage: m.Schedule_resumed_successfully(),
+			action: async (scheduleId: string, options = { fetch }) => {
+				return await pb.send(`/api/my/schedules/${scheduleId}/resume`, {
+					method: 'POST',
+					requestKey: null,
+					fetch: options.fetch
+				});
+			},
+			disabled: (schedule) => false
+		}
+	];
+</script>
+
+<DropdownMenu
+	buttonVariants={{ size: 'sm', variant: 'ghost', class: 'text-blue-600 hover:text-blue-600' }}
+	items={scheduleActions.map((action) => ({
+		label: action.label,
+		icon: action.icon,
+		disabled: !action.disabled ? false : action.disabled(schedule),
+		onclick: () =>
+			runWithLoading({
+				fn: () => action.action(schedule.temporal_schedule_id),
+				successText: action.successMessage,
+				showSuccessToast: true
+			})
+	}))}
+>
+	{#snippet trigger()}
+		<EllipsisIcon />
+		{m.Manage()}
+	{/snippet}
+</DropdownMenu>

@@ -39,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Dialog bind:open={isOpen} title={m.Schedule_workflow()}>
 	{#snippet trigger({ props })}
-		<Button {...props} size="sm" variant="ghost">
+		<Button {...props} size="sm" variant="ghost" class="text-blue-600 hover:text-blue-600">
 			<CalendarIcon />
 			{m.Schedule()}
 		</Button>

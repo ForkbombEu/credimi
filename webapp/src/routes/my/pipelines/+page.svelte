@@ -21,7 +21,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { pb } from '@/pocketbase';
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
+	import ScheduleActions from './_partials/schedule-actions.svelte';
 	import SchedulePipelineForm from './_partials/schedule-pipeline-form.svelte';
+	import { type ScheduleMode, scheduleModeLabel } from './_partials/schedule.utils';
 
 	let { data } = $props();
 	let { organization } = $derived(data);
@@ -73,10 +75,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			(res) => res.owner === organization.id
 		);
 	}
-
-	function isPipelineScheduled(pipeline: PipelineWithSchedule) {
-		return getPipelineSchedule(pipeline) !== undefined;
-	}
 </script>
 
 <!-- Your Pipelines Section -->
@@ -122,13 +120,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{#snippet content()}
 							{@const schedule = getPipelineSchedule(pipeline)}
 							<div class="flex justify-between">
-								{#if schedule}
-									<T>{schedule.temporal_schedule_id}</T>
-								{/if}
+								<div class="flex items-center gap-1.5 text-sm">
+									{#if schedule}
+										{@render circle('bg-green-500')}
+										<T>
+											<span class="font-bold">{m.scheduled()}:</span>
+											{scheduleModeLabel(schedule.mode as ScheduleMode)}
+										</T>
+									{:else}
+										{@render circle('bg-gray-50 border')}
+										<T>
+											{m.Pipeline_execution_is_not_scheduled()}
+										</T>
+									{/if}
+								</div>
 
-								{#if !schedule}
-									<SchedulePipelineForm {pipeline} />
-								{/if}
+								<div class="-m-2">
+									{#if !schedule}
+										<SchedulePipelineForm {pipeline} />
+									{:else}
+										<ScheduleActions {schedule} />
+									{/if}
+								</div>
 							</div>
 						{/snippet}
 					</DashboardCard>
@@ -194,4 +207,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Plus />
 		{m.New()}
 	</Button>
+{/snippet}
+
+{#snippet circle(className: string)}
+	<div class="size-2 rounded-full {className}"></div>
 {/snippet}
