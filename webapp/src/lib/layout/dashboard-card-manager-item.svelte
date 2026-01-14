@@ -61,7 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		{#if !hideClone}
-			<RecordClone collectionName={record.collectionName as never} record={record as never} />
+			<RecordClone collectionName={record.collectionName} recordId={record.id} />
 		{/if}
 
 		<RecordEdit record={record as never}>
