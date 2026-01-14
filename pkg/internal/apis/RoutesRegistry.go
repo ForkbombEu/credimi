@@ -33,6 +33,7 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.DeepLinkVerifiers,
 	handlers.ConformanceCheckRoutes,
 	handlers.OrganizationRoutes,
+	handlers.CloneRecord,
 }
 
 func RegisterMyRoutes(app core.App) {
