@@ -5,6 +5,9 @@
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import adapter from 'svelte-adapter-bun';
 
+import { appVersion } from './src/modules/utils/appVersion';
+
+/** @type {import('@sveltejs/kit').Config} */
 const config = {
 	preprocess: [vitePreprocess()],
 	kit: {
@@ -17,7 +20,7 @@ const config = {
 			'$pipeline-form': './src/lib/pipeline-form',
 			$root: '..'
 		},
-		version: { name: process.env.npm_package_version }
+		version: { name: appVersion }
 	}
 };
 
