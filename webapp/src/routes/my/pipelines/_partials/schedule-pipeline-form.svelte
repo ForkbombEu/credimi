@@ -7,18 +7,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { getPath } from '$lib/utils';
 	import { CalendarIcon } from 'lucide-svelte';
+	import { toast } from 'svelte-sonner';
+	import { zod } from 'sveltekit-superforms/adapters';
+	import { z } from 'zod';
 
 	import type { PipelinesResponse } from '@/pocketbase/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import { Label } from '@/components/ui/label';
+	import { createForm } from '@/forms';
 	import { Field, SelectField, SelectFieldAny } from '@/forms/fields';
 	import Form from '@/forms/form.svelte';
 	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
 
-	import { createSchedulePipelineForm } from './schedule';
-	import { dayOptions, scheduleModeOptions } from './schedule.utils';
+	import { dayOptions, scheduleModeOptions, scheduleModeSchema } from './schedule.utils';
 
 	//
 
@@ -28,10 +32,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { pipeline }: Props = $props();
 
+	//
+
 	let isOpen = $state(false);
 
-	const form = createSchedulePipelineForm(getPath(pipeline), () => {
-		// isOpen = false;
+	const form = createForm({
+		adapter: zod(
+			z.object({
+				pipeline_id: z.string(),
+				schedule_mode: scheduleModeSchema
+			})
+		),
+		initialData: {
+			pipeline_id: getPath(pipeline)
+		},
+		onSubmit: async ({ form: { data } }) => {
+			if (data.schedule_mode.mode === 'monthly') {
+				data.schedule_mode.day = data.schedule_mode.day - 1;
+			}
+			await pb.send('/api/my/schedules/start', {
+				method: 'POST',
+				body: data
+			});
+
+			isOpen = false;
+			toast.success(m.Pipeline_scheduled_successfully());
+		}
 	});
 
 	const formData = form.form;
