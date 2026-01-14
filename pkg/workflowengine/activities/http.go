@@ -24,6 +24,10 @@ type HTTPActivity struct {
 	workflowengine.BaseActivity
 }
 
+var httpClientFactory = func(timeout time.Duration) httpDoer {
+	return &http.Client{Timeout: timeout}
+}
+
 // HTTPActivityPayload is the input payload for the HTTP activity.
 type HTTPActivityPayload struct {
 	Method string `json:"method" yaml:"method" validate:"required"`
@@ -113,7 +117,6 @@ func (a *HTTPActivity) Execute(
 			fmt.Sprintf("%s: %v", errCode.Description, err),
 			payload.Method,
 			url,
-			body,
 		)
 	}
 
@@ -124,14 +127,15 @@ func (a *HTTPActivity) Execute(
 		req.Header.Set("Content-Type", "application/json")
 	}
 
-	client := &http.Client{Timeout: timeout}
+	client := httpClientFactory(timeout)
+
 	resp, err := client.Do(req)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			req,
+			url,
 		)
 	}
 	defer resp.Body.Close()
@@ -142,7 +146,7 @@ func (a *HTTPActivity) Execute(
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			resp.Body,
+			url,
 		)
 	}
 

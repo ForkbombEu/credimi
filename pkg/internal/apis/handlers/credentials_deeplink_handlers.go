@@ -97,7 +97,8 @@ func HandleGetCredentialDeeplink() func(*core.RequestEvent) error {
 			}
 			req.Header.Set("Content-Type", "application/json")
 
-			client := &http.Client{}
+			client := deeplinkHTTPClient
+
 			resp, err := client.Do(req)
 			if err != nil {
 				return apierror.New(

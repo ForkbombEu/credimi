@@ -4,19 +4,132 @@
 package activities
 
 import (
+	"bytes"
 	"context"
+	"io"
 	"strings"
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
+	"github.com/docker/docker/api/types/image"
 	"github.com/docker/docker/api/types/network"
-	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 )
+
+type fakeDockerClient struct {
+	createdConfig        *container.Config
+	createdHostConfig    *container.HostConfig
+	createdNetworkConfig *network.NetworkingConfig
+	containerID          string
+	exitCode             int
+	stdout               string
+	stderr               string
+	waitErr              error
+}
+
+func (client *fakeDockerClient) ImagePull(
+	_ context.Context,
+	_ string,
+	_ image.PullOptions,
+) (io.ReadCloser, error) {
+	return io.NopCloser(strings.NewReader("")), nil
+}
+
+func (client *fakeDockerClient) ContainerCreate(
+	_ context.Context,
+	config *container.Config,
+	hostConfig *container.HostConfig,
+	networkingConfig *network.NetworkingConfig,
+	_ *ocispec.Platform,
+	_ string,
+) (container.CreateResponse, error) {
+	client.createdConfig = config
+	client.createdHostConfig = hostConfig
+	client.createdNetworkConfig = networkingConfig
+	if client.containerID == "" {
+		client.containerID = "container-test"
+	}
+	return container.CreateResponse{ID: client.containerID}, nil
+}
+
+func (client *fakeDockerClient) ContainerStart(
+	_ context.Context,
+	_ string,
+	_ container.StartOptions,
+) error {
+	return nil
+}
+
+func (client *fakeDockerClient) ContainerWait(
+	_ context.Context,
+	_ string,
+	_ container.WaitCondition,
+) (<-chan container.WaitResponse, <-chan error) {
+	statusCh := make(chan container.WaitResponse, 1)
+	errCh := make(chan error, 1)
+	if client.waitErr != nil {
+		errCh <- client.waitErr
+	} else {
+		statusCh <- container.WaitResponse{StatusCode: int64(client.exitCode)}
+	}
+	close(statusCh)
+	close(errCh)
+	return statusCh, errCh
+}
+
+func (client *fakeDockerClient) ContainerInspect(
+	_ context.Context,
+	_ string,
+) (container.InspectResponse, error) {
+	return container.InspectResponse{
+		ContainerJSONBase: &container.ContainerJSONBase{
+			State:      &container.State{ExitCode: client.exitCode},
+			HostConfig: client.createdHostConfig,
+		},
+		NetworkSettings: &container.NetworkSettings{
+			Networks: map[string]*network.EndpointSettings{
+				"bridge": {},
+			},
+		},
+	}, nil
+}
+
+func (client *fakeDockerClient) ContainerLogs(
+	_ context.Context,
+	_ string,
+	_ container.LogsOptions,
+) (io.ReadCloser, error) {
+	var buf bytes.Buffer
+	_, _ = stdcopy.NewStdWriter(&buf, stdcopy.Stdout).Write([]byte(client.stdout))
+	_, _ = stdcopy.NewStdWriter(&buf, stdcopy.Stderr).Write([]byte(client.stderr))
+	return io.NopCloser(bytes.NewReader(buf.Bytes())), nil
+}
+
+func (client *fakeDockerClient) ContainerKill(
+	_ context.Context,
+	_ string,
+	_ string,
+) error {
+	return nil
+}
+
+func (client *fakeDockerClient) ContainerRemove(
+	_ context.Context,
+	_ string,
+	_ container.RemoveOptions,
+) error {
+	return nil
+}
+
+func (client *fakeDockerClient) Close() error {
+	return nil
+}
 
 func TestDockerRunActivity_Execute(t *testing.T) {
 	act := NewDockerActivity()
@@ -112,6 +225,18 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			fake := &fakeDockerClient{
+				exitCode: 0,
+				stdout:   tt.expectLog,
+			}
+			originalFactory := dockerClientFactory
+			dockerClientFactory = func() (dockerClient, error) {
+				return fake, nil
+			}
+			t.Cleanup(func() {
+				dockerClientFactory = originalFactory
+			})
+
 			var result workflowengine.ActivityResult
 			future, err := env.ExecuteActivity(act.Execute, tt.input)
 
@@ -129,26 +254,18 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 				containerID, ok := result.Output.(map[string]any)["containerID"].(string)
 				require.True(t, ok)
 				require.NotEmpty(t, containerID)
-				cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+
 				if tt.checkPort {
-					ctx := context.Background()
-					inspect, err := cli.ContainerInspect(ctx, containerID)
-					require.NoError(t, err)
-					_, ok := inspect.HostConfig.PortBindings[nat.Port(tt.expectedPort)]
+					require.NotNil(t, fake.createdHostConfig)
+					_, ok := fake.createdHostConfig.PortBindings[nat.Port(tt.expectedPort)]
 					require.True(t, ok, "Expected port %s to be exposed", tt.expectedPort)
 				}
 
 				if tt.name == "Success - custom network config (bridge)" {
-					require.NoError(t, err)
-					ctx := context.Background()
-					inspect, err := cli.ContainerInspect(ctx, containerID)
-					require.NoError(t, err)
-
-					// Check if "bridge" network is attached
-					_, ok := inspect.NetworkSettings.Networks["bridge"]
+					require.NotNil(t, fake.createdNetworkConfig)
+					_, ok := fake.createdNetworkConfig.EndpointsConfig["bridge"]
 					require.True(t, ok, "Expected container to be connected to 'bridge' network")
 				}
-				cli.ContainerRemove(context.Background(), containerID, container.RemoveOptions{Force: true})
 			}
 		})
 	}

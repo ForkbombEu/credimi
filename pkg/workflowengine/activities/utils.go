@@ -4,9 +4,14 @@
 package activities
 
 import (
+	"net/http"
 	"strings"
 )
 
 func TrimInput(s string) string {
 	return strings.TrimSpace(s)
+}
+
+type httpDoer interface {
+	Do(req *http.Request) (*http.Response, error)
 }

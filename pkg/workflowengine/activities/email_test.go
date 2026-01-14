@@ -5,12 +5,12 @@
 package activities
 
 import (
+	"errors"
 	"os"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	smtpmock "github.com/mocktools/go-smtp-mock"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
@@ -21,8 +21,12 @@ type MockDialer struct {
 	mock.Mock
 }
 
-func (m *MockDialer) DialAndSend(msg *gomail.Message) error {
-	args := m.Called(msg)
+func (m *MockDialer) DialAndSend(msg ...*gomail.Message) error {
+	callArgs := make([]interface{}, len(msg))
+	for index, message := range msg {
+		callArgs[index] = message
+	}
+	args := m.Called(callArgs...)
 	return args.Error(0)
 }
 
@@ -68,19 +72,17 @@ func TestSendMailActivity_Execute(t *testing.T) {
 	var ts testsuite.WorkflowTestSuite
 	env := ts.NewTestActivityEnvironment()
 
-	// Start mock SMTP server on port 2525
-	mockServer := smtpmock.New(smtpmock.ConfigurationAttr{
-		PortNumber:  2525,
-		LogToStdout: false,
-	})
-	if err := mockServer.Start(); err != nil {
-		t.Fatalf("failed to start mock SMTP server: %v", err)
-	}
-	defer mockServer.Stop()
-
 	// Use the real activity
 	activity := &SendMailActivity{}
 	env.RegisterActivity(activity.Execute)
+
+	originalDialer := newMailDialer
+	newMailDialer = func(_ string, _ int, _ string, _ string) mailDialer {
+		return &MockDialer{}
+	}
+	t.Cleanup(func() {
+		newMailDialer = originalDialer
+	})
 
 	tests := []struct {
 		name            string
@@ -126,6 +128,23 @@ func TestSendMailActivity_Execute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if !tt.expectedErr {
+				mockDialer := &MockDialer{}
+				mockDialer.On("DialAndSend", mock.Anything).Return(nil).Once()
+				newMailDialer = func(_ string, _ int, _ string, _ string) mailDialer {
+					return mockDialer
+				}
+				t.Cleanup(func() {
+					mockDialer.AssertExpectations(t)
+				})
+			} else {
+				newMailDialer = func(_ string, _ int, _ string, _ string) mailDialer {
+					mockDialer := &MockDialer{}
+					mockDialer.On("DialAndSend", mock.Anything).Return(errors.New("dialer error"))
+					return mockDialer
+				}
+			}
+
 			var result workflowengine.ActivityResult
 			future, err := env.ExecuteActivity(activity.Execute, tt.input)
 			if tt.expectedErr {
