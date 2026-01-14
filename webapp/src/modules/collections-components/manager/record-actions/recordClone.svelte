@@ -7,34 +7,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { ComponentProps, Snippet } from 'svelte';
 
+	import { runWithLoading } from '$lib/utils';
 	import { CopyPlus } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 
-	import type { CollectionResponses, WalletActionsResponse } from '@/pocketbase/types';
+	import type { CollectionName } from '@/pocketbase/collections-models';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { m } from '@/i18n';
-	import { cloneRecord } from '@/pocketbase/utils';
-
-	type CloneableCollections =
-		| 'wallet_actions'
-		| 'credentials'
-		| 'use_cases_verifications'
-		| 'pipelines';
+	import { pb } from '@/pocketbase';
 
 	//
 
 	type Props = {
-		record: CollectionResponses[CloneableCollections];
-		collectionName: CloneableCollections;
-		onSuccess?: () => void;
-		/** Custom button renderer */
+		recordId: string;
+		collectionName: CollectionName;
 		button?: Snippet<[{ triggerAttributes: object; icon: typeof CopyPlus }]>;
 		size?: ComponentProps<typeof IconButton>['size'];
 	};
 
-	const { record, collectionName, onSuccess = () => {}, button, size = 'sm' }: Props = $props();
+	const { recordId, collectionName, button, size = 'sm' }: Props = $props();
 
 	//
 
@@ -43,37 +36,47 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	async function handleClone() {
 		if (isCloning) return;
 		isCloning = true;
-
-		const excludeFields: Array<keyof CollectionResponses[CloneableCollections]> = [];
-		if (collectionName === 'wallet_actions') {
-			// @ts-expect-error - result is not a system field
-			excludeFields.push('result' satisfies keyof WalletActionsResponse);
-		}
-
-		try {
-			await cloneRecord(collectionName, record.id, { excludeFields });
-			toast.success(`${getCollectionDisplayName(collectionName)} cloned successfully`);
-			onSuccess();
-		} catch (error) {
-			console.error('Error cloning record:', error);
-			toast.error(`Failed to clone ${getCollectionDisplayName(collectionName)}`);
-		} finally {
-			isCloning = false;
-		}
+		runWithLoading({
+			fn: async () => {
+				try {
+					await pb.send('/api/clone-record', {
+						method: 'POST',
+						body: {
+							id: recordId,
+							collection: collectionName
+						}
+					});
+					toast.success(
+						m.data_cloned_successfully({
+							data_type: getCollectionDisplayName(collectionName)
+						})
+					);
+				} catch {
+					toast.error(
+						m.failed_to_clone_data({
+							data_type: getCollectionDisplayName(collectionName)
+						})
+					);
+				} finally {
+					isCloning = false;
+				}
+			},
+			showSuccessToast: false
+		});
 	}
 
-	function getCollectionDisplayName(collectionName: CloneableCollections): string {
+	function getCollectionDisplayName(collectionName: CollectionName): string {
 		switch (collectionName) {
 			case 'wallet_actions':
-				return 'Wallet Action';
+				return m.Wallet_action();
 			case 'credentials':
-				return 'Credential';
+				return m.Credential();
 			case 'use_cases_verifications':
-				return 'Verification Use Case';
+				return m.Verification_use_case();
 			case 'pipelines':
-				return 'Pipeline';
+				return m.Pipeline();
 			default:
-				return 'Record';
+				return m.record();
 		}
 	}
 </script>
