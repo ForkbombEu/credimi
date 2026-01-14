@@ -355,15 +355,19 @@ func ConformanceCheckCleanupHook(
 			continue
 		}
 
-		future := workflow.SignalExternalWorkflow(cleanupCtx, id, "", workflows.PipelineCancelSignal, struct{}{})
+		future := workflow.SignalExternalWorkflow(
+			cleanupCtx,
+			id,
+			"",
+			workflows.PipelineCancelSignal,
+			struct{}{},
+		)
 		if err := future.Get(cleanupCtx, nil); err != nil {
 			return workflowengine.NewAppError(
 				errorcodes.Codes[errorcodes.ChildWorkflowExecutionError],
 				fmt.Sprintf("failed to signal cancellation to child workflow %s: %v", id, err),
 			)
-
 		}
-
 	}
 	return nil
 }

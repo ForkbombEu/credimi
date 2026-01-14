@@ -27,8 +27,8 @@ const (
 type PipelineWorkflow struct{}
 
 type PipelineWorkflowInput struct {
-	WorkflowDefinition *WorkflowDefinition          `yaml:"workflow_definition"       json:"workflow_definition"`
-	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"            json:"workflow_input"`
+	WorkflowDefinition *WorkflowDefinition          `yaml:"workflow_definition" json:"workflow_definition"`
+	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"      json:"workflow_input"`
 
 	Debug         bool           `yaml:"debug,omitempty"           json:"debug,omitempty"`
 	Scheduled     bool           `yaml:"scheduled,omitempty"       json:"scheduled,omitempty"`
@@ -83,103 +83,16 @@ func (w *PipelineWorkflow) Workflow(
 	}
 
 	if input.Scheduled {
-		pipelineID, ok := input.WorkflowInput.Payload.(map[string]any)["pipeline_id"].(string)
-		if !ok || pipelineID == "" {
-			return workflowengine.WorkflowResult{},
-				workflowengine.NewMissingOrInvalidPayloadError(
-					fmt.Errorf("missing pipeline_id"),
-					runMetadata,
-				)
-		}
-		httpCtx := workflow.WithActivityOptions(
-			ctx,
-			workflow.ActivityOptions{
-				ScheduleToCloseTimeout: time.Minute,
-				StartToCloseTimeout:    time.Second * 30,
-				RetryPolicy: &temporal.RetryPolicy{
-					InitialInterval:    time.Second,
-					BackoffCoefficient: 1.0,
-					MaximumInterval:    time.Minute,
-					MaximumAttempts:    1},
-			},
-		)
-		httpActivity := activities.NewHTTPActivity()
-		recRequest := workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"method": "POST",
-				"url":    utils.JoinURL(config["app_url"].(string), "api", "canonify", "identifier", "validate"),
-				"headers": map[string]any{
-					"Content-Type": "application/json",
-				},
-				"body": map[string]any{
-					"canonified_name": pipelineID,
-				},
-				"expected_status": 200,
-			},
-		}
-
-		var recResult workflowengine.ActivityResult
-		if err := workflow.ExecuteActivity(httpCtx, httpActivity.Name(), recRequest).Get(httpCtx, &recResult); err != nil {
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-		}
-		errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-		rec, ok := recResult.Output.(map[string]any)["body"].(map[string]any)["record"].(map[string]any)
-		if !ok {
-			appErr := workflowengine.NewAppError(
-				errCode,
-				"missing 'record' in response",
-			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
-		}
-		pipelineYaml, ok := rec["yaml"].(string)
-		if !ok {
-			appErr := workflowengine.NewAppError(
-				errCode,
-				"missing 'yaml' in response",
-			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
-		}
 		var err error
-		wfDef, err = ParseWorkflow(pipelineYaml)
+		ctx, wfDef, ao, debug, err = w.handleScheduledRun(
+			ctx,
+			input,
+			config,
+			runMetadata,
+		)
 		if err != nil {
-			appErr := workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.PipelineParsingError],
-				err.Error(),
-			)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+			return workflowengine.WorkflowResult{}, err
 		}
-		debug = wfDef.Runtime.Debug
-
-		for k, v := range wfDef.Config {
-			if _, exists := config[k]; !exists {
-				config[k] = v
-			}
-		}
-
-		options := PrepareWorkflowOptions(wfDef.Runtime)
-		ao = options.ActivityOptions
-		ctx = workflow.WithActivityOptions(ctx, ao)
-
-		createRequest := workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"method": "POST",
-				"url":    utils.JoinURL(config["app_url"].(string), "api", "pipeline", "pipeline-execution-results"),
-				"headers": map[string]any{
-					"Content-Type": "application/json",
-				},
-				"body": map[string]any{
-					"owner":       config["namespace"].(string),
-					"pipeline_id": pipelineID,
-					"workflow_id": workflowID,
-					"run_id":      runID,
-				},
-				"expected_status": 200,
-			},
-		}
-		if err := workflow.ExecuteActivity(httpCtx, httpActivity.Name(), createRequest).Get(httpCtx, nil); err != nil {
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
-		}
-
 	}
 
 	result := workflowengine.WorkflowResult{}
@@ -205,27 +118,22 @@ func (w *PipelineWorkflow) Workflow(
 		runData = input.ParentRunData
 	}
 	defer func() {
-
-		for _, hook := range cleanupHooks {
-			if err := hook(ctx, wfDef.Steps, &ao, config, runData, &finalOutput); err != nil {
-				logger.Error("cleanup hook error", "error", err)
-				cleanupErrors = append(cleanupErrors, err)
-			}
-		}
+		runCleanupHooks(
+			ctx,
+			wfDef.Steps,
+			&ao,
+			config,
+			runData,
+			&finalOutput,
+			logger,
+			&cleanupErrors,
+		)
 	}()
-	for _, hook := range setupHooks {
-		if err := hook(ctx, &wfDef.Steps, &ao, config, &runData); err != nil {
-			if temporal.IsTimeoutError(err) {
-				return workflowengine.WorkflowResult{}, err
-			}
-			if temporal.IsCanceledError(err) {
-				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
-					runMetadata,
-				)
-			}
-			return result, workflowengine.NewWorkflowError(err, runMetadata)
-		}
+
+	if err := runSetupHooks(ctx, &wfDef.Steps, &ao, config, &runData); err != nil {
+		return workflowengine.WorkflowResult{}, err
 	}
+
 	var previousStepID string
 	for _, step := range wfDef.Steps {
 		stepInputs := map[string]any{
@@ -278,7 +186,13 @@ func (w *PipelineWorkflow) Workflow(
 				)
 			}
 			if len(step.OnSuccess) > 0 {
-				logger.Info("Executing onSuccess steps for step", "step_id", step.ID, "count", len(step.OnSuccess))
+				logger.Info(
+					"Executing onSuccess steps for step",
+					"step_id",
+					step.ID,
+					"count",
+					len(step.OnSuccess),
+				)
 				ExecuteEventStepsOnSuccess(ctx, step.OnSuccess, stepInputs, errorsList, ao, config)
 			}
 
@@ -328,7 +242,13 @@ func (w *PipelineWorkflow) Workflow(
 			}
 
 			if len(step.OnSuccess) > 0 {
-				logger.Info("Executing onSuccess steps for step", "step_id", step.ID, "count", len(step.OnSuccess))
+				logger.Info(
+					"Executing onSuccess steps for step",
+					"step_id",
+					step.ID,
+					"count",
+					len(step.OnSuccess),
+				)
 				ExecuteEventStepsOnSuccess(ctx, step.OnSuccess, stepInputs, errorsList, ao, config)
 			}
 
@@ -530,4 +450,142 @@ func ExecuteEventStepsOnSuccess(
 		}
 	}
 	return errorsList
+}
+
+func (w *PipelineWorkflow) handleScheduledRun(
+	ctx workflow.Context,
+	input PipelineWorkflowInput,
+	config map[string]any,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
+) (
+	workflow.Context,
+	*WorkflowDefinition,
+	workflow.ActivityOptions,
+	bool,
+	error,
+) {
+	pipelineID, ok := input.WorkflowInput.Payload.(map[string]any)["pipeline_id"].(string)
+	if !ok || pipelineID == "" {
+		return ctx, nil, workflow.ActivityOptions{}, false,
+			workflowengine.NewMissingOrInvalidPayloadError(
+				fmt.Errorf("missing pipeline_id"),
+				runMetadata,
+			)
+	}
+
+	httpCtx := workflow.WithActivityOptions(
+		ctx,
+		workflow.ActivityOptions{
+			ScheduleToCloseTimeout: time.Minute,
+			StartToCloseTimeout:    30 * time.Second,
+			RetryPolicy: &temporal.RetryPolicy{
+				InitialInterval:    time.Second,
+				BackoffCoefficient: 1.0,
+				MaximumInterval:    time.Minute,
+				MaximumAttempts:    1,
+			},
+		},
+	)
+
+	httpActivity := activities.NewHTTPActivity()
+
+	// --- Validate pipeline identifier
+	recRequest := workflowengine.ActivityInput{
+		Payload: map[string]any{
+			"method": "POST",
+			"url": utils.JoinURL(
+				config["app_url"].(string),
+				"api", "canonify", "identifier", "validate",
+			),
+			"headers": map[string]any{
+				"Content-Type": "application/json",
+			},
+			"body": map[string]any{
+				"canonified_name": pipelineID,
+			},
+			"expected_status": 200,
+		},
+	}
+
+	var recResult workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(httpCtx, httpActivity.Name(), recRequest).
+		Get(httpCtx, &recResult); err != nil {
+		return ctx, nil, workflow.ActivityOptions{}, false,
+			workflowengine.NewWorkflowError(err, runMetadata)
+	}
+
+	rec, ok := recResult.Output.(map[string]any)["body"].(map[string]any)["record"].(map[string]any)
+	if !ok {
+		return ctx, nil, workflow.ActivityOptions{}, false,
+			workflowengine.NewWorkflowError(
+				workflowengine.NewAppError(
+					errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
+					"missing 'record' in response",
+				),
+				runMetadata,
+			)
+	}
+
+	pipelineYaml, ok := rec["yaml"].(string)
+	if !ok {
+		return ctx, nil, workflow.ActivityOptions{}, false,
+			workflowengine.NewWorkflowError(
+				workflowengine.NewAppError(
+					errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
+					"missing 'yaml' in response",
+				),
+				runMetadata,
+			)
+	}
+
+	wfDef, err := ParseWorkflow(pipelineYaml)
+	if err != nil {
+		return ctx, nil, workflow.ActivityOptions{}, false,
+			workflowengine.NewWorkflowError(
+				workflowengine.NewAppError(
+					errorcodes.Codes[errorcodes.PipelineParsingError],
+					err.Error(),
+				),
+				runMetadata,
+			)
+	}
+
+	debug := wfDef.Runtime.Debug
+
+	for k, v := range wfDef.Config {
+		if _, exists := config[k]; !exists {
+			config[k] = v
+		}
+	}
+
+	options := PrepareWorkflowOptions(wfDef.Runtime)
+	ctx = workflow.WithActivityOptions(ctx, options.ActivityOptions)
+
+	createRequest := workflowengine.ActivityInput{
+		Payload: map[string]any{
+			"method": "POST",
+			"url": utils.JoinURL(
+				config["app_url"].(string),
+				"api", "pipeline", "pipeline-execution-results",
+			),
+			"headers": map[string]any{
+				"Content-Type": "application/json",
+			},
+			"body": map[string]any{
+				"owner":       config["namespace"].(string),
+				"pipeline_id": pipelineID,
+				"workflow_id": workflow.GetInfo(ctx).WorkflowExecution.ID,
+				"run_id":      workflow.GetInfo(ctx).WorkflowExecution.RunID,
+			},
+			"expected_status": 200,
+		},
+	}
+
+	if err := workflow.ExecuteActivity(httpCtx, httpActivity.Name(), createRequest).
+		Get(httpCtx, nil); err != nil {
+		return ctx, nil, workflow.ActivityOptions{}, false,
+			workflowengine.NewWorkflowError(err, runMetadata)
+	}
+
+	return ctx, wfDef, options.ActivityOptions, debug, nil
 }

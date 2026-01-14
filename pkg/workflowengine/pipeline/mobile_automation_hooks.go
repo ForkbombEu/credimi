@@ -103,7 +103,8 @@ func MobileAutomationSetupHook(
 		}
 
 		var res workflowengine.ActivityResult
-		if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), req).Get(ctx, &res); err != nil {
+		if err := workflow.ExecuteActivity(ctx, httpActivity.Name(), req).
+			Get(ctx, &res); err != nil {
 			return err
 		}
 		errCode = errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
@@ -238,7 +239,8 @@ func MobileAutomationSetupHook(
 		installInput := workflowengine.ActivityInput{
 			Payload: map[string]any{"apk": apkPath, "emulator_serial": serial},
 		}
-		if err := workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).Get(mobileCtx, nil); err != nil {
+		if err := workflow.ExecuteActivity(mobileCtx, installActivity.Name(), installInput).
+			Get(mobileCtx, nil); err != nil {
 			return err
 		}
 		startRecordInput := workflowengine.ActivityInput{
@@ -386,7 +388,10 @@ func MobileAutomationCleanupHook(
 			mobileCtx,
 			activities.NewStopEmulatorActivity().Name(),
 			workflowengine.ActivityInput{
-				Payload: map[string]any{"emulator_serial": payload.EmulatorSerial, "clone_name": payload.CloneName},
+				Payload: map[string]any{
+					"emulator_serial": payload.EmulatorSerial,
+					"clone_name":      payload.CloneName,
+				},
 			},
 		).Get(ctx, nil); err != nil {
 			logger.Error(
@@ -502,7 +507,10 @@ func cleanupRecording(
 		workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodPost,
-				URL:    utils.JoinURL(utils.GetEnvironmentVariable("MAESTRO_WORKER", ""), "store-pipeline-result"),
+				URL: utils.JoinURL(
+					utils.GetEnvironmentVariable("MAESTRO_WORKER", ""),
+					"store-pipeline-result",
+				),
 				Headers: map[string]string{
 					"Content-Type": "application/json",
 				},
