@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"net/http"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -33,11 +34,10 @@ var CanonifyRoutes routing.RouteGroup = routing.RouteGroup{
 			Description:   "Validate an entity identifier",
 		},
 		{
-			Method:        http.MethodPost,
-			Path:          "/identifier/get",
-			Handler:       HandleGetIdentifier,
-			RequestSchema: IdentifierGetRequest{},
-			Description:   "Get the canonical identifier path of a record by id",
+			Method:      http.MethodGet,
+			Path:        "/identifier/get",
+			Handler:     HandleGetIdentifier,
+			Description: "Get the canonical identifier path of a record by id",
 		},
 	},
 }
@@ -64,19 +64,30 @@ func HandleIdentifierValidate() func(*core.RequestEvent) error {
 	}
 }
 
-type IdentifierGetRequest struct {
-	Collection string `json:"collection"`
-	ID         string `json:"id"`
-}
-
 func HandleGetIdentifier() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		req, err := routing.GetValidatedInput[IdentifierGetRequest](e)
-		if err != nil {
-			return err
+
+		collection := e.Request.URL.Query().Get("collection")
+		if collection == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"collection",
+				"collection is required",
+				"missing collection",
+			).JSON(e)
 		}
 
-		rec, err := e.App.FindRecordById(req.Collection, req.ID)
+		recID := e.Request.URL.Query().Get("id")
+		if recID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"id",
+				"record id is required",
+				"missing id",
+			).JSON(e)
+		}
+
+		rec, err := e.App.FindRecordById(collection, recID)
 		if err != nil {
 			return apierror.New(
 				http.StatusNotFound,
@@ -86,13 +97,27 @@ func HandleGetIdentifier() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		tpl, ok := canonify.CanonifyPaths[req.Collection]
+		if collection == "marketplace_items" {
+			colType := rec.GetString("type")
+			collection = strings.Trim(colType, `"`)
+			rec, err = e.App.FindRecordById(collection, recID)
+			if err != nil {
+				return apierror.New(
+					http.StatusNotFound,
+					"id",
+					"record not found",
+					err.Error(),
+				).JSON(e)
+			}
+		}
+
+		tpl, ok := canonify.CanonifyPaths[collection]
 		if !ok {
 			return apierror.New(
 				http.StatusBadRequest,
 				"collection",
 				"no path template for collection",
-				req.Collection,
+				collection,
 			).JSON(e)
 		}
 
@@ -107,8 +132,8 @@ func HandleGetIdentifier() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
-			"collection": req.Collection,
-			"id":         req.ID,
+			"collection": collection,
+			"id":         recID,
 			"identifier": identifier,
 		})
 	}
