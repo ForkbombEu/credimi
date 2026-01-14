@@ -512,7 +512,7 @@ func getStringFromMap(m map[string]any, key string) string {
 	return ""
 }
 
-func decodeFromTemporalPayload(encoded string) string {
+func DecodeFromTemporalPayload(encoded string) string {
 	if encoded == "" {
 		return ""
 	}

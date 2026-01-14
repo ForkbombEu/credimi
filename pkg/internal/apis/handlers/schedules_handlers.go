@@ -297,13 +297,13 @@ func listScheduledWorkflows(namespace string) ([]*ScheduleInfoSummary, error) {
 		var displayName string
 		if schedInfo.Memo != nil {
 			if field, ok := schedInfo.Memo.Fields["test"]; ok {
-				displayName = decodeFromTemporalPayload(*field.Data)
+				displayName = DecodeFromTemporalPayload(*field.Data)
 			}
 		}
 		var pipelineID string
 		if schedInfo.Memo != nil {
 			if field, ok := schedInfo.Memo.Fields["pipeline_id"]; ok {
-				pipelineID = decodeFromTemporalPayload(*field.Data)
+				pipelineID = DecodeFromTemporalPayload(*field.Data)
 			}
 		}
 		scheduleMode := workflowengine.ParseScheduleMode(schedInfo.Spec.Calendars)
