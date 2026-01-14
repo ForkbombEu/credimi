@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { EntityData } from '$lib/global/entities.js';
+
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
 	import { String } from 'effect';
@@ -21,7 +23,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StepsBuilder } from './steps-builder.svelte.js';
 
 	import * as steps from '../steps';
-	import { configs } from '../steps/index.js';
 	import Column from './_partials/column.svelte';
 	import EmptyState from './_partials/empty-state.svelte';
 	import StepCard from './_partials/step-card.svelte';
@@ -89,16 +90,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet stepButtons()}
 	<div class="flex flex-col gap-2 p-4" in:fly>
-		{#each configs as config (config.use)}
-			{@const { icon, labels, classes } = steps.getDisplayData(config.use)}
-			<Button
-				variant="outline"
-				class="!justify-start"
-				onclick={() => builder.initAddStep(config.use)}
-			>
-				<Icon src={icon} class={classes.text} />
-				{labels.singular}
-			</Button>
+		{#each steps.coreConfigs as config (config.use)}
+			{@render stepButton(config)}
 		{/each}
 
 		<div
@@ -106,9 +99,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			{m.utils()}
 		</div>
-		<Button variant="outline" class="!justify-start" onclick={() => builder.addDebugStep()}>
-			<Icon src={debugEntityData.icon} class={debugEntityData.classes.text} />
-			{debugEntityData.labels.singular}
-		</Button>
+
+		{@render baseStepButton(debugEntityData, () => builder.addDebugStep())}
+
+		{#each steps.utilsConfigs as config (config.use)}
+			{@render stepButton(config)}
+		{/each}
 	</div>
+{/snippet}
+
+{#snippet stepButton(config: steps.AnyConfig)}
+	{@render baseStepButton(steps.getDisplayData(config.use), () =>
+		builder.initAddStep(config.use)
+	)}
+{/snippet}
+
+{#snippet baseStepButton(displayData: EntityData, onClick: () => void)}
+	<Button variant="outline" class="!justify-start" onclick={onClick}>
+		<Icon src={displayData.icon} class={displayData.classes.text} />
+		{displayData.labels.singular}
+	</Button>
 {/snippet}

@@ -117,7 +117,12 @@ function generateIds(steps: PipelineStep[]): PipelineStep[] {
 
 //
 
-const unlinkableSteps: PipelineStepType[] = ['mobile-automation', 'debug'];
+const linkableSteps: PipelineStepType[] = [
+	'conformance-check',
+	'credential-offer',
+	'use-case-verification-deeplink',
+	'custom-check'
+];
 
 function linkIds(steps: PipelineStep[]): PipelineStep[] {
 	for (const [index, step] of steps.entries()) {
@@ -128,7 +133,7 @@ function linkIds(steps: PipelineStep[]): PipelineStep[] {
 		const previousStep = steps
 			.slice(0, index)
 			.toReversed()
-			.filter((s) => !unlinkableSteps.includes(s.use))
+			.filter((s) => linkableSteps.includes(s.use))
 			.at(0);
 
 		if (!previousStep || !('id' in previousStep)) continue;
