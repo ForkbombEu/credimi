@@ -869,5 +869,5 @@
 	"record": "Record",
 	"data_cloned_successfully": "{data_type} cloned successfully",
 	"failed_to_clone_data": "failed to clone {data_type}",
-	"debug": "Debug"
+	"Debug": "Debug"
 }
