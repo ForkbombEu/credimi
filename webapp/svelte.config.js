@@ -3,9 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
+import fs from 'fs';
 import adapter from 'svelte-adapter-bun';
 
-import { appVersion } from './src/modules/utils/appVersion';
+//
+
+const version = fs.readFileSync('../VERSION', 'utf-8').trim();
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {
@@ -20,7 +23,7 @@ const config = {
 			'$pipeline-form': './src/lib/pipeline-form',
 			$root: '..'
 		},
-		version: { name: appVersion }
+		version: { name: version }
 	}
 };
 
