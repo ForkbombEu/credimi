@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { Record } from 'effect';
 import { z } from 'zod';
 
 import type { SelectOption } from '@/components/ui-custom/utils';
@@ -45,17 +46,15 @@ export type ScheduleMode = z.infer<typeof scheduleModeSchema>;
 
 export type ScheduleModeName = ScheduleMode['mode'];
 
-export const scheduleModeOptions: SelectOption<ScheduleModeName>[] = [
-	{
-		label: m.daily(),
-		value: 'daily'
-	},
-	{
-		label: m.weekly(),
-		value: 'weekly'
-	},
-	{
-		label: m.monthly(),
-		value: 'monthly'
-	}
-];
+const scheduleModeNameTranslations: Record<ScheduleModeName, string> = {
+	daily: m.daily(),
+	weekly: m.weekly(),
+	monthly: m.monthly()
+};
+
+export const scheduleModeOptions: SelectOption<ScheduleModeName>[] = Record.toEntries(
+	scheduleModeNameTranslations
+).map(([name, label]) => ({
+	label,
+	value: name
+}));

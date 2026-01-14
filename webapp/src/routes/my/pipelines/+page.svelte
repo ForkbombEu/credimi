@@ -66,13 +66,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type PipelineWithSchedule = PocketbaseQueryResponse<
-		'pipelines',
-		['pipeline_results_via_pipeline']
-	>;
+	type PipelineWithSchedule = PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline']>;
 
 	function getPipelineSchedule(pipeline: PipelineWithSchedule) {
-		return pipeline.expand?.pipeline_results_via_pipeline?.find(
+		return pipeline.expand?.schedules_via_pipeline?.find(
 			(res) => res.owner === organization.id
 		);
 	}
@@ -90,7 +87,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		queryOptions={{
 			filter: `owner = '${organization.id}'`,
 			sort: ['created', 'DESC'],
-			expand: ['pipeline_results_via_pipeline']
+			expand: ['schedules_via_pipeline']
 		}}
 		hide={['pagination']}
 	>
@@ -122,7 +119,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{@const schedule = getPipelineSchedule(pipeline)}
 							<div class="flex justify-between">
 								{#if schedule}
-									<T>{schedule.workflow_id}</T>
+									<T>{schedule.temporal_schedule_id}</T>
 								{/if}
 
 								{#if !schedule}

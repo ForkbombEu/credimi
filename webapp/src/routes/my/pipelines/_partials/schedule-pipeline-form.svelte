@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { getPath } from '$lib/utils';
 	import { CalendarIcon } from 'lucide-svelte';
 
 	import type { PipelinesResponse } from '@/pocketbase/types';
@@ -29,7 +30,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let isOpen = $state(false);
 
-	const form = createSchedulePipelineForm(pipeline.id, () => {
+	const form = createSchedulePipelineForm(getPath(pipeline), () => {
 		// isOpen = false;
 	});
 
