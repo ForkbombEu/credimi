@@ -4,6 +4,7 @@
 
 import type { FormOptions as SuperformOptions } from 'sveltekit-superforms';
 
+import { nanoid } from 'nanoid';
 import { type ValidationAdapter } from 'sveltekit-superforms/adapters';
 import { defaults, setError, superForm } from 'sveltekit-superforms/client';
 
@@ -51,6 +52,8 @@ export function createForm<Data extends GenericRecord>(props: CreateFormProps<Da
 		validators: adapter,
 		dataType: 'json',
 		taintedMessage: null,
+		invalidateAll: false,
+		id: nanoid(5),
 		onUpdate: async (event) => {
 			try {
 				if (event.form.valid) await onSubmit(event);
