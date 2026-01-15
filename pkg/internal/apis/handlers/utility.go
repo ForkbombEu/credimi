@@ -9,6 +9,22 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 )
 
+func GetUserOrganization(app core.App, userID string) (*core.Record, error) {
+	orgID, err := GetUserOrganizationID(app, userID)
+	if err != nil {
+		return nil, err
+	}
+	orgRecord, err := app.FindFirstRecordByFilter(
+		"organizations",
+		"id={:id}",
+		dbx.Params{"id": orgID},
+	)
+	if err != nil {
+		return nil, err
+	}
+	return orgRecord, nil
+}
+
 func GetUserOrganizationID(app core.App, userID string) (string, error) {
 	orgAuthCollection, err := app.FindCollectionByNameOrId("orgAuthorizations")
 	if err != nil {

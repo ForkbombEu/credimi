@@ -4,6 +4,9 @@
 package handlers
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -12,10 +15,15 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
+	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type PipelineInput struct {
@@ -36,6 +44,11 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandlePipelineStart,
 			RequestSchema: PipelineInput{},
 			Description:   "Start a pipeline workflow from a YAML file",
+		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/details",
+			Handler: HandleGetPipelineDetails,
 		},
 	},
 }
@@ -187,5 +200,178 @@ func HandleGetPipelineYAML() func(*core.RequestEvent) error {
 		}
 		yaml := record.GetString("yaml")
 		return e.String(http.StatusOK, yaml)
+	}
+}
+
+func HandleGetPipelineDetails() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+		if authRecord == nil {
+			return apierror.New(
+				http.StatusUnauthorized,
+				"auth",
+				"authentication required",
+				"user not authenticated",
+			).JSON(e)
+		}
+
+		organization, err := GetUserOrganization(e.App, authRecord.Id)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed to get user organization",
+				err.Error(),
+			).JSON(e)
+		}
+		pipelineRecords, err := e.App.FindRecordsByFilter(
+			"pipelines",
+			"owner={:owner} || published={:published}",
+			"",
+			-1,
+			0,
+			dbx.Params{
+				"owner":     organization.Id,
+				"published": true,
+			},
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipelines",
+				"failed to fetch pipelines",
+				err.Error(),
+			).JSON(e)
+		}
+
+		if len(pipelineRecords) == 0 {
+			return e.JSON(http.StatusOK, map[string]any{
+				"pipelines": []any{},
+				"count":     0,
+			})
+		}
+
+		results := make(map[string][]WorkflowDescriptionInfoSummary)
+
+		for _, pipelineRecord := range pipelineRecords {
+
+			pipelineID := pipelineRecord.Id
+			resultsRecords, err := e.App.FindRecordsByFilter(
+				"pipeline_results",
+				"pipeline={:pipeline} && owner={:owner}",
+				"",
+				-1,
+				0,
+				dbx.Params{
+					"pipeline": pipelineID,
+					"owner":    organization.Id,
+				},
+			)
+
+			results[pipelineID] = make([]WorkflowDescriptionInfoSummary, 0, len(resultsRecords))
+			if err == nil {
+				for _, resultRecord := range resultsRecords {
+
+					c, err := temporalclient.GetTemporalClientWithNamespace(organization.GetString("canonified_name"))
+					if err != nil {
+						return apierror.New(
+							http.StatusInternalServerError,
+							"temporal",
+							"unable to create client",
+							err.Error(),
+						).JSON(e)
+					}
+					workflowExecution, err := c.DescribeWorkflowExecution(
+						context.Background(),
+						resultRecord.GetString("workflow_id"),
+						resultRecord.GetString("run_id"),
+					)
+					if err != nil {
+						notFound := &serviceerror.NotFound{}
+						if errors.As(err, &notFound) {
+							return apierror.New(
+								http.StatusNotFound,
+								"workflow",
+								"workflow not found",
+								err.Error(),
+							).JSON(e)
+						}
+						invalidArgument := &serviceerror.InvalidArgument{}
+						if errors.As(err, &invalidArgument) {
+							return apierror.New(
+								http.StatusBadRequest,
+								"workflow",
+								"invalid workflow ID",
+								err.Error(),
+							).JSON(e)
+						}
+						return apierror.New(
+							http.StatusInternalServerError,
+							"workflow",
+							"failed to describe workflow execution",
+							err.Error(),
+						).JSON(e)
+					}
+					weJSON, err := protojson.Marshal(workflowExecution.WorkflowExecutionInfo)
+					if err != nil {
+						return apierror.New(
+							http.StatusInternalServerError,
+							"workflow",
+							"failed to marshal workflow execution",
+							err.Error(),
+						).JSON(e)
+					}
+
+					var execInfo WorkflowExecutionInfo
+					err = json.Unmarshal(weJSON, &execInfo)
+					if err != nil {
+						return apierror.New(
+							http.StatusInternalServerError,
+							"workflow",
+							"failed to unmarshal workflow execution",
+							err.Error(),
+						).JSON(e)
+					}
+
+					summary := WorkflowDescriptionInfoSummary{
+						Execution: execInfo.Execution,
+						Type:      execInfo.Type,
+						StartTime: execInfo.StartTime,
+						EndTime:   execInfo.CloseTime,
+						Status:    execInfo.Status,
+					}
+
+					if enums.WorkflowExecutionStatus(
+						enums.WorkflowExecutionStatus_value[summary.Status],
+					) == enums.WORKFLOW_EXECUTION_STATUS_FAILED {
+						if failure := fetchWorkflowFailure(
+							context.Background(),
+							c,
+							summary.Execution.WorkflowID,
+							summary.Execution.RunID,
+						); failure != nil {
+							summary.FailureReason = failure
+						}
+					}
+
+					summary.DisplayName = pipelineRecord.GetString("name")
+
+					runResults := computePipelineResults(
+						e.App,
+						organization.GetString("canonified_name"),
+						summary.Execution.WorkflowID,
+						summary.Execution.RunID,
+					)
+					summary.Results = runResults
+
+					results[pipelineID] = append(results[pipelineID], summary)
+				}
+			}
+
+		}
+
+		return e.JSON(http.StatusOK, map[string]any{
+			"pipelines": results,
+		})
 	}
 }
