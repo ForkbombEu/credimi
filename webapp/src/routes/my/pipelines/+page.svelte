@@ -6,75 +6,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { getPath, runWithLoading } from '$lib/utils';
-	import { Pencil, PlayIcon, Plus } from 'lucide-svelte';
-	import { toast } from 'svelte-sonner';
-
-	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
-	import type { PipelinesResponse } from '@/pocketbase/types';
+	import { PlayIcon, Plus } from 'lucide-svelte';
 
 	import { CollectionManager, RecordClone } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
-	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { goto, m } from '@/i18n';
+	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
-	import ScheduleActions from './_partials/schedule-actions.svelte';
-	import SchedulePipelineForm from './_partials/schedule-pipeline-form.svelte';
-	import { type ScheduleMode, scheduleModeLabel } from './_partials/schedule.utils';
+	import PipelineCard from './_partials/pipeline-card.svelte';
+	import { runPipeline } from './_partials/utils';
+
+	//
 
 	let { data } = $props();
 	let { organization } = $derived(data);
 
 	setDashboardNavbar({ title: 'Pipelines', right: navbarRight });
-
-	//
-
-	async function runPipeline(pipeline: PipelinesResponse) {
-		const result = await runWithLoading({
-			fn: async () => {
-				return await pb.send('/api/pipeline/start', {
-					method: 'POST',
-					body: {
-						yaml: pipeline.yaml,
-						pipeline_identifier: getPath(pipeline)
-					}
-				});
-			},
-			showSuccessToast: false
-		});
-
-		if (result?.result) {
-			const { workflowId, workflowRunId } = result.result;
-			const workflowUrl =
-				workflowId && workflowRunId
-					? `/my/tests/runs/${workflowId}/${workflowRunId}`
-					: undefined;
-
-			toast.success(m.Pipeline_started_successfully(), {
-				description: m.View_workflow_details(),
-				duration: 10000,
-				...(workflowUrl && {
-					action: {
-						label: m.View(),
-						onClick: () => goto(workflowUrl)
-					}
-				})
-			});
-		}
-	}
-
-	//
-
-	type PipelineWithSchedule = PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline']>;
-
-	function getPipelineSchedule(pipeline: PipelineWithSchedule) {
-		return pipeline.expand?.schedules_via_pipeline?.find(
-			(res) => res.owner === organization.id
-		);
-	}
 </script>
 
 <!-- Your Pipelines Section -->
@@ -91,60 +40,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	>
 		{#snippet records({ records })}
 			<div class="space-y-4">
-				{#each records as pipeline (pipeline.id)}
-					<DashboardCard
-						record={pipeline}
-						avatar={() => pb.files.getURL(organization, organization.logo)}
-						path={[organization.canonified_name, pipeline.canonified_name]}
-						badge={m.Yours()}
-					>
-						{#snippet editAction()}
-							<Button onclick={() => runPipeline(pipeline)}>
-								<PlayIcon />{m.Run_now()}
-							</Button>
-							<!-- <Button
-								href="/my/pipelines/settings-{pipeline.id}"
-								variant="outline"
-								size="icon"
-							>
-								<CogIcon />
-							</Button> -->
-							<RecordClone
-								collectionName="pipelines"
-								recordId={pipeline.id}
-								size="md"
-							/>
-							<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} />
-						{/snippet}
-
-						{#snippet content()}
-							{@const schedule = getPipelineSchedule(pipeline)}
-							<div class="flex justify-between">
-								<div class="flex items-center gap-1.5 text-sm">
-									{#if schedule}
-										{@render circle('bg-green-500')}
-										<T>
-											<span class="font-bold">{m.scheduled()}:</span>
-											{scheduleModeLabel(schedule.mode as ScheduleMode)}
-										</T>
-									{:else}
-										{@render circle('bg-gray-50 border')}
-										<T>
-											{m.Pipeline_execution_is_not_scheduled()}
-										</T>
-									{/if}
-								</div>
-
-								<div class="-m-2">
-									{#if !schedule}
-										<SchedulePipelineForm {pipeline} />
-									{:else}
-										<ScheduleActions {schedule} />
-									{/if}
-								</div>
-							</div>
-						{/snippet}
-					</DashboardCard>
+				{#each records as pipeline, index (pipeline.id)}
+					<PipelineCard bind:pipeline={records[index]} {organization} />
 				{/each}
 			</div>
 		{/snippet}
@@ -207,8 +104,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Plus />
 		{m.New()}
 	</Button>
-{/snippet}
-
-{#snippet circle(className: string)}
-	<div class="size-2 rounded-full {className}"></div>
 {/snippet}

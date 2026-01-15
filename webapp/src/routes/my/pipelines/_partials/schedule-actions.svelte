@@ -9,19 +9,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { EllipsisIcon, PauseIcon, PlayIcon, XIcon } from 'lucide-svelte';
 
 	import type { IconComponent } from '@/components/types';
-	import type { SchedulesResponse } from '@/pocketbase/types';
 
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import type { EnrichedSchedule } from './types';
+
 	//
 
 	type Props = {
-		schedule: SchedulesResponse;
+		schedule: EnrichedSchedule;
 	};
 
-	let { schedule }: Props = $props();
+	let { schedule = $bindable() }: Props = $props();
 
 	//
 
@@ -29,9 +30,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type: 'cancel' | 'pause' | 'resume';
 		label: string;
 		icon: IconComponent;
-		action: (scheduleId: string, options?: { fetch: typeof fetch }) => Promise<void>;
+		action: (schedule: EnrichedSchedule, options?: { fetch: typeof fetch }) => Promise<void>;
 		successMessage: string;
-		disabled?: (schedule: SchedulesResponse | undefined) => boolean;
+		disabled?: (schedule: EnrichedSchedule | undefined) => boolean;
 	};
 
 	export const scheduleActions: ScheduleAction[] = [
@@ -40,8 +41,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			label: m.Cancel(),
 			icon: XIcon,
 			successMessage: m.Schedule_cancelled_successfully(),
-			action: async (scheduleId: string, options = { fetch }) => {
-				return await pb.send(`/api/my/schedules/${scheduleId}/cancel`, {
+			action: async (schedule, options = { fetch }) => {
+				const id = schedule.temporal_schedule_id;
+				await pb.send(`/api/my/schedules/${id}/cancel`, {
 					method: 'POST',
 					requestKey: null,
 					fetch: options.fetch
@@ -53,28 +55,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			label: m.Pause(),
 			icon: PauseIcon,
 			successMessage: m.Schedule_paused_successfully(),
-			action: async (scheduleId: string, options = { fetch }) => {
-				return await pb.send(`/api/my/schedules/${scheduleId}/pause`, {
+			action: async (schedule, options = { fetch }) => {
+				const id = schedule.temporal_schedule_id;
+				await pb.send(`/api/my/schedules/${id}/pause`, {
 					method: 'POST',
 					requestKey: null,
 					fetch: options.fetch
 				});
+				schedule.__schedule_status__.paused = true;
 			},
-			disabled: (schedule) => false
+			disabled: (schedule) => Boolean(schedule?.__schedule_status__.paused)
 		},
 		{
 			type: 'resume',
 			label: m.Resume(),
 			icon: PlayIcon,
 			successMessage: m.Schedule_resumed_successfully(),
-			action: async (scheduleId: string, options = { fetch }) => {
-				return await pb.send(`/api/my/schedules/${scheduleId}/resume`, {
+			action: async (schedule, options = { fetch }) => {
+				const id = schedule.temporal_schedule_id;
+				await pb.send(`/api/my/schedules/${id}/resume`, {
 					method: 'POST',
 					requestKey: null,
 					fetch: options.fetch
 				});
+				schedule.__schedule_status__.paused = false;
 			},
-			disabled: (schedule) => false
+			disabled: (schedule) => !schedule?.__schedule_status__.paused
 		}
 	];
 </script>
@@ -87,7 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		disabled: !action.disabled ? false : action.disabled(schedule),
 		onclick: () =>
 			runWithLoading({
-				fn: () => action.action(schedule.temporal_schedule_id),
+				fn: () => action.action(schedule),
 				successText: action.successMessage,
 				showSuccessToast: true
 			})

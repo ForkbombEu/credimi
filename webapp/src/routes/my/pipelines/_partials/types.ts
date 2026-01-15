@@ -6,6 +6,7 @@ import { Record } from 'effect';
 import { z } from 'zod';
 
 import type { SelectOption } from '@/components/ui-custom/utils';
+import type { SchedulesResponse } from '@/pocketbase/types';
 
 import { m } from '@/i18n';
 
@@ -70,3 +71,15 @@ export function scheduleModeLabel(mode: ScheduleMode) {
 		return m.monthly() + ' (' + mode.day + ')';
 	}
 }
+
+//
+
+type ScheduleStatus = {
+	display_name: string;
+	next_action_time: string;
+	paused: boolean;
+};
+
+export type EnrichedSchedule = SchedulesResponse & {
+	__schedule_status__: ScheduleStatus;
+};

@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
-	import { dayOptions, scheduleModeOptions, scheduleModeSchema } from './schedule.utils';
+	import { dayOptions, scheduleModeOptions, scheduleModeSchema } from './types';
 
 	//
 
