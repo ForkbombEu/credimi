@@ -4,6 +4,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { m } from '@/i18n';
 	import ScoreboardTable from './scoreboard-table.svelte';
 	import type { ScoreboardData } from './types';
 
@@ -21,20 +22,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	const tabs = [
-		{ key: 'wallets' as const, label: 'Wallets', count: data.summary.wallets.length },
-		{ key: 'issuers' as const, label: 'Issuers', count: data.summary.issuers.length },
-		{ key: 'verifiers' as const, label: 'Verifiers', count: data.summary.verifiers.length },
-		{ key: 'pipelines' as const, label: 'Pipelines', count: data.summary.pipelines.length }
+		{ key: 'wallets' as const, label: m.wallets(), count: data.summary.wallets.length },
+		{ key: 'issuers' as const, label: m.issuers(), count: data.summary.issuers.length },
+		{ key: 'verifiers' as const, label: m.verifiers(), count: data.summary.verifiers.length },
+		{ key: 'pipelines' as const, label: m.pipelines(), count: data.summary.pipelines.length }
 	];
 </script>
 
 <!-- Tab Navigation -->
-<div class="mb-6 flex gap-2 border-b">
+<div class="tab-navigation">
 	{#each tabs as tab}
 		<button
-			class="px-4 py-2 {activeTab === tab.key
-				? 'border-b-2 border-blue-600 font-semibold text-blue-600'
-				: 'text-gray-600 hover:text-blue-600'}"
+			class="tab-button"
+			class:tab-active={activeTab === tab.key}
+			class:tab-inactive={activeTab !== tab.key}
 			onclick={() => (activeTab = tab.key)}
 		>
 			{tab.label} ({tab.count})
@@ -43,4 +44,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </div>
 
 <!-- Data Table -->
-<ScoreboardTable entries={getTabData()} {showActions} emptyMessage="No {activeTab} data available" />
+<ScoreboardTable entries={getTabData()} {showActions} emptyMessage={m.scoreboard_no_data_for_tab({ tab: activeTab })} />
+
+<style lang="postcss">
+	.tab-navigation {
+		@apply mb-6 flex gap-2 border-b;
+	}
+
+	.tab-button {
+		@apply px-4 py-2;
+	}
+
+	.tab-active {
+		@apply border-b-2 border-blue-600 font-semibold text-blue-600;
+	}
+
+	.tab-inactive {
+		@apply text-gray-600 hover:text-blue-600;
+	}
+</style>

@@ -10,3 +10,4 @@ export * from './queries';
 // Export components
 export { default as ScoreboardTable } from './scoreboard-table.svelte';
 export { default as ScoreboardTableTabbed } from './scoreboard-table-tabbed.svelte';
+export { default as OTelDetails } from './otel-details.svelte';

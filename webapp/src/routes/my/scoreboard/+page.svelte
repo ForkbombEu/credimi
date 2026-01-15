@@ -4,30 +4,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-import { ScoreboardTableTabbed } from '$lib/scoreboard';
-import type { PageData } from './$types';
+	import { m } from '@/i18n';
+	import { ScoreboardTableTabbed, OTelDetails } from '$lib/scoreboard';
+	import type { PageData } from './$types';
 
-let { data }: { data: PageData } = $props();
+	let { data }: { data: PageData } = $props();
 </script>
 
-<div class="container mx-auto p-6">
-<h1 class="mb-6 text-3xl font-bold">Scoreboard</h1>
+<div class="page-container">
+	<h1 class="page-title">{m.scoreboard()}</h1>
 
-<ScoreboardTableTabbed data={data.scoreboardData} showActions={true} />
+	<ScoreboardTableTabbed data={data.scoreboardData} showActions={true} />
 
-<!-- OpenTelemetry Data Section -->
-<div class="mt-8">
-<details class="rounded-lg border">
-<summary class="cursor-pointer bg-gray-50 px-6 py-3 font-semibold">
-OpenTelemetry Data (Click to expand)
-</summary>
-<div class="p-6">
-<pre class="overflow-x-auto rounded bg-gray-100 p-4 text-sm">{JSON.stringify(
-data.scoreboardData.otelData,
-null,
-2
-)}</pre>
+	<OTelDetails content={data.scoreboardData.otelData} />
 </div>
-</details>
-</div>
-</div>
+
+<style lang="postcss">
+	.page-container {
+		@apply container mx-auto p-6;
+	}
+
+	.page-title {
+		@apply mb-6 text-3xl font-bold;
+	}
+</style>
