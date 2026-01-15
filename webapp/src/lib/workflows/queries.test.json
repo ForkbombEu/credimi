@@ -635,6 +635,7 @@
 			"startTime": "28/11/2025, 19:20:40",
 			"endTime": "28/11/2025, 19:42:06",
 			"status": "WORKFLOW_EXECUTION_STATUS_FAILED",
+			"failure_reason": "Failed to get credential",
 			"displayName": "EUDIW getCredential (3) PID-SD-JWT + PID-MDOC+ Diploma",
 			"children": [
 				{
@@ -663,6 +664,7 @@
 			"startTime": "28/11/2025, 19:20:38",
 			"endTime": "28/11/2025, 19:24:44",
 			"status": "WORKFLOW_EXECUTION_STATUS_FAILED",
+			"failure_reason": "Failed to get credential because the downstream credential issuing service was unavailable for an extended period of time, possibly due to network instability, server downtime, API throttling, incorrect endpoint configuration, or insufficient permissions at one of the intermediate authentication layers. Please check underlying logs, connectivity, and credentials, as well as retry after ensuring all dependencies are operational. If retrying does not resolve the problem, contact the systems administrator or support for further analysis of the authentication and issuing chain, including any third-party integrations or temporal workflow inconsistencies that may be related.",
 			"displayName": "EUDIW - EWC Conformance check (no-video)",
 			"children": [
 				{
@@ -676,7 +678,8 @@
 					"startTime": "28/11/2025, 19:22:16",
 					"endTime": "28/11/2025, 19:24:40",
 					"status": "WORKFLOW_EXECUTION_STATUS_FAILED",
-					"displayName": "onboarding-refvz"
+					"displayName": "onboarding-refvz",
+					"failure_reason": "Failed to get credential because the downstream credential issuing service was unavailable for an extended period of time, possibly due to network instability, server downtime, API throttling, incorrect endpoint configuration, or insufficient permissions at one of the intermediate authentication layers. Please check underlying logs, connectivity, and credentials, as well as retry after ensuring all dependencies are operational. If retrying does not resolve the problem, contact the systems administrator or support for further analysis of the authentication and issuing chain, including any third-party integrations or temporal workflow inconsistencies that may be related."
 				}
 			]
 		},

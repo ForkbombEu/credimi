@@ -46,9 +46,12 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 		};
 	},
 
-	cardData: ({ suite, test }) => ({
+	cardData: ({ suite, test, standard }) => ({
 		title: test.split('/').at(-1)?.replaceAll('+', ' ') ?? '',
 		copyText: test,
-		avatar: suite.logo
+		avatar: suite.logo,
+		meta: {
+			standard: standard.name
+		}
 	})
 };

@@ -32,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
 
-	const { title, copyText, avatar } = $derived.by(() => {
+	const { title, copyText, avatar, meta } = $derived.by(() => {
 		if (step[0].use === 'debug') {
 			return { title: m.Debug() };
 		} else {
@@ -95,6 +95,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 			{/if}
 		</div>
+
+		{#if meta}
+			{#each Object.entries(meta) as [key, value] (key)}
+				<div class="p-3 pt-0">
+					<p class="text-muted-foreground text-xs">
+						<span class="font-medium uppercase">{key}:</span>
+						{value}
+					</p>
+				</div>
+			{/each}
+		{/if}
 	</div>
 
 	{#if step[0].use !== 'debug'}

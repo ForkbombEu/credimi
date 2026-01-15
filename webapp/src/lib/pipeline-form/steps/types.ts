@@ -32,6 +32,7 @@ export interface CardData {
 	title: string;
 	copyText?: string;
 	avatar?: string;
+	meta?: Record<string, unknown>;
 }
 
 // Utilities
