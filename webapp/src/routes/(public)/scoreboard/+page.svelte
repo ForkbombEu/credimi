@@ -4,9 +4,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { OTelDetails, ScoreboardTableTabbed } from '$lib/scoreboard';
+
 	import { m } from '@/i18n';
-	import { ScoreboardTableTabbed, OTelDetails } from '$lib/scoreboard';
+
 	import type { PageData } from './$types';
+
+	//
 
 	let { data }: { data: PageData } = $props();
 </script>

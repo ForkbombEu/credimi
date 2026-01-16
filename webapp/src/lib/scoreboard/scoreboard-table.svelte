@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { m } from '@/i18n';
+
 	import type { ScoreboardEntry } from './types';
 
 	interface Props {
@@ -48,18 +49,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</tr>
 		</thead>
 		<tbody class="table-body">
-			{#each entries as entry}
+			{#each entries as entry (entry.id)}
 				<tr class="table-row">
 					<td class="table-cell">
 						<div class="cell-name">{entry.name}</div>
 					</td>
-					<td class="table-cell cell-secondary">
+					<td class="cell-secondary table-cell">
 						{entry.totalRuns}
 					</td>
-					<td class="table-cell cell-success">
+					<td class="cell-success table-cell">
 						{entry.successCount}
 					</td>
-					<td class="table-cell cell-error">
+					<td class="cell-error table-cell">
 						{entry.failureCount}
 					</td>
 					<td class="table-cell">
@@ -70,11 +71,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<span class="progress-text">{entry.successRate.toFixed(1)}%</span>
 						</div>
 					</td>
-					<td class="table-cell cell-secondary">
+					<td class="cell-secondary table-cell">
 						{new Date(entry.lastRun).toLocaleDateString()}
 					</td>
 					{#if showActions}
 						<td class="table-cell">
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 							<a href="/my/scoreboard/{entry.type}/{entry.id}" class="action-link">
 								{m.view_details()}
 							</a>
@@ -98,23 +100,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.table {
-		@apply min-w-full divide-y divide-gray-200;
+		@apply min-w-full divide-y divide-slate-200;
 	}
 
 	.table-head {
-		@apply bg-gray-50;
+		@apply bg-slate-50;
 	}
 
 	.table-header {
-		@apply px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500;
+		@apply px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500;
 	}
 
 	.table-body {
-		@apply divide-y divide-gray-200 bg-white;
+		@apply divide-y divide-slate-200 bg-white;
 	}
 
 	.table-row {
-		@apply hover:bg-gray-50;
+		@apply hover:bg-slate-50;
 	}
 
 	.table-cell {
@@ -122,11 +124,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.cell-name {
-		@apply text-sm font-medium text-gray-900;
+		@apply text-sm font-medium text-slate-900;
 	}
 
 	.cell-secondary {
-		@apply text-sm text-gray-500;
+		@apply text-sm text-slate-500;
 	}
 
 	.cell-success {
@@ -142,7 +144,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.progress-bar-bg {
-		@apply h-2 w-24 overflow-hidden rounded-full bg-gray-200;
+		@apply h-2 w-24 overflow-hidden rounded-full bg-slate-200;
 	}
 
 	.progress-bar {
@@ -150,7 +152,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.progress-text {
-		@apply text-sm text-gray-700;
+		@apply text-sm text-slate-700;
 	}
 
 	.action-link {
@@ -158,6 +160,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.empty-cell {
-		@apply px-6 py-4 text-center text-gray-500;
+		@apply px-6 py-4 text-center text-slate-500;
 	}
 </style>

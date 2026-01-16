@@ -31,11 +31,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.details-container {
-		@apply rounded-lg border;
+		@apply overflow-hidden rounded-lg border;
 	}
 
 	.details-summary {
-		@apply cursor-pointer bg-gray-50 px-6 py-3 font-semibold;
+		@apply cursor-pointer bg-slate-50 px-6 py-3 font-semibold hover:bg-slate-100;
 	}
 
 	.details-content {
@@ -43,6 +43,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.details-pre {
-		@apply overflow-x-auto rounded bg-gray-100 p-4 text-sm;
+		@apply overflow-x-auto rounded bg-slate-100 p-4 text-sm;
 	}
 </style>

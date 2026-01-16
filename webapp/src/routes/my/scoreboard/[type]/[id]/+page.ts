@@ -1,8 +1,11 @@
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { fetchMyResults, type ScoreboardEntry, type OTelSpan } from '$lib/scoreboard';
+import { fetchMyResults, type OTelSpan, type ScoreboardEntry } from '$lib/scoreboard';
+
 import type { PageLoad } from './$types';
+
+//
 
 export const load: PageLoad = async ({ params }) => {
 	const data = await fetchMyResults();
@@ -24,7 +27,9 @@ export const load: PageLoad = async ({ params }) => {
 			for (const ss of rs.scopeSpans) {
 				spans.push(
 					...ss.spans.filter((span: OTelSpan) =>
-						span.attributes.some((attr) => attr.key === 'entity.id' && attr.value === id)
+						span.attributes.some(
+							(attr) => attr.key === 'entity.id' && attr.value === id
+						)
 					)
 				);
 			}

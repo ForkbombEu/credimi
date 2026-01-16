@@ -5,8 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { m } from '@/i18n';
-	import ScoreboardTable from './scoreboard-table.svelte';
+
 	import type { ScoreboardData } from './types';
+
+	import ScoreboardTable from './scoreboard-table.svelte';
 
 	interface Props {
 		data: ScoreboardData;
@@ -31,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!-- Tab Navigation -->
 <div class="tab-navigation">
-	{#each tabs as tab}
+	{#each tabs as tab (tab.key)}
 		<button
 			class="tab-button"
 			class:tab-active={activeTab === tab.key}
@@ -44,7 +46,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </div>
 
 <!-- Data Table -->
-<ScoreboardTable entries={getTabData()} {showActions} emptyMessage={m.scoreboard_no_data_for_tab({ tab: activeTab })} />
+<ScoreboardTable
+	entries={getTabData()}
+	{showActions}
+	emptyMessage={m.scoreboard_no_data_for_tab({ tab: activeTab })}
+/>
 
 <style lang="postcss">
 	.tab-navigation {
@@ -60,6 +66,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.tab-inactive {
-		@apply text-gray-600 hover:text-blue-600;
+		@apply text-slate-600 hover:text-blue-600;
 	}
 </style>
