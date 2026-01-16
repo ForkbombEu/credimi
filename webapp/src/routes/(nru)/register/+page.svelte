@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { zod4 } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
 	import Oauth from '@/auth/oauth/oauth.svelte';
@@ -67,6 +68,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<WelcomeBanner class="mb-6">
 				<div>
 					<T>
+						<!-- eslint-disable-next-line svelte/no-at-html-tags -->
 						{@html m.you_have_been_invited_by_organization_to_join_the_platform({
 							organizationName: organization.name
 						})}

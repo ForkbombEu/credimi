@@ -6,6 +6,7 @@
       "dependencies": {
         "fast-glob": "^3.3.3",
         "json-schema-to-typescript": "^15.0.4",
+        "json_typegen_wasm": "^0.7.0",
       },
       "devDependencies": {
         "@eslint/compat": "^1.4.0",
@@ -607,6 +608,8 @@
     "json-stable-stringify-without-jsonify": ["json-stable-stringify-without-jsonify@1.0.1", "", {}, "sha512-Bdboy+l7tA3OGW6FjyFHWkP5LuByj1Tk33Ljyq0axyzdk9//JSi2u3fP1QSmd1KNwq6VOKYGlAu87CisVir6Pw=="],
 
     "json5": ["json5@2.2.3", "", { "bin": { "json5": "lib/cli.js" } }, "sha512-XmOWe7eyHYH14cLdVPoyg+GOH3rYX++KpzrylJwSW98t3Nk+U8XOl8FWKOgwtzdb8lXGf6zYwDUzeHMWfxasyg=="],
+
+    "json_typegen_wasm": ["json_typegen_wasm@0.7.0", "", {}, "sha512-xTDD7jlMpXB8S/6lD00aqOmHPuVszG4vtrJTaED8Mb6ziryGtXmtkREWpuvJbWWj45aVFGO3O/WjwxRBLw8dUQ=="],
 
     "keyv": ["keyv@4.5.4", "", { "dependencies": { "json-buffer": "3.0.1" } }, "sha512-oxVHkHR/EJf2CNXnWxRLW6mg7JyCCUcG0DtEGmL2ctUo1PNTin1PUil+r/+4r5MpVgC/fn1kjsx7mjSujKqIpw=="],
 

@@ -10,19 +10,30 @@ import { Array, Option, pipe } from 'effect';
 
 import {
 	CollectionsModels,
-	type CollectionName,
 	type AnyCollectionField,
+	type CollectionName,
 	type FileCollectionField,
 	type RelationCollectionField,
-	type SelectCollectionField,
-	type AnyCollectionModel
+	type SelectCollectionField
 } from './collections-models.generated';
 
 //
 
+export type AnyCollectionModel = {
+	name: string;
+	fields: Array<AnyCollectionField>;
+	indexes: Array<string>;
+	system: boolean;
+	listRule?: string;
+	viewRule?: string;
+	createRule?: string;
+	updateRule?: string;
+	deleteRule?: string;
+};
+
 export function getCollectionModel(collection: CollectionName): AnyCollectionModel {
 	return pipe(
-		CollectionsModels as AnyCollectionModel[],
+		CollectionsModels as unknown as AnyCollectionModel[],
 		Array.findFirst((model) => model.name == collection),
 		Option.getOrThrowWith(() => new CollectionNotFoundError())
 	);

@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { HelpCircle } from '@lucide/svelte';
+	import { zod4 } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
 	import { WelcomeBanner, WelcomeSession } from '@/auth/welcome';
@@ -48,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let seed = $state('');
 
 	const schema = z.object({
-		email: z.string().email(),
+		email: z.email(),
 		questions: userChallengesSchema
 	});
 
@@ -70,7 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				} else {
 					try {
 						await matchPublicAndPrivateKeys(storedPublicKeys, privateKeys);
-					} catch (e) {
+					} catch {
 						throw new Error('Wrong answers');
 					}
 				}
@@ -146,7 +147,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Separator />
 		{/if}
 
-		{#each userChallenges as question}
+		{#each userChallenges as question (question.id)}
 			<Field {form} name={`questions.${question.id}`} options={{ label: question.text }} />
 		{/each}
 

@@ -3,10 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { Renderable } from '$lib/renderable';
-import { createForm } from '@/forms';
-import { tick } from 'svelte';
 import type { SuperForm } from 'sveltekit-superforms';
+
+import { tick } from 'svelte';
+import { zod4 } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
+
+import { createForm } from '@/forms';
+
 import Component from './metadata-form.svelte';
 
 //
@@ -34,7 +38,7 @@ export class MetadataForm implements Renderable<MetadataForm> {
 
 	mountForm() {
 		this.superform = createForm({
-			adapter: zod(metadataSchema),
+			adapter: zod4(metadataSchema),
 			initialData: this.#value,
 			onSubmit: async ({ form }) => {
 				this.#value = form.data;

@@ -10,6 +10,7 @@ import { yamlStringSchema } from '$lib/utils';
 import { nanoid } from 'nanoid';
 import { watch } from 'runed';
 import { fromStore } from 'svelte/store';
+import { zod4 } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 
 import type { State } from '@/utils/types';
@@ -37,7 +38,7 @@ export class CheckConfigCodeEditor implements BaseEditor {
 
 	constructor(public readonly props: CheckConfigJsonEditorProps) {
 		this.superform = createForm({
-			adapter: zod(z.object({ code: yamlStringSchema })),
+			adapter: zod4(z.object({ code: yamlStringSchema })),
 			initialData: { code: this.props.code },
 			options: {
 				id: nanoid(6)

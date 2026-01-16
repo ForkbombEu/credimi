@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { isBefore, isAfter, isValid, parseISO } from 'date-fns';
+import { isAfter, isBefore, isValid, parseISO } from 'date-fns';
 import { pipe } from 'effect';
 import z from 'zod';
 
@@ -132,8 +132,7 @@ function validateDomains(
 	exceptDomains: readonly string[] | undefined = undefined,
 	onlyDomains: readonly string[] | undefined = undefined
 ) {
-	let s: z.ZodString | z.ZodEffects<z.ZodString> | z.ZodEffects<z.ZodEffects<z.ZodString>> =
-		zodString;
+	let s: z.ZodString = zodString;
 
 	if (onlyDomains?.length) {
 		s = s.refine(

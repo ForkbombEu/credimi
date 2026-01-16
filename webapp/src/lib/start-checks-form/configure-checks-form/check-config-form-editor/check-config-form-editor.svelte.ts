@@ -9,6 +9,7 @@ import { Record } from 'effect';
 import { nanoid } from 'nanoid';
 import { watch } from 'runed';
 import { fromStore } from 'svelte/store';
+import { zod4 } from 'sveltekit-superforms/adapters';
 
 import type { State, StringRecord } from '@/utils/types';
 
@@ -33,7 +34,7 @@ export class CheckConfigFormEditor implements BaseEditor {
 
 	constructor(public readonly props: CheckConfigFormEditorProps) {
 		this.superform = createForm({
-			adapter: zod(createCheckConfigFormSchema(this.props.fields)),
+			adapter: zod4(createCheckConfigFormSchema(this.props.fields)),
 			initialData: createCheckConfigFormInitialData(this.props.fields),
 			options: {
 				id: nanoid(6)

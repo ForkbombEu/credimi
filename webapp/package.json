@@ -92,6 +92,7 @@
 	},
 	"dependencies": {
 		"fast-glob": "^3.3.3",
-		"json-schema-to-typescript": "^15.0.4"
+		"json-schema-to-typescript": "^15.0.4",
+		"json_typegen_wasm": "^0.7.0"
 	}
 }

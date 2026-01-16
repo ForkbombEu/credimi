@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { zod4 } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
 	import A from '@/components/ui-custom/a.svelte';
@@ -45,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			try {
 				const keypair = await regenerateKeypair(form.data.seed, hmac);
 				keyring = keypair.keyring;
-			} catch (e) {
+			} catch {
 				throw new Error(m.Invalid_seed());
 			}
 
@@ -58,7 +59,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				} else {
 					try {
 						await matchPublicAndPrivateKeys(publicKeys, keyring);
-					} catch (e) {
+					} catch {
 						throw new Error(m.Invalid_seed());
 					}
 				}

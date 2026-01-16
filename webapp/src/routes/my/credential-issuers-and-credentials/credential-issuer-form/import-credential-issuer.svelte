@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CheckCircle2, ChevronDownIcon, ChevronUpIcon, Download, Loader2 } from '@lucide/svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
+	import { zod4 } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
 
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
@@ -40,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let result = $state<Result>();
 
 	const form = createForm({
-		adapter: zod(
+		adapter: zod4(
 			z.object({
 				url: z.string()
 			})

@@ -142,11 +142,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class="overflow-hidden rounded-lg {className}"
 	{styles}
 	bind:value
-	on:change={(e) => {
-		onChange?.(e.detail);
+	onchange={(e) => {
+		onChange?.(e);
 	}}
-	on:ready={(e) => {
-		const view = e.detail;
+	onready={(view) => {
 		checkParentFlex(view.dom);
 		view.contentDOM.onblur = onBlur;
 		onReady?.(view);

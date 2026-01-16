@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { pipe, Array as A, Record } from 'effect';
-import fs from 'fs';
 import 'dotenv/config';
+import { Array as A, pipe, Record } from 'effect';
+import fs from 'fs';
 import JsonToTS from 'json-to-ts';
 import { capitalize, merge } from 'lodash';
 import path from 'node:path';
@@ -15,15 +15,13 @@ import {
 	formatCode,
 	GENERATED,
 	logCodegenResult,
-	SEPARATOR,
-	openDb
+	openDb,
+	SEPARATOR
 } from '@/utils/codegen';
 
 /* Constants */
 const COLLECTION_FIELD = `CollectionField`;
-const COLLECTION_MODEL = `CollectionModel`;
 const ANY_COLLECTION_FIELD = `Any${COLLECTION_FIELD}`;
-const ANY_COLLECTION_MODEL = `AnyCollectionModel`;
 
 /* Setup */
 
@@ -94,11 +92,6 @@ async function main() {
 
 	/* Codegen */
 
-	const IMPORT_STATEMENTS = `
-import type { ${COLLECTION_MODEL} } from 'pocketbase'
-import type { SetFieldType, Simplify } from 'type-fest';
-`;
-
 	const schemaFieldTypes = getFieldTypeNames(models);
 	const schemaFieldType = `${EXPORT_TYPE} SchemaFieldType = ${schemaFieldTypes.map((t) => JSON.stringify(t)).join(' | ')}`;
 	const schemaFieldOptionsTypesData = schemaFieldTypes.map((f) =>
@@ -110,17 +103,13 @@ import type { SetFieldType, Simplify } from 'type-fest';
 
 	const anySchemaField = `export type ${ANY_COLLECTION_FIELD} = ${schemaFieldOptionsTypesData.map(({ name }) => name).join(' | ')}`;
 
-	const anyCollectionModel = `export type ${ANY_COLLECTION_MODEL} = Simplify<SetFieldType<${COLLECTION_MODEL}, 'schema', ${ANY_COLLECTION_FIELD}[]>>;`;
-
 	const code = [
-		IMPORT_STATEMENTS,
 		SEPARATOR,
 		schemaFieldType,
 		anySchemaField,
 		schemaFields,
 		...schemaFieldOptionsTypesData.map((data) => data.code),
 		SEPARATOR,
-		anyCollectionModel,
 		collectionName(models),
 		sanitizeCollectionsModels(models)
 	].join('\n\n');
@@ -147,7 +136,7 @@ function sanitizeCollectionsModels(models: CollectionModel[]) {
 		})
 	);
 
-	return `export const CollectionsModels = ${JSON.stringify(sanitizedModels, null, 2)} as unknown as ${ANY_COLLECTION_MODEL}[]`;
+	return `export const CollectionsModels = ${JSON.stringify(sanitizedModels, null, 2)}`;
 }
 
 function collectionName(models: CollectionModel[]): string {

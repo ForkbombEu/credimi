@@ -99,7 +99,7 @@ function getParamName(param: Param): string {
 }
 
 function getParamValue(page: Page, param: Param): string | undefined {
-	return page.params[getParamName(param)];
+	return page.params[getParamName(param) as keyof typeof page.params];
 }
 
 /* -- Converting RouteChunkData into useful data for Breadcrumbs -- */

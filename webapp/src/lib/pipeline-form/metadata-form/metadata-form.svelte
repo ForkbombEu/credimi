@@ -34,23 +34,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet content()}
 		{@const f = form.mountForm()}
-		<div>
-			<T class="text-muted-foreground mb-6">{m.save_pipeline_description()}</T>
-			<Form form={f}>
-				<div class="flex items-start gap-6">
-					<div class="grow">
-						<Field form={f} name="name" options={{ label: m.Name() }} />
-					</div>
-					<div class="pt-10">
-						<SwitchField
-							form={f}
-							name="published"
-							options={{ label: m.Publish_to_marketplace() }}
-						/>
-					</div>
-				</div>
-				<MarkdownField form={f} name="description" options={{ label: m.Description() }} />
-			</Form>
-		</div>
+        {#if f}
+            <div>
+                <T class="text-muted-foreground mb-6">{m.save_pipeline_description()}</T>
+                <Form form={f}>
+                    <div class="flex items-start gap-6">
+                        <div class="grow">
+                            <Field form={f} name="name" options={{ label: m.Name() }} />
+                        </div>
+                        <div class="pt-10">
+                            <SwitchField
+                                form={f}
+                                name="published"
+                                options={{ label: m.Publish_to_marketplace() }}
+                            />
+                        </div>
+                    </div>
+                    <MarkdownField form={f} name="description" options={{ label: m.Description() }} />
+                </Form>
+            </div>
+        {/if}
 	{/snippet}
 </Dialog>

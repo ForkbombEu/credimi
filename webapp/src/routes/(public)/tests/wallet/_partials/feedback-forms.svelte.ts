@@ -4,6 +4,7 @@
 
 import type { SuperForm } from 'sveltekit-superforms';
 
+import { zod4 } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 
 import type { GenericRecord } from '@/utils/types';
@@ -26,7 +27,7 @@ export class FeedbackForms {
 
 	constructor({ workflowId, namespace }: FeedbackFormProps) {
 		this.successForm = createForm({
-			adapter: zod(z.object({})),
+			adapter: zod4(z.record(z.string(), z.unknown())),
 			onSubmit: async () => {
 				await pb.send('/api/compliance/confirm-success', {
 					method: 'POST',
@@ -43,7 +44,7 @@ export class FeedbackForms {
 		});
 
 		this.failureForm = createForm({
-			adapter: zod(z.object({ reason: z.string().min(3) })),
+			adapter: zod4(z.object({ reason: z.string().min(3) })),
 			onSubmit: async ({
 				form: {
 					data: { reason }

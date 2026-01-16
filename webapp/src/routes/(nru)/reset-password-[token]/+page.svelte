@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { zod4 } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
@@ -20,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 
 	const form = createForm({
-		adapter: zod(
+		adapter: zod4(
 			z
 				.object({
 					password: z.string().min(8),

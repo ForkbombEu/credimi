@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Trash2 } from '@lucide/svelte';
+	import { ClientResponseError } from 'pocketbase';
 	import { z } from 'zod';
 
 	import { CollectionManager, RecordDelete } from '@/collections-components/manager';
@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let apiKeyName = $state('');
 	let isLoading = $state(false);
 	let apiKeyDialogOpen = $state(false);
-	let generatedApiKey = $state<any>(null);
+	let generatedApiKey = $state<{api_key: string}>();
 	let generatedApiKeyName = $state<string>('');
 	let error = $state<string | null>(null);
 	let dialogTimer = $state(10);
@@ -51,13 +51,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const validation = apiKeyNameSchema.safeParse({ name: apiKeyName });
 
 		if (!validation.success) {
-			error = validation.error.errors[0].message;
+			error = validation.error.message;
 			return;
 		}
 
 		isLoading = true;
 		error = null;
-		generatedApiKey = null;
+		generatedApiKey = undefined;
 
 		try {
 			const result = await pb.send('/api/apikey/generate', {
@@ -72,8 +72,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			dialogTimer = 5;
 			startTimer();
 		} catch (err) {
-			if (err && typeof err === 'object' && 'data' in err) {
-				error = `${m.Error()}: ${(err as any).data?.message || 'Unknown error'}`;
+			if (err instanceof ClientResponseError) {
+				error = `${m.Error()}: ${(err).data?.message || 'Unknown error'}`;
 			} else {
 				error = m.An_unexpected_error_occurred();
 			}
@@ -188,7 +188,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											<RecordDelete record={apiKey}>
 												{#snippet button({
 													triggerAttributes,
-													icon: DeleteIcon
+													icon
 												})}
 													<Button
 														variant="outline"
@@ -196,7 +196,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 														class="h-8 w-8 p-0 text-red-600 hover:text-red-700"
 														{...triggerAttributes}
 													>
-														<Icon src={Trash2} size="sm" />
+														<Icon src={icon} size="sm" />
 													</Button>
 												{/snippet}
 											</RecordDelete>

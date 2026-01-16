@@ -6,17 +6,15 @@ import type { ConfigField } from '$start-checks-form/types';
 
 import { jsonStringSchema } from '$lib/utils';
 import { formatJson } from '$start-checks-form/_utils';
-import { Tuple, pipe } from 'effect';
-import { z, type ZodEffects, ZodString } from 'zod';
+import { pipe, Tuple } from 'effect';
+import { z, ZodString } from 'zod';
 
 //
 
-type CheckConfigFormValueSchema = ZodString | ZodEffects<ZodString>;
-
 export function createCheckConfigFormSchema(fields: ConfigField[]) {
-	const schemaRawShape: Record<string, CheckConfigFormValueSchema> = Object.fromEntries(
+	const schemaRawShape: Record<string, ZodString> = Object.fromEntries(
 		fields.map((f) => {
-			let schema: ZodString | ZodEffects<ZodString>;
+			let schema: ZodString;
 			if (f.field_type == 'string') {
 				schema = z.string().nonempty();
 			} else if (f.field_type == 'object') {

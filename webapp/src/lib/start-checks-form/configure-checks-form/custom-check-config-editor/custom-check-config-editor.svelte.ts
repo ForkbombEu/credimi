@@ -8,12 +8,17 @@ import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
 import { yamlStringSchema } from '$lib/utils';
 import { watch } from 'runed';
 import { fromStore } from 'svelte/store';
+import { zod4 } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 
 import type { CustomChecksResponse } from '@/pocketbase/types';
 import type { State } from '@/utils/types';
 
-import { createJsonSchemaForm, type JsonSchemaForm } from '@/components/json-schema-form';
+import {
+	createJsonSchemaForm,
+	getFormValue,
+	type JsonSchemaForm
+} from '@/components/json-schema-form';
 import { createForm } from '@/forms';
 
 //
@@ -30,7 +35,8 @@ export class CustomCheckConfigEditor implements BaseEditor {
 
 	isValid = $derived.by(() => {
 		let jsonSchemaFormIsValid = true;
-		if (this.jsonSchemaForm) jsonSchemaFormIsValid = this.jsonSchemaForm.validate().size === 0;
+		if (this.jsonSchemaForm)
+			jsonSchemaFormIsValid = this.jsonSchemaForm.fieldsValidation.isSuccess;
 
 		const yamlFormIsValid = this.yamlFormValidationResult?.valid ?? false;
 		return jsonSchemaFormIsValid && yamlFormIsValid;
@@ -46,7 +52,7 @@ export class CustomCheckConfigEditor implements BaseEditor {
 		}
 
 		this.yamlForm = createForm({
-			adapter: zod(z.object({ yaml: yamlStringSchema })),
+			adapter: zod4(z.object({ yaml: yamlStringSchema })),
 			initialData: { yaml: props.customCheck.yaml }
 		});
 		this.yamlFormState = fromStore(this.yamlForm.form);
@@ -56,7 +62,7 @@ export class CustomCheckConfigEditor implements BaseEditor {
 
 	getData() {
 		return {
-			form: this.jsonSchemaForm?.value,
+			form: this.jsonSchemaForm ? getFormValue(this.jsonSchemaForm) : undefined,
 			yaml: this.yamlFormState.current.yaml
 		};
 	}
