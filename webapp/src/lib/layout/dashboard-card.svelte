@@ -13,9 +13,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { getMarketplaceItemUrl, type MarketplaceItem } from '$lib/marketplace';
 	import { path as makePath } from '$lib/utils';
+	import { ArrowDown, ArrowUp } from '@lucide/svelte';
 	import { String } from 'effect';
 	import { truncate } from 'lodash';
-	import { ArrowDown, ArrowUp } from 'lucide-svelte';
 	import removeMd from 'remove-markdown';
 
 	import { RecordClone, RecordDelete, RecordEdit } from '@/collections-components/manager';

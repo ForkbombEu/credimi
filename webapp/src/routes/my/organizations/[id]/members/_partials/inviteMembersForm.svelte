@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowLeft, Mail, X } from 'lucide-svelte';
+	import { ArrowLeft, Mail, X } from '@lucide/svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';

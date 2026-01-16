@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts" generics="R extends BaseRecord">
 	import type { ComponentProps } from 'svelte';
 
-	import { Eye, EyeOff } from 'lucide-svelte';
+	import { Eye, EyeOff } from '@lucide/svelte';
 
 	import SwitchWithIcons from '@/components/ui-custom/switch-with-icons.svelte';
 	import { pb } from '@/pocketbase';

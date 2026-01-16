@@ -5,19 +5,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
 	import Oauth from '@/auth/oauth/oauth.svelte';
-	import { WelcomeSession, WelcomeBanner } from '@/auth/welcome';
+	import { WelcomeBanner, WelcomeSession } from '@/auth/welcome';
 	import A from '@/components/ui-custom/a.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import Separator from '@/components/ui/separator/separator.svelte';
 	import { featureFlags } from '@/features';
 	import { Form, createForm } from '@/forms';
-	import { Field, CheckboxField } from '@/forms/fields';
-	import { m } from '@/i18n';
-	import { goto } from '@/i18n';
+	import { CheckboxField, Field } from '@/forms/fields';
+	import { goto, m } from '@/i18n';
 	import { OrganizationInviteSession } from '@/organizations/invites';
 	import { pb } from '@/pocketbase';
 
@@ -34,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		.refine((data) => data.password === data.passwordConfirm, m.PASSWORDS_DO_NOT_MATCH());
 
 	const form = createForm({
-		adapter: zod(schema),
+		adapter: zod4(schema),
 		onSubmit: async ({ form }) => {
 			const { data } = form;
 			const u = pb.collection('users');

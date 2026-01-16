@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CalendarDays, Clock } from 'lucide-svelte';
+	import { CalendarDays, Clock } from '@lucide/svelte';
 
 	import type { NewsResponse } from '@/pocketbase/types';
 

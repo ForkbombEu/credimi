@@ -4,7 +4,7 @@
 
 import type { EntityData } from '$lib/global';
 
-import BugIcon from 'lucide-svelte/icons/bug';
+import BugIcon from '@lucide/svelte/icons/bug';
 
 import { m } from '@/i18n';
 

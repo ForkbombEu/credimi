@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from 'lucide-svelte';
+	import { ArrowDownIcon, ArrowUpIcon, TrashIcon } from '@lucide/svelte';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 

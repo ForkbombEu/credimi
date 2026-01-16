@@ -13,7 +13,7 @@ export const workflowExecutionInfoSchema = z
 			workflowId: z.string()
 		}),
 		executionTime: z.string(),
-		memo: z.record(z.unknown()),
+		memo: z.record(z.string(), z.unknown()),
 		rootExecution: z.object({
 			runId: z.string(),
 			workflowId: z.string()

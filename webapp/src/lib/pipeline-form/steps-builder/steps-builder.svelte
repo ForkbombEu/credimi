@@ -9,8 +9,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
+	import { ArrowLeftIcon } from '@lucide/svelte';
 	import { String } from 'effect';
-	import { ArrowLeftIcon } from 'lucide-svelte';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
 

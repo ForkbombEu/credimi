@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import FakeTable from '$lib/layout/fakeTable.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import { Sparkle } from 'lucide-svelte';
+	import { Sparkle } from '@lucide/svelte';
 
 	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
 

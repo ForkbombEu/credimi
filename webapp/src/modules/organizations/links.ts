@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Cog, Home, Users, Network } from 'lucide-svelte';
+import { Cog, Home, Network, Users } from '@lucide/svelte';
 
 import type { LinkWithIcon } from '@/components/types';
 

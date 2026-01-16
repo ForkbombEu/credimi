@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import PageIndex from '$lib/layout/pageIndex.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import { Building2, Layers } from 'lucide-svelte';
+	import { Building2, Layers } from '@lucide/svelte';
 
 	import type { MarketplaceItemsResponse, OrganizationsResponse } from '@/pocketbase/types';
 

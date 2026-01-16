@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import SectionCard from '$lib/layout/section-card.svelte';
 	import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
+	import { BlocksIcon } from '@lucide/svelte';
 	import Ajv from 'ajv/dist/2020';
-	import { BlocksIcon } from 'lucide-svelte';
 	import { parse as parseYaml } from 'yaml';
 	import z from 'zod';
 

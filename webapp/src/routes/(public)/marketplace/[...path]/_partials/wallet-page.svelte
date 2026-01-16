@@ -60,8 +60,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { ConformanceCheckSchema } from '$lib/types/checks';
 	import { path } from '$lib/utils';
+	import { Code, DownloadIcon } from '@lucide/svelte';
 	import { String } from 'effect';
-	import { Code, DownloadIcon } from 'lucide-svelte';
 	import { z } from 'zod';
 
 	import type { WalletVersionsResponse } from '@/pocketbase/types';

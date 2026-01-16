@@ -16,8 +16,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import { X } from '@lucide/svelte';
 	import _ from 'lodash';
-	import { X } from 'lucide-svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Badge from '@/components/ui/badge/badge.svelte';

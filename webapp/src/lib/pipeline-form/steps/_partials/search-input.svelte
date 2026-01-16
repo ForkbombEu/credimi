@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { SearchIcon, XIcon } from 'lucide-svelte';
+	import { SearchIcon, XIcon } from '@lucide/svelte';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { Input } from '@/components/ui/input/index.js';

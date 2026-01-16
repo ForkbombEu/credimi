@@ -15,17 +15,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import { Languages } from '@lucide/svelte';
 	import { page } from '$app/state';
-	import { Languages } from 'lucide-svelte';
 
 	import type { IconComponent } from '@/components/types';
 
 	import { getLanguagesData, m, type LanguageData } from '.';
 	import { getLocale } from './paraglide/runtime';
 
+    // 
+
 	type Props = {
 		languages: Snippet<[{ languages: LanguageData[] }]>;
-		contentClass?: string;
 		trigger: Snippet<[LanguageSelectTriggerSnippetProps]>;
 	};
 

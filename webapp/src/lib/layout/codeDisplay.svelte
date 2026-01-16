@@ -7,8 +7,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { ClassValue } from 'svelte/elements';
 
+	import { Check, ClipboardCopy } from '@lucide/svelte';
 	import clsx from 'clsx';
-	import { Check, ClipboardCopy } from 'lucide-svelte';
 	import { codeToHtml, type BundledLanguage, type BundledTheme } from 'shiki';
 
 	import Button from '@/components/ui/button/button.svelte';

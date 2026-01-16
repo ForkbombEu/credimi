@@ -7,10 +7,7 @@ import { defineConfig } from '@playwright/test';
 export const storageState = 'test-results/.auth/user.json';
 
 export default defineConfig({
-	webServer: {
-		command: 'pnpm build && pnpm preview',
-		port: 4173
-	},
+	webServer: { command: 'bun run build && bun run preview', port: 4173 },
 
 	testDir: 'e2e',
 

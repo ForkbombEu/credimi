@@ -4,14 +4,17 @@
 
 import type { Renderable } from '$lib/renderable';
 import type { ActivityOptions } from '$pipeline-form/types.generated';
-import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
-import { createForm } from '@/forms';
-import { getExceptionMessage } from '@/utils/errors';
-import Ajv from 'ajv';
 import type { SuperForm } from 'sveltekit-superforms';
-import { zod } from 'sveltekit-superforms/adapters';
+
+import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
+import Ajv from 'ajv';
+import { zod4 } from 'sveltekit-superforms/adapters';
 import { parse as parseYaml, stringify } from 'yaml';
 import { z } from 'zod';
+
+import { createForm } from '@/forms';
+import { getExceptionMessage } from '@/utils/errors';
+
 import Component from './activity-options-form.svelte';
 
 //
@@ -44,7 +47,7 @@ export class ActivityOptionsForm implements Renderable<ActivityOptionsForm> {
 
 	mountForm() {
 		this.superform = createForm({
-			adapter: zod(
+			adapter: zod4(
 				z.object({
 					code: activtyOptionsStringSchema
 				})
@@ -63,7 +66,7 @@ export class ActivityOptionsForm implements Renderable<ActivityOptionsForm> {
 
 // Schema
 
-const ajv = new Ajv({ allowUnionTypes: true });
+const ajv = new Ajv();
 export const validateActivityOptions = ajv.compile(PipelineSchema.$defs.ActivityOptions);
 
 const activtyOptionsStringSchema = z.string().superRefine((v, ctx) => {
@@ -89,5 +92,5 @@ const activtyOptionsStringSchema = z.string().superRefine((v, ctx) => {
 });
 
 export function isActivityOptions(value: unknown): value is ActivityOptions {
-	return validateActivityOptions(value);
+	return validateActivityOptions(value) as boolean;
 }

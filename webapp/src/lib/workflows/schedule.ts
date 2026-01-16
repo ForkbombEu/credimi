@@ -2,9 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Pause as PauseIcon, Play as PlayIcon, X as XIcon } from 'lucide-svelte';
+import { Pause as PauseIcon, Play as PlayIcon, X as XIcon } from '@lucide/svelte';
 import { toast } from 'svelte-sonner';
-import { zod } from 'sveltekit-superforms/adapters';
+import { zod4 } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 
 import type { IconComponent } from '@/components/types';
@@ -58,7 +58,7 @@ export function createScheduleWorkflowForm(props: {
 }) {
 	const { workflowID, runID, onSuccess } = props;
 	return createForm({
-		adapter: zod(scheduleWorkflowFormSchema),
+		adapter: zod4(scheduleWorkflowFormSchema),
 		onSubmit: async ({ form }) => {
 			await scheduleWorkflow(form.data);
 			toast.success(m.Workflow_scheduled_successfully());

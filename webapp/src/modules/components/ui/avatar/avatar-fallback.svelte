@@ -1,13 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import { Avatar as AvatarPrimitive } from 'bits-ui';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { Avatar as AvatarPrimitive } from "bits-ui";
+	import { cn } from "@/components/ui/utils.js";
 
 	let {
 		ref = $bindable(null),
@@ -18,6 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <AvatarPrimitive.Fallback
 	bind:ref
-	class={cn('flex size-full items-center justify-center bg-muted', className)}
+	data-slot="avatar-fallback"
+	class={cn("bg-muted flex size-full items-center justify-center rounded-full", className)}
 	{...restProps}
 />

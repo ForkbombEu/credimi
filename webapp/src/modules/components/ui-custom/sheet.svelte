@@ -64,9 +64,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Sheet.Root
 	bind:open={
 		() => isOpen,
-		async (v) => {
+		 (v) => {
 			if (v === true) isOpen = v;
-			else await closeSheet();
+			else closeSheet();
 		}
 	}
 >

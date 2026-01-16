@@ -1,14 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLThAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { cn, type WithElementRef } from "@/components/ui/utils.js";
+	import type { HTMLThAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
@@ -20,8 +12,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <th
 	bind:this={ref}
+	data-slot="table-head"
 	class={cn(
-		'h-12 px-4 text-left align-middle font-medium text-muted-foreground [&:has([role=checkbox])]:pr-0',
+		"text-foreground h-10 bg-clip-padding px-2 text-start align-middle font-medium whitespace-nowrap [&:has([role=checkbox])]:pe-0",
 		className
 	)}
 	{...restProps}

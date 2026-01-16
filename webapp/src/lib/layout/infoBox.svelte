@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { CheckIcon, Copy, ExternalLink } from 'lucide-svelte';
+	import { CheckIcon, Copy, ExternalLink } from '@lucide/svelte';
 
 	import T from '@/components/ui-custom/t.svelte';
 

@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
-	import { ArrowUp, Eye } from 'lucide-svelte';
+	import { ArrowUp, Eye } from '@lucide/svelte';
 
 	import type { IconComponent } from '@/components/types';
 	import type { GenericRecord } from '@/utils/types';
@@ -19,9 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase/index.js';
 
+	import SectionCard from '../../layout/section-card.svelte';
 	import Footer from '../_utils/footer.svelte';
 	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
-	import SectionCard from '../../layout/section-card.svelte';
 	import { CheckConfigEditorComponent } from './check-config-editor';
 	import { CheckConfigFormEditorComponent } from './check-config-form-editor';
 	import {

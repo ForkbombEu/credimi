@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Pencil } from 'lucide-svelte';
-	import { zod } from 'sveltekit-superforms/adapters';
+	import { Pencil } from '@lucide/svelte';
+	import { zod4 } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
 	import Icon from '@/components/ui-custom/icon.svelte';
@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let form = $derived(
 		createForm({
-			adapter: zod(schema),
+			adapter: zod4(schema),
 			onSubmit: async ({ form }) => {
 				const dataToUpdate = { ...form.data };
 				delete dataToUpdate.verified;
@@ -70,7 +70,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T tag="p">
 				{$currentUser?.email}
 				<span class="ml-1 text-sm text-gray-400">
-					({$currentUser?.emailVisibility ? m.public() : m.not_public()})
+					({$currentUser?.emailVisibility ? m.Public() : m.not_public()})
 				</span>
 			</T>
 			<T tag="p">

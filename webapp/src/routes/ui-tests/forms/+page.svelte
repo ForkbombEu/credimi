@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import SuperDebug from 'sveltekit-superforms';
-	import { zod } from 'sveltekit-superforms/adapters';
+	import { zod4 } from 'sveltekit-superforms/adapters';
 
 	import { CollectionField } from '@/collections-components';
 	import { createForm, Form } from '@/forms';
@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	console.log(schema.shape);
 
 	const form = createForm({
-		adapter: zod(schema),
+		adapter: zod4(schema),
 		onSubmit: async () => {
 			await new Promise((res) => setTimeout(() => res('p1'), 2000));
 			throw new Error('no wayy');

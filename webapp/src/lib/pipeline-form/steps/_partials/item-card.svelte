@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { ArrowRightIcon, XIcon } from 'lucide-svelte';
+	import { ArrowRightIcon, XIcon } from '@lucide/svelte';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';

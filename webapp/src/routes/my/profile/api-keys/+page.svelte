@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Trash2 } from 'lucide-svelte';
+	import { Trash2 } from '@lucide/svelte';
 	import { z } from 'zod';
 
 	import { CollectionManager, RecordDelete } from '@/collections-components/manager';

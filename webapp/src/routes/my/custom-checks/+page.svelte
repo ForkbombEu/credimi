@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { entities } from '$lib/global/entities';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { Pencil, Plus } from 'lucide-svelte';
+	import { Pencil, Plus } from '@lucide/svelte';
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';

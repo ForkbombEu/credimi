@@ -31,7 +31,7 @@ export function getWorkflowMemo(workflow: { memo: Memo }): WorkflowMemo | undefi
 			return undefined;
 		}
 
-		const fields = z.record(memoFieldSchema).parse(workflow.memo['fields']);
+		const fields = z.record(z.string(), memoFieldSchema).parse(workflow.memo['fields']);
 		if (!fields) return undefined;
 		const author = memoFieldToText(fields['author']);
 		const standard = memoFieldToText(fields['standard']);

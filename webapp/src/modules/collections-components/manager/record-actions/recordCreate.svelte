@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="C extends CollectionName">
+	import { Plus } from '@lucide/svelte';
 	import { merge } from 'lodash';
-	import { Plus } from 'lucide-svelte';
 
 	import type { CollectionName } from '@/pocketbase/collections-models';
 

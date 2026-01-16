@@ -7,7 +7,7 @@ import { cloneDeep, merge } from 'lodash';
 import { ClientResponseError, type CollectionModel } from 'pocketbase';
 import { toast } from 'svelte-sonner';
 import { setError, type FormPathLeaves, type SuperForm } from 'sveltekit-superforms';
-import { zod } from 'sveltekit-superforms/adapters';
+import { zod4 } from 'sveltekit-superforms/adapters';
 import z from 'zod';
 
 import type {
@@ -54,8 +54,12 @@ export function setupCollectionForm<C extends CollectionName>({
 
 	/* Schema creation */
 
-	const baseSchema = refineSchema(createCollectionZodSchema(collection)) as z.AnyZodObject;
-	const schema = baseSchema.omit(Object.fromEntries(exclude.map((key) => [key, true])));
+	const baseSchema = refineSchema(createCollectionZodSchema(collection)) as z.ZodObject;
+	const excludeEntries = Object.fromEntries(exclude.map((key) => [key, true])) as Record<
+		string,
+		true
+	>;
+	const schema = baseSchema.omit(excludeEntries);
 
 	/* Initial data processing */
 	/* This must be done for two reasons
@@ -91,7 +95,7 @@ export function setupCollectionForm<C extends CollectionName>({
 	/* Form creation */
 
 	const form = createForm<GenericRecord>({
-		adapter: zod(schema),
+		adapter: zod4(schema),
 		initialData: processedInitialData,
 		options: {
 			dataType: 'form',

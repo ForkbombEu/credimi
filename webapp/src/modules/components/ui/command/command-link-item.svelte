@@ -1,13 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import { Command as CommandPrimitive } from 'bits-ui';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { Command as CommandPrimitive } from "bits-ui";
+	import { cn } from "@/components/ui/utils.js";
 
 	let {
 		ref = $bindable(null),
@@ -17,10 +10,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <CommandPrimitive.LinkItem
+	bind:ref
+	data-slot="command-item"
 	class={cn(
-		'relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none aria-selected:bg-accent aria-selected:text-accent-foreground data-[disabled]:pointer-events-none data-[disabled]:opacity-50',
+		"aria-selected:bg-accent aria-selected:text-accent-foreground [&_svg:not([class*='text-'])]:text-muted-foreground relative flex cursor-default items-center gap-2 rounded-sm px-2 py-1.5 text-sm outline-hidden select-none data-[disabled=true]:pointer-events-none data-[disabled=true]:opacity-50 [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4",
 		className
 	)}
-	bind:ref
 	{...restProps}
 />

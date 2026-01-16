@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { runWithLoading } from '$lib/utils';
 	import { loadScheduledWorkflows, scheduleActions } from '$lib/workflows/schedule';
 	import { getDayLabel } from '$lib/workflows/schedule.utils';
-	import { ArrowLeft, EllipsisVerticalIcon } from 'lucide-svelte';
+	import { ArrowLeft, EllipsisVerticalIcon } from '@lucide/svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';

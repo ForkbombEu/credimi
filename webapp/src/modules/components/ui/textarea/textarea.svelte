@@ -1,27 +1,21 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef, WithoutChildren } from 'bits-ui';
-	import type { HTMLTextareaAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { cn, type WithElementRef, type WithoutChildren } from "@/components/ui/utils.js";
+	import type { HTMLTextareaAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
 		value = $bindable(),
 		class: className,
+		"data-slot": dataSlot = "textarea",
 		...restProps
 	}: WithoutChildren<WithElementRef<HTMLTextareaAttributes>> = $props();
 </script>
 
 <textarea
 	bind:this={ref}
+	data-slot={dataSlot}
 	class={cn(
-		'flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm',
+		"border-input placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-ring/50 aria-invalid:ring-destructive/20 dark:aria-invalid:ring-destructive/40 aria-invalid:border-destructive dark:bg-input/30 flex field-sizing-content min-h-16 w-full rounded-md border bg-transparent px-3 py-2 text-base shadow-xs transition-[color,box-shadow] outline-none focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50 md:text-sm",
 		className
 	)}
 	bind:value

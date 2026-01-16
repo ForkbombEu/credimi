@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="C extends CollectionName">
-	import { Trash, X } from 'lucide-svelte';
+	import { Trash, X } from '@lucide/svelte';
 	import { onDestroy } from 'svelte';
 	import { toast } from 'svelte-sonner';
 

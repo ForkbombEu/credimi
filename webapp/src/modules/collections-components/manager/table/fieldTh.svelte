@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="T">
+	import { ArrowDown, ArrowUp } from '@lucide/svelte';
 	import { capitalize } from 'lodash';
-	import { ArrowUp, ArrowDown } from 'lucide-svelte';
 
 	import type { KeyOf } from '@/utils/types';
 

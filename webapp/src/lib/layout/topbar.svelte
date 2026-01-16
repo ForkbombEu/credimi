@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { LayoutDashboardIcon } from 'lucide-svelte';
+	import { LayoutDashboardIcon } from '@lucide/svelte';
 	import { fromStore } from 'svelte/store';
 
 	import type { LinkWithIcon } from '@/components/types';

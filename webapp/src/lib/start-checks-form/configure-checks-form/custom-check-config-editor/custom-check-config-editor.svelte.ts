@@ -8,7 +8,6 @@ import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
 import { yamlStringSchema } from '$lib/utils';
 import { watch } from 'runed';
 import { fromStore } from 'svelte/store';
-import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 
 import type { CustomChecksResponse } from '@/pocketbase/types';

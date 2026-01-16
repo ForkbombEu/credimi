@@ -81,7 +81,7 @@ export async function fetchWorkflowHistory(
 			method: 'GET',
 			fetch: options.fetch
 		});
-		const schema = z.array(z.record(z.unknown()));
+		const schema = z.array(z.record(z.string(), z.unknown()));
 		return schema.parse(data) as HistoryEvent[];
 	}, 'Failed to fetch workflow history');
 }

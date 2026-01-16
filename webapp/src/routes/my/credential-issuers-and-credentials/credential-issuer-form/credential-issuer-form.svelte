@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
-	import { Plus, Trash, X } from 'lucide-svelte';
+	import { Plus, Trash, X } from '@lucide/svelte';
 
 	import type { CredentialIssuersResponse } from '@/pocketbase/types';
 

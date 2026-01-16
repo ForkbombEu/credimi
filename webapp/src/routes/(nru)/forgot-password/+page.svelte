@@ -5,8 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowLeftIcon } from 'lucide-svelte';
-	import { zod } from 'sveltekit-superforms/adapters';
+	import { ArrowLeftIcon } from '@lucide/svelte';
 	import { z } from 'zod';
 
 	import A from '@/components/ui-custom/a.svelte';

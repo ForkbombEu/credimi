@@ -6,8 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
+	import { TriangleIcon } from '@lucide/svelte';
 	import clsx from 'clsx';
-	import { TriangleIcon } from 'lucide-svelte';
 	import { slide } from 'svelte/transition';
 
 	import A from '@/components/ui-custom/a.svelte';

@@ -1,14 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { cn, type WithElementRef } from "@/components/ui/utils.js";
+	import type { HTMLAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
@@ -20,7 +12,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <span
 	bind:this={ref}
-	class={cn('ml-auto text-xs tracking-widest text-muted-foreground', className)}
+	data-slot="command-shortcut"
+	class={cn("text-muted-foreground ms-auto text-xs tracking-widest", className)}
 	{...restProps}
 >
 	{@render children?.()}

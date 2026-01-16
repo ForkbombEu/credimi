@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { ArrowRight } from '@lucide/svelte';
 	import { Array as A } from 'effect';
-	import { ArrowRight } from 'lucide-svelte';
-	import { zod } from 'sveltekit-superforms/adapters';
+	import { zod4 } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
@@ -50,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		.refine((data) => Boolean(data.file_source) || Boolean(data.text_source));
 
 	const form = createForm({
-		adapter: zod(schema),
+		adapter: zod4(schema),
 		onSubmit: async ({ form }) => {
 			onSuccess(await getEmailsFromFormData(form.data));
 		},

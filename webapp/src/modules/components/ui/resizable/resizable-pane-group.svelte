@@ -1,13 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import * as ResizablePrimitive from 'paneforge';
-
-	import { cn } from '@/components/ui/utils.js';
+	import * as ResizablePrimitive from "paneforge";
+	import { cn } from "@/components/ui/utils.js";
 
 	let {
 		ref = $bindable(null),
@@ -21,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <ResizablePrimitive.PaneGroup
 	bind:this={paneGroup}
-	class={cn('flex h-full w-full data-[direction=vertical]:flex-col', className)}
+	data-slot="resizable-pane-group"
+	class={cn("flex h-full w-full data-[direction=vertical]:flex-col", className)}
 	{...restProps}
 />

@@ -10,7 +10,6 @@ import { yamlStringSchema } from '$lib/utils';
 import { nanoid } from 'nanoid';
 import { watch } from 'runed';
 import { fromStore } from 'svelte/store';
-import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 
 import type { State } from '@/utils/types';

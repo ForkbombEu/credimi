@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { UserPlus, CircleOffIcon } from 'lucide-svelte';
-	import Trash from 'lucide-svelte/icons/trash';
-	import X from 'lucide-svelte/icons/x';
+	import { CircleOffIcon, UserPlus } from '@lucide/svelte';
+	import Trash from '@lucide/svelte/icons/trash';
+	import X from '@lucide/svelte/icons/x';
 	import { toast } from 'svelte-sonner';
 
 	import { CollectionManager } from '@/collections-components';

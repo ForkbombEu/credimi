@@ -9,7 +9,6 @@ import { Record } from 'effect';
 import { nanoid } from 'nanoid';
 import { watch } from 'runed';
 import { fromStore } from 'svelte/store';
-import { zod } from 'sveltekit-superforms/adapters';
 
 import type { State, StringRecord } from '@/utils/types';
 

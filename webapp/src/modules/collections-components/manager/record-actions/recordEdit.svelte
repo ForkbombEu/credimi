@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="C extends CollectionName">
-	import Pencil from 'lucide-svelte/icons/pencil';
+	import Pencil from '@lucide/svelte/icons/pencil';
 
 	import type { CollectionName } from '@/pocketbase/collections-models';
 

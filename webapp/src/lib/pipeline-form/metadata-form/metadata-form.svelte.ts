@@ -6,7 +6,6 @@ import type { Renderable } from '$lib/renderable';
 import { createForm } from '@/forms';
 import { tick } from 'svelte';
 import type { SuperForm } from 'sveltekit-superforms';
-import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 import Component from './metadata-form.svelte';
 

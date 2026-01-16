@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { FileText, Monitor, Play, SplitSquareHorizontal } from 'lucide-svelte';
+	import { FileText, Monitor, Play, SplitSquareHorizontal } from '@lucide/svelte';
 
 	import { Button } from '@/components/ui/button';
 

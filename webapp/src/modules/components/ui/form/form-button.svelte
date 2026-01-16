@@ -1,13 +1,7 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import * as Button from '@/components/ui/button/index.js';
+	import { Button, type ButtonProps } from "@/components/ui/button/index.js";
 
-	let { ref = $bindable(null), ...restProps }: Button.Props = $props();
+	let { ref = $bindable(null), ...restProps }: ButtonProps = $props();
 </script>
 
-<Button.Root bind:ref type="submit" {...restProps} />
+<Button bind:ref type="submit" {...restProps} />

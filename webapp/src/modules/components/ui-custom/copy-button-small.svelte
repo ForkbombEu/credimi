@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CheckIcon, CopyIcon } from 'lucide-svelte';
+	import { CheckIcon, CopyIcon } from '@lucide/svelte';
 
 	import Button, { type ButtonProps } from '@/components/ui/button/button.svelte';
 	import * as Tooltip from '@/components/ui/tooltip';

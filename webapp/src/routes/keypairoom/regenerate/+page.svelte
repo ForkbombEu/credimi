@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
 	import A from '@/components/ui-custom/a.svelte';
@@ -38,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	const form = createForm({
-		adapter: zod(schema),
+		adapter: zod4(schema),
 		onSubmit: async ({ form }) => {
 			const hmac = await getHMAC(form.data.email);
 

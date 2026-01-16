@@ -1,13 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import { Tabs as TabsPrimitive } from 'bits-ui';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { Tabs as TabsPrimitive } from "bits-ui";
+	import { cn } from "@/components/ui/utils.js";
 
 	let {
 		ref = $bindable(null),
@@ -18,9 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <TabsPrimitive.Content
 	bind:ref
-	class={cn(
-		'mt-2 ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
-		className
-	)}
+	data-slot="tabs-content"
+	class={cn("flex-1 outline-none", className)}
 	{...restProps}
 />

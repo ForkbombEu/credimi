@@ -4,7 +4,6 @@
 
 import type { SuperForm } from 'sveltekit-superforms';
 
-import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod';
 
 import type { GenericRecord } from '@/utils/types';
