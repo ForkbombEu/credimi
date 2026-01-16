@@ -103,6 +103,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </div>
 
 <style lang="postcss">
+    @reference "tailwindcss";
+
 	.bg-temporal {
 		background-color: rgb(248 250 252);
 	}

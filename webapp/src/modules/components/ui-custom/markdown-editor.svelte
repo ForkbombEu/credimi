@@ -60,6 +60,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </div>
 
 <style lang="postcss">
+    @reference "tailwindcss";
+
 	:global(.carta-input, .carta-renderer, .carta-input-wrapper) {
 		height: var(--carta-height) !important;
 		min-height: var(--carta-height) !important;

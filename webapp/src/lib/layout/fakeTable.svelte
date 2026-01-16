@@ -60,7 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </table>
 
 <style lang="postcss">
-    @reference "../../routes/layout.css";
+    @reference "tailwindcss";
 
 	tr {
 		@apply border-y;
