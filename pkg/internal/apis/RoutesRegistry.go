@@ -14,6 +14,7 @@ var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 	handlers.ChecksRoutes,
 	handlers.ApiKeyRoutes,
 	handlers.SchedulesRoutes,
+	handlers.ScoreboardRoutes,
 }
 
 var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
@@ -33,6 +34,7 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.DeepLinkVerifiers,
 	handlers.ConformanceCheckRoutes,
 	handlers.OrganizationRoutes,
+	handlers.ScoreboardPublicRoutes,
 	handlers.CloneRecord,
 }
 
