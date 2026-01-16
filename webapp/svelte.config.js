@@ -4,11 +4,14 @@
 
 import { vitePreprocess } from '@sveltejs/vite-plugin-svelte';
 import fs from 'fs';
+import path from 'path';
 import adapter from 'svelte-adapter-bun';
+import { fileURLToPath } from 'url';
 
 //
 
-const version = fs.readFileSync('../VERSION', 'utf-8').trim();
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const version = fs.readFileSync(path.join(__dirname, '../VERSION'), 'utf-8').trim();
 
 /** @type {import('@sveltejs/kit').Config} */
 const config = {

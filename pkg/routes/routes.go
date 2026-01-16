@@ -58,6 +58,7 @@ func bindAppHooks(app core.App) {
 func Setup(app *pocketbase.PocketBase) {
 	bindAppHooks(app)
 	pb.HookNamespaceOrgs(app)
+	pb.RegisterSchedulesHooks(app)
 	apis.RegisterMyRoutes(app)
 	hooks.WorkersHook(app)
 	canonify.RegisterCanonifyHooks(app)

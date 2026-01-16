@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ClassValue } from 'svelte/elements';
 
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
-	import { Code, Hourglass, XIcon } from 'lucide-svelte';
+	import { Code, XIcon } from 'lucide-svelte';
 
 	import type { IconComponent } from '@/components/types';
 	import type { buttonVariants } from '@/components/ui/button';
@@ -19,8 +19,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
-
-	import ScheduleWorkflowForm from './schedule-workflow-form.svelte';
 
 	//
 
@@ -36,8 +34,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		$props();
 
 	//
-
-	let isScheduleWorkflowFormOpen = $state(false);
 
 	type WorkflowAction = {
 		label: string;
@@ -59,13 +55,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					}
 				}),
 			disabled: (workflow) => workflow.status !== 'Running'
-		},
-		{
-			label: m.Schedule(),
-			icon: Hourglass,
-			onclick: () => {
-				isScheduleWorkflowFormOpen = true;
-			}
 		},
 		{
 			label: m.Swagger(),
@@ -102,10 +91,3 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		trigger={dropdownTrigger}
 	/>
 {/if}
-
-<ScheduleWorkflowForm
-	workflowID={workflow.workflowId}
-	runID={workflow.runId}
-	workflowName={workflow.name}
-	bind:isOpen={isScheduleWorkflowFormOpen}
-/>

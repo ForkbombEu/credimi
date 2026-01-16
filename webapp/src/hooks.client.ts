@@ -2,9 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { version } from '$app/environment';
+
 import { appName } from '@/brand';
 import { currentUser, pb, type AuthStoreModel } from '@/pocketbase';
-import { appVersion } from '@/utils/appVersion';
 
 pb.authStore.loadFromCookie(document.cookie);
 pb.authStore.onChange(() => {
@@ -13,7 +14,7 @@ pb.authStore.onChange(() => {
 });
 
 console.info(
-	`%c${appName} version: 🔖 ${appVersion}`,
+	`%c${appName} version: 🔖 ${version}`,
 	'font-size:4em;background: #833ab4;background:linear-gradient(to left,#833ab4,#fd1d1d,#fcb045);color:#fff;padding:4px;border-radius:4px;'
 );
 console.info(
