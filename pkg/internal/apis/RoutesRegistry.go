@@ -35,6 +35,7 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.ConformanceCheckRoutes,
 	handlers.OrganizationRoutes,
 	handlers.ScoreboardPublicRoutes,
+	handlers.CloneRecord,
 }
 
 func RegisterMyRoutes(app core.App) {

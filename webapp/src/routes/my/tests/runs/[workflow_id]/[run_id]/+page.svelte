@@ -13,7 +13,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { WorkflowQrPoller } from '$lib/workflows';
 	import WorkflowActions from '$lib/workflows/workflow-actions.svelte';
 	import { onMount } from 'svelte';
+	import { z } from 'zod';
 
+	import Alert from '@/components/ui-custom/alert.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator';
@@ -35,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { data } = $props();
 	let { organization, workflow } = $derived(data);
-	let { memo, execution } = $derived(workflow);
+	let { memo, execution, eventHistory } = $derived(workflow);
 	let { id: workflowId, runId } = $derived(execution);
 
 	/* Iframe communication */
@@ -104,6 +106,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	/* UI */
 
 	const testNameChunks = $derived(memo?.test.split('+') ?? []);
+
+	const failureMessage = $derived.by(() => {
+		let failedEvent: FailedEvent | undefined;
+		for (const event of eventHistory.toReversed()) {
+			const parsed = failedEventSchema.safeParse(event);
+			if (parsed.success) {
+				failedEvent = parsed.data;
+				break;
+			}
+		}
+		return failedEvent?.workflowExecutionFailedEventAttributes.failure.cause.message;
+	});
+
+	type FailedEvent = z.infer<typeof failedEventSchema>;
+
+	const failedEventSchema = z.object({
+		workflowExecutionFailedEventAttributes: z.object({
+			failure: z.object({
+				cause: z.object({
+					message: z.string()
+				})
+			})
+		})
+	});
 </script>
 
 <svelte:head>
@@ -154,6 +180,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</TemporalI18nProvider>
 		{/if}
 
+		{#if failureMessage}
+			<Alert variant="destructive" class="mt-2 !p-3 text-sm">
+				<span class="font-bold">{m.reason()}:</span>
+				{failureMessage}
+			</Alert>
+		{/if}
+
 		<table class="mt-6 text-sm">
 			<tbody>
 				<tr>
@@ -199,7 +232,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 
-	<WorkflowQrPoller {workflowId} {runId} showQrLink={true} containerClass="size-40" />
+	{#if workflow.execution.name !== 'Dynamic Pipeline Workflow'}
+		<WorkflowQrPoller {workflowId} {runId} showQrLink={true} containerClass="size-40" />
+	{/if}
 </div>
 
 <div class="bg-temporal padding-x py-2">

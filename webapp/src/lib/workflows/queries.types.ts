@@ -23,4 +23,5 @@ export interface WorkflowExecutionWithChildren {
 		screenshot: string;
 	}>;
 	children?: Array<WorkflowExecutionWithChildren>;
+	failure_reason?: string;
 }

@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
+	import CircleQuestion from '@forkbombeu/temporal-ui/dist/holocene/icon/svg/circle-question.svelte';
 	import clsx from 'clsx';
 	import { EllipsisVerticalIcon, ImageIcon, TriangleIcon, VideoIcon } from 'lucide-svelte';
 
@@ -15,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import Popover from '@/components/ui-custom/popover.svelte';
 	import * as Table from '@/components/ui/table';
 	import { localizeHref } from '@/i18n';
 
@@ -49,9 +51,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class={[
 		'hover:bg-transparent',
 		{
-			'bg-slate-100 text-xs hover:bg-slate-100': isChild,
+			'!bg-slate-100 text-xs ': isChild,
 			'[&>td]:!py-0': isChild,
-			'border-b': !isExpanded && isRoot
+			'border-b':
+				(!isExpanded && isRoot) || !workflow.children || workflow.children.length === 0
 		}
 	]}
 >
@@ -62,7 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Table.Cell>
 
 	{#if isRoot}
-		<Table.Cell class={['flex justify-between font-medium', isChild && '!py-0']}>
+		<Table.Cell class={[isChild && '!py-0']}>
 			<div class="flex items-center gap-2">
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a {href} class="text-primary hover:underline">
@@ -108,8 +111,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Table.Cell>
 		{#if status !== null}
-			<div class={[isChild && 'scale-75']}>
+			<div class={['flex origin-left gap-1', isChild && 'scale-75']}>
 				<WorkflowStatus {status} />
+				{#if workflow.failure_reason}
+					<Popover
+						buttonVariants={{ variant: 'outline' }}
+						containerClass="dark !w-[400px] p-3 text-xs"
+						triggerClass="!h-6 !w-6 !p-0 text-xs underline"
+					>
+						{#snippet trigger()}
+							<CircleQuestion class="size-3" />
+						{/snippet}
+						{#snippet content()}
+							{workflow.failure_reason}
+						{/snippet}
+					</Popover>
+				{/if}
 			</div>
 		{/if}
 	</Table.Cell>

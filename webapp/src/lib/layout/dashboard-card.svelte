@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ArrowDown, ArrowUp } from 'lucide-svelte';
 	import removeMd from 'remove-markdown';
 
-	import { RecordDelete, RecordEdit } from '@/collections-components/manager';
+	import { RecordClone, RecordDelete, RecordEdit } from '@/collections-components/manager';
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
@@ -46,6 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		hideDelete?: boolean;
 		hidePublish?: boolean;
 		hideActions?: boolean;
+		showClone?: boolean;
 	};
 
 	let {
@@ -60,7 +61,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		path,
 		hideDelete = false,
 		hidePublish = false,
-		hideActions = false
+		hideActions = false,
+		showClone = false
 	}: Props = $props();
 
 	//
@@ -111,6 +113,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{@render actions?.()}
 				{#if !hidePublish}
 					<PublishedSwitch record={record as DashboardRecord} field="published" />
+				{/if}
+				{#if showClone}
+					<RecordClone
+						collectionName={record.collectionName}
+						recordId={record.id}
+						size="md"
+					/>
 				{/if}
 				{#if editAction}
 					{@render editAction()}
