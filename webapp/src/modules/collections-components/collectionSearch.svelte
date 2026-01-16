@@ -57,4 +57,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<Search searchFn={searchFunction} {onSelect} {label} {placeholder} {disabled} {...rest} />
+<Search searchFn={searchFunction} {onSelect} {label} placeholder={placeholder as string} {disabled} {...rest} />

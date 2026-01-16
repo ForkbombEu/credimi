@@ -62,7 +62,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let constantHeightDifference = $state(0);
 
 	setupListener<IframeMessage>((ev) => {
-		if (ev.type === 'height') {
+		if (ev.type === 'height' && ev.height) {
 			const iframe = getIframe();
 			if (!iframe) return;
 			const heightDifference = ev.height - (parseInt(iframe.height) || 0);

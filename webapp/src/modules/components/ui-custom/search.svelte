@@ -37,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	export let onSelect: (item: T) => void = () => {};
 
 	export let label: string | undefined = undefined;
-	export let placeholder = m.Search();
+	export let placeholder: string | undefined = m.Search();
 	export let disabled = false;
 
 	export let controlAttrs: ControlAttrs | undefined = undefined;
@@ -87,7 +87,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="flex flex-col gap-1">
 	{#if label}
 		<!-- classes copied from webapp/src/modules/components/ui/label/label.svelte -->
-		<!-- svelte-ignore a11y-label-has-associated-control - $label contains the 'for' attribute -->
 		<label
 			class="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
 			{...$labelBuilder}

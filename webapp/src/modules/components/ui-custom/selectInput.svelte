@@ -8,11 +8,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { SelectBaseRootPropsWithoutHTML, SelectRootProps } from 'bits-ui';
 	import type { ControlAttrs } from 'formsnap';
 	import type { Snippet } from 'svelte';
-	import type { ArrayElement } from 'type-fest/source/internal';
+	import type { IterableElement } from 'type-fest';
 
 	//
 
-	export type SelectItem = ArrayElement<SelectBaseRootPropsWithoutHTML['items']>;
+	export type SelectItem = IterableElement<SelectBaseRootPropsWithoutHTML['items']>;
 	export type SelectType = SelectRootProps['type'];
 	export type SelectValue<T extends SelectType> = T extends 'multiple' ? string[] : string;
 

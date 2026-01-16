@@ -21,7 +21,7 @@ export const yamlStringSchema = z
 		// @ts-expect-error - `docs.empty` may exist but is not typed
 		if (docs.empty) {
 			ctx.addIssue({
-				code: z.ZodIssueCode.custom,
+				code: 'custom',
 				message: 'Empty YAML document'
 			});
 			return;
@@ -46,9 +46,7 @@ export const yamlStringSchema = z
 
 export const jsonStringSchema = z.string().superRefine((v, ctx) => {
 	try {
-		if (v.length === 0) {
-			return {};
-		} else {
+		if (v.length !== 0) {
 			z.record(z.string(), z.unknown())
 				.refine((value) => R.size(value) > 0)
 				.parse(JSON.parse(v));
@@ -64,7 +62,7 @@ export const jsonStringSchema = z.string().superRefine((v, ctx) => {
 
 //
 
-const ajv = new Ajv({ allowUnionTypes: true });
+const ajv = new Ajv();
 const validateStepci = ajv.compile(stepciJsonSchema);
 
 export function refineAsStepciYaml(schema: z.ZodString | z.ZodOptional<z.ZodString>) {

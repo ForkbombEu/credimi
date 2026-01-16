@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-export * from './index.generated';
 export * from './extra.generated';
+export * from './index.generated';
 
 //
 
-import type { SimplifyDeep } from 'type-fest';
+import type { Simplify } from 'type-fest';
 
 export const systemFields = [
 	// base system fields
@@ -20,6 +20,6 @@ export const systemFields = [
 	'username'
 ] as const;
 
-export type Data<R extends Record<string, unknown>> = SimplifyDeep<
+export type Data<R extends Record<string, unknown>> = Simplify<
 	Omit<R, (typeof systemFields)[number]>
 >;

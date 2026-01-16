@@ -50,7 +50,7 @@ export function setupCollectionForm<C extends CollectionName>({
 
 	/* */
 
-	const collectionModel = getCollectionModel(collection) as CollectionModel;
+	const collectionModel = getCollectionModel(collection) as unknown as CollectionModel;
 
 	/* Schema creation */
 

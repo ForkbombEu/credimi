@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { zod4 } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
 	import { Form, createForm } from '@/forms';
@@ -15,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { currentEmail } from '../+layout.svelte';
 
 	const schema = z.object({
-		email: z.string().email()
+		email: z.email()
 	});
 
 	const form = createForm({

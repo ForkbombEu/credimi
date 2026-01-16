@@ -41,7 +41,10 @@ class UnhandledFieldTypeError extends Error {}
 main();
 
 async function main() {
-	const sortedCollections = _.sortBy(CollectionsModels, (d) => d.name);
+	const sortedCollections = _.sortBy(
+		CollectionsModels as unknown as AnyCollectionModel[],
+		(d) => d.name
+	);
 
 	const formDataTypes = sortedCollections.map(createCollectionFormDataType);
 	const formDataIndexType = createIndexType(formDataTypes, FORM_DATA);
@@ -139,7 +142,8 @@ function createCollectionZodRawType(model: AnyCollectionModel): GeneratedCollect
 			else if (f.type == 'file') type = 'z.ZodType<File>';
 			else if (f.type == 'json') type = 'z.ZodUnknown';
 			else if (f.type == 'relation') type = 'z.ZodString';
-			else if (f.type == 'select') type = `z.ZodEnum<${JSON.stringify(f.values)}>`;
+			else if (f.type == 'select')
+				type = `z.ZodEnum<${JSON.stringify(Object.fromEntries(f.values.map((v) => [v, v])))}>`;
 			else if (f.type == 'text') type = 'z.ZodString';
 			else if (f.type == 'url') type = 'z.ZodString';
 			else if (f.type == 'autodate') type = 'z.ZodString';
@@ -195,7 +199,7 @@ function createCollectionExpandItems(model: AnyCollectionModel): string[] {
 
 function createCollectionInverseExpandItems(model: AnyCollectionModel): string[] {
 	function isInverseRelationField(field: AnyCollectionField): field is RelationCollectionField {
-		return field.type == 'relation' && field.collectionId == model.id;
+		return field.type == 'relation' && field.collectionId == model.name;
 	}
 
 	const inverseRelatedCollections = CollectionsModels.filter((c) =>

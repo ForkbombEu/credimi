@@ -6,12 +6,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { ArrowLeftIcon } from '@lucide/svelte';
+	import { zod4 } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';
 
 	import A from '@/components/ui-custom/a.svelte';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { createForm, Form } from '@/forms';
+	import { Form, createForm } from '@/forms';
 	import { Field } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
@@ -21,9 +22,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let state: 'form' | 'success' = $state('form');
 
 	const form = createForm({
-		adapter: zod(
+		adapter: zod4(
 			z.object({
-				email: z.string().email()
+				email: z.email()
 			})
 		),
 		onSubmit: async ({ form }) => {

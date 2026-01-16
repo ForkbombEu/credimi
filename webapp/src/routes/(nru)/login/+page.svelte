@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { zod4 } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
 	import A from '@/components/ui-custom/a.svelte';
@@ -17,13 +18,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const schema = z.object({
-		email: z.string().email(),
-		password: z.string()
-	});
+
 
 	const form = createForm({
-		adapter: zod4(schema),
+		adapter: zod4(z.object({
+            email: z.email(),
+            password: z.string()
+        })),
+
+        
 		onSubmit: async ({ form }) => {
 			const { data } = form;
 			const u = pb.collection('users');

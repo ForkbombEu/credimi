@@ -20,7 +20,7 @@
 		"bin": "bun run build && bun build --compile --minify-whitespace --minify-syntax --target bun --outfile credimi-ui ./build/index.js",
 		"preview": "vite preview --port 5100",
 		"prepare": "svelte-kit sync || echo ''",
-		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --threshold error",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"format": "prettier --write .",
 		"lint": "prettier --check . && eslint .",
@@ -91,8 +91,10 @@
 		"vitest": "^4.0.15"
 	},
 	"dependencies": {
+		"@melt-ui/svelte": "^0.86.6",
 		"fast-glob": "^3.3.3",
 		"json-schema-to-typescript": "^15.0.4",
-		"json_typegen_wasm": "^0.7.0"
+		"json_typegen_wasm": "^0.7.0",
+		"yaml": "^2.8.2"
 	}
 }
