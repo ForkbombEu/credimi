@@ -5,12 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { EditorView } from '@codemirror/view';
+
 
 	import { json } from '@codemirror/lang-json';
 	import { yaml } from '@codemirror/lang-yaml';
+	import { EditorView } from "@codemirror/view";
+// import CodeMirror from 'svelte-codemirror-editor';
 	import { dev } from '$app/environment';
-	import CodeMirror from 'svelte-codemirror-editor';
+	import { basicSetup } from "codemirror";
 	import { dracula } from 'thememirror';
 
 	import { copyButtonExtension } from './copyButtonExtension.js';
@@ -134,9 +136,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			);
 		}
 	}
+
+    function attachEditor (el: HTMLElement) {
+        const extensions: Extension[] = [basicSetup];
+        if (languageSupport) extensions.push(languageSupport);
+        if (themeExtension) extensions.push(themeExtension);
+        extensions.push(...allExtensions);
+        const view = new EditorView({
+            parent: el,
+            extensions
+        });
+        checkParentFlex(view.dom);
+        view.contentDOM.onblur = onBlur;
+        onReady?.(view);
+        
+    }
 </script>
 
-<CodeMirror
+<div {@attach attachEditor}>
+
+</div>
+
+<!-- <CodeMirror
 	lang={languageSupport}
 	theme={themeExtension}
 	class="overflow-hidden rounded-lg {className}"
@@ -151,4 +172,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onReady?.(view);
 	}}
 	extensions={allExtensions}
-/>
+/> -->
