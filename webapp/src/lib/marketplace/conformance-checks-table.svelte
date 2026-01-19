@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { StandardsWithTestSuites } from '$lib/standards';
 
-	import { CheckCheck } from 'lucide-svelte';
+	import { CheckCheck } from '@lucide/svelte';
 
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';

@@ -12,7 +12,7 @@ import {
 	Users,
 	Wallet,
 	WaypointsIcon
-} from 'lucide-svelte';
+} from '@lucide/svelte';
 
 import type { IconComponent } from '@/components/types';
 import type { CollectionName } from '@/pocketbase/collections-models';

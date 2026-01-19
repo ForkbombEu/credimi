@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { page } from '$app/state';
-	import { Languages } from 'lucide-svelte';
+	import { Languages } from '@lucide/svelte';
 
 	import type { IconComponent } from '@/components/types';
 

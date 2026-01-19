@@ -9,8 +9,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import CircleQuestion from '@forkbombeu/temporal-ui/dist/holocene/icon/svg/circle-question.svelte';
+	import { EllipsisVerticalIcon, ImageIcon, TriangleIcon, VideoIcon } from '@lucide/svelte';
 	import clsx from 'clsx';
-	import { EllipsisVerticalIcon, ImageIcon, TriangleIcon, VideoIcon } from 'lucide-svelte';
 
 	import type { IconComponent } from '@/components/types';
 

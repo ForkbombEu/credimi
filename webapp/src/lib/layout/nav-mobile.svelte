@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { onNavigate } from '$app/navigation';
-	import { Menu } from 'lucide-svelte';
+	import { Menu } from '@lucide/svelte';
 
 	import type { LinkWithIcon } from '@/components/types';
 

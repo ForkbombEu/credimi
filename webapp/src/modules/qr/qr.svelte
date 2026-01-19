@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
 
-	import { TriangleAlert } from 'lucide-svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';

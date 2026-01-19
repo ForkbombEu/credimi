@@ -13,7 +13,7 @@ import {
 	SheetIcon,
 	StoreIcon,
 	UserIcon
-} from 'lucide-svelte';
+} from '@lucide/svelte';
 
 import { m } from '@/i18n';
 

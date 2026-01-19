@@ -71,7 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import { TriangleAlert, XIcon } from 'lucide-svelte';
+	import { TriangleAlert, XIcon } from '@lucide/svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
