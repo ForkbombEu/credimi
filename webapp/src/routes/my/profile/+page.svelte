@@ -34,26 +34,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})
 	});
 
-	let form = $derived(
-		createForm({
-			adapter: zod(schema),
-			onSubmit: async ({ form }) => {
-				const dataToUpdate = { ...form.data };
-				delete dataToUpdate.verified;
-				// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-				$currentUser = await pb.collection('users').update($currentUser?.id!, dataToUpdate);
-			},
-			initialData: {
-				name: $currentUser?.name,
-				email: $currentUser?.email,
-				emailVisibility: $currentUser?.emailVisibility,
-				Timezone: $currentUser?.Timezone || detectedTimezone
-			},
-			options: {
-				dataType: 'form'
-			}
-		})
-	);
+	let form = createForm({
+		adapter: zod(schema),
+		onSubmit: async ({ form }) => {
+			const dataToUpdate = { ...form.data };
+			delete dataToUpdate.verified;
+			// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+			$currentUser = await pb.collection('users').update($currentUser?.id!, dataToUpdate);
+		},
+		initialData: {
+			name: $currentUser?.name,
+			email: $currentUser?.email,
+			emailVisibility: $currentUser?.emailVisibility,
+			Timezone: $currentUser?.Timezone || detectedTimezone
+		},
+		options: {
+			dataType: 'form'
+		}
+	})
+	
 
 	setDashboardNavbar({
 		title: m.Profile()
