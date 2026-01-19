@@ -59,7 +59,7 @@ export type IframeMessage = HeightMessage | ReadyMessage;
 type HeightMessage = Message<
 	'height',
 	{
-		height: number;
+		height: number | undefined | null;
 	}
 >;
 

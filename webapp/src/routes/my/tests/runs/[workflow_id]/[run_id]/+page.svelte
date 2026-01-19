@@ -5,13 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { WorkflowQrPoller } from '$lib/workflows';
 	import WorkflowActions from '$lib/workflows/workflow-actions.svelte';
-	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { onMount } from 'svelte';
 	import { z } from 'zod/v3';
 
@@ -22,7 +22,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { toUserTimezone } from '@/utils/toUserTimezone';
 
-	import { _getWorkflow } from './+layout';
 	import EudiwTop from './_partials/eudiw-top.svelte';
 	import EwcTop from './_partials/ewc-top.svelte';
 	import OpenidnetTop from './_partials/openidnet-top.svelte';
@@ -32,6 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		type IframeMessage,
 		type PageMessage
 	} from './_partials/page-events';
+	import { _getWorkflow } from './+layout';
 
 	//
 
@@ -64,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	setupListener<IframeMessage>((ev) => {
 		if (ev.type === 'height') {
 			const iframe = getIframe();
-			if (!iframe) return;
+			if (!iframe || !ev.height) return;
 			const heightDifference = ev.height - (parseInt(iframe.height) || 0);
 			if (heightDifference !== constantHeightDifference) {
 				iframe.height = ev.height + 'px';

@@ -70,7 +70,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T tag="p">
 				{$currentUser?.email}
 				<span class="ml-1 text-sm text-gray-400">
-					({$currentUser?.emailVisibility ? m.public() : m.not_public()})
+					({$currentUser?.emailVisibility ? m.Public() : m.not_public()})
 				</span>
 			</T>
 			<T tag="p">
