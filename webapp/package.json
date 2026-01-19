@@ -1,12 +1,23 @@
 {
-	"name": "webapp",
-	"private": true,
+	"name": "credimi ui",
+	"author": {
+		"name": "Forkbomb BV",
+		"email": "info@forkbomb.com"
+	},
+	"description": "Your trustworthy compliance checker for decentralized identity solutions",
 	"version": "0.0.1",
 	"type": "module",
+	"engines": {
+		"node": ">=17",
+		"pnpm": ">=8"
+	},
 	"scripts": {
+		"predev": "bun run svelte-kit sync && bun run generate:definitions",
 		"dev": "vite dev",
+		"prebuild": "bun run svelte-kit sync && bun run generate:definitions",
 		"build": "vite build",
-		"preview": "vite preview",
+		"bin": "bun run build && bun build --compile --minify-whitespace --minify-syntax --target bun --outfile credimi-ui ./build/index.js",
+		"preview": "vite preview --port 5100",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
@@ -14,7 +25,23 @@
 		"lint": "prettier --check . && eslint .",
 		"test:unit": "vitest",
 		"test": "npm run test:unit -- --run && npm run test:e2e",
-		"test:e2e": "playwright test"
+		"test:e2e": "playwright test",
+		"test:e2e:ui": "playwright test --ui",
+		"serve": "bun run build && bun run preview --host --port 5100",
+		"generate:collections-models": "bun run ./src/modules/pocketbase/collections-models/generate.collections-models.ts",
+		"generate:types": "bun x pocketbase-typegen --db ../pb_data/data.db --out src/modules/pocketbase/types/index.generated.ts && bun run generate:types-extra",
+		"generate:types-extra": "bun run src/modules/pocketbase/types/generate.types-extra.ts",
+		"generate:features": "bun run src/modules/features/generate.features-list.ts",
+		"generate:roles": "bun run ./src/modules/organizations/generate.roles-list.ts",
+		"generate:schema-types": "bun run ./src/lib/codegen/index.ts",
+		"generate:definitions": "bun run generate:collections-models && bun run generate:types && bun run generate:features && bun run generate:roles && bun run generate:schema-types && bun run generate:tags-list",
+		"generate:tags-list": "bun run ./src/lib/content/generate.tags.ts",
+		"i18n:remove-unused-strings": "bun run ./src/modules/i18n/remove-unused-strings.ts",
+		"i18n:lint": "bun run inlang lint --project ./project.inlang",
+		"i18n:lint:en": "bun run inlang lint --project ./project.inlang --languageTags en",
+		"i18n:machine-translate": "inlang machine translate --project project.inlang",
+		"emails": "rm -rf static/emails/* && mkdir -p static/emails && find ./ -name _components -prune -o -name '*.mjml' -exec sh -c 'mjml \"$1\" -o static/emails/$(basename \"${1%.mjml}.html\")' sh {} \\;",
+		"postemails": "node ./emails/_generateEmailList.mjs"
 	},
 	"devDependencies": {
 		"@eslint/compat": "^1.4.0",
