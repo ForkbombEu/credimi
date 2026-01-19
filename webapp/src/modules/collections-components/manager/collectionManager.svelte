@@ -131,12 +131,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onMount,
 		...rest
 	}: Props = $props();
+	
 	//
 
-	const manager =	new CollectionManager(collection, {
+	const manager = new CollectionManager(collection, {
 		query: queryOptions,
 		queryAgent: queryAgentOptions
-	})
+	});
 
 	$effect(() => {
 		onMount?.(manager);
