@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 @import 'tw-animate-css';
 
 @plugin '@tailwindcss/typography';
+@plugin 'tailwind-scrollbar';
 
 @custom-variant dark (&:is(.dark *));
 
