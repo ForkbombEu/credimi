@@ -94,6 +94,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </Table.Row>
 
 <style lang="postcss">
+	@reference 'tailwindcss';
+
 	.pill {
 		@apply block text-nowrap rounded-full px-2 py-1 text-slate-500 transition hover:bg-slate-300;
 	}

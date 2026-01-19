@@ -60,6 +60,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </table>
 
 <style lang="postcss">
+	@reference 'tailwindcss';
+
 	tr {
 		@apply border-y;
 	}

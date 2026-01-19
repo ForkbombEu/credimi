@@ -175,6 +175,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/if}
 
 <style lang="postcss">
+	@reference 'tailwindcss';
+
 	.check {
 		@apply absolute left-2 top-1/2 text-gray-500;
 		translate: 0 calc(-50% + 1px);

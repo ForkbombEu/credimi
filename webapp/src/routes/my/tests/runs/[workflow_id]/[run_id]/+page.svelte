@@ -286,11 +286,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </div>
 
 <style lang="postcss">
+	@reference 'tailwindcss';
+	
 	.bg-temporal {
 		background-color: rgb(248 250 252);
 	}
 
 	.padding-x {
-		@apply !px-2 md:!px-4 lg:!px-8;
+		@apply px-2! md:px-4! lg:px-8!;
 	}
 </style>
