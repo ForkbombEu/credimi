@@ -1,16 +1,7 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { Snippet } from 'svelte';
-	import type { HTMLAnchorAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
-	import { localizeHref } from '@/i18n';
+	import type { HTMLAnchorAttributes } from "svelte/elements";
+	import type { Snippet } from "svelte";
+	import { cn, type WithElementRef } from "@/components/ui/utils.js";
 
 	let {
 		ref = $bindable(null),
@@ -24,9 +15,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} = $props();
 
 	const attrs = $derived({
-		class: cn('hover:text-foreground transition-colors', className),
-		href: href ? localizeHref(href) : undefined,
-		...restProps
+		"data-slot": "breadcrumb-link",
+		class: cn("hover:text-foreground transition-colors", className),
+		href,
+		...restProps,
 	});
 </script>
 

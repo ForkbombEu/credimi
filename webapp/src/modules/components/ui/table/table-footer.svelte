@@ -1,14 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { cn, type WithElementRef } from "@/components/ui/utils.js";
+	import type { HTMLAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
@@ -18,6 +10,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}: WithElementRef<HTMLAttributes<HTMLTableSectionElement>> = $props();
 </script>
 
-<tfoot bind:this={ref} class={cn('bg-muted/50 font-medium', className)} {...restProps}>
+<tfoot
+	bind:this={ref}
+	data-slot="table-footer"
+	class={cn("bg-muted/50 border-t font-medium [&>tr]:last:border-b-0", className)}
+	{...restProps}
+>
 	{@render children?.()}
 </tfoot>
