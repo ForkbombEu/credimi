@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Trash2 } from '@lucide/svelte';
-	import { z } from 'zod';
+	import { z } from 'zod/v3';
 
 	import { CollectionManager, RecordDelete } from '@/collections-components/manager';
 	import CopyButton from '@/components/ui-custom/copyButton.svelte';

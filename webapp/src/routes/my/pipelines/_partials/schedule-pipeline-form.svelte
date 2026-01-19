@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CalendarIcon } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { zod } from 'sveltekit-superforms/adapters';
-	import { z } from 'zod';
+	import { z } from 'zod/v3';
 
 	import type { PipelinesResponse } from '@/pocketbase/types';
 

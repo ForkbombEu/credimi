@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import CollectionLogoField from '$lib/components/collection-logo-field.svelte';
 	import QrFieldWrapper from '$lib/layout/qr-field-wrapper.svelte';
 	import { refineAsStepciYaml } from '$lib/utils';
-	import { z } from 'zod';
+	import { z } from 'zod/v3';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type {

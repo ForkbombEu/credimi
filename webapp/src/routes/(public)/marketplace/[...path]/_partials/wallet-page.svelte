@@ -62,7 +62,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { path } from '$lib/utils';
 	import { Code, DownloadIcon } from '@lucide/svelte';
 	import { String } from 'effect';
-	import { z } from 'zod';
+	import { z } from 'zod/v3';
 
 	import type { WalletVersionsResponse } from '@/pocketbase/types';
 

@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { BlocksIcon } from '@lucide/svelte';
 	import Ajv from 'ajv/dist/2020';
 	import { parse as parseYaml } from 'yaml';
-	import z from 'zod';
+	import z from 'zod/v3';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';
 	import type { PipelinesRecord } from '@/pocketbase/types';

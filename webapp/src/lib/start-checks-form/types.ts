@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { yamlStringSchema } from '$lib/utils/schemas';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 //
 

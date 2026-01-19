@@ -11,7 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { onDestroy, onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { zod } from 'sveltekit-superforms/adapters';
-	import { z } from 'zod';
+	import { z } from 'zod/v3';
 
 	import type { CredentialIssuersResponse, CredentialsResponse } from '@/pocketbase/types';
 

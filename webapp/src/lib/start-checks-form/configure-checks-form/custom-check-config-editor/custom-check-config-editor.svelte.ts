@@ -9,7 +9,7 @@ import { yamlStringSchema } from '$lib/utils';
 import { watch } from 'runed';
 import { fromStore } from 'svelte/store';
 import { zod } from 'sveltekit-superforms/adapters';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import type { CustomChecksResponse } from '@/pocketbase/types';
 import type { State } from '@/utils/types';

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { Record } from 'effect';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import type { SelectOption } from '@/components/ui-custom/utils';
 import type { SchedulesResponse } from '@/pocketbase/types';

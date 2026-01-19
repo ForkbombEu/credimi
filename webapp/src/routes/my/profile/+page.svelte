@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { Pencil } from '@lucide/svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
-	import z from 'zod';
+	import z from 'zod/v3';
 
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
