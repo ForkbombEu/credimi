@@ -145,7 +145,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
     import { debounce } from "./codeEditor.util";
 
     let {
-        value = $bindable(""),
+        value = $bindable(),
         lang,
         theme,
         extensions = [],
