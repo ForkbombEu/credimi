@@ -5,6 +5,7 @@
 import type { BaseEditor } from '$start-checks-form/_utils';
 import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
 
+import { getValueSnapshot, validate } from '@sjsf/form';
 import { yamlStringSchema } from '$lib/utils';
 import { watch } from 'runed';
 import { fromStore } from 'svelte/store';
@@ -31,7 +32,10 @@ export class CustomCheckConfigEditor implements BaseEditor {
 
 	isValid = $derived.by(() => {
 		let jsonSchemaFormIsValid = true;
-		if (this.jsonSchemaForm) jsonSchemaFormIsValid = this.jsonSchemaForm.validate().size === 0;
+		if (this.jsonSchemaForm) {
+			const errors = validate(this.jsonSchemaForm).errors ?? [];
+			jsonSchemaFormIsValid = errors.length === 0;
+		}
 
 		const yamlFormIsValid = this.yamlFormValidationResult?.valid ?? false;
 		return jsonSchemaFormIsValid && yamlFormIsValid;
@@ -57,7 +61,7 @@ export class CustomCheckConfigEditor implements BaseEditor {
 
 	getData() {
 		return {
-			form: this.jsonSchemaForm?.value,
+			form: this.jsonSchemaForm ? getValueSnapshot(this.jsonSchemaForm) : undefined,
 			yaml: this.yamlFormState.current.yaml
 		};
 	}
