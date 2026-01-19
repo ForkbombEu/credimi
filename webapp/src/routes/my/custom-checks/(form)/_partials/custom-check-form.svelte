@@ -7,15 +7,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { StandardsWithTestSuites } from '$lib/standards';
 
-	import { yaml } from '@codemirror/lang-yaml';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
 	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
 	import { jsonStringSchema, stepciYamlSchema } from '$lib/utils';
+	import { yaml } from '@codemirror/lang-yaml';
+	import { GitBranch, HelpCircle, PlusIcon, UploadIcon } from '@lucide/svelte';
 	import { String } from 'effect';
 	import { run } from 'json_typegen_wasm';
 	import _ from 'lodash';
-	import { GitBranch, HelpCircle, PlusIcon, UploadIcon } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { fromStore } from 'svelte/store';
 	import { zod } from 'sveltekit-superforms/adapters';

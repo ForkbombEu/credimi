@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="Data extends GenericRecord">
-	import { UploadIcon } from 'lucide-svelte';
+	import { UploadIcon } from '@lucide/svelte';
 	import { fromStore } from 'svelte/store';
 	import { fieldProxy, type FormPathLeaves, type SuperForm } from 'sveltekit-superforms';
 

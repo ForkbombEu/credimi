@@ -5,12 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { yaml } from '@codemirror/lang-yaml';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import { yamlStringSchema } from '$lib/utils';
-	import { UploadIcon } from 'lucide-svelte';
+	import { yaml } from '@codemirror/lang-yaml';
+	import { UploadIcon } from '@lucide/svelte';
 	import { z } from 'zod';
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes';

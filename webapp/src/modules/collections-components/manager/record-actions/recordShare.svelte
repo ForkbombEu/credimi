@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="C extends CollectionName">
-	import { ArrowLeft, Share, Trash } from 'lucide-svelte';
+	import { ArrowLeft, Share, Trash } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 
 	import type { CollectionName } from '@/pocketbase/collections-models';

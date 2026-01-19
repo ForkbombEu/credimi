@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ClassValue } from 'svelte/elements';
 
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { Pencil, PlayIcon } from 'lucide-svelte';
+	import { Pencil, PlayIcon } from '@lucide/svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 	import type { OrganizationsResponse } from '@/pocketbase/types';

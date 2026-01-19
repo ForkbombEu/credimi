@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		SquareArrowOutUpRight,
 		SquareStack,
 		User
-	} from 'lucide-svelte';
+	} from '@lucide/svelte';
 
 	import { AppLogo, appName } from '@/brand';
 	import SidebarGroup from '@/components/layout/sidebar/sidebarGroup.svelte';

@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { HTMLAnchorAttributes } from 'svelte/elements';
 
-	import { ExternalLink } from 'lucide-svelte';
+	import { ExternalLink } from '@lucide/svelte';
 
 	import type { IconComponent } from '@/components/types';
 

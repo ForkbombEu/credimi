@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc.svelte';
 	import { WorkflowQrPoller } from '$lib/workflows';
-	import { ArrowRightIcon } from 'lucide-svelte';
+	import { ArrowRightIcon } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	import A from '@/components/ui-custom/a.svelte';

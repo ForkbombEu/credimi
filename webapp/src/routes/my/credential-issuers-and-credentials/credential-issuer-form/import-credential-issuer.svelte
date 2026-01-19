@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { UnsubscribeFunc } from 'pocketbase';
 
-	import { CheckCircle2, ChevronDownIcon, ChevronUpIcon, Download, Loader2 } from 'lucide-svelte';
+	import { CheckCircle2, ChevronDownIcon, ChevronUpIcon, Download, Loader2 } from '@lucide/svelte';
 	import { onDestroy, onMount } from 'svelte';
 	import { slide } from 'svelte/transition';
 	import { zod } from 'sveltekit-superforms/adapters';

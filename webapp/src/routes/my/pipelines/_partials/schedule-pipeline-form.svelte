@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { getPath } from '$lib/utils';
-	import { CalendarIcon } from 'lucide-svelte';
+	import { CalendarIcon } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod';

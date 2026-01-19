@@ -5,12 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { HelpCircle } from 'lucide-svelte';
+	import { HelpCircle } from '@lucide/svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import z from 'zod';
 
-	import { WelcomeSession, WelcomeBanner } from '@/auth/welcome';
-	import { PageCard } from '@/components/layout';
+	import { WelcomeBanner, WelcomeSession } from '@/auth/welcome';
 	import A from '@/components/ui-custom/a.svelte';
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -18,8 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import Separator from '@/components/ui/separator/separator.svelte';
 	import { featureFlags } from '@/features';
-	// Components
-	import { Form, createForm } from '@/forms';
+// Components
+	import { createForm, Form } from '@/forms';
 	import { Field } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import {
@@ -29,16 +28,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		saveKeyringToLocalStorage
 	} from '@/keypairoom/keypair';
 	import {
-		userChallengesSchema,
+		formatAnswersForZenroom,
 		userChallenges,
-		type UserChallenges,
-		formatAnswersForZenroom
+		userChallengesSchema,
+		type UserChallenges
 	} from '@/keypairoom/userQuestions.js';
 	import {
 		getPublicKeysFromKeypair,
-		saveUserPublicKeys,
 		getUserPublicKeys,
-		RegenerateKeyringSession
+		RegenerateKeyringSession,
+		saveUserPublicKeys
 	} from '@/keypairoom/utils.js';
 	import { currentUser, pb } from '@/pocketbase';
 	import { log } from '@/utils/other';

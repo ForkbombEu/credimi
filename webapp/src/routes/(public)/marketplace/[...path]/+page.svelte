@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { userOrganization } from '$lib/app-state';
 	import { getMarketplaceItemData } from '$lib/marketplace';
 	import { marketplaceItemToSectionHref } from '$lib/marketplace/utils';
-	import { PencilIcon } from 'lucide-svelte';
+	import { PencilIcon } from '@lucide/svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';

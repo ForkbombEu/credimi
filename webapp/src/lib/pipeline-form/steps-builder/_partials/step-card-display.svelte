@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import * as steps from '$lib/pipeline-form/steps';
-	import { TriangleAlert } from 'lucide-svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';

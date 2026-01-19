@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	import type { Snippet } from 'svelte';
 
-	import { FolderIcon, MessageCircleWarning, SearchIcon } from 'lucide-svelte';
+	import { FolderIcon, MessageCircleWarning, SearchIcon } from '@lucide/svelte';
 
 	import type { FormOptions as SuperformsOptions } from '@/forms';
 	import type { CollectionName } from '@/pocketbase/collections-models';
