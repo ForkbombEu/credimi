@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
 	import { ArrowUp, Eye } from '@lucide/svelte';
+	import { PUBLIC_POCKETBASE_URL } from '$env/static/public';
 
 	import type { IconComponent } from '@/components/types';
 	import type { GenericRecord } from '@/utils/types';
@@ -19,9 +19,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase/index.js';
 
-	import SectionCard from '../../layout/section-card.svelte';
 	import Footer from '../_utils/footer.svelte';
 	import SmallErrorDisplay from '../_utils/small-error-display.svelte';
+	import SectionCard from '../../layout/section-card.svelte';
 	import { CheckConfigEditorComponent } from './check-config-editor';
 	import { CheckConfigFormEditorComponent } from './check-config-form-editor';
 	import {
@@ -57,7 +57,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render SectionDivider(m.Configs())}
 	{/if}
 
-	{#each Object.entries(form.checkConfigEditors) as [id, checkConfigEditor]}
+	{#each Object.entries(form.checkConfigEditors) as [id, checkConfigEditor] (id)}
 		<SectionCard {id} title={id.split('.')[0]}>
 			<CheckConfigEditorComponent editor={checkConfigEditor} />
 		</SectionCard>
@@ -65,7 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#if form.customCheckConfigEditors.length}
 		{@render SectionDivider(m.Custom_checks())}
-		{#each form.customCheckConfigEditors as customCheckConfigEditor}
+		{#each form.customCheckConfigEditors as customCheckConfigEditor (customCheckConfigEditor.props.customCheck.id)}
 			<SectionCard
 				id={customCheckConfigEditor.props.customCheck.id}
 				title={customCheckConfigEditor.props.customCheck.name}
@@ -105,8 +105,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						})}
 					{/if}
 				</div>
-				<p>
-					{' | '}
+				<p class="mx-2">
+					|
 				</p>
 			{/if}
 
@@ -117,7 +117,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<span class="font-bold text-green-600">
 						{m.count_valid({ count: status.validFormsCount })}
 					</span>
-					<span>{' / '}</span>
+					<span class="mx-1">
+						/
+					</span>
 					{#if !form.isValid}
 						<span class="font-bold text-red-600">
 							{m.count_invalid({ count: status.invalidFormsCount })}
@@ -160,7 +162,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Popover.Trigger>
 			<Popover.Content class="dark w-fit">
 				<ul class="space-y-1 text-sm">
-					{#each entries as { id, text }}
+					{#each entries as { id, text } (id)}
 						<li>
 							<a class="underline hover:no-underline" href="#{id}">
 								{text}
@@ -180,16 +182,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	restProps?: GenericRecord;
 })}
 	{@const { href, Icon, text, restProps = {} } = props}
-	<Button {href} variant="outline" class="h-8 min-w-fit px-2 text-sm" {...restProps}>
-		<Icon size={10} class="" />
+	<Button {href} size="sm" variant="outline" class="min-w-fit px-2 text-sm" {...restProps}>
+		<Icon />
 		{text}
 	</Button>
 {/snippet}
 
 {#snippet SectionDivider(text: string)}
 	<div class="flex items-center gap-3 py-1">
-		<Separator class="!w-auto grow" />
+		<Separator class="w-auto! grow" />
 		<p class="text-muted-foreground text-sm">{text}</p>
-		<Separator class="!w-auto grow" />
+		<Separator class="w-auto! grow" />
 	</div>
 {/snippet}
