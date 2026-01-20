@@ -76,7 +76,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Table.Head />
 			{/if}
 
-			{#each fields as field}
+			{#each fields as field (field)}
 				<FieldTh {field} />
 			{/each}
 
@@ -94,7 +94,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#each records as untypedRecord (untypedRecord)}
 			{@const record = untypedRecord as CollectionResponses[CollectionName]}
 			<Table.Row
-				class={['hover:bg-inherit', 'has-[+tr.hide-previous-border]:border-none', rowClass]}
+				class={[
+					'hover:bg-background',
+					'has-[+tr.hide-previous-border]:border-none',
+					rowClass
+				]}
 			>
 				{#if !hide.includes('select')}
 					<Table.Cell class="py-2">
@@ -102,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Table.Cell>
 				{/if}
 
-				{#each fields as field}
+				{#each fields as field (field)}
 					{@const snippet = snippets?.[field]}
 					<Table.Cell class={rowCellClass}>
 						{#if snippet}

@@ -29,15 +29,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Table.Row class={['bg-gray-50', { hidden: !show, 'hide-previous-border': show }]}>
 	{#if show}
-		<Table.Cell class="!p-0 py-1 text-xs" colspan={99}>
+		<Table.Cell class="p-0! py-1 text-xs" colspan={99}>
 			<Accordion.Root type="single" bind:value={accordionValue}>
 				<Accordion.Item value="item-1" class="border-none">
 					<Accordion.Trigger
-						class="flex justify-start gap-3 border-none px-4 py-1 hover:bg-slate-200 hover:no-underline"
+						class="flex items-center justify-start gap-3 rounded-none! border-none px-4 py-1 hover:bg-slate-200 hover:no-underline"
 					>
 						{#if icon}
-							<div class="flex w-[38px] justify-center">
-								<Icon src={icon} class="text-gray-400" size={12} />
+							<div class="flex w-[38px] items-center justify-center">
+								<Icon src={icon} class="text-gray-400" size={14} />
 							</div>
 						{/if}
 						<p class="py-1">
@@ -69,7 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Accordion.Trigger>
 
 					{#if items.length > 0}
-						<Accordion.Content class="[&>div]:pb-1">
+						<Accordion.Content class="pb-1!">
 							<div
 								class={[
 									'grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4',
@@ -97,6 +97,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	@reference 'tailwindcss';
 
 	.pill {
-		@apply block text-nowrap rounded-full px-2 py-1 text-slate-500 transition hover:bg-slate-300;
+		@apply block rounded-full px-2 py-1 text-nowrap text-slate-500 transition hover:bg-slate-300;
 	}
 </style>
