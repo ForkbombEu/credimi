@@ -31,6 +31,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</span>
 	{/if}
 	{#if textToCopy}
-		<CopyButtonSmall {textToCopy} class="inline-flex translate-y-px" />
+		<CopyButtonSmall {textToCopy} size="mini" class="inline-flex translate-y-px" />
 	{/if}
 </T>

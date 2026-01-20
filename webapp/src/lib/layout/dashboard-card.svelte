@@ -91,7 +91,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex items-center gap-4">
 			<Avatar src={avatar(record)} fallback={record.name} class="rounded-sm border" />
-			<div>
+			<div class="space-y-1">
 				<div class="flex items-center gap-2">
 					<LabelLink
 						label={record.name}
