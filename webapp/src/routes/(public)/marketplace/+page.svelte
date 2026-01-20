@@ -82,7 +82,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	{#snippet top({ Search })}
 		<div class="bg-secondary pb-10 pt-10 md:pb-0">
-			<div class="mx-auto max-w-screen-xl px-4 md:px-8">
+			<div class="mx-auto max-w-7xl px-4 md:px-8">
 				<T tag="h1" class="mb-8">
 					{m.Marketplace()}
 				</T>
@@ -127,7 +127,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet contentWrapper(children)}
 		<div class="bg-secondary min-h-[300px] grow">
-			<div class="mx-auto max-w-screen-xl px-4 pb-8 md:px-8">
+			<div class="mx-auto max-w-7xl px-4 pb-8 md:px-8">
 				{#if params.tab === 'conformance-checks'}
 					<div in:fly={{ y: 10 }} class="rounded-lg rounded-tr-none bg-white">
 						<ConformanceChecksTable standardsWithTestSuites={data.conformanceChecks} />
