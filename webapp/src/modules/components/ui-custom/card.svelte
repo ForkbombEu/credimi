@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { contentClass, header, children, footer, ...rest }: Props = $props();
 </script>
 
-<Root {...rest}>
+<Root {...rest} class={{"py-0!": !header && !footer}}>
 	{#if header}
 		<Header>
 			{@render header()}
