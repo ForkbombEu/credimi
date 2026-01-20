@@ -135,7 +135,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	const manager = new CollectionManager(collection, {
-		query: queryOptions,
+		query: () => queryOptions,
 		queryAgent: queryAgentOptions
 	});
 

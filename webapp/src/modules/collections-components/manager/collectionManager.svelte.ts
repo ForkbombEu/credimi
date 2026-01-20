@@ -29,10 +29,10 @@ export class CollectionManager<
 > {
 	recordService: RecordService<PocketbaseQueryResponse<C, E>>;
 
-	private rootQueryOptions: PocketbaseQueryOptions<C, E> = $state({});
+	private rootQueryOptions: () => PocketbaseQueryOptions<C, E>;
 	private currentQueryOptions: PocketbaseQueryOptions<C, E> = $state({});
 	query = $derived.by(
-		() => new PocketbaseQueryOptionsEditor(this.currentQueryOptions, this.rootQueryOptions)
+		() => new PocketbaseQueryOptionsEditor(this.currentQueryOptions, this.rootQueryOptions())
 	);
 
 	private queryAgentOptions: PocketbaseQueryAgentOptions = $state({});
@@ -50,7 +50,7 @@ export class CollectionManager<
 	constructor(
 		public readonly collection: C,
 		options: {
-			query: PocketbaseQueryOptions<C, E>;
+			query: () => PocketbaseQueryOptions<C, E>;
 			queryAgent: PocketbaseQueryAgentOptions;
 		}
 	) {
