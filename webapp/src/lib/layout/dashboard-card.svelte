@@ -11,11 +11,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts" generics="R extends DashboardRecord">
 	import type { Snippet } from 'svelte';
 
+	import { ArrowDown, ArrowUp } from '@lucide/svelte';
 	import { getMarketplaceItemUrl, type MarketplaceItem } from '$lib/marketplace';
 	import { path as makePath } from '$lib/utils';
 	import { String } from 'effect';
 	import { truncate } from 'lodash';
-	import { ArrowDown, ArrowUp } from 'lucide-svelte';
 	import removeMd from 'remove-markdown';
 
 	import { RecordClone, RecordDelete, RecordEdit } from '@/collections-components/manager';
@@ -87,11 +87,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<Card id={record.canonified_name} class="bg-card scroll-mt-5" contentClass="space-y-4 p-4">
+<Card id={record.canonified_name} class="scroll-mt-5 bg-card" contentClass="space-y-4 p-4">
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex items-center gap-4">
 			<Avatar src={avatar(record)} fallback={record.name} class="rounded-sm border" />
-			<div>
+			<div class="space-y-1">
 				<div class="flex items-center gap-2">
 					<LabelLink
 						label={record.name}
@@ -154,7 +154,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{@const icon = isDescriptionExpanded ? ArrowUp : ArrowDown}
 						{@const label = isDescriptionExpanded ? 'Collapse' : 'Expand'}
 						<button
-							class="text-primary inline-flex items-baseline gap-0.5 hover:underline"
+							class="inline-flex items-baseline gap-0.5 text-primary hover:underline"
 							onclick={() => (isDescriptionExpanded = !isDescriptionExpanded)}
 						>
 							<Icon src={icon} size="14" class="translate-y-0.5" />

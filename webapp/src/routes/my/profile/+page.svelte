@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Pencil } from 'lucide-svelte';
+	import { Pencil } from '@lucide/svelte';
 	import { zod } from 'sveltekit-superforms/adapters';
-	import z from 'zod';
+	import z from 'zod/v3';
 
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -34,26 +34,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})
 	});
 
-	let form = $derived(
-		createForm({
-			adapter: zod(schema),
-			onSubmit: async ({ form }) => {
-				const dataToUpdate = { ...form.data };
-				delete dataToUpdate.verified;
-				// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
-				$currentUser = await pb.collection('users').update($currentUser?.id!, dataToUpdate);
-			},
-			initialData: {
-				name: $currentUser?.name,
-				email: $currentUser?.email,
-				emailVisibility: $currentUser?.emailVisibility,
-				Timezone: $currentUser?.Timezone || detectedTimezone
-			},
-			options: {
-				dataType: 'form'
-			}
-		})
-	);
+	let form = createForm({
+		adapter: zod(schema),
+		onSubmit: async ({ form }) => {
+			const dataToUpdate = { ...form.data };
+			delete dataToUpdate.verified;
+			// eslint-disable-next-line @typescript-eslint/no-non-null-asserted-optional-chain
+			$currentUser = await pb.collection('users').update($currentUser?.id!, dataToUpdate);
+		},
+		initialData: {
+			name: $currentUser?.name,
+			email: $currentUser?.email,
+			emailVisibility: $currentUser?.emailVisibility,
+			Timezone: $currentUser?.Timezone || detectedTimezone
+		},
+		options: {
+			dataType: 'form'
+		}
+	})
+	
 
 	setDashboardNavbar({
 		title: m.Profile()
@@ -70,7 +69,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<T tag="p">
 				{$currentUser?.email}
 				<span class="ml-1 text-sm text-gray-400">
-					({$currentUser?.emailVisibility ? m.public() : m.not_public()})
+					({$currentUser?.emailVisibility ? m.Public() : m.not_public()})
 				</span>
 			</T>
 			<T tag="p">

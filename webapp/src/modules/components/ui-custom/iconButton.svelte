@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { X } from 'lucide-svelte';
+	import { X } from '@lucide/svelte';
 
 	import type { IconComponent } from '../types';
 	import type { ButtonProps } from '../ui/button';
@@ -42,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		md: {
 			iconSize: 16,
-			sizeClass: 'size-10'
+			sizeClass: 'size-9'
 		},
 		lg: {
 			iconSize: 18,

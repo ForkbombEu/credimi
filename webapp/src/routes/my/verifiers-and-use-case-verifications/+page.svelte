@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Plus } from '@lucide/svelte';
 	import { entities } from '$lib/global/entities';
-	import { Plus } from 'lucide-svelte';
 
 	import { CollectionManager } from '@/collections-components';
 	import CollectionForm from '@/collections-components/form/collectionForm.svelte';

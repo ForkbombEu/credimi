@@ -81,20 +81,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}}
 >
 	{#snippet top({ Search })}
-		<div class="bg-secondary pb-10 pt-10 md:pb-0">
-			<div class="mx-auto max-w-screen-xl px-4 md:px-8">
+		<div class="bg-secondary pt-10 pb-0">
+			<div class="mx-auto max-w-7xl px-4 md:px-8">
 				<T tag="h1" class="mb-8">
 					{m.Marketplace()}
 				</T>
 
-				<div class="flex flex-col gap-2 md:flex-row md:gap-0">
+				<div
+					class="mb-8 flex flex-col gap-2 overflow-auto md:mb-0 md:flex-row md:items-stretch md:gap-0"
+				>
 					{#each sections as tab (tab.slug)}
 						{@const isActive = params.tab === tab.slug}
 						<button
 							class={[
-								'group rounded-md md:rounded-b-none md:rounded-t-md md:p-2',
+								'group rounded-md md:rounded-t-md md:rounded-b-none md:p-2',
+								'flex items-stretch',
 								{
-									'text-primary bg-white': isActive,
+									'bg-white text-primary': isActive,
 									'shadow-md md:shadow-none': isActive
 								}
 							]}
@@ -102,22 +105,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						>
 							<div
 								class={[
-									'rounded-lg px-3 py-2 text-left',
-									'flex items-center gap-2',
+									'rounded-lg px-3 py-2 text-left leading-snug',
+									'flex grow items-center gap-2',
 									{
-										'group-hover:bg-primary/20 bg-primary/10': !isActive
+										'bg-primary/10 group-hover:bg-primary/20': !isActive
 									}
 								]}
 							>
 								<Icon src={tab.icon} class={[tab.classes.text, 'shrink-0']} />
-								{tab.labels.plural}
+								<div>
+									{tab.labels.plural}
+								</div>
 							</div>
 						</button>
 					{/each}
 				</div>
 
 				{#if params.tab !== 'conformance-checks'}
-					<div class="bg-white px-4 pb-6 pt-4">
+					<div class="bg-white px-4 pt-4 pb-6 rounded-t-md md:rounded-t-none">
 						<Search />
 					</div>
 				{/if}
@@ -126,10 +131,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet contentWrapper(children)}
-		<div class="bg-secondary min-h-[300px] grow">
-			<div class="mx-auto max-w-screen-xl px-4 pb-8 md:px-8">
+		<div class="min-h-[300px] grow bg-secondary">
+			<div class="mx-auto max-w-7xl px-4 pb-8 md:px-8">
 				{#if params.tab === 'conformance-checks'}
-					<div in:fly={{ y: 10 }} class="rounded-lg rounded-tr-none bg-white">
+					<div class="rounded-lg rounded-tr-none bg-white pt-4">
 						<ConformanceChecksTable standardsWithTestSuites={data.conformanceChecks} />
 					</div>
 				{:else}
@@ -141,7 +146,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#snippet records({ records, Pagination })}
 		{#if params.mode === 'cards' && params.tab !== 'conformance-checks'}
-			<div in:fly={{ y: 10 }} class="space-y-4">
+			<div class="space-y-4">
 				<PageGrid>
 					{#each records as record (record.id)}
 						<MarketplaceItemCard item={record} />
@@ -150,7 +155,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Pagination />
 			</div>
 		{:else}
-			<div in:fly={{ y: 10 }} class="space-y-4">
+			<div in:fly={{ y: 10 }} class="space-y-4 rounded-b-md">
 				<MarketplaceTable {records} />
 				<Pagination />
 			</div>

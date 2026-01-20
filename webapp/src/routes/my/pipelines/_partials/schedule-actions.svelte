@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { runWithLoading } from '$lib/utils';
-	import { EllipsisIcon, PauseIcon, PlayIcon, XIcon } from 'lucide-svelte';
+	import { EllipsisIcon, PauseIcon, PlayIcon, XIcon } from '@lucide/svelte';
 
 	import type { IconComponent } from '@/components/types';
 

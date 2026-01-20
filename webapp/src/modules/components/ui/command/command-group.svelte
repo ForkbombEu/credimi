@@ -1,19 +1,13 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import { Command as CommandPrimitive } from 'bits-ui';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { Command as CommandPrimitive, useId } from "bits-ui";
+	import { cn } from "@/components/ui/utils.js";
 
 	let {
 		ref = $bindable(null),
 		class: className,
 		children,
 		heading,
+		value,
 		...restProps
 	}: CommandPrimitive.GroupProps & {
 		heading?: string;
@@ -21,13 +15,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <CommandPrimitive.Group
-	class={cn('overflow-hidden p-1 text-foreground', className)}
 	bind:ref
+	data-slot="command-group"
+	class={cn("text-foreground overflow-hidden p-1", className)}
+	value={value ?? heading ?? `----${useId()}`}
 	{...restProps}
 >
 	{#if heading}
 		<CommandPrimitive.GroupHeading
-			class="px-2 py-1.5 text-xs font-medium text-muted-foreground"
+			class="text-muted-foreground px-2 py-1.5 text-xs font-medium"
 		>
 			{heading}
 		</CommandPrimitive.GroupHeading>

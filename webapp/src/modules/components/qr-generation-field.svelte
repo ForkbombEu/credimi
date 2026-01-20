@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		placeholder?: string;
 		successMessage?: string;
 		loadingMessage?: string;
-		enableStructuredErrors?: boolean;
+		// enableStructuredErrors?: boolean;
 		hideLabel?: boolean;
 	}
 
@@ -199,7 +199,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	</div>
 
-	<div class={{ 'pt-8': !hideLabel }}>
+	<div class={{ 'pt-[22px]': !hideLabel }}>
 		<QrCode
 			src={generatedDeeplink}
 			class="size-60 rounded-md border"

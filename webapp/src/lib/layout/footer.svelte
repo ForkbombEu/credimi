@@ -12,6 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import LanguageSelect from '@/i18n/languageSelect.svelte';
+	import { currentUser } from '@/pocketbase';
 
 	const footer_data = [
 		{
@@ -127,7 +128,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="bg-primary text-muted">
-	<div class="mx-auto max-w-screen-xl">
+	<div class="mx-auto max-w-7xl">
 		<div class="px-8 py-12">
 			<div class="flex flex-col justify-between gap-6 sm:flex-row">
 				<div class="flex flex-col items-start gap-2">
@@ -137,13 +138,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<span class="pl-1 text-sm text-white/40">{version}</span>
 						</T>
 					</div>
-					<p class="border-b-muted border-b">{m.Test_and_find_decentralized_IDs()}</p>
+					<p class="border-b border-b-muted">{m.Test_and_find_decentralized_IDs()}</p>
 				</div>
 				<div class="flex flex-col gap-2 sm:flex-row">
 					<LanguageSelect />
-					<Button variant="ghost" class="grow basis-1 border sm:grow-0" href="/login">
-						{m.Login()}
-					</Button>
+					{#if !$currentUser}
+						<Button variant="ghost" class="grow basis-1 border sm:grow-0" href="/login">
+							{m.Login()}
+						</Button>
+					{/if}
 				</div>
 			</div>
 			<div class="grid grid-cols-1 gap-12 pt-12 sm:grid-cols-2 md:grid-cols-4">
@@ -153,7 +156,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<T tag="small">{category.label}</T>
 							{#each category.links as item (item.label)}
 								<!-- eslint-disable-next-line svelte/no-navigation-without-resolve, svelte/no-navigation-without-resolve -->
-								<a href={item.url} class="text-muted-foreground text-xs">
+								<a href={item.url} class="text-xs text-muted-foreground">
 									{item.label}
 								</a>
 							{/each}

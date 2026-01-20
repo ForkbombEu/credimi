@@ -42,7 +42,6 @@ export function createRecordDisplay<R extends ValueOf<CollectionResponses>>(
 	displayFields: (keyof R)[] | undefined,
 	displayFn: RecordPresenter<R> | undefined
 ) {
-	// console.log(displayFields);
 	if (displayFields) return createRecordDisplayFromFields(record, displayFields);
 	else if (displayFn) return displayFn(record);
 	else {

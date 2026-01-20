@@ -44,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<!-- TAGS -->
 	{#if tags.length > 0}
 		<div class="flex flex-row items-center justify-start gap-2">
-			{#each tags as tag}
+			{#each tags as tag (tag)}
 				<Badge variant="outline" class="border-primary text-primary">{tag}</Badge>
 			{/each}
 		</div>
@@ -69,14 +69,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </PageTop>
 
 <PageContent class="grow bg-secondary" contentClass="flex gap-12 items-start">
-	<div>
+	<div class="space-y-12">
 		<div>
-			<PageHeader title={'Key differences'} id={'key_differences'} />
-			<RenderMd content={news.key_differences} />
+			<PageHeader title="Key differences" id="key_differences" />
+			<RenderMd class="prose" content={news.key_differences} />
 		</div>
-		<div class="prose prose-base lg:prose-lg xl:prose-xl">
-			<PageHeader title={'news'} id={'news'} />
-			<HTML content={news.news} />
+		<div>
+			<PageHeader title="news" id="news" />
+			<HTML class="prose" content={news.news} />
 		</div>
 	</div>
 </PageContent>

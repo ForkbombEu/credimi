@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { AlertCircle, Download, Info, Loader2 } from 'lucide-svelte';
+	import { CircleAlert, Download, Info, Loader } from '@lucide/svelte';
 
 	import type { WalletsResponse } from '@/pocketbase/types';
 
@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Alert, AlertDescription } from '@/components/ui/alert';
 	import { Button } from '@/components/ui/button';
 	import { Card, CardContent } from '@/components/ui/card';
+	import Input from '@/components/ui/input/input.svelte';
 	import Separator from '@/components/ui/separator/separator.svelte';
 	import { Form } from '@/forms';
 	import { Field } from '@/forms/fields';
@@ -101,10 +102,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 </script>
 
-<Card class="bg-secondary border-purple-outline/20 mb-8">
+<Card class="bg-secondary border-purple-200 shadow-none! mb-8 py-0">
 	<CardContent class="space-y-4 p-6">
 		<div class="flex items-start gap-3">
-			<Info class="text-secondary-foreground mt-0.5 h-5 w-5 flex-shrink-0" />
+			<Info class="text-secondary-foreground mt-0.5 h-5 w-5 shrink-0" />
 			<div class="flex-1 space-y-1">
 				<h4 class="text-secondary-foreground text-base font-medium">
 					{m.Import_from_marketplace()}
@@ -117,18 +118,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		{#if autoPopulateError}
 			<Alert variant="destructive">
-				<AlertCircle class="h-4 w-4" />
+				<CircleAlert class="h-4 w-4" />
 				<AlertDescription>{autoPopulateError}</AlertDescription>
 			</Alert>
 		{/if}
 
 		<div class="flex gap-2">
 			<div class="flex-1">
-				<input
+				<Input
 					type="url"
 					bind:value={autoPopulateUrl}
 					placeholder={m.Enter_app_store_URL_placeholder()}
-					class="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring flex h-10 w-full rounded-md border px-3 py-2 text-sm file:border-0 file:bg-transparent file:text-sm file:font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
 				/>
 			</div>
 			<Button
@@ -138,10 +138,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				disabled={isProcessingWorkflow || !autoPopulateUrl.trim()}
 			>
 				{#if isProcessingWorkflow}
-					<Loader2 class="mr-2 h-4 w-4 animate-spin" />
+					<Loader class="animate-spin" />
 					{m.Processing_wallet() || m.Fetching_fallback()}
 				{:else}
-					<Download class="mr-2 h-4 w-4" />
+					<Download />
 					{m.Import()}
 				{/if}
 			</Button>

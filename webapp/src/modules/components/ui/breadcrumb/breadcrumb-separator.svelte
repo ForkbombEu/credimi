@@ -1,16 +1,7 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLLiAttributes } from 'svelte/elements';
-
-	import ChevronRight from 'lucide-svelte/icons/chevron-right';
-
-	import { cn } from '@/components/ui/utils.js';
+	import ChevronRightIcon from "@lucide/svelte/icons/chevron-right";
+	import { cn, type WithElementRef } from "@/components/ui/utils.js";
+	import type { HTMLLiAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
@@ -21,15 +12,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <li
+	bind:this={ref}
+	data-slot="breadcrumb-separator"
 	role="presentation"
 	aria-hidden="true"
-	class={cn('[&>svg]:size-3.5', className)}
-	bind:this={ref}
+	class={cn("[&>svg]:size-3.5", className)}
 	{...restProps}
 >
 	{#if children}
 		{@render children?.()}
 	{:else}
-		<ChevronRight />
+		<ChevronRightIcon />
 	{/if}
 </li>

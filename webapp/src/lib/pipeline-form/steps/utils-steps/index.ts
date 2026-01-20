@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { Globe, Mail } from 'lucide-svelte';
+import { Globe, Mail } from '@lucide/svelte';
 
 import { m } from '@/i18n';
 

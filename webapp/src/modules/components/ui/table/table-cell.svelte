@@ -1,14 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLTdAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { cn, type WithElementRef } from "@/components/ui/utils.js";
+	import type { HTMLTdAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
@@ -20,7 +12,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <td
 	bind:this={ref}
-	class={cn('p-4 align-middle [&:has([role=checkbox])]:pr-0', className)}
+	data-slot="table-cell"
+	class={cn(
+		"bg-clip-padding p-2 align-middle whitespace-nowrap [&:has([role=checkbox])]:pe-0",
+		className
+	)}
 	{...restProps}
 >
 	{@render children?.()}
