@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { onNavigate } from '$app/navigation';
 	import { Menu } from '@lucide/svelte';
+	import { onNavigate } from '$app/navigation';
 
 	import type { LinkWithIcon } from '@/components/types';
 
@@ -42,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 	</Sheet.Trigger>
 
-	<Sheet.Content side="right" class="w-80">
+	<Sheet.Content side="right" class="w-80 p-4">
 		<Sheet.Header class="border-b pb-4">
 			<Sheet.Title>
 				<AppLogo />
@@ -50,7 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Sheet.Header>
 
 		<div class="mt-6 flex flex-col space-y-2">
-			{#each items as item}
+			{#each items as item (item.href)}
 				<NavLink
 					link={item}
 					variant="mobile"
