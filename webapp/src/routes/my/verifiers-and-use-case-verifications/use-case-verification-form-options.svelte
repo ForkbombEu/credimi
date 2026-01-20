@@ -67,7 +67,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet yaml_editor({ form }: FieldSnippetOptions<'use_cases_verifications'>)}
-	<QrFieldWrapper label={m.YAML_Configuration()} required class="!p-3">
+	<QrFieldWrapper label={m.YAML_Configuration()} required class="p-3!">
 		<QrGenerationField
 			{form}
 			fieldName="yaml"
@@ -75,7 +75,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			placeholder={m.Run_the_code_to_generate_QR_code()}
 			successMessage={m.Test_Completed_Successfully()}
 			loadingMessage={m.Running_test()}
-			enableStructuredErrors={true}
 			hideLabel
 		/>
 	</QrFieldWrapper>
