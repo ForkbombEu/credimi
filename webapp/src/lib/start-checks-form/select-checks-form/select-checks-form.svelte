@@ -55,9 +55,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<SectionCard
 					title={m.Test_suites()}
 					subtitle={m.Select_official_test_suites_subtitle()}
+					removeFlexRestrictions
+					headerHasFlexWrap
 				>
 					{#snippet headerActions()}
-						<div class="flex gap-2">
+						<div class="flex gap-2 flex-wrap">
 							{#if form.selectedStandard?.standard_url}
 								<LinkExternal
 									href={form.selectedStandard.standard_url}
@@ -113,7 +115,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 			<Label
 				class={[
-					'w-full space-y-1 border-b-2 p-4 md:w-[400px]',
+					'w-full border-b-2 p-4 md:w-[400px] flex flex-col justify-start! items-start! text-left!',
 					{
 						'border-b-primary bg-secondary ': selected,
 						'hover:bg-secondary/35 cursor-pointer border-b-transparent':
@@ -134,7 +136,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet VersionSelect()}
 	<Select.Root type="single" bind:value={form.selectedVersionId}>
-		<Select.Trigger>
+		<Select.Trigger class="w-full">
 			{form.selectedVersion?.name ?? m.Select_a_version()}
 		</Select.Trigger>
 		<Select.Content>
@@ -169,7 +171,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		class="flex flex-col gap-8"
 	>
 		{#each form.availableSuitesWithTests as suite (suite.uid)}
-			<div class="space-y-4">
+			<div class="flex flex-col gap-4">
 				<Check.GroupLabel>
 					{@render suiteLabel(suite)}
 				</Check.GroupLabel>
