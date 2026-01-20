@@ -3,32 +3,60 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
+
 <script lang="ts">
+	import { getPath } from '$lib/utils';
+	import { CalendarIcon } from 'lucide-svelte';
+	import { toast } from 'svelte-sonner';
+	import { zod } from 'sveltekit-superforms/adapters';
+	import { z } from 'zod';
+
+	import type { PipelinesResponse } from '@/pocketbase/types';
+
+	import Button from '@/components/ui-custom/button.svelte';
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import { Label } from '@/components/ui/label';
+	import { createForm } from '@/forms';
 	import { Field, SelectField, SelectFieldAny } from '@/forms/fields';
 	import Form from '@/forms/form.svelte';
 	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
 
-	import { createScheduleWorkflowForm, scheduleModeOptions } from './schedule';
-	import { dayOptions } from './schedule.utils';
+	import { dayOptions, scheduleModeOptions, scheduleModeSchema } from './types';
 
 	//
 
 	type Props = {
-		workflowID: string;
-		runID: string;
-		workflowName: string;
-		isOpen?: boolean;
+		pipeline: PipelinesResponse;
 	};
 
-	let { workflowID, runID, workflowName, isOpen = $bindable(false) }: Props = $props();
+	let { pipeline }: Props = $props();
 
-	const form = createScheduleWorkflowForm({
-		workflowID,
-		runID,
-		onSuccess: () => {
+	//
+
+	let isOpen = $state(false);
+
+	const form = createForm({
+		adapter: zod(
+			z.object({
+				pipeline_id: z.string(),
+				schedule_mode: scheduleModeSchema
+			})
+		),
+		initialData: {
+			pipeline_id: getPath(pipeline)
+		},
+		onSubmit: async ({ form: { data } }) => {
+			if (data.schedule_mode.mode === 'monthly') {
+				data.schedule_mode.day = data.schedule_mode.day - 1;
+			}
+			await pb.send('/api/my/schedules/start', {
+				method: 'POST',
+				body: data
+			});
+
 			isOpen = false;
+			toast.success(m.Pipeline_scheduled_successfully());
 		}
 	});
 
@@ -36,12 +64,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Dialog bind:open={isOpen} title={m.Schedule_workflow()}>
+	{#snippet trigger({ props })}
+		<Button {...props} size="sm" variant="ghost" class="text-blue-600 hover:text-blue-600">
+			<CalendarIcon />
+			{m.Schedule()}
+		</Button>
+	{/snippet}
+
 	{#snippet content()}
 		<Form {form}>
 			<div class="space-y-2">
 				<Label>{m.Workflow()}</Label>
 				<div class="rounded-md bg-slate-100 p-2">
-					{workflowName}
+					{pipeline.name}
 				</div>
 			</div>
 

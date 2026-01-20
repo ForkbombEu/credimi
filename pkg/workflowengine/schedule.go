@@ -41,7 +41,7 @@ func StartScheduledWorkflowWithOptions(
 	ctx := context.Background()
 	scheduleID := fmt.Sprintf("Schedule_ID_%s", workflowID)
 
-	calendarSpec := buildCalendarSpec(scheduleMode)
+	calendarSpec := BuildCalendarSpec(scheduleMode)
 	scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
 		ID: scheduleID,
 		Spec: client.ScheduleSpec{
@@ -81,7 +81,8 @@ func StartScheduledWorkflowWithOptions(
 		ID: scheduleID,
 	}, nil
 }
-func buildCalendarSpec(mode ScheduleMode) []client.ScheduleCalendarSpec {
+
+func BuildCalendarSpec(mode ScheduleMode) []client.ScheduleCalendarSpec {
 	now := time.Now()
 	switch mode.Mode {
 	case "daily":

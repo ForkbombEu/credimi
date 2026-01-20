@@ -13,10 +13,13 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/google/uuid"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
@@ -76,8 +79,7 @@ var SchedulesRoutes routing.RouteGroup = routing.RouteGroup{
 }
 
 type StartScheduleRequest struct {
-	WorkflowID   string                      `json:"workflow_id"`
-	RunID        string                      `json:"run_id"`
+	PipelineID   string                      `json:"pipeline_id"`
 	ScheduleMode workflowengine.ScheduleMode `json:"schedule_mode"`
 }
 
@@ -114,21 +116,40 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		timeZone := e.Auth.GetString("Timezone")
-		info, err := workflowengine.GetWorkflowRunInfo(req.WorkflowID, req.RunID, namespace)
+		orgID, err := GetUserOrganizationID(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
-				"workflow",
-				"failed to get workflow run info",
+				"organization",
+				"failed to get user organization",
 				err.Error(),
 			).JSON(e)
 		}
 
-		scheduleInfo, err := workflowengine.StartScheduledWorkflowWithOptions(
-			info,
-			req.WorkflowID,
+		timeZone := e.Auth.GetString("Timezone")
+
+		rec, err := canonify.Resolve(e.App, req.PipelineID)
+		if err != nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"pipeline",
+				"failed to resolve pipeline_id",
+				err.Error(),
+			).JSON(e)
+		}
+
+		config := map[string]any{
+			"namespace": namespace,
+			"app_url":   e.App.Settings().Meta.AppURL,
+			"user_name": e.Auth.GetString("name"),
+			"user_mail": e.Auth.GetString("email"),
+		}
+
+		scheduleInfo, err := startScheduledPipelineWithOptions(
+			req.PipelineID,
+			rec.GetString("name"),
 			namespace,
+			config,
 			req.ScheduleMode,
 			timeZone,
 		)
@@ -140,10 +161,44 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		coll, err := e.App.FindCollectionByNameOrId("schedules")
+		if err != nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"schedule",
+				"failed to get schedules collection",
+				err.Error(),
+			).JSON(e)
+		}
+
+		pipeline, err := canonify.Resolve(e.App, req.PipelineID)
+		if err != nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"pipeline",
+				"failed to resolve pipeline identifier",
+				err.Error(),
+			).JSON(e)
+		}
+
+		rec = core.NewRecord(coll)
+		rec.Set("temporal_schedule_id", scheduleInfo.ScheduleID)
+		rec.Set("pipeline", pipeline.Id)
+		rec.Set("mode", req.ScheduleMode)
+		rec.Set("owner", orgID)
+
+		if err := e.App.Save(rec); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"schedule",
+				"failed to save schedule record",
+				err.Error(),
+			).JSON(e)
+		}
 
 		return e.JSON(http.StatusOK, StartScheduleResponse{
 			Message:      "Schedule started successfully",
-			ScheduleID:   scheduleInfo.ID,
+			ScheduleID:   scheduleInfo.ScheduleID,
 			ScheduleMode: req.ScheduleMode,
 		})
 	}
@@ -242,25 +297,25 @@ func listScheduledWorkflows(namespace string) ([]*ScheduleInfoSummary, error) {
 		var displayName string
 		if schedInfo.Memo != nil {
 			if field, ok := schedInfo.Memo.Fields["test"]; ok {
-				displayName = decodeFromTemporalPayload(*field.Data)
+				displayName = DecodeFromTemporalPayload(*field.Data)
 			}
 		}
-		var originalWorkflowID string
+		var pipelineID string
 		if schedInfo.Memo != nil {
-			if field, ok := schedInfo.Memo.Fields["original_workflow_id"]; ok {
-				originalWorkflowID = decodeFromTemporalPayload(*field.Data)
+			if field, ok := schedInfo.Memo.Fields["pipeline_id"]; ok {
+				pipelineID = DecodeFromTemporalPayload(*field.Data)
 			}
 		}
 		scheduleMode := workflowengine.ParseScheduleMode(schedInfo.Spec.Calendars)
 
 		schedInfoSummary := ScheduleInfoSummary{
-			ID:                 schedInfo.ID,
-			ScheduleMode:       scheduleMode,
-			WorkflowType:       schedInfo.WorkflowType,
-			DisplayName:        displayName,
-			OriginalWorkflowID: originalWorkflowID,
-			NextActionTime:     schedInfo.NextActionTimes[0].Format("02/01/2006, 15:04:05"),
-			Paused:             schedInfo.Paused,
+			ID:             schedInfo.ID,
+			ScheduleMode:   scheduleMode,
+			WorkflowType:   schedInfo.WorkflowType,
+			DisplayName:    displayName,
+			PipelineID:     pipelineID,
+			NextActionTime: schedInfo.NextActionTimes[0].Format("02/01/2006, 15:04:05"),
+			Paused:         schedInfo.Paused,
 		}
 
 		schedules = append(schedules, &schedInfoSummary)
@@ -285,7 +340,15 @@ func HandleCancelSchedule() func(*core.RequestEvent) error {
 				Namespace:  namespace,
 			}
 		},
+		func(e *core.RequestEvent, scheduleID string) error {
+			orgID, err := GetUserOrganizationID(e.App, e.Auth.Id)
+			if err != nil {
+				return err
+			}
+			return deleteScheduleRecord(e.App, scheduleID, orgID)
+		},
 	)
+
 }
 func HandlePauseSchedule() func(*core.RequestEvent) error {
 	return handleSchedule(
@@ -303,6 +366,7 @@ func HandlePauseSchedule() func(*core.RequestEvent) error {
 				Namespace:  namespace,
 			}
 		},
+		nil,
 	)
 }
 func HandleResumeSchedule() func(*core.RequestEvent) error {
@@ -321,12 +385,34 @@ func HandleResumeSchedule() func(*core.RequestEvent) error {
 				Namespace:  namespace,
 			}
 		},
+		nil,
 	)
+}
+
+func deleteScheduleRecord(
+	app core.App,
+	scheduleID string,
+	ownerID string,
+) error {
+	record, err := app.FindFirstRecordByFilter(
+		"schedules",
+		"temporal_schedule_id = {:sid} && owner = {:owner}",
+		map[string]any{
+			"sid":   scheduleID,
+			"owner": ownerID,
+		},
+	)
+	if err != nil {
+		return err
+	}
+
+	return app.Delete(record)
 }
 
 func handleSchedule(
 	action scheduleAction,
 	makeResponse func(scheduleID, namespace string) any,
+	after func(e *core.RequestEvent, scheduleID string) error,
 ) func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
@@ -390,6 +476,93 @@ func handleSchedule(
 			).JSON(e)
 		}
 
+		if after != nil {
+			if err := after(e, scheduleID); err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"schedule",
+					"failed to update local schedule state",
+					err.Error(),
+				).JSON(e)
+			}
+		}
+
 		return e.JSON(http.StatusOK, makeResponse(scheduleID, namespace))
 	}
+}
+
+type SchedulePipelineStartInfo struct {
+	ScheduleID string `json:"scheduleId"`
+}
+
+func startScheduledPipelineWithOptions(
+	pipelineID, pipelineName, namespace string,
+	config map[string]any,
+	scheduleMode workflowengine.ScheduleMode,
+	timeZone string,
+) (SchedulePipelineStartInfo, error) {
+	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	if err != nil {
+		return SchedulePipelineStartInfo{}, fmt.Errorf(
+			"unable to create Temporal client for namespace %q: %w",
+			namespace,
+			err,
+		)
+	}
+
+	ctx := context.Background()
+	canonifyName := canonify.CanonifyPlain(pipelineName)
+	scheduleID := fmt.Sprintf("Schedule_ID-%s-%s", canonifyName, uuid.NewString())
+	workflowID := fmt.Sprintf("Scheduled-%s-%s", canonifyName, uuid.NewString())
+	w := pipeline.NewPipelineWorkflow()
+
+	calendarSpec := workflowengine.BuildCalendarSpec(scheduleMode)
+	scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
+		ID: scheduleID,
+		Spec: client.ScheduleSpec{
+			Calendars:    calendarSpec,
+			TimeZoneName: timeZone,
+		},
+		Action: &client.ScheduleWorkflowAction{
+			ID:        workflowID,
+			Workflow:  w.Name(),
+			TaskQueue: pipeline.PipelineTaskQueue,
+			Args: []any{
+				pipeline.PipelineWorkflowInput{
+					WorkflowInput: workflowengine.WorkflowInput{
+						Payload: map[string]any{"pipeline_id": pipelineID},
+						Config:  config,
+					},
+					Scheduled: true,
+				},
+			},
+			Memo: map[string]any{
+				"test": pipelineName,
+			},
+		},
+		Memo: map[string]any{
+			"test":       pipelineName,
+			"pipelineID": pipelineID,
+		},
+	})
+	if err != nil {
+		return SchedulePipelineStartInfo{}, fmt.Errorf(
+			"failed to start scheduledID from workflowID: %s: %w",
+			workflowID,
+			err,
+		)
+	}
+
+	_, err = scheduleHandle.Describe(ctx)
+	if err != nil {
+		return SchedulePipelineStartInfo{}, fmt.Errorf(
+			"failed to describe scheduledID: %s: %w",
+			scheduleID,
+			err,
+		)
+	}
+
+	return SchedulePipelineStartInfo{
+		ScheduleID: scheduleID,
+	}, nil
 }
