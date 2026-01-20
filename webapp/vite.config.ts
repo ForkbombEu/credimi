@@ -44,6 +44,8 @@ export default defineConfig({
 			'@codemirror/lang-json',
 			'@codemirror/lang-yaml',
 			'@codemirror/state',
+			'@codemirror/lint',
+			'@codemirror/search',
 			'thememirror'
 		]
 	},

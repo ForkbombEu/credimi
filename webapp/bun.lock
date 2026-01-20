@@ -6,6 +6,8 @@
       "dependencies": {
         "@codemirror/lang-json": "^6.0.2",
         "@codemirror/lang-yaml": "^6.1.2",
+        "@codemirror/lint": "^6.9.2",
+        "@codemirror/search": "^6.6.0",
         "@forkbombeu/temporal-ui": "github:ForkbombEu/temporal-ui",
         "@melt-ui/svelte": "^0.86.6",
         "@sjsf/ajv8-validator": "^3.2.1",
@@ -118,6 +120,10 @@
     "@codemirror/language": ["@codemirror/language@6.12.1", "", { "dependencies": { "@codemirror/state": "^6.0.0", "@codemirror/view": "^6.23.0", "@lezer/common": "^1.5.0", "@lezer/highlight": "^1.0.0", "@lezer/lr": "^1.0.0", "style-mod": "^4.0.0" } }, "sha512-Fa6xkSiuGKc8XC8Cn96T+TQHYj4ZZ7RdFmXA3i9xe/3hLHfwPZdM+dqfX0Cp0zQklBKhVD8Yzc8LS45rkqcwpQ=="],
 
     "@codemirror/legacy-modes": ["@codemirror/legacy-modes@6.5.2", "", { "dependencies": { "@codemirror/language": "^6.0.0" } }, "sha512-/jJbwSTazlQEDOQw2FJ8LEEKVS72pU0lx6oM54kGpL8t/NJ2Jda3CZ4pcltiKTdqYSRk3ug1B3pil1gsjA6+8Q=="],
+
+    "@codemirror/lint": ["@codemirror/lint@6.9.2", "", { "dependencies": { "@codemirror/state": "^6.0.0", "@codemirror/view": "^6.35.0", "crelt": "^1.0.5" } }, "sha512-sv3DylBiIyi+xKwRCJAAsBZZZWo82shJ/RTMymLabAdtbkV5cSKwWDeCgtUq3v8flTaXS2y1kKkICuRYtUswyQ=="],
+
+    "@codemirror/search": ["@codemirror/search@6.6.0", "", { "dependencies": { "@codemirror/state": "^6.0.0", "@codemirror/view": "^6.37.0", "crelt": "^1.0.5" } }, "sha512-koFuNXcDvyyotWcgOnZGmY7LZqEOXZaaxD/j6n18TCLx2/9HieZJ5H6hs1g8FiRxBD0DNfs0nXn17g872RmYdw=="],
 
     "@codemirror/state": ["@codemirror/state@6.5.4", "", { "dependencies": { "@marijn/find-cluster-break": "^1.0.0" } }, "sha512-8y7xqG/hpB53l25CIoit9/ngxdfoG+fx+V3SHBrinnhOtLvKHRyAJJuHzkWrR4YXXLX8eXBsejgAAxHUOdW1yw=="],
 

@@ -55,7 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{...rest}
 				class={[
 					'aspect-square shrink-0 overflow-hidden',
-					isStateful ? 'size-60 rounded-md border bg-gray-50 text-muted-foreground' : '',
+					isStateful ? 'rounded-md border bg-gray-50 text-muted-foreground' : '',
 					'flex items-center justify-center',
 					'text-center text-sm',
 					{

@@ -105,6 +105,8 @@
 	"dependencies": {
 		"@codemirror/lang-json": "^6.0.2",
 		"@codemirror/lang-yaml": "^6.1.2",
+		"@codemirror/lint": "^6.9.2",
+		"@codemirror/search": "^6.6.0",
 		"@forkbombeu/temporal-ui": "github:ForkbombEu/temporal-ui",
 		"@melt-ui/svelte": "^0.86.6",
 		"@sjsf/ajv8-validator": "^3.2.1",

@@ -65,33 +65,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Table.Cell>
 
 	{#if isRoot}
-		<Table.Cell class={[isChild && '!py-0']}>
-			<div class="flex items-center gap-2">
-				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-				<a {href} class="text-primary hover:underline">
-					{workflow.displayName}
-				</a>
+		<Table.Cell class={[isChild && 'py-0!']}>
+			<div class="flex flex-wrap items-center gap-4">
+				<div class="flex items-center gap-2">
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+					<a {href} class="text-primary hover:underline">
+						{workflow.displayName}
+					</a>
 
-				{#if workflow.children && workflow.children.length > 0}
-					<Button
-						variant="ghost"
-						size="icon"
-						class="size-6 shrink-0 [&_svg]:size-3"
-						onclick={() => (isExpanded = !isExpanded)}
-					>
-						<TriangleIcon
-							class={clsx(
-								'fill-primary stroke-none transition-transform duration-200',
-								{
-									'rotate-180': !isExpanded
-								}
-							)}
-						/>
-					</Button>
-				{/if}
+					{#if workflow.children && workflow.children.length > 0}
+						<Button
+							variant="ghost"
+							size="icon"
+							class="size-6 shrink-0 [&_svg]:size-3"
+							onclick={() => (isExpanded = !isExpanded)}
+						>
+							<TriangleIcon
+								class={clsx(
+									'fill-primary stroke-none transition-transform duration-200',
+									{
+										'rotate-180': !isExpanded
+									}
+								)}
+							/>
+						</Button>
+					{/if}
+				</div>
+
+				{@render nameRight?.({ workflow })}
 			</div>
-
-			{@render nameRight?.({ workflow })}
 		</Table.Cell>
 	{:else}
 		<Table.Cell
@@ -153,7 +155,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Table.Cell>
 
 	<Table.Cell
-		class={['text-right', isChild && 'text-muted-foreground text-[10px] leading-[13px]']}
+		class={['text-right', isChild && 'text-[10px] leading-[13px] text-muted-foreground']}
 	>
 		{workflow.startTime}
 	</Table.Cell>
@@ -163,7 +165,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			'text-right',
 			{
 				'text-gray-300': !workflow.endTime,
-				'text-muted-foreground text-[10px] leading-[13px]': isChild
+				'text-[10px] leading-[13px] text-muted-foreground': isChild
 			}
 		]}
 	>

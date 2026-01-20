@@ -86,7 +86,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<WorkflowQrPoller
 							workflowId={workflow.execution.workflowId}
 							runId={workflow.execution.runId}
-							containerClass="size-32"
+							containerClass="size-40"
 						/>
 					{/if}
 				{/snippet}
