@@ -105,9 +105,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						})}
 					{/if}
 				</div>
-				<p class="mx-2">
-					|
-				</p>
+				<p class="mx-2">|</p>
 			{/if}
 
 			<div class="flex items-center gap-2">
@@ -117,9 +115,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<span class="font-bold text-green-600">
 						{m.count_valid({ count: status.validFormsCount })}
 					</span>
-					<span class="mx-1">
-						/
-					</span>
+					<span class="mx-1"> / </span>
 					{#if !form.isValid}
 						<span class="font-bold text-red-600">
 							{m.count_invalid({ count: status.invalidFormsCount })}
@@ -191,7 +187,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet SectionDivider(text: string)}
 	<div class="flex items-center gap-3 py-1">
 		<Separator class="w-auto! grow" />
-		<p class="text-muted-foreground text-sm">{text}</p>
+		<p class="text-sm text-muted-foreground">{text}</p>
 		<Separator class="w-auto! grow" />
 	</div>
 {/snippet}
