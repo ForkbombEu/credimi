@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -65,6 +66,38 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:        "/get-yaml",
 			Handler:     HandleGetPipelineYAML,
 			Description: "Get a pipeline YAML from a pipeline ID",
+		},
+	},
+}
+
+var SpecificPipelineDetails routing.RouteGroup = routing.RouteGroup{
+	BaseURL:                "/api/pipeline",
+	AuthenticationRequired: true,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{
+			Method:      http.MethodGet,
+			Path:        "/specific-details",
+			Handler:     HandleGetPipelineSpecificDetails,
+			Description: "Get pipeline worklows from a pipeline ID",
+		},
+	},
+}
+
+var PipelinesDetails routing.RouteGroup = routing.RouteGroup{
+	BaseURL:                "/api/pipeline",
+	AuthenticationRequired: true,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{
+			Method:      http.MethodGet,
+			Path:        "/details",
+			Handler:     HandleGetPipelineDetails,
+			Description: "Get pipeline worklows",
 		},
 	},
 }
@@ -203,7 +236,7 @@ func HandleGetPipelineYAML() func(*core.RequestEvent) error {
 	}
 }
 
-func HandleGetPipelineDetails() func(*core.RequestEvent) error {
+func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 		if authRecord == nil {
@@ -212,6 +245,16 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				"auth",
 				"authentication required",
 				"user not authenticated",
+			).JSON(e)
+		}
+
+		pipelineID := e.Request.URL.Query().Get("pipelineId")
+		if pipelineID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"pipeline",
+				"pipeline ID is required",
+				"missing pipelineId query parameter",
 			).JSON(e)
 		}
 
@@ -226,13 +269,13 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 		}
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
-			"owner={:owner} || published={:published}",
+			"id = {:id} && owner={:owner}",
 			"",
 			-1,
 			0,
 			dbx.Params{
-				"owner":     organization.Id,
-				"published": true,
+				"id":    pipelineID,
+				"owner": organization.Id,
 			},
 		)
 		if err != nil {
@@ -368,6 +411,187 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				}
 			}
 
+		}
+
+		return e.JSON(http.StatusOK, map[string]any{
+			"pipelines": results,
+		})
+	}
+}
+
+func HandleGetPipelineDetails() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+		if authRecord == nil {
+			return apierror.New(
+				http.StatusUnauthorized,
+				"auth",
+				"authentication required",
+				"user not authenticated",
+			).JSON(e)
+		}
+
+		organization, err := GetUserOrganization(e.App, authRecord.Id)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed to get user organization",
+				err.Error(),
+			).JSON(e)
+		}
+		pipelineRecords, err := e.App.FindRecordsByFilter(
+			"pipelines",
+			"owner={:owner} || published={:published}",
+			"",
+			-1,
+			0,
+			dbx.Params{
+				"owner":     organization.Id,
+				"published": true,
+			},
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipelines",
+				"failed to fetch pipelines",
+				err.Error(),
+			).JSON(e)
+		}
+
+		if len(pipelineRecords) == 0 {
+			return e.JSON(http.StatusOK, map[string]any{
+				"pipelines": []any{},
+				"count":     0,
+			})
+		}
+
+		allWorkflowsByPipeline := make(map[string][]WorkflowDescriptionInfoSummary)
+		runningWorkflowsByPipeline := make(map[string][]WorkflowDescriptionInfoSummary)
+
+		runningCount := 0
+
+		for _, pipelineRecord := range pipelineRecords {
+			pipelineID := pipelineRecord.Id
+			resultsRecords, err := e.App.FindRecordsByFilter(
+				"pipeline_results",
+				"pipeline={:pipeline} && owner={:owner}",
+				"",
+				-1,
+				0,
+				dbx.Params{
+					"pipeline": pipelineID,
+					"owner":    organization.Id,
+				},
+			)
+
+			if err == nil {
+				for _, resultRecord := range resultsRecords {
+					c, err := temporalclient.GetTemporalClientWithNamespace(organization.GetString("canonified_name"))
+					if err != nil {
+						continue
+					}
+
+					workflowExecution, err := c.DescribeWorkflowExecution(
+						context.Background(),
+						resultRecord.GetString("workflow_id"),
+						resultRecord.GetString("run_id"),
+					)
+					if err != nil {
+						continue
+					}
+
+					weJSON, err := protojson.Marshal(workflowExecution.WorkflowExecutionInfo)
+					if err != nil {
+						continue
+					}
+
+					var execInfo WorkflowExecutionInfo
+					err = json.Unmarshal(weJSON, &execInfo)
+					if err != nil {
+						continue
+					}
+
+					summary := WorkflowDescriptionInfoSummary{
+						Execution: execInfo.Execution,
+						Type:      execInfo.Type,
+						StartTime: execInfo.StartTime,
+						EndTime:   execInfo.CloseTime,
+						Status:    execInfo.Status,
+					}
+
+					if enums.WorkflowExecutionStatus(
+						enums.WorkflowExecutionStatus_value[summary.Status],
+					) == enums.WORKFLOW_EXECUTION_STATUS_FAILED {
+						if failure := fetchWorkflowFailure(
+							context.Background(),
+							c,
+							summary.Execution.WorkflowID,
+							summary.Execution.RunID,
+						); failure != nil {
+							summary.FailureReason = failure
+						}
+					}
+
+					summary.DisplayName = pipelineRecord.GetString("name")
+
+					runResults := computePipelineResults(
+						e.App,
+						organization.GetString("canonified_name"),
+						summary.Execution.WorkflowID,
+						summary.Execution.RunID,
+					)
+					summary.Results = runResults
+
+					allWorkflowsByPipeline[pipelineID] = append(allWorkflowsByPipeline[pipelineID], summary)
+
+					if summary.Status == "RUNNING" {
+						runningWorkflowsByPipeline[pipelineID] = append(runningWorkflowsByPipeline[pipelineID], summary)
+						runningCount++
+					}
+				}
+			}
+		}
+
+		results := make(map[string][]WorkflowDescriptionInfoSummary)
+
+		for pipelineID, workflows := range runningWorkflowsByPipeline {
+			results[pipelineID] = append(results[pipelineID], workflows...)
+		}
+
+		if runningCount < 5 {
+			needed := 5 - runningCount
+
+			type workflowItem struct {
+				pipelineID string
+				summary    WorkflowDescriptionInfoSummary
+			}
+
+			var nonRunningList []workflowItem
+			for pipelineID, workflows := range allWorkflowsByPipeline {
+				for _, workflow := range workflows {
+					if workflow.Status != "RUNNING" {
+						nonRunningList = append(nonRunningList, workflowItem{
+							pipelineID: pipelineID,
+							summary:    workflow,
+						})
+					}
+				}
+			}
+
+			sort.Slice(nonRunningList, func(i, j int) bool {
+				return nonRunningList[i].summary.EndTime > nonRunningList[j].summary.EndTime
+			})
+
+			added := 0
+			for _, item := range nonRunningList {
+				if added >= needed {
+					break
+				}
+				results[item.pipelineID] = append(results[item.pipelineID], item.summary)
+				added++
+			}
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
