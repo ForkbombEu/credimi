@@ -22,15 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		foreground?: string;
 	};
 
-	let {
-		href,
-		text,
-		icon,
-		background = 'var(--secondary)',
-		foreground = 'var(--secondary-foreground)',
-		class: className,
-		...rest
-	}: Props = $props();
+	let { href, text, icon, class: className, ...rest }: Props = $props();
 </script>
 
 <a
@@ -38,10 +30,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	target="_blank"
 	rel="noopener noreferrer"
 	class={cn(
-		'inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs transition-colors hover:brightness-90',
+		'inline-flex items-center gap-1 rounded-md bg-secondary px-2 py-1 text-xs text-secondary-foreground transition-colors hover:brightness-90',
 		className
 	)}
-	style="background-color: hsl({background}); color: hsl({foreground});"
 	{...rest}
 >
 	{#if icon}
