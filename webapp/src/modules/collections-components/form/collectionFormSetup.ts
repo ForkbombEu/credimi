@@ -209,8 +209,34 @@ export function mockFile(
 	if (Array.isArray(mimeTypes) && mimeTypes.length > 0) {
 		fileOptions = { type: mimeTypes[0] };
 	}
-	const mockFile = new File([], filename, fileOptions);
-	return mockFile;
+	return new MockFile(filename, fileOptions);
+}
+
+export class MockFile extends File {
+	constructor(filename: string, options: FilePropertyBag = {}) {
+		super([], filename, options);
+	}
+}
+
+export function removeMockFiles<T extends GenericRecord>(data: T): T {
+	const clone: GenericRecord = {};
+	for (const [key, value] of Object.entries(data)) {
+		if (value instanceof MockFile) {
+			continue;
+		} else if (Array.isArray(value)) {
+			const data = [];
+			for (const item of value) {
+				if (item instanceof MockFile) {
+					continue;
+				}
+				data.push(item);
+			}
+			clone[key] = data;
+		} else {
+			clone[key] = value;
+		}
+	}
+	return clone as T;
 }
 
 //

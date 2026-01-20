@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StandardsWithTestSuites } from '$lib/standards';
 
 	import { yaml } from '@codemirror/lang-yaml';
-	import { GitBranch, HelpCircle, PlusIcon, UploadIcon } from '@lucide/svelte';
+	import { CircleHelp, GitBranch, PlusIcon, UploadIcon } from '@lucide/svelte';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
 	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CustomChecksRecord, CustomChecksResponse } from '@/pocketbase/types';
 
 	import { removeEmptyValues } from '@/collections-components/form';
-	import { mockFile } from '@/collections-components/form/collectionFormSetup';
+	import { mockFile, removeMockFiles } from '@/collections-components/form/collectionFormSetup';
 	import Button from '@/components/ui-custom/button.svelte';
 	import LinkExternal from '@/components/ui-custom/linkExternal.svelte';
 	import { createForm, Form } from '@/forms';
@@ -64,7 +64,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const form = createForm({
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
-			const data: Partial<CustomChecksRecord> = removeEmptyValues({ ...form.data });
+			const data: Partial<CustomChecksRecord> = removeMockFiles(
+				removeEmptyValues({ ...form.data })
+			);
 
 			const jsonSample = form.data.input_json_sample;
 			if (!jsonSample || String.isEmpty(jsonSample)) {
@@ -109,8 +111,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			if (record.logo.length > 0) {
 				// @ts-expect-error - We need to rewrite the the logo from string to file
 				data.logo = mockFile(record.logo, { mimeTypes: ['image/png'] });
-			}
-			else {
+			} else {
 				// @ts-expect-error - Logo is optional
 				data.logo = undefined;
 			}
@@ -223,7 +224,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<LinkExternal
 								href={standard.standard_url}
 								text="{standard.name} {m.Standard()}"
-								icon={HelpCircle}
+								icon={CircleHelp}
 								title={m.Learn_about_standard({ name: standard.name })}
 							/>
 						{/if}
@@ -319,7 +320,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</PageCardSection>
 
 		{#snippet submitButtonContent()}
-			<PlusIcon />
+			{#if formMode === 'new'}
+				<PlusIcon />
+			{/if}
 			{currentLabels.submitButton}
 		{/snippet}
 	</Form>
