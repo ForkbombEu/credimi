@@ -25,8 +25,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	--primary-foreground: oklch(0.984 0.003 247.858);
 	--secondary: oklch(0.9464 0.0284 294.59);
 	--secondary-foreground: oklch(0.208 0.042 265.755);
-	--muted: oklch(0.968 0.007 247.896);
-	--muted-foreground: oklch(0.554 0.046 257.417);
+	--muted: oklch(0.9811 0.0064 308.39);
+	--muted-foreground: oklch(0.7248 0.0094 286.16);
 	--accent: oklch(0.968 0.007 247.896);
 	--accent-foreground: oklch(0.208 0.042 265.755);
 	--destructive: oklch(0.577 0.245 27.325);
