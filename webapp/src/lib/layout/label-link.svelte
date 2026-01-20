@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <T class={['flex items-center gap-1 font-medium', classValue]}>
 	{#if published && href}
-		<A class="underline underline-offset-2 hover:!no-underline" {href}>
+		<A class="underline underline-offset-2 hover:no-underline!" {href}>
 			{label}
 		</A>
 	{:else}
@@ -31,6 +31,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</span>
 	{/if}
 	{#if textToCopy}
-		<CopyButtonSmall {textToCopy} square variant="ghost" size="xs" />
+		<CopyButtonSmall {textToCopy} />
 	{/if}
 </T>

@@ -52,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<div class="flex items-center gap-2">
 						<T tag="h1">{title}</T>
 						{#if textToCopy}
-							<CopyButtonSmall {textToCopy} square variant="ghost" size="xs" />
+							<CopyButtonSmall {textToCopy} />
 						{/if}
 					</div>
 				</div>

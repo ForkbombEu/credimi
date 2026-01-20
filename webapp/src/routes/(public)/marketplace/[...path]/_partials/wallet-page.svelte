@@ -215,9 +215,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									<Code
 										class="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground"
 									/>
-									<div class="text-left">
+									<div class="text-left space-y-1">
 										<div class="flex items-center gap-1">
-											<p class="font-medium">
+											<p class="font-medium leading-snug text-balance">
 												<span>{action.name}</span>
 												<CopyButtonSmall
 													textToCopy={path([
@@ -225,10 +225,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 														wallet.canonified_name,
 														action.canonified_name
 													])}
-													square
-													variant="ghost"
-													size="xs"
-													class="inline-block"
+													size="mini"
+													class="inline-flex translate-y-px"
 												/>
 											</p>
 										</div>

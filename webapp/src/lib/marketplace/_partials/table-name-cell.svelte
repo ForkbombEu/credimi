@@ -35,7 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</a>
 
 		{#if textToCopy}
-			<CopyButtonSmall {textToCopy} square variant="ghost" size="xs" />
+			<CopyButtonSmall {textToCopy} />
 		{/if}
 	</div>
 

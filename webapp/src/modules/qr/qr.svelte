@@ -55,7 +55,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{...rest}
 				class={[
 					'aspect-square shrink-0 overflow-hidden',
-					isStateful ? 'text-muted-foreground size-60 rounded-md border bg-gray-50' : '',
+					isStateful ? 'size-60 rounded-md border bg-gray-50 text-muted-foreground' : '',
 					'flex items-center justify-center',
 					'text-center text-sm',
 					{
@@ -88,7 +88,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 			{#if showLink && src}
 				<div class="space-y-1">
-					<div class={linkClass || 'w-60 break-all text-xs'}>
+					<div class={linkClass || 'w-60 text-xs break-all'}>
 						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 						<a
 							class="text-primary hover:underline"
@@ -98,12 +98,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{src}
 						</a>
 					</div>
-					<CopyButtonSmall
-						variant="ghost"
-						size="mini"
-						class="-mx-2 px-2"
-						textToCopy={src}
-					>
+					<CopyButtonSmall size="mini" class="-mx-1" textToCopy={src}>
 						{m.Copy()}
 					</CopyButtonSmall>
 				</div>
