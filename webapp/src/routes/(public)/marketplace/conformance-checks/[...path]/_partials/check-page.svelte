@@ -7,9 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 
+	import { ArrowRightIcon } from '@lucide/svelte';
 	import { setupEWCConnections } from '$lib/wallet-test-pages/ewc.svelte';
 	import { WorkflowQrPoller } from '$lib/workflows';
-	import { ArrowRightIcon } from '@lucide/svelte';
 	import { onMount } from 'svelte';
 
 	import A from '@/components/ui-custom/a.svelte';
@@ -87,7 +87,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<EmptyQr>
 			<RenderMD
 				content={m.conformance_check_qr_code_login_cta({ link: localizeHref('/login') })}
-				class="prose-a:text-primary text-balance"
+				class="text-balance prose-a:text-primary"
 			/>
 		</EmptyQr>
 	{/if}
@@ -112,7 +112,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			/>
 			<Button
 				variant="secondary"
-				class="hover:bg-primary/10 border-primary border"
+				class="border border-primary hover:bg-primary/10"
 				href="/my/tests/runs/{qrWorkflow.workflowId}/{qrWorkflow.runId}"
 			>
 				{m.View_check_status()}
