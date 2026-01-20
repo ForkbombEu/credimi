@@ -5,11 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { RefreshCwIcon } from '@lucide/svelte';
 	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { runWithLoading } from '$lib/utils';
-	import { RefreshCwIcon } from '@lucide/svelte';
 
 	import type {
 		CredentialIssuersResponse,
