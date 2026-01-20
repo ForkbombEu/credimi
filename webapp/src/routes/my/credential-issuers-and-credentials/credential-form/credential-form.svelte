@@ -20,7 +20,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '@/pocketbase/types';
 
 	import { CollectionForm } from '@/collections-components';
-	import { FormError, SubmitButton } from '@/forms';
+	import SubmitButton from '@/collections-components/manager/record-actions/submit-button.svelte';
+	import { FormError } from '@/forms';
 	import MarkdownField from '@/forms/fields/markdownField.svelte';
 	import { m } from '@/i18n';
 
@@ -108,13 +109,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{onSuccess}
 >
 	<FormError />
-	<div
-		class="sticky bottom-0 -mx-6 -mt-6 flex justify-end border-t bg-white/70 px-6 py-2 backdrop-blur-sm"
-	>
-		<SubmitButton>
-			{m.Save()}
-		</SubmitButton>
-	</div>
+	<SubmitButton>
+		{m.Save()}
+	</SubmitButton>
 </CollectionForm>
 
 {#snippet description({ form }: FieldSnippetOptions<'credentials'>)}
