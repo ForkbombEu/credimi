@@ -79,8 +79,8 @@ export const data: SidebarGroup[] = [
 					}))
 			},
 			{
-				title: m.Scheduled_workflows(),
-				url: `/my/${entities.test_runs.slug}/scheduled`,
+				title: m.Scheduled_pipelines(),
+				url: `/my/pipelines/schedule`,
 				icon: HourglassIcon
 			}
 		]
