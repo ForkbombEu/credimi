@@ -31,8 +31,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { hideTopBorder, logo, linkAboveTitle, title, textToCopy, badge }: Props = $props();
 </script>
 
-<PageTop {hideTopBorder} contentClass="!space-y-4">
-	<BackButton href="/marketplace">
+<PageTop {hideTopBorder} contentClass="space-y-4!">
+	<BackButton href="/marketplace" class="px-0!">
 		{m.Back_to_marketplace()}
 	</BackButton>
 

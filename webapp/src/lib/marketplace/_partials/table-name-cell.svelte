@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <div class="flex items-center gap-3">
-	<Avatar src={logo ?? ''} class="size-10 !rounded-sm border" fallback={name.slice(0, 2)} />
+	<Avatar src={logo ?? ''} class="size-10 rounded-sm! border" fallback={name.slice(0, 2)} />
 
 	<div class="flex items-center gap-1">
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->

@@ -55,12 +55,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import { Code, DownloadIcon } from '@lucide/svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { ConformanceCheckSchema } from '$lib/types/checks';
 	import { path } from '$lib/utils';
-	import { Code, DownloadIcon } from '@lucide/svelte';
 	import { String } from 'effect';
 	import { z } from 'zod/v3';
 
@@ -205,34 +205,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Accordion type="single" class="w-full">
 					<AccordionItem
 						value="code-accordion"
-						class="bg-card hover:ring-primary rounded-lg border hover:ring-2"
+						class="rounded-lg border bg-card hover:ring-2 hover:ring-primary"
 					>
-						<AccordionTrigger class="group px-4 py-3 hover:no-underline">
+						<AccordionTrigger
+							class="group items-center gap-2! px-4 py-3 hover:no-underline"
+						>
 							<div class="flex w-full items-center justify-between gap-4">
 								<div class="flex items-center gap-3">
 									<Code
-										class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
+										class="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground"
 									/>
 									<div class="text-left">
 										<div class="flex items-center gap-1">
-											<div class="font-medium">{action.name}</div>
-											<CopyButtonSmall
-												textToCopy={path([
-													organization?.canonified_name,
-													wallet.canonified_name,
-													action.canonified_name
-												])}
-												square
-												variant="ghost"
-												size="xs"
-											/>
+											<p class="font-medium">
+												<span>{action.name}</span>
+												<CopyButtonSmall
+													textToCopy={path([
+														organization?.canonified_name,
+														wallet.canonified_name,
+														action.canonified_name
+													])}
+													square
+													variant="ghost"
+													size="xs"
+													class="inline-block"
+												/>
+											</p>
 										</div>
-										<T class="text-muted-foreground text-xs">
+										<T class="text-xs text-muted-foreground">
 											{action.organization?.name}
 										</T>
 									</div>
 								</div>
-								<div class="flex items-center gap-2 pr-2">
+								<div class="flex items-center gap-2">
 									<WalletActionTags {action} containerClass="justify-end" />
 									{#if !action.published}
 										<Badge variant="outline">
@@ -261,7 +266,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@const sortedVersions = versions.sort((a, b) => b.tag.localeCompare(a.tag))}
 			{#each sortedVersions as version (version.id)}
 				{@const downloadLinks = getDownloadLinks(version)}
-				<div class="bg-card flex items-center justify-between rounded-lg border px-4 py-2">
+				<div class="flex items-center justify-between rounded-lg border bg-card px-4 py-2">
 					<p>{version.tag}</p>
 					<div class="flex gap-2">
 						{#each downloadLinks as link (link.label)}
