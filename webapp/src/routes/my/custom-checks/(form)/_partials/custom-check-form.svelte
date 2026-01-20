@@ -7,12 +7,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { StandardsWithTestSuites } from '$lib/standards';
 
+	import { yaml } from '@codemirror/lang-yaml';
+	import { GitBranch, HelpCircle, PlusIcon, UploadIcon } from '@lucide/svelte';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
 	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
 	import { jsonStringSchema, stepciYamlSchema } from '$lib/utils';
-	import { yaml } from '@codemirror/lang-yaml';
-	import { GitBranch, HelpCircle, PlusIcon, UploadIcon } from '@lucide/svelte';
 	import { String } from 'effect';
 	import { run } from 'json_typegen_wasm';
 	import _ from 'lodash';
@@ -105,9 +105,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (record.input_json_sample) {
 			data.input_json_sample = JSON.stringify(record.input_json_sample, null, 2);
 		}
-		if (record.logo) {
-			// @ts-expect-error - We need to rewrite the the logo from string to file
-			data.logo = mockFile(record.logo, { mimeTypes: ['image/png'] });
+		if (typeof record.logo === 'string') {
+			if (record.logo.length > 0) {
+				// @ts-expect-error - We need to rewrite the the logo from string to file
+				data.logo = mockFile(record.logo, { mimeTypes: ['image/png'] });
+			}
+			else {
+				// @ts-expect-error - Logo is optional
+				data.logo = undefined;
+			}
 		}
 		return data;
 	}
@@ -241,7 +247,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
 				<Field {form} name="name" options={{ label: m.Name() }} />
 
-				<LogoField {form} name="logo" label="AO" initialPreviewUrl={originalLogoUrl} />
+				<LogoField
+					{form}
+					name="logo"
+					label={m.Logo()}
+					initialPreviewUrl={originalLogoUrl}
+				/>
 
 				<Field
 					{form}
