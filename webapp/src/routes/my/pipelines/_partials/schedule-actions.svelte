@@ -20,9 +20,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		schedule: EnrichedSchedule;
+		onCancel?: () => void;
 	};
 
-	let { schedule = $bindable() }: Props = $props();
+	let { schedule = $bindable(), onCancel }: Props = $props();
 
 	//
 
@@ -48,6 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					requestKey: null,
 					fetch: options.fetch
 				});
+				onCancel?.();
 			}
 		},
 		{

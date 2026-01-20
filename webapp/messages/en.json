@@ -903,5 +903,7 @@
 	"scheduled": "Scheduled",
 	"Pipeline_execution_is_not_scheduled": "Pipeline execution is not scheduled",
 	"Debug": "Debug",
-	"Scheduling_paused": "Scheduling paused"
+	"Scheduling_paused": "Scheduling paused",
+	"Scheduled_pipelines": "Scheduled pipelines",
+	"Back_to_pipelines": "Back to pipelines"
 }
