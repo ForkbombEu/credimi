@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { Pencil, PlayIcon } from '@lucide/svelte';
+	import { resolve } from '$app/paths';
+	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 	import type { OrganizationsResponse } from '@/pocketbase/types';
@@ -15,6 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
@@ -88,6 +90,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 		</div>
+
+		<Separator />
+
+		<Button
+			variant="outline"
+			href={resolve('/my/pipelines/[pipeline_id]', { pipeline_id: pipeline.id })}
+		>
+			{m.view_details()}
+		</Button>
 	{/snippet}
 </DashboardCard>
 

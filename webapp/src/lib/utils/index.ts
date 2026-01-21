@@ -2,12 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { browser } from '$app/environment';
-import { invalidateAll } from '$app/navigation';
-import { userOrganization } from '$lib/app-state';
 import { error } from '@sveltejs/kit';
+import { browser } from '$app/environment';
+import { userOrganization } from '$lib/app-state';
 import slugify from 'slugify';
-import { onMount } from 'svelte';
 import { z } from 'zod/v3';
 
 import { verifyUser } from '@/auth/verifyUser';
@@ -60,18 +58,6 @@ export async function getUserOrganization(options = { fetch }) {
 }
 
 //
-
-export function setupPollingWithInvalidation(intervalMs: number) {
-	onMount(() => {
-		const interval = setInterval(() => {
-			invalidateAll();
-		}, intervalMs);
-
-		return () => {
-			clearInterval(interval);
-		};
-	});
-}
 
 const deeplinkGenerationResponseSchema = z.object({
 	deeplink: z.string(),

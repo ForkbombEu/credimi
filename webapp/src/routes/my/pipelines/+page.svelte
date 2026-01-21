@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { PlayIcon, Plus } from '@lucide/svelte';
+	import DashboardCard from '$lib/layout/dashboard-card.svelte';
+	import { PolledResource } from '$lib/utils/state.svelte.js';
 
 	import { CollectionManager, RecordClone } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -17,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { setDashboardNavbar } from '../+layout@.svelte';
 	import PipelineCard from './_partials/pipeline-card.svelte';
 	import { runPipeline } from './_partials/utils';
+	import { getAllPipelinesWorkflows } from './_partials/workflows.js';
 
 	//
 
@@ -24,6 +26,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { organization } = $derived(data);
 
 	setDashboardNavbar({ title: 'Pipelines', right: navbarRight });
+
+	const workflows = new PolledResource(getAllPipelinesWorkflows, {
+		initialValue: () => data.workflows
+	});
+	$inspect(workflows.current);
 </script>
 
 <!-- Your Pipelines Section -->
