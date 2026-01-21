@@ -8,10 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { page } from '$app/state';
 	import favicon from '$lib/assets/favicon.png';
 	import GlobalLoading from '$lib/layout/global-loading.svelte';
-	import { locales, localizeHref } from '$lib/paraglide/runtime';
 
 	import { appName } from '@/brand';
 	import { Toaster } from '@/components/ui/sonner';
+	import { locales, localizeHref } from '@/i18n/paraglide/runtime';
 
 	import './layout.css';
 
