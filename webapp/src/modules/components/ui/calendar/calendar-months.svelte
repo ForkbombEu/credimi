@@ -1,14 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import type { HTMLAttributes } from "svelte/elements";
+	import { cn, type WithElementRef } from "@/components/ui/utils.js";
 
 	let {
 		ref = $bindable(null),
@@ -20,7 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	bind:this={ref}
-	class={cn('mt-4 flex flex-col space-y-4 sm:flex-row sm:space-x-4 sm:space-y-0', className)}
+	class={cn("relative flex flex-col gap-4 md:flex-row", className)}
 	{...restProps}
 >
 	{@render children?.()}

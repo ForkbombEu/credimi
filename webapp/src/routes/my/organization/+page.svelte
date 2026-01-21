@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowUpRight, CheckIcon, CopyIcon, InfoIcon, XIcon } from 'lucide-svelte';
+	import { ArrowUpRight, CheckIcon, CopyIcon, InfoIcon, XIcon } from '@lucide/svelte';
 
 	import { CollectionForm } from '@/collections-components/index.js';
 	import Alert from '@/components/ui-custom/alert.svelte';

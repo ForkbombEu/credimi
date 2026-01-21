@@ -15,6 +15,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		title?: string;
 		headerActions?: Snippet;
 		subtitle?: string;
+		removeFlexRestrictions?: boolean;
+		headerHasFlexWrap?: boolean;
 	};
 
 	const {
@@ -23,25 +25,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		title,
 		headerActions,
 		subtitle,
+		removeFlexRestrictions = false,
+		headerHasFlexWrap = false,
 		...restProps
 	}: Props = $props();
 </script>
 
 <div
-	class={['bg-background scroll-mt-4 space-y-6 rounded-md p-6 shadow-sm', className]}
+	class={['scroll-mt-4 space-y-6 rounded-md bg-background p-6 shadow-sm', className]}
 	{...restProps}
 >
 	{#if title}
 		<div class="border-b pb-3">
-			<div class="flex items-start justify-between gap-4">
-				<div class="min-w-0 flex-1">
+			<div
+				class={['flex items-start justify-between gap-4', headerHasFlexWrap && 'flex-wrap']}
+			>
+				<div class={[!removeFlexRestrictions && 'min-w-0 flex-1']}>
 					<T tag="h4" class="overflow-auto">{title}</T>
 					{#if subtitle}
-						<T class="text-muted-foreground mt-1 text-sm">{subtitle}</T>
+						<T class="mt-1 text-sm text-muted-foreground">{subtitle}</T>
 					{/if}
 				</div>
 				{#if headerActions}
-					<div class="flex-shrink-0">
+					<div class={[!removeFlexRestrictions && 'shrink-0']}>
 						{@render headerActions()}
 					</div>
 				{/if}

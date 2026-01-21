@@ -5,7 +5,7 @@
 import type { ClientResponseError } from 'pocketbase';
 
 import { Effect as _, Either, pipe } from 'effect';
-import { z, type ZodError } from 'zod';
+import { z, type ZodError } from 'zod/v3';
 
 import type { SelectOption } from '@/components/ui-custom/utils';
 

@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { LogStatus, type WorkflowLogsProps } from '$lib/workflows/workflow-logs';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 //
 

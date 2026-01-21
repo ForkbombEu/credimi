@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { FileIcon, LogOut, SquareArrowOutUpRight } from 'lucide-svelte';
+	import { FileIcon, LogOut, SquareArrowOutUpRight } from '@lucide/svelte';
 
 	import AuthLayout from '@/auth/authLayout.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
@@ -15,8 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as DropdownMenu from '@/components/ui/dropdown-menu/index.js';
 	import { getUserDidUrl } from '@/did';
 	import { featureFlags } from '@/features';
-	import { m } from '@/i18n';
-	import { localizeHref } from '@/i18n';
+	import { localizeHref, m } from '@/i18n';
 	import BaseLanguageSelect from '@/i18n/baseLanguageSelect.svelte';
 	import LanguageSelect from '@/i18n/languageSelect.svelte';
 	import { currentUser } from '@/pocketbase';

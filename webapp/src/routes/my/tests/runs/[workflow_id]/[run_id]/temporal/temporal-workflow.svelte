@@ -71,6 +71,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/if}
 
 <style lang="postcss">
+	@reference 'tailwindcss';
+	
 	:global(div > table > tbody > div.text-right.hidden) {
 		display: block;
 	}
@@ -84,6 +86,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	:global(.temporal-ui-workflow a) {
-		@apply !no-underline hover:!cursor-not-allowed hover:!text-inherit;
+		@apply no-underline! hover:cursor-not-allowed! hover:text-inherit!;
 	}
 </style>

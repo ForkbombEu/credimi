@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="C extends CollectionName">
+	import { Plus } from '@lucide/svelte';
 	import { merge } from 'lodash';
-	import { Plus } from 'lucide-svelte';
 
 	import type { CollectionName } from '@/pocketbase/collections-models';
 
@@ -15,12 +15,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
-	import { FormError, SubmitButton } from '@/forms';
+	import { FormError } from '@/forms';
 	import { m } from '@/i18n';
 
 	import type { RecordCreateEditProps } from './types';
 
 	import { getCollectionManagerContext } from '../collectionManagerContext';
+	import SubmitButton from './submit-button.svelte';
 
 	//
 
@@ -80,13 +81,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				refineSchema={formRefineSchema}
 			>
 				<FormError />
-				<div
-					class="sticky bottom-0 -mx-6 -mt-6 flex justify-end border-t bg-white/70 px-6 py-2 backdrop-blur-sm"
-				>
-					<SubmitButton>
-						{@render SubmitButtonText()}
-					</SubmitButton>
-				</div>
+
+				<SubmitButton>
+					{@render SubmitButtonText()}
+				</SubmitButton>
 			</CollectionForm>
 		{/if}
 	{/snippet}

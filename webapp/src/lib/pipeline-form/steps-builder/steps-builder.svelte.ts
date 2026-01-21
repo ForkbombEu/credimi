@@ -3,13 +3,16 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { Renderable } from '$lib/renderable';
+
 import { StateManager } from '$lib/state-manager/state-manager';
 import { onDestroy } from 'svelte';
+
+import type { PipelineStep } from '../types';
+import type { EnrichedStep } from './types';
+
 import * as pipelinestep from '../steps';
 import { walletActionStepFormState } from '../steps/wallet-action/wallet-action-step-form.svelte.js';
-import type { PipelineStep } from '../types';
 import Component from './steps-builder.svelte';
-import type { EnrichedStep } from './types';
 
 //
 

@@ -46,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 </script>
 
-<li class="bg-muted flex items-center justify-between gap-4 rounded-md p-2 pl-3 pr-2 hover:ring-2">
+<li class="bg-muted flex items-center justify-between gap-4 rounded-md p-2 pl-3 pr-2 hover:ring-2 hover:ring-blue-200">
 	<LabelLink label={name} href={publicUrl} {published} textToCopy={makePath(path)} />
 
 	<div class="flex items-center gap-2">

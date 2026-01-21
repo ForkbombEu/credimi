@@ -11,7 +11,7 @@ import Ajv from 'ajv';
 import type { SuperForm } from 'sveltekit-superforms';
 import { zod } from 'sveltekit-superforms/adapters';
 import { parse as parseYaml, stringify } from 'yaml';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import Component from './activity-options-form.svelte';
 
 //

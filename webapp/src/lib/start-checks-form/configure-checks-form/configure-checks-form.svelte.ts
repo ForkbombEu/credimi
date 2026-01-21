@@ -2,13 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { StartChecksResponse } from '$start-checks-form/types';
+
 import { configFieldComparator, LatestCheckRunsStorage } from '$start-checks-form/_utils';
 import { pipe, Record } from 'effect';
 
 import { goto } from '@/i18n';
 import { pb } from '@/pocketbase';
 
-import type { StartChecksResponse } from '$start-checks-form/types';
 import type { SelectChecksSubmitData } from '../select-checks-form';
 
 import { CheckConfigEditor } from './check-config-editor';
@@ -87,6 +88,7 @@ export class ConfigureChecksForm {
 	getFormData() {
 		type Entries = {
 			credimi_id: string;
+			// eslint-disable-next-line @typescript-eslint/no-explicit-any
 			value: any;
 			field_name: string;
 		};

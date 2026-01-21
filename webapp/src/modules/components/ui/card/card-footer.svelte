@@ -1,14 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { cn, type WithElementRef } from "@/components/ui/utils.js";
+	import type { HTMLAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
@@ -18,6 +10,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}: WithElementRef<HTMLAttributes<HTMLDivElement>> = $props();
 </script>
 
-<div bind:this={ref} class={cn('flex items-center p-6 pt-0', className)} {...restProps}>
+<div
+	bind:this={ref}
+	data-slot="card-footer"
+	class={cn("flex items-center px-6 [.border-t]:pt-6", className)}
+	{...restProps}
+>
 	{@render children?.()}
 </div>

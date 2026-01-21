@@ -16,7 +16,7 @@ import {
 	QrCode,
 	ScanEye,
 	SquareStackIcon
-} from 'lucide-svelte';
+} from '@lucide/svelte';
 
 import { m } from '@/i18n';
 

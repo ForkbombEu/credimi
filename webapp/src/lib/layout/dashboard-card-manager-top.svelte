@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { label, buttonText, recordCreateOptions = {} }: Props = $props();
 </script>
 
-<div class="!-mb-2 flex items-center justify-between">
+<div class="mb-1! flex items-center justify-between">
 	<T class="text-sm font-semibold">{label}</T>
 
 	<RecordCreate {...recordCreateOptions}>

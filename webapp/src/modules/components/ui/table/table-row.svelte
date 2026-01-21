@@ -1,14 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import { cn, type WithElementRef } from "@/components/ui/utils.js";
+	import type { HTMLAttributes } from "svelte/elements";
 
 	let {
 		ref = $bindable(null),
@@ -20,8 +12,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <tr
 	bind:this={ref}
+	data-slot="table-row"
 	class={cn(
-		'border-b transition-colors hover:bg-muted/50 data-[state=selected]:bg-muted',
+		"hover:[&,&>svelte-css-wrapper]:[&>th,td]:bg-muted/50 data-[state=selected]:bg-muted border-b transition-colors",
 		className
 	)}
 	{...restProps}

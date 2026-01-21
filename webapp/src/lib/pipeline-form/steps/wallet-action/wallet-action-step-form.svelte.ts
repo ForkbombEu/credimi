@@ -3,12 +3,14 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { MarketplaceItem } from '$lib/marketplace';
+
 import { pb } from '@/pocketbase/index.js';
 import {
 	Collections,
 	type WalletActionsResponse,
 	type WalletVersionsResponse
 } from '@/pocketbase/types';
+
 import { searchMarketplace } from '../_partials/search-marketplace';
 import { Search } from '../_partials/search.svelte.js';
 import { BaseDataForm } from '../types.js';
@@ -107,7 +109,6 @@ export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, Wal
 	//
 
 	removeWallet() {
-		console.log('removeWallet');
 		this.data.wallet = undefined;
 		this.foundVersions = [];
 		this.foundActions = [];

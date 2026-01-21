@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { ClipboardPlus } from 'lucide-svelte';
+	import { ClipboardPlus } from '@lucide/svelte';
 
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import Button, { type ButtonProps } from '@/components/ui/button/button.svelte';

@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Pencil, Plus, X } from 'lucide-svelte';
+	import { Pencil, Plus, X } from '@lucide/svelte';
 
 	import { CollectionManager, RecordDelete, RecordEdit } from '@/collections-components/manager';
 	import PageCard from '@/components/layout/pageCard.svelte';

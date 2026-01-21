@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" generics="T">
+	import { ArrowDown, ArrowUp } from '@lucide/svelte';
 	import { capitalize } from 'lodash';
-	import { ArrowUp, ArrowDown } from 'lucide-svelte';
 
 	import type { KeyOf } from '@/utils/types';
 
@@ -37,13 +37,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<Head class="group">
+<Head class="group px-4!">
 	<div class="flex items-center gap-x-2">
 		{label ?? capitalize(field)}
 		<Button
 			size="icon"
 			variant="ghost"
-			class="{isSortField ? 'visible' : 'invisible'} size-6 group-hover:visible"
+			class={[isSortField ? 'visible' : 'invisible', 'size-6 group-hover:visible']}
 			onclick={handleClick}
 		>
 			<Icon

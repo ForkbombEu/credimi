@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Writable } from 'svelte/store';
 	import type { FormPath, SuperForm } from 'sveltekit-superforms';
 
-	import { UploadIcon } from 'lucide-svelte';
+	import { UploadIcon } from '@lucide/svelte';
 	import { fieldProxy } from 'sveltekit-superforms';
 
 	import type { GenericRecord } from '@/utils/types';
@@ -27,9 +27,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		// eslint-disable-next-line no-undef
+		 
 		form: SuperForm<Data>;
-		// eslint-disable-next-line no-undef
+		 
 		name: FormPath<Data>;
 		variant?: ComponentProps<typeof Button>['variant'];
 		class?: string;

@@ -7,10 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Suite } from '$lib/standards';
 
+	import { ArrowRight, GitBranch, HelpCircle, Home } from '@lucide/svelte';
 	import SectionCard from '$lib/layout/section-card.svelte';
 	import Footer from '$start-checks-form/_utils/footer.svelte';
 	import { Checkbox as Check } from 'bits-ui';
-	import { ArrowRight, GitBranch, HelpCircle, Home } from 'lucide-svelte';
 
 	import LinkExternal from '@/components/ui-custom/linkExternal.svelte';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
@@ -55,9 +55,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<SectionCard
 					title={m.Test_suites()}
 					subtitle={m.Select_official_test_suites_subtitle()}
+					removeFlexRestrictions
+					headerHasFlexWrap
 				>
 					{#snippet headerActions()}
-						<div class="flex gap-2">
+						<div class="flex gap-2 flex-wrap">
 							{#if form.selectedStandard?.standard_url}
 								<LinkExternal
 									href={form.selectedStandard.standard_url}
@@ -107,13 +109,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet StandardSelect()}
 	<RadioGroup.Root bind:value={form.selectedStandardId} class="!gap-0" required>
-		{#each form.availableStandards as option}
+		{#each form.availableStandards as option (option.uid)}
 			{@const selected = form.selectedStandardId === option.uid}
 			{@const disabled = option.disabled}
 
 			<Label
 				class={[
-					'w-full space-y-1 border-b-2 p-4 md:w-[400px]',
+					'w-full border-b-2 p-4 md:w-[400px] flex flex-col justify-start! items-start! text-left!',
 					{
 						'border-b-primary bg-secondary ': selected,
 						'hover:bg-secondary/35 cursor-pointer border-b-transparent':
@@ -134,7 +136,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet VersionSelect()}
 	<Select.Root type="single" bind:value={form.selectedVersionId}>
-		<Select.Trigger>
+		<Select.Trigger class="w-full">
 			{form.selectedVersion?.name ?? m.Select_a_version()}
 		</Select.Trigger>
 		<Select.Content>
@@ -152,7 +154,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		bind:value={() => form.selectedTests, (v) => (form.selectedTests = v)}
 		class="flex flex-col gap-6 overflow-auto"
 	>
-		{#each form.availableSuitesWithoutTests as suite}
+		{#each form.availableSuitesWithoutTests as suite (suite.uid)}
 			<label class="flex items-center gap-3">
 				<div class="w-4">
 					<Checkbox value={suite.uid} />
@@ -168,8 +170,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		bind:value={() => form.selectedTests, (v) => (form.selectedTests = v)}
 		class="flex flex-col gap-8"
 	>
-		{#each form.availableSuitesWithTests as suite}
-			<div class="space-y-4">
+		{#each form.availableSuitesWithTests as suite (suite.uid)}
+			<div class="flex flex-col gap-4">
 				<Check.GroupLabel>
 					{@render suiteLabel(suite)}
 				</Check.GroupLabel>
@@ -178,7 +180,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#if suite.uid === OPENID_SUITE_UID}
 						<OpenidSuiteTable suiteFiles={suite.files} suiteUid={suite.uid} />
 					{:else}
-						{#each suite.files as fileId}
+						{#each suite.files as fileId (fileId)}
 							{@const value = `${suite.uid}/${fileId}`}
 							{@const label = fileId.split('.').slice(0, -1).join('.')}
 							<Label class="flex items-center gap-2  font-mono text-xs">
@@ -199,7 +201,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		name="test-suites"
 		class="flex flex-col gap-4 overflow-auto"
 	>
-		{#each form.availableCustomChecks as check}
+		{#each form.availableCustomChecks as check (check.id)}
 			<Label class="flex items-start gap-3 text-sm">
 				<div class="w-4 pt-0.5">
 					<Checkbox value={check.id} />

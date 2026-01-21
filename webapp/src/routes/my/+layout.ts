@@ -77,7 +77,6 @@ export const load = async ({ fetch, url }) => {
 		WelcomeSession.isActive() &&
 		deLocalizeUrl(url).pathname != organizationPagePath
 	) {
-		console.log('redirecting to edit page');
 		WelcomeSession.end();
 		redirect(organizationPagePath + '?edit=true');
 	}

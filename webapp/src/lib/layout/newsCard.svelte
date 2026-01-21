@@ -5,7 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { CalendarDays, Clock } from 'lucide-svelte';
+	import { CalendarDays, Clock } from '@lucide/svelte';
+	import { resolve } from '$app/paths';
 
 	import type { NewsResponse } from '@/pocketbase/types';
 
@@ -23,11 +24,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div
 	class={cn(
-		'bg-card text-card-foreground flex flex-col rounded-lg border p-4 shadow-sm transition-shadow duration-200 hover:shadow-xl',
+		'border-primary bg-card text-card-foreground ring-primary relative',
+		'flex flex-col justify-between gap-4',
+		'overflow-visible rounded-lg border p-4 shadow-sm transition-all hover:-translate-y-2 hover:ring-2',
 		className
 	)}
 >
-	<a href="/news/{news.id}">
+	<a href={resolve("/(public)/news/[news_id]", { news_id: news.id })}>
 		<div class="text-muted-foreground mb-3 flex items-center gap-4 text-sm">
 			<div class="text-muted-foreground mb-3 flex items-center gap-4 text-sm">
 				<div class="flex items-center gap-1">

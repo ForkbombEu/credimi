@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { browser } from '$app/environment';
 	import {
 		LatestCheckRunsStorage,
@@ -13,8 +12,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	} from '$lib/start-checks-form/_utils';
 	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
 	import { fetchWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
+	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
+	import { SearchIcon, SparkleIcon, TestTube2, XIcon } from '@lucide/svelte';
 	import { Array } from 'effect';
-	import { SearchIcon, SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
 	import { onMount } from 'svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -86,7 +86,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<WorkflowQrPoller
 							workflowId={workflow.execution.workflowId}
 							runId={workflow.execution.runId}
-							containerClass="size-32"
+							containerClass="size-40"
 						/>
 					{/if}
 				{/snippet}

@@ -12,6 +12,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { cn } from '../ui/utils';
 
+	// 
+
 	type Props = HTMLAnchorAttributes & {
 		children?: Snippet;
 	};
@@ -19,6 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { class: className, href, children, ...rest }: Props = $props();
 </script>
 
+{#if href}
 <a
 	href={href ? localizeHref(href) : undefined}
 	class={cn(className, 'text-primary hover:underline')}
@@ -26,3 +29,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	{@render children?.()}
 </a>
+{:else}
+<p
+>
+	{@render children?.()}
+</p>
+{/if}

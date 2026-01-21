@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Info, Plus } from 'lucide-svelte';
+	import { Info, Plus } from '@lucide/svelte';
 
 	import type { WebauthnCredentialsResponse } from '@/pocketbase/types';
 

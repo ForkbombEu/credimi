@@ -1,20 +1,13 @@
-// SPDX-FileCopyrightText: 2025 Forkbomb BV
-//
-// SPDX-License-Identifier: AGPL-3.0-or-later
-
-import { Dialog as DialogPrimitive } from 'bits-ui';
-
-import Content from './dialog-content.svelte';
-import Description from './dialog-description.svelte';
-import Footer from './dialog-footer.svelte';
-import Header from './dialog-header.svelte';
-import Overlay from './dialog-overlay.svelte';
-import Title from './dialog-title.svelte';
-
-const Root = DialogPrimitive.Root;
-const Trigger = DialogPrimitive.Trigger;
-const Close = DialogPrimitive.Close;
-const Portal = DialogPrimitive.Portal;
+import Root from "./dialog.svelte";
+import Portal from "./dialog-portal.svelte";
+import Title from "./dialog-title.svelte";
+import Footer from "./dialog-footer.svelte";
+import Header from "./dialog-header.svelte";
+import Overlay from "./dialog-overlay.svelte";
+import Content from "./dialog-content.svelte";
+import Description from "./dialog-description.svelte";
+import Trigger from "./dialog-trigger.svelte";
+import Close from "./dialog-close.svelte";
 
 export {
 	Root,
@@ -37,5 +30,5 @@ export {
 	Overlay as DialogOverlay,
 	Content as DialogContent,
 	Description as DialogDescription,
-	Close as DialogClose
+	Close as DialogClose,
 };

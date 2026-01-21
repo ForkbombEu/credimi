@@ -31,7 +31,7 @@ const RECORD_NEVER = 'Record<string, never>';
 
 const IMPORT_STATEMENTS = `
 import type { ${COLLECTION_RESPONSES} } from '@/pocketbase/types/index.generated'
-import type {z} from 'zod'
+import type {z} from 'zod/v3'
 `;
 
 /* Functions */

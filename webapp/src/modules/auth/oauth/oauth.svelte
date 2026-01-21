@@ -16,8 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import LoadingDialog from '@/components/ui-custom/loadingDialog.svelte';
 	import { Separator } from '@/components/ui/separator';
-	import { m } from '@/i18n';
-	import { goto } from '@/i18n';
+	import { goto, m } from '@/i18n';
 	import { currentUser, pb } from '@/pocketbase';
 
 	//

@@ -8,7 +8,7 @@ import { redirect as svelteKitRedirect } from '@sveltejs/kit';
 import { goto as svelteKitGoto } from '$app/navigation';
 import { Record } from 'effect';
 
-import { locales, localizeHref, getLocale, localizeUrl } from '@/i18n/paraglide/runtime.js';
+import { getLocale, locales, localizeHref, localizeUrl } from '@/i18n/paraglide/runtime.js';
 
 import * as m from './paraglide/messages.js';
 import { paraglideMiddleware } from './paraglide/server';
@@ -39,7 +39,7 @@ export const languagesDisplay: Record<Locale, { flag: string; name: string }> = 
 	de: { flag: '🇩🇪', name: 'Deutsch' },
 	fr: { flag: '🇫🇷', name: 'Français' },
 	da: { flag: '🇩🇰', name: 'Dansk' },
-	'pt-BR': { flag: '🇧🇷', name: 'Português' },
+	'pt-br': { flag: '🇧🇷', name: 'Português' },
 	'es-es': { flag: '🇪🇸', name: 'Español' }
 };
 

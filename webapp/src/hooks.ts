@@ -2,10 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { Reroute } from '@sveltejs/kit';
+import { deLocalizeUrl } from '$lib/paraglide/runtime';
 
-import { deLocalizeUrl } from '@/i18n';
-
-export const reroute: Reroute = (request) => {
-	return deLocalizeUrl(request.url).pathname;
-};
+export const reroute = (request) => deLocalizeUrl(request.url).pathname;

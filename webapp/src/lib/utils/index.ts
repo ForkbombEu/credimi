@@ -2,13 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { error } from '@sveltejs/kit';
 import { browser } from '$app/environment';
 import { invalidateAll } from '$app/navigation';
 import { userOrganization } from '$lib/app-state';
+import { error } from '@sveltejs/kit';
 import slugify from 'slugify';
 import { onMount } from 'svelte';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import { verifyUser } from '@/auth/verifyUser';
 import { loadFeatureFlags } from '@/features';
