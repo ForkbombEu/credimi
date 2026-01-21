@@ -86,12 +86,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}
 
-	// 
+	//
 
-	const hasFiles= $derived(((Array.isArray(data) && data.length > 0) || (!multiple && Boolean(data))))
+	const hasFiles = $derived(
+		(Array.isArray(data) && data.length > 0) || (!multiple && Boolean(data))
+	);
 </script>
 
-<div class={{"space-y-2": (showFilesList && hasFiles) || rejectedFiles.length > 0}}>
+<div class={{ 'space-y-2': (showFilesList && hasFiles) || rejectedFiles.length > 0 }}>
 	{@render child?.({ addFiles })}
 
 	{#if showFilesList && hasFiles}
