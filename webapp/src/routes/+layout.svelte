@@ -31,7 +31,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <GlobalLoading />
 
-
 <div style="display:none">
 	{#each locales as locale (locale)}
 		<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
