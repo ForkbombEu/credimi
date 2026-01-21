@@ -541,12 +541,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				for _, resultRecord := range resultsRecords {
 					c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 					if err != nil {
-						return apierror.New(
-							http.StatusInternalServerError,
-							"temporal",
-							"unable to create client",
-							err.Error(),
-						).JSON(e)
+						continue
 					}
 
 					workflowExecution, err := c.DescribeWorkflowExecution(
@@ -555,50 +550,18 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 						resultRecord.GetString("run_id"),
 					)
 					if err != nil {
-						notFound := &serviceerror.NotFound{}
-						if errors.As(err, &notFound) {
-							return apierror.New(
-								http.StatusNotFound,
-								"workflow",
-								"workflow not found",
-								err.Error(),
-							).JSON(e)
-						}
-						invalidArgument := &serviceerror.InvalidArgument{}
-						if errors.As(err, &invalidArgument) {
-							return apierror.New(
-								http.StatusBadRequest,
-								"workflow",
-								"invalid workflow ID",
-								err.Error(),
-							).JSON(e)
-						}
-						return apierror.New(
-							http.StatusInternalServerError,
-							"workflow",
-							"failed to describe workflow execution",
-							err.Error(),
-						).JSON(e)
+						continue
 					}
+
 					weJSON, err := protojson.Marshal(workflowExecution.WorkflowExecutionInfo)
 					if err != nil {
-						return apierror.New(
-							http.StatusInternalServerError,
-							"workflow",
-							"failed to marshal workflow execution",
-							err.Error(),
-						).JSON(e)
+						continue
 					}
 
 					var execInfo WorkflowExecution
 					err = json.Unmarshal(weJSON, &execInfo)
 					if err != nil {
-						return apierror.New(
-							http.StatusInternalServerError,
-							"workflow",
-							"failed to unmarshal workflow execution",
-							err.Error(),
-						).JSON(e)
+						continue
 					}
 
 					if workflowExecution.WorkflowExecutionInfo.ParentExecution != nil {
@@ -622,7 +585,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 						pipelineExecutions,
 						namespace,
 						authRecord.GetString("Timezone"),
-						c,  
+						c,
 					)
 					
 					allHierarchies = append(allHierarchies, hierarchy...)
@@ -636,70 +599,78 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			})
 		}
 
-		runningCount := 0
-		var runningExecutions []*WorkflowExecutionSummary
-		var otherExecutions []*WorkflowExecutionSummary
-
-		var collectExecutions func(execs []*WorkflowExecutionSummary)
-		collectExecutions = func(execs []*WorkflowExecutionSummary) {
-			for _, exec := range execs {
-				if exec.Status == "running" {
-					runningCount++
-					runningExecutions = append(runningExecutions, exec)
-				} else {
-					otherExecutions = append(otherExecutions, exec)
-				}
-				if len(exec.Children) > 0 {
-					collectExecutions(exec.Children)
-				}
-			}
-		}
+		finalExecutions := selectTopExecutions(allHierarchies, 5)
 		
-		collectExecutions(allHierarchies)
-
-		var finalExecutions []*WorkflowExecutionSummary
-		
-		if len(runningExecutions) > 0 {
-			if len(runningExecutions) > 5 {
-				finalExecutions = runningExecutions
-			}
-		}
-
-		if len(finalExecutions) < 5 {
-			needed := 5 - len(finalExecutions)
-			
-			sort.Slice(otherExecutions, func(i, j int) bool {
-				iTimeStr := otherExecutions[i].EndTime
-				jTimeStr := otherExecutions[j].EndTime
-				
-				if iTimeStr == "" && jTimeStr == "" {
-					return false
-				}
-				if iTimeStr == "" {
-					return false
-				}
-				if jTimeStr == "" {
-					return true
-				}
-				
-				iTime, err1 := time.Parse(time.RFC3339, iTimeStr)
-				jTime, err2 := time.Parse(time.RFC3339, jTimeStr)
-				
-				if err1 == nil && err2 == nil {
-					return iTime.After(jTime)
-				}
-				
-				return iTimeStr > jTimeStr
-			})
-			
-			if needed > len(otherExecutions) {
-				needed = len(otherExecutions)
-			}
-			finalExecutions = append(finalExecutions, otherExecutions[:needed]...)
-		}
-
 		resp := ListMyChecksResponse{}
 		resp.Executions = finalExecutions
 		return e.JSON(http.StatusOK, resp)
 	}
+}
+
+func selectTopExecutions(allHierarchies []*WorkflowExecutionSummary, limit int) []*WorkflowExecutionSummary {
+	runningCount := 0
+	var runningExecutions []*WorkflowExecutionSummary
+	var otherExecutions []*WorkflowExecutionSummary
+
+	var collectExecutions func(execs []*WorkflowExecutionSummary)
+	collectExecutions = func(execs []*WorkflowExecutionSummary) {
+		for _, exec := range execs {
+			if exec.Status == "running" {
+				runningCount++
+				runningExecutions = append(runningExecutions, exec)
+			} else {
+				otherExecutions = append(otherExecutions, exec)
+			}
+			if len(exec.Children) > 0 {
+				collectExecutions(exec.Children)
+			}
+		}
+	}
+	
+	collectExecutions(allHierarchies)
+
+	var finalExecutions []*WorkflowExecutionSummary
+	
+	if len(runningExecutions) > 0 {
+		if len(runningExecutions) > limit {
+			return runningExecutions
+		} else {
+			finalExecutions = runningExecutions
+		}
+	}
+
+	if len(finalExecutions) < limit {
+		needed := limit - len(finalExecutions)
+		
+		sort.Slice(otherExecutions, func(i, j int) bool {
+			iTimeStr := otherExecutions[i].EndTime
+			jTimeStr := otherExecutions[j].EndTime
+			
+			if iTimeStr == "" && jTimeStr == "" {
+				return false
+			}
+			if iTimeStr == "" {
+				return false
+			}
+			if jTimeStr == "" {
+				return true
+			}
+			
+			iTime, err1 := time.Parse(time.RFC3339, iTimeStr)
+			jTime, err2 := time.Parse(time.RFC3339, jTimeStr)
+			
+			if err1 == nil && err2 == nil {
+				return iTime.After(jTime)
+			}
+			
+			return iTimeStr > jTimeStr
+		})
+		
+		if needed > len(otherExecutions) {
+			needed = len(otherExecutions)
+		}
+		finalExecutions = append(finalExecutions, otherExecutions[:needed]...)
+	}
+
+	return finalExecutions
 }
