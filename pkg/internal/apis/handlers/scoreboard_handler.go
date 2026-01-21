@@ -4,6 +4,7 @@
 
 package handlers
 
+/*
 import (
 	"crypto/rand"
 	"encoding/hex"
@@ -208,7 +209,7 @@ func aggregateWalletResults(app core.App, ownerID string, userSpecific bool) ([]
 	// - Join with wallet_actions and pipeline_results to get test run data
 	// - Calculate success/failure counts and rates from actual test results
 	// - Group by wallet and aggregate metrics
-	
+
 	// Placeholder: For now, returning example data
 	// In production, this would query the database based on ownerID and userSpecific parameters
 	entries := []ScoreboardEntry{
@@ -233,7 +234,7 @@ func aggregateIssuerResults(app core.App, ownerID string, userSpecific bool) ([]
 	// - Join with pipeline_results to get test run data
 	// - Calculate success/failure counts and rates from actual test results
 	// - Group by issuer and aggregate metrics
-	
+
 	// Placeholder: For now, returning example data
 	entries := []ScoreboardEntry{
 		{
@@ -257,7 +258,7 @@ func aggregateVerifierResults(app core.App, ownerID string, userSpecific bool) (
 	// - Join with use_cases_verifications and pipeline_results to get test run data
 	// - Calculate success/failure counts and rates from actual test results
 	// - Group by verifier and aggregate metrics
-	
+
 	// Placeholder: For now, returning example data
 	entries := []ScoreboardEntry{
 		{
@@ -281,7 +282,7 @@ func aggregatePipelineResults(app core.App, ownerID string, userSpecific bool) (
 	// - Join with pipeline_results to get test run data
 	// - Calculate success/failure counts and rates from actual test results
 	// - Group by pipeline and aggregate metrics
-	
+
 	// Placeholder: For now, returning example data
 	entries := []ScoreboardEntry{
 		{
@@ -409,3 +410,4 @@ func generateOTelSpanID() string {
 	}
 	return hex.EncodeToString(b)
 }
+*/
