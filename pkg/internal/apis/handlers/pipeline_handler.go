@@ -51,6 +51,11 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:    "/details",
 			Handler: HandleGetPipelineDetails,
 		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/specific-details",
+			Handler: HandleGetPipelineSpecificDetails,
+		},
 	},
 }
 
@@ -66,38 +71,6 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:        "/get-yaml",
 			Handler:     HandleGetPipelineYAML,
 			Description: "Get a pipeline YAML from a pipeline ID",
-		},
-	},
-}
-
-var SpecificPipelineDetails routing.RouteGroup = routing.RouteGroup{
-	BaseURL:                "/api/pipeline",
-	AuthenticationRequired: true,
-	Middlewares: []*hook.Handler[*core.RequestEvent]{
-		{Func: middlewares.ErrorHandlingMiddleware},
-	},
-	Routes: []routing.RouteDefinition{
-		{
-			Method:      http.MethodGet,
-			Path:        "/specific-details",
-			Handler:     HandleGetPipelineSpecificDetails,
-			Description: "Get pipeline worklows from a pipeline ID",
-		},
-	},
-}
-
-var PipelinesDetails routing.RouteGroup = routing.RouteGroup{
-	BaseURL:                "/api/pipeline",
-	AuthenticationRequired: true,
-	Middlewares: []*hook.Handler[*core.RequestEvent]{
-		{Func: middlewares.ErrorHandlingMiddleware},
-	},
-	Routes: []routing.RouteDefinition{
-		{
-			Method:      http.MethodGet,
-			Path:        "/details",
-			Handler:     HandleGetPipelineDetails,
-			Description: "Get pipeline worklows",
 		},
 	},
 }

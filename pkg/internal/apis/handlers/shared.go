@@ -474,12 +474,12 @@ type ScheduleInfo struct {
 type ScheduleInfoSummary struct {
 	ID string `json:"id" validate:"required"`
 
-	ScheduleMode       workflowengine.ScheduleMode `json:"schedule_mode,omitempty"`
-	WorkflowType       *WorkflowType               `json:"workflowType,omitempty"`
-	DisplayName        string                      `json:"display_name,omitempty"`
-	OriginalWorkflowID string                      `json:"original_workflow_id,omitempty"`
-	NextActionTime     string                      `json:"next_action_time,omitempty"`
-	Paused             bool                        `json:"paused,omitempty"`
+	ScheduleMode   workflowengine.ScheduleMode `json:"schedule_mode,omitempty"`
+	WorkflowType   *WorkflowType               `json:"workflowType,omitempty"`
+	DisplayName    string                      `json:"display_name,omitempty"`
+	PipelineID     string                      `json:"pipeline_id,omitempty"`
+	NextActionTime string                      `json:"next_action_time,omitempty"`
+	Paused         bool                        `json:"paused,omitempty"`
 }
 
 // ListMySchedulesResponse represents a response for listing schedules
@@ -528,7 +528,7 @@ func getStringFromMap(m map[string]any, key string) string {
 	return ""
 }
 
-func decodeFromTemporalPayload(encoded string) string {
+func DecodeFromTemporalPayload(encoded string) string {
 	if encoded == "" {
 		return ""
 	}

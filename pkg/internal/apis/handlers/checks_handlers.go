@@ -1174,7 +1174,7 @@ func buildExecutionHierarchy(
 		var parentDisplay string
 		if exec.Memo != nil {
 			if field, ok := exec.Memo.Fields["test"]; ok {
-				parentDisplay = decodeFromTemporalPayload(*field.Data)
+				parentDisplay = DecodeFromTemporalPayload(*field.Data)
 			}
 		}
 

@@ -10,10 +10,10 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/forkbombeu/credimi/pkg/utils"
-	"github.com/pocketbase/pocketbase/core"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert/yaml"
 )
@@ -25,7 +25,7 @@ var (
 )
 
 // NewPipelineCmd creates the "pipeline" command, using the PocketBase URL.
-func NewPipelineCmd(app core.App) *cobra.Command {
+func NewPipelineCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "pipeline",
 		Short: "Start a pipeline workflow",
@@ -45,7 +45,7 @@ func NewPipelineCmd(app core.App) *cobra.Command {
 				return err
 			}
 
-			rec, err := findOrCreatePipeline(app, orgID, input)
+			rec, err := findOrCreatePipeline(cmd.Context(), token, orgID, input)
 			if err != nil {
 				return err
 			}
@@ -56,12 +56,12 @@ func NewPipelineCmd(app core.App) *cobra.Command {
 
 	addPipelineFlags(cmd)
 	cmd.AddCommand(NewSchemaCmd())
-	cmd.AddCommand(NewPipelineStoreCmd(app))
+	cmd.AddCommand(NewPipelineStoreCmd())
 	return cmd
 }
 
 // NewPipelineStoreCmd creates the "pipeline store" subcommand
-func NewPipelineStoreCmd(app core.App) *cobra.Command {
+func NewPipelineStoreCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "store",
 		Short: "Store a pipeline in the database",
@@ -81,12 +81,12 @@ func NewPipelineStoreCmd(app core.App) *cobra.Command {
 				return err
 			}
 
-			rec, err := createPipeline(app, orgID, input)
+			rec, err := createPipeline(cmd.Context(), token, orgID, input)
 			if err != nil {
 				return err
 			}
 
-			return printJSON(rec.FieldsData())
+			return printJSON(rec)
 		},
 	}
 
@@ -192,47 +192,139 @@ type PipelineCLIInput struct {
 
 // Checks for existing pipeline, otherwise creates
 func findOrCreatePipeline(
-	app core.App,
+	ctx context.Context,
+	token string,
 	orgID string,
 	input *PipelineCLIInput,
-) (*core.Record, error) {
-	col, err := app.FindCollectionByNameOrId("pipelines")
+) (map[string]any, error) {
+
+	// 1. Try to find existing
+	filter := fmt.Sprintf(
+		`owner="%s" && name="%s" && yaml="%s"`,
+		orgID,
+		input.Name,
+		input.YAML,
+	)
+
+	findURL := utils.JoinURL(
+		instanceURL,
+		"api",
+		"collections",
+		"pipelines",
+		"records",
+	) + "?filter=" + url.QueryEscape(filter)
+
+	req, _ := http.NewRequestWithContext(ctx, "GET", findURL, nil)
+	req.Header.Set("Authorization", "Bearer "+token)
+
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return nil, err
 	}
+	defer resp.Body.Close()
 
-	filter := fmt.Sprintf(`owner="%s" && name="%s" && yaml="%s"`, orgID, input.Name, input.YAML)
-	rec, err := app.FindFirstRecordByFilter("pipelines", filter)
-	if err == nil {
-		return rec, nil
+	var list struct {
+		Items []map[string]any `json:"items"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&list); err != nil {
+		return nil, err
 	}
 
-	// Create new if not found
-	rec = core.NewRecord(col)
-	rec.Set("owner", orgID)
-	rec.Set("name", input.Name)
-	rec.Set("description", "Pipeline started from CLI")
-	rec.Set("yaml", input.YAML)
-	rec.Set("steps", "[{}]") // empty steps
+	if len(list.Items) > 0 {
+		return list.Items[0], nil
+	}
 
-	return rec, app.Save(rec)
+	// 2. Create new
+	payload := map[string]any{
+		"owner":       orgID,
+		"name":        input.Name,
+		"description": "Pipeline started from CLI",
+		"yaml":        input.YAML,
+		"steps":       "[{}]",
+	}
+
+	body, _ := json.Marshal(payload)
+
+	createReq, _ := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		utils.JoinURL(
+			instanceURL,
+			"api",
+			"collections",
+			"pipelines",
+			"records",
+		),
+		bytes.NewReader(body),
+	)
+	createReq.Header.Set("Content-Type", "application/json")
+	createReq.Header.Set("Authorization", "Bearer "+token)
+
+	createResp, err := http.DefaultClient.Do(createReq)
+	if err != nil {
+		return nil, err
+	}
+	defer createResp.Body.Close()
+
+	if createResp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(createResp.Body)
+		return nil, fmt.Errorf("create failed: %s", b)
+	}
+
+	var created map[string]any
+	return created, json.NewDecoder(createResp.Body).Decode(&created)
 }
 
 // Always creates new record
-func createPipeline(app core.App, orgID string, input *PipelineCLIInput) (*core.Record, error) {
-	col, err := app.FindCollectionByNameOrId("pipelines")
+func createPipeline(
+	ctx context.Context,
+	token string,
+	orgID string,
+	input *PipelineCLIInput,
+) (map[string]any, error) {
+
+	payload := map[string]any{
+		"owner":       orgID,
+		"name":        input.Name,
+		"description": "Pipeline stored from CLI",
+		"yaml":        input.YAML,
+		"steps":       "[{}]",
+	}
+
+	body, _ := json.Marshal(payload)
+
+	req, err := http.NewRequestWithContext(
+		ctx,
+		"POST",
+		utils.JoinURL(
+			instanceURL,
+			"api",
+			"collections",
+			"pipelines",
+			"records",
+		),
+		bytes.NewReader(body),
+	)
 	if err != nil {
 		return nil, err
 	}
 
-	rec := core.NewRecord(col)
-	rec.Set("owner", orgID)
-	rec.Set("name", input.Name)
-	rec.Set("description", "Pipeline stored from CLI")
-	rec.Set("yaml", input.YAML)
-	rec.Set("steps", "[{}]") // empty steps
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+token)
 
-	return rec, app.Save(rec)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("failed to create pipeline: %s", b)
+	}
+
+	var out map[string]any
+	return out, json.NewDecoder(resp.Body).Decode(&out)
 }
 
 func readPipelineInput() (*PipelineCLIInput, error) {
@@ -259,10 +351,10 @@ func readPipelineInput() (*PipelineCLIInput, error) {
 	}, nil
 }
 
-func startPipeline(ctx context.Context, token string, canonName string, rec *core.Record) error {
+func startPipeline(ctx context.Context, token string, canonName string, rec map[string]any) error {
 	payload := map[string]any{
-		"yaml":                rec.GetString("yaml"),
-		"pipeline_identifier": fmt.Sprintf("%s/%s", canonName, rec.GetString("canonified_name")),
+		"yaml":                rec["yaml"].(string),
+		"pipeline_identifier": fmt.Sprintf("%s/%s", canonName, rec["canonified_name"].(string)),
 	}
 
 	body, err := json.Marshal(payload)

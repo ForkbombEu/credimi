@@ -5,12 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { version } from '$app/environment';
+
 	import { AppLogo } from '@/brand';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import LanguageSelect from '@/i18n/languageSelect.svelte';
-	import { appVersion } from '@/utils/appVersion';
 
 	const footer_data = [
 		{
@@ -133,7 +134,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<div class="flex flex-row items-center gap-2">
 						<AppLogo version="full" />
 						<T tag="h4">
-							<span class="pl-1 text-sm text-white/40">{appVersion}</span>
+							<span class="pl-1 text-sm text-white/40">{version}</span>
 						</T>
 					</div>
 					<p class="border-b-muted border-b">{m.Test_and_find_decentralized_IDs()}</p>

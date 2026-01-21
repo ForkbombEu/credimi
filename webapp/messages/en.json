@@ -813,7 +813,7 @@
 	"weekly": "Weekly",
 	"monthly": "Monthly",
 	"Schedule_workflow": "Schedule workflow",
-	"Workflow_scheduled_successfully": "Workflow scheduled successfully",
+	"Pipeline_scheduled_successfully": "Pipeline scheduled successfully",
 	"View_scheduled_workflows": "View scheduled workflows",
 	"Scheduled_workflows": "Scheduled workflows",
 	"Back_to_workflows": "Back to workflows",
@@ -869,5 +869,8 @@
 	"record": "Record",
 	"data_cloned_successfully": "{data_type} cloned successfully",
 	"failed_to_clone_data": "failed to clone {data_type}",
-	"Debug": "Debug"
+	"scheduled": "Scheduled",
+	"Pipeline_execution_is_not_scheduled": "Pipeline execution is not scheduled",
+	"Debug": "Debug",
+	"Scheduling_paused": "Scheduling paused"
 }
