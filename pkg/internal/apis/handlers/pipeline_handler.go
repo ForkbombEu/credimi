@@ -72,6 +72,13 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:     HandleGetPipelineYAML,
 			Description: "Get a pipeline YAML from a pipeline ID",
 		},
+		{
+			Method:        http.MethodPost,
+			Path:          "/pipeline-execution-results",
+			Handler:       HandleSetPipelineExecutionResults,
+			RequestSchema: PipelineResultInput{},
+			Description:   "Create pipeline execution results record",
+		},
 	},
 }
 
@@ -206,6 +213,67 @@ func HandleGetPipelineYAML() func(*core.RequestEvent) error {
 		}
 		yaml := record.GetString("yaml")
 		return e.String(http.StatusOK, yaml)
+	}
+}
+
+type PipelineResultInput struct {
+	Owner      string `json:"owner"`
+	PipelineID string `json:"pipeline_id"`
+	WorkflowID string `json:"workflow_id"`
+	RunID      string `json:"run_id"`
+}
+
+func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		input, err := routing.GetValidatedInput[PipelineResultInput](e)
+		if err != nil {
+			return err
+		}
+
+		pipeline, err := canonify.Resolve(e.App, input.PipelineID)
+		if err != nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"pipeline",
+				"pipeline not found",
+				err.Error(),
+			).JSON(e)
+		}
+
+		owner, err := canonify.Resolve(e.App, input.Owner)
+		if err != nil {
+			return apierror.New(
+				http.StatusNotFound,
+				"owner",
+				"owner not found",
+				err.Error(),
+			).JSON(e)
+		}
+
+		coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"collection",
+				"failed to get collection",
+				err.Error(),
+			).JSON(e)
+		}
+
+		record := core.NewRecord(coll)
+		record.Set("owner", owner.Id)
+		record.Set("pipeline", pipeline.Id)
+		record.Set("workflow_id", input.WorkflowID)
+		record.Set("run_id", input.RunID)
+		if err := e.App.Save(record); err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipeline",
+				"failed to save pipeline record",
+				err.Error(),
+			).JSON(e)
+		}
+		return e.JSON(http.StatusOK, record.FieldsData())
 	}
 }
 
