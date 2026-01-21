@@ -122,19 +122,19 @@ func HandleMyResults() func(*core.RequestEvent) error {
 				"user not authenticated",
 			).JSON(e)
 		}
-
-		userID := e.Auth.Id
-		orgID, err := GetUserOrganizationID(e.App, userID)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organization",
-				"unable to get user organization ID",
-				err.Error(),
-			).JSON(e)
-		}
-
-		response, err := buildScoreboardResponse(e.App, orgID, true)
+		/*
+			userID := e.Auth.Id
+			orgID, err := GetUserOrganizationID(e.App, userID)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"organization",
+					"unable to get user organization ID",
+					err.Error(),
+				).JSON(e)
+			}
+		*/
+		response, err := buildScoreboardResponse()
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -151,7 +151,7 @@ func HandleMyResults() func(*core.RequestEvent) error {
 // HandleAllResults returns results for all entities
 func HandleAllResults() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		response, err := buildScoreboardResponse(e.App, "", false)
+		response, err := buildScoreboardResponse()
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -166,29 +166,29 @@ func HandleAllResults() func(*core.RequestEvent) error {
 }
 
 // buildScoreboardResponse aggregates data and builds the response
-func buildScoreboardResponse(app core.App, ownerID string, userSpecific bool) (*ScoreboardResponse, error) {
+func buildScoreboardResponse() (*ScoreboardResponse, error) {
 	response := &ScoreboardResponse{}
 
 	// Placeholder: Build summary data
-	wallets, err := aggregateWalletResults(app, ownerID, userSpecific)
+	wallets, err := aggregateWalletResults()
 	if err != nil {
 		return nil, err
 	}
 	response.Summary.Wallets = wallets
 
-	issuers, err := aggregateIssuerResults(app, ownerID, userSpecific)
+	issuers, err := aggregateIssuerResults()
 	if err != nil {
 		return nil, err
 	}
 	response.Summary.Issuers = issuers
 
-	verifiers, err := aggregateVerifierResults(app, ownerID, userSpecific)
+	verifiers, err := aggregateVerifierResults()
 	if err != nil {
 		return nil, err
 	}
 	response.Summary.Verifiers = verifiers
 
-	pipelines, err := aggregatePipelineResults(app, ownerID, userSpecific)
+	pipelines, err := aggregatePipelineResults()
 	if err != nil {
 		return nil, err
 	}
@@ -202,13 +202,13 @@ func buildScoreboardResponse(app core.App, ownerID string, userSpecific bool) (*
 }
 
 // aggregateWalletResults aggregates wallet test results
-func aggregateWalletResults(app core.App, ownerID string, userSpecific bool) ([]ScoreboardEntry, error) {
+func aggregateWalletResults() ([]ScoreboardEntry, error) {
 	// TODO: Implement real database queries
 	// - Query wallets collection filtered by ownerID if userSpecific=true
 	// - Join with wallet_actions and pipeline_results to get test run data
 	// - Calculate success/failure counts and rates from actual test results
 	// - Group by wallet and aggregate metrics
-	
+
 	// Placeholder: For now, returning example data
 	// In production, this would query the database based on ownerID and userSpecific parameters
 	entries := []ScoreboardEntry{
@@ -227,13 +227,13 @@ func aggregateWalletResults(app core.App, ownerID string, userSpecific bool) ([]
 }
 
 // aggregateIssuerResults aggregates credential issuer test results
-func aggregateIssuerResults(app core.App, ownerID string, userSpecific bool) ([]ScoreboardEntry, error) {
+func aggregateIssuerResults() ([]ScoreboardEntry, error) {
 	// TODO: Implement real database queries
 	// - Query credential_issuers collection filtered by ownerID if userSpecific=true
 	// - Join with pipeline_results to get test run data
 	// - Calculate success/failure counts and rates from actual test results
 	// - Group by issuer and aggregate metrics
-	
+
 	// Placeholder: For now, returning example data
 	entries := []ScoreboardEntry{
 		{
@@ -251,13 +251,13 @@ func aggregateIssuerResults(app core.App, ownerID string, userSpecific bool) ([]
 }
 
 // aggregateVerifierResults aggregates verifier test results
-func aggregateVerifierResults(app core.App, ownerID string, userSpecific bool) ([]ScoreboardEntry, error) {
+func aggregateVerifierResults() ([]ScoreboardEntry, error) {
 	// TODO: Implement real database queries
 	// - Query verifiers collection filtered by ownerID if userSpecific=true
 	// - Join with use_cases_verifications and pipeline_results to get test run data
 	// - Calculate success/failure counts and rates from actual test results
 	// - Group by verifier and aggregate metrics
-	
+
 	// Placeholder: For now, returning example data
 	entries := []ScoreboardEntry{
 		{
@@ -275,13 +275,13 @@ func aggregateVerifierResults(app core.App, ownerID string, userSpecific bool) (
 }
 
 // aggregatePipelineResults aggregates pipeline test results
-func aggregatePipelineResults(app core.App, ownerID string, userSpecific bool) ([]ScoreboardEntry, error) {
+func aggregatePipelineResults() ([]ScoreboardEntry, error) {
 	// TODO: Implement real database queries
 	// - Query pipelines collection filtered by ownerID if userSpecific=true
 	// - Join with pipeline_results to get test run data
 	// - Calculate success/failure counts and rates from actual test results
 	// - Group by pipeline and aggregate metrics
-	
+
 	// Placeholder: For now, returning example data
 	entries := []ScoreboardEntry{
 		{
