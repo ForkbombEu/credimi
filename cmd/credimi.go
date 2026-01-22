@@ -67,6 +67,8 @@ func Start() {
 
 	app.RootCmd.AddCommand(cli.NewPipelineCmd())
 	app.RootCmd.AddCommand(cli.NewDebugCmd())
+	app.RootCmd.AddCommand(cli.NewPoolCmd())
+	app.RootCmd.AddCommand(cli.NewCleanupCmd())
 
 	godotenv.Load()
 	if err := app.Start(); err != nil {
