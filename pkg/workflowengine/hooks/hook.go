@@ -17,7 +17,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/telemetry"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -217,12 +216,7 @@ var DefaultWorkers = []workerConfig{
 
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
 	defer wg.Done()
-	contextPropagators := []workflow.ContextPropagator{
-		telemetry.NewTraceContextPropagator(),
-	}
-	w := worker.New(c, config.TaskQueue, worker.Options{
-		ContextPropagators: contextPropagators,
-	})
+	w := worker.New(c, config.TaskQueue, worker.Options{})
 
 	for _, wf := range config.Workflows {
 		w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
@@ -243,12 +237,7 @@ func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *
 
 func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
 	defer wg.Done()
-	contextPropagators := []workflow.ContextPropagator{
-		telemetry.NewTraceContextPropagator(),
-	}
-	w := worker.New(c, pipeline.PipelineTaskQueue, worker.Options{
-		ContextPropagators: contextPropagators,
-	})
+	w := worker.New(c, pipeline.PipelineTaskQueue, worker.Options{})
 
 	pipelineWf := pipeline.NewPipelineWorkflow()
 	w.RegisterWorkflowWithOptions(

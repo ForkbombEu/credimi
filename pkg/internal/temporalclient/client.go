@@ -10,7 +10,7 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/forkbombeu/credimi/pkg/internal/telemetry"
+	"github.com/forkbombeu/credimi/internal/telemetry"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/workflow"

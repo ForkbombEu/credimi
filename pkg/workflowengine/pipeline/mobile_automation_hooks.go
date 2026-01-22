@@ -10,8 +10,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/internal/telemetry"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
-	"github.com/forkbombeu/credimi/pkg/internal/telemetry"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"

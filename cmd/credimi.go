@@ -11,8 +11,8 @@ import (
 
 	// Blank import to initialize database migrations
 	"github.com/forkbombeu/credimi/cmd/cli"
+	"github.com/forkbombeu/credimi/internal/telemetry"
 	_ "github.com/forkbombeu/credimi/migrations"
-	"github.com/forkbombeu/credimi/pkg/internal/telemetry"
 	"github.com/forkbombeu/credimi/pkg/routes"
 	"github.com/joho/godotenv"
 	"github.com/pocketbase/pocketbase"

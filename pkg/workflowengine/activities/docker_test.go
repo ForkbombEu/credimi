@@ -7,6 +7,7 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/api/types/network"
@@ -19,6 +20,8 @@ import (
 )
 
 func TestDockerRunActivity_Execute(t *testing.T) {
+	skipIfDockerUnavailable(t)
+
 	act := NewDockerActivity()
 	var ts testsuite.WorkflowTestSuite
 	env := ts.NewTestActivityEnvironment()
@@ -151,6 +154,24 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 				cli.ContainerRemove(context.Background(), containerID, container.RemoveOptions{Force: true})
 			}
 		})
+	}
+}
+
+func skipIfDockerUnavailable(t *testing.T) {
+	t.Helper()
+
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		t.Skipf("skipping: docker client unavailable: %v", err)
+		return
+	}
+	defer cli.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	if _, err := cli.Ping(ctx); err != nil {
+		t.Skipf("skipping: docker daemon unavailable: %v", err)
 	}
 }
 

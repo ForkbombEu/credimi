@@ -5,9 +5,14 @@
 package workflow
 
 import (
+	"encoding/json"
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 	_ "modernc.org/sqlite"
 	_ "modernc.org/sqlite/lib"
@@ -18,10 +23,48 @@ func TestFetchIssuersActivity(t *testing.T) {
 	env := testSuite.NewTestActivityEnvironment()
 	env.RegisterActivity(FetchIssuersActivity)
 
+	response := map[string]any{
+		"content": []map[string]any{
+			{
+				"issuanceUrl": "https://example.com/issuer/.well-known/openid-credential-issuer",
+			},
+		},
+		"page": map[string]any{
+			"number":        0,
+			"totalPages":    0,
+			"size":          1,
+			"totalElements": 1,
+		},
+	}
+	bodyBytes, err := json.Marshal(response)
+	require.NoError(t, err)
+
+	expectedURL := "https://issuer.test/api/public/credentialtype?includeAllDetails=false&size=200"
+	t.Setenv("FIDES_ISSUERS_URL", expectedURL)
+
+	oldTransport := http.DefaultTransport
+	http.DefaultTransport = roundTripperFunc(func(req *http.Request) (*http.Response, error) {
+		require.Equal(t, expectedURL, req.URL.String())
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Body:       io.NopCloser(strings.NewReader(string(bodyBytes))),
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+		}, nil
+	})
+	t.Cleanup(func() { http.DefaultTransport = oldTransport })
+
 	val, err := env.ExecuteActivity(FetchIssuersActivity)
+	require.NoError(t, err)
+
 	var result FetchIssuersActivityResponse
 	assert.NoError(t, val.Get(&result))
-	assert.NoError(t, err)
+	assert.Equal(t, []string{"https://example.com/issuer"}, result.Issuers)
+}
+
+type roundTripperFunc func(*http.Request) (*http.Response, error)
+
+func (fn roundTripperFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return fn(req)
 }
 
 func TestExtractHrefsFromApiResponse(t *testing.T) {

@@ -30,11 +30,12 @@ func FetchIssuersActivity(ctx context.Context) (FetchIssuersActivityResponse, er
 }
 
 func fetchIssuersRecursive(ctx context.Context, after int) ([]string, error) {
+	baseURL := fidesIssuersURL()
 	var url string
 	if after > 0 {
-		url = fmt.Sprintf("%s&page=%d", FidesIssuersURL, after)
+		url = fmt.Sprintf("%s&page=%d", baseURL, after)
 	} else {
-		url = FidesIssuersURL
+		url = baseURL
 	}
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
