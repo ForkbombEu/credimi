@@ -463,6 +463,30 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			temporalClient,
 		)
 
+		sort.Slice(hierarchy, func(i, j int) bool {
+			iTimeStr := hierarchy[i].StartTime
+			jTimeStr := hierarchy[j].StartTime
+
+			if iTimeStr == "" && jTimeStr == "" {
+				return false
+			}
+			if iTimeStr == "" {
+				return false
+			}
+			if jTimeStr == "" {
+				return true
+			}
+
+			iTime, err1 := time.Parse(time.RFC3339, iTimeStr)
+			jTime, err2 := time.Parse(time.RFC3339, jTimeStr)
+
+			if err1 == nil && err2 == nil {
+				return iTime.After(jTime) 
+			}
+
+			return iTimeStr > jTimeStr
+		})
+
 		return e.JSON(http.StatusOK, hierarchy)
 	}
 }
