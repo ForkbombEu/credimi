@@ -647,7 +647,6 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			}
 		}
 
-		// MODIFICA: Usiamo una versione modificata di selectTopExecutions
 		selectedExecutions := selectTopExecutionsByPipeline(allExecutions, 5)
 
 		return e.JSON(http.StatusOK, selectedExecutions)
@@ -692,8 +691,8 @@ func selectTopExecutionsByPipeline(executions []struct {
 
 	if remainingSlots > 0 && len(otherExecutions) > 0 {
 		sort.Slice(otherExecutions, func(i, j int) bool {
-			iTimeStr := otherExecutions[i].execution.EndTime
-			jTimeStr := otherExecutions[j].execution.EndTime
+			iTimeStr := otherExecutions[i].execution.StartTime
+			jTimeStr := otherExecutions[j].execution.StartTime
 
 			if iTimeStr == "" && jTimeStr == "" {
 				return false
@@ -724,5 +723,34 @@ func selectTopExecutionsByPipeline(executions []struct {
 	for _, selection := range finalSelections {
 		result[selection.pipelineID] = append(result[selection.pipelineID], selection.execution)
 	}
+
+	for pipelineID, execs := range result {
+		sort.Slice(execs, func(i, j int) bool {
+			iTimeStr := execs[i].StartTime
+			jTimeStr := execs[j].StartTime
+
+			if iTimeStr == "" && jTimeStr == "" {
+				return false
+			}
+			if iTimeStr == "" {
+				return false
+			}
+			if jTimeStr == "" {
+				return true
+			}
+
+			iTime, err1 := time.Parse(time.RFC3339, iTimeStr)
+			jTime, err2 := time.Parse(time.RFC3339, jTimeStr)
+
+			if err1 == nil && err2 == nil {
+				return iTime.After(jTime)
+			}
+
+			return iTimeStr > jTimeStr
+		})
+		
+		result[pipelineID] = execs
+	}
+
 	return result
 }
