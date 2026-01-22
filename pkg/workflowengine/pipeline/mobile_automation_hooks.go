@@ -15,6 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/avdpool"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
@@ -60,6 +61,21 @@ func MobileAutomationSetupHook(
 	if alreadyStartedEmu, ok := (*runData)["started_emulators"].(map[string]any); ok {
 		startedEmulators = alreadyStartedEmu
 	}
+	poolWorkflowID := avdpool.DefaultPoolWorkflowID
+	poolSlotAcquired, _ := (*runData)["pool_slot_acquired"].(bool)
+	var heartbeatStop workflow.Channel
+	if stopChannel, ok := (*runData)["pool_heartbeat_stop"].(workflow.Channel); ok {
+		heartbeatStop = stopChannel
+	}
+	defer func() {
+		if err == nil || !poolSlotAcquired {
+			return
+		}
+		stopPoolHeartbeat(ctx, heartbeatStop)
+		if releaseErr := avdpool.ReleaseSlot(ctx, poolWorkflowID); releaseErr != nil {
+			logger.Warn("failed releasing pool slot after setup error", "error", releaseErr)
+		}
+	}()
 
 	for i := range *steps {
 		step := &(*steps)[i]
@@ -226,6 +242,19 @@ func MobileAutomationSetupHook(
 			})
 			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 			continue
+		}
+
+		if !poolSlotAcquired {
+			if err := avdpool.AcquireSlot(ctx, poolWorkflowID, time.Minute); err != nil {
+				return err
+			}
+			poolSlotAcquired = true
+			(*runData)["pool_slot_acquired"] = true
+			if heartbeatStop == nil {
+				heartbeatStop = workflow.NewChannel(ctx)
+				(*runData)["pool_heartbeat_stop"] = heartbeatStop
+				startPoolHeartbeat(ctx, poolWorkflowID, heartbeatStop, avdpool.DefaultHeartbeatInterval)
+			}
 		}
 
 		mobileAo := *ao
@@ -402,6 +431,18 @@ func MobileAutomationCleanupHook(
 			errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
 			"missing or invalid app_url in workflow input config",
 		)
+	}
+	poolWorkflowID := avdpool.DefaultPoolWorkflowID
+	poolSlotAcquired, _ := runData["pool_slot_acquired"].(bool)
+	if stopChannel, ok := runData["pool_heartbeat_stop"].(workflow.Channel); ok {
+		stopPoolHeartbeat(ctx, stopChannel)
+	}
+	if poolSlotAcquired {
+		defer func() {
+			if err := avdpool.ReleaseSlot(ctx, poolWorkflowID); err != nil {
+				logger.Warn("failed releasing pool slot during cleanup", "error", err)
+			}
+		}()
 	}
 
 	stoppedEmulators := make(map[string]struct{})
@@ -626,4 +667,46 @@ func cleanupRecording(
 		append((*output)["result_video_urls"].([]string), resultURLs...)
 	(*output)["screenshot_urls"] =
 		append((*output)["screenshot_urls"].([]string), frameURLs...)
+}
+
+func startPoolHeartbeat(
+	ctx workflow.Context,
+	poolWorkflowID string,
+	stopCh workflow.Channel,
+	interval time.Duration,
+) {
+	logger := workflow.GetLogger(ctx)
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		for {
+			var stopRequested bool
+			selector := workflow.NewSelector(ctx)
+			timer := workflow.NewTimer(ctx, interval)
+
+			selector.AddFuture(timer, func(f workflow.Future) {
+				if err := f.Get(ctx, nil); err != nil {
+					return
+				}
+				if err := avdpool.SendHeartbeat(ctx, poolWorkflowID); err != nil {
+					logger.Warn("failed sending pool heartbeat", "error", err)
+				}
+			})
+			selector.AddReceive(stopCh, func(c workflow.ReceiveChannel, _ bool) {
+				var signal struct{}
+				c.Receive(ctx, &signal)
+				stopRequested = true
+			})
+
+			selector.Select(ctx)
+			if stopRequested {
+				return
+			}
+		}
+	})
+}
+
+func stopPoolHeartbeat(ctx workflow.Context, stopCh workflow.Channel) {
+	if stopCh == nil {
+		return
+	}
+	stopCh.Send(ctx, struct{}{})
 }

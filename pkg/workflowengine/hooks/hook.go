@@ -21,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/avdpool"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -313,6 +314,12 @@ func StartAllWorkersByNamespace(namespace string) {
 
 	wg.Add(1)
 	go startPipelineWorker(ctx, c, &wg)
+	go func() {
+		config := avdpool.ConfigFromEnv()
+		if _, err := avdpool.StartPoolManagerWorkflow(namespace, pipeline.PipelineTaskQueue, config); err != nil {
+			log.Printf("Failed to start pool manager workflow for namespace %s: %v", namespace, err)
+		}
+	}()
 
 	go func() {
 		wg.Wait()

@@ -8,6 +8,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/avdpool"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 )
 
@@ -126,6 +127,10 @@ var Registry = map[string]TaskFactory{
 }
 
 var PipelineInternalRegistry = map[string]TaskFactory{
+	"avd-pool-manager": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return avdpool.NewPoolManagerWorkflow() },
+	},
 	"openidnet-logs": {
 		Kind:    TaskWorkflow,
 		NewFunc: func() any { return workflows.NewOpenIDNetLogsWorkflow() },
