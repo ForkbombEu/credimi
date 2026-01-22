@@ -149,18 +149,6 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	cli, err := dockerclient.NewClientWithOpts(
-		dockerclient.FromEnv,
-		dockerclient.WithAPIVersionNegotiation(),
-	)
-	if err != nil {
-		errCode := errorcodes.Codes[errorcodes.DockerClientCreationFailed]
-		appErr := workflowengine.NewAppError(errCode, err.Error())
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			appErr,
-			input.RunMetadata,
-		)
-	}
 	output, ok := result.Output.(map[string]any)
 	errCode := errorcodes.Codes[errorcodes.UnexpectedDockerOutput]
 	if !ok {
@@ -173,11 +161,17 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 			)
 		}
 	}
-	cli.ContainerRemove(
-		context.Background(),
-		output["containerID"].(string),
-		container.RemoveOptions{Force: true},
-	)
+	if containerID, ok := output["containerID"].(string); ok && containerID != "" {
+		if err := removeContainerBestEffort(containerID); err != nil {
+			logger.Warn(
+				"Failed to cleanup docker container",
+				"container_id",
+				containerID,
+				"error",
+				err,
+			)
+		}
+	}
 
 	exitCode, ok := output["exitCode"].(float64)
 	if !ok {
@@ -233,6 +227,22 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 		Output:  parsedOutput,
 		Log:     result.Log,
 	}, nil
+}
+
+func removeContainerBestEffort(containerID string) error {
+	cli, err := dockerclient.NewClientWithOpts(
+		dockerclient.FromEnv,
+		dockerclient.WithAPIVersionNegotiation(),
+	)
+	if err != nil {
+		return err
+	}
+	defer cli.Close()
+	return cli.ContainerRemove(
+		context.Background(),
+		containerID,
+		container.RemoveOptions{Force: true},
+	)
 }
 
 func (w *ZenroomWorkflow) Start(

@@ -12,6 +12,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
@@ -62,10 +63,33 @@ Given I have a 'string' named 'broken'
 				Name: w.Name(),
 			})
 
-			zenroomActivity := activities.NewDockerActivity()
-			env.RegisterActivityWithOptions(zenroomActivity.Execute, activity.RegisterOptions{
-				Name: zenroomActivity.Name(),
+			dockerActivity := activities.NewDockerActivity()
+			env.RegisterActivityWithOptions(dockerActivity.Execute, activity.RegisterOptions{
+				Name: dockerActivity.Name(),
 			})
+			if tc.expectError {
+				env.OnActivity(dockerActivity.Name(), mock.Anything, mock.Anything).
+					Return(
+						workflowengine.ActivityResult{},
+						dockerActivity.NewActivityError(
+							errorcodes.Codes[errorcodes.CommandExecutionFailed].Code,
+							"Docker command failed with exit code 1",
+						),
+					)
+			} else {
+				env.OnActivity(dockerActivity.Name(), mock.Anything, mock.Anything).
+					Return(
+						workflowengine.ActivityResult{
+							Output: map[string]any{
+								"containerID": "container-1",
+								"stdout":      `{"keys":"hello from keys","message":"hello from data"}`,
+								"stderr":      "",
+								"exitCode":    0,
+							},
+						},
+						nil,
+					)
+			}
 
 			payload := ZenroomWorkflowPayload{
 				Contract: tc.contract,
