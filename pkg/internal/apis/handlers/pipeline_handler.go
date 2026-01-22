@@ -54,7 +54,7 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 		{
 			Method:  http.MethodGet,
-			Path:    "/list-workflows/:id",
+			Path:    "/list-workflows/{id}",
 			Handler: HandleGetPipelineSpecificDetails,
 		},
 	},
@@ -289,14 +289,13 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				"user not authenticated",
 			).JSON(e)
 		}
-
-		pipelineID := e.Request.URL.Query().Get("pipelineId")
+		pipelineID := e.Request.PathValue("id")
 		if pipelineID == "" {
 			return apierror.New(
 				http.StatusBadRequest,
 				"pipeline",
 				"pipeline ID is required",
-				"missing pipelineId query parameter",
+				"missing pipeline ID in path parameter",
 			).JSON(e)
 		}
 
@@ -356,7 +355,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 
 		if err != nil {
 			return e.JSON(http.StatusOK, ListMyChecksResponse{
-				Executions: []*WorkflowExecutionSummary{},
+				[]*WorkflowExecutionSummary{},
 			})
 		}
 
@@ -370,11 +369,11 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 					err.Error(),
 				).JSON(e)
 			}
-			
+
 			if temporalClient == nil {
 				temporalClient = c
 			}
-			
+
 			workflowExecution, err := c.DescribeWorkflowExecution(
 				context.Background(),
 				resultRecord.GetString("workflow_id"),
@@ -406,7 +405,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 					err.Error(),
 				).JSON(e)
 			}
-			
+
 			weJSON, err := protojson.Marshal(workflowExecution.WorkflowExecutionInfo)
 			if err != nil {
 				return apierror.New(
@@ -440,7 +439,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 
 		if len(allExecutions) == 0 {
 			return e.JSON(http.StatusOK, ListMyChecksResponse{
-				Executions: []*WorkflowExecutionSummary{},
+				[]*WorkflowExecutionSummary{},
 			})
 		}
 
@@ -464,9 +463,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			temporalClient,
 		)
 
-		resp := ListMyChecksResponse{}
-		resp.Executions = hierarchy
-		return e.JSON(http.StatusOK, resp)
+		return e.JSON(http.StatusOK, hierarchy)
 	}
 }
 
@@ -491,7 +488,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		
+
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
 			"owner={:owner} || published={:published}",
@@ -513,12 +510,10 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 		}
 
 		if len(pipelineRecords) == 0 {
-			return e.JSON(http.StatusOK, ListMyChecksResponse{
-				Executions: []*WorkflowExecutionSummary{},
-			})
+			return e.JSON(http.StatusOK, map[string][]*WorkflowExecutionSummary{})
 		}
 
-		var allHierarchies []*WorkflowExecutionSummary
+		pipelineExecutionsMap := make(map[string][]*WorkflowExecutionSummary)
 		namespace := organization.GetString("canonified_name")
 
 		for _, pipelineRecord := range pipelineRecords {
@@ -537,11 +532,16 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 
 			if err == nil && len(resultsRecords) > 0 {
 				var pipelineExecutions []*WorkflowExecution
-				
+
 				for _, resultRecord := range resultsRecords {
 					c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 					if err != nil {
-						continue
+						return apierror.New(
+							http.StatusInternalServerError,
+							"temporal",
+							"unable to create client",
+							err.Error(),
+						).JSON(e)
 					}
 
 					workflowExecution, err := c.DescribeWorkflowExecution(
@@ -550,18 +550,51 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 						resultRecord.GetString("run_id"),
 					)
 					if err != nil {
-						continue
+						notFound := &serviceerror.NotFound{}
+						if errors.As(err, &notFound) {
+							return apierror.New(
+								http.StatusNotFound,
+								"workflow",
+								"workflow not found",
+								err.Error(),
+							).JSON(e)
+						}
+						invalidArgument := &serviceerror.InvalidArgument{}
+						if errors.As(err, &invalidArgument) {
+							return apierror.New(
+								http.StatusBadRequest,
+								"workflow",
+								"invalid workflow ID",
+								err.Error(),
+							).JSON(e)
+						}
+						return apierror.New(
+							http.StatusInternalServerError,
+							"workflow",
+							"failed to describe workflow execution",
+							err.Error(),
+						).JSON(e)
 					}
 
 					weJSON, err := protojson.Marshal(workflowExecution.WorkflowExecutionInfo)
 					if err != nil {
-						continue
+						return apierror.New(
+							http.StatusInternalServerError,
+							"workflow",
+							"failed to marshal workflow execution",
+							err.Error(),
+						).JSON(e)
 					}
 
 					var execInfo WorkflowExecution
 					err = json.Unmarshal(weJSON, &execInfo)
 					if err != nil {
-						continue
+						return apierror.New(
+							http.StatusInternalServerError,
+							"workflow",
+							"failed to unmarshal workflow execution",
+							err.Error(),
+						).JSON(e)
 					}
 
 					if workflowExecution.WorkflowExecutionInfo.ParentExecution != nil {
@@ -579,7 +612,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 					if err != nil {
 						continue
 					}
-					
+
 					hierarchy := buildExecutionHierarchy(
 						e.App,
 						pipelineExecutions,
@@ -587,65 +620,81 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 						authRecord.GetString("Timezone"),
 						c,
 					)
-					
-					allHierarchies = append(allHierarchies, hierarchy...)
+
+					pipelineExecutionsMap[pipelineID] = hierarchy
 				}
 			}
 		}
 
-		if len(allHierarchies) == 0 {
-			return e.JSON(http.StatusOK, ListMyChecksResponse{
-				Executions: []*WorkflowExecutionSummary{},
-			})
+		if len(pipelineExecutionsMap) == 0 {
+			return e.JSON(http.StatusOK, map[string][]*WorkflowExecutionSummary{})
 		}
 
-		finalExecutions := selectTopExecutions(allHierarchies, 5)
-		
-		resp := ListMyChecksResponse{}
-		resp.Executions = finalExecutions
-		return e.JSON(http.StatusOK, resp)
+		var allExecutions []struct {
+			pipelineID string
+			execution  *WorkflowExecutionSummary
+		}
+
+		for pipelineID, executions := range pipelineExecutionsMap {
+			for _, exec := range executions {
+				allExecutions = append(allExecutions, struct {
+					pipelineID string
+					execution  *WorkflowExecutionSummary
+				}{
+					pipelineID: pipelineID,
+					execution:  exec,
+				})
+			}
+		}
+
+		// MODIFICA: Usiamo una versione modificata di selectTopExecutions
+		selectedExecutions := selectTopExecutionsByPipeline(allExecutions, 5)
+
+		return e.JSON(http.StatusOK, selectedExecutions)
 	}
 }
 
-func selectTopExecutions(allHierarchies []*WorkflowExecutionSummary, limit int) []*WorkflowExecutionSummary {
-	runningCount := 0
-	var runningExecutions []*WorkflowExecutionSummary
-	var otherExecutions []*WorkflowExecutionSummary
+func selectTopExecutionsByPipeline(executions []struct {
+	pipelineID string
+	execution  *WorkflowExecutionSummary
+}, limit int) map[string][]*WorkflowExecutionSummary {
 
-	var collectExecutions func(execs []*WorkflowExecutionSummary)
-	collectExecutions = func(execs []*WorkflowExecutionSummary) {
-		for _, exec := range execs {
-			if exec.Status == "running" {
-				runningCount++
-				runningExecutions = append(runningExecutions, exec)
-			} else {
-				otherExecutions = append(otherExecutions, exec)
-			}
-			if len(exec.Children) > 0 {
-				collectExecutions(exec.Children)
-			}
-		}
+	result := make(map[string][]*WorkflowExecutionSummary)
+
+	if len(executions) == 0 {
+		return result
 	}
-	
-	collectExecutions(allHierarchies)
 
-	var finalExecutions []*WorkflowExecutionSummary
-	
-	if len(runningExecutions) > 0 {
-		if len(runningExecutions) > limit {
-			return runningExecutions
+	var runningExecutions []struct {
+		pipelineID string
+		execution  *WorkflowExecutionSummary
+	}
+	var otherExecutions []struct {
+		pipelineID string
+		execution  *WorkflowExecutionSummary
+	}
+
+	for _, exec := range executions {
+		if exec.execution.Status == "running" {
+			runningExecutions = append(runningExecutions, exec)
 		} else {
-			finalExecutions = runningExecutions
+			otherExecutions = append(otherExecutions, exec)
 		}
 	}
 
-	if len(finalExecutions) < limit {
-		needed := limit - len(finalExecutions)
-		
+	var finalSelections []struct {
+		pipelineID string
+		execution  *WorkflowExecutionSummary
+	}
+	finalSelections = runningExecutions
+
+	remainingSlots := limit - len(runningExecutions)
+
+	if remainingSlots > 0 && len(otherExecutions) > 0 {
 		sort.Slice(otherExecutions, func(i, j int) bool {
-			iTimeStr := otherExecutions[i].EndTime
-			jTimeStr := otherExecutions[j].EndTime
-			
+			iTimeStr := otherExecutions[i].execution.EndTime
+			jTimeStr := otherExecutions[j].execution.EndTime
+
 			if iTimeStr == "" && jTimeStr == "" {
 				return false
 			}
@@ -655,22 +704,25 @@ func selectTopExecutions(allHierarchies []*WorkflowExecutionSummary, limit int) 
 			if jTimeStr == "" {
 				return true
 			}
-			
+
 			iTime, err1 := time.Parse(time.RFC3339, iTimeStr)
 			jTime, err2 := time.Parse(time.RFC3339, jTimeStr)
-			
+
 			if err1 == nil && err2 == nil {
 				return iTime.After(jTime)
 			}
-			
+
 			return iTimeStr > jTimeStr
 		})
-		
-		if needed > len(otherExecutions) {
-			needed = len(otherExecutions)
+
+		if remainingSlots > len(otherExecutions) {
+			remainingSlots = len(otherExecutions)
 		}
-		finalExecutions = append(finalExecutions, otherExecutions[:needed]...)
+		finalSelections = append(finalSelections, otherExecutions[:remainingSlots]...)
 	}
 
-	return finalExecutions
+	for _, selection := range finalSelections {
+		result[selection.pipelineID] = append(result[selection.pipelineID], selection.execution)
+	}
+	return result
 }
