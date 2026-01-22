@@ -71,7 +71,7 @@ func MobileAutomationSetupHook(
 		if err == nil || !poolSlotAcquired {
 			return
 		}
-		stopPoolHeartbeat(ctx, heartbeatStop)
+		stopPoolHeartbeat(ctx, heartbeatStop, *runData)
 		if releaseErr := avdpool.ReleaseSlot(ctx, poolWorkflowID); releaseErr != nil {
 			logger.Warn("failed releasing pool slot after setup error", "error", releaseErr)
 		}
@@ -479,7 +479,7 @@ func MobileAutomationCleanupHook(
 	poolWorkflowID := avdpool.DefaultPoolWorkflowID
 	poolSlotAcquired, _ := runData["pool_slot_acquired"].(bool)
 	if stopChannel, ok := runData["pool_heartbeat_stop"].(workflow.Channel); ok {
-		stopPoolHeartbeat(ctx, stopChannel)
+		stopPoolHeartbeat(ctx, stopChannel, runData)
 	}
 	if poolSlotAcquired {
 		defer func() {
@@ -703,9 +703,18 @@ func startPoolHeartbeat(
 	})
 }
 
-func stopPoolHeartbeat(ctx workflow.Context, stopCh workflow.Channel) {
+func stopPoolHeartbeat(ctx workflow.Context, stopCh workflow.Channel, runData map[string]any) {
 	if stopCh == nil {
 		return
 	}
+	if runData != nil {
+		if stopped, _ := runData["pool_heartbeat_stopped"].(bool); stopped {
+			return
+		}
+	}
+	// Avoid deadlock from double-send on the unbuffered stop channel.
 	stopCh.Send(ctx, struct{}{})
+	if runData != nil {
+		runData["pool_heartbeat_stopped"] = true
+	}
 }
