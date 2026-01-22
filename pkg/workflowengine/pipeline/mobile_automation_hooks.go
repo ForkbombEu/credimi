@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/telemetry"
@@ -230,12 +231,25 @@ func MobileAutomationSetupHook(
 		mobileAo := *ao
 		mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 		mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
+
+		startEmulatorAo := mobileAo
+		startEmulatorAo.HeartbeatTimeout = time.Minute
+		startEmulatorAo.StartToCloseTimeout = 10 * time.Minute
+		startEmulatorAo.ScheduleToCloseTimeout = 10 * time.Minute
+		startEmulatorCtx := workflow.WithActivityOptions(ctx, startEmulatorAo)
+
+		recordAo := mobileAo
+		recordAo.HeartbeatTimeout = time.Minute
+		recordAo.StartToCloseTimeout = 35 * time.Minute
+		recordAo.ScheduleToCloseTimeout = 35 * time.Minute
+		recordCtx := workflow.WithActivityOptions(ctx, recordAo)
+
 		startResult := workflowengine.ActivityResult{}
 		startEmuInput := workflowengine.ActivityInput{
 			Payload: map[string]any{"version_id": versionIdentifier},
 		}
-		err = workflow.ExecuteActivity(mobileCtx, startEmuActivity.Name(), startEmuInput).
-			Get(ctx, &startResult)
+		err = workflow.ExecuteActivity(startEmulatorCtx, startEmuActivity.Name(), startEmuInput).
+			Get(startEmulatorCtx, &startResult)
 		if err != nil {
 			return err
 		}
@@ -292,10 +306,10 @@ func MobileAutomationSetupHook(
 		}
 		var recordResult workflowengine.ActivityResult
 		if err := workflow.ExecuteActivity(
-			mobileCtx,
+			recordCtx,
 			recordActivity.Name(),
 			startRecordInput,
-		).Get(mobileCtx, &recordResult); err != nil {
+		).Get(recordCtx, &recordResult); err != nil {
 			return err
 		}
 		adbPID, ok := recordResult.Output.(map[string]any)["adb_process_pid"].(float64)
@@ -378,6 +392,10 @@ func MobileAutomationCleanupHook(
 
 	mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 	mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
+	recordAo := mobileAo
+	recordAo.HeartbeatTimeout = time.Minute
+	recordAo.StartToCloseTimeout = 35 * time.Minute
+	recordAo.ScheduleToCloseTimeout = 35 * time.Minute
 	appURL, ok := config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.NewAppError(
@@ -417,6 +435,7 @@ func MobileAutomationCleanupHook(
 
 		cleanupRecording(
 			mobileCtx,
+			recordAo,
 			payload,
 			runData,
 			output,
@@ -462,6 +481,7 @@ func MobileAutomationCleanupHook(
 
 func cleanupRecording(
 	ctx workflow.Context,
+	recordAo workflow.ActivityOptions,
 	payload workflows.MobileAutomationWorkflowPayload,
 	runData map[string]any,
 	output *map[string]any,
@@ -469,6 +489,7 @@ func cleanupRecording(
 	appURL string,
 ) {
 	logger := workflow.GetLogger(ctx)
+	recordCtx := workflow.WithActivityOptions(ctx, recordAo)
 
 	startedEmulators, ok := runData["started_emulators"].(map[string]any)
 	if !ok {
@@ -500,17 +521,18 @@ func cleanupRecording(
 	var stopResult workflowengine.ActivityResult
 
 	if err := workflow.ExecuteActivity(
-		ctx,
+		recordCtx,
 		stopRecordingActivity.Name(),
 		workflowengine.ActivityInput{
 			Payload: map[string]any{
+				"emulator_serial":    payload.EmulatorSerial,
 				"video_path":         videoPath,
 				"adb_process_pid":    payload.RecordingAdbPid,
 				"ffmpeg_process_pid": payload.RecordingFfmpegPid,
 				"logcat_process_pid": payload.RecordingLogcatPid,
 			},
 		},
-	).Get(ctx, &stopResult); err != nil {
+	).Get(recordCtx, &stopResult); err != nil {
 		logger.Error("cleanup: stop recording failed", "error", err)
 		*cleanupErrs = append(*cleanupErrs, err)
 		return

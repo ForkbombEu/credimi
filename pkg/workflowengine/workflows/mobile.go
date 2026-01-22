@@ -4,10 +4,15 @@
 package workflows
 
 import (
+	"errors"
+	"time"
+
 	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -76,7 +81,11 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
+	mobileAo := *input.ActivityOptions
+	mobileAo.HeartbeatTimeout = time.Minute
+	mobileAo.StartToCloseTimeout = 35 * time.Minute
+	mobileAo.ScheduleToCloseTimeout = 35 * time.Minute
+	ctx = workflow.WithActivityOptions(ctx, mobileAo)
 
 	var output MobileWorkflowOutput
 	testRunURL := utils.JoinURL(
@@ -119,12 +128,20 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	output.FlowOutput = mobileResponse.Output
 
 	if executeErr != nil {
+		details := map[string]any{
+			"output": output,
+		}
+		var timeoutErr *temporal.TimeoutError
+		if errors.As(executeErr, &timeoutErr) && timeoutErr.TimeoutType() == enumspb.TIMEOUT_TYPE_HEARTBEAT {
+			var heartbeat mobile.ActivityHeartbeat
+			if err := timeoutErr.LastHeartbeatDetails(&heartbeat); err == nil {
+				details["heartbeat"] = heartbeat
+			}
+		}
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			executeErr,
 			input.RunMetadata,
-			map[string]any{
-				"output": output,
-			},
+			details,
 		)
 	}
 
