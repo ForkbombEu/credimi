@@ -11,6 +11,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"go.temporal.io/sdk/activity"
 )
 
 type StartEmulatorActivity struct {
@@ -34,6 +35,7 @@ func (a *StartEmulatorActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -69,6 +71,7 @@ func (a *ApkInstallActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		map[string]mobile.ErrorCode{
@@ -109,6 +112,7 @@ func (a *UnlockEmulatorActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -144,6 +148,7 @@ func (a *StopEmulatorActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
@@ -179,6 +184,7 @@ func (a *StartRecordingActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		map[string]mobile.ErrorCode{
@@ -219,13 +225,14 @@ func (a *StopRecordingActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		nil,
 		true,
 	)
 
-	res, err := mobile.StopVideoRecording(runInput)
+	res, err := mobile.StopVideoRecording(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
@@ -254,6 +261,7 @@ func (a *RunMobileFlowActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	runInput := buildMobileInput(
+		ctx,
 		input.Payload,
 		a.NewActivityError,
 		map[string]mobile.ErrorCode{
@@ -276,6 +284,7 @@ func (a *RunMobileFlowActivity) Execute(
 }
 
 func buildMobileInput(
+	ctx context.Context,
 	payload any,
 	newErr func(code string, msg string, details ...any) error,
 	extraErrorCodes map[string]mobile.ErrorCode,
@@ -296,11 +305,22 @@ func buildMobileInput(
 		baseCodes[k] = v
 	}
 
+	info := activity.GetInfo(ctx)
+
 	in := mobile.MobileActivityInput{
 		Payload:          payload,
 		GetEnv:           utils.GetEnvironmentVariable,
 		NewActivityError: newErr,
 		ErrorCodes:       baseCodes,
+		ActivityInfo: mobile.ActivityTraceInfo{
+			WorkflowID:   info.WorkflowExecution.ID,
+			RunID:        info.WorkflowExecution.RunID,
+			ActivityID:   info.ActivityID,
+			TaskQueue:    info.TaskQueue,
+			Attempt:      info.Attempt,
+			WorkflowType: info.WorkflowType.Name,
+			Namespace:    info.WorkflowNamespace,
+		},
 	}
 
 	if withCommand {

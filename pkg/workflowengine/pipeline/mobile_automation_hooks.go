@@ -10,10 +10,14 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/telemetry"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -23,9 +27,26 @@ func MobileAutomationSetupHook(
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData *map[string]any,
-) error {
+) (err error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, *ao)
+
+	info := workflow.GetInfo(ctx)
+	traceCtx := telemetry.ContextFromWorkflow(ctx)
+	traceCtx, span := otel.Tracer("credimi/pipeline").Start(
+		traceCtx,
+		"pipeline.MobileAutomationSetupHook",
+		trace.WithAttributes(
+			attribute.String("namespace", info.Namespace),
+			attribute.String("workflow_id", info.WorkflowExecution.ID),
+		),
+	)
+	defer span.End()
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+		}
+	}()
 
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
@@ -193,6 +214,15 @@ func MobileAutomationSetupHook(
 				"serial",
 				serial,
 			)
+			span.SetAttributes(
+				attribute.String("emulator_serial", serial),
+				attribute.String("version_id", versionIdentifier),
+			)
+			_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+				"emulator_serial": serial,
+				"version_id":      versionIdentifier,
+				"boot_status":     "already_running",
+			})
 			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 			continue
 		}
@@ -233,6 +263,17 @@ func MobileAutomationSetupHook(
 				startResult.Output,
 			)
 		}
+		span.SetAttributes(
+			attribute.String("emulator_serial", serial),
+			attribute.String("clone_name", cloneName),
+			attribute.String("version_id", versionIdentifier),
+		)
+		_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+			"emulator_serial": serial,
+			"version_id":      versionIdentifier,
+			"clone_name":      cloneName,
+			"boot_status":     "starting",
+		})
 		SetPayloadValue(&step.With.Payload, "clone_name", cloneName)
 		SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 

@@ -6,14 +6,17 @@
 package cmd
 
 import (
+	"context"
 	"log"
 
 	// Blank import to initialize database migrations
 	"github.com/forkbombeu/credimi/cmd/cli"
 	_ "github.com/forkbombeu/credimi/migrations"
+	"github.com/forkbombeu/credimi/pkg/internal/telemetry"
 	"github.com/forkbombeu/credimi/pkg/routes"
 	"github.com/joho/godotenv"
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/core"
 )
 
 // Start initializes and starts the PocketBase application.
@@ -28,6 +31,16 @@ func Start() {
 		"\033[38;2;159;0;186m                                                             \033[0m\n" +
 		"                                 \033[48;2;0;0;139m\033[38;2;255;255;255m              :(){ :|:& };: \033[0m\n" +
 		"                                 \033[48;2;0;0;139m\033[38;2;255;255;255m with ❤ by Forkbomb hackers \033[0m\n"
+
+	shutdownTracing, err := telemetry.SetupTracing(context.Background())
+	if err != nil {
+		log.Printf("Tracing initialization failed: %v", err)
+	}
+	if shutdownTracing != nil {
+		app.OnTerminate().BindFunc(func(_ *core.TerminateEvent) error {
+			return shutdownTracing(context.Background())
+		})
+	}
 
 	routes.Setup(app)
 
