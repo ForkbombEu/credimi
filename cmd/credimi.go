@@ -53,6 +53,8 @@ func Start() {
 		}
 	}
 
+	// Load .env before tracing so OTEL_* config is visible.
+	godotenv.Load()
 	shutdownTracing, err := telemetry.SetupTracing(context.Background())
 	if err != nil {
 		log.Printf("Tracing initialization failed: %v", err)
@@ -69,8 +71,6 @@ func Start() {
 	app.RootCmd.AddCommand(cli.NewDebugCmd())
 	app.RootCmd.AddCommand(cli.NewPoolCmd())
 	app.RootCmd.AddCommand(cli.NewCleanupCmd())
-
-	godotenv.Load()
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
