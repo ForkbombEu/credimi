@@ -225,6 +225,8 @@ github.com/forkbombeu/credimi-extra v0.0.0-20260109110935-d9a29adf3f94 h1:AK0BU/
 github.com/forkbombeu/credimi-extra v0.0.0-20260109110935-d9a29adf3f94/go.mod h1:31A5rHv7SJ1cDmnP0hy+gApNw9aIZjOGBNBeH3pNsQw=
 github.com/forkbombeu/credimi-extra v0.0.0-20260114150907-4e7b69255c9a h1:nUoLOMMwe2Fy5rMORbHJKoDsbDlNB5l0zH46R9m85/0=
 github.com/forkbombeu/credimi-extra v0.0.0-20260114150907-4e7b69255c9a/go.mod h1:31A5rHv7SJ1cDmnP0hy+gApNw9aIZjOGBNBeH3pNsQw=
+github.com/forkbombeu/credimi-extra v0.0.0-20260122094739-e320ab9cfd7c h1:b4AerUAd6Hf/3VWgQ1XuZA5U0BiczFyW8FeootcnYqw=
+github.com/forkbombeu/credimi-extra v0.0.0-20260122094739-e320ab9cfd7c/go.mod h1:31A5rHv7SJ1cDmnP0hy+gApNw9aIZjOGBNBeH3pNsQw=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.8.0 h1:dAwr6QBTBZIkG8roQaJjGof0pp0EeF+tNV7YBP3F/8M=
