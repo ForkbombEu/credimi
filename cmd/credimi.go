@@ -66,6 +66,7 @@ func Start() {
 	routes.Setup(app)
 
 	app.RootCmd.AddCommand(cli.NewPipelineCmd())
+	app.RootCmd.AddCommand(cli.NewDebugCmd())
 
 	godotenv.Load()
 	if err := app.Start(); err != nil {

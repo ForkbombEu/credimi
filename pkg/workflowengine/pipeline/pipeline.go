@@ -51,7 +51,7 @@ func (PipelineWorkflow) GetOptions() workflow.ActivityOptions {
 func (w *PipelineWorkflow) Workflow(
 	ctx workflow.Context,
 	input PipelineWorkflowInput,
-) (workflowengine.WorkflowResult, error) {
+) (result workflowengine.WorkflowResult, err error) {
 	logger := workflow.GetLogger(ctx)
 
 	var ao workflow.ActivityOptions
@@ -95,8 +95,6 @@ func (w *PipelineWorkflow) Workflow(
 		}
 	}
 
-	result := workflowengine.WorkflowResult{}
-
 	// Final workflow output returned
 	finalOutput := map[string]any{
 		"workflow-id":     workflowID,
@@ -117,7 +115,82 @@ func (w *PipelineWorkflow) Workflow(
 		// For child pipelines, inherit parent run data
 		runData = input.ParentRunData
 	}
+	status := "running"
+	lastActivityName := ""
+	lastActivityTime := time.Time{}
+	forceCleanupRequested := false
+	runData["status"] = status
+	_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+		"status": status,
+	})
+
+	forceCleanupCh := workflow.GetSignalChannel(ctx, workflowengine.ForceCleanupSignal)
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		var signal struct{}
+		for {
+			forceCleanupCh.Receive(ctx, &signal)
+			forceCleanupRequested = true
+			status = "cleanup"
+			runData["status"] = status
+			lastActivityName = "force_cleanup"
+			lastActivityTime = workflow.Now(ctx)
+			_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+				"status": status,
+			})
+		}
+	})
+
+	workflow.SetQueryHandler(ctx, workflowengine.PipelineStateQuery, func() (workflowengine.PipelineState, error) {
+		emulatorSerial, _ := runData["latest_emulator_serial"].(string)
+		cloneName, _ := runData["latest_clone_name"].(string)
+		versionID, _ := runData["latest_version_id"].(string)
+		bootStatus, _ := runData["boot_status"].(string)
+		recordingActive, _ := runData["recording_active"].(bool)
+		currentStatus, _ := runData["status"].(string)
+		if currentStatus == "" {
+			currentStatus = status
+		}
+		return workflowengine.PipelineState{
+			WorkflowID:       workflowID,
+			RunID:            runID,
+			EmulatorSerial:   emulatorSerial,
+			CloneName:        cloneName,
+			VersionID:        versionID,
+			RecordingActive:  recordingActive,
+			BootStatus:       bootStatus,
+			LastActivity:     lastActivityName,
+			LastActivityTime: lastActivityTime,
+			Status:           currentStatus,
+			ForceCleanup:     forceCleanupRequested,
+		}, nil
+	})
+
+	workflow.SetQueryHandler(ctx, workflowengine.ResourceUsageQuery, func() (workflowengine.ResourceUsage, error) {
+		poolSlotAcquired, _ := runData["pool_slot_acquired"].(bool)
+		return workflowengine.ResourceUsage{
+			PoolSlotAcquired:   poolSlotAcquired,
+			PoolWaitTimeMs:     asInt64(runData["pool_wait_ms"]),
+			EmulatorBootTimeMs: asInt64(runData["boot_time_ms"]),
+		}, nil
+	})
+
 	defer func() {
+		if err != nil {
+			status = "failed"
+		} else {
+			status = "completed"
+		}
+		runData["status"] = status
+		_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+			"status": status,
+		})
+	}()
+	defer func() {
+		status = "cleanup"
+		runData["status"] = status
+		_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+			"status": status,
+		})
 		runCleanupHooks(
 			ctx,
 			wfDef.Steps,
@@ -136,6 +209,13 @@ func (w *PipelineWorkflow) Workflow(
 
 	var previousStepID string
 	for _, step := range wfDef.Steps {
+		if forceCleanupRequested {
+			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
+				runMetadata,
+			)
+		}
+		lastActivityName = step.ID
+		lastActivityTime = workflow.Now(ctx)
 		stepInputs := map[string]any{
 			"inputs": input.WorkflowInput.Payload,
 		}
@@ -588,4 +668,21 @@ func (w *PipelineWorkflow) handleScheduledRun(
 	}
 
 	return ctx, wfDef, options.ActivityOptions, debug, nil
+}
+
+func asInt64(value any) int64 {
+	switch v := value.(type) {
+	case int64:
+		return v
+	case int:
+		return int64(v)
+	case int32:
+		return int64(v)
+	case float64:
+		return int64(v)
+	case float32:
+		return int64(v)
+	default:
+		return 0
+	}
 }

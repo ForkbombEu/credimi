@@ -235,19 +235,34 @@ func MobileAutomationSetupHook(
 				attribute.String("emulator_serial", serial),
 				attribute.String("version_id", versionIdentifier),
 			)
+			(*runData)["latest_emulator_serial"] = serial
+			(*runData)["latest_version_id"] = versionIdentifier
+			(*runData)["status"] = "running"
 			_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
 				"emulator_serial": serial,
 				"version_id":      versionIdentifier,
 				"boot_status":     "already_running",
+				"status":          "running",
 			})
 			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 			continue
 		}
 
 		if !poolSlotAcquired {
+			poolWaitStart := workflow.Now(ctx)
+			(*runData)["status"] = "queued"
+			_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+				"status": "queued",
+			})
 			if err := avdpool.AcquireSlot(ctx, poolWorkflowID, time.Minute); err != nil {
 				return err
 			}
+			poolWait := workflow.Now(ctx).Sub(poolWaitStart)
+			poolWaitMs := int64(poolWait.Milliseconds())
+			(*runData)["pool_wait_ms"] = poolWaitMs
+			_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+				"pool_wait_ms": poolWaitMs,
+			})
 			poolSlotAcquired = true
 			(*runData)["pool_slot_acquired"] = true
 			if heartbeatStop == nil {
@@ -273,6 +288,11 @@ func MobileAutomationSetupHook(
 		recordAo.ScheduleToCloseTimeout = 35 * time.Minute
 		recordCtx := workflow.WithActivityOptions(ctx, recordAo)
 
+		bootStart := workflow.Now(ctx)
+		(*runData)["status"] = "booting"
+		_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+			"status": "booting",
+		})
 		startResult := workflowengine.ActivityResult{}
 		startEmuInput := workflowengine.ActivityInput{
 			Payload: map[string]any{"version_id": versionIdentifier},
@@ -311,11 +331,20 @@ func MobileAutomationSetupHook(
 			attribute.String("clone_name", cloneName),
 			attribute.String("version_id", versionIdentifier),
 		)
+		bootDuration := workflow.Now(ctx).Sub(bootStart)
+		bootTimeMs := int64(bootDuration.Milliseconds())
+		(*runData)["boot_time_ms"] = bootTimeMs
+		(*runData)["boot_status"] = "ready"
+		(*runData)["latest_emulator_serial"] = serial
+		(*runData)["latest_clone_name"] = cloneName
+		(*runData)["latest_version_id"] = versionIdentifier
 		_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
 			"emulator_serial": serial,
 			"version_id":      versionIdentifier,
 			"clone_name":      cloneName,
-			"boot_status":     "starting",
+			"boot_status":     "ready",
+			"boot_time_ms":    bootTimeMs,
+			"status":          "running",
 		})
 		SetPayloadValue(&step.With.Payload, "clone_name", cloneName)
 		SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
@@ -393,6 +422,8 @@ func MobileAutomationSetupHook(
 		SetPayloadValue(&step.With.Payload, "recording_adb_pid", int(adbPID))
 		SetPayloadValue(&step.With.Payload, "recording_ffmpeg_pid", int(ffmpegPID))
 		SetPayloadValue(&step.With.Payload, "recording_logcat_pid", int(logcatPID))
+		(*runData)["recording_active"] = true
+		(*runData)["status"] = "recording"
 		runIdentifier, ok := (*runData)["run_identifier"].(string)
 		if !ok || runIdentifier == "" {
 			return workflowengine.NewAppError(
@@ -410,6 +441,9 @@ func MobileAutomationSetupHook(
 			VersionID:        versionIdentifier,
 			AppURL:           appURL,
 		}))
+		_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+			"status": "recording",
+		})
 		startedEmulators[versionIdentifier] = map[string]any{
 			"serial":     serial,
 			"recording":  true,

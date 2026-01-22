@@ -52,6 +52,20 @@ func GetTemporalClientWithNamespace(namespace string) (client.Client, error) {
 	return getTemporalClient(namespace)
 }
 
+// GetTemporalDebugClient creates a Temporal client with masked payload decoding for debugging.
+func GetTemporalDebugClient(namespace string) (client.Client, error) {
+	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
+	contextPropagators := []workflow.ContextPropagator{
+		telemetry.NewTraceContextPropagator(),
+	}
+	return client.NewLazyClient(client.Options{
+		HostPort:           hostPort,
+		Namespace:          namespace,
+		ContextPropagators: contextPropagators,
+		DataConverter:      NewPrettyMaskingDataConverter(),
+	})
+}
+
 func ShutdownClients() {
 	clientCache.Range(func(key, value any) bool {
 		if c, ok := value.(client.Client); ok {
