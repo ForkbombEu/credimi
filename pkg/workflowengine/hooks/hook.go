@@ -46,6 +46,7 @@ import (
 // Parameters:
 //   - app: The PocketBase application instance to which the hook is attached.
 func WorkersHook(app *pocketbase.PocketBase) {
+	activities.SetPocketBaseApp(app)
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
 		namespaces, err := FetchNamespaces(app)
 		if err != nil {
@@ -276,6 +277,17 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 		}
 	}
 
+	cleanupVerification := pipeline.NewCleanupVerificationWorkflow()
+	w.RegisterWorkflowWithOptions(
+		cleanupVerification.Workflow,
+		workflow.RegisterOptions{Name: cleanupVerification.Name()},
+	)
+	cleanupReconciliation := pipeline.NewCleanupReconciliationWorkflow()
+	w.RegisterWorkflowWithOptions(
+		cleanupReconciliation.Workflow,
+		workflow.RegisterOptions{Name: cleanupReconciliation.Name()},
+	)
+
 	shutdownCh := make(chan interface{})
 	go func() {
 		<-ctx.Done()
@@ -318,6 +330,15 @@ func StartAllWorkersByNamespace(namespace string) {
 		config := avdpool.ConfigFromEnv()
 		if _, err := avdpool.StartPoolManagerWorkflow(namespace, pipeline.PipelineTaskQueue, config); err != nil {
 			log.Printf("Failed to start pool manager workflow for namespace %s: %v", namespace, err)
+		}
+	}()
+	go func() {
+		if _, err := pipeline.StartCleanupReconciliationWorkflow(
+			namespace,
+			pipeline.PipelineTaskQueue,
+			pipeline.CleanupReconciliationPayload{},
+		); err != nil {
+			log.Printf("Failed to start cleanup reconciliation workflow for namespace %s: %v", namespace, err)
 		}
 	}()
 

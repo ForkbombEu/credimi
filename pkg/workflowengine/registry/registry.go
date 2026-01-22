@@ -144,6 +144,26 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		NewFunc:    func() any { return activities.NewCheckFileExistsActivity() },
 		OutputKind: workflowengine.OutputBool,
 	},
+	"record-failed-cleanup": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewRecordFailedCleanupActivity() },
+		OutputKind: workflowengine.OutputAny,
+	},
+	"fetch-failed-cleanups": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewCleanupReconciliationActivity() },
+		OutputKind: workflowengine.OutputAny,
+	},
+	"update-failed-cleanup": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewUpdateFailedCleanupActivity() },
+		OutputKind: workflowengine.OutputAny,
+	},
+	"delete-failed-cleanup": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewDeleteFailedCleanupActivity() },
+		OutputKind: workflowengine.OutputAny,
+	},
 }
 
 // Denylist of task keys that should NOT be registered in the pipeline worker

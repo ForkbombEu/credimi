@@ -319,6 +319,7 @@ func MobileAutomationSetupHook(
 		})
 		SetPayloadValue(&step.With.Payload, "clone_name", cloneName)
 		SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
+		appendCleanupStepSpec(runData, cleanupSpecForEmulator(serial, cloneName))
 
 		installInput := workflowengine.ActivityInput{
 			Payload: map[string]any{"apk": apkPath, "emulator_serial": serial},
@@ -392,6 +393,23 @@ func MobileAutomationSetupHook(
 		SetPayloadValue(&step.With.Payload, "recording_adb_pid", int(adbPID))
 		SetPayloadValue(&step.With.Payload, "recording_ffmpeg_pid", int(ffmpegPID))
 		SetPayloadValue(&step.With.Payload, "recording_logcat_pid", int(logcatPID))
+		runIdentifier, ok := (*runData)["run_identifier"].(string)
+		if !ok || runIdentifier == "" {
+			return workflowengine.NewAppError(
+				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
+				fmt.Sprintf("missing run_identifier for step %s", step.ID),
+			)
+		}
+		appendCleanupStepSpec(runData, cleanupSpecForRecording(StopRecordingCleanupPayload{
+			EmulatorSerial:   serial,
+			AdbProcessPid:    int(adbPID),
+			FfmpegProcessPid: int(ffmpegPID),
+			LogcatProcessPid: int(logcatPID),
+			VideoPath:        videoPath,
+			RunIdentifier:    runIdentifier,
+			VersionID:        versionIdentifier,
+			AppURL:           appURL,
+		}))
 		startedEmulators[versionIdentifier] = map[string]any{
 			"serial":     serial,
 			"recording":  true,
@@ -417,14 +435,6 @@ func MobileAutomationCleanupHook(
 ) error {
 	ctx, _ = workflow.NewDisconnectedContext(ctx)
 	logger := workflow.GetLogger(ctx)
-	mobileAo := *ao
-
-	mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
-	mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
-	recordAo := mobileAo
-	recordAo.HeartbeatTimeout = time.Minute
-	recordAo.StartToCloseTimeout = 35 * time.Minute
-	recordAo.ScheduleToCloseTimeout = 35 * time.Minute
 	appURL, ok := config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.NewAppError(
@@ -445,76 +455,31 @@ func MobileAutomationCleanupHook(
 		}()
 	}
 
-	stoppedEmulators := make(map[string]struct{})
-	var cleanupErrs []error
-
-	for _, step := range steps {
-		if step.Use != "mobile-automation" {
-			continue
-		}
-
-		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPayload](
-			step.With.Payload,
-		)
-		if err != nil {
-			return workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-				"error decoding payload for step "+step.ID,
-			)
-		}
-
-		if payload.EmulatorSerial == "" {
-			return workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-				"missing emulator serial for step "+step.ID,
-			)
-		}
-
-		if _, alreadyStopped := stoppedEmulators[payload.EmulatorSerial]; alreadyStopped {
-			continue
-		}
-
-		cleanupRecording(
-			mobileCtx,
-			recordAo,
-			payload,
-			runData,
-			output,
-			&cleanupErrs,
-			appURL,
-		)
-
-		// Always stop emulator
-		if err := workflow.ExecuteActivity(
-			mobileCtx,
-			activities.NewStopEmulatorActivity().Name(),
-			workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"emulator_serial": payload.EmulatorSerial,
-					"clone_name":      payload.CloneName,
-				},
-			},
-		).Get(ctx, nil); err != nil {
-			logger.Error(
-				"failed stopping emulator",
-				"emulator",
-				payload.EmulatorSerial,
-				"error",
-				err,
-			)
-			return err // stopping emulator is fatal
-		}
-
-		stoppedEmulators[payload.EmulatorSerial] = struct{}{}
+	specs := cleanupStepSpecs(runData)
+	if err := validateCleanupSpecs(specs); err != nil {
+		return err
+	}
+	if len(specs) == 0 {
+		return nil
 	}
 
-	if len(cleanupErrs) > 0 {
-		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		return workflowengine.NewAppError(
-			errCode,
-			"one or more errors occurred during mobile automation cleanup",
-			cleanupErrs,
-		)
+	baseAo := workflow.ActivityOptions{}
+	if ao != nil {
+		baseAo = *ao
+	}
+	options := buildCleanupOptions(baseAo)
+	recordFailure := func(ctx workflow.Context, spec CleanupStepSpec, stepErr error, attempts int) error {
+		info := workflow.GetInfo(ctx)
+		return recordFailedCleanup(ctx, options, spec, stepErr, attempts, info.WorkflowExecution.ID)
+	}
+
+	cleanupErrors := executeCleanupSpecs(ctx, logger, options, specs, output, recordFailure)
+	if len(cleanupErrors) > 0 {
+		logger.Warn("cleanup saga recorded failures", "count", len(cleanupErrors))
+	}
+
+	if err := startCleanupVerificationWorkflow(ctx, specs, appURL, runData); err != nil {
+		logger.Warn("failed to start cleanup verification workflow", "error", err)
 	}
 
 	return nil
