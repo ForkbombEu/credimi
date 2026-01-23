@@ -1,0 +1,10 @@
+services:
+  temporal:
+    image: temporalio/temporal:latest
+    container_name: temporal
+    volumes:
+      - temporal-data:/data
+    command: server start-dev --ip 0.0.0.0 --db-filename /data/temporal.db
+
+volumes:
+  temporal-data:
