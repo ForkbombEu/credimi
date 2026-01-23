@@ -12,8 +12,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 
 	import { ArrowDown, ArrowUp } from '@lucide/svelte';
-	import { getMarketplaceItemUrl, type MarketplaceItem } from '$lib/marketplace';
-	import { path as makePath } from '$lib/utils';
+	import { resolve } from '$app/paths';
+	import { getPath, path as makePath, mergePaths } from '$lib/utils';
 	import { String } from 'effect';
 	import { truncate } from 'lodash';
 	import removeMd from 'remove-markdown';
@@ -26,7 +26,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { Separator } from '@/components/ui/separator';
-	import { pb } from '@/pocketbase';
 
 	import LabelLink from './label-link.svelte';
 	import PublishedSwitch from './published-switch.svelte';
@@ -42,6 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		badge?: string;
 		actions?: Snippet;
 		editAction?: Snippet;
+		nameRight?: Snippet;
 		path: string[];
 		hideDelete?: boolean;
 		hidePublish?: boolean;
@@ -58,6 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		badge,
 		actions,
 		editAction,
+		nameRight,
 		path,
 		hideDelete = false,
 		hidePublish = false,
@@ -76,14 +77,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let publicUrl = $state('');
-	$effect(() => {
+	let publicUrl = $derived.by(() => {
 		if (!record.published) return;
-		pb.collection('marketplace_items')
-			.getOne(record.id)
-			.then((item) => {
-				publicUrl = getMarketplaceItemUrl(item as unknown as MarketplaceItem);
-			});
+		return resolve('/(public)/marketplace/[...path]', {
+			path: mergePaths('pipelines', getPath(record))
+		});
 	});
 </script>
 
@@ -99,6 +97,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						published={record.published}
 						textToCopy={makePath(path)}
 					/>
+					{#if nameRight}
+						{@render nameRight()}
+					{/if}
 					{#if badge}
 						<Badge variant="secondary">{badge}</Badge>
 					{/if}

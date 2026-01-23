@@ -97,3 +97,32 @@ export function slug(string: string) {
 		strict: true
 	});
 }
+
+/**
+ * Merges multiple path segments into a single normalized path.
+ * Handles slashes, duplicate slashes, and relative segments.
+ * Removes leading and trailing slashes.
+ *
+ * @param paths - Path segments to merge
+ * @returns A normalized path string
+ *
+ * @example
+ * mergePaths('/api', 'users', '/123') // '/api/users/123'
+ * mergePaths('api/', '/users/', '123') // 'api/users/123'
+ * mergePaths('api', '', 'users') // 'api/users'
+ */
+export function mergePaths(...paths: (string | undefined | null)[]): string {
+	const filtered = paths
+		.filter((p): p is string => Boolean(p))
+		.map((p) => p.trim())
+		.filter((p) => p.length > 0);
+
+	return filtered
+		.map((p) => {
+			if (p.startsWith('/')) p = p.slice(1);
+			if (p.endsWith('/')) p = p.slice(0, -1);
+			return p;
+		})
+		.filter((p) => p.length > 0)
+		.join('/');
+}
