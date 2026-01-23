@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StandardsWithTestSuites } from '$lib/standards';
 
 	import { yaml } from '@codemirror/lang-yaml';
+	import { CircleHelp, GitBranch, PlusIcon, UploadIcon } from '@lucide/svelte';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
 	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
@@ -15,7 +16,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { String } from 'effect';
 	import { run } from 'json_typegen_wasm';
 	import _ from 'lodash';
-	import { GitBranch, HelpCircle, PlusIcon, UploadIcon } from 'lucide-svelte';
 	import { toast } from 'svelte-sonner';
 	import { fromStore } from 'svelte/store';
 	import { zod } from 'sveltekit-superforms/adapters';
@@ -23,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CustomChecksRecord, CustomChecksResponse } from '@/pocketbase/types';
 
 	import { removeEmptyValues } from '@/collections-components/form';
-	import { mockFile } from '@/collections-components/form/collectionFormSetup';
+	import { mockFile, removeMockFiles } from '@/collections-components/form/collectionFormSetup';
 	import Button from '@/components/ui-custom/button.svelte';
 	import LinkExternal from '@/components/ui-custom/linkExternal.svelte';
 	import { createForm, Form } from '@/forms';
@@ -64,7 +64,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const form = createForm({
 		adapter: zod(schema),
 		onSubmit: async ({ form }) => {
-			const data: Partial<CustomChecksRecord> = removeEmptyValues({ ...form.data });
+			const data: Partial<CustomChecksRecord> = removeMockFiles(
+				removeEmptyValues({ ...form.data })
+			);
 
 			const jsonSample = form.data.input_json_sample;
 			if (!jsonSample || String.isEmpty(jsonSample)) {
@@ -105,9 +107,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (record.input_json_sample) {
 			data.input_json_sample = JSON.stringify(record.input_json_sample, null, 2);
 		}
-		if (record.logo) {
-			// @ts-expect-error - We need to rewrite the the logo from string to file
-			data.logo = mockFile(record.logo, { mimeTypes: ['image/png'] });
+		if (typeof record.logo === 'string') {
+			if (record.logo.length > 0) {
+				// @ts-expect-error - We need to rewrite the the logo from string to file
+				data.logo = mockFile(record.logo, { mimeTypes: ['image/png'] });
+			} else {
+				// @ts-expect-error - Logo is optional
+				data.logo = undefined;
+			}
 		}
 		return data;
 	}
@@ -217,7 +224,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<LinkExternal
 								href={standard.standard_url}
 								text="{standard.name} {m.Standard()}"
-								icon={HelpCircle}
+								icon={CircleHelp}
 								title={m.Learn_about_standard({ name: standard.name })}
 							/>
 						{/if}
@@ -241,7 +248,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
 				<Field {form} name="name" options={{ label: m.Name() }} />
 
-				<LogoField {form} name="logo" label="AO" initialPreviewUrl={originalLogoUrl} />
+				<LogoField
+					{form}
+					name="logo"
+					label={m.Logo()}
+					initialPreviewUrl={originalLogoUrl}
+				/>
 
 				<Field
 					{form}
@@ -308,7 +320,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</PageCardSection>
 
 		{#snippet submitButtonContent()}
-			<PlusIcon />
+			{#if formMode === 'new'}
+				<PlusIcon />
+			{/if}
 			{currentLabels.submitButton}
 		{/snippet}
 	</Form>

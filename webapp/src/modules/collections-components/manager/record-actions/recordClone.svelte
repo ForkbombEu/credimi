@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ComponentProps, Snippet } from 'svelte';
 
 	import { runWithLoading } from '$lib/utils';
-	import { CopyPlus } from 'lucide-svelte';
+	import { CopyPlus } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 
 	import type { CollectionName } from '@/pocketbase/collections-models';

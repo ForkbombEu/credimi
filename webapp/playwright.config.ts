@@ -8,7 +8,7 @@ export const storageState = 'test-results/.auth/user.json';
 
 export default defineConfig({
 	webServer: {
-		command: 'pnpm build && pnpm preview',
+		command: 'bun run build && bun run preview',
 		port: 4173
 	},
 

@@ -40,8 +40,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			translate: 'data-[state=checked]:translate-x-6'
 		},
 		md: {
-			container: 'h-10 w-16',
-			thumb: 'h-9 w-9',
+			container: 'h-9 w-15',
+			thumb: 'h-8 w-8',
 			translate: 'data-[state=checked]:translate-x-6'
 		}
 	};

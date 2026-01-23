@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { PlayIcon, Plus } from 'lucide-svelte';
+	import { PlayIcon, Plus } from '@lucide/svelte';
 
 	import { CollectionManager, RecordClone } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';

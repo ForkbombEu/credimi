@@ -22,7 +22,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { yaml, deeplink }: Props = $props();
-	console.log('yaml', yaml, 'deeplink', deeplink);
 
 	//
 

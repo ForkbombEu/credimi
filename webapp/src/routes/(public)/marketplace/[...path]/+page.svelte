@@ -5,10 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { PencilIcon } from '@lucide/svelte';
 	import { userOrganization } from '$lib/app-state';
 	import { getMarketplaceItemData } from '$lib/marketplace';
 	import { marketplaceItemToSectionHref } from '$lib/marketplace/utils';
-	import { PencilIcon } from 'lucide-svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
@@ -37,16 +37,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <!-- Owner edit topbar -->
 
 {#if isCurrentUserOwner}
-	<div class="border-t-primary border-t-2 bg-[#E2DCF8] py-2">
+	<div class="border-t-primary border-t-2 bg-secondary py-2">
 		<div
-			class="mx-auto flex max-w-screen-xl flex-wrap items-center justify-between gap-3 px-4 text-sm md:px-8"
+			class="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 text-sm md:px-8"
 		>
 			<T>{m.This_item_is_yours({ item: display.labels.singular })}</T>
 			<div class="flex items-center gap-3">
 				<T>{m.Last_edited()}: {new Date(marketplaceItem.updated).toLocaleDateString()}</T>
 				<Button
 					size="sm"
-					class="!h-8 text-xs"
+					class="h-8! text-xs"
 					href={marketplaceItemToSectionHref(marketplaceItem)}
 				>
 					<PencilIcon />

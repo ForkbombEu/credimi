@@ -7,7 +7,7 @@ import type { ConfigField } from '$start-checks-form/types';
 import { jsonStringSchema } from '$lib/utils';
 import { formatJson } from '$start-checks-form/_utils';
 import { Tuple, pipe } from 'effect';
-import { z, type ZodEffects, ZodString } from 'zod';
+import { ZodString, z, type ZodEffects } from 'zod/v3';
 
 //
 

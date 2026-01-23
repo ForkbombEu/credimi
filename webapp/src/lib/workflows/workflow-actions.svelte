@@ -10,7 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ClassValue } from 'svelte/elements';
 
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
-	import { Code, XIcon } from 'lucide-svelte';
+	import { Code, XIcon } from '@lucide/svelte';
 
 	import type { IconComponent } from '@/components/types';
 	import type { buttonVariants } from '@/components/ui/button';

@@ -6,7 +6,7 @@ import stepciJsonSchema from '$root/schemas/stepci/schema.json';
 import Ajv from 'ajv';
 import { Record as R } from 'effect';
 import { isCollection, parseAllDocuments, parse as parseYaml } from 'yaml';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import { getExceptionMessage } from '@/utils/errors';
 

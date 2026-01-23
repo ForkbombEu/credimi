@@ -8,7 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ConfigField } from '$start-checks-form/types';
 
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
-	import { Eye, Pencil, Undo } from 'lucide-svelte';
+	import { Eye, Pencil, Undo } from '@lucide/svelte';
 
 	import Label from '@/components/ui/label/label.svelte';
 	import * as Popover from '@/components/ui/popover';

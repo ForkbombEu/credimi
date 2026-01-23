@@ -4,7 +4,7 @@
 
 import { String } from 'effect';
 import _ from 'lodash';
-import z from 'zod';
+import z from 'zod/v3';
 
 import { m } from '@/i18n';
 

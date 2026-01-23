@@ -6,11 +6,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { invalidateAll } from '$app/navigation';
-	import { Plus, UserPlus, Cog, Puzzle, Undo2, X, Check } from 'lucide-svelte';
+	import { Check, Cog, Plus, Puzzle, Undo2, UserPlus, X } from '@lucide/svelte';
 	import { toast } from 'svelte-sonner';
 
 	import CollectionManager from '@/collections-components/manager/collectionManager.svelte';
-	import { PageTop, PageCard, PageContent } from '@/components/layout';
+	import { PageCard, PageContent, PageTop } from '@/components/layout';
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Button from '@/components/ui-custom/button.svelte';

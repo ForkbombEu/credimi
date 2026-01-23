@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { StandardsWithTestSuites } from '$lib/standards';
 
-	import { CheckCheck } from 'lucide-svelte';
+	import { CheckCheck } from '@lucide/svelte';
 
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
@@ -34,22 +34,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Table.Table>
 	<Table.Header>
-		<Table.Head>{m.Standard()}</Table.Head>
-		<Table.Head>{m.Version()}</Table.Head>
-		<Table.Head>{m.Suite()}</Table.Head>
+		<Table.Head class="px-4">{m.Standard()}</Table.Head>
+		<Table.Head class="px-4">{m.Version()}</Table.Head>
+		<Table.Head class="px-4">{m.Suite()}</Table.Head>
 	</Table.Header>
 	<Table.Body>
 		{#each rows as { standard, version, suite } (standard.uid + version.uid + suite.uid)}
 			<Table.Row>
-				<Table.Cell>
+				<Table.Cell class="px-4">
 					<TableNameCell
 						name={standard.name}
 						href={`/marketplace/conformance-checks/${standard.uid}/${version.uid}/${suite.uid}`}
 						logo={suite.logo}
 					/>
 				</Table.Cell>
-				<Table.Cell>{version.name}</Table.Cell>
-				<Table.Cell>{suite.name}</Table.Cell>
+				<Table.Cell class="px-4">{version.name}</Table.Cell>
+				<Table.Cell class="px-4">{suite.name}</Table.Cell>
 			</Table.Row>
 			{#if suite.files.length > 0}
 				<TableRowAfter

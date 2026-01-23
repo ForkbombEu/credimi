@@ -33,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Tabs.Root value={form.state} class="w-full">
-	<Tabs.List class="flex">
+	<Tabs.List class="flex w-full">
 		<Tabs.Trigger
 			value={tabs[0].id}
 			class="grow data-[state=inactive]:text-black data-[state=inactive]:hover:bg-primary/10"

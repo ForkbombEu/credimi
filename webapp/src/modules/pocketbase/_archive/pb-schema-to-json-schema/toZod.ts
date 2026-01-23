@@ -16,7 +16,7 @@
 // 	Record.toEntries,
 // 	Array.map(([key, schema]) => `${key}: ${schema}`),
 // 	Array.join(',\n\t'),
-// 	(schema) => `import {z} from 'zod'; \n\n export default {${schema}} as const`,
+// 	(schema) => `import {z} from 'zod/v3'; \n\n export default {${schema}} as const`,
 // 	(schema) => prettier.format(schema, { parser: 'babel-ts' }),
 // 	(res) => Effect.promise(() => res),
 // 	Effect.tap((schemaString) =>

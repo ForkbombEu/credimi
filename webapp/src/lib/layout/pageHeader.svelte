@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { ArrowUpRight } from 'lucide-svelte';
+	import { ArrowUpRight } from '@lucide/svelte';
 
 	import type { SnippetFunction } from '@/components/types';
 

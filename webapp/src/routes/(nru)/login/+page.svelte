@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { zod } from 'sveltekit-superforms/adapters';
-	import z from 'zod';
+	import z from 'zod/v3';
 
 	import A from '@/components/ui-custom/a.svelte';
 	import { Form, createForm } from '@/forms';

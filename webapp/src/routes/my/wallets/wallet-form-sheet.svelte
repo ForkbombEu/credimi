@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { Pencil, Plus } from 'lucide-svelte';
+	import { Pencil, Plus } from '@lucide/svelte';
 
 	import type { WalletsResponse } from '@/pocketbase/types';
 
