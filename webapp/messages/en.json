@@ -908,5 +908,8 @@
 	"Recent_workflows": "Recent workflows",
 	"view_all": "View all",
 	"Manage_scheduling": "Manage scheduling",
-	"Schedule_pipeline": "Schedule pipeline execution"
+	"Schedule_pipeline": "Schedule pipeline execution",
+	"Total_runs": "Total runs",
+	"Success_rate": "success rate",
+	"Successful_runs": "Successful runs"
 }
