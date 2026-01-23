@@ -904,5 +904,7 @@
 	"Debug": "Debug",
 	"Scheduling_paused": "Scheduling paused",
 	"Scheduled_pipelines": "Scheduled pipelines",
-	"Back_to_pipelines": "Back to pipelines"
+	"Back_to_pipelines": "Back to pipelines",
+	"Recent_workflows": "Recent workflows",
+	"view_all": "View all"
 }

@@ -27,10 +27,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	setDashboardNavbar({ title: 'Pipelines', right: navbarRight });
 
-	const workflows = new PolledResource(getAllPipelinesWorkflows, {
+	//
+
+	const allWorkflows = new PolledResource(getAllPipelinesWorkflows, {
 		initialValue: () => data.workflows
 	});
-	$inspect(workflows.current);
 </script>
 
 <!-- Your Pipelines Section -->
@@ -48,7 +49,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#snippet records({ records })}
 			<div class="space-y-4">
 				{#each records as pipeline, index (pipeline.id)}
-					<PipelineCard bind:pipeline={records[index]} {organization} />
+					{@const workflows = allWorkflows.current?.[pipeline.id]}
+					<PipelineCard bind:pipeline={records[index]} {organization} {workflows} />
 				{/each}
 			</div>
 		{/snippet}

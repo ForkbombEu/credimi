@@ -5,9 +5,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Pencil, PlayIcon } from '@lucide/svelte';
+	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
+
 	import { resolve } from '$app/paths';
+	import StatusCircle from '$lib/components/status-circle.svelte';
+	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
+	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
+	import { ArrowRightIcon, Pencil, PlayIcon } from '@lucide/svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 	import type { OrganizationsResponse } from '@/pocketbase/types';
@@ -16,6 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge';
 	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
@@ -36,9 +42,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		pipeline: PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline']>;
 		organization: OrganizationsResponse;
+		workflows?: WorkflowExecutionSummary[];
 	};
 
-	let { pipeline = $bindable(), organization }: Props = $props();
+	let { pipeline = $bindable(), organization, workflows }: Props = $props();
 
 	//
 
@@ -50,6 +57,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	const scheduleState = $derived(getScheduleState(schedule));
+
+	const isRunning = $derived(
+		workflows?.some((workflow) => {
+			const status = toWorkflowStatusReadable(workflow.status);
+			return status === 'Running';
+		})
+	);
 </script>
 
 <DashboardCard
@@ -58,6 +72,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	path={[organization.canonified_name, pipeline.canonified_name]}
 	badge={m.Yours()}
 >
+	{#snippet nameRight()}
+		{#if isRunning}
+			<Badge
+				variant="secondary"
+				class="flex items-center gap-1.5 bg-green-100 text-green-800"
+			>
+				<StatusCircle size={12} />
+				{m.Running()}
+			</Badge>
+		{/if}
+	{/snippet}
+
 	{#snippet editAction()}
 		<Button onclick={() => runPipeline(pipeline)}>
 			<PlayIcon />{m.Run_now()}
@@ -82,7 +108,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 
-			<div class="-m-2">
+			<div>
 				{#if !schedule}
 					<SchedulePipelineForm {pipeline} />
 				{:else}
@@ -91,14 +117,27 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 		</div>
 
-		<Separator />
+		{#if workflows && workflows.length > 0}
+			<Separator />
 
-		<Button
-			variant="outline"
-			href={resolve('/my/pipelines/[pipeline_id]', { pipeline_id: pipeline.id })}
-		>
-			{m.view_details()}
-		</Button>
+			<div class="space-y-3">
+				<div class="flex items-center justify-between gap-1">
+					<T class="text-sm font-medium">{m.Recent_workflows()}</T>
+					<BlueButton
+						compact
+						href={resolve('/my/pipelines/[pipeline_id]', { pipeline_id: pipeline.id })}
+					>
+						{m.view_all()}
+						<ArrowRightIcon />
+					</BlueButton>
+				</div>
+				<ul class="list-inside list-disc rounded-md border">
+					{#each workflows as workflow (workflow.execution.runId)}
+						<li>{workflow.displayName}</li>
+					{/each}
+				</ul>
+			</div>
+		{/if}
 	{/snippet}
 </DashboardCard>
 

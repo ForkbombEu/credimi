@@ -10,7 +10,7 @@ import { pb } from '@/pocketbase';
 
 const baseUrl = '/api/pipeline/list-workflows';
 
-export type PipelinesWorkflows = Record<string, WorkflowExecutionSummary>;
+export type PipelinesWorkflows = Record<string, WorkflowExecutionSummary[]>;
 
 export async function getAllPipelinesWorkflows(options = { fetch }): Promise<PipelinesWorkflows> {
 	const response = await pb.send(baseUrl, {
