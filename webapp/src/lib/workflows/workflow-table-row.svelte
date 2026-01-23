@@ -20,7 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Table from '@/components/ui/table';
 	import { localizeHref } from '@/i18n';
 
-	import type { WorkflowExecutionWithChildren } from './queries.types';
+	import type { WorkflowExecutionSummary } from './queries.types';
 
 	import WorkflowActions from './workflow-actions.svelte';
 	import WorkflowTableRow from './workflow-table-row.svelte';
@@ -28,9 +28,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		workflow: WorkflowExecutionWithChildren;
+		workflow: WorkflowExecutionSummary;
 		depth?: number;
-		nameRight?: Snippet<[{ workflow: WorkflowExecutionWithChildren }]>;
+		nameRight?: Snippet<[{ workflow: WorkflowExecutionSummary }]>;
 	};
 
 	let { workflow, depth = 0, nameRight }: Props = $props();
