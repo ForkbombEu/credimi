@@ -62,7 +62,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <DashboardCard
 	record={pipeline}
 	avatar={() => pb.files.getURL(organization, organization.logo)}
-	path={[organization.canonified_name, pipeline.canonified_name]}
 	badge={m.Yours()}
 	showClone
 	content={hasWorkflows ? content : undefined}

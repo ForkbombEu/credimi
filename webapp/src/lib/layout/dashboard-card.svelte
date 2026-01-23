@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { ArrowDown, ArrowUp } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
-	import { getPath, path as makePath, mergePaths } from '$lib/utils';
+	import { getPath, mergePaths } from '$lib/utils';
 	import { String } from 'effect';
 	import { truncate } from 'lodash';
 	import removeMd from 'remove-markdown';
@@ -42,7 +42,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		actions?: Snippet;
 		editAction?: Snippet;
 		nameRight?: Snippet;
-		path: string[];
 		hideDelete?: boolean;
 		hidePublish?: boolean;
 		hideActions?: boolean;
@@ -59,7 +58,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		actions,
 		editAction,
 		nameRight,
-		path,
 		hideDelete = false,
 		hidePublish = false,
 		hideActions = false,
@@ -95,7 +93,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						label={record.name}
 						href={publicUrl}
 						published={record.published}
-						textToCopy={makePath(path)}
+						textToCopy={getPath(record)}
 					/>
 					{#if nameRight}
 						{@render nameRight()}

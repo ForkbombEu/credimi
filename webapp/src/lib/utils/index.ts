@@ -78,10 +78,6 @@ export async function generateDeeplinkFromYaml(yaml: string) {
 
 //
 
-export function path(chunks: string[]) {
-	return chunks.join('/');
-}
-
 export function getPath<T extends object>(record: T) {
 	if ('__canonified_path__' in record) {
 		return record.__canonified_path__ as string;

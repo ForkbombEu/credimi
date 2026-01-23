@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { entries, showActions = false, emptyMessage = m.no_data_available() }: Props = $props();
 
-	const columnCount = showActions ? 7 : 6;
+	const columnCount = $derived(showActions ? 7 : 6);
 </script>
 
 <div class="table-wrapper">
@@ -95,6 +95,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </div>
 
 <style lang="postcss">
+	@reference "tailwindcss";
+
 	.table-wrapper {
 		@apply overflow-x-auto rounded-lg border;
 	}
@@ -108,7 +110,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.table-header {
-		@apply px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-slate-500;
+		@apply px-6 py-3 text-left text-xs font-medium tracking-wider text-slate-500 uppercase;
 	}
 
 	.table-body {
@@ -120,7 +122,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.table-cell {
-		@apply whitespace-nowrap px-6 py-4;
+		@apply px-6 py-4 whitespace-nowrap;
 	}
 
 	.cell-name {
