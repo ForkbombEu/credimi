@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { runWithLoading } from '$lib/utils';
 	import { EllipsisIcon, PauseIcon, PlayIcon, XIcon } from '@lucide/svelte';
+	import BlueButton from '$lib/layout/blue-button.svelte';
+	import { runWithLoading } from '$lib/utils';
 
 	import type { IconComponent } from '@/components/types';
 
@@ -88,7 +89,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <DropdownMenu
-	buttonVariants={{ size: 'sm', variant: 'ghost', class: 'text-blue-600 hover:text-blue-600' }}
 	items={scheduleActions.map((action) => ({
 		label: action.label,
 		icon: action.icon,
@@ -101,8 +101,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			})
 	}))}
 >
-	{#snippet trigger()}
-		<EllipsisIcon />
-		{m.Manage()}
+	{#snippet trigger({ props })}
+		<BlueButton {...props} compact>
+			<EllipsisIcon />
+			{m.Manage()}
+		</BlueButton>
 	{/snippet}
 </DropdownMenu>

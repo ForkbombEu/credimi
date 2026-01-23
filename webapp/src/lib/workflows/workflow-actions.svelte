@@ -9,8 +9,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 	import type { ClassValue } from 'svelte/elements';
 
-	import { runWithLoading } from '$lib/layout/global-loading.svelte';
 	import { Code, XIcon } from '@lucide/svelte';
+	import { runWithLoading } from '$lib/layout/global-loading.svelte';
 
 	import type { IconComponent } from '@/components/types';
 	import type { buttonVariants } from '@/components/ui/button';
@@ -81,13 +81,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 {:else if mode === 'dropdown'}
 	<DropdownMenu
-		buttonVariants={dropdownTriggerVariants}
+		triggerVariants={dropdownTriggerVariants}
 		items={actions.map((action) => ({
 			label: action.label,
 			icon: action.icon,
 			onclick: () => action.onclick(workflow),
 			disabled: action.disabled ? action.disabled(workflow) : false
 		}))}
-		trigger={dropdownTrigger}
+		triggerContent={dropdownTrigger}
 	/>
 {/if}

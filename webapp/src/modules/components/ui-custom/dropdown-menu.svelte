@@ -28,25 +28,30 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		title?: string;
-		trigger?: Snippet;
-		buttonVariants?: Parameters<typeof buttonVariants>[0];
+		triggerContent?: Snippet;
+		trigger?: Snippet<[{ props: Record<string, unknown> }]>;
+		triggerVariants?: Parameters<typeof buttonVariants>[0];
 		containerClass?: ClassValue;
 		items: DropdownMenuItem[];
 	};
 
-	let {
-		title,
-		trigger,
-		buttonVariants: buttonVariantsProps,
-		containerClass,
-		items
-	}: Props = $props();
+	let { title, triggerContent, trigger, triggerVariants, containerClass, items }: Props =
+		$props();
 </script>
 
 <DropdownMenu.Root>
-	<DropdownMenu.Trigger class={buttonVariants({ variant: 'outline', ...buttonVariantsProps })}>
-		{@render trigger?.()}
+	<DropdownMenu.Trigger class={buttonVariants({ variant: 'outline', ...triggerVariants })}>
+		{#snippet child({ props })}
+			{#if trigger}
+				{@render trigger?.({ props })}
+			{:else}
+				<DropdownMenu.Trigger {...props}>
+					{@render triggerContent?.()}
+				</DropdownMenu.Trigger>
+			{/if}
+		{/snippet}
 	</DropdownMenu.Trigger>
+
 	<DropdownMenu.Content class={containerClass}>
 		<DropdownMenu.Group>
 			{#if title}
