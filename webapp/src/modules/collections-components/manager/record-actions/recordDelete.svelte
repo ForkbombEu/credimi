@@ -76,7 +76,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				icon: Trash
 			})}
 		{:else}
-			<IconButton icon={Trash} {...props} />
+			<IconButton icon={Trash} {...props} tooltip={m.Delete()} />
 		{/if}
 	{/snippet}
 

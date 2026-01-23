@@ -5,13 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { EllipsisIcon, PauseIcon, PlayIcon, XIcon } from '@lucide/svelte';
-	import BlueButton from '$lib/layout/blue-button.svelte';
+	import { CalendarIcon, PauseIcon, PlayIcon, XIcon } from '@lucide/svelte';
 	import { runWithLoading } from '$lib/utils';
 
 	import type { IconComponent } from '@/components/types';
 
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
@@ -102,9 +102,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}))}
 >
 	{#snippet trigger({ props })}
-		<BlueButton {...props} compact>
-			<EllipsisIcon />
-			{m.Manage()}
-		</BlueButton>
+		<IconButton {...props} icon={CalendarIcon} tooltip={m.Manage_scheduling()} />
 	{/snippet}
 </DropdownMenu>

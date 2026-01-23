@@ -12,6 +12,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Button from './button.svelte';
 	import Icon from './icon.svelte';
+	import Tooltip from './tooltip.svelte';
 
 	//
 
@@ -20,9 +21,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	interface Props extends Omit<ButtonProps, 'size'> {
 		icon?: IconComponent;
 		size?: ButtonSize;
+		tooltip?: string;
+		tooltipDelayDuration?: number;
 	}
 
-	let { icon = X, size = 'md', ...rest }: Props = $props();
+	let { icon = X, size = 'md', tooltip, tooltipDelayDuration, ...rest }: Props = $props();
 
 	//
 
@@ -57,11 +60,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const currentConfig = $derived(configs[size]);
 </script>
 
-<Button
-	variant="outline"
-	{...rest}
-	size="icon"
-	class={['shrink-0', { 'rounded-xs': size === 'mini' }, currentConfig.sizeClass, rest.class]}
->
-	<Icon src={icon ?? X} size={currentConfig.iconSize} />
-</Button>
+{#if tooltip}
+	<Tooltip delayDuration={tooltipDelayDuration}>
+		{@render button()}
+		{#snippet content()}
+			<p>{tooltip}</p>
+		{/snippet}
+	</Tooltip>
+{:else}
+	{@render button()}
+{/if}
+
+{#snippet button()}
+	<Button
+		variant="outline"
+		{...rest}
+		size="icon"
+		class={['shrink-0', { 'rounded-xs': size === 'mini' }, currentConfig.sizeClass, rest.class]}
+	>
+		<Icon src={icon ?? X} size={currentConfig.iconSize} />
+	</Button>
+{/snippet}

@@ -111,7 +111,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	<Table.Cell>
-		<WorkflowStatus {status} failureReason={workflow.failure_reason} />
+		<WorkflowStatus
+			{status}
+			failureReason={workflow.failure_reason}
+			size={isChild ? 'sm' : 'md'}
+		/>
 	</Table.Cell>
 
 	<Table.Cell>

@@ -6,7 +6,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { CalendarIcon } from '@lucide/svelte';
-	import BlueButton from '$lib/layout/blue-button.svelte';
 	import { getPath } from '$lib/utils';
 	import { toast } from 'svelte-sonner';
 	import { zod } from 'sveltekit-superforms/adapters';
@@ -15,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { PipelinesResponse } from '@/pocketbase/types';
 
 	import Dialog from '@/components/ui-custom/dialog.svelte';
+	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { Label } from '@/components/ui/label';
 	import { createForm } from '@/forms';
 	import { Field, SelectField, SelectFieldAny } from '@/forms/fields';
@@ -63,12 +63,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const formData = form.form;
 </script>
 
-<Dialog bind:open={isOpen} title={m.Schedule_workflow()}>
+<Dialog bind:open={isOpen} title={m.Schedule_pipeline()}>
 	{#snippet trigger({ props })}
-		<BlueButton {...props} compact>
-			<CalendarIcon />
-			{m.Schedule()}
-		</BlueButton>
+		<IconButton {...props} icon={CalendarIcon} tooltip={m.Schedule_pipeline()} />
 	{/snippet}
 
 	{#snippet content()}

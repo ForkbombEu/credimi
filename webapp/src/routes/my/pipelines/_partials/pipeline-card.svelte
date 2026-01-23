@@ -89,8 +89,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Button onclick={() => runPipeline(pipeline)}>
 			<PlayIcon />{m.Run_now()}
 		</Button>
+		{#if !schedule}
+			<SchedulePipelineForm {pipeline} />
+		{:else}
+			<ScheduleActions bind:schedule />
+		{/if}
 		<RecordClone collectionName="pipelines" recordId={pipeline.id} size="md" />
-		<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} />
+		<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} tooltip={m.Edit()} />
 	{/snippet}
 
 	{#snippet content()}
@@ -106,14 +111,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<span class="font-bold">{m.next_run()}:</span>
 						{schedule.__schedule_status__.next_action_time}
 					</T>
-				{/if}
-			</div>
-
-			<div>
-				{#if !schedule}
-					<SchedulePipelineForm {pipeline} />
-				{:else}
-					<ScheduleActions bind:schedule />
 				{/if}
 			</div>
 		</div>
