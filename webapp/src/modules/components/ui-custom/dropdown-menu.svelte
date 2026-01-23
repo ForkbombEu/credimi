@@ -37,20 +37,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { title, triggerContent, trigger, triggerVariants, containerClass, items }: Props =
 		$props();
+
+	const classes = $derived([
+		buttonVariants({ variant: 'outline', ...triggerVariants }),
+		containerClass
+	]);
 </script>
 
 <DropdownMenu.Root>
-	<DropdownMenu.Trigger class={buttonVariants({ variant: 'outline', ...triggerVariants })}>
-		{#snippet child({ props })}
-			{#if trigger}
+	{#if trigger}
+		<DropdownMenu.Trigger class={classes}>
+			{#snippet child({ props })}
 				{@render trigger?.({ props })}
-			{:else}
-				<DropdownMenu.Trigger {...props}>
-					{@render triggerContent?.()}
-				</DropdownMenu.Trigger>
-			{/if}
-		{/snippet}
-	</DropdownMenu.Trigger>
+			{/snippet}
+		</DropdownMenu.Trigger>
+	{:else}
+		<DropdownMenu.Trigger class={classes}>
+			{@render triggerContent?.()}
+		</DropdownMenu.Trigger>
+	{/if}
 
 	<DropdownMenu.Content class={containerClass}>
 		<DropdownMenu.Group>

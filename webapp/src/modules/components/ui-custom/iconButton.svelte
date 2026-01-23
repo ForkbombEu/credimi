@@ -15,7 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type ButtonSize = 'xs' | 'sm' | 'md' | 'lg';
+	type ButtonSize = 'xs' | 'sm' | 'md' | 'lg' | 'mini';
 
 	interface Props extends Omit<ButtonProps, 'size'> {
 		icon?: IconComponent;
@@ -47,6 +47,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		lg: {
 			iconSize: 18,
 			sizeClass: 'size-12'
+		},
+		mini: {
+			iconSize: 14,
+			sizeClass: 'size-5'
 		}
 	};
 
@@ -57,7 +61,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	variant="outline"
 	{...rest}
 	size="icon"
-	class={['shrink-0', currentConfig.sizeClass, rest.class]}
+	class={['shrink-0', { 'rounded-xs': size === 'mini' }, currentConfig.sizeClass, rest.class]}
 >
 	<Icon src={icon ?? X} size={currentConfig.iconSize} />
 </Button>

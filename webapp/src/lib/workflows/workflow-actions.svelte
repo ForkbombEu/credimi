@@ -26,12 +26,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflow: { workflowId: string; runId: string; status: WorkflowStatus; name: string };
 		mode: 'buttons' | 'dropdown';
 		containerClass?: ClassValue;
-		dropdownTrigger?: Snippet;
+		dropdownTrigger?: Snippet<[{ props: Record<string, unknown> }]>;
+		dropdownTriggerContent?: Snippet;
 		dropdownTriggerVariants?: Parameters<typeof buttonVariants>[0];
 	};
 
-	let { workflow, containerClass, mode, dropdownTrigger, dropdownTriggerVariants }: Props =
-		$props();
+	let {
+		workflow,
+		containerClass,
+		mode,
+		dropdownTrigger,
+		dropdownTriggerContent,
+		dropdownTriggerVariants
+	}: Props = $props();
 
 	//
 
@@ -88,6 +95,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			onclick: () => action.onclick(workflow),
 			disabled: action.disabled ? action.disabled(workflow) : false
 		}))}
-		triggerContent={dropdownTrigger}
+		triggerContent={dropdownTriggerContent}
+		trigger={dropdownTrigger}
 	/>
 {/if}

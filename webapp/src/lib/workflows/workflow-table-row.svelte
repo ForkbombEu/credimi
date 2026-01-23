@@ -7,8 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
-	import CircleQuestion from '@forkbombeu/temporal-ui/dist/holocene/icon/svg/circle-question.svelte';
+	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { EllipsisVerticalIcon, ImageIcon, TriangleIcon, VideoIcon } from '@lucide/svelte';
 	import clsx from 'clsx';
 
@@ -16,13 +15,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
-	import Popover from '@/components/ui-custom/popover.svelte';
 	import * as Table from '@/components/ui/table';
 	import { localizeHref } from '@/i18n';
 
 	import type { WorkflowExecutionSummary } from './queries.types';
 
 	import WorkflowActions from './workflow-actions.svelte';
+	import WorkflowStatus from './workflow-status.svelte';
 	import WorkflowTableRow from './workflow-table-row.svelte';
 
 	//
@@ -112,25 +111,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	<Table.Cell>
-		{#if status !== null}
-			<div class={['flex origin-left gap-1', isChild && 'scale-75']}>
-				<WorkflowStatus {status} />
-				{#if workflow.failure_reason}
-					<Popover
-						buttonVariants={{ variant: 'outline' }}
-						containerClass="dark !w-[400px] p-3 text-xs"
-						triggerClass="!h-6 !w-6 !p-0 text-xs underline"
-					>
-						{#snippet trigger()}
-							<CircleQuestion class="size-3" />
-						{/snippet}
-						{#snippet content()}
-							{workflow.failure_reason}
-						{/snippet}
-					</Popover>
-				{/if}
-			</div>
-		{/if}
+		<WorkflowStatus {status} failureReason={workflow.failure_reason} />
 	</Table.Cell>
 
 	<Table.Cell>
@@ -183,7 +164,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}}
 			dropdownTriggerVariants={{ size: 'icon', variant: 'ghost' }}
 		>
-			{#snippet dropdownTrigger()}
+			{#snippet dropdownTriggerContent()}
 				<EllipsisVerticalIcon />
 			{/snippet}
 		</WorkflowActions>

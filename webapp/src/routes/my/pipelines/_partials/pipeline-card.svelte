@@ -7,12 +7,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
 
+	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
+	import { ArrowRightIcon, Pencil, PlayIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import StatusCircle from '$lib/components/status-circle.svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
-	import { ArrowRightIcon, Pencil, PlayIcon } from '@lucide/svelte';
+	import WorkflowsTableSmall from '$lib/workflows/workflows-table-small.svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 	import type { OrganizationsResponse } from '@/pocketbase/types';
@@ -131,20 +132,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<ArrowRightIcon />
 					</BlueButton>
 				</div>
-				<ul class="list-inside list-disc rounded-md border">
-					{#each workflows as workflow (workflow.execution.runId)}
-						<li>{workflow.displayName}</li>
-					{/each}
-				</ul>
+
+				<WorkflowsTableSmall {workflows} />
 			</div>
 		{/if}
 	{/snippet}
 </DashboardCard>
-
-<!-- <Button
-		href="/my/pipelines/settings-{pipeline.id}"
-		variant="outline"
-		size="icon"
-	>
-		<CogIcon />
-	</Button> -->
