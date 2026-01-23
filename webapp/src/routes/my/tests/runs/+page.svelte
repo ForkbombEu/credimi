@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { SearchIcon, SparkleIcon, TestTubeIcon } from '@lucide/svelte';
 	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
-	import { fetchWorkflows, WorkflowsTable } from '$lib/workflows';
+	import { fetchWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import { Array } from 'effect';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -66,27 +66,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const selectedWorkflows = $derived(
 		selectedTab === 'pipeline' ? pipelineWorkflows : otherWorkflows
 	);
-
-	// let latestCheckRuns: StartCheckResultWithMeta[] = $state([]);
-	// if (browser) latestCheckRuns = ensureArray(LatestCheckRunsStorage.get());
-
-	// const latestRunIds = $derived(latestCheckRuns.map((run) => run.workflowRunId));
-	// const latestWorkflows = $derived(
-	// 	workflows.filter((w) => latestRunIds.includes(w.execution.runId))
-	// );
-	// const oldWorkflows = $derived(Array.difference(workflows, latestWorkflows));
-
-	// onMount(() => {
-	// 	const interval = setInterval(async () => {
-	// 		const newWorkflows = await fetchWorkflows({ status: selectedStatus });
-	// 		if (newWorkflows instanceof Error) warn(newWorkflows);
-	// 		else workflows = newWorkflows;
-	// 	}, 5000);
-
-	// 	return () => {
-	// 		clearInterval(interval);
-	// 	};
-	// });
 </script>
 
 <div class="grow space-y-8">
@@ -142,8 +121,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Separator />
 	{/if} -->
 
-	{#if selectedWorkflows.length > 0}
-		<WorkflowsTable workflows={selectedWorkflows} hideResults={selectedTab === 'other'} />
+	{#if selectedTab === 'pipeline'}
+		<WorkflowsTable workflows={pipelineWorkflows} />
+	{:else}
+		<WorkflowsTable workflows={otherWorkflows} hideResults>
+			{#snippet header({ Th })}
+				<Th>
+					{m.QR_code()}
+				</Th>
+			{/snippet}
+			{#snippet row({ workflow, Td, status })}
+				<Td>
+					{#if status === 'Running'}
+						<WorkflowQrPoller
+							workflowId={workflow.execution.workflowId}
+							runId={workflow.execution.runId}
+							containerClass="size-40"
+						/>
+					{:else}
+						<span class="text-muted-foreground opacity-50">N/A</span>
+					{/if}
+				</Td>
+			{/snippet}
+		</WorkflowsTable>
 	{/if}
 
 	{#if selectedWorkflows.length === 0}

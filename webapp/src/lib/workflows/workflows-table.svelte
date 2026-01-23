@@ -14,15 +14,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { WorkflowExecutionSummary } from './queries.types';
 
-	import WorkflowTableRow from './workflow-table-row.svelte';
+	import WorkflowTableRow, { type RowSnippet } from './workflow-table-row.svelte';
 
 	//
 
 	type Props = {
 		workflows: WorkflowExecutionSummary[];
 		hideResults?: boolean;
-		row?: Snippet<[{ workflow: WorkflowExecutionSummary }]>;
 		header?: Snippet<[{ Th: typeof Table.Head }]>;
+		row?: RowSnippet;
 	};
 
 	let { workflows, row, header, hideResults = false }: Props = $props();

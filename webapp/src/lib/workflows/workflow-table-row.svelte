@@ -4,11 +4,25 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+<script module lang="ts">
+	export type RowSnippet = Snippet<
+		[
+			{
+				workflow: WorkflowExecutionSummary;
+				status: WorkflowStatusType;
+				Td: typeof Table.Cell;
+			}
+		]
+	>;
+</script>
+
 <script lang="ts">
+	import type { WorkflowStatusType } from '$lib/temporal';
 	import type { Snippet } from 'svelte';
 
 	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { EllipsisVerticalIcon, ImageIcon, TriangleIcon, VideoIcon } from '@lucide/svelte';
+	import { resolve } from '$app/paths';
 	import clsx from 'clsx';
 
 	import type { IconComponent } from '@/components/types';
@@ -29,13 +43,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		workflow: WorkflowExecutionSummary;
 		depth?: number;
-		row?: Snippet<[{ workflow: WorkflowExecutionSummary; Td: typeof Table.Cell }]>;
 		hideResults?: boolean;
+		row?: RowSnippet;
 	};
 
 	let { workflow, depth = 0, row, hideResults = false }: Props = $props();
 
-	const status = $derived(toWorkflowStatusReadable(workflow.status));
+	const status = $derived(toWorkflowStatusReadable(workflow.status) as WorkflowStatusType);
 
 	const isRoot = $derived(depth === 0);
 	const isChild = $derived(!isRoot);
@@ -142,7 +156,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Cell>
 	{/if}
 
-	{@render row?.({ workflow, Td: Table.Cell })}
+	{@render row?.({ workflow, Td: Table.Cell, status })}
 
 	<Table.Cell
 		class={['text-right', isChild && 'text-[10px] leading-[13px] text-muted-foreground']}
@@ -189,7 +203,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#snippet mediaPreview(props: { image: string; href: string; icon: IconComponent })}
 	{@const { image, href, icon } = props}
 	<a
-		{href}
+		href={resolve(href as '/')}
 		target="_blank"
 		class="relative size-10 shrink-0 overflow-hidden rounded-md border border-slate-300 hover:cursor-pointer hover:ring-2"
 	>
