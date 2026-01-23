@@ -141,6 +141,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </div>
 
 <style lang="postcss">
+	@reference "tailwindcss";
+
 	.page-container {
 		@apply container mx-auto p-6;
 	}
@@ -234,7 +236,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.table-header {
-		@apply px-6 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500;
+		@apply px-6 py-3 text-left text-xs font-medium tracking-wider text-gray-500 uppercase;
 	}
 
 	.table-body {
@@ -246,7 +248,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.table-cell {
-		@apply whitespace-nowrap px-6 py-4 text-sm text-gray-900;
+		@apply px-6 py-4 text-sm whitespace-nowrap text-gray-900;
 	}
 
 	.cell-mono {
@@ -258,7 +260,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	.status-badge {
-		@apply inline-flex rounded-full px-2 text-xs font-semibold leading-5;
+		@apply inline-flex rounded-full px-2 text-xs leading-5 font-semibold;
 	}
 
 	.status-ok {
