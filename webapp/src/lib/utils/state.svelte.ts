@@ -6,18 +6,21 @@ import { onMount } from 'svelte';
 
 //
 
-type PolledResourceOptions<T> = {
+type InitialValueType<T> = (() => T) | undefined;
+
+type PolledResourceOptions<T, InitialValue extends InitialValueType<T>> = {
 	intervalMs: number;
-	initialValue: (() => T) | undefined;
+	initialValue: InitialValue;
 };
 
-export class PolledResource<T> {
+export class PolledResource<T, InitialValue extends InitialValueType<T>> {
 	constructor(
 		private readonly fn: () => Promise<T>,
-		options: Partial<PolledResourceOptions<T>> = {}
+		options: Partial<PolledResourceOptions<T, InitialValue>> = {}
 	) {
 		const { intervalMs = 1000, initialValue = undefined } = options;
 
+		this.#current = initialValue?.();
 		$effect(() => {
 			this.#current = initialValue?.();
 		});
@@ -48,8 +51,8 @@ export class PolledResource<T> {
 		}
 	}
 
-	get current() {
-		return this.#current;
+	get current(): InitialValue extends () => T ? T : T | undefined {
+		return this.#current as T;
 	}
 
 	get error() {

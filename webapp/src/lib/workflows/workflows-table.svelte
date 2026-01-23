@@ -20,10 +20,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		workflows: WorkflowExecutionSummary[];
-		nameRight?: Snippet<[{ workflow: WorkflowExecutionSummary }]>;
+		hideResults?: boolean;
+		row?: Snippet<[{ workflow: WorkflowExecutionSummary }]>;
+		header?: Snippet<[{ Th: typeof Table.Head }]>;
 	};
 
-	let { workflows, nameRight }: Props = $props();
+	let { workflows, row, header, hideResults = false }: Props = $props();
 </script>
 
 <TemporalI18nProvider>
@@ -33,7 +35,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Table.Head>{m.Type()}</Table.Head>
 				<Table.Head>{m.Workflow()}</Table.Head>
 				<Table.Head>{m.Status()}</Table.Head>
-				<Table.Head>{m.Results()}</Table.Head>
+				{#if !hideResults}
+					<Table.Head>{m.Results()}</Table.Head>
+				{/if}
+				{@render header?.({ Th: Table.Head })}
 				<Table.Head class="text-right">{m.Start_time()}</Table.Head>
 				<Table.Head class="text-right">{m.End_time()}</Table.Head>
 				<Table.Head class="text-right">{m.Actions()}</Table.Head>
@@ -41,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Header>
 		<Table.Body>
 			{#each workflows as workflow (workflow.execution.runId)}
-				<WorkflowTableRow {workflow} {nameRight} />
+				<WorkflowTableRow {workflow} {row} {hideResults} />
 			{:else}
 				<Table.Row class="hover:bg-transparent">
 					<Table.Cell colspan={6} class="text-center text-gray-300 py-20">

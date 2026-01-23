@@ -29,10 +29,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		workflow: WorkflowExecutionSummary;
 		depth?: number;
-		nameRight?: Snippet<[{ workflow: WorkflowExecutionSummary }]>;
+		row?: Snippet<[{ workflow: WorkflowExecutionSummary; Td: typeof Table.Cell }]>;
+		hideResults?: boolean;
 	};
 
-	let { workflow, depth = 0, nameRight }: Props = $props();
+	let { workflow, depth = 0, row, hideResults = false }: Props = $props();
 
 	const status = $derived(toWorkflowStatusReadable(workflow.status));
 
@@ -90,8 +91,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</Button>
 					{/if}
 				</div>
-
-				{@render nameRight?.({ workflow })}
 			</div>
 		</Table.Cell>
 	{:else}
@@ -118,28 +117,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	</Table.Cell>
 
-	<Table.Cell>
-		{#if workflow.results && workflow.results.length > 0}
-			<div class="flex items-center gap-2">
-				{#each workflow.results as result (result.video)}
-					<div class="flex items-center gap-1">
-						{@render mediaPreview({
-							image: result.screenshot,
-							href: result.video,
-							icon: VideoIcon
-						})}
-						{@render mediaPreview({
-							image: result.screenshot,
-							href: result.screenshot,
-							icon: ImageIcon
-						})}
-					</div>
-				{/each}
-			</div>
-		{:else}
-			<span class="text-muted-foreground opacity-50">N/A</span>
-		{/if}
-	</Table.Cell>
+	{#if !hideResults}
+		<Table.Cell>
+			{#if workflow.results && workflow.results.length > 0}
+				<div class="flex items-center gap-2">
+					{#each workflow.results as result (result.video)}
+						<div class="flex items-center gap-1">
+							{@render mediaPreview({
+								image: result.screenshot,
+								href: result.video,
+								icon: VideoIcon
+							})}
+							{@render mediaPreview({
+								image: result.screenshot,
+								href: result.screenshot,
+								icon: ImageIcon
+							})}
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<span class="text-muted-foreground opacity-50">N/A</span>
+			{/if}
+		</Table.Cell>
+	{/if}
+
+	{@render row?.({ workflow, Td: Table.Cell })}
 
 	<Table.Cell
 		class={['text-right', isChild && 'text-[10px] leading-[13px] text-muted-foreground']}
@@ -179,7 +182,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if workflow.children && isExpanded}
 	{#each workflow.children as children (children.execution.runId)}
-		<WorkflowTableRow workflow={children} depth={depth + 1} />
+		<WorkflowTableRow workflow={children} depth={depth + 1} {row} />
 	{/each}
 {/if}
 

@@ -911,5 +911,6 @@
 	"Schedule_pipeline": "Schedule pipeline execution",
 	"Total_runs": "Total runs",
 	"Success_rate": "success rate",
-	"Successful_runs": "Successful runs"
+	"Successful_runs": "Successful runs",
+	"Conformance_and_custom_checks": "Conformance and custom checks"
 }
