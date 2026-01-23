@@ -41,7 +41,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<DashboardCard
 					{record}
 					avatar={(w) => (w.logo ? pb.files.getURL(w, w.logo) : w.logo_url)}
-					path={[organization.canonified_name, record.canonified_name]}
 					hideActions
 				>
 					{#snippet content()}

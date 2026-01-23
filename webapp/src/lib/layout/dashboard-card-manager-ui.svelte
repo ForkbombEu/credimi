@@ -24,7 +24,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		records: R[];
 		actions?: Snippet<[{ record: R }]>;
 		hideClone?: boolean;
-		path: (record: R) => string[];
 	};
 
 	let {
@@ -33,8 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		publicUrl,
 		records,
 		actions: actionsSnippet,
-		hideClone,
-		path
+		hideClone
 	}: Props = $props();
 </script>
 
@@ -46,7 +44,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{fallbackNameField}
 			publicUrl={publicUrl?.(record)}
 			{hideClone}
-			path={path(record)}
 		>
 			{#snippet actions()}
 				{@render actionsSnippet?.({ record })}

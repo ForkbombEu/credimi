@@ -86,7 +86,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							ownerOrg
 								? pb.files.getURL(ownerOrg, ownerOrg.logo)
 								: pb.files.getURL(organization, organization.logo)}
-						path={[organization.canonified_name, pipeline.canonified_name]}
 						hideDelete={true}
 						hidePublish={true}
 					>
