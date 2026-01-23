@@ -7,12 +7,10 @@ import { sveltekit } from '@sveltejs/kit/vite';
 import tailwindcss from '@tailwindcss/vite';
 import { playwright } from '@vitest/browser-playwright';
 import devtoolsJson from 'vite-plugin-devtools-json';
-import wasm from 'vite-plugin-wasm';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
 	plugins: [
-		wasm(),
 		tailwindcss(),
 		sveltekit(),
 		devtoolsJson(),
@@ -29,12 +27,6 @@ export default defineConfig({
 	preview: {
 		allowedHosts: true
 	},
-
-	// esbuild: {
-	// 	supported: {
-	// 		'top-level-await': true
-	// 	}
-	// },
 
 	optimizeDeps: {
 		include: ['date-fns', 'date-fns-tz'],
