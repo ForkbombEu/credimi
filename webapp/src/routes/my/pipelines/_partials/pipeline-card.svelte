@@ -18,24 +18,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 	import type { OrganizationsResponse } from '@/pocketbase/types';
 
-	import { RecordClone } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
-	import { Separator } from '@/components/ui/separator';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
 	import ScheduleActions from './schedule-actions.svelte';
 	import SchedulePipelineForm from './schedule-pipeline-form.svelte';
-	import ScheduleState from './schedule-state-display.svelte';
-	import {
-		getScheduleState,
-		scheduleModeLabel,
-		type EnrichedSchedule,
-		type ScheduleMode
-	} from './types';
+	import { type EnrichedSchedule } from './types';
 	import { runPipeline } from './utils';
 
 	//
@@ -57,14 +49,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return s as EnrichedSchedule | undefined;
 	});
 
-	const scheduleState = $derived(getScheduleState(schedule));
-
 	const isRunning = $derived(
 		workflows?.some((workflow) => {
 			const status = toWorkflowStatusReadable(workflow.status);
 			return status === 'Running';
 		})
 	);
+
+	const hasWorkflows = $derived(workflows && workflows.length > 0);
 </script>
 
 <DashboardCard
@@ -72,6 +64,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	avatar={() => pb.files.getURL(organization, organization.logo)}
 	path={[organization.canonified_name, pipeline.canonified_name]}
 	badge={m.Yours()}
+	showClone
+	content={hasWorkflows ? content : undefined}
 >
 	{#snippet nameRight()}
 		{#if isRunning}
@@ -86,52 +80,41 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet editAction()}
+		<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} tooltip={m.Edit()} />
+	{/snippet}
+
+	{#snippet actions()}
 		<Button onclick={() => runPipeline(pipeline)}>
 			<PlayIcon />{m.Run_now()}
 		</Button>
 		{#if !schedule}
 			<SchedulePipelineForm {pipeline} />
 		{:else}
-			<ScheduleActions bind:schedule />
-		{/if}
-		<RecordClone collectionName="pipelines" recordId={pipeline.id} size="md" />
-		<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} tooltip={m.Edit()} />
-	{/snippet}
-
-	{#snippet content()}
-		<div class="flex justify-between">
-			<div class="flex flex-wrap items-center gap-1.5 text-sm">
-				<ScheduleState state={scheduleState} />
-				{#if schedule && scheduleState === 'active'}
-					<T>
-						{scheduleModeLabel(schedule.mode as ScheduleMode)}
-					</T>
-					<T class="text-slate-300">|</T>
-					<T>
-						<span class="font-bold">{m.next_run()}:</span>
-						{schedule.__schedule_status__.next_action_time}
-					</T>
-				{/if}
-			</div>
-		</div>
-
-		{#if workflows && workflows.length > 0}
-			<Separator />
-
-			<div class="space-y-3">
-				<div class="flex items-center justify-between gap-1">
-					<T class="text-sm font-medium">{m.Recent_workflows()}</T>
-					<BlueButton
-						compact
-						href={resolve('/my/pipelines/[pipeline_id]', { pipeline_id: pipeline.id })}
-					>
-						{m.view_all()}
-						<ArrowRightIcon />
-					</BlueButton>
-				</div>
-
-				<WorkflowsTableSmall {workflows} />
-			</div>
+			<ScheduleActions
+				bind:schedule
+				onCancel={() => {
+					schedule = undefined;
+				}}
+			/>
 		{/if}
 	{/snippet}
 </DashboardCard>
+
+{#snippet content()}
+	{#if workflows && workflows.length > 0}
+		<div class="space-y-3">
+			<div class="flex items-center justify-between gap-1">
+				<T class="text-sm font-medium">{m.Recent_workflows()}</T>
+				<BlueButton
+					compact
+					href={resolve('/my/pipelines/[pipeline_id]', { pipeline_id: pipeline.id })}
+				>
+					{m.view_all()}
+					<ArrowRightIcon />
+				</BlueButton>
+			</div>
+
+			<WorkflowsTableSmall {workflows} />
+		</div>
+	{/if}
+{/snippet}

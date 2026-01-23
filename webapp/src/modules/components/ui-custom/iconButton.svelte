@@ -25,7 +25,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		tooltipDelayDuration?: number;
 	}
 
-	let { icon = X, size = 'md', tooltip, tooltipDelayDuration, ...rest }: Props = $props();
+	let {
+		icon = X,
+		size = 'md',
+		tooltip,
+		children,
+		tooltipDelayDuration,
+		...rest
+	}: Props = $props();
 
 	//
 
@@ -76,8 +83,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		variant="outline"
 		{...rest}
 		size="icon"
-		class={['shrink-0', { 'rounded-xs': size === 'mini' }, currentConfig.sizeClass, rest.class]}
+		class={[
+			'relative shrink-0',
+			{ 'rounded-xs': size === 'mini' },
+			currentConfig.sizeClass,
+			rest.class
+		]}
 	>
 		<Icon src={icon ?? X} size={currentConfig.iconSize} />
+		{@render children?.()}
 	</Button>
 {/snippet}

@@ -68,7 +68,7 @@ export function scheduleModeLabel(mode: ScheduleMode) {
 	} else if (mode.mode === 'weekly') {
 		return m.weekly() + ' (' + getDayLabel(mode.day) + ')';
 	} else {
-		return m.monthly() + ' (' + mode.day + ')';
+		return m.monthly() + ' (' + m.Day() + ' ' + (mode.day + 1) + ')';
 	}
 }
 

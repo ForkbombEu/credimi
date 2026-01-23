@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { ArrowLeft } from '@lucide/svelte';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
+	import WorkflowsTable from '$lib/workflows/workflows-table.svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import { m } from '@/i18n';
@@ -35,4 +36,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Button>
 {/snippet}
 
-<pre>{JSON.stringify(workflows.current, null, 2)}</pre>
+<WorkflowsTable workflows={workflows.current ?? []} />

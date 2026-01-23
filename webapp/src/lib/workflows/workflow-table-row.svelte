@@ -50,8 +50,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class={[
 		'hover:bg-transparent',
 		{
-			'!bg-slate-100 text-xs ': isChild,
-			'[&>td]:!py-0': isChild,
+			'bg-slate-100! text-xs ': isChild,
+			'[&>td]:py-0!': isChild,
 			'border-b':
 				(!isExpanded && isRoot) || !workflow.children || workflow.children.length === 0
 		}
@@ -136,6 +136,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</div>
 				{/each}
 			</div>
+		{:else}
+			<span class="text-muted-foreground opacity-50">N/A</span>
 		{/if}
 	</Table.Cell>
 

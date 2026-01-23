@@ -111,10 +111,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 		{#if !hideActions}
 			<div class="flex items-center gap-2">
-				{@render actions?.()}
 				{#if !hidePublish}
 					<PublishedSwitch record={record as DashboardRecord} field="published" />
 				{/if}
+				{@render actions?.()}
 				{#if showClone}
 					<RecordClone
 						collectionName={record.collectionName}

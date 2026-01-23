@@ -33,10 +33,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		triggerVariants?: Parameters<typeof buttonVariants>[0];
 		containerClass?: ClassValue;
 		items: DropdownMenuItem[];
+		subtitle?: Snippet;
 	};
 
-	let { title, triggerContent, trigger, triggerVariants, containerClass, items }: Props =
-		$props();
+	let {
+		title,
+		triggerContent,
+		trigger,
+		triggerVariants,
+		containerClass,
+		items,
+		subtitle
+	}: Props = $props();
 
 	const classes = $derived([
 		buttonVariants({ variant: 'outline', ...triggerVariants }),
@@ -61,6 +69,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<DropdownMenu.Group>
 			{#if title}
 				<DropdownMenu.Label>{title}</DropdownMenu.Label>
+				{#if subtitle}
+					{@render subtitle()}
+				{/if}
 				<DropdownMenu.Separator />
 			{/if}
 

@@ -12,10 +12,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
-	import type { EnrichedSchedule } from './types';
+	import {
+		getScheduleState,
+		scheduleModeLabel,
+		type EnrichedSchedule,
+		type ScheduleMode
+	} from './types';
 
 	//
 
@@ -27,6 +33,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { schedule = $bindable(), onCancel }: Props = $props();
 
 	//
+
+	const scheduleState = $derived(getScheduleState(schedule));
 
 	type ScheduleAction = {
 		type: 'cancel' | 'pause' | 'resume';
@@ -89,6 +97,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <DropdownMenu
+	title={m.Manage_scheduling()}
 	items={scheduleActions.map((action) => ({
 		label: action.label,
 		icon: action.icon,
@@ -102,6 +111,53 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}))}
 >
 	{#snippet trigger({ props })}
-		<IconButton {...props} icon={CalendarIcon} tooltip={m.Manage_scheduling()} />
+		<IconButton
+			{...props}
+			class={[props.class, 'overflow-hidden']}
+			icon={CalendarIcon}
+			tooltip={m.Manage_scheduling()}
+		>
+			{#if scheduleState !== 'not-scheduled'}
+				<div
+					class={[
+						'absolute right-0 bottom-0 left-0 h-[3px] ',
+						{
+							'bg-green-500': scheduleState === 'active',
+							'bg-yellow-500': scheduleState === 'paused'
+						}
+					]}
+				></div>
+			{/if}
+		</IconButton>
+	{/snippet}
+
+	{#snippet subtitle()}
+		<div class="space-y-1 px-2 pb-1 text-xs text-slate-600">
+			<T>
+				<span class="font-medium">{m.interval()}</span><br />
+				{scheduleModeLabel(schedule.mode as ScheduleMode)}
+			</T>
+
+			{#if scheduleState === 'active'}
+				<T>
+					<span class="font-medium">{m.next_run()}:</span><br />
+					{schedule.__schedule_status__.next_action_time}
+				</T>
+			{/if}
+		</div>
 	{/snippet}
 </DropdownMenu>
+<!-- 
+<div class="flex justify-between">
+	<div class="flex flex-wrap items-center gap-1.5 text-sm">
+		<ScheduleState state={scheduleState} />
+		{#if schedule && scheduleState === 'active'}
+		
+			<T class="text-slate-300">|</T>
+			<T>
+				<span class="font-bold">{m.next_run()}:</span>
+				{schedule.__schedule_status__.next_action_time}
+			</T>
+		{/if}
+	</div>
+</div> -->
