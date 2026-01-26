@@ -678,103 +678,76 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 }
 
 func selectTopExecutionsByPipeline(executions []struct {
-	pipelineID string
-	execution  *WorkflowExecutionSummary
+    pipelineID string
+    execution  *WorkflowExecutionSummary
 }, limit int) map[string][]*WorkflowExecutionSummary {
+    
+    pipelineExecutions := make(map[string][]struct {
+        pipelineID string
+        execution  *WorkflowExecutionSummary
+    })
+    
+    for _, exec := range executions {
+        pipelineExecutions[exec.pipelineID] = append(pipelineExecutions[exec.pipelineID], exec)
+    }
+    
+    result := make(map[string][]*WorkflowExecutionSummary)
+    
+    for pipelineID, execs := range pipelineExecutions {
+        var runningExecs, otherExecs []*WorkflowExecutionSummary
+        
+        for _, exec := range execs {
+            if exec.execution.Status == "running" {
+                runningExecs = append(runningExecs, exec.execution)
+            } else {
+                otherExecs = append(otherExecs, exec.execution)
+            }
+        }
+        
+        selected := runningExecs
+        
+        remainingSlots := limit - len(runningExecs)
+        if remainingSlots > 0 && len(otherExecs) > 0 {
+            sort.Slice(otherExecs, func(i, j int) bool {
+                return compareTimes(otherExecs[i].StartTime, otherExecs[j].StartTime)
+            })
+            
+            if remainingSlots > len(otherExecs) {
+                remainingSlots = len(otherExecs)
+            }
+            
+            selected = append(selected, otherExecs[:remainingSlots]...)
+        }
+        
+        sort.Slice(selected, func(i, j int) bool {
+            return compareTimes(selected[i].StartTime, selected[j].StartTime)
+        })
+        
+        if len(selected) > 0 {
+            result[pipelineID] = selected
+        }
+    }
+    
+    return result
+}
 
-	result := make(map[string][]*WorkflowExecutionSummary)
-
-	if len(executions) == 0 {
-		return result
-	}
-
-	var runningExecutions []struct {
-		pipelineID string
-		execution  *WorkflowExecutionSummary
-	}
-	var otherExecutions []struct {
-		pipelineID string
-		execution  *WorkflowExecutionSummary
-	}
-
-	for _, exec := range executions {
-		if exec.execution.Status == "running" {
-			runningExecutions = append(runningExecutions, exec)
-		} else {
-			otherExecutions = append(otherExecutions, exec)
-		}
-	}
-
-	var finalSelections []struct {
-		pipelineID string
-		execution  *WorkflowExecutionSummary
-	}
-	finalSelections = runningExecutions
-
-	remainingSlots := limit - len(runningExecutions)
-
-	if remainingSlots > 0 && len(otherExecutions) > 0 {
-		sort.Slice(otherExecutions, func(i, j int) bool {
-			iTimeStr := otherExecutions[i].execution.StartTime
-			jTimeStr := otherExecutions[j].execution.StartTime
-
-			if iTimeStr == "" && jTimeStr == "" {
-				return false
-			}
-			if iTimeStr == "" {
-				return false
-			}
-			if jTimeStr == "" {
-				return true
-			}
-
-			iTime, err1 := time.Parse(time.RFC3339, iTimeStr)
-			jTime, err2 := time.Parse(time.RFC3339, jTimeStr)
-
-			if err1 == nil && err2 == nil {
-				return iTime.After(jTime)
-			}
-
-			return iTimeStr > jTimeStr
-		})
-
-		if remainingSlots > len(otherExecutions) {
-			remainingSlots = len(otherExecutions)
-		}
-		finalSelections = append(finalSelections, otherExecutions[:remainingSlots]...)
-	}
-
-	for _, selection := range finalSelections {
-		result[selection.pipelineID] = append(result[selection.pipelineID], selection.execution)
-	}
-
-	for pipelineID, execs := range result {
-		sort.Slice(execs, func(i, j int) bool {
-			iTimeStr := execs[i].StartTime
-			jTimeStr := execs[j].StartTime
-
-			if iTimeStr == "" && jTimeStr == "" {
-				return false
-			}
-			if iTimeStr == "" {
-				return false
-			}
-			if jTimeStr == "" {
-				return true
-			}
-
-			iTime, err1 := time.Parse(time.RFC3339, iTimeStr)
-			jTime, err2 := time.Parse(time.RFC3339, jTimeStr)
-
-			if err1 == nil && err2 == nil {
-				return iTime.After(jTime)
-			}
-
-			return iTimeStr > jTimeStr
-		})
-		
-		result[pipelineID] = execs
-	}
-
-	return result
+func compareTimes(timeStr1, timeStr2 string) bool {
+    if timeStr1 == "" && timeStr2 == "" {
+        return false
+    }
+    if timeStr1 == "" {
+        return false
+    }
+    if timeStr2 == "" {
+        return true
+    }
+    
+    t1, err1 := time.Parse(time.RFC3339, timeStr1)
+    t2, err2 := time.Parse(time.RFC3339, timeStr2)
+    
+    if err1 == nil && err2 == nil {
+        return t1.After(t2)  
+    }
+    
+    return timeStr1 > timeStr2
 }
