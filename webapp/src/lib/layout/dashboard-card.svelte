@@ -18,7 +18,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { truncate } from 'lodash';
 	import removeMd from 'remove-markdown';
 
-	import { RecordClone, RecordDelete, RecordEdit } from '@/collections-components/manager';
+	import {
+		RecordClone,
+		RecordDelete,
+		RecordEdit,
+		type RecordAction
+	} from '@/collections-components/manager';
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
@@ -42,11 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		actions?: Snippet;
 		editAction?: Snippet;
 		nameRight?: Snippet;
-		hideDelete?: boolean;
-		hidePublish?: boolean;
-		hideActions?: boolean;
-		showClone?: boolean;
-		hideEdit?: boolean;
+		hideActions?: (RecordAction | 'publish')[] | true;
 	};
 
 	let {
@@ -59,11 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		actions,
 		editAction,
 		nameRight,
-		hideDelete = false,
-		hidePublish = false,
-		hideActions = false,
-		showClone = false,
-		hideEdit = false
+		hideActions = []
 	}: Props = $props();
 
 	//
@@ -88,6 +85,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (typeof avatar === 'function') return avatar(record);
 		return avatar;
 	});
+
+	//
+
+	const hideActionsList = $derived(hideActions ? ['all'] : hideActions);
 </script>
 
 <Card
@@ -118,26 +119,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 		</div>
-		{#if !hideActions}
+
+		{#if hideActions !== true}
 			<div class="flex items-center gap-2">
-				{#if !hidePublish}
+				{#if !hideActionsList.includes('publish')}
 					<PublishedSwitch record={record as DashboardRecord} field="published" />
 				{/if}
+
 				{@render actions?.()}
-				{#if showClone}
+
+				{#if !hideActionsList.includes('clone')}
 					<RecordClone
 						collectionName={record.collectionName}
 						recordId={record.id}
 						size="md"
 					/>
 				{/if}
+
 				{#if editAction}
 					{@render editAction()}
-				{:else if !hideEdit}
+				{:else if !hideActionsList.includes('edit')}
 					<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
 					<RecordEdit record={record as any} />
 				{/if}
-				{#if !hideDelete}
+
+				{#if !hideActionsList.includes('delete')}
 					<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
 					<RecordDelete record={record as any} />
 				{/if}
@@ -195,7 +201,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<T class="text-nowrap">{props.label}:</T>
 		{#if props.href}
 			<A
-				class="block w-0 grow cursor-pointer truncate !text-gray-400 underline underline-offset-2"
+				class="block w-0 grow cursor-pointer truncate text-gray-400! underline underline-offset-2"
 				target="_blank"
 				href={props.href}
 			>

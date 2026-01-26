@@ -66,12 +66,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	record={pipeline}
 	avatar={pb.files.getURL(owner, owner.logo)}
 	badge={isPublic ? m.Public() : undefined}
-	showClone
 	content={hasWorkflows ? content : undefined}
 	editAction={isPublic ? undefined : editAction}
-	hidePublish={isPublic}
-	hideDelete={isPublic}
-	hideEdit={isPublic}
+	hideActions={isPublic ? ['clone', 'delete', 'edit'] : undefined}
 >
 	{#snippet nameRight()}
 		{#if isRunning}
