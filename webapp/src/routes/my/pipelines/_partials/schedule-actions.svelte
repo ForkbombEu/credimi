@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { Snippet } from 'svelte';
+
 	import { CalendarIcon, PauseIcon, PlayIcon, XIcon } from '@lucide/svelte';
 	import { runWithLoading } from '$lib/utils';
 
@@ -28,9 +30,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		schedule: EnrichedSchedule;
 		onCancel?: () => void;
+		trigger?: Snippet<[{ props: Record<string, unknown> }]>;
+		hideDetailsInPopover?: boolean;
 	};
 
-	let { schedule = $bindable(), onCancel }: Props = $props();
+	let {
+		schedule = $bindable(),
+		onCancel,
+		trigger: triggerSnippet,
+		hideDetailsInPopover = false
+	}: Props = $props();
 
 	//
 
@@ -97,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <DropdownMenu
-	title={m.Manage_scheduling()}
+	title={hideDetailsInPopover ? undefined : m.Manage_scheduling()}
 	items={scheduleActions.map((action) => ({
 		label: action.label,
 		icon: action.icon,
@@ -111,40 +120,46 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}))}
 >
 	{#snippet trigger({ props })}
-		<IconButton
-			{...props}
-			class={[props.class, 'overflow-hidden']}
-			icon={CalendarIcon}
-			tooltip={m.Manage_scheduling()}
-		>
-			{#if scheduleState !== 'not-scheduled'}
-				<div
-					class={[
-						'absolute right-0 bottom-0 left-0 h-[3px] ',
-						{
-							'bg-green-500': scheduleState === 'active',
-							'bg-yellow-500': scheduleState === 'paused'
-						}
-					]}
-				></div>
-			{/if}
-		</IconButton>
+		{#if triggerSnippet}
+			{@render triggerSnippet({ props })}
+		{:else}
+			<IconButton
+				{...props}
+				class={[props.class, 'overflow-hidden']}
+				icon={CalendarIcon}
+				tooltip={m.Manage_scheduling()}
+			>
+				{#if scheduleState !== 'not-scheduled'}
+					<div
+						class={[
+							'absolute right-0 bottom-0 left-0 h-[3px] ',
+							{
+								'bg-green-500': scheduleState === 'active',
+								'bg-yellow-500': scheduleState === 'paused'
+							}
+						]}
+					></div>
+				{/if}
+			</IconButton>
+		{/if}
 	{/snippet}
 
 	{#snippet subtitle()}
-		<div class="space-y-1 px-2 pb-1 text-xs text-slate-600">
-			<T>
-				<span class="font-medium">{m.interval()}</span><br />
-				{scheduleModeLabel(schedule.mode as ScheduleMode)}
-			</T>
-
-			{#if scheduleState === 'active'}
+		{#if !hideDetailsInPopover}
+			<div class="space-y-1 px-2 pb-1 text-xs text-slate-600">
 				<T>
-					<span class="font-medium">{m.next_run()}:</span><br />
-					{schedule.__schedule_status__.next_action_time}
+					<span class="font-medium">{m.interval()}</span><br />
+					{scheduleModeLabel(schedule.mode as ScheduleMode)}
 				</T>
-			{/if}
-		</div>
+
+				{#if scheduleState === 'active'}
+					<T>
+						<span class="font-medium">{m.next_run()}:</span><br />
+						{schedule.__schedule_status__.next_action_time}
+					</T>
+				{/if}
+			</div>
+		{/if}
 	{/snippet}
 </DropdownMenu>
 <!-- 

@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { workflows: loadedWorkflows, selectedStatus } = $derived(data);
 
 	setDashboardNavbar({
-		title: m.Test_runs()
+		title: m.workflows()
 	});
 
 	//
@@ -70,7 +70,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="grow space-y-8">
 	<div class="flex items-center justify-between">
-		<T tag="h3">{m.Checks_history()}</T>
+		<T tag="h3">{m.workflow_runs()}</T>
 		<Tabs.Root bind:value={selectedTab}>
 			<Tabs.List class="gap-1 bg-secondary">
 				{#each Object.entries(tabs) as [key, value] (key)}

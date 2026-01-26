@@ -912,5 +912,6 @@
 	"Total_runs": "Total runs",
 	"Success_rate": "success rate",
 	"Successful_runs": "Successful runs",
-	"Conformance_and_custom_checks": "Conformance and custom checks"
+	"Conformance_and_custom_checks": "Conformance and custom checks",
+	"Workflows_history": "Workflows history"
 }
