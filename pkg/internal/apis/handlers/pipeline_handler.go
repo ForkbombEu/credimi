@@ -4,18 +4,28 @@
 package handlers
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
+	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/sdk/client"
+	"google.golang.org/protobuf/encoding/protojson"
 )
 
 type PipelineInput struct {
@@ -36,6 +46,16 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandlePipelineStart,
 			RequestSchema: PipelineInput{},
 			Description:   "Start a pipeline workflow from a YAML file",
+		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/list-workflows",
+			Handler: HandleGetPipelineDetails,
+		},
+		{
+			Method:  http.MethodGet,
+			Path:    "/list-workflows/{id}",
+			Handler: HandleGetPipelineSpecificDetails,
 		},
 	},
 }
@@ -256,4 +276,478 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 		}
 		return e.JSON(http.StatusOK, record.FieldsData())
 	}
+}
+
+func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+		if authRecord == nil {
+			return apierror.New(
+				http.StatusUnauthorized,
+				"auth",
+				"authentication required",
+				"user not authenticated",
+			).JSON(e)
+		}
+		pipelineID := e.Request.PathValue("id")
+		if pipelineID == "" {
+			return apierror.New(
+				http.StatusBadRequest,
+				"pipeline",
+				"pipeline ID is required",
+				"missing pipeline ID in path parameter",
+			).JSON(e)
+		}
+
+		organization, err := GetUserOrganization(e.App, authRecord.Id)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed to get user organization",
+				err.Error(),
+			).JSON(e)
+		}
+		pipelineRecords, err := e.App.FindRecordsByFilter(
+			"pipelines",
+			"id = {:id} && owner={:owner}",
+			"",
+			-1,
+			0,
+			dbx.Params{
+				"id":    pipelineID,
+				"owner": organization.Id,
+			},
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipelines",
+				"failed to fetch pipelines",
+				err.Error(),
+			).JSON(e)
+		}
+
+		if len(pipelineRecords) == 0 {
+			return e.JSON(http.StatusOK, ListMyChecksResponse{
+				Executions: []*WorkflowExecutionSummary{},
+			})
+		}
+
+		var allExecutions []*WorkflowExecution
+		namespace := organization.GetString("canonified_name")
+		var temporalClient client.Client
+
+		pipelineRecord := pipelineRecords[0]
+		pipelineID = pipelineRecord.Id
+
+		resultsRecords, err := e.App.FindRecordsByFilter(
+			"pipeline_results",
+			"pipeline={:pipeline} && owner={:owner}",
+			"",
+			-1,
+			0,
+			dbx.Params{
+				"pipeline": pipelineID,
+				"owner":    organization.Id,
+			},
+		)
+
+		if err != nil {
+			return e.JSON(http.StatusOK, ListMyChecksResponse{
+				[]*WorkflowExecutionSummary{},
+			})
+		}
+
+		for _, resultRecord := range resultsRecords {
+			c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"temporal",
+					"unable to create client",
+					err.Error(),
+				).JSON(e)
+			}
+
+			if temporalClient == nil {
+				temporalClient = c
+			}
+
+			workflowExecution, err := c.DescribeWorkflowExecution(
+				context.Background(),
+				resultRecord.GetString("workflow_id"),
+				resultRecord.GetString("run_id"),
+			)
+			if err != nil {
+				notFound := &serviceerror.NotFound{}
+				if errors.As(err, &notFound) {
+					return apierror.New(
+						http.StatusNotFound,
+						"workflow",
+						"workflow not found",
+						err.Error(),
+					).JSON(e)
+				}
+				invalidArgument := &serviceerror.InvalidArgument{}
+				if errors.As(err, &invalidArgument) {
+					return apierror.New(
+						http.StatusBadRequest,
+						"workflow",
+						"invalid workflow ID",
+						err.Error(),
+					).JSON(e)
+				}
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to describe workflow execution",
+					err.Error(),
+				).JSON(e)
+			}
+
+			weJSON, err := protojson.Marshal(workflowExecution.WorkflowExecutionInfo)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to marshal workflow execution",
+					err.Error(),
+				).JSON(e)
+			}
+
+			var execInfo WorkflowExecution
+			err = json.Unmarshal(weJSON, &execInfo)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to unmarshal workflow execution",
+					err.Error(),
+				).JSON(e)
+			}
+
+			if workflowExecution.WorkflowExecutionInfo.ParentExecution != nil {
+				parentJSON, _ := protojson.Marshal(workflowExecution.WorkflowExecutionInfo.ParentExecution)
+				var parentInfo WorkflowIdentifier
+				json.Unmarshal(parentJSON, &parentInfo)
+				execInfo.ParentExecution = &parentInfo
+			}
+
+			allExecutions = append(allExecutions, &execInfo)
+		}
+
+		if len(allExecutions) == 0 {
+			return e.JSON(http.StatusOK, ListMyChecksResponse{
+				[]*WorkflowExecutionSummary{},
+			})
+		}
+
+		if temporalClient == nil {
+			temporalClient, err = temporalclient.GetTemporalClientWithNamespace(namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"temporal",
+					"unable to create temporal client",
+					err.Error(),
+				).JSON(e)
+			}
+		}
+
+		hierarchy := buildExecutionHierarchy(
+			e.App,
+			allExecutions,
+			namespace,
+			authRecord.GetString("Timezone"),
+			temporalClient,
+		)
+
+		sort.Slice(hierarchy, func(i, j int) bool {
+			iTimeStr := hierarchy[i].StartTime
+			jTimeStr := hierarchy[j].StartTime
+
+			if iTimeStr == "" && jTimeStr == "" {
+				return false
+			}
+			if iTimeStr == "" {
+				return false
+			}
+			if jTimeStr == "" {
+				return true
+			}
+
+			iTime, err1 := time.Parse(time.RFC3339, iTimeStr)
+			jTime, err2 := time.Parse(time.RFC3339, jTimeStr)
+
+			if err1 == nil && err2 == nil {
+				return iTime.After(jTime) 
+			}
+
+			return iTimeStr > jTimeStr
+		})
+
+		return e.JSON(http.StatusOK, hierarchy)
+	}
+}
+
+func HandleGetPipelineDetails() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		authRecord := e.Auth
+		if authRecord == nil {
+			return apierror.New(
+				http.StatusUnauthorized,
+				"auth",
+				"authentication required",
+				"user not authenticated",
+			).JSON(e)
+		}
+
+		organization, err := GetUserOrganization(e.App, authRecord.Id)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"failed to get user organization",
+				err.Error(),
+			).JSON(e)
+		}
+
+		pipelineRecords, err := e.App.FindRecordsByFilter(
+			"pipelines",
+			"owner={:owner} || published={:published}",
+			"",
+			-1,
+			0,
+			dbx.Params{
+				"owner":     organization.Id,
+				"published": true,
+			},
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipelines",
+				"failed to fetch pipelines",
+				err.Error(),
+			).JSON(e)
+		}
+
+		if len(pipelineRecords) == 0 {
+			return e.JSON(http.StatusOK, map[string][]*WorkflowExecutionSummary{})
+		}
+
+		pipelineExecutionsMap := make(map[string][]*WorkflowExecutionSummary)
+		namespace := organization.GetString("canonified_name")
+
+		for _, pipelineRecord := range pipelineRecords {
+			pipelineID := pipelineRecord.Id
+			resultsRecords, err := e.App.FindRecordsByFilter(
+				"pipeline_results",
+				"pipeline={:pipeline} && owner={:owner}",
+				"",
+				-1,
+				0,
+				dbx.Params{
+					"pipeline": pipelineID,
+					"owner":    organization.Id,
+				},
+			)
+
+			if err == nil && len(resultsRecords) > 0 {
+				var pipelineExecutions []*WorkflowExecution
+
+				for _, resultRecord := range resultsRecords {
+					c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+					if err != nil {
+						return apierror.New(
+							http.StatusInternalServerError,
+							"temporal",
+							"unable to create client",
+							err.Error(),
+						).JSON(e)
+					}
+
+					workflowExecution, err := c.DescribeWorkflowExecution(
+						context.Background(),
+						resultRecord.GetString("workflow_id"),
+						resultRecord.GetString("run_id"),
+					)
+					if err != nil {
+						notFound := &serviceerror.NotFound{}
+						if errors.As(err, &notFound) {
+							return apierror.New(
+								http.StatusNotFound,
+								"workflow",
+								"workflow not found",
+								err.Error(),
+							).JSON(e)
+						}
+						invalidArgument := &serviceerror.InvalidArgument{}
+						if errors.As(err, &invalidArgument) {
+							return apierror.New(
+								http.StatusBadRequest,
+								"workflow",
+								"invalid workflow ID",
+								err.Error(),
+							).JSON(e)
+						}
+						return apierror.New(
+							http.StatusInternalServerError,
+							"workflow",
+							"failed to describe workflow execution",
+							err.Error(),
+						).JSON(e)
+					}
+
+					weJSON, err := protojson.Marshal(workflowExecution.WorkflowExecutionInfo)
+					if err != nil {
+						return apierror.New(
+							http.StatusInternalServerError,
+							"workflow",
+							"failed to marshal workflow execution",
+							err.Error(),
+						).JSON(e)
+					}
+
+					var execInfo WorkflowExecution
+					err = json.Unmarshal(weJSON, &execInfo)
+					if err != nil {
+						return apierror.New(
+							http.StatusInternalServerError,
+							"workflow",
+							"failed to unmarshal workflow execution",
+							err.Error(),
+						).JSON(e)
+					}
+
+					if workflowExecution.WorkflowExecutionInfo.ParentExecution != nil {
+						parentJSON, _ := protojson.Marshal(workflowExecution.WorkflowExecutionInfo.ParentExecution)
+						var parentInfo WorkflowIdentifier
+						json.Unmarshal(parentJSON, &parentInfo)
+						execInfo.ParentExecution = &parentInfo
+					}
+
+					pipelineExecutions = append(pipelineExecutions, &execInfo)
+				}
+
+				if len(pipelineExecutions) > 0 {
+					c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+					if err != nil {
+						continue
+					}
+
+					hierarchy := buildExecutionHierarchy(
+						e.App,
+						pipelineExecutions,
+						namespace,
+						authRecord.GetString("Timezone"),
+						c,
+					)
+
+					pipelineExecutionsMap[pipelineID] = hierarchy
+				}
+			}
+		}
+
+		if len(pipelineExecutionsMap) == 0 {
+			return e.JSON(http.StatusOK, map[string][]*WorkflowExecutionSummary{})
+		}
+
+		var allExecutions []struct {
+			pipelineID string
+			execution  *WorkflowExecutionSummary
+		}
+
+		for pipelineID, executions := range pipelineExecutionsMap {
+			for _, exec := range executions {
+				allExecutions = append(allExecutions, struct {
+					pipelineID string
+					execution  *WorkflowExecutionSummary
+				}{
+					pipelineID: pipelineID,
+					execution:  exec,
+				})
+			}
+		}
+
+		selectedExecutions := selectTopExecutionsByPipeline(allExecutions, 5)
+
+		return e.JSON(http.StatusOK, selectedExecutions)
+	}
+}
+
+func selectTopExecutionsByPipeline(executions []struct {
+    pipelineID string
+    execution  *WorkflowExecutionSummary
+}, limit int) map[string][]*WorkflowExecutionSummary {
+    
+    pipelineExecutions := make(map[string][]struct {
+        pipelineID string
+        execution  *WorkflowExecutionSummary
+    })
+    
+    for _, exec := range executions {
+        pipelineExecutions[exec.pipelineID] = append(pipelineExecutions[exec.pipelineID], exec)
+    }
+    
+    result := make(map[string][]*WorkflowExecutionSummary)
+    
+    for pipelineID, execs := range pipelineExecutions {
+        var runningExecs, otherExecs []*WorkflowExecutionSummary
+        
+        for _, exec := range execs {
+            if exec.execution.Status == "running" {
+                runningExecs = append(runningExecs, exec.execution)
+            } else {
+                otherExecs = append(otherExecs, exec.execution)
+            }
+        }
+        
+        selected := runningExecs
+        
+        remainingSlots := limit - len(runningExecs)
+        if remainingSlots > 0 && len(otherExecs) > 0 {
+            sort.Slice(otherExecs, func(i, j int) bool {
+                return compareTimes(otherExecs[i].StartTime, otherExecs[j].StartTime)
+            })
+            
+            if remainingSlots > len(otherExecs) {
+                remainingSlots = len(otherExecs)
+            }
+            
+            selected = append(selected, otherExecs[:remainingSlots]...)
+        }
+        
+        sort.Slice(selected, func(i, j int) bool {
+            return compareTimes(selected[i].StartTime, selected[j].StartTime)
+        })
+        
+        if len(selected) > 0 {
+            result[pipelineID] = selected
+        }
+    }
+    
+    return result
+}
+
+func compareTimes(timeStr1, timeStr2 string) bool {
+    if timeStr1 == "" && timeStr2 == "" {
+        return false
+    }
+    if timeStr1 == "" {
+        return false
+    }
+    if timeStr2 == "" {
+        return true
+    }
+    
+    t1, err1 := time.Parse(time.RFC3339, timeStr1)
+    t2, err2 := time.Parse(time.RFC3339, timeStr2)
+    
+    if err1 == nil && err2 == nil {
+        return t1.After(t2)  
+    }
+    
+    return timeStr1 > timeStr2
 }

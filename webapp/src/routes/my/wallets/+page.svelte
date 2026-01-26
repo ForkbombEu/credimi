@@ -54,7 +54,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<DashboardCard
 					{record}
 					avatar={(w) => (w.logo ? pb.files.getURL(w, w.logo) : w.logo_url)}
-					path={[organization.canonified_name, record.canonified_name]}
 				>
 					{#snippet content()}
 						{@const conformanceChecks = record.conformance_checks as
@@ -140,16 +139,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 
 		{#snippet records({ records })}
-			<DashboardCardManagerUI
-				{records}
-				nameField="tag"
-				hideClone
-				path={(r) => [
-					organization.canonified_name,
-					props.wallet.canonified_name,
-					r.canonified_tag
-				]}
-			>
+			<DashboardCardManagerUI {records} nameField="tag" hideClone>
 				{#snippet actions({ record })}
 					<div class="flex items-center gap-1">
 						{#if record.ios_installer}

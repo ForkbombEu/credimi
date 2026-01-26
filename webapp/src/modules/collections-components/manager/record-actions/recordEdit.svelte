@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { CollectionName } from '@/pocketbase/collections-models';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
+	import { m } from '@/i18n';
 
 	import type { RecordEditProps } from './types';
 
@@ -33,5 +34,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		openForm: openForm
 	})}
 {:else}
-	<IconButton variant="outline" icon={Pencil} onclick={openForm} />
+	<IconButton variant="outline" icon={Pencil} onclick={openForm} tooltip={m.Edit()} />
 {/if}

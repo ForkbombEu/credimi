@@ -13,14 +13,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 
-	import type { WorkflowExecutionWithChildren } from './queries.types';
+	import type { WorkflowExecutionSummary } from './queries.types';
 
 	import WorkflowTreeBranch from './workflow-tree.svelte';
 
 	//
 
 	type Props = {
-		workflow: WorkflowExecutionWithChildren;
+		workflow: WorkflowExecutionSummary;
 		label?: string;
 		root?: boolean;
 	};
@@ -44,7 +44,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			size="icon"
 			onclick={() => (isExpanded = !isExpanded)}
 			class={[
-				'hover:bg-secondary size-5 shrink-0 [&_svg]:size-2',
+				'size-5 shrink-0 hover:bg-secondary [&_svg]:size-2',
 				{ invisible: !hasChildren }
 			]}
 		>
@@ -70,7 +70,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</span>
 			{#if status !== null && !root}
 				<div
-					class="inline-block [&>div>span>.heart-beat]:hidden [&>div>span]:h-4 [&>div>span]:text-[8px]"
+					class="inline-block [&>div>span]:h-4 [&>div>span]:text-[8px] [&>div>span>.heart-beat]:hidden"
 				>
 					<WorkflowStatus {status} />
 				</div>
@@ -78,7 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</A>
 	</div>
 	{#if hasChildren && isExpanded && workflow.children}
-		<ul class="space-y-2 pl-6 pt-2" transition:slide>
+		<ul class="space-y-2 pt-2 pl-6" transition:slide>
 			{#each workflow.children as child (child.execution.runId)}
 				<WorkflowTreeBranch workflow={child} />
 			{/each}

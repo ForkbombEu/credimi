@@ -14,7 +14,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		trigger: Snippet;
+		triggerContent?: Snippet;
+		trigger?: Snippet<[{ props: Record<string, unknown> }]>;
 		content: Snippet;
 		buttonVariants?: Parameters<typeof buttonVariants>[0];
 		containerClass?: ClassValue;
@@ -22,20 +23,35 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let {
+		triggerContent,
 		trigger,
 		content,
 		buttonVariants: buttonVariantsProps,
 		containerClass,
 		triggerClass
 	}: Props = $props();
+
+	//
+
+	const classes: ClassValue = $derived([
+		buttonVariants({ variant: 'outline', ...buttonVariantsProps }),
+		triggerClass
+	]);
 </script>
 
 <Popover.Root>
-	<Popover.Trigger
-		class={[buttonVariants({ variant: 'outline', ...buttonVariantsProps }), triggerClass]}
-	>
-		{@render trigger()}
-	</Popover.Trigger>
+	{#if trigger}
+		<Popover.Trigger class={classes}>
+			{#snippet child({ props })}
+				{@render trigger({ props })}
+			{/snippet}
+		</Popover.Trigger>
+	{:else}
+		<Popover.Trigger class={classes}>
+			{@render triggerContent?.()}
+		</Popover.Trigger>
+	{/if}
+
 	<Popover.Content class={containerClass}>
 		{@render content()}
 	</Popover.Content>

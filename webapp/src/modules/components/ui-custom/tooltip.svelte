@@ -12,12 +12,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		children?: Snippet;
 		content?: Snippet;
+		delayDuration?: number;
 	};
 
-	let { children, content }: Props = $props();
+	let { children, content, delayDuration = 500 }: Props = $props();
 </script>
 
-<Tooltip.Provider>
+<Tooltip.Provider {delayDuration}>
 	<Tooltip.Root>
 		<Tooltip.Trigger>{@render children?.()}</Tooltip.Trigger>
 		<Tooltip.Content>

@@ -27,15 +27,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const actions = wallet.expand?.wallet_actions_via_wallet ?? [];
 		const versions = wallet.expand?.wallet_versions_via_wallet ?? [];
 
-		const organization = wallet.expand?.owner;
-		if (!organization) throw new Error();
-
 		const actionsWithOrganizations = await getActionsWithOrganizations(actions);
 
 		return pageDetails('wallets', {
 			wallet,
 			actionsWithOrganizations,
-			organization,
 			versions
 		});
 	}
@@ -60,7 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { ConformanceCheckSchema } from '$lib/types/checks';
-	import { path } from '$lib/utils';
+	import { getPath } from '$lib/utils';
 	import { String } from 'effect';
 	import { z } from 'zod/v3';
 
@@ -89,7 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = Awaited<ReturnType<typeof getWalletDetails>>;
-	let { wallet, actionsWithOrganizations, organization, versions }: Props = $props();
+	let { wallet, actionsWithOrganizations, versions }: Props = $props();
 
 	// misc derived values
 
@@ -215,16 +211,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									<Code
 										class="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground"
 									/>
-									<div class="text-left space-y-1">
+									<div class="space-y-1 text-left">
 										<div class="flex items-center gap-1">
-											<p class="font-medium leading-snug text-balance">
+											<p class="leading-snug font-medium text-balance">
 												<span>{action.name}</span>
 												<CopyButtonSmall
-													textToCopy={path([
-														organization?.canonified_name,
-														wallet.canonified_name,
-														action.canonified_name
-													])}
+													textToCopy={getPath(action)}
 													size="mini"
 													class="inline-flex translate-y-px"
 												/>

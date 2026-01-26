@@ -7,14 +7,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { ComponentProps, Snippet } from 'svelte';
 
-	import { runWithLoading } from '$lib/utils';
 	import { CopyPlus } from '@lucide/svelte';
+	import { runWithLoading } from '$lib/utils';
 	import { toast } from 'svelte-sonner';
 
 	import type { CollectionName } from '@/pocketbase/collections-models';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
-	import Tooltip from '@/components/ui-custom/tooltip.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
@@ -84,16 +83,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if button}
 	{@render button({ triggerAttributes: { onclick: handleClone }, icon: CopyPlus })}
 {:else}
-	<Tooltip>
-		<IconButton
-			variant="outline"
-			{size}
-			icon={CopyPlus}
-			disabled={isCloning}
-			onclick={handleClone}
-		/>
-		{#snippet content()}
-			<p>{m.Clone()}</p>
-		{/snippet}
-	</Tooltip>
+	<IconButton
+		variant="outline"
+		{size}
+		icon={CopyPlus}
+		disabled={isCloning}
+		onclick={handleClone}
+		tooltip={m.Clone()}
+	/>
 {/if}

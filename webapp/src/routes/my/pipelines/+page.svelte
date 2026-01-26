@@ -5,25 +5,32 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { PlayIcon, Plus } from '@lucide/svelte';
+	import { Plus } from '@lucide/svelte';
+	import { userOrganization } from '$lib/app-state';
+	import { PolledResource } from '$lib/utils/state.svelte.js';
 
-	import { CollectionManager, RecordClone } from '@/collections-components';
+	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
-	import { pb } from '@/pocketbase';
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
 	import PipelineCard from './_partials/pipeline-card.svelte';
-	import { runPipeline } from './_partials/utils';
+	import { getAllPipelinesWorkflows } from './_partials/workflows.js';
 
 	//
 
 	let { data } = $props();
-	let { organization } = $derived(data);
 
 	setDashboardNavbar({ title: 'Pipelines', right: navbarRight });
+
+	//
+
+	const allWorkflows = new PolledResource(getAllPipelinesWorkflows, {
+		initialValue: () => data.workflows
+	});
+
+	$inspect(userOrganization.current);
 </script>
 
 <!-- Your Pipelines Section -->
@@ -32,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<CollectionManager
 		collection="pipelines"
 		queryOptions={{
-			filter: `owner = '${organization.id}'`,
+			filter: `owner.id = '${userOrganization.current?.id}'`,
 			sort: ['created', 'DESC'],
 			expand: ['schedules_via_pipeline']
 		}}
@@ -41,7 +48,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#snippet records({ records })}
 			<div class="space-y-4">
 				{#each records as pipeline, index (pipeline.id)}
-					<PipelineCard bind:pipeline={records[index]} {organization} />
+					{@const workflows = allWorkflows.current?.[pipeline.id]}
+					{#if userOrganization.current}
+						<PipelineCard bind:pipeline={records[index]} {workflows} />
+					{/if}
 				{/each}
 			</div>
 		{/snippet}
@@ -61,38 +71,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<CollectionManager
 		collection="pipelines"
 		queryOptions={{
-			filter: `owner != '${organization.id}'`,
+			filter: `owner.id != '${userOrganization.current?.id}'`,
 			sort: ['created', 'DESC'],
-			expand: ['owner']
+			expand: ['owner', 'schedules_via_pipeline']
 		}}
 		hide={['pagination', 'empty_state']}
 	>
 		{#snippet records({ records })}
 			<div class="space-y-4">
-				{#each records as pipeline (pipeline.id)}
+				{#each records as pipeline, index (pipeline.id)}
 					{@const ownerOrg = pipeline.expand?.owner}
-					<DashboardCard
-						record={pipeline}
-						avatar={() =>
-							ownerOrg
-								? pb.files.getURL(ownerOrg, ownerOrg.logo)
-								: pb.files.getURL(organization, organization.logo)}
-						path={[organization.canonified_name, pipeline.canonified_name]}
-						hideDelete={true}
-						hidePublish={true}
-					>
-						{#snippet editAction()}
-							<Button onclick={() => runPipeline(pipeline)}>
-								<PlayIcon />{m.Run_now()}
-							</Button>
-							<RecordClone
-								recordId={pipeline.id}
-								size="md"
-								collectionName="pipelines"
-							/>
-							<!-- <IconButton href="/my/pipelines/view-{pipeline.id}" icon={Eye} /> -->
-						{/snippet}
-					</DashboardCard>
+					{@const workflows = allWorkflows.current?.[pipeline.id] ?? []}
+					{#if ownerOrg}
+						<PipelineCard bind:pipeline={records[index]} {workflows} />
+					{/if}
 				{/each}
 			</div>
 		{/snippet}

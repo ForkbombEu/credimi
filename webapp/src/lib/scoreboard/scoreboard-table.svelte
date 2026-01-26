@@ -16,7 +16,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { entries, showActions = false, emptyMessage = m.no_data_available() }: Props = $props();
 
-	const columnCount = showActions ? 7 : 6;
+	const columnCount = $derived(showActions ? 7 : 6);
 </script>
 
 <div class="table-wrapper">

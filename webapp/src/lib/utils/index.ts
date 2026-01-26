@@ -2,12 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { browser } from '$app/environment';
-import { invalidateAll } from '$app/navigation';
-import { userOrganization } from '$lib/app-state';
 import { error } from '@sveltejs/kit';
+import { browser } from '$app/environment';
+import { userOrganization } from '$lib/app-state';
 import slugify from 'slugify';
-import { onMount } from 'svelte';
 import { z } from 'zod/v3';
 
 import { verifyUser } from '@/auth/verifyUser';
@@ -61,18 +59,6 @@ export async function getUserOrganization(options = { fetch }) {
 
 //
 
-export function setupPollingWithInvalidation(intervalMs: number) {
-	onMount(() => {
-		const interval = setInterval(() => {
-			invalidateAll();
-		}, intervalMs);
-
-		return () => {
-			clearInterval(interval);
-		};
-	});
-}
-
 const deeplinkGenerationResponseSchema = z.object({
 	deeplink: z.string(),
 	steps: z.array(z.unknown()),
@@ -92,10 +78,6 @@ export async function generateDeeplinkFromYaml(yaml: string) {
 
 //
 
-export function path(chunks: string[]) {
-	return chunks.join('/');
-}
-
 export function getPath<T extends object>(record: T) {
 	if ('__canonified_path__' in record) {
 		return record.__canonified_path__ as string;
@@ -110,4 +92,33 @@ export function slug(string: string) {
 		lower: true,
 		strict: true
 	});
+}
+
+/**
+ * Merges multiple path segments into a single normalized path.
+ * Handles slashes, duplicate slashes, and relative segments.
+ * Removes leading and trailing slashes.
+ *
+ * @param paths - Path segments to merge
+ * @returns A normalized path string
+ *
+ * @example
+ * mergePaths('/api', 'users', '/123') // '/api/users/123'
+ * mergePaths('api/', '/users/', '123') // 'api/users/123'
+ * mergePaths('api', '', 'users') // 'api/users'
+ */
+export function mergePaths(...paths: (string | undefined | null)[]): string {
+	const filtered = paths
+		.filter((p): p is string => Boolean(p))
+		.map((p) => p.trim())
+		.filter((p) => p.length > 0);
+
+	return filtered
+		.map((p) => {
+			if (p.startsWith('/')) p = p.slice(1);
+			if (p.endsWith('/')) p = p.slice(0, -1);
+			return p;
+		})
+		.filter((p) => p.length > 0)
+		.join('/');
 }

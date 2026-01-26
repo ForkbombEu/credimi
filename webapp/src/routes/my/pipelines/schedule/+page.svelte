@@ -5,10 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowLeft } from '@lucide/svelte';
+	import { ArrowLeft, Ellipsis } from '@lucide/svelte';
+	import BlueButton from '$lib/layout/blue-button.svelte';
+	import { omit } from 'lodash';
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
+	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
@@ -93,13 +96,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										<span class="text-slate-300">N/A</span>
 									{/if}
 								</Table.Cell>
-								<Table.Cell class="-translate-x-3 !py-2">
+								<Table.Cell class="-translate-x-3 py-2!">
 									<ScheduleActions
 										bind:schedule={schedules[index] as EnrichedSchedule}
+										hideDetailsInPopover
 										onCancel={() => {
 											reloadRecords();
 										}}
-									/>
+									>
+										{#snippet trigger({ props })}
+											<BlueButton {...omit(props, 'class')}>
+												<Icon src={Ellipsis} />
+												{m.Manage()}
+											</BlueButton>
+										{/snippet}
+									</ScheduleActions>
 								</Table.Cell>
 							</Table.Row>
 						{/if}

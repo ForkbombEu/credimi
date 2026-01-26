@@ -4,38 +4,52 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
+<script module lang="ts">
+	export type RowSnippet = Snippet<
+		[
+			{
+				workflow: WorkflowExecutionSummary;
+				status: WorkflowStatusType;
+				Td: typeof Table.Cell;
+			}
+		]
+	>;
+</script>
+
 <script lang="ts">
+	import type { WorkflowStatusType } from '$lib/temporal';
 	import type { Snippet } from 'svelte';
 
-	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
-	import CircleQuestion from '@forkbombeu/temporal-ui/dist/holocene/icon/svg/circle-question.svelte';
+	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { EllipsisVerticalIcon, ImageIcon, TriangleIcon, VideoIcon } from '@lucide/svelte';
+	import { resolve } from '$app/paths';
 	import clsx from 'clsx';
 
 	import type { IconComponent } from '@/components/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
-	import Popover from '@/components/ui-custom/popover.svelte';
 	import * as Table from '@/components/ui/table';
 	import { localizeHref } from '@/i18n';
 
-	import type { WorkflowExecutionWithChildren } from './queries.types';
+	import type { WorkflowExecutionSummary } from './queries.types';
 
 	import WorkflowActions from './workflow-actions.svelte';
+	import WorkflowStatus from './workflow-status.svelte';
 	import WorkflowTableRow from './workflow-table-row.svelte';
 
 	//
 
 	type Props = {
-		workflow: WorkflowExecutionWithChildren;
+		workflow: WorkflowExecutionSummary;
 		depth?: number;
-		nameRight?: Snippet<[{ workflow: WorkflowExecutionWithChildren }]>;
+		hideResults?: boolean;
+		row?: RowSnippet;
 	};
 
-	let { workflow, depth = 0, nameRight }: Props = $props();
+	let { workflow, depth = 0, row, hideResults = false }: Props = $props();
 
-	const status = $derived(toWorkflowStatusReadable(workflow.status));
+	const status = $derived(toWorkflowStatusReadable(workflow.status) as WorkflowStatusType);
 
 	const isRoot = $derived(depth === 0);
 	const isChild = $derived(!isRoot);
@@ -51,8 +65,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	class={[
 		'hover:bg-transparent',
 		{
-			'!bg-slate-100 text-xs ': isChild,
-			'[&>td]:!py-0': isChild,
+			'bg-slate-100! text-xs ': isChild,
+			'[&>td]:py-0!': isChild,
 			'border-b':
 				(!isExpanded && isRoot) || !workflow.children || workflow.children.length === 0
 		}
@@ -91,8 +105,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</Button>
 					{/if}
 				</div>
-
-				{@render nameRight?.({ workflow })}
 			</div>
 		</Table.Cell>
 	{:else}
@@ -112,47 +124,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	<Table.Cell>
-		{#if status !== null}
-			<div class={['flex origin-left gap-1', isChild && 'scale-75']}>
-				<WorkflowStatus {status} />
-				{#if workflow.failure_reason}
-					<Popover
-						buttonVariants={{ variant: 'outline' }}
-						containerClass="dark !w-[400px] p-3 text-xs"
-						triggerClass="!h-6 !w-6 !p-0 text-xs underline"
-					>
-						{#snippet trigger()}
-							<CircleQuestion class="size-3" />
-						{/snippet}
-						{#snippet content()}
-							{workflow.failure_reason}
-						{/snippet}
-					</Popover>
-				{/if}
-			</div>
-		{/if}
+		<WorkflowStatus
+			{status}
+			failureReason={workflow.failure_reason}
+			size={isChild ? 'sm' : 'md'}
+		/>
 	</Table.Cell>
 
-	<Table.Cell>
-		{#if workflow.results && workflow.results.length > 0}
-			<div class="flex items-center gap-2">
-				{#each workflow.results as result (result.video)}
-					<div class="flex items-center gap-1">
-						{@render mediaPreview({
-							image: result.screenshot,
-							href: result.video,
-							icon: VideoIcon
-						})}
-						{@render mediaPreview({
-							image: result.screenshot,
-							href: result.screenshot,
-							icon: ImageIcon
-						})}
-					</div>
-				{/each}
-			</div>
-		{/if}
-	</Table.Cell>
+	{#if !hideResults}
+		<Table.Cell>
+			{#if workflow.results && workflow.results.length > 0}
+				<div class="flex items-center gap-2">
+					{#each workflow.results as result (result.video)}
+						<div class="flex items-center gap-1">
+							{@render mediaPreview({
+								image: result.screenshot,
+								href: result.video,
+								icon: VideoIcon
+							})}
+							{@render mediaPreview({
+								image: result.screenshot,
+								href: result.screenshot,
+								icon: ImageIcon
+							})}
+						</div>
+					{/each}
+				</div>
+			{:else}
+				<span class="text-muted-foreground opacity-50">N/A</span>
+			{/if}
+		</Table.Cell>
+	{/if}
+
+	{@render row?.({ workflow, Td: Table.Cell, status })}
 
 	<Table.Cell
 		class={['text-right', isChild && 'text-[10px] leading-[13px] text-muted-foreground']}
@@ -183,7 +187,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}}
 			dropdownTriggerVariants={{ size: 'icon', variant: 'ghost' }}
 		>
-			{#snippet dropdownTrigger()}
+			{#snippet dropdownTriggerContent()}
 				<EllipsisVerticalIcon />
 			{/snippet}
 		</WorkflowActions>
@@ -192,14 +196,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if workflow.children && isExpanded}
 	{#each workflow.children as children (children.execution.runId)}
-		<WorkflowTableRow workflow={children} depth={depth + 1} />
+		<WorkflowTableRow workflow={children} depth={depth + 1} {row} />
 	{/each}
 {/if}
 
 {#snippet mediaPreview(props: { image: string; href: string; icon: IconComponent })}
 	{@const { image, href, icon } = props}
 	<a
-		{href}
+		href={resolve(href as '/')}
 		target="_blank"
 		class="relative size-10 shrink-0 overflow-hidden rounded-md border border-slate-300 hover:cursor-pointer hover:ring-2"
 	>

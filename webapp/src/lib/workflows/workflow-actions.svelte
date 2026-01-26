@@ -9,8 +9,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 	import type { ClassValue } from 'svelte/elements';
 
-	import { runWithLoading } from '$lib/layout/global-loading.svelte';
 	import { Code, XIcon } from '@lucide/svelte';
+	import { runWithLoading } from '$lib/layout/global-loading.svelte';
 
 	import type { IconComponent } from '@/components/types';
 	import type { buttonVariants } from '@/components/ui/button';
@@ -26,12 +26,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflow: { workflowId: string; runId: string; status: WorkflowStatus; name: string };
 		mode: 'buttons' | 'dropdown';
 		containerClass?: ClassValue;
-		dropdownTrigger?: Snippet;
+		dropdownTrigger?: Snippet<[{ props: Record<string, unknown> }]>;
+		dropdownTriggerContent?: Snippet;
 		dropdownTriggerVariants?: Parameters<typeof buttonVariants>[0];
 	};
 
-	let { workflow, containerClass, mode, dropdownTrigger, dropdownTriggerVariants }: Props =
-		$props();
+	let {
+		workflow,
+		containerClass,
+		mode,
+		dropdownTrigger,
+		dropdownTriggerContent,
+		dropdownTriggerVariants
+	}: Props = $props();
 
 	//
 
@@ -81,13 +88,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 {:else if mode === 'dropdown'}
 	<DropdownMenu
-		buttonVariants={dropdownTriggerVariants}
+		triggerVariants={dropdownTriggerVariants}
 		items={actions.map((action) => ({
 			label: action.label,
 			icon: action.icon,
 			onclick: () => action.onclick(workflow),
 			disabled: action.disabled ? action.disabled(workflow) : false
 		}))}
+		triggerContent={dropdownTriggerContent}
 		trigger={dropdownTrigger}
 	/>
 {/if}

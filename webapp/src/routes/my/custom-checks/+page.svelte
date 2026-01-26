@@ -5,9 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { Pencil, Plus } from '@lucide/svelte';
 	import { entities } from '$lib/global/entities';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { Pencil, Plus } from '@lucide/svelte';
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -36,8 +36,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{record}
 					avatar={(r) => pb.files.getURL(r, r.logo)}
 					subtitle={record.standard_and_version}
-					path={[data.organization.canonified_name, record.canonified_name]}
-					showClone
 				>
 					{#snippet editAction()}
 						<IconButton href="/my/custom-checks/edit-{record.id}" icon={Pencil} />

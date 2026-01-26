@@ -12,7 +12,7 @@ import { z } from 'zod/v3';
 import { pb } from '@/pocketbase';
 import { warn } from '@/utils/other';
 
-import type { FetchWorkflowsResponse, WorkflowExecutionWithChildren } from './queries.types';
+import type { FetchWorkflowsResponse, WorkflowExecutionSummary } from './queries.types';
 
 import { workflowResponseSchema, type WorkflowResponse } from './types';
 
@@ -34,7 +34,7 @@ type FetchWorkflowsOptions = {
 
 export async function fetchWorkflows(
 	options: FetchWorkflowsOptions = {}
-): Promise<WorkflowExecutionWithChildren[] | Error> {
+): Promise<WorkflowExecutionSummary[] | Error> {
 	// const test = await import('./queries.test.json');
 	// return test.default.executions;
 

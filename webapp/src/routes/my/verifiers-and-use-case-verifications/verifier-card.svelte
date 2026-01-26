@@ -45,7 +45,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	links={{
 		URL: verifier.url
 	}}
-	path={[organization.canonified_name, verifier.canonified_name]}
 >
 	{#snippet content()}
 		{@render useCasesVerificationsManager()}
@@ -78,11 +77,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{records}
 				nameField="name"
 				publicUrl={getVerificationPublicUrl}
-				path={(r) => [
-					organization.canonified_name,
-					verifier.canonified_name,
-					r.canonified_name
-				]}
 			/>
 		{/snippet}
 	</CollectionManager>
