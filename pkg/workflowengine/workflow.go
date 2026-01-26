@@ -15,6 +15,9 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
@@ -184,6 +187,29 @@ func NewAppError(code errorcodes.Code, field string, payload ...any) error {
 		payload...)
 }
 
+// UpsertSearchAttributes updates workflow search attributes, skipping empty values.
+func UpsertSearchAttributes(ctx workflow.Context, attrs map[string]any) error {
+	if len(attrs) == 0 {
+		return nil
+	}
+	clean := make(map[string]any, len(attrs))
+	for key, value := range attrs {
+		switch v := value.(type) {
+		case string:
+			if v == "" {
+				continue
+			}
+		case nil:
+			continue
+		}
+		clean[key] = value
+	}
+	if len(clean) == 0 {
+		return nil
+	}
+	return workflow.UpsertSearchAttributes(ctx, clean)
+}
+
 // NewMissingOrInvalidPayloadError returns a WorkflowError for a missing or invalid payload.
 // It creates an ApplicationError with the given error and code, and then wraps it in a WorkflowError.
 // The error is returned with code errorcodes.MissingOrInvalidPayload.
@@ -233,9 +259,22 @@ func StartWorkflowWithOptions(
 		options.Memo["test"] = name
 	}
 
+	traceCtx := context.Background()
+	traceCtx, span := otel.Tracer("credimi/workflowengine").Start(
+		traceCtx,
+		"workflow.Start",
+		trace.WithAttributes(
+			attribute.String("workflow_name", name),
+			attribute.String("workflow_id", options.ID),
+			attribute.String("namespace", namespace),
+		),
+	)
+	defer span.End()
+
 	// Start the workflow execution.
-	w, err := c.ExecuteWorkflow(context.Background(), options, name, input)
+	w, err := c.ExecuteWorkflow(traceCtx, options, name, input)
 	if err != nil {
+		span.RecordError(err)
 		return WorkflowResult{}, fmt.Errorf("failed to start workflow: %w", err)
 	}
 

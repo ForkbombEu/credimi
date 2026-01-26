@@ -4,10 +4,17 @@
 
 package workflow
 
-// FidesIssuersURL is the URL to fetch issuers from the Fides API.
-// Note: This is a constant with query parameters, so string concatenation is acceptable here.
-const FidesIssuersURL = "https://credential-catalog.fides.community/api/public/credentialtype?" + params
+import "os"
+
 const params = "includeAllDetails=false&size=200"
+const fidesIssuersURLDefault = "https://credential-catalog.fides.community/api/public/credentialtype?" + params
+
+func fidesIssuersURL() string {
+	if override := os.Getenv("FIDES_ISSUERS_URL"); override != "" {
+		return override
+	}
+	return fidesIssuersURLDefault
+}
 
 // FetchIssuersActivityResponse represents the response containing a list of issuers fetched from the Fides API.
 type FetchIssuersActivityResponse struct{ Issuers []string }

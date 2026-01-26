@@ -6,9 +6,8 @@ package handlers
 
 import (
 	"encoding/json"
-	"io"
+	"errors"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -16,30 +15,6 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
 )
-
-func mockGetDeeplinkServer(
-	t *testing.T,
-	statusCode int,
-	response map[string]any,
-) *httptest.Server {
-	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "/api/get-deeplink", r.URL.Path)
-		require.Equal(t, "POST", r.Method)
-		require.Equal(t, "application/json", r.Header.Get("Content-Type"))
-
-		body, err := io.ReadAll(r.Body)
-		require.NoError(t, err)
-
-		var requestData map[string]string
-		err = json.Unmarshal(body, &requestData)
-		require.NoError(t, err)
-		require.Contains(t, requestData, "yaml")
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(statusCode)
-		json.NewEncoder(w).Encode(response)
-	}))
-}
 
 func setupDeeplinkApp(orgID string) func(t testing.TB) *tests.TestApp {
 	return func(t testing.TB) *tests.TestApp {
@@ -164,16 +139,12 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(
-					t.(*testing.T),
-					http.StatusOK,
-					map[string]any{
-						"deeplink": "mock-deeplink-from-yaml",
-					},
-				)
-				t.Cleanup(mockServer.Close)
-
-				app.Settings().Meta.AppURL = mockServer.URL
+				responseBody, err := json.Marshal(map[string]any{
+					"deeplink": "mock-deeplink-from-yaml",
+				})
+				require.NoError(t, err)
+				mockDeeplinkTransport(t.(*testing.T), http.StatusOK, string(responseBody), nil)
+				app.Settings().Meta.AppURL = "https://internal.test"
 
 				coll, _ := app.FindCollectionByNameOrId("credentials")
 				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
@@ -198,16 +169,12 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(
-					t.(*testing.T),
-					http.StatusInternalServerError,
-					map[string]any{
-						"error": "internal server error",
-					},
-				)
-				t.Cleanup(mockServer.Close)
-
-				app.Settings().Meta.AppURL = mockServer.URL
+				responseBody, err := json.Marshal(map[string]any{
+					"error": "internal server error",
+				})
+				require.NoError(t, err)
+				mockDeeplinkTransport(t.(*testing.T), http.StatusInternalServerError, string(responseBody), nil)
+				app.Settings().Meta.AppURL = "https://internal.test"
 
 				coll, _ := app.FindCollectionByNameOrId("credentials")
 				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
@@ -232,16 +199,12 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 
-				mockServer := mockGetDeeplinkServer(
-					t.(*testing.T),
-					http.StatusOK,
-					map[string]any{
-						"wrong_field": "value",
-					},
-				)
-				t.Cleanup(mockServer.Close)
-
-				app.Settings().Meta.AppURL = mockServer.URL
+				responseBody, err := json.Marshal(map[string]any{
+					"wrong_field": "value",
+				})
+				require.NoError(t, err)
+				mockDeeplinkTransport(t.(*testing.T), http.StatusOK, string(responseBody), nil)
+				app.Settings().Meta.AppURL = "https://internal.test"
 
 				coll, _ := app.FindCollectionByNameOrId("credentials")
 				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
@@ -266,7 +229,13 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 
-				app.Settings().Meta.AppURL = "http://this-domain-does-not-exist-12345.local"
+				mockDeeplinkTransport(
+					t.(*testing.T),
+					http.StatusOK,
+					`{}`,
+					errors.New("network error"),
+				)
+				app.Settings().Meta.AppURL = "https://internal.test"
 
 				coll, _ := app.FindCollectionByNameOrId("credentials")
 				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
@@ -291,16 +260,8 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 
-				mockServer := httptest.NewServer(
-					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-						w.Header().Set("Content-Type", "application/json")
-						w.WriteHeader(http.StatusOK)
-						w.Write([]byte(`{"deeplink": "value`))
-					}),
-				)
-				t.Cleanup(mockServer.Close)
-
-				app.Settings().Meta.AppURL = mockServer.URL
+				mockDeeplinkTransport(t.(*testing.T), http.StatusOK, `{"deeplink": "value`, nil)
+				app.Settings().Meta.AppURL = "https://internal.test"
 
 				coll, _ := app.FindCollectionByNameOrId("credentials")
 				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)

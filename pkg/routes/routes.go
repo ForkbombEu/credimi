@@ -21,7 +21,9 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/pb"
 	walletversions "github.com/forkbombeu/credimi/pkg/internal/wallet_versions"
 	"github.com/forkbombeu/credimi/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/avdpool"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/hooks"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/plugins/jsvm"
@@ -61,6 +63,7 @@ func Setup(app *pocketbase.PocketBase) {
 	pb.RegisterSchedulesHooks(app)
 	apis.RegisterMyRoutes(app)
 	hooks.WorkersHook(app)
+	registerPoolManagerStartup(app)
 	canonify.RegisterCanonifyHooks(app)
 	apis.HookAtUserCreation(app)
 	apis.HookAtUserLogin(app)
@@ -75,6 +78,20 @@ func Setup(app *pocketbase.PocketBase) {
 	migratecmd.MustRegister(app, app.RootCmd, migratecmd.Config{
 		TemplateLang: migratecmd.TemplateLangJS,
 		Automigrate:  true,
+	})
+}
+
+func registerPoolManagerStartup(app *pocketbase.PocketBase) {
+	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
+		config := avdpool.ConfigFromEnv()
+		if _, err := avdpool.StartPoolManagerWorkflow(
+			"default",
+			pipeline.PipelineTaskQueue,
+			config,
+		); err != nil {
+			log.Printf("Failed to start AVD pool manager: %v", err)
+		}
+		return se.Next()
 	})
 }
 

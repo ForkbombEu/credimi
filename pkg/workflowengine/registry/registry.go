@@ -8,6 +8,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/avdpool"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 )
 
@@ -126,6 +127,10 @@ var Registry = map[string]TaskFactory{
 }
 
 var PipelineInternalRegistry = map[string]TaskFactory{
+	"avd-pool-manager": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return avdpool.NewPoolManagerWorkflow() },
+	},
 	"openidnet-logs": {
 		Kind:    TaskWorkflow,
 		NewFunc: func() any { return workflows.NewOpenIDNetLogsWorkflow() },
@@ -138,6 +143,26 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		Kind:       TaskActivity,
 		NewFunc:    func() any { return activities.NewCheckFileExistsActivity() },
 		OutputKind: workflowengine.OutputBool,
+	},
+	"record-failed-cleanup": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewRecordFailedCleanupActivity() },
+		OutputKind: workflowengine.OutputAny,
+	},
+	"fetch-failed-cleanups": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewCleanupReconciliationActivity() },
+		OutputKind: workflowengine.OutputAny,
+	},
+	"update-failed-cleanup": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewUpdateFailedCleanupActivity() },
+		OutputKind: workflowengine.OutputAny,
+	},
+	"delete-failed-cleanup": {
+		Kind:       TaskActivity,
+		NewFunc:    func() any { return activities.NewDeleteFailedCleanupActivity() },
+		OutputKind: workflowengine.OutputAny,
 	},
 }
 

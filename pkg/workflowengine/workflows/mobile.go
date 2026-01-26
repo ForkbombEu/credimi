@@ -4,10 +4,15 @@
 package workflows
 
 import (
+	"errors"
+	"time"
+
 	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	enumspb "go.temporal.io/api/enums/v1"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -76,9 +81,18 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
+	mobileAo := *input.ActivityOptions
+	mobileAo.HeartbeatTimeout = time.Minute
+	mobileAo.StartToCloseTimeout = 35 * time.Minute
+	mobileAo.ScheduleToCloseTimeout = 35 * time.Minute
+	ctx = workflow.WithActivityOptions(ctx, mobileAo)
 
 	var output MobileWorkflowOutput
+	status := "running"
+	lastActivityName := ""
+	lastActivityTime := time.Time{}
+	forceCleanup := false
+	recordingPaused := false
 	testRunURL := utils.JoinURL(
 		input.Config["app_url"].(string),
 		"my", "tests", "runs",
@@ -95,6 +109,52 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
+
+	recordingActive := payload.VideoPath != "" || payload.RecordingFfmpegPid != 0
+	bootStatus := "unknown"
+
+	forceCleanupCh := workflow.GetSignalChannel(ctx, workflowengine.ForceCleanupSignal)
+	pauseRecordingCh := workflow.GetSignalChannel(ctx, workflowengine.PauseRecordingSignal)
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		var signal struct{}
+		for {
+			forceCleanupCh.Receive(ctx, &signal)
+			forceCleanup = true
+			lastActivityName = "force_cleanup"
+			lastActivityTime = workflow.Now(ctx)
+		}
+	})
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		var signal struct{}
+		for {
+			pauseRecordingCh.Receive(ctx, &signal)
+			recordingPaused = true
+			lastActivityName = "pause_recording"
+			lastActivityTime = workflow.Now(ctx)
+		}
+	})
+
+	workflow.SetQueryHandler(ctx, workflowengine.PipelineStateQuery, func() (workflowengine.PipelineState, error) {
+		info := workflow.GetInfo(ctx)
+		return workflowengine.PipelineState{
+			WorkflowID:       info.WorkflowExecution.ID,
+			RunID:            info.WorkflowExecution.RunID,
+			EmulatorSerial:   payload.EmulatorSerial,
+			CloneName:        payload.CloneName,
+			VersionID:        payload.VersionID,
+			RecordingActive:  recordingActive && !recordingPaused,
+			RecordingPaused:  recordingPaused,
+			BootStatus:       bootStatus,
+			LastActivity:     lastActivityName,
+			LastActivityTime: lastActivityTime,
+			Status:           status,
+			ForceCleanup:     forceCleanup,
+		}, nil
+	})
+
+	workflow.SetQueryHandler(ctx, workflowengine.ResourceUsageQuery, func() (workflowengine.ResourceUsage, error) {
+		return workflowengine.ResourceUsage{}, nil
+	})
 
 	appURL, ok := input.Config["app_url"].(string)
 	if !ok || appURL == "" {
@@ -114,20 +174,32 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 			WorkflowId:     workflow.GetInfo(ctx).WorkflowExecution.ID,
 		},
 	}
+	lastActivityName = mobileActivity.Name()
+	lastActivityTime = workflow.Now(ctx)
 	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
 		Get(ctx, &mobileResponse)
 	output.FlowOutput = mobileResponse.Output
 
 	if executeErr != nil {
+		details := map[string]any{
+			"output": output,
+		}
+		var timeoutErr *temporal.TimeoutError
+		if errors.As(executeErr, &timeoutErr) && timeoutErr.TimeoutType() == enumspb.TIMEOUT_TYPE_HEARTBEAT {
+			var heartbeat mobile.ActivityHeartbeat
+			if err := timeoutErr.LastHeartbeatDetails(&heartbeat); err == nil {
+				details["heartbeat"] = heartbeat
+			}
+		}
+		status = "failed"
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			executeErr,
 			input.RunMetadata,
-			map[string]any{
-				"output": output,
-			},
+			details,
 		)
 	}
 
+	status = "completed"
 	return workflowengine.WorkflowResult{
 		Output: output,
 	}, nil

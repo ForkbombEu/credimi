@@ -8,12 +8,18 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
+	"github.com/forkbombeu/credimi/internal/telemetry"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/avdpool"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/trace"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -23,9 +29,26 @@ func MobileAutomationSetupHook(
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData *map[string]any,
-) error {
+) (err error) {
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, *ao)
+
+	info := workflow.GetInfo(ctx)
+	traceCtx := telemetry.ContextFromWorkflow(ctx)
+	traceCtx, span := otel.Tracer("credimi/pipeline").Start(
+		traceCtx,
+		"pipeline.MobileAutomationSetupHook",
+		trace.WithAttributes(
+			attribute.String("namespace", info.Namespace),
+			attribute.String("workflow_id", info.WorkflowExecution.ID),
+		),
+	)
+	defer span.End()
+	defer func() {
+		if err != nil {
+			span.RecordError(err)
+		}
+	}()
 
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
@@ -38,6 +61,21 @@ func MobileAutomationSetupHook(
 	if alreadyStartedEmu, ok := (*runData)["started_emulators"].(map[string]any); ok {
 		startedEmulators = alreadyStartedEmu
 	}
+	poolWorkflowID := avdpool.DefaultPoolWorkflowID
+	poolSlotAcquired, _ := (*runData)["pool_slot_acquired"].(bool)
+	var heartbeatStop workflow.Channel
+	if stopChannel, ok := (*runData)["pool_heartbeat_stop"].(workflow.Channel); ok {
+		heartbeatStop = stopChannel
+	}
+	defer func() {
+		if err == nil || !poolSlotAcquired {
+			return
+		}
+		stopPoolHeartbeat(ctx, heartbeatStop, *runData)
+		if releaseErr := avdpool.ReleaseSlot(ctx, poolWorkflowID); releaseErr != nil {
+			logger.Warn("failed releasing pool slot after setup error", "error", releaseErr)
+		}
+	}()
 
 	for i := range *steps {
 		step := &(*steps)[i]
@@ -193,19 +231,74 @@ func MobileAutomationSetupHook(
 				"serial",
 				serial,
 			)
+			span.SetAttributes(
+				attribute.String("emulator_serial", serial),
+				attribute.String("version_id", versionIdentifier),
+			)
+			(*runData)["latest_emulator_serial"] = serial
+			(*runData)["latest_version_id"] = versionIdentifier
+			(*runData)["status"] = "running"
+			_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+				"emulator_serial": serial,
+				"version_id":      versionIdentifier,
+				"boot_status":     "already_running",
+				"status":          "running",
+			})
 			SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
 			continue
+		}
+
+		if !poolSlotAcquired {
+			poolWaitStart := workflow.Now(ctx)
+			(*runData)["status"] = "queued"
+			_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+				"status": "queued",
+			})
+			if err := avdpool.AcquireSlot(ctx, poolWorkflowID, time.Minute); err != nil {
+				return err
+			}
+			poolWait := workflow.Now(ctx).Sub(poolWaitStart)
+			poolWaitMs := int64(poolWait.Milliseconds())
+			(*runData)["pool_wait_ms"] = poolWaitMs
+			_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+				"pool_wait_ms": poolWaitMs,
+			})
+			poolSlotAcquired = true
+			(*runData)["pool_slot_acquired"] = true
+			if heartbeatStop == nil {
+				heartbeatStop = workflow.NewChannel(ctx)
+				(*runData)["pool_heartbeat_stop"] = heartbeatStop
+				startPoolHeartbeat(ctx, poolWorkflowID, heartbeatStop, avdpool.DefaultHeartbeatInterval)
+			}
 		}
 
 		mobileAo := *ao
 		mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
 		mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
+
+		startEmulatorAo := mobileAo
+		startEmulatorAo.HeartbeatTimeout = time.Minute
+		startEmulatorAo.StartToCloseTimeout = 10 * time.Minute
+		startEmulatorAo.ScheduleToCloseTimeout = 10 * time.Minute
+		startEmulatorCtx := workflow.WithActivityOptions(ctx, startEmulatorAo)
+
+		recordAo := mobileAo
+		recordAo.HeartbeatTimeout = time.Minute
+		recordAo.StartToCloseTimeout = 35 * time.Minute
+		recordAo.ScheduleToCloseTimeout = 35 * time.Minute
+		recordCtx := workflow.WithActivityOptions(ctx, recordAo)
+
+		bootStart := workflow.Now(ctx)
+		(*runData)["status"] = "booting"
+		_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+			"status": "booting",
+		})
 		startResult := workflowengine.ActivityResult{}
 		startEmuInput := workflowengine.ActivityInput{
 			Payload: map[string]any{"version_id": versionIdentifier},
 		}
-		err = workflow.ExecuteActivity(mobileCtx, startEmuActivity.Name(), startEmuInput).
-			Get(ctx, &startResult)
+		err = workflow.ExecuteActivity(startEmulatorCtx, startEmuActivity.Name(), startEmuInput).
+			Get(startEmulatorCtx, &startResult)
 		if err != nil {
 			return err
 		}
@@ -233,8 +326,29 @@ func MobileAutomationSetupHook(
 				startResult.Output,
 			)
 		}
+		span.SetAttributes(
+			attribute.String("emulator_serial", serial),
+			attribute.String("clone_name", cloneName),
+			attribute.String("version_id", versionIdentifier),
+		)
+		bootDuration := workflow.Now(ctx).Sub(bootStart)
+		bootTimeMs := int64(bootDuration.Milliseconds())
+		(*runData)["boot_time_ms"] = bootTimeMs
+		(*runData)["boot_status"] = "ready"
+		(*runData)["latest_emulator_serial"] = serial
+		(*runData)["latest_clone_name"] = cloneName
+		(*runData)["latest_version_id"] = versionIdentifier
+		_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+			"emulator_serial": serial,
+			"version_id":      versionIdentifier,
+			"clone_name":      cloneName,
+			"boot_status":     "ready",
+			"boot_time_ms":    bootTimeMs,
+			"status":          "running",
+		})
 		SetPayloadValue(&step.With.Payload, "clone_name", cloneName)
 		SetPayloadValue(&step.With.Payload, "emulator_serial", serial)
+		appendCleanupStepSpec(runData, cleanupSpecForEmulator(serial, cloneName))
 
 		installInput := workflowengine.ActivityInput{
 			Payload: map[string]any{"apk": apkPath, "emulator_serial": serial},
@@ -251,10 +365,10 @@ func MobileAutomationSetupHook(
 		}
 		var recordResult workflowengine.ActivityResult
 		if err := workflow.ExecuteActivity(
-			mobileCtx,
+			recordCtx,
 			recordActivity.Name(),
 			startRecordInput,
-		).Get(mobileCtx, &recordResult); err != nil {
+		).Get(recordCtx, &recordResult); err != nil {
 			return err
 		}
 		adbPID, ok := recordResult.Output.(map[string]any)["adb_process_pid"].(float64)
@@ -308,6 +422,28 @@ func MobileAutomationSetupHook(
 		SetPayloadValue(&step.With.Payload, "recording_adb_pid", int(adbPID))
 		SetPayloadValue(&step.With.Payload, "recording_ffmpeg_pid", int(ffmpegPID))
 		SetPayloadValue(&step.With.Payload, "recording_logcat_pid", int(logcatPID))
+		(*runData)["recording_active"] = true
+		(*runData)["status"] = "recording"
+		runIdentifier, ok := (*runData)["run_identifier"].(string)
+		if !ok || runIdentifier == "" {
+			return workflowengine.NewAppError(
+				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
+				fmt.Sprintf("missing run_identifier for step %s", step.ID),
+			)
+		}
+		appendCleanupStepSpec(runData, cleanupSpecForRecording(StopRecordingCleanupPayload{
+			EmulatorSerial:   serial,
+			AdbProcessPid:    int(adbPID),
+			FfmpegProcessPid: int(ffmpegPID),
+			LogcatProcessPid: int(logcatPID),
+			VideoPath:        videoPath,
+			RunIdentifier:    runIdentifier,
+			VersionID:        versionIdentifier,
+			AppURL:           appURL,
+		}))
+		_ = workflowengine.UpsertSearchAttributes(ctx, map[string]any{
+			"status": "recording",
+		})
 		startedEmulators[versionIdentifier] = map[string]any{
 			"serial":     serial,
 			"recording":  true,
@@ -333,10 +469,6 @@ func MobileAutomationCleanupHook(
 ) error {
 	ctx, _ = workflow.NewDisconnectedContext(ctx)
 	logger := workflow.GetLogger(ctx)
-	mobileAo := *ao
-
-	mobileAo.TaskQueue = workflows.MobileAutomationTaskQueue
-	mobileCtx := workflow.WithActivityOptions(ctx, mobileAo)
 	appURL, ok := config["app_url"].(string)
 	if !ok || appURL == "" {
 		return workflowengine.NewAppError(
@@ -344,76 +476,44 @@ func MobileAutomationCleanupHook(
 			"missing or invalid app_url in workflow input config",
 		)
 	}
-
-	stoppedEmulators := make(map[string]struct{})
-	var cleanupErrs []error
-
-	for _, step := range steps {
-		if step.Use != "mobile-automation" {
-			continue
-		}
-
-		payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPayload](
-			step.With.Payload,
-		)
-		if err != nil {
-			return workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-				"error decoding payload for step "+step.ID,
-			)
-		}
-
-		if payload.EmulatorSerial == "" {
-			return workflowengine.NewAppError(
-				errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
-				"missing emulator serial for step "+step.ID,
-			)
-		}
-
-		if _, alreadyStopped := stoppedEmulators[payload.EmulatorSerial]; alreadyStopped {
-			continue
-		}
-
-		cleanupRecording(
-			mobileCtx,
-			payload,
-			runData,
-			output,
-			&cleanupErrs,
-			appURL,
-		)
-
-		// Always stop emulator
-		if err := workflow.ExecuteActivity(
-			mobileCtx,
-			activities.NewStopEmulatorActivity().Name(),
-			workflowengine.ActivityInput{
-				Payload: map[string]any{
-					"emulator_serial": payload.EmulatorSerial,
-					"clone_name":      payload.CloneName,
-				},
-			},
-		).Get(ctx, nil); err != nil {
-			logger.Error(
-				"failed stopping emulator",
-				"emulator",
-				payload.EmulatorSerial,
-				"error",
-				err,
-			)
-			return err // stopping emulator is fatal
-		}
-
-		stoppedEmulators[payload.EmulatorSerial] = struct{}{}
+	poolWorkflowID := avdpool.DefaultPoolWorkflowID
+	poolSlotAcquired, _ := runData["pool_slot_acquired"].(bool)
+	if stopChannel, ok := runData["pool_heartbeat_stop"].(workflow.Channel); ok {
+		stopPoolHeartbeat(ctx, stopChannel, runData)
+	}
+	if poolSlotAcquired {
+		defer func() {
+			if err := avdpool.ReleaseSlot(ctx, poolWorkflowID); err != nil {
+				logger.Warn("failed releasing pool slot during cleanup", "error", err)
+			}
+		}()
 	}
 
-	if len(cleanupErrs) > 0 {
-		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		return workflowengine.NewAppError(
-			errCode,
-			"one or more errors occurred during mobile automation cleanup",
-			cleanupErrs,
-		)
+	specs := cleanupStepSpecs(runData)
+	if err := validateCleanupSpecs(specs); err != nil {
+		return err
+	}
+	if len(specs) == 0 {
+		return nil
+	}
+
+	baseAo := workflow.ActivityOptions{}
+	if ao != nil {
+		baseAo = *ao
+	}
+	options := buildCleanupOptions(baseAo)
+	recordFailure := func(ctx workflow.Context, spec CleanupStepSpec, stepErr error, attempts int) error {
+		info := workflow.GetInfo(ctx)
+		return recordFailedCleanup(ctx, options, spec, stepErr, attempts, info.WorkflowExecution.ID)
+	}
+
+	cleanupErrors := executeCleanupSpecs(ctx, logger, options, specs, output, recordFailure)
+	if len(cleanupErrors) > 0 {
+		logger.Warn("cleanup saga recorded failures", "count", len(cleanupErrors))
+	}
+
+	if err := startCleanupVerificationWorkflow(ctx, specs, appURL, runData); err != nil {
+		logger.Warn("failed to start cleanup verification workflow", "error", err)
 	}
 
 	return nil
@@ -421,6 +521,7 @@ func MobileAutomationCleanupHook(
 
 func cleanupRecording(
 	ctx workflow.Context,
+	recordAo workflow.ActivityOptions,
 	payload workflows.MobileAutomationWorkflowPayload,
 	runData map[string]any,
 	output *map[string]any,
@@ -428,6 +529,7 @@ func cleanupRecording(
 	appURL string,
 ) {
 	logger := workflow.GetLogger(ctx)
+	recordCtx := workflow.WithActivityOptions(ctx, recordAo)
 
 	startedEmulators, ok := runData["started_emulators"].(map[string]any)
 	if !ok {
@@ -459,17 +561,18 @@ func cleanupRecording(
 	var stopResult workflowengine.ActivityResult
 
 	if err := workflow.ExecuteActivity(
-		ctx,
+		recordCtx,
 		stopRecordingActivity.Name(),
 		workflowengine.ActivityInput{
 			Payload: map[string]any{
+				"emulator_serial":    payload.EmulatorSerial,
 				"video_path":         videoPath,
 				"adb_process_pid":    payload.RecordingAdbPid,
 				"ffmpeg_process_pid": payload.RecordingFfmpegPid,
 				"logcat_process_pid": payload.RecordingLogcatPid,
 			},
 		},
-	).Get(ctx, &stopResult); err != nil {
+	).Get(recordCtx, &stopResult); err != nil {
 		logger.Error("cleanup: stop recording failed", "error", err)
 		*cleanupErrs = append(*cleanupErrs, err)
 		return
@@ -563,4 +666,55 @@ func cleanupRecording(
 		append((*output)["result_video_urls"].([]string), resultURLs...)
 	(*output)["screenshot_urls"] =
 		append((*output)["screenshot_urls"].([]string), frameURLs...)
+}
+
+func startPoolHeartbeat(
+	ctx workflow.Context,
+	poolWorkflowID string,
+	stopCh workflow.Channel,
+	interval time.Duration,
+) {
+	logger := workflow.GetLogger(ctx)
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		for {
+			var stopRequested bool
+			selector := workflow.NewSelector(ctx)
+			timer := workflow.NewTimer(ctx, interval)
+
+			selector.AddFuture(timer, func(f workflow.Future) {
+				if err := f.Get(ctx, nil); err != nil {
+					return
+				}
+				if err := avdpool.SendHeartbeat(ctx, poolWorkflowID); err != nil {
+					logger.Warn("failed sending pool heartbeat", "error", err)
+				}
+			})
+			selector.AddReceive(stopCh, func(c workflow.ReceiveChannel, _ bool) {
+				var signal struct{}
+				c.Receive(ctx, &signal)
+				stopRequested = true
+			})
+
+			selector.Select(ctx)
+			if stopRequested {
+				return
+			}
+		}
+	})
+}
+
+func stopPoolHeartbeat(ctx workflow.Context, stopCh workflow.Channel, runData map[string]any) {
+	if stopCh == nil {
+		return
+	}
+	if runData != nil {
+		if stopped, _ := runData["pool_heartbeat_stopped"].(bool); stopped {
+			return
+		}
+	}
+	// Avoid deadlock from double-send on the unbuffered stop channel.
+	stopCh.Send(ctx, struct{}{})
+	if runData != nil {
+		runData["pool_heartbeat_stopped"] = true
+	}
 }

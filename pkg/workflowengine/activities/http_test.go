@@ -5,7 +5,9 @@
 package activities
 
 import (
+	"bytes"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -16,6 +18,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/testsuite"
 )
+
+func responseFromHandler(handler http.Handler, req *http.Request) (*http.Response, error) {
+	recorder := httptest.NewRecorder()
+	handler.ServeHTTP(recorder, req)
+	return recorder.Result(), nil
+}
 
 func TestHTTPActivity_Execute(t *testing.T) {
 	activity := NewHTTPActivity()
@@ -129,9 +137,21 @@ func TestHTTPActivity_Execute(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			if tt.handlerFunc != nil {
-				server := httptest.NewServer(tt.handlerFunc)
-				defer server.Close()
-				tt.payload.URL = server.URL
+				withMockTransport(t, func(req *http.Request) (*http.Response, error) {
+					if tt.name == "Failure - timeout" {
+						<-req.Context().Done()
+						return nil, req.Context().Err()
+					}
+					if req.Body != nil {
+						bodyBytes, err := io.ReadAll(req.Body)
+						if err != nil {
+							return nil, err
+						}
+						req.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+					}
+					return responseFromHandler(tt.handlerFunc, req)
+				})
+				tt.payload.URL = "https://example.test"
 			}
 
 			a := HTTPActivity{}

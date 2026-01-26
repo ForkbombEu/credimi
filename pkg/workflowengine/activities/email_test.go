@@ -74,7 +74,7 @@ func TestSendMailActivity_Execute(t *testing.T) {
 		LogToStdout: false,
 	})
 	if err := mockServer.Start(); err != nil {
-		t.Fatalf("failed to start mock SMTP server: %v", err)
+		t.Skipf("skipping: failed to start mock SMTP server: %v", err)
 	}
 	defer mockServer.Stop()
 

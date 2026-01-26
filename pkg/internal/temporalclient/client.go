@@ -10,8 +10,10 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/forkbombeu/credimi/internal/telemetry"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/workflow"
 )
 
 var (
@@ -27,9 +29,13 @@ func getTemporalClient(args ...string) (client.Client, error) {
 		return c.(client.Client), nil
 	}
 	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
+	contextPropagators := []workflow.ContextPropagator{
+		telemetry.NewTraceContextPropagator(),
+	}
 	c, err := client.NewLazyClient(client.Options{
-		HostPort:  hostPort,
-		Namespace: namespace,
+		HostPort:           hostPort,
+		Namespace:          namespace,
+		ContextPropagators: contextPropagators,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("unable to create client: %w", err)
@@ -44,6 +50,20 @@ func getTemporalClient(args ...string) (client.Client, error) {
 // If TEMPORAL_ADDRESS is not set, it defaults to client.DefaultHostPort.
 func GetTemporalClientWithNamespace(namespace string) (client.Client, error) {
 	return getTemporalClient(namespace)
+}
+
+// GetTemporalDebugClient creates a Temporal client with masked payload decoding for debugging.
+func GetTemporalDebugClient(namespace string) (client.Client, error) {
+	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
+	contextPropagators := []workflow.ContextPropagator{
+		telemetry.NewTraceContextPropagator(),
+	}
+	return client.NewLazyClient(client.Options{
+		HostPort:           hostPort,
+		Namespace:          namespace,
+		ContextPropagators: contextPropagators,
+		DataConverter:      NewPrettyMaskingDataConverter(),
+	})
 }
 
 func ShutdownClients() {

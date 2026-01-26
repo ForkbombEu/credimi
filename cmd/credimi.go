@@ -6,14 +6,20 @@
 package cmd
 
 import (
+	"context"
 	"log"
+	"os"
+	"strconv"
 
 	// Blank import to initialize database migrations
 	"github.com/forkbombeu/credimi/cmd/cli"
+	"github.com/forkbombeu/credimi/internal/telemetry"
 	_ "github.com/forkbombeu/credimi/migrations"
 	"github.com/forkbombeu/credimi/pkg/routes"
 	"github.com/joho/godotenv"
 	"github.com/pocketbase/pocketbase"
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/spf13/cobra"
 )
 
 // Start initializes and starts the PocketBase application.
@@ -29,11 +35,42 @@ func Start() {
 		"                                 \033[48;2;0;0;139m\033[38;2;255;255;255m              :(){ :|:& };: \033[0m\n" +
 		"                                 \033[48;2;0;0;139m\033[38;2;255;255;255m with ❤ by Forkbomb hackers \033[0m\n"
 
+	poolMax := app.RootCmd.PersistentFlags().
+		Int("pool-max", 0, "Max concurrent AVDs (overrides AVD_POOL_MAX_CONCURRENT)")
+	poolQueueDepth := app.RootCmd.PersistentFlags().
+		Int("pool-queue-depth", 0, "Max AVD pool queue depth (overrides AVD_POOL_MAX_QUEUE)")
+
+	existingPreRun := app.RootCmd.PersistentPreRun
+	app.RootCmd.PersistentPreRun = func(cmd *cobra.Command, args []string) {
+		if existingPreRun != nil {
+			existingPreRun(cmd, args)
+		}
+		if poolMax != nil && *poolMax > 0 {
+			os.Setenv("AVD_POOL_MAX_CONCURRENT", strconv.Itoa(*poolMax))
+		}
+		if poolQueueDepth != nil && *poolQueueDepth > 0 {
+			os.Setenv("AVD_POOL_MAX_QUEUE", strconv.Itoa(*poolQueueDepth))
+		}
+	}
+
+	// Load .env before tracing so OTEL_* config is visible.
+	godotenv.Load()
+	shutdownTracing, err := telemetry.SetupTracing(context.Background())
+	if err != nil {
+		log.Printf("Tracing initialization failed: %v", err)
+	}
+	if shutdownTracing != nil {
+		app.OnTerminate().BindFunc(func(_ *core.TerminateEvent) error {
+			return shutdownTracing(context.Background())
+		})
+	}
+
 	routes.Setup(app)
 
 	app.RootCmd.AddCommand(cli.NewPipelineCmd())
-
-	godotenv.Load()
+	app.RootCmd.AddCommand(cli.NewDebugCmd())
+	app.RootCmd.AddCommand(cli.NewPoolCmd())
+	app.RootCmd.AddCommand(cli.NewCleanupCmd())
 	if err := app.Start(); err != nil {
 		log.Fatal(err)
 	}
