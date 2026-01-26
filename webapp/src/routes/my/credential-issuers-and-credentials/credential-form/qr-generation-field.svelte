@@ -105,7 +105,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				/>
 			</div>
 			<div class="pt-[22px]">
-				<QrCode src={deeplinkState.current} placeholder={m.Type_to_generate_QR_code()} />
+				<QrCode
+					src={deeplinkState.current}
+					class="size-60 rounded-md border"
+					placeholder={m.Type_to_generate_QR_code()}
+				/>
 			</div>
 		</div>
 	</Tabs.Content>
