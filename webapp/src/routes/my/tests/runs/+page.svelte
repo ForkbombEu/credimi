@@ -56,12 +56,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	const tabs = {
-		other: m.Conformance_and_custom_checks(),
-		pipeline: m.Pipelines()
+		pipeline: m.Pipelines(),
+		other: m.Conformance_and_custom_checks()
 	} as const;
 
 	type SelectedTab = keyof typeof tabs;
-	let selectedTab = $state<SelectedTab>('other');
+	let selectedTab = $state<SelectedTab>('pipeline');
 
 	const selectedWorkflows = $derived(
 		selectedTab === 'pipeline' ? pipelineWorkflows : otherWorkflows
@@ -83,67 +83,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Tabs.Root>
 	</div>
 
-	<!-- {#if latestWorkflows.length > 0}
-		<div class="space-y-4">
-			<div class="flex items-center justify-between">
-				<T tag="h3">{m.Review_latest_check_runs()}</T>
-				<Button
-					variant="outline"
-					size="sm"
-					onclick={() => {
-						latestCheckRuns = [];
-						LatestCheckRunsStorage.remove();
-					}}
-				>
-					<XIcon />
-					<span>
-						{m.Clear_list()}
-					</span>
-				</Button>
-			</div>
-
-			<WorkflowsTable workflows={latestWorkflows}>
-				{#snippet nameRight({ workflow })}
-					{@const status = toWorkflowStatusReadable(workflow.status)}
-					{#if status === 'Running'}
-						<WorkflowQrPoller
-							workflowId={workflow.execution.workflowId}
-							runId={workflow.execution.runId}
-							containerClass="size-40"
-						/>
-					{/if}
+	{#if selectedWorkflows.length > 0}
+		{#if selectedTab === 'pipeline'}
+			<WorkflowsTable workflows={pipelineWorkflows} />
+		{:else}
+			<WorkflowsTable workflows={otherWorkflows} hideResults>
+				{#snippet header({ Th })}
+					<Th>
+						{m.QR_code()}
+					</Th>
+				{/snippet}
+				{#snippet row({ workflow, Td, status })}
+					<Td>
+						{#if status === 'Running'}
+							<WorkflowQrPoller
+								workflowId={workflow.execution.workflowId}
+								runId={workflow.execution.runId}
+								containerClass="size-40"
+							/>
+						{:else}
+							<span class="text-muted-foreground opacity-50">N/A</span>
+						{/if}
+					</Td>
 				{/snippet}
 			</WorkflowsTable>
-		</div>
-	{/if}
-
-	{#if oldWorkflows.length !== 0 && latestWorkflows.length !== 0}
-		<Separator />
-	{/if} -->
-
-	{#if selectedTab === 'pipeline'}
-		<WorkflowsTable workflows={pipelineWorkflows} />
-	{:else}
-		<WorkflowsTable workflows={otherWorkflows} hideResults>
-			{#snippet header({ Th })}
-				<Th>
-					{m.QR_code()}
-				</Th>
-			{/snippet}
-			{#snippet row({ workflow, Td, status })}
-				<Td>
-					{#if status === 'Running'}
-						<WorkflowQrPoller
-							workflowId={workflow.execution.workflowId}
-							runId={workflow.execution.runId}
-							containerClass="size-40"
-						/>
-					{:else}
-						<span class="text-muted-foreground opacity-50">N/A</span>
-					{/if}
-				</Td>
-			{/snippet}
-		</WorkflowsTable>
+		{/if}
 	{/if}
 
 	{#if selectedWorkflows.length === 0}
