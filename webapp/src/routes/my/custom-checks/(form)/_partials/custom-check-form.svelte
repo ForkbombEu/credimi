@@ -14,8 +14,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
 	import { jsonStringSchema, stepciYamlSchema } from '$lib/utils';
 	import { String } from 'effect';
-	import { run } from 'json_typegen_wasm';
 	import _ from 'lodash';
+	import { InputData, jsonInputForTargetLanguage, quicktype } from 'quicktype-core';
 	import { toast } from 'svelte-sonner';
 	import { fromStore } from 'svelte/store';
 	import { zod } from 'sveltekit-superforms/adapters';
@@ -73,7 +73,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				data.input_json_sample = null;
 				data.input_json_schema = null;
 			} else {
-				data.input_json_schema = generateJsonSchema(jsonSample);
+				data.input_json_schema = await jsonToSchema(JSON.parse(jsonSample));
+				console.log(data.input_json_schema);
 			}
 
 			if (formMode === 'new') {
@@ -90,16 +91,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		// @ts-expect-error - Slight type mismatch, but it works
 		initialData: createInitialData(record)
 	});
-
-	function generateJsonSchema(json: string) {
-		return run(
-			'Root',
-			json,
-			JSON.stringify({
-				output_mode: 'json_schema'
-			})
-		);
-	}
 
 	function createInitialData(record?: CustomChecksResponse) {
 		if (!record) return undefined;
@@ -203,6 +194,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 		return { standard, version };
 	});
+
+	//
+
+	async function jsonToSchema(json: unknown) {
+		const jsonInput = jsonInputForTargetLanguage('schema');
+		await jsonInput.addSource({
+			name: 'Example',
+			samples: [JSON.stringify(json)]
+		});
+
+		const inputData = new InputData();
+		inputData.addInput(jsonInput);
+
+		const result = await quicktype({
+			inputData,
+			lang: 'schema'
+		});
+
+		return result.lines.filter((line) => !line.includes('$schema')).join('\n');
+	}
 </script>
 
 <FocusPageLayout

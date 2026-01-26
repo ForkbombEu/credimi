@@ -649,6 +649,8 @@ github.com/forkbombeu/avdctl v0.0.0-20251117141832-94a8ef48fc9b h1:Hcga7FlNFKa+d
 github.com/forkbombeu/avdctl v0.0.0-20251117141832-94a8ef48fc9b/go.mod h1:2PyuTviG6/ts65ybsWFKYqE9wiRWwm9minyEaClSbZI=
 github.com/forkbombeu/credimi-extra v0.0.0-20260114150907-4e7b69255c9a h1:nUoLOMMwe2Fy5rMORbHJKoDsbDlNB5l0zH46R9m85/0=
 github.com/forkbombeu/credimi-extra v0.0.0-20260114150907-4e7b69255c9a/go.mod h1:31A5rHv7SJ1cDmnP0hy+gApNw9aIZjOGBNBeH3pNsQw=
+github.com/forkbombeu/credimi-extra v0.0.0-20260122121438-b571b6813264 h1:Vh/82gA0K6ejVJBonI2YryIo7lSivyqhJjZpjo8JI2M=
+github.com/forkbombeu/credimi-extra v0.0.0-20260122121438-b571b6813264/go.mod h1:31A5rHv7SJ1cDmnP0hy+gApNw9aIZjOGBNBeH3pNsQw=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.8.0 h1:dAwr6QBTBZIkG8roQaJjGof0pp0EeF+tNV7YBP3F/8M=
@@ -1182,6 +1184,7 @@ github.com/pkg/sftp v1.13.1/go.mod h1:3HaPG6Dq1ILlpPZRO0HVMrsydcdLt6HRDccSgb87qR
 github.com/pkg/term v1.2.0-beta.2 h1:L3y/h2jkuBVFdWiJvNfYfKmzcCnILw7mJWm2JQuMppw=
 github.com/pkg/term v1.2.0-beta.2/go.mod h1:E25nymQcrSllhX42Ok8MRm1+hyBdHY0dCeiKZ9jpNGw=
 github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10/go.mod h1:t/avpk3KcrXxUnYOhZhMXJlSEyie6gQbtLq5NM3loB8=
+github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
 github.com/pmezard/go-difflib v1.0.0/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 h1:Jamvg5psRIccs7FGNTlIRMkT8wgtp5eCXdBlqhYGL6U=
 github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2/go.mod h1:iKH77koFhYxTK1pcRnkKkqfTogsbg7gZNVY4sRDYZ/4=

@@ -44,3 +44,10 @@ jobs:
       - uses: actions/attest-build-provenance@v2
         with:
           subject-checksums: ./dist/checksums.txt
+
+  publish_docker_image:
+    name: 🐳 Publish Docker image
+    needs: release
+    if: github.ref == 'refs/heads/main'
+    uses: ForkbombEu/workflows/.github/workflows/publish-ghcr.yml@main
+    secrets: inherit

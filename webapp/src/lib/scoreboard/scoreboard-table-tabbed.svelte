@@ -53,6 +53,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 />
 
 <style lang="postcss">
+	@reference "tailwindcss";
+
 	.tab-navigation {
 		@apply mb-6 flex gap-2 border-b;
 	}

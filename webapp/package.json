@@ -73,7 +73,6 @@
 		"globals": "^16.5.0",
 		"json-schema-to-typescript": "^15.0.4",
 		"json-to-ts": "^2.1.0",
-		"json_typegen_wasm": "^0.7.0",
 		"mjml": "^4.18.0",
 		"mode-watcher": "^1.1.0",
 		"paneforge": "^1.0.2",
@@ -98,7 +97,6 @@
 		"vite": "^7.2.6",
 		"vite-plugin-devtools-json": "^1.0.0",
 		"vite-plugin-top-level-await": "^1.6.0",
-		"vite-plugin-wasm": "^3.5.0",
 		"vitest": "^4.0.15",
 		"vitest-browser-svelte": "^2.0.1"
 	},
@@ -126,6 +124,7 @@
 		"nanoid": "^5.1.6",
 		"pocketbase": "0.26.6",
 		"qrcode-generator": "^2.0.4",
+		"quicktype-core": "^23.2.6",
 		"remove-markdown": "^0.6.3",
 		"runed": "0.37.1",
 		"shiki": "^3.21.0",
