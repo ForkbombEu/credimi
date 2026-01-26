@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { ArrowRightIcon, Pencil, PlayIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
+	import { userOrganization } from '$lib/app-state';
 	import StatusCircle from '$lib/components/status-circle.svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
@@ -34,17 +35,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		pipeline: PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline']>;
-		organization: OrganizationsResponse;
+		owner: OrganizationsResponse;
 		workflows?: WorkflowExecutionSummary[];
 	};
 
-	let { pipeline = $bindable(), organization, workflows }: Props = $props();
+	let { pipeline = $bindable(), owner, workflows }: Props = $props();
 
 	//
 
 	let schedule = $derived.by(() => {
 		const s = pipeline.expand?.schedules_via_pipeline?.find(
-			(schedule) => schedule.owner === organization.id
+			(schedule) => schedule.owner === userOrganization.current?.id
 		);
 		return s as EnrichedSchedule | undefined;
 	});
@@ -57,14 +58,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 
 	const hasWorkflows = $derived(workflows && workflows.length > 0);
+
+	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
 </script>
 
 <DashboardCard
 	record={pipeline}
-	avatar={() => pb.files.getURL(organization, organization.logo)}
-	badge={m.Yours()}
+	avatar={pb.files.getURL(owner, owner.logo)}
+	badge={isPublic ? m.Public() : undefined}
 	showClone
 	content={hasWorkflows ? content : undefined}
+	editAction={isPublic ? undefined : editAction}
+	hidePublish={isPublic}
+	hideDelete={isPublic}
+	hideEdit={isPublic}
 >
 	{#snippet nameRight()}
 		{#if isRunning}
@@ -76,10 +83,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{m.Running()}
 			</Badge>
 		{/if}
-	{/snippet}
-
-	{#snippet editAction()}
-		<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} tooltip={m.Edit()} />
 	{/snippet}
 
 	{#snippet actions()}
@@ -98,6 +101,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	{/snippet}
 </DashboardCard>
+
+{#snippet editAction()}
+	<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} tooltip={m.Edit()} />
+{/snippet}
 
 {#snippet content()}
 	{#if workflows && workflows.length > 0}

@@ -36,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		record: R;
 		content?: Snippet;
 		links?: Record<string, string>;
-		avatar: (record: R) => string;
+		avatar?: ((record: R) => string) | string | undefined;
 		subtitle?: string;
 		badge?: string;
 		actions?: Snippet;
@@ -46,6 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		hidePublish?: boolean;
 		hideActions?: boolean;
 		showClone?: boolean;
+		hideEdit?: boolean;
 	};
 
 	let {
@@ -61,7 +62,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		hideDelete = false,
 		hidePublish = false,
 		hideActions = false,
-		showClone = false
+		showClone = false,
+		hideEdit = false
 	}: Props = $props();
 
 	//
@@ -81,12 +83,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			path: mergePaths('pipelines', getPath(record))
 		});
 	});
+
+	const avatarSrc = $derived.by(() => {
+		if (typeof avatar === 'function') return avatar(record);
+		return avatar;
+	});
 </script>
 
-<Card id={record.canonified_name} class="scroll-mt-5 bg-card" contentClass="space-y-4 p-4">
+<Card
+	id={record.canonified_name}
+	class="scroll-mt-5 rounded-sm bg-card"
+	contentClass="space-y-4 p-4"
+>
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex items-center gap-4">
-			<Avatar src={avatar(record)} fallback={record.name} class="rounded-sm border" />
+			<Avatar src={avatarSrc} fallback={record.name} class="rounded-sm border" />
 			<div class="space-y-1">
 				<div class="flex items-center gap-2">
 					<LabelLink
@@ -122,7 +133,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 				{#if editAction}
 					{@render editAction()}
-				{:else}
+				{:else if !hideEdit}
 					<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
 					<RecordEdit record={record as any} />
 				{/if}
