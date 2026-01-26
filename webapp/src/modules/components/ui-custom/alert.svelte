@@ -44,7 +44,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { children, content, icon, variant, class: className, ...alertProps }: Props = $props();
 </script>
 
-<Alert.Root {...alertProps} class={[variants({ variant }), className, { 'p-4!': !icon }]}>
+<Alert.Root
+	{...alertProps}
+	class={[variants({ variant }), 'flex flex-col', className, { 'p-4!': !icon }]}
+>
 	{#if icon}
 		<Icon src={icon} size={16} />
 	{/if}

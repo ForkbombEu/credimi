@@ -88,7 +88,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const hideActionsList = $derived(hideActions ? ['all'] : hideActions);
+	const hideActionsList = $derived(hideActions === true ? ['all'] : hideActions);
 </script>
 
 <Card

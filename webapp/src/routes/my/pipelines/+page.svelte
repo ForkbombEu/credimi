@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Plus } from '@lucide/svelte';
+	import { userOrganization } from '$lib/app-state';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
 
 	import { CollectionManager } from '@/collections-components';
@@ -20,7 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	let { organization } = $derived(data);
 
 	setDashboardNavbar({ title: 'Pipelines', right: navbarRight });
 
@@ -29,6 +29,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const allWorkflows = new PolledResource(getAllPipelinesWorkflows, {
 		initialValue: () => data.workflows
 	});
+
+	$inspect(userOrganization.current);
 </script>
 
 <!-- Your Pipelines Section -->
@@ -37,7 +39,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<CollectionManager
 		collection="pipelines"
 		queryOptions={{
-			filter: `owner = '${organization.id}'`,
+			filter: `owner.id = '${userOrganization.current?.id}'`,
 			sort: ['created', 'DESC'],
 			expand: ['schedules_via_pipeline']
 		}}
@@ -47,7 +49,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<div class="space-y-4">
 				{#each records as pipeline, index (pipeline.id)}
 					{@const workflows = allWorkflows.current?.[pipeline.id]}
-					<PipelineCard bind:pipeline={records[index]} owner={organization} {workflows} />
+					{#if userOrganization.current}
+						<PipelineCard bind:pipeline={records[index]} {workflows} />
+					{/if}
 				{/each}
 			</div>
 		{/snippet}
@@ -67,7 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<CollectionManager
 		collection="pipelines"
 		queryOptions={{
-			filter: `owner != '${organization.id}'`,
+			filter: `owner.id != '${userOrganization.current?.id}'`,
 			sort: ['created', 'DESC'],
 			expand: ['owner', 'schedules_via_pipeline']
 		}}
@@ -79,7 +83,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{@const ownerOrg = pipeline.expand?.owner}
 					{@const workflows = allWorkflows.current?.[pipeline.id] ?? []}
 					{#if ownerOrg}
-						<PipelineCard bind:pipeline={records[index]} owner={ownerOrg} {workflows} />
+						<PipelineCard bind:pipeline={records[index]} {workflows} />
 					{/if}
 				{/each}
 			</div>

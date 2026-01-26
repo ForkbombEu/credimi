@@ -17,7 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WorkflowsTableSmall from '$lib/workflows/workflows-table-small.svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
-	import type { OrganizationsResponse } from '@/pocketbase/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
@@ -34,12 +33,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		pipeline: PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline']>;
-		owner: OrganizationsResponse;
+		pipeline: PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline', 'owner']>;
 		workflows?: WorkflowExecutionSummary[];
 	};
 
-	let { pipeline = $bindable(), owner, workflows }: Props = $props();
+	let { pipeline = $bindable(), workflows }: Props = $props();
 
 	//
 
@@ -57,6 +55,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})
 	);
 
+	const avatar = $derived.by(() => {
+		const owner = pipeline.expand?.owner;
+		if (!owner) return undefined;
+		return pb.files.getURL(owner, owner.logo);
+	});
+
 	const hasWorkflows = $derived(workflows && workflows.length > 0);
 
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
@@ -64,11 +68,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <DashboardCard
 	record={pipeline}
-	avatar={pb.files.getURL(owner, owner.logo)}
+	{avatar}
 	badge={isPublic ? m.Public() : undefined}
 	content={hasWorkflows ? content : undefined}
 	editAction={isPublic ? undefined : editAction}
-	hideActions={isPublic ? ['clone', 'delete', 'edit'] : undefined}
+	hideActions={isPublic ? ['delete', 'edit', 'publish'] : undefined}
 >
 	{#snippet nameRight()}
 		{#if isRunning}
