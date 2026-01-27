@@ -84,7 +84,9 @@ var CloneConfigs = map[string]CloneConfig{
 	},
 }
 
-func canDuplicateRecordIfRequestIsFromOwnerOrRecordIsPublic(e *core.RequestEvent, originalRecord *core.Record) (bool, error) {
+func canDuplicateRecordIfRequestIsFromOwnerOrRecordIsPublic(
+	e *core.RequestEvent, 
+	originalRecord *core.Record) (bool, error) {
 	auth := e.Auth
 	if auth == nil {
 		return false, apis.NewUnauthorizedError("Authentication required", nil)
@@ -96,7 +98,9 @@ func canDuplicateRecordIfRequestIsFromOwnerOrRecordIsPublic(e *core.RequestEvent
 	}
 }
 
-func canDuplicateRecordWithOwnerFieldAndWithoutPublishedField(e *core.RequestEvent, originalRecord *core.Record) (bool, error) {
+func canDuplicateRecordWithOwnerFieldAndWithoutPublishedField(
+	e *core.RequestEvent, 
+	originalRecord *core.Record) (bool, error) {
 	auth := e.Auth
 	if auth == nil {
 		return false, apis.NewUnauthorizedError("Authentication required", nil)
