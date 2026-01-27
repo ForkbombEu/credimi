@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { SuperForm } from 'sveltekit-superforms';
 
 	import { generateDeeplinkFromYaml } from '$lib/utils';
+	import { get } from 'lodash';
 	import { onMount } from 'svelte';
 	import { fromStore, type Writable } from 'svelte/store';
 	import { formFieldProxy } from 'sveltekit-superforms';
@@ -167,16 +168,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 		return undefined;
 	});
-</script>
 
-{#snippet error()}
-	{#if workflowError && typeof workflowError === 'object' && 'summary' in workflowError}
-		{@const error = workflowError}
-		<div class="space-y-2 text-center">
-			<div class="text-sm font-medium">{error.summary}</div>
-		</div>
-	{/if}
-{/snippet}
+	const error = $derived.by(() => {
+		if (!workflowError) {
+			return undefined;
+		}
+		if (typeof workflowError !== 'object') {
+			return m.An_error_happened_while_generating_the_qr_code();
+		}
+		const errorSummary: string | undefined = get(workflowError, 'summary');
+		const errorCause: string | undefined = get(workflowError, 'cause.data.message');
+		return errorSummary ?? errorCause ?? m.An_error_happened_while_generating_the_qr_code();
+	});
+</script>
 
 <div class="flex max-w-full gap-4">
 	<div class="w-0 grow">
@@ -204,20 +208,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			src={generatedDeeplink}
 			class="size-60 rounded-md border"
 			{placeholder}
-			bind:isLoading={isSubmittingWorkflow}
-			error={typeof workflowError === 'string' ? workflowError : undefined}
-			hasStructuredError={!!(
-				workflowError &&
-				typeof workflowError === 'object' &&
-				'summary' in workflowError
-			)}
-		>
-			{#if workflowError && typeof workflowError === 'object' && 'summary' in workflowError}
-				{@render error()}
-			{/if}
-		</QrCode>
+			isLoading={isSubmittingWorkflow}
+			{error}
+		/>
 		{#if generatedDeeplink}
-			<div class="max-w-60 break-all pt-4 text-xs">
+			<div class="max-w-60 pt-4 text-xs break-all">
 				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a class="hover:underline" href={generatedDeeplink} target="_self">
 					{generatedDeeplink}
