@@ -22,7 +22,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { EllipsisVerticalIcon, ImageIcon, TriangleIcon, VideoIcon } from '@lucide/svelte';
-	import { resolve } from '$app/paths';
 	import clsx from 'clsx';
 
 	import type { IconComponent } from '@/components/types';
@@ -202,8 +201,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet mediaPreview(props: { image: string; href: string; icon: IconComponent })}
 	{@const { image, href, icon } = props}
+	<!-- eslint-disable svelte/no-navigation-without-resolve -->
 	<a
-		href={resolve(href as '/')}
+		{href}
 		target="_blank"
 		class="relative size-10 shrink-0 overflow-hidden rounded-md border border-slate-300 hover:cursor-pointer hover:ring-2"
 	>
