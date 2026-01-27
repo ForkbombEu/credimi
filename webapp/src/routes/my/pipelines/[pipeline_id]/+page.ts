@@ -25,7 +25,6 @@ export const load = async ({ params, fetch }) => {
 	}
 	
 	// If not found by canonified path, try by ID
-	// PocketBase IDs are 15 characters long with specific format
 	if (!pipeline) {
 		try {
 			pipeline = await pb.collection('pipelines').getOne(pathOrId, { fetch });
