@@ -13,6 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { ArrowDown, ArrowUp } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
+	import { getCustomCheckPublicUrl } from '$lib/marketplace/utils';
 	import { getPath, mergePaths } from '$lib/utils';
 	import { String } from 'effect';
 	import { truncate } from 'lodash';
@@ -31,6 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { Separator } from '@/components/ui/separator';
+	import { Collections, type CustomChecksResponse } from '@/pocketbase/types';
 
 	import LabelLink from './label-link.svelte';
 	import PublishedSwitch from './published-switch.svelte';
@@ -75,10 +77,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let publicUrl = $derived.by(() => {
-		if (!record.published) return;
-		return resolve('/(public)/marketplace/[...path]', {
-			path: mergePaths('pipelines', getPath(record))
-		});
+		if (!record.published) {
+			return undefined;
+		} else if (record.collectionName === Collections.CustomChecks) {
+			return getCustomCheckPublicUrl(record as CustomChecksResponse);
+		} else {
+			return resolve('/(public)/marketplace/[...path]', {
+				path: mergePaths(record.collectionName, getPath(record))
+			});
+		}
 	});
 
 	const avatarSrc = $derived.by(() => {
