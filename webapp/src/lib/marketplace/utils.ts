@@ -7,8 +7,9 @@ import {
 	credentialIssuersAndCredentialsSection,
 	verifiersAndUseCaseVerificationsSection
 } from '$lib/global/sections';
+import { getPath } from '$lib/utils';
 
-import type { MarketplaceItemsResponse } from '@/pocketbase/types';
+import type { CustomChecksResponse, MarketplaceItemsResponse } from '@/pocketbase/types';
 
 import { localizeHref } from '@/i18n';
 import { pb } from '@/pocketbase';
@@ -40,13 +41,17 @@ export function getMarketplaceItemLogo(item: MarketplaceItem): string | undefine
 			: undefined;
 }
 
+//
+
 export const CUSTOM_CHECK_QUERY_PARAM = 'custom_check_id';
+
+export function getCustomCheckPublicUrl(item: MarketplaceItem | CustomChecksResponse) {
+	return `/my/tests/new?${CUSTOM_CHECK_QUERY_PARAM}=${getPath(item)}`;
+}
 
 export function getMarketplaceItemUrl(item: MarketplaceItem) {
 	const href =
-		item.type === 'custom_checks'
-			? `/my/tests/new?${CUSTOM_CHECK_QUERY_PARAM}=${item.id}`
-			: `/marketplace/${item.path}`;
+		item.type === 'custom_checks' ? getCustomCheckPublicUrl(item) : `/marketplace/${item.path}`;
 	return localizeHref(href);
 }
 
