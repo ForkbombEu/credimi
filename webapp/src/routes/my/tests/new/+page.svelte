@@ -5,9 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { page } from '$app/state';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
-	import { CUSTOM_CHECK_QUERY_PARAM } from '$lib/marketplace';
 	import { StartChecksFormComponent } from '$start-checks-form';
 
 	import { m } from '@/i18n';
@@ -15,9 +13,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	const customCheckId = $derived(
-		page.url.searchParams.get(CUSTOM_CHECK_QUERY_PARAM) ?? undefined
-	);
 </script>
 
 <!--  -->
@@ -30,6 +25,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<StartChecksFormComponent
 		standardsWithTestSuites={data.standardsAndTestSuites}
 		customChecks={data.customChecks}
-		{customCheckId}
+		customCheckId={data.customCheckId}
 	/>
 </FocusPageLayout>
