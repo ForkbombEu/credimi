@@ -15,6 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import WorkflowsTableSmall from '$lib/workflows/workflows-table-small.svelte';
+	import { getPath } from '$lib/utils';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 
@@ -114,7 +115,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<T class="text-sm font-medium">{m.Recent_workflows()}</T>
 				<BlueButton
 					compact
-					href={resolve('/my/pipelines/[pipeline_id]', { pipeline_id: pipeline.id })}
+					href={resolve('/my/pipelines/[pipeline_id]', { pipeline_id: getPath(pipeline) })}
 				>
 					{m.view_all()}
 					<ArrowRightIcon />
