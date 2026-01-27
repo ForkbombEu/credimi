@@ -15,17 +15,24 @@ export const load = async ({ params, fetch }) => {
 	let pipeline;
 	const pathOrId = params.pipeline_id;
 	
-	// Check if it looks like a canonified path (contains slash or dash)
-	if (pathOrId.includes('/') || pathOrId.includes('-')) {
+	// First, try to resolve as a canonified path
+	// Canonified paths for pipelines have format: /organization-name/pipeline-name
+	if (pathOrId.includes('/')) {
 		const result = await getRecordByCanonifiedPath(pathOrId, { fetch });
 		if (!(result instanceof Error)) {
 			pipeline = result;
 		}
 	}
 	
-	// If not found by canonified path or doesn't look like a path, try by ID
+	// If not found by canonified path, try by ID
+	// PocketBase IDs are 15 characters long with specific format
 	if (!pipeline) {
-		pipeline = await pb.collection('pipelines').getOne(pathOrId, { fetch });
+		try {
+			pipeline = await pb.collection('pipelines').getOne(pathOrId, { fetch });
+		} catch (error) {
+			// If both methods fail, let the error propagate
+			throw error;
+		}
 	}
 	
 	const workflows = await getPipelineWorkflows(pipeline.id, { fetch });
