@@ -42,6 +42,7 @@ type CloneConfig struct {
 	makeUnique   []string
 	exclude      []string
 	CanDuplicate func(e *core.RequestEvent, originalRecord *core.Record) (bool, error)
+	BeforeSave   func(e *core.RequestEvent, newRecord *core.Record) error
 }
 
 var (
@@ -58,31 +59,48 @@ var CloneConfigs = map[string]CloneConfig{
 	"credentials": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},
-		CanDuplicate: canDuplicateRecordWithOwnerField,
+		CanDuplicate: canDuplicateIfRequestIsFromOwner,
 	},
 	"wallet_actions": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},
-		CanDuplicate: canDuplicateRecordWithOwnerField,
+		CanDuplicate: canDuplicateIfRequestIsFromOwner,
 	},
 	"use_cases_verifications": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},
-		CanDuplicate: canDuplicateRecordWithOwnerField,
+		CanDuplicate: canDuplicateIfRequestIsFromOwner,
 	},
 	"pipelines": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},
-		CanDuplicate: canDuplicateRecordWithOwnerField,
+		CanDuplicate: canDuplicateIfRequestIsFromOwnerOrRecordIsPublic,
+		BeforeSave:   UpdateOwnerField,
 	},
 	"custom_checks": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},
-		CanDuplicate: canDuplicateRecordWithOwnerField,
+		CanDuplicate: canDuplicateIfRequestIsFromOwner,
 	},
 }
 
-func canDuplicateRecordWithOwnerField(e *core.RequestEvent, originalRecord *core.Record) (bool, error) {
+func canDuplicateIfRequestIsFromOwnerOrRecordIsPublic(
+	e *core.RequestEvent,
+	originalRecord *core.Record) (bool, error) {
+	auth := e.Auth
+	if auth == nil {
+		return false, apis.NewUnauthorizedError("Authentication required", nil)
+	}
+	if originalRecord.GetBool("published") == true {
+		return true, nil
+	} else {
+		return canDuplicateIfRequestIsFromOwner(e, originalRecord)
+	}
+}
+
+func canDuplicateIfRequestIsFromOwner(
+	e *core.RequestEvent,
+	originalRecord *core.Record) (bool, error) {
 	auth := e.Auth
 	if auth == nil {
 		return false, apis.NewUnauthorizedError("Authentication required", nil)
@@ -99,7 +117,31 @@ func canDuplicateRecordWithOwnerField(e *core.RequestEvent, originalRecord *core
 	return true, nil
 }
 
-func cloneRecord(app core.App, originalRecord *core.Record, config CloneConfig) (*core.Record, error) {
+func UpdateOwnerField(e *core.RequestEvent, newRecord *core.Record) error {
+	auth := e.Auth
+	if auth == nil {
+		return apis.NewUnauthorizedError("Authentication required", nil)
+	}
+	authRecord, err := e.App.FindFirstRecordByFilter("orgAuthorizations", "user={:user}",
+		dbx.Params{"user": auth.Id})
+	if err != nil {
+		return fmt.Errorf("failed to find user organization: %w", err)
+	}
+	if authRecord == nil {
+		return apis.NewForbiddenError("User not authorized for any organization", nil)
+	}
+
+	orgID := authRecord.GetString("organization")
+	if orgID == "" {
+		return fmt.Errorf("organization ID not found in authorization record")
+	}
+
+	newRecord.Set("owner", orgID)
+
+	return nil
+}
+
+func cloneRecord(e *core.RequestEvent, originalRecord *core.Record, config CloneConfig) (*core.Record, error) {
 	newRecord := core.NewRecord(originalRecord.Collection())
 	collection := originalRecord.Collection()
 
@@ -139,13 +181,19 @@ func cloneRecord(app core.App, originalRecord *core.Record, config CloneConfig) 
 		newRecord.Set(key, value)
 	}
 
-	if err := app.Save(newRecord); err != nil {
+	if config.BeforeSave != nil {
+		if err := config.BeforeSave(e, newRecord); err != nil {
+			return nil, fmt.Errorf("failed in BeforeSave: %w", err)
+		}
+		newRecord.Set("published", false)
+	}
+	if err := e.App.Save(newRecord); err != nil {
 		return nil, fmt.Errorf("failed to save base record: %w", err)
 	}
 
 	if len(fileFieldValues) > 0 {
-		if err := cloneFiles(app, originalRecord, newRecord, fileFieldValues); err != nil {
-			app.Logger().Error(fmt.Sprintf("Error cloning files: %v", err))
+		if err := cloneFiles(e.App, originalRecord, newRecord, fileFieldValues); err != nil {
+			e.App.Logger().Error(fmt.Sprintf("Error cloning files: %v", err))
 		}
 	}
 
@@ -202,7 +250,7 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 			return apis.NewUnauthorizedError("Authentication required", nil)
 		}
 
-		clonedRecord, err := cloneRecord(e.App, originalRecord, config)
+		clonedRecord, err := cloneRecord(e, originalRecord, config)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
