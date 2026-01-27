@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Pencil, Plus } from '@lucide/svelte';
+	import { Pencil, PlayIcon, Plus } from '@lucide/svelte';
 	import { entities } from '$lib/global/entities';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
+	import { getCustomCheckPublicUrl } from '$lib/marketplace/utils.js';
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -37,6 +38,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					avatar={(r) => pb.files.getURL(r, r.logo)}
 					subtitle={record.standard_and_version}
 				>
+					{#snippet actions()}
+						<Button href={getCustomCheckPublicUrl(record)}>
+							<PlayIcon />
+							{m.Run_now()}
+						</Button>
+					{/snippet}
 					{#snippet editAction()}
 						<IconButton href="/my/custom-checks/edit-{record.id}" icon={Pencil} />
 					{/snippet}
