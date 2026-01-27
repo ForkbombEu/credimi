@@ -59,33 +59,33 @@ var CloneConfigs = map[string]CloneConfig{
 	"credentials": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},
-		CanDuplicate: canDuplicateRecordIfRequestIsFromOwnerOrRecordIsPublic,
+		CanDuplicate: canDuplicateIfRequestIsFromOwner,
 	},
 	"wallet_actions": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},
-		CanDuplicate: canDuplicateRecordIfRequestIsFromOwnerOrRecordIsPublic,
+		CanDuplicate: canDuplicateIfRequestIsFromOwner,
 	},
 	"use_cases_verifications": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},
-		CanDuplicate: canDuplicateRecordIfRequestIsFromOwnerOrRecordIsPublic,
+		CanDuplicate: canDuplicateIfRequestIsFromOwner,
 	},
 	"pipelines": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},
-		CanDuplicate: canDuplicateRecordIfRequestIsFromOwnerOrRecordIsPublic,
-		BeforeSave: UpdateOwnerField,
+		CanDuplicate: canDuplicateIfRequestIsFromOwnerOrRecordIsPublic,
+		BeforeSave:   UpdateOwnerField,
 	},
 	"custom_checks": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},
-		CanDuplicate: canDuplicateRecordIfRequestIsFromOwnerOrRecordIsPublic,
+		CanDuplicate: canDuplicateIfRequestIsFromOwner,
 	},
 }
 
-func canDuplicateRecordIfRequestIsFromOwnerOrRecordIsPublic(
-	e *core.RequestEvent, 
+func canDuplicateIfRequestIsFromOwnerOrRecordIsPublic(
+	e *core.RequestEvent,
 	originalRecord *core.Record) (bool, error) {
 	auth := e.Auth
 	if auth == nil {
@@ -94,12 +94,12 @@ func canDuplicateRecordIfRequestIsFromOwnerOrRecordIsPublic(
 	if originalRecord.GetBool("published") == true {
 		return true, nil
 	} else {
-		return canDuplicateRecordWithOwnerFieldAndWithoutPublishedField(e, originalRecord)
+		return canDuplicateIfRequestIsFromOwner(e, originalRecord)
 	}
 }
 
-func canDuplicateRecordWithOwnerFieldAndWithoutPublishedField(
-	e *core.RequestEvent, 
+func canDuplicateIfRequestIsFromOwner(
+	e *core.RequestEvent,
 	originalRecord *core.Record) (bool, error) {
 	auth := e.Auth
 	if auth == nil {
@@ -118,27 +118,27 @@ func canDuplicateRecordWithOwnerFieldAndWithoutPublishedField(
 }
 
 func UpdateOwnerField(e *core.RequestEvent, newRecord *core.Record) error {
-    auth := e.Auth
-    if auth == nil {
-        return apis.NewUnauthorizedError("Authentication required", nil)
-    }
-    authRecord, err := e.App.FindFirstRecordByFilter("orgAuthorizations", "user={:user}",
-        dbx.Params{"user": auth.Id})
-    if err != nil {
-        return fmt.Errorf("failed to find user organization: %w", err)
-    }
-    if authRecord == nil {
-        return apis.NewForbiddenError("User not authorized for any organization", nil)
-    }
-    
-    orgID := authRecord.GetString("organization")
-    if orgID == "" {
-        return fmt.Errorf("organization ID not found in authorization record")
-    }
-    
-    newRecord.Set("owner", orgID)
-    
-    return nil
+	auth := e.Auth
+	if auth == nil {
+		return apis.NewUnauthorizedError("Authentication required", nil)
+	}
+	authRecord, err := e.App.FindFirstRecordByFilter("orgAuthorizations", "user={:user}",
+		dbx.Params{"user": auth.Id})
+	if err != nil {
+		return fmt.Errorf("failed to find user organization: %w", err)
+	}
+	if authRecord == nil {
+		return apis.NewForbiddenError("User not authorized for any organization", nil)
+	}
+
+	orgID := authRecord.GetString("organization")
+	if orgID == "" {
+		return fmt.Errorf("organization ID not found in authorization record")
+	}
+
+	newRecord.Set("owner", orgID)
+
+	return nil
 }
 
 func cloneRecord(e *core.RequestEvent, originalRecord *core.Record, config CloneConfig) (*core.Record, error) {
@@ -182,9 +182,9 @@ func cloneRecord(e *core.RequestEvent, originalRecord *core.Record, config Clone
 	}
 
 	if config.BeforeSave != nil {
-    	if err := config.BeforeSave(e, newRecord); err != nil {
-        	return nil, fmt.Errorf("failed in BeforeSave: %w", err)
-    	}
+		if err := config.BeforeSave(e, newRecord); err != nil {
+			return nil, fmt.Errorf("failed in BeforeSave: %w", err)
+		}
 		newRecord.Set("published", false)
 	}
 	if err := e.App.Save(newRecord); err != nil {
