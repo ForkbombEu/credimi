@@ -356,7 +356,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		versionIdentifier := e.Request.FormValue("version_identifier")
+		runnerIdentifier := e.Request.FormValue("runner_identifier")
 		runIdentifier := e.Request.FormValue("run_identifier")
 
 		resultRecord, err := canonify.Resolve(e.App, runIdentifier)
@@ -370,7 +370,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 		}
 
 		versionName := strings.ReplaceAll(
-			strings.Trim(versionIdentifier, "/"),
+			strings.Trim(runnerIdentifier, "/"),
 			"/",
 			"-",
 		)
@@ -392,7 +392,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, map[string]any{
 			"status":               "success",
-			"version":              versionIdentifier,
+			"runner":               runnerIdentifier,
 			"video_file_name":      videoFilename,
 			"result_urls":          videoURLs,
 			"last_frame_file_name": frameFilename,

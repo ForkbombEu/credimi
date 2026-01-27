@@ -100,6 +100,12 @@ var CanonifyPaths = map[string]PathTemplate{
 		CanonifiedField: "canonified_title",
 		PathLength:      1,
 	},
+	"mobile_runners": {
+		Field:           "name",
+		CanonifiedField: "canonified_name",
+		Parent:          &Parent{Collection: "organizations", Field: "owner"},
+		PathLength:      2,
+	},
 }
 
 // BuildPath constructs the path for a record

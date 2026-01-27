@@ -30,7 +30,7 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 				OldNamespace: "old-test-namespace",
 			},
 			inputConfig: map[string]any{
-				"server_url": "https://test-server.com",
+				"app_url": "https://test-server.com",
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
 				httpAct := activities.NewHTTPActivity()
@@ -40,9 +40,13 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
-						Output: map[string]any{"status": "ok"},
+						Output: map[string]any{
+							"status": "ok",
+							"body":   map[string]any{"runners": []string{"runner1", "runner2"}},
+						},
 					}, nil)
 			},
+
 			expectedResult: "Send namespace 'test-namespace' to start workers successfully",
 		},
 		{
@@ -51,14 +55,40 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 				OldNamespace: "old-test-namespace",
 			},
 			inputConfig: map[string]any{
-				"server_url": "https://test-server.com",
+				"app_url": "https://test-server.com",
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
 			expectedErr:    true,
 		},
-
 		{
-			name: "Workflow fails when server_url missing in config",
+			name: "Workflow fails when list API returns invalid response body",
+			inputPayload: WorkerManagerWorkflowPayload{
+				Namespace:    "test-namespace",
+				OldNamespace: "old-test-namespace",
+			},
+			inputConfig: map[string]any{
+				"app_url": "https://test-server.com",
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				httpAct := activities.NewHTTPActivity()
+
+				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
+					Name: httpAct.Name(),
+				})
+				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"status": "ok",
+							"body": map[string]any{
+								"runners": "not-an-array",
+							},
+						},
+					}, nil)
+			},
+			expectedErr: true,
+		},
+		{
+			name: "Workflow fails when app_url missing in config",
 			inputPayload: WorkerManagerWorkflowPayload{
 				Namespace:    "test-namespace",
 				OldNamespace: "old-test-namespace",

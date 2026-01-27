@@ -24,7 +24,7 @@ type TaskFactory struct {
 	PayloadType         reflect.Type
 	PipelinePayloadType reflect.Type
 	OutputKind          workflowengine.OutputKind
-	TaskQueue           string
+	CustomTaskQueue     bool
 }
 
 // Registry maps activity keys to their factory.
@@ -99,7 +99,7 @@ var Registry = map[string]TaskFactory{
 		Kind:                TaskWorkflow,
 		NewFunc:             func() any { return workflows.NewMobileAutomationWorkflow() },
 		PayloadType:         reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
-		TaskQueue:           workflows.MobileAutomationTaskQueue,
+		CustomTaskQueue: true,
 		PipelinePayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPipelinePayload{}),
 	},
 	"custom-check": {

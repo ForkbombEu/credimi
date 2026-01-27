@@ -197,7 +197,6 @@ func findOrCreatePipeline(
 	orgID string,
 	input *PipelineCLIInput,
 ) (map[string]any, error) {
-
 	// 1. Try to find existing
 	filter := fmt.Sprintf(
 		`owner="%s" && name="%s" && yaml="%s"`,
@@ -282,7 +281,6 @@ func createPipeline(
 	orgID string,
 	input *PipelineCLIInput,
 ) (map[string]any, error) {
-
 	payload := map[string]any{
 		"owner":       orgID,
 		"name":        input.Name,
