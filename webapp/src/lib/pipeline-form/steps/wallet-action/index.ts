@@ -2,13 +2,18 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
 import { getMarketplaceItemLogo, type MarketplaceItem } from '$lib/marketplace';
 import { type PipelineStepByType, type PipelineStepData } from '$lib/pipeline-form/types';
 import { getPath } from '$lib/utils';
 
 import { pb } from '@/pocketbase';
-import { Collections } from '@/pocketbase/types';
+import {
+	type MobileRunnersResponse,
+	type WalletActionsResponse,
+	type WalletVersionsResponse
+} from '@/pocketbase/types';
 
 import type { TypedConfig } from '../types';
 
@@ -41,10 +46,11 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 	initForm: () => new WalletActionStepForm(),
 
-	serialize: ({ action, version }) => {
+	serialize: ({ action, version, runner }) => {
 		const _with: PipelineStepData<PipelineStepByType<'mobile-automation'>> = {
 			action_id: getPath(action),
-			version_id: getPath(version)
+			version_id: getPath(version),
+			runner_id: getPath(runner)
 		};
 		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
@@ -58,50 +64,25 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 		if (!('action_id' in data) || !('version_id' in data)) {
 			throw new Error('Invalid data');
 		}
-		const [orgId, walletId, actionId] = data.action_id.split('/').filter(Boolean);
-		const versionId = data.version_id.split('/').filter(Boolean)[2];
 
-		const wallet: MarketplaceItem = await pb.collection('marketplace_items').getFirstListItem(
-			pb.filter('type = {:type} && canonified_name = {:walletId}', {
-				type: Collections.Wallets,
-				walletId
-			})
-		);
+		const action = await getRecordByCanonifiedPath<WalletActionsResponse>(data.action_id);
+		const version = await getRecordByCanonifiedPath<WalletVersionsResponse>(data.version_id);
+		const runner = await getRecordByCanonifiedPath<MobileRunnersResponse>(data.runner_id);
 
-		const action = await pb.collection('wallet_actions').getFirstListItem(
-			pb.filter(
-				[
-					'owner.canonified_name={:orgId}',
-					'wallet.canonified_name={:walletId}',
-					'canonified_name={:actionId}'
-				].join('&&'),
-				{
-					orgId,
-					walletId,
-					actionId
-				}
-			)
-		);
+		if (isError(action) || isError(version) || isError(runner)) {
+			throw new Error('Failed to get record by canonified path');
+		}
 
-		const version = await pb.collection('wallet_versions').getFirstListItem(
-			pb.filter(
-				[
-					'owner.canonified_name = {:orgId}',
-					'wallet.canonified_name = {:walletId}',
-					'canonified_tag = {:versionId}'
-				].join('&&'),
-				{
-					orgId,
-					walletId,
-					versionId
-				}
-			)
-		);
+		const wallet: MarketplaceItem = await pb
+			.collection('marketplace_items')
+			.getOne(action.wallet);
 
-		return {
-			wallet: wallet,
-			version: version,
-			action: action
-		};
+		return { wallet, version, action, runner };
 	}
 };
+
+//
+
+function isError(value: unknown): value is Error {
+	return value instanceof Error;
+}
