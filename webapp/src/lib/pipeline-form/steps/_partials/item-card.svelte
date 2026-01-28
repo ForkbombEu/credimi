@@ -48,12 +48,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="grow">
 		<T class="text-sm font-semibold">{title}</T>
 		{#if subtitle}
-			<T class="text-muted-foreground text-xs">{subtitle}</T>
+			<T class="text-xs text-muted-foreground">{subtitle}</T>
 		{/if}
 		{@render children?.()}
 	</div>
 
-	<div class="shrink-0">
+	<div class="flex shrink-0 items-center gap-1">
 		{@render right?.()}
 		{#if onDiscard}
 			<IconButton
@@ -65,7 +65,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			/>
 		{/if}
 		{#if isInteractive}
-			<ArrowRightIcon class="text-muted-foreground size-4 shrink-0" />
+			<ArrowRightIcon class="size-4 shrink-0 text-muted-foreground" />
 		{/if}
 	</div>
 {/snippet}

@@ -20,7 +20,7 @@ type StartEmulatorActivity struct {
 func NewStartEmulatorActivity() *StartEmulatorActivity {
 	return &StartEmulatorActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Start emulator",
+			Name: "Setup mobile device",
 		},
 	}
 }
@@ -123,23 +123,23 @@ func (a *UnlockEmulatorActivity) Execute(
 	return workflowengine.ActivityResult{Output: res}, nil
 }
 
-type StopEmulatorActivity struct {
+type CleanupDeviceActivity struct {
 	workflowengine.BaseActivity
 }
 
-func NewStopEmulatorActivity() *StopEmulatorActivity {
-	return &StopEmulatorActivity{
+func NewCleanupDeviceActivity() *CleanupDeviceActivity {
+	return &CleanupDeviceActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Stop emulator",
+			Name: "Cleanup mobile device",
 		},
 	}
 }
 
-func (a *StopEmulatorActivity) Name() string {
+func (a *CleanupDeviceActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
-func (a *StopEmulatorActivity) Execute(
+func (a *CleanupDeviceActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
@@ -150,7 +150,7 @@ func (a *StopEmulatorActivity) Execute(
 		false,
 	)
 
-	res, err := mobile.StopEmulator(ctx, runInput)
+	res, err := mobile.CleanupDevice(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
@@ -165,7 +165,7 @@ type StartRecordingActivity struct {
 func NewStartRecordingActivity() *StartRecordingActivity {
 	return &StartRecordingActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Start recording emulator screen",
+			Name: "Start recording device screen",
 		},
 	}
 }
@@ -205,7 +205,7 @@ type StopRecordingActivity struct {
 func NewStopRecordingActivity() *StopRecordingActivity {
 	return &StopRecordingActivity{
 		BaseActivity: workflowengine.BaseActivity{
-			Name: "Stop recording emulator screen",
+			Name: "Stop recording device screen",
 		},
 	}
 }

@@ -952,9 +952,13 @@
                           "type": "string"
                         },
                         "type": "object"
+                      },
+                      "runner_id": {
+                        "type": "string"
                       }
                     },
                     "required": [
+                      "runner_id",
                       "action_id"
                     ],
                     "type": "object"
@@ -975,11 +979,15 @@
                         },
                         "type": "object"
                       },
+                      "runner_id": {
+                        "type": "string"
+                      },
                       "version_id": {
                         "type": "string"
                       }
                     },
                     "required": [
+                      "runner_id",
                       "action_id",
                       "version_id"
                     ],
@@ -1001,11 +1009,15 @@
                         },
                         "type": "object"
                       },
+                      "runner_id": {
+                        "type": "string"
+                      },
                       "version_id": {
                         "type": "string"
                       }
                     },
                     "required": [
+                      "runner_id",
                       "action_code",
                       "version_id"
                     ],

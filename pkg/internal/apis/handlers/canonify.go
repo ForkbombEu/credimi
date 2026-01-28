@@ -66,7 +66,6 @@ func HandleIdentifierValidate() func(*core.RequestEvent) error {
 
 func HandleGetIdentifier() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-
 		collection := e.Request.URL.Query().Get("collection")
 		if collection == "" {
 			return apierror.New(
