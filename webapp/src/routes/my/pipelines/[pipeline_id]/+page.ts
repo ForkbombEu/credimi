@@ -4,34 +4,15 @@
 
 import { getRecordByCanonifiedPath } from '$lib/canonify';
 
-import { pb } from '@/pocketbase';
-
 import { getPipelineWorkflows } from '../_partials/workflows.js';
 
 //
 
 export const load = async ({ params, fetch }) => {
-	// Try to get pipeline by canonified path first, fallback to ID
-	let pipeline;
-	const pathOrId = params.pipeline_id;
+	const pipeline = await getRecordByCanonifiedPath(params.pipeline_id, { fetch });
 	
-	// First, try to resolve as a canonified path
-	// Canonified paths for pipelines have format: /organization-name/pipeline-name
-	if (pathOrId.includes('/')) {
-		const result = await getRecordByCanonifiedPath(pathOrId, { fetch });
-		if (!(result instanceof Error)) {
-			pipeline = result;
-		}
-	}
-	
-	// If not found by canonified path, try by ID
-	if (!pipeline) {
-		try {
-			pipeline = await pb.collection('pipelines').getOne(pathOrId, { fetch });
-		} catch (error) {
-			// If both methods fail, let the error propagate
-			throw error;
-		}
+	if (pipeline instanceof Error) {
+		throw pipeline;
 	}
 	
 	const workflows = await getPipelineWorkflows(pipeline.id, { fetch });
