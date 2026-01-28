@@ -33,13 +33,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const totalRuns = $derived(workflows.current?.length ?? 0);
-
-	const totalSuccesses = $derived(
+	// Filter out canceled runs for success rate calculation
+	const nonCanceledWorkflows = $derived(
 		workflows.current?.filter((w) => {
 			const status = toWorkflowStatusReadable(w.status);
+			return status !== 'Canceled';
+		}) ?? []
+	);
+
+	const totalRuns = $derived(nonCanceledWorkflows.length);
+
+	const totalSuccesses = $derived(
+		nonCanceledWorkflows.filter((w) => {
+			const status = toWorkflowStatusReadable(w.status);
 			return status === 'Completed';
-		}).length ?? 0
+		}).length
 	);
 
 	const successRate = $derived(((totalSuccesses / totalRuns) * 100).toFixed(1) + '%');
