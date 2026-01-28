@@ -41,6 +41,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<ItemCard title={form.data.version.tag} onDiscard={() => form.removeVersion()} />
 			</WithLabel>
 		{/if}
+		{#if form.data.runner}
+			<WithLabel label={m.Runner()}>
+				<ItemCard title={form.data.runner.name} onDiscard={() => form.removeRunner()} />
+			</WithLabel>
+		{/if}
 	</div>
 {/if}
 
@@ -65,6 +70,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<WithEmptyState items={form.foundVersions} emptyText={m.No_wallet_versions_found()}>
 		{#snippet item({ item })}
 			<ItemCard title={item.tag} onClick={() => form.selectVersion(item)} />
+		{/snippet}
+	</WithEmptyState>
+{:else if form.state === 'select-runner'}
+	<WithLabel label={m.Runner()} class="p-4">
+		<SearchInput search={form.runnerSearch} />
+	</WithLabel>
+
+	<WithEmptyState items={form.foundRunners} emptyText={m.No_runners_found()}>
+		{#snippet item({ item })}
+			<ItemCard title={item.name} onClick={() => form.selectRunner(item)}>
+				{#snippet right()}
+					{#if !item.published}
+						<Badge variant="secondary">
+							{m.private()}
+						</Badge>
+					{/if}
+				{/snippet}
+			</ItemCard>
 		{/snippet}
 	</WithEmptyState>
 {:else if form.state === 'select-action'}
