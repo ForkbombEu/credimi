@@ -15,16 +15,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import A from '@/components/ui-custom/a.svelte';
 	import Button from '@/components/ui-custom/button.svelte';
 	import RenderMD from '@/components/ui-custom/renderMD.svelte';
-	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { localizeHref, m } from '@/i18n';
 	import { currentUser } from '@/pocketbase';
+	import Qr from '@/qr/qr.svelte';
 
 	import type { PageData } from '../+page';
 
 	import PageSection from '../../../[...path]/_partials/_utils/page-section.svelte';
 	import { sections as s } from '../../../[...path]/_partials/_utils/sections';
-	import EmptyQr from './components/empty-qr.svelte';
 	import PageLayout from './components/page-layout.svelte';
 	import { startCheck, type StartCheckResult } from './utils';
 
@@ -84,26 +83,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#snippet nruQrCode()}
 	{#if !$currentUser}
-		<EmptyQr>
+		<Qr>
 			<RenderMD
 				content={m.conformance_check_qr_code_login_cta({ link: localizeHref('/login') })}
 				class="text-balance prose-a:text-primary"
 			/>
-		</EmptyQr>
+		</Qr>
 	{/if}
 {/snippet}
 
 {#snippet loggedQr()}
 	{#if $currentUser}
 		{#if loading}
-			<EmptyQr>
-				<Spinner />
-				{m.Loading()}
-			</EmptyQr>
+			<Qr isLoading={true} />
 		{:else if qrWorkflow instanceof Error}
-			<EmptyQr>
-				<p>{qrWorkflow.message}</p>
-			</EmptyQr>
+			<Qr error={qrWorkflow.message} />
 		{:else if qrWorkflow}
 			<WorkflowQrPoller
 				workflowId={qrWorkflow.workflowId}

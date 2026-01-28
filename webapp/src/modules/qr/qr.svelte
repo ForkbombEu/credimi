@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { Snippet } from 'svelte';
 	import type { HTMLAttributes } from 'svelte/elements';
 
 	import { TriangleAlert } from '@lucide/svelte';
@@ -17,101 +16,92 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { generateQrCode } from './qr';
 
+	//
+
 	interface Props extends HTMLAttributes<HTMLDivElement> {
 		src?: string;
-		cellSize?: number;
 		error?: string;
 		placeholder?: string;
 		isLoading?: boolean;
 		loadingText?: string;
-		children?: Snippet;
-		hasStructuredError?: boolean;
 		showLink?: boolean;
-		linkClass?: string;
+		alt?: string;
 	}
+
 	let {
-		src = $bindable(),
-		cellSize,
-		isLoading = $bindable(false),
-		error = $bindable(),
-		children,
-		hasStructuredError = false,
+		src,
+		isLoading,
+		error,
 		loadingText = m.Loading_QR_code(),
-		placeholder,
+		placeholder = m.QR_code(),
 		showLink = false,
-		linkClass,
-		class: className,
+		class: className = '',
+		alt = m.QR_code(),
+		children,
 		...rest
 	}: Props = $props();
 
-	// Determine if we're in "stateful" mode (with loading/error states) or simple mode
-	const isStateful = $derived(isLoading || error || placeholder || hasStructuredError);
+	//
+
+	const qrDataUrl = $derived.by(() => {
+		if (!src) return null;
+		try {
+			return generateQrCode(src, 20);
+		} catch (e) {
+			error = m.An_error_happened_while_generating_the_qr_code();
+			console.error('Failed to generate QR code:', e);
+			return null;
+		}
+	});
 </script>
 
-<svelte:boundary>
-	{#if isStateful || showLink}
-		<div class="flex flex-col items-center space-y-2">
-			<div
-				{...rest}
-				class={[
-					'aspect-square shrink-0 overflow-hidden',
-					isStateful ? 'rounded-md border bg-gray-50 text-muted-foreground' : '',
-					'flex items-center justify-center',
-					'text-center text-sm',
-					{
-						'animate-pulse': isLoading
-					},
-					className
-				]}
-			>
-				{#if src}
-					{@const qr = generateQrCode(src, cellSize ?? 20)}
-					<img src={qr} class="h-full w-full object-contain" alt="qr code" />
-				{:else if isLoading}
-					<div class="flex items-center justify-center gap-2 p-3">
-						<Spinner size={20} />
-						<T>{loadingText}</T>
-					</div>
-				{:else if error}
-					<div class="flex flex-col items-center justify-center gap-2 p-3">
-						<TriangleAlert size={20} />
-						<T>{error}</T>
-					</div>
-				{:else if hasStructuredError && children}
-					<div class="flex flex-col items-center justify-center gap-2 p-3">
-						<TriangleAlert size={20} />
-						{@render children()}
-					</div>
-				{:else if placeholder}
-					<T class="p-3">{placeholder}</T>
-				{/if}
-			</div>
-			{#if showLink && src}
-				<div class="space-y-1">
-					<div class={linkClass || 'w-60 text-xs break-all'}>
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-						<a
-							class="text-primary hover:underline"
-							href={src}
-							aria-label={m.Credential_Deeplink()}
-						>
-							{src}
-						</a>
-					</div>
-					<CopyButtonSmall size="mini" class="-mx-1" textToCopy={src}>
-						{m.Copy()}
-					</CopyButtonSmall>
-				</div>
-			{/if}
-		</div>
-	{:else if src}
-		{@const qr = generateQrCode(src, cellSize ?? 20)}
-		<img src={qr} {...rest} class={[className, 'aspect-square object-contain']} alt="qr code" />
-	{/if}
+<!-- QR Code + Link Wrapper -->
+<div class="flex flex-col items-start space-y-2">
+	<!-- Actual QR Code -->
+	<div
+		{...rest}
+		class={[
+			'aspect-square shrink-0 overflow-hidden rounded-md border bg-slate-50',
+			'flex flex-col items-center justify-center gap-1',
+			'text-center text-sm text-muted-foreground',
+			isLoading && 'animate-pulse',
+			!qrDataUrl && 'p-3',
+			!className?.includes('size-') && 'size-60',
+			className
+		]}
+	>
+		{#if qrDataUrl}
+			<img src={qrDataUrl} class="aspect-square h-full w-full object-contain" {alt} />
+		{:else if isLoading}
+			<Spinner size={20} />
+			<T>{loadingText}</T>
+		{:else if error}
+			<TriangleAlert size={20} />
+			<T>{error}</T>
+		{:else if children}
+			{@render children?.()}
+		{:else if placeholder}
+			<T>{placeholder}</T>
+		{/if}
+	</div>
 
-	{#snippet failed()}
-		<div class="flex aspect-square items-center justify-center p-4 {className}">
-			<T class="text-center text-sm">{m.An_error_happened_while_generating_the_qr_code()}</T>
+	<!-- Link -->
+	{#if showLink && src}
+		<div class="w-full space-y-1">
+			<div class="flex">
+				<div class="w-0 grow">
+					<!-- eslint-disable svelte/no-navigation-without-resolve -->
+					<a
+						class="block text-xs leading-relaxed break-all text-primary hover:underline"
+						href={src}
+					>
+						{src}
+					</a>
+				</div>
+			</div>
+			<CopyButtonSmall size="mini" class="-translate-x-1 px-1.5!" textToCopy={src}>
+				{m.Copy()}
+			</CopyButtonSmall>
 		</div>
-	{/snippet}
-</svelte:boundary>
+	{/if}
+</div>
