@@ -7,9 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
 
+	import { ArrowLeftIcon } from '@lucide/svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
-	import { ArrowLeftIcon } from '@lucide/svelte';
 	import { String } from 'effect';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
@@ -17,7 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import * as Resizable from '@/components/ui/resizable/index.js';
-	import ScrollArea from '@/components/ui/scroll-area/scroll-area.svelte';
 	import { m } from '@/i18n';
 
 	import type { StepsBuilder } from './steps-builder.svelte.js';
@@ -39,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if builder.state.id == 'idle'}
 			{@render stepButtons()}
 		{:else if builder.state.id == 'form'}
-			<div class="flex grow flex-col overflow-hidden" in:fly>
+			<div class="flex grow flex-col" in:fly>
 				<Render item={builder.state.form} />
 			</div>
 		{/if}
@@ -58,13 +57,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Column title={m.Steps_sequence()}>
 		{#if builder.steps.length > 0}
-			<ScrollArea class="grow [&>div>div]:space-y-2 [&>div>div]:p-4">
+			<div class="space-y-3 p-4">
 				{#each builder.steps as step, index (step)}
 					<div animate:flip={{ duration: 300 }}>
 						<StepCard {builder} {step} {index} />
 					</div>
 				{/each}
-			</ScrollArea>
+			</div>
 		{:else}
 			<EmptyState text={m.Pipeline_steps_will_appear_here()} />
 		{/if}
@@ -95,7 +94,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/each}
 
 		<div
-			class="text-muted-foreground -mb-1 pt-2 text-[10px] font-medium uppercase tracking-normal"
+			class="-mb-1 pt-2 text-[10px] font-medium tracking-normal text-muted-foreground uppercase"
 		>
 			{m.utils()}
 		</div>
