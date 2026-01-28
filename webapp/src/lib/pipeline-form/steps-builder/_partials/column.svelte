@@ -32,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{@render titleRight?.()}
 	</div>
 
-	<div class={['flex grow flex-col overflow-hidden', contentClass]}>
+	<div class={['flex grow flex-col overflow-y-scroll', contentClass]}>
 		{@render children?.()}
 	</div>
 </Resizable.Pane>
