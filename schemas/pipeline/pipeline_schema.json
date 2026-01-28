@@ -958,7 +958,6 @@
                       }
                     },
                     "required": [
-                      "runner_id",
                       "action_id"
                     ],
                     "type": "object"
@@ -987,7 +986,6 @@
                       }
                     },
                     "required": [
-                      "runner_id",
                       "action_id",
                       "version_id"
                     ],
@@ -1017,7 +1015,6 @@
                       }
                     },
                     "required": [
-                      "runner_id",
                       "action_code",
                       "version_id"
                     ],
@@ -1179,6 +1176,10 @@
     },
     "version": {
       "type": "string"
+    },
+    "global_runner_id": {
+      "type": "string",
+      "description": "Global runner ID to use for all mobile-automation steps that don't specify their own runner_id"
     }
   },
   "required": [

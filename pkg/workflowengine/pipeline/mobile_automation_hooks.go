@@ -34,11 +34,64 @@ func MobileAutomationSetupHook(
 
 	settedDevices := getOrCreateSettedDevices(runData)
 
+	// Get global_runner_id from config if present
+	globalRunnerID, _ := config["global_runner_id"].(string)
+
+	// First pass: validate runner configuration
+	hasMobileSteps := false
+	allStepsHaveRunner := true
+	anyStepHasRunner := false
+
+	for i := range *steps {
+		step := &(*steps)[i]
+		if step.Use != "mobile-automation" {
+			continue
+		}
+		hasMobileSteps = true
+
+		// Try to decode the payload to check if runner_id is set
+		runnerID, _ := step.With.Payload["runner_id"].(string)
+		if runnerID == "" {
+			allStepsHaveRunner = false
+		} else {
+			anyStepHasRunner = true
+		}
+	}
+
+	// Validate: either all steps have runner_id OR global_runner_id is set
+	if hasMobileSteps {
+		if !allStepsHaveRunner && globalRunnerID == "" {
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+			return workflowengine.NewAppError(
+				errCode,
+				"mobile-automation steps require either a global_runner_id or runner_id for each step",
+			)
+		}
+
+		// If mixing global and specific runners, that's not allowed
+		if globalRunnerID != "" && anyStepHasRunner && !allStepsHaveRunner {
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+			return workflowengine.NewAppError(
+				errCode,
+				"cannot mix global_runner_id with step-specific runner_id: use one or the other",
+			)
+		}
+	}
+
+	// Second pass: process each step
 	for i := range *steps {
 		step := &(*steps)[i]
 
 		if step.Use != "mobile-automation" {
 			continue
+		}
+
+		// Use global_runner_id if step doesn't have runner_id
+		if runnerID, _ := step.With.Payload["runner_id"].(string); runnerID == "" && globalRunnerID != "" {
+			if step.With.Payload == nil {
+				step.With.Payload = make(map[string]any)
+			}
+			step.With.Payload["runner_id"] = globalRunnerID
 		}
 
 		if err := processStep(

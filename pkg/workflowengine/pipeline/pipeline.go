@@ -131,6 +131,11 @@ func (w *PipelineWorkflow) Workflow(
 		)
 	}()
 
+	// Add global_runner_id to config if present
+	if wfDef.GlobalRunnerID != "" {
+		config["global_runner_id"] = wfDef.GlobalRunnerID
+	}
+
 	if err := runSetupHooks(ctx, &wfDef.Steps, &ao, config, &runData); err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
