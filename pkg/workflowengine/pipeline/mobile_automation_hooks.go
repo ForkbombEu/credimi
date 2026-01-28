@@ -68,6 +68,13 @@ func MobileAutomationSetupHook(
 			)
 		}
 
+		// If all steps have runner_id and global_runner_id is also set, warn about unused global runner
+		if globalRunnerID != "" && allStepsHaveRunner {
+			logger.Warn(
+				"global_runner_id is set but all mobile-automation steps have their own runner_id - global_runner_id will be ignored",
+			)
+		}
+
 		// If mixing global and specific runners, that's not allowed
 		if globalRunnerID != "" && anyStepHasRunner && !allStepsHaveRunner {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]

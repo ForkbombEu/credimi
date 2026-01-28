@@ -38,8 +38,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let isOpen = $state(false);
-	let runnerForm = $state(new SelectRunnerForm());
 	let selectedRunnerPath = $state<string | undefined>(undefined);
+
+	// Initialize runner form with callback
+	let runnerForm = $state(new SelectRunnerForm((runner) => {
+		selectedRunnerPath = getPath(runner);
+	}));
 
 	const form = createForm({
 		adapter: zod(
@@ -73,11 +77,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	const formData = form.form;
-
-	// Update runner selection
-	runnerForm = new SelectRunnerForm((runner) => {
-		selectedRunnerPath = getPath(runner);
-	});
 </script>
 
 <Dialog bind:open={isOpen} title={m.Schedule_pipeline()}>

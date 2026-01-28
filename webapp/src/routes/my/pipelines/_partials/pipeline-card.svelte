@@ -77,33 +77,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// Runner selection state
 	let showRunnerModal = $state(false);
 	let runnerForm = $state(new SelectRunnerForm());
+	let isRunning = $state(false);
 
 	async function handleRunPipeline() {
-		// Check if pipeline requires global runner
-		const requiresRunner = pipelineRequiresGlobalRunner(pipeline.yaml);
-		
-		if (!requiresRunner) {
-			// Run directly without runner selection
-			await runPipeline(pipeline);
-			return;
-		}
+		// Prevent multiple simultaneous executions
+		if (isRunning) return;
+		isRunning = true;
 
-		// Check for stored runner
-		const storedRunner = getStoredRunner(pipeline.id);
-		if (storedRunner) {
-			// Use stored runner
-			await runPipeline(pipeline, storedRunner);
-			return;
-		}
+		try {
+			// Check if pipeline requires global runner
+			const requiresRunner = pipelineRequiresGlobalRunner(pipeline.yaml);
+			
+			if (!requiresRunner) {
+				// Run directly without runner selection
+				await runPipeline(pipeline);
+				return;
+			}
 
-		// Show modal to select runner
-		runnerForm = new SelectRunnerForm((runner) => {
-			const runnerPath = getPath(runner);
-			storeRunner(pipeline.id, runnerPath);
-			showRunnerModal = false;
-			runPipeline(pipeline, runnerPath);
-		});
-		showRunnerModal = true;
+			// Check for stored runner
+			const storedRunner = getStoredRunner(pipeline.id);
+			if (storedRunner) {
+				// Use stored runner
+				await runPipeline(pipeline, storedRunner);
+				return;
+			}
+
+			// Show modal to select runner
+			runnerForm = new SelectRunnerForm((runner) => {
+				const runnerPath = getPath(runner);
+				storeRunner(pipeline.id, runnerPath);
+				showRunnerModal = false;
+				runPipeline(pipeline, runnerPath);
+			});
+			showRunnerModal = true;
+		} finally {
+			isRunning = false;
+		}
 	}
 </script>
 
