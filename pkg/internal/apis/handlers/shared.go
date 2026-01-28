@@ -82,6 +82,7 @@ type WorkflowExecutionSummary struct {
 	Children      []*WorkflowExecutionSummary `json:"children,omitempty"`
 	Results       []PipelineResults           `json:"results,omitempty"`
 	FailureReason *string                     `json:"failure_reason,omitempty"`
+	Runners       []string                    `json:"runners,omitempty"`
 }
 
 type WorkflowDescriptionInfoSummary struct {

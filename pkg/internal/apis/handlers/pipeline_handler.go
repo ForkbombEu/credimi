@@ -645,6 +645,13 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 						c,
 					)
 
+					// Extract and add runner information to each execution
+					pipelineYaml := pipelineRecord.GetString("yaml")
+					runners := extractRunnersFromYAML(pipelineYaml)
+					for _, exec := range hierarchy {
+						exec.Runners = runners
+					}
+
 					pipelineExecutionsMap[pipelineID] = hierarchy
 				}
 			}
@@ -750,4 +757,36 @@ func compareTimes(timeStr1, timeStr2 string) bool {
     }
     
     return timeStr1 > timeStr2
+}
+
+// extractRunnersFromYAML parses a pipeline YAML and extracts all runner IDs used
+func extractRunnersFromYAML(yamlStr string) []string {
+	wfDef, err := pipeline.ParseWorkflow(yamlStr)
+	if err != nil {
+		return []string{}
+	}
+
+	runnerSet := make(map[string]bool)
+
+	// Check for global_runner_id
+	if wfDef.GlobalRunnerID != "" {
+		runnerSet[wfDef.GlobalRunnerID] = true
+	}
+
+	// Check each mobile-automation step for runner_id
+	for _, step := range wfDef.Steps {
+		if step.Use == "mobile-automation" {
+			if runnerID, ok := step.With.Payload["runner_id"].(string); ok && runnerID != "" {
+				runnerSet[runnerID] = true
+			}
+		}
+	}
+
+	// Convert set to slice
+	runners := make([]string, 0, len(runnerSet))
+	for runner := range runnerSet {
+		runners = append(runners, runner)
+	}
+
+	return runners
 }
