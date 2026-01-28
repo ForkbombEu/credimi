@@ -22,6 +22,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import SelectRunner from '@/components/select-runner.svelte';
+	import { SelectRunnerForm } from '@/components/select-runner.svelte.js';
+
 	import { dayOptions, scheduleModeOptions, scheduleModeSchema } from './types';
 
 	//
@@ -35,12 +38,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let isOpen = $state(false);
+	let runnerForm = $state(new SelectRunnerForm());
+	let selectedRunnerPath = $state<string | undefined>(undefined);
 
 	const form = createForm({
 		adapter: zod(
 			z.object({
 				pipeline_id: z.string(),
-				schedule_mode: scheduleModeSchema
+				schedule_mode: scheduleModeSchema,
+				global_runner_id: z.string().optional()
 			})
 		),
 		initialData: {
@@ -50,6 +56,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			if (data.schedule_mode.mode === 'monthly') {
 				data.schedule_mode.day = data.schedule_mode.day - 1;
 			}
+			
+			// Add global_runner_id if a runner is selected
+			if (selectedRunnerPath) {
+				data.global_runner_id = selectedRunnerPath;
+			}
+
 			await pb.send('/api/my/schedules/start', {
 				method: 'POST',
 				body: data
@@ -61,6 +73,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	const formData = form.form;
+
+	// Update runner selection
+	runnerForm = new SelectRunnerForm((runner) => {
+		selectedRunnerPath = getPath(runner);
+	});
 </script>
 
 <Dialog bind:open={isOpen} title={m.Schedule_pipeline()}>
@@ -103,6 +120,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					options={{ type: 'number', label: m.input_a_day() }}
 				/>
 			{/if}
+
+			<div class="space-y-2">
+				<Label>{m.Runner()} {m.optional()}</Label>
+				<SelectRunner form={runnerForm} showSelected={true} />
+			</div>
 
 			{#snippet submitButtonContent()}
 				{m.Schedule()}
