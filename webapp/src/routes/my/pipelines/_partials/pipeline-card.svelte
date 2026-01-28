@@ -11,6 +11,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ArrowRightIcon, Pencil, PlayIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { userOrganization } from '$lib/app-state';
+	import { getPath } from '$lib/utils';
 	import StatusCircle from '$lib/components/status-circle.svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
@@ -19,16 +20,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 
 	import Button from '@/components/ui-custom/button.svelte';
+	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
+	import SelectRunner from '@/components/select-runner.svelte';
+	import { SelectRunnerForm } from '@/components/select-runner.svelte.js';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
 	import ScheduleActions from './schedule-actions.svelte';
 	import SchedulePipelineForm from './schedule-pipeline-form.svelte';
 	import { type EnrichedSchedule } from './types';
-	import { runPipeline } from './utils';
+	import { 
+		runPipeline, 
+		pipelineRequiresGlobalRunner,
+		getStoredRunner,
+		storeRunner 
+	} from './utils';
 
 	//
 
@@ -64,6 +73,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const hasWorkflows = $derived(workflows && workflows.length > 0);
 
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
+
+	// Runner selection state
+	let showRunnerModal = $state(false);
+	let runnerForm = $state(new SelectRunnerForm());
+
+	async function handleRunPipeline() {
+		// Check if pipeline requires global runner
+		const requiresRunner = pipelineRequiresGlobalRunner(pipeline.yaml);
+		
+		if (!requiresRunner) {
+			// Run directly without runner selection
+			await runPipeline(pipeline);
+			return;
+		}
+
+		// Check for stored runner
+		const storedRunner = getStoredRunner(pipeline.id);
+		if (storedRunner) {
+			// Use stored runner
+			await runPipeline(pipeline, storedRunner);
+			return;
+		}
+
+		// Show modal to select runner
+		runnerForm = new SelectRunnerForm((runner) => {
+			const runnerPath = getPath(runner);
+			storeRunner(pipeline.id, runnerPath);
+			showRunnerModal = false;
+			runPipeline(pipeline, runnerPath);
+		});
+		showRunnerModal = true;
+	}
 </script>
 
 <DashboardCard
@@ -87,7 +128,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet actions()}
-		<Button onclick={() => runPipeline(pipeline)}>
+		<Button onclick={handleRunPipeline}>
 			<PlayIcon />{m.Run_now()}
 		</Button>
 		{#if !schedule}
@@ -102,6 +143,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	{/snippet}
 </DashboardCard>
+
+<!-- Runner Selection Modal -->
+<Dialog bind:open={showRunnerModal} title={m.Select_runner()}>
+	{#snippet content()}
+		<SelectRunner form={runnerForm} showSelected={false} />
+	{/snippet}
+</Dialog>
 
 {#snippet editAction()}
 	<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} tooltip={m.Edit()} />
