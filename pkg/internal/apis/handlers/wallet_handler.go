@@ -462,17 +462,18 @@ func saveUploadedFileToRecord(
 		).JSON(e)
 	}
 
-	existing := record.Get(recordField)
-	var files []*filesystem.File
+	existing := record.GetStringSlice(recordField)
 
-	if existing != nil {
-		if slice, ok := existing.([]*filesystem.File); ok {
-			files = append(files, slice...)
-		}
+	values := make([]any, 0, len(existing)+1)
+
+	for _, name := range existing {
+		values = append(values, name)
 	}
-	files = append(files, f)
 
-	record.Set(recordField, files)
+	// add new file
+	values = append(values, f)
+
+	record.Set(recordField, values)
 
 	if err := e.App.Save(record); err != nil {
 		os.Remove(absPath)
