@@ -79,8 +79,9 @@ var SchedulesRoutes routing.RouteGroup = routing.RouteGroup{
 }
 
 type StartScheduleRequest struct {
-	PipelineID   string                      `json:"pipeline_id"`
-	ScheduleMode workflowengine.ScheduleMode `json:"schedule_mode"`
+	PipelineID      string                      `json:"pipeline_id"`
+	ScheduleMode    workflowengine.ScheduleMode `json:"schedule_mode"`
+	GlobalRunnerID  string                      `json:"global_runner_id,omitempty"`
 }
 
 type StartScheduleResponse struct {
@@ -145,6 +146,11 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 			"user_mail": e.Auth.GetString("email"),
 		}
 
+		// Add global_runner_id to config if provided
+		if req.GlobalRunnerID != "" {
+			config["global_runner_id"] = req.GlobalRunnerID
+		}
+
 		scheduleInfo, err := startScheduledPipelineWithOptions(
 			req.PipelineID,
 			rec.GetString("name"),
@@ -186,6 +192,9 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 		rec.Set("pipeline", pipeline.Id)
 		rec.Set("mode", req.ScheduleMode)
 		rec.Set("owner", orgID)
+		if req.GlobalRunnerID != "" {
+			rec.Set("runner", req.GlobalRunnerID)
+		}
 
 		if err := e.App.Save(rec); err != nil {
 			return apierror.New(

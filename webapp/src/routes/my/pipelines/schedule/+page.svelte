@@ -65,6 +65,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{m.interval()}
 						</Table.Head>
 						<Table.Head>
+							{m.Runner()}
+						</Table.Head>
+						<Table.Head>
 							{m.next_run()}
 						</Table.Head>
 						<Table.Head>
@@ -88,6 +91,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</Table.Cell>
 								<Table.Cell>
 									<T>{scheduleModeLabel(mode)}</T>
+								</Table.Cell>
+								<Table.Cell>
+									{#if schedule.runner}
+										<T>{schedule.runner}</T>
+									{:else}
+										<span class="text-slate-400">{m.not_set()}</span>
+									{/if}
 								</Table.Cell>
 								<Table.Cell>
 									{#if state === 'active'}
