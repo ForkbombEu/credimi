@@ -67,10 +67,11 @@ func HandleGetMobileRunner() func(*core.RequestEvent) error {
 		var response GetMobileRunnerResponseSchema
 		response.Serial = record.GetString("serial")
 		var port string
-		if port = record.GetString("port"); port == "" {
-			port = "8050"
+		url := record.GetString("ip")
+		if port = record.GetString("port"); port != "" {
+			url = fmt.Sprintf("%s:%s", url, port)
 		}
-		response.RunnerURL = fmt.Sprintf("%s:%s", record.GetString("ip"), port)
+		response.RunnerURL = url
 
 		return e.JSON(http.StatusOK, response)
 	}
@@ -110,15 +111,10 @@ func HandleListMobileRunnerURLs() func(*core.RequestEvent) error {
 
 		for _, record := range records {
 			var port string
-			if port = record.GetString("port"); port == "" {
-				port = "8050"
+			runnerURL := record.GetString("ip")
+			if port = record.GetString("port"); port != "" {
+				runnerURL = fmt.Sprintf("%s:%s", runnerURL, port)
 			}
-
-			runnerURL := fmt.Sprintf(
-				"%s:%s",
-				record.GetString("ip"),
-				port,
-			)
 
 			response.Runners = append(response.Runners, runnerURL)
 		}

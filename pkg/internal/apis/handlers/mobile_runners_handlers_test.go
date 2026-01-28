@@ -79,14 +79,14 @@ func TestGetMobileRunner(t *testing.T) {
 			},
 		},
 		{
-			Name:           "valid runner identifier with default port",
+			Name:           "valid runner identifier with no port",
 			Method:         http.MethodGet,
-			URL:            "/api/mobile-runner?runner_identifier=usera-s-organization/default-port-runner",
+			URL:            "/api/mobile-runner?runner_identifier=usera-s-organization/no-port-runner",
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				`"runner_url"`,
 				`"serial"`,
-				`http://192.168.1.20:8050`,
+				`http://192.168.1.20`,
 				`SERIAL999`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
@@ -99,7 +99,7 @@ func TestGetMobileRunner(t *testing.T) {
 				record.Set("owner", orgID)
 				record.Set("serial", "SERIAL999")
 				record.Set("ip", "http://192.168.1.20")
-				record.Set("name", "default-port-runner")
+				record.Set("name", "no-port-runner")
 
 				require.NoError(t, app.Save(record))
 
@@ -135,7 +135,7 @@ func TestListMobileRunnerURLs(t *testing.T) {
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
 				`"runners"`,
-				`http://192.168.1.10:8050`,
+				`http://192.168.1.10`,
 				`https://192.168.1.11:9000`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
