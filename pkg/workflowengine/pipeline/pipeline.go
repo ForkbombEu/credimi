@@ -329,8 +329,8 @@ func (w *PipelineWorkflow) Start(
 	}
 
 	// Add global_runner_id to config if specified
-	if wfDef.GlobalRunnerID != "" {
-		config["global_runner_id"] = wfDef.GlobalRunnerID
+	if wfDef.Runtime.GlobalRunnerID != "" {
+		config["global_runner_id"] = wfDef.Runtime.GlobalRunnerID
 	}
 
 	input := PipelineWorkflowInput{
@@ -562,11 +562,6 @@ func (w *PipelineWorkflow) handleScheduledRun(
 		if _, exists := config[k]; !exists {
 			config[k] = v
 		}
-	}
-
-	// Add global_runner_id to config if specified
-	if wfDef.GlobalRunnerID != "" {
-		config["global_runner_id"] = wfDef.GlobalRunnerID
 	}
 
 	options := PrepareWorkflowOptions(wfDef.Runtime)

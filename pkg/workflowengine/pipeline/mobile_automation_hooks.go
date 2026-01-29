@@ -107,7 +107,7 @@ func validateRunnerIDConfiguration(steps *[]StepDefinition, globalRunnerID strin
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
 		return workflowengine.NewAppError(
 			errCode,
-			"mobile-automation steps require either a runner_id in each step or a global_runner_id in the pipeline configuration",
+			"mobile-automation steps require either a runner_id or a global_runner_id in the pipeline configuration",
 		)
 	}
 
