@@ -961,7 +961,6 @@
                       }
                     },
                     "required": [
-                      "runner_id",
                       "action_id"
                     ],
                     "type": "object"
@@ -990,7 +989,6 @@
                       }
                     },
                     "required": [
-                      "runner_id",
                       "action_id",
                       "version_id"
                     ],
@@ -1020,7 +1018,6 @@
                       }
                     },
                     "required": [
-                      "runner_id",
                       "action_code",
                       "version_id"
                     ],

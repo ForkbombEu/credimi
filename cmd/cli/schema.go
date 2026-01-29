@@ -213,7 +213,7 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 						"additionalProperties": true,
 					},
 				},
-				"required":             []string{"runner_id", "action_id"},
+				"required":             []string{"action_id"},
 				"additionalProperties": false,
 			},
 			{
@@ -231,7 +231,7 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 						"additionalProperties": true,
 					},
 				},
-				"required":             []string{"runner_id", "action_id", "version_id"},
+				"required":             []string{"action_id", "version_id"},
 				"additionalProperties": false,
 			},
 			{
@@ -249,7 +249,7 @@ func generateSingleStepSchema(reflector *jsonschema.Reflector, stepKey string) m
 						"additionalProperties": true,
 					},
 				},
-				"required":             []string{"runner_id", "action_code", "version_id"},
+				"required":             []string{"action_code", "version_id"},
 				"additionalProperties": false,
 			},
 		}
