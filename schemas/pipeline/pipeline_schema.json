@@ -47,6 +47,9 @@
         "debug": {
           "type": "boolean"
         },
+        "global_runner_id": {
+          "type": "string"
+        },
         "schedule": {
           "additionalProperties": false,
           "properties": {
