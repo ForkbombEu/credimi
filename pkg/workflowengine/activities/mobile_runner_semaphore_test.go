@@ -22,6 +22,7 @@ func TestAcquireMobileRunnerPermitActivityMapAcquireError(t *testing.T) {
 		err         error
 		waitTimeout time.Duration
 		code        string
+		queueLen    *int
 		assertDetails bool
 	}{
 		{
@@ -29,6 +30,7 @@ func TestAcquireMobileRunnerPermitActivityMapAcquireError(t *testing.T) {
 			err:         temporal.NewApplicationError("timeout", workflows.MobileRunnerSemaphoreErrTimeout),
 			waitTimeout: time.Minute,
 			code:        errorcodes.Codes[errorcodes.MobileRunnerBusy].Code,
+			queueLen:    intPtr(3),
 			assertDetails: true,
 		},
 		{
@@ -41,7 +43,7 @@ func TestAcquireMobileRunnerPermitActivityMapAcquireError(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			mapped := activity.mapAcquireError(tc.err, "runner-1", tc.waitTimeout)
+			mapped := activity.mapAcquireError(tc.err, "runner-1", tc.waitTimeout, tc.queueLen)
 			var appErr *temporal.ApplicationError
 			require.True(t, errors.As(mapped, &appErr))
 			require.Equal(t, tc.code, appErr.Type())
@@ -50,7 +52,12 @@ func TestAcquireMobileRunnerPermitActivityMapAcquireError(t *testing.T) {
 				require.NoError(t, appErr.Details(&details))
 				require.Equal(t, "runner-1", details["runner_id"])
 				require.Equal(t, tc.waitTimeout.Milliseconds(), details["waited_ms"])
+				require.Equal(t, 3, details["queue_len"])
 			}
 		})
 	}
+}
+
+func intPtr(value int) *int {
+	return &value
 }
