@@ -4,7 +4,6 @@
 package workflows
 
 import (
-	"fmt"
 	"sort"
 	"time"
 
@@ -14,107 +13,19 @@ import (
 )
 
 const (
-	MobileRunnerSemaphoreTaskQueue        = "mobile-runner-semaphore-task-queue"
-	MobileRunnerSemaphoreWorkflowName     = "mobile-runner-semaphore"
-	MobileRunnerSemaphoreAcquireUpdate    = "Acquire"
-	MobileRunnerSemaphoreReleaseUpdate    = "Release"
-	MobileRunnerSemaphoreStateQuery       = "GetState"
 	mobileRunnerSemaphoreMaxUpdateBatches = 1000
 	queuePreviewLimit                     = 5
-)
-
-const (
-	MobileRunnerSemaphoreErrInvalidRequest = "mobile-runner-semaphore-invalid-request"
-	MobileRunnerSemaphoreErrTimeout        = "mobile-runner-semaphore-timeout"
 )
 
 type MobileRunnerSemaphoreWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
-type MobileRunnerSemaphoreWorkflowInput struct {
-	RunnerID string                            `json:"runner_id"`
-	Capacity int                               `json:"capacity"`
-	State    *MobileRunnerSemaphoreWorkflowState `json:"state,omitempty"`
-}
-
-type MobileRunnerSemaphoreWorkflowState struct {
-	Capacity    int                                            `json:"capacity"`
-	Holders     map[string]MobileRunnerSemaphoreHolder         `json:"holders,omitempty"`
-	Queue       []string                                       `json:"queue,omitempty"`
-	Requests    map[string]MobileRunnerSemaphoreRequestState   `json:"requests,omitempty"`
-	LastGrantAt *time.Time                                     `json:"last_grant_at,omitempty"`
-	UpdateCount int                                            `json:"update_count,omitempty"`
-}
-
-type MobileRunnerSemaphoreAcquireRequest struct {
-	RequestID     string        `json:"request_id"`
-	LeaseID       string        `json:"lease_id"`
-	OwnerNamespace string       `json:"owner_namespace,omitempty"`
-	OwnerWorkflowID string      `json:"owner_workflow_id,omitempty"`
-	OwnerRunID     string       `json:"owner_run_id,omitempty"`
-	WaitTimeout    time.Duration `json:"wait_timeout,omitempty"`
-}
-
-type MobileRunnerSemaphoreReleaseRequest struct {
-	LeaseID string `json:"lease_id"`
-}
-
-type MobileRunnerSemaphorePermit struct {
-	RunnerID    string    `json:"runner_id"`
-	LeaseID     string    `json:"lease_id"`
-	GrantedAt   time.Time `json:"granted_at"`
-	QueueWaitMs int64     `json:"queue_wait_ms"`
-}
-
-type MobileRunnerSemaphoreReleaseResult struct {
-	Released bool `json:"released"`
-}
-
-type MobileRunnerSemaphoreHolder struct {
-	LeaseID        string    `json:"lease_id"`
-	RequestID      string    `json:"request_id"`
-	OwnerNamespace string    `json:"owner_namespace,omitempty"`
-	OwnerWorkflowID string   `json:"owner_workflow_id,omitempty"`
-	OwnerRunID     string    `json:"owner_run_id,omitempty"`
-	GrantedAt      time.Time `json:"granted_at"`
-	QueueWaitMs    int64     `json:"queue_wait_ms"`
-}
-
-type MobileRunnerSemaphoreQueueEntry struct {
-	RequestID      string    `json:"request_id"`
-	LeaseID        string    `json:"lease_id"`
-	OwnerNamespace string    `json:"owner_namespace,omitempty"`
-	OwnerWorkflowID string   `json:"owner_workflow_id,omitempty"`
-	OwnerRunID     string    `json:"owner_run_id,omitempty"`
-	RequestedAt    time.Time `json:"requested_at"`
-}
-
-type MobileRunnerSemaphoreStateView struct {
-	RunnerID     string                             `json:"runner_id"`
-	Capacity     int                                `json:"capacity"`
-	CurrentHolder *MobileRunnerSemaphoreHolder      `json:"current_holder,omitempty"`
-	Holders      []MobileRunnerSemaphoreHolder       `json:"holders"`
-	QueueLen     int                                `json:"queue_len"`
-	QueuePreview []MobileRunnerSemaphoreQueueEntry   `json:"queue_preview"`
-	LastGrantAt  *time.Time                          `json:"last_grant_at,omitempty"`
-}
-
-type MobileRunnerSemaphoreRequestStatus string
-
 const (
 	mobileRunnerSemaphoreRequestQueued   MobileRunnerSemaphoreRequestStatus = "queued"
 	mobileRunnerSemaphoreRequestGranted  MobileRunnerSemaphoreRequestStatus = "granted"
 	mobileRunnerSemaphoreRequestTimedOut MobileRunnerSemaphoreRequestStatus = "timed_out"
 )
-
-type MobileRunnerSemaphoreRequestState struct {
-	Request     MobileRunnerSemaphoreAcquireRequest `json:"request"`
-	Status      MobileRunnerSemaphoreRequestStatus  `json:"status"`
-	RequestedAt time.Time                           `json:"requested_at"`
-	GrantedAt   time.Time                           `json:"granted_at,omitempty"`
-	QueueWaitMs int64                               `json:"queue_wait_ms,omitempty"`
-}
 
 func NewMobileRunnerSemaphoreWorkflow() *MobileRunnerSemaphoreWorkflow {
 	w := &MobileRunnerSemaphoreWorkflow{}
@@ -299,23 +210,14 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 			updateCount++
 			maybeScheduleContinue()
 
-			timeoutReached := false
 			if req.WaitTimeout > 0 {
-				timerCtx, cancel := workflow.WithCancel(ctx)
-				workflow.Go(ctx, func(ctx workflow.Context) {
-					if err := workflow.NewTimer(timerCtx, req.WaitTimeout).Get(timerCtx, nil); err == nil {
-						timeoutReached = true
-					}
-				})
-
-				_ = workflow.Await(ctx, func() bool {
+				granted, err := workflow.AwaitWithTimeout(ctx, req.WaitTimeout, func() bool {
 					state, ok := requests[req.RequestID]
-					if !ok {
-						return timeoutReached
-					}
-					return state.Status == mobileRunnerSemaphoreRequestGranted || timeoutReached
+					return ok && state.Status == mobileRunnerSemaphoreRequestGranted
 				})
-				cancel()
+				if err != nil {
+					return MobileRunnerSemaphorePermit{}, err
+				}
 
 				state, ok := requests[req.RequestID]
 				if !ok {
@@ -326,11 +228,11 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 					)
 				}
 
-				if state.Status == mobileRunnerSemaphoreRequestGranted {
+				if granted && state.Status == mobileRunnerSemaphoreRequestGranted {
 					return buildPermit(runnerID, state), nil
 				}
 
-				if timeoutReached {
+				if !granted {
 					queue = removeFromQueue(queue, req.RequestID)
 					state.Status = mobileRunnerSemaphoreRequestTimedOut
 					requests[req.RequestID] = state
@@ -395,14 +297,6 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 	}
 
 	return workflowengine.WorkflowResult{}, nil
-}
-
-func MobileRunnerSemaphoreWorkflowID(runnerID string) string {
-	return fmt.Sprintf("mobile-runner-semaphore/%s", runnerID)
-}
-
-func MobileRunnerSemaphorePermitLeaseID(workflowID, runID, runnerID string) string {
-	return fmt.Sprintf("%s/%s/%s", workflowID, runID, runnerID)
 }
 
 func buildPermit(runnerID string, state MobileRunnerSemaphoreRequestState) MobileRunnerSemaphorePermit {

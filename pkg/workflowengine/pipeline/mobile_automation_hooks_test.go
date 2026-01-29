@@ -98,18 +98,19 @@ func TestMobileAutomationCleanupReleasesPermitsOnFailure(t *testing.T) {
 	env.RegisterWorkflowWithOptions(testCleanupReleasesPermitsWorkflow, workflow.RegisterOptions{Name: "test-cleanup-release"})
 
 	cleanupActivity := activities.NewCleanupDeviceActivity()
+	releaseActivity := activities.NewReleaseMobileRunnerPermitActivity()
+
 	env.RegisterActivityWithOptions(
 		cleanupActivity.Execute,
 		activity.RegisterOptions{Name: cleanupActivity.Name()},
 	)
-	env.OnActivity(cleanupActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{}, errors.New("cleanup failed"))
-
-	releaseActivity := activities.NewReleaseMobileRunnerPermitActivity()
 	env.RegisterActivityWithOptions(
 		releaseActivity.Execute,
 		activity.RegisterOptions{Name: releaseActivity.Name()},
 	)
+
+	env.OnActivity(cleanupActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, errors.New("cleanup failed"))
 	env.OnActivity(releaseActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{}, nil).
 		Times(2)

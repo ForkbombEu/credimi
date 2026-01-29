@@ -14,7 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/activity"
 	tclient "go.temporal.io/sdk/client"
@@ -34,6 +34,8 @@ type ReleaseMobileRunnerPermitActivity struct {
 }
 
 const defaultMobileRunnerSemaphoreWaitTimeout = 45 * time.Minute
+
+const defaultMobileRunnerSemaphoreNamespace = "default"
 
 func NewAcquireMobileRunnerPermitActivity() *AcquireMobileRunnerPermitActivity {
 	return &AcquireMobileRunnerPermitActivity{
@@ -64,18 +66,18 @@ func (a *AcquireMobileRunnerPermitActivity) Execute(
 	}
 
 	if isMobileRunnerSemaphoreDisabled() {
-		result.Output = workflows.MobileRunnerSemaphorePermit{RunnerID: runnerID}
+		result.Output = mobilerunnersemaphore.MobileRunnerSemaphorePermit{RunnerID: runnerID}
 		return result, nil
 	}
 
-	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(workflows.DefaultNamespace)
+	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(defaultMobileRunnerSemaphoreNamespace)
 	if err != nil {
 		return result, a.mapAcquireError(err, runnerID, 0, nil)
 	}
 
-	workflowID := workflows.MobileRunnerSemaphoreWorkflowID(runnerID)
+	workflowID := mobilerunnersemaphore.WorkflowID(runnerID)
 	startInput := workflowengine.WorkflowInput{
-		Payload: workflows.MobileRunnerSemaphoreWorkflowInput{
+		Payload: mobilerunnersemaphore.MobileRunnerSemaphoreWorkflowInput{
 			RunnerID: runnerID,
 			Capacity: 1,
 		},
@@ -84,9 +86,9 @@ func (a *AcquireMobileRunnerPermitActivity) Execute(
 		ctx,
 		tclient.StartWorkflowOptions{
 			ID:        workflowID,
-			TaskQueue: workflows.MobileRunnerSemaphoreTaskQueue,
+			TaskQueue: mobilerunnersemaphore.TaskQueue,
 		},
-		workflows.MobileRunnerSemaphoreWorkflowName,
+		mobilerunnersemaphore.WorkflowName,
 		startInput,
 	)
 	if err != nil && !temporal.IsWorkflowExecutionAlreadyStartedError(err) {
@@ -94,14 +96,14 @@ func (a *AcquireMobileRunnerPermitActivity) Execute(
 	}
 
 	info := activity.GetInfo(ctx)
-	leaseID := workflows.MobileRunnerSemaphorePermitLeaseID(
+	leaseID := mobilerunnersemaphore.PermitLeaseID(
 		info.WorkflowExecution.ID,
 		info.WorkflowExecution.RunID,
 		runnerID,
 	)
 
 	waitTimeout := mobileRunnerSemaphoreWaitTimeout()
-	updateReq := workflows.MobileRunnerSemaphoreAcquireRequest{
+	updateReq := mobilerunnersemaphore.MobileRunnerSemaphoreAcquireRequest{
 		RequestID:      leaseID,
 		LeaseID:        leaseID,
 		OwnerNamespace: info.WorkflowNamespace,
@@ -112,7 +114,7 @@ func (a *AcquireMobileRunnerPermitActivity) Execute(
 
 	handle, err := temporalClient.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
 		WorkflowID:   workflowID,
-		UpdateName:   workflows.MobileRunnerSemaphoreAcquireUpdate,
+		UpdateName:   mobilerunnersemaphore.AcquireUpdate,
 		UpdateID:     leaseID,
 		Args:         []interface{}{updateReq},
 		WaitForStage: tclient.WorkflowUpdateStageCompleted,
@@ -122,7 +124,7 @@ func (a *AcquireMobileRunnerPermitActivity) Execute(
 		return result, a.mapAcquireError(err, runnerID, waitTimeout, queueLen)
 	}
 
-	var permit workflows.MobileRunnerSemaphorePermit
+	var permit mobilerunnersemaphore.MobileRunnerSemaphorePermit
 	if err := handle.Get(ctx, &permit); err != nil {
 		queueLen := resolveQueueLen(ctx, temporalClient, workflowID, err)
 		return result, a.mapAcquireError(err, runnerID, waitTimeout, queueLen)
@@ -143,7 +145,7 @@ func (a *AcquireMobileRunnerPermitActivity) mapAcquireError(
 	}
 
 	var appErr *temporal.ApplicationError
-	if errors.As(err, &appErr) && appErr.Type() == workflows.MobileRunnerSemaphoreErrTimeout {
+	if errors.As(err, &appErr) && appErr.Type() == mobilerunnersemaphore.ErrTimeout {
 		errCode := errorcodes.Codes[errorcodes.MobileRunnerBusy]
 		details := map[string]any{
 			"runner_id": runnerID,
@@ -176,7 +178,7 @@ func (a *ReleaseMobileRunnerPermitActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
-	payload, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](input.Payload)
+	payload, err := workflowengine.DecodePayload[mobilerunnersemaphore.MobileRunnerSemaphorePermit](input.Payload)
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
@@ -186,18 +188,18 @@ func (a *ReleaseMobileRunnerPermitActivity) Execute(
 		return result, nil
 	}
 
-	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(workflows.DefaultNamespace)
+	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(defaultMobileRunnerSemaphoreNamespace)
 	if err != nil {
 		return result, err
 	}
 
-	workflowID := workflows.MobileRunnerSemaphoreWorkflowID(payload.RunnerID)
+	workflowID := mobilerunnersemaphore.WorkflowID(payload.RunnerID)
 
 	handle, err := temporalClient.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
 		WorkflowID:   workflowID,
-		UpdateName:   workflows.MobileRunnerSemaphoreReleaseUpdate,
+		UpdateName:   mobilerunnersemaphore.ReleaseUpdate,
 		UpdateID:     leaseID,
-		Args:         []interface{}{workflows.MobileRunnerSemaphoreReleaseRequest{LeaseID: leaseID}},
+		Args:         []interface{}{mobilerunnersemaphore.MobileRunnerSemaphoreReleaseRequest{LeaseID: leaseID}},
 		WaitForStage: tclient.WorkflowUpdateStageCompleted,
 	})
 	if err != nil {
@@ -207,7 +209,7 @@ func (a *ReleaseMobileRunnerPermitActivity) Execute(
 		return result, err
 	}
 
-	var updateResult workflows.MobileRunnerSemaphoreReleaseResult
+	var updateResult mobilerunnersemaphore.MobileRunnerSemaphoreReleaseResult
 	if err := handle.Get(ctx, &updateResult); err != nil {
 		if isNotFoundError(err) {
 			return result, nil
@@ -242,7 +244,7 @@ func resolveQueueLen(
 	err error,
 ) *int {
 	var appErr *temporal.ApplicationError
-	if !errors.As(err, &appErr) || appErr.Type() != workflows.MobileRunnerSemaphoreErrTimeout {
+	if !errors.As(err, &appErr) || appErr.Type() != mobilerunnersemaphore.ErrTimeout {
 		return nil
 	}
 
@@ -250,13 +252,13 @@ func resolveQueueLen(
 		ctx,
 		workflowID,
 		"",
-		workflows.MobileRunnerSemaphoreStateQuery,
+		mobilerunnersemaphore.StateQuery,
 	)
 	if queryErr != nil {
 		return nil
 	}
 
-	var state workflows.MobileRunnerSemaphoreStateView
+	var state mobilerunnersemaphore.MobileRunnerSemaphoreStateView
 	if decodeErr := encoded.Get(&state); decodeErr != nil {
 		return nil
 	}

@@ -304,7 +304,7 @@ func processStep(
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return workflowengine.NewAppError(
 			errCode,
-			fmt.Sprintf(\"missing runner permit for step %s\", step.ID),
+			fmt.Sprintf("missing runner permit for step %s", step.ID),
 			payload.RunnerID,
 		)
 	}
