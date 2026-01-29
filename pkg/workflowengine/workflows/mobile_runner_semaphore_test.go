@@ -4,12 +4,14 @@
 package workflows
 
 import (
+	"errors"
 	"fmt"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
@@ -214,6 +216,89 @@ func TestMobileRunnerSemaphoreWorkflowReleaseUnknownLease(t *testing.T) {
 	require.Empty(t, drainErrors(errCh))
 }
 
+func TestMobileRunnerSemaphoreWorkflowAcquireTimeout(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileRunnerSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	errCh := make(chan error, 2)
+	timeoutCh := make(chan error, 1)
+	stateCh := make(chan MobileRunnerSemaphoreStateView, 1)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueAcquireUpdate(
+			env,
+			MobileRunnerSemaphoreAcquireRequest{RequestID: "req-1", LeaseID: "lease-1"},
+			make(chan MobileRunnerSemaphorePermit, 1),
+			errCh,
+		)
+	}, time.Second)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueAcquireUpdateExpectError(
+			env,
+			MobileRunnerSemaphoreAcquireRequest{
+				RequestID:  "req-2",
+				LeaseID:    "lease-2",
+				WaitTimeout: time.Second * 2,
+			},
+			timeoutCh,
+		)
+	}, time.Second*2)
+
+	env.RegisterDelayedCallback(func() {
+		encoded, err := env.QueryWorkflow(MobileRunnerSemaphoreStateQuery)
+		if err != nil {
+			stateCh <- MobileRunnerSemaphoreStateView{RunnerID: "query-error"}
+			errCh <- err
+			return
+		}
+		var state MobileRunnerSemaphoreStateView
+		if decodeErr := encoded.Get(&state); decodeErr != nil {
+			errCh <- decodeErr
+			return
+		}
+		stateCh <- state
+	}, time.Second*5)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*6)
+
+	done := make(chan struct{})
+	go func() {
+		env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+			Payload: MobileRunnerSemaphoreWorkflowInput{
+				RunnerID: "runner-1",
+				Capacity: 1,
+			},
+		})
+		close(done)
+	}()
+
+	<-done
+
+	select {
+	case err := <-timeoutCh:
+		var appErr *temporal.ApplicationError
+		require.True(t, errors.As(err, &appErr))
+		require.Equal(t, mobileRunnerSemaphoreErrTimeout, appErr.Type())
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for timeout error")
+	}
+
+	select {
+	case state := <-stateCh:
+		require.Equal(t, 0, state.QueueLen)
+		require.NotNil(t, state.CurrentHolder)
+		require.Equal(t, "lease-1", state.CurrentHolder.LeaseID)
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for state")
+	}
+
+	require.Empty(t, drainErrors(errCh))
+}
+
 func enqueueAcquireUpdate(
 	env *testsuite.TestWorkflowEnvironment,
 	req MobileRunnerSemaphoreAcquireRequest,
@@ -277,6 +362,25 @@ func enqueueReleaseUpdateWithResult(
 				return
 			}
 			releaseCh <- result
+		},
+	}, req)
+}
+
+func enqueueAcquireUpdateExpectError(
+	env *testsuite.TestWorkflowEnvironment,
+	req MobileRunnerSemaphoreAcquireRequest,
+	timeoutCh chan<- error,
+) {
+	env.UpdateWorkflow(MobileRunnerSemaphoreAcquireUpdate, req.RequestID, &testsuite.TestUpdateCallback{
+		OnReject: func(err error) {
+			timeoutCh <- err
+		},
+		OnComplete: func(_ interface{}, err error) {
+			if err == nil {
+				timeoutCh <- fmt.Errorf("expected timeout error")
+				return
+			}
+			timeoutCh <- err
 		},
 	}, req)
 }
