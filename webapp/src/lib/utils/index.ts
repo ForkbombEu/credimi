@@ -78,9 +78,11 @@ export async function generateDeeplinkFromYaml(yaml: string) {
 
 //
 
-export function getPath<T extends object>(record: T) {
+export function getPath<T extends object>(record: T, trim = false) {
 	if ('__canonified_path__' in record) {
-		return record.__canonified_path__ as string;
+		const path = record.__canonified_path__ as string;
+		if (trim) return removeLeadingAndTrailingSlashes(path);
+		return path;
 	}
 	return '__no_path__';
 }
@@ -121,4 +123,8 @@ export function mergePaths(...paths: (string | undefined | null)[]): string {
 		})
 		.filter((p) => p.length > 0)
 		.join('/');
+}
+
+export function removeLeadingAndTrailingSlashes(path: string) {
+	return path.replace(/^\//, '').replace(/\/$/, '');
 }
