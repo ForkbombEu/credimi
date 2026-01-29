@@ -223,6 +223,55 @@ func hasRunnerPermit(runData *map[string]any, runnerID string) bool {
 	}
 }
 
+func getRunnerPermits(runData map[string]any) map[string]workflows.MobileRunnerSemaphorePermit {
+	rawPermits, ok := runData["mobile_runner_permits"]
+	if !ok {
+		return nil
+	}
+
+	switch permits := rawPermits.(type) {
+	case map[string]workflows.MobileRunnerSemaphorePermit:
+		return permits
+	case map[string]any:
+		decoded := make(map[string]workflows.MobileRunnerSemaphorePermit, len(permits))
+		for runnerID, rawPermit := range permits {
+			permit, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](rawPermit)
+			if err != nil {
+				continue
+			}
+			decoded[runnerID] = permit
+		}
+		return decoded
+	default:
+		return nil
+	}
+}
+
+func releaseRunnerPermits(
+	ctx workflow.Context,
+	permits map[string]workflows.MobileRunnerSemaphorePermit,
+	cleanupErrs *[]error,
+) {
+	if len(permits) == 0 {
+		return
+	}
+
+	releaseActivity := activities.NewReleaseMobileRunnerPermitActivity()
+	runnerIDs := make([]string, 0, len(permits))
+	for runnerID := range permits {
+		runnerIDs = append(runnerIDs, runnerID)
+	}
+	sort.Strings(runnerIDs)
+
+	for _, runnerID := range runnerIDs {
+		permit := permits[runnerID]
+		req := workflowengine.ActivityInput{Payload: permit}
+		if err := workflow.ExecuteActivity(ctx, releaseActivity.Name(), req).Get(ctx, nil); err != nil {
+			*cleanupErrs = append(*cleanupErrs, err)
+		}
+	}
+}
+
 func processStep(
 	ctx workflow.Context,
 	step *StepDefinition,
@@ -880,10 +929,7 @@ func MobileAutomationCleanupHook(
 
 	var cleanupErrs []error
 
-	devices, ok := runData["setted_devices"].(map[string]any)
-	if !ok {
-		return nil
-	}
+	devices, _ := runData["setted_devices"].(map[string]any)
 
 	runIdentifier, ok := runData["run_identifier"].(string)
 	if !ok || runIdentifier == "" {
@@ -907,9 +953,11 @@ func MobileAutomationCleanupHook(
 			&cleanupErrs,
 			logger,
 		); err != nil {
-			return err
+			cleanupErrs = append(cleanupErrs, err)
 		}
 	}
+
+	releaseRunnerPermits(ctx, getRunnerPermits(runData), &cleanupErrs)
 
 	if len(cleanupErrs) > 0 {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]

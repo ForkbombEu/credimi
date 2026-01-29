@@ -4,6 +4,7 @@
 package pipeline
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -90,6 +91,37 @@ func TestProcessStepFailsWithoutPermit(t *testing.T) {
 	require.Contains(t, err.Error(), "missing runner permit")
 }
 
+func TestMobileAutomationCleanupReleasesPermitsOnFailure(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(testCleanupReleasesPermitsWorkflow, workflow.RegisterOptions{Name: "test-cleanup-release"})
+
+	cleanupActivity := activities.NewCleanupDeviceActivity()
+	env.RegisterActivityWithOptions(
+		cleanupActivity.Execute,
+		activity.RegisterOptions{Name: cleanupActivity.Name()},
+	)
+	env.OnActivity(cleanupActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, errors.New("cleanup failed"))
+
+	releaseActivity := activities.NewReleaseMobileRunnerPermitActivity()
+	env.RegisterActivityWithOptions(
+		releaseActivity.Execute,
+		activity.RegisterOptions{Name: releaseActivity.Name()},
+	)
+	env.OnActivity(releaseActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, nil).
+		Times(2)
+
+	env.ExecuteWorkflow("test-cleanup-release")
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mobile automation cleanup")
+	env.AssertExpectations(t)
+}
+
 func testAcquireRunnerPermitsWorkflow(ctx workflow.Context, steps []StepDefinition) error {
 	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: time.Second})
 	acquireActivity := activities.NewAcquireMobileRunnerPermitActivity()
@@ -133,4 +165,30 @@ func testProcessStepWithoutPermitWorkflow(ctx workflow.Context) error {
 		activities.NewApkInstallActivity(),
 		workflow.GetLogger(ctx),
 	)
+}
+
+func testCleanupReleasesPermitsWorkflow(ctx workflow.Context) error {
+	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: time.Second})
+	config := map[string]any{"app_url": "https://example.test"}
+	output := map[string]any{}
+	runData := map[string]any{
+		"setted_devices": map[string]any{
+			"runner-1": map[string]any{
+				"serial":     "serial-1",
+				"clone_name": "clone-1",
+				"installed":  map[string]string{},
+				"runner_url": "https://runner.test",
+				"recording":  false,
+			},
+		},
+		"run_identifier": "run-1",
+		"mobile_runner_permits": map[string]workflows.MobileRunnerSemaphorePermit{
+			"runner-1": {RunnerID: "runner-1", LeaseID: "lease-1"},
+			"runner-2": {RunnerID: "runner-2", LeaseID: "lease-2"},
+		},
+	}
+	steps := []StepDefinition{}
+	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+
+	return MobileAutomationCleanupHook(ctx, steps, &activityOptions, config, runData, &output)
 }
