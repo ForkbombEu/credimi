@@ -15,7 +15,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
 
 	//
 
@@ -32,9 +31,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageTop {hideTopBorder} contentClass="space-y-4!">
-	<BackButton href="/marketplace" class="px-0!">
-		{m.Back_to_marketplace()}
-	</BackButton>
+	<BackButton href="/marketplace" class="px-0!" />
 
 	<div class="flex items-center gap-6">
 		{#if logo}
