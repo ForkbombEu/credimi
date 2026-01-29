@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { children, title, topbarMiddle, topbarRight, class: className }: Props = $props();
 </script>
 
-<div class={['bg-secondary flex flex-col gap-4 px-4 pb-4 pt-2', className]}>
+<div class={['flex flex-col gap-4 bg-secondary px-4 pt-2 pb-4', className]}>
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-3">
 			<Button class="h-6 px-0" href="/my/pipelines" variant="link">
@@ -49,7 +49,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 
-	<div class="flex-1 min-h-0">
-		{@render children?.()}
-	</div>
+	{@render children?.()}
 </div>
