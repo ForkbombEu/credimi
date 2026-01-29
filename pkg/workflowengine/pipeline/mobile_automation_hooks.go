@@ -7,6 +7,7 @@ package pipeline
 import (
 	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -32,11 +33,24 @@ func MobileAutomationSetupHook(
 	if err := validateRunnerIDConfiguration(steps, globalRunnerID); err != nil {
 		return err
 	}
+	acquirePermitActivity := activities.NewAcquireMobileRunnerPermitActivity()
 
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
 	installActivity := activities.NewApkInstallActivity()
 	recordActivity := activities.NewStartRecordingActivity()
+
+	runnerIDs, err := collectMobileRunnerIDs(*steps)
+	if err != nil {
+		return err
+	}
+	if len(runnerIDs) > 0 {
+		permits, err := acquireRunnerPermits(ctx, runnerIDs, acquirePermitActivity)
+		if err != nil {
+			return err
+		}
+		SetRunDataValue(runData, "mobile_runner_permits", permits)
+	}
 
 	settedDevices := getOrCreateSettedDevices(runData)
 
@@ -53,6 +67,7 @@ func MobileAutomationSetupHook(
 			config,
 			ao,
 			settedDevices,
+			runData,
 			httpActivity,
 			startEmuActivity,
 			installActivity,
@@ -122,12 +137,99 @@ func getOrCreateSettedDevices(runData *map[string]any) map[string]any {
 	return settedDevices
 }
 
+func collectMobileRunnerIDs(steps []StepDefinition) ([]string, error) {
+	uniqueRunnerIDs := make(map[string]struct{})
+
+	for i := range steps {
+		step := &steps[i]
+		if step.Use != "mobile-automation" {
+			continue
+		}
+
+		payload, err := decodeAndValidatePayload(step)
+		if err != nil {
+			return nil, err
+		}
+
+		uniqueRunnerIDs[payload.RunnerID] = struct{}{}
+	}
+
+	if len(uniqueRunnerIDs) == 0 {
+		return nil, nil
+	}
+
+	runnerIDs := make([]string, 0, len(uniqueRunnerIDs))
+	for runnerID := range uniqueRunnerIDs {
+		runnerIDs = append(runnerIDs, runnerID)
+	}
+	sort.Strings(runnerIDs)
+
+	return runnerIDs, nil
+}
+
+func acquireRunnerPermits(
+	ctx workflow.Context,
+	runnerIDs []string,
+	acquirePermitActivity *activities.AcquireMobileRunnerPermitActivity,
+) (map[string]workflows.MobileRunnerSemaphorePermit, error) {
+	permits := make(map[string]workflows.MobileRunnerSemaphorePermit, len(runnerIDs))
+	for _, runnerID := range runnerIDs {
+		var response workflowengine.ActivityResult
+		req := workflowengine.ActivityInput{
+			Payload: activities.AcquireMobileRunnerPermitInput{RunnerID: runnerID},
+		}
+		if err := workflow.ExecuteActivity(ctx, acquirePermitActivity.Name(), req).Get(ctx, &response); err != nil {
+			return nil, err
+		}
+
+		permit, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](response.Output)
+		if err != nil {
+			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
+			return nil, workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("invalid permit output for runner %s", runnerID),
+				response.Output,
+			)
+		}
+		permits[runnerID] = permit
+	}
+
+	return permits, nil
+}
+
+func hasRunnerPermit(runData *map[string]any, runnerID string) bool {
+	if runData == nil || *runData == nil {
+		return false
+	}
+
+	rawPermits, ok := (*runData)["mobile_runner_permits"]
+	if !ok {
+		return false
+	}
+
+	switch permits := rawPermits.(type) {
+	case map[string]workflows.MobileRunnerSemaphorePermit:
+		_, ok := permits[runnerID]
+		return ok
+	case map[string]any:
+		permit, ok := permits[runnerID]
+		if !ok {
+			return false
+		}
+		_, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](permit)
+		return err == nil
+	default:
+		return false
+	}
+}
+
 func processStep(
 	ctx workflow.Context,
 	step *StepDefinition,
 	config map[string]any,
 	ao *workflow.ActivityOptions,
 	settedDevices map[string]any,
+	runData *map[string]any,
 	httpActivity *activities.HTTPActivity,
 	startEmuActivity *activities.StartEmulatorActivity,
 	installActivity *activities.ApkInstallActivity,
@@ -147,6 +249,15 @@ func processStep(
 		payload.RunnerID = globalRunnerID
 		// Update the step payload with the global runner_id for consistency
 		SetPayloadValue(&step.With.Payload, "runner_id", globalRunnerID)
+	}
+
+	if !hasRunnerPermit(runData, payload.RunnerID) {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+		return workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf(\"missing runner permit for step %s\", step.ID),
+			payload.RunnerID,
+		)
 	}
 
 	taskqueue := fmt.Sprintf("%s-%s", payload.RunnerID, "TaskQueue")
@@ -242,6 +353,12 @@ func decodeAndValidatePayload(
 				fmt.Sprintf("missing or invalid action_id for step %s", step.ID),
 			)
 		}
+	}
+	if payload.RunnerID == "" {
+		return nil, workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("missing or invalid runner_id for step %s", step.ID),
+		)
 	}
 
 	return &payload, nil

@@ -139,6 +139,18 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		NewFunc:    func() any { return activities.NewCheckFileExistsActivity() },
 		OutputKind: workflowengine.OutputBool,
 	},
+	"mobile-runner-permit-acquire": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewAcquireMobileRunnerPermitActivity() },
+		PayloadType: reflect.TypeOf(activities.AcquireMobileRunnerPermitInput{}),
+		OutputKind:  workflowengine.OutputAny,
+	},
+	"mobile-runner-permit-release": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewReleaseMobileRunnerPermitActivity() },
+		PayloadType: reflect.TypeOf(workflows.MobileRunnerSemaphorePermit{}),
+		OutputKind:  workflowengine.OutputAny,
+	},
 }
 
 // Denylist of task keys that should NOT be registered in the pipeline worker
