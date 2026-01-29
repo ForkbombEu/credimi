@@ -95,21 +95,24 @@ export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, Wal
 	}
 	
 	private async autoSelectGlobalRunner() {
-		// Search for global (published) runners
-		const filter = pb.filter(
-			['published = true'].join(' || '),
-			{}
-		);
-		const globalRunners = await pb.collection('mobile_runners').getFullList({
-			requestKey: null,
-			filter: filter,
-			sort: 'created',
-			$autoCancel: false
-		});
-		
-		// If we found at least one global runner, auto-select the first one
-		if (globalRunners.length > 0) {
-			this.data.runner = globalRunners[0];
+		try {
+			// Search for global (published) runners
+			const filter = 'published = true';
+			const globalRunners = await pb.collection('mobile_runners').getFullList({
+				requestKey: null,
+				filter: filter,
+				sort: 'created',
+				$autoCancel: false
+			});
+			
+			// If we found at least one global runner, auto-select the first one
+			if (globalRunners.length > 0) {
+				this.data.runner = globalRunners[0];
+			}
+		} catch (error) {
+			// If the query fails, log the error but don't crash
+			// The user will see the runner selection screen
+			console.error('Failed to auto-select global runner:', error);
 		}
 	}
 

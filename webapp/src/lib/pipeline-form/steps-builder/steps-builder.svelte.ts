@@ -48,7 +48,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 				// Check if the runner is global or specific
 				// We need to check the runner data from the deserialized form data
 				const firstStepData = firstStep[1] as any;
-				if (firstStepData && firstStepData.runner) {
+				if (firstStepData && firstStepData.runner && 'published' in firstStepData.runner) {
 					const isGlobalRunner = firstStepData.runner.published;
 					walletActionStepFormState.firstStepRunnerType = isGlobalRunner ? 'global' : 'specific';
 				}
@@ -132,6 +132,21 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			// If all steps are deleted, reset the runner type constraint
 			if (data.steps.length === 0) {
 				walletActionStepFormState.firstStepRunnerType = undefined;
+			} 
+			// If the first step was deleted and there are remaining steps,
+			// re-initialize the constraint from the new first step
+			else if (index === 0 && data.steps.length > 0) {
+				const newFirstStep = data.steps[0];
+				if (newFirstStep[0].use === 'mobile-automation') {
+					const firstStepData = newFirstStep[1] as any;
+					if (firstStepData && firstStepData.runner && 'published' in firstStepData.runner) {
+						const isGlobalRunner = firstStepData.runner.published;
+						walletActionStepFormState.firstStepRunnerType = isGlobalRunner ? 'global' : 'specific';
+					}
+				} else {
+					// If the new first step is not a mobile-automation step, reset the constraint
+					walletActionStepFormState.firstStepRunnerType = undefined;
+				}
 			}
 		});
 	}
@@ -159,6 +174,23 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			if (!indices) return;
 			const [movedItem] = data.steps.splice(indices.index, 1);
 			data.steps.splice(indices.newIndex, 0, movedItem);
+			
+			// If the first step changed due to reordering, re-initialize the constraint
+			if (indices.index === 0 || indices.newIndex === 0) {
+				if (data.steps.length > 0) {
+					const newFirstStep = data.steps[0];
+					if (newFirstStep[0].use === 'mobile-automation') {
+						const firstStepData = newFirstStep[1] as any;
+						if (firstStepData && firstStepData.runner && 'published' in firstStepData.runner) {
+							const isGlobalRunner = firstStepData.runner.published;
+							walletActionStepFormState.firstStepRunnerType = isGlobalRunner ? 'global' : 'specific';
+						}
+					} else {
+						// If the new first step is not a mobile-automation step, reset the constraint
+						walletActionStepFormState.firstStepRunnerType = undefined;
+					}
+				}
+			}
 		});
 	}
 
