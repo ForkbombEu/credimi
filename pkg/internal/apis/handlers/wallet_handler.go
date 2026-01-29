@@ -390,6 +390,15 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			return err
 		}
 
+		filename = versionName + "_logcat"
+
+		logcatFilename, logcatURLs, err := saveUploadedFileToRecord(
+			e, resultRecord, "logcat", "logcats", filename,
+		)
+		if err != nil {
+			return err
+		}
+
 		return e.JSON(http.StatusOK, map[string]any{
 			"status":               "success",
 			"runner":               runnerIdentifier,
@@ -397,6 +406,8 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			"result_urls":          videoURLs,
 			"last_frame_file_name": frameFilename,
 			"last_frame_urls":      frameURLs,
+			"logcat_file_name":     logcatFilename,
+			"logcat_urls":          logcatURLs,
 		})
 	}
 }
