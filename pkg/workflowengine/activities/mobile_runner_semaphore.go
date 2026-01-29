@@ -33,6 +33,8 @@ type ReleaseMobileRunnerPermitActivity struct {
 	workflowengine.BaseActivity
 }
 
+const defaultMobileRunnerSemaphoreWaitTimeout = 45 * time.Minute
+
 func NewAcquireMobileRunnerPermitActivity() *AcquireMobileRunnerPermitActivity {
 	return &AcquireMobileRunnerPermitActivity{
 		BaseActivity: workflowengine.BaseActivity{
@@ -224,11 +226,11 @@ func isMobileRunnerSemaphoreDisabled() bool {
 func mobileRunnerSemaphoreWaitTimeout() time.Duration {
 	value := strings.TrimSpace(os.Getenv("MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT"))
 	if value == "" {
-		return 0
+		return defaultMobileRunnerSemaphoreWaitTimeout
 	}
 	duration, err := time.ParseDuration(value)
 	if err != nil {
-		return 0
+		return defaultMobileRunnerSemaphoreWaitTimeout
 	}
 	return duration
 }
