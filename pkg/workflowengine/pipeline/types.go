@@ -49,12 +49,13 @@ type StepInputs struct {
 type RuntimeConfig struct {
 	Schedule struct {
 		Interval *time.Duration `yaml:"interval,omitempty" json:"interval,omitempty"`
-	} `yaml:"schedule,omitempty" json:"schedule,omitempty"`
-	Debug    bool `yaml:"debug,omitempty"    json:"debug,omitempty"`
-	Temporal struct {
+	} `yaml:"schedule,omitempty"         json:"schedule,omitempty"`
+	GlobalRunnerID string `yaml:"global_runner_id,omitempty" json:"global_runner_id,omitempty"`
+	Debug          bool   `yaml:"debug,omitempty"            json:"debug,omitempty"`
+	Temporal       struct {
 		ExecutionTimeout string                `yaml:"execution_timeout,omitempty" json:"execution_timeout,omitempty"`
 		ActivityOptions  ActivityOptionsConfig `yaml:"activity_options,omitempty" json:"activity_options,omitempty"`
-	} `yaml:"temporal,omitempty" json:"temporal,omitempty"`
+	} `yaml:"temporal,omitempty"         json:"temporal,omitempty"`
 }
 
 type ActivityOptionsConfig struct {

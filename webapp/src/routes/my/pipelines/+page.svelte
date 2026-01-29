@@ -29,8 +29,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const allWorkflows = new PolledResource(getAllPipelinesWorkflows, {
 		initialValue: () => data.workflows
 	});
-
-	$inspect(userOrganization.current);
 </script>
 
 <!-- Your Pipelines Section -->

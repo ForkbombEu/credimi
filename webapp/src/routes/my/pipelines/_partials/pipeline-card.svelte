@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import StatusCircle from '$lib/components/status-circle.svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
+	import { getPath } from '$lib/utils';
 	import WorkflowsTableSmall from '$lib/workflows/workflows-table-small.svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
@@ -104,7 +105,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </DashboardCard>
 
 {#snippet editAction()}
-	<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} tooltip={m.Edit()} />
+	<IconButton
+		href={resolve('/my/pipelines/(group)/[...path]/edit', { path: getPath(pipeline, true) })}
+		icon={Pencil}
+		tooltip={m.Edit()}
+	/>
 {/snippet}
 
 {#snippet content()}
@@ -114,7 +119,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<T class="text-sm font-medium">{m.Recent_workflows()}</T>
 				<BlueButton
 					compact
-					href={resolve('/my/pipelines/[pipeline_id]', { pipeline_id: pipeline.id })}
+					href={resolve('/my/pipelines/[...pipeline_path]', {
+						pipeline_path: getPath(pipeline, true)
+					})}
 				>
 					{m.view_all()}
 					<ArrowRightIcon />

@@ -27,6 +27,12 @@ func MobileAutomationSetupHook(
 	logger := workflow.GetLogger(ctx)
 	ctx = workflow.WithActivityOptions(ctx, *ao)
 
+	// Validate runner_id configuration
+	globalRunnerID, _ := config["global_runner_id"].(string)
+	if err := validateRunnerIDConfiguration(steps, globalRunnerID); err != nil {
+		return err
+	}
+
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
 	installActivity := activities.NewApkInstallActivity()
@@ -51,6 +57,7 @@ func MobileAutomationSetupHook(
 			startEmuActivity,
 			installActivity,
 			logger,
+			globalRunnerID,
 		); err != nil {
 			return err
 		}
@@ -66,6 +73,43 @@ func MobileAutomationSetupHook(
 	}
 
 	SetRunDataValue(runData, "setted_devices", settedDevices)
+
+	return nil
+}
+
+// validateRunnerIDConfiguration checks that either:
+// - all mobile-automation steps have a defined runner_id, OR
+// - there is a global_runner_id set
+func validateRunnerIDConfiguration(steps *[]StepDefinition, globalRunnerID string) error {
+	var mobileAutomationSteps []*StepDefinition
+	for i := range *steps {
+		if (*steps)[i].Use == "mobile-automation" {
+			mobileAutomationSteps = append(mobileAutomationSteps, &(*steps)[i])
+		}
+	}
+
+	// If there are no mobile-automation steps, no validation needed
+	if len(mobileAutomationSteps) == 0 {
+		return nil
+	}
+
+	// Check if all mobile-automation steps have runner_id
+	allStepsHaveRunnerID := true
+	for _, step := range mobileAutomationSteps {
+		if runnerID, ok := step.With.Payload["runner_id"].(string); !ok || runnerID == "" {
+			allStepsHaveRunnerID = false
+			break
+		}
+	}
+
+	// Valid if either all steps have runner_id OR there's a global_runner_id
+	if !allStepsHaveRunnerID && globalRunnerID == "" {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+		return workflowengine.NewAppError(
+			errCode,
+			"mobile-automation steps require either a runner_id or a global_runner_id in the pipeline configuration",
+		)
+	}
 
 	return nil
 }
@@ -88,6 +132,7 @@ func processStep(
 	startEmuActivity *activities.StartEmulatorActivity,
 	installActivity *activities.ApkInstallActivity,
 	logger log.Logger,
+	globalRunnerID string,
 ) error {
 	SetConfigValue(&step.With.Config, "app_url", config["app_url"])
 	logger.Info("MobileAutomationSetupHook: processing step", "id", step.ID)
@@ -95,6 +140,13 @@ func processStep(
 	payload, err := decodeAndValidatePayload(step)
 	if err != nil {
 		return err
+	}
+
+	// Use global_runner_id if step-level runner_id is not set
+	if payload.RunnerID == "" && globalRunnerID != "" {
+		payload.RunnerID = globalRunnerID
+		// Update the step payload with the global runner_id for consistency
+		SetPayloadValue(&step.With.Payload, "runner_id", globalRunnerID)
 	}
 
 	taskqueue := fmt.Sprintf("%s-%s", payload.RunnerID, "TaskQueue")

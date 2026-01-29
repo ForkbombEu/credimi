@@ -142,9 +142,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="bg-primary">
 	<div class="padding-x">
-		<BackButton href="/my/tests/runs" class="text-white">
-			{m.Back_to_test_runs()}
-		</BackButton>
+		<BackButton href="/my/tests/runs" class="text-white" />
 	</div>
 </div>
 
@@ -168,7 +166,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/each}
 				</T>
 			{:else}
-				<T tag="h3" class="break-words !p-0">
+				<T tag="h3" class="!p-0 break-words">
 					{execution.id}
 				</T>
 			{/if}
@@ -181,7 +179,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		{#if failureMessage}
-			<Alert variant="destructive" class="mt-2 p-3! text-sm block">
+			<Alert variant="destructive" class="mt-2 block p-3! text-sm">
 				<span class="font-bold">{m.reason()}:</span>
 				{failureMessage}
 			</Alert>
@@ -287,7 +285,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <style lang="postcss">
 	@reference 'tailwindcss';
-	
+
 	.bg-temporal {
 		background-color: rgb(248 250 252);
 	}

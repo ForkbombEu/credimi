@@ -12,7 +12,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import PageTop from '$lib/layout/pageTop.svelte';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
-	import { m } from '@/i18n/index.js';
 
 	import LayoutWithToc from '../../../../[...path]/_partials/_utils/layout-with-toc.svelte';
 
@@ -29,9 +28,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageTop contentClass="!space-y-4">
-	<BackButton href="/marketplace">
-		{m.Back_to_marketplace()}
-	</BackButton>
+	<BackButton href="/marketplace" />
 
 	<div class="flex items-center gap-6">
 		{#if logo}
