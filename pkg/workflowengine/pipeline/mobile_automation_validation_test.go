@@ -12,11 +12,11 @@ import (
 
 func TestValidateRunnerIDConfiguration(t *testing.T) {
 tests := []struct {
-name            string
-steps           []StepDefinition
-globalRunnerID  string
-expectError     bool
-errorContains   string
+name           string
+steps          []StepDefinition
+globalRunnerID string
+expectError    bool
+errorContains  string
 }{
 {
 name:           "no mobile-automation steps - should pass",
@@ -155,6 +155,36 @@ Use: "mobile-automation",
 With: StepInputs{
 Payload: map[string]any{
 "action_id": "action1",
+},
+},
+},
+},
+},
+globalRunnerID: "global-runner",
+expectError:    false,
+},
+{
+name: "some steps with runner_id, some without, with global_runner_id - should pass",
+steps: []StepDefinition{
+{
+StepSpec: StepSpec{
+ID:  "step1",
+Use: "mobile-automation",
+With: StepInputs{
+Payload: map[string]any{
+"runner_id": "specific-runner",
+"action_id": "action1",
+},
+},
+},
+},
+{
+StepSpec: StepSpec{
+ID:  "step2",
+Use: "mobile-automation",
+With: StepInputs{
+Payload: map[string]any{
+"action_id": "action2",
 },
 },
 },
