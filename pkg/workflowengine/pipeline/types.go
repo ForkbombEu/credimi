@@ -11,12 +11,12 @@ import (
 )
 
 type WorkflowDefinition struct {
-	Version         string           `yaml:"version,omitempty"          json:"version,omitempty"`
-	Name            string           `yaml:"name"                       json:"name"`
-	Runtime         RuntimeConfig    `yaml:"runtime,omitempty"          json:"runtime,omitempty"`
-	Config          map[string]any   `yaml:"config,omitempty"           json:"config,omitempty"`
-	GlobalRunnerID  string           `yaml:"global_runner_id,omitempty" json:"global_runner_id,omitempty"`
-	Steps           []StepDefinition `yaml:"steps,omitempty"            json:"steps,omitempty"`
+	Version        string           `yaml:"version,omitempty"          json:"version,omitempty"`
+	Name           string           `yaml:"name"                       json:"name"`
+	Runtime        RuntimeConfig    `yaml:"runtime,omitempty"          json:"runtime,omitempty"`
+	Config         map[string]any   `yaml:"config,omitempty"           json:"config,omitempty"`
+	GlobalRunnerID string           `yaml:"global_runner_id,omitempty" json:"global_runner_id,omitempty"`
+	Steps          []StepDefinition `yaml:"steps,omitempty"            json:"steps,omitempty"`
 }
 
 type StepSpec struct {
