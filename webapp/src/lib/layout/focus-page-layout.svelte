@@ -29,13 +29,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { title, description, top, class: className, backButton, children }: Props = $props();
 </script>
 
-<div class={['bg-secondary min-h-screen space-y-10 p-6', className]}>
+<div class={['min-h-screen space-y-10 bg-secondary p-6', className]}>
 	{#if backButton}
-		{@const { href, title, class: classes, ...rest } = backButton}
+		{@const { href, class: classes, ...rest } = backButton}
 		{#if href}
-			<BackButton {href} class={clsx(classes)} {...rest}>
-				{title}
-			</BackButton>
+			<BackButton {href} class={clsx(classes)} {...rest} />
 		{/if}
 	{/if}
 

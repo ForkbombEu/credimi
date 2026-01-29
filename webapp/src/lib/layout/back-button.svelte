@@ -9,18 +9,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const history = $state<URL[]>([]);
 
-	const previousHref = $derived.by(() => {
-		const last = history.at(-1);
-		if (!last) return undefined;
-		return last.pathname + last.search;
-	});
-
 	export function storePreviousPageOnNavigate() {
-		afterNavigate(({ from, to, type }) => {
+		afterNavigate(({ from, type }) => {
 			if (type === 'popstate') history.pop();
-			else if (!from?.url.pathname) return;
-			else if (to && to.url.pathname === history.at(-1)?.pathname) history.pop();
-			else history.push(from.url);
+			else if (from) history.push(from.url);
 		});
 	}
 </script>
@@ -31,7 +23,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { ArrowLeft } from '@lucide/svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
-	import { m } from '@/i18n';
+	import { goto, m } from '@/i18n';
 
 	//
 
@@ -45,10 +37,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	storePreviousPageOnNavigate();
 
-	const actualHref = $derived(previousHref ?? href);
+	function back() {
+		const previousUrl = history.at(-1);
+		if (!previousUrl) goto(href);
+		else window.history.back();
+	}
 </script>
 
-<Button href={actualHref} variant="link" class={['gap-1 p-0', className]}>
+<Button onclick={back} variant="link" class={['gap-1 p-0', className]}>
 	<ArrowLeft size={16} />
 	{#if children}
 		{@render children()}
