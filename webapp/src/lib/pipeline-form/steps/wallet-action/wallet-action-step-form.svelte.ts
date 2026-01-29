@@ -87,8 +87,30 @@ export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, Wal
 		});
 	}
 
-	selectVersion(version: WalletVersionsResponse) {
+	async selectVersion(version: WalletVersionsResponse) {
 		this.data.version = version;
+		
+		// Auto-select global runner after version selection
+		await this.autoSelectGlobalRunner();
+	}
+	
+	private async autoSelectGlobalRunner() {
+		// Search for global (published) runners
+		const filter = pb.filter(
+			['published = true'].join(' || '),
+			{}
+		);
+		const globalRunners = await pb.collection('mobile_runners').getFullList({
+			requestKey: null,
+			filter: filter,
+			sort: 'created',
+			$autoCancel: false
+		});
+		
+		// If we found at least one global runner, auto-select the first one
+		if (globalRunners.length > 0) {
+			this.data.runner = globalRunners[0];
+		}
 	}
 
 	//
@@ -100,13 +122,28 @@ export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, Wal
 	});
 
 	async searchRunner(text: string) {
-		const filter = pb.filter(
-			[
-				['name ~ {:text}', 'canonified_name ~ {:text}'].join(' || '),
+		const { firstStepRunnerType, isFirstStep } = walletActionStepFormState;
+		
+		let filterConditions = [
+			['name ~ {:text}', 'canonified_name ~ {:text}'].join(' || ')
+		];
+		
+		// Apply runner type constraint if not the first step
+		if (!isFirstStep && firstStepRunnerType === 'global') {
+			// Only show published (global) runners
+			filterConditions.push('published = true');
+		} else if (!isFirstStep && firstStepRunnerType === 'specific') {
+			// Only show organization-owned (specific) runners
+			filterConditions.push('owner.id = {:currentOrganization}');
+		} else {
+			// First step or no constraint - show both types
+			filterConditions.push(
 				['owner.id = {:currentOrganization}', 'published = true'].join(' || ')
-			]
-				.map((f) => `(${f})`)
-				.join(' && '),
+			);
+		}
+		
+		const filter = pb.filter(
+			filterConditions.map((f) => `(${f})`).join(' && '),
 			{
 				text: text,
 				currentOrganization: userOrganization.current?.id
@@ -146,6 +183,13 @@ export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, Wal
 			version: this.data.version!,
 			runner: this.data.runner!
 		};
+		
+		// If this is the first step, set the runner type constraint
+		if (walletActionStepFormState.isFirstStep) {
+			const isGlobalRunner = this.data.runner!.published;
+			walletActionStepFormState.firstStepRunnerType = isGlobalRunner ? 'global' : 'specific';
+		}
+		
 		this.handleSubmit({ ...this.data, action } as WalletActionStepData);
 	}
 
@@ -167,6 +211,11 @@ export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, Wal
 	removeRunner() {
 		this.data.runner = undefined;
 	}
+	
+	// Only allow removing the runner on the first step
+	get canRemoveRunner() {
+		return walletActionStepFormState.isFirstStep;
+	}
 }
 
 //
@@ -179,8 +228,14 @@ type WalletActionStepFormState = {
 				runner: MobileRunnersResponse;
 		  }
 		| undefined;
+	// Track the runner type constraint from the first step
+	firstStepRunnerType: 'global' | 'specific' | undefined;
+	// Track if we're adding the first step
+	isFirstStep: boolean;
 };
 
 export const walletActionStepFormState = $state<WalletActionStepFormState>({
-	lastSelectedWallet: undefined
+	lastSelectedWallet: undefined,
+	firstStepRunnerType: undefined,
+	isFirstStep: false
 });

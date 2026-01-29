@@ -43,7 +43,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 		{#if form.data.runner}
 			<WithLabel label={m.Runner()}>
-				<ItemCard title={form.data.runner.name} onDiscard={() => form.removeRunner()} />
+				<ItemCard 
+					title={form.data.runner.name} 
+					onDiscard={form.canRemoveRunner ? () => form.removeRunner() : undefined} 
+				/>
 			</WithLabel>
 		{/if}
 	</div>

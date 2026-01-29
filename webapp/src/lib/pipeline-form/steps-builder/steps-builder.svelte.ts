@@ -40,9 +40,25 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	constructor(private props: Props) {
 		this._state.steps = props.steps;
+		
+		// Initialize runner type constraint from first step if it exists
+		if (props.steps.length > 0) {
+			const firstStep = props.steps[0];
+			if (firstStep[0].use === 'mobile-automation') {
+				// Check if the runner is global or specific
+				// We need to check the runner data from the deserialized form data
+				const firstStepData = firstStep[1] as any;
+				if (firstStepData && firstStepData.runner) {
+					const isGlobalRunner = firstStepData.runner.published;
+					walletActionStepFormState.firstStepRunnerType = isGlobalRunner ? 'global' : 'specific';
+				}
+			}
+		}
 
 		onDestroy(() => {
 			walletActionStepFormState.lastSelectedWallet = undefined;
+			walletActionStepFormState.firstStepRunnerType = undefined;
+			walletActionStepFormState.isFirstStep = false;
 		});
 	}
 
@@ -79,6 +95,11 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			if (!config) return;
 
 			const effectCleanup = $effect.root(() => {
+				// Set whether this is the first step for wallet-action forms
+				if (config.use === 'mobile-automation') {
+					walletActionStepFormState.isFirstStep = data.steps.length === 0;
+				}
+				
 				const form = config.initForm();
 				form.onSubmit((formData) => {
 					const step: PipelineStep = {
@@ -107,6 +128,11 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	deleteStep(index: number) {
 		this.stateManager.run((data) => {
 			data.steps.splice(index, 1);
+			
+			// If all steps are deleted, reset the runner type constraint
+			if (data.steps.length === 0) {
+				walletActionStepFormState.firstStepRunnerType = undefined;
+			}
 		});
 	}
 
