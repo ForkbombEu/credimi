@@ -328,6 +328,11 @@ func (w *PipelineWorkflow) Start(
 		}
 	}
 
+	// Add global_runner_id to config if specified
+	if wfDef.Runtime.GlobalRunnerID != "" {
+		config["global_runner_id"] = wfDef.Runtime.GlobalRunnerID
+	}
+
 	input := PipelineWorkflowInput{
 		WorkflowDefinition: wfDef,
 		WorkflowInput: workflowengine.WorkflowInput{
