@@ -282,7 +282,7 @@ func TestMobileRunnerSemaphoreWorkflowAcquireTimeout(t *testing.T) {
 	case err := <-timeoutCh:
 		var appErr *temporal.ApplicationError
 		require.True(t, errors.As(err, &appErr))
-		require.Equal(t, mobileRunnerSemaphoreErrTimeout, appErr.Type())
+		require.Equal(t, MobileRunnerSemaphoreErrTimeout, appErr.Type())
 	case <-time.After(2 * time.Second):
 		require.Fail(t, "timed out waiting for timeout error")
 	}

@@ -24,8 +24,8 @@ const (
 )
 
 const (
-	mobileRunnerSemaphoreErrInvalidRequest = "mobile-runner-semaphore-invalid-request"
-	mobileRunnerSemaphoreErrTimeout        = "mobile-runner-semaphore-timeout"
+	MobileRunnerSemaphoreErrInvalidRequest = "mobile-runner-semaphore-invalid-request"
+	MobileRunnerSemaphoreErrTimeout        = "mobile-runner-semaphore-timeout"
 )
 
 type MobileRunnerSemaphoreWorkflow struct {
@@ -150,7 +150,7 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 	if runnerID == "" {
 		return workflowengine.WorkflowResult{}, temporal.NewApplicationError(
 			"runner_id is required",
-			mobileRunnerSemaphoreErrInvalidRequest,
+			MobileRunnerSemaphoreErrInvalidRequest,
 		)
 	}
 
@@ -271,7 +271,7 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 			if req.RequestID == "" || req.LeaseID == "" {
 				return MobileRunnerSemaphorePermit{}, temporal.NewApplicationError(
 					"request_id and lease_id are required",
-					mobileRunnerSemaphoreErrInvalidRequest,
+					MobileRunnerSemaphoreErrInvalidRequest,
 				)
 			}
 
@@ -282,7 +282,7 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 				case mobileRunnerSemaphoreRequestTimedOut:
 					return MobileRunnerSemaphorePermit{}, temporal.NewApplicationError(
 						"request timed out",
-						mobileRunnerSemaphoreErrTimeout,
+						MobileRunnerSemaphoreErrTimeout,
 						req.RequestID,
 					)
 				}
@@ -321,7 +321,7 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 				if !ok {
 					return MobileRunnerSemaphorePermit{}, temporal.NewApplicationError(
 						"request not found",
-						mobileRunnerSemaphoreErrInvalidRequest,
+						MobileRunnerSemaphoreErrInvalidRequest,
 						req.RequestID,
 					)
 				}
@@ -337,7 +337,7 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 					grantAvailable()
 					return MobileRunnerSemaphorePermit{}, temporal.NewApplicationError(
 						"acquire timeout",
-						mobileRunnerSemaphoreErrTimeout,
+						MobileRunnerSemaphoreErrTimeout,
 						req.RequestID,
 					)
 				}
@@ -362,7 +362,7 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 			if req.LeaseID == "" {
 				return MobileRunnerSemaphoreReleaseResult{}, temporal.NewApplicationError(
 					"lease_id is required",
-					mobileRunnerSemaphoreErrInvalidRequest,
+					MobileRunnerSemaphoreErrInvalidRequest,
 				)
 			}
 
@@ -399,6 +399,10 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 
 func MobileRunnerSemaphoreWorkflowID(runnerID string) string {
 	return fmt.Sprintf("mobile-runner-semaphore/%s", runnerID)
+}
+
+func MobileRunnerSemaphorePermitLeaseID(workflowID, runID, runnerID string) string {
+	return fmt.Sprintf("%s/%s/%s", workflowID, runID, runnerID)
 }
 
 func buildPermit(runnerID string, state MobileRunnerSemaphoreRequestState) MobileRunnerSemaphorePermit {
