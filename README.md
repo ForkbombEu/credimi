@@ -1,7 +1,6 @@
 <!--
-SPDX-FileCopyrightText: 2024 Puria Nafisi Azizi
-SPDX-FileCopyrightText: 2024 The Forkbomb Company
-
+SPDX-FileCopyrightText: 2024-2026 Puria Nafisi Azizi
+SPDX-FileCopyrightText: 2024-2026 The Forkbomb Company
 SPDX-License-Identifier: CC-BY-NC-SA-4.0
 -->
 

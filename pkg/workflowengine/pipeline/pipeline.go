@@ -6,6 +6,7 @@ package pipeline
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -492,7 +493,7 @@ func (w *PipelineWorkflow) handleScheduledRun(
 	// --- Validate pipeline identifier
 	recRequest := workflowengine.ActivityInput{
 		Payload: map[string]any{
-			"method": "POST",
+			"method": http.MethodPost,
 			"url": utils.JoinURL(
 				config["app_url"].(string),
 				"api", "canonify", "identifier", "validate",
@@ -563,7 +564,7 @@ func (w *PipelineWorkflow) handleScheduledRun(
 
 	createRequest := workflowengine.ActivityInput{
 		Payload: map[string]any{
-			"method": "POST",
+			"method": http.MethodPost,
 			"url": utils.JoinURL(
 				config["app_url"].(string),
 				"api", "pipeline", "pipeline-execution-results",

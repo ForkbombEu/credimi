@@ -178,7 +178,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 
 	// add form fields
 	_ = successWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = successWriter.WriteField("version_identifier", "usera-s-organization/wallet123/1-0-0")
+	_ = successWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
 
 	partHeader := textproto.MIMEHeader{}
 	partHeader.Set("Content-Disposition", `form-data; name="result_video"; filename="test.mp4"`)
@@ -204,7 +204,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	var missingBody bytes.Buffer
 	missingWriter := multipart.NewWriter(&missingBody)
 	_ = missingWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = missingWriter.WriteField("version_identifier", "usera-s-organization/wallet123/1-0-0")
+	_ = missingWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
 	require.NoError(t, missingWriter.Close())
 
 	scenarios := []tests.ApiScenario{

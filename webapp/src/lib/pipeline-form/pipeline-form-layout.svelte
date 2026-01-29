@@ -49,5 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 
-	{@render children?.()}
+	<div class="flex-1 min-h-0">
+		{@render children?.()}
+	</div>
 </div>

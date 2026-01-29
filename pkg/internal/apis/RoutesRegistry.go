@@ -14,7 +14,7 @@ var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
 	handlers.ChecksRoutes,
 	handlers.ApiKeyRoutes,
 	handlers.SchedulesRoutes,
-	//handlers.ScoreboardRoutes,
+	// handlers.ScoreboardRoutes,
 }
 
 var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
@@ -34,8 +34,9 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.DeepLinkVerifiers,
 	handlers.ConformanceCheckRoutes,
 	handlers.OrganizationRoutes,
-	//handlers.ScoreboardPublicRoutes,
+	// handlers.ScoreboardPublicRoutes,
 	handlers.CloneRecord,
+	handlers.MobileRunnersTemporalInternalRoutes,
 }
 
 func RegisterMyRoutes(app core.App) {

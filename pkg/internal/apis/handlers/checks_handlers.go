@@ -1180,7 +1180,12 @@ func buildExecutionHierarchy(
 
 		w := pipeline.PipelineWorkflow{}
 		if current.Type.Name == w.Name() {
-			results := computePipelineResults(app, owner, exec.Execution.WorkflowID, exec.Execution.RunID)
+			results := computePipelineResults(
+				app,
+				owner,
+				exec.Execution.WorkflowID,
+				exec.Execution.RunID,
+			)
 
 			current.Results = results
 		}

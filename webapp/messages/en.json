@@ -913,5 +913,7 @@
 	"Success_rate": "success rate",
 	"Successful_runs": "Successful runs",
 	"Conformance_and_custom_checks": "Conformance and custom checks",
-	"Workflows_history": "Workflows history"
+	"Workflows_history": "Workflows history",
+	"Runner": "Runner",
+	"No_runners_found": "No runners found"
 }

@@ -356,7 +356,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		versionIdentifier := e.Request.FormValue("version_identifier")
+		runnerIdentifier := e.Request.FormValue("runner_identifier")
 		runIdentifier := e.Request.FormValue("run_identifier")
 
 		resultRecord, err := canonify.Resolve(e.App, runIdentifier)
@@ -370,7 +370,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 		}
 
 		versionName := strings.ReplaceAll(
-			strings.Trim(versionIdentifier, "/"),
+			strings.Trim(runnerIdentifier, "/"),
 			"/",
 			"-",
 		)
@@ -392,7 +392,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, map[string]any{
 			"status":               "success",
-			"version":              versionIdentifier,
+			"runner":               runnerIdentifier,
 			"video_file_name":      videoFilename,
 			"result_urls":          videoURLs,
 			"last_frame_file_name": frameFilename,
@@ -462,17 +462,18 @@ func saveUploadedFileToRecord(
 		).JSON(e)
 	}
 
-	existing := record.Get(recordField)
-	var files []*filesystem.File
+	existing := record.GetStringSlice(recordField)
 
-	if existing != nil {
-		if slice, ok := existing.([]*filesystem.File); ok {
-			files = append(files, slice...)
-		}
+	values := make([]any, 0, len(existing)+1)
+
+	for _, name := range existing {
+		values = append(values, name)
 	}
-	files = append(files, f)
 
-	record.Set(recordField, files)
+	// add new file
+	values = append(values, f)
+
+	record.Set(recordField, values)
 
 	if err := e.App.Save(record); err != nil {
 		os.Remove(absPath)

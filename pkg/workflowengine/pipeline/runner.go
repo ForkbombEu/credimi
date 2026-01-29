@@ -122,8 +122,8 @@ func ExecuteStep(
 			return nil, appErr
 		}
 		taskqueue := PipelineTaskQueue
-		if step.TaskQueue != "" {
-			taskqueue = step.TaskQueue
+		if step.CustomTaskQueue {
+			taskqueue = s.With.Config["taskqueue"].(string)
 		}
 		w := step.NewFunc().(workflowengine.Workflow)
 		appURL, ok := s.With.Config["app_url"].(string)
