@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { BaseDataForm } from '../types';
+import { BaseForm } from '../types';
 import Component from './http-request-step-form.svelte';
 
 //
 
-export class HttpRequestStepForm extends BaseDataForm<HttpRequestFormData, HttpRequestStepForm> {
+export class HttpRequestStepForm extends BaseForm<HttpRequestFormData, HttpRequestStepForm> {
 	readonly Component = Component;
 
 	data = $state<HttpRequestFormData>({

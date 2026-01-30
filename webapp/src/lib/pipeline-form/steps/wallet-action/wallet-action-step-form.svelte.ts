@@ -16,7 +16,7 @@ import {
 
 import { searchMarketplace } from '../_partials/search-marketplace';
 import { Search } from '../_partials/search.svelte.js';
-import { BaseDataForm } from '../types.js';
+import { BaseForm } from '../types.js';
 import Component from './wallet-action-step-form.svelte';
 
 //
@@ -28,7 +28,7 @@ export interface WalletActionStepData {
 	runner: MobileRunnersResponse;
 }
 
-export class WalletActionStepForm extends BaseDataForm<WalletActionStepData, WalletActionStepForm> {
+export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletActionStepForm> {
 	readonly Component = Component;
 
 	constructor() {

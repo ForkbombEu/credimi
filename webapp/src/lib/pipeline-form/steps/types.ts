@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EntityData } from '$lib/global';
+import type { MarketplaceItem } from '$lib/marketplace';
 import type {
 	PipelineStepByType,
 	PipelineStepData,
@@ -11,6 +12,8 @@ import type {
 import type { Renderable } from '$lib/renderable';
 import type { Simplify } from 'type-fest';
 
+import type { MobileRunnersResponse, WalletVersionsResponse } from '@/pocketbase/types';
+
 // Pipeline Step Config
 
 export interface Config<ID extends string = string, Serialized = unknown, Deserialized = unknown> {
@@ -18,14 +21,24 @@ export interface Config<ID extends string = string, Serialized = unknown, Deseri
 	serialize: (step: Deserialized) => Serialized;
 	deserialize: (step: Serialized) => Promise<Deserialized>;
 	display: EntityData;
-	initForm: () => DataForm<Deserialized>;
+	initForm: (ctx: () => FormContext) => Form<Deserialized>;
 	cardData: (data: Deserialized) => CardData;
 	makeId: (data: Serialized) => string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface DataForm<Deserialized = unknown, T = any> extends Renderable<T> {
+export interface Form<Deserialized = unknown, T = any> extends Renderable<T> {
 	onSubmit: (handler: (step: Deserialized) => void) => void;
+}
+
+export interface FormContext {
+	currentMobileApp:
+		| undefined
+		| {
+				wallet: MarketplaceItem;
+				runner: MobileRunnersResponse | 'global';
+				version: WalletVersionsResponse;
+		  };
 }
 
 export interface CardData {
@@ -44,7 +57,7 @@ export type TypedConfig<T extends PipelineStepType, Deserialized> = Simplify<
 	Config<T, PipelineStepData<PipelineStepByType<T>>, Deserialized>
 >;
 
-export abstract class BaseDataForm<Deserialized, T> implements DataForm<Deserialized, T> {
+export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T> {
 	abstract Component: Renderable<T>['Component'];
 
 	protected handleSubmit: (step: Deserialized) => void = () => {};
