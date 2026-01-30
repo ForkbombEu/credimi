@@ -228,7 +228,7 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 					)
 				}
 
-				if granted && state.Status == mobileRunnerSemaphoreRequestGranted {
+				if state.Status == mobileRunnerSemaphoreRequestGranted {
 					return buildPermit(runnerID, state), nil
 				}
 
@@ -236,6 +236,7 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 					queue = removeFromQueue(queue, req.RequestID)
 					state.Status = mobileRunnerSemaphoreRequestTimedOut
 					requests[req.RequestID] = state
+					delete(holders, req.LeaseID)
 					grantAvailable()
 					return MobileRunnerSemaphorePermit{}, temporal.NewApplicationError(
 						"acquire timeout",
