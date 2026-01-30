@@ -40,3 +40,8 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 - Svelte/TS code: Prettier tabs + single quotes + width 100; ESLint perfectionist sorts imports.
 - Use TypeScript-first patterns, prefer type aliases for unions, rely on Tailwind (sorted by plugin).
 - Reuse `effect`/`zod` utilities for async flows/validation; no Cursor/Copilot rule overrides present.
+
+## Test Conventions
+- Go: table-driven `TestX_Y` names, `require` for hard failures, avoid IO in unit tests.
+- Webapp: prefer pure-module Vitest tests; for E2E use stable selectors (`data-testid`) and avoid time-based waits.
+- Fixtures: use `fixtures/test_pb_data` (or `test_pb_data` where already established) and keep fixtures read-only.
