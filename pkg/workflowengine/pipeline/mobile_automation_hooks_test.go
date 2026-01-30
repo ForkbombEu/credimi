@@ -138,7 +138,7 @@ func testAcquireRunnerPermitsWorkflow(ctx workflow.Context, steps []StepDefiniti
 		workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 	)
 	acquireActivity := activities.NewAcquireMobileRunnerPermitActivity()
-	runnerIDs, err := collectMobileRunnerIDs(steps)
+	runnerIDs, err := collectMobileRunnerIDs(steps, "")
 	if err != nil {
 		return err
 	}

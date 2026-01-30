@@ -42,7 +42,7 @@ func MobileAutomationSetupHook(
 	installActivity := activities.NewApkInstallActivity()
 	recordActivity := activities.NewStartRecordingActivity()
 
-	runnerIDs, err := collectMobileRunnerIDs(*steps)
+	runnerIDs, err := collectMobileRunnerIDs(*steps, globalRunnerID)
 	if err != nil {
 		return err
 	}
@@ -139,9 +139,12 @@ func getOrCreateSettedDevices(runData *map[string]any) map[string]any {
 	return settedDevices
 }
 
-func collectMobileRunnerIDs(steps []StepDefinition) ([]string, error) {
+func collectMobileRunnerIDs(steps []StepDefinition, globalID string) ([]string, error) {
 	uniqueRunnerIDs := make(map[string]struct{})
 
+	if globalID != "" {
+		uniqueRunnerIDs[globalID] = struct{}{}
+	}
 	for i := range steps {
 		step := &steps[i]
 		if step.Use != mobileAutomationStepUse {
@@ -152,7 +155,9 @@ func collectMobileRunnerIDs(steps []StepDefinition) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-
+		if payload.RunnerID == "" {
+			continue
+		}
 		uniqueRunnerIDs[payload.RunnerID] = struct{}{}
 	}
 
@@ -184,7 +189,9 @@ func acquireRunnerPermits(
 			return nil, err
 		}
 
-		permit, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](response.Output)
+		permit, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](
+			response.Output,
+		)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			return nil, workflowengine.NewAppError(
@@ -404,12 +411,6 @@ func decodeAndValidatePayload(
 				fmt.Sprintf("missing or invalid action_id for step %s", step.ID),
 			)
 		}
-	}
-	if payload.RunnerID == "" {
-		return nil, workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("missing or invalid runner_id for step %s", step.ID),
-		)
 	}
 
 	return &payload, nil
