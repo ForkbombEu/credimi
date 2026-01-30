@@ -35,8 +35,6 @@ type ReleaseMobileRunnerPermitActivity struct {
 
 const defaultMobileRunnerSemaphoreWaitTimeout = 45 * time.Minute
 
-const defaultMobileRunnerSemaphoreNamespace = "default"
-
 func NewAcquireMobileRunnerPermitActivity() *AcquireMobileRunnerPermitActivity {
 	return &AcquireMobileRunnerPermitActivity{
 		BaseActivity: workflowengine.BaseActivity{
@@ -70,7 +68,9 @@ func (a *AcquireMobileRunnerPermitActivity) Execute(
 		return result, nil
 	}
 
-	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(defaultMobileRunnerSemaphoreNamespace)
+	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(
+		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+	)
 	if err != nil {
 		return result, a.mapAcquireError(err, runnerID, 0, nil)
 	}
@@ -188,7 +188,9 @@ func (a *ReleaseMobileRunnerPermitActivity) Execute(
 		return result, nil
 	}
 
-	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(defaultMobileRunnerSemaphoreNamespace)
+	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(
+		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+	)
 	if err != nil {
 		return result, err
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
@@ -169,7 +170,9 @@ func queryMobileRunnerSemaphoreStateTemporal(
 	ctx context.Context,
 	runnerID string,
 ) (workflows.MobileRunnerSemaphoreStateView, error) {
-	client, err := temporalclient.GetTemporalClientWithNamespace(defaultMobileRunnerSemaphoreNamespace)
+	client, err := temporalclient.GetTemporalClientWithNamespace(
+		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+	)
 	if err != nil {
 		return workflows.MobileRunnerSemaphoreStateView{}, err
 	}
