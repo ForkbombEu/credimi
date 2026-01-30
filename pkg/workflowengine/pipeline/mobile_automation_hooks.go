@@ -18,6 +18,8 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+const mobileAutomationStepUse = "mobile-automation"
+
 func MobileAutomationSetupHook(
 	ctx workflow.Context,
 	steps *[]StepDefinition,
@@ -57,7 +59,7 @@ func MobileAutomationSetupHook(
 	for i := range *steps {
 		step := &(*steps)[i]
 
-		if step.Use != "mobile-automation" {
+		if step.Use != mobileAutomationStepUse {
 			continue
 		}
 
@@ -98,7 +100,7 @@ func MobileAutomationSetupHook(
 func validateRunnerIDConfiguration(steps *[]StepDefinition, globalRunnerID string) error {
 	var mobileAutomationSteps []*StepDefinition
 	for i := range *steps {
-		if (*steps)[i].Use == "mobile-automation" {
+		if (*steps)[i].Use == mobileAutomationStepUse {
 			mobileAutomationSteps = append(mobileAutomationSteps, &(*steps)[i])
 		}
 	}
@@ -142,7 +144,7 @@ func collectMobileRunnerIDs(steps []StepDefinition) ([]string, error) {
 
 	for i := range steps {
 		step := &steps[i]
-		if step.Use != "mobile-automation" {
+		if step.Use != mobileAutomationStepUse {
 			continue
 		}
 
