@@ -289,6 +289,10 @@ func (r *mobileRunnerSemaphoreRuntime) handleRelease(
 		)
 	}
 
+			// For idempotent acquires where the request already exists in a queued state,
+			// we intentionally do not re-enqueue or short-circuit here. Instead, the call
+			// falls through to the wait logic below, which will block until the existing
+			// request is granted or times out.
 	if _, ok := r.holders[req.LeaseID]; !ok {
 		return MobileRunnerSemaphoreReleaseResult{Released: false}, nil
 	}
