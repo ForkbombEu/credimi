@@ -216,6 +216,75 @@ func TestMobileRunnerSemaphoreWorkflowReleaseUnknownLease(t *testing.T) {
 	require.Empty(t, drainErrors(errCh))
 }
 
+func TestMobileRunnerSemaphoreWorkflowQueueAdvancesAfterRelease(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileRunnerSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	permit1Ch := make(chan MobileRunnerSemaphorePermit, 1)
+	permit2Ch := make(chan MobileRunnerSemaphorePermit, 1)
+	errCh := make(chan error, 2)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueAcquireUpdate(
+			env,
+			MobileRunnerSemaphoreAcquireRequest{RequestID: "lease-1", LeaseID: "lease-1"},
+			permit1Ch,
+			errCh,
+		)
+	}, time.Second)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueAcquireUpdate(
+			env,
+			MobileRunnerSemaphoreAcquireRequest{RequestID: "lease-2", LeaseID: "lease-2"},
+			permit2Ch,
+			errCh,
+		)
+	}, time.Second*2)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueReleaseUpdate(env, MobileRunnerSemaphoreReleaseRequest{LeaseID: "lease-1"}, errCh)
+	}, time.Second*3)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*4)
+
+	done := make(chan struct{})
+	go func() {
+		env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+			Payload: MobileRunnerSemaphoreWorkflowInput{
+				RunnerID: "runner-1",
+				Capacity: 1,
+			},
+		})
+		close(done)
+	}()
+
+	<-done
+
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case permit := <-permit1Ch:
+		require.Equal(t, "lease-1", permit.LeaseID)
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for first permit")
+	}
+
+	select {
+	case err := <-errCh:
+		require.NoError(t, err)
+	case permit := <-permit2Ch:
+		require.Equal(t, "lease-2", permit.LeaseID)
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for second permit")
+	}
+
+	require.Empty(t, drainErrors(errCh))
+}
+
 func TestMobileRunnerSemaphoreWorkflowAcquireTimeout(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -419,7 +488,10 @@ func enqueueAcquireUpdate(
 	permitsCh chan<- MobileRunnerSemaphorePermit,
 	errCh chan<- error,
 ) {
-	env.UpdateWorkflow(MobileRunnerSemaphoreAcquireUpdate, req.RequestID, &testsuite.TestUpdateCallback{
+	env.UpdateWorkflow(
+		MobileRunnerSemaphoreAcquireUpdate,
+		MobileRunnerSemaphoreAcquireUpdateID(req.RequestID),
+		&testsuite.TestUpdateCallback{
 		OnReject: func(err error) {
 			errCh <- err
 		},
@@ -435,7 +507,9 @@ func enqueueAcquireUpdate(
 			}
 			permitsCh <- permit
 		},
-	}, req)
+		},
+		req,
+	)
 }
 
 func enqueueReleaseUpdate(
@@ -443,7 +517,10 @@ func enqueueReleaseUpdate(
 	req MobileRunnerSemaphoreReleaseRequest,
 	errCh chan<- error,
 ) {
-	env.UpdateWorkflow(MobileRunnerSemaphoreReleaseUpdate, req.LeaseID, &testsuite.TestUpdateCallback{
+	env.UpdateWorkflow(
+		MobileRunnerSemaphoreReleaseUpdate,
+		MobileRunnerSemaphoreReleaseUpdateID(req.LeaseID),
+		&testsuite.TestUpdateCallback{
 		OnReject: func(err error) {
 			errCh <- err
 		},
@@ -452,7 +529,9 @@ func enqueueReleaseUpdate(
 				errCh <- err
 			}
 		},
-	}, req)
+		},
+		req,
+	)
 }
 
 func enqueueReleaseUpdateWithResult(
@@ -461,7 +540,10 @@ func enqueueReleaseUpdateWithResult(
 	releaseCh chan<- MobileRunnerSemaphoreReleaseResult,
 	errCh chan<- error,
 ) {
-	env.UpdateWorkflow(MobileRunnerSemaphoreReleaseUpdate, req.LeaseID, &testsuite.TestUpdateCallback{
+	env.UpdateWorkflow(
+		MobileRunnerSemaphoreReleaseUpdate,
+		MobileRunnerSemaphoreReleaseUpdateID(req.LeaseID),
+		&testsuite.TestUpdateCallback{
 		OnReject: func(err error) {
 			errCh <- err
 		},
@@ -477,7 +559,9 @@ func enqueueReleaseUpdateWithResult(
 			}
 			releaseCh <- result
 		},
-	}, req)
+		},
+		req,
+	)
 }
 
 func enqueueAcquireUpdateExpectError(
@@ -485,7 +569,10 @@ func enqueueAcquireUpdateExpectError(
 	req MobileRunnerSemaphoreAcquireRequest,
 	timeoutCh chan<- error,
 ) {
-	env.UpdateWorkflow(MobileRunnerSemaphoreAcquireUpdate, req.RequestID, &testsuite.TestUpdateCallback{
+	env.UpdateWorkflow(
+		MobileRunnerSemaphoreAcquireUpdate,
+		MobileRunnerSemaphoreAcquireUpdateID(req.RequestID),
+		&testsuite.TestUpdateCallback{
 		OnReject: func(err error) {
 			timeoutCh <- err
 		},
@@ -496,7 +583,9 @@ func enqueueAcquireUpdateExpectError(
 			}
 			timeoutCh <- err
 		},
-	}, req)
+		},
+		req,
+	)
 }
 
 func drainErrors(errCh <-chan error) []error {

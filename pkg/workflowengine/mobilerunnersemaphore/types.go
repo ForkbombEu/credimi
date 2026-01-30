@@ -19,6 +19,11 @@ const (
 	ErrTimeout        = "mobile-runner-semaphore-timeout"
 )
 
+const (
+	acquireUpdateIDPrefix = "acquire/"
+	releaseUpdateIDPrefix = "release/"
+)
+
 type MobileRunnerSemaphoreWorkflowInput struct {
 	RunnerID string                              `json:"runner_id"`
 	Capacity int                                 `json:"capacity"`
@@ -109,4 +114,12 @@ func WorkflowID(runnerID string) string {
 
 func PermitLeaseID(workflowID, runID, runnerID string) string {
 	return fmt.Sprintf("%s/%s/%s", workflowID, runID, runnerID)
+}
+
+func AcquireUpdateID(requestID string) string {
+	return acquireUpdateIDPrefix + requestID
+}
+
+func ReleaseUpdateID(leaseID string) string {
+	return releaseUpdateIDPrefix + leaseID
 }

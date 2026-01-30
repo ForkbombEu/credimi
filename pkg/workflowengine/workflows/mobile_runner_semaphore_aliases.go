@@ -45,3 +45,11 @@ func MobileRunnerSemaphoreWorkflowID(runnerID string) string {
 func MobileRunnerSemaphorePermitLeaseID(workflowID, runID, runnerID string) string {
 	return mobilerunnersemaphore.PermitLeaseID(workflowID, runID, runnerID)
 }
+
+func MobileRunnerSemaphoreAcquireUpdateID(requestID string) string {
+	return mobilerunnersemaphore.AcquireUpdateID(requestID)
+}
+
+func MobileRunnerSemaphoreReleaseUpdateID(leaseID string) string {
+	return mobilerunnersemaphore.ReleaseUpdateID(leaseID)
+}
