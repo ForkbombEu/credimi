@@ -22,9 +22,9 @@ type MobileRunnerSemaphoreWorkflow struct {
 }
 
 const (
-	mobileRunnerSemaphoreRequestQueued   MobileRunnerSemaphoreRequestStatus = "queued"
-	mobileRunnerSemaphoreRequestGranted  MobileRunnerSemaphoreRequestStatus = "granted"
-	mobileRunnerSemaphoreRequestTimedOut MobileRunnerSemaphoreRequestStatus = "timed_out"
+	mobileRunnerSemaphoreRequestQueued   MobileRunnerSemaphoreRequestStatus = workflowengine.MobileRunnerSemaphoreRequestQueued
+	mobileRunnerSemaphoreRequestGranted  MobileRunnerSemaphoreRequestStatus = workflowengine.MobileRunnerSemaphoreRequestGranted
+	mobileRunnerSemaphoreRequestTimedOut MobileRunnerSemaphoreRequestStatus = workflowengine.MobileRunnerSemaphoreRequestTimedOut
 )
 
 func NewMobileRunnerSemaphoreWorkflow() *MobileRunnerSemaphoreWorkflow {
