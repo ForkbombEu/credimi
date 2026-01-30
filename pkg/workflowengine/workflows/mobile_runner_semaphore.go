@@ -373,20 +373,20 @@ func copyQueue(queue []string) []string {
 	if queue == nil {
 		return nil
 	}
-	copyQueue := make([]string, len(queue))
-	copy(copyQueue, queue)
-	return copyQueue
+	result := make([]string, len(queue))
+	copy(result, queue)
+	return result
 }
 
 func copyHolders(holders map[string]MobileRunnerSemaphoreHolder) map[string]MobileRunnerSemaphoreHolder {
 	if holders == nil {
 		return nil
 	}
-	copyHolders := make(map[string]MobileRunnerSemaphoreHolder, len(holders))
+	result := make(map[string]MobileRunnerSemaphoreHolder, len(holders))
 	for key, value := range holders {
-		copyHolders[key] = value
+		result[key] = value
 	}
-	return copyHolders
+	return result
 }
 
 func copyRequests(
@@ -395,11 +395,11 @@ func copyRequests(
 	if requests == nil {
 		return nil
 	}
-	copyRequests := make(map[string]MobileRunnerSemaphoreRequestState, len(requests))
+	result := make(map[string]MobileRunnerSemaphoreRequestState, len(requests))
 	for key, value := range requests {
-		copyRequests[key] = value
+		result[key] = value
 	}
-	return copyRequests
+	return result
 }
 
 func copyTimePtr(value *time.Time) *time.Time {
