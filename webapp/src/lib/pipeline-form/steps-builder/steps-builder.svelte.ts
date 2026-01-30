@@ -5,13 +5,11 @@
 import type { Renderable } from '$lib/renderable';
 
 import { StateManager } from '$lib/state-manager/state-manager';
-import { onDestroy } from 'svelte';
 
 import type { PipelineStep } from '../types';
 import type { EnrichedStep } from './types';
 
 import * as pipelinestep from '../steps';
-import { walletActionStepFormState } from '../steps/wallet-action/wallet-action-step-form.svelte.js';
 import Component from './steps-builder.svelte';
 
 //
@@ -23,42 +21,38 @@ type Props = {
 
 type State = {
 	steps: EnrichedStep[];
-	state: { id: 'idle' } | { id: 'form'; form: pipelinestep.Form };
+	mode: { id: 'idle' } | { id: 'form'; form: pipelinestep.Form };
 	formContext: pipelinestep.FormContext;
 };
 
 export class StepsBuilder implements Renderable<StepsBuilder> {
 	readonly Component = Component;
 
-	private _state = $state<State>({
+	private state = $state<State>({
 		steps: [],
-		state: { id: 'idle' },
+		mode: { id: 'idle' },
 		formContext: {
 			currentMobileApp: undefined
 		}
 	});
 
 	private stateManager = new StateManager(
-		() => this._state,
-		(state) => (this._state = state)
+		() => this.state,
+		(state) => (this.state = state)
 	);
 
 	constructor(private props: Props) {
-		this._state.steps = props.steps;
-
-		onDestroy(() => {
-			walletActionStepFormState.lastSelectedWallet = undefined;
-		});
+		this.state.steps = props.steps;
 	}
 
 	// Shortcuts
 
-	get state() {
-		return this._state.state;
+	get mode() {
+		return this.state.mode;
 	}
 
 	get steps() {
-		return this._state.steps;
+		return this.state.steps;
 	}
 
 	get yamlPreview() {
@@ -76,78 +70,75 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 	// Core functionality
 
 	initAddStep(type: string) {
-		const config = pipelinestep.configs.find((c) => c.use === type);
-		if (!config) return;
-
-		this.stateManager.run((data) => {
+		this.stateManager.run((state) => {
 			const config = pipelinestep.configs.find((c) => c.use === type);
 			if (!config) return;
 
 			const effectCleanup = $effect.root(() => {
-				const form = config.initForm(() => data.formContext);
+				const form = config.initForm(() => state.formContext);
 				form.onSubmit((formData) => {
-					const step: PipelineStep = {
-						use: config.use as never,
-						id: '', // will be written later
-						continue_on_error: true,
-						with: config.serialize(formData)
-					};
-					this.stateManager.run((data) => {
-						data.steps.push([step, formData]);
-						data.state = { id: 'idle' };
+					this.stateManager.run((state) => {
+						const step: PipelineStep = {
+							use: config.use as never,
+							id: '', // will be written later
+							continue_on_error: true,
+							with: config.serialize(formData)
+						};
+						state.steps.push([step, formData]);
+						state.mode = { id: 'idle' };
 						effectCleanup();
 					});
 				});
-				data.state = { id: 'form', form };
+				state.mode = { id: 'form', form };
 			});
 		});
 	}
 
 	addDebugStep() {
-		this.stateManager.run((data) => {
-			data.steps.push([{ use: 'debug' }, {}]);
+		this.stateManager.run((state) => {
+			state.steps.push([{ use: 'debug' }, {}]);
 		});
 	}
 
 	deleteStep(index: number) {
-		this.stateManager.run((data) => {
-			data.steps.splice(index, 1);
+		this.stateManager.run((state) => {
+			state.steps.splice(index, 1);
 		});
 	}
 
 	setContinueOnError(index: number, continueOnError: boolean) {
-		this.stateManager.run((data) => {
-			const step = data.steps[index];
+		this.stateManager.run((state) => {
+			const step = state.steps[index];
 			if (!step || step[0].use == 'debug') return;
 			step[0].continue_on_error = continueOnError;
 		});
 	}
 
 	exitFormState() {
-		if (!(this.state.id == 'form')) return;
-		this.stateManager.run((data) => {
-			data.state = { id: 'idle' };
+		this.stateManager.run((state) => {
+			if (!(state.mode.id == 'form')) return;
+			state.mode = { id: 'idle' };
 		});
 	}
 
 	// Ordering
 
 	shiftStep(index: number, change: number) {
-		this.stateManager.run((data) => {
-			const indices = this.calculateShiftIndices(index, change);
+		this.stateManager.run((state) => {
+			const indices = this.calculateShiftIndices(state, index, change);
 			if (!indices) return;
-			const [movedItem] = data.steps.splice(indices.index, 1);
-			data.steps.splice(indices.newIndex, 0, movedItem);
+			const [movedItem] = state.steps.splice(indices.index, 1);
+			state.steps.splice(indices.newIndex, 0, movedItem);
 		});
 	}
 
 	canShiftStep(index: number, change: number) {
-		return this.calculateShiftIndices(index, change) !== null;
+		return this.calculateShiftIndices(this.state, index, change) !== null;
 	}
 
-	private calculateShiftIndices(index: number, change: number) {
+	private calculateShiftIndices(state: State, index: number, change: number) {
 		const newIndex = index + change;
-		if (newIndex < 0 || newIndex >= this.steps.length || newIndex === index) return null;
+		if (newIndex < 0 || newIndex >= state.steps.length || newIndex === index) return null;
 		return { index, newIndex };
 	}
 }
