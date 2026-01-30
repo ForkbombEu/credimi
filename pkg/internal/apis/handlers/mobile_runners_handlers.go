@@ -169,7 +169,7 @@ func queryMobileRunnerSemaphoreStateTemporal(
 	ctx context.Context,
 	runnerID string,
 ) (workflows.MobileRunnerSemaphoreStateView, error) {
-	client, err := temporalclient.GetTemporalClientWithNamespace(workflows.DefaultNamespace)
+	client, err := temporalclient.GetTemporalClientWithNamespace(defaultMobileRunnerSemaphoreNamespace)
 	if err != nil {
 		return workflows.MobileRunnerSemaphoreStateView{}, err
 	}
