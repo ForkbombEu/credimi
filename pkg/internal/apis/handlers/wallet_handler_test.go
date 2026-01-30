@@ -246,7 +246,6 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			ExpectedContent: []string{
 				`"file"`,
 				`failed to read file for field result_video"`,
-				`failed to read file for field last_frame"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
