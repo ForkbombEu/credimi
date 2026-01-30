@@ -212,6 +212,12 @@ var DefaultWorkers = []workerConfig{
 			activities.NewHTTPActivity(),
 		},
 	},
+	{
+		TaskQueue: workflows.MobileRunnerSemaphoreTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewMobileRunnerSemaphoreWorkflow(),
+		},
+	},
 }
 
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
