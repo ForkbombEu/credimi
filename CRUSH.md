@@ -17,7 +17,7 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 ## Test Suites
 - Go unit (default): `make test` or `go test -tags=unit ./...` (deterministic; no external services).
-- Go integration (opt-in): `go test ./...` without `-tags=unit` to include `//go:build !unit` tests; requires external services (e.g., Temporal) if/when enabled.
+- Go integration (opt-in): `go test ./...` without `-tags=unit` to include `//go:build !unit` tests; requires external services (e.g., Temporal) if/when enabled. Currently deferred; no CI job runs these yet.
 - Webapp unit: `cd webapp && bun run test:unit -- --run` (fast; pure module tests preferred).
 - Webapp E2E (opt-in): `cd webapp && bun run test:e2e` (requires a running backend + deterministic fixtures).
 
