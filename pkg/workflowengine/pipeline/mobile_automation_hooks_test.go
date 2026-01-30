@@ -22,7 +22,10 @@ func TestMobileAutomationSetupHookAcquiresUniqueRunnerPermits(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	env.RegisterWorkflowWithOptions(testAcquireRunnerPermitsWorkflow, workflow.RegisterOptions{Name: "test-acquire-permits"})
+	env.RegisterWorkflowWithOptions(
+		testAcquireRunnerPermitsWorkflow,
+		workflow.RegisterOptions{Name: "test-acquire-permits"},
+	)
 
 	acquireActivity := activities.NewAcquireMobileRunnerPermitActivity()
 	env.RegisterActivityWithOptions(
@@ -82,7 +85,10 @@ func TestProcessStepFailsWithoutPermit(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	env.RegisterWorkflowWithOptions(testProcessStepWithoutPermitWorkflow, workflow.RegisterOptions{Name: "test-missing-permit"})
+	env.RegisterWorkflowWithOptions(
+		testProcessStepWithoutPermitWorkflow,
+		workflow.RegisterOptions{Name: "test-missing-permit"},
+	)
 
 	env.ExecuteWorkflow("test-missing-permit")
 
@@ -95,7 +101,10 @@ func TestMobileAutomationCleanupReleasesPermitsOnFailure(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
-	env.RegisterWorkflowWithOptions(testCleanupReleasesPermitsWorkflow, workflow.RegisterOptions{Name: "test-cleanup-release"})
+	env.RegisterWorkflowWithOptions(
+		testCleanupReleasesPermitsWorkflow,
+		workflow.RegisterOptions{Name: "test-cleanup-release"},
+	)
 
 	cleanupActivity := activities.NewCleanupDeviceActivity()
 	releaseActivity := activities.NewReleaseMobileRunnerPermitActivity()
@@ -124,7 +133,10 @@ func TestMobileAutomationCleanupReleasesPermitsOnFailure(t *testing.T) {
 }
 
 func testAcquireRunnerPermitsWorkflow(ctx workflow.Context, steps []StepDefinition) error {
-	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: time.Second})
+	ctx = workflow.WithActivityOptions(
+		ctx,
+		workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+	)
 	acquireActivity := activities.NewAcquireMobileRunnerPermitActivity()
 	runnerIDs, err := collectMobileRunnerIDs(steps)
 	if err != nil {
@@ -136,7 +148,10 @@ func testAcquireRunnerPermitsWorkflow(ctx workflow.Context, steps []StepDefiniti
 }
 
 func testProcessStepWithoutPermitWorkflow(ctx workflow.Context) error {
-	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: time.Second})
+	ctx = workflow.WithActivityOptions(
+		ctx,
+		workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+	)
 	step := StepDefinition{
 		StepSpec: StepSpec{
 			ID:  "step-1",
@@ -165,11 +180,15 @@ func testProcessStepWithoutPermitWorkflow(ctx workflow.Context) error {
 		activities.NewStartEmulatorActivity(),
 		activities.NewApkInstallActivity(),
 		workflow.GetLogger(ctx),
+		"",
 	)
 }
 
 func testCleanupReleasesPermitsWorkflow(ctx workflow.Context) error {
-	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: time.Second})
+	ctx = workflow.WithActivityOptions(
+		ctx,
+		workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+	)
 	config := map[string]any{"app_url": "https://example.test"}
 	output := map[string]any{}
 	runData := map[string]any{
