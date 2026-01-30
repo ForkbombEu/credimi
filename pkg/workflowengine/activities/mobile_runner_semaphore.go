@@ -115,7 +115,7 @@ func (a *AcquireMobileRunnerPermitActivity) Execute(
 	handle, err := temporalClient.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
 		WorkflowID:   workflowID,
 		UpdateName:   mobilerunnersemaphore.AcquireUpdate,
-		UpdateID:     leaseID,
+		UpdateID:     mobilerunnersemaphore.AcquireUpdateID(leaseID),
 		Args:         []interface{}{updateReq},
 		WaitForStage: tclient.WorkflowUpdateStageCompleted,
 	})
@@ -200,7 +200,7 @@ func (a *ReleaseMobileRunnerPermitActivity) Execute(
 	handle, err := temporalClient.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
 		WorkflowID:   workflowID,
 		UpdateName:   mobilerunnersemaphore.ReleaseUpdate,
-		UpdateID:     leaseID,
+		UpdateID:     mobilerunnersemaphore.ReleaseUpdateID(leaseID),
 		Args:         []interface{}{mobilerunnersemaphore.MobileRunnerSemaphoreReleaseRequest{LeaseID: leaseID}},
 		WaitForStage: tclient.WorkflowUpdateStageCompleted,
 	})
