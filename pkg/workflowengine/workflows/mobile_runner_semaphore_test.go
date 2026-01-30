@@ -299,6 +299,120 @@ func TestMobileRunnerSemaphoreWorkflowAcquireTimeout(t *testing.T) {
 	require.Empty(t, drainErrors(errCh))
 }
 
+func TestMobileRunnerSemaphoreWorkflowLateGrantAfterTimeout(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileRunnerSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	permit1Ch := make(chan MobileRunnerSemaphorePermit, 1)
+	permit2Ch := make(chan MobileRunnerSemaphorePermit, 1)
+	acquireErr1Ch := make(chan error, 1)
+	acquireErr2Ch := make(chan error, 1)
+	errCh := make(chan error, 2)
+	stateCh := make(chan MobileRunnerSemaphoreStateView, 1)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueAcquireUpdate(
+			env,
+			MobileRunnerSemaphoreAcquireRequest{RequestID: "req-1", LeaseID: "lease-1"},
+			permit1Ch,
+			acquireErr1Ch,
+		)
+	}, time.Second)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueAcquireUpdate(
+			env,
+			MobileRunnerSemaphoreAcquireRequest{
+				RequestID:   "req-2",
+				LeaseID:     "lease-2",
+				WaitTimeout: time.Second,
+			},
+			permit2Ch,
+			acquireErr2Ch,
+		)
+	}, time.Second*2)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueReleaseUpdate(env, MobileRunnerSemaphoreReleaseRequest{LeaseID: "lease-1"}, errCh)
+	}, time.Second*3)
+
+	env.RegisterDelayedCallback(func() {
+		encoded, err := env.QueryWorkflow(MobileRunnerSemaphoreStateQuery)
+		if err != nil {
+			errCh <- err
+			return
+		}
+		var state MobileRunnerSemaphoreStateView
+		if decodeErr := encoded.Get(&state); decodeErr != nil {
+			errCh <- decodeErr
+			return
+		}
+		stateCh <- state
+	}, time.Second*4)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*5)
+
+	done := make(chan struct{})
+	go func() {
+		env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+			Payload: MobileRunnerSemaphoreWorkflowInput{
+				RunnerID: "runner-1",
+				Capacity: 1,
+			},
+		})
+		close(done)
+	}()
+
+	<-done
+
+	select {
+	case err := <-acquireErr1Ch:
+		require.NoError(t, err)
+	case permit := <-permit1Ch:
+		require.Equal(t, "lease-1", permit.LeaseID)
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for first permit")
+	}
+
+	var acquireErr error
+	var permit *MobileRunnerSemaphorePermit
+	select {
+	case err := <-acquireErr2Ch:
+		acquireErr = err
+	case result := <-permit2Ch:
+		permit = &result
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for second acquire")
+	}
+
+	var state MobileRunnerSemaphoreStateView
+	select {
+	case state = <-stateCh:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for state")
+	}
+
+	if acquireErr != nil {
+		var appErr *temporal.ApplicationError
+		require.True(t, errors.As(acquireErr, &appErr))
+		require.Equal(t, MobileRunnerSemaphoreErrTimeout, appErr.Type())
+		require.Nil(t, state.CurrentHolder)
+		require.Empty(t, state.Holders)
+		require.Zero(t, state.QueueLen)
+	} else if permit != nil {
+		require.Equal(t, "lease-2", permit.LeaseID)
+		require.NotNil(t, state.CurrentHolder)
+		require.Equal(t, "lease-2", state.CurrentHolder.LeaseID)
+	}
+
+	require.Empty(t, drainErrors(acquireErr1Ch))
+	require.Empty(t, drainErrors(acquireErr2Ch))
+	require.Empty(t, drainErrors(errCh))
+}
+
 func enqueueAcquireUpdate(
 	env *testsuite.TestWorkflowEnvironment,
 	req MobileRunnerSemaphoreAcquireRequest,
