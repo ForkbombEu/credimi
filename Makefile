@@ -95,9 +95,9 @@ dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mod
 	$(call require_tools,$(DEPS) $(DEV_DEPS))
 	DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev
 
-test: ## 🧪 run tests with coverage
+test: ## 🧪 run tests
 	$(call require_tools,$(TEST_DEPS))
-	$(GOTEST) $(GODIRS) -v -race -buildvcs --tags=unit
+	$(GOTEST) -tags=unit -v -race -buildvcs ./...
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)
@@ -106,8 +106,8 @@ test.p: tools ## 🍷 watch tests and run on change for a certain folder
 	$(GOTOOL) gow test -run "^$(test_name)$$" $(GODIRS)
 
 coverage: devtools # ☂️ run test and open code coverage report
-	-$(GOTEST) $(GODIRS) -coverprofile=$(COVOUT)
-	$(GOTOOL) cover -html=$(COVOUT) --tags=unit
+	$(GOTEST) -tags=unit -covermode=atomic -coverprofile=$(COVOUT) ./...
+	$(GOTOOL) cover -html=$(COVOUT) -o coverage.html
 	$(GOTOOL) go-cover-treemap -coverprofile $(COVOUT) > coverage.svg && open coverage.svg
 
 lint: devtools ## 📑 lint rules checks
@@ -166,7 +166,7 @@ clean: ## 🧹 Clean files and caches
 	@rm -fr $(WEBAPP)/node_modules
 	@rm -fr $(WEBAPP)/.svelte-kit
 	@rm -f $(DOCS)/.vitepress/config.ts.timestamp*
-	@rm -f $(COVOUT) coverage.svg
+	@rm -f $(COVOUT) coverage.html coverage.svg
 	@echo "🧹 cleaned"
 
 generate: $(ROOT_DIR)/pkg/gen.go
@@ -203,6 +203,4 @@ kill-pocketbase: ## 🔪 Kill any running PocketBase instance
 
 seed: ## 🌱 Seed the database
 	@$(GOCMD) run main.go migrate up && $(GOCMD) run cmd/seeds/seed.go 
-
-
 
