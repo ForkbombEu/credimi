@@ -915,5 +915,7 @@
 	"Conformance_and_custom_checks": "Conformance and custom checks",
 	"Workflows_history": "Workflows history",
 	"Runner": "Runner",
-	"No_runners_found": "No runners found"
+	"No_runners_found": "No runners found",
+	"Global": "Global",
+	"Choose_later": "Choose later"
 }
