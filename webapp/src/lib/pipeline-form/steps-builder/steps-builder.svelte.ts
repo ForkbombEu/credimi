@@ -5,8 +5,6 @@
 import type { Renderable } from '$lib/renderable';
 
 import { StateManager } from '$lib/state-manager/state-manager';
-import { ExecutionTarget } from '$pipeline-form/execution-target';
-import { onDestroy } from 'svelte';
 
 import type { PipelineStep } from '../types';
 import type { EnrichedStep } from './types';
@@ -45,10 +43,6 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	constructor(private props: Props) {
 		this.state.steps = props.steps;
-
-		onDestroy(() => {
-			ExecutionTarget.clear();
-		});
 	}
 
 	// Shortcuts
