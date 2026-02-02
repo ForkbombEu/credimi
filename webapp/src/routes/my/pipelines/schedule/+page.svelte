@@ -99,7 +99,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 											{/each}
 										</div>
 									{:else}
-										<span class="text-slate-300">-</span>
+										<span class="text-slate-400">-</span>
 									{/if}
 								</Table.Cell>
 								<Table.Cell>
@@ -109,7 +109,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{#if state === 'active'}
 										{status.next_action_time}
 									{:else}
-										<span class="text-slate-300">N/A</span>
+										<span class="text-slate-400">N/A</span>
 									{/if}
 								</Table.Cell>
 								<Table.Cell class="-translate-x-3 py-2!">

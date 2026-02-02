@@ -111,7 +111,7 @@ func parseRunnersFromPipeline(app core.App, pipelineID string) ([]MobileRunner, 
 	}
 
 	// Fetch runner records and build response
-	runners := []MobileRunner{}
+	runners := make([]MobileRunner, 0, len(runnerIDsMap))
 	for runnerID := range runnerIDsMap {
 		runnerRec, err := canonify.Resolve(app, runnerID)
 		if err != nil {
