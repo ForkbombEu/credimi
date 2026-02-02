@@ -49,13 +49,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let runPipelineAfterRunnerSelect = $state(false);
 
 	async function handleRunNow() {
-		const runner = getPipelineRunner(pipeline.id);
-		if (runner) {
-			await runPipeline(pipeline, { global_runner_id: runner });
-			runPipelineAfterRunnerSelect = false;
+		const runnerType = getPipelineRunnerType(pipeline);
+		if (runnerType === 'specific') {
+			await runPipeline(pipeline);
 		} else {
-			runPipelineAfterRunnerSelect = true;
-			runnerSelectionDialogOpen = true;
+			const runner = getPipelineRunner(pipeline.id);
+			if (runner) {
+				await runPipeline(pipeline);
+				runPipelineAfterRunnerSelect = false;
+			} else {
+				runPipelineAfterRunnerSelect = true;
+				runnerSelectionDialogOpen = true;
+			}
 		}
 	}
 
@@ -89,7 +94,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const runnerType = $derived(getPipelineRunnerType(pipeline));
 	const isRunnerSpecific = $derived(runnerType === 'specific');
-	$inspect(isRunnerSpecific);
 </script>
 
 <DashboardCard

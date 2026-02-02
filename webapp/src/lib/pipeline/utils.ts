@@ -4,42 +4,34 @@
 
 import { getPath, runWithLoading } from '$lib/utils';
 import { toast } from 'svelte-sonner';
-import { parse } from 'yaml';
+import { parse, stringify } from 'yaml';
 
 import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
 
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase';
 
+import type { Pipeline } from './types';
+
 //
 
-/**
- * Parse the pipeline yaml. If there is no key `runner_id` inside mobile automation steps,
- * then it's global. otherwise it's specific
- */
+export function parsePipelineYaml(yaml: string): Pipeline {
+	return parse(yaml) as Pipeline;
+}
+
 export function getPipelineRunnerType(pipeline: PipelinesResponse): 'global' | 'specific' {
-	try {
-		const yaml = parse(pipeline.yaml);
-		const steps = yaml?.steps ?? [];
+	const yaml = parsePipelineYaml(pipeline.yaml);
+	const steps = (yaml?.steps ?? []).filter((step) => step.use === 'mobile-automation');
 
-		// Check all mobile-automation steps
-		let hasMobileAutomationSteps = false;
-		for (const step of steps) {
-			if (step.use === 'mobile-automation') {
-				hasMobileAutomationSteps = true;
-				// If any mobile-automation step has a runner_id, it's specific
-				if (step.with?.config?.runner_id) {
-					return 'specific';
-				}
-			}
-		}
+	if (steps.length === 0) return 'global';
 
-		// If there are no mobile-automation steps, or none have runner_id, it's global
-		return 'global';
-	} catch (error) {
-		// If parsing fails, assume global
-		return 'global';
-	}
+	const areAllStepsSpecific = steps.every((step) => step.with.runner_id);
+	if (areAllStepsSpecific) return 'specific';
+
+	const areSomeStepsSpecific = steps.some((step) => step.with.runner_id);
+	if (areSomeStepsSpecific) throw new Error('Mixed runner types');
+
+	return 'global';
 }
 
 /* Runners configuration storage */
@@ -53,7 +45,6 @@ export function setPipelineRunner(
 	runner: MobileRunnersResponse
 ): void {
 	try {
-		// Get existing config or create new one
 		let config: PipelinesRunnersConfig = {};
 		const stored = localStorage.getItem(PIPELINES_RUNNERS_STORAGE_KEY);
 		if (stored) config = JSON.parse(stored);
@@ -80,32 +71,24 @@ export function getPipelineRunner(pipelineId: string): string | undefined {
 
 /* Running */
 
-export async function runPipeline(
-	pipeline: PipelinesResponse,
-	options?: { global_runner_id?: string }
-) {
+export async function runPipeline(pipeline: PipelinesResponse) {
 	const result = await runWithLoading({
 		fn: async () => {
-			// Parse the existing YAML
-			const parsedYaml = parse(pipeline.yaml);
+			const parsedYaml = parsePipelineYaml(pipeline.yaml);
+			const runnerType = getPipelineRunnerType(pipeline);
 
-			// Add global_runner_id to runtime if provided
-			if (options?.global_runner_id) {
-				if (!parsedYaml.runtime) {
-					parsedYaml.runtime = {};
-				}
-				parsedYaml.runtime.global_runner_id = options.global_runner_id;
+			if (runnerType === 'global') {
+				const runner = getPipelineRunner(pipeline.id);
+				if (!runner) throw new Error('No runner found');
+				if (parsedYaml.runtime) parsedYaml.runtime.global_runner_id = runner;
+				else parsedYaml.runtime = { global_runner_id: runner };
 			}
-
-			// Convert back to YAML string
-			const { stringify } = await import('yaml');
-			const modifiedYaml = stringify(parsedYaml);
 
 			return await pb.send('/api/pipeline/start', {
 				method: 'POST',
 				body: {
-					yaml: modifiedYaml,
-					pipeline_identifier: getPath(pipeline)
+					pipeline_identifier: getPath(pipeline),
+					yaml: stringify(parsedYaml)
 				}
 			});
 		},
