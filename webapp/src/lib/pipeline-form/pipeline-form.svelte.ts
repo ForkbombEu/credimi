@@ -13,11 +13,9 @@ import type { PipelinesFormData } from '@/pocketbase/types/extra.generated.js';
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
 
-import type { EnrichedPipeline } from './types';
-
 import { ActivityOptionsForm } from './activity-options-form/activity-options-form.svelte.js';
 import { ExecutionTarget } from './execution-target/index.js';
-import { createPipelineYaml } from './functions.js';
+import { createPipelineYaml, type EnrichedPipeline } from './functions.js';
 import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
 import Component from './pipeline-form.svelte';
 import { StepsBuilder } from './steps-builder/steps-builder.svelte.js';

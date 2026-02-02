@@ -6,7 +6,7 @@ import type { GenericRecord } from '@/utils/types';
 
 import { m } from '@/i18n';
 
-import type { PipelineStep } from '../types';
+import type { PipelineStep } from '../../pipeline/types';
 
 //
 

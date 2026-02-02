@@ -13,8 +13,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import StatusCircle from '$lib/components/status-circle.svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import RunnerSelectModal from '$lib/pipelines/runner-select-modal.svelte';
-	import { getPipelineRunner, getPipelineRunnerType, runPipeline } from '$lib/pipelines/utils';
+	import RunnerSelectModal from '$lib/pipeline/runner-select-modal.svelte';
+	import { getPipelineRunner, getPipelineRunnerType, runPipeline } from '$lib/pipeline/utils';
 	import { getPath } from '$lib/utils';
 	import WorkflowsTableSmall from '$lib/workflows/workflows-table-small.svelte';
 	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';

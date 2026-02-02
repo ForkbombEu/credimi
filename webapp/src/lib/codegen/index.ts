@@ -10,7 +10,7 @@ const map: [string, string][] = [
 		'../schemas/credentialissuer/openid-credential-issuer.schema.json',
 		'./src/lib/types/openid-credential-issuer.generated.ts'
 	],
-	['../schemas/pipeline/pipeline_schema.json', './src/lib/pipeline-form/types.generated.ts']
+	['../schemas/pipeline/pipeline_schema.json', './src/lib/pipeline/types.generated.ts']
 ];
 
 for (const [schemaPath, outputPath] of map) {

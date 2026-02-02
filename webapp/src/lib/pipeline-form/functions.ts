@@ -8,22 +8,28 @@ import { ClientResponseError } from 'pocketbase';
 import slugify from 'slugify';
 import { parse, stringify } from 'yaml';
 
+import type { PipelinesResponse } from '@/pocketbase/types';
 import type { GenericRecord } from '@/utils/types.js';
 
 import { pb } from '@/pocketbase';
 import { getExceptionMessage } from '@/utils/errors.js';
 
-import { configs } from './steps';
-import { Enrich404Error, type EnrichedStep } from './steps-builder/types';
 import {
 	type ActivityOptions,
-	type EnrichedPipeline,
 	type Pipeline,
 	type PipelineStep,
 	type PipelineStepType
-} from './types';
+} from '../pipeline/types';
+import { configs } from './steps';
+import { Enrich404Error, type EnrichedStep } from './steps-builder/types';
 
 /* Fetching pipeline */
+
+export interface EnrichedPipeline {
+	record: PipelinesResponse;
+	activity_options?: ActivityOptions;
+	steps: EnrichedStep[];
+}
 
 export async function getEnrichedPipeline(
 	id: string,
