@@ -2,19 +2,25 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { beforeNavigate } from '$app/navigation';
 import type { Renderable } from '$lib/renderable';
+
+import { beforeNavigate } from '$app/navigation';
 import { runWithLoading } from '$lib/utils/index.js';
+import _ from 'lodash';
+
+import type { PipelinesFormData } from '@/pocketbase/types/extra.generated.js';
+
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase/index.js';
-import type { PipelinesFormData } from '@/pocketbase/types/extra.generated.js';
-import _ from 'lodash';
+
+import type { EnrichedPipeline } from './types';
+
 import { ActivityOptionsForm } from './activity-options-form/activity-options-form.svelte.js';
+import { ExecutionTarget } from './execution-target/index.js';
 import { createPipelineYaml } from './functions.js';
 import { MetadataForm } from './metadata-form/metadata-form.svelte.js';
 import Component from './pipeline-form.svelte';
 import { StepsBuilder } from './steps-builder/steps-builder.svelte.js';
-import type { EnrichedPipeline } from './types';
 
 //
 
@@ -31,6 +37,12 @@ export class PipelineForm implements Renderable<PipelineForm> {
 	readonly metadataForm: MetadataForm;
 
 	constructor(private props: Props) {
+		if (props.pipeline) {
+			ExecutionTarget.loadFromPipeline(props.pipeline);
+		} else {
+			ExecutionTarget.clear();
+		}
+
 		this.stepsBuilder = new StepsBuilder({
 			steps: props.pipeline?.steps ?? [],
 			yamlPreview: () => this.yamlString

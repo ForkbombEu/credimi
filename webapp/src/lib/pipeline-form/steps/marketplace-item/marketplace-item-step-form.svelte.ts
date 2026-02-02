@@ -6,7 +6,7 @@ import type { EntityData } from '$lib/global';
 import type { MarketplaceItem, MarketplaceItemType } from '$lib/marketplace';
 import { searchMarketplace } from '../_partials/search-marketplace';
 import { Search } from '../_partials/search.svelte';
-import { BaseDataForm } from '../types';
+import { BaseForm } from '../types';
 import Component from './marketplace-item-step-form.svelte';
 
 //
@@ -26,10 +26,7 @@ type Props = {
 	entityData: EntityData;
 };
 
-export class MarketplaceItemStepForm extends BaseDataForm<
-	MarketplaceItem,
-	MarketplaceItemStepForm
-> {
+export class MarketplaceItemStepForm extends BaseForm<MarketplaceItem, MarketplaceItemStepForm> {
 	readonly Component = Component;
 
 	constructor(private props: Props) {

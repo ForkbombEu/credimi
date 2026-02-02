@@ -49,9 +49,11 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	serialize: ({ action, version, runner }) => {
 		const _with: PipelineStepData<PipelineStepByType<'mobile-automation'>> = {
 			action_id: getPath(action),
-			version_id: getPath(version),
-			runner_id: getPath(runner)
+			version_id: getPath(version)
 		};
+		if (runner !== 'global') {
+			_with.runner_id = getPath(runner);
+		}
 		if (action.code.includes('${DL}') || action.code.includes('${deeplink}')) {
 			_with.parameters = {
 				deeplink: '<deeplink-placeholder>' // will be written later
@@ -67,10 +69,14 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 		const action = await getRecordByCanonifiedPath<WalletActionsResponse>(data.action_id);
 		const version = await getRecordByCanonifiedPath<WalletVersionsResponse>(data.version_id);
-		const runner = await getRecordByCanonifiedPath<MobileRunnersResponse>(data.runner_id);
-
-		if (isError(action) || isError(version) || isError(runner)) {
+		if (isError(action) || isError(version)) {
 			throw new Error('Failed to get record by canonified path');
+		}
+
+		let runner: WalletActionStepData['runner'] = 'global';
+		if (data.runner_id) {
+			const response = await getRecordByCanonifiedPath<MobileRunnersResponse>(data.runner_id);
+			if (!isError(response)) runner = response;
 		}
 
 		const wallet: MarketplaceItem = await pb

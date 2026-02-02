@@ -18,13 +18,13 @@ export interface Config<ID extends string = string, Serialized = unknown, Deseri
 	serialize: (step: Deserialized) => Serialized;
 	deserialize: (step: Serialized) => Promise<Deserialized>;
 	display: EntityData;
-	initForm: () => DataForm<Deserialized>;
+	initForm: () => Form<Deserialized>;
 	cardData: (data: Deserialized) => CardData;
 	makeId: (data: Serialized) => string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface DataForm<Deserialized = unknown, T = any> extends Renderable<T> {
+export interface Form<Deserialized = unknown, T = any> extends Renderable<T> {
 	onSubmit: (handler: (step: Deserialized) => void) => void;
 }
 
@@ -44,7 +44,7 @@ export type TypedConfig<T extends PipelineStepType, Deserialized> = Simplify<
 	Config<T, PipelineStepData<PipelineStepByType<T>>, Deserialized>
 >;
 
-export abstract class BaseDataForm<Deserialized, T> implements DataForm<Deserialized, T> {
+export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T> {
 	abstract Component: Renderable<T>['Component'];
 
 	protected handleSubmit: (step: Deserialized) => void = () => {};

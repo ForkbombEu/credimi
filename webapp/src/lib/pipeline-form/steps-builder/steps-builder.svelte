@@ -7,9 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
 
-	import { ArrowLeftIcon } from '@lucide/svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
+	import { ArrowLeftIcon } from '@lucide/svelte';
 	import { String } from 'effect';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';
@@ -35,16 +35,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Resizable.PaneGroup direction="horizontal" class="gap-2">
 	<Column title="Add step">
-		{#if builder.state.id == 'idle'}
+		{#if builder.mode.id == 'idle'}
 			{@render stepButtons()}
-		{:else if builder.state.id == 'form'}
+		{:else if builder.mode.id == 'form'}
 			<div class="flex grow flex-col" in:fly>
-				<Render item={builder.state.form} />
+				<Render item={builder.mode.form} />
 			</div>
 		{/if}
 
 		{#snippet titleRight()}
-			{#if builder.state.id == 'form'}
+			{#if builder.mode.id == 'form'}
 				<Button variant="link" class="h-6 !p-0" onclick={() => builder.exitFormState()}>
 					<ArrowLeftIcon />
 					{m.Back()}
