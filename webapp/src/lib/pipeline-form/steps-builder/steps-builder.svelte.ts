@@ -22,7 +22,6 @@ type Props = {
 type State = {
 	steps: EnrichedStep[];
 	mode: { id: 'idle' } | { id: 'form'; form: pipelinestep.Form };
-	formContext: pipelinestep.FormContext;
 };
 
 export class StepsBuilder implements Renderable<StepsBuilder> {
@@ -30,10 +29,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 
 	private state = $state<State>({
 		steps: [],
-		mode: { id: 'idle' },
-		formContext: {
-			currentMobileApp: undefined
-		}
+		mode: { id: 'idle' }
 	});
 
 	private stateManager = new StateManager(
@@ -75,7 +71,7 @@ export class StepsBuilder implements Renderable<StepsBuilder> {
 			if (!config) return;
 
 			const effectCleanup = $effect.root(() => {
-				const form = config.initForm(() => state.formContext);
+				const form = config.initForm();
 				form.onSubmit((formData) => {
 					this.stateManager.run((state) => {
 						const step: PipelineStep = {

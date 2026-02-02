@@ -3,7 +3,6 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EntityData } from '$lib/global';
-import type { MarketplaceItem } from '$lib/marketplace';
 import type {
 	PipelineStepByType,
 	PipelineStepData,
@@ -12,8 +11,6 @@ import type {
 import type { Renderable } from '$lib/renderable';
 import type { Simplify } from 'type-fest';
 
-import type { MobileRunnersResponse, WalletVersionsResponse } from '@/pocketbase/types';
-
 // Pipeline Step Config
 
 export interface Config<ID extends string = string, Serialized = unknown, Deserialized = unknown> {
@@ -21,7 +18,7 @@ export interface Config<ID extends string = string, Serialized = unknown, Deseri
 	serialize: (step: Deserialized) => Serialized;
 	deserialize: (step: Serialized) => Promise<Deserialized>;
 	display: EntityData;
-	initForm: (ctx: () => FormContext) => Form<Deserialized>;
+	initForm: () => Form<Deserialized>;
 	cardData: (data: Deserialized) => CardData;
 	makeId: (data: Serialized) => string;
 }
@@ -29,16 +26,6 @@ export interface Config<ID extends string = string, Serialized = unknown, Deseri
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface Form<Deserialized = unknown, T = any> extends Renderable<T> {
 	onSubmit: (handler: (step: Deserialized) => void) => void;
-}
-
-export interface FormContext {
-	currentMobileApp:
-		| undefined
-		| {
-				wallet: MarketplaceItem;
-				runner: MobileRunnersResponse | 'global';
-				version: WalletVersionsResponse;
-		  };
 }
 
 export interface CardData {
