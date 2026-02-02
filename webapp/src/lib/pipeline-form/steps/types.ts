@@ -3,11 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EntityData } from '$lib/global';
-import type {
-	PipelineStepByType,
-	PipelineStepData,
-	PipelineStepType
-} from '$lib/pipeline-form/types';
+import type { PipelineStepByType, PipelineStepData, PipelineStepType } from '$lib/pipeline/types';
 import type { Renderable } from '$lib/renderable';
 import type { Simplify } from 'type-fest';
 

@@ -6,7 +6,7 @@ import type { Renderable } from '$lib/renderable';
 
 import { StateManager } from '$lib/state-manager/state-manager';
 
-import type { PipelineStep } from '../types';
+import type { PipelineStep } from '../../pipeline/types';
 import type { EnrichedStep } from './types';
 
 import * as pipelinestep from '../steps';

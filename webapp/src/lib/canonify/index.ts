@@ -18,7 +18,8 @@ export async function getRecordByCanonifiedPath<T = unknown>(
 			{
 				method: 'POST',
 				body: { canonified_name: path },
-				fetch: options.fetch
+				fetch: options.fetch,
+				requestKey: null
 			}
 		);
 		if (result.record) {
