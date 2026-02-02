@@ -335,7 +335,7 @@ func StopAllWorkersByNamespace(namespace string) {
 	}
 }
 
-func FetchNamespaces(app *pocketbase.PocketBase) ([]string, error) {
+func FetchNamespaces(app core.App) ([]string, error) {
 	collection, err := app.FindCollectionByNameOrId("organizations")
 	if err != nil {
 		return nil, err

@@ -34,62 +34,8 @@ func main() {
 		Use:   "parse-input",
 		Short: "Parses the input check names  and saves output to files",
 		Run: func(_ *cobra.Command, _ []string) {
-			info, err := os.Stat(outputDir)
-			if err != nil {
-				fmt.Println("Error: Output directory does not exist:", outputDir)
-				return
-			}
-			if !info.IsDir() {
-				fmt.Println("Error: Output path exists but is not a directory:", outputDir)
-				return
-			}
-
-			var checks Checks
-			data, err := os.ReadFile(input)
-			if err != nil {
-				log.Printf("failed to read %s: %s\n", input, err)
-				return
-			}
-			if err := json.Unmarshal(data, &checks); err != nil {
-				log.Printf("failed to parse %s: %s\n", input, err)
-				return
-			}
-
-			for _, checkString := range checks.Checks {
-				cleanPath := filepath.ToSlash(input)
-				parts := strings.Split(cleanPath, "/")
-
-				if len(parts) < 3 {
-					log.Printf("Skipping invalid path: %s", input)
-					continue
-				}
-
-				suite := parts[2]
-
-				var result []byte
-
-				switch suite {
-				case "openidnet":
-					result, err = templateengine.ParseOpenidnetInput(checkString, defaultPath, configPath)
-				case "ewc":
-					result, err = templateengine.ParseEwcInput(checkString, defaultPath)
-				case "eudiw":
-					result, err = templateengine.ParseEudiwInput(checkString, defaultPath)
-				default:
-					log.Printf("Unknown suite '%s' in path %s — skipping", suite, input)
-					continue
-				}
-				if err != nil {
-					log.Printf("Error processing %s: %v", checkString, err)
-					continue
-				}
-
-				filename := fmt.Sprintf("%s.yaml", filepath.Clean(checkString))
-				filePath := filepath.Join(outputDir, filename)
-				if err := os.WriteFile(filePath, result, 0600); err != nil {
-					fmt.Println("Error writing file:", err)
-					continue
-				}
+			if err := runTemplate(input, defaultPath, configPath, outputDir); err != nil {
+				fmt.Println("Error:", err)
 			}
 		},
 	}
@@ -111,4 +57,62 @@ func main() {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
+}
+
+func runTemplate(input string, defaultPath string, configPath string, outputDir string) error {
+	info, err := os.Stat(outputDir)
+	if err != nil {
+		return fmt.Errorf("output directory does not exist: %s", outputDir)
+	}
+	if !info.IsDir() {
+		return fmt.Errorf("output path exists but is not a directory: %s", outputDir)
+	}
+
+	var checks Checks
+	data, err := os.ReadFile(input)
+	if err != nil {
+		return fmt.Errorf("failed to read %s: %w", input, err)
+	}
+	if err := json.Unmarshal(data, &checks); err != nil {
+		return fmt.Errorf("failed to parse %s: %w", input, err)
+	}
+
+	for _, checkString := range checks.Checks {
+		cleanPath := filepath.ToSlash(input)
+		parts := strings.Split(cleanPath, "/")
+
+		if len(parts) < 3 {
+			log.Printf("Skipping invalid path: %s", input)
+			continue
+		}
+
+		suite := parts[2]
+
+		var result []byte
+
+		switch suite {
+		case "openidnet":
+			result, err = templateengine.ParseOpenidnetInput(checkString, defaultPath, configPath)
+		case "ewc":
+			result, err = templateengine.ParseEwcInput(checkString, defaultPath)
+		case "eudiw":
+			result, err = templateengine.ParseEudiwInput(checkString, defaultPath)
+		default:
+			log.Printf("Unknown suite '%s' in path %s — skipping", suite, input)
+			continue
+		}
+		if err != nil {
+			log.Printf("Error processing %s: %v", checkString, err)
+			continue
+		}
+
+		filename := fmt.Sprintf("%s.yaml", filepath.Clean(checkString))
+		filePath := filepath.Join(outputDir, filename)
+		if err := os.WriteFile(filePath, result, 0600); err != nil {
+			log.Printf("Error writing file: %v", err)
+			continue
+		}
+	}
+
+	return nil
 }

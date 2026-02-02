@@ -18,6 +18,13 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 - `go run ./main.go` starts the PocketBase-backed API locally.
 - `make generate` triggers Go code generation prerequisites.
 
+## Test Suites
+
+- Go unit (default): `make test` or `go test -tags=unit ./...` (deterministic; no external services).
+- Go integration (opt-in): `go test ./...` without `-tags=unit` to include `//go:build !unit` tests; requires external services (e.g., Temporal) if/when enabled. Currently deferred; no CI job runs these yet.
+- Webapp unit: `cd webapp && bun run test:unit -- --run` (fast; pure module tests preferred).
+- Webapp E2E (opt-in): `cd webapp && bun run test:e2e` (requires a running backend + deterministic fixtures).
+
 ## Webapp
 
 - `cd webapp && bun install` syncs deps; bun is the default JS runtime.
@@ -49,3 +56,9 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
     - CI cannot resolve it.
     - static analysis or lint tooling flags it.
 - Any changes touching Go module files MUST preserve this entry unless explicitly instructed by a human maintainer.
+
+## Test Conventions
+
+- Go: table-driven `TestX_Y` names, `require` for hard failures, avoid IO in unit tests.
+- Webapp: prefer pure-module Vitest tests; for E2E use stable selectors (`data-testid`) and avoid time-based waits.
+- Fixtures: use `fixtures/test_pb_data` (or `test_pb_data` where already established) and keep fixtures read-only.
