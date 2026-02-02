@@ -483,12 +483,15 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			return t1.After(t2)
 		})
 
+		runnerCache := map[string]map[string]any{}
 		annotated, err := attachRunnerInfoFromTemporalStartInput(
 			attachRunnerInfoFromTemporalInputArgs{
-				Ctx:        context.Background(),
-				Client:     temporalClient,
-				Executions: hierarchy,
-				Info:       runnerInfo,
+				App:         e.App,
+				Ctx:         context.Background(),
+				Client:      temporalClient,
+				Executions:  hierarchy,
+				Info:        runnerInfo,
+				RunnerCache: runnerCache,
 			},
 		)
 		if err != nil {
@@ -701,13 +704,20 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 		selectedExecutions := selectTopExecutionsByPipeline(allExecutions, 5)
 
 		response := make(map[string][]*pipelineWorkflowSummary, len(selectedExecutions))
+		runnerCache := map[string]map[string]any{}
 
 		tc, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 		if err != nil {
 			// fallback: if no temporal client, return without global_runner_id
 			for pipelineID, executions := range selectedExecutions {
 				info := pipelineRunnerInfoMap[pipelineID]
-				response[pipelineID] = attachPipelineRunnerInfo(executions, "", info)
+				response[pipelineID] = attachPipelineRunnerInfo(
+					e.App,
+					executions,
+					"",
+					info,
+					runnerCache,
+				)
 			}
 			return e.JSON(http.StatusOK, response)
 		}
@@ -716,10 +726,12 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			info := pipelineRunnerInfoMap[pipelineID]
 			annotated, err := attachRunnerInfoFromTemporalStartInput(
 				attachRunnerInfoFromTemporalInputArgs{
-					Ctx:        context.Background(),
-					Client:     tc,
-					Executions: executions,
-					Info:       info,
+					App:         e.App,
+					Ctx:         context.Background(),
+					Client:      tc,
+					Executions:  executions,
+					Info:        info,
+					RunnerCache: runnerCache,
 				},
 			)
 			if err != nil {
@@ -744,20 +756,22 @@ type pipelineRunnerInfo struct {
 
 type pipelineWorkflowSummary struct {
 	WorkflowExecutionSummary
-	GlobalRunnerID string   `json:"global_runner_id,omitempty"`
-	RunnerIDs      []string `json:"runner_ids,omitempty"`
+	GlobalRunnerID string           `json:"global_runner_id,omitempty"`
+	RunnerIDs      []string         `json:"runner_ids,omitempty"`
+	RunnerRecords  []map[string]any `json:"runner_records,omitempty"`
 }
 
 func attachPipelineRunnerInfo(
+	app core.App,
 	executions []*WorkflowExecutionSummary,
 	globalRunnerID string,
 	info pipelineRunnerInfo,
+	runnerCache map[string]map[string]any,
 ) []*pipelineWorkflowSummary {
 	if len(executions) == 0 {
 		return []*pipelineWorkflowSummary{}
 	}
 
-	// runner IDs exposed for THIS execution
 	runnerIDs := append([]string{}, info.RunnerIDs...)
 	if info.NeedsGlobalRunner && globalRunnerID != "" {
 		found := false
@@ -773,6 +787,8 @@ func attachPipelineRunnerInfo(
 		}
 	}
 
+	runnerRecords := resolveRunnerRecords(app, runnerIDs, runnerCache)
+
 	annotated := make([]*pipelineWorkflowSummary, 0, len(executions))
 	for _, exec := range executions {
 		if exec == nil {
@@ -782,9 +798,59 @@ func attachPipelineRunnerInfo(
 			WorkflowExecutionSummary: *exec,
 			GlobalRunnerID:           globalRunnerID,
 			RunnerIDs:                runnerIDs,
+			RunnerRecords:            runnerRecords,
 		})
 	}
 	return annotated
+}
+
+func resolveRunnerRecord(
+	app core.App,
+	runnerID string,
+	runnerCache map[string]map[string]any,
+) map[string]any {
+	if runnerCache == nil {
+		runnerCache = map[string]map[string]any{}
+	}
+
+	runnerID = strings.TrimSpace(runnerID)
+	if runnerID == "" {
+		return nil
+	}
+
+	if cached, ok := runnerCache[runnerID]; ok {
+		return cached
+	}
+
+	record, err := canonify.Resolve(app, runnerID)
+	if err != nil {
+		runnerCache[runnerID] = nil
+		return nil
+	}
+
+	fields := record.FieldsData()
+	runnerCache[runnerID] = fields
+	return fields
+}
+
+func resolveRunnerRecords(
+	app core.App,
+	runnerIDs []string,
+	runnerCache map[string]map[string]any,
+) []map[string]any {
+	if len(runnerIDs) == 0 {
+		return []map[string]any{}
+	}
+
+	records := make([]map[string]any, 0, len(runnerIDs))
+	for _, runnerID := range runnerIDs {
+		record := resolveRunnerRecord(app, runnerID, runnerCache)
+		if record == nil {
+			continue
+		}
+		records = append(records, record)
+	}
+	return records
 }
 
 func parsePipelineRunnerInfo(yamlStr string) (pipelineRunnerInfo, error) {
@@ -848,10 +914,12 @@ func parsePipelineRunnerInfo(yamlStr string) (pipelineRunnerInfo, error) {
 }
 
 type attachRunnerInfoFromTemporalInputArgs struct {
-	Ctx        context.Context
-	Client     client.Client
-	Executions []*WorkflowExecutionSummary
-	Info       pipelineRunnerInfo
+	App         core.App
+	Ctx         context.Context
+	Client      client.Client
+	Executions  []*WorkflowExecutionSummary
+	Info        pipelineRunnerInfo
+	RunnerCache map[string]map[string]any
 }
 
 func attachRunnerInfoFromTemporalStartInput(
@@ -859,6 +927,10 @@ func attachRunnerInfoFromTemporalStartInput(
 ) ([]*pipelineWorkflowSummary, error) {
 	if len(args.Executions) == 0 {
 		return []*pipelineWorkflowSummary{}, nil
+	}
+
+	if args.RunnerCache == nil {
+		args.RunnerCache = map[string]map[string]any{}
 	}
 
 	cache := map[string]string{}
@@ -887,9 +959,11 @@ func attachRunnerInfoFromTemporalStartInput(
 		}
 
 		out = append(out, attachPipelineRunnerInfo(
+			args.App,
 			[]*WorkflowExecutionSummary{exec},
 			globalRunnerID,
 			args.Info,
+			args.RunnerCache,
 		)...)
 	}
 
