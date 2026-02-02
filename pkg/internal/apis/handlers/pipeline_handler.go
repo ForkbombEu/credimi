@@ -464,27 +464,10 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		)
 
 		sort.Slice(hierarchy, func(i, j int) bool {
-			iTimeStr := hierarchy[i].StartTime
-			jTimeStr := hierarchy[j].StartTime
+    		t1,_ := time.Parse(time.RFC3339, hierarchy[i].StartTime)
+    		t2,_ := time.Parse(time.RFC3339, hierarchy[j].StartTime)
 
-			if iTimeStr == "" && jTimeStr == "" {
-				return false
-			}
-			if iTimeStr == "" {
-				return false
-			}
-			if jTimeStr == "" {
-				return true
-			}
-
-			iTime, err1 := time.Parse(time.RFC3339, iTimeStr)
-			jTime, err2 := time.Parse(time.RFC3339, jTimeStr)
-
-			if err1 == nil && err2 == nil {
-				return iTime.After(jTime) 
-			}
-
-			return iTimeStr > jTimeStr
+    		return t1.After(t2)
 		})
 
 		return e.JSON(http.StatusOK, hierarchy)
@@ -709,8 +692,10 @@ func selectTopExecutionsByPipeline(executions []struct {
         remainingSlots := limit - len(runningExecs)
         if remainingSlots > 0 && len(otherExecs) > 0 {
             sort.Slice(otherExecs, func(i, j int) bool {
-                return compareTimes(otherExecs[i].StartTime, otherExecs[j].StartTime)
-            })
+    			t1, _ := time.Parse(time.RFC3339, otherExecs[i].StartTime)
+    			t2, _ := time.Parse(time.RFC3339, otherExecs[j].StartTime)
+    			return t1.After(t2)
+			})
             
             if remainingSlots > len(otherExecs) {
                 remainingSlots = len(otherExecs)
@@ -720,9 +705,11 @@ func selectTopExecutionsByPipeline(executions []struct {
         }
         
         sort.Slice(selected, func(i, j int) bool {
-            return compareTimes(selected[i].StartTime, selected[j].StartTime)
-        })
-        
+    		t1, _ := time.Parse(time.RFC3339, selected[i].StartTime)
+    		t2, _ := time.Parse(time.RFC3339, selected[j].StartTime)
+    		return t1.After(t2)
+		})
+
         if len(selected) > 0 {
             result[pipelineID] = selected
         }
@@ -731,23 +718,3 @@ func selectTopExecutionsByPipeline(executions []struct {
     return result
 }
 
-func compareTimes(timeStr1, timeStr2 string) bool {
-    if timeStr1 == "" && timeStr2 == "" {
-        return false
-    }
-    if timeStr1 == "" {
-        return false
-    }
-    if timeStr2 == "" {
-        return true
-    }
-    
-    t1, err1 := time.Parse(time.RFC3339, timeStr1)
-    t2, err2 := time.Parse(time.RFC3339, timeStr2)
-    
-    if err1 == nil && err2 == nil {
-        return t1.After(t2)  
-    }
-    
-    return timeStr1 > timeStr2
-}
