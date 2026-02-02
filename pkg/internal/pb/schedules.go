@@ -23,10 +23,10 @@ type MobileRunner struct {
 }
 
 type ScheduleStatus struct {
-	DisplayName    string          `json:"display_name,omitempty"`
-	NextActionTime string          `json:"next_action_time,omitempty"`
-	Paused         bool            `json:"paused"`
-	Runners        []MobileRunner  `json:"runners"`
+	DisplayName    string         `json:"display_name,omitempty"`
+	NextActionTime string         `json:"next_action_time,omitempty"`
+	Paused         bool           `json:"paused"`
+	Runners        []MobileRunner `json:"runners"`
 }
 
 func RegisterSchedulesHooks(app core.App) {

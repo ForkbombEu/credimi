@@ -79,9 +79,9 @@ var SchedulesRoutes routing.RouteGroup = routing.RouteGroup{
 }
 
 type StartScheduleRequest struct {
-	PipelineID      string                      `json:"pipeline_id"`
-	ScheduleMode    workflowengine.ScheduleMode `json:"schedule_mode"`
-	GlobalRunnerID  string                      `json:"global_runner_id,omitempty"`
+	PipelineID     string                      `json:"pipeline_id"`
+	ScheduleMode   workflowengine.ScheduleMode `json:"schedule_mode"`
+	GlobalRunnerID string                      `json:"global_runner_id,omitempty"`
 }
 
 type StartScheduleResponse struct {
