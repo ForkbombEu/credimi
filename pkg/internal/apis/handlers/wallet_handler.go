@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"archive/zip"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -376,7 +377,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 		)
 		filename := versionName + "_result_video"
 		videoFilename, videoURLs, apierr := saveUploadedFileToRecord(
-			e, resultRecord, "result_video", "video_results", filename,
+			e, resultRecord, "result_video", "video_results", filename, false,
 		)
 		if apierr != nil {
 			return apierr.JSON(e)
@@ -384,7 +385,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 
 		filename = versionName + "_screenshot"
 		frameFilename, frameURLs, apierr := saveUploadedFileToRecord(
-			e, resultRecord, "last_frame", "screenshots", filename,
+			e, resultRecord, "last_frame", "screenshots", filename, false,
 		)
 		if apierr != nil {
 			return apierr.JSON(e)
@@ -393,7 +394,7 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 		filename = versionName + "_logcat"
 
 		logcatFilename, logcatURLs, apierr := saveUploadedFileToRecord(
-			e, resultRecord, "logcat", "logcats", filename,
+			e, resultRecord, "logcat", "logcats", filename, true,
 		)
 		if apierr != nil {
 			return apierr.JSON(e)
@@ -418,6 +419,7 @@ func saveUploadedFileToRecord(
 	formField string,
 	recordField string,
 	filename string,
+	zipUpload bool,
 ) (string, []string, *apierror.APIError) {
 	file, fileHeader, err := e.Request.FormFile(formField)
 	if err != nil {
@@ -429,10 +431,11 @@ func saveUploadedFileToRecord(
 		)
 	}
 	defer file.Close()
-	tmp, err := os.CreateTemp(
-		"",
-		fmt.Sprintf("%s_*%s", filename, filepath.Ext(fileHeader.Filename)),
-	)
+	ext := filepath.Ext(fileHeader.Filename)
+	if zipUpload {
+		ext = ".zip"
+	}
+	tmp, err := os.CreateTemp("", fmt.Sprintf("%s_*%s", filename, ext))
 	if err != nil {
 		return "", nil, apierror.New(
 			http.StatusInternalServerError,
@@ -443,13 +446,50 @@ func saveUploadedFileToRecord(
 	}
 	defer tmp.Close()
 
-	if _, err := io.Copy(tmp, file); err != nil {
-		return "", nil, apierror.New(
-			http.StatusInternalServerError,
-			"filesystem",
-			"failed to write temp file",
-			err.Error(),
-		)
+	if zipUpload {
+		zipWriter := zip.NewWriter(tmp)
+		entryName := fileHeader.Filename
+		if entryName == "" {
+			entryName = filename
+		}
+		entryWriter, err := zipWriter.Create(entryName)
+		if err != nil {
+			zipWriter.Close()
+			return "", nil, apierror.New(
+				http.StatusInternalServerError,
+				"filesystem",
+				"failed to create zip entry",
+				err.Error(),
+			)
+		}
+
+		if _, err := io.Copy(entryWriter, file); err != nil {
+			zipWriter.Close()
+			return "", nil, apierror.New(
+				http.StatusInternalServerError,
+				"filesystem",
+				"failed to write zip entry",
+				err.Error(),
+			)
+		}
+
+		if err := zipWriter.Close(); err != nil {
+			return "", nil, apierror.New(
+				http.StatusInternalServerError,
+				"filesystem",
+				"failed to finalize zip file",
+				err.Error(),
+			)
+		}
+	} else {
+		if _, err := io.Copy(tmp, file); err != nil {
+			return "", nil, apierror.New(
+				http.StatusInternalServerError,
+				"filesystem",
+				"failed to write temp file",
+				err.Error(),
+			)
+		}
 	}
 
 	absPath, err := filepath.Abs(tmp.Name())
@@ -511,5 +551,8 @@ func saveUploadedFileToRecord(
 	}
 
 	os.Remove(absPath)
+	if zipUpload {
+		return filename + ".zip", urls, nil
+	}
 	return fileHeader.Filename, urls, nil
 }
