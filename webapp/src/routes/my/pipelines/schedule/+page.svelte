@@ -62,6 +62,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							{m.Status()}
 						</Table.Head>
 						<Table.Head>
+							Runners
+						</Table.Head>
+						<Table.Head>
 							{m.interval()}
 						</Table.Head>
 						<Table.Head>
@@ -85,6 +88,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</Table.Cell>
 								<Table.Cell>
 									<ScheduleStateDisplay {state} />
+								</Table.Cell>
+								<Table.Cell>
+									{#if status.runners && status.runners.length > 0}
+										<div class="flex flex-wrap gap-1">
+											{#each status.runners as runner}
+												<span class="rounded bg-slate-100 px-2 py-1 text-xs">
+													{runner.name}
+												</span>
+											{/each}
+										</div>
+									{:else}
+										<span class="text-slate-300">-</span>
+									{/if}
 								</Table.Cell>
 								<Table.Cell>
 									<T>{scheduleModeLabel(mode)}</T>

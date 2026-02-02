@@ -7,17 +7,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { CalendarIcon } from '@lucide/svelte';
 	import { getPath } from '$lib/utils';
+	import { getPipelineRunnerType } from '$lib/pipeline/utils';
+	import RunnerSelectInput from '$lib/pipeline/runner-select-input.svelte';
 	import { toast } from 'svelte-sonner';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod/v3';
 
-	import type { PipelinesResponse } from '@/pocketbase/types';
+	import type { PipelinesResponse, MobileRunnersResponse } from '@/pocketbase/types';
 
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { Label } from '@/components/ui/label';
 	import { createForm } from '@/forms';
 	import { Field, SelectField, SelectFieldAny } from '@/forms/fields';
+	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
 	import Form from '@/forms/form.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
@@ -36,13 +39,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let isOpen = $state(false);
 
+	const type = getPipelineRunnerType(pipeline);
+	const isGlobalRunner = type === 'global';
+
+	const baseSchema = z.object({
+		pipeline_id: z.string(),
+		schedule_mode: scheduleModeSchema
+	});
+
+	const schemaWithRunner = baseSchema.extend({
+		global_runner_id: z.string()
+	});
+
 	const form = createForm({
-		adapter: zod(
-			z.object({
-				pipeline_id: z.string(),
-				schedule_mode: scheduleModeSchema
-			})
-		),
+		adapter: zod(isGlobalRunner ? schemaWithRunner : baseSchema),
 		initialData: {
 			pipeline_id: getPath(pipeline)
 		},
@@ -61,6 +71,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 
 	const formData = form.form;
+
+	function onRunnerSelect(runner: MobileRunnersResponse) {
+		formData.update((v) => ({
+			...v,
+			global_runner_id: getPath(runner)
+		}));
+	}
 </script>
 
 <Dialog bind:open={isOpen} title={m.Schedule_pipeline()}>
@@ -102,6 +119,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					name="schedule_mode.day"
 					options={{ type: 'number', label: m.input_a_day() }}
 				/>
+			{/if}
+
+			{#if isGlobalRunner}
+				<FieldWrapper field="global_runner_id" options={{ label: m.Runner() }}>
+					{#snippet children({ props })}
+						<input type="hidden" {...props} value={$formData.global_runner_id ?? ''} />
+						<RunnerSelectInput onSelect={onRunnerSelect} />
+					{/snippet}
+				</FieldWrapper>
 			{/if}
 
 			{#snippet submitButtonContent()}
