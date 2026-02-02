@@ -59,8 +59,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 
 	// Initialize search with empty string to load all runners
+	let initialized = false;
 	$effect(() => {
-		searchRunner('');
+		if (!initialized) {
+			initialized = true;
+			searchRunner('');
+		}
 	});
 </script>
 

@@ -26,15 +26,19 @@ export function getPipelineRunnerType(pipeline: PipelinesResponse): 'global' | '
 		const yaml = parse(pipeline.yaml);
 		const steps = yaml?.steps ?? [];
 		
-		// Check if any mobile-automation step has a runner_id
+		// Check all mobile-automation steps
+		let hasMobileAutomationSteps = false;
 		for (const step of steps) {
 			if (step.use === 'mobile-automation') {
+				hasMobileAutomationSteps = true;
+				// If any mobile-automation step has a runner_id, it's specific
 				if (step.with?.config?.runner_id) {
 					return 'specific';
 				}
 			}
 		}
 		
+		// If there are no mobile-automation steps, or none have runner_id, it's global
 		return 'global';
 	} catch (error) {
 		// If parsing fails, assume global

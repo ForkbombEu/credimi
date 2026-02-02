@@ -65,8 +65,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// Fetch the runner name when storedRunnerPath changes
 	$effect(() => {
 		if (storedRunnerPath) {
+			const filter = pb.filter('__canonified_path__ = {:path}', { path: storedRunnerPath });
 			pb.collection('mobile_runners')
-				.getFirstListItem(`__canonified_path__ = "${storedRunnerPath}"`)
+				.getFirstListItem(filter)
 				.then((runner) => {
 					currentRunnerName = runner.name;
 				})
