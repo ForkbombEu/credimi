@@ -5,28 +5,26 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
-	import type { SelfProp } from '$lib/renderable';
-
 	import { userOrganization } from '$lib/app-state';
-	import { pb } from '@/pocketbase';
-	import { Badge } from '@/components/ui/badge';
-	import { m } from '@/i18n';
-
+	import EmptyState from '$lib/pipeline-form/steps/_partials/empty-state.svelte';
 	import ItemCard from '$lib/pipeline-form/steps/_partials/item-card.svelte';
 	import SearchInput from '$lib/pipeline-form/steps/_partials/search-input.svelte';
-	import WithEmptyState from '$lib/pipeline-form/steps/_partials/with-empty-state.svelte';
-	import WithLabel from '$lib/pipeline-form/steps/_partials/with-label.svelte';
 	import { Search } from '$lib/pipeline-form/steps/_partials/search.svelte.js';
+	import WithLabel from '$lib/pipeline-form/steps/_partials/with-label.svelte';
+
+	import type { MobileRunnersResponse } from '@/pocketbase/types';
+
+	import { Badge } from '@/components/ui/badge';
+	import { m } from '@/i18n';
+	import { pb } from '@/pocketbase';
 
 	//
 
 	type Props = {
-		pipeline: PipelinesResponse;
-		onRunnerSelect: (runner: MobileRunnersResponse) => void;
+		onSelect?: (runner: MobileRunnersResponse) => void;
 	};
 
-	let { pipeline, onRunnerSelect }: Props = $props();
+	let { onSelect }: Props = $props();
 
 	//
 
@@ -57,24 +55,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			sort: 'created'
 		});
 	}
-
-	// Initialize search with empty string to load all runners
-	let initialized = false;
-	$effect(() => {
-		if (!initialized) {
-			initialized = true;
-			searchRunner('');
-		}
-	});
 </script>
 
-<WithLabel label={m.Runner()} class="p-4">
+<WithLabel label={m.Runner()}>
 	<SearchInput search={runnerSearch} />
 </WithLabel>
 
-<WithEmptyState items={foundRunners} emptyText={m.No_runners_found()}>
-	{#snippet item({ item })}
-		<ItemCard title={item.name} onClick={() => onRunnerSelect(item)}>
+<div class="space-y-1">
+	{#each foundRunners as item (item.id)}
+		<ItemCard title={item.name} onClick={() => onSelect?.(item)}>
 			{#snippet right()}
 				{#if !item.published}
 					<Badge variant="secondary">
@@ -83,5 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			{/snippet}
 		</ItemCard>
-	{/snippet}
-</WithEmptyState>
+	{:else}
+		<EmptyState text={m.No_runners_found()} />
+	{/each}
+</div>

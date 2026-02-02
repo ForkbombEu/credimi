@@ -25,6 +25,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		trigger?: Snippet<[{ props: GenericRecord; openDialog: () => void }]>;
 		content?: Snippet<[{ Footer: typeof Footer; closeDialog: () => void }]>;
 		onclose?: () => void;
+		hideTrigger?: boolean;
 	};
 
 	let {
@@ -35,6 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		trigger,
 		content,
 		onclose,
+		hideTrigger = false,
 		...rest
 	}: Props = $props();
 
@@ -54,15 +56,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!open) onclose?.();
 	}}
 >
-	<Dialog.Trigger>
-		{#snippet child({ props })}
-			{@render trigger?.({ props, openDialog })}
-		{/snippet}
-	</Dialog.Trigger>
+	{#if !hideTrigger}
+		<Dialog.Trigger>
+			{#snippet child({ props })}
+				{@render trigger?.({ props, openDialog })}
+			{/snippet}
+		</Dialog.Trigger>
+	{/if}
 
 	<Dialog.Content class={contentClass}>
 		{#if title || description}
-			<Dialog.Header class="!text-left">
+			<Dialog.Header class="text-left!">
 				{#if title}
 					<Dialog.Title>{title}</Dialog.Title>
 				{/if}

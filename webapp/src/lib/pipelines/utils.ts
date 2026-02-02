@@ -3,19 +3,15 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { getPath, runWithLoading } from '$lib/utils';
-import { parse } from 'yaml';
 import { toast } from 'svelte-sonner';
+import { parse } from 'yaml';
 
-import type { PipelinesResponse } from '@/pocketbase/types';
+import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
 
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase';
 
 //
-
-const PIPELINES_RUNNERS_STORAGE_KEY = 'pipelines_runners_config';
-
-type PipelinesRunnersConfig = Record<string, string>;
 
 /**
  * Parse the pipeline yaml. If there is no key `runner_id` inside mobile automation steps,
@@ -25,7 +21,7 @@ export function getPipelineRunnerType(pipeline: PipelinesResponse): 'global' | '
 	try {
 		const yaml = parse(pipeline.yaml);
 		const steps = yaml?.steps ?? [];
-		
+
 		// Check all mobile-automation steps
 		let hasMobileAutomationSteps = false;
 		for (const step of steps) {
@@ -37,7 +33,7 @@ export function getPipelineRunnerType(pipeline: PipelinesResponse): 'global' | '
 				}
 			}
 		}
-		
+
 		// If there are no mobile-automation steps, or none have runner_id, it's global
 		return 'global';
 	} catch (error) {
@@ -46,36 +42,34 @@ export function getPipelineRunnerType(pipeline: PipelinesResponse): 'global' | '
 	}
 }
 
-/**
- * Set the pipeline runner in localStorage
- */
-export function setPipelineRunner(pipeline: PipelinesResponse, runner: string): void {
+/* Runners configuration storage */
+
+const PIPELINES_RUNNERS_STORAGE_KEY = 'pipelines_runners_config';
+
+type PipelinesRunnersConfig = Record<string, string>;
+
+export function setPipelineRunner(
+	pipeline: PipelinesResponse,
+	runner: MobileRunnersResponse
+): void {
 	try {
 		// Get existing config or create new one
 		let config: PipelinesRunnersConfig = {};
 		const stored = localStorage.getItem(PIPELINES_RUNNERS_STORAGE_KEY);
-		if (stored) {
-			config = JSON.parse(stored);
-		}
-		
-		// Set the runner for this pipeline
-		config[pipeline.id] = runner;
-		
-		// Save back to localStorage
+		if (stored) config = JSON.parse(stored);
+
+		config[pipeline.id] = getPath(runner);
 		localStorage.setItem(PIPELINES_RUNNERS_STORAGE_KEY, JSON.stringify(config));
 	} catch (error) {
 		console.error('Failed to set pipeline runner:', error);
 	}
 }
 
-/**
- * Get the pipeline runner from localStorage
- */
 export function getPipelineRunner(pipelineId: string): string | undefined {
 	try {
 		const stored = localStorage.getItem(PIPELINES_RUNNERS_STORAGE_KEY);
 		if (!stored) return undefined;
-		
+
 		const config: PipelinesRunnersConfig = JSON.parse(stored);
 		return config[pipelineId];
 	} catch (error) {
@@ -84,9 +78,8 @@ export function getPipelineRunner(pipelineId: string): string | undefined {
 	}
 }
 
-/**
- * Run a pipeline with optional global_runner_id
- */
+/* Running */
+
 export async function runPipeline(
 	pipeline: PipelinesResponse,
 	options?: { global_runner_id?: string }
@@ -95,7 +88,7 @@ export async function runPipeline(
 		fn: async () => {
 			// Parse the existing YAML
 			const parsedYaml = parse(pipeline.yaml);
-			
+
 			// Add global_runner_id to runtime if provided
 			if (options?.global_runner_id) {
 				if (!parsedYaml.runtime) {
@@ -103,11 +96,11 @@ export async function runPipeline(
 				}
 				parsedYaml.runtime.global_runner_id = options.global_runner_id;
 			}
-			
+
 			// Convert back to YAML string
 			const { stringify } = await import('yaml');
 			const modifiedYaml = stringify(parsedYaml);
-			
+
 			return await pb.send('/api/pipeline/start', {
 				method: 'POST',
 				body: {

@@ -5,36 +5,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	/* eslint-disable perfectionist/sort-imports */
 	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
-	import type { MobileRunnersResponse } from '@/pocketbase/types';
 
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
-	import { ArrowRightIcon, Cog, Pencil, PlayIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { userOrganization } from '$lib/app-state';
 	import StatusCircle from '$lib/components/status-circle.svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
+	import RunnerSelectModal from '$lib/pipelines/runner-select-modal.svelte';
+	import { getPipelineRunner, getPipelineRunnerType, runPipeline } from '$lib/pipelines/utils';
 	import { getPath } from '$lib/utils';
 	import WorkflowsTableSmall from '$lib/workflows/workflows-table-small.svelte';
-	import {
-		runPipeline,
-		getPipelineRunner,
-		setPipelineRunner,
-		getPipelineRunnerType
-	} from '$lib/pipelines/utils';
-	import SelectRunner from '$lib/pipelines/select-runner.svelte';
+	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
+	import { ArrowRightIcon, Cog, Pencil, PlayIcon } from '@lucide/svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 
 	import Button from '@/components/ui-custom/button.svelte';
-	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import * as ButtonGroup from '@/components/ui/button-group';
 	import ScheduleActions from './schedule-actions.svelte';
 	import SchedulePipelineForm from './schedule-pipeline-form.svelte';
 	import { type EnrichedSchedule } from './types';
@@ -48,61 +43,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { pipeline = $bindable(), workflows }: Props = $props();
 
-	//
+	// Running
 
 	let runnerSelectionDialogOpen = $state(false);
-	let runnerConfigDialogOpen = $state(false);
-
-	const runnerType = $derived(getPipelineRunnerType(pipeline));
-	const isRunnerSpecific = $derived(runnerType === 'specific');
-	
-	// Get the stored runner canonified path
-	const storedRunnerPath = $derived(getPipelineRunner(pipeline.id));
-	
-	// For displaying the current runner name
-	let currentRunnerName = $state<string | undefined>(undefined);
-	
-	// Fetch the runner name when storedRunnerPath changes
-	$effect(() => {
-		if (storedRunnerPath) {
-			const filter = pb.filter('__canonified_path__ = {:path}', { path: storedRunnerPath });
-			pb.collection('mobile_runners')
-				.getFirstListItem(filter)
-				.then((runner) => {
-					currentRunnerName = runner.name;
-				})
-				.catch(() => {
-					currentRunnerName = undefined;
-				});
-		} else {
-			currentRunnerName = undefined;
-		}
-	});
+	let runPipelineAfterRunnerSelect = $state(false);
 
 	async function handleRunNow() {
 		const runner = getPipelineRunner(pipeline.id);
 		if (runner) {
-			// Runner is already selected, run directly
 			await runPipeline(pipeline, { global_runner_id: runner });
+			runPipelineAfterRunnerSelect = false;
 		} else {
-			// No runner selected, open dialog
+			runPipelineAfterRunnerSelect = true;
 			runnerSelectionDialogOpen = true;
 		}
 	}
 
-	function handleRunnerSelect(runner: MobileRunnersResponse) {
-		const runnerPath = getPath(runner);
-		setPipelineRunner(pipeline, runnerPath);
-		runPipeline(pipeline, { global_runner_id: runnerPath });
-		runnerSelectionDialogOpen = false;
-	}
-
-	function handleConfigRunnerSelect(runner: MobileRunnersResponse) {
-		const runnerPath = getPath(runner);
-		setPipelineRunner(pipeline, runnerPath);
-		currentRunnerName = runner.name;
-		runnerConfigDialogOpen = false;
-	}
+	// Scheduling
 
 	let schedule = $derived.by(() => {
 		const s = pipeline.expand?.schedules_via_pipeline?.find(
@@ -118,6 +75,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})
 	);
 
+	// Flags for displaying UI elements
+
 	const avatar = $derived.by(() => {
 		const owner = pipeline.expand?.owner;
 		if (!owner) return undefined;
@@ -127,6 +86,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const hasWorkflows = $derived(workflows && workflows.length > 0);
 
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
+
+	const runnerType = $derived(getPipelineRunnerType(pipeline));
+	const isRunnerSpecific = $derived(runnerType === 'specific');
+	$inspect(isRunnerSpecific);
 </script>
 
 <DashboardCard
@@ -150,17 +113,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet actions()}
-		<div class="flex gap-2">
+		<ButtonGroup.Root>
 			<Button onclick={handleRunNow}>
 				<PlayIcon />{m.Run_now()}
 			</Button>
 			<IconButton
 				icon={Cog}
-				onclick={() => (runnerConfigDialogOpen = true)}
+				variant="default"
+				class="rounded-none rounded-r-md border-l border-l-slate-500"
+				onclick={() => (runnerSelectionDialogOpen = true)}
 				disabled={isRunnerSpecific}
-				tooltip={isRunnerSpecific ? m.Runner_configuration_not_available() : m.Configure_runner()}
+				tooltip={isRunnerSpecific
+					? m.Runner_configuration_not_available()
+					: m.Configure_runner()}
 			/>
-		</div>
+		</ButtonGroup.Root>
+
 		{#if !schedule}
 			<SchedulePipelineForm {pipeline} />
 		{:else}
@@ -174,32 +142,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 </DashboardCard>
 
-<!-- Runner Selection Dialog (for Run Now) -->
-<Dialog
+<RunnerSelectModal
+	{pipeline}
 	bind:open={runnerSelectionDialogOpen}
-	title={m.Select_runner()}
-	description={m.Select_a_runner_to_execute_the_pipeline()}
->
-	{#snippet content({ closeDialog })}
-		<SelectRunner pipeline={pipeline} onRunnerSelect={handleRunnerSelect} />
-	{/snippet}
-</Dialog>
-
-<!-- Runner Configuration Dialog -->
-<Dialog
-	bind:open={runnerConfigDialogOpen}
-	title={m.Configure_runner()}
-	description={m.Configure_the_runner_for_this_pipeline()}
->
-	{#snippet content({ closeDialog })}
-		{#if currentRunnerName}
-			<div class="p-4">
-				<T class="text-sm text-muted-foreground">{m.Current_runner()}: <span class="font-semibold">{currentRunnerName}</span></T>
-			</div>
-		{/if}
-		<SelectRunner pipeline={pipeline} onRunnerSelect={handleConfigRunnerSelect} />
-	{/snippet}
-</Dialog>
+	onSelect={() => {
+		if (!runPipelineAfterRunnerSelect) return;
+		handleRunNow();
+	}}
+/>
 
 {#snippet editAction()}
 	<IconButton
