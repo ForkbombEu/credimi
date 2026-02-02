@@ -901,11 +901,25 @@ func extractAndStoreRecordingInfo(
 		)
 	}
 
+	logcatPath, ok := recordResult.Output.(map[string]any)["logcat_path"].(string)
+	if !ok {
+		return workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf(
+				"%s: missing logcat_path in start record video response for device %s",
+				errCode.Description,
+				runnerID,
+			),
+			recordResult.Output,
+		)
+	}
+
 	deviceMap["recording_adb_pid"] = int(adbPID)
 	deviceMap["recording_ffmpeg_pid"] = int(ffmpegPID)
 	deviceMap["recording_logcat_pid"] = int(logcatPID)
 	deviceMap["recording"] = true
 	deviceMap["video_path"] = videoPath
+	deviceMap["logcat_path"] = logcatPath
 
 	return nil
 }
@@ -1115,19 +1129,18 @@ func cleanupRecording(
 		return
 	}
 
-	recordingInfo, err := extractRecordingInfo(runnerID, deviceInfo, cleanupErrs)
+	recordingInfo, err := extractRecordingInfo(runnerID, deviceInfo)
 	if err != nil {
-		return // Error already added to cleanupErrs
+		*cleanupErrs = append(*cleanupErrs, err)
 	}
 
 	lastFramePath, err := stopRecording(
 		ctx,
 		recordingInfo,
-		cleanupErrs,
 		logger,
 	)
 	if err != nil {
-		return // Error already added to cleanupErrs
+		*cleanupErrs = append(*cleanupErrs, err)
 	}
 
 	if err := storeRecordingResults(
@@ -1135,53 +1148,49 @@ func cleanupRecording(
 		runner_url,
 		recordingInfo.videoPath,
 		lastFramePath,
+		recordingInfo.logcatPath,
 		runID,
 		runnerID,
 		appURL,
 		output,
-		cleanupErrs,
 		logger,
 	); err != nil {
-		return // Error already added to cleanupErrs
+		*cleanupErrs = append(*cleanupErrs, err)
 	}
 }
 
 type recordingInfo struct {
-	videoPath string
-	adbPid    int
-	ffmpegPid int
-	logcatPid int
+	videoPath  string
+	logcatPath string
+	adbPid     int
+	ffmpegPid  int
+	logcatPid  int
 }
 
 func extractRecordingInfo(
 	runnerID string,
 	deviceInfo map[string]any,
-	cleanupErrs *[]error,
 ) (*recordingInfo, error) {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 
 	videoPath, ok := deviceInfo["video_path"].(string)
 	if !ok || videoPath == "" {
-		*cleanupErrs = append(*cleanupErrs,
-			workflowengine.NewAppError(
-				errCode,
-				"missing video_path for device "+runnerID,
-			),
-		)
 		return nil, workflowengine.NewAppError(
 			errCode,
 			"missing video_path for device "+runnerID,
 		)
 	}
 
+	logcatPath, ok := deviceInfo["logcat_path"].(string)
+	if !ok || logcatPath == "" {
+		return nil, workflowengine.NewAppError(
+			errCode,
+			"missing logcat_path for device "+runnerID,
+		)
+	}
+
 	recordingAdbPid, ok := deviceInfo["recording_adb_pid"].(int)
 	if !ok || recordingAdbPid == 0 {
-		*cleanupErrs = append(*cleanupErrs,
-			workflowengine.NewAppError(
-				errCode,
-				"missing recording_adb_pid for device "+runnerID,
-			),
-		)
 		return nil, workflowengine.NewAppError(
 			errCode,
 			"missing recording_adb_pid for device "+runnerID,
@@ -1190,12 +1199,6 @@ func extractRecordingInfo(
 
 	recordingFfmpegPid, ok := deviceInfo["recording_ffmpeg_pid"].(int)
 	if !ok || recordingFfmpegPid == 0 {
-		*cleanupErrs = append(*cleanupErrs,
-			workflowengine.NewAppError(
-				errCode,
-				"missing recording_ffmpeg_pid for device "+runnerID,
-			),
-		)
 		return nil, workflowengine.NewAppError(
 			errCode,
 			"missing recording_ffmpeg_pid for device "+runnerID,
@@ -1204,12 +1207,6 @@ func extractRecordingInfo(
 
 	recordingLogcatPid, ok := deviceInfo["recording_logcat_pid"].(int)
 	if !ok || recordingLogcatPid == 0 {
-		*cleanupErrs = append(*cleanupErrs,
-			workflowengine.NewAppError(
-				errCode,
-				"missing recording_logcat_pid for device "+runnerID,
-			),
-		)
 		return nil, workflowengine.NewAppError(
 			errCode,
 			"missing recording_logcat_pid for device "+runnerID,
@@ -1217,17 +1214,17 @@ func extractRecordingInfo(
 	}
 
 	return &recordingInfo{
-		videoPath: videoPath,
-		adbPid:    recordingAdbPid,
-		ffmpegPid: recordingFfmpegPid,
-		logcatPid: recordingLogcatPid,
+		videoPath:  videoPath,
+		logcatPath: logcatPath,
+		adbPid:     recordingAdbPid,
+		ffmpegPid:  recordingFfmpegPid,
+		logcatPid:  recordingLogcatPid,
 	}, nil
 }
 
 func stopRecording(
 	ctx workflow.Context,
 	info *recordingInfo,
-	cleanupErrs *[]error,
 	logger log.Logger,
 ) (string, error) {
 	stopRecordingActivity := activities.NewStopRecordingActivity()
@@ -1246,7 +1243,6 @@ func stopRecording(
 		},
 	).Get(ctx, &stopResult); err != nil {
 		logger.Error("cleanup: stop recording failed", "error", err)
-		*cleanupErrs = append(*cleanupErrs, err)
 		return "", err
 	}
 
@@ -1257,7 +1253,6 @@ func stopRecording(
 			"missing last_frame_path in stop recording result",
 			stopResult.Output,
 		)
-		*cleanupErrs = append(*cleanupErrs, err)
 		return "", err
 	}
 
@@ -1269,11 +1264,11 @@ func storeRecordingResults(
 	runnerURL string,
 	videoPath string,
 	lastFramePath string,
+	logcatPath string,
 	runID string,
 	runnerID string,
 	appURL string,
 	output *map[string]any,
-	cleanupErrs *[]error,
 	logger log.Logger,
 ) error {
 	httpActivity := activities.NewHTTPActivity()
@@ -1295,6 +1290,7 @@ func storeRecordingResults(
 				Body: map[string]any{
 					"video_path":        videoPath,
 					"last_frame_path":   lastFramePath,
+					"logcat_path":       logcatPath,
 					"run_identifier":    runID,
 					"runner_identifier": runnerID,
 					"instance_url":      appURL,
@@ -1304,11 +1300,10 @@ func storeRecordingResults(
 		},
 	).Get(ctx, &storeResult); err != nil {
 		logger.Error("cleanup: store result failed", "error", err)
-		*cleanupErrs = append(*cleanupErrs, err)
 		return err
 	}
 
-	if err := extractAndStoreURLs(storeResult, output, cleanupErrs); err != nil {
+	if err := extractAndStoreURLs(storeResult, output); err != nil {
 		return err
 	}
 
@@ -1318,7 +1313,6 @@ func storeRecordingResults(
 func extractAndStoreURLs(
 	storeResult workflowengine.ActivityResult,
 	output *map[string]any,
-	cleanupErrs *[]error,
 ) error {
 	body, ok := storeResult.Output.(map[string]any)["body"].(map[string]any)
 	if !ok {
@@ -1327,7 +1321,6 @@ func extractAndStoreURLs(
 			"missing body in store result",
 			storeResult.Output,
 		)
-		*cleanupErrs = append(*cleanupErrs, err)
 		return err
 	}
 
@@ -1340,7 +1333,6 @@ func extractAndStoreURLs(
 			"missing result or screenshot URLs",
 			storeResult.Output,
 		)
-		*cleanupErrs = append(*cleanupErrs, err)
 		return err
 	}
 

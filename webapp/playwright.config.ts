@@ -8,8 +8,9 @@ export const storageState = 'test-results/.auth/user.json';
 
 export default defineConfig({
 	webServer: {
-		command: 'bun run build && bun run preview',
-		port: 4173
+		command: 'bash ./scripts/e2e-webserver.sh',
+		port: 5100,
+		timeout: 120 * 1000
 	},
 
 	testDir: 'e2e',

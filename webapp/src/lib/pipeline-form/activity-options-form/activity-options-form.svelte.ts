@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { ActivityOptions } from '$lib/pipeline/types.generated';
 import type { Renderable } from '$lib/renderable';
-import type { ActivityOptions } from '$pipeline-form/types.generated';
 import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
 import { createForm } from '@/forms';
 import { getExceptionMessage } from '@/utils/errors';

@@ -3,11 +3,12 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { MarketplaceItem } from '$lib/marketplace';
-import type { EnrichedPipeline } from '$pipeline-form/types';
 
 import { isError, isString } from 'effect/Predicate';
 
 import type { MobileRunnersResponse, WalletVersionsResponse } from '@/pocketbase/types';
+
+import type { EnrichedPipeline } from '../functions';
 
 //
 

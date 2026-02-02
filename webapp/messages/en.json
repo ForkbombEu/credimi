@@ -917,5 +917,11 @@
 	"Runner": "Runner",
 	"No_runners_found": "No runners found",
 	"Global": "Global",
-	"Choose_later": "Choose later"
+	"Choose_later": "Choose later",
+	"Select_runner": "Select runner",
+	"Select_a_runner_to_execute_the_pipeline": "Select a runner to execute the pipeline",
+	"Configure_runner": "Configure runner",
+	"Configure_the_runner_for_this_pipeline": "Configure the runner for this pipeline",
+	"Current_runner": "Current runner",
+	"Runner_configuration_not_available": "Runner configuration not available for pipelines with specific runner steps"
 }
