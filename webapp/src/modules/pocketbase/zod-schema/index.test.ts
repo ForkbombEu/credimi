@@ -146,14 +146,11 @@ describe('generated collection zod schema', () => {
 		const difference = differenceInMilliseconds(maxDateValue, minDateValue);
 		const betweenDate = addMilliseconds(minDateValue, difference / 2);
 
-		console.log(minDateValue, betweenDate.toISOString(), maxDateValue);
-
 		const data: ZTestFormData = {
 			...baseData,
 			date_field: betweenDate.toISOString()
 		};
 		const parseResult = schema.safeParse(data);
-		console.log(parseResult.error?.issues);
 		expect(parseResult.success).toBe(true);
 	});
 });
