@@ -36,6 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<thead class="bg-slate-100">
 					<tr>
 						<th>{m.Status()}</th>
+						<th>{m.Runner()}</th>
 						<th>{m.Results()}</th>
 						<th>{m.Start_time()}</th>
 						<th>{m.End_time()}</th>
@@ -45,6 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</thead>
 				<tbody>
 					{#each workflows as workflow (workflow.execution.runId)}
+						{@const runnerNames = workflow.runner_names ?? []}
 						{@const status = toWorkflowStatusReadable(workflow.status)}
 						<tr>
 							<td>
@@ -53,6 +55,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									failureReason={workflow.failure_reason}
 									size="sm"
 								/>
+							</td>
+							<td>
+								{#if runnerNames.length > 0}
+									{runnerNames.join(', ')}
+								{:else}
+									{@render na()}
+								{/if}
 							</td>
 
 							<td>

@@ -24,4 +24,6 @@ export interface WorkflowExecutionSummary {
 	}>;
 	children?: Array<WorkflowExecutionSummary>;
 	failure_reason?: string;
+	global_runner_id?: string;
+	runner_ids?: string[];
 }
