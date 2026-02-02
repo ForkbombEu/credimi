@@ -43,9 +43,9 @@ func TestValidateScheduleModeWeeklyBounds(t *testing.T) {
 func TestValidateScheduleModeMonthlyDefault(t *testing.T) {
 	// Test that a default day is assigned when none is provided.
 	// Note: We cannot assert the exact value or validity since it depends
-	// on the current date. On the 31st of a month, the default day (31)
-	// would exceed the valid range (0-30) and cause validation to fail.
-	// This is expected behavior - the test ensures a default is set.
+	// on the current date. On the 31st of a month, the implementation will
+	// assign day=31 which exceeds the valid range (0-30) and validation fails.
+	// This test only verifies that a default value is assigned, not its validity.
 	mode := workflowengine.ScheduleMode{Mode: "monthly"}
 	_ = validateScheduleMode(&mode)
 	require.NotNil(t, mode.Day, "default day should be assigned")
