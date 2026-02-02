@@ -44,5 +44,6 @@ elif ! $mock_running; then
 	exit 1
 fi
 
-# If we reach here, a process exited but both are somehow still running (shouldn't happen)
+# If we reach here, wait returned but both processes are still running (unexpected)
+echo "WARNING: wait -n returned but both processes are still running (exit status: $exit_status)" >&2
 exit "$exit_status"
