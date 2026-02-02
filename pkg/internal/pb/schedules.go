@@ -7,6 +7,7 @@ package pb
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -65,7 +66,7 @@ func RegisterSchedulesHooks(app core.App) {
 		runners, err := parseRunnersFromPipeline(e.App, e.Record.GetString("pipeline"))
 		if err != nil {
 			// Log error but don't fail the enrichment
-			fmt.Printf("failed to parse runners from pipeline: %v\n", err)
+			log.Printf("failed to parse runners from pipeline: %v\n", err)
 			runners = []MobileRunner{}
 		}
 
