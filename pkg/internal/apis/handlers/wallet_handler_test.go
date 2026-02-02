@@ -198,6 +198,12 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	_, err = frameWriter.Write([]byte("test frame content"))
 	require.NoError(t, err)
 
+	logcatWriter, err := successWriter.CreateFormFile("logcat", "logcat.log")
+	require.NoError(t, err)
+
+	_, err = logcatWriter.Write([]byte("test logcat content"))
+	require.NoError(t, err)
+
 	require.NoError(t, successWriter.Close())
 
 	// Prepare missing file multipart request
@@ -240,7 +246,6 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			ExpectedContent: []string{
 				`"file"`,
 				`failed to read file for field result_video"`,
-				`failed to read file for field last_frame"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
