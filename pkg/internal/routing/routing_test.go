@@ -31,7 +31,7 @@ func TestGetValidatedInput(t *testing.T) {
 
 	t.Run("nil value", func(t *testing.T) {
 		ctx := context.Background()
-		_, rec := newRequestEvent(app, http.MethodGet, "/", nil, ctx)
+		rec := newRequestEvent(app, http.MethodGet, "/", nil, ctx)
 
 		val, err := GetValidatedInput[samplePayload](rec.Event)
 		require.NoError(t, err)
@@ -41,7 +41,7 @@ func TestGetValidatedInput(t *testing.T) {
 	t.Run("correct type", func(t *testing.T) {
 		payload := samplePayload{Name: "ok"}
 		ctx := context.WithValue(context.Background(), middlewares.ValidatedInputKey, payload)
-		_, rec := newRequestEvent(app, http.MethodGet, "/", nil, ctx)
+		rec := newRequestEvent(app, http.MethodGet, "/", nil, ctx)
 
 		val, err := GetValidatedInput[samplePayload](rec.Event)
 		require.NoError(t, err)
@@ -50,7 +50,7 @@ func TestGetValidatedInput(t *testing.T) {
 
 	t.Run("type mismatch", func(t *testing.T) {
 		ctx := context.WithValue(context.Background(), middlewares.ValidatedInputKey, "bad")
-		_, rec := newRequestEvent(app, http.MethodGet, "/", nil, ctx)
+		rec := newRequestEvent(app, http.MethodGet, "/", nil, ctx)
 
 		val, err := GetValidatedInput[samplePayload](rec.Event)
 		require.NoError(t, err)
@@ -89,12 +89,14 @@ func TestRegisterRoutesWithValidation(t *testing.T) {
 		ExcludedMiddlewares: []string{"custom"},
 	}
 
-	r := router.NewRouter(func(w http.ResponseWriter, req *http.Request) (*core.RequestEvent, router.EventCleanupFunc) {
-		return &core.RequestEvent{
-			App:   app,
-			Event: router.Event{Response: w, Request: req},
-		}, nil
-	})
+	r := router.NewRouter(
+		func(w http.ResponseWriter, req *http.Request) (*core.RequestEvent, router.EventCleanupFunc) {
+			return &core.RequestEvent{
+				App:   app,
+				Event: router.Event{Response: w, Request: req},
+			}, nil
+		},
+	)
 
 	RegisterRoutesWithValidation(app, r.RouterGroup, []RouteDefinition{route}, false)
 	mux, err := r.BuildMux()
@@ -128,12 +130,14 @@ func TestRegisterRoutesWithValidation_RequireAuth(t *testing.T) {
 		},
 	}
 
-	r := router.NewRouter(func(w http.ResponseWriter, req *http.Request) (*core.RequestEvent, router.EventCleanupFunc) {
-		return &core.RequestEvent{
-			App:   app,
-			Event: router.Event{Response: w, Request: req},
-		}, nil
-	})
+	r := router.NewRouter(
+		func(w http.ResponseWriter, req *http.Request) (*core.RequestEvent, router.EventCleanupFunc) {
+			return &core.RequestEvent{
+				App:   app,
+				Event: router.Event{Response: w, Request: req},
+			}, nil
+		},
+	)
 
 	RegisterRoutesWithValidation(app, r.RouterGroup, []RouteDefinition{secureRoute}, true)
 	mux, err := r.BuildMux()
@@ -152,7 +156,12 @@ type requestEventRecorder struct {
 	Recorder *httptest.ResponseRecorder
 }
 
-func newRequestEvent(app core.App, method, path string, body *bytes.Buffer, ctx context.Context) (*http.Request, requestEventRecorder) {
+func newRequestEvent(
+	app core.App,
+	method, path string,
+	body *bytes.Buffer,
+	ctx context.Context,
+) requestEventRecorder {
 	if body == nil {
 		body = &bytes.Buffer{}
 	}
@@ -165,5 +174,5 @@ func newRequestEvent(app core.App, method, path string, body *bytes.Buffer, ctx 
 	rec := httptest.NewRecorder()
 	event := &core.RequestEvent{App: app, Event: router.Event{Response: rec, Request: req}}
 
-	return req, requestEventRecorder{Event: event, Recorder: rec}
+	return requestEventRecorder{Event: event, Recorder: rec}
 }
