@@ -5,6 +5,7 @@
 import type { MarketplaceItem } from '$lib/marketplace';
 
 import { userOrganization } from '$lib/app-state/index.svelte.js';
+import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
 
 import { pb } from '@/pocketbase/index.js';
 import {
@@ -21,11 +22,8 @@ import Component from './wallet-action-step-form.svelte';
 
 //
 
-export interface WalletActionStepData {
-	wallet: MarketplaceItem;
-	version: WalletVersionsResponse;
+export interface WalletActionStepData extends ExecutionTarget.Config {
 	action: WalletActionsResponse;
-	runner: MobileRunnersResponse;
 }
 
 export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletActionStepForm> {
@@ -33,11 +31,9 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	constructor() {
 		super();
-		if (walletActionStepFormState.lastSelectedWallet) {
+		if (ExecutionTarget.state.current) {
 			this.data = {
-				wallet: walletActionStepFormState.lastSelectedWallet.wallet,
-				version: walletActionStepFormState.lastSelectedWallet.version,
-				runner: walletActionStepFormState.lastSelectedWallet.runner,
+				...ExecutionTarget.state.current,
 				action: undefined
 			};
 		}
@@ -89,6 +85,9 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 
 	selectVersion(version: WalletVersionsResponse) {
 		this.data.version = version;
+		if (ExecutionTarget.hasGlobalRunner() || ExecutionTarget.hasUndefinedRunner()) {
+			this.data.runner = 'global';
+		}
 	}
 
 	//
@@ -119,7 +118,7 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		});
 	}
 
-	selectRunner(runner: MobileRunnersResponse) {
+	selectRunner(runner: ExecutionTarget.Config['runner']) {
 		this.data.runner = runner;
 	}
 
@@ -141,7 +140,7 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 	}
 
 	selectAction(action: WalletActionsResponse) {
-		walletActionStepFormState.lastSelectedWallet = {
+		ExecutionTarget.state.current = {
 			wallet: this.data.wallet!,
 			version: this.data.version!,
 			runner: this.data.runner!
@@ -168,19 +167,3 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		this.data.runner = undefined;
 	}
 }
-
-//
-
-type WalletActionStepFormState = {
-	lastSelectedWallet:
-		| {
-				wallet: MarketplaceItem;
-				version: WalletVersionsResponse;
-				runner: MobileRunnersResponse;
-		  }
-		| undefined;
-};
-
-export const walletActionStepFormState = $state<WalletActionStepFormState>({
-	lastSelectedWallet: undefined
-});

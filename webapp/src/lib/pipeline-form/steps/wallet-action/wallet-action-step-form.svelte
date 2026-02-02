@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import { getMarketplaceItemData } from '$lib/marketplace';
+	import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
 
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
@@ -23,6 +24,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { self: form }: SelfProp<WalletActionStepForm> = $props();
+
+	const isRunnerGlobal = $derived(ExecutionTarget.hasGlobalRunner());
 </script>
 
 {#if form.data.wallet}
@@ -33,17 +36,25 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				avatar={data.logo}
 				title={form.data.wallet.name}
 				subtitle={form.data.wallet.organization_name}
-				onDiscard={() => form.removeWallet()}
+				onDiscard={isRunnerGlobal ? undefined : () => form.removeWallet()}
 			/>
 		</WithLabel>
 		{#if form.data.version}
 			<WithLabel label={m.Version()}>
-				<ItemCard title={form.data.version.tag} onDiscard={() => form.removeVersion()} />
+				<ItemCard
+					title={form.data.version.tag}
+					onDiscard={isRunnerGlobal ? undefined : () => form.removeVersion()}
+				/>
 			</WithLabel>
 		{/if}
 		{#if form.data.runner}
 			<WithLabel label={m.Runner()}>
-				<ItemCard title={form.data.runner.name} onDiscard={() => form.removeRunner()} />
+				{@const title =
+					form.data.runner === 'global' ? m.Choose_later() : form.data.runner.name}
+				<ItemCard
+					{title}
+					onDiscard={isRunnerGlobal ? undefined : () => form.removeRunner()}
+				/>
 			</WithLabel>
 		{/if}
 	</div>
@@ -77,6 +88,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<SearchInput search={form.runnerSearch} />
 	</WithLabel>
 
+	{#if ExecutionTarget.hasUndefinedRunner()}
+		<div class="px-4">
+			<ItemCard title={m.Choose_later()} onClick={() => form.selectRunner('global')} />
+		</div>
+	{/if}
 	<WithEmptyState items={form.foundRunners} emptyText={m.No_runners_found()}>
 		{#snippet item({ item })}
 			<ItemCard title={item.name} onClick={() => form.selectRunner(item)}>
