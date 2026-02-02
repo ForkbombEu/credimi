@@ -375,19 +375,28 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			"-",
 		)
 		filename := versionName + "_result_video"
-		videoFilename, videoURLs, err := saveUploadedFileToRecord(
+		videoFilename, videoURLs, apierr := saveUploadedFileToRecord(
 			e, resultRecord, "result_video", "video_results", filename,
 		)
-		if err != nil {
-			return err
+		if apierr != nil {
+			return apierr.JSON(e)
 		}
 
 		filename = versionName + "_screenshot"
-		frameFilename, frameURLs, err := saveUploadedFileToRecord(
+		frameFilename, frameURLs, apierr := saveUploadedFileToRecord(
 			e, resultRecord, "last_frame", "screenshots", filename,
 		)
-		if err != nil {
-			return err
+		if apierr != nil {
+			return apierr.JSON(e)
+		}
+
+		filename = versionName + "_logcat"
+
+		logcatFilename, logcatURLs, apierr := saveUploadedFileToRecord(
+			e, resultRecord, "logcat", "logcats", filename,
+		)
+		if apierr != nil {
+			return apierr.JSON(e)
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
@@ -397,6 +406,8 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			"result_urls":          videoURLs,
 			"last_frame_file_name": frameFilename,
 			"last_frame_urls":      frameURLs,
+			"logcat_file_name":     logcatFilename,
+			"logcat_urls":          logcatURLs,
 		})
 	}
 }
@@ -407,7 +418,7 @@ func saveUploadedFileToRecord(
 	formField string,
 	recordField string,
 	filename string,
-) (string, []string, error) {
+) (string, []string, *apierror.APIError) {
 	file, fileHeader, err := e.Request.FormFile(formField)
 	if err != nil {
 		return "", nil, apierror.New(
@@ -415,7 +426,7 @@ func saveUploadedFileToRecord(
 			"file",
 			fmt.Sprintf("failed to read file for field %s", formField),
 			err.Error(),
-		).JSON(e)
+		)
 	}
 	defer file.Close()
 	tmp, err := os.CreateTemp(
@@ -428,7 +439,7 @@ func saveUploadedFileToRecord(
 			"filesystem",
 			"failed to create temp file",
 			err.Error(),
-		).JSON(e)
+		)
 	}
 	defer tmp.Close()
 
@@ -438,7 +449,7 @@ func saveUploadedFileToRecord(
 			"filesystem",
 			"failed to write temp file",
 			err.Error(),
-		).JSON(e)
+		)
 	}
 
 	absPath, err := filepath.Abs(tmp.Name())
@@ -448,7 +459,7 @@ func saveUploadedFileToRecord(
 			"filesystem",
 			"invalid temp file path",
 			err.Error(),
-		).JSON(e)
+		)
 	}
 
 	f, err := filesystem.NewFileFromPath(absPath)
@@ -459,7 +470,7 @@ func saveUploadedFileToRecord(
 			"filesystem",
 			"failed to wrap file",
 			err.Error(),
-		).JSON(e)
+		)
 	}
 
 	existing := record.GetStringSlice(recordField)
@@ -482,7 +493,7 @@ func saveUploadedFileToRecord(
 			"pipeline_results",
 			"failed to save record with uploaded file",
 			err.Error(),
-		).JSON(e)
+		)
 	}
 
 	names := record.GetStringSlice(recordField)
