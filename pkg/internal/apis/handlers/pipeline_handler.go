@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -279,6 +280,35 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 				http.StatusInternalServerError,
 				"collection",
 				"failed to get collection",
+				err.Error(),
+			).JSON(e)
+		}
+
+		existing, err := e.App.FindFirstRecordByFilter(
+			coll,
+			"workflow_id = {:workflow_id} && run_id = {:run_id}",
+			dbx.Params{
+				"workflow_id": input.WorkflowID,
+				"run_id":      input.RunID,
+			},
+		)
+		if err == nil {
+			if existing.GetString("owner") == owner.Id &&
+				existing.GetString("pipeline") == pipeline.Id {
+				return e.JSON(http.StatusOK, existing.FieldsData())
+			}
+			return apierror.New(
+				http.StatusConflict,
+				"pipeline",
+				"pipeline execution result already exists",
+				"pipeline execution result owner or pipeline mismatch",
+			).JSON(e)
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipeline",
+				"failed to lookup pipeline execution result",
 				err.Error(),
 			).JSON(e)
 		}
