@@ -79,8 +79,9 @@ var SchedulesRoutes routing.RouteGroup = routing.RouteGroup{
 }
 
 type StartScheduleRequest struct {
-	PipelineID   string                      `json:"pipeline_id"`
-	ScheduleMode workflowengine.ScheduleMode `json:"schedule_mode"`
+	PipelineID     string                      `json:"pipeline_id"`
+	ScheduleMode   workflowengine.ScheduleMode `json:"schedule_mode"`
+	GlobalRunnerID string                      `json:"global_runner_id,omitempty"`
 }
 
 type StartScheduleResponse struct {
@@ -152,6 +153,7 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 			config,
 			req.ScheduleMode,
 			timeZone,
+			req.GlobalRunnerID,
 		)
 		if err != nil {
 			return apierror.New(
@@ -500,6 +502,7 @@ func startScheduledPipelineWithOptions(
 	config map[string]any,
 	scheduleMode workflowengine.ScheduleMode,
 	timeZone string,
+	globalRunnerID string,
 ) (SchedulePipelineStartInfo, error) {
 	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 	if err != nil {
@@ -515,6 +518,11 @@ func startScheduledPipelineWithOptions(
 	scheduleID := fmt.Sprintf("Schedule_ID-%s-%s", canonifyName, uuid.NewString())
 	workflowID := fmt.Sprintf("Scheduled-%s-%s", canonifyName, uuid.NewString())
 	w := pipeline.NewPipelineWorkflow()
+
+	// Add global_runner_id to config if provided
+	if globalRunnerID != "" {
+		config["global_runner_id"] = globalRunnerID
+	}
 
 	calendarSpec := workflowengine.BuildCalendarSpec(scheduleMode)
 	scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{

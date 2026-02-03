@@ -6,32 +6,49 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { ClassValue } from 'svelte/elements';
 
 	import { ArrowRightIcon, XIcon } from '@lucide/svelte';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { cn } from '@/components/ui/utils';
 
 	type Props = {
 		avatar?: string;
 		subtitle?: string;
 		title: string;
-		onClick?: () => void;
+		onClick?: (e: MouseEvent) => void;
 		onDiscard?: () => void;
 		right?: Snippet;
 		children?: Snippet;
+		class?: ClassValue;
 	};
 
-	let { avatar, title, onClick, onDiscard, subtitle, right, children }: Props = $props();
+	let {
+		avatar,
+		title,
+		onClick,
+		onDiscard,
+		subtitle,
+		right,
+		children,
+		class: className
+	}: Props = $props();
 	const isInteractive = $derived(onClick !== undefined);
 
-	const classes =
-		'flex w-full items-center gap-3 rounded-md border border-slate-200 p-2 text-left';
+	const classes = $derived(
+		cn(
+			'flex w-full items-center',
+			'gap-3 rounded-md border border-slate-200 p-2 text-left',
+			className
+		)
+	);
 </script>
 
 {#if onClick}
-	<button class={['bg-card hover:ring', classes]} onclick={() => onClick()}>
+	<button class={['bg-card hover:ring', classes]} onclick={(e) => onClick(e)}>
 		{@render content?.()}
 	</button>
 {:else}

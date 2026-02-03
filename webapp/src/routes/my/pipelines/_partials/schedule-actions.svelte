@@ -145,8 +145,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet subtitle()}
+		{@const runners = schedule.__schedule_status__.runners.join(', ')}
 		{#if !hideDetailsInPopover}
-			<div class="space-y-1 px-2 pb-1 text-xs text-slate-600">
+			<div class="space-y-1.5 px-2 pb-1 text-xs text-slate-600">
 				<T>
 					<span class="font-medium">{m.interval()}</span><br />
 					{scheduleModeLabel(schedule.mode as ScheduleMode)}
@@ -158,21 +159,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{schedule.__schedule_status__.next_action_time}
 					</T>
 				{/if}
+
+				<T>
+					<span class="font-medium">{m.Runner()}:</span><br />
+					{runners ? runners : '-'}
+				</T>
 			</div>
 		{/if}
 	{/snippet}
 </DropdownMenu>
-<!-- 
-<div class="flex justify-between">
-	<div class="flex flex-wrap items-center gap-1.5 text-sm">
-		<ScheduleState state={scheduleState} />
-		{#if schedule && scheduleState === 'active'}
-		
-			<T class="text-slate-300">|</T>
-			<T>
-				<span class="font-bold">{m.next_run()}:</span>
-				{schedule.__schedule_status__.next_action_time}
-			</T>
-		{/if}
-	</div>
-</div> -->

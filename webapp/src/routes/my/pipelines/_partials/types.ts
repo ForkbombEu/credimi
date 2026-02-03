@@ -78,6 +78,11 @@ type ScheduleStatus = {
 	display_name: string;
 	next_action_time: string;
 	paused: boolean;
+	runners: Array<{
+		id: string;
+		name: string;
+		canonified_name: string;
+	}>;
 };
 
 export type EnrichedSchedule = SchedulesResponse & {
