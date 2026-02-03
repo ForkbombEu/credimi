@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"testing"
 
@@ -237,5 +238,102 @@ func TestPipelineQueueCancel(t *testing.T) {
 
 	for _, scenario := range scenarios {
 		scenario.Test(t)
+	}
+}
+
+func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	origEnsure := ensureRunQueueSemaphoreWorkflow
+	origEnqueue := enqueueRunTicket
+	origCancel := cancelRunTicket
+
+	t.Cleanup(func() {
+		ensureRunQueueSemaphoreWorkflow = origEnsure
+		enqueueRunTicket = origEnqueue
+		cancelRunTicket = origCancel
+	})
+
+	ensureRunQueueSemaphoreWorkflow = func(ctx context.Context, runnerID string) error {
+		return nil
+	}
+
+	var ticketID string
+	enqueueRunTicket = func(
+		ctx context.Context,
+		runnerID string,
+		req workflows.MobileRunnerSemaphoreEnqueueRunRequest,
+	) (workflows.MobileRunnerSemaphoreEnqueueRunResponse, error) {
+		if ticketID == "" {
+			ticketID = req.TicketID
+		}
+		if runnerID == "runner-2" {
+			return workflows.MobileRunnerSemaphoreEnqueueRunResponse{}, errors.New("enqueue failed")
+		}
+		return workflows.MobileRunnerSemaphoreEnqueueRunResponse{
+			TicketID: req.TicketID,
+			Status:   workflowengine.MobileRunnerSemaphoreRunQueued,
+			Position: 0,
+			LineLen:  1,
+		}, nil
+	}
+
+	type cancelCall struct {
+		runnerID string
+		ticketID string
+	}
+	cancelCalls := []cancelCall{}
+	cancelRunTicket = func(
+		ctx context.Context,
+		runnerID string,
+		req workflows.MobileRunnerSemaphoreRunCancelRequest,
+	) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
+		cancelCalls = append(cancelCalls, cancelCall{
+			runnerID: runnerID,
+			ticketID: req.TicketID,
+		})
+		return workflows.MobileRunnerSemaphoreRunStatusView{
+			TicketID: req.TicketID,
+			Status:   workflowengine.MobileRunnerSemaphoreRunNotFound,
+		}, nil
+	}
+
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n  - name: step2\n    use: mobile-automation\n    with:\n      runner_id: runner-2\n"
+
+	scenario := tests.ApiScenario{
+		Name:   "enqueue rollback on partial failure",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/queue",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"yaml":                validYaml,
+		}),
+		ExpectedStatus: http.StatusInternalServerError,
+		ExpectedContent: []string{
+			"failed to enqueue pipeline run",
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			return setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
+		},
+	}
+
+	scenario.Test(t)
+
+	require.NotEmpty(t, ticketID)
+	require.Len(t, cancelCalls, 2)
+	require.ElementsMatch(t, []string{"runner-1", "runner-2"}, []string{
+		cancelCalls[0].runnerID,
+		cancelCalls[1].runnerID,
+	})
+	for _, call := range cancelCalls {
+		require.Equal(t, ticketID, call.ticketID)
 	}
 }
