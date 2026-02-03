@@ -17,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -343,7 +344,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		pipelineRecord := pipelineRecords[0]
 		pipelineID = pipelineRecord.Id
 
-		runnerInfo, err := parsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+		runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
 		if err != nil {
 			e.App.Logger().Warn(fmt.Sprintf(
 				"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",
@@ -560,7 +561,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 		for _, pipelineRecord := range pipelineRecords {
 			pipelineID := pipelineRecord.Id
 
-			runnerInfo, err := parsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+			runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
 			if err != nil {
 				e.App.Logger().Warn(fmt.Sprintf(
 					"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",
@@ -749,10 +750,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 	}
 }
 
-type pipelineRunnerInfo struct {
-	RunnerIDs         []string
-	NeedsGlobalRunner bool
-}
+type pipelineRunnerInfo = runners.PipelineRunnerInfo
 
 type pipelineWorkflowSummary struct {
 	WorkflowExecutionSummary
@@ -772,22 +770,8 @@ func attachPipelineRunnerInfo(
 		return []*pipelineWorkflowSummary{}
 	}
 
-	runnerIDs := append([]string{}, info.RunnerIDs...)
-	if info.NeedsGlobalRunner && globalRunnerID != "" {
-		found := false
-		for _, id := range runnerIDs {
-			if id == globalRunnerID {
-				found = true
-				break
-			}
-		}
-		if !found {
-			runnerIDs = append(runnerIDs, globalRunnerID)
-			sort.Strings(runnerIDs)
-		}
-	}
-
-	runnerRecords := resolveRunnerRecords(app, runnerIDs, runnerCache)
+	runnerIDs := runners.RunnerIDsWithGlobal(info, globalRunnerID)
+	runnerRecords := runners.ResolveRunnerRecords(app, runnerIDs, runnerCache)
 
 	annotated := make([]*pipelineWorkflowSummary, 0, len(executions))
 	for _, exec := range executions {
@@ -802,115 +786,6 @@ func attachPipelineRunnerInfo(
 		})
 	}
 	return annotated
-}
-
-func resolveRunnerRecord(
-	app core.App,
-	runnerID string,
-	runnerCache map[string]map[string]any,
-) map[string]any {
-	if runnerCache == nil {
-		runnerCache = map[string]map[string]any{}
-	}
-
-	runnerID = strings.TrimSpace(runnerID)
-	if runnerID == "" {
-		return nil
-	}
-
-	if cached, ok := runnerCache[runnerID]; ok {
-		return cached
-	}
-
-	record, err := canonify.Resolve(app, runnerID)
-	if err != nil {
-		runnerCache[runnerID] = nil
-		return nil
-	}
-
-	fields := record.FieldsData()
-	runnerCache[runnerID] = fields
-	return fields
-}
-
-func resolveRunnerRecords(
-	app core.App,
-	runnerIDs []string,
-	runnerCache map[string]map[string]any,
-) []map[string]any {
-	if len(runnerIDs) == 0 {
-		return []map[string]any{}
-	}
-
-	records := make([]map[string]any, 0, len(runnerIDs))
-	for _, runnerID := range runnerIDs {
-		record := resolveRunnerRecord(app, runnerID, runnerCache)
-		if record == nil {
-			continue
-		}
-		records = append(records, record)
-	}
-	return records
-}
-
-func parsePipelineRunnerInfo(yamlStr string) (pipelineRunnerInfo, error) {
-	if strings.TrimSpace(yamlStr) == "" {
-		return pipelineRunnerInfo{}, nil
-	}
-
-	wfDef, err := pipeline.ParseWorkflow(yamlStr)
-	if err != nil {
-		return pipelineRunnerInfo{}, err
-	}
-
-	runnerIDs := make(map[string]struct{})
-	missingRunnerID := false
-
-	collectRunner := func(step pipeline.StepSpec) {
-		runnerID := ""
-		if step.With.Payload != nil {
-			if rawRunnerID, ok := step.With.Payload["runner_id"]; ok {
-				if id, ok := rawRunnerID.(string); ok {
-					runnerID = strings.TrimSpace(id)
-				}
-			}
-		}
-
-		if runnerID != "" {
-			runnerIDs[runnerID] = struct{}{}
-			return
-		}
-
-		if step.Use == "mobile-automation" {
-			missingRunnerID = true
-		}
-	}
-
-	for _, step := range wfDef.Steps {
-		collectRunner(step.StepSpec)
-		for _, onErr := range step.OnError {
-			collectRunner(onErr.StepSpec)
-		}
-		for _, onSuccess := range step.OnSuccess {
-			collectRunner(onSuccess.StepSpec)
-		}
-	}
-
-	info := pipelineRunnerInfo{
-		NeedsGlobalRunner: missingRunnerID,
-	}
-
-	if len(runnerIDs) == 0 {
-		return info, nil
-	}
-
-	info.RunnerIDs = make([]string, 0, len(runnerIDs))
-	for runnerID := range runnerIDs {
-		info.RunnerIDs = append(info.RunnerIDs, runnerID)
-	}
-	sort.Strings(info.RunnerIDs)
-
-	return info, nil
 }
 
 type attachRunnerInfoFromTemporalInputArgs struct {
@@ -1006,16 +881,7 @@ func readGlobalRunnerIDFromTemporalHistory(
 			return "", nil // nolint
 		}
 
-		if in.WorkflowInput.Config == nil {
-			return "", nil
-		}
-
-		if v, ok := in.WorkflowInput.Config["global_runner_id"]; ok {
-			if s, ok := v.(string); ok {
-				return strings.TrimSpace(s), nil
-			}
-		}
-		return "", nil
+		return runners.GlobalRunnerIDFromConfig(in.WorkflowInput.Config), nil
 	}
 
 	return "", nil
