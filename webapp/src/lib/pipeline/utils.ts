@@ -195,10 +195,22 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 		if (cancelInFlight) return;
 		cancelInFlight = true;
 		try {
-			await pb.send(queueStatusUrl(ticketId, runnerIds), { method: 'DELETE' });
-			stopPolling();
-			dismissQueueToast();
-			toast.message('Queue canceled');
+			const cancelStatus = await pb.send<PipelineQueueStatusResponse>(
+				queueStatusUrl(ticketId, runnerIds),
+				{ method: 'DELETE' }
+			);
+			if (cancelStatus.status === 'running' || cancelStatus.status === 'failed') {
+				cancelInFlight = false;
+				handleQueueStatus(cancelStatus);
+				return;
+			}
+			if (cancelStatus.status === 'not_found' || cancelStatus.status === 'canceled') {
+				stopPolling();
+				dismissQueueToast();
+				toast.message('Queue canceled');
+				return;
+			}
+			cancelInFlight = false;
 		} catch (error) {
 			cancelInFlight = false;
 			toast.error('Failed to cancel queue');
