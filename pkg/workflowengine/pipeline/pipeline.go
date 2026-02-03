@@ -83,6 +83,14 @@ func (w *PipelineWorkflow) Workflow(
 		),
 	}
 
+	reportDone := func() {
+		reportMobileRunnerSemaphoreDone(ctx, logger, config, workflowID, runID)
+	}
+	returnWithReport := func(result workflowengine.WorkflowResult, err error) (workflowengine.WorkflowResult, error) {
+		reportDone()
+		return result, err
+	}
+
 	if input.Scheduled {
 		var err error
 		ctx, wfDef, ao, debug, err = w.handleScheduledRun(
@@ -92,7 +100,7 @@ func (w *PipelineWorkflow) Workflow(
 			runMetadata,
 		)
 		if err != nil {
-			return workflowengine.WorkflowResult{}, err
+			return returnWithReport(workflowengine.WorkflowResult{}, err)
 		}
 	}
 
@@ -132,7 +140,7 @@ func (w *PipelineWorkflow) Workflow(
 	}()
 
 	if err := runSetupHooks(ctx, &wfDef.Steps, &ao, config, &runData); err != nil {
-		return workflowengine.WorkflowResult{}, err
+		return returnWithReport(workflowengine.WorkflowResult{}, err)
 	}
 
 	var previousStepID string
@@ -153,12 +161,13 @@ func (w *PipelineWorkflow) Workflow(
 			childOut, err := runChildPipeline(ctx, step, input, w.Name(), stepInputs, runMetadata)
 			if err != nil {
 				if temporal.IsTimeoutError(err) {
-					return workflowengine.WorkflowResult{}, err
+					return returnWithReport(workflowengine.WorkflowResult{}, err)
 				}
 
 				if temporal.IsCanceledError(err) {
-					return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
-						runMetadata,
+					return returnWithReport(
+						workflowengine.WorkflowResult{},
+						workflowengine.NewWorkflowCancellationError(runMetadata),
 					)
 				}
 				logger.Error(step.ID, "step execution error", err)
@@ -181,9 +190,9 @@ func (w *PipelineWorkflow) Workflow(
 					errorsList = append(errorsList, err.Error())
 					continue
 				}
-				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-					err,
-					runMetadata,
+				return returnWithReport(
+					workflowengine.WorkflowResult{},
+					workflowengine.NewWorkflowError(err, runMetadata),
 				)
 			}
 			if len(step.OnSuccess) > 0 {
@@ -211,8 +220,9 @@ func (w *PipelineWorkflow) Workflow(
 			stepOutput, err := step.Execute(ctx, config, stepInputs, ao)
 			if err != nil {
 				if temporal.IsCanceledError(err) {
-					return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
-						runMetadata,
+					return returnWithReport(
+						workflowengine.WorkflowResult{},
+						workflowengine.NewWorkflowCancellationError(runMetadata),
 					)
 				}
 				logger.Error(step.ID, "step execution error", err)
@@ -239,7 +249,7 @@ func (w *PipelineWorkflow) Workflow(
 					errorsList = append(errorsList, err.Error())
 					continue
 				}
-				return result, workflowengine.NewWorkflowError(appErr, runMetadata)
+				return returnWithReport(result, workflowengine.NewWorkflowError(appErr, runMetadata))
 			}
 
 			if len(step.OnSuccess) > 0 {
@@ -267,7 +277,10 @@ func (w *PipelineWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("workflow completed with %d step errors", len(errorsList)),
 		)
-		return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList, finalOutput)
+		return returnWithReport(
+			result,
+			workflowengine.NewWorkflowError(appErr, runMetadata, errorsList, finalOutput),
+		)
 	}
 
 	if len(cleanupErrors) > 0 {
@@ -276,17 +289,23 @@ func (w *PipelineWorkflow) Workflow(
 			errCode,
 			fmt.Sprintf("workflow completed with %d cleanup errors", len(cleanupErrors)),
 		)
-		return result, workflowengine.NewWorkflowError(
-			appErr,
-			runMetadata,
-			cleanupErrors,
-			finalOutput,
+		return returnWithReport(
+			result,
+			workflowengine.NewWorkflowError(
+				appErr,
+				runMetadata,
+				cleanupErrors,
+				finalOutput,
+			),
 		)
 	}
 
-	return workflowengine.WorkflowResult{
-		Output: finalOutput,
-	}, nil
+	return returnWithReport(
+		workflowengine.WorkflowResult{
+			Output: finalOutput,
+		},
+		nil,
+	)
 }
 
 // Start launches the pipeline workflow via Temporal client
