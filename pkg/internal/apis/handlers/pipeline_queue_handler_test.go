@@ -337,3 +337,140 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 		require.Equal(t, ticketID, call.ticketID)
 	}
 }
+
+func TestPipelineQueueStatus_MultiRunnerDoesNot404WhenAnyRunnerFound(t *testing.T) {
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	origQuery := queryRunTicketStatus
+	t.Cleanup(func() {
+		queryRunTicketStatus = origQuery
+	})
+
+	queryRunTicketStatus = func(
+		ctx context.Context,
+		runnerID string,
+		ownerNamespace string,
+		ticketID string,
+	) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
+		if runnerID == "runner-1" {
+			return workflows.MobileRunnerSemaphoreRunStatusView{
+				TicketID:          ticketID,
+				Status:            workflowengine.MobileRunnerSemaphoreRunFailed,
+				ErrorMessage:      "boom",
+				LeaderRunnerID:    "runner-1",
+				RequiredRunnerIDs: []string{"runner-1", "runner-2"},
+			}, nil
+		}
+		return workflows.MobileRunnerSemaphoreRunStatusView{
+			TicketID: ticketID,
+			Status:   workflowengine.MobileRunnerSemaphoreRunNotFound,
+		}, nil
+	}
+
+	scenario := tests.ApiScenario{
+		Name:   "multi-runner status returns failure when any runner found",
+		Method: http.MethodGet,
+		URL:    "/api/pipeline/queue/ticket-1?runner_ids[]=runner-1&runner_ids[]=runner-2",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			"\"status\":\"failed\"",
+			"\"error_message\":\"boom\"",
+		},
+		TestAppFactory: setupPipelineQueueApp,
+	}
+
+	scenario.Test(t)
+}
+
+func TestPipelineQueueStatus_MultiRunnerIgnoresMissingRunnerWorkflow(t *testing.T) {
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	origQuery := queryRunTicketStatus
+	t.Cleanup(func() {
+		queryRunTicketStatus = origQuery
+	})
+
+	queryRunTicketStatus = func(
+		ctx context.Context,
+		runnerID string,
+		ownerNamespace string,
+		ticketID string,
+	) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
+		if runnerID == "runner-2" {
+			return workflows.MobileRunnerSemaphoreRunStatusView{}, errRunTicketNotFound
+		}
+		return workflows.MobileRunnerSemaphoreRunStatusView{
+			TicketID:          ticketID,
+			Status:            workflowengine.MobileRunnerSemaphoreRunQueued,
+			Position:          1,
+			LineLen:           2,
+			LeaderRunnerID:    "runner-1",
+			RequiredRunnerIDs: []string{"runner-1", "runner-2"},
+		}, nil
+	}
+
+	scenario := tests.ApiScenario{
+		Name:   "multi-runner status ignores missing workflow",
+		Method: http.MethodGet,
+		URL:    "/api/pipeline/queue/ticket-2?runner_ids[]=runner-1&runner_ids[]=runner-2",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			"\"status\":\"queued\"",
+		},
+		TestAppFactory: setupPipelineQueueApp,
+	}
+
+	scenario.Test(t)
+}
+
+func TestPipelineQueueStatus_MultiRunnerAllMissingReturnsNotFound(t *testing.T) {
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	origQuery := queryRunTicketStatus
+	t.Cleanup(func() {
+		queryRunTicketStatus = origQuery
+	})
+
+	queryRunTicketStatus = func(
+		ctx context.Context,
+		runnerID string,
+		ownerNamespace string,
+		ticketID string,
+	) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
+		return workflows.MobileRunnerSemaphoreRunStatusView{
+			TicketID: ticketID,
+			Status:   workflowengine.MobileRunnerSemaphoreRunNotFound,
+		}, nil
+	}
+
+	scenario := tests.ApiScenario{
+		Name:   "multi-runner status returns not found when all missing",
+		Method: http.MethodGet,
+		URL:    "/api/pipeline/queue/ticket-3?runner_ids[]=runner-1&runner_ids[]=runner-2",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		ExpectedStatus: http.StatusNotFound,
+		ExpectedContent: []string{
+			"ticket not found",
+		},
+		TestAppFactory: setupPipelineQueueApp,
+	}
+
+	scenario.Test(t)
+}
