@@ -253,8 +253,8 @@ func (r *mobileRunnerSemaphoreRuntime) registerEnqueueRunHandler() error {
 	return workflow.SetUpdateHandler(
 		r.ctx,
 		MobileRunnerSemaphoreEnqueueRunUpdate,
-		func(ctx workflow.Context, req MobileRunnerSemaphoreEnqueueRunRequest) (MobileRunnerSemaphoreEnqueueRunResponse, error) {
-			return r.handleEnqueueRun(ctx, req)
+		func(_ workflow.Context, req MobileRunnerSemaphoreEnqueueRunRequest) (MobileRunnerSemaphoreEnqueueRunResponse, error) {
+			return r.handleEnqueueRun(req)
 		},
 	)
 }
@@ -263,8 +263,8 @@ func (r *mobileRunnerSemaphoreRuntime) registerCancelRunHandler() error {
 	return workflow.SetUpdateHandler(
 		r.ctx,
 		MobileRunnerSemaphoreCancelRunUpdate,
-		func(ctx workflow.Context, req MobileRunnerSemaphoreRunCancelRequest) (MobileRunnerSemaphoreRunStatusView, error) {
-			return r.handleCancelRun(ctx, req)
+		func(_ workflow.Context, req MobileRunnerSemaphoreRunCancelRequest) (MobileRunnerSemaphoreRunStatusView, error) {
+			return r.handleCancelRun(req)
 		},
 	)
 }
@@ -293,7 +293,7 @@ func (r *mobileRunnerSemaphoreRuntime) startRunGrantedSignalHandler() {
 			if ok := signalChan.Receive(ctx, &signal); !ok {
 				return
 			}
-			r.handleRunGrantedSignal(ctx, signal)
+			r.handleRunGrantedSignal(signal)
 		}
 	})
 }
@@ -375,7 +375,6 @@ func (r *mobileRunnerSemaphoreRuntime) requestRunStart() {
 }
 
 func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
-	ctx workflow.Context,
 	req MobileRunnerSemaphoreEnqueueRunRequest,
 ) (MobileRunnerSemaphoreEnqueueRunResponse, error) {
 	if req.TicketID == "" || req.OwnerNamespace == "" {
@@ -450,7 +449,6 @@ func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 }
 
 func (r *mobileRunnerSemaphoreRuntime) handleCancelRun(
-	ctx workflow.Context,
 	req MobileRunnerSemaphoreRunCancelRequest,
 ) (MobileRunnerSemaphoreRunStatusView, error) {
 	if req.TicketID == "" || req.OwnerNamespace == "" {
@@ -1022,7 +1020,6 @@ func (r *mobileRunnerSemaphoreRuntime) signalRunDone(
 }
 
 func (r *mobileRunnerSemaphoreRuntime) handleRunGrantedSignal(
-	ctx workflow.Context,
 	signal MobileRunnerSemaphoreRunGrantedSignal,
 ) {
 	if signal.TicketID == "" || signal.RunnerID == "" {
