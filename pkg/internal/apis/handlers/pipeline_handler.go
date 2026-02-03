@@ -51,6 +51,25 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Description:   "Start a pipeline workflow from a YAML file",
 		},
 		{
+			Method:        http.MethodPost,
+			Path:          "/queue",
+			Handler:       HandlePipelineQueueEnqueue,
+			RequestSchema: PipelineQueueInput{},
+			Description:   "Queue a pipeline workflow for the runner semaphore",
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/queue/{ticket}",
+			Handler:     HandlePipelineQueueStatus,
+			Description: "Get queued pipeline status by ticket",
+		},
+		{
+			Method:      http.MethodDelete,
+			Path:        "/queue/{ticket}",
+			Handler:     HandlePipelineQueueCancel,
+			Description: "Cancel a queued pipeline ticket",
+		},
+		{
 			Method:  http.MethodGet,
 			Path:    "/list-workflows",
 			Handler: HandleGetPipelineDetails,
