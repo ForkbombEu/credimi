@@ -148,7 +148,6 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 		}
 		config := buildPipelineQueueConfig(e, namespace, userName, userMail)
 
-		runnerStatuses := make([]PipelineQueueRunnerStatus, 0, len(runnerIDs))
 		for _, runnerID := range runnerIDs {
 			if err := ensureRunQueueSemaphoreWorkflow(e.Request.Context(), runnerID); err != nil {
 				return apierror.New(
@@ -158,6 +157,10 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 					err.Error(),
 				).JSON(e)
 			}
+		}
+
+		runnerStatuses := make([]PipelineQueueRunnerStatus, 0, len(runnerIDs))
+		for _, runnerID := range runnerIDs {
 			req := workflows.MobileRunnerSemaphoreEnqueueRunRequest{
 				TicketID:           ticketID,
 				OwnerNamespace:     namespace,
