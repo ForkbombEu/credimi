@@ -88,6 +88,10 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
+	if err := runtime.registerCancelRunHandler(); err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+
 	return runtime.awaitContinue()
 }
 
@@ -118,13 +122,13 @@ func newMobileRunnerSemaphoreRuntime(
 	}
 
 	runtime := &mobileRunnerSemaphoreRuntime{
-		ctx:      ctx,
-		runnerID: payload.RunnerID,
-		capacity: payload.Capacity,
-		holders:  map[string]MobileRunnerSemaphoreHolder{},
-		queue:    []string{},
-		requests: map[string]MobileRunnerSemaphoreRequestState{},
-		runQueue: []string{},
+		ctx:        ctx,
+		runnerID:   payload.RunnerID,
+		capacity:   payload.Capacity,
+		holders:    map[string]MobileRunnerSemaphoreHolder{},
+		queue:      []string{},
+		requests:   map[string]MobileRunnerSemaphoreRequestState{},
+		runQueue:   []string{},
 		runTickets: map[string]MobileRunnerSemaphoreRunTicketState{},
 	}
 
@@ -243,6 +247,16 @@ func (r *mobileRunnerSemaphoreRuntime) registerEnqueueRunHandler() error {
 	)
 }
 
+func (r *mobileRunnerSemaphoreRuntime) registerCancelRunHandler() error {
+	return workflow.SetUpdateHandler(
+		r.ctx,
+		MobileRunnerSemaphoreCancelRunUpdate,
+		func(ctx workflow.Context, req MobileRunnerSemaphoreRunCancelRequest) (MobileRunnerSemaphoreRunStatusView, error) {
+			return r.handleCancelRun(ctx, req)
+		},
+	)
+}
+
 func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 	ctx workflow.Context,
 	req MobileRunnerSemaphoreEnqueueRunRequest,
@@ -315,6 +329,46 @@ func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 		Position: position,
 		LineLen:  lineLen,
 	}, nil
+}
+
+func (r *mobileRunnerSemaphoreRuntime) handleCancelRun(
+	ctx workflow.Context,
+	req MobileRunnerSemaphoreRunCancelRequest,
+) (MobileRunnerSemaphoreRunStatusView, error) {
+	if req.TicketID == "" || req.OwnerNamespace == "" {
+		return MobileRunnerSemaphoreRunStatusView{}, temporal.NewApplicationError(
+			"ticket_id and owner_namespace are required",
+			MobileRunnerSemaphoreErrInvalidRequest,
+		)
+	}
+
+	state, ok := r.runTickets[req.TicketID]
+	if !ok || state.Request.OwnerNamespace != req.OwnerNamespace {
+		return MobileRunnerSemaphoreRunStatusView{
+			TicketID: req.TicketID,
+			Status:   mobileRunnerSemaphoreRunNotFound,
+		}, nil
+	}
+
+	switch state.Status {
+	case mobileRunnerSemaphoreRunQueued, mobileRunnerSemaphoreRunStarting:
+		r.runQueue = removeFromQueue(r.runQueue, req.TicketID)
+		delete(r.runTickets, req.TicketID)
+		r.updateCount++
+		r.maybeScheduleContinue()
+		return MobileRunnerSemaphoreRunStatusView{
+			TicketID: req.TicketID,
+			Status:   mobileRunnerSemaphoreRunNotFound,
+		}, nil
+	case mobileRunnerSemaphoreRunRunning:
+		state.CancelRequested = true
+		r.runTickets[req.TicketID] = state
+		r.updateCount++
+		r.maybeScheduleContinue()
+		return r.buildRunStatusView(req.TicketID, state), nil
+	default:
+		return r.buildRunStatusView(req.TicketID, state), nil
+	}
 }
 
 func (r *mobileRunnerSemaphoreRuntime) handleRunStatusQuery(
@@ -473,13 +527,13 @@ func (r *mobileRunnerSemaphoreRuntime) grantAvailable(ctx workflow.Context) {
 		r.requests[requestID] = request
 
 		r.holders[request.Request.LeaseID] = MobileRunnerSemaphoreHolder{
-			LeaseID:        request.Request.LeaseID,
-			RequestID:      requestID,
-			OwnerNamespace: request.Request.OwnerNamespace,
+			LeaseID:         request.Request.LeaseID,
+			RequestID:       requestID,
+			OwnerNamespace:  request.Request.OwnerNamespace,
 			OwnerWorkflowID: request.Request.OwnerWorkflowID,
-			OwnerRunID:     request.Request.OwnerRunID,
-			GrantedAt:      request.GrantedAt,
-			QueueWaitMs:    request.QueueWaitMs,
+			OwnerRunID:      request.Request.OwnerRunID,
+			GrantedAt:       request.GrantedAt,
+			QueueWaitMs:     request.QueueWaitMs,
 		}
 
 		timeCopy := now
@@ -593,12 +647,12 @@ func buildQueuePreview(
 			continue
 		}
 		preview = append(preview, MobileRunnerSemaphoreQueueEntry{
-			RequestID:      request.Request.RequestID,
-			LeaseID:        request.Request.LeaseID,
-			OwnerNamespace: request.Request.OwnerNamespace,
+			RequestID:       request.Request.RequestID,
+			LeaseID:         request.Request.LeaseID,
+			OwnerNamespace:  request.Request.OwnerNamespace,
 			OwnerWorkflowID: request.Request.OwnerWorkflowID,
-			OwnerRunID:     request.Request.OwnerRunID,
-			RequestedAt:    request.RequestedAt,
+			OwnerRunID:      request.Request.OwnerRunID,
+			RequestedAt:     request.RequestedAt,
 		})
 	}
 

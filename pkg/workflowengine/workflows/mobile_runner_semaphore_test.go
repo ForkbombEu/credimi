@@ -309,8 +309,8 @@ func TestMobileRunnerSemaphoreWorkflowAcquireTimeout(t *testing.T) {
 		enqueueAcquireUpdateExpectError(
 			env,
 			MobileRunnerSemaphoreAcquireRequest{
-				RequestID:  "req-2",
-				LeaseID:    "lease-2",
+				RequestID:   "req-2",
+				LeaseID:     "lease-2",
 				WaitTimeout: time.Second * 2,
 			},
 			timeoutCh,
@@ -599,6 +599,113 @@ func TestMobileRunnerSemaphoreWorkflowRunQueuePositions(t *testing.T) {
 	require.Empty(t, drainErrors(errCh))
 }
 
+func TestMobileRunnerSemaphoreWorkflowRunCancelQueued(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileRunnerSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	errCh := make(chan error, 3)
+	statusCh := make(chan MobileRunnerSemaphoreRunStatusView, 2)
+
+	enqueuedAt := time.Date(2026, 2, 3, 12, 0, 0, 0, time.UTC)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-cancel-1",
+			MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:          "ticket-cancel-1",
+				OwnerNamespace:    "tenant-1",
+				EnqueuedAt:        enqueuedAt,
+				RunnerID:          "runner-1",
+				RequiredRunnerIDs: []string{"runner-1"},
+				LeaderRunnerID:    "runner-1",
+			},
+			errCh,
+		)
+	}, time.Second)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-cancel-2",
+			MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:          "ticket-cancel-2",
+				OwnerNamespace:    "tenant-1",
+				EnqueuedAt:        enqueuedAt.Add(2 * time.Second),
+				RunnerID:          "runner-1",
+				RequiredRunnerIDs: []string{"runner-1"},
+				LeaderRunnerID:    "runner-1",
+			},
+			errCh,
+		)
+	}, time.Second*2)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueCancelRunUpdate(
+			env,
+			"cancel-ticket-1",
+			MobileRunnerSemaphoreRunCancelRequest{
+				TicketID:       "ticket-cancel-1",
+				OwnerNamespace: "tenant-1",
+			},
+			errCh,
+		)
+	}, time.Second*3)
+
+	env.RegisterDelayedCallback(func() {
+		queryRunStatus(env, "tenant-1", "ticket-cancel-1", statusCh, errCh)
+	}, time.Second*4)
+
+	env.RegisterDelayedCallback(func() {
+		queryRunStatus(env, "tenant-1", "ticket-cancel-2", statusCh, errCh)
+	}, time.Second*5)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*6)
+
+	done := make(chan struct{})
+	go func() {
+		env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+			Payload: MobileRunnerSemaphoreWorkflowInput{
+				RunnerID: "runner-1",
+				Capacity: 1,
+			},
+		})
+		close(done)
+	}()
+
+	<-done
+
+	var canceledStatus *MobileRunnerSemaphoreRunStatusView
+	var queuedStatus *MobileRunnerSemaphoreRunStatusView
+	for i := 0; i < 2; i++ {
+		select {
+		case status := <-statusCh:
+			switch status.TicketID {
+			case "ticket-cancel-1":
+				canceledStatus = &status
+			case "ticket-cancel-2":
+				queuedStatus = &status
+			}
+		case err := <-errCh:
+			require.NoError(t, err)
+		case <-time.After(2 * time.Second):
+			require.Fail(t, "timed out waiting for cancel status")
+		}
+	}
+
+	require.NotNil(t, canceledStatus)
+	require.Equal(t, mobileRunnerSemaphoreRunNotFound, canceledStatus.Status)
+	require.NotNil(t, queuedStatus)
+	require.Equal(t, mobileRunnerSemaphoreRunQueued, queuedStatus.Status)
+	require.Equal(t, 0, queuedStatus.Position)
+	require.Equal(t, 1, queuedStatus.LineLen)
+
+	require.Empty(t, drainErrors(errCh))
+}
+
 func TestMobileRunnerSemaphoreWorkflowRunStatusOwnerMismatch(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -670,21 +777,21 @@ func enqueueAcquireUpdate(
 		MobileRunnerSemaphoreAcquireUpdate,
 		MobileRunnerSemaphoreAcquireUpdateID(req.RequestID),
 		&testsuite.TestUpdateCallback{
-		OnReject: func(err error) {
-			errCh <- err
-		},
-		OnComplete: func(response interface{}, err error) {
-			if err != nil {
+			OnReject: func(err error) {
 				errCh <- err
-				return
-			}
-			permit, ok := response.(MobileRunnerSemaphorePermit)
-			if !ok {
-				errCh <- fmt.Errorf("unexpected permit type: %T", response)
-				return
-			}
-			permitsCh <- permit
-		},
+			},
+			OnComplete: func(response interface{}, err error) {
+				if err != nil {
+					errCh <- err
+					return
+				}
+				permit, ok := response.(MobileRunnerSemaphorePermit)
+				if !ok {
+					errCh <- fmt.Errorf("unexpected permit type: %T", response)
+					return
+				}
+				permitsCh <- permit
+			},
 		},
 		req,
 	)
@@ -699,14 +806,14 @@ func enqueueReleaseUpdate(
 		MobileRunnerSemaphoreReleaseUpdate,
 		MobileRunnerSemaphoreReleaseUpdateID(req.LeaseID),
 		&testsuite.TestUpdateCallback{
-		OnReject: func(err error) {
-			errCh <- err
-		},
-		OnComplete: func(_ interface{}, err error) {
-			if err != nil {
+			OnReject: func(err error) {
 				errCh <- err
-			}
-		},
+			},
+			OnComplete: func(_ interface{}, err error) {
+				if err != nil {
+					errCh <- err
+				}
+			},
 		},
 		req,
 	)
@@ -722,21 +829,21 @@ func enqueueReleaseUpdateWithResult(
 		MobileRunnerSemaphoreReleaseUpdate,
 		MobileRunnerSemaphoreReleaseUpdateID(req.LeaseID),
 		&testsuite.TestUpdateCallback{
-		OnReject: func(err error) {
-			errCh <- err
-		},
-		OnComplete: func(response interface{}, err error) {
-			if err != nil {
+			OnReject: func(err error) {
 				errCh <- err
-				return
-			}
-			result, ok := response.(MobileRunnerSemaphoreReleaseResult)
-			if !ok {
-				errCh <- fmt.Errorf("unexpected release type: %T", response)
-				return
-			}
-			releaseCh <- result
-		},
+			},
+			OnComplete: func(response interface{}, err error) {
+				if err != nil {
+					errCh <- err
+					return
+				}
+				result, ok := response.(MobileRunnerSemaphoreReleaseResult)
+				if !ok {
+					errCh <- fmt.Errorf("unexpected release type: %T", response)
+					return
+				}
+				releaseCh <- result
+			},
 		},
 		req,
 	)
@@ -751,18 +858,41 @@ func enqueueAcquireUpdateExpectError(
 		MobileRunnerSemaphoreAcquireUpdate,
 		MobileRunnerSemaphoreAcquireUpdateID(req.RequestID),
 		&testsuite.TestUpdateCallback{
-		OnReject: func(err error) {
-			timeoutCh <- err
+			OnReject: func(err error) {
+				timeoutCh <- err
+			},
+			OnComplete: func(_ interface{}, err error) {
+				if err == nil {
+					timeoutCh <- fmt.Errorf("expected timeout error")
+					return
+				}
+				timeoutCh <- err
+			},
 		},
-		OnComplete: func(_ interface{}, err error) {
-			if err == nil {
-				timeoutCh <- fmt.Errorf("expected timeout error")
-				return
-			}
-			timeoutCh <- err
+		req,
+	)
+}
+
+func enqueueCancelRunUpdate(
+	env *testsuite.TestWorkflowEnvironment,
+	updateID string,
+	req MobileRunnerSemaphoreRunCancelRequest,
+	errCh chan<- error,
+) {
+	env.UpdateWorkflow(
+		MobileRunnerSemaphoreCancelRunUpdate,
+		updateID,
+		&testsuite.TestUpdateCallback{
+			OnReject: func(err error) {
+				errCh <- err
+			},
+			OnComplete: func(_ interface{}, err error) {
+				if err != nil {
+					errCh <- err
+				}
+			},
 		},
-		},
-	req,
+		req,
 	)
 }
 
