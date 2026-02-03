@@ -11,6 +11,13 @@ const (
 	MobileRunnerSemaphoreAcquireUpdate = mobilerunnersemaphore.AcquireUpdate
 	MobileRunnerSemaphoreReleaseUpdate = mobilerunnersemaphore.ReleaseUpdate
 	MobileRunnerSemaphoreStateQuery    = mobilerunnersemaphore.StateQuery
+	MobileRunnerSemaphoreEnqueueRunUpdate = mobilerunnersemaphore.EnqueueRunUpdate
+	MobileRunnerSemaphoreRunStatusQuery   = mobilerunnersemaphore.RunStatusQuery
+	MobileRunnerSemaphoreRunDoneUpdate    = mobilerunnersemaphore.RunDoneUpdate
+	MobileRunnerSemaphoreCancelRunUpdate  = mobilerunnersemaphore.CancelRunUpdate
+	MobileRunnerSemaphoreRunGrantedSignal = mobilerunnersemaphore.RunGrantedSignal
+	MobileRunnerSemaphoreRunStartedSignal = mobilerunnersemaphore.RunStartedSignal
+	MobileRunnerSemaphoreRunDoneSignal    = mobilerunnersemaphore.RunDoneSignal
 
 	MobileRunnerSemaphoreErrInvalidRequest = mobilerunnersemaphore.ErrInvalidRequest
 	MobileRunnerSemaphoreErrTimeout        = mobilerunnersemaphore.ErrTimeout
@@ -37,6 +44,26 @@ type MobileRunnerSemaphoreStateView = mobilerunnersemaphore.MobileRunnerSemaphor
 type MobileRunnerSemaphoreRequestStatus = mobilerunnersemaphore.MobileRunnerSemaphoreRequestStatus
 
 type MobileRunnerSemaphoreRequestState = mobilerunnersemaphore.MobileRunnerSemaphoreRequestState
+
+type MobileRunnerSemaphoreRunStatus = mobilerunnersemaphore.MobileRunnerSemaphoreRunStatus
+
+type MobileRunnerSemaphoreEnqueueRunRequest = mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunRequest
+
+type MobileRunnerSemaphoreEnqueueRunResponse = mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunResponse
+
+type MobileRunnerSemaphoreRunStatusView = mobilerunnersemaphore.MobileRunnerSemaphoreRunStatusView
+
+type MobileRunnerSemaphoreRunDoneRequest = mobilerunnersemaphore.MobileRunnerSemaphoreRunDoneRequest
+
+type MobileRunnerSemaphoreRunCancelRequest = mobilerunnersemaphore.MobileRunnerSemaphoreRunCancelRequest
+
+type MobileRunnerSemaphoreRunGrantedSignal = mobilerunnersemaphore.MobileRunnerSemaphoreRunGrantedSignal
+
+type MobileRunnerSemaphoreRunStartedSignal = mobilerunnersemaphore.MobileRunnerSemaphoreRunStartedSignal
+
+type MobileRunnerSemaphoreRunDoneSignal = mobilerunnersemaphore.MobileRunnerSemaphoreRunDoneSignal
+
+type MobileRunnerSemaphoreRunTicketState = mobilerunnersemaphore.MobileRunnerSemaphoreRunTicketState
 
 func MobileRunnerSemaphoreWorkflowID(runnerID string) string {
 	return mobilerunnersemaphore.WorkflowID(runnerID)
