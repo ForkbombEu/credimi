@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { MobileRunnersResponse } from '@/pocketbase/types';
+
 export interface FetchWorkflowsResponse {
 	executions: Array<WorkflowExecutionSummary>;
 }
@@ -24,4 +26,7 @@ export interface WorkflowExecutionSummary {
 	}>;
 	children?: Array<WorkflowExecutionSummary>;
 	failure_reason?: string;
+	global_runner_id?: string;
+	runner_ids?: string[];
+	runner_records?: Array<MobileRunnersResponse>;
 }

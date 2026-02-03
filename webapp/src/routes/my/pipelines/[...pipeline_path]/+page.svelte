@@ -76,7 +76,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Separator />
 
 <T tag="h3">{m.workflow_runs()}</T>
-<WorkflowsTable workflows={workflows.current ?? []} />
+<WorkflowsTable workflows={workflows.current ?? []}>
+	{#snippet header({ Th })}
+		<Th>{m.Runner()}</Th>
+	{/snippet}
+	{#snippet row({ workflow, Td })}
+		{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
+		<Td>
+			{#if runnerNames.length > 0}
+				{runnerNames.join(', ')}
+			{:else}
+				<span class="text-muted-foreground opacity-50">N/A</span>
+			{/if}
+		</Td>
+	{/snippet}
+</WorkflowsTable>
 
 <!--  -->
 
