@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"sort"
 	"strings"
@@ -159,8 +160,41 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			}
 		}
 
+		rollbackEnqueuedTickets := func(runnerIDs []string) {
+			rollbackCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			for _, runnerID := range runnerIDs {
+				status, err := cancelRunTicket(
+					rollbackCtx,
+					runnerID,
+					workflows.MobileRunnerSemaphoreRunCancelRequest{
+						TicketID:       ticketID,
+						OwnerNamespace: namespace,
+					},
+				)
+				if err != nil {
+					if errors.Is(err, errRunTicketNotFound) {
+						continue
+					}
+					e.App.Logger().Warn(fmt.Sprintf(
+						"failed to rollback run ticket %s for runner %s: %v",
+						ticketID,
+						runnerID,
+						err,
+					))
+					continue
+				}
+				if status.Status == workflowengine.MobileRunnerSemaphoreRunNotFound {
+					continue
+				}
+			}
+		}
+
+		attemptedRunnerIDs := make([]string, 0, len(runnerIDs))
 		runnerStatuses := make([]PipelineQueueRunnerStatus, 0, len(runnerIDs))
 		for _, runnerID := range runnerIDs {
+			attemptedRunnerIDs = append(attemptedRunnerIDs, runnerID)
 			req := workflows.MobileRunnerSemaphoreEnqueueRunRequest{
 				TicketID:           ticketID,
 				OwnerNamespace:     namespace,
@@ -175,6 +209,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			}
 			resp, err := enqueueRunTicket(e.Request.Context(), runnerID, req)
 			if err != nil {
+				rollbackEnqueuedTickets(attemptedRunnerIDs)
 				return apierror.New(
 					http.StatusInternalServerError,
 					"semaphore",
