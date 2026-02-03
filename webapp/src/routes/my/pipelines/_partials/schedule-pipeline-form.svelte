@@ -41,23 +41,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const type = getPipelineRunnerType(pipeline);
 	const isGlobalRunner = type === 'global';
 
-	const baseSchema = z
-		.object({
-			pipeline_id: z.string(),
-			schedule_mode: scheduleModeSchema,
-			global_runner_id: z.string().optional()
-		})
-		.superRefine((data, ctx) => {
-			if (isGlobalRunner && !data.global_runner_id) {
-				ctx.addIssue({
-					code: z.ZodIssueCode.custom,
-					message: 'Runner is required'
-				});
-			}
+	let schema = z.object({
+		pipeline_id: z.string(),
+		schedule_mode: scheduleModeSchema
+	});
+
+	if (isGlobalRunner) {
+		schema.extend({
+			global_runner_id: z.string()
 		});
+	}
 
 	const form = createForm({
-		adapter: zod(baseSchema),
+		adapter: zod(schema),
 		initialData: {
 			pipeline_id: getPath(pipeline)
 		},
@@ -129,7 +125,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#if isGlobalRunner}
 				<RunnerSelectInput
 					onSelect={onRunnerSelect}
-					selectedRunner={$formData.global_runner_id}
+					selectedRunner={($formData as { global_runner_id?: string }).global_runner_id}
 					required
 				/>
 			{/if}
