@@ -629,26 +629,8 @@ func insertRunQueue(
 	ticketID string,
 	tickets map[string]MobileRunnerSemaphoreRunTicketState,
 ) []string {
-	if len(queue) == 0 {
-		return []string{ticketID}
-	}
-
-	newTicket, ok := tickets[ticketID]
-	if !ok {
-		return append(queue, ticketID)
-	}
-
-	for idx, existingID := range queue {
-		existing, ok := tickets[existingID]
-		if !ok {
-			continue
-		}
-		if runTicketLess(newTicket.Request, existing.Request) {
-			return append(append(queue[:idx], ticketID), queue[idx:]...)
-		}
-	}
-
-	return append(queue, ticketID)
+	queue = append(queue, ticketID)
+	return sortRunQueue(queue, tickets)
 }
 
 func runTicketLess(
@@ -662,6 +644,26 @@ func runTicketLess(
 		return false
 	}
 	return left.TicketID < right.TicketID
+}
+
+func sortRunQueue(
+	queue []string,
+	tickets map[string]MobileRunnerSemaphoreRunTicketState,
+) []string {
+	sort.SliceStable(queue, func(i, j int) bool {
+		leftID := queue[i]
+		rightID := queue[j]
+		left, leftOk := tickets[leftID]
+		right, rightOk := tickets[rightID]
+		if leftOk && rightOk {
+			return runTicketLess(left.Request, right.Request)
+		}
+		if leftOk != rightOk {
+			return leftOk
+		}
+		return leftID < rightID
+	})
+	return queue
 }
 
 func containsString(values []string, target string) bool {

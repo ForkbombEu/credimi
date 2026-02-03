@@ -15,9 +15,9 @@ const (
 	MobileRunnerSemaphoreRunStatusQuery   = mobilerunnersemaphore.RunStatusQuery
 	MobileRunnerSemaphoreRunDoneUpdate    = mobilerunnersemaphore.RunDoneUpdate
 	MobileRunnerSemaphoreCancelRunUpdate  = mobilerunnersemaphore.CancelRunUpdate
-	MobileRunnerSemaphoreRunGrantedSignal = mobilerunnersemaphore.RunGrantedSignal
-	MobileRunnerSemaphoreRunStartedSignal = mobilerunnersemaphore.RunStartedSignal
-	MobileRunnerSemaphoreRunDoneSignal    = mobilerunnersemaphore.RunDoneSignal
+	MobileRunnerSemaphoreRunGrantedSignalName = mobilerunnersemaphore.RunGrantedSignal
+	MobileRunnerSemaphoreRunStartedSignalName = mobilerunnersemaphore.RunStartedSignal
+	MobileRunnerSemaphoreRunDoneSignalName    = mobilerunnersemaphore.RunDoneSignal
 
 	MobileRunnerSemaphoreErrInvalidRequest = mobilerunnersemaphore.ErrInvalidRequest
 	MobileRunnerSemaphoreErrTimeout        = mobilerunnersemaphore.ErrTimeout
