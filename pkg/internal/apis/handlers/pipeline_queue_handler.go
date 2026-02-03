@@ -60,6 +60,12 @@ type PipelineQueueStatusResponse struct {
 	Runners           []PipelineQueueRunnerStatus              `json:"runners"`
 }
 
+type queueRequestContext struct {
+	ticketID  string
+	runnerIDs []string
+	namespace string
+}
+
 var errRunTicketNotFound = errors.New("run ticket not found")
 
 var ensureRunQueueSemaphoreWorkflow = ensureRunQueueSemaphoreWorkflowTemporal
@@ -250,84 +256,21 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 
 func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		if e.Auth == nil {
-			return apierror.New(
-				http.StatusUnauthorized,
-				"auth",
-				"authentication required",
-				"user not authenticated",
-			).JSON(e)
+		requestContext, apiErr := parseQueueRequestContext(e)
+		if apiErr != nil {
+			return apiErr.JSON(e)
 		}
 
-		ticketID := strings.TrimSpace(e.Request.PathValue("ticket"))
-		if ticketID == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"ticket",
-				"ticket is required",
-				"missing ticket path parameter",
-			).JSON(e)
+		statusViews, runnerStatuses, missingRunnerCount, apiErr := queryQueueRunnerStatuses(
+			e.Request.Context(),
+			requestContext.runnerIDs,
+			requestContext.namespace,
+			requestContext.ticketID,
+		)
+		if apiErr != nil {
+			return apiErr.JSON(e)
 		}
-
-		runnerIDs := normalizeRunnerIDs(parseRunnerIDs(e.Request))
-		if len(runnerIDs) == 0 {
-			return apierror.New(
-				http.StatusBadRequest,
-				"runner_ids",
-				"runner_ids are required",
-				"missing runner_ids query parameter",
-			).JSON(e)
-		}
-
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organization",
-				"unable to get user organization canonified name",
-				err.Error(),
-			).JSON(e)
-		}
-
-		statusViews := make([]workflows.MobileRunnerSemaphoreRunStatusView, 0, len(runnerIDs))
-		runnerStatuses := make([]PipelineQueueRunnerStatus, 0, len(runnerIDs))
-		missingRunnerCount := 0
-		for _, runnerID := range runnerIDs {
-			status, err := queryRunTicketStatus(
-				e.Request.Context(),
-				runnerID,
-				namespace,
-				ticketID,
-			)
-			if err != nil {
-				if errors.Is(err, errRunTicketNotFound) {
-					missingRunnerCount++
-					runnerStatuses = append(
-						runnerStatuses,
-						runnerStatusFromView(
-							runnerID,
-							workflows.MobileRunnerSemaphoreRunStatusView{
-								TicketID: ticketID,
-								Status:   workflowengine.MobileRunnerSemaphoreRunNotFound,
-							},
-						),
-					)
-					continue
-				}
-				return apierror.New(
-					http.StatusInternalServerError,
-					"semaphore",
-					"failed to query ticket status",
-					err.Error(),
-				).JSON(e)
-			}
-			if status.Status == workflowengine.MobileRunnerSemaphoreRunNotFound {
-				missingRunnerCount++
-			}
-			statusViews = append(statusViews, status)
-			runnerStatuses = append(runnerStatuses, runnerStatusFromView(runnerID, status))
-		}
-		if missingRunnerCount == len(runnerIDs) {
+		if missingRunnerCount == len(requestContext.runnerIDs) {
 			return apierror.New(
 				http.StatusNotFound,
 				"ticket",
@@ -336,24 +279,17 @@ func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		status, position, lineLen, workflowID, runID, workflowNamespace, errorMessage :=
-			aggregateRunQueueStatus(runnerStatuses)
-		leaderRunnerID, requiredRunnerIDs := extractLeaderAndRequired(statusViews, runnerIDs)
-
-		response := PipelineQueueStatusResponse{
-			TicketID:          ticketID,
-			RunnerIDs:         runnerIDs,
-			LeaderRunnerID:    leaderRunnerID,
-			RequiredRunnerIDs: requiredRunnerIDs,
-			Status:            status,
-			Position:          position,
-			LineLen:           lineLen,
-			WorkflowID:        workflowID,
-			RunID:             runID,
-			WorkflowNamespace: workflowNamespace,
-			ErrorMessage:      errorMessage,
-			Runners:           runnerStatuses,
-		}
+		leaderRunnerID, requiredRunnerIDs := extractLeaderAndRequired(
+			statusViews,
+			requestContext.runnerIDs,
+		)
+		response := buildQueueStatusResponse(
+			requestContext.ticketID,
+			requestContext.runnerIDs,
+			leaderRunnerID,
+			requiredRunnerIDs,
+			runnerStatuses,
+		)
 
 		return e.JSON(http.StatusOK, response)
 	}
@@ -361,90 +297,32 @@ func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
 
 func HandlePipelineQueueCancel() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		if e.Auth == nil {
-			return apierror.New(
-				http.StatusUnauthorized,
-				"auth",
-				"authentication required",
-				"user not authenticated",
-			).JSON(e)
+		requestContext, apiErr := parseQueueRequestContext(e)
+		if apiErr != nil {
+			return apiErr.JSON(e)
 		}
 
-		ticketID := strings.TrimSpace(e.Request.PathValue("ticket"))
-		if ticketID == "" {
-			return apierror.New(
-				http.StatusBadRequest,
-				"ticket",
-				"ticket is required",
-				"missing ticket path parameter",
-			).JSON(e)
+		runnerStatuses, apiErr := cancelQueueRunnerStatuses(
+			e.Request.Context(),
+			requestContext.runnerIDs,
+			requestContext.namespace,
+			requestContext.ticketID,
+		)
+		if apiErr != nil {
+			return apiErr.JSON(e)
 		}
 
-		runnerIDs := normalizeRunnerIDs(parseRunnerIDs(e.Request))
-		if len(runnerIDs) == 0 {
-			return apierror.New(
-				http.StatusBadRequest,
-				"runner_ids",
-				"runner_ids are required",
-				"missing runner_ids query parameter",
-			).JSON(e)
-		}
-
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organization",
-				"unable to get user organization canonified name",
-				err.Error(),
-			).JSON(e)
-		}
-
-		runnerStatuses := make([]PipelineQueueRunnerStatus, 0, len(runnerIDs))
-		for _, runnerID := range runnerIDs {
-			status, err := cancelRunTicket(
-				e.Request.Context(),
-				runnerID,
-				workflows.MobileRunnerSemaphoreRunCancelRequest{
-					TicketID:       ticketID,
-					OwnerNamespace: namespace,
-				},
-			)
-			if err != nil {
-				if errors.Is(err, errRunTicketNotFound) {
-					continue
-				}
-				return apierror.New(
-					http.StatusInternalServerError,
-					"semaphore",
-					"failed to cancel ticket",
-					err.Error(),
-				).JSON(e)
-			}
-			runnerStatuses = append(runnerStatuses, runnerStatusFromView(runnerID, status))
-		}
-
-		status, position, lineLen, workflowID, runID, workflowNamespace, errorMessage :=
-			aggregateRunQueueStatus(runnerStatuses)
 		leaderRunnerID := ""
-		if len(runnerIDs) > 0 {
-			leaderRunnerID = runnerIDs[0]
+		if len(requestContext.runnerIDs) > 0 {
+			leaderRunnerID = requestContext.runnerIDs[0]
 		}
-
-		response := PipelineQueueStatusResponse{
-			TicketID:          ticketID,
-			RunnerIDs:         runnerIDs,
-			LeaderRunnerID:    leaderRunnerID,
-			RequiredRunnerIDs: append([]string{}, runnerIDs...),
-			Status:            status,
-			Position:          position,
-			LineLen:           lineLen,
-			WorkflowID:        workflowID,
-			RunID:             runID,
-			WorkflowNamespace: workflowNamespace,
-			ErrorMessage:      errorMessage,
-			Runners:           runnerStatuses,
-		}
+		response := buildQueueStatusResponse(
+			requestContext.ticketID,
+			requestContext.runnerIDs,
+			leaderRunnerID,
+			requestContext.runnerIDs,
+			runnerStatuses,
+		)
 
 		return e.JSON(http.StatusOK, response)
 	}
@@ -489,6 +367,155 @@ func resolvePipelineRunnerIDs(yaml string) ([]string, error) {
 	runnerIDs := runners.RunnerIDsWithGlobal(info, globalRunnerID)
 	sort.Strings(runnerIDs)
 	return runnerIDs, nil
+}
+
+func parseQueueRequestContext(e *core.RequestEvent) (*queueRequestContext, *apierror.APIError) {
+	if e.Auth == nil {
+		return nil, apierror.New(
+			http.StatusUnauthorized,
+			"auth",
+			"authentication required",
+			"user not authenticated",
+		)
+	}
+
+	ticketID := strings.TrimSpace(e.Request.PathValue("ticket"))
+	if ticketID == "" {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			"ticket",
+			"ticket is required",
+			"missing ticket path parameter",
+		)
+	}
+
+	runnerIDs := normalizeRunnerIDs(parseRunnerIDs(e.Request))
+	if len(runnerIDs) == 0 {
+		return nil, apierror.New(
+			http.StatusBadRequest,
+			"runner_ids",
+			"runner_ids are required",
+			"missing runner_ids query parameter",
+		)
+	}
+
+	namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
+	if err != nil {
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"organization",
+			"unable to get user organization canonified name",
+			err.Error(),
+		)
+	}
+
+	return &queueRequestContext{
+		ticketID:  ticketID,
+		runnerIDs: runnerIDs,
+		namespace: namespace,
+	}, nil
+}
+
+func queryQueueRunnerStatuses(
+	ctx context.Context,
+	runnerIDs []string,
+	namespace string,
+	ticketID string,
+) ([]workflows.MobileRunnerSemaphoreRunStatusView, []PipelineQueueRunnerStatus, int, *apierror.APIError) {
+	statusViews := make([]workflows.MobileRunnerSemaphoreRunStatusView, 0, len(runnerIDs))
+	runnerStatuses := make([]PipelineQueueRunnerStatus, 0, len(runnerIDs))
+	missingRunnerCount := 0
+
+	for _, runnerID := range runnerIDs {
+		status, err := queryRunTicketStatus(ctx, runnerID, namespace, ticketID)
+		if err != nil {
+			if errors.Is(err, errRunTicketNotFound) {
+				missingRunnerCount++
+				runnerStatuses = append(
+					runnerStatuses,
+					runnerStatusFromView(runnerID, runTicketNotFoundView(ticketID)),
+				)
+				continue
+			}
+			return nil, nil, 0, apierror.New(
+				http.StatusInternalServerError,
+				"semaphore",
+				"failed to query ticket status",
+				err.Error(),
+			)
+		}
+		if status.Status == workflowengine.MobileRunnerSemaphoreRunNotFound {
+			missingRunnerCount++
+		}
+		statusViews = append(statusViews, status)
+		runnerStatuses = append(runnerStatuses, runnerStatusFromView(runnerID, status))
+	}
+
+	return statusViews, runnerStatuses, missingRunnerCount, nil
+}
+
+func cancelQueueRunnerStatuses(
+	ctx context.Context,
+	runnerIDs []string,
+	namespace string,
+	ticketID string,
+) ([]PipelineQueueRunnerStatus, *apierror.APIError) {
+	runnerStatuses := make([]PipelineQueueRunnerStatus, 0, len(runnerIDs))
+	for _, runnerID := range runnerIDs {
+		status, err := cancelRunTicket(
+			ctx,
+			runnerID,
+			workflows.MobileRunnerSemaphoreRunCancelRequest{
+				TicketID:       ticketID,
+				OwnerNamespace: namespace,
+			},
+		)
+		if err != nil {
+			if errors.Is(err, errRunTicketNotFound) {
+				continue
+			}
+			return nil, apierror.New(
+				http.StatusInternalServerError,
+				"semaphore",
+				"failed to cancel ticket",
+				err.Error(),
+			)
+		}
+		runnerStatuses = append(runnerStatuses, runnerStatusFromView(runnerID, status))
+	}
+	return runnerStatuses, nil
+}
+
+func buildQueueStatusResponse(
+	ticketID string,
+	runnerIDs []string,
+	leaderRunnerID string,
+	requiredRunnerIDs []string,
+	runnerStatuses []PipelineQueueRunnerStatus,
+) PipelineQueueStatusResponse {
+	status, position, lineLen, workflowID, runID, workflowNamespace, errorMessage :=
+		aggregateRunQueueStatus(runnerStatuses)
+	return PipelineQueueStatusResponse{
+		TicketID:          ticketID,
+		RunnerIDs:         copyStringSlice(runnerIDs),
+		LeaderRunnerID:    leaderRunnerID,
+		RequiredRunnerIDs: copyStringSlice(requiredRunnerIDs),
+		Status:            status,
+		Position:          position,
+		LineLen:           lineLen,
+		WorkflowID:        workflowID,
+		RunID:             runID,
+		WorkflowNamespace: workflowNamespace,
+		ErrorMessage:      errorMessage,
+		Runners:           runnerStatuses,
+	}
+}
+
+func runTicketNotFoundView(ticketID string) workflows.MobileRunnerSemaphoreRunStatusView {
+	return workflows.MobileRunnerSemaphoreRunStatusView{
+		TicketID: ticketID,
+		Status:   workflowengine.MobileRunnerSemaphoreRunNotFound,
+	}
 }
 
 func parseRunnerIDs(req *http.Request) []string {
