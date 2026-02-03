@@ -50,9 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	async function handleRunNow() {
 		const runnerType = getPipelineRunnerType(pipeline);
-		if (runnerType === 'specific') {
-			await runPipeline(pipeline);
-		} else {
+		if (runnerType === 'global') {
 			const runner = getPipelineRunner(pipeline.id);
 			if (runner) {
 				await runPipeline(pipeline);
@@ -61,6 +59,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				runPipelineAfterRunnerSelect = true;
 				runnerSelectionDialogOpen = true;
 			}
+		} else {
+			await runPipeline(pipeline);
+			runPipelineAfterRunnerSelect = false;
 		}
 	}
 
@@ -93,7 +94,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
 
 	const runnerType = $derived(getPipelineRunnerType(pipeline));
-	const isRunnerSpecific = $derived(runnerType === 'specific');
+	const canConfigureRunner = $derived(runnerType === 'global');
 </script>
 
 <DashboardCard
@@ -126,10 +127,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				variant="default"
 				class="rounded-none rounded-r-md border-l border-l-slate-500"
 				onclick={() => (runnerSelectionDialogOpen = true)}
-				disabled={isRunnerSpecific}
-				tooltip={isRunnerSpecific
-					? m.Runner_configuration_not_available()
-					: m.Configure_runner()}
+				disabled={!canConfigureRunner}
+				tooltip={
+					canConfigureRunner ? m.Configure_runner() : m.Runner_configuration_not_available()
+				}
 			/>
 		</ButtonGroup.Root>
 
