@@ -18,7 +18,10 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-const mobileAutomationStepUse = "mobile-automation"
+const (
+	mobileAutomationStepUse                = "mobile-automation"
+	mobileRunnerSemaphoreTicketIDConfigKey = "mobile_runner_semaphore_ticket_id"
+)
 
 type processStepInput struct {
 	ctx              workflow.Context
@@ -161,6 +164,7 @@ func MobileAutomationSetupHook(
 		return err
 	}
 	acquirePermitActivity := activities.NewAcquireMobileRunnerPermitActivity()
+	semaphoreManaged := isSemaphoreManagedRun(config)
 
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
@@ -171,7 +175,7 @@ func MobileAutomationSetupHook(
 	if err != nil {
 		return err
 	}
-	if len(runnerIDs) > 0 {
+	if len(runnerIDs) > 0 && !semaphoreManaged {
 		permits, err := acquireRunnerPermits(ctx, runnerIDs, acquirePermitActivity)
 		if err != nil {
 			return err
@@ -424,7 +428,7 @@ func processStep(
 		SetPayloadValue(&input.step.With.Payload, "runner_id", input.globalRunnerID)
 	}
 
-	if !hasRunnerPermit(input.runData, payload.RunnerID) {
+	if !isSemaphoreManagedRun(input.config) && !hasRunnerPermit(input.runData, payload.RunnerID) {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return workflowengine.NewAppError(
 			errCode,
@@ -1049,7 +1053,9 @@ func MobileAutomationCleanupHook(
 		}
 	}
 
-	releaseRunnerPermits(ctx, getRunnerPermits(runData), &cleanupErrs)
+	if !isSemaphoreManagedRun(config) {
+		releaseRunnerPermits(ctx, getRunnerPermits(runData), &cleanupErrs)
+	}
 
 	if len(cleanupErrs) > 0 {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
@@ -1061,6 +1067,14 @@ func MobileAutomationCleanupHook(
 	}
 
 	return nil
+}
+
+func isSemaphoreManagedRun(config map[string]any) bool {
+	if config == nil {
+		return false
+	}
+	ticketID, ok := config[mobileRunnerSemaphoreTicketIDConfigKey].(string)
+	return ok && ticketID != ""
 }
 
 func cleanupDevice(
