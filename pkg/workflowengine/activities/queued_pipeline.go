@@ -247,7 +247,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 		httpDoer = &http.Client{Timeout: 15 * time.Second}
 	}
 
-	if err := createPipelineExecutionResult(
+	if err := createPipelineExecutionResultWithRetry(
 		ctx,
 		httpDoer,
 		appURL,
@@ -376,7 +376,7 @@ func parseDurationOrDefault(value, fallback string) time.Duration {
 	return parsed
 }
 
-func createPipelineExecutionResult(
+func createPipelineExecutionResultWithRetry(
 	ctx context.Context,
 	httpDoer httpDoer,
 	appURL string,
@@ -385,6 +385,48 @@ func createPipelineExecutionResult(
 	workflowID string,
 	runID string,
 ) error {
+	backoffs := []time.Duration{
+		250 * time.Millisecond,
+		1 * time.Second,
+		3 * time.Second,
+	}
+	var lastErr error
+	for attempt := 0; attempt <= len(backoffs); attempt++ {
+		status, err := postPipelineExecutionResult(
+			ctx,
+			httpDoer,
+			appURL,
+			ownerNamespace,
+			pipelineID,
+			workflowID,
+			runID,
+		)
+		if err == nil {
+			return nil
+		}
+		lastErr = err
+		if status > 0 && status < http.StatusInternalServerError {
+			return err
+		}
+		if attempt >= len(backoffs) {
+			break
+		}
+		if err := sleepWithContext(ctx, backoffs[attempt]); err != nil {
+			return err
+		}
+	}
+	return lastErr
+}
+
+func postPipelineExecutionResult(
+	ctx context.Context,
+	httpDoer httpDoer,
+	appURL string,
+	ownerNamespace string,
+	pipelineID string,
+	workflowID string,
+	runID string,
+) (int, error) {
 	payload := map[string]any{
 		"owner":       ownerNamespace,
 		"pipeline_id": pipelineID,
@@ -393,7 +435,7 @@ func createPipelineExecutionResult(
 	}
 	body, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("marshal pipeline result payload: %w", err)
+		return 0, fmt.Errorf("marshal pipeline result payload: %w", err)
 	}
 
 	req, err := http.NewRequestWithContext(
@@ -403,18 +445,30 @@ func createPipelineExecutionResult(
 		bytes.NewReader(body),
 	)
 	if err != nil {
-		return fmt.Errorf("build pipeline results request: %w", err)
+		return 0, fmt.Errorf("build pipeline results request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := httpDoer.Do(req)
 	if err != nil {
-		return fmt.Errorf("post pipeline results: %w", err)
+		return 0, fmt.Errorf("post pipeline results: %w", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("pipeline results status: %s", resp.Status)
+		return resp.StatusCode, fmt.Errorf("pipeline results status: %s", resp.Status)
 	}
-	return nil
+	return resp.StatusCode, nil
+}
+
+func sleepWithContext(ctx context.Context, duration time.Duration) error {
+	timer := time.NewTimer(duration)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
+	}
 }

@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -93,4 +94,48 @@ func TestStartQueuedPipelineActivityNonFatalResultFailure(t *testing.T) {
 	require.False(t, output.PipelineResultCreated)
 	require.NotEmpty(t, output.PipelineResultError)
 	require.NotEmpty(t, result.Log)
+}
+
+func TestStartQueuedPipelineActivityRetriesPipelineResult(t *testing.T) {
+	attempts := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		attempts++
+		if attempts < 3 {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer server.Close()
+
+	act := NewStartQueuedPipelineActivity()
+	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
+		return fakeTemporalClient{
+			run: fakeWorkflowRun{
+				id:    "wf-2",
+				runID: "run-2",
+			},
+		}, nil
+	}
+	act.httpDoer = server.Client()
+
+	result, err := act.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: StartQueuedPipelineActivityInput{
+			TicketID:           "ticket-2",
+			OwnerNamespace:     "tenant-2",
+			PipelineIdentifier: "tenant-2/pipeline",
+			YAML:               "name: test\nsteps: []\n",
+			PipelineConfig: map[string]any{
+				"app_url": server.URL,
+			},
+		},
+	})
+	require.NoError(t, err)
+
+	output, ok := result.Output.(StartQueuedPipelineActivityOutput)
+	require.True(t, ok)
+	require.True(t, output.PipelineResultCreated)
+	require.Empty(t, output.PipelineResultError)
+	require.Empty(t, result.Log)
+	require.Equal(t, 3, attempts)
 }
