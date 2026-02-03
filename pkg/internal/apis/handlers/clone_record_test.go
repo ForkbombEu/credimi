@@ -293,7 +293,6 @@ func TestCloneFiles_SingleFile(t *testing.T) {
 	clonedData, err := io.ReadAll(r)
 	require.NoError(t, err)
 	require.Equal(t, testData, clonedData, "Cloned file should have same content")
-
 }
 
 func TestCloneFiles_FileNotFound(t *testing.T) {
@@ -335,7 +334,6 @@ func TestCloneFiles_FileNotFound(t *testing.T) {
 
 	logoValue := newRecord.Get("logo")
 	require.Empty(t, logoValue, "Field should be empty when file not found")
-
 }
 
 func TestCloneFiles_MoreFiles(t *testing.T) {
@@ -429,7 +427,6 @@ func TestCloneFiles_MoreFiles(t *testing.T) {
 		_, err := fsys.GetFile(filePath)
 		require.NoError(t, err, "Cloned file %d should exist: %s", i+1, filename)
 	}
-
 }
 
 func setupAppWithPipelines(orgID string) func(t testing.TB) *tests.TestApp {
@@ -438,7 +435,7 @@ func setupAppWithPipelines(orgID string) func(t testing.TB) *tests.TestApp {
 		require.NoError(t, err)
 		canonify.RegisterCanonifyHooks(app)
 		CloneRecord.Add(app)
-		
+
 		coll, _ := app.FindCollectionByNameOrId("pipelines")
 		pipelineRecord := core.NewRecord(coll)
 		pipelineRecord.Set("id", "tikklnj1uh32237")
@@ -447,10 +444,10 @@ func setupAppWithPipelines(orgID string) func(t testing.TB) *tests.TestApp {
 		pipelineRecord.Set("description", "A test pipeline for cloning")
 		pipelineRecord.Set("steps", `[{"name": "step1", "type": "http"}]`)
 		pipelineRecord.Set("yaml", "version: 1.0")
-		pipelineRecord.Set("owner", orgID) 
+		pipelineRecord.Set("owner", orgID)
 		pipelineRecord.Set("published", false)
 		require.NoError(t, app.Save(pipelineRecord))
-		
+
 		return app
 	}
 }
@@ -458,7 +455,7 @@ func setupAppWithPipelines(orgID string) func(t testing.TB) *tests.TestApp {
 func TestCloneRecord_WithBeforeSave(t *testing.T) {
 	orgID, err := getTestOrgID()
 	require.NoError(t, err)
-	
+
 	userRecord, err := getUserRecordFromName("userA")
 	require.NoError(t, err)
 	token, err := userRecord.NewAuthToken()
@@ -468,7 +465,7 @@ func TestCloneRecord_WithBeforeSave(t *testing.T) {
 	require.NoError(t, err)
 	tokenUserNotAuth, err := userRecordNotAuth.NewAuthToken()
 	require.NoError(t, err)
-	
+
 	scenarios := []tests.ApiScenario{
 		{
 			Name:   "clone pipeline success with BeforeSave",
@@ -486,8 +483,8 @@ func TestCloneRecord_WithBeforeSave(t *testing.T) {
 			ExpectedContent: []string{
 				`"cloned_record"`,
 				`"message":"Record cloned from 'pipelines'"`,
-				`"owner":"` + orgID + `"`, 
-				`"published":false`, 
+				`"owner":"` + orgID + `"`,
+				`"published":false`,
 			},
 			TestAppFactory: setupAppWithPipelines(orgID),
 		},
@@ -542,15 +539,15 @@ func TestCloneRecord_WithBeforeSave(t *testing.T) {
 			ExpectedContent: []string{
 				`"cloned_record"`,
 				`"message":"Record cloned from 'pipelines'"`,
-				`"owner":"3u4982xn6ah0433"`, 
-				`"published":false`, 
-			},	
+				`"owner":"3u4982xn6ah0433"`,
+				`"published":false`,
+			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app, err := tests.NewTestApp(testDataDir)
 				require.NoError(t, err)
 				canonify.RegisterCanonifyHooks(app)
 				CloneRecord.Add(app)
-				
+
 				coll, _ := app.FindCollectionByNameOrId("pipelines")
 				pipelineRecord := core.NewRecord(coll)
 				pipelineRecord.Set("id", "tikklnj1uh32237")
@@ -560,14 +557,14 @@ func TestCloneRecord_WithBeforeSave(t *testing.T) {
 				pipelineRecord.Set("steps", `[{"name": "step1", "type": "http"}]`)
 				pipelineRecord.Set("yaml", "version: 1.0")
 				pipelineRecord.Set("owner", orgID)
-				pipelineRecord.Set("published", true) 
+				pipelineRecord.Set("published", true)
 				require.NoError(t, app.Save(pipelineRecord))
-				
+
 				return app
 			},
 		},
 	}
-	
+
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}

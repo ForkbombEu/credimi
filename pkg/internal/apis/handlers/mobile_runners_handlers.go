@@ -29,12 +29,12 @@ type GetMobileRunnerResponseSchema struct {
 }
 
 type MobileRunnerSemaphoreResponseSchema struct {
-	RunnerID    string                               `json:"runner_id"`
-	Capacity    int                                  `json:"capacity"`
-	InUse       bool                                 `json:"in_use"`
+	RunnerID    string                                 `json:"runner_id"`
+	Capacity    int                                    `json:"capacity"`
+	InUse       bool                                   `json:"in_use"`
 	Holder      *workflows.MobileRunnerSemaphoreHolder `json:"holder,omitempty"`
-	QueueLen    int                                  `json:"queue_len"`
-	LastGrantAt *time.Time                           `json:"last_grant_at,omitempty"`
+	QueueLen    int                                    `json:"queue_len"`
+	LastGrantAt *time.Time                             `json:"last_grant_at,omitempty"`
 }
 
 var MobileRunnersTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{

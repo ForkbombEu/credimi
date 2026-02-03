@@ -267,12 +267,12 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 					lastGrant := time.Date(2026, 1, 29, 10, 0, 0, 0, time.UTC)
 					holder := workflows.MobileRunnerSemaphoreHolder{LeaseID: "lease-1"}
 					return workflows.MobileRunnerSemaphoreStateView{
-						RunnerID:     "test-semaphore-runner",
-						Capacity:     1,
-						Holders:      []workflows.MobileRunnerSemaphoreHolder{holder},
+						RunnerID:      "test-semaphore-runner",
+						Capacity:      1,
+						Holders:       []workflows.MobileRunnerSemaphoreHolder{holder},
 						CurrentHolder: &holder,
-						QueueLen:     2,
-						LastGrantAt:  &lastGrant,
+						QueueLen:      2,
+						LastGrantAt:   &lastGrant,
 					}, nil
 				}
 				t.Cleanup(func() {

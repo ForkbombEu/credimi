@@ -73,24 +73,24 @@ type WorkflowExecution struct {
 }
 
 type WorkflowExecutionSummary struct {
-	Execution     *WorkflowIdentifier         `json:"execution"          validate:"required"`
-	Type          WorkflowType                `json:"type"               validate:"required"`
+	Execution     *WorkflowIdentifier         `json:"execution"                validate:"required"`
+	Type          WorkflowType                `json:"type"                     validate:"required"`
 	StartTime     string                      `json:"startTime"`
 	EndTime       string                      `json:"endTime"`
-	Status        string                      `json:"status"             validate:"required"`
-	DisplayName   string                      `json:"displayName"        validate:"required"`
+	Status        string                      `json:"status"                   validate:"required"`
+	DisplayName   string                      `json:"displayName"              validate:"required"`
 	Children      []*WorkflowExecutionSummary `json:"children,omitempty"`
 	Results       []PipelineResults           `json:"results,omitempty"`
 	FailureReason *string                     `json:"failure_reason,omitempty"`
 }
 
 type WorkflowDescriptionInfoSummary struct {
-	Execution     *WorkflowIdentifier `json:"execution"          validate:"required"`
-	Type          WorkflowType        `json:"type"               validate:"required"`
+	Execution     *WorkflowIdentifier `json:"execution"                validate:"required"`
+	Type          WorkflowType        `json:"type"                     validate:"required"`
 	StartTime     string              `json:"startTime"`
 	EndTime       string              `json:"endTime"`
-	Status        string              `json:"status"             validate:"required"`
-	DisplayName   string              `json:"displayName"        validate:"required"`
+	Status        string              `json:"status"                   validate:"required"`
+	DisplayName   string              `json:"displayName"              validate:"required"`
 	Results       []PipelineResults   `json:"results,omitempty"`
 	FailureReason *string             `json:"failure_reason,omitempty"`
 }
