@@ -482,6 +482,184 @@ func TestMobileRunnerSemaphoreWorkflowLateGrantAfterTimeout(t *testing.T) {
 	require.Empty(t, drainErrors(errCh))
 }
 
+func TestMobileRunnerSemaphoreWorkflowRunQueuePositions(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileRunnerSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	errCh := make(chan error, 4)
+	statusCh := make(chan MobileRunnerSemaphoreRunStatusView, 3)
+
+	enqueuedAt := time.Date(2026, 2, 3, 10, 0, 0, 0, time.UTC)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-1",
+			MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:          "ticket-b",
+				OwnerNamespace:    "tenant-1",
+				EnqueuedAt:        enqueuedAt,
+				RunnerID:          "runner-1",
+				RequiredRunnerIDs: []string{"runner-1"},
+				LeaderRunnerID:    "runner-1",
+			},
+			errCh,
+		)
+	}, time.Second)
+
+	env.RegisterDelayedCallback(func() {
+		queryRunStatus(env, "tenant-1", "ticket-b", statusCh, errCh)
+	}, time.Second*2)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-2",
+			MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:          "ticket-a",
+				OwnerNamespace:    "tenant-1",
+				EnqueuedAt:        enqueuedAt,
+				RunnerID:          "runner-1",
+				RequiredRunnerIDs: []string{"runner-1"},
+				LeaderRunnerID:    "runner-1",
+			},
+			errCh,
+		)
+	}, time.Second*3)
+
+	env.RegisterDelayedCallback(func() {
+		queryRunStatus(env, "tenant-1", "ticket-a", statusCh, errCh)
+	}, time.Second*4)
+
+	env.RegisterDelayedCallback(func() {
+		queryRunStatus(env, "tenant-1", "ticket-b", statusCh, errCh)
+	}, time.Second*5)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*6)
+
+	done := make(chan struct{})
+	go func() {
+		env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+			Payload: MobileRunnerSemaphoreWorkflowInput{
+				RunnerID: "runner-1",
+				Capacity: 1,
+			},
+		})
+		close(done)
+	}()
+
+	<-done
+
+	var ticketAStatuses []MobileRunnerSemaphoreRunStatusView
+	var ticketBStatuses []MobileRunnerSemaphoreRunStatusView
+	for i := 0; i < 3; i++ {
+		select {
+		case status := <-statusCh:
+			switch status.TicketID {
+			case "ticket-a":
+				ticketAStatuses = append(ticketAStatuses, status)
+			case "ticket-b":
+				ticketBStatuses = append(ticketBStatuses, status)
+			}
+		case err := <-errCh:
+			require.NoError(t, err)
+		case <-time.After(2 * time.Second):
+			require.Fail(t, "timed out waiting for run status")
+		}
+	}
+
+	require.Len(t, ticketAStatuses, 1)
+	require.Len(t, ticketBStatuses, 2)
+
+	require.Equal(t, mobileRunnerSemaphoreRunQueued, ticketAStatuses[0].Status)
+	require.Equal(t, 0, ticketAStatuses[0].Position)
+	require.Equal(t, 2, ticketAStatuses[0].LineLen)
+
+	var sawInitial bool
+	var sawReordered bool
+	for _, status := range ticketBStatuses {
+		require.Equal(t, mobileRunnerSemaphoreRunQueued, status.Status)
+		switch status.LineLen {
+		case 1:
+			sawInitial = true
+			require.Equal(t, 0, status.Position)
+		case 2:
+			sawReordered = true
+			require.Equal(t, 1, status.Position)
+		default:
+			require.Failf(t, "unexpected line_len", "line_len=%d", status.LineLen)
+		}
+	}
+
+	require.True(t, sawInitial)
+	require.True(t, sawReordered)
+	require.Empty(t, drainErrors(errCh))
+}
+
+func TestMobileRunnerSemaphoreWorkflowRunStatusOwnerMismatch(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileRunnerSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	errCh := make(chan error, 2)
+	statusCh := make(chan MobileRunnerSemaphoreRunStatusView, 1)
+
+	enqueuedAt := time.Date(2026, 2, 3, 11, 0, 0, 0, time.UTC)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-owner",
+			MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:          "ticket-owner",
+				OwnerNamespace:    "tenant-1",
+				EnqueuedAt:        enqueuedAt,
+				RunnerID:          "runner-1",
+				RequiredRunnerIDs: []string{"runner-1"},
+				LeaderRunnerID:    "runner-1",
+			},
+			errCh,
+		)
+	}, time.Second)
+
+	env.RegisterDelayedCallback(func() {
+		queryRunStatus(env, "tenant-2", "ticket-owner", statusCh, errCh)
+	}, time.Second*2)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*3)
+
+	done := make(chan struct{})
+	go func() {
+		env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+			Payload: MobileRunnerSemaphoreWorkflowInput{
+				RunnerID: "runner-1",
+				Capacity: 1,
+			},
+		})
+		close(done)
+	}()
+
+	<-done
+
+	select {
+	case status := <-statusCh:
+		require.Equal(t, mobileRunnerSemaphoreRunNotFound, status.Status)
+		require.Zero(t, status.LineLen)
+		require.Zero(t, status.Position)
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for owner mismatch status")
+	}
+
+	require.Empty(t, drainErrors(errCh))
+}
+
 func enqueueAcquireUpdate(
 	env *testsuite.TestWorkflowEnvironment,
 	req MobileRunnerSemaphoreAcquireRequest,
@@ -584,8 +762,51 @@ func enqueueAcquireUpdateExpectError(
 			timeoutCh <- err
 		},
 		},
+	req,
+	)
+}
+
+func enqueueRunUpdate(
+	env *testsuite.TestWorkflowEnvironment,
+	updateID string,
+	req MobileRunnerSemaphoreEnqueueRunRequest,
+	errCh chan<- error,
+) {
+	env.UpdateWorkflow(
+		MobileRunnerSemaphoreEnqueueRunUpdate,
+		updateID,
+		&testsuite.TestUpdateCallback{
+			OnReject: func(err error) {
+				errCh <- err
+			},
+			OnComplete: func(_ interface{}, err error) {
+				if err != nil {
+					errCh <- err
+				}
+			},
+		},
 		req,
 	)
+}
+
+func queryRunStatus(
+	env *testsuite.TestWorkflowEnvironment,
+	ownerNamespace string,
+	ticketID string,
+	statusCh chan<- MobileRunnerSemaphoreRunStatusView,
+	errCh chan<- error,
+) {
+	encoded, err := env.QueryWorkflow(MobileRunnerSemaphoreRunStatusQuery, ownerNamespace, ticketID)
+	if err != nil {
+		errCh <- err
+		return
+	}
+	var status MobileRunnerSemaphoreRunStatusView
+	if decodeErr := encoded.Get(&status); decodeErr != nil {
+		errCh <- decodeErr
+		return
+	}
+	statusCh <- status
 }
 
 func drainErrors(errCh <-chan error) []error {
