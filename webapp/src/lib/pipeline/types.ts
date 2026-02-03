@@ -4,9 +4,6 @@
 
 import type { Simplify } from 'type-fest';
 
-import type { PipelinesResponse } from '@/pocketbase/types/index.generated.js';
-
-import type { EnrichedStep } from './steps-builder/types';
 import type * as t from './types.generated.js';
 
 // Core types
@@ -28,11 +25,3 @@ export type PipelineStepWithId = Extract<PipelineStep, { id: string }>;
 export type PipelineStepData<Step extends PipelineStep> = Step extends { with: infer W }
 	? W
 	: never;
-
-// Other
-
-export interface EnrichedPipeline {
-	record: PipelinesResponse;
-	activity_options?: ActivityOptions;
-	steps: EnrichedStep[];
-}

@@ -5,17 +5,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	/* eslint-disable perfectionist/sort-imports */
 	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
 
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
-	import { ArrowRightIcon, Pencil, PlayIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { userOrganization } from '$lib/app-state';
 	import StatusCircle from '$lib/components/status-circle.svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
+	import RunnerSelectModal from '$lib/pipeline/runner-select-modal.svelte';
+	import { getPipelineRunner, getPipelineRunnerType, runPipeline } from '$lib/pipeline/utils';
 	import { getPath } from '$lib/utils';
 	import WorkflowsTableSmall from '$lib/workflows/workflows-table-small.svelte';
+	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
+	import { ArrowRightIcon, Cog, Pencil, PlayIcon } from '@lucide/svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
 
@@ -26,10 +29,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import * as ButtonGroup from '@/components/ui/button-group';
 	import ScheduleActions from './schedule-actions.svelte';
 	import SchedulePipelineForm from './schedule-pipeline-form.svelte';
 	import { type EnrichedSchedule } from './types';
-	import { runPipeline } from './utils';
 
 	//
 
@@ -40,7 +43,28 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { pipeline = $bindable(), workflows }: Props = $props();
 
-	//
+	// Running
+
+	let runnerSelectionDialogOpen = $state(false);
+	let runPipelineAfterRunnerSelect = $state(false);
+
+	async function handleRunNow() {
+		const runnerType = getPipelineRunnerType(pipeline);
+		if (runnerType === 'specific') {
+			await runPipeline(pipeline);
+		} else {
+			const runner = getPipelineRunner(pipeline.id);
+			if (runner) {
+				await runPipeline(pipeline);
+				runPipelineAfterRunnerSelect = false;
+			} else {
+				runPipelineAfterRunnerSelect = true;
+				runnerSelectionDialogOpen = true;
+			}
+		}
+	}
+
+	// Scheduling
 
 	let schedule = $derived.by(() => {
 		const s = pipeline.expand?.schedules_via_pipeline?.find(
@@ -56,6 +80,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})
 	);
 
+	// Flags for displaying UI elements
+
 	const avatar = $derived.by(() => {
 		const owner = pipeline.expand?.owner;
 		if (!owner) return undefined;
@@ -65,6 +91,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const hasWorkflows = $derived(workflows && workflows.length > 0);
 
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
+
+	const runnerType = $derived(getPipelineRunnerType(pipeline));
+	const isRunnerSpecific = $derived(runnerType === 'specific');
 </script>
 
 <DashboardCard
@@ -88,9 +117,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet actions()}
-		<Button onclick={() => runPipeline(pipeline)}>
-			<PlayIcon />{m.Run_now()}
-		</Button>
+		<ButtonGroup.Root>
+			<Button onclick={handleRunNow}>
+				<PlayIcon />{m.Run_now()}
+			</Button>
+			<IconButton
+				icon={Cog}
+				variant="default"
+				class="rounded-none rounded-r-md border-l border-l-slate-500"
+				onclick={() => (runnerSelectionDialogOpen = true)}
+				disabled={isRunnerSpecific}
+				tooltip={isRunnerSpecific
+					? m.Runner_configuration_not_available()
+					: m.Configure_runner()}
+			/>
+		</ButtonGroup.Root>
+
 		{#if !schedule}
 			<SchedulePipelineForm {pipeline} />
 		{:else}
@@ -103,6 +145,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	{/snippet}
 </DashboardCard>
+
+<RunnerSelectModal
+	{pipeline}
+	bind:open={runnerSelectionDialogOpen}
+	onSelect={() => {
+		if (!runPipelineAfterRunnerSelect) return;
+		handleRunNow();
+	}}
+/>
 
 {#snippet editAction()}
 	<IconButton

@@ -5,7 +5,7 @@
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
 import { getMarketplaceItemLogo, type MarketplaceItem } from '$lib/marketplace';
-import { type PipelineStepByType, type PipelineStepData } from '$lib/pipeline-form/types';
+import { type PipelineStepByType, type PipelineStepData } from '$lib/pipeline/types.js';
 import { getPath } from '$lib/utils';
 
 import { pb } from '@/pocketbase';
