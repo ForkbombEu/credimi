@@ -172,4 +172,124 @@ steps:
 
 		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(4);
 	});
+
+	it('does not mark as canceled when cancel returns running', async () => {
+		const { pb } = await import('@/pocketbase');
+		const { toast } = await import('svelte-sonner');
+
+		vi.mocked(pb.send)
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-2',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			})
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-2',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			})
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-2',
+				runner_ids: ['runner-1'],
+				status: 'running',
+				workflow_id: 'wf-2',
+				run_id: 'run-2'
+			});
+
+		const pipeline = {
+			id: 'pipeline-2',
+			yaml: `
+name: test
+steps:
+  - id: step-1
+    use: mobile-automation
+    with:
+      runner_id: runner-1
+      action_id: action-1
+`,
+			__canonified_path__: 'pipelines/test'
+		} as PipelinesResponse;
+
+		await runPipeline(pipeline);
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const [, options] = vi.mocked(toast.info).mock.calls[0] ?? [];
+		await options?.action?.onClick?.();
+
+		expect(vi.mocked(toast.success)).toHaveBeenCalledTimes(1);
+		expect(vi.mocked(toast.message)).not.toHaveBeenCalled();
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(3);
+
+		vi.advanceTimersByTime(1000);
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(3);
+	});
+
+	it('keeps polling when cancel returns queued', async () => {
+		const { pb } = await import('@/pocketbase');
+		const { toast } = await import('svelte-sonner');
+
+		vi.mocked(pb.send)
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-3',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			})
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-3',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			})
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-3',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			})
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-3',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			});
+
+		const pipeline = {
+			id: 'pipeline-3',
+			yaml: `
+name: test
+steps:
+  - id: step-1
+    use: mobile-automation
+    with:
+      runner_id: runner-1
+      action_id: action-1
+`,
+			__canonified_path__: 'pipelines/test'
+		} as PipelinesResponse;
+
+		await runPipeline(pipeline);
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const [, options] = vi.mocked(toast.info).mock.calls[0] ?? [];
+		await options?.action?.onClick?.();
+
+		expect(vi.mocked(toast.dismiss)).not.toHaveBeenCalled();
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(3);
+
+		vi.advanceTimersByTime(1000);
+		await Promise.resolve();
+
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(4);
+	});
 });
