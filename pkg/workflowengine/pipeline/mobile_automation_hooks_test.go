@@ -170,17 +170,19 @@ func testProcessStepWithoutPermitWorkflow(ctx workflow.Context) error {
 	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 
 	return processStep(
-		ctx,
-		&step,
-		config,
-		&activityOptions,
-		settedDevices,
-		&runData,
-		activities.NewHTTPActivity(),
-		activities.NewStartEmulatorActivity(),
-		activities.NewApkInstallActivity(),
-		workflow.GetLogger(ctx),
-		"",
+		processStepInput{
+			ctx:              ctx,
+			step:             &step,
+			config:           config,
+			ao:               &activityOptions,
+			settedDevices:    settedDevices,
+			runData:          &runData,
+			httpActivity:     activities.NewHTTPActivity(),
+			startEmuActivity: activities.NewStartEmulatorActivity(),
+			installActivity:  activities.NewApkInstallActivity(),
+			logger:           workflow.GetLogger(ctx),
+			globalRunnerID:   "",
+		},
 	)
 }
 
