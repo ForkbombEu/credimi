@@ -6,6 +6,7 @@ package pb
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
+	"go.temporal.io/api/serviceerror"
 	"gopkg.in/yaml.v3"
 )
 
@@ -53,6 +55,24 @@ func RegisterSchedulesHooks(app core.App) {
 		handle := c.ScheduleClient().GetHandle(ctx, e.Record.GetString("temporal_schedule_id"))
 		desc, err := handle.Describe(ctx)
 		if err != nil {
+			var notFound *serviceerror.NotFound
+			if errors.As(err, &notFound) {
+				// Schedule no longer exists in Temporal; enrich with fallback status so the record still loads
+				log.Printf("schedule not found in Temporal (temporal_schedule_id=%s): %v", e.Record.GetString("temporal_schedule_id"), err)
+				runners, _ := parseRunnersFromPipeline(e.App, e.Record.GetString("pipeline"))
+				if runners == nil {
+					runners = []MobileRunner{}
+				}
+				status := ScheduleStatus{
+					DisplayName:    "",
+					NextActionTime: "",
+					Paused:         false,
+					Runners:        runners,
+				}
+				e.Record.WithCustomData(true)
+				e.Record.Set("__schedule_status__", status)
+				return e.Next()
+			}
 			return fmt.Errorf("failed to describe schedule: %w", err)
 		}
 		var displayName string
@@ -70,9 +90,13 @@ func RegisterSchedulesHooks(app core.App) {
 			runners = []MobileRunner{}
 		}
 
+		nextActionTime := ""
+		if len(desc.Info.NextActionTimes) > 0 {
+			nextActionTime = desc.Info.NextActionTimes[0].Format("02/01/2006, 15:04:05")
+		}
 		status := ScheduleStatus{
 			DisplayName:    displayName,
-			NextActionTime: desc.Info.NextActionTimes[0].Format("02/01/2006, 15:04:05"),
+			NextActionTime: nextActionTime,
 			Paused:         desc.Schedule.State.Paused,
 			Runners:        runners,
 		}
