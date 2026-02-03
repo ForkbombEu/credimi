@@ -291,6 +291,7 @@ func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
 
 		statusViews := make([]workflows.MobileRunnerSemaphoreRunStatusView, 0, len(runnerIDs))
 		runnerStatuses := make([]PipelineQueueRunnerStatus, 0, len(runnerIDs))
+		missingRunnerCount := 0
 		for _, runnerID := range runnerIDs {
 			status, err := queryRunTicketStatus(
 				e.Request.Context(),
@@ -300,12 +301,18 @@ func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
 			)
 			if err != nil {
 				if errors.Is(err, errRunTicketNotFound) {
-					return apierror.New(
-						http.StatusNotFound,
-						"ticket",
-						"ticket not found",
-						err.Error(),
-					).JSON(e)
+					missingRunnerCount++
+					runnerStatuses = append(
+						runnerStatuses,
+						runnerStatusFromView(
+							runnerID,
+							workflows.MobileRunnerSemaphoreRunStatusView{
+								TicketID: ticketID,
+								Status:   workflowengine.MobileRunnerSemaphoreRunNotFound,
+							},
+						),
+					)
+					continue
 				}
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -315,15 +322,18 @@ func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
 				).JSON(e)
 			}
 			if status.Status == workflowengine.MobileRunnerSemaphoreRunNotFound {
-				return apierror.New(
-					http.StatusNotFound,
-					"ticket",
-					"ticket not found",
-					"ticket not found",
-				).JSON(e)
+				missingRunnerCount++
 			}
 			statusViews = append(statusViews, status)
 			runnerStatuses = append(runnerStatuses, runnerStatusFromView(runnerID, status))
+		}
+		if missingRunnerCount == len(runnerIDs) {
+			return apierror.New(
+				http.StatusNotFound,
+				"ticket",
+				"ticket not found",
+				"ticket not found",
+			).JSON(e)
 		}
 
 		status, position, lineLen, workflowID, runID, workflowNamespace, errorMessage :=
