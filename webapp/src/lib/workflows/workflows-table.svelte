@@ -35,10 +35,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Table.Head>{m.Type()}</Table.Head>
 				<Table.Head>{m.Workflow()}</Table.Head>
 				<Table.Head>{m.Status()}</Table.Head>
+				{@render header?.({ Th: Table.Head })}
 				{#if !hideResults}
 					<Table.Head>{m.Results()}</Table.Head>
 				{/if}
-				{@render header?.({ Th: Table.Head })}
 				<Table.Head class="text-right">{m.Start_time()}</Table.Head>
 				<Table.Head class="text-right">{m.End_time()}</Table.Head>
 				<Table.Head class="text-right">{m.Actions()}</Table.Head>
