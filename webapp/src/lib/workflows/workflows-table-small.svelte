@@ -46,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</thead>
 				<tbody>
 					{#each workflows as workflow (workflow.execution.runId)}
-						{@const runnerNames = workflow.runner_names ?? []}
+						{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
 						{@const status = toWorkflowStatusReadable(workflow.status)}
 						<tr>
 							<td>

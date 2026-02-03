@@ -81,7 +81,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Th>{m.Runner()}</Th>
 	{/snippet}
 	{#snippet row({ workflow, Td })}
-		{@const runnerNames = workflow.runner_names ?? []}
+		{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
 		<Td>
 			{#if runnerNames.length > 0}
 				{runnerNames.join(', ')}
