@@ -23,8 +23,10 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
+	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
@@ -341,6 +343,15 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		pipelineRecord := pipelineRecords[0]
 		pipelineID = pipelineRecord.Id
 
+		runnerInfo, err := parsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+		if err != nil {
+			e.App.Logger().Warn(fmt.Sprintf(
+				"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",
+				pipelineID,
+				err,
+			))
+		}
+
 		resultsRecords, err := e.App.FindRecordsByFilter(
 			"pipeline_results",
 			"pipeline={:pipeline} && owner={:owner}",
@@ -406,7 +417,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				).JSON(e)
 			}
 
-			weJSON, err := protojson.Marshal(workflowExecution.WorkflowExecutionInfo)
+			weJSON, err := protojson.Marshal(workflowExecution.GetWorkflowExecutionInfo())
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -427,10 +438,12 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				).JSON(e)
 			}
 
-			if workflowExecution.WorkflowExecutionInfo.ParentExecution != nil {
-				parentJSON, _ := protojson.Marshal(workflowExecution.WorkflowExecutionInfo.ParentExecution)
+			if workflowExecution.GetWorkflowExecutionInfo().GetParentExecution() != nil {
+				parentJSON, _ := protojson.Marshal(
+					workflowExecution.GetWorkflowExecutionInfo().GetParentExecution(),
+				)
 				var parentInfo WorkflowIdentifier
-				json.Unmarshal(parentJSON, &parentInfo)
+				_ = json.Unmarshal(parentJSON, &parentInfo)
 				execInfo.ParentExecution = &parentInfo
 			}
 
@@ -464,13 +477,33 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		)
 
 		sort.Slice(hierarchy, func(i, j int) bool {
-    		t1,_ := time.Parse(time.RFC3339, hierarchy[i].StartTime)
-    		t2,_ := time.Parse(time.RFC3339, hierarchy[j].StartTime)
+			t1, _ := time.Parse(time.RFC3339, hierarchy[i].StartTime)
+			t2, _ := time.Parse(time.RFC3339, hierarchy[j].StartTime)
 
-    		return t1.After(t2)
+			return t1.After(t2)
 		})
 
-		return e.JSON(http.StatusOK, hierarchy)
+		runnerCache := map[string]map[string]any{}
+		annotated, err := attachRunnerInfoFromTemporalStartInput(
+			attachRunnerInfoFromTemporalInputArgs{
+				App:         e.App,
+				Ctx:         context.Background(),
+				Client:      temporalClient,
+				Executions:  hierarchy,
+				Info:        runnerInfo,
+				RunnerCache: runnerCache,
+			},
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"failed to read workflow history",
+				err.Error(),
+			).JSON(e)
+		}
+
+		return e.JSON(http.StatusOK, annotated)
 	}
 }
 
@@ -521,10 +554,22 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 		}
 
 		pipelineExecutionsMap := make(map[string][]*WorkflowExecutionSummary)
+		pipelineRunnerInfoMap := make(map[string]pipelineRunnerInfo)
 		namespace := organization.GetString("canonified_name")
 
 		for _, pipelineRecord := range pipelineRecords {
 			pipelineID := pipelineRecord.Id
+
+			runnerInfo, err := parsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+			if err != nil {
+				e.App.Logger().Warn(fmt.Sprintf(
+					"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",
+					pipelineID,
+					err,
+				))
+			}
+			pipelineRunnerInfoMap[pipelineID] = runnerInfo
+
 			resultsRecords, err := e.App.FindRecordsByFilter(
 				"pipeline_results",
 				"pipeline={:pipeline} && owner={:owner}",
@@ -583,7 +628,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 						).JSON(e)
 					}
 
-					weJSON, err := protojson.Marshal(workflowExecution.WorkflowExecutionInfo)
+					weJSON, err := protojson.Marshal(workflowExecution.GetWorkflowExecutionInfo())
 					if err != nil {
 						return apierror.New(
 							http.StatusInternalServerError,
@@ -604,10 +649,12 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 						).JSON(e)
 					}
 
-					if workflowExecution.WorkflowExecutionInfo.ParentExecution != nil {
-						parentJSON, _ := protojson.Marshal(workflowExecution.WorkflowExecutionInfo.ParentExecution)
+					if workflowExecution.GetWorkflowExecutionInfo().GetParentExecution() != nil {
+						parentJSON, _ := protojson.Marshal(
+							workflowExecution.GetWorkflowExecutionInfo().GetParentExecution(),
+						)
 						var parentInfo WorkflowIdentifier
-						json.Unmarshal(parentJSON, &parentInfo)
+						_ = json.Unmarshal(parentJSON, &parentInfo)
 						execInfo.ParentExecution = &parentInfo
 					}
 
@@ -656,65 +703,377 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 
 		selectedExecutions := selectTopExecutionsByPipeline(allExecutions, 5)
 
-		return e.JSON(http.StatusOK, selectedExecutions)
+		response := make(map[string][]*pipelineWorkflowSummary, len(selectedExecutions))
+		runnerCache := map[string]map[string]any{}
+
+		tc, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		if err != nil {
+			// fallback: if no temporal client, return without global_runner_id
+			for pipelineID, executions := range selectedExecutions {
+				info := pipelineRunnerInfoMap[pipelineID]
+				response[pipelineID] = attachPipelineRunnerInfo(
+					e.App,
+					executions,
+					"",
+					info,
+					runnerCache,
+				)
+			}
+			return e.JSON(http.StatusOK, response)
+		}
+
+		for pipelineID, executions := range selectedExecutions {
+			info := pipelineRunnerInfoMap[pipelineID]
+			annotated, err := attachRunnerInfoFromTemporalStartInput(
+				attachRunnerInfoFromTemporalInputArgs{
+					App:         e.App,
+					Ctx:         context.Background(),
+					Client:      tc,
+					Executions:  executions,
+					Info:        info,
+					RunnerCache: runnerCache,
+				},
+			)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"temporal",
+					"failed to read workflow history",
+					err.Error(),
+				).JSON(e)
+			}
+			response[pipelineID] = annotated
+		}
+
+		return e.JSON(http.StatusOK, response)
 	}
 }
 
-func selectTopExecutionsByPipeline(executions []struct {
-    pipelineID string
-    execution  *WorkflowExecutionSummary
-}, limit int) map[string][]*WorkflowExecutionSummary {
-    
-    pipelineExecutions := make(map[string][]struct {
-        pipelineID string
-        execution  *WorkflowExecutionSummary
-    })
-    
-    for _, exec := range executions {
-        pipelineExecutions[exec.pipelineID] = append(pipelineExecutions[exec.pipelineID], exec)
-    }
-    
-    result := make(map[string][]*WorkflowExecutionSummary)
-    
-    for pipelineID, execs := range pipelineExecutions {
-        var runningExecs, otherExecs []*WorkflowExecutionSummary
-        
-        for _, exec := range execs {
-            if exec.execution.Status == "running" {
-                runningExecs = append(runningExecs, exec.execution)
-            } else {
-                otherExecs = append(otherExecs, exec.execution)
-            }
-        }
-        
-        selected := runningExecs
-        
-        remainingSlots := limit - len(runningExecs)
-        if remainingSlots > 0 && len(otherExecs) > 0 {
-            sort.Slice(otherExecs, func(i, j int) bool {
-    			t1, _ := time.Parse(time.RFC3339, otherExecs[i].StartTime)
-    			t2, _ := time.Parse(time.RFC3339, otherExecs[j].StartTime)
-    			return t1.After(t2)
-			})
-            
-            if remainingSlots > len(otherExecs) {
-                remainingSlots = len(otherExecs)
-            }
-            
-            selected = append(selected, otherExecs[:remainingSlots]...)
-        }
-        
-        sort.Slice(selected, func(i, j int) bool {
-    		t1, _ := time.Parse(time.RFC3339, selected[i].StartTime)
-    		t2, _ := time.Parse(time.RFC3339, selected[j].StartTime)
-    		return t1.After(t2)
-		})
-
-        if len(selected) > 0 {
-            result[pipelineID] = selected
-        }
-    }
-    
-    return result
+type pipelineRunnerInfo struct {
+	RunnerIDs         []string
+	NeedsGlobalRunner bool
 }
 
+type pipelineWorkflowSummary struct {
+	WorkflowExecutionSummary
+	GlobalRunnerID string           `json:"global_runner_id,omitempty"`
+	RunnerIDs      []string         `json:"runner_ids,omitempty"`
+	RunnerRecords  []map[string]any `json:"runner_records,omitempty"`
+}
+
+func attachPipelineRunnerInfo(
+	app core.App,
+	executions []*WorkflowExecutionSummary,
+	globalRunnerID string,
+	info pipelineRunnerInfo,
+	runnerCache map[string]map[string]any,
+) []*pipelineWorkflowSummary {
+	if len(executions) == 0 {
+		return []*pipelineWorkflowSummary{}
+	}
+
+	runnerIDs := append([]string{}, info.RunnerIDs...)
+	if info.NeedsGlobalRunner && globalRunnerID != "" {
+		found := false
+		for _, id := range runnerIDs {
+			if id == globalRunnerID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			runnerIDs = append(runnerIDs, globalRunnerID)
+			sort.Strings(runnerIDs)
+		}
+	}
+
+	runnerRecords := resolveRunnerRecords(app, runnerIDs, runnerCache)
+
+	annotated := make([]*pipelineWorkflowSummary, 0, len(executions))
+	for _, exec := range executions {
+		if exec == nil {
+			continue
+		}
+		annotated = append(annotated, &pipelineWorkflowSummary{
+			WorkflowExecutionSummary: *exec,
+			GlobalRunnerID:           globalRunnerID,
+			RunnerIDs:                runnerIDs,
+			RunnerRecords:            runnerRecords,
+		})
+	}
+	return annotated
+}
+
+func resolveRunnerRecord(
+	app core.App,
+	runnerID string,
+	runnerCache map[string]map[string]any,
+) map[string]any {
+	if runnerCache == nil {
+		runnerCache = map[string]map[string]any{}
+	}
+
+	runnerID = strings.TrimSpace(runnerID)
+	if runnerID == "" {
+		return nil
+	}
+
+	if cached, ok := runnerCache[runnerID]; ok {
+		return cached
+	}
+
+	record, err := canonify.Resolve(app, runnerID)
+	if err != nil {
+		runnerCache[runnerID] = nil
+		return nil
+	}
+
+	fields := record.FieldsData()
+	runnerCache[runnerID] = fields
+	return fields
+}
+
+func resolveRunnerRecords(
+	app core.App,
+	runnerIDs []string,
+	runnerCache map[string]map[string]any,
+) []map[string]any {
+	if len(runnerIDs) == 0 {
+		return []map[string]any{}
+	}
+
+	records := make([]map[string]any, 0, len(runnerIDs))
+	for _, runnerID := range runnerIDs {
+		record := resolveRunnerRecord(app, runnerID, runnerCache)
+		if record == nil {
+			continue
+		}
+		records = append(records, record)
+	}
+	return records
+}
+
+func parsePipelineRunnerInfo(yamlStr string) (pipelineRunnerInfo, error) {
+	if strings.TrimSpace(yamlStr) == "" {
+		return pipelineRunnerInfo{}, nil
+	}
+
+	wfDef, err := pipeline.ParseWorkflow(yamlStr)
+	if err != nil {
+		return pipelineRunnerInfo{}, err
+	}
+
+	runnerIDs := make(map[string]struct{})
+	missingRunnerID := false
+
+	collectRunner := func(step pipeline.StepSpec) {
+		runnerID := ""
+		if step.With.Payload != nil {
+			if rawRunnerID, ok := step.With.Payload["runner_id"]; ok {
+				if id, ok := rawRunnerID.(string); ok {
+					runnerID = strings.TrimSpace(id)
+				}
+			}
+		}
+
+		if runnerID != "" {
+			runnerIDs[runnerID] = struct{}{}
+			return
+		}
+
+		if step.Use == "mobile-automation" {
+			missingRunnerID = true
+		}
+	}
+
+	for _, step := range wfDef.Steps {
+		collectRunner(step.StepSpec)
+		for _, onErr := range step.OnError {
+			collectRunner(onErr.StepSpec)
+		}
+		for _, onSuccess := range step.OnSuccess {
+			collectRunner(onSuccess.StepSpec)
+		}
+	}
+
+	info := pipelineRunnerInfo{
+		NeedsGlobalRunner: missingRunnerID,
+	}
+
+	if len(runnerIDs) == 0 {
+		return info, nil
+	}
+
+	info.RunnerIDs = make([]string, 0, len(runnerIDs))
+	for runnerID := range runnerIDs {
+		info.RunnerIDs = append(info.RunnerIDs, runnerID)
+	}
+	sort.Strings(info.RunnerIDs)
+
+	return info, nil
+}
+
+type attachRunnerInfoFromTemporalInputArgs struct {
+	App         core.App
+	Ctx         context.Context
+	Client      client.Client
+	Executions  []*WorkflowExecutionSummary
+	Info        pipelineRunnerInfo
+	RunnerCache map[string]map[string]any
+}
+
+func attachRunnerInfoFromTemporalStartInput(
+	args attachRunnerInfoFromTemporalInputArgs,
+) ([]*pipelineWorkflowSummary, error) {
+	if len(args.Executions) == 0 {
+		return []*pipelineWorkflowSummary{}, nil
+	}
+
+	if args.RunnerCache == nil {
+		args.RunnerCache = map[string]map[string]any{}
+	}
+
+	cache := map[string]string{}
+	out := make([]*pipelineWorkflowSummary, 0, len(args.Executions))
+
+	for _, exec := range args.Executions {
+		if exec == nil {
+			continue
+		}
+
+		key := exec.Execution.WorkflowID + ":" + exec.Execution.RunID
+
+		globalRunnerID, ok := cache[key]
+		if !ok {
+			gr, err := readGlobalRunnerIDFromTemporalHistory(
+				args.Ctx,
+				args.Client,
+				exec.Execution.WorkflowID,
+				exec.Execution.RunID,
+			)
+			if err != nil {
+				return nil, err
+			}
+			globalRunnerID = gr
+			cache[key] = globalRunnerID
+		}
+
+		out = append(out, attachPipelineRunnerInfo(
+			args.App,
+			[]*WorkflowExecutionSummary{exec},
+			globalRunnerID,
+			args.Info,
+			args.RunnerCache,
+		)...)
+	}
+
+	return out, nil
+}
+
+func readGlobalRunnerIDFromTemporalHistory(
+	ctx context.Context,
+	c client.Client,
+	workflowID, runID string,
+) (string, error) {
+	iter := c.GetWorkflowHistory(
+		ctx,
+		workflowID,
+		runID,
+		false,
+		enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+	)
+
+	dc := converter.GetDefaultDataConverter()
+
+	for iter.HasNext() {
+		ev, err := iter.Next()
+		if err != nil {
+			return "", err
+		}
+
+		if ev.GetEventType() != enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
+			continue
+		}
+
+		attr := ev.GetWorkflowExecutionStartedEventAttributes()
+		if attr == nil || attr.GetInput() == nil {
+			return "", nil
+		}
+
+		var in pipeline.PipelineWorkflowInput
+		if err := dc.FromPayload(attr.GetInput().GetPayloads()[0], &in); err != nil {
+			// If decoding fails, omit (don’t fail the endpoint).
+			return "", nil // nolint
+		}
+
+		if in.WorkflowInput.Config == nil {
+			return "", nil
+		}
+
+		if v, ok := in.WorkflowInput.Config["global_runner_id"]; ok {
+			if s, ok := v.(string); ok {
+				return strings.TrimSpace(s), nil
+			}
+		}
+		return "", nil
+	}
+
+	return "", nil
+}
+
+func selectTopExecutionsByPipeline(executions []struct {
+	pipelineID string
+	execution  *WorkflowExecutionSummary
+}, limit int) map[string][]*WorkflowExecutionSummary {
+	pipelineExecutions := make(map[string][]struct {
+		pipelineID string
+		execution  *WorkflowExecutionSummary
+	})
+
+	for _, exec := range executions {
+		pipelineExecutions[exec.pipelineID] = append(pipelineExecutions[exec.pipelineID], exec)
+	}
+
+	result := make(map[string][]*WorkflowExecutionSummary)
+
+	for pipelineID, execs := range pipelineExecutions {
+		var runningExecs, otherExecs []*WorkflowExecutionSummary
+
+		for _, exec := range execs {
+			if exec.execution.Status == "running" {
+				runningExecs = append(runningExecs, exec.execution)
+			} else {
+				otherExecs = append(otherExecs, exec.execution)
+			}
+		}
+
+		selected := runningExecs
+
+		remainingSlots := limit - len(runningExecs)
+		if remainingSlots > 0 && len(otherExecs) > 0 {
+			sort.Slice(otherExecs, func(i, j int) bool {
+				t1, _ := time.Parse(time.RFC3339, otherExecs[i].StartTime)
+				t2, _ := time.Parse(time.RFC3339, otherExecs[j].StartTime)
+				return t1.After(t2)
+			})
+
+			if remainingSlots > len(otherExecs) {
+				remainingSlots = len(otherExecs)
+			}
+
+			selected = append(selected, otherExecs[:remainingSlots]...)
+		}
+
+		sort.Slice(selected, func(i, j int) bool {
+			t1, _ := time.Parse(time.RFC3339, selected[i].StartTime)
+			t2, _ := time.Parse(time.RFC3339, selected[j].StartTime)
+			return t1.After(t2)
+		})
+
+		if len(selected) > 0 {
+			result[pipelineID] = selected
+		}
+	}
+
+	return result
+}

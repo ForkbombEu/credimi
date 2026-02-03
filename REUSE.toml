@@ -13,6 +13,7 @@ path = [
     ".gestalt/**/*",
     ".idea/**/*",
     ".vscode/launch.json",
+    ".gestalt/**/*",
     ".vscode/settings.json",
     "config_templates/**/*",
     "docs/**/*",

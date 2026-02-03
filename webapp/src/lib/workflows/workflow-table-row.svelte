@@ -130,6 +130,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		/>
 	</Table.Cell>
 
+	{@render row?.({ workflow, Td: Table.Cell, status })}
+
 	{#if !hideResults}
 		<Table.Cell>
 			{#if workflow.results && workflow.results.length > 0}
@@ -154,8 +156,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 		</Table.Cell>
 	{/if}
-
-	{@render row?.({ workflow, Td: Table.Cell, status })}
 
 	<Table.Cell
 		class={['text-right', isChild && 'text-[10px] leading-[13px] text-muted-foreground']}
