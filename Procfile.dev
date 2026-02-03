@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2025 Forkbomb BV
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
-API: ./scripts/wait-for-it.sh -s -t 0 localhost:7233 && go tool gow run main.go serve
+API: ./scripts/wait-for-it.sh -s -t 0 localhost:7233 && go tool gow run -tags=credimi_extra main.go serve
 UI: ./scripts/wait-for-it.sh -s -t 0 localhost:8090 && cd webapp && bun i && bun dev
 BE: temporal server start-dev --db-filename pb_data/temporal.db
 # ANDROID:  ./scripts/wait-for-it.sh -s -t 0 localhost:7233 && QT_QPA_PLATFORM=xcb emulator @headless-api35 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -ports 5554,5555

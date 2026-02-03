@@ -1,5 +1,5 @@
-//go:build credimi_extra
-// +build credimi_extra
+//go:build !credimi_extra
+// +build !credimi_extra
 
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
@@ -7,21 +7,20 @@
 package workflows
 
 import (
-	"github.com/forkbombeu/credimi-extra/mobile"
-	"github.com/forkbombeu/credimi/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
 const MobileAutomationTaskQueue = "MobileAutomationTaskQueue"
 
-// MobileAutomationWorkflow is a workflow that runs a mobile automation flow
+// MobileAutomationWorkflow is a workflow that runs a mobile automation flow.
 type MobileAutomationWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
-// MobileAutomationWorkflowPayload is the payload for the mobile automation workflow
+// MobileAutomationWorkflowPayload is the payload for the mobile automation workflow.
 type MobileAutomationWorkflowPayload struct {
 	RunIdentifier    string            `json:"run_identifier,omitempty"     yaml:"run_identifier,omitempty"`
 	ActionID         string            `json:"action_id,omitempty"          yaml:"action_id,omitempty"`
@@ -68,67 +67,17 @@ func (w *MobileAutomationWorkflow) Workflow(
 	return w.WorkflowFunc(ctx, input)
 }
 
-// ExecuteWorkflow executes a mobile automation workflow, given the input payload.
-// It first creates a test run URL and then executes the RunMobileFlowActivity with the given payload.
-// If the video flag is set, it checks if the video file exists and if it does, stores the result in the mobile server.
-// Finally, it returns a WorkflowResult containing the test run URL and the result video URL.
+// ExecuteWorkflow returns an error when the mobile automation module is disabled.
 func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
-
-	var output MobileWorkflowOutput
-	testRunURL := utils.JoinURL(
-		input.Config["app_url"].(string),
-		"my", "tests", "runs",
-		workflow.GetInfo(ctx).WorkflowExecution.ID,
-		workflow.GetInfo(ctx).WorkflowExecution.RunID,
+	_ = ctx
+	return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+		temporal.NewApplicationError(
+			"mobile automation is disabled; build with -tags=credimi_extra",
+			errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		),
+		input.RunMetadata,
 	)
-
-	output.TestRunURL = testRunURL
-
-	payload, err := workflowengine.DecodePayload[MobileAutomationWorkflowPayload](input.Payload)
-	if err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
-			err,
-			input.RunMetadata,
-		)
-	}
-
-	appURL, ok := input.Config["app_url"].(string)
-	if !ok || appURL == "" {
-		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-			"app_url",
-			input.RunMetadata,
-		)
-	}
-
-	mobileActivity := activities.NewRunMobileFlowActivity()
-	var mobileResponse workflowengine.ActivityResult
-	mobileInput := workflowengine.ActivityInput{
-		Payload: mobile.RunMobileFlowPayload{
-			Serial:     payload.Serial,
-			Yaml:       payload.ActionCode,
-			Parameters: payload.Parameters,
-			WorkflowId: workflow.GetInfo(ctx).WorkflowExecution.ID,
-		},
-	}
-	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).
-		Get(ctx, &mobileResponse)
-	output.FlowOutput = mobileResponse.Output
-
-	if executeErr != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-			executeErr,
-			input.RunMetadata,
-			map[string]any{
-				"output": output,
-			},
-		)
-	}
-
-	return workflowengine.WorkflowResult{
-		Output: output,
-	}, nil
 }
