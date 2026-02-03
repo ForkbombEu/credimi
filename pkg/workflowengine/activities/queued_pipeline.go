@@ -18,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/google/uuid"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
@@ -26,6 +27,8 @@ import (
 
 type StartQueuedPipelineActivity struct {
 	workflowengine.BaseActivity
+	temporalClientFactory func(namespace string) (temporalWorkflowStarter, error)
+	httpDoer              httpDoer
 }
 
 type StartQueuedPipelineActivityInput struct {
@@ -40,9 +43,11 @@ type StartQueuedPipelineActivityInput struct {
 }
 
 type StartQueuedPipelineActivityOutput struct {
-	WorkflowID        string `json:"workflow_id"`
-	RunID             string `json:"run_id"`
-	WorkflowNamespace string `json:"workflow_namespace"`
+	WorkflowID            string `json:"workflow_id"`
+	RunID                 string `json:"run_id"`
+	WorkflowNamespace     string `json:"workflow_namespace"`
+	PipelineResultCreated bool   `json:"pipeline_result_created"`
+	PipelineResultError   string `json:"pipeline_result_error,omitempty"`
 }
 
 const (
@@ -95,11 +100,28 @@ type queuedWorkflowOptions struct {
 	ActivityOptions workflow.ActivityOptions
 }
 
+type temporalWorkflowStarter interface {
+	ExecuteWorkflow(
+		ctx context.Context,
+		options client.StartWorkflowOptions,
+		workflow interface{},
+		args ...interface{},
+	) (client.WorkflowRun, error)
+}
+
+type httpDoer interface {
+	Do(*http.Request) (*http.Response, error)
+}
+
 func NewStartQueuedPipelineActivity() *StartQueuedPipelineActivity {
 	return &StartQueuedPipelineActivity{
 		BaseActivity: workflowengine.BaseActivity{
 			Name: "Start queued pipeline",
 		},
+		temporalClientFactory: func(namespace string) (temporalWorkflowStarter, error) {
+			return temporalclient.GetTemporalClientWithNamespace(namespace)
+		},
+		httpDoer: &http.Client{Timeout: 15 * time.Second},
 	}
 }
 
@@ -177,7 +199,13 @@ func (a *StartQueuedPipelineActivity) Execute(
 	options.Options.Memo = memo
 
 	namespace := config["namespace"].(string)
-	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	temporalFactory := a.temporalClientFactory
+	if temporalFactory == nil {
+		temporalFactory = func(namespace string) (temporalWorkflowStarter, error) {
+			return temporalclient.GetTemporalClientWithNamespace(namespace)
+		}
+	}
+	temporalClient, err := temporalFactory(namespace)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 		return result, a.NewActivityError(errCode.Code, err.Error())
@@ -206,22 +234,53 @@ func (a *StartQueuedPipelineActivity) Execute(
 	workflowID := workflowRun.GetID()
 	runID := workflowRun.GetRunID()
 
+	output := StartQueuedPipelineActivityOutput{
+		WorkflowID:            workflowID,
+		RunID:                 runID,
+		WorkflowNamespace:     namespace,
+		PipelineResultCreated: true,
+	}
+	result.Output = output
+
+	httpDoer := a.httpDoer
+	if httpDoer == nil {
+		httpDoer = &http.Client{Timeout: 15 * time.Second}
+	}
+
 	if err := createPipelineExecutionResult(
 		ctx,
+		httpDoer,
 		appURL,
 		payload.OwnerNamespace,
 		payload.PipelineIdentifier,
 		workflowID,
 		runID,
 	); err != nil {
-		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-		return result, a.NewActivityError(errCode.Code, err.Error())
-	}
-
-	result.Output = StartQueuedPipelineActivityOutput{
-		WorkflowID:        workflowID,
-		RunID:             runID,
-		WorkflowNamespace: namespace,
+		if activity.IsActivity(ctx) {
+			logger := activity.GetLogger(ctx)
+			logger.Warn(
+				"failed to create pipeline execution result",
+				"ticket_id",
+				payload.TicketID,
+				"owner_namespace",
+				payload.OwnerNamespace,
+				"pipeline_identifier",
+				payload.PipelineIdentifier,
+				"workflow_id",
+				workflowID,
+				"run_id",
+				runID,
+				"error",
+				err,
+			)
+		}
+		output.PipelineResultCreated = false
+		output.PipelineResultError = err.Error()
+		result.Output = output
+		result.Log = append(
+			result.Log,
+			fmt.Sprintf("pipeline execution result not created: %v", err),
+		)
 	}
 	return result, nil
 }
@@ -319,6 +378,7 @@ func parseDurationOrDefault(value, fallback string) time.Duration {
 
 func createPipelineExecutionResult(
 	ctx context.Context,
+	httpDoer httpDoer,
 	appURL string,
 	ownerNamespace string,
 	pipelineID string,
@@ -347,8 +407,7 @@ func createPipelineExecutionResult(
 	}
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 15 * time.Second}
-	resp, err := client.Do(req)
+	resp, err := httpDoer.Do(req)
 	if err != nil {
 		return fmt.Errorf("post pipeline results: %w", err)
 	}
