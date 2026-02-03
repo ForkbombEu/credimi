@@ -280,46 +280,38 @@ func (r *mobileRunnerSemaphoreRuntime) registerRunDoneHandler() error {
 }
 
 func (r *mobileRunnerSemaphoreRuntime) startRunSignalHandlers() {
-	r.startRunGrantedSignalHandler()
-	r.startRunStartedSignalHandler()
-	r.startRunDoneSignalHandler()
-}
-
-func (r *mobileRunnerSemaphoreRuntime) startRunGrantedSignalHandler() {
-	signalChan := workflow.GetSignalChannel(r.ctx, MobileRunnerSemaphoreRunGrantedSignalName)
-	workflow.Go(r.ctx, func(ctx workflow.Context) {
-		for {
-			var signal MobileRunnerSemaphoreRunGrantedSignal
-			if ok := signalChan.Receive(ctx, &signal); !ok {
-				return
-			}
+	startRunSignalHandler(
+		r.ctx,
+		MobileRunnerSemaphoreRunGrantedSignalName,
+		func(ctx workflow.Context, signal MobileRunnerSemaphoreRunGrantedSignal) {
 			r.handleRunGrantedSignal(signal)
-		}
-	})
+		},
+	)
+	startRunSignalHandler(
+		r.ctx,
+		MobileRunnerSemaphoreRunStartedSignalName,
+		r.handleRunStartedSignal,
+	)
+	startRunSignalHandler(
+		r.ctx,
+		MobileRunnerSemaphoreRunDoneSignalName,
+		r.handleRunDoneSignal,
+	)
 }
 
-func (r *mobileRunnerSemaphoreRuntime) startRunStartedSignalHandler() {
-	signalChan := workflow.GetSignalChannel(r.ctx, MobileRunnerSemaphoreRunStartedSignalName)
-	workflow.Go(r.ctx, func(ctx workflow.Context) {
+func startRunSignalHandler[T any](
+	ctx workflow.Context,
+	signalName string,
+	handler func(workflow.Context, T),
+) {
+	signalChan := workflow.GetSignalChannel(ctx, signalName)
+	workflow.Go(ctx, func(ctx workflow.Context) {
 		for {
-			var signal MobileRunnerSemaphoreRunStartedSignal
+			var signal T
 			if ok := signalChan.Receive(ctx, &signal); !ok {
 				return
 			}
-			r.handleRunStartedSignal(ctx, signal)
-		}
-	})
-}
-
-func (r *mobileRunnerSemaphoreRuntime) startRunDoneSignalHandler() {
-	signalChan := workflow.GetSignalChannel(r.ctx, MobileRunnerSemaphoreRunDoneSignalName)
-	workflow.Go(r.ctx, func(ctx workflow.Context) {
-		for {
-			var signal MobileRunnerSemaphoreRunDoneSignal
-			if ok := signalChan.Receive(ctx, &signal); !ok {
-				return
-			}
-			r.handleRunDoneSignal(ctx, signal)
+			handler(ctx, signal)
 		}
 	})
 }
