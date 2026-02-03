@@ -363,6 +363,8 @@ func processStep(
 		)
 	}
 
+	SetRunDataValue(runData, "setted_devices", settedDevices)
+
 	if err := fetchAndInstallAPK(
 		ctx,
 		mobileCtx,
@@ -377,6 +379,8 @@ func processStep(
 	); err != nil {
 		return err
 	}
+
+	SetRunDataValue(runData, "setted_devices", settedDevices)
 
 	return nil
 }
