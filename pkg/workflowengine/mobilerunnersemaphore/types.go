@@ -42,13 +42,13 @@ type MobileRunnerSemaphoreWorkflowInput struct {
 }
 
 type MobileRunnerSemaphoreWorkflowState struct {
-	Capacity    int                                          `json:"capacity"`
-	Holders     map[string]MobileRunnerSemaphoreHolder       `json:"holders,omitempty"`
-	Queue       []string                                     `json:"queue,omitempty"`
-	Requests    map[string]MobileRunnerSemaphoreRequestState `json:"requests,omitempty"`
-	LastGrantAt *time.Time                                   `json:"last_grant_at,omitempty"`
-	UpdateCount int                                          `json:"update_count,omitempty"`
-	RunQueue    []string                                     `json:"run_queue,omitempty"`
+	Capacity    int                                            `json:"capacity"`
+	Holders     map[string]MobileRunnerSemaphoreHolder         `json:"holders,omitempty"`
+	Queue       []string                                       `json:"queue,omitempty"`
+	Requests    map[string]MobileRunnerSemaphoreRequestState   `json:"requests,omitempty"`
+	LastGrantAt *time.Time                                     `json:"last_grant_at,omitempty"`
+	UpdateCount int                                            `json:"update_count,omitempty"`
+	RunQueue    []string                                       `json:"run_queue,omitempty"`
 	RunTickets  map[string]MobileRunnerSemaphoreRunTicketState `json:"run_tickets,omitempty"`
 }
 
@@ -77,29 +77,29 @@ type MobileRunnerSemaphoreReleaseResult struct {
 }
 
 type MobileRunnerSemaphoreHolder struct {
-	LeaseID        string    `json:"lease_id"`
-	RequestID      string    `json:"request_id"`
-	OwnerNamespace string    `json:"owner_namespace,omitempty"`
-	OwnerWorkflowID string   `json:"owner_workflow_id,omitempty"`
-	OwnerRunID     string    `json:"owner_run_id,omitempty"`
-	GrantedAt      time.Time `json:"granted_at"`
-	QueueWaitMs    int64     `json:"queue_wait_ms"`
+	LeaseID         string    `json:"lease_id"`
+	RequestID       string    `json:"request_id"`
+	OwnerNamespace  string    `json:"owner_namespace,omitempty"`
+	OwnerWorkflowID string    `json:"owner_workflow_id,omitempty"`
+	OwnerRunID      string    `json:"owner_run_id,omitempty"`
+	GrantedAt       time.Time `json:"granted_at"`
+	QueueWaitMs     int64     `json:"queue_wait_ms"`
 }
 
 type MobileRunnerSemaphoreQueueEntry struct {
-	RequestID      string    `json:"request_id"`
-	LeaseID        string    `json:"lease_id"`
-	OwnerNamespace string    `json:"owner_namespace,omitempty"`
-	OwnerWorkflowID string   `json:"owner_workflow_id,omitempty"`
-	OwnerRunID     string    `json:"owner_run_id,omitempty"`
-	RequestedAt    time.Time `json:"requested_at"`
+	RequestID       string    `json:"request_id"`
+	LeaseID         string    `json:"lease_id"`
+	OwnerNamespace  string    `json:"owner_namespace,omitempty"`
+	OwnerWorkflowID string    `json:"owner_workflow_id,omitempty"`
+	OwnerRunID      string    `json:"owner_run_id,omitempty"`
+	RequestedAt     time.Time `json:"requested_at"`
 }
 
 type MobileRunnerSemaphoreStateView struct {
 	RunnerID      string                            `json:"runner_id"`
 	Capacity      int                               `json:"capacity"`
 	CurrentHolder *MobileRunnerSemaphoreHolder      `json:"current_holder,omitempty"`
-	Holders       []MobileRunnerSemaphoreHolder      `json:"holders"`
+	Holders       []MobileRunnerSemaphoreHolder     `json:"holders"`
 	QueueLen      int                               `json:"queue_len"`
 	QueuePreview  []MobileRunnerSemaphoreQueueEntry `json:"queue_preview"`
 	LastGrantAt   *time.Time                        `json:"last_grant_at,omitempty"`
@@ -146,29 +146,30 @@ type MobileRunnerSemaphoreEnqueueRunRequest struct {
 }
 
 type MobileRunnerSemaphoreEnqueueRunResponse struct {
-	TicketID string                        `json:"ticket_id"`
+	TicketID string                         `json:"ticket_id"`
 	Status   MobileRunnerSemaphoreRunStatus `json:"status"`
-	Position int                           `json:"position"`
-	LineLen  int                           `json:"line_len"`
+	Position int                            `json:"position"`
+	LineLen  int                            `json:"line_len"`
 }
 
 type MobileRunnerSemaphoreRunStatusView struct {
-	TicketID          string                        `json:"ticket_id"`
+	TicketID          string                         `json:"ticket_id"`
 	Status            MobileRunnerSemaphoreRunStatus `json:"status"`
-	Position          int                           `json:"position"`
-	LineLen           int                           `json:"line_len"`
-	LeaderRunnerID    string                        `json:"leader_runner_id,omitempty"`
-	RequiredRunnerIDs []string                      `json:"required_runner_ids,omitempty"`
-	WorkflowID        string                        `json:"workflow_id,omitempty"`
-	RunID             string                        `json:"run_id,omitempty"`
-	WorkflowNamespace string                        `json:"workflow_namespace,omitempty"`
-	ErrorMessage      string                        `json:"error_message,omitempty"`
+	Position          int                            `json:"position"`
+	LineLen           int                            `json:"line_len"`
+	LeaderRunnerID    string                         `json:"leader_runner_id,omitempty"`
+	RequiredRunnerIDs []string                       `json:"required_runner_ids,omitempty"`
+	WorkflowID        string                         `json:"workflow_id,omitempty"`
+	RunID             string                         `json:"run_id,omitempty"`
+	WorkflowNamespace string                         `json:"workflow_namespace,omitempty"`
+	ErrorMessage      string                         `json:"error_message,omitempty"`
 }
 
 type MobileRunnerSemaphoreRunDoneRequest struct {
-	TicketID   string `json:"ticket_id"`
-	WorkflowID string `json:"workflow_id,omitempty"`
-	RunID      string `json:"run_id,omitempty"`
+	TicketID       string `json:"ticket_id"`
+	OwnerNamespace string `json:"owner_namespace,omitempty"`
+	WorkflowID     string `json:"workflow_id,omitempty"`
+	RunID          string `json:"run_id,omitempty"`
 }
 
 type MobileRunnerSemaphoreRunCancelRequest struct {
@@ -203,7 +204,7 @@ type MobileRunnerSemaphoreRunTicketState struct {
 	WorkflowNamespace string                                 `json:"workflow_namespace,omitempty"`
 	ErrorMessage      string                                 `json:"error_message,omitempty"`
 	CancelRequested   bool                                   `json:"cancel_requested,omitempty"`
-	GrantedRunnerIDs  map[string]bool                         `json:"granted_runner_ids,omitempty"`
+	GrantedRunnerIDs  map[string]bool                        `json:"granted_runner_ids,omitempty"`
 	StartedAt         *time.Time                             `json:"started_at,omitempty"`
 	DoneAt            *time.Time                             `json:"done_at,omitempty"`
 }
