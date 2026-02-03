@@ -647,8 +647,12 @@ github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90/go.mod h1:R/bRT+9gY/
 github.com/fogleman/gg v1.3.0/go.mod h1:R/bRT+9gY/C5z7JzPU0zXsXHKM4/ayA+zqcVNZzPa1k=
 github.com/forkbombeu/avdctl v0.0.0-20251117141832-94a8ef48fc9b h1:Hcga7FlNFKa+dexMtGuSTCv36BbeytMH6G+QIZnbHQw=
 github.com/forkbombeu/avdctl v0.0.0-20251117141832-94a8ef48fc9b/go.mod h1:2PyuTviG6/ts65ybsWFKYqE9wiRWwm9minyEaClSbZI=
+github.com/forkbombeu/avdctl v0.0.0-20260203155454-da07200f16a6 h1:LgTRaAypGChhxWbRntALSC3TCPkpfzooS7dpkg5QnXI=
+github.com/forkbombeu/avdctl v0.0.0-20260203155454-da07200f16a6/go.mod h1:bCgZk+Q15y/YB39jGnZhwChGej7YYsX7Kgexg/GPMWA=
 github.com/forkbombeu/credimi-extra v0.0.0-20260202101017-47d42a28532b h1:g95iQIvhkdYoh30x1GaCArYuN+Ls69eLjgIyuCKNS/A=
 github.com/forkbombeu/credimi-extra v0.0.0-20260202101017-47d42a28532b/go.mod h1:7bpdgJc6TjxKu0I7LiUQ2SWssnjfW3HzwZ3HnfowkNE=
+github.com/forkbombeu/credimi-extra v0.0.0-20260203164222-cf9b28ab5188 h1:gHQ1GOizuS1zwp2HupQ++o+gdoRGV7M+/eORoymimws=
+github.com/forkbombeu/credimi-extra v0.0.0-20260203164222-cf9b28ab5188/go.mod h1:w8t1N6ufWIepLfZYP87MHYZ+99f/q+B3SNdD9rlygLY=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.8.0 h1:dAwr6QBTBZIkG8roQaJjGof0pp0EeF+tNV7YBP3F/8M=
@@ -1498,6 +1502,7 @@ go.opentelemetry.io/otel/sdk/metric v1.32.0/go.mod h1:PWeZlq0zt9YkYAp3gjKZ0eicRY
 go.opentelemetry.io/otel/sdk/metric v1.34.0/go.mod h1:jQ/r8Ze28zRKoNRdkjCZxfs6YvBTG1+YIqyFVFYec5w=
 go.opentelemetry.io/otel/sdk/metric v1.35.0/go.mod h1:is6XYCUMpcKi+ZsOvfluY5YstFnhW0BidkR+gL+qN+w=
 go.opentelemetry.io/otel/sdk/metric v1.36.0/go.mod h1:qTNOhFDfKRwX0yXOqJYegL5WRaW376QbB7P4Pb0qva4=
+go.opentelemetry.io/otel/sdk/metric v1.37.0 h1:90lI228XrB9jCMuSdA0673aubgRobVZFhbjxHHspCPc=
 go.opentelemetry.io/otel/sdk/metric v1.38.0 h1:aSH66iL0aZqo//xXzQLYozmWrXxyFkBJ6qT5wthqPoM=
 go.opentelemetry.io/otel/sdk/metric v1.38.0/go.mod h1:dg9PBnW9XdQ1Hd6ZnRz689CbtrUp0wMMs9iPcgT9EZA=
 go.opentelemetry.io/otel/trace v1.21.0/go.mod h1:LGbsEB0f9LGjN+OZaQQ26sohbOmiMR+BaslueVtS/qQ=
