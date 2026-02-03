@@ -831,6 +831,8 @@ func (r *mobileRunnerSemaphoreRuntime) startPipelineForTicket(
 		Payload: activities.StartQueuedPipelineActivityInput{
 			TicketID:           ticketID,
 			OwnerNamespace:     state.Request.OwnerNamespace,
+			RequiredRunnerIDs:  state.Request.RequiredRunnerIDs,
+			LeaderRunnerID:     state.Request.LeaderRunnerID,
 			PipelineIdentifier: state.Request.PipelineIdentifier,
 			YAML:               state.Request.YAML,
 			PipelineConfig:     state.Request.PipelineConfig,

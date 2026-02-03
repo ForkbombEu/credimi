@@ -31,6 +31,8 @@ type StartQueuedPipelineActivity struct {
 type StartQueuedPipelineActivityInput struct {
 	TicketID           string         `json:"ticket_id"`
 	OwnerNamespace     string         `json:"owner_namespace"`
+	RequiredRunnerIDs  []string       `json:"required_runner_ids,omitempty"`
+	LeaderRunnerID     string         `json:"leader_runner_id,omitempty"`
 	PipelineIdentifier string         `json:"pipeline_identifier"`
 	YAML               string         `json:"yaml"`
 	PipelineConfig     map[string]any `json:"pipeline_config,omitempty"`
@@ -53,6 +55,11 @@ const (
 	defaultRetryInitialInterval    = "5s"
 	defaultRetryMaxInterval        = "1m"
 	defaultRetryBackoffCoefficient = 2.0
+
+	mobileRunnerSemaphoreTicketIDConfigKey       = "mobile_runner_semaphore_ticket_id"
+	mobileRunnerSemaphoreRunnerIDsConfigKey      = "mobile_runner_semaphore_runner_ids"
+	mobileRunnerSemaphoreLeaderRunnerIDConfigKey = "mobile_runner_semaphore_leader_runner_id"
+	mobileRunnerSemaphoreOwnerNamespaceConfigKey = "mobile_runner_semaphore_owner_namespace"
 )
 
 type queuedWorkflowDefinition struct {
@@ -157,6 +164,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 	if workflowDef.Runtime.GlobalRunnerID != "" {
 		config["global_runner_id"] = workflowDef.Runtime.GlobalRunnerID
 	}
+	applySemaphoreTicketMetadata(config, payload)
 
 	memo["test"] = workflowDef.Name
 	options := prepareQueuedWorkflowOptions(workflowDef.Runtime)
@@ -274,6 +282,28 @@ func prepareQueuedWorkflowOptions(rc queuedRuntime) queuedWorkflowOptions {
 		},
 		ActivityOptions: ao,
 	}
+}
+
+func applySemaphoreTicketMetadata(
+	config map[string]any,
+	payload StartQueuedPipelineActivityInput,
+) {
+	if config == nil {
+		return
+	}
+	config[mobileRunnerSemaphoreTicketIDConfigKey] = payload.TicketID
+	config[mobileRunnerSemaphoreRunnerIDsConfigKey] = copyStringSlice(payload.RequiredRunnerIDs)
+	config[mobileRunnerSemaphoreLeaderRunnerIDConfigKey] = payload.LeaderRunnerID
+	config[mobileRunnerSemaphoreOwnerNamespaceConfigKey] = payload.OwnerNamespace
+}
+
+func copyStringSlice(values []string) []string {
+	if len(values) == 0 {
+		return []string{}
+	}
+	out := make([]string, len(values))
+	copy(out, values)
+	return out
 }
 
 func parseDurationOrDefault(value, fallback string) time.Duration {
