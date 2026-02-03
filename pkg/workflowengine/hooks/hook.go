@@ -217,6 +217,9 @@ var DefaultWorkers = []workerConfig{
 		Workflows: []workflowengine.Workflow{
 			workflows.NewMobileRunnerSemaphoreWorkflow(),
 		},
+		Activities: []workflowengine.ExecutableActivity{
+			activities.NewStartQueuedPipelineActivity(),
+		},
 	},
 }
 

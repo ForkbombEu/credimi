@@ -4,10 +4,12 @@
 package workflows
 
 import (
+	"encoding/json"
 	"sort"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
@@ -92,22 +94,26 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
+	runtime.startRunSignalHandlers()
+	runtime.startRunStarter()
+
 	return runtime.awaitContinue()
 }
 
 type mobileRunnerSemaphoreRuntime struct {
-	ctx            workflow.Context
-	runnerID       string
-	capacity       int
-	holders        map[string]MobileRunnerSemaphoreHolder
-	queue          []string
-	requests       map[string]MobileRunnerSemaphoreRequestState
-	runQueue       []string
-	runTickets     map[string]MobileRunnerSemaphoreRunTicketState
-	lastGrantAt    *time.Time
-	updateCount    int
-	shouldContinue bool
-	continueInput  workflowengine.WorkflowInput
+	ctx                 workflow.Context
+	runnerID            string
+	capacity            int
+	holders             map[string]MobileRunnerSemaphoreHolder
+	queue               []string
+	requests            map[string]MobileRunnerSemaphoreRequestState
+	runQueue            []string
+	runTickets          map[string]MobileRunnerSemaphoreRunTicketState
+	lastGrantAt         *time.Time
+	updateCount         int
+	shouldContinue      bool
+	continueInput       workflowengine.WorkflowInput
+	runStarterRequested bool
 }
 
 func newMobileRunnerSemaphoreRuntime(
@@ -257,6 +263,77 @@ func (r *mobileRunnerSemaphoreRuntime) registerCancelRunHandler() error {
 	)
 }
 
+func (r *mobileRunnerSemaphoreRuntime) startRunSignalHandlers() {
+	r.startRunGrantedSignalHandler()
+	r.startRunStartedSignalHandler()
+	r.startRunDoneSignalHandler()
+}
+
+func (r *mobileRunnerSemaphoreRuntime) startRunGrantedSignalHandler() {
+	signalChan := workflow.GetSignalChannel(r.ctx, MobileRunnerSemaphoreRunGrantedSignalName)
+	workflow.Go(r.ctx, func(ctx workflow.Context) {
+		for {
+			var signal MobileRunnerSemaphoreRunGrantedSignal
+			if ok := signalChan.Receive(ctx, &signal); !ok {
+				return
+			}
+			r.handleRunGrantedSignal(ctx, signal)
+		}
+	})
+}
+
+func (r *mobileRunnerSemaphoreRuntime) startRunStartedSignalHandler() {
+	signalChan := workflow.GetSignalChannel(r.ctx, MobileRunnerSemaphoreRunStartedSignalName)
+	workflow.Go(r.ctx, func(ctx workflow.Context) {
+		for {
+			var signal MobileRunnerSemaphoreRunStartedSignal
+			if ok := signalChan.Receive(ctx, &signal); !ok {
+				return
+			}
+			r.handleRunStartedSignal(ctx, signal)
+		}
+	})
+}
+
+func (r *mobileRunnerSemaphoreRuntime) startRunDoneSignalHandler() {
+	signalChan := workflow.GetSignalChannel(r.ctx, MobileRunnerSemaphoreRunDoneSignalName)
+	workflow.Go(r.ctx, func(ctx workflow.Context) {
+		for {
+			var signal MobileRunnerSemaphoreRunDoneSignal
+			if ok := signalChan.Receive(ctx, &signal); !ok {
+				return
+			}
+			r.handleRunDoneSignal(ctx, signal)
+		}
+	})
+}
+
+func (r *mobileRunnerSemaphoreRuntime) startRunStarter() {
+	workflow.Go(r.ctx, func(ctx workflow.Context) {
+		logger := workflow.GetLogger(ctx)
+		for {
+			if err := workflow.Await(ctx, func() bool {
+				return r.runStarterRequested || r.shouldContinue
+			}); err != nil {
+				logger.Error("run starter await failed", "error", err)
+				return
+			}
+			if r.shouldContinue {
+				return
+			}
+			r.runStarterRequested = false
+			if err := r.processRunQueue(ctx); err != nil {
+				logger.Error("run starter failed", "error", err)
+			}
+		}
+	})
+	r.requestRunStart()
+}
+
+func (r *mobileRunnerSemaphoreRuntime) requestRunStart() {
+	r.runStarterRequested = true
+}
+
 func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 	ctx workflow.Context,
 	req MobileRunnerSemaphoreEnqueueRunRequest,
@@ -322,6 +399,7 @@ func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 
 	r.updateCount++
 	r.maybeScheduleContinue()
+	r.requestRunStart()
 
 	return MobileRunnerSemaphoreEnqueueRunResponse{
 		TicketID: req.TicketID,
@@ -356,6 +434,7 @@ func (r *mobileRunnerSemaphoreRuntime) handleCancelRun(
 		delete(r.runTickets, req.TicketID)
 		r.updateCount++
 		r.maybeScheduleContinue()
+		r.requestRunStart()
 		return MobileRunnerSemaphoreRunStatusView{
 			TicketID: req.TicketID,
 			Status:   mobileRunnerSemaphoreRunNotFound,
@@ -365,6 +444,7 @@ func (r *mobileRunnerSemaphoreRuntime) handleCancelRun(
 		r.runTickets[req.TicketID] = state
 		r.updateCount++
 		r.maybeScheduleContinue()
+		r.requestRunStart()
 		return r.buildRunStatusView(req.TicketID, state), nil
 	default:
 		return r.buildRunStatusView(req.TicketID, state), nil
@@ -433,6 +513,7 @@ func (r *mobileRunnerSemaphoreRuntime) handleAcquire(
 
 	r.updateCount++
 	r.maybeScheduleContinue()
+	r.requestRunStart()
 
 	if req.WaitTimeout > 0 {
 		granted, err := workflow.AwaitWithTimeout(ctx, req.WaitTimeout, func() bool {
@@ -504,16 +585,14 @@ func (r *mobileRunnerSemaphoreRuntime) handleRelease(
 
 	r.updateCount++
 	r.maybeScheduleContinue()
+	r.requestRunStart()
 
 	return MobileRunnerSemaphoreReleaseResult{Released: true}, nil
 }
 
 func (r *mobileRunnerSemaphoreRuntime) grantAvailable(ctx workflow.Context) {
-	if r.capacity <= 0 {
-		return
-	}
 	now := workflow.Now(ctx)
-	for len(r.holders) < r.capacity && len(r.queue) > 0 {
+	for r.availableSlots() > 0 && len(r.queue) > 0 {
 		requestID := r.queue[0]
 		r.queue = r.queue[1:]
 		request, ok := r.requests[requestID]
@@ -581,6 +660,383 @@ func (r *mobileRunnerSemaphoreRuntime) awaitContinue() (workflowengine.WorkflowR
 	}
 
 	return workflowengine.WorkflowResult{}, nil
+}
+
+func (r *mobileRunnerSemaphoreRuntime) processRunQueue(ctx workflow.Context) error {
+	if err := r.startReadyRuns(ctx); err != nil {
+		return err
+	}
+
+	for r.availableSlots() > 0 {
+		ticketID, state, ok := r.nextQueuedRunTicket()
+		if !ok {
+			return nil
+		}
+		if err := r.grantRunTicket(ctx, ticketID, state); err != nil {
+			return err
+		}
+		if err := r.startReadyRuns(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *mobileRunnerSemaphoreRuntime) startReadyRuns(ctx workflow.Context) error {
+	ticketIDs := r.sortedRunTicketIDs()
+	for _, ticketID := range ticketIDs {
+		state, ok := r.runTickets[ticketID]
+		if !ok || state.Status != mobileRunnerSemaphoreRunStarting {
+			continue
+		}
+		if state.Request.LeaderRunnerID != r.runnerID {
+			continue
+		}
+		if state.WorkflowID != "" {
+			continue
+		}
+		if !r.allGrantsReceived(state) {
+			continue
+		}
+		if err := r.startPipelineForTicket(ctx, ticketID, state); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (r *mobileRunnerSemaphoreRuntime) grantRunTicket(
+	ctx workflow.Context,
+	ticketID string,
+	state MobileRunnerSemaphoreRunTicketState,
+) error {
+	if state.Status != mobileRunnerSemaphoreRunQueued {
+		return nil
+	}
+
+	r.runQueue = removeFromQueue(r.runQueue, ticketID)
+
+	now := workflow.Now(ctx)
+	state.Status = mobileRunnerSemaphoreRunStarting
+	state.StartedAt = &now
+	if state.GrantedRunnerIDs == nil {
+		state.GrantedRunnerIDs = map[string]bool{}
+	}
+	state.GrantedRunnerIDs[r.runnerID] = true
+	r.runTickets[ticketID] = state
+	r.updateCount++
+	r.maybeScheduleContinue()
+
+	if state.Request.LeaderRunnerID != r.runnerID {
+		if err := r.signalRunGranted(ctx, state.Request.LeaderRunnerID, ticketID); err != nil {
+			r.markRunTicketFailed(ticketID, state, err)
+		}
+		return nil
+	}
+
+	if r.allGrantsReceived(state) {
+		return r.startPipelineForTicket(ctx, ticketID, state)
+	}
+
+	return nil
+}
+
+func (r *mobileRunnerSemaphoreRuntime) startPipelineForTicket(
+	ctx workflow.Context,
+	ticketID string,
+	state MobileRunnerSemaphoreRunTicketState,
+) error {
+	startActivity := activities.NewStartQueuedPipelineActivity()
+	activityOptions := DefaultActivityOptions
+	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
+	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
+	var result workflowengine.ActivityResult
+	input := workflowengine.ActivityInput{
+		Payload: activities.StartQueuedPipelineActivityInput{
+			TicketID:           ticketID,
+			OwnerNamespace:     state.Request.OwnerNamespace,
+			PipelineIdentifier: state.Request.PipelineIdentifier,
+			YAML:               state.Request.YAML,
+			PipelineConfig:     state.Request.PipelineConfig,
+			Memo:               state.Request.Memo,
+		},
+	}
+
+	if err := workflow.ExecuteActivity(activityCtx, startActivity.Name(), input).
+		Get(activityCtx, &result); err != nil {
+		r.markRunTicketFailed(ticketID, state, err)
+		r.signalRunDone(ctx, ticketID, state.Request.RequiredRunnerIDs, "", "")
+		return err
+	}
+
+	output, err := decodeStartQueuedPipelineOutput(result.Output)
+	if err != nil {
+		r.markRunTicketFailed(ticketID, state, err)
+		r.signalRunDone(ctx, ticketID, state.Request.RequiredRunnerIDs, "", "")
+		return err
+	}
+
+	state.Status = mobileRunnerSemaphoreRunRunning
+	state.WorkflowID = output.WorkflowID
+	state.RunID = output.RunID
+	state.WorkflowNamespace = output.WorkflowNamespace
+	startedAt := workflow.Now(ctx)
+	state.StartedAt = &startedAt
+	r.runTickets[ticketID] = state
+	r.updateCount++
+	r.maybeScheduleContinue()
+
+	r.signalRunStarted(ctx, ticketID, state.Request.RequiredRunnerIDs, output)
+
+	return nil
+}
+
+func (r *mobileRunnerSemaphoreRuntime) markRunTicketFailed(
+	ticketID string,
+	state MobileRunnerSemaphoreRunTicketState,
+	err error,
+) {
+	state.Status = mobileRunnerSemaphoreRunFailed
+	if err != nil {
+		state.ErrorMessage = err.Error()
+	}
+	r.runTickets[ticketID] = state
+	r.updateCount++
+	r.maybeScheduleContinue()
+	r.requestRunStart()
+}
+
+func (r *mobileRunnerSemaphoreRuntime) signalRunGranted(
+	ctx workflow.Context,
+	leaderRunnerID string,
+	ticketID string,
+) error {
+	future := workflow.SignalExternalWorkflow(
+		ctx,
+		MobileRunnerSemaphoreWorkflowID(leaderRunnerID),
+		"",
+		MobileRunnerSemaphoreRunGrantedSignalName,
+		MobileRunnerSemaphoreRunGrantedSignal{
+			TicketID: ticketID,
+			RunnerID: r.runnerID,
+		},
+	)
+	return future.Get(ctx, nil)
+}
+
+func (r *mobileRunnerSemaphoreRuntime) signalRunStarted(
+	ctx workflow.Context,
+	ticketID string,
+	requiredRunnerIDs []string,
+	output activities.StartQueuedPipelineActivityOutput,
+) {
+	for _, runnerID := range requiredRunnerIDs {
+		if runnerID == r.runnerID {
+			continue
+		}
+		future := workflow.SignalExternalWorkflow(
+			ctx,
+			MobileRunnerSemaphoreWorkflowID(runnerID),
+			"",
+			MobileRunnerSemaphoreRunStartedSignalName,
+			MobileRunnerSemaphoreRunStartedSignal{
+				TicketID:          ticketID,
+				WorkflowID:        output.WorkflowID,
+				RunID:             output.RunID,
+				WorkflowNamespace: output.WorkflowNamespace,
+			},
+		)
+		_ = future.Get(ctx, nil)
+	}
+}
+
+func (r *mobileRunnerSemaphoreRuntime) signalRunDone(
+	ctx workflow.Context,
+	ticketID string,
+	requiredRunnerIDs []string,
+	workflowID string,
+	runID string,
+) {
+	for _, runnerID := range requiredRunnerIDs {
+		if runnerID == r.runnerID {
+			continue
+		}
+		future := workflow.SignalExternalWorkflow(
+			ctx,
+			MobileRunnerSemaphoreWorkflowID(runnerID),
+			"",
+			MobileRunnerSemaphoreRunDoneSignalName,
+			MobileRunnerSemaphoreRunDoneSignal{
+				TicketID:   ticketID,
+				WorkflowID: workflowID,
+				RunID:      runID,
+			},
+		)
+		_ = future.Get(ctx, nil)
+	}
+}
+
+func (r *mobileRunnerSemaphoreRuntime) handleRunGrantedSignal(
+	ctx workflow.Context,
+	signal MobileRunnerSemaphoreRunGrantedSignal,
+) {
+	if signal.TicketID == "" || signal.RunnerID == "" {
+		return
+	}
+	state, ok := r.runTickets[signal.TicketID]
+	if !ok {
+		return
+	}
+	if state.GrantedRunnerIDs == nil {
+		state.GrantedRunnerIDs = map[string]bool{}
+	}
+	state.GrantedRunnerIDs[signal.RunnerID] = true
+	r.runTickets[signal.TicketID] = state
+	r.updateCount++
+	r.maybeScheduleContinue()
+	r.requestRunStart()
+}
+
+func (r *mobileRunnerSemaphoreRuntime) handleRunStartedSignal(
+	ctx workflow.Context,
+	signal MobileRunnerSemaphoreRunStartedSignal,
+) {
+	if signal.TicketID == "" {
+		return
+	}
+	state, ok := r.runTickets[signal.TicketID]
+	if !ok {
+		return
+	}
+	state.Status = mobileRunnerSemaphoreRunRunning
+	state.WorkflowID = signal.WorkflowID
+	state.RunID = signal.RunID
+	state.WorkflowNamespace = signal.WorkflowNamespace
+	startedAt := workflow.Now(ctx)
+	state.StartedAt = &startedAt
+	r.runTickets[signal.TicketID] = state
+	r.updateCount++
+	r.maybeScheduleContinue()
+}
+
+func (r *mobileRunnerSemaphoreRuntime) handleRunDoneSignal(
+	ctx workflow.Context,
+	signal MobileRunnerSemaphoreRunDoneSignal,
+) {
+	if signal.TicketID == "" {
+		return
+	}
+	if _, ok := r.runTickets[signal.TicketID]; !ok {
+		return
+	}
+	r.runQueue = removeFromQueue(r.runQueue, signal.TicketID)
+	delete(r.runTickets, signal.TicketID)
+	r.updateCount++
+	r.maybeScheduleContinue()
+	r.requestRunStart()
+}
+
+func (r *mobileRunnerSemaphoreRuntime) nextQueuedRunTicket() (string, MobileRunnerSemaphoreRunTicketState, bool) {
+	for len(r.runQueue) > 0 {
+		ticketID := r.runQueue[0]
+		state, ok := r.runTickets[ticketID]
+		if !ok || state.Status != mobileRunnerSemaphoreRunQueued {
+			r.runQueue = r.runQueue[1:]
+			r.updateCount++
+			r.maybeScheduleContinue()
+			continue
+		}
+		return ticketID, state, true
+	}
+	return "", MobileRunnerSemaphoreRunTicketState{}, false
+}
+
+func (r *mobileRunnerSemaphoreRuntime) allGrantsReceived(
+	state MobileRunnerSemaphoreRunTicketState,
+) bool {
+	if len(state.Request.RequiredRunnerIDs) == 0 {
+		return true
+	}
+	for _, runnerID := range state.Request.RequiredRunnerIDs {
+		if !state.GrantedRunnerIDs[runnerID] {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *mobileRunnerSemaphoreRuntime) sortedRunTicketIDs() []string {
+	if len(r.runTickets) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(r.runTickets))
+	for ticketID := range r.runTickets {
+		ids = append(ids, ticketID)
+	}
+	sort.SliceStable(ids, func(i, j int) bool {
+		left := r.runTickets[ids[i]]
+		right := r.runTickets[ids[j]]
+		return runTicketLess(left.Request, right.Request)
+	})
+	return ids
+}
+
+func (r *mobileRunnerSemaphoreRuntime) runSlotsUsed() int {
+	used := 0
+	for _, state := range r.runTickets {
+		switch state.Status {
+		case mobileRunnerSemaphoreRunStarting, mobileRunnerSemaphoreRunRunning:
+			used++
+		}
+	}
+	return used
+}
+
+func (r *mobileRunnerSemaphoreRuntime) availableSlots() int {
+	if r.capacity <= 0 {
+		return 0
+	}
+	used := len(r.holders) + r.runSlotsUsed()
+	if used >= r.capacity {
+		return 0
+	}
+	return r.capacity - used
+}
+
+func decodeStartQueuedPipelineOutput(
+	output any,
+) (activities.StartQueuedPipelineActivityOutput, error) {
+	switch value := output.(type) {
+	case activities.StartQueuedPipelineActivityOutput:
+		return value, nil
+	case map[string]any:
+		return decodeStartQueuedPipelineOutputMap(value)
+	default:
+		return activities.StartQueuedPipelineActivityOutput{}, temporal.NewApplicationError(
+			"unexpected activity output",
+			MobileRunnerSemaphoreErrInvalidRequest,
+		)
+	}
+}
+
+func decodeStartQueuedPipelineOutputMap(
+	value map[string]any,
+) (activities.StartQueuedPipelineActivityOutput, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return activities.StartQueuedPipelineActivityOutput{}, temporal.NewApplicationError(
+			"failed to encode activity output",
+			MobileRunnerSemaphoreErrInvalidRequest,
+		)
+	}
+	var output activities.StartQueuedPipelineActivityOutput
+	if err := json.Unmarshal(raw, &output); err != nil {
+		return activities.StartQueuedPipelineActivityOutput{}, temporal.NewApplicationError(
+			"failed to decode activity output",
+			MobileRunnerSemaphoreErrInvalidRequest,
+		)
+	}
+	return output, nil
 }
 
 func buildPermit(runnerID string, state MobileRunnerSemaphoreRequestState) MobileRunnerSemaphorePermit {
