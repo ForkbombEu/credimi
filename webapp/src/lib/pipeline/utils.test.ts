@@ -8,6 +8,25 @@ import type { PipelinesResponse } from '@/pocketbase/types';
 
 import { runPipeline } from './utils';
 
+const pipelineFixture = (id: string, runnerId = 'runner-1'): PipelinesResponse => ({
+	id,
+	yaml: `
+name: test
+steps:
+  - id: step-1
+    use: mobile-automation
+    with:
+      runner_id: ${runnerId}
+      action_id: action-1
+`,
+	__canonified_path__: 'pipelines/test'
+});
+
+const flushPromises = async () => {
+	await Promise.resolve();
+	await Promise.resolve();
+};
+
 vi.mock('@/i18n', () => ({
 	goto: vi.fn(),
 	m: {
@@ -84,23 +103,8 @@ describe('runPipeline', () => {
 				run_id: 'run-1'
 			});
 
-		const pipeline = {
-			id: 'pipeline-1',
-			yaml: `
-name: test
-steps:
-  - id: step-1
-    use: mobile-automation
-    with:
-      runner_id: runner-1
-      action_id: action-1
-`,
-			__canonified_path__: 'pipelines/test'
-		} as PipelinesResponse;
-
-		await runPipeline(pipeline);
-		await Promise.resolve();
-		await Promise.resolve();
+		await runPipeline(pipelineFixture('pipeline-1'));
+		await flushPromises();
 
 		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(2);
 		expect(vi.mocked(toast.success)).toHaveBeenCalledTimes(1);
@@ -142,23 +146,8 @@ steps:
 				line_len: 1
 			});
 
-		const pipeline = {
-			id: 'pipeline-1',
-			yaml: `
-name: test
-steps:
-  - id: step-1
-    use: mobile-automation
-    with:
-      runner_id: runner-1
-      action_id: action-1
-`,
-			__canonified_path__: 'pipelines/test'
-		} as PipelinesResponse;
-
-		await runPipeline(pipeline);
-		await Promise.resolve();
-		await Promise.resolve();
+		await runPipeline(pipelineFixture('pipeline-1'));
+		await flushPromises();
 
 		const [, options] = vi.mocked(toast.info).mock.calls[0] ?? [];
 		await options?.action?.onClick?.();
@@ -200,23 +189,8 @@ steps:
 				run_id: 'run-2'
 			});
 
-		const pipeline = {
-			id: 'pipeline-2',
-			yaml: `
-name: test
-steps:
-  - id: step-1
-    use: mobile-automation
-    with:
-      runner_id: runner-1
-      action_id: action-1
-`,
-			__canonified_path__: 'pipelines/test'
-		} as PipelinesResponse;
-
-		await runPipeline(pipeline);
-		await Promise.resolve();
-		await Promise.resolve();
+		await runPipeline(pipelineFixture('pipeline-2'));
+		await flushPromises();
 
 		const [, options] = vi.mocked(toast.info).mock.calls[0] ?? [];
 		await options?.action?.onClick?.();
@@ -263,23 +237,8 @@ steps:
 				line_len: 1
 			});
 
-		const pipeline = {
-			id: 'pipeline-3',
-			yaml: `
-name: test
-steps:
-  - id: step-1
-    use: mobile-automation
-    with:
-      runner_id: runner-1
-      action_id: action-1
-`,
-			__canonified_path__: 'pipelines/test'
-		} as PipelinesResponse;
-
-		await runPipeline(pipeline);
-		await Promise.resolve();
-		await Promise.resolve();
+		await runPipeline(pipelineFixture('pipeline-3'));
+		await flushPromises();
 
 		const [, options] = vi.mocked(toast.info).mock.calls[0] ?? [];
 		await options?.action?.onClick?.();

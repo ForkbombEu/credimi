@@ -191,6 +191,12 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 		if (queueToastId) toast.dismiss(queueToastId);
 	};
 
+	const finishQueue = (action: () => void) => {
+		stopPolling();
+		dismissQueueToast();
+		action();
+	};
+
 	const cancelQueuedRun = async () => {
 		if (cancelInFlight) return;
 		cancelInFlight = true;
@@ -205,9 +211,7 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 				return;
 			}
 			if (cancelStatus.status === 'not_found' || cancelStatus.status === 'canceled') {
-				stopPolling();
-				dismissQueueToast();
-				toast.message('Queue canceled');
+				finishQueue(() => toast.message('Queue canceled'));
 				return;
 			}
 			cancelInFlight = false;
@@ -230,27 +234,19 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 
 	const handleQueueStatus = (status: PipelineQueueStatusResponse) => {
 		if (status.status === 'running') {
-			stopPolling();
-			dismissQueueToast();
-			showWorkflowStartedToast(status.workflow_id, status.run_id);
+			finishQueue(() => showWorkflowStartedToast(status.workflow_id, status.run_id));
 			return;
 		}
 		if (status.status === 'failed') {
-			stopPolling();
-			dismissQueueToast();
-			toast.error(status.error_message ?? 'Pipeline failed to start');
+			finishQueue(() => toast.error(status.error_message ?? 'Pipeline failed to start'));
 			return;
 		}
 		if (status.status === 'canceled') {
-			stopPolling();
-			dismissQueueToast();
-			toast.message('Queue canceled');
+			finishQueue(() => toast.message('Queue canceled'));
 			return;
 		}
 		if (status.status === 'not_found') {
-			stopPolling();
-			dismissQueueToast();
-			toast.error('Queue ticket not found');
+			finishQueue(() => toast.error('Queue ticket not found'));
 		}
 	};
 
