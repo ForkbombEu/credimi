@@ -113,4 +113,63 @@ steps:
 		vi.advanceTimersByTime(3000);
 		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(2);
 	});
+
+	it('keeps polling when cancel fails', async () => {
+		const { pb } = await import('@/pocketbase');
+		const { toast } = await import('svelte-sonner');
+
+		vi.mocked(pb.send)
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-1',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			})
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-1',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			})
+			.mockRejectedValueOnce(new Error('cancel failed'))
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-1',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			});
+
+		const pipeline = {
+			id: 'pipeline-1',
+			yaml: `
+name: test
+steps:
+  - id: step-1
+    use: mobile-automation
+    with:
+      runner_id: runner-1
+      action_id: action-1
+`,
+			__canonified_path__: 'pipelines/test'
+		} as PipelinesResponse;
+
+		await runPipeline(pipeline);
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const [, options] = vi.mocked(toast.info).mock.calls[0] ?? [];
+		await options?.action?.onClick?.();
+
+		expect(vi.mocked(toast.dismiss)).not.toHaveBeenCalled();
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(3);
+
+		vi.advanceTimersByTime(1000);
+		await Promise.resolve();
+		await Promise.resolve();
+
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(4);
+	});
 });

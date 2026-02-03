@@ -180,6 +180,7 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 
 	const ticketId = enqueueResult.ticket_id;
 	let polling = true;
+	let cancelInFlight = false;
 	let queueToastId: string | number | undefined;
 
 	const stopPolling = () => {
@@ -191,12 +192,15 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 	};
 
 	const cancelQueuedRun = async () => {
-		stopPolling();
-		dismissQueueToast();
+		if (cancelInFlight) return;
+		cancelInFlight = true;
 		try {
 			await pb.send(queueStatusUrl(ticketId, runnerIds), { method: 'DELETE' });
+			stopPolling();
+			dismissQueueToast();
 			toast.message('Queue canceled');
 		} catch (error) {
+			cancelInFlight = false;
 			toast.error('Failed to cancel queue');
 		}
 	};
