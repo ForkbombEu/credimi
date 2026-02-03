@@ -6,21 +6,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { CalendarIcon } from '@lucide/svelte';
-	import { getPath } from '$lib/utils';
-	import { getPipelineRunnerType } from '$lib/pipeline/utils';
 	import RunnerSelectInput from '$lib/pipeline/runner-select-input.svelte';
+	import { getPipelineRunnerType } from '$lib/pipeline/utils';
+	import { getPath } from '$lib/utils';
 	import { toast } from 'svelte-sonner';
 	import { zod } from 'sveltekit-superforms/adapters';
 	import { z } from 'zod/v3';
 
-	import type { PipelinesResponse, MobileRunnersResponse } from '@/pocketbase/types';
+	import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
 
 	import Dialog from '@/components/ui-custom/dialog.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { Label } from '@/components/ui/label';
 	import { createForm } from '@/forms';
 	import { Field, SelectField, SelectFieldAny } from '@/forms/fields';
-	import FieldWrapper from '@/forms/fields/parts/fieldWrapper.svelte';
 	import Form from '@/forms/form.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
@@ -42,17 +41,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const type = getPipelineRunnerType(pipeline);
 	const isGlobalRunner = type === 'global';
 
-	const baseSchema = z.object({
-		pipeline_id: z.string(),
-		schedule_mode: scheduleModeSchema
-	});
-
-	const schemaWithRunner = baseSchema.extend({
-		global_runner_id: z.string()
-	});
+	const baseSchema = z
+		.object({
+			pipeline_id: z.string(),
+			schedule_mode: scheduleModeSchema,
+			global_runner_id: z.string().optional()
+		})
+		.superRefine((data, ctx) => {
+			if (isGlobalRunner && !data.global_runner_id) {
+				ctx.addIssue({
+					code: z.ZodIssueCode.custom,
+					message: 'Runner is required'
+				});
+			}
+		});
 
 	const form = createForm({
-		adapter: zod(isGlobalRunner ? schemaWithRunner : baseSchema),
+		adapter: zod(baseSchema),
 		initialData: {
 			pipeline_id: getPath(pipeline)
 		},
@@ -122,12 +127,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			{#if isGlobalRunner}
-				<FieldWrapper field="global_runner_id" options={{ label: m.Runner() }}>
-					{#snippet children({ props })}
-						<input type="hidden" {...props} value={$formData.global_runner_id ?? ''} />
-						<RunnerSelectInput onSelect={onRunnerSelect} />
-					{/snippet}
-				</FieldWrapper>
+				<RunnerSelectInput
+					onSelect={onRunnerSelect}
+					selectedRunner={$formData.global_runner_id}
+					required
+				/>
 			{/if}
 
 			{#snippet submitButtonContent()}

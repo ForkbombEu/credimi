@@ -10,11 +10,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import ItemCard from '$lib/pipeline-form/steps/_partials/item-card.svelte';
 	import SearchInput from '$lib/pipeline-form/steps/_partials/search-input.svelte';
 	import { Search } from '$lib/pipeline-form/steps/_partials/search.svelte.js';
-	import WithLabel from '$lib/pipeline-form/steps/_partials/with-label.svelte';
+	import { getPath } from '$lib/utils';
 
 	import type { MobileRunnersResponse } from '@/pocketbase/types';
 
 	import { Badge } from '@/components/ui/badge';
+	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
@@ -22,9 +23,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		onSelect?: (runner: MobileRunnersResponse) => void;
+		selectedRunner?: string;
+		name?: string;
+		required?: boolean;
 	};
 
-	let { onSelect }: Props = $props();
+	let { onSelect, selectedRunner, name, required = false }: Props = $props();
 
 	//
 
@@ -57,22 +61,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	}
 </script>
 
-<WithLabel label={m.Runner()}>
-	<SearchInput search={runnerSearch} />
-</WithLabel>
+<div class="space-y-3">
+	<div class="space-y-2">
+		<Label for={name}>
+			{m.Runner()}
+			{#if required}
+				<span class="font-bold text-destructive">*</span>
+			{/if}
+		</Label>
+		<SearchInput search={runnerSearch} {name} />
+	</div>
 
-<div class="space-y-1">
-	{#each foundRunners as item (item.id)}
-		<ItemCard title={item.name} onClick={() => onSelect?.(item)}>
-			{#snippet right()}
-				{#if !item.published}
-					<Badge variant="secondary">
-						{m.private()}
-					</Badge>
-				{/if}
-			{/snippet}
-		</ItemCard>
-	{:else}
-		<EmptyState text={m.No_runners_found()} />
-	{/each}
+	<div class="space-y-1">
+		{#each foundRunners as item (item.id)}
+			{@const isSelected = selectedRunner === getPath(item)}
+			<ItemCard
+				title={item.name}
+				onClick={(e) => {
+					e.preventDefault();
+					onSelect?.(item);
+				}}
+				class={isSelected ? 'border-blue-500 bg-blue-50!' : ''}
+			>
+				{#snippet right()}
+					{#if !item.published}
+						<Badge variant="secondary">
+							{m.private()}
+						</Badge>
+					{/if}
+				{/snippet}
+			</ItemCard>
+		{:else}
+			<EmptyState text={m.No_runners_found()} />
+		{/each}
+	</div>
 </div>
