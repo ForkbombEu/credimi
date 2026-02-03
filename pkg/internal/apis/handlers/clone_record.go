@@ -91,7 +91,7 @@ func canDuplicateIfRequestIsFromOwnerOrRecordIsPublic(
 	if auth == nil {
 		return false, apis.NewUnauthorizedError("Authentication required", nil)
 	}
-	if originalRecord.GetBool("published") == true {
+	if originalRecord.GetBool("published") {
 		return true, nil
 	} else {
 		return canDuplicateIfRequestIsFromOwner(e, originalRecord)
@@ -109,8 +109,11 @@ func canDuplicateIfRequestIsFromOwner(
 	if orgID == "" {
 		return false, apis.NewForbiddenError("Record has no owner", nil)
 	}
-	authRecord, err := e.App.FindFirstRecordByFilter("orgAuthorizations", "user={:user} && organization={:org}",
-		dbx.Params{"user": auth.Id, "org": orgID})
+	authRecord, err := e.App.FindFirstRecordByFilter(
+		"orgAuthorizations",
+		"user={:user} && organization={:org}",
+		dbx.Params{"user": auth.Id, "org": orgID},
+	)
 	if err != nil || authRecord == nil {
 		return false, apis.NewForbiddenError("Not authorized for this organization", nil)
 	}
@@ -141,7 +144,11 @@ func UpdateOwnerField(e *core.RequestEvent, newRecord *core.Record) error {
 	return nil
 }
 
-func cloneRecord(e *core.RequestEvent, originalRecord *core.Record, config CloneConfig) (*core.Record, error) {
+func cloneRecord(
+	e *core.RequestEvent,
+	originalRecord *core.Record,
+	config CloneConfig,
+) (*core.Record, error) {
 	newRecord := core.NewRecord(originalRecord.Collection())
 	collection := originalRecord.Collection()
 
@@ -268,7 +275,11 @@ func HandleCloneRecord() func(*core.RequestEvent) error {
 	}
 }
 
-func cloneFiles(app core.App, originalRecord, newRecord *core.Record, fileFieldValues map[string]interface{}) error {
+func cloneFiles(
+	app core.App,
+	originalRecord, newRecord *core.Record,
+	fileFieldValues map[string]interface{},
+) error {
 	if len(fileFieldValues) == 0 {
 		return nil
 	}

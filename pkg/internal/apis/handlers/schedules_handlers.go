@@ -350,7 +350,6 @@ func HandleCancelSchedule() func(*core.RequestEvent) error {
 			return deleteScheduleRecord(e.App, scheduleID, orgID)
 		},
 	)
-
 }
 func HandlePauseSchedule() func(*core.RequestEvent) error {
 	return handleSchedule(
