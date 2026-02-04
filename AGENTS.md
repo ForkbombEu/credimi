@@ -35,6 +35,18 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 - On server start, workers start for `default` and all org namespaces (`pkg/workflowengine/hooks/hook.go`).
 - Mobile-runner semaphore workflows run in the Temporal `default` namespace (`pkg/workflowengine/mobile_runner_semaphore_constants.go`).
 
+## Pipelines (Dynamic Pipeline Workflow)
+
+### Pipeline input contract
+
+- Schema: `schemas/pipeline/pipeline_schema.json`.
+- Core types: `pkg/workflowengine/pipeline/types.go`.
+- `step.with` shape (YAML + JSON parity in `pkg/workflowengine/pipeline/parser.go`):
+  - `config` is reserved for per-step config.
+  - `payload` is reserved for step payload.
+  - Any other keys under `with` are merged into `payload`.
+- Mobile runner selection invariants: each `mobile-automation` step must specify `with.payload.runner_id`, or the pipeline must set `runtime.global_runner_id` (`pkg/workflowengine/pipeline/mobile_automation_hooks.go`).
+
 ## Build / Test
 
 - `make dev` runs hivemind Procfile.dev (API + UI) after ensuring tools.
