@@ -19,7 +19,7 @@ ENV GOCACHE=/go-cache
 ENV GOMODCACHE=/gomod-cache
 RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache go generate pkg/gen.go
 RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache go build -o credimi main.go
-RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache go install github.com/dyne/pinkmask@latest
+RUN --mount=type=cache,target=/gomod-cache --mount=type=cache,target=/go-cache go install github.com/dyne/pinkmask/cmd/pinkmask@latest
 
 FROM debian:12-slim
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
