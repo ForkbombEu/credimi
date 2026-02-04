@@ -31,16 +31,28 @@ func (s *StepInputs) UnmarshalYAML(value *yaml.Node) error {
 	s.Config = make(map[string]any)
 	payload := make(map[string]any)
 
-	for key, val := range tmp {
-		if key == "config" {
-			cfgMap, ok := val.(map[string]any)
+	if val, ok := tmp["config"]; ok {
+		cfgMap, ok := val.(map[string]any)
+		if !ok {
+			return fmt.Errorf("invalid config section: expected map, got %T", val)
+		}
+		s.Config = cfgMap
+	}
+
+	if val, ok := tmp["payload"]; ok {
+		if val != nil {
+			payloadMap, ok := val.(map[string]any)
 			if !ok {
-				return fmt.Errorf("invalid config section: expected map, got %T", val)
+				return fmt.Errorf("invalid payload section: expected map, got %T", val)
 			}
-			s.Config = cfgMap
+			payload = payloadMap
+		}
+	}
+
+	for key, val := range tmp {
+		if key == "config" || key == "payload" {
 			continue
 		}
-
 		payload[key] = val
 	}
 
