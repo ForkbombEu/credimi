@@ -100,6 +100,13 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
   - Workflow `mobile-automation` (denylisted from the pipeline worker; see `pkg/workflowengine/registry/registry.go`).
   - Activities in `pkg/workflowengine/activities/mobileflow.go` (these call `github.com/forkbombeu/credimi-extra/mobile`; `avdctl` is used inside `credimi-extra`).
 
+## Routes + DTOs
+
+- Route groups: `pkg/internal/apis/RoutesRegistry.go` wires handler groups.
+- Route abstraction: `pkg/internal/routing/routing.go` (`RouteGroup`, `RouteDefinition`, validation binding).
+- Validation middleware: `pkg/internal/middlewares/validation.go` stores typed input in context; handlers use `routing.GetValidatedInput[T](e)`.
+- Error middleware: `pkg/internal/middlewares/errors.go`.
+
 ## Build / Test
 
 - `make dev` runs hivemind Procfile.dev (API + UI) after ensuring tools.
