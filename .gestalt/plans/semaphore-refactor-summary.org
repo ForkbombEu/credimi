@@ -178,7 +178,7 @@
   - Unit coverage:
     - PB migration validation (if the repo has PB migration tests; otherwise covered indirectly by handler tests reading the field).
 - Done when :: Enqueues use the latest PB value and the semantics (`<=0` unlimited) are documented and validated.
-** TODO [#A] Enforce the per-runner limit inside the existing runner semaphore workflow
+** DONE [#A] Enforce the per-runner limit inside the existing runner semaphore workflow
 - Why :: The cap applies independently per runner; the per-runner semaphore workflow is the single-writer for that runner’s queue and is the correct place to make the admission decision atomic under concurrency.
 - Change ::
   - Extend `workflows.MobileRunnerSemaphoreEnqueueRunRequest` to carry the requested limit value (e.g., `MaxPipelinesInQueue int`).
