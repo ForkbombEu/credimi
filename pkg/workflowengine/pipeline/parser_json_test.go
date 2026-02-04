@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestStepDefinition_UnmarshalJSON_DropsFlatWith(t *testing.T) {
+func TestStepDefinition_UnmarshalJSON_FlatWith(t *testing.T) {
 	input := `{
 		"id": "step1",
 		"use": "mobile_automation",
@@ -25,7 +25,6 @@ func TestStepDefinition_UnmarshalJSON_DropsFlatWith(t *testing.T) {
 	err := json.Unmarshal([]byte(input), &step)
 	require.NoError(t, err)
 
-	require.Empty(t, step.With.Payload)
-	_, ok := step.With.Payload["action_id"]
-	require.False(t, ok)
+	require.NotEmpty(t, step.With.Payload)
+	require.Equal(t, "onboarding-0001", step.With.Payload["action_id"])
 }
