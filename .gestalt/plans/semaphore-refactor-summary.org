@@ -231,7 +231,7 @@
   - If implemented: add integration coverage for “queue full” responses and for leak-free cancellation when the pre-gate workflow is terminated before starting the pipeline.
 - Done when :: The team either identifies a Temporal-native mechanism that enforces queue length semantics (not throughput), or explicitly documents why worker/rate limits are insufficient and keeps the per-runner semaphore enforcement.
 
-* WIP [#B] Copilot review follow-ups (distilled)
+* DONE [#B] Copilot review follow-ups (distilled)
 - Effort :: S
 - Goal :: Address the high-signal items from the Copilot automated review; explicitly document which are real risks vs false positives.
 - Notes ::
@@ -274,7 +274,7 @@
 - Tests ::
   - Ensure existing unit tests cover rollback; add a regression case for an “unknown outcome” style error if the enqueue path is mockable in tests.
 - Done when :: The rollback safety property is explicit and reviewers don’t misread the logic as a bug.
-** WIP [#C] Confirm `createPipelineExecutionResultWithRetry` loop is bounds-safe (false positive)
+** DONE [#C] Confirm `createPipelineExecutionResultWithRetry` loop is bounds-safe (false positive)
 - Why :: Copilot flagged an “off-by-one” in `pkg/workflowengine/activities/queued_pipeline.go`; current code guards the index access, so it is safe but non-obvious.
 - Change ::
   - Optionally refactor for readability (e.g. `maxAttempts := len(backoffs)+1; for attempt := 0; attempt < maxAttempts; attempt++ { ... }` and only sleep when `attempt < len(backoffs)`).
