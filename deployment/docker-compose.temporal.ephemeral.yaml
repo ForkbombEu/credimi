@@ -3,7 +3,10 @@ services:
     image: temporalio/temporal:latest
     container_name: temporal
     volumes:
-      - temporal-data:/data
+      - type: bind
+        source: temporal-data
+        target: /data
+        is_directory: true
     command: server start-dev --ip 0.0.0.0 --db-filename /data/temporal.db --port 7777
 
 volumes:
