@@ -508,6 +508,15 @@ func decodeAndValidatePayload(
 	step *StepDefinition,
 ) (*workflows.MobileAutomationWorkflowPipelinePayload, error) {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+	if len(step.With.Payload) == 0 {
+		return nil, workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf(
+				"missing payload for step %s: expected with.action_id or with.payload.action_id",
+				step.ID,
+			),
+		)
+	}
 	payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPipelinePayload](
 		step.With.Payload,
 	)
