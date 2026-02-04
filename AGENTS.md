@@ -47,6 +47,12 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
   - Any other keys under `with` are merged into `payload`.
 - Mobile runner selection invariants: each `mobile-automation` step must specify `with.payload.runner_id`, or the pipeline must set `runtime.global_runner_id` (`pkg/workflowengine/pipeline/mobile_automation_hooks.go`).
 
+### Run pipeline (no mobile automation)
+
+- UI calls `POST /api/pipeline/start` with `{ pipeline_identifier, yaml }`.
+- Handler: `pkg/internal/apis/handlers/pipeline_handler.go` resolves canonified pipeline path and starts the Dynamic Pipeline Workflow on `PipelineTaskQueue` in the org namespace.
+- The handler creates a `pipeline_results` record with `(owner, pipeline, workflow_id, run_id)` for tracking.
+
 ## Build / Test
 
 - `make dev` runs hivemind Procfile.dev (API + UI) after ensuring tools.
