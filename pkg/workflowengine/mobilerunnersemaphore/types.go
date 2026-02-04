@@ -139,6 +139,7 @@ type MobileRunnerSemaphoreEnqueueRunRequest struct {
 	RunnerID           string         `json:"runner_id"`
 	RequiredRunnerIDs  []string       `json:"required_runner_ids"`
 	LeaderRunnerID     string         `json:"leader_runner_id"`
+	MaxPipelinesInQueue int           `json:"max_pipelines_in_queue,omitempty"`
 	PipelineIdentifier string         `json:"pipeline_identifier,omitempty"`
 	YAML               string         `json:"yaml,omitempty"`
 	PipelineConfig     map[string]any `json:"pipeline_config,omitempty"`

@@ -18,7 +18,8 @@ import (
 )
 
 type queueStub struct {
-	cancelled bool
+	cancelled       bool
+	enqueueRequests []workflows.MobileRunnerSemaphoreEnqueueRunRequest
 }
 
 func setupPipelineQueueApp(t testing.TB) *tests.TestApp {
@@ -48,6 +49,21 @@ func setupPipelineQueueAppWithPipeline(t testing.TB, orgID string, yaml string) 
 	return app
 }
 
+func ensureOrganizationsQueueLimitField(t testing.TB, app *tests.TestApp) {
+	collection, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+
+	if collection.Fields.GetByName("max_pipelines_in_queue") != nil {
+		return
+	}
+
+	collection.Fields.Add(&core.NumberField{
+		Name:    "max_pipelines_in_queue",
+		OnlyInt: true,
+	})
+	require.NoError(t, app.Save(collection))
+}
+
 func installQueueStubs(t *testing.T, stub *queueStub) {
 	origEnsure := ensureRunQueueSemaphoreWorkflow
 	origEnqueue := enqueueRunTicket
@@ -69,6 +85,7 @@ func installQueueStubs(t *testing.T, stub *queueStub) {
 		runnerID string,
 		req workflows.MobileRunnerSemaphoreEnqueueRunRequest,
 	) (workflows.MobileRunnerSemaphoreEnqueueRunResponse, error) {
+		stub.enqueueRequests = append(stub.enqueueRequests, req)
 		return workflows.MobileRunnerSemaphoreEnqueueRunResponse{
 			TicketID: req.TicketID,
 			Status:   workflowengine.MobileRunnerSemaphoreRunQueued,
@@ -195,6 +212,50 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
+}
+
+func TestPipelineQueueEnqueuePassesQueueLimit(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	stub := &queueStub{}
+	installQueueStubs(t, stub)
+
+	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n"
+
+	scenario := tests.ApiScenario{
+		Name:   "enqueue passes org queue limit",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/queue",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"yaml":                validYaml,
+		}),
+		ExpectedStatus: http.StatusOK,
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
+			ensureOrganizationsQueueLimitField(t, app)
+
+			orgRecord, err := app.FindRecordById("organizations", orgID)
+			require.NoError(t, err)
+			orgRecord.Set("max_pipelines_in_queue", 7)
+			require.NoError(t, app.Save(orgRecord))
+
+			return app
+		},
+	}
+
+	scenario.Test(t)
+
+	require.Len(t, stub.enqueueRequests, 1)
+	require.Equal(t, 7, stub.enqueueRequests[0].MaxPipelinesInQueue)
 }
 
 func TestPipelineQueueCancel(t *testing.T) {

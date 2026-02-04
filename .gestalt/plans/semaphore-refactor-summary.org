@@ -1,0 +1,232 @@
+#+TITLE: Semaphore Refactor PR Summary (Current Branch State)
+#+SUBTITLE: Queue-based “Run now” for mobile-automation pipelines + reliability fixes + JSON step-input parity
+#+DATE: 2026-02-04
+#+KEYWORDS: temporal, semaphore, pipeline-queue, mobile-automation, webapp, pocketbase, reliability, json
+
+* DONE [#A] Queue-based pipeline runs (API + Webapp)
+- Effort :: M
+- Goal :: Run mobile-automation pipelines through a per-runner FIFO queue (instead of “start now and block inside the pipeline”), with clear user feedback (position, cancel, workflow link).
+- Notes ::
+  - Webapp entrypoint: `webapp/src/lib/pipeline/utils.ts` (`runPipeline()`).
+  - Backend endpoints (auth required): `POST /api/pipeline/queue`, `GET /api/pipeline/queue/{ticket}`, `DELETE /api/pipeline/queue/{ticket}` wired in `pkg/internal/apis/handlers/pipeline_handler.go`.
+** DONE [#A] Public contract (current behavior)
+- Why :: The queue is polled from the UI; stable response semantics prevent UX drift and deadlocks.
+- Change ::
+  - “Run now” routing:
+    - No `mobile-automation` steps → `POST /api/pipeline/start` (unchanged).
+    - Any `mobile-automation` steps → `POST /api/pipeline/queue` then poll status at ~1Hz.
+  - Queue request payload: `{ pipeline_identifier, yaml }` where `yaml` may include `runtime.global_runner_id` for global-runner pipelines.
+  - Queue status/cancel request query params:
+    - `runner_ids=<comma,separated>` or `runner_ids[]=...` (both accepted); webapp uses the comma-separated form.
+  - Queue response shape (summary): `{ ticket_id, runner_ids, required_runner_ids, leader_runner_id, status, position, line_len, workflow_id?, run_id?, workflow_namespace?, error_message?, runners:[...] }`.
+    - `position` is 0-based (webapp displays `position+1`).
+    - `line_len` is the length of the queued line (does not include a currently-running slot).
+    - Aggregation rules: `failed`/`canceled` outrank `running` outrank `starting` outrank `queued` outrank `not_found`; `position/line_len` are the max across runners.
+  - Cancel UX (webapp):
+    - `DELETE` response is respected (no longer assumed canceled).
+    - Polling/toast is only stopped for terminal responses (`canceled`/`not_found`), and continues after cancel failures.
+- Tests ::
+  - Go unit coverage in `pkg/internal/apis/handlers/pipeline_queue_handler_test.go`.
+  - Vitest coverage in `webapp/src/lib/pipeline/utils.test.ts`.
+- Done when :: A user can click “Run now” and reliably see queued position → workflow link, and cancel does not desync the UI.
+
+* DONE [#A] Temporal: extend the per-runner semaphore workflow to manage run tickets
+- Effort :: M
+- Goal :: Add queued “run tickets” to the existing Mobile Runner semaphore workflow, keeping capacity enforcement centralized and queryable.
+- Notes ::
+  - Workflow: `pkg/workflowengine/workflows/mobile_runner_semaphore.go` with new run-ticket state persisted in workflow state.
+  - Types/constants: `pkg/workflowengine/mobilerunnersemaphore/types.go`, `pkg/workflowengine/mobile_runner_semaphore_constants.go`.
+** DONE [#A] Run-ticket semantics and coordination
+- Why :: Multi-runner pipelines need consistent ordering + a single “starter” to avoid deadlocks and double-starts.
+- Change ::
+  - Each ticket is enqueued into every required runner’s semaphore with a shared `(enqueued_at, ticket_id)` ordering key; the semaphore sorts its `runQueue` by that pair for stable ordering.
+  - Multi-runner coordination:
+    - `leader_runner_id` is deterministic (`min(runner_ids)` after sorting).
+    - Followers signal grants to the leader; only the leader starts the pipeline workflow, then signals start/done to followers.
+  - Capacity accounting includes both legacy “permit holders” and queued-run tickets (`holders + starting/running tickets`).
+  - Safety net: running tickets are periodically checked; if the started pipeline workflow is already closed (or not found), the semaphore auto-finalizes and releases the slot.
+- Tests ::
+  - Unit/workflow tests in `pkg/workflowengine/workflows/mobile_runner_semaphore_test.go` and `pkg/workflowengine/mobilerunnersemaphore/types_test.go`.
+- Done when :: Semaphore queries/updates fully drive queue polling, and capacity is never released early after a workflow has started.
+
+* DONE [#A] Pipeline workflow integration (skip internal permits; report “done”)
+- Effort :: M
+- Goal :: Make semaphore-started pipelines avoid double-locking and reliably release the ticket on workflow completion.
+- Notes ::
+  - Start activity injects semaphore metadata into pipeline `config`.
+  - Pipeline workflow reports completion (success or failure) back to the leader semaphore.
+** DONE [#A] Semaphore-managed pipeline config + completion reporting
+- Why :: The semaphore (not the pipeline) must own queue slot lifecycle, but still needs a deterministic completion signal.
+- Change ::
+  - `pkg/workflowengine/activities/queued_pipeline.go` sets config keys:
+    - `mobile_runner_semaphore_ticket_id`
+    - `mobile_runner_semaphore_runner_ids`
+    - `mobile_runner_semaphore_leader_runner_id`
+    - `mobile_runner_semaphore_owner_namespace`
+  - `pkg/workflowengine/pipeline/mobile_automation_hooks.go` skips acquiring/releasing runner permits when the run is semaphore-managed (prevents deadlocks/double-release).
+  - `pkg/workflowengine/pipeline/pipeline.go` always calls `reportMobileRunnerSemaphoreDone(...)` before returning (success or error) when config contains ticket metadata.
+  - Completion reporting is implemented via:
+    - Activity: `pkg/workflowengine/activities/mobile_runner_semaphore_done.go`
+    - Workflow helper: `pkg/workflowengine/pipeline/semaphore_done.go`
+    - Registered in pipeline worker internal registry: `pkg/workflowengine/registry/registry.go` (`mobile-runner-semaphore-done`).
+- Tests ::
+  - Unit coverage in `pkg/workflowengine/pipeline/semaphore_done_test.go` and `pkg/workflowengine/pipeline/mobile_automation_hooks_test.go`.
+- Done when :: Semaphore-managed runs never acquire internal permits and always release the queue slot (or get auto-released by the safety net).
+
+* DONE [#A] Fix semaphore release ordering (release only after deferred cleanup)
+- Effort :: S
+- Goal :: Ensure the semaphore queue slot is released only after pipeline cleanup hooks complete (cleanup is part of pipeline execution).
+- Notes ::
+  - Work context: branch `semaphore-refactor` (started from `main`).
+  - Current behavior: `pkg/workflowengine/pipeline/pipeline.go` reports “semaphore done” via `return returnWithReport(...)`, which runs *before* deferred `runCleanupHooks(...)` (Go defers run after the return expression is evaluated).
+  - Completion reporter: `pkg/workflowengine/pipeline/semaphore_done.go` → activity `pkg/workflowengine/activities/mobile_runner_semaphore_done.go`.
+** DONE [#A] Defer “semaphore done” until after cleanup
+- Why :: Releasing runner capacity before cleanup completes can cause overlapping runs and flaky mobile-automation behavior (cleanup is an invariant of “run finished”).
+- Change ::
+  - Refactor `pkg/workflowengine/pipeline/pipeline.go` so `reportMobileRunnerSemaphoreDone(...)` runs from a `defer` that is guaranteed to execute after the cleanup `defer` (or from a single final `defer` that runs cleanup then reports done).
+  - Ensure the report is executed exactly once across all exits (success, step error, cancellation, scheduled-run early return).
+- Tests ::
+  - Extend `pkg/workflowengine/pipeline/semaphore_done_test.go` with an ordering assertion: a cleanup hook’s activity runs before `Report mobile runner semaphore done`.
+- Done when :: Unit tests prove cleanup happens before reporting done, and queued runs no longer release capacity until cleanup completes.
+
+* DONE [#A] Reliability: do not fail a queue ticket after the pipeline workflow has started
+- Effort :: M
+- Goal :: Prevent overlap and incorrect UI when downstream record creation fails after `ExecuteWorkflow(...)` succeeded.
+- Notes ::
+  - The queue starts a pipeline workflow, then best-effort creates a `pipeline_results` PocketBase record for UI/history.
+** DONE [#A] Non-fatal execution-result creation + idempotent handler
+- Why :: Once Temporal returns `(workflow_id, run_id)`, the system must treat the run as “running” even if PocketBase is temporarily unavailable.
+- Change ::
+  - `pkg/workflowengine/activities/queued_pipeline.go`:
+    - Sets output `(workflow_id, run_id, workflow_namespace)` immediately after a successful `ExecuteWorkflow`.
+    - Attempts `POST /api/pipeline/pipeline-execution-results` with a bounded retry; on failure, logs a warning and returns success with `pipeline_result_created=false`.
+  - `pkg/internal/apis/handlers/pipeline_handler.go` (`HandleSetPipelineExecutionResults`):
+    - Idempotent by `(workflow_id, run_id)`; returns existing record `200`, otherwise creates it.
+    - Returns `409` on owner/pipeline mismatch for the same `(workflow_id, run_id)` (defensive).
+- Tests ::
+  - Activity DI + unit tests: `pkg/workflowengine/activities/queued_pipeline_test.go`.
+  - Handler idempotency tests: `pkg/internal/apis/handlers/pipeline_handler_test.go`.
+- Done when :: “Workflow started” never turns into “failed ticket” due to a transient results-record error.
+
+* DONE [#B] Queue robustness: rollback on partial enqueue; status/cancel reporting fixes
+- Effort :: M
+- Goal :: Make multi-runner enqueue and status aggregation resilient to partial failures and mixed runner states.
+- Notes ::
+  - Backend implementation: `pkg/internal/apis/handlers/pipeline_queue_handler.go`.
+** DONE [#B] Enqueue rollback + status aggregation correctness
+- Why :: Partial enqueues can orphan tickets and block runner capacity; mixed states must not be misreported as “not found”.
+- Change ::
+  - Enqueue preflights all runner semaphore workflows before enqueuing any tickets.
+  - On any enqueue failure, best-effort rolls back (cancels) the ticket across all “attempted” runners using a short background timeout; `not_found` cancel results are treated as idempotent.
+  - Status handler returns `404` only when *all* runners report missing; otherwise returns `200` with per-runner breakdown (including any `not_found` entries).
+  - Semaphore workflow helper signatures were tightened to satisfy `unparam` lint (remove unused `ctx` params).
+- Tests ::
+  - Go unit tests for rollback + mixed-state status behavior in `pkg/internal/apis/handlers/pipeline_queue_handler_test.go`.
+- Done when :: Failed multi-runner enqueue does not leave stuck tickets, and queue polling surfaces failures instead of premature `404`.
+
+* DONE [#B] Pipeline parsing: JSON step-input parity with YAML (fix smoke-test regressions)
+- Effort :: S
+- Goal :: Ensure JSON-started pipelines interpret `step.with` like YAML does (flat keys become payload; `config`/`payload` are reserved sections).
+- Notes ::
+  - Source: `pkg/workflowengine/pipeline/parser.go` (`StepInputs`).
+** DONE [#B] `StepInputs` now supports both flat and `payload` shapes
+- Why :: `encoding/json` drops unknown fields by default; without a custom unmarshal, `with: { action_id: ... }` silently becomes empty payload and fails at runtime.
+- Change ::
+  - `(*StepInputs).UnmarshalJSON` mirrors YAML behavior:
+    - reads optional `config` and optional `payload` maps, then merges remaining keys into payload.
+  - `(*StepInputs).UnmarshalYAML` also supports an explicit `payload:` block (symmetry with JSON) while still accepting flat keys.
+  - Mobile automation payload validation now hints expected shape when payload is empty:
+    - `missing payload for step …: expected with.action_id or with.payload.action_id`
+- Tests ::
+  - Regression coverage: `pkg/workflowengine/pipeline/parser_json_test.go` (JSON) and updates in `pkg/workflowengine/pipeline/parser_test.go` (YAML).
+- Done when :: The original JSON smoke-test shape (`with.action_id`) no longer fails with “missing action_id” due to empty payload.
+
+* DONE [#C] Manual verification still pending (non-blocking)
+- Effort :: XS
+- Goal :: Confirm the real-world smoke test / Temporal UI entrypoint succeeds end-to-end with the original JSON input.
+- Notes :: Skipped per user request (unit tests cover the decoding regression).
+** DONE [#C] Re-run the original smoke test payload via the same entrypoint
+- Why :: Confirms the fix at the surface where it was observed (Temporal UI/manual JSON start).
+- Change :: Start `Dynamic Pipeline Workflow` with the original JSON (flat `with.action_id`) and confirm it progresses past the CRE202 guard.
+- Tests :: `make test` (unit tag) is already expected to be green; this is an integration check.
+- Done when :: The workflow no longer fails at step payload validation for the provided smoke-test input.
+
+* WIP [#A] Pipeline queue limit per runner and owner namespace
+- Effort :: M
+- Goal :: Enforce a per-organization (owner namespace) cap *per runner* on how many pipelines can be enqueued via `POST /api/pipeline/queue`, without moving any waiting time into the pipeline workflow (the pipeline workflow still starts only when the runner semaphore grants it).
+- Notes ::
+  - Ubiquitous language:
+    - “Owner namespace” == organization canonified name (Temporal namespace for pipeline workflows).
+    - “In-flight queued run (for a runner)” == a run ticket that is `queued`/`starting`/`running` (not terminal) for a given owner namespace *inside a single runner semaphore workflow*.
+    - “Queue limit” == `organizations.max_pipelines_in_queue` (PocketBase), applied independently per runner:
+      - Example: with two runners and limit=10, the org can have 10 in-flight queued runs in runner-1 and 10 in runner-2.
+  - Existing queue lives in `workflowengine.MobileRunnerSemaphoreDefaultNamespace` (runner semaphore workflows); enforcement happens inside each runner semaphore workflow (per-runner), keyed by `OwnerNamespace`.
+  - Success criteria: attempting to enqueue beyond the cap returns a clear error; successful enqueues are unchanged; pipeline workflow logic remains unchanged.
+** WIP [#A] Add `organizations.max_pipelines_in_queue` (read at enqueue time)
+- Why :: The limit needs a per-organization source of truth (PB); enforcement is performed by the per-runner semaphore workflow at enqueue time.
+- Change ::
+  - PocketBase:
+    - Add numeric field `organizations.max_pipelines_in_queue`.
+    - Semantics (choose and implement consistently):
+      - `<= 0` → unlimited (default / backwards-compatible).
+      - `> 0` → hard cap on in-flight queued runs for that organization *per runner*.
+  - Read strategy:
+    - The enqueue endpoint reads `organizations.max_pipelines_in_queue` for the authenticated user’s org on every `POST /api/pipeline/queue` and passes the value to each runner semaphore enqueue update.
+    - No “push” sync is required; updates in PB affect subsequent enqueue attempts immediately.
+    - Existing in-flight tickets are not retroactively evicted when the limit is lowered; only new enqueues are rejected (document this behavior).
+- Tests ::
+  - Unit coverage:
+    - PB migration validation (if the repo has PB migration tests; otherwise covered indirectly by handler tests reading the field).
+- Done when :: Enqueues use the latest PB value and the semantics (`<=0` unlimited) are documented and validated.
+** TODO [#A] Enforce the per-runner limit inside the existing runner semaphore workflow
+- Why :: The cap applies independently per runner; the per-runner semaphore workflow is the single-writer for that runner’s queue and is the correct place to make the admission decision atomic under concurrency.
+- Change ::
+  - Extend `workflows.MobileRunnerSemaphoreEnqueueRunRequest` to carry the requested limit value (e.g., `MaxPipelinesInQueue int`).
+  - In `pkg/workflowengine/workflows/mobile_runner_semaphore.go` (`handleEnqueueRun`):
+    - Compute `inFlightForOwnerNamespace` for `req.OwnerNamespace` by counting tickets whose status is `queued|starting|running`.
+    - Exclude terminal tickets from the count (`failed` must not block forever; `not_found` is already absent).
+    - If `req.MaxPipelinesInQueue > 0` and `inFlightForOwnerNamespace >= req.MaxPipelinesInQueue` (and the ticket is not already present/idempotent) then reject admission:
+      - Return a Temporal application error with a stable error type/code (e.g. `MobileRunnerSemaphoreErrQueueLimitExceeded`) and include the runner ID + current count + max in the message.
+    - Otherwise proceed with the existing enqueue logic unchanged.
+- Tests ::
+  - Unit/workflow tests in `pkg/workflowengine/workflows/mobile_runner_semaphore_test.go`:
+    - counts only the matching `OwnerNamespace`,
+    - enforces the cap when >0,
+    - `<=0` unlimited,
+    - does not count `failed` tickets (so a start failure does not permanently consume quota).
+- Done when :: A runner semaphore rejects/accepts enqueue requests deterministically for a given owner namespace under concurrency, matching the configured per-runner cap.
+** TODO [#A] Enforce the limit at enqueue time (API); keep rollback and pipeline start unchanged
+- Why :: The queue limit must prevent “adding to the queue” while keeping pipeline execution unchanged; multi-runner enqueues must either fully succeed or be rolled back as they are today.
+- Change ::
+  - API enqueue (`pkg/internal/apis/handlers/pipeline_queue_handler.go`):
+    - Read `organizations.max_pipelines_in_queue` for the authenticated user’s org.
+    - Pass the value into every `MobileRunnerSemaphoreEnqueueRunRequest` for each runner.
+    - If any runner rejects with `MobileRunnerSemaphoreErrQueueLimitExceeded`:
+      - Roll back any already-enqueued runners using the existing cancel rollback path.
+      - Return `409 Conflict` (or `429`) with a stable message (and optionally include which runner(s) are full).
+    - Keep the rest of the enqueue logic unchanged (preflight semaphore existence, stable ticket ID, existing status polling).
+  - Webapp:
+    - Surface the enqueue rejection error without entering the polling loop; show the server message.
+- Tests ::
+  - Go unit tests in `pkg/internal/apis/handlers/pipeline_queue_handler_test.go`:
+    - “limit reached on runner” returns `409/429`,
+    - multi-runner partial admission triggers rollback/cancel of already-enqueued runners.
+- Done when :: The API rejects enqueues that exceed the per-runner cap, rollbacks remain correct for multi-runner runs, and pipeline workflows still only start when the semaphore is green.
+
+** TODO [#B] Alternative considered: “pre-gate” workflow in org namespace + Temporal rate limits
+- Why :: There is a strong desire to keep limits “inside the organization namespace” and leverage Temporal built-in rate limiting/quota mechanisms instead of custom counters.
+- Change ::
+  - Proposed flow:
+    - `POST /api/pipeline/queue` starts a lightweight “pre-gate” workflow in the org namespace.
+    - The pre-gate workflow interacts with the runner semaphore workflows (default namespace) and, once granted, starts the real pipeline workflow (still in the org namespace).
+    - Enforce the cap by limiting how many pre-gate workflows can exist/execute via Temporal namespace config / rate strategies.
+  - Viability notes (why this is not selected for the current refactor):
+    - Temporal “rate limits” are primarily rate-based (throughput), not “max queued/in-flight domain tickets”; they do not naturally implement “queue length” caps with a crisp “queue full” response.
+    - Worker/task-queue concurrency limits constrain workflow task *execution*, not the number of open pre-gate workflow executions; the server can still accept and persist unlimited started workflows even if workers are saturated.
+    - Cross-namespace coordination remains: the pre-gate workflow would still need to drive admission in the default-namespace semaphore, and release paths must be robust (cancel, fail-before-start, partial multi-runner enqueue).
+    - Net: adds an extra workflow per run + more moving parts without giving a strict, server-enforced “max queued pipelines” guarantee.
+  - If this alternative is revisited later:
+    - Require a concrete Temporal mechanism that truly enforces “max open executions of workflow type X per namespace” (not just rate/worker concurrency), or accept that a stateful counter workflow is still needed.
+- Tests ::
+  - If implemented: add integration coverage for “queue full” responses and for leak-free cancellation when the pre-gate workflow is terminated before starting the pipeline.
+- Done when :: The team either identifies a Temporal-native mechanism that enforces queue length semantics (not throughput), or explicitly documents why worker/rate limits are insufficient and keeps the per-runner semaphore enforcement.

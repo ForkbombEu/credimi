@@ -118,15 +118,25 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 		userID := e.Auth.Id
 		userMail := e.Auth.GetString("email")
 		userName := e.Auth.GetString("name")
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, userID)
+		orgRecord, err := GetUserOrganization(e.App, userID)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"organization",
-				"unable to get user organization canonified name",
+				"unable to get user organization record",
 				err.Error(),
 			).JSON(e)
 		}
+		namespace := orgRecord.GetString("canonified_name")
+		if namespace == "" {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				"missing organization canonified name",
+			).JSON(e)
+		}
+		maxPipelinesInQueue := orgRecord.GetInt("max_pipelines_in_queue")
 
 		runnerIDs, err := resolvePipelineRunnerIDs(yaml)
 		if err != nil {
@@ -208,7 +218,8 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 				RunnerID:           runnerID,
 				RequiredRunnerIDs:  runnerIDs,
 				LeaderRunnerID:     leaderRunnerID,
-				PipelineIdentifier: pipelineIdentifier,
+				MaxPipelinesInQueue: maxPipelinesInQueue,
+				PipelineIdentifier:  pipelineIdentifier,
 				YAML:               yaml,
 				PipelineConfig:     config,
 				Memo:               memo,
