@@ -4,7 +4,7 @@ services:
     container_name: temporal
     volumes:
       - temporal-data:/data
-    command: server start-dev --ip 0.0.0.0 --db-filename /data/temporal.db
+    command: server start-dev --ip 0.0.0.0 --db-filename /data/temporal.db --port 7777
 
 volumes:
   temporal-data:
