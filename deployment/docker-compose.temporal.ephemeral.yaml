@@ -4,10 +4,7 @@ services:
     container_name: temporal
     volumes:
       - type: bind
-        source: temporal-data
+        source: ./temporal-ephemeral-data
         target: /data
         is_directory: true
     command: server start-dev --ip 0.0.0.0 --db-filename /data/temporal.db --port 7777
-
-volumes:
-  temporal-data:
