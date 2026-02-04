@@ -118,6 +118,23 @@ describe('runPipeline', () => {
 		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(2);
 	});
 
+	it('shows enqueue errors and skips polling', async () => {
+		const { pb } = await import('@/pocketbase');
+		const { toast } = await import('svelte-sonner');
+
+		vi.mocked(pb.send).mockRejectedValueOnce(new Error('queue limit exceeded'));
+
+		await runPipeline(pipelineFixture('pipeline-1'));
+		await flushPromises();
+
+		expect(vi.mocked(toast.error)).toHaveBeenCalledWith('queue limit exceeded');
+		expect(vi.mocked(toast.info)).not.toHaveBeenCalled();
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(1);
+
+		vi.advanceTimersByTime(2000);
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(1);
+	});
+
 	it('keeps polling when cancel fails', async () => {
 		const { pb } = await import('@/pocketbase');
 		const { toast } = await import('svelte-sonner');

@@ -68,6 +68,14 @@ type queueRequestContext struct {
 
 var errRunTicketNotFound = errors.New("run ticket not found")
 
+func isQueueLimitExceeded(err error) bool {
+	var appErr *temporal.ApplicationError
+	if errors.As(err, &appErr) {
+		return appErr.Type() == workflows.MobileRunnerSemaphoreErrQueueLimitExceeded
+	}
+	return false
+}
+
 var ensureRunQueueSemaphoreWorkflow = ensureRunQueueSemaphoreWorkflowTemporal
 var enqueueRunTicket = enqueueRunTicketTemporal
 var queryRunTicketStatus = queryRunTicketStatusTemporal
@@ -118,15 +126,25 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 		userID := e.Auth.Id
 		userMail := e.Auth.GetString("email")
 		userName := e.Auth.GetString("name")
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, userID)
+		orgRecord, err := GetUserOrganization(e.App, userID)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"organization",
-				"unable to get user organization canonified name",
+				"unable to get user organization record",
 				err.Error(),
 			).JSON(e)
 		}
+		namespace := orgRecord.GetString("canonified_name")
+		if namespace == "" {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organization",
+				"unable to get user organization canonified name",
+				"missing organization canonified name",
+			).JSON(e)
+		}
+		maxPipelinesInQueue := orgRecord.GetInt("max_pipelines_in_queue")
 
 		runnerIDs, err := resolvePipelineRunnerIDs(yaml)
 		if err != nil {
@@ -202,20 +220,29 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 		for _, runnerID := range runnerIDs {
 			attemptedRunnerIDs = append(attemptedRunnerIDs, runnerID)
 			req := workflows.MobileRunnerSemaphoreEnqueueRunRequest{
-				TicketID:           ticketID,
-				OwnerNamespace:     namespace,
-				EnqueuedAt:         now,
-				RunnerID:           runnerID,
-				RequiredRunnerIDs:  runnerIDs,
-				LeaderRunnerID:     leaderRunnerID,
-				PipelineIdentifier: pipelineIdentifier,
-				YAML:               yaml,
-				PipelineConfig:     config,
-				Memo:               memo,
+				TicketID:            ticketID,
+				OwnerNamespace:      namespace,
+				EnqueuedAt:          now,
+				RunnerID:            runnerID,
+				RequiredRunnerIDs:   runnerIDs,
+				LeaderRunnerID:      leaderRunnerID,
+				MaxPipelinesInQueue: maxPipelinesInQueue,
+				PipelineIdentifier:  pipelineIdentifier,
+				YAML:                yaml,
+				PipelineConfig:      config,
+				Memo:                memo,
 			}
 			resp, err := enqueueRunTicket(e.Request.Context(), runnerID, req)
 			if err != nil {
 				rollbackEnqueuedTickets(attemptedRunnerIDs)
+				if isQueueLimitExceeded(err) {
+					return apierror.New(
+						http.StatusConflict,
+						"queue_limit",
+						"queue limit exceeded",
+						err.Error(),
+					).JSON(e)
+				}
 				return apierror.New(
 					http.StatusInternalServerError,
 					"semaphore",

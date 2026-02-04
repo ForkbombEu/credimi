@@ -15,8 +15,9 @@ const (
 	ReleaseUpdate = "Release"
 	StateQuery    = "GetState"
 
-	ErrInvalidRequest = "mobile-runner-semaphore-invalid-request"
-	ErrTimeout        = "mobile-runner-semaphore-timeout"
+	ErrInvalidRequest     = "mobile-runner-semaphore-invalid-request"
+	ErrTimeout            = "mobile-runner-semaphore-timeout"
+	ErrQueueLimitExceeded = "mobile-runner-semaphore-queue-limit-exceeded"
 )
 
 const (
@@ -133,16 +134,17 @@ const (
 )
 
 type MobileRunnerSemaphoreEnqueueRunRequest struct {
-	TicketID           string         `json:"ticket_id"`
-	OwnerNamespace     string         `json:"owner_namespace"`
-	EnqueuedAt         time.Time      `json:"enqueued_at"`
-	RunnerID           string         `json:"runner_id"`
-	RequiredRunnerIDs  []string       `json:"required_runner_ids"`
-	LeaderRunnerID     string         `json:"leader_runner_id"`
-	PipelineIdentifier string         `json:"pipeline_identifier,omitempty"`
-	YAML               string         `json:"yaml,omitempty"`
-	PipelineConfig     map[string]any `json:"pipeline_config,omitempty"`
-	Memo               map[string]any `json:"memo,omitempty"`
+	TicketID            string         `json:"ticket_id"`
+	OwnerNamespace      string         `json:"owner_namespace"`
+	EnqueuedAt          time.Time      `json:"enqueued_at"`
+	RunnerID            string         `json:"runner_id"`
+	RequiredRunnerIDs   []string       `json:"required_runner_ids"`
+	LeaderRunnerID      string         `json:"leader_runner_id"`
+	MaxPipelinesInQueue int            `json:"max_pipelines_in_queue,omitempty"`
+	PipelineIdentifier  string         `json:"pipeline_identifier,omitempty"`
+	YAML                string         `json:"yaml,omitempty"`
+	PipelineConfig      map[string]any `json:"pipeline_config,omitempty"`
+	Memo                map[string]any `json:"memo,omitempty"`
 }
 
 type MobileRunnerSemaphoreEnqueueRunResponse struct {

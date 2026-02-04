@@ -7,6 +7,7 @@ import { toast } from 'svelte-sonner';
 import { parse, stringify } from 'yaml';
 
 import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
+import { getExceptionMessage } from '@/utils/errors';
 
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase';
@@ -149,36 +150,46 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 	}
 
 	const enqueueResult = await runWithLoading({
-		fn: async () =>
-			pb.send<PipelineQueueStatusResponse>('/api/pipeline/queue', {
-				method: 'POST',
-				body: {
-					pipeline_identifier: pipelineIdentifier,
-					yaml: stringify(parsedYaml)
-				}
-			}),
+		fn: async () => {
+			try {
+				const value = await pb.send<PipelineQueueStatusResponse>('/api/pipeline/queue', {
+					method: 'POST',
+					body: {
+						pipeline_identifier: pipelineIdentifier,
+						yaml: stringify(parsedYaml)
+					}
+				});
+				return { ok: true as const, value };
+			} catch (error) {
+				return { ok: false as const, error: getExceptionMessage(error) };
+			}
+		},
 		showSuccessToast: false
 	});
 
 	if (!enqueueResult) return;
+	if (!enqueueResult.ok) {
+		toast.error(enqueueResult.error);
+		return;
+	}
 
-	const runnerIds = enqueueResult.runner_ids ?? [];
-	if (!enqueueResult.ticket_id || runnerIds.length === 0) {
+	const runnerIds = enqueueResult.value.runner_ids ?? [];
+	if (!enqueueResult.value.ticket_id || runnerIds.length === 0) {
 		toast.error('Failed to start queue');
 		return;
 	}
 
-	if (enqueueResult.status === 'running') {
-		showWorkflowStartedToast(enqueueResult.workflow_id, enqueueResult.run_id);
+	if (enqueueResult.value.status === 'running') {
+		showWorkflowStartedToast(enqueueResult.value.workflow_id, enqueueResult.value.run_id);
 		return;
 	}
 
-	if (enqueueResult.status === 'failed') {
-		toast.error(enqueueResult.error_message ?? 'Pipeline failed to start');
+	if (enqueueResult.value.status === 'failed') {
+		toast.error(enqueueResult.value.error_message ?? 'Pipeline failed to start');
 		return;
 	}
 
-	const ticketId = enqueueResult.ticket_id;
+	const ticketId = enqueueResult.value.ticket_id;
 	let polling = true;
 	let cancelInFlight = false;
 	let queueToastId: string | number | undefined;
@@ -222,7 +233,11 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 	};
 
 	queueToastId = toast.info(
-		formatQueueToastMessage(enqueueResult.position, enqueueResult.line_len, runnerIds.length),
+		formatQueueToastMessage(
+			enqueueResult.value.position,
+			enqueueResult.value.line_len,
+			runnerIds.length
+		),
 		{
 			duration: Infinity,
 			action: {
