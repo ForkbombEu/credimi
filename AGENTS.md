@@ -28,6 +28,13 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 - `MOBILE_RUNNER_SEMAPHORE_DISABLED`.
 - `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`.
 
+### Tenancy + Temporal namespaces
+
+- `organizations.canonified_name` is the Temporal namespace for that tenant.
+- Org create/update ensures the namespace exists and starts workers (`pkg/internal/pb/namespaces.go`).
+- On server start, workers start for `default` and all org namespaces (`pkg/workflowengine/hooks/hook.go`).
+- Mobile-runner semaphore workflows run in the Temporal `default` namespace (`pkg/workflowengine/mobile_runner_semaphore_constants.go`).
+
 ## Build / Test
 
 - `make dev` runs hivemind Procfile.dev (API + UI) after ensuring tools.
