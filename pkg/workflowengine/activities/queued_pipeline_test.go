@@ -61,6 +61,16 @@ func (f failingDoer) Do(*http.Request) (*http.Response, error) {
 	return nil, f.err
 }
 
+type countingDoer struct {
+	attempts int
+	err      error
+}
+
+func (c *countingDoer) Do(*http.Request) (*http.Response, error) {
+	c.attempts++
+	return nil, c.err
+}
+
 func TestStartQueuedPipelineActivityNonFatalResultFailure(t *testing.T) {
 	act := NewStartQueuedPipelineActivity()
 	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
@@ -138,4 +148,21 @@ func TestStartQueuedPipelineActivityRetriesPipelineResult(t *testing.T) {
 	require.Empty(t, output.PipelineResultError)
 	require.Empty(t, result.Log)
 	require.Equal(t, 3, attempts)
+}
+
+func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
+	doer := &countingDoer{err: errors.New("boom")}
+
+	err := createPipelineExecutionResultWithRetry(
+		context.Background(),
+		doer,
+		"https://example.com",
+		"tenant-1",
+		"pipeline-1",
+		"wf-1",
+		"run-1",
+	)
+
+	require.Error(t, err)
+	require.Equal(t, 4, doer.attempts)
 }

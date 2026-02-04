@@ -265,7 +265,7 @@
     - Mock `StartQueuedPipelineActivity` to fail for the first ticket only.
     - Assert the second ticket still transitions to `running` (or at least `starting`→`running`) without needing an external nudge.
 - Done when :: A simulated start failure for ticket A does not prevent ticket B from being processed in the same run-starter cycle.
-** WIP [#B] Clarify rollback runner list semantics (attempted vs succeeded)
+** DONE [#B] Clarify rollback runner list semantics (attempted vs succeeded)
 - Why :: Copilot flagged rollback using `attemptedRunnerIDs`; this is only a correctness issue if `cancel` is not idempotent or if we incorrectly assume enqueue failures imply “no side effects”.
 - Change ::
   - In `pkg/internal/apis/handlers/pipeline_queue_handler.go`:
@@ -274,7 +274,7 @@
 - Tests ::
   - Ensure existing unit tests cover rollback; add a regression case for an “unknown outcome” style error if the enqueue path is mockable in tests.
 - Done when :: The rollback safety property is explicit and reviewers don’t misread the logic as a bug.
-** TODO [#C] Confirm `createPipelineExecutionResultWithRetry` loop is bounds-safe (false positive)
+** WIP [#C] Confirm `createPipelineExecutionResultWithRetry` loop is bounds-safe (false positive)
 - Why :: Copilot flagged an “off-by-one” in `pkg/workflowengine/activities/queued_pipeline.go`; current code guards the index access, so it is safe but non-obvious.
 - Change ::
   - Optionally refactor for readability (e.g. `maxAttempts := len(backoffs)+1; for attempt := 0; attempt < maxAttempts; attempt++ { ... }` and only sleep when `attempt < len(backoffs)`).

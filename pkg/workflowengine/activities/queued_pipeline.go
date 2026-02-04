@@ -390,8 +390,9 @@ func createPipelineExecutionResultWithRetry(
 		1 * time.Second,
 		3 * time.Second,
 	}
+	maxAttempts := len(backoffs) + 1
 	var lastErr error
-	for attempt := 0; attempt <= len(backoffs); attempt++ {
+	for attempt := 0; attempt < maxAttempts; attempt++ {
 		status, err := postPipelineExecutionResult(
 			ctx,
 			httpDoer,
@@ -408,11 +409,10 @@ func createPipelineExecutionResultWithRetry(
 		if status > 0 && status < http.StatusInternalServerError {
 			return err
 		}
-		if attempt >= len(backoffs) {
-			break
-		}
-		if err := sleepWithContext(ctx, backoffs[attempt]); err != nil {
-			return err
+		if attempt < len(backoffs) {
+			if err := sleepWithContext(ctx, backoffs[attempt]); err != nil {
+				return err
+			}
 		}
 	}
 	return lastErr
