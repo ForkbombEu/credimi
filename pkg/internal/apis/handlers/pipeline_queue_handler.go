@@ -68,6 +68,14 @@ type queueRequestContext struct {
 
 var errRunTicketNotFound = errors.New("run ticket not found")
 
+func isQueueLimitExceeded(err error) bool {
+	var appErr *temporal.ApplicationError
+	if errors.As(err, &appErr) {
+		return appErr.Type() == workflows.MobileRunnerSemaphoreErrQueueLimitExceeded
+	}
+	return false
+}
+
 var ensureRunQueueSemaphoreWorkflow = ensureRunQueueSemaphoreWorkflowTemporal
 var enqueueRunTicket = enqueueRunTicketTemporal
 var queryRunTicketStatus = queryRunTicketStatusTemporal
@@ -227,6 +235,14 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			resp, err := enqueueRunTicket(e.Request.Context(), runnerID, req)
 			if err != nil {
 				rollbackEnqueuedTickets(attemptedRunnerIDs)
+				if isQueueLimitExceeded(err) {
+					return apierror.New(
+						http.StatusConflict,
+						"queue_limit",
+						"queue limit exceeded",
+						err.Error(),
+					).JSON(e)
+				}
 				return apierror.New(
 					http.StatusInternalServerError,
 					"semaphore",
