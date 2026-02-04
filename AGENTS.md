@@ -92,6 +92,14 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
   - Response: `{ result_urls: string[], screenshot_urls: string[] }`
 - Implemented in the external runner service (from `github.com/forkbombeu/credimi-extra`).
 
+### Temporal runner worker contract
+
+- Task queue: `${runner_id}-TaskQueue` (set in `pkg/workflowengine/pipeline/mobile_automation_hooks.go`).
+- Namespace: the `mobile-automation` child workflow runs in the same Temporal namespace as the pipeline (org namespace), so the runner worker must poll `${runner_id}-TaskQueue` in that namespace.
+- Must register:
+  - Workflow `mobile-automation` (denylisted from the pipeline worker; see `pkg/workflowengine/registry/registry.go`).
+  - Activities in `pkg/workflowengine/activities/mobileflow.go` (these call `github.com/forkbombeu/credimi-extra/mobile`; `avdctl` is used inside `credimi-extra`).
+
 ## Build / Test
 
 - `make dev` runs hivemind Procfile.dev (API + UI) after ensuring tools.
