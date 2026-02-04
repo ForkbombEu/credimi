@@ -2,3 +2,6 @@ services:
   temporal:
     image: temporalio/temporal:latest
     command: server start-dev --ip 0.0.0.0 --port 7777
+    environment:
+      - SERVICE_FQDN_TEMPORAL_7777
+      - SERVICE_FQDN_TEMPORALUI_8777
