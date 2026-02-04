@@ -76,6 +76,13 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
   - The pipeline workflow reports completion to the leader semaphore via `ReportMobileRunnerSemaphoreDoneActivity` (`pkg/workflowengine/pipeline/semaphore_done.go`).
   - `pipeline_results` creation is best-effort after Temporal start and retried; the internal handler is idempotent on `(workflow_id, run_id)`.
 
+## Mobile runners (PocketBase + internal lookup)
+
+- PB collection: `mobile_runners` (migration `pb_migrations/1769505309_created_mobile_runners.js`).
+- Internal API (no auth):
+  - `GET /api/mobile-runner?runner_identifier=<canonified>` → `{ runner_url, serial }` (`pkg/internal/apis/handlers/mobile_runners_handlers.go`).
+  - `GET /api/mobile-runner/semaphore?runner_identifier=...` → summarized semaphore state (`pkg/internal/apis/handlers/mobile_runners_handlers.go`).
+
 ## Build / Test
 
 - `make dev` runs hivemind Procfile.dev (API + UI) after ensuring tools.
