@@ -75,6 +75,7 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
   - Injected config keys: `mobile_runner_semaphore_ticket_id`, `mobile_runner_semaphore_runner_ids`, `mobile_runner_semaphore_leader_runner_id`, `mobile_runner_semaphore_owner_namespace`.
   - The pipeline workflow reports completion to the leader semaphore via `ReportMobileRunnerSemaphoreDoneActivity` (`pkg/workflowengine/pipeline/semaphore_done.go`).
   - `pipeline_results` creation is best-effort after Temporal start and retried; the internal handler is idempotent on `(workflow_id, run_id)`.
+  - PB uniqueness constraints: `(owner, workflow_id, run_id)` in `pb_migrations/1765364510_created_pipeline_results.js`.
 
 ## Mobile runners (PocketBase + internal lookup)
 
@@ -95,6 +96,7 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 ### Temporal runner worker contract
 
 - Task queue: `${runner_id}-TaskQueue` (set in `pkg/workflowengine/pipeline/mobile_automation_hooks.go`).
+- Note: `workflows.MobileAutomationTaskQueue` exists (`pkg/workflowengine/workflows/mobile.go`) but pipeline execution uses the dynamic `${runner_id}-TaskQueue`.
 - Namespace: the `mobile-automation` child workflow runs in the same Temporal namespace as the pipeline (org namespace), so the runner worker must poll `${runner_id}-TaskQueue` in that namespace.
 - Must register:
   - Workflow `mobile-automation` (denylisted from the pipeline worker; see `pkg/workflowengine/registry/registry.go`).
