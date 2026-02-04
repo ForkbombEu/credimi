@@ -53,6 +53,29 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 - Handler: `pkg/internal/apis/handlers/pipeline_handler.go` resolves canonified pipeline path and starts the Dynamic Pipeline Workflow on `PipelineTaskQueue` in the org namespace.
 - The handler creates a `pipeline_results` record with `(owner, pipeline, workflow_id, run_id)` for tracking.
 
+### Run pipeline (mobile automation → queue + semaphore)
+
+- UI entrypoint: `webapp/src/lib/pipeline/utils.ts` chooses `/api/pipeline/queue` when any `mobile-automation` step exists.
+- Queue endpoints (auth required; `pkg/internal/apis/handlers/pipeline_queue_handler.go`):
+  - `POST /api/pipeline/queue` body `{ pipeline_identifier, yaml }`
+  - `GET /api/pipeline/queue/{ticket}?runner_ids=...`
+  - `DELETE /api/pipeline/queue/{ticket}?runner_ids=...`
+  - `runner_ids` accepts `runner_ids=a,b,c` or repeated params.
+- Queue response (webapp uses a subset):
+  - `ticket_id`, `runner_ids`, `required_runner_ids`, `leader_runner_id`
+  - `status` in `{queued|starting|running|failed|canceled|not_found}`
+  - `position` is 0-based; UI displays `position + 1`
+  - optional `workflow_id`, `run_id`, `workflow_namespace`, `error_message`
+- Temporal semaphore (namespace `default`):
+  - Workflow per runner ID: `mobile-runner-semaphore/<runner_id>` (`pkg/workflowengine/mobilerunnersemaphore/types.go`)
+  - Updates: `EnqueueRun`, `CancelRun`, `RunDone`; queries: `GetRunStatus`, `GetState`
+  - Implementation: `pkg/workflowengine/workflows/mobile_runner_semaphore.go`
+- Start after grant:
+  - Semaphore runs `StartQueuedPipelineActivity` (`pkg/workflowengine/activities/queued_pipeline.go`) which starts the pipeline workflow in the owner org namespace.
+  - Injected config keys: `mobile_runner_semaphore_ticket_id`, `mobile_runner_semaphore_runner_ids`, `mobile_runner_semaphore_leader_runner_id`, `mobile_runner_semaphore_owner_namespace`.
+  - The pipeline workflow reports completion to the leader semaphore via `ReportMobileRunnerSemaphoreDoneActivity` (`pkg/workflowengine/pipeline/semaphore_done.go`).
+  - `pipeline_results` creation is best-effort after Temporal start and retried; the internal handler is idempotent on `(workflow_id, run_id)`.
+
 ## Build / Test
 
 - `make dev` runs hivemind Procfile.dev (API + UI) after ensuring tools.
