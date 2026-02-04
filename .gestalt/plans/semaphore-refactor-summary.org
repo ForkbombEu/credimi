@@ -151,7 +151,7 @@
 - Tests :: `make test` (unit tag) is already expected to be green; this is an integration check.
 - Done when :: The workflow no longer fails at step payload validation for the provided smoke-test input.
 
-* WIP [#A] Pipeline queue limit per runner and owner namespace
+* DONE [#A] Pipeline queue limit per runner and owner namespace
 - Effort :: M
 - Goal :: Enforce a per-organization (owner namespace) cap *per runner* on how many pipelines can be enqueued via `POST /api/pipeline/queue`, without moving any waiting time into the pipeline workflow (the pipeline workflow still starts only when the runner semaphore grants it).
 - Notes ::
@@ -195,7 +195,7 @@
     - `<=0` unlimited,
     - does not count `failed` tickets (so a start failure does not permanently consume quota).
 - Done when :: A runner semaphore rejects/accepts enqueue requests deterministically for a given owner namespace under concurrency, matching the configured per-runner cap.
-** TODO [#A] Enforce the limit at enqueue time (API); keep rollback and pipeline start unchanged
+** DONE [#A] Enforce the limit at enqueue time (API); keep rollback and pipeline start unchanged
 - Why :: The queue limit must prevent “adding to the queue” while keeping pipeline execution unchanged; multi-runner enqueues must either fully succeed or be rolled back as they are today.
 - Change ::
   - API enqueue (`pkg/internal/apis/handlers/pipeline_queue_handler.go`):
@@ -213,7 +213,7 @@
     - multi-runner partial admission triggers rollback/cancel of already-enqueued runners.
 - Done when :: The API rejects enqueues that exceed the per-runner cap, rollbacks remain correct for multi-runner runs, and pipeline workflows still only start when the semaphore is green.
 
-** TODO [#B] Alternative considered: “pre-gate” workflow in org namespace + Temporal rate limits
+** DONE [#B] Alternative considered: “pre-gate” workflow in org namespace + Temporal rate limits
 - Why :: There is a strong desire to keep limits “inside the organization namespace” and leverage Temporal built-in rate limiting/quota mechanisms instead of custom counters.
 - Change ::
   - Proposed flow:
