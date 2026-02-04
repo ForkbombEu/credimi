@@ -4,6 +4,7 @@
 package pipeline
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -32,6 +33,52 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 		activity.RegisterOptions{Name: reportActivity.Name()},
 	)
 
+	originalSetupHooks := setupHooks
+	originalCleanupHooks := cleanupHooks
+	setupHooks = []SetupFunc{}
+	cleanupHooks = []CleanupFunc{
+		func(
+			ctx workflow.Context,
+			steps []StepDefinition,
+			ao *workflow.ActivityOptions,
+			config map[string]any,
+			runData map[string]any,
+			output *map[string]any,
+		) error {
+			return workflow.ExecuteActivity(
+				ctx,
+				"test-cleanup",
+				workflowengine.ActivityInput{},
+			).Get(ctx, nil)
+		},
+	}
+	t.Cleanup(func() {
+		setupHooks = originalSetupHooks
+		cleanupHooks = originalCleanupHooks
+	})
+
+	env.RegisterActivityWithOptions(
+		func(
+			ctx context.Context,
+			input workflowengine.ActivityInput,
+		) (workflowengine.ActivityResult, error) {
+			return workflowengine.ActivityResult{}, nil
+		},
+		activity.RegisterOptions{Name: "test-cleanup"},
+	)
+
+	runOrder := []string{}
+	env.OnActivity(
+		"test-cleanup",
+		mock.Anything,
+		mock.Anything,
+	).
+		Run(func(_ mock.Arguments) {
+			runOrder = append(runOrder, "cleanup")
+		}).
+		Return(workflowengine.ActivityResult{}, nil).
+		Once()
+
 	env.OnActivity(
 		reportActivity.Name(),
 		mock.Anything,
@@ -53,6 +100,9 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 				payload.RunID == "default-test-run-id"
 		}),
 	).
+		Run(func(_ mock.Arguments) {
+			runOrder = append(runOrder, "report")
+		}).
 		Return(workflowengine.ActivityResult{}, nil).
 		Once()
 
@@ -75,5 +125,6 @@ func TestPipelineReportsSemaphoreDone(t *testing.T) {
 	env.ExecuteWorkflow(pipelineWf.Name(), input)
 
 	require.NoError(t, env.GetWorkflowError())
+	require.Equal(t, []string{"cleanup", "report"}, runOrder)
 	env.AssertExpectations(t)
 }
