@@ -251,7 +251,7 @@
     - the leader continues (and logs),
     - the follower eventually reaches `running` or finalizes via reconciliation even without receiving the signal.
 - Done when :: A forced signal failure no longer leaves follower tickets stuck in `starting` and does not leak capacity.
-** WIP [#B] Ensure a single start failure doesn’t stall queue processing
+** DONE [#B] Ensure a single start failure doesn’t stall queue processing
 - Why :: `startPipelineForTicket` already marks the ticket failed and signals `run-done`, but it also returns the error; this aborts the current `processRunQueue` pass early (even if the run-starter loop later retries). Keeping the queue moving avoids head-of-line blocking and reduces “stuck queue” paranoia during incidents.
 - Change ::
   - In `pkg/workflowengine/workflows/mobile_runner_semaphore.go`:
@@ -265,7 +265,7 @@
     - Mock `StartQueuedPipelineActivity` to fail for the first ticket only.
     - Assert the second ticket still transitions to `running` (or at least `starting`→`running`) without needing an external nudge.
 - Done when :: A simulated start failure for ticket A does not prevent ticket B from being processed in the same run-starter cycle.
-** TODO [#B] Clarify rollback runner list semantics (attempted vs succeeded)
+** WIP [#B] Clarify rollback runner list semantics (attempted vs succeeded)
 - Why :: Copilot flagged rollback using `attemptedRunnerIDs`; this is only a correctness issue if `cancel` is not idempotent or if we incorrectly assume enqueue failures imply “no side effects”.
 - Change ::
   - In `pkg/internal/apis/handlers/pipeline_queue_handler.go`:

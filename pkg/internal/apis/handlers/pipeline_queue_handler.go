@@ -215,10 +215,11 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			}
 		}
 
-		attemptedRunnerIDs := make([]string, 0, len(runnerIDs))
+		rollbackRunnerIDs := make([]string, 0, len(runnerIDs))
 		runnerStatuses := make([]PipelineQueueRunnerStatus, 0, len(runnerIDs))
 		for _, runnerID := range runnerIDs {
-			attemptedRunnerIDs = append(attemptedRunnerIDs, runnerID)
+			// Roll back every attempted runner because enqueue failures can be ambiguous (e.g. timeouts).
+			rollbackRunnerIDs = append(rollbackRunnerIDs, runnerID)
 			req := workflows.MobileRunnerSemaphoreEnqueueRunRequest{
 				TicketID:            ticketID,
 				OwnerNamespace:      namespace,
@@ -234,7 +235,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			}
 			resp, err := enqueueRunTicket(e.Request.Context(), runnerID, req)
 			if err != nil {
-				rollbackEnqueuedTickets(attemptedRunnerIDs)
+				rollbackEnqueuedTickets(rollbackRunnerIDs)
 				if isQueueLimitExceeded(err) {
 					return apierror.New(
 						http.StatusConflict,
