@@ -7,6 +7,27 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 # AGENTS.md
 
+## Architecture (LLM-first, current branch)
+
+### What runs (dev)
+
+- Temporal dev server: `temporal server start-dev --db-filename pb_data/temporal.db` (Procfile: `BE`, gRPC at `localhost:7233`, UI port per Temporal defaults).
+- PocketBase API: `go run main.go serve` (Procfile: `API`, default `localhost:8090`, data in `pb_data/`).
+- Webapp (SvelteKit/Vite): `cd webapp && bun dev` (Procfile: `UI`, default `localhost:5100`).
+- Reverse proxy: PocketBase proxies `/{path...}` to `ADDRESS_UI` (default `http://localhost:5100`) in `pkg/routes/routes.go`.
+
+### Persistence
+
+- PocketBase SQLite: `pb_data/`.
+- Temporal dev DB: `pb_data/temporal.db`.
+
+### Key env vars
+
+- `TEMPORAL_ADDRESS` (Temporal host:port).
+- `ADDRESS_UI` (UI reverse proxy target).
+- `MOBILE_RUNNER_SEMAPHORE_DISABLED`.
+- `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`.
+
 ## Build / Test
 
 - `make dev` runs hivemind Procfile.dev (API + UI) after ensuring tools.
