@@ -19,6 +19,7 @@ const (
 	mobileRunnerSemaphoreMaxUpdateBatches = 1000
 	queuePreviewLimit                     = 5
 	runCompletionCheckInterval            = 45 * time.Second
+	runStartingReconcileInterval          = 20 * time.Second
 )
 
 type MobileRunnerSemaphoreWorkflow struct {
@@ -103,6 +104,7 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 	runtime.startRunSignalHandlers()
 	runtime.startRunStarter()
 	runtime.startRunSafetyNet()
+	runtime.startRunReconciler()
 
 	return runtime.awaitContinue()
 }
@@ -359,6 +361,30 @@ func (r *mobileRunnerSemaphoreRuntime) startRunSafetyNet() {
 				return
 			}
 			r.checkRunCompletion(ctx)
+		}
+	})
+}
+
+func (r *mobileRunnerSemaphoreRuntime) startRunReconciler() {
+	workflow.Go(r.ctx, func(ctx workflow.Context) {
+		logger := workflow.GetLogger(ctx)
+		for {
+			if err := workflow.Await(ctx, func() bool {
+				return r.shouldContinue || r.hasFollowerStartingTickets()
+			}); err != nil {
+				logger.Error("run reconciler await failed", "error", err)
+				return
+			}
+			if r.shouldContinue {
+				return
+			}
+			if err := workflow.Sleep(ctx, runStartingReconcileInterval); err != nil {
+				return
+			}
+			if r.shouldContinue {
+				return
+			}
+			r.reconcileStartingTickets(ctx)
 		}
 	})
 }
@@ -939,6 +965,65 @@ func (r *mobileRunnerSemaphoreRuntime) checkRunCompletion(ctx workflow.Context) 
 	}
 }
 
+func (r *mobileRunnerSemaphoreRuntime) reconcileStartingTickets(ctx workflow.Context) {
+	logger := workflow.GetLogger(ctx)
+	ticketIDs := r.sortedRunTicketIDs()
+	for _, ticketID := range ticketIDs {
+		state, ok := r.runTickets[ticketID]
+		if !ok || state.Status != mobileRunnerSemaphoreRunStarting {
+			continue
+		}
+		if state.Request.LeaderRunnerID == r.runnerID {
+			continue
+		}
+
+		status, err := r.queryLeaderRunStatus(ctx, ticketID, state)
+		if err != nil {
+			logger.Error(
+				"run reconciliation failed",
+				"ticket_id",
+				ticketID,
+				"leader_runner_id",
+				state.Request.LeaderRunnerID,
+				"error",
+				err,
+			)
+			continue
+		}
+
+		switch status.Status {
+		case mobileRunnerSemaphoreRunRunning:
+			if status.WorkflowID != "" {
+				state.WorkflowID = status.WorkflowID
+			}
+			if status.RunID != "" {
+				state.RunID = status.RunID
+			}
+			if status.WorkflowNamespace != "" {
+				state.WorkflowNamespace = status.WorkflowNamespace
+			}
+			state.Status = mobileRunnerSemaphoreRunRunning
+			startedAt := workflow.Now(ctx)
+			state.StartedAt = &startedAt
+			r.runTickets[ticketID] = state
+			r.updateCount++
+			r.maybeScheduleContinue()
+		case mobileRunnerSemaphoreRunFailed,
+			mobileRunnerSemaphoreRunCanceled,
+			mobileRunnerSemaphoreRunNotFound:
+			workflowID := status.WorkflowID
+			if workflowID == "" {
+				workflowID = state.WorkflowID
+			}
+			runID := status.RunID
+			if runID == "" {
+				runID = state.RunID
+			}
+			r.finalizeRunTicket(ctx, ticketID, state, workflowID, runID, false)
+		}
+	}
+}
+
 func (r *mobileRunnerSemaphoreRuntime) finalizeRunTicket(
 	ctx workflow.Context,
 	ticketID string,
@@ -981,6 +1066,7 @@ func (r *mobileRunnerSemaphoreRuntime) signalRunStarted(
 	requiredRunnerIDs []string,
 	output activities.StartQueuedPipelineActivityOutput,
 ) {
+	logger := workflow.GetLogger(ctx)
 	for _, runnerID := range requiredRunnerIDs {
 		if runnerID == r.runnerID {
 			continue
@@ -997,7 +1083,19 @@ func (r *mobileRunnerSemaphoreRuntime) signalRunStarted(
 				WorkflowNamespace: output.WorkflowNamespace,
 			},
 		)
-		_ = future.Get(ctx, nil)
+		if err := future.Get(ctx, nil); err != nil {
+			logger.Error(
+				"signal run started failed",
+				"ticket_id",
+				ticketID,
+				"target_runner_id",
+				runnerID,
+				"signal",
+				MobileRunnerSemaphoreRunStartedSignalName,
+				"error",
+				err,
+			)
+		}
 	}
 }
 
@@ -1008,6 +1106,7 @@ func (r *mobileRunnerSemaphoreRuntime) signalRunDone(
 	workflowID string,
 	runID string,
 ) {
+	logger := workflow.GetLogger(ctx)
 	for _, runnerID := range requiredRunnerIDs {
 		if runnerID == r.runnerID {
 			continue
@@ -1023,7 +1122,19 @@ func (r *mobileRunnerSemaphoreRuntime) signalRunDone(
 				RunID:      runID,
 			},
 		)
-		_ = future.Get(ctx, nil)
+		if err := future.Get(ctx, nil); err != nil {
+			logger.Error(
+				"signal run done failed",
+				"ticket_id",
+				ticketID,
+				"target_runner_id",
+				runnerID,
+				"signal",
+				MobileRunnerSemaphoreRunDoneSignalName,
+				"error",
+				err,
+			)
+		}
 	}
 }
 
@@ -1137,6 +1248,16 @@ func (r *mobileRunnerSemaphoreRuntime) hasRunningTickets() bool {
 	return false
 }
 
+func (r *mobileRunnerSemaphoreRuntime) hasFollowerStartingTickets() bool {
+	for _, state := range r.runTickets {
+		if state.Status == mobileRunnerSemaphoreRunStarting &&
+			state.Request.LeaderRunnerID != r.runnerID {
+			return true
+		}
+	}
+	return false
+}
+
 func (r *mobileRunnerSemaphoreRuntime) runSlotsUsed() int {
 	used := 0
 	for _, state := range r.runTickets {
@@ -1223,6 +1344,64 @@ func decodeCheckWorkflowClosedOutput(
 			MobileRunnerSemaphoreErrInvalidRequest,
 		)
 	}
+}
+
+func (r *mobileRunnerSemaphoreRuntime) queryLeaderRunStatus(
+	ctx workflow.Context,
+	ticketID string,
+	state MobileRunnerSemaphoreRunTicketState,
+) (MobileRunnerSemaphoreRunStatusView, error) {
+	queryActivity := activities.NewQueryMobileRunnerSemaphoreRunStatusActivity()
+	activityOptions := DefaultActivityOptions
+	activityOptions.RetryPolicy = &temporal.RetryPolicy{MaximumAttempts: 1}
+	activityCtx := workflow.WithActivityOptions(ctx, activityOptions)
+
+	input := workflowengine.ActivityInput{
+		Payload: activities.QueryMobileRunnerSemaphoreRunStatusInput{
+			RunnerID:       state.Request.LeaderRunnerID,
+			OwnerNamespace: state.Request.OwnerNamespace,
+			TicketID:       ticketID,
+		},
+	}
+	var result workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(activityCtx, queryActivity.Name(), input).
+		Get(activityCtx, &result); err != nil {
+		return MobileRunnerSemaphoreRunStatusView{}, err
+	}
+
+	return decodeRunStatusView(result.Output)
+}
+
+func decodeRunStatusView(output any) (MobileRunnerSemaphoreRunStatusView, error) {
+	switch value := output.(type) {
+	case MobileRunnerSemaphoreRunStatusView:
+		return value, nil
+	case map[string]any:
+		return decodeRunStatusViewMap(value)
+	default:
+		return MobileRunnerSemaphoreRunStatusView{}, temporal.NewApplicationError(
+			"unexpected activity output",
+			MobileRunnerSemaphoreErrInvalidRequest,
+		)
+	}
+}
+
+func decodeRunStatusViewMap(value map[string]any) (MobileRunnerSemaphoreRunStatusView, error) {
+	raw, err := json.Marshal(value)
+	if err != nil {
+		return MobileRunnerSemaphoreRunStatusView{}, temporal.NewApplicationError(
+			"failed to encode run status",
+			MobileRunnerSemaphoreErrInvalidRequest,
+		)
+	}
+	var output MobileRunnerSemaphoreRunStatusView
+	if err := json.Unmarshal(raw, &output); err != nil {
+		return MobileRunnerSemaphoreRunStatusView{}, temporal.NewApplicationError(
+			"failed to decode run status",
+			MobileRunnerSemaphoreErrInvalidRequest,
+		)
+	}
+	return output, nil
 }
 
 func decodeCheckWorkflowClosedOutputMap(

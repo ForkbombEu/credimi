@@ -220,6 +220,7 @@ var DefaultWorkers = []workerConfig{
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStartQueuedPipelineActivity(),
 			activities.NewCheckWorkflowClosedActivity(),
+			activities.NewQueryMobileRunnerSemaphoreRunStatusActivity(),
 		},
 	},
 }

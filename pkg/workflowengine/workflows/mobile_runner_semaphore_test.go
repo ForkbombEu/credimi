@@ -1205,6 +1205,194 @@ func TestMobileRunnerSemaphoreWorkflowRunStartsWhenCapacityAvailable(t *testing.
 	require.Empty(t, drainErrors(errCh))
 }
 
+func TestMobileRunnerSemaphoreWorkflowRunStartedSignalFailureDoesNotAbort(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileRunnerSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	startAct := activities.NewStartQueuedPipelineActivity()
+	env.RegisterActivityWithOptions(startAct.Execute, activity.RegisterOptions{Name: startAct.Name()})
+	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).Return(
+		workflowengine.ActivityResult{
+			Output: activities.StartQueuedPipelineActivityOutput{
+				WorkflowID:        "wf-signal-1",
+				RunID:             "run-signal-1",
+				WorkflowNamespace: "tenant-1",
+			},
+		},
+		nil,
+	)
+
+	env.OnSignalExternalWorkflow(
+		mock.Anything,
+		MobileRunnerSemaphoreWorkflowID("runner-2"),
+		"",
+		MobileRunnerSemaphoreRunStartedSignalName,
+		mock.Anything,
+	).Return(errors.New("signal failed")).Once()
+
+	errCh := make(chan error, 2)
+	statusCh := make(chan MobileRunnerSemaphoreRunStatusView, 1)
+
+	enqueuedAt := time.Date(2026, 2, 3, 13, 30, 0, 0, time.UTC)
+	pipelineConfig := map[string]any{
+		"app_url":   "https://example.com",
+		"namespace": "tenant-1",
+	}
+
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-signal-1",
+			MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:           "ticket-signal-1",
+				OwnerNamespace:     "tenant-1",
+				EnqueuedAt:         enqueuedAt,
+				RunnerID:           "runner-1",
+				RequiredRunnerIDs:  []string{"runner-1", "runner-2"},
+				LeaderRunnerID:     "runner-1",
+				PipelineIdentifier: "pipelines/test",
+				YAML:               "name: test\nsteps: []\n",
+				PipelineConfig:     pipelineConfig,
+			},
+			errCh,
+		)
+	}, time.Second)
+
+	env.RegisterDelayedCallback(func() {
+		env.SignalWorkflow(
+			MobileRunnerSemaphoreRunGrantedSignalName,
+			MobileRunnerSemaphoreRunGrantedSignal{
+				TicketID: "ticket-signal-1",
+				RunnerID: "runner-2",
+			},
+		)
+	}, time.Second*2)
+
+	env.RegisterDelayedCallback(func() {
+		queryRunStatus(env, "tenant-1", "ticket-signal-1", statusCh, errCh)
+	}, time.Second*3)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*4)
+
+	done := make(chan struct{})
+	go func() {
+		env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+			Payload: MobileRunnerSemaphoreWorkflowInput{
+				RunnerID: "runner-1",
+				Capacity: 1,
+			},
+		})
+		close(done)
+	}()
+
+	<-done
+
+	select {
+	case status := <-statusCh:
+		require.Equal(t, mobileRunnerSemaphoreRunRunning, status.Status)
+		require.Equal(t, "wf-signal-1", status.WorkflowID)
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for running status")
+	}
+
+	require.Empty(t, drainErrors(errCh))
+}
+
+func TestMobileRunnerSemaphoreWorkflowReconcilesStartingFollower(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileRunnerSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	queryAct := activities.NewQueryMobileRunnerSemaphoreRunStatusActivity()
+	env.RegisterActivityWithOptions(queryAct.Execute, activity.RegisterOptions{Name: queryAct.Name()})
+	env.OnActivity(queryAct.Name(), mock.Anything, mock.Anything).Return(
+		workflowengine.ActivityResult{
+			Output: MobileRunnerSemaphoreRunStatusView{
+				TicketID:          "ticket-reconcile-1",
+				Status:            mobileRunnerSemaphoreRunRunning,
+				WorkflowID:        "wf-reconcile-1",
+				RunID:             "run-reconcile-1",
+				WorkflowNamespace: "tenant-1",
+			},
+		},
+		nil,
+	).Maybe()
+
+	env.OnSignalExternalWorkflow(
+		mock.Anything,
+		MobileRunnerSemaphoreWorkflowID("runner-1"),
+		"",
+		MobileRunnerSemaphoreRunGrantedSignalName,
+		mock.Anything,
+	).Return(nil).Maybe()
+
+	errCh := make(chan error, 2)
+	statusCh := make(chan MobileRunnerSemaphoreRunStatusView, 1)
+
+	enqueuedAt := time.Date(2026, 2, 3, 13, 45, 0, 0, time.UTC)
+	pipelineConfig := map[string]any{
+		"app_url":   "https://example.com",
+		"namespace": "tenant-1",
+	}
+
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-reconcile-1",
+			MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:           "ticket-reconcile-1",
+				OwnerNamespace:     "tenant-1",
+				EnqueuedAt:         enqueuedAt,
+				RunnerID:           "runner-2",
+				RequiredRunnerIDs:  []string{"runner-1", "runner-2"},
+				LeaderRunnerID:     "runner-1",
+				PipelineIdentifier: "pipelines/test",
+				YAML:               "name: test\nsteps: []\n",
+				PipelineConfig:     pipelineConfig,
+			},
+			errCh,
+		)
+	}, time.Second)
+
+	env.RegisterDelayedCallback(func() {
+		queryRunStatus(env, "tenant-1", "ticket-reconcile-1", statusCh, errCh)
+	}, runStartingReconcileInterval+5*time.Second)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, runStartingReconcileInterval+8*time.Second)
+
+	done := make(chan struct{})
+	go func() {
+		env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+			Payload: MobileRunnerSemaphoreWorkflowInput{
+				RunnerID: "runner-2",
+				Capacity: 1,
+			},
+		})
+		close(done)
+	}()
+
+	<-done
+
+	select {
+	case status := <-statusCh:
+		require.Equal(t, mobileRunnerSemaphoreRunRunning, status.Status)
+		require.Equal(t, "wf-reconcile-1", status.WorkflowID)
+	case err := <-errCh:
+		require.NoError(t, err)
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for reconciled status")
+	}
+
+	require.Empty(t, drainErrors(errCh))
+}
+
 func TestMobileRunnerSemaphoreWorkflowRunStartFailureAdvancesQueue(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

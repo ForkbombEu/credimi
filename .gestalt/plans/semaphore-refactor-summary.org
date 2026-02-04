@@ -230,3 +230,54 @@
 - Tests ::
   - If implemented: add integration coverage for “queue full” responses and for leak-free cancellation when the pre-gate workflow is terminated before starting the pipeline.
 - Done when :: The team either identifies a Temporal-native mechanism that enforces queue length semantics (not throughput), or explicitly documents why worker/rate limits are insufficient and keeps the per-runner semaphore enforcement.
+
+* WIP [#B] Copilot review follow-ups (distilled)
+- Effort :: S
+- Goal :: Address the high-signal items from the Copilot automated review; explicitly document which are real risks vs false positives.
+- Notes ::
+  - Copilot’s “rollback at line 212 in `mobile_runner_semaphore.go`” is misattributed; the rollback logic is in `pkg/internal/apis/handlers/pipeline_queue_handler.go`.
+  - Rollback currently uses *attempted* runner IDs (not “confirmed success”) because enqueue errors can be ambiguous (e.g. network timeouts after the update may have been applied server-side).
+** WIP [#A] Stop discarding `SignalExternalWorkflow` errors (started/done)
+- Why :: If the leader fails to signal `run-started`/`run-done` to follower semaphores, followers can stay `starting` forever and keep runner capacity locked.
+- Change ::
+  - In `pkg/workflowengine/workflows/mobile_runner_semaphore.go`:
+    - In `signalRunStarted` and `signalRunDone`, capture `future.Get` errors and log them via `workflow.GetLogger(ctx)` with `ticket_id`, `target_runner_id`, signal name, and error.
+    - Add a recovery mechanism so signals are not a single point of failure (minimal viable approach):
+      - Add a follower-side reconciliation loop: for tickets in `starting` where `LeaderRunnerID != r.runnerID`, periodically query the leader semaphore (`MobileRunnerSemaphoreRunStatusQuery`) via `workflow.QueryExternalWorkflow` and update the local ticket to `running` (or finalize if the leader reports terminal/`not_found`).
+      - Keep signaling as best-effort once reconciliation exists; optionally add bounded retries (e.g. 3 attempts with deterministic backoff) for `run-done` only.
+    - Keep reconciliation deterministic: use `workflow.Sleep` and avoid wall-clock randomness.
+- Tests ::
+  - Add workflow tests in `pkg/workflowengine/workflows/mobile_runner_semaphore_test.go` using `env.OnSignalExternalWorkflow(...)` to force a transient signal failure and validate:
+    - the leader continues (and logs),
+    - the follower eventually reaches `running` or finalizes via reconciliation even without receiving the signal.
+- Done when :: A forced signal failure no longer leaves follower tickets stuck in `starting` and does not leak capacity.
+** TODO [#B] Ensure a single start failure doesn’t stall queue processing
+- Why :: `startPipelineForTicket` already marks the ticket failed and signals `run-done`, but it also returns the error; this aborts the current `processRunQueue` pass early (even if the run-starter loop later retries). Keeping the queue moving avoids head-of-line blocking and reduces “stuck queue” paranoia during incidents.
+- Change ::
+  - In `pkg/workflowengine/workflows/mobile_runner_semaphore.go`:
+    - Prefer “handle-and-continue” semantics for per-ticket start failures:
+      - Option A (smallest): in `startPipelineForTicket`, after calling `markRunTicketFailed(...)` and `signalRunDone(...)`, return `nil` instead of the error (and log the error once).
+      - Option B: keep `startPipelineForTicket` returning errors, but in `startReadyRuns` catch errors per ticket, log, and `continue` so other ready tickets can still start in the same pass.
+    - Keep invariant: any failure path must still transition the ticket to a terminal state and release capacity via `run-done` signaling (best-effort).
+- Tests ::
+  - Add a workflow test in `pkg/workflowengine/workflows/mobile_runner_semaphore_test.go`:
+    - Create two tickets for the same runner where the leader is local.
+    - Mock `StartQueuedPipelineActivity` to fail for the first ticket only.
+    - Assert the second ticket still transitions to `running` (or at least `starting`→`running`) without needing an external nudge.
+- Done when :: A simulated start failure for ticket A does not prevent ticket B from being processed in the same run-starter cycle.
+** TODO [#B] Clarify rollback runner list semantics (attempted vs succeeded)
+- Why :: Copilot flagged rollback using `attemptedRunnerIDs`; this is only a correctness issue if `cancel` is not idempotent or if we incorrectly assume enqueue failures imply “no side effects”.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_queue_handler.go`:
+    - Keep rolling back *attempted* runners (safer under timeouts), but rename `attemptedRunnerIDs` to `rollbackRunnerIDs` (or add a comment explaining why “attempted” is intentional).
+    - Only switch to “successful-only” rollback if we can guarantee `enqueueRunTicket` has no “unknown outcome” errors (generally not true with network timeouts).
+- Tests ::
+  - Ensure existing unit tests cover rollback; add a regression case for an “unknown outcome” style error if the enqueue path is mockable in tests.
+- Done when :: The rollback safety property is explicit and reviewers don’t misread the logic as a bug.
+** TODO [#C] Confirm `createPipelineExecutionResultWithRetry` loop is bounds-safe (false positive)
+- Why :: Copilot flagged an “off-by-one” in `pkg/workflowengine/activities/queued_pipeline.go`; current code guards the index access, so it is safe but non-obvious.
+- Change ::
+  - Optionally refactor for readability (e.g. `maxAttempts := len(backoffs)+1; for attempt := 0; attempt < maxAttempts; attempt++ { ... }` and only sleep when `attempt < len(backoffs)`).
+- Tests ::
+  - Add a unit test with a fake `httpDoer` that always fails to assert attempt count and that it returns the last error without panicking.
+- Done when :: The retry loop is trivially readable and no longer triggers “off-by-one” alarms.
