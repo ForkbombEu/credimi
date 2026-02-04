@@ -5,6 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import BackButton from '$lib/layout/back-button.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageHeader from '$lib/layout/pageHeader.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
@@ -28,6 +29,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <PageTop>
+	<BackButton href="/news" />
+
 	<div class="flex flex-col gap-4">
 		<T tag="h1">{news.title}</T>
 		<HTML class="text-primary" content={news.summary} />
@@ -44,7 +47,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<!-- TAGS -->
 	{#if tags.length > 0}
 		<div class="flex flex-row items-center justify-start gap-2">
-			{#each tags as tag}
+			{#each tags as tag (tag)}
 				<Badge variant="outline" class="border-primary text-primary">{tag}</Badge>
 			{/each}
 		</div>
@@ -55,11 +58,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<T tag="small" class="text-muted-foreground">Links:</T>
 		<div class="flex flex-row items-center justify-start gap-2">
 			{#if news.diff}
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a href={news.diff} target="_blank">
 					<Button size="sm">{m.differences()}</Button>
 				</a>
 			{/if}
 			{#if news.refer}
+				<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 				<a href={news.refer} target="_blank">
 					<Button size="sm">{m.referrer()}</Button>
 				</a>
@@ -69,14 +74,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </PageTop>
 
 <PageContent class="grow bg-secondary" contentClass="flex gap-12 items-start">
-	<div>
+	<div class="space-y-12">
 		<div>
-			<PageHeader title={'Key differences'} id={'key_differences'} />
-			<RenderMd content={news.key_differences} />
+			<PageHeader title="Key differences" id="key_differences" />
+			<RenderMd class="prose" content={news.key_differences} />
 		</div>
-		<div class="prose prose-base lg:prose-lg xl:prose-xl">
-			<PageHeader title={'news'} id={'news'} />
-			<HTML content={news.news} />
+		<div>
+			<PageHeader title="news" id="news" />
+			<HTML class="prose" content={news.news} />
 		</div>
 	</div>
 </PageContent>

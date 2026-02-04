@@ -59,7 +59,7 @@ func WorkersHook(app *pocketbase.PocketBase) {
 			}
 			log.Printf("[WorkersHook] Starting workers for namespace %q", ns)
 			go StartAllWorkersByNamespace(ns)
-			StartWorkerManagerWorkflow(ns, "")
+			StartWorkerManagerWorkflow(app, ns, "")
 		}
 
 		log.Printf("[WorkersHook] All namespaces ready, workers started")
@@ -212,6 +212,12 @@ var DefaultWorkers = []workerConfig{
 			activities.NewHTTPActivity(),
 		},
 	},
+	{
+		TaskQueue: workflows.MobileRunnerSemaphoreTaskQueue,
+		Workflows: []workflowengine.Workflow{
+			workflows.NewMobileRunnerSemaphoreWorkflow(),
+		},
+	},
 }
 
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
@@ -329,7 +335,7 @@ func StopAllWorkersByNamespace(namespace string) {
 	}
 }
 
-func FetchNamespaces(app *pocketbase.PocketBase) ([]string, error) {
+func FetchNamespaces(app core.App) ([]string, error) {
 	collection, err := app.FindCollectionByNameOrId("organizations")
 	if err != nil {
 		return nil, err
@@ -418,9 +424,9 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 	}
 }
 
-func StartWorkerManagerWorkflow(namespace, oldNamespace string) {
+func StartWorkerManagerWorkflow(app core.App, namespace, oldNamespace string) {
 	go func() {
-		if err := executeWorkerManagerWorkflow(namespace, oldNamespace); err != nil {
+		if err := executeWorkerManagerWorkflow(namespace, oldNamespace, app.Settings().Meta.AppURL); err != nil {
 			log.Printf("[WorkerManagerWorkflow] Failed for namespace %s: %v", namespace, err)
 		} else {
 			log.Printf("[WorkerManagerWorkflow] Successfully started for namespace %s", namespace)
@@ -428,9 +434,7 @@ func StartWorkerManagerWorkflow(namespace, oldNamespace string) {
 	}()
 }
 
-func executeWorkerManagerWorkflow(namespace, oldNamespace string) error {
-	serverURL := utils.GetEnvironmentVariable("MAESTRO_WORKER", "http://localhost:8050")
-
+func executeWorkerManagerWorkflow(namespace, oldNamespace, appURL string) error {
 	ao := &workflow.ActivityOptions{
 		ScheduleToCloseTimeout: time.Minute,
 		StartToCloseTimeout:    30 * time.Second,
@@ -448,7 +452,7 @@ func executeWorkerManagerWorkflow(namespace, oldNamespace string) error {
 			OldNamespace: oldNamespace,
 		},
 		Config: map[string]any{
-			"server_url": serverURL,
+			"app_url": appURL,
 		},
 		ActivityOptions: ao,
 	}

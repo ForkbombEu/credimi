@@ -12,18 +12,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
 
-	import type { WorkflowExecutionWithChildren } from './queries.types';
+	import type { WorkflowExecutionSummary } from './queries.types';
 
-	import WorkflowTableRow from './workflow-table-row.svelte';
+	import WorkflowTableRow, { type RowSnippet } from './workflow-table-row.svelte';
 
 	//
 
 	type Props = {
-		workflows: WorkflowExecutionWithChildren[];
-		nameRight?: Snippet<[{ workflow: WorkflowExecutionWithChildren }]>;
+		workflows: WorkflowExecutionSummary[];
+		hideResults?: boolean;
+		header?: Snippet<[{ Th: typeof Table.Head }]>;
+		row?: RowSnippet;
 	};
 
-	let { workflows, nameRight }: Props = $props();
+	let { workflows, row, header, hideResults = false }: Props = $props();
 </script>
 
 <TemporalI18nProvider>
@@ -33,7 +35,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Table.Head>{m.Type()}</Table.Head>
 				<Table.Head>{m.Workflow()}</Table.Head>
 				<Table.Head>{m.Status()}</Table.Head>
-				<Table.Head>{m.Results()}</Table.Head>
+				{@render header?.({ Th: Table.Head })}
+				{#if !hideResults}
+					<Table.Head>{m.Results()}</Table.Head>
+				{/if}
 				<Table.Head class="text-right">{m.Start_time()}</Table.Head>
 				<Table.Head class="text-right">{m.End_time()}</Table.Head>
 				<Table.Head class="text-right">{m.Actions()}</Table.Head>
@@ -41,7 +46,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Header>
 		<Table.Body>
 			{#each workflows as workflow (workflow.execution.runId)}
-				<WorkflowTableRow {workflow} {nameRight} />
+				<WorkflowTableRow {workflow} {row} {hideResults} />
 			{:else}
 				<Table.Row class="hover:bg-transparent">
 					<Table.Cell colspan={6} class="text-center text-gray-300 py-20">

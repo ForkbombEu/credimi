@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { IconProps } from 'lucide-svelte';
+	import type { IconProps } from '@lucide/svelte';
 	import type { ClassValue } from 'svelte/elements';
 
 	import type { IconComponent } from '@/components/types';

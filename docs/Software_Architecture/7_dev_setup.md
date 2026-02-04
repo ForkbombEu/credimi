@@ -72,3 +72,16 @@ make dev
 > [!TIP]
 > Use `make help` to see all the commands available.
 
+## Mobile Runner Semaphore Ops (Internal)
+
+### Defaults and knobs
+
+- Default acquire wait timeout: 45m.
+- Override timeout: `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT=30m` (or any valid `time.ParseDuration` value).
+- Disable semaphore (no-op acquire/release): `MOBILE_RUNNER_SEMAPHORE_DISABLED=1`.
+
+### Emergency procedures
+
+- Semaphore workflows live in the Temporal `default` namespace with IDs: `mobile-runner-semaphore/<runner_id>`.
+- Query current state via Temporal UI (`GetState`) or `GET /api/mobile-runner/semaphore?runner_identifier=...`.
+- To unstick a runner, terminate the semaphore workflow in Temporal; it will be recreated on the next acquire.

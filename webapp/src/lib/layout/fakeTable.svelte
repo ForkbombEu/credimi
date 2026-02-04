@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { Ellipsis } from 'lucide-svelte';
+	import { Ellipsis } from '@lucide/svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Input from '@/components/ui/input/input.svelte';
@@ -60,6 +60,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </table>
 
 <style lang="postcss">
+	@reference 'tailwindcss';
+
 	tr {
 		@apply border-y;
 	}

@@ -54,6 +54,7 @@ var Codes = map[string]Code{
 	OpenIDnetCheckFailed:           {"CRE309", "OpenIDnet check failed"},
 	UnexpectedHTTPStatusCode:       {"CRE310", "Unexpected HTTP status code"},
 	DockerCommandExecutionFailed:   {"CRE311", "Docker command execution failed"},
+	MobileRunnerBusy:               {"CRE312", "Mobile runner busy"},
 	ReadFromReaderFailed:           {"CRE901", "Failed to read from reader"},
 	CopyFromReaderFailed:           {"CRE902", "Failed to copy from reader"},
 	MkdirFailed:                    {"CRE903", "Failed to create a new folder"},
@@ -105,6 +106,7 @@ const (
 	OpenIDnetCheckFailed           = "CRE309"
 	UnexpectedHTTPStatusCode       = "CRE310"
 	DockerCommandExecutionFailed   = "CRE311"
+	MobileRunnerBusy               = "CRE312"
 	ReadFromReaderFailed           = "CRE901"
 	CopyFromReaderFailed           = "CRE902"
 	MkdirFailed                    = "CRE903"

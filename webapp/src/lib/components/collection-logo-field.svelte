@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { z } from 'zod';
+	import { z } from 'zod/v3';
 
 	import { getCollectionFormContext } from '@/collections-components/form/context';
 	import { LogoField } from '@/forms/fields';

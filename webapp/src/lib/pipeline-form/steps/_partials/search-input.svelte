@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { SearchIcon, XIcon } from 'lucide-svelte';
+	import { SearchIcon, XIcon } from '@lucide/svelte';
 
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { Input } from '@/components/ui/input/index.js';
@@ -17,15 +17,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		search: Search;
 		placeholder?: string;
+		name?: string;
 	};
 
-	let { search, placeholder = 'Search' }: Props = $props();
+	let { search, placeholder = 'Search', name }: Props = $props();
 </script>
 
 <div class="relative">
-	<Input bind:value={search.text} {placeholder} />
+	<Input bind:value={search.text} {placeholder} {name} />
 
-	<div class="absolute right-0 top-0 p-1">
+	<div class="absolute top-0 right-0 p-1">
 		{#if search.text}
 			<IconButton icon={XIcon} variant="ghost" size="sm" onclick={() => search.clear()} />
 		{:else}

@@ -11,14 +11,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts" generics="R extends DashboardRecord">
 	import type { Snippet } from 'svelte';
 
-	import { getMarketplaceItemUrl, type MarketplaceItem } from '$lib/marketplace';
-	import { path as makePath } from '$lib/utils';
+	import { ArrowDown, ArrowUp } from '@lucide/svelte';
+	import { resolve } from '$app/paths';
+	import { getCustomCheckPublicUrl } from '$lib/marketplace/utils';
+	import { getPath, mergePaths } from '$lib/utils';
 	import { String } from 'effect';
 	import { truncate } from 'lodash';
-	import { ArrowDown, ArrowUp } from 'lucide-svelte';
 	import removeMd from 'remove-markdown';
 
-	import { RecordClone, RecordDelete, RecordEdit } from '@/collections-components/manager';
+	import {
+		RecordClone,
+		RecordDelete,
+		RecordEdit,
+		type RecordAction
+	} from '@/collections-components/manager';
 	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import Card from '@/components/ui-custom/card.svelte';
@@ -26,7 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { Separator } from '@/components/ui/separator';
-	import { pb } from '@/pocketbase';
+	import { Collections, type CustomChecksResponse } from '@/pocketbase/types';
 
 	import LabelLink from './label-link.svelte';
 	import PublishedSwitch from './published-switch.svelte';
@@ -37,16 +43,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		record: R;
 		content?: Snippet;
 		links?: Record<string, string>;
-		avatar: (record: R) => string;
+		avatar?: ((record: R) => string) | string | undefined;
 		subtitle?: string;
 		badge?: string;
 		actions?: Snippet;
 		editAction?: Snippet;
-		path: string[];
-		hideDelete?: boolean;
-		hidePublish?: boolean;
-		hideActions?: boolean;
-		showClone?: boolean;
+		nameRight?: Snippet;
+		hideActions?: (RecordAction | 'publish')[] | true;
 	};
 
 	let {
@@ -58,11 +61,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		badge,
 		actions,
 		editAction,
-		path,
-		hideDelete = false,
-		hidePublish = false,
-		hideActions = false,
-		showClone = false
+		nameRight,
+		hideActions = []
 	}: Props = $props();
 
 	//
@@ -76,29 +76,47 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	let publicUrl = $state('');
-	$effect(() => {
-		if (!record.published) return;
-		pb.collection('marketplace_items')
-			.getOne(record.id)
-			.then((item) => {
-				publicUrl = getMarketplaceItemUrl(item as unknown as MarketplaceItem);
+	let publicUrl = $derived.by(() => {
+		if (!record.published) {
+			return undefined;
+		} else if (record.collectionName === Collections.CustomChecks) {
+			return getCustomCheckPublicUrl(record as CustomChecksResponse);
+		} else {
+			return resolve('/(public)/marketplace/[...path]', {
+				path: mergePaths(record.collectionName, getPath(record))
 			});
+		}
 	});
+
+	const avatarSrc = $derived.by(() => {
+		if (typeof avatar === 'function') return avatar(record);
+		return avatar;
+	});
+
+	//
+
+	const hideActionsList = $derived(hideActions === true ? ['all'] : hideActions);
 </script>
 
-<Card id={record.canonified_name} class="bg-card scroll-mt-5" contentClass="space-y-4 p-4">
+<Card
+	id={record.canonified_name}
+	class="scroll-mt-5 rounded-sm bg-card"
+	contentClass="space-y-4 p-4"
+>
 	<div class="flex items-center justify-between gap-3">
 		<div class="flex items-center gap-4">
-			<Avatar src={avatar(record)} fallback={record.name} class="rounded-sm border" />
-			<div>
+			<Avatar src={avatarSrc} fallback={record.name} class="rounded-sm border" />
+			<div class="space-y-1">
 				<div class="flex items-center gap-2">
 					<LabelLink
 						label={record.name}
 						href={publicUrl}
 						published={record.published}
-						textToCopy={makePath(path)}
+						textToCopy={getPath(record)}
 					/>
+					{#if nameRight}
+						{@render nameRight()}
+					{/if}
 					{#if badge}
 						<Badge variant="secondary">{badge}</Badge>
 					{/if}
@@ -108,26 +126,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/if}
 			</div>
 		</div>
-		{#if !hideActions}
+
+		{#if hideActions !== true}
 			<div class="flex items-center gap-2">
-				{@render actions?.()}
-				{#if !hidePublish}
+				{#if !hideActionsList.includes('publish')}
 					<PublishedSwitch record={record as DashboardRecord} field="published" />
 				{/if}
-				{#if showClone}
+
+				{@render actions?.()}
+
+				{#if !hideActionsList.includes('clone')}
 					<RecordClone
 						collectionName={record.collectionName}
 						recordId={record.id}
 						size="md"
 					/>
 				{/if}
+
 				{#if editAction}
 					{@render editAction()}
-				{:else}
+				{:else if !hideActionsList.includes('edit')}
 					<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
 					<RecordEdit record={record as any} />
 				{/if}
-				{#if !hideDelete}
+
+				{#if !hideActionsList.includes('delete')}
 					<!-- eslint-disable-next-line @typescript-eslint/no-explicit-any -->
 					<RecordDelete record={record as any} />
 				{/if}
@@ -154,7 +177,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{@const icon = isDescriptionExpanded ? ArrowUp : ArrowDown}
 						{@const label = isDescriptionExpanded ? 'Collapse' : 'Expand'}
 						<button
-							class="text-primary inline-flex items-baseline gap-0.5 hover:underline"
+							class="inline-flex items-baseline gap-0.5 text-primary hover:underline"
 							onclick={() => (isDescriptionExpanded = !isDescriptionExpanded)}
 						>
 							<Icon src={icon} size="14" class="translate-y-0.5" />
@@ -185,7 +208,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<T class="text-nowrap">{props.label}:</T>
 		{#if props.href}
 			<A
-				class="block w-0 grow cursor-pointer truncate !text-gray-400 underline underline-offset-2"
+				class="block w-0 grow cursor-pointer truncate text-gray-400! underline underline-offset-2"
 				target="_blank"
 				href={props.href}
 			>

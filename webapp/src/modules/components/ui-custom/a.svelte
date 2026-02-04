@@ -8,9 +8,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { Snippet } from 'svelte';
 	import type { HTMLAnchorAttributes } from 'svelte/elements';
 
+	import { resolve } from '$app/paths';
+
 	import { localizeHref } from '@/i18n';
 
-	import { cn } from '../ui/utils';
+	//
+
+	//
 
 	type Props = HTMLAnchorAttributes & {
 		children?: Snippet;
@@ -19,10 +23,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { class: className, href, children, ...rest }: Props = $props();
 </script>
 
-<a
-	href={href ? localizeHref(href) : undefined}
-	class={cn(className, 'text-primary hover:underline')}
-	{...rest}
->
-	{@render children?.()}
-</a>
+{#if href}
+	<a
+		href={resolve(localizeHref(href) as '/')}
+		class={['text-primary hover:underline', className]}
+		{...rest}
+	>
+		{@render children?.()}
+	</a>
+{:else}
+	<p>
+		{@render children?.()}
+	</p>
+{/if}

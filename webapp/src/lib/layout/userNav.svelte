@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { LogOut } from 'lucide-svelte';
+	import { LogOut } from '@lucide/svelte';
 	import { fromStore } from 'svelte/store';
 
 	import Button from '@/components/ui-custom/button.svelte';

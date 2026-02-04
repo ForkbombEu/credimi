@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { subYears, addYears, differenceInMilliseconds, addMilliseconds } from 'date-fns';
+import { subYears, addYears, differenceInMilliseconds, addMilliseconds, parseISO } from 'date-fns';
 import { describe, it, expect } from 'vitest';
 
 import type { CollectionFormData, Data } from '@/pocketbase/types';
@@ -117,9 +117,11 @@ describe('generated collection zod schema', () => {
 	if (!dateField) throw new Error('field not found');
 	const { max: maxDate, min: minDate } = dateField;
 	if (!maxDate || !minDate) throw new Error('missing min and max date');
+	const minDateValue = typeof minDate === 'string' ? parseISO(minDate) : minDate;
+	const maxDateValue = typeof maxDate === 'string' ? parseISO(maxDate) : maxDate;
 
 	it('fails the date check with a date earlier than minimum', () => {
-		const earlierDate = subYears(minDate, 10);
+		const earlierDate = subYears(minDateValue, 10);
 
 		const data: ZTestFormData = {
 			...baseData,
@@ -130,7 +132,7 @@ describe('generated collection zod schema', () => {
 	});
 
 	it('fails the date check with a date later than maximum', () => {
-		const laterDate = addYears(maxDate, 10);
+		const laterDate = addYears(maxDateValue, 10);
 
 		const data: ZTestFormData = {
 			...baseData,
@@ -141,17 +143,14 @@ describe('generated collection zod schema', () => {
 	});
 
 	it('passes the date check with a date in between', () => {
-		const difference = differenceInMilliseconds(maxDate, minDate);
-		const betweenDate = addMilliseconds(minDate, difference / 2);
-
-		console.log(minDate, betweenDate.toISOString(), maxDate);
+		const difference = differenceInMilliseconds(maxDateValue, minDateValue);
+		const betweenDate = addMilliseconds(minDateValue, difference / 2);
 
 		const data: ZTestFormData = {
 			...baseData,
 			date_field: betweenDate.toISOString()
 		};
 		const parseResult = schema.safeParse(data);
-		console.log(parseResult.error?.issues);
 		expect(parseResult.success).toBe(true);
 	});
 });

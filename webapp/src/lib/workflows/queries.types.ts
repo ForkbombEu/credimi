@@ -2,11 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { MobileRunnersResponse } from '@/pocketbase/types';
+
 export interface FetchWorkflowsResponse {
-	executions: Array<WorkflowExecutionWithChildren>;
+	executions: Array<WorkflowExecutionSummary>;
 }
 
-export interface WorkflowExecutionWithChildren {
+export interface WorkflowExecutionSummary {
 	execution: {
 		workflowId: string;
 		runId: string;
@@ -22,6 +24,9 @@ export interface WorkflowExecutionWithChildren {
 		video: string;
 		screenshot: string;
 	}>;
-	children?: Array<WorkflowExecutionWithChildren>;
+	children?: Array<WorkflowExecutionSummary>;
 	failure_reason?: string;
+	global_runner_id?: string;
+	runner_ids?: string[];
+	runner_records?: Array<MobileRunnersResponse>;
 }

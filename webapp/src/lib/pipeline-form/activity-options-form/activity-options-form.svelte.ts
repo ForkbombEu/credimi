@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { ActivityOptions } from '$lib/pipeline/types.generated';
 import type { Renderable } from '$lib/renderable';
-import type { ActivityOptions } from '$pipeline-form/types.generated';
 import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
 import { createForm } from '@/forms';
 import { getExceptionMessage } from '@/utils/errors';
@@ -11,7 +11,7 @@ import Ajv from 'ajv';
 import type { SuperForm } from 'sveltekit-superforms';
 import { zod } from 'sveltekit-superforms/adapters';
 import { parse as parseYaml, stringify } from 'yaml';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 import Component from './activity-options-form.svelte';
 
 //

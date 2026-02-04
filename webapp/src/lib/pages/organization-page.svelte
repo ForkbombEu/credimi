@@ -7,13 +7,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { IndexItem } from '$lib/layout/pageIndex.svelte';
 
+	import { Building2, Layers } from '@lucide/svelte';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import PageContent from '$lib/layout/pageContent.svelte';
 	import PageHeaderIndexed from '$lib/layout/pageHeaderIndexed.svelte';
 	import PageIndex from '$lib/layout/pageIndex.svelte';
 	import PageTop from '$lib/layout/pageTop.svelte';
-	import { Building2, Layers } from 'lucide-svelte';
 
 	import type { MarketplaceItemsResponse, OrganizationsResponse } from '@/pocketbase/types';
 
@@ -54,7 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <PageTop contentClass="!space-y-4">
 	{#if !isPreview}
-		<BackButton href="/organizations">Back to organizations</BackButton>
+		<BackButton href="/organizations" />
 	{/if}
 	<div class="flex items-center gap-6">
 		<Avatar
@@ -72,7 +72,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</div>
 </PageTop>
 
-<PageContent class="bg-secondary grow" contentClass="flex flex-col md:flex-row gap-16 items-start">
+<PageContent class="grow bg-secondary" contentClass="flex flex-col md:flex-row gap-16 items-start">
 	<div class="sticky top-5 shrink-0">
 		<PageIndex sections={Object.values(sections)} />
 	</div>

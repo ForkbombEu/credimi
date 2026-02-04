@@ -20,18 +20,14 @@ type MobileAutomationWorkflow struct {
 
 // MobileAutomationWorkflowPayload is the payload for the mobile automation workflow
 type MobileAutomationWorkflowPayload struct {
-	RunIdentifier      string            `json:"run_identifier,omitempty"       yaml:"run_identifier,omitempty"`
-	ActionID           string            `json:"action_id,omitempty"            yaml:"action_id,omitempty"`
-	VersionID          string            `json:"version_id,omitempty"           yaml:"version_id,omitempty"`
-	ActionCode         string            `json:"action_code,omitempty"          yaml:"action_code,omitempty"`
-	StoredActionCode   bool              `json:"stored_action_code,omitempty"   yaml:"stored_action_code,omitempty"`
-	EmulatorSerial     string            `json:"emulator_serial,omitempty"      yaml:"emulator_serial,omitempty"`
-	CloneName          string            `json:"clone_name,omitempty"           yaml:"clone_name,omitempty"`
-	Parameters         map[string]string `json:"parameters,omitempty"           yaml:"parameters,omitempty"`
-	VideoPath          string            `json:"video_path,omitempty"           yaml:"video_path,omitempty"`
-	RecordingAdbPid    int               `json:"recording_adb_pid,omitempty"    yaml:"recording_adb_pid,omitempty"`
-	RecordingFfmpegPid int               `json:"recording_ffmpeg_pid,omitempty" yaml:"recording_ffmpeg_pid,omitempty"`
-	RecordingLogcatPid int               `json:"recording_logcat_pid,omitempty" yaml:"recording_logcat_pid,omitempty"`
+	RunIdentifier    string            `json:"run_identifier,omitempty"     yaml:"run_identifier,omitempty"`
+	ActionID         string            `json:"action_id,omitempty"          yaml:"action_id,omitempty"`
+	VersionID        string            `json:"version_id,omitempty"         yaml:"version_id,omitempty"`
+	ActionCode       string            `json:"action_code,omitempty"        yaml:"action_code,omitempty"`
+	StoredActionCode bool              `json:"stored_action_code,omitempty" yaml:"stored_action_code,omitempty"`
+	Serial           string            `json:"serial,omitempty"             yaml:"serial,omitempty"`
+	RunnerID         string            `json:"runner_id,omitempty"          yaml:"runner_id,omitempty"`
+	Parameters       map[string]string `json:"parameters,omitempty"         yaml:"parameters,omitempty"`
 }
 
 type MobileAutomationWorkflowPipelinePayload struct {
@@ -39,6 +35,7 @@ type MobileAutomationWorkflowPipelinePayload struct {
 	VersionID  string            `json:"version_id,omitempty"  yaml:"version_id,omitempty"`
 	ActionCode string            `json:"action_code,omitempty" yaml:"action_code,omitempty"`
 	Parameters map[string]string `json:"parameters,omitempty"  yaml:"parameters,omitempty"`
+	RunnerID   string            `json:"runner_id,omitempty"   yaml:"runner_id,omitempty"`
 }
 
 func NewMobileAutomationWorkflow() *MobileAutomationWorkflow {
@@ -108,10 +105,10 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	var mobileResponse workflowengine.ActivityResult
 	mobileInput := workflowengine.ActivityInput{
 		Payload: mobile.RunMobileFlowPayload{
-			EmulatorSerial: payload.EmulatorSerial,
-			Yaml:           payload.ActionCode,
-			Parameters:     payload.Parameters,
-			WorkflowId:     workflow.GetInfo(ctx).WorkflowExecution.ID,
+			Serial:     payload.Serial,
+			Yaml:       payload.ActionCode,
+			Parameters: payload.Parameters,
+			WorkflowId: workflow.GetInfo(ctx).WorkflowExecution.ID,
 		},
 	}
 	executeErr := workflow.ExecuteActivity(ctx, mobileActivity.Name(), mobileInput).

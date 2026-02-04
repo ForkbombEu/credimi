@@ -4,21 +4,18 @@
 
 import { createFormValidator } from '@sjsf/ajv8-validator';
 import { createForm, ON_BLUR, ON_CHANGE, ON_INPUT } from '@sjsf/form';
+import { createFormIdBuilder } from '@sjsf/form/id-builders/modern';
+import { createFormMerger } from '@sjsf/form/mergers/modern';
 import { preventPageReload } from '@sjsf/form/prevent-page-reload.svelte';
 import { resolver } from '@sjsf/form/resolvers/basic';
 import { translation } from '@sjsf/form/translations/en';
 import { theme } from '@sjsf/shadcn-theme';
-import { nanoid } from 'nanoid';
 
-type OnUpdateData = {
-	valid: boolean;
-	data: unknown;
-};
+//
 
 type CreateJsonSchemaFormOptions = {
 	hideTitle?: boolean;
 	preventPageReload?: boolean;
-	onUpdate?: (data: OnUpdateData) => void;
 	onSubmit?: (data: unknown) => void;
 	initialValue?: unknown;
 };
@@ -26,7 +23,8 @@ type CreateJsonSchemaFormOptions = {
 export function createJsonSchemaForm(schema: object, options?: CreateJsonSchemaFormOptions) {
 	const initialValue = options?.initialValue;
 	const form = createForm({
-		idPrefix: nanoid(5),
+		idBuilder: createFormIdBuilder(),
+		merger: createFormMerger,
 		resolver,
 		onSubmit: options?.onSubmit,
 		initialValue,
@@ -45,16 +43,6 @@ export function createJsonSchemaForm(schema: object, options?: CreateJsonSchemaF
 
 	if (options?.preventPageReload) {
 		preventPageReload(form);
-	}
-
-	const onUpdate = options?.onUpdate;
-	if (onUpdate) {
-		$effect(() => {
-			onUpdate({
-				valid: form.validate().size === 0,
-				data: form.value
-			});
-		});
 	}
 
 	return form;

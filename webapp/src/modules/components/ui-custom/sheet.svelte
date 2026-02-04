@@ -6,13 +6,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { ComponentProps, Snippet } from 'svelte';
+	import type { ClassValue } from 'svelte/elements';
 
 	import type { GenericRecord } from '@/utils/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import { Separator } from '@/components/ui/separator';
 	import * as Sheet from '@/components/ui/sheet';
-	import { cn } from '@/components/ui/utils';
 
 	//
 
@@ -22,7 +22,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		side?: SheetSide;
 		title?: string | undefined;
 		open?: boolean;
-		class?: string;
+		class?: ClassValue;
 		contentClass?: string;
 		trigger?: Snippet<[{ sheetTriggerAttributes: GenericRecord; openSheet: () => void }]>;
 		children?: Snippet;
@@ -64,9 +64,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Sheet.Root
 	bind:open={
 		() => isOpen,
-		async (v) => {
+		(v) => {
 			if (v === true) isOpen = v;
-			else await closeSheet();
+			else closeSheet();
 		}
 	}
 >
@@ -86,9 +86,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<Sheet.Content
 		side="right"
-		class="flex {cn({
-			'!min-w-[300px] !max-w-none': side == 'right'
-		})} flex-col px-0 {className}"
+		class={[
+			'flex flex-col px-0 pt-6 pb-6',
+			{
+				'max-w-none! min-w-[300px]!': side == 'right' || side == 'left',
+				'pt-0!': title
+			},
+			className
+		]}
 	>
 		{#if title}
 			<Sheet.Header class="px-6">
@@ -97,7 +102,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Sheet.Header>
 		{/if}
 
-		<div class="overflow-y-auto overflow-x-visible px-6 {contentClass}">
+		<div class="overflow-x-visible overflow-y-auto px-6 {contentClass}">
 			{@render content?.({ closeSheet })}
 		</div>
 	</Sheet.Content>

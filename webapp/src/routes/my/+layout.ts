@@ -4,6 +4,7 @@
 
 import { error } from '@sveltejs/kit';
 import { browser } from '$app/environment';
+import { getUserOrganization } from '$lib/utils/index.js';
 
 import { verifyUser } from '@/auth/verifyUser';
 import { WelcomeSession } from '@/auth/welcome/index.js';
@@ -12,8 +13,6 @@ import { deLocalizeUrl, redirect } from '@/i18n';
 import { getKeyringFromLocalStorage, matchPublicAndPrivateKeys } from '@/keypairoom/keypair';
 import { getUserPublicKeys, RegenerateKeyringSession } from '@/keypairoom/utils';
 import { OrganizationInviteSession } from '@/organizations/invites/index.js';
-import { pb } from '@/pocketbase';
-import { PocketbaseQueryAgent } from '@/pocketbase/query';
 
 //
 
@@ -58,16 +57,7 @@ export const load = async ({ fetch, url }) => {
 
 	// Organization page, redirect to edit page if first time user
 
-	const organizationAuth = await new PocketbaseQueryAgent(
-		{
-			collection: 'orgAuthorizations',
-			expand: ['organization'],
-			filter: `user.id = "${pb.authStore.record?.id}"`
-		},
-		{ fetch, requestKey: null }
-	).getFullList();
-
-	const organization = organizationAuth.at(0)?.expand?.organization;
+	const organization = await getUserOrganization({ fetch });
 	if (!organization) error(500, { message: 'USER_MISSING_ORGANIZATION' });
 
 	const isOrganizationNotEdited = organization.created === organization.updated;
@@ -77,7 +67,6 @@ export const load = async ({ fetch, url }) => {
 		WelcomeSession.isActive() &&
 		deLocalizeUrl(url).pathname != organizationPagePath
 	) {
-		console.log('redirecting to edit page');
 		WelcomeSession.end();
 		redirect(organizationPagePath + '?edit=true');
 	}

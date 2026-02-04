@@ -8,6 +8,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { ComponentProps } from 'svelte';
 
 	import { RecordCreate } from '@/collections-components/manager';
+	import Icon from '@/components/ui-custom/icon.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 
 	import BlueButton from './blue-button.svelte';
@@ -23,12 +24,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { label, buttonText, recordCreateOptions = {} }: Props = $props();
 </script>
 
-<div class="!-mb-2 flex items-center justify-between">
+<div class="mb-1! flex items-center justify-between">
 	<T class="text-sm font-semibold">{label}</T>
 
 	<RecordCreate {...recordCreateOptions}>
 		{#snippet button({ triggerAttributes, icon })}
-			<BlueButton {icon} text={buttonText} {...triggerAttributes} />
+			<BlueButton {...triggerAttributes}>
+				<Icon src={icon} />
+				{buttonText}
+			</BlueButton>
 		{/snippet}
 	</RecordCreate>
 </div>

@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SelfProp } from '$lib/renderable';
 
-	import { TriangleAlert } from 'lucide-svelte';
+	import { TriangleAlert } from '@lucide/svelte';
 
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';

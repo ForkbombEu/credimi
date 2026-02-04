@@ -5,11 +5,17 @@
 package handlers
 
 import (
+	"context"
 	"encoding/base64"
+	"fmt"
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/pocketbase/pocketbase/core"
+	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
 )
 
@@ -19,9 +25,8 @@ type MessageState struct {
 }
 
 type WorkflowExecutionInfo struct {
-	Name                 string                    `json:"name"`
-	ID                   string                    `json:"id"`
-	RunID                string                    `json:"runId"`
+	Execution            *WorkflowIdentifier       `json:"execution"`
+	Type                 WorkflowType              `json:"type"`
 	Status               string                    `json:"status"`
 	StateTransitionCount string                    `json:"stateTransitionCount"`
 	StartTime            string                    `json:"startTime"`
@@ -68,15 +73,26 @@ type WorkflowExecution struct {
 }
 
 type WorkflowExecutionSummary struct {
-	Execution     *WorkflowIdentifier         `json:"execution"          validate:"required"`
-	Type          WorkflowType                `json:"type"               validate:"required"`
+	Execution     *WorkflowIdentifier         `json:"execution"                validate:"required"`
+	Type          WorkflowType                `json:"type"                     validate:"required"`
 	StartTime     string                      `json:"startTime"`
 	EndTime       string                      `json:"endTime"`
-	Status        string                      `json:"status"             validate:"required"`
-	DisplayName   string                      `json:"displayName"        validate:"required"`
+	Status        string                      `json:"status"                   validate:"required"`
+	DisplayName   string                      `json:"displayName"              validate:"required"`
 	Children      []*WorkflowExecutionSummary `json:"children,omitempty"`
 	Results       []PipelineResults           `json:"results,omitempty"`
 	FailureReason *string                     `json:"failure_reason,omitempty"`
+}
+
+type WorkflowDescriptionInfoSummary struct {
+	Execution     *WorkflowIdentifier `json:"execution"                validate:"required"`
+	Type          WorkflowType        `json:"type"                     validate:"required"`
+	StartTime     string              `json:"startTime"`
+	EndTime       string              `json:"endTime"`
+	Status        string              `json:"status"                   validate:"required"`
+	DisplayName   string              `json:"displayName"              validate:"required"`
+	Results       []PipelineResults   `json:"results,omitempty"`
+	FailureReason *string             `json:"failure_reason,omitempty"`
 }
 
 type WorkflowExecutionAPIResponse struct {
@@ -526,6 +542,103 @@ func DecodeFromTemporalPayload(encoded string) string {
 	clean := strings.Trim(string(decoded), `"`)
 
 	return clean
+}
+
+func fetchWorkflowFailure(
+	ctx context.Context,
+	c client.Client,
+	workflowID string,
+	runID string,
+) *string {
+	iter := c.GetWorkflowHistory(
+		ctx,
+		workflowID,
+		runID,
+		false, // isLongPoll — false, workflow is already closed
+		enums.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT,
+	)
+
+	if !iter.HasNext() {
+		return nil
+	}
+
+	event, err := iter.Next()
+	if err != nil {
+		return nil
+	}
+
+	attrs := event.GetWorkflowExecutionFailedEventAttributes()
+	if attrs == nil {
+		return nil
+	}
+
+	failure := attrs.GetFailure()
+	if failure == nil {
+		return nil
+	}
+
+	cause := failure.GetCause()
+	if cause == nil {
+		return nil
+	}
+
+	msg := cause.GetMessage()
+	return &msg
+}
+
+func computePipelineResults(
+	app core.App,
+	owner string,
+	workflowID string,
+	runID string,
+) []PipelineResults {
+	identifier := fmt.Sprintf("%s/%s-%s",
+		owner,
+		canonify.CanonifyPlain(workflowID),
+		canonify.CanonifyPlain(runID),
+	)
+	record, _ := canonify.Resolve(app, identifier)
+	if record == nil {
+		return nil
+	}
+
+	videos := record.GetStringSlice("video_results")
+	screenshots := record.GetStringSlice("screenshots")
+
+	screenshotMap := make(map[string]string, len(screenshots))
+
+	for _, name := range screenshots {
+		if key, ok := baseKey(name, "_screenshot_"); ok {
+			screenshotMap[key] = name
+		}
+	}
+
+	results := make([]PipelineResults, 0, len(videos))
+
+	for _, name := range videos {
+		if key, ok := baseKey(name, "_result_video_"); ok {
+			if screenshot, ok := screenshotMap[key]; ok {
+				results = append(results, PipelineResults{
+					Video: utils.JoinURL(
+						app.Settings().Meta.AppURL,
+						"api", "files", "pipeline_results",
+						record.Id,
+						record.GetString("video_results"),
+						name,
+					),
+					Screenshot: utils.JoinURL(
+						app.Settings().Meta.AppURL,
+						"api", "files", "pipeline_results",
+						record.Id,
+						record.GetString("screenshots"),
+						screenshot,
+					),
+				})
+			}
+		}
+	}
+
+	return results
 }
 
 const testDataDir = "../../../../test_pb_data"

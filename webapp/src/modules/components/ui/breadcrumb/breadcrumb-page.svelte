@@ -1,14 +1,6 @@
-<!--
-SPDX-FileCopyrightText: 2025 Forkbomb BV
-
-SPDX-License-Identifier: AGPL-3.0-or-later
--->
-
 <script lang="ts">
-	import type { WithElementRef } from 'bits-ui';
-	import type { HTMLAttributes } from 'svelte/elements';
-
-	import { cn } from '@/components/ui/utils.js';
+	import type { HTMLAttributes } from "svelte/elements";
+	import { cn, type WithElementRef } from "@/components/ui/utils.js";
 
 	let {
 		ref = $bindable(null),
@@ -20,10 +12,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <span
 	bind:this={ref}
+	data-slot="breadcrumb-page"
 	role="link"
 	aria-disabled="true"
 	aria-current="page"
-	class={cn('font-normal text-foreground', className)}
+	class={cn("text-foreground font-normal", className)}
 	{...restProps}
 >
 	{@render children?.()}

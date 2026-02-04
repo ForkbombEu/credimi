@@ -13,7 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { WorkflowQrPoller } from '$lib/workflows';
 	import WorkflowActions from '$lib/workflows/workflow-actions.svelte';
 	import { onMount } from 'svelte';
-	import { z } from 'zod';
+	import { z } from 'zod/v3';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
@@ -64,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	setupListener<IframeMessage>((ev) => {
 		if (ev.type === 'height') {
 			const iframe = getIframe();
-			if (!iframe) return;
+			if (!iframe || !ev.height) return;
 			const heightDifference = ev.height - (parseInt(iframe.height) || 0);
 			if (heightDifference !== constantHeightDifference) {
 				iframe.height = ev.height + 'px';
@@ -142,9 +142,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <div class="bg-primary">
 	<div class="padding-x">
-		<BackButton href="/my/tests/runs" class="text-white">
-			{m.Back_to_test_runs()}
-		</BackButton>
+		<BackButton href="/my/tests/runs" class="text-white" />
 	</div>
 </div>
 
@@ -168,7 +166,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/each}
 				</T>
 			{:else}
-				<T tag="h3" class="break-words !p-0">
+				<T tag="h3" class="!p-0 break-words">
 					{execution.id}
 				</T>
 			{/if}
@@ -181,7 +179,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 
 		{#if failureMessage}
-			<Alert variant="destructive" class="mt-2 !p-3 text-sm">
+			<Alert variant="destructive" class="mt-2 block p-3! text-sm">
 				<span class="font-bold">{m.reason()}:</span>
 				{failureMessage}
 			</Alert>
@@ -286,11 +284,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </div>
 
 <style lang="postcss">
+	@reference 'tailwindcss';
+
 	.bg-temporal {
 		background-color: rgb(248 250 252);
 	}
 
 	.padding-x {
-		@apply !px-2 md:!px-4 lg:!px-8;
+		@apply px-2! md:px-4! lg:px-8!;
 	}
 </style>

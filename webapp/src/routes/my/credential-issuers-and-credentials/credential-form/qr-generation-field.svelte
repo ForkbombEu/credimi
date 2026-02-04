@@ -104,8 +104,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					}}
 				/>
 			</div>
-			<div class="pt-8">
-				<QrCode src={deeplinkState.current} placeholder={m.Type_to_generate_QR_code()} />
+			<div class="pt-[22px]">
+				<QrCode
+					src={deeplinkState.current}
+					class="size-60 rounded-md border"
+					placeholder={m.Type_to_generate_QR_code()}
+				/>
 			</div>
 		</div>
 	</Tabs.Content>
@@ -121,7 +125,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			placeholder={m.Run_the_code_to_generate_QR_code()}
 			successMessage={m.Compliance_Test_Completed_Successfully()}
 			loadingMessage={m.Running_compliance_test()}
-			enableStructuredErrors={true}
 		/>
 	</Tabs.Content>
 </Tabs.Root>

@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 export const ConformanceCheckSchema = z.object({
 	runId: z.string(),

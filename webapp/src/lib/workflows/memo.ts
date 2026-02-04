@@ -4,7 +4,7 @@
 
 import type { Memo } from '@forkbombeu/temporal-ui/dist/types';
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import { warn } from '@/utils/other';
 

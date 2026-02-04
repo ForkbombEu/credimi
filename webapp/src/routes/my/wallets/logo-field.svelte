@@ -114,8 +114,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 
-	<div class="relative mt-8">
-		<div class="size-28 overflow-hidden rounded-md border">
+	<div class="relative mt-5">
+		<div class="size-[108px] overflow-hidden rounded-md border">
 			{#if logoPreviewUrl}
 				<img
 					src={logoPreviewUrl}

@@ -44,7 +44,7 @@ linters:
     # - godot
     # - godox
     - goheader
-    - gomoddirectives
+    #- gomoddirectives
     - gomodguard
     - goprintffuncname
     # - gosec
@@ -58,7 +58,7 @@ linters:
     - interfacebloat
     # - intrange
     # - ireturn
-    - lll
+    #- lll
     - loggercheck
     # - maintidx
     - makezero
@@ -131,7 +131,7 @@ linters:
     rules:
       - path: migrations/
         linters:
-          - gochecknoinits 
+          - gochecknoinits
       - path: _test\.go
         linters:
           - gosec

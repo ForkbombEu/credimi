@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { FolderOpen } from 'lucide-svelte';
+	import { FolderOpen } from '@lucide/svelte';
 
 	import type { IconComponent } from '@/components/types';
 

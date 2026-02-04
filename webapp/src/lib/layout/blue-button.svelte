@@ -5,6 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import type { ComponentProps } from 'svelte';
+
 	import type { IconComponent } from '@/components/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
@@ -12,20 +14,42 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type Props = {
-		text: string;
-		icon: IconComponent;
+	type Props = Omit<ComponentProps<typeof Button>, 'size'> & {
+		icon?: IconComponent;
+		compact?: boolean;
 	};
 
-	let { text, icon, ...rest }: Props = $props();
+	let {
+		icon,
+		compact = false,
+		variant = 'link',
+		class: className,
+		children,
+		...rest
+	}: Props = $props();
 </script>
 
-<Button
-	variant="link"
-	size="sm"
-	class="h-8 gap-1 px-2 text-blue-600 hover:cursor-pointer hover:bg-blue-50 hover:no-underline"
-	{...rest}
->
-	<Icon src={icon} />
-	{text}
-</Button>
+{#if compact}
+	<div class="flex h-5! items-center justify-center">
+		{@render content()}
+	</div>
+{:else}
+	{@render content()}
+{/if}
+
+{#snippet content()}
+	<Button
+		size="sm"
+		{variant}
+		class={[
+			'h-8 gap-1 px-2 text-blue-600 hover:cursor-pointer hover:bg-blue-50 hover:no-underline',
+			className
+		]}
+		{...rest}
+	>
+		{#if icon}
+			<Icon src={icon} />
+		{/if}
+		{@render children?.()}
+	</Button>
+{/snippet}

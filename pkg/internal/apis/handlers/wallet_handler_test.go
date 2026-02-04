@@ -178,7 +178,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 
 	// add form fields
 	_ = successWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = successWriter.WriteField("version_identifier", "usera-s-organization/wallet123/1-0-0")
+	_ = successWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
 
 	partHeader := textproto.MIMEHeader{}
 	partHeader.Set("Content-Disposition", `form-data; name="result_video"; filename="test.mp4"`)
@@ -198,13 +198,19 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	_, err = frameWriter.Write([]byte("test frame content"))
 	require.NoError(t, err)
 
+	logcatWriter, err := successWriter.CreateFormFile("logcat", "logcat.log")
+	require.NoError(t, err)
+
+	_, err = logcatWriter.Write([]byte("test logcat content"))
+	require.NoError(t, err)
+
 	require.NoError(t, successWriter.Close())
 
 	// Prepare missing file multipart request
 	var missingBody bytes.Buffer
 	missingWriter := multipart.NewWriter(&missingBody)
 	_ = missingWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
-	_ = missingWriter.WriteField("version_identifier", "usera-s-organization/wallet123/1-0-0")
+	_ = missingWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
 	require.NoError(t, missingWriter.Close())
 
 	scenarios := []tests.ApiScenario{
@@ -240,7 +246,6 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			ExpectedContent: []string{
 				`"file"`,
 				`failed to read file for field result_video"`,
-				`failed to read file for field last_frame"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)

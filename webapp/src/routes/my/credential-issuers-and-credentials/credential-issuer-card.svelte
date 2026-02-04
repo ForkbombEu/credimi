@@ -5,11 +5,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { RefreshCwIcon } from '@lucide/svelte';
 	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { runWithLoading } from '$lib/utils';
-	import { RefreshCwIcon } from 'lucide-svelte';
 
 	import type {
 		CredentialIssuersResponse,
@@ -66,7 +66,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		[m.Homepage()]: issuer.homepage_url,
 		[m.Import_results()]: issuer.workflow_url
 	}}
-	path={[organization.canonified_name, issuer.canonified_name]}
 >
 	{#snippet actions()}
 		<Button
@@ -114,11 +113,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				nameField="display_name"
 				fallbackNameField="name"
 				hideClone={issuer.imported}
-				path={(r) => [
-					organization.canonified_name,
-					issuer.canonified_name,
-					r.canonified_name
-				]}
 				publicUrl={getCredentialPublicUrl}
 			>
 				{#snippet actions({ record: credential })}

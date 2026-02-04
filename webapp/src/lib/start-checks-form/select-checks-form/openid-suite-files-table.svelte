@@ -23,11 +23,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const getCredentialFormatStyle = (format: CredentialFormat): string => {
 		switch (format) {
 			case 'iso_mdl':
-				return 'bg-blue-background text-blue-foreground border border-blue-outline';
+				return 'bg-blue-100 text-blue-800 border border-blue-200';
 			case 'sd_jwt_vc':
-				return 'bg-red-background text-red-foreground border border-red-outline';
+				return 'bg-red-100 text-red-800 border border-red-200';
 			default:
-				return 'bg-neutral-background text-neutral-foreground border border-neutral-outline';
+				return 'bg-neutral-100 text-neutral-800 border border-neutral-200';
 		}
 	};
 </script>
@@ -43,11 +43,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Row>
 	</Table.Header>
 	<Table.Body>
-		{#each suiteFiles as fileId}
+		{#each suiteFiles as fileId (fileId)}
 			{@const value = `${suiteUid}/${fileId}`}
 			{@const label = fileId.split('.').slice(0, -1).join('.')}
 			{@const [format, scheme, method, mode] = label.split('+')}
-			{console.log(label, format, scheme, method, mode)}
 			<Table.Row class="even:bg-muted border-0 align-middle">
 				<Table.Cell>
 					<Checkbox {value} />

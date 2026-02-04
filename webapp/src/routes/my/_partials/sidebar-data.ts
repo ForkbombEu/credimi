@@ -2,9 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { baseSections, entities } from '$lib/global';
-import { workflowStatuses } from '$lib/temporal';
-import { WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows';
 import {
 	GlobeIcon,
 	HomeIcon,
@@ -13,7 +10,10 @@ import {
 	SheetIcon,
 	StoreIcon,
 	UserIcon
-} from 'lucide-svelte';
+} from '@lucide/svelte';
+import { baseSections, entities } from '$lib/global';
+import { workflowStatuses } from '$lib/temporal';
+import { WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows';
 
 import { m } from '@/i18n';
 
@@ -67,7 +67,7 @@ export const data: SidebarGroup[] = [
 		title: m.workflows(),
 		items: [
 			{
-				title: entities.test_runs.labels.plural,
+				title: m.workflow_runs(),
 				url: `/my/${entities.test_runs.slug}`,
 				icon: entities.test_runs.icon,
 				children: workflowStatuses
@@ -79,8 +79,8 @@ export const data: SidebarGroup[] = [
 					}))
 			},
 			{
-				title: m.Scheduled_workflows(),
-				url: `/my/${entities.test_runs.slug}/scheduled`,
+				title: m.Scheduled_pipelines(),
+				url: `/my/pipelines/schedule`,
 				icon: HourglassIcon
 			}
 		]

@@ -31,7 +31,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { IconComponent } from '@/components/types';
 
 	import * as Alert from '@/components/ui/alert/index.js';
-	import { cn } from '@/components/ui/utils';
 
 	import Icon from './icon.svelte';
 
@@ -45,7 +44,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { children, content, icon, variant, class: className, ...alertProps }: Props = $props();
 </script>
 
-<Alert.Root {...alertProps} class={cn(variants({ variant }), className, { '!p-4': !icon })}>
+<Alert.Root
+	{...alertProps}
+	class={[variants({ variant }), 'flex flex-col', className, { 'p-4!': !icon }]}
+>
 	{#if icon}
 		<Icon src={icon} size={16} />
 	{/if}

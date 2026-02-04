@@ -12,10 +12,19 @@
         "strings": "on"
     },
     "cSpell.words": ["temporalapi"],
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "prettier.useEditorConfig": true,
+    "prettier.documentSelectors": ["**/*.svelte"],
+    "[svelte]": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
     "editor.codeActionsOnSave": [
         "source.organizeImports",
         "source.fixAll.eslint"
     ],
     "eslint.validate": ["javascript", "typescript", "svelte"],
-    "editor.formatOnSave": true
+    "files.associations": {
+        "*.css": "tailwindcss"
+    }
 }

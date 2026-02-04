@@ -27,15 +27,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const actions = wallet.expand?.wallet_actions_via_wallet ?? [];
 		const versions = wallet.expand?.wallet_versions_via_wallet ?? [];
 
-		const organization = wallet.expand?.owner;
-		if (!organization) throw new Error();
-
 		const actionsWithOrganizations = await getActionsWithOrganizations(actions);
 
 		return pageDetails('wallets', {
 			wallet,
 			actionsWithOrganizations,
-			organization,
 			versions
 		});
 	}
@@ -55,14 +51,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
+	import { Code, DownloadIcon } from '@lucide/svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
 	import { ConformanceCheckSchema } from '$lib/types/checks';
-	import { path } from '$lib/utils';
+	import { getPath } from '$lib/utils';
 	import { String } from 'effect';
-	import { Code, DownloadIcon } from 'lucide-svelte';
-	import { z } from 'zod';
+	import { z } from 'zod/v3';
 
 	import type { WalletVersionsResponse } from '@/pocketbase/types';
 
@@ -89,7 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = Awaited<ReturnType<typeof getWalletDetails>>;
-	let { wallet, actionsWithOrganizations, organization, versions }: Props = $props();
+	let { wallet, actionsWithOrganizations, versions }: Props = $props();
 
 	// misc derived values
 
@@ -205,34 +201,33 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<Accordion type="single" class="w-full">
 					<AccordionItem
 						value="code-accordion"
-						class="bg-card hover:ring-primary rounded-lg border hover:ring-2"
+						class="rounded-lg border bg-card hover:ring-2 hover:ring-primary"
 					>
-						<AccordionTrigger class="group px-4 py-3 hover:no-underline">
+						<AccordionTrigger
+							class="group items-center gap-2! px-4 py-3 hover:no-underline"
+						>
 							<div class="flex w-full items-center justify-between gap-4">
 								<div class="flex items-center gap-3">
 									<Code
-										class="text-muted-foreground group-hover:text-foreground h-4 w-4 transition-colors"
+										class="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground"
 									/>
-									<div class="text-left">
+									<div class="space-y-1 text-left">
 										<div class="flex items-center gap-1">
-											<div class="font-medium">{action.name}</div>
-											<CopyButtonSmall
-												textToCopy={path([
-													organization?.canonified_name,
-													wallet.canonified_name,
-													action.canonified_name
-												])}
-												square
-												variant="ghost"
-												size="xs"
-											/>
+											<p class="leading-snug font-medium text-balance">
+												<span>{action.name}</span>
+												<CopyButtonSmall
+													textToCopy={getPath(action)}
+													size="mini"
+													class="inline-flex translate-y-px"
+												/>
+											</p>
 										</div>
-										<T class="text-muted-foreground text-xs">
+										<T class="text-xs text-muted-foreground">
 											{action.organization?.name}
 										</T>
 									</div>
 								</div>
-								<div class="flex items-center gap-2 pr-2">
+								<div class="flex items-center gap-2">
 									<WalletActionTags {action} containerClass="justify-end" />
 									{#if !action.published}
 										<Badge variant="outline">
@@ -261,7 +256,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@const sortedVersions = versions.sort((a, b) => b.tag.localeCompare(a.tag))}
 			{#each sortedVersions as version (version.id)}
 				{@const downloadLinks = getDownloadLinks(version)}
-				<div class="bg-card flex items-center justify-between rounded-lg border px-4 py-2">
+				<div class="flex items-center justify-between rounded-lg border bg-card px-4 py-2">
 					<p>{version.tag}</p>
 					<div class="flex gap-2">
 						{#each downloadLinks as link (link.label)}

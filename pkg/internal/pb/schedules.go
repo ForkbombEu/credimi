@@ -6,17 +6,27 @@ package pb
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apis/handlers"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
+	commonpb "go.temporal.io/api/common/v1"
+	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
 )
 
 type ScheduleStatus struct {
-	DisplayName    string `json:"display_name,omitempty"`
-	NextActionTime string `json:"next_action_time,omitempty"`
-	Paused         bool   `json:"paused"`
+	DisplayName    string           `json:"display_name,omitempty"`
+	NextActionTime string           `json:"next_action_time,omitempty"`
+	Paused         bool             `json:"paused"`
+	Runners        []map[string]any `json:"runners"`
 }
 
 func RegisterSchedulesHooks(app core.App) {
@@ -42,6 +52,28 @@ func RegisterSchedulesHooks(app core.App) {
 		handle := c.ScheduleClient().GetHandle(ctx, e.Record.GetString("temporal_schedule_id"))
 		desc, err := handle.Describe(ctx)
 		if err != nil {
+			var notFound *serviceerror.NotFound
+			if errors.As(err, &notFound) {
+				// Schedule no longer exists in Temporal; enrich with fallback status so the record still loads
+				log.Printf("schedule not found in Temporal (temporal_schedule_id=%s): %v", e.Record.GetString("temporal_schedule_id"), err)
+				runnerRecords, _ := resolveScheduleRunnerRecords(
+					e.App,
+					e.Record.GetString("pipeline"),
+					nil,
+				)
+				if runnerRecords == nil {
+					runnerRecords = []map[string]any{}
+				}
+				status := ScheduleStatus{
+					DisplayName:    "",
+					NextActionTime: "",
+					Paused:         false,
+					Runners:        runnerRecords,
+				}
+				e.Record.WithCustomData(true)
+				e.Record.Set("__schedule_status__", status)
+				return e.Next()
+			}
 			return fmt.Errorf("failed to describe schedule: %w", err)
 		}
 		var displayName string
@@ -51,10 +83,27 @@ func RegisterSchedulesHooks(app core.App) {
 			}
 		}
 
+		// Parse runners from pipeline yaml
+		runnerRecords, err := resolveScheduleRunnerRecords(
+			e.App,
+			e.Record.GetString("pipeline"),
+			desc,
+		)
+		if err != nil {
+			// Log error but don't fail the enrichment
+			log.Printf("failed to parse runners from pipeline: %v\n", err)
+			runnerRecords = []map[string]any{}
+		}
+
+		nextActionTime := ""
+		if len(desc.Info.NextActionTimes) > 0 {
+			nextActionTime = desc.Info.NextActionTimes[0].Format("02/01/2006, 15:04:05")
+		}
 		status := ScheduleStatus{
 			DisplayName:    displayName,
-			NextActionTime: desc.Info.NextActionTimes[0].Format("02/01/2006, 15:04:05"),
+			NextActionTime: nextActionTime,
 			Paused:         desc.Schedule.State.Paused,
+			Runners:        runnerRecords,
 		}
 		e.Record.WithCustomData(true)
 		e.Record.Set("__schedule_status__", status)
@@ -63,4 +112,71 @@ func RegisterSchedulesHooks(app core.App) {
 
 	})
 
+}
+
+func resolveScheduleRunnerRecords(
+	app core.App,
+	pipelineID string,
+	desc *client.ScheduleDescription,
+) ([]map[string]any, error) {
+	pipelineRec, err := app.FindRecordById("pipelines", pipelineID)
+	if err != nil {
+		pipelineRec, err = canonify.Resolve(app, pipelineID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to load pipeline: %w", err)
+		}
+	}
+
+	info, err := runners.ParsePipelineRunnerInfo(pipelineRec.GetString("yaml"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse pipeline yaml: %w", err)
+	}
+
+	globalRunnerID := readGlobalRunnerIDFromScheduleDescription(desc)
+	runnerIDs := runners.RunnerIDsWithGlobal(info, globalRunnerID)
+
+	return runners.ResolveRunnerRecords(app, runnerIDs, nil), nil
+}
+
+func readGlobalRunnerIDFromScheduleDescription(
+	desc *client.ScheduleDescription,
+) string {
+	if desc == nil || desc.Schedule.Action == nil {
+		return ""
+	}
+
+	action, ok := desc.Schedule.Action.(*client.ScheduleWorkflowAction)
+	if !ok || len(action.Args) == 0 {
+		return ""
+	}
+
+	switch arg := action.Args[0].(type) {
+	case pipeline.PipelineWorkflowInput:
+		return runners.GlobalRunnerIDFromConfig(arg.WorkflowInput.Config)
+	case *pipeline.PipelineWorkflowInput:
+		if arg == nil {
+			return ""
+		}
+		return runners.GlobalRunnerIDFromConfig(arg.WorkflowInput.Config)
+	case *commonpb.Payload:
+		return globalRunnerIDFromPayload(arg)
+	case commonpb.Payload:
+		return globalRunnerIDFromPayload(&arg)
+	default:
+		return ""
+	}
+}
+
+func globalRunnerIDFromPayload(payload *commonpb.Payload) string {
+	if payload == nil {
+		return ""
+	}
+
+	dc := converter.GetDefaultDataConverter()
+	var input pipeline.PipelineWorkflowInput
+	if err := dc.FromPayload(payload, &input); err != nil {
+		return ""
+	}
+
+	return runners.GlobalRunnerIDFromConfig(input.WorkflowInput.Config)
 }

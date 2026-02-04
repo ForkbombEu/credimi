@@ -6,12 +6,12 @@ import { getStandardsWithTestSuites, type StandardsWithTestSuites } from '$lib/s
 import { resource } from 'runed';
 import { tick } from 'svelte';
 
-import { BaseDataForm } from '../types';
+import { BaseForm } from '../types';
 import Component from './conformance-check-step-form.svelte';
 
 //
 
-export class ConformanceCheckStepForm extends BaseDataForm<FormData, ConformanceCheckStepForm> {
+export class ConformanceCheckStepForm extends BaseForm<FormData, ConformanceCheckStepForm> {
 	readonly Component = Component;
 
 	standardsWithTestSuites = resource(

@@ -2,12 +2,12 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { BaseDataForm } from '../types';
+import { BaseForm } from '../types';
 import Component from './email-step-form.svelte';
 
 //
 
-export class EmailStepForm extends BaseDataForm<EmailFormData, EmailStepForm> {
+export class EmailStepForm extends BaseForm<EmailFormData, EmailStepForm> {
 	readonly Component = Component;
 
 	data = $state<EmailFormData>({

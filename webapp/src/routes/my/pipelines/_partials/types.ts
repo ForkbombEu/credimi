@@ -3,7 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { Record } from 'effect';
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import type { SelectOption } from '@/components/ui-custom/utils';
 import type { SchedulesResponse } from '@/pocketbase/types';
@@ -68,7 +68,7 @@ export function scheduleModeLabel(mode: ScheduleMode) {
 	} else if (mode.mode === 'weekly') {
 		return m.weekly() + ' (' + getDayLabel(mode.day) + ')';
 	} else {
-		return m.monthly() + ' (' + mode.day + ')';
+		return m.monthly() + ' (' + m.Day() + ' ' + (mode.day + 1) + ')';
 	}
 }
 
@@ -78,8 +78,21 @@ type ScheduleStatus = {
 	display_name: string;
 	next_action_time: string;
 	paused: boolean;
+	runners: Array<{
+		id: string;
+		name: string;
+		canonified_name: string;
+	}>;
 };
 
 export type EnrichedSchedule = SchedulesResponse & {
 	__schedule_status__: ScheduleStatus;
 };
+
+export type ScheduleState = 'active' | 'paused' | 'not-scheduled';
+
+export function getScheduleState(schedule: EnrichedSchedule | undefined): ScheduleState {
+	if (schedule?.__schedule_status__.paused) return 'paused';
+	else if (schedule?.__schedule_status__.paused === false) return 'active';
+	else return 'not-scheduled';
+}

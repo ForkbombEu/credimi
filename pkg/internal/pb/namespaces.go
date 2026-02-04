@@ -28,7 +28,7 @@ func HookNamespaceOrgs(app *pocketbase.PocketBase) {
 		orgName := e.Record.GetString("canonified_name")
 		if orgName != "" {
 			ensureNamespaceAndWorkers(orgName)
-			hooks.StartWorkerManagerWorkflow(orgName, "")
+			hooks.StartWorkerManagerWorkflow(app, orgName, "")
 		}
 
 		return e.Next()
@@ -46,7 +46,7 @@ func HookNamespaceOrgs(app *pocketbase.PocketBase) {
 		go hooks.StopAllWorkersByNamespace(oldName)
 
 		ensureNamespaceAndWorkers(newName)
-		hooks.StartWorkerManagerWorkflow(newName, oldName)
+		hooks.StartWorkerManagerWorkflow(app, newName, oldName)
 		log.Printf("Moved workers from namespace %s to %s", oldName, newName)
 		return e.Next()
 	})

@@ -7,7 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	import { ArrowLeftIcon } from 'lucide-svelte';
+	import { ArrowLeftIcon } from '@lucide/svelte';
 
 	import T from '@/components/ui-custom/t.svelte';
 	import { Button } from '@/components/ui/button';
@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { children, title, topbarMiddle, topbarRight, class: className }: Props = $props();
 </script>
 
-<div class={['bg-secondary flex flex-col gap-4 px-4 pb-4 pt-2', className]}>
+<div class={['flex flex-col gap-4 bg-secondary px-4 pt-2 pb-4', className]}>
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-3">
 			<Button class="h-6 px-0" href="/my/pipelines" variant="link">

@@ -28,29 +28,50 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		title?: string;
-		trigger?: Snippet;
-		buttonVariants?: Parameters<typeof buttonVariants>[0];
+		triggerContent?: Snippet;
+		trigger?: Snippet<[{ props: Record<string, unknown> }]>;
+		triggerVariants?: Parameters<typeof buttonVariants>[0];
 		containerClass?: ClassValue;
 		items: DropdownMenuItem[];
+		subtitle?: Snippet;
 	};
 
 	let {
 		title,
+		triggerContent,
 		trigger,
-		buttonVariants: buttonVariantsProps,
+		triggerVariants,
 		containerClass,
-		items
+		items,
+		subtitle
 	}: Props = $props();
+
+	const classes = $derived([
+		buttonVariants({ variant: 'outline', ...triggerVariants }),
+		containerClass
+	]);
 </script>
 
 <DropdownMenu.Root>
-	<DropdownMenu.Trigger class={buttonVariants({ variant: 'outline', ...buttonVariantsProps })}>
-		{@render trigger?.()}
-	</DropdownMenu.Trigger>
+	{#if trigger}
+		<DropdownMenu.Trigger class={classes}>
+			{#snippet child({ props })}
+				{@render trigger?.({ props })}
+			{/snippet}
+		</DropdownMenu.Trigger>
+	{:else}
+		<DropdownMenu.Trigger class={classes}>
+			{@render triggerContent?.()}
+		</DropdownMenu.Trigger>
+	{/if}
+
 	<DropdownMenu.Content class={containerClass}>
 		<DropdownMenu.Group>
 			{#if title}
 				<DropdownMenu.Label>{title}</DropdownMenu.Label>
+				{#if subtitle}
+					{@render subtitle()}
+				{/if}
 				<DropdownMenu.Separator />
 			{/if}
 

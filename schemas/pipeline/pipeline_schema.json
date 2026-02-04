@@ -47,6 +47,9 @@
         "debug": {
           "type": "boolean"
         },
+        "global_runner_id": {
+          "type": "string"
+        },
         "schedule": {
           "additionalProperties": false,
           "properties": {
@@ -952,6 +955,9 @@
                           "type": "string"
                         },
                         "type": "object"
+                      },
+                      "runner_id": {
+                        "type": "string"
                       }
                     },
                     "required": [
@@ -974,6 +980,9 @@
                           "type": "string"
                         },
                         "type": "object"
+                      },
+                      "runner_id": {
+                        "type": "string"
                       },
                       "version_id": {
                         "type": "string"
@@ -1000,6 +1009,9 @@
                           "type": "string"
                         },
                         "type": "object"
+                      },
+                      "runner_id": {
+                        "type": "string"
                       },
                       "version_id": {
                         "type": "string"

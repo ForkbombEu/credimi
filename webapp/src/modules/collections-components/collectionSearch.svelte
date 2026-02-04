@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	generics="C extends CollectionName, E extends PocketbaseQueryExpandOption<C> = never"
 >
 	import type { SearchFunction } from '@/components/ui-custom/search.svelte';
+	import type { LocalizedString } from '@/i18n';
 	import type { CollectionName } from '@/pocketbase/collections-models';
 
 	import Search from '@/components/ui-custom/search.svelte';
@@ -57,4 +58,4 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	});
 </script>
 
-<Search searchFn={searchFunction} {onSelect} {label} {placeholder} {disabled} {...rest} />
+<Search searchFn={searchFunction} {onSelect} {label} placeholder={placeholder  as LocalizedString} {disabled} {...rest} />

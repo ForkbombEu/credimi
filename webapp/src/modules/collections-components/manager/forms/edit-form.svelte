@@ -12,12 +12,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { CollectionForm } from '@/collections-components';
 	import Sheet from '@/components/ui-custom/sheet.svelte';
-	import { FormError, SubmitButton } from '@/forms';
+	import { FormError } from '@/forms';
 	import { m } from '@/i18n';
 
 	import type { RecordEditProps } from '../record-actions/types';
 
 	import { getCollectionManagerContext } from '../collectionManagerContext';
+	import SubmitButton from '../record-actions/submit-button.svelte';
 
 	//
 
@@ -35,7 +36,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const sheetTitle = $derived(props?.formTitle ?? m.Edit_record());
 </script>
 
-<Sheet title={sheetTitle} class="pb-0" hideTrigger bind:open={manager.isEditFormOpen}>
+<Sheet
+	title={sheetTitle}
+	class={{ 'pb-0': !editForm }}
+	hideTrigger
+	bind:open={manager.isEditFormOpen}
+>
 	{#snippet content()}
 		{@const record = props?.record}
 		{#if record}
@@ -61,17 +67,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					}}
 				>
 					<FormError />
-					<div
-						class="sticky bottom-0 -mx-6 -mt-6 flex justify-end border-t bg-white/70 px-6 py-2 backdrop-blur-sm"
-					>
-						<SubmitButton>
-							{#if props?.buttonText}
-								{@render props.buttonText()}
-							{:else}
-								{m.Save()}
-							{/if}
-						</SubmitButton>
-					</div>
+
+					<SubmitButton>
+						{#if props?.buttonText}
+							{@render props.buttonText()}
+						{:else}
+							{m.Save()}
+						{/if}
+					</SubmitButton>
 				</CollectionForm>
 			{/if}
 		{/if}

@@ -34,7 +34,7 @@ export type RecordEditProps<C extends CollectionName> = RecordCreateEditProps<C>
 	record: CollectionResponses[C];
 };
 
-export type RecordAction = 'delete' | 'share' | 'edit' | 'select';
+export type RecordAction = 'delete' | 'share' | 'edit' | 'select' | 'clone';
 export type GlobalRecordAction = RecordAction | 'create';
 
 export type HideOption = Array<RecordAction> | 'all';

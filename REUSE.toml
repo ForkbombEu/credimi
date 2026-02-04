@@ -10,8 +10,10 @@ SPDX-PackageDownloadLocation = "https://github.com/ForkbombEu/credimi"
 [[annotations]]
 path = [
     ".env.example",
+    ".gestalt/**/*",
     ".idea/**/*",
     ".vscode/launch.json",
+    ".gestalt/**/*",
     ".vscode/settings.json",
     "config_templates/**/*",
     "docs/**/*",
@@ -24,19 +26,24 @@ path = [
     "schemas/**/*",
     "test_pb_data/*",
     "VERSION",
+    "webapp/.cursor/mcp.json",
     "webapp/.env.example",
+    "webapp/.vscode/mcp.json",
+    "webapp/.vscode/settings.json",
+    "webapp/AGENTS.md",
     "webapp/bun.lock",
     "webapp/messages/**/*",
+    "webapp/project.inlang/.gitignore",
     "webapp/project.inlang/project_id",
     "webapp/src/lib/content/**/*",
     "webapp/src/lib/types/openid-credential-issuer.ts",
+    "webapp/src/lib/workflows/queries.test.json",
     "webapp/src/modules/components/ui/**/*",
     "webapp/src/modules/i18n/paraglide/.gitignore",
     "webapp/src/modules/i18n/paraglide/.prettierignore",
     "webapp/static/emails/_emailData.d.ts",
     "webapp/static/hero.png",
     "webapp/static/pages/**/*",
-    "webapp/src/lib/workflows/queries.test.json"
 ]
 precedence = "override"
 SPDX-FileCopyrightText = "Forkbomb BV"

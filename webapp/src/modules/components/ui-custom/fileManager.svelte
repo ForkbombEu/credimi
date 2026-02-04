@@ -16,8 +16,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import { X } from '@lucide/svelte';
 	import _ from 'lodash';
-	import { X } from 'lucide-svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import Badge from '@/components/ui/badge/badge.svelte';
@@ -85,12 +85,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			return !_.isEqual(oldFiles, file);
 		}
 	}
+
+	//
+
+	const hasFiles = $derived(
+		(Array.isArray(data) && data.length > 0) || (!multiple && Boolean(data))
+	);
 </script>
 
-<div class="space-y-2">
+<div class={{ 'space-y-2': (showFilesList && hasFiles) || rejectedFiles.length > 0 }}>
 	{@render child?.({ addFiles })}
 
-	{#if showFilesList && ((Array.isArray(data) && data.length > 0) || (!multiple && Boolean(data)))}
+	{#if showFilesList && hasFiles}
 		<List>
 			<ListHeader label={m.Files()} />
 
@@ -121,11 +127,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{m.Clear()}
 				</Button>
 			</ListHeader>
-			{#each rejectedFiles as rejection}
+			{#each rejectedFiles as rejection (rejection.file)}
 				<div class="px-3 py-1 leading-tight text-red-600">
-					<T tag="small" class="!font-normal">{rejection.file.name}</T>
+					<T tag="small" class="font-normal!">{rejection.file.name}</T>
 					<ul>
-						{#each rejection.reasons as reason}
+						{#each rejection.reasons as reason (reason)}
 							<li>
 								<T tag="small">{reason}</T>
 							</li>

@@ -5,113 +5,181 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { ClassValue } from 'svelte/elements';
+	/* eslint-disable perfectionist/sort-imports */
+	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
 
+	import { resolve } from '$app/paths';
+	import { userOrganization } from '$lib/app-state';
+	import StatusCircle from '$lib/components/status-circle.svelte';
+	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
-	import { Pencil, PlayIcon } from 'lucide-svelte';
+	import RunnerSelectModal from '$lib/pipeline/runner-select-modal.svelte';
+	import { getPipelineRunner, getPipelineRunnerType, runPipeline } from '$lib/pipeline/utils';
+	import { getPath } from '$lib/utils';
+	import WorkflowsTableSmall from '$lib/workflows/workflows-table-small.svelte';
+	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
+	import { ArrowRightIcon, Cog, Pencil, PlayIcon } from '@lucide/svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
-	import type { OrganizationsResponse } from '@/pocketbase/types';
 
-	import { RecordClone } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import * as ButtonGroup from '@/components/ui/button-group';
 	import ScheduleActions from './schedule-actions.svelte';
 	import SchedulePipelineForm from './schedule-pipeline-form.svelte';
-	import { scheduleModeLabel, type EnrichedSchedule, type ScheduleMode } from './types';
-	import { runPipeline } from './utils';
+	import { type EnrichedSchedule } from './types';
 
 	//
 
 	type Props = {
-		pipeline: PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline']>;
-		organization: OrganizationsResponse;
+		pipeline: PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline', 'owner']>;
+		workflows?: WorkflowExecutionSummary[];
 	};
 
-	let { pipeline = $bindable(), organization }: Props = $props();
+	let { pipeline = $bindable(), workflows }: Props = $props();
 
-	//
+	// Running
+
+	let runnerSelectionDialogOpen = $state(false);
+	let runPipelineAfterRunnerSelect = $state(false);
+
+	async function handleRunNow() {
+		const runnerType = getPipelineRunnerType(pipeline);
+		if (runnerType === 'specific') {
+			await runPipeline(pipeline);
+		} else {
+			const runner = getPipelineRunner(pipeline.id);
+			if (runner) {
+				await runPipeline(pipeline);
+				runPipelineAfterRunnerSelect = false;
+			} else {
+				runPipelineAfterRunnerSelect = true;
+				runnerSelectionDialogOpen = true;
+			}
+		}
+	}
+
+	// Scheduling
 
 	let schedule = $derived.by(() => {
 		const s = pipeline.expand?.schedules_via_pipeline?.find(
-			(schedule) => schedule.owner === organization.id
+			(schedule) => schedule.owner === userOrganization.current?.id
 		);
 		return s as EnrichedSchedule | undefined;
 	});
 
-	const scheduleState = $derived.by(() => {
-		if (schedule?.__schedule_status__.paused) return 'paused';
-		else if (schedule?.__schedule_status__.paused === false) return 'active';
-		else return 'not-scheduled';
+	const isRunning = $derived(
+		workflows?.some((workflow) => {
+			const status = toWorkflowStatusReadable(workflow.status);
+			return status === 'Running';
+		})
+	);
+
+	// Flags for displaying UI elements
+
+	const avatar = $derived.by(() => {
+		const owner = pipeline.expand?.owner;
+		if (!owner) return undefined;
+		return pb.files.getURL(owner, owner.logo);
 	});
+
+	const hasWorkflows = $derived(workflows && workflows.length > 0);
+
+	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
+
+	const runnerType = $derived(getPipelineRunnerType(pipeline));
+	const isRunnerSpecific = $derived(runnerType === 'specific');
 </script>
 
 <DashboardCard
 	record={pipeline}
-	avatar={() => pb.files.getURL(organization, organization.logo)}
-	path={[organization.canonified_name, pipeline.canonified_name]}
-	badge={m.Yours()}
+	{avatar}
+	badge={isPublic ? m.Public() : undefined}
+	content={hasWorkflows ? content : undefined}
+	editAction={isPublic ? undefined : editAction}
+	hideActions={isPublic ? ['delete', 'edit', 'publish'] : undefined}
 >
-	{#snippet editAction()}
-		<Button onclick={() => runPipeline(pipeline)}>
-			<PlayIcon />{m.Run_now()}
-		</Button>
-		<!-- <Button
-		href="/my/pipelines/settings-{pipeline.id}"
-		variant="outline"
-		size="icon"
-	>
-		<CogIcon />
-	</Button> -->
-		<RecordClone collectionName="pipelines" recordId={pipeline.id} size="md" />
-		<IconButton href="/my/pipelines/edit-{pipeline.id}" icon={Pencil} />
+	{#snippet nameRight()}
+		{#if isRunning}
+			<Badge
+				variant="secondary"
+				class="flex items-center gap-1.5 bg-green-100 text-green-800"
+			>
+				<StatusCircle size={12} />
+				{m.Running()}
+			</Badge>
+		{/if}
 	{/snippet}
 
-	{#snippet content()}
-		<div class="flex justify-between">
-			<div class="flex flex-wrap items-center gap-1.5 text-sm">
-				{@render circle({
-					'bg-green-500': scheduleState === 'active',
-					'bg-yellow-500': scheduleState === 'paused',
-					'bg-gray-50 border': scheduleState === 'not-scheduled'
-				})}
-				<T>
-					{#if schedule}
-						{#if scheduleState === 'paused'}
-							<span class="font-bold">{m.Scheduling_paused()}</span>
-						{:else if scheduleState === 'active'}
-							<span class="font-bold">{m.scheduled()}:</span>
-						{/if}
-						<span class={[scheduleState === 'paused' && 'pl-1 opacity-30']}>
-							{scheduleModeLabel(schedule.mode as ScheduleMode)}
-						</span>
-					{:else}
-						{m.Pipeline_execution_is_not_scheduled()}
-					{/if}
-				</T>
-				{#if schedule && scheduleState === 'active'}
-					<T>
-						<span class="font-bold">{m.next_run()}:</span>
-						{schedule.__schedule_status__.next_action_time}
-					</T>
-				{/if}
-			</div>
+	{#snippet actions()}
+		<ButtonGroup.Root>
+			<Button onclick={handleRunNow}>
+				<PlayIcon />{m.Run_now()}
+			</Button>
+			<IconButton
+				icon={Cog}
+				variant="default"
+				class="rounded-none rounded-r-md border-l border-l-slate-500"
+				onclick={() => (runnerSelectionDialogOpen = true)}
+				disabled={isRunnerSpecific}
+				tooltip={isRunnerSpecific
+					? m.Runner_configuration_not_available()
+					: m.Configure_runner()}
+			/>
+		</ButtonGroup.Root>
 
-			<div class="-m-2">
-				{#if !schedule}
-					<SchedulePipelineForm {pipeline} />
-				{:else}
-					<ScheduleActions bind:schedule />
-				{/if}
-			</div>
-		</div>
+		{#if !schedule}
+			<SchedulePipelineForm {pipeline} />
+		{:else}
+			<ScheduleActions
+				bind:schedule
+				onCancel={() => {
+					schedule = undefined;
+				}}
+			/>
+		{/if}
 	{/snippet}
 </DashboardCard>
 
-{#snippet circle(className: ClassValue)}
-	<div class={['size-2 rounded-full', className]}></div>
+<RunnerSelectModal
+	{pipeline}
+	bind:open={runnerSelectionDialogOpen}
+	onSelect={() => {
+		if (!runPipelineAfterRunnerSelect) return;
+		handleRunNow();
+	}}
+/>
+
+{#snippet editAction()}
+	<IconButton
+		href={resolve('/my/pipelines/(group)/[...path]/edit', { path: getPath(pipeline, true) })}
+		icon={Pencil}
+		tooltip={m.Edit()}
+	/>
+{/snippet}
+
+{#snippet content()}
+	{#if workflows && workflows.length > 0}
+		<div class="space-y-3">
+			<div class="flex items-center justify-between gap-1">
+				<T class="text-sm font-medium">{m.Recent_workflows()}</T>
+				<BlueButton
+					compact
+					href={resolve('/my/pipelines/[...pipeline_path]', {
+						pipeline_path: getPath(pipeline, true)
+					})}
+				>
+					{m.view_all()}
+					<ArrowRightIcon />
+				</BlueButton>
+			</div>
+
+			<WorkflowsTableSmall {workflows} />
+		</div>
+	{/if}
 {/snippet}

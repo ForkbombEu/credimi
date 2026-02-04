@@ -5,107 +5,112 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
-	import { browser } from '$app/environment';
-	import {
-		LatestCheckRunsStorage,
-		type StartCheckResultWithMeta
-	} from '$lib/start-checks-form/_utils';
+	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
+	import { SearchIcon, SparkleIcon, TestTubeIcon } from '@lucide/svelte';
 	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
+	import { PolledResource } from '$lib/utils/state.svelte.js';
 	import { fetchWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
 	import { Array } from 'effect';
-	import { SearchIcon, SparkleIcon, TestTube2, XIcon } from 'lucide-svelte';
-	import { onMount } from 'svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { Separator } from '@/components/ui/separator/index.js';
+	import * as Tabs from '@/components/ui/tabs/index.js';
 	import { m } from '@/i18n';
-	import { ensureArray, warn } from '@/utils/other';
 
 	import { setDashboardNavbar } from '../../+layout@.svelte';
 
 	//
 
 	let { data } = $props();
-	let { workflows, selectedStatus } = $derived(data);
+	let { workflows: loadedWorkflows, selectedStatus } = $derived(data);
 
 	setDashboardNavbar({
-		title: m.Test_runs()
+		title: m.workflows()
 	});
 
 	//
 
-	let latestCheckRuns: StartCheckResultWithMeta[] = $state([]);
-	if (browser) latestCheckRuns = ensureArray(LatestCheckRunsStorage.get());
-
-	const latestRunIds = $derived(latestCheckRuns.map((run) => run.workflowRunId));
-	const latestWorkflows = $derived(
-		workflows.filter((w) => latestRunIds.includes(w.execution.runId))
+	const workflows = new PolledResource(
+		async () => {
+			const result = await fetchWorkflows({ status: selectedStatus });
+			if (result instanceof Error) {
+				console.error(result);
+				return [];
+			}
+			return result;
+		},
+		{
+			initialValue: () => loadedWorkflows,
+			intervalMs: 3000
+		}
 	);
-	const oldWorkflows = $derived(Array.difference(workflows, latestWorkflows));
 
-	onMount(() => {
-		const interval = setInterval(async () => {
-			const newWorkflows = await fetchWorkflows({ status: selectedStatus });
-			if (newWorkflows instanceof Error) warn(newWorkflows);
-			else workflows = newWorkflows;
-		}, 5000);
-
-		return () => {
-			clearInterval(interval);
-		};
+	const pipelineWorkflows = $derived.by(() => {
+		const list = workflows.current?.filter((w) => w.type.name === 'Dynamic Pipeline Workflow');
+		return list ?? [];
 	});
+
+	const otherWorkflows = $derived(Array.difference(workflows.current, pipelineWorkflows));
+
+	//
+
+	const tabs = {
+		pipeline: m.Pipelines(),
+		other: m.Conformance_and_custom_checks()
+	} as const;
+
+	type SelectedTab = keyof typeof tabs;
+	let selectedTab = $state<SelectedTab>('pipeline');
+
+	const selectedWorkflows = $derived(
+		selectedTab === 'pipeline' ? pipelineWorkflows : otherWorkflows
+	);
 </script>
 
 <div class="grow space-y-8">
-	{#if latestWorkflows.length > 0}
-		<div class="space-y-4">
-			<div class="flex items-center justify-between">
-				<T tag="h3">{m.Review_latest_check_runs()}</T>
-				<Button
-					variant="outline"
-					size="sm"
-					onclick={() => {
-						latestCheckRuns = [];
-						LatestCheckRunsStorage.remove();
-					}}
-				>
-					<XIcon />
-					<span>
-						{m.Clear_list()}
-					</span>
-				</Button>
-			</div>
+	<div class="flex items-center justify-between">
+		<T tag="h3">{m.workflow_runs()}</T>
+		<Tabs.Root bind:value={selectedTab}>
+			<Tabs.List class="gap-1 bg-secondary">
+				{#each Object.entries(tabs) as [key, value] (key)}
+					<Tabs.Trigger
+						class="data-[state=inactive]:hover:cursor-pointer data-[state=inactive]:hover:bg-primary/10 "
+						value={key}>{value}</Tabs.Trigger
+					>
+				{/each}
+			</Tabs.List>
+		</Tabs.Root>
+	</div>
 
-			<WorkflowsTable workflows={latestWorkflows}>
-				{#snippet nameRight({ workflow })}
-					{@const status = toWorkflowStatusReadable(workflow.status)}
-					{#if status === 'Running'}
-						<WorkflowQrPoller
-							workflowId={workflow.execution.workflowId}
-							runId={workflow.execution.runId}
-							containerClass="size-32"
-						/>
-					{/if}
+	{#if selectedWorkflows.length > 0}
+		{#if selectedTab === 'pipeline'}
+			<WorkflowsTable workflows={pipelineWorkflows} />
+		{:else}
+			<WorkflowsTable workflows={otherWorkflows} hideResults>
+				{#snippet header({ Th })}
+					<Th>
+						{m.QR_code()}
+					</Th>
+				{/snippet}
+				{#snippet row({ workflow, Td, status })}
+					<Td>
+						{#if status === 'Running'}
+							<WorkflowQrPoller
+								workflowId={workflow.execution.workflowId}
+								runId={workflow.execution.runId}
+								containerClass="size-40"
+							/>
+						{:else}
+							<span class="text-muted-foreground opacity-50">N/A</span>
+						{/if}
+					</Td>
 				{/snippet}
 			</WorkflowsTable>
-		</div>
+		{/if}
 	{/if}
 
-	{#if oldWorkflows.length !== 0 && latestWorkflows.length !== 0}
-		<Separator />
-	{/if}
-
-	{#if oldWorkflows.length > 0}
-		<div class="space-y-4">
-			<T tag="h3">{m.Checks_history()}</T>
-			<WorkflowsTable workflows={oldWorkflows} />
-		</div>
-	{/if}
-
-	{#if oldWorkflows.length === 0 && latestWorkflows.length === 0}
+	{#if selectedWorkflows.length === 0}
 		{#if selectedStatus}
 			<EmptyState icon={SearchIcon} title={m.No_check_runs_with_this_status()}>
 				{#snippet bottom()}
@@ -117,10 +122,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{/snippet}
 			</EmptyState>
 		{:else}
-			<EmptyState icon={TestTube2} title={m.No_test_runs_yet()} className="w-full">
+			<EmptyState icon={TestTubeIcon} title={m.No_test_runs_yet()} className="w-full">
 				{#snippet bottom()}
 					<div class="mt-4 space-y-3">
-						<p class="text-muted-foreground text-sm">{m.Start_a_new_test_run()}</p>
+						<p class="text-sm text-muted-foreground">{m.Start_a_new_test_run()}</p>
 						<div class="flex flex-col gap-2">
 							<Button href="/my/pipelines">
 								<SparkleIcon />

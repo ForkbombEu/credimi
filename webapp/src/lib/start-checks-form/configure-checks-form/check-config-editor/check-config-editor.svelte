@@ -6,7 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import SmallSectionLabel from '$start-checks-form/_utils/small-section-label.svelte';
-	import { Info } from 'lucide-svelte';
+	import { Info } from '@lucide/svelte';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
 	import Button from '@/components/ui-custom/button.svelte';

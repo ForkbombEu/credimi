@@ -19,11 +19,9 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
-	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
@@ -1182,7 +1180,12 @@ func buildExecutionHierarchy(
 
 		w := pipeline.PipelineWorkflow{}
 		if current.Type.Name == w.Name() {
-			results := computePipelineResults(app, owner, *current)
+			results := computePipelineResults(
+				app,
+				owner,
+				exec.Execution.WorkflowID,
+				exec.Execution.RunID,
+			)
 
 			current.Results = results
 		}
@@ -1193,48 +1196,6 @@ func buildExecutionHierarchy(
 	sortExecutionSummaries(roots, loc, false)
 
 	return roots
-}
-
-func fetchWorkflowFailure(
-	ctx context.Context,
-	c client.Client,
-	workflowID string,
-	runID string,
-) *string {
-	iter := c.GetWorkflowHistory(
-		ctx,
-		workflowID,
-		runID,
-		false, // isLongPoll — false, workflow is already closed
-		enums.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT,
-	)
-
-	if !iter.HasNext() {
-		return nil
-	}
-
-	event, err := iter.Next()
-	if err != nil {
-		return nil
-	}
-
-	attrs := event.GetWorkflowExecutionFailedEventAttributes()
-	if attrs == nil {
-		return nil
-	}
-
-	failure := attrs.GetFailure()
-	if failure == nil {
-		return nil
-	}
-
-	cause := failure.GetCause()
-	if cause == nil {
-		return nil
-	}
-
-	msg := cause.GetMessage()
-	return &msg
 }
 
 func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location, ascending bool) {
@@ -1271,62 +1232,6 @@ func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location
 			sortExecutionSummaries(e.Children, loc, !ascending)
 		}
 	}
-}
-
-func computePipelineResults(
-	app core.App,
-	owner string,
-	exec WorkflowExecutionSummary,
-) []PipelineResults {
-	identifier := fmt.Sprintf("%s/%s-%s",
-		owner,
-		canonify.CanonifyPlain(exec.Execution.WorkflowID),
-		canonify.CanonifyPlain(exec.Execution.RunID),
-	)
-
-	record, _ := canonify.Resolve(app, identifier)
-
-	if record == nil {
-		return nil
-	}
-
-	videos := record.GetStringSlice("video_results")
-	screenshots := record.GetStringSlice("screenshots")
-
-	screenshotMap := make(map[string]string, len(screenshots))
-
-	for _, name := range screenshots {
-		if key, ok := baseKey(name, "_screenshot_"); ok {
-			screenshotMap[key] = name
-		}
-	}
-
-	results := make([]PipelineResults, 0, len(videos))
-
-	for _, name := range videos {
-		if key, ok := baseKey(name, "_result_video_"); ok {
-			if screenshot, ok := screenshotMap[key]; ok {
-				results = append(results, PipelineResults{
-					Video: utils.JoinURL(
-						app.Settings().Meta.AppURL,
-						"api", "files", "pipeline_results",
-						record.Id,
-						record.GetString("video_results"),
-						name,
-					),
-					Screenshot: utils.JoinURL(
-						app.Settings().Meta.AppURL,
-						"api", "files", "pipeline_results",
-						record.Id,
-						record.GetString("screenshots"),
-						screenshot,
-					),
-				})
-			}
-		}
-	}
-
-	return results
 }
 
 func baseKey(filename, marker string) (string, bool) {

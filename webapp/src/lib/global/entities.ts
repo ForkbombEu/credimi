@@ -12,7 +12,7 @@ import {
 	Users,
 	Wallet,
 	WaypointsIcon
-} from 'lucide-svelte';
+} from '@lucide/svelte';
 
 import type { IconComponent } from '@/components/types';
 import type { CollectionName } from '@/pocketbase/collections-models';
@@ -50,9 +50,9 @@ export const entities = {
 			plural: m.Wallets()
 		},
 		classes: {
-			bg: 'bg-[hsl(var(--blue-background))]',
-			text: 'text-[hsl(var(--blue-foreground))]',
-			border: 'border-[hsl(var(--blue-outline))]'
+			bg: 'bg-blue-100',
+			text: 'text-blue-600',
+			border: 'border-blue-600'
 		}
 	},
 
@@ -64,9 +64,9 @@ export const entities = {
 			plural: m.Issuers()
 		},
 		classes: {
-			bg: 'bg-[hsl(var(--green-background))]',
-			text: 'text-[hsl(var(--green-foreground))]',
-			border: 'border-[hsl(var(--green-outline))]'
+			bg: 'bg-green-100',
+			text: 'text-green-600',
+			border: 'border-green-600'
 		}
 	},
 
@@ -78,9 +78,9 @@ export const entities = {
 			plural: m.Credentials()
 		},
 		classes: {
-			bg: 'bg-[hsl(var(--green-light-background))]',
-			text: 'text-[hsl(var(--green-light-foreground))]',
-			border: 'border-[hsl(var(--green-light-outline))]'
+			bg: 'bg-lime-100',
+			text: 'text-lime-600',
+			border: 'border-lime-600'
 		}
 	},
 
@@ -92,9 +92,9 @@ export const entities = {
 			plural: m.Verifiers()
 		},
 		classes: {
-			bg: 'bg-[hsl(var(--red-background))]',
-			text: 'text-[hsl(var(--red-foreground))]',
-			border: 'border-[hsl(var(--red-outline))]'
+			bg: 'bg-red-100',
+			text: 'text-red-600',
+			border: 'border-red-600'
 		}
 	},
 
@@ -106,9 +106,9 @@ export const entities = {
 			plural: m.Use_case_verifications()
 		},
 		classes: {
-			bg: 'bg-[hsl(var(--orange-background))]',
-			text: 'text-[hsl(var(--orange-foreground))]',
-			border: 'border-[hsl(var(--orange-outline))]'
+			bg: 'bg-orange-100',
+			text: 'text-orange-600',
+			border: 'border-orange-600'
 		}
 	},
 
@@ -148,9 +148,9 @@ export const entities = {
 			plural: m.Custom_checks()
 		},
 		classes: {
-			bg: 'bg-[hsl(var(--purple-background))]',
-			text: 'text-[hsl(var(--purple-foreground))]',
-			border: 'border-[hsl(var(--purple-outline))]'
+			bg: 'bg-purple-100',
+			text: 'text-purple-600',
+			border: 'border-purple-600'
 		}
 	},
 

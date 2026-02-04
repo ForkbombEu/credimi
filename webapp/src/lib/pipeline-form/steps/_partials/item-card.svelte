@@ -6,32 +6,49 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
+	import type { ClassValue } from 'svelte/elements';
 
-	import { ArrowRightIcon, XIcon } from 'lucide-svelte';
+	import { ArrowRightIcon, XIcon } from '@lucide/svelte';
 
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import T from '@/components/ui-custom/t.svelte';
+	import { cn } from '@/components/ui/utils';
 
 	type Props = {
 		avatar?: string;
 		subtitle?: string;
 		title: string;
-		onClick?: () => void;
+		onClick?: (e: MouseEvent) => void;
 		onDiscard?: () => void;
 		right?: Snippet;
 		children?: Snippet;
+		class?: ClassValue;
 	};
 
-	let { avatar, title, onClick, onDiscard, subtitle, right, children }: Props = $props();
+	let {
+		avatar,
+		title,
+		onClick,
+		onDiscard,
+		subtitle,
+		right,
+		children,
+		class: className
+	}: Props = $props();
 	const isInteractive = $derived(onClick !== undefined);
 
-	const classes =
-		'flex w-full items-center gap-3 rounded-md border border-slate-200 p-2 text-left';
+	const classes = $derived(
+		cn(
+			'flex w-full items-center',
+			'gap-3 rounded-md border border-slate-200 p-2 text-left',
+			className
+		)
+	);
 </script>
 
 {#if onClick}
-	<button class={['bg-card hover:ring', classes]} onclick={() => onClick()}>
+	<button class={['bg-card hover:ring', classes]} onclick={(e) => onClick(e)}>
 		{@render content?.()}
 	</button>
 {:else}
@@ -48,12 +65,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<div class="grow">
 		<T class="text-sm font-semibold">{title}</T>
 		{#if subtitle}
-			<T class="text-muted-foreground text-xs">{subtitle}</T>
+			<T class="text-xs text-muted-foreground">{subtitle}</T>
 		{/if}
 		{@render children?.()}
 	</div>
 
-	<div class="shrink-0">
+	<div class="flex shrink-0 items-center gap-1">
 		{@render right?.()}
 		{#if onDiscard}
 			<IconButton
@@ -65,7 +82,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			/>
 		{/if}
 		{#if isInteractive}
-			<ArrowRightIcon class="text-muted-foreground size-4 shrink-0" />
+			<ArrowRightIcon class="size-4 shrink-0 text-muted-foreground" />
 		{/if}
 	</div>
 {/snippet}

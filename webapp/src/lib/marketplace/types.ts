@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import { z } from 'zod';
+import { z } from 'zod/v3';
 
 import type { CollectionName } from '@/pocketbase/collections-models';
 import type { MarketplaceItemsResponse } from '@/pocketbase/types';

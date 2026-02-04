@@ -15,7 +15,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import { m } from '@/i18n';
 
 	//
 
@@ -31,10 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { hideTopBorder, logo, linkAboveTitle, title, textToCopy, badge }: Props = $props();
 </script>
 
-<PageTop {hideTopBorder} contentClass="!space-y-4">
-	<BackButton href="/marketplace">
-		{m.Back_to_marketplace()}
-	</BackButton>
+<PageTop {hideTopBorder} contentClass="space-y-4!">
+	<BackButton href="/marketplace" class="px-0!" />
 
 	<div class="flex items-center gap-6">
 		{#if logo}
@@ -52,7 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<div class="flex items-center gap-2">
 						<T tag="h1">{title}</T>
 						{#if textToCopy}
-							<CopyButtonSmall {textToCopy} square variant="ghost" size="xs" />
+							<CopyButtonSmall {textToCopy} />
 						{/if}
 					</div>
 				</div>

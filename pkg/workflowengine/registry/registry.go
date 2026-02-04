@@ -24,7 +24,7 @@ type TaskFactory struct {
 	PayloadType         reflect.Type
 	PipelinePayloadType reflect.Type
 	OutputKind          workflowengine.OutputKind
-	TaskQueue           string
+	CustomTaskQueue     bool
 }
 
 // Registry maps activity keys to their factory.
@@ -99,7 +99,7 @@ var Registry = map[string]TaskFactory{
 		Kind:                TaskWorkflow,
 		NewFunc:             func() any { return workflows.NewMobileAutomationWorkflow() },
 		PayloadType:         reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
-		TaskQueue:           workflows.MobileAutomationTaskQueue,
+		CustomTaskQueue: true,
 		PipelinePayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPipelinePayload{}),
 	},
 	"custom-check": {
@@ -138,6 +138,18 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		Kind:       TaskActivity,
 		NewFunc:    func() any { return activities.NewCheckFileExistsActivity() },
 		OutputKind: workflowengine.OutputBool,
+	},
+	"mobile-runner-permit-acquire": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewAcquireMobileRunnerPermitActivity() },
+		PayloadType: reflect.TypeOf(activities.AcquireMobileRunnerPermitInput{}),
+		OutputKind:  workflowengine.OutputAny,
+	},
+	"mobile-runner-permit-release": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewReleaseMobileRunnerPermitActivity() },
+		PayloadType: reflect.TypeOf(workflows.MobileRunnerSemaphorePermit{}),
+		OutputKind:  workflowengine.OutputAny,
 	},
 }
 

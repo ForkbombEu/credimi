@@ -3,11 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import type { EntityData } from '$lib/global';
-import type {
-	PipelineStepByType,
-	PipelineStepData,
-	PipelineStepType
-} from '$lib/pipeline-form/types';
+import type { PipelineStepByType, PipelineStepData, PipelineStepType } from '$lib/pipeline/types';
 import type { Renderable } from '$lib/renderable';
 import type { Simplify } from 'type-fest';
 
@@ -18,13 +14,13 @@ export interface Config<ID extends string = string, Serialized = unknown, Deseri
 	serialize: (step: Deserialized) => Serialized;
 	deserialize: (step: Serialized) => Promise<Deserialized>;
 	display: EntityData;
-	initForm: () => DataForm<Deserialized>;
+	initForm: () => Form<Deserialized>;
 	cardData: (data: Deserialized) => CardData;
 	makeId: (data: Serialized) => string;
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export interface DataForm<Deserialized = unknown, T = any> extends Renderable<T> {
+export interface Form<Deserialized = unknown, T = any> extends Renderable<T> {
 	onSubmit: (handler: (step: Deserialized) => void) => void;
 }
 
@@ -44,7 +40,7 @@ export type TypedConfig<T extends PipelineStepType, Deserialized> = Simplify<
 	Config<T, PipelineStepData<PipelineStepByType<T>>, Deserialized>
 >;
 
-export abstract class BaseDataForm<Deserialized, T> implements DataForm<Deserialized, T> {
+export abstract class BaseForm<Deserialized, T> implements Form<Deserialized, T> {
 	abstract Component: Renderable<T>['Component'];
 
 	protected handleSubmit: (step: Deserialized) => void = () => {};

@@ -5,8 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import Check from 'lucide-svelte/icons/check';
-	import ChevronsUpDown from 'lucide-svelte/icons/chevrons-up-down';
+	import Check from '@lucide/svelte/icons/check';
+	import ChevronsUpDown from '@lucide/svelte/icons/chevrons-up-down';
 	import { tick } from 'svelte';
 
 	import type { OrganizationsResponse } from '@/pocketbase/types';
@@ -17,8 +17,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Dialog from '@/components/ui/dialog/index.js';
 	import * as Popover from '@/components/ui/popover/index.js';
 	import { cn } from '@/components/ui/utils.js';
-	import { m } from '@/i18n';
-	import { goto } from '@/i18n';
+	import { goto, m } from '@/i18n';
 	import OrganizationAvatar from '@/organizations/components/organizationAvatar.svelte';
 
 	//
