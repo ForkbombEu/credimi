@@ -120,14 +120,11 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 ## Build / Test
 
-- `make dev` runs hivemind Procfile.dev (API + UI) after ensuring tools.
-- `make test` executes Go unit suite with `-tags=unit`.
-- `go test ./pkg/... -run TestName -tags=unit` runs a focused Go test.
-- `make test.p TestName` watches and reruns the matching Go test via gow.
-- `make lint` runs gomod tidy/verify, govet, govulncheck, golangci-lint.
-- `make fmt` applies gofmt across Go packages.
-- `go run ./main.go` starts the PocketBase-backed API locally.
-- `make generate` triggers Go code generation prerequisites.
+- Source of truth: `Makefile` (targets) + `Procfile.dev` (processes/ports).
+- Dev: `make dev` (hivemind runs `Procfile.dev`).
+- Go unit (default): `make test`; focused: `go test -tags=unit ./pkg/... -run TestName`; watch: `make test.p TestName`.
+- Lint/format/generate: `make lint`, `make fmt`, `make generate`.
+- API only: `go run ./main.go serve`.
 
 ## Test Suites
 
@@ -138,12 +135,10 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 ## Webapp
 
-- `cd webapp && bun install` syncs deps; bun is the default JS runtime.
-- `cd webapp && bun run dev` starts Vite dev server (after `bun run predev`).
-- `cd webapp && bun run lint` runs Prettier (check) then ESLint.
-- `cd webapp && bun run test:unit -- -t "spec name"` executes targeted Vitest.
-- `cd webapp && bun run test:e2e -- tests/path.spec.ts` runs Playwright per file.
-- `cd webapp && bun run check` runs SvelteKit typecheck; use `--watch` to iterate.
+- Install: `cd webapp && bun install` (bun is default JS runtime).
+- Dev: `cd webapp && bun run dev` (after `bun run predev`).
+- Lint/typecheck: `cd webapp && bun run lint`; `cd webapp && bun run check` (`--watch` to iterate).
+- Tests: `cd webapp && bun run test:unit -- -t "spec name"`; `cd webapp && bun run test:e2e -- tests/path.spec.ts`.
 
 ## Docs
 
