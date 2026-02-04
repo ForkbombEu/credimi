@@ -239,6 +239,9 @@ func TestPipelineQueueEnqueuePassesQueueLimit(t *testing.T) {
 			"yaml":                validYaml,
 		}),
 		ExpectedStatus: http.StatusOK,
+		ExpectedContent: []string{
+			"\"status\":\"queued\"",
+		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
 			ensureOrganizationsQueueLimitField(t, app)

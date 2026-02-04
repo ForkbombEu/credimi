@@ -212,17 +212,17 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 		for _, runnerID := range runnerIDs {
 			attemptedRunnerIDs = append(attemptedRunnerIDs, runnerID)
 			req := workflows.MobileRunnerSemaphoreEnqueueRunRequest{
-				TicketID:           ticketID,
-				OwnerNamespace:     namespace,
-				EnqueuedAt:         now,
-				RunnerID:           runnerID,
-				RequiredRunnerIDs:  runnerIDs,
-				LeaderRunnerID:     leaderRunnerID,
+				TicketID:            ticketID,
+				OwnerNamespace:      namespace,
+				EnqueuedAt:          now,
+				RunnerID:            runnerID,
+				RequiredRunnerIDs:   runnerIDs,
+				LeaderRunnerID:      leaderRunnerID,
 				MaxPipelinesInQueue: maxPipelinesInQueue,
 				PipelineIdentifier:  pipelineIdentifier,
-				YAML:               yaml,
-				PipelineConfig:     config,
-				Memo:               memo,
+				YAML:                yaml,
+				PipelineConfig:      config,
+				Memo:                memo,
 			}
 			resp, err := enqueueRunTicket(e.Request.Context(), runnerID, req)
 			if err != nil {

@@ -6,21 +6,22 @@ package workflows
 import "github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
 
 const (
-	MobileRunnerSemaphoreTaskQueue     = mobilerunnersemaphore.TaskQueue
-	MobileRunnerSemaphoreWorkflowName  = mobilerunnersemaphore.WorkflowName
-	MobileRunnerSemaphoreAcquireUpdate = mobilerunnersemaphore.AcquireUpdate
-	MobileRunnerSemaphoreReleaseUpdate = mobilerunnersemaphore.ReleaseUpdate
-	MobileRunnerSemaphoreStateQuery    = mobilerunnersemaphore.StateQuery
-	MobileRunnerSemaphoreEnqueueRunUpdate = mobilerunnersemaphore.EnqueueRunUpdate
-	MobileRunnerSemaphoreRunStatusQuery   = mobilerunnersemaphore.RunStatusQuery
-	MobileRunnerSemaphoreRunDoneUpdate    = mobilerunnersemaphore.RunDoneUpdate
-	MobileRunnerSemaphoreCancelRunUpdate  = mobilerunnersemaphore.CancelRunUpdate
+	MobileRunnerSemaphoreTaskQueue            = mobilerunnersemaphore.TaskQueue
+	MobileRunnerSemaphoreWorkflowName         = mobilerunnersemaphore.WorkflowName
+	MobileRunnerSemaphoreAcquireUpdate        = mobilerunnersemaphore.AcquireUpdate
+	MobileRunnerSemaphoreReleaseUpdate        = mobilerunnersemaphore.ReleaseUpdate
+	MobileRunnerSemaphoreStateQuery           = mobilerunnersemaphore.StateQuery
+	MobileRunnerSemaphoreEnqueueRunUpdate     = mobilerunnersemaphore.EnqueueRunUpdate
+	MobileRunnerSemaphoreRunStatusQuery       = mobilerunnersemaphore.RunStatusQuery
+	MobileRunnerSemaphoreRunDoneUpdate        = mobilerunnersemaphore.RunDoneUpdate
+	MobileRunnerSemaphoreCancelRunUpdate      = mobilerunnersemaphore.CancelRunUpdate
 	MobileRunnerSemaphoreRunGrantedSignalName = mobilerunnersemaphore.RunGrantedSignal
 	MobileRunnerSemaphoreRunStartedSignalName = mobilerunnersemaphore.RunStartedSignal
 	MobileRunnerSemaphoreRunDoneSignalName    = mobilerunnersemaphore.RunDoneSignal
 
-	MobileRunnerSemaphoreErrInvalidRequest = mobilerunnersemaphore.ErrInvalidRequest
-	MobileRunnerSemaphoreErrTimeout        = mobilerunnersemaphore.ErrTimeout
+	MobileRunnerSemaphoreErrInvalidRequest     = mobilerunnersemaphore.ErrInvalidRequest
+	MobileRunnerSemaphoreErrTimeout            = mobilerunnersemaphore.ErrTimeout
+	MobileRunnerSemaphoreErrQueueLimitExceeded = mobilerunnersemaphore.ErrQueueLimitExceeded
 )
 
 type MobileRunnerSemaphoreWorkflowInput = mobilerunnersemaphore.MobileRunnerSemaphoreWorkflowInput

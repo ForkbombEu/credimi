@@ -5,6 +5,7 @@ package workflows
 
 import (
 	"encoding/json"
+	"fmt"
 	"sort"
 	"time"
 
@@ -419,6 +420,21 @@ func (r *mobileRunnerSemaphoreRuntime) handleEnqueueRun(
 			Position: view.Position,
 			LineLen:  view.LineLen,
 		}, nil
+	}
+
+	if req.MaxPipelinesInQueue > 0 {
+		inFlight := r.inFlightRunCount(req.OwnerNamespace)
+		if inFlight >= req.MaxPipelinesInQueue {
+			return MobileRunnerSemaphoreEnqueueRunResponse{}, temporal.NewApplicationError(
+				fmt.Sprintf(
+					"queue limit exceeded for runner %s: %d of %d",
+					r.runnerID,
+					inFlight,
+					req.MaxPipelinesInQueue,
+				),
+				MobileRunnerSemaphoreErrQueueLimitExceeded,
+			)
+		}
 	}
 
 	r.runTickets[req.TicketID] = MobileRunnerSemaphoreRunTicketState{
@@ -1130,6 +1146,20 @@ func (r *mobileRunnerSemaphoreRuntime) runSlotsUsed() int {
 		}
 	}
 	return used
+}
+
+func (r *mobileRunnerSemaphoreRuntime) inFlightRunCount(ownerNamespace string) int {
+	inFlight := 0
+	for _, state := range r.runTickets {
+		if state.Request.OwnerNamespace != ownerNamespace {
+			continue
+		}
+		switch state.Status {
+		case mobileRunnerSemaphoreRunQueued, mobileRunnerSemaphoreRunStarting, mobileRunnerSemaphoreRunRunning:
+			inFlight++
+		}
+	}
+	return inFlight
 }
 
 func (r *mobileRunnerSemaphoreRuntime) availableSlots() int {
