@@ -18,7 +18,7 @@ services:
       - PINKMASK_ARGS
       - MAIL_SENDER=no-reply@credimi.io
       - MAESTRO_WORKER=${MAESTRO_WORKER:?https://android.credimi.io}
-      - TEMPORAL_ADDRESS=ephem-temporal.apps.forkbomb.eu:7233
+      - TEMPORAL_ADDRESS=ephem-temporal.apps.forkbomb.eu:7777
       - PORT=5100
     volumes:
       # - pb_data_tmp:/app/pb_data
