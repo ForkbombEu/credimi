@@ -17,7 +17,7 @@ services:
       - SEED_DB_PATH=/seed/pb_data/data.db
       - PINKMASK_ARGS
       - MAIL_SENDER=no-reply@credimi.io
-      - MAESTRO_WORKER=${MAESTRO_WORKER:?https://android.credimi.io}
+      - MAESTRO_WORKER=${MAESTRO_WORKER:-https://android.credimi.io}
       - TEMPORAL_ADDRESS=ephem-temporal.apps.forkbomb.eu:7777
       - PORT=5100
     volumes:
