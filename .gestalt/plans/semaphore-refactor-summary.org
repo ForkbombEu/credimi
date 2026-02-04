@@ -162,7 +162,7 @@
       - Example: with two runners and limit=10, the org can have 10 in-flight queued runs in runner-1 and 10 in runner-2.
   - Existing queue lives in `workflowengine.MobileRunnerSemaphoreDefaultNamespace` (runner semaphore workflows); enforcement happens inside each runner semaphore workflow (per-runner), keyed by `OwnerNamespace`.
   - Success criteria: attempting to enqueue beyond the cap returns a clear error; successful enqueues are unchanged; pipeline workflow logic remains unchanged.
-** WIP [#A] Add `organizations.max_pipelines_in_queue` (read at enqueue time)
+** DONE [#A] Add `organizations.max_pipelines_in_queue` (read at enqueue time)
 - Why :: The limit needs a per-organization source of truth (PB); enforcement is performed by the per-runner semaphore workflow at enqueue time.
 - Change ::
   - PocketBase:
