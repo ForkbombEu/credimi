@@ -83,6 +83,15 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
   - `GET /api/mobile-runner?runner_identifier=<canonified>` → `{ runner_url, serial }` (`pkg/internal/apis/handlers/mobile_runners_handlers.go`).
   - `GET /api/mobile-runner/semaphore?runner_identifier=...` → summarized semaphore state (`pkg/internal/apis/handlers/mobile_runners_handlers.go`).
 
+### External runner HTTP contracts (runner_url)
+
+- `POST {runner_url}/fetch-apk-and-action`
+  - Body: `{ instance_url, version_identifier, action_identifier }`
+- `POST {runner_url}/store-pipeline-result`
+  - Body: `{ video_path, last_frame_path, logcat_path, run_identifier, runner_identifier, instance_url }`
+  - Response: `{ result_urls: string[], screenshot_urls: string[] }`
+- Implemented in the external runner service (from `github.com/forkbombeu/credimi-extra`).
+
 ## Build / Test
 
 - `make dev` runs hivemind Procfile.dev (API + UI) after ensuring tools.
