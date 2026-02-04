@@ -237,7 +237,7 @@
 - Notes ::
   - Copilot’s “rollback at line 212 in `mobile_runner_semaphore.go`” is misattributed; the rollback logic is in `pkg/internal/apis/handlers/pipeline_queue_handler.go`.
   - Rollback currently uses *attempted* runner IDs (not “confirmed success”) because enqueue errors can be ambiguous (e.g. network timeouts after the update may have been applied server-side).
-** WIP [#A] Stop discarding `SignalExternalWorkflow` errors (started/done)
+** DONE [#A] Stop discarding `SignalExternalWorkflow` errors (started/done)
 - Why :: If the leader fails to signal `run-started`/`run-done` to follower semaphores, followers can stay `starting` forever and keep runner capacity locked.
 - Change ::
   - In `pkg/workflowengine/workflows/mobile_runner_semaphore.go`:
@@ -251,7 +251,7 @@
     - the leader continues (and logs),
     - the follower eventually reaches `running` or finalizes via reconciliation even without receiving the signal.
 - Done when :: A forced signal failure no longer leaves follower tickets stuck in `starting` and does not leak capacity.
-** TODO [#B] Ensure a single start failure doesn’t stall queue processing
+** WIP [#B] Ensure a single start failure doesn’t stall queue processing
 - Why :: `startPipelineForTicket` already marks the ticket failed and signals `run-done`, but it also returns the error; this aborts the current `processRunQueue` pass early (even if the run-starter loop later retries). Keeping the queue moving avoids head-of-line blocking and reduces “stuck queue” paranoia during incidents.
 - Change ::
   - In `pkg/workflowengine/workflows/mobile_runner_semaphore.go`:

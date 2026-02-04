@@ -791,6 +791,7 @@ func (r *mobileRunnerSemaphoreRuntime) processRunQueue(ctx workflow.Context) err
 }
 
 func (r *mobileRunnerSemaphoreRuntime) startReadyRuns(ctx workflow.Context) error {
+	logger := workflow.GetLogger(ctx)
 	ticketIDs := r.sortedRunTicketIDs()
 	for _, ticketID := range ticketIDs {
 		state, ok := r.runTickets[ticketID]
@@ -807,7 +808,8 @@ func (r *mobileRunnerSemaphoreRuntime) startReadyRuns(ctx workflow.Context) erro
 			continue
 		}
 		if err := r.startPipelineForTicket(ctx, ticketID, state); err != nil {
-			return err
+			logger.Error("start pipeline failed", "ticket_id", ticketID, "error", err)
+			continue
 		}
 	}
 	return nil
@@ -843,7 +845,11 @@ func (r *mobileRunnerSemaphoreRuntime) grantRunTicket(
 	}
 
 	if r.allGrantsReceived(state) {
-		return r.startPipelineForTicket(ctx, ticketID, state)
+		if err := r.startPipelineForTicket(ctx, ticketID, state); err != nil {
+			logger := workflow.GetLogger(ctx)
+			logger.Error("start pipeline failed", "ticket_id", ticketID, "error", err)
+		}
+		return nil
 	}
 
 	return nil
