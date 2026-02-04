@@ -83,6 +83,11 @@ func (w *PipelineWorkflow) Workflow(
 		),
 	}
 
+	reportDone := func() {
+		reportMobileRunnerSemaphoreDone(ctx, logger, config, workflowID, runID)
+	}
+	defer reportDone()
+
 	if input.Scheduled {
 		var err error
 		ctx, wfDef, ao, debug, err = w.handleScheduledRun(
@@ -157,9 +162,8 @@ func (w *PipelineWorkflow) Workflow(
 				}
 
 				if temporal.IsCanceledError(err) {
-					return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
-						runMetadata,
-					)
+					return workflowengine.WorkflowResult{},
+						workflowengine.NewWorkflowCancellationError(runMetadata)
 				}
 				logger.Error(step.ID, "step execution error", err)
 				if len(step.OnError) > 0 {
@@ -181,10 +185,8 @@ func (w *PipelineWorkflow) Workflow(
 					errorsList = append(errorsList, err.Error())
 					continue
 				}
-				return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
-					err,
-					runMetadata,
-				)
+				return workflowengine.WorkflowResult{},
+					workflowengine.NewWorkflowError(err, runMetadata)
 			}
 			if len(step.OnSuccess) > 0 {
 				logger.Info(
@@ -211,9 +213,8 @@ func (w *PipelineWorkflow) Workflow(
 			stepOutput, err := step.Execute(ctx, config, stepInputs, ao)
 			if err != nil {
 				if temporal.IsCanceledError(err) {
-					return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowCancellationError(
-						runMetadata,
-					)
+					return workflowengine.WorkflowResult{},
+						workflowengine.NewWorkflowCancellationError(runMetadata)
 				}
 				logger.Error(step.ID, "step execution error", err)
 				errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
