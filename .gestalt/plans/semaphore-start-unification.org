@@ -3,7 +3,7 @@
 #+DATE: 2026-02-05
 #+KEYWORDS: temporal, schedules, pipeline, semaphore, queue, cli, pocketbase, mobile-automation
 
-* WIP [#A] Add a scheduled “enqueue-only” workflow (no pipeline execution)
+* DONE [#A] Add a scheduled “enqueue-only” workflow (no pipeline execution)
 - Effort :: M
 - Goal :: Ensure Temporal schedules never start the pipeline workflow directly; they enqueue a run ticket and return immediately (no waiting time counted in pipeline workflow runtime).
 - Notes ::
@@ -44,14 +44,14 @@
     - verifies determinism-safe IDs (no random UUID usage).
 - Done when :: A schedule tick results in a run ticket added to the runner semaphore queue and the scheduled workflow completes quickly (seconds), without starting the pipeline workflow directly.
 
-* TODO [#A] Introduce a reusable “enqueue run ticket” activity (ports/adapters)
+* DONE [#A] Introduce a reusable “enqueue run ticket” activity (ports/adapters)
 - Effort :: M
 - Goal :: Reuse the exact same enqueue semantics across HTTP handlers and the new scheduled workflow, without duplicating Temporal client/update logic inside workflow code.
 - Notes ::
   - This is the only place that touches Temporal client APIs for enqueueing from a workflow context.
   - Keep it minimal: mirror `pkg/internal/apis/handlers/pipeline_queue_handler.go` behavior and reuse existing request/response structs where sensible.
 
-** TODO [#A] Implement enqueue activity + shared aggregation
+** DONE [#A] Implement enqueue activity + shared aggregation
 - Why :: Workflows cannot instantiate Temporal clients; enqueue must be done in an activity while preserving the same queue semantics (leader runner, multi-runner coordination, limit enforcement).
 - Change ::
   - Add `activities.EnqueuePipelineRunTicketActivity` (new file e.g. `pkg/workflowengine/activities/enqueue_pipeline_run_ticket.go`) that:
@@ -69,7 +69,7 @@
     - queue-limit application errors are surfaced with stable error typing.
 - Done when :: The scheduled workflow can enqueue via this activity and the HTTP queue handler can optionally reuse the same aggregation helper without behavioral drift.
 
-* TODO [#A] Switch schedule creation to the new scheduled-enqueue workflow
+* WIP [#A] Switch schedule creation to the new scheduled-enqueue workflow
 - Effort :: M
 - Goal :: Ensure schedules created from the API never reference the pipeline workflow directly, and preserve global runner visibility in the UI.
 - Notes ::
@@ -77,7 +77,7 @@
   - Schedule list/enrichment uses `pkg/internal/pb/schedules.go` to infer runners (including global runner) from schedule action args.
   - Rollout assumption: existing schedules are deleted and recreated manually (no automated migration in scope).
 
-** TODO [#A] Update schedule handler wiring and enrichment decoding
+** WIP [#A] Update schedule handler wiring and enrichment decoding
 - Why :: Without updating both schedule creation and enrichment decoding, schedules will either keep starting the wrong workflow or lose runner visibility (esp. global runner).
 - Change ::
   - In `pkg/internal/apis/handlers/schedules_handlers.go`:

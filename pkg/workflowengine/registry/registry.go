@@ -161,6 +161,12 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		PayloadType: reflect.TypeOf(activities.ReportMobileRunnerSemaphoreDoneInput{}),
 		OutputKind:  workflowengine.OutputAny,
 	},
+	"pipeline-run-ticket-enqueue": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewEnqueuePipelineRunTicketActivity() },
+		PayloadType: reflect.TypeOf(activities.EnqueuePipelineRunTicketActivityInput{}),
+		OutputKind:  workflowengine.OutputAny,
+	},
 }
 
 // Denylist of task keys that should NOT be registered in the pipeline worker
