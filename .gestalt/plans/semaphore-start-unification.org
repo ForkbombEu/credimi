@@ -288,7 +288,7 @@
     - Asserts only `ownerNamespace == orgNamespace` is used (no client input).
 - Done when :: Handlers can call one helper to obtain “my queued pipeline run tickets” with correct aggregate position/line length and required runner IDs for cancellation.
 
-** TODO [#A] Extend `/api/pipeline/list-workflows` to include queued tickets per pipeline
+** DONE [#A] Extend `/api/pipeline/list-workflows` to include queued tickets per pipeline
 - Why :: Pipeline pages and dashboard cards should show queued-but-not-started runs alongside started runs, otherwise users lose visibility after start-unification.
 - Change ::
   - In `pkg/internal/apis/handlers/pipeline_handler.go`:

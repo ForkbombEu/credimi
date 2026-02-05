@@ -370,6 +370,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		namespace := organization.GetString("canonified_name")
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
 			"id = {:id} && owner={:owner}",
@@ -397,11 +398,21 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		}
 
 		var allExecutions []*WorkflowExecution
-		namespace := organization.GetString("canonified_name")
 		var temporalClient client.Client
 
 		pipelineRecord := pipelineRecords[0]
 		pipelineID = pipelineRecord.Id
+		queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to list queued runs",
+				err.Error(),
+			).JSON(e)
+		}
+		queuedByPipelineID := mapQueuedRunsToPipelines(pipelineRecords, namespace, queuedRuns)
+		queuedForPipeline := queuedByPipelineID[pipelineID]
 
 		runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
 		if err != nil {
@@ -511,9 +522,18 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		}
 
 		if len(allExecutions) == 0 {
-			return e.JSON(http.StatusOK, ListMyChecksResponse{
-				[]*WorkflowExecutionSummary{},
-			})
+			queuedSummaries := buildQueuedPipelineSummaries(
+				e.App,
+				queuedForPipeline,
+				authRecord.GetString("Timezone"),
+				map[string]map[string]any{},
+			)
+			if len(queuedSummaries) == 0 {
+				return e.JSON(http.StatusOK, ListMyChecksResponse{
+					[]*WorkflowExecutionSummary{},
+				})
+			}
+			return e.JSON(http.StatusOK, queuedSummaries)
 		}
 
 		if temporalClient == nil {
@@ -563,6 +583,18 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
+		if len(queuedForPipeline) > 0 {
+			queuedSummaries := buildQueuedPipelineSummaries(
+				e.App,
+				queuedForPipeline,
+				authRecord.GetString("Timezone"),
+				runnerCache,
+			)
+			if len(queuedSummaries) > 0 {
+				annotated = append(queuedSummaries, annotated...)
+			}
+		}
+
 		return e.JSON(http.StatusOK, annotated)
 	}
 }
@@ -588,6 +620,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		namespace := organization.GetString("canonified_name")
 
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
@@ -613,9 +646,19 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			return e.JSON(http.StatusOK, map[string][]*WorkflowExecutionSummary{})
 		}
 
+		queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to list queued runs",
+				err.Error(),
+			).JSON(e)
+		}
+		queuedByPipelineID := mapQueuedRunsToPipelines(pipelineRecords, namespace, queuedRuns)
+
 		pipelineExecutionsMap := make(map[string][]*WorkflowExecutionSummary)
 		pipelineRunnerInfoMap := make(map[string]pipelineRunnerInfo)
-		namespace := organization.GetString("canonified_name")
 
 		for _, pipelineRecord := range pipelineRecords {
 			pipelineID := pipelineRecord.Id
@@ -740,7 +783,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			}
 		}
 
-		if len(pipelineExecutionsMap) == 0 {
+		if len(pipelineExecutionsMap) == 0 && len(queuedByPipelineID) == 0 {
 			return e.JSON(http.StatusOK, map[string][]*WorkflowExecutionSummary{})
 		}
 
@@ -779,6 +822,13 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 					runnerCache,
 				)
 			}
+			appendQueuedPipelineSummaries(
+				e.App,
+				response,
+				queuedByPipelineID,
+				authRecord.GetString("Timezone"),
+				runnerCache,
+			)
 			return e.JSON(http.StatusOK, response)
 		}
 
@@ -805,6 +855,14 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			response[pipelineID] = annotated
 		}
 
+		appendQueuedPipelineSummaries(
+			e.App,
+			response,
+			queuedByPipelineID,
+			authRecord.GetString("Timezone"),
+			runnerCache,
+		)
+
 		return e.JSON(http.StatusOK, response)
 	}
 }
@@ -816,6 +874,134 @@ type pipelineWorkflowSummary struct {
 	GlobalRunnerID string           `json:"global_runner_id,omitempty"`
 	RunnerIDs      []string         `json:"runner_ids,omitempty"`
 	RunnerRecords  []map[string]any `json:"runner_records,omitempty"`
+}
+
+func appendQueuedPipelineSummaries(
+	app core.App,
+	response map[string][]*pipelineWorkflowSummary,
+	queuedByPipelineID map[string][]QueuedPipelineRunAggregate,
+	userTimezone string,
+	runnerCache map[string]map[string]any,
+) {
+	for pipelineID, queuedRuns := range queuedByPipelineID {
+		queuedSummaries := buildQueuedPipelineSummaries(
+			app,
+			queuedRuns,
+			userTimezone,
+			runnerCache,
+		)
+		if len(queuedSummaries) == 0 {
+			continue
+		}
+		response[pipelineID] = append(queuedSummaries, response[pipelineID]...)
+	}
+}
+
+func buildQueuedPipelineSummaries(
+	app core.App,
+	queuedRuns []QueuedPipelineRunAggregate,
+	userTimezone string,
+	runnerCache map[string]map[string]any,
+) []*pipelineWorkflowSummary {
+	if len(queuedRuns) == 0 {
+		return nil
+	}
+
+	sortedRuns := append([]QueuedPipelineRunAggregate(nil), queuedRuns...)
+	sort.Slice(sortedRuns, func(i, j int) bool {
+		return sortedRuns[i].EnqueuedAt.After(sortedRuns[j].EnqueuedAt)
+	})
+
+	summaries := make([]*pipelineWorkflowSummary, 0, len(sortedRuns))
+	for _, queued := range sortedRuns {
+		summaries = append(summaries, buildQueuedPipelineSummary(
+			app,
+			queued,
+			userTimezone,
+			runnerCache,
+		))
+	}
+
+	return summaries
+}
+
+func buildQueuedPipelineSummary(
+	app core.App,
+	queued QueuedPipelineRunAggregate,
+	userTimezone string,
+	runnerCache map[string]map[string]any,
+) *pipelineWorkflowSummary {
+	startTime := formatQueuedRunTime(queued.EnqueuedAt, userTimezone)
+	queue := &WorkflowQueueSummary{
+		TicketID:  queued.TicketID,
+		Position:  queued.Position,
+		LineLen:   queued.LineLen,
+		RunnerIDs: copyStringSlice(queued.RunnerIDs),
+	}
+
+	pipelineWorkflow := pipeline.NewPipelineWorkflow()
+	exec := &WorkflowExecutionSummary{
+		Execution: &WorkflowIdentifier{
+			WorkflowID: "queue/" + queued.TicketID,
+			RunID:      queued.TicketID,
+		},
+		Type: WorkflowType{
+			Name: pipelineWorkflow.Name(),
+		},
+		StartTime:   startTime,
+		Status:      "queued",
+		DisplayName: "pipeline-run",
+		Queue:       queue,
+	}
+
+	runnerIDs := copyStringSlice(queued.RunnerIDs)
+	return &pipelineWorkflowSummary{
+		WorkflowExecutionSummary: *exec,
+		RunnerIDs:                runnerIDs,
+		RunnerRecords:            runners.ResolveRunnerRecords(app, runnerIDs, runnerCache),
+	}
+}
+
+func formatQueuedRunTime(enqueuedAt time.Time, userTimezone string) string {
+	if enqueuedAt.IsZero() {
+		return ""
+	}
+	loc, err := time.LoadLocation(userTimezone)
+	if err != nil {
+		loc = time.Local
+	}
+	return enqueuedAt.In(loc).Format("02/01/2006, 15:04:05")
+}
+
+func mapQueuedRunsToPipelines(
+	pipelineRecords []*core.Record,
+	namespace string,
+	queuedRuns map[string]QueuedPipelineRunAggregate,
+) map[string][]QueuedPipelineRunAggregate {
+	if len(pipelineRecords) == 0 || len(queuedRuns) == 0 {
+		return map[string][]QueuedPipelineRunAggregate{}
+	}
+
+	pipelineIdentifiers := make(map[string]string, len(pipelineRecords))
+	for _, record := range pipelineRecords {
+		pipelineID := record.Id
+		pipelineIdentifiers[pipelineID] = pipelineID
+		canonifiedName := record.GetString("canonified_name")
+		if canonifiedName != "" && namespace != "" {
+			pipelineIdentifiers[fmt.Sprintf("%s/%s", namespace, canonifiedName)] = pipelineID
+		}
+	}
+
+	queuedByPipeline := make(map[string][]QueuedPipelineRunAggregate)
+	for _, queued := range queuedRuns {
+		pipelineID, ok := pipelineIdentifiers[queued.PipelineIdentifier]
+		if !ok {
+			continue
+		}
+		queuedByPipeline[pipelineID] = append(queuedByPipeline[pipelineID], queued)
+	}
+
+	return queuedByPipeline
 }
 
 func attachPipelineRunnerInfo(

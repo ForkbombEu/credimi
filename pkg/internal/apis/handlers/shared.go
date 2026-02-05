@@ -79,9 +79,17 @@ type WorkflowExecutionSummary struct {
 	EndTime       string                      `json:"endTime"`
 	Status        string                      `json:"status"                   validate:"required"`
 	DisplayName   string                      `json:"displayName"              validate:"required"`
+	Queue         *WorkflowQueueSummary       `json:"queue,omitempty"`
 	Children      []*WorkflowExecutionSummary `json:"children,omitempty"`
 	Results       []PipelineResults           `json:"results,omitempty"`
 	FailureReason *string                     `json:"failure_reason,omitempty"`
+}
+
+type WorkflowQueueSummary struct {
+	TicketID  string   `json:"ticket_id"`
+	Position  int      `json:"position"`
+	LineLen   int      `json:"line_len"`
+	RunnerIDs []string `json:"runner_ids,omitempty"`
 }
 
 type WorkflowDescriptionInfoSummary struct {
