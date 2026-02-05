@@ -13,6 +13,7 @@ const (
 	MobileRunnerSemaphoreStateQuery           = mobilerunnersemaphore.StateQuery
 	MobileRunnerSemaphoreEnqueueRunUpdate     = mobilerunnersemaphore.EnqueueRunUpdate
 	MobileRunnerSemaphoreRunStatusQuery       = mobilerunnersemaphore.RunStatusQuery
+	MobileRunnerSemaphoreListQueuedRunsQuery  = mobilerunnersemaphore.ListQueuedRunsQuery
 	MobileRunnerSemaphoreRunDoneUpdate        = mobilerunnersemaphore.RunDoneUpdate
 	MobileRunnerSemaphoreCancelRunUpdate      = mobilerunnersemaphore.CancelRunUpdate
 	MobileRunnerSemaphoreRunGrantedSignalName = mobilerunnersemaphore.RunGrantedSignal
@@ -53,6 +54,8 @@ type MobileRunnerSemaphoreEnqueueRunRequest = mobilerunnersemaphore.MobileRunner
 type MobileRunnerSemaphoreEnqueueRunResponse = mobilerunnersemaphore.MobileRunnerSemaphoreEnqueueRunResponse
 
 type MobileRunnerSemaphoreRunStatusView = mobilerunnersemaphore.MobileRunnerSemaphoreRunStatusView
+
+type MobileRunnerSemaphoreQueuedRunView = mobilerunnersemaphore.MobileRunnerSemaphoreQueuedRunView
 
 type MobileRunnerSemaphoreRunDoneRequest = mobilerunnersemaphore.MobileRunnerSemaphoreRunDoneRequest
 

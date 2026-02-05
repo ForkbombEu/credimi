@@ -221,3 +221,142 @@
     - Executes the activity with `TicketID: "sched/wf/run"` and asserts the captured ID starts with `Pipeline-Sched-`,
     - Executes the activity with a non-scheduled ticket (e.g. `"ticket-1"`) and asserts the captured ID starts with `Pipeline-` and does not include `Pipeline-Sched-`.
 - Done when :: A scheduled tick enqueues a run ticket and the resulting pipeline workflow ID returned by the semaphore status includes `Pipeline-Sched-...`.
+
+* WIP [#A] Show queued (not-started) pipeline runs in listings + cancel from queue
+- Effort :: M
+- Goal :: Both `/api/pipeline/list-workflows` and `/api/compliance/checks` include the authenticated user’s queued (not-yet-started) pipeline run tickets, including queue position + queue length, and the UI shows them as “Queued” with a working cancel action that removes them from the semaphore queue.
+- Notes ::
+  - Scope: only “queued” tickets (status `queued` in the mobile-runner semaphore), excluding `starting` and beyond, to satisfy “queued and not already started”.
+  - Runner ownership is irrelevant: queued runs may target runners owned by other organizations; discovery must still find them and report queue position/length from those semaphores.
+  - Runner display: when `runner_id` values are canonified paths (including other orgs), APIs can resolve `runner_records` for display; when `runner_id` is a raw record ID, resolution may be best-effort (still return `runner_ids` so UI can function).
+  - Queue metrics:
+    - `position` stays 0-based to match existing `/api/pipeline/queue/{ticket}` responses (UI can keep `+1` display).
+    - `line_len` is the full queue length for the runner semaphore (not filtered by owner namespace).
+    - For multi-runner pipelines, API returns the aggregate “effective” position/line_len using the existing rule: `max(position)` and `max(line_len)` across required runners (same as `pkg/internal/runqueue.AggregateRunnerStatuses`).
+  - Compatibility: avoid breaking existing response shapes; add only optional fields (e.g. `queue`) and keep existing fields untouched.
+  - Security: API must only ever return queued tickets for the caller’s organization canonified namespace (do not accept a client-provided namespace).
+
+** DONE [#A] Add a semaphore query to list queued tickets for an owner namespace
+- Why :: Queued runs are not Temporal workflow executions yet, so list endpoints cannot discover them via `ListWorkflowExecutions`; we need a deterministic, read-only view of the semaphore run queue.
+- Change ::
+  - In `pkg/workflowengine/mobilerunnersemaphore/types.go`:
+    - Add a new query name constant (e.g. `ListQueuedRunsQuery = "ListQueuedRuns"`).
+    - Add a compact view DTO that intentionally excludes YAML/config payloads (e.g. `MobileRunnerSemaphoreQueuedRunView` with `ticket_id`, `owner_namespace`, `pipeline_identifier`, `enqueued_at`, `leader_runner_id`, `required_runner_ids`, `status`, `position`, `line_len`).
+  - In `pkg/workflowengine/workflows/mobile_runner_semaphore_aliases.go`:
+    - Export the new query constant via `workflows.MobileRunnerSemaphoreListQueuedRunsQuery`.
+    - Re-export the new view type as an alias for handler-side decoding.
+  - In `pkg/workflowengine/workflows/mobile_runner_semaphore.go`:
+    - Register a query handler for `ListQueuedRunsQuery` with signature `(ownerNamespace string) ([]MobileRunnerSemaphoreQueuedRunView, error)`.
+    - Implementation strategy (deterministic, stable ordering):
+      - Iterate `r.runQueue` in order.
+      - For each `ticketID`, lookup `r.runTickets[ticketID]`, filter `state.Status == queued` and `state.Request.OwnerNamespace == ownerNamespace`.
+      - Compute `position, lineLen := r.runQueuePosition(ticketID)` and populate the view.
+- Tests ::
+  - In `pkg/workflowengine/workflows/mobile_runner_semaphore_test.go`:
+    - Enqueue multiple tickets across at least 2 owner namespaces, then query `ListQueuedRunsQuery` for one owner and assert:
+      - Only that owner’s tickets are returned,
+      - Order matches `runQueue` order,
+      - `position` and `line_len` reflect the underlying queue correctly.
+- Done when :: The semaphore workflow can answer “list queued tickets for owner namespace X” without exposing YAML/config and with correct position/queue length.
+
+** TODO [#A] Add an API-side queued-run aggregator (ports/adapters boundary)
+- Why :: Listing endpoints need a single “my queued runs” view across potentially many runner semaphore workflows; multi-runner tickets must be deduplicated and aggregated.
+- Change ::
+  - Add a small helper in a new file `pkg/internal/apis/handlers/queued_pipeline_runs.go`:
+    - Inputs: `ctx context.Context`, `orgNamespace string`.
+    - Semaphore discovery (runner owner is irrelevant):
+      - Use `temporalclient.GetTemporalClientWithNamespace(workflowengine.MobileRunnerSemaphoreDefaultNamespace)`.
+      - List semaphore workflows via Temporal `ListWorkflowExecutions` with a query that selects:
+        - workflow type/name `mobile-runner-semaphore` (and optionally only “open” executions), so we discover *all* runner semaphores, including runners owned by other organizations.
+      - Pagination:
+        - Iterate pages up to a conservative cap (configurable constant) to prevent worst-case latency.
+        - Extract `runnerID` from each execution’s `workflowId` by trimming the `mobile-runner-semaphore/` prefix (do not split on `/`, runner IDs may contain `/`).
+    - Temporal IO:
+      - For each discovered semaphore workflow (runnerID), query `workflows.MobileRunnerSemaphoreListQueuedRunsQuery` with `orgNamespace`.
+      - Apply short per-runner timeouts and tolerate missing semaphores (treat as “no queued runs” for that runner) to keep list endpoints responsive.
+    - Aggregation:
+      - Merge results into a `map[ticketID]QueuedRunAggregate`:
+        - `position = max(position)`, `line_len = max(line_len)`,
+        - Keep `pipeline_identifier`, `enqueued_at`, `required_runner_ids`, `leader_runner_id`,
+        - Collect `runner_ids` from `required_runner_ids` (source of truth for cancellation).
+      - Filter strictly to `status == queued`.
+  - Keep the helper in handlers for now (adapter-style), but implement it as pure functions + injected Temporal query function variables (like `pipeline_queue_handler.go`) so unit tests can stub IO.
+- Tests ::
+  - Add unit tests in `pkg/internal/apis/handlers/pipeline_handler_test.go` (or a new `queued_pipeline_runs_test.go`) that:
+    - Stubs the Temporal query helper to return overlapping tickets from two runners,
+    - Asserts dedupe + max aggregation for `position` and `line_len`,
+    - Asserts only `ownerNamespace == orgNamespace` is used (no client input).
+- Done when :: Handlers can call one helper to obtain “my queued pipeline run tickets” with correct aggregate position/line length and required runner IDs for cancellation.
+
+** TODO [#A] Extend `/api/pipeline/list-workflows` to include queued tickets per pipeline
+- Why :: Pipeline pages and dashboard cards should show queued-but-not-started runs alongside started runs, otherwise users lose visibility after start-unification.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_handler.go`:
+    - In `HandleGetPipelineDetails`:
+      - After fetching `pipelineRecords`, call the queued-run helper once for the org.
+      - Map queued tickets to pipeline IDs by matching `pipeline_identifier` against:
+        - pipeline record ID, and
+        - canonified path `<orgNamespace>/<pipeline.canonified_name>`.
+      - For each matched pipelineID, prepend/append a synthetic “queued run row” to the response slice:
+        - Add an optional `queue` object with `ticket_id`, `position`, `line_len`, and `runner_ids`.
+        - Populate `runner_ids` and `runner_records` via existing `runners.ResolveRunnerRecords`.
+        - Use a deterministic synthetic execution identifier to keep the existing table keying stable:
+          - `execution.workflowId = "queue/" + ticket_id`, `execution.runId = ticket_id`.
+        - Set `type.name` to the pipeline workflow name (`pipeline.NewPipelineWorkflow().Name()`).
+        - Set `status = "queued"` (lowercase, same vocabulary as `/api/pipeline/queue/{ticket}`), and rely on the optional `queue` object for UI branching (do not pass queued status into Temporal UI components).
+        - Set `startTime` to the enqueue time (formatted the same way as existing summaries for that user’s timezone).
+    - In `HandleGetPipelineSpecificDetails`:
+      - Also include queued tickets for just that pipeline ID (filter after mapping).
+  - Keep response backward compatible by only adding optional fields; do not change existing fields for started workflows.
+- Tests ::
+  - Add/extend unit tests in `pkg/internal/apis/handlers/pipeline_handler_test.go` that:
+    - Stub queued-run helper to return one queued ticket for a known pipeline,
+    - Assert the response includes an entry with `queue.ticket_id` and the correct `position`/`line_len`,
+    - Assert `runner_records` resolves when runners exist (fixture-backed), otherwise returns empty but still includes `runner_ids`.
+- Done when :: Pipeline list endpoints show queued tickets per pipeline with queue position/length and enough data for the UI to render + cancel.
+
+** TODO [#A] Extend `/api/compliance/checks` (and `/api/my/checks`) list to include queued pipeline tickets
+- Why :: The “Workflows” page (`/my/tests/runs`) currently lists Temporal workflows only; queued tickets must appear there too or users cannot see in-progress pipeline runs before they start.
+- Change ::
+  - In `pkg/internal/apis/handlers/checks_handlers.go` (`HandleListMyChecks`):
+    - Determine whether to include queued runs based on the `status` filter:
+      - Include queued tickets when no `status` filter is provided OR when the filter includes “running” (treat queued as “in progress”).
+      - Exclude queued tickets for purely terminal filters (completed/failed/canceled/etc.).
+    - Fetch queued tickets via the shared queued-run helper and append them to the returned `Executions` list as synthetic summaries:
+      - Same `execution.workflowId/runId` synthetic scheme as pipeline list endpoints.
+      - Same `queue` object shape and `type.name` set to pipeline workflow name.
+      - Set `status = "queued"` for these synthetic rows.
+      - `displayName`: reuse the existing pipeline-run display convention (e.g. `memo.test` == `"pipeline-run"`), or set a sensible fallback like `"pipeline-run"` so rows are not blank.
+    - Ensure sorting remains deterministic (queued rows should not break the hierarchy builder; queued items should be roots with no children).
+- Tests ::
+  - Add a unit test in `pkg/internal/apis/handlers/checks_handlers_test.go` that:
+    - Stubs queued-run helper to return one queued ticket,
+    - Calls the list handler with and without `?status=running`,
+    - Asserts queued rows are included only under the intended filter behavior and contain queue position/length.
+- Done when :: `/my/tests/runs` shows queued pipeline runs (not yet started) and they are not mislabeled as “Running”.
+
+** TODO [#A] Update webapp lists to render queued rows and cancel from queue
+- Why :: Current UI assumes every row is a Temporal workflow execution; queued tickets need a distinct label and a different cancellation endpoint.
+- Change ::
+  - In `webapp/src/lib/workflows/queries.types.ts`:
+    - Extend `WorkflowExecutionSummary` with an optional `queue?: { ticket_id: string; position: number; line_len: number; runner_ids: string[] }`.
+    - Allow synthetic queued rows by relaxing the execution shape as needed (e.g. tolerate `runId` being a synthetic token); keep existing fields intact for started workflows.
+  - In `webapp/src/lib/workflows/workflow-status.svelte`:
+    - Extend props to accept optional queue metadata (e.g. `queue?: WorkflowExecutionSummary['queue']`).
+    - If `queue` is present, render a “Queued” badge (and optionally `Queued: X of Y` using `position+1` and `max(line_len, position+1)` like existing queue toast formatting).
+    - Otherwise keep using Temporal UI status rendering for Temporal statuses.
+  - In `webapp/src/lib/workflows/workflow-actions.svelte`:
+    - Extend props to accept optional queue metadata (e.g. `queue?: WorkflowExecutionSummary['queue']`) in addition to the existing Temporal workflow identifiers.
+    - When `queue` is present, make Cancel call:
+      - `DELETE /api/pipeline/queue/{ticket_id}?runner_ids=<csv>` via `pb.send`,
+      - and skip calling `/api/my/checks/.../cancel`.
+    - When `queue` is absent, keep existing behavior (Cancel only for `Running`, calling `/api/my/checks/{workflowId}/runs/{runId}/cancel`).
+  - In `webapp/src/lib/workflows/workflow-table-row.svelte`, `webapp/src/lib/workflows/workflows-table.svelte`, and `webapp/src/lib/workflows/workflows-table-small.svelte`:
+    - Do not link queued rows to `/my/tests/runs/...` (render plain text instead of an anchor).
+    - Use a stable key that works for both cases (prefer `workflow.queue.ticket_id ?? workflow.execution.runId`).
+    - Ensure any status-derived logic never calls `toWorkflowStatusReadable()` for queued rows (branch first on `workflow.queue`), and that cancel uses the queue cancel endpoint for queued rows.
+- Tests ::
+  - In `webapp/src/lib/workflows` unit tests (Vitest):
+    - Add tests that queued rows render “Queued” (and the optional `X of Y` message),
+    - Add tests that clicking Cancel for a queued row calls the queue-cancel endpoint (and does not call the Temporal cancel endpoint).
+- Done when :: Queued runs render as queued (not running), show queue position/length, and the existing cancel control removes them from the semaphore queue when they are not started.

@@ -621,6 +621,130 @@ func TestMobileRunnerSemaphoreWorkflowRunQueuePositions(t *testing.T) {
 	require.Empty(t, drainErrors(errCh))
 }
 
+func TestMobileRunnerSemaphoreWorkflowListQueuedRuns(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	w := NewMobileRunnerSemaphoreWorkflow()
+	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
+
+	permitCh := make(chan MobileRunnerSemaphorePermit, 1)
+	errCh := make(chan error, 4)
+	queuedCh := make(chan []MobileRunnerSemaphoreQueuedRunView, 1)
+
+	enqueuedAt := time.Date(2026, 2, 3, 10, 0, 0, 0, time.UTC)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueAcquireUpdate(
+			env,
+			MobileRunnerSemaphoreAcquireRequest{RequestID: "req-1", LeaseID: "lease-1"},
+			permitCh,
+			errCh,
+		)
+	}, time.Millisecond)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-1",
+			MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:           "ticket-1",
+				OwnerNamespace:     "tenant-a",
+				EnqueuedAt:         enqueuedAt,
+				RunnerID:           "runner-1",
+				RequiredRunnerIDs:  []string{"runner-1"},
+				LeaderRunnerID:     "runner-1",
+				PipelineIdentifier: "tenant-a/pipeline-a",
+			},
+			errCh,
+		)
+	}, time.Second)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-2",
+			MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:           "ticket-2",
+				OwnerNamespace:     "tenant-b",
+				EnqueuedAt:         enqueuedAt.Add(time.Minute),
+				RunnerID:           "runner-1",
+				RequiredRunnerIDs:  []string{"runner-1"},
+				LeaderRunnerID:     "runner-1",
+				PipelineIdentifier: "tenant-b/pipeline-b",
+			},
+			errCh,
+		)
+	}, time.Second*2)
+
+	env.RegisterDelayedCallback(func() {
+		enqueueRunUpdate(
+			env,
+			"enqueue-3",
+			MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:           "ticket-3",
+				OwnerNamespace:     "tenant-a",
+				EnqueuedAt:         enqueuedAt.Add(2 * time.Minute),
+				RunnerID:           "runner-1",
+				RequiredRunnerIDs:  []string{"runner-1"},
+				LeaderRunnerID:     "runner-1",
+				PipelineIdentifier: "tenant-a/pipeline-a",
+			},
+			errCh,
+		)
+	}, time.Second*3)
+
+	env.RegisterDelayedCallback(func() {
+		queryQueuedRuns(env, "tenant-a", queuedCh, errCh)
+	}, time.Second*4)
+
+	env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*5)
+
+	done := make(chan struct{})
+	go func() {
+		env.ExecuteWorkflow(w.Name(), workflowengine.WorkflowInput{
+			Payload: MobileRunnerSemaphoreWorkflowInput{
+				RunnerID: "runner-1",
+				Capacity: 1,
+			},
+		})
+		close(done)
+	}()
+
+	<-done
+
+	select {
+	case permit := <-permitCh:
+		require.Equal(t, "lease-1", permit.LeaseID)
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for permit")
+	}
+
+	var queued []MobileRunnerSemaphoreQueuedRunView
+	select {
+	case queued = <-queuedCh:
+	case <-time.After(2 * time.Second):
+		require.Fail(t, "timed out waiting for queued runs")
+	}
+
+	require.Len(t, queued, 2)
+	require.Equal(t, "ticket-1", queued[0].TicketID)
+	require.Equal(t, "tenant-a", queued[0].OwnerNamespace)
+	require.Equal(t, "tenant-a/pipeline-a", queued[0].PipelineIdentifier)
+	require.Equal(t, enqueuedAt, queued[0].EnqueuedAt)
+	require.Equal(t, "runner-1", queued[0].LeaderRunnerID)
+	require.Equal(t, []string{"runner-1"}, queued[0].RequiredRunnerIDs)
+	require.Equal(t, mobileRunnerSemaphoreRunQueued, queued[0].Status)
+	require.Equal(t, 0, queued[0].Position)
+	require.Equal(t, 3, queued[0].LineLen)
+
+	require.Equal(t, "ticket-3", queued[1].TicketID)
+	require.Equal(t, 2, queued[1].Position)
+	require.Equal(t, 3, queued[1].LineLen)
+
+	require.Empty(t, drainErrors(errCh))
+}
+
 func TestMobileRunnerSemaphoreWorkflowQueueLimitEnforced(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -2302,6 +2426,25 @@ func queryRunStatus(
 		return
 	}
 	statusCh <- status
+}
+
+func queryQueuedRuns(
+	env *testsuite.TestWorkflowEnvironment,
+	ownerNamespace string,
+	queuedCh chan<- []MobileRunnerSemaphoreQueuedRunView,
+	errCh chan<- error,
+) {
+	encoded, err := env.QueryWorkflow(MobileRunnerSemaphoreListQueuedRunsQuery, ownerNamespace)
+	if err != nil {
+		errCh <- err
+		return
+	}
+	var queued []MobileRunnerSemaphoreQueuedRunView
+	if decodeErr := encoded.Get(&queued); decodeErr != nil {
+		errCh <- decodeErr
+		return
+	}
+	queuedCh <- queued
 }
 
 func drainErrors(errCh <-chan error) []error {
