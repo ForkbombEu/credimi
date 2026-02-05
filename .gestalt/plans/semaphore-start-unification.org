@@ -222,7 +222,7 @@
     - Executes the activity with a non-scheduled ticket (e.g. `"ticket-1"`) and asserts the captured ID starts with `Pipeline-` and does not include `Pipeline-Sched-`.
 - Done when :: A scheduled tick enqueues a run ticket and the resulting pipeline workflow ID returned by the semaphore status includes `Pipeline-Sched-...`.
 
-* WIP [#A] Show queued (not-started) pipeline runs in listings + cancel from queue
+* DONE [#A] Show queued (not-started) pipeline runs in listings + cancel from queue
 - Effort :: M
 - Goal :: Both `/api/pipeline/list-workflows` and `/api/compliance/checks` include the authenticated user’s queued (not-yet-started) pipeline run tickets, including queue position + queue length, and the UI shows them as “Queued” with a working cancel action that removes them from the semaphore queue.
 - Notes ::
