@@ -69,7 +69,7 @@
     - queue-limit application errors are surfaced with stable error typing.
 - Done when :: The scheduled workflow can enqueue via this activity and the HTTP queue handler can optionally reuse the same aggregation helper without behavioral drift.
 
-* WIP [#A] Switch schedule creation to the new scheduled-enqueue workflow
+* DONE [#A] Switch schedule creation to the new scheduled-enqueue workflow
 - Effort :: M
 - Goal :: Ensure schedules created from the API never reference the pipeline workflow directly, and preserve global runner visibility in the UI.
 - Notes ::
@@ -77,7 +77,7 @@
   - Schedule list/enrichment uses `pkg/internal/pb/schedules.go` to infer runners (including global runner) from schedule action args.
   - Rollout assumption: existing schedules are deleted and recreated manually (no automated migration in scope).
 
-** WIP [#A] Update schedule handler wiring and enrichment decoding
+** DONE [#A] Update schedule handler wiring and enrichment decoding
 - Why :: Without updating both schedule creation and enrichment decoding, schedules will either keep starting the wrong workflow or lose runner visibility (esp. global runner).
 - Change ::
   - In `pkg/internal/apis/handlers/schedules_handlers.go`:
@@ -93,13 +93,13 @@
     - enrichment correctly shows runners when `GlobalRunnerID` is present in the new args.
 - Done when :: New schedules enqueue runs instead of starting pipelines, and the schedules UI continues to show correct runner lists.
 
-* TODO [#A] Remove the “scheduled run” mode from the pipeline workflow input
+* WIP [#A] Remove the “scheduled run” mode from the pipeline workflow input
 - Effort :: M
 - Goal :: Eliminate `PipelineWorkflowInput.Scheduled` and the in-workflow DB fetch path; scheduled behavior belongs to the new scheduled-enqueue workflow.
 - Notes ::
   - This is an intentional behavior shift: pipeline workflows should always start with full YAML/definition already present (either from API start or from the semaphore’s `StartQueuedPipelineActivity`).
 
-** TODO [#A] Delete `Scheduled` flag + `handleScheduledRun` implementation
+** WIP [#A] Delete `Scheduled` flag + `handleScheduledRun` implementation
 - Why :: The scheduled-enqueue workflow now owns “fetch YAML at runtime” and “queue insertion”; keeping the old mode invites regressions and still risks long workflow runtimes.
 - Change ::
   - In `pkg/workflowengine/pipeline/pipeline.go`:

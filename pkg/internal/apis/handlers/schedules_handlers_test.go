@@ -7,6 +7,7 @@
 package handlers
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -14,10 +15,14 @@ import (
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/client"
+	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
 func TestValidateScheduleModeDaily(t *testing.T) {
@@ -87,4 +92,151 @@ func TestHandleStartScheduleInvalidJSON(t *testing.T) {
 	var apiErr *router.ApiError
 	require.True(t, errors.As(err, &apiErr))
 	require.Equal(t, http.StatusBadRequest, apiErr.Status)
+}
+
+// TestStartScheduledPipelineUsesScheduledEnqueueWorkflow ensures schedules target the enqueue workflow.
+func TestStartScheduledPipelineUsesScheduledEnqueueWorkflow(t *testing.T) {
+	originalClient := scheduleTemporalClient
+	defer func() {
+		scheduleTemporalClient = originalClient
+	}()
+
+	fakeHandle := &fakeScheduleHandle{}
+	fakeSchedule := &fakeScheduleClient{handle: fakeHandle}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	config := map[string]any{
+		"namespace": "acme",
+		"app_url":   "https://example.test",
+		"user_name": "Ada",
+		"user_mail": "ada@example.test",
+	}
+	_, err := startScheduledPipelineWithOptions(
+		"pipeline-id",
+		"pipeline-slug",
+		"Pipeline Name",
+		"acme",
+		config,
+		workflowengine.ScheduleMode{Mode: "daily"},
+		"UTC",
+		"runner-1",
+		7,
+	)
+	require.NoError(t, err)
+
+	require.Len(t, fakeSchedule.createdOptions, 1)
+	options := fakeSchedule.createdOptions[0]
+	action, ok := options.Action.(*client.ScheduleWorkflowAction)
+	require.True(t, ok)
+	require.Equal(t, workflows.ScheduledPipelineEnqueueWorkflowName, action.Workflow)
+	require.Equal(t, pipeline.PipelineTaskQueue, action.TaskQueue)
+	require.Len(t, action.Args, 1)
+
+	arg, ok := action.Args[0].(workflows.ScheduledPipelineEnqueueWorkflowInput)
+	require.True(t, ok)
+	require.Equal(t, "pipeline-slug", arg.PipelineIdentifier)
+	require.Equal(t, "acme", arg.OwnerNamespace)
+	require.Equal(t, "runner-1", arg.GlobalRunnerID)
+	require.Equal(t, 7, arg.MaxPipelinesInQueue)
+	require.Equal(t, config, arg.PipelineConfig)
+
+	mockClient.AssertExpectations(t)
+}
+
+type fakeScheduleClient struct {
+	createdOptions []client.ScheduleOptions
+	handle         client.ScheduleHandle
+}
+
+// Create records schedule options for assertions and returns a stub handle.
+func (f *fakeScheduleClient) Create(
+	ctx context.Context,
+	options client.ScheduleOptions,
+) (client.ScheduleHandle, error) {
+	f.createdOptions = append(f.createdOptions, options)
+	if f.handle != nil {
+		return f.handle, nil
+	}
+	return &fakeScheduleHandle{}, nil
+}
+
+// List returns an error to surface unexpected list calls in tests.
+func (f *fakeScheduleClient) List(
+	ctx context.Context,
+	options client.ScheduleListOptions,
+) (client.ScheduleListIterator, error) {
+	return nil, errors.New("schedule list not implemented in test")
+}
+
+// GetHandle returns the configured handle or a default stub.
+func (f *fakeScheduleClient) GetHandle(
+	ctx context.Context,
+	scheduleID string,
+) client.ScheduleHandle {
+	if f.handle != nil {
+		return f.handle
+	}
+	return &fakeScheduleHandle{}
+}
+
+type fakeScheduleHandle struct{}
+
+// GetID returns an empty schedule ID for stubbed handles.
+func (f *fakeScheduleHandle) GetID() string {
+	return ""
+}
+
+// Delete is a no-op stub for schedule handle cleanup.
+func (f *fakeScheduleHandle) Delete(ctx context.Context) error {
+	return nil
+}
+
+// Backfill is a no-op stub for schedule handle backfill.
+func (f *fakeScheduleHandle) Backfill(
+	ctx context.Context,
+	options client.ScheduleBackfillOptions,
+) error {
+	return nil
+}
+
+// Update is a no-op stub for schedule handle updates.
+func (f *fakeScheduleHandle) Update(
+	ctx context.Context,
+	options client.ScheduleUpdateOptions,
+) error {
+	return nil
+}
+
+// Describe returns an empty schedule description for verification calls.
+func (f *fakeScheduleHandle) Describe(ctx context.Context) (*client.ScheduleDescription, error) {
+	return &client.ScheduleDescription{}, nil
+}
+
+// Trigger is a no-op stub for schedule handle triggers.
+func (f *fakeScheduleHandle) Trigger(
+	ctx context.Context,
+	options client.ScheduleTriggerOptions,
+) error {
+	return nil
+}
+
+// Pause is a no-op stub for schedule handle pauses.
+func (f *fakeScheduleHandle) Pause(
+	ctx context.Context,
+	options client.SchedulePauseOptions,
+) error {
+	return nil
+}
+
+// Unpause is a no-op stub for schedule handle resumes.
+func (f *fakeScheduleHandle) Unpause(
+	ctx context.Context,
+	options client.ScheduleUnpauseOptions,
+) error {
+	return nil
 }

@@ -15,6 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/serviceerror"
@@ -151,6 +152,13 @@ func readGlobalRunnerIDFromScheduleDescription(
 	}
 
 	switch arg := action.Args[0].(type) {
+	case workflows.ScheduledPipelineEnqueueWorkflowInput:
+		return globalRunnerIDFromScheduledInput(arg)
+	case *workflows.ScheduledPipelineEnqueueWorkflowInput:
+		if arg == nil {
+			return ""
+		}
+		return globalRunnerIDFromScheduledInput(*arg)
 	case pipeline.PipelineWorkflowInput:
 		return runners.GlobalRunnerIDFromConfig(arg.WorkflowInput.Config)
 	case *pipeline.PipelineWorkflowInput:
@@ -173,10 +181,25 @@ func globalRunnerIDFromPayload(payload *commonpb.Payload) string {
 	}
 
 	dc := converter.GetDefaultDataConverter()
+	var scheduledInput workflows.ScheduledPipelineEnqueueWorkflowInput
+	if err := dc.FromPayload(payload, &scheduledInput); err == nil {
+		if globalRunnerID := globalRunnerIDFromScheduledInput(scheduledInput); globalRunnerID != "" {
+			return globalRunnerID
+		}
+	}
+
 	var input pipeline.PipelineWorkflowInput
 	if err := dc.FromPayload(payload, &input); err != nil {
 		return ""
 	}
 
 	return runners.GlobalRunnerIDFromConfig(input.WorkflowInput.Config)
+}
+
+// globalRunnerIDFromScheduledInput extracts a global runner ID from scheduled enqueue inputs.
+func globalRunnerIDFromScheduledInput(input workflows.ScheduledPipelineEnqueueWorkflowInput) string {
+	if input.GlobalRunnerID != "" {
+		return input.GlobalRunnerID
+	}
+	return runners.GlobalRunnerIDFromConfig(input.PipelineConfig)
 }

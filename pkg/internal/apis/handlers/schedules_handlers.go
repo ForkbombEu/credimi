@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/google/uuid"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
@@ -26,6 +27,9 @@ import (
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 )
+
+// scheduleTemporalClient resolves Temporal clients for schedule operations.
+var scheduleTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 var SchedulesRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL: "/api/my/schedules",
@@ -107,27 +111,30 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 			)
 		}
 
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, e.Auth.Id)
+		orgRecord, err := GetUserOrganization(e.App, e.Auth.Id)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"organization",
-				"failed to get user organization",
+				"failed to get user organization record",
 				err.Error(),
 			).JSON(e)
 		}
-
-		orgID, err := GetUserOrganizationID(e.App, e.Auth.Id)
-		if err != nil {
+		namespace := orgRecord.GetString("canonified_name")
+		if namespace == "" {
 			return apierror.New(
 				http.StatusInternalServerError,
 				"organization",
 				"failed to get user organization",
-				err.Error(),
+				"missing organization canonified name",
 			).JSON(e)
 		}
+		orgID := orgRecord.Id
+		maxPipelinesInQueue := orgRecord.GetInt("max_pipelines_in_queue")
 
 		timeZone := e.Auth.GetString("Timezone")
+		userName := e.Auth.GetString("name")
+		userMail := e.Auth.GetString("email")
 
 		rec, err := canonify.Resolve(e.App, req.PipelineID)
 		if err != nil {
@@ -139,21 +146,27 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		config := map[string]any{
-			"namespace": namespace,
-			"app_url":   e.App.Settings().Meta.AppURL,
-			"user_name": e.Auth.GetString("name"),
-			"user_mail": e.Auth.GetString("email"),
+		pipelineIdentifier := rec.GetString("canonified_name")
+		if pipelineIdentifier == "" {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipeline",
+				"failed to resolve pipeline identifier",
+				"missing pipeline canonified name",
+			).JSON(e)
 		}
+		config := buildPipelineQueueConfig(e, namespace, userName, userMail)
 
 		scheduleInfo, err := startScheduledPipelineWithOptions(
 			req.PipelineID,
+			pipelineIdentifier,
 			rec.GetString("name"),
 			namespace,
 			config,
 			req.ScheduleMode,
 			timeZone,
 			req.GlobalRunnerID,
+			maxPipelinesInQueue,
 		)
 		if err != nil {
 			return apierror.New(
@@ -497,13 +510,17 @@ type SchedulePipelineStartInfo struct {
 }
 
 func startScheduledPipelineWithOptions(
-	pipelineID, pipelineName, namespace string,
+	pipelineID string,
+	pipelineIdentifier string,
+	pipelineName string,
+	namespace string,
 	config map[string]any,
 	scheduleMode workflowengine.ScheduleMode,
 	timeZone string,
 	globalRunnerID string,
+	maxPipelinesInQueue int,
 ) (SchedulePipelineStartInfo, error) {
-	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	c, err := scheduleTemporalClient(namespace)
 	if err != nil {
 		return SchedulePipelineStartInfo{}, fmt.Errorf(
 			"unable to create Temporal client for namespace %q: %w",
@@ -516,12 +533,6 @@ func startScheduledPipelineWithOptions(
 	canonifyName := canonify.CanonifyPlain(pipelineName)
 	scheduleID := fmt.Sprintf("Schedule_ID-%s-%s", canonifyName, uuid.NewString())
 	workflowID := fmt.Sprintf("Scheduled-%s-%s", canonifyName, uuid.NewString())
-	w := pipeline.NewPipelineWorkflow()
-
-	// Add global_runner_id to config if provided
-	if globalRunnerID != "" {
-		config["global_runner_id"] = globalRunnerID
-	}
 
 	calendarSpec := workflowengine.BuildCalendarSpec(scheduleMode)
 	scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
@@ -532,15 +543,15 @@ func startScheduledPipelineWithOptions(
 		},
 		Action: &client.ScheduleWorkflowAction{
 			ID:        workflowID,
-			Workflow:  w.Name(),
+			Workflow:  workflows.ScheduledPipelineEnqueueWorkflowName,
 			TaskQueue: pipeline.PipelineTaskQueue,
 			Args: []any{
-				pipeline.PipelineWorkflowInput{
-					WorkflowInput: workflowengine.WorkflowInput{
-						Payload: map[string]any{"pipeline_id": pipelineID},
-						Config:  config,
-					},
-					Scheduled: true,
+				workflows.ScheduledPipelineEnqueueWorkflowInput{
+					PipelineIdentifier:  pipelineIdentifier,
+					OwnerNamespace:      namespace,
+					PipelineConfig:      config,
+					GlobalRunnerID:      globalRunnerID,
+					MaxPipelinesInQueue: maxPipelinesInQueue,
 				},
 			},
 			Memo: map[string]any{
