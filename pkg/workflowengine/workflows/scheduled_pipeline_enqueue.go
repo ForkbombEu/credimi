@@ -24,9 +24,14 @@ import (
 const ScheduledPipelineEnqueueWorkflowName = "Scheduled Pipeline Enqueue Workflow"
 
 // ScheduledPipelineEnqueueWorkflow enqueues scheduled pipeline runs into the runner queue.
-type ScheduledPipelineEnqueueWorkflow struct{}
+type ScheduledPipelineEnqueueWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
 
-// ScheduledPipelineEnqueueWorkflowInput defines the schedule enqueue payload and config.
+// ScheduledPipelineEnqueueWorkflow implements workflowengine.Workflow.
+var _ workflowengine.Workflow = (*ScheduledPipelineEnqueueWorkflow)(nil)
+
+// ScheduledPipelineEnqueueWorkflowInput defines the schedule enqueue payload.
 type ScheduledPipelineEnqueueWorkflowInput struct {
 	PipelineIdentifier  string         `json:"pipeline_identifier"`
 	OwnerNamespace      string         `json:"owner_namespace"`
@@ -37,7 +42,9 @@ type ScheduledPipelineEnqueueWorkflowInput struct {
 
 // NewScheduledPipelineEnqueueWorkflow constructs a scheduled enqueue workflow.
 func NewScheduledPipelineEnqueueWorkflow() *ScheduledPipelineEnqueueWorkflow {
-	return &ScheduledPipelineEnqueueWorkflow{}
+	w := &ScheduledPipelineEnqueueWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
 }
 
 // Name returns the workflow name for scheduled enqueues.
@@ -50,16 +57,32 @@ func (ScheduledPipelineEnqueueWorkflow) GetOptions() workflow.ActivityOptions {
 	return workflow.ActivityOptions{}
 }
 
-// Workflow validates schedule input, fetches YAML, and enqueues a run ticket.
+// Workflow delegates execution to the configured workflow function.
 func (w *ScheduledPipelineEnqueueWorkflow) Workflow(
 	ctx workflow.Context,
-	input ScheduledPipelineEnqueueWorkflowInput,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+// ExecuteWorkflow validates schedule input, fetches YAML, and enqueues a run ticket.
+func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	info := workflow.GetInfo(ctx)
-	pipelineIdentifier := strings.TrimSpace(input.PipelineIdentifier)
-	ownerNamespace := strings.TrimSpace(input.OwnerNamespace)
+	payload, err := workflowengine.DecodePayload[ScheduledPipelineEnqueueWorkflowInput](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			input.RunMetadata,
+		)
+	}
 
-	config := input.PipelineConfig
+	pipelineIdentifier := strings.TrimSpace(payload.PipelineIdentifier)
+	ownerNamespace := strings.TrimSpace(payload.OwnerNamespace)
+
+	config := input.Config
 	if config == nil {
 		config = map[string]any{}
 	}
@@ -68,34 +91,22 @@ func (w *ScheduledPipelineEnqueueWorkflow) Workflow(
 	}
 	appURL, _ := config["app_url"].(string)
 
-	runMetadata := &workflowengine.WorkflowErrorMetadata{
-		WorkflowName: w.Name(),
-		WorkflowID:   info.WorkflowExecution.ID,
-		Namespace:    info.Namespace,
-		TemporalUI: utils.JoinURL(
-			appURL,
-			"my", "tests", "runs",
-			info.WorkflowExecution.ID,
-			info.WorkflowExecution.RunID,
-		),
-	}
-
 	if pipelineIdentifier == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			fmt.Errorf("pipeline_identifier is required"),
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	if ownerNamespace == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			fmt.Errorf("owner_namespace is required"),
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 	if strings.TrimSpace(appURL) == "" {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 			"app_url",
-			runMetadata,
+			input.RunMetadata,
 		)
 	}
 
@@ -134,7 +145,7 @@ func (w *ScheduledPipelineEnqueueWorkflow) Workflow(
 	var httpResult workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(httpCtx, httpActivity.Name(), request).
 		Get(httpCtx, &httpResult); err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, input.RunMetadata)
 	}
 
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
@@ -145,7 +156,7 @@ func (w *ScheduledPipelineEnqueueWorkflow) Workflow(
 			fmt.Sprintf("%s: invalid output format", errCode.Description),
 			httpResult.Output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 	}
 
 	body, ok := output["body"].(map[string]any)
@@ -155,7 +166,7 @@ func (w *ScheduledPipelineEnqueueWorkflow) Workflow(
 			fmt.Sprintf("%s: missing body in output", errCode.Description),
 			output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 	}
 
 	record, ok := body["record"].(map[string]any)
@@ -165,7 +176,7 @@ func (w *ScheduledPipelineEnqueueWorkflow) Workflow(
 			fmt.Sprintf("%s: missing record in body", errCode.Description),
 			body,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 	}
 
 	pipelineYAML, ok := record["yaml"].(string)
@@ -175,26 +186,26 @@ func (w *ScheduledPipelineEnqueueWorkflow) Workflow(
 			fmt.Sprintf("%s: missing yaml in record", errCode.Description),
 			record,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 	}
 
 	parsedPipeline, runnerInfo, err := parseScheduledPipelineDefinition(pipelineYAML)
 	if err != nil {
 		parseCode := errorcodes.Codes[errorcodes.PipelineParsingError]
 		appErr := workflowengine.NewAppError(parseCode, err.Error())
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
 	}
 
 	globalRunnerID := ""
 	if runnerInfo.NeedsGlobalRunner {
 		globalRunnerID = strings.TrimSpace(parsedPipeline.Runtime.GlobalRunnerID)
 		if globalRunnerID == "" {
-			globalRunnerID = strings.TrimSpace(input.GlobalRunnerID)
+			globalRunnerID = strings.TrimSpace(payload.GlobalRunnerID)
 		}
 		if globalRunnerID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
 				"global_runner_id",
-				runMetadata,
+				input.RunMetadata,
 			)
 		}
 	}
@@ -210,7 +221,7 @@ func (w *ScheduledPipelineEnqueueWorkflow) Workflow(
 			"runner_ids",
 			"no runner ids resolved from yaml",
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(configErr, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(configErr, input.RunMetadata)
 	}
 
 	enqueuedAt := workflow.Now(ctx).UTC()
@@ -233,7 +244,7 @@ func (w *ScheduledPipelineEnqueueWorkflow) Workflow(
 			YAML:                pipelineYAML,
 			PipelineConfig:      config,
 			Memo:                memo,
-			MaxPipelinesInQueue: input.MaxPipelinesInQueue,
+			MaxPipelinesInQueue: payload.MaxPipelinesInQueue,
 		},
 	}
 
@@ -256,7 +267,7 @@ func (w *ScheduledPipelineEnqueueWorkflow) Workflow(
 		activities.EnqueuePipelineRunTicketActivityName,
 		enqueueInput,
 	).Get(enqueueCtx, &enqueueResult); err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, input.RunMetadata)
 	}
 
 	return workflowengine.WorkflowResult{
@@ -280,8 +291,8 @@ type scheduledPipelineRuntime struct {
 
 // scheduledPipelineStep is a minimal step definition for runner lookup.
 type scheduledPipelineStep struct {
-	Use       string                 `yaml:"use,omitempty"`
-	With      map[string]any         `yaml:"with,omitempty"`
+	Use       string                  `yaml:"use,omitempty"`
+	With      map[string]any          `yaml:"with,omitempty"`
 	OnError   []scheduledPipelineStep `yaml:"on_error,omitempty"`
 	OnSuccess []scheduledPipelineStep `yaml:"on_success,omitempty"`
 }

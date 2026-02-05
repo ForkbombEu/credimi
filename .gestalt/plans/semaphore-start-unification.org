@@ -156,3 +156,47 @@
     - queued response (assert output includes `position_human`),
     - non-runner response (assert fallback to `/start`).
 - Done when :: CLI prints queue position for queued runs and remains functional for non-runner pipelines without requiring the user to know which endpoint to call.
+
+* WIP [#A] Refactor scheduled-enqueue workflow to satisfy `workflowengine.Workflow`
+- Effort :: S
+- Goal :: Keep workflow registration consistent (everything implements `workflowengine.Workflow`) and eliminate the startup panic.
+- Notes ::
+  - Current panic: `panic: interface conversion: *workflows.ScheduledPipelineEnqueueWorkflow is not workflowengine.Workflow: missing method ExecuteWorkflow`.
+  - Root cause: `pkg/workflowengine/hooks/hook.go` registers `registry.PipelineInternalRegistry` workflows via `step.NewFunc().(workflowengine.Workflow)`, but `pkg/workflowengine/workflows/scheduled_pipeline_enqueue.go` currently uses a typed workflow signature (`Workflow(ctx, ScheduledPipelineEnqueueWorkflowInput)`), so it cannot satisfy the interface.
+  - Assumption: there are no existing schedules yet, so changing the schedule action arg shape is acceptable (no migration/compat needed).
+
+** DONE [#A] Implement `Workflow` + `ExecuteWorkflow` using `workflowengine.BuildWorkflow`
+- Why :: Aligns with the existing workflow pattern and makes the internal registry + pipeline worker registration path safe.
+- Change ::
+  - In `pkg/workflowengine/workflows/scheduled_pipeline_enqueue.go`:
+    - Change the public workflow entrypoint to `Workflow(ctx workflow.Context, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error)`.
+    - Add `ExecuteWorkflow(ctx workflow.Context, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error)` and move the current enqueue logic there.
+    - Update `NewScheduledPipelineEnqueueWorkflow()` to set `w.WorkflowFunc = workflowengine.BuildWorkflow(w)` (same pattern as `EWCWorkflow`, `WalletWorkflow`, etc.).
+    - Decode payload via `workflowengine.DecodePayload[ScheduledPipelineEnqueueWorkflowInput](input.Payload)`.
+    - Treat `input.Config` as the pipeline config (must include `app_url`), and keep augmenting it with `namespace` and `global_runner_id` as needed before enqueue.
+    - Add a compile-time assertion to prevent regressions: `var _ workflowengine.Workflow = (*ScheduledPipelineEnqueueWorkflow)(nil)`.
+  - In `pkg/workflowengine/registry/registry.go`:
+    - Keep `scheduled-pipeline-enqueue` in `PipelineInternalRegistry` (now it will satisfy `workflowengine.Workflow` and register safely).
+- Tests ::
+  - Covered by the updated scheduled-enqueue workflow unit test and schedule handler tests in the next step.
+- Done when :: `ScheduledPipelineEnqueueWorkflow` satisfies `workflowengine.Workflow` at compile time and can be instantiated via `step.NewFunc().(workflowengine.Workflow)` without panicking.
+
+** TODO [#A] Update schedule creation to pass `workflowengine.WorkflowInput`
+- Why :: After the refactor, the workflow expects the standard wrapper input; schedules should pass payload+config consistently with other workflow starts.
+- Change ::
+  - In `pkg/internal/apis/handlers/schedules_handlers.go` (`startScheduledPipelineWithOptions`):
+    - Change the schedule action `Args` from a raw `workflows.ScheduledPipelineEnqueueWorkflowInput{...}` to:
+      - `workflowengine.WorkflowInput{Payload: workflows.ScheduledPipelineEnqueueWorkflowInput{...}, Config: config}`
+    - Ensure `config` includes `app_url` (since `workflowengine.BuildWorkflow` builds `TemporalUI` from `input.Config["app_url"]`).
+  - In `pkg/internal/pb/schedules.go`:
+    - Update any payload conversion logic that currently expects `ScheduledPipelineEnqueueWorkflowInput` at the top-level to handle the new `workflowengine.WorkflowInput` wrapper (while still decoding the embedded `ScheduledPipelineEnqueueWorkflowInput` payload).
+
+- Tests ::
+  - Update `pkg/workflowengine/workflows/scheduled_pipeline_enqueue_test.go` to execute the workflow via the standard entrypoint and wrapper input:
+    - `env.ExecuteWorkflow(w.Workflow, workflowengine.WorkflowInput{Payload: ScheduledPipelineEnqueueWorkflowInput{...}, Config: map[string]any{\"app_url\": ...}})`
+    - Assert the enqueue activity receives the expected values as before.
+  - Update `pkg/internal/apis/handlers/schedules_handlers_test.go` to assert schedule action args now contain `workflowengine.WorkflowInput` with:
+    - `Payload` decodable as `workflows.ScheduledPipelineEnqueueWorkflowInput`,
+    - `Config` equal (or superset) of the config passed by the handler.
+  - Add a small registry guardrail test (optional but cheap): iterate `registry.PipelineInternalRegistry` and assert every `TaskWorkflow` `NewFunc()` implements `workflowengine.Workflow`.
+- Done when :: Pipeline worker starts without panic, and creating/executing a schedule enqueues a run ticket successfully using the `workflowengine.WorkflowInput` wrapper.

@@ -34,13 +34,15 @@ steps:
       action_id: action-2
 `
 
-	input := ScheduledPipelineEnqueueWorkflowInput{
-		PipelineIdentifier: "pipeline-123",
-		OwnerNamespace:     "org-1",
-		PipelineConfig: map[string]any{
+	input := workflowengine.WorkflowInput{
+		Payload: ScheduledPipelineEnqueueWorkflowInput{
+			PipelineIdentifier:  "pipeline-123",
+			OwnerNamespace:      "org-1",
+			MaxPipelinesInQueue: 3,
+		},
+		Config: map[string]any{
 			"app_url": "https://example.test",
 		},
-		MaxPipelinesInQueue: 3,
 	}
 
 	suite := &testsuite.WorkflowTestSuite{}
