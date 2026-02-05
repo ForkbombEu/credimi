@@ -200,3 +200,24 @@
     - `Config` equal (or superset) of the config passed by the handler.
   - Add a small registry guardrail test (optional but cheap): iterate `registry.PipelineInternalRegistry` and assert every `TaskWorkflow` `NewFunc()` implements `workflowengine.Workflow`.
 - Done when :: Pipeline worker starts without panic, and creating/executing a schedule enqueues a run ticket successfully using the `workflowengine.WorkflowInput` wrapper.
+
+* DONE [#B] Prefix scheduled queued pipeline WorkflowID with `Sched-`
+- Effort :: S
+- Goal :: Make pipeline workflows started by the semaphore queue clearly distinguishable when their enqueue request originated from a Temporal schedule.
+- Notes ::
+  - Keep the existing `Pipeline-` prefix for compatibility; insert `Sched-` immediately after it (e.g. `Pipeline-Sched-...`).
+  - Detect “scheduled enqueue” via `ticket_id` prefix `sched/` (set by `ScheduledPipelineEnqueueWorkflow`), so no API surface changes are needed.
+
+** DONE [#B] Add `Pipeline-Sched-` prefix in `StartQueuedPipelineActivity`
+- Why :: Today, queued pipeline runs started from schedules look identical to ad-hoc queued runs; this makes triage and metrics slicing harder.
+- Change ::
+  - In `pkg/workflowengine/activities/queued_pipeline.go` (`StartQueuedPipelineActivity.Execute`), when generating `options.Options.ID`:
+    - If `payload.TicketID` starts with `sched/`, use `Pipeline-Sched-<canon pipeline name>-<uuid>`.
+    - Otherwise keep the existing `Pipeline-<canon pipeline name>-<uuid>`.
+  - Keep the logic local to the queued-start path (do not change `PipelineWorkflow.Start`), since the request is specifically about pipeline workflows started from the semaphore.
+- Tests ::
+  - Extend `pkg/workflowengine/activities/queued_pipeline_test.go` with a small unit test that:
+    - Uses a fake Temporal client that captures `client.StartWorkflowOptions.ID`,
+    - Executes the activity with `TicketID: "sched/wf/run"` and asserts the captured ID starts with `Pipeline-Sched-`,
+    - Executes the activity with a non-scheduled ticket (e.g. `"ticket-1"`) and asserts the captured ID starts with `Pipeline-` and does not include `Pipeline-Sched-`.
+- Done when :: A scheduled tick enqueues a run ticket and the resulting pipeline workflow ID returned by the semaphore status includes `Pipeline-Sched-...`.
