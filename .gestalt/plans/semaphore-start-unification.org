@@ -1,0 +1,159 @@
+#+TITLE: Unify Scheduled/CLI Pipeline Starts with Semaphore Queue
+#+SUBTITLE: Eliminate “start immediately + wait inside pipeline” by enqueueing all mobile-runner pipeline starts (Run now / CLI / Schedules) into the same FIFO
+#+DATE: 2026-02-05
+#+KEYWORDS: temporal, schedules, pipeline, semaphore, queue, cli, pocketbase, mobile-automation
+
+* WIP [#A] Add a scheduled “enqueue-only” workflow (no pipeline execution)
+- Effort :: M
+- Goal :: Ensure Temporal schedules never start the pipeline workflow directly; they enqueue a run ticket and return immediately (no waiting time counted in pipeline workflow runtime).
+- Notes ::
+  - New workflow type runs on `pipeline.PipelineTaskQueue` (same worker as “Dynamic Pipeline Workflow”).
+  - Input explicitly carries “who/where” metadata needed for queued runs (namespace, app_url, user info, optional global runner override, max queue limit).
+
+** DONE [#A] Define workflow contract and determinism-safe IDs
+- Why :: A schedule tick must be fast, deterministic, and safe under retries; ticket identity must be stable and unique without `uuid.NewString()` in workflow code.
+- Change ::
+  - Add workflow `workflows.ScheduledPipelineEnqueueWorkflow` (new file e.g. `pkg/workflowengine/workflows/scheduled_pipeline_enqueue.go`) with:
+    - `Name()` constant (e.g. `Scheduled Pipeline Enqueue Workflow`).
+    - Input DTO `ScheduledPipelineEnqueueWorkflowInput`:
+      - `PipelineIdentifier string` (canonify identifier, same as API `pipeline_identifier`)
+      - `OwnerNamespace string` (organization canonified name; used as semaphore owner namespace and pipeline Temporal namespace)
+      - `PipelineConfig map[string]any` (must include at least `app_url`; may include `user_name`, `user_mail`, `app_name`, `app_logo`, `global_runner_id`)
+      - `GlobalRunnerID string` (optional override when YAML omits `runtime.global_runner_id`)
+      - `MaxPipelinesInQueue int` (snapshot at schedule-create time; keeps parity with `/api/pipeline/queue` without adding new internal endpoints)
+  - Ticket ID strategy (deterministic + unique per tick):
+    - `ticket_id := "sched/" + workflowID + "/" + runID` (from `workflow.GetInfo(ctx)`).
+    - `enqueued_at := workflow.Now(ctx).UTC()`.
+  - YAML fetch at runtime:
+    - Use existing `HTTPActivity` to call `POST /api/canonify/identifier/validate` (same response parsing as the old `PipelineWorkflow.handleScheduledRun`), and extract `record.yaml`.
+  - Runner resolution (same semantics as queue endpoint, plus schedule override):
+    - Parse runner info via `runners.ParsePipelineRunnerInfo(yaml)`.
+    - If global runner is needed, prefer:
+      1) `runtime.global_runner_id` from YAML, else
+      2) `input.GlobalRunnerID`, else
+      3) error (missing global runner).
+    - Compute runner IDs with `runners.RunnerIDsWithGlobal(...)`, then `sort.Strings`.
+  - Enqueue:
+    - Call a new activity (see next L1) that encapsulates “ensure semaphore workflow + enqueue update + aggregate response”.
+  - If runnerIDs resolves to empty:
+    - Treat as configuration error and fail the scheduled tick with a clear application error (scheduled pipelines are assumed to be mobile-runner pipelines; non-runner schedules are out of scope for this change).
+- Tests ::
+  - Add a Temporal workflow unit test (workflow test suite) that:
+    - stubs the HTTP activity response with YAML,
+    - asserts the enqueue activity is invoked with the expected `TicketID`, `OwnerNamespace`, runner IDs, YAML, and config,
+    - verifies determinism-safe IDs (no random UUID usage).
+- Done when :: A schedule tick results in a run ticket added to the runner semaphore queue and the scheduled workflow completes quickly (seconds), without starting the pipeline workflow directly.
+
+* TODO [#A] Introduce a reusable “enqueue run ticket” activity (ports/adapters)
+- Effort :: M
+- Goal :: Reuse the exact same enqueue semantics across HTTP handlers and the new scheduled workflow, without duplicating Temporal client/update logic inside workflow code.
+- Notes ::
+  - This is the only place that touches Temporal client APIs for enqueueing from a workflow context.
+  - Keep it minimal: mirror `pkg/internal/apis/handlers/pipeline_queue_handler.go` behavior and reuse existing request/response structs where sensible.
+
+** TODO [#A] Implement enqueue activity + shared aggregation
+- Why :: Workflows cannot instantiate Temporal clients; enqueue must be done in an activity while preserving the same queue semantics (leader runner, multi-runner coordination, limit enforcement).
+- Change ::
+  - Add `activities.EnqueuePipelineRunTicketActivity` (new file e.g. `pkg/workflowengine/activities/enqueue_pipeline_run_ticket.go`) that:
+    - Ensures each `runnerID` has a semaphore workflow running (same logic as `ensureRunQueueSemaphoreWorkflowTemporal`).
+    - Sends `workflows.MobileRunnerSemaphoreEnqueueRunRequest` to each runner via `UpdateWorkflow` (same as `enqueueRunTicketTemporal`).
+    - Aggregates per-runner responses into a single output mirroring `PipelineQueueStatusResponse` fields needed by callers.
+  - Inputs/outputs:
+    - Input should carry: `TicketID`, `OwnerNamespace`, `EnqueuedAt`, `RunnerIDs`, `PipelineIdentifier`, `YAML`, `PipelineConfig`, `Memo`, `MaxPipelinesInQueue`.
+    - Output should include: `Status`, `Position`, `LineLen`, plus the per-runner statuses (for parity/debug).
+  - Register the new activity in the pipeline worker (`pkg/workflowengine/hooks/hook.go`) or via `registry.PipelineInternalRegistry`.
+  - Optional (recommended): factor `aggregateRunQueueStatus` into a small shared helper (currently in handler) so API + workflow use the same aggregation rules.
+- Tests ::
+  - Unit test the activity with a stub temporal client factory (pattern used by `StartQueuedPipelineActivity`) to verify:
+    - correct workflow IDs and update names are used,
+    - queue-limit application errors are surfaced with stable error typing.
+- Done when :: The scheduled workflow can enqueue via this activity and the HTTP queue handler can optionally reuse the same aggregation helper without behavioral drift.
+
+* TODO [#A] Switch schedule creation to the new scheduled-enqueue workflow
+- Effort :: M
+- Goal :: Ensure schedules created from the API never reference the pipeline workflow directly, and preserve global runner visibility in the UI.
+- Notes ::
+  - Primary entrypoint is `pkg/internal/apis/handlers/schedules_handlers.go` (`startScheduledPipelineWithOptions`).
+  - Schedule list/enrichment uses `pkg/internal/pb/schedules.go` to infer runners (including global runner) from schedule action args.
+  - Rollout assumption: existing schedules are deleted and recreated manually (no automated migration in scope).
+
+** TODO [#A] Update schedule handler wiring and enrichment decoding
+- Why :: Without updating both schedule creation and enrichment decoding, schedules will either keep starting the wrong workflow or lose runner visibility (esp. global runner).
+- Change ::
+  - In `pkg/internal/apis/handlers/schedules_handlers.go`:
+    - Set `Action.Workflow` to `workflows.ScheduledPipelineEnqueueWorkflowName` (new workflow name).
+    - Set `Action.Args` to the new input DTO (carry `PipelineIdentifier`, `OwnerNamespace`, config, `GlobalRunnerID`, and `MaxPipelinesInQueue`).
+    - Keep existing schedule memo fields (`test`, `pipelineID`) unchanged for UI display.
+    - Snapshot `organizations.max_pipelines_in_queue` at schedule-create time and pass it in the workflow input.
+  - In `pkg/internal/pb/schedules.go`:
+    - Extend `readGlobalRunnerIDFromScheduleDescription()` to also decode the new scheduled-enqueue workflow input type and return `GlobalRunnerID` (or fallback to config `global_runner_id`).
+- Tests ::
+  - Add/extend unit tests to assert:
+    - schedule creation uses the new workflow name (mock Temporal client/schedule client or inject a factory),
+    - enrichment correctly shows runners when `GlobalRunnerID` is present in the new args.
+- Done when :: New schedules enqueue runs instead of starting pipelines, and the schedules UI continues to show correct runner lists.
+
+* TODO [#A] Remove the “scheduled run” mode from the pipeline workflow input
+- Effort :: M
+- Goal :: Eliminate `PipelineWorkflowInput.Scheduled` and the in-workflow DB fetch path; scheduled behavior belongs to the new scheduled-enqueue workflow.
+- Notes ::
+  - This is an intentional behavior shift: pipeline workflows should always start with full YAML/definition already present (either from API start or from the semaphore’s `StartQueuedPipelineActivity`).
+
+** TODO [#A] Delete `Scheduled` flag + `handleScheduledRun` implementation
+- Why :: The scheduled-enqueue workflow now owns “fetch YAML at runtime” and “queue insertion”; keeping the old mode invites regressions and still risks long workflow runtimes.
+- Change ::
+  - In `pkg/workflowengine/pipeline/pipeline.go`:
+    - Remove `Scheduled bool` from `PipelineWorkflowInput`.
+    - Remove the `if input.Scheduled { ... }` branch and delete `handleScheduledRun`.
+    - Ensure any remaining callers no longer set `Scheduled`.
+  - Update schedule-creation code paths that previously relied on `Scheduled=true` (covered above).
+- Tests ::
+  - Update existing pipeline tests to stop constructing `PipelineWorkflowInput{Scheduled:true,...}`.
+  - Add a unit test ensuring the pipeline workflow errors clearly if `WorkflowDefinition` is missing (guardrail for any accidental scheduled-style start).
+- Done when :: No code path starts a pipeline workflow with only `pipeline_id` payload; scheduled runs are always enqueued and later started via `StartQueuedPipelineActivity`.
+
+* TODO [#A] Eliminate “acquire permit and wait inside pipeline workflow” logic
+- Effort :: L
+- Goal :: Ensure mobile-automation pipelines never block on permit acquisition inside the pipeline workflow; they must be semaphore-managed (queued) or fail fast.
+- Notes ::
+  - Keep backwards compatibility for *already running* legacy workflows by not removing the old permit activities immediately; remove usage first, then clean up in a follow-up once old runs have drained.
+
+** TODO [#A] Make non-semaphore mobile runs fail fast (no waiting)
+- Why :: This is the root cause of inflated workflow runtime and schedule overlap issues; waiting must move out of the pipeline workflow entirely.
+- Change ::
+  - In `pkg/workflowengine/pipeline/mobile_automation_hooks.go`:
+    - Remove `acquireRunnerPermits` call path.
+    - If mobile runner IDs are present and `isSemaphoreManagedRun(config)` is false:
+      - return a stable application error (e.g., `MissingOrInvalidConfig`) stating “mobile-runner pipelines must be started via queue/semaphore”.
+  - In `pkg/internal/apis/handlers/pipeline_handler.go` (`POST /api/pipeline/start`):
+    - Parse runner IDs from YAML (reuse `runners.ParsePipelineRunnerInfo`).
+    - If runner IDs are present, do **not** start a workflow; return `409 Conflict` with a clear error pointing to `POST /api/pipeline/queue`.
+    - Non-mobile pipelines remain unchanged.
+  - Keep permit-release logic in cleanup for legacy runs (only if permits are present in runData).
+- Tests ::
+  - Update `pkg/workflowengine/pipeline/mobile_automation_hooks_test.go`:
+    - Replace “acquire permits” tests with a failure-fast assertion when missing semaphore metadata.
+  - Add handler unit test ensuring `/api/pipeline/start` returns 409 for runner pipelines and does not call Temporal execute.
+- Done when :: No mobile-runner pipeline start path can result in “waiting for permit” inside the pipeline workflow; such starts either enqueue (queue endpoints) or fail immediately with a clear message.
+
+* TODO [#B] Update CLI start flow to enqueue and print queue position
+- Effort :: S
+- Goal :: Make `credimi pipeline` behave like “Run now”: enqueue runner pipelines and show the queue position; fallback to direct start only for non-runner pipelines.
+- Notes ::
+  - CLI cannot import `pkg/internal/...` packages; it must infer behavior from API responses (or add a dedicated API endpoint).
+
+** TODO [#B] Implement enqueue-first CLI logic + output contract
+- Why :: Users starting from CLI need immediate feedback that the run is queued and where it sits; also avoid starting workflows that will be rejected by the new fail-fast guardrails.
+- Change ::
+  - In `cmd/cli/pipeline.go`:
+    - Attempt `POST /api/pipeline/queue` first with `{pipeline_identifier, yaml}`.
+    - If 200: print JSON including:
+      - `ticket_id`, `runner_ids`, and queue `position`/`line_len`,
+      - `position_human := position + 1` (explicitly label it as 1-based).
+    - If 400 with “no runner ids resolved…”: fallback to `POST /api/pipeline/start` (non-runner pipeline).
+    - If 409 from `/api/pipeline/start`: print a helpful message and ensure the user sees they must use queue (should be unreachable if enqueue-first is implemented).
+- Tests ::
+  - Update/add `cmd/cli/pipeline_test.go` with an `httptest.Server` that simulates:
+    - queued response (assert output includes `position_human`),
+    - non-runner response (assert fallback to `/start`).
+- Done when :: CLI prints queue position for queued runs and remains functional for non-runner pipelines without requiring the user to know which endpoint to call.
