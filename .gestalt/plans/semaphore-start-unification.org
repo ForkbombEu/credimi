@@ -259,7 +259,7 @@
       - `position` and `line_len` reflect the underlying queue correctly.
 - Done when :: The semaphore workflow can answer “list queued tickets for owner namespace X” without exposing YAML/config and with correct position/queue length.
 
-** TODO [#A] Add an API-side queued-run aggregator (ports/adapters boundary)
+** DONE [#A] Add an API-side queued-run aggregator (ports/adapters boundary)
 - Why :: Listing endpoints need a single “my queued runs” view across potentially many runner semaphore workflows; multi-runner tickets must be deduplicated and aggregated.
 - Change ::
   - Add a small helper in a new file `pkg/internal/apis/handlers/queued_pipeline_runs.go`:
