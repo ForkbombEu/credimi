@@ -14,7 +14,7 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 </div>
 <br><br>
 
-## 📋 credimi Features
+## 📋 CREDIMI Features
 
 credimi is a platform designed to ensure that credential issuers and verifiers within decentralized identity ecosystems are compliant with industry standards. Whether you're developing digital wallets, government identity projects, or decentralized apps, credimi offers:
 
