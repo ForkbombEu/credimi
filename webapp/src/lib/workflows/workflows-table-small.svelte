@@ -45,14 +45,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</tr>
 				</thead>
 				<tbody>
-					{#each workflows as workflow (workflow.execution.runId)}
+					{#each workflows as workflow (workflow.queue?.ticket_id ?? workflow.execution.runId)}
 						{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
-						{@const status = toWorkflowStatusReadable(workflow.status)}
+						{@const isQueued = !!workflow.queue}
+						{@const status = isQueued ? null : toWorkflowStatusReadable(workflow.status)}
 						<tr>
 							<td>
 								<WorkflowStatus
 									status={workflow.status}
 									failureReason={workflow.failure_reason}
+									queue={workflow.queue}
 									size="sm"
 								/>
 							</td>
@@ -97,15 +99,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/if}
 							</td>
 							<td>
-								<A
-									href={resolve('/my/tests/runs/[workflow_id]/[run_id]', {
-										workflow_id: workflow.execution.workflowId,
-										run_id: workflow.execution.runId
-									})}
-								>
-									{m.View()}
-									<ArrowRightIcon class="inline-block size-3 -translate-y-px" />
-								</A>
+								{#if isQueued}
+									<span class="text-muted-foreground">{m.View()}</span>
+								{:else}
+									<A
+										href={resolve('/my/tests/runs/[workflow_id]/[run_id]', {
+											workflow_id: workflow.execution.workflowId,
+											run_id: workflow.execution.runId
+										})}
+									>
+										{m.View()}
+										<ArrowRightIcon class="inline-block size-3 -translate-y-px" />
+									</A>
+								{/if}
 							</td>
 							<td>
 								<WorkflowActions
@@ -114,7 +120,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										workflowId: workflow.execution.workflowId,
 										runId: workflow.execution.runId,
 										status: status,
-										name: workflow.displayName
+										name: workflow.displayName,
+										queue: workflow.queue
 									}}
 									dropdownTriggerVariants={{ size: 'icon', variant: 'ghost' }}
 								>

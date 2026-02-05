@@ -335,7 +335,7 @@
     - Asserts queued rows are included only under the intended filter behavior and contain queue position/length.
 - Done when :: `/my/tests/runs` shows queued pipeline runs (not yet started) and they are not mislabeled as “Running”.
 
-** TODO [#A] Update webapp lists to render queued rows and cancel from queue
+** DONE [#A] Update webapp lists to render queued rows and cancel from queue
 - Why :: Current UI assumes every row is a Temporal workflow execution; queued tickets need a distinct label and a different cancellation endpoint.
 - Change ::
   - In `webapp/src/lib/workflows/queries.types.ts`:

@@ -22,8 +22,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
+	type WorkflowQueueMeta = {
+		ticket_id: string;
+		runner_ids: string[];
+	};
+
 	type Props = {
-		workflow: { workflowId: string; runId: string; status: WorkflowStatus; name: string };
+		workflow: {
+			workflowId: string;
+			runId: string;
+			status: WorkflowStatus | null;
+			name: string;
+			queue?: WorkflowQueueMeta;
+		};
 		mode: 'buttons' | 'dropdown';
 		containerClass?: ClassValue;
 		dropdownTrigger?: Snippet<[{ props: Record<string, unknown> }]>;
@@ -53,15 +64,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{
 			label: m.Cancel(),
 			icon: XIcon,
-			onclick: ({ workflowId, runId }) =>
+			onclick: ({ workflowId, runId, queue }) =>
 				runWithLoading({
 					fn: async () => {
+						if (queue) {
+							const runnerIDs = queue.runner_ids ?? [];
+							const params =
+								runnerIDs.length > 0
+									? `?runner_ids=${encodeURIComponent(runnerIDs.join(','))}`
+									: '';
+							await pb.send(`/api/pipeline/queue/${queue.ticket_id}${params}`, {
+								method: 'DELETE'
+							});
+							return;
+						}
+
 						await pb.send(`/api/my/checks/${workflowId}/runs/${runId}/cancel`, {
 							method: 'POST'
 						});
 					}
 				}),
-			disabled: (workflow) => workflow.status !== 'Running'
+			disabled: (workflow) => {
+				if (workflow.queue) return false;
+				if (!workflow.status) return true;
+				return workflow.status !== 'Running';
+			}
 		},
 		{
 			label: m.Swagger(),

@@ -29,4 +29,10 @@ export interface WorkflowExecutionSummary {
 	global_runner_id?: string;
 	runner_ids?: string[];
 	runner_records?: Array<MobileRunnersResponse>;
+	queue?: {
+		ticket_id: string;
+		position: number;
+		line_len: number;
+		runner_ids: string[];
+	};
 }
