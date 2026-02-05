@@ -157,7 +157,7 @@
     - non-runner response (assert fallback to `/start`).
 - Done when :: CLI prints queue position for queued runs and remains functional for non-runner pipelines without requiring the user to know which endpoint to call.
 
-* WIP [#A] Refactor scheduled-enqueue workflow to satisfy `workflowengine.Workflow`
+* DONE [#A] Refactor scheduled-enqueue workflow to satisfy `workflowengine.Workflow`
 - Effort :: S
 - Goal :: Keep workflow registration consistent (everything implements `workflowengine.Workflow`) and eliminate the startup panic.
 - Notes ::
