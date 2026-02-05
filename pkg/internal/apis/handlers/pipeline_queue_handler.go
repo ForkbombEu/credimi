@@ -16,6 +16,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/runners"
+	"github.com/forkbombeu/credimi/pkg/internal/runqueue"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -600,57 +601,29 @@ func aggregateRunQueueStatus(
 	string,
 	string,
 ) {
-	aggregateStatus := workflowengine.MobileRunnerSemaphoreRunNotFound
-	aggregatePriority := runStatusPriority(aggregateStatus)
-	maxPosition := 0
-	maxLineLen := 0
-	workflowID := ""
-	runID := ""
-	workflowNamespace := ""
-	errorMessage := ""
-
+	queueStatuses := make([]runqueue.RunnerStatus, 0, len(statuses))
 	for _, status := range statuses {
-		if status.Position > maxPosition {
-			maxPosition = status.Position
-		}
-		if status.LineLen > maxLineLen {
-			maxLineLen = status.LineLen
-		}
-		priority := runStatusPriority(status.Status)
-		if priority > aggregatePriority {
-			aggregateStatus = status.Status
-			aggregatePriority = priority
-		}
-		if status.Status == workflowengine.MobileRunnerSemaphoreRunRunning && workflowID == "" {
-			workflowID = status.WorkflowID
-			runID = status.RunID
-			workflowNamespace = status.WorkflowNamespace
-		}
-		if status.Status == workflowengine.MobileRunnerSemaphoreRunFailed && errorMessage == "" {
-			errorMessage = status.ErrorMessage
-		}
+		queueStatuses = append(queueStatuses, runqueue.RunnerStatus{
+			RunnerID:          status.RunnerID,
+			Status:            status.Status,
+			Position:          status.Position,
+			LineLen:           status.LineLen,
+			WorkflowID:        status.WorkflowID,
+			RunID:             status.RunID,
+			WorkflowNamespace: status.WorkflowNamespace,
+			ErrorMessage:      status.ErrorMessage,
+		})
 	}
 
-	return aggregateStatus, maxPosition, maxLineLen, workflowID, runID, workflowNamespace, errorMessage
-}
+	aggregate := runqueue.AggregateRunnerStatuses(queueStatuses)
 
-func runStatusPriority(status workflows.MobileRunnerSemaphoreRunStatus) int {
-	switch status {
-	case workflowengine.MobileRunnerSemaphoreRunFailed:
-		return 4
-	case workflowengine.MobileRunnerSemaphoreRunCanceled:
-		return 4
-	case workflowengine.MobileRunnerSemaphoreRunRunning:
-		return 3
-	case workflowengine.MobileRunnerSemaphoreRunStarting:
-		return 2
-	case workflowengine.MobileRunnerSemaphoreRunQueued:
-		return 1
-	case workflowengine.MobileRunnerSemaphoreRunNotFound:
-		return 0
-	default:
-		return 0
-	}
+	return aggregate.Status,
+		aggregate.Position,
+		aggregate.LineLen,
+		aggregate.WorkflowID,
+		aggregate.RunID,
+		aggregate.WorkflowNamespace,
+		aggregate.ErrorMessage
 }
 
 func extractLeaderAndRequired(

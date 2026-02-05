@@ -153,7 +153,9 @@ func newMobileRunnerSemaphoreRuntime(
 	return runtime, nil
 }
 
-func (r *mobileRunnerSemaphoreRuntime) applyPayloadState(payload MobileRunnerSemaphoreWorkflowInput) {
+func (r *mobileRunnerSemaphoreRuntime) applyPayloadState(
+	payload MobileRunnerSemaphoreWorkflowInput,
+) {
 	if payload.Capacity <= 0 {
 		r.capacity = 1
 	}
@@ -1282,7 +1284,9 @@ func (r *mobileRunnerSemaphoreRuntime) inFlightRunCount(ownerNamespace string) i
 			continue
 		}
 		switch state.Status {
-		case mobileRunnerSemaphoreRunQueued, mobileRunnerSemaphoreRunStarting, mobileRunnerSemaphoreRunRunning:
+		case mobileRunnerSemaphoreRunQueued,
+			mobileRunnerSemaphoreRunStarting,
+			mobileRunnerSemaphoreRunRunning:
 			inFlight++
 		}
 	}
@@ -1430,7 +1434,10 @@ func decodeCheckWorkflowClosedOutputMap(
 	return output, nil
 }
 
-func buildPermit(runnerID string, state MobileRunnerSemaphoreRequestState) MobileRunnerSemaphorePermit {
+func buildPermit(
+	runnerID string,
+	state MobileRunnerSemaphoreRequestState,
+) MobileRunnerSemaphorePermit {
 	return MobileRunnerSemaphorePermit{
 		RunnerID:    runnerID,
 		LeaseID:     state.Request.LeaseID,
@@ -1439,7 +1446,9 @@ func buildPermit(runnerID string, state MobileRunnerSemaphoreRequestState) Mobil
 	}
 }
 
-func buildHoldersView(holders map[string]MobileRunnerSemaphoreHolder) []MobileRunnerSemaphoreHolder {
+func buildHoldersView(
+	holders map[string]MobileRunnerSemaphoreHolder,
+) []MobileRunnerSemaphoreHolder {
 	if len(holders) == 0 {
 		return nil
 	}
@@ -1594,7 +1603,9 @@ func copyStringSlice(values []string) []string {
 	return result
 }
 
-func copyHolders(holders map[string]MobileRunnerSemaphoreHolder) map[string]MobileRunnerSemaphoreHolder {
+func copyHolders(
+	holders map[string]MobileRunnerSemaphoreHolder,
+) map[string]MobileRunnerSemaphoreHolder {
 	if holders == nil {
 		return nil
 	}

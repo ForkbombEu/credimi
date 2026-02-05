@@ -18,69 +18,7 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-func TestMobileAutomationSetupHookAcquiresUniqueRunnerPermits(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	env.RegisterWorkflowWithOptions(
-		testAcquireRunnerPermitsWorkflow,
-		workflow.RegisterOptions{Name: "test-acquire-permits"},
-	)
-
-	acquireActivity := activities.NewAcquireMobileRunnerPermitActivity()
-	env.RegisterActivityWithOptions(
-		acquireActivity.Execute,
-		activity.RegisterOptions{Name: acquireActivity.Name()},
-	)
-	env.OnActivity(acquireActivity.Name(), mock.Anything, mock.Anything).
-		Return(workflowengine.ActivityResult{Output: workflows.MobileRunnerSemaphorePermit{RunnerID: "runner"}}, nil).
-		Times(2)
-
-	steps := []StepDefinition{
-		{
-			StepSpec: StepSpec{
-				ID:  "step-1",
-				Use: "mobile-automation",
-				With: StepInputs{
-					Payload: map[string]any{
-						"runner_id": "runner-a",
-						"action_id": "action-1",
-					},
-				},
-			},
-		},
-		{
-			StepSpec: StepSpec{
-				ID:  "step-2",
-				Use: "mobile-automation",
-				With: StepInputs{
-					Payload: map[string]any{
-						"runner_id": "runner-b",
-						"action_id": "action-2",
-					},
-				},
-			},
-		},
-		{
-			StepSpec: StepSpec{
-				ID:  "step-3",
-				Use: "mobile-automation",
-				With: StepInputs{
-					Payload: map[string]any{
-						"runner_id": "runner-a",
-						"action_id": "action-3",
-					},
-				},
-			},
-		},
-	}
-
-	env.ExecuteWorkflow("test-acquire-permits", steps)
-
-	require.NoError(t, env.GetWorkflowError())
-	env.AssertExpectations(t)
-}
-
+// TestMobileAutomationSetupHookSkipsPermitsWhenSemaphoreManaged ensures queue-managed runs continue.
 func TestMobileAutomationSetupHookSkipsPermitsWhenSemaphoreManaged(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -115,7 +53,8 @@ func TestMobileAutomationSetupHookSkipsPermitsWhenSemaphoreManaged(t *testing.T)
 	env.AssertExpectations(t)
 }
 
-func TestMobileAutomationSetupHookAcquiresPermitsWhenLegacy(t *testing.T) {
+// TestMobileAutomationSetupHookFailsWithoutSemaphoreMetadata verifies non-semaphore runs fail fast.
+func TestMobileAutomationSetupHookFailsWithoutSemaphoreMetadata(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
@@ -124,43 +63,11 @@ func TestMobileAutomationSetupHookAcquiresPermitsWhenLegacy(t *testing.T) {
 		workflow.RegisterOptions{Name: "test-setup-hook"},
 	)
 
-	acquireActivity := activities.NewAcquireMobileRunnerPermitActivity()
-	httpActivity := activities.NewHTTPActivity()
-	installActivity := activities.NewApkInstallActivity()
-	recordActivity := activities.NewStartRecordingActivity()
-
-	env.RegisterActivityWithOptions(
-		acquireActivity.Execute,
-		activity.RegisterOptions{Name: acquireActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		httpActivity.Execute,
-		activity.RegisterOptions{Name: httpActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		installActivity.Execute,
-		activity.RegisterOptions{Name: installActivity.Name()},
-	)
-	env.RegisterActivityWithOptions(
-		recordActivity.Execute,
-		activity.RegisterOptions{Name: recordActivity.Name()},
-	)
-
-	env.OnActivity(acquireActivity.Name(), mock.Anything, mock.Anything).
-		Return(
-			workflowengine.ActivityResult{
-				Output: workflows.MobileRunnerSemaphorePermit{RunnerID: "runner-1", LeaseID: "lease-1"},
-			},
-			nil,
-		).
-		Once()
-
-	mockSetupHookActivities(env, httpActivity, installActivity, recordActivity)
-
 	env.ExecuteWorkflow("test-setup-hook", mobileAutomationSetupSteps(), false)
 
-	require.NoError(t, env.GetWorkflowError())
-	env.AssertExpectations(t)
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "mobile-runner pipelines must be started via queue/semaphore")
 }
 
 func TestProcessStepFailsWithoutPermit(t *testing.T) {
@@ -239,21 +146,6 @@ func TestMobileAutomationCleanupSkipsPermitsWhenSemaphoreManaged(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
-func testAcquireRunnerPermitsWorkflow(ctx workflow.Context, steps []StepDefinition) error {
-	ctx = workflow.WithActivityOptions(
-		ctx,
-		workflow.ActivityOptions{StartToCloseTimeout: time.Second},
-	)
-	acquireActivity := activities.NewAcquireMobileRunnerPermitActivity()
-	runnerIDs, err := collectMobileRunnerIDs(steps, "")
-	if err != nil {
-		return err
-	}
-
-	_, err = acquireRunnerPermits(ctx, runnerIDs, acquireActivity)
-	return err
-}
-
 func testProcessStepWithoutPermitWorkflow(ctx workflow.Context) error {
 	ctx = workflow.WithActivityOptions(
 		ctx,
@@ -293,7 +185,11 @@ func testProcessStepWithoutPermitWorkflow(ctx workflow.Context) error {
 	)
 }
 
-func testSetupHookWorkflow(ctx workflow.Context, steps []StepDefinition, semaphoreManaged bool) error {
+func testSetupHookWorkflow(
+	ctx workflow.Context,
+	steps []StepDefinition,
+	semaphoreManaged bool,
+) error {
 	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 	config := map[string]any{"app_url": "https://example.test"}
 	if semaphoreManaged {

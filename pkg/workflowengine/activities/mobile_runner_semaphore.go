@@ -104,12 +104,12 @@ func (a *AcquireMobileRunnerPermitActivity) Execute(
 
 	waitTimeout := mobileRunnerSemaphoreWaitTimeout()
 	updateReq := mobilerunnersemaphore.MobileRunnerSemaphoreAcquireRequest{
-		RequestID:      leaseID,
-		LeaseID:        leaseID,
-		OwnerNamespace: info.WorkflowNamespace,
+		RequestID:       leaseID,
+		LeaseID:         leaseID,
+		OwnerNamespace:  info.WorkflowNamespace,
 		OwnerWorkflowID: info.WorkflowExecution.ID,
-		OwnerRunID:     info.WorkflowExecution.RunID,
-		WaitTimeout:    waitTimeout,
+		OwnerRunID:      info.WorkflowExecution.RunID,
+		WaitTimeout:     waitTimeout,
 	}
 
 	handle, err := temporalClient.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
@@ -178,7 +178,9 @@ func (a *ReleaseMobileRunnerPermitActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
-	payload, err := workflowengine.DecodePayload[mobilerunnersemaphore.MobileRunnerSemaphorePermit](input.Payload)
+	payload, err := workflowengine.DecodePayload[mobilerunnersemaphore.MobileRunnerSemaphorePermit](
+		input.Payload,
+	)
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
@@ -198,10 +200,12 @@ func (a *ReleaseMobileRunnerPermitActivity) Execute(
 	workflowID := mobilerunnersemaphore.WorkflowID(payload.RunnerID)
 
 	handle, err := temporalClient.UpdateWorkflow(ctx, tclient.UpdateWorkflowOptions{
-		WorkflowID:   workflowID,
-		UpdateName:   mobilerunnersemaphore.ReleaseUpdate,
-		UpdateID:     mobilerunnersemaphore.ReleaseUpdateID(leaseID),
-		Args:         []interface{}{mobilerunnersemaphore.MobileRunnerSemaphoreReleaseRequest{LeaseID: leaseID}},
+		WorkflowID: workflowID,
+		UpdateName: mobilerunnersemaphore.ReleaseUpdate,
+		UpdateID:   mobilerunnersemaphore.ReleaseUpdateID(leaseID),
+		Args: []interface{}{
+			mobilerunnersemaphore.MobileRunnerSemaphoreReleaseRequest{LeaseID: leaseID},
+		},
 		WaitForStage: tclient.WorkflowUpdateStageCompleted,
 	})
 	if err != nil {

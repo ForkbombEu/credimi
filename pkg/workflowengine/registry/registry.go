@@ -139,6 +139,10 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		NewFunc:    func() any { return activities.NewCheckFileExistsActivity() },
 		OutputKind: workflowengine.OutputBool,
 	},
+	"scheduled-pipeline-enqueue": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return workflows.NewScheduledPipelineEnqueueWorkflow() },
+	},
 	"mobile-runner-permit-acquire": {
 		Kind:        TaskActivity,
 		NewFunc:     func() any { return activities.NewAcquireMobileRunnerPermitActivity() },
@@ -155,6 +159,12 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		Kind:        TaskActivity,
 		NewFunc:     func() any { return activities.NewReportMobileRunnerSemaphoreDoneActivity() },
 		PayloadType: reflect.TypeOf(activities.ReportMobileRunnerSemaphoreDoneInput{}),
+		OutputKind:  workflowengine.OutputAny,
+	},
+	"pipeline-run-ticket-enqueue": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewEnqueuePipelineRunTicketActivity() },
+		PayloadType: reflect.TypeOf(activities.EnqueuePipelineRunTicketActivityInput{}),
 		OutputKind:  workflowengine.OutputAny,
 	},
 }

@@ -290,7 +290,6 @@ func Test_EWCStatusWorkflow(t *testing.T) {
 					if tc.expectedCancel {
 						require.Contains(t, err.Error(), "canceled")
 					}
-
 				} else {
 					require.NoError(t, env.GetWorkflowResult(&result))
 					require.NotEmpty(t, result.Message)

@@ -44,7 +44,9 @@ func (a *ReportMobileRunnerSemaphoreDoneActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
-	payload, err := workflowengine.DecodePayload[ReportMobileRunnerSemaphoreDoneInput](input.Payload)
+	payload, err := workflowengine.DecodePayload[ReportMobileRunnerSemaphoreDoneInput](
+		input.Payload,
+	)
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}

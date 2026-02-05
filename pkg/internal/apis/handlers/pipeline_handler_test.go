@@ -27,6 +27,17 @@ func setupPipelineApp(t testing.TB) *tests.TestApp {
 	return app
 }
 
+// setupPipelineStartApp builds a test app with pipeline start routes.
+func setupPipelineStartApp(t testing.TB) *tests.TestApp {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+
+	canonify.RegisterCanonifyHooks(app)
+	PipelineRoutes.Add(app)
+
+	return app
+}
+
 func TestGetPipelineYAML(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
@@ -208,4 +219,55 @@ func TestSetPipelineExecutionResultsIdempotent(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, serveErr)
+}
+
+// TestPipelineStartRejectsRunnerPipelines ensures runner pipelines are redirected to the queue.
+func TestPipelineStartRejectsRunnerPipelines(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	runnerYaml := "name: test\nsteps:\n  - id: step-1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n      action_id: action-1\n"
+
+	scenario := tests.ApiScenario{
+		Name:   "start rejects runner pipelines",
+		Method: http.MethodPost,
+		URL:    "/api/pipeline/start",
+		Headers: map[string]string{
+			"Authorization": "Bearer " + token,
+		},
+		Body: jsonBody(map[string]any{
+			"pipeline_identifier": "usera-s-organization/pipeline123",
+			"yaml":                runnerYaml,
+		}),
+		ExpectedStatus: http.StatusConflict,
+		ExpectedContent: []string{
+			"mobile-runner pipelines must be started via queue/semaphore",
+			"/api/pipeline/queue",
+		},
+		TestAppFactory: func(t testing.TB) *tests.TestApp {
+			app := setupPipelineStartApp(t)
+
+			coll, err := app.FindCollectionByNameOrId("pipelines")
+			require.NoError(t, err)
+
+			record := core.NewRecord(coll)
+			record.Set("owner", orgID)
+			record.Set("name", "pipeline123")
+			record.Set("description", "test-description")
+			record.Set(
+				"steps",
+				map[string]any{"rest-chain": map[string]any{"yaml": runnerYaml}},
+			)
+			record.Set("yaml", runnerYaml)
+			require.NoError(t, app.Save(record))
+
+			return app
+		},
+	}
+
+	scenario.Test(t)
 }
