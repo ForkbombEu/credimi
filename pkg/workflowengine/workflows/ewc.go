@@ -358,7 +358,6 @@ func pollEWCCheck(
 	})
 
 	for {
-
 		selector.Select(ctx)
 
 		if canceled {

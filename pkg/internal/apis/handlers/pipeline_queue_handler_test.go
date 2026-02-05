@@ -144,10 +144,15 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:           "enqueue requires auth",
-			Method:         http.MethodPost,
-			URL:            "/api/pipeline/queue",
-			Body:           jsonBody(map[string]any{"pipeline_identifier": "usera-s-organization/pipeline123", "yaml": validYaml}),
+			Name:   "enqueue requires auth",
+			Method: http.MethodPost,
+			URL:    "/api/pipeline/queue",
+			Body: jsonBody(
+				map[string]any{
+					"pipeline_identifier": "usera-s-organization/pipeline123",
+					"yaml":                validYaml,
+				},
+			),
 			ExpectedStatus: http.StatusInternalServerError,
 			ExpectedContent: []string{
 				"valid record authorization token",

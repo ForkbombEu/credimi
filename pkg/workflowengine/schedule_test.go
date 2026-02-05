@@ -100,8 +100,14 @@ func TestParseScheduleMode(t *testing.T) {
 	require.Equal(t, 2, *parsed.Day)
 
 	monthly := []client.ScheduleCalendarSpec{
-		{Month: []client.ScheduleRange{{Start: 1}}, DayOfMonth: []client.ScheduleRange{{Start: 30}}},
-		{Month: []client.ScheduleRange{{Start: 2}}, DayOfMonth: []client.ScheduleRange{{Start: 28}}},
+		{
+			Month:      []client.ScheduleRange{{Start: 1}},
+			DayOfMonth: []client.ScheduleRange{{Start: 30}},
+		},
+		{
+			Month:      []client.ScheduleRange{{Start: 2}},
+			DayOfMonth: []client.ScheduleRange{{Start: 28}},
+		},
 	}
 	parsed = ParseScheduleMode(monthly)
 	require.Equal(t, "monthly", parsed.Mode)
@@ -109,7 +115,9 @@ func TestParseScheduleMode(t *testing.T) {
 	require.Equal(t, 29, *parsed.Day)
 }
 
-func calendarSpecForTest(monthStart, monthEnd, domStart, domEnd, dowStart, dowEnd int) client.ScheduleCalendarSpec {
+func calendarSpecForTest(
+	monthStart, monthEnd, domStart, domEnd, dowStart, dowEnd int,
+) client.ScheduleCalendarSpec {
 	spec := client.ScheduleCalendarSpec{}
 	spec.Month = []client.ScheduleRange{{Start: monthStart, End: monthEnd}}
 	spec.DayOfMonth = []client.ScheduleRange{{Start: domStart, End: domEnd}}

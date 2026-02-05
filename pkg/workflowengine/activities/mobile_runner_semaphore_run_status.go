@@ -42,7 +42,9 @@ func (a *QueryMobileRunnerSemaphoreRunStatusActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
-	payload, err := workflowengine.DecodePayload[QueryMobileRunnerSemaphoreRunStatusInput](input.Payload)
+	payload, err := workflowengine.DecodePayload[QueryMobileRunnerSemaphoreRunStatusInput](
+		input.Payload,
+	)
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
@@ -51,7 +53,10 @@ func (a *QueryMobileRunnerSemaphoreRunStatusActivity) Execute(
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return result, a.NewActivityError(
 			errCode.Code,
-			fmt.Sprintf("%s: runner_id, owner_namespace, and ticket_id are required", errCode.Description),
+			fmt.Sprintf(
+				"%s: runner_id, owner_namespace, and ticket_id are required",
+				errCode.Description,
+			),
 		)
 	}
 

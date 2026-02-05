@@ -187,7 +187,6 @@ func (a *StepCIWorkflowActivity) Execute(
 	}
 
 	return result, nil
-
 }
 
 func RenderYAML(yamlString string, data map[string]any) (string, error) {

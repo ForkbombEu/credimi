@@ -147,20 +147,10 @@ func HandleStartSchedule() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		pipelineIdentifier := rec.GetString("canonified_name")
-		if pipelineIdentifier == "" {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline",
-				"failed to resolve pipeline identifier",
-				"missing pipeline canonified name",
-			).JSON(e)
-		}
 		config := buildPipelineQueueConfig(e, namespace, userName, userMail)
 
 		scheduleInfo, err := startScheduledPipelineWithOptions(
 			req.PipelineID,
-			pipelineIdentifier,
 			rec.GetString("name"),
 			namespace,
 			config,
@@ -512,7 +502,6 @@ type SchedulePipelineStartInfo struct {
 
 func startScheduledPipelineWithOptions(
 	pipelineID string,
-	pipelineIdentifier string,
 	pipelineName string,
 	namespace string,
 	config map[string]any,
@@ -556,7 +545,7 @@ func startScheduledPipelineWithOptions(
 			Args: []any{
 				workflowengine.WorkflowInput{
 					Payload: workflows.ScheduledPipelineEnqueueWorkflowInput{
-						PipelineIdentifier:  pipelineIdentifier,
+						PipelineIdentifier:  pipelineID,
 						OwnerNamespace:      namespace,
 						GlobalRunnerID:      globalRunnerID,
 						MaxPipelinesInQueue: maxPipelinesInQueue,

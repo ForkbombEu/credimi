@@ -25,7 +25,7 @@ type CustomCheckWorkflow struct {
 }
 
 type CustomCheckWorkflowPayload struct {
-	Yaml    string `json:"yaml,omitempty" xoneof:"custom_check"`
+	Yaml    string `json:"yaml,omitempty"     xoneof:"custom_check"`
 	CheckID string `json:"check_id,omitempty" xoneof:"custom_check"`
 }
 

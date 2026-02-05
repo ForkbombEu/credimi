@@ -208,7 +208,10 @@ func TestEnqueuePipelineRunTicketActivityCallsTemporalUpdates(t *testing.T) {
 // TestEnqueuePipelineRunTicketActivityQueueLimitError keeps the queue-limit error type stable.
 func TestEnqueuePipelineRunTicketActivityQueueLimitError(t *testing.T) {
 	act := NewEnqueuePipelineRunTicketActivity()
-	queueErr := temporal.NewApplicationError("queue limit exceeded", mobilerunnersemaphore.ErrQueueLimitExceeded)
+	queueErr := temporal.NewApplicationError(
+		"queue limit exceeded",
+		mobilerunnersemaphore.ErrQueueLimitExceeded,
+	)
 
 	fakeClient := &fakeEnqueueClient{updateErr: queueErr}
 	act.temporalClientFactory = func(namespace string) (temporalWorkflowUpdater, error) {

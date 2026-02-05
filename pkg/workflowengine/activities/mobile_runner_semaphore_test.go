@@ -18,19 +18,22 @@ func TestAcquireMobileRunnerPermitActivityMapAcquireError(t *testing.T) {
 	activity := NewAcquireMobileRunnerPermitActivity()
 
 	testCases := []struct {
-		name        string
-		err         error
-		waitTimeout time.Duration
-		code        string
-		queueLen    *int
+		name          string
+		err           error
+		waitTimeout   time.Duration
+		code          string
+		queueLen      *int
 		assertDetails bool
 	}{
 		{
-			name:        "timeout maps to busy",
-			err:         temporal.NewApplicationError("timeout", mobilerunnersemaphore.ErrTimeout),
-			waitTimeout: time.Minute,
-			code:        errorcodes.Codes[errorcodes.MobileRunnerBusy].Code,
-			queueLen:    intPtr(3),
+			name: "timeout maps to busy",
+			err: temporal.NewApplicationError(
+				"timeout",
+				mobilerunnersemaphore.ErrTimeout,
+			),
+			waitTimeout:   time.Minute,
+			code:          errorcodes.Codes[errorcodes.MobileRunnerBusy].Code,
+			queueLen:      intPtr(3),
 			assertDetails: true,
 		},
 		{

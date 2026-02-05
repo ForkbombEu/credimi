@@ -885,7 +885,10 @@ func TestMobileRunnerSemaphoreWorkflowQueueLimitIgnoresFailedTickets(t *testing.
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	startAct := activities.NewStartQueuedPipelineActivity()
-	env.RegisterActivityWithOptions(startAct.Execute, activity.RegisterOptions{Name: startAct.Name()})
+	env.RegisterActivityWithOptions(
+		startAct.Execute,
+		activity.RegisterOptions{Name: startAct.Name()},
+	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{}, errors.New("start failed")).
 		Once()
@@ -1131,7 +1134,10 @@ func TestMobileRunnerSemaphoreWorkflowRunStartsWhenCapacityAvailable(t *testing.
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	startAct := activities.NewStartQueuedPipelineActivity()
-	env.RegisterActivityWithOptions(startAct.Execute, activity.RegisterOptions{Name: startAct.Name()})
+	env.RegisterActivityWithOptions(
+		startAct.Execute,
+		activity.RegisterOptions{Name: startAct.Name()},
+	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).Return(
 		workflowengine.ActivityResult{
 			Output: activities.StartQueuedPipelineActivityOutput{
@@ -1213,7 +1219,10 @@ func TestMobileRunnerSemaphoreWorkflowRunStartedSignalFailureDoesNotAbort(t *tes
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	startAct := activities.NewStartQueuedPipelineActivity()
-	env.RegisterActivityWithOptions(startAct.Execute, activity.RegisterOptions{Name: startAct.Name()})
+	env.RegisterActivityWithOptions(
+		startAct.Execute,
+		activity.RegisterOptions{Name: startAct.Name()},
+	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).Return(
 		workflowengine.ActivityResult{
 			Output: activities.StartQueuedPipelineActivityOutput{
@@ -1311,7 +1320,10 @@ func TestMobileRunnerSemaphoreWorkflowReconcilesStartingFollower(t *testing.T) {
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	queryAct := activities.NewQueryMobileRunnerSemaphoreRunStatusActivity()
-	env.RegisterActivityWithOptions(queryAct.Execute, activity.RegisterOptions{Name: queryAct.Name()})
+	env.RegisterActivityWithOptions(
+		queryAct.Execute,
+		activity.RegisterOptions{Name: queryAct.Name()},
+	)
 	env.OnActivity(queryAct.Name(), mock.Anything, mock.Anything).Return(
 		workflowengine.ActivityResult{
 			Output: MobileRunnerSemaphoreRunStatusView{
@@ -1401,7 +1413,10 @@ func TestMobileRunnerSemaphoreWorkflowRunStartFailureAdvancesQueue(t *testing.T)
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	startAct := activities.NewStartQueuedPipelineActivity()
-	env.RegisterActivityWithOptions(startAct.Execute, activity.RegisterOptions{Name: startAct.Name()})
+	env.RegisterActivityWithOptions(
+		startAct.Execute,
+		activity.RegisterOptions{Name: startAct.Name()},
+	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{}, errors.New("start failed")).
 		Once()
@@ -1521,7 +1536,10 @@ func TestMobileRunnerSemaphoreWorkflowRunStartFailureContinuesQueue(t *testing.T
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	startAct := activities.NewStartQueuedPipelineActivity()
-	env.RegisterActivityWithOptions(startAct.Execute, activity.RegisterOptions{Name: startAct.Name()})
+	env.RegisterActivityWithOptions(
+		startAct.Execute,
+		activity.RegisterOptions{Name: startAct.Name()},
+	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{}, errors.New("start failed")).
 		Once()
@@ -1635,7 +1653,10 @@ func TestMobileRunnerSemaphoreWorkflowRunWaitsForPermitRelease(t *testing.T) {
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	startAct := activities.NewStartQueuedPipelineActivity()
-	env.RegisterActivityWithOptions(startAct.Execute, activity.RegisterOptions{Name: startAct.Name()})
+	env.RegisterActivityWithOptions(
+		startAct.Execute,
+		activity.RegisterOptions{Name: startAct.Name()},
+	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).Return(
 		workflowengine.ActivityResult{
 			Output: activities.StartQueuedPipelineActivityOutput{
@@ -1754,7 +1775,10 @@ func TestMobileRunnerSemaphoreWorkflowRunDoneAdvancesQueue(t *testing.T) {
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	startAct := activities.NewStartQueuedPipelineActivity()
-	env.RegisterActivityWithOptions(startAct.Execute, activity.RegisterOptions{Name: startAct.Name()})
+	env.RegisterActivityWithOptions(
+		startAct.Execute,
+		activity.RegisterOptions{Name: startAct.Name()},
+	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).Return(
 		workflowengine.ActivityResult{
 			Output: activities.StartQueuedPipelineActivityOutput{
@@ -1878,9 +1902,15 @@ func TestMobileRunnerSemaphoreWorkflowSafetyNetAdvancesQueue(t *testing.T) {
 	env.RegisterWorkflowWithOptions(w.Workflow, workflow.RegisterOptions{Name: w.Name()})
 
 	startAct := activities.NewStartQueuedPipelineActivity()
-	env.RegisterActivityWithOptions(startAct.Execute, activity.RegisterOptions{Name: startAct.Name()})
+	env.RegisterActivityWithOptions(
+		startAct.Execute,
+		activity.RegisterOptions{Name: startAct.Name()},
+	)
 	checkAct := activities.NewCheckWorkflowClosedActivity()
-	env.RegisterActivityWithOptions(checkAct.Execute, activity.RegisterOptions{Name: checkAct.Name()})
+	env.RegisterActivityWithOptions(
+		checkAct.Execute,
+		activity.RegisterOptions{Name: checkAct.Name()},
+	)
 	env.OnActivity(startAct.Name(), mock.Anything, mock.Anything).Return(
 		workflowengine.ActivityResult{
 			Output: activities.StartQueuedPipelineActivityOutput{

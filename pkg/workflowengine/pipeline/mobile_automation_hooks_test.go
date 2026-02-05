@@ -185,7 +185,11 @@ func testProcessStepWithoutPermitWorkflow(ctx workflow.Context) error {
 	)
 }
 
-func testSetupHookWorkflow(ctx workflow.Context, steps []StepDefinition, semaphoreManaged bool) error {
+func testSetupHookWorkflow(
+	ctx workflow.Context,
+	steps []StepDefinition,
+	semaphoreManaged bool,
+) error {
 	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 	config := map[string]any{"app_url": "https://example.test"}
 	if semaphoreManaged {

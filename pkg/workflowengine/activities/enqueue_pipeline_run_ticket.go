@@ -65,7 +65,9 @@ func (a *EnqueuePipelineRunTicketActivity) Execute(
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
 	var result workflowengine.ActivityResult
-	payload, err := workflowengine.DecodePayload[EnqueuePipelineRunTicketActivityInput](input.Payload)
+	payload, err := workflowengine.DecodePayload[EnqueuePipelineRunTicketActivityInput](
+		input.Payload,
+	)
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}

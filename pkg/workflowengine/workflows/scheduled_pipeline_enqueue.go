@@ -71,7 +71,9 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
 	info := workflow.GetInfo(ctx)
-	payload, err := workflowengine.DecodePayload[ScheduledPipelineEnqueueWorkflowInput](input.Payload)
+	payload, err := workflowengine.DecodePayload[ScheduledPipelineEnqueueWorkflowInput](
+		input.Payload,
+	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 			err,
@@ -145,7 +147,10 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 	var httpResult workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(httpCtx, httpActivity.Name(), request).
 		Get(httpCtx, &httpResult); err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, input.RunMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
@@ -156,7 +161,10 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 			fmt.Sprintf("%s: invalid output format", errCode.Description),
 			httpResult.Output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 
 	body, ok := output["body"].(map[string]any)
@@ -166,7 +174,10 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 			fmt.Sprintf("%s: missing body in output", errCode.Description),
 			output,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 
 	record, ok := body["record"].(map[string]any)
@@ -176,7 +187,10 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 			fmt.Sprintf("%s: missing record in body", errCode.Description),
 			body,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 
 	pipelineYAML, ok := record["yaml"].(string)
@@ -186,14 +200,20 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 			fmt.Sprintf("%s: missing yaml in record", errCode.Description),
 			record,
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 
 	parsedPipeline, runnerInfo, err := parseScheduledPipelineDefinition(pipelineYAML)
 	if err != nil {
 		parseCode := errorcodes.Codes[errorcodes.PipelineParsingError]
 		appErr := workflowengine.NewAppError(parseCode, err.Error())
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, input.RunMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			appErr,
+			input.RunMetadata,
+		)
 	}
 
 	globalRunnerID := ""
@@ -221,7 +241,10 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 			"runner_ids",
 			"no runner ids resolved from yaml",
 		)
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(configErr, input.RunMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			configErr,
+			input.RunMetadata,
+		)
 	}
 
 	enqueuedAt := workflow.Now(ctx).UTC()
@@ -267,7 +290,10 @@ func (w *ScheduledPipelineEnqueueWorkflow) ExecuteWorkflow(
 		activities.EnqueuePipelineRunTicketActivityName,
 		enqueueInput,
 	).Get(enqueueCtx, &enqueueResult); err != nil {
-		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, input.RunMetadata)
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+		)
 	}
 
 	return workflowengine.WorkflowResult{

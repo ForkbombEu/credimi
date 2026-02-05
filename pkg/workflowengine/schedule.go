@@ -89,7 +89,7 @@ func BuildCalendarSpec(mode ScheduleMode) []client.ScheduleCalendarSpec {
 		// Run every day at the specified hour
 		return []client.ScheduleCalendarSpec{{
 			Second: []client.ScheduleRange{{Start: now.Second()}},
-			Minute: []client.ScheduleRange{{Start: now.Minute()}},
+			Minute: []client.ScheduleRange{{Start: now.Minute() + 1}},
 			Hour:   []client.ScheduleRange{{Start: now.Hour()}},
 			Month:  []client.ScheduleRange{{Start: 1, End: 12}},
 			DayOfMonth: []client.ScheduleRange{{
