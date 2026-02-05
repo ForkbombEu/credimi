@@ -169,6 +169,16 @@ func HandlePipelineStart() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		if runnerInfo, err := runners.ParsePipelineRunnerInfo(input.Yaml); err == nil {
+			if len(runnerInfo.RunnerIDs) > 0 || runnerInfo.NeedsGlobalRunner {
+				return apierror.New(
+					http.StatusConflict,
+					"pipeline",
+					"mobile-runner pipelines must be started via queue/semaphore",
+					"use /api/pipeline/queue",
+				).JSON(e)
+			}
+		}
 		record := core.NewRecord(coll)
 		record.Set("owner", orgID)
 		record.Set("pipeline", pipelineRecord.Id)

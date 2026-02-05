@@ -163,7 +163,6 @@ func MobileAutomationSetupHook(
 	if err := validateRunnerIDConfiguration(steps, globalRunnerID); err != nil {
 		return err
 	}
-	acquirePermitActivity := activities.NewAcquireMobileRunnerPermitActivity()
 	semaphoreManaged := isSemaphoreManagedRun(config)
 
 	httpActivity := activities.NewHTTPActivity()
@@ -176,11 +175,11 @@ func MobileAutomationSetupHook(
 		return err
 	}
 	if len(runnerIDs) > 0 && !semaphoreManaged {
-		permits, err := acquireRunnerPermits(ctx, runnerIDs, acquirePermitActivity)
-		if err != nil {
-			return err
-		}
-		SetRunDataValue(runData, "mobile_runner_permits", permits)
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+		return workflowengine.NewAppError(
+			errCode,
+			"mobile-runner pipelines must be started via queue/semaphore",
+		)
 	}
 
 	settedDevices := getOrCreateSettedDevices(runData)
@@ -301,38 +300,6 @@ func collectMobileRunnerIDs(steps []StepDefinition, globalID string) ([]string, 
 	sort.Strings(runnerIDs)
 
 	return runnerIDs, nil
-}
-
-func acquireRunnerPermits(
-	ctx workflow.Context,
-	runnerIDs []string,
-	acquirePermitActivity *activities.AcquireMobileRunnerPermitActivity,
-) (map[string]workflows.MobileRunnerSemaphorePermit, error) {
-	permits := make(map[string]workflows.MobileRunnerSemaphorePermit, len(runnerIDs))
-	for _, runnerID := range runnerIDs {
-		var response workflowengine.ActivityResult
-		req := workflowengine.ActivityInput{
-			Payload: activities.AcquireMobileRunnerPermitInput{RunnerID: runnerID},
-		}
-		if err := workflow.ExecuteActivity(ctx, acquirePermitActivity.Name(), req).Get(ctx, &response); err != nil {
-			return nil, err
-		}
-
-		permit, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](
-			response.Output,
-		)
-		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-			return nil, workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("invalid permit output for runner %s", runnerID),
-				response.Output,
-			)
-		}
-		permits[runnerID] = permit
-	}
-
-	return permits, nil
 }
 
 func hasRunnerPermit(runData *map[string]any, runnerID string) bool {
