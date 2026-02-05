@@ -181,7 +181,7 @@
   - Covered by the updated scheduled-enqueue workflow unit test and schedule handler tests in the next step.
 - Done when :: `ScheduledPipelineEnqueueWorkflow` satisfies `workflowengine.Workflow` at compile time and can be instantiated via `step.NewFunc().(workflowengine.Workflow)` without panicking.
 
-** TODO [#A] Update schedule creation to pass `workflowengine.WorkflowInput`
+** DONE [#A] Update schedule creation to pass `workflowengine.WorkflowInput`
 - Why :: After the refactor, the workflow expects the standard wrapper input; schedules should pass payload+config consistently with other workflow starts.
 - Change ::
   - In `pkg/internal/apis/handlers/schedules_handlers.go` (`startScheduledPipelineWithOptions`):

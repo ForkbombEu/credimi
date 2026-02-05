@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -520,6 +521,13 @@ func startScheduledPipelineWithOptions(
 	globalRunnerID string,
 	maxPipelinesInQueue int,
 ) (SchedulePipelineStartInfo, error) {
+	appURL, ok := config["app_url"].(string)
+	if !ok || strings.TrimSpace(appURL) == "" {
+		return SchedulePipelineStartInfo{}, fmt.Errorf(
+			"schedule config missing app_url",
+		)
+	}
+
 	c, err := scheduleTemporalClient(namespace)
 	if err != nil {
 		return SchedulePipelineStartInfo{}, fmt.Errorf(
@@ -546,12 +554,14 @@ func startScheduledPipelineWithOptions(
 			Workflow:  workflows.ScheduledPipelineEnqueueWorkflowName,
 			TaskQueue: pipeline.PipelineTaskQueue,
 			Args: []any{
-				workflows.ScheduledPipelineEnqueueWorkflowInput{
-					PipelineIdentifier:  pipelineIdentifier,
-					OwnerNamespace:      namespace,
-					PipelineConfig:      config,
-					GlobalRunnerID:      globalRunnerID,
-					MaxPipelinesInQueue: maxPipelinesInQueue,
+				workflowengine.WorkflowInput{
+					Payload: workflows.ScheduledPipelineEnqueueWorkflowInput{
+						PipelineIdentifier:  pipelineIdentifier,
+						OwnerNamespace:      namespace,
+						GlobalRunnerID:      globalRunnerID,
+						MaxPipelinesInQueue: maxPipelinesInQueue,
+					},
+					Config: config,
 				},
 			},
 			Memo: map[string]any{

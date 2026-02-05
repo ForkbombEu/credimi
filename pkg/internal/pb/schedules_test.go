@@ -7,6 +7,7 @@ package pb
 import (
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -83,8 +84,9 @@ func TestReadGlobalRunnerIDFromScheduledInput(t *testing.T) {
 			Schedule: client.Schedule{
 				Action: &client.ScheduleWorkflowAction{
 					Args: []any{
-						workflows.ScheduledPipelineEnqueueWorkflowInput{
-							PipelineConfig: map[string]any{
+						workflowengine.WorkflowInput{
+							Payload: workflows.ScheduledPipelineEnqueueWorkflowInput{},
+							Config: map[string]any{
 								"global_runner_id": "runner-2",
 							},
 						},
@@ -97,8 +99,13 @@ func TestReadGlobalRunnerIDFromScheduledInput(t *testing.T) {
 
 	t.Run("payload", func(t *testing.T) {
 		dc := converter.GetDefaultDataConverter()
-		payload, err := dc.ToPayload(workflows.ScheduledPipelineEnqueueWorkflowInput{
-			GlobalRunnerID: "runner-3",
+		payload, err := dc.ToPayload(workflowengine.WorkflowInput{
+			Payload: workflows.ScheduledPipelineEnqueueWorkflowInput{
+				GlobalRunnerID: "runner-3",
+			},
+			Config: map[string]any{
+				"global_runner_id": "runner-fallback",
+			},
 		})
 		require.NoError(t, err)
 

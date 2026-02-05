@@ -137,13 +137,16 @@ func TestStartScheduledPipelineUsesScheduledEnqueueWorkflow(t *testing.T) {
 	require.Equal(t, pipeline.PipelineTaskQueue, action.TaskQueue)
 	require.Len(t, action.Args, 1)
 
-	arg, ok := action.Args[0].(workflows.ScheduledPipelineEnqueueWorkflowInput)
+	arg, ok := action.Args[0].(workflowengine.WorkflowInput)
 	require.True(t, ok)
-	require.Equal(t, "pipeline-slug", arg.PipelineIdentifier)
-	require.Equal(t, "acme", arg.OwnerNamespace)
-	require.Equal(t, "runner-1", arg.GlobalRunnerID)
-	require.Equal(t, 7, arg.MaxPipelinesInQueue)
-	require.Equal(t, config, arg.PipelineConfig)
+	require.Equal(t, config, arg.Config)
+
+	payload, ok := arg.Payload.(workflows.ScheduledPipelineEnqueueWorkflowInput)
+	require.True(t, ok)
+	require.Equal(t, "pipeline-slug", payload.PipelineIdentifier)
+	require.Equal(t, "acme", payload.OwnerNamespace)
+	require.Equal(t, "runner-1", payload.GlobalRunnerID)
+	require.Equal(t, 7, payload.MaxPipelinesInQueue)
 
 	mockClient.AssertExpectations(t)
 }
