@@ -8,6 +8,7 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -51,6 +52,22 @@ func (f fakeTemporalClient) ExecuteWorkflow(
 	args ...interface{},
 ) (client.WorkflowRun, error) {
 	return f.run, nil
+}
+
+type capturingTemporalClient struct {
+	run         client.WorkflowRun
+	lastOptions client.StartWorkflowOptions
+}
+
+// ExecuteWorkflow records workflow start options for assertions and returns the stubbed run.
+func (c *capturingTemporalClient) ExecuteWorkflow(
+	ctx context.Context,
+	options client.StartWorkflowOptions,
+	workflow interface{},
+	args ...interface{},
+) (client.WorkflowRun, error) {
+	c.lastOptions = options
+	return c.run, nil
 }
 
 type failingDoer struct {
@@ -148,6 +165,61 @@ func TestStartQueuedPipelineActivityRetriesPipelineResult(t *testing.T) {
 	require.Empty(t, output.PipelineResultError)
 	require.Empty(t, result.Log)
 	require.Equal(t, 3, attempts)
+}
+
+// TestStartQueuedPipelineActivityWorkflowIDPrefix verifies scheduled tickets get a distinct ID prefix.
+func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
+	tests := []struct {
+		name          string
+		ticketID      string
+		wantPrefix    string
+		blockedPrefix string
+	}{
+		{
+			name:       "scheduled ticket",
+			ticketID:   "sched/wf/run",
+			wantPrefix: "Pipeline-Sched-",
+		},
+		{
+			name:          "non scheduled ticket",
+			ticketID:      "ticket-1",
+			wantPrefix:    "Pipeline-",
+			blockedPrefix: "Pipeline-Sched-",
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			captured := &capturingTemporalClient{
+				run: fakeWorkflowRun{
+					id:    "wf-3",
+					runID: "run-3",
+				},
+			}
+			act := NewStartQueuedPipelineActivity()
+			act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
+				return captured, nil
+			}
+			act.httpDoer = failingDoer{err: errors.New("boom")}
+
+			_, err := act.Execute(context.Background(), workflowengine.ActivityInput{
+				Payload: StartQueuedPipelineActivityInput{
+					TicketID:           test.ticketID,
+					OwnerNamespace:     "tenant-1",
+					PipelineIdentifier: "tenant-1/pipeline",
+					YAML:               "name: test\nsteps: []\n",
+					PipelineConfig: map[string]any{
+						"app_url": "https://example.com",
+					},
+				},
+			})
+			require.NoError(t, err)
+			require.True(t, strings.HasPrefix(captured.lastOptions.ID, test.wantPrefix))
+			if test.blockedPrefix != "" {
+				require.False(t, strings.HasPrefix(captured.lastOptions.ID, test.blockedPrefix))
+			}
+		})
+	}
 }
 
 func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {

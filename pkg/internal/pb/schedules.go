@@ -6,6 +6,7 @@ package pb
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
@@ -221,9 +222,29 @@ func globalRunnerIDFromWorkflowInput(input workflowengine.WorkflowInput) string 
 			return ""
 		}
 		return globalRunnerIDFromScheduledInput(*payload, input.Config)
+	case map[string]any:
+		if scheduledInput, err := decodeScheduledEnqueueInput(payload); err == nil {
+			return globalRunnerIDFromScheduledInput(scheduledInput, input.Config)
+		}
 	default:
 		return runners.GlobalRunnerIDFromConfig(input.Config)
 	}
+	return runners.GlobalRunnerIDFromConfig(input.Config)
+}
+
+// decodeScheduledEnqueueInput converts a generic payload map into a scheduled enqueue input.
+func decodeScheduledEnqueueInput(
+	payload map[string]any,
+) (workflows.ScheduledPipelineEnqueueWorkflowInput, error) {
+	raw, err := json.Marshal(payload)
+	if err != nil {
+		return workflows.ScheduledPipelineEnqueueWorkflowInput{}, err
+	}
+	var scheduledInput workflows.ScheduledPipelineEnqueueWorkflowInput
+	if err := json.Unmarshal(raw, &scheduledInput); err != nil {
+		return workflows.ScheduledPipelineEnqueueWorkflowInput{}, err
+	}
+	return scheduledInput, nil
 }
 
 // globalRunnerIDFromScheduledInput extracts a global runner ID from scheduled enqueue inputs.

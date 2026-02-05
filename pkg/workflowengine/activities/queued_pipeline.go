@@ -190,8 +190,13 @@ func (a *StartQueuedPipelineActivity) Execute(
 
 	memo["test"] = workflowDef.Name
 	options := prepareQueuedWorkflowOptions(workflowDef.Runtime)
+	workflowIDPrefix := "Pipeline-"
+	if strings.HasPrefix(payload.TicketID, "sched/") {
+		workflowIDPrefix = "Pipeline-Sched-"
+	}
 	options.Options.ID = fmt.Sprintf(
-		"Pipeline-%s-%s",
+		"%s%s-%s",
+		workflowIDPrefix,
 		canonify.CanonifyPlain(workflowDef.Name),
 		uuid.NewString(),
 	)

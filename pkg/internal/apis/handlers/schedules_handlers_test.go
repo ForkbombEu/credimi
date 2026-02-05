@@ -117,7 +117,6 @@ func TestStartScheduledPipelineUsesScheduledEnqueueWorkflow(t *testing.T) {
 		"user_mail": "ada@example.test",
 	}
 	_, err := startScheduledPipelineWithOptions(
-		"pipeline-id",
 		"pipeline-slug",
 		"Pipeline Name",
 		"acme",
