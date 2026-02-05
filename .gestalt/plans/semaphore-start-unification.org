@@ -315,7 +315,7 @@
     - Assert `runner_records` resolves when runners exist (fixture-backed), otherwise returns empty but still includes `runner_ids`.
 - Done when :: Pipeline list endpoints show queued tickets per pipeline with queue position/length and enough data for the UI to render + cancel.
 
-** TODO [#A] Extend `/api/compliance/checks` (and `/api/my/checks`) list to include queued pipeline tickets
+** DONE [#A] Extend `/api/compliance/checks` (and `/api/my/checks`) list to include queued pipeline tickets
 - Why :: The “Workflows” page (`/my/tests/runs`) currently lists Temporal workflows only; queued tickets must appear there too or users cannot see in-progress pipeline runs before they start.
 - Change ::
   - In `pkg/internal/apis/handlers/checks_handlers.go` (`HandleListMyChecks`):

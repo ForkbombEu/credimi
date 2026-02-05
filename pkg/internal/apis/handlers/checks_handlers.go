@@ -126,6 +126,9 @@ type ReRunCheckRequest struct {
 	Config map[string]interface{} `json:"config"`
 }
 
+var listChecksTemporalClient = temporalclient.GetTemporalClientWithNamespace
+var listChecksWorkflows = listChecksWorkflowsTemporal
+
 func HandleListMyChecks() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
@@ -138,7 +141,7 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := listChecksTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -191,13 +194,7 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			query = strings.Join(statusQueries, " or ")
 		}
 
-		list, err := c.ListWorkflow(
-			context.Background(),
-			&workflowservice.ListWorkflowExecutionsRequest{
-				Namespace: namespace,
-				Query:     query,
-			},
-		)
+		list, err := listChecksWorkflows(context.Background(), c, namespace, query)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -245,10 +242,44 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			c,
 		)
 
+		if shouldIncludeQueuedRuns(statusParam) {
+			queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to list queued runs",
+					err.Error(),
+				).JSON(e)
+			}
+			queuedSummaries := buildQueuedWorkflowSummaries(
+				queuedRuns,
+				authRecord.GetString("Timezone"),
+			)
+			if len(queuedSummaries) > 0 {
+				hierarchy = append(queuedSummaries, hierarchy...)
+			}
+		}
+
 		resp := ListMyChecksResponse{}
 		resp.Executions = hierarchy
 		return e.JSON(http.StatusOK, resp)
 	}
+}
+
+func listChecksWorkflowsTemporal(
+	ctx context.Context,
+	c client.Client,
+	namespace string,
+	query string,
+) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+	return c.ListWorkflow(
+		ctx,
+		&workflowservice.ListWorkflowExecutionsRequest{
+			Namespace: namespace,
+			Query:     query,
+		},
+	)
 }
 
 func HandleGetMyCheckRun() func(*core.RequestEvent) error {
@@ -1231,6 +1262,75 @@ func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location
 		if len(e.Children) > 0 {
 			sortExecutionSummaries(e.Children, loc, !ascending)
 		}
+	}
+}
+
+func shouldIncludeQueuedRuns(statusParam string) bool {
+	if statusParam == "" {
+		return true
+	}
+	for s := range strings.SplitSeq(statusParam, ",") {
+		if strings.ToLower(strings.TrimSpace(s)) == "running" {
+			return true
+		}
+	}
+	return false
+}
+
+func buildQueuedWorkflowSummaries(
+	queuedRuns map[string]QueuedPipelineRunAggregate,
+	userTimezone string,
+) []*WorkflowExecutionSummary {
+	if len(queuedRuns) == 0 {
+		return nil
+	}
+
+	runs := make([]QueuedPipelineRunAggregate, 0, len(queuedRuns))
+	for _, queued := range queuedRuns {
+		runs = append(runs, queued)
+	}
+	slices.SortFunc(runs, func(a, b QueuedPipelineRunAggregate) int {
+		switch {
+		case a.EnqueuedAt.After(b.EnqueuedAt):
+			return -1
+		case a.EnqueuedAt.Before(b.EnqueuedAt):
+			return 1
+		default:
+			return 0
+		}
+	})
+
+	summaries := make([]*WorkflowExecutionSummary, 0, len(runs))
+	for _, queued := range runs {
+		summaries = append(summaries, buildQueuedWorkflowSummary(queued, userTimezone))
+	}
+	return summaries
+}
+
+func buildQueuedWorkflowSummary(
+	queued QueuedPipelineRunAggregate,
+	userTimezone string,
+) *WorkflowExecutionSummary {
+	startTime := formatQueuedRunTime(queued.EnqueuedAt, userTimezone)
+	queue := &WorkflowQueueSummary{
+		TicketID:  queued.TicketID,
+		Position:  queued.Position,
+		LineLen:   queued.LineLen,
+		RunnerIDs: copyStringSlice(queued.RunnerIDs),
+	}
+	pipelineWorkflow := pipeline.NewPipelineWorkflow()
+	return &WorkflowExecutionSummary{
+		Execution: &WorkflowIdentifier{
+			WorkflowID: "queue/" + queued.TicketID,
+			RunID:      queued.TicketID,
+		},
+		Type: WorkflowType{
+			Name: pipelineWorkflow.Name(),
+		},
+		StartTime:   startTime,
+		Status:      "queued",
+		DisplayName: "pipeline-run",
+		Queue:       queue,
 	}
 }
 
