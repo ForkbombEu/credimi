@@ -81,6 +81,88 @@ func TestMobileAutomationSetupHookAcquiresUniqueRunnerPermits(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
+func TestMobileAutomationSetupHookSkipsPermitsWhenSemaphoreManaged(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		testSetupHookWorkflow,
+		workflow.RegisterOptions{Name: "test-setup-hook"},
+	)
+
+	httpActivity := activities.NewHTTPActivity()
+	installActivity := activities.NewApkInstallActivity()
+	recordActivity := activities.NewStartRecordingActivity()
+
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		installActivity.Execute,
+		activity.RegisterOptions{Name: installActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		recordActivity.Execute,
+		activity.RegisterOptions{Name: recordActivity.Name()},
+	)
+
+	mockSetupHookActivities(env, httpActivity, installActivity, recordActivity)
+
+	env.ExecuteWorkflow("test-setup-hook", mobileAutomationSetupSteps(), true)
+
+	require.NoError(t, env.GetWorkflowError())
+	env.AssertExpectations(t)
+}
+
+func TestMobileAutomationSetupHookAcquiresPermitsWhenLegacy(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		testSetupHookWorkflow,
+		workflow.RegisterOptions{Name: "test-setup-hook"},
+	)
+
+	acquireActivity := activities.NewAcquireMobileRunnerPermitActivity()
+	httpActivity := activities.NewHTTPActivity()
+	installActivity := activities.NewApkInstallActivity()
+	recordActivity := activities.NewStartRecordingActivity()
+
+	env.RegisterActivityWithOptions(
+		acquireActivity.Execute,
+		activity.RegisterOptions{Name: acquireActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		installActivity.Execute,
+		activity.RegisterOptions{Name: installActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		recordActivity.Execute,
+		activity.RegisterOptions{Name: recordActivity.Name()},
+	)
+
+	env.OnActivity(acquireActivity.Name(), mock.Anything, mock.Anything).
+		Return(
+			workflowengine.ActivityResult{
+				Output: workflows.MobileRunnerSemaphorePermit{RunnerID: "runner-1", LeaseID: "lease-1"},
+			},
+			nil,
+		).
+		Once()
+
+	mockSetupHookActivities(env, httpActivity, installActivity, recordActivity)
+
+	env.ExecuteWorkflow("test-setup-hook", mobileAutomationSetupSteps(), false)
+
+	require.NoError(t, env.GetWorkflowError())
+	env.AssertExpectations(t)
+}
+
 func TestProcessStepFailsWithoutPermit(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -108,7 +190,6 @@ func TestMobileAutomationCleanupReleasesPermitsOnFailure(t *testing.T) {
 
 	cleanupActivity := activities.NewCleanupDeviceActivity()
 	releaseActivity := activities.NewReleaseMobileRunnerPermitActivity()
-
 	env.RegisterActivityWithOptions(
 		cleanupActivity.Execute,
 		activity.RegisterOptions{Name: cleanupActivity.Name()},
@@ -129,6 +210,32 @@ func TestMobileAutomationCleanupReleasesPermitsOnFailure(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "mobile automation cleanup")
+	env.AssertExpectations(t)
+}
+
+func TestMobileAutomationCleanupSkipsPermitsWhenSemaphoreManaged(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		testCleanupSkipsPermitsWorkflow,
+		workflow.RegisterOptions{Name: "test-cleanup-skip"},
+	)
+
+	cleanupActivity := activities.NewCleanupDeviceActivity()
+
+	env.RegisterActivityWithOptions(
+		cleanupActivity.Execute,
+		activity.RegisterOptions{Name: cleanupActivity.Name()},
+	)
+
+	env.OnActivity(cleanupActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, nil).
+		Once()
+
+	env.ExecuteWorkflow("test-cleanup-skip")
+
+	require.NoError(t, env.GetWorkflowError())
 	env.AssertExpectations(t)
 }
 
@@ -186,6 +293,17 @@ func testProcessStepWithoutPermitWorkflow(ctx workflow.Context) error {
 	)
 }
 
+func testSetupHookWorkflow(ctx workflow.Context, steps []StepDefinition, semaphoreManaged bool) error {
+	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+	config := map[string]any{"app_url": "https://example.test"}
+	if semaphoreManaged {
+		config["mobile_runner_semaphore_ticket_id"] = "ticket-1"
+	}
+	runData := map[string]any{}
+
+	return MobileAutomationSetupHook(ctx, &steps, &activityOptions, config, &runData)
+}
+
 func testCleanupReleasesPermitsWorkflow(ctx workflow.Context) error {
 	ctx = workflow.WithActivityOptions(
 		ctx,
@@ -213,4 +331,111 @@ func testCleanupReleasesPermitsWorkflow(ctx workflow.Context) error {
 	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 
 	return MobileAutomationCleanupHook(ctx, steps, &activityOptions, config, runData, &output)
+}
+
+func testCleanupSkipsPermitsWorkflow(ctx workflow.Context) error {
+	ctx = workflow.WithActivityOptions(
+		ctx,
+		workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+	)
+	config := map[string]any{
+		"app_url":                           "https://example.test",
+		"mobile_runner_semaphore_ticket_id": "ticket-1",
+	}
+	output := map[string]any{}
+	runData := map[string]any{
+		"setted_devices": map[string]any{
+			"runner-1": map[string]any{
+				"serial":     "serial-1",
+				"clone_name": "clone-1",
+				"installed":  map[string]string{},
+				"runner_url": "https://runner.test",
+				"recording":  false,
+			},
+		},
+		"run_identifier": "run-1",
+		"mobile_runner_permits": map[string]workflows.MobileRunnerSemaphorePermit{
+			"runner-1": {RunnerID: "runner-1", LeaseID: "lease-1"},
+		},
+	}
+	steps := []StepDefinition{}
+	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+
+	return MobileAutomationCleanupHook(ctx, steps, &activityOptions, config, runData, &output)
+}
+
+func mobileAutomationSetupSteps() []StepDefinition {
+	return []StepDefinition{
+		{
+			StepSpec: StepSpec{
+				ID:  "step-1",
+				Use: "mobile-automation",
+				With: StepInputs{
+					Payload: map[string]any{
+						"runner_id": "runner-1",
+						"action_id": "action-1",
+					},
+				},
+			},
+		},
+	}
+}
+
+func mockSetupHookActivities(
+	env *testsuite.TestWorkflowEnvironment,
+	httpActivity *activities.HTTPActivity,
+	installActivity *activities.ApkInstallActivity,
+	recordActivity *activities.StartRecordingActivity,
+) {
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(
+			workflowengine.ActivityResult{
+				Output: map[string]any{
+					"body": map[string]any{
+						"runner_url": "https://runner.test",
+						"serial":     "serial-1",
+					},
+				},
+			},
+			nil,
+		).
+		Once()
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(
+			workflowengine.ActivityResult{
+				Output: map[string]any{
+					"body": map[string]any{
+						"apk_path":   "/tmp/app.apk",
+						"version_id": "version-1",
+						"code":       "action-code",
+					},
+				},
+			},
+			nil,
+		).
+		Once()
+	env.OnActivity(installActivity.Name(), mock.Anything, mock.Anything).
+		Return(
+			workflowengine.ActivityResult{
+				Output: map[string]any{
+					"package_id": "package-1",
+				},
+			},
+			nil,
+		).
+		Once()
+	env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
+		Return(
+			workflowengine.ActivityResult{
+				Output: map[string]any{
+					"video_path":         "/tmp/video.mp4",
+					"logcat_path":        "/tmp/logcat.txt",
+					"adb_process_pid":    float64(1),
+					"ffmpeg_process_pid": float64(2),
+					"logcat_process_pid": float64(3),
+				},
+			},
+			nil,
+		).
+		Once()
 }

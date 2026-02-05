@@ -68,6 +68,28 @@ metadata:
 	require.Equal(t, []any{1, 2, 3}, step.With.Payload["list_input"])
 }
 
+func TestStepDefinition_UnmarshalYAML_WithPayloadBlock(t *testing.T) {
+	yamlData := `
+id: "step1"
+use: "mobile_automation"
+with:
+  config:
+    foo: "bar"
+  payload:
+    action_id: "onboarding-0001"
+    version_id: "v1"
+  version_id: "override"
+`
+
+	var step StepDefinition
+	err := yaml.Unmarshal([]byte(yamlData), &step)
+	require.NoError(t, err)
+
+	require.Equal(t, map[string]any{"foo": "bar"}, step.With.Config)
+	require.Equal(t, "onboarding-0001", step.With.Payload["action_id"])
+	require.Equal(t, "override", step.With.Payload["version_id"])
+}
+
 func TestWorkflowDefinition_UnmarshalYAML(t *testing.T) {
 	yml := `
 config:

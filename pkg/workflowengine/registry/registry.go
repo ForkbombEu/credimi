@@ -99,7 +99,7 @@ var Registry = map[string]TaskFactory{
 		Kind:                TaskWorkflow,
 		NewFunc:             func() any { return workflows.NewMobileAutomationWorkflow() },
 		PayloadType:         reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
-		CustomTaskQueue: true,
+		CustomTaskQueue:     true,
 		PipelinePayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPipelinePayload{}),
 	},
 	"custom-check": {
@@ -149,6 +149,12 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		Kind:        TaskActivity,
 		NewFunc:     func() any { return activities.NewReleaseMobileRunnerPermitActivity() },
 		PayloadType: reflect.TypeOf(workflows.MobileRunnerSemaphorePermit{}),
+		OutputKind:  workflowengine.OutputAny,
+	},
+	"mobile-runner-semaphore-done": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewReportMobileRunnerSemaphoreDoneActivity() },
+		PayloadType: reflect.TypeOf(activities.ReportMobileRunnerSemaphoreDoneInput{}),
 		OutputKind:  workflowengine.OutputAny,
 	},
 }
