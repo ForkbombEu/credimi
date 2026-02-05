@@ -135,13 +135,13 @@
   - Add handler unit test ensuring `/api/pipeline/start` returns 409 for runner pipelines and does not call Temporal execute.
 - Done when :: No mobile-runner pipeline start path can result in “waiting for permit” inside the pipeline workflow; such starts either enqueue (queue endpoints) or fail immediately with a clear message.
 
-* WIP [#B] Update CLI start flow to enqueue and print queue position
+* DONE [#B] Update CLI start flow to enqueue and print queue position
 - Effort :: S
 - Goal :: Make `credimi pipeline` behave like “Run now”: enqueue runner pipelines and show the queue position; fallback to direct start only for non-runner pipelines.
 - Notes ::
   - CLI cannot import `pkg/internal/...` packages; it must infer behavior from API responses (or add a dedicated API endpoint).
 
-** WIP [#B] Implement enqueue-first CLI logic + output contract
+** DONE [#B] Implement enqueue-first CLI logic + output contract
 - Why :: Users starting from CLI need immediate feedback that the run is queued and where it sits; also avoid starting workflows that will be rejected by the new fail-fast guardrails.
 - Change ::
   - In `cmd/cli/pipeline.go`:

@@ -190,6 +190,14 @@ type PipelineCLIInput struct {
 	YAML string
 }
 
+type pipelineQueueResponse struct {
+	TicketID  string   `json:"ticket_id"`
+	RunnerIDs []string `json:"runner_ids"`
+	Status    string   `json:"status"`
+	Position  int      `json:"position"`
+	LineLen   int      `json:"line_len"`
+}
+
 // Checks for existing pipeline, otherwise creates
 func findOrCreatePipeline(
 	ctx context.Context,
@@ -349,6 +357,46 @@ func readPipelineInput() (*PipelineCLIInput, error) {
 	}, nil
 }
 
+// postPipelineRequest sends a POST request to a pipeline endpoint and returns status/body.
+func postPipelineRequest(
+	ctx context.Context,
+	token string,
+	path string,
+	payload []byte,
+) (int, []byte, error) {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		utils.JoinURL(instanceURL, "api", "pipeline", path),
+		bytes.NewBuffer(payload),
+	)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to create %s request: %w", path, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to call pipeline %s endpoint: %w", path, err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, body, nil
+}
+
+// decodeJSONPayload parses JSON responses and falls back to raw strings.
+func decodeJSONPayload(respBody []byte) any {
+	var respJSON any
+	if err := json.Unmarshal(respBody, &respJSON); err != nil {
+		return map[string]any{"raw": string(respBody)}
+	}
+	return respJSON
+}
+
 func startPipeline(ctx context.Context, token string, canonName string, rec map[string]any) error {
 	payload := map[string]any{
 		"yaml":                rec["yaml"].(string),
@@ -360,36 +408,45 @@ func startPipeline(ctx context.Context, token string, canonName string, rec map[
 		return fmt.Errorf("failed to marshal start payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(
-		ctx,
-		"POST",
-		utils.JoinURL(instanceURL, "api", "pipeline", "start"),
-		bytes.NewBuffer(body),
-	)
+	queueStatus, queueBody, err := postPipelineRequest(ctx, token, "queue", body)
 	if err != nil {
-		return fmt.Errorf("failed to create start request: %w", err)
+		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	if token != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	if queueStatus == http.StatusOK {
+		var queueResp pipelineQueueResponse
+		if err := json.Unmarshal(queueBody, &queueResp); err != nil {
+			return fmt.Errorf("failed to decode queue response: %w", err)
+		}
+		return printJSON(map[string]any{
+			"ticket_id":      queueResp.TicketID,
+			"runner_ids":     queueResp.RunnerIDs,
+			"status":         queueResp.Status,
+			"position":       queueResp.Position,
+			"line_len":       queueResp.LineLen,
+			"position_human": queueResp.Position + 1,
+		})
+	}
+	if queueStatus != http.StatusBadRequest ||
+		!bytes.Contains(queueBody, []byte("no runner ids resolved")) {
+		return printJSON(map[string]any{
+			"status":  queueStatus,
+			"payload": decodeJSONPayload(queueBody),
+		})
 	}
 
-	resp, err := http.DefaultClient.Do(req)
+	startStatus, startBody, err := postPipelineRequest(ctx, token, "start", body)
 	if err != nil {
-		return fmt.Errorf("failed to call pipeline start endpoint: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, _ := io.ReadAll(resp.Body)
-	var respJSON any
-	if err := json.Unmarshal(respBody, &respJSON); err != nil {
-		respJSON = map[string]any{"raw": string(respBody)}
+		return err
 	}
 
-	return printJSON(map[string]any{
-		"status":  resp.StatusCode,
-		"payload": respJSON,
-	})
+	output := map[string]any{
+		"status":  startStatus,
+		"payload": decodeJSONPayload(startBody),
+	}
+	if startStatus == http.StatusConflict {
+		output["message"] = "mobile-runner pipelines must be started via queue/semaphore"
+	}
+	return printJSON(output)
 }
 
 func printJSON(v any) error {
