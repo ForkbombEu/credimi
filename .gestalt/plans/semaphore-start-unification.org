@@ -93,13 +93,13 @@
     - enrichment correctly shows runners when `GlobalRunnerID` is present in the new args.
 - Done when :: New schedules enqueue runs instead of starting pipelines, and the schedules UI continues to show correct runner lists.
 
-* WIP [#A] Remove the “scheduled run” mode from the pipeline workflow input
+* DONE [#A] Remove the “scheduled run” mode from the pipeline workflow input
 - Effort :: M
 - Goal :: Eliminate `PipelineWorkflowInput.Scheduled` and the in-workflow DB fetch path; scheduled behavior belongs to the new scheduled-enqueue workflow.
 - Notes ::
   - This is an intentional behavior shift: pipeline workflows should always start with full YAML/definition already present (either from API start or from the semaphore’s `StartQueuedPipelineActivity`).
 
-** WIP [#A] Delete `Scheduled` flag + `handleScheduledRun` implementation
+** DONE [#A] Delete `Scheduled` flag + `handleScheduledRun` implementation
 - Why :: The scheduled-enqueue workflow now owns “fetch YAML at runtime” and “queue insertion”; keeping the old mode invites regressions and still risks long workflow runtimes.
 - Change ::
   - In `pkg/workflowengine/pipeline/pipeline.go`:
@@ -112,13 +112,12 @@
   - Add a unit test ensuring the pipeline workflow errors clearly if `WorkflowDefinition` is missing (guardrail for any accidental scheduled-style start).
 - Done when :: No code path starts a pipeline workflow with only `pipeline_id` payload; scheduled runs are always enqueued and later started via `StartQueuedPipelineActivity`.
 
-* TODO [#A] Eliminate “acquire permit and wait inside pipeline workflow” logic
+* WIP [#A] Eliminate “acquire permit and wait inside pipeline workflow” logic
 - Effort :: L
 - Goal :: Ensure mobile-automation pipelines never block on permit acquisition inside the pipeline workflow; they must be semaphore-managed (queued) or fail fast.
-- Notes ::
-  - Keep backwards compatibility for *already running* legacy workflows by not removing the old permit activities immediately; remove usage first, then clean up in a follow-up once old runs have drained.
 
-** TODO [#A] Make non-semaphore mobile runs fail fast (no waiting)
+
+** WIP [#A] Make non-semaphore mobile runs fail fast (no waiting)
 - Why :: This is the root cause of inflated workflow runtime and schedule overlap issues; waiting must move out of the pipeline workflow entirely.
 - Change ::
   - In `pkg/workflowengine/pipeline/mobile_automation_hooks.go`:
