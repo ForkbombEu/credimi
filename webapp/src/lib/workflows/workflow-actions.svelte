@@ -11,32 +11,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { Code, XIcon } from '@lucide/svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
-	import { toast } from 'svelte-sonner';
 
 	import type { IconComponent } from '@/components/types';
 	import type { buttonVariants } from '@/components/ui/button';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
-	import { emitQueueCancelRequested } from '$lib/pipeline/queue-events';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
 	//
 
-	type WorkflowQueueMeta = {
-		ticket_id: string;
-		runner_ids: string[];
-	};
-
 	type Props = {
-		workflow: {
-			workflowId: string;
-			runId: string;
-			status: WorkflowStatus | null;
-			name: string;
-			queue?: WorkflowQueueMeta;
-		};
+		workflow: { workflowId: string; runId: string; status: WorkflowStatus; name: string };
 		mode: 'buttons' | 'dropdown';
 		containerClass?: ClassValue;
 		dropdownTrigger?: Snippet<[{ props: Record<string, unknown> }]>;
@@ -66,34 +53,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{
 			label: m.Cancel(),
 			icon: XIcon,
-			onclick: ({ workflowId, runId, queue }) =>
+			onclick: ({ workflowId, runId }) =>
 				runWithLoading({
 					fn: async () => {
-						if (queue) {
-							emitQueueCancelRequested(queue.ticket_id);
-							const runnerIDs = queue.runner_ids ?? [];
-							const params =
-								runnerIDs.length > 0
-									? `?runner_ids=${encodeURIComponent(runnerIDs.join(','))}`
-									: '';
-							await pb.send(`/api/pipeline/queue/${queue.ticket_id}${params}`, {
-								method: 'DELETE'
-							});
-							toast.message('Queue canceled');
-							return;
-						}
-
 						await pb.send(`/api/my/checks/${workflowId}/runs/${runId}/cancel`, {
 							method: 'POST'
 						});
-					},
-					showSuccessToast: queue ? false : undefined
+					}
 				}),
-			disabled: (workflow) => {
-				if (workflow.queue) return false;
-				if (!workflow.status) return true;
-				return workflow.status !== 'Running';
-			}
+			disabled: (workflow) => workflow.status !== 'Running'
 		},
 		{
 			label: m.Swagger(),

@@ -9,7 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		[
 			{
 				workflow: WorkflowExecutionSummary;
-				status: WorkflowStatusType | null;
+				status: WorkflowStatusType;
 				Td: typeof Table.Cell;
 			}
 		]
@@ -17,9 +17,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import { isWorkflowStatus, type WorkflowStatusType } from '$lib/temporal';
+	import type { WorkflowStatusType } from '$lib/temporal';
 	import type { Snippet } from 'svelte';
 
+	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { EllipsisVerticalIcon, ImageIcon, TriangleIcon, VideoIcon } from '@lucide/svelte';
 	import clsx from 'clsx';
 
@@ -47,12 +48,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { workflow, depth = 0, row, hideResults = false }: Props = $props();
 
-	const hasQueue = $derived(!!workflow.queue);
-	const status = $derived(() => {
-		if (hasQueue) return null;
-		if (isWorkflowStatus(workflow.status)) return workflow.status;
-		return 'Unspecified' as WorkflowStatusType;
-	});
+	const status = $derived(toWorkflowStatusReadable(workflow.status) as WorkflowStatusType);
 
 	const isRoot = $derived(depth === 0);
 	const isChild = $derived(!isRoot);
@@ -60,9 +56,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let isExpanded = $state(true);
 
 	const href = $derived(
-		hasQueue
-			? null
-			: localizeHref(`/my/tests/runs/${workflow.execution.workflowId}/${workflow.execution.runId}`)
+		localizeHref(`/my/tests/runs/${workflow.execution.workflowId}/${workflow.execution.runId}`)
 	);
 </script>
 
@@ -87,14 +81,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Table.Cell class={[isChild && 'py-0!']}>
 			<div class="flex flex-wrap items-center gap-4">
 				<div class="flex items-center gap-2">
-					{#if href}
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-						<a {href} class="text-primary hover:underline">
-							{workflow.displayName}
-						</a>
-					{:else}
-						<span>{workflow.displayName}</span>
-					{/if}
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+					<a {href} class="text-primary hover:underline">
+						{workflow.displayName}
+					</a>
 
 					{#if workflow.children && workflow.children.length > 0}
 						<Button
@@ -123,14 +113,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		>
 			<div style={`padding-left: ${(depth - 1) * 16}px`}>
 				<div class="border-l border-slate-300 py-2 pl-2">
-					{#if href}
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-						<a {href} class="text-primary hover:underline">
-							{workflow.displayName}
-						</a>
-					{:else}
-						<span>{workflow.displayName}</span>
-					{/if}
+					<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+					<a {href} class="text-primary hover:underline">
+						{workflow.displayName}
+					</a>
 				</div>
 			</div>
 		</Table.Cell>
@@ -140,7 +126,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<WorkflowStatus
 			{status}
 			failureReason={workflow.failure_reason}
-			queue={workflow.queue}
 			size={isChild ? 'sm' : 'md'}
 		/>
 	</Table.Cell>
@@ -197,8 +182,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				workflowId: workflow.execution.workflowId,
 				runId: workflow.execution.runId,
 				status: status,
-				name: workflow.displayName,
-				queue: workflow.queue
+				name: workflow.displayName
 			}}
 			dropdownTriggerVariants={{ size: 'icon', variant: 'ghost' }}
 		>
@@ -210,7 +194,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </tr>
 
 {#if workflow.children && isExpanded}
-	{#each workflow.children as children (children.queue?.ticket_id ?? children.execution.runId)}
+	{#each workflow.children as children (children.execution.runId)}
 		<WorkflowTableRow workflow={children} depth={depth + 1} {row} />
 	{/each}
 {/if}

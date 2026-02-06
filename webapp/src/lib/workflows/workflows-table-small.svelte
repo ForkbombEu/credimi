@@ -5,9 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
+	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { ArrowRightIcon, EllipsisIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
-	import { isWorkflowStatus, TemporalI18nProvider } from '$lib/temporal';
+	import { TemporalI18nProvider } from '$lib/temporal';
 	import { omit } from 'lodash';
 
 	import A from '@/components/ui-custom/a.svelte';
@@ -44,17 +45,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</tr>
 				</thead>
 				<tbody>
-					{#each workflows as workflow (workflow.queue?.ticket_id ?? workflow.execution.runId)}
+					{#each workflows as workflow (workflow.execution.runId)}
 						{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
-						{@const isQueued = !!workflow.queue}
-						{@const status =
-							isQueued ? null : isWorkflowStatus(workflow.status) ? workflow.status : 'Unspecified'}
+						{@const status = toWorkflowStatusReadable(workflow.status)}
 						<tr>
 							<td>
 								<WorkflowStatus
 									status={workflow.status}
 									failureReason={workflow.failure_reason}
-									queue={workflow.queue}
 									size="sm"
 								/>
 							</td>
@@ -99,19 +97,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/if}
 							</td>
 							<td>
-								{#if isQueued}
-									<span class="text-muted-foreground">{m.View()}</span>
-								{:else}
-									<A
-										href={resolve('/my/tests/runs/[workflow_id]/[run_id]', {
-											workflow_id: workflow.execution.workflowId,
-											run_id: workflow.execution.runId
-										})}
-									>
-										{m.View()}
-										<ArrowRightIcon class="inline-block size-3 -translate-y-px" />
-									</A>
-								{/if}
+								<A
+									href={resolve('/my/tests/runs/[workflow_id]/[run_id]', {
+										workflow_id: workflow.execution.workflowId,
+										run_id: workflow.execution.runId
+									})}
+								>
+									{m.View()}
+									<ArrowRightIcon class="inline-block size-3 -translate-y-px" />
+								</A>
 							</td>
 							<td>
 								<WorkflowActions
@@ -120,8 +114,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 										workflowId: workflow.execution.workflowId,
 										runId: workflow.execution.runId,
 										status: status,
-										name: workflow.displayName,
-										queue: workflow.queue
+										name: workflow.displayName
 									}}
 									dropdownTriggerVariants={{ size: 'icon', variant: 'ghost' }}
 								>

@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
-			{#each workflows as workflow (workflow.queue?.ticket_id ?? workflow.execution.runId)}
+			{#each workflows as workflow (workflow.execution.runId)}
 				<WorkflowTableRow {workflow} {row} {hideResults} />
 			{:else}
 				<Table.Row class="hover:bg-transparent">
