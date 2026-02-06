@@ -14,16 +14,11 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
 	"go.temporal.io/api/serviceerror"
 	tclient "go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/temporal"
 )
-
 
 type ReleaseMobileRunnerPermitActivity struct {
 	workflowengine.BaseActivity
 }
-
-
-
 
 func NewReleaseMobileRunnerPermitActivity() *ReleaseMobileRunnerPermitActivity {
 	return &ReleaseMobileRunnerPermitActivity{
@@ -93,38 +88,6 @@ func (a *ReleaseMobileRunnerPermitActivity) Execute(
 func isMobileRunnerSemaphoreDisabled() bool {
 	value := strings.ToLower(strings.TrimSpace(os.Getenv("MOBILE_RUNNER_SEMAPHORE_DISABLED")))
 	return value == "1" || value == "true" || value == "yes"
-}
-
-
-
-func resolveQueueLen(
-	ctx context.Context,
-	temporalClient tclient.Client,
-	workflowID string,
-	err error,
-) *int {
-	var appErr *temporal.ApplicationError
-	if !errors.As(err, &appErr) || appErr.Type() != mobilerunnersemaphore.ErrTimeout {
-		return nil
-	}
-
-	encoded, queryErr := temporalClient.QueryWorkflow(
-		ctx,
-		workflowID,
-		"",
-		mobilerunnersemaphore.StateQuery,
-	)
-	if queryErr != nil {
-		return nil
-	}
-
-	var state mobilerunnersemaphore.MobileRunnerSemaphoreStateView
-	if decodeErr := encoded.Get(&state); decodeErr != nil {
-		return nil
-	}
-
-	queueLen := state.QueueLen
-	return &queueLen
 }
 
 func isNotFoundError(err error) bool {
