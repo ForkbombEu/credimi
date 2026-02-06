@@ -1,6 +1,6 @@
 #+TITLE: Unify Scheduled/CLI Pipeline Starts with Semaphore Queue
 #+SUBTITLE: Eliminate “start immediately + wait inside pipeline” by enqueueing all mobile-runner pipeline starts (Run now / CLI / Schedules) into the same FIFO
-#+DATE: 2026-02-05
+#+DATE: 2026-02-06
 #+KEYWORDS: temporal, schedules, pipeline, semaphore, queue, cli, pocketbase, mobile-automation
 
 * DONE [#A] Add a scheduled “enqueue-only” workflow (no pipeline execution)
@@ -385,3 +385,101 @@
     - Assert the queued execution summary returns `displayName == "My Pipeline"`.
   - Add a fallback assertion (optional): if the pipeline cannot be resolved, `displayName` remains non-empty.
 - Done when :: Queued rows in `/api/compliance/checks` display the pipeline name consistently with started pipeline runs.
+
+* WIP [#A] Align workflow list summaries (queued display name + simple statuses)
+- Effort :: M
+- Goal :: Make `/api/pipeline/list-workflows` and `/api/(compliance|my)/checks` return (a) the real pipeline name for queued rows and (b) a frontend-friendly CamelCase `status` string for all rows, so UI can stop parsing Temporal enum names.
+- Notes ::
+  - This is an intentional breaking response change for the list endpoints: we will stop returning Temporal proto enum names in `status` and return only CamelCase status labels (e.g. `Running`, `Canceled`, `TimedOut`, `ContinuedAsNew`).
+  - This also fixes internal backend assumptions (e.g. selecting “running” executions) that currently compare against `statusStringRunning` while receiving raw Temporal status enum strings.
+
+** WIP [#A] Return pipeline YAML `name` as `displayName` for queued rows in `/api/pipeline/list-workflows`
+- Why :: Queued pipeline rows currently use the generic `"pipeline-run"` label; users can’t distinguish queued items when multiple pipelines are queued. `/api/compliance/checks` already resolves the pipeline name, so `/api/pipeline/list-workflows` should match.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_handler.go`, update queued row construction (`buildQueuedPipelineSummaries` / `buildQueuedPipelineSummary`) to compute `displayName` from the queued pipeline identifier:
+    - Prefer reusing `resolveQueuedPipelineDisplayName(app, queued.PipelineIdentifier)` (already used by checks listing) and cache results within the request to avoid repeated DB reads/YAML parsing.
+    - Set `WorkflowExecutionSummary.DisplayName` for queued rows to the resolved name (never blank).
+  - Keep all other queued-row fields unchanged (synthetic `execution.workflowId`, `status="queued"`, `queue` object).
+- Tests ::
+  - Update `pkg/internal/apis/handlers/pipeline_list_workflows_test.go`:
+    - In `TestGetPipelineDetailsIncludesQueuedRuns`, assert the queued summary’s `displayName` equals the pipeline YAML `name` (already seeded as `name: queued-pipeline`).
+    - Add a fallback assertion (optional): if YAML name missing, `displayName` is still non-empty.
+- Done when :: Queued pipeline rows in `/my/pipelines` workflows listings show the actual pipeline name (same as started runs) instead of `"pipeline-run"`.
+
+** TODO [#A] Normalize workflow summary `status` to CamelCase values and stop returning Temporal enum names
+- Why :: Today list endpoints return Temporal proto enum strings like `WORKFLOW_EXECUTION_STATUS_RUNNING`, forcing frontend parsing. We already use lowercase status strings in query params (`running`, `canceled`, …) and in queue status responses; summaries should return the same vocabulary directly.
+- Change ::
+  - Contract:
+    - Change the semantics of `WorkflowExecutionSummary.status` for list endpoints:
+      - For Temporal-backed rows, return a CamelCase status label:
+        - `Running`, `Completed`, `Failed`, `Canceled`, `Terminated`, `TimedOut`, `ContinuedAsNew`, `Unspecified`.
+      - For queued synthetic rows, return `status = "Queued"`.
+    - Do not add a second “simple” field; only `status` is returned.
+  - Backend implementation:
+    - Add a small normalizer helper (new file suggested: `pkg/internal/apis/handlers/workflow_status_normalize.go`):
+      - `func normalizeTemporalStatus(raw string) string` that maps:
+        - `WORKFLOW_EXECUTION_STATUS_RUNNING` -> `Running`
+        - `WORKFLOW_EXECUTION_STATUS_COMPLETED` -> `Completed`
+        - `WORKFLOW_EXECUTION_STATUS_FAILED` -> `Failed`
+        - `WORKFLOW_EXECUTION_STATUS_CANCELED` -> `Canceled`
+        - `WORKFLOW_EXECUTION_STATUS_TERMINATED` -> `Terminated`
+        - `WORKFLOW_EXECUTION_STATUS_TIMED_OUT` -> `TimedOut`
+        - `WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW` -> `ContinuedAsNew`
+        - `WORKFLOW_EXECUTION_STATUS_UNSPECIFIED` -> `Unspecified`
+      - If `raw` is already one of the CamelCase values (or `Queued`), return it unchanged.
+      - Otherwise return `Unspecified` (keep it consistent across endpoints).
+    - In `pkg/internal/apis/handlers/checks_handlers.go` (`buildExecutionHierarchy`):
+      - Keep using the raw `exec.Status` string for any internal checks (e.g. failure fetching), but set `summary.Status = normalizeTemporalStatus(exec.Status)` in the response DTO.
+    - In `pkg/internal/apis/handlers/pipeline_handler.go`:
+      - Ensure summaries coming from `buildExecutionHierarchy` already carry normalized `Status`.
+      - Update any logic that compares against lowercase status strings to operate on normalized `Status` (e.g. `selectTopExecutionsByPipeline` should compare against `WorkflowStatusRunning` / `"Running"` rather than `statusStringRunning` / `"running"`).
+  - Frontend implementation:
+    - In `webapp/src/lib/workflows/*`, remove reliance on `@forkbombeu/temporal-ui` status parsing for API responses:
+      - Render statuses directly from `workflow.status` (e.g. `Running`, `Canceled`, …).
+      - Keep the queued-row branch as-is (`workflow.queue`).
+    - Update fixtures like `webapp/src/lib/workflows/queries.test.json` to use the new CamelCase statuses.
+- Tests ::
+  - Go unit:
+    - Add a focused unit test for `normalizeTemporalStatus` covering each mapping.
+  - Go handler/unit:
+    - Add/update one list test that asserts `status` is CamelCase for a Temporal-backed execution summary.
+  - Webapp unit (Vitest):
+    - Update existing workflow table/status tests to expect CamelCase statuses and to not call the Temporal enum parser.
+- Done when :: `/api/my/checks`, `/api/compliance/checks`, and `/api/pipeline/list-workflows` return only CamelCase status strings for Temporal-backed rows, and the UI renders them without parsing Temporal enum names.
+
+* TODO [#A] Eliminate false “Failed to poll queue” toast after canceling a queued run
+- Effort :: S
+- Goal :: Canceling a queued run should deterministically end the queue toast with “Queue canceled” (or equivalent) and never show “Failed to poll queue” when cancellation actually succeeded.
+- Notes ::
+  - Root cause today: `GET /api/pipeline/queue/{ticket}` returns HTTP 404 when the ticket is missing on *all* runners; the frontend poller treats any non-2xx as a polling failure and shows the error toast.
+  - Fix should address both sides: make the API respond with a typed `not_found` status, and make the UI stop/ignore polling during cancellation to avoid races.
+
+** TODO [#A] Make queue status endpoint return 200 with `status="not_found"` instead of HTTP 404
+- Why :: Polling should be a “status machine” API, not an exception-driven API. A missing ticket is an expected terminal state (especially after cancel).
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_queue_handler.go` (`HandlePipelineQueueStatus`):
+    - When `missingRunnerCount == len(requestContext.runnerIDs)`, return `http.StatusOK` with a `PipelineQueueStatusResponse` where:
+      - `ticket_id` is echoed back,
+      - `runner_ids` is echoed back (if provided),
+      - `status = "not_found"`,
+      - `position = 0`, `line_len = 0`,
+      - omit `workflow_id` / `run_id` / `workflow_namespace`.
+    - Keep error responses (bad request, auth, internal Temporal errors) as errors (non-2xx).
+- Tests ::
+  - Update `pkg/internal/apis/handlers/pipeline_queue_handler_test.go` scenario “poll returns not found”:
+    - Expect HTTP 200 and JSON containing `"status":"not_found"` (instead of HTTP 404).
+- Done when :: The frontend poller receives a valid status payload even when the ticket disappears, and no longer errors purely due to 404 semantics.
+
+** TODO [#B] Stop queue polling immediately on cancel and treat `not_found` as success during cancel
+- Why :: Even with API changes, there is still a race: the poller may observe the ticket disappearing before the cancel request resolves. UX should treat this as “canceled” rather than an error.
+- Change ::
+  - In `webapp/src/lib/pipeline/utils.ts`:
+    - In the cancel action (`cancelQueuedRun`), stop polling before sending the cancel request (so no in-flight poll can emit an error toast after the user intent is clear).
+    - In `handleQueueStatus`, when `status.status === 'not_found'`:
+      - If a cancel is in flight (or cancellation was requested), finish the queue with “Queue canceled” instead of “Queue ticket not found”.
+    - As a defensive fallback, in `pollQueueStatus`’s catch:
+      - If the error is a PocketBase `ClientResponseError` with `status === 404`, treat it as `not_found` rather than “Failed to poll queue” (this keeps UX stable during rollout if the backend change is delayed or partially deployed).
+- Tests ::
+  - Webapp unit (Vitest):
+    - Add a focused test for the queue polling/cancel flow that simulates `GET` returning 404 (or `status=not_found`) during cancel and asserts no “Failed to poll queue” toast is emitted.
+- Done when :: Canceling a queued run never produces the “Failed to poll queue” toast; the toast resolves to “Queue canceled” even if the ticket disappears mid-poll.

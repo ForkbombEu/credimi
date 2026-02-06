@@ -66,6 +66,7 @@ func TestGetPipelineDetailsIncludesQueuedRuns(t *testing.T) {
 		require.Equal(t, 3, summaries[0].Queue.LineLen)
 		require.Equal(t, []string{"runner-1"}, summaries[0].Queue.RunnerIDs)
 		require.Equal(t, "queued", summaries[0].Status)
+		require.Equal(t, "queued-pipeline", summaries[0].DisplayName)
 		require.NotNil(t, summaries[0].Execution)
 		require.Equal(t, "queue/ticket-queued", summaries[0].Execution.WorkflowID)
 		require.Equal(t, "ticket-queued", summaries[0].Execution.RunID)
@@ -123,6 +124,7 @@ func TestGetPipelineSpecificDetailsIncludesQueuedRuns(t *testing.T) {
 		require.NotNil(t, response[0].Queue)
 		require.Equal(t, "ticket-queued", response[0].Queue.TicketID)
 		require.Equal(t, "queued", response[0].Status)
+		require.Equal(t, "queued-pipeline-specific", response[0].DisplayName)
 		require.Equal(t, []string{"runner-1"}, response[0].RunnerIDs)
 
 		return nil

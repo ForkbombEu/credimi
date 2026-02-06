@@ -907,6 +907,16 @@ func buildQueuedPipelineSummaries(
 		return nil
 	}
 
+	nameCache := map[string]string{}
+	resolveName := func(identifier string) string {
+		if cached, ok := nameCache[identifier]; ok {
+			return cached
+		}
+		displayName := resolveQueuedPipelineDisplayName(app, identifier)
+		nameCache[identifier] = displayName
+		return displayName
+	}
+
 	sortedRuns := append([]QueuedPipelineRunAggregate(nil), queuedRuns...)
 	sort.Slice(sortedRuns, func(i, j int) bool {
 		return sortedRuns[i].EnqueuedAt.After(sortedRuns[j].EnqueuedAt)
@@ -919,6 +929,7 @@ func buildQueuedPipelineSummaries(
 			queued,
 			userTimezone,
 			runnerCache,
+			resolveName(queued.PipelineIdentifier),
 		))
 	}
 
@@ -930,6 +941,7 @@ func buildQueuedPipelineSummary(
 	queued QueuedPipelineRunAggregate,
 	userTimezone string,
 	runnerCache map[string]map[string]any,
+	displayName string,
 ) *pipelineWorkflowSummary {
 	startTime := formatQueuedRunTime(queued.EnqueuedAt, userTimezone)
 	queue := &WorkflowQueueSummary{
@@ -950,7 +962,7 @@ func buildQueuedPipelineSummary(
 		},
 		StartTime:   startTime,
 		Status:      "queued",
-		DisplayName: "pipeline-run",
+		DisplayName: displayName,
 		Queue:       queue,
 	}
 
