@@ -13,6 +13,16 @@ vi.mock('@/pocketbase', () => ({
 	}
 }));
 
+vi.mock('$lib/pipeline/queue-events', () => ({
+	emitQueueCancelRequested: vi.fn()
+}));
+
+vi.mock('svelte-sonner', () => ({
+	toast: {
+		message: vi.fn()
+	}
+}));
+
 vi.mock('$lib/layout/global-loading.svelte', () => ({
 	runWithLoading: ({ fn }: { fn: () => Promise<unknown> }) => fn()
 }));
@@ -27,6 +37,8 @@ vi.mock('@/i18n', () => ({
 
 test('queued cancel triggers queue endpoint', async () => {
 	const { pb } = await import('@/pocketbase');
+	const { emitQueueCancelRequested } = await import('$lib/pipeline/queue-events');
+	const { toast } = await import('svelte-sonner');
 
 	const screen = render(WorkflowActions, {
 		workflow: {
@@ -44,10 +56,12 @@ test('queued cancel triggers queue endpoint', async () => {
 
 	await screen.getByRole('button', { name: 'Cancel' }).click();
 
+	expect(vi.mocked(emitQueueCancelRequested)).toHaveBeenCalledWith('ticket-queued');
 	expect(vi.mocked(pb.send)).toHaveBeenCalledWith(
 		'/api/pipeline/queue/ticket-queued?runner_ids=runner-1%2Crunner-2',
 		{
 			method: 'DELETE'
 		}
 	);
+	expect(vi.mocked(toast.message)).toHaveBeenCalledWith('Queue canceled');
 });

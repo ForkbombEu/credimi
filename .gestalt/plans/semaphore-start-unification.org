@@ -512,7 +512,7 @@
       - no `toast.error('Queue ticket not found')` is emitted afterwards.
 - Done when :: Canceling a queued run from another surface never results in the queue poller showing “Queue ticket not found”.
 
-** TODO [#B] Make the workflows-table queued cancel show a specific cancel toast (not generic Success) and emit the cancel signal
+** DONE [#B] Make the workflows-table queued cancel show a specific cancel toast (not generic Success) and emit the cancel signal
 - Why :: Users need immediate, specific feedback that the queued run was canceled, and the cancel action should proactively stop any queue pollers to prevent misleading errors.
 - Change ::
   - In `webapp/src/lib/workflows/workflow-actions.svelte`:

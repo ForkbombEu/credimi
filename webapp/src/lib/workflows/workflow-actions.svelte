@@ -11,12 +11,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { Code, XIcon } from '@lucide/svelte';
 	import { runWithLoading } from '$lib/layout/global-loading.svelte';
+	import { toast } from 'svelte-sonner';
 
 	import type { IconComponent } from '@/components/types';
 	import type { buttonVariants } from '@/components/ui/button';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
+	import { emitQueueCancelRequested } from '$lib/pipeline/queue-events';
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
@@ -68,6 +70,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				runWithLoading({
 					fn: async () => {
 						if (queue) {
+							emitQueueCancelRequested(queue.ticket_id);
 							const runnerIDs = queue.runner_ids ?? [];
 							const params =
 								runnerIDs.length > 0
@@ -76,13 +79,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							await pb.send(`/api/pipeline/queue/${queue.ticket_id}${params}`, {
 								method: 'DELETE'
 							});
+							toast.message('Queue canceled');
 							return;
 						}
 
 						await pb.send(`/api/my/checks/${workflowId}/runs/${runId}/cancel`, {
 							method: 'POST'
 						});
-					}
+					},
+					showSuccessToast: queue ? false : undefined
 				}),
 			disabled: (workflow) => {
 				if (workflow.queue) return false;
