@@ -59,7 +59,7 @@ func TestHandleListMyChecksIncludesQueuedRunsForRunningFilter(t *testing.T) {
 	require.Equal(t, "ticket-queued", resp.Executions[0].Queue.TicketID)
 	require.Equal(t, "queued", resp.Executions[0].Status)
 
-	respRunning := runRequest("/api/my/checks?status=running")
+	respRunning := runRequest("/api/my/checks?status=" + statusStringRunning)
 	require.Len(t, respRunning.Executions, 1)
 	require.NotNil(t, respRunning.Executions[0].Queue)
 
