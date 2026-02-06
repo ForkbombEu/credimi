@@ -81,6 +81,10 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
+	if err := runtime.registerListQueuedRunsHandler(); err != nil {
+		return workflowengine.WorkflowResult{}, err
+	}
+
 	if err := runtime.registerAcquireHandler(); err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
@@ -230,6 +234,16 @@ func (r *mobileRunnerSemaphoreRuntime) registerRunStatusHandler() error {
 		MobileRunnerSemaphoreRunStatusQuery,
 		func(ownerNamespace, ticketID string) (MobileRunnerSemaphoreRunStatusView, error) {
 			return r.handleRunStatusQuery(ownerNamespace, ticketID)
+		},
+	)
+}
+
+func (r *mobileRunnerSemaphoreRuntime) registerListQueuedRunsHandler() error {
+	return workflow.SetQueryHandler(
+		r.ctx,
+		MobileRunnerSemaphoreListQueuedRunsQuery,
+		func(ownerNamespace string) ([]MobileRunnerSemaphoreQueuedRunView, error) {
+			return r.handleListQueuedRunsQuery(ownerNamespace), nil
 		},
 	)
 }
@@ -589,6 +603,40 @@ func (r *mobileRunnerSemaphoreRuntime) handleRunStatusQuery(
 
 	return view, nil
 }
+
+func (r *mobileRunnerSemaphoreRuntime) handleListQueuedRunsQuery(
+	ownerNamespace string,
+) []MobileRunnerSemaphoreQueuedRunView {
+	if ownerNamespace == "" || len(r.runQueue) == 0 {
+		return nil
+	}
+
+	views := make([]MobileRunnerSemaphoreQueuedRunView, 0)
+	for _, ticketID := range r.runQueue {
+		state, ok := r.runTickets[ticketID]
+		if !ok || state.Status != mobileRunnerSemaphoreRunQueued {
+			continue
+		}
+		if state.Request.OwnerNamespace != ownerNamespace {
+			continue
+		}
+		position, lineLen := r.runQueuePosition(ticketID)
+		views = append(views, MobileRunnerSemaphoreQueuedRunView{
+			TicketID:           ticketID,
+			OwnerNamespace:     state.Request.OwnerNamespace,
+			PipelineIdentifier: state.Request.PipelineIdentifier,
+			EnqueuedAt:         state.Request.EnqueuedAt,
+			LeaderRunnerID:     state.Request.LeaderRunnerID,
+			RequiredRunnerIDs:  copyStringSlice(state.Request.RequiredRunnerIDs),
+			Status:             state.Status,
+			Position:           position,
+			LineLen:            lineLen,
+		})
+	}
+
+	return views
+}
+
 func (r *mobileRunnerSemaphoreRuntime) handleAcquire(
 	ctx workflow.Context,
 	req MobileRunnerSemaphoreAcquireRequest,

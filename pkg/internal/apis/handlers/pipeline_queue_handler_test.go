@@ -207,9 +207,9 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			Headers: map[string]string{
 				"Authorization": "Bearer " + token,
 			},
-			ExpectedStatus: http.StatusNotFound,
+			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				"ticket not found",
+				"\"status\":\"not_found\"",
 			},
 			TestAppFactory: setupPipelineQueueApp,
 		},
@@ -298,9 +298,9 @@ func TestPipelineQueueCancel(t *testing.T) {
 			Headers: map[string]string{
 				"Authorization": "Bearer " + token,
 			},
-			ExpectedStatus: http.StatusNotFound,
+			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				"ticket not found",
+				"\"status\":\"not_found\"",
 			},
 			TestAppFactory: setupPipelineQueueApp,
 		},
@@ -636,9 +636,9 @@ func TestPipelineQueueStatus_MultiRunnerAllMissingReturnsNotFound(t *testing.T) 
 		Headers: map[string]string{
 			"Authorization": "Bearer " + token,
 		},
-		ExpectedStatus: http.StatusNotFound,
+		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
-			"ticket not found",
+			"\"status\":\"not_found\"",
 		},
 		TestAppFactory: setupPipelineQueueApp,
 	}

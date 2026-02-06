@@ -300,12 +300,15 @@ func HandlePipelineQueueStatus() func(*core.RequestEvent) error {
 			return apiErr.JSON(e)
 		}
 		if missingRunnerCount == len(requestContext.runnerIDs) {
-			return apierror.New(
-				http.StatusNotFound,
-				"ticket",
-				"ticket not found",
-				"ticket not found",
-			).JSON(e)
+			response := PipelineQueueStatusResponse{
+				TicketID:  requestContext.ticketID,
+				RunnerIDs: copyStringSlice(requestContext.runnerIDs),
+				Status:    workflowengine.MobileRunnerSemaphoreRunNotFound,
+				Position:  0,
+				LineLen:   0,
+				Runners:   runnerStatuses,
+			}
+			return e.JSON(http.StatusOK, response)
 		}
 
 		leaderRunnerID, requiredRunnerIDs := extractLeaderAndRequired(
