@@ -447,7 +447,7 @@
     - Update existing workflow table/status tests to expect CamelCase statuses and to not call the Temporal enum parser.
 - Done when :: `/api/my/checks`, `/api/compliance/checks`, and `/api/pipeline/list-workflows` return only CamelCase status strings for Temporal-backed rows, and the UI renders them without parsing Temporal enum names.
 
-* WIP [#A] Eliminate false “Failed to poll queue” toast after canceling a queued run
+* DONE [#A] Eliminate false “Failed to poll queue” toast after canceling a queued run
 - Effort :: S
 - Goal :: Canceling a queued run should deterministically end the queue toast with “Queue canceled” (or equivalent) and never show “Failed to poll queue” when cancellation actually succeeded.
 - Notes ::
@@ -470,7 +470,7 @@
     - Expect HTTP 200 and JSON containing `"status":"not_found"` (instead of HTTP 404).
 - Done when :: The frontend poller receives a valid status payload even when the ticket disappears, and no longer errors purely due to 404 semantics.
 
-** WIP [#B] Stop queue polling immediately on cancel and treat `not_found` as success during cancel
+** DONE [#B] Stop queue polling immediately on cancel and treat `not_found` as success during cancel
 - Why :: Even with API changes, there is still a race: the poller may observe the ticket disappearing before the cancel request resolves. UX should treat this as “canceled” rather than an error.
 - Change ::
   - In `webapp/src/lib/pipeline/utils.ts`:
