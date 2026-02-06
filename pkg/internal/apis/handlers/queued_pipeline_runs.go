@@ -141,10 +141,7 @@ func listMobileRunnerSemaphoreWorkflowsTemporal(ctx context.Context) ([]string, 
 	runnerIDs := make(map[string]struct{})
 	workflowPrefix := workflows.MobileRunnerSemaphoreWorkflowName + "/"
 
-	for {
-		if pageCount >= semaphoreWorkflowPageCap {
-			break
-		}
+	for pageCount < semaphoreWorkflowPageCap {
 		resp, err := client.ListWorkflow(ctx, &workflowservice.ListWorkflowExecutionsRequest{
 			Namespace:     workflowengine.MobileRunnerSemaphoreDefaultNamespace,
 			Query:         query,
@@ -155,7 +152,7 @@ func listMobileRunnerSemaphoreWorkflowsTemporal(ctx context.Context) ([]string, 
 			return nil, err
 		}
 
-		for _, execution := range resp.Executions {
+		for _, execution := range resp.GetExecutions() {
 			if execution.GetExecution() == nil {
 				continue
 			}
@@ -170,10 +167,10 @@ func listMobileRunnerSemaphoreWorkflowsTemporal(ctx context.Context) ([]string, 
 			runnerIDs[runnerID] = struct{}{}
 		}
 
-		if len(resp.NextPageToken) == 0 {
+		if len(resp.GetNextPageToken()) == 0 {
 			break
 		}
-		pageToken = resp.NextPageToken
+		pageToken = resp.GetNextPageToken()
 		pageCount++
 	}
 

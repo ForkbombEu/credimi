@@ -994,7 +994,7 @@ func mapQueuedRunsToPipelines(
 
 	queuedByPipeline := make(map[string][]QueuedPipelineRunAggregate)
 	for _, queued := range queuedRuns {
-		pipelineID, ok := pipelineIdentifiers[queued.PipelineIdentifier]
+		pipelineID, ok := pipelineIdentifiers[strings.Trim(queued.PipelineIdentifier, "/")]
 		if !ok {
 			continue
 		}
