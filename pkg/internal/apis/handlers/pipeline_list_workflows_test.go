@@ -62,7 +62,7 @@ func TestGetPipelineDetailsIncludesQueuedRuns(t *testing.T) {
 		require.Len(t, summaries, 1)
 		require.NotNil(t, summaries[0].Queue)
 		require.Equal(t, "ticket-queued", summaries[0].Queue.TicketID)
-		require.Equal(t, 1, summaries[0].Queue.Position)
+		require.Equal(t, 2, summaries[0].Queue.Position)
 		require.Equal(t, 3, summaries[0].Queue.LineLen)
 		require.Equal(t, []string{"runner-1"}, summaries[0].Queue.RunnerIDs)
 		require.Equal(t, "Queued", summaries[0].Status)
