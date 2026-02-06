@@ -14,6 +14,7 @@ import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase';
 
 import type { Pipeline } from './types';
+import { onQueueCancelRequested } from './queue-events';
 
 type PipelineRunnerType = 'global' | 'specific' | 'none';
 
@@ -196,6 +197,7 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 	let cancelInFlight = false;
 	let queueToastId: string | number | undefined;
 	let pollTimeoutId: ReturnType<typeof setTimeout> | undefined;
+	let unsubscribeQueueCancel: (() => void) | undefined;
 
 	const stopPolling = () => {
 		polling = false;
@@ -209,9 +211,17 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 		if (queueToastId) toast.dismiss(queueToastId);
 	};
 
+	const cleanupQueueEvents = () => {
+		if (unsubscribeQueueCancel) {
+			unsubscribeQueueCancel();
+			unsubscribeQueueCancel = undefined;
+		}
+	};
+
 	const finishQueue = (action: () => void) => {
 		stopPolling();
 		dismissQueueToast();
+		cleanupQueueEvents();
 		action();
 	};
 
@@ -261,6 +271,13 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 		}
 	);
 
+	unsubscribeQueueCancel = onQueueCancelRequested((cancelTicketId) => {
+		if (cancelTicketId !== ticketId) return;
+		stopPolling();
+		dismissQueueToast();
+		cleanupQueueEvents();
+	});
+
 	const handleQueueStatus = (status: PipelineQueueStatusResponse) => {
 		if (status.status === 'running') {
 			finishQueue(() => showWorkflowStartedToast(status.workflow_id, status.run_id));
@@ -290,8 +307,10 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 				queueStatusUrl(ticketId, runnerIds),
 				{ method: 'GET' }
 			);
+			if (!polling) return;
 			handleQueueStatus(status);
 		} catch (error) {
+			if (!polling) return;
 			if (error instanceof ClientResponseError && error.status === 404) {
 				handleQueueStatus({
 					ticket_id: ticketId,

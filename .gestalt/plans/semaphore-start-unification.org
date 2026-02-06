@@ -483,3 +483,48 @@
   - Webapp unit (Vitest):
     - Add a focused test for the queue polling/cancel flow that simulates `GET` returning 404 (or `status=not_found`) during cancel and asserts no “Failed to poll queue” toast is emitted.
 - Done when :: Canceling a queued run never produces the “Failed to poll queue” toast; the toast resolves to “Queue canceled” even if the ticket disappears mid-poll.
+
+* WIP [#A] Prevent duplicate/misleading toasts when canceling queued runs
+- Effort :: S
+- Goal :: Canceling an enqueued run produces exactly one clear “Queue canceled” (or equivalent) toast, and never a follow-up “Queue ticket not found” error toast.
+- Notes ::
+  - Current behavior (repro):
+    - Start a pipeline so it enqueues and the queue toast starts polling (`runPipeline`).
+    - Navigate to the queued run row (workflows table) and cancel it from `webapp/src/lib/workflows/workflow-actions.svelte`.
+    - You see a generic `m.Success()` toast, then the queue poller ends with `toast.error('Queue ticket not found')` when the ticket disappears.
+  - Root cause: cancellation and queue polling live in different components with no shared “ticket is being canceled” signal, so `runPipeline` treats `status=not_found` as an error when the cancel did not originate from its own toast button.
+
+** DONE [#A] Add a minimal queue-cancel signal that `runPipeline` can subscribe to
+- Why :: The queue poller is local to `runPipeline`; other UI surfaces need a tiny, dependency-free way to tell it “stop polling/dismiss for this ticket” to avoid stale not_found errors.
+- Change ::
+  - Add `webapp/src/lib/pipeline/queue-events.ts` (or similar) as a tiny in-memory event bus:
+    - `emitQueueCancelRequested(ticketId: string): void`
+    - `onQueueCancelRequested(handler: (ticketId: string) => void): () => void` (unsubscribe)
+    - Implementation uses a module-level `EventTarget` (not `window`) for testability.
+  - In `webapp/src/lib/pipeline/utils.ts` (`runPipeline`):
+    - Subscribe to cancel-requested events for the active `ticketId`.
+    - On match, stop polling and dismiss the queue toast silently (no additional toast) so the cancel surface can own the success message.
+    - Ensure the subscription is cleaned up when the queue finishes (running/failed/canceled/not_found) to avoid leaks.
+- Tests ::
+  - Webapp unit (Vitest):
+    - In `webapp/src/lib/pipeline/utils.test.ts`, add a case where an external `emitQueueCancelRequested('ticket-X')` while polling ensures:
+      - the queue toast is dismissed,
+      - no `toast.error('Queue ticket not found')` is emitted afterwards.
+- Done when :: Canceling a queued run from another surface never results in the queue poller showing “Queue ticket not found”.
+
+** TODO [#B] Make the workflows-table queued cancel show a specific cancel toast (not generic Success) and emit the cancel signal
+- Why :: Users need immediate, specific feedback that the queued run was canceled, and the cancel action should proactively stop any queue pollers to prevent misleading errors.
+- Change ::
+  - In `webapp/src/lib/workflows/workflow-actions.svelte`:
+    - For the `queue` cancellation branch:
+      - Call `emitQueueCancelRequested(queue.ticket_id)` before issuing the `DELETE /api/pipeline/queue/{ticket}` request.
+      - Avoid `runWithLoading`’s default success toast by setting `showSuccessToast: false`.
+      - On successful cancel, show a specific toast (e.g. `toast.message('Queue canceled')` or `toast.success('Queue canceled')`).
+    - Keep the non-queue cancellation branch unchanged.
+  - Optional follow-up (only if cheap while touching the strings): replace hardcoded queue strings in `webapp/src/lib/pipeline/utils.ts` with i18n keys for consistency.
+- Tests ::
+  - Webapp unit (Vitest):
+    - Update `webapp/src/lib/workflows/workflow-actions.svelte.test.ts` to assert:
+      - `emitQueueCancelRequested` is called with the ticket id,
+      - the queue DELETE endpoint is invoked with the expected querystring.
+- Done when :: Canceling a queued run from the workflows table shows a single “Queue canceled” toast and does not trigger any queue “ticket not found” error toast.

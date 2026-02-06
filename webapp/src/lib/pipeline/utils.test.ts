@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { PipelinesResponse } from '@/pocketbase/types';
 
 import { runPipeline } from './utils';
+import { emitQueueCancelRequested } from './queue-events';
 
 const pipelineFixture = (id: string, runnerId = 'runner-1'): PipelinesResponse => ({
 	id,
@@ -315,5 +316,43 @@ describe('runPipeline', () => {
 		await flushPromises();
 
 		expect(vi.mocked(toast.message)).toHaveBeenCalledWith('Queue canceled');
+	});
+
+	it('stops polling on external cancel request without error toast', async () => {
+		const { pb } = await import('@/pocketbase');
+		const { toast } = await import('svelte-sonner');
+
+		let resolvePoll: (value: unknown) => void = () => {};
+		const pollPromise = new Promise((resolve) => {
+			resolvePoll = resolve;
+		});
+
+		vi.mocked(pb.send)
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-5',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			})
+			.mockImplementationOnce(() => pollPromise);
+
+		await runPipeline(pipelineFixture('pipeline-5'));
+		await flushPromises();
+
+		emitQueueCancelRequested('ticket-5');
+		await flushPromises();
+
+		resolvePoll({
+			ticket_id: 'ticket-5',
+			runner_ids: ['runner-1'],
+			status: 'not_found',
+			position: 0,
+			line_len: 0
+		});
+		await flushPromises();
+
+		expect(vi.mocked(toast.dismiss)).toHaveBeenCalledWith('toast-id');
+		expect(vi.mocked(toast.error)).not.toHaveBeenCalledWith('Queue ticket not found');
 	});
 });
