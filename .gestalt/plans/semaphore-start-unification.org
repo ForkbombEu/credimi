@@ -484,7 +484,7 @@
     - Add a focused test for the queue polling/cancel flow that simulates `GET` returning 404 (or `status=not_found`) during cancel and asserts no “Failed to poll queue” toast is emitted.
 - Done when :: Canceling a queued run never produces the “Failed to poll queue” toast; the toast resolves to “Queue canceled” even if the ticket disappears mid-poll.
 
-* WIP [#A] Prevent duplicate/misleading toasts when canceling queued runs
+* DONE [#A] Prevent duplicate/misleading toasts when canceling queued runs
 - Effort :: S
 - Goal :: Canceling an enqueued run produces exactly one clear “Queue canceled” (or equivalent) toast, and never a follow-up “Queue ticket not found” error toast.
 - Notes ::
