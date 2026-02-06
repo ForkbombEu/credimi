@@ -4,14 +4,15 @@
 
 import { getPath, runWithLoading } from '$lib/utils';
 import { toast } from 'svelte-sonner';
-import { parse, stringify } from 'yaml';
+import { parse } from 'yaml';
 
 import type { MobileRunnersResponse, PipelinesResponse } from '@/pocketbase/types';
 
-import { goto, m } from '@/i18n';
-import { pb } from '@/pocketbase';
+import { m } from '@/i18n';
 
 import type { Pipeline } from './types';
+
+import { cancelQueueTicket, enqueuePipeline } from './queue';
 
 //
 
@@ -73,44 +74,45 @@ export function getPipelineRunner(pipelineId: string): string | undefined {
 
 export async function runPipeline(pipeline: PipelinesResponse) {
 	const result = await runWithLoading({
-		fn: async () => {
-			const parsedYaml = parsePipelineYaml(pipeline.yaml);
-			const runnerType = getPipelineRunnerType(pipeline);
-
-			if (runnerType === 'global') {
-				const runner = getPipelineRunner(pipeline.id);
-				if (!runner) throw new Error('No runner found');
-				if (parsedYaml.runtime) parsedYaml.runtime.global_runner_id = runner;
-				else parsedYaml.runtime = { global_runner_id: runner };
-			}
-
-			return await pb.send('/api/pipeline/start', {
-				method: 'POST',
-				body: {
-					pipeline_identifier: getPath(pipeline),
-					yaml: stringify(parsedYaml)
-				}
-			});
-		},
+		fn: () => enqueuePipeline(pipeline),
 		showSuccessToast: false
 	});
 
-	if (result?.result) {
-		const { workflowId, workflowRunId } = result.result;
-		const workflowUrl =
-			workflowId && workflowRunId
-				? `/my/tests/runs/${workflowId}/${workflowRunId}`
-				: undefined;
+	if (!result) {
+		toast.error('Unexpected error');
+		return;
+	}
 
-		toast.success(m.Pipeline_started_successfully(), {
-			description: m.View_workflow_details(),
-			duration: 10000,
-			...(workflowUrl && {
+	if (result.isErr) {
+		toast.error(result.error);
+		return;
+	}
+
+	const runnerIds = result.value.runner_ids ?? [];
+	if (!result.value.ticket_id || runnerIds.length === 0) {
+		toast.error(m.Failed_to_enqueue_pipeline());
+		return;
+	}
+
+	if (result.value.status === 'failed') {
+		toast.error(result.value.error_message ?? m.Failed_to_enqueue_pipeline());
+		return;
+	}
+
+	if (result.value.status === 'queued') {
+		toast.info(
+			m.Pipeline_queued({ position: result.value.position, line_len: result.value.line_len }),
+			{
+				duration: 5000,
 				action: {
-					label: m.View(),
-					onClick: () => goto(workflowUrl)
+					label: m.Cancel(),
+					onClick: async () => {
+						const response = await cancelQueueTicket(result.value.ticket_id, runnerIds);
+						if (response.isOk) toast.success(m.Pipeline_execution_canceled());
+						else toast.error(response.error);
+					}
 				}
-			})
-		});
+			}
+		);
 	}
 }
