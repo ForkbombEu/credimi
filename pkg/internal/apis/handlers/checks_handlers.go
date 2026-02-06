@@ -1368,10 +1368,7 @@ func resolveQueuedPipelineDisplayName(app core.App, identifier string) string {
 
 	record, err := canonify.Resolve(app, identifier)
 	if err != nil {
-		record, err = app.FindRecordById("pipelines", identifier)
-		if err != nil {
-			return fallback
-		}
+		return fallback
 	}
 
 	yaml := record.GetString("yaml")

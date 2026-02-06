@@ -15,7 +15,7 @@ func normalizeTemporalStatus(raw string) string {
 		string(WorkflowStatusTimedOut),
 		string(WorkflowStatusContinuedAsNew),
 		"Queued",
-		"Unspecified":
+		string(WorkflowStatusUnspecified):
 		return raw
 	case "WORKFLOW_EXECUTION_STATUS_RUNNING":
 		return string(WorkflowStatusRunning)
@@ -32,8 +32,8 @@ func normalizeTemporalStatus(raw string) string {
 	case "WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW":
 		return string(WorkflowStatusContinuedAsNew)
 	case "WORKFLOW_EXECUTION_STATUS_UNSPECIFIED":
-		return "Unspecified"
+		return string(WorkflowStatusUnspecified)
 	default:
-		return "Unspecified"
+		return string(WorkflowStatusUnspecified)
 	}
 }

@@ -961,7 +961,7 @@ func buildQueuedPipelineSummary(
 			Name: pipelineWorkflow.Name(),
 		},
 		StartTime:   startTime,
-		Status:      "Queued",
+		Status:      string(WorkflowStatusQueued),
 		DisplayName: displayName,
 		Queue:       queue,
 	}

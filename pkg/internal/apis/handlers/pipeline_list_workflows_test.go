@@ -39,7 +39,7 @@ func TestGetPipelineDetailsIncludesQueuedRuns(t *testing.T) {
 	record.Set("yaml", "name: queued-pipeline\n")
 	require.NoError(t, app.Save(record))
 
-	stubQueuedRuns(t, record.Id)
+	stubQueuedRuns(t, "usera-s-organization/queued-pipeline")
 
 	baseRouter, err := apis.NewRouter(app)
 	require.NoError(t, err)
@@ -98,7 +98,7 @@ func TestGetPipelineSpecificDetailsIncludesQueuedRuns(t *testing.T) {
 	record.Set("yaml", "name: queued-pipeline-specific\n")
 	require.NoError(t, app.Save(record))
 
-	stubQueuedRuns(t, record.Id)
+	stubQueuedRuns(t, "usera-s-organization/queued-pipeline-specific")
 
 	baseRouter, err := apis.NewRouter(app)
 	require.NoError(t, err)
