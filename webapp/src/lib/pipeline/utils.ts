@@ -3,6 +3,7 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { getPath, runWithLoading } from '$lib/utils';
+import { ClientResponseError } from 'pocketbase';
 import { toast } from 'svelte-sonner';
 import { parse, stringify } from 'yaml';
 
@@ -191,11 +192,17 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 
 	const ticketId = enqueueResult.value.ticket_id;
 	let polling = true;
+	let cancelRequested = false;
 	let cancelInFlight = false;
 	let queueToastId: string | number | undefined;
+	let pollTimeoutId: ReturnType<typeof setTimeout> | undefined;
 
 	const stopPolling = () => {
 		polling = false;
+		if (pollTimeoutId) {
+			clearTimeout(pollTimeoutId);
+			pollTimeoutId = undefined;
+		}
 	};
 
 	const dismissQueueToast = () => {
@@ -210,7 +217,9 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 
 	const cancelQueuedRun = async () => {
 		if (cancelInFlight) return;
+		cancelRequested = true;
 		cancelInFlight = true;
+		stopPolling();
 		try {
 			const cancelStatus = await pb.send<PipelineQueueStatusResponse>(
 				queueStatusUrl(ticketId, runnerIds),
@@ -218,6 +227,7 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 			);
 			if (cancelStatus.status === 'running' || cancelStatus.status === 'failed') {
 				cancelInFlight = false;
+				cancelRequested = false;
 				handleQueueStatus(cancelStatus);
 				return;
 			}
@@ -226,8 +236,12 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 				return;
 			}
 			cancelInFlight = false;
+			polling = true;
+			void pollQueueStatus();
 		} catch (error) {
 			cancelInFlight = false;
+			polling = true;
+			void pollQueueStatus();
 			toast.error('Failed to cancel queue');
 		}
 	};
@@ -261,6 +275,10 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 			return;
 		}
 		if (status.status === 'not_found') {
+			if (cancelRequested) {
+				finishQueue(() => toast.message('Queue canceled'));
+				return;
+			}
 			finishQueue(() => toast.error('Queue ticket not found'));
 		}
 	};
@@ -274,13 +292,23 @@ export async function runPipeline(pipeline: PipelinesResponse) {
 			);
 			handleQueueStatus(status);
 		} catch (error) {
+			if (error instanceof ClientResponseError && error.status === 404) {
+				handleQueueStatus({
+					ticket_id: ticketId,
+					runner_ids: runnerIds,
+					status: 'not_found',
+					position: 0,
+					line_len: 0
+				});
+				return;
+			}
 			stopPolling();
 			dismissQueueToast();
 			toast.error('Failed to poll queue');
 			return;
 		}
 		if (polling) {
-			setTimeout(pollQueueStatus, 1000);
+			pollTimeoutId = setTimeout(pollQueueStatus, 1000);
 		}
 	};
 

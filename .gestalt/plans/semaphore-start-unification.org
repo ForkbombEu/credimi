@@ -454,7 +454,7 @@
   - Root cause today: `GET /api/pipeline/queue/{ticket}` returns HTTP 404 when the ticket is missing on *all* runners; the frontend poller treats any non-2xx as a polling failure and shows the error toast.
   - Fix should address both sides: make the API respond with a typed `not_found` status, and make the UI stop/ignore polling during cancellation to avoid races.
 
-** WIP [#A] Make queue status endpoint return 200 with `status="not_found"` instead of HTTP 404
+** DONE [#A] Make queue status endpoint return 200 with `status="not_found"` instead of HTTP 404
 - Why :: Polling should be a “status machine” API, not an exception-driven API. A missing ticket is an expected terminal state (especially after cancel).
 - Change ::
   - In `pkg/internal/apis/handlers/pipeline_queue_handler.go` (`HandlePipelineQueueStatus`):
@@ -470,7 +470,7 @@
     - Expect HTTP 200 and JSON containing `"status":"not_found"` (instead of HTTP 404).
 - Done when :: The frontend poller receives a valid status payload even when the ticket disappears, and no longer errors purely due to 404 semantics.
 
-** TODO [#B] Stop queue polling immediately on cancel and treat `not_found` as success during cancel
+** WIP [#B] Stop queue polling immediately on cancel and treat `not_found` as success during cancel
 - Why :: Even with API changes, there is still a race: the poller may observe the ticket disappearing before the cancel request resolves. UX should treat this as “canceled” rather than an error.
 - Change ::
   - In `webapp/src/lib/pipeline/utils.ts`:

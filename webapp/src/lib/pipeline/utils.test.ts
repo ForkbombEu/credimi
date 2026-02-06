@@ -161,6 +161,13 @@ describe('runPipeline', () => {
 				status: 'queued',
 				position: 0,
 				line_len: 1
+			})
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-1',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
 			});
 
 		await runPipeline(pipelineFixture('pipeline-1'));
@@ -170,13 +177,13 @@ describe('runPipeline', () => {
 		await options?.action?.onClick?.();
 
 		expect(vi.mocked(toast.dismiss)).not.toHaveBeenCalled();
-		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(3);
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(4);
 
 		vi.advanceTimersByTime(1000);
 		await Promise.resolve();
 		await Promise.resolve();
 
-		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(4);
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(5);
 	});
 
 	it('does not mark as canceled when cancel returns running', async () => {
@@ -261,11 +268,52 @@ describe('runPipeline', () => {
 		await options?.action?.onClick?.();
 
 		expect(vi.mocked(toast.dismiss)).not.toHaveBeenCalled();
-		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(3);
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(4);
 
 		vi.advanceTimersByTime(1000);
 		await Promise.resolve();
 
-		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(4);
+		expect(vi.mocked(pb.send)).toHaveBeenCalledTimes(5);
+	});
+
+	it('treats not_found as canceled during cancel', async () => {
+		const { pb } = await import('@/pocketbase');
+		const { toast } = await import('svelte-sonner');
+		const { ClientResponseError } = await import('pocketbase');
+
+		vi.mocked(pb.send)
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-4',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			})
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-4',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			})
+			.mockResolvedValueOnce({
+				ticket_id: 'ticket-4',
+				runner_ids: ['runner-1'],
+				status: 'queued',
+				position: 0,
+				line_len: 1
+			})
+			.mockRejectedValueOnce(
+				new ClientResponseError({ status: 404, data: { message: 'not found' } })
+			);
+
+		await runPipeline(pipelineFixture('pipeline-4'));
+		await flushPromises();
+
+		const [, options] = vi.mocked(toast.info).mock.calls[0] ?? [];
+		await options?.action?.onClick?.();
+		await flushPromises();
+
+		expect(vi.mocked(toast.message)).toHaveBeenCalledWith('Queue canceled');
 	});
 });
