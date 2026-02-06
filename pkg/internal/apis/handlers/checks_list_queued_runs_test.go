@@ -27,8 +27,27 @@ func TestHandleListMyChecksIncludesQueuedRunsForRunningFilter(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
+
+	pipelineYaml := "name: My Pipeline\nsteps: []\n"
+	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+
+	pipelineRecord := core.NewRecord(pipelineColl)
+	pipelineRecord.Set("owner", orgID)
+	pipelineRecord.Set("name", "pipeline-queued")
+	pipelineRecord.Set("canonified_name", "pipeline-queued")
+	pipelineRecord.Set("description", "test-description")
+	pipelineRecord.Set(
+		"steps",
+		map[string]any{"rest-chain": map[string]any{"yaml": pipelineYaml}},
+	)
+	pipelineRecord.Set("yaml", pipelineYaml)
+	require.NoError(t, app.Save(pipelineRecord))
 
 	restoreChecks, restoreQueued := stubChecksQueuedDependencies(t)
 	t.Cleanup(restoreChecks)
@@ -58,6 +77,7 @@ func TestHandleListMyChecksIncludesQueuedRunsForRunningFilter(t *testing.T) {
 	require.NotNil(t, resp.Executions[0].Queue)
 	require.Equal(t, "ticket-queued", resp.Executions[0].Queue.TicketID)
 	require.Equal(t, "queued", resp.Executions[0].Status)
+	require.Equal(t, "My Pipeline", resp.Executions[0].DisplayName)
 
 	respRunning := runRequest("/api/my/checks?status=" + statusStringRunning)
 	require.Len(t, respRunning.Executions, 1)

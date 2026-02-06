@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -253,6 +254,7 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				).JSON(e)
 			}
 			queuedSummaries := buildQueuedWorkflowSummaries(
+				e.App,
 				queuedRuns,
 				authRecord.GetString("Timezone"),
 			)
@@ -1278,11 +1280,22 @@ func shouldIncludeQueuedRuns(statusParam string) bool {
 }
 
 func buildQueuedWorkflowSummaries(
+	app core.App,
 	queuedRuns map[string]QueuedPipelineRunAggregate,
 	userTimezone string,
 ) []*WorkflowExecutionSummary {
 	if len(queuedRuns) == 0 {
 		return nil
+	}
+
+	nameCache := map[string]string{}
+	resolveName := func(identifier string) string {
+		if cached, ok := nameCache[identifier]; ok {
+			return cached
+		}
+		displayName := resolveQueuedPipelineDisplayName(app, identifier)
+		nameCache[identifier] = displayName
+		return displayName
 	}
 
 	runs := make([]QueuedPipelineRunAggregate, 0, len(queuedRuns))
@@ -1302,7 +1315,14 @@ func buildQueuedWorkflowSummaries(
 
 	summaries := make([]*WorkflowExecutionSummary, 0, len(runs))
 	for _, queued := range runs {
-		summaries = append(summaries, buildQueuedWorkflowSummary(queued, userTimezone))
+		summaries = append(
+			summaries,
+			buildQueuedWorkflowSummary(
+				queued,
+				userTimezone,
+				resolveName(queued.PipelineIdentifier),
+			),
+		)
 	}
 	return summaries
 }
@@ -1310,6 +1330,7 @@ func buildQueuedWorkflowSummaries(
 func buildQueuedWorkflowSummary(
 	queued QueuedPipelineRunAggregate,
 	userTimezone string,
+	displayName string,
 ) *WorkflowExecutionSummary {
 	startTime := formatQueuedRunTime(queued.EnqueuedAt, userTimezone)
 	queue := &WorkflowQueueSummary{
@@ -1329,9 +1350,42 @@ func buildQueuedWorkflowSummary(
 		},
 		StartTime:   startTime,
 		Status:      "queued",
-		DisplayName: "pipeline-run",
+		DisplayName: displayName,
 		Queue:       queue,
 	}
+}
+
+// resolveQueuedPipelineDisplayName picks the best available name for queued pipeline rows.
+func resolveQueuedPipelineDisplayName(app core.App, identifier string) string {
+	fallback := strings.TrimSpace(identifier)
+	if fallback == "" {
+		fallback = "pipeline-run"
+	}
+
+	if app == nil || identifier == "" {
+		return fallback
+	}
+
+	record, err := canonify.Resolve(app, identifier)
+	if err != nil {
+		return fallback
+	}
+
+	yaml := record.GetString("yaml")
+	if yaml != "" {
+		wfDef, err := pipeline.ParseWorkflow(yaml)
+		if err == nil {
+			if name := strings.TrimSpace(wfDef.Name); name != "" {
+				return name
+			}
+		}
+	}
+
+	if name := strings.TrimSpace(record.GetString("name")); name != "" {
+		return name
+	}
+
+	return fallback
 }
 
 func baseKey(filename, marker string) (string, bool) {

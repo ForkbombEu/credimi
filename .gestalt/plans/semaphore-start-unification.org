@@ -360,3 +360,28 @@
     - Add tests that queued rows render “Queued” (and the optional `X of Y` message),
     - Add tests that clicking Cancel for a queued row calls the queue-cancel endpoint (and does not call the Temporal cancel endpoint).
 - Done when :: Queued runs render as queued (not running), show queue position/length, and the existing cancel control removes them from the semaphore queue when they are not started.
+
+* DONE [#C] Show pipeline name for queued rows in `/api/compliance/checks`
+- Effort :: S
+- Goal :: In `/api/compliance/checks` (and `/api/my/checks`) queued pipeline ticket rows use the pipeline name for `displayName` (matching started runs) instead of the fixed `"pipeline-run"`.
+- Notes ::
+  - Do not change the response shape; only change `displayName` for synthetic queued rows.
+  - Match the “real run” name source: when a queued ticket becomes a Temporal pipeline run, `StartQueuedPipelineActivity` sets `memo.test` to the pipeline YAML `name`; queued rows should use the same value.
+  - Fall back safely when a pipeline cannot be resolved (never return an empty `displayName`).
+
+** DONE [#C] Resolve pipeline YAML name when building queued summaries
+- Why :: Today queued pipeline rows are ambiguous (“pipeline-run”), while started pipeline runs show the pipeline name (from YAML) via `memo.test`.
+- Change ::
+  - In `pkg/internal/apis/handlers/checks_handlers.go`:
+    - Change `buildQueuedWorkflowSummaries(...)` / `buildQueuedWorkflowSummary(...)` to accept `app core.App` (or a `pipelineNameResolver` func) so queued runs can resolve their pipeline definition.
+    - Compute `displayName` for each queued run:
+      - Resolve the pipeline record via `canonify.Resolve(app, queued.PipelineIdentifier)` (support both `id` and `namespace/canonified_name`).
+      - Prefer `pipeline.ParseWorkflow(record.GetString("yaml")).Name` when present.
+      - Fallback to `record.GetString("name")`, then to the trimmed identifier, and finally to `"pipeline-run"`.
+    - Cache resolved names per `queued.PipelineIdentifier` to avoid repeated DB reads/YAML parsing within the request.
+- Tests ::
+  - Update `pkg/internal/apis/handlers/checks_list_queued_runs_test.go`:
+    - Seed a `pipelines` record owned by userA’s org whose identifier matches the stubbed queued ticket, with YAML containing `name: My Pipeline`.
+    - Assert the queued execution summary returns `displayName == "My Pipeline"`.
+  - Add a fallback assertion (optional): if the pipeline cannot be resolved, `displayName` remains non-empty.
+- Done when :: Queued rows in `/api/compliance/checks` display the pipeline name consistently with started pipeline runs.
