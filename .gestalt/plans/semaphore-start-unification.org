@@ -386,7 +386,7 @@
   - Add a fallback assertion (optional): if the pipeline cannot be resolved, `displayName` remains non-empty.
 - Done when :: Queued rows in `/api/compliance/checks` display the pipeline name consistently with started pipeline runs.
 
-* WIP [#A] Align workflow list summaries (queued display name + simple statuses)
+* DONE [#A] Align workflow list summaries (queued display name + simple statuses)
 - Effort :: M
 - Goal :: Make `/api/pipeline/list-workflows` and `/api/(compliance|my)/checks` return (a) the real pipeline name for queued rows and (b) a frontend-friendly CamelCase `status` string for all rows, so UI can stop parsing Temporal enum names.
 - Notes ::
@@ -406,7 +406,7 @@
     - Add a fallback assertion (optional): if YAML name missing, `displayName` is still non-empty.
 - Done when :: Queued pipeline rows in `/my/pipelines` workflows listings show the actual pipeline name (same as started runs) instead of `"pipeline-run"`.
 
-** WIP [#A] Normalize workflow summary `status` to CamelCase values and stop returning Temporal enum names
+** DONE [#A] Normalize workflow summary `status` to CamelCase values and stop returning Temporal enum names
 - Why :: Today list endpoints return Temporal proto enum strings like `WORKFLOW_EXECUTION_STATUS_RUNNING`, forcing frontend parsing. We already use lowercase status strings in query params (`running`, `canceled`, …) and in queue status responses; summaries should return the same vocabulary directly.
 - Change ::
   - Contract:
@@ -447,14 +447,14 @@
     - Update existing workflow table/status tests to expect CamelCase statuses and to not call the Temporal enum parser.
 - Done when :: `/api/my/checks`, `/api/compliance/checks`, and `/api/pipeline/list-workflows` return only CamelCase status strings for Temporal-backed rows, and the UI renders them without parsing Temporal enum names.
 
-* TODO [#A] Eliminate false “Failed to poll queue” toast after canceling a queued run
+* WIP [#A] Eliminate false “Failed to poll queue” toast after canceling a queued run
 - Effort :: S
 - Goal :: Canceling a queued run should deterministically end the queue toast with “Queue canceled” (or equivalent) and never show “Failed to poll queue” when cancellation actually succeeded.
 - Notes ::
   - Root cause today: `GET /api/pipeline/queue/{ticket}` returns HTTP 404 when the ticket is missing on *all* runners; the frontend poller treats any non-2xx as a polling failure and shows the error toast.
   - Fix should address both sides: make the API respond with a typed `not_found` status, and make the UI stop/ignore polling during cancellation to avoid races.
 
-** TODO [#A] Make queue status endpoint return 200 with `status="not_found"` instead of HTTP 404
+** WIP [#A] Make queue status endpoint return 200 with `status="not_found"` instead of HTTP 404
 - Why :: Polling should be a “status machine” API, not an exception-driven API. A missing ticket is an expected terminal state (especially after cancel).
 - Change ::
   - In `pkg/internal/apis/handlers/pipeline_queue_handler.go` (`HandlePipelineQueueStatus`):
