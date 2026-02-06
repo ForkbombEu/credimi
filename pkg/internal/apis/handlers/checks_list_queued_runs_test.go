@@ -76,7 +76,7 @@ func TestHandleListMyChecksIncludesQueuedRunsForRunningFilter(t *testing.T) {
 	require.Len(t, resp.Executions, 1)
 	require.NotNil(t, resp.Executions[0].Queue)
 	require.Equal(t, "ticket-queued", resp.Executions[0].Queue.TicketID)
-	require.Equal(t, "queued", resp.Executions[0].Status)
+	require.Equal(t, "Queued", resp.Executions[0].Status)
 	require.Equal(t, "My Pipeline", resp.Executions[0].DisplayName)
 
 	respRunning := runRequest("/api/my/checks?status=" + statusStringRunning)

@@ -9,7 +9,7 @@ import WorkflowStatus from './workflow-status.svelte';
 
 test('renders queued badge with position', async () => {
 	const screen = render(WorkflowStatus, {
-		status: 'queued',
+		status: 'Queued',
 		queue: {
 			ticket_id: 'ticket-1',
 			position: 0,

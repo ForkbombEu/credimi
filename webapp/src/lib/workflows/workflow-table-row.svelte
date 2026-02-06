@@ -17,10 +17,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import type { WorkflowStatusType } from '$lib/temporal';
+	import { isWorkflowStatus, type WorkflowStatusType } from '$lib/temporal';
 	import type { Snippet } from 'svelte';
 
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { EllipsisVerticalIcon, ImageIcon, TriangleIcon, VideoIcon } from '@lucide/svelte';
 	import clsx from 'clsx';
 
@@ -49,9 +48,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { workflow, depth = 0, row, hideResults = false }: Props = $props();
 
 	const hasQueue = $derived(!!workflow.queue);
-	const status = $derived(
-		hasQueue ? null : (toWorkflowStatusReadable(workflow.status) as WorkflowStatusType)
-	);
+	const status = $derived(() => {
+		if (hasQueue) return null;
+		if (isWorkflowStatus(workflow.status)) return workflow.status;
+		return 'Unspecified' as WorkflowStatusType;
+	});
 
 	const isRoot = $derived(depth === 0);
 	const isChild = $derived(!isRoot);

@@ -961,7 +961,7 @@ func buildQueuedPipelineSummary(
 			Name: pipelineWorkflow.Name(),
 		},
 		StartTime:   startTime,
-		Status:      "queued",
+		Status:      "Queued",
 		DisplayName: displayName,
 		Queue:       queue,
 	}
@@ -1163,7 +1163,7 @@ func selectTopExecutionsByPipeline(executions []struct {
 		var runningExecs, otherExecs []*WorkflowExecutionSummary
 
 		for _, exec := range execs {
-			if exec.execution.Status == statusStringRunning {
+			if exec.execution.Status == string(WorkflowStatusRunning) {
 				runningExecs = append(runningExecs, exec.execution)
 			} else {
 				otherExecs = append(otherExecs, exec.execution)

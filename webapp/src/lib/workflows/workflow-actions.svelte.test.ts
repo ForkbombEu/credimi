@@ -21,7 +21,8 @@ vi.mock('@/i18n', () => ({
 	m: {
 		Cancel: () => 'Cancel',
 		Swagger: () => 'Swagger'
-	}
+	},
+	localizeHref: (href: string) => href
 }));
 
 test('queued cancel triggers queue endpoint', async () => {

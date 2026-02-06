@@ -5,8 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
+	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { CircleQuestionMarkIcon } from '@lucide/svelte';
+	import { isWorkflowStatus } from '$lib/temporal';
 
 	import Popover from '@/components/ui-custom/popover.svelte';
 
@@ -27,9 +28,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const readableStatus = $derived.by(() => {
 		if (queue) return null;
-		const s = toWorkflowStatusReadable(status);
-		if (!s) throw new Error(`Invalid status: ${status}`);
-		return s;
+		if (isWorkflowStatus(status)) return status;
+		return 'Unspecified';
 	});
 
 	const queuePosition = $derived.by(() => {

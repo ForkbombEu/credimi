@@ -393,7 +393,7 @@
   - This is an intentional breaking response change for the list endpoints: we will stop returning Temporal proto enum names in `status` and return only CamelCase status labels (e.g. `Running`, `Canceled`, `TimedOut`, `ContinuedAsNew`).
   - This also fixes internal backend assumptions (e.g. selecting “running” executions) that currently compare against `statusStringRunning` while receiving raw Temporal status enum strings.
 
-** WIP [#A] Return pipeline YAML `name` as `displayName` for queued rows in `/api/pipeline/list-workflows`
+** DONE [#A] Return pipeline YAML `name` as `displayName` for queued rows in `/api/pipeline/list-workflows`
 - Why :: Queued pipeline rows currently use the generic `"pipeline-run"` label; users can’t distinguish queued items when multiple pipelines are queued. `/api/compliance/checks` already resolves the pipeline name, so `/api/pipeline/list-workflows` should match.
 - Change ::
   - In `pkg/internal/apis/handlers/pipeline_handler.go`, update queued row construction (`buildQueuedPipelineSummaries` / `buildQueuedPipelineSummary`) to compute `displayName` from the queued pipeline identifier:
@@ -406,7 +406,7 @@
     - Add a fallback assertion (optional): if YAML name missing, `displayName` is still non-empty.
 - Done when :: Queued pipeline rows in `/my/pipelines` workflows listings show the actual pipeline name (same as started runs) instead of `"pipeline-run"`.
 
-** TODO [#A] Normalize workflow summary `status` to CamelCase values and stop returning Temporal enum names
+** WIP [#A] Normalize workflow summary `status` to CamelCase values and stop returning Temporal enum names
 - Why :: Today list endpoints return Temporal proto enum strings like `WORKFLOW_EXECUTION_STATUS_RUNNING`, forcing frontend parsing. We already use lowercase status strings in query params (`running`, `canceled`, …) and in queue status responses; summaries should return the same vocabulary directly.
 - Change ::
   - Contract:

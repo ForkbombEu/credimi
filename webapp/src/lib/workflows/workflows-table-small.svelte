@@ -5,10 +5,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { ArrowRightIcon, EllipsisIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
-	import { TemporalI18nProvider } from '$lib/temporal';
+	import { isWorkflowStatus, TemporalI18nProvider } from '$lib/temporal';
 	import { omit } from 'lodash';
 
 	import A from '@/components/ui-custom/a.svelte';
@@ -48,7 +47,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{#each workflows as workflow (workflow.queue?.ticket_id ?? workflow.execution.runId)}
 						{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
 						{@const isQueued = !!workflow.queue}
-						{@const status = isQueued ? null : toWorkflowStatusReadable(workflow.status)}
+						{@const status =
+							isQueued ? null : isWorkflowStatus(workflow.status) ? workflow.status : 'Unspecified'}
 						<tr>
 							<td>
 								<WorkflowStatus

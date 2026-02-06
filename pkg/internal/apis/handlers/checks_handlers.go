@@ -1172,7 +1172,7 @@ func buildExecutionHierarchy(
 			Type:      exec.Type,
 			StartTime: exec.StartTime,
 			EndTime:   exec.CloseTime,
-			Status:    exec.Status,
+			Status:    normalizeTemporalStatus(exec.Status),
 		}
 
 		if enums.WorkflowExecutionStatus(
@@ -1349,7 +1349,7 @@ func buildQueuedWorkflowSummary(
 			Name: pipelineWorkflow.Name(),
 		},
 		StartTime:   startTime,
-		Status:      "queued",
+		Status:      "Queued",
 		DisplayName: displayName,
 		Queue:       queue,
 	}
