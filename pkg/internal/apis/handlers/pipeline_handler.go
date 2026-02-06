@@ -1151,7 +1151,7 @@ func selectTopExecutionsByPipeline(executions []struct {
 		var runningExecs, otherExecs []*WorkflowExecutionSummary
 
 		for _, exec := range execs {
-			if exec.execution.Status == "running" {
+			if exec.execution.Status == statusStringRunning {
 				runningExecs = append(runningExecs, exec.execution)
 			} else {
 				otherExecs = append(otherExecs, exec.execution)

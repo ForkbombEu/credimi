@@ -341,7 +341,7 @@ func HandleCancelSchedule() func(*core.RequestEvent) error {
 			return CancelScheduleResponse{
 				Message:    "Schedule canceled successfully",
 				ScheduleID: scheduleID,
-				Status:     "canceled",
+				Status:     statusStringCanceled,
 				Time:       time.Now().Format(time.RFC3339),
 				Namespace:  namespace,
 			}
@@ -366,7 +366,7 @@ func HandlePauseSchedule() func(*core.RequestEvent) error {
 			return PauseScheduleResponse{
 				Message:    "Schedule paused successfully",
 				ScheduleID: scheduleID,
-				Status:     "paused",
+				Status:     statusStringPaused,
 				Time:       time.Now().Format(time.RFC3339),
 				Namespace:  namespace,
 			}
@@ -385,7 +385,7 @@ func HandleResumeSchedule() func(*core.RequestEvent) error {
 			return ResumeScheduleResponse{
 				Message:    "Schedule resumed successfully",
 				ScheduleID: scheduleID,
-				Status:     "running",
+				Status:     statusStringRunning,
 				Time:       time.Now().Format(time.RFC3339),
 				Namespace:  namespace,
 			}

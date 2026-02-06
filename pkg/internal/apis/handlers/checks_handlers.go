@@ -156,27 +156,27 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			statusStrings := strings.SplitSeq(statusParam, ",")
 			for s := range statusStrings {
 				switch strings.ToLower(strings.TrimSpace(s)) {
-				case "running":
+				case statusStringRunning:
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_RUNNING)
-				case "completed":
+				case statusStringCompleted:
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_COMPLETED)
-				case "failed":
+				case statusStringFailed:
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_FAILED)
-				case "terminated":
+				case statusStringTerminated:
 					statusFilters = append(
 						statusFilters,
 						enums.WORKFLOW_EXECUTION_STATUS_TERMINATED,
 					)
-				case "canceled":
+				case statusStringCanceled:
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_CANCELED)
-				case "timed_out":
+				case statusStringTimedOut:
 					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_TIMED_OUT)
-				case "continued_as_new":
+				case statusStringContinuedAsNew:
 					statusFilters = append(
 						statusFilters,
 						enums.WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW,
 					)
-				case "unspecified":
+				case statusStringUnspecified:
 					statusFilters = append(
 						statusFilters,
 						enums.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED,
@@ -775,7 +775,7 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 			"message":   "Workflow execution canceled successfully",
 			"checkId":   checkID,
 			"runId":     runID,
-			"status":    "canceled",
+			"status":    statusStringCanceled,
 			"time":      time.Now().Format(time.RFC3339),
 			"namespace": namespace,
 		})
@@ -1126,7 +1126,7 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 			"message":   "Workflow execution terminated successfully",
 			"checkId":   checkID,
 			"runId":     runID,
-			"status":    "terminated",
+			"status":    statusStringTerminated,
 			"time":      time.Now().Format(time.RFC3339),
 			"namespace": namespace,
 		})
@@ -1270,7 +1270,7 @@ func shouldIncludeQueuedRuns(statusParam string) bool {
 		return true
 	}
 	for s := range strings.SplitSeq(statusParam, ",") {
-		if strings.ToLower(strings.TrimSpace(s)) == "running" {
+		if strings.ToLower(strings.TrimSpace(s)) == statusStringRunning {
 			return true
 		}
 	}
