@@ -946,7 +946,7 @@ func buildQueuedPipelineSummary(
 	startTime := formatQueuedRunTime(queued.EnqueuedAt, userTimezone)
 	queue := &WorkflowQueueSummary{
 		TicketID:  queued.TicketID,
-		Position:  queued.Position,
+		Position:  queued.Position + 1,
 		LineLen:   queued.LineLen,
 		RunnerIDs: copyStringSlice(queued.RunnerIDs),
 	}
