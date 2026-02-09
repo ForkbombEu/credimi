@@ -213,6 +213,13 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			ExpectedContent: []string{
 				"\"status\":\"not_found\"",
 			},
+			NotExpectedContent: []string{
+				"\"runner_ids\"",
+				"\"runners\"",
+				"\"leader_runner_id\"",
+				"\"required_runner_ids\"",
+				"\"error_message\"",
+			},
 			TestAppFactory: setupPipelineQueueApp,
 		},
 	}
@@ -367,6 +374,13 @@ func TestPipelineQueueCancel(t *testing.T) {
 				"\"ticket_id\":\"ticket-cancel\"",
 				"\"status\":\"not_found\"",
 			},
+			NotExpectedContent: []string{
+				"\"runner_ids\"",
+				"\"runners\"",
+				"\"leader_runner_id\"",
+				"\"required_runner_ids\"",
+				"\"error_message\"",
+			},
 			TestAppFactory: setupPipelineQueueApp,
 		},
 		{
@@ -379,6 +393,13 @@ func TestPipelineQueueCancel(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				"\"status\":\"not_found\"",
+			},
+			NotExpectedContent: []string{
+				"\"runner_ids\"",
+				"\"runners\"",
+				"\"leader_runner_id\"",
+				"\"required_runner_ids\"",
+				"\"error_message\"",
 			},
 			TestAppFactory: setupPipelineQueueApp,
 		},
@@ -629,7 +650,13 @@ func TestPipelineQueueStatus_MultiRunnerDoesNot404WhenAnyRunnerFound(t *testing.
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
 			"\"status\":\"failed\"",
-			"\"error_message\":\"boom\"",
+		},
+		NotExpectedContent: []string{
+			"\"runner_ids\"",
+			"\"runners\"",
+			"\"leader_runner_id\"",
+			"\"required_runner_ids\"",
+			"\"error_message\"",
 		},
 		TestAppFactory: setupPipelineQueueApp,
 	}
@@ -678,6 +705,13 @@ func TestPipelineQueueStatus_MultiRunnerIgnoresMissingRunnerWorkflow(t *testing.
 		ExpectedContent: []string{
 			"\"status\":\"queued\"",
 		},
+		NotExpectedContent: []string{
+			"\"runner_ids\"",
+			"\"runners\"",
+			"\"leader_runner_id\"",
+			"\"required_runner_ids\"",
+			"\"error_message\"",
+		},
 		TestAppFactory: setupPipelineQueueApp,
 	}
 
@@ -717,6 +751,13 @@ func TestPipelineQueueStatus_MultiRunnerAllMissingReturnsNotFound(t *testing.T) 
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
 			"\"status\":\"not_found\"",
+		},
+		NotExpectedContent: []string{
+			"\"runner_ids\"",
+			"\"runners\"",
+			"\"leader_runner_id\"",
+			"\"required_runner_ids\"",
+			"\"error_message\"",
 		},
 		TestAppFactory: setupPipelineQueueApp,
 	}
