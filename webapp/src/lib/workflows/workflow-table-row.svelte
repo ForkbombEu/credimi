@@ -5,17 +5,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script module lang="ts">
-	export type RowSnippet = Snippet<
+	export type RowSnippet<Workflow extends WorkflowExecutionSummary> = Snippet<
 		[
 			{
-				workflow: WorkflowExecutionSummary;
+				workflow: Workflow;
 				Td: typeof Table.Cell;
 			}
 		]
 	>;
 </script>
 
-<script lang="ts">
+<script lang="ts" generics="Workflow extends WorkflowExecutionSummary">
 	import type { Snippet } from 'svelte';
 
 	import { EllipsisVerticalIcon, TriangleIcon } from '@lucide/svelte';
@@ -37,13 +37,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = HideColumnsProp & {
-		workflow: WorkflowExecutionSummary;
+		workflow: Workflow;
 		depth?: number;
-		row?: RowSnippet;
-		actions?: (workflow: WorkflowExecutionSummary) => DropdownMenuItem[];
+		row?: RowSnippet<Workflow>;
+		disableLink?: boolean;
+		actions?: DropdownMenuItem[];
 	};
 
-	let { workflow, depth = 0, row, hideColumns = [], actions }: Props = $props();
+	let {
+		workflow,
+		depth = 0,
+		row,
+		hideColumns = [],
+		actions,
+		disableLink = false
+	}: Props = $props();
 
 	const isRoot = $derived(depth === 0);
 	const isChild = $derived(!isRoot);
@@ -79,10 +87,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Table.Cell class={[isChild && 'py-0!']}>
 				<div class="flex flex-wrap items-center gap-4">
 					<div class="flex items-center gap-2">
-						<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
-						<a {href} class="text-primary hover:underline">
-							{workflow.displayName}
-						</a>
+						{#if !disableLink}
+							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
+							<a {href} class="text-primary hover:underline">
+								{workflow.displayName}
+							</a>
+						{:else}
+							<span>
+								{workflow.displayName}
+							</span>
+						{/if}
 
 						{#if workflow.children && workflow.children.length > 0}
 							<Button
@@ -158,7 +172,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if !hideColumns.includes('actions')}
 		<Table.Cell class="flex justify-end">
 			{#if actions}
-				<DropdownMenu items={actions(workflow)}>
+				<DropdownMenu items={actions}>
 					{#snippet triggerContent()}
 						<EllipsisVerticalIcon />
 					{/snippet}
@@ -170,6 +184,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if workflow.children && isExpanded}
 	{#each workflow.children as children (children.execution.runId)}
-		<WorkflowTableRow workflow={children} depth={depth + 1} {row} />
+		<WorkflowTableRow workflow={children as Workflow} depth={depth + 1} {row} />
 	{/each}
 {/if}

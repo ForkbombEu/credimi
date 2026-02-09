@@ -81,7 +81,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{@render na()}
 								{/each}
 							</td>
-							<td class="text-muted-foreground">{workflow.startTime}</td>
+							<td class="text-muted-foreground">
+								{#if workflow.queue}
+									{@render na()}
+								{:else}
+									{workflow.startTime}
+								{/if}
+							</td>
 							<td class="text-muted-foreground">
 								{#if workflow.endTime !== ''}
 									{workflow.endTime}
@@ -90,15 +96,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/if}
 							</td>
 							<td>
-								<A
-									href={resolve('/my/tests/runs/[workflow_id]/[run_id]', {
-										workflow_id: workflow.execution.workflowId,
-										run_id: workflow.execution.runId
-									})}
-								>
-									{m.View()}
-									<ArrowRightIcon class="inline-block size-3 -translate-y-px" />
-								</A>
+								{#if workflow.queue}
+									{@render na()}
+								{:else}
+									<A
+										href={resolve('/my/tests/runs/[workflow_id]/[run_id]', {
+											workflow_id: workflow.execution.workflowId,
+											run_id: workflow.execution.runId
+										})}
+									>
+										{m.View()}
+										<ArrowRightIcon
+											class="inline-block size-3 -translate-y-px"
+										/>
+									</A>
+								{/if}
 							</td>
 							<td>
 								<DropdownMenu

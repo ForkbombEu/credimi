@@ -27,7 +27,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { workflows }: Props = $props();
 </script>
 
-<WorkflowsTable {workflows} hideColumns={['status']} actions={(w) => makeDropdownActions(w)}>
+<WorkflowsTable
+	{workflows}
+	hideColumns={['status']}
+	actions={(w) => makeDropdownActions(w)}
+	disableLink={(w) => w.queue !== undefined}
+>
 	{#snippet header({ Th })}
 		<Th>{m.Status()}</Th>
 		<Th>{m.Runner()}</Th>
@@ -35,8 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet row({ workflow, Td })}
-		{@const typed = workflow as ExecutionSummary}
-		{@const runnerNames = (typed.runner_records ?? []).map((r) => r.name)}
+		{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
 
 		<Td>
 			<WorkflowStatusTag {workflow} />
@@ -51,9 +55,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Td>
 
 		<Td>
-			{#if typed.results && typed.results.length > 0}
+			{#if workflow.results && workflow.results.length > 0}
 				<div class="flex items-center gap-2">
-					{#each typed.results as result (result.video)}
+					{#each workflow.results as result (result.video)}
 						<div class="flex items-center gap-1">
 							{@render mediaPreview({
 								image: result.screenshot,

@@ -4,7 +4,7 @@ SPDX-FileCopyrightText: 2025 Forkbomb BV
 SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
-<script lang="ts">
+<script lang="ts" generics="Workflow extends WorkflowExecutionSummary">
 	import type { Snippet } from 'svelte';
 
 	import { XIcon } from '@lucide/svelte';
@@ -25,10 +25,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = HideColumnsProp & {
-		workflows: WorkflowExecutionSummary[];
+		workflows: Workflow[];
 		header?: Snippet<[{ Th: typeof Table.Head }]>;
-		row?: RowSnippet;
-		actions?: (workflow: WorkflowExecutionSummary) => DropdownMenuItem[];
+		row?: RowSnippet<Workflow>;
+		actions?: (workflow: Workflow) => DropdownMenuItem[];
+		disableLink?: (workflow: Workflow) => boolean;
 	};
 
 	const DEFAULT_ACTIONS = (workflow: WorkflowExecutionSummary): DropdownMenuItem[] => [
@@ -44,7 +45,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	];
 
-	let { workflows, row, header, hideColumns = [], actions = DEFAULT_ACTIONS }: Props = $props();
+	let {
+		workflows,
+		row,
+		header,
+		hideColumns = [],
+		actions = DEFAULT_ACTIONS,
+		disableLink
+	}: Props = $props();
 </script>
 
 <TemporalI18nProvider>
@@ -74,7 +82,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Header>
 		<Table.Body>
 			{#each workflows as workflow (workflow.execution.runId)}
-				<WorkflowTableRow {workflow} {row} {hideColumns} {actions} />
+				<WorkflowTableRow
+					{workflow}
+					{row}
+					{hideColumns}
+					actions={actions?.(workflow)}
+					disableLink={disableLink?.(workflow)}
+				/>
 			{:else}
 				<Table.Row class="hover:bg-transparent">
 					<Table.Cell colspan={6} class="text-center text-gray-300 py-20">
