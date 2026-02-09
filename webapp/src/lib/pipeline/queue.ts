@@ -12,63 +12,48 @@ import { m } from '@/i18n';
 import { pb } from '@/pocketbase';
 import { getExceptionMessage } from '@/utils/errors';
 
-import { getPipelineRunner, getPipelineRunnerType, parsePipelineYaml } from './utils';
-
-/** Runner-level status for a queued pipeline run (POST /api/pipeline/queue response) */
-export type PipelineQueueRunnerStatus = {
-	runner_id: string;
-	status: PipelineQueueRunStatus;
-	position: number;
-	line_len: number;
-	workflow_id?: string;
-	run_id?: string;
-	workflow_namespace?: string;
-	error_message?: string;
-};
-
-/** Status values from the mobile runner semaphore workflow */
-export type PipelineQueueRunStatus =
-	| 'queued'
-	| 'starting'
-	| 'running'
-	| 'failed'
-	| 'canceled'
-	| 'not_found';
-
-/** Response body of POST /api/pipeline/queue (200 OK) */
-export type PipelineQueueResponse = {
-	ticket_id: string;
-	enqueued_at?: string; // ISO 8601
-	runner_ids?: string[];
-	leader_runner_id?: string;
-	required_runner_ids?: string[];
-	status: PipelineQueueRunStatus;
-	position: number;
-	line_len: number;
-	workflow_id?: string;
-	run_id?: string;
-	workflow_namespace?: string;
-	error_message?: string;
-	runners: PipelineQueueRunnerStatus[];
-};
+import * as PipelineRunner from './runner';
+import { parseYaml } from './utils';
 
 //
 
-export async function enqueuePipeline(
-	pipeline: PipelinesResponse
-): Promise<Result<PipelineQueueResponse, string>> {
+export type Status = 'queued' | 'starting' | 'running' | 'failed' | 'canceled' | 'not_found';
+
+/** Shared optional fields that the API may include on any response */
+type APIResponseBase = {
+	ticket_id?: string;
+	enqueued_at?: string;
+	runner_ids?: string[];
+	position?: number;
+	line_len?: number;
+	workflow_id?: string;
+	run_id?: string;
+	error_message?: string;
+};
+
+/**
+ * Discriminated union for POST /api/pipeline/queue, GET /api/pipeline/queue/{ticket}, DELETE /api/pipeline/queue/{ticket}.
+ * Narrow by `status` to get the appropriate shape.
+ */
+export type APIResponse =
+	| (APIResponseBase & { status: 'queued' | 'starting' })
+	| (APIResponseBase & { status: 'running'; workflow_id: string; run_id: string })
+	| (APIResponseBase & { status: 'failed' | 'canceled' })
+	| (APIResponseBase & { status: 'not_found' });
+
+export async function enqueue(pipeline: PipelinesResponse): Promise<Result<APIResponse, string>> {
 	try {
-		const parsedYaml = parsePipelineYaml(pipeline.yaml);
-		const runnerType = getPipelineRunnerType(pipeline);
+		const parsedYaml = parseYaml(pipeline.yaml);
+		const runnerType = PipelineRunner.getType(pipeline);
 
 		if (runnerType === 'global') {
-			const runner = getPipelineRunner(pipeline.id);
+			const runner = PipelineRunner.get(pipeline.id);
 			if (!runner) throw new Error('No runner found');
 			if (parsedYaml.runtime) parsedYaml.runtime.global_runner_id = runner;
 			else parsedYaml.runtime = { global_runner_id: runner };
 		}
 
-		const res = await pb.send<PipelineQueueResponse>('/api/pipeline/queue', {
+		const res = await pb.send<APIResponse>('/api/pipeline/queue', {
 			method: 'POST',
 			body: {
 				pipeline_identifier: getPath(pipeline),
@@ -85,15 +70,15 @@ export async function enqueuePipeline(
 	}
 }
 
-export async function cancelQueueTicket(
+export async function cancel(
 	ticketId: string,
 	runnerIds: string[]
-): Promise<Result<PipelineQueueResponse, string>> {
+): Promise<Result<APIResponse, string>> {
 	try {
 		const params = new URLSearchParams();
 		params.set('runner_ids', runnerIds.join(','));
 		const url = `/api/pipeline/queue/${ticketId}?${params.toString()}`;
-		const res = await pb.send<PipelineQueueResponse>(url, { method: 'DELETE' });
+		const res = await pb.send<APIResponse>(url, { method: 'DELETE' });
 		if (res.status === 'canceled') {
 			return ok(res);
 		} else {

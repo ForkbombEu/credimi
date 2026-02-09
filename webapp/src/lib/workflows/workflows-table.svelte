@@ -13,40 +13,49 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import type { WorkflowExecutionSummary } from './queries.types';
+	import type { HideColumnsProp } from './workflow-table.types';
 
 	import WorkflowTableRow, { type RowSnippet } from './workflow-table-row.svelte';
 
 	//
 
-	type Props = {
+	type Props = HideColumnsProp & {
 		workflows: WorkflowExecutionSummary[];
-		hideResults?: boolean;
 		header?: Snippet<[{ Th: typeof Table.Head }]>;
 		row?: RowSnippet;
 	};
 
-	let { workflows, row, header, hideResults = false }: Props = $props();
+	let { workflows, row, header, hideColumns = [] }: Props = $props();
 </script>
 
 <TemporalI18nProvider>
 	<Table.Root class="max-w-full rounded-lg bg-white">
 		<Table.Header>
 			<Table.Row>
-				<Table.Head>{m.Type()}</Table.Head>
-				<Table.Head>{m.Workflow()}</Table.Head>
-				<Table.Head>{m.Status()}</Table.Head>
-				{@render header?.({ Th: Table.Head })}
-				{#if !hideResults}
-					<Table.Head>{m.Results()}</Table.Head>
+				{#if !hideColumns.includes('type')}
+					<Table.Head>{m.Type()}</Table.Head>
 				{/if}
-				<Table.Head class="text-right">{m.Start_time()}</Table.Head>
-				<Table.Head class="text-right">{m.End_time()}</Table.Head>
-				<Table.Head class="text-right">{m.Actions()}</Table.Head>
+				{#if !hideColumns.includes('workflow')}
+					<Table.Head>{m.Workflow()}</Table.Head>
+				{/if}
+				{#if !hideColumns.includes('status')}
+					<Table.Head>{m.Status()}</Table.Head>
+				{/if}
+				{@render header?.({ Th: Table.Head })}
+				{#if !hideColumns.includes('start_time')}
+					<Table.Head class="text-right">{m.Start_time()}</Table.Head>
+				{/if}
+				{#if !hideColumns.includes('end_time')}
+					<Table.Head class="text-right">{m.End_time()}</Table.Head>
+				{/if}
+				{#if !hideColumns.includes('actions')}
+					<Table.Head class="text-right">{m.Actions()}</Table.Head>
+				{/if}
 			</Table.Row>
 		</Table.Header>
 		<Table.Body>
 			{#each workflows as workflow (workflow.execution.runId)}
-				<WorkflowTableRow {workflow} {row} {hideResults} />
+				<WorkflowTableRow {workflow} {row} {hideColumns} />
 			{:else}
 				<Table.Row class="hover:bg-transparent">
 					<Table.Cell colspan={6} class="text-center text-gray-300 py-20">

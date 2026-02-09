@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { SearchIcon, SparkleIcon, TestTubeIcon } from '@lucide/svelte';
+	import { Pipeline } from '$lib';
 	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
 	import { fetchWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
@@ -85,9 +86,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#if selectedWorkflows.length > 0}
 		{#if selectedTab === 'pipeline'}
-			<WorkflowsTable workflows={pipelineWorkflows} />
+			<Pipeline.Workflows.Table workflows={pipelineWorkflows} />
 		{:else}
-			<WorkflowsTable workflows={otherWorkflows} hideResults>
+			<WorkflowsTable workflows={otherWorkflows}>
 				{#snippet header({ Th })}
 					<Th>
 						{m.QR_code()}

@@ -15,15 +15,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
-	import type { WorkflowExecutionSummary } from './queries.types';
-
-	import WorkflowActions from './workflow-actions.svelte';
-	import WorkflowStatus from './workflow-status.svelte';
+	import WorkflowActions from '../workflows/workflow-actions.svelte';
+	import WorkflowStatusTag from './workflow-status-tag.svelte';
+	import * as PipelineWorkflows from './workflows';
 
 	//
 
 	type Props = {
-		workflows: WorkflowExecutionSummary[];
+		workflows: PipelineWorkflows.ExecutionSummary[];
 	};
 
 	let { workflows }: Props = $props();
@@ -50,11 +49,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{@const status = toWorkflowStatusReadable(workflow.status)}
 						<tr>
 							<td>
-								<WorkflowStatus
-									status={workflow.status}
-									failureReason={workflow.failure_reason}
-									size="sm"
-								/>
+								<WorkflowStatusTag {workflow} />
 							</td>
 							<td>
 								{#if runnerNames.length > 0}

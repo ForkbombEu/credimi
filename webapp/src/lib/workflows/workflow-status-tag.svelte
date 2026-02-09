@@ -5,15 +5,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
+	import { WorkflowStatus as Tag } from '@forkbombeu/temporal-ui';
 	import { CircleQuestionMarkIcon } from '@lucide/svelte';
 
 	import Popover from '@/components/ui-custom/popover.svelte';
 
+	import type { WorkflowStatus } from './types';
+
 	//
 
 	type Props = {
-		status: string | null;
+		status: WorkflowStatus;
 		failureReason?: string;
 		size?: 'md' | 'sm';
 	};
@@ -21,16 +23,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { status, failureReason, size = 'md' }: Props = $props();
 
 	//
-
-	const readableStatus = $derived.by(() => {
-		const s = toWorkflowStatusReadable(status);
-		if (!s) throw new Error(`Invalid status: ${status}`);
-		return s;
-	});
 </script>
 
 <div class={['flex origin-left gap-1', size === 'sm' && 'scale-75']}>
-	<WorkflowStatus status={readableStatus} />
+	<Tag {status} />
 	{#if failureReason}
 		<Popover
 			buttonVariants={{ variant: 'outline' }}

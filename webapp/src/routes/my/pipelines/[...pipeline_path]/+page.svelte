@@ -7,15 +7,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { ArrowLeft } from '@lucide/svelte';
+	import { Pipeline } from '$lib';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
-	import WorkflowsTable from '$lib/workflows/workflows-table.svelte';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator/index.js';
 	import { m } from '@/i18n';
 
-	import { getPipelineWorkflows } from '../_partials/workflows.js';
 	import { setDashboardNavbar } from '../../+layout@.svelte';
 
 	//
@@ -27,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		setDashboardNavbar({ title: m.Pipelines(), right: navbarRight });
 	});
 
-	const workflows = new PolledResource(() => getPipelineWorkflows(pipeline.id), {
+	const workflows = new PolledResource(() => Pipeline.Workflows.list(pipeline.id), {
 		initialValue: () => data.workflows
 	});
 
@@ -76,21 +75,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Separator />
 
 <T tag="h3">{m.workflow_runs()}</T>
-<WorkflowsTable workflows={workflows.current ?? []}>
-	{#snippet header({ Th })}
-		<Th>{m.Runner()}</Th>
-	{/snippet}
-	{#snippet row({ workflow, Td })}
-		{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
-		<Td>
-			{#if runnerNames.length > 0}
-				{runnerNames.join(', ')}
-			{:else}
-				<span class="text-muted-foreground opacity-50">N/A</span>
-			{/if}
-		</Td>
-	{/snippet}
-</WorkflowsTable>
+<Pipeline.Workflows.Table workflows={workflows.current ?? []} />
 
 <!--  -->
 

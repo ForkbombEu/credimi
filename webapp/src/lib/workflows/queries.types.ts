@@ -2,7 +2,9 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { MobileRunnersResponse } from '@/pocketbase/types';
+import type { WorkflowStatus } from '@forkbombeu/temporal-ui/dist/types/workflows';
+
+//
 
 export interface FetchWorkflowsResponse {
 	executions: Array<WorkflowExecutionSummary>;
@@ -18,21 +20,8 @@ export interface WorkflowExecutionSummary {
 	};
 	startTime: string;
 	endTime?: string;
-	status: string;
+	status: NonNullable<WorkflowStatus>;
 	displayName: string;
-	results?: Array<{
-		video: string;
-		screenshot: string;
-	}>;
 	children?: Array<WorkflowExecutionSummary>;
 	failure_reason?: string;
-	global_runner_id?: string;
-	runner_ids?: string[];
-	runner_records?: Array<MobileRunnersResponse>;
-	queue?: {
-		ticket_id: string;
-		position: number;
-		line_len: number;
-		runner_ids: string[];
-	};
 }
