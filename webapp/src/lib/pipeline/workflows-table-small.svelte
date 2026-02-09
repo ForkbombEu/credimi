@@ -5,16 +5,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowRightIcon, EllipsisIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import { ArrowRightIcon, EllipsisVerticalIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
-	import { omit } from 'lodash';
 
 	import A from '@/components/ui-custom/a.svelte';
+	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
-	import WorkflowActions from '../workflows/workflow-actions.svelte';
+	import { makeDropdownActions } from './actions';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
 	import * as PipelineWorkflows from './workflows';
 
@@ -101,25 +101,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								</A>
 							</td>
 							<td>
-								<WorkflowActions
-									mode="dropdown"
-									workflow={{
-										workflowId: workflow.execution.workflowId,
-										runId: workflow.execution.runId,
-										status: workflow.status,
-										name: workflow.displayName
-									}}
-									dropdownTriggerVariants={{ size: 'icon', variant: 'ghost' }}
+								<DropdownMenu
+									triggerVariants={{ size: 'icon-sm', variant: 'ghost' }}
+									items={makeDropdownActions(workflow)}
 								>
-									{#snippet dropdownTrigger({ props })}
-										<IconButton
-											{...omit(props, 'class')}
-											size="mini"
-											variant="ghost"
-											icon={EllipsisIcon}
-										/>
+									{#snippet triggerContent()}
+										<EllipsisVerticalIcon />
 									{/snippet}
-								</WorkflowActions>
+								</DropdownMenu>
 							</td>
 						</tr>
 					{/each}

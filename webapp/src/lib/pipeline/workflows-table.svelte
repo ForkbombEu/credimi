@@ -15,6 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { ExecutionSummary } from './workflows';
 
+	import { makeDropdownActions } from './actions';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
 
 	//
@@ -26,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { workflows }: Props = $props();
 </script>
 
-<WorkflowsTable {workflows} hideColumns={['status']}>
+<WorkflowsTable {workflows} hideColumns={['status']} actions={(w) => makeDropdownActions(w)}>
 	{#snippet header({ Th })}
 		<Th>{m.Status()}</Th>
 		<Th>{m.Runner()}</Th>

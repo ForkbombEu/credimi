@@ -7,7 +7,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
+	import { XIcon } from '@lucide/svelte';
 	import { TemporalI18nProvider } from '$lib/temporal';
+	import { runWithLoading } from '$lib/utils';
+
+	import type { DropdownMenuItem } from '@/components/ui-custom/dropdown-menu.svelte';
 
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
@@ -15,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WorkflowExecutionSummary } from './queries.types';
 	import type { HideColumnsProp } from './workflow-table.types';
 
+	import { cancel } from './utils';
 	import WorkflowTableRow, { type RowSnippet } from './workflow-table-row.svelte';
 
 	//
@@ -23,9 +28,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflows: WorkflowExecutionSummary[];
 		header?: Snippet<[{ Th: typeof Table.Head }]>;
 		row?: RowSnippet;
+		actions?: (workflow: WorkflowExecutionSummary) => DropdownMenuItem[];
 	};
 
-	let { workflows, row, header, hideColumns = [] }: Props = $props();
+	const DEFAULT_ACTIONS = (workflow: WorkflowExecutionSummary): DropdownMenuItem[] => [
+		{
+			label: m.Cancel(),
+			icon: XIcon,
+			onclick: () => {
+				runWithLoading({
+					fn: () => cancel(workflow.execution.workflowId, workflow.execution.runId),
+					showSuccessToast: false
+				});
+			}
+		}
+	];
+
+	let { workflows, row, header, hideColumns = [], actions = DEFAULT_ACTIONS }: Props = $props();
 </script>
 
 <TemporalI18nProvider>
@@ -55,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Header>
 		<Table.Body>
 			{#each workflows as workflow (workflow.execution.runId)}
-				<WorkflowTableRow {workflow} {row} {hideColumns} />
+				<WorkflowTableRow {workflow} {row} {hideColumns} {actions} />
 			{:else}
 				<Table.Row class="hover:bg-transparent">
 					<Table.Cell colspan={6} class="text-center text-gray-300 py-20">

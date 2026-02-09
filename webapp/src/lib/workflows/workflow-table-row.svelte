@@ -21,14 +21,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { EllipsisVerticalIcon, TriangleIcon } from '@lucide/svelte';
 	import clsx from 'clsx';
 
+	import type { DropdownMenuItem } from '@/components/ui-custom/dropdown-menu.svelte';
+
 	import Button from '@/components/ui-custom/button.svelte';
+	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
 	import * as Table from '@/components/ui/table';
 	import { localizeHref } from '@/i18n';
 
 	import type { WorkflowExecutionSummary } from './queries.types';
 	import type { HideColumnsProp } from './workflow-table.types';
 
-	import WorkflowActions from './workflow-actions.svelte';
 	import WorkflowStatusTag from './workflow-status-tag.svelte';
 	import WorkflowTableRow from './workflow-table-row.svelte';
 
@@ -38,9 +40,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflow: WorkflowExecutionSummary;
 		depth?: number;
 		row?: RowSnippet;
+		actions?: (workflow: WorkflowExecutionSummary) => DropdownMenuItem[];
 	};
 
-	let { workflow, depth = 0, row, hideColumns = [] }: Props = $props();
+	let { workflow, depth = 0, row, hideColumns = [], actions }: Props = $props();
 
 	const isRoot = $derived(depth === 0);
 	const isChild = $derived(!isRoot);
@@ -154,20 +157,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#if !hideColumns.includes('actions')}
 		<Table.Cell class="flex justify-end">
-			<WorkflowActions
-				mode="dropdown"
-				workflow={{
-					workflowId: workflow.execution.workflowId,
-					runId: workflow.execution.runId,
-					status: workflow.status,
-					name: workflow.displayName
-				}}
-				dropdownTriggerVariants={{ size: 'icon', variant: 'ghost' }}
-			>
-				{#snippet dropdownTriggerContent()}
-					<EllipsisVerticalIcon />
-				{/snippet}
-			</WorkflowActions>
+			{#if actions}
+				<DropdownMenu items={actions(workflow)}>
+					{#snippet triggerContent()}
+						<EllipsisVerticalIcon />
+					{/snippet}
+				</DropdownMenu>
+			{/if}
 		</Table.Cell>
 	{/if}
 </tr>

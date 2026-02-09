@@ -925,7 +925,7 @@
 	"Current_runner": "Current runner",
 	"Runner_configuration_not_available": "Runner configuration not available for pipelines with specific runner steps",
 	"Failed_to_enqueue_pipeline": "Failed to enqueue pipeline",
-	"Pipeline_queued": "Pipeline queued (position {position} of {line_len})",
+	"Pipeline_queued": "Pipeline queued (position {position})",
 	"Failed_to_cancel_pipeline": "Failed to cancel pipeline",
 	"Pipeline_execution_canceled": "Pipeline execution canceled",
 	"Queued": "Queued"

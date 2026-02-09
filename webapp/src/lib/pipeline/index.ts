@@ -2,8 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+export { cancel, run } from './actions';
 export * as Queue from './queue';
-export * from './run';
 export * as Runner from './runner';
 export * from './types';
 export * from './utils';
