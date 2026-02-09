@@ -192,9 +192,8 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			}),
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				"\"status\":\"queued\"",
+				"\"mode\":\"queued\"",
 				"\"runner_ids\":[\"runner-1\"]",
-				"\"leader_runner_id\":\"runner-1\"",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				return setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
@@ -246,7 +245,7 @@ func TestPipelineQueueEnqueuePassesQueueLimit(t *testing.T) {
 		}),
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
-			"\"status\":\"queued\"",
+			"\"mode\":\"queued\"",
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
