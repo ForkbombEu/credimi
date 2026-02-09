@@ -35,28 +35,25 @@ type PipelineQueueInput struct {
 }
 
 type pipelineQueueRunnerStatus struct {
-	RunnerID          string
-	Status            workflows.MobileRunnerSemaphoreRunStatus
-	Position          int
-	LineLen           int
-	WorkflowID        string
-	RunID             string
-	WorkflowNamespace string
-	ErrorMessage      string
+	RunnerID     string
+	Status       workflows.MobileRunnerSemaphoreRunStatus
+	Position     int
+	LineLen      int
+	WorkflowID   string
+	RunID        string
+	ErrorMessage string
 }
 
 type PipelineQueueResponse struct {
-	Mode              string                                   `json:"mode,omitempty"`
-	TicketID          string                                   `json:"ticket_id,omitempty"`
-	EnqueuedAt        *time.Time                               `json:"enqueued_at,omitempty"`
-	RunnerIDs         []string                                 `json:"runner_ids,omitempty"`
-	Status            workflows.MobileRunnerSemaphoreRunStatus `json:"status,omitempty"`
-	Position          *int                                     `json:"position,omitempty"`
-	LineLen           *int                                     `json:"line_len,omitempty"`
-	WorkflowID        string                                   `json:"workflow_id,omitempty"`
-	RunID             string                                   `json:"run_id,omitempty"`
-	WorkflowNamespace string                                   `json:"workflow_namespace,omitempty"`
-	ErrorMessage      string                                   `json:"error_message,omitempty"`
+	TicketID     string                                   `json:"ticket_id,omitempty"`
+	EnqueuedAt   *time.Time                               `json:"enqueued_at,omitempty"`
+	RunnerIDs    []string                                 `json:"runner_ids,omitempty"`
+	Status       workflows.MobileRunnerSemaphoreRunStatus `json:"status,omitempty"`
+	Position     *int                                     `json:"position,omitempty"`
+	LineLen      *int                                     `json:"line_len,omitempty"`
+	WorkflowID   string                                   `json:"workflow_id,omitempty"`
+	RunID        string                                   `json:"run_id,omitempty"`
+	ErrorMessage string                                   `json:"error_message,omitempty"`
 }
 
 type queueRequestContext struct {
@@ -66,13 +63,6 @@ type queueRequestContext struct {
 }
 
 var errRunTicketNotFound = errors.New("run ticket not found")
-
-// queueEnqueueMode* describes the minimal enqueue response mode.
-const (
-	queueEnqueueModeQueued  = "queued"
-	queueEnqueueModeStarted = "started"
-	queueEnqueueModeFailed  = "failed"
-)
 
 func isQueueLimitExceeded(err error) bool {
 	var appErr *temporal.ApplicationError
@@ -192,10 +182,9 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 				return apiErr.JSON(e)
 			}
 			response := PipelineQueueResponse{
-				Mode:              queueEnqueueModeStarted,
-				WorkflowID:        startResult.WorkflowID,
-				RunID:             startResult.WorkflowRunID,
-				WorkflowNamespace: namespace,
+				Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+				WorkflowID: startResult.WorkflowID,
+				RunID:      startResult.WorkflowRunID,
 			}
 			return e.JSON(http.StatusOK, response)
 		}
@@ -298,7 +287,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			})
 		}
 
-		status, position, lineLen, workflowID, runID, workflowNamespace, errorMessage :=
+		status, position, lineLen, workflowID, runID, errorMessage :=
 			aggregateRunQueueStatus(runnerStatuses)
 		response := buildQueueEnqueueResponse(
 			ticketID,
@@ -309,7 +298,6 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			lineLen,
 			workflowID,
 			runID,
-			workflowNamespace,
 			errorMessage,
 		)
 
@@ -378,7 +366,6 @@ func buildQueueEnqueueResponse(
 	lineLen int,
 	workflowID string,
 	runID string,
-	workflowNamespace string,
 	errorMessage string,
 ) PipelineQueueResponse {
 	switch status {
@@ -389,22 +376,20 @@ func buildQueueEnqueueResponse(
 			msg = "queue failed"
 		}
 		return PipelineQueueResponse{
-			Mode:         queueEnqueueModeFailed,
 			Status:       workflowengine.MobileRunnerSemaphoreRunFailed,
 			ErrorMessage: msg,
 		}
 	case workflowengine.MobileRunnerSemaphoreRunRunning:
 		return PipelineQueueResponse{
-			Mode:              queueEnqueueModeStarted,
-			WorkflowID:        workflowID,
-			RunID:             runID,
-			WorkflowNamespace: workflowNamespace,
+			Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+			WorkflowID: workflowID,
+			RunID:      runID,
 		}
 	default:
 		pos := position
 		line := lineLen
 		return PipelineQueueResponse{
-			Mode:       queueEnqueueModeQueued,
+			Status:     status,
 			TicketID:   ticketID,
 			EnqueuedAt: &enqueuedAt,
 			RunnerIDs:  copyStringSlice(runnerIDs),
@@ -615,7 +600,7 @@ func buildQueueStatusResponse(
 	ticketID string,
 	runnerStatuses []pipelineQueueRunnerStatus,
 ) PipelineQueueResponse {
-	status, position, lineLen, workflowID, runID, workflowNamespace, _ :=
+	status, position, lineLen, workflowID, runID, _ :=
 		aggregateRunQueueStatus(runnerStatuses)
 	pos := position
 	line := lineLen
@@ -628,7 +613,6 @@ func buildQueueStatusResponse(
 	if workflowID != "" {
 		response.WorkflowID = workflowID
 		response.RunID = runID
-		response.WorkflowNamespace = workflowNamespace
 	}
 	return response
 }
@@ -672,14 +656,13 @@ func runnerStatusFromView(
 	status workflows.MobileRunnerSemaphoreRunStatusView,
 ) pipelineQueueRunnerStatus {
 	return pipelineQueueRunnerStatus{
-		RunnerID:          runnerID,
-		Status:            status.Status,
-		Position:          status.Position,
-		LineLen:           status.LineLen,
-		WorkflowID:        status.WorkflowID,
-		RunID:             status.RunID,
-		WorkflowNamespace: status.WorkflowNamespace,
-		ErrorMessage:      status.ErrorMessage,
+		RunnerID:     runnerID,
+		Status:       status.Status,
+		Position:     status.Position,
+		LineLen:      status.LineLen,
+		WorkflowID:   status.WorkflowID,
+		RunID:        status.RunID,
+		ErrorMessage: status.ErrorMessage,
 	}
 }
 
@@ -692,19 +675,17 @@ func aggregateRunQueueStatus(
 	string,
 	string,
 	string,
-	string,
 ) {
 	queueStatuses := make([]runqueue.RunnerStatus, 0, len(statuses))
 	for _, status := range statuses {
 		queueStatuses = append(queueStatuses, runqueue.RunnerStatus{
-			RunnerID:          status.RunnerID,
-			Status:            status.Status,
-			Position:          status.Position,
-			LineLen:           status.LineLen,
-			WorkflowID:        status.WorkflowID,
-			RunID:             status.RunID,
-			WorkflowNamespace: status.WorkflowNamespace,
-			ErrorMessage:      status.ErrorMessage,
+			RunnerID:     status.RunnerID,
+			Status:       status.Status,
+			Position:     status.Position,
+			LineLen:      status.LineLen,
+			WorkflowID:   status.WorkflowID,
+			RunID:        status.RunID,
+			ErrorMessage: status.ErrorMessage,
 		})
 	}
 
@@ -715,7 +696,6 @@ func aggregateRunQueueStatus(
 		aggregate.LineLen,
 		aggregate.WorkflowID,
 		aggregate.RunID,
-		aggregate.WorkflowNamespace,
 		aggregate.ErrorMessage
 }
 

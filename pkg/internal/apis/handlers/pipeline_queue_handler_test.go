@@ -195,8 +195,11 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			}),
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				"\"mode\":\"queued\"",
+				"\"status\":\"queued\"",
 				"\"runner_ids\":[\"runner-1\"]",
+			},
+			NotExpectedContent: []string{
+				"\"mode\"",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				return setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
@@ -255,7 +258,10 @@ func TestPipelineQueueEnqueuePassesQueueLimit(t *testing.T) {
 		}),
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
-			"\"mode\":\"queued\"",
+			"\"status\":\"queued\"",
+		},
+		NotExpectedContent: []string{
+			"\"mode\"",
 		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
@@ -325,9 +331,10 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 		mux.ServeHTTP(rec, req)
 
 		require.Equal(t, http.StatusOK, rec.Code)
-		require.Contains(t, rec.Body.String(), "\"mode\":\"started\"")
+		require.Contains(t, rec.Body.String(), "\"status\":\"running\"")
 		require.Contains(t, rec.Body.String(), "\"workflow_id\":\"wf-123\"")
 		require.Contains(t, rec.Body.String(), "\"run_id\":\"run-456\"")
+		require.NotContains(t, rec.Body.String(), "\"mode\"")
 		return nil
 	})
 	require.NoError(t, serveErr)
