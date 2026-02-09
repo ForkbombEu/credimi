@@ -8,14 +8,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { browser } from '$app/environment';
 	import { page } from '$app/state';
+	import { Workflow } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
+	import { runWithLoading } from '$lib/layout/global-loading.svelte';
 	import { TemporalI18nProvider } from '$lib/temporal';
 	import { WorkflowQrPoller } from '$lib/workflows';
-	import WorkflowActions from '$lib/workflows/workflow-actions.svelte';
 	import { onMount } from 'svelte';
 	import { z } from 'zod/v3';
 
 	import Alert from '@/components/ui-custom/alert.svelte';
+	import Button from '@/components/ui-custom/button.svelte';
 	import Spinner from '@/components/ui-custom/spinner.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator';
@@ -218,15 +220,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</table>
 
 		<div class="pt-6">
-			<WorkflowActions
-				workflow={{
-					runId,
-					workflowId,
-					status: execution.status,
-					name: memo?.test ?? execution.id
-				}}
-				mode="buttons"
-			/>
+			<Button
+				variant="outline"
+				onclick={() => runWithLoading({ fn: () => Workflow.cancel(workflowId, runId) })}
+				disabled={execution.status !== 'Running'}
+			>
+				{m.Cancel()}
+			</Button>
 		</div>
 	</div>
 

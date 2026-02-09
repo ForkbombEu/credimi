@@ -52,12 +52,14 @@ func AggregateRunnerStatuses(statuses []RunnerStatus) AggregateStatus {
 			aggregateStatus = status.Status
 			aggregatePriority = priority
 		}
-		if status.Status == mobilerunnersemaphore.MobileRunnerSemaphoreRunRunning && workflowID == "" {
+		if status.Status == mobilerunnersemaphore.MobileRunnerSemaphoreRunRunning &&
+			workflowID == "" {
 			workflowID = status.WorkflowID
 			runID = status.RunID
 			workflowNamespace = status.WorkflowNamespace
 		}
-		if status.Status == mobilerunnersemaphore.MobileRunnerSemaphoreRunFailed && errorMessage == "" {
+		if status.Status == mobilerunnersemaphore.MobileRunnerSemaphoreRunFailed &&
+			errorMessage == "" {
 			errorMessage = status.ErrorMessage
 		}
 	}

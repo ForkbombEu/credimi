@@ -2,6 +2,8 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import type { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
+
 import z from 'zod/v3';
 
 //
@@ -41,3 +43,7 @@ export const workflowResponseSchema = z.object({
 });
 
 export type WorkflowResponse = z.infer<typeof workflowResponseSchema>;
+
+//
+
+export type WorkflowStatus = NonNullable<ReturnType<typeof toWorkflowStatusReadable>>;

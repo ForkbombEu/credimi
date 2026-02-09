@@ -77,11 +77,20 @@ type WorkflowExecutionSummary struct {
 	Type          WorkflowType                `json:"type"                     validate:"required"`
 	StartTime     string                      `json:"startTime"`
 	EndTime       string                      `json:"endTime"`
+	EnqueuedAt    string                      `json:"enqueuedAt"`
 	Status        string                      `json:"status"                   validate:"required"`
 	DisplayName   string                      `json:"displayName"              validate:"required"`
+	Queue         *WorkflowQueueSummary       `json:"queue,omitempty"`
 	Children      []*WorkflowExecutionSummary `json:"children,omitempty"`
 	Results       []PipelineResults           `json:"results,omitempty"`
 	FailureReason *string                     `json:"failure_reason,omitempty"`
+}
+
+type WorkflowQueueSummary struct {
+	TicketID  string   `json:"ticket_id"`
+	Position  int      `json:"position"`
+	LineLen   int      `json:"line_len"`
+	RunnerIDs []string `json:"runner_ids,omitempty"`
 }
 
 type WorkflowDescriptionInfoSummary struct {
@@ -120,6 +129,37 @@ const (
 	WorkflowStatusContinuedAsNew WorkflowStatus = "ContinuedAsNew"
 	WorkflowStatusCanceled       WorkflowStatus = "Canceled"
 	WorkflowStatusTerminated     WorkflowStatus = "Terminated"
+	WorkflowStatusUnspecified    WorkflowStatus = "Unspecified"
+	WorkflowStatusQueued         WorkflowStatus = "Queued"
+)
+
+// statusStringRunning is the lowercase status label used in query params and responses.
+const (
+	statusStringRunning = "running"
+
+	// statusStringCompleted is the lowercase status label used in query params and responses.
+	statusStringCompleted = "completed"
+
+	// statusStringFailed is the lowercase status label used in query params and responses.
+	statusStringFailed = "failed"
+
+	// statusStringTerminated is the lowercase status label used in query params and responses.
+	statusStringTerminated = "terminated"
+
+	// statusStringCanceled is the lowercase status label used in query params and responses.
+	statusStringCanceled = "canceled"
+
+	// statusStringTimedOut is the lowercase status label used in query params and responses.
+	statusStringTimedOut = "timed_out"
+
+	// statusStringContinuedAsNew is the lowercase status label used in query params and responses.
+	statusStringContinuedAsNew = "continued_as_new"
+
+	// statusStringUnspecified is the lowercase status label used in query params and responses.
+	statusStringUnspecified = "unspecified"
+
+	// statusStringPaused is the lowercase status label used in schedule responses.
+	statusStringPaused = "paused"
 )
 
 type FilterParameters struct {

@@ -89,7 +89,7 @@ func TestFindOrCreatePipelineCreatesWhenMissing(t *testing.T) {
 	require.Equal(t, 2, call)
 }
 
-// TestStartPipelineQueuesRunnerPipelines verifies queue-first behavior for runner pipelines.
+// TestStartPipelineQueuesRunnerPipelines verifies queue output for runner pipelines.
 func TestStartPipelineQueuesRunnerPipelines(t *testing.T) {
 	rec := map[string]any{
 		"yaml":             "name: demo",
@@ -111,14 +111,12 @@ func TestStartPipelineQueuesRunnerPipelines(t *testing.T) {
 
 			w.Header().Set("Content-Type", "application/json")
 			require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+				"mode":       "queued",
 				"ticket_id":  "ticket-1",
 				"runner_ids": []string{"runner-1"},
-				"status":     "queued",
 				"position":   0,
 				"line_len":   2,
 			}))
-		case "/api/pipeline/start":
-			require.Fail(t, "unexpected start call")
 		default:
 			require.Fail(t, "unexpected path")
 		}
@@ -134,36 +132,29 @@ func TestStartPipelineQueuesRunnerPipelines(t *testing.T) {
 
 	var got map[string]any
 	require.NoError(t, json.Unmarshal([]byte(output), &got))
+	require.Equal(t, "queued", got["mode"])
 	require.Equal(t, "ticket-1", got["ticket_id"])
 	require.Equal(t, float64(1), got["position_human"])
 	require.Equal(t, float64(0), got["position"])
 	require.Equal(t, float64(2), got["line_len"])
 }
 
-// TestStartPipelineFallsBackWhenNoRunnerIDs verifies fallback to /start for non-runner pipelines.
-func TestStartPipelineFallsBackWhenNoRunnerIDs(t *testing.T) {
+// TestStartPipelineHandlesStartedPipelines verifies started output for non-runner pipelines.
+func TestStartPipelineHandlesStartedPipelines(t *testing.T) {
 	rec := map[string]any{
 		"yaml":            "name: demo",
 		"canonified_name": "pipeline123",
 	}
 
-	call := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch call {
-		case 0:
-			require.Equal(t, "/api/pipeline/queue", r.URL.Path)
-			w.WriteHeader(http.StatusBadRequest)
-			_, _ = w.Write([]byte(`{"error":"no runner ids resolved from yaml"}`))
-		case 1:
-			require.Equal(t, "/api/pipeline/start", r.URL.Path)
-			w.Header().Set("Content-Type", "application/json")
-			require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
-				"message": "Workflow started successfully",
-			}))
-		default:
-			require.Fail(t, "unexpected request")
-		}
-		call++
+		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			"mode":               "started",
+			"workflow_id":        "wf-123",
+			"run_id":             "run-456",
+			"workflow_namespace": "org",
+		}))
 	}))
 	defer server.Close()
 
@@ -176,11 +167,10 @@ func TestStartPipelineFallsBackWhenNoRunnerIDs(t *testing.T) {
 
 	var got map[string]any
 	require.NoError(t, json.Unmarshal([]byte(output), &got))
-	require.Equal(t, float64(http.StatusOK), got["status"])
-	payload, ok := got["payload"].(map[string]any)
-	require.True(t, ok)
-	require.Equal(t, "Workflow started successfully", payload["message"])
-	require.Equal(t, 2, call)
+	require.Equal(t, "started", got["mode"])
+	require.Equal(t, "wf-123", got["workflow_id"])
+	require.Equal(t, "run-456", got["run_id"])
+	require.Equal(t, "org", got["workflow_namespace"])
 }
 
 func overrideHTTPDefaults(server *httptest.Server) func() {

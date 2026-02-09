@@ -1,6 +1,6 @@
 #+TITLE: Unify Scheduled/CLI Pipeline Starts with Semaphore Queue
 #+SUBTITLE: Eliminate “start immediately + wait inside pipeline” by enqueueing all mobile-runner pipeline starts (Run now / CLI / Schedules) into the same FIFO
-#+DATE: 2026-02-05
+#+DATE: 2026-02-06
 #+KEYWORDS: temporal, schedules, pipeline, semaphore, queue, cli, pocketbase, mobile-automation
 
 * DONE [#A] Add a scheduled “enqueue-only” workflow (no pipeline execution)
@@ -221,3 +221,393 @@
     - Executes the activity with `TicketID: "sched/wf/run"` and asserts the captured ID starts with `Pipeline-Sched-`,
     - Executes the activity with a non-scheduled ticket (e.g. `"ticket-1"`) and asserts the captured ID starts with `Pipeline-` and does not include `Pipeline-Sched-`.
 - Done when :: A scheduled tick enqueues a run ticket and the resulting pipeline workflow ID returned by the semaphore status includes `Pipeline-Sched-...`.
+
+* DONE [#A] Show queued (not-started) pipeline runs in listings + cancel from queue
+- Effort :: M
+- Goal :: Both `/api/pipeline/list-workflows` and `/api/compliance/checks` include the authenticated user’s queued (not-yet-started) pipeline run tickets, including queue position + queue length, and the UI shows them as “Queued” with a working cancel action that removes them from the semaphore queue.
+- Notes ::
+  - Scope: only “queued” tickets (status `queued` in the mobile-runner semaphore), excluding `starting` and beyond, to satisfy “queued and not already started”.
+  - Runner ownership is irrelevant: queued runs may target runners owned by other organizations; discovery must still find them and report queue position/length from those semaphores.
+  - Runner display: when `runner_id` values are canonified paths (including other orgs), APIs can resolve `runner_records` for display; when `runner_id` is a raw record ID, resolution may be best-effort (still return `runner_ids` so UI can function).
+  - Queue metrics:
+    - `position` stays 0-based to match existing `/api/pipeline/queue/{ticket}` responses (UI can keep `+1` display).
+    - `line_len` is the full queue length for the runner semaphore (not filtered by owner namespace).
+    - For multi-runner pipelines, API returns the aggregate “effective” position/line_len using the existing rule: `max(position)` and `max(line_len)` across required runners (same as `pkg/internal/runqueue.AggregateRunnerStatuses`).
+  - Compatibility: avoid breaking existing response shapes; add only optional fields (e.g. `queue`) and keep existing fields untouched.
+  - Security: API must only ever return queued tickets for the caller’s organization canonified namespace (do not accept a client-provided namespace).
+
+** DONE [#A] Add a semaphore query to list queued tickets for an owner namespace
+- Why :: Queued runs are not Temporal workflow executions yet, so list endpoints cannot discover them via `ListWorkflowExecutions`; we need a deterministic, read-only view of the semaphore run queue.
+- Change ::
+  - In `pkg/workflowengine/mobilerunnersemaphore/types.go`:
+    - Add a new query name constant (e.g. `ListQueuedRunsQuery = "ListQueuedRuns"`).
+    - Add a compact view DTO that intentionally excludes YAML/config payloads (e.g. `MobileRunnerSemaphoreQueuedRunView` with `ticket_id`, `owner_namespace`, `pipeline_identifier`, `enqueued_at`, `leader_runner_id`, `required_runner_ids`, `status`, `position`, `line_len`).
+  - In `pkg/workflowengine/workflows/mobile_runner_semaphore_aliases.go`:
+    - Export the new query constant via `workflows.MobileRunnerSemaphoreListQueuedRunsQuery`.
+    - Re-export the new view type as an alias for handler-side decoding.
+  - In `pkg/workflowengine/workflows/mobile_runner_semaphore.go`:
+    - Register a query handler for `ListQueuedRunsQuery` with signature `(ownerNamespace string) ([]MobileRunnerSemaphoreQueuedRunView, error)`.
+    - Implementation strategy (deterministic, stable ordering):
+      - Iterate `r.runQueue` in order.
+      - For each `ticketID`, lookup `r.runTickets[ticketID]`, filter `state.Status == queued` and `state.Request.OwnerNamespace == ownerNamespace`.
+      - Compute `position, lineLen := r.runQueuePosition(ticketID)` and populate the view.
+- Tests ::
+  - In `pkg/workflowengine/workflows/mobile_runner_semaphore_test.go`:
+    - Enqueue multiple tickets across at least 2 owner namespaces, then query `ListQueuedRunsQuery` for one owner and assert:
+      - Only that owner’s tickets are returned,
+      - Order matches `runQueue` order,
+      - `position` and `line_len` reflect the underlying queue correctly.
+- Done when :: The semaphore workflow can answer “list queued tickets for owner namespace X” without exposing YAML/config and with correct position/queue length.
+
+** DONE [#A] Add an API-side queued-run aggregator (ports/adapters boundary)
+- Why :: Listing endpoints need a single “my queued runs” view across potentially many runner semaphore workflows; multi-runner tickets must be deduplicated and aggregated.
+- Change ::
+  - Add a small helper in a new file `pkg/internal/apis/handlers/queued_pipeline_runs.go`:
+    - Inputs: `ctx context.Context`, `orgNamespace string`.
+    - Semaphore discovery (runner owner is irrelevant):
+      - Use `temporalclient.GetTemporalClientWithNamespace(workflowengine.MobileRunnerSemaphoreDefaultNamespace)`.
+      - List semaphore workflows via Temporal `ListWorkflowExecutions` with a query that selects:
+        - workflow type/name `mobile-runner-semaphore` (and optionally only “open” executions), so we discover *all* runner semaphores, including runners owned by other organizations.
+      - Pagination:
+        - Iterate pages up to a conservative cap (configurable constant) to prevent worst-case latency.
+        - Extract `runnerID` from each execution’s `workflowId` by trimming the `mobile-runner-semaphore/` prefix (do not split on `/`, runner IDs may contain `/`).
+    - Temporal IO:
+      - For each discovered semaphore workflow (runnerID), query `workflows.MobileRunnerSemaphoreListQueuedRunsQuery` with `orgNamespace`.
+      - Apply short per-runner timeouts and tolerate missing semaphores (treat as “no queued runs” for that runner) to keep list endpoints responsive.
+    - Aggregation:
+      - Merge results into a `map[ticketID]QueuedRunAggregate`:
+        - `position = max(position)`, `line_len = max(line_len)`,
+        - Keep `pipeline_identifier`, `enqueued_at`, `required_runner_ids`, `leader_runner_id`,
+        - Collect `runner_ids` from `required_runner_ids` (source of truth for cancellation).
+      - Filter strictly to `status == queued`.
+  - Keep the helper in handlers for now (adapter-style), but implement it as pure functions + injected Temporal query function variables (like `pipeline_queue_handler.go`) so unit tests can stub IO.
+- Tests ::
+  - Add unit tests in `pkg/internal/apis/handlers/pipeline_handler_test.go` (or a new `queued_pipeline_runs_test.go`) that:
+    - Stubs the Temporal query helper to return overlapping tickets from two runners,
+    - Asserts dedupe + max aggregation for `position` and `line_len`,
+    - Asserts only `ownerNamespace == orgNamespace` is used (no client input).
+- Done when :: Handlers can call one helper to obtain “my queued pipeline run tickets” with correct aggregate position/line length and required runner IDs for cancellation.
+
+** DONE [#A] Extend `/api/pipeline/list-workflows` to include queued tickets per pipeline
+- Why :: Pipeline pages and dashboard cards should show queued-but-not-started runs alongside started runs, otherwise users lose visibility after start-unification.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_handler.go`:
+    - In `HandleGetPipelineDetails`:
+      - After fetching `pipelineRecords`, call the queued-run helper once for the org.
+      - Map queued tickets to pipeline IDs by matching `pipeline_identifier` against:
+        - pipeline record ID, and
+        - canonified path `<orgNamespace>/<pipeline.canonified_name>`.
+      - For each matched pipelineID, prepend/append a synthetic “queued run row” to the response slice:
+        - Add an optional `queue` object with `ticket_id`, `position`, `line_len`, and `runner_ids`.
+        - Populate `runner_ids` and `runner_records` via existing `runners.ResolveRunnerRecords`.
+        - Use a deterministic synthetic execution identifier to keep the existing table keying stable:
+          - `execution.workflowId = "queue/" + ticket_id`, `execution.runId = ticket_id`.
+        - Set `type.name` to the pipeline workflow name (`pipeline.NewPipelineWorkflow().Name()`).
+        - Set `status = "queued"` (lowercase, same vocabulary as `/api/pipeline/queue/{ticket}`), and rely on the optional `queue` object for UI branching (do not pass queued status into Temporal UI components).
+        - Set `startTime` to the enqueue time (formatted the same way as existing summaries for that user’s timezone).
+    - In `HandleGetPipelineSpecificDetails`:
+      - Also include queued tickets for just that pipeline ID (filter after mapping).
+  - Keep response backward compatible by only adding optional fields; do not change existing fields for started workflows.
+- Tests ::
+  - Add/extend unit tests in `pkg/internal/apis/handlers/pipeline_handler_test.go` that:
+    - Stub queued-run helper to return one queued ticket for a known pipeline,
+    - Assert the response includes an entry with `queue.ticket_id` and the correct `position`/`line_len`,
+    - Assert `runner_records` resolves when runners exist (fixture-backed), otherwise returns empty but still includes `runner_ids`.
+- Done when :: Pipeline list endpoints show queued tickets per pipeline with queue position/length and enough data for the UI to render + cancel.
+
+** DONE [#A] Extend `/api/compliance/checks` (and `/api/my/checks`) list to include queued pipeline tickets
+- Why :: The “Workflows” page (`/my/tests/runs`) currently lists Temporal workflows only; queued tickets must appear there too or users cannot see in-progress pipeline runs before they start.
+- Change ::
+  - In `pkg/internal/apis/handlers/checks_handlers.go` (`HandleListMyChecks`):
+    - Determine whether to include queued runs based on the `status` filter:
+      - Include queued tickets when no `status` filter is provided OR when the filter includes “running” (treat queued as “in progress”).
+      - Exclude queued tickets for purely terminal filters (completed/failed/canceled/etc.).
+    - Fetch queued tickets via the shared queued-run helper and append them to the returned `Executions` list as synthetic summaries:
+      - Same `execution.workflowId/runId` synthetic scheme as pipeline list endpoints.
+      - Same `queue` object shape and `type.name` set to pipeline workflow name.
+      - Set `status = "queued"` for these synthetic rows.
+      - `displayName`: reuse the existing pipeline-run display convention (e.g. `memo.test` == `"pipeline-run"`), or set a sensible fallback like `"pipeline-run"` so rows are not blank.
+    - Ensure sorting remains deterministic (queued rows should not break the hierarchy builder; queued items should be roots with no children).
+- Tests ::
+  - Add a unit test in `pkg/internal/apis/handlers/checks_handlers_test.go` that:
+    - Stubs queued-run helper to return one queued ticket,
+    - Calls the list handler with and without `?status=running`,
+    - Asserts queued rows are included only under the intended filter behavior and contain queue position/length.
+- Done when :: `/my/tests/runs` shows queued pipeline runs (not yet started) and they are not mislabeled as “Running”.
+
+** DONE [#A] Update webapp lists to render queued rows and cancel from queue
+- Why :: Current UI assumes every row is a Temporal workflow execution; queued tickets need a distinct label and a different cancellation endpoint.
+- Change ::
+  - In `webapp/src/lib/workflows/queries.types.ts`:
+    - Extend `WorkflowExecutionSummary` with an optional `queue?: { ticket_id: string; position: number; line_len: number; runner_ids: string[] }`.
+    - Allow synthetic queued rows by relaxing the execution shape as needed (e.g. tolerate `runId` being a synthetic token); keep existing fields intact for started workflows.
+  - In `webapp/src/lib/workflows/workflow-status.svelte`:
+    - Extend props to accept optional queue metadata (e.g. `queue?: WorkflowExecutionSummary['queue']`).
+    - If `queue` is present, render a “Queued” badge (and optionally `Queued: X of Y` using `position+1` and `max(line_len, position+1)` like existing queue toast formatting).
+    - Otherwise keep using Temporal UI status rendering for Temporal statuses.
+  - In `webapp/src/lib/workflows/workflow-actions.svelte`:
+    - Extend props to accept optional queue metadata (e.g. `queue?: WorkflowExecutionSummary['queue']`) in addition to the existing Temporal workflow identifiers.
+    - When `queue` is present, make Cancel call:
+      - `DELETE /api/pipeline/queue/{ticket_id}?runner_ids=<csv>` via `pb.send`,
+      - and skip calling `/api/my/checks/.../cancel`.
+    - When `queue` is absent, keep existing behavior (Cancel only for `Running`, calling `/api/my/checks/{workflowId}/runs/{runId}/cancel`).
+  - In `webapp/src/lib/workflows/workflow-table-row.svelte`, `webapp/src/lib/workflows/workflows-table.svelte`, and `webapp/src/lib/workflows/workflows-table-small.svelte`:
+    - Do not link queued rows to `/my/tests/runs/...` (render plain text instead of an anchor).
+    - Use a stable key that works for both cases (prefer `workflow.queue.ticket_id ?? workflow.execution.runId`).
+    - Ensure any status-derived logic never calls `toWorkflowStatusReadable()` for queued rows (branch first on `workflow.queue`), and that cancel uses the queue cancel endpoint for queued rows.
+- Tests ::
+  - In `webapp/src/lib/workflows` unit tests (Vitest):
+    - Add tests that queued rows render “Queued” (and the optional `X of Y` message),
+    - Add tests that clicking Cancel for a queued row calls the queue-cancel endpoint (and does not call the Temporal cancel endpoint).
+- Done when :: Queued runs render as queued (not running), show queue position/length, and the existing cancel control removes them from the semaphore queue when they are not started.
+
+* DONE [#C] Show pipeline name for queued rows in `/api/compliance/checks`
+- Effort :: S
+- Goal :: In `/api/compliance/checks` (and `/api/my/checks`) queued pipeline ticket rows use the pipeline name for `displayName` (matching started runs) instead of the fixed `"pipeline-run"`.
+- Notes ::
+  - Do not change the response shape; only change `displayName` for synthetic queued rows.
+  - Match the “real run” name source: when a queued ticket becomes a Temporal pipeline run, `StartQueuedPipelineActivity` sets `memo.test` to the pipeline YAML `name`; queued rows should use the same value.
+  - Fall back safely when a pipeline cannot be resolved (never return an empty `displayName`).
+
+** DONE [#C] Resolve pipeline YAML name when building queued summaries
+- Why :: Today queued pipeline rows are ambiguous (“pipeline-run”), while started pipeline runs show the pipeline name (from YAML) via `memo.test`.
+- Change ::
+  - In `pkg/internal/apis/handlers/checks_handlers.go`:
+    - Change `buildQueuedWorkflowSummaries(...)` / `buildQueuedWorkflowSummary(...)` to accept `app core.App` (or a `pipelineNameResolver` func) so queued runs can resolve their pipeline definition.
+    - Compute `displayName` for each queued run:
+      - Resolve the pipeline record via `canonify.Resolve(app, queued.PipelineIdentifier)` (support both `id` and `namespace/canonified_name`).
+      - Prefer `pipeline.ParseWorkflow(record.GetString("yaml")).Name` when present.
+      - Fallback to `record.GetString("name")`, then to the trimmed identifier, and finally to `"pipeline-run"`.
+    - Cache resolved names per `queued.PipelineIdentifier` to avoid repeated DB reads/YAML parsing within the request.
+- Tests ::
+  - Update `pkg/internal/apis/handlers/checks_list_queued_runs_test.go`:
+    - Seed a `pipelines` record owned by userA’s org whose identifier matches the stubbed queued ticket, with YAML containing `name: My Pipeline`.
+    - Assert the queued execution summary returns `displayName == "My Pipeline"`.
+  - Add a fallback assertion (optional): if the pipeline cannot be resolved, `displayName` remains non-empty.
+- Done when :: Queued rows in `/api/compliance/checks` display the pipeline name consistently with started pipeline runs.
+
+* DONE [#A] Align workflow list summaries (queued display name + simple statuses)
+- Effort :: M
+- Goal :: Make `/api/pipeline/list-workflows` and `/api/(compliance|my)/checks` return (a) the real pipeline name for queued rows and (b) a frontend-friendly CamelCase `status` string for all rows, so UI can stop parsing Temporal enum names.
+- Notes ::
+  - This is an intentional breaking response change for the list endpoints: we will stop returning Temporal proto enum names in `status` and return only CamelCase status labels (e.g. `Running`, `Canceled`, `TimedOut`, `ContinuedAsNew`).
+  - This also fixes internal backend assumptions (e.g. selecting “running” executions) that currently compare against `statusStringRunning` while receiving raw Temporal status enum strings.
+
+** DONE [#A] Return pipeline YAML `name` as `displayName` for queued rows in `/api/pipeline/list-workflows`
+- Why :: Queued pipeline rows currently use the generic `"pipeline-run"` label; users can’t distinguish queued items when multiple pipelines are queued. `/api/compliance/checks` already resolves the pipeline name, so `/api/pipeline/list-workflows` should match.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_handler.go`, update queued row construction (`buildQueuedPipelineSummaries` / `buildQueuedPipelineSummary`) to compute `displayName` from the queued pipeline identifier:
+    - Prefer reusing `resolveQueuedPipelineDisplayName(app, queued.PipelineIdentifier)` (already used by checks listing) and cache results within the request to avoid repeated DB reads/YAML parsing.
+    - Set `WorkflowExecutionSummary.DisplayName` for queued rows to the resolved name (never blank).
+  - Keep all other queued-row fields unchanged (synthetic `execution.workflowId`, `status="queued"`, `queue` object).
+- Tests ::
+  - Update `pkg/internal/apis/handlers/pipeline_list_workflows_test.go`:
+    - In `TestGetPipelineDetailsIncludesQueuedRuns`, assert the queued summary’s `displayName` equals the pipeline YAML `name` (already seeded as `name: queued-pipeline`).
+    - Add a fallback assertion (optional): if YAML name missing, `displayName` is still non-empty.
+- Done when :: Queued pipeline rows in `/my/pipelines` workflows listings show the actual pipeline name (same as started runs) instead of `"pipeline-run"`.
+
+** DONE [#A] Normalize workflow summary `status` to CamelCase values and stop returning Temporal enum names
+- Why :: Today list endpoints return Temporal proto enum strings like `WORKFLOW_EXECUTION_STATUS_RUNNING`, forcing frontend parsing. We already use lowercase status strings in query params (`running`, `canceled`, …) and in queue status responses; summaries should return the same vocabulary directly.
+- Change ::
+  - Contract:
+    - Change the semantics of `WorkflowExecutionSummary.status` for list endpoints:
+      - For Temporal-backed rows, return a CamelCase status label:
+        - `Running`, `Completed`, `Failed`, `Canceled`, `Terminated`, `TimedOut`, `ContinuedAsNew`, `Unspecified`.
+      - For queued synthetic rows, return `status = "Queued"`.
+    - Do not add a second “simple” field; only `status` is returned.
+  - Backend implementation:
+    - Add a small normalizer helper (new file suggested: `pkg/internal/apis/handlers/workflow_status_normalize.go`):
+      - `func normalizeTemporalStatus(raw string) string` that maps:
+        - `WORKFLOW_EXECUTION_STATUS_RUNNING` -> `Running`
+        - `WORKFLOW_EXECUTION_STATUS_COMPLETED` -> `Completed`
+        - `WORKFLOW_EXECUTION_STATUS_FAILED` -> `Failed`
+        - `WORKFLOW_EXECUTION_STATUS_CANCELED` -> `Canceled`
+        - `WORKFLOW_EXECUTION_STATUS_TERMINATED` -> `Terminated`
+        - `WORKFLOW_EXECUTION_STATUS_TIMED_OUT` -> `TimedOut`
+        - `WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW` -> `ContinuedAsNew`
+        - `WORKFLOW_EXECUTION_STATUS_UNSPECIFIED` -> `Unspecified`
+      - If `raw` is already one of the CamelCase values (or `Queued`), return it unchanged.
+      - Otherwise return `Unspecified` (keep it consistent across endpoints).
+    - In `pkg/internal/apis/handlers/checks_handlers.go` (`buildExecutionHierarchy`):
+      - Keep using the raw `exec.Status` string for any internal checks (e.g. failure fetching), but set `summary.Status = normalizeTemporalStatus(exec.Status)` in the response DTO.
+    - In `pkg/internal/apis/handlers/pipeline_handler.go`:
+      - Ensure summaries coming from `buildExecutionHierarchy` already carry normalized `Status`.
+      - Update any logic that compares against lowercase status strings to operate on normalized `Status` (e.g. `selectTopExecutionsByPipeline` should compare against `WorkflowStatusRunning` / `"Running"` rather than `statusStringRunning` / `"running"`).
+  - Frontend implementation:
+    - In `webapp/src/lib/workflows/*`, remove reliance on `@forkbombeu/temporal-ui` status parsing for API responses:
+      - Render statuses directly from `workflow.status` (e.g. `Running`, `Canceled`, …).
+      - Keep the queued-row branch as-is (`workflow.queue`).
+    - Update fixtures like `webapp/src/lib/workflows/queries.test.json` to use the new CamelCase statuses.
+- Tests ::
+  - Go unit:
+    - Add a focused unit test for `normalizeTemporalStatus` covering each mapping.
+  - Go handler/unit:
+    - Add/update one list test that asserts `status` is CamelCase for a Temporal-backed execution summary.
+  - Webapp unit (Vitest):
+    - Update existing workflow table/status tests to expect CamelCase statuses and to not call the Temporal enum parser.
+- Done when :: `/api/my/checks`, `/api/compliance/checks`, and `/api/pipeline/list-workflows` return only CamelCase status strings for Temporal-backed rows, and the UI renders them without parsing Temporal enum names.
+
+* DONE [#A] Eliminate false “Failed to poll queue” toast after canceling a queued run
+- Effort :: S
+- Goal :: Canceling a queued run should deterministically end the queue toast with “Queue canceled” (or equivalent) and never show “Failed to poll queue” when cancellation actually succeeded.
+- Notes ::
+  - Root cause today: `GET /api/pipeline/queue/{ticket}` returns HTTP 404 when the ticket is missing on *all* runners; the frontend poller treats any non-2xx as a polling failure and shows the error toast.
+  - Fix should address both sides: make the API respond with a typed `not_found` status, and make the UI stop/ignore polling during cancellation to avoid races.
+
+** DONE [#A] Make queue status endpoint return 200 with `status="not_found"` instead of HTTP 404
+- Why :: Polling should be a “status machine” API, not an exception-driven API. A missing ticket is an expected terminal state (especially after cancel).
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_queue_handler.go` (`HandlePipelineQueueStatus`):
+    - When `missingRunnerCount == len(requestContext.runnerIDs)`, return `http.StatusOK` with a `PipelineQueueStatusResponse` where:
+      - `ticket_id` is echoed back,
+      - `runner_ids` is echoed back (if provided),
+      - `status = "not_found"`,
+      - `position = 0`, `line_len = 0`,
+      - omit `workflow_id` / `run_id` / `workflow_namespace`.
+    - Keep error responses (bad request, auth, internal Temporal errors) as errors (non-2xx).
+- Tests ::
+  - Update `pkg/internal/apis/handlers/pipeline_queue_handler_test.go` scenario “poll returns not found”:
+    - Expect HTTP 200 and JSON containing `"status":"not_found"` (instead of HTTP 404).
+- Done when :: The frontend poller receives a valid status payload even when the ticket disappears, and no longer errors purely due to 404 semantics.
+
+** DONE [#B] Stop queue polling immediately on cancel and treat `not_found` as success during cancel
+- Why :: Even with API changes, there is still a race: the poller may observe the ticket disappearing before the cancel request resolves. UX should treat this as “canceled” rather than an error.
+- Change ::
+  - In `webapp/src/lib/pipeline/utils.ts`:
+    - In the cancel action (`cancelQueuedRun`), stop polling before sending the cancel request (so no in-flight poll can emit an error toast after the user intent is clear).
+    - In `handleQueueStatus`, when `status.status === 'not_found'`:
+      - If a cancel is in flight (or cancellation was requested), finish the queue with “Queue canceled” instead of “Queue ticket not found”.
+    - As a defensive fallback, in `pollQueueStatus`’s catch:
+      - If the error is a PocketBase `ClientResponseError` with `status === 404`, treat it as `not_found` rather than “Failed to poll queue” (this keeps UX stable during rollout if the backend change is delayed or partially deployed).
+- Tests ::
+  - Webapp unit (Vitest):
+    - Add a focused test for the queue polling/cancel flow that simulates `GET` returning 404 (or `status=not_found`) during cancel and asserts no “Failed to poll queue” toast is emitted.
+- Done when :: Canceling a queued run never produces the “Failed to poll queue” toast; the toast resolves to “Queue canceled” even if the ticket disappears mid-poll.
+
+* DONE [#A] Prevent duplicate/misleading toasts when canceling queued runs
+- Effort :: S
+- Goal :: Canceling an enqueued run produces exactly one clear “Queue canceled” (or equivalent) toast, and never a follow-up “Queue ticket not found” error toast.
+- Notes ::
+  - Current behavior (repro):
+    - Start a pipeline so it enqueues and the queue toast starts polling (`runPipeline`).
+    - Navigate to the queued run row (workflows table) and cancel it from `webapp/src/lib/workflows/workflow-actions.svelte`.
+    - You see a generic `m.Success()` toast, then the queue poller ends with `toast.error('Queue ticket not found')` when the ticket disappears.
+  - Root cause: cancellation and queue polling live in different components with no shared “ticket is being canceled” signal, so `runPipeline` treats `status=not_found` as an error when the cancel did not originate from its own toast button.
+
+** DONE [#A] Add a minimal queue-cancel signal that `runPipeline` can subscribe to
+- Why :: The queue poller is local to `runPipeline`; other UI surfaces need a tiny, dependency-free way to tell it “stop polling/dismiss for this ticket” to avoid stale not_found errors.
+- Change ::
+  - Add `webapp/src/lib/pipeline/queue-events.ts` (or similar) as a tiny in-memory event bus:
+    - `emitQueueCancelRequested(ticketId: string): void`
+    - `onQueueCancelRequested(handler: (ticketId: string) => void): () => void` (unsubscribe)
+    - Implementation uses a module-level `EventTarget` (not `window`) for testability.
+  - In `webapp/src/lib/pipeline/utils.ts` (`runPipeline`):
+    - Subscribe to cancel-requested events for the active `ticketId`.
+    - On match, stop polling and dismiss the queue toast silently (no additional toast) so the cancel surface can own the success message.
+    - Ensure the subscription is cleaned up when the queue finishes (running/failed/canceled/not_found) to avoid leaks.
+- Tests ::
+  - Webapp unit (Vitest):
+    - In `webapp/src/lib/pipeline/utils.test.ts`, add a case where an external `emitQueueCancelRequested('ticket-X')` while polling ensures:
+      - the queue toast is dismissed,
+      - no `toast.error('Queue ticket not found')` is emitted afterwards.
+- Done when :: Canceling a queued run from another surface never results in the queue poller showing “Queue ticket not found”.
+
+** DONE [#B] Make the workflows-table queued cancel show a specific cancel toast (not generic Success) and emit the cancel signal
+- Why :: Users need immediate, specific feedback that the queued run was canceled, and the cancel action should proactively stop any queue pollers to prevent misleading errors.
+- Change ::
+  - In `webapp/src/lib/workflows/workflow-actions.svelte`:
+    - For the `queue` cancellation branch:
+      - Call `emitQueueCancelRequested(queue.ticket_id)` before issuing the `DELETE /api/pipeline/queue/{ticket}` request.
+      - Avoid `runWithLoading`’s default success toast by setting `showSuccessToast: false`.
+      - On successful cancel, show a specific toast (e.g. `toast.message('Queue canceled')` or `toast.success('Queue canceled')`).
+    - Keep the non-queue cancellation branch unchanged.
+  - Optional follow-up (only if cheap while touching the strings): replace hardcoded queue strings in `webapp/src/lib/pipeline/utils.ts` with i18n keys for consistency.
+- Tests ::
+  - Webapp unit (Vitest):
+    - Update `webapp/src/lib/workflows/workflow-actions.svelte.test.ts` to assert:
+      - `emitQueueCancelRequested` is called with the ticket id,
+      - the queue DELETE endpoint is invoked with the expected querystring.
+- Done when :: Canceling a queued run from the workflows table shows a single “Queue canceled” toast and does not trigger any queue “ticket not found” error toast.
+
+* DONE [#A] Simplify pipeline start/queue APIs (make `/queue` the only start entrypoint)
+- Effort :: M
+- Goal :: Refactor the pipeline + queue handlers so `POST /api/pipeline/queue` is the only public “run pipeline” endpoint: it enqueues runner pipelines and starts non-runner pipelines immediately; delete `POST /api/pipeline/start`; return minimal, non-duplicated DTOs.
+- Notes ::
+  - Breaking change is acceptable for this refactor; keep simplicity as the primary constraint.
+  - Do not touch `webapp/*` (frontend may break; backend-only refactor).
+  - Remove response noise: `leader_runner_id`, `required_runner_ids`, `runners[]`, duplicate `runner_ids`, and any “workflow IDs” on enqueue responses.
+  - `POST /api/pipeline/queue` must never return `canceled` (it either creates a queued ticket, starts immediately, or errors).
+
+** DONE [#A] Replace `/api/pipeline/queue` response with a minimal discriminated contract
+- Why :: The current queue response mixes per-runner debug detail, duplicates fields, and exposes state transitions that a “create queue item” endpoint cannot meaningfully guarantee.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_queue_handler.go`, replace `PipelineQueueRunnerStatus` and `PipelineQueueStatusResponse` with a single response DTO:
+    - `mode` is required: `"queued"`, `"started"`, or `"failed"`.
+    - When `mode="queued"`, return only:
+      - `ticket_id`, `enqueued_at`, `runner_ids`, `position`, `line_len`.
+      - `status` may be omitted entirely or fixed to `"queued"` (no other values allowed on a successful enqueue response).
+    - When `mode="started"`, return only:
+      - `workflow_id`, `run_id`, `workflow_namespace`.
+    - When `mode="failed"`, return only:
+      - `error_message` (required) and optionally `status: "failed"` for readability (no other values).
+    - Use HTTP non-2xx for handler-level failures (validation, Temporal client errors, timeouts); use `mode="failed"` only when a successful semaphore/update response indicates the ticket is in a terminal failed state.
+  - For multi-runner pipelines, compute `position`/`line_len` as `max(...)` across runners (same semantics as `runqueue.AggregateRunnerStatuses`) but do not return per-runner rows.
+  - Keep error mapping explicit and small:
+    - 400: input validation / YAML parse errors.
+    - 404: pipeline identifier not found.
+    - 409: queue limit exceeded.
+    - 500: Temporal/semaphore failures.
+- Tests ::
+  - Update `pkg/internal/apis/handlers/pipeline_queue_handler_test.go` to assert the new response shape for enqueue (no `leader_runner_id`, no `required_runner_ids`, no `runners`).
+- Done when :: `POST /api/pipeline/queue` returns a small, stable JSON payload that clearly indicates whether the run was queued, started, or failed (with an `error_message`).
+
+** DONE [#A] Make `POST /api/pipeline/queue` start non-runner pipelines (remove the need for `/start`)
+- Why :: A single “run pipeline” endpoint removes conditional client logic and allows deleting `/api/pipeline/start` entirely.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_queue_handler.go`:
+    - Parse runner intent via `runners.ParsePipelineRunnerInfo(yaml)` (and global runner resolution as needed).
+    - If the YAML resolves to *no* runner requirement (`len(runnerIDs)==0` and `NeedsGlobalRunner==false`), start the pipeline workflow immediately using the same invariants as the old `HandlePipelineStart`:
+      - resolve pipeline record by identifier,
+      - create `pipeline_results` record,
+      - start `pipeline.NewPipelineWorkflow().Start(yaml, config, memo)`,
+      - persist `workflow_id`/`run_id`,
+      - return `mode="started"` response.
+    - Otherwise (runner pipeline), keep enqueue semantics and return `mode="queued"` response.
+  - Factor the “start + persist pipeline result” logic into a small unexported helper so handler glue stays short and testable.
+- Tests ::
+  - Add a new unit test in `pkg/internal/apis/handlers/pipeline_queue_handler_test.go` that posts a non-runner YAML (e.g. `steps: []`) to `/api/pipeline/queue` and asserts:
+    - `mode="started"` and response contains `workflow_id`/`run_id`,
+    - a `pipeline_results` record is created.
+  - To keep tests `-tags=unit` and deterministic, add a handler-local injected function (package var) for “start pipeline workflow” so tests can stub it (similar to existing `ensureRunQueueSemaphoreWorkflow` stubs).
+- Done when :: Any valid pipeline YAML can be submitted to `/api/pipeline/queue` and will either queue (runner) or start (non-runner) without requiring clients to call `/start`.
+
+** DONE [#A] Remove `POST /api/pipeline/start` from public routes
+- Why :: `/start` becomes redundant once `/queue` handles both runner and non-runner pipelines; keeping it invites drift and duplicate logic.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_handler.go`:
+    - Remove the `/start` route definition from `PipelineRoutes`.
+    - Delete `HandlePipelineStart` (or keep it internal-only behind a non-routed helper used by `/queue`).
+  - Remove now-obsolete tests:
+    - Delete `TestPipelineStartRejectsRunnerPipelines` in `pkg/internal/apis/handlers/pipeline_handler_test.go`.
+  - Remove remaining references to `/api/pipeline/start` in:
+    - `cmd/cli/pipeline.go` (optional cleanup; should become “queue-only” and never mention `/start`),
+    - plan/docs strings in backend error messages (ensure all guidance points to `/api/pipeline/queue` only).
+- Tests ::
+  - Update handler route tests (if any) to reflect the missing `/start` route.
+- Done when :: The backend exposes no public `/api/pipeline/start` route and all non-runner starts happen via `/api/pipeline/queue`.
+
+** DONE [#B] Simplify queue status + cancel handlers to match the minimal DTO mindset
+- Why :: The poll/cancel endpoints currently mirror the same verbose struct shape; simplifying them keeps the API consistent and reduces accidental frontend coupling.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_queue_handler.go`:
+    - Replace `PipelineQueueStatusResponse` returns from:
+      - `GET /api/pipeline/queue/{ticket}`
+      - `DELETE /api/pipeline/queue/{ticket}`
+      with a minimal response:
+        - `ticket_id`, `status`, `position`, `line_len`,
+        - optional `workflow_id`/`run_id`/`workflow_namespace` only when `status` indicates it has started.
+    - Do not return per-runner `runners[]` rows; keep runner IDs as input-only (`runner_ids[]` querystring) unless there is a strong backend-only need to echo them.
+    - Keep the “missing on all runners => 200 with status=not_found” behavior.
+- Tests ::
+  - Update `pkg/internal/apis/handlers/pipeline_queue_handler_test.go` poll/cancel scenarios to assert the simplified payload and the absence of per-runner detail fields.
+- Done when :: Queue poll/cancel endpoints return small, predictable payloads that are consistent with the simplified enqueue response.

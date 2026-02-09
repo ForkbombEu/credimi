@@ -7,11 +7,14 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"net/http/httptest"
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/require"
@@ -139,7 +142,7 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 	stub := &queueStub{}
 	installQueueStubs(t, stub)
 
-	missingRunnerYaml := "name: test\nsteps: []\n"
+	missingRunnerYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n"
 	validYaml := "name: test\nsteps:\n  - name: step1\n    use: mobile-automation\n    with:\n      runner_id: runner-1\n"
 
 	scenarios := []tests.ApiScenario{
@@ -194,7 +197,9 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			ExpectedContent: []string{
 				"\"status\":\"queued\"",
 				"\"runner_ids\":[\"runner-1\"]",
-				"\"leader_runner_id\":\"runner-1\"",
+			},
+			NotExpectedContent: []string{
+				"\"mode\"",
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				return setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
@@ -207,9 +212,16 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 			Headers: map[string]string{
 				"Authorization": "Bearer " + token,
 			},
-			ExpectedStatus: http.StatusNotFound,
+			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				"ticket not found",
+				"\"status\":\"not_found\"",
+			},
+			NotExpectedContent: []string{
+				"\"runner_ids\"",
+				"\"runners\"",
+				"\"leader_runner_id\"",
+				"\"required_runner_ids\"",
+				"\"error_message\"",
 			},
 			TestAppFactory: setupPipelineQueueApp,
 		},
@@ -248,6 +260,9 @@ func TestPipelineQueueEnqueuePassesQueueLimit(t *testing.T) {
 		ExpectedContent: []string{
 			"\"status\":\"queued\"",
 		},
+		NotExpectedContent: []string{
+			"\"mode\"",
+		},
 		TestAppFactory: func(t testing.TB) *tests.TestApp {
 			app := setupPipelineQueueAppWithPipeline(t, orgID, validYaml)
 			ensureOrganizationsQueueLimitField(t, app)
@@ -265,6 +280,83 @@ func TestPipelineQueueEnqueuePassesQueueLimit(t *testing.T) {
 
 	require.Len(t, stub.enqueueRequests, 1)
 	require.Equal(t, 7, stub.enqueueRequests[0].MaxPipelinesInQueue)
+}
+
+func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	token, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
+
+	origStart := startPipelineWorkflow
+	t.Cleanup(func() {
+		startPipelineWorkflow = origStart
+	})
+	startPipelineWorkflow = func(
+		yaml string,
+		config map[string]any,
+		memo map[string]any,
+	) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "wf-123",
+			WorkflowRunID: "run-456",
+		}, nil
+	}
+
+	nonRunnerYaml := "name: test\nsteps: []\n"
+	app := setupPipelineQueueAppWithPipeline(t, orgID, nonRunnerYaml)
+	defer app.Cleanup()
+
+	baseRouter, err := apis.NewRouter(app)
+	require.NoError(t, err)
+
+	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+	serveErr := app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+		mux, err := e.Router.BuildMux()
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(
+			http.MethodPost,
+			"/api/pipeline/queue",
+			jsonBody(map[string]any{
+				"pipeline_identifier": "usera-s-organization/pipeline123",
+				"yaml":                nonRunnerYaml,
+			}),
+		)
+		req.Header.Set("Authorization", "Bearer "+token)
+		req.Header.Set("content-type", "application/json")
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Contains(t, rec.Body.String(), "\"status\":\"running\"")
+		require.Contains(t, rec.Body.String(), "\"workflow_id\":\"wf-123\"")
+		require.Contains(t, rec.Body.String(), "\"run_id\":\"run-456\"")
+		require.NotContains(t, rec.Body.String(), "\"mode\"")
+		return nil
+	})
+	require.NoError(t, serveErr)
+
+	pipelineRecord, err := canonify.Resolve(app, "usera-s-organization/pipeline123")
+	require.NoError(t, err)
+
+	results, err := app.FindRecordsByFilter(
+		"pipeline_results",
+		"pipeline={:pipeline} && owner={:owner}",
+		"",
+		-1,
+		0,
+		dbx.Params{
+			"pipeline": pipelineRecord.Id,
+			"owner":    orgID,
+		},
+	)
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	require.Equal(t, "wf-123", results[0].GetString("workflow_id"))
+	require.Equal(t, "run-456", results[0].GetString("run_id"))
 }
 
 func TestPipelineQueueCancel(t *testing.T) {
@@ -289,6 +381,13 @@ func TestPipelineQueueCancel(t *testing.T) {
 				"\"ticket_id\":\"ticket-cancel\"",
 				"\"status\":\"not_found\"",
 			},
+			NotExpectedContent: []string{
+				"\"runner_ids\"",
+				"\"runners\"",
+				"\"leader_runner_id\"",
+				"\"required_runner_ids\"",
+				"\"error_message\"",
+			},
 			TestAppFactory: setupPipelineQueueApp,
 		},
 		{
@@ -298,9 +397,16 @@ func TestPipelineQueueCancel(t *testing.T) {
 			Headers: map[string]string{
 				"Authorization": "Bearer " + token,
 			},
-			ExpectedStatus: http.StatusNotFound,
+			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
-				"ticket not found",
+				"\"status\":\"not_found\"",
+			},
+			NotExpectedContent: []string{
+				"\"runner_ids\"",
+				"\"runners\"",
+				"\"leader_runner_id\"",
+				"\"required_runner_ids\"",
+				"\"error_message\"",
 			},
 			TestAppFactory: setupPipelineQueueApp,
 		},
@@ -551,7 +657,13 @@ func TestPipelineQueueStatus_MultiRunnerDoesNot404WhenAnyRunnerFound(t *testing.
 		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
 			"\"status\":\"failed\"",
-			"\"error_message\":\"boom\"",
+		},
+		NotExpectedContent: []string{
+			"\"runner_ids\"",
+			"\"runners\"",
+			"\"leader_runner_id\"",
+			"\"required_runner_ids\"",
+			"\"error_message\"",
 		},
 		TestAppFactory: setupPipelineQueueApp,
 	}
@@ -600,6 +712,13 @@ func TestPipelineQueueStatus_MultiRunnerIgnoresMissingRunnerWorkflow(t *testing.
 		ExpectedContent: []string{
 			"\"status\":\"queued\"",
 		},
+		NotExpectedContent: []string{
+			"\"runner_ids\"",
+			"\"runners\"",
+			"\"leader_runner_id\"",
+			"\"required_runner_ids\"",
+			"\"error_message\"",
+		},
 		TestAppFactory: setupPipelineQueueApp,
 	}
 
@@ -636,9 +755,16 @@ func TestPipelineQueueStatus_MultiRunnerAllMissingReturnsNotFound(t *testing.T) 
 		Headers: map[string]string{
 			"Authorization": "Bearer " + token,
 		},
-		ExpectedStatus: http.StatusNotFound,
+		ExpectedStatus: http.StatusOK,
 		ExpectedContent: []string{
-			"ticket not found",
+			"\"status\":\"not_found\"",
+		},
+		NotExpectedContent: []string{
+			"\"runner_ids\"",
+			"\"runners\"",
+			"\"leader_runner_id\"",
+			"\"required_runner_ids\"",
+			"\"error_message\"",
 		},
 		TestAppFactory: setupPipelineQueueApp,
 	}

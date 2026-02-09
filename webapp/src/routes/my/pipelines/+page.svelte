@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Plus } from '@lucide/svelte';
+	import { Pipeline } from '$lib';
 	import { userOrganization } from '$lib/app-state';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
 
@@ -16,7 +17,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { setDashboardNavbar } from '../+layout@.svelte';
 	import PipelineCard from './_partials/pipeline-card.svelte';
-	import { getAllPipelinesWorkflows } from './_partials/workflows.js';
 
 	//
 
@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const allWorkflows = new PolledResource(getAllPipelinesWorkflows, {
+	const allWorkflows = new PolledResource(() => Pipeline.Workflows.listAll(), {
 		initialValue: () => data.workflows
 	});
 </script>

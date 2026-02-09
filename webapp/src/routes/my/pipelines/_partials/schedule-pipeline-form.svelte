@@ -6,8 +6,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { CalendarIcon } from '@lucide/svelte';
+	import { Pipeline } from '$lib';
 	import RunnerSelectInput from '$lib/pipeline/runner-select-input.svelte';
-	import { getPipelineRunnerType } from '$lib/pipeline/utils';
 	import { getPath } from '$lib/utils';
 	import { toast } from 'svelte-sonner';
 	import { zod } from 'sveltekit-superforms/adapters';
@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let isOpen = $state(false);
 
-	const type = getPipelineRunnerType(pipeline);
+	const type = Pipeline.Runner.getType(pipeline);
 	const isGlobalRunner = type === 'global';
 
 	let schema = z.object({
