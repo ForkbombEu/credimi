@@ -16,7 +16,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import RunnerSelectModal from '$lib/pipeline/runner-select-modal.svelte';
 	import { getPath } from '$lib/utils';
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { ArrowRightIcon, Cog, Pencil, PlayIcon } from '@lucide/svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
@@ -72,12 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return s as EnrichedSchedule | undefined;
 	});
 
-	const isRunning = $derived(
-		workflows?.some((workflow) => {
-			const status = toWorkflowStatusReadable(workflow.status);
-			return status === 'Running';
-		})
-	);
+	const isRunning = $derived(workflows?.some((workflow) => workflow.status === 'Running'));
 
 	// Flags for displaying UI elements
 

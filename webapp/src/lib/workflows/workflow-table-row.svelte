@@ -9,7 +9,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		[
 			{
 				workflow: WorkflowExecutionSummary;
-				status: WorkflowStatusType;
 				Td: typeof Table.Cell;
 			}
 		]
@@ -17,10 +16,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <script lang="ts">
-	import type { WorkflowStatusType } from '$lib/temporal';
 	import type { Snippet } from 'svelte';
 
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { EllipsisVerticalIcon, TriangleIcon } from '@lucide/svelte';
 	import clsx from 'clsx';
 
@@ -44,8 +41,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	};
 
 	let { workflow, depth = 0, row, hideColumns = [] }: Props = $props();
-
-	const status = $derived(toWorkflowStatusReadable(workflow.status) as WorkflowStatusType);
 
 	const isRoot = $derived(depth === 0);
 	const isChild = $derived(!isRoot);
@@ -126,14 +121,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if !hideColumns.includes('status')}
 		<Table.Cell>
 			<WorkflowStatusTag
-				{status}
+				status={workflow.status}
 				failureReason={workflow.failure_reason}
 				size={isChild ? 'sm' : 'md'}
 			/>
 		</Table.Cell>
 	{/if}
 
-	{@render row?.({ workflow, Td: Table.Cell, status })}
+	{@render row?.({ workflow, Td: Table.Cell })}
 
 	{#if !hideColumns.includes('start_time')}
 		<Table.Cell
@@ -164,7 +159,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				workflow={{
 					workflowId: workflow.execution.workflowId,
 					runId: workflow.execution.runId,
-					status: status,
+					status: workflow.status,
 					name: workflow.displayName
 				}}
 				dropdownTriggerVariants={{ size: 'icon', variant: 'ghost' }}

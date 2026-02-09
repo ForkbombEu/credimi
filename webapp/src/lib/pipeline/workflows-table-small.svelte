@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { ArrowRightIcon, EllipsisIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
@@ -46,10 +45,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<tbody>
 					{#each workflows as workflow (workflow.execution.runId)}
 						{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
-						{@const status = toWorkflowStatusReadable(workflow.status)}
 						<tr>
 							<td>
-								<WorkflowStatusTag {workflow} />
+								<WorkflowStatusTag {workflow} size="sm" />
 							</td>
 							<td>
 								{#if runnerNames.length > 0}
@@ -108,7 +106,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									workflow={{
 										workflowId: workflow.execution.workflowId,
 										runId: workflow.execution.runId,
-										status: status,
+										status: workflow.status,
 										name: workflow.displayName
 									}}
 									dropdownTriggerVariants={{ size: 'icon', variant: 'ghost' }}

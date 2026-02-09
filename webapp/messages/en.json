@@ -927,5 +927,6 @@
 	"Failed_to_enqueue_pipeline": "Failed to enqueue pipeline",
 	"Pipeline_queued": "Pipeline queued (position {position} of {line_len})",
 	"Failed_to_cancel_pipeline": "Failed to cancel pipeline",
-	"Pipeline_execution_canceled": "Pipeline execution canceled"
+	"Pipeline_execution_canceled": "Pipeline execution canceled",
+	"Queued": "Queued"
 }

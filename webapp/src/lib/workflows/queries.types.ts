@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { WorkflowStatus } from '@forkbombeu/temporal-ui/dist/types/workflows';
+import type { WorkflowStatus } from './types';
 
 //
 
@@ -20,7 +20,7 @@ export interface WorkflowExecutionSummary {
 	};
 	startTime: string;
 	endTime?: string;
-	status: NonNullable<WorkflowStatus>;
+	status: WorkflowStatus;
 	displayName: string;
 	children?: Array<WorkflowExecutionSummary>;
 	failure_reason?: string;

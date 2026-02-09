@@ -5,7 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { ArrowLeft } from '@lucide/svelte';
 	import { Pipeline } from '$lib';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
@@ -34,19 +33,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	// Filter out canceled runs for success rate calculation
 	const nonCanceledWorkflows = $derived(
-		workflows.current?.filter((w) => {
-			const status = toWorkflowStatusReadable(w.status);
-			return status !== 'Canceled';
-		}) ?? []
+		(workflows.current ?? []).filter((w) => w.status !== 'Canceled')
 	);
 
 	const totalRuns = $derived(nonCanceledWorkflows.length);
 
 	const totalSuccesses = $derived(
-		nonCanceledWorkflows.filter((w) => {
-			const status = toWorkflowStatusReadable(w.status);
-			return status === 'Completed';
-		}).length
+		nonCanceledWorkflows.filter((w) => w.status === 'Completed').length
 	);
 
 	const successRate = $derived(((totalSuccesses / totalRuns) * 100).toFixed(1) + '%');
