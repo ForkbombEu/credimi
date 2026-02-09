@@ -267,10 +267,10 @@ func TestGetCredentialDeeplink(t *testing.T) {
 				app := setupDeeplinkApp(orgID)(t)
 
 				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-    				conn, _, _ := w.(http.Hijacker).Hijack()
-    				conn.Close()
+    				w.Header().Set("Content-Type", "application/json")
+    				w.WriteHeader(200)
 				}))
-				t.Cleanup(srv.Close)
+				defer srv.Close()
 
 				app.Settings().Meta.AppURL = srv.URL
 
