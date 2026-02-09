@@ -352,6 +352,10 @@ func HandlePipelineQueueCancel() func(*core.RequestEvent) error {
 			runnerStatuses,
 		)
 
+		if response.Status == workflowengine.MobileRunnerSemaphoreRunNotFound {
+			response.Status = workflowengine.MobileRunnerSemaphoreRunCanceled
+		}
+
 		return e.JSON(http.StatusOK, response)
 	}
 }

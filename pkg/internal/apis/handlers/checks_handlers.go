@@ -1332,7 +1332,7 @@ func buildQueuedWorkflowSummary(
 	userTimezone string,
 	displayName string,
 ) *WorkflowExecutionSummary {
-	startTime := formatQueuedRunTime(queued.EnqueuedAt, userTimezone)
+	enqueuedTime := formatQueuedRunTime(queued.EnqueuedAt, userTimezone)
 	queue := &WorkflowQueueSummary{
 		TicketID:  queued.TicketID,
 		Position:  queued.Position + 1,
@@ -1348,7 +1348,7 @@ func buildQueuedWorkflowSummary(
 		Type: WorkflowType{
 			Name: pipelineWorkflow.Name(),
 		},
-		StartTime:   startTime,
+		EnqueuedAt:  enqueuedTime,
 		Status:      string(WorkflowStatusQueued),
 		DisplayName: displayName,
 		Queue:       queue,

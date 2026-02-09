@@ -77,6 +77,7 @@ type WorkflowExecutionSummary struct {
 	Type          WorkflowType                `json:"type"                     validate:"required"`
 	StartTime     string                      `json:"startTime"`
 	EndTime       string                      `json:"endTime"`
+	EnqueuedAt    string                      `json:"enqueuedAt"`
 	Status        string                      `json:"status"                   validate:"required"`
 	DisplayName   string                      `json:"displayName"              validate:"required"`
 	Queue         *WorkflowQueueSummary       `json:"queue,omitempty"`
