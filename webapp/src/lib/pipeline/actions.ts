@@ -118,7 +118,7 @@ export function makeDropdownActions(workflow: ExecutionSummary): DropdownMenuIte
 			label: m.Cancel(),
 			icon: XIcon,
 			onclick: () => cancel(workflow),
-			disabled: workflow.status !== 'Running' || !workflow.queue
+			disabled: workflow.status !== 'Running' && !workflow.queue
 		}
 	];
 }
