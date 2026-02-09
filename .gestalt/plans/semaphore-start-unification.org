@@ -528,3 +528,86 @@
       - `emitQueueCancelRequested` is called with the ticket id,
       - the queue DELETE endpoint is invoked with the expected querystring.
 - Done when :: Canceling a queued run from the workflows table shows a single “Queue canceled” toast and does not trigger any queue “ticket not found” error toast.
+
+* DONE [#A] Simplify pipeline start/queue APIs (make `/queue` the only start entrypoint)
+- Effort :: M
+- Goal :: Refactor the pipeline + queue handlers so `POST /api/pipeline/queue` is the only public “run pipeline” endpoint: it enqueues runner pipelines and starts non-runner pipelines immediately; delete `POST /api/pipeline/start`; return minimal, non-duplicated DTOs.
+- Notes ::
+  - Breaking change is acceptable for this refactor; keep simplicity as the primary constraint.
+  - Do not touch `webapp/*` (frontend may break; backend-only refactor).
+  - Remove response noise: `leader_runner_id`, `required_runner_ids`, `runners[]`, duplicate `runner_ids`, and any “workflow IDs” on enqueue responses.
+  - `POST /api/pipeline/queue` must never return `canceled` (it either creates a queued ticket, starts immediately, or errors).
+
+** DONE [#A] Replace `/api/pipeline/queue` response with a minimal discriminated contract
+- Why :: The current queue response mixes per-runner debug detail, duplicates fields, and exposes state transitions that a “create queue item” endpoint cannot meaningfully guarantee.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_queue_handler.go`, replace `PipelineQueueRunnerStatus` and `PipelineQueueStatusResponse` with a single response DTO:
+    - `mode` is required: `"queued"`, `"started"`, or `"failed"`.
+    - When `mode="queued"`, return only:
+      - `ticket_id`, `enqueued_at`, `runner_ids`, `position`, `line_len`.
+      - `status` may be omitted entirely or fixed to `"queued"` (no other values allowed on a successful enqueue response).
+    - When `mode="started"`, return only:
+      - `workflow_id`, `run_id`, `workflow_namespace`.
+    - When `mode="failed"`, return only:
+      - `error_message` (required) and optionally `status: "failed"` for readability (no other values).
+    - Use HTTP non-2xx for handler-level failures (validation, Temporal client errors, timeouts); use `mode="failed"` only when a successful semaphore/update response indicates the ticket is in a terminal failed state.
+  - For multi-runner pipelines, compute `position`/`line_len` as `max(...)` across runners (same semantics as `runqueue.AggregateRunnerStatuses`) but do not return per-runner rows.
+  - Keep error mapping explicit and small:
+    - 400: input validation / YAML parse errors.
+    - 404: pipeline identifier not found.
+    - 409: queue limit exceeded.
+    - 500: Temporal/semaphore failures.
+- Tests ::
+  - Update `pkg/internal/apis/handlers/pipeline_queue_handler_test.go` to assert the new response shape for enqueue (no `leader_runner_id`, no `required_runner_ids`, no `runners`).
+- Done when :: `POST /api/pipeline/queue` returns a small, stable JSON payload that clearly indicates whether the run was queued, started, or failed (with an `error_message`).
+
+** DONE [#A] Make `POST /api/pipeline/queue` start non-runner pipelines (remove the need for `/start`)
+- Why :: A single “run pipeline” endpoint removes conditional client logic and allows deleting `/api/pipeline/start` entirely.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_queue_handler.go`:
+    - Parse runner intent via `runners.ParsePipelineRunnerInfo(yaml)` (and global runner resolution as needed).
+    - If the YAML resolves to *no* runner requirement (`len(runnerIDs)==0` and `NeedsGlobalRunner==false`), start the pipeline workflow immediately using the same invariants as the old `HandlePipelineStart`:
+      - resolve pipeline record by identifier,
+      - create `pipeline_results` record,
+      - start `pipeline.NewPipelineWorkflow().Start(yaml, config, memo)`,
+      - persist `workflow_id`/`run_id`,
+      - return `mode="started"` response.
+    - Otherwise (runner pipeline), keep enqueue semantics and return `mode="queued"` response.
+  - Factor the “start + persist pipeline result” logic into a small unexported helper so handler glue stays short and testable.
+- Tests ::
+  - Add a new unit test in `pkg/internal/apis/handlers/pipeline_queue_handler_test.go` that posts a non-runner YAML (e.g. `steps: []`) to `/api/pipeline/queue` and asserts:
+    - `mode="started"` and response contains `workflow_id`/`run_id`,
+    - a `pipeline_results` record is created.
+  - To keep tests `-tags=unit` and deterministic, add a handler-local injected function (package var) for “start pipeline workflow” so tests can stub it (similar to existing `ensureRunQueueSemaphoreWorkflow` stubs).
+- Done when :: Any valid pipeline YAML can be submitted to `/api/pipeline/queue` and will either queue (runner) or start (non-runner) without requiring clients to call `/start`.
+
+** DONE [#A] Remove `POST /api/pipeline/start` from public routes
+- Why :: `/start` becomes redundant once `/queue` handles both runner and non-runner pipelines; keeping it invites drift and duplicate logic.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_handler.go`:
+    - Remove the `/start` route definition from `PipelineRoutes`.
+    - Delete `HandlePipelineStart` (or keep it internal-only behind a non-routed helper used by `/queue`).
+  - Remove now-obsolete tests:
+    - Delete `TestPipelineStartRejectsRunnerPipelines` in `pkg/internal/apis/handlers/pipeline_handler_test.go`.
+  - Remove remaining references to `/api/pipeline/start` in:
+    - `cmd/cli/pipeline.go` (optional cleanup; should become “queue-only” and never mention `/start`),
+    - plan/docs strings in backend error messages (ensure all guidance points to `/api/pipeline/queue` only).
+- Tests ::
+  - Update handler route tests (if any) to reflect the missing `/start` route.
+- Done when :: The backend exposes no public `/api/pipeline/start` route and all non-runner starts happen via `/api/pipeline/queue`.
+
+** DONE [#B] Simplify queue status + cancel handlers to match the minimal DTO mindset
+- Why :: The poll/cancel endpoints currently mirror the same verbose struct shape; simplifying them keeps the API consistent and reduces accidental frontend coupling.
+- Change ::
+  - In `pkg/internal/apis/handlers/pipeline_queue_handler.go`:
+    - Replace `PipelineQueueStatusResponse` returns from:
+      - `GET /api/pipeline/queue/{ticket}`
+      - `DELETE /api/pipeline/queue/{ticket}`
+      with a minimal response:
+        - `ticket_id`, `status`, `position`, `line_len`,
+        - optional `workflow_id`/`run_id`/`workflow_namespace` only when `status` indicates it has started.
+    - Do not return per-runner `runners[]` rows; keep runner IDs as input-only (`runner_ids[]` querystring) unless there is a strong backend-only need to echo them.
+    - Keep the “missing on all runners => 200 with status=not_found” behavior.
+- Tests ::
+  - Update `pkg/internal/apis/handlers/pipeline_queue_handler_test.go` poll/cancel scenarios to assert the simplified payload and the absence of per-runner detail fields.
+- Done when :: Queue poll/cancel endpoints return small, predictable payloads that are consistent with the simplified enqueue response.
