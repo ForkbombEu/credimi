@@ -90,6 +90,9 @@ var enqueueRunTicket = enqueueRunTicketTemporal
 var queryRunTicketStatus = queryRunTicketStatusTemporal
 var cancelRunTicket = cancelRunTicketTemporal
 
+// startPipelineWorkflow starts a pipeline workflow and is stubbed in unit tests.
+var startPipelineWorkflow = startPipelineWorkflowTemporal
+
 func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		input, err := routing.GetValidatedInput[PipelineQueueInput](e)
@@ -123,7 +126,8 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		if _, err := canonify.Resolve(e.App, pipelineIdentifier); err != nil {
+		pipelineRecord, err := canonify.Resolve(e.App, pipelineIdentifier)
+		if err != nil {
 			return apierror.New(
 				http.StatusNotFound,
 				"pipeline_identifier",
@@ -154,8 +158,13 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		maxPipelinesInQueue := orgRecord.GetInt("max_pipelines_in_queue")
+		memo := map[string]any{
+			"test":   "pipeline-run",
+			"userID": userID,
+		}
+		config := buildPipelineQueueConfig(e, namespace, userName, userMail)
 
-		runnerIDs, err := resolvePipelineRunnerIDs(yaml)
+		runnerInfo, err := runners.ParsePipelineRunnerInfo(yaml)
 		if err != nil {
 			return apierror.New(
 				http.StatusBadRequest,
@@ -163,6 +172,35 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 				"failed to parse pipeline yaml",
 				err.Error(),
 			).JSON(e)
+		}
+		runnerIDs, err := resolvePipelineRunnerIDs(yaml, runnerInfo)
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"yaml",
+				"failed to parse pipeline yaml",
+				err.Error(),
+			).JSON(e)
+		}
+		if len(runnerIDs) == 0 && !runnerInfo.NeedsGlobalRunner {
+			startResult, apiErr := startPipelineFromQueue(
+				e,
+				pipelineRecord,
+				orgRecord.Id,
+				yaml,
+				config,
+				memo,
+			)
+			if apiErr != nil {
+				return apiErr.JSON(e)
+			}
+			response := PipelineQueueResponse{
+				Mode:              queueEnqueueModeStarted,
+				WorkflowID:        startResult.WorkflowID,
+				RunID:             startResult.WorkflowRunID,
+				WorkflowNamespace: namespace,
+			}
+			return e.JSON(http.StatusOK, response)
 		}
 		if len(runnerIDs) == 0 {
 			return apierror.New(
@@ -176,11 +214,6 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 		leaderRunnerID := runnerIDs[0]
 		now := time.Now().UTC()
 		ticketID := uuid.NewString()
-		memo := map[string]any{
-			"test":   "pipeline-run",
-			"userID": userID,
-		}
-		config := buildPipelineQueueConfig(e, namespace, userName, userMail)
 
 		for _, runnerID := range runnerIDs {
 			if err := ensureRunQueueSemaphoreWorkflow(e.Request.Context(), runnerID); err != nil {
@@ -435,11 +468,57 @@ func buildPipelineQueueConfig(
 	}
 }
 
-func resolvePipelineRunnerIDs(yaml string) ([]string, error) {
-	info, err := runners.ParsePipelineRunnerInfo(yaml)
+// startPipelineFromQueue starts a non-runner pipeline and persists the pipeline result record.
+func startPipelineFromQueue(
+	e *core.RequestEvent,
+	pipelineRecord *core.Record,
+	ownerID string,
+	yaml string,
+	config map[string]any,
+	memo map[string]any,
+) (workflowengine.WorkflowResult, *apierror.APIError) {
+	var result workflowengine.WorkflowResult
+
+	coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
 	if err != nil {
-		return nil, err
+		return result, apierror.New(
+			http.StatusInternalServerError,
+			"collection",
+			"failed to get collection",
+			err.Error(),
+		)
 	}
+
+	record := core.NewRecord(coll)
+	record.Set("owner", ownerID)
+	record.Set("pipeline", pipelineRecord.Id)
+
+	result, err = startPipelineWorkflow(yaml, config, memo)
+	if err != nil {
+		return result, apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to start workflow",
+			err.Error(),
+		)
+	}
+
+	record.Set("workflow_id", result.WorkflowID)
+	record.Set("run_id", result.WorkflowRunID)
+
+	if err := e.App.Save(record); err != nil {
+		return result, apierror.New(
+			http.StatusInternalServerError,
+			"pipeline",
+			"failed to save pipeline record",
+			err.Error(),
+		)
+	}
+
+	return result, nil
+}
+
+func resolvePipelineRunnerIDs(yaml string, info runners.PipelineRunnerInfo) ([]string, error) {
 	globalRunnerID := ""
 	if info.NeedsGlobalRunner {
 		wfDef, err := pipeline.ParseWorkflow(yaml)
@@ -847,6 +926,16 @@ func cancelRunTicketTemporal(
 	}
 
 	return status, nil
+}
+
+// startPipelineWorkflowTemporal runs the pipeline workflow directly via the Temporal client.
+func startPipelineWorkflowTemporal(
+	yaml string,
+	config map[string]any,
+	memo map[string]any,
+) (workflowengine.WorkflowResult, error) {
+	w := pipeline.NewPipelineWorkflow()
+	return w.Start(yaml, config, memo)
 }
 
 func runQueueUpdateID(prefix, runnerID, ticketID string) string {
