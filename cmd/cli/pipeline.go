@@ -191,11 +191,15 @@ type PipelineCLIInput struct {
 }
 
 type pipelineQueueResponse struct {
-	TicketID  string   `json:"ticket_id"`
-	RunnerIDs []string `json:"runner_ids"`
-	Status    string   `json:"status"`
-	Position  int      `json:"position"`
-	LineLen   int      `json:"line_len"`
+	Mode              string   `json:"mode"`
+	TicketID          string   `json:"ticket_id"`
+	RunnerIDs         []string `json:"runner_ids"`
+	Position          int      `json:"position"`
+	LineLen           int      `json:"line_len"`
+	WorkflowID        string   `json:"workflow_id"`
+	RunID             string   `json:"run_id"`
+	WorkflowNamespace string   `json:"workflow_namespace"`
+	ErrorMessage      string   `json:"error_message"`
 }
 
 // Checks for existing pipeline, otherwise creates
@@ -412,41 +416,46 @@ func startPipeline(ctx context.Context, token string, canonName string, rec map[
 	if err != nil {
 		return err
 	}
-	if queueStatus == http.StatusOK {
-		var queueResp pipelineQueueResponse
-		if err := json.Unmarshal(queueBody, &queueResp); err != nil {
-			return fmt.Errorf("failed to decode queue response: %w", err)
-		}
-		return printJSON(map[string]any{
-			"ticket_id":      queueResp.TicketID,
-			"runner_ids":     queueResp.RunnerIDs,
-			"status":         queueResp.Status,
-			"position":       queueResp.Position,
-			"line_len":       queueResp.LineLen,
-			"position_human": queueResp.Position + 1,
-		})
-	}
-	if queueStatus != http.StatusBadRequest ||
-		!bytes.Contains(queueBody, []byte("no runner ids resolved")) {
+	if queueStatus != http.StatusOK {
 		return printJSON(map[string]any{
 			"status":  queueStatus,
 			"payload": decodeJSONPayload(queueBody),
 		})
 	}
 
-	startStatus, startBody, err := postPipelineRequest(ctx, token, "start", body)
-	if err != nil {
-		return err
+	var queueResp pipelineQueueResponse
+	if err := json.Unmarshal(queueBody, &queueResp); err != nil {
+		return fmt.Errorf("failed to decode queue response: %w", err)
 	}
 
-	output := map[string]any{
-		"status":  startStatus,
-		"payload": decodeJSONPayload(startBody),
+	switch queueResp.Mode {
+	case "queued":
+		return printJSON(map[string]any{
+			"mode":           queueResp.Mode,
+			"ticket_id":      queueResp.TicketID,
+			"runner_ids":     queueResp.RunnerIDs,
+			"position":       queueResp.Position,
+			"line_len":       queueResp.LineLen,
+			"position_human": queueResp.Position + 1,
+		})
+	case "started":
+		return printJSON(map[string]any{
+			"mode":               queueResp.Mode,
+			"workflow_id":        queueResp.WorkflowID,
+			"run_id":             queueResp.RunID,
+			"workflow_namespace": queueResp.WorkflowNamespace,
+		})
+	case "failed":
+		return printJSON(map[string]any{
+			"mode":          queueResp.Mode,
+			"error_message": queueResp.ErrorMessage,
+		})
+	default:
+		return printJSON(map[string]any{
+			"mode":    queueResp.Mode,
+			"payload": decodeJSONPayload(queueBody),
+		})
 	}
-	if startStatus == http.StatusConflict {
-		output["message"] = "mobile-runner pipelines must be started via queue/semaphore"
-	}
-	return printJSON(output)
 }
 
 func printJSON(v any) error {

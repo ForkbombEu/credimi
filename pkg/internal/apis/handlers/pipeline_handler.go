@@ -20,7 +20,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -32,11 +31,6 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-type PipelineInput struct {
-	Yaml               string `json:"yaml"`
-	PipelineIdentifier string `json:"pipeline_identifier"`
-}
-
 var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/pipeline",
 	AuthenticationRequired: true,
@@ -44,13 +38,6 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 		{Func: middlewares.ErrorHandlingMiddleware},
 	},
 	Routes: []routing.RouteDefinition{
-		{
-			Method:        http.MethodPost,
-			Path:          "/start",
-			Handler:       HandlePipelineStart,
-			RequestSchema: PipelineInput{},
-			Description:   "Start a pipeline workflow from a YAML file",
-		},
 		{
 			Method:        http.MethodPost,
 			Path:          "/queue",
@@ -104,124 +91,6 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Description:   "Create pipeline execution results record",
 		},
 	},
-}
-
-func HandlePipelineStart() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		input, err := routing.GetValidatedInput[PipelineInput](e)
-		if err != nil {
-			return err
-		}
-		appURL := e.App.Settings().Meta.AppURL
-		appName := e.App.Settings().Meta.AppName
-		logoURL := utils.JoinURL(
-			appURL,
-			"logos",
-			fmt.Sprintf("%s_logo-transp_emblem.png", strings.ToLower(appName)),
-		)
-		if e.Auth == nil {
-			return apierror.New(
-				http.StatusUnauthorized,
-				"auth",
-				"authentication required",
-				"user not authenticated",
-			).JSON(e)
-		}
-
-		userID := e.Auth.Id
-		userMail := e.Auth.GetString("email")
-		userName := e.Auth.GetString("name")
-		orgID, err := GetUserOrganizationID(e.App, userID)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organization",
-				"unable to get user organization ID",
-				err.Error(),
-			).JSON(e)
-		}
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, userID)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organization",
-				"unable to get user organization canonified name",
-				err.Error(),
-			).JSON(e)
-		}
-
-		coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"collection",
-				"failed to get collection",
-				err.Error(),
-			).JSON(e)
-		}
-
-		pipelineRecord, err := canonify.Resolve(e.App, input.PipelineIdentifier)
-		if err != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"pipeline_identifier",
-				"pipeline not found",
-				err.Error(),
-			).JSON(e)
-		}
-		if runnerInfo, err := runners.ParsePipelineRunnerInfo(input.Yaml); err == nil {
-			if len(runnerInfo.RunnerIDs) > 0 || runnerInfo.NeedsGlobalRunner {
-				return apierror.New(
-					http.StatusConflict,
-					"pipeline",
-					"mobile-runner pipelines must be started via queue/semaphore",
-					"use /api/pipeline/queue",
-				).JSON(e)
-			}
-		}
-		record := core.NewRecord(coll)
-		record.Set("owner", orgID)
-		record.Set("pipeline", pipelineRecord.Id)
-
-		memo := map[string]any{
-			"test":   "pipeline-run",
-			"userID": userID,
-		}
-		config := map[string]any{
-			"namespace": namespace,
-			"app_url":   appURL,
-			"app_name":  appName,
-			"app_logo":  logoURL,
-			"user_name": userName,
-			"user_mail": userMail,
-		}
-		w := pipeline.NewPipelineWorkflow()
-		result, err := w.Start(input.Yaml, config, memo)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to start workflow",
-				err.Error(),
-			).JSON(e)
-		}
-
-		record.Set("workflow_id", result.WorkflowID)
-		record.Set("run_id", result.WorkflowRunID)
-
-		if err := e.App.Save(record); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline",
-				"failed to save pipeline record",
-				err.Error(),
-			).JSON(e)
-		}
-		return e.JSON(http.StatusOK, map[string]any{
-			"message": "Workflow started successfully",
-			"result":  result,
-		})
-	}
 }
 
 func HandleGetPipelineYAML() func(*core.RequestEvent) error {
