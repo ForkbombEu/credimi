@@ -27,7 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {@render children()}
 
-<Toaster richColors closeButton />
+<Toaster richColors closeButton class="dark!" />
 
 <GlobalLoading />
 
