@@ -32,7 +32,7 @@ export interface ExecutionSummary extends WorkflowExecutionSummary {
 
 const baseUrl = '/api/pipeline/list-workflows';
 
-export async function listAll(options = { fetch }) {
+export async function listAllGroupedByPipelineId(options = { fetch }) {
 	return pb.send<Record<string, ExecutionSummary[]>>(baseUrl, {
 		method: 'GET',
 		fetch: options.fetch

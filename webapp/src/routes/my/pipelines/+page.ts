@@ -5,6 +5,6 @@
 import { Pipeline } from '$lib';
 
 export const load = async ({ fetch }) => {
-	const workflows = await Pipeline.Workflows.listAll({ fetch });
+	const workflows = await Pipeline.Workflows.listAllGroupedByPipelineId({ fetch });
 	return { workflows };
 };
