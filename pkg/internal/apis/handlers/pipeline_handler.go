@@ -315,84 +315,9 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			})
 		}
 
-		for _, resultRecord := range resultsRecords {
-			c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"temporal",
-					"unable to create client",
-					err.Error(),
-				).JSON(e)
-			}
-
-			if temporalClient == nil {
-				temporalClient = c
-			}
-
-			workflowExecution, err := c.DescribeWorkflowExecution(
-				context.Background(),
-				resultRecord.GetString("workflow_id"),
-				resultRecord.GetString("run_id"),
-			)
-			if err != nil {
-				notFound := &serviceerror.NotFound{}
-				if errors.As(err, &notFound) {
-					return apierror.New(
-						http.StatusNotFound,
-						"workflow",
-						"workflow not found",
-						err.Error(),
-					).JSON(e)
-				}
-				invalidArgument := &serviceerror.InvalidArgument{}
-				if errors.As(err, &invalidArgument) {
-					return apierror.New(
-						http.StatusBadRequest,
-						"workflow",
-						"invalid workflow ID",
-						err.Error(),
-					).JSON(e)
-				}
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to describe workflow execution",
-					err.Error(),
-				).JSON(e)
-			}
-
-			weJSON, err := protojson.Marshal(workflowExecution.GetWorkflowExecutionInfo())
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to marshal workflow execution",
-					err.Error(),
-				).JSON(e)
-			}
-
-			var execInfo WorkflowExecution
-			err = json.Unmarshal(weJSON, &execInfo)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to unmarshal workflow execution",
-					err.Error(),
-				).JSON(e)
-			}
-
-			if workflowExecution.GetWorkflowExecutionInfo().GetParentExecution() != nil {
-				parentJSON, _ := protojson.Marshal(
-					workflowExecution.GetWorkflowExecutionInfo().GetParentExecution(),
-				)
-				var parentInfo WorkflowIdentifier
-				_ = json.Unmarshal(parentJSON, &parentInfo)
-				execInfo.ParentExecution = &parentInfo
-			}
-
-			allExecutions = append(allExecutions, &execInfo)
+		allExecutions, err = processPipelineResults(namespace, resultsRecords, &temporalClient)
+		if err != nil {
+    		return e.JSON(http.StatusOK, allExecutions)
 		}
 
 		if len(allExecutions) == 0 {
@@ -832,84 +757,9 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			})
 		}
 
-		for _, resultRecord := range resultsRecords {
-			c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"temporal",
-					"unable to create client",
-					err.Error(),
-				).JSON(e)
-			}
-
-			if temporalClient == nil {
-				temporalClient = c
-			}
-
-			workflowExecution, err := c.DescribeWorkflowExecution(
-				context.Background(),
-				resultRecord.GetString("workflow_id"),
-				resultRecord.GetString("run_id"),
-			)
-			if err != nil {
-				notFound := &serviceerror.NotFound{}
-				if errors.As(err, &notFound) {
-					return apierror.New(
-						http.StatusNotFound,
-						"workflow",
-						"workflow not found",
-						err.Error(),
-					).JSON(e)
-				}
-				invalidArgument := &serviceerror.InvalidArgument{}
-				if errors.As(err, &invalidArgument) {
-					return apierror.New(
-						http.StatusBadRequest,
-						"workflow",
-						"invalid workflow ID",
-						err.Error(),
-					).JSON(e)
-				}
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to describe workflow execution",
-					err.Error(),
-				).JSON(e)
-			}
-
-			weJSON, err := protojson.Marshal(workflowExecution.GetWorkflowExecutionInfo())
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to marshal workflow execution",
-					err.Error(),
-				).JSON(e)
-			}
-
-			var execInfo WorkflowExecution
-			err = json.Unmarshal(weJSON, &execInfo)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to unmarshal workflow execution",
-					err.Error(),
-				).JSON(e)
-			}
-
-			if workflowExecution.GetWorkflowExecutionInfo().GetParentExecution() != nil {
-				parentJSON, _ := protojson.Marshal(
-					workflowExecution.GetWorkflowExecutionInfo().GetParentExecution(),
-				)
-				var parentInfo WorkflowIdentifier
-				_ = json.Unmarshal(parentJSON, &parentInfo)
-				execInfo.ParentExecution = &parentInfo
-			}
-
-			allExecutions = append(allExecutions, &execInfo)
+		allExecutions, err = processPipelineResults(namespace, resultsRecords, &temporalClient)
+		if err != nil {
+    		return e.JSON(http.StatusOK, allExecutions)
 		}
 
 		if len(allExecutions) == 0 {
@@ -1322,4 +1172,94 @@ func selectTopExecutionsByPipeline(executions []struct {
 	}
 
 	return result
+}
+
+func processPipelineResults(
+	namespace string,
+	resultsRecords []*core.Record,
+	temporalClient *client.Client,
+) ([]*WorkflowExecution, error) {
+	var allExecutions []*WorkflowExecution
+
+	for _, resultRecord := range resultsRecords {
+		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		if err != nil {
+			return nil, apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create client",
+				err.Error(),
+			)
+		}
+
+		if *temporalClient == nil {
+			*temporalClient = c
+		}
+
+		workflowExecution, err := c.DescribeWorkflowExecution(
+			context.Background(),
+			resultRecord.GetString("workflow_id"),
+			resultRecord.GetString("run_id"),
+		)
+		if err != nil {
+			notFound := &serviceerror.NotFound{}
+			if errors.As(err, &notFound) {
+				return nil, apierror.New(
+					http.StatusNotFound,
+					"workflow",
+					"workflow not found",
+					err.Error(),
+				)
+			}
+			invalidArgument := &serviceerror.InvalidArgument{}
+			if errors.As(err, &invalidArgument) {
+				return nil, apierror.New(
+					http.StatusBadRequest,
+					"workflow",
+					"invalid workflow ID",
+					err.Error(),
+				)
+			}
+			return nil, apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to describe workflow execution",
+				err.Error(),
+			)
+		}
+
+		weJSON, err := protojson.Marshal(workflowExecution.GetWorkflowExecutionInfo())
+		if err != nil {
+			return nil, apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to marshal workflow execution",
+				err.Error(),
+			)
+		}
+
+		var execInfo WorkflowExecution
+		err = json.Unmarshal(weJSON, &execInfo)
+		if err != nil {
+			return nil, apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to unmarshal workflow execution",
+				err.Error(),
+			)
+		}
+
+		if workflowExecution.GetWorkflowExecutionInfo().GetParentExecution() != nil {
+			parentJSON, _ := protojson.Marshal(
+				workflowExecution.GetWorkflowExecutionInfo().GetParentExecution(),
+			)
+			var parentInfo WorkflowIdentifier
+			_ = json.Unmarshal(parentJSON, &parentInfo)
+			execInfo.ParentExecution = &parentInfo
+		}
+
+		allExecutions = append(allExecutions, &execInfo)
+	}
+
+	return allExecutions, nil
 }
