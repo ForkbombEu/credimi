@@ -7,8 +7,10 @@ package cli
 import (
 	"context"
 	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -87,6 +89,90 @@ func TestFindOrCreatePipelineCreatesWhenMissing(t *testing.T) {
 	require.Equal(t, 2, call)
 }
 
+// TestStartPipelineQueuesRunnerPipelines verifies queue output for runner pipelines.
+func TestStartPipelineQueuesRunnerPipelines(t *testing.T) {
+	rec := map[string]any{
+		"yaml":             "name: demo",
+		"canonified_name":  "pipeline123",
+		"description":      "test",
+		"workflow":         "test",
+		"workflow_id":      "wf",
+		"workflow_run_id":  "run",
+		"workflow_run_ids": []string{},
+	}
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/api/pipeline/queue":
+			require.Equal(t, http.MethodPost, r.Method)
+			var body map[string]any
+			require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+			require.Equal(t, "org/pipeline123", body["pipeline_identifier"])
+			require.Equal(t, "name: demo", body["yaml"])
+
+			w.Header().Set("Content-Type", "application/json")
+			require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+				"mode":       "queued",
+				"ticket_id":  "ticket-1",
+				"runner_ids": []string{"runner-1"},
+				"position":   0,
+				"line_len":   2,
+			}))
+		default:
+			require.Fail(t, "unexpected path")
+		}
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	output := captureStdout(t, func() {
+		require.NoError(t, startPipeline(context.Background(), "token", "org", rec))
+	})
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal([]byte(output), &got))
+	require.Equal(t, "queued", got["mode"])
+	require.Equal(t, "ticket-1", got["ticket_id"])
+	require.Equal(t, float64(1), got["position_human"])
+	require.Equal(t, float64(0), got["position"])
+	require.Equal(t, float64(2), got["line_len"])
+}
+
+// TestStartPipelineHandlesStartedPipelines verifies started output for non-runner pipelines.
+func TestStartPipelineHandlesStartedPipelines(t *testing.T) {
+	rec := map[string]any{
+		"yaml":            "name: demo",
+		"canonified_name": "pipeline123",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			"mode":               "started",
+			"workflow_id":        "wf-123",
+			"run_id":             "run-456",
+			"workflow_namespace": "org",
+		}))
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	output := captureStdout(t, func() {
+		require.NoError(t, startPipeline(context.Background(), "token", "org", rec))
+	})
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal([]byte(output), &got))
+	require.Equal(t, "started", got["mode"])
+	require.Equal(t, "wf-123", got["workflow_id"])
+	require.Equal(t, "run-456", got["run_id"])
+	require.Equal(t, "org", got["workflow_namespace"])
+}
+
 func overrideHTTPDefaults(server *httptest.Server) func() {
 	prevURL := instanceURL
 	prevClient := http.DefaultClient
@@ -98,4 +184,22 @@ func overrideHTTPDefaults(server *httptest.Server) func() {
 		instanceURL = prevURL
 		http.DefaultClient = prevClient
 	}
+}
+
+// captureStdout collects output written to stdout during the provided function.
+func captureStdout(t *testing.T, fn func()) string {
+	t.Helper()
+
+	orig := os.Stdout
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+
+	os.Stdout = writer
+	fn()
+	_ = writer.Close()
+	os.Stdout = orig
+
+	output, err := io.ReadAll(reader)
+	require.NoError(t, err)
+	return string(output)
 }

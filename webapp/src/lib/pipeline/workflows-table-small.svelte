@@ -5,25 +5,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
-	import { ArrowRightIcon, EllipsisIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import { ArrowRightIcon, EllipsisVerticalIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import { TemporalI18nProvider } from '$lib/temporal';
-	import { omit } from 'lodash';
 
 	import A from '@/components/ui-custom/a.svelte';
+	import DropdownMenu from '@/components/ui-custom/dropdown-menu.svelte';
 	import IconButton from '@/components/ui-custom/iconButton.svelte';
 	import { m } from '@/i18n';
 
-	import type { WorkflowExecutionSummary } from './queries.types';
-
-	import WorkflowActions from './workflow-actions.svelte';
-	import WorkflowStatus from './workflow-status.svelte';
+	import { makeDropdownActions } from './actions';
+	import WorkflowStatusTag from './workflow-status-tag.svelte';
+	import * as PipelineWorkflows from './workflows';
 
 	//
 
 	type Props = {
-		workflows: WorkflowExecutionSummary[];
+		workflows: PipelineWorkflows.ExecutionSummary[];
 	};
 
 	let { workflows }: Props = $props();
@@ -47,14 +45,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<tbody>
 					{#each workflows as workflow (workflow.execution.runId)}
 						{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
-						{@const status = toWorkflowStatusReadable(workflow.status)}
 						<tr>
 							<td>
-								<WorkflowStatus
-									status={workflow.status}
-									failureReason={workflow.failure_reason}
-									size="sm"
-								/>
+								<WorkflowStatusTag {workflow} size="sm" />
 							</td>
 							<td>
 								{#if runnerNames.length > 0}
@@ -88,7 +81,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 									{@render na()}
 								{/each}
 							</td>
-							<td class="text-muted-foreground">{workflow.startTime}</td>
+							<td class="text-muted-foreground">
+								{#if workflow.queue}
+									{@render na()}
+								{:else}
+									{workflow.startTime}
+								{/if}
+							</td>
 							<td class="text-muted-foreground">
 								{#if workflow.endTime !== ''}
 									{workflow.endTime}
@@ -97,36 +96,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								{/if}
 							</td>
 							<td>
-								<A
-									href={resolve('/my/tests/runs/[workflow_id]/[run_id]', {
-										workflow_id: workflow.execution.workflowId,
-										run_id: workflow.execution.runId
-									})}
-								>
-									{m.View()}
-									<ArrowRightIcon class="inline-block size-3 -translate-y-px" />
-								</A>
+								{#if workflow.queue}
+									{@render na()}
+								{:else}
+									<A
+										href={resolve('/my/tests/runs/[workflow_id]/[run_id]', {
+											workflow_id: workflow.execution.workflowId,
+											run_id: workflow.execution.runId
+										})}
+									>
+										{m.View()}
+										<ArrowRightIcon
+											class="inline-block size-3 -translate-y-px"
+										/>
+									</A>
+								{/if}
 							</td>
 							<td>
-								<WorkflowActions
-									mode="dropdown"
-									workflow={{
-										workflowId: workflow.execution.workflowId,
-										runId: workflow.execution.runId,
-										status: status,
-										name: workflow.displayName
-									}}
-									dropdownTriggerVariants={{ size: 'icon', variant: 'ghost' }}
+								<DropdownMenu
+									triggerVariants={{ size: 'icon-sm', variant: 'ghost' }}
+									items={makeDropdownActions(workflow)}
 								>
-									{#snippet dropdownTrigger({ props })}
-										<IconButton
-											{...omit(props, 'class')}
-											size="mini"
-											variant="ghost"
-											icon={EllipsisIcon}
-										/>
+									{#snippet triggerContent()}
+										<EllipsisVerticalIcon />
 									{/snippet}
-								</WorkflowActions>
+								</DropdownMenu>
 							</td>
 						</tr>
 					{/each}

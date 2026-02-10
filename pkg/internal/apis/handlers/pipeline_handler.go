@@ -5,6 +5,7 @@ package handlers
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -19,7 +20,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -31,11 +31,6 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-type PipelineInput struct {
-	Yaml               string `json:"yaml"`
-	PipelineIdentifier string `json:"pipeline_identifier"`
-}
-
 var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/pipeline",
 	AuthenticationRequired: true,
@@ -45,10 +40,22 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 	Routes: []routing.RouteDefinition{
 		{
 			Method:        http.MethodPost,
-			Path:          "/start",
-			Handler:       HandlePipelineStart,
-			RequestSchema: PipelineInput{},
-			Description:   "Start a pipeline workflow from a YAML file",
+			Path:          "/queue",
+			Handler:       HandlePipelineQueueEnqueue,
+			RequestSchema: PipelineQueueInput{},
+			Description:   "Queue a pipeline workflow for the runner semaphore",
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/queue/{ticket}",
+			Handler:     HandlePipelineQueueStatus,
+			Description: "Get queued pipeline status by ticket",
+		},
+		{
+			Method:      http.MethodDelete,
+			Path:        "/queue/{ticket}",
+			Handler:     HandlePipelineQueueCancel,
+			Description: "Cancel a queued pipeline ticket",
 		},
 		{
 			Method:  http.MethodGet,
@@ -84,114 +91,6 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Description:   "Create pipeline execution results record",
 		},
 	},
-}
-
-func HandlePipelineStart() func(*core.RequestEvent) error {
-	return func(e *core.RequestEvent) error {
-		input, err := routing.GetValidatedInput[PipelineInput](e)
-		if err != nil {
-			return err
-		}
-		appURL := e.App.Settings().Meta.AppURL
-		appName := e.App.Settings().Meta.AppName
-		logoURL := utils.JoinURL(
-			appURL,
-			"logos",
-			fmt.Sprintf("%s_logo-transp_emblem.png", strings.ToLower(appName)),
-		)
-		if e.Auth == nil {
-			return apierror.New(
-				http.StatusUnauthorized,
-				"auth",
-				"authentication required",
-				"user not authenticated",
-			).JSON(e)
-		}
-
-		userID := e.Auth.Id
-		userMail := e.Auth.GetString("email")
-		userName := e.Auth.GetString("name")
-		orgID, err := GetUserOrganizationID(e.App, userID)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organization",
-				"unable to get user organization ID",
-				err.Error(),
-			).JSON(e)
-		}
-		namespace, err := GetUserOrganizationCanonifiedName(e.App, userID)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"organization",
-				"unable to get user organization canonified name",
-				err.Error(),
-			).JSON(e)
-		}
-
-		coll, err := e.App.FindCollectionByNameOrId("pipeline_results")
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"collection",
-				"failed to get collection",
-				err.Error(),
-			).JSON(e)
-		}
-
-		pipelineRecord, err := canonify.Resolve(e.App, input.PipelineIdentifier)
-		if err != nil {
-			return apierror.New(
-				http.StatusNotFound,
-				"pipeline_identifier",
-				"pipeline not found",
-				err.Error(),
-			).JSON(e)
-		}
-		record := core.NewRecord(coll)
-		record.Set("owner", orgID)
-		record.Set("pipeline", pipelineRecord.Id)
-
-		memo := map[string]any{
-			"test":   "pipeline-run",
-			"userID": userID,
-		}
-		config := map[string]any{
-			"namespace": namespace,
-			"app_url":   appURL,
-			"app_name":  appName,
-			"app_logo":  logoURL,
-			"user_name": userName,
-			"user_mail": userMail,
-		}
-		w := pipeline.NewPipelineWorkflow()
-		result, err := w.Start(input.Yaml, config, memo)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to start workflow",
-				err.Error(),
-			).JSON(e)
-		}
-
-		record.Set("workflow_id", result.WorkflowID)
-		record.Set("run_id", result.WorkflowRunID)
-
-		if err := e.App.Save(record); err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline",
-				"failed to save pipeline record",
-				err.Error(),
-			).JSON(e)
-		}
-		return e.JSON(http.StatusOK, map[string]any{
-			"message": "Workflow started successfully",
-			"result":  result,
-		})
-	}
 }
 
 func HandleGetPipelineYAML() func(*core.RequestEvent) error {
@@ -264,6 +163,35 @@ func HandleSetPipelineExecutionResults() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
+		existing, err := e.App.FindFirstRecordByFilter(
+			coll,
+			"workflow_id = {:workflow_id} && run_id = {:run_id}",
+			dbx.Params{
+				"workflow_id": input.WorkflowID,
+				"run_id":      input.RunID,
+			},
+		)
+		if err == nil {
+			if existing.GetString("owner") == owner.Id &&
+				existing.GetString("pipeline") == pipeline.Id {
+				return e.JSON(http.StatusOK, existing.FieldsData())
+			}
+			return apierror.New(
+				http.StatusConflict,
+				"pipeline",
+				"pipeline execution result already exists",
+				"pipeline execution result owner or pipeline mismatch",
+			).JSON(e)
+		}
+		if !errors.Is(err, sql.ErrNoRows) {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"pipeline",
+				"failed to lookup pipeline execution result",
+				err.Error(),
+			).JSON(e)
+		}
+
 		record := core.NewRecord(coll)
 		record.Set("owner", owner.Id)
 		record.Set("pipeline", pipeline.Id)
@@ -311,6 +239,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		namespace := organization.GetString("canonified_name")
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
 			"id = {:id} && owner={:owner}",
@@ -338,11 +267,21 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		}
 
 		var allExecutions []*WorkflowExecution
-		namespace := organization.GetString("canonified_name")
 		var temporalClient client.Client
 
 		pipelineRecord := pipelineRecords[0]
 		pipelineID = pipelineRecord.Id
+		queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to list queued runs",
+				err.Error(),
+			).JSON(e)
+		}
+		queuedByPipelineID := mapQueuedRunsToPipelines(pipelineRecords, namespace, queuedRuns)
+		queuedForPipeline := queuedByPipelineID[pipelineID]
 
 		runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
 		if err != nil {
@@ -452,9 +391,18 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		}
 
 		if len(allExecutions) == 0 {
-			return e.JSON(http.StatusOK, ListMyChecksResponse{
-				[]*WorkflowExecutionSummary{},
-			})
+			queuedSummaries := buildQueuedPipelineSummaries(
+				e.App,
+				queuedForPipeline,
+				authRecord.GetString("Timezone"),
+				map[string]map[string]any{},
+			)
+			if len(queuedSummaries) == 0 {
+				return e.JSON(http.StatusOK, ListMyChecksResponse{
+					[]*WorkflowExecutionSummary{},
+				})
+			}
+			return e.JSON(http.StatusOK, queuedSummaries)
 		}
 
 		if temporalClient == nil {
@@ -504,6 +452,18 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
+		if len(queuedForPipeline) > 0 {
+			queuedSummaries := buildQueuedPipelineSummaries(
+				e.App,
+				queuedForPipeline,
+				authRecord.GetString("Timezone"),
+				runnerCache,
+			)
+			if len(queuedSummaries) > 0 {
+				annotated = append(queuedSummaries, annotated...)
+			}
+		}
+
 		return e.JSON(http.StatusOK, annotated)
 	}
 }
@@ -529,6 +489,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		namespace := organization.GetString("canonified_name")
 
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
@@ -554,9 +515,19 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			return e.JSON(http.StatusOK, map[string][]*WorkflowExecutionSummary{})
 		}
 
+		queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to list queued runs",
+				err.Error(),
+			).JSON(e)
+		}
+		queuedByPipelineID := mapQueuedRunsToPipelines(pipelineRecords, namespace, queuedRuns)
+
 		pipelineExecutionsMap := make(map[string][]*WorkflowExecutionSummary)
 		pipelineRunnerInfoMap := make(map[string]pipelineRunnerInfo)
-		namespace := organization.GetString("canonified_name")
 
 		for _, pipelineRecord := range pipelineRecords {
 			pipelineID := pipelineRecord.Id
@@ -681,7 +652,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			}
 		}
 
-		if len(pipelineExecutionsMap) == 0 {
+		if len(pipelineExecutionsMap) == 0 && len(queuedByPipelineID) == 0 {
 			return e.JSON(http.StatusOK, map[string][]*WorkflowExecutionSummary{})
 		}
 
@@ -720,6 +691,13 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 					runnerCache,
 				)
 			}
+			appendQueuedPipelineSummaries(
+				e.App,
+				response,
+				queuedByPipelineID,
+				authRecord.GetString("Timezone"),
+				runnerCache,
+			)
 			return e.JSON(http.StatusOK, response)
 		}
 
@@ -746,6 +724,14 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			response[pipelineID] = annotated
 		}
 
+		appendQueuedPipelineSummaries(
+			e.App,
+			response,
+			queuedByPipelineID,
+			authRecord.GetString("Timezone"),
+			runnerCache,
+		)
+
 		return e.JSON(http.StatusOK, response)
 	}
 }
@@ -757,6 +743,146 @@ type pipelineWorkflowSummary struct {
 	GlobalRunnerID string           `json:"global_runner_id,omitempty"`
 	RunnerIDs      []string         `json:"runner_ids,omitempty"`
 	RunnerRecords  []map[string]any `json:"runner_records,omitempty"`
+}
+
+func appendQueuedPipelineSummaries(
+	app core.App,
+	response map[string][]*pipelineWorkflowSummary,
+	queuedByPipelineID map[string][]QueuedPipelineRunAggregate,
+	userTimezone string,
+	runnerCache map[string]map[string]any,
+) {
+	for pipelineID, queuedRuns := range queuedByPipelineID {
+		queuedSummaries := buildQueuedPipelineSummaries(
+			app,
+			queuedRuns,
+			userTimezone,
+			runnerCache,
+		)
+		if len(queuedSummaries) == 0 {
+			continue
+		}
+		response[pipelineID] = append(queuedSummaries, response[pipelineID]...)
+	}
+}
+
+func buildQueuedPipelineSummaries(
+	app core.App,
+	queuedRuns []QueuedPipelineRunAggregate,
+	userTimezone string,
+	runnerCache map[string]map[string]any,
+) []*pipelineWorkflowSummary {
+	if len(queuedRuns) == 0 {
+		return nil
+	}
+
+	nameCache := map[string]string{}
+	resolveName := func(identifier string) string {
+		if cached, ok := nameCache[identifier]; ok {
+			return cached
+		}
+		displayName := resolveQueuedPipelineDisplayName(app, identifier)
+		nameCache[identifier] = displayName
+		return displayName
+	}
+
+	sortedRuns := append([]QueuedPipelineRunAggregate(nil), queuedRuns...)
+	sort.Slice(sortedRuns, func(i, j int) bool {
+		return sortedRuns[i].EnqueuedAt.After(sortedRuns[j].EnqueuedAt)
+	})
+
+	summaries := make([]*pipelineWorkflowSummary, 0, len(sortedRuns))
+	for _, queued := range sortedRuns {
+		summaries = append(summaries, buildQueuedPipelineSummary(
+			app,
+			queued,
+			userTimezone,
+			runnerCache,
+			resolveName(queued.PipelineIdentifier),
+		))
+	}
+
+	return summaries
+}
+
+func buildQueuedPipelineSummary(
+	app core.App,
+	queued QueuedPipelineRunAggregate,
+	userTimezone string,
+	runnerCache map[string]map[string]any,
+	displayName string,
+) *pipelineWorkflowSummary {
+	enqueuedAt := formatQueuedRunTime(queued.EnqueuedAt, userTimezone)
+	queue := &WorkflowQueueSummary{
+		TicketID:  queued.TicketID,
+		Position:  queued.Position + 1,
+		LineLen:   queued.LineLen,
+		RunnerIDs: copyStringSlice(queued.RunnerIDs),
+	}
+
+	pipelineWorkflow := pipeline.NewPipelineWorkflow()
+	exec := &WorkflowExecutionSummary{
+		Execution: &WorkflowIdentifier{
+			WorkflowID: "queue/" + queued.TicketID,
+			RunID:      queued.TicketID,
+		},
+		Type: WorkflowType{
+			Name: pipelineWorkflow.Name(),
+		},
+		EnqueuedAt:  enqueuedAt,
+		Status:      string(WorkflowStatusQueued),
+		DisplayName: displayName,
+		Queue:       queue,
+	}
+
+	runnerIDs := copyStringSlice(queued.RunnerIDs)
+	return &pipelineWorkflowSummary{
+		WorkflowExecutionSummary: *exec,
+		RunnerIDs:                runnerIDs,
+		RunnerRecords:            runners.ResolveRunnerRecords(app, runnerIDs, runnerCache),
+	}
+}
+
+func formatQueuedRunTime(enqueuedAt time.Time, userTimezone string) string {
+	if enqueuedAt.IsZero() {
+		return ""
+	}
+	loc, err := time.LoadLocation(userTimezone)
+	if err != nil {
+		loc = time.Local
+	}
+	return enqueuedAt.In(loc).Format("02/01/2006, 15:04:05")
+}
+
+func mapQueuedRunsToPipelines(
+	pipelineRecords []*core.Record,
+	namespace string,
+	queuedRuns map[string]QueuedPipelineRunAggregate,
+) map[string][]QueuedPipelineRunAggregate {
+	if len(pipelineRecords) == 0 || len(queuedRuns) == 0 {
+		return map[string][]QueuedPipelineRunAggregate{}
+	}
+
+	pipelineIdentifiers := make(map[string]string, len(pipelineRecords))
+	for _, record := range pipelineRecords {
+		pipelineID := record.Id
+		pipelineIdentifiers[pipelineID] = pipelineID
+		canonifiedName := record.GetString("canonified_name")
+		if canonifiedName != "" && namespace != "" {
+			pipelineIdentifiers[fmt.Sprintf("%s/%s", namespace, canonifiedName)] = pipelineID
+		}
+	}
+
+	queuedByPipeline := make(map[string][]QueuedPipelineRunAggregate)
+	for _, queued := range queuedRuns {
+		pipelineID, ok := pipelineIdentifiers[strings.Trim(queued.PipelineIdentifier, "/")]
+		if !ok {
+			continue
+		}
+		queuedByPipeline[pipelineID] = append(queuedByPipeline[pipelineID], queued)
+	}
+
+	return queuedByPipeline
 }
 
 func attachPipelineRunnerInfo(
@@ -906,7 +1032,7 @@ func selectTopExecutionsByPipeline(executions []struct {
 		var runningExecs, otherExecs []*WorkflowExecutionSummary
 
 		for _, exec := range execs {
-			if exec.execution.Status == "running" {
+			if exec.execution.Status == string(WorkflowStatusRunning) {
 				runningExecs = append(runningExecs, exec.execution)
 			} else {
 				otherExecs = append(otherExecs, exec.execution)

@@ -190,6 +190,18 @@ type PipelineCLIInput struct {
 	YAML string
 }
 
+type pipelineQueueResponse struct {
+	Mode              string   `json:"mode"`
+	TicketID          string   `json:"ticket_id"`
+	RunnerIDs         []string `json:"runner_ids"`
+	Position          int      `json:"position"`
+	LineLen           int      `json:"line_len"`
+	WorkflowID        string   `json:"workflow_id"`
+	RunID             string   `json:"run_id"`
+	WorkflowNamespace string   `json:"workflow_namespace"`
+	ErrorMessage      string   `json:"error_message"`
+}
+
 // Checks for existing pipeline, otherwise creates
 func findOrCreatePipeline(
 	ctx context.Context,
@@ -349,6 +361,46 @@ func readPipelineInput() (*PipelineCLIInput, error) {
 	}, nil
 }
 
+// postPipelineRequest sends a POST request to a pipeline endpoint and returns status/body.
+func postPipelineRequest(
+	ctx context.Context,
+	token string,
+	path string,
+	payload []byte,
+) (int, []byte, error) {
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		utils.JoinURL(instanceURL, "api", "pipeline", path),
+		bytes.NewBuffer(payload),
+	)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to create %s request: %w", path, err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if token != "" {
+		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
+	}
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return 0, nil, fmt.Errorf("failed to call pipeline %s endpoint: %w", path, err)
+	}
+	defer resp.Body.Close()
+
+	body, _ := io.ReadAll(resp.Body)
+	return resp.StatusCode, body, nil
+}
+
+// decodeJSONPayload parses JSON responses and falls back to raw strings.
+func decodeJSONPayload(respBody []byte) any {
+	var respJSON any
+	if err := json.Unmarshal(respBody, &respJSON); err != nil {
+		return map[string]any{"raw": string(respBody)}
+	}
+	return respJSON
+}
+
 func startPipeline(ctx context.Context, token string, canonName string, rec map[string]any) error {
 	payload := map[string]any{
 		"yaml":                rec["yaml"].(string),
@@ -360,36 +412,50 @@ func startPipeline(ctx context.Context, token string, canonName string, rec map[
 		return fmt.Errorf("failed to marshal start payload: %w", err)
 	}
 
-	req, err := http.NewRequestWithContext(
-		ctx,
-		"POST",
-		utils.JoinURL(instanceURL, "api", "pipeline", "start"),
-		bytes.NewBuffer(body),
-	)
+	queueStatus, queueBody, err := postPipelineRequest(ctx, token, "queue", body)
 	if err != nil {
-		return fmt.Errorf("failed to create start request: %w", err)
+		return err
 	}
-	req.Header.Set("Content-Type", "application/json")
-	if token != "" {
-		req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", token))
-	}
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return fmt.Errorf("failed to call pipeline start endpoint: %w", err)
-	}
-	defer resp.Body.Close()
-
-	respBody, _ := io.ReadAll(resp.Body)
-	var respJSON any
-	if err := json.Unmarshal(respBody, &respJSON); err != nil {
-		respJSON = map[string]any{"raw": string(respBody)}
+	if queueStatus != http.StatusOK {
+		return printJSON(map[string]any{
+			"status":  queueStatus,
+			"payload": decodeJSONPayload(queueBody),
+		})
 	}
 
-	return printJSON(map[string]any{
-		"status":  resp.StatusCode,
-		"payload": respJSON,
-	})
+	var queueResp pipelineQueueResponse
+	if err := json.Unmarshal(queueBody, &queueResp); err != nil {
+		return fmt.Errorf("failed to decode queue response: %w", err)
+	}
+
+	switch queueResp.Mode {
+	case "queued":
+		return printJSON(map[string]any{
+			"mode":           queueResp.Mode,
+			"ticket_id":      queueResp.TicketID,
+			"runner_ids":     queueResp.RunnerIDs,
+			"position":       queueResp.Position,
+			"line_len":       queueResp.LineLen,
+			"position_human": queueResp.Position + 1,
+		})
+	case "started":
+		return printJSON(map[string]any{
+			"mode":               queueResp.Mode,
+			"workflow_id":        queueResp.WorkflowID,
+			"run_id":             queueResp.RunID,
+			"workflow_namespace": queueResp.WorkflowNamespace,
+		})
+	case "failed":
+		return printJSON(map[string]any{
+			"mode":          queueResp.Mode,
+			"error_message": queueResp.ErrorMessage,
+		})
+	default:
+		return printJSON(map[string]any{
+			"mode":    queueResp.Mode,
+			"payload": decodeJSONPayload(queueBody),
+		})
+	}
 }
 
 func printJSON(v any) error {

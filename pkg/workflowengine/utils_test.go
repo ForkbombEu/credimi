@@ -11,7 +11,7 @@ import (
 )
 
 type payloadForDecode struct {
-	Name  string `json:"name" validate:"required"`
+	Name  string `json:"name"  validate:"required"`
 	Count int    `json:"count"`
 }
 

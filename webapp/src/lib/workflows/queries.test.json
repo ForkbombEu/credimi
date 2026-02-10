@@ -10,7 +10,7 @@
 			},
 			"startTime": "01/12/2025, 13:51:45",
 			"endTime": "01/12/2025, 13:58:38",
-			"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+			"status": "Completed",
 			"displayName": "EUDIW - EWC Conformance check (no-video)",
 			"children": [
 				{
@@ -23,7 +23,7 @@
 					},
 					"startTime": "01/12/2025, 13:52:47",
 					"endTime": "01/12/2025, 13:54:02",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "onboarding-refvz"
 				},
 				{
@@ -36,7 +36,7 @@
 					},
 					"startTime": "01/12/2025, 13:54:02",
 					"endTime": "01/12/2025, 13:54:03",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "eudiw-pid-test-sd-jwt-vc-dpz7f"
 				},
 				{
@@ -49,7 +49,7 @@
 					},
 					"startTime": "01/12/2025, 13:54:03",
 					"endTime": "01/12/2025, 13:55:11",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredentials-pid-from-eudiw-isuser-qx2-a"
 				},
 				{
@@ -62,7 +62,7 @@
 					},
 					"startTime": "01/12/2025, 13:55:11",
 					"endTime": "01/12/2025, 13:55:12",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "openid4vciwalletdraft-15ewcrfc001authorizationcodeflowkidjwksdjwt-knx4r",
 					"children": [
 						{
@@ -75,7 +75,7 @@
 							},
 							"startTime": "01/12/2025, 13:55:12",
 							"endTime": "01/12/2025, 13:55:42",
-							"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+							"status": "Completed",
 							"displayName": "openid4vciwalletdraft-15ewcrfc001authorizationcodeflowkidjwksdjwt-knx4r-status"
 						}
 					]
@@ -90,7 +90,7 @@
 					},
 					"startTime": "01/12/2025, 13:55:12",
 					"endTime": "01/12/2025, 13:55:53",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-generic-credential-without-authentication-xc-qe"
 				},
 				{
@@ -103,7 +103,7 @@
 					},
 					"startTime": "01/12/2025, 13:55:53",
 					"endTime": "01/12/2025, 13:55:54",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "openid4vciwalletdraft-15ewcrfc001authorizationcodeflowx509sdjwt-tuzoq",
 					"children": [
 						{
@@ -116,7 +116,7 @@
 							},
 							"startTime": "01/12/2025, 13:55:54",
 							"endTime": "01/12/2025, 13:56:25",
-							"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+							"status": "Completed",
 							"displayName": "openid4vciwalletdraft-15ewcrfc001authorizationcodeflowx509sdjwt-tuzoq-status"
 						}
 					]
@@ -131,7 +131,7 @@
 					},
 					"startTime": "01/12/2025, 13:55:54",
 					"endTime": "01/12/2025, 13:56:35",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-generic-credential-without-authentication-gzofi"
 				},
 				{
@@ -144,7 +144,7 @@
 					},
 					"startTime": "01/12/2025, 13:56:36",
 					"endTime": "01/12/2025, 13:56:37",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "openid4vciwalletdraft-15ewcrfc001pre-authorizationcodeflownopinx509mdl-saxoq",
 					"children": [
 						{
@@ -157,7 +157,7 @@
 							},
 							"startTime": "01/12/2025, 13:56:37",
 							"endTime": "01/12/2025, 13:57:07",
-							"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+							"status": "Completed",
 							"displayName": "openid4vciwalletdraft-15ewcrfc001pre-authorizationcodeflownopinx509mdl-saxoq-status"
 						}
 					]
@@ -172,7 +172,7 @@
 					},
 					"startTime": "01/12/2025, 13:56:37",
 					"endTime": "01/12/2025, 13:57:15",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-generic-credential-without-authentication-q9mgu"
 				},
 				{
@@ -185,7 +185,7 @@
 					},
 					"startTime": "01/12/2025, 13:57:15",
 					"endTime": "01/12/2025, 13:57:16",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "openid4vciwalletdraft-15ewcrfc001pre-authorizationcodeflownopinx509sdjwt-lfjan",
 					"children": [
 						{
@@ -198,7 +198,7 @@
 							},
 							"startTime": "01/12/2025, 13:57:16",
 							"endTime": "01/12/2025, 13:57:47",
-							"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+							"status": "Completed",
 							"displayName": "openid4vciwalletdraft-15ewcrfc001pre-authorizationcodeflownopinx509sdjwt-lfjan-status"
 						}
 					]
@@ -213,7 +213,7 @@
 					},
 					"startTime": "01/12/2025, 13:57:16",
 					"endTime": "01/12/2025, 13:57:56",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-generic-credential-without-authentication-xnw0w"
 				},
 				{
@@ -226,7 +226,7 @@
 					},
 					"startTime": "01/12/2025, 13:57:56",
 					"endTime": "01/12/2025, 13:57:57",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "openid4vciwalletdraft-15ewcrfc005authorizationcodeflowjwksdjwt-z9phs",
 					"children": [
 						{
@@ -239,7 +239,7 @@
 							},
 							"startTime": "01/12/2025, 13:57:57",
 							"endTime": "01/12/2025, 13:58:27",
-							"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+							"status": "Completed",
 							"displayName": "openid4vciwalletdraft-15ewcrfc005authorizationcodeflowjwksdjwt-z9phs-status"
 						}
 					]
@@ -254,7 +254,7 @@
 					},
 					"startTime": "01/12/2025, 13:57:57",
 					"endTime": "01/12/2025, 13:58:35",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-generic-credential-without-authentication-kvzte"
 				}
 			]
@@ -269,7 +269,7 @@
 			},
 			"startTime": "28/11/2025, 19:25:50",
 			"endTime": "28/11/2025, 19:34:09",
-			"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+			"status": "Completed",
 			"displayName": "EUDIW getCredential (3) PID-SD-JWT + PID-MDOC+ Diploma",
 			"children": [
 				{
@@ -282,7 +282,7 @@
 					},
 					"startTime": "28/11/2025, 19:27:45",
 					"endTime": "28/11/2025, 19:29:43",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "onboarding-lsx88"
 				},
 				{
@@ -295,7 +295,7 @@
 					},
 					"startTime": "28/11/2025, 19:29:43",
 					"endTime": "28/11/2025, 19:29:45",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "eudiw-pid-test-sd-jwt-vc-nofdm"
 				},
 				{
@@ -308,7 +308,7 @@
 					},
 					"startTime": "28/11/2025, 19:29:45",
 					"endTime": "28/11/2025, 19:32:02",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredentials-pid-from-eudiw-isuser-0bcj"
 				},
 				{
@@ -321,7 +321,7 @@
 					},
 					"startTime": "28/11/2025, 19:32:02",
 					"endTime": "28/11/2025, 19:32:02",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "eu-europa-ec-eudi-pid-1-juev"
 				},
 				{
@@ -334,7 +334,7 @@
 					},
 					"startTime": "28/11/2025, 19:32:02",
 					"endTime": "28/11/2025, 19:33:01",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-pid-mdoc-from-wwwallet-mkjdn"
 				},
 				{
@@ -347,7 +347,7 @@
 					},
 					"startTime": "28/11/2025, 19:33:01",
 					"endTime": "28/11/2025, 19:33:02",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "urn-credential-diploma-9q9h0"
 				},
 				{
@@ -360,7 +360,7 @@
 					},
 					"startTime": "28/11/2025, 19:33:02",
 					"endTime": "28/11/2025, 19:34:06",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-bachelordiploma-from-wwwallet-cu9tr"
 				}
 			]
@@ -375,7 +375,7 @@
 			},
 			"startTime": "28/11/2025, 19:25:48",
 			"endTime": "28/11/2025, 19:34:21",
-			"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+			"status": "Completed",
 			"displayName": "EUDIW - EWC Conformance check (no-video)",
 			"children": [
 				{
@@ -388,7 +388,7 @@
 					},
 					"startTime": "28/11/2025, 19:27:32",
 					"endTime": "28/11/2025, 19:29:04",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "onboarding-refvz"
 				},
 				{
@@ -401,7 +401,7 @@
 					},
 					"startTime": "28/11/2025, 19:29:05",
 					"endTime": "28/11/2025, 19:29:06",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "eudiw-pid-test-sd-jwt-vc-dpz7f"
 				},
 				{
@@ -414,7 +414,7 @@
 					},
 					"startTime": "28/11/2025, 19:29:07",
 					"endTime": "28/11/2025, 19:30:23",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredentials-pid-from-eudiw-isuser-qx2-a"
 				},
 				{
@@ -427,7 +427,7 @@
 					},
 					"startTime": "28/11/2025, 19:30:23",
 					"endTime": "28/11/2025, 19:30:25",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "openid4vciwalletdraft-15ewcrfc001authorizationcodeflowkidjwksdjwt-knx4r",
 					"children": [
 						{
@@ -440,7 +440,7 @@
 							},
 							"startTime": "28/11/2025, 19:30:24",
 							"endTime": "28/11/2025, 19:31:05",
-							"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+							"status": "Completed",
 							"displayName": "openid4vciwalletdraft-15ewcrfc001authorizationcodeflowkidjwksdjwt-knx4r-status"
 						}
 					]
@@ -455,7 +455,7 @@
 					},
 					"startTime": "28/11/2025, 19:30:25",
 					"endTime": "28/11/2025, 19:31:14",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-generic-credential-without-authentication-xc-qe"
 				},
 				{
@@ -468,7 +468,7 @@
 					},
 					"startTime": "28/11/2025, 19:31:14",
 					"endTime": "28/11/2025, 19:31:15",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "openid4vciwalletdraft-15ewcrfc001authorizationcodeflowx509sdjwt-tuzoq",
 					"children": [
 						{
@@ -481,7 +481,7 @@
 							},
 							"startTime": "28/11/2025, 19:31:15",
 							"endTime": "28/11/2025, 19:31:55",
-							"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+							"status": "Completed",
 							"displayName": "openid4vciwalletdraft-15ewcrfc001authorizationcodeflowx509sdjwt-tuzoq-status"
 						}
 					]
@@ -496,7 +496,7 @@
 					},
 					"startTime": "28/11/2025, 19:31:15",
 					"endTime": "28/11/2025, 19:32:09",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-generic-credential-without-authentication-gzofi"
 				},
 				{
@@ -509,7 +509,7 @@
 					},
 					"startTime": "28/11/2025, 19:32:09",
 					"endTime": "28/11/2025, 19:32:10",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "openid4vciwalletdraft-15ewcrfc001pre-authorizationcodeflownopinx509mdl-saxoq",
 					"children": [
 						{
@@ -522,7 +522,7 @@
 							},
 							"startTime": "28/11/2025, 19:32:10",
 							"endTime": "28/11/2025, 19:32:40",
-							"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+							"status": "Completed",
 							"displayName": "openid4vciwalletdraft-15ewcrfc001pre-authorizationcodeflownopinx509mdl-saxoq-status"
 						}
 					]
@@ -537,7 +537,7 @@
 					},
 					"startTime": "28/11/2025, 19:32:10",
 					"endTime": "28/11/2025, 19:32:48",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-generic-credential-without-authentication-q9mgu"
 				},
 				{
@@ -550,7 +550,7 @@
 					},
 					"startTime": "28/11/2025, 19:32:48",
 					"endTime": "28/11/2025, 19:32:50",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "openid4vciwalletdraft-15ewcrfc001pre-authorizationcodeflownopinx509sdjwt-lfjan",
 					"children": [
 						{
@@ -563,7 +563,7 @@
 							},
 							"startTime": "28/11/2025, 19:32:50",
 							"endTime": "28/11/2025, 19:33:20",
-							"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+							"status": "Completed",
 							"displayName": "openid4vciwalletdraft-15ewcrfc001pre-authorizationcodeflownopinx509sdjwt-lfjan-status"
 						}
 					]
@@ -578,7 +578,7 @@
 					},
 					"startTime": "28/11/2025, 19:32:50",
 					"endTime": "28/11/2025, 19:33:28",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-generic-credential-without-authentication-xnw0w"
 				},
 				{
@@ -591,7 +591,7 @@
 					},
 					"startTime": "28/11/2025, 19:33:28",
 					"endTime": "28/11/2025, 19:33:29",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "openid4vciwalletdraft-15ewcrfc005authorizationcodeflowjwksdjwt-z9phs",
 					"children": [
 						{
@@ -604,7 +604,7 @@
 							},
 							"startTime": "28/11/2025, 19:33:29",
 							"endTime": "28/11/2025, 19:34:05",
-							"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+							"status": "Completed",
 							"displayName": "openid4vciwalletdraft-15ewcrfc005authorizationcodeflowjwksdjwt-z9phs-status"
 						}
 					]
@@ -619,7 +619,7 @@
 					},
 					"startTime": "28/11/2025, 19:33:29",
 					"endTime": "28/11/2025, 19:34:17",
-					"status": "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+					"status": "Completed",
 					"displayName": "getcredential-generic-credential-without-authentication-kvzte"
 				}
 			]
@@ -634,7 +634,7 @@
 			},
 			"startTime": "28/11/2025, 19:20:40",
 			"endTime": "28/11/2025, 19:42:06",
-			"status": "WORKFLOW_EXECUTION_STATUS_FAILED",
+			"status": "Failed",
 			"failure_reason": "Failed to get credential",
 			"displayName": "EUDIW getCredential (3) PID-SD-JWT + PID-MDOC+ Diploma",
 			"children": [
@@ -648,7 +648,7 @@
 					},
 					"startTime": "28/11/2025, 19:22:03",
 					"endTime": "28/11/2025, 19:42:03",
-					"status": "WORKFLOW_EXECUTION_STATUS_FAILED",
+					"status": "Failed",
 					"displayName": "onboarding-lsx88"
 				}
 			]
@@ -663,7 +663,7 @@
 			},
 			"startTime": "28/11/2025, 19:20:38",
 			"endTime": "28/11/2025, 19:24:44",
-			"status": "WORKFLOW_EXECUTION_STATUS_FAILED",
+			"status": "Failed",
 			"failure_reason": "Failed to get credential because the downstream credential issuing service was unavailable for an extended period of time, possibly due to network instability, server downtime, API throttling, incorrect endpoint configuration, or insufficient permissions at one of the intermediate authentication layers. Please check underlying logs, connectivity, and credentials, as well as retry after ensuring all dependencies are operational. If retrying does not resolve the problem, contact the systems administrator or support for further analysis of the authentication and issuing chain, including any third-party integrations or temporal workflow inconsistencies that may be related.",
 			"displayName": "EUDIW - EWC Conformance check (no-video)",
 			"children": [
@@ -677,7 +677,7 @@
 					},
 					"startTime": "28/11/2025, 19:22:16",
 					"endTime": "28/11/2025, 19:24:40",
-					"status": "WORKFLOW_EXECUTION_STATUS_FAILED",
+					"status": "Failed",
 					"displayName": "onboarding-refvz",
 					"failure_reason": "Failed to get credential because the downstream credential issuing service was unavailable for an extended period of time, possibly due to network instability, server downtime, API throttling, incorrect endpoint configuration, or insufficient permissions at one of the intermediate authentication layers. Please check underlying logs, connectivity, and credentials, as well as retry after ensuring all dependencies are operational. If retrying does not resolve the problem, contact the systems administrator or support for further analysis of the authentication and issuing chain, including any third-party integrations or temporal workflow inconsistencies that may be related."
 				}
@@ -693,7 +693,7 @@
 			},
 			"startTime": "28/11/2025, 18:18:53",
 			"endTime": "28/11/2025, 20:29:48",
-			"status": "WORKFLOW_EXECUTION_STATUS_FAILED",
+			"status": "Failed",
 			"displayName": "EUDIW - EWC Conformance check (no-video)",
 			"children": [
 				{
@@ -706,7 +706,7 @@
 					},
 					"startTime": "28/11/2025, 18:29:45",
 					"endTime": "28/11/2025, 20:29:45",
-					"status": "WORKFLOW_EXECUTION_STATUS_FAILED",
+					"status": "Failed",
 					"displayName": "getcredential-generic-credential-without-authentication-xnw0w"
 				}
 			]
@@ -721,7 +721,7 @@
 			},
 			"startTime": "28/11/2025, 10:58:15",
 			"endTime": "29/11/2025, 10:58:15",
-			"status": "WORKFLOW_EXECUTION_STATUS_TIMED_OUT",
+			"status": "TimedOut",
 			"displayName": "ewc/RFC001+pre-authorization_code_flow_no_pin+x509+sd_jwt.yaml"
 		},
 		{
@@ -734,7 +734,7 @@
 			},
 			"startTime": "28/11/2025, 10:58:15",
 			"endTime": "29/11/2025, 10:58:15",
-			"status": "WORKFLOW_EXECUTION_STATUS_TIMED_OUT",
+			"status": "TimedOut",
 			"displayName": "ewc/RFC001+pre-authorization_code_flow_no_pin+x509+mdl.yaml"
 		},
 		{
@@ -747,7 +747,7 @@
 			},
 			"startTime": "28/11/2025, 10:58:13",
 			"endTime": "29/11/2025, 10:58:13",
-			"status": "WORKFLOW_EXECUTION_STATUS_TIMED_OUT",
+			"status": "TimedOut",
 			"displayName": "ewc/RFC001+authorization_code_flow+x509+sd_jwt.yaml"
 		}
 	]

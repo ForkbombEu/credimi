@@ -99,7 +99,7 @@ var Registry = map[string]TaskFactory{
 		Kind:                TaskWorkflow,
 		NewFunc:             func() any { return workflows.NewMobileAutomationWorkflow() },
 		PayloadType:         reflect.TypeOf(workflows.MobileAutomationWorkflowPayload{}),
-		CustomTaskQueue: true,
+		CustomTaskQueue:     true,
 		PipelinePayloadType: reflect.TypeOf(workflows.MobileAutomationWorkflowPipelinePayload{}),
 	},
 	"custom-check": {
@@ -139,16 +139,26 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		NewFunc:    func() any { return activities.NewCheckFileExistsActivity() },
 		OutputKind: workflowengine.OutputBool,
 	},
-	"mobile-runner-permit-acquire": {
-		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewAcquireMobileRunnerPermitActivity() },
-		PayloadType: reflect.TypeOf(activities.AcquireMobileRunnerPermitInput{}),
-		OutputKind:  workflowengine.OutputAny,
+	"scheduled-pipeline-enqueue": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return workflows.NewScheduledPipelineEnqueueWorkflow() },
 	},
 	"mobile-runner-permit-release": {
 		Kind:        TaskActivity,
 		NewFunc:     func() any { return activities.NewReleaseMobileRunnerPermitActivity() },
 		PayloadType: reflect.TypeOf(workflows.MobileRunnerSemaphorePermit{}),
+		OutputKind:  workflowengine.OutputAny,
+	},
+	"mobile-runner-semaphore-done": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewReportMobileRunnerSemaphoreDoneActivity() },
+		PayloadType: reflect.TypeOf(activities.ReportMobileRunnerSemaphoreDoneInput{}),
+		OutputKind:  workflowengine.OutputAny,
+	},
+	"pipeline-run-ticket-enqueue": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewEnqueuePipelineRunTicketActivity() },
+		PayloadType: reflect.TypeOf(activities.EnqueuePipelineRunTicketActivityInput{}),
 		OutputKind:  workflowengine.OutputAny,
 	},
 }

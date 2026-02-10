@@ -31,20 +31,73 @@ func (s *StepInputs) UnmarshalYAML(value *yaml.Node) error {
 	s.Config = make(map[string]any)
 	payload := make(map[string]any)
 
+	if val, ok := tmp["config"]; ok {
+		cfgMap, ok := val.(map[string]any)
+		if !ok {
+			return fmt.Errorf("invalid config section: expected map, got %T", val)
+		}
+		s.Config = cfgMap
+	}
+
+	if val, ok := tmp["payload"]; ok {
+		if val != nil {
+			payloadMap, ok := val.(map[string]any)
+			if !ok {
+				return fmt.Errorf("invalid payload section: expected map, got %T", val)
+			}
+			payload = payloadMap
+		}
+	}
+
 	for key, val := range tmp {
-		if key == "config" {
+		if key == "config" || key == "payload" {
+			continue
+		}
+		payload[key] = val
+	}
+
+	s.Payload = payload
+	return nil
+}
+
+func (s *StepInputs) UnmarshalJSON(data []byte) error {
+	var tmp map[string]any
+	if err := json.Unmarshal(data, &tmp); err != nil {
+		return fmt.Errorf("invalid step inputs: %w", err)
+	}
+	if tmp == nil {
+		tmp = map[string]any{}
+	}
+
+	s.Config = map[string]any{}
+	s.Payload = map[string]any{}
+
+	if val, ok := tmp["config"]; ok {
+		if val != nil {
 			cfgMap, ok := val.(map[string]any)
 			if !ok {
 				return fmt.Errorf("invalid config section: expected map, got %T", val)
 			}
 			s.Config = cfgMap
-			continue
 		}
-
-		payload[key] = val
+		delete(tmp, "config")
 	}
 
-	s.Payload = payload
+	if val, ok := tmp["payload"]; ok {
+		if val != nil {
+			payloadMap, ok := val.(map[string]any)
+			if !ok {
+				return fmt.Errorf("invalid payload section: expected map, got %T", val)
+			}
+			s.Payload = payloadMap
+		}
+		delete(tmp, "payload")
+	}
+
+	for key, val := range tmp {
+		s.Payload[key] = val
+	}
+
 	return nil
 }
 

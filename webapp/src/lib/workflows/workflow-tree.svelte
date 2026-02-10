@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { toWorkflowStatusReadable, WorkflowStatus } from '@forkbombeu/temporal-ui';
+	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { TriangleIcon } from '@lucide/svelte';
 	import clsx from 'clsx';
 	import { slide } from 'svelte/transition';
@@ -28,7 +28,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { workflow, label, root = false }: Props = $props();
 
 	const { workflowId, runId } = $derived(workflow.execution);
-	const status = $derived(toWorkflowStatusReadable(workflow.status));
 	const hasChildren = $derived(workflow.children?.length && workflow.children.length > 0);
 
 	let isExpanded = $state(true);
@@ -68,11 +67,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{workflow.displayName}
 				{/if}
 			</span>
-			{#if status !== null && !root}
+			{#if !root}
 				<div
 					class="inline-block [&>div>span]:h-4 [&>div>span]:text-[8px] [&>div>span>.heart-beat]:hidden"
 				>
-					<WorkflowStatus {status} />
+					<WorkflowStatus status={workflow.status} />
 				</div>
 			{/if}
 		</A>

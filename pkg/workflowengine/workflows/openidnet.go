@@ -403,7 +403,6 @@ func (w *OpenIDNetLogsWorkflow) ExecuteWorkflow(
 	})
 
 	for {
-
 		// Wait for a signal or timer
 		selector.Select(subCtx)
 

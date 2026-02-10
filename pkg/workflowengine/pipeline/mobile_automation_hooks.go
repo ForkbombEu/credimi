@@ -18,7 +18,10 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-const mobileAutomationStepUse = "mobile-automation"
+const (
+	mobileAutomationStepUse                = "mobile-automation"
+	mobileRunnerSemaphoreTicketIDConfigKey = "mobile_runner_semaphore_ticket_id"
+)
 
 type processStepInput struct {
 	ctx              workflow.Context
@@ -160,7 +163,7 @@ func MobileAutomationSetupHook(
 	if err := validateRunnerIDConfiguration(steps, globalRunnerID); err != nil {
 		return err
 	}
-	acquirePermitActivity := activities.NewAcquireMobileRunnerPermitActivity()
+	semaphoreManaged := isSemaphoreManagedRun(config)
 
 	httpActivity := activities.NewHTTPActivity()
 	startEmuActivity := activities.NewStartEmulatorActivity()
@@ -171,12 +174,12 @@ func MobileAutomationSetupHook(
 	if err != nil {
 		return err
 	}
-	if len(runnerIDs) > 0 {
-		permits, err := acquireRunnerPermits(ctx, runnerIDs, acquirePermitActivity)
-		if err != nil {
-			return err
-		}
-		SetRunDataValue(runData, "mobile_runner_permits", permits)
+	if len(runnerIDs) > 0 && !semaphoreManaged {
+		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
+		return workflowengine.NewAppError(
+			errCode,
+			"mobile-runner pipelines must be started via queue/semaphore",
+		)
 	}
 
 	settedDevices := getOrCreateSettedDevices(runData)
@@ -299,38 +302,6 @@ func collectMobileRunnerIDs(steps []StepDefinition, globalID string) ([]string, 
 	return runnerIDs, nil
 }
 
-func acquireRunnerPermits(
-	ctx workflow.Context,
-	runnerIDs []string,
-	acquirePermitActivity *activities.AcquireMobileRunnerPermitActivity,
-) (map[string]workflows.MobileRunnerSemaphorePermit, error) {
-	permits := make(map[string]workflows.MobileRunnerSemaphorePermit, len(runnerIDs))
-	for _, runnerID := range runnerIDs {
-		var response workflowengine.ActivityResult
-		req := workflowengine.ActivityInput{
-			Payload: activities.AcquireMobileRunnerPermitInput{RunnerID: runnerID},
-		}
-		if err := workflow.ExecuteActivity(ctx, acquirePermitActivity.Name(), req).Get(ctx, &response); err != nil {
-			return nil, err
-		}
-
-		permit, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](
-			response.Output,
-		)
-		if err != nil {
-			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
-			return nil, workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf("invalid permit output for runner %s", runnerID),
-				response.Output,
-			)
-		}
-		permits[runnerID] = permit
-	}
-
-	return permits, nil
-}
-
 func hasRunnerPermit(runData *map[string]any, runnerID string) bool {
 	if runData == nil || *runData == nil {
 		return false
@@ -424,7 +395,7 @@ func processStep(
 		SetPayloadValue(&input.step.With.Payload, "runner_id", input.globalRunnerID)
 	}
 
-	if !hasRunnerPermit(input.runData, payload.RunnerID) {
+	if !isSemaphoreManagedRun(input.config) && !hasRunnerPermit(input.runData, payload.RunnerID) {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 		return workflowengine.NewAppError(
 			errCode,
@@ -504,6 +475,15 @@ func decodeAndValidatePayload(
 	step *StepDefinition,
 ) (*workflows.MobileAutomationWorkflowPipelinePayload, error) {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+	if len(step.With.Payload) == 0 {
+		return nil, workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf(
+				"missing payload for step %s: expected with.action_id or with.payload.action_id",
+				step.ID,
+			),
+		)
+	}
 	payload, err := workflowengine.DecodePayload[workflows.MobileAutomationWorkflowPipelinePayload](
 		step.With.Payload,
 	)
@@ -1049,7 +1029,9 @@ func MobileAutomationCleanupHook(
 		}
 	}
 
-	releaseRunnerPermits(ctx, getRunnerPermits(runData), &cleanupErrs)
+	if !isSemaphoreManagedRun(config) {
+		releaseRunnerPermits(ctx, getRunnerPermits(runData), &cleanupErrs)
+	}
 
 	if len(cleanupErrs) > 0 {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
@@ -1061,6 +1043,14 @@ func MobileAutomationCleanupHook(
 	}
 
 	return nil
+}
+
+func isSemaphoreManagedRun(config map[string]any) bool {
+	if config == nil {
+		return false
+	}
+	ticketID, ok := config[mobileRunnerSemaphoreTicketIDConfigKey].(string)
+	return ok && ticketID != ""
 }
 
 func cleanupDevice(

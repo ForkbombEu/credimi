@@ -17,8 +17,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
+	import * as PipelineRunner from './runner';
 	import RunnerSelectInput from './runner-select-input.svelte';
-	import { getPipelineRunner, setPipelineRunner } from './utils';
 
 	//
 
@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	function handleSelect(runner: MobileRunnersResponse) {
-		setPipelineRunner(pipeline, runner);
+		PipelineRunner.set(pipeline, runner);
 		currentRunnerPath = getPath(runner);
 		currentRunner = runner;
 		open = false;
@@ -52,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let currentRunnerPath = $derived.by(() => {
 		if (!browser) return undefined;
-		return getPipelineRunner(pipeline.id);
+		return PipelineRunner.get(pipeline.id);
 	});
 
 	let currentRunner = $state<MobileRunnersResponse>();

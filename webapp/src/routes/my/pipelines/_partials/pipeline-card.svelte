@@ -9,15 +9,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { WorkflowExecutionSummary } from '$lib/workflows/queries.types';
 
 	import { resolve } from '$app/paths';
+	import { Pipeline } from '$lib';
 	import { userOrganization } from '$lib/app-state';
 	import StatusCircle from '$lib/components/status-circle.svelte';
 	import BlueButton from '$lib/layout/blue-button.svelte';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import RunnerSelectModal from '$lib/pipeline/runner-select-modal.svelte';
-	import { getPipelineRunner, getPipelineRunnerType, runPipeline } from '$lib/pipeline/utils';
 	import { getPath } from '$lib/utils';
-	import WorkflowsTableSmall from '$lib/workflows/workflows-table-small.svelte';
-	import { toWorkflowStatusReadable } from '@forkbombeu/temporal-ui';
 	import { ArrowRightIcon, Cog, Pencil, PlayIcon } from '@lucide/svelte';
 
 	import type { PocketbaseQueryResponse } from '@/pocketbase/query';
@@ -49,13 +47,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let runPipelineAfterRunnerSelect = $state(false);
 
 	async function handleRunNow() {
-		const runnerType = getPipelineRunnerType(pipeline);
+		const runnerType = Pipeline.Runner.getType(pipeline);
 		if (runnerType === 'specific') {
-			await runPipeline(pipeline);
+			await Pipeline.run(pipeline);
 		} else {
-			const runner = getPipelineRunner(pipeline.id);
+			const runner = Pipeline.Runner.get(pipeline.id);
 			if (runner) {
-				await runPipeline(pipeline);
+				await Pipeline.run(pipeline);
 				runPipelineAfterRunnerSelect = false;
 			} else {
 				runPipelineAfterRunnerSelect = true;
@@ -73,12 +71,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		return s as EnrichedSchedule | undefined;
 	});
 
-	const isRunning = $derived(
-		workflows?.some((workflow) => {
-			const status = toWorkflowStatusReadable(workflow.status);
-			return status === 'Running';
-		})
-	);
+	const isRunning = $derived(workflows?.some((workflow) => workflow.status === 'Running'));
 
 	// Flags for displaying UI elements
 
@@ -92,7 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const isPublic = $derived(pipeline.owner !== userOrganization.current?.id);
 
-	const runnerType = $derived(getPipelineRunnerType(pipeline));
+	const runnerType = $derived(Pipeline.Runner.getType(pipeline));
 	const isRunnerSpecific = $derived(runnerType === 'specific');
 </script>
 
@@ -179,7 +172,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</BlueButton>
 			</div>
 
-			<WorkflowsTableSmall {workflows} />
+			<Pipeline.Workflows.SmallTable {workflows} />
 		</div>
 	{/if}
 {/snippet}
