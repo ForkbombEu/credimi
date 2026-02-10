@@ -678,6 +678,8 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
+		status := e.Request.URL.Query().Get("status")
+
 		organization, err := GetUserOrganization(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
@@ -738,6 +740,23 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				pipelineID,
 				err,
 			))
+		}		
+
+		
+		if status == "queued" {
+			if len(queuedForPipeline) == 0 {
+				return e.JSON(http.StatusOK, ListMyChecksResponse{
+					[]*WorkflowExecutionSummary{},
+				})
+			}
+			
+			queuedSummaries := buildQueuedPipelineSummaries(
+				e.App,
+				queuedForPipeline,
+				authRecord.GetString("Timezone"),
+				map[string]map[string]any{},
+			)
+			return e.JSON(http.StatusOK, queuedSummaries)
 		}
 
 		resultsRecords, err := e.App.FindRecordsByFilter(
@@ -760,6 +779,10 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 		allExecutions, err = processPipelineResults(namespace, resultsRecords, &temporalClient)
 		if err != nil {
     		return e.JSON(http.StatusOK, allExecutions)
+		}
+
+		if status != "" && status != "queued" {
+			allExecutions = filterExecutionsByStatus(allExecutions, status)
 		}
 
 		if len(allExecutions) == 0 {
@@ -1262,4 +1285,33 @@ func processPipelineResults(
 	}
 
 	return allExecutions, nil
+}
+
+func filterExecutionsByStatus(executions []*WorkflowExecution, status string) []*WorkflowExecution {
+	if status == "" {
+		return executions
+	}
+
+	var filtered []*WorkflowExecution
+	
+	temporalToYourFormat := map[string]string{
+		"WORKFLOW_EXECUTION_STATUS_RUNNING":          "running",
+		"WORKFLOW_EXECUTION_STATUS_COMPLETED":        "completed", 
+		"WORKFLOW_EXECUTION_STATUS_FAILED":           "failed",
+		"WORKFLOW_EXECUTION_STATUS_CANCELED":         "canceled",
+		"WORKFLOW_EXECUTION_STATUS_TERMINATED":       "terminated",
+		"WORKFLOW_EXECUTION_STATUS_TIMED_OUT":        "timedOut",
+		"WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW": "continuedAsNew",
+		"WORKFLOW_EXECUTION_STATUS_UNSPECIFIED":      "unspecified",
+	}
+
+	for _, exec := range executions {
+		yourFormatStatus := temporalToYourFormat[exec.Status]
+		
+		if yourFormatStatus == status {
+			filtered = append(filtered, exec)
+		}
+	}
+	
+	return filtered
 }
