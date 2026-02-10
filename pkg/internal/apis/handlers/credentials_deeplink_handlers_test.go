@@ -266,7 +266,13 @@ func TestGetCredentialDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupDeeplinkApp(orgID)(t)
 
-				app.Settings().Meta.AppURL = "http://this-domain-does-not-exist-12345.local"
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    				w.Header().Set("Content-Type", "application/json")
+    				w.WriteHeader(200)
+				}))
+				defer srv.Close()
+
+				app.Settings().Meta.AppURL = srv.URL
 
 				coll, _ := app.FindCollectionByNameOrId("credentials")
 				r, _ := app.FindFirstRecordByFilter(coll.Name, `name="test credential"`)
