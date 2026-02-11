@@ -41,7 +41,7 @@ Baseline (2026-02-11):
 - Outputs: `docs/public/API/openapi.yml`, `webapp/src/lib/credimiClient.generated.ts`, `schemas/pipeline/pipeline_schema.json`
 - OpenAPI counts: paths=16, operations=16 (get=8, post=8), schemas=47
 
-** WIP [#A] Identify special cases in routes and schemas
+** DONE [#A] Identify special cases in routes and schemas
 Why: Some routes have empty `Path` (base path), some have path params, some have `QuerySearchAttributes`, some lack `ResponseSchema`, and auth is group-level.
 Change: Build a short checklist of examples to verify post-refactor (e.g., a route with `{checkId}` params, one with query attrs, one with no response schema).
 Tests: Confirm those endpoints exist in baseline OpenAPI YAML.
@@ -59,13 +59,13 @@ Effort: S
 Goal: Delete `generateTSClient` and all TS-template-related code; generator should only emit OpenAPI YAML.
 Notes: Do not modify any files under `webapp/`; only stop generating/updating them.
 
-** TODO [#A] Delete TS template and code paths
+** DONE [#A] Delete TS template and code paths
 Why: User requested keeping only OpenAPI YAML generation and deleting `generateTSClient`.
 Change: In `pkg/generate_client/generate_client.go`, remove `tsTemplate`, `TemplateData`, `generateTSClient`, and the `main()` call/log lines that trigger TS generation; remove imports only used by TS generation (e.g., `text/template`, `github.com/hypersequent/zen`).
 Tests: `go test -tags=unit ./...` (ensures generator removal doesn’t break compilation elsewhere).
 Done when: Generator builds/runs without referencing TS output and repo still compiles/tests.
 
-** TODO [#B] Ensure `go:generate` remains valid
+** WIP [#B] Ensure `go:generate` remains valid
 Why: `pkg/gen.go` still invokes `go run generate_client/generate_client.go`; removing TS generation must not break `go generate`.
 Change: Keep the same generator entrypoint; update any logging/messages to match new behavior.
 Tests: Run `go generate ./pkg` and ensure it completes and updates only `docs/public/API/openapi.yml` (plus any unavoidable go.sum churn from new deps later).
