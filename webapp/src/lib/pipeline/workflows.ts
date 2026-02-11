@@ -50,13 +50,14 @@ export async function list(pipelineId: string, options = { fetch }) {
 	});
 }
 
-export async function listAll(options: { fetch?: typeof fetch; status?: string }) {
+export async function listAll(options: { fetch?: typeof fetch; status?: string | null }) {
 	let query = '';
 	if (options.status) {
 		query = `?${Workflow.WORKFLOW_STATUS_QUERY_PARAM}=${options.status}`;
 	}
 	return pb.send<ExecutionSummary[]>('/api/pipeline/list-results' + query, {
 		method: 'GET',
-		fetch: options.fetch
+		fetch: options.fetch,
+		requestKey: null
 	});
 }

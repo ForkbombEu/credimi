@@ -7,7 +7,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { SearchIcon, SparkleIcon, TestTubeIcon } from '@lucide/svelte';
 	import { Pipeline } from '$lib';
-	import { isWorkflowStatus } from '$lib/temporal/index.js';
 	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
 	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
@@ -20,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import { setDashboardNavbar } from '../../+layout@.svelte';
-	import { fetchWorkflows, TABS } from './_partials/index.js';
+	import { fetchWorkflows, isExtendedWorkflowStatus, TABS } from './_partials/index.js';
 
 	//
 
@@ -43,7 +42,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		status: {
 			encode: (value) => value,
 			decode: (value) => {
-				if (isWorkflowStatus(value)) return value;
+				if (isExtendedWorkflowStatus(value)) return value;
 				else return undefined;
 			}
 		}
@@ -65,20 +64,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			intervalMs: 3000
 		}
 	);
-
-	//
 </script>
 
 <div class="grow space-y-8">
 	<div class="flex items-center justify-between">
 		<T tag="h3">{m.workflow_runs()}</T>
-		<Tabs.Root value={params.tab}>
+		<Tabs.Root bind:value={params.tab}>
 			<Tabs.List class="gap-1 bg-secondary">
 				{#each Object.entries(TABS) as [key, value] (key)}
 					<Tabs.Trigger
 						class="data-[state=inactive]:hover:cursor-pointer data-[state=inactive]:hover:bg-primary/10 "
-						value={key}>{value}</Tabs.Trigger
+						value={key}
 					>
+						{value}
+					</Tabs.Trigger>
 				{/each}
 			</Tabs.List>
 		</Tabs.Root>

@@ -3,8 +3,33 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import { Pipeline, Workflow } from '$lib';
+import { isWorkflowStatus, workflowStatuses } from '$lib/temporal';
 
 import { m } from '@/i18n';
+
+//
+
+const ExtendedStatusTag = Pipeline.Workflows.StatusTag;
+export { ExtendedStatusTag };
+
+//
+
+type ExtendedWorkflowStatus = Workflow.WorkflowStatus | Pipeline.Workflows.Status;
+
+export const ALL_WORKFLOW_STATUSES: ExtendedWorkflowStatus[] = [
+	...workflowStatuses.filter((status) => status !== null),
+	Pipeline.Workflows.QUEUED_STATUS
+];
+
+export function isExtendedWorkflowStatus(status?: string | null): status is ExtendedWorkflowStatus {
+	return isWorkflowStatus(status) || status === Pipeline.Workflows.QUEUED_STATUS;
+}
+
+export function getStatusQueryParam(url: URL): ExtendedWorkflowStatus | undefined {
+	const status = url.searchParams.get(Workflow.WORKFLOW_STATUS_QUERY_PARAM);
+	if (isExtendedWorkflowStatus(status)) return status;
+	else return undefined;
+}
 
 //
 
@@ -34,10 +59,10 @@ export async function fetchWorkflows(
 	tab: Tab,
 	options: {
 		fetch?: typeof fetch;
-		status?: Workflow.WorkflowStatus | null;
+		status?: ExtendedWorkflowStatus | null;
 	} = {}
 ) {
-	let status: Workflow.WorkflowStatus | undefined = undefined;
+	let status: ExtendedWorkflowStatus | undefined = undefined;
 	if (options.status !== null) {
 		status = options.status;
 	}

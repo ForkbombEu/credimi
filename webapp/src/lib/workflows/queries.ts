@@ -5,7 +5,6 @@
 import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
 import { toWorkflowExecution, type HistoryEvent } from '@forkbombeu/temporal-ui';
-import { isWorkflowStatus, type WorkflowStatusType } from '$lib/temporal';
 import { String } from 'effect';
 import { z } from 'zod/v3';
 
@@ -20,13 +19,6 @@ import { workflowResponseSchema, type WorkflowResponse } from './types';
 
 export const WORKFLOW_STATUS_QUERY_PARAM = 'status';
 
-export function getStatusQueryParam(url: URL): WorkflowStatusType | Error | undefined {
-	const status = url.searchParams.get(WORKFLOW_STATUS_QUERY_PARAM);
-	if (!status) return undefined;
-	else if (isWorkflowStatus(status)) return status;
-	else return new Error(`Invalid status: ${status}`);
-}
-
 const WORKFLOWS_API = '/api/compliance/checks';
 
 const workflowApi = (workflowId: string, runId: string) =>
@@ -36,7 +28,7 @@ const workflowApi = (workflowId: string, runId: string) =>
 
 type FetchWorkflowsOptions = {
 	fetch?: typeof fetch;
-	status?: WorkflowStatusType | undefined;
+	status?: string | null;
 };
 
 export async function fetchWorkflows(
@@ -56,7 +48,8 @@ export async function fetchWorkflows(
 	return tryPromise(async () => {
 		const data: FetchWorkflowsResponse = await pb.send(url, {
 			method: 'GET',
-			fetch: fetchFn
+			fetch: fetchFn,
+			requestKey: null
 		});
 
 		return data.executions ?? [];
