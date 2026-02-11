@@ -168,7 +168,7 @@ Change: After implementing, run `go generate ./pkg`, then compare:
 Tests: Manual diff + optionally a small script/Go test to count operations.
 Done when: No missing endpoints and the new spec is accepted per the earlier diff tolerance decision.
 
-** TODO [#B] Update Go module dependencies safely
+** DONE [#B] Update Go module dependencies safely
 Why: Adding `swaggest/openapi-go` introduces new dependencies; removing TS generator may allow dropping `github.com/hypersequent/zen`.
 Change: Update `go.mod`/`go.sum` to add `github.com/swaggest/openapi-go` (and transitive deps) and remove `zen` if unused; ensure `github.com/forkbombeu/credimi-extra` stays present regardless of `go mod tidy` outcomes.
 Tests: `go test -tags=unit ./...` and `make lint` (if available in the environment) to confirm module graph consistency.
