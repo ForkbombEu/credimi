@@ -711,9 +711,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 		}
 
 		if len(pipelineRecords) == 0 {
-			return e.JSON(http.StatusOK, ListMyChecksResponse{
-				Executions: []*WorkflowExecutionSummary{},
-			})
+			return e.JSON(http.StatusOK, []*WorkflowExecutionSummary{})
 		}
 
 		var allExecutions []*WorkflowExecution
@@ -731,7 +729,12 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		queuedByPipelineID := mapQueuedRunsToPipelines(pipelineRecords, namespace, queuedRuns)
-		queuedForPipeline := queuedByPipelineID[pipelineID]
+		
+		allQueuedForAllPipelines := []QueuedPipelineRunAggregate{}
+		for _, p := range pipelineRecords {
+			queuedForThisPipeline := queuedByPipelineID[p.Id]
+			allQueuedForAllPipelines = append(allQueuedForAllPipelines, queuedForThisPipeline...)
+		}
 
 		runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
 		if err != nil {
@@ -742,24 +745,30 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			))
 		}		
 
-		
+
 		if strings.ToLower(status) == statusStringQueued {
-			if len(queuedForPipeline) == 0 {
-				return e.JSON(http.StatusOK, ListMyChecksResponse{
-					[]*WorkflowExecutionSummary{},
-				})
+			if len(allQueuedForAllPipelines) == 0 {
+				return e.JSON(http.StatusOK, []*WorkflowExecutionSummary{})
 			}
 			
 			queuedSummaries := buildQueuedPipelineSummaries(
 				e.App,
-				queuedForPipeline,
+				allQueuedForAllPipelines,
 				authRecord.GetString("Timezone"),
 				map[string]map[string]any{},
 			)
-			if queuedSummaries == nil {
-        		queuedSummaries = []*pipelineWorkflowSummary{}
-    		}
-			return e.JSON(http.StatusOK, queuedSummaries)
+			result := make([]*WorkflowExecutionSummary, 0, len(queuedSummaries))
+			for _, q := range queuedSummaries {
+				if q != nil {
+					result = append(result, &q.WorkflowExecutionSummary)
+				}
+			}
+			
+			if result == nil {
+				result = []*WorkflowExecutionSummary{}
+			}
+			
+			return e.JSON(http.StatusOK, result)
 		}
 
 		resultsRecords, err := e.App.FindRecordsByFilter(
@@ -774,33 +783,20 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 		)
 
 		if err != nil {
-			return e.JSON(http.StatusOK, ListMyChecksResponse{
-				[]*WorkflowExecutionSummary{},
-			})
+			return e.JSON(http.StatusOK, []*WorkflowExecutionSummary{})
 		}
 
 		allExecutions, err = processPipelineResults(namespace, resultsRecords, &temporalClient)
 		if err != nil {
-    		return e.JSON(http.StatusOK, allExecutions)
+    		return e.JSON(http.StatusOK, []*WorkflowExecutionSummary{})
 		}
 
-		if status != "" && status != statusStringQueued {
+		if status != "" {
 			allExecutions = filterExecutionsByStatus(allExecutions, status)
 		}
 
 		if len(allExecutions) == 0 {
-			queuedSummaries := buildQueuedPipelineSummaries(
-				e.App,
-				queuedForPipeline,
-				authRecord.GetString("Timezone"),
-				map[string]map[string]any{},
-			)
-			if len(queuedSummaries) == 0 {
-				return e.JSON(http.StatusOK, ListMyChecksResponse{
-					[]*WorkflowExecutionSummary{},
-				})
-			}
-			return e.JSON(http.StatusOK, queuedSummaries)
+			return e.JSON(http.StatusOK, []*WorkflowExecutionSummary{})
 		}
 
 		if temporalClient == nil {
@@ -850,19 +846,38 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		if len(queuedForPipeline) > 0 {
-			queuedSummaries := buildQueuedPipelineSummaries(
-				e.App,
-				queuedForPipeline,
-				authRecord.GetString("Timezone"),
-				runnerCache,
-			)
-			if len(queuedSummaries) > 0 {
-				annotated = append(queuedSummaries, annotated...)
+		result := make([]*WorkflowExecutionSummary, 0, len(annotated))
+		for _, a := range annotated {
+			if a != nil {
+				result = append(result, &a.WorkflowExecutionSummary)
 			}
 		}
 
-		return e.JSON(http.StatusOK, annotated)
+		if status == "" {
+			if len(allQueuedForAllPipelines) > 0 {
+				queuedSummaries := buildQueuedPipelineSummaries(
+					e.App,
+					allQueuedForAllPipelines,
+					authRecord.GetString("Timezone"),
+					runnerCache,
+				)
+				if len(queuedSummaries) > 0 {
+					queuedResult := make([]*WorkflowExecutionSummary, 0, len(queuedSummaries))
+					for _, q := range queuedSummaries {
+						if q != nil {
+							queuedResult = append(queuedResult, &q.WorkflowExecutionSummary)
+						}
+					}
+					result = append(queuedResult, result...)
+				}
+			}
+		}
+
+		if result == nil {
+			result = []*WorkflowExecutionSummary{}
+		}
+
+		return e.JSON(http.StatusOK, result)
 	}
 }
 
@@ -1297,7 +1312,7 @@ func filterExecutionsByStatus(executions []*WorkflowExecution, status string) []
 
 	var filtered []*WorkflowExecution
 	
-	temporalToYourFormat := map[string]string{
+	temporalToLowercase := map[string]string{
 		"WORKFLOW_EXECUTION_STATUS_RUNNING":          "running",
 		"WORKFLOW_EXECUTION_STATUS_COMPLETED":        "completed", 
 		"WORKFLOW_EXECUTION_STATUS_FAILED":           "failed",
@@ -1308,10 +1323,12 @@ func filterExecutionsByStatus(executions []*WorkflowExecution, status string) []
 		"WORKFLOW_EXECUTION_STATUS_UNSPECIFIED":      "unspecified",
 	}
 
+	statusLower := strings.ToLower(status)
+	
 	for _, exec := range executions {
-		yourFormatStatus := temporalToYourFormat[exec.Status]
+		execStatusLower := temporalToLowercase[exec.Status]
 		
-		if yourFormatStatus == status {
+		if execStatusLower == statusLower {
 			filtered = append(filtered, exec)
 		}
 	}
