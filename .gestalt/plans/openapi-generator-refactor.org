@@ -91,7 +91,7 @@ Strategy notes (from swaggest/openapi-go docs):
 - Params come from struct tags (`path`, `query`, `header`) on reflected request types.
 - Serialize with `Spec.MarshalYAML()` (no JSON→map cleanup required if refs are emitted under `#/components/schemas`).
 
-** WIP [#A] Map route metadata into `OperationContext`
+** DONE [#A] Map route metadata into `OperationContext`
 Why: Current generator builds `RouteInfo` and then constructs `paths + operations` manually.
 Change: Keep `RouteInfo` (or simplify it) as an internal representation, but switch `generateOpenAPIYAML` to:
 - Compute full path with existing `joinOpenAPIPath`.
