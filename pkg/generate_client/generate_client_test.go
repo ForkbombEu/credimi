@@ -25,8 +25,9 @@ type TestBodyResponse struct {
 
 func TestBuildOpenAPISpec_ParametersAndResponses(t *testing.T) {
 	route := RouteInfo{
-		Method: http.MethodGet,
-		Path:   "/api/things/{thingId}/logs",
+		Method:      http.MethodGet,
+		Path:        "/api/things/{thingId}/logs",
+		OperationID: "thing.logs",
 		QuerySearchAttributes: []routing.QuerySearchAttribute{
 			{Name: "action", Required: true, Description: "action"},
 		},
@@ -53,6 +54,8 @@ func TestBuildOpenAPISpec_ParametersAndResponses(t *testing.T) {
 
 	authParam := findParam(op.Parameters, "Authorization", openapi3.ParameterIn("header"))
 	require.NotNil(t, authParam)
+	require.NotNil(t, op.ID)
+	assert.Equal(t, "thing.logs", *op.ID)
 
 	_, ok := op.Responses.MapOfResponseOrRefValues["200"]
 	require.True(t, ok)
@@ -63,6 +66,7 @@ func TestBuildOpenAPISpec_RequestBodyRequired(t *testing.T) {
 	route := RouteInfo{
 		Method:                 http.MethodPost,
 		Path:                   "/api/things",
+		OperationID:            "things.create",
 		InputSchema:            TestBodyRequest{},
 		OutputSchema:           TestBodyResponse{},
 		HasInputBody:           true,
@@ -81,55 +85,12 @@ func TestBuildOpenAPISpec_RequestBodyRequired(t *testing.T) {
 	mt, ok := op.RequestBody.RequestBody.Content["application/json"]
 	require.True(t, ok)
 	require.NotNil(t, mt.Schema)
+	require.NotNil(t, op.ID)
+	assert.Equal(t, "things.create", *op.ID)
 
 	authParam := findParam(op.Parameters, "Authorization", openapi3.ParameterIn("header"))
 	require.Nil(t, authParam)
 	require.NotNil(t, op.Responses.Default)
-}
-
-func TestPathToOperationID(t *testing.T) {
-	testCases := []struct {
-		name     string
-		path     string
-		expected string
-	}{
-		{
-			name:     "listMyCheckRuns",
-			path:     "/api/my/checks/{checkId}/runs",
-			expected: "checkRuns.list",
-		},
-		{
-			name:     "authenticateApiKey",
-			path:     "/api/apikey/authenticate",
-			expected: "apiKey.authenticate",
-		},
-		{
-			name:     "generateApiKey",
-			path:     "/api/apikey/generate",
-			expected: "apiKey.generate",
-		},
-		{
-			name:     "exportMyCheckRun",
-			path:     "/api/my/checks/{checkId}/runs/{runId}/export",
-			expected: "checkRun.export",
-		},
-		{
-			name:     "cancelSchedule",
-			path:     "/api/my/schedules/{scheduleId}/cancel",
-			expected: "schedule.cancel",
-		},
-		{
-			name:     "listMyChecks",
-			path:     "/api/my/checks",
-			expected: "checks.list",
-		},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			assert.Equal(t, tc.expected, pathToOperationID(tc.path))
-		})
-	}
 }
 
 func requireOperation(t *testing.T, spec *openapi3.Spec, path, method string) openapi3.Operation {

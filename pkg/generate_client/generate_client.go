@@ -27,6 +27,7 @@ import (
 type RouteInfo struct {
 	Method                 string
 	Path                   string
+	OperationID            string
 	InputSchema            any
 	OutputSchema           any
 	QuerySearchAttributes  []routing.QuerySearchAttribute
@@ -66,6 +67,7 @@ func main() {
 			r := RouteInfo{
 				Method:                route.Method,
 				Path:                  joinedPath,
+				OperationID:           route.OperationID,
 				Summary:               route.Summary,
 				Description:           route.Description,
 				QuerySearchAttributes: route.QuerySearchAttributes,
@@ -82,6 +84,14 @@ func main() {
 
 			if route.ResponseSchema != nil {
 				r.OutputSchema = route.ResponseSchema
+			}
+
+			if r.OperationID == "" {
+				log.Fatalf(
+					"FATAL: missing operation ID for exported route %s %s",
+					r.Method,
+					r.Path,
+				)
 			}
 
 			r.PathParams = extractPathParams(r.Path)
@@ -173,7 +183,9 @@ func setOperationMetadata(operation openapi.OperationInfo, route RouteInfo) {
 	if route.Description != "" {
 		operation.SetDescription(route.Description)
 	}
-	operation.SetID(pathToOperationID(route.Path))
+	if route.OperationID != "" {
+		operation.SetID(route.OperationID)
+	}
 	if len(route.Tags) > 0 {
 		operation.SetTags(route.Tags...)
 	}
@@ -381,187 +393,8 @@ func sanitizeTagValue(val string) string {
 	return val
 }
 
-func pathToOperationID(path string) string {
-	segments := splitPathSegments(path)
-	if len(segments) == 0 {
-		return "route.execute"
-	}
-
-	last := segments[len(segments)-1]
-	if isPathParam(last) {
-		objectWords := pathResourceWords(segments, false)
-		if len(objectWords) == 0 {
-			return "route.get"
-		}
-		return fmt.Sprintf("%s.get", lowerCamelFromWords(objectWords))
-	}
-
-	if len(segments) == 1 {
-		objectWords := segmentWords(last)
-		if len(objectWords) == 0 {
-			return "route.list"
-		}
-		return fmt.Sprintf("%s.list", lowerCamelFromWords(objectWords))
-	}
-
-	if isPathParam(segments[len(segments)-2]) &&
-		countPathParams(segments) == 1 &&
-		isLikelyCollectionSegment(last) {
-		objectWords := pathResourceWords(segments, true)
-		if len(objectWords) == 0 {
-			return "route.list"
-		}
-		return fmt.Sprintf("%s.list", lowerCamelFromWords(objectWords))
-	}
-
-	action := strings.Join(segmentWords(last), "")
-	if action == "" {
-		action = "execute"
-	}
-	objectWords := pathResourceWords(segments[:len(segments)-1], false)
-	if len(objectWords) == 0 {
-		objectWords = []string{"route"}
-	}
-
-	return fmt.Sprintf("%s.%s", lowerCamelFromWords(objectWords), action)
-}
-
-func pathResourceWords(segments []string, keepLeafPlural bool) []string {
-	literals := make([][]string, 0, len(segments))
-	for _, segment := range segments {
-		if isPathParam(segment) {
-			continue
-		}
-		words := segmentWords(segment)
-		if len(words) == 0 {
-			continue
-		}
-		literals = append(literals, words)
-	}
-
-	if len(literals) == 0 {
-		return nil
-	}
-
-	out := make([]string, 0, len(literals)*2)
-	last := len(literals) - 1
-	for i, words := range literals {
-		if i != last || !keepLeafPlural {
-			words = singularizeWords(words)
-		}
-		out = append(out, words...)
-	}
-
-	return out
-}
-
-func splitPathSegments(path string) []string {
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	segments := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if part == "" {
-			continue
-		}
-		if len(segments) == 0 && part == "api" {
-			continue
-		}
-		if len(segments) == 0 && part == "my" {
-			continue
-		}
-		segments = append(segments, part)
-	}
-	return segments
-}
-
 func isPathParam(segment string) bool {
 	return strings.HasPrefix(segment, "{") && strings.HasSuffix(segment, "}")
-}
-
-func countPathParams(segments []string) int {
-	count := 0
-	for _, segment := range segments {
-		if isPathParam(segment) {
-			count++
-		}
-	}
-	return count
-}
-
-func isLikelyCollectionSegment(segment string) bool {
-	words := segmentWords(segment)
-	if len(words) == 0 {
-		return false
-	}
-	last := words[len(words)-1]
-	return singularizeWord(last) != last
-}
-
-func segmentWords(segment string) []string {
-	segment = strings.ToLower(strings.TrimSpace(segment))
-	if segment == "" {
-		return nil
-	}
-
-	var b strings.Builder
-	for _, r := range segment {
-		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
-			b.WriteRune(r)
-		} else {
-			b.WriteRune(' ')
-		}
-	}
-
-	words := strings.Fields(b.String())
-	if len(words) == 1 && strings.HasPrefix(words[0], "api") && len(words[0]) > 3 {
-		return []string{"api", words[0][3:]}
-	}
-	return words
-}
-
-func singularizeWords(words []string) []string {
-	if len(words) == 0 {
-		return words
-	}
-	out := append([]string(nil), words...)
-	out[len(out)-1] = singularizeWord(out[len(out)-1])
-	return out
-}
-
-func singularizeWord(word string) string {
-	switch {
-	case strings.HasSuffix(word, "ies") && len(word) > 3:
-		return word[:len(word)-3] + "y"
-	case strings.HasSuffix(word, "sses"),
-		strings.HasSuffix(word, "ches"),
-		strings.HasSuffix(word, "shes"),
-		strings.HasSuffix(word, "xes"),
-		strings.HasSuffix(word, "zes"):
-		return word[:len(word)-2]
-	case strings.HasSuffix(word, "s") && !strings.HasSuffix(word, "ss") && len(word) > 1:
-		return word[:len(word)-1]
-	default:
-		return word
-	}
-}
-
-func lowerCamelFromWords(words []string) string {
-	if len(words) == 0 {
-		return ""
-	}
-
-	var b strings.Builder
-	b.WriteString(words[0])
-	for _, word := range words[1:] {
-		if word == "" {
-			continue
-		}
-		b.WriteString(strings.ToUpper(word[:1]))
-		if len(word) > 1 {
-			b.WriteString(word[1:])
-		}
-	}
-
-	return b.String()
 }
 
 func extractPathParams(path string) []string {
