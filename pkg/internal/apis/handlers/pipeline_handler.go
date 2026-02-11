@@ -743,7 +743,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 		}		
 
 		
-		if status == "queued" {
+		if strings.ToLower(status) == "queued" {
 			if len(queuedForPipeline) == 0 {
 				return e.JSON(http.StatusOK, ListMyChecksResponse{
 					[]*WorkflowExecutionSummary{},
@@ -756,6 +756,9 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				authRecord.GetString("Timezone"),
 				map[string]map[string]any{},
 			)
+			if queuedSummaries == nil {
+        		queuedSummaries = []*pipelineWorkflowSummary{}
+    		}
 			return e.JSON(http.StatusOK, queuedSummaries)
 		}
 
