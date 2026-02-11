@@ -31,7 +31,7 @@ Effort: S
 Goal: Capture what `pkg/generate_client/generate_client.go` currently emits and which behaviors must be preserved.
 Notes: Keep this focused on generator code only; no changes to `RouteGroup` or `webapp/`.
 
-** WIP [#A] Record current generation entrypoints and outputs
+** DONE [#A] Record current generation entrypoints and outputs
 Why: Generator runs via `//go:generate` in `pkg/gen.go` and writes `docs/public/API/openapi.yml` and `webapp/src/lib/credimiClient.generated.ts`.
 Change: Note current invocation (`go generate ./pkg`) and exact output paths; record counts of paths/operations/components.
 Tests: Run `go generate ./pkg` and capture a snapshot of `docs/public/API/openapi.yml` for comparison.
@@ -41,11 +41,18 @@ Baseline (2026-02-11):
 - Outputs: `docs/public/API/openapi.yml`, `webapp/src/lib/credimiClient.generated.ts`, `schemas/pipeline/pipeline_schema.json`
 - OpenAPI counts: paths=16, operations=16 (get=8, post=8), schemas=47
 
-** TODO [#A] Identify special cases in routes and schemas
+** WIP [#A] Identify special cases in routes and schemas
 Why: Some routes have empty `Path` (base path), some have path params, some have `QuerySearchAttributes`, some lack `ResponseSchema`, and auth is group-level.
 Change: Build a short checklist of examples to verify post-refactor (e.g., a route with `{checkId}` params, one with query attrs, one with no response schema).
 Tests: Confirm those endpoints exist in baseline OpenAPI YAML.
 Done when: A minimal verification matrix (3–6 representative routes) is defined.
+Verification matrix (baseline, exported routes):
+- Base path (empty `Path`): `GET /api/my/checks` (HandleListMyChecks)
+- Path params: `GET /api/my/checks/{checkId}/runs/{runId}` (HandleGetMyCheckRun)
+- Query params: `GET /api/my/checks/{checkId}/runs/{runId}/logs` (QuerySearchAttributes: `action`)
+- Request+response schemas: `POST /api/my/schedules/start` (StartScheduleRequest/StartScheduleResponse)
+- Auth grouping: `ChecksRoutes`/`SchedulesRoutes` have `AuthenticationRequired: true`; `ApiKeyRoutes` is false
+Note: exported RouteGroups do not currently include a route without `ResponseSchema`; a non-exported example is `POST /api/canonify/identifier/validate`.
 
 * TODO [#A] Remove TypeScript Client Generation (Generator-Only)
 Effort: S
