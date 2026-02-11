@@ -1,3 +1,7 @@
+// SPDX-FileCopyrightText: 2025 Forkbomb BV
+//
+// SPDX-License-Identifier: AGPL-3.0-or-later
+
 package main
 
 import (
@@ -21,10 +25,12 @@ type TestBodyResponse struct {
 
 func TestBuildOpenAPISpec_ParametersAndResponses(t *testing.T) {
 	route := RouteInfo{
-		Method:                 http.MethodGet,
-		GoHandlerName:          "handlers.HandleTestQueryRoute",
-		Path:                   "/api/things/{thingId}/logs",
-		QuerySearchAttributes:  []routing.QuerySearchAttribute{{Name: "action", Required: true, Description: "action"}},
+		Method:        http.MethodGet,
+		GoHandlerName: "handlers.HandleTestQueryRoute",
+		Path:          "/api/things/{thingId}/logs",
+		QuerySearchAttributes: []routing.QuerySearchAttribute{
+			{Name: "action", Required: true, Description: "action"},
+		},
 		AuthenticationRequired: true,
 		OutputSchema:           TestBodyResponse{},
 	}
@@ -95,7 +101,11 @@ func requireOperation(t *testing.T, spec *openapi3.Spec, path, method string) op
 	return op
 }
 
-func findParam(params []openapi3.ParameterOrRef, name string, in openapi3.ParameterIn) *openapi3.Parameter {
+func findParam(
+	params []openapi3.ParameterOrRef,
+	name string,
+	in openapi3.ParameterIn,
+) *openapi3.Parameter {
 	for _, param := range params {
 		if param.Parameter == nil {
 			continue

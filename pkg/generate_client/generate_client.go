@@ -68,13 +68,16 @@ func main() {
 			// Use url.JoinPath for proper URL path joining instead of file path.Join
 			joinedPath := joinOpenAPIPath(group.BaseURL, route.Path)
 			r := RouteInfo{
-				Method:                 route.Method,
-				Path:                   joinedPath,
-				GoHandlerName:          getFuncName(route.Handler),
-				Summary:                route.Summary,
-				Description:            route.Description,
-				QuerySearchAttributes:  route.QuerySearchAttributes,
-				AuthenticationRequired: needsAuth(group.AuthenticationRequired, route.ExcludedMiddlewares),
+				Method:                route.Method,
+				Path:                  joinedPath,
+				GoHandlerName:         getFuncName(route.Handler),
+				Summary:               route.Summary,
+				Description:           route.Description,
+				QuerySearchAttributes: route.QuerySearchAttributes,
+				AuthenticationRequired: needsAuth(
+					group.AuthenticationRequired,
+					route.ExcludedMiddlewares,
+				),
 				// Tags:          route.Tags,
 			}
 
@@ -126,9 +129,11 @@ func buildOpenAPISpec(routes []RouteInfo) (*openapi3.Spec, error) {
 	spec := &openapi3.Spec{
 		Openapi: "3.0.3",
 		Info: openapi3.Info{
-			Title:       "credimi 👀 API Gateway",
-			Version:     "1.4.0",
-			Description: stringPtr(`credimi API Gateway for managing EUDI-ARF compliance checks...`),
+			Title:   "credimi 👀 API Gateway",
+			Version: "1.4.0",
+			Description: stringPtr(
+				`credimi API Gateway for managing EUDI-ARF compliance checks...`,
+			),
 			Contact: &openapi3.Contact{
 				Name:  stringPtr("credimi Support"),
 				Email: stringPtr("support@forkbomb.eu"),
@@ -147,7 +152,12 @@ func buildOpenAPISpec(routes []RouteInfo) (*openapi3.Spec, error) {
 	for _, route := range routes {
 		operationContext, err := reflector.NewOperationContext(route.Method, route.Path)
 		if err != nil {
-			return nil, fmt.Errorf("create operation context for %s %s: %w", route.Method, route.Path, err)
+			return nil, fmt.Errorf(
+				"create operation context for %s %s: %w",
+				route.Method,
+				route.Path,
+				err,
+			)
 		}
 		setOperationMetadata(operationContext, route)
 		if err := addOperationRequest(operationContext, route); err != nil {
@@ -232,7 +242,11 @@ func buildServer(url, description string) openapi3.Server {
 }
 
 func buildRequestStructure(route RouteInfo) (interface{}, error) {
-	fields := make([]reflect.StructField, 0, len(route.PathParams)+len(route.QuerySearchAttributes)+2)
+	fields := make(
+		[]reflect.StructField,
+		0,
+		len(route.PathParams)+len(route.QuerySearchAttributes)+2,
+	)
 	used := map[string]struct{}{}
 
 	for _, param := range route.PathParams {
