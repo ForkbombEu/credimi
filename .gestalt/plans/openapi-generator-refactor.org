@@ -65,7 +65,7 @@ Change: In `pkg/generate_client/generate_client.go`, remove `tsTemplate`, `Templ
 Tests: `go test -tags=unit ./...` (ensures generator removal doesn’t break compilation elsewhere).
 Done when: Generator builds/runs without referencing TS output and repo still compiles/tests.
 
-** WIP [#B] Ensure `go:generate` remains valid
+** DONE [#B] Ensure `go:generate` remains valid
 Why: `pkg/gen.go` still invokes `go run generate_client/generate_client.go`; removing TS generation must not break `go generate`.
 Change: Keep the same generator entrypoint; update any logging/messages to match new behavior.
 Tests: Run `go generate ./pkg` and ensure it completes and updates only `docs/public/API/openapi.yml` (plus any unavoidable go.sum churn from new deps later).
@@ -76,7 +76,7 @@ Effort: M
 Goal: Replace the hand-rolled OpenAPI structs + JSON roundtrip + `cleanRefs` logic with `swaggest/openapi-go`-driven spec construction and YAML emission.
 Notes: Keep route enumeration unchanged (still sourced from `api.RouteGroups`); do not change `routing.RouteGroup` / handlers.
 
-** TODO [#A] Choose integration strategy (reflector-first, minimal manual patching)
+** WIP [#A] Choose integration strategy (reflector-first, minimal manual patching)
 Why: We want to stop “generating by hand” and rely on the library for schema/operation construction.
 Change: Prefer `openapi-go/openapi3` reflector + per-route `OperationContext`:
 - Set `Info` and `Servers` on the spec (matching current values unless instructed otherwise).
