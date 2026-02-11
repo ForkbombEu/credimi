@@ -241,7 +241,7 @@ func buildServer(url, description string) openapi3.Server {
 	}
 }
 
-func buildRequestStructure(route RouteInfo) (interface{}, error) {
+func buildRequestStructure(route RouteInfo) any {
 	fields := make(
 		[]reflect.StructField,
 		0,
@@ -279,11 +279,11 @@ func buildRequestStructure(route RouteInfo) (interface{}, error) {
 	}
 
 	if len(fields) == 0 {
-		return nil, nil
+		return nil
 	}
 
 	reqType := reflect.StructOf(fields)
-	return reflect.New(reqType).Interface(), nil
+	return reflect.New(reqType).Interface()
 }
 
 func withRequiredRequestBody(required bool) openapi.ContentOption {
@@ -389,7 +389,7 @@ func sanitizeTagValue(val string) string {
 	return val
 }
 
-func getFuncName(i interface{}) string {
+func getFuncName(i any) string {
 	return runtime.FuncForPC(reflect.ValueOf(i).Pointer()).Name()
 }
 func handlerToFuncName(fullHandlerName string) string {
@@ -414,7 +414,9 @@ func extractPathParams(path string) []string {
 }
 
 func joinOpenAPIPath(base string, parts ...string) string {
-	seg := []string{strings.TrimRight(base, "/")}
+	seg := make([]string, 0, 1+len(parts))
+	seg = append(seg, strings.TrimRight(base, "/"))
+
 	for _, p := range parts {
 		seg = append(seg, strings.Trim(p, "/"))
 	}
