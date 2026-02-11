@@ -76,7 +76,7 @@ Effort: M
 Goal: Replace the hand-rolled OpenAPI structs + JSON roundtrip + `cleanRefs` logic with `swaggest/openapi-go`-driven spec construction and YAML emission.
 Notes: Keep route enumeration unchanged (still sourced from `api.RouteGroups`); do not change `routing.RouteGroup` / handlers.
 
-** WIP [#A] Choose integration strategy (reflector-first, minimal manual patching)
+** DONE [#A] Choose integration strategy (reflector-first, minimal manual patching)
 Why: We want to stop “generating by hand” and rely on the library for schema/operation construction.
 Change: Prefer `openapi-go/openapi3` reflector + per-route `OperationContext`:
 - Set `Info` and `Servers` on the spec (matching current values unless instructed otherwise).
@@ -85,8 +85,13 @@ Change: Prefer `openapi-go/openapi3` reflector + per-route `OperationContext`:
 Fallback: If reflector can’t represent some aspects cleanly, patch the generated spec using openapi-go model types (still avoiding custom OpenAPI struct definitions).
 Tests: Build the spec and validate it serializes; confirm components and refs are generated (no `#/$defs` cleanup needed).
 Done when: A spike confirms the reflector API supports needed inputs for this repo’s route metadata.
+Strategy notes (from swaggest/openapi-go docs):
+- Use `openapi3.Reflector` with `Spec` prefilled (OpenAPI 3.x; library examples set `Openapi: "3.0.3"`).
+- Per route: `NewOperationContext(method, path)`, then `AddReqStructure` and `AddRespStructure` (set `ContentUnit.HTTPStatus`).
+- Params come from struct tags (`path`, `query`, `header`) on reflected request types.
+- Serialize with `Spec.MarshalYAML()` (no JSON→map cleanup required if refs are emitted under `#/components/schemas`).
 
-** TODO [#A] Map route metadata into `OperationContext`
+** WIP [#A] Map route metadata into `OperationContext`
 Why: Current generator builds `RouteInfo` and then constructs `paths + operations` manually.
 Change: Keep `RouteInfo` (or simplify it) as an internal representation, but switch `generateOpenAPIYAML` to:
 - Compute full path with existing `joinOpenAPIPath`.
