@@ -684,7 +684,12 @@ func fetchAndInstallAPK(
 	req := workflowengine.ActivityInput{
 		Payload: map[string]any{
 			"method": http.MethodPost,
-			"url":    utils.JoinURL(input.runnerURL, "fetch-apk-and-action"),
+			"url": utils.JoinURL(
+				input.runnerURL,
+				"api",
+				"credimi",
+				"apk-action",
+			),
 			"headers": map[string]any{
 				"Content-Type": "application/json",
 			},
@@ -1324,7 +1329,9 @@ func storeRecordingResults(
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
 					input.runnerURL,
-					"store-pipeline-result",
+					"api",
+					"credimi",
+					"pipeline-result",
 				),
 				Headers: map[string]string{
 					"Content-Type": "application/json",
