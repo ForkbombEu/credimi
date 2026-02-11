@@ -20,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { EllipsisVerticalIcon, TriangleIcon } from '@lucide/svelte';
 	import clsx from 'clsx';
+	import { String } from 'effect';
 
 	import type { DropdownMenuItem } from '@/components/ui-custom/dropdown-menu.svelte';
 
@@ -40,18 +41,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		workflow: Workflow;
 		depth?: number;
 		row?: RowSnippet<Workflow>;
-		disableLink?: boolean;
-		actions?: DropdownMenuItem[];
+		disableLink?: (workflow: Workflow) => boolean;
+		actions?: (workflow: Workflow) => DropdownMenuItem[];
 	};
 
-	let {
-		workflow,
-		depth = 0,
-		row,
-		hideColumns = [],
-		actions,
-		disableLink = false
-	}: Props = $props();
+	let { workflow, depth = 0, row, hideColumns = [], actions, disableLink }: Props = $props();
 
 	const isRoot = $derived(depth === 0);
 	const isChild = $derived(!isRoot);
@@ -87,7 +81,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<Table.Cell class={[isChild && 'py-0!']}>
 				<div class="flex flex-wrap items-center gap-4">
 					<div class="flex items-center gap-2">
-						{#if !disableLink}
+						{#if !disableLink?.(workflow)}
 							<!-- eslint-disable-next-line svelte/no-navigation-without-resolve -->
 							<a {href} class="text-primary hover:underline">
 								{workflow.displayName}
@@ -151,28 +145,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Table.Cell
 			class={['text-right', isChild && 'text-[10px] leading-[13px] text-muted-foreground']}
 		>
-			{workflow.startTime}
+			{@render na(workflow.startTime)}
 		</Table.Cell>
 	{/if}
 
 	{#if !hideColumns.includes('end_time')}
 		<Table.Cell
-			class={[
-				'text-right',
-				{
-					'text-gray-300': !workflow.endTime,
-					'text-[10px] leading-[13px] text-muted-foreground': isChild
-				}
-			]}
+			class={['text-right', isChild && 'text-[10px] leading-[13px] text-muted-foreground']}
 		>
-			{workflow.endTime ?? 'N/A'}
+			{@render na(workflow.endTime)}
 		</Table.Cell>
 	{/if}
 
 	{#if !hideColumns.includes('actions')}
 		<Table.Cell class="flex justify-end">
 			{#if actions}
-				<DropdownMenu items={actions}>
+				<DropdownMenu items={actions(workflow)}>
 					{#snippet triggerContent()}
 						<EllipsisVerticalIcon />
 					{/snippet}
@@ -184,6 +172,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 {#if workflow.children && isExpanded}
 	{#each workflow.children as children (children.execution.runId)}
-		<WorkflowTableRow workflow={children as Workflow} depth={depth + 1} {row} />
+		<WorkflowTableRow
+			workflow={children as Workflow}
+			depth={depth + 1}
+			{row}
+			{hideColumns}
+			{actions}
+			{disableLink}
+		/>
 	{/each}
 {/if}
+
+{#snippet na(value: string | undefined)}
+	{#if value && String.isNonEmpty(value)}
+		{value}
+	{:else}
+		<span class="text-muted-foreground opacity-50">N/A</span>
+	{/if}
+{/snippet}
