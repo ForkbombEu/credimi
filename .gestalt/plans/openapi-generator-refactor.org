@@ -101,7 +101,7 @@ Change: Keep `RouteInfo` (or simplify it) as an internal representation, but swi
 Tests: Validate operation ids and summaries exist in YAML for the verification matrix routes.
 Done when: All routes are present with the right method/path and metadata.
 
-** TODO [#A] Generate request parameters (path/query) without touching handlers
+** DONE [#A] Generate request parameters (path/query) without touching handlers
 Why: Path params and `QuerySearchAttributes` are currently injected by generator; the handler code does not carry OpenAPI-specific tags.
 Change: Use a generator-local, dynamic request struct per operation to let openapi-go reflect parameters:
 - Create a synthetic struct type at runtime (`reflect.StructOf`) containing:

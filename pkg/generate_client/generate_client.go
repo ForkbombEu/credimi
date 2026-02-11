@@ -181,14 +181,23 @@ func addOperationRequest(operation openapi.OperationContext, route RouteInfo) er
 		return fmt.Errorf("build request structure for %s %s: %w", route.Method, route.Path, err)
 	}
 	if req == nil {
-		return nil
+		if !route.HasInputBody {
+			return nil
+		}
+	} else {
+		operation.AddReqStructure(req)
 	}
 
-	options := []openapi.ContentOption{}
 	if route.HasInputBody {
-		options = append(options, openapi.WithContentType("application/json"), withRequiredRequestBody(true))
+		if route.InputSchema == nil {
+			return fmt.Errorf("request schema missing for %s %s", route.Method, route.Path)
+		}
+		operation.AddReqStructure(
+			route.InputSchema,
+			openapi.WithContentType("application/json"),
+			withRequiredRequestBody(true),
+		)
 	}
-	operation.AddReqStructure(req, options...)
 
 	return nil
 }
@@ -253,28 +262,6 @@ func buildRequestStructure(route RouteInfo) (interface{}, error) {
 				Tag:  buildTag("query", attr.Name, attr.Required, attr.Description),
 			})
 		}
-	}
-
-	if route.HasInputBody {
-		if route.InputSchema == nil {
-			return nil, fmt.Errorf("request schema missing for %s %s", route.Method, route.Path)
-		}
-		bodyType := reflect.TypeOf(route.InputSchema)
-		fieldName := bodyType.Name()
-		if fieldName == "" && bodyType.Kind() == reflect.Pointer {
-			fieldName = bodyType.Elem().Name()
-		}
-		if fieldName == "" {
-			return nil, fmt.Errorf("request schema type has no name for %s %s", route.Method, route.Path)
-		}
-		if _, exists := used[fieldName]; exists {
-			return nil, fmt.Errorf("request schema field name collision for %s %s", route.Method, route.Path)
-		}
-		fields = append(fields, reflect.StructField{
-			Name:      fieldName,
-			Type:      bodyType,
-			Anonymous: true,
-		})
 	}
 
 	if len(fields) == 0 {
