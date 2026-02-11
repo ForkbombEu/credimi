@@ -18,7 +18,7 @@ paths:
   /api/apikey/authenticate:
     get:
       description: Authenticate an API key and return Bearer token
-      operationId: authenticateApiKey
+      operationId: apiKey.authenticate
       responses:
         "200":
           content:
@@ -36,7 +36,7 @@ paths:
   /api/apikey/generate:
     post:
       description: Generate a new API key for the authenticated user.
-      operationId: generateApiKey
+      operationId: apiKey.generate
       requestBody:
         content:
           application/json:
@@ -60,7 +60,7 @@ paths:
   /api/my/checks:
     get:
       description: List all checks for the authenticated user
-      operationId: listMyChecks
+      operationId: checks.list
       parameters:
       - description: Bearer token for authentication
         in: header
@@ -86,7 +86,7 @@ paths:
   /api/my/checks/{checkId}/runs:
     get:
       description: List all runs for a specific check
-      operationId: listMyCheckRuns
+      operationId: checkRuns.list
       parameters:
       - description: The ID for the checkId.
         in: path
@@ -119,7 +119,7 @@ paths:
   /api/my/checks/{checkId}/runs/{runId}:
     get:
       description: Get details of a specific run for a check
-      operationId: getMyCheckRun
+      operationId: checkRun.get
       parameters:
       - description: The ID for the checkId.
         in: path
@@ -159,7 +159,7 @@ paths:
   /api/my/checks/{checkId}/runs/{runId}/cancel:
     post:
       description: Cancel a specific check run
-      operationId: cancelMyCheckRun
+      operationId: checkRun.cancel
       parameters:
       - description: The ID for the checkId.
         in: path
@@ -199,7 +199,7 @@ paths:
   /api/my/checks/{checkId}/runs/{runId}/export:
     get:
       description: Export a specific check run
-      operationId: exportMyCheckRun
+      operationId: checkRun.export
       parameters:
       - description: The ID for the checkId.
         in: path
@@ -239,7 +239,7 @@ paths:
   /api/my/checks/{checkId}/runs/{runId}/history:
     get:
       description: Get the history of events for a specific run of a check
-      operationId: getMyCheckRunHistory
+      operationId: checkRun.history
       parameters:
       - description: The ID for the checkId.
         in: path
@@ -279,7 +279,7 @@ paths:
   /api/my/checks/{checkId}/runs/{runId}/logs:
     get:
       description: Start or Stop logs for a specific check run and get the log channel
-      operationId: myCheckLogs
+      operationId: checkRun.logs
       parameters:
       - description: Can be 'start' or 'stop' to control logging for the check run
         in: query
@@ -325,7 +325,7 @@ paths:
   /api/my/checks/{checkId}/runs/{runId}/rerun:
     post:
       description: Re-run a specific check run
-      operationId: rerunMyCheck
+      operationId: checkRun.rerun
       parameters:
       - description: The ID for the checkId.
         in: path
@@ -371,7 +371,7 @@ paths:
   /api/my/checks/{checkId}/runs/{runId}/terminate:
     post:
       description: Terminate a specific check run
-      operationId: terminateMyCheckRun
+      operationId: checkRun.terminate
       parameters:
       - description: The ID for the checkId.
         in: path
@@ -411,7 +411,7 @@ paths:
   /api/my/schedules:
     get:
       description: List all schedules for the authenticated user
-      operationId: listMySchedules
+      operationId: schedules.list
       parameters:
       - description: Bearer token for authentication
         in: header
@@ -437,7 +437,7 @@ paths:
   /api/my/schedules/{scheduleId}/cancel:
     post:
       description: Cancel a specific schedule
-      operationId: cancelSchedule
+      operationId: schedule.cancel
       parameters:
       - description: The ID for the scheduleId.
         in: path
@@ -470,7 +470,7 @@ paths:
   /api/my/schedules/{scheduleId}/pause:
     post:
       description: Pause a specific schedule
-      operationId: pauseSchedule
+      operationId: schedule.pause
       parameters:
       - description: The ID for the scheduleId.
         in: path
@@ -503,7 +503,7 @@ paths:
   /api/my/schedules/{scheduleId}/resume:
     post:
       description: Resume a specific schedule
-      operationId: resumeSchedule
+      operationId: schedule.resume
       parameters:
       - description: The ID for the scheduleId.
         in: path
@@ -536,7 +536,7 @@ paths:
   /api/my/schedules/start:
     post:
       description: Start a new schedule from an existing workflow
-      operationId: startSchedule
+      operationId: schedule.start
       parameters:
       - description: Bearer token for authentication
         in: header
