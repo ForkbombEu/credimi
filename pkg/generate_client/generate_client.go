@@ -19,7 +19,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	api "github.com/forkbombeu/credimi/pkg/internal/apis"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/hypersequent/zen"
 	"github.com/invopop/jsonschema"
 	"gopkg.in/yaml.v3"
@@ -251,7 +250,7 @@ func main() {
 	for _, group := range routeGroups {
 		for _, route := range group.Routes {
 			// Use url.JoinPath for proper URL path joining instead of file path.Join
-			joinedPath := utils.JoinURL(group.BaseURL, route.Path)
+			joinedPath := joinOpenAPIPath(group.BaseURL, route.Path)
 			r := RouteInfo{
 				Method:                 route.Method,
 				Path:                   joinedPath,
@@ -603,4 +602,20 @@ func extractPathParams(path string) []string {
 		}
 	}
 	return params
+}
+
+func joinOpenAPIPath(base string, parts ...string) string {
+	seg := []string{strings.TrimRight(base, "/")}
+	for _, p := range parts {
+		seg = append(seg, strings.Trim(p, "/"))
+	}
+	out := strings.Join(seg, "/")
+	if !strings.HasPrefix(out, "/") {
+		out = "/" + out
+	}
+	// remove trailing slash unless it's just "/"
+	if len(out) > 1 {
+		out = strings.TrimRight(out, "/")
+	}
+	return out
 }
