@@ -139,7 +139,7 @@ Change: Prefer openapi-go’s spec marshaling to YAML/JSON (whichever is support
 Tests: Ensure YAML parses and renders in the docs UI (Swagger UI/ReDoc).
 Done when: `go generate ./pkg` updates `docs/public/API/openapi.yml` successfully with the new pipeline.
 
-** TODO [#B] Ensure no `$ref` rewriting is needed
+** DONE [#B] Ensure no `$ref` rewriting is needed
 Why: The old pipeline produced `#/$defs/...` and needed `cleanRefs`.
 Change: Confirm openapi-go emits OpenAPI-native component refs (e.g., `#/components/schemas/...`) out of the box; remove `cleanRefs` if obsolete.
 Tests: Grep the output for `#/$defs/` and validate refs resolve.
