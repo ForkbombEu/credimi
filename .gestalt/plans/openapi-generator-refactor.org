@@ -133,7 +133,7 @@ Effort: S
 Goal: Serialize the openapi-go spec to YAML with deterministic formatting and keep the same output path.
 Notes: Avoid bespoke JSON→map cleanup unless strictly required; prefer library-supported serialization.
 
-** TODO [#B] Implement YAML serialization and file writing
+** DONE [#B] Implement YAML serialization and file writing
 Why: Current generator uses JSON marshal/unmarshal into `map[string]any` + `cleanRefs` then `yaml.v3` encoder.
 Change: Prefer openapi-go’s spec marshaling to YAML/JSON (whichever is supported) and write to `../docs/public/API/openapi.yml`; configure indentation if needed for readability.
 Tests: Ensure YAML parses and renders in the docs UI (Swagger UI/ReDoc).
