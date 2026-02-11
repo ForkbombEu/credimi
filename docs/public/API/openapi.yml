@@ -82,6 +82,22 @@ components:
         time:
           type: string
       type: object
+    CancelScheduleResponse:
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/cancel-schedule-response
+      $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+        namespace:
+          type: string
+        scheduleId:
+          type: string
+        status:
+          type: string
+        time:
+          type: string
+      type: object
     ChecksLogsResponse:
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/checks-logs-response
       $schema: https://json-schema.org/draft/2020-12/schema
@@ -228,6 +244,16 @@ components:
             $ref: '#/components/schemas/WorkflowExecutionSummary'
           type: array
       type: object
+    ListMySchedulesResponse:
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/list-my-schedules-response
+      $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        schedules:
+          items:
+            $ref: '#/components/schemas/ScheduleInfoSummary'
+          type: array
+      type: object
     Memo:
       additionalProperties: false
       properties:
@@ -235,6 +261,22 @@ components:
           additionalProperties:
             $ref: '#/components/schemas/Payload'
           type: object
+      type: object
+    PauseScheduleResponse:
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/pause-schedule-response
+      $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+        namespace:
+          type: string
+        scheduleId:
+          type: string
+        status:
+          type: string
+        time:
+          type: string
       type: object
     Payload:
       additionalProperties: false
@@ -334,6 +376,14 @@ components:
         state:
           type: string
       type: object
+    PipelineResults:
+      additionalProperties: false
+      properties:
+        screenshot:
+          type: string
+        video:
+          type: string
+      type: object
     ReRunCheckRequest:
       $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/re-run-check-request
       $schema: https://json-schema.org/draft/2020-12/schema
@@ -351,6 +401,72 @@ components:
           type: string
         workflow_id:
           type: string
+      type: object
+    ResumeScheduleResponse:
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/resume-schedule-response
+      $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+        namespace:
+          type: string
+        scheduleId:
+          type: string
+        status:
+          type: string
+        time:
+          type: string
+      type: object
+    ScheduleInfoSummary:
+      additionalProperties: false
+      properties:
+        display_name:
+          type: string
+        id:
+          type: string
+        next_action_time:
+          type: string
+        paused:
+          type: boolean
+        pipeline_id:
+          type: string
+        schedule_mode:
+          $ref: '#/components/schemas/ScheduleMode'
+        workflowType:
+          $ref: '#/components/schemas/WorkflowType'
+      type: object
+    ScheduleMode:
+      additionalProperties: false
+      properties:
+        day:
+          type: integer
+        mode:
+          type: string
+      type: object
+    StartScheduleRequest:
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/start-schedule-request
+      $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        global_runner_id:
+          type: string
+        pipeline_id:
+          type: string
+        schedule_mode:
+          $ref: '#/components/schemas/ScheduleMode'
+      type: object
+    StartScheduleResponse:
+      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/start-schedule-response
+      $schema: https://json-schema.org/draft/2020-12/schema
+      additionalProperties: false
+      properties:
+        message:
+          type: string
+        schedule_id:
+          type: string
+        schedule_mode:
+          $ref: '#/components/schemas/ScheduleMode'
       type: object
     TaskQueue:
       additionalProperties: false
@@ -415,20 +531,16 @@ components:
           type: string
         closeTime:
           type: string
+        execution:
+          $ref: '#/components/schemas/WorkflowIdentifier'
         executionTime:
           type: string
         historyLength:
           type: string
         historySizeBytes:
           type: string
-        id:
-          type: string
         memo:
           $ref: '#/components/schemas/Memo'
-        name:
-          type: string
-        runId:
-          type: string
         searchAttributes:
           $ref: '#/components/schemas/WorkflowSearchAttributes'
         startTime:
@@ -437,6 +549,8 @@ components:
           type: string
         status:
           type: string
+        type:
+          $ref: '#/components/schemas/WorkflowType'
         versioningInfo:
           $ref: '#/components/schemas/VersioningInfo'
       type: object
@@ -451,8 +565,18 @@ components:
           type: string
         endTime:
           type: string
+        enqueuedAt:
+          type: string
         execution:
           $ref: '#/components/schemas/WorkflowIdentifier'
+        failure_reason:
+          type: string
+        queue:
+          $ref: '#/components/schemas/WorkflowQueueSummary'
+        results:
+          items:
+            $ref: '#/components/schemas/PipelineResults'
+          type: array
         startTime:
           type: string
         status:
@@ -466,6 +590,20 @@ components:
         runId:
           type: string
         workflowId:
+          type: string
+      type: object
+    WorkflowQueueSummary:
+      additionalProperties: false
+      properties:
+        line_len:
+          type: integer
+        position:
+          type: integer
+        runner_ids:
+          items:
+            type: string
+          type: array
+        ticket_id:
           type: string
       type: object
     WorkflowSearchAttributes:
@@ -855,6 +993,155 @@ paths:
                 $ref: '#/components/schemas/APIError'
           description: An unexpected error occurred.
       summary: Terminate a specific check run
+  /api/my/schedules:
+    get:
+      description: List all schedules for the authenticated user
+      operationId: listMySchedules
+      parameters:
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListMySchedulesResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: An unexpected error occurred.
+      summary: Get a list of all schedules for the authenticated user
+  /api/my/schedules/{scheduleId}/cancel:
+    post:
+      description: Cancel a specific schedule
+      operationId: cancelSchedule
+      parameters:
+        - description: The ID for the scheduleId.
+          in: path
+          name: scheduleId
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelScheduleResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: An unexpected error occurred.
+      summary: Cancel a specific schedule
+  /api/my/schedules/{scheduleId}/pause:
+    post:
+      description: Pause a specific schedule
+      operationId: pauseSchedule
+      parameters:
+        - description: The ID for the scheduleId.
+          in: path
+          name: scheduleId
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PauseScheduleResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: An unexpected error occurred.
+      summary: Pause a specific schedule
+  /api/my/schedules/{scheduleId}/resume:
+    post:
+      description: Resume a specific schedule
+      operationId: resumeSchedule
+      parameters:
+        - description: The ID for the scheduleId.
+          in: path
+          name: scheduleId
+          required: true
+          schema:
+            type: string
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ResumeScheduleResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: An unexpected error occurred.
+      summary: Resume a specific schedule
+  /api/my/schedules/start:
+    post:
+      description: Start a new schedule from an existing workflow
+      operationId: startSchedule
+      parameters:
+        - description: Bearer token for authentication
+          in: header
+          name: Authorization
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StartScheduleRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StartScheduleResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/APIError'
+          description: An unexpected error occurred.
+      summary: Start a new schedule from an existing workflow
 servers:
   - description: Production server
     url: https://credimi.io

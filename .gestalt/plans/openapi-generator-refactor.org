@@ -1,0 +1,168 @@
+#+TITLE: OpenAPI Generator Refactor
+#+SUBTITLE: Replace hand-built YAML with swaggest/openapi-go; remove TS client generation
+#+DATE: 2026-02-11
+#+KEYWORDS: openapi, generator, go:generate, swaggest, yaml
+
+* WIP [#A] Confirm Scope, Constraints, and Success Criteria
+Effort: S
+Goal: Align on what must stay identical vs what can change in the generated OpenAPI output.
+Notes: User constraints: remove `generateTSClient`; keep only OpenAPI YAML generator; do not touch `RouteGroup` code; do not touch anything in `webapp/`.
+
+** DONE [#A] Clarify expected OpenAPI version and output diffs
+Why: `swaggest/openapi-go` supports OpenAPI 3.x; default version and serialization details may differ from current `openapi: 3.0.1`.
+Change: Decide whether to (a) preserve `openapi: 3.0.1` exactly, or (b) accept a bump (e.g., 3.0.3/3.1.0) if the library enforces it; define acceptable diff tolerance (ordering, schema names, required flags).
+Tests: Generate `docs/public/API/openapi.yml` before/after; compare path+method coverage and validate with Swagger UI/ReDoc.
+Done when: OpenAPI version choice and diff tolerance are written down.
+
+** DONE [#A] Clarify auth representation expectations
+Why: Current generator models auth by adding a required `Authorization` header parameter to each operation when `RouteGroup.AuthenticationRequired` is true (and ignores per-route middleware exceptions).
+Change: Confirm whether to preserve this behavior exactly, or switch to a proper `securitySchemes` + operation `security` requirement.
+Tests: Verify Swagger UI “Authorize” behavior and presence/absence of auth requirement per operation.
+Done when: Auth modeling decision is explicit (preserve header-param vs security scheme) and whether to keep current “group-only” behavior is confirmed.
+
+** DONE [#A] Clarify whether generated artifacts are committed
+Why: This refactor will likely change `docs/public/API/openapi.yml` formatting/content; also TS client generation will stop updating `webapp/src/lib/credimiClient.generated.ts`.
+Change: Confirm if the repo expects generated OpenAPI YAML to be committed and whether the existing generated TS client file should remain as-is (stale) or be handled by a separate tool later.
+Tests: N/A (process decision).
+Done when: Maintainer confirms commit policy for generated OpenAPI YAML and acknowledges TS generator removal impact.
+
+* TODO [#A] Baseline Current Generator Behavior
+Effort: S
+Goal: Capture what `pkg/generate_client/generate_client.go` currently emits and which behaviors must be preserved.
+Notes: Keep this focused on generator code only; no changes to `RouteGroup` or `webapp/`.
+
+** WIP [#A] Record current generation entrypoints and outputs
+Why: Generator runs via `//go:generate` in `pkg/gen.go` and writes `docs/public/API/openapi.yml` and `webapp/src/lib/credimiClient.generated.ts`.
+Change: Note current invocation (`go generate ./pkg`) and exact output paths; record counts of paths/operations/components.
+Tests: Run `go generate ./pkg` and capture a snapshot of `docs/public/API/openapi.yml` for comparison.
+Done when: A baseline snapshot and counts are recorded for regression checks.
+Baseline (2026-02-11):
+- Command: `go generate ./pkg`
+- Outputs: `docs/public/API/openapi.yml`, `webapp/src/lib/credimiClient.generated.ts`, `schemas/pipeline/pipeline_schema.json`
+- OpenAPI counts: paths=16, operations=16 (get=8, post=8), schemas=47
+
+** TODO [#A] Identify special cases in routes and schemas
+Why: Some routes have empty `Path` (base path), some have path params, some have `QuerySearchAttributes`, some lack `ResponseSchema`, and auth is group-level.
+Change: Build a short checklist of examples to verify post-refactor (e.g., a route with `{checkId}` params, one with query attrs, one with no response schema).
+Tests: Confirm those endpoints exist in baseline OpenAPI YAML.
+Done when: A minimal verification matrix (3–6 representative routes) is defined.
+
+* TODO [#A] Remove TypeScript Client Generation (Generator-Only)
+Effort: S
+Goal: Delete `generateTSClient` and all TS-template-related code; generator should only emit OpenAPI YAML.
+Notes: Do not modify any files under `webapp/`; only stop generating/updating them.
+
+** TODO [#A] Delete TS template and code paths
+Why: User requested keeping only OpenAPI YAML generation and deleting `generateTSClient`.
+Change: In `pkg/generate_client/generate_client.go`, remove `tsTemplate`, `TemplateData`, `generateTSClient`, and the `main()` call/log lines that trigger TS generation; remove imports only used by TS generation (e.g., `text/template`, `github.com/hypersequent/zen`).
+Tests: `go test -tags=unit ./...` (ensures generator removal doesn’t break compilation elsewhere).
+Done when: Generator builds/runs without referencing TS output and repo still compiles/tests.
+
+** TODO [#B] Ensure `go:generate` remains valid
+Why: `pkg/gen.go` still invokes `go run generate_client/generate_client.go`; removing TS generation must not break `go generate`.
+Change: Keep the same generator entrypoint; update any logging/messages to match new behavior.
+Tests: Run `go generate ./pkg` and ensure it completes and updates only `docs/public/API/openapi.yml` (plus any unavoidable go.sum churn from new deps later).
+Done when: `go generate` completes successfully without touching `webapp/`.
+
+* TODO [#A] Implement OpenAPI YAML Generation via `swaggest/openapi-go`
+Effort: M
+Goal: Replace the hand-rolled OpenAPI structs + JSON roundtrip + `cleanRefs` logic with `swaggest/openapi-go`-driven spec construction and YAML emission.
+Notes: Keep route enumeration unchanged (still sourced from `api.RouteGroups`); do not change `routing.RouteGroup` / handlers.
+
+** TODO [#A] Choose integration strategy (reflector-first, minimal manual patching)
+Why: We want to stop “generating by hand” and rely on the library for schema/operation construction.
+Change: Prefer `openapi-go/openapi3` reflector + per-route `OperationContext`:
+- Set `Info` and `Servers` on the spec (matching current values unless instructed otherwise).
+- For each route, add an operation with summary/description/operationId/tags.
+- Use the reflector to generate component schemas and request/response structures.
+Fallback: If reflector can’t represent some aspects cleanly, patch the generated spec using openapi-go model types (still avoiding custom OpenAPI struct definitions).
+Tests: Build the spec and validate it serializes; confirm components and refs are generated (no `#/$defs` cleanup needed).
+Done when: A spike confirms the reflector API supports needed inputs for this repo’s route metadata.
+
+** TODO [#A] Map route metadata into `OperationContext`
+Why: Current generator builds `RouteInfo` and then constructs `paths + operations` manually.
+Change: Keep `RouteInfo` (or simplify it) as an internal representation, but switch `generateOpenAPIYAML` to:
+- Compute full path with existing `joinOpenAPIPath`.
+- Ensure OpenAPI path templating uses `{param}` (already the case in route definitions).
+- Set `operationId` consistent with current `handlerToFuncName(getFuncName(route.Handler))`.
+- Apply `Summary`, `Description`, and (if available) `Tags`.
+Tests: Validate operation ids and summaries exist in YAML for the verification matrix routes.
+Done when: All routes are present with the right method/path and metadata.
+
+** TODO [#A] Generate request parameters (path/query) without touching handlers
+Why: Path params and `QuerySearchAttributes` are currently injected by generator; the handler code does not carry OpenAPI-specific tags.
+Change: Use a generator-local, dynamic request struct per operation to let openapi-go reflect parameters:
+- Create a synthetic struct type at runtime (`reflect.StructOf`) containing:
+  - One `string` field per path param with tag `path:"<name>"`.
+  - One field per query attr with tag `query:"<name>"`; encode required/optional via pointer type and/or a `required:"true"` tag (confirm behavior during spike).
+  - If the route has a body schema (POST/PUT/PATCH with `RequestSchema`), embed the original request schema type as an anonymous field so JSON-tagged fields become the request body schema.
+Tests: Verify path/query params appear correctly in YAML (names, `in: path|query`, required flags).
+Done when: The reflector produces parameters and requestBody consistent with current behavior for sample routes.
+
+** TODO [#A] Generate responses (success + default error)
+Why: Current generator adds a 200 response (typed when `ResponseSchema` exists) and a `default` response referencing `APIError`.
+Change: With openapi-go:
+- Add a 200 response based on `ResponseSchema` when present; otherwise a 200 with description only.
+- Add a `default` error response whose schema is `apierror.APIError` and content type `application/json`.
+Note: If the library does not support `default` responses directly via the reflector, patch the resulting `spec.Paths` operations to inject the `default` response using openapi-go response types.
+Tests: Confirm `default` response exists for sample routes and that `APIError` schema is present under components.
+Done when: Every operation has a 200 and a default error response in the emitted YAML.
+
+** TODO [#B] Preserve (or intentionally improve) auth behavior
+Why: Today, `AuthenticationRequired` adds an `Authorization` header parameter, even if individual routes exclude auth middleware.
+Change: Implement the agreed auth approach:
+- Preserve existing behavior: add an `Authorization` header parameter to each operation in groups requiring auth (likely via operation patching after reflection).
+- Optional improvement (only if requested): inspect per-route `ExcludedMiddlewares` to skip auth for excluded routes, without changing `RouteGroup` code.
+Tests: Verify auth presence on a group-auth route and absence on a non-auth route; confirm behavior matches decision from earlier step.
+Done when: Auth requirements in OpenAPI match the chosen policy.
+
+* TODO [#B] Emit YAML to `docs/public/API/openapi.yml` (Stable Output)
+Effort: S
+Goal: Serialize the openapi-go spec to YAML with deterministic formatting and keep the same output path.
+Notes: Avoid bespoke JSON→map cleanup unless strictly required; prefer library-supported serialization.
+
+** TODO [#B] Implement YAML serialization and file writing
+Why: Current generator uses JSON marshal/unmarshal into `map[string]any` + `cleanRefs` then `yaml.v3` encoder.
+Change: Prefer openapi-go’s spec marshaling to YAML/JSON (whichever is supported) and write to `../docs/public/API/openapi.yml`; configure indentation if needed for readability.
+Tests: Ensure YAML parses and renders in the docs UI (Swagger UI/ReDoc).
+Done when: `go generate ./pkg` updates `docs/public/API/openapi.yml` successfully with the new pipeline.
+
+** TODO [#B] Ensure no `$ref` rewriting is needed
+Why: The old pipeline produced `#/$defs/...` and needed `cleanRefs`.
+Change: Confirm openapi-go emits OpenAPI-native component refs (e.g., `#/components/schemas/...`) out of the box; remove `cleanRefs` if obsolete.
+Tests: Grep the output for `#/$defs/` and validate refs resolve.
+Done when: No custom ref cleanup remains in generator.
+
+* TODO [#B] Validation, Regression Checks, and Module Hygiene
+Effort: M
+Goal: Ensure generator compiles, tests pass, and OpenAPI output covers all routes; keep Go module rules intact (especially the private module).
+Notes: Any `go.mod`/`go.sum` edits must preserve `github.com/forkbombeu/credimi-extra`.
+
+** TODO [#B] Add/adjust minimal tests for the generator logic (optional but recommended)
+Why: The generator is a critical artifact producer; small unit tests catch regressions without requiring running the whole app.
+Change: Refactor generator code so that spec-building can be exercised in a unit test (e.g., `buildOpenAPISpec(routes, types) -> *openapi3.Spec`), then assert:
+- Presence of representative path+method entries.
+- Presence of a path parameter and a query parameter.
+- Presence of `APIError` in components.
+Tests: `go test -tags=unit ./...`.
+Done when: Tests cover at least path params + query params + error response presence.
+
+** TODO [#B] Run generator and compare against baseline
+Why: Ensure we didn’t drop endpoints or schemas.
+Change: After implementing, run `go generate ./pkg`, then compare:
+- Count of paths and operations.
+- Presence of verification matrix routes.
+- Components schema count and key named schemas.
+Tests: Manual diff + optionally a small script/Go test to count operations.
+Done when: No missing endpoints and the new spec is accepted per the earlier diff tolerance decision.
+
+** TODO [#B] Update Go module dependencies safely
+Why: Adding `swaggest/openapi-go` introduces new dependencies; removing TS generator may allow dropping `github.com/hypersequent/zen`.
+Change: Update `go.mod`/`go.sum` to add `github.com/swaggest/openapi-go` (and transitive deps) and remove `zen` if unused; ensure `github.com/forkbombeu/credimi-extra` stays present regardless of `go mod tidy` outcomes.
+Tests: `go test -tags=unit ./...` and `make lint` (if available in the environment) to confirm module graph consistency.
+Done when: Module files are consistent, builds pass, and the private module line remains.
+
+* TODO [#C] Rollout Notes (Non-Code)
+Effort: S
+Goal: Make the change predictable for the team consuming generated artifacts.
+Notes: Keep this lightweight; user requested changes only in generator code, so treat documentation updates as optional.
