@@ -120,7 +120,7 @@ Note: If the library does not support `default` responses directly via the refle
 Tests: Confirm `default` response exists for sample routes and that `APIError` schema is present under components.
 Done when: Every operation has a 200 and a default error response in the emitted YAML.
 
-** TODO [#B] Preserve (or intentionally improve) auth behavior
+** DONE [#B] Preserve (or intentionally improve) auth behavior
 Why: Today, `AuthenticationRequired` adds an `Authorization` header parameter, even if individual routes exclude auth middleware.
 Change: Implement the agreed auth approach:
 - Preserve existing behavior: add an `Authorization` header parameter to each operation in groups requiring auth (likely via operation patching after reflection).
