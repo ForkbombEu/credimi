@@ -10,7 +10,10 @@ import { GENERATED } from '@/utils/codegen';
 
 //
 
-const ast = await openapiTS(path.join(process.cwd(), '../docs/public/API/openapi.yml'));
+// In openapi-typescript v7, file inputs must be provided as a URL.
+// A plain string is treated as inline YAML/JSON, not a filesystem path.
+const schemaUrl = new URL('../docs/public/API/openapi.yml', `file://${process.cwd()}/`);
+const ast = await openapiTS(schemaUrl);
 const contents = astToString(ast);
 
 fs.writeFileSync(path.join(import.meta.dirname, `client-types.${GENERATED}.ts`), contents);
