@@ -2,10 +2,10 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { WorkflowStatusType } from '$lib/temporal';
 import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
 import { toWorkflowExecution, type HistoryEvent } from '@forkbombeu/temporal-ui';
+import { isWorkflowStatus, type WorkflowStatusType } from '$lib/temporal';
 import { String } from 'effect';
 import { z } from 'zod/v3';
 
@@ -19,6 +19,13 @@ import { workflowResponseSchema, type WorkflowResponse } from './types';
 //
 
 export const WORKFLOW_STATUS_QUERY_PARAM = 'status';
+
+export function getStatusQueryParam(url: URL): WorkflowStatusType | Error | undefined {
+	const status = url.searchParams.get(WORKFLOW_STATUS_QUERY_PARAM);
+	if (!status) return undefined;
+	else if (isWorkflowStatus(status)) return status;
+	else return new Error(`Invalid status: ${status}`);
+}
 
 const WORKFLOWS_API = '/api/compliance/checks';
 

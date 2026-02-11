@@ -47,7 +47,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						{@const runnerNames = (workflow.runner_records ?? []).map((r) => r.name)}
 						<tr>
 							<td>
-								<WorkflowStatusTag {workflow} size="sm" />
+								<WorkflowStatusTag
+									status={workflow.status}
+									queueData={workflow.queue}
+									failureReason={workflow.failure_reason}
+									size="sm"
+								/>
 							</td>
 							<td>
 								{#if runnerNames.length > 0}

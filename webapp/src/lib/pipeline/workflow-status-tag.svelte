@@ -11,20 +11,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { m } from '@/i18n';
 
-	import type { ExecutionSummary } from './workflows';
+	import type { ExecutionSummary, Status } from './workflows';
 
 	//
 
-	type Props = {
-		workflow: ExecutionSummary;
-		size?: ComponentProps<typeof WorkflowStatusTag>['size'];
+	type Props = Omit<ComponentProps<typeof WorkflowStatusTag>, 'status'> & {
+		status: Status;
+		queueData?: ExecutionSummary['queue'];
 	};
 
-	let { workflow, size = 'md' }: Props = $props();
+	let { status, size = 'md', queueData, ...props }: Props = $props();
 </script>
 
-{#if workflow.queue}
-	{@const { position, line_len } = workflow.queue}
+{#if status === 'Queued'}
 	<p
 		class={[
 			'flex items-center gap-1 rounded-sm bg-yellow-200 px-1 py-0.5 text-sm font-medium whitespace-nowrap text-black',
@@ -35,10 +34,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<span>
 			{m.Queued()}
 		</span>
-		<span class="opacity-50">
-			({position}/{line_len})
-		</span>
+		{#if queueData}
+			<span class="opacity-50">
+				({queueData.position}/{queueData.line_len})
+			</span>
+		{/if}
 	</p>
 {:else}
-	<WorkflowStatusTag status={workflow.status} failureReason={workflow.failure_reason} {size} />
+	<WorkflowStatusTag {status} {size} {...props} />
 {/if}
