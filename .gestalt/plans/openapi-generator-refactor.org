@@ -111,7 +111,7 @@ Change: Use a generator-local, dynamic request struct per operation to let opena
 Tests: Verify path/query params appear correctly in YAML (names, `in: path|query`, required flags).
 Done when: The reflector produces parameters and requestBody consistent with current behavior for sample routes.
 
-** TODO [#A] Generate responses (success + default error)
+** DONE [#A] Generate responses (success + default error)
 Why: Current generator adds a 200 response (typed when `ResponseSchema` exists) and a `default` response referencing `APIError`.
 Change: With openapi-go:
 - Add a 200 response based on `ResponseSchema` when present; otherwise a 200 with description only.
