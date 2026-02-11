@@ -26,7 +26,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {#if status === 'Queued'}
 	<p
 		class={[
-			'flex items-center gap-1 rounded-sm bg-yellow-200 px-1 py-0.5 text-sm font-medium whitespace-nowrap text-black',
+			'flex items-center gap-1 rounded-sm bg-lime-200 px-1 py-0.5 text-sm font-medium whitespace-nowrap text-black',
 			'w-fit origin-left',
 			size === 'sm' && 'scale-75'
 		]}

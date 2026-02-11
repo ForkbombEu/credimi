@@ -51,7 +51,7 @@ export async function run(pipeline: PipelinesResponse) {
 	if (result.value.status === 'queued') {
 		toast.info(
 			m.Pipeline_queued({
-				position: result.value.position ?? 0 + 1
+				position: (result.value.position ?? 0) + 1
 			}),
 			{
 				duration: 5000,
