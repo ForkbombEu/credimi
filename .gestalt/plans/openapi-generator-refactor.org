@@ -150,7 +150,7 @@ Effort: M
 Goal: Ensure generator compiles, tests pass, and OpenAPI output covers all routes; keep Go module rules intact (especially the private module).
 Notes: Any `go.mod`/`go.sum` edits must preserve `github.com/forkbombeu/credimi-extra`.
 
-** TODO [#B] Add/adjust minimal tests for the generator logic (optional but recommended)
+** DONE [#B] Add/adjust minimal tests for the generator logic (optional but recommended)
 Why: The generator is a critical artifact producer; small unit tests catch regressions without requiring running the whole app.
 Change: Refactor generator code so that spec-building can be exercised in a unit test (e.g., `buildOpenAPISpec(routes, types) -> *openapi3.Spec`), then assert:
 - Presence of representative path+method entries.
