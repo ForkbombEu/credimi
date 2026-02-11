@@ -11,6 +11,8 @@ import {
 	StoreIcon,
 	UserIcon
 } from '@lucide/svelte';
+import { page } from '$app/state';
+import { Pipeline } from '$lib';
 import { baseSections, entities } from '$lib/global';
 import { workflowStatuses } from '$lib/temporal';
 import { WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows';
@@ -70,13 +72,17 @@ export const data: SidebarGroup[] = [
 				title: m.workflow_runs(),
 				url: `/my/${entities.test_runs.slug}`,
 				icon: entities.test_runs.icon,
-				children: workflowStatuses
+				children: [...workflowStatuses, Pipeline.Workflows.QUEUED_STATUS]
 					.filter((status) => status !== null)
-					.map((status) => ({
-						title: status,
-						url: `/my/${entities.test_runs.slug}?${WORKFLOW_STATUS_QUERY_PARAM}=${status}`,
-						component: WorkflowItem
-					}))
+					.map((status) => {
+						const url = new URL(page.url);
+						url.searchParams.set(WORKFLOW_STATUS_QUERY_PARAM, status);
+						return {
+							title: status,
+							url: url.toString(),
+							component: WorkflowItem
+						};
+					})
 			},
 			{
 				title: m.Scheduled_pipelines(),
