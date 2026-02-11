@@ -186,10 +186,8 @@ func setOperationMetadata(operation openapi.OperationInfo, route RouteInfo) {
 }
 
 func addOperationRequest(operation openapi.OperationContext, route RouteInfo) error {
-	req, err := buildRequestStructure(route)
-	if err != nil {
-		return fmt.Errorf("build request structure for %s %s: %w", route.Method, route.Path, err)
-	}
+	req := buildRequestStructure(route)
+
 	if req == nil {
 		if !route.HasInputBody {
 			return nil
