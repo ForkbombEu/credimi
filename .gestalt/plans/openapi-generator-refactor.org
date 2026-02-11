@@ -159,7 +159,7 @@ Change: Refactor generator code so that spec-building can be exercised in a unit
 Tests: `go test -tags=unit ./...`.
 Done when: Tests cover at least path params + query params + error response presence.
 
-** TODO [#B] Run generator and compare against baseline
+** DONE [#B] Run generator and compare against baseline
 Why: Ensure we didn’t drop endpoints or schemas.
 Change: After implementing, run `go generate ./pkg`, then compare:
 - Count of paths and operations.
