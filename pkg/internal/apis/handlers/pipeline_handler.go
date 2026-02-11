@@ -743,7 +743,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 		}		
 
 		
-		if strings.ToLower(status) == "queued" {
+		if strings.ToLower(status) == statusStringQueued {
 			if len(queuedForPipeline) == 0 {
 				return e.JSON(http.StatusOK, ListMyChecksResponse{
 					[]*WorkflowExecutionSummary{},
@@ -784,7 +784,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
     		return e.JSON(http.StatusOK, allExecutions)
 		}
 
-		if status != "" && status != "queued" {
+		if status != "" && status != statusStringQueued {
 			allExecutions = filterExecutionsByStatus(allExecutions, status)
 		}
 

@@ -152,7 +152,7 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		statusParam := e.Request.URL.Query().Get("status")
-		if strings.ToLower(statusParam) == "queued" {
+		if strings.ToLower(statusParam) == statusStringQueued {
 			queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
 			if err != nil {
 				return apierror.New(

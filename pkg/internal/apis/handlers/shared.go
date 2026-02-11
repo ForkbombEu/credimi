@@ -160,6 +160,8 @@ const (
 
 	// statusStringPaused is the lowercase status label used in schedule responses.
 	statusStringPaused = "paused"
+	
+	statusStringQueued = "queued"
 )
 
 type FilterParameters struct {
