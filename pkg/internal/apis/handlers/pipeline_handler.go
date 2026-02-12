@@ -20,6 +20,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
@@ -286,7 +287,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		queuedByPipelineID := mapQueuedRunsToPipelines(pipelineRecords, namespace, queuedRuns)
+		queuedByPipelineID := mapQueuedRunsToPipelines(e.App, pipelineRecords, queuedRuns)
 		queuedForPipeline := queuedByPipelineID[pipelineID]
 
 		runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
@@ -318,7 +319,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 
 		allExecutions, err = processPipelineResults(namespace, resultsRecords, &temporalClient)
 		if err != nil {
-    		return e.JSON(http.StatusOK, allExecutions)
+			return e.JSON(http.StatusOK, allExecutions)
 		}
 
 		if len(allExecutions) == 0 {
@@ -455,7 +456,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		queuedByPipelineID := mapQueuedRunsToPipelines(pipelineRecords, namespace, queuedRuns)
+		queuedByPipelineID := mapQueuedRunsToPipelines(e.App, pipelineRecords, queuedRuns)
 
 		pipelineExecutionsMap := make(map[string][]*WorkflowExecutionSummary)
 		pipelineRunnerInfoMap := make(map[string]pipelineRunnerInfo)
@@ -695,11 +696,11 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			"pipelines",
 			"published = {:published} || owner={:owner}",
 			"",
-			-1,
+			30,
 			0,
 			dbx.Params{
-				"published":    true,
-				"owner": organization.Id,
+				"published": true,
+				"owner":     organization.Id,
 			},
 		)
 		if err != nil {
@@ -731,8 +732,8 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		queuedByPipelineID := mapQueuedRunsToPipelines(pipelineRecords, namespace, queuedRuns)
-		
+		queuedByPipelineID := mapQueuedRunsToPipelines(e.App, pipelineRecords, queuedRuns)
+
 		allQueuedForAllPipelines := []QueuedPipelineRunAggregate{}
 		for _, p := range pipelineRecords {
 			queuedForThisPipeline := queuedByPipelineID[p.Id]
@@ -743,7 +744,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			if len(allQueuedForAllPipelines) == 0 {
 				return e.JSON(http.StatusOK, []*pipelineWorkflowSummary{})
 			}
-			
+
 			queuedSummaries := buildQueuedPipelineSummaries(
 				e.App,
 				allQueuedForAllPipelines,
@@ -760,7 +761,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			-1,
 			0,
 			dbx.Params{
-				"owner":    organization.Id,
+				"owner": organization.Id,
 			},
 		)
 
@@ -770,25 +771,30 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 
 		var allSummaries []*pipelineWorkflowSummary
 		runnerCache := map[string]map[string]any{}
+		runnerInfoByPipelineID := map[string]pipelineRunnerInfo{}
 
 		for _, resultRecord := range resultsRecords {
 			workflowID := resultRecord.GetString("workflow_id")
 			runID := resultRecord.GetString("run_id")
 			pipelineID := resultRecord.GetString("pipeline")
-			
+
 			pipelineRecord, ok := pipelineMap[pipelineID]
 			if !ok {
 				e.App.Logger().Warn(fmt.Sprintf("pipeline not found for result: %s", pipelineID))
 				continue
 			}
-			
-			runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
-			if err != nil {
-				e.App.Logger().Warn(fmt.Sprintf(
-					"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",
-					pipelineID,
-					err,
-				))
+
+			runnerInfo, ok := runnerInfoByPipelineID[pipelineID]
+			if !ok {
+				runnerInfo, err = runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+				if err != nil {
+					e.App.Logger().Warn(fmt.Sprintf(
+						"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",
+						pipelineID,
+						err,
+					))
+				}
+				runnerInfoByPipelineID[pipelineID] = runnerInfo
 			}
 
 			if temporalClient == nil {
@@ -807,8 +813,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			if apiErr != nil {
 				return apiErr.JSON(e)
 			}
-			allExecutions := []*WorkflowExecution{execInfo}
-			
+
 			children, err := getChildWorkflows(
 				context.Background(),
 				temporalClient,
@@ -818,16 +823,20 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			)
 			if err != nil {
 				e.App.Logger().Warn(fmt.Sprintf("failed to get child workflows: %v", err))
-			} else {
-				allExecutions = append(allExecutions, children...)
 			}
-			hierarchy := buildExecutionHierarchy(
+
+			hierarchy := buildPipelineExecutionHierarchyFromResult(
 				e.App,
-				allExecutions, 
+				resultRecord,
+				execInfo,
+				children,
 				namespace,
 				authRecord.GetString("Timezone"),
 				temporalClient,
 			)
+			if len(hierarchy) == 0 {
+				continue
+			}
 
 			annotated, err := attachRunnerInfoFromTemporalStartInput(
 				attachRunnerInfoFromTemporalInputArgs{
@@ -839,7 +848,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 					RunnerCache: runnerCache,
 				},
 			)
-			
+
 			if err != nil {
 				e.App.Logger().Warn(fmt.Sprintf("fallback to pipeline runner info: %v", err))
 				annotated = attachPipelineRunnerInfo(
@@ -850,7 +859,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 					runnerCache,
 				)
 			}
-			
+
 			allSummaries = append(allSummaries, annotated...)
 		}
 
@@ -866,14 +875,14 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				}
 			}
 			allSummaries = filtered
-			
+
 			sort.Slice(allSummaries, func(i, j int) bool {
 				return allSummaries[i].StartTime > allSummaries[j].StartTime
 			})
 		}
 
 		finalSummaries := []*pipelineWorkflowSummary{}
-		
+
 		if status == "" {
 			if len(allQueuedForAllPipelines) > 0 {
 				queuedSummaries := buildQueuedPipelineSummaries(
@@ -887,7 +896,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				}
 			}
 		}
-		
+
 		finalSummaries = append(finalSummaries, allSummaries...)
 
 		if finalSummaries == nil {
@@ -896,6 +905,145 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, finalSummaries)
 	}
+}
+
+func buildPipelineExecutionHierarchyFromResult(
+	app core.App,
+	resultRecord *core.Record,
+	rootExecution *WorkflowExecution,
+	childExecutions []*WorkflowExecution,
+	namespace string,
+	userTimezone string,
+	c client.Client,
+) []*WorkflowExecutionSummary {
+	if rootExecution == nil || rootExecution.Execution == nil {
+		return nil
+	}
+
+	loc, err := time.LoadLocation(userTimezone)
+	if err != nil {
+		loc = time.Local
+	}
+
+	rootSummary := buildWorkflowExecutionSummary(rootExecution, c)
+	if rootSummary == nil {
+		return nil
+	}
+
+	if rootExecution.Memo != nil {
+		if field, ok := rootExecution.Memo.Fields["test"]; ok && field.Data != nil {
+			rootSummary.DisplayName = DecodeFromTemporalPayload(*field.Data)
+		}
+	}
+
+	w := pipeline.PipelineWorkflow{}
+	if rootSummary.Type.Name == w.Name() {
+		rootSummary.Results = computePipelineResultsFromRecord(app, resultRecord)
+		if len(rootSummary.Results) == 0 {
+			rootSummary.Results = computePipelineResults(
+				app,
+				namespace,
+				rootExecution.Execution.WorkflowID,
+				rootExecution.Execution.RunID,
+			)
+		}
+	}
+
+	for _, childExecution := range childExecutions {
+		childSummary := buildWorkflowExecutionSummary(childExecution, c)
+		if childSummary == nil || childExecution.Execution == nil {
+			continue
+		}
+		childSummary.DisplayName = computeChildDisplayName(childExecution.Execution.WorkflowID)
+		rootSummary.Children = append(rootSummary.Children, childSummary)
+	}
+
+	roots := []*WorkflowExecutionSummary{rootSummary}
+	sortExecutionSummaries(roots, loc, false)
+	return roots
+}
+
+func buildWorkflowExecutionSummary(
+	exec *WorkflowExecution,
+	c client.Client,
+) *WorkflowExecutionSummary {
+	if exec == nil || exec.Execution == nil {
+		return nil
+	}
+
+	summary := &WorkflowExecutionSummary{
+		Execution: exec.Execution,
+		Type:      exec.Type,
+		StartTime: exec.StartTime,
+		EndTime:   exec.CloseTime,
+		Status:    normalizeTemporalStatus(exec.Status),
+	}
+
+	if c != nil && enums.WorkflowExecutionStatus(
+		enums.WorkflowExecutionStatus_value[exec.Status],
+	) == enums.WORKFLOW_EXECUTION_STATUS_FAILED {
+		if failure := fetchWorkflowFailure(
+			context.Background(),
+			c,
+			exec.Execution.WorkflowID,
+			exec.Execution.RunID,
+		); failure != nil {
+			summary.FailureReason = failure
+		}
+	}
+
+	return summary
+}
+
+func computePipelineResultsFromRecord(app core.App, record *core.Record) []PipelineResults {
+	if app == nil || record == nil {
+		return nil
+	}
+
+	videos := record.GetStringSlice("video_results")
+	screenshots := record.GetStringSlice("screenshots")
+	if len(videos) == 0 || len(screenshots) == 0 {
+		return nil
+	}
+
+	screenshotMap := make(map[string]string, len(screenshots))
+	for _, name := range screenshots {
+		if key, ok := baseKey(name, "_screenshot_"); ok {
+			screenshotMap[key] = name
+		}
+	}
+
+	results := make([]PipelineResults, 0, len(videos))
+	for _, name := range videos {
+		key, ok := baseKey(name, "_result_video_")
+		if !ok {
+			continue
+		}
+
+		screenshot, found := screenshotMap[key]
+		if !found {
+			continue
+		}
+
+		results = append(results, PipelineResults{
+			Video: utils.JoinURL(
+				app.Settings().Meta.AppURL,
+				"api", "files", "pipeline_results",
+				record.Id,
+				record.GetString("video_results"),
+				name,
+			),
+			Screenshot: utils.JoinURL(
+				app.Settings().Meta.AppURL,
+				"api", "files", "pipeline_results",
+				record.Id,
+				record.GetString("screenshots"),
+				screenshot,
+			),
+		})
+	}
+
+	return results
 }
 
 func getChildWorkflows(
@@ -921,11 +1069,11 @@ func getChildWorkflows(
 	}
 
 	var children []*WorkflowExecution
-	for _, childExec := range childResp.Executions {
+	for _, childExec := range childResp.GetExecutions() {
 		childDesc, err := temporalClient.DescribeWorkflowExecution(
 			ctx,
-			childExec.Execution.WorkflowId,
-			childExec.Execution.RunId,
+			childExec.GetExecution().GetWorkflowId(),
+			childExec.GetExecution().GetRunId(),
 		)
 		if err != nil {
 			continue
@@ -956,7 +1104,6 @@ func describeWorkflowExecution(
 	workflowID string,
 	runID string,
 ) (*WorkflowExecution, *apierror.APIError) {
-	
 	workflowExecution, err := temporalClient.DescribeWorkflowExecution(
 		context.Background(),
 		workflowID,
@@ -1021,7 +1168,6 @@ func describeWorkflowExecution(
 
 	return &execInfo, nil
 }
-
 
 type pipelineRunnerInfo = runners.PipelineRunnerInfo
 
@@ -1142,8 +1288,8 @@ func formatQueuedRunTime(enqueuedAt time.Time, userTimezone string) string {
 }
 
 func mapQueuedRunsToPipelines(
+	app core.App,
 	pipelineRecords []*core.Record,
-	namespace string,
 	queuedRuns map[string]QueuedPipelineRunAggregate,
 ) map[string][]QueuedPipelineRunAggregate {
 	if len(pipelineRecords) == 0 || len(queuedRuns) == 0 {
@@ -1155,8 +1301,13 @@ func mapQueuedRunsToPipelines(
 		pipelineID := record.Id
 		pipelineIdentifiers[pipelineID] = pipelineID
 		canonifiedName := record.GetString("canonified_name")
-		if canonifiedName != "" && namespace != "" {
-			pipelineIdentifiers[fmt.Sprintf("%s/%s", namespace, canonifiedName)] = pipelineID
+		org, err := app.FindRecordById("organizations", record.GetString("owner"))
+		if err != nil {
+			continue
+		}
+		orgName := org.GetString("canonified_name")
+		if canonifiedName != "" && orgName != "" {
+			pipelineIdentifiers[fmt.Sprintf("%s/%s", orgName, canonifiedName)] = pipelineID
 		}
 	}
 
@@ -1446,4 +1597,3 @@ func processPipelineResults(
 
 	return allExecutions, nil
 }
-
