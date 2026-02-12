@@ -696,7 +696,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			"pipelines",
 			"published = {:published} || owner={:owner}",
 			"",
-			30,
+			-1,
 			0,
 			dbx.Params{
 				"published": true,
@@ -757,7 +757,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 		resultsRecords, err := e.App.FindRecordsByFilter(
 			"pipeline_results",
 			"owner={:owner}",
-			"",
+			"-updated",
 			30,
 			0,
 			dbx.Params{
