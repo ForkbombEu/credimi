@@ -11,20 +11,26 @@ import {
 	StoreIcon,
 	UserIcon
 } from '@lucide/svelte';
+import { page } from '$app/state';
 import { baseSections, entities } from '$lib/global';
-import { workflowStatuses } from '$lib/temporal';
 import { WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows';
+import { SvelteURL } from 'svelte/reactivity';
 
 import { m } from '@/i18n';
 
 import type { SidebarGroup, SidebarItem } from './sidebar';
 
+import { ALL_WORKFLOW_STATUSES } from '../tests/runs/_partials';
 import { IDS } from '../wallets/utils';
 import WorkflowItem from './components/workflow-item.svelte';
 
 //
 
-export const data: SidebarGroup[] = [
+export function getSidebarData(): SidebarGroup[] {
+	return data;
+}
+
+const data: SidebarGroup[] = $derived([
 	{
 		items: [
 			{
@@ -70,13 +76,23 @@ export const data: SidebarGroup[] = [
 				title: m.workflow_runs(),
 				url: `/my/${entities.test_runs.slug}`,
 				icon: entities.test_runs.icon,
-				children: workflowStatuses
-					.filter((status) => status !== null)
-					.map((status) => ({
-						title: status,
-						url: `/my/${entities.test_runs.slug}?${WORKFLOW_STATUS_QUERY_PARAM}=${status}`,
-						component: WorkflowItem
-					}))
+				children: ALL_WORKFLOW_STATUSES.filter((status) => status !== null).map(
+					(status) => {
+						const base = '/my/tests/runs';
+						const url = new SvelteURL(base, page.url.origin);
+						if (page.url.pathname.includes(base)) {
+							page.url.searchParams.forEach((value, key) => {
+								url.searchParams.set(key, value);
+							});
+						}
+						url.searchParams.set(WORKFLOW_STATUS_QUERY_PARAM, status);
+						return {
+							title: status,
+							url: url.toString(),
+							component: WorkflowItem
+						};
+					}
+				)
 			},
 			{
 				title: m.Scheduled_pipelines(),
@@ -120,4 +136,4 @@ export const data: SidebarGroup[] = [
 			}
 		]
 	}
-];
+]);

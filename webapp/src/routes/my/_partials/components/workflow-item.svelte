@@ -5,23 +5,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
-	import { isWorkflowStatus, TemporalI18nProvider } from '$lib/temporal';
+	import { TemporalI18nProvider } from '$lib/temporal';
 
 	import type { SidebarItemComponentProps } from '../sidebar';
+
+	import { ExtendedStatusTag, isExtendedWorkflowStatus } from '../../tests/runs/_partials';
 
 	//
 
 	let { title }: SidebarItemComponentProps = $props();
 
 	const status = $derived.by(() => {
-		if (isWorkflowStatus(title)) return title;
+		if (isExtendedWorkflowStatus(title)) return title;
 		return undefined;
 	});
 </script>
 
 {#if status}
 	<TemporalI18nProvider>
-		<WorkflowStatus {status} />
+		<ExtendedStatusTag {status} />
 	</TemporalI18nProvider>
 {/if}
