@@ -129,9 +129,7 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
 					runnerURL.(string),
-					"api",
 					"worker",
-					"process",
 					payload.Namespace,
 				),
 				Body: map[string]string{

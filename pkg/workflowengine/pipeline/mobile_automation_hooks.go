@@ -686,7 +686,6 @@ func fetchAndInstallAPK(
 			"method": http.MethodPost,
 			"url": utils.JoinURL(
 				input.runnerURL,
-				"api",
 				"credimi",
 				"apk-action",
 			),
@@ -1329,7 +1328,6 @@ func storeRecordingResults(
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
 					input.runnerURL,
-					"api",
 					"credimi",
 					"pipeline-result",
 				),
