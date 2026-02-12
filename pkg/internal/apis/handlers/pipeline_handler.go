@@ -866,52 +866,18 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			}
 
 			allExecutions := []*WorkflowExecution{&execInfo}
-
-			childResp, err := temporalClient.ListWorkflow(
-				context.Background(),
-				&workflowservice.ListWorkflowExecutionsRequest{
-					Namespace: namespace,
-					Query: fmt.Sprintf(
-						`ParentWorkflowId="%s" AND ParentRunId="%s"`,
-						workflowID,
-						runID,
-					),
-				},
-			)
 			
+			children, err := getChildWorkflows(
+				context.Background(),
+				temporalClient,
+				namespace,
+				workflowID,
+				runID,
+			)
 			if err != nil {
-				e.App.Logger().Warn(fmt.Sprintf("failed to list child workflows: %v", err))
+				e.App.Logger().Warn(fmt.Sprintf("failed to get child workflows: %v", err))
 			} else {
-				for _, childExec := range childResp.Executions {
-					childDesc, err := temporalClient.DescribeWorkflowExecution(
-						context.Background(),
-						childExec.Execution.WorkflowId,
-						childExec.Execution.RunId,
-					)
-					if err != nil {
-						e.App.Logger().Warn(fmt.Sprintf("failed to describe child workflow %s: %v", 
-							childExec.Execution.WorkflowId, err))
-						continue
-					}
-
-					childJSON, err := protojson.Marshal(childDesc.GetWorkflowExecutionInfo())
-					if err != nil {
-						continue
-					}
-
-					var childWorkflow WorkflowExecution
-					err = json.Unmarshal(childJSON, &childWorkflow)
-					if err != nil {
-						continue
-					}
-
-					childWorkflow.ParentExecution = &WorkflowIdentifier{
-						WorkflowID: workflowID,
-						RunID:      runID,
-					}
-
-					allExecutions = append(allExecutions, &childWorkflow)
-				}
+				allExecutions = append(allExecutions, children...)
 			}
 			hierarchy := buildExecutionHierarchy(
 				e.App,
@@ -988,6 +954,59 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, finalSummaries)
 	}
+}
+
+func getChildWorkflows(
+	ctx context.Context,
+	temporalClient client.Client,
+	namespace string,
+	parentWorkflowID string,
+	parentRunID string,
+) ([]*WorkflowExecution, error) {
+	childResp, err := temporalClient.ListWorkflow(
+		ctx,
+		&workflowservice.ListWorkflowExecutionsRequest{
+			Namespace: namespace,
+			Query: fmt.Sprintf(
+				`ParentWorkflowId="%s" AND ParentRunId="%s"`,
+				parentWorkflowID,
+				parentRunID,
+			),
+		},
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	var children []*WorkflowExecution
+	for _, childExec := range childResp.Executions {
+		childDesc, err := temporalClient.DescribeWorkflowExecution(
+			ctx,
+			childExec.Execution.WorkflowId,
+			childExec.Execution.RunId,
+		)
+		if err != nil {
+			continue
+		}
+
+		childJSON, err := protojson.Marshal(childDesc.GetWorkflowExecutionInfo())
+		if err != nil {
+			continue
+		}
+
+		var childWorkflow WorkflowExecution
+		err = json.Unmarshal(childJSON, &childWorkflow)
+		if err != nil {
+			continue
+		}
+
+		childWorkflow.ParentExecution = &WorkflowIdentifier{
+			WorkflowID: parentWorkflowID,
+			RunID:      parentRunID,
+		}
+		children = append(children, &childWorkflow)
+	}
+	return children, nil
 }
 
 type pipelineRunnerInfo = runners.PipelineRunnerInfo
