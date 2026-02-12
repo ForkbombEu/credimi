@@ -758,7 +758,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			"pipeline_results",
 			"owner={:owner}",
 			"",
-			-1,
+			30,
 			0,
 			dbx.Params{
 				"owner": organization.Id,
