@@ -379,7 +379,7 @@ func TestPipelineQueueCancel(t *testing.T) {
 			ExpectedStatus: http.StatusOK,
 			ExpectedContent: []string{
 				"\"ticket_id\":\"ticket-cancel\"",
-				"\"status\":\"not_found\"",
+				"\"status\":\"canceled\"",
 			},
 			NotExpectedContent: []string{
 				"\"runner_ids\"",

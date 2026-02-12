@@ -21,3 +21,7 @@ You MUST use this tool whenever writing Svelte code before sending it to the use
 
 Generates a Svelte Playground link with the provided code.
 After completing the code, ask the user if they want a playground link. Only call this tool after user confirmation and NEVER if code was written to files in their project.
+
+## Architecture
+
+See root `AGENTS.md` for system architecture, Temporal/PocketBase, pipelines, and the mobile runner semaphore queue.

@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert/yaml"
@@ -209,6 +210,10 @@ func findOrCreatePipeline(
 	orgID string,
 	input *PipelineCLIInput,
 ) (map[string]any, error) {
+	if err := pipeline.ValidateRunnerIDYAML(input.YAML); err != nil {
+		return nil, err
+	}
+
 	// 1. Try to find existing
 	filter := fmt.Sprintf(
 		`owner="%s" && name="%s" && yaml="%s"`,
@@ -293,6 +298,10 @@ func createPipeline(
 	orgID string,
 	input *PipelineCLIInput,
 ) (map[string]any, error) {
+	if err := pipeline.ValidateRunnerIDYAML(input.YAML); err != nil {
+		return nil, err
+	}
+
 	payload := map[string]any{
 		"owner":       orgID,
 		"name":        input.Name,

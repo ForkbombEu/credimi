@@ -227,7 +227,13 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				app.Settings().Meta.AppURL = "http://this-domain-does-not-exist-12345.local"
+				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+    				w.Header().Set("Content-Type", "application/json")
+    				w.WriteHeader(200)
+				}))
+				defer srv.Close()
+
+				app.Settings().Meta.AppURL = srv.URL
 
 				ver, _ := app.FindCollectionByNameOrId("use_cases_verifications")
 				r, _ := app.FindFirstRecordByFilter(ver.Name, `name="test use cases"`)
