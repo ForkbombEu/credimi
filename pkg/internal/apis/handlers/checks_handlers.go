@@ -170,11 +170,11 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			resp := ListMyChecksResponse{}
 
 			if queuedSummaries == nil {
-        		resp.Executions = []*WorkflowExecutionSummary{}
-    		} else {
-        		resp.Executions = queuedSummaries
-    		}
-    		return e.JSON(http.StatusOK, resp)
+				resp.Executions = []*WorkflowExecutionSummary{}
+			} else {
+				resp.Executions = queuedSummaries
+			}
+			return e.JSON(http.StatusOK, resp)
 		}
 		var statusFilters []enums.WorkflowExecutionStatus
 		if statusParam != "" {
@@ -261,9 +261,9 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 
 		var filteredExecutions []*WorkflowExecution
 		for _, exec := range execs.Executions {
-    		if exec.Type.Name != "Dynamic Pipeline Workflow" {
-        		filteredExecutions = append(filteredExecutions, exec)
-    		}
+			if exec.Type.Name != "Dynamic Pipeline Workflow" {
+				filteredExecutions = append(filteredExecutions, exec)
+			}
 		}
 
 		hierarchy := buildExecutionHierarchy(
