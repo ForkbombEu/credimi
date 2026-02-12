@@ -38,6 +38,7 @@ var SchedulesRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodPost,
 			Path:           "/start",
+			OperationID:    "schedule.start",
 			Handler:        HandleStartSchedule,
 			RequestSchema:  StartScheduleRequest{},
 			ResponseSchema: StartScheduleResponse{},
@@ -46,6 +47,7 @@ var SchedulesRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 		{
 			Method:         http.MethodGet,
+			OperationID:    "schedules.list",
 			Handler:        HandleListMySchedules,
 			ResponseSchema: ListMySchedulesResponse{},
 			Description:    "List all schedules for the authenticated user",
@@ -55,6 +57,7 @@ var SchedulesRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodPost,
 			Path:           "/{scheduleId}/cancel",
+			OperationID:    "schedule.cancel",
 			Handler:        HandleCancelSchedule,
 			ResponseSchema: CancelScheduleResponse{},
 			Description:    "Cancel a specific schedule",
@@ -63,6 +66,7 @@ var SchedulesRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodPost,
 			Path:           "/{scheduleId}/pause",
+			OperationID:    "schedule.pause",
 			Handler:        HandlePauseSchedule,
 			ResponseSchema: PauseScheduleResponse{},
 			Description:    "Pause a specific schedule",
@@ -71,6 +75,7 @@ var SchedulesRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodPost,
 			Path:           "/{scheduleId}/resume",
+			OperationID:    "schedule.resume",
 			Handler:        HandleResumeSchedule,
 			ResponseSchema: ResumeScheduleResponse{},
 			Description:    "Resume a specific schedule",

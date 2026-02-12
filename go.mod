@@ -258,6 +258,9 @@ require (
 	github.com/stbenjam/no-sprintf-host-port v0.2.0 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
+	github.com/swaggest/jsonschema-go v0.3.74 // indirect
+	github.com/swaggest/openapi-go v0.2.60 // indirect
+	github.com/swaggest/refl v1.3.1 // indirect
 	github.com/tdakkota/asciicheck v0.4.1 // indirect
 	github.com/tetafro/godot v1.5.0 // indirect
 	github.com/timakin/bodyclose v0.0.0-20241222091800-1db5c5ca4d67 // indirect
