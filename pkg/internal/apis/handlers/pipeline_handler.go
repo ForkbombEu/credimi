@@ -26,6 +26,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -864,9 +865,57 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				execInfo.ParentExecution = &parentInfo
 			}
 
+			allExecutions := []*WorkflowExecution{&execInfo}
+
+			childResp, err := temporalClient.ListWorkflow(
+				context.Background(),
+				&workflowservice.ListWorkflowExecutionsRequest{
+					Namespace: namespace,
+					Query: fmt.Sprintf(
+						`ParentWorkflowId="%s" AND ParentRunId="%s"`,
+						workflowID,
+						runID,
+					),
+				},
+			)
+			
+			if err != nil {
+				e.App.Logger().Warn(fmt.Sprintf("failed to list child workflows: %v", err))
+			} else {
+				for _, childExec := range childResp.Executions {
+					childDesc, err := temporalClient.DescribeWorkflowExecution(
+						context.Background(),
+						childExec.Execution.WorkflowId,
+						childExec.Execution.RunId,
+					)
+					if err != nil {
+						e.App.Logger().Warn(fmt.Sprintf("failed to describe child workflow %s: %v", 
+							childExec.Execution.WorkflowId, err))
+						continue
+					}
+
+					childJSON, err := protojson.Marshal(childDesc.GetWorkflowExecutionInfo())
+					if err != nil {
+						continue
+					}
+
+					var childWorkflow WorkflowExecution
+					err = json.Unmarshal(childJSON, &childWorkflow)
+					if err != nil {
+						continue
+					}
+
+					childWorkflow.ParentExecution = &WorkflowIdentifier{
+						WorkflowID: workflowID,
+						RunID:      runID,
+					}
+
+					allExecutions = append(allExecutions, &childWorkflow)
+				}
+			}
 			hierarchy := buildExecutionHierarchy(
 				e.App,
-				[]*WorkflowExecution{&execInfo},
+				allExecutions, 
 				namespace,
 				authRecord.GetString("Timezone"),
 				temporalClient,
@@ -898,7 +947,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 		}
 
 		sort.Slice(allSummaries, func(i, j int) bool {
-    	return allSummaries[i].StartTime > allSummaries[j].StartTime
+			return allSummaries[i].StartTime > allSummaries[j].StartTime
 		})
 
 		if status != "" {
@@ -911,7 +960,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			allSummaries = filtered
 			
 			sort.Slice(allSummaries, func(i, j int) bool {
-    		return allSummaries[i].StartTime > allSummaries[j].StartTime
+				return allSummaries[i].StartTime > allSummaries[j].StartTime
 			})
 		}
 
