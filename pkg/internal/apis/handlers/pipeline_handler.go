@@ -695,7 +695,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			"pipelines",
 			"published = {:published} || owner={:owner}",
 			"",
-			-1,
+			30,
 			0,
 			dbx.Params{
 				"published": true,
