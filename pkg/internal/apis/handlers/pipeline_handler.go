@@ -803,69 +803,11 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				}
 			}
 
-			workflowExecution, err := temporalClient.DescribeWorkflowExecution(
-				context.Background(),
-				workflowID,
-				runID,
-			)
-			if err != nil {
-				notFound := &serviceerror.NotFound{}
-				if errors.As(err, &notFound) {
-					return apierror.New(
-						http.StatusNotFound,
-						"workflow",
-						"workflow not found",
-						err.Error(),
-					).JSON(e)
-				}
-				invalidArgument := &serviceerror.InvalidArgument{}
-				if errors.As(err, &invalidArgument) {
-					return apierror.New(
-						http.StatusBadRequest,
-						"workflow",
-						"invalid workflow ID",
-						err.Error(),
-					).JSON(e)
-				}
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to describe workflow execution",
-					err.Error(),
-				).JSON(e)
+			execInfo, apiErr := describeWorkflowExecution(temporalClient, workflowID, runID)
+			if apiErr != nil {
+				return apiErr.JSON(e)
 			}
-
-			weJSON, err := protojson.Marshal(workflowExecution.GetWorkflowExecutionInfo())
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to marshal workflow execution",
-					err.Error(),
-				).JSON(e)
-			}
-
-			var execInfo WorkflowExecution
-			err = json.Unmarshal(weJSON, &execInfo)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to unmarshal workflow execution",
-					err.Error(),
-				).JSON(e)
-			}
-
-			if workflowExecution.GetWorkflowExecutionInfo().GetParentExecution() != nil {
-				parentJSON, _ := protojson.Marshal(
-					workflowExecution.GetWorkflowExecutionInfo().GetParentExecution(),
-				)
-				var parentInfo WorkflowIdentifier
-				_ = json.Unmarshal(parentJSON, &parentInfo)
-				execInfo.ParentExecution = &parentInfo
-			}
-
-			allExecutions := []*WorkflowExecution{&execInfo}
+			allExecutions := []*WorkflowExecution{execInfo}
 			
 			children, err := getChildWorkflows(
 				context.Background(),
@@ -1008,6 +950,78 @@ func getChildWorkflows(
 	}
 	return children, nil
 }
+
+func describeWorkflowExecution(
+	temporalClient client.Client,
+	workflowID string,
+	runID string,
+) (*WorkflowExecution, *apierror.APIError) {
+	
+	workflowExecution, err := temporalClient.DescribeWorkflowExecution(
+		context.Background(),
+		workflowID,
+		runID,
+	)
+	if err != nil {
+		notFound := &serviceerror.NotFound{}
+		if errors.As(err, &notFound) {
+			return nil, apierror.New(
+				http.StatusNotFound,
+				"workflow",
+				"workflow not found",
+				err.Error(),
+			)
+		}
+		invalidArgument := &serviceerror.InvalidArgument{}
+		if errors.As(err, &invalidArgument) {
+			return nil, apierror.New(
+				http.StatusBadRequest,
+				"workflow",
+				"invalid workflow ID",
+				err.Error(),
+			)
+		}
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to describe workflow execution",
+			err.Error(),
+		)
+	}
+
+	weJSON, err := protojson.Marshal(workflowExecution.GetWorkflowExecutionInfo())
+	if err != nil {
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to marshal workflow execution",
+			err.Error(),
+		)
+	}
+
+	var execInfo WorkflowExecution
+	err = json.Unmarshal(weJSON, &execInfo)
+	if err != nil {
+		return nil, apierror.New(
+			http.StatusInternalServerError,
+			"workflow",
+			"failed to unmarshal workflow execution",
+			err.Error(),
+		)
+	}
+
+	if workflowExecution.GetWorkflowExecutionInfo().GetParentExecution() != nil {
+		parentJSON, _ := protojson.Marshal(
+			workflowExecution.GetWorkflowExecutionInfo().GetParentExecution(),
+		)
+		var parentInfo WorkflowIdentifier
+		_ = json.Unmarshal(parentJSON, &parentInfo)
+		execInfo.ParentExecution = &parentInfo
+	}
+
+	return &execInfo, nil
+}
+
 
 type pipelineRunnerInfo = runners.PipelineRunnerInfo
 
