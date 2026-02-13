@@ -55,7 +55,7 @@ export async function listAll(options: { fetch?: typeof fetch; status?: string |
 	if (options.status) {
 		query = `?${Workflow.WORKFLOW_STATUS_QUERY_PARAM}=${options.status}`;
 	}
-	return pb.send<ExecutionSummary[]>('/api/pipeline/list-results?' + query, {
+	return pb.send<ExecutionSummary[]>('/api/pipeline/list-results' + query, {
 		method: 'GET',
 		fetch: options.fetch,
 		requestKey: null
