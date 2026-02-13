@@ -697,6 +697,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+		
 		namespace := organization.GetString("canonified_name")
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
@@ -775,61 +776,23 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 		
 		// Handle non-queued status filter
 		if status != "" && statusLower != statusStringQueued {
-			var allFiltered []*pipelineWorkflowSummary
-			
-			toSkip := (offset - 1) * limit
-			skipped := 0
-			currentSkip := 0
-			remainingLimit := limit
-			
-			for remainingLimit > 0 {
-				batchSummaries, apiErr := fetchCompletedWorkflowsWithPagination(
-					e,
-					pipelineMap,
-					namespace,
-					authRecord,
-					organization.Id,
-					status,
-					limit,
-					currentSkip,
-				)
-				if apiErr != nil {
-					return apiErr.JSON(e)
-				}
-				
-				if len(batchSummaries) == 0 {
-					break
-				}
-				
-				if skipped < toSkip {
-					skipNow := toSkip - skipped
-					if skipNow > len(batchSummaries) {
-						skipNow = len(batchSummaries)
-					}
-					batchSummaries = batchSummaries[skipNow:]
-					skipped += skipNow
-				}
-				
-				take := remainingLimit
-				if take > len(batchSummaries) {
-					take = len(batchSummaries)
-				}
-				if take > 0 {
-					allFiltered = append(allFiltered, batchSummaries[:take]...)
-					remainingLimit -= take
-				}
-				
-				currentSkip += limit
+			summaries, apiErr := fetchCompletedWorkflowsWithPagination(
+				e,
+				pipelineMap,
+				namespace,
+				authRecord,
+				organization.Id,
+				status,
+				limit,
+				(offset-1)*limit,
+			)
+			if apiErr != nil {
+				return apiErr.JSON(e)
 			}
-			
-			if allFiltered == nil {
-				allFiltered = []*pipelineWorkflowSummary{}
-			}
-			
-			return e.JSON(http.StatusOK, allFiltered)
+			return e.JSON(http.StatusOK, summaries)
 		}
 		
-		// No status filter 
+		// No status filter - include both queued and completed
 		var finalSummaries []*pipelineWorkflowSummary
 		
 		startIdx := (offset - 1) * limit
@@ -911,30 +874,6 @@ func fetchCompletedWorkflowsWithPagination(
 		return []*pipelineWorkflowSummary{}, nil
 	}
 	
-	resultsRecords, err := e.App.FindRecordsByFilter(
-		"pipeline_results",
-		"owner={:owner}",
-		"-created",
-		limit,
-		skip,
-		dbx.Params{
-			"owner": organizationId,
-		},
-	)
-	
-	if err != nil {
-		return []*pipelineWorkflowSummary{}, apierror.New(
-			http.StatusInternalServerError,
-			"database",
-			"failed to fetch pipeline results",
-			err.Error(),
-		)
-	}
-	
-	if len(resultsRecords) == 0 {
-		return []*pipelineWorkflowSummary{}, nil
-	}
-	
 	var allSummaries []*pipelineWorkflowSummary
 	runnerCache := map[string]map[string]any{}
 	runnerInfoByPipelineID := map[string]pipelineRunnerInfo{}
@@ -948,6 +887,93 @@ func fetchCompletedWorkflowsWithPagination(
 			err.Error(),
 		)
 	}
+	
+	skipped := 0
+	currentSkip := 0
+	remainingLimit := limit
+	
+	for remainingLimit > 0 {
+		resultsRecords, err := e.App.FindRecordsByFilter(
+			"pipeline_results",
+			"owner={:owner}",
+			"-created",
+			limit,
+			currentSkip,
+			dbx.Params{
+				"owner": organizationId,
+			},
+		)
+		
+		if err != nil {
+			return nil, apierror.New(
+				http.StatusInternalServerError,
+				"database",
+				"failed to fetch pipeline results",
+				err.Error(),
+			)
+		}
+		
+		if len(resultsRecords) == 0 {
+			break
+		}
+		
+		batchSummaries := fetchWorkflowBatch(
+			e,
+			pipelineMap,
+			namespace,
+			authRecord,
+			temporalClient,
+			resultsRecords,
+			statusFilter,
+			runnerCache,
+			runnerInfoByPipelineID,
+		)
+		
+		if skipped < skip {
+			skipNow := skip - skipped
+			if skipNow > len(batchSummaries) {
+				skipNow = len(batchSummaries)
+			}
+			batchSummaries = batchSummaries[skipNow:]
+			skipped += skipNow
+		}
+		
+		take := remainingLimit
+		if take > len(batchSummaries) {
+			take = len(batchSummaries)
+		}
+		if take > 0 {
+			allSummaries = append(allSummaries, batchSummaries[:take]...)
+			remainingLimit -= take
+		}
+		
+		currentSkip += limit
+	}
+	
+	sort.Slice(allSummaries, func(i, j int) bool {
+		return allSummaries[i].StartTime > allSummaries[j].StartTime
+	})
+	
+	if allSummaries == nil {
+		allSummaries = []*pipelineWorkflowSummary{}
+	}
+	
+	return allSummaries, nil
+}
+
+func fetchWorkflowBatch(
+	e *core.RequestEvent,
+	pipelineMap map[string]*core.Record,
+	namespace string,
+	authRecord *core.Record,
+	temporalClient client.Client,
+	resultsRecords []*core.Record,
+	statusFilter string,
+	runnerCache map[string]map[string]any,
+	runnerInfoByPipelineID map[string]pipelineRunnerInfo,
+) []*pipelineWorkflowSummary {
+	
+	var batchSummaries []*pipelineWorkflowSummary
 	
 	type workflowInfo struct {
 		resultRecord *core.Record
@@ -1052,16 +1078,12 @@ func fetchCompletedWorkflowsWithPagination(
 		
 		for _, summary := range annotated {
 			if statusFilter == "" || strings.EqualFold(summary.Status, statusFilter) {
-				allSummaries = append(allSummaries, summary)
+				batchSummaries = append(batchSummaries, summary)
 			}
 		}
 	}
 	
-	sort.Slice(allSummaries, func(i, j int) bool {
-		return allSummaries[i].StartTime > allSummaries[j].StartTime
-	})
-	
-	return allSummaries, nil
+	return batchSummaries
 }
 
 func parsePaginationParams(e *core.RequestEvent, defaultLimit, defaultOffset int) (limit, offset int) {
