@@ -20,11 +20,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { setDashboardNavbar } from '../../+layout@.svelte';
 	import { fetchWorkflows, isExtendedWorkflowStatus, TABS } from './_partials/index.js';
+	import PaginationArrows from './_partials/pagination-arrows.svelte';
 
 	//
 
 	let { data } = $props();
-	let { workflows: loadedWorkflows } = $derived(data);
+	let { workflows: loadedWorkflows, pagination } = $derived(data);
 
 	setDashboardNavbar({
 		title: m.workflows()
@@ -45,6 +46,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				if (isExtendedWorkflowStatus(value)) return value;
 				else return undefined;
 			}
+		},
+		limit: {
+			encode: (value) => (value === undefined ? undefined : String(value)),
+			decode: (value) => {
+				const parsed = Number(value);
+				return Number.isNaN(parsed) || value === null ? undefined : parsed;
+			}
+		},
+		offset: {
+			encode: (value) => (value === undefined ? undefined : String(value)),
+			decode: (value) => {
+				const parsed = Number(value);
+				return Number.isNaN(parsed) || value === null ? undefined : parsed;
+			}
 		}
 	});
 
@@ -52,7 +67,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const workflows = new PolledResource(
 		async () => {
-			const result = await fetchWorkflows(params.tab, { status: params.status });
+			const result = await fetchWorkflows(params.tab, {
+				status: params.status,
+				...pagination
+			});
 			if (result instanceof Error) {
 				console.error(result);
 				return [];
@@ -61,7 +79,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		{
 			initialValue: () => loadedWorkflows,
-			intervalMs: 3000
+			intervalMs: 10000
 		}
 	);
 </script>
@@ -69,18 +87,37 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="grow space-y-8">
 	<div class="flex items-center justify-between">
 		<T tag="h3">{m.workflow_runs()}</T>
-		<Tabs.Root bind:value={params.tab}>
-			<Tabs.List class="gap-1 bg-secondary">
-				{#each Object.entries(TABS) as [key, value] (key)}
-					<Tabs.Trigger
-						class="data-[state=inactive]:hover:cursor-pointer data-[state=inactive]:hover:bg-primary/10 "
-						value={key}
-					>
-						{value}
-					</Tabs.Trigger>
-				{/each}
-			</Tabs.List>
-		</Tabs.Root>
+
+		<div class="flex items-center gap-4">
+			{#if params.tab === 'pipeline'}
+				<PaginationArrows
+					{pagination}
+					onPrevious={() => {
+						const current = params.offset ?? 0;
+						if (current <= 0) return;
+						params.offset = current - 1;
+					}}
+					onNext={() => {
+						params.offset = (params.offset ?? 0) + 1;
+					}}
+					onLimitChange={(limit) => {
+						params.limit = limit;
+					}}
+				/>
+			{/if}
+			<Tabs.Root bind:value={params.tab}>
+				<Tabs.List class="gap-1 bg-secondary">
+					{#each Object.entries(TABS) as [key, value] (key)}
+						<Tabs.Trigger
+							class="data-[state=inactive]:hover:cursor-pointer data-[state=inactive]:hover:bg-primary/10 "
+							value={key}
+						>
+							{value}
+						</Tabs.Trigger>
+					{/each}
+				</Tabs.List>
+			</Tabs.Root>
+		</div>
 	</div>
 
 	{#if workflows.current?.length > 0}
