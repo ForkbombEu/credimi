@@ -220,3 +220,25 @@ func TestSetPipelineExecutionResultsIdempotent(t *testing.T) {
 	})
 	require.NoError(t, serveErr)
 }
+
+func TestBuildChildWorkflowParentQuery(t *testing.T) {
+	require.Equal(t, "", buildChildWorkflowParentQuery(nil))
+
+	query := buildChildWorkflowParentQuery([]workflowExecutionRef{
+		{
+			WorkflowID: "parent-workflow-1",
+			RunID:      "run-1",
+		},
+		{
+			WorkflowID: `parent"workflow\2`,
+			RunID:      `run"2\`,
+		},
+	})
+
+	require.Equal(
+		t,
+		`(ParentWorkflowId="parent-workflow-1" AND ParentRunId="run-1") OR `+
+			`(ParentWorkflowId="parent\"workflow\\2" AND ParentRunId="run\"2\\")`,
+		query,
+	)
+}

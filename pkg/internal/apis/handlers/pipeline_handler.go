@@ -684,7 +684,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 
 		// Parse pagination parameters
 		limit, offset := parsePaginationParams(e, 20, 1)
-		
+
 		status := e.Request.URL.Query().Get("status")
 		statusLower := strings.ToLower(status)
 
@@ -697,7 +697,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		
+
 		namespace := organization.GetString("canonified_name")
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
@@ -728,52 +728,6 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			pipelineMap[p.Id] = p
 		}
 
-		// Get queued runs
-		queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to list queued runs",
-				err.Error(),
-			).JSON(e)
-		}
-		
-		queuedByPipelineID := mapQueuedRunsToPipelines(e.App, pipelineRecords, queuedRuns)
-		allQueuedForAllPipelines := []QueuedPipelineRunAggregate{}
-		for _, p := range pipelineRecords {
-			queuedForThisPipeline := queuedByPipelineID[p.Id]
-			allQueuedForAllPipelines = append(allQueuedForAllPipelines, queuedForThisPipeline...)
-		}
-
-		queuedCount := len(allQueuedForAllPipelines)
-		
-		// Handle queued-only case
-		if statusLower == statusStringQueued {
-			if len(allQueuedForAllPipelines) == 0 {
-				return e.JSON(http.StatusOK, []*pipelineWorkflowSummary{})
-			}
-			
-			startIdx := (offset - 1) * limit
-			if startIdx >= len(allQueuedForAllPipelines) {
-				return e.JSON(http.StatusOK, []*pipelineWorkflowSummary{})
-			}
-			
-			endIdx := startIdx + limit
-			if endIdx > len(allQueuedForAllPipelines) {
-				endIdx = len(allQueuedForAllPipelines)
-			}
-			
-			queuedToShow := allQueuedForAllPipelines[startIdx:endIdx]
-			queuedSummaries := buildQueuedPipelineSummaries(
-				e.App,
-				queuedToShow,
-				authRecord.GetString("Timezone"),
-				map[string]map[string]any{},
-			)
-			return e.JSON(http.StatusOK, queuedSummaries)
-		}
-		
 		// Handle non-queued status filter
 		if status != "" && statusLower != statusStringQueued {
 			summaries, apiErr := fetchCompletedWorkflowsWithPagination(
@@ -791,19 +745,64 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			}
 			return e.JSON(http.StatusOK, summaries)
 		}
-		
+
+		// Get queued runs only when needed (status=queued or no status filter).
+		queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to list queued runs",
+				err.Error(),
+			).JSON(e)
+		}
+
+		queuedByPipelineID := mapQueuedRunsToPipelines(e.App, pipelineRecords, queuedRuns)
+		allQueuedForAllPipelines := []QueuedPipelineRunAggregate{}
+		for _, p := range pipelineRecords {
+			queuedForThisPipeline := queuedByPipelineID[p.Id]
+			allQueuedForAllPipelines = append(allQueuedForAllPipelines, queuedForThisPipeline...)
+		}
+
+		queuedCount := len(allQueuedForAllPipelines)
+
+		// Handle queued-only case
+		if statusLower == statusStringQueued {
+			if len(allQueuedForAllPipelines) == 0 {
+				return e.JSON(http.StatusOK, []*pipelineWorkflowSummary{})
+			}
+
+			startIdx := (offset - 1) * limit
+			if startIdx >= len(allQueuedForAllPipelines) {
+				return e.JSON(http.StatusOK, []*pipelineWorkflowSummary{})
+			}
+
+			endIdx := startIdx + limit
+			if endIdx > len(allQueuedForAllPipelines) {
+				endIdx = len(allQueuedForAllPipelines)
+			}
+
+			queuedToShow := allQueuedForAllPipelines[startIdx:endIdx]
+			queuedSummaries := buildQueuedPipelineSummaries(
+				e.App,
+				queuedToShow,
+				authRecord.GetString("Timezone"),
+				map[string]map[string]any{},
+			)
+			return e.JSON(http.StatusOK, queuedSummaries)
+		}
+
 		// No status filter - include both queued and completed
 		var finalSummaries []*pipelineWorkflowSummary
-		
 		startIdx := (offset - 1) * limit
-		
+
 		if startIdx < queuedCount {
 			queuedStartIdx := startIdx
 			queuedEndIdx := queuedStartIdx + limit
 			if queuedEndIdx > queuedCount {
 				queuedEndIdx = queuedCount
 			}
-			
+
 			queuedToShow := allQueuedForAllPipelines[queuedStartIdx:queuedEndIdx]
 			queuedSummaries := buildQueuedPipelineSummaries(
 				e.App,
@@ -811,12 +810,11 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				authRecord.GetString("Timezone"),
 				map[string]map[string]any{},
 			)
-			
 			finalSummaries = append(finalSummaries, queuedSummaries...)
-			
+
 			if len(finalSummaries) < limit {
 				remainingLimit := limit - len(finalSummaries)
-				
+
 				completedSummaries, apiErr := fetchCompletedWorkflowsWithPagination(
 					e,
 					pipelineMap,
@@ -834,7 +832,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			}
 		} else {
 			completedSkip := startIdx - queuedCount
-			
+
 			completedSummaries, apiErr := fetchCompletedWorkflowsWithPagination(
 				e,
 				pipelineMap,
@@ -850,11 +848,11 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			}
 			finalSummaries = append(finalSummaries, completedSummaries...)
 		}
-		
+
 		if finalSummaries == nil {
 			finalSummaries = []*pipelineWorkflowSummary{}
 		}
-		
+
 		return e.JSON(http.StatusOK, finalSummaries)
 	}
 }
@@ -869,15 +867,20 @@ func fetchCompletedWorkflowsWithPagination(
 	limit int,
 	skip int,
 ) ([]*pipelineWorkflowSummary, *apierror.APIError) {
-	
+
 	if limit <= 0 {
 		return []*pipelineWorkflowSummary{}, nil
 	}
-	
+
+	batchSize := limit
+	if statusFilter != "" && batchSize < statusFilteredPipelineResultBatchSize {
+		batchSize = statusFilteredPipelineResultBatchSize
+	}
+
 	var allSummaries []*pipelineWorkflowSummary
 	runnerCache := map[string]map[string]any{}
 	runnerInfoByPipelineID := map[string]pipelineRunnerInfo{}
-	
+
 	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(namespace)
 	if err != nil {
 		return nil, apierror.New(
@@ -887,23 +890,29 @@ func fetchCompletedWorkflowsWithPagination(
 			err.Error(),
 		)
 	}
-	
+
 	skipped := 0
 	currentSkip := 0
 	remainingLimit := limit
-	
+
+	// When no status filtering is requested, we can apply the offset directly at DB level.
+	if statusFilter == "" {
+		currentSkip = skip
+		skipped = skip
+	}
+
 	for remainingLimit > 0 {
 		resultsRecords, err := e.App.FindRecordsByFilter(
 			"pipeline_results",
 			"owner={:owner}",
 			"-created",
-			limit,
+			batchSize,
 			currentSkip,
 			dbx.Params{
 				"owner": organizationId,
 			},
 		)
-		
+
 		if err != nil {
 			return nil, apierror.New(
 				http.StatusInternalServerError,
@@ -912,11 +921,11 @@ func fetchCompletedWorkflowsWithPagination(
 				err.Error(),
 			)
 		}
-		
+
 		if len(resultsRecords) == 0 {
 			break
 		}
-		
+
 		batchSummaries := fetchWorkflowBatch(
 			e,
 			pipelineMap,
@@ -928,7 +937,7 @@ func fetchCompletedWorkflowsWithPagination(
 			runnerCache,
 			runnerInfoByPipelineID,
 		)
-		
+
 		if skipped < skip {
 			skipNow := skip - skipped
 			if skipNow > len(batchSummaries) {
@@ -937,7 +946,7 @@ func fetchCompletedWorkflowsWithPagination(
 			batchSummaries = batchSummaries[skipNow:]
 			skipped += skipNow
 		}
-		
+
 		take := remainingLimit
 		if take > len(batchSummaries) {
 			take = len(batchSummaries)
@@ -946,18 +955,18 @@ func fetchCompletedWorkflowsWithPagination(
 			allSummaries = append(allSummaries, batchSummaries[:take]...)
 			remainingLimit -= take
 		}
-		
-		currentSkip += limit
+
+		currentSkip += batchSize
 	}
-	
+
 	sort.Slice(allSummaries, func(i, j int) bool {
 		return allSummaries[i].StartTime > allSummaries[j].StartTime
 	})
-	
+
 	if allSummaries == nil {
 		allSummaries = []*pipelineWorkflowSummary{}
 	}
-	
+
 	return allSummaries, nil
 }
 
@@ -972,16 +981,16 @@ func fetchWorkflowBatch(
 	runnerCache map[string]map[string]any,
 	runnerInfoByPipelineID map[string]pipelineRunnerInfo,
 ) []*pipelineWorkflowSummary {
-	
+
 	var batchSummaries []*pipelineWorkflowSummary
-	
+
 	type workflowInfo struct {
 		resultRecord *core.Record
 		workflowID   string
 		runID        string
 		pipelineID   string
 	}
-	
+
 	workflowsToFetch := make([]workflowInfo, 0, len(resultsRecords))
 	for _, resultRecord := range resultsRecords {
 		workflowsToFetch = append(workflowsToFetch, workflowInfo{
@@ -991,22 +1000,43 @@ func fetchWorkflowBatch(
 			pipelineID:   resultRecord.GetString("pipeline"),
 		})
 	}
-	
+
+	parentRefs := make([]workflowExecutionRef, 0, len(workflowsToFetch))
+	for _, wf := range workflowsToFetch {
+		parentRefs = append(parentRefs, workflowExecutionRef{
+			WorkflowID: wf.workflowID,
+			RunID:      wf.runID,
+		})
+	}
+
+	childWorkflowsByParent, err := getChildWorkflowsByParents(
+		context.Background(),
+		temporalClient,
+		namespace,
+		parentRefs,
+	)
+	if err != nil {
+		e.App.Logger().Warn(fmt.Sprintf("failed to batch list child workflows: %v", err))
+	}
+
 	type fetchResult struct {
 		workflowID string
 		execution  *WorkflowExecution
 		children   []*WorkflowExecution
 		err        error
 	}
-	
+
 	results := make([]*fetchResult, len(workflowsToFetch))
-	
+	sem := make(chan struct{}, pipelineResultsDescribeConcurrency)
+
 	var wg sync.WaitGroup
 	for i, wf := range workflowsToFetch {
 		wg.Add(1)
 		go func(idx int, wf workflowInfo) {
 			defer wg.Done()
-			
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
 			execInfo, apiErr := describeWorkflowExecution(temporalClient, wf.workflowID, wf.runID)
 			if apiErr != nil {
 				results[idx] = &fetchResult{
@@ -1015,42 +1045,37 @@ func fetchWorkflowBatch(
 				}
 				return
 			}
-			
-			children, _ := getChildWorkflows(
-				context.Background(),
-				temporalClient,
-				namespace,
-				wf.workflowID,
-				wf.runID,
-			)
-			
+
 			results[idx] = &fetchResult{
 				workflowID: wf.workflowID,
 				execution:  execInfo,
-				children:   children,
-				err:        nil,
+				children: childWorkflowsByParent[workflowExecutionRef{
+					WorkflowID: wf.workflowID,
+					RunID:      wf.runID,
+				}],
+				err: nil,
 			}
 		}(i, wf)
 	}
-	
+
 	wg.Wait()
-	
+
 	for i, res := range results {
 		if res == nil || res.err != nil {
 			continue
 		}
-		
+
 		pipelineRecord, ok := pipelineMap[workflowsToFetch[i].pipelineID]
 		if !ok {
 			continue
 		}
-		
+
 		runnerInfo, ok := runnerInfoByPipelineID[workflowsToFetch[i].pipelineID]
 		if !ok {
 			runnerInfo, _ = runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
 			runnerInfoByPipelineID[workflowsToFetch[i].pipelineID] = runnerInfo
 		}
-		
+
 		hierarchy := buildPipelineExecutionHierarchyFromResult(
 			e.App,
 			workflowsToFetch[i].resultRecord,
@@ -1060,11 +1085,11 @@ func fetchWorkflowBatch(
 			authRecord.GetString("Timezone"),
 			temporalClient,
 		)
-		
+
 		if len(hierarchy) == 0 {
 			continue
 		}
-		
+
 		annotated, _ := attachRunnerInfoFromTemporalStartInput(
 			attachRunnerInfoFromTemporalInputArgs{
 				App:         e.App,
@@ -1075,20 +1100,20 @@ func fetchWorkflowBatch(
 				RunnerCache: runnerCache,
 			},
 		)
-		
+
 		for _, summary := range annotated {
 			if statusFilter == "" || strings.EqualFold(summary.Status, statusFilter) {
 				batchSummaries = append(batchSummaries, summary)
 			}
 		}
 	}
-	
+
 	return batchSummaries
 }
 
 func parsePaginationParams(e *core.RequestEvent, defaultLimit, defaultOffset int) (limit, offset int) {
 	query := e.Request.URL.Query()
-	
+
 	limitStr := query.Get("limit")
 	if limitStr == "" {
 		limit = defaultLimit
@@ -1099,7 +1124,7 @@ func parsePaginationParams(e *core.RequestEvent, defaultLimit, defaultOffset int
 			limit = defaultLimit
 		}
 	}
-	
+
 	offsetStr := query.Get("offset")
 	if offsetStr == "" {
 		offset = defaultOffset
@@ -1110,8 +1135,20 @@ func parsePaginationParams(e *core.RequestEvent, defaultLimit, defaultOffset int
 			offset = defaultOffset
 		}
 	}
-	
+
 	return limit, offset
+}
+
+const (
+	childWorkflowParentQueryChunkSize           = 25
+	childWorkflowParentQueryPageSize      int32 = 1000
+	statusFilteredPipelineResultBatchSize       = 50
+	pipelineResultsDescribeConcurrency          = 12
+)
+
+type workflowExecutionRef struct {
+	WorkflowID string
+	RunID      string
 }
 
 func buildPipelineExecutionHierarchyFromResult(
@@ -1253,57 +1290,130 @@ func computePipelineResultsFromRecord(app core.App, record *core.Record) []Pipel
 	return results
 }
 
-func getChildWorkflows(
+func getChildWorkflowsByParents(
 	ctx context.Context,
 	temporalClient client.Client,
 	namespace string,
-	parentWorkflowID string,
-	parentRunID string,
-) ([]*WorkflowExecution, error) {
-	childResp, err := temporalClient.ListWorkflow(
-		ctx,
-		&workflowservice.ListWorkflowExecutionsRequest{
-			Namespace: namespace,
-			Query: fmt.Sprintf(
-				`ParentWorkflowId="%s" AND ParentRunId="%s"`,
-				parentWorkflowID,
-				parentRunID,
-			),
-		},
-	)
-	if err != nil {
-		return nil, err
+	parents []workflowExecutionRef,
+) (map[workflowExecutionRef][]*WorkflowExecution, error) {
+	childrenByParent := make(map[workflowExecutionRef][]*WorkflowExecution, len(parents))
+	if len(parents) == 0 || temporalClient == nil {
+		return childrenByParent, nil
 	}
 
-	var children []*WorkflowExecution
-	for _, childExec := range childResp.GetExecutions() {
-		childDesc, err := temporalClient.DescribeWorkflowExecution(
-			ctx,
-			childExec.GetExecution().GetWorkflowId(),
-			childExec.GetExecution().GetRunId(),
-		)
-		if err != nil {
+	uniqueParents := make([]workflowExecutionRef, 0, len(parents))
+	parentSet := make(map[workflowExecutionRef]struct{}, len(parents))
+	for _, parent := range parents {
+		if parent.WorkflowID == "" || parent.RunID == "" {
 			continue
 		}
-
-		childJSON, err := protojson.Marshal(childDesc.GetWorkflowExecutionInfo())
-		if err != nil {
+		if _, exists := parentSet[parent]; exists {
 			continue
 		}
-
-		var childWorkflow WorkflowExecution
-		err = json.Unmarshal(childJSON, &childWorkflow)
-		if err != nil {
-			continue
-		}
-
-		childWorkflow.ParentExecution = &WorkflowIdentifier{
-			WorkflowID: parentWorkflowID,
-			RunID:      parentRunID,
-		}
-		children = append(children, &childWorkflow)
+		parentSet[parent] = struct{}{}
+		uniqueParents = append(uniqueParents, parent)
+		childrenByParent[parent] = nil
 	}
-	return children, nil
+	if len(uniqueParents) == 0 {
+		return childrenByParent, nil
+	}
+
+	var firstErr error
+	for i := 0; i < len(uniqueParents); i += childWorkflowParentQueryChunkSize {
+		chunkEnd := i + childWorkflowParentQueryChunkSize
+		if chunkEnd > len(uniqueParents) {
+			chunkEnd = len(uniqueParents)
+		}
+
+		query := buildChildWorkflowParentQuery(uniqueParents[i:chunkEnd])
+		if query == "" {
+			continue
+		}
+
+		pageToken := []byte(nil)
+		for {
+			resp, err := temporalClient.ListWorkflow(
+				ctx,
+				&workflowservice.ListWorkflowExecutionsRequest{
+					Namespace:     namespace,
+					Query:         query,
+					PageSize:      childWorkflowParentQueryPageSize,
+					NextPageToken: pageToken,
+				},
+			)
+			if err != nil {
+				if firstErr == nil {
+					firstErr = err
+				}
+				break
+			}
+
+			for _, childExec := range resp.GetExecutions() {
+				if childExec == nil || childExec.GetExecution() == nil {
+					continue
+				}
+				parentExec := childExec.GetParentExecution()
+				if parentExec == nil {
+					continue
+				}
+
+				parentRef := workflowExecutionRef{
+					WorkflowID: parentExec.GetWorkflowId(),
+					RunID:      parentExec.GetRunId(),
+				}
+				if _, ok := parentSet[parentRef]; !ok {
+					continue
+				}
+
+				childJSON, err := protojson.Marshal(childExec)
+				if err != nil {
+					continue
+				}
+
+				var childWorkflow WorkflowExecution
+				if err := json.Unmarshal(childJSON, &childWorkflow); err != nil {
+					continue
+				}
+
+				childWorkflow.ParentExecution = &WorkflowIdentifier{
+					WorkflowID: parentRef.WorkflowID,
+					RunID:      parentRef.RunID,
+				}
+				childrenByParent[parentRef] = append(childrenByParent[parentRef], &childWorkflow)
+			}
+
+			if len(resp.GetNextPageToken()) == 0 {
+				break
+			}
+			pageToken = resp.GetNextPageToken()
+		}
+	}
+
+	return childrenByParent, firstErr
+}
+
+func buildChildWorkflowParentQuery(parents []workflowExecutionRef) string {
+	if len(parents) == 0 {
+		return ""
+	}
+
+	clauses := make([]string, 0, len(parents))
+	for _, parent := range parents {
+		if parent.WorkflowID == "" || parent.RunID == "" {
+			continue
+		}
+		clauses = append(clauses, fmt.Sprintf(
+			`(ParentWorkflowId="%s" AND ParentRunId="%s")`,
+			escapeTemporalQueryValue(parent.WorkflowID),
+			escapeTemporalQueryValue(parent.RunID),
+		))
+	}
+	return strings.Join(clauses, " OR ")
+}
+
+func escapeTemporalQueryValue(value string) string {
+	value = strings.ReplaceAll(value, `\`, `\\`)
+	return strings.ReplaceAll(value, `"`, `\"`)
 }
 
 func describeWorkflowExecution(
@@ -1504,15 +1614,26 @@ func mapQueuedRunsToPipelines(
 	}
 
 	pipelineIdentifiers := make(map[string]string, len(pipelineRecords))
+	orgNameByOwnerID := make(map[string]string)
 	for _, record := range pipelineRecords {
 		pipelineID := record.Id
 		pipelineIdentifiers[pipelineID] = pipelineID
+
 		canonifiedName := record.GetString("canonified_name")
-		org, err := app.FindRecordById("organizations", record.GetString("owner"))
-		if err != nil {
-			continue
+
+		ownerID := record.GetString("owner")
+		orgName, ok := orgNameByOwnerID[ownerID]
+		if !ok {
+			orgName = ""
+			if ownerID != "" {
+				org, err := app.FindRecordById("organizations", ownerID)
+				if err == nil {
+					orgName = org.GetString("canonified_name")
+				}
+			}
+			orgNameByOwnerID[ownerID] = orgName
 		}
-		orgName := org.GetString("canonified_name")
+
 		if canonifiedName != "" && orgName != "" {
 			pipelineIdentifiers[fmt.Sprintf("%s/%s", orgName, canonifiedName)] = pipelineID
 		}
