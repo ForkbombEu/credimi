@@ -923,7 +923,12 @@ func fetchCompletedWorkflowsWithPagination(
 	)
 	
 	if err != nil {
-		return []*pipelineWorkflowSummary{}, nil
+		return []*pipelineWorkflowSummary{}, apierror.New(
+			http.StatusInternalServerError,
+			"database",
+			"failed to fetch pipeline results",
+			err.Error(),
+		)
 	}
 	
 	if len(resultsRecords) == 0 {
