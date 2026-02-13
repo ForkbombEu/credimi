@@ -87,33 +87,38 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="grow space-y-8">
 	<div class="flex items-center justify-between">
 		<T tag="h3">{m.workflow_runs()}</T>
-		<Tabs.Root bind:value={params.tab}>
-			<Tabs.List class="gap-1 bg-secondary">
-				{#each Object.entries(TABS) as [key, value] (key)}
-					<Tabs.Trigger
-						class="data-[state=inactive]:hover:cursor-pointer data-[state=inactive]:hover:bg-primary/10 "
-						value={key}
-					>
-						{value}
-					</Tabs.Trigger>
-				{/each}
-			</Tabs.List>
-		</Tabs.Root>
+
+		<div class="flex items-center gap-4">
+			{#if params.tab === 'pipeline'}
+				<PaginationArrows
+					{pagination}
+					onPrevious={() => {
+						const current = params.offset ?? 0;
+						if (current <= 0) return;
+						params.offset = current - 1;
+					}}
+					onNext={() => {
+						params.offset = (params.offset ?? 0) + 1;
+					}}
+				/>
+			{/if}
+			<Tabs.Root bind:value={params.tab}>
+				<Tabs.List class="gap-1 bg-secondary">
+					{#each Object.entries(TABS) as [key, value] (key)}
+						<Tabs.Trigger
+							class="data-[state=inactive]:hover:cursor-pointer data-[state=inactive]:hover:bg-primary/10 "
+							value={key}
+						>
+							{value}
+						</Tabs.Trigger>
+					{/each}
+				</Tabs.List>
+			</Tabs.Root>
+		</div>
 	</div>
 
 	{#if workflows.current?.length > 0}
 		{#if params.tab === 'pipeline'}
-			<PaginationArrows
-				{pagination}
-				onPrevious={() => {
-					if (params.offset === undefined || params.offset === null) return;
-					params.offset = params.offset - 1;
-				}}
-				onNext={() => {
-					if (params.offset === undefined || params.offset === null) params.offset = 2;
-					params.offset = params.offset + 1;
-				}}
-			/>
 			<Pipeline.Workflows.Table workflows={workflows.current} />
 		{:else}
 			<WorkflowsTable workflows={workflows.current}>

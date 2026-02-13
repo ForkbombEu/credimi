@@ -22,9 +22,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <ButtonGroup.Root>
-	<Button onclick={onPrevious} disabled={pagination.offset === 0}><ArrowLeftIcon /></Button>
-	<div>
+	<Button size="icon" variant="outline" onclick={onPrevious} disabled={pagination.offset === 0}>
+		<ArrowLeftIcon />
+	</Button>
+	<Button size="icon" variant="outline" disabled>
 		{pagination.offset}
-	</div>
-	<Button onclick={onNext}><ArrowRightIcon /></Button>
+	</Button>
+	<Button size="icon" variant="outline" onclick={onNext}>
+		<ArrowRightIcon />
+	</Button>
 </ButtonGroup.Root>
