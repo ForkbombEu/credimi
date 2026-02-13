@@ -12,6 +12,7 @@ import {
 	UserIcon
 } from '@lucide/svelte';
 import { page } from '$app/state';
+import { Pipeline } from '$lib';
 import { baseSections, entities } from '$lib/global';
 import { WORKFLOW_STATUS_QUERY_PARAM } from '$lib/workflows';
 import { SvelteURL } from 'svelte/reactivity';
@@ -82,6 +83,11 @@ const data: SidebarGroup[] = $derived([
 						const url = new SvelteURL(base, page.url.origin);
 						if (page.url.pathname.includes(base)) {
 							page.url.searchParams.forEach((value, key) => {
+								const excludeKeys = [
+									Pipeline.Workflows.LIMIT_PARAM,
+									Pipeline.Workflows.OFFSET_PARAM
+								];
+								if (excludeKeys.includes(key)) return;
 								url.searchParams.set(key, value);
 							});
 						}
