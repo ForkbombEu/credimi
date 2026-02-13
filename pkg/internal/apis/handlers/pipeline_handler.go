@@ -922,7 +922,11 @@ func fetchCompletedWorkflowsWithPagination(
 		},
 	)
 	
-	if err != nil || len(resultsRecords) == 0 {
+	if err != nil {
+		return []*pipelineWorkflowSummary{}, nil
+	}
+	
+	if len(resultsRecords) == 0 {
 		return []*pipelineWorkflowSummary{}, nil
 	}
 	
