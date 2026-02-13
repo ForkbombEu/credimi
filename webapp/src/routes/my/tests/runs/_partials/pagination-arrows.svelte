@@ -41,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<ArrowLeftIcon />
 	</Button>
 	<Button size="icon" variant="outline" disabled>
-		{pagination.offset ?? 0}
+		{(pagination.offset ?? 0) + 1}
 	</Button>
 	<Button size="icon" variant="outline" onclick={onNext}>
 		<ArrowRightIcon />
