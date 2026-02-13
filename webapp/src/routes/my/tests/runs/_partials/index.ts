@@ -93,7 +93,7 @@ export function getPaginationQueryParams(url: URL): PaginationParams {
 	const limit = url.searchParams.get(Pipeline.Workflows.LIMIT_PARAM);
 	const offset = url.searchParams.get(Pipeline.Workflows.OFFSET_PARAM);
 	return {
-		limit: limit ? Number(limit) : undefined,
+		limit: limit ? Number(limit) : 20,
 		offset: offset ? Number(offset) : undefined
 	};
 }
