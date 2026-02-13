@@ -60,6 +60,8 @@ export async function fetchWorkflows(
 	options: {
 		fetch?: typeof fetch;
 		status?: ExtendedWorkflowStatus | null;
+		limit?: number;
+		offset?: number;
 	} = {}
 ) {
 	let status: ExtendedWorkflowStatus | undefined = undefined;
@@ -67,7 +69,12 @@ export async function fetchWorkflows(
 		status = options.status;
 	}
 	if (tab === 'pipeline') {
-		return Pipeline.Workflows.listAll({ fetch: options.fetch, status });
+		return Pipeline.Workflows.listAll({
+			fetch: options.fetch,
+			status,
+			limit: options.limit,
+			offset: options.offset
+		});
 	} else {
 		const res = await Workflow.fetchWorkflows({ fetch: options.fetch, status });
 		if (res instanceof Error) {
@@ -75,4 +82,13 @@ export async function fetchWorkflows(
 		}
 		return res;
 	}
+}
+
+export function getPaginationQueryParams(url: URL): { limit?: number; offset?: number } {
+	const limit = url.searchParams.get(Pipeline.Workflows.LIMIT_PARAM);
+	const offset = url.searchParams.get(Pipeline.Workflows.OFFSET_PARAM);
+	return {
+		limit: limit ? Number(limit) : undefined,
+		offset: offset ? Number(offset) : undefined
+	};
 }

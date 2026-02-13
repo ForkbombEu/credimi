@@ -50,11 +50,28 @@ export async function list(pipelineId: string, options = { fetch }) {
 	});
 }
 
-export async function listAll(options: { fetch?: typeof fetch; status?: string | null }) {
-	let query = '';
+//
+
+export const LIMIT_PARAM = 'limit';
+export const OFFSET_PARAM = 'offset';
+
+export async function listAll(options: {
+	fetch?: typeof fetch;
+	status?: string | null;
+	limit?: number;
+	offset?: number;
+}) {
+	const params = new URLSearchParams();
 	if (options.status) {
-		query = `?${Workflow.WORKFLOW_STATUS_QUERY_PARAM}=${options.status}`;
+		params.set(Workflow.WORKFLOW_STATUS_QUERY_PARAM, options.status);
 	}
+	if (options.limit !== undefined) {
+		params.set(LIMIT_PARAM, String(options.limit));
+	}
+	if (options.offset !== undefined) {
+		params.set(OFFSET_PARAM, String(options.offset));
+	}
+	const query = params.toString() ? `?${params.toString()}` : '';
 	return pb.send<ExecutionSummary[]>('/api/pipeline/list-results' + query, {
 		method: 'GET',
 		fetch: options.fetch,
