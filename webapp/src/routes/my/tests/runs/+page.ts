@@ -18,6 +18,7 @@ export const load = async ({ fetch, url }) => {
 
 	const workflows = await fetchWorkflows(tab, { fetch, status, ...pagination });
 	return {
-		workflows
+		workflows,
+		pagination
 	};
 };

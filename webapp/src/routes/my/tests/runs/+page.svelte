@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	let { data } = $props();
-	let { workflows: loadedWorkflows } = $derived(data);
+	let { workflows: loadedWorkflows, pagination } = $derived(data);
 
 	setDashboardNavbar({
 		title: m.workflows()
@@ -52,7 +52,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const workflows = new PolledResource(
 		async () => {
-			const result = await fetchWorkflows(params.tab, { status: params.status });
+			const result = await fetchWorkflows(params.tab, {
+				status: params.status,
+				...pagination
+			});
 			if (result instanceof Error) {
 				console.error(result);
 				return [];
@@ -61,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		},
 		{
 			initialValue: () => loadedWorkflows,
-			intervalMs: 3000
+			intervalMs: 10000
 		}
 	);
 </script>
