@@ -17,9 +17,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		pagination: PaginationParams;
 		onPrevious: () => void;
 		onNext: () => void;
+		onLimitChange: (limit: number) => void;
 	};
 
-	let { pagination, onPrevious, onNext }: Props = $props();
+	let { pagination, onPrevious, onNext, onLimitChange }: Props = $props();
 </script>
 
 <SelectInputAny
@@ -29,6 +30,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{ value: 50, label: '50' }
 	]}
 	value={pagination.limit}
+	onValueChange={(v) => {
+		if (!v) return;
+		onLimitChange(v);
+	}}
 />
 
 <ButtonGroup.Root>
@@ -36,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<ArrowLeftIcon />
 	</Button>
 	<Button size="icon" variant="outline" disabled>
-		{pagination.offset}
+		{pagination.offset ?? 0}
 	</Button>
 	<Button size="icon" variant="outline" onclick={onNext}>
 		<ArrowRightIcon />

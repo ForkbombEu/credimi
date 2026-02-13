@@ -100,6 +100,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					onNext={() => {
 						params.offset = (params.offset ?? 0) + 1;
 					}}
+					onLimitChange={(limit) => {
+						params.limit = limit;
+					}}
 				/>
 			{/if}
 			<Tabs.Root bind:value={params.tab}>
