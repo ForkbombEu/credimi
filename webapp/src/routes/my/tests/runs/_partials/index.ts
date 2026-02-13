@@ -84,7 +84,12 @@ export async function fetchWorkflows(
 	}
 }
 
-export function getPaginationQueryParams(url: URL): { limit?: number; offset?: number } {
+export type PaginationParams = {
+	limit?: number;
+	offset?: number;
+};
+
+export function getPaginationQueryParams(url: URL): PaginationParams {
 	const limit = url.searchParams.get(Pipeline.Workflows.LIMIT_PARAM);
 	const offset = url.searchParams.get(Pipeline.Workflows.OFFSET_PARAM);
 	return {

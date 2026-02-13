@@ -20,6 +20,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { setDashboardNavbar } from '../../+layout@.svelte';
 	import { fetchWorkflows, isExtendedWorkflowStatus, TABS } from './_partials/index.js';
+	import PaginationArrows from './_partials/pagination-arrows.svelte';
 
 	//
 
@@ -44,6 +45,20 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			decode: (value) => {
 				if (isExtendedWorkflowStatus(value)) return value;
 				else return undefined;
+			}
+		},
+		limit: {
+			encode: (value) => (value === undefined ? undefined : String(value)),
+			decode: (value) => {
+				const parsed = Number(value);
+				return Number.isNaN(parsed) || value === null ? undefined : parsed;
+			}
+		},
+		offset: {
+			encode: (value) => (value === undefined ? undefined : String(value)),
+			decode: (value) => {
+				const parsed = Number(value);
+				return Number.isNaN(parsed) || value === null ? undefined : parsed;
 			}
 		}
 	});
@@ -88,6 +103,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	{#if workflows.current?.length > 0}
 		{#if params.tab === 'pipeline'}
+			<PaginationArrows
+				{pagination}
+				onPrevious={() => {
+					if (params.offset === undefined || params.offset === null) return;
+					params.offset = params.offset - 1;
+				}}
+				onNext={() => {
+					if (params.offset === undefined || params.offset === null) params.offset = 2;
+					params.offset = params.offset + 1;
+				}}
+			/>
 			<Pipeline.Workflows.Table workflows={workflows.current} />
 		{:else}
 			<WorkflowsTable workflows={workflows.current}>
