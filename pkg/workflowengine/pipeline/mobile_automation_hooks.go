@@ -682,22 +682,23 @@ func fetchAndInstallAPK(
 	input fetchAndInstallAPKInput,
 ) error {
 	req := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"method": http.MethodPost,
-			"url": utils.JoinURL(
+		Payload: activities.HTTPActivityPayload{
+			Method: http.MethodPost,
+			URL: utils.JoinURL(
 				input.runnerURL,
 				"credimi",
 				"apk-action",
 			),
-			"headers": map[string]any{
+			Headers: map[string]string{
 				"Content-Type": "application/json",
 			},
-			"body": map[string]any{
+			Body: map[string]any{
 				"instance_url":       input.appURL,
 				"version_identifier": input.payload.VersionID,
 				"action_identifier":  input.payload.ActionID,
 			},
-			"expected_status": 200,
+			Timeout:        "300",
+			ExpectedStatus: 200,
 		},
 	}
 
@@ -1342,6 +1343,7 @@ func storeRecordingResults(
 					"runner_identifier": input.runnerID,
 					"instance_url":      input.appURL,
 				},
+				Timeout:        "300",
 				ExpectedStatus: 200,
 			},
 		},
