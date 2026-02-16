@@ -39,14 +39,16 @@ const baseUrl = '/api/pipeline/list-workflows';
 export async function listAllGroupedByPipelineId(options = { fetch }) {
 	return pb.send<Record<string, ExecutionSummary[]>>(baseUrl, {
 		method: 'GET',
-		fetch: options.fetch
+		fetch: options.fetch,
+		requestKey: null
 	});
 }
 
 export async function list(pipelineId: string, options = { fetch }) {
 	return pb.send<ExecutionSummary[]>(`${baseUrl}/${pipelineId}`, {
 		method: 'GET',
-		fetch: options.fetch
+		fetch: options.fetch,
+		requestKey: null
 	});
 }
 
