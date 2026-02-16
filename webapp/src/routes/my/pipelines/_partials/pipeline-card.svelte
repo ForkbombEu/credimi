@@ -37,9 +37,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = {
 		pipeline: PocketbaseQueryResponse<'pipelines', ['schedules_via_pipeline', 'owner']>;
 		workflows?: WorkflowExecutionSummary[];
+		onRun?: () => void;
 	};
 
-	let { pipeline = $bindable(), workflows }: Props = $props();
+	let { pipeline = $bindable(), workflows, onRun }: Props = $props();
 
 	// Running
 
@@ -50,10 +51,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		const runnerType = Pipeline.Runner.getType(pipeline);
 		if (runnerType === 'specific') {
 			await Pipeline.run(pipeline);
+			onRun?.();
 		} else {
 			const runner = Pipeline.Runner.get(pipeline.id);
 			if (runner) {
 				await Pipeline.run(pipeline);
+				onRun?.();
 				runPipelineAfterRunnerSelect = false;
 			} else {
 				runPipelineAfterRunnerSelect = true;
