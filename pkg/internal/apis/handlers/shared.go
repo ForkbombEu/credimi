@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"regexp"
 	"strings"
 	"time"
 
@@ -706,8 +707,29 @@ func calculateDuration(startTime, endTime string) string {
 		return ""
 	}
 
-	// Format duration as a human-readable string
-	return duration.String()
+	return formatDuration(duration)
+}
+
+func formatDuration(d time.Duration) string {
+	if d < 0 {
+		return ""
+	}
+	s := d.String()
+	// Split into number and unit segments (e.g. "1h2m3.456s" -> ["1", "h", "2", "m", "3.456", "s"])
+	re := regexp.MustCompile(`\d+\.?\d*|[a-zA-Zµ]+`)
+	tokens := re.FindAllString(s, -1)
+	if len(tokens) == 0 {
+		return ""
+	}
+	var parts []string
+	for i := 0; i+1 < len(tokens); i += 2 {
+		numStr, unit := tokens[i], tokens[i+1]
+		if idx := strings.Index(numStr, "."); idx >= 0 {
+			numStr = numStr[:idx]
+		}
+		parts = append(parts, numStr+unit)
+	}
+	return strings.Join(parts, " ")
 }
 
 const testDataDir = "../../../../test_pb_data"
