@@ -11,8 +11,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path/filepath"
 	"testing"
 
+	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/require"
 )
 
@@ -23,6 +25,36 @@ func TestParsePipelineName(t *testing.T) {
 
 	_, err = parsePipelineName([]byte("name: ["))
 	require.Error(t, err)
+}
+
+func TestNewPipelineCmdFlagsAndSubcommands(t *testing.T) {
+	cmd := NewPipelineCmd()
+	require.Equal(t, "pipeline", cmd.Use)
+	require.NotNil(t, cmd.Flag("api-key"))
+	require.Equal(
+		t,
+		[]string{"true"},
+		cmd.Flag("api-key").Annotations[cobra.BashCompOneRequiredFlag],
+	)
+
+	subcommands := cmd.Commands()
+	require.Len(t, subcommands, 2)
+	require.ElementsMatch(
+		t,
+		[]string{"schema", "store"},
+		[]string{subcommands[0].Use, subcommands[1].Use},
+	)
+}
+
+func TestNewPipelineStoreCmdFlags(t *testing.T) {
+	cmd := NewPipelineStoreCmd()
+	require.Equal(t, "store", cmd.Use)
+	require.NotNil(t, cmd.Flag("api-key"))
+	require.Equal(
+		t,
+		[]string{"true"},
+		cmd.Flag("api-key").Annotations[cobra.BashCompOneRequiredFlag],
+	)
 }
 
 func TestAuthenticate(t *testing.T) {
@@ -169,6 +201,98 @@ func TestFindOrCreatePipelineCreatesWhenMissing(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, created["id"], result["id"])
 	require.Equal(t, 2, call)
+}
+
+func TestCreatePipelineSuccess(t *testing.T) {
+	input := &PipelineCLIInput{Name: "demo", YAML: "name: demo"}
+	created := map[string]any{"id": "rec_789", "yaml": input.YAML}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/collections/pipelines/records", r.URL.Path)
+		require.Equal(t, http.MethodPost, r.Method)
+
+		var body map[string]any
+		require.NoError(t, json.NewDecoder(r.Body).Decode(&body))
+		require.Equal(t, input.Name, body["name"])
+		require.Equal(t, input.YAML, body["yaml"])
+
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(created))
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	result, err := createPipeline(context.Background(), "token", "org", input)
+	require.NoError(t, err)
+	require.Equal(t, created["id"], result["id"])
+}
+
+func TestCreatePipelineFailure(t *testing.T) {
+	input := &PipelineCLIInput{Name: "demo", YAML: "name: demo"}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte("nope"))
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	_, err := createPipeline(context.Background(), "token", "org", input)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to create pipeline")
+}
+
+func TestReadPipelineInputFromFile(t *testing.T) {
+	tempDir := t.TempDir()
+	path := filepath.Join(tempDir, "pipeline.yaml")
+	require.NoError(t, os.WriteFile(path, []byte("name: from-file\n"), 0o600))
+
+	prevPath := yamlPath
+	yamlPath = path
+	t.Cleanup(func() {
+		yamlPath = prevPath
+	})
+
+	input, err := readPipelineInput()
+	require.NoError(t, err)
+	require.Equal(t, "from-file", input.Name)
+	require.Contains(t, input.YAML, "from-file")
+}
+
+func TestReadPipelineInputFromStdin(t *testing.T) {
+	prevPath := yamlPath
+	yamlPath = ""
+	t.Cleanup(func() {
+		yamlPath = prevPath
+	})
+
+	origStdin := os.Stdin
+	reader, writer, err := os.Pipe()
+	require.NoError(t, err)
+	os.Stdin = reader
+	t.Cleanup(func() {
+		os.Stdin = origStdin
+	})
+
+	_, _ = writer.Write([]byte("name: from-stdin\n"))
+	_ = writer.Close()
+
+	input, err := readPipelineInput()
+	require.NoError(t, err)
+	require.Equal(t, "from-stdin", input.Name)
+	require.Contains(t, input.YAML, "from-stdin")
+}
+
+func TestDecodeJSONPayload(t *testing.T) {
+	payload := decodeJSONPayload([]byte(`{"ok":true}`))
+	require.Equal(t, map[string]any{"ok": true}, payload)
+
+	payload = decodeJSONPayload([]byte("not-json"))
+	require.Equal(t, map[string]any{"raw": "not-json"}, payload)
 }
 
 // TestStartPipelineQueuesRunnerPipelines verifies queue output for runner pipelines.
