@@ -38,6 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<th>{m.Results()}</th>
 						<th>{m.Start_time()}</th>
 						<th>{m.End_time()}</th>
+						<th>{m.Duration()}</th>
 						<th>{m.details()}</th>
 						<th>{m.Actions()}</th>
 					</tr>
@@ -96,6 +97,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							<td class="text-muted-foreground">
 								{#if workflow.endTime !== ''}
 									{workflow.endTime}
+								{:else}
+									{@render na()}
+								{/if}
+							</td>
+							<td class="text-muted-foreground">
+								{#if workflow.duration}
+									{workflow.duration}
 								{:else}
 									{@render na()}
 								{/if}

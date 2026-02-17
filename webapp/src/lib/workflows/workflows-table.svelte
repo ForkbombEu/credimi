@@ -75,6 +75,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#if !hideColumns.includes('end_time')}
 					<Table.Head class="text-right">{m.End_time()}</Table.Head>
 				{/if}
+				{#if !hideColumns.includes('duration')}
+					<Table.Head class="text-right">{m.Duration()}</Table.Head>
+				{/if}
 				{#if !hideColumns.includes('actions')}
 					<Table.Head class="text-right">{m.Actions()}</Table.Head>
 				{/if}
