@@ -159,6 +159,31 @@ func TestShouldIncludeQueuedRuns(t *testing.T) {
 	require.False(t, shouldIncludeQueuedRuns("completed"))
 }
 
+func TestBuildQueuedWorkflowSummary(t *testing.T) {
+	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
+	queued := QueuedPipelineRunAggregate{
+		TicketID:   "ticket-1",
+		Position:   0,
+		LineLen:    3,
+		RunnerIDs:  []string{"runner-1", "runner-2"},
+		EnqueuedAt: now,
+	}
+
+	summary := buildQueuedWorkflowSummary(queued, "UTC", "display-name")
+	require.Equal(t, "queue/ticket-1", summary.Execution.WorkflowID)
+	require.Equal(t, "ticket-1", summary.Execution.RunID)
+	require.Equal(t, "display-name", summary.DisplayName)
+	require.Equal(t, string(WorkflowStatusQueued), summary.Status)
+	require.Equal(t, 1, summary.Queue.Position)
+	require.Equal(t, 3, summary.Queue.LineLen)
+	require.Equal(t, []string{"runner-1", "runner-2"}, summary.Queue.RunnerIDs)
+}
+
+func TestResolveQueuedPipelineDisplayNameFallback(t *testing.T) {
+	require.Equal(t, "pipeline-run", resolveQueuedPipelineDisplayName(nil, ""))
+	require.Equal(t, "custom-id", resolveQueuedPipelineDisplayName(nil, "custom-id"))
+}
+
 func TestHandleListMyChecksStatusFilterQuery(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
