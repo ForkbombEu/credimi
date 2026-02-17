@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
@@ -21,8 +22,10 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
+	"go.temporal.io/sdk/workflow"
 )
 
 func TestValidateScheduleModeDaily(t *testing.T) {
@@ -150,9 +153,107 @@ func TestStartScheduledPipelineUsesScheduledEnqueueWorkflow(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
+func TestListScheduledWorkflowsHappyPath(t *testing.T) {
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+
+	iter := temporalmocks.NewScheduleListIterator(t)
+	iter.On("HasNext").Return(true).Once()
+	iter.On("Next").Return(&client.ScheduleListEntry{
+		ID: "schedule-1",
+		Spec: &client.ScheduleSpec{
+			Calendars: []client.ScheduleCalendarSpec{
+				{
+					Month:      []client.ScheduleRange{{Start: 1, End: 12}},
+					DayOfMonth: []client.ScheduleRange{{Start: 1, End: 31}},
+					DayOfWeek:  []client.ScheduleRange{{Start: 0, End: 6}},
+				},
+			},
+		},
+		WorkflowType: workflow.Type{Name: "Dynamic Pipeline Workflow"},
+		NextActionTimes: []time.Time{
+			time.Date(2026, time.February, 17, 12, 0, 0, 0, time.UTC),
+		},
+	}, nil).Once()
+	iter.On("HasNext").Return(false).Once()
+
+	fakeSchedule := &fakeScheduleClient{listIter: iter}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	schedules, err := listScheduledWorkflows("acme")
+	require.NoError(t, err)
+	require.Len(t, schedules, 1)
+	require.Equal(t, "schedule-1", schedules[0].ID)
+	require.Equal(t, "daily", schedules[0].ScheduleMode.Mode)
+	require.Equal(t, "", schedules[0].DisplayName)
+	require.Equal(t, "", schedules[0].PipelineID)
+	require.Equal(t, "Dynamic Pipeline Workflow", schedules[0].WorkflowType.Name)
+	require.Equal(t, "17/02/2026, 12:00:00", schedules[0].NextActionTime)
+}
+
+func TestHandleScheduleNotFound(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+
+	fakeSchedule := &fakeScheduleClient{}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/sched-1/cancel", nil)
+	req.SetPathValue("scheduleId", "sched-1")
+	rec := httptest.NewRecorder()
+
+	handler := handleSchedule(
+		func(ctx context.Context, h client.ScheduleHandle) error {
+			return &serviceerror.NotFound{Message: "missing"}
+		},
+		func(scheduleID, namespace string) any {
+			return map[string]string{"scheduleId": scheduleID, "namespace": namespace}
+		},
+		nil,
+	)
+
+	err = handler(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+
+	apiErr := decodeAPIError(t, rec)
+	require.Equal(t, http.StatusNotFound, apiErr.Code)
+	require.Equal(t, "schedule not found", apiErr.Reason)
+}
+
 type fakeScheduleClient struct {
 	createdOptions []client.ScheduleOptions
 	handle         client.ScheduleHandle
+	listIter       client.ScheduleListIterator
+	listErr        error
 }
 
 // Create records schedule options for assertions and returns a stub handle.
@@ -172,6 +273,12 @@ func (f *fakeScheduleClient) List(
 	ctx context.Context,
 	options client.ScheduleListOptions,
 ) (client.ScheduleListIterator, error) {
+	if f.listErr != nil {
+		return nil, f.listErr
+	}
+	if f.listIter != nil {
+		return f.listIter, nil
+	}
 	return nil, errors.New("schedule list not implemented in test")
 }
 
