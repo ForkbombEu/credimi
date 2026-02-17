@@ -1054,6 +1054,8 @@ components:
           type: array
         displayName:
           type: string
+        duration:
+          type: string
         endTime:
           type: string
         enqueuedAt:
