@@ -225,6 +225,15 @@ var DefaultWorkers = []workerConfig{
 	},
 }
 
+var (
+	getTemporalClient      = temporalclient.GetTemporalClientWithNamespace
+	newNamespaceClientFn   = client.NewNamespaceClient
+	sleepFn                = time.Sleep
+	nowFn                  = time.Now
+	startWorkerFn          = startWorker
+	startPipelineWorkerFn  = startPipelineWorker
+)
+
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
 	defer wg.Done()
 	w := worker.New(c, config.TaskQueue, worker.Options{})
@@ -302,7 +311,7 @@ func StartAllWorkersByNamespace(namespace string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	workerCancels.Store(namespace, cancel)
 
-	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	c, err := getTemporalClient(namespace)
 	if err != nil {
 		log.Fatalf("Failed to connect to Temporal: %v", err)
 	}
@@ -319,11 +328,11 @@ func StartAllWorkersByNamespace(namespace string) {
 
 	for _, config := range workers {
 		wg.Add(1)
-		go startWorker(ctx, c, config, &wg)
+		go startWorkerFn(ctx, c, config, &wg)
 	}
 
 	wg.Add(1)
-	go startPipelineWorker(ctx, c, &wg)
+	go startPipelineWorkerFn(ctx, c, &wg)
 
 	go func() {
 		wg.Wait()
@@ -363,10 +372,10 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
 	log.Printf("[WorkersHook] Connecting to Temporal at %s for namespace %q", hostPort, namespace)
 
-	deadline := time.Now().Add(90 * time.Second)
+	deadline := nowFn().Add(90 * time.Second)
 	attempt := 0
 
-	nc, err := client.NewNamespaceClient(client.Options{
+	nc, err := newNamespaceClientFn(client.Options{
 		HostPort: hostPort,
 		ConnectionOptions: client.ConnectionOptions{
 			TLS: nil,
@@ -416,7 +425,7 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 			err,
 		)
 
-		if time.Now().After(deadline) {
+		if nowFn().After(deadline) {
 			return err
 		}
 
@@ -425,7 +434,7 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 			backoff = 5 * time.Second
 		}
 		log.Printf("[WorkersHook] Sleeping %v before retry...", backoff)
-		time.Sleep(backoff)
+		sleepFn(backoff)
 	}
 }
 
