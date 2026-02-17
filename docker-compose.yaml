@@ -16,7 +16,7 @@ services:
     expose:
       - 9200
     volumes:
-      - /usr/share/elasticsearch/data
+      - esdata:/usr/share/elasticsearch/data
   postgresql:
     container_name: temporal-postgresql
     environment:
@@ -86,3 +86,5 @@ services:
     volumes:
       - ./pb_data/:/app/pb_data
       - /var/run/docker.sock:/var/run/docker.sock
+volumes:
+  esdata:
