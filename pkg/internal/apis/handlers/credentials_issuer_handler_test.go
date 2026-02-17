@@ -5,8 +5,10 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/http"
 	"testing"
 
@@ -389,6 +391,25 @@ func TestCredentialIssuersAPI(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
+}
+
+func TestIsPrivateIP(t *testing.T) {
+	require.True(t, isPrivateIP(net.IPv4(10, 0, 0, 1)))
+	require.True(t, isPrivateIP(net.IPv4(192, 168, 1, 1)))
+	require.True(t, isPrivateIP(net.ParseIP("::1")))
+	require.False(t, isPrivateIP(net.IPv4(8, 8, 8, 8)))
+}
+
+func TestCheckEndpointExistsInvalidURL(t *testing.T) {
+	err := checkEndpointExists(context.Background(), "://bad")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "invalid")
+}
+
+func TestCheckEndpointExistsUnsupportedScheme(t *testing.T) {
+	err := checkEndpointExists(context.Background(), "ftp://example.com")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unsupported URL scheme")
 }
 
 func TestParseCredentialDisplay(t *testing.T) {
