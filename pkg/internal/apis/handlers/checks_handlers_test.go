@@ -5,16 +5,27 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/api/common/v1"
+	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/api/workflow/v1"
+	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/sdk/client"
+	temporalmocks "go.temporal.io/sdk/mocks"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func decodeAPIError(t testing.TB, rec *httptest.ResponseRecorder) apierror.APIError {
@@ -139,4 +150,164 @@ func TestHandleGetMyCheckRunHistoryMissingParams(t *testing.T) {
 	apiErr := decodeAPIError(t, ar)
 	require.Equal(t, http.StatusBadRequest, apiErr.Code)
 	require.Equal(t, "checkId and runId are required", apiErr.Reason)
+}
+
+func TestShouldIncludeQueuedRuns(t *testing.T) {
+	require.True(t, shouldIncludeQueuedRuns(""))
+	require.True(t, shouldIncludeQueuedRuns("running"))
+	require.True(t, shouldIncludeQueuedRuns("Completed, RUNNING"))
+	require.False(t, shouldIncludeQueuedRuns("completed"))
+}
+
+func TestHandleListMyChecksStatusFilterQuery(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := listChecksTemporalClient
+	origList := listChecksWorkflows
+	t.Cleanup(func() {
+		listChecksTemporalClient = origClient
+		listChecksWorkflows = origList
+	})
+
+	mockClient := &temporalmocks.Client{}
+	listChecksTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	var capturedQuery string
+	listChecksWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+		capturedQuery = query
+		return &workflowservice.ListWorkflowExecutionsResponse{}, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/my/checks?status=Completed,FAILED", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleListMyChecks()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	expected := []string{
+		fmt.Sprintf("ExecutionStatus=%d", enums.WORKFLOW_EXECUTION_STATUS_COMPLETED),
+		fmt.Sprintf("ExecutionStatus=%d", enums.WORKFLOW_EXECUTION_STATUS_FAILED),
+	}
+	for _, clause := range expected {
+		require.Contains(t, capturedQuery, clause)
+	}
+	require.Contains(t, capturedQuery, "or")
+}
+
+func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := listChecksTemporalClient
+	origList := listChecksWorkflows
+	t.Cleanup(func() {
+		listChecksTemporalClient = origClient
+		listChecksWorkflows = origList
+	})
+
+	mockClient := &temporalmocks.Client{}
+	listChecksTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	listChecksWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+		return &workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflow.WorkflowExecutionInfo{
+				{
+					Execution: &common.WorkflowExecution{WorkflowId: "wf-dyn", RunId: "run-dyn"},
+					Type:      &common.WorkflowType{Name: "Dynamic Pipeline Workflow"},
+					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					StartTime: timestamppb.New(time.Now().Add(-2 * time.Minute)),
+					CloseTime: timestamppb.New(time.Now().Add(-time.Minute)),
+				},
+				{
+					Execution: &common.WorkflowExecution{WorkflowId: "wf-check", RunId: "run-check"},
+					Type:      &common.WorkflowType{Name: "CheckWorkflow"},
+					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					StartTime: timestamppb.New(time.Now().Add(-3 * time.Minute)),
+					CloseTime: timestamppb.New(time.Now().Add(-2 * time.Minute)),
+				},
+			},
+		}, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/my/checks?status=completed", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleListMyChecks()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp ListMyChecksResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+	require.Len(t, resp.Executions, 1)
+	require.Equal(t, "wf-check", resp.Executions[0].Execution.WorkflowID)
+}
+
+func TestHandleListMyChecksListError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := listChecksTemporalClient
+	origList := listChecksWorkflows
+	t.Cleanup(func() {
+		listChecksTemporalClient = origClient
+		listChecksWorkflows = origList
+	})
+
+	mockClient := &temporalmocks.Client{}
+	listChecksTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+	listChecksWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+		return nil, &serviceerror.Internal{Message: "list failed"}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/my/checks", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleListMyChecks()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	apiErr := decodeAPIError(t, rec)
+	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
+	require.Equal(t, "failed to list workflows", apiErr.Reason)
 }
