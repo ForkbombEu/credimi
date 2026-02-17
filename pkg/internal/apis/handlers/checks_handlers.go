@@ -1203,6 +1203,7 @@ func buildExecutionHierarchy(
 			Type:      exec.Type,
 			StartTime: exec.StartTime,
 			EndTime:   exec.CloseTime,
+			Duration:  calculateDuration(exec.StartTime, exec.CloseTime),
 			Status:    normalizeTemporalStatus(exec.Status),
 		}
 

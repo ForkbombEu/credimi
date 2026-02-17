@@ -77,6 +77,7 @@ type WorkflowExecutionSummary struct {
 	Type          WorkflowType                `json:"type"                     validate:"required"`
 	StartTime     string                      `json:"startTime"`
 	EndTime       string                      `json:"endTime"`
+	Duration      string                      `json:"duration"`
 	EnqueuedAt    string                      `json:"enqueuedAt"`
 	Status        string                      `json:"status"                   validate:"required"`
 	DisplayName   string                      `json:"displayName"              validate:"required"`
@@ -681,6 +682,32 @@ func computePipelineResults(
 	}
 
 	return results
+}
+
+// calculateDuration calculates the duration between startTime and endTime
+// Returns empty string if either time is empty or invalid
+func calculateDuration(startTime, endTime string) string {
+	if startTime == "" || endTime == "" {
+		return ""
+	}
+
+	start, err := time.Parse(time.RFC3339Nano, startTime)
+	if err != nil {
+		return ""
+	}
+
+	end, err := time.Parse(time.RFC3339Nano, endTime)
+	if err != nil {
+		return ""
+	}
+
+	duration := end.Sub(start)
+	if duration < 0 {
+		return ""
+	}
+
+	// Format duration as a human-readable string
+	return duration.String()
 }
 
 const testDataDir = "../../../../test_pb_data"
