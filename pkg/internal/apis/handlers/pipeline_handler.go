@@ -502,12 +502,12 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 					if err != nil {
 						notFound := &serviceerror.NotFound{}
 						if errors.As(err, &notFound) {
-							return apierror.New(
-								http.StatusNotFound,
-								"workflow",
-								"workflow not found",
-								err.Error(),
-							).JSON(e)
+							e.App.Logger().Warn(fmt.Sprintf(
+								"skipping pipeline result: workflow not found (workflow_id=%s run_id=%s)",
+								resultRecord.GetString("workflow_id"),
+								resultRecord.GetString("run_id"),
+							))
+							continue
 						}
 						invalidArgument := &serviceerror.InvalidArgument{}
 						if errors.As(err, &invalidArgument) {
@@ -749,12 +749,7 @@ func processPipelineResults(
 		if err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
-				return nil, apierror.New(
-					http.StatusNotFound,
-					"workflow",
-					"workflow not found",
-					err.Error(),
-				)
+				continue
 			}
 			invalidArgument := &serviceerror.InvalidArgument{}
 			if errors.As(err, &invalidArgument) {
