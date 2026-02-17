@@ -93,12 +93,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/if}
 				</SectionCard>
 			{/if}
-
-			{#if form.availableCustomChecks.length > 0}
-				<SectionCard title={m.Custom_checks()} subtitle={m.Select_custom_checks_subtitle()}>
-					{@render CustomChecksSelect()}
-				</SectionCard>
-			{/if}
 		{/if}
 	</div>
 </div>
@@ -195,53 +189,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	</Check.Group>
 {/snippet}
 
-{#snippet CustomChecksSelect()}
-	<Check.Group
-		bind:value={() => form.selectedCustomChecksIds, (v) => (form.selectedCustomChecksIds = v)}
-		name="test-suites"
-		class="flex flex-col gap-4 overflow-auto"
-	>
-		{#each form.availableCustomChecks as check (check.id)}
-			<Label class="flex items-start gap-3 text-sm">
-				<div class="w-4 pt-0.5">
-					<Checkbox value={check.id} />
-				</div>
-				<div class="min-w-0 flex-1 space-y-2">
-					<div>
-						<T class="font-medium">{check.name}</T>
-						{#if check.description}
-							<T class="text-muted-foreground text-xs">
-								{check.description}
-							</T>
-						{/if}
-					</div>
-
-					{#if check.homepage || check.repository}
-						<div class="flex flex-wrap gap-2 text-xs">
-							{#if check.homepage}
-								<LinkExternal
-									href={check.homepage}
-									text={m.Homepage()}
-									icon={Home}
-									title={m.Custom_check_homepage()}
-								/>
-							{/if}
-
-							{#if check.repository}
-								<LinkExternal
-									href={check.repository}
-									text={m.Repository()}
-									icon={GitBranch}
-									title={m.Custom_check_repository()}
-								/>
-							{/if}
-						</div>
-					{/if}
-				</div>
-			</Label>
-		{/each}
-	</Check.Group>
-{/snippet}
 
 {#snippet suiteLabel(suite: Suite)}
 	<div class="space-y-3">
@@ -303,9 +250,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/if}
 					{#if form.selectedTests.length > 0}
 						{@render CountItem(form.selectedTests.length, m.Tests())}
-					{/if}
-					{#if form.selectedCustomChecksIds.length > 0}
-						{@render CountItem(form.selectedCustomChecksIds.length, m.Custom_checks())}
 					{/if}
 				</ul>
 			{/if}
