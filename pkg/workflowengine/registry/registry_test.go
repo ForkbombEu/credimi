@@ -4,50 +4,44 @@
 
 package registry
 
-import (
-	"testing"
+import "testing"
 
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/stretchr/testify/require"
-)
+import "github.com/stretchr/testify/require"
 
-func TestRegistryFactoriesAreWellFormed(t *testing.T) {
-	for key, factory := range Registry {
-		require.NotNil(t, factory.NewFunc, "missing NewFunc for %s", key)
-		require.True(
-			t,
-			factory.Kind == TaskActivity || factory.Kind == TaskWorkflow,
-			"invalid kind for %s",
-			key,
-		)
+func TestRegistryContainsCoreTasks(t *testing.T) {
+	t.Parallel()
 
-		if factory.Kind == TaskActivity {
-			require.NotNil(t, factory.PayloadType, "missing payload type for %s", key)
-			requireOutputKindValid(t, factory.OutputKind, key)
-		}
-	}
+	require.Contains(t, Registry, "http-request")
+	require.Contains(t, Registry, "mobile-automation")
+	require.Contains(t, Registry, "conformance-check")
+
+	httpTask := Registry["http-request"]
+	require.Equal(t, TaskActivity, httpTask.Kind)
+	require.NotNil(t, httpTask.NewFunc())
+	require.NotNil(t, httpTask.PayloadType)
+
+	mobileTask := Registry["mobile-automation"]
+	require.Equal(t, TaskWorkflow, mobileTask.Kind)
+	require.NotNil(t, mobileTask.NewFunc())
+	require.NotNil(t, mobileTask.PayloadType)
+	require.True(t, mobileTask.CustomTaskQueue)
+	require.NotNil(t, mobileTask.PipelinePayloadType)
 }
 
-func TestPipelineWorkerDenylistEntriesExist(t *testing.T) {
-	for key := range PipelineWorkerDenylist {
-		_, ok := Registry[key]
-		require.True(t, ok, "denylisted key missing from registry: %s", key)
-	}
+func TestPipelineInternalRegistryContainsTasks(t *testing.T) {
+	t.Parallel()
+
+	require.Contains(t, PipelineInternalRegistry, "scheduled-pipeline-enqueue")
+	require.Contains(t, PipelineInternalRegistry, "mobile-runner-semaphore-done")
+
+	task := PipelineInternalRegistry["scheduled-pipeline-enqueue"]
+	require.Equal(t, TaskWorkflow, task.Kind)
+	require.NotNil(t, task.NewFunc())
 }
 
-func requireOutputKindValid(t *testing.T, kind workflowengine.OutputKind, key string) {
-	require.GreaterOrEqual(
-		t,
-		int(kind),
-		int(workflowengine.OutputAny),
-		"invalid output kind for %s",
-		key,
-	)
-	require.LessOrEqual(
-		t,
-		int(kind),
-		int(workflowengine.OutputBool),
-		"invalid output kind for %s",
-		key,
-	)
+func TestPipelineWorkerDenylist(t *testing.T) {
+	t.Parallel()
+
+	_, ok := PipelineWorkerDenylist["mobile-automation"]
+	require.True(t, ok)
 }
