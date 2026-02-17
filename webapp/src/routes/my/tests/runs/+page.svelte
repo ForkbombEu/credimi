@@ -19,7 +19,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import { setDashboardNavbar } from '../../+layout@.svelte';
-	import { fetchWorkflows, isExtendedWorkflowStatus, TABS } from './_partials/index.js';
+	import {
+		fetchWorkflows,
+		isExtendedWorkflowStatus,
+		parseLimit,
+		parseOffset,
+		TABS
+	} from './_partials/index.js';
 	import PaginationArrows from './_partials/pagination-arrows.svelte';
 
 	//
@@ -48,35 +54,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			}
 		},
 		limit: {
-			encode: (value) => (value === undefined ? undefined : String(value)),
-			decode: (value) => {
-				const parsed = Number(value);
-				return Number.isNaN(parsed) || value === null ? undefined : parsed;
-			}
+			encode: (value) => value,
+			decode: parseLimit
 		},
 		offset: {
-			encode: (value) => (value === undefined ? undefined : String(value)),
-			decode: (value) => {
-				const parsed = Number(value);
-				return Number.isNaN(parsed) || value === null ? undefined : parsed;
-			}
+			encode: (value) => value,
+			decode: parseOffset
 		}
 	});
 
 	//
 
 	const workflows = new PolledResource(
-		async () => {
-			const result = await fetchWorkflows(params.tab, {
+		() =>
+			fetchWorkflows(params.tab, {
 				status: params.status,
 				...pagination
-			});
-			if (result instanceof Error) {
-				console.error(result);
-				return [];
-			}
-			return result;
-		},
+			}),
 		{
 			initialValue: () => loadedWorkflows,
 			intervalMs: 10000
@@ -103,6 +97,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					onLimitChange={(limit) => {
 						params.limit = limit;
 					}}
+					currentItemCount={workflows.current?.length}
 				/>
 			{/if}
 			<Tabs.Root bind:value={params.tab}>

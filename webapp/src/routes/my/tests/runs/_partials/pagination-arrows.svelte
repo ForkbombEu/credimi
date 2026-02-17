@@ -13,22 +13,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { PaginationParams } from '.';
 
+	//
+
 	type Props = {
 		pagination: PaginationParams;
 		onPrevious: () => void;
 		onNext: () => void;
 		onLimitChange: (limit: number) => void;
+		currentItemCount: number;
 	};
 
-	let { pagination, onPrevious, onNext, onLimitChange }: Props = $props();
+	let { pagination, onPrevious, onNext, onLimitChange, currentItemCount }: Props = $props();
 </script>
 
 <SelectInputAny
-	items={[
-		{ value: 10, label: '10' },
-		{ value: 20, label: '20' },
-		{ value: 50, label: '50' }
-	]}
+	items={[10, 20, 50].map((value) => ({ value, label: String(value) }))}
 	value={pagination.limit}
 	onValueChange={(v) => {
 		if (!v) return;
@@ -37,13 +36,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 />
 
 <ButtonGroup.Root>
-	<Button size="icon" variant="outline" onclick={onPrevious} disabled={pagination.offset === 0}>
+	<Button
+		size="icon"
+		variant="outline"
+		onclick={onPrevious}
+		disabled={pagination.offset === 0 || pagination.offset === undefined}
+	>
 		<ArrowLeftIcon />
 	</Button>
 	<Button size="icon" variant="outline" disabled>
 		{(pagination.offset ?? 0) + 1}
 	</Button>
-	<Button size="icon" variant="outline" onclick={onNext}>
+	<Button
+		size="icon"
+		variant="outline"
+		onclick={onNext}
+		disabled={currentItemCount < (pagination.limit ?? 0)}
+	>
 		<ArrowRightIcon />
 	</Button>
 </ButtonGroup.Root>

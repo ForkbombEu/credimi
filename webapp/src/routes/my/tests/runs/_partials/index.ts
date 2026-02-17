@@ -93,7 +93,20 @@ export function getPaginationQueryParams(url: URL): PaginationParams {
 	const limit = url.searchParams.get(Pipeline.Workflows.LIMIT_PARAM);
 	const offset = url.searchParams.get(Pipeline.Workflows.OFFSET_PARAM);
 	return {
-		limit: limit ? Number(limit) : 20,
-		offset: offset ? Number(offset) : undefined
+		limit: parseLimit(limit),
+		offset: parseOffset(offset)
 	};
+}
+
+const DEFAULT_LIMIT = 20;
+const DEFAULT_OFFSET = 0;
+
+export function parseLimit(value: string | null): number | undefined {
+	const parsed = Number(value);
+	return Number.isNaN(parsed) || value === null ? DEFAULT_LIMIT : parsed;
+}
+
+export function parseOffset(value: string | null): number | undefined {
+	const parsed = Number(value);
+	return Number.isNaN(parsed) || value === null ? DEFAULT_OFFSET : parsed;
 }
