@@ -25,6 +25,88 @@ func TestParsePipelineName(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestAuthenticate(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/apikey/authenticate", r.URL.Path)
+		require.Equal(t, "key-123", r.Header.Get("X-Api-Key"))
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			"token": "token-abc",
+		}))
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	prevAPIKey := apiKey
+	apiKey = "key-123"
+	t.Cleanup(func() {
+		apiKey = prevAPIKey
+	})
+
+	token, err := authenticate(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, "token-abc", token)
+}
+
+func TestAuthenticateFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte("nope"))
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	prevAPIKey := apiKey
+	apiKey = "key-123"
+	t.Cleanup(func() {
+		apiKey = prevAPIKey
+	})
+
+	_, err := authenticate(context.Background())
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "auth failed")
+}
+
+func TestGetMyOrganization(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/organizations/my", r.URL.Path)
+		require.Equal(t, "Bearer token-abc", r.Header.Get("Authorization"))
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			"id":              "org-1",
+			"canonified_name": "org-canon",
+		}))
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	orgID, canon, err := getMyOrganization(context.Background(), "token-abc")
+	require.NoError(t, err)
+	require.Equal(t, "org-1", orgID)
+	require.Equal(t, "org-canon", canon)
+}
+
+func TestGetMyOrganizationFailure(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("boom"))
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	_, _, err := getMyOrganization(context.Background(), "token-abc")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to get organization")
+}
+
 func TestFindOrCreatePipelineReturnsExisting(t *testing.T) {
 	input := &PipelineCLIInput{Name: "demo", YAML: "name: demo"}
 	existing := map[string]any{"id": "rec_123", "yaml": input.YAML}
