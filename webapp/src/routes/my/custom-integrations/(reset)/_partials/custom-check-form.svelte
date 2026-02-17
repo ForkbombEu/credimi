@@ -8,10 +8,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { StandardsWithTestSuites } from '$lib/standards';
 
 	import { yaml } from '@codemirror/lang-yaml';
-	import { CircleHelp, GitBranch, PlusIcon, UploadIcon } from '@lucide/svelte';
+	import { PlusIcon, UploadIcon } from '@lucide/svelte';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
 	import PageCardSection from '$lib/layout/page-card-section.svelte';
-	import StandardAndVersionField from '$lib/standards/standard-and-version-field.svelte';
 	import { jsonStringSchema, stepciYamlSchema } from '$lib/utils';
 	import { String } from 'effect';
 	import _ from 'lodash';
@@ -83,7 +82,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				await pb.collection('custom_checks').update(record.id, data);
 			}
 			toast.success(currentLabels.toastMessage);
-			await goto('/my/custom-checks');
+			await goto('/my/custom-integrations');
 		},
 		options: {
 			dataType: 'form'
@@ -178,23 +177,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let formState = fromStore(form.form);
 
-	// Parse selected standard and version for contextual links
-	const selectedStandardAndVersion = $derived(() => {
-		const value = formState.current.standard_and_version;
-		if (!value || typeof value !== 'string') return null;
-
-		const [standardUid, versionUid] = value.split('/');
-		if (!standardUid || !versionUid) return null;
-
-		const standard = standardsAndTestSuites.find((s) => s.uid === standardUid);
-		if (!standard) return null;
-
-		const version = standard.versions.find((v) => v.uid === versionUid);
-		if (!version) return null;
-
-		return { standard, version };
-	});
-
 	//
 
 	async function jsonToSchema(json: unknown) {
@@ -219,42 +201,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <FocusPageLayout
 	title={currentLabels.title}
 	description={m.Custom_check_form_description()}
-	backButton={{ title: m.Back_and_discard(), href: '/my/custom-checks' }}
+	backButton={{ title: m.Back_and_discard(), href: '/my/custom-integrations' }}
 >
 	<Form {form}>
-		<PageCardSection
-			title={m.Standard_and_version()}
-			description={m.Standard_and_Version_description()}
-		>
-			{#snippet headerActions()}
-				{@const selection = selectedStandardAndVersion()}
-				{#if selection}
-					{@const { standard, version } = selection}
-					<div class="flex flex-wrap gap-2">
-						{#if standard.standard_url}
-							<LinkExternal
-								href={standard.standard_url}
-								text="{standard.name} {m.Standard()}"
-								icon={CircleHelp}
-								title={m.Learn_about_standard({ name: standard.name })}
-							/>
-						{/if}
-
-						{#if version.specification_url}
-							<LinkExternal
-								href={version.specification_url}
-								text="{version.name} {m.Spec()}"
-								icon={GitBranch}
-								title={m.View_specification({ name: version.name })}
-							/>
-						{/if}
-					</div>
-				{/if}
-			{/snippet}
-
-			<StandardAndVersionField {form} name="standard_and_version" />
-		</PageCardSection>
-
 		<PageCardSection title={m.Check_Metadata()} description={m.Check_metadata_description()}>
 			<div class="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
 				<Field {form} name="name" options={{ label: m.Name() }} />

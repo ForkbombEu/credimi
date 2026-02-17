@@ -23,10 +23,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-type CustomCheck struct {
-	Form interface{} `json:"form"`
-	Yaml string      `json:"yaml" validate:"required"`
-}
 type Variable struct {
 	FieldName string      `json:"field_name" validate:"required"`
 	Value     interface{} `json:"value"      validate:"required"`
@@ -34,9 +30,8 @@ type Variable struct {
 }
 
 type SaveVariablesAndStartRequestInput struct {
-	ConfigsWithFields map[string][]Variable  `json:"configs_with_fields" validate:"required"`
-	ConfigsWithJSON   map[string]string      `json:"configs_with_json"   validate:"required"`
-	CustomChecks      map[string]CustomCheck `json:"custom_checks"       validate:"required"`
+	ConfigsWithFields map[string][]Variable `json:"configs_with_fields" validate:"required"`
+	ConfigsWithJSON   map[string]string     `json:"configs_with_json"   validate:"required"`
 }
 
 type openID4VPTestInputFile struct {
@@ -143,53 +138,6 @@ func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 		}
 
 		var returns []workflowengine.WorkflowResult
-
-		for id, customCheck := range req.CustomChecks {
-			if customCheck.Yaml == "" {
-				return apierror.New(
-					http.StatusBadRequest,
-					"yaml",
-					"yaml is required for custom check",
-					"missing yaml",
-				).JSON(e)
-			}
-			var formJSON string
-			if customCheck.Form != nil {
-				b, err := json.Marshal(customCheck.Form)
-				if err != nil {
-					return apierror.New(
-						http.StatusBadRequest,
-						"form",
-						"failed to serialize form to JSON",
-						err.Error(),
-					).JSON(e)
-				}
-				formJSON = string(b)
-			}
-
-			memo := map[string]interface{}{
-				"test":     "custom-check",
-				"standard": protocol,
-				"author":   id,
-				"version":  version,
-			}
-			results, err := processCustomChecks(
-				customCheck.Yaml,
-				appURL,
-				namespace,
-				memo,
-				formJSON,
-			)
-			if err != nil {
-				return apierror.New(
-					http.StatusBadRequest,
-					"custom-check",
-					"failed to process custom check",
-					err.Error(),
-				).JSON(e)
-			}
-			returns = append(returns, results)
-		}
 
 		for testName, config := range req.ConfigsWithJSON {
 			author := Author(strings.Split(testName, "/")[0])

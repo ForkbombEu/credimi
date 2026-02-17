@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { entities } from '$lib/global/entities';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { getCustomCheckPublicUrl } from '$lib/marketplace/utils.js';
+	import { getPath } from '$lib/utils';
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -36,7 +37,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<DashboardCard
 					{record}
 					avatar={(r) => pb.files.getURL(r, r.logo)}
-					subtitle={record.standard_and_version}
 				>
 					{#snippet actions()}
 						<Button href={getCustomCheckPublicUrl(record)}>
@@ -45,7 +45,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</Button>
 					{/snippet}
 					{#snippet editAction()}
-						<IconButton href="/my/custom-checks/edit-{record.id}" icon={Pencil} />
+						<IconButton href="/my/custom-integrations/{getPath(record)}/edit" icon={Pencil} />
 					{/snippet}
 				</DashboardCard>
 			{/each}
@@ -54,7 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </CollectionManager>
 
 {#snippet navbarRight()}
-	<Button href="/my/custom-checks/new">
+	<Button href="/my/custom-integrations/new">
 		<Plus />
 		{m.Add_a_custom_check()}
 	</Button>
