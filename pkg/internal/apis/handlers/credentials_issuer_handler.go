@@ -49,6 +49,17 @@ var IssuersRoutes routing.RouteGroup = routing.RouteGroup{
 	},
 }
 
+var (
+	credentialIssuerCheckWellKnownEndpoints = checkWellKnownEndpoints
+	credentialIssuerReadSchemaFile          = readSchemaFile
+	credentialIssuerStartWorkflow           = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewCredentialsIssuersWorkflow()
+		return w.Start(namespace, input)
+	}
+	credentialIssuerTemporalClient       = temporalclient.GetTemporalClientWithNamespace
+	credentialIssuerWaitForPartialResult = workflowengine.WaitForPartialResult[map[string]any]
+)
+
 var IssuerTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/credentials_issuers",
 	AuthenticationRequired: false,
@@ -103,7 +114,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			return apis.NewBadRequestError("invalid JSON input", err)
 		}
 
-		if err := checkWellKnownEndpoints(e.Request.Context(), req.URL); err != nil {
+		if err := credentialIssuerCheckWellKnownEndpoints(e.Request.Context(), req.URL); err != nil {
 			return apierror.New(
 				http.StatusNotFound,
 				"credential_issuers",
@@ -189,7 +200,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			}
 			isNew = true
 		}
-		credIssuerSchemaStr, apiErr := readSchemaFile(
+		credIssuerSchemaStr, apiErr := credentialIssuerReadSchemaFile(
 			utils.GetEnvironmentVariable(
 				"ROOT_DIR",
 			) + "/" + workflows.CredentialIssuerSchemaPath,
@@ -214,8 +225,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			},
 			ActivityOptions: &opt,
 		}
-		w := workflows.NewCredentialsIssuersWorkflow()
-		result, err := w.Start(orgName, workflowInput)
+		result, err := credentialIssuerStartWorkflow(orgName, workflowInput)
 		if err != nil {
 			if isNew {
 				if err := e.App.Delete(record); err != nil {
@@ -243,7 +253,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 			result.WorkflowRunID,
 		)
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(orgName)
+		c, err := credentialIssuerTemporalClient(orgName)
 		if err != nil {
 			if isNew {
 				if err := e.App.Delete(record); err != nil {
@@ -262,7 +272,7 @@ func HandleCredentialIssuerStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		issuerResult, err := workflowengine.WaitForPartialResult[map[string]any](
+		issuerResult, err := credentialIssuerWaitForPartialResult(
 			c,
 			result.WorkflowID,
 			result.WorkflowRunID,
