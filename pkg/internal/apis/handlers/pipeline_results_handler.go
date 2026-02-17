@@ -30,6 +30,12 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
+// pipelineResultsTemporalClient resolves Temporal clients for pipeline results handlers.
+var pipelineResultsTemporalClient = temporalclient.GetTemporalClientWithNamespace
+
+// pipelineResultsListQueuedRuns allows tests to stub queued run aggregation.
+var pipelineResultsListQueuedRuns = listQueuedPipelineRuns
+
 func HandleGetPipelineResults() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
@@ -109,7 +115,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 		}
 
 		// Get queued runs only when needed (status=queued or no status filter).
-		queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
+		queuedRuns, err := pipelineResultsListQueuedRuns(e.Request.Context(), namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -241,7 +247,7 @@ func fetchCompletedWorkflowsWithPagination(
 	runnerCache := map[string]map[string]any{}
 	runnerInfoByPipelineID := map[string]pipelineRunnerInfo{}
 
-	temporalClient, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	temporalClient, err := pipelineResultsTemporalClient(namespace)
 	if err != nil {
 		return nil, apierror.New(
 			http.StatusInternalServerError,
