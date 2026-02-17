@@ -15,7 +15,8 @@ import (
 )
 
 var (
-	clientCache sync.Map // map[string]client.Client under the hood
+	clientCache   sync.Map // map[string]client.Client under the hood
+	newLazyClient = client.NewLazyClient
 )
 
 func getTemporalClient(args ...string) (client.Client, error) {
@@ -27,7 +28,7 @@ func getTemporalClient(args ...string) (client.Client, error) {
 		return c.(client.Client), nil
 	}
 	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
-	c, err := client.NewLazyClient(client.Options{
+	c, err := newLazyClient(client.Options{
 		HostPort:  hostPort,
 		Namespace: namespace,
 	})
