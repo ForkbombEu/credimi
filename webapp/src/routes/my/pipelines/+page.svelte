@@ -49,7 +49,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#each records as pipeline, index (pipeline.id)}
 					{@const workflows = allWorkflows.current?.[pipeline.id]}
 					{#if userOrganization.current}
-						<PipelineCard bind:pipeline={records[index]} {workflows} />
+						<PipelineCard
+							bind:pipeline={records[index]}
+							{workflows}
+							onRun={() => allWorkflows.fetch()}
+						/>
 					{/if}
 				{/each}
 			</div>

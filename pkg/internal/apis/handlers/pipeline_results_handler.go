@@ -43,7 +43,9 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 		}
 
 		// Parse pagination parameters
-		limit, offset := parsePaginationParams(e, 20, 1)
+		// Frontend sends offset as a 0-based page number, convert to skip count
+		limit, pageNum := parsePaginationParams(e, 20, 0)
+		skip := pageNum * limit
 
 		status := e.Request.URL.Query().Get("status")
 		statusLower := strings.ToLower(status)
@@ -98,7 +100,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				organization.Id,
 				status,
 				limit,
-				(offset-1)*limit,
+				skip,
 			)
 			if apiErr != nil {
 				return apiErr.JSON(e)
@@ -132,7 +134,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				return e.JSON(http.StatusOK, []*pipelineWorkflowSummary{})
 			}
 
-			startIdx := (offset - 1) * limit
+			startIdx := skip
 			if startIdx >= len(allQueuedForAllPipelines) {
 				return e.JSON(http.StatusOK, []*pipelineWorkflowSummary{})
 			}
@@ -154,10 +156,9 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 
 		// No status filter - include both queued and completed
 		var finalSummaries []*pipelineWorkflowSummary
-		startIdx := (offset - 1) * limit
 
-		if startIdx < queuedCount {
-			queuedStartIdx := startIdx
+		if skip < queuedCount {
+			queuedStartIdx := skip
 			queuedEndIdx := queuedStartIdx + limit
 			if queuedEndIdx > queuedCount {
 				queuedEndIdx = queuedCount
@@ -172,9 +173,9 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 			)
 			finalSummaries = append(finalSummaries, queuedSummaries...)
 
-			if len(finalSummaries) < limit {
+			if queuedEndIdx >= queuedCount && len(finalSummaries) < limit {
 				remainingLimit := limit - len(finalSummaries)
-
+				completedSkip := 0
 				completedSummaries, apiErr := fetchCompletedWorkflowsWithPagination(
 					e,
 					pipelineMap,
@@ -183,7 +184,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 					organization.Id,
 					"",
 					remainingLimit,
-					0,
+					completedSkip,
 				)
 				if apiErr != nil {
 					return apiErr.JSON(e)
@@ -191,7 +192,7 @@ func HandleGetPipelineResults() func(*core.RequestEvent) error {
 				finalSummaries = append(finalSummaries, completedSummaries...)
 			}
 		} else {
-			completedSkip := startIdx - queuedCount
+			completedSkip := skip - queuedCount
 
 			completedSummaries, apiErr := fetchCompletedWorkflowsWithPagination(
 				e,
@@ -489,7 +490,7 @@ func parsePaginationParams(e *core.RequestEvent, defaultLimit, defaultOffset int
 	if offsetStr == "" {
 		offset = defaultOffset
 	} else {
-		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 1 {
+		if o, err := strconv.Atoi(offsetStr); err == nil && o >= 0 {
 			offset = o
 		} else {
 			offset = defaultOffset
