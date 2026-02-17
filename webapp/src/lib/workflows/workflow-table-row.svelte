@@ -157,6 +157,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Cell>
 	{/if}
 
+	{#if !hideColumns.includes('duration')}
+		<Table.Cell
+			class={['text-right', isChild && 'text-[10px] leading-[13px] text-muted-foreground']}
+		>
+			{@render na(workflow.duration)}
+		</Table.Cell>
+	{/if}
+
 	{#if !hideColumns.includes('actions')}
 		<Table.Cell class="flex justify-end">
 			{#if actions}

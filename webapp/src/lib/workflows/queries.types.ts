@@ -20,6 +20,7 @@ export interface WorkflowExecutionSummary {
 	};
 	startTime: string;
 	endTime?: string;
+	duration?: string;
 	status: WorkflowStatus;
 	displayName: string;
 	children?: Array<WorkflowExecutionSummary>;
