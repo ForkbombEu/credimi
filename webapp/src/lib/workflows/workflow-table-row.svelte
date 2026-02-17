@@ -168,7 +168,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{#if !hideColumns.includes('actions')}
 		<Table.Cell class="flex justify-end">
 			{#if actions}
-				<DropdownMenu items={actions(workflow)}>
+				<DropdownMenu
+					items={actions(workflow)}
+					triggerVariants={{ variant: 'ghost', size: 'icon-sm' }}
+				>
 					{#snippet triggerContent()}
 						<EllipsisVerticalIcon />
 					{/snippet}
