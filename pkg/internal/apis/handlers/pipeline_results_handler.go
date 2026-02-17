@@ -228,7 +228,6 @@ func fetchCompletedWorkflowsWithPagination(
 	limit int,
 	skip int,
 ) ([]*pipelineWorkflowSummary, *apierror.APIError) {
-
 	if limit <= 0 {
 		return []*pipelineWorkflowSummary{}, nil
 	}
@@ -342,7 +341,6 @@ func fetchWorkflowBatch(
 	runnerCache map[string]map[string]any,
 	runnerInfoByPipelineID map[string]pipelineRunnerInfo,
 ) []*pipelineWorkflowSummary {
-
 	var batchSummaries []*pipelineWorkflowSummary
 
 	type workflowInfo struct {
@@ -402,7 +400,7 @@ func fetchWorkflowBatch(
 			if apiErr != nil {
 				results[idx] = &fetchResult{
 					workflowID: wf.workflowID,
-					err:        fmt.Errorf("%v", apiErr),
+					err:        fmt.Errorf("%w", apiErr),
 				}
 				return
 			}
@@ -472,7 +470,10 @@ func fetchWorkflowBatch(
 	return batchSummaries
 }
 
-func parsePaginationParams(e *core.RequestEvent, defaultLimit, defaultOffset int) (limit, offset int) {
+func parsePaginationParams(
+	e *core.RequestEvent,
+	defaultLimit, defaultOffset int,
+) (limit, offset int) {
 	query := e.Request.URL.Query()
 
 	limitStr := query.Get("limit")
