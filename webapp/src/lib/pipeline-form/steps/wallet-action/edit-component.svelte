@@ -24,7 +24,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	recordId={data.action.id}
 	initialData={data.action}
 	fieldsOptions={{
-		exclude: ['name', 'canonified_name', 'owner', 'published', 'tags', 'wallet'],
+		include: ['code'],
 		snippets: { code }
 	}}
 	onSuccess={() => {
