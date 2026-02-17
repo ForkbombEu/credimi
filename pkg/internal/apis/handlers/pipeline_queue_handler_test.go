@@ -514,6 +514,76 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 	}
 }
 
+func TestPipelineQueueHelpers(t *testing.T) {
+	t.Run("parseRunnerIDs prefers array param", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/?runner_ids[]=runner-1&runner_ids[]=runner-2", nil)
+		req.URL.RawQuery = "runner_ids[]=runner-1&runner_ids[]=runner-2&runner_ids=runner-3"
+		require.Equal(t, []string{"runner-1", "runner-2"}, parseRunnerIDs(req))
+	})
+
+	t.Run("parseRunnerIDs falls back to singular param", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/?runner_ids=runner-3", nil)
+		require.Equal(t, []string{"runner-3"}, parseRunnerIDs(req))
+	})
+
+	t.Run("normalizeRunnerIDs dedupes and trims", func(t *testing.T) {
+		values := []string{" runner-2 , runner-1", "runner-2", "  ", "runner-3"}
+		require.Equal(t, []string{"runner-1", "runner-2", "runner-3"}, normalizeRunnerIDs(values))
+	})
+
+	t.Run("runTicketNotFoundView sets status", func(t *testing.T) {
+		view := runTicketNotFoundView("ticket-123")
+		require.Equal(t, "ticket-123", view.TicketID)
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunNotFound, view.Status)
+	})
+
+	t.Run("aggregateRunQueueStatus chooses highest priority", func(t *testing.T) {
+		statuses := []pipelineQueueRunnerStatus{
+			{
+				RunnerID: "runner-1",
+				Status:   workflowengine.MobileRunnerSemaphoreRunQueued,
+				Position: 2,
+				LineLen:  3,
+			},
+			{
+				RunnerID:   "runner-2",
+				Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+				Position:   1,
+				LineLen:    2,
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+			},
+		}
+
+		status, position, lineLen, workflowID, runID, errMsg := aggregateRunQueueStatus(statuses)
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunRunning, status)
+		require.Equal(t, 2, position)
+		require.Equal(t, 3, lineLen)
+		require.Equal(t, "wf-1", workflowID)
+		require.Equal(t, "run-1", runID)
+		require.Empty(t, errMsg)
+	})
+
+	t.Run("buildQueueStatusResponse keeps workflow details", func(t *testing.T) {
+		response := buildQueueStatusResponse("ticket-1", []pipelineQueueRunnerStatus{
+			{
+				RunnerID:   "runner-1",
+				Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+				Position:   1,
+				LineLen:    2,
+				WorkflowID: "wf-99",
+				RunID:      "run-99",
+			},
+		})
+		require.Equal(t, "ticket-1", response.TicketID)
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunRunning, response.Status)
+		require.NotNil(t, response.Position)
+		require.NotNil(t, response.LineLen)
+		require.Equal(t, "wf-99", response.WorkflowID)
+		require.Equal(t, "run-99", response.RunID)
+	})
+}
+
 func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
