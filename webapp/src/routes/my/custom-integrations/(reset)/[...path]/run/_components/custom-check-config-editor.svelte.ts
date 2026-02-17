@@ -71,7 +71,6 @@ export class CustomCheckConfigEditor {
 
 	async submit() {
 		const formData = this.getData();
-		
 		await runWithLoading(async () => {
 			try {
 				const response = await fetch('/api/custom-integrations/run', {

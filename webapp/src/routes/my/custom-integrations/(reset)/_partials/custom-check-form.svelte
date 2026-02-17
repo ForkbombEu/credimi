@@ -73,7 +73,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				data.input_json_schema = null;
 			} else {
 				data.input_json_schema = await jsonToSchema(JSON.parse(jsonSample));
-				console.log(data.input_json_schema);
 			}
 
 			if (formMode === 'new') {
