@@ -50,6 +50,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const {
 		order: fieldsOrder = [],
 		exclude: excludeFields = [] as string[],
+		include: includeFields = [] as string[],
 		hide = {} as F['hide'],
 		labels = {} as F['labels'],
 		descriptions = {} as F['descriptions'],
@@ -73,7 +74,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const fieldsConfigs = $derived(
 		getCollectionFields(collection)
 			.sort(createFieldConfigSorter(fieldsOrder))
-			.filter((config) => !excludeFields.includes(config.name))
+			.filter((config) =>
+				includeFields.length > 0
+					? includeFields.includes(config.name)
+					: !excludeFields.includes(config.name)
+			)
 	);
 
 	function createFieldConfigSorter(order: string[] = []) {
