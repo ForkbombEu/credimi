@@ -19,7 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		containerClass?: ClassValue;
 	};
 
-	let { action, containerClass, ...rest }: Props = $props();
+	let { action, containerClass, children, ...rest }: Props = $props();
 
 	const tags = $derived(
 		action.tags
@@ -36,5 +36,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{tag}
 			</Badge>
 		{/each}
+		{@render children?.()}
 	</div>
 {/if}

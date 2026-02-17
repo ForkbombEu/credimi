@@ -32,13 +32,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
 
-	const cardData = $derived.by(() => {
+	const config = $derived(steps.configs.find((c) => c.use === step[0].use));
+
+	const stepData = $derived.by(() => {
 		if (step[0].use === 'debug') return undefined;
 		if (step[1] instanceof Enrich404Error || step[1] instanceof Error) return undefined;
-		const config = steps.configs.find((c) => c.use === step[0].use);
 		if (!config) throw new Error(`Unknown step type: ${step[0].use}`);
-		return config.cardData(step[1]);
+		return step[1];
 	});
+
+	const cardData = $derived.by(() => {
+		if (!stepData) return undefined;
+		return config?.cardData(stepData);
+	});
+
+	const CardDetailsComponent = $derived.by(() => config?.CardDetailsComponent);
 </script>
 
 <div
@@ -60,45 +68,53 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@render topRight?.()}
 		</div>
 
-		<div class="p-3 pt-2 pb-4">
-			{#if step[1] instanceof Enrich404Error || step[1] instanceof Error}
-				<div class="rounded-md bg-red-700 p-3 text-white">
-					<div class="flex items-center gap-2">
-						<TriangleAlert size={12} />
-						<p class="text-xs">{step[1].message}</p>
+		<div class="space-y-3 p-3 pt-2">
+			<div>
+				{#if step[1] instanceof Enrich404Error || step[1] instanceof Error}
+					<div class="rounded-md bg-red-700 p-3 text-white">
+						<div class="flex items-center gap-2">
+							<TriangleAlert size={12} />
+							<p class="text-xs">{step[1].message}</p>
+						</div>
+						{#if step[1] instanceof Enrich404Error}
+							<p class="pt-2 text-xs opacity-60">{step[1].description}</p>
+						{/if}
 					</div>
-					{#if step[1] instanceof Enrich404Error}
-						<p class="pt-2 text-xs opacity-60">{step[1].description}</p>
-					{/if}
-				</div>
-			{:else if step[0].use === 'debug'}
-				<div class="text-xs text-gray-500">{m.debug_step_description()}</div>
-			{:else if cardData}
-				{@const { title, copyText, avatar } = cardData}
-				<div class="flex items-center gap-3">
-					<Avatar src={avatar} fallback={title} class="size-8 rounded-sm border" />
-					<div class="space-y-1">
-						<div class="flex items-center gap-1">
-							<h1>{title}</h1>
-							{#if copyText}
-								<CopyButtonSmall textToCopy={copyText} size="mini" />
-							{/if}
+				{:else if step[0].use === 'debug'}
+					<div class="text-xs text-gray-500">{m.debug_step_description()}</div>
+				{:else if cardData}
+					{@const { title, copyText, avatar } = cardData}
+					<div class="flex items-center gap-3">
+						<Avatar src={avatar} fallback={title} class="size-8 rounded-sm border" />
+						<div class="space-y-1">
+							<div class="flex items-center gap-1">
+								<h1>{title}</h1>
+								{#if copyText}
+									<CopyButtonSmall textToCopy={copyText} size="mini" />
+								{/if}
+							</div>
 						</div>
 					</div>
+				{/if}
+			</div>
+
+			{#if cardData && cardData.meta}
+				<div>
+					{#each Object.entries(cardData.meta) as [key, value] (key)}
+						<p class="text-xs text-muted-foreground">
+							<span class="font-medium capitalize">{key}:</span>
+							{value}
+						</p>
+					{/each}
+				</div>
+			{/if}
+
+			{#if CardDetailsComponent}
+				<div>
+					<CardDetailsComponent data={stepData} />
 				</div>
 			{/if}
 		</div>
-
-		{#if cardData && cardData.meta}
-			<div class="p-3 pt-0">
-				{#each Object.entries(cardData.meta) as [key, value] (key)}
-					<p class="text-xs text-muted-foreground">
-						<span class="font-medium capitalize">{key}:</span>
-						{value}
-					</p>
-				{/each}
-			</div>
-		{/if}
 	</div>
 
 	{#if step[0].use !== 'debug'}

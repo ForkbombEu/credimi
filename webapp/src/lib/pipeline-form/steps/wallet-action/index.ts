@@ -19,6 +19,7 @@ import {
 import type { TypedConfig } from '../types';
 
 import { getLastPathSegment } from '../_partials/misc';
+import CardDetailsComponent from './card-details.svelte';
 import {
 	WalletActionStepForm,
 	type WalletActionStepData
@@ -31,6 +32,7 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 	display: entities.wallets,
 
+	CardDetailsComponent,
 	cardData: ({ action, wallet, version, runner }) => ({
 		title: action.name,
 		copyText: getPath(action),
