@@ -5,6 +5,7 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -12,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
@@ -20,11 +22,13 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/api/common/v1"
+	"go.temporal.io/api/enums/v1"
 	historypb "go.temporal.io/api/history/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
 	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
@@ -320,4 +324,219 @@ func TestSendOpenIDNetLogUpdateStartAlreadyCompleted(t *testing.T) {
 
 	mockClient.AssertExpectations(t)
 	mockRun.AssertExpectations(t)
+}
+
+func TestHandleGetWorkflowsHistorySuccess(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() {
+		complianceTemporalClient = origClient
+	})
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"wf-1",
+			"run-1",
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).
+		Return(&fakeHistoryIterator{
+			events: []*historypb.HistoryEvent{
+				{EventId: 1},
+			},
+		}).
+		Once()
+
+	complianceTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/checks/wf-1/run-1/history", nil)
+	req.SetPathValue("workflowId", "wf-1")
+	req.SetPathValue("runId", "run-1")
+	rec := httptest.NewRecorder()
+
+	err = HandleGetWorkflowsHistory()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "\"eventId\":\"1\"")
+}
+
+func TestHandleGetWorkflowResultNotFound(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() {
+		complianceTemporalClient = origClient
+	})
+
+	mockClient := &temporalmocks.Client{}
+	mockRun := &temporalmocks.WorkflowRun{}
+	mockRun.
+		On("Get", mock.Anything, mock.AnythingOfType("*workflowengine.WorkflowResult")).
+		Return(&serviceerror.NotFound{}).
+		Once()
+	mockClient.On("GetWorkflow", mock.Anything, "wf-2", "run-2").Return(mockRun).Once()
+
+	complianceTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/checks/wf-2/run-2/result", nil)
+	req.SetPathValue("workflowId", "wf-2")
+	req.SetPathValue("runId", "run-2")
+	rec := httptest.NewRecorder()
+
+	err = HandleGetWorkflowResult()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.Error(t, err)
+	var apiErr *apierror.APIError
+	require.True(t, errors.As(err, &apiErr))
+	require.Equal(t, http.StatusNotFound, apiErr.Code)
+}
+
+func TestHandleSendOpenIDNetLogUpdateSuccess(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	origNotify := complianceNotifyLogsUpdate
+	t.Cleanup(func() {
+		complianceNotifyLogsUpdate = origNotify
+	})
+
+	var capturedSubscription string
+	complianceNotifyLogsUpdate = func(_ core.App, subscription string, data []map[string]any) error {
+		capturedSubscription = subscription
+		return nil
+	}
+
+	input := HandleSendLogUpdateRequestInput{
+		WorkflowID: "wf-3",
+		Logs:       []map[string]any{{"step": "ok"}},
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/compliance/send-openidnet-log-update", nil)
+	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, input))
+	rec := httptest.NewRecorder()
+
+	err = HandleSendOpenIDNetLogUpdate()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, "wf-3"+workflows.OpenIDNetSubscription, capturedSubscription)
+}
+
+func TestGetWorkflowAuthorFromMemo(t *testing.T) {
+	payload, err := converter.GetDefaultDataConverter().ToPayload("ewc")
+	require.NoError(t, err)
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-4", "run-4").
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+				Memo: &common.Memo{
+					Fields: map[string]*common.Payload{
+						"author": payload,
+					},
+				},
+			},
+		}, nil).
+		Once()
+
+	author, err := getWorkflowAuthor(mockClient, "wf-4", "run-4")
+	require.NoError(t, err)
+	require.Equal(t, "ewc", author)
+}
+
+func TestHandleDeeplinkFromHistoryEWC(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	payloadData, err := json.Marshal(map[string]any{
+		"Output": map[string]any{
+			"Captures": map[string]any{
+				"deeplink": "ewc://link",
+			},
+		},
+	})
+	require.NoError(t, err)
+	payloads := &common.Payloads{
+		Payloads: []*common.Payload{
+			{Data: payloadData},
+		},
+	}
+
+	iter := &fakeHistoryIterator{
+		events: []*historypb.HistoryEvent{
+			{
+				EventType: enums.EVENT_TYPE_ACTIVITY_TASK_COMPLETED,
+				Attributes: &historypb.HistoryEvent_ActivityTaskCompletedEventAttributes{
+					ActivityTaskCompletedEventAttributes: &historypb.ActivityTaskCompletedEventAttributes{
+						Result: payloads,
+					},
+				},
+			},
+		},
+	}
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"wf-5",
+			"run-5",
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).
+		Return(iter).
+		Once()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink/wf-5/run-5", nil)
+	rec := httptest.NewRecorder()
+	err = handleDeeplinkFromHistory(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	}, mockClient, "wf-5", "run-5", "ewc")
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "ewc://link")
 }
