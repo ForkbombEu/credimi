@@ -16,6 +16,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -349,4 +350,199 @@ func TestHandleSaveVariablesAndStartVariablesMissingTemplate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code)
 	require.Contains(t, rec.Body.String(), "failed to open template")
+}
+
+func TestStartOpenIDNetWorkflowInvalidVersion(t *testing.T) {
+	params := WorkflowStarterParams{
+		YAMLData: "variant: json\ntest: test-1\n",
+		Version:  "invalid",
+	}
+
+	_, err := startOpenIDNetWorkflow(params)
+	require.Error(t, err)
+}
+
+func TestStartOpenIDNetWorkflowSuccess(t *testing.T) {
+	rootDir := t.TempDir()
+	templatePath := filepath.Join(rootDir, workflows.OpenIDNetStepCITemplatePathv1_0)
+	require.NoError(t, os.MkdirAll(filepath.Dir(templatePath), 0o755))
+	require.NoError(t, os.WriteFile(templatePath, []byte("template"), 0o644))
+	t.Setenv("ROOT_DIR", rootDir)
+
+	origStart := openIDNetWorkflowStart
+	t.Cleanup(func() {
+		openIDNetWorkflowStart = origStart
+	})
+
+	openIDNetWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "wf-openid",
+			WorkflowRunID: "run-openid",
+		}, nil
+	}
+
+	params := WorkflowStarterParams{
+		YAMLData: "variant: json\ntest: test-1\n",
+		Email:    "user@example.com",
+		AppURL:   "https://app.example.com",
+		Namespace: "ns",
+		Memo:     map[string]interface{}{"test": "test-1"},
+		Author:   "openid_conformance_suite",
+		Version:  "1.0",
+		AppName:  "Credimi",
+		LogoUrl:  "https://app.example.com/logo.png",
+		UserName: "User",
+	}
+
+	result, err := startOpenIDNetWorkflow(params)
+	require.NoError(t, err)
+	require.Equal(t, "wf-openid", result.WorkflowID)
+	require.Equal(t, string(params.Author), result.Author)
+}
+
+func TestStartEWCWorkflowUnsupportedProtocol(t *testing.T) {
+	rootDir := t.TempDir()
+	filename := filepath.Join(rootDir, workflows.EWCTemplateFolderPath+"test.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(filename), 0o755))
+	require.NoError(t, os.WriteFile(filename, []byte("template"), 0o644))
+	t.Setenv("ROOT_DIR", rootDir)
+
+	params := WorkflowStarterParams{
+		YAMLData: "sessionId: session-1\n",
+		Protocol: "unknown",
+		TestName: "ewctest.yaml",
+	}
+
+	_, err := startEWCWorkflow(params)
+	require.Error(t, err)
+}
+
+func TestStartEWCWorkflowSuccess(t *testing.T) {
+	rootDir := t.TempDir()
+	filename := filepath.Join(rootDir, workflows.EWCTemplateFolderPath+"test.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(filename), 0o755))
+	require.NoError(t, os.WriteFile(filename, []byte("template"), 0o644))
+	t.Setenv("ROOT_DIR", rootDir)
+
+	origStart := ewcWorkflowStart
+	t.Cleanup(func() {
+		ewcWorkflowStart = origStart
+	})
+	ewcWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "wf-ewc",
+			WorkflowRunID: "run-ewc",
+		}, nil
+	}
+
+	params := WorkflowStarterParams{
+		YAMLData: "sessionId: session-1\n",
+		Email:    "user@example.com",
+		AppURL:   "https://app.example.com",
+		Namespace: "ns",
+		Memo:     map[string]interface{}{"test": "ewc/test"},
+		Author:   "ewc",
+		Protocol: "openid4vp_wallet",
+		TestName: "ewctest.yaml",
+		AppName:  "Credimi",
+		LogoUrl:  "https://app.example.com/logo.png",
+		UserName: "User",
+	}
+
+	result, err := startEWCWorkflow(params)
+	require.NoError(t, err)
+	require.Equal(t, "wf-ewc", result.WorkflowID)
+	require.Equal(t, string(params.Author), result.Author)
+}
+
+func TestStartEudiwWorkflowSuccess(t *testing.T) {
+	rootDir := t.TempDir()
+	filename := filepath.Join(rootDir, workflows.EudiwTemplateFolderPath+"test.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(filename), 0o755))
+	require.NoError(t, os.WriteFile(filename, []byte("template"), 0o644))
+	t.Setenv("ROOT_DIR", rootDir)
+
+	origStart := eudiwWorkflowStart
+	t.Cleanup(func() {
+		eudiwWorkflowStart = origStart
+	})
+	eudiwWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "wf-eudiw",
+			WorkflowRunID: "run-eudiw",
+		}, nil
+	}
+
+	params := WorkflowStarterParams{
+		YAMLData: "nonce: n1\nid: id-1\n",
+		Email:    "user@example.com",
+		AppURL:   "https://app.example.com",
+		Namespace: "ns",
+		Memo:     map[string]interface{}{"test": "eudiw/test"},
+		Author:   "eudiw",
+		TestName: "eudiwtest.yaml",
+		AppName:  "Credimi",
+		LogoUrl:  "https://app.example.com/logo.png",
+		UserName: "User",
+	}
+
+	result, err := startEudiwWorkflow(params)
+	require.NoError(t, err)
+	require.Equal(t, "wf-eudiw", result.WorkflowID)
+	require.Equal(t, string(params.Author), result.Author)
+}
+
+func TestStartVLEIWorkflowSuccess(t *testing.T) {
+	origStart := vleiWorkflowStart
+	t.Cleanup(func() {
+		vleiWorkflowStart = origStart
+	})
+	vleiWorkflowStart = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "wf-vlei",
+			WorkflowRunID: "run-vlei",
+		}, nil
+	}
+
+	params := WorkflowStarterParams{
+		YAMLData:  "credentialID: cred-1\nserverURL: https://vlei.example.com\n",
+		AppURL:    "https://app.example.com",
+		Namespace: "ns",
+		Memo:      map[string]interface{}{"test": "vlei/test"},
+		Author:    "vlei",
+	}
+
+	result, err := startvLEIWorkflow(params)
+	require.NoError(t, err)
+	require.Equal(t, "wf-vlei", result.WorkflowID)
+	require.Equal(t, string(params.Author), result.Author)
+}
+
+func TestProcessCustomChecksSuccess(t *testing.T) {
+	origStart := customCheckWorkflowStart
+	t.Cleanup(func() {
+		customCheckWorkflowStart = origStart
+	})
+	customCheckWorkflowStart = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "wf-custom",
+			WorkflowRunID: "run-custom",
+		}, nil
+	}
+
+	result, err := processCustomChecks(
+		"steps: []\n",
+		"https://app.example.com",
+		"ns",
+		map[string]interface{}{"author": "custom"},
+		"{\"foo\":\"bar\"}",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "wf-custom", result.WorkflowID)
+	require.Equal(t, "custom", result.Author)
+}
+
+func TestReadTemplateFileError(t *testing.T) {
+	_, err := readTemplateFile(filepath.Join(t.TempDir(), "missing.yaml"))
+	require.Error(t, err)
 }

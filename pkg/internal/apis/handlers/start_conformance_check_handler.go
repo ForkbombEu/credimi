@@ -84,6 +84,29 @@ var workflowRegistry = map[Author]WorkflowStarter{
 	"vlei":                     startvLEIWorkflow,
 }
 
+var (
+	openIDNetWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewOpenIDNetWorkflow()
+		return w.Start(input)
+	}
+	ewcWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewEWCWorkflow()
+		return w.Start(input)
+	}
+	eudiwWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewEudiwWorkflow()
+		return w.Start(input)
+	}
+	vleiWorkflowStart = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewVLEIValidationWorkflow()
+		return w.Start(namespace, input)
+	}
+	customCheckWorkflowStart = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewCustomCheckWorkflow()
+		return w.Start(namespace, input)
+	}
+)
+
 func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		req, err := routing.GetValidatedInput[SaveVariablesAndStartRequestInput](e)
@@ -420,8 +443,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			"user_name": i.UserName,
 		},
 	}
-	w := workflows.NewOpenIDNetWorkflow()
-	results, err := w.Start(input)
+	results, err := openIDNetWorkflowStart(input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
@@ -491,8 +513,7 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 			"user_name":      i.UserName,
 		},
 	}
-	w := workflows.NewEWCWorkflow()
-	results, err := w.Start(input)
+	results, err := ewcWorkflowStart(input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
@@ -547,8 +568,7 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 			"user_name": i.UserName,
 		},
 	}
-	w := workflows.NewEudiwWorkflow()
-	results, err := w.Start(input)
+	results, err := eudiwWorkflowStart(input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
@@ -618,8 +638,7 @@ func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, 
 		},
 	}
 
-	w := workflows.NewVLEIValidationWorkflow()
-	results, err := w.Start(namespace, input)
+	results, err := vleiWorkflowStart(namespace, input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
@@ -793,9 +812,7 @@ func processCustomChecks(
 		},
 	}
 
-	w := workflows.NewCustomCheckWorkflow()
-
-	results, errStart := w.Start(namespace, input)
+	results, errStart := customCheckWorkflowStart(namespace, input)
 	if errStart != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
