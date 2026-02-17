@@ -101,8 +101,8 @@ func HandleRunCustomIntegration() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, workflowengine.WorkflowResult{
-			WorkflowID: result.WorkflowID,
-			RunID:      result.RunID,
+			WorkflowID:    result.WorkflowID,
+			WorkflowRunID: result.WorkflowRunID,
 		})
 	}
 }
