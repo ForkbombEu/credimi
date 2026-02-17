@@ -4,17 +4,30 @@
 package handlers
 
 import (
+	"context"
+	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/api/common/v1"
+	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/workflow/v1"
+	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/sdk/client"
+	temporalmocks "go.temporal.io/sdk/mocks"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func setupPipelineApp(t testing.TB) *tests.TestApp {
@@ -219,6 +232,186 @@ func TestSetPipelineExecutionResultsIdempotent(t *testing.T) {
 		return nil
 	})
 	require.NoError(t, serveErr)
+}
+
+func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	app := setupPipelineStartApp(t)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+	pipelineRecord := core.NewRecord(pipelineColl)
+	pipelineRecord.Set("owner", orgID)
+	pipelineRecord.Set("name", "pipeline123")
+	pipelineRecord.Set("canonified_name", "pipeline123")
+	pipelineRecord.Set("description", "demo pipeline")
+	pipelineRecord.Set("yaml", "name: demo")
+	require.NoError(t, app.Save(pipelineRecord))
+
+	resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	resultRecord := core.NewRecord(resultsColl)
+	resultRecord.Set("owner", orgID)
+	resultRecord.Set("pipeline", pipelineRecord.Id)
+	resultRecord.Set("workflow_id", "wf-1")
+	resultRecord.Set("run_id", "run-1")
+	require.NoError(t, app.Save(resultRecord))
+
+	originalListQueued := pipelineListQueuedRuns
+	originalTemporalClient := pipelineTemporalClient
+	t.Cleanup(func() {
+		pipelineListQueuedRuns = originalListQueued
+		pipelineTemporalClient = originalTemporalClient
+	})
+
+	pipelineListQueuedRuns = func(ctx context.Context, namespace string) (map[string]QueuedPipelineRunAggregate, error) {
+		return map[string]QueuedPipelineRunAggregate{}, nil
+	}
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+				Execution: &common.WorkflowExecution{
+					WorkflowId: "wf-1",
+					RunId:      "run-1",
+				},
+				Type:      &common.WorkflowType{Name: "custom-workflow"},
+				Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+				StartTime: timestamppb.New(time.Now().Add(-2 * time.Minute)),
+				CloseTime: timestamppb.New(time.Now().Add(-1 * time.Minute)),
+			},
+		}, nil).
+		Once()
+
+	callCount := 0
+	pipelineTemporalClient = func(namespace string) (client.Client, error) {
+		callCount++
+		if callCount <= 2 {
+			return mockClient, nil
+		}
+		return nil, errors.New("temporal unavailable")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleGetPipelineDetails()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), pipelineRecord.Id)
+}
+
+func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	app := setupPipelineStartApp(t)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+	pipelineRecord := core.NewRecord(pipelineColl)
+	pipelineRecord.Set("owner", orgID)
+	pipelineRecord.Set("name", "pipeline123")
+	pipelineRecord.Set("canonified_name", "pipeline123")
+	pipelineRecord.Set("description", "demo pipeline")
+	pipelineRecord.Set("yaml", "name: demo")
+	require.NoError(t, app.Save(pipelineRecord))
+
+	originalListQueued := pipelineListQueuedRuns
+	t.Cleanup(func() {
+		pipelineListQueuedRuns = originalListQueued
+	})
+
+	pipelineListQueuedRuns = func(ctx context.Context, namespace string) (map[string]QueuedPipelineRunAggregate, error) {
+		return map[string]QueuedPipelineRunAggregate{
+			"ticket-1": {
+				TicketID:           "ticket-1",
+				PipelineIdentifier: "usera-s-organization/pipeline123",
+				EnqueuedAt:         time.Now().Add(-1 * time.Minute),
+				LeaderRunnerID:     "runner-1",
+				RequiredRunnerIDs:  []string{"runner-1"},
+				RunnerIDs:          []string{"runner-1"},
+			},
+		}, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows/"+pipelineRecord.Id, nil)
+	req.SetPathValue("id", pipelineRecord.Id)
+	rec := httptest.NewRecorder()
+
+	err = HandleGetPipelineSpecificDetails()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response []map[string]any
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.NotEmpty(t, response)
+	queue, ok := response[0]["queue"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "ticket-1", queue["ticket_id"])
+}
+
+func TestSelectTopExecutionsByPipeline(t *testing.T) {
+	executions := []struct {
+		pipelineID string
+		execution  *WorkflowExecutionSummary
+	}{
+		{
+			pipelineID: "pipeline-1",
+			execution: &WorkflowExecutionSummary{
+				Status:    string(WorkflowStatusCompleted),
+				StartTime: time.Now().Add(-2 * time.Hour).Format(time.RFC3339),
+			},
+		},
+		{
+			pipelineID: "pipeline-1",
+			execution: &WorkflowExecutionSummary{
+				Status:    string(WorkflowStatusRunning),
+				StartTime: time.Now().Add(-30 * time.Minute).Format(time.RFC3339),
+			},
+		},
+		{
+			pipelineID: "pipeline-1",
+			execution: &WorkflowExecutionSummary{
+				Status:    string(WorkflowStatusCompleted),
+				StartTime: time.Now().Add(-10 * time.Minute).Format(time.RFC3339),
+			},
+		},
+	}
+
+	selected := selectTopExecutionsByPipeline(executions, 2)
+	require.Len(t, selected["pipeline-1"], 2)
+	require.ElementsMatch(
+		t,
+		[]string{string(WorkflowStatusRunning), string(WorkflowStatusCompleted)},
+		[]string{selected["pipeline-1"][0].Status, selected["pipeline-1"][1].Status},
+	)
 }
 
 func TestBuildChildWorkflowParentQuery(t *testing.T) {
