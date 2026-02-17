@@ -227,10 +227,12 @@ func TestGetVerificationDeeplink(t *testing.T) {
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupYamlApp(orgID)(t)
 
-				srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-    				w.Header().Set("Content-Type", "application/json")
-    				w.WriteHeader(200)
-				}))
+				srv := httptest.NewServer(
+					http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						w.Header().Set("Content-Type", "application/json")
+						w.WriteHeader(200)
+					}),
+				)
 				defer srv.Close()
 
 				app.Settings().Meta.AppURL = srv.URL

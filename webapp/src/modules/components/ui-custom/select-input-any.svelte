@@ -21,9 +21,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		value: T | undefined | null;
 		placeholder?: string;
 		controlAttrs?: ControlAttrs;
+		onValueChange?: (value: T | undefined | null) => void;
 	};
 
-	let { items, value = $bindable(), placeholder, controlAttrs }: Props = $props();
+	let { items, value = $bindable(), placeholder, controlAttrs, onValueChange }: Props = $props();
 
 	//
 
@@ -40,6 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	$effect(() => {
 		const newValue = itemsWithId.find((item) => item.id === selectedId)?.value;
 		if (newValue !== value) value = newValue;
+		onValueChange?.(newValue);
 	});
 </script>
 

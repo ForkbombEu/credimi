@@ -26,8 +26,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	const allWorkflows = new PolledResource(() => Pipeline.Workflows.listAll(), {
-		initialValue: () => data.workflows
+	const allWorkflows = new PolledResource(() => Pipeline.Workflows.listAllGroupedByPipelineId(), {
+		initialValue: () => data.workflows,
+		intervalMs: 10000
 	});
 </script>
 
@@ -81,7 +82,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{@const ownerOrg = pipeline.expand?.owner}
 					{@const workflows = allWorkflows.current?.[pipeline.id] ?? []}
 					{#if ownerOrg}
-						<PipelineCard bind:pipeline={records[index]} {workflows} />
+						<PipelineCard
+							bind:pipeline={records[index]}
+							{workflows}
+							onRun={() => allWorkflows.fetch()}
+						/>
 					{/if}
 				{/each}
 			</div>

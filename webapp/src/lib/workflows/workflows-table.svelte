@@ -82,13 +82,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Header>
 		<Table.Body>
 			{#each workflows as workflow (workflow.execution.runId)}
-				<WorkflowTableRow
-					{workflow}
-					{row}
-					{hideColumns}
-					actions={actions?.(workflow)}
-					disableLink={disableLink?.(workflow)}
-				/>
+				<WorkflowTableRow {workflow} {row} {hideColumns} {actions} {disableLink} />
 			{:else}
 				<Table.Row class="hover:bg-transparent">
 					<Table.Cell colspan={6} class="text-center text-gray-300 py-20">

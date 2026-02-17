@@ -6,8 +6,8 @@ import { pb } from '@/pocketbase';
 
 //
 
-export async function cancel(workflowId: string, runId: string) {
-	return await pb.send(`/api/my/checks/${workflowId}/runs/${runId}/cancel`, {
+export function cancel(workflowId: string, runId: string) {
+	return pb.send(`/api/my/checks/${workflowId}/runs/${runId}/cancel`, {
 		method: 'POST'
 	});
 }

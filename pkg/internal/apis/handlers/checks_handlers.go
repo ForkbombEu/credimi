@@ -161,6 +161,30 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		statusParam := e.Request.URL.Query().Get("status")
+		if strings.ToLower(statusParam) == statusStringQueued {
+			queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to list queued runs",
+					err.Error(),
+				).JSON(e)
+			}
+			queuedSummaries := buildQueuedWorkflowSummaries(
+				e.App,
+				queuedRuns,
+				authRecord.GetString("Timezone"),
+			)
+			resp := ListMyChecksResponse{}
+
+			if queuedSummaries == nil {
+				resp.Executions = []*WorkflowExecutionSummary{}
+			} else {
+				resp.Executions = queuedSummaries
+			}
+			return e.JSON(http.StatusOK, resp)
+		}
 		var statusFilters []enums.WorkflowExecutionStatus
 		if statusParam != "" {
 			statusStrings := strings.SplitSeq(statusParam, ",")
@@ -244,9 +268,16 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
+		var filteredExecutions []*WorkflowExecution
+		for _, exec := range execs.Executions {
+			if exec.Type.Name != "Dynamic Pipeline Workflow" {
+				filteredExecutions = append(filteredExecutions, exec)
+			}
+		}
+
 		hierarchy := buildExecutionHierarchy(
 			e.App,
-			execs.Executions,
+			filteredExecutions,
 			owner,
 			authRecord.GetString("Timezone"),
 			c,
