@@ -65,7 +65,7 @@ func TestDockerRunActivity_Execute(t *testing.T) {
 				Payload: DockerActivityPayload{
 					Image: "alpine:latest",
 					Cmd:   []string{"sh", "-c", "sleep 5"},
-					Ports: []string{"8080:80"},
+					Ports: []string{"0:80"},
 				},
 				Config: map[string]string{
 					"HostIP": "127.0.0.1",
