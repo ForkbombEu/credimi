@@ -42,6 +42,17 @@ var DeepLinkRoutes routing.RouteGroup = routing.RouteGroup{
 	},
 }
 
+// deeplinkTemporalClient resolves Temporal clients for deeplink requests.
+var deeplinkTemporalClient = temporalclient.GetTemporalClientWithNamespace
+
+// deeplinkWaitForWorkflowResult allows tests to stub workflow result polling.
+var deeplinkWaitForWorkflowResult = workflowengine.WaitForWorkflowResult
+
+// deeplinkStartWorkflow allows tests to stub workflow starts.
+var deeplinkStartWorkflow = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+	return workflows.NewCustomCheckWorkflow().Start("default", input)
+}
+
 func HandleGetDeeplink() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		var body CredentialDeeplinkRequest
@@ -74,9 +85,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 			ActivityOptions: ao,
 		}
 
-		w := workflows.NewCustomCheckWorkflow()
-
-		resStart, errStart := w.Start("default", input)
+		resStart, errStart := deeplinkStartWorkflow(input)
 		if errStart != nil {
 			return apierror.New(
 				http.StatusBadRequest,
@@ -85,9 +94,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 				errStart.Error(),
 			).JSON(e)
 		}
-		client, err := temporalclient.GetTemporalClientWithNamespace(
-			"default",
-		)
+		client, err := deeplinkTemporalClient("default")
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -96,7 +103,7 @@ func HandleGetDeeplink() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		result, err := workflowengine.WaitForWorkflowResult(
+		result, err := deeplinkWaitForWorkflowResult(
 			client,
 			resStart.WorkflowID,
 			resStart.WorkflowRunID,
