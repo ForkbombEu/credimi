@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n/index.js';
 
 	import { type EnrichedStep, Enrich404Error } from '../types';
+	import { getStepConfig, getStepData } from './utils';
 
 	//
 
@@ -32,21 +33,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
 
-	const config = $derived(steps.configs.find((c) => c.use === step[0].use));
-
-	const stepData = $derived.by(() => {
-		if (step[0].use === 'debug') return undefined;
-		if (step[1] instanceof Enrich404Error || step[1] instanceof Error) return undefined;
-		if (!config) throw new Error(`Unknown step type: ${step[0].use}`);
-		return step[1];
-	});
-
-	const cardData = $derived.by(() => {
-		if (!stepData) return undefined;
-		return config?.cardData(stepData);
-	});
-
-	const CardDetailsComponent = $derived.by(() => config?.CardDetailsComponent);
+	const config = $derived(getStepConfig(step));
+	const stepData = $derived(getStepData(step));
+	const cardData = $derived(stepData ? config?.cardData(stepData) : undefined);
+	const CardDetailsComponent = $derived(config?.CardDetailsComponent);
 </script>
 
 <div

@@ -17,9 +17,19 @@ export interface Config<ID extends string = string, Serialized = unknown, Deseri
 	display: EntityData;
 	initForm: () => Form<Deserialized>;
 	cardData: (data: Deserialized) => CardData;
-	CardDetailsComponent?: Component<{ data: Deserialized }>;
+	CardDetailsComponent?: Component<CardDetailsComponentProps<Deserialized>>;
+	EditComponent?: Component<EditComponentProps<Deserialized>>;
 	makeId: (data: Serialized) => string;
 }
+
+export type EditComponentProps<Deserialized = unknown> = {
+	data: Deserialized;
+	closeDialog: () => void;
+};
+
+export type CardDetailsComponentProps<Deserialized = unknown> = {
+	data: Deserialized;
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface Form<Deserialized = unknown, T = any> extends Renderable<T> {

@@ -6,6 +6,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
+	import * as steps from '$lib/pipeline-form/steps';
 
 	import { Badge } from '@/components/ui/badge/index.js';
 	import { m } from '@/i18n/index.js';
@@ -14,11 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	//
 
-	type Props = {
-		data: WalletActionStepData;
-	};
-
-	let { data }: Props = $props();
+	let { data }: steps.CardDetailsComponentProps<WalletActionStepData> = $props();
 </script>
 
 <WalletActionTags action={data.action}>
