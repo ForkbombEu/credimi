@@ -14,7 +14,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { FieldSnippetOptions } from '@/collections-components/form/collectionFormTypes.js';
 	import type {
-		CollectionRecords,
 		CredentialsResponse,
 		CustomChecksResponse,
 		UseCasesVerificationsResponse
@@ -37,32 +36,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		() => getPath(data),
 		async () => {
 			const res = await getRecordByCanonifiedPath<Item>(getPath(data));
-			console.log(res);
 			if (res instanceof Error) {
 				console.error(res);
 				return;
 			}
-			console.log(res.collectionName);
 			return res;
 		}
 	);
-
-	//
-
-	type ExcludedFields = {
-		[C in CollectionName]: (keyof CollectionRecords[C])[];
-	};
-
-	const excludedFieldsConfig: ExcludedFields = {
-		credentials: ['canonified_name', 'conformant', 'published', 'credential_issuer'],
-		custom_checks: ['canonified_name', 'owner', 'published'],
-		use_cases_verifications: ['canonified_name', 'owner', 'published']
-	};
-
-	const excludedFields = $derived.by(() => {
-		if (!record.current) return [];
-		return excludedFieldsConfig[record.current.collectionName as CollectionName] as never[];
-	});
 </script>
 
 {#if record.current}
@@ -71,7 +51,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		recordId={record.current.id}
 		initialData={record.current}
 		fieldsOptions={{
-			exclude: excludedFields,
+			include: ['yaml'],
 			snippets: { yaml }
 		}}
 		onSuccess={() => {
