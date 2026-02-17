@@ -8,6 +8,7 @@ import { getMarketplaceItemLogo, type MarketplaceItem } from '$lib/marketplace';
 import { type PipelineStepByType, type PipelineStepData } from '$lib/pipeline/types.js';
 import { getPath } from '$lib/utils';
 
+import { m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase';
 import {
 	type MobileRunnersResponse,
@@ -30,10 +31,14 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 	display: entities.wallets,
 
-	cardData: ({ action, wallet }) => ({
+	cardData: ({ action, wallet, version, runner }) => ({
 		title: action.name,
 		copyText: getPath(action),
-		avatar: getMarketplaceItemLogo(wallet)
+		avatar: getMarketplaceItemLogo(wallet),
+		meta: {
+			wallet: `${wallet.name} (v. ${version.tag})`,
+			runner: runner === 'global' ? m.Choose_later() : runner.name
+		}
 	}),
 
 	makeId: (data) => {

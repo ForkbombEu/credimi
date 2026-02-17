@@ -90,14 +90,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 
 		{#if cardData && cardData.meta}
-			{#each Object.entries(cardData.meta) as [key, value] (key)}
-				<div class="p-3 pt-0">
+			<div class="p-3 pt-0">
+				{#each Object.entries(cardData.meta) as [key, value] (key)}
 					<p class="text-xs text-muted-foreground">
-						<span class="font-medium uppercase">{key}:</span>
+						<span class="font-medium capitalize">{key}:</span>
 						{value}
 					</p>
-				</div>
-			{/each}
+				{/each}
+			</div>
 		{/if}
 	</div>
 
