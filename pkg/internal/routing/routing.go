@@ -38,6 +38,7 @@ type QuerySearchAttribute struct {
 type RouteDefinition struct {
 	Method                string
 	Path                  string
+	OperationID           string
 	Handler               HandlerFactory
 	RequestSchema         any
 	ResponseSchema        any
