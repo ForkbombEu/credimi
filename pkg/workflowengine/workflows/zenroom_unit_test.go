@@ -7,6 +7,7 @@ package workflows
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/docker/docker/api/types/container"
@@ -16,6 +17,8 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
+	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
@@ -130,4 +133,40 @@ func TestZenroomWorkflowDockerClientFailure(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.DockerClientCreationFailed].Code)
+}
+
+func TestZenroomWorkflowStart(t *testing.T) {
+	origClient := zenroomTemporalClient
+	t.Cleanup(func() {
+		zenroomTemporalClient = origClient
+	})
+
+	mockClient := &temporalmocks.Client{}
+	mockRun := &temporalmocks.WorkflowRun{}
+	mockClient.
+		On("ExecuteWorkflow", mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(mockRun, nil).
+		Once()
+
+	zenroomTemporalClient = func(namespace string) (client.Client, error) {
+		require.Equal(t, "ns-1", namespace)
+		return mockClient, nil
+	}
+
+	w := NewZenroomWorkflow()
+	input := workflowengine.WorkflowInput{
+		Config: map[string]any{
+			"namespace": "ns-1",
+			"Memo":      map[string]any{"test": "memo"},
+		},
+	}
+
+	_, err := w.Start(input)
+	require.NoError(t, err)
+
+	args := mockClient.Calls[0].Arguments
+	options := args.Get(1).(client.StartWorkflowOptions)
+	require.Equal(t, ZenroomTaskQueue, options.TaskQueue)
+	require.True(t, strings.HasPrefix(options.ID, "Zenroom-Workflow-"))
+	require.Equal(t, map[string]any{"test": "memo"}, options.Memo)
 }

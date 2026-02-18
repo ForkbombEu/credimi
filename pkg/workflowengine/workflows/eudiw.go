@@ -36,6 +36,8 @@ type EudiwWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
+var eudiwStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+
 type EudiwWorkflowPayload struct {
 	ID       string `json:"id"        yaml:"id"        validate:"required"`
 	Nonce    string `json:"nonce"     yaml:"nonce"     validate:"required"`
@@ -443,7 +445,7 @@ func (w *EudiwWorkflow) Start(
 	if input.Config["namespace"] != nil {
 		namespace = input.Config["namespace"].(string)
 	}
-	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return eudiwStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 func BuildQRDeepLink(
 	clientID, requestURI string,

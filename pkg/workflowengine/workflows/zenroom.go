@@ -41,6 +41,8 @@ type ZenroomWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
+var zenroomTemporalClient = temporalclient.GetTemporalClientWithNamespace
+
 type ZenroomWorkflowPayload struct {
 	Contract string `json:"contract" yaml:"contract" validate:"required"`
 	Keys     string `json:"keys"     yaml:"keys"`
@@ -252,9 +254,7 @@ func (w *ZenroomWorkflow) Start(
 	if input.Config["namespace"] != nil {
 		namespace = input.Config["namespace"].(string)
 	}
-	c, err := temporalclient.GetTemporalClientWithNamespace(
-		namespace,
-	)
+	c, err := zenroomTemporalClient(namespace)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unable to create client: %w", err)
 	}
