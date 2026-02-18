@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -562,6 +563,174 @@ func TestHandleDeeplinkTemporalClientError(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestHandleSendTemporalSignalMissingParams(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() {
+		complianceTemporalClient = origClient
+	})
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On("SignalWorkflow", mock.Anything, "", "", "", mock.Anything).
+		Return(&serviceerror.InvalidArgument{Message: "bad"})
+
+	complianceTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/compliance/signal", nil)
+	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, HandleSendTemporalSignalInput{}))
+	rec := httptest.NewRecorder()
+
+	err = HandleSendTemporalSignal()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestHandleSendTemporalSignalNotFound(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() {
+		complianceTemporalClient = origClient
+	})
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On("SignalWorkflow", mock.Anything, "wf-1", "", "sig", mock.Anything).
+		Return(&serviceerror.NotFound{Message: "missing"})
+
+	complianceTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	input := HandleSendTemporalSignalInput{
+		WorkflowID: "wf-1",
+		Namespace:  "ns",
+		Signal:     "sig",
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/compliance/signal", nil)
+	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, input))
+	rec := httptest.NewRecorder()
+
+	err = HandleSendTemporalSignal()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHandleSendTemporalSignalSuccess(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() {
+		complianceTemporalClient = origClient
+	})
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On("SignalWorkflow", mock.Anything, "wf-2", "", "sig", mock.Anything).
+		Return(nil)
+
+	complianceTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	input := HandleSendTemporalSignalInput{
+		WorkflowID: "wf-2",
+		Namespace:  "ns",
+		Signal:     "sig",
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/compliance/signal", nil)
+	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, input))
+	rec := httptest.NewRecorder()
+
+	err = HandleSendTemporalSignal()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+}
+
+func TestNotifyLogsUpdateNoSubscribers(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	err = notifyLogsUpdate(app, "subscription-1", []map[string]any{{"step": "ok"}})
+	require.NoError(t, err)
+}
+
+func TestGetDeeplinkOpenIDConformanceSuite(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	payload := base64.StdEncoding.EncodeToString([]byte(`{"Output":{"captures":{"deeplink":"link-1"}}}`))
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink", nil)
+	rec := httptest.NewRecorder()
+
+	err = getDeeplinkOpenIDConformanceSuite(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	}, map[string]any{"data": payload})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "link-1")
+}
+
+func TestGetDeeplinkEudiw(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	payload := base64.StdEncoding.EncodeToString([]byte(`{"Output":{"captures":{"client_id":"client-1","request_uri":"https://example.com/req"}}}`))
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink", nil)
+	rec := httptest.NewRecorder()
+
+	err = getDeeplinkEudiw(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	}, map[string]any{"data": payload})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	expected, err := workflows.BuildQRDeepLink("client-1", "https://example.com/req")
+	require.NoError(t, err)
+	var body map[string]string
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&body))
+	require.Equal(t, expected, body["deeplink"])
 }
 
 func TestGetWorkflowAuthorFromMemo(t *testing.T) {
