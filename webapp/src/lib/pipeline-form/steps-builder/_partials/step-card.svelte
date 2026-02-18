@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import type { EnrichedStep } from '../types';
 
 	import StepCardDisplay from './step-card-display.svelte';
-	import { getStepConfig } from './utils.js';
+	import { getStepConfig, getStepData } from './utils.js';
 
 	//
 
@@ -27,6 +27,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { builder, step, index }: Props = $props();
 
 	const config = $derived(getStepConfig(step));
+	const stepData = $derived(getStepData(step));
 	const EditComponent = $derived(config?.EditComponent);
 
 	let isEditSheetOpen = $state(false);
@@ -40,7 +41,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<div
 			class="flex items-center gap-1 pr-1 opacity-30 transition-opacity group-hover:opacity-100"
 		>
-			{#if EditComponent}
+			{#if EditComponent && stepData}
 				<IconButton
 					icon={PencilIcon}
 					variant="ghost"
@@ -74,8 +75,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Sheet bind:open={isEditSheetOpen} hideTrigger>
 	{#snippet content({ closeSheet })}
-		{#if EditComponent}
-			<EditComponent data={step[1]} closeDialog={closeSheet} />
+		{#if EditComponent && stepData}
+			<EditComponent data={stepData} closeDialog={closeSheet} />
 		{/if}
 	{/snippet}
 </Sheet>
