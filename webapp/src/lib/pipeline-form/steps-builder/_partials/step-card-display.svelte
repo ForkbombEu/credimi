@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { TriangleAlert } from '@lucide/svelte';
 	import * as steps from '$lib/pipeline-form/steps';
 
+	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
@@ -27,9 +28,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		topRight?: Snippet;
 		onContinueOnErrorChange?: (checked: boolean) => void;
 		readonly?: boolean;
+		showLinkToMarketplace?: boolean;
 	};
 
-	let { step, topRight, onContinueOnErrorChange, readonly = false }: Props = $props();
+	let {
+		step,
+		topRight,
+		onContinueOnErrorChange,
+		readonly = false,
+		showLinkToMarketplace = false
+	}: Props = $props();
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
 
@@ -78,7 +86,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<Avatar src={avatar} fallback={title} class="size-8 rounded-sm border" />
 						<div class="space-y-1">
 							<div class="flex items-center gap-1">
-								<h1>{title}</h1>
+								{#if cardData.publicUrl && showLinkToMarketplace}
+									<A href={cardData.publicUrl} target="_blank">
+										{title}
+									</A>
+								{:else}
+									<p>{title}</p>
+								{/if}
+
 								{#if copyText}
 									<CopyButtonSmall textToCopy={copyText} size="mini" />
 								{/if}
@@ -100,9 +115,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			{#if CardDetailsComponent}
-				<div>
-					<CardDetailsComponent data={stepData} />
-				</div>
+				<CardDetailsComponent data={stepData} />
 			{/if}
 		</div>
 	</div>

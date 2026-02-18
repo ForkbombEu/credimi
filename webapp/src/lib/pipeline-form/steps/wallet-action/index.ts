@@ -4,7 +4,11 @@
 
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
-import { getMarketplaceItemLogo, type MarketplaceItem } from '$lib/marketplace';
+import {
+	getMarketplaceItemLogo,
+	getMarketplaceItemUrl,
+	type MarketplaceItem
+} from '$lib/marketplace';
 import { type PipelineStepByType, type PipelineStepData } from '$lib/pipeline/types.js';
 import { getPath } from '$lib/utils';
 
@@ -36,15 +40,20 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	CardDetailsComponent,
 	EditComponent,
 
-	cardData: ({ action, wallet, version, runner }) => ({
-		title: action.name,
-		copyText: getPath(action),
-		avatar: getMarketplaceItemLogo(wallet),
-		meta: {
-			wallet: `${wallet.name} (v. ${version.tag})`,
-			runner: runner === 'global' ? m.Choose_later() : runner.name
-		}
-	}),
+	cardData: ({ action, wallet, version, runner }) => {
+		let publicUrl = getMarketplaceItemUrl(wallet);
+		publicUrl += `#${action.canonified_name}`;
+		return {
+			title: action.name,
+			copyText: getPath(action),
+			avatar: getMarketplaceItemLogo(wallet),
+			publicUrl,
+			meta: {
+				wallet: `${wallet.name} (v. ${version.tag})`,
+				runner: runner === 'global' ? m.Choose_later() : runner.name
+			}
+		};
+	},
 
 	makeId: (data) => {
 		if (!('action_id' in data) || !('version_id' in data)) {

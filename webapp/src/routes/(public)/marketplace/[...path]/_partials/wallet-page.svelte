@@ -55,15 +55,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
-	import { ConformanceCheckSchema } from '$lib/types/checks';
 	import { getPath } from '$lib/utils';
 	import { String } from 'effect';
-	import { z } from 'zod/v3';
+	import { onMount } from 'svelte';
 
 	import type { WalletVersionsResponse } from '@/pocketbase/types';
 
 	import Button from '@/components/ui-custom/button.svelte';
-	import Card from '@/components/ui-custom/card.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import {
@@ -87,15 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	type Props = Awaited<ReturnType<typeof getWalletDetails>>;
 	let { wallet, actionsWithOrganizations, versions }: Props = $props();
 
-	// misc derived values
-
-	const checks = $derived(z.array(ConformanceCheckSchema).safeParse(wallet.conformance_checks));
-
-	// function getCodeStats(code: string) {
-	// 	const lines = code.split('\n').length;
-	// 	const chars = code.length;
-	// 	return { lines, chars };
-	// }
+	//
 
 	const isGeneralInfoEmpty = $derived(
 		String.isEmpty(wallet.home_url) &&
@@ -103,28 +93,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			String.isEmpty(wallet.appstore_url) &&
 			String.isEmpty(wallet.playstore_url)
 	);
-
-	const statuses: Record<string, string> = {
-		Running: 'bg-blue-300',
-		TimedOut: 'bg-orange-200',
-		Completed: 'bg-green-200',
-		Failed: 'bg-red-200',
-		ContinuedAsNew: 'bg-purple-200',
-		Canceled: 'bg-slate-100',
-		Terminated: 'bg-yellow-200',
-		Paused: 'bg-yellow-200',
-		Unspecified: 'bg-slate-100',
-		Scheduled: 'bg-blue-300',
-		Started: 'bg-blue-300',
-		Open: 'bg-green-200',
-		New: 'bg-blue-300',
-		Initiated: 'bg-blue-300',
-		Fired: 'bg-pink-200',
-		CancelRequested: 'bg-yellow-200',
-		Signaled: 'bg-pink-200',
-		Pending: 'bg-purple-200',
-		Retrying: 'bg-red-200'
-	};
 
 	function getDownloadLinks(version: WalletVersionsResponse): { label: string; url: string }[] {
 		if (!version.downloadable) return [];
@@ -144,6 +112,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				url: pb.files.getURL(version, l.url)
 			}));
 	}
+
+	onMount(() => {
+		const anchor = window.location.hash ? window.location.hash.substring(1) : null;
+		if (!anchor) return;
+		const trigger = document.getElementById(anchor);
+		if (!trigger || !(trigger instanceof HTMLButtonElement)) return;
+		trigger.click();
+	});
 </script>
 
 <LayoutWithToc
@@ -174,30 +150,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	<DescriptionSection description={wallet.description} />
 
-	<PageSection indexItem={s.conformance_checks} empty={!checks.success}>
-		<!-- Seems redudant, given `empty` prop, but it's needed for type checking -->
-		{#if checks.success}
-			<div class="space-y-2">
-				{#each checks.data as check (check.runId)}
-					{@const badgeColor = statuses[check.status]}
-					<Card contentClass="flex justify-between items-center p-4">
-						<div>
-							<p class="font-bold">{check.standard}</p>
-							<p>{check.test}</p>
-						</div>
-						<Badge class="{badgeColor} text-black hover:{badgeColor}">
-							{check.status}
-						</Badge>
-					</Card>
-				{/each}
-			</div>
-		{/if}
-	</PageSection>
-
 	<PageSection indexItem={s.actions} empty={actionsWithOrganizations.length === 0}>
-		<div class="space-y-3">
+		<div class="relative space-y-3">
 			{#each actionsWithOrganizations as action (action.id)}
-				<!-- {@const stats = getCodeStats(action.code)} -->
 				<Accordion type="single" class="w-full">
 					<AccordionItem
 						value="code-accordion"
@@ -205,6 +160,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					>
 						<AccordionTrigger
 							class="group items-center gap-2! px-4 py-3 hover:no-underline"
+							id={action.canonified_name}
 						>
 							<div class="flex w-full items-center justify-between gap-4">
 								<div class="flex items-center gap-3">

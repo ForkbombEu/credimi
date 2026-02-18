@@ -5,7 +5,11 @@
 import type { MarketplaceItem } from '$lib/marketplace/types.js';
 
 import { entities } from '$lib/global/entities.js';
-import { getMarketplaceItemByPath, getMarketplaceItemLogo } from '$lib/marketplace/utils.js';
+import {
+	getMarketplaceItemByPath,
+	getMarketplaceItemLogo,
+	getMarketplaceItemUrl
+} from '$lib/marketplace/utils.js';
 import { getPath } from '$lib/utils';
 
 import { m } from '@/i18n/index.js';
@@ -82,6 +86,7 @@ function getMarketplaceItemCardData(item: MarketplaceItem) {
 	return {
 		title: item.name,
 		copyText: item.path,
-		avatar: getMarketplaceItemLogo(item)
+		avatar: getMarketplaceItemLogo(item),
+		publicUrl: getMarketplaceItemUrl(item)
 	};
 }
