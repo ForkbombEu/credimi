@@ -727,7 +727,7 @@ func processPipelineResults(
 	resultsRecords []*core.Record,
 	temporalClient *client.Client,
 ) ([]*WorkflowExecution, error) {
-	var allExecutions []*WorkflowExecution
+	allExecutions := make([]*WorkflowExecution, 0, len(resultsRecords))
 
 	for _, resultRecord := range resultsRecords {
 		c, err := pipelineTemporalClient(namespace)

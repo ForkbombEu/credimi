@@ -19,8 +19,6 @@ import (
 )
 
 func setNext(e *core.RequestEvent, fn func() error) {
-	t := reflect.TypeOf(*e)
-	_ = t
 	eventField := reflect.ValueOf(e).Elem().FieldByName("Event")
 	hookEvent := eventField.FieldByName("Event")
 	nextField := hookEvent.FieldByName("next")

@@ -33,7 +33,9 @@ func TestCESRValidateActivitySuccessAndFailure(t *testing.T) {
 	dir := t.TempDir()
 	binPath := filepath.Join(dir, "et-tu-cesr")
 
-	script := []byte("#!/bin/sh\nif [ \"$1\" = \"validate-parsed-credentials\" ]; then echo OK; echo ERR 1>&2; exit 0; fi\nexit 1\n")
+	script := []byte(
+		"#!/bin/sh\nif [ \"$1\" = \"validate-parsed-credentials\" ]; then echo OK; echo ERR 1>&2; exit 0; fi\nexit 1\n",
+	)
 	require.NoError(t, os.WriteFile(binPath, script, 0o755))
 	t.Setenv("BIN", dir)
 
@@ -120,7 +122,11 @@ func TestMobileFlowStubActivities(t *testing.T) {
 				workflowengine.ActivityInput{},
 			)
 			require.Error(t, err)
-			require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code)
+			require.Contains(
+				t,
+				err.Error(),
+				errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+			)
 		})
 	}
 }

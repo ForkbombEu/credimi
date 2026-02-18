@@ -58,7 +58,11 @@ func RegisterSchedulesHooks(app core.App) {
 			var notFound *serviceerror.NotFound
 			if errors.As(err, &notFound) {
 				// Schedule no longer exists in Temporal; enrich with fallback status so the record still loads
-				log.Printf("schedule not found in Temporal (temporal_schedule_id=%s): %v", e.Record.GetString("temporal_schedule_id"), err)
+				log.Printf(
+					"schedule not found in Temporal (temporal_schedule_id=%s): %v",
+					e.Record.GetString("temporal_schedule_id"),
+					err,
+				)
 				runnerRecords, _ := resolveScheduleRunnerRecords(
 					e.App,
 					e.Record.GetString("pipeline"),
@@ -81,8 +85,8 @@ func RegisterSchedulesHooks(app core.App) {
 		}
 		var displayName string
 		if desc.Memo != nil {
-			if field, ok := desc.Memo.Fields["test"]; ok {
-				displayName = handlers.DecodeFromTemporalPayload(string(field.Data))
+			if field, ok := desc.Memo.GetFields()["test"]; ok {
+				displayName = handlers.DecodeFromTemporalPayload(string(field.GetData()))
 			}
 		}
 
@@ -112,9 +116,7 @@ func RegisterSchedulesHooks(app core.App) {
 		e.Record.Set("__schedule_status__", status)
 
 		return e.Next()
-
 	})
-
 }
 
 func resolveScheduleRunnerRecords(

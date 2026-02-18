@@ -105,7 +105,10 @@ func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	pipelineWf := NewPipelineWorkflow()
-	env.RegisterWorkflowWithOptions(pipelineWf.Workflow, workflow.RegisterOptions{Name: pipelineWf.Name()})
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
 
 	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
 		WorkflowDefinition: &WorkflowDefinition{

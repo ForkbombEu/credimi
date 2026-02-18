@@ -11,11 +11,12 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -400,6 +401,33 @@ func TestCredentialIssuersAPI(t *testing.T) {
 	}
 }
 
+func TestReadSchemaFile(t *testing.T) {
+	tempDir := t.TempDir()
+	path := tempDir + "/schema.json"
+	require.NoError(t, os.WriteFile(path, []byte(`{"type":"object"}`), 0o600))
+
+	content, apiErr := readSchemaFile(path)
+	require.Nil(t, apiErr)
+	require.Contains(t, content, `"type":"object"`)
+
+	_, apiErr = readSchemaFile(tempDir + "/missing.json")
+	require.NotNil(t, apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Equal(t, "failed to read  JSON schema file", apiErr.Reason)
+}
+
+func TestCheckWellKnownEndpoints(t *testing.T) {
+	ctx := context.Background()
+
+	err := checkWellKnownEndpoints(ctx, "http://127.0.0.1")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "neither .well-known")
+
+	err = checkWellKnownEndpoints(ctx, "http://127.0.0.1/.well-known/openid-federation")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "is not accessible")
+}
+
 func TestHandleCredentialIssuerStartCheckBadURL(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -491,8 +519,8 @@ func TestHandleCredentialIssuerStartCheckSuccess(t *testing.T) {
 		time.Duration,
 	) (map[string]any, error) {
 		return map[string]any{
-			"issuerName":       "Issuer Name",
-			"logo":             "https://logo.example.com/logo.png",
+			"issuerName":        "Issuer Name",
+			"logo":              "https://logo.example.com/logo.png",
 			"credentialsNumber": 2.0,
 		}, nil
 	}

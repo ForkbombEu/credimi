@@ -97,6 +97,59 @@ func TestDecodeRunStatusView(t *testing.T) {
 	require.Error(t, err)
 }
 
+func TestDecodeRunStatusViewMapErrors(t *testing.T) {
+	_, err := decodeRunStatusView(map[string]any{
+		"ticket_id": func() {},
+	})
+	require.Error(t, err)
+
+	_, err = decodeRunStatusView(map[string]any{
+		"ticket_id": "ticket-1",
+		"position":  "bad",
+	})
+	require.Error(t, err)
+}
+
+func TestDecodeCheckWorkflowClosedOutputMapErrors(t *testing.T) {
+	_, err := decodeCheckWorkflowClosedOutputMap(map[string]any{
+		"closed": func() {},
+	})
+	require.Error(t, err)
+
+	_, err = decodeCheckWorkflowClosedOutputMap(map[string]any{
+		"closed": "nope",
+	})
+	require.Error(t, err)
+}
+
+func TestBuildRunStatusViewCopiesSlice(t *testing.T) {
+	runtime := &mobileRunnerSemaphoreRuntime{}
+	state := MobileRunnerSemaphoreRunTicketState{
+		Status:            mobileRunnerSemaphoreRunRunning,
+		WorkflowID:        "wf-1",
+		RunID:             "run-1",
+		WorkflowNamespace: "ns-1",
+		Request: MobileRunnerSemaphoreEnqueueRunRequest{
+			LeaderRunnerID:    "leader-1",
+			RequiredRunnerIDs: []string{"r1", "r2"},
+		},
+		ErrorMessage: "oops",
+	}
+
+	view := runtime.buildRunStatusView("ticket-1", state)
+	require.Equal(t, "ticket-1", view.TicketID)
+	require.Equal(t, mobileRunnerSemaphoreRunRunning, view.Status)
+	require.Equal(t, "leader-1", view.LeaderRunnerID)
+	require.Equal(t, []string{"r1", "r2"}, view.RequiredRunnerIDs)
+	require.Equal(t, "wf-1", view.WorkflowID)
+	require.Equal(t, "run-1", view.RunID)
+	require.Equal(t, "ns-1", view.WorkflowNamespace)
+	require.Equal(t, "oops", view.ErrorMessage)
+
+	state.Request.RequiredRunnerIDs[0] = "changed"
+	require.Equal(t, []string{"r1", "r2"}, view.RequiredRunnerIDs)
+}
+
 func TestBuildHoldersViewSorted(t *testing.T) {
 	view := buildHoldersView(map[string]MobileRunnerSemaphoreHolder{
 		"lease-b": {LeaseID: "lease-b"},
@@ -130,6 +183,71 @@ func TestRemoveFromQueue(t *testing.T) {
 	updated := removeFromQueue(queue, "b")
 	require.Equal(t, []string{"a", "c"}, updated)
 	require.Equal(t, queue, removeFromQueue(queue, "missing"))
+}
+
+func TestInsertRunQueueSorts(t *testing.T) {
+	now := time.Now()
+	older := now.Add(-time.Minute)
+	tickets := map[string]MobileRunnerSemaphoreRunTicketState{
+		"old": {
+			Request: MobileRunnerSemaphoreEnqueueRunRequest{TicketID: "old", EnqueuedAt: older},
+		},
+		"new": {Request: MobileRunnerSemaphoreEnqueueRunRequest{TicketID: "new", EnqueuedAt: now}},
+	}
+	queue := []string{"new"}
+	queue = insertRunQueue(queue, "old", tickets)
+	require.Equal(t, []string{"old", "new"}, queue)
+}
+
+func TestContainsStringAndCopyHelpers(t *testing.T) {
+	require.True(t, containsString([]string{"a", "b"}, "b"))
+	require.False(t, containsString([]string{"a"}, "c"))
+
+	require.Nil(t, copyQueue(nil))
+	queue := []string{"a", "b"}
+	queueCopy := copyQueue(queue)
+	queueCopy[0] = "changed"
+	require.Equal(t, []string{"a", "b"}, queue)
+
+	require.Nil(t, copyStringSlice(nil))
+	values := []string{"x"}
+	valuesCopy := copyStringSlice(values)
+	valuesCopy[0] = "y"
+	require.Equal(t, []string{"x"}, values)
+
+	require.Nil(t, copyHolders(nil))
+	holders := map[string]MobileRunnerSemaphoreHolder{"lease": {LeaseID: "lease"}}
+	holdersCopy := copyHolders(holders)
+	holdersCopy["lease"] = MobileRunnerSemaphoreHolder{LeaseID: "changed"}
+	require.Equal(t, "lease", holders["lease"].LeaseID)
+
+	require.Nil(t, copyRequests(nil))
+	requests := map[string]MobileRunnerSemaphoreRequestState{
+		"req": {Request: MobileRunnerSemaphoreAcquireRequest{RequestID: "req"}},
+	}
+	requestsCopy := copyRequests(requests)
+	requestsCopy["req"] = MobileRunnerSemaphoreRequestState{}
+	require.Equal(t, "req", requests["req"].Request.RequestID)
+
+	require.Nil(t, copyStringAnyMap(nil))
+	anyMap := map[string]any{"k": "v"}
+	anyCopy := copyStringAnyMap(anyMap)
+	anyCopy["k"] = "changed"
+	require.Equal(t, "v", anyMap["k"])
+
+	require.Nil(t, copyStringBoolMap(nil))
+	boolMap := map[string]bool{"k": true}
+	boolCopy := copyStringBoolMap(boolMap)
+	boolCopy["k"] = false
+	require.True(t, boolMap["k"])
+}
+
+func TestCopyTimePtr(t *testing.T) {
+	require.Nil(t, copyTimePtr(nil))
+	now := time.Now()
+	copied := copyTimePtr(&now)
+	require.NotSame(t, &now, copied)
+	require.Equal(t, now, *copied)
 }
 
 func TestRunQueuePosition(t *testing.T) {
@@ -169,14 +287,14 @@ func TestCopyRunTicketsDeepCopy(t *testing.T) {
 		},
 	}
 
-	copy := copyRunTickets(original)
-	require.Equal(t, original, copy)
+	copied := copyRunTickets(original)
+	require.Equal(t, original, copied)
 
-	entry := copy["ticket"]
+	entry := copied["ticket"]
 	entry.Request.RequiredRunnerIDs[0] = "r2"
 	entry.Request.PipelineConfig["k"] = "changed"
 	entry.GrantedRunnerIDs["r1"] = false
-	copy["ticket"] = entry
+	copied["ticket"] = entry
 
 	require.Equal(t, "r1", original["ticket"].Request.RequiredRunnerIDs[0])
 	require.Equal(t, "v", original["ticket"].Request.PipelineConfig["k"])

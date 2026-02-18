@@ -18,7 +18,11 @@ func TestPrepareWorkflowOptionsDefaultsAndOverrides(t *testing.T) {
 	require.Equal(t, 10*time.Minute, defaultOpts.ActivityOptions.ScheduleToCloseTimeout)
 	require.Equal(t, 5*time.Minute, defaultOpts.ActivityOptions.StartToCloseTimeout)
 	require.NotNil(t, defaultOpts.ActivityOptions.RetryPolicy)
-	require.Equal(t, int32(DefaultRetryMaxAttempts), defaultOpts.ActivityOptions.RetryPolicy.MaximumAttempts)
+	require.Equal(
+		t,
+		DefaultRetryMaxAttempts,
+		defaultOpts.ActivityOptions.RetryPolicy.MaximumAttempts,
+	)
 
 	rc := RuntimeConfig{}
 	rc.Temporal.ExecutionTimeout = "1h"

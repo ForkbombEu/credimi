@@ -178,8 +178,9 @@ func TestEnsureNamespaceReadyWithRetryRegistersOnNotFound(t *testing.T) {
 		},
 	)
 	mockClient.On("Register", mock.Anything, mock.MatchedBy(func(req *workflowservice.RegisterNamespaceRequest) bool {
-		return req.Namespace == "tenant"
-	})).Return(nil)
+		return req.GetNamespace() == "tenant"
+	})).
+		Return(nil)
 	mockClient.On("Close").Return()
 
 	newNamespaceClientFn = func(_ client.Options) (client.NamespaceClient, error) {

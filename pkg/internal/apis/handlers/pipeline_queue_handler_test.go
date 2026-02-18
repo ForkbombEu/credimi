@@ -516,7 +516,11 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 
 func TestPipelineQueueHelpers(t *testing.T) {
 	t.Run("parseRunnerIDs prefers array param", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/?runner_ids[]=runner-1&runner_ids[]=runner-2", nil)
+		req := httptest.NewRequest(
+			http.MethodGet,
+			"/?runner_ids[]=runner-1&runner_ids[]=runner-2",
+			nil,
+		)
 		req.URL.RawQuery = "runner_ids[]=runner-1&runner_ids[]=runner-2&runner_ids=runner-3"
 		require.Equal(t, []string{"runner-1", "runner-2"}, parseRunnerIDs(req))
 	})

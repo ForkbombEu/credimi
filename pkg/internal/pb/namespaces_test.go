@@ -15,15 +15,21 @@ import (
 )
 
 type fakeNamespaceClient struct {
-	describeErrs []error
+	describeErrs  []error
 	describeCalls int
 }
 
-func (f *fakeNamespaceClient) Register(_ context.Context, _ *workflowservice.RegisterNamespaceRequest) error {
+func (f *fakeNamespaceClient) Register(
+	_ context.Context,
+	_ *workflowservice.RegisterNamespaceRequest,
+) error {
 	return nil
 }
 
-func (f *fakeNamespaceClient) Describe(_ context.Context, _ string) (*workflowservice.DescribeNamespaceResponse, error) {
+func (f *fakeNamespaceClient) Describe(
+	_ context.Context,
+	_ string,
+) (*workflowservice.DescribeNamespaceResponse, error) {
 	f.describeCalls++
 	if len(f.describeErrs) > 0 {
 		err := f.describeErrs[0]
@@ -33,7 +39,10 @@ func (f *fakeNamespaceClient) Describe(_ context.Context, _ string) (*workflowse
 	return &workflowservice.DescribeNamespaceResponse{}, nil
 }
 
-func (f *fakeNamespaceClient) Update(_ context.Context, _ *workflowservice.UpdateNamespaceRequest) error {
+func (f *fakeNamespaceClient) Update(
+	_ context.Context,
+	_ *workflowservice.UpdateNamespaceRequest,
+) error {
 	return nil
 }
 

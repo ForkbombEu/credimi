@@ -4,9 +4,11 @@
 
 package registry
 
-import "testing"
+import (
+	"testing"
 
-import "github.com/stretchr/testify/require"
+	"github.com/stretchr/testify/require"
+)
 
 func TestRegistryContainsCoreTasks(t *testing.T) {
 	t.Parallel()

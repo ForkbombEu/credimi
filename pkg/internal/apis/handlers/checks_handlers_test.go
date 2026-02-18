@@ -6,6 +6,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -136,7 +137,7 @@ func TestListChecksWorkflowsTemporal(t *testing.T) {
 			"ListWorkflow",
 			mock.Anything,
 			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
-				return req.Namespace == "tenant-1" && req.Query == "query"
+				return req.GetNamespace() == "tenant-1" && req.GetQuery() == "query"
 			}),
 		).
 		Return(expected, nil)
@@ -357,7 +358,7 @@ func TestHandleListMyCheckRunsSuccess(t *testing.T) {
 			"ListWorkflow",
 			mock.Anything,
 			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
-				return req.Namespace != "" && req.Query != ""
+				return req.GetNamespace() != "" && req.GetQuery() != ""
 			}),
 		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
@@ -480,7 +481,14 @@ func TestHandleTerminateMyCheckRunSuccess(t *testing.T) {
 
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("TerminateWorkflow", mock.Anything, "check-2", "run-2", "Terminated by user", mock.Anything).
+		On(
+			"TerminateWorkflow",
+			mock.Anything,
+			"check-2",
+			"run-2",
+			"Terminated by user",
+			mock.Anything,
+		).
 		Return(nil).
 		Once()
 
@@ -573,7 +581,11 @@ func TestHandleMyCheckLogsStart(t *testing.T) {
 		return mockClient, nil
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-4/runs/run-4/logs?action=start", nil)
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/my/checks/check-4/runs/run-4/logs?action=start",
+		nil,
+	)
 	req.SetPathValue("checkId", "check-4")
 	req.SetPathValue("runId", "run-4")
 	rec := httptest.NewRecorder()
@@ -792,7 +804,10 @@ func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
 					CloseTime: timestamppb.New(time.Now().Add(-time.Minute)),
 				},
 				{
-					Execution: &common.WorkflowExecution{WorkflowId: "wf-check", RunId: "run-check"},
+					Execution: &common.WorkflowExecution{
+						WorkflowId: "wf-check",
+						RunId:      "run-check",
+					},
 					Type:      &common.WorkflowType{Name: "CheckWorkflow"},
 					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 					StartTime: timestamppb.New(time.Now().Add(-3 * time.Minute)),
@@ -820,6 +835,44 @@ func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 	require.Len(t, resp.Executions, 1)
 	require.Equal(t, "wf-check", resp.Executions[0].Execution.WorkflowID)
+}
+
+func TestBuildExecutionHierarchy(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	encoded := base64.StdEncoding.EncodeToString([]byte("Parent Display"))
+	parentMemo := &Memo{Fields: map[string]*Payload{
+		"test": {Data: &encoded},
+	}}
+
+	parent := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: "parent", RunID: "run-parent"},
+		Type:      WorkflowType{Name: "CustomCheck"},
+		StartTime: time.Now().Add(-2 * time.Minute).UTC().Format(time.RFC3339),
+		CloseTime: time.Now().Add(-time.Minute).UTC().Format(time.RFC3339),
+		Status:    "COMPLETED",
+		Memo:      parentMemo,
+	}
+
+	child := &WorkflowExecution{
+		Execution:       &WorkflowIdentifier{WorkflowID: "child-123e4567-e89b-12d3-a456-426614174000-suffix", RunID: "run-child"},
+		Type:            WorkflowType{Name: "CustomCheck"},
+		StartTime:       time.Now().Add(-90 * time.Second).UTC().Format(time.RFC3339),
+		CloseTime:       time.Now().Add(-80 * time.Second).UTC().Format(time.RFC3339),
+		Status:          "COMPLETED",
+		ParentExecution: &WorkflowIdentifier{RunID: "run-parent"},
+	}
+
+	mockClient := &temporalmocks.Client{}
+	results := buildExecutionHierarchy(app, []*WorkflowExecution{child, parent}, "owner", "UTC", mockClient)
+	require.Len(t, results, 1)
+	require.Equal(t, "Parent Display", results[0].DisplayName)
+	require.Len(t, results[0].Children, 1)
+	require.Equal(t, "suffix", results[0].Children[0].DisplayName)
+	require.Contains(t, results[0].StartTime, "/")
+	require.Contains(t, results[0].EndTime, "/")
 }
 
 func TestHandleListMyChecksListError(t *testing.T) {

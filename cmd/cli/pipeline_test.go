@@ -278,7 +278,7 @@ func TestReadPipelineInputFromStdin(t *testing.T) {
 		os.Stdin = origStdin
 	})
 
-	_, _ = writer.Write([]byte("name: from-stdin\n"))
+	_, _ = writer.WriteString("name: from-stdin\n")
 	_ = writer.Close()
 
 	input, err := readPipelineInput()

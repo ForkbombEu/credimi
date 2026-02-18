@@ -109,7 +109,12 @@ form:
   foo: "bar"
 test: "alpha"
 `
-		writeTemplateFile(t, rootDir, filepath.Join("config_templates", checkID+".yaml"), configTemplate)
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
 		writeTemplateFile(
 			t,
 			rootDir,
@@ -155,7 +160,12 @@ test: "alpha"
 
 		checkID := "oid4vci/ewc/check2"
 		configTemplate := `sessionId: "session-123"`
-		writeTemplateFile(t, rootDir, filepath.Join("config_templates", checkID+".yaml"), configTemplate)
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
 		writeTemplateFile(
 			t,
 			rootDir,
@@ -181,7 +191,12 @@ test: "alpha"
 		configTemplate := `id: "abc"
 nonce: "xyz"
 `
-		writeTemplateFile(t, rootDir, filepath.Join("config_templates", checkID+".yaml"), configTemplate)
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
 		writeTemplateFile(
 			t,
 			rootDir,
@@ -206,7 +221,12 @@ nonce: "xyz"
 
 		checkID := "oid4vci/openid_conformance_suite/check4"
 		configTemplate := `variant: {}`
-		writeTemplateFile(t, rootDir, filepath.Join("config_templates", checkID+".yaml"), configTemplate)
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
 		writeTemplateFile(
 			t,
 			rootDir,

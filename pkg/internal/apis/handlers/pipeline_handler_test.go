@@ -354,7 +354,11 @@ func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
 		}, nil
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows/"+pipelineRecord.Id, nil)
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/pipeline/list-workflows/"+pipelineRecord.Id,
+		nil,
+	)
 	req.SetPathValue("id", pipelineRecord.Id)
 	rec := httptest.NewRecorder()
 

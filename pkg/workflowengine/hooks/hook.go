@@ -226,12 +226,12 @@ var DefaultWorkers = []workerConfig{
 }
 
 var (
-	getTemporalClient      = temporalclient.GetTemporalClientWithNamespace
-	newNamespaceClientFn   = client.NewNamespaceClient
-	sleepFn                = time.Sleep
-	nowFn                  = time.Now
-	startWorkerFn          = startWorker
-	startPipelineWorkerFn  = startPipelineWorker
+	getTemporalClient     = temporalclient.GetTemporalClientWithNamespace
+	newNamespaceClientFn  = client.NewNamespaceClient
+	sleepFn               = time.Sleep
+	nowFn                 = time.Now
+	startWorkerFn         = startWorker
+	startPipelineWorkerFn = startPipelineWorker
 )
 
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {

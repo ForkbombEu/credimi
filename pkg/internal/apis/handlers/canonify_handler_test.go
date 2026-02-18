@@ -31,9 +31,11 @@ func TestHandleIdentifierValidateSuccess(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/canonify/identifier/validate", nil)
-	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, IdentifierValidateRequest{
-		CanonifiedName: path,
-	}))
+	req = req.WithContext(
+		context.WithValue(req.Context(), middlewares.ValidatedInputKey, IdentifierValidateRequest{
+			CanonifiedName: path,
+		}),
+	)
 	rec := httptest.NewRecorder()
 
 	err = HandleIdentifierValidate()(&core.RequestEvent{

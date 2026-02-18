@@ -43,7 +43,11 @@ func TestHandleSaveVariablesAndStartMissingProtocol(t *testing.T) {
 		ConfigsWithJSON:   map[string]string{},
 		CustomChecks:      map[string]CustomCheck{},
 	})
-	req := httptest.NewRequest(http.MethodPost, "/api/compliance//save-variables-and-start", bytes.NewBuffer(body))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/compliance//save-variables-and-start",
+		bytes.NewBuffer(body),
+	)
 	req = withValidatedInput(req, SaveVariablesAndStartRequestInput{
 		ConfigsWithFields: map[string][]Variable{},
 		ConfigsWithJSON:   map[string]string{},
@@ -72,7 +76,10 @@ func TestHandleSaveVariablesAndStartUnsupportedAuthor(t *testing.T) {
 	require.NoError(t, err)
 
 	rootDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(rootDir, "config_templates", "openid", "v1"), 0o755))
+	require.NoError(
+		t,
+		os.MkdirAll(filepath.Join(rootDir, "config_templates", "openid", "v1"), 0o755),
+	)
 	t.Setenv("ROOT_DIR", rootDir)
 
 	body, _ := json.Marshal(SaveVariablesAndStartRequestInput{
@@ -80,7 +87,11 @@ func TestHandleSaveVariablesAndStartUnsupportedAuthor(t *testing.T) {
 		ConfigsWithJSON:   map[string]string{"unknown/test-1": "{}"},
 		CustomChecks:      map[string]CustomCheck{},
 	})
-	req := httptest.NewRequest(http.MethodPost, "/api/compliance/openid/v1/save-variables-and-start", bytes.NewBuffer(body))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/compliance/openid/v1/save-variables-and-start",
+		bytes.NewBuffer(body),
+	)
 	req.SetPathValue("protocol", "openid")
 	req.SetPathValue("version", "v1")
 	req = withValidatedInput(req, SaveVariablesAndStartRequestInput{
@@ -133,7 +144,11 @@ func TestHandleSaveVariablesAndStartSuccessJSON(t *testing.T) {
 		ConfigsWithJSON:   map[string]string{"ewc/test-1": "{}"},
 		CustomChecks:      map[string]CustomCheck{},
 	})
-	req := httptest.NewRequest(http.MethodPost, "/api/compliance/ewc/v1/save-variables-and-start", bytes.NewBuffer(body))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/compliance/ewc/v1/save-variables-and-start",
+		bytes.NewBuffer(body),
+	)
 	req.SetPathValue("protocol", "ewc")
 	req.SetPathValue("version", "v1")
 	req = withValidatedInput(req, SaveVariablesAndStartRequestInput{
@@ -180,7 +195,10 @@ func TestHandleSaveVariablesAndStartCustomCheckMissingYAML(t *testing.T) {
 	require.NoError(t, err)
 
 	rootDir := t.TempDir()
-	require.NoError(t, os.MkdirAll(filepath.Join(rootDir, "config_templates", "openid", "v1"), 0o755))
+	require.NoError(
+		t,
+		os.MkdirAll(filepath.Join(rootDir, "config_templates", "openid", "v1"), 0o755),
+	)
 	t.Setenv("ROOT_DIR", rootDir)
 
 	input := SaveVariablesAndStartRequestInput{
@@ -231,7 +249,9 @@ func TestHandleSaveVariablesAndStartVariablesFlow(t *testing.T) {
 		t,
 		os.WriteFile(
 			templatePath,
-			[]byte("foo: {{ credimi \"{\\\"field_id\\\":\\\"foo\\\",\\\"credimi_id\\\":\\\"cred-1\\\"}\" }}\n"),
+			[]byte(
+				"foo: {{ credimi \"{\\\"field_id\\\":\\\"foo\\\",\\\"credimi_id\\\":\\\"cred-1\\\"}\" }}\n",
+			),
 			0o644,
 		),
 	)
@@ -382,16 +402,16 @@ func TestStartOpenIDNetWorkflowSuccess(t *testing.T) {
 	}
 
 	params := WorkflowStarterParams{
-		YAMLData: "variant: json\ntest: test-1\n",
-		Email:    "user@example.com",
-		AppURL:   "https://app.example.com",
+		YAMLData:  "variant: json\ntest: test-1\n",
+		Email:     "user@example.com",
+		AppURL:    "https://app.example.com",
 		Namespace: "ns",
-		Memo:     map[string]interface{}{"test": "test-1"},
-		Author:   "openid_conformance_suite",
-		Version:  "1.0",
-		AppName:  "Credimi",
-		LogoUrl:  "https://app.example.com/logo.png",
-		UserName: "User",
+		Memo:      map[string]interface{}{"test": "test-1"},
+		Author:    "openid_conformance_suite",
+		Version:   "1.0",
+		AppName:   "Credimi",
+		LogoUrl:   "https://app.example.com/logo.png",
+		UserName:  "User",
 	}
 
 	result, err := startOpenIDNetWorkflow(params)
@@ -436,17 +456,17 @@ func TestStartEWCWorkflowSuccess(t *testing.T) {
 	}
 
 	params := WorkflowStarterParams{
-		YAMLData: "sessionId: session-1\n",
-		Email:    "user@example.com",
-		AppURL:   "https://app.example.com",
+		YAMLData:  "sessionId: session-1\n",
+		Email:     "user@example.com",
+		AppURL:    "https://app.example.com",
 		Namespace: "ns",
-		Memo:     map[string]interface{}{"test": "ewc/test"},
-		Author:   "ewc",
-		Protocol: "openid4vp_wallet",
-		TestName: "ewctest.yaml",
-		AppName:  "Credimi",
-		LogoUrl:  "https://app.example.com/logo.png",
-		UserName: "User",
+		Memo:      map[string]interface{}{"test": "ewc/test"},
+		Author:    "ewc",
+		Protocol:  "openid4vp_wallet",
+		TestName:  "ewctest.yaml",
+		AppName:   "Credimi",
+		LogoUrl:   "https://app.example.com/logo.png",
+		UserName:  "User",
 	}
 
 	result, err := startEWCWorkflow(params)
@@ -474,16 +494,16 @@ func TestStartEudiwWorkflowSuccess(t *testing.T) {
 	}
 
 	params := WorkflowStarterParams{
-		YAMLData: "nonce: n1\nid: id-1\n",
-		Email:    "user@example.com",
-		AppURL:   "https://app.example.com",
+		YAMLData:  "nonce: n1\nid: id-1\n",
+		Email:     "user@example.com",
+		AppURL:    "https://app.example.com",
 		Namespace: "ns",
-		Memo:     map[string]interface{}{"test": "eudiw/test"},
-		Author:   "eudiw",
-		TestName: "eudiwtest.yaml",
-		AppName:  "Credimi",
-		LogoUrl:  "https://app.example.com/logo.png",
-		UserName: "User",
+		Memo:      map[string]interface{}{"test": "eudiw/test"},
+		Author:    "eudiw",
+		TestName:  "eudiwtest.yaml",
+		AppName:   "Credimi",
+		LogoUrl:   "https://app.example.com/logo.png",
+		UserName:  "User",
 	}
 
 	result, err := startEudiwWorkflow(params)

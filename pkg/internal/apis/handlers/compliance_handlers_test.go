@@ -459,6 +459,111 @@ func TestHandleSendOpenIDNetLogUpdateSuccess(t *testing.T) {
 	require.Equal(t, "wf-3"+workflows.OpenIDNetSubscription, capturedSubscription)
 }
 
+func TestHandleSendEudiwLogUpdateError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	origNotify := complianceNotifyLogsUpdate
+	t.Cleanup(func() {
+		complianceNotifyLogsUpdate = origNotify
+	})
+
+	complianceNotifyLogsUpdate = func(_ core.App, subscription string, data []map[string]any) error {
+		return errors.New("boom")
+	}
+
+	input := HandleSendLogUpdateRequestInput{
+		WorkflowID: "wf-1",
+		Logs:       []map[string]any{{"step": "ok"}},
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/compliance/send-eudiw-log-update", nil)
+	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, input))
+	rec := httptest.NewRecorder()
+
+	err = HandleSendEudiwLogUpdate()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestHandleDeeplinkMissingParams(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink/", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleDeeplink()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+
+	req = httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink/wf-1/", nil)
+	req.SetPathValue("workflowId", "wf-1")
+	rec = httptest.NewRecorder()
+
+	err = HandleDeeplink()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestHandleDeeplinkTemporalClientError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() {
+		complianceTemporalClient = origClient
+	})
+	complianceTemporalClient = func(_ string) (client.Client, error) {
+		return nil, errors.New("no client")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink/wf-1/run-1", nil)
+	req.SetPathValue("workflowId", "wf-1")
+	req.SetPathValue("runId", "run-1")
+	rec := httptest.NewRecorder()
+
+	err = HandleDeeplink()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
 func TestGetWorkflowAuthorFromMemo(t *testing.T) {
 	payload, err := converter.GetDefaultDataConverter().ToPayload("ewc")
 	require.NoError(t, err)
