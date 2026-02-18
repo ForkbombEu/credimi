@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
@@ -550,6 +551,332 @@ func TestHandleCredentialIssuerStartCheckSuccess(t *testing.T) {
 	updated, err := app.FindRecordById("credential_issuers", issuerRecord.Id)
 	require.NoError(t, err)
 	require.NotEmpty(t, updated.GetString("workflow_url"))
+}
+
+func TestHandleCredentialIssuerStartCheckReadSchemaErrorAdditional(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origCheck := credentialIssuerCheckWellKnownEndpoints
+	origRead := credentialIssuerReadSchemaFile
+	t.Cleanup(func() {
+		credentialIssuerCheckWellKnownEndpoints = origCheck
+		credentialIssuerReadSchemaFile = origRead
+	})
+
+	credentialIssuerCheckWellKnownEndpoints = func(context.Context, string) error { return nil }
+	credentialIssuerReadSchemaFile = func(string) (string, *apierror.APIError) {
+		return "", apierror.New(http.StatusBadRequest, "schema", "bad", "bad")
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/credentials_issuers/start-check",
+		bytes.NewBufferString(`{"credentialIssuerUrl":"https://issuer.example.com"}`),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleCredentialIssuerStartCheck()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestHandleCredentialIssuerStartCheckTemporalClientErrorAdditional(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origCheck := credentialIssuerCheckWellKnownEndpoints
+	origRead := credentialIssuerReadSchemaFile
+	origStart := credentialIssuerStartWorkflow
+	origClient := credentialIssuerTemporalClient
+	t.Cleanup(func() {
+		credentialIssuerCheckWellKnownEndpoints = origCheck
+		credentialIssuerReadSchemaFile = origRead
+		credentialIssuerStartWorkflow = origStart
+		credentialIssuerTemporalClient = origClient
+	})
+
+	credentialIssuerCheckWellKnownEndpoints = func(context.Context, string) error { return nil }
+	credentialIssuerReadSchemaFile = func(string) (string, *apierror.APIError) { return "schema", nil }
+	credentialIssuerStartWorkflow = func(string, workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{WorkflowID: "wf", WorkflowRunID: "run"}, nil
+	}
+	credentialIssuerTemporalClient = func(string) (client.Client, error) {
+		return nil, errors.New("no client")
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/credentials_issuers/start-check",
+		bytes.NewBufferString(`{"credentialIssuerUrl":"https://issuer.client.example.com"}`),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleCredentialIssuerStartCheck()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestHandleCredentialIssuerStartCheckUsesHostnameFallbackAdditional(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origCheck := credentialIssuerCheckWellKnownEndpoints
+	origRead := credentialIssuerReadSchemaFile
+	origStart := credentialIssuerStartWorkflow
+	origClient := credentialIssuerTemporalClient
+	origWait := credentialIssuerWaitForPartialResult
+	t.Cleanup(func() {
+		credentialIssuerCheckWellKnownEndpoints = origCheck
+		credentialIssuerReadSchemaFile = origRead
+		credentialIssuerStartWorkflow = origStart
+		credentialIssuerTemporalClient = origClient
+		credentialIssuerWaitForPartialResult = origWait
+	})
+
+	credentialIssuerCheckWellKnownEndpoints = func(context.Context, string) error { return nil }
+	credentialIssuerReadSchemaFile = func(string) (string, *apierror.APIError) { return "schema", nil }
+	credentialIssuerStartWorkflow = func(string, workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{WorkflowID: "wf", WorkflowRunID: "run"}, nil
+	}
+	credentialIssuerTemporalClient = func(string) (client.Client, error) {
+		return &temporalmocks.Client{}, nil
+	}
+	credentialIssuerWaitForPartialResult = func(
+		client.Client,
+		string,
+		string,
+		string,
+		time.Duration,
+		time.Duration,
+	) (map[string]any, error) {
+		return map[string]any{
+			"issuerName":        "",
+			"logo":              "",
+			"credentialsNumber": 1.0,
+		}, nil
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/credentials_issuers/start-check",
+		bytes.NewBufferString(`{"credentialIssuerUrl":"https://issuer.fallback.example.com"}`),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleCredentialIssuerStartCheck()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	require.NoError(t, err)
+	records, err := app.FindRecordsByFilter(
+		"credential_issuers",
+		"url = {:url} && owner = {:owner}",
+		"",
+		1,
+		0,
+		map[string]any{"url": "https://issuer.fallback.example.com", "owner": orgID},
+	)
+	require.NoError(t, err)
+	require.Len(t, records, 1)
+	require.Equal(t, "issuer.fallback.example.com", records[0].GetString("name"))
+}
+
+func TestHandleCredentialIssuerStartCheckExistingRecordStartErrorAdditional(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	orgID, err := GetUserOrganizationID(app, authRecord.Id)
+	require.NoError(t, err)
+
+	issuerCollection, err := app.FindCollectionByNameOrId("credential_issuers")
+	require.NoError(t, err)
+	record := core.NewRecord(issuerCollection)
+	record.Set("url", "https://issuer.existing.example.com")
+	record.Set("name", "Existing")
+	record.Set("owner", orgID)
+	record.Set("imported", true)
+	require.NoError(t, app.Save(record))
+
+	origCheck := credentialIssuerCheckWellKnownEndpoints
+	origRead := credentialIssuerReadSchemaFile
+	origStart := credentialIssuerStartWorkflow
+	t.Cleanup(func() {
+		credentialIssuerCheckWellKnownEndpoints = origCheck
+		credentialIssuerReadSchemaFile = origRead
+		credentialIssuerStartWorkflow = origStart
+	})
+
+	credentialIssuerCheckWellKnownEndpoints = func(context.Context, string) error { return nil }
+	credentialIssuerReadSchemaFile = func(string) (string, *apierror.APIError) { return "schema", nil }
+	credentialIssuerStartWorkflow = func(string, workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{}, errors.New("boom")
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/credentials_issuers/start-check",
+		bytes.NewBufferString(`{"credentialIssuerUrl":"https://issuer.existing.example.com"}`),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleCredentialIssuerStartCheck()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	_, err = app.FindRecordById("credential_issuers", record.Id)
+	require.NoError(t, err)
+}
+
+func TestHandleCredentialIssuerStoreOrUpdateInvalidJSONAdditional(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/credentials_issuers/store-or-update-extracted-credentials",
+		bytes.NewBufferString("{bad-json"),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleCredentialIssuerStoreOrUpdateExtractedCredentials()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.Error(t, err)
+}
+
+func TestHandleCredentialIssuerStoreOrUpdateInvalidSavedJSONAdditional(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	issuerColl, err := app.FindCollectionByNameOrId("credential_issuers")
+	require.NoError(t, err)
+	issuer := core.NewRecord(issuerColl)
+	issuer.Set("name", "Issuer")
+	issuer.Set("owner", orgID)
+	issuer.Set("url", "https://issuer.example.com")
+	issuer.Set("imported", true)
+	require.NoError(t, app.Save(issuer))
+
+	credColl, err := app.FindCollectionByNameOrId("credentials")
+	require.NoError(t, err)
+	cred := core.NewRecord(credColl)
+	cred.Set("credential_issuer", issuer.Id)
+	cred.Set("name", "cred-3")
+	cred.Set("display_name", "Old Name")
+	cred.Set("logo_url", "https://old.logo")
+	cred.Set("json", `not-json`)
+	cred.Set("owner", orgID)
+	require.NoError(t, app.Save(cred))
+
+	body := map[string]any{
+		"issuerID": issuer.Id,
+		"credKey":  "cred-3",
+		"credential": map[string]any{
+			"display": []any{
+				map[string]any{
+					"name": "New Name",
+				},
+			},
+		},
+		"conformant": true,
+		"orgID":      orgID,
+	}
+	payload, err := json.Marshal(body)
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/credentials_issuers/store-or-update-extracted-credentials",
+		bytes.NewBuffer(payload),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleCredentialIssuerStoreOrUpdateExtractedCredentials()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestHandleCredentialIssuerCleanupCredentialsInvalidJSONAdditional(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/credentials_issuers/cleanup-credentials",
+		bytes.NewBufferString("{bad-json"),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleCredentialIssuerCleanupCredentials()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.Error(t, err)
 }
 
 func TestHandleCredentialIssuerStartCheckWorkflowErrorDeletesNewRecord(t *testing.T) {
