@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 )
 
 type fakeWorkflowRun struct {
@@ -237,4 +238,60 @@ func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
 
 	require.Error(t, err)
 	require.Equal(t, 4, doer.attempts)
+}
+
+func TestStartQueuedPipelineActivityValidationErrors(t *testing.T) {
+	act := NewStartQueuedPipelineActivity()
+
+	tests := []struct {
+		name        string
+		payload     StartQueuedPipelineActivityInput
+		errContains string
+	}{
+		{
+			name:        "missing owner namespace",
+			payload:     StartQueuedPipelineActivityInput{PipelineIdentifier: "p", YAML: "name: test\n"},
+			errContains: "owner_namespace",
+		},
+		{
+			name:        "missing pipeline identifier",
+			payload:     StartQueuedPipelineActivityInput{OwnerNamespace: "ns", YAML: "name: test\n"},
+			errContains: "pipeline_identifier",
+		},
+		{
+			name:        "missing yaml",
+			payload:     StartQueuedPipelineActivityInput{OwnerNamespace: "ns", PipelineIdentifier: "p"},
+			errContains: "yaml is required",
+		},
+		{
+			name: "missing app_url",
+			payload: StartQueuedPipelineActivityInput{
+				OwnerNamespace:     "ns",
+				PipelineIdentifier: "p",
+				YAML:               "name: test\nsteps: []\n",
+			},
+			errContains: "app_url",
+		},
+		{
+			name: "invalid yaml",
+			payload: StartQueuedPipelineActivityInput{
+				OwnerNamespace:     "ns",
+				PipelineIdentifier: "p",
+				YAML:               "name: [",
+				PipelineConfig: map[string]any{
+					"app_url": "https://example.com",
+				},
+			},
+			errContains: "parse workflow definition",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := act.Execute(context.Background(), workflowengine.ActivityInput{Payload: tc.payload})
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.errContains)
+			require.True(t, temporal.IsApplicationError(err))
+		})
+	}
 }
