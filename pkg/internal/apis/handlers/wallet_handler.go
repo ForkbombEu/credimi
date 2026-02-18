@@ -31,7 +31,10 @@ import (
 )
 
 type walletWorkflowStarter interface {
-	Start(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error)
+	Start(
+		namespace string,
+		input workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error)
 }
 
 var (

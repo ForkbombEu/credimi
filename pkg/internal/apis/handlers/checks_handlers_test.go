@@ -1622,7 +1622,10 @@ func TestBuildExecutionHierarchy(t *testing.T) {
 	}
 
 	child := &WorkflowExecution{
-		Execution:       &WorkflowIdentifier{WorkflowID: "child-123e4567-e89b-12d3-a456-426614174000-suffix", RunID: "run-child"},
+		Execution: &WorkflowIdentifier{
+			WorkflowID: "child-123e4567-e89b-12d3-a456-426614174000-suffix",
+			RunID:      "run-child",
+		},
 		Type:            WorkflowType{Name: "CustomCheck"},
 		StartTime:       time.Now().Add(-90 * time.Second).UTC().Format(time.RFC3339),
 		CloseTime:       time.Now().Add(-80 * time.Second).UTC().Format(time.RFC3339),
@@ -1631,7 +1634,13 @@ func TestBuildExecutionHierarchy(t *testing.T) {
 	}
 
 	mockClient := &temporalmocks.Client{}
-	results := buildExecutionHierarchy(app, []*WorkflowExecution{child, parent}, "owner", "UTC", mockClient)
+	results := buildExecutionHierarchy(
+		app,
+		[]*WorkflowExecution{child, parent},
+		"owner",
+		"UTC",
+		mockClient,
+	)
 	require.Len(t, results, 1)
 	require.Equal(t, "Parent Display", results[0].DisplayName)
 	require.Len(t, results[0].Children, 1)

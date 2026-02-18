@@ -851,21 +851,6 @@ func TestPipelineQueueStatus_MultiRunnerAllMissingReturnsNotFound(t *testing.T) 
 	scenario.Test(t)
 }
 
-type statusEncodedValue struct {
-	value workflows.MobileRunnerSemaphoreRunStatusView
-}
-
-func (s statusEncodedValue) HasValue() bool { return true }
-
-func (s statusEncodedValue) Get(valuePtr interface{}) error {
-	ptr, ok := valuePtr.(*workflows.MobileRunnerSemaphoreRunStatusView)
-	if !ok {
-		return errors.New("unexpected type")
-	}
-	*ptr = s.value
-	return nil
-}
-
 type queueErrorEncodedValue struct{}
 
 func (e queueErrorEncodedValue) HasValue() bool { return true }
@@ -978,7 +963,12 @@ func TestPipelineQueueTemporalHelpers(t *testing.T) {
 			return mockClient, nil
 		}
 
-		_, err := queryRunTicketStatusTemporal(context.Background(), "runner-1", "org-1", "ticket-1")
+		_, err := queryRunTicketStatusTemporal(
+			context.Background(),
+			"runner-1",
+			"org-1",
+			"ticket-1",
+		)
 		require.ErrorIs(t, err, errRunTicketNotFound)
 	})
 
@@ -1003,7 +993,12 @@ func TestPipelineQueueTemporalHelpers(t *testing.T) {
 			return mockClient, nil
 		}
 
-		_, err := queryRunTicketStatusTemporal(context.Background(), "runner-2", "org-1", "ticket-2")
+		_, err := queryRunTicketStatusTemporal(
+			context.Background(),
+			"runner-2",
+			"org-1",
+			"ticket-2",
+		)
 		require.ErrorContains(t, err, "decode failed")
 	})
 
@@ -1065,6 +1060,10 @@ func TestPipelineQueueTemporalHelpers(t *testing.T) {
 	})
 
 	t.Run("runQueueUpdateID formats deterministically", func(t *testing.T) {
-		require.Equal(t, "enqueue/runner-1/ticket-1", runQueueUpdateID("enqueue", "runner-1", "ticket-1"))
+		require.Equal(
+			t,
+			"enqueue/runner-1/ticket-1",
+			runQueueUpdateID("enqueue", "runner-1", "ticket-1"),
+		)
 	})
 }

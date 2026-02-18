@@ -211,7 +211,10 @@ func TestHandleGetConfigsTemplatesSuccess(t *testing.T) {
 		StandardURL: "https://example.org",
 	}
 	standardYaml, _ := yaml.Marshal(standardMeta)
-	require.NoError(t, os.WriteFile(filepath.Join(standardDir, "standard.yaml"), standardYaml, 0644))
+	require.NoError(
+		t,
+		os.WriteFile(filepath.Join(standardDir, "standard.yaml"), standardYaml, 0644),
+	)
 
 	versionMeta := VersionMetadata{
 		UID:              "v1",
@@ -246,7 +249,13 @@ func TestHandleGetConfigsTemplatesSuccess(t *testing.T) {
 
 func TestHandlePlaceholdersByFilenamesValidation(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/template/placeholders", nil)
-	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, GetPlaceholdersByFilenamesRequestInput{}))
+	req = req.WithContext(
+		context.WithValue(
+			req.Context(),
+			middlewares.ValidatedInputKey,
+			GetPlaceholdersByFilenamesRequestInput{},
+		),
+	)
 	rec := httptest.NewRecorder()
 
 	err := HandlePlaceholdersByFilenames()(&core.RequestEvent{

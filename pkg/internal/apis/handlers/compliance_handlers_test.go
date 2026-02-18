@@ -914,7 +914,13 @@ func TestHandleSendTemporalSignalMissingParams(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/compliance/signal", nil)
-	req = req.WithContext(context.WithValue(req.Context(), middlewares.ValidatedInputKey, HandleSendTemporalSignalInput{}))
+	req = req.WithContext(
+		context.WithValue(
+			req.Context(),
+			middlewares.ValidatedInputKey,
+			HandleSendTemporalSignalInput{},
+		),
+	)
 	rec := httptest.NewRecorder()
 
 	err = HandleSendTemporalSignal()(&core.RequestEvent{
@@ -1020,7 +1026,9 @@ func TestGetDeeplinkOpenIDConformanceSuite(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	payload := base64.StdEncoding.EncodeToString([]byte(`{"Output":{"captures":{"deeplink":"link-1"}}}`))
+	payload := base64.StdEncoding.EncodeToString(
+		[]byte(`{"Output":{"captures":{"deeplink":"link-1"}}}`),
+	)
 	req := httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink", nil)
 	rec := httptest.NewRecorder()
 
@@ -1041,7 +1049,11 @@ func TestGetDeeplinkEudiw(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	payload := base64.StdEncoding.EncodeToString([]byte(`{"Output":{"captures":{"client_id":"client-1","request_uri":"https://example.com/req"}}}`))
+	payload := base64.StdEncoding.EncodeToString(
+		[]byte(
+			`{"Output":{"captures":{"client_id":"client-1","request_uri":"https://example.com/req"}}}`,
+		),
+	)
 	req := httptest.NewRequest(http.MethodGet, "/api/compliance/deeplink", nil)
 	rec := httptest.NewRecorder()
 

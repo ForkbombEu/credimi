@@ -380,7 +380,8 @@ func TestHandleGetPipelineDetailsDescribeNotFound(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusNotFound, rec.Code)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.JSONEq(t, `{}`, rec.Body.String())
 }
 
 func TestHandleGetPipelineDetailsDescribeInvalidArgument(t *testing.T) {
@@ -770,24 +771,31 @@ func TestProcessPipelineResultsDescribeErrors(t *testing.T) {
 	record.Set("run_id", "run-1")
 
 	tests := []struct {
-		name     string
-		err      error
-		wantCode int
+		name       string
+		err        error
+		wantCode   int
+		wantErr    bool
+		wantResult int
 	}{
 		{
-			name:     "not found",
-			err:      &serviceerror.NotFound{Message: "missing"},
-			wantCode: http.StatusNotFound,
+			name:       "not found",
+			err:        &serviceerror.NotFound{Message: "missing"},
+			wantErr:    false,
+			wantResult: 0,
 		},
 		{
-			name:     "invalid argument",
-			err:      &serviceerror.InvalidArgument{Message: "bad"},
-			wantCode: http.StatusBadRequest,
+			name:       "invalid argument",
+			err:        &serviceerror.InvalidArgument{Message: "bad"},
+			wantCode:   http.StatusBadRequest,
+			wantErr:    true,
+			wantResult: 0,
 		},
 		{
-			name:     "generic",
-			err:      errors.New("boom"),
-			wantCode: http.StatusInternalServerError,
+			name:       "generic",
+			err:        errors.New("boom"),
+			wantCode:   http.StatusInternalServerError,
+			wantErr:    true,
+			wantResult: 0,
 		},
 	}
 
@@ -806,7 +814,13 @@ func TestProcessPipelineResultsDescribeErrors(t *testing.T) {
 			}
 
 			var temporalClient client.Client
-			_, err := processPipelineResults("ns", []*core.Record{record}, &temporalClient)
+			execs, err := processPipelineResults("ns", []*core.Record{record}, &temporalClient)
+			if !tc.wantErr {
+				require.NoError(t, err)
+				require.Len(t, execs, tc.wantResult)
+				return
+			}
+
 			require.Error(t, err)
 			var apiErr *apierror.APIError
 			require.ErrorAs(t, err, &apiErr)

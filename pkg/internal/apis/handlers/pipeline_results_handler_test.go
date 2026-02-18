@@ -90,7 +90,14 @@ func TestBuildWorkflowExecutionSummaryFailureReason(t *testing.T) {
 		},
 	}
 	mockClient.
-		On("GetWorkflowHistory", mock.Anything, "wf-1", "run-1", false, enums.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT).
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"wf-1",
+			"run-1",
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT,
+		).
 		Return(iter, nil).
 		Once()
 
@@ -180,7 +187,14 @@ func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
 		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
 		Maybe()
 	mockClient.
-		On("GetWorkflowHistory", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			mock.Anything,
+			mock.Anything,
+			mock.Anything,
+			mock.Anything,
+		).
 		Return(&fakeHistoryIterator{events: []*historypb.HistoryEvent{}}).
 		Maybe()
 
@@ -555,7 +569,14 @@ func TestAttachRunnerInfoFromTemporalStartInputPipelineResults(t *testing.T) {
 
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("GetWorkflowHistory", mock.Anything, "wf-1", "run-1", false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT).
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"wf-1",
+			"run-1",
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).
 		Return(iter, nil)
 
 	execs := []*WorkflowExecutionSummary{
@@ -654,7 +675,13 @@ func TestAppendQueuedPipelineSummaries(t *testing.T) {
 		}},
 	}
 
-	appendQueuedPipelineSummaries(nil, response, queuedByPipeline, "UTC", map[string]map[string]any{})
+	appendQueuedPipelineSummaries(
+		nil,
+		response,
+		queuedByPipeline,
+		"UTC",
+		map[string]map[string]any{},
+	)
 	require.Len(t, response["pipe-1"], 2)
 	require.Equal(t, string(WorkflowStatusQueued), response["pipe-1"][0].Status)
 }
@@ -667,9 +694,21 @@ func TestReadGlobalRunnerIDFromTemporalHistory(t *testing.T) {
 		},
 	}
 	mockClient.
-		On("GetWorkflowHistory", mock.Anything, "wf-1", "run-1", false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT).
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"wf-1",
+			"run-1",
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).
 		Return(iter, nil)
-	value, err := readGlobalRunnerIDFromTemporalHistory(context.Background(), mockClient, "wf-1", "run-1")
+	value, err := readGlobalRunnerIDFromTemporalHistory(
+		context.Background(),
+		mockClient,
+		"wf-1",
+		"run-1",
+	)
 	require.NoError(t, err)
 	require.Equal(t, "", value)
 
@@ -687,9 +726,21 @@ func TestReadGlobalRunnerIDFromTemporalHistory(t *testing.T) {
 		},
 	}
 	mockClient.
-		On("GetWorkflowHistory", mock.Anything, "wf-2", "run-2", false, enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT).
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"wf-2",
+			"run-2",
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).
 		Return(iter, nil)
-	value, err = readGlobalRunnerIDFromTemporalHistory(context.Background(), mockClient, "wf-2", "run-2")
+	value, err = readGlobalRunnerIDFromTemporalHistory(
+		context.Background(),
+		mockClient,
+		"wf-2",
+		"run-2",
+	)
 	require.NoError(t, err)
 	require.Equal(t, "", value)
 }
@@ -724,16 +775,25 @@ func TestGetChildWorkflowsByParents(t *testing.T) {
 	page1 := &workflowservice.ListWorkflowExecutionsResponse{
 		Executions: []*workflow.WorkflowExecutionInfo{
 			{
-				Execution:       &common.WorkflowExecution{WorkflowId: "child-1", RunId: "run-child-1"},
+				Execution: &common.WorkflowExecution{
+					WorkflowId: "child-1",
+					RunId:      "run-child-1",
+				},
 				ParentExecution: &common.WorkflowExecution{WorkflowId: "wf-1", RunId: "run-1"},
 				Type:            &common.WorkflowType{Name: "Pipeline"},
 				Status:          enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 			},
 			{
-				Execution:       &common.WorkflowExecution{WorkflowId: "child-skip", RunId: "run-skip"},
-				ParentExecution: &common.WorkflowExecution{WorkflowId: "missing", RunId: "run-missing"},
-				Type:            &common.WorkflowType{Name: "Pipeline"},
-				Status:          enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+				Execution: &common.WorkflowExecution{
+					WorkflowId: "child-skip",
+					RunId:      "run-skip",
+				},
+				ParentExecution: &common.WorkflowExecution{
+					WorkflowId: "missing",
+					RunId:      "run-missing",
+				},
+				Type:   &common.WorkflowType{Name: "Pipeline"},
+				Status: enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 			},
 		},
 		NextPageToken: []byte("next"),
@@ -742,7 +802,10 @@ func TestGetChildWorkflowsByParents(t *testing.T) {
 	page2 := &workflowservice.ListWorkflowExecutionsResponse{
 		Executions: []*workflow.WorkflowExecutionInfo{
 			{
-				Execution:       &common.WorkflowExecution{WorkflowId: "child-2", RunId: "run-child-2"},
+				Execution: &common.WorkflowExecution{
+					WorkflowId: "child-2",
+					RunId:      "run-child-2",
+				},
 				ParentExecution: &common.WorkflowExecution{WorkflowId: "wf-2", RunId: "run-2"},
 				Type:            &common.WorkflowType{Name: "Pipeline"},
 				Status:          enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
@@ -751,11 +814,19 @@ func TestGetChildWorkflowsByParents(t *testing.T) {
 	}
 
 	mockClient.
-		On("ListWorkflow", mock.Anything, mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest")).
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+		).
 		Return(page1, nil).
 		Once()
 	mockClient.
-		On("ListWorkflow", mock.Anything, mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest")).
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+		).
 		Return(page2, nil).
 		Once()
 
@@ -775,7 +846,11 @@ func TestGetChildWorkflowsByParents(t *testing.T) {
 func TestGetChildWorkflowsByParentsError(t *testing.T) {
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("ListWorkflow", mock.Anything, mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest")).
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+		).
 		Return((*workflowservice.ListWorkflowExecutionsResponse)(nil), errors.New("boom")).
 		Once()
 

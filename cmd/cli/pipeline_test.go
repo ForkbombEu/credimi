@@ -58,7 +58,7 @@ func TestNewPipelineStoreCmdFlags(t *testing.T) {
 }
 
 func TestAuthenticate(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/apikey/authenticate", r.URL.Path)
 		require.Equal(t, "key-123", r.Header.Get("X-Api-Key"))
 		w.Header().Set("Content-Type", "application/json")
@@ -83,7 +83,7 @@ func TestAuthenticate(t *testing.T) {
 }
 
 func TestAuthenticateFailure(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
 		_, _ = w.Write([]byte("nope"))
 	}))
@@ -104,7 +104,7 @@ func TestAuthenticateFailure(t *testing.T) {
 }
 
 func TestGetMyOrganization(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/organizations/my", r.URL.Path)
 		require.Equal(t, "Bearer token-abc", r.Header.Get("Authorization"))
 		w.Header().Set("Content-Type", "application/json")
@@ -125,7 +125,7 @@ func TestGetMyOrganization(t *testing.T) {
 }
 
 func TestGetMyOrganizationFailure(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("boom"))
 	}))
@@ -144,7 +144,7 @@ func TestFindOrCreatePipelineReturnsExisting(t *testing.T) {
 	existing := map[string]any{"id": "rec_123", "yaml": input.YAML}
 
 	hasPost := false
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/collections/pipelines/records", r.URL.Path)
 		require.Equal(t, http.MethodGet, r.Method)
 
@@ -170,7 +170,7 @@ func TestFindOrCreatePipelineCreatesWhenMissing(t *testing.T) {
 	created := map[string]any{"id": "rec_456", "yaml": input.YAML}
 
 	call := 0
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/collections/pipelines/records", r.URL.Path)
 
 		switch call {
@@ -207,7 +207,7 @@ func TestCreatePipelineSuccess(t *testing.T) {
 	input := &PipelineCLIInput{Name: "demo", YAML: "name: demo"}
 	created := map[string]any{"id": "rec_789", "yaml": input.YAML}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/collections/pipelines/records", r.URL.Path)
 		require.Equal(t, http.MethodPost, r.Method)
 
@@ -232,7 +232,7 @@ func TestCreatePipelineSuccess(t *testing.T) {
 func TestCreatePipelineFailure(t *testing.T) {
 	input := &PipelineCLIInput{Name: "demo", YAML: "name: demo"}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		_, _ = w.Write([]byte("nope"))
 	}))
@@ -306,7 +306,7 @@ func TestStartPipelineQueuesRunnerPipelines(t *testing.T) {
 		"workflow_run_id":  "run",
 		"workflow_run_ids": []string{},
 	}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case "/api/pipeline/queue":
 			require.Equal(t, http.MethodPost, r.Method)
@@ -352,7 +352,7 @@ func TestStartPipelineHandlesStartedPipelines(t *testing.T) {
 		"canonified_name": "pipeline123",
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
@@ -385,7 +385,7 @@ func TestStartPipelineQueueStatusError(t *testing.T) {
 		"canonified_name": "pipeline123",
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
 		w.WriteHeader(http.StatusInternalServerError)
 		_, _ = w.Write([]byte("oops"))
@@ -413,7 +413,7 @@ func TestStartPipelineFailedMode(t *testing.T) {
 		"canonified_name": "pipeline123",
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
@@ -442,7 +442,7 @@ func TestStartPipelineUnknownMode(t *testing.T) {
 		"canonified_name": "pipeline123",
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
@@ -474,7 +474,7 @@ func TestStartPipelineDecodeQueueError(t *testing.T) {
 		"canonified_name": "pipeline123",
 	}
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte("not-json"))
@@ -489,7 +489,7 @@ func TestStartPipelineDecodeQueueError(t *testing.T) {
 	require.Contains(t, err.Error(), "failed to decode queue response")
 }
 
-func overrideHTTPDefaults(server *httptest.Server) func() {
+func overrideHTTPDefaults(server *testServer) func() {
 	prevURL := instanceURL
 	prevClient := http.DefaultClient
 
@@ -499,6 +499,38 @@ func overrideHTTPDefaults(server *httptest.Server) func() {
 	return func() {
 		instanceURL = prevURL
 		http.DefaultClient = prevClient
+	}
+}
+
+type testServer struct {
+	URL    string
+	client *http.Client
+}
+
+func (s *testServer) Client() *http.Client {
+	return s.client
+}
+
+func (s *testServer) Close() {}
+
+type handlerRoundTripper struct {
+	handler http.Handler
+}
+
+func (rt handlerRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+	rr := httptest.NewRecorder()
+	rt.handler.ServeHTTP(rr, req)
+	return rr.Result(), nil
+}
+
+func newTestServer(t *testing.T, handler http.Handler) *testServer {
+	t.Helper()
+
+	return &testServer{
+		URL: "http://test.local",
+		client: &http.Client{
+			Transport: handlerRoundTripper{handler: handler},
+		},
 	}
 }
 

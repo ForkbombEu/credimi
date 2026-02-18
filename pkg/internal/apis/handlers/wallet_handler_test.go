@@ -288,7 +288,11 @@ func TestHandleWalletStartCheckInvalidJSON(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/wallet/start-check", bytes.NewBufferString("{"))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/wallet/start-check",
+		bytes.NewBufferString("{"),
+	)
 	rec := httptest.NewRecorder()
 
 	err = HandleWalletStartCheck()(&core.RequestEvent{
@@ -377,7 +381,10 @@ func TestHandleWalletStartCheckTemporalClientError(t *testing.T) {
 	walletWorkflowFactory = func() walletWorkflowStarter {
 		return walletWorkflowStub{
 			startFn: func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-				return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
+				return workflowengine.WorkflowResult{
+					WorkflowID:    "wf-1",
+					WorkflowRunID: "run-1",
+				}, nil
 			},
 		}
 	}
@@ -432,7 +439,10 @@ func TestHandleWalletStartCheckPartialResultError(t *testing.T) {
 	walletWorkflowFactory = func() walletWorkflowStarter {
 		return walletWorkflowStub{
 			startFn: func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-				return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
+				return workflowengine.WorkflowResult{
+					WorkflowID:    "wf-1",
+					WorkflowRunID: "run-1",
+				}, nil
 			},
 		}
 	}
@@ -487,7 +497,10 @@ func TestHandleWalletStartCheckMetadataError(t *testing.T) {
 	walletWorkflowFactory = func() walletWorkflowStarter {
 		return walletWorkflowStub{
 			startFn: func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-				return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
+				return workflowengine.WorkflowResult{
+					WorkflowID:    "wf-1",
+					WorkflowRunID: "run-1",
+				}, nil
 			},
 		}
 	}
@@ -550,7 +563,10 @@ func TestHandleWalletStartCheckSuccess(t *testing.T) {
 			startFn: func(_ string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
 				payload := input.Payload.(workflows.WalletWorkflowPayload)
 				require.Equal(t, "https://example.com", payload.URL)
-				return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
+				return workflowengine.WorkflowResult{
+					WorkflowID:    "wf-1",
+					WorkflowRunID: "run-1",
+				}, nil
 			},
 		}
 	}

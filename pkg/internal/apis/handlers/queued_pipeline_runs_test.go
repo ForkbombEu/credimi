@@ -132,20 +132,36 @@ func TestListMobileRunnerSemaphoreWorkflowsTemporal(t *testing.T) {
 
 	mockClient := temporalmocks.NewClient(t)
 	mockClient.
-		On("ListWorkflow", mock.Anything, mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest")).
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
-				{Execution: &commonpb.WorkflowExecution{WorkflowId: workflows.MobileRunnerSemaphoreWorkflowName + "/runner-1"}},
+				{
+					Execution: &commonpb.WorkflowExecution{
+						WorkflowId: workflows.MobileRunnerSemaphoreWorkflowName + "/runner-1",
+					},
+				},
 				{Execution: &commonpb.WorkflowExecution{WorkflowId: "unrelated"}},
 			},
 			NextPageToken: []byte("next"),
 		}, nil).
 		Once()
 	mockClient.
-		On("ListWorkflow", mock.Anything, mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest")).
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
-				{Execution: &commonpb.WorkflowExecution{WorkflowId: workflows.MobileRunnerSemaphoreWorkflowName + "/runner-2"}},
+				{
+					Execution: &commonpb.WorkflowExecution{
+						WorkflowId: workflows.MobileRunnerSemaphoreWorkflowName + "/runner-2",
+					},
+				},
 				{},
 			},
 		}, nil).
@@ -181,7 +197,11 @@ func TestQueryMobileRunnerSemaphoreQueuedRunsTemporal(t *testing.T) {
 			return mockClient, nil
 		}
 
-		views, err := queryMobileRunnerSemaphoreQueuedRunsTemporal(context.Background(), "runner-1", "org-1")
+		views, err := queryMobileRunnerSemaphoreQueuedRunsTemporal(
+			context.Background(),
+			"runner-1",
+			"org-1",
+		)
 		require.NoError(t, err)
 		require.Nil(t, views)
 	})
@@ -206,7 +226,11 @@ func TestQueryMobileRunnerSemaphoreQueuedRunsTemporal(t *testing.T) {
 			return mockClient, nil
 		}
 
-		_, err := queryMobileRunnerSemaphoreQueuedRunsTemporal(context.Background(), "runner-2", "org-1")
+		_, err := queryMobileRunnerSemaphoreQueuedRunsTemporal(
+			context.Background(),
+			"runner-2",
+			"org-1",
+		)
 		require.ErrorContains(t, err, "decode failed")
 	})
 
@@ -233,7 +257,11 @@ func TestQueryMobileRunnerSemaphoreQueuedRunsTemporal(t *testing.T) {
 			return mockClient, nil
 		}
 
-		views, err := queryMobileRunnerSemaphoreQueuedRunsTemporal(context.Background(), "runner-3", "org-1")
+		views, err := queryMobileRunnerSemaphoreQueuedRunsTemporal(
+			context.Background(),
+			"runner-3",
+			"org-1",
+		)
 		require.NoError(t, err)
 		require.Len(t, views, 1)
 		require.Equal(t, "ticket-1", views[0].TicketID)

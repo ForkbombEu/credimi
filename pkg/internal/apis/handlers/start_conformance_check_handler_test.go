@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -43,7 +42,6 @@ func TestHandleSaveVariablesAndStartMissingProtocol(t *testing.T) {
 	body, _ := json.Marshal(SaveVariablesAndStartRequestInput{
 		ConfigsWithFields: map[string][]Variable{},
 		ConfigsWithJSON:   map[string]string{},
-		CustomChecks:      map[string]CustomCheck{},
 	})
 	req := httptest.NewRequest(
 		http.MethodPost,
@@ -53,7 +51,6 @@ func TestHandleSaveVariablesAndStartMissingProtocol(t *testing.T) {
 	req = withValidatedInput(req, SaveVariablesAndStartRequestInput{
 		ConfigsWithFields: map[string][]Variable{},
 		ConfigsWithJSON:   map[string]string{},
-		CustomChecks:      map[string]CustomCheck{},
 	})
 	rec := httptest.NewRecorder()
 
@@ -87,7 +84,6 @@ func TestHandleSaveVariablesAndStartUnsupportedAuthor(t *testing.T) {
 	body, _ := json.Marshal(SaveVariablesAndStartRequestInput{
 		ConfigsWithFields: map[string][]Variable{},
 		ConfigsWithJSON:   map[string]string{"unknown/test-1": "{}"},
-		CustomChecks:      map[string]CustomCheck{},
 	})
 	req := httptest.NewRequest(
 		http.MethodPost,
@@ -99,7 +95,6 @@ func TestHandleSaveVariablesAndStartUnsupportedAuthor(t *testing.T) {
 	req = withValidatedInput(req, SaveVariablesAndStartRequestInput{
 		ConfigsWithFields: map[string][]Variable{},
 		ConfigsWithJSON:   map[string]string{"unknown/test-1": "{}"},
-		CustomChecks:      map[string]CustomCheck{},
 	})
 	rec := httptest.NewRecorder()
 
@@ -144,7 +139,6 @@ func TestHandleSaveVariablesAndStartSuccessJSON(t *testing.T) {
 	body, _ := json.Marshal(SaveVariablesAndStartRequestInput{
 		ConfigsWithFields: map[string][]Variable{},
 		ConfigsWithJSON:   map[string]string{"ewc/test-1": "{}"},
-		CustomChecks:      map[string]CustomCheck{},
 	})
 	req := httptest.NewRequest(
 		http.MethodPost,
@@ -156,7 +150,6 @@ func TestHandleSaveVariablesAndStartSuccessJSON(t *testing.T) {
 	req = withValidatedInput(req, SaveVariablesAndStartRequestInput{
 		ConfigsWithFields: map[string][]Variable{},
 		ConfigsWithJSON:   map[string]string{"ewc/test-1": "{}"},
-		CustomChecks:      map[string]CustomCheck{},
 	})
 	rec := httptest.NewRecorder()
 
@@ -186,53 +179,6 @@ func TestReduceData(t *testing.T) {
 	list := out["list"].([]any)
 	require.Equal(t, "a", list[0])
 	require.Equal(t, []any{"b", "c"}, list[1])
-}
-
-func TestHandleSaveVariablesAndStartCustomCheckMissingYAML(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
-	require.NoError(t, err)
-
-	rootDir := t.TempDir()
-	require.NoError(
-		t,
-		os.MkdirAll(filepath.Join(rootDir, "config_templates", "openid", "v1"), 0o755),
-	)
-	t.Setenv("ROOT_DIR", rootDir)
-
-	input := SaveVariablesAndStartRequestInput{
-		ConfigsWithFields: map[string][]Variable{},
-		ConfigsWithJSON:   map[string]string{},
-		CustomChecks: map[string]CustomCheck{
-			"custom-1": {Yaml: ""},
-		},
-	}
-
-	body, _ := json.Marshal(input)
-	req := httptest.NewRequest(
-		http.MethodPost,
-		"/api/compliance/openid/v1/save-variables-and-start",
-		bytes.NewBuffer(body),
-	)
-	req.SetPathValue("protocol", "openid")
-	req.SetPathValue("version", "v1")
-	req = withValidatedInput(req, input)
-	rec := httptest.NewRecorder()
-
-	err = HandleSaveVariablesAndStart()(&core.RequestEvent{
-		App:  app,
-		Auth: authRecord,
-		Event: router.Event{
-			Request:  req,
-			Response: rec,
-		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, http.StatusBadRequest, rec.Code)
-	require.Contains(t, rec.Body.String(), "yaml is required")
 }
 
 func TestHandleSaveVariablesAndStartVariablesFlow(t *testing.T) {
@@ -281,7 +227,6 @@ func TestHandleSaveVariablesAndStartVariablesFlow(t *testing.T) {
 			},
 		},
 		ConfigsWithJSON: map[string]string{},
-		CustomChecks:    map[string]CustomCheck{},
 	}
 
 	body, _ := json.Marshal(input)
@@ -347,7 +292,6 @@ func TestHandleSaveVariablesAndStartVariablesMissingTemplate(t *testing.T) {
 			},
 		},
 		ConfigsWithJSON: map[string]string{},
-		CustomChecks:    map[string]CustomCheck{},
 	}
 
 	body, _ := json.Marshal(input)
@@ -596,44 +540,6 @@ func TestProcessJSONChecksUsesRegistry(t *testing.T) {
 	require.Equal(t, "run-1", result.WorkflowRunID)
 }
 
-func TestProcessCustomChecksEmptyYAML(t *testing.T) {
-	result, err := processCustomChecks(
-		"",
-		"https://app.example",
-		"ns-1",
-		map[string]interface{}{"author": "custom"},
-		"",
-	)
-	require.Error(t, err)
-	var apiErr *apierror.APIError
-	require.ErrorAs(t, err, &apiErr)
-	require.Equal(t, http.StatusBadRequest, apiErr.Code)
-	require.Empty(t, result.WorkflowID)
-}
-
-func TestProcessCustomChecksStartError(t *testing.T) {
-	origStart := customCheckWorkflowStart
-	t.Cleanup(func() {
-		customCheckWorkflowStart = origStart
-	})
-	customCheckWorkflowStart = func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-		return workflowengine.WorkflowResult{}, errors.New("boom")
-	}
-
-	result, err := processCustomChecks(
-		"steps: []\n",
-		"https://app.example",
-		"ns-1",
-		map[string]interface{}{"author": "custom"},
-		"",
-	)
-	require.Error(t, err)
-	var apiErr *apierror.APIError
-	require.ErrorAs(t, err, &apiErr)
-	require.Equal(t, http.StatusBadRequest, apiErr.Code)
-	require.Empty(t, result.WorkflowID)
-}
-
 func TestStartOpenIDNetWorkflowMissingTemplate(t *testing.T) {
 	rootDir := t.TempDir()
 	t.Setenv("ROOT_DIR", rootDir)
@@ -651,30 +557,6 @@ func TestStartOpenIDNetWorkflowMissingTemplate(t *testing.T) {
 	var apiErr *apierror.APIError
 	require.ErrorAs(t, err, &apiErr)
 	require.Equal(t, http.StatusBadRequest, apiErr.Code)
-}
-
-func TestProcessCustomChecksSuccess(t *testing.T) {
-	origStart := customCheckWorkflowStart
-	t.Cleanup(func() {
-		customCheckWorkflowStart = origStart
-	})
-	customCheckWorkflowStart = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
-		return workflowengine.WorkflowResult{
-			WorkflowID:    "wf-custom",
-			WorkflowRunID: "run-custom",
-		}, nil
-	}
-
-	result, err := processCustomChecks(
-		"steps: []\n",
-		"https://app.example.com",
-		"ns",
-		map[string]interface{}{"author": "custom"},
-		"{\"foo\":\"bar\"}",
-	)
-	require.NoError(t, err)
-	require.Equal(t, "wf-custom", result.WorkflowID)
-	require.Equal(t, "custom", result.Author)
 }
 
 func TestReadTemplateFileError(t *testing.T) {

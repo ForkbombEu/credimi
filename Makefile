@@ -100,7 +100,7 @@ dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mod
 
 test: ## 🧪 run tests
 	$(call require_tools,$(TEST_DEPS))
-	$(GOTEST) -tags=unit -v -race -buildvcs ./...
+	bash ./scripts/test-summary.sh
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)
