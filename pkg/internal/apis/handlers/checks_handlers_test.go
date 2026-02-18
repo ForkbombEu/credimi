@@ -132,6 +132,103 @@ func TestHandleListMyCheckRunsMissingCheckID(t *testing.T) {
 	require.Equal(t, "checkId is required", apiErr.Reason)
 }
 
+func TestHandleListMyCheckRunsUnauthorized(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/checks-1/runs", nil)
+	req.SetPathValue("checkId", "checks-1")
+	rec := httptest.NewRecorder()
+
+	err = HandleListMyCheckRuns()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+
+	apiErr := decodeAPIError(t, rec)
+	require.Equal(t, http.StatusUnauthorized, apiErr.Code)
+	require.Equal(t, "authentication required", apiErr.Reason)
+}
+
+func TestHandleListMyCheckRunsTemporalClientError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := checksTemporalClient
+	t.Cleanup(func() { checksTemporalClient = origClient })
+
+	checksTemporalClient = func(string) (client.Client, error) {
+		return nil, errors.New("no client")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/checks-1/runs", nil)
+	req.SetPathValue("checkId", "checks-1")
+	rec := httptest.NewRecorder()
+
+	err = HandleListMyCheckRuns()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	apiErr := decodeAPIError(t, rec)
+	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
+	require.Equal(t, "unable to create client", apiErr.Reason)
+}
+
+func TestHandleListMyCheckRunsListError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := checksTemporalClient
+	t.Cleanup(func() { checksTemporalClient = origClient })
+
+	mockClient := &temporalmocks.Client{}
+	checksTemporalClient = func(string) (client.Client, error) {
+		return mockClient, nil
+	}
+	mockClient.On("ListWorkflow", mock.Anything, mock.Anything).
+		Return((*workflowservice.ListWorkflowExecutionsResponse)(nil), &serviceerror.Internal{Message: "boom"})
+
+	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/checks-1/runs", nil)
+	req.SetPathValue("checkId", "checks-1")
+	rec := httptest.NewRecorder()
+
+	err = HandleListMyCheckRuns()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	apiErr := decodeAPIError(t, rec)
+	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
+	require.Equal(t, "failed to list workflow executions", apiErr.Reason)
+}
+
 func TestListChecksWorkflowsTemporal(t *testing.T) {
 	mockClient := &temporalmocks.Client{}
 	expected := &workflowservice.ListWorkflowExecutionsResponse{}
