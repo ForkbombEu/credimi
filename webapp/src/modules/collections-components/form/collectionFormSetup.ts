@@ -45,17 +45,27 @@ export function setupCollectionForm<C extends CollectionName>({
 	beforeSubmit,
 	refineSchema = (schema) => schema
 }: CollectionFormProps<C>): SuperForm<CollectionFormData[C]> {
-	const { exclude = [], defaults = {}, hide = {} } = fieldsOptions;
+	const { exclude = [], include = [], defaults = {}, hide = {} } = fieldsOptions;
 	const { toastText } = uiOptions;
 
 	/* */
 
 	const collectionModel = getCollectionModel(collection) as CollectionModel;
+	const collectionFieldNames = collectionModel.fields.map((f) => f.name);
 
 	/* Schema creation */
+	// When "include" is specified it takes precedence: only those fields are in the schema.
+	const includeSet = new Set(include as string[]);
+	const effectiveExclude =
+		include.length > 0
+			? collectionFieldNames.filter((name) => !includeSet.has(name))
+			: exclude;
 
 	const baseSchema = refineSchema(createCollectionZodSchema(collection)) as z.AnyZodObject;
-	const schema = baseSchema.omit(Object.fromEntries(exclude.map((key) => [key, true])));
+	const schema =
+		include.length > 0
+			? baseSchema.pick(Object.fromEntries(include.map((key) => [key, true])))
+			: baseSchema.omit(Object.fromEntries(effectiveExclude.map((key) => [key, true])));
 
 	/* Initial data processing */
 	/* This must be done for two reasons
@@ -82,7 +92,7 @@ export function setupCollectionForm<C extends CollectionName>({
 
 	const processedInitialData: Partial<CollectionFormData[C]> = pipe(
 		initialData,
-		(data) => removeExcessProperties(data, collectionModel, exclude), // Removes also "collectionId", "created", ...
+		(data) => removeExcessProperties(data, collectionModel, effectiveExclude), // Removes also "collectionId", "created", ...
 		(data) => mockInitialDataFiles(data, collectionModel),
 		(data) => merge(cloneDeep(data), defaults, hide),
 		(data) => stringifyJsonFields(data, collectionModel)

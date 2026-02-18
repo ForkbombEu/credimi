@@ -13,10 +13,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	export async function getPipelineDetails(itemId: string, fetchFn = fetch) {
 		const pipeline = await getEnrichedPipeline(itemId, { fetch: fetchFn });
-
-		return pageDetails('pipelines', {
-			pipeline
-		});
+		return pageDetails('pipelines', { pipeline });
 	}
 </script>
 
@@ -43,7 +40,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{#each pipeline.steps as step, index (index)}
 				<StepCardDisplay {step} readonly>
 					{#snippet topRight()}
-						<div class="text-muted-foreground pr-2 text-xs">
+						<div class="pr-2 text-xs text-muted-foreground">
 							#{index + 1}
 						</div>
 					{/snippet}

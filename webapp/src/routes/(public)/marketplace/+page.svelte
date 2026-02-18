@@ -26,17 +26,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 
 	const sections = [...baseSections, entities.conformance_checks];
-
 	const tabsParams = sections.map((t) => t.slug);
-	type TabParam = (typeof tabsParams)[number];
 
 	const params = queryParameters({
 		tab: {
 			encode: (value) => value,
-			decode: (value): TabParam => {
-				if (value && tabsParams.includes(value as TabParam)) {
-					return value as TabParam;
-				}
+			decode: (value) => {
+				if (value && tabsParams.includes(value)) return value;
 				return 'wallets';
 			}
 		},

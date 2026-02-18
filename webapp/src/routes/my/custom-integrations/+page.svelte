@@ -32,6 +32,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	collection="custom_checks"
 	queryOptions={{ filter: `owner.id = "${organizationId}"` }}
 >
+	{#snippet top({ Search })}
+		<div class="flex items-center justify-start">
+			<Search containerClass="grow" />
+		</div>
+	{/snippet}
+
 	{#snippet records({ records })}
 		<div class="space-y-6">
 			{#each records as record (record.id)}

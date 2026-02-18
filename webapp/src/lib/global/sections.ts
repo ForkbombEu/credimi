@@ -16,13 +16,13 @@ export const verifiersAndUseCaseVerificationsSection = joinEntityData(
 	entities.use_cases_verifications
 );
 
-export const baseSections: EntityData[] = [
+export const baseSections = [
 	entities.wallets,
 	credentialIssuersAndCredentialsSection,
 	verifiersAndUseCaseVerificationsSection,
-	entities.pipelines,
-	entities.custom_checks
-];
+	entities.custom_checks,
+	entities.pipelines
+] as const satisfies EntityData[];
 
 export const marketplaceSections: EntityData[] = [...baseSections, entities.conformance_checks];
 

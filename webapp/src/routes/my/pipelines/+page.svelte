@@ -15,6 +15,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import T from '@/components/ui-custom/t.svelte';
 	import { m } from '@/i18n';
 
+	import { IDS } from '../_partials/sidebar-data.svelte.js';
 	import { setDashboardNavbar } from '../+layout@.svelte';
 	import PipelineCard from './_partials/pipeline-card.svelte';
 
@@ -34,7 +35,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!-- Your Pipelines Section -->
 <div class="mb-8">
-	<T tag="h2" class="mb-4 text-lg font-semibold">{m.My()} {m.Pipelines()}</T>
 	<CollectionManager
 		collection="pipelines"
 		queryOptions={{
@@ -44,6 +44,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}}
 		hide={['pagination']}
 	>
+		{#snippet top({ Search })}
+			<div class="mb-4 flex items-center justify-between gap-12">
+				<T tag="h4" class="pb-0! font-semibold" id={IDS.YOURS}>
+					{m.My()}
+					{m.Pipelines()}
+				</T>
+				<Search containerClass="grow max-w-sm" />
+			</div>
+		{/snippet}
+
 		{#snippet records({ records })}
 			<div class="space-y-4">
 				{#each records as pipeline, index (pipeline.id)}
@@ -70,7 +80,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!-- Other Pipelines Section -->
 <div>
-	<T tag="h2" class="mb-4 text-lg font-semibold">{m.All()} {m.Pipelines()}</T>
 	<CollectionManager
 		collection="pipelines"
 		queryOptions={{
@@ -78,8 +87,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			sort: ['created', 'DESC'],
 			expand: ['owner', 'schedules_via_pipeline']
 		}}
-		hide={['pagination', 'empty_state']}
 	>
+		{#snippet top({ Search })}
+			<div class="mb-4 flex items-center justify-between gap-12">
+				<T tag="h4" class="pb-0! font-semibold" id={IDS.PUBLIC}>
+					{m.All()}
+					{m.Pipelines()}
+				</T>
+				<Search containerClass="grow max-w-sm" />
+			</div>
+		{/snippet}
+
 		{#snippet records({ records })}
 			<div class="space-y-4">
 				{#each records as pipeline, index (pipeline.id)}
@@ -94,6 +112,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/if}
 				{/each}
 			</div>
+		{/snippet}
+
+		{#snippet emptyState({ EmptyState })}
+			<EmptyState title={m.No_items_here()} />
 		{/snippet}
 	</CollectionManager>
 </div>

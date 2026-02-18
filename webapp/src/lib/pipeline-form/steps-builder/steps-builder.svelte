@@ -7,9 +7,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { EntityData } from '$lib/global/entities.js';
 
+	import { ArrowLeftIcon } from '@lucide/svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import { Render, type SelfProp } from '$lib/renderable';
-	import { ArrowLeftIcon } from '@lucide/svelte';
 	import { String } from 'effect';
 	import { flip } from 'svelte/animate';
 	import { fly } from 'svelte/transition';

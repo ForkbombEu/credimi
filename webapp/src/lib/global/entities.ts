@@ -167,4 +167,4 @@ export const entities = {
 			border: 'border-black'
 		}
 	}
-} satisfies EntitiesConfig;
+} as const satisfies EntitiesConfig;

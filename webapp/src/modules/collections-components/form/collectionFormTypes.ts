@@ -63,6 +63,7 @@ export type FieldsOptions<C extends CollectionName, R = CollectionFormData[C]> =
 	placeholders: { [K in keyof R]?: string };
 	order: Array<KeyOf<R>>;
 	exclude: Array<KeyOf<R>>;
+	include: Array<KeyOf<R>>;
 	hide: { [K in keyof R]?: R[K] };
 	defaults: { [K in keyof R]?: R[K] };
 	relations: {

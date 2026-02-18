@@ -749,12 +749,7 @@ func processPipelineResults(
 		if err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
-				return nil, apierror.New(
-					http.StatusNotFound,
-					"workflow",
-					"workflow not found",
-					err.Error(),
-				)
+				continue
 			}
 			invalidArgument := &serviceerror.InvalidArgument{}
 			if errors.As(err, &invalidArgument) {
