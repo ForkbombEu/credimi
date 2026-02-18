@@ -5,11 +5,14 @@
 package pipeline
 
 import (
+	"errors"
+	"reflect"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -17,6 +20,35 @@ import (
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
+
+type fakeActivity struct {
+	name string
+}
+
+func (f *fakeActivity) Name() string {
+	return f.name
+}
+
+func (f *fakeActivity) NewActivityError(string, string, ...any) error {
+	return errors.New("activity error")
+}
+
+func (f *fakeActivity) NewNonRetryableActivityError(string, string, ...any) error {
+	return errors.New("activity error")
+}
+
+func (f *fakeActivity) NewMissingOrInvalidPayloadError(err error) error {
+	return err
+}
+
+type fakeConfigActivity struct {
+	fakeActivity
+	configErr error
+}
+
+func (f *fakeConfigActivity) Configure(*workflowengine.ActivityInput) error {
+	return f.configErr
+}
 
 func TestValidateRunnerIDYAML(t *testing.T) {
 	t.Run("no mobile-automation steps", func(t *testing.T) {
@@ -365,4 +397,146 @@ func TestFetchChildPipelineYAMLErrors(t *testing.T) {
 			require.Contains(t, err.Error(), tc.expectMessage)
 		})
 	}
+}
+
+func TestExecuteStepResolveInputsError(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	workflowName := "execute-step-resolve-error"
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			step := StepDefinition{
+				StepSpec: StepSpec{
+					ID:  "step-1",
+					Use: "http-request",
+					With: StepInputs{
+						Payload: map[string]any{
+							"url": "${{inputs.missing}}",
+						},
+					},
+				},
+			}
+			_, err := ExecuteStep(
+				step.ID,
+				step.Use,
+				step.With,
+				step.ActivityOptions,
+				ctx,
+				map[string]any{},
+				map[string]any{},
+				ao,
+			)
+			return err
+		},
+		workflow.RegisterOptions{Name: workflowName},
+	)
+
+	env.ExecuteWorkflow(workflowName)
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error resolving inputs")
+}
+
+func TestExecuteStepNonExecutableActivity(t *testing.T) {
+	orig, ok := registry.Registry["non-exec"]
+	if ok {
+		t.Cleanup(func() { registry.Registry["non-exec"] = orig })
+	} else {
+		t.Cleanup(func() { delete(registry.Registry, "non-exec") })
+	}
+
+	registry.Registry["non-exec"] = registry.TaskFactory{
+		Kind:        registry.TaskActivity,
+		NewFunc:     func() any { return &fakeActivity{name: "non-exec"} },
+		PayloadType: reflect.TypeOf(map[string]any{}),
+		OutputKind:  workflowengine.OutputMap,
+	}
+
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	workflowName := "execute-step-non-exec"
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			step := StepDefinition{
+				StepSpec: StepSpec{
+					ID:  "step-1",
+					Use: "non-exec",
+					With: StepInputs{
+						Payload: map[string]any{"foo": "bar"},
+					},
+				},
+			}
+			_, err := ExecuteStep(
+				step.ID,
+				step.Use,
+				step.With,
+				step.ActivityOptions,
+				ctx,
+				map[string]any{},
+				map[string]any{},
+				ao,
+			)
+			return err
+		},
+		workflow.RegisterOptions{Name: workflowName},
+	)
+
+	env.ExecuteWorkflow(workflowName)
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "not executable")
+}
+
+func TestExecuteStepEmailConfigureError(t *testing.T) {
+	orig := registry.Registry["email"]
+	t.Cleanup(func() { registry.Registry["email"] = orig })
+
+	registry.Registry["email"] = registry.TaskFactory{
+		Kind: registry.TaskActivity,
+		NewFunc: func() any {
+			return &fakeConfigActivity{fakeActivity: fakeActivity{name: "email"}, configErr: errors.New("bad config")}
+		},
+		PayloadType: reflect.TypeOf(map[string]any{}),
+		OutputKind:  workflowengine.OutputMap,
+	}
+
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	workflowName := "execute-step-email-config-error"
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			step := StepDefinition{
+				StepSpec: StepSpec{
+					ID:  "step-1",
+					Use: "email",
+					With: StepInputs{
+						Payload: map[string]any{"foo": "bar"},
+					},
+				},
+			}
+			_, err := ExecuteStep(
+				step.ID,
+				step.Use,
+				step.With,
+				step.ActivityOptions,
+				ctx,
+				map[string]any{},
+				map[string]any{},
+				ao,
+			)
+			return err
+		},
+		workflow.RegisterOptions{Name: workflowName},
+	)
+
+	env.ExecuteWorkflow(workflowName)
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "error configuring activity")
 }
