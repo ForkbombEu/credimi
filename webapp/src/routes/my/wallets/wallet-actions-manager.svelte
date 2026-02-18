@@ -18,9 +18,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { CodeEditorField } from '@/forms/fields';
+	import { CodeEditorField, SelectField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { readFileAsString, startFileUpload } from '@/utils/files';
+
+	import { walletActionCategories } from './utils';
 
 	//
 
@@ -44,8 +46,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		})}
 	formFieldsOptions={{
 		exclude: ['owner', 'canonified_name', 'published'],
+		order: ['name', 'category', 'code', 'tags'],
 		hide: { wallet: wallet.id },
-		snippets: { code: codeField },
+		snippets: { code: codeField, category: categoryField },
 		placeholders: {
 			name: m.e_g_Get_Credential(),
 			tags: 'e.g. v.0.01, Above 18 credential'
@@ -102,4 +105,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.Upload_yaml()}
 		</Button>
 	{/snippet}
+{/snippet}
+
+{#snippet categoryField(options: FieldSnippetOptions<'wallet_actions'>)}
+	<SelectField
+		form={options.form}
+		name={options.field}
+		options={{
+			label: m.Category(),
+			items: Object.entries(walletActionCategories).map(([value, label]) => ({
+				value,
+				label
+			}))
+		}}
+	/>
 {/snippet}
