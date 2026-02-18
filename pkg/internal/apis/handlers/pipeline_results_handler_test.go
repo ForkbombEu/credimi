@@ -24,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
+	failurepb "go.temporal.io/api/failure/v1"
 	historypb "go.temporal.io/api/history/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflow/v1"
@@ -70,6 +71,86 @@ func TestBuildWorkflowExecutionSummaryDuration(t *testing.T) {
 	require.NotNil(t, summary)
 	require.Equal(t, "Completed", summary.Status)
 	require.Equal(t, "1h 2m 3s", summary.Duration)
+}
+
+func TestBuildWorkflowExecutionSummaryFailureReason(t *testing.T) {
+	mockClient := &temporalmocks.Client{}
+	iter := &fakeHistoryIterator{
+		events: []*historypb.HistoryEvent{
+			{
+				EventType: enums.EVENT_TYPE_WORKFLOW_EXECUTION_FAILED,
+				Attributes: &historypb.HistoryEvent_WorkflowExecutionFailedEventAttributes{
+					WorkflowExecutionFailedEventAttributes: &historypb.WorkflowExecutionFailedEventAttributes{
+						Failure: &failurepb.Failure{
+							Cause: &failurepb.Failure{Message: "boom"},
+						},
+					},
+				},
+			},
+		},
+	}
+	mockClient.
+		On("GetWorkflowHistory", mock.Anything, "wf-1", "run-1", false, enums.HISTORY_EVENT_FILTER_TYPE_CLOSE_EVENT).
+		Return(iter, nil).
+		Once()
+
+	exec := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: "wf-1", RunID: "run-1"},
+		Type:      WorkflowType{Name: "example"},
+		StartTime: "2025-01-01T00:00:00Z",
+		CloseTime: "2025-01-01T00:01:00Z",
+		Status:    "WORKFLOW_EXECUTION_STATUS_FAILED",
+	}
+
+	summary := buildWorkflowExecutionSummary(exec, mockClient)
+	require.NotNil(t, summary)
+	require.NotNil(t, summary.FailureReason)
+	require.Equal(t, "boom", *summary.FailureReason)
+}
+
+func TestBuildPipelineExecutionHierarchyFromResult(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	app.Settings().Meta.AppURL = "https://example.test"
+
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Id = "result-1"
+	record.Set("video_results", []string{"sample_result_video_1.mp4"})
+	record.Set("screenshots", []string{"sample_screenshot_1.png"})
+
+	pipelineWf := pipeline.PipelineWorkflow{}
+	root := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: "wf-1", RunID: "run-1"},
+		Type:      WorkflowType{Name: pipelineWf.Name()},
+		StartTime: "2025-01-01T00:00:00Z",
+		CloseTime: "2025-01-01T00:01:00Z",
+		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+	}
+	child := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{WorkflowID: "child-1", RunID: "run-2"},
+		Type:      WorkflowType{Name: "ChildWorkflow"},
+		StartTime: "2025-01-01T00:02:00Z",
+		CloseTime: "2025-01-01T00:03:00Z",
+		Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+	}
+
+	summaries := buildPipelineExecutionHierarchyFromResult(
+		app,
+		record,
+		root,
+		[]*WorkflowExecution{child},
+		"default",
+		"UTC",
+		nil,
+	)
+	require.Len(t, summaries, 1)
+	require.NotEmpty(t, summaries[0].Results)
+	require.Len(t, summaries[0].Children, 1)
 }
 
 func TestHandleGetPipelineResultsQueuedOnly(t *testing.T) {
