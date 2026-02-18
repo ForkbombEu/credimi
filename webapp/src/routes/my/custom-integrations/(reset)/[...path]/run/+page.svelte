@@ -12,17 +12,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { CustomCheckConfigEditor, CustomCheckConfigEditorComponent } from './_components';
 
+	//
+
 	let { data } = $props();
 
-	const editor = new CustomCheckConfigEditor({ customCheck: data.customCheck });
+	const editor = new CustomCheckConfigEditor({ customCheck: data.record });
 </script>
 
 <FocusPageLayout
-	title={data.customCheck.name}
-	description={data.customCheck.description || m.Run_custom_integration()}
+	title={data.record.name}
+	description={data.record.description || m.Run_custom_integration()}
 	backButton={{ title: m.Back(), href: '/my/custom-integrations' }}
 >
-	<PageCardSection title={m.Configure_integration()} description={m.Configure_integration_description()}>
+	<PageCardSection
+		title={m.Configure_integration()}
+		description={m.Configure_integration_description()}
+	>
 		<CustomCheckConfigEditorComponent {editor} />
 	</PageCardSection>
 </FocusPageLayout>

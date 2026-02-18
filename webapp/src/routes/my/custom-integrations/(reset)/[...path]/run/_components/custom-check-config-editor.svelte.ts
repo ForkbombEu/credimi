@@ -5,12 +5,12 @@
 import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
 
 import { getValueSnapshot, validate } from '@sjsf/form';
-import { yamlStringSchema } from '$lib/utils';
+import { runWithLoading, yamlStringSchema } from '$lib/utils';
 import { watch } from 'runed';
+import { toast } from 'svelte-sonner';
 import { fromStore } from 'svelte/store';
 import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod/v3';
-import { toast } from 'svelte-sonner';
 
 import type { CustomChecksResponse } from '@/pocketbase/types';
 import type { State } from '@/utils/types';
@@ -19,7 +19,6 @@ import { createJsonSchemaForm, type JsonSchemaForm } from '@/components/json-sch
 import { createForm } from '@/forms';
 import { goto, m } from '@/i18n';
 import { pb } from '@/pocketbase';
-import { runWithLoading } from '@/utils/loading';
 
 //
 
@@ -71,27 +70,19 @@ export class CustomCheckConfigEditor {
 
 	async submit() {
 		const formData = this.getData();
-		await runWithLoading(async () => {
-			try {
-				const response = await fetch('/api/custom-integrations/run', {
-					method: 'POST',
-					headers: {
-						'Content-Type': 'application/json',
-						Authorization: pb.authStore.token
-					},
-					body: JSON.stringify(formData)
-				});
-
-				if (!response.ok) {
-					const error = await response.json();
-					throw new Error(error.message || 'Failed to run custom integration');
+		await runWithLoading({
+			fn: async () => {
+				try {
+					await pb.send('/api/custom-integrations/run', {
+						method: 'POST',
+						body: formData
+					});
+					toast.success(m.Custom_integration_started_successfully());
+					await goto('/my/custom-integrations');
+				} catch (error) {
+					toast.error(m.Failed_to_run_custom_integration());
+					throw error;
 				}
-
-				toast.success(m.Custom_integration_started_successfully());
-				await goto('/my/custom-integrations');
-			} catch (error) {
-				toast.error(m.Failed_to_run_custom_integration());
-				throw error;
 			}
 		});
 	}

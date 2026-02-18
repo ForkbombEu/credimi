@@ -5,8 +5,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { StandardsWithTestSuites } from '$lib/standards';
-
 	import { yaml } from '@codemirror/lang-yaml';
 	import { PlusIcon, UploadIcon } from '@lucide/svelte';
 	import FocusPageLayout from '$lib/layout/focus-page-layout.svelte';
@@ -16,7 +14,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import _ from 'lodash';
 	import { InputData, jsonInputForTargetLanguage, quicktype } from 'quicktype-core';
 	import { toast } from 'svelte-sonner';
-	import { fromStore } from 'svelte/store';
 	import { zod } from 'sveltekit-superforms/adapters';
 
 	import type { CustomChecksRecord, CustomChecksResponse } from '@/pocketbase/types';
@@ -24,7 +21,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { removeEmptyValues } from '@/collections-components/form';
 	import { mockFile, removeMockFiles } from '@/collections-components/form/collectionFormSetup';
 	import Button from '@/components/ui-custom/button.svelte';
-	import LinkExternal from '@/components/ui-custom/linkExternal.svelte';
 	import { createForm, Form } from '@/forms';
 	import {
 		CheckboxField,
@@ -42,11 +38,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	//
 
 	type Props = {
-		standardsAndTestSuites: StandardsWithTestSuites;
 		record?: CustomChecksResponse;
 	};
 
-	let { standardsAndTestSuites, record }: Props = $props();
+	let { record }: Props = $props();
 
 	//
 
@@ -173,8 +168,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		if (!record || !record.logo) return undefined;
 		return pb.files.getURL(record, record.logo);
 	});
-
-	let formState = fromStore(form.form);
 
 	//
 

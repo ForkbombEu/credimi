@@ -8,10 +8,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { yaml } from '@codemirror/lang-yaml';
 
 	import { JsonSchemaFormComponent } from '@/components/json-schema-form';
+	import Button from '@/components/ui-custom/button.svelte';
 	import { CodeEditorField } from '@/forms/fields/index.js';
 	import { Form } from '@/forms/index.js';
 	import { m } from '@/i18n';
-	import Button from '@/components/ui-custom/button.svelte';
 
 	import type { CustomCheckConfigEditor } from './custom-check-config-editor.svelte.js';
 
@@ -33,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</Form>
 		</div>
 	</div>
-	
+
 	<div class="flex justify-end">
 		<Button disabled={!editor.isValid} onclick={() => editor.submit()}>
 			{m.Run_integration()}

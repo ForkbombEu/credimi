@@ -20,8 +20,8 @@ export const baseSections: EntityData[] = [
 	entities.wallets,
 	credentialIssuersAndCredentialsSection,
 	verifiersAndUseCaseVerificationsSection,
-	entities.custom_checks,
-	entities.pipelines
+	entities.pipelines,
+	entities.custom_checks
 ];
 
 export const marketplaceSections: EntityData[] = [...baseSections, entities.conformance_checks];
