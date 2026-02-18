@@ -16,12 +16,15 @@ import (
 	"testing"
 	"time"
 
+	credential_workflow "github.com/forkbombeu/credimi/pkg/credential_issuer/workflow"
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/pocketbase/pocketbase/tools/types"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
@@ -1362,4 +1365,56 @@ func TestParseCredentialDisplay(t *testing.T) {
 			require.Equal(t, tt.wantDesc, gotDesc, "description mismatch")
 		})
 	}
+}
+
+func TestHookUpdateCredentialsIssuersCreatesSchedule(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	origDial := credentialsIssuerTemporalDial
+	t.Cleanup(func() {
+		credentialsIssuerTemporalDial = origDial
+	})
+
+	mockClient := &temporalmocks.Client{}
+	mockScheduleClient := &temporalmocks.ScheduleClient{}
+	mockHandle := &temporalmocks.ScheduleHandle{}
+
+	var capturedOptions client.ScheduleOptions
+	mockScheduleClient.
+		On("Create", mock.Anything, mock.Anything).
+		Run(func(args mock.Arguments) {
+			capturedOptions = args.Get(1).(client.ScheduleOptions)
+		}).
+		Return(mockHandle, nil).
+		Once()
+	mockClient.On("ScheduleClient").Return(mockScheduleClient).Once()
+	mockClient.On("Close").Return(nil).Once()
+	mockHandle.On("Describe", mock.Anything).Return(&client.ScheduleDescription{}, nil).Once()
+
+	credentialsIssuerTemporalDial = func(_ client.Options) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	collection, err := app.FindCollectionByNameOrId("features")
+	require.NoError(t, err)
+
+	record := core.NewRecord(collection)
+	record.Set("name", "updateIssuers")
+	record.Set("active", true)
+	record.Set("envVariables", types.JSONRaw(`{"interval":"daily"}`))
+
+	event := &core.RecordEvent{}
+	event.Record = record
+	err = handleUpdateCredentialsIssuers(event)
+	require.NoError(t, err)
+
+	require.NotEmpty(t, capturedOptions.ID)
+	require.Len(t, capturedOptions.Spec.Intervals, 1)
+	require.Equal(t, 24*time.Hour, capturedOptions.Spec.Intervals[0].Every)
+	action, ok := capturedOptions.Action.(*client.ScheduleWorkflowAction)
+	require.True(t, ok)
+	require.NotNil(t, action.Workflow)
+	require.Equal(t, credential_workflow.FetchIssuersTaskQueue, action.TaskQueue)
 }

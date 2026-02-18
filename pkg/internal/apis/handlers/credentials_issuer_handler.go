@@ -654,6 +654,8 @@ func readSchemaFile(path string) (string, *apierror.APIError) {
 	return string(data), nil
 }
 
+var credentialsIssuerTemporalDial = client.Dial
+
 // HookUpdateCredentialsIssuers sets up a hook in the PocketBase application to listen for
 // successful updates to records in the "features" collection with the name "updateIssuers".
 // When triggered, it checks if the "active" field is true and processes the "envVariables"
@@ -674,73 +676,75 @@ func readSchemaFile(path string) (string, *apierror.APIError) {
 //   - If the "envVariables" field is missing or the interval is invalid, the hook exits without action.
 //   - Logs fatal errors if JSON unmarshalling or Temporal client/schedule creation fails.
 func HookUpdateCredentialsIssuers(app *pocketbase.PocketBase) {
-	app.OnRecordAfterUpdateSuccess("features").BindFunc(func(e *core.RecordEvent) error {
-		if e.Record.Get("name") != "updateIssuers" {
-			return e.Next()
-		}
-		if e.Record.Get("active") == false {
-			return e.Next()
-		}
-		envVariables := e.Record.Get("envVariables")
-		if envVariables == nil {
-			return e.Next()
-		}
-		result := struct {
-			Interval string `json:"interval"`
-		}{}
-		errJSON := json.Unmarshal(e.Record.Get("envVariables").(types.JSONRaw), &result)
-		if errJSON != nil {
-			log.Fatal(errJSON)
-		}
-		if result.Interval == "" {
-			return e.Next()
-		}
-		var interval time.Duration
-		switch result.Interval {
-		case "every_minute":
-			interval = time.Minute
-		case "hourly":
-			interval = time.Hour
-		case "daily":
-			interval = time.Hour * 24
-		case "weekly":
-			interval = time.Hour * 24 * 7
-		case "monthly":
-			interval = time.Hour * 24 * 30
-		default:
-			interval = time.Hour
-		}
-		workflowID := "schedule_workflow_id" + fmt.Sprintf("%d", time.Now().Unix())
-		scheduleID := "schedule_id" + fmt.Sprintf("%d", time.Now().Unix())
-		ctx := context.Background()
+	app.OnRecordAfterUpdateSuccess("features").BindFunc(handleUpdateCredentialsIssuers)
+}
 
-		temporalClient, err := client.Dial(client.Options{
-			HostPort: client.DefaultHostPort,
-		})
-		if err != nil {
-			log.Fatalln("Unable to create Temporal Client", err)
-		}
-		defer temporalClient.Close()
-		scheduleHandle, err := temporalClient.ScheduleClient().Create(ctx, client.ScheduleOptions{
-			ID: scheduleID,
-			Spec: client.ScheduleSpec{
-				Intervals: []client.ScheduleIntervalSpec{
-					{
-						Every: interval,
-					},
+func handleUpdateCredentialsIssuers(e *core.RecordEvent) error {
+	if e.Record.Get("name") != "updateIssuers" {
+		return e.Next()
+	}
+	if e.Record.Get("active") == false {
+		return e.Next()
+	}
+	envVariables := e.Record.Get("envVariables")
+	if envVariables == nil {
+		return e.Next()
+	}
+	result := struct {
+		Interval string `json:"interval"`
+	}{}
+	errJSON := json.Unmarshal(e.Record.Get("envVariables").(types.JSONRaw), &result)
+	if errJSON != nil {
+		log.Fatal(errJSON)
+	}
+	if result.Interval == "" {
+		return e.Next()
+	}
+	var interval time.Duration
+	switch result.Interval {
+	case "every_minute":
+		interval = time.Minute
+	case "hourly":
+		interval = time.Hour
+	case "daily":
+		interval = time.Hour * 24
+	case "weekly":
+		interval = time.Hour * 24 * 7
+	case "monthly":
+		interval = time.Hour * 24 * 30
+	default:
+		interval = time.Hour
+	}
+	workflowID := "schedule_workflow_id" + fmt.Sprintf("%d", time.Now().Unix())
+	scheduleID := "schedule_id" + fmt.Sprintf("%d", time.Now().Unix())
+	ctx := context.Background()
+
+	temporalClient, err := credentialsIssuerTemporalDial(client.Options{
+		HostPort: client.DefaultHostPort,
+	})
+	if err != nil {
+		log.Fatalln("Unable to create Temporal Client", err)
+	}
+	defer temporalClient.Close()
+	scheduleHandle, err := temporalClient.ScheduleClient().Create(ctx, client.ScheduleOptions{
+		ID: scheduleID,
+		Spec: client.ScheduleSpec{
+			Intervals: []client.ScheduleIntervalSpec{
+				{
+					Every: interval,
 				},
 			},
-			Action: &client.ScheduleWorkflowAction{
-				ID:        workflowID,
-				Workflow:  credential_workflow.FetchIssuersWorkflow,
-				TaskQueue: credential_workflow.FetchIssuersTaskQueue,
-			},
-		})
-		if err != nil {
-			log.Fatalln("Unable to create schedule", err)
-		}
-		_, _ = scheduleHandle.Describe(ctx)
-
-		return e.Next()
+		},
+		Action: &client.ScheduleWorkflowAction{
+			ID:        workflowID,
+			Workflow:  credential_workflow.FetchIssuersWorkflow,
+			TaskQueue: credential_workflow.FetchIssuersTaskQueue,
+		},
 	})
+	if err != nil {
+		log.Fatalln("Unable to create schedule", err)
+	}
+	_, _ = scheduleHandle.Describe(ctx)
+
+	return e.Next()
 }
