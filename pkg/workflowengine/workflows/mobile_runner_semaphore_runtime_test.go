@@ -10,6 +10,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -200,4 +201,118 @@ func TestHandleListQueuedRunsQuery(t *testing.T) {
 	views := rt.handleListQueuedRunsQuery("ns-1")
 	require.Len(t, views, 1)
 	require.Equal(t, "ticket-1", views[0].TicketID)
+}
+
+func TestHandleAcquireImmediateGrant(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (MobileRunnerSemaphorePermit, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				capacity: 1,
+				requests: map[string]MobileRunnerSemaphoreRequestState{},
+				holders:  map[string]MobileRunnerSemaphoreHolder{},
+				queue:    []string{},
+			}
+			return rt.handleAcquire(ctx, MobileRunnerSemaphoreAcquireRequest{
+				RequestID:   "req-1",
+				LeaseID:     "lease-1",
+				WaitTimeout: time.Second,
+			})
+		},
+		workflow.RegisterOptions{Name: "test-acquire-grant"},
+	)
+
+	env.ExecuteWorkflow("test-acquire-grant")
+	require.NoError(t, env.GetWorkflowError())
+
+	var permit MobileRunnerSemaphorePermit
+	require.NoError(t, env.GetWorkflowResult(&permit))
+	require.Equal(t, "lease-1", permit.LeaseID)
+}
+
+func TestHandleAcquireTimeout(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				capacity: 0,
+				requests: map[string]MobileRunnerSemaphoreRequestState{},
+				holders:  map[string]MobileRunnerSemaphoreHolder{},
+				queue:    []string{},
+			}
+			_, err := rt.handleAcquire(ctx, MobileRunnerSemaphoreAcquireRequest{
+				RequestID:   "req-1",
+				LeaseID:     "lease-1",
+				WaitTimeout: time.Second,
+			})
+			return err
+		},
+		workflow.RegisterOptions{Name: "test-acquire-timeout"},
+	)
+
+	env.ExecuteWorkflow("test-acquire-timeout")
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), MobileRunnerSemaphoreErrTimeout)
+}
+
+func TestHandleReleaseResults(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (struct {
+			Released MobileRunnerSemaphoreReleaseResult
+			Missing  MobileRunnerSemaphoreReleaseResult
+		}, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				capacity: 1,
+				requests: map[string]MobileRunnerSemaphoreRequestState{},
+				holders: map[string]MobileRunnerSemaphoreHolder{
+					"lease-1": {LeaseID: "lease-1"},
+				},
+				queue: []string{},
+			}
+			released, err := rt.handleRelease(ctx, MobileRunnerSemaphoreReleaseRequest{LeaseID: "lease-1"})
+			if err != nil {
+				return struct {
+					Released MobileRunnerSemaphoreReleaseResult
+					Missing  MobileRunnerSemaphoreReleaseResult
+				}{}, err
+			}
+			missing, err := rt.handleRelease(ctx, MobileRunnerSemaphoreReleaseRequest{LeaseID: "missing"})
+			if err != nil {
+				return struct {
+					Released MobileRunnerSemaphoreReleaseResult
+					Missing  MobileRunnerSemaphoreReleaseResult
+				}{}, err
+			}
+			return struct {
+				Released MobileRunnerSemaphoreReleaseResult
+				Missing  MobileRunnerSemaphoreReleaseResult
+			}{
+				Released: released,
+				Missing:  missing,
+			}, nil
+		},
+		workflow.RegisterOptions{Name: "test-release"},
+	)
+
+	env.ExecuteWorkflow("test-release")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result struct {
+		Released MobileRunnerSemaphoreReleaseResult
+		Missing  MobileRunnerSemaphoreReleaseResult
+	}
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.True(t, result.Released.Released)
+	require.False(t, result.Missing.Released)
 }
