@@ -199,6 +199,112 @@ func TestInsertRunQueueSorts(t *testing.T) {
 	require.Equal(t, []string{"old", "new"}, queue)
 }
 
+func TestNextQueuedRunTicketSkipsNonQueued(t *testing.T) {
+	runtime := &mobileRunnerSemaphoreRuntime{
+		runQueue: []string{"t1", "t2"},
+		runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+			"t1": {Status: mobileRunnerSemaphoreRunRunning},
+			"t2": {Status: mobileRunnerSemaphoreRunQueued},
+		},
+	}
+
+	id, _, ok := runtime.nextQueuedRunTicket()
+	require.True(t, ok)
+	require.Equal(t, "t2", id)
+	require.Len(t, runtime.runQueue, 1)
+}
+
+func TestAllGrantsReceived(t *testing.T) {
+	runtime := &mobileRunnerSemaphoreRuntime{}
+	state := MobileRunnerSemaphoreRunTicketState{
+		Request: MobileRunnerSemaphoreEnqueueRunRequest{
+			RequiredRunnerIDs: []string{"r1", "r2"},
+		},
+		GrantedRunnerIDs: map[string]bool{"r1": true},
+	}
+	require.False(t, runtime.allGrantsReceived(state))
+
+	state.GrantedRunnerIDs["r2"] = true
+	require.True(t, runtime.allGrantsReceived(state))
+}
+
+func TestSortedRunTicketIDs(t *testing.T) {
+	now := time.Now()
+	runtime := &mobileRunnerSemaphoreRuntime{
+		runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+			"b": {Request: MobileRunnerSemaphoreEnqueueRunRequest{TicketID: "b", EnqueuedAt: now}},
+			"a": {Request: MobileRunnerSemaphoreEnqueueRunRequest{TicketID: "a", EnqueuedAt: now.Add(-time.Minute)}},
+		},
+	}
+	ids := runtime.sortedRunTicketIDs()
+	require.Equal(t, []string{"a", "b"}, ids)
+}
+
+func TestRunSlotsUsedAndAvailableSlots(t *testing.T) {
+	runtime := &mobileRunnerSemaphoreRuntime{
+		capacity: 2,
+		holders: map[string]MobileRunnerSemaphoreHolder{
+			"lease-1": {LeaseID: "lease-1"},
+		},
+		runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+			"t1": {Status: mobileRunnerSemaphoreRunStarting},
+			"t2": {Status: mobileRunnerSemaphoreRunQueued},
+		},
+	}
+	require.Equal(t, 1, runtime.runSlotsUsed())
+	require.Equal(t, 0, runtime.availableSlots())
+}
+
+func TestRunQueuePositionAdditional(t *testing.T) {
+	runtime := &mobileRunnerSemaphoreRuntime{runQueue: []string{"a", "b"}}
+	pos, lineLen := runtime.runQueuePosition("b")
+	require.Equal(t, 1, pos)
+	require.Equal(t, 2, lineLen)
+
+	pos, lineLen = runtime.runQueuePosition("missing")
+	require.Equal(t, 0, pos)
+	require.Equal(t, 2, lineLen)
+}
+
+func TestSortRunQueueHandlesMissingTickets(t *testing.T) {
+	tickets := map[string]MobileRunnerSemaphoreRunTicketState{
+		"present": {Request: MobileRunnerSemaphoreEnqueueRunRequest{TicketID: "present", EnqueuedAt: time.Now()}},
+	}
+	queue := []string{"missing", "present"}
+	sorted := sortRunQueue(queue, tickets)
+	require.Equal(t, []string{"present", "missing"}, sorted)
+}
+
+func TestCopyHelpers(t *testing.T) {
+	values := []string{"a", "b"}
+	copied := copyStringSlice(values)
+	require.Equal(t, values, copied)
+	values[0] = "changed"
+	require.Equal(t, "a", copied[0])
+
+	bools := map[string]bool{"a": true}
+	boolCopy := copyStringBoolMap(bools)
+	require.Equal(t, bools, boolCopy)
+	bools["a"] = false
+	require.True(t, boolCopy["a"])
+
+	anyMap := map[string]any{"k": "v"}
+	anyCopy := copyStringAnyMap(anyMap)
+	require.Equal(t, anyMap, anyCopy)
+	anyMap["k"] = "changed"
+	require.Equal(t, "v", anyCopy["k"])
+
+	now := time.Now()
+	timeCopy := copyTimePtr(&now)
+	require.NotNil(t, timeCopy)
+	require.True(t, timeCopy.Equal(now))
+}
+
+func TestContainsString(t *testing.T) {
+	require.True(t, containsString([]string{"a", "b"}, "b"))
+	require.False(t, containsString([]string{"a", "b"}, "c"))
+}
+
 func TestContainsStringAndCopyHelpers(t *testing.T) {
 	require.True(t, containsString([]string{"a", "b"}, "b"))
 	require.False(t, containsString([]string{"a"}, "c"))
