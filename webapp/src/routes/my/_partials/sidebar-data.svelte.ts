@@ -4,8 +4,8 @@
 
 import {
 	GlobeIcon,
-	HomeIcon,
 	HourglassIcon,
+	House,
 	LockIcon,
 	SheetIcon,
 	StoreIcon,
@@ -22,7 +22,6 @@ import { m } from '@/i18n';
 import type { SidebarGroup, SidebarItem } from './sidebar';
 
 import { ALL_WORKFLOW_STATUSES } from '../tests/runs/_partials';
-import { IDS } from '../wallets/utils';
 import WorkflowItem from './components/workflow-item.svelte';
 
 //
@@ -37,7 +36,7 @@ const data: SidebarGroup[] = $derived([
 			{
 				title: m.Home(),
 				url: '/',
-				icon: HomeIcon
+				icon: House
 			},
 			{
 				title: m.Marketplace(),
@@ -46,30 +45,36 @@ const data: SidebarGroup[] = $derived([
 			}
 		]
 	},
+
 	{
 		title: m.marketplace_items(),
 		items: baseSections.map((section) => {
 			let children: SidebarItem[] | undefined;
-			if (section.slug === 'wallets') {
+			const base = `/my/${section.slug}`;
+			if (
+				section.slug === entities.wallets.slug ||
+				section.slug === entities.pipelines.slug
+			) {
 				children = [
 					{
-						title: m.Your_wallets(),
-						url: `/my/wallets#${IDS.YOUR_WALLETS}`
+						title: m.Yours(),
+						url: `${base}#${IDS.YOURS}`
 					},
 					{
-						title: m.Public_wallets(),
-						url: `/my/wallets#${IDS.PUBLIC_WALLETS}`
+						title: m.Public(),
+						url: `${base}#${IDS.PUBLIC}`
 					}
 				];
 			}
 			return {
 				title: section.labels.plural ?? '',
-				url: `/my/${section.slug}`,
+				url: base,
 				icon: section.icon,
 				children
 			};
 		})
 	},
+
 	{
 		title: m.workflows(),
 		items: [
@@ -143,3 +148,10 @@ const data: SidebarGroup[] = $derived([
 		]
 	}
 ]);
+
+//
+
+export const IDS = {
+	PUBLIC: 'public',
+	YOURS: 'yours'
+};

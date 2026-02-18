@@ -114,14 +114,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<WithEmptyState items={form.foundActions} emptyText={m.No_actions_available()}>
 		{#snippet item({ item })}
 			<ItemCard title={item.name} onClick={() => form.selectAction(item)}>
-				<div class="space-y-2 pt-1">
+				<WalletActionTags action={item} variant="secondary" containerClass="pt-2">
 					{#if !item.published}
-						<Badge variant="secondary">
+						<Badge variant="outline">
 							{m.private()}
 						</Badge>
 					{/if}
-					<WalletActionTags action={item} variant="outline" />
-				</div>
+				</WalletActionTags>
 			</ItemCard>
 		{/snippet}
 	</WithEmptyState>

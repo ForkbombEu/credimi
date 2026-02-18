@@ -4,10 +4,15 @@
 
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
-import { getMarketplaceItemLogo, type MarketplaceItem } from '$lib/marketplace';
+import {
+	getMarketplaceItemLogo,
+	getMarketplaceItemUrl,
+	type MarketplaceItem
+} from '$lib/marketplace';
 import { type PipelineStepByType, type PipelineStepData } from '$lib/pipeline/types.js';
 import { getPath } from '$lib/utils';
 
+import { m } from '@/i18n/index.js';
 import { pb } from '@/pocketbase';
 import {
 	type MobileRunnersResponse,
@@ -18,6 +23,8 @@ import {
 import type { TypedConfig } from '../types';
 
 import { getLastPathSegment } from '../_partials/misc';
+import CardDetailsComponent from './card-details.svelte';
+import EditComponent from './edit-component.svelte';
 import {
 	WalletActionStepForm,
 	type WalletActionStepData
@@ -30,11 +37,23 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 
 	display: entities.wallets,
 
-	cardData: ({ action, wallet }) => ({
-		title: action.name,
-		copyText: getPath(action),
-		avatar: getMarketplaceItemLogo(wallet)
-	}),
+	CardDetailsComponent,
+	EditComponent,
+
+	cardData: ({ action, wallet, version, runner }) => {
+		let publicUrl = getMarketplaceItemUrl(wallet);
+		publicUrl += `#${action.canonified_name}`;
+		return {
+			title: action.name,
+			copyText: getPath(action),
+			avatar: getMarketplaceItemLogo(wallet),
+			publicUrl,
+			meta: {
+				wallet: `${wallet.name} (v. ${version.tag})`,
+				runner: runner === 'global' ? m.Choose_later() : runner.name
+			}
+		};
+	},
 
 	makeId: (data) => {
 		if (!('action_id' in data) || !('version_id' in data)) {

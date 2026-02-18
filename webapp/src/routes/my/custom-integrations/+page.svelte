@@ -6,9 +6,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Pencil, PlayIcon, Plus } from '@lucide/svelte';
+	import { resolve } from '$app/paths';
 	import { entities } from '$lib/global/entities';
 	import DashboardCard from '$lib/layout/dashboard-card.svelte';
 	import { getCustomCheckPublicUrl } from '$lib/marketplace/utils.js';
+	import { getPath } from '$lib/utils';
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
@@ -30,14 +32,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	collection="custom_checks"
 	queryOptions={{ filter: `owner.id = "${organizationId}"` }}
 >
+	{#snippet top({ Search })}
+		<div class="flex items-center justify-start">
+			<Search containerClass="grow" />
+		</div>
+	{/snippet}
+
 	{#snippet records({ records })}
 		<div class="space-y-6">
 			{#each records as record (record.id)}
-				<DashboardCard
-					{record}
-					avatar={(r) => pb.files.getURL(r, r.logo)}
-					subtitle={record.standard_and_version}
-				>
+				<DashboardCard {record} avatar={(r) => pb.files.getURL(r, r.logo)}>
 					{#snippet actions()}
 						<Button href={getCustomCheckPublicUrl(record)}>
 							<PlayIcon />
@@ -45,7 +49,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						</Button>
 					{/snippet}
 					{#snippet editAction()}
-						<IconButton href="/my/custom-checks/edit-{record.id}" icon={Pencil} />
+						<IconButton
+							href={resolve('/my/custom-integrations/(reset)/[...path]/edit', {
+								path: getPath(record, true)
+							})}
+							icon={Pencil}
+						/>
 					{/snippet}
 				</DashboardCard>
 			{/each}
@@ -54,8 +63,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </CollectionManager>
 
 {#snippet navbarRight()}
-	<Button href="/my/custom-checks/new">
+	<Button href={resolve('/my/custom-integrations/new')}>
 		<Plus />
-		{m.Add_a_custom_check()}
+		{m.New()}
 	</Button>
 {/snippet}

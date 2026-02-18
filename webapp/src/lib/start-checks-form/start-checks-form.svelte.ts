@@ -4,8 +4,6 @@
 
 import { type StandardsWithTestSuites } from '$lib/standards';
 
-import type { CustomChecksResponse } from '@/pocketbase/types';
-
 import { type ConfigureChecksFormProps } from './configure-checks-form';
 import { SelectChecksForm, type SelectChecksSubmitData } from './select-checks-form';
 
@@ -13,8 +11,6 @@ import { SelectChecksForm, type SelectChecksSubmitData } from './select-checks-f
 
 export type StartChecksFormProps = {
 	standardsWithTestSuites: StandardsWithTestSuites;
-	customChecks: CustomChecksResponse[];
-	customCheckId?: string;
 };
 
 export class StartChecksForm {
@@ -26,22 +22,11 @@ export class StartChecksForm {
 	//
 
 	constructor(public readonly props: StartChecksFormProps) {
-		const { standardsWithTestSuites, customChecks, customCheckId } = props;
+		const { standardsWithTestSuites } = props;
 		this.selectChecksForm = new SelectChecksForm({
 			standards: standardsWithTestSuites,
-			customChecks,
 			onSubmit: (data) => this.handleChecksSelection(data)
 		});
-
-		const customCheck = customChecks.find((check) => check.id === customCheckId);
-		if (customCheck) {
-			this.configureChecksFormProps = {
-				standardAndVersionPath: customCheck.standard_and_version,
-				checksConfigsFields: undefined,
-				customChecks: [customCheck]
-			};
-			this.state = 'fill-values';
-		}
 	}
 
 	private async handleChecksSelection(data: SelectChecksSubmitData) {

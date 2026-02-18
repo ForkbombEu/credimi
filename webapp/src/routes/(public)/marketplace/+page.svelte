@@ -26,17 +26,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { data } = $props();
 
 	const sections = [...baseSections, entities.conformance_checks];
-
 	const tabsParams = sections.map((t) => t.slug);
-	type TabParam = (typeof tabsParams)[number];
 
 	const params = queryParameters({
 		tab: {
 			encode: (value) => value,
-			decode: (value): TabParam => {
-				if (value && tabsParams.includes(value as TabParam)) {
-					return value as TabParam;
-				}
+			decode: (value) => {
+				if (value && tabsParams.includes(value)) return value;
 				return 'wallets';
 			}
 		},
@@ -56,7 +52,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				return { filter: `type = 'credential_issuers' || type = 'credentials'` };
 			case 'verifiers-and-use-case-verifications':
 				return { filter: `type = 'verifiers' || type = 'use_cases_verifications'` };
-			case 'custom-checks':
+			case 'custom-integrations':
 				return { filter: `type = 'custom_checks'` };
 			case 'pipelines':
 				return { filter: `type = 'pipelines'` };
@@ -122,7 +118,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 
 				{#if params.tab !== 'conformance-checks'}
-					<div class="bg-white px-4 pt-4 pb-6 rounded-t-md md:rounded-t-none">
+					<div class="rounded-t-md bg-white px-4 pt-4 pb-6 md:rounded-t-none">
 						<Search />
 					</div>
 				{/if}

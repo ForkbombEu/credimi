@@ -5,6 +5,7 @@
 import type { EntityData } from '$lib/global';
 import type { PipelineStepByType, PipelineStepData, PipelineStepType } from '$lib/pipeline/types';
 import type { Renderable } from '$lib/renderable';
+import type { Component } from 'svelte';
 import type { Simplify } from 'type-fest';
 
 // Pipeline Step Config
@@ -16,8 +17,19 @@ export interface Config<ID extends string = string, Serialized = unknown, Deseri
 	display: EntityData;
 	initForm: () => Form<Deserialized>;
 	cardData: (data: Deserialized) => CardData;
+	CardDetailsComponent?: Component<CardDetailsComponentProps<Deserialized>>;
+	EditComponent?: Component<EditComponentProps<Deserialized>>;
 	makeId: (data: Serialized) => string;
 }
+
+export type EditComponentProps<Deserialized = unknown> = {
+	data: Deserialized;
+	closeDialog: () => void;
+};
+
+export type CardDetailsComponentProps<Deserialized = unknown> = {
+	data: Deserialized;
+};
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface Form<Deserialized = unknown, T = any> extends Renderable<T> {
@@ -29,6 +41,7 @@ export interface CardData {
 	copyText?: string;
 	avatar?: string;
 	meta?: Record<string, unknown>;
+	publicUrl?: string;
 }
 
 // Utilities

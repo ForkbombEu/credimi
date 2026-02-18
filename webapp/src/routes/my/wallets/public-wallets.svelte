@@ -14,7 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
-	import { IDS } from './utils';
+	import { IDS } from '../_partials/sidebar-data.svelte.js';
 	import WalletActionsManager from './wallet-actions-manager.svelte';
 
 	//
@@ -26,15 +26,21 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { organization }: Props = $props();
 </script>
 
-<div class="mt-8" id={IDS.PUBLIC_WALLETS}>
-	<T tag="h2">{m.Public_wallets()}</T>
-	<T class="text-muted-foreground">{m.public_wallets_description()}</T>
-</div>
-
 <CollectionManager
 	collection="wallets"
 	queryOptions={{ filter: `owner.id != '${organization.id}'` }}
 >
+	{#snippet top({ Search })}
+		<div class="flex items-center justify-between gap-12">
+			<div class="scroll-mt-6" id={IDS.PUBLIC}>
+				<T tag="h4" class="pb-1!">{m.Public_wallets()}</T>
+				<T class="text-muted-foreground">{m.public_wallets_description()}</T>
+			</div>
+
+			<Search containerClass="grow max-w-sm" />
+		</div>
+	{/snippet}
+
 	{#snippet records({ records })}
 		<div class="space-y-6">
 			{#each records as record (record.id)}

@@ -83,6 +83,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				}}
 				class={isSelected ? 'border-blue-500 bg-blue-50!' : ''}
 			>
+				<div class="text-xs text-balance text-muted-foreground">{item.description}</div>
+
 				{#snippet right()}
 					{#if !item.published}
 						<Badge variant="secondary">

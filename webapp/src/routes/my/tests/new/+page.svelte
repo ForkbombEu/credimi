@@ -24,7 +24,5 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 >
 	<StartChecksFormComponent
 		standardsWithTestSuites={data.standardsAndTestSuites}
-		customChecks={data.customChecks}
-		customCheckId={data.customCheckId}
 	/>
 </FocusPageLayout>
