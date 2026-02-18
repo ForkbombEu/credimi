@@ -243,6 +243,124 @@ nonce: "xyz"
 		require.True(t, errors.As(err, &appErr))
 		require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code, appErr.Type())
 	})
+
+	t.Run("missing check_id returns error", func(t *testing.T) {
+		err := runConformanceHookWorkflowError(t, conformanceHookInput{
+			CheckID: "",
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+		require.Error(t, err)
+		var appErr *temporal.ApplicationError
+		require.True(t, errors.As(err, &appErr))
+		require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code, appErr.Type())
+	})
+
+	t.Run("missing config template returns error", func(t *testing.T) {
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "oid4vci/openid_conformance_suite/missing-template"
+		err := runConformanceHookWorkflowError(t, conformanceHookInput{
+			CheckID: checkID,
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+		require.Error(t, err)
+		var appErr *temporal.ApplicationError
+		require.True(t, errors.As(err, &appErr))
+		require.Equal(t, errorcodes.Codes[errorcodes.ReadFileFailed].Code, appErr.Type())
+	})
+
+	t.Run("invalid credimi JSON returns error", func(t *testing.T) {
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "oid4vci/openid_conformance_suite/bad-json"
+		configTemplate := `{{ credimi ` + "`" + `{invalid` + "`" + ` }}`
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
+
+		err := runConformanceHookWorkflowError(t, conformanceHookInput{
+			CheckID: checkID,
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+		require.Error(t, err)
+		var appErr *temporal.ApplicationError
+		require.True(t, errors.As(err, &appErr))
+		require.Equal(t, errorcodes.Codes[errorcodes.TemplateRenderFailed].Code, appErr.Type())
+	})
+
+	t.Run("invalid YAML returns error", func(t *testing.T) {
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "oid4vci/openid_conformance_suite/bad-yaml"
+		configTemplate := ":\n"
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
+
+		err := runConformanceHookWorkflowError(t, conformanceHookInput{
+			CheckID: checkID,
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+		require.Error(t, err)
+		var appErr *temporal.ApplicationError
+		require.True(t, errors.As(err, &appErr))
+		require.Equal(t, errorcodes.Codes[errorcodes.TemplateRenderFailed].Code, appErr.Type())
+	})
+
+	t.Run("missing suite template returns error", func(t *testing.T) {
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "oid4vci/openid_conformance_suite/missing-suite-template"
+		configTemplate := `variant: {}`
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
+
+		err := runConformanceHookWorkflowError(t, conformanceHookInput{
+			CheckID: checkID,
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+		require.Error(t, err)
+		var appErr *temporal.ApplicationError
+		require.True(t, errors.As(err, &appErr))
+		require.Equal(t, errorcodes.Codes[errorcodes.ReadFileFailed].Code, appErr.Type())
+	})
+
+	t.Run("unsupported suite returns error", func(t *testing.T) {
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "oid4vci/unknown/check1"
+		configTemplate := `variant: {}`
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
+
+		err := runConformanceHookWorkflowError(t, conformanceHookInput{
+			CheckID: checkID,
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+		require.Error(t, err)
+		var appErr *temporal.ApplicationError
+		require.True(t, errors.As(err, &appErr))
+		require.Equal(t, errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code, appErr.Type())
+	})
 }
 
 func writeTemplateFile(t *testing.T, rootDir, relativePath, content string) {
