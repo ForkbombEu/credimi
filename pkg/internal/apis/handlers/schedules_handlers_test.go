@@ -8,6 +8,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
@@ -21,9 +22,12 @@ import (
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	commonpb "go.temporal.io/api/common/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
 	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/workflow"
 )
@@ -247,6 +251,312 @@ func TestHandleScheduleNotFound(t *testing.T) {
 	apiErr := decodeAPIError(t, rec)
 	require.Equal(t, http.StatusNotFound, apiErr.Code)
 	require.Equal(t, "schedule not found", apiErr.Reason)
+}
+
+func TestHandleListMySchedules(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+
+	displayPayload, err := converter.GetDefaultDataConverter().ToPayload("Test Schedule")
+	require.NoError(t, err)
+	pipelinePayload, err := converter.GetDefaultDataConverter().ToPayload("org-1/pipeline-1")
+	require.NoError(t, err)
+
+	iter := temporalmocks.NewScheduleListIterator(t)
+	iter.On("HasNext").Return(true).Once()
+	iter.On("Next").Return(&client.ScheduleListEntry{
+		ID: "schedule-1",
+		Spec: &client.ScheduleSpec{
+			Calendars: []client.ScheduleCalendarSpec{
+				{
+					Month:      []client.ScheduleRange{{Start: 1, End: 12}},
+					DayOfMonth: []client.ScheduleRange{{Start: 1, End: 31}},
+					DayOfWeek:  []client.ScheduleRange{{Start: 0, End: 6}},
+				},
+			},
+		},
+		WorkflowType: workflow.Type{Name: "Dynamic Pipeline Workflow"},
+		NextActionTimes: []time.Time{
+			time.Date(2026, time.February, 17, 12, 0, 0, 0, time.UTC),
+		},
+		Memo: &commonpb.Memo{
+			Fields: map[string]*commonpb.Payload{
+				"test":        displayPayload,
+				"pipeline_id": pipelinePayload,
+			},
+		},
+		Paused: true,
+	}, nil).Once()
+	iter.On("HasNext").Return(false).Once()
+
+	fakeSchedule := &fakeScheduleClient{listIter: iter}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/my/schedules", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleListMySchedules()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response ListMySchedulesResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+	require.Len(t, response.Schedules, 1)
+	require.Equal(t, "schedule-1", response.Schedules[0].ID)
+	require.Equal(t, "daily", response.Schedules[0].ScheduleMode.Mode)
+	require.Equal(t, "Test Schedule", response.Schedules[0].DisplayName)
+	require.Equal(t, "org-1/pipeline-1", response.Schedules[0].PipelineID)
+	require.True(t, response.Schedules[0].Paused)
+}
+
+func TestHandleCancelScheduleDeletesRecord(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	schedulesColl, err := app.FindCollectionByNameOrId("schedules")
+	require.NoError(t, err)
+	scheduleRecord := core.NewRecord(schedulesColl)
+	scheduleRecord.Set("temporal_schedule_id", "sched-1")
+	scheduleRecord.Set("owner", orgID)
+	require.NoError(t, app.Save(scheduleRecord))
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+
+	handle := temporalmocks.NewScheduleHandle(t)
+	handle.On("Delete", mock.Anything).Return(nil)
+
+	fakeSchedule := &fakeScheduleClient{handle: handle}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/sched-1/cancel", nil)
+	req.SetPathValue("scheduleId", "sched-1")
+	rec := httptest.NewRecorder()
+
+	err = HandleCancelSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	_, err = app.FindRecordById("schedules", scheduleRecord.Id)
+	require.Error(t, err)
+}
+
+func TestHandleCancelScheduleNotFound(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+
+	handle := temporalmocks.NewScheduleHandle(t)
+	handle.On("Delete", mock.Anything).Return(&serviceerror.NotFound{Message: "missing"})
+
+	fakeSchedule := &fakeScheduleClient{handle: handle}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/sched-1/cancel", nil)
+	req.SetPathValue("scheduleId", "sched-1")
+	rec := httptest.NewRecorder()
+
+	err = HandleCancelSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHandlePauseSchedule(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+
+	handle := temporalmocks.NewScheduleHandle(t)
+	handle.On("Pause", mock.Anything, mock.Anything).Return(nil)
+
+	fakeSchedule := &fakeScheduleClient{handle: handle}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/sched-1/pause", nil)
+	req.SetPathValue("scheduleId", "sched-1")
+	rec := httptest.NewRecorder()
+
+	err = HandlePauseSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	handle = temporalmocks.NewScheduleHandle(t)
+	handle.On("Pause", mock.Anything, mock.Anything).Return(&serviceerror.NotFound{Message: "missing"})
+	fakeSchedule = &fakeScheduleClient{handle: handle}
+	mockClient = &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	rec = httptest.NewRecorder()
+	err = HandlePauseSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHandleResumeSchedule(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+
+	handle := temporalmocks.NewScheduleHandle(t)
+	handle.On("Unpause", mock.Anything, mock.Anything).Return(nil)
+
+	fakeSchedule := &fakeScheduleClient{handle: handle}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/sched-1/resume", nil)
+	req.SetPathValue("scheduleId", "sched-1")
+	rec := httptest.NewRecorder()
+
+	err = HandleResumeSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	handle = temporalmocks.NewScheduleHandle(t)
+	handle.On("Unpause", mock.Anything, mock.Anything).Return(&serviceerror.NotFound{Message: "missing"})
+	fakeSchedule = &fakeScheduleClient{handle: handle}
+	mockClient = &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	rec = httptest.NewRecorder()
+	err = HandleResumeSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestDeleteScheduleRecord(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	schedulesColl, err := app.FindCollectionByNameOrId("schedules")
+	require.NoError(t, err)
+	scheduleRecord := core.NewRecord(schedulesColl)
+	scheduleRecord.Set("temporal_schedule_id", "sched-2")
+	scheduleRecord.Set("owner", orgID)
+	require.NoError(t, app.Save(scheduleRecord))
+
+	require.Error(t, deleteScheduleRecord(app, "missing", orgID))
+	require.NoError(t, deleteScheduleRecord(app, "sched-2", orgID))
 }
 
 type fakeScheduleClient struct {
