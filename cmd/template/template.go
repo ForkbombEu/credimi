@@ -23,6 +23,12 @@ type Checks struct {
 	Checks []string `json:"checks"`
 }
 
+var (
+	parseOpenidnetInput = templateengine.ParseOpenidnetInput
+	parseEwcInput       = templateengine.ParseEwcInput
+	parseEudiwInput     = templateengine.ParseEudiwInput
+)
+
 func main() {
 	var input string
 	var defaultPath string
@@ -92,11 +98,11 @@ func runTemplate(input string, defaultPath string, configPath string, outputDir 
 
 		switch suite {
 		case "openidnet":
-			result, err = templateengine.ParseOpenidnetInput(checkString, defaultPath, configPath)
+			result, err = parseOpenidnetInput(checkString, defaultPath, configPath)
 		case "ewc":
-			result, err = templateengine.ParseEwcInput(checkString, defaultPath)
+			result, err = parseEwcInput(checkString, defaultPath)
 		case "eudiw":
-			result, err = templateengine.ParseEudiwInput(checkString, defaultPath)
+			result, err = parseEudiwInput(checkString, defaultPath)
 		default:
 			log.Printf("Unknown suite '%s' in path %s — skipping", suite, input)
 			continue
