@@ -318,6 +318,180 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 	require.Contains(t, rec.Body.String(), pipelineRecord.Id)
 }
 
+func TestHandleGetPipelineDetailsDescribeNotFound(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	app := setupPipelineStartApp(t)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+	pipelineRecord := core.NewRecord(pipelineColl)
+	pipelineRecord.Set("owner", orgID)
+	pipelineRecord.Set("name", "pipeline123")
+	pipelineRecord.Set("canonified_name", "pipeline123")
+	pipelineRecord.Set("description", "demo pipeline")
+	pipelineRecord.Set("yaml", "name: demo")
+	require.NoError(t, app.Save(pipelineRecord))
+
+	resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	resultRecord := core.NewRecord(resultsColl)
+	resultRecord.Set("owner", orgID)
+	resultRecord.Set("pipeline", pipelineRecord.Id)
+	resultRecord.Set("workflow_id", "wf-1")
+	resultRecord.Set("run_id", "run-1")
+	require.NoError(t, app.Save(resultRecord))
+
+	originalListQueued := pipelineListQueuedRuns
+	originalTemporalClient := pipelineTemporalClient
+	t.Cleanup(func() {
+		pipelineListQueuedRuns = originalListQueued
+		pipelineTemporalClient = originalTemporalClient
+	})
+
+	pipelineListQueuedRuns = func(ctx context.Context, namespace string) (map[string]QueuedPipelineRunAggregate, error) {
+		return map[string]QueuedPipelineRunAggregate{}, nil
+	}
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
+		Return((*workflowservice.DescribeWorkflowExecutionResponse)(nil), serviceerror.NewNotFound("missing")).
+		Once()
+
+	pipelineTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleGetPipelineDetails()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHandleGetPipelineDetailsDescribeInvalidArgument(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	app := setupPipelineStartApp(t)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+	pipelineRecord := core.NewRecord(pipelineColl)
+	pipelineRecord.Set("owner", orgID)
+	pipelineRecord.Set("name", "pipeline123")
+	pipelineRecord.Set("canonified_name", "pipeline123")
+	pipelineRecord.Set("description", "demo pipeline")
+	pipelineRecord.Set("yaml", "name: demo")
+	require.NoError(t, app.Save(pipelineRecord))
+
+	resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	resultRecord := core.NewRecord(resultsColl)
+	resultRecord.Set("owner", orgID)
+	resultRecord.Set("pipeline", pipelineRecord.Id)
+	resultRecord.Set("workflow_id", "wf-1")
+	resultRecord.Set("run_id", "run-1")
+	require.NoError(t, app.Save(resultRecord))
+
+	originalListQueued := pipelineListQueuedRuns
+	originalTemporalClient := pipelineTemporalClient
+	t.Cleanup(func() {
+		pipelineListQueuedRuns = originalListQueued
+		pipelineTemporalClient = originalTemporalClient
+	})
+
+	pipelineListQueuedRuns = func(ctx context.Context, namespace string) (map[string]QueuedPipelineRunAggregate, error) {
+		return map[string]QueuedPipelineRunAggregate{}, nil
+	}
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
+		Return((*workflowservice.DescribeWorkflowExecutionResponse)(nil), serviceerror.NewInvalidArgument("bad id")).
+		Once()
+
+	pipelineTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleGetPipelineDetails()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestHandleGetPipelineDetailsQueuedRunsError(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	app := setupPipelineStartApp(t)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+	pipelineRecord := core.NewRecord(pipelineColl)
+	pipelineRecord.Set("owner", orgID)
+	pipelineRecord.Set("name", "pipeline123")
+	pipelineRecord.Set("canonified_name", "pipeline123")
+	pipelineRecord.Set("description", "demo pipeline")
+	pipelineRecord.Set("yaml", "name: demo")
+	require.NoError(t, app.Save(pipelineRecord))
+
+	originalListQueued := pipelineListQueuedRuns
+	t.Cleanup(func() {
+		pipelineListQueuedRuns = originalListQueued
+	})
+
+	pipelineListQueuedRuns = func(ctx context.Context, namespace string) (map[string]QueuedPipelineRunAggregate, error) {
+		return nil, errors.New("boom")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleGetPipelineDetails()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
 func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
