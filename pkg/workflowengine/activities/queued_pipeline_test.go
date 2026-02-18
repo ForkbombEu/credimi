@@ -10,6 +10,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/require"
@@ -294,4 +295,69 @@ func TestStartQueuedPipelineActivityValidationErrors(t *testing.T) {
 			require.True(t, temporal.IsApplicationError(err))
 		})
 	}
+}
+
+func TestStartQueuedPipelineActivityName(t *testing.T) {
+	act := NewStartQueuedPipelineActivity()
+	require.Equal(t, "Start queued pipeline", act.Name())
+}
+
+func TestCopyStringSlice(t *testing.T) {
+	require.Equal(t, []string{}, copyStringSlice(nil))
+
+	original := []string{"a", "b"}
+	copied := copyStringSlice(original)
+	require.Equal(t, original, copied)
+	original[0] = "changed"
+	require.Equal(t, []string{"a", "b"}, copied)
+}
+
+func TestParseDurationOrDefaultInvalid(t *testing.T) {
+	dur := parseDurationOrDefault("not-a-duration", defaultActivityStartTimeout)
+	require.Equal(t, 5*time.Minute, dur)
+}
+
+func TestPrepareQueuedWorkflowOptionsOverrides(t *testing.T) {
+	rc := queuedRuntime{}
+	rc.Temporal.ExecutionTimeout = "2h"
+	rc.Temporal.ActivityOptions.ScheduleToCloseTimeout = "15m"
+	rc.Temporal.ActivityOptions.StartToCloseTimeout = "7m"
+	rc.Temporal.ActivityOptions.RetryPolicy.MaximumAttempts = 3
+	rc.Temporal.ActivityOptions.RetryPolicy.InitialInterval = "3s"
+	rc.Temporal.ActivityOptions.RetryPolicy.MaximumInterval = "9s"
+	rc.Temporal.ActivityOptions.RetryPolicy.BackoffCoefficient = 1.5
+
+	opts := prepareQueuedWorkflowOptions(rc)
+	require.Equal(t, 2*time.Hour, opts.Options.WorkflowExecutionTimeout)
+	require.Equal(t, 15*time.Minute, opts.ActivityOptions.ScheduleToCloseTimeout)
+	require.Equal(t, 7*time.Minute, opts.ActivityOptions.StartToCloseTimeout)
+	require.NotNil(t, opts.ActivityOptions.RetryPolicy)
+	require.Equal(t, int32(3), opts.ActivityOptions.RetryPolicy.MaximumAttempts)
+	require.Equal(t, 3*time.Second, opts.ActivityOptions.RetryPolicy.InitialInterval)
+	require.Equal(t, 9*time.Second, opts.ActivityOptions.RetryPolicy.MaximumInterval)
+	require.Equal(t, 1.5, opts.ActivityOptions.RetryPolicy.BackoffCoefficient)
+}
+
+func TestApplySemaphoreTicketMetadata(t *testing.T) {
+	payload := StartQueuedPipelineActivityInput{
+		TicketID:          "ticket-1",
+		RequiredRunnerIDs: []string{"runner-1"},
+		LeaderRunnerID:    "runner-1",
+		OwnerNamespace:    "ns-1",
+	}
+
+	applySemaphoreTicketMetadata(nil, payload)
+
+	config := map[string]any{}
+	applySemaphoreTicketMetadata(config, payload)
+	require.Equal(t, "ticket-1", config[mobileRunnerSemaphoreTicketIDConfigKey])
+	require.Equal(t, []string{"runner-1"}, config[mobileRunnerSemaphoreRunnerIDsConfigKey])
+	require.Equal(t, "runner-1", config[mobileRunnerSemaphoreLeaderRunnerIDConfigKey])
+	require.Equal(t, "ns-1", config[mobileRunnerSemaphoreOwnerNamespaceConfigKey])
+}
+
+func TestParseQueuedWorkflowDefinitionError(t *testing.T) {
+	_, _, err := parseQueuedWorkflowDefinition("name: [")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "parse workflow definition")
 }
