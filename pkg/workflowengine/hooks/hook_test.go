@@ -8,6 +8,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -89,7 +90,7 @@ func (f fakeActivity) Execute(
 type fakeWorker struct {
 	registeredWorkflows  []string
 	registeredActivities []string
-	runCalled            bool
+	runCalled            atomic.Bool
 }
 
 func (f *fakeWorker) RegisterWorkflow(interface{}) {}
@@ -113,7 +114,7 @@ func (f *fakeWorker) RegisterNexusService(*nexus.Service) {}
 func (f *fakeWorker) Start() error { return nil }
 
 func (f *fakeWorker) Run(interruptCh <-chan interface{}) error {
-	f.runCalled = true
+	f.runCalled.Store(true)
 	<-interruptCh
 	return nil
 }
@@ -572,7 +573,7 @@ func TestStartWorkerRegistersEntries(t *testing.T) {
 	}, &wg)
 
 	require.Eventually(t, func() bool {
-		return fw.runCalled
+		return fw.runCalled.Load()
 	}, time.Second, 10*time.Millisecond)
 
 	cancel()
@@ -634,7 +635,7 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 	go startPipelineWorker(ctx, nil, &wg)
 
 	require.Eventually(t, func() bool {
-		return fw.runCalled
+		return fw.runCalled.Load()
 	}, time.Second, 10*time.Millisecond)
 
 	cancel()
