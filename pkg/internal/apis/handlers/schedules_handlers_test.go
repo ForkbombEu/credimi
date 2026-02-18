@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -99,6 +100,223 @@ func TestHandleStartScheduleInvalidJSON(t *testing.T) {
 	var apiErr *router.ApiError
 	require.True(t, errors.As(err, &apiErr))
 	require.Equal(t, http.StatusBadRequest, apiErr.Status)
+}
+
+func TestHandleStartScheduleInvalidMode(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	body, err := json.Marshal(map[string]any{
+		"pipeline_id":   "missing",
+		"schedule_mode": map[string]any{"mode": "yearly"},
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/start", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+
+	err = HandleStartSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.Error(t, err)
+
+	var apiErr *apierror.APIError
+	require.True(t, errors.As(err, &apiErr))
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+}
+
+func TestHandleStartSchedulePipelineNotFound(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	body, err := json.Marshal(map[string]any{
+		"pipeline_id":   "missing",
+		"schedule_mode": map[string]any{"mode": "daily"},
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/start", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+
+	err = HandleStartSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHandleStartScheduleTemporalCreateError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://example.test"
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	_, pipelineID := createSchedulePipelineRecord(t, app, orgID, "pipeline-1")
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+
+	fakeSchedule := &fakeScheduleClient{createErr: errors.New("create failed")}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"pipeline_id":   pipelineID,
+		"schedule_mode": map[string]any{"mode": "daily"},
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/start", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+
+	err = HandleStartSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestHandleStartScheduleDescribeError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://example.test"
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	_, pipelineID := createSchedulePipelineRecord(t, app, orgID, "pipeline-2")
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+
+	handle := temporalmocks.NewScheduleHandle(t)
+	handle.On("Describe", mock.Anything).Return(nil, errors.New("describe failed"))
+	fakeSchedule := &fakeScheduleClient{handle: handle}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"pipeline_id":   pipelineID,
+		"schedule_mode": map[string]any{"mode": "daily"},
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/start", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+
+	err = HandleStartSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestHandleStartScheduleSuccess(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://example.test"
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	pipelineRec, pipelineID := createSchedulePipelineRecord(t, app, orgID, "pipeline-3")
+
+	originalClient := scheduleTemporalClient
+	t.Cleanup(func() {
+		scheduleTemporalClient = originalClient
+	})
+
+	handle := temporalmocks.NewScheduleHandle(t)
+	handle.On("Describe", mock.Anything).Return(&client.ScheduleDescription{}, nil)
+	fakeSchedule := &fakeScheduleClient{handle: handle}
+	mockClient := &temporalmocks.Client{}
+	mockClient.On("ScheduleClient").Return(fakeSchedule)
+	scheduleTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	body, err := json.Marshal(map[string]any{
+		"pipeline_id":   pipelineID,
+		"schedule_mode": map[string]any{"mode": "daily"},
+	})
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/start", strings.NewReader(string(body)))
+	rec := httptest.NewRecorder()
+
+	err = HandleStartSchedule()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response StartScheduleResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&response))
+	require.Equal(t, "daily", response.ScheduleMode.Mode)
+	require.NotEmpty(t, response.ScheduleID)
+
+	record, err := app.FindFirstRecordByFilter(
+		"schedules",
+		"temporal_schedule_id = {:sid}",
+		map[string]any{"sid": response.ScheduleID},
+	)
+	require.NoError(t, err)
+	require.Equal(t, pipelineRec.Id, record.GetString("pipeline"))
+	require.Equal(t, orgID, record.GetString("owner"))
 }
 
 // TestStartScheduledPipelineUsesScheduledEnqueueWorkflow ensures schedules target the enqueue workflow.
@@ -564,6 +782,36 @@ type fakeScheduleClient struct {
 	handle         client.ScheduleHandle
 	listIter       client.ScheduleListIterator
 	listErr        error
+	createErr      error
+}
+
+func createSchedulePipelineRecord(
+	t testing.TB,
+	app *tests.TestApp,
+	orgID string,
+	name string,
+) (*core.Record, string) {
+	t.Helper()
+
+	orgRecord, err := app.FindRecordById("organizations", orgID)
+	require.NoError(t, err)
+	if orgRecord.GetString("canonified_name") == "" {
+		orgRecord.Set("canonified_name", "usera-s-organization")
+		require.NoError(t, app.Save(orgRecord))
+	}
+	orgCanon := orgRecord.GetString("canonified_name")
+
+	pipelinesColl, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+	pipelineRecord := core.NewRecord(pipelinesColl)
+	pipelineRecord.Set("owner", orgID)
+	pipelineRecord.Set("name", name)
+	pipelineRecord.Set("canonified_name", name)
+	pipelineRecord.Set("description", "test pipeline")
+	pipelineRecord.Set("yaml", "name: "+name+"\nsteps: []\n")
+	require.NoError(t, app.Save(pipelineRecord))
+
+	return pipelineRecord, orgCanon + "/" + pipelineRecord.GetString("canonified_name")
 }
 
 // Create records schedule options for assertions and returns a stub handle.
@@ -572,6 +820,9 @@ func (f *fakeScheduleClient) Create(
 	options client.ScheduleOptions,
 ) (client.ScheduleHandle, error) {
 	f.createdOptions = append(f.createdOptions, options)
+	if f.createErr != nil {
+		return nil, f.createErr
+	}
 	if f.handle != nil {
 		return f.handle, nil
 	}
