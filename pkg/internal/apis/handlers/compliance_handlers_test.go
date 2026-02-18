@@ -17,6 +17,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
+	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -379,6 +380,226 @@ func TestHandleGetWorkflowsHistorySuccess(t *testing.T) {
 	require.Contains(t, rec.Body.String(), "\"eventId\":\"1\"")
 }
 
+func TestHandleGetWorkflowsHistoryMissingParams(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/checks//run-1/history", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleGetWorkflowsHistory()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+
+	req = httptest.NewRequest(http.MethodGet, "/api/compliance/checks/wf-1//history", nil)
+	req.SetPathValue("workflowId", "wf-1")
+	rec = httptest.NewRecorder()
+
+	err = HandleGetWorkflowsHistory()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestHandleGetWorkflowsHistoryNotFound(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() {
+		complianceTemporalClient = origClient
+	})
+
+	mockOrg := &temporalmocks.Client{}
+	mockDefault := &temporalmocks.Client{}
+	mockOrg.
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"wf-2",
+			"run-2",
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).
+		Return(&fakeHistoryIterator{nextErr: &serviceerror.NotFound{Message: "missing"}}).
+		Once()
+	mockDefault.
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"wf-2",
+			"run-2",
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).
+		Return(&fakeHistoryIterator{nextErr: &serviceerror.NotFound{Message: "missing"}}).
+		Once()
+
+	complianceTemporalClient = func(namespace string) (client.Client, error) {
+		if namespace == "default" {
+			return mockDefault, nil
+		}
+		return mockOrg, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/checks/wf-2/run-2/history", nil)
+	req.SetPathValue("workflowId", "wf-2")
+	req.SetPathValue("runId", "run-2")
+	rec := httptest.NewRecorder()
+
+	err = HandleGetWorkflowsHistory()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHandleGetWorkflowNamespaceEmpty(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	orgAuth, err := app.FindFirstRecordByFilter(
+		"orgAuthorizations",
+		"user={:user}",
+		dbx.Params{"user": authRecord.Id},
+	)
+	require.NoError(t, err)
+
+	orgRecord, err := app.FindRecordById("organizations", orgAuth.GetString("organization"))
+	require.NoError(t, err)
+
+	orgRecord.Set("canonified_name", "")
+	require.NoError(t, app.Save(orgRecord))
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/checks/wf-3/run-3", nil)
+	req.SetPathValue("workflowId", "wf-3")
+	req.SetPathValue("runId", "run-3")
+	rec := httptest.NewRecorder()
+
+	err = HandleGetWorkflow()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+}
+
+func TestHandleGetWorkflowNotFound(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() {
+		complianceTemporalClient = origClient
+	})
+
+	mockOrg := &temporalmocks.Client{}
+	mockDefault := &temporalmocks.Client{}
+	mockOrg.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-4", "run-4").
+		Return((*workflowservice.DescribeWorkflowExecutionResponse)(nil), &serviceerror.NotFound{}).
+		Once()
+	mockDefault.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-4", "run-4").
+		Return((*workflowservice.DescribeWorkflowExecutionResponse)(nil), &serviceerror.NotFound{}).
+		Once()
+
+	complianceTemporalClient = func(namespace string) (client.Client, error) {
+		if namespace == "default" {
+			return mockDefault, nil
+		}
+		return mockOrg, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/checks/wf-4/run-4", nil)
+	req.SetPathValue("workflowId", "wf-4")
+	req.SetPathValue("runId", "run-4")
+	rec := httptest.NewRecorder()
+
+	err = HandleGetWorkflow()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func TestHandleGetWorkflowClientError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() {
+		complianceTemporalClient = origClient
+	})
+
+	complianceTemporalClient = func(namespace string) (client.Client, error) {
+		return nil, errors.New("client error")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/checks/wf-5/run-5", nil)
+	req.SetPathValue("workflowId", "wf-5")
+	req.SetPathValue("runId", "run-5")
+	rec := httptest.NewRecorder()
+
+	err = HandleGetWorkflow()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
 func TestHandleGetWorkflowResultNotFound(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -421,6 +642,114 @@ func TestHandleGetWorkflowResultNotFound(t *testing.T) {
 	var apiErr *apierror.APIError
 	require.True(t, errors.As(err, &apiErr))
 	require.Equal(t, http.StatusNotFound, apiErr.Code)
+}
+
+func TestHandleGetWorkflowResultMissingParams(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/checks//run/result", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleGetWorkflowResult()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.Error(t, err)
+	var apiErr *apierror.APIError
+	require.True(t, errors.As(err, &apiErr))
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+}
+
+func TestHandleGetWorkflowResultClientError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() {
+		complianceTemporalClient = origClient
+	})
+
+	complianceTemporalClient = func(namespace string) (client.Client, error) {
+		return nil, errors.New("client error")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/checks/wf-6/run-6/result", nil)
+	req.SetPathValue("workflowId", "wf-6")
+	req.SetPathValue("runId", "run-6")
+	rec := httptest.NewRecorder()
+
+	err = HandleGetWorkflowResult()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.Error(t, err)
+	var apiErr *apierror.APIError
+	require.True(t, errors.As(err, &apiErr))
+	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
+}
+
+func TestHandleGetWorkflowResultSuccess(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := complianceTemporalClient
+	t.Cleanup(func() {
+		complianceTemporalClient = origClient
+	})
+
+	mockClient := &temporalmocks.Client{}
+	mockRun := &temporalmocks.WorkflowRun{}
+	mockRun.
+		On("Get", mock.Anything, mock.AnythingOfType("*workflowengine.WorkflowResult")).
+		Run(func(args mock.Arguments) {
+			out := args.Get(1).(*workflowengine.WorkflowResult)
+			out.Log = []any{"ok"}
+		}).
+		Return(nil).
+		Once()
+	mockClient.On("GetWorkflow", mock.Anything, "wf-7", "run-7").Return(mockRun).Once()
+
+	complianceTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/compliance/checks/wf-7/run-7/result", nil)
+	req.SetPathValue("workflowId", "wf-7")
+	req.SetPathValue("runId", "run-7")
+	rec := httptest.NewRecorder()
+
+	err = HandleGetWorkflowResult()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Contains(t, rec.Body.String(), "\"ok\"")
 }
 
 func TestHandleSendOpenIDNetLogUpdateSuccess(t *testing.T) {
