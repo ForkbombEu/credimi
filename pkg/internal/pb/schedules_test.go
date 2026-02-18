@@ -31,12 +31,13 @@ import (
 )
 
 const testDataDir = "../../../test_pb_data"
+const testOrganizationName = "userA's organization"
 
-func getOrgIDfromName(app core.App, name string) (string, error) {
+func getOrgIDfromName(app core.App) (string, error) {
 	record, err := app.FindFirstRecordByFilter(
 		"organizations",
 		"name = {:name}",
-		dbx.Params{"name": name},
+		dbx.Params{"name": testOrganizationName},
 	)
 	if err != nil {
 		return "", err
@@ -146,7 +147,7 @@ func TestResolveScheduleRunnerRecordsFallbackToCanonify(t *testing.T) {
 	defer app.Cleanup()
 	canonify.RegisterCanonifyHooks(app)
 
-	orgID, err := getOrgIDfromName(app, "userA's organization")
+	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
 
 	orgRecord, err := app.FindRecordById("organizations", orgID)
@@ -192,7 +193,7 @@ func TestResolveScheduleRunnerRecordsParseError(t *testing.T) {
 	require.NoError(t, err)
 	defer app.Cleanup()
 
-	orgID, err := getOrgIDfromName(app, "userA's organization")
+	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
 
 	pipelinesColl, err := app.FindCollectionByNameOrId("pipelines")
@@ -234,7 +235,7 @@ func TestRegisterSchedulesHooksNotFoundEnrich(t *testing.T) {
 	defer app.Cleanup()
 	RegisterSchedulesHooks(app)
 
-	orgID, err := getOrgIDfromName(app, "userA's organization")
+	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
 	orgRecord, err := app.FindRecordById("organizations", orgID)
 	require.NoError(t, err)
@@ -351,7 +352,7 @@ func TestRegisterSchedulesHooksSuccessEnrich(t *testing.T) {
 	defer app.Cleanup()
 	RegisterSchedulesHooks(app)
 
-	orgID, err := getOrgIDfromName(app, "userA's organization")
+	orgID, err := getOrgIDfromName(app)
 	require.NoError(t, err)
 	orgRecord, err := app.FindRecordById("organizations", orgID)
 	require.NoError(t, err)

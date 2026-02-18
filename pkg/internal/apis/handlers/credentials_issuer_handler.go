@@ -8,7 +8,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"net/url"
@@ -695,7 +694,7 @@ func handleUpdateCredentialsIssuers(e *core.RecordEvent) error {
 	}{}
 	errJSON := json.Unmarshal(e.Record.Get("envVariables").(types.JSONRaw), &result)
 	if errJSON != nil {
-		log.Fatal(errJSON)
+		return fmt.Errorf("failed to parse envVariables: %w", errJSON)
 	}
 	if result.Interval == "" {
 		return e.Next()
@@ -723,7 +722,7 @@ func handleUpdateCredentialsIssuers(e *core.RecordEvent) error {
 		HostPort: client.DefaultHostPort,
 	})
 	if err != nil {
-		log.Fatalln("Unable to create Temporal Client", err)
+		return fmt.Errorf("unable to create Temporal Client: %w", err)
 	}
 	defer temporalClient.Close()
 	scheduleHandle, err := temporalClient.ScheduleClient().Create(ctx, client.ScheduleOptions{
@@ -742,7 +741,7 @@ func handleUpdateCredentialsIssuers(e *core.RecordEvent) error {
 		},
 	})
 	if err != nil {
-		log.Fatalln("Unable to create schedule", err)
+		return fmt.Errorf("unable to create schedule: %w", err)
 	}
 	_, _ = scheduleHandle.Describe(ctx)
 

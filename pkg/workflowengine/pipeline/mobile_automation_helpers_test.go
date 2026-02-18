@@ -195,13 +195,19 @@ func TestExtractAndStoreRecordingInfoAdditional(t *testing.T) {
 }
 
 func TestExtractDeviceInfoAdditional(t *testing.T) {
-	_, _, _, err := extractDeviceInfo("runner-1", map[string]any{})
+	serial, clone, packages, err := extractDeviceInfo("runner-1", map[string]any{})
+	_ = serial
+	_ = clone
+	_ = packages
 	require.Error(t, err)
 
-	_, _, _, err = extractDeviceInfo("runner-1", map[string]any{"serial": "s1"})
+	serial, clone, packages, err = extractDeviceInfo("runner-1", map[string]any{"serial": "s1"})
+	_ = serial
+	_ = clone
+	_ = packages
 	require.Error(t, err)
 
-	serial, clone, packages, err := extractDeviceInfo("runner-1", map[string]any{
+	serial, clone, packages, err = extractDeviceInfo("runner-1", map[string]any{
 		"serial":     "s1",
 		"clone_name": "clone",
 		"installed":  map[string]string{"v1": "pkg1", "v2": ""},
@@ -382,15 +388,21 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 }
 
 func TestExtractDeviceInfo(t *testing.T) {
-	_, _, _, err := extractDeviceInfo("runner-1", map[string]any{})
+	serial, clone, packages, err := extractDeviceInfo("runner-1", map[string]any{})
+	_ = serial
+	_ = clone
+	_ = packages
 	require.Error(t, err)
 
-	_, _, _, err = extractDeviceInfo("runner-1", map[string]any{
+	serial, clone, packages, err = extractDeviceInfo("runner-1", map[string]any{
 		"serial": "serial-1",
 	})
+	_ = serial
+	_ = clone
+	_ = packages
 	require.Error(t, err)
 
-	serial, clone, packages, err := extractDeviceInfo("runner-1", map[string]any{
+	serial, clone, packages, err = extractDeviceInfo("runner-1", map[string]any{
 		"serial":     "serial-1",
 		"clone_name": "clone-1",
 		"installed": map[string]string{
