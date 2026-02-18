@@ -104,6 +104,39 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 			errorCode:   errorcodes.Codes[errorcodes.MissingOrInvalidPayload],
 		},
 		{
+			name: "Failure: missing app_url config",
+			input: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url":       "",
+					"issuer_schema": "{}",
+					"orgID":         "org123",
+				},
+				Payload: CredentialsIssuersWorkflowPayload{
+					IssuerID: "issuer123",
+					BaseURL:  "baseurl",
+				},
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
+			expectedErr:    true,
+			errorCode:      errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
+		},
+		{
+			name: "Failure: missing issuer_schema config",
+			input: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.com",
+					"orgID":   "org123",
+				},
+				Payload: CredentialsIssuersWorkflowPayload{
+					IssuerID: "issuer123",
+					BaseURL:  "baseurl",
+				},
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {},
+			expectedErr:    true,
+			errorCode:      errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
+		},
+		{
 			name: "Failure: invalid CheckCredentialsIssuer output",
 			input: workflowengine.WorkflowInput{
 				Config: map[string]any{
@@ -124,6 +157,187 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 				)
 				env.OnActivity(checkAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{Output: map[string]any{"unexpected": "field"}}, nil)
+			},
+			expectedErr: true,
+			errorCode:   errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
+		},
+		{
+			name: "Failure: parse JSON output not map",
+			input: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url":       "https://example.com",
+					"issuer_schema": "{}",
+					"orgID":         "org123",
+				},
+				Payload: CredentialsIssuersWorkflowPayload{
+					IssuerID: "issuer123",
+					BaseURL:  "baseurl",
+				},
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				checkAct := activities.NewCheckCredentialsIssuerActivity()
+				jsonAct := activities.NewJSONActivity(nil)
+				env.RegisterActivityWithOptions(
+					checkAct.Execute,
+					activity.RegisterOptions{Name: checkAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					jsonAct.Execute,
+					activity.RegisterOptions{Name: jsonAct.Name()},
+				)
+				env.OnActivity(checkAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{
+						"rawJSON": rawJSON,
+						"source":  "testsource",
+					}}, nil)
+				env.OnActivity(jsonAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: "not-map"}, nil)
+			},
+			expectedErr: true,
+			errorCode:   errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
+		},
+		{
+			name: "Failure: missing credential_configurations_supported",
+			input: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url":       "https://example.com",
+					"issuer_schema": "{}",
+					"orgID":         "org123",
+				},
+				Payload: CredentialsIssuersWorkflowPayload{
+					IssuerID: "issuer123",
+					BaseURL:  "baseurl",
+				},
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				checkAct := activities.NewCheckCredentialsIssuerActivity()
+				jsonAct := activities.NewJSONActivity(nil)
+				validateAct := activities.NewSchemaValidationActivity()
+				env.RegisterActivityWithOptions(
+					checkAct.Execute,
+					activity.RegisterOptions{Name: checkAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					jsonAct.Execute,
+					activity.RegisterOptions{Name: jsonAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					validateAct.Execute,
+					activity.RegisterOptions{Name: validateAct.Name()},
+				)
+				env.OnActivity(checkAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{
+						"rawJSON": rawJSON,
+						"source":  "testsource",
+					}}, nil)
+				env.OnActivity(jsonAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{
+						"credential_issuer": "testissuer",
+					}}, nil)
+				env.OnActivity(validateAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{}, nil)
+			},
+			expectedErr: true,
+			errorCode:   errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
+		},
+		{
+			name: "Failure: missing orgID config",
+			input: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url":       "https://example.com",
+					"issuer_schema": "{}",
+				},
+				Payload: CredentialsIssuersWorkflowPayload{
+					IssuerID: "issuer123",
+					BaseURL:  "baseurl",
+				},
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				checkAct := activities.NewCheckCredentialsIssuerActivity()
+				jsonAct := activities.NewJSONActivity(nil)
+				validateAct := activities.NewSchemaValidationActivity()
+				env.RegisterActivityWithOptions(
+					checkAct.Execute,
+					activity.RegisterOptions{Name: checkAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					jsonAct.Execute,
+					activity.RegisterOptions{Name: jsonAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					validateAct.Execute,
+					activity.RegisterOptions{Name: validateAct.Name()},
+				)
+				env.OnActivity(checkAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{
+						"rawJSON": rawJSON,
+						"source":  "testsource",
+					}}, nil)
+				env.OnActivity(jsonAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{
+						"credential_issuer": "testissuer",
+						"credential_configurations_supported": map[string]any{
+							"cred1": map[string]any{},
+						},
+					}}, nil)
+				env.OnActivity(validateAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{}, nil)
+			},
+			expectedErr: true,
+			errorCode:   errorcodes.Codes[errorcodes.MissingOrInvalidConfig],
+		},
+		{
+			name: "Failure: store response missing key",
+			input: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url":       "https://example.com",
+					"issuer_schema": "{}",
+					"orgID":         "org123",
+				},
+				Payload: CredentialsIssuersWorkflowPayload{
+					IssuerID: "issuer123",
+					BaseURL:  "baseurl",
+				},
+			},
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				checkAct := activities.NewCheckCredentialsIssuerActivity()
+				jsonAct := activities.NewJSONActivity(nil)
+				validateAct := activities.NewSchemaValidationActivity()
+				httpAct := activities.NewHTTPActivity()
+				env.RegisterActivityWithOptions(
+					checkAct.Execute,
+					activity.RegisterOptions{Name: checkAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					jsonAct.Execute,
+					activity.RegisterOptions{Name: jsonAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					validateAct.Execute,
+					activity.RegisterOptions{Name: validateAct.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					httpAct.Execute,
+					activity.RegisterOptions{Name: httpAct.Name()},
+				)
+				env.OnActivity(checkAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{
+						"rawJSON": rawJSON,
+						"source":  "testsource",
+					}}, nil)
+				env.OnActivity(jsonAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{
+						"credential_issuer": "testissuer",
+						"credential_configurations_supported": map[string]any{
+							"cred1": map[string]any{},
+						},
+					}}, nil)
+				env.OnActivity(validateAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{}, nil)
+				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{Output: map[string]any{
+						"body": map[string]any{},
+					}}, nil)
 			},
 			expectedErr: true,
 			errorCode:   errorcodes.Codes[errorcodes.UnexpectedActivityOutput],
