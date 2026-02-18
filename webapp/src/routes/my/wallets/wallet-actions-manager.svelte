@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { yaml } from '@codemirror/lang-yaml';
 	import { UploadIcon } from '@lucide/svelte';
+	import { Wallet } from '$lib';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
@@ -18,7 +19,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
-	import { CodeEditorField } from '@/forms/fields';
+	import { Badge } from '@/components/ui/badge';
+	import { CodeEditorField, SelectField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { readFileAsString, startFileUpload } from '@/utils/files';
 
@@ -37,15 +39,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <CollectionManager
 	collection="wallet_actions"
 	hide={['empty_state']}
-	queryOptions={{ filter: `wallet.id = '${wallet.id}' && owner.id = '${organization.id}'` }}
+	queryOptions={{
+		filter: `wallet.id = '${wallet.id}' && owner.id = '${organization.id}'`,
+		sort: ['category', 'ASC']
+	}}
 	formRefineSchema={(schema) =>
 		schema.extend({
 			code: yamlStringSchema as unknown as z.ZodString
 		})}
 	formFieldsOptions={{
 		exclude: ['owner', 'canonified_name', 'published'],
+		order: ['name', 'category', 'code', 'tags'],
 		hide: { wallet: wallet.id },
-		snippets: { code: codeField },
+		snippets: { code: codeField, category: categoryField },
 		placeholders: {
 			name: m.e_g_Get_Credential(),
 			tags: 'e.g. v.0.01, Above 18 credential'
@@ -69,6 +75,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<DashboardCardManagerUI {records} nameField="name">
 			{#snippet actions({ record })}
 				<WalletActionTags action={record} containerClass="justify-end" />
+			{/snippet}
+			{#snippet beforeName({ record })}
+				{@const category = Wallet.Action.getCategoryLabel(record)}
+				{#if category}
+					<Badge class="mr-1.5" variant="outline">
+						{category}
+					</Badge>
+				{/if}
 			{/snippet}
 		</DashboardCardManagerUI>
 	{/snippet}
@@ -102,4 +116,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{m.Upload_yaml()}
 		</Button>
 	{/snippet}
+{/snippet}
+
+{#snippet categoryField(options: FieldSnippetOptions<'wallet_actions'>)}
+	<SelectField
+		form={options.form}
+		name={options.field}
+		options={{
+			label: m.Category(),
+			items: Object.entries(Wallet.Action.categoryLabels).map(([value, label]) => ({
+				value,
+				label
+			}))
+		}}
+	/>
 {/snippet}

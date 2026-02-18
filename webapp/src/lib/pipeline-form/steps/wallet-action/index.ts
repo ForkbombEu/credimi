@@ -2,6 +2,7 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
+import { Wallet } from '$lib';
 import { getRecordByCanonifiedPath } from '$lib/canonify/index.js';
 import { entities } from '$lib/global/entities';
 import {
@@ -43,11 +44,13 @@ export const walletActionStepConfig: TypedConfig<'mobile-automation', WalletActi
 	cardData: ({ action, wallet, version, runner }) => {
 		let publicUrl = getMarketplaceItemUrl(wallet);
 		publicUrl += `#${action.canonified_name}`;
+
 		return {
 			title: action.name,
 			copyText: getPath(action),
 			avatar: getMarketplaceItemLogo(wallet),
 			publicUrl,
+			beforeTitle: Wallet.Action.getCategoryLabel(action),
 			meta: {
 				wallet: `${wallet.name} (v. ${version.tag})`,
 				runner: runner === 'global' ? m.Choose_later() : runner.name

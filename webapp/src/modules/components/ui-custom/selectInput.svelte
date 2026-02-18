@@ -56,6 +56,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	// - 	onValueChange?.(v as SelectValue<T>);
 	// - 	if (clearOnSelect) value = undefined;
 	// - }}
+
+	const label = $derived(items?.find((item) => item.value === value)?.label);
 </script>
 
 <Select.Root
@@ -77,7 +79,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<!-- Formsnap Fix -->
 
 	<Select.Trigger {...controlAttrs}>
-		{@const label = items?.find((item) => item.value === value)?.label}
 		{#if maybeArrayIsValue(value)}
 			{#if trigger}
 				{@render trigger({ value, label })}

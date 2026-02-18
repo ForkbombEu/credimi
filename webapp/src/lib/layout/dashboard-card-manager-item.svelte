@@ -30,9 +30,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		publicUrl?: string;
 		actions?: Snippet;
 		hideClone?: boolean;
+		beforeName?: Snippet;
 	};
 
-	let { record, nameField, fallbackNameField, publicUrl, actions, hideClone }: Props = $props();
+	let { record, nameField, fallbackNameField, publicUrl, actions, hideClone, beforeName }: Props =
+		$props();
 
 	const name = $derived(
 		// @ts-expect-error - Slight type mismatch
@@ -47,7 +49,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <li
 	class="flex items-center justify-between gap-4 rounded-md bg-muted p-2 pr-2 pl-3 hover:ring-2 hover:ring-blue-200"
 >
-	<LabelLink label={name} href={publicUrl} {published} textToCopy={getPath(record)} />
+	<div class="flex items-center">
+		{@render beforeName?.()}
+		<LabelLink label={name} href={publicUrl} {published} textToCopy={getPath(record)} />
+	</div>
 
 	<div class="flex items-center gap-2">
 		{@render actions?.()}

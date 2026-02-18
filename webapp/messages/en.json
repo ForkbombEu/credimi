@@ -936,5 +936,11 @@
 	"Run_custom_integration": "Run custom integration",
 	"Run_integration": "Run integration",
 	"Custom_integration": "Custom integration",
-	"Custom_integrations": "Custom integrations"
+	"Custom_integrations": "Custom integrations",
+	"Onboarding": "Onboarding",
+	"Get_credential": "Get credential",
+	"Verify_credential": "Verify credential",
+	"Other": "Other",
+	"Generic": "Generic",
+	"Specific": "Specific"
 }

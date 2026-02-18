@@ -14,6 +14,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
 	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n/index.js';
@@ -59,7 +60,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@render topRight?.()}
 		</div>
 
-		<div class="space-y-3 p-3 pt-2">
+		<div class="space-y-4 p-3 pt-2">
 			<div>
 				{#if step[1] instanceof Enrich404Error || step[1] instanceof Error}
 					<div class="rounded-md bg-red-700 p-3 text-white">
@@ -78,13 +79,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					<div class="flex items-center gap-3">
 						<Avatar src={avatar} fallback={title} class="size-8 rounded-sm border" />
 						<div class="space-y-1">
-							<div class="flex items-center gap-1">
+							{#if cardData.beforeTitle}
+								<T class="mb-0! text-xs text-muted-foreground">
+									{cardData.beforeTitle}
+								</T>
+							{/if}
+							<div class="flex items-center gap-1 leading-tight">
 								{#if cardData.publicUrl}
-									<A href={cardData.publicUrl} target="_blank">
+									<A
+										href={cardData.publicUrl}
+										target="_blank"
+										class="whitespace-pre"
+									>
 										{title}
 									</A>
 								{:else}
-									<p>{title}</p>
+									<p class="whitespace-pre">{title}</p>
 								{/if}
 
 								{#if copyText}
@@ -97,7 +107,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			</div>
 
 			{#if cardData && cardData.meta}
-				<div>
+				<div class="space-y-0.5">
 					{#each Object.entries(cardData.meta) as [key, value] (key)}
 						<p class="text-xs text-muted-foreground">
 							<span class="font-medium capitalize">{key}:</span>
