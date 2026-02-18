@@ -117,7 +117,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</div>
 			{/if}
 
-			{#if CardDetailsComponent}
+			{#if CardDetailsComponent && stepData}
 				<CardDetailsComponent data={stepData} />
 			{/if}
 		</div>
