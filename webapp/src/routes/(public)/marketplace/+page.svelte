@@ -32,9 +32,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		tab: {
 			encode: (value) => value,
 			decode: (value) => {
-				if (value && tabsParams.includes(value)) {
-					return value;
-				}
+				if (value && tabsParams.includes(value)) return value;
 				return 'wallets';
 			}
 		},
