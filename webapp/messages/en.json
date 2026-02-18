@@ -928,5 +928,13 @@
 	"Pipeline_queued": "Pipeline queued (position {position})",
 	"Failed_to_cancel_pipeline": "Failed to cancel pipeline",
 	"Pipeline_execution_canceled": "Pipeline execution canceled",
-	"Queued": "Queued"
+	"Queued": "Queued",
+	"Configure_integration": "Configure integration",
+	"Configure_integration_description": "Set the parameters for this integration before running.",
+	"Custom_integration_started_successfully": "Custom integration started successfully",
+	"Failed_to_run_custom_integration": "Failed to run custom integration",
+	"Run_custom_integration": "Run custom integration",
+	"Run_integration": "Run integration",
+	"Custom_integration": "Custom integration",
+	"Custom_integrations": "Custom integrations"
 }

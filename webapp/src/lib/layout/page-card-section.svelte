@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { title, description, children, headerActions, class: className = '' }: Props = $props();
 </script>
 
-<PlainCard class="space-y-6 !p-6 md:space-y-8 md:!p-8 {className}">
+<PlainCard class="relative space-y-6 p-6! md:space-y-8 md:p-8! {className}">
 	{#if title || description}
 		<div class="space-y-1 border-b pb-2">
 			<div class="flex items-start justify-between gap-4">
@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					{/if}
 				</div>
 				{#if headerActions}
-					<div class="flex-shrink-0">
+					<div class="shrink-0">
 						{@render headerActions()}
 					</div>
 				{/if}

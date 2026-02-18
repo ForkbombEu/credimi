@@ -14,7 +14,6 @@ require (
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/go-sprout/sprout v1.0.0
 	github.com/google/uuid v1.6.0
-	github.com/hypersequent/zen v0.0.0-20250722075626-67d8f7873a72
 	github.com/invopop/jsonschema v0.13.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mocktools/go-smtp-mock v1.10.0
@@ -23,6 +22,7 @@ require (
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
 	github.com/spf13/cobra v1.10.1
 	github.com/stretchr/testify v1.11.1
+	github.com/swaggest/openapi-go v0.2.60
 	go.temporal.io/api v1.51.0
 	go.temporal.io/sdk v1.36.0
 	golang.org/x/crypto v0.42.0
@@ -259,7 +259,6 @@ require (
 	github.com/stretchr/objx v0.5.2 // indirect
 	github.com/subosito/gotenv v1.4.1 // indirect
 	github.com/swaggest/jsonschema-go v0.3.74 // indirect
-	github.com/swaggest/openapi-go v0.2.60 // indirect
 	github.com/swaggest/refl v1.3.1 // indirect
 	github.com/tdakkota/asciicheck v0.4.1 // indirect
 	github.com/tetafro/godot v1.5.0 // indirect

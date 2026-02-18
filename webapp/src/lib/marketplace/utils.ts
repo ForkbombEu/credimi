@@ -43,10 +43,8 @@ export function getMarketplaceItemLogo(item: MarketplaceItem): string | undefine
 
 //
 
-export const CUSTOM_CHECK_QUERY_PARAM = 'custom_check_id';
-
 export function getCustomCheckPublicUrl(item: MarketplaceItem | CustomChecksResponse) {
-	return `/my/tests/new?${CUSTOM_CHECK_QUERY_PARAM}=${getPath(item)}`;
+	return `/my/custom-integrations/${getPath(item, true)}/run`;
 }
 
 export function getMarketplaceItemUrl(item: MarketplaceItem) {
