@@ -39,6 +39,58 @@ func TestHandleEnqueueRunValidation(t *testing.T) {
 	require.Equal(t, MobileRunnerSemaphoreErrInvalidRequest, appErr.Type())
 }
 
+func TestHandleEnqueueRunRunnerMismatch(t *testing.T) {
+	rt := newRuntimeForTests()
+	_, err := rt.handleEnqueueRun(MobileRunnerSemaphoreEnqueueRunRequest{
+		TicketID:          "ticket-1",
+		OwnerNamespace:    "ns-1",
+		RunnerID:          "runner-2",
+		EnqueuedAt:        time.Now(),
+		RequiredRunnerIDs: []string{"runner-2"},
+		LeaderRunnerID:    "runner-2",
+	})
+	require.Error(t, err)
+	var appErr *temporal.ApplicationError
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, MobileRunnerSemaphoreErrInvalidRequest, appErr.Type())
+}
+
+func TestHandleEnqueueRunMissingEnqueuedAt(t *testing.T) {
+	rt := newRuntimeForTests()
+	_, err := rt.handleEnqueueRun(MobileRunnerSemaphoreEnqueueRunRequest{
+		TicketID:          "ticket-1",
+		OwnerNamespace:    "ns-1",
+		RunnerID:          "runner-1",
+		RequiredRunnerIDs: []string{"runner-1"},
+		LeaderRunnerID:    "runner-1",
+	})
+	require.Error(t, err)
+}
+
+func TestHandleEnqueueRunMissingRequiredRunnerIDs(t *testing.T) {
+	rt := newRuntimeForTests()
+	_, err := rt.handleEnqueueRun(MobileRunnerSemaphoreEnqueueRunRequest{
+		TicketID:       "ticket-1",
+		OwnerNamespace: "ns-1",
+		RunnerID:       "runner-1",
+		EnqueuedAt:     time.Now(),
+	})
+	require.Error(t, err)
+}
+
+func TestHandleEnqueueRunLeaderNotInRequired(t *testing.T) {
+	rt := newRuntimeForTests()
+	_, err := rt.handleEnqueueRun(MobileRunnerSemaphoreEnqueueRunRequest{
+		TicketID:          "ticket-1",
+		OwnerNamespace:    "ns-1",
+		RunnerID:          "runner-1",
+		EnqueuedAt:        time.Now(),
+		RequiredRunnerIDs: []string{"runner-2"},
+		LeaderRunnerID:    "runner-1",
+	})
+	require.Error(t, err)
+}
+
 func TestHandleEnqueueRunOwnerMismatch(t *testing.T) {
 	rt := newRuntimeForTests()
 	rt.runTickets["ticket-1"] = MobileRunnerSemaphoreRunTicketState{
