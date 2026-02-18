@@ -144,6 +144,109 @@ func TestParseDeviceMap(t *testing.T) {
 	require.Equal(t, "abc", deviceMap["serial"])
 }
 
+func TestValidateRunnerIDConfigurationAdditional(t *testing.T) {
+	steps := []StepDefinition{
+		{
+			StepSpec: StepSpec{
+				Use: mobileAutomationStepUse,
+				With: StepInputs{
+					Payload: map[string]any{
+						"action_id": "action-1",
+					},
+				},
+			},
+		},
+	}
+	err := validateRunnerIDConfiguration(&steps, "")
+	require.Error(t, err)
+
+	err = validateRunnerIDConfiguration(&steps, "global-runner")
+	require.NoError(t, err)
+
+	steps[0].With.Payload["runner_id"] = "runner-1"
+	err = validateRunnerIDConfiguration(&steps, "")
+	require.NoError(t, err)
+
+	nonMobile := []StepDefinition{{StepSpec: StepSpec{Use: "rest"}}}
+	err = validateRunnerIDConfiguration(&nonMobile, "")
+	require.NoError(t, err)
+}
+
+func TestExtractAndStoreRecordingInfoAdditional(t *testing.T) {
+	deviceMap := map[string]any{}
+	err := extractAndStoreRecordingInfo(
+		workflowengine.ActivityResult{Output: map[string]any{}},
+		deviceMap,
+		"runner-1",
+	)
+	require.Error(t, err)
+
+	okResult := workflowengine.ActivityResult{Output: map[string]any{
+		"adb_process_pid":    float64(11),
+		"ffmpeg_process_pid": float64(12),
+		"logcat_process_pid": float64(13),
+		"video_path":         "/tmp/video.mp4",
+		"logcat_path":        "/tmp/logcat.txt",
+	}}
+	err = extractAndStoreRecordingInfo(okResult, deviceMap, "runner-1")
+	require.NoError(t, err)
+	require.Equal(t, true, deviceMap["recording"])
+	require.Equal(t, "/tmp/video.mp4", deviceMap["video_path"])
+}
+
+func TestExtractDeviceInfoAdditional(t *testing.T) {
+	_, _, _, err := extractDeviceInfo("runner-1", map[string]any{})
+	require.Error(t, err)
+
+	_, _, _, err = extractDeviceInfo("runner-1", map[string]any{"serial": "s1"})
+	require.Error(t, err)
+
+	serial, clone, packages, err := extractDeviceInfo("runner-1", map[string]any{
+		"serial":     "s1",
+		"clone_name": "clone",
+		"installed":  map[string]string{"v1": "pkg1", "v2": ""},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "s1", serial)
+	require.Equal(t, "clone", clone)
+	require.Equal(t, []string{"pkg1"}, packages)
+}
+
+func TestExtractRecordingInfoAdditional(t *testing.T) {
+	_, err := extractRecordingInfo("runner-1", map[string]any{})
+	require.Error(t, err)
+
+	info, err := extractRecordingInfo("runner-1", map[string]any{
+		"video_path":           "/tmp/video.mp4",
+		"logcat_path":          "/tmp/logcat.txt",
+		"recording_adb_pid":    1,
+		"recording_ffmpeg_pid": 2,
+		"recording_logcat_pid": 3,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "/tmp/video.mp4", info.videoPath)
+	require.Equal(t, 1, info.adbPid)
+}
+
+func TestExtractAndStoreURLsAdditional(t *testing.T) {
+	output := map[string]any{
+		"result_video_urls": []string{},
+		"screenshot_urls":   []string{},
+	}
+	err := extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{}}, &output)
+	require.Error(t, err)
+
+	err = extractAndStoreURLs(workflowengine.ActivityResult{Output: map[string]any{
+		"body": map[string]any{
+			"result_urls":     []string{"url1"},
+			"screenshot_urls": []string{"shot1"},
+		},
+	}}, &output)
+	require.NoError(t, err)
+	require.Contains(t, output["result_video_urls"].([]string), "url1")
+	require.Contains(t, output["screenshot_urls"].([]string), "shot1")
+}
+
 func TestGetOrCreateDeviceMapExisting(t *testing.T) {
 	setted := map[string]any{
 		"runner-1": map[string]any{"serial": "serial-1"},

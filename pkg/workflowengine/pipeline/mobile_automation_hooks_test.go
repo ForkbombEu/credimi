@@ -146,6 +146,36 @@ func TestMobileAutomationCleanupSkipsPermitsWhenSemaphoreManaged(t *testing.T) {
 	env.AssertExpectations(t)
 }
 
+func TestStartRecordingForDeviceMissingSerial(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		testStartRecordingMissingSerialWorkflow,
+		workflow.RegisterOptions{Name: "test-start-recording-missing-serial"},
+	)
+
+	env.ExecuteWorkflow("test-start-recording-missing-serial")
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "missing serial")
+}
+
+func TestStartRecordingForDevicesSkipsAlreadyRecording(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		testStartRecordingSkipWorkflow,
+		workflow.RegisterOptions{Name: "test-start-recording-skip"},
+	)
+
+	env.ExecuteWorkflow("test-start-recording-skip")
+
+	require.NoError(t, env.GetWorkflowError())
+}
+
 func testProcessStepWithoutPermitWorkflow(ctx workflow.Context) error {
 	ctx = workflow.WithActivityOptions(
 		ctx,
@@ -198,6 +228,33 @@ func testSetupHookWorkflow(
 	runData := map[string]any{}
 
 	return MobileAutomationSetupHook(ctx, &steps, &activityOptions, config, &runData)
+}
+
+func testStartRecordingMissingSerialWorkflow(ctx workflow.Context) error {
+	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+	return startRecordingForDevice(startRecordingForDeviceInput{
+		ctx:            ctx,
+		runnerID:       "runner-1",
+		deviceMap:      map[string]any{},
+		ao:             &activityOptions,
+		recordActivity: activities.NewStartRecordingActivity(),
+	})
+}
+
+func testStartRecordingSkipWorkflow(ctx workflow.Context) error {
+	activityOptions := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+	setted := map[string]any{
+		"runner-1": map[string]any{
+			"serial":    "serial-1",
+			"recording": true,
+		},
+	}
+	return startRecordingForDevices(startRecordingForDevicesInput{
+		ctx:            ctx,
+		settedDevices:  setted,
+		ao:             &activityOptions,
+		recordActivity: activities.NewStartRecordingActivity(),
+	})
 }
 
 func testCleanupReleasesPermitsWorkflow(ctx workflow.Context) error {
