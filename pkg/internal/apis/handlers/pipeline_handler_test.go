@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/apis"
@@ -23,6 +24,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
+	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
@@ -379,6 +381,161 @@ func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
 	queue, ok := response[0]["queue"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "ticket-1", queue["ticket_id"])
+}
+
+func TestProcessPipelineResultsClientError(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	origClient := pipelineTemporalClient
+	t.Cleanup(func() { pipelineTemporalClient = origClient })
+
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return nil, errors.New("no client")
+	}
+
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	record := core.NewRecord(coll)
+	record.Set("workflow_id", "wf-1")
+	record.Set("run_id", "run-1")
+
+	var tc client.Client
+	_, err = processPipelineResults("ns", []*core.Record{record}, &tc)
+	require.Error(t, err)
+
+	var apiErr *apierror.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
+}
+
+func TestProcessPipelineResultsDescribeErrors(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	record := core.NewRecord(coll)
+	record.Set("workflow_id", "wf-1")
+	record.Set("run_id", "run-1")
+
+	tests := []struct {
+		name     string
+		err      error
+		wantCode int
+	}{
+		{
+			name:     "not found",
+			err:      &serviceerror.NotFound{Message: "missing"},
+			wantCode: http.StatusNotFound,
+		},
+		{
+			name:     "invalid argument",
+			err:      &serviceerror.InvalidArgument{Message: "bad"},
+			wantCode: http.StatusBadRequest,
+		},
+		{
+			name:     "generic",
+			err:      errors.New("boom"),
+			wantCode: http.StatusInternalServerError,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			origClient := pipelineTemporalClient
+			t.Cleanup(func() { pipelineTemporalClient = origClient })
+
+			mockClient := temporalmocks.NewClient(t)
+			mockClient.
+				On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
+				Return(nil, tc.err)
+
+			pipelineTemporalClient = func(_ string) (client.Client, error) {
+				return mockClient, nil
+			}
+
+			var temporalClient client.Client
+			_, err := processPipelineResults("ns", []*core.Record{record}, &temporalClient)
+			require.Error(t, err)
+			var apiErr *apierror.APIError
+			require.ErrorAs(t, err, &apiErr)
+			require.Equal(t, tc.wantCode, apiErr.Code)
+		})
+	}
+}
+
+func TestProcessPipelineResultsParentExecution(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	origClient := pipelineTemporalClient
+	t.Cleanup(func() { pipelineTemporalClient = origClient })
+
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	record := core.NewRecord(coll)
+	record.Set("workflow_id", "wf-1")
+	record.Set("run_id", "run-1")
+
+	mockClient := temporalmocks.NewClient(t)
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+				Execution: &common.WorkflowExecution{WorkflowId: "wf-1", RunId: "run-1"},
+				ParentExecution: &common.WorkflowExecution{
+					WorkflowId: "parent-wf",
+					RunId:      "parent-run",
+				},
+				Type: &common.WorkflowType{Name: "Pipeline"},
+			},
+		}, nil)
+
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	var temporalClient client.Client
+	execs, err := processPipelineResults("ns", []*core.Record{record}, &temporalClient)
+	require.NoError(t, err)
+	require.Len(t, execs, 1)
+	require.NotNil(t, execs[0].ParentExecution)
+	require.Equal(t, "parent-wf", execs[0].ParentExecution.WorkflowID)
+	require.Equal(t, "parent-run", execs[0].ParentExecution.RunID)
+}
+
+func TestProcessPipelineResultsSetsTemporalClient(t *testing.T) {
+	app := setupPipelineApp(t)
+	defer app.Cleanup()
+
+	origClient := pipelineTemporalClient
+	t.Cleanup(func() { pipelineTemporalClient = origClient })
+
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	record := core.NewRecord(coll)
+	record.Set("workflow_id", "wf-1")
+	record.Set("run_id", "run-1")
+
+	mockClient := temporalmocks.NewClient(t)
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+				Execution: &common.WorkflowExecution{WorkflowId: "wf-1", RunId: "run-1"},
+				Type:      &common.WorkflowType{Name: "Pipeline"},
+			},
+		}, nil)
+
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	var temporalClient client.Client
+	_, err = processPipelineResults("ns", []*core.Record{record}, &temporalClient)
+	require.NoError(t, err)
+	require.NotNil(t, temporalClient)
 }
 
 func TestSelectTopExecutionsByPipeline(t *testing.T) {
