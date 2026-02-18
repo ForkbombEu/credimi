@@ -22,8 +22,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onClick?: (e: MouseEvent) => void;
 		onDiscard?: () => void;
 		right?: Snippet;
-		children?: Snippet;
 		class?: ClassValue;
+		beforeContent?: Snippet;
+		afterContent?: Snippet;
 	};
 
 	let {
@@ -33,17 +34,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		onDiscard,
 		subtitle,
 		right,
-		children,
-		class: className
+		class: className,
+		beforeContent,
+		afterContent
 	}: Props = $props();
 	const isInteractive = $derived(onClick !== undefined);
 
 	const classes = $derived(
-		cn(
-			'flex w-full items-center',
-			'gap-3 rounded-md border border-slate-200 p-2 text-left',
-			className
-		)
+		cn('gap-3 rounded-md border border-slate-200 p-2 text-left w-full', className)
 	);
 </script>
 
@@ -58,31 +56,39 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/if}
 
 {#snippet content()}
-	{#if avatar}
-		<Avatar src={avatar} fallback={title} class="shrink-0 rounded-md border" />
-	{/if}
+	<div class="flex items-center gap-3">
+		<div class="grow">
+			{@render beforeContent?.()}
 
-	<div class="grow">
-		<T class="text-sm font-semibold">{title}</T>
-		{#if subtitle}
-			<T class="text-xs text-muted-foreground">{subtitle}</T>
-		{/if}
-		{@render children?.()}
-	</div>
+			<div class="flex items-center gap-2">
+				{#if avatar}
+					<Avatar src={avatar} fallback={title} class="shrink-0 rounded-md border" />
+				{/if}
+				<div>
+					<T class="text-sm font-semibold">{title}</T>
+					{#if subtitle}
+						<T class="text-xs text-muted-foreground">{subtitle}</T>
+					{/if}
+				</div>
+			</div>
 
-	<div class="flex shrink-0 items-center gap-1">
-		{@render right?.()}
-		{#if onDiscard}
-			<IconButton
-				icon={XIcon}
-				variant="ghost"
-				size="xs"
-				class="hover:bg-slate-200"
-				onclick={() => onDiscard()}
-			/>
-		{/if}
-		{#if isInteractive}
-			<ArrowRightIcon class="size-4 shrink-0 text-muted-foreground" />
-		{/if}
+			{@render afterContent?.()}
+		</div>
+
+		<div class="flex shrink-0 items-center gap-1">
+			{@render right?.()}
+			{#if onDiscard}
+				<IconButton
+					icon={XIcon}
+					variant="ghost"
+					size="xs"
+					class="hover:bg-slate-200"
+					onclick={() => onDiscard()}
+				/>
+			{/if}
+			{#if isInteractive}
+				<ArrowRightIcon class="size-4 shrink-0 text-muted-foreground" />
+			{/if}
+		</div>
 	</div>
 {/snippet}
