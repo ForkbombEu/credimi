@@ -8,12 +8,14 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -536,6 +538,119 @@ func TestStartVLEIWorkflowSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "wf-vlei", result.WorkflowID)
 	require.Equal(t, string(params.Author), result.Author)
+}
+
+func TestProcessJSONChecksUnsupportedAuthor(t *testing.T) {
+	result, err := processJSONChecks(
+		"{}",
+		"user@example.org",
+		"https://app.example",
+		"ns-1",
+		map[string]interface{}{"test": "demo"},
+		Author("unknown"),
+		"unknown/test",
+		"openid4vp_wallet",
+		"v1",
+		"https://logo.png",
+		"Credimi",
+		"User",
+	)
+	require.Error(t, err)
+	var apiErr *apierror.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Empty(t, result.WorkflowID)
+}
+
+func TestProcessJSONChecksUsesRegistry(t *testing.T) {
+	origRegistry := workflowRegistry
+	t.Cleanup(func() {
+		workflowRegistry = origRegistry
+	})
+	workflowRegistry = map[Author]WorkflowStarter{
+		"ewc": func(params WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
+			require.Equal(t, "https://app.example", params.AppURL)
+			return workflowengine.WorkflowResult{
+				WorkflowID:    "wf-1",
+				WorkflowRunID: "run-1",
+			}, nil
+		},
+	}
+
+	result, err := processJSONChecks(
+		"{}",
+		"user@example.org",
+		"https://app.example",
+		"ns-1",
+		map[string]interface{}{"test": "demo"},
+		Author("ewc"),
+		"ewc/test",
+		"openid4vp_wallet",
+		"v1",
+		"https://logo.png",
+		"Credimi",
+		"User",
+	)
+	require.NoError(t, err)
+	require.Equal(t, "wf-1", result.WorkflowID)
+	require.Equal(t, "run-1", result.WorkflowRunID)
+}
+
+func TestProcessCustomChecksEmptyYAML(t *testing.T) {
+	result, err := processCustomChecks(
+		"",
+		"https://app.example",
+		"ns-1",
+		map[string]interface{}{"author": "custom"},
+		"",
+	)
+	require.Error(t, err)
+	var apiErr *apierror.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Empty(t, result.WorkflowID)
+}
+
+func TestProcessCustomChecksStartError(t *testing.T) {
+	origStart := customCheckWorkflowStart
+	t.Cleanup(func() {
+		customCheckWorkflowStart = origStart
+	})
+	customCheckWorkflowStart = func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{}, errors.New("boom")
+	}
+
+	result, err := processCustomChecks(
+		"steps: []\n",
+		"https://app.example",
+		"ns-1",
+		map[string]interface{}{"author": "custom"},
+		"",
+	)
+	require.Error(t, err)
+	var apiErr *apierror.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Empty(t, result.WorkflowID)
+}
+
+func TestStartOpenIDNetWorkflowMissingTemplate(t *testing.T) {
+	rootDir := t.TempDir()
+	t.Setenv("ROOT_DIR", rootDir)
+
+	params := WorkflowStarterParams{
+		YAMLData:  "variant: {}\nform: {}\ntest: demo\n",
+		Email:     "user@example.org",
+		AppURL:    "https://app.example",
+		Namespace: "ns-1",
+		Version:   "1.0",
+	}
+
+	_, err := startOpenIDNetWorkflow(params)
+	require.Error(t, err)
+	var apiErr *apierror.APIError
+	require.ErrorAs(t, err, &apiErr)
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
 }
 
 func TestProcessCustomChecksSuccess(t *testing.T) {
