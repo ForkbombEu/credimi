@@ -203,6 +203,58 @@ func TestHandleListQueuedRunsQuery(t *testing.T) {
 	require.Equal(t, "ticket-1", views[0].TicketID)
 }
 
+func TestApplyPayloadStateDefaults(t *testing.T) {
+	rt := &mobileRunnerSemaphoreRuntime{capacity: 0}
+
+	rt.applyPayloadState(MobileRunnerSemaphoreWorkflowInput{})
+
+	require.Equal(t, 1, rt.capacity)
+}
+
+func TestApplyPayloadStateOverrides(t *testing.T) {
+	now := time.Now()
+	rt := &mobileRunnerSemaphoreRuntime{
+		capacity: 5,
+	}
+	state := &MobileRunnerSemaphoreWorkflowState{
+		Capacity:    2,
+		Holders:     map[string]MobileRunnerSemaphoreHolder{"lease": {LeaseID: "lease"}},
+		Queue:       []string{"req-1"},
+		Requests:    map[string]MobileRunnerSemaphoreRequestState{"req-1": {}},
+		RunQueue:    []string{"ticket-1"},
+		RunTickets:  map[string]MobileRunnerSemaphoreRunTicketState{"ticket-1": {}},
+		LastGrantAt: &now,
+		UpdateCount: 7,
+	}
+
+	rt.applyPayloadState(MobileRunnerSemaphoreWorkflowInput{
+		Capacity: 3,
+		State:    state,
+	})
+
+	require.Equal(t, 2, rt.capacity)
+	require.Equal(t, state.Holders, rt.holders)
+	require.Equal(t, state.Queue, rt.queue)
+	require.Equal(t, state.Requests, rt.requests)
+	require.Equal(t, state.RunQueue, rt.runQueue)
+	require.Equal(t, state.RunTickets, rt.runTickets)
+	require.Equal(t, state.LastGrantAt, rt.lastGrantAt)
+	require.Equal(t, state.UpdateCount, rt.updateCount)
+}
+
+func TestNormalizeStateInitializesDefaults(t *testing.T) {
+	rt := &mobileRunnerSemaphoreRuntime{}
+
+	rt.normalizeState()
+
+	require.Equal(t, 1, rt.capacity)
+	require.NotNil(t, rt.holders)
+	require.NotNil(t, rt.requests)
+	require.NotNil(t, rt.queue)
+	require.NotNil(t, rt.runQueue)
+	require.NotNil(t, rt.runTickets)
+}
+
 func TestHandleAcquireImmediateGrant(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -233,6 +285,63 @@ func TestHandleAcquireImmediateGrant(t *testing.T) {
 	require.Equal(t, "lease-1", permit.LeaseID)
 }
 
+func TestHandleRunStartedSignalUpdatesState(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (struct {
+			State       MobileRunnerSemaphoreRunTicketState
+			UpdateCount int
+		}, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+					"ticket-1": {
+						Request: MobileRunnerSemaphoreEnqueueRunRequest{TicketID: "ticket-1"},
+						Status:  mobileRunnerSemaphoreRunStarting,
+					},
+				},
+				requests: map[string]MobileRunnerSemaphoreRequestState{},
+				holders:  map[string]MobileRunnerSemaphoreHolder{},
+				queue:    []string{},
+				runQueue: []string{},
+			}
+
+			rt.handleRunStartedSignal(ctx, MobileRunnerSemaphoreRunStartedSignal{
+				TicketID:          "ticket-1",
+				WorkflowID:        "wf-1",
+				RunID:             "run-1",
+				WorkflowNamespace: "ns-1",
+			})
+
+			return struct {
+				State       MobileRunnerSemaphoreRunTicketState
+				UpdateCount int
+			}{
+				State:       rt.runTickets["ticket-1"],
+				UpdateCount: rt.updateCount,
+			}, nil
+		},
+		workflow.RegisterOptions{Name: "test-run-started-signal"},
+	)
+
+	env.ExecuteWorkflow("test-run-started-signal")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result struct {
+		State       MobileRunnerSemaphoreRunTicketState
+		UpdateCount int
+	}
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, mobileRunnerSemaphoreRunRunning, result.State.Status)
+	require.Equal(t, "wf-1", result.State.WorkflowID)
+	require.Equal(t, "run-1", result.State.RunID)
+	require.Equal(t, "ns-1", result.State.WorkflowNamespace)
+	require.NotNil(t, result.State.StartedAt)
+	require.Equal(t, 1, result.UpdateCount)
+}
+
 func TestHandleAcquireTimeout(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -260,6 +369,64 @@ func TestHandleAcquireTimeout(t *testing.T) {
 	err := env.GetWorkflowError()
 	require.Error(t, err)
 	require.Contains(t, err.Error(), MobileRunnerSemaphoreErrTimeout)
+}
+
+func TestHandleRunDoneSignalRemovesTicket(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (struct {
+			RunTickets          int
+			RunQueue            []string
+			UpdateCount         int
+			RunStarterRequested bool
+		}, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+					"ticket-1": {
+						Request: MobileRunnerSemaphoreEnqueueRunRequest{TicketID: "ticket-1"},
+						Status:  mobileRunnerSemaphoreRunRunning,
+					},
+				},
+				runQueue: []string{"ticket-1"},
+			}
+			rt.handleRunDoneSignal(ctx, MobileRunnerSemaphoreRunDoneSignal{
+				TicketID:   "ticket-1",
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+			})
+
+			return struct {
+				RunTickets          int
+				RunQueue            []string
+				UpdateCount         int
+				RunStarterRequested bool
+			}{
+				RunTickets:          len(rt.runTickets),
+				RunQueue:            rt.runQueue,
+				UpdateCount:         rt.updateCount,
+				RunStarterRequested: rt.runStarterRequested,
+			}, nil
+		},
+		workflow.RegisterOptions{Name: "test-run-done-signal"},
+	)
+
+	env.ExecuteWorkflow("test-run-done-signal")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result struct {
+		RunTickets          int
+		RunQueue            []string
+		UpdateCount         int
+		RunStarterRequested bool
+	}
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Zero(t, result.RunTickets)
+	require.Empty(t, result.RunQueue)
+	require.Equal(t, 1, result.UpdateCount)
+	require.True(t, result.RunStarterRequested)
 }
 
 func TestHandleReleaseResults(t *testing.T) {
