@@ -2,12 +2,13 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { BaseEditor } from '$start-checks-form/_utils';
 import type { SuperForm, SuperValidated } from 'sveltekit-superforms';
 
 import { getValueSnapshot, validate } from '@sjsf/form';
-import { yamlStringSchema } from '$lib/utils';
+import { resolve } from '$app/paths';
+import { runWithLoading, yamlStringSchema } from '$lib/utils';
 import { watch } from 'runed';
+import { toast } from 'svelte-sonner';
 import { fromStore } from 'svelte/store';
 import { zod } from 'sveltekit-superforms/adapters';
 import { z } from 'zod/v3';
@@ -17,6 +18,8 @@ import type { State } from '@/utils/types';
 
 import { createJsonSchemaForm, type JsonSchemaForm } from '@/components/json-schema-form';
 import { createForm } from '@/forms';
+import { goto, m } from '@/i18n';
+import { pb } from '@/pocketbase';
 
 //
 
@@ -24,7 +27,7 @@ export type CustomCheckConfigEditorProps = {
 	customCheck: CustomChecksResponse;
 };
 
-export class CustomCheckConfigEditor implements BaseEditor {
+export class CustomCheckConfigEditor {
 	public readonly jsonSchemaForm?: JsonSchemaForm;
 	public readonly yamlForm: SuperForm<YamlFormData>;
 	private yamlFormState: State<YamlFormData>;
@@ -61,9 +64,41 @@ export class CustomCheckConfigEditor implements BaseEditor {
 
 	getData() {
 		return {
-			form: this.jsonSchemaForm ? getValueSnapshot(this.jsonSchemaForm) : undefined,
+			data: this.jsonSchemaForm ? getValueSnapshot(this.jsonSchemaForm) : undefined,
 			yaml: this.yamlFormState.current.yaml
 		};
+	}
+
+	async submit() {
+		const formData = this.getData();
+		await runWithLoading({
+			fn: async () => {
+				try {
+					const result = await pb.send<RunResult>('/api/custom-integrations/run', {
+						method: 'POST',
+						body: formData
+					});
+					toast.success(m.Custom_integration_started_successfully(), {
+						action: {
+							label: m.View(),
+							onClick: () => {
+								goto(
+									resolve('/my/tests/runs/[workflow_id]/[run_id]', {
+										workflow_id: result.workflowId,
+										run_id: result.workflowRunId
+									})
+								);
+							}
+						}
+					});
+					await goto(resolve('/my/custom-integrations'));
+				} catch (error) {
+					toast.error(m.Failed_to_run_custom_integration());
+					throw error;
+				}
+			},
+			showSuccessToast: false
+		});
 	}
 
 	private registerEffect_UpdateYamlFormValidationResult() {
@@ -80,4 +115,9 @@ export class CustomCheckConfigEditor implements BaseEditor {
 
 type YamlFormData = {
 	yaml: string;
+};
+
+type RunResult = {
+	workflowId: string;
+	workflowRunId: string;
 };

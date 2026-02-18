@@ -10,7 +10,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { m } from '@/i18n';
 
-	import { CustomCheckConfigEditor, CustomCheckConfigEditorComponent } from './_components';
+	import {
+		CustomCheckConfigEditor,
+		CustomCheckConfigEditorComponent
+	} from './_partials/index.js';
 
 	//
 
