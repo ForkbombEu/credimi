@@ -963,6 +963,9 @@ components:
     HandlersRunCustomIntegrationRequestInput:
       properties:
         data: {}
+        timeoutSeconds:
+          nullable: true
+          type: integer
         yaml:
           type: string
       type: object
