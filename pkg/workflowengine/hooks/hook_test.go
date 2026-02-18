@@ -18,6 +18,9 @@ import (
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/mocks"
+
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 )
 
 const testDataDir = "../../../test_pb_data"
@@ -234,4 +237,114 @@ func TestEnsureNamespaceReadyWithRetryTimeout(t *testing.T) {
 
 	err := ensureNamespaceReadyWithRetry("timeout")
 	require.Error(t, err)
+}
+
+func TestExecuteWorkerManagerWorkflowSuccess(t *testing.T) {
+	origStart := workerManagerStartWorkflow
+	origClient := workerManagerTemporalClient
+	origWait := workerManagerWaitForWorkflowResult
+
+	t.Cleanup(func() {
+		workerManagerStartWorkflow = origStart
+		workerManagerTemporalClient = origClient
+		workerManagerWaitForWorkflowResult = origWait
+	})
+
+	var gotNamespace string
+	var gotInput workflowengine.WorkflowInput
+
+	workerManagerStartWorkflow = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		gotNamespace = namespace
+		gotInput = input
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "wf-1",
+			WorkflowRunID: "run-1",
+		}, nil
+	}
+
+	workerManagerTemporalClient = func(namespace string) (client.Client, error) {
+		require.Equal(t, "default", namespace)
+		return &mocks.Client{}, nil
+	}
+
+	workerManagerWaitForWorkflowResult = func(c client.Client, workflowID, runID string) (workflowengine.WorkflowResult, error) {
+		require.NotNil(t, c)
+		require.Equal(t, "wf-1", workflowID)
+		require.Equal(t, "run-1", runID)
+		return workflowengine.WorkflowResult{}, nil
+	}
+
+	err := executeWorkerManagerWorkflow("org-1", "org-0", "https://app.example")
+	require.NoError(t, err)
+	require.Equal(t, "default", gotNamespace)
+	require.NotNil(t, gotInput.ActivityOptions)
+
+	payload, ok := gotInput.Payload.(workflows.WorkerManagerWorkflowPayload)
+	require.True(t, ok)
+	require.Equal(t, "org-1", payload.Namespace)
+	require.Equal(t, "org-0", payload.OldNamespace)
+	require.Equal(t, "https://app.example", gotInput.Config["app_url"])
+}
+
+func TestExecuteWorkerManagerWorkflowStartError(t *testing.T) {
+	origStart := workerManagerStartWorkflow
+
+	t.Cleanup(func() {
+		workerManagerStartWorkflow = origStart
+	})
+
+	workerManagerStartWorkflow = func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{}, errors.New("boom")
+	}
+
+	err := executeWorkerManagerWorkflow("org-1", "", "http://app")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to start workflow")
+}
+
+func TestExecuteWorkerManagerWorkflowTemporalClientError(t *testing.T) {
+	origStart := workerManagerStartWorkflow
+	origClient := workerManagerTemporalClient
+
+	t.Cleanup(func() {
+		workerManagerStartWorkflow = origStart
+		workerManagerTemporalClient = origClient
+	})
+
+	workerManagerStartWorkflow = func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
+	}
+	workerManagerTemporalClient = func(_ string) (client.Client, error) {
+		return nil, errors.New("no client")
+	}
+
+	err := executeWorkerManagerWorkflow("org-1", "", "http://app")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "unable to create client")
+}
+
+func TestExecuteWorkerManagerWorkflowWaitError(t *testing.T) {
+	origStart := workerManagerStartWorkflow
+	origClient := workerManagerTemporalClient
+	origWait := workerManagerWaitForWorkflowResult
+
+	t.Cleanup(func() {
+		workerManagerStartWorkflow = origStart
+		workerManagerTemporalClient = origClient
+		workerManagerWaitForWorkflowResult = origWait
+	})
+
+	workerManagerStartWorkflow = func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
+	}
+	workerManagerTemporalClient = func(_ string) (client.Client, error) {
+		return &mocks.Client{}, nil
+	}
+	workerManagerWaitForWorkflowResult = func(_ client.Client, _ string, _ string) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{}, errors.New("wait failed")
+	}
+
+	err := executeWorkerManagerWorkflow("org-1", "", "http://app")
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to start mobile automation worker")
 }

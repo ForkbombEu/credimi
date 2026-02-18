@@ -226,12 +226,18 @@ var DefaultWorkers = []workerConfig{
 }
 
 var (
-	getTemporalClient     = temporalclient.GetTemporalClientWithNamespace
-	newNamespaceClientFn  = client.NewNamespaceClient
-	sleepFn               = time.Sleep
-	nowFn                 = time.Now
-	startWorkerFn         = startWorker
-	startPipelineWorkerFn = startPipelineWorker
+	getTemporalClient          = temporalclient.GetTemporalClientWithNamespace
+	newNamespaceClientFn       = client.NewNamespaceClient
+	sleepFn                    = time.Sleep
+	nowFn                      = time.Now
+	startWorkerFn              = startWorker
+	startPipelineWorkerFn      = startPipelineWorker
+	workerManagerStartWorkflow = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewWorkerManagerWorkflow()
+		return w.Start(namespace, input)
+	}
+	workerManagerTemporalClient        = temporalclient.GetTemporalClientWithNamespace
+	workerManagerWaitForWorkflowResult = workflowengine.WaitForWorkflowResult
 )
 
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
@@ -471,18 +477,17 @@ func executeWorkerManagerWorkflow(namespace, oldNamespace, appURL string) error 
 		ActivityOptions: ao,
 	}
 
-	w := workflows.NewWorkerManagerWorkflow()
-	resStart, err := w.Start("default", input)
+	resStart, err := workerManagerStartWorkflow("default", input)
 	if err != nil {
 		return fmt.Errorf("failed to start workflow: %w", err)
 	}
 
-	c, err := temporalclient.GetTemporalClientWithNamespace("default")
+	c, err := workerManagerTemporalClient("default")
 	if err != nil {
 		return fmt.Errorf("unable to create client: %w", err)
 	}
 
-	_, err = workflowengine.WaitForWorkflowResult(
+	_, err = workerManagerWaitForWorkflowResult(
 		c,
 		resStart.WorkflowID,
 		resStart.WorkflowRunID,
