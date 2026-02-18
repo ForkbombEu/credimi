@@ -28,16 +28,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		topRight?: Snippet;
 		onContinueOnErrorChange?: (checked: boolean) => void;
 		readonly?: boolean;
-		showLinkToMarketplace?: boolean;
 	};
 
-	let {
-		step,
-		topRight,
-		onContinueOnErrorChange,
-		readonly = false,
-		showLinkToMarketplace = false
-	}: Props = $props();
+	let { step, topRight, onContinueOnErrorChange, readonly = false }: Props = $props();
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
 
@@ -86,7 +79,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 						<Avatar src={avatar} fallback={title} class="size-8 rounded-sm border" />
 						<div class="space-y-1">
 							<div class="flex items-center gap-1">
-								{#if cardData.publicUrl && showLinkToMarketplace}
+								{#if cardData.publicUrl}
 									<A href={cardData.publicUrl} target="_blank">
 										{title}
 									</A>

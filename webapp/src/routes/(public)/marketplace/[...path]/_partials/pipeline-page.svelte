@@ -38,7 +38,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<PageSection indexItem={s.pipeline_steps} empty={pipeline.steps.length === 0}>
 		<div class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
 			{#each pipeline.steps as step, index (index)}
-				<StepCardDisplay {step} readonly showLinkToMarketplace>
+				<StepCardDisplay {step} readonly>
 					{#snippet topRight()}
 						<div class="pr-2 text-xs text-muted-foreground">
 							#{index + 1}
