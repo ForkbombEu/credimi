@@ -18,6 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { CollectionManager } from '@/collections-components';
 	import Button from '@/components/ui-custom/button.svelte';
+	import { Badge } from '@/components/ui/badge';
 	import { CodeEditorField, SelectField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { readFileAsString, startFileUpload } from '@/utils/files';
@@ -39,7 +40,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <CollectionManager
 	collection="wallet_actions"
 	hide={['empty_state']}
-	queryOptions={{ filter: `wallet.id = '${wallet.id}' && owner.id = '${organization.id}'` }}
+	queryOptions={{
+		filter: `wallet.id = '${wallet.id}' && owner.id = '${organization.id}'`,
+		sort: ['category', 'ASC']
+	}}
 	formRefineSchema={(schema) =>
 		schema.extend({
 			code: yamlStringSchema as unknown as z.ZodString
@@ -72,6 +76,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<DashboardCardManagerUI {records} nameField="name">
 			{#snippet actions({ record })}
 				<WalletActionTags action={record} containerClass="justify-end" />
+			{/snippet}
+			{#snippet beforeName({ record })}
+				{@const category = walletActionCategories[record.category]}
+				{#if category}
+					<Badge class="mr-1.5" variant="outline">
+						{category}
+					</Badge>
+				{/if}
 			{/snippet}
 		</DashboardCardManagerUI>
 	{/snippet}

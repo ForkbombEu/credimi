@@ -24,8 +24,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{ fetch: fetchFn }
 		).getOne(itemId);
 
-		const actions = wallet.expand?.wallet_actions_via_wallet ?? [];
 		const versions = wallet.expand?.wallet_versions_via_wallet ?? [];
+		const actions = (wallet.expand?.wallet_actions_via_wallet ?? []).sort((a, b) =>
+			a.category.localeCompare(b.category)
+		);
 
 		const actionsWithOrganizations = await getActionsWithOrganizations(actions);
 
@@ -75,6 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import { walletActionCategories } from '../../../../my/wallets/utils';
 	import DescriptionSection from './_utils/description-section.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
@@ -153,6 +156,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<PageSection indexItem={s.actions} empty={actionsWithOrganizations.length === 0}>
 		<div class="relative space-y-3">
 			{#each actionsWithOrganizations as action (action.id)}
+				{@const category = walletActionCategories[action.category]}
 				<Accordion type="single" class="w-full">
 					<AccordionItem
 						value="code-accordion"
@@ -163,10 +167,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 							id={action.canonified_name}
 						>
 							<div class="flex w-full items-center justify-between gap-4">
-								<div class="flex items-center gap-3">
+								<div class="flex items-center gap-2">
 									<Code
 										class="h-4 w-4 text-muted-foreground transition-colors group-hover:text-foreground"
 									/>
+									{#if category}
+										<Badge class="mr-1.5" variant="outline">
+											{category}
+										</Badge>
+									{/if}
 									<div class="space-y-1 text-left">
 										<div class="flex items-center gap-1">
 											<p class="leading-snug font-medium text-balance">
