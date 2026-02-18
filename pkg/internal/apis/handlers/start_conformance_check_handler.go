@@ -713,52 +713,6 @@ func processVariablesTest(
 	)
 }
 
-func processCustomChecks(
-	testData string,
-	appURL string,
-	namespace string,
-	memo map[string]interface{},
-	formJSON string,
-) (workflowengine.WorkflowResult, error) {
-	yaml := testData
-	if yaml == "" {
-		return workflowengine.WorkflowResult{}, apierror.New(
-			http.StatusBadRequest,
-			"yaml",
-			"yaml is empty",
-			"yaml is empty",
-		)
-	}
-
-	input := workflowengine.WorkflowInput{
-		Payload: workflows.CustomCheckWorkflowPayload{
-			Yaml: yaml,
-		},
-		Config: map[string]any{
-			"memo":    memo,
-			"app_url": appURL,
-			"env":     formJSON,
-		},
-	}
-
-	w := workflows.NewCustomCheckWorkflow()
-
-	results, errStart := w.Start(namespace, input)
-	if errStart != nil {
-		return workflowengine.WorkflowResult{}, apierror.New(
-			http.StatusBadRequest,
-			"workflow",
-			"failed to start check",
-			errStart.Error(),
-		)
-	}
-	authorVal, ok := memo["author"]
-	if ok {
-		results.Author = fmt.Sprintf("%v", authorVal)
-	}
-	return results, nil
-}
-
 func readTemplateFile(path string) (string, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
