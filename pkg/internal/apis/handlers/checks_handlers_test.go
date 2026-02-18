@@ -11,10 +11,12 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -272,6 +274,112 @@ func TestHandleGetMyCheckRunInvalidArgument(t *testing.T) {
 	apiErr := decodeAPIError(t, rec)
 	require.Equal(t, http.StatusBadRequest, apiErr.Code)
 	require.Equal(t, "invalid workflow ID", apiErr.Reason)
+}
+
+func TestComputeChildDisplayNameAdditional(t *testing.T) {
+	require.Equal(t, "View logs workflow", computeChildDisplayName("OpenIDNetCheckWorkflow-1"))
+	require.Equal(t, "View logs workflow", computeChildDisplayName("EWCWorkflow-1"))
+
+	uuid := "123e4567-e89b-12d3-a456-426614174000"
+	require.Equal(t, "child", computeChildDisplayName("parent-"+uuid+"-child"))
+	require.Equal(t, "plain", computeChildDisplayName("plain"))
+}
+
+func TestShouldIncludeQueuedRunsAdditional(t *testing.T) {
+	require.True(t, shouldIncludeQueuedRuns(""))
+	require.True(t, shouldIncludeQueuedRuns("running"))
+	require.True(t, shouldIncludeQueuedRuns("completed, running"))
+	require.False(t, shouldIncludeQueuedRuns("completed"))
+}
+
+func TestSortExecutionSummariesAdditional(t *testing.T) {
+	loc, err := time.LoadLocation("UTC")
+	require.NoError(t, err)
+
+	list := []*WorkflowExecutionSummary{
+		{StartTime: "2025-01-02T15:04:05Z", EndTime: "2025-01-02T16:04:05Z"},
+		{StartTime: "2025-01-01T15:04:05Z", EndTime: "2025-01-01T16:04:05Z"},
+	}
+	sortExecutionSummaries(list, loc, false)
+	require.Equal(t, "02/01/2025, 15:04:05", list[0].StartTime)
+	require.Equal(t, "01/01/2025, 15:04:05", list[1].StartTime)
+}
+
+func TestBuildExecutionHierarchyWithChildAdditional(t *testing.T) {
+	memoValue := base64.StdEncoding.EncodeToString([]byte(`"Parent Name"`))
+	executions := []*WorkflowExecution{
+		{
+			Execution: &WorkflowIdentifier{WorkflowID: "parent", RunID: "run-parent"},
+			Type:      WorkflowType{Name: "Other"},
+			StartTime: "2025-01-01T10:00:00Z",
+			CloseTime: "2025-01-01T10:05:00Z",
+			Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+			Memo: &Memo{
+				Fields: map[string]*Payload{
+					"test": {Data: &memoValue},
+				},
+			},
+		},
+		{
+			Execution: &WorkflowIdentifier{WorkflowID: "child", RunID: "run-child"},
+			Type:      WorkflowType{Name: "Child"},
+			StartTime: "2025-01-01T10:01:00Z",
+			CloseTime: "2025-01-01T10:02:00Z",
+			Status:    "WORKFLOW_EXECUTION_STATUS_COMPLETED",
+			ParentExecution: &WorkflowIdentifier{
+				WorkflowID: "parent",
+				RunID:      "run-parent",
+			},
+		},
+	}
+
+	roots := buildExecutionHierarchy(nil, executions, "owner", "UTC", nil)
+	require.Len(t, roots, 1)
+	require.Equal(t, "Parent Name", roots[0].DisplayName)
+	require.Len(t, roots[0].Children, 1)
+}
+
+func TestBuildQueuedWorkflowSummariesAdditional(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	canonify.RegisterCanonifyHooks(app)
+
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	pipelineRecord := createPipelineRecord(t, app, orgID, "My Pipeline")
+
+	path, err := canonify.BuildPath(app, pipelineRecord, canonify.CanonifyPaths["pipelines"], "")
+	require.NoError(t, err)
+
+	queued := map[string]QueuedPipelineRunAggregate{
+		"ticket-2": {
+			TicketID:           "ticket-2",
+			PipelineIdentifier: strings.Trim(path, "/"),
+			EnqueuedAt:         time.Date(2025, 1, 2, 3, 0, 0, 0, time.UTC),
+			Position:           1,
+			LineLen:            2,
+		},
+		"ticket-1": {
+			TicketID:           "ticket-1",
+			PipelineIdentifier: strings.Trim(path, "/"),
+			EnqueuedAt:         time.Date(2025, 1, 2, 4, 0, 0, 0, time.UTC),
+			Position:           0,
+			LineLen:            2,
+		},
+	}
+
+	summaries := buildQueuedWorkflowSummaries(app, queued, "UTC")
+	require.Len(t, summaries, 2)
+	require.Equal(t, string(WorkflowStatusQueued), summaries[0].Status)
+	require.Equal(t, "My Pipeline", summaries[0].DisplayName)
+}
+
+func TestResolveQueuedPipelineDisplayNameFallbackAdditional(t *testing.T) {
+	require.Equal(t, "pipeline-run", resolveQueuedPipelineDisplayName(nil, ""))
+	require.Equal(t, "id", resolveQueuedPipelineDisplayName(nil, "id"))
 }
 
 func TestHandleGetMyCheckRunHistorySuccess(t *testing.T) {
