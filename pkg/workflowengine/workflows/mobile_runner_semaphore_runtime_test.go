@@ -5,10 +5,14 @@
 package workflows
 
 import (
+	"context"
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
@@ -95,6 +99,35 @@ func TestHandleEnqueueRunSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, mobileRunnerSemaphoreRunQueued, resp.Status)
 	require.Len(t, rt.runQueue, 1)
+}
+
+func TestHandleEnqueueRunReturnsExistingTicket(t *testing.T) {
+	rt := newRuntimeForTests()
+	rt.runTickets["ticket-1"] = MobileRunnerSemaphoreRunTicketState{
+		Request: MobileRunnerSemaphoreEnqueueRunRequest{
+			TicketID:          "ticket-1",
+			OwnerNamespace:    "ns-1",
+			RunnerID:          "runner-1",
+			EnqueuedAt:        time.Now().Add(-time.Minute),
+			RequiredRunnerIDs: []string{"runner-1"},
+			LeaderRunnerID:    "runner-1",
+		},
+		Status: mobileRunnerSemaphoreRunQueued,
+	}
+	rt.runQueue = []string{"ticket-1"}
+
+	resp, err := rt.handleEnqueueRun(MobileRunnerSemaphoreEnqueueRunRequest{
+		TicketID:          "ticket-1",
+		OwnerNamespace:    "ns-1",
+		RunnerID:          "runner-1",
+		EnqueuedAt:        time.Now(),
+		RequiredRunnerIDs: []string{"runner-1"},
+		LeaderRunnerID:    "runner-1",
+	})
+	require.NoError(t, err)
+	require.Equal(t, mobileRunnerSemaphoreRunQueued, resp.Status)
+	require.Equal(t, 0, resp.Position)
+	require.Equal(t, 1, resp.LineLen)
 }
 
 func TestHandleCancelRunPaths(t *testing.T) {
@@ -482,4 +515,150 @@ func TestHandleReleaseResults(t *testing.T) {
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.True(t, result.Released.Released)
 	require.False(t, result.Missing.Released)
+}
+
+func TestAwaitContinueTriggersContinueAsNew(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) error {
+			rt := &mobileRunnerSemaphoreRuntime{
+				ctx:            ctx,
+				runnerID:       "runner-1",
+				shouldContinue: true,
+				continueInput: workflowengine.WorkflowInput{
+					Payload: MobileRunnerSemaphoreWorkflowInput{RunnerID: "runner-1"},
+				},
+			}
+			_, err := rt.awaitContinue()
+			return err
+		},
+		workflow.RegisterOptions{Name: "test-await-continue"},
+	)
+
+	env.ExecuteWorkflow("test-await-continue")
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.True(t, workflow.IsContinueAsNewError(err))
+}
+
+func TestCheckRunCompletionFinalizesClosedRun(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	checkAct := activities.NewCheckWorkflowClosedActivity()
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, _ workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			return workflowengine.ActivityResult{
+				Output: activities.CheckWorkflowClosedActivityOutput{Closed: true, Status: "completed"},
+			}, nil
+		},
+		activity.RegisterOptions{Name: checkAct.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (int, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+					"ticket-1": {
+						Request: MobileRunnerSemaphoreEnqueueRunRequest{
+							TicketID:          "ticket-1",
+							OwnerNamespace:    "ns-1",
+							LeaderRunnerID:    "runner-1",
+							RequiredRunnerIDs: []string{"runner-1"},
+						},
+						Status:            mobileRunnerSemaphoreRunRunning,
+						WorkflowID:        "wf-1",
+						RunID:             "run-1",
+						WorkflowNamespace: "ns-1",
+					},
+				},
+				runQueue: []string{"ticket-1"},
+			}
+			rt.checkRunCompletion(ctx)
+			return len(rt.runTickets), nil
+		},
+		workflow.RegisterOptions{Name: "test-check-run-completion"},
+	)
+
+	env.ExecuteWorkflow("test-check-run-completion")
+	require.NoError(t, env.GetWorkflowError())
+
+	var remaining int
+	require.NoError(t, env.GetWorkflowResult(&remaining))
+	require.Equal(t, 0, remaining)
+}
+
+func TestReconcileStartingTicketsUpdatesRunning(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	queryAct := activities.NewQueryMobileRunnerSemaphoreRunStatusActivity()
+	env.RegisterActivityWithOptions(
+		func(_ context.Context, _ workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
+			return workflowengine.ActivityResult{
+				Output: MobileRunnerSemaphoreRunStatusView{
+					TicketID:          "ticket-1",
+					Status:            mobileRunnerSemaphoreRunRunning,
+					WorkflowID:        "wf-1",
+					RunID:             "run-1",
+					WorkflowNamespace: "ns-1",
+				},
+			}, nil
+		},
+		activity.RegisterOptions{Name: queryAct.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (MobileRunnerSemaphoreRunTicketState, error) {
+			rt := &mobileRunnerSemaphoreRuntime{
+				runnerID: "runner-1",
+				runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
+					"ticket-1": {
+						Request: MobileRunnerSemaphoreEnqueueRunRequest{
+							TicketID:       "ticket-1",
+							OwnerNamespace: "ns-1",
+							LeaderRunnerID: "runner-2",
+						},
+						Status: mobileRunnerSemaphoreRunStarting,
+					},
+				},
+			}
+			rt.reconcileStartingTickets(ctx)
+			return rt.runTickets["ticket-1"], nil
+		},
+		workflow.RegisterOptions{Name: "test-reconcile-starting"},
+	)
+
+	env.ExecuteWorkflow("test-reconcile-starting")
+	require.NoError(t, env.GetWorkflowError())
+
+	var state MobileRunnerSemaphoreRunTicketState
+	require.NoError(t, env.GetWorkflowResult(&state))
+	require.Equal(t, mobileRunnerSemaphoreRunRunning, state.Status)
+	require.Equal(t, "wf-1", state.WorkflowID)
+	require.Equal(t, "run-1", state.RunID)
+	require.Equal(t, "ns-1", state.WorkflowNamespace)
+	require.NotNil(t, state.StartedAt)
+}
+
+func TestExecuteWorkflowInvalidPayload(t *testing.T) {
+	w := NewMobileRunnerSemaphoreWorkflow()
+	_, err := w.ExecuteWorkflow(nil, workflowengine.WorkflowInput{
+		Payload: make(chan int),
+	})
+	require.Error(t, err)
+}
+
+func TestExecuteWorkflowMissingRunnerID(t *testing.T) {
+	w := NewMobileRunnerSemaphoreWorkflow()
+	_, err := w.ExecuteWorkflow(nil, workflowengine.WorkflowInput{
+		Payload: map[string]any{},
+	})
+	require.Error(t, err)
+	var appErr *temporal.ApplicationError
+	require.ErrorAs(t, err, &appErr)
+	require.Equal(t, MobileRunnerSemaphoreErrInvalidRequest, appErr.Type())
 }
