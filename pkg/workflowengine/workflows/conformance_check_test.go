@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
@@ -347,9 +348,7 @@ func TestRunStepCIAndSendMailNoMail(t *testing.T) {
 
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (StepCIAndEmailResult, error) {
-			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
-				StartToCloseTimeout: time.Second,
-			})
+			ctx = workflow.WithActivityOptions(ctx, activityOptionsNoRetry())
 			cfg := StepCIAndEmailConfig{
 				AppURL:        "https://app.example",
 				Template:      "steps: []",
@@ -385,9 +384,7 @@ func TestRunStepCIAndSendMailMissingCaptures(t *testing.T) {
 
 	env.RegisterWorkflowWithOptions(
 		func(ctx workflow.Context) (StepCIAndEmailResult, error) {
-			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
-				StartToCloseTimeout: time.Second,
-			})
+			ctx = workflow.WithActivityOptions(ctx, activityOptionsNoRetry())
 			cfg := StepCIAndEmailConfig{
 				AppURL:        "https://app.example",
 				Template:      "steps: []",
@@ -450,6 +447,209 @@ func TestRunStepCIAndSendMailMissingDeeplink(t *testing.T) {
 	require.Error(t, env.GetWorkflowError())
 }
 
+func TestRunStepCIAndSendMailConfigureError(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (StepCIAndEmailResult, error) {
+			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+				StartToCloseTimeout: time.Second,
+			})
+			cfg := StepCIAndEmailConfig{
+				AppURL:        "https://app.example",
+				Template:      "",
+				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
+				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				SendMail:      false,
+			}
+			return RunStepCIAndSendMail(ctx, cfg)
+		},
+		workflow.RegisterOptions{Name: "test-stepci-config-error"},
+	)
+
+	env.ExecuteWorkflow("test-stepci-config-error")
+	require.Error(t, env.GetWorkflowError())
+}
+
+func TestRunStepCIAndSendMailStepCIExecuteError(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	env.RegisterActivityWithOptions(
+		stepCIActivity.Execute,
+		activity.RegisterOptions{Name: stepCIActivity.Name()},
+	)
+	env.OnActivity(stepCIActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, errors.New("stepci failed")).
+		Once()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (StepCIAndEmailResult, error) {
+			ctx = workflow.WithActivityOptions(ctx, activityOptionsNoRetry())
+			cfg := StepCIAndEmailConfig{
+				AppURL:        "https://app.example",
+				Template:      "steps: []",
+				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
+				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				SendMail:      false,
+			}
+			return RunStepCIAndSendMail(ctx, cfg)
+		},
+		workflow.RegisterOptions{Name: "test-stepci-exec-error"},
+	)
+
+	env.ExecuteWorkflow("test-stepci-exec-error")
+	require.Error(t, env.GetWorkflowError())
+}
+
+func TestRunStepCIAndSendMailInvalidAppURL(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	env.RegisterActivityWithOptions(
+		stepCIActivity.Execute,
+		activity.RegisterOptions{Name: stepCIActivity.Name()},
+	)
+	env.OnActivity(stepCIActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"captures": map[string]any{
+					"deeplink": "link",
+				},
+			},
+		}, nil).
+		Once()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (StepCIAndEmailResult, error) {
+			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+				StartToCloseTimeout: time.Second,
+			})
+			cfg := StepCIAndEmailConfig{
+				AppURL:        "http://[::1",
+				Template:      "steps: []",
+				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
+				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				AppName:       "Credimi",
+				AppLogo:       "logo.png",
+				UserName:      "User",
+				UserMail:      "user@example.org",
+				Namespace:     "ns-1",
+				Suite:         OpenIDConformanceSuite,
+				SendMail:      true,
+			}
+			return RunStepCIAndSendMail(ctx, cfg)
+		},
+		workflow.RegisterOptions{Name: "test-stepci-invalid-url"},
+	)
+
+	env.ExecuteWorkflow("test-stepci-invalid-url")
+	require.Error(t, env.GetWorkflowError())
+}
+
+func TestRunStepCIAndSendMailEmailConfigureError(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	env.RegisterActivityWithOptions(
+		stepCIActivity.Execute,
+		activity.RegisterOptions{Name: stepCIActivity.Name()},
+	)
+	env.OnActivity(stepCIActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"captures": map[string]any{
+					"deeplink": "link",
+				},
+			},
+		}, nil).
+		Once()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (StepCIAndEmailResult, error) {
+			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+				StartToCloseTimeout: time.Second,
+			})
+			cfg := StepCIAndEmailConfig{
+				AppURL:        "https://app.example",
+				Template:      "steps: []",
+				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
+				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				AppName:       "Credimi",
+				AppLogo:       "logo.png",
+				UserName:      "User",
+				UserMail:      "",
+				Namespace:     "ns-1",
+				Suite:         OpenIDConformanceSuite,
+				SendMail:      true,
+			}
+			return RunStepCIAndSendMail(ctx, cfg)
+		},
+		workflow.RegisterOptions{Name: "test-stepci-email-config-error"},
+	)
+
+	env.ExecuteWorkflow("test-stepci-email-config-error")
+	require.Error(t, env.GetWorkflowError())
+}
+
+func TestRunStepCIAndSendMailEmailExecuteError(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	stepCIActivity := activities.NewStepCIWorkflowActivity()
+	env.RegisterActivityWithOptions(
+		stepCIActivity.Execute,
+		activity.RegisterOptions{Name: stepCIActivity.Name()},
+	)
+
+	emailActivity := activities.NewSendMailActivity()
+	env.RegisterActivityWithOptions(
+		emailActivity.Execute,
+		activity.RegisterOptions{Name: emailActivity.Name()},
+	)
+
+	env.OnActivity(stepCIActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{
+			Output: map[string]any{
+				"captures": map[string]any{
+					"deeplink": "link",
+				},
+			},
+		}, nil).
+		Once()
+	env.OnActivity(emailActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{}, errors.New("send failed")).
+		Once()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (StepCIAndEmailResult, error) {
+			ctx = workflow.WithActivityOptions(ctx, activityOptionsNoRetry())
+			cfg := StepCIAndEmailConfig{
+				AppURL:        "https://app.example",
+				Template:      "steps: []",
+				StepCIPayload: activities.StepCIWorkflowActivityPayload{Data: map[string]any{}},
+				RunMetadata:   &workflowengine.WorkflowErrorMetadata{},
+				AppName:       "Credimi",
+				AppLogo:       "logo.png",
+				UserName:      "User",
+				UserMail:      "user@example.org",
+				Namespace:     "ns-1",
+				Suite:         OpenIDConformanceSuite,
+				SendMail:      true,
+			}
+			return RunStepCIAndSendMail(ctx, cfg)
+		},
+		workflow.RegisterOptions{Name: "test-stepci-email-exec-error"},
+	)
+
+	env.ExecuteWorkflow("test-stepci-email-exec-error")
+	require.Error(t, env.GetWorkflowError())
+}
+
 func TestStartCheckWorkflowStart(t *testing.T) {
 	origStart := startCheckWorkflowWithOptions
 	t.Cleanup(func() {
@@ -481,4 +681,14 @@ func TestStartCheckWorkflowStart(t *testing.T) {
 	require.Equal(t, w.Name(), capturedName)
 	require.Equal(t, ConformanceCheckTaskQueue, capturedOptions.TaskQueue)
 	require.True(t, strings.HasPrefix(capturedOptions.ID, "conformance-check-"))
+}
+
+// activityOptionsNoRetry returns activity options for single-attempt activities in tests.
+func activityOptionsNoRetry() workflow.ActivityOptions {
+	return workflow.ActivityOptions{
+		StartToCloseTimeout: time.Second,
+		RetryPolicy: &temporal.RetryPolicy{
+			MaximumAttempts: 1,
+		},
+	}
 }
