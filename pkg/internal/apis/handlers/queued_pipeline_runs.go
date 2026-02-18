@@ -28,6 +28,7 @@ const (
 
 var listMobileRunnerSemaphoreWorkflows = listMobileRunnerSemaphoreWorkflowsTemporal
 var queryMobileRunnerSemaphoreQueuedRuns = queryMobileRunnerSemaphoreQueuedRunsTemporal
+var queuedRunsTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 type QueuedPipelineRunAggregate struct {
 	TicketID           string
@@ -124,7 +125,7 @@ func listQueuedPipelineRuns(
 }
 
 func listMobileRunnerSemaphoreWorkflowsTemporal(ctx context.Context) ([]string, error) {
-	client, err := temporalclient.GetTemporalClientWithNamespace(
+	client, err := queuedRunsTemporalClient(
 		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
 	)
 	if err != nil {
@@ -188,7 +189,7 @@ func queryMobileRunnerSemaphoreQueuedRunsTemporal(
 	runnerID string,
 	ownerNamespace string,
 ) ([]workflows.MobileRunnerSemaphoreQueuedRunView, error) {
-	client, err := temporalclient.GetTemporalClientWithNamespace(
+	client, err := queuedRunsTemporalClient(
 		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
 	)
 	if err != nil {
