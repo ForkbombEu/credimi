@@ -1364,6 +1364,83 @@ func TestHandleListMyChecksStatusFilterQuery(t *testing.T) {
 	require.Contains(t, capturedQuery, "or")
 }
 
+func TestHandleListMyChecksTemporalClientError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := listChecksTemporalClient
+	t.Cleanup(func() {
+		listChecksTemporalClient = origClient
+	})
+
+	listChecksTemporalClient = func(_ string) (client.Client, error) {
+		return nil, errors.New("no client")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/my/checks", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleListMyChecks()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	apiErr := decodeAPIError(t, rec)
+	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
+	require.Equal(t, "unable to create client", apiErr.Reason)
+}
+
+func TestHandleListMyChecksQueuedRunsError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := listChecksTemporalClient
+	origList := listMobileRunnerSemaphoreWorkflows
+	t.Cleanup(func() {
+		listChecksTemporalClient = origClient
+		listMobileRunnerSemaphoreWorkflows = origList
+	})
+
+	listChecksTemporalClient = func(_ string) (client.Client, error) {
+		return &temporalmocks.Client{}, nil
+	}
+	listMobileRunnerSemaphoreWorkflows = func(_ context.Context) ([]string, error) {
+		return nil, errors.New("list failed")
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/my/checks?status=queued", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleListMyChecks()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+
+	apiErr := decodeAPIError(t, rec)
+	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
+	require.Equal(t, "failed to list queued runs", apiErr.Reason)
+}
+
 func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
