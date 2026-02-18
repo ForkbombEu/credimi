@@ -7,6 +7,7 @@ package handlers
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -15,6 +16,7 @@ import (
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 // Integration tests for the API key handlers
@@ -370,4 +372,46 @@ func TestApiKeyAuthentication_Performance(t *testing.T) {
 		assert.NotNil(t, foundRecord)
 		assert.Equal(t, "Performance Test Key", foundRecord.GetString("name"))
 	}
+}
+func TestGenerateApiKey_UnauthenticatedUser(t *testing.T) {
+	handler := GenerateApiKey()
+	req := httptest.NewRequest(http.MethodPost, "/api/apikey/generate", nil)
+	rec := httptest.NewRecorder()
+
+	authCollection := &core.Collection{}
+	authCollection.Type = core.CollectionTypeAuth
+	authCollection.Name = "users"
+	auth := core.NewRecord(authCollection)
+	auth.Id = ""
+
+	e := &core.RequestEvent{
+		Auth: auth,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	}
+
+	err := handler(e)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Contains(t, rec.Body.String(), "user_not_authenticated")
+}
+
+func TestAuthenticateApiKey_MissingHeader(t *testing.T) {
+	handler := AuthenticateApiKey()
+	req := httptest.NewRequest(http.MethodGet, "/api/apikey/authenticate", nil)
+	rec := httptest.NewRecorder()
+
+	e := &core.RequestEvent{
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	}
+
+	err := handler(e)
+	require.NoError(t, err)
+	require.Equal(t, http.StatusUnauthorized, rec.Code)
+	require.Contains(t, rec.Body.String(), "api_key_required")
 }

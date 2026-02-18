@@ -6,6 +6,7 @@ package activities
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -14,6 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/api/serviceerror"
 )
 
 func TestCESRParsingActivityErrors(t *testing.T) {
@@ -69,6 +71,24 @@ func TestReleaseMobileRunnerPermitActivityDisabled(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestReleaseMobileRunnerPermitActivityEarlyReturnAndDecodeError(t *testing.T) {
+	t.Setenv("MOBILE_RUNNER_SEMAPHORE_DISABLED", "false")
+	activity := NewReleaseMobileRunnerPermitActivity()
+
+	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: "not-a-permit-payload",
+	})
+	require.Error(t, err)
+
+	_, err = activity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: mobilerunnersemaphore.MobileRunnerSemaphorePermit{
+			RunnerID: "runner-1",
+			LeaseID:  "   ",
+		},
+	})
+	require.NoError(t, err)
+}
+
 func TestReportMobileRunnerSemaphoreDoneActivityMissingFields(t *testing.T) {
 	activity := NewReportMobileRunnerSemaphoreDoneActivity()
 	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
@@ -78,6 +98,26 @@ func TestReportMobileRunnerSemaphoreDoneActivityMissingFields(t *testing.T) {
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code)
+}
+
+func TestReportMobileRunnerSemaphoreDoneActivityDecodeAndDisabled(t *testing.T) {
+	activity := NewReportMobileRunnerSemaphoreDoneActivity()
+	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: "not-a-report-payload",
+	})
+	require.Error(t, err)
+
+	t.Setenv("MOBILE_RUNNER_SEMAPHORE_DISABLED", "true")
+	_, err = activity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: ReportMobileRunnerSemaphoreDoneInput{
+			TicketID:       "ticket-1",
+			LeaderRunnerID: "runner-1",
+			OwnerNamespace: "org",
+			WorkflowID:     "wf-1",
+			RunID:          "run-1",
+		},
+	})
+	require.NoError(t, err)
 }
 
 func TestQueryMobileRunnerSemaphoreRunStatusActivityMissingFields(t *testing.T) {
@@ -91,15 +131,38 @@ func TestQueryMobileRunnerSemaphoreRunStatusActivityMissingFields(t *testing.T) 
 	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code)
 }
 
+func TestQueryMobileRunnerSemaphoreRunStatusActivityDecodeError(t *testing.T) {
+	activity := NewQueryMobileRunnerSemaphoreRunStatusActivity()
+	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: "not-a-query-payload",
+	})
+	require.Error(t, err)
+}
+
 func TestCheckWorkflowClosedActivityMissingFields(t *testing.T) {
 	activity := NewCheckWorkflowClosedActivity()
+	require.Equal(t, "Check workflow closed", activity.Name())
+
 	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: "not-a-workflow-status-payload",
+	})
+	require.Error(t, err)
+
+	_, err = activity.Execute(context.Background(), workflowengine.ActivityInput{
 		Payload: CheckWorkflowClosedActivityInput{
 			WorkflowNamespace: "ns",
 		},
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.MissingOrInvalidPayload].Code)
+
+	_, err = activity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: CheckWorkflowClosedActivityInput{
+			WorkflowID: "wf-1",
+		},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "workflow_namespace is required")
 }
 
 func TestMobileFlowStubActivities(t *testing.T) {
@@ -129,4 +192,34 @@ func TestMobileFlowStubActivities(t *testing.T) {
 			)
 		})
 	}
+}
+
+func TestMobileRunnerSemaphoreHelpers(t *testing.T) {
+	t.Setenv("MOBILE_RUNNER_SEMAPHORE_DISABLED", "true")
+	require.True(t, isMobileRunnerSemaphoreDisabled())
+
+	t.Setenv("MOBILE_RUNNER_SEMAPHORE_DISABLED", "YES")
+	require.True(t, isMobileRunnerSemaphoreDisabled())
+
+	t.Setenv("MOBILE_RUNNER_SEMAPHORE_DISABLED", "0")
+	require.False(t, isMobileRunnerSemaphoreDisabled())
+}
+
+func TestIsNotFoundError(t *testing.T) {
+	require.True(t, isNotFoundError(&serviceerror.NotFound{Message: "missing"}))
+	require.False(t, isNotFoundError(errors.New("different error")))
+}
+
+func TestMobileRunnerSemaphoreActivityNames(t *testing.T) {
+	require.Equal(t, "Release mobile runner permit", NewReleaseMobileRunnerPermitActivity().Name())
+	require.Equal(
+		t,
+		"Report mobile runner semaphore done",
+		NewReportMobileRunnerSemaphoreDoneActivity().Name(),
+	)
+	require.Equal(
+		t,
+		"Query mobile runner semaphore run status",
+		NewQueryMobileRunnerSemaphoreRunStatusActivity().Name(),
+	)
 }
