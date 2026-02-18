@@ -24,6 +24,9 @@ var CustomIntegrationsRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:          "/run",
 			Handler:       HandleRunCustomIntegration,
 			RequestSchema: RunCustomIntegrationRequestInput{},
+			OperationID:   "custom-integration.run",
+			Description:   "Run a custom integration",
+			Summary:       "Run a custom integration",
 		},
 	},
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
@@ -80,8 +83,8 @@ func HandleRunCustomIntegration() func(*core.RequestEvent) error {
 		}
 
 		memo := map[string]interface{}{
-			"test":     "custom-integration",
-			"author":   authRecord.Id,
+			"test":   "custom-integration",
+			"author": authRecord.Id,
 		}
 
 		result, err := processCustomChecks(
