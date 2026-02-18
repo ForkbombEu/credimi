@@ -44,7 +44,7 @@ export function getMarketplaceItemLogo(item: MarketplaceItem): string | undefine
 //
 
 export function getCustomCheckPublicUrl(item: MarketplaceItem | CustomChecksResponse) {
-	return `/my/custom-integrations/${getPath(item)}/run`;
+	return `/my/custom-integrations/${getPath(item, true)}/run`;
 }
 
 export function getMarketplaceItemUrl(item: MarketplaceItem) {

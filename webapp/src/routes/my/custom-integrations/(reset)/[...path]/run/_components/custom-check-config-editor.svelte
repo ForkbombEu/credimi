@@ -18,7 +18,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const { editor }: { editor: CustomCheckConfigEditor } = $props();
 </script>
 
-<div class="space-y-6">
+<div class="-mb-6 space-y-6">
 	<div class="flex gap-6">
 		{#if editor.jsonSchemaForm}
 			<div class="grow basis-1 space-y-6">
@@ -34,7 +34,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</div>
 	</div>
 
-	<div class="flex justify-end">
+	<div
+		class="sticky bottom-0 -mx-8 flex justify-end border-t bg-background/70 px-8 py-3 backdrop-blur-xl"
+	>
 		<Button disabled={!editor.isValid} onclick={() => editor.submit()}>
 			{m.Run_integration()}
 		</Button>
