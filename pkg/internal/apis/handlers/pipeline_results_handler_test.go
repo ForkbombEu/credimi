@@ -7,6 +7,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -514,6 +515,105 @@ func TestReadGlobalRunnerIDFromTemporalHistory(t *testing.T) {
 	value, err = readGlobalRunnerIDFromTemporalHistory(context.Background(), mockClient, "wf-2", "run-2")
 	require.NoError(t, err)
 	require.Equal(t, "", value)
+}
+
+func TestComputePipelineResultsFromRecordPipelineResultsHandler(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	app.Settings().Meta.AppURL = "https://example.test"
+
+	coll, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Id = "result-1"
+	record.Set("video_results", []string{"sample_result_video_1.mp4", "orphan.mp4"})
+	record.Set("screenshots", []string{"sample_screenshot_1.png", "extra.png"})
+
+	results := computePipelineResultsFromRecord(app, record)
+	require.Len(t, results, 1)
+	require.Contains(t, results[0].Video, "sample_result_video_1.mp4")
+	require.Contains(t, results[0].Screenshot, "sample_screenshot_1.png")
+}
+
+func TestGetChildWorkflowsByParents(t *testing.T) {
+	mockClient := &temporalmocks.Client{}
+
+	parentA := workflowExecutionRef{WorkflowID: "wf-1", RunID: "run-1"}
+	parentB := workflowExecutionRef{WorkflowID: "wf-2", RunID: "run-2"}
+
+	page1 := &workflowservice.ListWorkflowExecutionsResponse{
+		Executions: []*workflow.WorkflowExecutionInfo{
+			{
+				Execution:       &common.WorkflowExecution{WorkflowId: "child-1", RunId: "run-child-1"},
+				ParentExecution: &common.WorkflowExecution{WorkflowId: "wf-1", RunId: "run-1"},
+				Type:            &common.WorkflowType{Name: "Pipeline"},
+				Status:          enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			},
+			{
+				Execution:       &common.WorkflowExecution{WorkflowId: "child-skip", RunId: "run-skip"},
+				ParentExecution: &common.WorkflowExecution{WorkflowId: "missing", RunId: "run-missing"},
+				Type:            &common.WorkflowType{Name: "Pipeline"},
+				Status:          enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			},
+		},
+		NextPageToken: []byte("next"),
+	}
+
+	page2 := &workflowservice.ListWorkflowExecutionsResponse{
+		Executions: []*workflow.WorkflowExecutionInfo{
+			{
+				Execution:       &common.WorkflowExecution{WorkflowId: "child-2", RunId: "run-child-2"},
+				ParentExecution: &common.WorkflowExecution{WorkflowId: "wf-2", RunId: "run-2"},
+				Type:            &common.WorkflowType{Name: "Pipeline"},
+				Status:          enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			},
+		},
+	}
+
+	mockClient.
+		On("ListWorkflow", mock.Anything, mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest")).
+		Return(page1, nil).
+		Once()
+	mockClient.
+		On("ListWorkflow", mock.Anything, mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest")).
+		Return(page2, nil).
+		Once()
+
+	children, err := getChildWorkflowsByParents(
+		context.Background(),
+		mockClient,
+		"default",
+		[]workflowExecutionRef{parentA, parentB, parentA, {}},
+	)
+	require.NoError(t, err)
+	require.Len(t, children[parentA], 1)
+	require.Len(t, children[parentB], 1)
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestGetChildWorkflowsByParentsError(t *testing.T) {
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On("ListWorkflow", mock.Anything, mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest")).
+		Return((*workflowservice.ListWorkflowExecutionsResponse)(nil), errors.New("boom")).
+		Once()
+
+	parent := workflowExecutionRef{WorkflowID: "wf-1", RunID: "run-1"}
+	children, err := getChildWorkflowsByParents(
+		context.Background(),
+		mockClient,
+		"default",
+		[]workflowExecutionRef{parent},
+	)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "boom")
+	require.Contains(t, children, parent)
+
+	mockClient.AssertExpectations(t)
 }
 
 func setupPipelineResultsApp(t testing.TB) (*tests.TestApp, *core.Record, *core.Record) {
