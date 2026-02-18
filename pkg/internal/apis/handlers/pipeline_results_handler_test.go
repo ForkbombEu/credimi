@@ -108,6 +108,102 @@ func TestBuildWorkflowExecutionSummaryFailureReason(t *testing.T) {
 	require.Equal(t, "boom", *summary.FailureReason)
 }
 
+func TestFetchCompletedWorkflowsWithPaginationLimitZero(t *testing.T) {
+	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
+	defer app.Cleanup()
+
+	pipelineMap := map[string]*core.Record{pipelineRecord.Id: pipelineRecord}
+
+	summaries, apiErr := fetchCompletedWorkflowsWithPagination(
+		&core.RequestEvent{App: app, Auth: authRecord},
+		pipelineMap,
+		"ns-1",
+		authRecord,
+		pipelineRecord.GetString("owner"),
+		"",
+		0,
+		0,
+	)
+	require.Nil(t, apiErr)
+	require.Empty(t, summaries)
+}
+
+func TestFetchCompletedWorkflowsWithPaginationClientError(t *testing.T) {
+	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
+	defer app.Cleanup()
+
+	restore := installPipelineResultsSeams(t)
+	t.Cleanup(restore)
+
+	pipelineResultsTemporalClient = func(string) (client.Client, error) {
+		return nil, errors.New("no client")
+	}
+
+	pipelineMap := map[string]*core.Record{pipelineRecord.Id: pipelineRecord}
+
+	_, apiErr := fetchCompletedWorkflowsWithPagination(
+		&core.RequestEvent{App: app, Auth: authRecord},
+		pipelineMap,
+		"ns-1",
+		authRecord,
+		pipelineRecord.GetString("owner"),
+		"",
+		1,
+		0,
+	)
+	require.NotNil(t, apiErr)
+	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
+}
+
+func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
+	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
+	defer app.Cleanup()
+
+	orgID := pipelineRecord.GetString("owner")
+	createPipelineResult(t, app, orgID, pipelineRecord.Id, "wf-1", "run-1")
+	createPipelineResult(t, app, orgID, pipelineRecord.Id, "wf-2", "run-2")
+
+	restore := installPipelineResultsSeams(t)
+	t.Cleanup(restore)
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
+		Return(buildWorkflowExecutionResponse("wf-1", "run-1"), nil).
+		Once()
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-2", "run-2").
+		Return(buildWorkflowExecutionResponse("wf-2", "run-2"), nil).
+		Once()
+	mockClient.
+		On("ListWorkflow", mock.Anything, mock.Anything).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
+		Maybe()
+	mockClient.
+		On("GetWorkflowHistory", mock.Anything, mock.Anything, mock.Anything, mock.Anything, mock.Anything).
+		Return(&fakeHistoryIterator{events: []*historypb.HistoryEvent{}}).
+		Maybe()
+
+	pipelineResultsTemporalClient = func(string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	pipelineMap := map[string]*core.Record{pipelineRecord.Id: pipelineRecord}
+
+	summaries, apiErr := fetchCompletedWorkflowsWithPagination(
+		&core.RequestEvent{App: app, Auth: authRecord},
+		pipelineMap,
+		"ns-1",
+		authRecord,
+		orgID,
+		"Completed",
+		1,
+		1,
+	)
+	require.Nil(t, apiErr)
+	require.Len(t, summaries, 1)
+}
+
 func TestBuildPipelineExecutionHierarchyFromResult(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
