@@ -379,6 +379,116 @@ func TestStartPipelineHandlesStartedPipelines(t *testing.T) {
 	require.Equal(t, "org", got["workflow_namespace"])
 }
 
+func TestStartPipelineQueueStatusError(t *testing.T) {
+	rec := map[string]any{
+		"yaml":            "name: demo",
+		"canonified_name": "pipeline123",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte("oops"))
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	output := captureStdout(t, func() {
+		require.NoError(t, startPipeline(context.Background(), "token", "org", rec))
+	})
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal([]byte(output), &got))
+	require.Equal(t, float64(http.StatusInternalServerError), got["status"])
+	payload, ok := got["payload"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "oops", payload["raw"])
+}
+
+func TestStartPipelineFailedMode(t *testing.T) {
+	rec := map[string]any{
+		"yaml":            "name: demo",
+		"canonified_name": "pipeline123",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			"mode":          "failed",
+			"error_message": "boom",
+		}))
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	output := captureStdout(t, func() {
+		require.NoError(t, startPipeline(context.Background(), "token", "org", rec))
+	})
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal([]byte(output), &got))
+	require.Equal(t, "failed", got["mode"])
+	require.Equal(t, "boom", got["error_message"])
+}
+
+func TestStartPipelineUnknownMode(t *testing.T) {
+	rec := map[string]any{
+		"yaml":            "name: demo",
+		"canonified_name": "pipeline123",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
+		w.Header().Set("Content-Type", "application/json")
+		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
+			"mode": "mystery",
+			"foo":  "bar",
+		}))
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	output := captureStdout(t, func() {
+		require.NoError(t, startPipeline(context.Background(), "token", "org", rec))
+	})
+
+	var got map[string]any
+	require.NoError(t, json.Unmarshal([]byte(output), &got))
+	require.Equal(t, "mystery", got["mode"])
+	payload, ok := got["payload"].(map[string]any)
+	require.True(t, ok)
+	require.Equal(t, "mystery", payload["mode"])
+	require.Equal(t, "bar", payload["foo"])
+}
+
+func TestStartPipelineDecodeQueueError(t *testing.T) {
+	rec := map[string]any{
+		"yaml":            "name: demo",
+		"canonified_name": "pipeline123",
+	}
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		require.Equal(t, "/api/pipeline/queue", r.URL.Path)
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("not-json"))
+	}))
+	defer server.Close()
+
+	restoreDefaults := overrideHTTPDefaults(server)
+	defer restoreDefaults()
+
+	err := startPipeline(context.Background(), "token", "org", rec)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "failed to decode queue response")
+}
+
 func overrideHTTPDefaults(server *httptest.Server) func() {
 	prevURL := instanceURL
 	prevClient := http.DefaultClient
