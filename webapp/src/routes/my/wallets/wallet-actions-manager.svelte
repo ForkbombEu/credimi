@@ -7,6 +7,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import { yaml } from '@codemirror/lang-yaml';
 	import { UploadIcon } from '@lucide/svelte';
+	import { Wallet } from '$lib';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import DashboardCardManagerTop from '$lib/layout/dashboard-card-manager-top.svelte';
 	import DashboardCardManagerUI from '$lib/layout/dashboard-card-manager-ui.svelte';
@@ -22,8 +23,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { CodeEditorField, SelectField } from '@/forms/fields';
 	import { m } from '@/i18n';
 	import { readFileAsString, startFileUpload } from '@/utils/files';
-
-	import { walletActionCategories } from './utils';
 
 	//
 
@@ -78,7 +77,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<WalletActionTags action={record} containerClass="justify-end" />
 			{/snippet}
 			{#snippet beforeName({ record })}
-				{@const category = walletActionCategories[record.category]}
+				{@const category = Wallet.Action.getCategoryLabel(record)}
 				{#if category}
 					<Badge class="mr-1.5" variant="outline">
 						{category}
@@ -125,7 +124,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		name={options.field}
 		options={{
 			label: m.Category(),
-			items: Object.entries(walletActionCategories).map(([value, label]) => ({
+			items: Object.entries(Wallet.Action.categoryLabels).map(([value, label]) => ({
 				value,
 				label
 			}))

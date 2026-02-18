@@ -54,6 +54,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <script lang="ts">
 	import { Code, DownloadIcon } from '@lucide/svelte';
+	import { Wallet } from '$lib';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import CodeDisplay from '$lib/layout/codeDisplay.svelte';
 	import InfoBox from '$lib/layout/infoBox.svelte';
@@ -77,7 +78,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
-	import { walletActionCategories } from '../../../../my/wallets/utils';
 	import DescriptionSection from './_utils/description-section.svelte';
 	import LayoutWithToc from './_utils/layout-with-toc.svelte';
 	import PageSection from './_utils/page-section.svelte';
@@ -156,7 +156,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<PageSection indexItem={s.actions} empty={actionsWithOrganizations.length === 0}>
 		<div class="relative space-y-3">
 			{#each actionsWithOrganizations as action (action.id)}
-				{@const category = walletActionCategories[action.category]}
+				{@const category = Wallet.Action.getCategoryLabel(action)}
 				<Accordion type="single" class="w-full">
 					<AccordionItem
 						value="code-accordion"
