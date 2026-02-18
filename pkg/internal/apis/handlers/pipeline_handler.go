@@ -503,7 +503,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 						notFound := &serviceerror.NotFound{}
 						if errors.As(err, &notFound) {
 							e.App.Logger().Warn(fmt.Sprintf(
-								"skipping pipeline result: workflow not found (workflow_id=%s run_id=%s)",
+								"workflow execution not found for workflow_id=%s run_id=%s, skipping result",
 								resultRecord.GetString("workflow_id"),
 								resultRecord.GetString("run_id"),
 							))

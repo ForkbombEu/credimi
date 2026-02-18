@@ -3,8 +3,8 @@
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
 import {
-	CheckCheck,
 	CheckCircle,
+	PuzzleIcon,
 	QrCode,
 	SheetIcon,
 	ShieldCheck,
@@ -141,11 +141,11 @@ export const entities = {
 	},
 
 	custom_checks: {
-		slug: 'custom-checks',
-		icon: CheckCheck,
+		slug: 'custom-integrations',
+		icon: PuzzleIcon,
 		labels: {
-			singular: m.Custom_check(),
-			plural: m.Custom_checks()
+			singular: m.Custom_integration(),
+			plural: m.Custom_integrations()
 		},
 		classes: {
 			bg: 'bg-purple-100',

@@ -57,6 +57,34 @@ paths:
                 $ref: '#/components/schemas/ApierrorAPIError'
           description: An unexpected error occurred.
       summary: Generate API Key
+  /api/custom-integrations/run:
+    post:
+      description: Run a custom integration
+      operationId: custom-integration.run
+      parameters:
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandlersRunCustomIntegrationRequestInput'
+        required: true
+      responses:
+        "200":
+          description: Successful response without a body
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Run a custom integration
   /api/my/checks:
     get:
       description: List all checks for the authenticated user
@@ -930,6 +958,12 @@ components:
         status:
           type: string
         time:
+          type: string
+      type: object
+    HandlersRunCustomIntegrationRequestInput:
+      properties:
+        data: {}
+        yaml:
           type: string
       type: object
     HandlersScheduleInfoSummary:
