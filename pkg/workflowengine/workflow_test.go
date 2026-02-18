@@ -14,9 +14,17 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	commonpb "go.temporal.io/api/common/v1"
+	enumspb "go.temporal.io/api/enums/v1"
+	historypb "go.temporal.io/api/history/v1"
+	workflowpb "go.temporal.io/api/workflow/v1"
+	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
 	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
+	"go.temporal.io/sdk/testsuite"
+	"go.temporal.io/sdk/workflow"
 )
 
 type staticEncodedValue struct {
@@ -35,6 +43,51 @@ func (s staticEncodedValue) Get(valuePtr interface{}) error {
 		return err
 	}
 	return json.Unmarshal(data, valuePtr)
+}
+
+type testWorkflow struct {
+	name     string
+	options  workflow.ActivityOptions
+	execute  func(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error)
+	metadata *WorkflowErrorMetadata
+}
+
+func (t *testWorkflow) Workflow(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error) {
+	return t.ExecuteWorkflow(ctx, input)
+}
+
+func (t *testWorkflow) ExecuteWorkflow(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error) {
+	t.metadata = input.RunMetadata
+	return t.execute(ctx, input)
+}
+
+func (t *testWorkflow) Name() string {
+	return t.name
+}
+
+func (t *testWorkflow) GetOptions() workflow.ActivityOptions {
+	return t.options
+}
+
+type fakeHistoryIterator struct {
+	events  []*historypb.HistoryEvent
+	nextErr error
+	index   int
+}
+
+func (f *fakeHistoryIterator) HasNext() bool {
+	return f.index < len(f.events) || f.nextErr != nil
+}
+
+func (f *fakeHistoryIterator) Next() (*historypb.HistoryEvent, error) {
+	if f.nextErr != nil {
+		err := f.nextErr
+		f.nextErr = nil
+		return nil, err
+	}
+	event := f.events[f.index]
+	f.index++
+	return event, nil
 }
 
 func TestNewWorkflowError_NonApplicationError(t *testing.T) {
@@ -252,6 +305,335 @@ func TestParseWorkflowError(t *testing.T) {
 	require.False(t, got.Retryable)
 	require.Equal(t, "https://temporal.test/runs/wf-123", got.Link)
 	require.Equal(t, "human readable message", got.Summary)
+}
+
+func TestBuildWorkflowMetadataAndErrors(t *testing.T) {
+	t.Run("populates metadata on success", func(t *testing.T) {
+		suite := testsuite.WorkflowTestSuite{}
+		env := suite.NewTestWorkflowEnvironment()
+
+		wf := &testWorkflow{
+			name:    "test-workflow",
+			options: workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+			execute: func(_ workflow.Context, _ WorkflowInput) (WorkflowResult, error) {
+				return WorkflowResult{Message: "ok"}, nil
+			},
+		}
+
+		wfFn := BuildWorkflow(wf)
+		env.RegisterWorkflow(wfFn)
+		env.ExecuteWorkflow(wfFn, WorkflowInput{
+			Config: map[string]any{"app_url": "https://app.example.com"},
+		})
+
+		require.True(t, env.IsWorkflowCompleted())
+		require.NoError(t, env.GetWorkflowError())
+		require.NotNil(t, wf.metadata)
+		require.Equal(t, "test-workflow", wf.metadata.WorkflowName)
+		require.NotEmpty(t, wf.metadata.WorkflowID)
+		require.NotEmpty(t, wf.metadata.Namespace)
+		require.Contains(t, wf.metadata.TemporalUI, "https://app.example.com")
+	})
+
+	t.Run("returns timeout error without wrapping", func(t *testing.T) {
+		suite := testsuite.WorkflowTestSuite{}
+		env := suite.NewTestWorkflowEnvironment()
+
+		timeoutErr := temporal.NewTimeoutError(enumspb.TIMEOUT_TYPE_START_TO_CLOSE, nil)
+		wf := &testWorkflow{
+			name:    "timeout-workflow",
+			options: workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+			execute: func(_ workflow.Context, _ WorkflowInput) (WorkflowResult, error) {
+				return WorkflowResult{}, timeoutErr
+			},
+		}
+
+		wfFn := BuildWorkflow(wf)
+		env.RegisterWorkflow(wfFn)
+		env.ExecuteWorkflow(wfFn, WorkflowInput{
+			Config: map[string]any{"app_url": "https://app.example.com"},
+		})
+
+		err := env.GetWorkflowError()
+		require.Error(t, err)
+		require.True(t, temporal.IsTimeoutError(err))
+	})
+
+	t.Run("wraps canceled error as workflow cancellation", func(t *testing.T) {
+		suite := testsuite.WorkflowTestSuite{}
+		env := suite.NewTestWorkflowEnvironment()
+
+		wf := &testWorkflow{
+			name:    "canceled-workflow",
+			options: workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+			execute: func(_ workflow.Context, _ WorkflowInput) (WorkflowResult, error) {
+				return WorkflowResult{}, temporal.NewCanceledError()
+			},
+		}
+
+		wfFn := BuildWorkflow(wf)
+		env.RegisterWorkflow(wfFn)
+		env.ExecuteWorkflow(wfFn, WorkflowInput{
+			Config: map[string]any{"app_url": "https://app.example.com"},
+		})
+
+		err := env.GetWorkflowError()
+		require.Error(t, err)
+		require.True(t, temporal.IsCanceledError(err))
+	})
+
+	t.Run("wraps application errors with metadata", func(t *testing.T) {
+		suite := testsuite.WorkflowTestSuite{}
+		env := suite.NewTestWorkflowEnvironment()
+
+		wf := &testWorkflow{
+			name:    "error-workflow",
+			options: workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+			execute: func(_ workflow.Context, _ WorkflowInput) (WorkflowResult, error) {
+				return WorkflowResult{}, temporal.NewApplicationError("boom", "CRE-1")
+			},
+		}
+
+		wfFn := BuildWorkflow(wf)
+		env.RegisterWorkflow(wfFn)
+		env.ExecuteWorkflow(wfFn, WorkflowInput{
+			Config: map[string]any{"app_url": "https://app.example.com"},
+		})
+
+		err := env.GetWorkflowError()
+		require.Error(t, err)
+		var appErr *temporal.ApplicationError
+		require.ErrorAs(t, err, &appErr)
+		require.Equal(t, "CRE-1", appErr.Type())
+		require.Contains(t, appErr.Message(), "workflow engine")
+	})
+}
+
+func TestStartWorkflowWithOptions(t *testing.T) {
+	t.Run("returns client creation error", func(t *testing.T) {
+		origClient := workflowTemporalClient
+		t.Cleanup(func() { workflowTemporalClient = origClient })
+
+		workflowTemporalClient = func(_ string) (client.Client, error) {
+			return nil, errors.New("no client")
+		}
+
+		_, err := StartWorkflowWithOptions("ns", client.StartWorkflowOptions{}, "wf", WorkflowInput{})
+		require.ErrorContains(t, err, "unable to create client")
+	})
+
+	t.Run("bubbles execute workflow error", func(t *testing.T) {
+		origClient := workflowTemporalClient
+		t.Cleanup(func() { workflowTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		mockClient.
+			On("ExecuteWorkflow", mock.Anything, mock.Anything, "wf", mock.Anything).
+			Return(nil, errors.New("start failed"))
+
+		workflowTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		_, err := StartWorkflowWithOptions("ns", client.StartWorkflowOptions{}, "wf", WorkflowInput{})
+		require.ErrorContains(t, err, "failed to start workflow")
+	})
+
+	t.Run("sets memo defaults and returns IDs", func(t *testing.T) {
+		origClient := workflowTemporalClient
+		t.Cleanup(func() { workflowTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		run := temporalmocks.NewWorkflowRun(t)
+		run.On("GetID").Return("wf-1")
+		run.On("GetRunID").Return("run-1")
+
+		mockClient.
+			On(
+				"ExecuteWorkflow",
+				mock.Anything,
+				mock.MatchedBy(func(opts client.StartWorkflowOptions) bool {
+					return opts.Memo != nil &&
+						opts.Memo["foo"] == "bar" &&
+						opts.Memo["test"] == "wf"
+				}),
+				"wf",
+				mock.Anything,
+			).
+			Return(run, nil)
+
+		workflowTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		result, err := StartWorkflowWithOptions(
+			"ns",
+			client.StartWorkflowOptions{},
+			"wf",
+			WorkflowInput{Config: map[string]any{"memo": map[string]any{"foo": "bar"}}},
+		)
+		require.NoError(t, err)
+		require.Equal(t, "wf-1", result.WorkflowID)
+		require.Equal(t, "run-1", result.WorkflowRunID)
+	})
+}
+
+func TestGetWorkflowRunInfo(t *testing.T) {
+	t.Run("returns client error", func(t *testing.T) {
+		origClient := workflowTemporalClient
+		t.Cleanup(func() { workflowTemporalClient = origClient })
+
+		workflowTemporalClient = func(_ string) (client.Client, error) {
+			return nil, errors.New("no client")
+		}
+
+		_, err := GetWorkflowRunInfo("wf", "run", "ns")
+		require.ErrorContains(t, err, "unable to create Temporal client")
+	})
+
+	t.Run("returns describe error", func(t *testing.T) {
+		origClient := workflowTemporalClient
+		t.Cleanup(func() { workflowTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		mockClient.
+			On("DescribeWorkflowExecution", mock.Anything, "wf", "run").
+			Return(nil, errors.New("describe failed"))
+
+		workflowTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		_, err := GetWorkflowRunInfo("wf", "run", "ns")
+		require.ErrorContains(t, err, "unable to describe workflow execution")
+	})
+
+	t.Run("fails to decode memo", func(t *testing.T) {
+		origClient := workflowTemporalClient
+		t.Cleanup(func() { workflowTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		mockClient.
+			On("DescribeWorkflowExecution", mock.Anything, "wf", "run").
+			Return(&workflowservice.DescribeWorkflowExecutionResponse{
+				WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
+					Type:      &commonpb.WorkflowType{Name: "Pipeline"},
+					TaskQueue: "queue",
+					Memo: &commonpb.Memo{Fields: map[string]*commonpb.Payload{
+						"bad": {Metadata: map[string][]byte{"encoding": []byte("unknown")}, Data: []byte("nope")},
+					}},
+				},
+			}, nil)
+
+		workflowTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		_, err := GetWorkflowRunInfo("wf", "run", "ns")
+		require.ErrorContains(t, err, "failed to decode memo key")
+	})
+
+	t.Run("handles missing history iterator", func(t *testing.T) {
+		origClient := workflowTemporalClient
+		t.Cleanup(func() { workflowTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		payload, err := converter.GetDefaultDataConverter().ToPayload("ok")
+		require.NoError(t, err)
+		mockClient.
+			On("DescribeWorkflowExecution", mock.Anything, "wf", "run").
+			Return(&workflowservice.DescribeWorkflowExecutionResponse{
+				WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
+					Type:      &commonpb.WorkflowType{Name: "Pipeline"},
+					TaskQueue: "queue",
+					Memo:      &commonpb.Memo{Fields: map[string]*commonpb.Payload{"ok": payload}},
+				},
+			}, nil)
+		mockClient.
+			On("GetWorkflowHistory", mock.Anything, "wf", "run", false, enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT).
+			Return(nil)
+
+		workflowTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		_, err = GetWorkflowRunInfo("wf", "run", "ns")
+		require.ErrorContains(t, err, "unable to get workflow history iterator")
+	})
+
+	t.Run("handles history iterator errors", func(t *testing.T) {
+		origClient := workflowTemporalClient
+		t.Cleanup(func() { workflowTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		payload, err := converter.GetDefaultDataConverter().ToPayload("ok")
+		require.NoError(t, err)
+		mockClient.
+			On("DescribeWorkflowExecution", mock.Anything, "wf", "run").
+			Return(&workflowservice.DescribeWorkflowExecutionResponse{
+				WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
+					Type:      &commonpb.WorkflowType{Name: "Pipeline"},
+					TaskQueue: "queue",
+					Memo:      &commonpb.Memo{Fields: map[string]*commonpb.Payload{"ok": payload}},
+				},
+			}, nil)
+		mockClient.
+			On("GetWorkflowHistory", mock.Anything, "wf", "run", false, enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT).
+			Return(&fakeHistoryIterator{nextErr: errors.New("history failed")})
+
+		workflowTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		_, err = GetWorkflowRunInfo("wf", "run", "ns")
+		require.ErrorContains(t, err, "error reading workflow history")
+	})
+
+	t.Run("returns input and memo on success", func(t *testing.T) {
+		origClient := workflowTemporalClient
+		t.Cleanup(func() { workflowTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		payload, err := converter.GetDefaultDataConverter().ToPayload("ok")
+		require.NoError(t, err)
+		payloads, err := converter.GetDefaultDataConverter().ToPayloads(WorkflowInput{
+			Config: map[string]any{"foo": "bar"},
+		})
+		require.NoError(t, err)
+
+		mockClient.
+			On("DescribeWorkflowExecution", mock.Anything, "wf", "run").
+			Return(&workflowservice.DescribeWorkflowExecutionResponse{
+				WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
+					Type:      &commonpb.WorkflowType{Name: "Pipeline"},
+					TaskQueue: "queue",
+					Memo:      &commonpb.Memo{Fields: map[string]*commonpb.Payload{"ok": payload}},
+				},
+			}, nil)
+		mockClient.
+			On("GetWorkflowHistory", mock.Anything, "wf", "run", false, enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT).
+			Return(&fakeHistoryIterator{
+				events: []*historypb.HistoryEvent{{
+					EventType: enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED,
+					Attributes: &historypb.HistoryEvent_WorkflowExecutionStartedEventAttributes{
+						WorkflowExecutionStartedEventAttributes: &historypb.WorkflowExecutionStartedEventAttributes{
+							Input: payloads,
+						},
+					},
+				}},
+			})
+
+		workflowTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		info, err := GetWorkflowRunInfo("wf", "run", "ns")
+		require.NoError(t, err)
+		require.Equal(t, "Pipeline", info.Name)
+		require.Equal(t, "queue", info.TaskQueue)
+		require.Equal(t, "ok", info.Memo["ok"])
+		require.Equal(t, "bar", info.Input.Config["foo"])
+	})
 }
 
 func TestExtractAppErrorPayloadAndOutput(t *testing.T) {

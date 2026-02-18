@@ -22,6 +22,8 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
+var workflowTemporalClient = temporalclient.GetTemporalClientWithNamespace
+
 // WorkflowInput represents the input data required to start a workflow.
 type WorkflowInput struct {
 	Payload         any                       `json:"payload,omitempty"`
@@ -214,7 +216,7 @@ func StartWorkflowWithOptions(
 	name string,
 	input WorkflowInput,
 ) (result WorkflowResult, err error) {
-	c, err := temporalclient.GetTemporalClientWithNamespace(
+	c, err := workflowTemporalClient(
 		namespace,
 	)
 	if err != nil {
@@ -249,7 +251,7 @@ func StartWorkflowWithOptions(
 func GetWorkflowRunInfo(workflowID, runID, namespace string) (WorkflowRunInfo, error) {
 	runInfo := WorkflowRunInfo{}
 
-	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	c, err := workflowTemporalClient(namespace)
 	if err != nil {
 		return WorkflowRunInfo{}, fmt.Errorf(
 			"unable to create Temporal client for namespace %q: %w",
