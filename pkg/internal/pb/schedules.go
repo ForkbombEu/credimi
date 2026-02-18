@@ -25,6 +25,8 @@ import (
 	"go.temporal.io/sdk/converter"
 )
 
+var schedulesTemporalClient = temporalclient.GetTemporalClientWithNamespace
+
 type ScheduleStatus struct {
 	DisplayName    string           `json:"display_name,omitempty"`
 	NextActionTime string           `json:"next_action_time,omitempty"`
@@ -43,7 +45,7 @@ func RegisterSchedulesHooks(app core.App) {
 
 		namespace := owner.GetString("canonified_name")
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := schedulesTemporalClient(namespace)
 		if err != nil {
 			return fmt.Errorf(
 				"unable to create Temporal client for namespace %q: %w",
