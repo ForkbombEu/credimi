@@ -22,6 +22,7 @@ var ApiKeyRoutes = routing.RouteGroup{
 		{
 			Method:         "POST",
 			Path:           "/generate",
+			OperationID:    "apiKey.generate",
 			Handler:        GenerateApiKey,
 			RequestSchema:  GenerateApiKeyRequest{},
 			ResponseSchema: GenerateApiKeyResponse{},
@@ -35,6 +36,7 @@ var ApiKeyRoutes = routing.RouteGroup{
 		{
 			Method:         "GET",
 			Path:           "/authenticate",
+			OperationID:    "apiKey.authenticate",
 			Description:    "Authenticate an API key and return Bearer token",
 			Summary:        "Authenticate API Key",
 			ResponseSchema: AuthenticateApiKeyResponse{},

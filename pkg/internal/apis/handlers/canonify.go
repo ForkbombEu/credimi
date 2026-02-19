@@ -59,7 +59,7 @@ func HandleIdentifierValidate() func(*core.RequestEvent) error {
 		}
 		return e.JSON(http.StatusOK, map[string]any{
 			"message": "valid identifier",
-			"record":  record.FieldsData(),
+			"record":  record,
 		})
 	}
 }

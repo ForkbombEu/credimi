@@ -135,7 +135,8 @@ export class WalletActionStepForm extends BaseForm<WalletActionStepData, WalletA
 		if (!walletId) return;
 		this.foundActions = await pb.collection('wallet_actions').getFullList({
 			filter: `wallet = "${walletId}" && (name ~ "${text}" || canonified_name ~ "${text}")`,
-			requestKey: null
+			requestKey: null,
+			sort: 'category'
 		});
 	}
 

@@ -42,6 +42,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	}}
 >
+	{#snippet top({ Search })}
+		<div class="flex items-center justify-start">
+			<Search containerClass="grow" />
+		</div>
+	{/snippet}
+
 	{#snippet records({ records })}
 		<div class="space-y-6">
 			{#each records as credentialIssuer (credentialIssuer.id)}

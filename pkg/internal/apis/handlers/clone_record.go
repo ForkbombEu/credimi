@@ -61,6 +61,11 @@ var CloneConfigs = map[string]CloneConfig{
 		exclude:      []string{"canonified_name"},
 		CanDuplicate: canDuplicateIfRequestIsFromOwner,
 	},
+	"wallets": {
+		makeUnique:   []string{"name"},
+		exclude:      []string{"canonified_name"},
+		CanDuplicate: canDuplicateIfRequestIsFromOwner,
+	},
 	"wallet_actions": {
 		makeUnique:   []string{"name"},
 		exclude:      []string{"canonified_name"},

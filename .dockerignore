@@ -13,7 +13,10 @@
 coverage*
 docker-compose*
 Dockerfile*
-docs
+docs/**
+!docs/public/
+!docs/public/API/
+!docs/public/API/**
 LICENSES
 README.md
 REUSE.toml

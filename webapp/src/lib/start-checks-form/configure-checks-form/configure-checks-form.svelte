@@ -28,7 +28,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		ConfigureChecksForm,
 		type ConfigureChecksFormProps
 	} from './configure-checks-form.svelte.js';
-	import { CustomCheckConfigEditorComponent } from './custom-check-config-editor';
 
 	//
 
@@ -62,18 +61,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			<CheckConfigEditorComponent editor={checkConfigEditor} />
 		</SectionCard>
 	{/each}
-
-	{#if form.customCheckConfigEditors.length}
-		{@render SectionDivider(m.Custom_checks())}
-		{#each form.customCheckConfigEditors as customCheckConfigEditor (customCheckConfigEditor.props.customCheck.id)}
-			<SectionCard
-				id={customCheckConfigEditor.props.customCheck.id}
-				title={customCheckConfigEditor.props.customCheck.name}
-			>
-				<CustomCheckConfigEditorComponent editor={customCheckConfigEditor} />
-			</SectionCard>
-		{/each}
-	{/if}
 
 	{@render SectionDivider(m.Save())}
 </div>

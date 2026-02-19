@@ -1,9 +1,601 @@
+openapi: 3.0.3
+info:
+  contact:
+    email: support@forkbomb.eu
+    name: credimi Support
+    url: https://forkbomb.solutions
+  description: credimi API Gateway for managing EUDI-ARF compliance checks...
+  title: "credimi \U0001F440 API Gateway"
+  version: 1.4.0
+servers:
+- description: Production server
+  url: https://credimi.io
+- description: Demo server
+  url: https://demo.credimi.io
+- description: Localhost server
+  url: http://localhost:8090/
+paths:
+  /api/apikey/authenticate:
+    get:
+      description: Authenticate an API key and return Bearer token
+      operationId: apiKey.authenticate
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersAuthenticateApiKeyResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Authenticate API Key
+  /api/apikey/generate:
+    post:
+      description: Generate a new API key for the authenticated user.
+      operationId: apiKey.generate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandlersGenerateApiKeyRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersGenerateApiKeyResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Generate API Key
+  /api/custom-integrations/run:
+    post:
+      description: Run a custom integration
+      operationId: custom-integration.run
+      parameters:
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandlersRunCustomIntegrationRequestInput'
+        required: true
+      responses:
+        "200":
+          description: Successful response without a body
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Run a custom integration
+  /api/my/checks:
+    get:
+      description: List all checks for the authenticated user
+      operationId: checks.list
+      parameters:
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersListMyChecksResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Get a list of all checks for the authenticated user
+  /api/my/checks/{checkId}/runs:
+    get:
+      description: List all runs for a specific check
+      operationId: checkRuns.list
+      parameters:
+      - description: The ID for the checkId.
+        in: path
+        name: checkId
+        required: true
+        schema:
+          description: The ID for the checkId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersListMyCheckRunsResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Get a list of all runs for a specific check
+  /api/my/checks/{checkId}/runs/{runId}:
+    get:
+      description: Get details of a specific run for a check
+      operationId: checkRun.get
+      parameters:
+      - description: The ID for the checkId.
+        in: path
+        name: checkId
+        required: true
+        schema:
+          description: The ID for the checkId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersGetMyCheckRunResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Get details of a specific run for a check
+  /api/my/checks/{checkId}/runs/{runId}/cancel:
+    post:
+      description: Cancel a specific check run
+      operationId: checkRun.cancel
+      parameters:
+      - description: The ID for the checkId.
+        in: path
+        name: checkId
+        required: true
+        schema:
+          description: The ID for the checkId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersCancelMyCheckRunResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Cancel a specific check run
+  /api/my/checks/{checkId}/runs/{runId}/export:
+    get:
+      description: Export a specific check run
+      operationId: checkRun.export
+      parameters:
+      - description: The ID for the checkId.
+        in: path
+        name: checkId
+        required: true
+        schema:
+          description: The ID for the checkId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersExportMyCheckRunResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Export a specific check run
+  /api/my/checks/{checkId}/runs/{runId}/history:
+    get:
+      description: Get the history of events for a specific run of a check
+      operationId: checkRun.history
+      parameters:
+      - description: The ID for the checkId.
+        in: path
+        name: checkId
+        required: true
+        schema:
+          description: The ID for the checkId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersGetMyCheckRunHistoryResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Get the history of events for a specific run of a check
+  /api/my/checks/{checkId}/runs/{runId}/logs:
+    get:
+      description: Start or Stop logs for a specific check run and get the log channel
+      operationId: checkRun.logs
+      parameters:
+      - description: Can be 'start' or 'stop' to control logging for the check run
+        in: query
+        name: action
+        schema:
+          description: Can be 'start' or 'stop' to control logging for the check run
+          type: string
+      - description: The ID for the checkId.
+        in: path
+        name: checkId
+        required: true
+        schema:
+          description: The ID for the checkId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersChecksLogsResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Start or Stop logs for a specific check run
+  /api/my/checks/{checkId}/runs/{runId}/rerun:
+    post:
+      description: Re-run a specific check run
+      operationId: checkRun.rerun
+      parameters:
+      - description: The ID for the checkId.
+        in: path
+        name: checkId
+        required: true
+        schema:
+          description: The ID for the checkId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandlersReRunCheckRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersReRunCheckResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Re-run a specific check run
+  /api/my/checks/{checkId}/runs/{runId}/terminate:
+    post:
+      description: Terminate a specific check run
+      operationId: checkRun.terminate
+      parameters:
+      - description: The ID for the checkId.
+        in: path
+        name: checkId
+        required: true
+        schema:
+          description: The ID for the checkId.
+          type: string
+      - description: The ID for the runId.
+        in: path
+        name: runId
+        required: true
+        schema:
+          description: The ID for the runId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersTerminateMyCheckRunResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Terminate a specific check run
+  /api/my/schedules:
+    get:
+      description: List all schedules for the authenticated user
+      operationId: schedules.list
+      parameters:
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersListMySchedulesResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Get a list of all schedules for the authenticated user
+  /api/my/schedules/{scheduleId}/cancel:
+    post:
+      description: Cancel a specific schedule
+      operationId: schedule.cancel
+      parameters:
+      - description: The ID for the scheduleId.
+        in: path
+        name: scheduleId
+        required: true
+        schema:
+          description: The ID for the scheduleId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersCancelScheduleResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Cancel a specific schedule
+  /api/my/schedules/{scheduleId}/pause:
+    post:
+      description: Pause a specific schedule
+      operationId: schedule.pause
+      parameters:
+      - description: The ID for the scheduleId.
+        in: path
+        name: scheduleId
+        required: true
+        schema:
+          description: The ID for the scheduleId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersPauseScheduleResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Pause a specific schedule
+  /api/my/schedules/{scheduleId}/resume:
+    post:
+      description: Resume a specific schedule
+      operationId: schedule.resume
+      parameters:
+      - description: The ID for the scheduleId.
+        in: path
+        name: scheduleId
+        required: true
+        schema:
+          description: The ID for the scheduleId.
+          type: string
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersResumeScheduleResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Resume a specific schedule
+  /api/my/schedules/start:
+    post:
+      description: Start a new schedule from an existing workflow
+      operationId: schedule.start
+      parameters:
+      - description: Bearer token for authentication
+        in: header
+        name: Authorization
+        required: true
+        schema:
+          description: Bearer token for authentication
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HandlersStartScheduleRequest'
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HandlersStartScheduleResponse'
+          description: Successful response
+        default:
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApierrorAPIError'
+          description: An unexpected error occurred.
+      summary: Start a new schedule from an existing workflow
 components:
   schemas:
-    APIError:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apierror/api-error
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    ApierrorAPIError:
       properties:
         error:
           type: string
@@ -14,60 +606,50 @@ components:
         status:
           type: integer
       type: object
-    ActivityType:
-      additionalProperties: false
+    HandlersActivityType:
       properties:
         name:
           type: string
       type: object
-    AuthenticateApiKeyResponse:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/authenticate-api-key-response
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersAuthenticateApiKeyResponse:
       properties:
         message:
           type: string
         token:
           type: string
       type: object
-    Callback:
-      additionalProperties: false
+    HandlersCallback:
       properties:
         attempt:
           type: integer
         lastAttemptCompleteTime:
           type: string
         lastAttemptFailure:
-          $ref: '#/components/schemas/Failure'
+          $ref: '#/components/schemas/HandlersFailure'
         nextAttemptScheduleTime:
           type: string
         publicInfo:
-          $ref: '#/components/schemas/CallbackInfo'
+          $ref: '#/components/schemas/HandlersCallbackInfo'
         state:
           type: string
         trigger:
-          $ref: '#/components/schemas/CallbackInfo'
+          $ref: '#/components/schemas/HandlersCallbackInfo'
       type: object
-    CallbackInfo:
-      additionalProperties: false
+    HandlersCallbackInfo:
       properties:
         callback:
-          $ref: '#/components/schemas/Payload'
+          $ref: '#/components/schemas/HandlersPayload'
         registrationTime:
           type: string
       type: object
-    Callbacks:
-      additionalProperties: false
+    HandlersCallbacks:
       properties:
         callbacks:
           items:
-            $ref: '#/components/schemas/Callback'
+            $ref: '#/components/schemas/HandlersCallback'
           type: array
       type: object
-    CancelMyCheckRunResponse:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/cancel-my-check-run-response
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersCancelMyCheckRunResponse:
       properties:
         checkId:
           type: string
@@ -82,10 +664,20 @@ components:
         time:
           type: string
       type: object
-    ChecksLogsResponse:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/checks-logs-response
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersCancelScheduleResponse:
+      properties:
+        message:
+          type: string
+        namespace:
+          type: string
+        scheduleId:
+          type: string
+        status:
+          type: string
+        time:
+          type: string
+      type: object
+    HandlersChecksLogsResponse:
       properties:
         channel:
           type: string
@@ -102,39 +694,37 @@ components:
         workflow_id:
           type: string
       type: object
-    Duration:
-      additionalProperties: false
+    HandlersDuration:
       properties:
         nanos:
           type: integer
         seconds:
           type: integer
       type: object
-    ExportData:
-      additionalProperties: false
+    HandlersExportData:
       properties:
         checkId:
           type: string
         config:
+          additionalProperties: {}
+          nullable: true
           type: object
         input:
+          additionalProperties: {}
+          nullable: true
           type: object
         runId:
           type: string
       type: object
-    ExportMyCheckRunResponse:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/export-my-check-run-response
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersExportMyCheckRunResponse:
       properties:
         export:
-          $ref: '#/components/schemas/ExportData'
+          $ref: '#/components/schemas/HandlersExportData'
       type: object
-    Failure:
-      additionalProperties: false
+    HandlersFailure:
       properties:
         cause:
-          $ref: '#/components/schemas/Failure'
+          $ref: '#/components/schemas/HandlersFailure'
         failureInfo:
           additionalProperties:
             type: string
@@ -146,26 +736,17 @@ components:
         stackTrace:
           type: string
       type: object
-    GenerateApiKeyRequest:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/generate-api-key-request
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersGenerateApiKeyRequest:
       properties:
         name:
           type: string
       type: object
-    GenerateApiKeyResponse:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/generate-api-key-response
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersGenerateApiKeyResponse:
       properties:
         api_key:
           type: string
       type: object
-    GetMyCheckRunHistoryResponse:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/get-my-check-run-history-response
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersGetMyCheckRunHistoryResponse:
       properties:
         checkId:
           type: string
@@ -173,7 +754,9 @@ components:
           type: integer
         history:
           items:
+            additionalProperties: {}
             type: object
+          nullable: true
           type: array
         namespace:
           type: string
@@ -182,81 +765,93 @@ components:
         time:
           type: string
       type: object
-    GetMyCheckRunResponse:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/get-my-check-run-response
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersGetMyCheckRunResponse:
       properties:
         callbacks:
-          $ref: '#/components/schemas/Callbacks'
+          $ref: '#/components/schemas/HandlersCallbacks'
         executionConfig:
-          $ref: '#/components/schemas/WorkflowExecutionConfigWithMetadata'
+          $ref: '#/components/schemas/HandlersWorkflowExecutionConfigWithMetadata'
         pendingActivities:
           items:
-            $ref: '#/components/schemas/PendingActivityInfo'
+            $ref: '#/components/schemas/HandlersPendingActivityInfo'
           type: array
         pendingChildren:
           items:
-            $ref: '#/components/schemas/PendingChildren'
+            $ref: '#/components/schemas/HandlersPendingChildren'
           type: array
         pendingNexusOperations:
           items:
-            $ref: '#/components/schemas/PendingNexusOperation'
+            $ref: '#/components/schemas/HandlersPendingNexusOperation'
           type: array
         pendingWorkflowTask:
-          $ref: '#/components/schemas/PendingWorkflowTaskInfo'
+          $ref: '#/components/schemas/HandlersPendingWorkflowTaskInfo'
         workflowExecutionInfo:
-          $ref: '#/components/schemas/WorkflowExecutionInfo'
+          $ref: '#/components/schemas/HandlersWorkflowExecutionInfo'
       type: object
-    ListMyCheckRunsResponse:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/list-my-check-runs-response
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersListMyCheckRunsResponse:
       properties:
         executions:
           items:
-            $ref: '#/components/schemas/WorkflowExecutionSummary'
+            $ref: '#/components/schemas/HandlersWorkflowExecutionSummary'
+          nullable: true
           type: array
       type: object
-    ListMyChecksResponse:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/list-my-checks-response
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersListMyChecksResponse:
       properties:
         executions:
           items:
-            $ref: '#/components/schemas/WorkflowExecutionSummary'
+            $ref: '#/components/schemas/HandlersWorkflowExecutionSummary'
+          nullable: true
           type: array
       type: object
-    Memo:
-      additionalProperties: false
+    HandlersListMySchedulesResponse:
+      properties:
+        schedules:
+          items:
+            $ref: '#/components/schemas/HandlersScheduleInfoSummary'
+          type: array
+      type: object
+    HandlersMemo:
       properties:
         fields:
           additionalProperties:
-            $ref: '#/components/schemas/Payload'
+            $ref: '#/components/schemas/HandlersPayload'
           type: object
       type: object
-    Payload:
-      additionalProperties: false
+    HandlersPauseScheduleResponse:
+      properties:
+        message:
+          type: string
+        namespace:
+          type: string
+        scheduleId:
+          type: string
+        status:
+          type: string
+        time:
+          type: string
+      type: object
+    HandlersPayload:
       properties:
         data:
+          nullable: true
           type: string
         metadata:
           additionalProperties:
             type: string
           type: object
       type: object
-    Payloads:
+    HandlersPayloads:
       items:
-        $ref: '#/components/schemas/Payload'
+        $ref: '#/components/schemas/HandlersPayload'
+      nullable: true
       type: array
-    PendingActivityInfo:
-      additionalProperties: false
+    HandlersPendingActivityInfo:
       properties:
         activityId:
           type: string
         activityType:
-          $ref: '#/components/schemas/ActivityType'
+          $ref: '#/components/schemas/HandlersActivityType'
         assignedBuildId:
           type: string
         attempt:
@@ -264,9 +859,9 @@ components:
         expirationTime:
           type: string
         heartbeatDetails:
-          $ref: '#/components/schemas/Payloads'
+          $ref: '#/components/schemas/HandlersPayloads'
         lastFailure:
-          $ref: '#/components/schemas/Failure'
+          $ref: '#/components/schemas/HandlersFailure'
         lastHeartbeatTime:
           type: string
         lastStartedTime:
@@ -280,8 +875,7 @@ components:
         state:
           type: string
       type: object
-    PendingChildren:
-      additionalProperties: false
+    HandlersPendingChildren:
       properties:
         initiatedId:
           type: string
@@ -294,8 +888,7 @@ components:
         workflowTypeName:
           type: string
       type: object
-    PendingNexusOperation:
-      additionalProperties: false
+    HandlersPendingNexusOperation:
       properties:
         attempt:
           type: integer
@@ -304,7 +897,7 @@ components:
         lastAttemptCompleteTime:
           type: string
         lastAttemptFailure:
-          $ref: '#/components/schemas/Failure'
+          $ref: '#/components/schemas/HandlersFailure'
         nextAttemptScheduleTime:
           type: string
         operation:
@@ -318,13 +911,12 @@ components:
         state:
           type: string
       type: object
-    PendingWorkflowTaskInfo:
-      additionalProperties: false
+    HandlersPendingWorkflowTaskInfo:
       properties:
         attempt:
           type: integer
         lastFailure:
-          $ref: '#/components/schemas/Failure'
+          $ref: '#/components/schemas/HandlersFailure'
         originalScheduledTime:
           type: string
         scheduledTime:
@@ -334,26 +926,85 @@ components:
         state:
           type: string
       type: object
-    ReRunCheckRequest:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/re-run-check-request
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersPipelineResults:
+      properties:
+        screenshot:
+          type: string
+        video:
+          type: string
+      type: object
+    HandlersReRunCheckRequest:
       properties:
         config:
+          additionalProperties: {}
+          nullable: true
           type: object
       type: object
-    ReRunCheckResponse:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/re-run-check-response
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersReRunCheckResponse:
       properties:
         run_id:
           type: string
         workflow_id:
           type: string
       type: object
-    TaskQueue:
-      additionalProperties: false
+    HandlersResumeScheduleResponse:
+      properties:
+        message:
+          type: string
+        namespace:
+          type: string
+        scheduleId:
+          type: string
+        status:
+          type: string
+        time:
+          type: string
+      type: object
+    HandlersRunCustomIntegrationRequestInput:
+      properties:
+        data: {}
+        timeoutSeconds:
+          nullable: true
+          type: integer
+        yaml:
+          type: string
+      type: object
+    HandlersScheduleInfoSummary:
+      properties:
+        display_name:
+          type: string
+        id:
+          type: string
+        next_action_time:
+          type: string
+        paused:
+          type: boolean
+        pipeline_id:
+          type: string
+        schedule_mode:
+          $ref: '#/components/schemas/WorkflowengineScheduleMode'
+        workflowType:
+          $ref: '#/components/schemas/HandlersWorkflowType'
+      type: object
+    HandlersStartScheduleRequest:
+      properties:
+        global_runner_id:
+          type: string
+        pipeline_id:
+          type: string
+        schedule_mode:
+          $ref: '#/components/schemas/WorkflowengineScheduleMode'
+      type: object
+    HandlersStartScheduleResponse:
+      properties:
+        message:
+          type: string
+        schedule_id:
+          type: string
+        schedule_mode:
+          $ref: '#/components/schemas/WorkflowengineScheduleMode'
+      type: object
+    HandlersTaskQueue:
       properties:
         kind:
           type: string
@@ -362,10 +1013,7 @@ components:
         normalName:
           type: string
       type: object
-    TerminateMyCheckRunResponse:
-      $id: https://github.com/forkbombeu/credimi/pkg/internal/apis/handlers/terminate-my-check-run-response
-      $schema: https://json-schema.org/draft/2020-12/schema
-      additionalProperties: false
+    HandlersTerminateMyCheckRunResponse:
       properties:
         checkId:
           type: string
@@ -380,485 +1028,127 @@ components:
         time:
           type: string
       type: object
-    UserMetadata:
-      additionalProperties: false
+    HandlersUserMetadata:
       properties:
         details:
-          $ref: '#/components/schemas/Payload'
+          $ref: '#/components/schemas/HandlersPayload'
         summary:
-          $ref: '#/components/schemas/Payload'
+          $ref: '#/components/schemas/HandlersPayload'
       type: object
-    VersioningInfo:
-      additionalProperties: false
+    HandlersVersioningInfo:
       properties:
         useVersioning:
+          nullable: true
           type: boolean
       type: object
-    WorkflowExecutionConfigWithMetadata:
-      additionalProperties: false
+    HandlersWorkflowExecutionConfigWithMetadata:
       properties:
         defaultWorkflowTaskTimeout:
-          $ref: '#/components/schemas/Duration'
+          $ref: '#/components/schemas/HandlersDuration'
         taskQueue:
-          $ref: '#/components/schemas/TaskQueue'
+          $ref: '#/components/schemas/HandlersTaskQueue'
         userMetadata:
-          $ref: '#/components/schemas/UserMetadata'
+          $ref: '#/components/schemas/HandlersUserMetadata'
         workflowExecutionTimeout:
-          $ref: '#/components/schemas/Duration'
+          $ref: '#/components/schemas/HandlersDuration'
         workflowRunTimeout:
-          $ref: '#/components/schemas/Duration'
+          $ref: '#/components/schemas/HandlersDuration'
       type: object
-    WorkflowExecutionInfo:
-      additionalProperties: false
+    HandlersWorkflowExecutionInfo:
       properties:
         assignedBuildId:
           type: string
         closeTime:
           type: string
+        execution:
+          $ref: '#/components/schemas/HandlersWorkflowIdentifier'
         executionTime:
           type: string
         historyLength:
           type: string
         historySizeBytes:
           type: string
-        id:
-          type: string
         memo:
-          $ref: '#/components/schemas/Memo'
-        name:
-          type: string
-        runId:
-          type: string
+          $ref: '#/components/schemas/HandlersMemo'
         searchAttributes:
-          $ref: '#/components/schemas/WorkflowSearchAttributes'
+          $ref: '#/components/schemas/HandlersWorkflowSearchAttributes'
         startTime:
           type: string
         stateTransitionCount:
           type: string
         status:
           type: string
+        type:
+          $ref: '#/components/schemas/HandlersWorkflowType'
         versioningInfo:
-          $ref: '#/components/schemas/VersioningInfo'
+          $ref: '#/components/schemas/HandlersVersioningInfo'
       type: object
-    WorkflowExecutionSummary:
-      additionalProperties: false
+    HandlersWorkflowExecutionSummary:
       properties:
         children:
           items:
-            $ref: '#/components/schemas/WorkflowExecutionSummary'
+            $ref: '#/components/schemas/HandlersWorkflowExecutionSummary'
           type: array
         displayName:
           type: string
+        duration:
+          type: string
         endTime:
           type: string
+        enqueuedAt:
+          type: string
         execution:
-          $ref: '#/components/schemas/WorkflowIdentifier'
+          $ref: '#/components/schemas/HandlersWorkflowIdentifier'
+        failure_reason:
+          nullable: true
+          type: string
+        queue:
+          $ref: '#/components/schemas/HandlersWorkflowQueueSummary'
+        results:
+          items:
+            $ref: '#/components/schemas/HandlersPipelineResults'
+          type: array
         startTime:
           type: string
         status:
           type: string
         type:
-          $ref: '#/components/schemas/WorkflowType'
+          $ref: '#/components/schemas/HandlersWorkflowType'
       type: object
-    WorkflowIdentifier:
-      additionalProperties: false
+    HandlersWorkflowIdentifier:
       properties:
         runId:
           type: string
         workflowId:
           type: string
       type: object
-    WorkflowSearchAttributes:
+    HandlersWorkflowQueueSummary:
+      properties:
+        line_len:
+          type: integer
+        position:
+          type: integer
+        runner_ids:
+          items:
+            type: string
+          type: array
+        ticket_id:
+          type: string
       type: object
-    WorkflowType:
-      additionalProperties: false
+    HandlersWorkflowSearchAttributes:
+      additionalProperties: {}
+      nullable: true
+      type: object
+    HandlersWorkflowType:
       properties:
         name:
           type: string
       type: object
-info:
-  contact:
-    email: support@forkbomb.eu
-    name: credimi Support
-    url: https://forkbomb.solutions
-  description: credimi API Gateway for managing EUDI-ARF compliance checks...
-  title: "credimi \U0001F440 API Gateway"
-  version: 1.4.0
-openapi: 3.0.1
-paths:
-  /api/apikey/authenticate:
-    get:
-      description: Authenticate an API key and return Bearer token
-      operationId: authenticateApiKey
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/AuthenticateApiKeyResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-          description: An unexpected error occurred.
-      summary: Authenticate API Key
-  /api/apikey/generate:
-    post:
-      description: Generate a new API key for the authenticated user.
-      operationId: generateApiKey
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/GenerateApiKeyRequest'
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GenerateApiKeyResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-          description: An unexpected error occurred.
-      summary: Generate API Key
-  /api/my/checks:
-    get:
-      description: List all checks for the authenticated user
-      operationId: listMyChecks
-      parameters:
-        - description: Bearer token for authentication
-          in: header
-          name: Authorization
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListMyChecksResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-          description: An unexpected error occurred.
-      summary: Get a list of all checks for the authenticated user
-  /api/my/checks/{checkId}/runs:
-    get:
-      description: List all runs for a specific check
-      operationId: listMyCheckRuns
-      parameters:
-        - description: The ID for the checkId.
-          in: path
-          name: checkId
-          required: true
-          schema:
-            type: string
-        - description: Bearer token for authentication
-          in: header
-          name: Authorization
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ListMyCheckRunsResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-          description: An unexpected error occurred.
-      summary: Get a list of all runs for a specific check
-  /api/my/checks/{checkId}/runs/{runId}:
-    get:
-      description: Get details of a specific run for a check
-      operationId: getMyCheckRun
-      parameters:
-        - description: The ID for the checkId.
-          in: path
-          name: checkId
-          required: true
-          schema:
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            type: string
-        - description: Bearer token for authentication
-          in: header
-          name: Authorization
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GetMyCheckRunResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-          description: An unexpected error occurred.
-      summary: Get details of a specific run for a check
-  /api/my/checks/{checkId}/runs/{runId}/cancel:
-    post:
-      description: Cancel a specific check run
-      operationId: cancelMyCheckRun
-      parameters:
-        - description: The ID for the checkId.
-          in: path
-          name: checkId
-          required: true
-          schema:
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            type: string
-        - description: Bearer token for authentication
-          in: header
-          name: Authorization
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/CancelMyCheckRunResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-          description: An unexpected error occurred.
-      summary: Cancel a specific check run
-  /api/my/checks/{checkId}/runs/{runId}/export:
-    get:
-      description: Export a specific check run
-      operationId: exportMyCheckRun
-      parameters:
-        - description: The ID for the checkId.
-          in: path
-          name: checkId
-          required: true
-          schema:
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            type: string
-        - description: Bearer token for authentication
-          in: header
-          name: Authorization
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ExportMyCheckRunResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-          description: An unexpected error occurred.
-      summary: Export a specific check run
-  /api/my/checks/{checkId}/runs/{runId}/history:
-    get:
-      description: Get the history of events for a specific run of a check
-      operationId: getMyCheckRunHistory
-      parameters:
-        - description: The ID for the checkId.
-          in: path
-          name: checkId
-          required: true
-          schema:
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            type: string
-        - description: Bearer token for authentication
-          in: header
-          name: Authorization
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/GetMyCheckRunHistoryResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-          description: An unexpected error occurred.
-      summary: Get the history of events for a specific run of a check
-  /api/my/checks/{checkId}/runs/{runId}/logs:
-    get:
-      description: Start or Stop logs for a specific check run and get the log channel
-      operationId: myCheckLogs
-      parameters:
-        - description: The ID for the checkId.
-          in: path
-          name: checkId
-          required: true
-          schema:
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            type: string
-        - description: Can be 'start' or 'stop' to control logging for the check run
-          in: query
-          name: action
-          required: false
-          schema:
-            type: string
-        - description: Bearer token for authentication
-          in: header
-          name: Authorization
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ChecksLogsResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-          description: An unexpected error occurred.
-      summary: Start or Stop logs for a specific check run
-  /api/my/checks/{checkId}/runs/{runId}/rerun:
-    post:
-      description: Re-run a specific check run
-      operationId: rerunMyCheck
-      parameters:
-        - description: The ID for the checkId.
-          in: path
-          name: checkId
-          required: true
-          schema:
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            type: string
-        - description: Bearer token for authentication
-          in: header
-          name: Authorization
-          required: true
-          schema:
-            type: string
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: '#/components/schemas/ReRunCheckRequest'
-        required: true
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ReRunCheckResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-          description: An unexpected error occurred.
-      summary: Re-run a specific check run
-  /api/my/checks/{checkId}/runs/{runId}/terminate:
-    post:
-      description: Terminate a specific check run
-      operationId: terminateMyCheckRun
-      parameters:
-        - description: The ID for the checkId.
-          in: path
-          name: checkId
-          required: true
-          schema:
-            type: string
-        - description: The ID for the runId.
-          in: path
-          name: runId
-          required: true
-          schema:
-            type: string
-        - description: Bearer token for authentication
-          in: header
-          name: Authorization
-          required: true
-          schema:
-            type: string
-      responses:
-        "200":
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/TerminateMyCheckRunResponse'
-          description: Successful response
-        default:
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/APIError'
-          description: An unexpected error occurred.
-      summary: Terminate a specific check run
-servers:
-  - description: Production server
-    url: https://credimi.io
-  - description: Demo server
-    url: https://demo.credimi.io
-  - description: Localhost server
-    url: http://localhost:8090/
+    WorkflowengineScheduleMode:
+      properties:
+        day:
+          nullable: true
+          type: integer
+        mode:
+          type: string
+      type: object

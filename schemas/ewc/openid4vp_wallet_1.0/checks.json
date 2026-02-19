@@ -1,0 +1,11 @@
+{
+    "checks": [
+        "WEBUILD-VP001-x509-direct_post-post-dcql-sd_jwt",
+        "WEBUILD-VP002-x509-direct_post.jwt-post-dcql-sd_jwt",
+        "WEBUILD-VP003-x509-direct_post-get-dcql-sd_jwt",
+        "WEBUILD-VP004-x509-direct_post-post-dcql-tx_data-sd_jwt",
+        "WEBUILD-VP005-did:web-direct_post-post-dcql-sd_jwt",
+        "WEBUILD-VP006-did:web-direct_post-get-dcql-sd_jwt",
+        "WEBUILD-VP007-x509-direct_post-get-dcql-mdoc"
+    ]
+}

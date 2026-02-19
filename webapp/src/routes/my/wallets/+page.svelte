@@ -20,9 +20,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 	import { pb } from '@/pocketbase';
 
+	import { IDS } from '../_partials/sidebar-data.svelte.js';
 	import { setDashboardNavbar } from '../+layout@.svelte';
 	import PublicWallets from './public-wallets.svelte';
-	import { IDS } from './utils';
 	import WalletActionsManager from './wallet-actions-manager.svelte';
 	import WalletFormSheet from './wallet-form-sheet.svelte';
 	import WalletForm from './wallet-form.svelte';
@@ -35,8 +35,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	setDashboardNavbar({ title: 'Wallets', right: navbarRight });
 </script>
 
-<T tag="h2" id={IDS.YOUR_WALLETS}>{m.Your_wallets()}</T>
-
 <CollectionManager
 	collection="wallets"
 	queryOptions={{
@@ -44,6 +42,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		sort: ['created', 'DESC']
 	}}
 >
+	{#snippet top({ Search })}
+		<div class="flex items-center justify-between gap-12">
+			<T tag="h4" class="pb-0!" id={IDS.YOURS}>{m.Your_wallets()}</T>
+			<Search containerClass="grow max-w-sm" />
+		</div>
+	{/snippet}
+
 	{#snippet editForm({ record: wallet, closeSheet })}
 		<WalletForm walletId={wallet.id} initialData={wallet} onSuccess={() => closeSheet()} />
 	{/snippet}

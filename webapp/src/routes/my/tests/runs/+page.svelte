@@ -5,13 +5,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { WorkflowStatus } from '@forkbombeu/temporal-ui';
 	import { SearchIcon, SparkleIcon, TestTubeIcon } from '@lucide/svelte';
 	import { Pipeline } from '$lib';
 	import TemporalI18nProvider from '$lib/temporal/temporal-i18n-provider.svelte';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
-	import { fetchWorkflows, WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
-	import { Array } from 'effect';
+	import { WorkflowQrPoller, WorkflowsTable } from '$lib/workflows';
+	import { queryParameters } from 'sveltekit-search-params';
 
 	import Button from '@/components/ui-custom/button.svelte';
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
@@ -20,75 +19,107 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { m } from '@/i18n';
 
 	import { setDashboardNavbar } from '../../+layout@.svelte';
+	import {
+		fetchWorkflows,
+		isExtendedWorkflowStatus,
+		parseLimit,
+		parseOffset,
+		TABS
+	} from './_partials/index.js';
+	import PaginationArrows from './_partials/pagination-arrows.svelte';
 
 	//
 
 	let { data } = $props();
-	let { workflows: loadedWorkflows, selectedStatus } = $derived(data);
+	let { workflows: loadedWorkflows, pagination } = $derived(data);
 
 	setDashboardNavbar({
 		title: m.workflows()
 	});
 
+	const params = queryParameters({
+		tab: {
+			defaultValue: 'pipeline' as const,
+			encode: (value) => value,
+			decode: (value) => {
+				if (value === 'other') return 'other';
+				else return 'pipeline';
+			}
+		},
+		status: {
+			encode: (value) => value,
+			decode: (value) => {
+				if (isExtendedWorkflowStatus(value)) return value;
+				else return undefined;
+			}
+		},
+		limit: {
+			encode: (value) => value,
+			decode: parseLimit
+		},
+		offset: {
+			encode: (value) => value,
+			decode: parseOffset
+		}
+	});
+
 	//
 
 	const workflows = new PolledResource(
-		async () => {
-			const result = await fetchWorkflows({ status: selectedStatus });
-			if (result instanceof Error) {
-				console.error(result);
-				return [];
-			}
-			return result;
-		},
+		() =>
+			fetchWorkflows(params.tab, {
+				status: params.status,
+				...pagination
+			}),
 		{
 			initialValue: () => loadedWorkflows,
-			intervalMs: 3000
+			intervalMs: 10000
 		}
-	);
-
-	const pipelineWorkflows = $derived.by(() => {
-		const list = workflows.current?.filter((w) => w.type.name === 'Dynamic Pipeline Workflow');
-		return list ?? [];
-	});
-
-	const otherWorkflows = $derived(Array.difference(workflows.current, pipelineWorkflows));
-
-	//
-
-	const tabs = {
-		pipeline: m.Pipelines(),
-		other: m.Conformance_and_custom_checks()
-	} as const;
-
-	type SelectedTab = keyof typeof tabs;
-	let selectedTab = $state<SelectedTab>('pipeline');
-
-	const selectedWorkflows = $derived(
-		selectedTab === 'pipeline' ? pipelineWorkflows : otherWorkflows
 	);
 </script>
 
 <div class="grow space-y-8">
 	<div class="flex items-center justify-between">
 		<T tag="h3">{m.workflow_runs()}</T>
-		<Tabs.Root bind:value={selectedTab}>
-			<Tabs.List class="gap-1 bg-secondary">
-				{#each Object.entries(tabs) as [key, value] (key)}
-					<Tabs.Trigger
-						class="data-[state=inactive]:hover:cursor-pointer data-[state=inactive]:hover:bg-primary/10 "
-						value={key}>{value}</Tabs.Trigger
-					>
-				{/each}
-			</Tabs.List>
-		</Tabs.Root>
+
+		<div class="flex items-center gap-4">
+			{#if params.tab === 'pipeline'}
+				<PaginationArrows
+					{pagination}
+					onPrevious={() => {
+						const current = params.offset ?? 0;
+						if (current <= 0) return;
+						params.offset = current - 1;
+					}}
+					onNext={() => {
+						params.offset = (params.offset ?? 0) + 1;
+					}}
+					onLimitChange={(limit) => {
+						params.limit = limit;
+					}}
+					currentItemCount={workflows.current?.length}
+				/>
+			{/if}
+			<Tabs.Root bind:value={params.tab}>
+				<Tabs.List class="gap-1 bg-secondary">
+					{#each Object.entries(TABS) as [key, value] (key)}
+						<Tabs.Trigger
+							class="data-[state=inactive]:hover:cursor-pointer data-[state=inactive]:hover:bg-primary/10 "
+							value={key}
+						>
+							{value}
+						</Tabs.Trigger>
+					{/each}
+				</Tabs.List>
+			</Tabs.Root>
+		</div>
 	</div>
 
-	{#if selectedWorkflows.length > 0}
-		{#if selectedTab === 'pipeline'}
-			<Pipeline.Workflows.Table workflows={pipelineWorkflows} />
+	{#if workflows.current?.length > 0}
+		{#if params.tab === 'pipeline'}
+			<Pipeline.Workflows.Table workflows={workflows.current} />
 		{:else}
-			<WorkflowsTable workflows={otherWorkflows}>
+			<WorkflowsTable workflows={workflows.current}>
 				{#snippet header({ Th })}
 					<Th>
 						{m.QR_code()}
@@ -111,13 +142,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/if}
 	{/if}
 
-	{#if selectedWorkflows.length === 0}
-		{#if selectedStatus}
+	{#if workflows.current?.length === 0}
+		{#if params.status}
 			<EmptyState icon={SearchIcon} title={m.No_check_runs_with_this_status()}>
 				{#snippet bottom()}
 					<TemporalI18nProvider>
 						<div class="pt-2">
-							<WorkflowStatus status={selectedStatus} />
+							{#if params.status}
+								<Pipeline.Workflows.StatusTag status={params.status} />
+							{/if}
 						</div>
 					</TemporalI18nProvider>
 				{/snippet}

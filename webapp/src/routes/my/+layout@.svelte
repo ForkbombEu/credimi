@@ -33,7 +33,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Separator } from '@/components/ui/separator/index.js';
 	import * as Sidebar from '@/components/ui/sidebar/index.js';
 
-	import { data } from './_partials/sidebar-data';
+	import { getSidebarData } from './_partials/sidebar-data.svelte';
 	import AppSidebar from './_partials/sidebar.svelte';
 
 	let { children } = $props();
@@ -45,16 +45,16 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </script>
 
 <Sidebar.Provider>
-	<AppSidebar {data} />
+	<AppSidebar data={getSidebarData()} />
 	<Sidebar.Inset class="overflow-x-hidden">
-		<header class="bg-background sticky top-0 flex h-14 shrink-0 border-b">
+		<header class="sticky top-0 flex h-14 shrink-0 border-b bg-background">
 			<div class="flex items-center">
 				<div class="p-2">
 					<Sidebar.Trigger />
 				</div>
 				<Separator orientation="vertical" class="mr-2 h-4" />
 			</div>
-			<div class="flex grow items-center justify-between gap-2 py-2 pl-2 pr-4">
+			<div class="flex grow items-center justify-between gap-2 py-2 pr-4 pl-2">
 				<p class="font-semibold">{dashboardNavbar.title}</p>
 				{@render dashboardNavbar.right?.()}
 			</div>

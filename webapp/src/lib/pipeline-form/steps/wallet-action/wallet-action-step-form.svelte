@@ -7,10 +7,12 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SelfProp } from '$lib/renderable';
 
+	import { Wallet } from '$lib';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import { getMarketplaceItemData } from '$lib/marketplace';
 	import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
 
+	import T from '@/components/ui-custom/t.svelte';
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
@@ -114,14 +116,22 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<WithEmptyState items={form.foundActions} emptyText={m.No_actions_available()}>
 		{#snippet item({ item })}
 			<ItemCard title={item.name} onClick={() => form.selectAction(item)}>
-				<div class="space-y-2 pt-1">
-					{#if !item.published}
-						<Badge variant="secondary">
-							{m.private()}
-						</Badge>
+				{#snippet beforeContent()}
+					{@const category = Wallet.Action.getCategoryLabel(item)}
+					{#if category}
+						<T class="text-xs text-muted-foreground">{category}</T>
 					{/if}
-					<WalletActionTags action={item} variant="outline" />
-				</div>
+				{/snippet}
+
+				{#snippet afterContent()}
+					<WalletActionTags action={item} variant="secondary" containerClass="pt-2">
+						{#if !item.published}
+							<Badge variant="outline">
+								{m.private()}
+							</Badge>
+						{/if}
+					</WalletActionTags>
+				{/snippet}
 			</ItemCard>
 		{/snippet}
 	</WithEmptyState>

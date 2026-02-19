@@ -2,7 +2,6 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { WorkflowStatusType } from '$lib/temporal';
 import type { WorkflowExecution } from '@forkbombeu/temporal-ui/dist/types/workflows';
 
 import { toWorkflowExecution, type HistoryEvent } from '@forkbombeu/temporal-ui';
@@ -29,7 +28,7 @@ const workflowApi = (workflowId: string, runId: string) =>
 
 type FetchWorkflowsOptions = {
 	fetch?: typeof fetch;
-	status?: WorkflowStatusType | undefined;
+	status?: string | null;
 };
 
 export async function fetchWorkflows(
@@ -49,7 +48,8 @@ export async function fetchWorkflows(
 	return tryPromise(async () => {
 		const data: FetchWorkflowsResponse = await pb.send(url, {
 			method: 'GET',
-			fetch: fetchFn
+			fetch: fetchFn,
+			requestKey: null
 		});
 
 		return data.executions ?? [];

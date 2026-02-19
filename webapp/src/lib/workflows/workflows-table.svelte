@@ -75,6 +75,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{#if !hideColumns.includes('end_time')}
 					<Table.Head class="text-right">{m.End_time()}</Table.Head>
 				{/if}
+				{#if !hideColumns.includes('duration')}
+					<Table.Head class="text-right">{m.Duration()}</Table.Head>
+				{/if}
 				{#if !hideColumns.includes('actions')}
 					<Table.Head class="text-right">{m.Actions()}</Table.Head>
 				{/if}
@@ -82,13 +85,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Header>
 		<Table.Body>
 			{#each workflows as workflow (workflow.execution.runId)}
-				<WorkflowTableRow
-					{workflow}
-					{row}
-					{hideColumns}
-					actions={actions?.(workflow)}
-					disableLink={disableLink?.(workflow)}
-				/>
+				<WorkflowTableRow {workflow} {row} {hideColumns} {actions} {disableLink} />
 			{:else}
 				<Table.Row class="hover:bg-transparent">
 					<Table.Cell colspan={6} class="text-center text-gray-300 py-20">

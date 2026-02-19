@@ -8,8 +8,6 @@ import { getChecksConfigsFields } from '$start-checks-form/_utils';
 import { String } from 'effect';
 import { watch } from 'runed';
 
-import type { CustomChecksResponse } from '@/pocketbase/types';
-
 import type { ChecksConfigFieldsResponse } from '../types';
 
 //
@@ -17,12 +15,10 @@ import type { ChecksConfigFieldsResponse } from '../types';
 export type SelectChecksSubmitData = {
 	standardAndVersionPath: string;
 	checksConfigsFields?: ChecksConfigFieldsResponse | undefined;
-	customChecks: CustomChecksResponse[];
 };
 
 export type SelectChecksFormProps = {
 	standards: StandardsWithTestSuites;
-	customChecks: CustomChecksResponse[];
 	onSubmit: (data: SelectChecksSubmitData) => void | Promise<void>;
 };
 
@@ -82,27 +78,6 @@ export class SelectChecksForm {
 		return this.availableSuites.find((suite) => suite.uid === this.selectedSuiteId);
 	});
 
-	// Selection: Custom checks
-
-	availableCustomChecks = $derived.by(() => {
-		return this.props.customChecks
-			.filter((check) => {
-				if (!this.selectedStandardId) return false;
-				return check.standard_and_version.startsWith(this.selectedStandardId);
-			})
-			.filter((check) => {
-				if (!this.selectedVersionId) return false;
-				return check.standard_and_version.endsWith(this.selectedVersionId);
-			});
-	});
-
-	selectedCustomChecksIds = $state<string[]>([]);
-	selectedCustomChecks = $derived.by(() =>
-		this.availableCustomChecks.filter((check) =>
-			this.selectedCustomChecksIds.includes(check.id)
-		)
-	);
-
 	// Deselect
 
 	private registerEffect_DeselectOnStandardChange() {
@@ -112,7 +87,6 @@ export class SelectChecksForm {
 				this.selectedVersionId = '';
 				this.selectedSuites = [];
 				this.selectedTests = [];
-				this.selectedCustomChecksIds = [];
 			}
 		);
 	}
@@ -123,23 +97,15 @@ export class SelectChecksForm {
 			() => {
 				this.selectedSuites = [];
 				this.selectedTests = [];
-				this.selectedCustomChecksIds = [];
 			}
 		);
 	}
 
 	// Submission
 
-	hasOnlyCustomChecks = $derived(
-		this.selectedSuites.length === 0 &&
-			this.selectedTests.length === 0 &&
-			this.selectedCustomChecksIds.length > 0
-	);
-
 	hasSelection = $derived(
 		this.selectedSuites.length > 0 ||
-			this.selectedTests.length > 0 ||
-			this.selectedCustomChecksIds.length > 0
+			this.selectedTests.length > 0
 	);
 
 	isValid = $derived(
@@ -157,19 +123,15 @@ export class SelectChecksForm {
 		try {
 			const standardAndVersionPath = this.selectedStandardId + '/' + this.selectedVersionId;
 
-			let checksConfigsFields: ChecksConfigFieldsResponse | undefined;
-			if (!this.hasOnlyCustomChecks) {
-				checksConfigsFields = await getChecksConfigsFields(
-					standardAndVersionPath,
-					this.selectedSuites.concat(this.selectedTests)
-				);
-			}
+			const checksConfigsFields = await getChecksConfigsFields(
+				standardAndVersionPath,
+				this.selectedSuites.concat(this.selectedTests)
+			);
 
 			this.props.onSubmit(
 				$state.snapshot({
 					standardAndVersionPath,
-					checksConfigsFields,
-					customChecks: this.selectedCustomChecks
+					checksConfigsFields
 				})
 			);
 		} catch (error) {

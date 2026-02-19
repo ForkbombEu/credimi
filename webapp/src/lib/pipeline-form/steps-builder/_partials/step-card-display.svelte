@@ -10,14 +10,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { TriangleAlert } from '@lucide/svelte';
 	import * as steps from '$lib/pipeline-form/steps';
 
+	import A from '@/components/ui-custom/a.svelte';
 	import Avatar from '@/components/ui-custom/avatar.svelte';
 	import CopyButtonSmall from '@/components/ui-custom/copy-button-small.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
+	import T from '@/components/ui-custom/t.svelte';
 	import Checkbox from '@/components/ui/checkbox/checkbox.svelte';
 	import Label from '@/components/ui/label/label.svelte';
 	import { m } from '@/i18n/index.js';
 
 	import { type EnrichedStep, Enrich404Error } from '../types';
+	import { getStepConfig, getStepData } from './utils';
 
 	//
 
@@ -32,13 +35,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const { classes, labels, icon } = $derived(steps.getDisplayData(step[0].use));
 
-	const cardData = $derived.by(() => {
-		if (step[0].use === 'debug') return undefined;
-		if (step[1] instanceof Enrich404Error || step[1] instanceof Error) return undefined;
-		const config = steps.configs.find((c) => c.use === step[0].use);
-		if (!config) throw new Error(`Unknown step type: ${step[0].use}`);
-		return config.cardData(step[1]);
-	});
+	const config = $derived(getStepConfig(step));
+	const stepData = $derived(getStepData(step));
+	const cardData = $derived(stepData ? config?.cardData(stepData) : undefined);
+	const CardDetailsComponent = $derived(config?.CardDetailsComponent);
 </script>
 
 <div
@@ -60,45 +60,67 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{@render topRight?.()}
 		</div>
 
-		<div class="p-3 pt-2 pb-4">
-			{#if step[1] instanceof Enrich404Error || step[1] instanceof Error}
-				<div class="rounded-md bg-red-700 p-3 text-white">
-					<div class="flex items-center gap-2">
-						<TriangleAlert size={12} />
-						<p class="text-xs">{step[1].message}</p>
+		<div class="space-y-4 p-3 pt-2">
+			<div>
+				{#if step[1] instanceof Enrich404Error || step[1] instanceof Error}
+					<div class="rounded-md bg-red-700 p-3 text-white">
+						<div class="flex items-center gap-2">
+							<TriangleAlert size={12} />
+							<p class="text-xs">{step[1].message}</p>
+						</div>
+						{#if step[1] instanceof Enrich404Error}
+							<p class="pt-2 text-xs opacity-60">{step[1].description}</p>
+						{/if}
 					</div>
-					{#if step[1] instanceof Enrich404Error}
-						<p class="pt-2 text-xs opacity-60">{step[1].description}</p>
-					{/if}
-				</div>
-			{:else if step[0].use === 'debug'}
-				<div class="text-xs text-gray-500">{m.debug_step_description()}</div>
-			{:else if cardData}
-				{@const { title, copyText, avatar } = cardData}
-				<div class="flex items-center gap-3">
-					<Avatar src={avatar} fallback={title} class="size-8 rounded-sm border" />
-					<div class="space-y-1">
-						<div class="flex items-center gap-1">
-							<h1>{title}</h1>
-							{#if copyText}
-								<CopyButtonSmall textToCopy={copyText} size="mini" />
+				{:else if step[0].use === 'debug'}
+					<div class="text-xs text-gray-500">{m.debug_step_description()}</div>
+				{:else if cardData}
+					{@const { title, copyText, avatar } = cardData}
+					<div class="flex items-center gap-3">
+						<Avatar src={avatar} fallback={title} class="size-8 rounded-sm border" />
+						<div class="space-y-1">
+							{#if cardData.beforeTitle}
+								<T class="mb-0! text-xs text-muted-foreground">
+									{cardData.beforeTitle}
+								</T>
 							{/if}
+							<div class="flex items-center gap-1 leading-tight">
+								{#if cardData.publicUrl}
+									<A
+										href={cardData.publicUrl}
+										target="_blank"
+										class="whitespace-pre"
+									>
+										{title}
+									</A>
+								{:else}
+									<p class="whitespace-pre">{title}</p>
+								{/if}
+
+								{#if copyText}
+									<CopyButtonSmall textToCopy={copyText} size="mini" />
+								{/if}
+							</div>
 						</div>
 					</div>
+				{/if}
+			</div>
+
+			{#if cardData && cardData.meta}
+				<div class="space-y-0.5">
+					{#each Object.entries(cardData.meta) as [key, value] (key)}
+						<p class="text-xs text-muted-foreground">
+							<span class="font-medium capitalize">{key}:</span>
+							{value}
+						</p>
+					{/each}
 				</div>
 			{/if}
-		</div>
 
-		{#if cardData && cardData.meta}
-			{#each Object.entries(cardData.meta) as [key, value] (key)}
-				<div class="p-3 pt-0">
-					<p class="text-xs text-muted-foreground">
-						<span class="font-medium uppercase">{key}:</span>
-						{value}
-					</p>
-				</div>
-			{/each}
-		{/if}
+			{#if CardDetailsComponent && stepData}
+				<CardDetailsComponent data={stepData} />
+			{/if}
+		</div>
 	</div>
 
 	{#if step[0].use !== 'debug'}

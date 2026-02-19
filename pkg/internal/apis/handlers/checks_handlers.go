@@ -39,6 +39,7 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 	Routes: []routing.RouteDefinition{
 		{
 			Method:         http.MethodGet,
+			OperationID:    "checks.list",
 			Handler:        HandleListMyChecks,
 			ResponseSchema: ListMyChecksResponse{},
 			Description:    "List all checks for the authenticated user",
@@ -47,6 +48,7 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodGet,
 			Path:           "/{checkId}/runs",
+			OperationID:    "checkRuns.list",
 			Handler:        HandleListMyCheckRuns,
 			ResponseSchema: ListMyCheckRunsResponse{},
 			Description:    "List all runs for a specific check",
@@ -55,6 +57,7 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodGet,
 			Path:           "/{checkId}/runs/{runId}",
+			OperationID:    "checkRun.get",
 			Handler:        HandleGetMyCheckRun,
 			ResponseSchema: GetMyCheckRunResponse{},
 			Description:    "Get details of a specific run for a check",
@@ -63,6 +66,7 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodGet,
 			Path:           "/{checkId}/runs/{runId}/history",
+			OperationID:    "checkRun.history",
 			Handler:        HandleGetMyCheckRunHistory,
 			ResponseSchema: GetMyCheckRunHistoryResponse{},
 			Description:    "Get the history of events for a specific run of a check",
@@ -71,6 +75,7 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodPost,
 			Path:           "/{checkId}/runs/{runId}/rerun",
+			OperationID:    "checkRun.rerun",
 			Handler:        HandleRerunMyCheck,
 			RequestSchema:  ReRunCheckRequest{},
 			ResponseSchema: ReRunCheckResponse{},
@@ -80,6 +85,7 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodPost,
 			Path:           "/{checkId}/runs/{runId}/cancel",
+			OperationID:    "checkRun.cancel",
 			Handler:        HandleCancelMyCheckRun,
 			ResponseSchema: CancelMyCheckRunResponse{},
 			Description:    "Cancel a specific check run",
@@ -88,6 +94,7 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodGet,
 			Path:           "/{checkId}/runs/{runId}/export",
+			OperationID:    "checkRun.export",
 			Handler:        HandleExportMyCheckRun,
 			ResponseSchema: ExportMyCheckRunResponse{},
 			Description:    "Export a specific check run",
@@ -96,6 +103,7 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodGet,
 			Path:           "/{checkId}/runs/{runId}/logs",
+			OperationID:    "checkRun.logs",
 			Handler:        HandleMyCheckLogs,
 			ResponseSchema: ChecksLogsResponse{},
 			Description:    "Start or Stop logs for a specific check run and get the log channel",
@@ -111,6 +119,7 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 		{
 			Method:         http.MethodPost,
 			Path:           "/{checkId}/runs/{runId}/terminate",
+			OperationID:    "checkRun.terminate",
 			Handler:        HandleTerminateMyCheckRun,
 			ResponseSchema: TerminateMyCheckRunResponse{},
 			Description:    "Terminate a specific check run",
@@ -152,6 +161,30 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		statusParam := e.Request.URL.Query().Get("status")
+		if strings.ToLower(statusParam) == statusStringQueued {
+			queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to list queued runs",
+					err.Error(),
+				).JSON(e)
+			}
+			queuedSummaries := buildQueuedWorkflowSummaries(
+				e.App,
+				queuedRuns,
+				authRecord.GetString("Timezone"),
+			)
+			resp := ListMyChecksResponse{}
+
+			if queuedSummaries == nil {
+				resp.Executions = []*WorkflowExecutionSummary{}
+			} else {
+				resp.Executions = queuedSummaries
+			}
+			return e.JSON(http.StatusOK, resp)
+		}
 		var statusFilters []enums.WorkflowExecutionStatus
 		if statusParam != "" {
 			statusStrings := strings.SplitSeq(statusParam, ",")
@@ -235,9 +268,16 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
+		var filteredExecutions []*WorkflowExecution
+		for _, exec := range execs.Executions {
+			if exec.Type.Name != "Dynamic Pipeline Workflow" {
+				filteredExecutions = append(filteredExecutions, exec)
+			}
+		}
+
 		hierarchy := buildExecutionHierarchy(
 			e.App,
-			execs.Executions,
+			filteredExecutions,
 			owner,
 			authRecord.GetString("Timezone"),
 			c,
@@ -1172,6 +1212,7 @@ func buildExecutionHierarchy(
 			Type:      exec.Type,
 			StartTime: exec.StartTime,
 			EndTime:   exec.CloseTime,
+			Duration:  calculateDuration(exec.StartTime, exec.CloseTime),
 			Status:    normalizeTemporalStatus(exec.Status),
 		}
 
