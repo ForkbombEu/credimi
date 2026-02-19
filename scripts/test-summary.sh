@@ -75,6 +75,15 @@ function normalize_file(file_path) {
 	return file_path
 }
 
+function decode_output_text(text) {
+	gsub(/\\n/, "\n", text)
+	gsub(/\\t/, "\t", text)
+	gsub(/\\r/, "", text)
+	gsub(/\\"/, "\"", text)
+	gsub(/\\\//, "/", text)
+	return text
+}
+
 BEGIN {
 	C_RESET = "\033[0m"
 	C_GREEN = "\033[32m"
@@ -117,6 +126,10 @@ BEGIN {
 	if (action == "output" && test_name != "") {
 		top = top_test_name(test_name)
 		key = test_key(pkg, top)
+		decoded_output = decode_output_text(output)
+		if (decoded_output != "") {
+			test_output[key] = test_output[key] decoded_output
+		}
 		if (!(key in test_file) &&
 			match(output, /([A-Za-z0-9_./-]+_test\.go):[0-9]+:/, m)) {
 			test_file[key] = m[1]
@@ -124,6 +137,10 @@ BEGIN {
 	}
 
 	if (action == "output" && test_name == "" && pkg != "") {
+		decoded_output = decode_output_text(output)
+		if (decoded_output != "") {
+			package_output[pkg] = package_output[pkg] decoded_output
+		}
 		if (!(pkg in package_file) &&
 			match(output, /([A-Za-z0-9_./-]+\.go):[0-9]+:/, m)) {
 			package_file[pkg] = m[1]
@@ -190,6 +207,15 @@ END {
 				file = "<unknown>"
 			}
 			printf("  - %s (%s) [%s]\n", test_name, normalize_file(file), pkg)
+			if (key in test_output) {
+				n = split(test_output[key], lines, "\n")
+				for (i = 1; i <= n; i++) {
+					if (lines[i] == "") {
+						continue
+					}
+					printf("      %s\n", lines[i])
+				}
+			}
 		}
 	}
 
@@ -201,6 +227,15 @@ END {
 			}
 			file = (pkg in package_file) ? package_file[pkg] : "<unknown>"
 			printf("  - %s [%s]\n", pkg, normalize_file(file))
+			if (pkg in package_output) {
+				n = split(package_output[pkg], lines, "\n")
+				for (i = 1; i <= n; i++) {
+					if (lines[i] == "") {
+						continue
+					}
+					printf("      %s\n", lines[i])
+				}
+			}
 		}
 	}
 }

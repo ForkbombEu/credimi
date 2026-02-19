@@ -387,7 +387,10 @@ func testStartRecordingSuccessWorkflow(ctx workflow.Context) (map[string]any, er
 }
 
 func testCleanupRecordingWorkflow(ctx workflow.Context) (map[string]any, error) {
-	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: time.Second})
+	ctx = workflow.WithActivityOptions(
+		ctx,
+		workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+	)
 	output := map[string]any{
 		"result_video_urls": []string{},
 		"screenshot_urls":   []string{},
@@ -439,7 +442,10 @@ func testCleanupRecordingMissingRunnerWorkflow(ctx workflow.Context) (int, error
 }
 
 func testStopRecordingMissingLastFrameWorkflow(ctx workflow.Context) error {
-	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{StartToCloseTimeout: time.Second})
+	ctx = workflow.WithActivityOptions(
+		ctx,
+		workflow.ActivityOptions{StartToCloseTimeout: time.Second},
+	)
 	info := &recordingInfo{
 		videoPath:  "/tmp/video.mp4",
 		logcatPath: "/tmp/logcat.txt",

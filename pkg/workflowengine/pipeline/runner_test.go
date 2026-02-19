@@ -498,7 +498,10 @@ func TestExecuteStepEmailConfigureError(t *testing.T) {
 	registry.Registry["email"] = registry.TaskFactory{
 		Kind: registry.TaskActivity,
 		NewFunc: func() any {
-			return &fakeConfigActivity{fakeActivity: fakeActivity{name: "email"}, configErr: errors.New("bad config")}
+			return &fakeConfigActivity{
+				fakeActivity: fakeActivity{name: "email"},
+				configErr:    errors.New("bad config"),
+			}
 		},
 		PayloadType: reflect.TypeOf(map[string]any{}),
 		OutputKind:  workflowengine.OutputMap,

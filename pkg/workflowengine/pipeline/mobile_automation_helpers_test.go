@@ -512,7 +512,9 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 				func(ctx workflow.Context) error {
 					ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 					ctx = workflow.WithActivityOptions(ctx, ao)
-					payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+					payload := &workflows.MobileAutomationWorkflowPipelinePayload{
+						RunnerID: "runner-1",
+					}
 					_, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
 						ctx:          ctx,
 						payload:      payload,
@@ -624,7 +626,9 @@ func TestStartEmulatorErrors(t *testing.T) {
 				func(ctx workflow.Context) error {
 					ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 					ctx = workflow.WithActivityOptions(ctx, ao)
-					payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+					payload := &workflows.MobileAutomationWorkflowPipelinePayload{
+						RunnerID: "runner-1",
+					}
 					_, _, err := startEmulator(startEmulatorInput{
 						ctx:              ctx,
 						mobileCtx:        ctx,
