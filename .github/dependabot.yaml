@@ -1,0 +1,25 @@
+# SPDX-FileCopyrightText: 2026 Forkbomb BV
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+version: 2
+
+registries:
+  github-private:
+    type: git
+    url: https://github.com
+    username: x-access-token
+    password: ${{ secrets.CREDIMI_EXTRA_PAT }}
+
+updates:
+  - package-ecosystem: "gomod"
+    directory: "/"
+    schedule:
+      interval: "daily"
+    registries:
+      - github-private
+    allow:
+      - dependency-name: "github.com/forkbombeu/credimi-extra"
+    labels:
+      - "dependencies"
+      - "go"
