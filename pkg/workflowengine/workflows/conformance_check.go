@@ -137,6 +137,8 @@ type StartCheckWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
+var startCheckWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+
 type StartCheckWorkflowPayload struct {
 	Suite     string `json:"suite"                yaml:"suite"`
 	CheckID   string `json:"check_id"             yaml:"check_id"             validate:"required"`
@@ -413,5 +415,5 @@ func (w *StartCheckWorkflow) Start(
 		ID:        "conformance-check" + "-" + uuid.NewString(),
 		TaskQueue: ConformanceCheckTaskQueue,
 	}
-	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return startCheckWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }

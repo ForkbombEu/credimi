@@ -94,6 +94,9 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	},
 }
 
+var pipelineTemporalClient = temporalclient.GetTemporalClientWithNamespace
+var pipelineListQueuedRuns = listQueuedPipelineRuns
+
 func HandleGetPipelineYAML() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		pipelineIdentifier := e.Request.URL.Query().Get("pipeline_identifier")
@@ -272,7 +275,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 
 		pipelineRecord := pipelineRecords[0]
 		pipelineID = pipelineRecord.Id
-		queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
+		queuedRuns, err := pipelineListQueuedRuns(e.Request.Context(), namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -332,7 +335,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		}
 
 		if temporalClient == nil {
-			temporalClient, err = temporalclient.GetTemporalClientWithNamespace(namespace)
+			temporalClient, err = pipelineTemporalClient(namespace)
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -441,7 +444,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			return e.JSON(http.StatusOK, map[string][]*WorkflowExecutionSummary{})
 		}
 
-		queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
+		queuedRuns, err := pipelineListQueuedRuns(e.Request.Context(), namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -484,7 +487,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				var pipelineExecutions []*WorkflowExecution
 
 				for _, resultRecord := range resultsRecords {
-					c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+					c, err := pipelineTemporalClient(namespace)
 					if err != nil {
 						return apierror.New(
 							http.StatusInternalServerError,
@@ -560,7 +563,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 				}
 
 				if len(pipelineExecutions) > 0 {
-					c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+					c, err := pipelineTemporalClient(namespace)
 					if err != nil {
 						continue
 					}
@@ -604,7 +607,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 		response := make(map[string][]*pipelineWorkflowSummary, len(selectedExecutions))
 		runnerCache := map[string]map[string]any{}
 
-		tc, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		tc, err := pipelineTemporalClient(namespace)
 		if err != nil {
 			// fallback: if no temporal client, return without global_runner_id
 			for pipelineID, executions := range selectedExecutions {
@@ -724,10 +727,10 @@ func processPipelineResults(
 	resultsRecords []*core.Record,
 	temporalClient *client.Client,
 ) ([]*WorkflowExecution, error) {
-	var allExecutions []*WorkflowExecution
+	allExecutions := make([]*WorkflowExecution, 0, len(resultsRecords))
 
 	for _, resultRecord := range resultsRecords {
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := pipelineTemporalClient(namespace)
 		if err != nil {
 			return nil, apierror.New(
 				http.StatusInternalServerError,

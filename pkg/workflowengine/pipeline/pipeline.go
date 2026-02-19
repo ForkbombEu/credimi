@@ -24,6 +24,8 @@ const (
 
 type PipelineWorkflow struct{}
 
+var pipelineTemporalClient = temporalclient.GetTemporalClientWithNamespace
+
 type PipelineWorkflowInput struct {
 	WorkflowDefinition *WorkflowDefinition          `yaml:"workflow_definition" json:"workflow_definition"`
 	WorkflowInput      workflowengine.WorkflowInput `yaml:"workflow_input"      json:"workflow_input"`
@@ -311,7 +313,7 @@ func (w *PipelineWorkflow) Start(
 		return result, fmt.Errorf("namespace is required")
 	}
 
-	c, err := temporalclient.GetTemporalClientWithNamespace(
+	c, err := pipelineTemporalClient(
 		namespace,
 	)
 	if err != nil {

@@ -46,7 +46,7 @@ import (
 //   - app: The PocketBase application instance to which the hook is attached.
 func WorkersHook(app *pocketbase.PocketBase) {
 	app.OnServe().BindFunc(func(se *core.ServeEvent) error {
-		namespaces, err := FetchNamespaces(app)
+		namespaces, err := fetchNamespacesFn(app)
 		if err != nil {
 			log.Fatalf("Failed to fetch namespaces: %v", err)
 		}
@@ -54,19 +54,19 @@ func WorkersHook(app *pocketbase.PocketBase) {
 		log.Printf("[WorkersHook] Ensuring %d namespace(s) are ready...", len(namespaces))
 
 		for _, ns := range namespaces {
-			if err := ensureNamespaceReadyWithRetry(ns); err != nil {
+			if err := ensureNamespaceReadyFn(ns); err != nil {
 				log.Fatalf("[WorkersHook] Failed to connect to namespace %q: %v", ns, err)
 			}
 			log.Printf("[WorkersHook] Starting workers for namespace %q", ns)
-			go StartAllWorkersByNamespace(ns)
-			StartWorkerManagerWorkflow(app, ns, "")
+			go startAllWorkersByNamespace(ns)
+			startWorkerManagerWorkflow(app, ns, "")
 		}
 
 		log.Printf("[WorkersHook] All namespaces ready, workers started")
 		return se.Next()
 	})
 	app.OnTerminate().BindFunc(func(_ *core.TerminateEvent) error {
-		temporalclient.ShutdownClients()
+		shutdownTemporalClientsFn()
 		return nil
 	})
 }
@@ -225,9 +225,31 @@ var DefaultWorkers = []workerConfig{
 	},
 }
 
+var (
+	getTemporalClient          = temporalclient.GetTemporalClientWithNamespace
+	newNamespaceClientFn       = client.NewNamespaceClient
+	newWorkerFn                = worker.New
+	sleepFn                    = time.Sleep
+	nowFn                      = time.Now
+	startWorkerFn              = startWorker
+	startPipelineWorkerFn      = startPipelineWorker
+	fetchNamespacesFn          = FetchNamespaces
+	ensureNamespaceReadyFn     = ensureNamespaceReadyWithRetry
+	startAllWorkersByNamespace = StartAllWorkersByNamespace
+	startWorkerManagerWorkflow = StartWorkerManagerWorkflow
+	shutdownTemporalClientsFn  = temporalclient.ShutdownClients
+	workerManagerStartWorkflow = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewWorkerManagerWorkflow()
+		return w.Start(namespace, input)
+	}
+	workerManagerTemporalClient        = temporalclient.GetTemporalClientWithNamespace
+	workerManagerWaitForWorkflowResult = workflowengine.WaitForWorkflowResult
+	executeWorkerManagerWorkflowFn     = executeWorkerManagerWorkflow
+)
+
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
 	defer wg.Done()
-	w := worker.New(c, config.TaskQueue, worker.Options{})
+	w := newWorkerFn(c, config.TaskQueue, worker.Options{})
 
 	for _, wf := range config.Workflows {
 		w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
@@ -248,7 +270,7 @@ func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *
 
 func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
 	defer wg.Done()
-	w := worker.New(c, pipeline.PipelineTaskQueue, worker.Options{})
+	w := newWorkerFn(c, pipeline.PipelineTaskQueue, worker.Options{})
 
 	pipelineWf := pipeline.NewPipelineWorkflow()
 	w.RegisterWorkflowWithOptions(
@@ -302,7 +324,7 @@ func StartAllWorkersByNamespace(namespace string) {
 	ctx, cancel := context.WithCancel(context.Background())
 	workerCancels.Store(namespace, cancel)
 
-	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	c, err := getTemporalClient(namespace)
 	if err != nil {
 		log.Fatalf("Failed to connect to Temporal: %v", err)
 	}
@@ -319,11 +341,11 @@ func StartAllWorkersByNamespace(namespace string) {
 
 	for _, config := range workers {
 		wg.Add(1)
-		go startWorker(ctx, c, config, &wg)
+		go startWorkerFn(ctx, c, config, &wg)
 	}
 
 	wg.Add(1)
-	go startPipelineWorker(ctx, c, &wg)
+	go startPipelineWorkerFn(ctx, c, &wg)
 
 	go func() {
 		wg.Wait()
@@ -363,10 +385,10 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
 	log.Printf("[WorkersHook] Connecting to Temporal at %s for namespace %q", hostPort, namespace)
 
-	deadline := time.Now().Add(90 * time.Second)
+	deadline := nowFn().Add(90 * time.Second)
 	attempt := 0
 
-	nc, err := client.NewNamespaceClient(client.Options{
+	nc, err := newNamespaceClientFn(client.Options{
 		HostPort: hostPort,
 		ConnectionOptions: client.ConnectionOptions{
 			TLS: nil,
@@ -416,7 +438,7 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 			err,
 		)
 
-		if time.Now().After(deadline) {
+		if nowFn().After(deadline) {
 			return err
 		}
 
@@ -425,13 +447,13 @@ func ensureNamespaceReadyWithRetry(namespace string) error {
 			backoff = 5 * time.Second
 		}
 		log.Printf("[WorkersHook] Sleeping %v before retry...", backoff)
-		time.Sleep(backoff)
+		sleepFn(backoff)
 	}
 }
 
 func StartWorkerManagerWorkflow(app core.App, namespace, oldNamespace string) {
 	go func() {
-		if err := executeWorkerManagerWorkflow(namespace, oldNamespace, app.Settings().Meta.AppURL); err != nil {
+		if err := executeWorkerManagerWorkflowFn(namespace, oldNamespace, app.Settings().Meta.AppURL); err != nil {
 			log.Printf("[WorkerManagerWorkflow] Failed for namespace %s: %v", namespace, err)
 		} else {
 			log.Printf("[WorkerManagerWorkflow] Successfully started for namespace %s", namespace)
@@ -462,18 +484,17 @@ func executeWorkerManagerWorkflow(namespace, oldNamespace, appURL string) error 
 		ActivityOptions: ao,
 	}
 
-	w := workflows.NewWorkerManagerWorkflow()
-	resStart, err := w.Start("default", input)
+	resStart, err := workerManagerStartWorkflow("default", input)
 	if err != nil {
 		return fmt.Errorf("failed to start workflow: %w", err)
 	}
 
-	c, err := temporalclient.GetTemporalClientWithNamespace("default")
+	c, err := workerManagerTemporalClient("default")
 	if err != nil {
 		return fmt.Errorf("unable to create client: %w", err)
 	}
 
-	_, err = workflowengine.WaitForWorkflowResult(
+	_, err = workerManagerWaitForWorkflowResult(
 		c,
 		resStart.WorkflowID,
 		resStart.WorkflowRunID,

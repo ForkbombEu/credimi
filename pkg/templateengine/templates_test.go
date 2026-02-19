@@ -173,6 +173,67 @@ func TestPreprocessTemplate_EmptyInput(t *testing.T) {
 		t.Errorf("preprocessTemplate() = %q, want %q", result, expected)
 	}
 }
+
+func TestPlaceholderMetadataGetDefaultValue(t *testing.T) {
+	meta := PlaceholderMetadata{FieldDefault: "foo"}
+	if got := meta.GetDefaultValue(); got != "foo" {
+		t.Errorf("GetDefaultValue() = %q, want %q", got, "foo")
+	}
+
+	meta = PlaceholderMetadata{FieldDefault: map[string]any{"a": "b"}}
+	if got := meta.GetDefaultValue(); got == "" || got == "{}" {
+		t.Errorf("GetDefaultValue() = %q, want non-empty JSON", got)
+	}
+
+	meta = PlaceholderMetadata{FieldDefault: 123}
+	if got := meta.GetDefaultValue(); got != "123" {
+		t.Errorf("GetDefaultValue() = %q, want %q", got, "123")
+	}
+}
+
+func TestRenderTemplateBasic(t *testing.T) {
+	templateStr := `{"name":"{{ credimi "{\"credimi_id\":\"id1\",\"field_id\":\"name\",\"field_label\":\"label\",\"field_description\":\"desc\",\"field_default_value\":\"\",\"field_type\":\"string\",\"field_options\":[]}" }}"}`
+	out, err := RenderTemplate(strings.NewReader(templateStr), map[string]interface{}{"name": "Alice"})
+	if err != nil {
+		t.Fatalf("RenderTemplate returned error: %v", err)
+	}
+	expected := `{"name":"Alice"}`
+	if out != expected {
+		t.Errorf("RenderTemplate() = %q, want %q", out, expected)
+	}
+}
+
+func TestNormalizeFieldsDedupes(t *testing.T) {
+	fields := []PlaceholderMetadata{
+		{CredimiID: "id-1", FieldLabel: "A", FieldType: TypeOfFieldTypeString},
+		{CredimiID: "id-1", FieldLabel: "B", FieldType: TypeOfFieldTypeObject},
+		{CredimiID: "id-2", FieldLabel: "C", FieldType: TypeOfFieldTypeString},
+	}
+	normalized := normalizeFields(fields)
+	if len(normalized) != 1 {
+		t.Fatalf("normalizeFields() len = %d, want 1", len(normalized))
+	}
+	if normalized[0]["credimi_id"] != "id-1" {
+		t.Fatalf("normalizeFields() credimi_id = %v, want id-1", normalized[0]["credimi_id"])
+	}
+}
+
+func TestSortSpecificFieldsStringFirst(t *testing.T) {
+	fields := map[string]interface{}{
+		"tmpl": map[string]interface{}{
+			"fields": []PlaceholderMetadata{
+				{FieldType: TypeOfFieldTypeObject, FieldID: "b"},
+				{FieldType: TypeOfFieldTypeString, FieldID: "a"},
+			},
+		},
+	}
+	sorted := sortSpecificFields(fields)
+	entry := sorted["tmpl"].(map[string]interface{})
+	phs := entry["fields"].([]PlaceholderMetadata)
+	if len(phs) != 2 || phs[0].FieldType != TypeOfFieldTypeString {
+		t.Fatalf("sortSpecificFields() did not move string fields first")
+	}
+}
 func TestGetPlaceholders_SingleTemplateSinglePlaceholder(t *testing.T) {
 	templateStr := `{{ credimi "{\"credimi_id\":\"id1\",\"field_id\":\"field1\",\"field_label\":\"label1\",\"field_description\":\"desc1\",\"field_default_value\":\"example1\",\"field_type\":\"string\",\"field_options\":[\"a\",\"b\"]}" }}`
 	reader := strings.NewReader(templateStr)

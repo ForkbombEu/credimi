@@ -26,9 +26,22 @@ import (
 
 const ZenroomTaskQueue = "ZenroomTaskQueue"
 
+type dockerClient interface {
+	ContainerRemove(ctx context.Context, containerID string, options container.RemoveOptions) error
+}
+
+var newDockerClient = func() (dockerClient, error) {
+	return dockerclient.NewClientWithOpts(
+		dockerclient.FromEnv,
+		dockerclient.WithAPIVersionNegotiation(),
+	)
+}
+
 type ZenroomWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
+
+var zenroomTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 type ZenroomWorkflowPayload struct {
 	Contract string `json:"contract" yaml:"contract" validate:"required"`
@@ -149,10 +162,7 @@ func (w *ZenroomWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	cli, err := dockerclient.NewClientWithOpts(
-		dockerclient.FromEnv,
-		dockerclient.WithAPIVersionNegotiation(),
-	)
+	cli, err := newDockerClient()
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.DockerClientCreationFailed]
 		appErr := workflowengine.NewAppError(errCode, err.Error())
@@ -244,9 +254,7 @@ func (w *ZenroomWorkflow) Start(
 	if input.Config["namespace"] != nil {
 		namespace = input.Config["namespace"].(string)
 	}
-	c, err := temporalclient.GetTemporalClientWithNamespace(
-		namespace,
-	)
+	c, err := zenroomTemporalClient(namespace)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, fmt.Errorf("unable to create client: %w", err)
 	}

@@ -138,6 +138,9 @@ type ReRunCheckRequest struct {
 
 var listChecksTemporalClient = temporalclient.GetTemporalClientWithNamespace
 var listChecksWorkflows = listChecksWorkflowsTemporal
+var checksTemporalClient = temporalclient.GetTemporalClientWithNamespace
+var checksGetWorkflowInput = getWorkflowInput
+var checksStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 
 func HandleListMyChecks() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -364,7 +367,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := checksTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -460,7 +463,7 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := checksTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -559,7 +562,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"missing organization",
 			).JSON(e)
 		}
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := checksTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -663,7 +666,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := checksTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -708,7 +711,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 				AsDuration(),
 		}
 
-		workflowInput, err := getWorkflowInput(checkID, runID, c)
+		workflowInput, err := checksGetWorkflowInput(checkID, runID, c)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -729,7 +732,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			}
 		}
 
-		result, err := workflowengine.StartWorkflowWithOptions(
+		result, err := checksStartWorkflowWithOptions(
 			namespace,
 			workflowOptions,
 			workflowName,
@@ -784,7 +787,7 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := checksTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -857,7 +860,7 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := checksTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -867,7 +870,7 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		workflowInput, err := getWorkflowInput(checkID, runID, c)
+		workflowInput, err := checksGetWorkflowInput(checkID, runID, c)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -1034,7 +1037,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := checksTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -1135,7 +1138,7 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := checksTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

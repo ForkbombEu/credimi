@@ -34,6 +34,8 @@ type WalletWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
+var walletStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+
 // WalletWorkflowPayload is a struct that represents the input payload for the WalletWorkflow.
 type WalletWorkflowPayload struct {
 	URL string `json:"url" yaml:"url" validate:"required"`
@@ -260,5 +262,5 @@ func (w *WalletWorkflow) Start(
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
-	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return walletStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }

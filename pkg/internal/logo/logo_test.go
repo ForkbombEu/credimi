@@ -287,7 +287,12 @@ func TestLogoHooks_WithUnsavedFiles(t *testing.T) {
 
 	fileData, err := io.ReadAll(r)
 	require.NoError(t, err)
-	require.Equal(t, []byte("manual upload data"), fileData, "Should preserve manually uploaded file data")
+	require.Equal(
+		t,
+		[]byte("manual upload data"),
+		fileData,
+		"Should preserve manually uploaded file data",
+	)
 
 	t.Logf("Test complete: LogoHooks skipped download when unsaved files exist")
 }
@@ -297,8 +302,13 @@ func TestDownloadImage_InvalidURL(t *testing.T) {
 
 	require.Error(t, err)
 	require.Nil(t, file)
-	require.True(t, strings.Contains(err.Error(), "create request") || strings.Contains(err.Error(), "download failed"),
-		"Error should mention request creation or download: %v", err)
+	require.True(
+		t,
+		strings.Contains(err.Error(), "create request") ||
+			strings.Contains(err.Error(), "download failed"),
+		"Error should mention request creation or download: %v",
+		err,
+	)
 }
 
 func TestDownloadImage_EmptyURL(t *testing.T) {
@@ -306,7 +316,12 @@ func TestDownloadImage_EmptyURL(t *testing.T) {
 
 	require.Error(t, err)
 	require.Nil(t, file)
-	require.Contains(t, err.Error(), "unsupported protocol scheme", "Error should mention protocol scheme for empty URL")
+	require.Contains(
+		t,
+		err.Error(),
+		"unsupported protocol scheme",
+		"Error should mention protocol scheme for empty URL",
+	)
 }
 
 func TestDownloadImage_MalformedURL(t *testing.T) {
@@ -314,7 +329,12 @@ func TestDownloadImage_MalformedURL(t *testing.T) {
 
 	require.Error(t, err)
 	require.Nil(t, file)
-	require.Contains(t, err.Error(), "unsupported protocol scheme", "Error should mention protocol scheme")
+	require.Contains(
+		t,
+		err.Error(),
+		"unsupported protocol scheme",
+		"Error should mention protocol scheme",
+	)
 }
 
 func TestDownloadImage_ContextInRequest(t *testing.T) {

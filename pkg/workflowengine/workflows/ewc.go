@@ -31,6 +31,8 @@ type EWCWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
+var ewcStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+
 type EWCWorkflowPayload struct {
 	SessionID string `json:"session_id" yaml:"session_id" validate:"required"`
 	UserMail  string `json:"user_mail"  yaml:"user_mail"  validate:"required"`
@@ -204,7 +206,7 @@ func (w *EWCWorkflow) Start(
 	if input.Config["namespace"] != nil {
 		namespace = input.Config["namespace"].(string)
 	}
-	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return ewcStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
 // EWCStatusWorkflow is a workflow that checks the status of an EWC check.

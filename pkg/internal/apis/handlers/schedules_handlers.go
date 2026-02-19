@@ -273,7 +273,7 @@ func HandleListMySchedules() func(*core.RequestEvent) error {
 }
 
 func listScheduledWorkflows(namespace string) ([]*ScheduleInfoSummary, error) {
-	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	c, err := scheduleTemporalClient(namespace)
 	if err != nil {
 		return nil, fmt.Errorf(
 			"unable to create Temporal client for namespace %q: %w",
@@ -455,7 +455,7 @@ func handleSchedule(
 			).JSON(e)
 		}
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := scheduleTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,

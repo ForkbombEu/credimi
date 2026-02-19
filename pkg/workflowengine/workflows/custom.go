@@ -24,6 +24,8 @@ type CustomCheckWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
+var customStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+
 type CustomCheckWorkflowPayload struct {
 	Yaml    string `json:"yaml,omitempty"     xoneof:"custom_check"`
 	CheckID string `json:"check_id,omitempty" xoneof:"custom_check"`
@@ -186,5 +188,5 @@ func (w *CustomCheckWorkflow) Start(
 		ID:        "custom" + "-" + uuid.NewString(),
 		TaskQueue: CustomCheckTaskQueue,
 	}
-	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return customStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }

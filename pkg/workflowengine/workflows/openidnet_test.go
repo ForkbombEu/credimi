@@ -6,6 +6,7 @@ package workflows
 
 import (
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/activity"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
@@ -283,4 +285,46 @@ func Test_LogSubWorkflow(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestOpenIDNetWorkflowStart(t *testing.T) {
+	origStart := openidnetStartWorkflowWithOptions
+	t.Cleanup(func() {
+		openidnetStartWorkflowWithOptions = origStart
+	})
+
+	var capturedNamespace string
+	var capturedOptions client.StartWorkflowOptions
+	var capturedName string
+	var capturedInput workflowengine.WorkflowInput
+
+	openidnetStartWorkflowWithOptions = func(
+		namespace string,
+		options client.StartWorkflowOptions,
+		name string,
+		input workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		capturedNamespace = namespace
+		capturedOptions = options
+		capturedName = name
+		capturedInput = input
+		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
+	}
+
+	w := NewOpenIDNetWorkflow()
+	input := workflowengine.WorkflowInput{
+		Config: map[string]any{
+			"namespace": "ns-1",
+		},
+	}
+	result, err := w.Start(input)
+	require.NoError(t, err)
+	require.Equal(t, "wf-1", result.WorkflowID)
+	require.Equal(t, "run-1", result.WorkflowRunID)
+	require.Equal(t, "ns-1", capturedNamespace)
+	require.Equal(t, w.Name(), capturedName)
+	require.Equal(t, input, capturedInput)
+	require.Equal(t, OpenIDNetTaskQueue, capturedOptions.TaskQueue)
+	require.True(t, strings.HasPrefix(capturedOptions.ID, "OpenIDNetCheckWorkflow"))
+	require.Equal(t, 24*time.Hour, capturedOptions.WorkflowExecutionTimeout)
 }

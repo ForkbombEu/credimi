@@ -108,6 +108,11 @@ func TestMobileRunnerSemaphoreWorkflowFIFO(t *testing.T) {
 	require.Greater(t, p3.QueueWaitMs, int64(0))
 }
 
+func TestMobileRunnerSemaphoreWorkflowGetOptions(t *testing.T) {
+	w := NewMobileRunnerSemaphoreWorkflow()
+	require.Equal(t, DefaultActivityOptions, w.GetOptions())
+}
+
 func TestMobileRunnerSemaphoreWorkflowAcquireIdempotent(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

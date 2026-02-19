@@ -131,6 +131,11 @@ func RunCommandWithCancellation(
 			return ctx.Err()
 
 		case err := <-done:
+			// If cancellation already happened, prefer returning the context error
+			// instead of a process wait error to make cancellation semantics stable.
+			if ctx.Err() != nil {
+				return ctx.Err()
+			}
 			return err
 
 		case <-ticker.C:

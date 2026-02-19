@@ -211,6 +211,7 @@ func extractCredimiJSON(yamlContent string) (string, error) {
 		`\{\{\s*credimi\s*` + "`" + `([\s\S]*?)` + "`" + `\s*([a-zA-Z0-9_]+)?\s*\}\}`,
 	)
 	var firstErr error
+	changed := false
 
 	extracted := re.ReplaceAllStringFunc(yamlContent, func(match string) string {
 		sub := re.FindStringSubmatch(match)
@@ -236,8 +237,13 @@ func extractCredimiJSON(yamlContent string) (string, error) {
 		}
 
 		result, _ := json.Marshal(obj)
+		changed = true
 		return string(result)
 	})
+
+	if !changed {
+		return extracted, firstErr
+	}
 
 	if re.MatchString(extracted) {
 		return extractCredimiJSON(extracted)

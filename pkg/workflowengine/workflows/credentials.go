@@ -38,6 +38,8 @@ type CredentialsIssuersWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
+var credentialsStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+
 // CredentialsIssuersWorkflowPayload is the payload for the CredentialsIssuersWorkflow.
 type CredentialsIssuersWorkflowPayload struct {
 	BaseURL  string `json:"base_url"  yaml:"base_url"  validate:"required"`
@@ -366,7 +368,7 @@ func (w *CredentialsIssuersWorkflow) Start(
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
 
-	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return credentialsStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
 // GetCredentialOfferWorkflow is a workflow that gets a credential offer from a stored credential.
