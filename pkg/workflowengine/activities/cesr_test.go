@@ -8,6 +8,7 @@ package activities
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -226,4 +227,42 @@ func TestCESRValidate_Execute(t *testing.T) {
 			}
 		})
 	}
+}
+func TestCESRParsingActivityErrors(t *testing.T) {
+	activity := NewCESRParsingActivity()
+
+	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{})
+	require.Error(t, err)
+
+	_, err = activity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: CESRParsingActivityPayload{RawCESR: `{"v":"KERI10JSON000001_"`},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.CESRParsingError].Code)
+}
+
+func TestCESRValidateActivitySuccessAndFailure(t *testing.T) {
+	dir := t.TempDir()
+	binPath := filepath.Join(dir, "et-tu-cesr")
+
+	script := []byte(
+		"#!/bin/sh\nif [ \"$1\" = \"validate-parsed-credentials\" ]; then echo OK; echo ERR 1>&2; exit 0; fi\nexit 1\n",
+	)
+	require.NoError(t, os.WriteFile(binPath, script, 0o755))
+	t.Setenv("BIN", dir)
+
+	activity := NewCESRValidateActivity()
+	result, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: CesrValidateActivityPayload{Events: "events"},
+	})
+	require.NoError(t, err)
+	require.Equal(t, "OK\n", result.Output)
+	require.Equal(t, []string{"ERR\n"}, result.Log)
+
+	require.NoError(t, os.WriteFile(binPath, []byte("#!/bin/sh\nexit 2\n"), 0o755))
+	_, err = activity.Execute(context.Background(), workflowengine.ActivityInput{
+		Payload: CesrValidateActivityPayload{Events: "events"},
+	})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.CommandExecutionFailed].Code)
 }

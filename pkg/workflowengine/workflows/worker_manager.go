@@ -22,6 +22,8 @@ type WorkerManagerWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
+var workerManagerStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+
 // WorkerManagerWorkflowPayload is the payload for the worker manager workflow.
 type WorkerManagerWorkflowPayload struct {
 	Namespace    string `json:"namespace"               yaml:"namespace"               validate:"required"`
@@ -163,5 +165,5 @@ func (w *WorkerManagerWorkflow) Start(
 		ID:        "worker-manager" + "-" + uuid.NewString(),
 		TaskQueue: WorkerManagerTaskQueue,
 	}
-	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return workerManagerStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }

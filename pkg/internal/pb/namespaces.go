@@ -20,6 +20,14 @@ import (
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
+var (
+	newNamespaceClient          = client.NewNamespaceClient
+	waitForNamespaceReadyFn     = waitForNamespaceReady
+	startWorkersByNamespaceFn   = hooks.StartAllWorkersByNamespace
+	ensureNamespaceAndWorkersFn = ensureNamespaceAndWorkers
+	startWorkerManagerFn        = hooks.StartWorkerManagerWorkflow
+)
+
 // HookNamespaceOrgs sets up hooks for the "organizations" collection.
 // - After create → ensure namespace + start workers
 // - After update → stop workers for old namespace, ensure namespace + start workers for new one
@@ -27,8 +35,8 @@ func HookNamespaceOrgs(app *pocketbase.PocketBase) {
 	app.OnRecordAfterCreateSuccess("organizations").BindFunc(func(e *core.RecordEvent) error {
 		orgName := e.Record.GetString("canonified_name")
 		if orgName != "" {
-			ensureNamespaceAndWorkers(orgName)
-			hooks.StartWorkerManagerWorkflow(app, orgName, "")
+			ensureNamespaceAndWorkersFn(orgName)
+			startWorkerManagerFn(app, orgName, "")
 		}
 
 		return e.Next()
@@ -45,8 +53,8 @@ func HookNamespaceOrgs(app *pocketbase.PocketBase) {
 		// Stop workers for old namespace
 		go hooks.StopAllWorkersByNamespace(oldName)
 
-		ensureNamespaceAndWorkers(newName)
-		hooks.StartWorkerManagerWorkflow(app, newName, oldName)
+		ensureNamespaceAndWorkersFn(newName)
+		startWorkerManagerFn(app, newName, oldName)
 		log.Printf("Moved workers from namespace %s to %s", oldName, newName)
 		return e.Next()
 	})
@@ -57,7 +65,7 @@ func HookNamespaceOrgs(app *pocketbase.PocketBase) {
 // It then starts all workers for that namespace in a goroutine.
 func ensureNamespaceAndWorkers(namespace string) {
 	hostPort := utils.GetEnvironmentVariable("TEMPORAL_ADDRESS", client.DefaultHostPort)
-	c, err := client.NewNamespaceClient(client.Options{
+	c, err := newNamespaceClient(client.Options{
 		HostPort: hostPort,
 		ConnectionOptions: client.ConnectionOptions{
 			TLS: nil,
@@ -91,12 +99,12 @@ func ensureNamespaceAndWorkers(namespace string) {
 	if !created {
 		return
 	}
-	if err := waitForNamespaceReady(c, namespace, 90*time.Second); err != nil {
+	if err := waitForNamespaceReadyFn(c, namespace, 90*time.Second); err != nil {
 		log.Printf("Namespace %s not ready after retries: %v", namespace, err)
 		return
 	}
 
-	go hooks.StartAllWorkersByNamespace(namespace)
+	go startWorkersByNamespaceFn(namespace)
 }
 
 func waitForNamespaceReady(

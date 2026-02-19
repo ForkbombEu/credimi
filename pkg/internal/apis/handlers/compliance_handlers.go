@@ -92,6 +92,12 @@ var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
 	AuthenticationRequired: true,
 }
 
+// complianceTemporalClient resolves Temporal clients for compliance handlers.
+var complianceTemporalClient = temporalclient.GetTemporalClientWithNamespace
+
+// complianceNotifyLogsUpdate allows tests to bypass realtime notifications.
+var complianceNotifyLogsUpdate = notifyLogsUpdate
+
 func HandleGetWorkflowsHistory() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
@@ -254,7 +260,7 @@ func getWorkflowExecutionWithFallback(
 func fetchWorkflowExecution(
 	namespace, workflowID, runID string,
 ) (*workflowservice.DescribeWorkflowExecutionResponse, error) {
-	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	c, err := complianceTemporalClient(namespace)
 	if err != nil {
 		return nil, fmt.Errorf("get client for namespace %q: %w", namespace, err)
 	}
@@ -300,7 +306,7 @@ func getWorkflowHistoryWithFallback(
 }
 
 func fetchWorkflowHistory(namespace, workflowID, runID string) ([]map[string]interface{}, error) {
-	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+	c, err := complianceTemporalClient(namespace)
 	if err != nil {
 		return nil, fmt.Errorf("get client for namespace %q: %w", namespace, err)
 	}
@@ -375,7 +381,7 @@ func HandleGetWorkflowResult() func(*core.RequestEvent) error {
 			)
 		}
 
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := complianceTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -447,7 +453,7 @@ func HandleSendTemporalSignal() func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		c, err := temporalclient.GetTemporalClientWithNamespace(req.Namespace)
+		c, err := complianceTemporalClient(req.Namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -482,7 +488,7 @@ func sendRealtimeLogs(suiteSubscription string) func(*core.RequestEvent) error {
 		if err != nil {
 			return err
 		}
-		if err := notifyLogsUpdate(e.App, req.WorkflowID+suiteSubscription, req.Logs); err != nil {
+		if err := complianceNotifyLogsUpdate(e.App, req.WorkflowID+suiteSubscription, req.Logs); err != nil {
 			return apierror.New(
 				http.StatusBadRequest,
 				"workflow",
@@ -572,7 +578,7 @@ func sendOpenIDNetLogUpdateStart(
 			if logsInterface, ok := result.Log.([]any); ok {
 				logs := workflowengine.AsSliceOfMaps(logsInterface)
 				id := strings.TrimSuffix(input.WorkflowID, "-log")
-				if err := notifyLogsUpdate(app, id+workflows.OpenIDNetSubscription, logs); err != nil {
+				if err := complianceNotifyLogsUpdate(app, id+workflows.OpenIDNetSubscription, logs); err != nil {
 					return apierror.New(
 						http.StatusBadRequest,
 						"workflow",
@@ -645,7 +651,7 @@ func HandleDeeplink() func(*core.RequestEvent) error {
 				"missing organization",
 			).JSON(e)
 		}
-		c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
+		c, err := complianceTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -784,6 +790,8 @@ func handleDeeplinkFromHistory(
 						return getDeeplinkOpenIDConformanceSuite(e, first)
 					case "ewc":
 						return getDeeplinkEWC(e, first)
+					case "webuild":
+						return getDeeplinkEWC(e, first)
 					case "eudiw":
 						return getDeeplinkEudiw(e, first)
 					default:
@@ -792,7 +800,7 @@ func handleDeeplinkFromHistory(
 							"protocol",
 							"unsupported suite",
 							fmt.Sprintf(
-								"author is %q, expected openid_conformance_suite, ewc or eudiw",
+								"author is %q, expected openid_conformance_suite, ewc, webuild or eudiw",
 								author,
 							),
 						).JSON(e)

@@ -5,6 +5,7 @@
 package workflows
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/testsuite"
 )
 
@@ -171,4 +173,45 @@ func Test_EudiwWorkflow(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestEudiwWorkflowStart(t *testing.T) {
+	origStart := eudiwStartWorkflowWithOptions
+	t.Cleanup(func() {
+		eudiwStartWorkflowWithOptions = origStart
+	})
+
+	var capturedNamespace string
+	var capturedOptions client.StartWorkflowOptions
+	var capturedName string
+
+	eudiwStartWorkflowWithOptions = func(
+		namespace string,
+		options client.StartWorkflowOptions,
+		name string,
+		_ workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		capturedNamespace = namespace
+		capturedOptions = options
+		capturedName = name
+		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
+	}
+
+	w := NewEudiwWorkflow()
+	input := workflowengine.WorkflowInput{Config: map[string]any{"namespace": "ns-1"}}
+	result, err := w.Start(input)
+	require.NoError(t, err)
+	require.Equal(t, "wf-1", result.WorkflowID)
+	require.Equal(t, "run-1", result.WorkflowRunID)
+	require.Equal(t, "ns-1", capturedNamespace)
+	require.Equal(t, w.Name(), capturedName)
+	require.Equal(t, EudiwTaskQueue, capturedOptions.TaskQueue)
+	require.True(t, strings.HasPrefix(capturedOptions.ID, "EudiWWorkflow"))
+}
+
+func TestBuildQRDeepLinkSuccess(t *testing.T) {
+	link, err := BuildQRDeepLink("client-1", "https://req.example")
+	require.NoError(t, err)
+	require.Contains(t, link, "client_id=client-1")
+	require.Contains(t, link, "request_uri=")
 }

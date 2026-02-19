@@ -151,6 +151,270 @@ func TestRegisterRoutesWithValidation_RequireAuth(t *testing.T) {
 	require.False(t, handlerCalled.Load())
 }
 
+func TestRegisterRoutesWithValidation_MethodCoverage(t *testing.T) {
+	app, err := tests.NewTestApp()
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	var putCalled atomic.Bool
+	var patchCalled atomic.Bool
+	var deleteCalled atomic.Bool
+	var getCalled atomic.Bool
+	var headCalled atomic.Bool
+	var optionsCalled atomic.Bool
+	var unsupportedCalled atomic.Bool
+
+	routes := []RouteDefinition{
+		{
+			Method:        http.MethodPut,
+			Path:          "/put",
+			RequestSchema: samplePayload{},
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					putCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+		{
+			Method:        http.MethodPatch,
+			Path:          "/patch",
+			RequestSchema: samplePayload{},
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					patchCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+		{
+			Method:        http.MethodDelete,
+			Path:          "/delete",
+			RequestSchema: samplePayload{},
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					deleteCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+		{
+			Method: http.MethodGet,
+			Path:   "/get",
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					getCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+		{
+			Method: http.MethodHead,
+			Path:   "/head",
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					headCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+		{
+			Method: http.MethodOptions,
+			Path:   "/options",
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					optionsCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+		{
+			Method: "TRACE",
+			Path:   "/unsupported",
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					unsupportedCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+	}
+
+	r := router.NewRouter(
+		func(w http.ResponseWriter, req *http.Request) (*core.RequestEvent, router.EventCleanupFunc) {
+			return &core.RequestEvent{
+				App:   app,
+				Event: router.Event{Response: w, Request: req},
+			}, nil
+		},
+	)
+
+	RegisterRoutesWithValidation(app, r.RouterGroup, routes, false)
+	mux, err := r.BuildMux()
+	require.NoError(t, err)
+
+	for _, path := range []string{"/put", "/patch", "/delete"} {
+		req := httptest.NewRequest(http.MethodPost, path, bytes.NewBufferString(`{}`))
+		req.Method = map[string]string{
+			"/put":    http.MethodPut,
+			"/patch":  http.MethodPatch,
+			"/delete": http.MethodDelete,
+		}[path]
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+		mux.ServeHTTP(res, req)
+		require.Equal(t, http.StatusBadRequest, res.Code)
+	}
+
+	res := httptest.NewRecorder()
+	mux.ServeHTTP(res, httptest.NewRequest(http.MethodGet, "/get", nil))
+	require.Equal(t, http.StatusNoContent, res.Code)
+	require.True(t, getCalled.Load())
+
+	res = httptest.NewRecorder()
+	mux.ServeHTTP(res, httptest.NewRequest(http.MethodHead, "/head", nil))
+	require.Equal(t, http.StatusNoContent, res.Code)
+	require.True(t, headCalled.Load())
+
+	res = httptest.NewRecorder()
+	mux.ServeHTTP(res, httptest.NewRequest(http.MethodOptions, "/options", nil))
+	require.Equal(t, http.StatusNoContent, res.Code)
+	require.True(t, optionsCalled.Load())
+
+	res = httptest.NewRecorder()
+	mux.ServeHTTP(res, httptest.NewRequest(http.MethodTrace, "/unsupported", nil))
+	require.Equal(t, http.StatusNotFound, res.Code)
+	require.False(t, unsupportedCalled.Load())
+
+	require.False(t, putCalled.Load())
+	require.False(t, patchCalled.Load())
+	require.False(t, deleteCalled.Load())
+}
+
+func TestRegisterRoutesWithoutValidation_MethodCoverage(t *testing.T) {
+	app, err := tests.NewTestApp()
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	var postCalled atomic.Bool
+	var getCalled atomic.Bool
+	var putCalled atomic.Bool
+	var patchCalled atomic.Bool
+	var deleteCalled atomic.Bool
+	var unsupportedCalled atomic.Bool
+
+	routes := []RouteDefinition{
+		{
+			Method:        http.MethodPost,
+			Path:          "/post",
+			RequestSchema: samplePayload{},
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					postCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+		{
+			Method: http.MethodGet,
+			Path:   "/get",
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					getCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+		{
+			Method:        http.MethodPut,
+			Path:          "/put",
+			RequestSchema: samplePayload{},
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					putCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+		{
+			Method:        http.MethodPatch,
+			Path:          "/patch",
+			RequestSchema: samplePayload{},
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					patchCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+		{
+			Method:        http.MethodDelete,
+			Path:          "/delete",
+			RequestSchema: samplePayload{},
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					deleteCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+		{
+			Method: "TRACE",
+			Path:   "/unsupported",
+			Handler: func() func(*core.RequestEvent) error {
+				return func(e *core.RequestEvent) error {
+					unsupportedCalled.Store(true)
+					return e.NoContent(http.StatusNoContent)
+				}
+			},
+		},
+	}
+
+	r := router.NewRouter(
+		func(w http.ResponseWriter, req *http.Request) (*core.RequestEvent, router.EventCleanupFunc) {
+			return &core.RequestEvent{
+				App:   app,
+				Event: router.Event{Response: w, Request: req},
+			}, nil
+		},
+	)
+
+	RegisterRoutesWithoutValidation(app, r.RouterGroup, routes)
+	mux, err := r.BuildMux()
+	require.NoError(t, err)
+
+	requests := []struct {
+		method string
+		path   string
+	}{
+		{method: http.MethodPost, path: "/post"},
+		{method: http.MethodGet, path: "/get"},
+		{method: http.MethodPut, path: "/put"},
+		{method: http.MethodPatch, path: "/patch"},
+		{method: http.MethodDelete, path: "/delete"},
+	}
+
+	for _, tc := range requests {
+		body := bytes.NewBufferString(`{}`)
+		req := httptest.NewRequest(tc.method, tc.path, body)
+		req.Header.Set("Content-Type", "application/json")
+		res := httptest.NewRecorder()
+		mux.ServeHTTP(res, req)
+		require.Equalf(t, http.StatusNoContent, res.Code, "unexpected status for %s %s", tc.method, tc.path)
+	}
+
+	res := httptest.NewRecorder()
+	mux.ServeHTTP(res, httptest.NewRequest(http.MethodTrace, "/unsupported", nil))
+	require.Equal(t, http.StatusNotFound, res.Code)
+	require.False(t, unsupportedCalled.Load())
+
+	require.True(t, postCalled.Load())
+	require.True(t, getCalled.Load())
+	require.True(t, putCalled.Load())
+	require.True(t, patchCalled.Load())
+	require.True(t, deleteCalled.Load())
+}
+
 type requestEventRecorder struct {
 	Event    *core.RequestEvent
 	Recorder *httptest.ResponseRecorder

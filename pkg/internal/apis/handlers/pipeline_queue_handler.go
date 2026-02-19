@@ -76,6 +76,7 @@ var ensureRunQueueSemaphoreWorkflow = ensureRunQueueSemaphoreWorkflowTemporal
 var enqueueRunTicket = enqueueRunTicketTemporal
 var queryRunTicketStatus = queryRunTicketStatusTemporal
 var cancelRunTicket = cancelRunTicketTemporal
+var queueTemporalClient = temporalclient.GetTemporalClientWithNamespace
 
 // startPipelineWorkflow starts a pipeline workflow and is stubbed in unit tests.
 var startPipelineWorkflow = startPipelineWorkflowTemporal
@@ -713,7 +714,7 @@ func copyStringSlice(values []string) []string {
 }
 
 func ensureRunQueueSemaphoreWorkflowTemporal(ctx context.Context, runnerID string) error {
-	client, err := temporalclient.GetTemporalClientWithNamespace(
+	client, err := queueTemporalClient(
 		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
 	)
 	if err != nil {
@@ -749,7 +750,7 @@ func enqueueRunTicketTemporal(
 	runnerID string,
 	req workflows.MobileRunnerSemaphoreEnqueueRunRequest,
 ) (workflows.MobileRunnerSemaphoreEnqueueRunResponse, error) {
-	client, err := temporalclient.GetTemporalClientWithNamespace(
+	client, err := queueTemporalClient(
 		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
 	)
 	if err != nil {
@@ -781,7 +782,7 @@ func queryRunTicketStatusTemporal(
 	ownerNamespace string,
 	ticketID string,
 ) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
-	client, err := temporalclient.GetTemporalClientWithNamespace(
+	client, err := queueTemporalClient(
 		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
 	)
 	if err != nil {
@@ -817,7 +818,7 @@ func cancelRunTicketTemporal(
 	runnerID string,
 	req workflows.MobileRunnerSemaphoreRunCancelRequest,
 ) (workflows.MobileRunnerSemaphoreRunStatusView, error) {
-	client, err := temporalclient.GetTemporalClientWithNamespace(
+	client, err := queueTemporalClient(
 		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
 	)
 	if err != nil {

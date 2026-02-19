@@ -88,10 +88,23 @@ func HandleGetConformanceCheckDeeplink() func(*core.RequestEvent) error {
 				MaximumAttempts:    1},
 		}
 
-		// only EWC suite is supported
+		var templateFolder string
+		switch suite {
+		case workflows.EWCSuite:
+			templateFolder = workflows.EWCTemplateFolderPath
+		case workflows.WebuildSuite:
+			templateFolder = workflows.WebuildTemplateFolderPath
+		default:
+			return apierror.New(
+				http.StatusBadRequest,
+				"suite",
+				"unsupported suite",
+				"only ewc and webuild suites are supported",
+			).JSON(e)
+		}
 		templatePath := filepath.Join(
 			utils.GetEnvironmentVariable("ROOT_DIR", true),
-			workflows.EWCTemplateFolderPath,
+			templateFolder,
 			checkName+".yaml",
 		)
 		// Validation: checkName must not contain path separators

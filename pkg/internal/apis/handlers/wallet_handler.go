@@ -30,6 +30,19 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
 
+type walletWorkflowStarter interface {
+	Start(
+		namespace string,
+		input workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error)
+}
+
+var (
+	walletTemporalClient       = temporalclient.GetTemporalClientWithNamespace
+	walletWorkflowFactory      = func() walletWorkflowStarter { return workflows.NewWalletWorkflow() }
+	walletWaitForPartialResult = workflowengine.WaitForPartialResult[map[string]any]
+)
+
 var WalletRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/wallet",
 	AuthenticationRequired: true,
@@ -118,7 +131,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				URL: req.URL,
 			},
 		}
-		w := workflows.NewWalletWorkflow()
+		w := walletWorkflowFactory()
 		workflowInfo, err := w.Start(orgName, workflowInput)
 		if err != nil {
 			return apierror.New(
@@ -128,7 +141,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		client, err := temporalclient.GetTemporalClientWithNamespace(
+		client, err := walletTemporalClient(
 			orgName,
 		)
 		if err != nil {
@@ -139,7 +152,7 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		result, err := workflowengine.WaitForPartialResult[map[string]any](
+		result, err := walletWaitForPartialResult(
 			client,
 			workflowInfo.WorkflowID,
 			workflowInfo.WorkflowRunID,

@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/swaggest/openapi-go/openapi3"
@@ -119,4 +120,41 @@ func findParam(
 		}
 	}
 	return nil
+}
+
+func TestNeedsAuth(t *testing.T) {
+	require.False(t, needsAuth(false, nil))
+	require.False(t, needsAuth(true, []string{apis.DefaultRequireAuthMiddlewareId}))
+	require.True(t, needsAuth(true, []string{"other"}))
+}
+
+func TestExportNameAndParamFieldName(t *testing.T) {
+	require.Equal(t, "Param", exportName(""))
+	require.Equal(t, "Param", exportName("!!!"))
+	require.Equal(t, "FooBarBaz", exportName("foo_bar-baz"))
+	require.Equal(t, "1abc", exportName("1abc"))
+	require.Equal(t, "QueryFoo", paramFieldName("Query", "foo"))
+}
+
+func TestUniqueFieldName(t *testing.T) {
+	used := map[string]struct{}{}
+	require.Equal(t, "Field", uniqueFieldName("Field", used))
+	require.Equal(t, "Field2", uniqueFieldName("Field", used))
+	used["Field3"] = struct{}{}
+	require.Equal(t, "Field4", uniqueFieldName("Field", used))
+}
+
+func TestBuildTagAndSanitize(t *testing.T) {
+	tag := buildTag("json", "a`b\"c", true, "line1\nline2")
+	require.Contains(t, string(tag), `json:"ab'c"`)
+	require.Contains(t, string(tag), `required:"true"`)
+	require.Contains(t, string(tag), `description:"line1 line2"`)
+}
+
+func TestPathHelpers(t *testing.T) {
+	require.True(t, isPathParam("{id}"))
+	require.False(t, isPathParam("id"))
+	require.Equal(t, []string{"id", "name"}, extractPathParams("/things/{id}/sub/{name}"))
+	require.Equal(t, "/", joinOpenAPIPath("/"))
+	require.Equal(t, "/api/v1/items", joinOpenAPIPath("/api/", "/v1/", "/items/"))
 }

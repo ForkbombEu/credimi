@@ -164,9 +164,7 @@ func processCustomChecks(
 		},
 	}
 
-	w := workflows.NewCustomCheckWorkflow()
-
-	results, errStart := w.Start(namespace, input)
+	results, errStart := customCheckWorkflowStart(namespace, input)
 	if errStart != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,

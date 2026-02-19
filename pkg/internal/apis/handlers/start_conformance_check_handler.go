@@ -74,10 +74,38 @@ type WorkflowStarter func(params WorkflowStarterParams) (workflowengine.Workflow
 
 var workflowRegistry = map[Author]WorkflowStarter{
 	"ewc":                      startEWCWorkflow,
+	"webuild":                  startWebuildWorkflow,
 	"openid_conformance_suite": startOpenIDNetWorkflow,
 	"eudiw":                    startEudiwWorkflow,
 	"vlei":                     startvLEIWorkflow,
 }
+
+var (
+	openIDNetWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewOpenIDNetWorkflow()
+		return w.Start(input)
+	}
+	ewcWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewEWCWorkflow()
+		return w.Start(input)
+	}
+	webuildWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewWebuildWorkflow()
+		return w.Start(input)
+	}
+	eudiwWorkflowStart = func(input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewEudiwWorkflow()
+		return w.Start(input)
+	}
+	vleiWorkflowStart = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewVLEIValidationWorkflow()
+		return w.Start(namespace, input)
+	}
+	customCheckWorkflowStart = func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+		w := workflows.NewCustomCheckWorkflow()
+		return w.Start(namespace, input)
+	}
+)
 
 func HandleSaveVariablesAndStart() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -368,8 +396,7 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 			"user_name": i.UserName,
 		},
 	}
-	w := workflows.NewOpenIDNetWorkflow()
-	results, err := w.Start(input)
+	results, err := openIDNetWorkflowStart(input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
@@ -383,25 +410,42 @@ func startOpenIDNetWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowRes
 }
 
 func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
-	yamlData := i.YAMLData
-	email := i.Email
-	appURL := i.AppURL
-	namespace := i.Namespace
-	memo := i.Memo
-	protocol := i.Protocol
-	testName := i.TestName
-	filename := strings.TrimPrefix(
-		strings.TrimSuffix(testName, filepath.Ext(testName))+".yaml",
-		"ewc",
+	return startEWCLikeWorkflow(
+		i,
+		workflows.EWCSuite,
+		workflows.EWCTemplateFolderPath,
+		ewcWorkflowStart,
 	)
+}
+
+func startWebuildWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, error) {
+	return startEWCLikeWorkflow(
+		i,
+		workflows.WebuildSuite,
+		workflows.WebuildTemplateFolderPath,
+		webuildWorkflowStart,
+	)
+}
+
+func startEWCLikeWorkflow(
+	i WorkflowStarterParams,
+	suite string,
+	templateFolderPath string,
+	starter func(workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error),
+) (workflowengine.WorkflowResult, error) {
+	filename := strings.TrimPrefix(
+		strings.TrimSuffix(i.TestName, filepath.Ext(i.TestName))+".yaml",
+		suite,
+	)
+	filename = strings.TrimPrefix(filename, "/")
 	templateStr, err := readTemplateFile(
-		os.Getenv("ROOT_DIR") + "/" + workflows.EWCTemplateFolderPath + filename,
+		filepath.Join(os.Getenv("ROOT_DIR"), templateFolderPath, filename),
 	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
 	var parsedData EWCInput
-	if err := yaml.Unmarshal([]byte(yamlData), &parsedData); err != nil {
+	if err := yaml.Unmarshal([]byte(i.YAMLData), &parsedData); err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"yaml",
@@ -409,38 +453,34 @@ func startEWCWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, e
 			err.Error(),
 		)
 	}
-	var checkEndpoint string
-	switch protocol {
-	case "openid4vp_wallet":
-		checkEndpoint = "https://ewc.api.forkbomb.eu/verificationStatus"
-	case "openid4vci_wallet":
-		checkEndpoint = "https://ewc.api.forkbomb.eu/issueStatus"
-	default:
+
+	checkEndpoint, err := workflows.ResolveEWCLikeCheckEndpoint(suite, i.Protocol)
+	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
 			"protocol",
-			fmt.Sprintf("unsupported protocol %s for EWC suite", protocol),
+			err.Error(),
 			"unsupported protocol",
 		)
 	}
+
 	input := workflowengine.WorkflowInput{
 		Payload: workflows.EWCWorkflowPayload{
 			SessionID: parsedData.SessionID,
-			UserMail:  email,
+			UserMail:  i.Email,
 		},
 		Config: map[string]any{
-			"app_url":        appURL,
+			"app_url":        i.AppURL,
 			"template":       templateStr,
-			"namespace":      namespace,
-			"memo":           memo,
+			"namespace":      i.Namespace,
+			"memo":           i.Memo,
 			"check_endpoint": checkEndpoint,
 			"app_name":       i.AppName,
 			"app_logo":       i.LogoUrl,
 			"user_name":      i.UserName,
 		},
 	}
-	w := workflows.NewEWCWorkflow()
-	results, err := w.Start(input)
+	results, err := starter(input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
@@ -495,8 +535,7 @@ func startEudiwWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult,
 			"user_name": i.UserName,
 		},
 	}
-	w := workflows.NewEudiwWorkflow()
-	results, err := w.Start(input)
+	results, err := eudiwWorkflowStart(input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,
@@ -566,8 +605,7 @@ func startvLEIWorkflow(i WorkflowStarterParams) (workflowengine.WorkflowResult, 
 		},
 	}
 
-	w := workflows.NewVLEIValidationWorkflow()
-	results, err := w.Start(namespace, input)
+	results, err := vleiWorkflowStart(namespace, input)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, apierror.New(
 			http.StatusBadRequest,

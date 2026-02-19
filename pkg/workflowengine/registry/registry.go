@@ -134,6 +134,10 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		Kind:    TaskWorkflow,
 		NewFunc: func() any { return workflows.NewEWCStatusWorkflow() },
 	},
+	"webuild-status": {
+		Kind:    TaskWorkflow,
+		NewFunc: func() any { return workflows.NewWebuildStatusWorkflow() },
+	},
 	"check-file-exists": {
 		Kind:       TaskActivity,
 		NewFunc:    func() any { return activities.NewCheckFileExistsActivity() },

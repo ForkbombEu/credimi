@@ -46,6 +46,8 @@ type OpenIDNetWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
+var openidnetStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+
 // OpenIDNetWorkflowPayload represents the payload for the OpenIDNetWorkflow.
 type OpenIDNetWorkflowPayload struct {
 	Variant  string `json:"variant"   yaml:"variant"   validate:"required"`
@@ -266,7 +268,7 @@ func (w *OpenIDNetWorkflow) Start(
 	if input.Config["namespace"] != nil {
 		namespace = input.Config["namespace"].(string)
 	}
-	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return openidnetStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
 // OpenIDNetLogsWorkflow is a workflow that drains logs from the OpenID certification site.

@@ -5,6 +5,7 @@
 package workflows
 
 import (
+	"strings"
 	"testing"
 	"time"
 
@@ -14,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/testsuite"
 )
 
@@ -184,17 +186,25 @@ func Test_EWCStatusWorkflow(t *testing.T) {
 		expectRunning  bool
 		expectedErr    bool
 		expectedCancel bool
+		expectedLog    map[string]any
 	}{
 		{
 			name: "Workflow completes when status is success",
 			mockResponse: workflowengine.ActivityResult{Output: map[string]any{
 				"body": map[string]any{
 					"status": "success",
-					"claims": []string{"claim1", "claim2"},
+					"claims": map[string]any{
+						"claim1": "value-1",
+						"claim2": "value-2",
+					},
 				},
 			}},
 			expectRunning: false,
 			expectedErr:   false,
+			expectedLog: map[string]any{
+				"claim1": "value-1",
+				"claim2": "value-2",
+			},
 		},
 		{
 			name: "Workflow keeps polling when status is pending",
@@ -293,9 +303,113 @@ func Test_EWCStatusWorkflow(t *testing.T) {
 				} else {
 					require.NoError(t, env.GetWorkflowResult(&result))
 					require.NotEmpty(t, result.Message)
+					if tc.expectedLog != nil {
+						require.Equal(t, tc.expectedLog, result.Log)
+					}
 				}
 				require.GreaterOrEqual(t, callCount, 1)
 			}
+		})
+	}
+}
+
+func TestEWCWorkflowStart(t *testing.T) {
+	origStart := ewcStartWorkflowWithOptions
+	t.Cleanup(func() {
+		ewcStartWorkflowWithOptions = origStart
+	})
+
+	var capturedNamespace string
+	var capturedOptions client.StartWorkflowOptions
+	var capturedName string
+	var capturedInput workflowengine.WorkflowInput
+
+	ewcStartWorkflowWithOptions = func(
+		namespace string,
+		options client.StartWorkflowOptions,
+		name string,
+		input workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		capturedNamespace = namespace
+		capturedOptions = options
+		capturedName = name
+		capturedInput = input
+		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
+	}
+
+	w := NewEWCWorkflow()
+	input := workflowengine.WorkflowInput{
+		Config: map[string]any{
+			"namespace": "ns-1",
+		},
+	}
+	result, err := w.Start(input)
+	require.NoError(t, err)
+	require.Equal(t, "wf-1", result.WorkflowID)
+	require.Equal(t, "run-1", result.WorkflowRunID)
+	require.Equal(t, "ns-1", capturedNamespace)
+	require.Equal(t, w.Name(), capturedName)
+	require.Equal(t, input, capturedInput)
+	require.Equal(t, EWCTaskQueue, capturedOptions.TaskQueue)
+	require.True(t, strings.HasPrefix(capturedOptions.ID, "EWCWorkflow"))
+	require.Equal(t, 24*time.Hour, capturedOptions.WorkflowExecutionTimeout)
+}
+
+func TestResolveEWCLikeCheckEndpoint(t *testing.T) {
+	testCases := []struct {
+		name      string
+		suite     string
+		standard  string
+		want      string
+		expectErr bool
+	}{
+		{
+			name:     "ewc openid4vp endpoint",
+			suite:    EWCSuite,
+			standard: "openid4vp_wallet",
+			want:     "https://ewc.api.forkbomb.eu/verificationStatus",
+		},
+		{
+			name:     "ewc openid4vci endpoint",
+			suite:    EWCSuite,
+			standard: "openid4vci_wallet",
+			want:     "https://ewc.api.forkbomb.eu/issueStatus",
+		},
+		{
+			name:     "webuild openid4vp endpoint",
+			suite:    WebuildSuite,
+			standard: "openid4vp_wallet",
+			want:     "https://webuild.api.forkbomb.eu/verificationStatus",
+		},
+		{
+			name:     "webuild openid4vci endpoint",
+			suite:    WebuildSuite,
+			standard: "openid4vci_wallet",
+			want:     "https://webuild.api.forkbomb.eu/issueStatus",
+		},
+		{
+			name:      "unsupported suite fails",
+			suite:     "invalid",
+			standard:  "openid4vp_wallet",
+			expectErr: true,
+		},
+		{
+			name:      "unsupported standard fails",
+			suite:     EWCSuite,
+			standard:  "invalid",
+			expectErr: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := ResolveEWCLikeCheckEndpoint(tc.suite, tc.standard)
+			if tc.expectErr {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+			require.Equal(t, tc.want, got)
 		})
 	}
 }

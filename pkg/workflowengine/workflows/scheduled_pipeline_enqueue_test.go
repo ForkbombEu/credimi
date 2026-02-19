@@ -103,3 +103,41 @@ steps:
 	require.False(t, capturedPayload.EnqueuedAt.IsZero())
 	require.Equal(t, time.UTC, capturedPayload.EnqueuedAt.Location())
 }
+
+func TestCollectRunnerIDsAndNeedsGlobal(t *testing.T) {
+	steps := []scheduledPipelineStep{
+		{
+			Use: "mobile-automation",
+			With: map[string]any{
+				"runner_id": "runner-a",
+			},
+			OnError: []scheduledPipelineStep{
+				{
+					Use: "mobile-automation",
+				},
+			},
+		},
+	}
+
+	runnerIDs := map[string]struct{}{}
+	needsGlobal := false
+
+	collectRunnerIDs(steps, runnerIDs, &needsGlobal)
+
+	_, ok := runnerIDs["runner-a"]
+	require.True(t, ok)
+	require.True(t, needsGlobal)
+}
+
+func TestRunnerIDsWithGlobal(t *testing.T) {
+	info := scheduledPipelineRunnerInfo{
+		RunnerIDs:         []string{"runner-b"},
+		NeedsGlobalRunner: true,
+	}
+
+	ids := runnerIDsWithGlobal(info, "runner-a")
+	require.Equal(t, []string{"runner-a", "runner-b"}, ids)
+
+	ids = runnerIDsWithGlobal(info, "runner-b")
+	require.Equal(t, []string{"runner-b"}, ids)
+}

@@ -17,7 +17,12 @@ import (
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/api/serviceerror"
+	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/converter"
+	temporalmocks "go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/temporal"
 )
 
@@ -514,6 +519,80 @@ func TestPipelineQueueEnqueue_RollbackOnPartialFailure(t *testing.T) {
 	}
 }
 
+func TestPipelineQueueHelpers(t *testing.T) {
+	t.Run("parseRunnerIDs prefers array param", func(t *testing.T) {
+		req := httptest.NewRequest(
+			http.MethodGet,
+			"/?runner_ids[]=runner-1&runner_ids[]=runner-2",
+			nil,
+		)
+		req.URL.RawQuery = "runner_ids[]=runner-1&runner_ids[]=runner-2&runner_ids=runner-3"
+		require.Equal(t, []string{"runner-1", "runner-2"}, parseRunnerIDs(req))
+	})
+
+	t.Run("parseRunnerIDs falls back to singular param", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/?runner_ids=runner-3", nil)
+		require.Equal(t, []string{"runner-3"}, parseRunnerIDs(req))
+	})
+
+	t.Run("normalizeRunnerIDs dedupes and trims", func(t *testing.T) {
+		values := []string{" runner-2 , runner-1", "runner-2", "  ", "runner-3"}
+		require.Equal(t, []string{"runner-1", "runner-2", "runner-3"}, normalizeRunnerIDs(values))
+	})
+
+	t.Run("runTicketNotFoundView sets status", func(t *testing.T) {
+		view := runTicketNotFoundView("ticket-123")
+		require.Equal(t, "ticket-123", view.TicketID)
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunNotFound, view.Status)
+	})
+
+	t.Run("aggregateRunQueueStatus chooses highest priority", func(t *testing.T) {
+		statuses := []pipelineQueueRunnerStatus{
+			{
+				RunnerID: "runner-1",
+				Status:   workflowengine.MobileRunnerSemaphoreRunQueued,
+				Position: 2,
+				LineLen:  3,
+			},
+			{
+				RunnerID:   "runner-2",
+				Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+				Position:   1,
+				LineLen:    2,
+				WorkflowID: "wf-1",
+				RunID:      "run-1",
+			},
+		}
+
+		status, position, lineLen, workflowID, runID, errMsg := aggregateRunQueueStatus(statuses)
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunRunning, status)
+		require.Equal(t, 2, position)
+		require.Equal(t, 3, lineLen)
+		require.Equal(t, "wf-1", workflowID)
+		require.Equal(t, "run-1", runID)
+		require.Empty(t, errMsg)
+	})
+
+	t.Run("buildQueueStatusResponse keeps workflow details", func(t *testing.T) {
+		response := buildQueueStatusResponse("ticket-1", []pipelineQueueRunnerStatus{
+			{
+				RunnerID:   "runner-1",
+				Status:     workflowengine.MobileRunnerSemaphoreRunRunning,
+				Position:   1,
+				LineLen:    2,
+				WorkflowID: "wf-99",
+				RunID:      "run-99",
+			},
+		})
+		require.Equal(t, "ticket-1", response.TicketID)
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunRunning, response.Status)
+		require.NotNil(t, response.Position)
+		require.NotNil(t, response.LineLen)
+		require.Equal(t, "wf-99", response.WorkflowID)
+		require.Equal(t, "run-99", response.RunID)
+	})
+}
+
 func TestPipelineQueueEnqueue_QueueLimitExceededRollsBack(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
@@ -770,4 +849,221 @@ func TestPipelineQueueStatus_MultiRunnerAllMissingReturnsNotFound(t *testing.T) 
 	}
 
 	scenario.Test(t)
+}
+
+type queueErrorEncodedValue struct{}
+
+func (e queueErrorEncodedValue) HasValue() bool { return true }
+
+func (e queueErrorEncodedValue) Get(interface{}) error { return errors.New("decode failed") }
+
+func TestPipelineQueueTemporalHelpers(t *testing.T) {
+	t.Run("ensureRunQueueSemaphoreWorkflowTemporal accepts already started", func(t *testing.T) {
+		origClient := queueTemporalClient
+		t.Cleanup(func() { queueTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		mockClient.
+			On(
+				"ExecuteWorkflow",
+				mock.Anything,
+				mock.Anything,
+				workflows.MobileRunnerSemaphoreWorkflowName,
+				mock.Anything,
+			).
+			Return(nil, &serviceerror.WorkflowExecutionAlreadyStarted{})
+
+		queueTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		err := ensureRunQueueSemaphoreWorkflowTemporal(context.Background(), "runner-1")
+		require.NoError(t, err)
+	})
+
+	t.Run("ensureRunQueueSemaphoreWorkflowTemporal bubbles errors", func(t *testing.T) {
+		origClient := queueTemporalClient
+		t.Cleanup(func() { queueTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		mockClient.
+			On(
+				"ExecuteWorkflow",
+				mock.Anything,
+				mock.Anything,
+				workflows.MobileRunnerSemaphoreWorkflowName,
+				mock.Anything,
+			).
+			Return(nil, errors.New("boom"))
+
+		queueTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		err := ensureRunQueueSemaphoreWorkflowTemporal(context.Background(), "runner-1")
+		require.Error(t, err)
+	})
+
+	t.Run("enqueueRunTicketTemporal returns response", func(t *testing.T) {
+		origClient := queueTemporalClient
+		t.Cleanup(func() { queueTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		handle := temporalmocks.NewWorkflowUpdateHandle(t)
+		handle.
+			On("Get", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				switch out := args.Get(1).(type) {
+				case *workflows.MobileRunnerSemaphoreEnqueueRunResponse:
+					*out = workflows.MobileRunnerSemaphoreEnqueueRunResponse{
+						TicketID: "ticket-1",
+						Status:   workflowengine.MobileRunnerSemaphoreRunQueued,
+						Position: 1,
+						LineLen:  2,
+					}
+				}
+			}).
+			Return(nil)
+
+		mockClient.
+			On("UpdateWorkflow", mock.Anything, mock.Anything).
+			Return(handle, nil)
+
+		queueTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		resp, err := enqueueRunTicketTemporal(
+			context.Background(),
+			"runner-1",
+			workflows.MobileRunnerSemaphoreEnqueueRunRequest{TicketID: "ticket-1"},
+		)
+		require.NoError(t, err)
+		require.Equal(t, "ticket-1", resp.TicketID)
+	})
+
+	t.Run("queryRunTicketStatusTemporal handles not found", func(t *testing.T) {
+		origClient := queueTemporalClient
+		t.Cleanup(func() { queueTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		mockClient.
+			On(
+				"QueryWorkflow",
+				mock.Anything,
+				workflows.MobileRunnerSemaphoreWorkflowID("runner-1"),
+				"",
+				workflows.MobileRunnerSemaphoreRunStatusQuery,
+				"org-1",
+				"ticket-1",
+			).
+			Return(converter.EncodedValue(nil), &serviceerror.NotFound{Message: "missing"})
+
+		queueTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		_, err := queryRunTicketStatusTemporal(
+			context.Background(),
+			"runner-1",
+			"org-1",
+			"ticket-1",
+		)
+		require.ErrorIs(t, err, errRunTicketNotFound)
+	})
+
+	t.Run("queryRunTicketStatusTemporal bubbles decode error", func(t *testing.T) {
+		origClient := queueTemporalClient
+		t.Cleanup(func() { queueTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		mockClient.
+			On(
+				"QueryWorkflow",
+				mock.Anything,
+				workflows.MobileRunnerSemaphoreWorkflowID("runner-2"),
+				"",
+				workflows.MobileRunnerSemaphoreRunStatusQuery,
+				"org-1",
+				"ticket-2",
+			).
+			Return(converter.EncodedValue(queueErrorEncodedValue{}), nil)
+
+		queueTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		_, err := queryRunTicketStatusTemporal(
+			context.Background(),
+			"runner-2",
+			"org-1",
+			"ticket-2",
+		)
+		require.ErrorContains(t, err, "decode failed")
+	})
+
+	t.Run("cancelRunTicketTemporal handles not found", func(t *testing.T) {
+		origClient := queueTemporalClient
+		t.Cleanup(func() { queueTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		mockClient.
+			On("UpdateWorkflow", mock.Anything, mock.Anything).
+			Return(nil, &serviceerror.NotFound{Message: "missing"})
+
+		queueTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		_, err := cancelRunTicketTemporal(
+			context.Background(),
+			"runner-1",
+			workflows.MobileRunnerSemaphoreRunCancelRequest{TicketID: "ticket-1"},
+		)
+		require.ErrorIs(t, err, errRunTicketNotFound)
+	})
+
+	t.Run("cancelRunTicketTemporal returns status", func(t *testing.T) {
+		origClient := queueTemporalClient
+		t.Cleanup(func() { queueTemporalClient = origClient })
+
+		mockClient := temporalmocks.NewClient(t)
+		handle := temporalmocks.NewWorkflowUpdateHandle(t)
+		handle.
+			On("Get", mock.Anything, mock.Anything).
+			Run(func(args mock.Arguments) {
+				switch out := args.Get(1).(type) {
+				case *workflows.MobileRunnerSemaphoreRunStatusView:
+					*out = workflows.MobileRunnerSemaphoreRunStatusView{
+						TicketID: "ticket-3",
+						Status:   workflowengine.MobileRunnerSemaphoreRunCanceled,
+					}
+				}
+			}).
+			Return(nil)
+
+		mockClient.
+			On("UpdateWorkflow", mock.Anything, mock.Anything).
+			Return(handle, nil)
+
+		queueTemporalClient = func(_ string) (client.Client, error) {
+			return mockClient, nil
+		}
+
+		resp, err := cancelRunTicketTemporal(
+			context.Background(),
+			"runner-3",
+			workflows.MobileRunnerSemaphoreRunCancelRequest{TicketID: "ticket-3"},
+		)
+		require.NoError(t, err)
+		require.Equal(t, workflowengine.MobileRunnerSemaphoreRunCanceled, resp.Status)
+	})
+
+	t.Run("runQueueUpdateID formats deterministically", func(t *testing.T) {
+		require.Equal(
+			t,
+			"enqueue/runner-1/ticket-1",
+			runQueueUpdateID("enqueue", "runner-1", "ticket-1"),
+		)
+	})
 }

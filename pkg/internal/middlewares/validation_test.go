@@ -13,8 +13,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-playground/validator/v10"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/router"
+	"github.com/stretchr/testify/require"
 )
 
 type mockResponseWriter struct {
@@ -156,4 +158,88 @@ type errReader struct{}
 
 func (e *errReader) Read(_ []byte) (int, error) {
 	return 0, errors.New("read error")
+}
+
+func TestFormatValidationErrors_NonValidationError(t *testing.T) {
+	details := formatValidationErrors(errors.New("boom"))
+	require.Len(t, details, 1)
+	require.Equal(t, "validation process error", details[0]["error"])
+	require.Equal(t, "boom", details[0]["message"])
+}
+
+func TestFormatValidationErrors_ValidationError(t *testing.T) {
+	err := validate.Struct(testStruct{
+		Name:  "",
+		Email: "not-an-email",
+		Age:   -1,
+	})
+	require.Error(t, err)
+
+	details := formatValidationErrors(err)
+	require.GreaterOrEqual(t, len(details), 1)
+	for _, detail := range details {
+		require.NotEmpty(t, detail["field"])
+		require.NotEmpty(t, detail["tag"])
+		require.NotNil(t, detail["message"])
+	}
+}
+
+func TestValidateMapValues(t *testing.T) {
+	type mapStructValue struct {
+		Field string `validate:"required"`
+	}
+
+	t.Run("invalid scalar values", func(t *testing.T) {
+		m := map[string]any{"runner": ""}
+		err := validateMapValues(reflect.ValueOf(m))
+		require.Error(t, err)
+		var validationErrs validator.ValidationErrors
+		require.ErrorAs(t, err, &validationErrs)
+	})
+
+	t.Run("invalid struct and pointer values", func(t *testing.T) {
+		empty := &mapStructValue{}
+		m := map[string]any{
+			"struct":  mapStructValue{},
+			"pointer": empty,
+		}
+		err := validateMapValues(reflect.ValueOf(m))
+		require.Error(t, err)
+		var validationErrs validator.ValidationErrors
+		require.ErrorAs(t, err, &validationErrs)
+	})
+
+	t.Run("valid values", func(t *testing.T) {
+		v := &mapStructValue{Field: "ok"}
+		m := map[string]any{
+			"struct": mapStructValue{Field: "ok"},
+			"ptr":    v,
+			"plain":  "value",
+		}
+		err := validateMapValues(reflect.ValueOf(m))
+		require.NoError(t, err)
+	})
+}
+
+func TestValidateValue_ScalarAndMap(t *testing.T) {
+	t.Run("invalid scalar", func(t *testing.T) {
+		errs := validateValue("")
+		require.NotEmpty(t, errs)
+	})
+
+	t.Run("valid scalar", func(t *testing.T) {
+		errs := validateValue("runner-1")
+		require.Nil(t, errs)
+	})
+
+	t.Run("nil map", func(t *testing.T) {
+		var nilMap map[string]any
+		errs := validateValue(nilMap)
+		require.Nil(t, errs)
+	})
+
+	t.Run("invalid map value", func(t *testing.T) {
+		errs := validateValue(map[string]any{"runner": ""})
+		require.NotEmpty(t, errs)
+	})
 }

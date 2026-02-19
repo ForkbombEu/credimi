@@ -5,17 +5,26 @@ package handlers
 
 import (
 	"bytes"
+	"encoding/json"
+	"errors"
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"net/textproto"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/filesystem"
+	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/sdk/client"
+	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
 func setupWalletApp(t testing.TB) *tests.TestApp {
@@ -47,6 +56,17 @@ func NewTestFile(name string, content []byte) *filesystem.File {
 		OriginalName: name,
 		Size:         int64(len(content)),
 	}
+}
+
+type walletWorkflowStub struct {
+	startFn func(namespace string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error)
+}
+
+func (w walletWorkflowStub) Start(
+	namespace string,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.startFn(namespace, input)
 }
 
 func TestWalletGetAPKMD5(t *testing.T) {
@@ -258,6 +278,345 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	for _, scenario := range scenarios {
 		scenario.Test(t)
 	}
+}
+
+func TestHandleWalletStartCheckInvalidJSON(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/wallet/start-check",
+		bytes.NewBufferString("{"),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleWalletStartCheck()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.Error(t, err)
+}
+
+func TestHandleWalletStartCheckWorkflowStartError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origFactory := walletWorkflowFactory
+	origClient := walletTemporalClient
+	origWait := walletWaitForPartialResult
+	t.Cleanup(func() {
+		walletWorkflowFactory = origFactory
+		walletTemporalClient = origClient
+		walletWaitForPartialResult = origWait
+	})
+
+	walletWorkflowFactory = func() walletWorkflowStarter {
+		return walletWorkflowStub{
+			startFn: func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+				return workflowengine.WorkflowResult{}, errors.New("start failed")
+			},
+		}
+	}
+	walletTemporalClient = func(_ string) (client.Client, error) {
+		return temporalmocks.NewClient(t), nil
+	}
+	walletWaitForPartialResult = func(
+		_ client.Client,
+		_, _, _ string,
+		_ time.Duration,
+		_ time.Duration,
+	) (map[string]any, error) {
+		return nil, errors.New("not reached")
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/wallet/start-check",
+		bytes.NewBufferString(`{"walletURL":"https://example.com"}`),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleWalletStartCheck()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestHandleWalletStartCheckTemporalClientError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origFactory := walletWorkflowFactory
+	origClient := walletTemporalClient
+	origWait := walletWaitForPartialResult
+	t.Cleanup(func() {
+		walletWorkflowFactory = origFactory
+		walletTemporalClient = origClient
+		walletWaitForPartialResult = origWait
+	})
+
+	walletWorkflowFactory = func() walletWorkflowStarter {
+		return walletWorkflowStub{
+			startFn: func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+				return workflowengine.WorkflowResult{
+					WorkflowID:    "wf-1",
+					WorkflowRunID: "run-1",
+				}, nil
+			},
+		}
+	}
+	walletTemporalClient = func(_ string) (client.Client, error) {
+		return nil, errors.New("no client")
+	}
+	walletWaitForPartialResult = func(
+		_ client.Client,
+		_, _, _ string,
+		_ time.Duration,
+		_ time.Duration,
+	) (map[string]any, error) {
+		return nil, errors.New("not reached")
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/wallet/start-check",
+		bytes.NewBufferString(`{"walletURL":"https://example.com"}`),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleWalletStartCheck()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestHandleWalletStartCheckPartialResultError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origFactory := walletWorkflowFactory
+	origClient := walletTemporalClient
+	origWait := walletWaitForPartialResult
+	t.Cleanup(func() {
+		walletWorkflowFactory = origFactory
+		walletTemporalClient = origClient
+		walletWaitForPartialResult = origWait
+	})
+
+	walletWorkflowFactory = func() walletWorkflowStarter {
+		return walletWorkflowStub{
+			startFn: func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+				return workflowengine.WorkflowResult{
+					WorkflowID:    "wf-1",
+					WorkflowRunID: "run-1",
+				}, nil
+			},
+		}
+	}
+	walletTemporalClient = func(_ string) (client.Client, error) {
+		return temporalmocks.NewClient(t), nil
+	}
+	walletWaitForPartialResult = func(
+		_ client.Client,
+		_, _, _ string,
+		_ time.Duration,
+		_ time.Duration,
+	) (map[string]any, error) {
+		return nil, errors.New("query failed")
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/wallet/start-check",
+		bytes.NewBufferString(`{"walletURL":"https://example.com"}`),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleWalletStartCheck()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestHandleWalletStartCheckMetadataError(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origFactory := walletWorkflowFactory
+	origClient := walletTemporalClient
+	origWait := walletWaitForPartialResult
+	t.Cleanup(func() {
+		walletWorkflowFactory = origFactory
+		walletTemporalClient = origClient
+		walletWaitForPartialResult = origWait
+	})
+
+	walletWorkflowFactory = func() walletWorkflowStarter {
+		return walletWorkflowStub{
+			startFn: func(_ string, _ workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+				return workflowengine.WorkflowResult{
+					WorkflowID:    "wf-1",
+					WorkflowRunID: "run-1",
+				}, nil
+			},
+		}
+	}
+	walletTemporalClient = func(_ string) (client.Client, error) {
+		return temporalmocks.NewClient(t), nil
+	}
+	walletWaitForPartialResult = func(
+		_ client.Client,
+		_, _, _ string,
+		_ time.Duration,
+		_ time.Duration,
+	) (map[string]any, error) {
+		return map[string]any{
+			"storeType": "google",
+			"metadata":  "not-a-map",
+		}, nil
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/wallet/start-check",
+		bytes.NewBufferString(`{"walletURL":"https://example.com"}`),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleWalletStartCheck()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestHandleWalletStartCheckSuccess(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+	app.Settings().Meta.AppURL = "https://app.example.com"
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	origFactory := walletWorkflowFactory
+	origClient := walletTemporalClient
+	origWait := walletWaitForPartialResult
+	t.Cleanup(func() {
+		walletWorkflowFactory = origFactory
+		walletTemporalClient = origClient
+		walletWaitForPartialResult = origWait
+	})
+
+	walletWorkflowFactory = func() walletWorkflowStarter {
+		return walletWorkflowStub{
+			startFn: func(_ string, input workflowengine.WorkflowInput) (workflowengine.WorkflowResult, error) {
+				payload := input.Payload.(workflows.WalletWorkflowPayload)
+				require.Equal(t, "https://example.com", payload.URL)
+				return workflowengine.WorkflowResult{
+					WorkflowID:    "wf-1",
+					WorkflowRunID: "run-1",
+				}, nil
+			},
+		}
+	}
+	walletTemporalClient = func(_ string) (client.Client, error) {
+		return temporalmocks.NewClient(t), nil
+	}
+	walletWaitForPartialResult = func(
+		_ client.Client,
+		_, _, _ string,
+		_ time.Duration,
+		_ time.Duration,
+	) (map[string]any, error) {
+		return map[string]any{
+			"storeType": "google",
+			"metadata": map[string]any{
+				"title":            "Wallet",
+				"icon":             "logo.png",
+				"appId":            "com.example",
+				"developerWebsite": "https://example.com",
+				"description":      "desc",
+			},
+		}, nil
+	}
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/wallet/start-check",
+		bytes.NewBufferString(`{"walletURL":"https://example.com"}`),
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleWalletStartCheck()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var payload map[string]any
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&payload))
+	require.Equal(t, "google", payload["type"])
+	require.Equal(t, "Wallet", payload["name"])
+	require.Equal(t, "logo.png", payload["logo"])
+	require.Equal(t, "com.example", payload["google_app_id"])
+	require.Equal(t, "https://example.com", payload["playstore_url"])
+	require.Equal(t, orgID, payload["owner"])
 }
 
 func setupWalletPipelineTestRecords(

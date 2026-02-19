@@ -13,8 +13,8 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/forkbombeu/credimi/pkg/utils"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/spf13/cobra"
 	"github.com/stretchr/testify/assert/yaml"
 )

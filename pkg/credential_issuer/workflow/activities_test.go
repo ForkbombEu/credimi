@@ -5,6 +5,9 @@
 package workflow
 
 import (
+	"io"
+	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -14,6 +17,22 @@ import (
 )
 
 func TestFetchIssuersActivity(t *testing.T) {
+	origClient := http.DefaultClient
+	http.DefaultClient = &http.Client{
+		Transport: roundTripFunc(func(req *http.Request) (*http.Response, error) {
+			assert.Equal(t, FidesIssuersURL, req.URL.String())
+			body := `{"content":[{"issuanceUrl":"https://example.com/issuer/.well-known/openid-credential-issuer"}],"page":{"number":0,"totalPages":0}}`
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader(body)),
+				Header:     make(http.Header),
+			}, nil
+		}),
+	}
+	t.Cleanup(func() {
+		http.DefaultClient = origClient
+	})
+
 	testSuite := &testsuite.WorkflowTestSuite{}
 	env := testSuite.NewTestActivityEnvironment()
 	env.RegisterActivity(FetchIssuersActivity)
@@ -22,6 +41,13 @@ func TestFetchIssuersActivity(t *testing.T) {
 	var result FetchIssuersActivityResponse
 	assert.NoError(t, val.Get(&result))
 	assert.NoError(t, err)
+	assert.Equal(t, []string{"https://example.com/issuer"}, result.Issuers)
+}
+
+type roundTripFunc func(*http.Request) (*http.Response, error)
+
+func (f roundTripFunc) RoundTrip(req *http.Request) (*http.Response, error) {
+	return f(req)
 }
 
 func TestExtractHrefsFromApiResponse(t *testing.T) {

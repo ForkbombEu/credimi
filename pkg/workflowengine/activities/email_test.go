@@ -5,6 +5,7 @@
 package activities
 
 import (
+	"context"
 	"os"
 	"testing"
 
@@ -137,6 +138,83 @@ func TestSendMailActivity_Execute(t *testing.T) {
 				future.Get(&result)
 				require.Equal(t, tt.expectedOutput, result.Output)
 			}
+		})
+	}
+}
+
+func TestSendMailActivity_ExecuteValidationErrors(t *testing.T) {
+	activity := &SendMailActivity{}
+	baseConfig := map[string]string{
+		"smtp_host": "localhost",
+		"smtp_port": "2525",
+	}
+
+	tests := []struct {
+		name        string
+		input       workflowengine.ActivityInput
+		errContains string
+	}{
+		{
+			name: "body and template both set",
+			input: workflowengine.ActivityInput{
+				Config: baseConfig,
+				Payload: SendMailActivityPayload{
+					Sender:    "sender@example.com",
+					Recipient: "recipient@example.com",
+					Body:      "body",
+					Template:  "template",
+					Data:      map[string]any{"foo": "bar"},
+				},
+			},
+			errContains: "body' and 'template' cannot both",
+		},
+		{
+			name: "template without data",
+			input: workflowengine.ActivityInput{
+				Config: baseConfig,
+				Payload: SendMailActivityPayload{
+					Sender:    "sender@example.com",
+					Recipient: "recipient@example.com",
+					Template:  "template",
+				},
+			},
+			errContains: "either 'body' or both 'template' and 'data'",
+		},
+		{
+			name: "invalid template parse",
+			input: workflowengine.ActivityInput{
+				Config: baseConfig,
+				Payload: SendMailActivityPayload{
+					Sender:    "sender@example.com",
+					Recipient: "recipient@example.com",
+					Template:  "{{",
+					Data:      map[string]any{"foo": "bar"},
+				},
+			},
+			errContains: "template:",
+		},
+		{
+			name: "invalid smtp port",
+			input: workflowengine.ActivityInput{
+				Config: map[string]string{
+					"smtp_host": "localhost",
+					"smtp_port": "not-a-number",
+				},
+				Payload: SendMailActivityPayload{
+					Sender:    "sender@example.com",
+					Recipient: "recipient@example.com",
+					Body:      "body",
+				},
+			},
+			errContains: "SMTP_PORT environment variable not an integer",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := activity.Execute(context.Background(), tt.input)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tt.errContains)
 		})
 	}
 }

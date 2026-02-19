@@ -234,3 +234,94 @@ func TestEnqueuePipelineRunTicketActivityQueueLimitError(t *testing.T) {
 	require.True(t, errors.As(err, &appErr))
 	require.Equal(t, mobilerunnersemaphore.ErrQueueLimitExceeded, appErr.Type())
 }
+
+func TestEnqueuePipelineRunTicketActivityValidationErrors(t *testing.T) {
+	act := NewEnqueuePipelineRunTicketActivity()
+
+	tests := []struct {
+		name        string
+		payload     EnqueuePipelineRunTicketActivityInput
+		errContains string
+	}{
+		{
+			name: "missing ticket id",
+			payload: EnqueuePipelineRunTicketActivityInput{
+				OwnerNamespace:     "tenant",
+				PipelineIdentifier: "tenant/pipeline",
+				YAML:               "name: test\nsteps: []\n",
+				RunnerIDs:          []string{"runner-1"},
+			},
+			errContains: "ticket_id",
+		},
+		{
+			name: "missing owner namespace",
+			payload: EnqueuePipelineRunTicketActivityInput{
+				TicketID:           "ticket-1",
+				PipelineIdentifier: "tenant/pipeline",
+				YAML:               "name: test\nsteps: []\n",
+				RunnerIDs:          []string{"runner-1"},
+			},
+			errContains: "owner_namespace",
+		},
+		{
+			name: "missing pipeline identifier",
+			payload: EnqueuePipelineRunTicketActivityInput{
+				TicketID:       "ticket-1",
+				OwnerNamespace: "tenant",
+				YAML:           "name: test\nsteps: []\n",
+				RunnerIDs:      []string{"runner-1"},
+			},
+			errContains: "pipeline_identifier",
+		},
+		{
+			name: "missing yaml",
+			payload: EnqueuePipelineRunTicketActivityInput{
+				TicketID:           "ticket-1",
+				OwnerNamespace:     "tenant",
+				PipelineIdentifier: "tenant/pipeline",
+				RunnerIDs:          []string{"runner-1"},
+			},
+			errContains: "yaml is required",
+		},
+		{
+			name: "missing runner ids",
+			payload: EnqueuePipelineRunTicketActivityInput{
+				TicketID:           "ticket-1",
+				OwnerNamespace:     "tenant",
+				PipelineIdentifier: "tenant/pipeline",
+				YAML:               "name: test\nsteps: []\n",
+			},
+			errContains: "runner_ids",
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := act.Execute(
+				context.Background(),
+				workflowengine.ActivityInput{Payload: tc.payload},
+			)
+			require.Error(t, err)
+			require.Contains(t, err.Error(), tc.errContains)
+		})
+	}
+}
+
+func TestEnqueuePipelineRunTicketActivityTemporalClientError(t *testing.T) {
+	act := NewEnqueuePipelineRunTicketActivity()
+	act.temporalClientFactory = func(string) (temporalWorkflowUpdater, error) {
+		return nil, errors.New("no client")
+	}
+
+	payload := EnqueuePipelineRunTicketActivityInput{
+		TicketID:           "ticket-1",
+		OwnerNamespace:     "tenant",
+		PipelineIdentifier: "tenant/pipeline",
+		YAML:               "name: test\nsteps: []\n",
+		RunnerIDs:          []string{"runner-1"},
+	}
+
+	_, err := act.Execute(context.Background(), workflowengine.ActivityInput{Payload: payload})
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "no client")
+}

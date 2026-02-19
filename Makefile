@@ -31,6 +31,9 @@ GOPATH 			?= $(shell $(GOCMD) env GOPATH)
 GOBIN 			?= $(GOPATH)/bin
 GOMOD_FILES 	:= go.mod go.sum
 COVOUT			:= coverage.out
+COVERAGE_FILE	?= $(COVOUT)
+COVERAGE_MIN	?= 80
+COVERAGE_PKGS	?= ./...
 
 # Submodules
 WEBENV			= $(WEBAPP)/.env
@@ -55,7 +58,7 @@ define require_tools
 endef
 
 all: help
-.PHONY: submodules version dev test lint tidy purge build docker doc clean tools help w devtools
+.PHONY: submodules version dev test lint tidy purge build docker doc clean tools help w devtools coverage-check
 
 $(BIN):
 	@mkdir -p $@
@@ -97,7 +100,7 @@ dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mod
 
 test: ## 🧪 run tests
 	$(call require_tools,$(TEST_DEPS))
-	$(GOTEST) -tags=unit -v -race -buildvcs ./...
+	bash ./scripts/test-summary.sh
 ifeq (test.p, $(firstword $(MAKECMDGOALS)))
   test_name := $(wordlist 2, $(words $(MAKECMDGOALS)), $(MAKECMDGOALS))
   $(eval $(test_name):;@true)
@@ -109,6 +112,28 @@ coverage: devtools # ☂️ run test and open code coverage report
 	$(GOTEST) -tags=unit -covermode=atomic -coverprofile=$(COVOUT) ./...
 	$(GOTOOL) cover -html=$(COVOUT) -o coverage.html
 	$(GOTOOL) go-cover-treemap -coverprofile $(COVOUT) > coverage.svg && open coverage.svg
+
+coverage-check: ## ☂️ run tests and fail if total coverage is below COVERAGE_MIN
+	$(GOTEST) -tags=unit -covermode=atomic -coverprofile=$(COVERAGE_FILE) $(COVERAGE_PKGS)
+	@awk -v min="$(COVERAGE_MIN)" -v file="$(COVERAGE_FILE)" '\
+		BEGIN { covered = 0; total = 0 } \
+		NR == 1 && $$1 == "mode:" { next } \
+		NF >= 3 { \
+			n = $$2 + 0; \
+			c = $$3 + 0; \
+			total += n; \
+			if (c > 0) covered += n; \
+		} \
+		END { \
+			if (total == 0) { \
+				printf("Failed to compute coverage from %s: no statement data found\n", file) > "/dev/stderr"; \
+				exit 1; \
+			} \
+			cov = (covered * 100) / total; \
+			printf("Total coverage: %.1f%% (required: %s%%)\n", cov, min); \
+			if ((cov + 0) < (min + 0)) exit 1; \
+		} \
+	' $(COVERAGE_FILE)
 
 lint: devtools ## 📑 lint rules checks
 	$(call require_tools,$(TEST_DEPS))
@@ -203,4 +228,3 @@ kill-pocketbase: ## 🔪 Kill any running PocketBase instance
 
 seed: ## 🌱 Seed the database
 	@$(GOCMD) run main.go migrate up && $(GOCMD) run cmd/seeds/seed.go 
-
