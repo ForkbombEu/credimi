@@ -28,6 +28,8 @@ type VLEIValidationWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
+var vleiStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+
 // VLEIValidationWorkflowPayload is the payload for the vLEI validation workflow.
 type VLEIValidationWorkflowPayload struct {
 	CredentialID string `json:"credential_id" yaml:"credential_id" validate:"required"`
@@ -137,7 +139,7 @@ func (w *VLEIValidationWorkflow) Start(
 		TaskQueue:                VLEIValidationTaskQueue,
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
-	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return vleiStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
 // VLEIValidationLocalWorkflow is a workflow that validates a vLEI credential from a local file.
@@ -197,7 +199,7 @@ func (w *VLEIValidationLocalWorkflow) Start(
 		TaskQueue:                VLEIValidationLocalTaskQueue,
 		WorkflowExecutionTimeout: 24 * time.Hour,
 	}
-	return workflowengine.StartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
+	return vleiStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
 }
 
 // validateCESRFromString runs CESR parsing + validation inside a workflow.

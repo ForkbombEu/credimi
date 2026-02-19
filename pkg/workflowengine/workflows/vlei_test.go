@@ -5,7 +5,9 @@ package workflows
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -13,6 +15,7 @@ import (
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/activity"
+	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/testsuite"
 )
 
@@ -230,4 +233,84 @@ func Test_VLEIValidationLocalWorkflow(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestVLEIValidationWorkflowStart(t *testing.T) {
+	origStart := vleiStartWorkflowWithOptions
+	t.Cleanup(func() {
+		vleiStartWorkflowWithOptions = origStart
+	})
+
+	var capturedNamespace string
+	var capturedOptions client.StartWorkflowOptions
+	var capturedName string
+	var capturedInput workflowengine.WorkflowInput
+
+	vleiStartWorkflowWithOptions = func(
+		namespace string,
+		options client.StartWorkflowOptions,
+		name string,
+		input workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		capturedNamespace = namespace
+		capturedOptions = options
+		capturedName = name
+		capturedInput = input
+		return workflowengine.WorkflowResult{WorkflowID: "wf-1", WorkflowRunID: "run-1"}, nil
+	}
+
+	w := NewVLEIValidationWorkflow()
+	input := workflowengine.WorkflowInput{
+		Payload: VLEIValidationWorkflowPayload{CredentialID: "cred-1"},
+	}
+	result, err := w.Start("ns-1", input)
+	require.NoError(t, err)
+	require.Equal(t, "wf-1", result.WorkflowID)
+	require.Equal(t, "run-1", result.WorkflowRunID)
+	require.Equal(t, "ns-1", capturedNamespace)
+	require.Equal(t, w.Name(), capturedName)
+	require.Equal(t, input, capturedInput)
+	require.Equal(t, VLEIValidationTaskQueue, capturedOptions.TaskQueue)
+	require.True(t, strings.HasPrefix(capturedOptions.ID, "VLEIValidation-"))
+	require.Equal(t, 24*time.Hour, capturedOptions.WorkflowExecutionTimeout)
+}
+
+func TestVLEIValidationLocalWorkflowStart(t *testing.T) {
+	origStart := vleiStartWorkflowWithOptions
+	t.Cleanup(func() {
+		vleiStartWorkflowWithOptions = origStart
+	})
+
+	var capturedNamespace string
+	var capturedOptions client.StartWorkflowOptions
+	var capturedName string
+	var capturedInput workflowengine.WorkflowInput
+
+	vleiStartWorkflowWithOptions = func(
+		namespace string,
+		options client.StartWorkflowOptions,
+		name string,
+		input workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		capturedNamespace = namespace
+		capturedOptions = options
+		capturedName = name
+		capturedInput = input
+		return workflowengine.WorkflowResult{WorkflowID: "wf-2", WorkflowRunID: "run-2"}, nil
+	}
+
+	w := NewVLEIValidationLocalWorkflow()
+	input := workflowengine.WorkflowInput{
+		Payload: VLEIValidationLocalWorkflowPayload{CESR: "test"},
+	}
+	result, err := w.Start("ns-2", input)
+	require.NoError(t, err)
+	require.Equal(t, "wf-2", result.WorkflowID)
+	require.Equal(t, "run-2", result.WorkflowRunID)
+	require.Equal(t, "ns-2", capturedNamespace)
+	require.Equal(t, w.Name(), capturedName)
+	require.Equal(t, input, capturedInput)
+	require.Equal(t, VLEIValidationLocalTaskQueue, capturedOptions.TaskQueue)
+	require.True(t, strings.HasPrefix(capturedOptions.ID, "VLEILocalValidation-"))
+	require.Equal(t, 24*time.Hour, capturedOptions.WorkflowExecutionTimeout)
 }
