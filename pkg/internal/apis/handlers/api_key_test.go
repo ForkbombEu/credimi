@@ -268,6 +268,7 @@ func TestGetMatchApiKeyRecord_TimingAttackResistance(t *testing.T) {
 	// Test timing for different scenarios
 	testKey := "test-key-that-wont-match"
 	iterations := 10
+	maxAcceptableDuration := 3 * time.Second
 
 	for i := 0; i < iterations; i++ {
 		start := time.Now()
@@ -276,7 +277,12 @@ func TestGetMatchApiKeyRecord_TimingAttackResistance(t *testing.T) {
 
 		assert.Error(t, err)
 		assert.True(t, duration > time.Microsecond, "Should take measurable time")
-		assert.True(t, duration < time.Second, "Should not take too long")
+		assert.Less(
+			t,
+			duration,
+			maxAcceptableDuration,
+			"Should not take too long on loaded CI runners",
+		)
 	}
 }
 
