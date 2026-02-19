@@ -183,6 +183,35 @@ test: "alpha"
 		require.Equal(t, "ewc template", result.Config["template"])
 	})
 
+	t.Run("webuild suite populates session id", func(t *testing.T) {
+		rootDir := t.TempDir()
+		t.Setenv("ROOT_DIR", rootDir)
+
+		checkID := "oid4vci/webuild/check-webuild"
+		configTemplate := `sessionId: "session-webuild"`
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join("config_templates", checkID+".yaml"),
+			configTemplate,
+		)
+		writeTemplateFile(
+			t,
+			rootDir,
+			filepath.Join(workflows.WebuildTemplateFolderPath, "check-webuild.yaml"),
+			"webuild template",
+		)
+
+		result := runConformanceHookWorkflow(t, conformanceHookInput{
+			CheckID: checkID,
+			Config:  map[string]any{"user_mail": "test@example.com"},
+		})
+
+		payload := result.Payload
+		require.Equal(t, "session-webuild", payload["session_id"])
+		require.Equal(t, "webuild template", result.Config["template"])
+	})
+
 	t.Run("eudiw suite populates id and nonce", func(t *testing.T) {
 		rootDir := t.TempDir()
 		t.Setenv("ROOT_DIR", rootDir)

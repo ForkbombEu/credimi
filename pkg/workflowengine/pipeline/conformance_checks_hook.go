@@ -167,6 +167,15 @@ func ConformanceCheckSetupHook(
 
 			SetPayloadValue(&defaultPayload, "session_id", sessionID)
 			suiteTemplatePath = workflows.EWCTemplateFolderPath + "/" + checkName + ".yaml"
+		case "webuild":
+
+			var sessionID string
+			if sID, ok := tpl["sessionId"].(string); ok {
+				sessionID = sID
+			}
+
+			SetPayloadValue(&defaultPayload, "session_id", sessionID)
+			suiteTemplatePath = workflows.WebuildTemplateFolderPath + "/" + checkName + ".yaml"
 		case "eudiw":
 
 			var id string

@@ -95,3 +95,31 @@ func TestHandleGetConformanceCheckDeeplinkPathTraversal(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
 	require.Equal(t, http.StatusBadRequest, apiErr.Code)
 }
+
+func TestHandleGetConformanceCheckDeeplinkUnsupportedSuite(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/conformance-check/deeplink?id=openid4vp/unknown/check-1",
+		nil,
+	)
+	rec := httptest.NewRecorder()
+
+	err = HandleGetConformanceCheckDeeplink()(&core.RequestEvent{
+		App: app,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusBadRequest, rec.Code)
+
+	var apiErr apierror.APIError
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
+	require.Equal(t, http.StatusBadRequest, apiErr.Code)
+	require.Equal(t, "unsupported suite", apiErr.Reason)
+}

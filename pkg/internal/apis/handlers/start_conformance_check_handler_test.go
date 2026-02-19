@@ -368,7 +368,7 @@ func TestStartOpenIDNetWorkflowSuccess(t *testing.T) {
 
 func TestStartEWCWorkflowUnsupportedProtocol(t *testing.T) {
 	rootDir := t.TempDir()
-	filename := filepath.Join(rootDir, workflows.EWCTemplateFolderPath+"test.yaml")
+	filename := filepath.Join(rootDir, workflows.EWCTemplateFolderPath, "test.yaml")
 	require.NoError(t, os.MkdirAll(filepath.Dir(filename), 0o755))
 	require.NoError(t, os.WriteFile(filename, []byte("template"), 0o644))
 	t.Setenv("ROOT_DIR", rootDir)
@@ -385,7 +385,7 @@ func TestStartEWCWorkflowUnsupportedProtocol(t *testing.T) {
 
 func TestStartEWCWorkflowSuccess(t *testing.T) {
 	rootDir := t.TempDir()
-	filename := filepath.Join(rootDir, workflows.EWCTemplateFolderPath+"test.yaml")
+	filename := filepath.Join(rootDir, workflows.EWCTemplateFolderPath, "test.yaml")
 	require.NoError(t, os.MkdirAll(filepath.Dir(filename), 0o755))
 	require.NoError(t, os.WriteFile(filename, []byte("template"), 0o644))
 	t.Setenv("ROOT_DIR", rootDir)
@@ -418,6 +418,63 @@ func TestStartEWCWorkflowSuccess(t *testing.T) {
 	result, err := startEWCWorkflow(params)
 	require.NoError(t, err)
 	require.Equal(t, "wf-ewc", result.WorkflowID)
+	require.Equal(t, string(params.Author), result.Author)
+}
+
+func TestStartWebuildWorkflowUnsupportedProtocol(t *testing.T) {
+	rootDir := t.TempDir()
+	filename := filepath.Join(rootDir, workflows.WebuildTemplateFolderPath, "test.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(filename), 0o755))
+	require.NoError(t, os.WriteFile(filename, []byte("template"), 0o644))
+	t.Setenv("ROOT_DIR", rootDir)
+
+	params := WorkflowStarterParams{
+		YAMLData: "sessionId: session-1\n",
+		Protocol: "unknown",
+		TestName: "webuildtest.yaml",
+	}
+
+	_, err := startWebuildWorkflow(params)
+	require.Error(t, err)
+}
+
+func TestStartWebuildWorkflowSuccess(t *testing.T) {
+	rootDir := t.TempDir()
+	filename := filepath.Join(rootDir, workflows.WebuildTemplateFolderPath, "test.yaml")
+	require.NoError(t, os.MkdirAll(filepath.Dir(filename), 0o755))
+	require.NoError(t, os.WriteFile(filename, []byte("template"), 0o644))
+	t.Setenv("ROOT_DIR", rootDir)
+
+	origStart := webuildWorkflowStart
+	t.Cleanup(func() {
+		webuildWorkflowStart = origStart
+	})
+	webuildWorkflowStart = func(
+		input workflowengine.WorkflowInput,
+	) (workflowengine.WorkflowResult, error) {
+		return workflowengine.WorkflowResult{
+			WorkflowID:    "wf-webuild",
+			WorkflowRunID: "run-webuild",
+		}, nil
+	}
+
+	params := WorkflowStarterParams{
+		YAMLData:  "sessionId: session-1\n",
+		Email:     "user@example.com",
+		AppURL:    "https://app.example.com",
+		Namespace: "ns",
+		Memo:      map[string]interface{}{"test": "webuild/test"},
+		Author:    "webuild",
+		Protocol:  "openid4vp_wallet",
+		TestName:  "webuildtest.yaml",
+		AppName:   "Credimi",
+		LogoUrl:   "https://app.example.com/logo.png",
+		UserName:  "User",
+	}
+
+	result, err := startWebuildWorkflow(params)
+	require.NoError(t, err)
+	require.Equal(t, "wf-webuild", result.WorkflowID)
 	require.Equal(t, string(params.Author), result.Author)
 }
 

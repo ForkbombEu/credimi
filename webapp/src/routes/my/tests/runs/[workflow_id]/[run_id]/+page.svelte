@@ -240,7 +240,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 </div>
 
 {#if memo}
-	{#if memo.author == 'ewc'}
+	{#if memo.author == 'ewc' || memo.author == 'webuild'}
 		<EwcTop {workflowId} namespace={organization.canonified_name} />
 	{:else}
 		<div class="bg-temporal padding-x space-y-8 pt-4">
