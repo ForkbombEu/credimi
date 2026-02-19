@@ -6,6 +6,7 @@ package workflows
 
 import (
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -20,17 +21,16 @@ import (
 )
 
 func Test_EWCWorkflow(t *testing.T) {
-	var callCount int
 	testCases := []struct {
 		name           string
-		mockActivities func(env *testsuite.TestWorkflowEnvironment)
+		mockActivities func(env *testsuite.TestWorkflowEnvironment, callCount *atomic.Int32)
 		expectRunning  bool
 		expectedErr    bool
 		errorCode      errorcodes.Code
 	}{
 		{
 			name: "Workflow completes when status is success",
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment, callCount *atomic.Int32) {
 				StepCIActivity := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(StepCIActivity.Execute, activity.RegisterOptions{
 					Name: StepCIActivity.Name(),
@@ -50,7 +50,7 @@ func Test_EWCWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
 					Run(func(_ mock.Arguments) {
-						callCount++
+						callCount.Add(1)
 					}).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"body": map[string]string{"status": "success"},
@@ -60,7 +60,7 @@ func Test_EWCWorkflow(t *testing.T) {
 		},
 		{
 			name: "Workflow loops when status is pending",
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment, callCount *atomic.Int32) {
 				StepCIActivity := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(StepCIActivity.Execute, activity.RegisterOptions{
 					Name: StepCIActivity.Name(),
@@ -80,7 +80,7 @@ func Test_EWCWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
 					Run(func(_ mock.Arguments) {
-						callCount++
+						callCount.Add(1)
 					}).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"body": map[string]string{"status": "pending", "reason": "ok"},
@@ -90,7 +90,7 @@ func Test_EWCWorkflow(t *testing.T) {
 		},
 		{
 			name: "Workflow fails when status is failed",
-			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment, callCount *atomic.Int32) {
 				StepCIActivity := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(StepCIActivity.Execute, activity.RegisterOptions{
 					Name: StepCIActivity.Name(),
@@ -110,7 +110,7 @@ func Test_EWCWorkflow(t *testing.T) {
 					Return(workflowengine.ActivityResult{}, nil)
 				env.OnActivity(HTTPActivity.Name(), mock.Anything, mock.Anything).
 					Run(func(_ mock.Arguments) {
-						callCount++
+						callCount.Add(1)
 					}).
 					Return(workflowengine.ActivityResult{Output: map[string]any{
 						"body": map[string]string{"status": "failed", "reason": "fail test reason"},
@@ -126,9 +126,9 @@ func Test_EWCWorkflow(t *testing.T) {
 			testSuite := &testsuite.WorkflowTestSuite{}
 			env := testSuite.NewTestWorkflowEnvironment()
 
-			callCount = 0
+			var callCount atomic.Int32
 			w := NewEWCWorkflow()
-			tc.mockActivities(env)
+			tc.mockActivities(env, &callCount)
 			done := make(chan struct{})
 			go func() {
 				env.RegisterDelayedCallback(func() {
@@ -161,12 +161,12 @@ func Test_EWCWorkflow(t *testing.T) {
 					env.RegisterDelayedCallback(env.CancelWorkflow, time.Second*90)
 
 					<-done
-					require.Greater(t, callCount, 1) // Expecting multiple activity calls
+					require.Greater(t, callCount.Load(), int32(1)) // Expecting multiple activity calls
 				} else {
 					<-done
 					var result workflowengine.WorkflowResult
 					require.NoError(t, env.GetWorkflowResult(&result))
-					require.Equal(t, 1, callCount) // Only two activity call (no looping)
+					require.Equal(t, int32(1), callCount.Load()) // Only two activity call (no looping)
 				}
 			} else {
 				<-done
