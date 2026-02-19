@@ -21,6 +21,7 @@ import (
 const (
 	OpenIDConformanceSuite    = "openid_conformance_suite"
 	EWCSuite                  = "ewc"
+	WebuildSuite              = "webuild"
 	ConformanceCheckTaskQueue = "ConformanceCheckTaskQueue"
 	PipelineCancelSignal      = "pipeline_cancel_signal"
 )
@@ -240,7 +241,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 		stepCIPayload.Secrets = map[string]string{
 			"token": utils.GetEnvironmentVariable("OPENIDNET_TOKEN", nil, true),
 		}
-	case EWCSuite:
+	case EWCSuite, WebuildSuite:
 		if payload.SessionID == "" {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
 				fmt.Errorf("session_id is required for suite %s", payload.Suite),
@@ -333,7 +334,7 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				"child_id": childID,
 			},
 		}, nil
-	case EWCSuite:
+	case EWCSuite, WebuildSuite:
 		standard, ok := input.Config["memo"].(map[string]any)["standard"].(string)
 		if !ok {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
@@ -341,15 +342,10 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				input.RunMetadata,
 			)
 		}
-		var checkEndpoint string
-		switch standard {
-		case "openid4vp_wallet":
-			checkEndpoint = "https://ewc.api.forkbomb.eu/verificationStatus"
-		case "openid4vci_wallet":
-			checkEndpoint = "https://ewc.api.forkbomb.eu/issueStatus"
-		default:
+		checkEndpoint, err := ResolveEWCLikeCheckEndpoint(payload.Suite, standard)
+		if err != nil {
 			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
-				fmt.Sprintf("unsupported standard %s", standard),
+				err.Error(),
 				input.RunMetadata,
 			)
 		}
@@ -363,7 +359,18 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 			)
 		}
 
-		child := NewEWCStatusWorkflow()
+		var child workflowengine.Workflow
+		switch payload.Suite {
+		case EWCSuite:
+			child = NewEWCStatusWorkflow()
+		case WebuildSuite:
+			child = NewWebuildStatusWorkflow()
+		default:
+			return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+				fmt.Sprintf("unsupported suite %s", payload.Suite),
+				input.RunMetadata,
+			)
+		}
 		childID = workflow.GetInfo(ctx).WorkflowExecution.ID + "-status"
 		ctx = workflow.WithChildOptions(ctx, workflow.ChildWorkflowOptions{
 			WorkflowID:        childID,

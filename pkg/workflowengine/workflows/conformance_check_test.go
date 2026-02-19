@@ -117,6 +117,49 @@ func Test_StartCheckWorkflow(t *testing.T) {
 			expectErr: false,
 		},
 		{
+			name:  "WEBUILD suite succeeds (fire-and-forget child)",
+			suite: "webuild",
+			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				stepCI := activities.NewStepCIWorkflowActivity()
+				sendMail := activities.NewSendMailActivity()
+
+				env.RegisterActivityWithOptions(
+					stepCI.Execute,
+					activity.RegisterOptions{Name: stepCI.Name()},
+				)
+				env.RegisterActivityWithOptions(
+					sendMail.Execute,
+					activity.RegisterOptions{Name: sendMail.Name()},
+				)
+
+				childWebuild := NewWebuildStatusWorkflow()
+				env.RegisterWorkflowWithOptions(
+					childWebuild.Workflow,
+					workflow.RegisterOptions{Name: childWebuild.Name()},
+				)
+
+				env.OnActivity(stepCI.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{
+						Output: map[string]any{
+							"captures": map[string]any{
+								"deeplink":   "https://webuild-link",
+								"session_id": "sess-123",
+							},
+						},
+					}, nil)
+
+				env.OnActivity(sendMail.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{}, nil)
+
+				env.OnWorkflow(childWebuild.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.WorkflowResult{
+						Output: map[string]any{},
+						Log:    nil,
+					}, nil).Maybe()
+			},
+			expectErr: false,
+		},
+		{
 			name:  "Unsupported suite fails",
 			suite: "invalid_suite",
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
@@ -286,7 +329,7 @@ func Test_StartCheckWorkflow(t *testing.T) {
 				payload.TestName = "test-name"
 			}
 
-			if tc.suite == "ewc" {
+			if tc.suite == "ewc" || tc.suite == "webuild" {
 				payload.SessionID = "test-session-id"
 				config["check_endpoint"] = "https://test-ewc.com"
 			}
