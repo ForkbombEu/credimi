@@ -790,6 +790,8 @@ func handleDeeplinkFromHistory(
 						return getDeeplinkOpenIDConformanceSuite(e, first)
 					case "ewc":
 						return getDeeplinkEWC(e, first)
+					case "webuild":
+						return getDeeplinkEWC(e, first)
 					case "eudiw":
 						return getDeeplinkEudiw(e, first)
 					default:
@@ -798,7 +800,7 @@ func handleDeeplinkFromHistory(
 							"protocol",
 							"unsupported suite",
 							fmt.Sprintf(
-								"author is %q, expected openid_conformance_suite, ewc or eudiw",
+								"author is %q, expected openid_conformance_suite, ewc, webuild or eudiw",
 								author,
 							),
 						).JSON(e)

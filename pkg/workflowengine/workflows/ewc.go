@@ -31,7 +31,16 @@ type EWCWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
-var ewcStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+type ewcStartWithOptionsFn func(
+	namespace string,
+	options client.StartWorkflowOptions,
+	name string,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error)
+
+var (
+	ewcStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+)
 
 type EWCWorkflowPayload struct {
 	SessionID string `json:"session_id" yaml:"session_id" validate:"required"`
@@ -55,10 +64,10 @@ func (EWCWorkflow) GetOptions() workflow.ActivityOptions {
 }
 
 type EWCResponseBody struct {
-	Status    string   `json:"status"`
-	Reason    string   `json:"reason"`
-	SessionID string   `json:"sessionId"`
-	Claims    []string `json:"claims,omitempty"`
+	Status    string         `json:"status"`
+	Reason    string         `json:"reason"`
+	SessionID string         `json:"sessionId"`
+	Claims    map[string]any `json:"claims,omitempty"`
 }
 
 func (w *EWCWorkflow) Workflow(
@@ -96,7 +105,102 @@ func (w *EWCWorkflow) ExecuteWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
+	return executeEWCLikeWorkflow(ctx, input, w.GetOptions())
+}
+
+// Start initializes and starts the EWCWorkflow execution.
+// It loads environment variables, configures the Temporal client with the specified namespace,
+// and sets up workflow options including a unique workflow ID and optional memo.
+// The workflow is then executed with the provided input.
+//
+// Parameters:
+//   - input: A WorkflowInput object containing configuration and input data for the workflow.
+//
+// Returns:
+//   - result: A WorkflowResult object (currently empty in this implementation).
+//   - err: An error if the workflow fails to start or if there is an issue with the Temporal client.
+//
+// Notes:
+//   - The namespace defaults to "default" if not provided in the input configuration.
+//   - The workflow ID is generated using a UUID to ensure uniqueness.
+//   - The Temporal client is closed after the workflow execution is initiated.
+func (w *EWCWorkflow) Start(
+	input workflowengine.WorkflowInput,
+) (result workflowengine.WorkflowResult, err error) {
+	return startEWCLikeWorkflow(
+		input,
+		w.Name(),
+		"EWCWorkflow",
+		ewcStartWorkflowWithOptions,
+	)
+}
+
+func startEWCLikeWorkflow(
+	input workflowengine.WorkflowInput,
+	name string,
+	workflowPrefix string,
+	startFn ewcStartWithOptionsFn,
+) (result workflowengine.WorkflowResult, err error) {
+	workflowOptions := client.StartWorkflowOptions{
+		ID:                       workflowPrefix + uuid.NewString(),
+		TaskQueue:                EWCTaskQueue,
+		WorkflowExecutionTimeout: 24 * time.Hour,
+	}
+	namespace := DefaultNamespace
+	if input.Config["namespace"] != nil {
+		namespace = input.Config["namespace"].(string)
+	}
+	return startFn(namespace, workflowOptions, name, input)
+}
+
+// EWCStatusWorkflow is a workflow that checks the status of an EWC check.
+type EWCStatusWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
+
+// EWCStatusWorkflowPayload is the payload for the EWCStatusWorkflow.
+type EWCStatusWorkflowPayload struct {
+	SessionID string `json:"session_id"`
+}
+
+func NewEWCStatusWorkflow() *EWCStatusWorkflow {
+	w := &EWCStatusWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
+}
+
+// Name returns the human-readable name for this workflow.
+func (EWCStatusWorkflow) Name() string {
+	return "Drain  EWC check status conformance endpoint"
+}
+
+// GetOptions returns the default activity options for this workflow.
+func (EWCStatusWorkflow) GetOptions() workflow.ActivityOptions {
+	return DefaultActivityOptions
+}
+
+func (w *EWCStatusWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+// Workflow continuously polls EWC Status and pushes updates to the backend.
+// It can be paused/resumed by Temporal signals.
+func (w *EWCStatusWorkflow) ExecuteWorkflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return executeEWCLikeStatusWorkflow(ctx, input, w.GetOptions())
+}
+
+func executeEWCLikeWorkflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+	options workflow.ActivityOptions,
+) (workflowengine.WorkflowResult, error) {
+	ctx = workflow.WithActivityOptions(ctx, options)
 
 	payload, err := workflowengine.DecodePayload[EWCWorkflowPayload](input.Payload)
 	if err != nil {
@@ -178,77 +282,12 @@ func (w *EWCWorkflow) ExecuteWorkflow(
 	return workflowResult, err
 }
 
-// Start initializes and starts the EWCWorkflow execution.
-// It loads environment variables, configures the Temporal client with the specified namespace,
-// and sets up workflow options including a unique workflow ID and optional memo.
-// The workflow is then executed with the provided input.
-//
-// Parameters:
-//   - input: A WorkflowInput object containing configuration and input data for the workflow.
-//
-// Returns:
-//   - result: A WorkflowResult object (currently empty in this implementation).
-//   - err: An error if the workflow fails to start or if there is an issue with the Temporal client.
-//
-// Notes:
-//   - The namespace defaults to "default" if not provided in the input configuration.
-//   - The workflow ID is generated using a UUID to ensure uniqueness.
-//   - The Temporal client is closed after the workflow execution is initiated.
-func (w *EWCWorkflow) Start(
-	input workflowengine.WorkflowInput,
-) (result workflowengine.WorkflowResult, err error) {
-	workflowOptions := client.StartWorkflowOptions{
-		ID:                       "EWCWorkflow" + uuid.NewString(),
-		TaskQueue:                EWCTaskQueue,
-		WorkflowExecutionTimeout: 24 * time.Hour,
-	}
-	namespace := DefaultNamespace
-	if input.Config["namespace"] != nil {
-		namespace = input.Config["namespace"].(string)
-	}
-	return ewcStartWorkflowWithOptions(namespace, workflowOptions, w.Name(), input)
-}
-
-// EWCStatusWorkflow is a workflow that checks the status of an EWC check.
-type EWCStatusWorkflow struct {
-	WorkflowFunc workflowengine.WorkflowFn
-}
-
-// EWCStatusWorkflowPayload is the payload for the EWCStatusWorkflow.
-type EWCStatusWorkflowPayload struct {
-	SessionID string `json:"session_id"`
-}
-
-func NewEWCStatusWorkflow() *EWCStatusWorkflow {
-	w := &EWCStatusWorkflow{}
-	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
-	return w
-}
-
-// Name returns the human-readable name for this workflow.
-func (EWCStatusWorkflow) Name() string {
-	return "Drain  EWC check status conformance endpoint"
-}
-
-// GetOptions returns the default activity options for this workflow.
-func (EWCStatusWorkflow) GetOptions() workflow.ActivityOptions {
-	return DefaultActivityOptions
-}
-
-func (w *EWCStatusWorkflow) Workflow(
+func executeEWCLikeStatusWorkflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
+	options workflow.ActivityOptions,
 ) (workflowengine.WorkflowResult, error) {
-	return w.WorkflowFunc(ctx, input)
-}
-
-// Workflow continuously polls EWC Status and pushes updates to the backend.
-// It can be paused/resumed by Temporal signals.
-func (w *EWCStatusWorkflow) ExecuteWorkflow(
-	ctx workflow.Context,
-	input workflowengine.WorkflowInput,
-) (workflowengine.WorkflowResult, error) {
-	ctx = workflow.WithActivityOptions(ctx, w.GetOptions())
+	ctx = workflow.WithActivityOptions(ctx, options)
 
 	payload, err := workflowengine.DecodePayload[EWCStatusWorkflowPayload](input.Payload)
 	if err != nil {
@@ -288,6 +327,27 @@ func (w *EWCStatusWorkflow) ExecuteWorkflow(
 		true,
 	)
 	return result, err
+}
+
+func ResolveEWCLikeCheckEndpoint(suite string, standard string) (string, error) {
+	var baseURL string
+	switch suite {
+	case EWCSuite:
+		baseURL = "https://ewc.api.forkbomb.eu"
+	case WebuildSuite:
+		baseURL = "https://webuild.api.forkbomb.eu"
+	default:
+		return "", fmt.Errorf("unsupported suite %s", suite)
+	}
+
+	switch standard {
+	case "openid4vp_wallet":
+		return baseURL + "/verificationStatus", nil
+	case "openid4vci_wallet":
+		return baseURL + "/issueStatus", nil
+	default:
+		return "", fmt.Errorf("unsupported standard %s for suite %s", standard, suite)
+	}
 }
 
 func pollEWCCheck(

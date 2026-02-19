@@ -101,6 +101,8 @@ func runTemplate(input string, defaultPath string, configPath string, outputDir 
 			result, err = parseOpenidnetInput(checkString, defaultPath, configPath)
 		case "ewc":
 			result, err = parseEwcInput(checkString, defaultPath)
+		case "webuild":
+			result, err = parseEwcInput(checkString, defaultPath)
 		case "eudiw":
 			result, err = parseEudiwInput(checkString, defaultPath)
 		default:

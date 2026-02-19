@@ -94,6 +94,7 @@ var OrgWorkers = []workerConfig{
 		TaskQueue: workflows.EWCTaskQueue,
 		Workflows: []workflowengine.Workflow{
 			workflows.NewEWCWorkflow(),
+			workflows.NewWebuildWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
@@ -197,6 +198,7 @@ var DefaultWorkers = []workerConfig{
 		Workflows: []workflowengine.Workflow{
 			workflows.NewStartCheckWorkflow(),
 			workflows.NewEWCStatusWorkflow(),
+			workflows.NewWebuildStatusWorkflow(),
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewStepCIWorkflowActivity(),
