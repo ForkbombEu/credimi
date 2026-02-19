@@ -297,7 +297,10 @@ func TestEnqueuePipelineRunTicketActivityValidationErrors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := act.Execute(context.Background(), workflowengine.ActivityInput{Payload: tc.payload})
+			_, err := act.Execute(
+				context.Background(),
+				workflowengine.ActivityInput{Payload: tc.payload},
+			)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tc.errContains)
 		})

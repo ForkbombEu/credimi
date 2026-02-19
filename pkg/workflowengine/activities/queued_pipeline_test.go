@@ -250,18 +250,27 @@ func TestStartQueuedPipelineActivityValidationErrors(t *testing.T) {
 		errContains string
 	}{
 		{
-			name:        "missing owner namespace",
-			payload:     StartQueuedPipelineActivityInput{PipelineIdentifier: "p", YAML: "name: test\n"},
+			name: "missing owner namespace",
+			payload: StartQueuedPipelineActivityInput{
+				PipelineIdentifier: "p",
+				YAML:               "name: test\n",
+			},
 			errContains: "owner_namespace",
 		},
 		{
-			name:        "missing pipeline identifier",
-			payload:     StartQueuedPipelineActivityInput{OwnerNamespace: "ns", YAML: "name: test\n"},
+			name: "missing pipeline identifier",
+			payload: StartQueuedPipelineActivityInput{
+				OwnerNamespace: "ns",
+				YAML:           "name: test\n",
+			},
 			errContains: "pipeline_identifier",
 		},
 		{
-			name:        "missing yaml",
-			payload:     StartQueuedPipelineActivityInput{OwnerNamespace: "ns", PipelineIdentifier: "p"},
+			name: "missing yaml",
+			payload: StartQueuedPipelineActivityInput{
+				OwnerNamespace:     "ns",
+				PipelineIdentifier: "p",
+			},
 			errContains: "yaml is required",
 		},
 		{
@@ -289,7 +298,10 @@ func TestStartQueuedPipelineActivityValidationErrors(t *testing.T) {
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			_, err := act.Execute(context.Background(), workflowengine.ActivityInput{Payload: tc.payload})
+			_, err := act.Execute(
+				context.Background(),
+				workflowengine.ActivityInput{Payload: tc.payload},
+			)
 			require.Error(t, err)
 			require.Contains(t, err.Error(), tc.errContains)
 			require.True(t, temporal.IsApplicationError(err))
