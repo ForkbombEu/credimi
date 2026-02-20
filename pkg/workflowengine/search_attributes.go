@@ -20,15 +20,6 @@ func NormalizePipelineIdentifier(identifier string) string {
 	return strings.Trim(strings.TrimSpace(identifier), "/")
 }
 
-// PipelineSearchAttributes returns search attributes for the provided pipeline identifier.
-func PipelineSearchAttributes(pipelineIdentifier string) map[string]any {
-	normalized := NormalizePipelineIdentifier(pipelineIdentifier)
-	if normalized == "" {
-		return nil
-	}
-	return map[string]any{PipelineIdentifierSearchAttribute: normalized}
-}
-
 // PipelineTypedSearchAttributes returns typed search attributes for scheduled workflow actions.
 func PipelineTypedSearchAttributes(pipelineIdentifier string) temporal.SearchAttributes {
 	normalized := NormalizePipelineIdentifier(pipelineIdentifier)
@@ -44,14 +35,20 @@ func ApplyPipelineSearchAttributes(options *client.StartWorkflowOptions, pipelin
 	if options == nil {
 		return
 	}
-	attributes := PipelineSearchAttributes(pipelineIdentifier)
-	if len(attributes) == 0 {
+	normalized := NormalizePipelineIdentifier(pipelineIdentifier)
+	if normalized == "" {
 		return
 	}
-	if options.SearchAttributes == nil {
-		options.SearchAttributes = map[string]any{}
+
+	key := temporal.NewSearchAttributeKeyKeyword(PipelineIdentifierSearchAttribute)
+	if options.TypedSearchAttributes.Size() > 0 {
+		options.TypedSearchAttributes = temporal.NewSearchAttributes(
+			options.TypedSearchAttributes.Copy(),
+			key.ValueSet(normalized),
+		)
+		options.SearchAttributes = nil
+		return
 	}
-	for key, value := range attributes {
-		options.SearchAttributes[key] = value
-	}
+	options.TypedSearchAttributes = temporal.NewSearchAttributes(key.ValueSet(normalized))
+	options.SearchAttributes = nil
 }

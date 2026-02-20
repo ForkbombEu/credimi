@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/testsuite"
 	"go.temporal.io/sdk/workflow"
 )
@@ -115,9 +116,10 @@ func TestPipelineStartImmediate(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "workflow-123", result.WorkflowID)
 	require.Equal(t, "run-456", result.WorkflowRunID)
-	require.Equal(t, map[string]any{
-		workflowengine.PipelineIdentifierSearchAttribute: "tenant-1/immediate-pipeline",
-	}, capturedOptions.SearchAttributes)
+	key := temporal.NewSearchAttributeKeyKeyword(workflowengine.PipelineIdentifierSearchAttribute)
+	value, ok := capturedOptions.TypedSearchAttributes.GetKeyword(key)
+	require.True(t, ok)
+	require.Equal(t, "tenant-1/immediate-pipeline", value)
 }
 
 func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
