@@ -220,6 +220,9 @@ func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
 			if test.blockedPrefix != "" {
 				require.False(t, strings.HasPrefix(captured.lastOptions.ID, test.blockedPrefix))
 			}
+			require.Equal(t, map[string]any{
+				workflowengine.PipelineIdentifierSearchAttribute: "tenant-1/pipeline",
+			}, captured.lastOptions.SearchAttributes)
 		})
 	}
 }

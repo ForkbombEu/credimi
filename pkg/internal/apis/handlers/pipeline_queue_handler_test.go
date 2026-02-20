@@ -303,6 +303,7 @@ func TestPipelineQueueEnqueue_StartsNonRunnerPipeline(t *testing.T) {
 		yaml string,
 		config map[string]any,
 		memo map[string]any,
+		pipelineIdentifier string,
 	) (workflowengine.WorkflowResult, error) {
 		return workflowengine.WorkflowResult{
 			WorkflowID:    "wf-123",

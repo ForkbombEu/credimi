@@ -202,6 +202,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 	)
 	options.Options.TaskQueue = pipelineTaskQueue
 	options.Options.Memo = memo
+	workflowengine.ApplyPipelineSearchAttributes(&options.Options, payload.PipelineIdentifier)
 
 	namespace := config["namespace"].(string)
 	temporalFactory := a.temporalClientFactory

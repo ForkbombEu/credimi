@@ -22,6 +22,7 @@ func TestPipelineStartMissingNamespace(t *testing.T) {
 		"name: test-pipeline\nsteps: []\n",
 		map[string]any{},
 		map[string]any{},
+		"tenant-1/test-pipeline",
 	)
 	require.Error(t, err)
 	require.Empty(t, result.WorkflowID)
@@ -30,7 +31,7 @@ func TestPipelineStartMissingNamespace(t *testing.T) {
 
 func TestPipelineStartInvalidYAML(t *testing.T) {
 	pipelineWf := NewPipelineWorkflow()
-	_, err := pipelineWf.Start("name: [", map[string]any{}, map[string]any{})
+	_, err := pipelineWf.Start("name: [", map[string]any{}, map[string]any{}, "tenant-1/pipeline")
 	require.Error(t, err)
 }
 
@@ -45,10 +46,16 @@ func TestPipelineStartScheduled(t *testing.T) {
 	mockClient := temporalmocks.NewClient(t)
 	scheduleClient := temporalmocks.NewScheduleClient(t)
 	scheduleHandle := temporalmocks.NewScheduleHandle(t)
+	var capturedAction *client.ScheduleWorkflowAction
 
 	scheduleHandle.On("Describe", mock.Anything).Return(&client.ScheduleDescription{}, nil)
 	scheduleHandle.On("GetID").Return("schedule-123")
-	scheduleClient.On("Create", mock.Anything, mock.Anything).Return(scheduleHandle, nil)
+	scheduleClient.On("Create", mock.Anything, mock.Anything).Run(func(args mock.Arguments) {
+		opts := args.Get(1).(client.ScheduleOptions)
+		action, ok := opts.Action.(*client.ScheduleWorkflowAction)
+		require.True(t, ok)
+		capturedAction = action
+	}).Return(scheduleHandle, nil)
 	mockClient.On("ScheduleClient").Return(scheduleClient)
 
 	pipelineTemporalClient = func(_ string) (client.Client, error) {
@@ -59,10 +66,16 @@ func TestPipelineStartScheduled(t *testing.T) {
 		"name: scheduled-pipeline\nruntime:\n  schedule:\n    interval: 1m\nsteps: []\n",
 		map[string]any{"namespace": "default"},
 		map[string]any{},
+		"tenant-1/scheduled-pipeline",
 	)
 	require.NoError(t, err)
 	require.Equal(t, "schedule-123", result.WorkflowID)
 	require.Contains(t, result.Message, "scheduled successfully")
+	require.Equal(
+		t,
+		workflowengine.PipelineTypedSearchAttributes("tenant-1/scheduled-pipeline"),
+		capturedAction.TypedSearchAttributes,
+	)
 }
 
 func TestPipelineStartImmediate(t *testing.T) {
@@ -75,6 +88,7 @@ func TestPipelineStartImmediate(t *testing.T) {
 
 	mockClient := temporalmocks.NewClient(t)
 	workflowRun := temporalmocks.NewWorkflowRun(t)
+	var capturedOptions client.StartWorkflowOptions
 
 	workflowRun.On("GetID").Return("workflow-123")
 	workflowRun.On("GetRunID").Return("run-456")
@@ -84,7 +98,9 @@ func TestPipelineStartImmediate(t *testing.T) {
 		mock.Anything,
 		pipelineWf.Name(),
 		mock.Anything,
-	).Return(workflowRun, nil)
+	).Run(func(args mock.Arguments) {
+		capturedOptions = args.Get(1).(client.StartWorkflowOptions)
+	}).Return(workflowRun, nil)
 
 	pipelineTemporalClient = func(_ string) (client.Client, error) {
 		return mockClient, nil
@@ -94,10 +110,14 @@ func TestPipelineStartImmediate(t *testing.T) {
 		"name: immediate-pipeline\nsteps: []\n",
 		map[string]any{"namespace": "default"},
 		map[string]any{},
+		"tenant-1/immediate-pipeline",
 	)
 	require.NoError(t, err)
 	require.Equal(t, "workflow-123", result.WorkflowID)
 	require.Equal(t, "run-456", result.WorkflowRunID)
+	require.Equal(t, map[string]any{
+		workflowengine.PipelineIdentifierSearchAttribute: "tenant-1/immediate-pipeline",
+	}, capturedOptions.SearchAttributes)
 }
 
 func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
