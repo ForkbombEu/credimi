@@ -24,12 +24,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.temporal.io/api/common/v1"
 	"go.temporal.io/api/enums/v1"
+	historypb "go.temporal.io/api/history/v1"
 	"go.temporal.io/api/serviceerror"
 	"go.temporal.io/api/workflow/v1"
 	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	temporalmocks "go.temporal.io/sdk/mocks"
-	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func setupPipelineApp(t testing.TB) *tests.TestApp {
@@ -265,6 +265,15 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 	resultRecord.Set("run_id", "run-1")
 	require.NoError(t, app.Save(resultRecord))
 
+	pipelinePath, err := canonify.BuildPath(
+		app,
+		pipelineRecord,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
+	require.NoError(t, err)
+	pipelineIdentifier := strings.Trim(pipelinePath, "/")
+
 	originalListQueued := pipelineListQueuedRuns
 	originalTemporalClient := pipelineTemporalClient
 	t.Cleanup(func() {
@@ -278,28 +287,39 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
-		Return(&workflowservice.DescribeWorkflowExecutionResponse{
-			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
-				Execution: &common.WorkflowExecution{
-					WorkflowId: "wf-1",
-					RunId:      "run-1",
-				},
-				Type:      &common.WorkflowType{Name: "custom-workflow"},
-				Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
-				StartTime: timestamppb.New(time.Now().Add(-2 * time.Minute)),
-				CloseTime: timestamppb.New(time.Now().Add(-1 * time.Minute)),
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return strings.Contains(req.GetQuery(), "WorkflowType")
+			}),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflow.WorkflowExecutionInfo{
+				buildPipelineExecutionInfo(
+					t,
+					"wf-1",
+					"run-1",
+					pipelineIdentifier,
+					enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+				),
 			},
 		}, nil).
 		Once()
+	mockClient.
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"wf-1",
+			"run-1",
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).
+		Return(&fakeHistoryIterator{events: []*historypb.HistoryEvent{}}, nil).
+		Maybe()
 
-	callCount := 0
 	pipelineTemporalClient = func(namespace string) (client.Client, error) {
-		callCount++
-		if callCount <= 2 {
-			return mockClient, nil
-		}
-		return nil, errors.New("temporal unavailable")
+		return mockClient, nil
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
@@ -315,10 +335,14 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
-	require.Contains(t, rec.Body.String(), pipelineRecord.Id)
+
+	var response map[string][]pipelineWorkflowSummary
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Len(t, response[pipelineRecord.Id], 1)
+	require.Equal(t, pipelineIdentifier, response[pipelineRecord.Id][0].PipelineIdentifier)
 }
 
-func TestHandleGetPipelineDetailsDescribeNotFound(t *testing.T) {
+func TestHandleGetPipelineDetailsListError(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -360,8 +384,12 @@ func TestHandleGetPipelineDetailsDescribeNotFound(t *testing.T) {
 
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
-		Return((*workflowservice.DescribeWorkflowExecutionResponse)(nil), serviceerror.NewNotFound("missing")).
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+		).
+		Return((*workflowservice.ListWorkflowExecutionsResponse)(nil), errors.New("boom")).
 		Once()
 
 	pipelineTemporalClient = func(namespace string) (client.Client, error) {
@@ -380,11 +408,10 @@ func TestHandleGetPipelineDetailsDescribeNotFound(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.JSONEq(t, `{}`, rec.Body.String())
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestHandleGetPipelineDetailsDescribeInvalidArgument(t *testing.T) {
+func TestHandleGetPipelineDetailsTemporalClientError(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -424,14 +451,8 @@ func TestHandleGetPipelineDetailsDescribeInvalidArgument(t *testing.T) {
 		return map[string]QueuedPipelineRunAggregate{}, nil
 	}
 
-	mockClient := &temporalmocks.Client{}
-	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
-		Return((*workflowservice.DescribeWorkflowExecutionResponse)(nil), serviceerror.NewInvalidArgument("bad id")).
-		Once()
-
 	pipelineTemporalClient = func(namespace string) (client.Client, error) {
-		return mockClient, nil
+		return nil, errors.New("no temporal")
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
@@ -446,7 +467,7 @@ func TestHandleGetPipelineDetailsDescribeInvalidArgument(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusBadRequest, rec.Code)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestHandleGetPipelineDetailsQueuedRunsError(t *testing.T) {
@@ -514,8 +535,10 @@ func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
 	require.NoError(t, app.Save(pipelineRecord))
 
 	originalListQueued := pipelineListQueuedRuns
+	originalTemporalClient := pipelineTemporalClient
 	t.Cleanup(func() {
 		pipelineListQueuedRuns = originalListQueued
+		pipelineTemporalClient = originalTemporalClient
 	})
 
 	pipelineListQueuedRuns = func(ctx context.Context, namespace string) (map[string]QueuedPipelineRunAggregate, error) {
@@ -529,6 +552,19 @@ func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
 				RunnerIDs:          []string{"runner-1"},
 			},
 		}, nil
+	}
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
+		Maybe()
+	pipelineTemporalClient = func(string) (client.Client, error) {
+		return mockClient, nil
 	}
 
 	req := httptest.NewRequest(
@@ -556,6 +592,7 @@ func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
 	queue, ok := response[0]["queue"].(map[string]any)
 	require.True(t, ok)
 	require.Equal(t, "ticket-1", queue["ticket_id"])
+	require.Equal(t, "usera-s-organization/pipeline123", response[0]["pipeline_identifier"])
 }
 
 func TestHandleGetPipelineSpecificDetailsMissingAuth(t *testing.T) {
@@ -671,7 +708,7 @@ func TestHandleGetPipelineSpecificDetailsQueuedRunsError(t *testing.T) {
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
-func TestHandleGetPipelineSpecificDetailsProcessError(t *testing.T) {
+func TestHandleGetPipelineSpecificDetailsListError(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
@@ -691,15 +728,6 @@ func TestHandleGetPipelineSpecificDetailsProcessError(t *testing.T) {
 	pipelineRecord.Set("yaml", "name: demo")
 	require.NoError(t, app.Save(pipelineRecord))
 
-	resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
-	require.NoError(t, err)
-	resultRecord := core.NewRecord(resultsColl)
-	resultRecord.Set("owner", orgID)
-	resultRecord.Set("pipeline", pipelineRecord.Id)
-	resultRecord.Set("workflow_id", "wf-1")
-	resultRecord.Set("run_id", "run-1")
-	require.NoError(t, app.Save(resultRecord))
-
 	originalListQueued := pipelineListQueuedRuns
 	originalTemporalClient := pipelineTemporalClient
 	t.Cleanup(func() {
@@ -710,8 +738,18 @@ func TestHandleGetPipelineSpecificDetailsProcessError(t *testing.T) {
 	pipelineListQueuedRuns = func(ctx context.Context, namespace string) (map[string]QueuedPipelineRunAggregate, error) {
 		return map[string]QueuedPipelineRunAggregate{}, nil
 	}
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+		).
+		Return((*workflowservice.ListWorkflowExecutionsResponse)(nil), errors.New("boom")).
+		Once()
 	pipelineTemporalClient = func(string) (client.Client, error) {
-		return nil, errors.New("no client")
+		return mockClient, nil
 	}
 
 	req := httptest.NewRequest(
@@ -731,7 +769,7 @@ func TestHandleGetPipelineSpecificDetailsProcessError(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, http.StatusInternalServerError, rec.Code)
 }
 
 func TestProcessPipelineResultsClientError(t *testing.T) {
