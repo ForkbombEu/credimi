@@ -139,9 +139,18 @@ func RunCommandWithCancellation(
 			return err
 
 		case <-ticker.C:
-			activity.RecordHeartbeat(ctx, "running")
+			safeRecordActivityHeartbeat(ctx, "running")
 		}
 	}
+}
+
+func safeRecordActivityHeartbeat(ctx context.Context, details ...any) {
+	defer func() {
+		// RecordHeartbeat panics if the context is not an activity context.
+		// RunCommandWithCancellation is also used in unit tests with plain contexts.
+		_ = recover()
+	}()
+	activity.RecordHeartbeat(ctx, details...)
 }
 
 // OutputKind represents the expected type of an activity output.

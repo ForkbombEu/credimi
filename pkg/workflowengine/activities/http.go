@@ -36,6 +36,13 @@ type HTTPActivityPayload struct {
 	ExpectedStatus int               `json:"expected_status,omitempty" yaml:"expected_status,omitempty"`
 }
 
+type RequestSnapshot struct {
+	Method  string              `json:"method"`
+	URL     string              `json:"url"`
+	Headers map[string][]string `json:"headers,omitempty"`
+	Body    any                 `json:"body,omitempty"`
+}
+
 func NewHTTPActivity() *HTTPActivity {
 	return &HTTPActivity{
 		BaseActivity: workflowengine.BaseActivity{
@@ -84,7 +91,7 @@ func (a *HTTPActivity) Execute(
 		url = parsedURL.String() // Update the URL with query parameters
 	}
 
-	timeout := 10 * time.Second
+	timeout := 1 * time.Minute
 	if payload.Timeout != "" {
 		if t, err := strconv.Atoi(payload.Timeout); err == nil {
 			timeout = time.Duration(t) * time.Second
@@ -113,7 +120,7 @@ func (a *HTTPActivity) Execute(
 			fmt.Sprintf("%s: %v", errCode.Description, err),
 			payload.Method,
 			url,
-			body,
+			payload.Body,
 		)
 	}
 
@@ -124,6 +131,13 @@ func (a *HTTPActivity) Execute(
 		req.Header.Set("Content-Type", "application/json")
 	}
 
+	reqSnap := RequestSnapshot{
+		Method:  req.Method,
+		URL:     req.URL.String(),
+		Headers: req.Header,
+		Body:    payload.Body,
+	}
+
 	client := &http.Client{Timeout: timeout}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -131,7 +145,7 @@ func (a *HTTPActivity) Execute(
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			req,
+			reqSnap,
 		)
 	}
 	defer resp.Body.Close()
@@ -142,7 +156,8 @@ func (a *HTTPActivity) Execute(
 		return result, a.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
-			resp.Body,
+			resp.StatusCode,
+			resp.Header,
 		)
 	}
 
