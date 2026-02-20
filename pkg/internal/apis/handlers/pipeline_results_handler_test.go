@@ -8,8 +8,10 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -54,6 +56,162 @@ func TestParsePaginationParamsPipelineResults(t *testing.T) {
 func TestEscapeTemporalQueryValue(t *testing.T) {
 	got := escapeTemporalQueryValue(`foo"bar\baz`)
 	require.Equal(t, `foo\"bar\\baz`, got)
+}
+
+func TestBuildPipelineWorkflowsQuery(t *testing.T) {
+	query := buildPipelineWorkflowsQuery(
+		[]enums.WorkflowExecutionStatus{
+			enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+		},
+		"/tenant-1/pipeline/",
+	)
+
+	expected := fmt.Sprintf(
+		`WorkflowType="%s" and (ExecutionStatus=%d or ExecutionStatus=%d) and %s="%s"`,
+		pipeline.NewPipelineWorkflow().Name(),
+		enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+		enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+		workflowengine.PipelineIdentifierSearchAttribute,
+		"tenant-1/pipeline",
+	)
+	require.Equal(t, expected, query)
+}
+
+func TestListPipelineWorkflowExecutionsPagination(t *testing.T) {
+	mockClient := &temporalmocks.Client{}
+
+	page1 := &workflowservice.ListWorkflowExecutionsResponse{
+		Executions: []*workflow.WorkflowExecutionInfo{
+			{
+				Execution: &common.WorkflowExecution{WorkflowId: "wf-1", RunId: "run-1"},
+				Type:      &common.WorkflowType{Name: pipeline.NewPipelineWorkflow().Name()},
+				Status:    enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+			},
+			{
+				Execution: &common.WorkflowExecution{WorkflowId: "wf-2", RunId: "run-2"},
+				Type:      &common.WorkflowType{Name: pipeline.NewPipelineWorkflow().Name()},
+				Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			},
+		},
+		NextPageToken: []byte("next"),
+	}
+	page2 := &workflowservice.ListWorkflowExecutionsResponse{
+		Executions: []*workflow.WorkflowExecutionInfo{
+			{
+				Execution: &common.WorkflowExecution{WorkflowId: "wf-3", RunId: "run-3"},
+				Type:      &common.WorkflowType{Name: pipeline.NewPipelineWorkflow().Name()},
+				Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+			},
+		},
+	}
+
+	statusFilters := []enums.WorkflowExecutionStatus{
+		enums.WORKFLOW_EXECUTION_STATUS_RUNNING,
+	}
+	pipelineIdentifier := "tenant-1/pipeline"
+	expectedQuery := buildPipelineWorkflowsQuery(statusFilters, pipelineIdentifier)
+
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return req.GetNamespace() == "default" &&
+					req.GetQuery() == expectedQuery &&
+					req.GetPageSize() == int32(2) &&
+					len(req.GetNextPageToken()) == 0
+			}),
+		).
+		Return(page1, nil).
+		Once()
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return req.GetNamespace() == "default" &&
+					req.GetQuery() == expectedQuery &&
+					req.GetPageSize() == int32(2) &&
+					string(req.GetNextPageToken()) == "next"
+			}),
+		).
+		Return(page2, nil).
+		Once()
+
+	results, err := listPipelineWorkflowExecutions(
+		context.Background(),
+		mockClient,
+		"default",
+		statusFilters,
+		pipelineIdentifier,
+		2,
+		1,
+	)
+	require.NoError(t, err)
+	require.Len(t, results, 2)
+	require.Equal(t, "wf-2", results[0].Execution.WorkflowID)
+	require.Equal(t, "wf-3", results[1].Execution.WorkflowID)
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestListPipelineWorkflowExecutionsError(t *testing.T) {
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+		).
+		Return((*workflowservice.ListWorkflowExecutionsResponse)(nil), errors.New("boom")).
+		Once()
+
+	_, err := listPipelineWorkflowExecutions(
+		context.Background(),
+		mockClient,
+		"default",
+		nil,
+		"",
+		1,
+		0,
+	)
+	require.Error(t, err)
+
+	mockClient.AssertExpectations(t)
+}
+
+func TestResolvePipelineIdentifiersForExecutionsFallback(t *testing.T) {
+	app, _, pipelineRecord := setupPipelineResultsApp(t)
+	defer app.Cleanup()
+
+	orgID := pipelineRecord.GetString("owner")
+	createPipelineResult(t, app, orgID, pipelineRecord.Id, "wf-1", "run-1")
+
+	exec := &WorkflowExecution{
+		Execution: &WorkflowIdentifier{
+			WorkflowID: "wf-1",
+			RunID:      "run-1",
+		},
+	}
+
+	identifiers, err := resolvePipelineIdentifiersForExecutions(
+		app,
+		[]*WorkflowExecution{exec},
+		orgID,
+	)
+	require.NoError(t, err)
+
+	expectedPath, err := canonify.BuildPath(
+		app,
+		pipelineRecord,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
+	require.NoError(t, err)
+
+	ref := workflowExecutionRef{WorkflowID: "wf-1", RunID: "run-1"}
+	require.Equal(t, strings.Trim(expectedPath, "/"), identifiers[ref])
 }
 
 func TestBuildWorkflowExecutionSummaryDuration(t *testing.T) {
@@ -173,17 +331,52 @@ func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
 	restore := installPipelineResultsSeams(t)
 	t.Cleanup(restore)
 
+	pipelinePath, err := canonify.BuildPath(
+		app,
+		pipelineRecord,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
+	require.NoError(t, err)
+	pipelineIdentifier := strings.Trim(pipelinePath, "/")
+
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
-		Return(buildWorkflowExecutionResponse("wf-1", "run-1"), nil).
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return strings.Contains(req.GetQuery(), "WorkflowType") &&
+					!strings.Contains(req.GetQuery(), "ParentWorkflowId")
+			}),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflow.WorkflowExecutionInfo{
+				buildPipelineExecutionInfo(
+					t,
+					"wf-1",
+					"run-1",
+					pipelineIdentifier,
+					enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+				),
+				buildPipelineExecutionInfo(
+					t,
+					"wf-2",
+					"run-2",
+					pipelineIdentifier,
+					enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+				),
+			},
+		}, nil).
 		Once()
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-2", "run-2").
-		Return(buildWorkflowExecutionResponse("wf-2", "run-2"), nil).
-		Once()
-	mockClient.
-		On("ListWorkflow", mock.Anything, mock.Anything).
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return strings.Contains(req.GetQuery(), "ParentWorkflowId")
+			}),
+		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
 		Maybe()
 	mockClient.
@@ -211,11 +404,14 @@ func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
 		authRecord,
 		orgID,
 		"Completed",
-		1,
-		1,
+		2,
+		0,
 	)
 	require.Nil(t, apiErr)
-	require.Len(t, summaries, 1)
+	require.Len(t, summaries, 2)
+	for _, summary := range summaries {
+		require.Equal(t, pipelineIdentifier, summary.PipelineIdentifier)
+	}
 }
 
 func TestBuildPipelineExecutionHierarchyFromResult(t *testing.T) {
@@ -270,11 +466,20 @@ func TestHandleGetPipelineResultsQueuedOnly(t *testing.T) {
 	restore := installPipelineResultsSeams(t)
 	defer restore()
 
+	pipelinePath, err := canonify.BuildPath(
+		app,
+		pipelineRecord,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
+	require.NoError(t, err)
+	pipelineIdentifier := strings.Trim(pipelinePath, "/")
+
 	pipelineResultsListQueuedRuns = func(_ context.Context, _ string) (map[string]QueuedPipelineRunAggregate, error) {
 		return map[string]QueuedPipelineRunAggregate{
 			"ticket-1": {
 				TicketID:           "ticket-1",
-				PipelineIdentifier: pipelineRecord.Id,
+				PipelineIdentifier: pipelineIdentifier,
 				EnqueuedAt:         time.Now().Add(-time.Minute),
 				LeaderRunnerID:     "runner-1",
 				RequiredRunnerIDs:  []string{"runner-1"},
@@ -293,7 +498,7 @@ func TestHandleGetPipelineResultsQueuedOnly(t *testing.T) {
 	)
 	rec := httptest.NewRecorder()
 
-	err := HandleGetPipelineResults()(&core.RequestEvent{
+	err = HandleGetPipelineResults()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -308,6 +513,7 @@ func TestHandleGetPipelineResultsQueuedOnly(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&summaries))
 	require.Len(t, summaries, 1)
 	require.Equal(t, string(WorkflowStatusQueued), summaries[0].Status)
+	require.Equal(t, pipelineIdentifier, summaries[0].PipelineIdentifier)
 }
 
 func TestHandleGetPipelineResultsCompletedOnly(t *testing.T) {
@@ -320,16 +526,44 @@ func TestHandleGetPipelineResultsCompletedOnly(t *testing.T) {
 	restore := installPipelineResultsSeams(t)
 	defer restore()
 
+	pipelinePath, err := canonify.BuildPath(
+		app,
+		pipelineRecord,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
+	require.NoError(t, err)
+	pipelineIdentifier := strings.Trim(pipelinePath, "/")
+
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-1", "run-1").
-		Return(buildWorkflowExecutionResponse("wf-1", "run-1"), nil).
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return strings.Contains(req.GetQuery(), "WorkflowType") &&
+					!strings.Contains(req.GetQuery(), "ParentWorkflowId")
+			}),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflow.WorkflowExecutionInfo{
+				buildPipelineExecutionInfo(
+					t,
+					"wf-1",
+					"run-1",
+					pipelineIdentifier,
+					enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+				),
+			},
+		}, nil).
 		Once()
 	mockClient.
 		On(
 			"ListWorkflow",
 			mock.Anything,
-			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return strings.Contains(req.GetQuery(), "ParentWorkflowId")
+			}),
 		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
 		Maybe()
@@ -369,7 +603,7 @@ func TestHandleGetPipelineResultsCompletedOnly(t *testing.T) {
 	)
 	rec := httptest.NewRecorder()
 
-	err := HandleGetPipelineResults()(&core.RequestEvent{
+	err = HandleGetPipelineResults()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -384,6 +618,7 @@ func TestHandleGetPipelineResultsCompletedOnly(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&summaries))
 	require.Len(t, summaries, 1)
 	require.Equal(t, string(WorkflowStatusCompleted), summaries[0].Status)
+	require.Equal(t, pipelineIdentifier, summaries[0].PipelineIdentifier)
 
 	mockClient.AssertExpectations(t)
 }
@@ -398,16 +633,44 @@ func TestHandleGetPipelineResultsMixed(t *testing.T) {
 	restore := installPipelineResultsSeams(t)
 	defer restore()
 
+	pipelinePath, err := canonify.BuildPath(
+		app,
+		pipelineRecord,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
+	require.NoError(t, err)
+	pipelineIdentifier := strings.Trim(pipelinePath, "/")
+
 	mockClient := &temporalmocks.Client{}
 	mockClient.
-		On("DescribeWorkflowExecution", mock.Anything, "wf-2", "run-2").
-		Return(buildWorkflowExecutionResponse("wf-2", "run-2"), nil).
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return strings.Contains(req.GetQuery(), "WorkflowType") &&
+					!strings.Contains(req.GetQuery(), "ParentWorkflowId")
+			}),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflow.WorkflowExecutionInfo{
+				buildPipelineExecutionInfo(
+					t,
+					"wf-2",
+					"run-2",
+					pipelineIdentifier,
+					enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+				),
+			},
+		}, nil).
 		Once()
 	mockClient.
 		On(
 			"ListWorkflow",
 			mock.Anything,
-			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return strings.Contains(req.GetQuery(), "ParentWorkflowId")
+			}),
 		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
 		Maybe()
@@ -439,7 +702,7 @@ func TestHandleGetPipelineResultsMixed(t *testing.T) {
 		return map[string]QueuedPipelineRunAggregate{
 			"ticket-2": {
 				TicketID:           "ticket-2",
-				PipelineIdentifier: pipelineRecord.Id,
+				PipelineIdentifier: pipelineIdentifier,
 				EnqueuedAt:         time.Now().Add(-2 * time.Minute),
 				LeaderRunnerID:     "runner-2",
 				RequiredRunnerIDs:  []string{"runner-2"},
@@ -454,7 +717,7 @@ func TestHandleGetPipelineResultsMixed(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/results", nil)
 	rec := httptest.NewRecorder()
 
-	err := HandleGetPipelineResults()(&core.RequestEvent{
+	err = HandleGetPipelineResults()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -472,6 +735,12 @@ func TestHandleGetPipelineResultsMixed(t *testing.T) {
 	statuses := []string{summaries[0].Status, summaries[1].Status}
 	require.Contains(t, statuses, string(WorkflowStatusQueued))
 	require.Contains(t, statuses, string(WorkflowStatusCompleted))
+	for _, summary := range summaries {
+		if summary.Status == string(WorkflowStatusQueued) ||
+			summary.Status == string(WorkflowStatusCompleted) {
+			require.Equal(t, pipelineIdentifier, summary.PipelineIdentifier)
+		}
+	}
 
 	mockClient.AssertExpectations(t)
 }
@@ -934,6 +1203,38 @@ func buildWorkflowExecutionResponse(
 			CloseTime: timestamppb.New(time.Now().Add(-time.Minute)),
 		},
 	}
+}
+
+func buildPipelineExecutionInfo(
+	t testing.TB,
+	workflowID, runID, pipelineIdentifier string,
+	status enums.WorkflowExecutionStatus,
+) *workflow.WorkflowExecutionInfo {
+	info := &workflow.WorkflowExecutionInfo{
+		Execution: &common.WorkflowExecution{
+			WorkflowId: workflowID,
+			RunId:      runID,
+		},
+		Type: &common.WorkflowType{
+			Name: pipeline.NewPipelineWorkflow().Name(),
+		},
+		Status:    status,
+		StartTime: timestamppb.New(time.Now().Add(-2 * time.Minute)),
+		CloseTime: timestamppb.New(time.Now().Add(-time.Minute)),
+	}
+
+	if pipelineIdentifier == "" {
+		return info
+	}
+
+	payload, err := converter.GetDefaultDataConverter().ToPayload(pipelineIdentifier)
+	require.NoError(t, err)
+	info.SearchAttributes = &common.SearchAttributes{
+		IndexedFields: map[string]*common.Payload{
+			workflowengine.PipelineIdentifierSearchAttribute: payload,
+		},
+	}
+	return info
 }
 
 func installPipelineResultsSeams(t testing.TB) func() {
