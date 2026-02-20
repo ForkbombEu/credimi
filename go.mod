@@ -17,6 +17,7 @@ require (
 	github.com/invopop/jsonschema v0.13.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mocktools/go-smtp-mock v1.10.0
+	github.com/nexus-rpc/sdk-go v0.3.0
 	github.com/pocketbase/dbx v1.11.0
 	github.com/pocketbase/pocketbase v0.26.4
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
@@ -208,7 +209,6 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/nakabonne/nestif v0.3.1 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
-	github.com/nexus-rpc/sdk-go v0.3.0 // indirect
 	github.com/nikolaydubina/go-cover-treemap v1.5.0 // indirect
 	github.com/nikolaydubina/treemap v1.2.5 // indirect
 	github.com/nishanths/exhaustive v0.12.0 // indirect
