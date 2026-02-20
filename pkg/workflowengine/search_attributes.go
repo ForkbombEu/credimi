@@ -41,14 +41,12 @@ func ApplyPipelineSearchAttributes(options *client.StartWorkflowOptions, pipelin
 	}
 
 	key := temporal.NewSearchAttributeKeyKeyword(PipelineIdentifierSearchAttribute)
-	if options.TypedSearchAttributes.Size() > 0 {
-		options.TypedSearchAttributes = temporal.NewSearchAttributes(
-			options.TypedSearchAttributes.Copy(),
-			key.ValueSet(normalized),
-		)
-		options.SearchAttributes = nil
-		return
-	}
-	options.TypedSearchAttributes = temporal.NewSearchAttributes(key.ValueSet(normalized))
-	options.SearchAttributes = nil
+		if options.TypedSearchAttributes.Size() > 0 {
+			options.TypedSearchAttributes = temporal.NewSearchAttributes(
+				options.TypedSearchAttributes.Copy(),
+				key.ValueSet(normalized),
+			)
+			return
+		}
+		options.TypedSearchAttributes = temporal.NewSearchAttributes(key.ValueSet(normalized))
 }
