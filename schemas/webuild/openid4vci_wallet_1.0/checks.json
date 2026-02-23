@@ -3,7 +3,7 @@
         "WEBUILD-VCI001-authorization_code_flow-jwk-sd_jwt",
         "WEBUILD-VCI001-authorization_code_flow-kid_jwk-sd_jwt",
         "WEBUILD-VCI001-authorization_code_flow-x509-sd_jwt",
-        "WEBUILD-VCI004-authorization_code_flow-did:web-sd_jwt",
+        "WEBUILD-VCI004-authorization_code_flow-did_web-sd_jwt",
         "WEBUILD-VCI005-authorization_code_flow-x509-mdoc",
         "WEBUILD-VCI006-pre-authorized_code_flow-x509-sd_jwt",
         "WEBUILD-VCI007-pre-authorized_code_flow_tx_code-x509-sd_jwt",

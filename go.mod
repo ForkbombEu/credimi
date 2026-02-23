@@ -10,13 +10,14 @@ require (
 	github.com/ForkbombEu/et-tu-cesr v0.0.0-20250730082655-1822692d6150
 	github.com/docker/docker v28.3.3+incompatible
 	github.com/docker/go-connections v0.5.0
-	github.com/forkbombeu/credimi-extra v1.1.2
+	github.com/forkbombeu/credimi-extra v1.1.3
 	github.com/go-playground/validator/v10 v10.26.0
 	github.com/go-sprout/sprout v1.0.0
 	github.com/google/uuid v1.6.0
 	github.com/invopop/jsonschema v0.13.0
 	github.com/joho/godotenv v1.5.1
 	github.com/mocktools/go-smtp-mock v1.10.0
+	github.com/nexus-rpc/sdk-go v0.3.0
 	github.com/pocketbase/dbx v1.11.0
 	github.com/pocketbase/pocketbase v0.26.4
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.2
@@ -110,7 +111,7 @@ require (
 	github.com/fatih/structtag v1.2.0 // indirect
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/firefart/nonamedreturns v1.0.6 // indirect
-	github.com/forkbombeu/avdctl v0.5.0 // indirect
+	github.com/forkbombeu/avdctl v0.5.1 // indirect
 	github.com/fsnotify/fsnotify v1.8.0 // indirect
 	github.com/fzipp/gocyclo v0.6.0 // indirect
 	github.com/gabriel-vasile/mimetype v1.4.8 // indirect
@@ -208,7 +209,6 @@ require (
 	github.com/muesli/termenv v0.16.0 // indirect
 	github.com/nakabonne/nestif v0.3.1 // indirect
 	github.com/ncruces/go-strftime v0.1.9 // indirect
-	github.com/nexus-rpc/sdk-go v0.3.0 // indirect
 	github.com/nikolaydubina/go-cover-treemap v1.5.0 // indirect
 	github.com/nikolaydubina/treemap v1.2.5 // indirect
 	github.com/nishanths/exhaustive v0.12.0 // indirect
