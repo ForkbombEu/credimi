@@ -68,29 +68,6 @@ func TestCollectMobileRunnerIDs(t *testing.T) {
 	require.Equal(t, []string{"runner-a", "runner-b", "runner-global"}, runnerIDs)
 }
 
-func TestHasRunnerPermit(t *testing.T) {
-	runData := map[string]any{
-		"mobile_runner_permits": map[string]workflows.MobileRunnerSemaphorePermit{
-			"runner-1": {RunnerID: "runner-1"},
-		},
-	}
-	permit := hasRunnerPermit(&runData, "runner-1")
-	require.True(t, permit)
-	require.False(t, hasRunnerPermit(&runData, "runner-2"))
-}
-
-func TestGetRunnerPermits(t *testing.T) {
-	runData := map[string]any{
-		"mobile_runner_permits": map[string]any{
-			"runner-1": map[string]any{"runner_id": "runner-1", "lease_id": "lease-1"},
-			"bad":      "nope",
-		},
-	}
-	permits := getRunnerPermits(runData)
-	require.Len(t, permits, 1)
-	require.Equal(t, "runner-1", permits["runner-1"].RunnerID)
-}
-
 func TestParseAPKResponse(t *testing.T) {
 	result := workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{

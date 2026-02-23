@@ -302,81 +302,6 @@ func collectMobileRunnerIDs(steps []StepDefinition, globalID string) ([]string, 
 	return runnerIDs, nil
 }
 
-func hasRunnerPermit(runData *map[string]any, runnerID string) bool {
-	if runData == nil || *runData == nil {
-		return false
-	}
-
-	rawPermits, ok := (*runData)["mobile_runner_permits"]
-	if !ok {
-		return false
-	}
-
-	switch permits := rawPermits.(type) {
-	case map[string]workflows.MobileRunnerSemaphorePermit:
-		_, ok := permits[runnerID]
-		return ok
-	case map[string]any:
-		permit, ok := permits[runnerID]
-		if !ok {
-			return false
-		}
-		_, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](permit)
-		return err == nil
-	default:
-		return false
-	}
-}
-
-func getRunnerPermits(runData map[string]any) map[string]workflows.MobileRunnerSemaphorePermit {
-	rawPermits, ok := runData["mobile_runner_permits"]
-	if !ok {
-		return nil
-	}
-
-	switch permits := rawPermits.(type) {
-	case map[string]workflows.MobileRunnerSemaphorePermit:
-		return permits
-	case map[string]any:
-		decoded := make(map[string]workflows.MobileRunnerSemaphorePermit, len(permits))
-		for runnerID, rawPermit := range permits {
-			permit, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](rawPermit)
-			if err != nil {
-				continue
-			}
-			decoded[runnerID] = permit
-		}
-		return decoded
-	default:
-		return nil
-	}
-}
-
-func releaseRunnerPermits(
-	ctx workflow.Context,
-	permits map[string]workflows.MobileRunnerSemaphorePermit,
-	cleanupErrs *[]error,
-) {
-	if len(permits) == 0 {
-		return
-	}
-
-	releaseActivity := activities.NewReleaseMobileRunnerPermitActivity()
-	runnerIDs := make([]string, 0, len(permits))
-	for runnerID := range permits {
-		runnerIDs = append(runnerIDs, runnerID)
-	}
-	sort.Strings(runnerIDs)
-
-	for _, runnerID := range runnerIDs {
-		permit := permits[runnerID]
-		req := workflowengine.ActivityInput{Payload: permit}
-		if err := workflow.ExecuteActivity(ctx, releaseActivity.Name(), req).Get(ctx, nil); err != nil {
-			*cleanupErrs = append(*cleanupErrs, err)
-		}
-	}
-}
-
 func processStep(
 	input processStepInput,
 ) error {
@@ -393,15 +318,6 @@ func processStep(
 		payload.RunnerID = input.globalRunnerID
 		// Update the step payload with the global runner_id for consistency
 		SetPayloadValue(&input.step.With.Payload, "runner_id", input.globalRunnerID)
-	}
-
-	if !isSemaphoreManagedRun(input.config) && !hasRunnerPermit(input.runData, payload.RunnerID) {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("missing runner permit for step %s", input.step.ID),
-			payload.RunnerID,
-		)
 	}
 
 	taskqueue := fmt.Sprintf("%s-%s", payload.RunnerID, "TaskQueue")
@@ -1032,10 +948,6 @@ func MobileAutomationCleanupHook(
 		}); err != nil {
 			cleanupErrs = append(cleanupErrs, err)
 		}
-	}
-
-	if !isSemaphoreManagedRun(config) {
-		releaseRunnerPermits(ctx, getRunnerPermits(runData), &cleanupErrs)
 	}
 
 	if len(cleanupErrs) > 0 {
