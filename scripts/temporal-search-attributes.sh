@@ -4,7 +4,9 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 set -euo pipefail
 
-: "${TEMPORAL_CLI_ADDRESS:=localhost:7233}"
+: "${TEMPORAL_ADDRESS:=localhost:7233}"
+
+TEMPORAL_CLI_ARGS=(--address "${TEMPORAL_ADDRESS}")
 
 retry() {
   local tries="${1:-30}"
@@ -27,12 +29,12 @@ ensure_attr() {
   local name="$1"
   local type="$2"
 
-  if temporal operator search-attribute list | grep -q "\b${name}\b"; then
+  if temporal operator search-attribute list "${TEMPORAL_CLI_ARGS[@]}" | grep -q "\b${name}\b"; then
     echo "Temporal search attribute already exists: ${name}"
     return 0
   fi
 
-  temporal operator search-attribute create --name "${name}" --type "${type}"
+  temporal operator search-attribute create "${TEMPORAL_CLI_ARGS[@]}" --name "${name}" --type "${type}"
 }
 
 retry 60 1 ensure_attr "PipelineIdentifier" "Keyword"

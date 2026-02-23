@@ -60,6 +60,16 @@ services:
     image: temporalio/ui:${TEMPORAL_UI_VERSION}
     ports:
       - 8280:8280
+  temporal_setup:
+    depends_on:
+      - temporal
+    environment:
+      - TEMPORAL_ADDRESS=temporal:7233
+    image: temporalio/admin-tools:${TEMPORAL_ADMIN_TOOLS_VERSION}
+    entrypoint: ["/bin/bash", "-lc", "set -euo pipefail; /scripts/wait-for-it.sh -s -t 0 temporal:7233; /scripts/temporal-search-attributes.sh"]
+    restart: "no"
+    volumes:
+      - ./scripts:/scripts:ro
   credimi:
     depends_on:
       - temporal

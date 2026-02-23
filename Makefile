@@ -96,7 +96,6 @@ $(DATA):
 
 dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mode
 	$(call require_tools,$(DEPS) $(DEV_DEPS))
-	POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 \
 	bash -lc 'trap "docker compose -f docker-compose.yaml stop elasticsearch postgresql temporal temporal_ui" EXIT; DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev'
 
 test: ## 🧪 run tests
