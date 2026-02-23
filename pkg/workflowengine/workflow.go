@@ -15,9 +15,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
-	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/sdk/client"
-	"go.temporal.io/sdk/converter"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
@@ -246,77 +244,6 @@ func StartWorkflowWithOptions(
 		WorkflowRunID: w.GetRunID(),
 		Message:       fmt.Sprintf("Workflow %s started successfully with ID %s", name, w.GetID()),
 	}, nil
-}
-
-func GetWorkflowRunInfo(workflowID, runID, namespace string) (WorkflowRunInfo, error) {
-	runInfo := WorkflowRunInfo{}
-
-	c, err := workflowTemporalClient(namespace)
-	if err != nil {
-		return WorkflowRunInfo{}, fmt.Errorf(
-			"unable to create Temporal client for namespace %q: %w",
-			namespace,
-			err,
-		)
-	}
-
-	describeResp, err := c.DescribeWorkflowExecution(context.Background(), workflowID, runID)
-	if err != nil {
-		return WorkflowRunInfo{}, fmt.Errorf(
-			"unable to describe workflow execution (WorkflowID=%q, RunID=%q): %w",
-			workflowID,
-			runID,
-			err,
-		)
-	}
-
-	decodedMemo := make(map[string]any)
-	for k, payload := range describeResp.GetWorkflowExecutionInfo().GetMemo().GetFields() {
-		var v any
-		if err := converter.GetDefaultDataConverter().FromPayload(payload, &v); err != nil {
-			return WorkflowRunInfo{}, fmt.Errorf("failed to decode memo key %q: %w", k, err)
-		}
-		decodedMemo[k] = v
-	}
-
-	runInfo = WorkflowRunInfo{
-		Name:      describeResp.GetWorkflowExecutionInfo().GetType().GetName(),
-		TaskQueue: describeResp.GetWorkflowExecutionInfo().GetTaskQueue(),
-		Memo:      decodedMemo,
-	}
-
-	iter := c.GetWorkflowHistory(
-		context.Background(),
-		workflowID,
-		runID,
-		false,
-		enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
-	)
-	if iter == nil {
-		return runInfo, fmt.Errorf(
-			"unable to get workflow history iterator (WorkflowID=%q, RunID=%q)",
-			workflowID,
-			runID,
-		)
-	}
-
-	for iter.HasNext() {
-		event, err := iter.Next()
-		if err != nil {
-			return runInfo, fmt.Errorf("error reading workflow history: %w", err)
-		}
-
-		if event.GetEventType() == enums.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED {
-			attr := event.GetWorkflowExecutionStartedEventAttributes()
-			var wi WorkflowInput
-			if err := converter.GetDefaultDataConverter().FromPayloads(attr.GetInput(), &wi); err != nil {
-				return runInfo, fmt.Errorf("failed to decode workflow input payloads: %w", err)
-			}
-			runInfo.Input = wi
-			break
-		}
-	}
-	return runInfo, nil
 }
 
 // Wait for final workflow result
