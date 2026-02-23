@@ -96,7 +96,8 @@ $(DATA):
 
 dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mode
 	$(call require_tools,$(DEPS) $(DEV_DEPS))
-	DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev
+	POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 \
+	bash -lc 'trap "docker compose -f docker-compose.yaml stop elasticsearch postgresql temporal temporal_ui" EXIT; DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev'
 
 test: ## 🧪 run tests
 	$(call require_tools,$(TEST_DEPS))
@@ -151,6 +152,7 @@ tidy: $(GOMOD_FILES)
 
 purge: ## ⛔ Purge the database
 	@echo "⛔ Purge the database"
+	@POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 docker compose -f docker-compose.yaml down -v --remove-orphans
 	@rm -rf $(DATA)
 	@mkdir $(DATA)
 
