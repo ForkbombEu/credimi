@@ -537,6 +537,10 @@ func listPipelineWorkflowExecutions(
 		offset = 0
 	}
 
+	if limit > pipelineListWorkflowsDefaultLimit {
+		limit = pipelineListWorkflowsDefaultLimit
+	}
+
 	query := buildPipelineWorkflowsQuery(statusFilters, pipelineIdentifier)
 	pageSize := int32(limit)
 	if pageSize <= 0 {
@@ -548,12 +552,15 @@ func listPipelineWorkflowExecutions(
 	var pageToken []byte
 
 	for len(results) < limit {
-		resp, err := temporalClient.ListWorkflow(ctx, &workflowservice.ListWorkflowExecutionsRequest{
-			Namespace:     namespace,
-			PageSize:      pageSize,
-			NextPageToken: pageToken,
-			Query:         query,
-		})
+		resp, err := temporalClient.ListWorkflow(
+			ctx,
+			&workflowservice.ListWorkflowExecutionsRequest{
+				Namespace:     namespace,
+				PageSize:      pageSize,
+				NextPageToken: pageToken,
+				Query:         query,
+			},
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -1324,9 +1331,11 @@ func buildQueuedPipelineSummary(
 	runnerIDs := copyStringSlice(queued.RunnerIDs)
 	return &pipelineWorkflowSummary{
 		WorkflowExecutionSummary: *exec,
-		PipelineIdentifier:       workflowengine.NormalizePipelineIdentifier(queued.PipelineIdentifier),
-		RunnerIDs:                runnerIDs,
-		RunnerRecords:            runners.ResolveRunnerRecords(app, runnerIDs, runnerCache),
+		PipelineIdentifier: workflowengine.NormalizePipelineIdentifier(
+			queued.PipelineIdentifier,
+		),
+		RunnerIDs:     runnerIDs,
+		RunnerRecords: runners.ResolveRunnerRecords(app, runnerIDs, runnerCache),
 	}
 }
 

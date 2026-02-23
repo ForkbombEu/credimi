@@ -6,7 +6,6 @@ package handlers
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -23,9 +22,6 @@ import (
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
-	"go.temporal.io/api/serviceerror"
-	"go.temporal.io/sdk/client"
-	"google.golang.org/protobuf/encoding/protojson"
 )
 
 var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
@@ -690,89 +686,4 @@ func selectTopExecutionsByPipeline(executions []struct {
 	}
 
 	return result
-}
-
-func processPipelineResults(
-	namespace string,
-	resultsRecords []*core.Record,
-	temporalClient *client.Client,
-) ([]*WorkflowExecution, error) {
-	allExecutions := make([]*WorkflowExecution, 0, len(resultsRecords))
-
-	for _, resultRecord := range resultsRecords {
-		c, err := pipelineTemporalClient(namespace)
-		if err != nil {
-			return nil, apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"unable to create client",
-				err.Error(),
-			)
-		}
-
-		if *temporalClient == nil {
-			*temporalClient = c
-		}
-
-		workflowExecution, err := c.DescribeWorkflowExecution(
-			context.Background(),
-			resultRecord.GetString("workflow_id"),
-			resultRecord.GetString("run_id"),
-		)
-		if err != nil {
-			notFound := &serviceerror.NotFound{}
-			if errors.As(err, &notFound) {
-				continue
-			}
-			invalidArgument := &serviceerror.InvalidArgument{}
-			if errors.As(err, &invalidArgument) {
-				return nil, apierror.New(
-					http.StatusBadRequest,
-					"workflow",
-					"invalid workflow ID",
-					err.Error(),
-				)
-			}
-			return nil, apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to describe workflow execution",
-				err.Error(),
-			)
-		}
-
-		weJSON, err := protojson.Marshal(workflowExecution.GetWorkflowExecutionInfo())
-		if err != nil {
-			return nil, apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to marshal workflow execution",
-				err.Error(),
-			)
-		}
-
-		var execInfo WorkflowExecution
-		err = json.Unmarshal(weJSON, &execInfo)
-		if err != nil {
-			return nil, apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to unmarshal workflow execution",
-				err.Error(),
-			)
-		}
-
-		if workflowExecution.GetWorkflowExecutionInfo().GetParentExecution() != nil {
-			parentJSON, _ := protojson.Marshal(
-				workflowExecution.GetWorkflowExecutionInfo().GetParentExecution(),
-			)
-			var parentInfo WorkflowIdentifier
-			_ = json.Unmarshal(parentJSON, &parentInfo)
-			execInfo.ParentExecution = &parentInfo
-		}
-
-		allExecutions = append(allExecutions, &execInfo)
-	}
-
-	return allExecutions, nil
 }

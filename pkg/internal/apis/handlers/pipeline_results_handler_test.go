@@ -357,14 +357,12 @@ func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
 					"wf-1",
 					"run-1",
 					pipelineIdentifier,
-					enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 				),
 				buildPipelineExecutionInfo(
 					t,
 					"wf-2",
 					"run-2",
 					pipelineIdentifier,
-					enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 				),
 			},
 		}, nil).
@@ -552,7 +550,6 @@ func TestHandleGetPipelineResultsCompletedOnly(t *testing.T) {
 					"wf-1",
 					"run-1",
 					pipelineIdentifier,
-					enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 				),
 			},
 		}, nil).
@@ -659,7 +656,6 @@ func TestHandleGetPipelineResultsMixed(t *testing.T) {
 					"wf-2",
 					"run-2",
 					pipelineIdentifier,
-					enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 				),
 			},
 		}, nil).
@@ -1186,29 +1182,9 @@ func createPipelineResult(
 	require.NoError(t, app.Save(record))
 }
 
-func buildWorkflowExecutionResponse(
-	workflowID, runID string,
-) *workflowservice.DescribeWorkflowExecutionResponse {
-	return &workflowservice.DescribeWorkflowExecutionResponse{
-		WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
-			Execution: &common.WorkflowExecution{
-				WorkflowId: workflowID,
-				RunId:      runID,
-			},
-			Type: &common.WorkflowType{
-				Name: pipeline.NewPipelineWorkflow().Name(),
-			},
-			Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
-			StartTime: timestamppb.New(time.Now().Add(-2 * time.Minute)),
-			CloseTime: timestamppb.New(time.Now().Add(-time.Minute)),
-		},
-	}
-}
-
 func buildPipelineExecutionInfo(
 	t testing.TB,
 	workflowID, runID, pipelineIdentifier string,
-	status enums.WorkflowExecutionStatus,
 ) *workflow.WorkflowExecutionInfo {
 	info := &workflow.WorkflowExecutionInfo{
 		Execution: &common.WorkflowExecution{
@@ -1218,7 +1194,7 @@ func buildPipelineExecutionInfo(
 		Type: &common.WorkflowType{
 			Name: pipeline.NewPipelineWorkflow().Name(),
 		},
-		Status:    status,
+		Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 		StartTime: timestamppb.New(time.Now().Add(-2 * time.Minute)),
 		CloseTime: timestamppb.New(time.Now().Add(-time.Minute)),
 	}
