@@ -233,6 +233,7 @@ func TestCreateCredentialIssuersActivityInsertsAndSkipsExisting(t *testing.T) {
 	require.NoError(t, CreateCredentialIssuersActivity(context.Background(), input))
 
 	rows, err := db.Query("SELECT url FROM credential_issuers ORDER BY url")
+	require.NoError(t, rows.Err())
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		require.NoError(t, rows.Close())
