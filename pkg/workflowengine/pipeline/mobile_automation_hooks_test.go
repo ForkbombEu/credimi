@@ -406,6 +406,7 @@ func testCleanupRecordingWorkflow(ctx workflow.Context) (map[string]any, error) 
 		"recording_logcat_pid": 3,
 	}
 	cleanupRecording(cleanupRecordingInput{
+		mobileCtx:   ctx,
 		ctx:         ctx,
 		runnerID:    "runner-1",
 		deviceInfo:  deviceInfo,
