@@ -127,6 +127,7 @@ type cleanupDeviceInput struct {
 
 type cleanupRecordingInput struct {
 	ctx         workflow.Context
+	mobileCtx   workflow.Context
 	runnerID    string
 	deviceInfo  map[string]any
 	runID       string
@@ -987,7 +988,9 @@ func cleanupDevice(
 	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.mobileAo)
 
 	cleanupRecording(cleanupRecordingInput{
-		ctx:         mobileCtx,
+
+		ctx:         input.ctx,
+		mobileCtx:   mobileCtx,
 		runnerID:    input.runnerID,
 		deviceInfo:  deviceMap,
 		runID:       input.runIdentifier,
@@ -1103,7 +1106,7 @@ func cleanupRecording(
 	}
 
 	lastFramePath, err := stopRecording(
-		input.ctx,
+		input.mobileCtx,
 		recordingInfo,
 		logger,
 	)
