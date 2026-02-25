@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"net/http"
 	"reflect"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -243,7 +244,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 	credentialsNumber = len(credConfigs)
 	credentialsIssuerDataReady = true
 
-	HTTPActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	validKeys := []string{}
 	for credKey, credential := range credConfigs {
 		conformant := true
@@ -260,7 +261,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 		}
 
 		storeInput := workflowengine.ActivityInput{
-			Payload: activities.HTTPActivityPayload{
+			Payload: activities.InternalHTTPActivityPayload{
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
 					appURL,
@@ -276,8 +277,20 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 			},
 		}
 		var storeResponse workflowengine.ActivityResult
-		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeInput).
+		err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), storeInput).
 			Get(ctx, &storeResponse)
+		if isMissingInternalHTTPActivity(err) {
+			fallback := workflowengine.ActivityInput{
+				Payload: activities.HTTPActivityPayload{
+					Method:         http.MethodPost,
+					URL:            utils.JoinURL(appURL, "api", "credentials_issuers", "store-or-update-extracted-credentials"),
+					Body:           storeInput.Payload.(activities.InternalHTTPActivityPayload).Body,
+					ExpectedStatus: 200,
+				},
+			}
+			err = workflow.ExecuteActivity(ctx, activities.NewHTTPActivity().Name(), fallback).
+				Get(ctx, &storeResponse)
+		}
 		if err != nil {
 			return workflowengine.WorkflowResult{Log: logs}, err
 		}
@@ -286,7 +299,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			appErr := workflowengine.NewAppError(
 				errCode,
-				fmt.Sprintf("%s: body.key", HTTPActivity.Name()),
+				fmt.Sprintf("%s: body.key", internalHTTPActivity.Name()),
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
@@ -302,7 +315,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 	}
 
 	cleanupInput := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
+		Payload: activities.InternalHTTPActivityPayload{
 			Method: http.MethodPost,
 			URL: utils.JoinURL(
 				appURL,
@@ -316,8 +329,20 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 		},
 	}
 	var cleanupResponse workflowengine.ActivityResult
-	err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), cleanupInput).
+	err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), cleanupInput).
 		Get(ctx, &cleanupResponse)
+	if isMissingInternalHTTPActivity(err) {
+		fallback := workflowengine.ActivityInput{
+			Payload: activities.HTTPActivityPayload{
+				Method:         http.MethodPost,
+				URL:            utils.JoinURL(appURL, "api", "credentials_issuers", "cleanup-credentials"),
+				Body:           cleanupInput.Payload.(activities.InternalHTTPActivityPayload).Body,
+				ExpectedStatus: 200,
+			},
+		}
+		err = workflow.ExecuteActivity(ctx, activities.NewHTTPActivity().Name(), fallback).
+			Get(ctx, &cleanupResponse)
+	}
 	logs["RemovedCredentials"] = append(
 		logs["RemovedCredentials"],
 		cleanupResponse.Output.(map[string]any)["body"].(map[string]any)["deleted"],
@@ -342,6 +367,13 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 		Log:    logs,
 		Errors: errs,
 	}, nil
+}
+
+func isMissingInternalHTTPActivity(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "make an internal http request")
 }
 
 // Start initializes and starts the CredentialsIssuersWorkflow execution.

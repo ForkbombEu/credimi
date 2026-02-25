@@ -129,6 +129,7 @@ var OrgWorkers = []workerConfig{
 			),
 			activities.NewSchemaValidationActivity(),
 			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{
@@ -212,6 +213,7 @@ var DefaultWorkers = []workerConfig{
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{
@@ -283,6 +285,11 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 	w.RegisterActivityWithOptions(
 		debugAct.Execute,
 		activity.RegisterOptions{Name: debugAct.Name()},
+	)
+	internalHTTPAct := activities.NewInternalHTTPActivity()
+	w.RegisterActivityWithOptions(
+		internalHTTPAct.Execute,
+		activity.RegisterOptions{Name: internalHTTPAct.Name()},
 	)
 
 	for key, step := range registry.Registry {

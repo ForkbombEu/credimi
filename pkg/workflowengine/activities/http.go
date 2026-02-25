@@ -13,11 +13,19 @@ import (
 	"net/http"
 	URL "net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
+
+var sensitiveHeaders = map[string]struct{}{
+	"authorization": {},
+	"x-api-key":     {},
+	"cookie":        {},
+	"set-cookie":    {},
+}
 
 // HTTPActivity is an activity that performs an HTTP request.
 type HTTPActivity struct {
@@ -56,39 +64,44 @@ func (a *HTTPActivity) Name() string {
 	return a.BaseActivity.Name
 }
 
-// Execute performs an HTTP request based on the provided configuration and payload.
-// It supports GET, POST, PUT, DELETE methods and can handle query parameters, headers, and body.
-// The result includes the status code, headers, and body of the response.
-// It returns an error if the request fails or if the response status code is not 2xx.
-// The timeout for the request can be configured in seconds.
 func (a *HTTPActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
-	var result workflowengine.ActivityResult
+	result := workflowengine.ActivityResult{}
 	payload, err := workflowengine.DecodePayload[HTTPActivityPayload](input.Payload)
 	if err != nil {
 		return result, a.NewMissingOrInvalidPayloadError(err)
 	}
+
+	return executeHTTPRequest(ctx, payload, nil, &a.BaseActivity)
+}
+
+func executeHTTPRequest(
+	ctx context.Context,
+	payload HTTPActivityPayload,
+	injectedHeaders map[string]string,
+	act *workflowengine.BaseActivity,
+) (workflowengine.ActivityResult, error) {
+	var result workflowengine.ActivityResult
 	url := payload.URL
 	if payload.QueryParams != nil {
 		parsedURL, err := URL.Parse(TrimInput(url))
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.ParseURLFailed]
-			return result, a.NewActivityError(
+			return result, act.NewActivityError(
 				errCode.Code,
 				fmt.Sprintf("%s': %v", errCode.Description, err),
 				url,
 			)
 		}
 
-		// Add query parameters
 		query := parsedURL.Query()
 		for key, value := range payload.QueryParams {
 			query.Add(key, value)
 		}
 		parsedURL.RawQuery = query.Encode()
-		url = parsedURL.String() // Update the URL with query parameters
+		url = parsedURL.String()
 	}
 
 	timeout := 1 * time.Minute
@@ -103,7 +116,7 @@ func (a *HTTPActivity) Execute(
 		jsonBody, err := json.Marshal(payload.Body)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.JSONMarshalFailed]
-			return result, a.NewActivityError(
+			return result, act.NewActivityError(
 				errCode.Code,
 				fmt.Sprintf("%s for request body: %v", errCode.Description, err),
 				payload.Body,
@@ -115,7 +128,7 @@ func (a *HTTPActivity) Execute(
 	req, err := http.NewRequestWithContext(ctx, payload.Method, url, body)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.CreateHTTPRequestFailed]
-		return result, a.NewActivityError(
+		return result, act.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
 			payload.Method,
@@ -127,6 +140,9 @@ func (a *HTTPActivity) Execute(
 	for k, v := range payload.Headers {
 		req.Header.Set(k, v)
 	}
+	for k, v := range injectedHeaders {
+		req.Header.Set(k, v)
+	}
 	if body != nil && req.Header.Get("Content-Type") == "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
@@ -134,7 +150,7 @@ func (a *HTTPActivity) Execute(
 	reqSnap := RequestSnapshot{
 		Method:  req.Method,
 		URL:     req.URL.String(),
-		Headers: req.Header,
+		Headers: redactHeaderMap(req.Header),
 		Body:    payload.Body,
 	}
 
@@ -142,7 +158,7 @@ func (a *HTTPActivity) Execute(
 	resp, err := client.Do(req)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ExecuteHTTPRequestFailed]
-		return result, a.NewActivityError(
+		return result, act.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
 			reqSnap,
@@ -153,7 +169,7 @@ func (a *HTTPActivity) Execute(
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
 		errCode := errorcodes.Codes[errorcodes.ReadFromReaderFailed]
-		return result, a.NewActivityError(
+		return result, act.NewActivityError(
 			errCode.Code,
 			fmt.Sprintf("%s: %v", errCode.Description, err),
 			resp.StatusCode,
@@ -163,14 +179,13 @@ func (a *HTTPActivity) Execute(
 
 	var output any
 	if err := json.Unmarshal(respBody, &output); err != nil {
-		// if not JSON, return as string
 		output = string(respBody)
 	}
 
 	if payload.ExpectedStatus != 0 {
 		if resp.StatusCode != payload.ExpectedStatus {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedHTTPStatusCode]
-			return result, a.NewActivityError(
+			return result, act.NewActivityError(
 				errCode.Code,
 				fmt.Sprintf(
 					"%s: expected '%d', got '%d'",
@@ -189,4 +204,22 @@ func (a *HTTPActivity) Execute(
 	}
 
 	return result, nil
+}
+
+func redactHeaderMap(headers http.Header) map[string][]string {
+	if len(headers) == 0 {
+		return nil
+	}
+	out := make(map[string][]string, len(headers))
+	for key, values := range headers {
+		lower := strings.ToLower(key)
+		if _, sensitive := sensitiveHeaders[lower]; sensitive {
+			out[key] = []string{"[REDACTED]"}
+			continue
+		}
+		copied := make([]string, len(values))
+		copy(copied, values)
+		out[key] = copied
+	}
+	return out
 }

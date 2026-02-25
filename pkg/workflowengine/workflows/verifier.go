@@ -77,10 +77,10 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	act := activities.NewHTTPActivity()
+	act := activities.NewInternalHTTPActivity()
 	var result workflowengine.ActivityResult
 	request := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
+		Payload: activities.InternalHTTPActivityPayload{
 			Method: http.MethodGet,
 			URL: utils.JoinURL(
 				input.Config["app_url"].(string),
@@ -93,6 +93,22 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 		},
 	}
 	err = workflow.ExecuteActivity(ctx, act.Name(), request).Get(ctx, &result)
+	if isMissingInternalHTTPActivity(err) {
+		fallback := workflowengine.ActivityInput{
+			Payload: activities.HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL: utils.JoinURL(
+					input.Config["app_url"].(string),
+					"api", "verifier", "get-use-case-verification-deeplink",
+				),
+				QueryParams: map[string]string{
+					"use_case_identifier": payload.UseCaseIdentifier,
+				},
+				ExpectedStatus: 200,
+			},
+		}
+		err = workflow.ExecuteActivity(ctx, activities.NewHTTPActivity().Name(), fallback).Get(ctx, &result)
+	}
 	if err != nil {
 		logger.Error("HTTPActivity failed", "error", err)
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(

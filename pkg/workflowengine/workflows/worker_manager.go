@@ -82,9 +82,10 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	var HTTPActivity = activities.NewHTTPActivity()
+	internalHTTPActivity := activities.NewInternalHTTPActivity()
+	publicHTTPActivity := activities.NewHTTPActivity()
 	listReq := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
+		Payload: activities.InternalHTTPActivityPayload{
 			Method: http.MethodGet,
 			URL: utils.JoinURL(
 				appURL,
@@ -96,7 +97,22 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 		},
 	}
 	var resp workflowengine.ActivityResult
-	err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), listReq).Get(ctx, &resp)
+	err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), listReq).Get(ctx, &resp)
+	if isMissingInternalHTTPActivity(err) {
+		fallback := workflowengine.ActivityInput{
+			Payload: activities.HTTPActivityPayload{
+				Method: http.MethodGet,
+				URL: utils.JoinURL(
+					appURL,
+					"api",
+					"mobile-runner",
+					"list-urls",
+				),
+				ExpectedStatus: 200,
+			},
+		}
+		err = workflow.ExecuteActivity(ctx, publicHTTPActivity.Name(), fallback).Get(ctx, &resp)
+	}
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}
@@ -126,7 +142,7 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 	}
 
 	for _, runnerURL := range runnerURLs {
-		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), workflowengine.ActivityInput{
+		err = workflow.ExecuteActivity(ctx, publicHTTPActivity.Name(), workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodPost,
 				URL: utils.JoinURL(

@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -453,6 +454,11 @@ func postPipelineExecutionResult(
 		return 0, fmt.Errorf("build pipeline results request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	internalKey := strings.TrimSpace(os.Getenv("INTERNAL_ADMIN_API_KEY"))
+	if internalKey == "" {
+		return 0, fmt.Errorf("INTERNAL_ADMIN_API_KEY is required")
+	}
+	req.Header.Set("X-Api-Key", internalKey)
 
 	resp, err := httpDoer.Do(req)
 	if err != nil {
