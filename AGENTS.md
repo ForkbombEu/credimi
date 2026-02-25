@@ -27,6 +27,7 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 - `ADDRESS_UI` (UI reverse proxy target).
 - `MOBILE_RUNNER_SEMAPHORE_DISABLED`.
 - `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`.
+- `INTERNAL_ADMIN_API_KEY` (plaintext key injected at runtime; used by trusted internal HTTP activities and internal result posting).
 
 ### Tenancy + Temporal namespaces
 
@@ -106,6 +107,9 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 
 - Route groups: `pkg/internal/apis/RoutesRegistry.go` wires handler groups.
 - Route abstraction: `pkg/internal/routing/routing.go` (`RouteGroup`, `RouteDefinition`, validation binding).
+- Auth contract:
+  - User-auth route groups (`AuthenticationRequired=true`) accept either `Authorization` token or `X-Api-Key`.
+  - Temporal-internal routes enforce `X-Api-Key` via `RequireInternalAdminAPIKey` middleware.
 - Validation middleware: `pkg/internal/middlewares/validation.go` stores typed input in context; handlers use `routing.GetValidatedInput[T](e)`.
 - Error middleware: `pkg/internal/middlewares/errors.go`.
 
