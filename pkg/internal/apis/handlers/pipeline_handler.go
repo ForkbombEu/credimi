@@ -83,6 +83,9 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:        "/get-yaml",
 			Handler:     HandleGetPipelineYAML,
 			Description: "Get a pipeline YAML from a pipeline ID",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
 		},
 		{
 			Method:        http.MethodPost,
@@ -90,6 +93,9 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:       HandleSetPipelineExecutionResults,
 			RequestSchema: PipelineResultInput{},
 			Description:   "Create pipeline execution results record",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
 		},
 	},
 }

@@ -12,7 +12,6 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror" // Adjust import path
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -96,6 +95,10 @@ func RegisterRoutesWithValidation(
 	routes []RouteDefinition,
 	needsAuth bool,
 ) {
+	// Route auth contract:
+	// 1) Public routes: needsAuth=false and no auth middleware.
+	// 2) User-auth routes: needsAuth=true, accepts Bearer or X-Api-Key.
+	// 3) Temporal-internal routes: explicit route middleware RequireInternalAdminAPIKey().
 	for _, route := range routes {
 		log.Printf("ADD [V] %s", route.Path)
 		inputType := reflect.TypeOf(route.RequestSchema)
@@ -105,7 +108,7 @@ func RegisterRoutesWithValidation(
 		needsValidationBinding := inputType != nil
 
 		if needsAuth {
-			route.Middlewares = append(route.Middlewares, apis.RequireAuth())
+			route.Middlewares = append(route.Middlewares, middlewares.RequireAuthOrAPIKey())
 		}
 
 		switch route.Method {

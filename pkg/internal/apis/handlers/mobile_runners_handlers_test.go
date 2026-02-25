@@ -22,6 +22,7 @@ func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 
 	canonify.RegisterCanonifyHooks(app)
 	MobileRunnersTemporalInternalRoutes.Add(app)
+	seedInternalAdminKey(t, app, "internal-test-api-key")
 
 	return app
 }
@@ -112,6 +113,10 @@ func TestGetMobileRunner(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
+		if scenario.Headers == nil {
+			scenario.Headers = map[string]string{}
+		}
+		scenario.Headers["X-Api-Key"] = "internal-test-api-key"
 		scenario.Test(t)
 	}
 }
@@ -171,6 +176,10 @@ func TestListMobileRunnerURLs(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
+		if scenario.Headers == nil {
+			scenario.Headers = map[string]string{}
+		}
+		scenario.Headers["X-Api-Key"] = "internal-test-api-key"
 		scenario.Test(t)
 	}
 }
@@ -285,6 +294,10 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
+		if scenario.Headers == nil {
+			scenario.Headers = map[string]string{}
+		}
+		scenario.Headers["X-Api-Key"] = "internal-test-api-key"
 		scenario.Test(t)
 	}
 }

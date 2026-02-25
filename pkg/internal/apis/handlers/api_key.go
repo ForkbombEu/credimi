@@ -11,7 +11,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 )
@@ -29,7 +28,7 @@ var ApiKeyRoutes = routing.RouteGroup{
 			Description:    "Generate a new API key for the authenticated user.",
 			Summary:        "Generate API Key",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
-				apis.RequireAuth(),
+				middlewares.RequireAuthOrAPIKey(),
 				{Func: middlewares.ErrorHandlingMiddleware},
 			},
 		},

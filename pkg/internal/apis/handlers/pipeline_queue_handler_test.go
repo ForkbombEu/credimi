@@ -161,9 +161,9 @@ func TestPipelineQueueEnqueueAndPoll(t *testing.T) {
 					"yaml":                validYaml,
 				},
 			),
-			ExpectedStatus: http.StatusInternalServerError,
+			ExpectedStatus: http.StatusUnauthorized,
 			ExpectedContent: []string{
-				"valid record authorization token",
+				"authentication_required",
 			},
 			TestAppFactory: setupPipelineQueueApp,
 		},

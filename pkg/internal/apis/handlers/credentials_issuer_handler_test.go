@@ -76,6 +76,7 @@ func setupTestAppWithData(orgID string, setupData TestSetupData) func(t testing.
 		require.NoError(t, err)
 		canonify.RegisterCanonifyHooks(testApp)
 		IssuerTemporalInternalRoutes.Add(testApp)
+		seedInternalAdminKey(t, testApp, "internal-test-api-key")
 
 		var issuerID string
 
@@ -401,6 +402,10 @@ func TestCredentialIssuersAPI(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
+		if scenario.Headers == nil {
+			scenario.Headers = map[string]string{}
+		}
+		scenario.Headers["X-Api-Key"] = "internal-test-api-key"
 		scenario.Test(t)
 	}
 }

@@ -10,8 +10,11 @@ import (
 	"testing"
 	"time"
 
+	"github.com/pocketbase/pocketbase/core"
+	"github.com/pocketbase/pocketbase/tests"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 	"go.temporal.io/api/enums/v1"
 	"go.temporal.io/api/failure/v1"
 	historypb "go.temporal.io/api/history/v1"
@@ -123,4 +126,38 @@ func TestGetStringFromMap(t *testing.T) {
 	require.Equal(t, "", getStringFromMap(nil, "key"))
 	require.Equal(t, "", getStringFromMap(map[string]any{"key": 123}, "key"))
 	require.Equal(t, "value", getStringFromMap(map[string]any{"key": "value"}, "key"))
+}
+
+func createInternalAdminKey(t testing.TB, app *tests.TestApp) string {
+	t.Helper()
+
+	superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
+	require.NoError(t, err)
+
+	service := NewApiKeyService(NewAppAdapter(app))
+	key, err := service.GenerateInternalAdminAPIKey(superuser.Id, "internal-test-key")
+	require.NoError(t, err)
+	return key
+}
+
+func seedInternalAdminKey(t testing.TB, app *tests.TestApp, plaintext string) {
+	t.Helper()
+
+	superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
+	require.NoError(t, err)
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	coll, err := app.FindCollectionByNameOrId("api_keys")
+	require.NoError(t, err)
+	hash, err := bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
+	require.NoError(t, err)
+
+	record := core.NewRecord(coll)
+	record.Set("name", "internal-test-key")
+	record.Set("key", string(hash))
+	record.Set("user", user.Id)
+	record.Set("superuser", superuser.Id)
+	record.Set("key_type", "internal_admin")
+	record.Set("revoked", false)
+	require.NoError(t, app.Save(record))
 }

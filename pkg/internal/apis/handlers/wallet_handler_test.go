@@ -32,6 +32,7 @@ func setupWalletApp(t testing.TB) *tests.TestApp {
 	require.NoError(t, err)
 	canonify.RegisterCanonifyHooks(app)
 	WalletTemporalInternalRoutes.Add(app)
+	seedInternalAdminKey(t, app, "internal-test-api-key")
 	return app
 }
 
@@ -184,6 +185,10 @@ func TestWalletGetAPKMD5(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
+		if scenario.Headers == nil {
+			scenario.Headers = map[string]string{}
+		}
+		scenario.Headers["X-Api-Key"] = "internal-test-api-key"
 		scenario.Test(t)
 	}
 }
@@ -276,6 +281,10 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	}
 
 	for _, scenario := range scenarios {
+		if scenario.Headers == nil {
+			scenario.Headers = map[string]string{}
+		}
+		scenario.Headers["X-Api-Key"] = "internal-test-api-key"
 		scenario.Test(t)
 	}
 }
