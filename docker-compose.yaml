@@ -3,6 +3,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 services:
   elasticsearch:
+    container_name: temporal-elasticsearch
     environment:
       - cluster.routing.allocation.disk.threshold_enabled=true
       - cluster.routing.allocation.disk.watermark.low=512mb
@@ -17,6 +18,7 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
   postgresql:
+    container_name: temporal-postgresql
     environment:
       POSTGRES_PASSWORD: temporal
       POSTGRES_USER: temporal
@@ -48,6 +50,7 @@ services:
     volumes:
       - ./deployment/dynamicconfig:/etc/temporal/config/dynamicconfig
   temporal_ui:
+    container_name: temporal-ui
     depends_on:
       - temporal
     environment:
