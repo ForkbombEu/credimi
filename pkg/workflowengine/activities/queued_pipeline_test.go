@@ -217,12 +217,18 @@ func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
 			})
 			require.NoError(t, err)
 			require.True(t, strings.HasPrefix(captured.lastOptions.ID, test.wantPrefix))
-			if test.blockedPrefix != "" {
-				require.False(t, strings.HasPrefix(captured.lastOptions.ID, test.blockedPrefix))
-			}
-		})
+				if test.blockedPrefix != "" {
+					require.False(t, strings.HasPrefix(captured.lastOptions.ID, test.blockedPrefix))
+				}
+				key := temporal.NewSearchAttributeKeyKeyword(
+					workflowengine.PipelineIdentifierSearchAttribute,
+				)
+				value, ok := captured.lastOptions.TypedSearchAttributes.GetKeyword(key)
+				require.True(t, ok)
+				require.Equal(t, "tenant-1/pipeline", value)
+			})
+		}
 	}
-}
 
 func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
 	doer := &countingDoer{err: errors.New("boom")}

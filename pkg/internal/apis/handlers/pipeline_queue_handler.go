@@ -174,6 +174,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 			startResult, apiErr := startPipelineFromQueue(
 				e,
 				pipelineRecord,
+				pipelineIdentifier,
 				orgRecord.Id,
 				yaml,
 				config,
@@ -431,6 +432,7 @@ func buildPipelineQueueConfig(
 func startPipelineFromQueue(
 	e *core.RequestEvent,
 	pipelineRecord *core.Record,
+	pipelineIdentifier string,
 	ownerID string,
 	yaml string,
 	config map[string]any,
@@ -452,7 +454,7 @@ func startPipelineFromQueue(
 	record.Set("owner", ownerID)
 	record.Set("pipeline", pipelineRecord.Id)
 
-	result, err = startPipelineWorkflow(yaml, config, memo)
+	result, err = startPipelineWorkflow(yaml, config, memo, pipelineIdentifier)
 	if err != nil {
 		return result, apierror.New(
 			http.StatusInternalServerError,
@@ -854,9 +856,10 @@ func startPipelineWorkflowTemporal(
 	yaml string,
 	config map[string]any,
 	memo map[string]any,
+	pipelineIdentifier string,
 ) (workflowengine.WorkflowResult, error) {
 	w := pipeline.NewPipelineWorkflow()
-	return w.Start(yaml, config, memo)
+	return w.Start(yaml, config, memo, pipelineIdentifier)
 }
 
 func runQueueUpdateID(prefix, runnerID, ticketID string) string {

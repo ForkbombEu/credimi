@@ -72,6 +72,18 @@ make dev
 > [!TIP]
 > Use `make help` to see all the commands available.
 
+## Temporal Visibility Search Attributes
+
+Pipeline listings rely on a Temporal visibility search attribute named `PipelineIdentifier` (type `Keyword`).
+Register it once per Temporal cluster:
+
+```bash
+temporal operator search-attributes create --name PipelineIdentifier --type Keyword
+```
+
+If the attribute is added after workflows already exist, trigger a Temporal visibility reindex to backfill
+historical data (see Temporal admin tooling docs for your deployment).
+
 ## Mobile Runner Semaphore Ops (Internal)
 
 ### Defaults and knobs

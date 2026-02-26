@@ -3,5 +3,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 API: ./scripts/wait-for-it.sh -s -t 0 localhost:7233 && go tool gow run -tags=credimi_extra main.go serve
 UI: ./scripts/wait-for-it.sh -s -t 0 localhost:8090 && cd webapp && bun i && bun dev
-BE: temporal server start-dev --db-filename pb_data/temporal.db
+BE: POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 TEMPORAL_ADMIN_TOOLS_VERSION=1.29.1-tctl-1.18.4-cli-1.5.0 docker compose -f docker-compose.yaml ${COMPOSE_DEV_OVERRIDE_FILE:+-f ${COMPOSE_DEV_OVERRIDE_FILE}} up --build elasticsearch postgresql temporal temporal_ui temporal_setup
 # ANDROID:  ./scripts/wait-for-it.sh -s -t 0 localhost:7233 && QT_QPA_PLATFORM=xcb emulator @headless-api35 -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect -no-snapshot-load -no-snapshot-save -ports 5554,5555
