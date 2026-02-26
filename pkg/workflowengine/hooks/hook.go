@@ -232,6 +232,7 @@ var (
 	newNamespaceClientFn       = client.NewNamespaceClient
 	newWorkerFn                = worker.New
 	sleepFn                    = time.Sleep
+	sleepWithContextFn         = sleepWithContext
 	nowFn                      = time.Now
 	startWorkerFn              = startWorker
 	startPipelineWorkerFn      = startPipelineWorker
@@ -249,75 +250,164 @@ var (
 	executeWorkerManagerWorkflowFn     = executeWorkerManagerWorkflow
 )
 
+const (
+	workerStartInitialBackoff = time.Second
+	workerStartMaxBackoff     = 30 * time.Second
+	workerStartMaxRetryTime   = 2 * time.Minute
+)
+
 func startWorker(ctx context.Context, c client.Client, config workerConfig, wg *sync.WaitGroup) {
 	defer wg.Done()
-	w := newWorkerFn(c, config.TaskQueue, worker.Options{})
+	runWorkerWithRetry(ctx, config.TaskQueue, func() worker.Worker {
+		w := newWorkerFn(c, config.TaskQueue, worker.Options{})
 
-	for _, wf := range config.Workflows {
-		w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
-	}
+		for _, wf := range config.Workflows {
+			w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
+		}
 
-	for _, act := range config.Activities {
-		w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
-	}
-	shutdownCh := make(chan interface{})
-	go func() {
-		<-ctx.Done()
-		close(shutdownCh)
-	}()
-	if err := w.Run(shutdownCh); err != nil {
-		log.Printf("Failed to start worker for %s: %v", config.TaskQueue, err)
-	}
+		for _, act := range config.Activities {
+			w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+		}
+
+		return w
+	})
 }
 
 func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGroup) {
 	defer wg.Done()
-	w := newWorkerFn(c, pipeline.PipelineTaskQueue, worker.Options{})
+	runWorkerWithRetry(ctx, pipeline.PipelineTaskQueue, func() worker.Worker {
+		w := newWorkerFn(c, pipeline.PipelineTaskQueue, worker.Options{})
 
-	pipelineWf := pipeline.NewPipelineWorkflow()
-	w.RegisterWorkflowWithOptions(
-		pipelineWf.Workflow,
-		workflow.RegisterOptions{Name: pipelineWf.Name()},
-	)
-	debugAct := pipeline.NewDebugActivity()
-	w.RegisterActivityWithOptions(
-		debugAct.Execute,
-		activity.RegisterOptions{Name: debugAct.Name()},
-	)
+		pipelineWf := pipeline.NewPipelineWorkflow()
+		w.RegisterWorkflowWithOptions(
+			pipelineWf.Workflow,
+			workflow.RegisterOptions{Name: pipelineWf.Name()},
+		)
+		debugAct := pipeline.NewDebugActivity()
+		w.RegisterActivityWithOptions(
+			debugAct.Execute,
+			activity.RegisterOptions{Name: debugAct.Name()},
+		)
 
-	for key, step := range registry.Registry {
-		if _, skip := registry.PipelineWorkerDenylist[key]; skip {
-			continue
+		for key, step := range registry.Registry {
+			if _, skip := registry.PipelineWorkerDenylist[key]; skip {
+				continue
+			}
+			switch step.Kind {
+			case registry.TaskActivity:
+				act := step.NewFunc().(workflowengine.ExecutableActivity)
+				w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+			case registry.TaskWorkflow:
+				wf := step.NewFunc().(workflowengine.Workflow)
+				w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
+			}
 		}
-		switch step.Kind {
-		case registry.TaskActivity:
-			act := step.NewFunc().(workflowengine.ExecutableActivity)
-			w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
-		case registry.TaskWorkflow:
-			wf := step.NewFunc().(workflowengine.Workflow)
-			w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
+
+		for _, step := range registry.PipelineInternalRegistry {
+			switch step.Kind {
+			case registry.TaskActivity:
+				act := step.NewFunc().(workflowengine.ExecutableActivity)
+				w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+			case registry.TaskWorkflow:
+				wf := step.NewFunc().(workflowengine.Workflow)
+				w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
+			}
 		}
+
+		return w
+	})
+}
+
+func runWorkerWithRetry(ctx context.Context, taskQueue string, build func() worker.Worker) {
+	backoff := workerStartInitialBackoff
+	deadline := nowFn().Add(workerStartMaxRetryTime)
+
+	for {
+		if ctx.Err() != nil {
+			return
+		}
+
+		w := build()
+		attemptCtx, cancelAttempt := context.WithCancel(ctx)
+		shutdownCh := make(chan interface{})
+		go func() {
+			<-attemptCtx.Done()
+			close(shutdownCh)
+		}()
+
+		err := w.Run(shutdownCh)
+		cancelAttempt()
+
+		if err == nil || ctx.Err() != nil {
+			return
+		}
+		if !shouldRetryWorkerStartError(err) {
+			log.Printf("Worker for %s stopped with non-retryable error: %v", taskQueue, err)
+			return
+		}
+		if nowFn().After(deadline) {
+			log.Printf(
+				"Worker for %s stopped retrying after %s: last error: %v",
+				taskQueue,
+				workerStartMaxRetryTime,
+				err,
+			)
+			return
+		}
+
+		log.Printf(
+			"Worker for %s stopped with retryable error: %v (retrying in %s)",
+			taskQueue,
+			err,
+			backoff,
+		)
+		if !sleepWithContextFn(ctx, backoff) {
+			return
+		}
+		backoff = growBackoff(backoff, workerStartMaxBackoff)
+	}
+}
+
+func shouldRetryWorkerStartError(err error) bool {
+	if err == nil {
+		return false
+	}
+	if errors.Is(err, context.Canceled) {
+		return false
 	}
 
-	for _, step := range registry.PipelineInternalRegistry {
-		switch step.Kind {
-		case registry.TaskActivity:
-			act := step.NewFunc().(workflowengine.ExecutableActivity)
-			w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
-		case registry.TaskWorkflow:
-			wf := step.NewFunc().(workflowengine.Workflow)
-			w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
-		}
+	var namespaceNotFound *serviceerror.NamespaceNotFound
+	var invalidArgument *serviceerror.InvalidArgument
+	var permissionDenied *serviceerror.PermissionDenied
+	var unimplemented *serviceerror.Unimplemented
+	if errors.As(err, &namespaceNotFound) ||
+		errors.As(err, &invalidArgument) ||
+		errors.As(err, &permissionDenied) ||
+		errors.As(err, &unimplemented) {
+		return false
 	}
 
-	shutdownCh := make(chan interface{})
-	go func() {
-		<-ctx.Done()
-		close(shutdownCh)
-	}()
-	if err := w.Run(shutdownCh); err != nil {
-		log.Printf("Failed to start worker for %s: %v", pipeline.PipelineTaskQueue, err)
+	return true
+}
+
+func sleepWithContext(ctx context.Context, d time.Duration) bool {
+	timer := time.NewTimer(d)
+	defer timer.Stop()
+
+	select {
+	case <-ctx.Done():
+		return false
+	case <-timer.C:
+		return true
 	}
+}
+
+func growBackoff(current, max time.Duration) time.Duration {
+	next := current * 2
+	if next > max {
+		return max
+	}
+	return next
 }
 
 var workerCancels sync.Map
