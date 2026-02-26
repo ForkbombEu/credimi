@@ -3,7 +3,6 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 services:
   elasticsearch:
-    container_name: temporal-elasticsearch
     environment:
       - cluster.routing.allocation.disk.threshold_enabled=true
       - cluster.routing.allocation.disk.watermark.low=512mb
@@ -18,7 +17,6 @@ services:
     volumes:
       - esdata:/usr/share/elasticsearch/data
   postgresql:
-    container_name: temporal-postgresql
     environment:
       POSTGRES_PASSWORD: temporal
       POSTGRES_USER: temporal
@@ -50,7 +48,6 @@ services:
     volumes:
       - ./deployment/dynamicconfig:/etc/temporal/config/dynamicconfig
   temporal_ui:
-    container_name: temporal-ui
     depends_on:
       - temporal
     environment:
@@ -66,7 +63,12 @@ services:
     environment:
       - TEMPORAL_ADDRESS=temporal:7233
     image: temporalio/admin-tools:${TEMPORAL_ADMIN_TOOLS_VERSION}
-    entrypoint: ["/bin/bash", "-lc", "set -euo pipefail; /scripts/wait-for-it.sh -s -t 0 temporal:7233; /scripts/temporal-search-attributes.sh"]
+    entrypoint:
+      [
+        "/bin/bash",
+        "-lc",
+        "set -euo pipefail; /scripts/wait-for-it.sh -s -t 0 temporal:7233; /scripts/temporal-search-attributes.sh",
+      ]
     restart: "no"
     volumes:
       - ./scripts:/scripts:ro
@@ -88,7 +90,6 @@ services:
       - MAIL_SENDER=no-reply@credimi.io
       - RUN_STEPCI_PATH=pkg/OpenID4VP/stepci/runStepCI.js
       - SCHEMAS_PATH=schemas
-      - MAESTRO_WORKER=${MAESTRO_WORKER:?https://android.credimi.io}
       - TEMPORAL_ADDRESS=temporal:7233
       - PORT=5100
     ports:

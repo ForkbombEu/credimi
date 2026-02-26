@@ -5,6 +5,7 @@
 PROJECT_NAME 	?= credimi
 ORGANIZATION 	?= forkbombeu
 ROOT_DIR		?= $(shell dirname $(realpath $(firstword $(MAKEFILE_LIST))))
+COMPOSE_PROJECT_NAME ?= $(shell basename "$(ROOT_DIR)" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$$//')
 BINARY_NAME 	?= $(PROJECT_NAME)
 CLI_NAME		?= $(PROJECT_NAME)-cli
 SUBDIRS			?= ./...
@@ -96,7 +97,7 @@ $(DATA):
 
 dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mode
 	$(call require_tools,$(DEPS) $(DEV_DEPS))
-	bash -lc 'trap "docker compose -f docker-compose.yaml stop elasticsearch postgresql temporal temporal_ui" EXIT; DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev'
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) bash -lc 'trap "docker compose -f docker-compose.yaml stop elasticsearch postgresql temporal temporal_ui" EXIT; DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev'
 
 test: ## 🧪 run tests
 	$(call require_tools,$(TEST_DEPS))
@@ -151,7 +152,7 @@ tidy: $(GOMOD_FILES)
 
 purge: ## ⛔ Purge the database
 	@echo "⛔ Purge the database"
-	@POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 docker compose -f docker-compose.yaml down -v --remove-orphans
+	@COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) POSTGRESQL_VERSION=16 ELASTICSEARCH_VERSION=7.17.27 TEMPORAL_VERSION=1.29.1 TEMPORAL_UI_VERSION=2.43.2 docker compose -f docker-compose.yaml down -v --remove-orphans
 	@rm -rf $(DATA)
 	@mkdir $(DATA)
 
@@ -175,8 +176,8 @@ $(BINARY_NAME)-ui: $(UI_SRC)
 	kill $$PID;
 
 docker: $(DATA) submodules ## 🐳 run docker with all the infrastructure services
-	docker compose build --build-arg PUBLIC_POCKETBASE_URL="http://localhost:8090"
-	docker compose up
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose build --build-arg PUBLIC_POCKETBASE_URL="http://localhost:8090"
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) docker compose up
 
 ## Misc
 
