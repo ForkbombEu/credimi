@@ -12,6 +12,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/nexus-rpc/sdk-go/nexus"
 	"github.com/pocketbase/pocketbase"
 	"github.com/pocketbase/pocketbase/core"
@@ -25,11 +29,6 @@ import (
 	"go.temporal.io/sdk/mocks"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
-
-	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 )
 
 const testDataDir = "../../../test_pb_data"

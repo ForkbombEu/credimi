@@ -15,14 +15,20 @@ import (
 )
 
 var (
-	clientCache   sync.Map // map[string]client.Client under the hood
-	newLazyClient = client.NewLazyClient
+	clientCache     sync.Map // map[string]client.Client under the hood
+	testClientCache *sync.Map
+	newLazyClient   = client.NewLazyClient
 )
 
 func getTemporalClient(args ...string) (client.Client, error) {
 	namespace := "default"
 	if len(args) > 0 {
 		namespace = args[0]
+	}
+	if testClientCache != nil {
+		if c, ok := testClientCache.Load(namespace); ok {
+			return c.(client.Client), nil
+		}
 	}
 	if c, ok := clientCache.Load(namespace); ok {
 		return c.(client.Client), nil
