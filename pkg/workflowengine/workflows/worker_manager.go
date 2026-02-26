@@ -30,6 +30,20 @@ type WorkerManagerWorkflowPayload struct {
 	OldNamespace string `json:"old_namespace,omitempty" yaml:"old_namespace,omitempty"`
 }
 
+type WorkerManagerRunnerResult struct {
+	RunnerURL string `json:"runner_url"`
+	Success   bool   `json:"success"`
+	Error     string `json:"error,omitempty"`
+}
+
+type WorkerManagerWorkflowOutput struct {
+	Namespace         string                      `json:"namespace"`
+	RunnerResults     []WorkerManagerRunnerResult `json:"runner_results"`
+	TotalRunners      int                         `json:"total_runners"`
+	SuccessfulRunners int                         `json:"successful_runners"`
+	FailedRunners     int                         `json:"failed_runners"`
+}
+
 func NewWorkerManagerWorkflow() *WorkerManagerWorkflow {
 	w := &WorkerManagerWorkflow{}
 	w.WorkflowFunc = w.ExecuteWorkflow
@@ -113,9 +127,8 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 
-	runnerURLs, ok := body["runners"].([]any)
+	runnerURLs, ok := parseRunnerURLs(body["runners"])
 	if !ok {
-		fmt.Println(body)
 		appErr :=
 			workflowengine.NewAppError(
 				errCode,
@@ -125,12 +138,19 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(appErr, runMetadata)
 	}
 
+	runnerResults := make([]WorkerManagerRunnerResult, 0, len(runnerURLs))
+	successfulRunners := 0
+
 	for _, runnerURL := range runnerURLs {
+		runnerResult := WorkerManagerRunnerResult{
+			RunnerURL: runnerURL,
+		}
+
 		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), workflowengine.ActivityInput{
 			Payload: activities.HTTPActivityPayload{
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
-					runnerURL.(string),
+					runnerURL,
 					"worker",
 					payload.Namespace,
 				),
@@ -142,19 +162,59 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 		}).Get(ctx, nil)
 
 		if err != nil {
-			logger.Error("Send namespaces names to start workers failed", "error", err)
-			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			logger.Error(
+				"Send namespaces names to start workers failed for runner",
+				"runner_url",
+				runnerURL,
+				"error",
 				err,
-				runMetadata,
 			)
+			runnerResult.Error = err.Error()
+		} else {
+			runnerResult.Success = true
+			successfulRunners++
 		}
+
+		runnerResults = append(runnerResults, runnerResult)
 	}
+
+	failedRunners := len(runnerResults) - successfulRunners
+
 	return workflowengine.WorkflowResult{
 		Message: fmt.Sprintf(
-			"Send namespace '%s' to start workers successfully",
+			"Send namespace '%s' to start workers finished: %d/%d succeeded (%d failed)",
 			payload.Namespace,
+			successfulRunners,
+			len(runnerResults),
+			failedRunners,
 		),
+		Output: WorkerManagerWorkflowOutput{
+			Namespace:         payload.Namespace,
+			RunnerResults:     runnerResults,
+			TotalRunners:      len(runnerResults),
+			SuccessfulRunners: successfulRunners,
+			FailedRunners:     failedRunners,
+		},
 	}, nil
+}
+
+func parseRunnerURLs(rawRunners any) ([]string, bool) {
+	switch runners := rawRunners.(type) {
+	case []string:
+		return runners, true
+	case []any:
+		runnerURLs := make([]string, 0, len(runners))
+		for _, runner := range runners {
+			runnerURL, ok := runner.(string)
+			if !ok {
+				return nil, false
+			}
+			runnerURLs = append(runnerURLs, runnerURL)
+		}
+		return runnerURLs, true
+	default:
+		return nil, false
+	}
 }
 
 func (w *WorkerManagerWorkflow) Start(
