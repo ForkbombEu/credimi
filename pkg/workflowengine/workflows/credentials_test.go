@@ -401,7 +401,9 @@ func TestCredentialsIssuersWorkflowStart(t *testing.T) {
 	}
 
 	w := NewCredentialsIssuersWorkflow()
-	input := workflowengine.WorkflowInput{Payload: CredentialsIssuersWorkflowPayload{IssuerID: "issuer"}}
+	input := workflowengine.WorkflowInput{
+		Payload: CredentialsIssuersWorkflowPayload{IssuerID: "issuer"},
+	}
 	result, err := w.Start("ns-1", input)
 	require.NoError(t, err)
 	require.Equal(t, "wf-1", result.WorkflowID)
@@ -431,7 +433,10 @@ func TestExtractInvalidCredentialsFromErrorDetails(t *testing.T) {
 		},
 	}
 
-	invalid, err := extractInvalidCredentialsFromErrorDetails(details, &workflowengine.WorkflowErrorMetadata{})
+	invalid, err := extractInvalidCredentialsFromErrorDetails(
+		details,
+		&workflowengine.WorkflowErrorMetadata{},
+	)
 	require.NoError(t, err)
 	require.Equal(t, map[string]bool{"cred-1": true}, invalid)
 }

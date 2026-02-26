@@ -5,13 +5,16 @@ package activities
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
+	"go.temporal.io/api/serviceerror"
 	tclient "go.temporal.io/sdk/client"
 )
 
@@ -100,4 +103,14 @@ func (a *ReportMobileRunnerSemaphoreDoneActivity) Execute(
 	}
 
 	return result, nil
+}
+
+func isMobileRunnerSemaphoreDisabled() bool {
+	value := strings.ToLower(strings.TrimSpace(os.Getenv("MOBILE_RUNNER_SEMAPHORE_DISABLED")))
+	return value == "1" || value == "true" || value == "yes"
+}
+
+func isNotFoundError(err error) bool {
+	var notFound *serviceerror.NotFound
+	return errors.As(err, &notFound)
 }

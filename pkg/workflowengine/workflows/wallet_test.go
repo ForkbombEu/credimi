@@ -182,7 +182,9 @@ func TestWalletWorkflowStart(t *testing.T) {
 	}
 
 	w := NewWalletWorkflow()
-	input := workflowengine.WorkflowInput{Payload: WalletWorkflowPayload{URL: "https://example.com"}}
+	input := workflowengine.WorkflowInput{
+		Payload: WalletWorkflowPayload{URL: "https://example.com"},
+	}
 	result, err := w.Start("ns-1", input)
 	require.NoError(t, err)
 	require.Equal(t, "wf-1", result.WorkflowID)
