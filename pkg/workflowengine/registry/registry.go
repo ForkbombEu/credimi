@@ -147,12 +147,6 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		Kind:    TaskWorkflow,
 		NewFunc: func() any { return workflows.NewScheduledPipelineEnqueueWorkflow() },
 	},
-	"mobile-runner-permit-release": {
-		Kind:        TaskActivity,
-		NewFunc:     func() any { return activities.NewReleaseMobileRunnerPermitActivity() },
-		PayloadType: reflect.TypeOf(workflows.MobileRunnerSemaphorePermit{}),
-		OutputKind:  workflowengine.OutputAny,
-	},
 	"mobile-runner-semaphore-done": {
 		Kind:        TaskActivity,
 		NewFunc:     func() any { return activities.NewReportMobileRunnerSemaphoreDoneActivity() },

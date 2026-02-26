@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -242,11 +241,9 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 			ExpectedContent: []string{
 				`"runner_id":"test-semaphore-runner"`,
 				`"capacity":1`,
+				`"slots_used":1`,
 				`"queue_len":2`,
 				`"in_use":true`,
-				`"holder"`,
-				`"lease_id":"lease-1"`,
-				`"last_grant_at"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupMobileRunnerApp(t)
@@ -264,15 +261,11 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 
 				originalQuery := queryMobileRunnerSemaphoreState
 				queryMobileRunnerSemaphoreState = func(_ context.Context, _ string) (workflows.MobileRunnerSemaphoreStateView, error) {
-					lastGrant := time.Date(2026, 1, 29, 10, 0, 0, 0, time.UTC)
-					holder := workflows.MobileRunnerSemaphoreHolder{LeaseID: "lease-1"}
 					return workflows.MobileRunnerSemaphoreStateView{
-						RunnerID:      "test-semaphore-runner",
-						Capacity:      1,
-						Holders:       []workflows.MobileRunnerSemaphoreHolder{holder},
-						CurrentHolder: &holder,
-						QueueLen:      2,
-						LastGrantAt:   &lastGrant,
+						RunnerID:  "test-semaphore-runner",
+						Capacity:  1,
+						SlotsUsed: 1,
+						QueueLen:  2,
 					}, nil
 				}
 				t.Cleanup(func() {

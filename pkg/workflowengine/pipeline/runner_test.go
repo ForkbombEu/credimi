@@ -179,6 +179,166 @@ func TestExecuteStepActivity(t *testing.T) {
 	require.Equal(t, "ok", result["body"])
 }
 
+func TestRunChildPipelineSuccess(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	childYAML := `
+name: child-pipeline
+steps: []
+`
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+				StartToCloseTimeout: time.Second,
+			})
+			step := StepDefinition{
+				StepSpec: StepSpec{
+					ID:  "child",
+					Use: "custom",
+					With: StepInputs{
+						Payload: map[string]any{"pipeline_id": "tenant/child"},
+						Config:  map[string]any{},
+					},
+				},
+			}
+			input := PipelineWorkflowInput{
+				WorkflowInput: workflowengine.WorkflowInput{
+					Config: map[string]any{"app_url": "https://example.test"},
+				},
+			}
+
+			output, err := runChildPipeline(
+				ctx,
+				step,
+				input,
+				"child-workflow",
+				map[string]any{},
+				&workflowengine.WorkflowErrorMetadata{},
+			)
+			if err != nil {
+				return nil, err
+			}
+			result, _ := output.(map[string]any)
+			return result, nil
+		},
+		workflow.RegisterOptions{Name: "parent-workflow"},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(_ workflow.Context, _ PipelineWorkflowInput) (workflowengine.WorkflowResult, error) {
+			return workflowengine.WorkflowResult{
+				Output: map[string]any{"child": true},
+			}, nil
+		},
+		workflow.RegisterOptions{Name: "child-workflow"},
+	)
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"body": childYAML}}, nil).
+		Once()
+
+	env.ExecuteWorkflow("parent-workflow")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, map[string]any{"child": true}, result)
+}
+
+func TestFetchChildPipelineYAMLValidationErrors(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (string, error) {
+			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+				StartToCloseTimeout: time.Second,
+			})
+			step := StepDefinition{
+				StepSpec: StepSpec{
+					ID:  "child",
+					Use: "custom",
+					With: StepInputs{
+						Payload: map[string]any{},
+					},
+				},
+			}
+			input := PipelineWorkflowInput{
+				WorkflowInput: workflowengine.WorkflowInput{
+					Config: map[string]any{"app_url": "https://example.test"},
+				},
+			}
+			_, err := fetchChildPipelineYAML(ctx, step, input, &workflowengine.WorkflowErrorMetadata{})
+			if err == nil {
+				return "", errors.New("expected error")
+			}
+			return err.Error(), nil
+		},
+		workflow.RegisterOptions{Name: "fetch-missing-id"},
+	)
+
+	env.ExecuteWorkflow("fetch-missing-id")
+	require.NoError(t, env.GetWorkflowError())
+	var errMsg string
+	require.NoError(t, env.GetWorkflowResult(&errMsg))
+	require.Contains(t, errMsg, "missing pipeline_id")
+}
+
+func TestFetchChildPipelineYAMLInvalidOutput(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (string, error) {
+			ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+				StartToCloseTimeout: time.Second,
+			})
+			step := StepDefinition{
+				StepSpec: StepSpec{
+					ID:  "child",
+					Use: "custom",
+					With: StepInputs{
+						Payload: map[string]any{"pipeline_id": "tenant/child"},
+					},
+				},
+			}
+			input := PipelineWorkflowInput{
+				WorkflowInput: workflowengine.WorkflowInput{
+					Config: map[string]any{"app_url": "https://example.test"},
+				},
+			}
+			_, err := fetchChildPipelineYAML(ctx, step, input, &workflowengine.WorkflowErrorMetadata{})
+			if err == nil {
+				return "", errors.New("expected error")
+			}
+			return err.Error(), nil
+		},
+		workflow.RegisterOptions{Name: "fetch-invalid-output"},
+	)
+
+	httpActivity := activities.NewHTTPActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+	env.OnActivity(httpActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{"body": 123}}, nil).
+		Once()
+
+	env.ExecuteWorkflow("fetch-invalid-output")
+	require.NoError(t, env.GetWorkflowError())
+	var errMsg string
+	require.NoError(t, env.GetWorkflowResult(&errMsg))
+	require.Contains(t, errMsg, "invalid HTTP output")
+}
+
 func TestExecuteStepWorkflow(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

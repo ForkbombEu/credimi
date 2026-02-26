@@ -150,34 +150,6 @@ func TestBuildRunStatusViewCopiesSlice(t *testing.T) {
 	require.Equal(t, []string{"r1", "r2"}, view.RequiredRunnerIDs)
 }
 
-func TestBuildHoldersViewSorted(t *testing.T) {
-	view := buildHoldersView(map[string]MobileRunnerSemaphoreHolder{
-		"lease-b": {LeaseID: "lease-b"},
-		"lease-a": {LeaseID: "lease-a"},
-	})
-	require.Len(t, view, 2)
-	require.Equal(t, "lease-a", view[0].LeaseID)
-	require.Equal(t, "lease-b", view[1].LeaseID)
-}
-
-func TestBuildQueuePreviewSkipsMissing(t *testing.T) {
-	now := time.Now()
-	requests := map[string]MobileRunnerSemaphoreRequestState{
-		"req-1": {
-			Request: MobileRunnerSemaphoreAcquireRequest{
-				RequestID: "req-1",
-				LeaseID:   "lease-1",
-			},
-			RequestedAt: now,
-		},
-	}
-	preview := buildQueuePreview([]string{"req-1", "missing"}, requests)
-	require.Len(t, preview, 1)
-	require.Equal(t, "req-1", preview[0].RequestID)
-	require.Equal(t, "lease-1", preview[0].LeaseID)
-	require.Equal(t, now, preview[0].RequestedAt)
-}
-
 func TestRemoveFromQueue(t *testing.T) {
 	queue := []string{"a", "b", "c"}
 	updated := removeFromQueue(queue, "b")
@@ -233,7 +205,12 @@ func TestSortedRunTicketIDs(t *testing.T) {
 	runtime := &mobileRunnerSemaphoreRuntime{
 		runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
 			"b": {Request: MobileRunnerSemaphoreEnqueueRunRequest{TicketID: "b", EnqueuedAt: now}},
-			"a": {Request: MobileRunnerSemaphoreEnqueueRunRequest{TicketID: "a", EnqueuedAt: now.Add(-time.Minute)}},
+			"a": {
+				Request: MobileRunnerSemaphoreEnqueueRunRequest{
+					TicketID:   "a",
+					EnqueuedAt: now.Add(-time.Minute),
+				},
+			},
 		},
 	}
 	ids := runtime.sortedRunTicketIDs()
@@ -243,15 +220,13 @@ func TestSortedRunTicketIDs(t *testing.T) {
 func TestRunSlotsUsedAndAvailableSlots(t *testing.T) {
 	runtime := &mobileRunnerSemaphoreRuntime{
 		capacity: 2,
-		holders: map[string]MobileRunnerSemaphoreHolder{
-			"lease-1": {LeaseID: "lease-1"},
-		},
 		runTickets: map[string]MobileRunnerSemaphoreRunTicketState{
 			"t1": {Status: mobileRunnerSemaphoreRunStarting},
 			"t2": {Status: mobileRunnerSemaphoreRunQueued},
+			"t3": {Status: mobileRunnerSemaphoreRunRunning},
 		},
 	}
-	require.Equal(t, 1, runtime.runSlotsUsed())
+	require.Equal(t, 2, runtime.runSlotsUsed())
 	require.Equal(t, 0, runtime.availableSlots())
 }
 
@@ -268,57 +243,21 @@ func TestRunQueuePositionAdditional(t *testing.T) {
 
 func TestSortRunQueueHandlesMissingTickets(t *testing.T) {
 	tickets := map[string]MobileRunnerSemaphoreRunTicketState{
-		"present": {Request: MobileRunnerSemaphoreEnqueueRunRequest{TicketID: "present", EnqueuedAt: time.Now()}},
+		"present": {
+			Request: MobileRunnerSemaphoreEnqueueRunRequest{
+				TicketID:   "present",
+				EnqueuedAt: time.Now(),
+			},
+		},
 	}
 	queue := []string{"missing", "present"}
 	sorted := sortRunQueue(queue, tickets)
 	require.Equal(t, []string{"present", "missing"}, sorted)
 }
 
-func TestCopyHelpers(t *testing.T) {
-	values := []string{"a", "b"}
-	copied := copyStringSlice(values)
-	require.Equal(t, values, copied)
-	values[0] = "changed"
-	require.Equal(t, "a", copied[0])
-
-	bools := map[string]bool{"a": true}
-	boolCopy := copyStringBoolMap(bools)
-	require.Equal(t, bools, boolCopy)
-	bools["a"] = false
-	require.True(t, boolCopy["a"])
-
-	anyMap := map[string]any{"k": "v"}
-	anyCopy := copyStringAnyMap(anyMap)
-	require.Equal(t, anyMap, anyCopy)
-	anyMap["k"] = "changed"
-	require.Equal(t, "v", anyCopy["k"])
-
-	now := time.Now()
-	timeCopy := copyTimePtr(&now)
-	require.NotNil(t, timeCopy)
-	require.True(t, timeCopy.Equal(now))
-}
-
 func TestContainsString(t *testing.T) {
 	require.True(t, containsString([]string{"a", "b"}, "b"))
 	require.False(t, containsString([]string{"a", "b"}, "c"))
-}
-
-func TestBuildPermit(t *testing.T) {
-	now := time.Now()
-	state := MobileRunnerSemaphoreRequestState{
-		Request: MobileRunnerSemaphoreAcquireRequest{
-			LeaseID: "lease-1",
-		},
-		GrantedAt:   now,
-		QueueWaitMs: 123,
-	}
-	permit := buildPermit("runner-1", state)
-	require.Equal(t, "runner-1", permit.RunnerID)
-	require.Equal(t, "lease-1", permit.LeaseID)
-	require.Equal(t, int64(123), permit.QueueWaitMs)
-	require.True(t, permit.GrantedAt.Equal(now))
 }
 
 func TestRuntimeFlagsAndCounts(t *testing.T) {
@@ -374,97 +313,12 @@ func TestMaybeScheduleContinue(t *testing.T) {
 		capacity:    1,
 		updateCount: mobileRunnerSemaphoreMaxUpdateBatches,
 		runTickets:  map[string]MobileRunnerSemaphoreRunTicketState{},
-		requests:    map[string]MobileRunnerSemaphoreRequestState{},
-		holders:     map[string]MobileRunnerSemaphoreHolder{},
-		queue:       []string{},
 		runQueue:    []string{},
 	}
 
 	runtime.maybeScheduleContinue()
 	require.True(t, runtime.shouldContinue)
 	require.NotNil(t, runtime.continueInput.Payload)
-}
-
-func TestCopyRunStructures(t *testing.T) {
-	ticket := MobileRunnerSemaphoreRunTicketState{
-		Status: mobileRunnerSemaphoreRunQueued,
-		Request: MobileRunnerSemaphoreEnqueueRunRequest{
-			TicketID: "ticket-1",
-		},
-		GrantedRunnerIDs: map[string]bool{"r1": true},
-	}
-	tickets := map[string]MobileRunnerSemaphoreRunTicketState{"ticket-1": ticket}
-	copiedTickets := copyRunTickets(tickets)
-	require.Equal(t, tickets, copiedTickets)
-	tickets["ticket-1"] = MobileRunnerSemaphoreRunTicketState{Status: mobileRunnerSemaphoreRunRunning}
-	require.Equal(t, mobileRunnerSemaphoreRunQueued, copiedTickets["ticket-1"].Status)
-
-	requests := map[string]MobileRunnerSemaphoreRequestState{
-		"req-1": {Request: MobileRunnerSemaphoreAcquireRequest{RequestID: "req-1"}},
-	}
-	reqCopy := copyRequests(requests)
-	require.Equal(t, requests, reqCopy)
-
-	queue := []string{"a", "b"}
-	queueCopy := copyQueue(queue)
-	require.Equal(t, queue, queueCopy)
-	queue[0] = "changed"
-	require.Equal(t, "a", queueCopy[0])
-
-	holders := map[string]MobileRunnerSemaphoreHolder{"lease": {LeaseID: "lease"}}
-	holderCopy := copyHolders(holders)
-	require.Equal(t, holders, holderCopy)
-}
-
-func TestContainsStringAndCopyHelpers(t *testing.T) {
-	require.True(t, containsString([]string{"a", "b"}, "b"))
-	require.False(t, containsString([]string{"a"}, "c"))
-
-	require.Nil(t, copyQueue(nil))
-	queue := []string{"a", "b"}
-	queueCopy := copyQueue(queue)
-	queueCopy[0] = "changed"
-	require.Equal(t, []string{"a", "b"}, queue)
-
-	require.Nil(t, copyStringSlice(nil))
-	values := []string{"x"}
-	valuesCopy := copyStringSlice(values)
-	valuesCopy[0] = "y"
-	require.Equal(t, []string{"x"}, values)
-
-	require.Nil(t, copyHolders(nil))
-	holders := map[string]MobileRunnerSemaphoreHolder{"lease": {LeaseID: "lease"}}
-	holdersCopy := copyHolders(holders)
-	holdersCopy["lease"] = MobileRunnerSemaphoreHolder{LeaseID: "changed"}
-	require.Equal(t, "lease", holders["lease"].LeaseID)
-
-	require.Nil(t, copyRequests(nil))
-	requests := map[string]MobileRunnerSemaphoreRequestState{
-		"req": {Request: MobileRunnerSemaphoreAcquireRequest{RequestID: "req"}},
-	}
-	requestsCopy := copyRequests(requests)
-	requestsCopy["req"] = MobileRunnerSemaphoreRequestState{}
-	require.Equal(t, "req", requests["req"].Request.RequestID)
-
-	require.Nil(t, copyStringAnyMap(nil))
-	anyMap := map[string]any{"k": "v"}
-	anyCopy := copyStringAnyMap(anyMap)
-	anyCopy["k"] = "changed"
-	require.Equal(t, "v", anyMap["k"])
-
-	require.Nil(t, copyStringBoolMap(nil))
-	boolMap := map[string]bool{"k": true}
-	boolCopy := copyStringBoolMap(boolMap)
-	boolCopy["k"] = false
-	require.True(t, boolMap["k"])
-}
-
-func TestCopyTimePtr(t *testing.T) {
-	require.Nil(t, copyTimePtr(nil))
-	now := time.Now()
-	copied := copyTimePtr(&now)
-	require.NotSame(t, &now, copied)
-	require.Equal(t, now, *copied)
 }
 
 func TestRunQueuePosition(t *testing.T) {
