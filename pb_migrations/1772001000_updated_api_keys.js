@@ -1,6 +1,7 @@
 /// <reference path="../pb_data/types.d.ts" />
 migrate((app) => {
   const collection = app.findCollectionByNameOrId("pbc_3577178630")
+  const superusersCollection = app.findCollectionByNameOrId("_superusers")
 
   // update user field to optional to support superuser-owned keys
   collection.fields.addAt(3, new Field({
@@ -19,7 +20,7 @@ migrate((app) => {
 
   collection.fields.addAt(4, new Field({
     "cascadeDelete": false,
-    "collectionId": "_superusers",
+    "collectionId": superusersCollection.id,
     "hidden": false,
     "id": "relation4070824330",
     "maxSelect": 1,
