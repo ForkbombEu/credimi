@@ -43,9 +43,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		row?: RowSnippet<Workflow>;
 		disableLink?: (workflow: Workflow) => boolean;
 		actions?: (workflow: Workflow) => DropdownMenuItem[];
+		rowStart?: RowSnippet<Workflow>;
 	};
 
-	let { workflow, depth = 0, row, hideColumns = [], actions, disableLink }: Props = $props();
+	let {
+		workflow,
+		depth = 0,
+		row,
+		hideColumns = [],
+		actions,
+		disableLink,
+		rowStart
+	}: Props = $props();
 
 	const isRoot = $derived(depth === 0);
 	const isChild = $derived(!isRoot);
@@ -68,6 +77,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	]}
 >
+	{@render rowStart?.({ workflow, Td: Table.Cell })}
+
 	{#if !hideColumns.includes('type')}
 		<Table.Cell class="text-muted-foreground">
 			<div class="block w-full max-w-[100px] truncate text-ellipsis md:max-w-[180px]">
