@@ -409,6 +409,7 @@ func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
 	require.Len(t, summaries, 2)
 	for _, summary := range summaries {
 		require.Equal(t, pipelineIdentifier, summary.PipelineIdentifier)
+		require.Equal(t, pipelineRecord.GetString("name"), summary.PipelineName)
 	}
 }
 
@@ -512,6 +513,7 @@ func TestHandleGetPipelineResultsQueuedOnly(t *testing.T) {
 	require.Len(t, summaries, 1)
 	require.Equal(t, string(WorkflowStatusQueued), summaries[0].Status)
 	require.Equal(t, pipelineIdentifier, summaries[0].PipelineIdentifier)
+	require.Equal(t, pipelineRecord.GetString("name"), summaries[0].PipelineName)
 }
 
 func TestHandleGetPipelineResultsCompletedOnly(t *testing.T) {
@@ -616,6 +618,7 @@ func TestHandleGetPipelineResultsCompletedOnly(t *testing.T) {
 	require.Len(t, summaries, 1)
 	require.Equal(t, string(WorkflowStatusCompleted), summaries[0].Status)
 	require.Equal(t, pipelineIdentifier, summaries[0].PipelineIdentifier)
+	require.Equal(t, pipelineRecord.GetString("name"), summaries[0].PipelineName)
 
 	mockClient.AssertExpectations(t)
 }
@@ -735,6 +738,7 @@ func TestHandleGetPipelineResultsMixed(t *testing.T) {
 		if summary.Status == string(WorkflowStatusQueued) ||
 			summary.Status == string(WorkflowStatusCompleted) {
 			require.Equal(t, pipelineIdentifier, summary.PipelineIdentifier)
+			require.Equal(t, pipelineRecord.GetString("name"), summary.PipelineName)
 		}
 	}
 
@@ -923,6 +927,7 @@ func TestBuildQueuedPipelineSummaries(t *testing.T) {
 	summaries := buildQueuedPipelineSummaries(nil, queued, "UTC", map[string]map[string]any{})
 	require.Len(t, summaries, 1)
 	require.Equal(t, "pipe-1", summaries[0].DisplayName)
+	require.Equal(t, "pipe-1", summaries[0].PipelineName)
 	require.Equal(t, "t1", summaries[0].Queue.TicketID)
 	require.Equal(t, 1, summaries[0].Queue.Position)
 }

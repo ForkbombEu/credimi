@@ -384,6 +384,11 @@ func fetchCompletedWorkflowsWithPagination(
 			continue
 		}
 
+		pipelineName := resolvePipelineNameFromRecord(
+			pipelineRecord,
+			pipelineIdentifierByExecution[ref],
+		)
+
 		annotated, _ := attachRunnerInfoFromTemporalStartInput(
 			attachRunnerInfoFromTemporalInputArgs{
 				App:         e.App,
@@ -404,6 +409,7 @@ func fetchCompletedWorkflowsWithPagination(
 				RunID:      summary.Execution.RunID,
 			}
 			summary.PipelineIdentifier = pipelineIdentifierByExecution[summaryRef]
+			summary.PipelineName = pipelineName
 		}
 
 		allSummaries = append(allSummaries, annotated...)
@@ -1233,6 +1239,7 @@ type pipelineRunnerInfo = runners.PipelineRunnerInfo
 type pipelineWorkflowSummary struct {
 	WorkflowExecutionSummary
 	PipelineIdentifier string           `json:"pipeline_identifier,omitempty"`
+	PipelineName       string           `json:"pipeline_name,omitempty"`
 	GlobalRunnerID     string           `json:"global_runner_id,omitempty"`
 	RunnerIDs          []string         `json:"runner_ids,omitempty"`
 	RunnerRecords      []map[string]any `json:"runner_records,omitempty"`
@@ -1334,9 +1341,37 @@ func buildQueuedPipelineSummary(
 		PipelineIdentifier: workflowengine.NormalizePipelineIdentifier(
 			queued.PipelineIdentifier,
 		),
+		PipelineName:  displayName,
 		RunnerIDs:     runnerIDs,
 		RunnerRecords: runners.ResolveRunnerRecords(app, runnerIDs, runnerCache),
 	}
+}
+
+func resolvePipelineNameFromRecord(pipelineRecord *core.Record, fallback string) string {
+	fallback = strings.TrimSpace(fallback)
+	if fallback == "" {
+		fallback = "pipeline-run"
+	}
+
+	if pipelineRecord == nil {
+		return fallback
+	}
+
+	yaml := pipelineRecord.GetString("yaml")
+	if yaml != "" {
+		wfDef, err := pipeline.ParseWorkflow(yaml)
+		if err == nil {
+			if name := strings.TrimSpace(wfDef.Name); name != "" {
+				return name
+			}
+		}
+	}
+
+	if name := strings.TrimSpace(pipelineRecord.GetString("name")); name != "" {
+		return name
+	}
+
+	return fallback
 }
 
 func formatQueuedRunTime(enqueuedAt time.Time, userTimezone string) string {
