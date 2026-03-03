@@ -354,8 +354,8 @@ cloud.google.com/go/workflows v1.14.2/go.mod h1:5nqKjMD+MsJs41sJhdVrETgvD5cOK3hU
 dario.cat/mergo v1.0.1 h1:Ra4+bf83h2ztPIQYNP99R6m+Y7KfnARDfID+a+vLl4s=
 dario.cat/mergo v1.0.1/go.mod h1:uNxQE+84aUszobStD9th8a29P2fMDhsBdgRYvZOxGmk=
 dmitri.shuralyov.com/gpu/mtl v0.0.0-20190408044501-666a987793e9/go.mod h1:H6x//7gZCb22OMCxBHrMx7a5I7Hp++hsVxbQ4BYO7hU=
-filippo.io/edwards25519 v1.1.0 h1:FNf4tywRC1HmFuKW5xopWpigGjJKiJSV0Cqo0cJWDaA=
-filippo.io/edwards25519 v1.1.0/go.mod h1:BxyFTGdWcka3PhytdK4V28tE5sGfRvvvRV7EaN4VDT4=
+filippo.io/edwards25519 v1.2.0 h1:crnVqOiS4jqYleHd9vaKZ+HKtHfllngJIiOpNpoJsjo=
+filippo.io/edwards25519 v1.2.0/go.mod h1:xzAOLCNug/yB62zG1bQ8uziwrIqIuxhctzJT18Q77mc=
 gioui.org v0.0.0-20210308172011-57750fc8a0a6/go.mod h1:RSH6KIUZ0p2xy5zHDxgAM4zumjgTw83q2ge/PI+yyw8=
 git.sr.ht/~sbinet/gg v0.3.1/go.mod h1:KGYtlADtqsqANL9ueOFkWymvzUvLMQllU5Ixo+8v3pc=
 github.com/4meepo/tagalign v1.4.2 h1:0hcLHPGMjDyM1gHG58cS73aQF8J4TdVR96TZViorO9E=
@@ -651,8 +651,8 @@ github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90/go.mod h1:R/bRT+9gY/
 github.com/fogleman/gg v1.3.0/go.mod h1:R/bRT+9gY/C5z7JzPU0zXsXHKM4/ayA+zqcVNZzPa1k=
 github.com/forkbombeu/avdctl v0.5.1 h1:8Cvwgh0521/fZZGdpkX20BVNgQI9VqHOUEELgOsTNxY=
 github.com/forkbombeu/avdctl v0.5.1/go.mod h1:bCgZk+Q15y/YB39jGnZhwChGej7YYsX7Kgexg/GPMWA=
-github.com/forkbombeu/credimi-extra v1.3.0 h1:73YjWCFrbljl2w3lWlz31ACQuRe+kfeNvrnLYonJbo4=
-github.com/forkbombeu/credimi-extra v1.3.0/go.mod h1:R2SqMXU/7q6ObCUx60mY+gcmZC8V2+qeK5WQMngqO9s=
+github.com/forkbombeu/credimi-extra v1.3.3 h1:YwCQlWvqC9LdGMaiTvoqaS8tXT5f1HiocneBa3rMOcY=
+github.com/forkbombeu/credimi-extra v1.3.3/go.mod h1:kX94O/W2Qbekq6Jcir1ZIaoi2iGpgui2FY/IDTf1JmM=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.8.0 h1:dAwr6QBTBZIkG8roQaJjGof0pp0EeF+tNV7YBP3F/8M=
