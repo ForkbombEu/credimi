@@ -607,17 +607,62 @@ func TestStartEmulator(t *testing.T) {
 	require.Equal(t, "device-1", result["name"])
 }
 
+func TestStartEmulatorMissingSerialDefaultsToEmptyString(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	startEmuActivity := activities.NewStartEmulatorActivity()
+	env.RegisterActivityWithOptions(
+		startEmuActivity.Execute,
+		activity.RegisterOptions{Name: startEmuActivity.Name()},
+	)
+
+	workflowName := "start-emulator-missing-serial"
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
+			name, serial, err := startEmulator(startEmulatorInput{
+				ctx:              ctx,
+				mobileCtx:        ctx,
+				deviceType:       "emulator",
+				payload:          payload,
+				stepID:           "step-1",
+				startEmuActivity: startEmuActivity,
+			})
+			if err != nil {
+				return nil, err
+			}
+			return map[string]any{"serial": serial, "name": name}, nil
+		},
+		workflow.RegisterOptions{Name: workflowName},
+	)
+
+	env.OnActivity(
+		startEmuActivity.Name(),
+		mock.Anything,
+		mock.Anything,
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"name": "device-1",
+	}}, nil)
+
+	env.ExecuteWorkflow(workflowName)
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, "", result["serial"])
+	require.Equal(t, "device-1", result["name"])
+}
+
 func TestStartEmulatorErrors(t *testing.T) {
 	tests := []struct {
 		name      string
 		output    map[string]any
 		errSubstr string
 	}{
-		{
-			name:      "missing serial",
-			output:    map[string]any{"name": "device-1"},
-			errSubstr: "missing serial",
-		},
 		{
 			name:      "missing name",
 			output:    map[string]any{"serial": "emu-1"},
