@@ -172,26 +172,33 @@ func TestExtractAndStoreRecordingInfoAdditional(t *testing.T) {
 }
 
 func TestExtractDeviceInfoAdditional(t *testing.T) {
-	serial, clone, packages, err := extractDeviceInfo("runner-1", map[string]any{})
+	deviceType, serial, name, packages, err := extractDeviceInfo("runner-1", map[string]any{})
+	_ = deviceType
 	_ = serial
-	_ = clone
+	_ = name
 	_ = packages
 	require.Error(t, err)
 
-	serial, clone, packages, err = extractDeviceInfo("runner-1", map[string]any{"serial": "s1"})
+	deviceType, serial, name, packages, err = extractDeviceInfo(
+		"runner-1",
+		map[string]any{"serial": "s1"},
+	)
+	_ = deviceType
 	_ = serial
-	_ = clone
+	_ = name
 	_ = packages
 	require.Error(t, err)
 
-	serial, clone, packages, err = extractDeviceInfo("runner-1", map[string]any{
-		"serial":     "s1",
-		"clone_name": "clone",
-		"installed":  map[string]string{"v1": "pkg1", "v2": ""},
+	deviceType, serial, name, packages, err = extractDeviceInfo("runner-1", map[string]any{
+		"type":      "emulator",
+		"serial":    "s1",
+		"name":      "emulator-1",
+		"installed": map[string]string{"v1": "pkg1", "v2": ""},
 	})
 	require.NoError(t, err)
+	require.Equal(t, "emulator", deviceType)
 	require.Equal(t, "s1", serial)
-	require.Equal(t, "clone", clone)
+	require.Equal(t, "emulator-1", name)
 	require.Equal(t, []string{"pkg1"}, packages)
 }
 
@@ -285,6 +292,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
 			"runner_url": "http://runner",
+			"type":       "physical",
 			"serial":     "serial-1",
 		},
 	}}, nil)
@@ -296,6 +304,7 @@ func TestGetOrCreateDeviceMapUsesRunnerSerial(t *testing.T) {
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "serial-1", result["serial"])
+	require.Equal(t, "physical", result["type"])
 	require.Equal(t, "http://runner", result["runner_url"])
 }
 
@@ -341,7 +350,8 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
 			"runner_url": "http://runner",
-			"serial":     "",
+			"type":       "android_emulator",
+			"serial":     "serial-from-runner",
 		},
 	}}, nil)
 
@@ -350,8 +360,8 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 		mock.Anything,
 		mock.Anything,
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"serial":     "emu-1",
-		"clone_name": "clone-1",
+		"serial": "emu-1",
+		"name":   "device-1",
 	}}, nil)
 
 	env.ExecuteWorkflow(workflowName)
@@ -361,35 +371,40 @@ func TestGetOrCreateDeviceMapStartsEmulator(t *testing.T) {
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "emu-1", result["serial"])
-	require.Equal(t, "clone-1", result["clone_name"])
+	require.Equal(t, "device-1", result["name"])
+	require.Equal(t, "android_emulator", result["type"])
 }
 
 func TestExtractDeviceInfo(t *testing.T) {
-	serial, clone, packages, err := extractDeviceInfo("runner-1", map[string]any{})
+	deviceType, serial, name, packages, err := extractDeviceInfo("runner-1", map[string]any{})
+	_ = deviceType
 	_ = serial
-	_ = clone
+	_ = name
 	_ = packages
 	require.Error(t, err)
 
-	serial, clone, packages, err = extractDeviceInfo("runner-1", map[string]any{
+	deviceType, serial, name, packages, err = extractDeviceInfo("runner-1", map[string]any{
 		"serial": "serial-1",
 	})
+	_ = deviceType
 	_ = serial
-	_ = clone
+	_ = name
 	_ = packages
 	require.Error(t, err)
 
-	serial, clone, packages, err = extractDeviceInfo("runner-1", map[string]any{
-		"serial":     "serial-1",
-		"clone_name": "clone-1",
+	deviceType, serial, name, packages, err = extractDeviceInfo("runner-1", map[string]any{
+		"type":   "redroid",
+		"serial": "serial-1",
+		"name":   "device-1",
 		"installed": map[string]string{
 			"app": "com.example",
 			"bad": "",
 		},
 	})
 	require.NoError(t, err)
+	require.Equal(t, "redroid", deviceType)
 	require.Equal(t, "serial-1", serial)
-	require.Equal(t, "clone-1", clone)
+	require.Equal(t, "device-1", name)
 	require.Equal(t, []string{"com.example"}, packages)
 }
 
@@ -409,7 +424,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
-			runnerURL, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
+			runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
 				ctx:          ctx,
 				payload:      payload,
 				appURL:       "http://localhost:8090",
@@ -419,7 +434,11 @@ func TestFetchRunnerInfo(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return map[string]any{"runner_url": runnerURL, "serial": serial}, nil
+			return map[string]any{
+				"runner_url": runnerURL,
+				"type":       deviceType,
+				"serial":     serial,
+			}, nil
 		},
 		workflow.RegisterOptions{Name: workflowName},
 	)
@@ -431,6 +450,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
 			"runner_url": "http://runner",
+			"type":       "physical",
 			"serial":     "serial-1",
 		},
 	}}, nil)
@@ -442,6 +462,7 @@ func TestFetchRunnerInfo(t *testing.T) {
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "http://runner", result["runner_url"])
+	require.Equal(t, "physical", result["type"])
 	require.Equal(t, "serial-1", result["serial"])
 }
 
@@ -459,14 +480,24 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 		{
 			name: "missing runner url",
 			body: map[string]any{
+				"type":   "physical",
 				"serial": "serial-1",
 			},
 			errSubstr: "runner_url",
 		},
 		{
+			name: "missing type",
+			body: map[string]any{
+				"runner_url": "http://runner",
+				"serial":     "serial-1",
+			},
+			errSubstr: "device type",
+		},
+		{
 			name: "invalid serial",
 			body: map[string]any{
 				"runner_url": "http://runner",
+				"type":       "physical",
 				"serial":     123,
 			},
 			errSubstr: "invalid device serial",
@@ -492,7 +523,7 @@ func TestFetchRunnerInfoErrors(t *testing.T) {
 					payload := &workflows.MobileAutomationWorkflowPipelinePayload{
 						RunnerID: "runner-1",
 					}
-					_, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
+					_, _, _, err := fetchRunnerInfo(fetchRunnerInfoInput{
 						ctx:          ctx,
 						payload:      payload,
 						appURL:       "http://localhost:8090",
@@ -535,9 +566,10 @@ func TestStartEmulator(t *testing.T) {
 			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
 			ctx = workflow.WithActivityOptions(ctx, ao)
 			payload := &workflows.MobileAutomationWorkflowPipelinePayload{RunnerID: "runner-1"}
-			cloneName, serial, err := startEmulator(startEmulatorInput{
+			name, serial, err := startEmulator(startEmulatorInput{
 				ctx:              ctx,
 				mobileCtx:        ctx,
+				deviceType:       "emulator",
 				payload:          payload,
 				stepID:           "step-1",
 				startEmuActivity: startEmuActivity,
@@ -545,7 +577,7 @@ func TestStartEmulator(t *testing.T) {
 			if err != nil {
 				return nil, err
 			}
-			return map[string]any{"serial": serial, "clone_name": cloneName}, nil
+			return map[string]any{"serial": serial, "name": name}, nil
 		},
 		workflow.RegisterOptions{Name: workflowName},
 	)
@@ -553,10 +585,16 @@ func TestStartEmulator(t *testing.T) {
 	env.OnActivity(
 		startEmuActivity.Name(),
 		mock.Anything,
-		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if !ok {
+				return false
+			}
+			return payload["device_name"] == "runner-1" && payload["type"] == "emulator"
+		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
-		"serial":     "emu-1",
-		"clone_name": "clone-1",
+		"serial": "emu-1",
+		"name":   "device-1",
 	}}, nil)
 
 	env.ExecuteWorkflow(workflowName)
@@ -566,7 +604,7 @@ func TestStartEmulator(t *testing.T) {
 	var result map[string]any
 	require.NoError(t, env.GetWorkflowResult(&result))
 	require.Equal(t, "emu-1", result["serial"])
-	require.Equal(t, "clone-1", result["clone_name"])
+	require.Equal(t, "device-1", result["name"])
 }
 
 func TestStartEmulatorErrors(t *testing.T) {
@@ -577,13 +615,13 @@ func TestStartEmulatorErrors(t *testing.T) {
 	}{
 		{
 			name:      "missing serial",
-			output:    map[string]any{"clone_name": "clone-1"},
+			output:    map[string]any{"name": "device-1"},
 			errSubstr: "missing serial",
 		},
 		{
-			name:      "missing clone_name",
+			name:      "missing name",
 			output:    map[string]any{"serial": "emu-1"},
-			errSubstr: "missing clone_name",
+			errSubstr: "missing name",
 		},
 	}
 
@@ -609,6 +647,7 @@ func TestStartEmulatorErrors(t *testing.T) {
 					_, _, err := startEmulator(startEmulatorInput{
 						ctx:              ctx,
 						mobileCtx:        ctx,
+						deviceType:       "emulator",
 						payload:          payload,
 						stepID:           "step-1",
 						startEmuActivity: startEmuActivity,

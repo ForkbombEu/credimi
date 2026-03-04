@@ -94,7 +94,16 @@ func TestRunCleanupHooksCollectsErrors(t *testing.T) {
 	finalOutput := map[string]any{}
 	var cleanupErrors []error
 
-	runCleanupHooks(ctx, steps, &ao, config, runData, &finalOutput, log.Logger(noopLogger{}), &cleanupErrors)
+	runCleanupHooks(
+		ctx,
+		steps,
+		&ao,
+		config,
+		runData,
+		&finalOutput,
+		log.Logger(noopLogger{}),
+		&cleanupErrors,
+	)
 
 	require.Len(t, cleanupErrors, 1)
 }
