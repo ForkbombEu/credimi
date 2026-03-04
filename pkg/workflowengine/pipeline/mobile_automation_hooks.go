@@ -491,7 +491,9 @@ func setupNewDevice(
 		if err != nil {
 			return err
 		}
-		serial = newSerial
+		if newSerial != "" {
+			serial = newSerial
+		}
 		input.deviceMap["name"] = name
 	}
 
@@ -578,12 +580,14 @@ func startEmulator(
 		return "", "", err
 	}
 
-	serial, ok := startResult.Output.(map[string]any)["serial"].(string)
+	var serial string
+
+	body, ok := startResult.Output.(map[string]any)
 	if !ok {
 		return "", "", workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf(
-				"%s: missing serial in response for step %s",
+				"%s: invalid response format for step %s",
 				errCode.Description,
 				input.stepID,
 			),
@@ -591,7 +595,22 @@ func startEmulator(
 		)
 	}
 
-	name, ok := startResult.Output.(map[string]any)["name"].(string)
+	if serialValue, exists := body["serial"]; exists && serialValue != nil {
+		serial, ok = serialValue.(string)
+		if !ok {
+			return "", "", workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf(
+					"%s: invalid serial in response for step %s",
+					errCode.Description,
+					input.stepID,
+				),
+				startResult.Output,
+			)
+		}
+	}
+
+	name, ok := body["name"].(string)
 	if !ok {
 		return "", "", workflowengine.NewAppError(
 			errCode,
