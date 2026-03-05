@@ -275,7 +275,12 @@ func TestFetchChildPipelineYAMLValidationErrors(t *testing.T) {
 					Config: map[string]any{"app_url": "https://example.test"},
 				},
 			}
-			_, err := fetchChildPipelineYAML(ctx, step, input, &workflowengine.WorkflowErrorMetadata{})
+			_, err := fetchChildPipelineYAML(
+				ctx,
+				step,
+				input,
+				&workflowengine.WorkflowErrorMetadata{},
+			)
 			if err == nil {
 				return "", errors.New("expected error")
 			}
@@ -314,7 +319,12 @@ func TestFetchChildPipelineYAMLInvalidOutput(t *testing.T) {
 					Config: map[string]any{"app_url": "https://example.test"},
 				},
 			}
-			_, err := fetchChildPipelineYAML(ctx, step, input, &workflowengine.WorkflowErrorMetadata{})
+			_, err := fetchChildPipelineYAML(
+				ctx,
+				step,
+				input,
+				&workflowengine.WorkflowErrorMetadata{},
+			)
 			if err == nil {
 				return "", errors.New("expected error")
 			}
