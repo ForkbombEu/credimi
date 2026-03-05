@@ -23,6 +23,7 @@ import (
 )
 
 type GetMobileRunnerResponseSchema struct {
+	Type      string `json:"type"`
 	RunnerURL string `json:"runner_url"`
 	Serial    string `json:"serial"`
 }
@@ -85,6 +86,7 @@ func HandleGetMobileRunner() func(*core.RequestEvent) error {
 		}
 
 		var response GetMobileRunnerResponseSchema
+		response.Type = record.GetString("type")
 		response.Serial = record.GetString("serial")
 		var port string
 		url := record.GetString("ip")
