@@ -296,10 +296,16 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 			switch step.Kind {
 			case registry.TaskActivity:
 				act := step.NewFunc().(workflowengine.ExecutableActivity)
-				w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+				w.RegisterActivityWithOptions(
+					act.Execute,
+					activity.RegisterOptions{Name: act.Name()},
+				)
 			case registry.TaskWorkflow:
 				wf := step.NewFunc().(workflowengine.Workflow)
-				w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
+				w.RegisterWorkflowWithOptions(
+					wf.Workflow,
+					workflow.RegisterOptions{Name: wf.Name()},
+				)
 			}
 		}
 
@@ -307,10 +313,16 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 			switch step.Kind {
 			case registry.TaskActivity:
 				act := step.NewFunc().(workflowengine.ExecutableActivity)
-				w.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{Name: act.Name()})
+				w.RegisterActivityWithOptions(
+					act.Execute,
+					activity.RegisterOptions{Name: act.Name()},
+				)
 			case registry.TaskWorkflow:
 				wf := step.NewFunc().(workflowengine.Workflow)
-				w.RegisterWorkflowWithOptions(wf.Workflow, workflow.RegisterOptions{Name: wf.Name()})
+				w.RegisterWorkflowWithOptions(
+					wf.Workflow,
+					workflow.RegisterOptions{Name: wf.Name()},
+				)
 			}
 		}
 
@@ -402,10 +414,10 @@ func sleepWithContext(ctx context.Context, d time.Duration) bool {
 	}
 }
 
-func growBackoff(current, max time.Duration) time.Duration {
+func growBackoff(current, maxDuration time.Duration) time.Duration {
 	next := current * 2
-	if next > max {
-		return max
+	if next > maxDuration {
+		return maxDuration
 	}
 	return next
 }
