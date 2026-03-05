@@ -291,6 +291,7 @@ func (w *PipelineWorkflow) Start(
 	inputYaml string,
 	config map[string]any,
 	memo map[string]any,
+	pipelineIdentifier string,
 ) (workflowengine.WorkflowResult, error) {
 	var result workflowengine.WorkflowResult
 
@@ -330,6 +331,8 @@ func (w *PipelineWorkflow) Start(
 		config["global_runner_id"] = wfDef.Runtime.GlobalRunnerID
 	}
 
+	workflowengine.ApplyPipelineSearchAttributes(&options.Options, pipelineIdentifier)
+
 	input := PipelineWorkflowInput{
 		WorkflowDefinition: wfDef,
 		WorkflowInput: workflowengine.WorkflowInput{
@@ -340,6 +343,7 @@ func (w *PipelineWorkflow) Start(
 	}
 
 	if wfDef.Runtime.Schedule.Interval != nil {
+		searchAttributes := workflowengine.PipelineTypedSearchAttributes(pipelineIdentifier)
 		ctx := context.Background()
 		scheduleID := fmt.Sprintf("schedule_id_%s", options.Options.ID)
 		scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
@@ -352,11 +356,12 @@ func (w *PipelineWorkflow) Start(
 				},
 			},
 			Action: &client.ScheduleWorkflowAction{
-				ID:        fmt.Sprintf("scheduled_%s", options.Options.ID),
-				Workflow:  w.Name(),
-				TaskQueue: options.Options.TaskQueue,
-				Args:      []any{input},
-				Memo:      memo,
+				ID:                    fmt.Sprintf("scheduled_%s", options.Options.ID),
+				Workflow:              w.Name(),
+				TaskQueue:             options.Options.TaskQueue,
+				Args:                  []any{input},
+				Memo:                  memo,
+				TypedSearchAttributes: searchAttributes,
 			},
 		})
 		if err != nil {
