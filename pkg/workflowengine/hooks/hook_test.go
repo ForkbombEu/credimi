@@ -92,6 +92,10 @@ type fakeWorker struct {
 	runCalled            atomic.Bool
 }
 
+type retryTestWorker struct {
+	runFn func(<-chan interface{}) error
+}
+
 func (f *fakeWorker) RegisterWorkflow(interface{}) {}
 
 func (f *fakeWorker) RegisterWorkflowWithOptions(_ interface{}, options workflow.RegisterOptions) {
@@ -119,6 +123,28 @@ func (f *fakeWorker) Run(interruptCh <-chan interface{}) error {
 }
 
 func (f *fakeWorker) Stop() {}
+
+func (*retryTestWorker) RegisterWorkflow(interface{}) {}
+
+func (*retryTestWorker) RegisterWorkflowWithOptions(interface{}, workflow.RegisterOptions) {}
+
+func (*retryTestWorker) RegisterDynamicWorkflow(interface{}, workflow.DynamicRegisterOptions) {}
+
+func (*retryTestWorker) RegisterActivity(interface{}) {}
+
+func (*retryTestWorker) RegisterActivityWithOptions(interface{}, activity.RegisterOptions) {}
+
+func (*retryTestWorker) RegisterDynamicActivity(interface{}, activity.DynamicRegisterOptions) {}
+
+func (*retryTestWorker) RegisterNexusService(*nexus.Service) {}
+
+func (*retryTestWorker) Start() error { return nil }
+
+func (w *retryTestWorker) Run(interruptCh <-chan interface{}) error {
+	return w.runFn(interruptCh)
+}
+
+func (*retryTestWorker) Stop() {}
 
 func TestFetchNamespacesIncludesDefault(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
@@ -652,6 +678,111 @@ func TestStartPipelineWorkerRegistersRegistryEntries(t *testing.T) {
 	require.Contains(t, fw.registeredActivities, "activity-act")
 	require.Contains(t, fw.registeredActivities, "internal-act")
 	require.NotContains(t, fw.registeredActivities, "skip-act")
+}
+
+func TestRunWorkerWithRetryRetriesOnTransientError(t *testing.T) {
+	origSleepWithContext := sleepWithContextFn
+	t.Cleanup(func() {
+		sleepWithContextFn = origSleepWithContext
+	})
+
+	var sleepCalls atomic.Int32
+	sleepWithContextFn = func(_ context.Context, _ time.Duration) bool {
+		sleepCalls.Add(1)
+		return true
+	}
+
+	var runCalls atomic.Int32
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		runWorkerWithRetry(ctx, "queue-a", func() worker.Worker {
+			return &retryTestWorker{
+				runFn: func(interruptCh <-chan interface{}) error {
+					if runCalls.Add(1) == 1 {
+						return context.DeadlineExceeded
+					}
+					<-interruptCh
+					return nil
+				},
+			}
+		})
+		close(done)
+	}()
+
+	require.Eventually(t, func() bool {
+		return runCalls.Load() >= 2
+	}, time.Second, 10*time.Millisecond)
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("timeout waiting for runWorkerWithRetry to stop")
+	}
+
+	require.Equal(t, int32(2), runCalls.Load())
+	require.Equal(t, int32(1), sleepCalls.Load())
+}
+
+func TestRunWorkerWithRetryStopsOnNonRetryableError(t *testing.T) {
+	origSleepWithContext := sleepWithContextFn
+	t.Cleanup(func() {
+		sleepWithContextFn = origSleepWithContext
+	})
+
+	var sleepCalls atomic.Int32
+	sleepWithContextFn = func(_ context.Context, _ time.Duration) bool {
+		sleepCalls.Add(1)
+		return true
+	}
+
+	var runCalls atomic.Int32
+	runWorkerWithRetry(context.Background(), "queue-a", func() worker.Worker {
+		return &retryTestWorker{
+			runFn: func(_ <-chan interface{}) error {
+				runCalls.Add(1)
+				return serviceerror.NewInvalidArgument("invalid")
+			},
+		}
+	})
+
+	require.Equal(t, int32(1), runCalls.Load())
+	require.Equal(t, int32(0), sleepCalls.Load())
+}
+
+func TestRunWorkerWithRetryStopsAfterMaxRetryTime(t *testing.T) {
+	origSleepWithContext := sleepWithContextFn
+	origNowFn := nowFn
+	t.Cleanup(func() {
+		sleepWithContextFn = origSleepWithContext
+		nowFn = origNowFn
+	})
+
+	sleepWithContextFn = func(_ context.Context, _ time.Duration) bool {
+		return true
+	}
+
+	start := time.Now()
+	var nowCalls atomic.Int32
+	nowFn = func() time.Time {
+		if nowCalls.Add(1) == 1 {
+			return start
+		}
+		return start.Add(workerStartMaxRetryTime + time.Second)
+	}
+
+	var runCalls atomic.Int32
+	runWorkerWithRetry(context.Background(), "queue-a", func() worker.Worker {
+		return &retryTestWorker{
+			runFn: func(_ <-chan interface{}) error {
+				runCalls.Add(1)
+				return context.DeadlineExceeded
+			},
+		}
+	})
+
+	require.Equal(t, int32(1), runCalls.Load())
 }
 
 func TestStartWorkerManagerWorkflowInvokesExecute(t *testing.T) {
