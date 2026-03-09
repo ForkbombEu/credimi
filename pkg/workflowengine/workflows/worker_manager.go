@@ -112,21 +112,6 @@ func (w *WorkerManagerWorkflow) ExecuteWorkflow(
 	}
 	var resp workflowengine.ActivityResult
 	err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), listReq).Get(ctx, &resp)
-	if isMissingInternalHTTPActivity(err) {
-		fallback := workflowengine.ActivityInput{
-			Payload: activities.HTTPActivityPayload{
-				Method: http.MethodGet,
-				URL: utils.JoinURL(
-					appURL,
-					"api",
-					"mobile-runner",
-					"list-urls",
-				),
-				ExpectedStatus: 200,
-			},
-		}
-		err = workflow.ExecuteActivity(ctx, publicHTTPActivity.Name(), fallback).Get(ctx, &resp)
-	}
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(err, runMetadata)
 	}

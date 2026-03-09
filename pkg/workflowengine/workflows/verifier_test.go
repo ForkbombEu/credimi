@@ -36,7 +36,7 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewHTTPActivity()
+				httpAct := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
 					httpAct.Execute,
 					activity.RegisterOptions{Name: httpAct.Name()},
@@ -80,7 +80,7 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewHTTPActivity()
+				httpAct := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
 					httpAct.Execute,
 					activity.RegisterOptions{Name: httpAct.Name()},
@@ -102,7 +102,7 @@ func Test_GetUseCaseVerificationDeeplinkWorkflow(t *testing.T) {
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewHTTPActivity()
+				httpAct := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
 					httpAct.Execute,
 					activity.RegisterOptions{Name: httpAct.Name()},
