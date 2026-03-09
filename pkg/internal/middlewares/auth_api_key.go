@@ -17,6 +17,8 @@ import (
 )
 
 const (
+	RequireAuthOrAPIKeyMiddlewareID = "requireAuthOrAPIKey"
+
 	apiKeyHeaderName          = "X-Api-Key"
 	apiKeyScopeFieldName      = "key_type"
 	apiKeyScopeUser           = "user"
@@ -28,6 +30,7 @@ const (
 // RequireAuthOrAPIKey accepts either a Bearer token or a user-scoped API key.
 func RequireAuthOrAPIKey() *hook.Handler[*core.RequestEvent] {
 	return &hook.Handler[*core.RequestEvent]{
+		Id: RequireAuthOrAPIKeyMiddlewareID,
 		Func: func(e *core.RequestEvent) error {
 			authHeader := strings.TrimSpace(e.Request.Header.Get("Authorization"))
 			if authHeader != "" {

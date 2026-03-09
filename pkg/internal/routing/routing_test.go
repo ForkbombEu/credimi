@@ -173,6 +173,44 @@ func TestRegisterRoutesWithValidation_RequireAuth(t *testing.T) {
 
 }
 
+func TestRegisterRoutesWithValidation_RequireAuthExcluded(t *testing.T) {
+	app, err := tests.NewTestApp("../../../test_pb_data")
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	var handlerCalled atomic.Bool
+	publicRoute := RouteDefinition{
+		Method:              http.MethodGet,
+		Path:                "/public-ish",
+		ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
+		Handler: func() func(*core.RequestEvent) error {
+			return func(e *core.RequestEvent) error {
+				handlerCalled.Store(true)
+				return e.String(http.StatusOK, "ok")
+			}
+		},
+	}
+
+	r := router.NewRouter(
+		func(w http.ResponseWriter, req *http.Request) (*core.RequestEvent, router.EventCleanupFunc) {
+			return &core.RequestEvent{
+				App:   app,
+				Event: router.Event{Response: w, Request: req},
+			}, nil
+		},
+	)
+
+	RegisterRoutesWithValidation(app, r.RouterGroup, []RouteDefinition{publicRoute}, true)
+	mux, err := r.BuildMux()
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/public-ish", nil)
+	res := httptest.NewRecorder()
+	mux.ServeHTTP(res, req)
+	require.Equal(t, http.StatusOK, res.Code)
+	require.True(t, handlerCalled.Load())
+}
+
 func TestRegisterRoutesWithValidation_MethodCoverage(t *testing.T) {
 	app, err := tests.NewTestApp()
 	require.NoError(t, err)

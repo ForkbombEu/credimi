@@ -20,7 +20,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/subscriptions"
@@ -71,14 +70,14 @@ var ConformanceRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:                "/send-openidnet-log-update",
 			Handler:             HandleSendOpenIDNetLogUpdate,
 			RequestSchema:       HandleSendLogUpdateRequestInput{},
-			ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
+			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
 		},
 		{
 			Method:              http.MethodPost,
 			Path:                "/send-eudiw-log-update",
 			Handler:             HandleSendEudiwLogUpdate,
 			RequestSchema:       HandleSendLogUpdateRequestInput{},
-			ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
+			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
 		},
 		{
 			Method:  http.MethodGet,
