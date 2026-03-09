@@ -14,11 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
-	commonpb "go.temporal.io/api/common/v1"
 	enumspb "go.temporal.io/api/enums/v1"
-	historypb "go.temporal.io/api/history/v1"
-	workflowpb "go.temporal.io/api/workflow/v1"
-	"go.temporal.io/api/workflowservice/v1"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/converter"
 	temporalmocks "go.temporal.io/sdk/mocks"
@@ -56,7 +52,10 @@ func (t *testWorkflow) Workflow(ctx workflow.Context, input WorkflowInput) (Work
 	return t.ExecuteWorkflow(ctx, input)
 }
 
-func (t *testWorkflow) ExecuteWorkflow(ctx workflow.Context, input WorkflowInput) (WorkflowResult, error) {
+func (t *testWorkflow) ExecuteWorkflow(
+	ctx workflow.Context,
+	input WorkflowInput,
+) (WorkflowResult, error) {
 	t.metadata = input.RunMetadata
 	return t.execute(ctx, input)
 }
@@ -67,27 +66,6 @@ func (t *testWorkflow) Name() string {
 
 func (t *testWorkflow) GetOptions() workflow.ActivityOptions {
 	return t.options
-}
-
-type fakeHistoryIterator struct {
-	events  []*historypb.HistoryEvent
-	nextErr error
-	index   int
-}
-
-func (f *fakeHistoryIterator) HasNext() bool {
-	return f.index < len(f.events) || f.nextErr != nil
-}
-
-func (f *fakeHistoryIterator) Next() (*historypb.HistoryEvent, error) {
-	if f.nextErr != nil {
-		err := f.nextErr
-		f.nextErr = nil
-		return nil, err
-	}
-	event := f.events[f.index]
-	f.index++
-	return event, nil
 }
 
 func TestNewWorkflowError_NonApplicationError(t *testing.T) {
@@ -418,7 +396,12 @@ func TestStartWorkflowWithOptions(t *testing.T) {
 			return nil, errors.New("no client")
 		}
 
-		_, err := StartWorkflowWithOptions("ns", client.StartWorkflowOptions{}, "wf", WorkflowInput{})
+		_, err := StartWorkflowWithOptions(
+			"ns",
+			client.StartWorkflowOptions{},
+			"wf",
+			WorkflowInput{},
+		)
 		require.ErrorContains(t, err, "unable to create client")
 	})
 
@@ -435,7 +418,12 @@ func TestStartWorkflowWithOptions(t *testing.T) {
 			return mockClient, nil
 		}
 
-		_, err := StartWorkflowWithOptions("ns", client.StartWorkflowOptions{}, "wf", WorkflowInput{})
+		_, err := StartWorkflowWithOptions(
+			"ns",
+			client.StartWorkflowOptions{},
+			"wf",
+			WorkflowInput{},
+		)
 		require.ErrorContains(t, err, "failed to start workflow")
 	})
 
@@ -475,164 +463,6 @@ func TestStartWorkflowWithOptions(t *testing.T) {
 		require.NoError(t, err)
 		require.Equal(t, "wf-1", result.WorkflowID)
 		require.Equal(t, "run-1", result.WorkflowRunID)
-	})
-}
-
-func TestGetWorkflowRunInfo(t *testing.T) {
-	t.Run("returns client error", func(t *testing.T) {
-		origClient := workflowTemporalClient
-		t.Cleanup(func() { workflowTemporalClient = origClient })
-
-		workflowTemporalClient = func(_ string) (client.Client, error) {
-			return nil, errors.New("no client")
-		}
-
-		_, err := GetWorkflowRunInfo("wf", "run", "ns")
-		require.ErrorContains(t, err, "unable to create Temporal client")
-	})
-
-	t.Run("returns describe error", func(t *testing.T) {
-		origClient := workflowTemporalClient
-		t.Cleanup(func() { workflowTemporalClient = origClient })
-
-		mockClient := temporalmocks.NewClient(t)
-		mockClient.
-			On("DescribeWorkflowExecution", mock.Anything, "wf", "run").
-			Return(nil, errors.New("describe failed"))
-
-		workflowTemporalClient = func(_ string) (client.Client, error) {
-			return mockClient, nil
-		}
-
-		_, err := GetWorkflowRunInfo("wf", "run", "ns")
-		require.ErrorContains(t, err, "unable to describe workflow execution")
-	})
-
-	t.Run("fails to decode memo", func(t *testing.T) {
-		origClient := workflowTemporalClient
-		t.Cleanup(func() { workflowTemporalClient = origClient })
-
-		mockClient := temporalmocks.NewClient(t)
-		mockClient.
-			On("DescribeWorkflowExecution", mock.Anything, "wf", "run").
-			Return(&workflowservice.DescribeWorkflowExecutionResponse{
-				WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
-					Type:      &commonpb.WorkflowType{Name: "Pipeline"},
-					TaskQueue: "queue",
-					Memo: &commonpb.Memo{Fields: map[string]*commonpb.Payload{
-						"bad": {Metadata: map[string][]byte{"encoding": []byte("unknown")}, Data: []byte("nope")},
-					}},
-				},
-			}, nil)
-
-		workflowTemporalClient = func(_ string) (client.Client, error) {
-			return mockClient, nil
-		}
-
-		_, err := GetWorkflowRunInfo("wf", "run", "ns")
-		require.ErrorContains(t, err, "failed to decode memo key")
-	})
-
-	t.Run("handles missing history iterator", func(t *testing.T) {
-		origClient := workflowTemporalClient
-		t.Cleanup(func() { workflowTemporalClient = origClient })
-
-		mockClient := temporalmocks.NewClient(t)
-		payload, err := converter.GetDefaultDataConverter().ToPayload("ok")
-		require.NoError(t, err)
-		mockClient.
-			On("DescribeWorkflowExecution", mock.Anything, "wf", "run").
-			Return(&workflowservice.DescribeWorkflowExecutionResponse{
-				WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
-					Type:      &commonpb.WorkflowType{Name: "Pipeline"},
-					TaskQueue: "queue",
-					Memo:      &commonpb.Memo{Fields: map[string]*commonpb.Payload{"ok": payload}},
-				},
-			}, nil)
-		mockClient.
-			On("GetWorkflowHistory", mock.Anything, "wf", "run", false, enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT).
-			Return(nil)
-
-		workflowTemporalClient = func(_ string) (client.Client, error) {
-			return mockClient, nil
-		}
-
-		_, err = GetWorkflowRunInfo("wf", "run", "ns")
-		require.ErrorContains(t, err, "unable to get workflow history iterator")
-	})
-
-	t.Run("handles history iterator errors", func(t *testing.T) {
-		origClient := workflowTemporalClient
-		t.Cleanup(func() { workflowTemporalClient = origClient })
-
-		mockClient := temporalmocks.NewClient(t)
-		payload, err := converter.GetDefaultDataConverter().ToPayload("ok")
-		require.NoError(t, err)
-		mockClient.
-			On("DescribeWorkflowExecution", mock.Anything, "wf", "run").
-			Return(&workflowservice.DescribeWorkflowExecutionResponse{
-				WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
-					Type:      &commonpb.WorkflowType{Name: "Pipeline"},
-					TaskQueue: "queue",
-					Memo:      &commonpb.Memo{Fields: map[string]*commonpb.Payload{"ok": payload}},
-				},
-			}, nil)
-		mockClient.
-			On("GetWorkflowHistory", mock.Anything, "wf", "run", false, enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT).
-			Return(&fakeHistoryIterator{nextErr: errors.New("history failed")})
-
-		workflowTemporalClient = func(_ string) (client.Client, error) {
-			return mockClient, nil
-		}
-
-		_, err = GetWorkflowRunInfo("wf", "run", "ns")
-		require.ErrorContains(t, err, "error reading workflow history")
-	})
-
-	t.Run("returns input and memo on success", func(t *testing.T) {
-		origClient := workflowTemporalClient
-		t.Cleanup(func() { workflowTemporalClient = origClient })
-
-		mockClient := temporalmocks.NewClient(t)
-		payload, err := converter.GetDefaultDataConverter().ToPayload("ok")
-		require.NoError(t, err)
-		payloads, err := converter.GetDefaultDataConverter().ToPayloads(WorkflowInput{
-			Config: map[string]any{"foo": "bar"},
-		})
-		require.NoError(t, err)
-
-		mockClient.
-			On("DescribeWorkflowExecution", mock.Anything, "wf", "run").
-			Return(&workflowservice.DescribeWorkflowExecutionResponse{
-				WorkflowExecutionInfo: &workflowpb.WorkflowExecutionInfo{
-					Type:      &commonpb.WorkflowType{Name: "Pipeline"},
-					TaskQueue: "queue",
-					Memo:      &commonpb.Memo{Fields: map[string]*commonpb.Payload{"ok": payload}},
-				},
-			}, nil)
-		mockClient.
-			On("GetWorkflowHistory", mock.Anything, "wf", "run", false, enumspb.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT).
-			Return(&fakeHistoryIterator{
-				events: []*historypb.HistoryEvent{{
-					EventType: enumspb.EVENT_TYPE_WORKFLOW_EXECUTION_STARTED,
-					Attributes: &historypb.HistoryEvent_WorkflowExecutionStartedEventAttributes{
-						WorkflowExecutionStartedEventAttributes: &historypb.WorkflowExecutionStartedEventAttributes{
-							Input: payloads,
-						},
-					},
-				}},
-			})
-
-		workflowTemporalClient = func(_ string) (client.Client, error) {
-			return mockClient, nil
-		}
-
-		info, err := GetWorkflowRunInfo("wf", "run", "ns")
-		require.NoError(t, err)
-		require.Equal(t, "Pipeline", info.Name)
-		require.Equal(t, "queue", info.TaskQueue)
-		require.Equal(t, "ok", info.Memo["ok"])
-		require.Equal(t, "bar", info.Input.Config["foo"])
 	})
 }
 

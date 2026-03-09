@@ -84,6 +84,7 @@ type startEmulatorInput struct {
 	ctx              workflow.Context
 	mobileCtx        workflow.Context
 	payload          *workflows.MobileAutomationWorkflowPipelinePayload
+	deviceType       string
 	stepID           string
 	startEmuActivity *activities.StartEmulatorActivity
 }
@@ -303,81 +304,6 @@ func collectMobileRunnerIDs(steps []StepDefinition, globalID string) ([]string, 
 	return runnerIDs, nil
 }
 
-func hasRunnerPermit(runData *map[string]any, runnerID string) bool {
-	if runData == nil || *runData == nil {
-		return false
-	}
-
-	rawPermits, ok := (*runData)["mobile_runner_permits"]
-	if !ok {
-		return false
-	}
-
-	switch permits := rawPermits.(type) {
-	case map[string]workflows.MobileRunnerSemaphorePermit:
-		_, ok := permits[runnerID]
-		return ok
-	case map[string]any:
-		permit, ok := permits[runnerID]
-		if !ok {
-			return false
-		}
-		_, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](permit)
-		return err == nil
-	default:
-		return false
-	}
-}
-
-func getRunnerPermits(runData map[string]any) map[string]workflows.MobileRunnerSemaphorePermit {
-	rawPermits, ok := runData["mobile_runner_permits"]
-	if !ok {
-		return nil
-	}
-
-	switch permits := rawPermits.(type) {
-	case map[string]workflows.MobileRunnerSemaphorePermit:
-		return permits
-	case map[string]any:
-		decoded := make(map[string]workflows.MobileRunnerSemaphorePermit, len(permits))
-		for runnerID, rawPermit := range permits {
-			permit, err := workflowengine.DecodePayload[workflows.MobileRunnerSemaphorePermit](rawPermit)
-			if err != nil {
-				continue
-			}
-			decoded[runnerID] = permit
-		}
-		return decoded
-	default:
-		return nil
-	}
-}
-
-func releaseRunnerPermits(
-	ctx workflow.Context,
-	permits map[string]workflows.MobileRunnerSemaphorePermit,
-	cleanupErrs *[]error,
-) {
-	if len(permits) == 0 {
-		return
-	}
-
-	releaseActivity := activities.NewReleaseMobileRunnerPermitActivity()
-	runnerIDs := make([]string, 0, len(permits))
-	for runnerID := range permits {
-		runnerIDs = append(runnerIDs, runnerID)
-	}
-	sort.Strings(runnerIDs)
-
-	for _, runnerID := range runnerIDs {
-		permit := permits[runnerID]
-		req := workflowengine.ActivityInput{Payload: permit}
-		if err := workflow.ExecuteActivity(ctx, releaseActivity.Name(), req).Get(ctx, nil); err != nil {
-			*cleanupErrs = append(*cleanupErrs, err)
-		}
-	}
-}
-
 func processStep(
 	input processStepInput,
 ) error {
@@ -394,15 +320,6 @@ func processStep(
 		payload.RunnerID = input.globalRunnerID
 		// Update the step payload with the global runner_id for consistency
 		SetPayloadValue(&input.step.With.Payload, "runner_id", input.globalRunnerID)
-	}
-
-	if !isSemaphoreManagedRun(input.config) && !hasRunnerPermit(input.runData, payload.RunnerID) {
-		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-		return workflowengine.NewAppError(
-			errCode,
-			fmt.Sprintf("missing runner permit for step %s", input.step.ID),
-			payload.RunnerID,
-		)
 	}
 
 	taskqueue := fmt.Sprintf("%s-%s", payload.RunnerID, "TaskQueue")
@@ -551,7 +468,7 @@ func getOrCreateDeviceMap(
 func setupNewDevice(
 	input setupNewDeviceInput,
 ) error {
-	runnerURL, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
+	runnerURL, deviceType, serial, err := fetchRunnerInfo(fetchRunnerInfoInput{
 		ctx:          input.ctx,
 		payload:      input.payload,
 		appURL:       input.appURL,
@@ -562,10 +479,11 @@ func setupNewDevice(
 		return err
 	}
 
-	if serial == "" {
-		cloneName, newSerial, err := startEmulator(startEmulatorInput{
+	if deviceType == "android_emulator" || deviceType == "redroid" {
+		name, newSerial, err := startEmulator(startEmulatorInput{
 			ctx:              input.ctx,
 			mobileCtx:        input.mobileCtx,
+			deviceType:       deviceType,
 			payload:          input.payload,
 			stepID:           input.stepID,
 			startEmuActivity: input.startEmuActivity,
@@ -573,10 +491,13 @@ func setupNewDevice(
 		if err != nil {
 			return err
 		}
-		serial = newSerial
-		input.deviceMap["clone_name"] = cloneName
+		if newSerial != "" {
+			serial = newSerial
+		}
+		input.deviceMap["name"] = name
 	}
 
+	input.deviceMap["type"] = deviceType
 	input.deviceMap["runner_url"] = runnerURL
 	input.deviceMap["serial"] = serial
 
@@ -585,7 +506,7 @@ func setupNewDevice(
 
 func fetchRunnerInfo(
 	input fetchRunnerInfoInput,
-) (string, string, error) {
+) (string, string, string, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 
 	runnerReq := workflowengine.ActivityInput{
@@ -619,16 +540,16 @@ func fetchRunnerInfo(
 				activities.NewHTTPActivity().Name(),
 				fallbackReq,
 			).Get(input.ctx, &runnerRes); fbErr != nil {
-				return "", "", fbErr
+				return "", "", "", fbErr
 			}
 		} else {
-			return "", "", err
+			return "", "", "", err
 		}
 	}
 
 	body, ok := runnerRes.Output.(map[string]any)["body"].(map[string]any)
 	if !ok {
-		return "", "", workflowengine.NewAppError(
+		return "", "", "", workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf("invalid HTTP response format for step %s", input.stepID),
 			runnerRes.Output,
@@ -637,23 +558,32 @@ func fetchRunnerInfo(
 
 	runnerURL, ok := body["runner_url"].(string)
 	if !ok || runnerURL == "" {
-		return "", "", workflowengine.NewAppError(
+		return "", "", "", workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf("missing or invalid runner_url for step %s", input.stepID),
 			body,
 		)
 	}
 
+	deviceType, ok := body["type"].(string)
+	if !ok {
+		return "", "", "", workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("missing or invalid device type for step %s", input.stepID),
+			body,
+		)
+	}
+
 	serial, ok := body["serial"].(string)
 	if !ok {
-		return "", "", workflowengine.NewAppError(
+		return "", "", "", workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf("invalid device serial for step %s", input.stepID),
 			body,
 		)
 	}
 
-	return runnerURL, serial, nil
+	return runnerURL, deviceType, serial, nil
 }
 
 func startEmulator(
@@ -663,7 +593,7 @@ func startEmulator(
 
 	startResult := workflowengine.ActivityResult{}
 	startInput := workflowengine.ActivityInput{
-		Payload: map[string]any{"device_name": input.payload.RunnerID},
+		Payload: map[string]any{"device_name": input.payload.RunnerID, "type": input.deviceType},
 	}
 	err := workflow.ExecuteActivity(input.mobileCtx, input.startEmuActivity.Name(), startInput).
 		Get(input.ctx, &startResult)
@@ -671,12 +601,14 @@ func startEmulator(
 		return "", "", err
 	}
 
-	serial, ok := startResult.Output.(map[string]any)["serial"].(string)
+	var serial string
+
+	body, ok := startResult.Output.(map[string]any)
 	if !ok {
 		return "", "", workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf(
-				"%s: missing serial in response for step %s",
+				"%s: invalid response format for step %s",
 				errCode.Description,
 				input.stepID,
 			),
@@ -684,12 +616,27 @@ func startEmulator(
 		)
 	}
 
-	cloneName, ok := startResult.Output.(map[string]any)["clone_name"].(string)
+	if serialValue, exists := body["serial"]; exists && serialValue != nil {
+		serial, ok = serialValue.(string)
+		if !ok {
+			return "", "", workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf(
+					"%s: invalid serial in response for step %s",
+					errCode.Description,
+					input.stepID,
+				),
+				startResult.Output,
+			)
+		}
+	}
+
+	name, ok := body["name"].(string)
 	if !ok {
 		return "", "", workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf(
-				"%s: missing clone_name in response for step %s",
+				"%s: missing name in response for step %s",
 				errCode.Description,
 				input.stepID,
 			),
@@ -697,7 +644,7 @@ func startEmulator(
 		)
 	}
 
-	return cloneName, serial, nil
+	return name, serial, nil
 }
 
 func fetchAndInstallAPK(
@@ -1056,10 +1003,6 @@ func MobileAutomationCleanupHook(
 		}
 	}
 
-	if !isSemaphoreManagedRun(config) {
-		releaseRunnerPermits(ctx, getRunnerPermits(runData), &cleanupErrs)
-	}
-
 	if len(cleanupErrs) > 0 {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 		return workflowengine.NewAppError(
@@ -1088,7 +1031,7 @@ func cleanupDevice(
 		*input.cleanupErrs = append(*input.cleanupErrs, err)
 	}
 
-	serial, cloneName, packages, err := extractDeviceInfo(input.runnerID, deviceMap)
+	deviceType, serial, name, packages, err := extractDeviceInfo(input.runnerID, deviceMap)
 	if err != nil {
 		*input.cleanupErrs = append(*input.cleanupErrs, err)
 	}
@@ -1110,7 +1053,8 @@ func cleanupDevice(
 
 	cleanupPayload := map[string]any{
 		"serial":       serial,
-		"clone_name":   cloneName,
+		"type":         deviceType,
+		"name":         name,
 		"apk_packages": packages,
 	}
 
@@ -1155,19 +1099,28 @@ func parseDeviceMap(
 func extractDeviceInfo(
 	runnerID string,
 	deviceMap map[string]any,
-) (string, string, []string, error) {
+) (string, string, string, []string, error) {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 
-	serial, ok := deviceMap["serial"].(string)
-	if !ok || serial == "" {
-		return "", "", nil, workflowengine.NewAppError(
+	deviceType, ok := deviceMap["type"].(string)
+	if !ok || deviceType == "" {
+		return "", "", "", nil, workflowengine.NewAppError(
 			errCode,
 			"error decoding payload for device "+runnerID,
 			deviceMap,
 		)
 	}
 
-	cloneName, _ := deviceMap["clone_name"].(string)
+	serial, ok := deviceMap["serial"].(string)
+	if !ok || serial == "" {
+		return "", "", "", nil, workflowengine.NewAppError(
+			errCode,
+			"error decoding payload for device "+runnerID,
+			deviceMap,
+		)
+	}
+
+	name, _ := deviceMap["name"].(string)
 
 	var packages []string
 
@@ -1178,14 +1131,14 @@ func extractDeviceInfo(
 			}
 		}
 	} else {
-		return "", "", nil, workflowengine.NewAppError(
+		return "", "", "", nil, workflowengine.NewAppError(
 			errCode,
 			"error decoding payload for device "+runnerID,
 			deviceMap,
 		)
 	}
 
-	return serial, cloneName, packages, nil
+	return deviceType, serial, name, packages, nil
 }
 
 func cleanupRecording(

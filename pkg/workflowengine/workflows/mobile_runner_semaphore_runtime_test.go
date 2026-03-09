@@ -23,8 +23,6 @@ func newRuntimeForTests() *mobileRunnerSemaphoreRuntime {
 		runnerID:   "runner-1",
 		runQueue:   []string{},
 		runTickets: map[string]MobileRunnerSemaphoreRunTicketState{},
-		requests:   map[string]MobileRunnerSemaphoreRequestState{},
-		holders:    map[string]MobileRunnerSemaphoreHolder{},
 	}
 }
 
@@ -297,18 +295,13 @@ func TestApplyPayloadStateDefaults(t *testing.T) {
 }
 
 func TestApplyPayloadStateOverrides(t *testing.T) {
-	now := time.Now()
 	rt := &mobileRunnerSemaphoreRuntime{
 		capacity: 5,
 	}
 	state := &MobileRunnerSemaphoreWorkflowState{
 		Capacity:    2,
-		Holders:     map[string]MobileRunnerSemaphoreHolder{"lease": {LeaseID: "lease"}},
-		Queue:       []string{"req-1"},
-		Requests:    map[string]MobileRunnerSemaphoreRequestState{"req-1": {}},
 		RunQueue:    []string{"ticket-1"},
 		RunTickets:  map[string]MobileRunnerSemaphoreRunTicketState{"ticket-1": {}},
-		LastGrantAt: &now,
 		UpdateCount: 7,
 	}
 
@@ -318,12 +311,8 @@ func TestApplyPayloadStateOverrides(t *testing.T) {
 	})
 
 	require.Equal(t, 2, rt.capacity)
-	require.Equal(t, state.Holders, rt.holders)
-	require.Equal(t, state.Queue, rt.queue)
-	require.Equal(t, state.Requests, rt.requests)
 	require.Equal(t, state.RunQueue, rt.runQueue)
 	require.Equal(t, state.RunTickets, rt.runTickets)
-	require.Equal(t, state.LastGrantAt, rt.lastGrantAt)
 	require.Equal(t, state.UpdateCount, rt.updateCount)
 }
 
@@ -333,41 +322,8 @@ func TestNormalizeStateInitializesDefaults(t *testing.T) {
 	rt.normalizeState()
 
 	require.Equal(t, 1, rt.capacity)
-	require.NotNil(t, rt.holders)
-	require.NotNil(t, rt.requests)
-	require.NotNil(t, rt.queue)
 	require.NotNil(t, rt.runQueue)
 	require.NotNil(t, rt.runTickets)
-}
-
-func TestHandleAcquireImmediateGrant(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) (MobileRunnerSemaphorePermit, error) {
-			rt := &mobileRunnerSemaphoreRuntime{
-				runnerID: "runner-1",
-				capacity: 1,
-				requests: map[string]MobileRunnerSemaphoreRequestState{},
-				holders:  map[string]MobileRunnerSemaphoreHolder{},
-				queue:    []string{},
-			}
-			return rt.handleAcquire(ctx, MobileRunnerSemaphoreAcquireRequest{
-				RequestID:   "req-1",
-				LeaseID:     "lease-1",
-				WaitTimeout: time.Second,
-			})
-		},
-		workflow.RegisterOptions{Name: "test-acquire-grant"},
-	)
-
-	env.ExecuteWorkflow("test-acquire-grant")
-	require.NoError(t, env.GetWorkflowError())
-
-	var permit MobileRunnerSemaphorePermit
-	require.NoError(t, env.GetWorkflowResult(&permit))
-	require.Equal(t, "lease-1", permit.LeaseID)
 }
 
 func TestHandleRunStartedSignalUpdatesState(t *testing.T) {
@@ -387,9 +343,6 @@ func TestHandleRunStartedSignalUpdatesState(t *testing.T) {
 						Status:  mobileRunnerSemaphoreRunStarting,
 					},
 				},
-				requests: map[string]MobileRunnerSemaphoreRequestState{},
-				holders:  map[string]MobileRunnerSemaphoreHolder{},
-				queue:    []string{},
 				runQueue: []string{},
 			}
 
@@ -425,35 +378,6 @@ func TestHandleRunStartedSignalUpdatesState(t *testing.T) {
 	require.Equal(t, "ns-1", result.State.WorkflowNamespace)
 	require.NotNil(t, result.State.StartedAt)
 	require.Equal(t, 1, result.UpdateCount)
-}
-
-func TestHandleAcquireTimeout(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) error {
-			rt := &mobileRunnerSemaphoreRuntime{
-				runnerID: "runner-1",
-				capacity: 0,
-				requests: map[string]MobileRunnerSemaphoreRequestState{},
-				holders:  map[string]MobileRunnerSemaphoreHolder{},
-				queue:    []string{},
-			}
-			_, err := rt.handleAcquire(ctx, MobileRunnerSemaphoreAcquireRequest{
-				RequestID:   "req-1",
-				LeaseID:     "lease-1",
-				WaitTimeout: time.Second,
-			})
-			return err
-		},
-		workflow.RegisterOptions{Name: "test-acquire-timeout"},
-	)
-
-	env.ExecuteWorkflow("test-acquire-timeout")
-	err := env.GetWorkflowError()
-	require.Error(t, err)
-	require.Contains(t, err.Error(), MobileRunnerSemaphoreErrTimeout)
 }
 
 func TestHandleRunDoneSignalRemovesTicket(t *testing.T) {
@@ -514,61 +438,6 @@ func TestHandleRunDoneSignalRemovesTicket(t *testing.T) {
 	require.True(t, result.RunStarterRequested)
 }
 
-func TestHandleReleaseResults(t *testing.T) {
-	suite := testsuite.WorkflowTestSuite{}
-	env := suite.NewTestWorkflowEnvironment()
-
-	env.RegisterWorkflowWithOptions(
-		func(ctx workflow.Context) (struct {
-			Released MobileRunnerSemaphoreReleaseResult
-			Missing  MobileRunnerSemaphoreReleaseResult
-		}, error) {
-			rt := &mobileRunnerSemaphoreRuntime{
-				runnerID: "runner-1",
-				capacity: 1,
-				requests: map[string]MobileRunnerSemaphoreRequestState{},
-				holders: map[string]MobileRunnerSemaphoreHolder{
-					"lease-1": {LeaseID: "lease-1"},
-				},
-				queue: []string{},
-			}
-			released, err := rt.handleRelease(ctx, MobileRunnerSemaphoreReleaseRequest{LeaseID: "lease-1"})
-			if err != nil {
-				return struct {
-					Released MobileRunnerSemaphoreReleaseResult
-					Missing  MobileRunnerSemaphoreReleaseResult
-				}{}, err
-			}
-			missing, err := rt.handleRelease(ctx, MobileRunnerSemaphoreReleaseRequest{LeaseID: "missing"})
-			if err != nil {
-				return struct {
-					Released MobileRunnerSemaphoreReleaseResult
-					Missing  MobileRunnerSemaphoreReleaseResult
-				}{}, err
-			}
-			return struct {
-				Released MobileRunnerSemaphoreReleaseResult
-				Missing  MobileRunnerSemaphoreReleaseResult
-			}{
-				Released: released,
-				Missing:  missing,
-			}, nil
-		},
-		workflow.RegisterOptions{Name: "test-release"},
-	)
-
-	env.ExecuteWorkflow("test-release")
-	require.NoError(t, env.GetWorkflowError())
-
-	var result struct {
-		Released MobileRunnerSemaphoreReleaseResult
-		Missing  MobileRunnerSemaphoreReleaseResult
-	}
-	require.NoError(t, env.GetWorkflowResult(&result))
-	require.True(t, result.Released.Released)
-	require.False(t, result.Missing.Released)
-}
-
 func TestAwaitContinueTriggersContinueAsNew(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
@@ -603,7 +472,10 @@ func TestCheckRunCompletionFinalizesClosedRun(t *testing.T) {
 	env.RegisterActivityWithOptions(
 		func(_ context.Context, _ workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 			return workflowengine.ActivityResult{
-				Output: activities.CheckWorkflowClosedActivityOutput{Closed: true, Status: "completed"},
+				Output: activities.CheckWorkflowClosedActivityOutput{
+					Closed: true,
+					Status: "completed",
+				},
 			}, nil
 		},
 		activity.RegisterOptions{Name: checkAct.Name()},

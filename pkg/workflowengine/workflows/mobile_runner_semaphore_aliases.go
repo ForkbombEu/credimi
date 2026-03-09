@@ -8,8 +8,6 @@ import "github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
 const (
 	MobileRunnerSemaphoreTaskQueue            = mobilerunnersemaphore.TaskQueue
 	MobileRunnerSemaphoreWorkflowName         = mobilerunnersemaphore.WorkflowName
-	MobileRunnerSemaphoreAcquireUpdate        = mobilerunnersemaphore.AcquireUpdate
-	MobileRunnerSemaphoreReleaseUpdate        = mobilerunnersemaphore.ReleaseUpdate
 	MobileRunnerSemaphoreStateQuery           = mobilerunnersemaphore.StateQuery
 	MobileRunnerSemaphoreEnqueueRunUpdate     = mobilerunnersemaphore.EnqueueRunUpdate
 	MobileRunnerSemaphoreRunStatusQuery       = mobilerunnersemaphore.RunStatusQuery
@@ -21,7 +19,6 @@ const (
 	MobileRunnerSemaphoreRunDoneSignalName    = mobilerunnersemaphore.RunDoneSignal
 
 	MobileRunnerSemaphoreErrInvalidRequest     = mobilerunnersemaphore.ErrInvalidRequest
-	MobileRunnerSemaphoreErrTimeout            = mobilerunnersemaphore.ErrTimeout
 	MobileRunnerSemaphoreErrQueueLimitExceeded = mobilerunnersemaphore.ErrQueueLimitExceeded
 )
 
@@ -29,23 +26,7 @@ type MobileRunnerSemaphoreWorkflowInput = mobilerunnersemaphore.MobileRunnerSema
 
 type MobileRunnerSemaphoreWorkflowState = mobilerunnersemaphore.MobileRunnerSemaphoreWorkflowState
 
-type MobileRunnerSemaphoreAcquireRequest = mobilerunnersemaphore.MobileRunnerSemaphoreAcquireRequest
-
-type MobileRunnerSemaphoreReleaseRequest = mobilerunnersemaphore.MobileRunnerSemaphoreReleaseRequest
-
-type MobileRunnerSemaphorePermit = mobilerunnersemaphore.MobileRunnerSemaphorePermit
-
-type MobileRunnerSemaphoreReleaseResult = mobilerunnersemaphore.MobileRunnerSemaphoreReleaseResult
-
-type MobileRunnerSemaphoreHolder = mobilerunnersemaphore.MobileRunnerSemaphoreHolder
-
-type MobileRunnerSemaphoreQueueEntry = mobilerunnersemaphore.MobileRunnerSemaphoreQueueEntry
-
 type MobileRunnerSemaphoreStateView = mobilerunnersemaphore.MobileRunnerSemaphoreStateView
-
-type MobileRunnerSemaphoreRequestStatus = mobilerunnersemaphore.MobileRunnerSemaphoreRequestStatus
-
-type MobileRunnerSemaphoreRequestState = mobilerunnersemaphore.MobileRunnerSemaphoreRequestState
 
 type MobileRunnerSemaphoreRunStatus = mobilerunnersemaphore.MobileRunnerSemaphoreRunStatus
 
@@ -71,16 +52,4 @@ type MobileRunnerSemaphoreRunTicketState = mobilerunnersemaphore.MobileRunnerSem
 
 func MobileRunnerSemaphoreWorkflowID(runnerID string) string {
 	return mobilerunnersemaphore.WorkflowID(runnerID)
-}
-
-func MobileRunnerSemaphorePermitLeaseID(workflowID, runID, runnerID string) string {
-	return mobilerunnersemaphore.PermitLeaseID(workflowID, runID, runnerID)
-}
-
-func MobileRunnerSemaphoreAcquireUpdateID(requestID string) string {
-	return mobilerunnersemaphore.AcquireUpdateID(requestID)
-}
-
-func MobileRunnerSemaphoreReleaseUpdateID(leaseID string) string {
-	return mobilerunnersemaphore.ReleaseUpdateID(leaseID)
 }

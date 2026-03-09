@@ -9,7 +9,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
@@ -24,17 +23,17 @@ import (
 )
 
 type GetMobileRunnerResponseSchema struct {
+	Type      string `json:"type"`
 	RunnerURL string `json:"runner_url"`
 	Serial    string `json:"serial"`
 }
 
 type MobileRunnerSemaphoreResponseSchema struct {
-	RunnerID    string                                 `json:"runner_id"`
-	Capacity    int                                    `json:"capacity"`
-	InUse       bool                                   `json:"in_use"`
-	Holder      *workflows.MobileRunnerSemaphoreHolder `json:"holder,omitempty"`
-	QueueLen    int                                    `json:"queue_len"`
-	LastGrantAt *time.Time                             `json:"last_grant_at,omitempty"`
+	RunnerID  string `json:"runner_id"`
+	Capacity  int    `json:"capacity"`
+	SlotsUsed int    `json:"slots_used"`
+	InUse     bool   `json:"in_use"`
+	QueueLen  int    `json:"queue_len"`
 }
 
 var MobileRunnersTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
@@ -88,6 +87,7 @@ func HandleGetMobileRunner() func(*core.RequestEvent) error {
 		}
 
 		var response GetMobileRunnerResponseSchema
+		response.Type = record.GetString("type")
 		response.Serial = record.GetString("serial")
 		var port string
 		url := record.GetString("ip")
@@ -155,12 +155,11 @@ func HandleGetMobileRunnerSemaphore() func(*core.RequestEvent) error {
 		}
 
 		response := MobileRunnerSemaphoreResponseSchema{
-			RunnerID:    state.RunnerID,
-			Capacity:    state.Capacity,
-			InUse:       len(state.Holders) > 0,
-			Holder:      state.CurrentHolder,
-			QueueLen:    state.QueueLen,
-			LastGrantAt: state.LastGrantAt,
+			RunnerID:  state.RunnerID,
+			Capacity:  state.Capacity,
+			SlotsUsed: state.SlotsUsed,
+			InUse:     state.SlotsUsed > 0,
+			QueueLen:  state.QueueLen,
 		}
 
 		return e.JSON(http.StatusOK, response)

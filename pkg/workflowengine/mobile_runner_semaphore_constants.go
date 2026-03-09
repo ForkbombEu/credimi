@@ -6,15 +6,12 @@ package workflowengine
 import "github.com/forkbombeu/credimi/pkg/workflowengine/mobilerunnersemaphore"
 
 const (
-	MobileRunnerSemaphoreRequestQueued   = mobilerunnersemaphore.MobileRunnerSemaphoreRequestQueued
-	MobileRunnerSemaphoreRequestGranted  = mobilerunnersemaphore.MobileRunnerSemaphoreRequestGranted
-	MobileRunnerSemaphoreRequestTimedOut = mobilerunnersemaphore.MobileRunnerSemaphoreRequestTimedOut
-	MobileRunnerSemaphoreRunQueued       = mobilerunnersemaphore.MobileRunnerSemaphoreRunQueued
-	MobileRunnerSemaphoreRunStarting     = mobilerunnersemaphore.MobileRunnerSemaphoreRunStarting
-	MobileRunnerSemaphoreRunRunning      = mobilerunnersemaphore.MobileRunnerSemaphoreRunRunning
-	MobileRunnerSemaphoreRunFailed       = mobilerunnersemaphore.MobileRunnerSemaphoreRunFailed
-	MobileRunnerSemaphoreRunCanceled     = mobilerunnersemaphore.MobileRunnerSemaphoreRunCanceled
-	MobileRunnerSemaphoreRunNotFound     = mobilerunnersemaphore.MobileRunnerSemaphoreRunNotFound
+	MobileRunnerSemaphoreRunQueued   = mobilerunnersemaphore.MobileRunnerSemaphoreRunQueued
+	MobileRunnerSemaphoreRunStarting = mobilerunnersemaphore.MobileRunnerSemaphoreRunStarting
+	MobileRunnerSemaphoreRunRunning  = mobilerunnersemaphore.MobileRunnerSemaphoreRunRunning
+	MobileRunnerSemaphoreRunFailed   = mobilerunnersemaphore.MobileRunnerSemaphoreRunFailed
+	MobileRunnerSemaphoreRunCanceled = mobilerunnersemaphore.MobileRunnerSemaphoreRunCanceled
+	MobileRunnerSemaphoreRunNotFound = mobilerunnersemaphore.MobileRunnerSemaphoreRunNotFound
 
 	MobileRunnerSemaphoreDefaultNamespace = "default"
 )

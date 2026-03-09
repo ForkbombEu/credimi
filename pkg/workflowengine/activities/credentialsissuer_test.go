@@ -4,6 +4,7 @@
 package activities
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -126,4 +127,97 @@ func TestCheckCredentialsIssuerActivity_Execute(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestCheckCredentialsIssuerActivity_Federation(t *testing.T) {
+	var ts testsuite.WorkflowTestSuite
+	env := ts.NewTestActivityEnvironment()
+
+	act := NewCheckCredentialsIssuerActivity()
+	env.RegisterActivityWithOptions(act.Execute, activity.RegisterOptions{
+		Name: act.Name(),
+	})
+
+	t.Run("success", func(t *testing.T) {
+		payloadJSON := `{"metadata":{"openid_credential_issuer":{"issuer":"example.com"}}}`
+		jwtPayload := base64.RawURLEncoding.EncodeToString([]byte(payloadJSON))
+		jwt := "header." + jwtPayload + ".sig"
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, "/.well-known/openid-federation", r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, jwt)
+		}))
+		defer server.Close()
+
+		input := workflowengine.ActivityInput{
+			Payload: CheckCredentialsIssuerActivityPayload{BaseURL: server.URL},
+		}
+
+		future, err := env.ExecuteActivity(act.Execute, input)
+		require.NoError(t, err)
+
+		var result workflowengine.ActivityResult
+		require.NoError(t, future.Get(&result))
+		output, ok := result.Output.(map[string]any)
+		require.True(t, ok)
+		require.Equal(t, `{"issuer":"example.com"}`, output["rawJSON"])
+		require.Equal(t, ".well-known/openid-federation", output["source"])
+	})
+
+	t.Run("decode failure", func(t *testing.T) {
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, "/.well-known/openid-federation", r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, "not-a-jwt")
+		}))
+		defer server.Close()
+
+		input := workflowengine.ActivityInput{
+			Payload: CheckCredentialsIssuerActivityPayload{BaseURL: server.URL},
+		}
+
+		_, err := env.ExecuteActivity(act.Execute, input)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.DecodeFailed].Code)
+	})
+
+	t.Run("invalid base64 payload", func(t *testing.T) {
+		jwt := "header.not-base64.sig"
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, "/.well-known/openid-federation", r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, jwt)
+		}))
+		defer server.Close()
+
+		input := workflowengine.ActivityInput{
+			Payload: CheckCredentialsIssuerActivityPayload{BaseURL: server.URL},
+		}
+
+		_, err := env.ExecuteActivity(act.Execute, input)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.DecodeFailed].Code)
+	})
+
+	t.Run("missing issuer metadata", func(t *testing.T) {
+		payloadJSON := `{"metadata":{}}`
+		jwtPayload := base64.RawURLEncoding.EncodeToString([]byte(payloadJSON))
+		jwt := "header." + jwtPayload + ".sig"
+
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			require.Equal(t, "/.well-known/openid-federation", r.URL.Path)
+			w.WriteHeader(http.StatusOK)
+			fmt.Fprint(w, jwt)
+		}))
+		defer server.Close()
+
+		input := workflowengine.ActivityInput{
+			Payload: CheckCredentialsIssuerActivityPayload{BaseURL: server.URL},
+		}
+
+		_, err := env.ExecuteActivity(act.Execute, input)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), errorcodes.Codes[errorcodes.DecodeFailed].Code)
+	})
 }

@@ -7,7 +7,6 @@ import (
 	"context"
 	"net/http"
 	"testing"
-	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -59,8 +58,10 @@ func TestGetMobileRunner(t *testing.T) {
 			URL:            "/api/mobile-runner?runner_identifier=usera-s-organization/test-runner",
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
+				`"type"`,
 				`"runner_url"`,
 				`"serial"`,
+				`android_phone`,
 				`https://192.168.1.10:8050`,
 				`SERIAL123`,
 			},
@@ -72,6 +73,7 @@ func TestGetMobileRunner(t *testing.T) {
 
 				record := core.NewRecord(coll)
 				record.Set("owner", orgID)
+				record.Set("type", "android_phone")
 				record.Set("serial", "SERIAL123")
 				record.Set("ip", "https://192.168.1.10")
 				record.Set("port", "8050")
@@ -88,8 +90,10 @@ func TestGetMobileRunner(t *testing.T) {
 			URL:            "/api/mobile-runner?runner_identifier=usera-s-organization/no-port-runner",
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
+				`"type"`,
 				`"runner_url"`,
 				`"serial"`,
+				`android_emulator`,
 				`http://192.168.1.20`,
 				`SERIAL999`,
 			},
@@ -101,6 +105,7 @@ func TestGetMobileRunner(t *testing.T) {
 
 				record := core.NewRecord(coll)
 				record.Set("owner", orgID)
+				record.Set("type", "android_emulator")
 				record.Set("serial", "SERIAL999")
 				record.Set("ip", "http://192.168.1.20")
 				record.Set("name", "no-port-runner")
@@ -251,11 +256,9 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 			ExpectedContent: []string{
 				`"runner_id":"test-semaphore-runner"`,
 				`"capacity":1`,
+				`"slots_used":1`,
 				`"queue_len":2`,
 				`"in_use":true`,
-				`"holder"`,
-				`"lease_id":"lease-1"`,
-				`"last_grant_at"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupMobileRunnerApp(t)
@@ -273,15 +276,11 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 
 				originalQuery := queryMobileRunnerSemaphoreState
 				queryMobileRunnerSemaphoreState = func(_ context.Context, _ string) (workflows.MobileRunnerSemaphoreStateView, error) {
-					lastGrant := time.Date(2026, 1, 29, 10, 0, 0, 0, time.UTC)
-					holder := workflows.MobileRunnerSemaphoreHolder{LeaseID: "lease-1"}
 					return workflows.MobileRunnerSemaphoreStateView{
-						RunnerID:      "test-semaphore-runner",
-						Capacity:      1,
-						Holders:       []workflows.MobileRunnerSemaphoreHolder{holder},
-						CurrentHolder: &holder,
-						QueueLen:      2,
-						LastGrantAt:   &lastGrant,
+						RunnerID:  "test-semaphore-runner",
+						Capacity:  1,
+						SlotsUsed: 1,
+						QueueLen:  2,
 					}, nil
 				}
 				t.Cleanup(func() {

@@ -1,5 +1,3 @@
-//go:build unit
-
 // SPDX-FileCopyrightText: 2025 Forkbomb BV
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
@@ -116,7 +114,11 @@ func TestHandleStartScheduleInvalidMode(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/start", strings.NewReader(string(body)))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/my/schedules/start",
+		strings.NewReader(string(body)),
+	)
 	rec := httptest.NewRecorder()
 
 	err = HandleStartSchedule()(&core.RequestEvent{
@@ -148,7 +150,11 @@ func TestHandleStartSchedulePipelineNotFound(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/start", strings.NewReader(string(body)))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/my/schedules/start",
+		strings.NewReader(string(body)),
+	)
 	rec := httptest.NewRecorder()
 
 	err = HandleStartSchedule()(&core.RequestEvent{
@@ -194,7 +200,11 @@ func TestHandleStartScheduleTemporalCreateError(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/start", strings.NewReader(string(body)))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/my/schedules/start",
+		strings.NewReader(string(body)),
+	)
 	rec := httptest.NewRecorder()
 
 	err = HandleStartSchedule()(&core.RequestEvent{
@@ -242,7 +252,11 @@ func TestHandleStartScheduleDescribeError(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/start", strings.NewReader(string(body)))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/my/schedules/start",
+		strings.NewReader(string(body)),
+	)
 	rec := httptest.NewRecorder()
 
 	err = HandleStartSchedule()(&core.RequestEvent{
@@ -290,7 +304,11 @@ func TestHandleStartScheduleSuccess(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodPost, "/api/my/schedules/start", strings.NewReader(string(body)))
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/my/schedules/start",
+		strings.NewReader(string(body)),
+	)
 	rec := httptest.NewRecorder()
 
 	err = HandleStartSchedule()(&core.RequestEvent{
@@ -677,7 +695,8 @@ func TestHandlePauseSchedule(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 
 	handle = temporalmocks.NewScheduleHandle(t)
-	handle.On("Pause", mock.Anything, mock.Anything).Return(&serviceerror.NotFound{Message: "missing"})
+	handle.On("Pause", mock.Anything, mock.Anything).
+		Return(&serviceerror.NotFound{Message: "missing"})
 	fakeSchedule = &fakeScheduleClient{handle: handle}
 	mockClient = &temporalmocks.Client{}
 	mockClient.On("ScheduleClient").Return(fakeSchedule)
@@ -737,7 +756,8 @@ func TestHandleResumeSchedule(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 
 	handle = temporalmocks.NewScheduleHandle(t)
-	handle.On("Unpause", mock.Anything, mock.Anything).Return(&serviceerror.NotFound{Message: "missing"})
+	handle.On("Unpause", mock.Anything, mock.Anything).
+		Return(&serviceerror.NotFound{Message: "missing"})
 	fakeSchedule = &fakeScheduleClient{handle: handle}
 	mockClient = &temporalmocks.Client{}
 	mockClient.On("ScheduleClient").Return(fakeSchedule)

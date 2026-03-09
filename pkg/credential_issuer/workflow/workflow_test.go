@@ -44,3 +44,38 @@ func Test_UnsuccessfulFetchIssuersWorkflows(t *testing.T) {
 	require.True(t, env.IsWorkflowCompleted())
 	require.Error(t, env.GetWorkflowError())
 }
+
+func Test_FetchIssuersWorkflowNoIssuers(t *testing.T) {
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	env.OnActivity(FetchIssuersActivity, mock.Anything).
+		Return(FetchIssuersActivityResponse{Issuers: []string{}}, nil)
+
+	env.ExecuteWorkflow(FetchIssuersWorkflow)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.Error(t, env.GetWorkflowError())
+	require.Contains(t, env.GetWorkflowError().Error(), "no issuers found")
+}
+
+func Test_FetchIssuersWorkflowSuccess(t *testing.T) {
+	t.Setenv("DATA_DB_PATH", "/tmp/test.db")
+	testSuite := &testsuite.WorkflowTestSuite{}
+	env := testSuite.NewTestWorkflowEnvironment()
+
+	issuers := []string{"issuer1", "issuer2"}
+
+	env.OnActivity(FetchIssuersActivity, mock.Anything).
+		Return(FetchIssuersActivityResponse{Issuers: issuers}, nil)
+	env.OnActivity(CreateCredentialIssuersActivity, mock.Anything, mock.MatchedBy(
+		func(input CreateCredentialIssuersInput) bool {
+			return len(input.Issuers) == len(issuers)
+		},
+	)).Return(nil)
+
+	env.ExecuteWorkflow(FetchIssuersWorkflow)
+
+	require.True(t, env.IsWorkflowCompleted())
+	require.NoError(t, env.GetWorkflowError())
+}

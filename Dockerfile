@@ -26,7 +26,7 @@ RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean \
     && apt-get update \
     && apt-get -y --no-install-recommends install \
-    build-essential make bash curl git tmux wget ca-certificates unzip 
+    build-essential make bash curl git tmux wget ca-certificates unzip zstd
 WORKDIR /app
 
 # install credimi

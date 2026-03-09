@@ -17,7 +17,6 @@ import (
 
 const (
 	mobileRunnerSemaphoreMaxUpdateBatches = 1000
-	queuePreviewLimit                     = 5
 	runCompletionCheckInterval            = 45 * time.Second
 	runStartingReconcileInterval          = 20 * time.Second
 )
@@ -27,15 +26,12 @@ type MobileRunnerSemaphoreWorkflow struct {
 }
 
 const (
-	mobileRunnerSemaphoreRequestQueued   MobileRunnerSemaphoreRequestStatus = workflowengine.MobileRunnerSemaphoreRequestQueued
-	mobileRunnerSemaphoreRequestGranted  MobileRunnerSemaphoreRequestStatus = workflowengine.MobileRunnerSemaphoreRequestGranted
-	mobileRunnerSemaphoreRequestTimedOut MobileRunnerSemaphoreRequestStatus = workflowengine.MobileRunnerSemaphoreRequestTimedOut
-	mobileRunnerSemaphoreRunQueued       MobileRunnerSemaphoreRunStatus     = workflowengine.MobileRunnerSemaphoreRunQueued
-	mobileRunnerSemaphoreRunStarting     MobileRunnerSemaphoreRunStatus     = workflowengine.MobileRunnerSemaphoreRunStarting
-	mobileRunnerSemaphoreRunRunning      MobileRunnerSemaphoreRunStatus     = workflowengine.MobileRunnerSemaphoreRunRunning
-	mobileRunnerSemaphoreRunFailed       MobileRunnerSemaphoreRunStatus     = workflowengine.MobileRunnerSemaphoreRunFailed
-	mobileRunnerSemaphoreRunCanceled     MobileRunnerSemaphoreRunStatus     = workflowengine.MobileRunnerSemaphoreRunCanceled
-	mobileRunnerSemaphoreRunNotFound     MobileRunnerSemaphoreRunStatus     = workflowengine.MobileRunnerSemaphoreRunNotFound
+	mobileRunnerSemaphoreRunQueued   MobileRunnerSemaphoreRunStatus = workflowengine.MobileRunnerSemaphoreRunQueued
+	mobileRunnerSemaphoreRunStarting MobileRunnerSemaphoreRunStatus = workflowengine.MobileRunnerSemaphoreRunStarting
+	mobileRunnerSemaphoreRunRunning  MobileRunnerSemaphoreRunStatus = workflowengine.MobileRunnerSemaphoreRunRunning
+	mobileRunnerSemaphoreRunFailed   MobileRunnerSemaphoreRunStatus = workflowengine.MobileRunnerSemaphoreRunFailed
+	mobileRunnerSemaphoreRunCanceled MobileRunnerSemaphoreRunStatus = workflowengine.MobileRunnerSemaphoreRunCanceled
+	mobileRunnerSemaphoreRunNotFound MobileRunnerSemaphoreRunStatus = workflowengine.MobileRunnerSemaphoreRunNotFound
 )
 
 func NewMobileRunnerSemaphoreWorkflow() *MobileRunnerSemaphoreWorkflow {
@@ -85,14 +81,6 @@ func (w *MobileRunnerSemaphoreWorkflow) ExecuteWorkflow(
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	if err := runtime.registerAcquireHandler(); err != nil {
-		return workflowengine.WorkflowResult{}, err
-	}
-
-	if err := runtime.registerReleaseHandler(); err != nil {
-		return workflowengine.WorkflowResult{}, err
-	}
-
 	if err := runtime.registerEnqueueRunHandler(); err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
@@ -117,12 +105,8 @@ type mobileRunnerSemaphoreRuntime struct {
 	ctx                 workflow.Context
 	runnerID            string
 	capacity            int
-	holders             map[string]MobileRunnerSemaphoreHolder
-	queue               []string
-	requests            map[string]MobileRunnerSemaphoreRequestState
 	runQueue            []string
 	runTickets          map[string]MobileRunnerSemaphoreRunTicketState
-	lastGrantAt         *time.Time
 	updateCount         int
 	shouldContinue      bool
 	continueInput       workflowengine.WorkflowInput
@@ -144,9 +128,6 @@ func newMobileRunnerSemaphoreRuntime(
 		ctx:        ctx,
 		runnerID:   payload.RunnerID,
 		capacity:   payload.Capacity,
-		holders:    map[string]MobileRunnerSemaphoreHolder{},
-		queue:      []string{},
-		requests:   map[string]MobileRunnerSemaphoreRequestState{},
 		runQueue:   []string{},
 		runTickets: map[string]MobileRunnerSemaphoreRunTicketState{},
 	}
@@ -171,27 +152,14 @@ func (r *mobileRunnerSemaphoreRuntime) applyPayloadState(
 	if payload.State.Capacity > 0 {
 		r.capacity = payload.State.Capacity
 	}
-	r.holders = payload.State.Holders
-	r.queue = payload.State.Queue
-	r.requests = payload.State.Requests
 	r.runQueue = payload.State.RunQueue
 	r.runTickets = payload.State.RunTickets
-	r.lastGrantAt = payload.State.LastGrantAt
 	r.updateCount = payload.State.UpdateCount
 }
 
 func (r *mobileRunnerSemaphoreRuntime) normalizeState() {
 	if r.capacity <= 0 {
 		r.capacity = 1
-	}
-	if r.holders == nil {
-		r.holders = map[string]MobileRunnerSemaphoreHolder{}
-	}
-	if r.requests == nil {
-		r.requests = map[string]MobileRunnerSemaphoreRequestState{}
-	}
-	if r.queue == nil {
-		r.queue = []string{}
 	}
 	if r.runQueue == nil {
 		r.runQueue = []string{}
@@ -206,23 +174,11 @@ func (r *mobileRunnerSemaphoreRuntime) registerQueryHandler() error {
 		r.ctx,
 		MobileRunnerSemaphoreStateQuery,
 		func() (MobileRunnerSemaphoreStateView, error) {
-			holdersView := buildHoldersView(r.holders)
-			queuePreview := buildQueuePreview(r.queue, r.requests)
-
-			var currentHolder *MobileRunnerSemaphoreHolder
-			if r.capacity == 1 && len(holdersView) == 1 {
-				holderCopy := holdersView[0]
-				currentHolder = &holderCopy
-			}
-
 			return MobileRunnerSemaphoreStateView{
-				RunnerID:      r.runnerID,
-				Capacity:      r.capacity,
-				CurrentHolder: currentHolder,
-				Holders:       holdersView,
-				QueueLen:      len(r.queue),
-				QueuePreview:  queuePreview,
-				LastGrantAt:   r.lastGrantAt,
+				RunnerID:  r.runnerID,
+				Capacity:  r.capacity,
+				SlotsUsed: r.runSlotsUsed(),
+				QueueLen:  len(r.runQueue),
 			}, nil
 		},
 	)
@@ -244,26 +200,6 @@ func (r *mobileRunnerSemaphoreRuntime) registerListQueuedRunsHandler() error {
 		MobileRunnerSemaphoreListQueuedRunsQuery,
 		func(ownerNamespace string) ([]MobileRunnerSemaphoreQueuedRunView, error) {
 			return r.handleListQueuedRunsQuery(ownerNamespace), nil
-		},
-	)
-}
-
-func (r *mobileRunnerSemaphoreRuntime) registerAcquireHandler() error {
-	return workflow.SetUpdateHandler(
-		r.ctx,
-		MobileRunnerSemaphoreAcquireUpdate,
-		func(ctx workflow.Context, req MobileRunnerSemaphoreAcquireRequest) (MobileRunnerSemaphorePermit, error) {
-			return r.handleAcquire(ctx, req)
-		},
-	)
-}
-
-func (r *mobileRunnerSemaphoreRuntime) registerReleaseHandler() error {
-	return workflow.SetUpdateHandler(
-		r.ctx,
-		MobileRunnerSemaphoreReleaseUpdate,
-		func(ctx workflow.Context, req MobileRunnerSemaphoreReleaseRequest) (MobileRunnerSemaphoreReleaseResult, error) {
-			return r.handleRelease(ctx, req)
 		},
 	)
 }
@@ -637,147 +573,6 @@ func (r *mobileRunnerSemaphoreRuntime) handleListQueuedRunsQuery(
 	return views
 }
 
-func (r *mobileRunnerSemaphoreRuntime) handleAcquire(
-	ctx workflow.Context,
-	req MobileRunnerSemaphoreAcquireRequest,
-) (MobileRunnerSemaphorePermit, error) {
-	if req.RequestID == "" || req.LeaseID == "" {
-		return MobileRunnerSemaphorePermit{}, temporal.NewApplicationError(
-			"request_id and lease_id are required",
-			MobileRunnerSemaphoreErrInvalidRequest,
-		)
-	}
-
-	if existing, ok := r.requests[req.RequestID]; ok {
-		switch existing.Status {
-		case mobileRunnerSemaphoreRequestGranted:
-			return buildPermit(r.runnerID, existing), nil
-		case mobileRunnerSemaphoreRequestTimedOut:
-			return MobileRunnerSemaphorePermit{}, temporal.NewApplicationError(
-				"request timed out",
-				MobileRunnerSemaphoreErrTimeout,
-				req.RequestID,
-			)
-		}
-	} else {
-		r.requests[req.RequestID] = MobileRunnerSemaphoreRequestState{
-			Request:     req,
-			Status:      mobileRunnerSemaphoreRequestQueued,
-			RequestedAt: workflow.Now(ctx),
-		}
-		r.queue = append(r.queue, req.RequestID)
-		r.grantAvailable(ctx)
-	}
-
-	r.updateCount++
-	r.maybeScheduleContinue()
-	r.requestRunStart()
-
-	if req.WaitTimeout > 0 {
-		granted, err := workflow.AwaitWithTimeout(ctx, req.WaitTimeout, func() bool {
-			state, ok := r.requests[req.RequestID]
-			return ok && state.Status == mobileRunnerSemaphoreRequestGranted
-		})
-		if err != nil {
-			return MobileRunnerSemaphorePermit{}, err
-		}
-
-		state, ok := r.requests[req.RequestID]
-		if !ok {
-			return MobileRunnerSemaphorePermit{}, temporal.NewApplicationError(
-				"request not found",
-				MobileRunnerSemaphoreErrInvalidRequest,
-				req.RequestID,
-			)
-		}
-
-		if state.Status == mobileRunnerSemaphoreRequestGranted {
-			return buildPermit(r.runnerID, state), nil
-		}
-
-		if !granted {
-			r.queue = removeFromQueue(r.queue, req.RequestID)
-			state.Status = mobileRunnerSemaphoreRequestTimedOut
-			r.requests[req.RequestID] = state
-			delete(r.holders, req.LeaseID)
-			r.grantAvailable(ctx)
-			return MobileRunnerSemaphorePermit{}, temporal.NewApplicationError(
-				"acquire timeout",
-				MobileRunnerSemaphoreErrTimeout,
-				req.RequestID,
-			)
-		}
-	}
-
-	if err := workflow.Await(ctx, func() bool {
-		state, ok := r.requests[req.RequestID]
-		return ok && state.Status == mobileRunnerSemaphoreRequestGranted
-	}); err != nil {
-		return MobileRunnerSemaphorePermit{}, err
-	}
-
-	return buildPermit(r.runnerID, r.requests[req.RequestID]), nil
-}
-
-func (r *mobileRunnerSemaphoreRuntime) handleRelease(
-	ctx workflow.Context,
-	req MobileRunnerSemaphoreReleaseRequest,
-) (MobileRunnerSemaphoreReleaseResult, error) {
-	if req.LeaseID == "" {
-		return MobileRunnerSemaphoreReleaseResult{}, temporal.NewApplicationError(
-			"lease_id is required",
-			MobileRunnerSemaphoreErrInvalidRequest,
-		)
-	}
-
-	// For idempotent acquires where the request already exists in a queued state,
-	// we intentionally do not re-enqueue or short-circuit here. Instead, the call
-	// falls through to the wait logic below, which will block until the existing
-	// request is granted or times out.
-	if _, ok := r.holders[req.LeaseID]; !ok {
-		return MobileRunnerSemaphoreReleaseResult{Released: false}, nil
-	}
-
-	delete(r.holders, req.LeaseID)
-	r.grantAvailable(ctx)
-
-	r.updateCount++
-	r.maybeScheduleContinue()
-	r.requestRunStart()
-
-	return MobileRunnerSemaphoreReleaseResult{Released: true}, nil
-}
-
-func (r *mobileRunnerSemaphoreRuntime) grantAvailable(ctx workflow.Context) {
-	now := workflow.Now(ctx)
-	for r.availableSlots() > 0 && len(r.queue) > 0 {
-		requestID := r.queue[0]
-		r.queue = r.queue[1:]
-		request, ok := r.requests[requestID]
-		if !ok || request.Status != mobileRunnerSemaphoreRequestQueued {
-			continue
-		}
-
-		request.Status = mobileRunnerSemaphoreRequestGranted
-		request.GrantedAt = now
-		request.QueueWaitMs = now.Sub(request.RequestedAt).Milliseconds()
-		r.requests[requestID] = request
-
-		r.holders[request.Request.LeaseID] = MobileRunnerSemaphoreHolder{
-			LeaseID:         request.Request.LeaseID,
-			RequestID:       requestID,
-			OwnerNamespace:  request.Request.OwnerNamespace,
-			OwnerWorkflowID: request.Request.OwnerWorkflowID,
-			OwnerRunID:      request.Request.OwnerRunID,
-			GrantedAt:       request.GrantedAt,
-			QueueWaitMs:     request.QueueWaitMs,
-		}
-
-		timeCopy := now
-		r.lastGrantAt = &timeCopy
-	}
-}
-
 func (r *mobileRunnerSemaphoreRuntime) maybeScheduleContinue() {
 	if r.shouldContinue || r.updateCount < mobileRunnerSemaphoreMaxUpdateBatches {
 		return
@@ -785,12 +580,8 @@ func (r *mobileRunnerSemaphoreRuntime) maybeScheduleContinue() {
 
 	stateCopy := MobileRunnerSemaphoreWorkflowState{
 		Capacity:    r.capacity,
-		Holders:     copyHolders(r.holders),
-		Queue:       copyQueue(r.queue),
-		Requests:    copyRequests(r.requests),
 		RunQueue:    copyQueue(r.runQueue),
 		RunTickets:  copyRunTickets(r.runTickets),
-		LastGrantAt: copyTimePtr(r.lastGrantAt),
 		UpdateCount: 0,
 	}
 
@@ -1345,7 +1136,7 @@ func (r *mobileRunnerSemaphoreRuntime) availableSlots() int {
 	if r.capacity <= 0 {
 		return 0
 	}
-	used := len(r.holders) + r.runSlotsUsed()
+	used := r.runSlotsUsed()
 	if used >= r.capacity {
 		return 0
 	}
@@ -1482,39 +1273,6 @@ func decodeCheckWorkflowClosedOutputMap(
 	return output, nil
 }
 
-func buildPermit(
-	runnerID string,
-	state MobileRunnerSemaphoreRequestState,
-) MobileRunnerSemaphorePermit {
-	return MobileRunnerSemaphorePermit{
-		RunnerID:    runnerID,
-		LeaseID:     state.Request.LeaseID,
-		GrantedAt:   state.GrantedAt,
-		QueueWaitMs: state.QueueWaitMs,
-	}
-}
-
-func buildHoldersView(
-	holders map[string]MobileRunnerSemaphoreHolder,
-) []MobileRunnerSemaphoreHolder {
-	if len(holders) == 0 {
-		return nil
-	}
-
-	keys := make([]string, 0, len(holders))
-	for leaseID := range holders {
-		keys = append(keys, leaseID)
-	}
-	sort.Strings(keys)
-
-	view := make([]MobileRunnerSemaphoreHolder, 0, len(keys))
-	for _, leaseID := range keys {
-		view = append(view, holders[leaseID])
-	}
-
-	return view
-}
-
 func (r *mobileRunnerSemaphoreRuntime) buildRunStatusView(
 	ticketID string,
 	state MobileRunnerSemaphoreRunTicketState,
@@ -1529,38 +1287,6 @@ func (r *mobileRunnerSemaphoreRuntime) buildRunStatusView(
 		WorkflowNamespace: state.WorkflowNamespace,
 		ErrorMessage:      state.ErrorMessage,
 	}
-}
-
-func buildQueuePreview(
-	queue []string,
-	requests map[string]MobileRunnerSemaphoreRequestState,
-) []MobileRunnerSemaphoreQueueEntry {
-	limit := queuePreviewLimit
-	if len(queue) < limit {
-		limit = len(queue)
-	}
-
-	if limit == 0 {
-		return nil
-	}
-
-	preview := make([]MobileRunnerSemaphoreQueueEntry, 0, limit)
-	for _, requestID := range queue[:limit] {
-		request, ok := requests[requestID]
-		if !ok {
-			continue
-		}
-		preview = append(preview, MobileRunnerSemaphoreQueueEntry{
-			RequestID:       request.Request.RequestID,
-			LeaseID:         request.Request.LeaseID,
-			OwnerNamespace:  request.Request.OwnerNamespace,
-			OwnerWorkflowID: request.Request.OwnerWorkflowID,
-			OwnerRunID:      request.Request.OwnerRunID,
-			RequestedAt:     request.RequestedAt,
-		})
-	}
-
-	return preview
 }
 
 func removeFromQueue(queue []string, requestID string) []string {
@@ -1651,32 +1377,6 @@ func copyStringSlice(values []string) []string {
 	return result
 }
 
-func copyHolders(
-	holders map[string]MobileRunnerSemaphoreHolder,
-) map[string]MobileRunnerSemaphoreHolder {
-	if holders == nil {
-		return nil
-	}
-	result := make(map[string]MobileRunnerSemaphoreHolder, len(holders))
-	for key, value := range holders {
-		result[key] = value
-	}
-	return result
-}
-
-func copyRequests(
-	requests map[string]MobileRunnerSemaphoreRequestState,
-) map[string]MobileRunnerSemaphoreRequestState {
-	if requests == nil {
-		return nil
-	}
-	result := make(map[string]MobileRunnerSemaphoreRequestState, len(requests))
-	for key, value := range requests {
-		result[key] = value
-	}
-	return result
-}
-
 func copyRunTickets(
 	tickets map[string]MobileRunnerSemaphoreRunTicketState,
 ) map[string]MobileRunnerSemaphoreRunTicketState {
@@ -1729,12 +1429,4 @@ func copyStringBoolMap(values map[string]bool) map[string]bool {
 		result[key] = value
 	}
 	return result
-}
-
-func copyTimePtr(value *time.Time) *time.Time {
-	if value == nil {
-		return nil
-	}
-	copyValue := *value
-	return &copyValue
 }
