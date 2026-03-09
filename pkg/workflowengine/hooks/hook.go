@@ -290,11 +290,6 @@ func startPipelineWorker(ctx context.Context, c client.Client, wg *sync.WaitGrou
 			debugAct.Execute,
 			activity.RegisterOptions{Name: debugAct.Name()},
 		)
-		internalHTTPAct := activities.NewInternalHTTPActivity()
-		w.RegisterActivityWithOptions(
-			internalHTTPAct.Execute,
-			activity.RegisterOptions{Name: internalHTTPAct.Name()},
-		)
 
 		for key, step := range registry.Registry {
 			if _, skip := registry.PipelineWorkerDenylist[key]; skip {
