@@ -106,7 +106,7 @@ func (d *headerCaptureDoer) Do(req *http.Request) (*http.Response, error) {
 }
 
 func TestStartQueuedPipelineActivityNonFatalResultFailure(t *testing.T) {
-	t.Setenv("INTERNAL_ADMIN_API_KEY", "test-internal-key")
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
 	act := NewStartQueuedPipelineActivity()
 	act.temporalClientFactory = func(namespace string) (temporalWorkflowStarter, error) {
 		return fakeTemporalClient{
@@ -142,7 +142,7 @@ func TestStartQueuedPipelineActivityNonFatalResultFailure(t *testing.T) {
 }
 
 func TestStartQueuedPipelineActivityRetriesPipelineResult(t *testing.T) {
-	t.Setenv("INTERNAL_ADMIN_API_KEY", "test-internal-key")
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
 	attempts := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		attempts++
@@ -188,7 +188,7 @@ func TestStartQueuedPipelineActivityRetriesPipelineResult(t *testing.T) {
 
 // TestStartQueuedPipelineActivityWorkflowIDPrefix verifies scheduled tickets get a distinct ID prefix.
 func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
-	t.Setenv("INTERNAL_ADMIN_API_KEY", "test-internal-key")
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
 	tests := []struct {
 		name          string
 		ticketID      string
@@ -243,7 +243,7 @@ func TestStartQueuedPipelineActivityWorkflowIDPrefix(t *testing.T) {
 }
 
 func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
-	t.Setenv("INTERNAL_ADMIN_API_KEY", "test-internal-key")
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
 	doer := &countingDoer{err: errors.New("boom")}
 
 	err := createPipelineExecutionResultWithRetry(
@@ -261,7 +261,7 @@ func TestCreatePipelineExecutionResultWithRetryAttempts(t *testing.T) {
 }
 
 func TestPostPipelineExecutionResultAddsInternalAPIKeyHeader(t *testing.T) {
-	t.Setenv("INTERNAL_ADMIN_API_KEY", "internal-key")
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "internal-key")
 	doer := &headerCaptureDoer{statusCode: http.StatusOK}
 
 	status, err := postPipelineExecutionResult(
@@ -280,7 +280,7 @@ func TestPostPipelineExecutionResultAddsInternalAPIKeyHeader(t *testing.T) {
 }
 
 func TestPostPipelineExecutionResultMissingInternalAPIKey(t *testing.T) {
-	t.Setenv("INTERNAL_ADMIN_API_KEY", "")
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "")
 	doer := &headerCaptureDoer{statusCode: http.StatusOK}
 
 	_, err := postPipelineExecutionResult(
@@ -293,11 +293,11 @@ func TestPostPipelineExecutionResultMissingInternalAPIKey(t *testing.T) {
 		"run-1",
 	)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "INTERNAL_ADMIN_API_KEY is required")
+	require.Contains(t, err.Error(), "CREDIMI_INTERNAL_ADMIN_KEY is required")
 }
 
 func TestStartQueuedPipelineActivityValidationErrors(t *testing.T) {
-	t.Setenv("INTERNAL_ADMIN_API_KEY", "test-internal-key")
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "test-internal-key")
 	act := NewStartQueuedPipelineActivity()
 
 	tests := []struct {

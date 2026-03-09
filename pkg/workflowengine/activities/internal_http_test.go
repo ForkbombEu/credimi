@@ -15,17 +15,17 @@ import (
 )
 
 func TestInternalHTTPActivityMissingEnv(t *testing.T) {
-	t.Setenv("INTERNAL_ADMIN_API_KEY", "")
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "")
 	activity := NewInternalHTTPActivity()
 	_, err := activity.Execute(context.Background(), workflowengine.ActivityInput{
 		Payload: InternalHTTPActivityPayload{Method: http.MethodGet, URL: "https://example.com"},
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "INTERNAL_ADMIN_API_KEY is required")
+	require.Contains(t, err.Error(), "CREDIMI_INTERNAL_ADMIN_KEY is required")
 }
 
 func TestInternalHTTPActivityInjectsAPIKey(t *testing.T) {
-	t.Setenv("INTERNAL_ADMIN_API_KEY", "secret-key")
+	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "secret-key")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "secret-key", r.Header.Get("X-Api-Key"))
 		w.WriteHeader(http.StatusOK)

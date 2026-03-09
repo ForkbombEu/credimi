@@ -27,7 +27,7 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
 - `ADDRESS_UI` (UI reverse proxy target).
 - `MOBILE_RUNNER_SEMAPHORE_DISABLED`.
 - `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT`.
-- `INTERNAL_ADMIN_API_KEY` (plaintext key injected at runtime; used by trusted internal HTTP activities and internal result posting).
+- `CREDIMI_INTERNAL_ADMIN_KEY` (plaintext key injected at runtime; used by trusted internal HTTP activities and internal result posting).
 
 ### Tenancy + Temporal namespaces
 

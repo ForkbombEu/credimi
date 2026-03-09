@@ -454,9 +454,9 @@ func postPipelineExecutionResult(
 		return 0, fmt.Errorf("build pipeline results request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	internalKey := strings.TrimSpace(os.Getenv("INTERNAL_ADMIN_API_KEY"))
+	internalKey := strings.TrimSpace(os.Getenv("CREDIMI_INTERNAL_ADMIN_KEY"))
 	if internalKey == "" {
-		return 0, fmt.Errorf("INTERNAL_ADMIN_API_KEY is required")
+		return 0, fmt.Errorf("CREDIMI_INTERNAL_ADMIN_KEY is required")
 	}
 	req.Header.Set("X-Api-Key", internalKey)
 

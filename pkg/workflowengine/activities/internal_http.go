@@ -62,10 +62,10 @@ func (a *InternalHTTPActivity) Execute(
 		return result, a.NewActivityError(errCode.Code, fmt.Sprintf("unsupported auth level: %s", authLevel))
 	}
 
-	apiKey := strings.TrimSpace(os.Getenv("INTERNAL_ADMIN_API_KEY"))
+	apiKey := strings.TrimSpace(os.Getenv("CREDIMI_INTERNAL_ADMIN_KEY"))
 	if apiKey == "" {
 		errCode := errorcodes.Codes[errorcodes.MissingOrInvalidConfig]
-		return result, a.NewActivityError(errCode.Code, "INTERNAL_ADMIN_API_KEY is required")
+		return result, a.NewActivityError(errCode.Code, "CREDIMI_INTERNAL_ADMIN_KEY is required")
 	}
 
 	httpPayload := HTTPActivityPayload{
