@@ -21,7 +21,7 @@ func setupMobileRunnerApp(t testing.TB) *tests.TestApp {
 
 	canonify.RegisterCanonifyHooks(app)
 	MobileRunnersTemporalInternalRoutes.Add(app)
-	seedInternalAdminKey(t, app, "internal-test-api-key")
+	seedInternalAdminKey(t, app)
 
 	return app
 }

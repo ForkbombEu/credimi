@@ -19,7 +19,7 @@ func setupVerifierApp(t testing.TB) *tests.TestApp {
 	require.NoError(t, err)
 	canonify.RegisterCanonifyHooks(app)
 	VerifierTemporalInternalRoutes.Add(app)
-	seedInternalAdminKey(t, app, "internal-test-api-key")
+	seedInternalAdminKey(t, app)
 	return app
 }
 

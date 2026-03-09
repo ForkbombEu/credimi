@@ -38,7 +38,7 @@ func setupPipelineApp(t testing.TB) *tests.TestApp {
 
 	canonify.RegisterCanonifyHooks(app)
 	PipelineTemporalInternalRoutes.Add(app)
-	seedInternalAdminKey(t, app, "internal-test-api-key")
+	seedInternalAdminKey(t, app)
 
 	return app
 }

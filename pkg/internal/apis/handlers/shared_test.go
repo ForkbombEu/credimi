@@ -128,19 +128,7 @@ func TestGetStringFromMap(t *testing.T) {
 	require.Equal(t, "value", getStringFromMap(map[string]any{"key": "value"}, "key"))
 }
 
-func createInternalAdminKey(t testing.TB, app *tests.TestApp) string {
-	t.Helper()
-
-	superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
-	require.NoError(t, err)
-
-	service := NewApiKeyService(NewAppAdapter(app))
-	key, err := service.GenerateInternalAdminAPIKey(superuser.Id, "internal-test-key")
-	require.NoError(t, err)
-	return key
-}
-
-func seedInternalAdminKey(t testing.TB, app *tests.TestApp, plaintext string) {
+func seedInternalAdminKey(t testing.TB, app *tests.TestApp) {
 	t.Helper()
 
 	superuser, err := app.FindAuthRecordByEmail("_superusers", "admin@example.org")
@@ -149,7 +137,7 @@ func seedInternalAdminKey(t testing.TB, app *tests.TestApp, plaintext string) {
 	require.NoError(t, err)
 	coll, err := app.FindCollectionByNameOrId("api_keys")
 	require.NoError(t, err)
-	hash, err := bcrypt.GenerateFromPassword([]byte(plaintext), bcrypt.DefaultCost)
+	hash, err := bcrypt.GenerateFromPassword([]byte("internal-test-api-key"), bcrypt.DefaultCost)
 	require.NoError(t, err)
 
 	record := core.NewRecord(coll)

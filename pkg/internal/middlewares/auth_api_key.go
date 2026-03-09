@@ -201,7 +201,7 @@ func authenticateAPIKeyByScope(
 	}
 	if principal == nil {
 		if scope == apiKeyScopeInternalAdmin && userID != "" {
-			principal, err = e.App.FindRecordById(userOwnerTable, userID)
+			principal, _ = e.App.FindRecordById(userOwnerTable, userID)
 		}
 	}
 	if principal == nil {

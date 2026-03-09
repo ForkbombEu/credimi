@@ -301,7 +301,7 @@ func (s *ApiKeyService) AuthenticateApiKey(apiKey string) (*core.Record, error) 
 }
 
 func (s *ApiKeyService) AuthenticateUserAPIKey(apiKey string) (*core.Record, error) {
-	principal, _, err := s.authenticateByScope(apiKey, ApiKeyScopeUser)
+	principal, err := s.authenticateByScope(apiKey, ApiKeyScopeUser)
 	if err != nil {
 		return nil, err
 	}
@@ -309,7 +309,7 @@ func (s *ApiKeyService) AuthenticateUserAPIKey(apiKey string) (*core.Record, err
 }
 
 func (s *ApiKeyService) AuthenticateInternalAdminAPIKey(apiKey string) (*core.Record, error) {
-	principal, _, err := s.authenticateByScope(apiKey, ApiKeyScopeInternalAdmin)
+	principal, err := s.authenticateByScope(apiKey, ApiKeyScopeInternalAdmin)
 	if err != nil {
 		return nil, err
 	}
@@ -319,9 +319,9 @@ func (s *ApiKeyService) AuthenticateInternalAdminAPIKey(apiKey string) (*core.Re
 func (s *ApiKeyService) authenticateByScope(
 	apiKey string,
 	requiredScope ApiKeyScope,
-) (*core.Record, *core.Record, error) {
+) (*core.Record, error) {
 	if apiKey == "" {
-		return nil, nil, apierror.New(
+		return nil, apierror.New(
 			http.StatusUnauthorized,
 			"request.validation",
 			"api_key_required",
@@ -331,7 +331,7 @@ func (s *ApiKeyService) authenticateByScope(
 
 	records, err := s.app.FindRecordsByFilter("api_keys", "", "", 0, 0)
 	if err != nil {
-		return nil, nil, apierror.New(
+		return nil, apierror.New(
 			http.StatusInternalServerError,
 			"request.internal_error",
 			"failed_to_find_api_key_records",
@@ -341,7 +341,7 @@ func (s *ApiKeyService) authenticateByScope(
 
 	matchedRecord, err := s.recordRepository.FindMatchingApiKeyRecord(records, apiKey, s.keyHasher)
 	if err != nil {
-		return nil, nil, apierror.New(
+		return nil, apierror.New(
 			http.StatusUnauthorized,
 			"request.validation",
 			"invalid_api_key",
@@ -350,7 +350,7 @@ func (s *ApiKeyService) authenticateByScope(
 	}
 
 	if matchedRecord.GetBool("revoked") {
-		return nil, nil, apierror.New(
+		return nil, apierror.New(
 			http.StatusUnauthorized,
 			"request.validation",
 			"revoked_api_key",
@@ -360,7 +360,7 @@ func (s *ApiKeyService) authenticateByScope(
 
 	expiresAt := matchedRecord.GetDateTime("expires_at")
 	if !expiresAt.IsZero() && expiresAt.Time().Before(time.Now().UTC()) {
-		return nil, nil, apierror.New(
+		return nil, apierror.New(
 			http.StatusUnauthorized,
 			"request.validation",
 			"expired_api_key",
@@ -378,14 +378,14 @@ func (s *ApiKeyService) authenticateByScope(
 	}
 	if err := validateAPIKeyOwners(userID, superuserID, scope); err != nil {
 		if scope == ApiKeyScopeUser && userID == "" {
-			return nil, nil, apierror.New(
+			return nil, apierror.New(
 				http.StatusUnauthorized,
 				"request.validation",
 				"user_not_found",
 				"User associated with the API key not found",
 			)
 		}
-		return nil, nil, apierror.New(
+		return nil, apierror.New(
 			http.StatusUnauthorized,
 			"request.validation",
 			"invalid_api_key_owner",
@@ -393,7 +393,7 @@ func (s *ApiKeyService) authenticateByScope(
 		)
 	}
 	if scope != requiredScope {
-		return nil, nil, apierror.New(
+		return nil, apierror.New(
 			http.StatusForbidden,
 			"request.validation",
 			"insufficient_api_key_scope",
@@ -421,7 +421,7 @@ func (s *ApiKeyService) authenticateByScope(
 		if scope == ApiKeyScopeUser {
 			reason = "failed_to_find_user"
 		}
-		return nil, nil, apierror.New(
+		return nil, apierror.New(
 			http.StatusInternalServerError,
 			"request.internal_error",
 			reason,
@@ -431,7 +431,7 @@ func (s *ApiKeyService) authenticateByScope(
 
 	if authRecord == nil {
 		if scope == ApiKeyScopeInternalAdmin && userID != "" {
-			authRecord, err = s.app.FindRecordById(apiKeyUserCollection, userID)
+			authRecord, _ = s.app.FindRecordById(apiKeyUserCollection, userID)
 		}
 	}
 	if authRecord == nil {
@@ -441,7 +441,7 @@ func (s *ApiKeyService) authenticateByScope(
 			reason = "user_not_found"
 			message = "User associated with the API key not found"
 		}
-		return nil, nil, apierror.New(
+		return nil, apierror.New(
 			http.StatusUnauthorized,
 			"request.validation",
 			reason,
@@ -449,7 +449,7 @@ func (s *ApiKeyService) authenticateByScope(
 		)
 	}
 
-	return authRecord, matchedRecord, nil
+	return authRecord, nil
 }
 
 func validateAPIKeyOwners(userID, superuserID string, scope ApiKeyScope) error {

@@ -76,7 +76,7 @@ func setupTestAppWithData(orgID string, setupData TestSetupData) func(t testing.
 		require.NoError(t, err)
 		canonify.RegisterCanonifyHooks(testApp)
 		IssuerTemporalInternalRoutes.Add(testApp)
-		seedInternalAdminKey(t, testApp, "internal-test-api-key")
+		seedInternalAdminKey(t, testApp)
 
 		var issuerID string
 
