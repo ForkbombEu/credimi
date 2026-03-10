@@ -111,7 +111,7 @@ $(DATA):
 dev: $(WEBENV) tools devtools submodules $(BIN) $(DATA) ## 🚀 run in watch mode
 	$(call require_tools,$(DEPS) $(DEV_DEPS))
 	$(call write_compose_dev_override)
-	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) COMPOSE_DEV_OVERRIDE_FILE=$(COMPOSE_DEV_OVERRIDE_FILE) bash -lc 'trap "docker compose -f docker-compose.yaml $${COMPOSE_DEV_OVERRIDE_FILE:+-f $${COMPOSE_DEV_OVERRIDE_FILE}} stop elasticsearch postgresql temporal temporal_ui" EXIT; DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev'
+	COMPOSE_PROJECT_NAME=$(COMPOSE_PROJECT_NAME) COMPOSE_DEV_OVERRIDE_FILE=$(COMPOSE_DEV_OVERRIDE_FILE) bash -c 'trap "docker compose -f docker-compose.yaml $${COMPOSE_DEV_OVERRIDE_FILE:+-f $${COMPOSE_DEV_OVERRIDE_FILE}} stop elasticsearch postgresql temporal temporal_ui" EXIT; DEBUG=1 $(GOTOOL) hivemind -T Procfile.dev'
 
 test: ## 🧪 run tests
 	$(call require_tools,$(TEST_DEPS))

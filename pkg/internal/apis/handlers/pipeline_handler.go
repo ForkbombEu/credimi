@@ -512,19 +512,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		pipelineIdentifiers, err := resolvePipelineIdentifiersForExecutions(
-			e.App,
-			executions,
-			organization.Id,
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"pipeline",
-				"failed to resolve pipeline identifiers",
-				err.Error(),
-			).JSON(e)
-		}
+		pipelineIdentifiers := resolvePipelineIdentifiersForExecutions(executions)
 
 		pipelineExecutionsByID := make(map[string][]*WorkflowExecution)
 		for _, exec := range executions {

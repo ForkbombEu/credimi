@@ -181,13 +181,7 @@ func TestListPipelineWorkflowExecutionsError(t *testing.T) {
 	mockClient.AssertExpectations(t)
 }
 
-func TestResolvePipelineIdentifiersForExecutionsFallback(t *testing.T) {
-	app, _, pipelineRecord := setupPipelineResultsApp(t)
-	defer app.Cleanup()
-
-	orgID := pipelineRecord.GetString("owner")
-	createPipelineResult(t, app, orgID, pipelineRecord.Id, "wf-1", "run-1")
-
+func TestResolvePipelineIdentifiersForExecutionsIgnoresMissingSearchAttribute(t *testing.T) {
 	exec := &WorkflowExecution{
 		Execution: &WorkflowIdentifier{
 			WorkflowID: "wf-1",
@@ -195,23 +189,41 @@ func TestResolvePipelineIdentifiersForExecutionsFallback(t *testing.T) {
 		},
 	}
 
-	identifiers, err := resolvePipelineIdentifiersForExecutions(
-		app,
+	identifiers := resolvePipelineIdentifiersForExecutions(
 		[]*WorkflowExecution{exec},
-		orgID,
 	)
-	require.NoError(t, err)
+	require.Empty(t, identifiers)
+}
 
-	expectedPath, err := canonify.BuildPath(
-		app,
-		pipelineRecord,
-		canonify.CanonifyPaths["pipelines"],
-		"",
-	)
-	require.NoError(t, err)
+func TestResolvePipelineIdentifiersForExecutionsReturnsOnlySearchAttributeMatches(t *testing.T) {
+	expectedIdentifier := "tenant-a/pipeline-a"
 
-	ref := workflowExecutionRef{WorkflowID: "wf-1", RunID: "run-1"}
-	require.Equal(t, strings.Trim(expectedPath, "/"), identifiers[ref])
+	executions := []*WorkflowExecution{
+		{
+			Execution: &WorkflowIdentifier{
+				WorkflowID: "wf-new",
+				RunID:      "run-new",
+			},
+			SearchAttributes: &DecodedWorkflowSearchAttributes{
+				workflowengine.PipelineIdentifierSearchAttribute: expectedIdentifier,
+			},
+		},
+		{
+			Execution: &WorkflowIdentifier{
+				WorkflowID: "wf-old",
+				RunID:      "run-old",
+			},
+		},
+	}
+
+	identifiers := resolvePipelineIdentifiersForExecutions(executions)
+	require.Len(t, identifiers, 1)
+
+	ref := workflowExecutionRef{
+		WorkflowID: "wf-new",
+		RunID:      "run-new",
+	}
+	require.Equal(t, expectedIdentifier, identifiers[ref])
 }
 
 func TestBuildWorkflowExecutionSummaryDuration(t *testing.T) {
