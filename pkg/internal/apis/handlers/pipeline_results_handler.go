@@ -277,9 +277,7 @@ func fetchCompletedWorkflowsWithPagination(
 	}
 
 	pipelineIdentifiers, err := resolvePipelineIdentifiersForExecutions(
-		e.App,
 		executions,
-		organizationId,
 	)
 	if err != nil {
 		return nil, apierror.New(
@@ -665,27 +663,7 @@ func fetchPipelineResultRecords(
 	executions []workflowExecutionRef,
 ) (map[workflowExecutionRef]*core.Record, error) {
 	resultRecords := map[workflowExecutionRef]*core.Record{}
-	if app == nil || len(executions) == 0 {
-		return resultRecords, nil
-	}
-
-	filter, params := buildWorkflowExecutionFilter(executions)
-	if filter == "" {
-		return resultRecords, nil
-	}
-	if ownerID != "" {
-		filter = fmt.Sprintf("owner={:owner} && (%s)", filter)
-		params["owner"] = ownerID
-	}
-
-	records, err := app.FindRecordsByFilter(
-		"pipeline_results",
-		filter,
-		"",
-		-1,
-		0,
-		params,
-	)
+	records, err := findPipelineResultRecordsByExecutions(app, ownerID, executions)
 	if err != nil {
 		return nil, err
 	}
@@ -702,6 +680,50 @@ func fetchPipelineResultRecords(
 	}
 
 	return resultRecords, nil
+}
+
+func findPipelineResultRecordsByExecutions(
+	app core.App,
+	ownerID string,
+	executions []workflowExecutionRef,
+) ([]*core.Record, error) {
+	if app == nil || len(executions) == 0 {
+		return []*core.Record{}, nil
+	}
+
+	records := make([]*core.Record, 0, len(executions))
+
+	for i := 0; i < len(executions); i += workflowExecutionFilterChunkSize {
+		chunkEnd := i + workflowExecutionFilterChunkSize
+		if chunkEnd > len(executions) {
+			chunkEnd = len(executions)
+		}
+
+		filter, params := buildWorkflowExecutionFilter(executions[i:chunkEnd])
+		if filter == "" {
+			continue
+		}
+		if ownerID != "" {
+			filter = fmt.Sprintf("owner={:owner} && (%s)", filter)
+			params["owner"] = ownerID
+		}
+
+		chunkRecords, err := app.FindRecordsByFilter(
+			"pipeline_results",
+			filter,
+			"",
+			-1,
+			0,
+			params,
+		)
+		if err != nil {
+			return nil, err
+		}
+
+		records = append(records, chunkRecords...)
+	}
+
+	return records, nil
 }
 
 // decodeWorkflowSearchAttributes converts Temporal payloads into native search attribute values.
@@ -732,13 +754,11 @@ func decodeWorkflowSearchAttributes(
 }
 
 // resolvePipelineIdentifiersForExecutions maps workflow execution refs to pipeline identifiers.
+// Executions missing the Temporal search attribute are ignored.
 func resolvePipelineIdentifiersForExecutions(
-	app core.App,
 	executions []*WorkflowExecution,
-	ownerID string,
 ) (map[workflowExecutionRef]string, error) {
 	identifiers := make(map[workflowExecutionRef]string, len(executions))
-	missing := make([]workflowExecutionRef, 0, len(executions))
 
 	for _, exec := range executions {
 		if exec == nil || exec.Execution == nil {
@@ -754,85 +774,7 @@ func resolvePipelineIdentifiersForExecutions(
 
 		if identifier := pipelineIdentifierFromSearchAttributes(exec.SearchAttributes); identifier != "" {
 			identifiers[ref] = identifier
-			continue
 		}
-
-		missing = append(missing, ref)
-	}
-
-	if len(missing) == 0 || app == nil {
-		return identifiers, nil
-	}
-
-	filter, params := buildWorkflowExecutionFilter(missing)
-	if filter == "" {
-		return identifiers, nil
-	}
-	if ownerID != "" {
-		filter = fmt.Sprintf("owner={:owner} && (%s)", filter)
-		params["owner"] = ownerID
-	}
-
-	records, err := app.FindRecordsByFilter(
-		"pipeline_results",
-		filter,
-		"",
-		-1,
-		0,
-		params,
-	)
-	if err != nil {
-		return identifiers, err
-	}
-	if len(records) == 0 {
-		return identifiers, nil
-	}
-
-	pipelineIDs := map[string]struct{}{}
-	for _, record := range records {
-		if pipelineID := record.GetString("pipeline"); pipelineID != "" {
-			pipelineIDs[pipelineID] = struct{}{}
-		}
-	}
-
-	pipelineIDList := make([]string, 0, len(pipelineIDs))
-	for pipelineID := range pipelineIDs {
-		pipelineIDList = append(pipelineIDList, pipelineID)
-	}
-
-	pipelineRecords, err := app.FindRecordsByIds("pipelines", pipelineIDList)
-	if err != nil {
-		return identifiers, err
-	}
-
-	pipelineByID := map[string]*core.Record{}
-	for _, record := range pipelineRecords {
-		pipelineByID[record.Id] = record
-	}
-
-	for _, record := range records {
-		ref := workflowExecutionRef{
-			WorkflowID: record.GetString("workflow_id"),
-			RunID:      record.GetString("run_id"),
-		}
-		if _, exists := identifiers[ref]; exists {
-			continue
-		}
-
-		pipelineRecord := pipelineByID[record.GetString("pipeline")]
-		if pipelineRecord == nil {
-			continue
-		}
-		path, err := canonify.BuildPath(
-			app,
-			pipelineRecord,
-			canonify.CanonifyPaths["pipelines"],
-			"",
-		)
-		if err != nil {
-			continue
-		}
-		identifiers[ref] = strings.Trim(path, "/")
 	}
 
 	return identifiers, nil
@@ -891,6 +833,8 @@ func buildWorkflowExecutionFilter(
 const (
 	childWorkflowParentQueryChunkSize       = 25
 	childWorkflowParentQueryPageSize  int32 = 1000
+	// Keep PocketBase workflow-id filters below expression and length limits.
+	workflowExecutionFilterChunkSize = 40
 )
 
 type workflowExecutionRef struct {

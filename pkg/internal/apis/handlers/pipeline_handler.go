@@ -513,9 +513,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 		}
 
 		pipelineIdentifiers, err := resolvePipelineIdentifiersForExecutions(
-			e.App,
 			executions,
-			organization.Id,
 		)
 		if err != nil {
 			return apierror.New(
