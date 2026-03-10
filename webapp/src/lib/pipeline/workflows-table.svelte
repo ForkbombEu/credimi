@@ -5,11 +5,13 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ImageIcon, VideoIcon } from '@lucide/svelte';
+	import { ArrowRightIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import { resolve } from '$app/paths';
 	import WorkflowsTable from '$lib/workflows/workflows-table.svelte';
 
 	import type { IconComponent } from '@/components/types';
 
+	import A from '@/components/ui-custom/a.svelte';
 	import Icon from '@/components/ui-custom/icon.svelte';
 	import { m } from '@/i18n';
 
@@ -29,14 +31,34 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <WorkflowsTable
 	{workflows}
-	hideColumns={['status']}
+	hideColumns={['status', 'type']}
 	actions={(w) => makeDropdownActions(w)}
 	disableLink={(w) => w.queue !== undefined}
 >
+	{#snippet headerStart({ Th })}
+		<Th>{m.Pipeline()}</Th>
+	{/snippet}
+
 	{#snippet header({ Th })}
 		<Th>{m.Status()}</Th>
 		<Th>{m.Runner()}</Th>
 		<Th>{m.Results()}</Th>
+	{/snippet}
+
+	{#snippet rowStart({ workflow, Td })}
+		<Td>
+			<A
+				href={resolve('/my/pipelines/[...pipeline_path]', {
+					pipeline_path: workflow.pipeline_identifier ?? ''
+				})}
+				class="flex items-center gap-1"
+			>
+				<ArrowRightIcon size={12} />
+				<span>
+					{m.View()}
+				</span>
+			</A>
+		</Td>
 	{/snippet}
 
 	{#snippet row({ workflow, Td })}

@@ -77,6 +77,11 @@ SPDX-License-Identifier: CC-BY-NC-SA-4.0
   - `pipeline_results` creation is best-effort after Temporal start and retried; the internal handler is idempotent on `(workflow_id, run_id)`.
   - PB uniqueness constraints: `(owner, workflow_id, run_id)` in `pb_migrations/1765364510_created_pipeline_results.js`.
 
+### Pipeline visibility (Temporal)
+
+- Pipeline workflows set the `PipelineIdentifier` search attribute (canonified owner/pipeline path) on direct, queued, and scheduled starts.
+- List-results/list-workflows handlers prefer Temporal `ListWorkflows` with `PipelineIdentifier` filtering; missing search attributes fall back to `pipeline_results` mapping.
+
 ## Mobile runners (PocketBase + internal lookup)
 
 - PB collection: `mobile_runners` (migration `pb_migrations/1769505309_created_mobile_runners.js`).

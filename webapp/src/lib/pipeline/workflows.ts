@@ -19,6 +19,8 @@ export const QUEUED_STATUS = 'Queued';
 export type Status = Workflow.WorkflowStatus | typeof QUEUED_STATUS;
 
 export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
+	pipeline_identifier?: string;
+	pipeline_name?: string;
 	global_runner_id?: string;
 	runner_ids?: string[];
 	runner_records?: Array<MobileRunnersResponse>;
