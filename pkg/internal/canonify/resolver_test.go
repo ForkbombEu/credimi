@@ -67,7 +67,7 @@ func TestBuildPath(t *testing.T) {
 				},
 			},
 			Expected: TestExpected{
-				Result: "/orga",
+				Result: "orga",
 				Error:  false,
 			},
 		},
@@ -93,7 +93,7 @@ func TestBuildPath(t *testing.T) {
 				},
 			},
 			Expected: TestExpected{
-				Result: "/orgb/issuerx",
+				Result: "orgb/issuerx",
 				Error:  false,
 			},
 		},
@@ -129,7 +129,7 @@ func TestBuildPath(t *testing.T) {
 				},
 			},
 			Expected: TestExpected{
-				Result: "/orgc/issuery/cred-test",
+				Result: "orgc/issuery/cred-test",
 				Error:  false,
 			},
 		},
@@ -323,4 +323,10 @@ func TestResolve(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNormalizePath(t *testing.T) {
+	require.Equal(t, "tenant/pipeline", NormalizePath(" /tenant/pipeline"))
+	require.Equal(t, "tenant/pipeline", NormalizePath("tenant/pipeline"))
+	require.Equal(t, "", NormalizePath(" / "))
 }

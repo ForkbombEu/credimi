@@ -36,7 +36,7 @@ func ParsePipelineRunnerInfo(yamlStr string) (PipelineRunnerInfo, error) {
 		if step.With.Payload != nil {
 			if rawRunnerID, ok := step.With.Payload["runner_id"]; ok {
 				if id, ok := rawRunnerID.(string); ok {
-					runnerID = strings.TrimSpace(id)
+					runnerID = canonify.NormalizePath(id)
 				}
 			}
 		}
@@ -79,8 +79,15 @@ func ParsePipelineRunnerInfo(yamlStr string) (PipelineRunnerInfo, error) {
 }
 
 func RunnerIDsWithGlobal(info PipelineRunnerInfo, globalRunnerID string) []string {
-	runnerIDs := append([]string{}, info.RunnerIDs...)
-	globalRunnerID = strings.TrimSpace(globalRunnerID)
+	runnerIDs := make([]string, 0, len(info.RunnerIDs))
+	for _, runnerID := range info.RunnerIDs {
+		runnerID = canonify.NormalizePath(runnerID)
+		if runnerID == "" {
+			continue
+		}
+		runnerIDs = append(runnerIDs, runnerID)
+	}
+	globalRunnerID = canonify.NormalizePath(globalRunnerID)
 	if info.NeedsGlobalRunner && globalRunnerID != "" {
 		found := false
 		for _, id := range runnerIDs {
@@ -104,7 +111,7 @@ func GlobalRunnerIDFromConfig(config map[string]any) string {
 	}
 	if v, ok := config["global_runner_id"]; ok {
 		if s, ok := v.(string); ok {
-			return strings.TrimSpace(s)
+			return canonify.NormalizePath(s)
 		}
 	}
 	return ""
@@ -119,7 +126,7 @@ func ResolveRunnerRecord(
 		runnerCache = map[string]map[string]any{}
 	}
 
-	runnerID = strings.TrimSpace(runnerID)
+	runnerID = canonify.NormalizePath(runnerID)
 	if runnerID == "" {
 		return nil
 	}

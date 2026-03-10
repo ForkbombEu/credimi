@@ -6,6 +6,8 @@ package mobilerunnersemaphore
 import (
 	"fmt"
 	"time"
+
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 )
 
 const (
@@ -151,5 +153,6 @@ type MobileRunnerSemaphoreRunTicketState struct {
 }
 
 func WorkflowID(runnerID string) string {
+	runnerID = canonify.NormalizePath(runnerID)
 	return fmt.Sprintf("mobile-runner-semaphore/%s", runnerID)
 }

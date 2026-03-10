@@ -66,6 +66,22 @@ steps:
 		require.True(t, got.NeedsGlobalRunner)
 		require.Equal(t, []string{"runner-a", "runner-b", "runner-c"}, got.RunnerIDs)
 	})
+
+	t.Run("normalizes leading slash runner ids", func(t *testing.T) {
+		yamlStr := `
+name: test
+steps:
+  - id: step-1
+    use: mobile-automation
+    with:
+      payload:
+        runner_id: /tenant-a/runner-a
+`
+
+		got, err := ParsePipelineRunnerInfo(yamlStr)
+		require.NoError(t, err)
+		require.Equal(t, []string{"tenant-a/runner-a"}, got.RunnerIDs)
+	})
 }
 
 func TestRunnerIDsWithGlobal(t *testing.T) {
@@ -76,6 +92,15 @@ func TestRunnerIDsWithGlobal(t *testing.T) {
 		}
 		got := RunnerIDsWithGlobal(info, " runner-a ")
 		require.Equal(t, []string{"runner-a", "runner-b"}, got)
+	})
+
+	t.Run("normalizes global runner leading slash", func(t *testing.T) {
+		info := PipelineRunnerInfo{
+			RunnerIDs:         []string{"tenant-a/runner-b"},
+			NeedsGlobalRunner: true,
+		}
+		got := RunnerIDsWithGlobal(info, " /tenant-a/runner-a ")
+		require.Equal(t, []string{"tenant-a/runner-a", "tenant-a/runner-b"}, got)
 	})
 
 	t.Run("does not duplicate global runner", func(t *testing.T) {
@@ -105,6 +130,11 @@ func TestGlobalRunnerIDFromConfig(t *testing.T) {
 		"runner-a",
 		GlobalRunnerIDFromConfig(map[string]any{"global_runner_id": " runner-a "}),
 	)
+	require.Equal(
+		t,
+		"tenant-a/runner-a",
+		GlobalRunnerIDFromConfig(map[string]any{"global_runner_id": " /tenant-a/runner-a "}),
+	)
 }
 
 func TestResolveRunnerRecord(t *testing.T) {
@@ -115,9 +145,9 @@ func TestResolveRunnerRecord(t *testing.T) {
 
 	t.Run("returns cached record", func(t *testing.T) {
 		cache := map[string]map[string]any{
-			"runner-a": {"id": "cached-id"},
+			"tenant/runner-a": {"id": "cached-id"},
 		}
-		got := ResolveRunnerRecord(nil, "runner-a", cache)
+		got := ResolveRunnerRecord(nil, "/tenant/runner-a", cache)
 		require.Equal(t, map[string]any{"id": "cached-id"}, got)
 	})
 
@@ -156,12 +186,12 @@ func TestResolveRunnerRecord(t *testing.T) {
 		require.NoError(t, app.Save(newRunner))
 
 		cache := map[string]map[string]any{}
-		runnerID := orgCanon + "/test-runner"
+		runnerID := "/" + orgCanon + "/test-runner"
 		got := ResolveRunnerRecord(app, runnerID, cache)
 
 		require.NotNil(t, got)
 		require.NotEmpty(t, got[core.FieldNameId])
-		require.Equal(t, got, cache[runnerID])
+		require.Equal(t, got, cache[orgCanon+"/test-runner"])
 	})
 }
 
