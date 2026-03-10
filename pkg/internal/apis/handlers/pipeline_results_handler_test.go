@@ -189,10 +189,9 @@ func TestResolvePipelineIdentifiersForExecutionsIgnoresMissingSearchAttribute(t 
 		},
 	}
 
-	identifiers, err := resolvePipelineIdentifiersForExecutions(
+	identifiers := resolvePipelineIdentifiersForExecutions(
 		[]*WorkflowExecution{exec},
 	)
-	require.NoError(t, err)
 	require.Empty(t, identifiers)
 }
 
@@ -217,8 +216,7 @@ func TestResolvePipelineIdentifiersForExecutionsReturnsOnlySearchAttributeMatche
 		},
 	}
 
-	identifiers, err := resolvePipelineIdentifiersForExecutions(executions)
-	require.NoError(t, err)
+	identifiers := resolvePipelineIdentifiersForExecutions(executions)
 	require.Len(t, identifiers, 1)
 
 	ref := workflowExecutionRef{

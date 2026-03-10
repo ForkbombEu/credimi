@@ -276,17 +276,7 @@ func fetchCompletedWorkflowsWithPagination(
 		return []*pipelineWorkflowSummary{}, nil
 	}
 
-	pipelineIdentifiers, err := resolvePipelineIdentifiersForExecutions(
-		executions,
-	)
-	if err != nil {
-		return nil, apierror.New(
-			http.StatusInternalServerError,
-			"pipeline",
-			"failed to resolve pipeline identifiers",
-			err.Error(),
-		)
-	}
+	pipelineIdentifiers := resolvePipelineIdentifiersForExecutions(executions)
 
 	pipelineIdentifierIndex := buildPipelineIdentifierIndex(e.App, pipelineMap)
 	filteredExecutions := make([]*WorkflowExecution, 0, len(executions))
@@ -757,7 +747,7 @@ func decodeWorkflowSearchAttributes(
 // Executions missing the Temporal search attribute are ignored.
 func resolvePipelineIdentifiersForExecutions(
 	executions []*WorkflowExecution,
-) (map[workflowExecutionRef]string, error) {
+) map[workflowExecutionRef]string {
 	identifiers := make(map[workflowExecutionRef]string, len(executions))
 
 	for _, exec := range executions {
@@ -777,7 +767,7 @@ func resolvePipelineIdentifiersForExecutions(
 		}
 	}
 
-	return identifiers, nil
+	return identifiers
 }
 
 func pipelineIdentifierFromSearchAttributes(
