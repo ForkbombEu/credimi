@@ -10,6 +10,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
 
@@ -118,6 +119,10 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	output.FlowOutput = mobileResponse.Output
 
 	if executeErr != nil {
+		if temporal.IsCanceledError(executeErr) {
+			return workflowengine.WorkflowResult{}, executeErr
+		}
+
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			executeErr,
 			input.RunMetadata,
