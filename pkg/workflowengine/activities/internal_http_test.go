@@ -27,7 +27,7 @@ func TestInternalHTTPActivityMissingEnv(t *testing.T) {
 func TestInternalHTTPActivityInjectsAPIKey(t *testing.T) {
 	t.Setenv("CREDIMI_INTERNAL_ADMIN_KEY", "secret-key")
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		require.Equal(t, "secret-key", r.Header.Get("X-Api-Key"))
+		require.Equal(t, "secret-key", r.Header.Get("Credimi-Api-Key"))
 		w.WriteHeader(http.StatusOK)
 		_, _ = w.Write([]byte(`{"ok":true}`))
 	}))
@@ -50,13 +50,13 @@ func TestInternalHTTPActivityInjectsAPIKey(t *testing.T) {
 func TestRedactHeaderMap(t *testing.T) {
 	headers := http.Header{}
 	headers.Set("Authorization", "Bearer token")
-	headers.Set("X-Api-Key", "abc")
+	headers.Set("Credimi-Api-Key", "abc")
 	headers.Set("Cookie", "secret")
 	headers.Set("X-Test", "value")
 
 	redacted := redactHeaderMap(headers)
 	require.Equal(t, []string{"[REDACTED]"}, redacted["Authorization"])
-	require.Equal(t, []string{"[REDACTED]"}, redacted["X-Api-Key"])
+	require.Equal(t, []string{"[REDACTED]"}, redacted["Credimi-Api-Key"])
 	require.Equal(t, []string{"[REDACTED]"}, redacted["Cookie"])
 	require.Equal(t, []string{"value"}, redacted["X-Test"])
 }

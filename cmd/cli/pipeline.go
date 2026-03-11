@@ -114,7 +114,7 @@ func authenticate(ctx context.Context) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	req.Header.Set("X-Api-Key", apiKey)
+	req.Header.Set("Credimi-Api-Key", apiKey)
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {

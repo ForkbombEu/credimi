@@ -459,7 +459,7 @@ func postPipelineExecutionResult(
 	if internalKey == "" {
 		return 0, fmt.Errorf("CREDIMI_INTERNAL_ADMIN_KEY is required")
 	}
-	req.Header.Set("X-Api-Key", internalKey)
+	req.Header.Set("Credimi-Api-Key", internalKey)
 
 	resp, err := httpDoer.Do(req)
 	if err != nil {

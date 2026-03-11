@@ -282,7 +282,7 @@ func TestPostPipelineExecutionResultAddsInternalAPIKeyHeader(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, status)
 	require.NotNil(t, doer.lastRequest)
-	require.Equal(t, "internal-key", doer.lastRequest.Header.Get("X-Api-Key"))
+	require.Equal(t, "internal-key", doer.lastRequest.Header.Get("Credimi-Api-Key"))
 }
 
 func TestPostPipelineExecutionResultMissingInternalAPIKey(t *testing.T) {

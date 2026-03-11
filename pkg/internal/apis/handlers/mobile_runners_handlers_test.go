@@ -121,7 +121,7 @@ func TestGetMobileRunner(t *testing.T) {
 		if scenario.Headers == nil {
 			scenario.Headers = map[string]string{}
 		}
-		scenario.Headers["X-Api-Key"] = "internal-test-api-key"
+		scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
 		scenario.Test(t)
 	}
 }
@@ -184,7 +184,7 @@ func TestListMobileRunnerURLs(t *testing.T) {
 		if scenario.Headers == nil {
 			scenario.Headers = map[string]string{}
 		}
-		scenario.Headers["X-Api-Key"] = "internal-test-api-key"
+		scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
 		scenario.Test(t)
 	}
 }
@@ -296,7 +296,7 @@ func TestGetMobileRunnerSemaphore(t *testing.T) {
 		if scenario.Headers == nil {
 			scenario.Headers = map[string]string{}
 		}
-		scenario.Headers["X-Api-Key"] = "internal-test-api-key"
+		scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
 		scenario.Test(t)
 	}
 }

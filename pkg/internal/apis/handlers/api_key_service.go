@@ -17,8 +17,8 @@ import (
 )
 
 const (
-	APIKeyHeaderName            = "X-Api-Key"
 	InternalAdminAPIKeyEnvVar   = "CREDIMI_INTERNAL_ADMIN_KEY"
+	APIKeyHeaderName            = "Credimi-Api-Key"
 	apiKeyUserCollection        = "users"
 	apiKeySuperuserCollection   = "_superusers"
 	apiKeyDefaultScopeFieldName = "key_type"

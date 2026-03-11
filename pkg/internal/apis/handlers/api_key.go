@@ -136,7 +136,7 @@ func generateAPIKeyForPrincipal(
 
 func AuthenticateApiKey() func(e *core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		apiKey := e.Request.Header.Get("X-Api-Key")
+		apiKey := e.Request.Header.Get("Credimi-Api-Key")
 		if apiKey == "" {
 			return apierror.New(
 				http.StatusUnauthorized,

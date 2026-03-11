@@ -37,7 +37,7 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 				`"credential_identifier"`,
 				`"credential_identifier is required"`,
 			},
-			Headers: map[string]string{"X-Api-Key": "internal-test-api-key"},
+			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: setupCredentialApp,
 		},
 		{
@@ -48,7 +48,7 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 			ExpectedContent: []string{
 				`"credential not found"`,
 			},
-			Headers:        map[string]string{"X-Api-Key": "internal-test-api-key"},
+			Headers:        map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: setupCredentialApp,
 		},
 		{
@@ -60,7 +60,7 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 				`"credential_offer"`,
 				`"https://deeplink.example/offer"`,
 			},
-			Headers: map[string]string{"X-Api-Key": "internal-test-api-key"},
+			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupCredentialApp(t)
 
@@ -93,7 +93,7 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 				`"credential_offer"`,
 				`"openid-credential-offer://?credential_offer=%7B%22credential_configuration_ids%22%3A%5B%22cred456%22%5D%2C%22credential_issuer%22%3A%22https%3A%2F%2Fissuer.example%22%7D"`,
 			},
-			Headers: map[string]string{"X-Api-Key": "internal-test-api-key"},
+			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupCredentialApp(t)
 
@@ -126,7 +126,7 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 				`"code"`,
 				`"print('hello world')"`,
 			},
-			Headers: map[string]string{"X-Api-Key": "internal-test-api-key"},
+			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupCredentialApp(t)
 
@@ -159,7 +159,7 @@ func TestHandleGetCredentialOffer(t *testing.T) {
 				`"credential_offer"`,
 				`"openid-credential-offer://?credential_offer=%7B%22credential_configuration_ids%22%3A%5B%22cred987%22%5D%2C%22credential_issuer%22%3A%22https%3A%2F%2Fissuer.example%22%7D"`,
 			},
-			Headers: map[string]string{"X-Api-Key": "internal-test-api-key"},
+			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupCredentialApp(t)
 

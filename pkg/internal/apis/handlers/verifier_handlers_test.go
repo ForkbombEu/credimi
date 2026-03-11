@@ -37,7 +37,7 @@ func TestGetUseCaseVerificationDeeplink(t *testing.T) {
 				`"use_case_identifier"`,
 				`"use_case_identifier is required"`,
 			},
-			Headers:        map[string]string{"X-Api-Key": "internal-test-api-key"},
+			Headers:        map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: setupVerifierApp,
 		},
 		{
@@ -48,7 +48,7 @@ func TestGetUseCaseVerificationDeeplink(t *testing.T) {
 			ExpectedContent: []string{
 				`"use case verification not found"`,
 			},
-			Headers:        map[string]string{"X-Api-Key": "internal-test-api-key"},
+			Headers:        map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: setupVerifierApp,
 		},
 		{
@@ -60,7 +60,7 @@ func TestGetUseCaseVerificationDeeplink(t *testing.T) {
 				`"code"`,
 				`"example code"`,
 			},
-			Headers: map[string]string{"X-Api-Key": "internal-test-api-key"},
+			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupVerifierApp(t)
 

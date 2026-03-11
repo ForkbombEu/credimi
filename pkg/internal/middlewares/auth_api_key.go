@@ -19,7 +19,7 @@ import (
 const (
 	RequireAuthOrAPIKeyMiddlewareID = "requireAuthOrAPIKey"
 
-	apiKeyHeaderName          = "X-Api-Key"
+	apiKeyHeaderName          = "Credimi-Api-Key"
 	apiKeyScopeFieldName      = "key_type"
 	apiKeyScopeUser           = "user"
 	apiKeyScopeInternalAdmin  = "internal_admin"
@@ -40,7 +40,7 @@ func RequireAuthOrAPIKey() *hook.Handler[*core.RequestEvent] {
 						http.StatusUnauthorized,
 						"request.validation",
 						"authentication_required",
-						"Bearer token or X-Api-Key is required",
+						"Bearer token or Credimi-Api-Key is required",
 					).JSON(e)
 				}
 
@@ -79,7 +79,7 @@ func RequireInternalAdminAPIKey() *hook.Handler[*core.RequestEvent] {
 					http.StatusUnauthorized,
 					"request.validation",
 					"api_key_required",
-					"X-Api-Key is required",
+					"Credimi-Api-Key is required",
 				).JSON(e)
 			}
 

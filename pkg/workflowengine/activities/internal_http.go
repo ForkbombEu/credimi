@@ -78,5 +78,5 @@ func (a *InternalHTTPActivity) Execute(
 		ExpectedStatus: payload.ExpectedStatus,
 	}
 
-	return executeHTTPRequest(ctx, httpPayload, map[string]string{"X-Api-Key": apiKey}, &a.BaseActivity)
+	return executeHTTPRequest(ctx, httpPayload, map[string]string{"Credimi-Api-Key": apiKey}, &a.BaseActivity)
 }

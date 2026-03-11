@@ -188,7 +188,7 @@ func TestWalletGetAPKMD5(t *testing.T) {
 		if scenario.Headers == nil {
 			scenario.Headers = map[string]string{}
 		}
-		scenario.Headers["X-Api-Key"] = "internal-test-api-key"
+		scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
 		scenario.Test(t)
 	}
 }
@@ -284,7 +284,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 		if scenario.Headers == nil {
 			scenario.Headers = map[string]string{}
 		}
-		scenario.Headers["X-Api-Key"] = "internal-test-api-key"
+		scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
 		scenario.Test(t)
 	}
 }

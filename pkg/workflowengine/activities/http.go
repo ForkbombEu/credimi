@@ -21,10 +21,10 @@ import (
 )
 
 var sensitiveHeaders = map[string]struct{}{
-	"authorization": {},
-	"x-api-key":     {},
-	"cookie":        {},
-	"set-cookie":    {},
+	"authorization":   {},
+	"credimi-api-key": {},
+	"cookie":          {},
+	"set-cookie":      {},
 }
 
 // HTTPActivity is an activity that performs an HTTP request.

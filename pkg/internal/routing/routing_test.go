@@ -165,7 +165,7 @@ func TestRegisterRoutesWithValidation_RequireAuth(t *testing.T) {
 	require.NoError(t, app.Save(keyRecord))
 
 	req = httptest.NewRequest(http.MethodGet, "/secure", nil)
-	req.Header.Set("X-Api-Key", "routing-test-key")
+	req.Header.Set("Credimi-Api-Key", "routing-test-key")
 	res = httptest.NewRecorder()
 	mux.ServeHTTP(res, req)
 	require.Equal(t, http.StatusOK, res.Code)
