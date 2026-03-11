@@ -18,6 +18,12 @@ func TestWorkflowID(t *testing.T) {
 	require.Equal(t, "mobile-runner-semaphore/runner-1", workflowID)
 }
 
+func TestWorkflowIDTrimsLeadingSlash(t *testing.T) {
+	workflowID := WorkflowID("/tenant-a/runner-1")
+
+	require.Equal(t, "mobile-runner-semaphore/tenant-a/runner-1", workflowID)
+}
+
 func TestWorkflowStateJSONRoundTrip(t *testing.T) {
 	requestedAt := time.Date(2026, 2, 3, 12, 0, 0, 0, time.UTC)
 	startedAt := requestedAt.Add(5 * time.Minute)

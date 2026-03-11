@@ -62,13 +62,17 @@ func (f *fakeUpdater) UpdateWorkflow(
 }
 
 func TestNormalizeRunnerIDs(t *testing.T) {
-	out := normalizeRunnerIDs([]string{" runner-1 ", "", "runner-2"})
-	require.Equal(t, []string{"runner-1", "runner-2"}, out)
+	out := normalizeRunnerIDs([]string{" /tenant/runner-1 ", "", "tenant/runner-2"})
+	require.Equal(t, []string{"tenant/runner-1", "tenant/runner-2"}, out)
 	require.Nil(t, normalizeRunnerIDs(nil))
 }
 
 func TestRunQueueUpdateID(t *testing.T) {
-	require.Equal(t, "enqueue/runner/ticket", runQueueUpdateID("enqueue", "runner", "ticket"))
+	require.Equal(
+		t,
+		"enqueue/tenant/runner/ticket",
+		runQueueUpdateID("enqueue", "/tenant/runner", "ticket"),
+	)
 }
 
 func TestIsQueueLimitExceeded(t *testing.T) {

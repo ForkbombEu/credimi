@@ -68,6 +68,19 @@ func TestCollectMobileRunnerIDs(t *testing.T) {
 	require.Equal(t, []string{"runner-a", "runner-b", "runner-global"}, runnerIDs)
 }
 
+func TestCollectMobileRunnerIDsNormalizesLeadingSlash(t *testing.T) {
+	steps := []StepDefinition{
+		{StepSpec: StepSpec{Use: mobileAutomationStepUse, With: StepInputs{Payload: map[string]any{
+			"action_id": "action-1",
+			"runner_id": "/tenant-a/runner-b",
+		}}}},
+	}
+
+	runnerIDs, err := collectMobileRunnerIDs(steps, "/tenant-a/runner-a")
+	require.NoError(t, err)
+	require.Equal(t, []string{"tenant-a/runner-a", "tenant-a/runner-b"}, runnerIDs)
+}
+
 func TestParseAPKResponse(t *testing.T) {
 	result := workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
@@ -110,6 +123,10 @@ func TestIsSemaphoreManagedRun(t *testing.T) {
 		t,
 		isSemaphoreManagedRun(map[string]any{mobileRunnerSemaphoreTicketIDConfigKey: "ticket"}),
 	)
+}
+
+func TestMobileRunnerTaskQueueNormalizesLeadingSlash(t *testing.T) {
+	require.Equal(t, "tenant-a/runner-1-TaskQueue", mobileRunnerTaskQueue("/tenant-a/runner-1"))
 }
 
 func TestParseDeviceMap(t *testing.T) {

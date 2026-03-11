@@ -108,6 +108,10 @@ var CanonifyPaths = map[string]PathTemplate{
 	},
 }
 
+func NormalizePath(path string) string {
+	return strings.TrimLeft(strings.TrimSpace(path), "/")
+}
+
 // BuildPath constructs the path for a record
 func BuildPath(
 	app core.App,
@@ -141,7 +145,9 @@ func BuildPath(
 		if err != nil {
 			return "", err
 		}
-		parts = append(parts, strings.Trim(parentPath, "/"))
+		if parentPath = NormalizePath(parentPath); parentPath != "" {
+			parts = append(parts, parentPath)
+		}
 	}
 	val := rec.GetString(tpl.CanonifiedField)
 	if candidateName != "" {
@@ -149,7 +155,7 @@ func BuildPath(
 	}
 	parts = append(parts, val)
 
-	return "/" + strings.Join(parts, "/"), nil
+	return strings.Join(parts, "/"), nil
 }
 
 func Resolve(app core.App, path string) (*core.Record, error) {
