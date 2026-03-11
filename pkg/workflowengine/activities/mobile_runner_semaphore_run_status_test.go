@@ -72,7 +72,10 @@ func TestQueryMobileRunnerSemaphoreRunStatusActivityNotFound(t *testing.T) {
 	temporalclient.ShutdownClients()
 	mockClient := &temporalmocks.Client{}
 	mockClient.On("Close").Return(nil).Maybe()
-	temporalclient.SetClientForTests(workflowengine.MobileRunnerSemaphoreDefaultNamespace, mockClient)
+	temporalclient.SetClientForTests(
+		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+		mockClient,
+	)
 	t.Cleanup(func() {
 		temporalclient.ClearTestClients()
 		temporalclient.ShutdownClients()
@@ -112,7 +115,10 @@ func TestQueryMobileRunnerSemaphoreRunStatusActivitySuccess(t *testing.T) {
 	temporalclient.ShutdownClients()
 	mockClient := &temporalmocks.Client{}
 	mockClient.On("Close").Return(nil).Maybe()
-	temporalclient.SetClientForTests(workflowengine.MobileRunnerSemaphoreDefaultNamespace, mockClient)
+	temporalclient.SetClientForTests(
+		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
+		mockClient,
+	)
 	t.Cleanup(func() {
 		temporalclient.ClearTestClients()
 		temporalclient.ShutdownClients()

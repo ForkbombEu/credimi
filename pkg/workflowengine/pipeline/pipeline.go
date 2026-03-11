@@ -133,6 +133,11 @@ func (w *PipelineWorkflow) Workflow(
 	}()
 
 	if err := runSetupHooks(ctx, &wfDef.Steps, &ao, config, &runData); err != nil {
+		if temporal.IsCanceledError(err) {
+			return workflowengine.WorkflowResult{},
+				workflowengine.NewWorkflowCancellationError(runMetadata)
+		}
+
 		return workflowengine.WorkflowResult{}, err
 	}
 

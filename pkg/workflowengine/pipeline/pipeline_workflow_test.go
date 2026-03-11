@@ -200,3 +200,50 @@ func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {
 	require.True(t, ok)
 	require.Contains(t, output, "step-1")
 }
+
+func TestPipelineWorkflowWrapsSetupHookCancellation(t *testing.T) {
+	origSetupHooks := setupHooks
+	t.Cleanup(func() {
+		setupHooks = origSetupHooks
+	})
+
+	setupHooks = []SetupFunc{
+		func(
+			_ workflow.Context,
+			_ *[]StepDefinition,
+			_ *workflow.ActivityOptions,
+			_ map[string]any,
+			_ *map[string]any,
+		) error {
+			return temporal.NewCanceledError("setup canceled")
+		},
+	}
+
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	pipelineWf := NewPipelineWorkflow()
+	env.RegisterWorkflowWithOptions(
+		pipelineWf.Workflow,
+		workflow.RegisterOptions{Name: pipelineWf.Name()},
+	)
+
+	env.ExecuteWorkflow(
+		pipelineWf.Name(),
+		PipelineWorkflowInput{
+			WorkflowDefinition: &WorkflowDefinition{Name: "setup-cancel"},
+			WorkflowInput: workflowengine.WorkflowInput{
+				Config: map[string]any{
+					"app_url": "https://example.test",
+				},
+				ActivityOptions: &workflow.ActivityOptions{
+					StartToCloseTimeout: time.Second,
+				},
+			},
+		},
+	)
+
+	err := env.GetWorkflowError()
+	require.Error(t, err)
+	require.True(t, temporal.IsCanceledError(err))
+}
