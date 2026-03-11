@@ -33,38 +33,38 @@ func RequireAuthOrAPIKey() *hook.Handler[*core.RequestEvent] {
 		Id: RequireAuthOrAPIKeyMiddlewareID,
 		Func: func(e *core.RequestEvent) error {
 			authHeader := strings.TrimSpace(e.Request.Header.Get("Authorization"))
-			if authHeader != "" {
-				if err := apis.RequireAuth().Func(e); err == nil {
-					return nil
+			if authHeader == "" {
+				apiKey := strings.TrimSpace(e.Request.Header.Get(apiKeyHeaderName))
+				if apiKey == "" {
+					return apierror.New(
+						http.StatusUnauthorized,
+						"request.validation",
+						"authentication_required",
+						"Bearer token or X-Api-Key is required",
+					).JSON(e)
 				}
-				if strings.HasPrefix(authHeader, "Bearer ") {
-					e.Request.Header.Set(
-						"Authorization",
-						strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer ")),
-					)
-					return apis.RequireAuth().Func(e)
+
+				principal, err := authenticateAPIKeyByScope(e, apiKey, apiKeyScopeUser)
+				if err != nil {
+					return err
 				}
-				e.Request.Header.Set("Authorization", "Bearer "+authHeader)
+				e.Auth = principal
+
+				return e.Next()
+			}
+
+			if err := apis.RequireAuth().Func(e); err == nil {
+				return nil
+			}
+			if strings.HasPrefix(authHeader, "Bearer ") {
+				e.Request.Header.Set(
+					"Authorization",
+					strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer ")),
+				)
 				return apis.RequireAuth().Func(e)
 			}
-
-			apiKey := strings.TrimSpace(e.Request.Header.Get(apiKeyHeaderName))
-			if apiKey == "" {
-				return apierror.New(
-					http.StatusUnauthorized,
-					"request.validation",
-					"authentication_required",
-					"Bearer token or X-Api-Key is required",
-				).JSON(e)
-			}
-
-			principal, err := authenticateAPIKeyByScope(e, apiKey, apiKeyScopeUser)
-			if err != nil {
-				return err
-			}
-			e.Auth = principal
-
-			return e.Next()
+			e.Request.Header.Set("Authorization", "Bearer "+authHeader)
+			return apis.RequireAuth().Func(e)
 		},
 	}
 }
