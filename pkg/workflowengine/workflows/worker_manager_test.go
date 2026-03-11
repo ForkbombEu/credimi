@@ -53,7 +53,9 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 							return workflowengine.ActivityResult{
 								Output: map[string]any{
 									"status": "ok",
-									"body":   map[string]any{"runners": []any{"runner1", "runner2"}},
+									"body": map[string]any{
+										"runners": []any{"runner1", "runner2"},
+									},
 								},
 							}, nil
 						}
@@ -103,7 +105,9 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 							return workflowengine.ActivityResult{
 								Output: map[string]any{
 									"status": "ok",
-									"body":   map[string]any{"runners": []any{"runner1", "runner2", "runner3"}},
+									"body": map[string]any{
+										"runners": []any{"runner1", "runner2", "runner3"},
+									},
 								},
 							}, nil
 						case 3:

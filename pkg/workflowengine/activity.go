@@ -131,8 +131,11 @@ func RunCommandWithCancellation(
 			return ctx.Err()
 
 		case err := <-done:
-			// If cancellation already happened, prefer returning the context error
-			// instead of a process wait error to make cancellation semantics stable.
+			// If the command already finished successfully, keep that result even if
+			// the activity context is canceled at roughly the same time.
+			if err == nil {
+				return nil
+			}
 			if ctx.Err() != nil {
 				return ctx.Err()
 			}

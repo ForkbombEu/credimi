@@ -462,7 +462,8 @@ func TestMobileRunnerSemaphoreWorkflowQueueLimitCountsOwnerNamespaceOnly(t *test
 			goto done
 		case err := <-errCh:
 			var appErr *temporal.ApplicationError
-			if errors.As(err, &appErr) && appErr.Type() == MobileRunnerSemaphoreErrQueueLimitExceeded {
+			if errors.As(err, &appErr) &&
+				appErr.Type() == MobileRunnerSemaphoreErrQueueLimitExceeded {
 				continue
 			}
 			require.NoError(t, err)
