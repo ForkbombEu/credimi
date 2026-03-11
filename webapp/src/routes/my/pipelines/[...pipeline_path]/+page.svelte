@@ -5,11 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowLeft } from '@lucide/svelte';
 	import { Pipeline } from '$lib';
+	import BackButton from '$lib/layout/back-button.svelte';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
 
-	import Button from '@/components/ui-custom/button.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator/index.js';
 	import { m } from '@/i18n';
@@ -22,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { pipeline } = $derived(data);
 
 	$effect(() => {
-		setDashboardNavbar({ title: m.Pipelines(), right: navbarRight });
+		setDashboardNavbar({ title: m.Pipelines() });
 	});
 
 	const workflows = new PolledResource(() => Pipeline.Workflows.list(pipeline.id), {
@@ -45,17 +44,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const successRate = $derived(((totalSuccesses / totalRuns) * 100).toFixed(1) + '%');
 </script>
 
-{#snippet navbarRight()}
-	<Button variant="outline" href="/my/pipelines">
-		<ArrowLeft />
-		{m.Back_to_pipelines()}
-	</Button>
-{/snippet}
+<div class="flex items-end justify-between gap-8">
+	<div class="space-y-2">
+		<BackButton href="/my/pipelines" class="px-0!" />
 
-<div class="flex justify-between gap-8">
-	<div class="-space-y-1">
-		<T class="text-muted-foreground">{m.Pipeline()}</T>
-		<T tag="h2">{pipeline.name}</T>
+		<div>
+			<T class="text-muted-foreground">{m.Pipeline()}</T>
+			<T tag="h2">{pipeline.name}</T>
+		</div>
 	</div>
 
 	<div class="flex flex-wrap gap-2 md:flex-nowrap">

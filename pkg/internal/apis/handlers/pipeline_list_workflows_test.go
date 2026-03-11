@@ -8,14 +8,20 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
+	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
+	"go.temporal.io/api/workflowservice/v1"
+	"go.temporal.io/sdk/client"
+	temporalmocks "go.temporal.io/sdk/mocks"
 )
 
 func TestGetPipelineDetailsIncludesQueuedRuns(t *testing.T) {
@@ -38,6 +44,33 @@ func TestGetPipelineDetailsIncludesQueuedRuns(t *testing.T) {
 	record.Set("description", "queued pipeline description")
 	record.Set("yaml", "name: queued-pipeline\n")
 	require.NoError(t, app.Save(record))
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
+		Maybe()
+
+	origTemporalClient := pipelineTemporalClient
+	t.Cleanup(func() {
+		pipelineTemporalClient = origTemporalClient
+	})
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	pipelinePath, err := canonify.BuildPath(
+		app,
+		record,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
+	require.NoError(t, err)
+	pipelineIdentifier := strings.Trim(pipelinePath, "/")
 
 	stubQueuedRuns(t, "usera-s-organization/queued-pipeline")
 
@@ -71,6 +104,7 @@ func TestGetPipelineDetailsIncludesQueuedRuns(t *testing.T) {
 		require.Equal(t, "queue/ticket-queued", summaries[0].Execution.WorkflowID)
 		require.Equal(t, "ticket-queued", summaries[0].Execution.RunID)
 		require.Equal(t, []string{"runner-1"}, summaries[0].RunnerIDs)
+		require.Equal(t, pipelineIdentifier, summaries[0].PipelineIdentifier)
 
 		return nil
 	})
@@ -97,6 +131,33 @@ func TestGetPipelineSpecificDetailsIncludesQueuedRuns(t *testing.T) {
 	record.Set("description", "queued pipeline specific description")
 	record.Set("yaml", "name: queued-pipeline-specific\n")
 	require.NoError(t, app.Save(record))
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.AnythingOfType("*workflowservice.ListWorkflowExecutionsRequest"),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
+		Maybe()
+
+	origTemporalClient := pipelineTemporalClient
+	t.Cleanup(func() {
+		pipelineTemporalClient = origTemporalClient
+	})
+	pipelineTemporalClient = func(_ string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	pipelinePath, err := canonify.BuildPath(
+		app,
+		record,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
+	require.NoError(t, err)
+	pipelineIdentifier := strings.Trim(pipelinePath, "/")
 
 	stubQueuedRuns(t, "usera-s-organization/queued-pipeline-specific")
 
@@ -126,6 +187,7 @@ func TestGetPipelineSpecificDetailsIncludesQueuedRuns(t *testing.T) {
 		require.Equal(t, "Queued", response[0].Status)
 		require.Equal(t, "queued-pipeline-specific", response[0].DisplayName)
 		require.Equal(t, []string{"runner-1"}, response[0].RunnerIDs)
+		require.Equal(t, pipelineIdentifier, response[0].PipelineIdentifier)
 
 		return nil
 	})

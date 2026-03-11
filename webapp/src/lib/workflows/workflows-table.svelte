@@ -30,6 +30,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		row?: RowSnippet<Workflow>;
 		actions?: (workflow: Workflow) => DropdownMenuItem[];
 		disableLink?: (workflow: Workflow) => boolean;
+		rowStart?: RowSnippet<Workflow>;
+		headerStart?: Snippet<[{ Th: typeof Table.Head }]>;
 	};
 
 	const DEFAULT_ACTIONS = (workflow: WorkflowExecutionSummary): DropdownMenuItem[] => [
@@ -51,7 +53,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		header,
 		hideColumns = [],
 		actions = DEFAULT_ACTIONS,
-		disableLink
+		disableLink,
+		rowStart,
+		headerStart
 	}: Props = $props();
 </script>
 
@@ -59,6 +63,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Table.Root class="max-w-full rounded-lg bg-white">
 		<Table.Header>
 			<Table.Row>
+				{@render headerStart?.({ Th: Table.Head })}
 				{#if !hideColumns.includes('type')}
 					<Table.Head>{m.Type()}</Table.Head>
 				{/if}
@@ -85,7 +90,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Header>
 		<Table.Body>
 			{#each workflows as workflow (workflow.execution.runId)}
-				<WorkflowTableRow {workflow} {row} {hideColumns} {actions} {disableLink} />
+				<WorkflowTableRow
+					{workflow}
+					{row}
+					{hideColumns}
+					{actions}
+					{disableLink}
+					{rowStart}
+				/>
 			{:else}
 				<Table.Row class="hover:bg-transparent">
 					<Table.Cell colspan={6} class="text-center text-gray-300 py-20">
