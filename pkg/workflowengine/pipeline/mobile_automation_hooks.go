@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"sort"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -243,7 +244,8 @@ func validateRunnerIDConfiguration(steps *[]StepDefinition, globalRunnerID strin
 	// Check if all mobile-automation steps have runner_id
 	allStepsHaveRunnerID := true
 	for _, step := range mobileAutomationSteps {
-		if runnerID, ok := step.With.Payload["runner_id"].(string); !ok || runnerID == "" {
+		runnerID, ok := step.With.Payload["runner_id"].(string)
+		if !ok || canonify.NormalizePath(runnerID) == "" {
 			allStepsHaveRunnerID = false
 			break
 		}
@@ -272,6 +274,7 @@ func getOrCreateSettedDevices(runData *map[string]any) map[string]any {
 func collectMobileRunnerIDs(steps []StepDefinition, globalID string) ([]string, error) {
 	uniqueRunnerIDs := make(map[string]struct{})
 
+	globalID = canonify.NormalizePath(globalID)
 	if globalID != "" {
 		uniqueRunnerIDs[globalID] = struct{}{}
 	}
@@ -285,6 +288,7 @@ func collectMobileRunnerIDs(steps []StepDefinition, globalID string) ([]string, 
 		if err != nil {
 			return nil, err
 		}
+		payload.RunnerID = canonify.NormalizePath(payload.RunnerID)
 		if payload.RunnerID == "" {
 			continue
 		}
@@ -316,13 +320,14 @@ func processStep(
 	}
 
 	// Use global_runner_id if step-level runner_id is not set
+	payload.RunnerID = canonify.NormalizePath(payload.RunnerID)
 	if payload.RunnerID == "" && input.globalRunnerID != "" {
 		payload.RunnerID = input.globalRunnerID
 		// Update the step payload with the global runner_id for consistency
 		SetPayloadValue(&input.step.With.Payload, "runner_id", input.globalRunnerID)
 	}
 
-	taskqueue := fmt.Sprintf("%s-%s", payload.RunnerID, "TaskQueue")
+	taskqueue := mobileRunnerTaskQueue(payload.RunnerID)
 	SetConfigValue(&input.step.With.Config, "taskqueue", taskqueue)
 	mobileAo := *input.ao
 	mobileAo.TaskQueue = taskqueue
@@ -821,7 +826,7 @@ func startRecordingForDevice(
 	}
 
 	mobileAO := *input.ao
-	mobileAO.TaskQueue = fmt.Sprintf("%s-TaskQueue", input.runnerID)
+	mobileAO.TaskQueue = mobileRunnerTaskQueue(input.runnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAO)
 
 	startRecordInput := workflowengine.ActivityInput{
@@ -1015,7 +1020,7 @@ func cleanupDevice(
 		*input.cleanupErrs = append(*input.cleanupErrs, err)
 	}
 
-	input.mobileAo.TaskQueue = fmt.Sprintf("%s-%s", input.runnerID, "TaskQueue")
+	input.mobileAo.TaskQueue = mobileRunnerTaskQueue(input.runnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.mobileAo)
 
 	cleanupRecording(cleanupRecordingInput{
@@ -1057,6 +1062,10 @@ func cleanupDevice(
 	deviceMap["cleaned"] = true
 
 	return nil
+}
+
+func mobileRunnerTaskQueue(runnerID string) string {
+	return fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath(runnerID))
 }
 
 func parseDeviceMap(

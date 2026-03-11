@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
 	"github.com/forkbombeu/credimi/pkg/internal/runqueue"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -316,6 +317,7 @@ func cancelRunTicket(
 
 // runQueueUpdateID builds a stable update identifier for runner queue updates.
 func runQueueUpdateID(prefix, runnerID, ticketID string) string {
+	runnerID = canonify.NormalizePath(runnerID)
 	return prefix + "/" + runnerID + "/" + ticketID
 }
 
@@ -326,7 +328,7 @@ func normalizeRunnerIDs(values []string) []string {
 	}
 	out := make([]string, 0, len(values))
 	for _, value := range values {
-		candidate := strings.TrimSpace(value)
+		candidate := canonify.NormalizePath(value)
 		if candidate == "" {
 			continue
 		}

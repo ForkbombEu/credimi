@@ -643,7 +643,7 @@ func normalizeRunnerIDs(values []string) []string {
 	unique := map[string]struct{}{}
 	for _, value := range values {
 		for _, part := range strings.Split(value, ",") {
-			candidate := strings.TrimSpace(part)
+			candidate := canonify.NormalizePath(part)
 			if candidate == "" {
 				continue
 			}
@@ -716,6 +716,8 @@ func copyStringSlice(values []string) []string {
 }
 
 func ensureRunQueueSemaphoreWorkflowTemporal(ctx context.Context, runnerID string) error {
+	runnerID = canonify.NormalizePath(runnerID)
+
 	client, err := queueTemporalClient(
 		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
 	)
@@ -752,6 +754,11 @@ func enqueueRunTicketTemporal(
 	runnerID string,
 	req workflows.MobileRunnerSemaphoreEnqueueRunRequest,
 ) (workflows.MobileRunnerSemaphoreEnqueueRunResponse, error) {
+	runnerID = canonify.NormalizePath(runnerID)
+	req.RunnerID = canonify.NormalizePath(req.RunnerID)
+	req.RequiredRunnerIDs = normalizeRunnerIDs(req.RequiredRunnerIDs)
+	req.LeaderRunnerID = canonify.NormalizePath(req.LeaderRunnerID)
+
 	client, err := queueTemporalClient(
 		workflowengine.MobileRunnerSemaphoreDefaultNamespace,
 	)
@@ -863,5 +870,6 @@ func startPipelineWorkflowTemporal(
 }
 
 func runQueueUpdateID(prefix, runnerID, ticketID string) string {
+	runnerID = canonify.NormalizePath(runnerID)
 	return prefix + "/" + runnerID + "/" + ticketID
 }

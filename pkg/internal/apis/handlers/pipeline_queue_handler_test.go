@@ -541,6 +541,11 @@ func TestPipelineQueueHelpers(t *testing.T) {
 		require.Equal(t, []string{"runner-1", "runner-2", "runner-3"}, normalizeRunnerIDs(values))
 	})
 
+	t.Run("normalizeRunnerIDs trims leading slash", func(t *testing.T) {
+		values := []string{" /tenant/runner-2 , /tenant/runner-1", "tenant/runner-2"}
+		require.Equal(t, []string{"tenant/runner-1", "tenant/runner-2"}, normalizeRunnerIDs(values))
+	})
+
 	t.Run("runTicketNotFoundView sets status", func(t *testing.T) {
 		view := runTicketNotFoundView("ticket-123")
 		require.Equal(t, "ticket-123", view.TicketID)
@@ -1063,8 +1068,8 @@ func TestPipelineQueueTemporalHelpers(t *testing.T) {
 	t.Run("runQueueUpdateID formats deterministically", func(t *testing.T) {
 		require.Equal(
 			t,
-			"enqueue/runner-1/ticket-1",
-			runQueueUpdateID("enqueue", "runner-1", "ticket-1"),
+			"enqueue/tenant/runner-1/ticket-1",
+			runQueueUpdateID("enqueue", "/tenant/runner-1", "ticket-1"),
 		)
 	})
 }
