@@ -335,7 +335,7 @@ func runChildPipeline(
 	return childResult.Output, nil
 }
 
-// fetchChildPipelineYAML fetches the pipeline YAML from HTTPActivity
+// fetchChildPipelineYAML fetches the pipeline YAML from an internal API route.
 func fetchChildPipelineYAML(
 	ctx workflow.Context,
 	step StepDefinition,
@@ -355,10 +355,10 @@ func fetchChildPipelineYAML(
 		)
 	}
 
-	act := activities.NewHTTPActivity()
+	act := activities.NewInternalHTTPActivity()
 	var response workflowengine.ActivityResult
 	req := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
+		Payload: activities.InternalHTTPActivityPayload{
 			Method: http.MethodGet,
 			URL:    utils.JoinURL(appURL, "api", "pipeline", "get-yaml"),
 			QueryParams: map[string]string{
@@ -369,7 +369,27 @@ func fetchChildPipelineYAML(
 	}
 
 	if err := workflow.ExecuteActivity(ctx, act.Name(), req).Get(ctx, &response); err != nil {
-		return "", workflowengine.NewWorkflowError(err, meta)
+		if isMissingPipelineInternalHTTPActivity(err) {
+			fallback := workflowengine.ActivityInput{
+				Payload: activities.HTTPActivityPayload{
+					Method: http.MethodGet,
+					URL:    utils.JoinURL(appURL, "api", "pipeline", "get-yaml"),
+					QueryParams: map[string]string{
+						"pipeline_identifier": pipelineID,
+					},
+					ExpectedStatus: 200,
+				},
+			}
+			if fbErr := workflow.ExecuteActivity(
+				ctx,
+				activities.NewHTTPActivity().Name(),
+				fallback,
+			).Get(ctx, &response); fbErr != nil {
+				return "", workflowengine.NewWorkflowError(fbErr, meta)
+			}
+		} else {
+			return "", workflowengine.NewWorkflowError(err, meta)
+		}
 	}
 
 	body, ok := response.Output.(map[string]any)["body"].(string)
@@ -385,4 +405,11 @@ func fetchChildPipelineYAML(
 	}
 
 	return body, nil
+}
+
+func isMissingPipelineInternalHTTPActivity(err error) bool {
+	if err == nil {
+		return false
+	}
+	return strings.Contains(strings.ToLower(err.Error()), "make an internal http request")
 }

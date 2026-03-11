@@ -91,6 +91,15 @@ historical data (see Temporal admin tooling docs for your deployment).
 - Default acquire wait timeout: 45m.
 - Override timeout: `MOBILE_RUNNER_SEMAPHORE_WAIT_TIMEOUT=30m` (or any valid `time.ParseDuration` value).
 - Disable semaphore (no-op acquire/release): `MOBILE_RUNNER_SEMAPHORE_DISABLED=1`.
+- Internal Temporal API auth key: `CREDIMI_INTERNAL_ADMIN_KEY=<plaintext key>` (required for internal workflow HTTP calls).
+
+### Internal admin API key rollout
+
+1. Run DB migrations so `api_keys` supports `key_type`, `superuser`, `revoked`, `expires_at`.
+2. Provision an internal admin key (hash stored in DB, plaintext returned once).
+3. Set `CREDIMI_INTERNAL_ADMIN_KEY` in backend and worker runtime secrets.
+4. Deploy backend/workers with middleware + internal HTTP activity enabled.
+5. Smoke-check one authenticated user route and one internal Temporal route.
 
 ### Emergency procedures
 

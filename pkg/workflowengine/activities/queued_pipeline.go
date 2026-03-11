@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -454,6 +455,11 @@ func postPipelineExecutionResult(
 		return 0, fmt.Errorf("build pipeline results request: %w", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	internalKey := strings.TrimSpace(os.Getenv("CREDIMI_INTERNAL_ADMIN_KEY"))
+	if internalKey == "" {
+		return 0, fmt.Errorf("CREDIMI_INTERNAL_ADMIN_KEY is required")
+	}
+	req.Header.Set("Credimi-Api-Key", internalKey)
 
 	resp, err := httpDoer.Do(req)
 	if err != nil {

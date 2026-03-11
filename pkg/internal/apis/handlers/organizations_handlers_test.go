@@ -66,9 +66,9 @@ func TestOrganizationHandlers(t *testing.T) {
 			Name:           "get my organization info (unauthenticated)",
 			Method:         "GET",
 			URL:            "/api/organizations/my",
-			ExpectedStatus: 500,
+			ExpectedStatus: 401,
 			ExpectedContent: []string{
-				"The request requires valid record authorization token.",
+				"authentication_required",
 			},
 			TestAppFactory: setupOrganizationApp,
 		},

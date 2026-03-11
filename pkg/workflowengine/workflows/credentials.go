@@ -243,7 +243,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 	credentialsNumber = len(credConfigs)
 	credentialsIssuerDataReady = true
 
-	HTTPActivity := activities.NewHTTPActivity()
+	internalHTTPActivity := activities.NewInternalHTTPActivity()
 	validKeys := []string{}
 	for credKey, credential := range credConfigs {
 		conformant := true
@@ -260,7 +260,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 		}
 
 		storeInput := workflowengine.ActivityInput{
-			Payload: activities.HTTPActivityPayload{
+			Payload: activities.InternalHTTPActivityPayload{
 				Method: http.MethodPost,
 				URL: utils.JoinURL(
 					appURL,
@@ -276,7 +276,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 			},
 		}
 		var storeResponse workflowengine.ActivityResult
-		err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), storeInput).
+		err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), storeInput).
 			Get(ctx, &storeResponse)
 		if err != nil {
 			return workflowengine.WorkflowResult{Log: logs}, err
@@ -286,7 +286,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			appErr := workflowengine.NewAppError(
 				errCode,
-				fmt.Sprintf("%s: body.key", HTTPActivity.Name()),
+				fmt.Sprintf("%s: body.key", internalHTTPActivity.Name()),
 			)
 			return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 				appErr,
@@ -302,7 +302,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 	}
 
 	cleanupInput := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
+		Payload: activities.InternalHTTPActivityPayload{
 			Method: http.MethodPost,
 			URL: utils.JoinURL(
 				appURL,
@@ -316,7 +316,7 @@ func (w *CredentialsIssuersWorkflow) ExecuteWorkflow(
 		},
 	}
 	var cleanupResponse workflowengine.ActivityResult
-	err = workflow.ExecuteActivity(ctx, HTTPActivity.Name(), cleanupInput).
+	err = workflow.ExecuteActivity(ctx, internalHTTPActivity.Name(), cleanupInput).
 		Get(ctx, &cleanupResponse)
 	logs["RemovedCredentials"] = append(
 		logs["RemovedCredentials"],
@@ -440,13 +440,13 @@ func (w *GetCredentialOfferWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	act := activities.NewHTTPActivity()
+	act := activities.NewInternalHTTPActivity()
 	var result workflowengine.ActivityResult
 	request := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
+		Payload: activities.InternalHTTPActivityPayload{
 			Method: http.MethodGet,
 			URL: utils.JoinURL(
-				input.Config["app_url"].(string),
+				appURL,
 				"api", "credential", "get-credential-offer",
 			),
 			QueryParams: map[string]string{

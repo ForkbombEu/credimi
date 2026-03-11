@@ -216,7 +216,7 @@ func TestAuthenticateApiKeyHandler_Integration(t *testing.T) {
 
 	// Test authenticating with the API key
 	req := httptest.NewRequest("GET", "/api/apikey/authenticate", nil)
-	req.Header.Set("X-Api-Key", apiKey)
+	req.Header.Set("Credimi-Api-Key", apiKey)
 
 	// rec := httptest.NewRecorder()
 
@@ -309,9 +309,9 @@ func TestAuthenticateApiKeyHandler_SecurityValidation(t *testing.T) {
 			// This test verifies that malicious API keys don't cause panics
 			assert.NotPanics(t, func() {
 				req := httptest.NewRequest("GET", "/api/apikey/authenticate", nil)
-				req.Header.Set("X-Api-Key", apiKey)
+				req.Header.Set("Credimi-Api-Key", apiKey)
 
-				header := req.Header.Get("X-Api-Key")
+				header := req.Header.Get("Credimi-Api-Key")
 				assert.Equal(t, apiKey, header)
 			})
 		})

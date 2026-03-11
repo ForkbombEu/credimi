@@ -19,7 +19,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	engine "github.com/forkbombeu/credimi/pkg/templateengine"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"gopkg.in/yaml.v3"
@@ -32,7 +31,7 @@ var TemplateRoutes routing.RouteGroup = routing.RouteGroup{
 			Method:              "GET",
 			Path:                "/blueprints",
 			Handler:             HandleGetConfigsTemplates,
-			ExcludedMiddlewares: []string{apis.DefaultRequireAuthMiddlewareId},
+			ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
 		},
 		{
 			Method:        "POST",

@@ -159,6 +159,12 @@ var PipelineInternalRegistry = map[string]TaskFactory{
 		PayloadType: reflect.TypeOf(activities.EnqueuePipelineRunTicketActivityInput{}),
 		OutputKind:  workflowengine.OutputAny,
 	},
+	"internal-http-request": {
+		Kind:        TaskActivity,
+		NewFunc:     func() any { return activities.NewInternalHTTPActivity() },
+		PayloadType: reflect.TypeOf(activities.InternalHTTPActivityPayload{}),
+		OutputKind:  workflowengine.OutputMap,
+	},
 }
 
 // Denylist of task keys that should NOT be registered in the pipeline worker

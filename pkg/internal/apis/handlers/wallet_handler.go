@@ -71,12 +71,16 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Handler:        HandleWalletGetMD5,
 			RequestSchema:  WalletMD5OrETagRequest{},
 			ResponseSchema: WalletMD5OrETagResponse{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
 		},
 		{
 			Method:  http.MethodPost,
 			Path:    "/store-pipeline-result",
 			Handler: HandleWalletStorePipelineResult,
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
 				apis.BodyLimit(500 << 20),
 			},
 		},

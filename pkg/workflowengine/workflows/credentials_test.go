@@ -52,7 +52,7 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 				checkAct := activities.NewCheckCredentialsIssuerActivity()
 				jsonAct := activities.NewJSONActivity(nil)
 				validateAct := activities.NewSchemaValidationActivity()
-				httpAct := activities.NewHTTPActivity()
+				httpAct := activities.NewInternalHTTPActivity()
 
 				env.RegisterActivityWithOptions(
 					checkAct.Execute,
@@ -308,7 +308,7 @@ func Test_CredentialsIssuersWorkflow(t *testing.T) {
 				checkAct := activities.NewCheckCredentialsIssuerActivity()
 				jsonAct := activities.NewJSONActivity(nil)
 				validateAct := activities.NewSchemaValidationActivity()
-				httpAct := activities.NewHTTPActivity()
+				httpAct := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
 					checkAct.Execute,
 					activity.RegisterOptions{Name: checkAct.Name()},
@@ -535,7 +535,7 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewHTTPActivity()
+				httpAct := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
 					httpAct.Execute,
 					activity.RegisterOptions{Name: httpAct.Name()},
@@ -559,7 +559,7 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 				Payload: GetCredentialOfferWorkflowPayload{CredentialID: "dynamic_cred"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewHTTPActivity()
+				httpAct := activities.NewInternalHTTPActivity()
 				stepCIAct := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(
 					httpAct.Execute,
@@ -591,7 +591,7 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 				Payload: GetCredentialOfferWorkflowPayload{CredentialID: "test_cred"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewHTTPActivity()
+				httpAct := activities.NewInternalHTTPActivity()
 				stepCIAct := activities.NewStepCIWorkflowActivity()
 				env.RegisterActivityWithOptions(
 					httpAct.Execute,
@@ -632,7 +632,7 @@ func Test_GetCredentialOfferWorkflow(t *testing.T) {
 				Payload: GetCredentialOfferWorkflowPayload{CredentialID: "test_cred"},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewHTTPActivity()
+				httpAct := activities.NewInternalHTTPActivity()
 				env.RegisterActivityWithOptions(
 					httpAct.Execute,
 					activity.RegisterOptions{Name: httpAct.Name()},

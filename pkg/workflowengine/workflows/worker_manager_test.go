@@ -40,28 +40,26 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 				"app_url": "https://test-server.com",
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				internalHTTPAct := activities.NewInternalHTTPActivity()
 				httpAct := activities.NewHTTPActivity()
+				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
+					Name: internalHTTPAct.Name(),
+				})
 				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
 					Name: httpAct.Name(),
 				})
 
-				callCount := 0
-				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).Return(
-					func(_ context.Context, _ workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
-						callCount++
-						if callCount == 1 {
-							return workflowengine.ActivityResult{
-								Output: map[string]any{
-									"status": "ok",
-									"body": map[string]any{
-										"runners": []any{"runner1", "runner2"},
-									},
-								},
-							}, nil
-						}
-						return workflowengine.ActivityResult{}, nil
+				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
+					workflowengine.ActivityResult{
+						Output: map[string]any{
+							"status": "ok",
+							"body":   map[string]any{"runners": []any{"runner1", "runner2"}},
+						},
 					},
+					nil,
 				)
+				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
+					Return(workflowengine.ActivityResult{}, nil)
 			},
 			assertResult: func(t *testing.T, result workflowengine.WorkflowResult) {
 				require.Equal(
@@ -91,26 +89,31 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 				},
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
+				internalHTTPAct := activities.NewInternalHTTPActivity()
 				httpAct := activities.NewHTTPActivity()
+				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
+					Name: internalHTTPAct.Name(),
+				})
 				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
 					Name: httpAct.Name(),
 				})
+
+				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).Return(
+					workflowengine.ActivityResult{
+						Output: map[string]any{
+							"status": "ok",
+							"body":   map[string]any{"runners": []any{"runner1", "runner2", "runner3"}},
+						},
+					},
+					nil,
+				)
 
 				callCount := 0
 				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).Return(
 					func(_ context.Context, _ workflowengine.ActivityInput) (workflowengine.ActivityResult, error) {
 						callCount++
 						switch callCount {
-						case 1:
-							return workflowengine.ActivityResult{
-								Output: map[string]any{
-									"status": "ok",
-									"body": map[string]any{
-										"runners": []any{"runner1", "runner2", "runner3"},
-									},
-								},
-							}, nil
-						case 3:
+						case 2:
 							return workflowengine.ActivityResult{}, errors.New("runner timeout")
 						default:
 							return workflowengine.ActivityResult{}, nil
@@ -153,12 +156,12 @@ func Test_WorkerManagerWorkflow(t *testing.T) {
 				"app_url": "https://test-server.com",
 			},
 			mockActivities: func(env *testsuite.TestWorkflowEnvironment) {
-				httpAct := activities.NewHTTPActivity()
+				internalHTTPAct := activities.NewInternalHTTPActivity()
 
-				env.RegisterActivityWithOptions(httpAct.Execute, activity.RegisterOptions{
-					Name: httpAct.Name(),
+				env.RegisterActivityWithOptions(internalHTTPAct.Execute, activity.RegisterOptions{
+					Name: internalHTTPAct.Name(),
 				})
-				env.OnActivity(httpAct.Name(), mock.Anything, mock.Anything).
+				env.OnActivity(internalHTTPAct.Name(), mock.Anything, mock.Anything).
 					Return(workflowengine.ActivityResult{
 						Output: map[string]any{
 							"status": "ok",
