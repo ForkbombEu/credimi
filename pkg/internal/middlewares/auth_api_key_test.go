@@ -77,6 +77,19 @@ func TestRequireAuthOrAPIKey_BearerAndFallbackContract(t *testing.T) {
 		err := RequireAuthOrAPIKey().Func(e)
 		require.Error(t, err)
 	})
+
+	t.Run("authorization scheme match is case sensitive", func(t *testing.T) {
+		token, err := user.NewAuthToken()
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodGet, "/", nil)
+		req.Header.Set("Authorization", "bearer "+token)
+		rec := httptest.NewRecorder()
+
+		e := &core.RequestEvent{App: app, Event: router.Event{Request: req, Response: rec}}
+		err = RequireAuthOrAPIKey().Func(e)
+		require.Error(t, err)
+	})
 }
 
 func TestRequireInternalAdminAPIKey(t *testing.T) {

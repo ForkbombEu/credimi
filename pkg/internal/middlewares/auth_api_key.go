@@ -37,17 +37,14 @@ func RequireAuthOrAPIKey() *hook.Handler[*core.RequestEvent] {
 				if err := apis.RequireAuth().Func(e); err == nil {
 					return nil
 				}
-				if strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
+				if strings.HasPrefix(authHeader, "Bearer ") {
 					e.Request.Header.Set(
 						"Authorization",
 						strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer ")),
 					)
 					return apis.RequireAuth().Func(e)
 				}
-				if !strings.HasPrefix(strings.ToLower(authHeader), "bearer ") {
-					e.Request.Header.Set("Authorization", "Bearer "+authHeader)
-					return apis.RequireAuth().Func(e)
-				}
+				e.Request.Header.Set("Authorization", "Bearer "+authHeader)
 				return apis.RequireAuth().Func(e)
 			}
 
