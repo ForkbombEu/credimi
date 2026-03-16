@@ -35,7 +35,7 @@ paths:
       summary: Authenticate API Key
   /api/apikey/generate:
     post:
-      description: Generate a new API key for the authenticated user.
+      description: Generate a new API key for the authenticated user or superuser.
       operationId: apiKey.generate
       requestBody:
         content:

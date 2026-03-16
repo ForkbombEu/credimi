@@ -129,6 +129,7 @@ var OrgWorkers = []workerConfig{
 			),
 			activities.NewSchemaValidationActivity(),
 			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{
@@ -212,6 +213,7 @@ var DefaultWorkers = []workerConfig{
 		},
 		Activities: []workflowengine.ExecutableActivity{
 			activities.NewHTTPActivity(),
+			activities.NewInternalHTTPActivity(),
 		},
 	},
 	{

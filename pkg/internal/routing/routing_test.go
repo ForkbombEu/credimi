@@ -18,6 +18,7 @@ import (
 	"github.com/pocketbase/pocketbase/tools/hook"
 	"github.com/pocketbase/pocketbase/tools/router"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type samplePayload struct {
@@ -114,7 +115,7 @@ func TestRegisterRoutesWithValidation(t *testing.T) {
 }
 
 func TestRegisterRoutesWithValidation_RequireAuth(t *testing.T) {
-	app, err := tests.NewTestApp()
+	app, err := tests.NewTestApp("../../../test_pb_data")
 	require.NoError(t, err)
 	defer app.Cleanup()
 
@@ -149,6 +150,65 @@ func TestRegisterRoutesWithValidation_RequireAuth(t *testing.T) {
 	mux.ServeHTTP(res, req)
 	require.Equal(t, http.StatusUnauthorized, res.Code)
 	require.False(t, handlerCalled.Load())
+
+	user, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+	apiKeysCollection, err := app.FindCollectionByNameOrId("api_keys")
+	require.NoError(t, err)
+	hash, err := bcrypt.GenerateFromPassword([]byte("routing-test-key"), bcrypt.DefaultCost)
+	require.NoError(t, err)
+	keyRecord := core.NewRecord(apiKeysCollection)
+	keyRecord.Set("name", "routing-test")
+	keyRecord.Set("key", string(hash))
+	keyRecord.Set("user", user.Id)
+	keyRecord.Set("key_type", "user")
+	require.NoError(t, app.Save(keyRecord))
+
+	req = httptest.NewRequest(http.MethodGet, "/secure", nil)
+	req.Header.Set("Credimi-Api-Key", "routing-test-key")
+	res = httptest.NewRecorder()
+	mux.ServeHTTP(res, req)
+	require.Equal(t, http.StatusOK, res.Code)
+	require.True(t, handlerCalled.Load())
+
+}
+
+func TestRegisterRoutesWithValidation_RequireAuthExcluded(t *testing.T) {
+	app, err := tests.NewTestApp("../../../test_pb_data")
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	var handlerCalled atomic.Bool
+	publicRoute := RouteDefinition{
+		Method:              http.MethodGet,
+		Path:                "/public-ish",
+		ExcludedMiddlewares: []string{middlewares.RequireAuthOrAPIKeyMiddlewareID},
+		Handler: func() func(*core.RequestEvent) error {
+			return func(e *core.RequestEvent) error {
+				handlerCalled.Store(true)
+				return e.String(http.StatusOK, "ok")
+			}
+		},
+	}
+
+	r := router.NewRouter(
+		func(w http.ResponseWriter, req *http.Request) (*core.RequestEvent, router.EventCleanupFunc) {
+			return &core.RequestEvent{
+				App:   app,
+				Event: router.Event{Response: w, Request: req},
+			}, nil
+		},
+	)
+
+	RegisterRoutesWithValidation(app, r.RouterGroup, []RouteDefinition{publicRoute}, true)
+	mux, err := r.BuildMux()
+	require.NoError(t, err)
+
+	req := httptest.NewRequest(http.MethodGet, "/public-ish", nil)
+	res := httptest.NewRecorder()
+	mux.ServeHTTP(res, req)
+	require.Equal(t, http.StatusOK, res.Code)
+	require.True(t, handlerCalled.Load())
 }
 
 func TestRegisterRoutesWithValidation_MethodCoverage(t *testing.T) {

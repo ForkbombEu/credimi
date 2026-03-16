@@ -77,10 +77,10 @@ func (w *GetUseCaseVerificationDeeplinkWorkflow) ExecuteWorkflow(
 			input.RunMetadata,
 		)
 	}
-	act := activities.NewHTTPActivity()
+	act := activities.NewInternalHTTPActivity()
 	var result workflowengine.ActivityResult
 	request := workflowengine.ActivityInput{
-		Payload: activities.HTTPActivityPayload{
+		Payload: activities.InternalHTTPActivityPayload{
 			Method: http.MethodGet,
 			URL: utils.JoinURL(
 				input.Config["app_url"].(string),

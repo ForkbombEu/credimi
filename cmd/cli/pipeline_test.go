@@ -60,7 +60,7 @@ func TestNewPipelineStoreCmdFlags(t *testing.T) {
 func TestAuthenticate(t *testing.T) {
 	server := newTestServer(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		require.Equal(t, "/api/apikey/authenticate", r.URL.Path)
-		require.Equal(t, "key-123", r.Header.Get("X-Api-Key"))
+		require.Equal(t, "key-123", r.Header.Get("Credimi-Api-Key"))
 		w.Header().Set("Content-Type", "application/json")
 		require.NoError(t, json.NewEncoder(w).Encode(map[string]any{
 			"token": "token-abc",

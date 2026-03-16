@@ -35,6 +35,7 @@ func setupPipelineApp(t testing.TB) *tests.TestApp {
 
 	canonify.RegisterCanonifyHooks(app)
 	PipelineTemporalInternalRoutes.Add(app)
+	seedInternalAdminKey(t, app)
 
 	return app
 }
@@ -64,6 +65,7 @@ func TestGetPipelineYAML(t *testing.T) {
 				`"pipeline_identifier"`,
 				`"pipeline_identifier is required"`,
 			},
+			Headers:        map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: setupPipelineApp,
 		},
 		{
@@ -74,6 +76,7 @@ func TestGetPipelineYAML(t *testing.T) {
 			ExpectedContent: []string{
 				`"pipeline not found"`,
 			},
+			Headers:        map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: setupPipelineApp,
 		},
 		{
@@ -84,6 +87,7 @@ func TestGetPipelineYAML(t *testing.T) {
 			ExpectedContent: []string{
 				`example-yaml-content`,
 			},
+			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineApp(t)
 
@@ -124,6 +128,7 @@ func TestSetPipelineExecutionResults(t *testing.T) {
 			ExpectedContent: []string{
 				"pipeline not found",
 			},
+			Headers:        map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: setupPipelineApp,
 		},
 		{
@@ -143,6 +148,7 @@ func TestSetPipelineExecutionResults(t *testing.T) {
 				`"workflow_id"`,
 				`"run_id"`,
 			},
+			Headers: map[string]string{"Credimi-Api-Key": "internal-test-api-key"},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupPipelineApp(t)
 
@@ -209,6 +215,7 @@ func TestSetPipelineExecutionResultsIdempotent(t *testing.T) {
 				strings.NewReader(body),
 			)
 			req.Header.Set("content-type", "application/json")
+			req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
 			rec := httptest.NewRecorder()
 			mux.ServeHTTP(rec, req)
 			require.Equal(t, http.StatusOK, rec.Code)

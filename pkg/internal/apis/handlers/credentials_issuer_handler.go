@@ -71,12 +71,18 @@ var IssuerTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:          "/store-or-update-extracted-credentials",
 			Handler:       HandleCredentialIssuerStoreOrUpdateExtractedCredentials,
 			RequestSchema: StoreOrUpdateCredentialsRequest{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
 		},
 		{
 			Method:        http.MethodPost,
 			Path:          "/cleanup-credentials",
 			Handler:       HandleCredentialIssuerCleanupCredentials,
 			RequestSchema: IssuerCleanupCredentialsRequest{},
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
 		},
 	},
 }

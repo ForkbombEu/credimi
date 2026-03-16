@@ -128,10 +128,15 @@ func TestPipelineInternalRegistryContainsTasks(t *testing.T) {
 
 	require.Contains(t, PipelineInternalRegistry, "scheduled-pipeline-enqueue")
 	require.Contains(t, PipelineInternalRegistry, "mobile-runner-semaphore-done")
+	require.Contains(t, PipelineInternalRegistry, "internal-http-request")
 
 	task := PipelineInternalRegistry["scheduled-pipeline-enqueue"]
 	require.Equal(t, TaskWorkflow, task.Kind)
 	require.NotNil(t, task.NewFunc())
+
+	internalHTTPTask := PipelineInternalRegistry["internal-http-request"]
+	require.Equal(t, TaskActivity, internalHTTPTask.Kind)
+	require.NotNil(t, internalHTTPTask.NewFunc())
 }
 
 func TestPipelineInternalRegistryFactoriesCreateInstances(t *testing.T) {

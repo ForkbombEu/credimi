@@ -515,20 +515,41 @@ func fetchRunnerInfo(
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 
 	runnerReq := workflowengine.ActivityInput{
-		Payload: map[string]any{
-			"method":          http.MethodGet,
-			"url":             utils.JoinURL(input.appURL, "api", "mobile-runner"),
-			"expected_status": 200,
-			"query_params": map[string]string{
+		Payload: activities.InternalHTTPActivityPayload{
+			Method:         http.MethodGet,
+			URL:            utils.JoinURL(input.appURL, "api", "mobile-runner"),
+			ExpectedStatus: 200,
+			QueryParams: map[string]string{
 				"runner_identifier": input.payload.RunnerID,
 			},
 		},
 	}
+	internalHTTPActivity := activities.NewInternalHTTPActivity()
 
 	var runnerRes workflowengine.ActivityResult
-	if err := workflow.ExecuteActivity(input.ctx, input.httpActivity.Name(), runnerReq).
+	if err := workflow.ExecuteActivity(input.ctx, internalHTTPActivity.Name(), runnerReq).
 		Get(input.ctx, &runnerRes); err != nil {
-		return "", "", "", err
+		if isMissingPipelineInternalHTTPActivity(err) {
+			fallbackReq := workflowengine.ActivityInput{
+				Payload: activities.HTTPActivityPayload{
+					Method:         http.MethodGet,
+					URL:            utils.JoinURL(input.appURL, "api", "mobile-runner"),
+					ExpectedStatus: 200,
+					QueryParams: map[string]string{
+						"runner_identifier": input.payload.RunnerID,
+					},
+				},
+			}
+			if fbErr := workflow.ExecuteActivity(
+				input.ctx,
+				activities.NewHTTPActivity().Name(),
+				fallbackReq,
+			).Get(input.ctx, &runnerRes); fbErr != nil {
+				return "", "", "", fbErr
+			}
+		} else {
+			return "", "", "", err
+		}
 	}
 
 	body, ok := runnerRes.Output.(map[string]any)["body"].(map[string]any)

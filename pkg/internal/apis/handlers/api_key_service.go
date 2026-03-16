@@ -9,10 +9,26 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/pocketbase/pocketbase/core"
 	"golang.org/x/crypto/bcrypt"
+)
+
+const (
+	InternalAdminAPIKeyEnvVar   = "CREDIMI_INTERNAL_ADMIN_KEY"
+	APIKeyHeaderName            = "Credimi-Api-Key"
+	apiKeyUserCollection        = "users"
+	apiKeySuperuserCollection   = "_superusers"
+	apiKeyDefaultScopeFieldName = "key_type"
+)
+
+type ApiKeyScope string
+
+const (
+	ApiKeyScopeUser          ApiKeyScope = "user"
+	ApiKeyScopeInternalAdmin ApiKeyScope = "internal_admin"
 )
 
 type ApiKeyService struct {
@@ -172,8 +188,30 @@ func NewApiKeyServiceWithDependencies(
 	}
 }
 
-func (s *ApiKeyService) GenerateApiKey(userId, name string) (string, error) {
-	if userId == "" {
+func (s *ApiKeyService) GenerateApiKey(userID, name string) (string, error) {
+	return s.generateScopedAPIKey(userID, "", name, ApiKeyScopeUser)
+}
+
+func (s *ApiKeyService) GenerateInternalAdminAPIKey(superuserID, name string) (string, error) {
+	return s.generateScopedAPIKey("", superuserID, name, ApiKeyScopeInternalAdmin)
+}
+
+func (s *ApiKeyService) generateScopedAPIKey(
+	userID string,
+	superuserID string,
+	name string,
+	scope ApiKeyScope,
+) (string, error) {
+	if name == "" {
+		return "", apierror.New(
+			http.StatusBadRequest,
+			"request.validation",
+			"name_required",
+			"name is required",
+		)
+	}
+
+	if scope == ApiKeyScopeUser && userID == "" {
 		return "", apierror.New(
 			http.StatusBadRequest,
 			"request.validation",
@@ -181,13 +219,20 @@ func (s *ApiKeyService) GenerateApiKey(userId, name string) (string, error) {
 			"user ID is required",
 		)
 	}
-
-	if name == "" {
+	if scope == ApiKeyScopeInternalAdmin && superuserID == "" {
 		return "", apierror.New(
 			http.StatusBadRequest,
 			"request.validation",
-			"name_required",
-			"name is required",
+			"superuser_required",
+			"superuser is required for internal_admin API keys",
+		)
+	}
+	if err := validateAPIKeyOwners(userID, superuserID, scope); err != nil {
+		return "", apierror.New(
+			http.StatusUnauthorized,
+			"request.validation",
+			"invalid_api_key_owner",
+			err.Error(),
 		)
 	}
 
@@ -232,9 +277,12 @@ func (s *ApiKeyService) GenerateApiKey(userId, name string) (string, error) {
 	}
 
 	record := core.NewRecord(apiKeysCollection)
-	record.Set("user", userId)
+	record.Set("user", userID)
+	record.Set("superuser", superuserID)
 	record.Set("key", hashedKey)
 	record.Set("name", name)
+	record.Set(apiKeyDefaultScopeFieldName, string(scope))
+	record.Set("revoked", false)
 
 	if err := s.app.Save(record); err != nil {
 		return "", apierror.New(
@@ -249,6 +297,29 @@ func (s *ApiKeyService) GenerateApiKey(userId, name string) (string, error) {
 }
 
 func (s *ApiKeyService) AuthenticateApiKey(apiKey string) (*core.Record, error) {
+	return s.AuthenticateUserAPIKey(apiKey)
+}
+
+func (s *ApiKeyService) AuthenticateUserAPIKey(apiKey string) (*core.Record, error) {
+	principal, err := s.authenticateByScope(apiKey, ApiKeyScopeUser)
+	if err != nil {
+		return nil, err
+	}
+	return principal, nil
+}
+
+func (s *ApiKeyService) AuthenticateInternalAdminAPIKey(apiKey string) (*core.Record, error) {
+	principal, err := s.authenticateByScope(apiKey, ApiKeyScopeInternalAdmin)
+	if err != nil {
+		return nil, err
+	}
+	return principal, nil
+}
+
+func (s *ApiKeyService) authenticateByScope(
+	apiKey string,
+	requiredScope ApiKeyScope,
+) (*core.Record, error) {
 	if apiKey == "" {
 		return nil, apierror.New(
 			http.StatusUnauthorized,
@@ -278,34 +349,133 @@ func (s *ApiKeyService) AuthenticateApiKey(apiKey string) (*core.Record, error) 
 		)
 	}
 
-	userId := matchedRecord.GetString("user")
-	if userId == "" {
+	if matchedRecord.GetBool("revoked") {
 		return nil, apierror.New(
 			http.StatusUnauthorized,
 			"request.validation",
-			"user_not_found",
-			"User associated with the API key not found",
+			"revoked_api_key",
+			"API key is revoked",
 		)
 	}
 
-	authRecord, err := s.app.FindRecordById("users", userId)
+	expiresAt := matchedRecord.GetDateTime("expires_at")
+	if !expiresAt.IsZero() && expiresAt.Time().Before(time.Now().UTC()) {
+		return nil, apierror.New(
+			http.StatusUnauthorized,
+			"request.validation",
+			"expired_api_key",
+			"API key is expired",
+		)
+	}
+
+	userID := matchedRecord.GetString("user")
+	superuserID := matchedRecord.GetString("superuser")
+	scope := resolveAPIKeyScope(matchedRecord, userID, superuserID)
+	if requiredScope == ApiKeyScopeInternalAdmin &&
+		scope == ApiKeyScopeUser &&
+		matchedRecord.GetString(apiKeyDefaultScopeFieldName) == "" {
+		scope = ApiKeyScopeInternalAdmin
+	}
+	if err := validateAPIKeyOwners(userID, superuserID, scope); err != nil {
+		if scope == ApiKeyScopeUser && userID == "" {
+			return nil, apierror.New(
+				http.StatusUnauthorized,
+				"request.validation",
+				"user_not_found",
+				"User associated with the API key not found",
+			)
+		}
+		return nil, apierror.New(
+			http.StatusUnauthorized,
+			"request.validation",
+			"invalid_api_key_owner",
+			err.Error(),
+		)
+	}
+	if scope != requiredScope {
+		return nil, apierror.New(
+			http.StatusForbidden,
+			"request.validation",
+			"insufficient_api_key_scope",
+			"API key does not have required scope",
+		)
+	}
+
+	collectionName := apiKeyUserCollection
+	ownerID := userID
+	if scope == ApiKeyScopeInternalAdmin {
+		if superuserID != "" {
+			collectionName = apiKeySuperuserCollection
+			ownerID = superuserID
+		}
+	}
+
+	authRecord, err := s.app.FindRecordById(collectionName, ownerID)
 	if err != nil {
+		if scope == ApiKeyScopeInternalAdmin && userID != "" {
+			authRecord, err = s.app.FindRecordById(apiKeyUserCollection, userID)
+		}
+	}
+	if err != nil {
+		reason := "failed_to_find_principal"
+		if scope == ApiKeyScopeUser {
+			reason = "failed_to_find_user"
+		}
 		return nil, apierror.New(
 			http.StatusInternalServerError,
 			"request.internal_error",
-			"failed_to_find_user",
+			reason,
 			err.Error(),
 		)
 	}
 
 	if authRecord == nil {
+		if scope == ApiKeyScopeInternalAdmin && userID != "" {
+			authRecord, _ = s.app.FindRecordById(apiKeyUserCollection, userID)
+		}
+	}
+	if authRecord == nil {
+		reason := "principal_not_found"
+		message := "Principal associated with the API key not found"
+		if scope == ApiKeyScopeUser {
+			reason = "user_not_found"
+			message = "User associated with the API key not found"
+		}
 		return nil, apierror.New(
 			http.StatusUnauthorized,
 			"request.validation",
-			"user_not_found",
-			"User associated with the API key not found",
+			reason,
+			message,
 		)
 	}
 
 	return authRecord, nil
+}
+
+func validateAPIKeyOwners(userID, superuserID string, scope ApiKeyScope) error {
+	hasUser := userID != ""
+	hasSuperuser := superuserID != ""
+	if hasUser == hasSuperuser {
+		if scope == ApiKeyScopeInternalAdmin && hasSuperuser {
+			return nil
+		}
+		return fmt.Errorf("API key owner must be exactly one of user or superuser")
+	}
+	return nil
+}
+
+func resolveAPIKeyScope(record *core.Record, userID, superuserID string) ApiKeyScope {
+	scope := ApiKeyScope(record.GetString(apiKeyDefaultScopeFieldName))
+	if scope != "" {
+		return scope
+	}
+
+	if userID != "" {
+		return ApiKeyScopeUser
+	}
+	if superuserID != "" {
+		return ApiKeyScopeInternalAdmin
+	}
+
+	return ApiKeyScopeUser
 }
