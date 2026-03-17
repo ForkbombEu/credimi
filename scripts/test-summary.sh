@@ -52,10 +52,37 @@ GO_TEST_STATUS=${PIPESTATUS[0]}
 set -e
 
 awk '
-function extract(field, line, re, m) {
-	re = "\"" field "\":\"(([^\"\\\\]|\\\\.)*)\""
-	if (match(line, re, m)) {
-		return m[1]
+function extract(field, line, prefix, rest, i, ch, escaped, value) {
+	prefix = "\"" field "\":\""
+	if (!match(line, prefix)) {
+		return ""
+	}
+
+	rest = substr(line, RSTART + RLENGTH)
+	value = ""
+	escaped = 0
+
+	for (i = 1; i <= length(rest); i++) {
+		ch = substr(rest, i, 1)
+		if (ch == "\"" && !escaped) {
+			return value
+		}
+		value = value ch
+		if (escaped) {
+			escaped = 0
+		} else if (ch == "\\") {
+			escaped = 1
+		}
+	}
+
+	return ""
+}
+
+function extract_file(line, pattern, match_text) {
+	if (match(line, pattern)) {
+		match_text = substr(line, RSTART, RLENGTH)
+		sub(/:[0-9]+:?$/, "", match_text)
+		return match_text
 	}
 	return ""
 }
@@ -130,9 +157,11 @@ BEGIN {
 		if (decoded_output != "") {
 			test_output[key] = test_output[key] decoded_output
 		}
-		if (!(key in test_file) &&
-			match(output, /([A-Za-z0-9_./-]+_test\.go):[0-9]+:/, m)) {
-			test_file[key] = m[1]
+		if (!(key in test_file)) {
+			file = extract_file(output, /[A-Za-z0-9_.\/-]+_test\.go:[0-9]+:/)
+			if (file != "") {
+				test_file[key] = file
+			}
 		}
 	}
 
@@ -141,21 +170,24 @@ BEGIN {
 		if (decoded_output != "") {
 			package_output[pkg] = package_output[pkg] decoded_output
 		}
-		if (!(pkg in package_file) &&
-			match(output, /([A-Za-z0-9_./-]+\.go):[0-9]+:/, m)) {
-			package_file[pkg] = m[1]
+		if (!(pkg in package_file)) {
+			file = extract_file(output, /[A-Za-z0-9_.\/-]+\.go:[0-9]+:/)
+			if (file != "") {
+				package_file[pkg] = file
+			}
 		}
 	}
 
-	if (match($0, /([A-Za-z0-9_./-]+_test\.go):[0-9]+/, raw_file_match)) {
+	raw_file = extract_file($0, /[A-Za-z0-9_.\/-]+_test\.go:[0-9]+/)
+	if (raw_file != "") {
 		if (test_name != "") {
 			top = top_test_name(test_name)
 			key = test_key(pkg, top)
 			if (!(key in test_file)) {
-				test_file[key] = raw_file_match[1]
+				test_file[key] = raw_file
 			}
 		} else if (pkg != "" && !(pkg in package_file)) {
-			package_file[pkg] = raw_file_match[1]
+			package_file[pkg] = raw_file
 		}
 	}
 
