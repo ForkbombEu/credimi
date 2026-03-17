@@ -1,0 +1,17 @@
+{
+  "name": "credimi-doccs",
+  "type": "module",
+  "version": "0.0.1",
+  "scripts": {
+    "dev": "astro dev --host 0.0.0.0",
+    "start": "astro dev --host 0.0.0.0",
+    "build": "astro build --host 0.0.0.0",
+    "preview": "astro preview --host 0.0.0.0",
+    "astro": "astro --host 0.0.0.0"
+  },
+  "dependencies": {
+    "@astrojs/starlight": "^0.38.1",
+    "astro": "^6.0.1",
+    "sharp": "^0.34.2"
+  }
+}
