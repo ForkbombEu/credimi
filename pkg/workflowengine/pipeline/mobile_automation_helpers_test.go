@@ -176,11 +176,11 @@ func TestExtractAndStoreRecordingInfoAdditional(t *testing.T) {
 	require.Error(t, err)
 
 	okResult := workflowengine.ActivityResult{Output: map[string]any{
-		"adb_process_pid":    float64(11),
-		"ffmpeg_process_pid": float64(12),
-		"logcat_process_pid": float64(13),
-		"video_path":         "/tmp/video.mp4",
-		"logcat_path":        "/tmp/logcat.txt",
+		"recording_process_pid": float64(11),
+		"ffmpeg_process_pid":    float64(12),
+		"log_process_pid":       float64(13),
+		"video_path":            "/tmp/video.mp4",
+		"log_path":              "/tmp/log.txt",
 	}}
 	err = extractAndStoreRecordingInfo(okResult, deviceMap, "runner-1")
 	require.NoError(t, err)
@@ -224,15 +224,15 @@ func TestExtractRecordingInfoAdditional(t *testing.T) {
 	require.Error(t, err)
 
 	info, err := extractRecordingInfo("runner-1", map[string]any{
-		"video_path":           "/tmp/video.mp4",
-		"logcat_path":          "/tmp/logcat.txt",
-		"recording_adb_pid":    1,
-		"recording_ffmpeg_pid": 2,
-		"recording_logcat_pid": 3,
+		"video_path":            "/tmp/video.mp4",
+		"log_path":              "/tmp/log.txt",
+		"recording_process_pid": 1,
+		"recording_ffmpeg_pid":  2,
+		"recording_log_pid":     3,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "/tmp/video.mp4", info.videoPath)
-	require.Equal(t, 1, info.adbPid)
+	require.Equal(t, 1, info.recordingPid)
 }
 
 func TestExtractAndStoreURLsAdditional(t *testing.T) {
@@ -819,33 +819,33 @@ func TestExtractRecordingInfo(t *testing.T) {
 	require.Error(t, err)
 
 	_, err = extractRecordingInfo("runner-1", map[string]any{
-		"video_path":  "video.mp4",
-		"logcat_path": "logcat.txt",
+		"video_path": "video.mp4",
+		"log_path":   "log.txt",
 	})
 	require.Error(t, err)
 
 	info, err := extractRecordingInfo("runner-1", map[string]any{
-		"video_path":           "video.mp4",
-		"logcat_path":          "logcat.txt",
-		"recording_adb_pid":    1,
-		"recording_ffmpeg_pid": 2,
-		"recording_logcat_pid": 3,
+		"video_path":            "video.mp4",
+		"log_path":              "log.txt",
+		"recording_process_pid": 1,
+		"recording_ffmpeg_pid":  2,
+		"recording_log_pid":     3,
 	})
 	require.NoError(t, err)
 	require.Equal(t, "video.mp4", info.videoPath)
-	require.Equal(t, "logcat.txt", info.logcatPath)
-	require.Equal(t, 1, info.adbPid)
+	require.Equal(t, "log.txt", info.logPath)
+	require.Equal(t, 1, info.recordingPid)
 	require.Equal(t, 2, info.ffmpegPid)
-	require.Equal(t, 3, info.logcatPid)
+	require.Equal(t, 3, info.logPid)
 }
 
 func TestExtractRecordingInfoIOS(t *testing.T) {
 	info, err := extractRecordingInfo("runner-1", map[string]any{
 		"type":                  "ios_simulator",
 		"video_path":            "video.mp4",
-		"logcat_path":           "logcat.txt",
-		"recording_adb_pid":     1,
+		"log_path":              "log.txt",
 		"recording_process_pid": 1,
+		"recording_log_pid":     3,
 	})
 	require.NoError(t, err)
 	require.Equal(t, deviceTypeIOSSimulator, info.deviceType)

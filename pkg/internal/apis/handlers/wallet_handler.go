@@ -392,6 +392,14 @@ func installerFieldForPlatform(platform string) string {
 	return "android_installer"
 }
 
+func logRecordFieldForPlatform(platform string) string {
+	if platform == "ios" {
+		return "ios_logstreams"
+	}
+
+	return "logcats"
+}
+
 func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if err := e.Request.ParseMultipartForm(500 << 20); err != nil {
@@ -455,18 +463,16 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			"last_frame_urls":      frameURLs,
 		}
 
-		if platform != "ios" {
-			filename = versionName + "_logcat"
+		filename = versionName + "_logfile"
 
-			logcatFilename, logcatURLs, apierr := saveUploadedFileToRecord(
-				e, resultRecord, "logcat", "logcats", filename, true,
-			)
-			if apierr != nil {
-				return apierr.JSON(e)
-			}
-			response["logcat_file_name"] = logcatFilename
-			response["logcat_urls"] = logcatURLs
+		logFilename, logURLs, apierr := saveUploadedFileToRecord(
+			e, resultRecord, "logfile", logRecordFieldForPlatform(platform), filename, true,
+		)
+		if apierr != nil {
+			return apierr.JSON(e)
 		}
+		response["log_file_name"] = logFilename
+		response["log_urls"] = logURLs
 
 		return e.JSON(http.StatusOK, response)
 	}

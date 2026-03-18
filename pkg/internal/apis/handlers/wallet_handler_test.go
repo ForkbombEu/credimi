@@ -282,10 +282,10 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	_, err = frameWriter.Write([]byte("test frame content"))
 	require.NoError(t, err)
 
-	logcatWriter, err := successWriter.CreateFormFile("logcat", "logcat.log")
+	logWriter, err := successWriter.CreateFormFile("logfile", "log.txt")
 	require.NoError(t, err)
 
-	_, err = logcatWriter.Write([]byte("test logcat content"))
+	_, err = logWriter.Write([]byte("test log content"))
 	require.NoError(t, err)
 
 	require.NoError(t, successWriter.Close())
@@ -304,6 +304,11 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	iosFrameWriter, err := iosWriter.CreateFormFile("last_frame", "frame.txt")
 	require.NoError(t, err)
 	_, err = iosFrameWriter.Write([]byte("test frame content"))
+	require.NoError(t, err)
+
+	iosLogWriter, err := iosWriter.CreateFormFile("logfile", "ios-log.txt")
+	require.NoError(t, err)
+	_, err = iosLogWriter.Write([]byte("test ios log content"))
 	require.NoError(t, err)
 
 	require.NoError(t, iosWriter.Close())
@@ -345,7 +350,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			},
 		},
 		{
-			Name:   "store ios pipeline result successfully without logcat",
+			Name:   "store ios pipeline result successfully",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
 			Body:   bytes.NewReader(iosBody.Bytes()),
@@ -357,9 +362,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 				`"status":"success"`,
 				`"last_frame_file_name"`,
 				`"video_file_name"`,
-			},
-			NotExpectedContent: []string{
-				`"logcat_file_name"`,
+				`"log_file_name"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)

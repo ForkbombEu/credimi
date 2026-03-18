@@ -174,7 +174,7 @@ type storeRecordingResultsInput struct {
 	runnerURL  string
 	videoPath  string
 	lastFrame  string
-	logcatPath string
+	logPath    string
 	deviceType mobileDeviceType
 	runID      string
 	runnerID   string
@@ -927,13 +927,25 @@ func extractAndStoreRecordingInfo(
 ) error {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 	deviceType := deviceTypeFromMap(deviceMap)
-
-	adbPID, ok := recordResult.Output.(map[string]any)["adb_process_pid"].(float64)
+	output, ok := recordResult.Output.(map[string]any)
 	if !ok {
 		return workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf(
-				"%s: missing adb_process in start record video response for device %s",
+				"%s: invalid start record video response for device %s",
+				errCode.Description,
+				runnerID,
+			),
+			recordResult.Output,
+		)
+	}
+
+	recordingProcessPID, ok := output["recording_process_pid"].(float64)
+	if !ok {
+		return workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf(
+				"%s: missing recording_process in start record video response for device %s",
 				errCode.Description,
 				runnerID,
 			),
@@ -942,9 +954,20 @@ func extractAndStoreRecordingInfo(
 	}
 
 	ffmpegPID := float64(0)
-	logcatPID := float64(0)
+	logPID, ok := output["log_process_pid"].(float64)
+	if !ok {
+		return workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf(
+				"%s: missing log_process in start record video response for device %s",
+				errCode.Description,
+				runnerID,
+			),
+			recordResult.Output,
+		)
+	}
 	if !deviceType.IsIOS() {
-		ffmpegPID, ok = recordResult.Output.(map[string]any)["ffmpeg_process_pid"].(float64)
+		ffmpegPID, ok = output["ffmpeg_process_pid"].(float64)
 		if !ok {
 			return workflowengine.NewAppError(
 				errCode,
@@ -957,21 +980,9 @@ func extractAndStoreRecordingInfo(
 			)
 		}
 
-		logcatPID, ok = recordResult.Output.(map[string]any)["logcat_process_pid"].(float64)
-		if !ok {
-			return workflowengine.NewAppError(
-				errCode,
-				fmt.Sprintf(
-					"%s: missing logcat_process in start record video response for device %s",
-					errCode.Description,
-					runnerID,
-				),
-				recordResult.Output,
-			)
-		}
 	}
 
-	videoPath, ok := recordResult.Output.(map[string]any)["video_path"].(string)
+	videoPath, ok := output["video_path"].(string)
 	if !ok {
 		return workflowengine.NewAppError(
 			errCode,
@@ -984,12 +995,12 @@ func extractAndStoreRecordingInfo(
 		)
 	}
 
-	logcatPath, ok := recordResult.Output.(map[string]any)["logcat_path"].(string)
-	if !ok {
+	logPath, hasLogPath := output["log_path"].(string)
+	if !hasLogPath || logPath == "" {
 		return workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf(
-				"%s: missing logcat_path in start record video response for device %s",
+				"%s: missing log_path in start record video response for device %s",
 				errCode.Description,
 				runnerID,
 			),
@@ -997,20 +1008,14 @@ func extractAndStoreRecordingInfo(
 		)
 	}
 
-	deviceMap["recording_adb_pid"] = int(adbPID)
+	deviceMap["recording_process_pid"] = int(recordingProcessPID)
 	deviceMap["recording_ffmpeg_pid"] = int(ffmpegPID)
-	deviceMap["recording_logcat_pid"] = int(logcatPID)
-	if deviceType.IsIOS() {
-		recordingProcessPID, ok := recordResult.Output.(map[string]any)["recording_process_pid"].(float64)
-		if ok {
-			deviceMap["recording_process_pid"] = int(recordingProcessPID)
-		} else {
-			deviceMap["recording_process_pid"] = int(adbPID)
-		}
-	}
+	deviceMap["recording_log_pid"] = int(logPID)
 	deviceMap["recording"] = true
 	deviceMap["video_path"] = videoPath
-	deviceMap["logcat_path"] = logcatPath
+	if hasLogPath {
+		deviceMap["log_path"] = logPath
+	}
 
 	return nil
 }
@@ -1305,7 +1310,7 @@ func cleanupRecording(
 		runnerURL:  runner_url,
 		videoPath:  recordingInfo.videoPath,
 		lastFrame:  lastFramePath,
-		logcatPath: recordingInfo.logcatPath,
+		logPath:    recordingInfo.logPath,
 		deviceType: recordingInfo.deviceType,
 		runID:      input.runID,
 		runnerID:   input.runnerID,
@@ -1321,11 +1326,10 @@ type recordingInfo struct {
 	deviceType   mobileDeviceType
 	activities   platformActivities
 	videoPath    string
-	logcatPath   string
+	logPath      string
 	recordingPid int
-	adbPid       int
 	ffmpegPid    int
-	logcatPid    int
+	logPid       int
 }
 
 func extractRecordingInfo(
@@ -1343,35 +1347,37 @@ func extractRecordingInfo(
 		)
 	}
 
-	logcatPath, ok := deviceInfo["logcat_path"].(string)
-	if !ok || logcatPath == "" {
+	logPath, hasLogPath := deviceInfo["log_path"].(string)
+	if !hasLogPath || logPath == "" {
 		return nil, workflowengine.NewAppError(
 			errCode,
-			"missing logcat_path for device "+runnerID,
+			"missing log_path for device "+runnerID,
 		)
 	}
 
-	recordingAdbPid, ok := deviceInfo["recording_adb_pid"].(int)
-	if !ok || recordingAdbPid == 0 {
+	recordingPid, ok := deviceInfo["recording_process_pid"].(int)
+	if !ok || recordingPid == 0 {
 		return nil, workflowengine.NewAppError(
 			errCode,
-			"missing recording_adb_pid for device "+runnerID,
+			"missing recording_process_pid for device "+runnerID,
 		)
 	}
 
-	recordingPid := 0
 	if deviceType.IsIOS() {
-		recordingPid, _ = deviceInfo["recording_process_pid"].(int)
-		if recordingPid == 0 {
-			recordingPid = recordingAdbPid
+		logPid, ok := deviceInfo["recording_log_pid"].(int)
+		if !ok || logPid == 0 {
+			return nil, workflowengine.NewAppError(
+				errCode,
+				"missing recording_log_pid for device "+runnerID,
+			)
 		}
 		return &recordingInfo{
 			deviceType:   deviceType,
 			activities:   activitiesForDeviceType(deviceType),
 			videoPath:    videoPath,
-			logcatPath:   logcatPath,
+			logPath:      logPath,
 			recordingPid: recordingPid,
-			adbPid:       recordingAdbPid,
+			logPid:       logPid,
 		}, nil
 	}
 
@@ -1383,22 +1389,22 @@ func extractRecordingInfo(
 		)
 	}
 
-	recordingLogcatPid, ok := deviceInfo["recording_logcat_pid"].(int)
-	if !ok || recordingLogcatPid == 0 {
+	recordingLogPid, ok := deviceInfo["recording_log_pid"].(int)
+	if !ok || recordingLogPid == 0 {
 		return nil, workflowengine.NewAppError(
 			errCode,
-			"missing recording_logcat_pid for device "+runnerID,
+			"missing recording_log_pid for device "+runnerID,
 		)
 	}
 
 	return &recordingInfo{
-		deviceType: deviceType,
-		activities: activitiesForDeviceType(deviceType),
-		videoPath:  videoPath,
-		logcatPath: logcatPath,
-		adbPid:     recordingAdbPid,
-		ffmpegPid:  recordingFfmpegPid,
-		logcatPid:  recordingLogcatPid,
+		deviceType:   deviceType,
+		activities:   activitiesForDeviceType(deviceType),
+		videoPath:    videoPath,
+		logPath:      logPath,
+		recordingPid: recordingPid,
+		ffmpegPid:    recordingFfmpegPid,
+		logPid:       recordingLogPid,
 	}, nil
 }
 
@@ -1410,10 +1416,10 @@ func stopRecording(
 	var stopResult workflowengine.ActivityResult
 
 	stopPayload := map[string]any{
-		"video_path":         info.videoPath,
-		"adb_process_pid":    info.adbPid,
-		"ffmpeg_process_pid": info.ffmpegPid,
-		"logcat_process_pid": info.logcatPid,
+		"video_path":            info.videoPath,
+		"recording_process_pid": info.recordingPid,
+		"ffmpeg_process_pid":    info.ffmpegPid,
+		"log_process_pid":       info.logPid,
 	}
 	stopActivityName := info.activities.StopRecording
 	if stopActivityName == "" {
@@ -1423,6 +1429,7 @@ func stopRecording(
 		stopPayload = map[string]any{
 			"recording_process_pid": info.recordingPid,
 			"video_path":            info.videoPath,
+			"log_process_pid":       info.logPid,
 		}
 	}
 
@@ -1463,8 +1470,8 @@ func storeRecordingResults(
 		"instance_url":      input.appURL,
 		"platform":          installerPlatformForDeviceType(input.deviceType),
 	}
-	if !input.deviceType.IsIOS() {
-		body["logcat_path"] = input.logcatPath
+	if input.logPath != "" {
+		body["log_path"] = input.logPath
 	}
 
 	if err := workflow.ExecuteActivity(

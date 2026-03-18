@@ -82,11 +82,11 @@ func TestStartRecordingForDeviceSuccess(t *testing.T) {
 
 	env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"adb_process_pid":    float64(1),
-			"ffmpeg_process_pid": float64(2),
-			"logcat_process_pid": float64(3),
-			"video_path":         "/tmp/video.mp4",
-			"logcat_path":        "/tmp/logcat.txt",
+			"recording_process_pid": float64(1),
+			"ffmpeg_process_pid":    float64(2),
+			"log_process_pid":       float64(3),
+			"video_path":            "/tmp/video.mp4",
+			"log_path":              "/tmp/log.txt",
 		}}, nil)
 
 	env.ExecuteWorkflow("test-start-recording-success")
@@ -611,24 +611,25 @@ func TestNormalizeDeviceTypeMappings(t *testing.T) {
 	require.Equal(t, mobileDeviceType("custom"), normalizeDeviceType(" custom "))
 }
 
-func TestExtractAndStoreRecordingInfoIOSFallsBackToADBPID(t *testing.T) {
+func TestExtractAndStoreRecordingInfoIOSUsesRecordingPID(t *testing.T) {
 	deviceMap := map[string]any{
 		"type": "ios_simulator",
 	}
 
 	err := extractAndStoreRecordingInfo(
 		workflowengine.ActivityResult{Output: map[string]any{
-			"adb_process_pid": float64(7),
-			"video_path":      "/tmp/video.mp4",
-			"logcat_path":     "/tmp/logcat.txt",
+			"recording_process_pid": float64(7),
+			"video_path":            "/tmp/video.mp4",
+			"log_path":              "/tmp/log.txt",
+			"log_process_pid":       float64(8),
 		}},
 		deviceMap,
 		"runner-1",
 	)
 	require.NoError(t, err)
-	require.Equal(t, 7, deviceMap["recording_adb_pid"])
+	require.Equal(t, 7, deviceMap["recording_process_pid"])
 	require.Equal(t, 0, deviceMap["recording_ffmpeg_pid"])
-	require.Equal(t, 0, deviceMap["recording_logcat_pid"])
+	require.Equal(t, 8, deviceMap["recording_log_pid"])
 	require.Equal(t, 7, deviceMap["recording_process_pid"])
 }
 
@@ -748,7 +749,7 @@ func TestStoreRecordingResultsSuccess(t *testing.T) {
 				runnerURL:  "https://runner.example",
 				videoPath:  "/tmp/video.mp4",
 				lastFrame:  "/tmp/frame.png",
-				logcatPath: "/tmp/logcat.txt",
+				logPath:    "/tmp/log.txt",
 				deviceType: deviceTypeAndroidPhone,
 				runID:      "run-1",
 				runnerID:   "runner-1",
@@ -779,7 +780,7 @@ func TestStoreRecordingResultsSuccess(t *testing.T) {
 			}
 			return workflowengine.AsString(payload["url"]) == "https://runner.example/credimi/pipeline-result" &&
 				workflowengine.AsString(body["platform"]) == "android" &&
-				workflowengine.AsString(body["logcat_path"]) == "/tmp/logcat.txt"
+				workflowengine.AsString(body["log_path"]) == "/tmp/log.txt"
 		}),
 	).
 		Return(workflowengine.ActivityResult{Output: map[string]any{
@@ -798,7 +799,7 @@ func TestStoreRecordingResultsSuccess(t *testing.T) {
 	require.Equal(t, []any{"frame-url"}, result["screenshot_urls"])
 }
 
-func TestStoreRecordingResultsIOSOmitsLogcat(t *testing.T) {
+func TestStoreRecordingResultsIOSSendsLogPath(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()
 
@@ -824,7 +825,7 @@ func TestStoreRecordingResultsIOSOmitsLogcat(t *testing.T) {
 				runnerURL:  "https://runner.example",
 				videoPath:  "/tmp/video.mp4",
 				lastFrame:  "/tmp/frame.png",
-				logcatPath: "/tmp/logcat.txt",
+				logPath:    "/tmp/log.txt",
 				deviceType: deviceTypeIOSSimulator,
 				runID:      "run-1",
 				runnerID:   "runner-1",
@@ -848,10 +849,9 @@ func TestStoreRecordingResultsIOSOmitsLogcat(t *testing.T) {
 			if !ok {
 				return false
 			}
-			_, hasLogcat := body["logcat_path"]
 			return workflowengine.AsString(payload["url"]) == "https://runner.example/credimi/pipeline-result" &&
 				workflowengine.AsString(body["platform"]) == "ios" &&
-				!hasLogcat
+				workflowengine.AsString(body["log_path"]) == "/tmp/log.txt"
 		}),
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"body": map[string]any{
@@ -1008,8 +1008,8 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 				"taskqueue":     steps[0].With.Config["taskqueue"],
 				"recording":     deviceMap["recording"],
 				"video_path":    deviceMap["video_path"],
-				"logcat_path":   deviceMap["logcat_path"],
-				"recording_pid": deviceMap["recording_adb_pid"],
+				"log_path":      deviceMap["log_path"],
+				"recording_pid": deviceMap["recording_process_pid"],
 			}, nil
 		},
 		workflow.RegisterOptions{Name: "test-mobile-automation-setup-success"},
@@ -1058,11 +1058,11 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 
 	env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{
-			"adb_process_pid":    float64(11),
-			"ffmpeg_process_pid": float64(12),
-			"logcat_process_pid": float64(13),
-			"video_path":         "/tmp/video.mp4",
-			"logcat_path":        "/tmp/logcat.txt",
+			"recording_process_pid": float64(11),
+			"ffmpeg_process_pid":    float64(12),
+			"log_process_pid":       float64(13),
+			"video_path":            "/tmp/video.mp4",
+			"log_path":              "/tmp/log.txt",
 		}}, nil)
 
 	env.ExecuteWorkflow("test-mobile-automation-setup-success")
@@ -1077,7 +1077,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	require.Equal(t, "tenant/runner-1-TaskQueue", result["taskqueue"])
 	require.Equal(t, true, result["recording"])
 	require.Equal(t, "/tmp/video.mp4", result["video_path"])
-	require.Equal(t, "/tmp/logcat.txt", result["logcat_path"])
+	require.Equal(t, "/tmp/log.txt", result["log_path"])
 	require.Equal(t, float64(11), result["recording_pid"])
 }
 
@@ -1107,16 +1107,16 @@ func TestCleanupDeviceWithRecordingSuccess(t *testing.T) {
 			ctx = workflow.WithActivityOptions(ctx, ao)
 
 			deviceMap := map[string]any{
-				"type":                 "android_phone",
-				"serial":               "serial-1",
-				"runner_url":           "https://runner.example",
-				"recording":            true,
-				"video_path":           "/tmp/video.mp4",
-				"logcat_path":          "/tmp/logcat.txt",
-				"recording_adb_pid":    1,
-				"recording_ffmpeg_pid": 2,
-				"recording_logcat_pid": 3,
-				"installed":            map[string]string{"ver-1": "pkg-1"},
+				"type":                  "android_phone",
+				"serial":                "serial-1",
+				"runner_url":            "https://runner.example",
+				"recording":             true,
+				"video_path":            "/tmp/video.mp4",
+				"log_path":              "/tmp/log.txt",
+				"recording_process_pid": 1,
+				"recording_ffmpeg_pid":  2,
+				"recording_log_pid":     3,
+				"installed":             map[string]string{"ver-1": "pkg-1"},
 			}
 			output := map[string]any{
 				"result_video_urls": []string{},
@@ -1243,7 +1243,7 @@ func TestStoreRecordingResultsReturnsActivityError(t *testing.T) {
 				runnerURL:  "https://runner.example",
 				videoPath:  "/tmp/video.mp4",
 				lastFrame:  "/tmp/frame.png",
-				logcatPath: "/tmp/logcat.txt",
+				logPath:    "/tmp/log.txt",
 				deviceType: deviceTypeAndroidPhone,
 				runID:      "run-1",
 				runnerID:   "runner-1",
@@ -1556,42 +1556,42 @@ func TestExtractAndStoreRecordingInfoErrorBranches(t *testing.T) {
 		{
 			name: "missing ffmpeg pid",
 			output: map[string]any{
-				"adb_process_pid":    float64(1),
-				"logcat_process_pid": float64(3),
-				"video_path":         "video.mp4",
-				"logcat_path":        "logcat.txt",
+				"recording_process_pid": float64(1),
+				"log_process_pid":       float64(3),
+				"video_path":            "video.mp4",
+				"log_path":              "log.txt",
 			},
 			message: "missing ffmpeg_process",
 		},
 		{
-			name: "missing logcat pid",
+			name: "missing log pid",
 			output: map[string]any{
-				"adb_process_pid":    float64(1),
-				"ffmpeg_process_pid": float64(2),
-				"video_path":         "video.mp4",
-				"logcat_path":        "logcat.txt",
+				"recording_process_pid": float64(1),
+				"ffmpeg_process_pid":    float64(2),
+				"video_path":            "video.mp4",
+				"log_path":              "log.txt",
 			},
-			message: "missing logcat_process",
+			message: "missing log_process",
 		},
 		{
 			name: "missing video path",
 			output: map[string]any{
-				"adb_process_pid":    float64(1),
-				"ffmpeg_process_pid": float64(2),
-				"logcat_process_pid": float64(3),
-				"logcat_path":        "logcat.txt",
+				"recording_process_pid": float64(1),
+				"ffmpeg_process_pid":    float64(2),
+				"log_process_pid":       float64(3),
+				"log_path":              "log.txt",
 			},
 			message: "missing video_path",
 		},
 		{
-			name: "missing logcat path",
+			name: "missing log path",
 			output: map[string]any{
-				"adb_process_pid":    float64(1),
-				"ffmpeg_process_pid": float64(2),
-				"logcat_process_pid": float64(3),
-				"video_path":         "video.mp4",
+				"recording_process_pid": float64(1),
+				"ffmpeg_process_pid":    float64(2),
+				"log_process_pid":       float64(3),
+				"video_path":            "video.mp4",
 			},
-			message: "missing logcat_path",
+			message: "missing log_path",
 		},
 	}
 
@@ -1714,13 +1714,13 @@ func testCleanupRecordingWorkflow(ctx workflow.Context) (map[string]any, error) 
 	}
 	errs := []error{}
 	deviceInfo := map[string]any{
-		"runner_url":           "https://runner",
-		"recording":            true,
-		"video_path":           "/tmp/video.mp4",
-		"logcat_path":          "/tmp/logcat.txt",
-		"recording_adb_pid":    1,
-		"recording_ffmpeg_pid": 2,
-		"recording_logcat_pid": 3,
+		"runner_url":            "https://runner",
+		"recording":             true,
+		"video_path":            "/tmp/video.mp4",
+		"log_path":              "/tmp/log.txt",
+		"recording_process_pid": 1,
+		"recording_ffmpeg_pid":  2,
+		"recording_log_pid":     3,
 	}
 	cleanupRecording(cleanupRecordingInput{
 		mobileCtx:   ctx,
@@ -1765,11 +1765,11 @@ func testStopRecordingMissingLastFrameWorkflow(ctx workflow.Context) error {
 		workflow.ActivityOptions{StartToCloseTimeout: time.Second},
 	)
 	info := &recordingInfo{
-		videoPath:  "/tmp/video.mp4",
-		logcatPath: "/tmp/logcat.txt",
-		adbPid:     1,
-		ffmpegPid:  2,
-		logcatPid:  3,
+		videoPath:    "/tmp/video.mp4",
+		logPath:      "/tmp/log.txt",
+		recordingPid: 1,
+		ffmpegPid:    2,
+		logPid:       3,
 	}
 	_, err := stopRecording(ctx, info, workflow.GetLogger(ctx))
 	return err
