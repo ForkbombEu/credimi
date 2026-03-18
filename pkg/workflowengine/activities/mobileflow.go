@@ -149,7 +149,7 @@ func (a *CleanupDeviceActivity) Execute(
 		input.Payload,
 		a.NewActivityError,
 		nil,
-		false,
+		true,
 	)
 
 	res, err := mobile.CleanupDevice(ctx, runInput)
