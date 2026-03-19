@@ -5,7 +5,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import { ArrowRightIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
+	import { ArrowRightIcon, FileCogIcon, ImageIcon, VideoIcon } from '@lucide/svelte';
 	import { resolve } from '$app/paths';
 	import WorkflowsTable from '$lib/workflows/workflows-table.svelte';
 
@@ -102,6 +102,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 								href: result.screenshot,
 								icon: ImageIcon
 							})}
+							{@render mediaPreview({
+								href: result.log,
+								icon: FileCogIcon
+							})}
 						</div>
 					{/each}
 				</div>
@@ -114,7 +118,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <!--  -->
 
-{#snippet mediaPreview(props: { image: string; href: string; icon: IconComponent })}
+{#snippet mediaPreview(props: { image?: string; href: string; icon: IconComponent })}
 	{@const { image, href, icon } = props}
 	<!-- eslint-disable svelte/no-navigation-without-resolve -->
 	<a
@@ -122,7 +126,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		target="_blank"
 		class="relative size-10 shrink-0 overflow-hidden rounded-md border border-slate-300 hover:cursor-pointer hover:ring-2"
 	>
-		<img src={image} alt="Media" class="size-10 shrink-0" />
+		{#if image}
+			<img src={image} alt="Media" class="size-10 shrink-0" />
+		{/if}
 		<div class="absolute inset-0 flex items-center justify-center bg-black/30">
 			<Icon src={icon} class="size-4  text-white" />
 		</div>
