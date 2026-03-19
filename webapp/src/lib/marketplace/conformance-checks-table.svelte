@@ -7,13 +7,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { StandardsWithTestSuites } from '$lib/standards';
 
-	import { CheckCheck } from '@lucide/svelte';
-
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
 
+	import ChildrenCell from './_partials/table-children-cell.svelte';
 	import TableNameCell from './_partials/table-name-cell.svelte';
-	import TableRowAfter from './_partials/table-row-after.svelte';
 
 	//
 
@@ -37,6 +35,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Table.Head class="px-4">{m.Standard()}</Table.Head>
 		<Table.Head class="px-4">{m.Version()}</Table.Head>
 		<Table.Head class="px-4">{m.Suite()}</Table.Head>
+		<Table.Head class="px-4">{m.Checks()}</Table.Head>
 	</Table.Header>
 	<Table.Body>
 		{#each rows as { standard, version, suite } (standard.uid + version.uid + suite.uid)}
@@ -50,18 +49,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				</Table.Cell>
 				<Table.Cell class="px-4">{version.name}</Table.Cell>
 				<Table.Cell class="px-4">{suite.name}</Table.Cell>
+				<Table.Cell class="px-4">
+					{#if suite.files.length > 0}
+						<ChildrenCell
+							items={suite.paths.map((p, i) => ({
+								title: suite.files[i].replace('.yaml', ''),
+								href: `/marketplace/conformance-checks/${p}`
+							}))}
+						/>
+					{/if}
+				</Table.Cell>
 			</Table.Row>
-			{#if suite.files.length > 0}
-				<TableRowAfter
-					title={m.Checks()}
-					show={true}
-					items={suite.paths.map((p, i) => ({
-						title: suite.files[i].replace('.yaml', ''),
-						href: `/marketplace/conformance-checks/${p}`
-					}))}
-					icon={CheckCheck}
-				/>
-			{/if}
 		{/each}
 	</Table.Body>
 </Table.Table>

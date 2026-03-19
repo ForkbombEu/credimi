@@ -5,10 +5,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts">
-	import type { ComponentProps } from 'svelte';
+	import { Array } from 'effect';
 
-	import { X } from '@lucide/svelte';
-
+	import type { Link } from '@/components/types';
+	import type { CollectionName } from '@/pocketbase/collections-models';
 	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
 
 	import { CollectionTable } from '@/collections-components/manager';
@@ -16,9 +16,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { MarketplaceItem } from './types';
 
-	import TableRowAfter from './_partials/table-row-after.svelte';
+	import TableChildrenCell from './_partials/table-children-cell.svelte';
 	import { snippets } from './marketplace-table-snippets.svelte';
-	import { getMarketplaceItemTypeEntityData, isCredentialIssuer, isVerifier } from './utils';
+	import { isCredentialIssuer, isVerifier } from './utils';
 
 	//
 
@@ -28,55 +28,73 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	let { records }: Props = $props();
 
-	/* Row after data */
+	/* Children data */
 
-	/**
-	  Note: We cannot use an if to render conditionally.
-	  We must always render the TR in order for it to get the correct width.
-	  Then, we hide it with a 'hidden' class
-	*/
+	const collection = $derived.by(() => {
+		const types = records.map((r) => r.type);
+		const deduped = Array.dedupe(types);
+		if (deduped.length === 1) return deduped[0] as CollectionName;
+		else return undefined;
+	});
 
-	type RowAfterProps = ComponentProps<typeof TableRowAfter>;
+	const childrenTitle = $derived.by(() => {
+		switch (collection) {
+			case 'credential_issuers':
+				return m.Credentials();
+			case 'verifiers':
+				return m.Verification_use_cases();
+			default:
+				return false;
+		}
+	});
 
-	// Dummy row data
-	const dummyRowAfterProps: RowAfterProps = {
-		items: [],
-		title: '',
-		icon: X,
-		show: false
-	};
+	function getChildrenLinks(record: MarketplaceItem): Link[] {
+		if (!isCredentialIssuer(record) && !isVerifier(record)) return [];
 
-	function getRowAfterProps(record: MarketplaceItemsResponse): RowAfterProps {
-		if (!isCredentialIssuer(record) && !isVerifier(record)) return dummyRowAfterProps;
-		const children = (record as MarketplaceItem).children ?? [];
-		return {
-			items: children.map((c) => ({
-				title: c.name,
-				href: `/marketplace/${record.type === 'credential_issuers' ? 'credentials' : 'use_cases_verifications'}/${record.organization_canonified_name}/${record.canonified_name}/${c.canonified_name}`
-			})),
-			title:
-				record.type === 'credential_issuers' ? m.Credentials() : m.Verification_use_cases(),
-			icon: getMarketplaceItemTypeEntityData(record.type as MarketplaceItem['type']).icon,
-			show: true
-		};
+		const type =
+			record.type === 'credential_issuers' ? 'credentials' : 'use_cases_verifications';
+
+		return (record.children ?? []).map((c) => ({
+			title: c.name,
+			href: `/marketplace/${type}/${record.organization_canonified_name}/${record.canonified_name}/${c.canonified_name}`
+		}));
 	}
+
+	const fields = $derived.by(() => {
+		const baseFields = ['name'];
+		if (collection && ['custom_checks', 'pipelines', 'wallets'].includes(collection)) {
+			baseFields.push('organization_name');
+		}
+		return baseFields as (keyof MarketplaceItem)[];
+	});
 </script>
 
 <CollectionTable
-	{records}
+	records={records as MarketplaceItem[]}
 	hide={['delete', 'share', 'edit', 'select']}
-	fields={['name', 'organization_name', 'type', 'updated']}
+	{fields}
 	snippets={{
 		name: snippets.name,
-		type: snippets.type,
 		updated: snippets.updated
 	}}
-	class="bg-background rounded-md"
+	class="rounded-md bg-background"
 	rowCellClass="px-4 py-2"
 	headerClass="bg-background z-10"
 >
-	{#snippet rowAfter({ record })}
-		{@const props = getRowAfterProps(record)}
-		<TableRowAfter {...props} />
+	{#snippet header({ Th })}
+		{#if childrenTitle}
+			<Th>
+				{childrenTitle}
+			</Th>
+		{/if}
+	{/snippet}
+
+	{#snippet row({ record, Td })}
+		{#if childrenTitle && record.children}
+			{@const links = getChildrenLinks(record)}
+			<Td>
+				<TableChildrenCell items={links} />
+			</Td>
+		{/if}
 	{/snippet}
 </CollectionTable>

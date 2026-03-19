@@ -49,9 +49,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			case 'wallets':
 				return { filter: `type = 'wallets'` };
 			case 'credential-issuers-and-credentials':
-				return { filter: `type = 'credential_issuers' || type = 'credentials'` };
+				return { filter: `type = 'credential_issuers'` };
 			case 'verifiers-and-use-case-verifications':
-				return { filter: `type = 'verifiers' || type = 'use_cases_verifications'` };
+				return { filter: `type = 'verifiers'` };
 			case 'custom-integrations':
 				return { filter: `type = 'custom_checks'` };
 			case 'pipelines':
