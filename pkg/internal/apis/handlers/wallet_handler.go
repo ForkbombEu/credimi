@@ -43,6 +43,11 @@ var (
 	walletWaitForPartialResult = workflowengine.WaitForPartialResult[map[string]any]
 )
 
+const (
+	walletPlatformAndroid = "android"
+	walletPlatformIOS     = "ios"
+)
+
 var WalletRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/wallet",
 	AuthenticationRequired: true,
@@ -67,10 +72,10 @@ var WalletTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 	Routes: []routing.RouteDefinition{
 		{
 			Method:         http.MethodPost,
-			Path:           "/get-apk-md5-or-etag",
-			Handler:        HandleWalletGetMD5,
-			RequestSchema:  WalletMD5OrETagRequest{},
-			ResponseSchema: WalletMD5OrETagResponse{},
+			Path:           "/get-installer-md5-or-etag",
+			Handler:        HandleWalletGetInstallerMD5OrETag,
+			RequestSchema:  WalletInstallerMD5OrETagRequest{},
+			ResponseSchema: WalletInstallerMD5OrETagResponse{},
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
@@ -215,21 +220,22 @@ func HandleWalletStartCheck() func(*core.RequestEvent) error {
 	}
 }
 
-type WalletMD5OrETagRequest struct {
+type WalletInstallerMD5OrETagRequest struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	WalletIdentifier        string `json:"wallet_identifier"`
+	Platform                string `json:"platform"`
 }
 
-type WalletMD5OrETagResponse struct {
-	AndroidInstaller  string `json:"apk_name"`
-	ApkIdentifier     string `json:"apk_identifier"`
-	RecordID          string `json:"record_id"`
-	VersionIdentifier string `json:"version_id"`
+type WalletInstallerMD5OrETagResponse struct {
+	InstallerName       string `json:"installer_name"`
+	InstallerIdentifier string `json:"installer_identifier"`
+	RecordID            string `json:"record_id"`
+	VersionIdentifier   string `json:"version_id"`
 }
 
-func HandleWalletGetMD5() func(*core.RequestEvent) error {
+func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
-		var req WalletMD5OrETagRequest
+		var req WalletInstallerMD5OrETagRequest
 		if err := json.NewDecoder(e.Request.Body).Decode(&req); err != nil {
 			return apis.NewBadRequestError("invalid JSON input", err)
 		}
@@ -241,6 +247,16 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 				"identifier",
 				"no identifier provided",
 				"at least one identifier must be provided",
+			).JSON(e)
+		}
+
+		platform, err := normalizeWalletPlatform(req.Platform)
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"platform",
+				"invalid platform",
+				err.Error(),
 			).JSON(e)
 		}
 
@@ -258,19 +274,18 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		// Get android_installer field value
-		androidInstaller := versionRecord.GetString("android_installer")
-		if androidInstaller == "" {
+		installerField := installerFieldForPlatform(platform)
+		installer := versionRecord.GetString(installerField)
+		if installer == "" {
 			return apierror.New(
 				http.StatusNotFound,
-				"android_installer",
-				"no android_installer file found for this wallet version",
-				"android_installer field is empty",
+				installerField,
+				fmt.Sprintf("no %s file found for this wallet version", installerField),
+				fmt.Sprintf("%s field is empty", installerField),
 			).JSON(e)
 		}
 
-		// Get MD5 or ETag from PocketBase's file metadata
-		identifier, err := getFileMD5OrETagFromPocketBase(e.App, versionRecord, androidInstaller)
+		identifier, err := getFileMD5OrETagFromPocketBase(e.App, versionRecord, installer)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -288,11 +303,11 @@ func HandleWalletGetMD5() func(*core.RequestEvent) error {
 			)
 		}
 
-		return e.JSON(http.StatusOK, WalletMD5OrETagResponse{
-			AndroidInstaller:  androidInstaller,
-			RecordID:          versionRecord.Id,
-			ApkIdentifier:     identifier,
-			VersionIdentifier: versionIdentifier,
+		return e.JSON(http.StatusOK, WalletInstallerMD5OrETagResponse{
+			InstallerName:       installer,
+			InstallerIdentifier: identifier,
+			RecordID:            versionRecord.Id,
+			VersionIdentifier:   versionIdentifier,
 		})
 	}
 }
@@ -363,6 +378,37 @@ func getFileMD5OrETagFromPocketBase(
 	return "", nil
 }
 
+func normalizeWalletPlatform(platform string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(platform)) {
+	case walletPlatformAndroid:
+		return walletPlatformAndroid, nil
+	case walletPlatformIOS:
+		return walletPlatformIOS, nil
+	default:
+		return "", fmt.Errorf(
+			"supported values are %s or %s",
+			walletPlatformAndroid,
+			walletPlatformIOS,
+		)
+	}
+}
+
+func installerFieldForPlatform(platform string) string {
+	if platform == walletPlatformIOS {
+		return "ios_installer"
+	}
+
+	return "android_installer"
+}
+
+func logRecordFieldForPlatform(platform string) string {
+	if platform == walletPlatformIOS {
+		return "ios_logstreams"
+	}
+
+	return "logcats"
+}
+
 func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		if err := e.Request.ParseMultipartForm(500 << 20); err != nil {
@@ -376,6 +422,15 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 
 		runnerIdentifier := e.Request.FormValue("runner_identifier")
 		runIdentifier := e.Request.FormValue("run_identifier")
+		platform, err := normalizeWalletPlatform(e.Request.FormValue("platform"))
+		if err != nil {
+			return apierror.New(
+				http.StatusBadRequest,
+				"platform",
+				"invalid platform",
+				err.Error(),
+			).JSON(e)
+		}
 
 		resultRecord, err := canonify.Resolve(e.App, runIdentifier)
 		if err != nil {
@@ -408,25 +463,27 @@ func HandleWalletStorePipelineResult() func(*core.RequestEvent) error {
 			return apierr.JSON(e)
 		}
 
-		filename = versionName + "_logcat"
-
-		logcatFilename, logcatURLs, apierr := saveUploadedFileToRecord(
-			e, resultRecord, "logcat", "logcats", filename, true,
-		)
-		if apierr != nil {
-			return apierr.JSON(e)
-		}
-
-		return e.JSON(http.StatusOK, map[string]any{
+		response := map[string]any{
 			"status":               "success",
 			"runner":               runnerIdentifier,
 			"video_file_name":      videoFilename,
 			"result_urls":          videoURLs,
 			"last_frame_file_name": frameFilename,
 			"last_frame_urls":      frameURLs,
-			"logcat_file_name":     logcatFilename,
-			"logcat_urls":          logcatURLs,
-		})
+		}
+
+		filename = versionName + "_logfile"
+
+		logFilename, logURLs, apierr := saveUploadedFileToRecord(
+			e, resultRecord, "logfile", logRecordFieldForPlatform(platform), filename, true,
+		)
+		if apierr != nil {
+			return apierr.JSON(e)
+		}
+		response["log_file_name"] = logFilename
+		response["log_urls"] = logURLs
+
+		return e.JSON(http.StatusOK, response)
 	}
 }
 

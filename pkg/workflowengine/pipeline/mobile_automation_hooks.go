@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
@@ -22,55 +23,89 @@ import (
 const (
 	mobileAutomationStepUse                = "mobile-automation"
 	mobileRunnerSemaphoreTicketIDConfigKey = "mobile_runner_semaphore_ticket_id"
+	mobilePlatformAndroid                  = "android"
+	mobilePlatformIOS                      = "ios"
+)
+
+type mobileDeviceType string
+
+const (
+	deviceTypeAndroidEmulator mobileDeviceType = "android_emulator"
+	deviceTypeAndroidPhone    mobileDeviceType = "android_phone"
+	deviceTypeIOSSimulator    mobileDeviceType = "ios_simulator"
+	deviceTypeIOSPhone        mobileDeviceType = "ios_phone"
+	deviceTypeRedroid         mobileDeviceType = "redroid"
+)
+
+type platformActivities struct {
+	Start             string
+	Install           string
+	StartRecording    string
+	StopRecording     string
+	InstallAssetField string
+}
+
+var (
+	androidPlatformActivities = platformActivities{
+		Start:             activities.NewStartEmulatorActivity().Name(),
+		Install:           activities.NewApkInstallActivity().Name(),
+		StartRecording:    activities.NewStartRecordingActivity().Name(),
+		StopRecording:     activities.NewStopRecordingActivity().Name(),
+		InstallAssetField: "apk",
+	}
+	iosPlatformActivities = platformActivities{
+		Start:             activities.NewStartIOSSimulatorActivity().Name(),
+		Install:           activities.NewInstallIOSAppActivity().Name(),
+		StartRecording:    activities.NewStartIOSRecordingActivity().Name(),
+		StopRecording:     activities.NewStopIOSRecordingActivity().Name(),
+		InstallAssetField: "app",
+	}
 )
 
 type processStepInput struct {
-	ctx              workflow.Context
-	step             *StepDefinition
-	config           map[string]any
-	ao               *workflow.ActivityOptions
-	settedDevices    map[string]any
-	runData          *map[string]any
-	httpActivity     *activities.HTTPActivity
-	startEmuActivity *activities.StartEmulatorActivity
-	installActivity  *activities.ApkInstallActivity
-	logger           log.Logger
-	globalRunnerID   string
+	ctx            workflow.Context
+	step           *StepDefinition
+	config         map[string]any
+	ao             *workflow.ActivityOptions
+	settedDevices  map[string]any
+	runData        *map[string]any
+	httpActivity   *activities.HTTPActivity
+	logger         log.Logger
+	globalRunnerID string
 }
 
 type fetchAndInstallAPKInput struct {
-	ctx             workflow.Context
-	mobileCtx       workflow.Context
-	step            *StepDefinition
-	payload         *workflows.MobileAutomationWorkflowPipelinePayload
-	deviceMap       map[string]any
-	appURL          string
-	runnerURL       string
-	serial          string
-	httpActivity    *activities.HTTPActivity
-	installActivity *activities.ApkInstallActivity
+	ctx          workflow.Context
+	mobileCtx    workflow.Context
+	step         *StepDefinition
+	payload      *workflows.MobileAutomationWorkflowPipelinePayload
+	deviceMap    map[string]any
+	deviceType   mobileDeviceType
+	activities   platformActivities
+	appURL       string
+	runnerURL    string
+	serial       string
+	httpActivity *activities.HTTPActivity
 }
 
 type getOrCreateDeviceMapInput struct {
-	ctx              workflow.Context
-	mobileCtx        workflow.Context
-	payload          *workflows.MobileAutomationWorkflowPipelinePayload
-	settedDevices    map[string]any
-	appURL           string
-	stepID           string
-	httpActivity     *activities.HTTPActivity
-	startEmuActivity *activities.StartEmulatorActivity
+	ctx           workflow.Context
+	mobileCtx     workflow.Context
+	payload       *workflows.MobileAutomationWorkflowPipelinePayload
+	settedDevices map[string]any
+	appURL        string
+	stepID        string
+	httpActivity  *activities.HTTPActivity
 }
 
 type setupNewDeviceInput struct {
-	ctx              workflow.Context
-	mobileCtx        workflow.Context
-	payload          *workflows.MobileAutomationWorkflowPipelinePayload
-	deviceMap        map[string]any
-	appURL           string
-	stepID           string
-	httpActivity     *activities.HTTPActivity
-	startEmuActivity *activities.StartEmulatorActivity
+	ctx          workflow.Context
+	mobileCtx    workflow.Context
+	payload      *workflows.MobileAutomationWorkflowPipelinePayload
+	deviceMap    map[string]any
+	appURL       string
+	stepID       string
+	httpActivity *activities.HTTPActivity
 }
 
 type fetchRunnerInfoInput struct {
@@ -81,38 +116,36 @@ type fetchRunnerInfoInput struct {
 	httpActivity *activities.HTTPActivity
 }
 
-type startEmulatorInput struct {
-	ctx              workflow.Context
-	mobileCtx        workflow.Context
-	payload          *workflows.MobileAutomationWorkflowPipelinePayload
-	deviceType       string
-	stepID           string
-	startEmuActivity *activities.StartEmulatorActivity
+type startManagedDeviceInput struct {
+	ctx        workflow.Context
+	mobileCtx  workflow.Context
+	payload    *workflows.MobileAutomationWorkflowPipelinePayload
+	deviceType mobileDeviceType
+	activities platformActivities
+	stepID     string
 }
 
-type installAPKIfNeededInput struct {
-	mobileCtx       workflow.Context
-	deviceMap       map[string]any
-	apkPath         string
-	versionID       string
-	serial          string
-	stepID          string
-	installActivity *activities.ApkInstallActivity
+type installAppIfNeededInput struct {
+	mobileCtx  workflow.Context
+	deviceMap  map[string]any
+	appPath    string
+	versionID  string
+	serial     string
+	stepID     string
+	activities platformActivities
 }
 
 type startRecordingForDevicesInput struct {
-	ctx            workflow.Context
-	settedDevices  map[string]any
-	ao             *workflow.ActivityOptions
-	recordActivity *activities.StartRecordingActivity
+	ctx           workflow.Context
+	settedDevices map[string]any
+	ao            *workflow.ActivityOptions
 }
 
 type startRecordingForDeviceInput struct {
-	ctx            workflow.Context
-	runnerID       string
-	deviceMap      map[string]any
-	ao             *workflow.ActivityOptions
-	recordActivity *activities.StartRecordingActivity
+	ctx       workflow.Context
+	runnerID  string
+	deviceMap map[string]any
+	ao        *workflow.ActivityOptions
 }
 
 type cleanupDeviceInput struct {
@@ -143,7 +176,8 @@ type storeRecordingResultsInput struct {
 	runnerURL  string
 	videoPath  string
 	lastFrame  string
-	logcatPath string
+	logPath    string
+	deviceType mobileDeviceType
 	runID      string
 	runnerID   string
 	appURL     string
@@ -169,9 +203,6 @@ func MobileAutomationSetupHook(
 	semaphoreManaged := isSemaphoreManagedRun(config)
 
 	httpActivity := activities.NewHTTPActivity()
-	startEmuActivity := activities.NewStartEmulatorActivity()
-	installActivity := activities.NewApkInstallActivity()
-	recordActivity := activities.NewStartRecordingActivity()
 
 	runnerIDs, err := collectMobileRunnerIDs(*steps, globalRunnerID)
 	if err != nil {
@@ -195,27 +226,24 @@ func MobileAutomationSetupHook(
 		}
 
 		if err := processStep(processStepInput{
-			ctx:              ctx,
-			step:             step,
-			config:           config,
-			ao:               ao,
-			settedDevices:    settedDevices,
-			runData:          runData,
-			httpActivity:     httpActivity,
-			startEmuActivity: startEmuActivity,
-			installActivity:  installActivity,
-			logger:           logger,
-			globalRunnerID:   globalRunnerID,
+			ctx:            ctx,
+			step:           step,
+			config:         config,
+			ao:             ao,
+			settedDevices:  settedDevices,
+			runData:        runData,
+			httpActivity:   httpActivity,
+			logger:         logger,
+			globalRunnerID: globalRunnerID,
 		}); err != nil {
 			return err
 		}
 	}
 
 	if err := startRecordingForDevices(startRecordingForDevicesInput{
-		ctx:            ctx,
-		settedDevices:  settedDevices,
-		ao:             ao,
-		recordActivity: recordActivity,
+		ctx:           ctx,
+		settedDevices: settedDevices,
+		ao:            ao,
 	}); err != nil {
 		return err
 	}
@@ -343,24 +371,29 @@ func processStep(
 	}
 
 	deviceMap, err := getOrCreateDeviceMap(getOrCreateDeviceMapInput{
-		ctx:              input.ctx,
-		mobileCtx:        mobileCtx,
-		payload:          payload,
-		settedDevices:    input.settedDevices,
-		appURL:           appURL,
-		stepID:           input.step.ID,
-		httpActivity:     input.httpActivity,
-		startEmuActivity: input.startEmuActivity,
+		ctx:           input.ctx,
+		mobileCtx:     mobileCtx,
+		payload:       payload,
+		settedDevices: input.settedDevices,
+		appURL:        appURL,
+		stepID:        input.step.ID,
+		httpActivity:  input.httpActivity,
 	})
 	if err != nil {
 		return err
 	}
+
+	deviceType := deviceTypeFromMap(deviceMap)
+	deviceActivities := activitiesForDeviceType(deviceType)
 
 	serial, ok := deviceMap["serial"].(string)
 	if !ok {
 		serial = ""
 	}
 	SetPayloadValue(&input.step.With.Payload, "serial", serial)
+	if deviceType != "" {
+		SetPayloadValue(&input.step.With.Payload, "type", deviceType.String())
+	}
 
 	runnerURL, ok := deviceMap["runner_url"].(string)
 	if !ok || runnerURL == "" {
@@ -375,16 +408,17 @@ func processStep(
 	SetRunDataValue(input.runData, "setted_devices", input.settedDevices)
 
 	if err := fetchAndInstallAPK(fetchAndInstallAPKInput{
-		ctx:             input.ctx,
-		mobileCtx:       mobileCtx,
-		step:            input.step,
-		payload:         payload,
-		deviceMap:       deviceMap,
-		appURL:          appURL,
-		runnerURL:       runnerURL,
-		serial:          serial,
-		httpActivity:    input.httpActivity,
-		installActivity: input.installActivity,
+		ctx:          input.ctx,
+		mobileCtx:    mobileCtx,
+		step:         input.step,
+		payload:      payload,
+		deviceMap:    deviceMap,
+		deviceType:   deviceType,
+		activities:   deviceActivities,
+		appURL:       appURL,
+		runnerURL:    runnerURL,
+		serial:       serial,
+		httpActivity: input.httpActivity,
 	}); err != nil {
 		return err
 	}
@@ -455,14 +489,13 @@ func getOrCreateDeviceMap(
 	input.settedDevices[input.payload.RunnerID] = deviceMap
 
 	if err := setupNewDevice(setupNewDeviceInput{
-		ctx:              input.ctx,
-		mobileCtx:        input.mobileCtx,
-		payload:          input.payload,
-		deviceMap:        deviceMap,
-		appURL:           input.appURL,
-		stepID:           input.stepID,
-		httpActivity:     input.httpActivity,
-		startEmuActivity: input.startEmuActivity,
+		ctx:          input.ctx,
+		mobileCtx:    input.mobileCtx,
+		payload:      input.payload,
+		deviceMap:    deviceMap,
+		appURL:       input.appURL,
+		stepID:       input.stepID,
+		httpActivity: input.httpActivity,
 	}); err != nil {
 		return nil, err
 	}
@@ -484,14 +517,15 @@ func setupNewDevice(
 		return err
 	}
 
-	if deviceType == "android_emulator" || deviceType == "redroid" {
-		name, newSerial, err := startEmulator(startEmulatorInput{
-			ctx:              input.ctx,
-			mobileCtx:        input.mobileCtx,
-			deviceType:       deviceType,
-			payload:          input.payload,
-			stepID:           input.stepID,
-			startEmuActivity: input.startEmuActivity,
+	deviceActivities := activitiesForDeviceType(deviceType)
+	if deviceType.IsManagedEmulator() {
+		name, newSerial, err := startManagedDevice(startManagedDeviceInput{
+			ctx:        input.ctx,
+			mobileCtx:  input.mobileCtx,
+			deviceType: deviceType,
+			activities: deviceActivities,
+			payload:    input.payload,
+			stepID:     input.stepID,
 		})
 		if err != nil {
 			return err
@@ -502,7 +536,7 @@ func setupNewDevice(
 		input.deviceMap["name"] = name
 	}
 
-	input.deviceMap["type"] = deviceType
+	input.deviceMap["type"] = deviceType.String()
 	input.deviceMap["runner_url"] = runnerURL
 	input.deviceMap["serial"] = serial
 
@@ -511,7 +545,7 @@ func setupNewDevice(
 
 func fetchRunnerInfo(
 	input fetchRunnerInfoInput,
-) (string, string, string, error) {
+) (string, mobileDeviceType, string, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 
 	runnerReq := workflowengine.ActivityInput{
@@ -570,8 +604,16 @@ func fetchRunnerInfo(
 		)
 	}
 
-	deviceType, ok := body["type"].(string)
+	rawDeviceType, ok := body["type"].(string)
 	if !ok {
+		return "", "", "", workflowengine.NewAppError(
+			errCode,
+			fmt.Sprintf("missing or invalid device type for step %s", input.stepID),
+			body,
+		)
+	}
+	deviceType := normalizeDeviceType(rawDeviceType)
+	if deviceType == "" {
 		return "", "", "", workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf("missing or invalid device type for step %s", input.stepID),
@@ -591,16 +633,16 @@ func fetchRunnerInfo(
 	return runnerURL, deviceType, serial, nil
 }
 
-func startEmulator(
-	input startEmulatorInput,
+func startManagedDevice(
+	input startManagedDeviceInput,
 ) (string, string, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 
 	startResult := workflowengine.ActivityResult{}
 	startInput := workflowengine.ActivityInput{
-		Payload: map[string]any{"device_name": input.payload.RunnerID, "type": input.deviceType},
+		Payload: map[string]any{"device_name": input.payload.RunnerID, "type": input.deviceType.String()},
 	}
-	err := workflow.ExecuteActivity(input.mobileCtx, input.startEmuActivity.Name(), startInput).
+	err := workflow.ExecuteActivity(input.mobileCtx, input.activities.Start, startInput).
 		Get(input.ctx, &startResult)
 	if err != nil {
 		return "", "", err
@@ -661,7 +703,7 @@ func fetchAndInstallAPK(
 			URL: utils.JoinURL(
 				input.runnerURL,
 				"credimi",
-				"apk-action",
+				"installer-action",
 			),
 			Headers: map[string]string{
 				"Content-Type": "application/json",
@@ -670,6 +712,7 @@ func fetchAndInstallAPK(
 				"instance_url":       input.appURL,
 				"version_identifier": input.payload.VersionID,
 				"action_identifier":  input.payload.ActionID,
+				"platform":           installerPlatformForDeviceType(input.deviceType),
 			},
 			Timeout:        "300",
 			ExpectedStatus: 200,
@@ -691,14 +734,14 @@ func fetchAndInstallAPK(
 		return err
 	}
 
-	if err := installAPKIfNeeded(installAPKIfNeededInput{
-		mobileCtx:       input.mobileCtx,
-		deviceMap:       input.deviceMap,
-		apkPath:         apkPath,
-		versionID:       versionIdentifier,
-		serial:          input.serial,
-		stepID:          input.step.ID,
-		installActivity: input.installActivity,
+	if err := installAppIfNeeded(installAppIfNeededInput{
+		mobileCtx:  input.mobileCtx,
+		deviceMap:  input.deviceMap,
+		appPath:    apkPath,
+		versionID:  versionIdentifier,
+		serial:     input.serial,
+		stepID:     input.step.ID,
+		activities: input.activities,
 	}); err != nil {
 		return err
 	}
@@ -727,12 +770,12 @@ func parseAPKResponse(
 		)
 	}
 
-	apkPath, ok := body["apk_path"].(string)
+	apkPath, ok := body["installer_path"].(string)
 	if !ok {
 		return "", "", "", workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf(
-				"%s: missing apk_path in response for step %s",
+				"%s: missing installer_path in response for step %s",
 				errCode.Description,
 				step.ID,
 			),
@@ -772,8 +815,8 @@ func parseAPKResponse(
 	return apkPath, versionIdentifier, actionCode, nil
 }
 
-func installAPKIfNeeded(
-	input installAPKIfNeededInput,
+func installAppIfNeeded(
+	input installAppIfNeededInput,
 ) error {
 	installed, ok := input.deviceMap["installed"].(map[string]string)
 	if !ok {
@@ -781,11 +824,13 @@ func installAPKIfNeeded(
 	}
 
 	if _, ok := installed[input.versionID]; !ok {
-		installInput := workflowengine.ActivityInput{
-			Payload: map[string]any{"apk": input.apkPath, "serial": input.serial},
+		installPayload := map[string]any{
+			input.activities.InstallAssetField: input.appPath,
+			"serial":                           input.serial,
 		}
+		installInput := workflowengine.ActivityInput{Payload: installPayload}
 		installOutput := workflowengine.ActivityResult{}
-		if err := workflow.ExecuteActivity(input.mobileCtx, input.installActivity.Name(), installInput).
+		if err := workflow.ExecuteActivity(input.mobileCtx, input.activities.Install, installInput).
 			Get(input.mobileCtx, &installOutput); err != nil {
 			return err
 		}
@@ -821,11 +866,10 @@ func startRecordingForDevices(
 		}
 
 		if err := startRecordingForDevice(startRecordingForDeviceInput{
-			ctx:            input.ctx,
-			runnerID:       runnerID,
-			deviceMap:      deviceMap,
-			ao:             input.ao,
-			recordActivity: input.recordActivity,
+			ctx:       input.ctx,
+			runnerID:  runnerID,
+			deviceMap: deviceMap,
+			ao:        input.ao,
 		}); err != nil {
 			return err
 		}
@@ -849,6 +893,8 @@ func startRecordingForDevice(
 	mobileAO := *input.ao
 	mobileAO.TaskQueue = mobileRunnerTaskQueue(input.runnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAO)
+	deviceType := deviceTypeFromMap(input.deviceMap)
+	deviceActivities := activitiesForDeviceType(deviceType)
 
 	startRecordInput := workflowengine.ActivityInput{
 		Payload: map[string]any{
@@ -859,7 +905,7 @@ func startRecordingForDevice(
 	var recordResult workflowengine.ActivityResult
 	if err := workflow.ExecuteActivity(
 		mobileCtx,
-		input.recordActivity.Name(),
+		deviceActivities.StartRecording,
 		startRecordInput,
 	).Get(mobileCtx, &recordResult); err != nil {
 		return err
@@ -882,13 +928,13 @@ func extractAndStoreRecordingInfo(
 	runnerID string,
 ) error {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
-
-	adbPID, ok := recordResult.Output.(map[string]any)["adb_process_pid"].(float64)
+	deviceType := deviceTypeFromMap(deviceMap)
+	output, ok := recordResult.Output.(map[string]any)
 	if !ok {
 		return workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf(
-				"%s: missing adb_process in start record video response for device %s",
+				"%s: invalid start record video response for device %s",
 				errCode.Description,
 				runnerID,
 			),
@@ -896,12 +942,12 @@ func extractAndStoreRecordingInfo(
 		)
 	}
 
-	ffmpegPID, ok := recordResult.Output.(map[string]any)["ffmpeg_process_pid"].(float64)
+	recordingProcessPID, ok := output["recording_process_pid"].(float64)
 	if !ok {
 		return workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf(
-				"%s: missing ffmpeg_process in start record video response for device %s",
+				"%s: missing recording_process in start record video response for device %s",
 				errCode.Description,
 				runnerID,
 			),
@@ -909,20 +955,36 @@ func extractAndStoreRecordingInfo(
 		)
 	}
 
-	logcatPID, ok := recordResult.Output.(map[string]any)["logcat_process_pid"].(float64)
+	ffmpegPID := float64(0)
+	logPID, ok := output["log_process_pid"].(float64)
 	if !ok {
 		return workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf(
-				"%s: missing logcat_process in start record video response for device %s",
+				"%s: missing log_process in start record video response for device %s",
 				errCode.Description,
 				runnerID,
 			),
 			recordResult.Output,
 		)
 	}
+	if !deviceType.IsIOS() {
+		ffmpegPID, ok = output["ffmpeg_process_pid"].(float64)
+		if !ok {
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf(
+					"%s: missing ffmpeg_process in start record video response for device %s",
+					errCode.Description,
+					runnerID,
+				),
+				recordResult.Output,
+			)
+		}
 
-	videoPath, ok := recordResult.Output.(map[string]any)["video_path"].(string)
+	}
+
+	videoPath, ok := output["video_path"].(string)
 	if !ok {
 		return workflowengine.NewAppError(
 			errCode,
@@ -935,12 +997,12 @@ func extractAndStoreRecordingInfo(
 		)
 	}
 
-	logcatPath, ok := recordResult.Output.(map[string]any)["logcat_path"].(string)
-	if !ok {
+	logPath, hasLogPath := output["log_path"].(string)
+	if !hasLogPath || logPath == "" {
 		return workflowengine.NewAppError(
 			errCode,
 			fmt.Sprintf(
-				"%s: missing logcat_path in start record video response for device %s",
+				"%s: missing log_path in start record video response for device %s",
 				errCode.Description,
 				runnerID,
 			),
@@ -948,12 +1010,14 @@ func extractAndStoreRecordingInfo(
 		)
 	}
 
-	deviceMap["recording_adb_pid"] = int(adbPID)
+	deviceMap["recording_process_pid"] = int(recordingProcessPID)
 	deviceMap["recording_ffmpeg_pid"] = int(ffmpegPID)
-	deviceMap["recording_logcat_pid"] = int(logcatPID)
+	deviceMap["recording_log_pid"] = int(logPID)
 	deviceMap["recording"] = true
 	deviceMap["video_path"] = videoPath
-	deviceMap["logcat_path"] = logcatPath
+	if hasLogPath {
+		deviceMap["log_path"] = logPath
+	}
 
 	return nil
 }
@@ -1089,6 +1153,64 @@ func mobileRunnerTaskQueue(runnerID string) string {
 	return fmt.Sprintf("%s-TaskQueue", canonify.NormalizePath(runnerID))
 }
 
+func normalizeDeviceType(raw string) mobileDeviceType {
+	switch strings.TrimSpace(strings.ToLower(raw)) {
+	case "emulator", string(deviceTypeAndroidEmulator):
+		return deviceTypeAndroidEmulator
+	case "physical", string(deviceTypeAndroidPhone):
+		return deviceTypeAndroidPhone
+	case mobilePlatformIOS, string(deviceTypeIOSSimulator):
+		return deviceTypeIOSSimulator
+	case string(deviceTypeIOSPhone):
+		return deviceTypeIOSPhone
+	case string(deviceTypeRedroid):
+		return deviceTypeRedroid
+	default:
+		return mobileDeviceType(strings.TrimSpace(strings.ToLower(raw)))
+	}
+}
+
+func installerPlatformForDeviceType(deviceType mobileDeviceType) string {
+	if deviceType.IsIOS() {
+		return mobilePlatformIOS
+	}
+
+	return mobilePlatformAndroid
+}
+
+func (d mobileDeviceType) String() string {
+	return string(d)
+}
+
+func (d mobileDeviceType) IsIOS() bool {
+	switch d {
+	case deviceTypeIOSSimulator, deviceTypeIOSPhone:
+		return true
+	default:
+		return false
+	}
+}
+
+func (d mobileDeviceType) IsManagedEmulator() bool {
+	switch d {
+	case deviceTypeAndroidEmulator, deviceTypeRedroid, deviceTypeIOSSimulator:
+		return true
+	default:
+		return false
+	}
+}
+
+func activitiesForDeviceType(deviceType mobileDeviceType) platformActivities {
+	if deviceType.IsIOS() {
+		return iosPlatformActivities
+	}
+	return androidPlatformActivities
+}
+
+func deviceTypeFromMap(deviceMap map[string]any) mobileDeviceType {
+	return normalizeDeviceType(workflowengine.AsString(deviceMap["type"]))
+}
+
 func parseDeviceMap(
 	runnerID string,
 	raw any,
@@ -1190,7 +1312,8 @@ func cleanupRecording(
 		runnerURL:  runner_url,
 		videoPath:  recordingInfo.videoPath,
 		lastFrame:  lastFramePath,
-		logcatPath: recordingInfo.logcatPath,
+		logPath:    recordingInfo.logPath,
+		deviceType: recordingInfo.deviceType,
 		runID:      input.runID,
 		runnerID:   input.runnerID,
 		appURL:     input.appURL,
@@ -1202,11 +1325,13 @@ func cleanupRecording(
 }
 
 type recordingInfo struct {
-	videoPath  string
-	logcatPath string
-	adbPid     int
-	ffmpegPid  int
-	logcatPid  int
+	deviceType   mobileDeviceType
+	activities   platformActivities
+	videoPath    string
+	logPath      string
+	recordingPid int
+	ffmpegPid    int
+	logPid       int
 }
 
 func extractRecordingInfo(
@@ -1214,6 +1339,7 @@ func extractRecordingInfo(
 	deviceInfo map[string]any,
 ) (*recordingInfo, error) {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+	deviceType := deviceTypeFromMap(deviceInfo)
 
 	videoPath, ok := deviceInfo["video_path"].(string)
 	if !ok || videoPath == "" {
@@ -1223,20 +1349,38 @@ func extractRecordingInfo(
 		)
 	}
 
-	logcatPath, ok := deviceInfo["logcat_path"].(string)
-	if !ok || logcatPath == "" {
+	logPath, hasLogPath := deviceInfo["log_path"].(string)
+	if !hasLogPath || logPath == "" {
 		return nil, workflowengine.NewAppError(
 			errCode,
-			"missing logcat_path for device "+runnerID,
+			"missing log_path for device "+runnerID,
 		)
 	}
 
-	recordingAdbPid, ok := deviceInfo["recording_adb_pid"].(int)
-	if !ok || recordingAdbPid == 0 {
+	recordingPid, ok := deviceInfo["recording_process_pid"].(int)
+	if !ok || recordingPid == 0 {
 		return nil, workflowengine.NewAppError(
 			errCode,
-			"missing recording_adb_pid for device "+runnerID,
+			"missing recording_process_pid for device "+runnerID,
 		)
+	}
+
+	if deviceType.IsIOS() {
+		logPid, ok := deviceInfo["recording_log_pid"].(int)
+		if !ok || logPid == 0 {
+			return nil, workflowengine.NewAppError(
+				errCode,
+				"missing recording_log_pid for device "+runnerID,
+			)
+		}
+		return &recordingInfo{
+			deviceType:   deviceType,
+			activities:   activitiesForDeviceType(deviceType),
+			videoPath:    videoPath,
+			logPath:      logPath,
+			recordingPid: recordingPid,
+			logPid:       logPid,
+		}, nil
 	}
 
 	recordingFfmpegPid, ok := deviceInfo["recording_ffmpeg_pid"].(int)
@@ -1247,20 +1391,22 @@ func extractRecordingInfo(
 		)
 	}
 
-	recordingLogcatPid, ok := deviceInfo["recording_logcat_pid"].(int)
-	if !ok || recordingLogcatPid == 0 {
+	recordingLogPid, ok := deviceInfo["recording_log_pid"].(int)
+	if !ok || recordingLogPid == 0 {
 		return nil, workflowengine.NewAppError(
 			errCode,
-			"missing recording_logcat_pid for device "+runnerID,
+			"missing recording_log_pid for device "+runnerID,
 		)
 	}
 
 	return &recordingInfo{
-		videoPath:  videoPath,
-		logcatPath: logcatPath,
-		adbPid:     recordingAdbPid,
-		ffmpegPid:  recordingFfmpegPid,
-		logcatPid:  recordingLogcatPid,
+		deviceType:   deviceType,
+		activities:   activitiesForDeviceType(deviceType),
+		videoPath:    videoPath,
+		logPath:      logPath,
+		recordingPid: recordingPid,
+		ffmpegPid:    recordingFfmpegPid,
+		logPid:       recordingLogPid,
 	}, nil
 }
 
@@ -1269,19 +1415,31 @@ func stopRecording(
 	info *recordingInfo,
 	logger log.Logger,
 ) (string, error) {
-	stopRecordingActivity := activities.NewStopRecordingActivity()
 	var stopResult workflowengine.ActivityResult
+
+	stopPayload := map[string]any{
+		"video_path":            info.videoPath,
+		"recording_process_pid": info.recordingPid,
+		"ffmpeg_process_pid":    info.ffmpegPid,
+		"log_process_pid":       info.logPid,
+	}
+	stopActivityName := info.activities.StopRecording
+	if stopActivityName == "" {
+		stopActivityName = activitiesForDeviceType(info.deviceType).StopRecording
+	}
+	if info.deviceType.IsIOS() {
+		stopPayload = map[string]any{
+			"recording_process_pid": info.recordingPid,
+			"video_path":            info.videoPath,
+			"log_process_pid":       info.logPid,
+		}
+	}
 
 	if err := workflow.ExecuteActivity(
 		ctx,
-		stopRecordingActivity.Name(),
+		stopActivityName,
 		workflowengine.ActivityInput{
-			Payload: map[string]any{
-				"video_path":         info.videoPath,
-				"adb_process_pid":    info.adbPid,
-				"ffmpeg_process_pid": info.ffmpegPid,
-				"logcat_process_pid": info.logcatPid,
-			},
+			Payload: stopPayload,
 		},
 	).Get(ctx, &stopResult); err != nil {
 		logger.Error("cleanup: stop recording failed", "error", err)
@@ -1306,6 +1464,17 @@ func storeRecordingResults(
 ) error {
 	httpActivity := activities.NewHTTPActivity()
 	var storeResult workflowengine.ActivityResult
+	body := map[string]any{
+		"video_path":        input.videoPath,
+		"last_frame_path":   input.lastFrame,
+		"run_identifier":    input.runID,
+		"runner_identifier": input.runnerID,
+		"instance_url":      input.appURL,
+		"platform":          installerPlatformForDeviceType(input.deviceType),
+	}
+	if input.logPath != "" {
+		body["log_path"] = input.logPath
+	}
 
 	if err := workflow.ExecuteActivity(
 		input.ctx,
@@ -1321,14 +1490,7 @@ func storeRecordingResults(
 				Headers: map[string]string{
 					"Content-Type": "application/json",
 				},
-				Body: map[string]any{
-					"video_path":        input.videoPath,
-					"last_frame_path":   input.lastFrame,
-					"logcat_path":       input.logcatPath,
-					"run_identifier":    input.runID,
-					"runner_identifier": input.runnerID,
-					"instance_url":      input.appURL,
-				},
+				Body:           body,
 				Timeout:        "300",
 				ExpectedStatus: 200,
 			},
