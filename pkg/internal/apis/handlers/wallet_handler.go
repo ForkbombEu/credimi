@@ -43,6 +43,11 @@ var (
 	walletWaitForPartialResult = workflowengine.WaitForPartialResult[map[string]any]
 )
 
+const (
+	walletPlatformAndroid = "android"
+	walletPlatformIOS     = "ios"
+)
+
 var WalletRoutes routing.RouteGroup = routing.RouteGroup{
 	BaseURL:                "/api/wallet",
 	AuthenticationRequired: true,
@@ -375,17 +380,21 @@ func getFileMD5OrETagFromPocketBase(
 
 func normalizeWalletPlatform(platform string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(platform)) {
-	case "android":
-		return "android", nil
-	case "ios":
-		return "ios", nil
+	case walletPlatformAndroid:
+		return walletPlatformAndroid, nil
+	case walletPlatformIOS:
+		return walletPlatformIOS, nil
 	default:
-		return "", fmt.Errorf("supported values are android or ios")
+		return "", fmt.Errorf(
+			"supported values are %s or %s",
+			walletPlatformAndroid,
+			walletPlatformIOS,
+		)
 	}
 }
 
 func installerFieldForPlatform(platform string) string {
-	if platform == "ios" {
+	if platform == walletPlatformIOS {
 		return "ios_installer"
 	}
 
@@ -393,7 +402,7 @@ func installerFieldForPlatform(platform string) string {
 }
 
 func logRecordFieldForPlatform(platform string) string {
-	if platform == "ios" {
+	if platform == walletPlatformIOS {
 		return "ios_logstreams"
 	}
 

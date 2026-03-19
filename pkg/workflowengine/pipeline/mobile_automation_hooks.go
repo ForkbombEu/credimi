@@ -23,6 +23,8 @@ import (
 const (
 	mobileAutomationStepUse                = "mobile-automation"
 	mobileRunnerSemaphoreTicketIDConfigKey = "mobile_runner_semaphore_ticket_id"
+	mobilePlatformAndroid                  = "android"
+	mobilePlatformIOS                      = "ios"
 )
 
 type mobileDeviceType string
@@ -1157,7 +1159,7 @@ func normalizeDeviceType(raw string) mobileDeviceType {
 		return deviceTypeAndroidEmulator
 	case "physical", string(deviceTypeAndroidPhone):
 		return deviceTypeAndroidPhone
-	case "ios", string(deviceTypeIOSSimulator):
+	case mobilePlatformIOS, string(deviceTypeIOSSimulator):
 		return deviceTypeIOSSimulator
 	case string(deviceTypeIOSPhone):
 		return deviceTypeIOSPhone
@@ -1170,10 +1172,10 @@ func normalizeDeviceType(raw string) mobileDeviceType {
 
 func installerPlatformForDeviceType(deviceType mobileDeviceType) string {
 	if deviceType.IsIOS() {
-		return "ios"
+		return mobilePlatformIOS
 	}
 
-	return "android"
+	return mobilePlatformAndroid
 }
 
 func (d mobileDeviceType) String() string {
