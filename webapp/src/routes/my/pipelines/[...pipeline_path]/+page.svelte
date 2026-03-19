@@ -64,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <Separator />
 
 <T tag="h3">{m.workflow_runs()}</T>
-<Pipeline.Workflows.Table workflows={workflows.current ?? []} />
+<Pipeline.Workflows.Table workflows={workflows.current ?? []} hidePipelineColumn />
 
 <!--  -->
 

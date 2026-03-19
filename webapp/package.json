@@ -128,6 +128,7 @@
 		"qrcode-generator": "^2.0.4",
 		"quicktype-core": "^23.2.6",
 		"remove-markdown": "^0.6.3",
+		"rune-sync": "^0.2.1",
 		"runed": "0.37.1",
 		"shiki": "^3.21.0",
 		"slugify": "^1.6.6",
