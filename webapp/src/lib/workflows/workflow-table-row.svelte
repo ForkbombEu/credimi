@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{
 				workflow: Workflow;
 				Td: typeof Table.Cell;
+				depth: number;
 			}
 		]
 	>;
@@ -77,7 +78,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		}
 	]}
 >
-	{@render rowStart?.({ workflow, Td: Table.Cell })}
+	{@render rowStart?.({ workflow, Td: Table.Cell, depth })}
 
 	{#if !hideColumns.includes('type')}
 		<Table.Cell class="text-muted-foreground">
@@ -150,7 +151,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		</Table.Cell>
 	{/if}
 
-	{@render row?.({ workflow, Td: Table.Cell })}
+	{@render row?.({ workflow, Td: Table.Cell, depth })}
 
 	{#if !hideColumns.includes('start_time')}
 		<Table.Cell
@@ -201,6 +202,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{hideColumns}
 			{actions}
 			{disableLink}
+			{rowStart}
 		/>
 	{/each}
 {/if}

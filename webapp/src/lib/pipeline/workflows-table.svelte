@@ -24,9 +24,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	type Props = {
 		workflows: ExecutionSummary[];
+		hidePipelineColumn?: boolean;
 	};
 
-	let { workflows }: Props = $props();
+	let { workflows, hidePipelineColumn = false }: Props = $props();
 </script>
 
 <WorkflowsTable
@@ -36,7 +37,9 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	disableLink={(w) => w.queue !== undefined}
 >
 	{#snippet headerStart({ Th })}
-		<Th>{m.Pipeline()}</Th>
+		{#if !hidePipelineColumn}
+			<Th>{m.Pipeline()}</Th>
+		{/if}
 	{/snippet}
 
 	{#snippet header({ Th })}
@@ -45,20 +48,24 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<Th>{m.Results()}</Th>
 	{/snippet}
 
-	{#snippet rowStart({ workflow, Td })}
-		<Td>
-			<A
-				href={resolve('/my/pipelines/[...pipeline_path]', {
-					pipeline_path: workflow.pipeline_identifier ?? ''
-				})}
-				class="flex items-center gap-1"
-			>
-				<ArrowRightIcon size={12} />
-				<span>
-					{m.View()}
-				</span>
-			</A>
-		</Td>
+	{#snippet rowStart({ workflow, Td, depth })}
+		{#if !hidePipelineColumn}
+			<Td>
+				{#if depth === 0}
+					<A
+						href={resolve('/my/pipelines/[...pipeline_path]', {
+							pipeline_path: workflow.pipeline_identifier ?? ''
+						})}
+						class="flex items-center gap-1"
+					>
+						<ArrowRightIcon size={12} />
+						<span>
+							{m.View()}
+						</span>
+					</A>
+				{/if}
+			</Td>
+		{/if}
 	{/snippet}
 
 	{#snippet row({ workflow, Td })}
