@@ -178,17 +178,19 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/if}
 
 	{#if !hideColumns.includes('actions')}
-		<Table.Cell class="flex justify-end">
-			{#if actions}
-				<DropdownMenu
-					items={actions(workflow)}
-					triggerVariants={{ variant: 'ghost', size: 'icon-sm' }}
-				>
-					{#snippet triggerContent()}
-						<EllipsisVerticalIcon />
-					{/snippet}
-				</DropdownMenu>
-			{/if}
+		<Table.Cell>
+			<div class="flex justify-end">
+				{#if actions}
+					<DropdownMenu
+						items={actions(workflow)}
+						triggerVariants={{ variant: 'ghost', size: 'icon-sm' }}
+					>
+						{#snippet triggerContent()}
+							<EllipsisVerticalIcon />
+						{/snippet}
+					</DropdownMenu>
+				{/if}
+			</div>
 		</Table.Cell>
 	{/if}
 </tr>
