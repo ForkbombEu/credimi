@@ -938,6 +938,17 @@ func computePipelineResultsFromRecord(app core.App, record *core.Record) []Pipel
 			screenshotMap[key] = name
 		}
 	}
+	logMap := make(map[string]pipelineResultFileRef)
+	for _, field := range []string{"logcats", "ios_logstreams"} {
+		for _, name := range record.GetStringSlice(field) {
+			if key, ok := baseKey(name, "_logfile_"); ok {
+				logMap[key] = pipelineResultFileRef{
+					field: field,
+					name:  name,
+				}
+			}
+		}
+	}
 
 	results := make([]PipelineResults, 0, len(videos))
 	for _, name := range videos {
@@ -951,7 +962,7 @@ func computePipelineResultsFromRecord(app core.App, record *core.Record) []Pipel
 			continue
 		}
 
-		results = append(results, PipelineResults{
+		result := PipelineResults{
 			Video: utils.JoinURL(
 				app.Settings().Meta.AppURL,
 				"api", "files", "pipeline_results",
@@ -966,10 +977,26 @@ func computePipelineResultsFromRecord(app core.App, record *core.Record) []Pipel
 				record.GetString("screenshots"),
 				screenshot,
 			),
-		})
+		}
+		if logFile, found := logMap[key]; found {
+			result.Log = utils.JoinURL(
+				app.Settings().Meta.AppURL,
+				"api", "files", "pipeline_results",
+				record.Id,
+				record.GetString(logFile.field),
+				logFile.name,
+			)
+		}
+
+		results = append(results, result)
 	}
 
 	return results
+}
+
+type pipelineResultFileRef struct {
+	field string
+	name  string
 }
 
 func getChildWorkflowsByParents(

@@ -70,23 +70,25 @@ func (w walletWorkflowStub) Start(
 	return w.startFn(namespace, input)
 }
 
-func TestWalletGetAPKMD5(t *testing.T) {
+func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
 
 	scenarios := []tests.ApiScenario{
 		{
-			Name:   "get APK MD5 with valid wallet identifier",
+			Name:   "get Android installer MD5 with valid wallet identifier",
 			Method: http.MethodPost,
-			URL:    "/api/wallet/get-apk-md5-or-etag",
+			URL:    "/api/wallet/get-installer-md5-or-etag",
 			Body: jsonBody(map[string]any{
 				"wallet_identifier":         "usera-s-organization/wallet123",
 				"wallet_version_identifier": "",
+				"platform":                  "android",
 			}),
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
-				`"apk_name"`,
-				`"apk_identifier"`,
+				`"installer_name"`,
+				`"installer_identifier"`,
+				`"app.apk"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
@@ -112,17 +114,18 @@ func TestWalletGetAPKMD5(t *testing.T) {
 			},
 		},
 		{
-			Name:   "get APK MD5 with valid version identifier",
+			Name:   "get Android installer MD5 with valid version identifier",
 			Method: http.MethodPost,
-			URL:    "/api/wallet/get-apk-md5-or-etag",
+			URL:    "/api/wallet/get-installer-md5-or-etag",
 			Body: jsonBody(map[string]any{
 				"wallet_identifier":         "",
 				"wallet_version_identifier": "usera-s-organization/wallet234/2-0-0",
+				"platform":                  "android",
 			}),
 			ExpectedStatus: 200,
 			ExpectedContent: []string{
-				`"apk_name"`,
-				`"apk_identifier"`,
+				`"installer_name"`,
+				`"installer_identifier"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)
@@ -148,10 +151,50 @@ func TestWalletGetAPKMD5(t *testing.T) {
 			},
 		},
 		{
-			Name:           "get APK MD5 with missing identifiers",
+			Name:   "get iOS installer MD5 with valid wallet identifier",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(map[string]any{
+				"wallet_identifier":         "usera-s-organization/walletios",
+				"wallet_version_identifier": "",
+				"platform":                  "ios",
+			}),
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"installer_name"`,
+				`"installer_identifier"`,
+				`"app.ipa"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupWalletApp(t)
+
+				walletColl, err := app.FindCollectionByNameOrId("wallets")
+				require.NoError(t, err)
+				walletRecord := core.NewRecord(walletColl)
+				walletRecord.Set("name", "walletios")
+				walletRecord.Set("owner", orgID)
+				require.NoError(t, app.Save(walletRecord))
+
+				walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
+				require.NoError(t, err)
+				versionRecord := core.NewRecord(walletVersionColl)
+				versionRecord.Set("wallet", walletRecord.Id)
+				versionRecord.Set("tag", "3.0.0")
+				versionRecord.Set("owner", orgID)
+				apkFile := NewTestFile("android.apk", []byte("dummy android installer content"))
+				versionRecord.Set("android_installer", []*filesystem.File{apkFile})
+				iosFile := NewTestFile("app.ipa", []byte("dummy ios installer content"))
+				versionRecord.Set("ios_installer", []*filesystem.File{iosFile})
+				require.NoError(t, app.Save(versionRecord))
+
+				return app
+			},
+		},
+		{
+			Name:           "get installer MD5 with missing identifiers",
 			Method:         http.MethodPost,
-			URL:            "/api/wallet/get-apk-md5-or-etag",
-			Body:           jsonBody(map[string]any{}),
+			URL:            "/api/wallet/get-installer-md5-or-etag",
+			Body:           jsonBody(map[string]any{"platform": "android"}),
 			ExpectedStatus: 400,
 			ExpectedContent: []string{
 				`"identifier"`,
@@ -160,10 +203,13 @@ func TestWalletGetAPKMD5(t *testing.T) {
 			TestAppFactory: setupWalletApp,
 		},
 		{
-			Name:           "get APK MD5 with non-existent wallet",
-			Method:         http.MethodPost,
-			URL:            "/api/wallet/get-apk-md5-or-etag",
-			Body:           jsonBody(map[string]any{"wallet_identifier": "nonexistent"}),
+			Name:   "get installer MD5 with non-existent wallet",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(map[string]any{
+				"wallet_identifier": "nonexistent",
+				"platform":          "android",
+			}),
 			ExpectedStatus: 404,
 			ExpectedContent: []string{
 				`"wallet_version"`,
@@ -172,9 +218,21 @@ func TestWalletGetAPKMD5(t *testing.T) {
 			TestAppFactory: setupWalletApp,
 		},
 		{
-			Name:           "get APK MD5 with invalid JSON",
+			Name:           "get installer MD5 with invalid platform",
 			Method:         http.MethodPost,
-			URL:            "/api/wallet/get-apk-md5-or-etag",
+			URL:            "/api/wallet/get-installer-md5-or-etag",
+			Body:           jsonBody(map[string]any{"wallet_identifier": "nonexistent", "platform": "desktop"}),
+			ExpectedStatus: 400,
+			ExpectedContent: []string{
+				`"platform"`,
+				`"invalid platform"`,
+			},
+			TestAppFactory: setupWalletApp,
+		},
+		{
+			Name:           "get installer MD5 with invalid JSON",
+			Method:         http.MethodPost,
+			URL:            "/api/wallet/get-installer-md5-or-etag",
 			Body:           bytes.NewReader([]byte(`{invalid json}`)),
 			ExpectedStatus: 400,
 			ExpectedContent: []string{
@@ -204,6 +262,7 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	// add form fields
 	_ = successWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
 	_ = successWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
+	_ = successWriter.WriteField("platform", "android")
 
 	partHeader := textproto.MIMEHeader{}
 	partHeader.Set("Content-Disposition", `form-data; name="result_video"; filename="test.mp4"`)
@@ -223,20 +282,51 @@ func TestWalletStorePipelineResult(t *testing.T) {
 	_, err = frameWriter.Write([]byte("test frame content"))
 	require.NoError(t, err)
 
-	logcatWriter, err := successWriter.CreateFormFile("logcat", "logcat.log")
+	logWriter, err := successWriter.CreateFormFile("logfile", "log.txt")
 	require.NoError(t, err)
 
-	_, err = logcatWriter.Write([]byte("test logcat content"))
+	_, err = logWriter.Write([]byte("test log content"))
 	require.NoError(t, err)
 
 	require.NoError(t, successWriter.Close())
+
+	var iosBody bytes.Buffer
+	iosWriter := multipart.NewWriter(&iosBody)
+	_ = iosWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
+	_ = iosWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
+	_ = iosWriter.WriteField("platform", "ios")
+
+	iosVideoWriter, err := iosWriter.CreatePart(partHeader)
+	require.NoError(t, err)
+	_, err = iosVideoWriter.Write(mp4Header)
+	require.NoError(t, err)
+
+	iosFrameWriter, err := iosWriter.CreateFormFile("last_frame", "frame.txt")
+	require.NoError(t, err)
+	_, err = iosFrameWriter.Write([]byte("test frame content"))
+	require.NoError(t, err)
+
+	iosLogWriter, err := iosWriter.CreateFormFile("logfile", "ios-log.txt")
+	require.NoError(t, err)
+	_, err = iosLogWriter.Write([]byte("test ios log content"))
+	require.NoError(t, err)
+
+	require.NoError(t, iosWriter.Close())
 
 	// Prepare missing file multipart request
 	var missingBody bytes.Buffer
 	missingWriter := multipart.NewWriter(&missingBody)
 	_ = missingWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
 	_ = missingWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
+	_ = missingWriter.WriteField("platform", "android")
 	require.NoError(t, missingWriter.Close())
+
+	var invalidPlatformBody bytes.Buffer
+	invalidPlatformWriter := multipart.NewWriter(&invalidPlatformBody)
+	_ = invalidPlatformWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
+	_ = invalidPlatformWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
+	_ = invalidPlatformWriter.WriteField("platform", "desktop")
+	require.NoError(t, invalidPlatformWriter.Close())
 
 	scenarios := []tests.ApiScenario{
 		{
@@ -260,6 +350,27 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			},
 		},
 		{
+			Name:   "store ios pipeline result successfully",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(iosBody.Bytes()),
+			Headers: map[string]string{
+				"Content-Type": iosWriter.FormDataContentType(),
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"status":"success"`,
+				`"last_frame_file_name"`,
+				`"video_file_name"`,
+				`"log_file_name"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupWalletApp(t)
+				setupWalletPipelineTestRecords(t, app, orgID)
+				return app
+			},
+		},
+		{
 			Name:   "store pipeline result missing files",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
@@ -271,6 +382,25 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			ExpectedContent: []string{
 				`"file"`,
 				`failed to read file for field result_video"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupWalletApp(t)
+				setupWalletPipelineTestRecords(t, app, orgID)
+				return app
+			},
+		},
+		{
+			Name:   "store pipeline result with invalid platform",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(invalidPlatformBody.Bytes()),
+			Headers: map[string]string{
+				"Content-Type": invalidPlatformWriter.FormDataContentType(),
+			},
+			ExpectedStatus: 400,
+			ExpectedContent: []string{
+				`"platform"`,
+				`"invalid platform"`,
 			},
 			TestAppFactory: func(t testing.TB) *tests.TestApp {
 				app := setupWalletApp(t)

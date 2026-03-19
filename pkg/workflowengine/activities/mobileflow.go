@@ -125,6 +125,76 @@ func (a *UnlockEmulatorActivity) Execute(
 	return workflowengine.ActivityResult{Output: res}, nil
 }
 
+type StartIOSSimulatorActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStartIOSSimulatorActivity() *StartIOSSimulatorActivity {
+	return &StartIOSSimulatorActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Setup iOS simulator",
+		},
+	}
+}
+
+func (a *StartIOSSimulatorActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StartIOSSimulatorActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		false,
+	)
+
+	res, err := mobile.StartIOSSimulator(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type InstallIOSAppActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewInstallIOSAppActivity() *InstallIOSAppActivity {
+	return &InstallIOSAppActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Install iOS app on device",
+		},
+	}
+}
+
+func (a *InstallIOSAppActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *InstallIOSAppActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.InstallIOSApp(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
 type CleanupDeviceActivity struct {
 	workflowengine.BaseActivity
 }
@@ -200,6 +270,46 @@ func (a *StartRecordingActivity) Execute(
 	return workflowengine.ActivityResult{Output: res}, nil
 }
 
+type StartIOSRecordingActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStartIOSRecordingActivity() *StartIOSRecordingActivity {
+	return &StartIOSRecordingActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Start recording iOS device screen",
+		},
+	}
+}
+
+func (a *StartIOSRecordingActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StartIOSRecordingActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		map[string]mobile.ErrorCode{
+			"TempFileCreationFailed": {
+				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
+				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
+			},
+		},
+		true,
+	)
+
+	res, err := mobile.StartIOSVideoRecording(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
 type StopRecordingActivity struct {
 	workflowengine.BaseActivity
 }
@@ -228,6 +338,41 @@ func (a *StopRecordingActivity) Execute(
 	)
 
 	res, err := mobile.StopVideoRecording(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type StopIOSRecordingActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStopIOSRecordingActivity() *StopIOSRecordingActivity {
+	return &StopIOSRecordingActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Stop recording iOS device screen",
+		},
+	}
+}
+
+func (a *StopIOSRecordingActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StopIOSRecordingActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.StopIOSVideoRecording(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}
