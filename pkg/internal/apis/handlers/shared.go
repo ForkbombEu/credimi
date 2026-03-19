@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
-	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/core"
 	"go.temporal.io/api/enums/v1"
@@ -119,6 +118,7 @@ type WorkflowExecutionAPIResponse struct {
 type PipelineResults struct {
 	Video      string `json:"video,omitempty"`
 	Screenshot string `json:"screenshot,omitempty"`
+	Log        string `json:"log,omitempty"`
 }
 
 type WorkflowStatus string
@@ -646,43 +646,7 @@ func computePipelineResults(
 		return nil
 	}
 
-	videos := record.GetStringSlice("video_results")
-	screenshots := record.GetStringSlice("screenshots")
-
-	screenshotMap := make(map[string]string, len(screenshots))
-
-	for _, name := range screenshots {
-		if key, ok := baseKey(name, "_screenshot_"); ok {
-			screenshotMap[key] = name
-		}
-	}
-
-	results := make([]PipelineResults, 0, len(videos))
-
-	for _, name := range videos {
-		if key, ok := baseKey(name, "_result_video_"); ok {
-			if screenshot, ok := screenshotMap[key]; ok {
-				results = append(results, PipelineResults{
-					Video: utils.JoinURL(
-						app.Settings().Meta.AppURL,
-						"api", "files", "pipeline_results",
-						record.Id,
-						record.GetString("video_results"),
-						name,
-					),
-					Screenshot: utils.JoinURL(
-						app.Settings().Meta.AppURL,
-						"api", "files", "pipeline_results",
-						record.Id,
-						record.GetString("screenshots"),
-						screenshot,
-					),
-				})
-			}
-		}
-	}
-
-	return results
+	return computePipelineResultsFromRecord(app, record)
 }
 
 // calculateDuration calculates the duration between startTime and endTime

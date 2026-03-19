@@ -1041,11 +1041,13 @@ func TestComputePipelineResultsFromRecordPipelineResultsHandler(t *testing.T) {
 	record.Id = "result-1"
 	record.Set("video_results", []string{"sample_result_video_1.mp4", "orphan.mp4"})
 	record.Set("screenshots", []string{"sample_screenshot_1.png", "extra.png"})
+	record.Set("ios_logstreams", []string{"sample_logfile_1.zip"})
 
 	results := computePipelineResultsFromRecord(app, record)
 	require.Len(t, results, 1)
 	require.Contains(t, results[0].Video, "sample_result_video_1.mp4")
 	require.Contains(t, results[0].Screenshot, "sample_screenshot_1.png")
+	require.Contains(t, results[0].Log, "sample_logfile_1.zip")
 }
 
 func TestGetChildWorkflowsByParents(t *testing.T) {
