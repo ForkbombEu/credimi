@@ -1,35 +1,48 @@
 ---
-title: "Welcome to Credimi 😊"
-description: ""
+title: Credimi Manual
+description: User-facing guide to the Marketplace, conformance and interoperability testing, publishing integrations, and testing automation.
 ---
 
-**Credimi** was built to enable EUDI-ARF developers, government organizations and end-users to test compliance and interoperability of Digital Identity solutions. 
+Credimi has four main user-facing areas:
 
-Below is a summary of Credimi's features organized by stakeholder category.
+1. **Marketplace** — anyone can explore components and solutions and try issuance or verification services.
+2. **Conformance & Interop** — logged-in users can run conformance checks and test how Wallets, Issuers and Verifiers work together.
+3. **Publish to Marketplace** — solution developers can list Wallets, Issuers and Verifiers, then integrate issuers and verifiers with StepCI so visitors can try them from credimi.io.
+4. **Testing Automation** — after StepCI and Maestro assets are in place, the same flows can be automated with pipelines.
 
-![credimiHome](./images/credimiHome.png)
+Use the sections below depending on what you want to do.
 
-## Are you a Developer? 
-Create an **User Account**, access the **Developer Dashboard** and: 
-- Test your Identity solution for compliance: start or schedule multiple compliance checks via GUI, REST-API or CLI. Each check produces a report accessible from the Developer Dashboard.
-- Publish your product and services to the Marketplace: feature your Wallet, Issuer, Verifier, as well as list of the Verifiable Credentials that your solution offers. 
-- Automatize testing: schedule your compliance check via CI (or Github Actions) and automatize mobile testing using Credimi's integration with [Maestro](https://maestro.dev/)
-- Check the News page for the latest digest of Identity Standard and News
+## Marketplace
 
-![credimiDevDashboard](./images/credimiDevDashboard.png)
+For users who want to browse the ecosystem and manually try flows.
 
+- Explore listed Wallets, Issuers, Verifiers and credentials
+- Open a credential or verification page and try the exposed service
+- Reuse marketplace integrations later in manual tests and pipelines
 
-## Are you an End-user?
-Browse the Marketplace to:
+## Conformance & Interop
 
-- Search and compare Identity products and services
-- Request and verify Verifiable Credentials 
-- Compare the compliance level of Identity products and services
+For logged-in users who want to test solutions.
 
-![credimiMarketplace](./images/credimiMarketplace.png)
+- Start conformance checks from the web GUI
+- Compare conformance suites and results
+- Try interoperability flows with third-party Issuers and Verifiers
 
-## Are you standardazing body or government organization?
+## Publish to Marketplace
 
-- Gather collections of test reports, to assess industry readyness of protocols and solutions
-- Compare your testing suites with the existing ones 
-- Explore and compare existing solutions
+For solution developers who want to expose their solution on Credimi.
+
+- Create an account and organization
+- Add metadata, links and images for Wallets, Issuers and Verifiers
+- Add StepCI integrations per credential or verification flow
+
+## Testing Automation
+
+For developers and operators who want end-to-end automation.
+
+- Create Maestro actions for Wallet behavior
+- Create pipelines that chain Maestro and StepCI
+- Execute pipelines on a device, emulator or simulator
+- Inspect timeline, logs and artifacts after execution
+
+> Drafting note: this revamped manual intentionally reuses material from the previous flat Manual pages. Some sections below are still placeholders for follow-up detail.
