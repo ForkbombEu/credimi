@@ -1,0 +1,85 @@
+.
+├── assets
+│   └── houston.webp
+├── content
+│   └── docs
+│       ├── ARCHITECTURE.md
+│       ├── guides
+│       │   └── example.md
+│       ├── images
+│       │   └── logo
+│       │       ├── credimi_logo-transp@2x.svg
+│       │       ├── credimi_logo-transp@2x.svg.license
+│       │       ├── credimi_logo-transp_emblem.png
+│       │       ├── credimi_logo-transp_emblem.png.license
+│       │       ├── credimi_logo-transp.png
+│       │       ├── credimi_logo-transp.png.license
+│       │       ├── credimi_logo-white.png
+│       │       └── credimi_logo-white.png.license
+│       ├── index.mdx.old
+│       ├── Legal
+│       │   ├── privacy-policy.md
+│       │   └── terms-and-conditions.md
+│       ├── Manual
+│       │   ├── account-dashboard.md
+│       │   ├── browse-marketplace.md
+│       │   ├── compliance-checks.md
+│       │   ├── images
+│       │   │   ├── credimiAddIssuer.png
+│       │   │   ├── credimiChecksGUIFields.png
+│       │   │   ├── credimiChecksGUI.png
+│       │   │   ├── credimiChecksSelectTests2.png
+│       │   │   ├── credimiChecksSelectTests.png
+│       │   │   ├── credimiChecksWalletTest.png
+│       │   │   ├── credimiCreateAccount.png
+│       │   │   ├── credimiDevDashboardAddWallet.png
+│       │   │   ├── credimiDevDashboard.png
+│       │   │   ├── credimiDevDashboardProducts.png
+│       │   │   ├── credimiEditProfile.png
+│       │   │   ├── credimiHome.png
+│       │   │   ├── credimiIssuers.png
+│       │   │   ├── credimiMarketplace.png
+│       │   │   ├── credimiOneNews.png
+│       │   │   ├── credimiOrganizationEdit.png
+│       │   │   ├── credimiSingleCredential.png
+│       │   │   ├── credimiSingleIssuer.png
+│       │   │   ├── credimiWorkflow1.png
+│       │   │   ├── credimiWorkflow2.png
+│       │   │   └── credimiWorkflows.png
+│       │   ├── index.md
+│       │   ├── marketplace-publish.md
+│       │   ├── news.md
+│       │   └── yaml-examples.md
+│       ├── public
+│       │   └── API
+│       │       ├── index.html
+│       │       ├── openapi.yml
+│       │       └── pdf.html
+│       ├── reference
+│       │   └── example.md
+│       └── Software_Architecture
+│           ├── 1_start.md
+│           ├── 2_functionalities.md
+│           ├── 3_user_stories.md
+│           ├── 4_building_blocks.md
+│           ├── 5_implementation.md
+│           ├── 6_testing_demo.md
+│           ├── 7_dev_setup.md
+│           ├── 8_docker.md
+│           ├── 9_go_packages.yaml
+│           ├── images
+│           │   ├── 1.png
+│           │   ├── 2.png
+│           │   ├── 3.png
+│           │   └── 4.png
+│           ├── index.md
+│           └── Workflow_YAML.md
+├── content.config.ts
+├── pages
+│   └── index.astro
+├── scripts
+│   ├── add-starlight-frontmatter.mjs
+│   └── remove-duplicate-h1.mjs
+└── tree.txt
+
+17 directories, 66 files
