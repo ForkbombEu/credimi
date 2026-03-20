@@ -15,7 +15,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Button from '@/components/ui-custom/button.svelte';
 	import EmptyState from '@/components/ui-custom/emptyState.svelte';
 	import T from '@/components/ui-custom/t.svelte';
-	import * as Tabs from '@/components/ui/tabs/index.js';
 	import { m } from '@/i18n';
 
 	import { setDashboardNavbar } from '../../+layout@.svelte';
@@ -23,10 +22,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		fetchWorkflows,
 		isExtendedWorkflowStatus,
 		parseLimit,
-		parseOffset,
-		TABS
+		parseOffset
 	} from './_partials/index.js';
-	import PaginationArrows from './_partials/pagination-arrows.svelte';
 
 	//
 
@@ -39,7 +36,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const params = queryParameters({
 		tab: {
-			defaultValue: 'pipeline' as const,
+			defaultValue: 'other' as const,
 			encode: (value) => value,
 			decode: (value) => {
 				if (value === 'other') return 'other';
@@ -67,7 +64,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	const workflows = new PolledResource(
 		() =>
-			fetchWorkflows(params.tab, {
+			fetchWorkflows('other', {
 				status: params.status,
 				...pagination
 			}),
@@ -81,65 +78,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <div class="grow space-y-8">
 	<div class="flex items-center justify-between">
 		<T tag="h3">{m.workflow_runs()}</T>
-
-		<div class="flex items-center gap-4">
-			{#if params.tab === 'pipeline'}
-				<PaginationArrows
-					{pagination}
-					onPrevious={() => {
-						const current = params.offset ?? 0;
-						if (current <= 0) return;
-						params.offset = current - 1;
-					}}
-					onNext={() => {
-						params.offset = (params.offset ?? 0) + 1;
-					}}
-					onLimitChange={(limit) => {
-						params.limit = limit;
-					}}
-					currentItemCount={workflows.current?.length}
-				/>
-			{/if}
-			<Tabs.Root bind:value={params.tab}>
-				<Tabs.List class="gap-1 bg-secondary">
-					{#each Object.entries(TABS) as [key, value] (key)}
-						<Tabs.Trigger
-							class="data-[state=inactive]:hover:cursor-pointer data-[state=inactive]:hover:bg-primary/10 "
-							value={key}
-						>
-							{value}
-						</Tabs.Trigger>
-					{/each}
-				</Tabs.List>
-			</Tabs.Root>
-		</div>
 	</div>
 
 	{#if workflows.current?.length > 0}
-		{#if params.tab === 'pipeline'}
-			<Pipeline.Workflows.Table workflows={workflows.current} />
-		{:else}
-			<WorkflowsTable workflows={workflows.current}>
-				{#snippet header({ Th })}
-					<Th>
-						{m.QR_code()}
-					</Th>
-				{/snippet}
-				{#snippet row({ workflow, Td })}
-					<Td>
-						{#if workflow.status === 'Running'}
-							<WorkflowQrPoller
-								workflowId={workflow.execution.workflowId}
-								runId={workflow.execution.runId}
-								containerClass="size-40"
-							/>
-						{:else}
-							<span class="text-muted-foreground opacity-50">N/A</span>
-						{/if}
-					</Td>
-				{/snippet}
-			</WorkflowsTable>
-		{/if}
+		<WorkflowsTable workflows={workflows.current}>
+			{#snippet header({ Th })}
+				<Th>
+					{m.QR_code()}
+				</Th>
+			{/snippet}
+			{#snippet row({ workflow, Td })}
+				<Td>
+					{#if workflow.status === 'Running'}
+						<WorkflowQrPoller
+							workflowId={workflow.execution.workflowId}
+							runId={workflow.execution.runId}
+							containerClass="size-40"
+						/>
+					{:else}
+						<span class="text-muted-foreground opacity-50">N/A</span>
+					{/if}
+				</Td>
+			{/snippet}
+		</WorkflowsTable>
 	{/if}
 
 	{#if workflows.current?.length === 0}

@@ -6,6 +6,7 @@ import {
 	GlobeIcon,
 	HourglassIcon,
 	House,
+	ListIcon,
 	LockIcon,
 	SheetIcon,
 	StoreIcon,
@@ -48,40 +49,53 @@ const data: SidebarGroup[] = $derived([
 
 	{
 		title: m.marketplace_items(),
-		items: baseSections.map((section) => {
-			let children: SidebarItem[] | undefined;
-			const base = `/my/${section.slug}`;
-			if (
-				section.slug === entities.wallets.slug ||
-				section.slug === entities.pipelines.slug
-			) {
-				children = [
-					{
-						title: m.Yours(),
-						url: `${base}#${IDS.YOURS}`
-					},
-					{
-						title: m.Public(),
-						url: `${base}#${IDS.PUBLIC}`
-					}
-				];
+		items: [
+			...baseSections.map((section) => {
+				let children: SidebarItem[] | undefined;
+				const base = `/my/${section.slug}`;
+				if (
+					section.slug === entities.wallets.slug ||
+					section.slug === entities.pipelines.slug
+				) {
+					children = [
+						{
+							title: m.Yours(),
+							url: `${base}#${IDS.YOURS}`
+						},
+						{
+							title: m.Public(),
+							url: `${base}#${IDS.PUBLIC}`
+						}
+					];
+				}
+				return {
+					title: section.labels.plural ?? '',
+					url: base,
+					icon: section.icon,
+					children
+				};
+			}),
+			{
+				title: m.Scheduled_pipelines(),
+				url: `/my/pipelines/schedule`,
+				icon: HourglassIcon,
+				indent: 1
 			}
-			return {
-				title: section.labels.plural ?? '',
-				url: base,
-				icon: section.icon,
-				children
-			};
-		})
+		]
 	},
 
 	{
-		title: m.workflows(),
+		title: m.tools(),
 		items: [
+			{
+				title: m.manual_conformance_checks(),
+				url: '/my/tests/new',
+				icon: SheetIcon
+			},
 			{
 				title: m.workflow_runs(),
 				url: `/my/${entities.test_runs.slug}`,
-				icon: entities.test_runs.icon,
+				icon: ListIcon,
 				children: ALL_WORKFLOW_STATUSES.filter((status) => status !== null).map(
 					(status) => {
 						const base = '/my/tests/runs';
@@ -104,21 +118,6 @@ const data: SidebarGroup[] = $derived([
 						};
 					}
 				)
-			},
-			{
-				title: m.Scheduled_pipelines(),
-				url: `/my/pipelines/schedule`,
-				icon: HourglassIcon
-			}
-		]
-	},
-	{
-		title: m.tools(),
-		items: [
-			{
-				title: m.manual_conformance_checks(),
-				url: '/my/tests/new',
-				icon: SheetIcon
 			}
 		]
 	},
