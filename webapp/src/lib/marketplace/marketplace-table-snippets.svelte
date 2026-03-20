@@ -19,6 +19,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import type { MarketplaceItem } from './types';
 
+	import ContentWrapper from './_partials/content-wrapper.svelte';
 	import TableNameCell from './_partials/table-name-cell.svelte';
 	import { getMarketplaceItemData } from './utils';
 
@@ -51,17 +52,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet updated(record: MarketplaceItemsResponse)}
-	<div class="flex min-h-[41px] items-center">
+	<ContentWrapper>
 		<T class="text-muted-foreground">
 			{new Date(record.updated as string).toLocaleDateString()}
 		</T>
-	</div>
+	</ContentWrapper>
 {/snippet}
 
 {#snippet organization_name(record: MarketplaceItemsResponse)}
-	<div class="flex min-h-[41px] items-center">
+	<ContentWrapper>
 		<T>
 			{record.organization_name}
 		</T>
-	</div>
+	</ContentWrapper>
 {/snippet}

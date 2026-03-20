@@ -10,6 +10,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import * as Table from '@/components/ui/table';
 	import { m } from '@/i18n';
 
+	import ContentWrapper from './_partials/content-wrapper.svelte';
 	import ChildrenCell from './_partials/table-children-cell.svelte';
 	import TableNameCell from './_partials/table-name-cell.svelte';
 
@@ -40,15 +41,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	<Table.Body>
 		{#each rows as { standard, version, suite } (standard.uid + version.uid + suite.uid)}
 			<Table.Row>
-				<Table.Cell class="px-4">
+				<Table.Cell class="px-4 align-top">
 					<TableNameCell
 						name={standard.name}
 						href={`/marketplace/conformance-checks/${standard.uid}/${version.uid}/${suite.uid}`}
 						logo={suite.logo}
 					/>
 				</Table.Cell>
-				<Table.Cell class="px-4">{version.name}</Table.Cell>
-				<Table.Cell class="px-4">{suite.name}</Table.Cell>
+				<Table.Cell class="px-4 align-top">
+					<ContentWrapper>
+						{version.name}
+					</ContentWrapper>
+				</Table.Cell>
+				<Table.Cell class="px-4 align-top">
+					<ContentWrapper>
+						{suite.name}
+					</ContentWrapper>
+				</Table.Cell>
 				<Table.Cell class="px-4">
 					{#if suite.files.length > 0}
 						<ChildrenCell
