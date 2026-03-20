@@ -113,9 +113,18 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{/snippet}
 
 	{#snippet actions()}
+		{@const runner = Pipeline.Runner.get(pipeline.id)?.split('/').at(-1)}
 		<ButtonGroup.Root>
 			<Button onclick={handleRunNow}>
-				<PlayIcon />{m.Run_now()}
+				<PlayIcon />
+				<div class="flex w-[110px] flex-col -space-y-0.5 text-left">
+					<p>{m.Run_now()}</p>
+					{#if runner}
+						<small class="truncate text-[9px] opacity-80">
+							{runner}
+						</small>
+					{/if}
+				</div>
 			</Button>
 			<IconButton
 				icon={Cog}

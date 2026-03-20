@@ -92,6 +92,58 @@ func (a *UnlockEmulatorActivity) Execute(
 	)
 }
 
+type StartIOSSimulatorActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStartIOSSimulatorActivity() *StartIOSSimulatorActivity {
+	return &StartIOSSimulatorActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Setup iOS simulator",
+		},
+	}
+}
+
+func (a *StartIOSSimulatorActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StartIOSSimulatorActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
+type InstallIOSAppActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewInstallIOSAppActivity() *InstallIOSAppActivity {
+	return &InstallIOSAppActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Install iOS app on device",
+		},
+	}
+}
+
+func (a *InstallIOSAppActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *InstallIOSAppActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
 type CleanupDeviceActivity struct {
 	workflowengine.BaseActivity
 }
@@ -144,6 +196,32 @@ func (a *StartRecordingActivity) Execute(
 	)
 }
 
+type StartIOSRecordingActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStartIOSRecordingActivity() *StartIOSRecordingActivity {
+	return &StartIOSRecordingActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Start recording iOS device screen",
+		},
+	}
+}
+
+func (a *StartIOSRecordingActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StartIOSRecordingActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
 type StopRecordingActivity struct {
 	workflowengine.BaseActivity
 }
@@ -161,6 +239,32 @@ func (a *StopRecordingActivity) Name() string {
 }
 
 func (a *StopRecordingActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
+type StopIOSRecordingActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewStopIOSRecordingActivity() *StopIOSRecordingActivity {
+	return &StopIOSRecordingActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Stop recording iOS device screen",
+		},
+	}
+}
+
+func (a *StopIOSRecordingActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *StopIOSRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {

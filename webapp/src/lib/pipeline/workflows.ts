@@ -33,6 +33,7 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 	results?: Array<{
 		video: string;
 		screenshot: string;
+		log: string;
 	}>;
 }
 

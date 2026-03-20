@@ -9,6 +9,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 	import { userOrganization } from '$lib/app-state';
 	import EntityTag from '$lib/global/entity-tag.svelte';
+	import { getPath } from '$lib/utils';
 
 	import type { MarketplaceItemsResponse } from '@/pocketbase/types';
 
@@ -36,7 +37,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	{@const { logo, href } = getMarketplaceItemData(typed)}
 	{@const isCurrentUserOwner = userOrganization.current?.id === typed.organization_id}
 
-	<TableNameCell {logo} name={typed.name} textToCopy={typed.path} {href}>
+	<TableNameCell {logo} name={typed.name} textToCopy={getPath(typed)} {href}>
 		{#if isCurrentUserOwner}
 			<Badge class="block rounded-md">{m.Yours()}</Badge>
 		{/if}
