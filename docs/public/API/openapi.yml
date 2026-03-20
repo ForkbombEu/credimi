@@ -928,6 +928,8 @@ components:
       type: object
     HandlersPipelineResults:
       properties:
+        log:
+          type: string
         screenshot:
           type: string
         video:

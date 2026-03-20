@@ -5,11 +5,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 -->
 
 <script lang="ts" module>
-	export type RowAfterProps<Response extends object> = {
-		Tr: typeof Table.Row;
-		Td: typeof Table.Cell;
-		record: Response;
-	};
+	export type HeaderProps = { Th: typeof Table.Head };
+	export type RowProps<T> = { Td: typeof Table.Cell; record: T };
 </script>
 
 <script lang="ts" generics="Response extends object">
@@ -39,14 +36,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		fields?: KeyOf<Response>[];
 		snippets?: Partial<Record<KeyOf<Response>, Snippet<[Response]>>>;
 		hide?: Array<RecordAction>;
-		header?: Snippet<[{ Th: typeof Table.Head }]>;
-		row?: Snippet<[{ Td: typeof Table.Cell; record: Response }]>;
+		header?: Snippet<[HeaderProps]>;
+		row?: Snippet<[RowProps<Response>]>;
 		actions?: Snippet<[{ record: Response }]>;
 		rowCellClass?: string;
 		rowClass?: string;
 		headerClass?: string;
 		class?: string;
-		rowAfter?: Snippet<[RowAfterProps<Response>]>;
+		labels?: Partial<Record<KeyOf<Response>, string>>;
 	}
 
 	const {
@@ -61,7 +58,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		rowClass,
 		headerClass,
 		class: className,
-		rowAfter
+		labels = {}
 	}: Props = $props();
 
 	const hasRightActions = $derived(
@@ -77,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			{#each fields as field (field)}
-				<FieldTh {field} />
+				<FieldTh {field} label={labels[field]} />
 			{/each}
 
 			{@render header?.({ Th: Table.Head })}
@@ -147,8 +144,6 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 					</Table.Cell>
 				{/if}
 			</Table.Row>
-
-			{@render rowAfter?.({ Tr: Table.Row, Td: Table.Cell, record: untypedRecord })}
 		{/each}
 	</Table.Body>
 </Table.Root>

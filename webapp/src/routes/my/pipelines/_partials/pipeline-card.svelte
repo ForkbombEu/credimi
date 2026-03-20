@@ -120,7 +120,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				<div class="flex w-[110px] flex-col -space-y-0.5 text-left">
 					<p>{m.Run_now()}</p>
 					{#if runner}
-						<small class="truncate text-[9px] opacity-50">
+						<small class="truncate text-[9px] opacity-80">
 							{runner}
 						</small>
 					{/if}
