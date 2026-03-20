@@ -9,11 +9,11 @@ SPDX-PackageDownloadLocation = "https://github.com/ForkbombEu/credimi"
 
 [[annotations]]
 path = [
+    ".cursor/**/*",
     ".env.example",
     ".gestalt/**/*",
     ".idea/**/*",
     ".vscode/launch.json",
-    ".gestalt/**/*",
     ".vscode/settings.json",
     "config_templates/**/*",
     "docs/**/*",
