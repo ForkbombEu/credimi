@@ -59,27 +59,23 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			href: `/marketplace/${type}/${record.organization_canonified_name}/${record.canonified_name}/${c.canonified_name}`
 		}));
 	}
-
-	const fields = $derived.by(() => {
-		const baseFields = ['name'];
-		if (collection && ['custom_checks', 'pipelines', 'wallets'].includes(collection)) {
-			baseFields.push('organization_name');
-		}
-		return baseFields as (keyof MarketplaceItem)[];
-	});
 </script>
 
 <CollectionTable
 	records={records as MarketplaceItem[]}
 	hide={['delete', 'share', 'edit', 'select']}
-	{fields}
+	fields={['name', 'organization_name', 'updated']}
 	snippets={{
 		name: snippets.name,
 		updated: snippets.updated
 	}}
 	class="rounded-md bg-background"
-	rowCellClass="px-4 py-2"
+	rowCellClass="px-4 py-2 first:align-top"
 	headerClass="bg-background z-10"
+	labels={{
+		organization_name: m.Organization(),
+		updated: m.Last_update()
+	}}
 >
 	{#snippet header({ Th })}
 		{#if childrenTitle}

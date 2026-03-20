@@ -43,6 +43,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		rowClass?: string;
 		headerClass?: string;
 		class?: string;
+		labels?: Partial<Record<KeyOf<Response>, string>>;
 	}
 
 	const {
@@ -56,7 +57,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		rowCellClass,
 		rowClass,
 		headerClass,
-		class: className
+		class: className,
+		labels = {}
 	}: Props = $props();
 
 	const hasRightActions = $derived(
@@ -72,7 +74,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 			{/if}
 
 			{#each fields as field (field)}
-				<FieldTh {field} />
+				<FieldTh {field} label={labels[field]} />
 			{/each}
 
 			{@render header?.({ Th: Table.Head })}

@@ -21,7 +21,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	let { items }: Props = $props();
 </script>
 
-<div class="grid grid-cols-2 md:grid-cols-3">
+<div class="grid min-w-[400px] grid-cols-2 md:grid-cols-3">
 	{#each items.filter((item) => item.title) as link (link)}
 		<a
 			href={resolve(localizeHref(link.href ?? '') as '/')}
