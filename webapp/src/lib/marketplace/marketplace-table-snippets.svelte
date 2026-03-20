@@ -27,7 +27,8 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	const snippets = {
 		name: name as Snippet<[MarketplaceItemsResponse]>,
 		type: type as Snippet<[MarketplaceItemsResponse]>,
-		updated: updated as Snippet<[MarketplaceItemsResponse]>
+		updated: updated as Snippet<[MarketplaceItemsResponse]>,
+		organization_name: organization_name as Snippet<[MarketplaceItemsResponse]>
 	};
 	export { snippets };
 </script>
@@ -50,7 +51,17 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 {/snippet}
 
 {#snippet updated(record: MarketplaceItemsResponse)}
-	<T class="text-muted-foreground">
-		{new Date(record.updated as string).toLocaleDateString()}
-	</T>
+	<div class="flex min-h-[41px] items-center">
+		<T class="text-muted-foreground">
+			{new Date(record.updated as string).toLocaleDateString()}
+		</T>
+	</div>
+{/snippet}
+
+{#snippet organization_name(record: MarketplaceItemsResponse)}
+	<div class="flex min-h-[41px] items-center">
+		<T>
+			{record.organization_name}
+		</T>
+	</div>
 {/snippet}

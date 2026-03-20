@@ -67,10 +67,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	fields={['name', 'organization_name', 'updated']}
 	snippets={{
 		name: snippets.name,
-		updated: snippets.updated
+		updated: snippets.updated,
+		organization_name: snippets.organization_name
 	}}
 	class="rounded-md bg-background"
-	rowCellClass="px-4 py-2 first:align-top"
+	rowCellClass="px-4 py-2 align-top"
 	headerClass="bg-background z-10"
 	labels={{
 		organization_name: m.Organization(),
