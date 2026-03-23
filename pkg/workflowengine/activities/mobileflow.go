@@ -35,6 +35,7 @@ func (a *StartEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -70,6 +71,7 @@ func (a *ApkInstallActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -110,6 +112,7 @@ func (a *UnlockEmulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -145,6 +148,7 @@ func (a *StartIOSSimulatorActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -180,6 +184,7 @@ func (a *InstallIOSAppActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -215,6 +220,7 @@ func (a *CleanupDeviceActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -250,6 +256,7 @@ func (a *StartRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -290,6 +297,7 @@ func (a *StartIOSRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -330,6 +338,7 @@ func (a *StopRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -365,6 +374,7 @@ func (a *StopIOSRecordingActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
@@ -400,6 +410,7 @@ func (a *RunMobileFlowActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {
+	ctx = mobile.WithTelemetryContext(ctx, input.Config)
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
