@@ -230,6 +230,46 @@ func (a *InstallIOSAppActivity) Execute(
 	return workflowengine.ActivityResult{Output: res}, nil
 }
 
+type IOSPostInstallChecksActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewIOSPostInstallChecksActivity() *IOSPostInstallChecksActivity {
+	return &IOSPostInstallChecksActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Run iOS post-install checks",
+		},
+	}
+}
+
+func (a *IOSPostInstallChecksActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *IOSPostInstallChecksActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		map[string]mobile.ErrorCode{
+			"TempFileCreationFailed": {
+				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
+				Description: errorcodes.Codes[errorcodes.TempFileCreationFailed].Description,
+			},
+		},
+		true,
+	)
+
+	res, err := mobile.IOSAppPostInstallChecks(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
 type CleanupDeviceActivity struct {
 	workflowengine.BaseActivity
 }

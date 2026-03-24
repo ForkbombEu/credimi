@@ -58,6 +58,7 @@ var (
 	iosPlatformActivities = platformActivities{
 		Start:             activities.NewStartIOSSimulatorActivity().Name(),
 		Install:           activities.NewInstallIOSAppActivity().Name(),
+		PostInstall:       activities.NewIOSPostInstallChecksActivity().Name(),
 		StartRecording:    activities.NewStartIOSRecordingActivity().Name(),
 		StopRecording:     activities.NewStopIOSRecordingActivity().Name(),
 		InstallAssetField: "app",

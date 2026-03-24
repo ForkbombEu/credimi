@@ -209,11 +209,16 @@ func TestInstallAppIfNeededUsesPlatformActivity(t *testing.T) {
 			deviceType: deviceTypeIOSSimulator,
 			register: func(env *testsuite.TestWorkflowEnvironment) (string, string) {
 				installActivity := activities.NewInstallIOSAppActivity()
+				postInstallActivity := activities.NewIOSPostInstallChecksActivity()
 				env.RegisterActivityWithOptions(
 					installActivity.Execute,
 					activity.RegisterOptions{Name: installActivity.Name()},
 				)
-				return installActivity.Name(), ""
+				env.RegisterActivityWithOptions(
+					postInstallActivity.Execute,
+					activity.RegisterOptions{Name: postInstallActivity.Name()},
+				)
+				return installActivity.Name(), postInstallActivity.Name()
 			},
 			assetFieldName: "app",
 		},

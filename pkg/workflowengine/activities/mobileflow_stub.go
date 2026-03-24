@@ -170,6 +170,32 @@ func (a *InstallIOSAppActivity) Execute(
 	)
 }
 
+type IOSPostInstallChecksActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewIOSPostInstallChecksActivity() *IOSPostInstallChecksActivity {
+	return &IOSPostInstallChecksActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Run iOS post-install checks",
+		},
+	}
+}
+
+func (a *IOSPostInstallChecksActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *IOSPostInstallChecksActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
 type CleanupDeviceActivity struct {
 	workflowengine.BaseActivity
 }
