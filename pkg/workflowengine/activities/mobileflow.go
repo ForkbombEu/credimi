@@ -73,6 +73,41 @@ func (a *ApkInstallActivity) Execute(
 	runInput := buildMobileInput(
 		input.Payload,
 		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.ApkInstall(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
+type ApkPostInstallChecksActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewApkPostInstallChecksActivity() *ApkPostInstallChecksActivity {
+	return &ApkPostInstallChecksActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Run APK post-install checks",
+		},
+	}
+}
+
+func (a *ApkPostInstallChecksActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *ApkPostInstallChecksActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
 		map[string]mobile.ErrorCode{
 			"TempFileCreationFailed": {
 				Code:        errorcodes.Codes[errorcodes.TempFileCreationFailed].Code,
@@ -82,7 +117,7 @@ func (a *ApkInstallActivity) Execute(
 		true,
 	)
 
-	res, err := mobile.ApkInstall(ctx, runInput)
+	res, err := mobile.ApkPostInstallChecks(ctx, runInput)
 	if err != nil {
 		return workflowengine.ActivityResult{}, err
 	}

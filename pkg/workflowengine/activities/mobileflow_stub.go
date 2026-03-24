@@ -66,6 +66,32 @@ func (a *ApkInstallActivity) Execute(
 	)
 }
 
+type ApkPostInstallChecksActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewApkPostInstallChecksActivity() *ApkPostInstallChecksActivity {
+	return &ApkPostInstallChecksActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Run APK post-install checks",
+		},
+	}
+}
+
+func (a *ApkPostInstallChecksActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *ApkPostInstallChecksActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
 type UnlockEmulatorActivity struct {
 	workflowengine.BaseActivity
 }

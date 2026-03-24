@@ -40,6 +40,7 @@ const (
 type platformActivities struct {
 	Start             string
 	Install           string
+	PostInstall       string
 	StartRecording    string
 	StopRecording     string
 	InstallAssetField string
@@ -49,6 +50,7 @@ var (
 	androidPlatformActivities = platformActivities{
 		Start:             activities.NewStartEmulatorActivity().Name(),
 		Install:           activities.NewApkInstallActivity().Name(),
+		PostInstall:       activities.NewApkPostInstallChecksActivity().Name(),
 		StartRecording:    activities.NewStartRecordingActivity().Name(),
 		StopRecording:     activities.NewStopRecordingActivity().Name(),
 		InstallAssetField: "apk",
@@ -835,7 +837,17 @@ func installAppIfNeeded(
 			return err
 		}
 
-		packageID, ok := installOutput.Output.(map[string]any)["package_id"].(string)
+		finalOutput := installOutput
+		if input.activities.PostInstall != "" {
+			postInstallOutput := workflowengine.ActivityResult{}
+			if err := workflow.ExecuteActivity(input.mobileCtx, input.activities.PostInstall, installInput).
+				Get(input.mobileCtx, &postInstallOutput); err != nil {
+				return err
+			}
+			finalOutput = postInstallOutput
+		}
+
+		packageID, ok := finalOutput.Output.(map[string]any)["package_id"].(string)
 		if !ok {
 			errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 			return workflowengine.NewAppError(
@@ -845,7 +857,7 @@ func installAppIfNeeded(
 					errCode.Description,
 					input.stepID,
 				),
-				installOutput.Output,
+				finalOutput.Output,
 			)
 		}
 		installed[input.versionID] = packageID

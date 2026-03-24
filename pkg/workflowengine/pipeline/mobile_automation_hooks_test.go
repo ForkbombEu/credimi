@@ -183,32 +183,37 @@ func TestInstallAppIfNeededUsesPlatformActivity(t *testing.T) {
 	tests := []struct {
 		name           string
 		deviceType     mobileDeviceType
-		register       func(env *testsuite.TestWorkflowEnvironment) string
+		register       func(env *testsuite.TestWorkflowEnvironment) (string, string)
 		assetFieldName string
 	}{
 		{
 			name:       "android",
 			deviceType: deviceTypeAndroidPhone,
-			register: func(env *testsuite.TestWorkflowEnvironment) string {
+			register: func(env *testsuite.TestWorkflowEnvironment) (string, string) {
 				installActivity := activities.NewApkInstallActivity()
+				postInstallActivity := activities.NewApkPostInstallChecksActivity()
 				env.RegisterActivityWithOptions(
 					installActivity.Execute,
 					activity.RegisterOptions{Name: installActivity.Name()},
 				)
-				return installActivity.Name()
+				env.RegisterActivityWithOptions(
+					postInstallActivity.Execute,
+					activity.RegisterOptions{Name: postInstallActivity.Name()},
+				)
+				return installActivity.Name(), postInstallActivity.Name()
 			},
 			assetFieldName: "apk",
 		},
 		{
 			name:       "ios",
 			deviceType: deviceTypeIOSSimulator,
-			register: func(env *testsuite.TestWorkflowEnvironment) string {
+			register: func(env *testsuite.TestWorkflowEnvironment) (string, string) {
 				installActivity := activities.NewInstallIOSAppActivity()
 				env.RegisterActivityWithOptions(
 					installActivity.Execute,
 					activity.RegisterOptions{Name: installActivity.Name()},
 				)
-				return installActivity.Name()
+				return installActivity.Name(), ""
 			},
 			assetFieldName: "app",
 		},
@@ -219,7 +224,7 @@ func TestInstallAppIfNeededUsesPlatformActivity(t *testing.T) {
 			suite := testsuite.WorkflowTestSuite{}
 			env := suite.NewTestWorkflowEnvironment()
 
-			installActivityName := tc.register(env)
+			installActivityName, postInstallActivityName := tc.register(env)
 
 			env.RegisterWorkflowWithOptions(
 				func(ctx workflow.Context) (map[string]string, error) {
@@ -267,6 +272,21 @@ func TestInstallAppIfNeededUsesPlatformActivity(t *testing.T) {
 			).Return(workflowengine.ActivityResult{Output: map[string]any{
 				"package_id": "pkg-1",
 			}}, nil).Once()
+			if postInstallActivityName != "" {
+				env.OnActivity(
+					postInstallActivityName,
+					mock.Anything,
+					mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+						payload, ok := input.Payload.(map[string]any)
+						if !ok {
+							return false
+						}
+						return payload[tc.assetFieldName] == "/tmp/app.bin" && payload["serial"] == "serial-1"
+					}),
+				).Return(workflowengine.ActivityResult{Output: map[string]any{
+					"package_id": "pkg-1",
+				}}, nil).Once()
+			}
 
 			env.ExecuteWorkflow("test-install-app-if-needed")
 			require.NoError(t, env.GetWorkflowError())
@@ -284,6 +304,7 @@ func TestFetchAndInstallAPKStoresActionCode(t *testing.T) {
 
 	httpActivity := activities.NewHTTPActivity()
 	installActivity := activities.NewApkInstallActivity()
+	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -291,6 +312,10 @@ func TestFetchAndInstallAPKStoresActionCode(t *testing.T) {
 	env.RegisterActivityWithOptions(
 		installActivity.Execute,
 		activity.RegisterOptions{Name: installActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		postInstallActivity.Execute,
+		activity.RegisterOptions{Name: postInstallActivity.Name()},
 	)
 
 	env.RegisterWorkflowWithOptions(
@@ -379,6 +404,19 @@ func TestFetchAndInstallAPKStoresActionCode(t *testing.T) {
 	).Return(workflowengine.ActivityResult{Output: map[string]any{
 		"package_id": "pkg-1",
 	}}, nil)
+	env.OnActivity(
+		postInstallActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if !ok {
+				return false
+			}
+			return payload["apk"] == "/tmp/app.apk" && payload["serial"] == "serial-1"
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"package_id": "pkg-1",
+	}}, nil)
 
 	env.ExecuteWorkflow("test-fetch-and-install-apk")
 	require.NoError(t, env.GetWorkflowError())
@@ -396,6 +434,7 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 
 	httpActivity := activities.NewHTTPActivity()
 	installActivity := activities.NewApkInstallActivity()
+	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -403,6 +442,10 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 	env.RegisterActivityWithOptions(
 		installActivity.Execute,
 		activity.RegisterOptions{Name: installActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		postInstallActivity.Execute,
+		activity.RegisterOptions{Name: postInstallActivity.Name()},
 	)
 
 	env.RegisterWorkflowWithOptions(
@@ -496,6 +539,19 @@ func TestProcessStepAddsNormalizedDeviceTypeAndTaskQueue(t *testing.T) {
 
 	env.OnActivity(
 		installActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if !ok {
+				return false
+			}
+			return payload["apk"] == "/tmp/app.apk" && payload["serial"] == "serial-1"
+		}),
+	).Return(workflowengine.ActivityResult{Output: map[string]any{
+		"package_id": "pkg-1",
+	}}, nil)
+	env.OnActivity(
+		postInstallActivity.Name(),
 		mock.Anything,
 		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
 			payload, ok := input.Payload.(map[string]any)
@@ -639,6 +695,7 @@ func TestFetchAndInstallAPKKeepsExistingActionCode(t *testing.T) {
 
 	httpActivity := activities.NewHTTPActivity()
 	installActivity := activities.NewApkInstallActivity()
+	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
 		activity.RegisterOptions{Name: httpActivity.Name()},
@@ -646,6 +703,10 @@ func TestFetchAndInstallAPKKeepsExistingActionCode(t *testing.T) {
 	env.RegisterActivityWithOptions(
 		installActivity.Execute,
 		activity.RegisterOptions{Name: installActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		postInstallActivity.Execute,
+		activity.RegisterOptions{Name: postInstallActivity.Name()},
 	)
 
 	env.RegisterWorkflowWithOptions(
@@ -710,6 +771,10 @@ func TestFetchAndInstallAPKKeepsExistingActionCode(t *testing.T) {
 		}}, nil)
 
 	env.OnActivity(installActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"package_id": "pkg-1",
+		}}, nil)
+	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{
 			"package_id": "pkg-1",
 		}}, nil)
@@ -950,6 +1015,7 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 
 	httpActivity := activities.NewHTTPActivity()
 	installActivity := activities.NewApkInstallActivity()
+	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	recordActivity := activities.NewStartRecordingActivity()
 	env.RegisterActivityWithOptions(
 		httpActivity.Execute,
@@ -958,6 +1024,10 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	env.RegisterActivityWithOptions(
 		installActivity.Execute,
 		activity.RegisterOptions{Name: installActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		postInstallActivity.Execute,
+		activity.RegisterOptions{Name: postInstallActivity.Name()},
 	)
 	env.RegisterActivityWithOptions(
 		recordActivity.Execute,
@@ -1052,6 +1122,10 @@ func TestMobileAutomationSetupHookSuccess(t *testing.T) {
 	}}, nil)
 
 	env.OnActivity(installActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"package_id": "pkg-1",
+		}}, nil)
+	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{
 			"package_id": "pkg-1",
 		}}, nil)
@@ -1488,9 +1562,14 @@ func TestInstallAppIfNeededRequiresPackageID(t *testing.T) {
 	env := suite.NewTestWorkflowEnvironment()
 
 	installActivity := activities.NewApkInstallActivity()
+	postInstallActivity := activities.NewApkPostInstallChecksActivity()
 	env.RegisterActivityWithOptions(
 		installActivity.Execute,
 		activity.RegisterOptions{Name: installActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		postInstallActivity.Execute,
+		activity.RegisterOptions{Name: postInstallActivity.Name()},
 	)
 
 	env.RegisterWorkflowWithOptions(
@@ -1513,6 +1592,8 @@ func TestInstallAppIfNeededRequiresPackageID(t *testing.T) {
 	)
 
 	env.OnActivity(installActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{}}, nil)
+	env.OnActivity(postInstallActivity.Name(), mock.Anything, mock.Anything).
 		Return(workflowengine.ActivityResult{Output: map[string]any{}}, nil)
 
 	env.ExecuteWorkflow("test-install-app-missing-package-id")
