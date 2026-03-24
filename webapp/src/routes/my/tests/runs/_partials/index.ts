@@ -45,7 +45,7 @@ export type Tab = keyof typeof TABS;
 export function getCurrentTab(url: URL): Tab {
 	const tab = url.searchParams.get(TAB_QUERY_PARAM);
 	if (tab === null) {
-		return 'pipeline';
+		return 'other';
 	}
 	if (!Object.keys(TABS).includes(tab as Tab)) {
 		return 'pipeline';
