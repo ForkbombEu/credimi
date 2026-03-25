@@ -62,9 +62,24 @@ func TestPipelineStartScheduled(t *testing.T) {
 	pipelineTemporalClient = func(_ string) (client.Client, error) {
 		return mockClient, nil
 	}
-
+	yaml := `name: scheduled-pipeline
+runtime:
+  schedule:
+    interval: 1m
+steps:
+  - id: step1
+    use: mobile-automation
+    with:
+      payload:
+        runner_id: "runner-android"
+  - id: step2
+    use: mobile-automation
+    with:
+      payload:
+        runner_id: "runner-ios"
+`	
 	result, err := pipelineWf.Start(
-		"name: scheduled-pipeline\nruntime:\n  schedule:\n    interval: 1m\nsteps: []\n",
+		yaml,
 		map[string]any{"namespace": "default"},
 		map[string]any{},
 		"tenant-1/scheduled-pipeline",
@@ -72,9 +87,16 @@ func TestPipelineStartScheduled(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "schedule-123", result.WorkflowID)
 	require.Contains(t, result.Message, "scheduled successfully")
+
+
+	expectedRunnerIDs := []string{"runner-android", "runner-ios"}
+	expectedSearchAttrs := workflowengine.PipelineTypedSearchAttributes(
+		"tenant-1/scheduled-pipeline",
+		expectedRunnerIDs,
+	)
 	require.Equal(
 		t,
-		workflowengine.PipelineTypedSearchAttributes("tenant-1/scheduled-pipeline"),
+		expectedSearchAttrs,
 		capturedAction.TypedSearchAttributes,
 	)
 }

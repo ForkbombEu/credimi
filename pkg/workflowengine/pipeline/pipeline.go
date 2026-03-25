@@ -331,12 +331,15 @@ func (w *PipelineWorkflow) Start(
 		}
 	}
 
+	runnerInfo, err := ParsePipelineRunnerInfo(inputYaml)
 	// Add global_runner_id to config if specified
 	if wfDef.Runtime.GlobalRunnerID != "" {
 		config["global_runner_id"] = wfDef.Runtime.GlobalRunnerID
 	}
+	globalRunnerID := GlobalRunnerIDFromConfig(config)
+	runnerIDs := RunnerIDsWithGlobal(runnerInfo, globalRunnerID)
 
-	workflowengine.ApplyPipelineSearchAttributes(&options.Options, pipelineIdentifier)
+	workflowengine.ApplyPipelineSearchAttributes(&options.Options, pipelineIdentifier, runnerIDs)
 
 	input := PipelineWorkflowInput{
 		WorkflowDefinition: wfDef,
@@ -348,7 +351,7 @@ func (w *PipelineWorkflow) Start(
 	}
 
 	if wfDef.Runtime.Schedule.Interval != nil {
-		searchAttributes := workflowengine.PipelineTypedSearchAttributes(pipelineIdentifier)
+		searchAttributes := workflowengine.PipelineTypedSearchAttributes(pipelineIdentifier, runnerIDs)
 		ctx := context.Background()
 		scheduleID := fmt.Sprintf("schedule_id_%s", options.Options.ID)
 		scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{

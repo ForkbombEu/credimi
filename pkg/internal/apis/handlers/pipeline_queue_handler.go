@@ -15,7 +15,6 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
-	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/runqueue"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -152,7 +151,7 @@ func HandlePipelineQueueEnqueue() func(*core.RequestEvent) error {
 		}
 		config := buildPipelineQueueConfig(e, namespace, userName, userMail)
 
-		runnerInfo, err := runners.ParsePipelineRunnerInfo(yaml)
+		runnerInfo, err := pipeline.ParsePipelineRunnerInfo(yaml)
 		if err != nil {
 			return apierror.New(
 				http.StatusBadRequest,
@@ -479,7 +478,7 @@ func startPipelineFromQueue(
 	return result, nil
 }
 
-func resolvePipelineRunnerIDs(yaml string, info runners.PipelineRunnerInfo) ([]string, error) {
+func resolvePipelineRunnerIDs(yaml string, info pipeline.PipelineRunnerInfo) ([]string, error) {
 	globalRunnerID := ""
 	if info.NeedsGlobalRunner {
 		wfDef, err := pipeline.ParseWorkflow(yaml)
@@ -488,7 +487,7 @@ func resolvePipelineRunnerIDs(yaml string, info runners.PipelineRunnerInfo) ([]s
 		}
 		globalRunnerID = strings.TrimSpace(wfDef.Runtime.GlobalRunnerID)
 	}
-	runnerIDs := runners.RunnerIDsWithGlobal(info, globalRunnerID)
+	runnerIDs := pipeline.RunnerIDsWithGlobal(info, globalRunnerID)
 	sort.Strings(runnerIDs)
 	return runnerIDs, nil
 }

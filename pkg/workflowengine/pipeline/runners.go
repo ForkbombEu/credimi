@@ -2,14 +2,14 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-package runners
+package pipeline
 
 import (
+	"fmt"
 	"sort"
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
-	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -18,12 +18,82 @@ type PipelineRunnerInfo struct {
 	NeedsGlobalRunner bool
 }
 
+// ValidateRunnerIDYAML enforces runner_id configuration rules for mobile-automation steps:
+// - If global_runner_id is set, no step may define runner_id.
+// - If global_runner_id is not set, every mobile-automation step must define runner_id.
+func ValidateRunnerIDYAML(yamlStr string) error {
+	wfDef, err := ParseWorkflow(yamlStr)
+	if err != nil {
+		return err
+	}
+
+	globalRunnerID := strings.TrimSpace(wfDef.Runtime.GlobalRunnerID)
+	globalSet := globalRunnerID != ""
+
+	foundMobileStep := false
+
+	firstConflictStepID := ""
+	firstMissingStepID := ""
+
+	anyStepRunnerSet := false
+	anyStepRunnerMissing := false
+
+	for _, step := range wfDef.Steps {
+		if step.Use != mobileAutomationStepUse {
+			continue
+		}
+
+		foundMobileStep = true
+
+		runnerID, _ := step.With.Payload["runner_id"].(string)
+		runnerSet := strings.TrimSpace(runnerID) != ""
+
+		if runnerSet {
+			anyStepRunnerSet = true
+			if globalSet && firstConflictStepID == "" {
+				firstConflictStepID = step.ID
+			}
+		} else {
+			anyStepRunnerMissing = true
+			if !globalSet && firstMissingStepID == "" {
+				firstMissingStepID = step.ID
+			}
+		}
+	}
+
+	// No mobile-automation steps → nothing to validate.
+	if !foundMobileStep {
+		return nil
+	}
+
+	// If global is set, no mobile step may set runner_id.
+	if globalSet {
+		if anyStepRunnerSet {
+			return fmt.Errorf(
+				"global_runner_id is set, but step %q defines runner_id; use only global_runner_id or set runner_id for all mobile-automation steps",
+				firstConflictStepID,
+			)
+		}
+		return nil
+	}
+
+	// If global is not set, all mobile steps must set runner_id.
+	if anyStepRunnerMissing {
+		return fmt.Errorf(
+			"global_runner_id is not set and step %q is missing runner_id; set runner_id on all mobile-automation steps or set global_runner_id",
+			firstMissingStepID,
+		)
+	}
+
+	return nil
+}
+
 func ParsePipelineRunnerInfo(yamlStr string) (PipelineRunnerInfo, error) {
 	if strings.TrimSpace(yamlStr) == "" {
 		return PipelineRunnerInfo{}, nil
 	}
 
-	wfDef, err := pipeline.ParseWorkflow(yamlStr)
+	wfDef, err := ParseWorkflow(yamlStr)
 	if err != nil {
 		return PipelineRunnerInfo{}, err
 	}
@@ -31,7 +101,7 @@ func ParsePipelineRunnerInfo(yamlStr string) (PipelineRunnerInfo, error) {
 	runnerIDs := make(map[string]struct{})
 	missingRunnerID := false
 
-	collectRunner := func(step pipeline.StepSpec) {
+	collectRunner := func(step StepSpec) {
 		runnerID := ""
 		if step.With.Payload != nil {
 			if rawRunnerID, ok := step.With.Payload["runner_id"]; ok {

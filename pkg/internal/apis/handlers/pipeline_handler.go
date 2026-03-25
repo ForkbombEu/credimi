@@ -17,8 +17,8 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
-	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tools/hook"
@@ -315,7 +315,7 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+		runnerInfo, err := pipeline.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
 		if err != nil {
 			e.App.Logger().Warn(fmt.Sprintf(
 				"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",
@@ -476,7 +476,7 @@ func HandleGetPipelineDetails() func(*core.RequestEvent) error {
 			pipelineID := pipelineRecord.Id
 			pipelineMap[pipelineID] = pipelineRecord
 
-			runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+			runnerInfo, err := pipeline.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
 			if err != nil {
 				e.App.Logger().Warn(fmt.Sprintf(
 					"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",

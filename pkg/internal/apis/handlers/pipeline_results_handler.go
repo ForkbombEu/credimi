@@ -16,7 +16,6 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
-	"github.com/forkbombeu/credimi/pkg/internal/runners"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	workflowengine "github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -354,7 +353,7 @@ func fetchCompletedWorkflowsWithPagination(
 
 		runnerInfo, ok := runnerInfoByPipelineID[pipelineRecord.Id]
 		if !ok {
-			runnerInfo, _ = runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
+			runnerInfo, _ = pipeline.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
 			runnerInfoByPipelineID[pipelineRecord.Id] = runnerInfo
 		}
 
@@ -1195,7 +1194,7 @@ func describeWorkflowExecution(
 	return &execInfo, nil
 }
 
-type pipelineRunnerInfo = runners.PipelineRunnerInfo
+type pipelineRunnerInfo = pipeline.PipelineRunnerInfo
 
 type pipelineWorkflowSummary struct {
 	WorkflowExecutionSummary
@@ -1304,7 +1303,7 @@ func buildQueuedPipelineSummary(
 		),
 		PipelineName:  displayName,
 		RunnerIDs:     runnerIDs,
-		RunnerRecords: runners.ResolveRunnerRecords(app, runnerIDs, runnerCache),
+		RunnerRecords: pipeline.ResolveRunnerRecords(app, runnerIDs, runnerCache),
 	}
 }
 
@@ -1404,8 +1403,8 @@ func attachPipelineRunnerInfo(
 		return []*pipelineWorkflowSummary{}
 	}
 
-	runnerIDs := runners.RunnerIDsWithGlobal(info, globalRunnerID)
-	runnerRecords := runners.ResolveRunnerRecords(app, runnerIDs, runnerCache)
+	runnerIDs := pipeline.RunnerIDsWithGlobal(info, globalRunnerID)
+	runnerRecords := pipeline.ResolveRunnerRecords(app, runnerIDs, runnerCache)
 
 	annotated := make([]*pipelineWorkflowSummary, 0, len(executions))
 	for _, exec := range executions {
@@ -1515,7 +1514,7 @@ func readGlobalRunnerIDFromTemporalHistory(
 			return "", nil // nolint
 		}
 
-		return runners.GlobalRunnerIDFromConfig(in.WorkflowInput.Config), nil
+		return pipeline.GlobalRunnerIDFromConfig(in.WorkflowInput.Config), nil
 	}
 
 	return "", nil

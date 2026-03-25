@@ -13,6 +13,8 @@ import (
 const (
 	// PipelineIdentifierSearchAttribute is the Temporal visibility field storing pipeline identifiers.
 	PipelineIdentifierSearchAttribute = "PipelineIdentifier"
+	// RunnerIdentifierSearchAttribute is the Temporal visibility field storing runner identifiers.
+	RunnerIdentifiersSearchAttribute = "RunnerIdentifiers"
 )
 
 // NormalizePipelineIdentifier trims whitespace and leading/trailing slashes from identifiers.
@@ -21,17 +23,27 @@ func NormalizePipelineIdentifier(identifier string) string {
 }
 
 // PipelineTypedSearchAttributes returns typed search attributes for scheduled workflow actions.
-func PipelineTypedSearchAttributes(pipelineIdentifier string) temporal.SearchAttributes {
+func PipelineTypedSearchAttributes(pipelineIdentifier string, runnerIDs []string) temporal.SearchAttributes {
+	var attrs []temporal.SearchAttributeUpdate
 	normalized := NormalizePipelineIdentifier(pipelineIdentifier)
-	if normalized == "" {
+	if normalized != "" {
+		keyPipeline := temporal.NewSearchAttributeKeyKeyword(PipelineIdentifierSearchAttribute)
+		attrs = append(attrs, keyPipeline.ValueSet(normalized))
+	}
+	if len(runnerIDs) > 0 {
+		runnerKey := temporal.NewSearchAttributeKeyKeywordList(RunnerIdentifiersSearchAttribute)
+		attrs = append(attrs, runnerKey.ValueSet(runnerIDs))
+	}
+	if len(attrs) == 0 {
 		return temporal.NewSearchAttributes()
 	}
-	key := temporal.NewSearchAttributeKeyKeyword(PipelineIdentifierSearchAttribute)
-	return temporal.NewSearchAttributes(key.ValueSet(normalized))
+	return temporal.NewSearchAttributes(attrs...)
 }
 
 // ApplyPipelineSearchAttributes ensures StartWorkflowOptions include the pipeline identifier attribute.
-func ApplyPipelineSearchAttributes(options *client.StartWorkflowOptions, pipelineIdentifier string) {
+func ApplyPipelineSearchAttributes(options *client.StartWorkflowOptions, 
+	pipelineIdentifier string,
+	runnerIDs []string) {
 	if options == nil {
 		return
 	}
@@ -40,13 +52,25 @@ func ApplyPipelineSearchAttributes(options *client.StartWorkflowOptions, pipelin
 		return
 	}
 
-	key := temporal.NewSearchAttributeKeyKeyword(PipelineIdentifierSearchAttribute)
+	pipelineKey := temporal.NewSearchAttributeKeyKeyword(PipelineIdentifierSearchAttribute)
 		if options.TypedSearchAttributes.Size() > 0 {
 			options.TypedSearchAttributes = temporal.NewSearchAttributes(
 				options.TypedSearchAttributes.Copy(),
-				key.ValueSet(normalized),
+				pipelineKey.ValueSet(normalized),
 			)
 			return
 		}
-		options.TypedSearchAttributes = temporal.NewSearchAttributes(key.ValueSet(normalized))
+		options.TypedSearchAttributes = temporal.NewSearchAttributes(pipelineKey.ValueSet(normalized))
+
+	if len(runnerIDs) > 0 {
+		runnerKey := temporal.NewSearchAttributeKeyKeywordList(RunnerIdentifiersSearchAttribute)
+		if options.TypedSearchAttributes.Size() > 0 {
+			options.TypedSearchAttributes = temporal.NewSearchAttributes(
+				options.TypedSearchAttributes.Copy(),
+				runnerKey.ValueSet(runnerIDs),
+			)
+			return
+		}
+		options.TypedSearchAttributes = temporal.NewSearchAttributes(runnerKey.ValueSet(runnerIDs))
+	}
 }
