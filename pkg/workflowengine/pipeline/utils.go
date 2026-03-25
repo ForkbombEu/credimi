@@ -130,15 +130,6 @@ func parseDurationOrDefault(s, def string) time.Duration {
 	return d
 }
 
-func convertMapAnyToString(m map[string]any) map[string]string {
-	result := make(map[string]string, len(m))
-	for k, v := range m {
-		if str, ok := v.(string); ok {
-			result[k] = str
-		}
-	}
-	return result
-}
 
 // SetPayloadValue sets a key/value pair in the given payload map.
 // If the key exists, it overwrites it; otherwise, it adds it.
