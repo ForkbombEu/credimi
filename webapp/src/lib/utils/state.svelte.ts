@@ -26,6 +26,8 @@ export class PolledResource<T, InitialValue extends InitialValueType<T>> {
 		});
 
 		onMount(() => {
+			if (!initialValue) this.fetch();
+
 			const interval = setInterval(() => {
 				this.fetch();
 			}, intervalMs);
