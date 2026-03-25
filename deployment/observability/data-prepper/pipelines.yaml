@@ -1,0 +1,49 @@
+otel-trace-pipeline:
+  delay: "100"
+  source:
+    otel_trace_source:
+      port: 21890
+      ssl: false
+      output_format: otel
+  sink:
+    - pipeline:
+        name: trace-raw-pipeline
+    - pipeline:
+        name: trace-service-map-pipeline
+
+trace-raw-pipeline:
+  source:
+    pipeline:
+      name: otel-trace-pipeline
+  processor:
+    - otel_traces:
+  sink:
+    - opensearch:
+        hosts: ["http://opensearch:9200"]
+        insecure: true
+        index_type: trace-analytics-raw
+
+trace-service-map-pipeline:
+  delay: "100"
+  source:
+    pipeline:
+      name: otel-trace-pipeline
+  processor:
+    - service_map:
+  sink:
+    - opensearch:
+        hosts: ["http://opensearch:9200"]
+        insecure: true
+        index_type: trace-analytics-service-map
+
+otel-logs-pipeline:
+  source:
+    otel_logs_source:
+      port: 21892
+      ssl: false
+      output_format: otel
+  sink:
+    - opensearch:
+        hosts: ["http://opensearch:9200"]
+        insecure: true
+        index: credimi-otel-logs

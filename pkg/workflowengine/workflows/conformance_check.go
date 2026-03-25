@@ -314,10 +314,10 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 					Rid:   rid,
 					Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 				},
-				Config: map[string]any{
+				Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
 					"app_url":  appURL,
 					"interval": time.Second,
-				},
+				}),
 			}).GetChildWorkflowExecution().Get(ctx, nil)
 		if err != nil {
 			logger.Error("Failed to execute child workflow", "error", err)
@@ -384,11 +384,11 @@ func (w *StartCheckWorkflow) ExecuteWorkflow(
 				Payload: EWCStatusWorkflowPayload{
 					SessionID: ewcSessionID,
 				},
-				Config: map[string]any{
+				Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
 					"app_url":        appURL,
 					"interval":       time.Second * 5,
 					"check_endpoint": checkEndpoint,
-				},
+				}),
 			}).GetChildWorkflowExecution().Get(ctx, nil)
 
 		if err != nil {

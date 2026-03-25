@@ -49,6 +49,13 @@ precedence = "override"
 SPDX-FileCopyrightText = "Forkbomb BV"
 SPDX-License-Identifier = "AGPL-3.0-or-later"
 
+
+[[annotations]]
+path = ["deployment/observability/**/*"]
+precedence = "override"
+SPDX-FileCopyrightText = "Forkbomb BV"
+SPDX-License-Identifier = "AGPL-3.0-or-later"
+
 [[annotations]]
 path = ["deployment/grafana/**/*", "deployment/thirdparty-simulator/**/*"]
 precedence = "aggregate"

@@ -39,3 +39,114 @@ services:
     restart: unless-stopped
     environment:
       - TEMPORAL_GRPC_ENDPOINT=credimi:7233
+  otel-collector:
+    image: ${OTEL_COLLECTOR_IMAGE:-otel/opentelemetry-collector-contrib:latest}
+    restart: unless-stopped
+    command:
+      - --config=/etc/otel-collector/config.yaml
+    volumes:
+      - type: bind
+        source: ./deployment/observability/otel-collector/config.yaml
+        target: /etc/otel-collector/config.yaml
+    ports:
+      - "${OTEL_COLLECTOR_GRPC_PORT:-4317}:4317"
+      - "${OTEL_COLLECTOR_HTTP_PORT:-4318}:4318"
+      - "${OTEL_COLLECTOR_HEALTH_PORT:-13133}:13133"
+    depends_on:
+      - data-prepper
+      - otel-prometheus
+    networks:
+      - observability
+  data-prepper:
+    image: ${DATA_PREPPER_IMAGE:-opensearchproject/data-prepper:latest}
+    restart: unless-stopped
+    volumes:
+      - type: bind
+        source: ./deployment/observability/data-prepper/data-prepper-config.yaml
+        target: /usr/share/data-prepper/config/data-prepper-config.yaml
+      - type: bind
+        source: ./deployment/observability/data-prepper/pipelines.yaml
+        target: /usr/share/data-prepper/pipelines/pipelines.yaml
+    depends_on:
+      - opensearch
+    networks:
+      - observability
+  opensearch:
+    image: ${OPENSEARCH_IMAGE:-opensearchproject/opensearch:2.11.1}
+    restart: unless-stopped
+    environment:
+      discovery.type: single-node
+      bootstrap.memory_lock: "true"
+      plugins.security.disabled: "true"
+      OPENSEARCH_JAVA_OPTS: ${OPENSEARCH_JAVA_OPTS:--Xms512m -Xmx512m}
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    ports:
+      - "${OPENSEARCH_PORT:-9200}:9200"
+    volumes:
+      - type: volume
+        source: otel_opensearch_data
+        target: /usr/share/opensearch/data
+    networks:
+      - observability
+  opensearch-dashboards:
+    build:
+      context: ./deployment/observability/opensearch-dashboards
+      dockerfile: Dockerfile
+    image: ${OPENSEARCH_DASHBOARDS_IMAGE:-credimi-opensearch-dashboards:2.11.1}
+    restart: unless-stopped
+    environment:
+      OPENSEARCH_HOSTS: '["http://opensearch:9200"]'
+    ports:
+      - "${OPENSEARCH_DASHBOARDS_PORT:-5601}:5601"
+    depends_on:
+      - opensearch
+    networks:
+      - observability
+  dashboards-bootstrap:
+    image: ${DASHBOARDS_BOOTSTRAP_IMAGE:-curlimages/curl:8.7.1}
+    restart: "no"
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        until curl -fsS http://opensearch-dashboards:5601/api/status >/dev/null; do
+          sleep 3
+        done
+        curl -fsS -X POST 'http://opensearch-dashboards:5601/api/saved_objects/_import?overwrite=true' \
+          -H 'osd-xsrf: true' \
+          --form file=@/saved-objects/credimi-otel.ndjson
+    volumes:
+      - type: bind
+        source: ./deployment/observability/opensearch-dashboards/saved-objects
+        target: /saved-objects
+    depends_on:
+      - opensearch-dashboards
+    networks:
+      - observability
+  otel-prometheus:
+    image: ${PROMETHEUS_IMAGE:-prom/prometheus:latest}
+    restart: unless-stopped
+    command:
+      - --config.file=/etc/prometheus/prometheus.yaml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+    volumes:
+      - type: bind
+        source: ./deployment/observability/prometheus/prometheus.yaml
+        target: /etc/prometheus/prometheus.yaml
+      - type: volume
+        source: otel_prometheus_data
+        target: /prometheus
+    networks:
+      - observability
+
+networks:
+  observability:
+    name: ${OBSERVABILITY_NETWORK:-credimi-observability}
+
+volumes:
+  otel_opensearch_data:
+  otel_prometheus_data:
