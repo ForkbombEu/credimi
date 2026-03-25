@@ -16,12 +16,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Badge } from '@/components/ui/badge';
 	import { m } from '@/i18n';
 
-	import type { WalletActionStepForm } from './wallet-action-step-form.svelte.js';
-
 	import ItemCard from '../_partials/item-card.svelte';
 	import SearchInput from '../_partials/search-input.svelte';
 	import WithEmptyState from '../_partials/with-empty-state.svelte';
 	import WithLabel from '../_partials/with-label.svelte';
+	import {
+		getRunnerLabel,
+		getVersionLabel,
+		type WalletActionStepForm
+	} from './wallet-action-step-form.svelte.js';
 
 	//
 
@@ -44,17 +47,15 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{#if form.data.version}
 			<WithLabel label={m.Version()}>
 				<ItemCard
-					title={form.data.version.tag}
+					title={getVersionLabel(form.data.version)}
 					onDiscard={isRunnerGlobal ? undefined : () => form.removeVersion()}
 				/>
 			</WithLabel>
 		{/if}
 		{#if form.data.runner}
 			<WithLabel label={m.Runner()}>
-				{@const title =
-					form.data.runner === 'global' ? m.Choose_later() : form.data.runner.name}
 				<ItemCard
-					{title}
+					title={getRunnerLabel(form.data.runner)}
 					onDiscard={isRunnerGlobal ? undefined : () => form.removeRunner()}
 				/>
 			</WithLabel>
@@ -78,7 +79,14 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		{/snippet}
 	</WithEmptyState>
 {:else if form.state === 'select-version'}
-	<WithLabel label={m.Version()} class="p-4 pb-0" />
+	<WithLabel label={m.Version()} class="p-4" />
+
+	<div class="px-4">
+		<ItemCard
+			title={m.Install_from_external_source()}
+			onClick={() => form.selectExternalVersion()}
+		/>
+	</div>
 
 	<WithEmptyState items={form.foundVersions} emptyText={m.No_wallet_versions_found()}>
 		{#snippet item({ item })}
