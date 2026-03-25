@@ -7,7 +7,10 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 <script lang="ts">
 	import type { SelfProp } from '$lib/renderable';
 
+	import { ExternalLinkIcon } from '@lucide/svelte';
 	import { Wallet } from '$lib';
+	import AndroidLogo from '$lib/components/android-logo.svelte';
+	import AppleLogo from '$lib/components/apple-logo.svelte';
 	import WalletActionTags from '$lib/components/wallet-action-tags.svelte';
 	import { getMarketplaceItemData } from '$lib/marketplace';
 	import { ExecutionTarget } from '$lib/pipeline-form/execution-target';
@@ -85,12 +88,29 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 		<ItemCard
 			title={m.Install_from_external_source()}
 			onClick={() => form.selectExternalVersion()}
-		/>
+		>
+			{#snippet titleRight()}
+				<span class="ml-0.5 inline-flex translate-0.5 gap-1 text-gray-300">
+					<ExternalLinkIcon size={16} class="stroke-2" />
+				</span>
+			{/snippet}
+		</ItemCard>
 	</div>
 
 	<WithEmptyState items={form.foundVersions} emptyText={m.No_wallet_versions_found()}>
 		{#snippet item({ item })}
-			<ItemCard title={item.tag} onClick={() => form.selectVersion(item)} />
+			<ItemCard title={item.tag} onClick={() => form.selectVersion(item)}>
+				{#snippet titleRight()}
+					<span class="ml-0.5 inline-flex translate-0.5 gap-1 text-gray-300">
+						{#if item.android_installer}
+							<AndroidLogo size={16} />
+						{/if}
+						{#if item.ios_installer}
+							<AppleLogo size={16} />
+						{/if}
+					</span>
+				{/snippet}
+			</ItemCard>
 		{/snippet}
 	</WithEmptyState>
 {:else if form.state === 'select-runner'}
