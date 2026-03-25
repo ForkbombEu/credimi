@@ -331,7 +331,7 @@ func (w *PipelineWorkflow) Start(
 		}
 	}
 
-	runnerInfo, err := ParsePipelineRunnerInfo(inputYaml)
+	runnerInfo, _ := ParsePipelineRunnerInfo(inputYaml)
 	// Add global_runner_id to config if specified
 	if wfDef.Runtime.GlobalRunnerID != "" {
 		config["global_runner_id"] = wfDef.Runtime.GlobalRunnerID
