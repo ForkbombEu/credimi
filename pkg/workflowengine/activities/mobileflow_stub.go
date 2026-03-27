@@ -222,6 +222,32 @@ func (a *CleanupDeviceActivity) Execute(
 	)
 }
 
+type ListInstalledAppsActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewListInstalledAppsActivity() *ListInstalledAppsActivity {
+	return &ListInstalledAppsActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "List installed mobile apps",
+		},
+	}
+}
+
+func (a *ListInstalledAppsActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *ListInstalledAppsActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
 type StartRecordingActivity struct {
 	workflowengine.BaseActivity
 }

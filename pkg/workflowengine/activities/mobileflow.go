@@ -305,6 +305,41 @@ func (a *CleanupDeviceActivity) Execute(
 	return workflowengine.ActivityResult{Output: res}, nil
 }
 
+type ListInstalledAppsActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewListInstalledAppsActivity() *ListInstalledAppsActivity {
+	return &ListInstalledAppsActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "List installed mobile apps",
+		},
+	}
+}
+
+func (a *ListInstalledAppsActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *ListInstalledAppsActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	runInput := buildMobileInput(
+		input.Payload,
+		a.NewActivityError,
+		nil,
+		true,
+	)
+
+	res, err := mobile.ListInstalledApps(ctx, runInput)
+	if err != nil {
+		return workflowengine.ActivityResult{}, err
+	}
+
+	return workflowengine.ActivityResult{Output: res}, nil
+}
+
 type StartRecordingActivity struct {
 	workflowengine.BaseActivity
 }

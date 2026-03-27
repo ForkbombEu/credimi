@@ -240,6 +240,23 @@ func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 			},
 			TestAppFactory: setupWalletApp,
 		},
+		{
+			Name:   "skip installer returns version id without lookup",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(map[string]any{
+				"wallet_version_identifier": "installed_from_external_source",
+				"platform":                  "android",
+				"skip_installer":            true,
+			}),
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"installer_name":""`,
+				`"installer_identifier":""`,
+				`"version_id":"installed_from_external_source"`,
+			},
+			TestAppFactory: setupWalletApp,
+		},
 	}
 
 	for _, scenario := range scenarios {

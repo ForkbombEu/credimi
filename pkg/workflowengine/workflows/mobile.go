@@ -6,6 +6,9 @@
 package workflows
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -18,6 +21,12 @@ const MobileAutomationTaskQueue = "MobileAutomationTaskQueue"
 
 // MobileAutomationWorkflow is a workflow that runs a mobile automation flow
 type MobileAutomationWorkflow struct {
+	WorkflowFunc workflowengine.WorkflowFn
+}
+
+// MobileExternalInstallWorkflow is a workflow that runs an external install-app step
+// and performs post-install checks using the app detected on the device.
+type MobileExternalInstallWorkflow struct {
 	WorkflowFunc workflowengine.WorkflowFn
 }
 
@@ -48,7 +57,17 @@ func NewMobileAutomationWorkflow() *MobileAutomationWorkflow {
 	return w
 }
 
+func NewMobileExternalInstallWorkflow() *MobileExternalInstallWorkflow {
+	w := &MobileExternalInstallWorkflow{}
+	w.WorkflowFunc = workflowengine.BuildWorkflow(w)
+	return w
+}
+
 func (MobileAutomationWorkflow) GetOptions() workflow.ActivityOptions {
+	return DefaultActivityOptions
+}
+
+func (MobileExternalInstallWorkflow) GetOptions() workflow.ActivityOptions {
 	return DefaultActivityOptions
 }
 
@@ -62,7 +81,18 @@ func (MobileAutomationWorkflow) Name() string {
 	return "Run a mobile automation workflow"
 }
 
+func (MobileExternalInstallWorkflow) Name() string {
+	return "Run a mobile external install workflow"
+}
+
 func (w *MobileAutomationWorkflow) Workflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	return w.WorkflowFunc(ctx, input)
+}
+
+func (w *MobileExternalInstallWorkflow) Workflow(
 	ctx workflow.Context,
 	input workflowengine.WorkflowInput,
 ) (workflowengine.WorkflowResult, error) {
@@ -137,4 +167,201 @@ func (w *MobileAutomationWorkflow) ExecuteWorkflow(
 	return workflowengine.WorkflowResult{
 		Output: output,
 	}, nil
+}
+
+func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
+	ctx workflow.Context,
+	input workflowengine.WorkflowInput,
+) (workflowengine.WorkflowResult, error) {
+	ctx = workflow.WithActivityOptions(ctx, *input.ActivityOptions)
+
+	var output MobileWorkflowOutput
+	testRunURL := utils.JoinURL(
+		input.Config["app_url"].(string),
+		"my", "tests", "runs",
+		workflow.GetInfo(ctx).WorkflowExecution.ID,
+		workflow.GetInfo(ctx).WorkflowExecution.RunID,
+	)
+	output.TestRunURL = testRunURL
+
+	payload, err := workflowengine.DecodePayload[MobileAutomationWorkflowPayload](input.Payload)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingOrInvalidPayloadError(
+			err,
+			input.RunMetadata,
+		)
+	}
+
+	appURL, ok := input.Config["app_url"].(string)
+	if !ok || appURL == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"app_url",
+			input.RunMetadata,
+		)
+	}
+	_ = appURL
+
+	taskqueue, ok := input.Config["taskqueue"].(string)
+	if !ok || strings.TrimSpace(taskqueue) == "" {
+		return workflowengine.WorkflowResult{}, workflowengine.NewMissingConfigError(
+			"taskqueue",
+			input.RunMetadata,
+		)
+	}
+
+	runnerAO := *input.ActivityOptions
+	runnerAO.TaskQueue = taskqueue
+	runnerCtx := workflow.WithActivityOptions(ctx, runnerAO)
+
+	beforeApps, err := executeListInstalledApps(runnerCtx, payload.Serial, payload.Type)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+			map[string]any{"output": output},
+		)
+	}
+
+	mobileActivity := activities.NewRunMobileFlowActivity()
+	var mobileResponse workflowengine.ActivityResult
+	mobileInput := workflowengine.ActivityInput{
+		Payload: mobile.RunMobileFlowPayload{
+			Serial:     payload.Serial,
+			Type:       payload.Type,
+			Yaml:       payload.ActionCode,
+			Parameters: payload.Parameters,
+			WorkflowId: workflow.GetInfo(ctx).WorkflowExecution.ID,
+		},
+	}
+	executeErr := workflow.ExecuteActivity(runnerCtx, mobileActivity.Name(), mobileInput).
+		Get(runnerCtx, &mobileResponse)
+	output.FlowOutput = map[string]any{
+		"mobile_flow": mobileResponse.Output,
+	}
+
+	if executeErr != nil {
+		if temporal.IsCanceledError(executeErr) {
+			return workflowengine.WorkflowResult{}, executeErr
+		}
+
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			executeErr,
+			input.RunMetadata,
+			map[string]any{
+				"output": output,
+			},
+		)
+	}
+
+	afterApps, err := executeListInstalledApps(runnerCtx, payload.Serial, payload.Type)
+	if err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+			map[string]any{"output": output},
+		)
+	}
+
+	addedApps := diffAddedApps(beforeApps, afterApps)
+	if len(addedApps) != 1 {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			fmt.Errorf("expected exactly one installed app, found %d", len(addedApps)),
+			input.RunMetadata,
+			map[string]any{
+				"before_apps": beforeApps,
+				"after_apps":  afterApps,
+				"added_apps":  addedApps,
+				"output":      output,
+			},
+		)
+	}
+
+	postInstallActivityName := activities.NewApkPostInstallChecksActivity().Name()
+	postInstallPayload := map[string]any{
+		"serial":     payload.Serial,
+		"package_id": addedApps[0],
+	}
+	if isIOSWorkflowDeviceType(payload.Type) {
+		postInstallActivityName = activities.NewIOSPostInstallChecksActivity().Name()
+		postInstallPayload["type"] = payload.Type
+	}
+
+	var postInstallResponse workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		runnerCtx,
+		postInstallActivityName,
+		workflowengine.ActivityInput{Payload: postInstallPayload},
+	).Get(runnerCtx, &postInstallResponse); err != nil {
+		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
+			err,
+			input.RunMetadata,
+			map[string]any{"output": output},
+		)
+	}
+
+	output.FlowOutput = map[string]any{
+		"mobile_flow":  mobileResponse.Output,
+		"post_install": postInstallResponse.Output,
+	}
+
+	return workflowengine.WorkflowResult{
+		Output: output,
+	}, nil
+}
+
+func executeListInstalledApps(
+	ctx workflow.Context,
+	serial string,
+	deviceType string,
+) ([]string, error) {
+	listActivity := activities.NewListInstalledAppsActivity()
+	var result workflowengine.ActivityResult
+	if err := workflow.ExecuteActivity(
+		ctx,
+		listActivity.Name(),
+		workflowengine.ActivityInput{
+			Payload: mobile.ListInstalledAppsPayload{
+				Serial: serial,
+				Type:   deviceType,
+			},
+		},
+	).Get(ctx, &result); err != nil {
+		return nil, err
+	}
+
+	return workflowengine.AsSliceOfStrings(result.Output), nil
+}
+
+func diffAddedApps(before, after []string) []string {
+	beforeSet := make(map[string]struct{}, len(before))
+	for _, appID := range before {
+		trimmed := strings.TrimSpace(appID)
+		if trimmed == "" {
+			continue
+		}
+		beforeSet[trimmed] = struct{}{}
+	}
+
+	var added []string
+	for _, appID := range after {
+		trimmed := strings.TrimSpace(appID)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := beforeSet[trimmed]; exists {
+			continue
+		}
+		added = append(added, trimmed)
+	}
+
+	return added
+}
+
+func isIOSWorkflowDeviceType(deviceType string) bool {
+	switch strings.TrimSpace(strings.ToLower(deviceType)) {
+	case "ios", "ios_phone", "ios_simulator":
+		return true
+	default:
+		return false
+	}
 }
