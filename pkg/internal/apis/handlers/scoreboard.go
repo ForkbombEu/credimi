@@ -6,6 +6,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"sort"
 	"time"
@@ -171,126 +172,179 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 }
 
 func calculateStatsFromExecutions(
-	executions []*WorkflowExecution,
-	app core.App,
+    executions []*WorkflowExecution,
+    app core.App,
     runnerCache map[string]map[string]any,
-	) *PipelineStats {
+) *PipelineStats {
     stats := &PipelineStats{
         Runners:     []string{},
         RunnerTypes: []string{},
         TotalRuns:   len(executions),
     }
-	if len(executions) == 0 {
+
+    if len(executions) == 0 {
         return stats
     }
-	runnerSet := make(map[string]struct{})
+
+    runnerSet := make(map[string]struct{})
     var minDuration time.Duration
     var firstTime, lastTime string
     minDurationSet := false
 
-	for _, exec := range executions {
-		if exec == nil || exec.SearchAttributes == nil {
+    for _, exec := range executions {
+        if exec == nil || exec.SearchAttributes == nil {
             continue
         }
-		//success
-		if statusVal, ok := (*exec.SearchAttributes)["ExecutionStatus"]; ok {
-            if status, ok := statusVal.(string); ok && status == "Completed" {
-                stats.TotalSuccesses++
-            }
-        }
-		//scheduled
-		scheduledBy := ""
-        if scheduledVal, ok := (*exec.SearchAttributes)["TemporalScheduledById"]; ok {
-            if s, ok := scheduledVal.(string); ok {
-                scheduledBy = s
-            }
-        }
-        isScheduled := scheduledBy != ""
 
-		if isScheduled {
+        isCompleted := extractCompletionStatus(exec)
+        if isCompleted {
+            stats.TotalSuccesses++
+        }
+
+        isScheduled := isScheduledExecution(exec)
+        if isScheduled {
             stats.ScheduledExecutions++
         } else {
             stats.ManualExecutions++
         }
-		//runnerID
-		var runnerIDs []string
-        if runnerVal, ok := (*exec.SearchAttributes)[workflowengine.RunnerIdentifiersSearchAttribute]; ok {
-            switch v := runnerVal.(type) {
-            case []string:
-                runnerIDs = v
-            case []interface{}:
-                for _, item := range v {
-                    if s, ok := item.(string); ok {
-                        runnerIDs = append(runnerIDs, s)
-                    }
-                }
-            }
-        }
-		for _, id := range runnerIDs {
-        	runnerSet[id] = struct{}{}  
-   		}
-		//date
-		if exec.StartTime != "" {
-            startTimeStr := exec.StartTime
-            if firstTime == "" || startTimeStr < firstTime {
-                firstTime = startTimeStr
-            }
-            if lastTime == "" || startTimeStr > lastTime {
-                lastTime = startTimeStr
-            }
-        }
-        
-		// minimum duration
-        if exec.StartTime != "" && exec.CloseTime != "" {
-            startTime, err1 := time.Parse(time.RFC3339, exec.StartTime)
-            closeTime, err2 := time.Parse(time.RFC3339, exec.CloseTime)
-            if err1 == nil && err2 == nil {
-                duration := closeTime.Sub(startTime)
-                if !minDurationSet || duration < minDuration {
-                    minDuration = duration
-                    minDurationSet = true
-                }
-            }
-        }
-    }
-	stats.Runners = make([]string, 0, len(runnerSet))
-    for id := range runnerSet {
-        stats.Runners = append(stats.Runners, id)
-    }
-    sort.Strings(stats.Runners)
-	runnerRecords := pipeline.ResolveRunnerRecords(app, stats.Runners, runnerCache)
 
-	runnerTypes := make([]string, 0, len(runnerRecords))
-	for _, record := range runnerRecords {
-    	if runnerType, ok := record["type"].(string); ok && runnerType != "" {
-        	runnerTypes = append(runnerTypes, runnerType)
-    	}
-	}
-	sort.Strings(runnerTypes)
+        runnerIDs := extractRunnerIDsFromExec(exec)
+        for _, id := range runnerIDs {
+            runnerSet[id] = struct{}{}
+        }
 
-	stats.RunnerTypes = runnerTypes
-	
-	if stats.TotalRuns > 0 {
-        stats.SuccessRate = float64(stats.TotalSuccesses) / float64(stats.TotalRuns) * 100
+        updateDateRange(exec.StartTime, &firstTime, &lastTime)
+
+        updateMinDuration(exec, &minDuration, &minDurationSet)
     }
-	stats.FirstExecutionDate = firstTime
+
+    stats.Runners = mapKeysToSlice(runnerSet)
+    stats.RunnerTypes = resolveRunnerTypes(app, stats.Runners, runnerCache)
+
+    if stats.TotalRuns > 0 {
+        stats.SuccessRate = math.Round(float64(stats.TotalSuccesses) / float64(stats.TotalRuns) * 10000)/100
+    }
+
+    stats.FirstExecutionDate = firstTime
     stats.LastExecutionDate = lastTime
-    
-    if minDurationSet {
-    if minDuration < time.Minute {
-        stats.MinExecutionTime = fmt.Sprintf("%.0fs", minDuration.Seconds())
-    } else if minDuration < time.Hour {
-        minutes := int(minDuration.Minutes())
-        seconds := int(minDuration.Seconds()) % 60
-        stats.MinExecutionTime = fmt.Sprintf("%dm%ds", minutes, seconds)
-    } else {
-        hours := int(minDuration.Hours())
-        minutes := int(minDuration.Minutes()) % 60
-		seconds := int(minDuration.Seconds()) % 60
-        stats.MinExecutionTime = fmt.Sprintf("%dh%dm%ds", hours, minutes,seconds)
-    }
-}
-    
+    stats.MinExecutionTime = formatDurationString(minDuration, minDurationSet)
+
     return stats
 }
 
+func extractCompletionStatus(exec *WorkflowExecution) bool {
+    if statusVal, ok := (*exec.SearchAttributes)["ExecutionStatus"]; ok {
+        if status, ok := statusVal.(string); ok && status == "Completed" {
+            return true
+        }
+    }
+    return false
+}
+
+func isScheduledExecution(exec *WorkflowExecution) bool {
+    if scheduledVal, ok := (*exec.SearchAttributes)["TemporalScheduledById"]; ok {
+        if s, ok := scheduledVal.(string); ok && s != "" {
+            return true
+        }
+    }
+    return false
+}
+
+func extractRunnerIDsFromExec(exec *WorkflowExecution) []string {
+    if runnerVal, ok := (*exec.SearchAttributes)[workflowengine.RunnerIdentifiersSearchAttribute]; ok {
+        switch v := runnerVal.(type) {
+        case []string:
+            return v
+        case []interface{}:
+            runnerIDs := make([]string, 0, len(v))
+            for _, item := range v {
+                if s, ok := item.(string); ok {
+                    runnerIDs = append(runnerIDs, s)
+                }
+            }
+            return runnerIDs
+        }
+    }
+    return nil
+}
+
+func updateDateRange(startTimeStr string, firstTime, lastTime *string) {
+    if startTimeStr == "" {
+        return
+    }
+    if *firstTime == "" || startTimeStr < *firstTime {
+        *firstTime = startTimeStr
+    }
+    if *lastTime == "" || startTimeStr > *lastTime {
+        *lastTime = startTimeStr
+    }
+}
+
+func updateMinDuration(exec *WorkflowExecution, minDuration *time.Duration, minDurationSet *bool) {
+    if exec.StartTime == "" || exec.CloseTime == "" {
+        return
+    }
+    startTime, err1 := time.Parse(time.RFC3339, exec.StartTime)
+    closeTime, err2 := time.Parse(time.RFC3339, exec.CloseTime)
+    if err1 != nil || err2 != nil {
+        return
+    }
+    duration := closeTime.Sub(startTime)
+    if !*minDurationSet || duration < *minDuration {
+        *minDuration = duration
+        *minDurationSet = true
+    }
+}
+
+func mapKeysToSlice(m map[string]struct{}) []string {
+    keys := make([]string, 0, len(m))
+    for k := range m {
+        keys = append(keys, k)
+    }
+    sort.Strings(keys)
+    return keys
+}
+
+func resolveRunnerTypes(app core.App, runnerIDs []string, runnerCache map[string]map[string]any) []string {
+    if len(runnerIDs) == 0 || app == nil {
+        return []string{}
+    }
+    runnerRecords := pipeline.ResolveRunnerRecords(app, runnerIDs, runnerCache)
+    types := make([]string, 0, len(runnerRecords))
+    for _, record := range runnerRecords {
+        if runnerType, ok := record["type"].(string); ok && runnerType != "" {
+            types = append(types, runnerType)
+        }
+    }
+    sort.Strings(types)
+    return types
+}
+
+func formatDurationString(d time.Duration, set bool) string {
+    if !set {
+        return ""
+    }
+    
+    switch {
+    case d < time.Minute:
+        return fmt.Sprintf("%.0fs", d.Seconds())
+    case d < time.Hour:
+        minutes := int(d.Minutes())
+        seconds := int(d.Seconds()) % 60
+        if seconds > 0 {
+            return fmt.Sprintf("%dm%ds", minutes, seconds)
+        }
+        return fmt.Sprintf("%dm", minutes)
+    default:
+        hours := int(d.Hours())
+        minutes := int(d.Minutes()) % 60
+        seconds := int(d.Seconds()) % 60
+        if minutes > 0 && seconds > 0 {
+            return fmt.Sprintf("%dh%dm%ds", hours, minutes, seconds)
+        }
+        if minutes > 0 {
+            return fmt.Sprintf("%dh%dm", hours, minutes)
+        }
+        return fmt.Sprintf("%dh", hours)
+    }
+}

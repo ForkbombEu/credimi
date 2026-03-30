@@ -211,6 +211,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.Equal(t, expectedLastDate, stats1.LastExecutionDate)
 	require.NotEmpty(t, stats1.RunnerTypes)
 	require.ElementsMatch(t, []string{"android", "ios"}, stats1.RunnerTypes)
+	require.Equal(t,66.67, stats1.SuccessRate)
 
     require.NotNil(t, stats2)
     require.Equal(t, 1, stats2.TotalRuns)	
@@ -225,6 +226,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.Equal(t, expectedLastDate2, stats2.LastExecutionDate)
 	require.NotEmpty(t, stats2.RunnerTypes)
 	require.ElementsMatch(t, []string{"ios"}, stats2.RunnerTypes)
+	require.Equal(t,100.00, stats2.SuccessRate)
 
 	require.Equal(t, "2h4m10s", stats3.MinExecutionTime)
 
