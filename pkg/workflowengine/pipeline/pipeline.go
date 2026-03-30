@@ -143,6 +143,15 @@ func (w *PipelineWorkflow) Workflow(
 
 	var previousStepID string
 	for _, step := range wfDef.Steps {
+		if err := runPendingPlayStoreDisableIfNeeded(ctx, step, &ao, config, &runData); err != nil {
+			if temporal.IsCanceledError(err) {
+				return workflowengine.WorkflowResult{},
+					workflowengine.NewWorkflowCancellationError(runMetadata)
+			}
+
+			return workflowengine.WorkflowResult{}, err
+		}
+
 		stepInputs := map[string]any{
 			"inputs": input.WorkflowInput.Payload,
 		}
@@ -261,6 +270,15 @@ func (w *PipelineWorkflow) Workflow(
 			}
 			previousStepID = step.ID
 		}
+	}
+
+	if err := runPendingPlayStoreDisableAfterSteps(ctx, &ao, config, &runData); err != nil {
+		if temporal.IsCanceledError(err) {
+			return workflowengine.WorkflowResult{},
+				workflowengine.NewWorkflowCancellationError(runMetadata)
+		}
+
+		return workflowengine.WorkflowResult{}, err
 	}
 
 	if len(errorsList) > 0 {

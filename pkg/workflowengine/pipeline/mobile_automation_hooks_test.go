@@ -1659,6 +1659,151 @@ func TestMobileAutomationSetupHookDisablesPlayStoreWhenConfigured(t *testing.T) 
 	require.Equal(t, true, result["recording"])
 }
 
+func TestMobileAutomationSetupHookDefersPlayStoreDisableForExternalInstallSteps(t *testing.T) {
+	suite := testsuite.WorkflowTestSuite{}
+	env := suite.NewTestWorkflowEnvironment()
+
+	httpActivity := activities.NewHTTPActivity()
+	listAppsActivity := activities.NewListInstalledAppsActivity()
+	recordActivity := activities.NewStartRecordingActivity()
+	env.RegisterActivityWithOptions(
+		httpActivity.Execute,
+		activity.RegisterOptions{Name: httpActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		listAppsActivity.Execute,
+		activity.RegisterOptions{Name: listAppsActivity.Name()},
+	)
+	env.RegisterActivityWithOptions(
+		recordActivity.Execute,
+		activity.RegisterOptions{Name: recordActivity.Name()},
+	)
+
+	env.RegisterWorkflowWithOptions(
+		func(ctx workflow.Context) (map[string]any, error) {
+			ao := workflow.ActivityOptions{StartToCloseTimeout: time.Second}
+			ctx = workflow.WithActivityOptions(ctx, ao)
+
+			steps := []StepDefinition{
+				{
+					StepSpec: StepSpec{
+						ID:  "step-1",
+						Use: mobileAutomationStepUse,
+						With: StepInputs{
+							Payload: map[string]any{
+								"action_id":  "wallet/install",
+								"version_id": mobileExternalSourceVersionID,
+							},
+						},
+					},
+				},
+			}
+			runData := map[string]any{}
+
+			err := MobileAutomationSetupHook(
+				ctx,
+				&steps,
+				&ao,
+				map[string]any{
+					"app_url":                              "https://app.example",
+					"global_runner_id":                     "tenant/runner-1",
+					mobileRunnerSemaphoreTicketIDConfigKey: "ticket-1",
+					mobileDisableAndroidPlayStoreConfigKey: true,
+				},
+				&runData,
+			)
+			if err != nil {
+				return nil, err
+			}
+
+			deviceMap := runData["setted_devices"].(map[string]any)["tenant/runner-1"].(map[string]any)
+			_, hasPlayStoreDisabled := deviceMap["play_store_disabled"]
+			return map[string]any{
+				"use":                        steps[0].Use,
+				"pending_play_store_disable": runData[mobilePendingPlayStoreDisableRunDataKey],
+				"play_store_disabled":        hasPlayStoreDisabled,
+				"recording":                  deviceMap["recording"],
+			}, nil
+		},
+		workflow.RegisterOptions{Name: "test-mobile-automation-setup-defer-disable-play-store"},
+	)
+
+	env.OnActivity(
+		httpActivity.Name(),
+		mock.Anything,
+		mock.MatchedBy(func(input workflowengine.ActivityInput) bool {
+			payload, ok := input.Payload.(map[string]any)
+			if !ok {
+				return false
+			}
+
+			switch workflowengine.AsString(payload["url"]) {
+			case "https://app.example/api/canonify/identifier/validate":
+				body, ok := payload["body"].(map[string]any)
+				return ok && workflowengine.AsString(body["canonified_name"]) == "wallet/install"
+			case "https://app.example/api/mobile-runner":
+				return true
+			case "https://runner.example/credimi/installer-action":
+				body, ok := payload["body"].(map[string]any)
+				return ok && workflowengine.AsBool(body["skip_installer"])
+			default:
+				return false
+			}
+		}),
+	).Return(func(
+		_ context.Context,
+		input workflowengine.ActivityInput,
+	) (workflowengine.ActivityResult, error) {
+		payload := input.Payload.(map[string]any)
+		switch workflowengine.AsString(payload["url"]) {
+		case "https://app.example/api/canonify/identifier/validate":
+			return workflowengine.ActivityResult{Output: map[string]any{
+				"body": map[string]any{
+					"record": map[string]any{
+						"category": walletActionCategoryInstallApp,
+					},
+				},
+			}}, nil
+		case "https://app.example/api/mobile-runner":
+			return workflowengine.ActivityResult{Output: map[string]any{
+				"body": map[string]any{
+					"runner_url": "https://runner.example",
+					"type":       "physical",
+					"serial":     "serial-1",
+				},
+			}}, nil
+		default:
+			return workflowengine.ActivityResult{Output: map[string]any{
+				"body": map[string]any{
+					"version_id": mobileExternalSourceVersionID,
+					"code":       "code-1",
+				},
+			}}, nil
+		}
+	})
+
+	env.OnActivity(listAppsActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: []string{"com.example.old"}}, nil)
+	env.OnActivity(recordActivity.Name(), mock.Anything, mock.Anything).
+		Return(workflowengine.ActivityResult{Output: map[string]any{
+			"recording_process_pid": float64(11),
+			"ffmpeg_process_pid":    float64(12),
+			"log_process_pid":       float64(13),
+			"video_path":            "/tmp/video.mp4",
+			"log_path":              "/tmp/log.txt",
+		}}, nil)
+
+	env.ExecuteWorkflow("test-mobile-automation-setup-defer-disable-play-store")
+	require.NoError(t, env.GetWorkflowError())
+
+	var result map[string]any
+	require.NoError(t, env.GetWorkflowResult(&result))
+	require.Equal(t, mobileExternalInstallStepUse, result["use"])
+	require.Equal(t, true, result["pending_play_store_disable"])
+	require.Equal(t, false, result["play_store_disabled"])
+	require.Equal(t, true, result["recording"])
+}
+
 func TestCleanupDeviceWithRecordingSuccess(t *testing.T) {
 	suite := testsuite.WorkflowTestSuite{}
 	env := suite.NewTestWorkflowEnvironment()

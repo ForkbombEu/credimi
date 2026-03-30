@@ -21,16 +21,17 @@ import (
 )
 
 const (
-	mobileAutomationStepUse                = "mobile-automation"
-	mobileExternalInstallStepUse           = "mobile-external-install"
-	mobileRunnerSemaphoreTicketIDConfigKey = "mobile_runner_semaphore_ticket_id"
-	mobileDisableAndroidPlayStoreConfigKey = "disable_android_play_store"
-	mobileSpecialInstallMetadataKey        = "mobile_special_install"
-	mobileSkipInstallerRequestKey          = "skip_installer"
-	mobilePlatformAndroid                  = "android"
-	mobilePlatformIOS                      = "ios"
-	mobileExternalSourceVersionID          = "installed_from_external_source"
-	walletActionCategoryInstallApp         = "install-app"
+	mobileAutomationStepUse                 = "mobile-automation"
+	mobileExternalInstallStepUse            = "mobile-external-install"
+	mobileRunnerSemaphoreTicketIDConfigKey  = "mobile_runner_semaphore_ticket_id"
+	mobileDisableAndroidPlayStoreConfigKey  = "disable_android_play_store"
+	mobilePendingPlayStoreDisableRunDataKey = "mobile_pending_play_store_disable"
+	mobileSpecialInstallMetadataKey         = "mobile_special_install"
+	mobileSkipInstallerRequestKey           = "skip_installer"
+	mobilePlatformAndroid                   = "android"
+	mobilePlatformIOS                       = "ios"
+	mobileExternalSourceVersionID           = "installed_from_external_source"
+	walletActionCategoryInstallApp          = "install-app"
 )
 
 type mobileDeviceType string
@@ -274,7 +275,12 @@ func MobileAutomationSetupHook(
 		}
 	}
 
-	if workflowengine.AsBool(config[mobileDisableAndroidPlayStoreConfigKey]) {
+	shouldDisablePlayStore := workflowengine.AsBool(config[mobileDisableAndroidPlayStoreConfigKey])
+	if shouldDisablePlayStore && hasExternalInstallWorkflowSteps(*steps) {
+		SetRunDataValue(runData, mobilePendingPlayStoreDisableRunDataKey, true)
+	}
+
+	if shouldDisablePlayStore && !hasPendingPlayStoreDisable(*runData) {
 		if err := disablePlayStoreForDevices(disablePlayStoreForDevicesInput{
 			ctx:           ctx,
 			settedDevices: settedDevices,
@@ -525,6 +531,76 @@ func hasExternalSourceMobileSteps(steps []StepDefinition) bool {
 	}
 
 	return false
+}
+
+func hasExternalInstallWorkflowSteps(steps []StepDefinition) bool {
+	for i := range steps {
+		if steps[i].Use == mobileExternalInstallStepUse {
+			return true
+		}
+	}
+
+	return false
+}
+
+func hasPendingPlayStoreDisable(runData map[string]any) bool {
+	return workflowengine.AsBool(runData[mobilePendingPlayStoreDisableRunDataKey])
+}
+
+func runPendingPlayStoreDisableIfNeeded(
+	ctx workflow.Context,
+	step StepDefinition,
+	ao *workflow.ActivityOptions,
+	config map[string]any,
+	runData *map[string]any,
+) error {
+	if !workflowengine.AsBool(config[mobileDisableAndroidPlayStoreConfigKey]) {
+		return nil
+	}
+	if !hasPendingPlayStoreDisable(*runData) {
+		return nil
+	}
+	if step.Use == mobileExternalInstallStepUse {
+		return nil
+	}
+
+	if err := disablePlayStoreForDevices(disablePlayStoreForDevicesInput{
+		ctx:           ctx,
+		settedDevices: getOrCreateSettedDevices(runData),
+		ao:            ao,
+	}); err != nil {
+		return err
+	}
+
+	SetRunDataValue(runData, mobilePendingPlayStoreDisableRunDataKey, false)
+
+	return nil
+}
+
+func runPendingPlayStoreDisableAfterSteps(
+	ctx workflow.Context,
+	ao *workflow.ActivityOptions,
+	config map[string]any,
+	runData *map[string]any,
+) error {
+	if !workflowengine.AsBool(config[mobileDisableAndroidPlayStoreConfigKey]) {
+		return nil
+	}
+	if !hasPendingPlayStoreDisable(*runData) {
+		return nil
+	}
+
+	if err := disablePlayStoreForDevices(disablePlayStoreForDevicesInput{
+		ctx:           ctx,
+		settedDevices: getOrCreateSettedDevices(runData),
+		ao:            ao,
+	}); err != nil {
+		return err
+	}
+
+	SetRunDataValue(runData, mobilePendingPlayStoreDisableRunDataKey, false)
+
+	return nil
 }
 
 func processStep(
