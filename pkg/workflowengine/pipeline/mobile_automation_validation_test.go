@@ -244,4 +244,21 @@ steps:
 		require.Equal(t, "", wfDef.Runtime.GlobalRunnerID)
 		require.Equal(t, "Test Pipeline", wfDef.Name)
 	})
+
+	t.Run("parse workflow with disable_android_play_store", func(t *testing.T) {
+		yamlContent := `
+name: Test Pipeline
+runtime:
+  disable_android_play_store: true
+steps:
+  - id: step1
+    use: mobile-automation
+    with:
+      runner_id: step-runner
+      action_id: action1
+`
+		wfDef, err := ParseWorkflow(yamlContent)
+		require.NoError(t, err)
+		require.True(t, wfDef.Runtime.DisableAndroidPlayStore)
+	})
 }

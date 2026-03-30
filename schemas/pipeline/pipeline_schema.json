@@ -47,6 +47,9 @@
         "debug": {
           "type": "boolean"
         },
+        "disable_android_play_store": {
+          "type": "boolean"
+        },
         "global_runner_id": {
           "type": "string"
         },

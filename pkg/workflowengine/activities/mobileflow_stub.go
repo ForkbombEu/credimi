@@ -248,6 +248,32 @@ func (a *ListInstalledAppsActivity) Execute(
 	)
 }
 
+type DisableAndroidPlayStoreActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewDisableAndroidPlayStoreActivity() *DisableAndroidPlayStoreActivity {
+	return &DisableAndroidPlayStoreActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Disable Android Play Store",
+		},
+	}
+}
+
+func (a *DisableAndroidPlayStoreActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *DisableAndroidPlayStoreActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
 type StartRecordingActivity struct {
 	workflowengine.BaseActivity
 }

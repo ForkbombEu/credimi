@@ -26,6 +26,7 @@ func TestMobileFlowStubActivities(t *testing.T) {
 		NewIOSPostInstallChecksActivity(),
 		NewCleanupDeviceActivity(),
 		NewListInstalledAppsActivity(),
+		NewDisableAndroidPlayStoreActivity(),
 		NewStartRecordingActivity(),
 		NewStartIOSRecordingActivity(),
 		NewStopRecordingActivity(),

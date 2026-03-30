@@ -335,6 +335,7 @@ func (w *PipelineWorkflow) Start(
 	if wfDef.Runtime.GlobalRunnerID != "" {
 		config["global_runner_id"] = wfDef.Runtime.GlobalRunnerID
 	}
+	config["disable_android_play_store"] = wfDef.Runtime.DisableAndroidPlayStore
 
 	workflowengine.ApplyPipelineSearchAttributes(&options.Options, pipelineIdentifier)
 

@@ -24,6 +24,7 @@ const (
 	mobileAutomationStepUse                = "mobile-automation"
 	mobileExternalInstallStepUse           = "mobile-external-install"
 	mobileRunnerSemaphoreTicketIDConfigKey = "mobile_runner_semaphore_ticket_id"
+	mobileDisableAndroidPlayStoreConfigKey = "disable_android_play_store"
 	mobileSpecialInstallMetadataKey        = "mobile_special_install"
 	mobileSkipInstallerRequestKey          = "skip_installer"
 	mobilePlatformAndroid                  = "android"
@@ -154,6 +155,12 @@ type startRecordingForDevicesInput struct {
 	ao            *workflow.ActivityOptions
 }
 
+type disablePlayStoreForDevicesInput struct {
+	ctx           workflow.Context
+	settedDevices map[string]any
+	ao            *workflow.ActivityOptions
+}
+
 type startRecordingForDeviceInput struct {
 	ctx       workflow.Context
 	runnerID  string
@@ -262,6 +269,16 @@ func MobileAutomationSetupHook(
 			httpActivity:   httpActivity,
 			logger:         logger,
 			globalRunnerID: globalRunnerID,
+		}); err != nil {
+			return err
+		}
+	}
+
+	if workflowengine.AsBool(config[mobileDisableAndroidPlayStoreConfigKey]) {
+		if err := disablePlayStoreForDevices(disablePlayStoreForDevicesInput{
+			ctx:           ctx,
+			settedDevices: settedDevices,
+			ao:            ao,
 		}); err != nil {
 			return err
 		}
@@ -389,7 +406,13 @@ func prepareMobileAutomationSteps(
 			continue
 		}
 
-		category, err := fetchMobileActionCategory(ctx, appURL, payload.ActionID, step.ID, httpActivity)
+		category, err := fetchMobileActionCategory(
+			ctx,
+			appURL,
+			payload.ActionID,
+			step.ID,
+			httpActivity,
+		)
 		if err != nil {
 			return err
 		}
@@ -494,7 +517,9 @@ func hasExternalSourceMobileSteps(steps []StepDefinition) bool {
 		if steps[i].Use != mobileAutomationStepUse {
 			continue
 		}
-		if workflowengine.AsString(steps[i].With.Payload["version_id"]) == mobileExternalSourceVersionID {
+		if workflowengine.AsString(
+			steps[i].With.Payload["version_id"],
+		) == mobileExternalSourceVersionID {
 			return true
 		}
 	}
@@ -720,7 +745,11 @@ func setupNewDevice(
 	input.deviceMap["serial"] = serial
 
 	if input.trackInitialInstalledApps {
-		initialInstalledApps, err := listInstalledAppsOnRunner(input.mobileCtx, serial, deviceType.String())
+		initialInstalledApps, err := listInstalledAppsOnRunner(
+			input.mobileCtx,
+			serial,
+			deviceType.String(),
+		)
 		if err != nil {
 			return err
 		}
@@ -827,7 +856,10 @@ func startManagedDevice(
 
 	startResult := workflowengine.ActivityResult{}
 	startInput := workflowengine.ActivityInput{
-		Payload: map[string]any{"device_name": input.payload.RunnerID, "type": input.deviceType.String()},
+		Payload: map[string]any{
+			"device_name": input.payload.RunnerID,
+			"type":        input.deviceType.String(),
+		},
 	}
 	err := workflow.ExecuteActivity(input.mobileCtx, input.activities.Start, startInput).
 		Get(input.ctx, &startResult)
@@ -1156,6 +1188,51 @@ func startRecordingForDevices(
 	return nil
 }
 
+func disablePlayStoreForDevices(
+	input disablePlayStoreForDevicesInput,
+) error {
+	for runnerID, dev := range input.settedDevices {
+		deviceMap := dev.(map[string]any)
+		if wasPlayStoreDisabled(deviceMap) {
+			continue
+		}
+
+		deviceType := deviceTypeFromMap(deviceMap)
+		if deviceType.IsIOS() {
+			continue
+		}
+
+		serial, ok := deviceMap["serial"].(string)
+		if !ok || serial == "" {
+			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
+			return workflowengine.NewAppError(
+				errCode,
+				fmt.Sprintf("missing serial for device %s", runnerID),
+			)
+		}
+
+		mobileAO := *input.ao
+		mobileAO.TaskQueue = mobileRunnerTaskQueue(runnerID)
+		mobileCtx := workflow.WithActivityOptions(input.ctx, mobileAO)
+
+		if err := workflow.ExecuteActivity(
+			mobileCtx,
+			activities.NewDisableAndroidPlayStoreActivity().Name(),
+			workflowengine.ActivityInput{
+				Payload: map[string]any{
+					"serial": serial,
+				},
+			},
+		).Get(mobileCtx, nil); err != nil {
+			return err
+		}
+
+		deviceMap["play_store_disabled"] = true
+	}
+
+	return nil
+}
+
 func startRecordingForDevice(
 	input startRecordingForDeviceInput,
 ) error {
@@ -1260,7 +1337,6 @@ func extractAndStoreRecordingInfo(
 				recordResult.Output,
 			)
 		}
-
 	}
 
 	videoPath, ok := output["video_path"].(string)
@@ -1384,6 +1460,7 @@ func cleanupDevice(
 		*input.cleanupErrs = append(*input.cleanupErrs, err)
 	}
 	initialInstalledApps := extractInitialInstalledApps(deviceMap)
+	reenablePlayStore := wasPlayStoreDisabled(deviceMap)
 
 	input.mobileAo.TaskQueue = mobileRunnerTaskQueue(input.runnerID)
 	mobileCtx := workflow.WithActivityOptions(input.ctx, *input.mobileAo)
@@ -1406,6 +1483,7 @@ func cleanupDevice(
 		"name":                   name,
 		"apk_packages":           packages,
 		"initial_installed_apps": initialInstalledApps,
+		"reenable_play_store":    reenablePlayStore,
 	}
 
 	if err := workflow.ExecuteActivity(
@@ -1555,6 +1633,10 @@ func extractDeviceInfo(
 
 func extractInitialInstalledApps(deviceMap map[string]any) []string {
 	return workflowengine.AsSliceOfStrings(deviceMap["initial_installed_apps"])
+}
+
+func wasPlayStoreDisabled(deviceMap map[string]any) bool {
+	return workflowengine.AsBool(deviceMap["play_store_disabled"])
 }
 
 func cleanupRecording(
