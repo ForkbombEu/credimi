@@ -66,6 +66,32 @@ func (a *ApkInstallActivity) Execute(
 	)
 }
 
+type ApkPostInstallChecksActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewApkPostInstallChecksActivity() *ApkPostInstallChecksActivity {
+	return &ApkPostInstallChecksActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Run APK post-install checks",
+		},
+	}
+}
+
+func (a *ApkPostInstallChecksActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *ApkPostInstallChecksActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
 type UnlockEmulatorActivity struct {
 	workflowengine.BaseActivity
 }
@@ -144,6 +170,32 @@ func (a *InstallIOSAppActivity) Execute(
 	)
 }
 
+type IOSPostInstallChecksActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewIOSPostInstallChecksActivity() *IOSPostInstallChecksActivity {
+	return &IOSPostInstallChecksActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Run iOS post-install checks",
+		},
+	}
+}
+
+func (a *IOSPostInstallChecksActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *IOSPostInstallChecksActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
 type CleanupDeviceActivity struct {
 	workflowengine.BaseActivity
 }
@@ -161,6 +213,58 @@ func (a *CleanupDeviceActivity) Name() string {
 }
 
 func (a *CleanupDeviceActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
+type ListInstalledAppsActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewListInstalledAppsActivity() *ListInstalledAppsActivity {
+	return &ListInstalledAppsActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "List installed mobile apps",
+		},
+	}
+}
+
+func (a *ListInstalledAppsActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *ListInstalledAppsActivity) Execute(
+	ctx context.Context,
+	input workflowengine.ActivityInput,
+) (workflowengine.ActivityResult, error) {
+	return workflowengine.ActivityResult{}, a.NewActivityError(
+		errorcodes.Codes[errorcodes.MissingOrInvalidConfig].Code,
+		mobileAutomationDisabledMessage,
+	)
+}
+
+type DisableAndroidPlayStoreActivity struct {
+	workflowengine.BaseActivity
+}
+
+func NewDisableAndroidPlayStoreActivity() *DisableAndroidPlayStoreActivity {
+	return &DisableAndroidPlayStoreActivity{
+		BaseActivity: workflowengine.BaseActivity{
+			Name: "Disable Android Play Store",
+		},
+	}
+}
+
+func (a *DisableAndroidPlayStoreActivity) Name() string {
+	return a.BaseActivity.Name
+}
+
+func (a *DisableAndroidPlayStoreActivity) Execute(
 	ctx context.Context,
 	input workflowengine.ActivityInput,
 ) (workflowengine.ActivityResult, error) {

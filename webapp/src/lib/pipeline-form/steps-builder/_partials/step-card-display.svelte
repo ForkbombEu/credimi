@@ -77,29 +77,31 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 				{:else if cardData}
 					{@const { title, copyText, avatar } = cardData}
 					<div class="flex items-center gap-3">
-						<Avatar src={avatar} fallback={title} class="size-8 rounded-sm border" />
+						<Avatar src={avatar} fallback={title} class="size-10 rounded-sm border" />
 						<div class="space-y-1">
 							{#if cardData.beforeTitle}
 								<T class="mb-0! text-xs text-muted-foreground">
 									{cardData.beforeTitle}
 								</T>
 							{/if}
-							<div class="flex items-center gap-1 leading-tight">
-								{#if cardData.publicUrl}
-									<A
-										href={cardData.publicUrl}
-										target="_blank"
-										class="whitespace-pre"
-									>
+							<div class="flex items-center gap-1 leading-snug">
+								<p class="text-balance">
+									{#if cardData.publicUrl}
+										<A href={cardData.publicUrl} target="_blank">
+											{title}
+										</A>
+									{:else}
 										{title}
-									</A>
-								{:else}
-									<p class="whitespace-pre">{title}</p>
-								{/if}
+									{/if}
 
-								{#if copyText}
-									<CopyButtonSmall textToCopy={copyText} size="mini" />
-								{/if}
+									{#if copyText}
+										<CopyButtonSmall
+											textToCopy={copyText}
+											size="mini"
+											class="inline-flex"
+										/>
+									{/if}
+								</p>
 							</div>
 						</div>
 					</div>

@@ -224,6 +224,7 @@ type WalletInstallerMD5OrETagRequest struct {
 	WalletVersionIdentifier string `json:"wallet_version_identifier"`
 	WalletIdentifier        string `json:"wallet_identifier"`
 	Platform                string `json:"platform"`
+	SkipInstaller           bool   `json:"skip_installer,omitempty"`
 }
 
 type WalletInstallerMD5OrETagResponse struct {
@@ -258,6 +259,11 @@ func HandleWalletGetInstallerMD5OrETag() func(*core.RequestEvent) error {
 				"invalid platform",
 				err.Error(),
 			).JSON(e)
+		}
+		if req.SkipInstaller {
+			return e.JSON(http.StatusOK, WalletInstallerMD5OrETagResponse{
+				VersionIdentifier: canonify.NormalizePath(req.WalletVersionIdentifier),
+			})
 		}
 
 		versionRecord, err := getVersionRecord(

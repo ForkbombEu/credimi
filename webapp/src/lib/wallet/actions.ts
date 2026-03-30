@@ -13,7 +13,8 @@ export const categoryLabels: Record<WalletActionsCategoryOptions, string> = {
 	'get-credential-generic': `${m.Get_credential()} (${m.Generic()})`,
 	'get-credential-specific': `${m.Get_credential()}`,
 	'verify-credential': m.Verify_credential(),
-	other: m.Other()
+	other: m.Other(),
+	'install-app': m.Install_app()
 };
 
 export function getCategoryLabel(action: WalletActionsResponse): string | undefined {

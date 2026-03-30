@@ -31,7 +31,10 @@ func PipelineTypedSearchAttributes(pipelineIdentifier string) temporal.SearchAtt
 }
 
 // ApplyPipelineSearchAttributes ensures StartWorkflowOptions include the pipeline identifier attribute.
-func ApplyPipelineSearchAttributes(options *client.StartWorkflowOptions, pipelineIdentifier string) {
+func ApplyPipelineSearchAttributes(
+	options *client.StartWorkflowOptions,
+	pipelineIdentifier string,
+) {
 	if options == nil {
 		return
 	}
@@ -41,12 +44,12 @@ func ApplyPipelineSearchAttributes(options *client.StartWorkflowOptions, pipelin
 	}
 
 	key := temporal.NewSearchAttributeKeyKeyword(PipelineIdentifierSearchAttribute)
-		if options.TypedSearchAttributes.Size() > 0 {
-			options.TypedSearchAttributes = temporal.NewSearchAttributes(
-				options.TypedSearchAttributes.Copy(),
-				key.ValueSet(normalized),
-			)
-			return
-		}
-		options.TypedSearchAttributes = temporal.NewSearchAttributes(key.ValueSet(normalized))
+	if options.TypedSearchAttributes.Size() > 0 {
+		options.TypedSearchAttributes = temporal.NewSearchAttributes(
+			options.TypedSearchAttributes.Copy(),
+			key.ValueSet(normalized),
+		)
+		return
+	}
+	options.TypedSearchAttributes = temporal.NewSearchAttributes(key.ValueSet(normalized))
 }
