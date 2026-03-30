@@ -651,8 +651,8 @@ github.com/fogleman/gg v1.2.1-0.20190220221249-0403632d5b90/go.mod h1:R/bRT+9gY/
 github.com/fogleman/gg v1.3.0/go.mod h1:R/bRT+9gY/C5z7JzPU0zXsXHKM4/ayA+zqcVNZzPa1k=
 github.com/forkbombeu/avdctl v0.9.0 h1:2drYWjYfP750n/94F+HWV/dlJlwQo9nIdNq/njUkpLc=
 github.com/forkbombeu/avdctl v0.9.0/go.mod h1:agBlpobRnEMlEsvmr8ayHHVW8wFvK0DO3YGr7M4FEOk=
-github.com/forkbombeu/credimi-extra v1.9.3 h1:sLXLcQZZj6fAEtpSinOWrboDLKfxs+8aZoL8d2/pYGI=
-github.com/forkbombeu/credimi-extra v1.9.3/go.mod h1:T7FkIgnCNpUhXGV/gDdhJKJ9kt2boOzR1D6TxsnbCWo=
+github.com/forkbombeu/credimi-extra v1.9.4 h1:LkXrQ/DGnaTmGbXkronGaWNH+mo1w3VpCPw7CVa4Geo=
+github.com/forkbombeu/credimi-extra v1.9.4/go.mod h1:T7FkIgnCNpUhXGV/gDdhJKJ9kt2boOzR1D6TxsnbCWo=
 github.com/frankban/quicktest v1.14.6 h1:7Xjx+VpznH+oBnejlPUj8oUpdxnVs4f8XU8WnHkI4W8=
 github.com/frankban/quicktest v1.14.6/go.mod h1:4ptaffx2x8+WTWXmUCuVU6aPUX1/Mz7zb5vbUoiM6w0=
 github.com/fsnotify/fsnotify v1.8.0 h1:dAwr6QBTBZIkG8roQaJjGof0pp0EeF+tNV7YBP3F/8M=
