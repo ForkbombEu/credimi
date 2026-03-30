@@ -943,5 +943,7 @@
 	"Other": "Other",
 	"Generic": "Generic",
 	"Specific": "Specific",
-	"Install_app": "Install app"
+	"Latest": "Latest",
+	"Installed_from_external_source": "Installed from external source",
+	"Install_from_external_source": "Install from external source"
 }
