@@ -9,6 +9,7 @@ import (
 	"math"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
@@ -242,11 +243,9 @@ func extractCompletionStatus(exec *WorkflowExecution) bool {
 }
 
 func isScheduledExecution(exec *WorkflowExecution) bool {
-    if scheduledVal, ok := (*exec.SearchAttributes)["TemporalScheduledById"]; ok {
-        if s, ok := scheduledVal.(string); ok && s != "" {
-            return true
-        }
-    }
+    if strings.HasPrefix(exec.Execution.WorkflowID, "pipeline-Sched-") {
+        return true
+    } 
     return false
 }
 

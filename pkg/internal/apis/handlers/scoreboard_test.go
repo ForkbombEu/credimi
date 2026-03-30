@@ -87,11 +87,10 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	now:=time.Now()
 	exec1 := buildPipelineExecutionInfoWithRunner(
         t,
-        "wf-1",
+        "pipeline-Sched-wf-1",
         "run-1",
         fmt.Sprintf("%s/%s", namespace, pipeline1Canonified),
         "Completed",
-        "schedule-123",
         []string{"usera-s-organization/runner-android"},
 		now.Add(-2*time.Hour).Add(-2*time.Minute).Add(-33*time.Second),
     	now.Add(-2*time.Hour),
@@ -102,7 +101,6 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
         "run-2",
         fmt.Sprintf("%s/%s", namespace, pipeline1Canonified),
         "Completed",
-        "",
         []string{"usera-s-organization/runner-android"},
 		now.Add(-1*time.Hour).Add(-1*time.Minute).Add(-45*time.Second),
     	now.Add(-1*time.Hour),
@@ -113,7 +111,6 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
         "run-3",
         fmt.Sprintf("%s/%s", namespace, pipeline1Canonified),
         "Failed",
-        "",
         []string{"usera-s-organization/runner-ios"},
 		now.Add(-30*time.Minute).Add(-30*time.Second),
     	now.Add(-30*time.Minute),
@@ -121,11 +118,10 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 
     exec4 := buildPipelineExecutionInfoWithRunner(
         t,
-        "wf-4",
+        "pipeline-Sched-wf-4",
         "run-4",
         fmt.Sprintf("%s/%s", namespace, pipeline2Canonified),
         "Completed",
-        "schedule-456",
         []string{"usera-s-organization/runner-ios", "usera-s-organization/runner-default"},
 		now.Add(-5*time.Minute).Add(-10*time.Second),
     	now.Add(-1*time.Minute),
@@ -137,7 +133,6 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
         "run-5",
         fmt.Sprintf("%s/%s", namespace, pipeline3Canonified),
         "Completed",
-        "",
         []string{"usera-s-organization/runner-ios", "usera-s-organization/runner-default"},
 		now.Add(-2*time.Hour).Add(-5*time.Minute).Add(-10*time.Second),
     	now.Add(-1*time.Minute),
@@ -240,7 +235,7 @@ type ExecutionInfo struct {
 
 func buildPipelineExecutionInfoWithRunner(
     t testing.TB,
-    workflowID, runID, pipelineIdentifier, status, scheduledBy string,
+    workflowID, runID, pipelineIdentifier, status string,
     runnerIDs []string,
 	startTime, closeTime time.Time,
 ) ExecutionInfo {
@@ -271,12 +266,6 @@ func buildPipelineExecutionInfoWithRunner(
         payload, err := converter.GetDefaultDataConverter().ToPayload(status)
         require.NoError(t, err)
         indexedFields["ExecutionStatus"] = payload
-    }
-
-    if scheduledBy != "" {
-        payload, err := converter.GetDefaultDataConverter().ToPayload(scheduledBy)
-        require.NoError(t, err)
-        indexedFields["TemporalScheduledById"] = payload
     }
 
     if len(runnerIDs) > 0 {
