@@ -5,6 +5,8 @@
 import { entities } from '$lib/global/entities.js';
 import { getStandardsWithTestSuites } from '$lib/standards';
 
+import { localizeHref } from '@/i18n/index.js';
+
 import type { TypedConfig } from '../types';
 
 import { getLastPathSegment } from '../_partials/misc';
@@ -46,12 +48,16 @@ export const conformanceCheckStepConfig: TypedConfig<'conformance-check', FormDa
 		};
 	},
 
-	cardData: ({ suite, test, standard }) => ({
-		title: test.split('/').at(-1)?.replaceAll('+', ' ') ?? '',
-		copyText: test,
-		avatar: suite.logo,
-		meta: {
-			standard: standard.name
-		}
-	})
+	cardData: ({ suite, test, standard }) => {
+		const testPath = suite.paths.find((path) => path.endsWith(test));
+		return {
+			title: test.split('/').at(-1)?.replaceAll('+', ' ') ?? '',
+			copyText: test,
+			avatar: suite.logo,
+			meta: {
+				standard: standard.name
+			},
+			publicUrl: localizeHref(`/marketplace/conformance-checks/${testPath}`)
+		};
+	}
 };

@@ -75,9 +75,10 @@ type queuedWorkflowDefinition struct {
 }
 
 type queuedRuntime struct {
-	Debug          bool   `yaml:"debug,omitempty"`
-	GlobalRunnerID string `yaml:"global_runner_id,omitempty"`
-	Temporal       struct {
+	Debug                   bool   `yaml:"debug,omitempty"`
+	GlobalRunnerID          string `yaml:"global_runner_id,omitempty"`
+	DisableAndroidPlayStore bool   `yaml:"disable_android_play_store,omitempty"`
+	Temporal                struct {
 		ExecutionTimeout string                `yaml:"execution_timeout,omitempty"`
 		ActivityOptions  queuedActivityOptions `yaml:"activity_options,omitempty"`
 	} `yaml:"temporal,omitempty"`
@@ -187,6 +188,7 @@ func (a *StartQueuedPipelineActivity) Execute(
 	if workflowDef.Runtime.GlobalRunnerID != "" {
 		config["global_runner_id"] = workflowDef.Runtime.GlobalRunnerID
 	}
+	config["disable_android_play_store"] = workflowDef.Runtime.DisableAndroidPlayStore
 	applySemaphoreTicketMetadata(config, payload)
 
 	memo["test"] = workflowDef.Name

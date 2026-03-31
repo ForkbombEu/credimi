@@ -15,12 +15,12 @@ const (
 	PipelineIdentifierSearchAttribute = "PipelineIdentifier"
 	// RunnerIdentifierSearchAttribute is the Temporal visibility field storing runner identifiers.
 	RunnerIdentifiersSearchAttribute = "RunnerIdentifiers"
-	ActionsSearchAttribute = "ActionsID"
-    VersionsSearchAttribute = "VersionsID"
-    CredentialsSearchAttribute = "CredentialsID"
-    UseCaseSearchAttribute = "UseCaseID"
-    ConformanceCheckSearchAttribute = "ConformanceCheckID"
-    CustomCheckSearchAttribute = "CustomCheckID"
+	ActionsSearchAttribute           = "ActionsID"
+	VersionsSearchAttribute          = "VersionsID"
+	CredentialsSearchAttribute       = "CredentialsID"
+	UseCaseSearchAttribute           = "UseCaseID"
+	ConformanceCheckSearchAttribute  = "ConformanceCheckID"
+	CustomCheckSearchAttribute       = "CustomCheckID"
 )
 
 // NormalizePipelineIdentifier trims whitespace and leading/trailing slashes from identifiers.
@@ -46,37 +46,31 @@ func PipelineTypedSearchAttributes(pipelineIdentifier string, runnerIDs []string
 	return temporal.NewSearchAttributes(attrs...)
 }
 
-// ApplyPipelineSearchAttributes ensures StartWorkflowOptions include the pipeline identifier attribute.
-func ApplyPipelineSearchAttributes(options *client.StartWorkflowOptions, 
+// ApplyPipelineSearchAttributes ensures StartWorkflowOptions include pipeline visibility attributes.
+func ApplyPipelineSearchAttributes(
+	options *client.StartWorkflowOptions,
 	pipelineIdentifier string,
-	runnerIDs []string) {
+	runnerIDs []string,
+) {
 	if options == nil {
 		return
 	}
-	normalized := NormalizePipelineIdentifier(pipelineIdentifier)
-	if normalized == "" {
-		return
+
+	updates := []temporal.SearchAttributeUpdate{}
+	if normalized := NormalizePipelineIdentifier(pipelineIdentifier); normalized != "" {
+		pipelineKey := temporal.NewSearchAttributeKeyKeyword(PipelineIdentifierSearchAttribute)
+		updates = append(updates, pipelineKey.ValueSet(normalized))
 	}
-
-	pipelineKey := temporal.NewSearchAttributeKeyKeyword(PipelineIdentifierSearchAttribute)
-		if options.TypedSearchAttributes.Size() > 0 {
-			options.TypedSearchAttributes = temporal.NewSearchAttributes(
-				options.TypedSearchAttributes.Copy(),
-				pipelineKey.ValueSet(normalized),
-			)
-			return
-		}
-		options.TypedSearchAttributes = temporal.NewSearchAttributes(pipelineKey.ValueSet(normalized))
-
 	if len(runnerIDs) > 0 {
 		runnerKey := temporal.NewSearchAttributeKeyKeywordList(RunnerIdentifiersSearchAttribute)
-		if options.TypedSearchAttributes.Size() > 0 {
-			options.TypedSearchAttributes = temporal.NewSearchAttributes(
-				options.TypedSearchAttributes.Copy(),
-				runnerKey.ValueSet(runnerIDs),
-			)
-			return
-		}
-		options.TypedSearchAttributes = temporal.NewSearchAttributes(runnerKey.ValueSet(runnerIDs))
+		updates = append(updates, runnerKey.ValueSet(runnerIDs))
 	}
+
+	if len(updates) == 0 {
+		return
+	}
+	if options.TypedSearchAttributes.Size() > 0 {
+		updates = append([]temporal.SearchAttributeUpdate{options.TypedSearchAttributes.Copy()}, updates...)
+	}
+	options.TypedSearchAttributes = temporal.NewSearchAttributes(updates...)
 }

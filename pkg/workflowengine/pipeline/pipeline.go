@@ -14,6 +14,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/google/uuid"
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/log"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
 )
@@ -32,6 +33,12 @@ type PipelineWorkflowInput struct {
 
 	Debug         bool           `yaml:"debug,omitempty"           json:"debug,omitempty"`
 	ParentRunData map[string]any `yaml:"parent_run_data,omitempty" json:"parent_run_data,omitempty"`
+}
+
+type pipelineExecutionState struct {
+	errorsList     []string
+	finalOutput    map[string]any
+	previousStepID string
 }
 
 func NewPipelineWorkflow() *PipelineWorkflow {
@@ -67,7 +74,6 @@ func (w *PipelineWorkflow) Workflow(
 	}
 	debug := input.Debug
 
-	errorsList := []string{}
 	cleanupErrors := []error{}
 
 	workflowID := workflow.GetInfo(ctx).WorkflowExecution.ID
@@ -99,13 +105,7 @@ func (w *PipelineWorkflow) Workflow(
 
 	result := workflowengine.WorkflowResult{}
 
-	// Final workflow output returned
-	finalOutput := map[string]any{
-		"workflow-id":     workflowID,
-		"workflow-run-id": runID,
-		"result_video_warning": "Video recordings are limited to 30 minutes. " +
-			"Tests exceeding this duration may result in an incomplete video.",
-	}
+	state := newPipelineExecutionState(workflowID, runID)
 
 	runData := map[string]any{
 		"run_identifier": getPipelineRunIdentifier(
@@ -126,150 +126,38 @@ func (w *PipelineWorkflow) Workflow(
 			&ao,
 			config,
 			runData,
-			&finalOutput,
+			&state.finalOutput,
 			logger,
 			&cleanupErrors,
 		)
 	}()
 
 	if err := runSetupHooks(ctx, &wfDef.Steps, &ao, config, &runData); err != nil {
-		if temporal.IsCanceledError(err) {
-			return workflowengine.WorkflowResult{},
-				workflowengine.NewWorkflowCancellationError(runMetadata)
-		}
+		return workflowengine.WorkflowResult{}, wrapWorkflowCancellationError(err, runMetadata)
+	}
 
+	var err error
+	ao, err = w.executeSteps(ctx, input, wfDef.Steps, ao, config, &runData, runMetadata, state, debug, logger)
+	if err != nil {
 		return workflowengine.WorkflowResult{}, err
 	}
 
-	var previousStepID string
-	for _, step := range wfDef.Steps {
-		stepInputs := map[string]any{
-			"inputs": input.WorkflowInput.Payload,
-		}
-		for k, v := range finalOutput {
-			stepInputs[k] = v
-		}
-		switch step.Use {
-		case "debug":
-			runDebugActivity(ctx, logger, previousStepID, finalOutput, input.WorkflowInput.Payload)
-			continue
-		case "child-pipeline":
-			logger.Info("Running step", "id", step.ID, "use", step.Use)
-
-			childOut, err := runChildPipeline(ctx, step, input, w.Name(), stepInputs, runMetadata)
-			if err != nil {
-				if temporal.IsTimeoutError(err) {
-					return workflowengine.WorkflowResult{}, err
-				}
-
-				if temporal.IsCanceledError(err) {
-					return workflowengine.WorkflowResult{},
-						workflowengine.NewWorkflowCancellationError(runMetadata)
-				}
-				logger.Error(step.ID, "step execution error", err)
-				if len(step.OnError) > 0 {
-					logger.Info("Executing onError steps for step",
-						"step_id", step.ID,
-						"count", len(step.OnError),
-						"continue_on_error", step.ContinueOnError)
-
-					ExecuteEventStepsOnError(ctx, step.OnError, stepInputs, errorsList, ao, config)
-				}
-				if step.ContinueOnError {
-					if out := workflowengine.ExtractOutputFromError(err); out != nil {
-						childOut = out
-					}
-					finalOutput[step.ID] = map[string]any{
-						"outputs": childOut,
-					}
-
-					errorsList = append(errorsList, err.Error())
-					continue
-				}
-				return workflowengine.WorkflowResult{},
-					workflowengine.NewWorkflowError(err, runMetadata)
-			}
-			if len(step.OnSuccess) > 0 {
-				logger.Info(
-					"Executing onSuccess steps for step",
-					"step_id",
-					step.ID,
-					"count",
-					len(step.OnSuccess),
-				)
-				ExecuteEventStepsOnSuccess(ctx, step.OnSuccess, stepInputs, errorsList, ao, config)
-			}
-
-			finalOutput[step.ID] = map[string]any{
-				"outputs": childOut,
-			}
-		default:
-			logger.Info("Running step", "id", step.ID, "use", step.Use)
-
-			ao = PrepareActivityOptions(
-				ao,
-				step.ActivityOptions,
-			)
-
-			stepOutput, err := step.Execute(ctx, config, stepInputs, ao)
-			if err != nil {
-				if temporal.IsCanceledError(err) {
-					return workflowengine.WorkflowResult{},
-						workflowengine.NewWorkflowCancellationError(runMetadata)
-				}
-				logger.Error(step.ID, "step execution error", err)
-				errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
-				appErr := workflowengine.NewAppError(
-					errCode,
-					fmt.Sprintf("error executing step %s: %s", step.ID, err.Error()),
-					step.ID,
-					finalOutput,
-				)
-				if len(step.OnError) > 0 {
-					logger.Info("Executing onError steps for step",
-						"step_id", step.ID,
-						"count", len(step.OnError),
-						"continue_on_error", step.ContinueOnError)
-
-					ExecuteEventStepsOnError(ctx, step.OnError, stepInputs, errorsList, ao, config)
-				}
-				if step.ContinueOnError {
-					if out := workflowengine.ExtractOutputFromError(err); out != nil {
-						stepOutput = out
-					}
-					finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
-					errorsList = append(errorsList, err.Error())
-					continue
-				}
-				return result, workflowengine.NewWorkflowError(appErr, runMetadata)
-			}
-
-			if len(step.OnSuccess) > 0 {
-				logger.Info(
-					"Executing onSuccess steps for step",
-					"step_id",
-					step.ID,
-					"count",
-					len(step.OnSuccess),
-				)
-				ExecuteEventStepsOnSuccess(ctx, step.OnSuccess, stepInputs, errorsList, ao, config)
-			}
-
-			finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
-			if debug {
-				runDebugActivity(ctx, logger, step.ID, finalOutput, input.WorkflowInput.Payload)
-			}
-			previousStepID = step.ID
-		}
+	if err := runPendingPlayStoreDisableAfterSteps(ctx, &ao, config, &runData); err != nil {
+		return workflowengine.WorkflowResult{}, wrapWorkflowCancellationError(err, runMetadata)
 	}
 
-	if len(errorsList) > 0 {
+	if len(state.errorsList) > 0 {
 		errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
 		appErr := workflowengine.NewAppError(
 			errCode,
-			fmt.Sprintf("workflow completed with %d step errors", len(errorsList)),
+			fmt.Sprintf("workflow completed with %d step errors", len(state.errorsList)),
 		)
-		return result, workflowengine.NewWorkflowError(appErr, runMetadata, errorsList, finalOutput)
+		return result, workflowengine.NewWorkflowError(
+			appErr,
+			runMetadata,
+			state.errorsList,
+			state.finalOutput,
+		)
 	}
 
 	if len(cleanupErrors) > 0 {
@@ -282,13 +170,339 @@ func (w *PipelineWorkflow) Workflow(
 			appErr,
 			runMetadata,
 			cleanupErrors,
-			finalOutput,
+			state.finalOutput,
 		)
 	}
 
 	return workflowengine.WorkflowResult{
-		Output: finalOutput,
+		Output: state.finalOutput,
 	}, nil
+}
+
+func newPipelineExecutionState(workflowID string, runID string) *pipelineExecutionState {
+	return &pipelineExecutionState{
+		errorsList: []string{},
+		finalOutput: map[string]any{
+			"workflow-id":     workflowID,
+			"workflow-run-id": runID,
+			"result_video_warning": "Video recordings are limited to 30 minutes. " +
+				"Tests exceeding this duration may result in an incomplete video.",
+		},
+	}
+}
+
+func wrapWorkflowCancellationError(
+	err error,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
+) error {
+	if temporal.IsCanceledError(err) {
+		return workflowengine.NewWorkflowCancellationError(runMetadata)
+	}
+
+	return err
+}
+
+func (w *PipelineWorkflow) executeSteps(
+	ctx workflow.Context,
+	input PipelineWorkflowInput,
+	steps []StepDefinition,
+	ao workflow.ActivityOptions,
+	config map[string]any,
+	runData *map[string]any,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
+	state *pipelineExecutionState,
+	debug bool,
+	logger log.Logger,
+) (workflow.ActivityOptions, error) {
+	for _, step := range steps {
+		nextAO, err := w.executeStep(
+			ctx,
+			input,
+			step,
+			ao,
+			config,
+			runData,
+			runMetadata,
+			state,
+			debug,
+			logger,
+		)
+		if err != nil {
+			return nextAO, err
+		}
+		ao = nextAO
+	}
+
+	return ao, nil
+}
+
+func (w *PipelineWorkflow) executeStep(
+	ctx workflow.Context,
+	input PipelineWorkflowInput,
+	step StepDefinition,
+	ao workflow.ActivityOptions,
+	config map[string]any,
+	runData *map[string]any,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
+	state *pipelineExecutionState,
+	debug bool,
+	logger log.Logger,
+) (workflow.ActivityOptions, error) {
+	if err := runPendingPlayStoreDisableIfNeeded(ctx, step, &ao, config, runData); err != nil {
+		return ao, wrapWorkflowCancellationError(err, runMetadata)
+	}
+
+	stepInputs := buildPipelineStepInputs(
+		state.finalOutput,
+		workflowengine.AsMap(input.WorkflowInput.Payload),
+	)
+
+	switch step.Use {
+	case "debug":
+		runDebugActivity(
+			ctx,
+			logger,
+			state.previousStepID,
+			state.finalOutput,
+			input.WorkflowInput.Payload,
+		)
+		return ao, nil
+	case "child-pipeline":
+		return ao, w.executeChildPipelineStep(
+			ctx,
+			input,
+			step,
+			stepInputs,
+			ao,
+			config,
+			runMetadata,
+			state,
+			logger,
+		)
+	default:
+		return w.executeRegularStep(
+			ctx,
+			input,
+			step,
+			stepInputs,
+			ao,
+			config,
+			runMetadata,
+			state,
+			debug,
+			logger,
+		)
+	}
+}
+
+func buildPipelineStepInputs(finalOutput map[string]any, payload map[string]any) map[string]any {
+	stepInputs := map[string]any{
+		"inputs": payload,
+	}
+	for k, v := range finalOutput {
+		stepInputs[k] = v
+	}
+
+	return stepInputs
+}
+
+func (w *PipelineWorkflow) executeChildPipelineStep(
+	ctx workflow.Context,
+	input PipelineWorkflowInput,
+	step StepDefinition,
+	stepInputs map[string]any,
+	ao workflow.ActivityOptions,
+	config map[string]any,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
+	state *pipelineExecutionState,
+	logger log.Logger,
+) error {
+	logger.Info("Running step", "id", step.ID, "use", step.Use)
+
+	childOut, err := runChildPipeline(ctx, step, input, w.Name(), stepInputs, runMetadata)
+	if err != nil {
+		return handleChildPipelineStepError(
+			ctx,
+			step,
+			stepInputs,
+			childOut,
+			err,
+			ao,
+			config,
+			runMetadata,
+			state,
+			logger,
+		)
+	}
+
+	runStepSuccessHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger)
+	state.finalOutput[step.ID] = map[string]any{
+		"outputs": childOut,
+	}
+
+	return nil
+}
+
+func handleChildPipelineStepError(
+	ctx workflow.Context,
+	step StepDefinition,
+	stepInputs map[string]any,
+	childOut any,
+	err error,
+	ao workflow.ActivityOptions,
+	config map[string]any,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
+	state *pipelineExecutionState,
+	logger log.Logger,
+) error {
+	if temporal.IsTimeoutError(err) {
+		return err
+	}
+	if temporal.IsCanceledError(err) {
+		return workflowengine.NewWorkflowCancellationError(runMetadata)
+	}
+
+	logger.Error(step.ID, "step execution error", err)
+	runStepErrorHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger)
+	if step.ContinueOnError {
+		if out := workflowengine.ExtractOutputFromError(err); out != nil {
+			childOut = out
+		}
+		state.finalOutput[step.ID] = map[string]any{
+			"outputs": childOut,
+		}
+		state.errorsList = append(state.errorsList, err.Error())
+		return nil
+	}
+
+	return workflowengine.NewWorkflowError(err, runMetadata)
+}
+
+func (w *PipelineWorkflow) executeRegularStep(
+	ctx workflow.Context,
+	input PipelineWorkflowInput,
+	step StepDefinition,
+	stepInputs map[string]any,
+	ao workflow.ActivityOptions,
+	config map[string]any,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
+	state *pipelineExecutionState,
+	debug bool,
+	logger log.Logger,
+) (workflow.ActivityOptions, error) {
+	logger.Info("Running step", "id", step.ID, "use", step.Use)
+
+	ao = PrepareActivityOptions(ao, step.ActivityOptions)
+
+	stepOutput, err := step.Execute(ctx, config, stepInputs, ao)
+	if err != nil {
+		return ao, handleRegularStepError(
+			ctx,
+			step,
+			stepInputs,
+			stepOutput,
+			err,
+			ao,
+			config,
+			runMetadata,
+			state,
+			logger,
+		)
+	}
+
+	runStepSuccessHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger)
+	state.finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
+	if debug {
+		runDebugActivity(ctx, logger, step.ID, state.finalOutput, input.WorkflowInput.Payload)
+	}
+	state.previousStepID = step.ID
+
+	return ao, nil
+}
+
+func handleRegularStepError(
+	ctx workflow.Context,
+	step StepDefinition,
+	stepInputs map[string]any,
+	stepOutput any,
+	err error,
+	ao workflow.ActivityOptions,
+	config map[string]any,
+	runMetadata *workflowengine.WorkflowErrorMetadata,
+	state *pipelineExecutionState,
+	logger log.Logger,
+) error {
+	if temporal.IsCanceledError(err) {
+		return workflowengine.NewWorkflowCancellationError(runMetadata)
+	}
+
+	logger.Error(step.ID, "step execution error", err)
+	errCode := errorcodes.Codes[errorcodes.PipelineExecutionError]
+	appErr := workflowengine.NewAppError(
+		errCode,
+		fmt.Sprintf("error executing step %s: %s", step.ID, err.Error()),
+		step.ID,
+		state.finalOutput,
+	)
+	runStepErrorHooks(ctx, step, stepInputs, state.errorsList, ao, config, logger)
+	if step.ContinueOnError {
+		if out := workflowengine.ExtractOutputFromError(err); out != nil {
+			stepOutput = out
+		}
+		state.finalOutput[step.ID] = map[string]any{"outputs": stepOutput}
+		state.errorsList = append(state.errorsList, err.Error())
+		return nil
+	}
+
+	return workflowengine.NewWorkflowError(appErr, runMetadata)
+}
+
+func runStepErrorHooks(
+	ctx workflow.Context,
+	step StepDefinition,
+	stepInputs map[string]any,
+	errorsList []string,
+	ao workflow.ActivityOptions,
+	config map[string]any,
+	logger log.Logger,
+) {
+	if len(step.OnError) == 0 {
+		return
+	}
+
+	logger.Info(
+		"Executing onError steps for step",
+		"step_id",
+		step.ID,
+		"count",
+		len(step.OnError),
+		"continue_on_error",
+		step.ContinueOnError,
+	)
+	ExecuteEventStepsOnError(ctx, step.OnError, stepInputs, errorsList, ao, config)
+}
+
+func runStepSuccessHooks(
+	ctx workflow.Context,
+	step StepDefinition,
+	stepInputs map[string]any,
+	errorsList []string,
+	ao workflow.ActivityOptions,
+	config map[string]any,
+	logger log.Logger,
+) {
+	if len(step.OnSuccess) == 0 {
+		return
+	}
+
+	logger.Info(
+		"Executing onSuccess steps for step",
+		"step_id",
+		step.ID,
+		"count",
+		len(step.OnSuccess),
+	)
+	ExecuteEventStepsOnSuccess(ctx, step.OnSuccess, stepInputs, errorsList, ao, config)
 }
 
 // Start launches the pipeline workflow via Temporal client
@@ -338,6 +552,7 @@ func (w *PipelineWorkflow) Start(
 	}
 	globalRunnerID := GlobalRunnerIDFromConfig(config)
 	runnerIDs := RunnerIDsWithGlobal(runnerInfo, globalRunnerID)
+	config["disable_android_play_store"] = wfDef.Runtime.DisableAndroidPlayStore
 
 	workflowengine.ApplyPipelineSearchAttributes(&options.Options, pipelineIdentifier, runnerIDs)
 
