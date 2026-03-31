@@ -14,6 +14,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/runqueue"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
@@ -481,7 +482,7 @@ func startPipelineFromQueue(
 func resolvePipelineRunnerIDs(yaml string, info pipeline.PipelineRunnerInfo) ([]string, error) {
 	globalRunnerID := ""
 	if info.NeedsGlobalRunner {
-		wfDef, err := pipeline.ParseWorkflow(yaml)
+		wfDef, err := pipelineinternal.ParseWorkflow(yaml)
 		if err != nil {
 			return nil, err
 		}

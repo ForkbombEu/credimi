@@ -16,6 +16,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	workflowengine "github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -1319,7 +1320,7 @@ func resolvePipelineNameFromRecord(pipelineRecord *core.Record, fallback string)
 
 	yaml := pipelineRecord.GetString("yaml")
 	if yaml != "" {
-		wfDef, err := pipeline.ParseWorkflow(yaml)
+		wfDef, err := pipelineinternal.ParseWorkflow(yaml)
 		if err == nil {
 			if name := strings.TrimSpace(wfDef.Name); name != "" {
 				return name

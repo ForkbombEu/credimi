@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -26,7 +27,7 @@ const conformanceCheckStepUse = "conformance-check"
 
 func ConformanceCheckSetupHook(
 	ctx workflow.Context,
-	steps *[]StepDefinition,
+	steps *[]pipeline.StepDefinition,
 	_ *workflow.ActivityOptions,
 	config map[string]any,
 	runData *map[string]any,
@@ -40,7 +41,7 @@ func ConformanceCheckSetupHook(
 			continue
 		}
 		logger.Info("ConformanceCheckHook: processing step", "step", step.ID)
-		rawPayload, err := step.DecodePayload()
+		rawPayload, err := DecodePayload(step)
 		if err != nil {
 			errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 			return workflowengine.NewAppError(
@@ -332,7 +333,7 @@ func extractValues(node any) any {
 
 func ConformanceCheckCleanupHook(
 	ctx workflow.Context,
-	steps []StepDefinition,
+	steps []pipeline.StepDefinition,
 	_ *workflow.ActivityOptions,
 	_ map[string]any,
 	_ map[string]any,

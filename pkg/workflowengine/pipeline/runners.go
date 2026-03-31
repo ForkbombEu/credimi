@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/pocketbase/pocketbase/core"
 )
 
@@ -22,7 +23,7 @@ type PipelineRunnerInfo struct {
 // - If global_runner_id is set, no step may define runner_id.
 // - If global_runner_id is not set, every mobile-automation step must define runner_id.
 func ValidateRunnerIDYAML(yamlStr string) error {
-	wfDef, err := ParseWorkflow(yamlStr)
+	wfDef, err := pipeline.ParseWorkflow(yamlStr)
 	if err != nil {
 		return err
 	}
@@ -93,7 +94,7 @@ func ParsePipelineRunnerInfo(yamlStr string) (PipelineRunnerInfo, error) {
 		return PipelineRunnerInfo{}, nil
 	}
 
-	wfDef, err := ParseWorkflow(yamlStr)
+	wfDef, err := pipeline.ParseWorkflow(yamlStr)
 	if err != nil {
 		return PipelineRunnerInfo{}, err
 	}
@@ -101,7 +102,7 @@ func ParsePipelineRunnerInfo(yamlStr string) (PipelineRunnerInfo, error) {
 	runnerIDs := make(map[string]struct{})
 	missingRunnerID := false
 
-	collectRunner := func(step StepSpec) {
+	collectRunner := func(step pipeline.StepSpec) {
 		runnerID := ""
 		if step.With.Payload != nil {
 			if rawRunnerID, ok := step.With.Payload["runner_id"]; ok {

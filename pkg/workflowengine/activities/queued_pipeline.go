@@ -15,6 +15,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -205,7 +206,11 @@ func (a *StartQueuedPipelineActivity) Execute(
 	)
 	options.Options.TaskQueue = pipelineTaskQueue
 	options.Options.Memo = memo
-	workflowengine.ApplyPipelineSearchAttributes(&options.Options, payload.PipelineIdentifier, payload.RequiredRunnerIDs)
+	entityIDs, err := pipeline.ParseEntityIDs(payload.YAML)
+	if err != nil {
+		return result, fmt.Errorf("failed to parse entity IDs: %w", err)
+	}
+	workflowengine.ApplyPipelineSearchAttributes(&options.Options, payload.PipelineIdentifier, payload.RequiredRunnerIDs, entityIDs)
 
 	namespace := config["namespace"].(string)
 	temporalFactory := a.temporalClientFactory

@@ -7,6 +7,7 @@ package pipeline
 import (
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -93,6 +94,7 @@ steps:
 	expectedSearchAttrs := workflowengine.PipelineTypedSearchAttributes(
 		"tenant-1/scheduled-pipeline",
 		expectedRunnerIDs,
+		workflowengine.EntityIDs{},
 	)
 	require.Equal(
 		t,
@@ -155,9 +157,9 @@ func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
 	)
 
 	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
-		WorkflowDefinition: &WorkflowDefinition{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
 			Name:  "empty-steps",
-			Steps: []StepDefinition{},
+			Steps: []pipeline.StepDefinition{},
 		},
 		WorkflowInput: workflowengine.WorkflowInput{
 			Config: map[string]any{

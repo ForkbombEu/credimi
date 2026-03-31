@@ -9,19 +9,11 @@ import (
 	"strings"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/workflowengine"
 )
 
-type EntityIDs struct {
-    Actions           []string `json:"actions,omitempty"`
-    Versions          []string `json:"versions,omitempty"`
-    Credentials       []string `json:"credentials,omitempty"`
-    UseCases          []string `json:"use_cases,omitempty"`
-    ConformanceChecks []string `json:"conformance_checks,omitempty"`
-    CustomChecks      []string `json:"custom_checks,omitempty"`
-}
-
-func ParseEntityIDs(yamlStr string) (EntityIDs, error) {
-    entityIDs := EntityIDs{
+func ParseEntityIDs(yamlStr string) (workflowengine.EntityIDs, error) {
+    entityIDs := workflowengine.EntityIDs{
         Actions:           []string{},
         Versions:          []string{},
         Credentials:       []string{},

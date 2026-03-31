@@ -12,6 +12,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -74,7 +75,7 @@ var (
 
 type processStepInput struct {
 	ctx            workflow.Context
-	step           *StepDefinition
+	step           *pipeline.StepDefinition
 	config         map[string]any
 	ao             *workflow.ActivityOptions
 	settedDevices  map[string]any
@@ -87,7 +88,7 @@ type processStepInput struct {
 type fetchAndInstallAPKInput struct {
 	ctx             workflow.Context
 	mobileCtx       workflow.Context
-	step            *StepDefinition
+	step            *pipeline.StepDefinition
 	payload         *workflows.MobileAutomationWorkflowPipelinePayload
 	deviceMap       map[string]any
 	deviceType      mobileDeviceType
@@ -208,7 +209,7 @@ type storeRecordingResultsInput struct {
 
 func MobileAutomationSetupHook(
 	ctx workflow.Context,
-	steps *[]StepDefinition,
+	steps *[]pipeline.StepDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData *map[string]any,
@@ -306,8 +307,8 @@ func MobileAutomationSetupHook(
 // validateRunnerIDConfiguration checks that either:
 // - all mobile-automation steps have a defined runner_id, OR
 // - there is a global_runner_id set
-func validateRunnerIDConfiguration(steps *[]StepDefinition, globalRunnerID string) error {
-	var mobileAutomationSteps []*StepDefinition
+func validateRunnerIDConfiguration(steps *[]pipeline.StepDefinition, globalRunnerID string) error {
+	var mobileAutomationSteps []*pipeline.StepDefinition
 	for i := range *steps {
 		if (*steps)[i].Use == mobileAutomationStepUse {
 			mobileAutomationSteps = append(mobileAutomationSteps, &(*steps)[i])
@@ -349,7 +350,7 @@ func getOrCreateSettedDevices(runData *map[string]any) map[string]any {
 	return settedDevices
 }
 
-func collectMobileRunnerIDs(steps []StepDefinition, globalID string) ([]string, error) {
+func collectMobileRunnerIDs(steps []pipeline.StepDefinition, globalID string) ([]string, error) {
 	uniqueRunnerIDs := make(map[string]struct{})
 
 	globalID = canonify.NormalizePath(globalID)
@@ -388,12 +389,12 @@ func collectMobileRunnerIDs(steps []StepDefinition, globalID string) ([]string, 
 
 func prepareMobileAutomationSteps(
 	ctx workflow.Context,
-	steps *[]StepDefinition,
+	steps *[]pipeline.StepDefinition,
 	appURL string,
 	httpActivity *activities.HTTPActivity,
 ) error {
-	specialSteps := make([]StepDefinition, 0)
-	remainingSteps := make([]StepDefinition, 0, len(*steps))
+	specialSteps := make([]pipeline.StepDefinition, 0)
+	remainingSteps := make([]pipeline.StepDefinition, 0, len(*steps))
 
 	for i := range *steps {
 		step := (*steps)[i]
@@ -438,7 +439,7 @@ func prepareMobileAutomationSteps(
 		return nil
 	}
 
-	reordered := make([]StepDefinition, 0, len(*steps))
+	reordered := make([]pipeline.StepDefinition, 0, len(*steps))
 	reordered = append(reordered, specialSteps...)
 	reordered = append(reordered, remainingSteps...)
 	*steps = reordered
@@ -518,7 +519,7 @@ func fetchMobileActionCategory(
 	return strings.TrimSpace(category), nil
 }
 
-func hasExternalSourceMobileSteps(steps []StepDefinition) bool {
+func hasExternalSourceMobileSteps(steps []pipeline.StepDefinition) bool {
 	for i := range steps {
 		if steps[i].Use != mobileAutomationStepUse {
 			continue
@@ -533,7 +534,7 @@ func hasExternalSourceMobileSteps(steps []StepDefinition) bool {
 	return false
 }
 
-func hasExternalInstallWorkflowSteps(steps []StepDefinition) bool {
+func hasExternalInstallWorkflowSteps(steps []pipeline.StepDefinition) bool {
 	for i := range steps {
 		if steps[i].Use == mobileExternalInstallStepUse {
 			return true
@@ -549,7 +550,7 @@ func hasPendingPlayStoreDisable(runData map[string]any) bool {
 
 func runPendingPlayStoreDisableIfNeeded(
 	ctx workflow.Context,
-	step StepDefinition,
+	step pipeline.StepDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData *map[string]any,
@@ -698,7 +699,7 @@ func processStep(
 	return nil
 }
 
-func isSpecialMobileInstallStep(step *StepDefinition) bool {
+func isSpecialMobileInstallStep(step *pipeline.StepDefinition) bool {
 	if step == nil || step.Metadata == nil {
 		return false
 	}
@@ -708,7 +709,7 @@ func isSpecialMobileInstallStep(step *StepDefinition) bool {
 }
 
 func decodeAndValidatePayload(
-	step *StepDefinition,
+	step *pipeline.StepDefinition,
 ) (*workflows.MobileAutomationWorkflowPipelinePayload, error) {
 	errCode := errorcodes.Codes[errorcodes.MissingOrInvalidPayload]
 	if len(step.With.Payload) == 0 {
@@ -1091,7 +1092,7 @@ func fetchAndInstallAPK(
 
 func parseInstallerActionResponseBody(
 	res workflowengine.ActivityResult,
-	step *StepDefinition,
+	step *pipeline.StepDefinition,
 ) (map[string]any, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 
@@ -1109,7 +1110,7 @@ func parseInstallerActionResponseBody(
 
 func parseInstallerResponse(
 	body map[string]any,
-	step *StepDefinition,
+	step *pipeline.StepDefinition,
 ) (string, string, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 
@@ -1145,7 +1146,7 @@ func parseInstallerResponse(
 func parseInstallerActionCode(
 	body map[string]any,
 	payload *workflows.MobileAutomationWorkflowPipelinePayload,
-	step *StepDefinition,
+	step *pipeline.StepDefinition,
 ) (string, error) {
 	errCode := errorcodes.Codes[errorcodes.UnexpectedActivityOutput]
 	actionCode := payload.ActionCode
@@ -1171,7 +1172,7 @@ func parseInstallerActionCode(
 func parseAPKResponse(
 	res workflowengine.ActivityResult,
 	payload *workflows.MobileAutomationWorkflowPipelinePayload,
-	step *StepDefinition,
+	step *pipeline.StepDefinition,
 ) (string, string, string, error) {
 	body, err := parseInstallerActionResponseBody(res, step)
 	if err != nil {
@@ -1455,7 +1456,7 @@ func extractAndStoreRecordingInfo(
 
 func MobileAutomationCleanupHook(
 	ctx workflow.Context,
-	steps []StepDefinition,
+	steps []pipeline.StepDefinition,
 	ao *workflow.ActivityOptions,
 	config map[string]any,
 	runData map[string]any,

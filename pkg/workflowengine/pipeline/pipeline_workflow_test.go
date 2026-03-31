@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
@@ -152,26 +153,26 @@ func TestPipelineWorkflowContinueOnError(t *testing.T) {
 	env.ExecuteWorkflow(
 		pipelineWf.Name(),
 		PipelineWorkflowInput{
-			WorkflowDefinition: &WorkflowDefinition{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
 				Name: "continue-on-error",
-				Steps: []StepDefinition{
+				Steps: []pipeline.StepDefinition{
 					{
-						StepSpec: StepSpec{
+						StepSpec: pipeline.StepSpec{
 							ID:  "step-1",
 							Use: "json-parse",
-							With: StepInputs{
+							With: pipeline.StepInputs{
 								Payload: map[string]any{
 									"struct_type": "map",
 								},
 							},
 						},
 						ContinueOnError: true,
-						OnError: []*OnErrorStepDefinition{
+						OnError: []*pipeline.OnErrorStepDefinition{
 							{
-								StepSpec: StepSpec{
+								StepSpec: pipeline.StepSpec{
 									ID:  "on-error",
 									Use: "json-parse",
-									With: StepInputs{
+									With: pipeline.StepInputs{
 										Payload: map[string]any{
 											"struct_type": "map",
 											"rawJSON":     `{"ok":true}`,
@@ -226,26 +227,26 @@ func TestPipelineWorkflowOnSuccessWithDebug(t *testing.T) {
 	env.ExecuteWorkflow(
 		pipelineWf.Name(),
 		PipelineWorkflowInput{
-			WorkflowDefinition: &WorkflowDefinition{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
 				Name: "on-success",
-				Steps: []StepDefinition{
+				Steps: []pipeline.StepDefinition{
 					{
-						StepSpec: StepSpec{
+						StepSpec: pipeline.StepSpec{
 							ID:  "step-1",
 							Use: "json-parse",
-							With: StepInputs{
+							With: pipeline.StepInputs{
 								Payload: map[string]any{
 									"struct_type": "map",
 									"rawJSON":     `{"ok":true}`,
 								},
 							},
 						},
-						OnSuccess: []*OnSuccessStepDefinition{
+						OnSuccess: []*pipeline.OnSuccessStepDefinition{
 							{
-								StepSpec: StepSpec{
+								StepSpec: pipeline.StepSpec{
 									ID:  "on-success",
 									Use: "json-parse",
-									With: StepInputs{
+									With: pipeline.StepInputs{
 										Payload: map[string]any{
 											"struct_type": "map",
 											"rawJSON":     `{"ok":true}`,
@@ -287,7 +288,7 @@ func TestPipelineWorkflowWrapsSetupHookCancellation(t *testing.T) {
 	setupHooks = []SetupFunc{
 		func(
 			_ workflow.Context,
-			_ *[]StepDefinition,
+			_ *[]pipeline.StepDefinition,
 			_ *workflow.ActivityOptions,
 			_ map[string]any,
 			_ *map[string]any,
@@ -308,7 +309,7 @@ func TestPipelineWorkflowWrapsSetupHookCancellation(t *testing.T) {
 	env.ExecuteWorkflow(
 		pipelineWf.Name(),
 		PipelineWorkflowInput{
-			WorkflowDefinition: &WorkflowDefinition{Name: "setup-cancel"},
+			WorkflowDefinition: &pipeline.WorkflowDefinition{Name: "setup-cancel"},
 			WorkflowInput: workflowengine.WorkflowInput{
 				Config: map[string]any{
 					"app_url": "https://example.test",
@@ -344,7 +345,7 @@ func TestPipelineWorkflowDefersPlayStoreDisableUntilAfterExternalInstallSteps(t 
 	setupHooks = []SetupFunc{
 		func(
 			_ workflow.Context,
-			_ *[]StepDefinition,
+			_ *[]pipeline.StepDefinition,
 			_ *workflow.ActivityOptions,
 			_ map[string]any,
 			runData *map[string]any,
@@ -421,14 +422,14 @@ func TestPipelineWorkflowDefersPlayStoreDisableUntilAfterExternalInstallSteps(t 
 	env.ExecuteWorkflow(
 		pipelineWf.Name(),
 		PipelineWorkflowInput{
-			WorkflowDefinition: &WorkflowDefinition{
+			WorkflowDefinition: &pipeline.WorkflowDefinition{
 				Name: "defer-play-store-disable",
-				Steps: []StepDefinition{
+				Steps: []pipeline.StepDefinition{
 					{
-						StepSpec: StepSpec{
+						StepSpec: pipeline.StepSpec{
 							ID:  "install-1",
 							Use: mobileExternalInstallStepUse,
-							With: StepInputs{
+							With: pipeline.StepInputs{
 								Payload: map[string]any{},
 								Config: map[string]any{
 									"app_url": "https://example.test",
@@ -437,10 +438,10 @@ func TestPipelineWorkflowDefersPlayStoreDisableUntilAfterExternalInstallSteps(t 
 						},
 					},
 					{
-						StepSpec: StepSpec{
+						StepSpec: pipeline.StepSpec{
 							ID:  "step-2",
 							Use: "order-step",
-							With: StepInputs{
+							With: pipeline.StepInputs{
 								Payload: map[string]any{
 									"value": "after-step",
 								},
