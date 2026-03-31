@@ -41,22 +41,27 @@ func fetchCompletedWorkflowsWithPagination(
 	namespace string,
 	authRecord *core.Record,
 	organizationId string,
+	pipelineIdentifier string,
 	statusFilter string,
 	limit int,
 	skip int,
+	temporalClient client.Client,
 ) ([]*pipelineWorkflowSummary, *apierror.APIError) {
 	if limit <= 0 {
 		return []*pipelineWorkflowSummary{}, nil
 	}
 
-	temporalClient, err := pipelineResultsTemporalClient(namespace)
-	if err != nil {
-		return nil, apierror.New(
-			http.StatusInternalServerError,
-			"temporal",
-			"unable to create temporal client",
-			err.Error(),
-		)
+	var err error
+	if temporalClient == nil {
+		temporalClient, err = pipelineResultsTemporalClient(namespace)
+		if err != nil {
+			return nil, apierror.New(
+				http.StatusInternalServerError,
+				"temporal",
+				"unable to create temporal client",
+				err.Error(),
+			)
+		}
 	}
 
 	statusFilters, statusOk := parseWorkflowStatusFilters(statusFilter)
@@ -69,7 +74,7 @@ func fetchCompletedWorkflowsWithPagination(
 		temporalClient,
 		namespace,
 		statusFilters,
-		"",
+		pipelineIdentifier,
 		limit,
 		skip,
 	)

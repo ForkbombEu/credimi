@@ -297,8 +297,10 @@ func TestFetchCompletedWorkflowsWithPaginationLimitZero(t *testing.T) {
 		authRecord,
 		pipelineRecord.GetString("owner"),
 		"",
+		"",
 		0,
 		0,
+		nil,
 	)
 	require.Nil(t, apiErr)
 	require.Empty(t, summaries)
@@ -324,8 +326,10 @@ func TestFetchCompletedWorkflowsWithPaginationClientError(t *testing.T) {
 		authRecord,
 		pipelineRecord.GetString("owner"),
 		"",
+		"",
 		1,
 		0,
+		nil,
 	)
 	require.NotNil(t, apiErr)
 	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
@@ -412,9 +416,11 @@ func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
 		"ns-1",
 		authRecord,
 		orgID,
+		"",
 		"Completed",
 		2,
 		0,
+		nil,
 	)
 	require.Nil(t, apiErr)
 	require.Len(t, summaries, 2)

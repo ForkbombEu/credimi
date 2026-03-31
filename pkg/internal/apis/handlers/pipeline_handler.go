@@ -244,6 +244,9 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		namespace := organization.GetString("canonified_name")
+		limit, pageNum := parsePaginationParams(e, 20, 0)
+		offset := pageNum * limit
+		statusFilter := e.Request.URL.Query().Get("status")
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
 			"id = {:id} && owner={:owner}",
@@ -265,13 +268,10 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		}
 
 		if len(pipelineRecords) == 0 {
-			return e.JSON(http.StatusOK, ListMyChecksResponse{
-				Executions: []*WorkflowExecutionSummary{},
-			})
+			return e.JSON(http.StatusOK, []*pipelineWorkflowSummary{})
 		}
 
 		pipelineRecord := pipelineRecords[0]
-		pipelineID = pipelineRecord.Id
 		pipelinePath, err := canonify.BuildPath(
 			e.App,
 			pipelineRecord,
@@ -287,19 +287,6 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		pipelineIdentifier := strings.Trim(pipelinePath, "/")
-
-		queuedRuns, err := pipelineListQueuedRuns(e.Request.Context(), namespace)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to list queued runs",
-				err.Error(),
-			).JSON(e)
-		}
-		queuedByPipelineID := mapQueuedRunsToPipelines(e.App, pipelineRecords, queuedRuns)
-		queuedForPipeline := queuedByPipelineID[pipelineID]
-
 		temporalClient, err := pipelineTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
@@ -309,101 +296,23 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-
-		runnerInfo, err := runners.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
-		if err != nil {
-			e.App.Logger().Warn(fmt.Sprintf(
-				"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",
-				pipelineID,
-				err,
-			))
-		}
-
-		allExecutions, err := listPipelineWorkflowExecutions(
-			context.Background(),
-			temporalClient,
+		summaries, apiErr := fetchCompletedWorkflowsWithPagination(
+			e,
+			map[string]*core.Record{pipelineRecord.Id: pipelineRecord},
 			namespace,
-			nil,
+			authRecord,
+			organization.Id,
 			pipelineIdentifier,
-			pipelineListWorkflowsDefaultLimit,
-			0,
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to list workflows",
-				err.Error(),
-			).JSON(e)
-		}
-
-		if len(allExecutions) == 0 {
-			queuedSummaries := buildQueuedPipelineSummaries(
-				e.App,
-				queuedForPipeline,
-				authRecord.GetString("Timezone"),
-				map[string]map[string]any{},
-			)
-			if len(queuedSummaries) == 0 {
-				return e.JSON(http.StatusOK, ListMyChecksResponse{
-					[]*WorkflowExecutionSummary{},
-				})
-			}
-			return e.JSON(http.StatusOK, queuedSummaries)
-		}
-
-		hierarchy := buildExecutionHierarchy(
-			e.App,
-			allExecutions,
-			namespace,
-			authRecord.GetString("Timezone"),
+			statusFilter,
+			limit,
+			offset,
 			temporalClient,
 		)
-
-		sort.Slice(hierarchy, func(i, j int) bool {
-			t1, _ := time.Parse(time.RFC3339, hierarchy[i].StartTime)
-			t2, _ := time.Parse(time.RFC3339, hierarchy[j].StartTime)
-
-			return t1.After(t2)
-		})
-
-		runnerCache := map[string]map[string]any{}
-		annotated, err := attachRunnerInfoFromTemporalStartInput(
-			attachRunnerInfoFromTemporalInputArgs{
-				App:         e.App,
-				Ctx:         context.Background(),
-				Client:      temporalClient,
-				Executions:  hierarchy,
-				Info:        runnerInfo,
-				RunnerCache: runnerCache,
-			},
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"failed to read workflow history",
-				err.Error(),
-			).JSON(e)
+		if apiErr != nil {
+			return apiErr.JSON(e)
 		}
 
-		for _, summary := range annotated {
-			summary.PipelineIdentifier = pipelineIdentifier
-		}
-
-		if len(queuedForPipeline) > 0 {
-			queuedSummaries := buildQueuedPipelineSummaries(
-				e.App,
-				queuedForPipeline,
-				authRecord.GetString("Timezone"),
-				runnerCache,
-			)
-			if len(queuedSummaries) > 0 {
-				annotated = append(queuedSummaries, annotated...)
-			}
-		}
-
-		return e.JSON(http.StatusOK, annotated)
+		return e.JSON(http.StatusOK, summaries)
 	}
 }
 
