@@ -52,12 +52,12 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 		{
 			Method:  http.MethodGet,
-			Path:    "/list-workflows",
+			Path:    "/list-executions",
 			Handler: HandleGetPipelineDetails,
 		},
 		{
 			Method:  http.MethodGet,
-			Path:    "/list-workflows/{id}",
+			Path:    "/list-executions/{id}",
 			Handler: HandleGetPipelineSpecificDetails,
 		},
 		{

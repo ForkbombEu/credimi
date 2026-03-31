@@ -325,7 +325,7 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 		return mockClient, nil
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 	rec := httptest.NewRecorder()
 
 	err = HandleGetPipelineDetails()(&core.RequestEvent{
@@ -399,7 +399,7 @@ func TestHandleGetPipelineDetailsListError(t *testing.T) {
 		return mockClient, nil
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 	rec := httptest.NewRecorder()
 
 	err = HandleGetPipelineDetails()(&core.RequestEvent{
@@ -458,7 +458,7 @@ func TestHandleGetPipelineDetailsTemporalClientError(t *testing.T) {
 		return nil, errors.New("no temporal")
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 	rec := httptest.NewRecorder()
 
 	err = HandleGetPipelineDetails()(&core.RequestEvent{
@@ -502,7 +502,7 @@ func TestHandleGetPipelineDetailsQueuedRunsError(t *testing.T) {
 		return nil, errors.New("boom")
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 	rec := httptest.NewRecorder()
 
 	err = HandleGetPipelineDetails()(&core.RequestEvent{
@@ -572,7 +572,7 @@ func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/pipeline/list-workflows/"+pipelineRecord.Id,
+		"/api/pipeline/list-executions/"+pipelineRecord.Id,
 		nil,
 	)
 	req.SetPathValue("id", pipelineRecord.Id)
@@ -602,7 +602,7 @@ func TestHandleGetPipelineSpecificDetailsMissingAuth(t *testing.T) {
 	app := setupPipelineStartApp(t)
 	defer app.Cleanup()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows/any", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions/any", nil)
 	req.SetPathValue("id", "any")
 	rec := httptest.NewRecorder()
 
@@ -624,7 +624,7 @@ func TestHandleGetPipelineSpecificDetailsMissingID(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 	rec := httptest.NewRecorder()
 
 	err = HandleGetPipelineSpecificDetails()(&core.RequestEvent{
@@ -646,7 +646,7 @@ func TestHandleGetPipelineSpecificDetailsNoPipelines(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows/missing", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions/missing", nil)
 	req.SetPathValue("id", "missing")
 	rec := httptest.NewRecorder()
 
@@ -693,7 +693,7 @@ func TestHandleGetPipelineSpecificDetailsQueuedRunsError(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/pipeline/list-workflows/"+pipelineRecord.Id,
+		"/api/pipeline/list-executions/"+pipelineRecord.Id,
 		nil,
 	)
 	req.SetPathValue("id", pipelineRecord.Id)
@@ -757,7 +757,7 @@ func TestHandleGetPipelineSpecificDetailsListError(t *testing.T) {
 
 	req := httptest.NewRequest(
 		http.MethodGet,
-		"/api/pipeline/list-workflows/"+pipelineRecord.Id,
+		"/api/pipeline/list-executions/"+pipelineRecord.Id,
 		nil,
 	)
 	req.SetPathValue("id", pipelineRecord.Id)

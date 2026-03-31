@@ -82,7 +82,7 @@ func TestGetPipelineDetailsIncludesQueuedRuns(t *testing.T) {
 		mux, err := e.Router.BuildMux()
 		require.NoError(t, err)
 
-		req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-workflows", nil)
+		req := httptest.NewRequest(http.MethodGet, "/api/pipeline/list-executions", nil)
 		req.Header.Set("Authorization", "Bearer "+token)
 		rec := httptest.NewRecorder()
 		mux.ServeHTTP(rec, req)
@@ -171,7 +171,7 @@ func TestGetPipelineSpecificDetailsIncludesQueuedRuns(t *testing.T) {
 
 		req := httptest.NewRequest(
 			http.MethodGet,
-			"/api/pipeline/list-workflows/"+record.Id,
+			"/api/pipeline/list-executions/"+record.Id,
 			nil,
 		)
 		req.Header.Set("Authorization", "Bearer "+token)
