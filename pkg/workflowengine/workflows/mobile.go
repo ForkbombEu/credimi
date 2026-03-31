@@ -8,6 +8,7 @@ package workflows
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/forkbombeu/credimi-extra/mobile"
 	"github.com/forkbombeu/credimi/pkg/utils"
@@ -18,6 +19,11 @@ import (
 )
 
 const MobileAutomationTaskQueue = "MobileAutomationTaskQueue"
+
+const (
+	externalInstallAppDetectionTimeout  = 20 * time.Second
+	externalInstallAppDetectionInterval = 2 * time.Second
+)
 
 // MobileAutomationWorkflow is a workflow that runs a mobile automation flow
 type MobileAutomationWorkflow struct {
@@ -253,16 +259,23 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 		)
 	}
 
-	afterApps, err := executeListInstalledApps(runnerCtx, payload.Serial, payload.Type)
+	addedApps, afterApps, attempts, err := waitForAddedInstalledApps(
+		runnerCtx,
+		payload.Serial,
+		payload.Type,
+		beforeApps,
+	)
 	if err != nil {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			err,
 			input.RunMetadata,
-			map[string]any{"output": output},
+			map[string]any{
+				"before_apps": beforeApps,
+				"output":      output,
+			},
 		)
 	}
 
-	addedApps := diffAddedApps(beforeApps, afterApps)
 	if len(addedApps) != 1 {
 		return workflowengine.WorkflowResult{}, workflowengine.NewWorkflowError(
 			fmt.Errorf("expected exactly one installed app, found %d", len(addedApps)),
@@ -271,6 +284,7 @@ func (w *MobileExternalInstallWorkflow) ExecuteWorkflow(
 				"before_apps": beforeApps,
 				"after_apps":  afterApps,
 				"added_apps":  addedApps,
+				"attempts":    attempts,
 				"output":      output,
 			},
 		)
@@ -330,6 +344,37 @@ func executeListInstalledApps(
 	}
 
 	return workflowengine.AsSliceOfStrings(result.Output), nil
+}
+
+func waitForAddedInstalledApps(
+	ctx workflow.Context,
+	serial string,
+	deviceType string,
+	beforeApps []string,
+) ([]string, []string, [][]string, error) {
+	deadline := workflow.Now(ctx).Add(externalInstallAppDetectionTimeout)
+	attempts := make([][]string, 0, int(externalInstallAppDetectionTimeout/externalInstallAppDetectionInterval)+1)
+
+	for {
+		afterApps, err := executeListInstalledApps(ctx, serial, deviceType)
+		if err != nil {
+			return nil, nil, attempts, err
+		}
+
+		attempts = append(attempts, append([]string(nil), afterApps...))
+		addedApps := diffAddedApps(beforeApps, afterApps)
+		if len(addedApps) == 1 {
+			return addedApps, afterApps, attempts, nil
+		}
+
+		if !workflow.Now(ctx).Before(deadline) {
+			return addedApps, afterApps, attempts, nil
+		}
+
+		if err := workflow.Sleep(ctx, externalInstallAppDetectionInterval); err != nil {
+			return nil, nil, attempts, err
+		}
+	}
 }
 
 func diffAddedApps(before, after []string) []string {
