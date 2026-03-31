@@ -12,12 +12,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
-	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/dbx"
@@ -416,13 +414,6 @@ func TestComputeChildDisplayNameAdditional(t *testing.T) {
 	require.Equal(t, "plain", computeChildDisplayName("plain"))
 }
 
-func TestShouldIncludeQueuedRunsAdditional(t *testing.T) {
-	require.True(t, shouldIncludeQueuedRuns(""))
-	require.True(t, shouldIncludeQueuedRuns("running"))
-	require.True(t, shouldIncludeQueuedRuns("completed, running"))
-	require.False(t, shouldIncludeQueuedRuns("completed"))
-}
-
 func TestSortExecutionSummariesAdditional(t *testing.T) {
 	loc, err := time.LoadLocation("UTC")
 	require.NoError(t, err)
@@ -468,44 +459,6 @@ func TestBuildExecutionHierarchyWithChildAdditional(t *testing.T) {
 	require.Len(t, roots, 1)
 	require.Equal(t, "Parent Name", roots[0].DisplayName)
 	require.Len(t, roots[0].Children, 1)
-}
-
-func TestBuildQueuedWorkflowSummariesAdditional(t *testing.T) {
-	app, err := tests.NewTestApp(testDataDir)
-	require.NoError(t, err)
-	defer app.Cleanup()
-
-	canonify.RegisterCanonifyHooks(app)
-
-	orgID, err := getOrgIDfromName("userA's organization")
-	require.NoError(t, err)
-
-	pipelineRecord := createPipelineRecord(t, app, orgID, "My Pipeline")
-
-	path, err := canonify.BuildPath(app, pipelineRecord, canonify.CanonifyPaths["pipelines"], "")
-	require.NoError(t, err)
-
-	queued := map[string]QueuedPipelineRunAggregate{
-		"ticket-2": {
-			TicketID:           "ticket-2",
-			PipelineIdentifier: strings.Trim(path, "/"),
-			EnqueuedAt:         time.Date(2025, 1, 2, 3, 0, 0, 0, time.UTC),
-			Position:           1,
-			LineLen:            2,
-		},
-		"ticket-1": {
-			TicketID:           "ticket-1",
-			PipelineIdentifier: strings.Trim(path, "/"),
-			EnqueuedAt:         time.Date(2025, 1, 2, 4, 0, 0, 0, time.UTC),
-			Position:           0,
-			LineLen:            2,
-		},
-	}
-
-	summaries := buildQueuedWorkflowSummaries(app, queued, "UTC")
-	require.Len(t, summaries, 2)
-	require.Equal(t, string(WorkflowStatusQueued), summaries[0].Status)
-	require.Equal(t, "My Pipeline", summaries[0].DisplayName)
 }
 
 func TestResolveQueuedPipelineDisplayNameFallbackAdditional(t *testing.T) {
@@ -631,33 +584,6 @@ func TestHandleListMyCheckRunsSuccess(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 	require.Len(t, resp.Executions, 1)
 	require.Equal(t, "check-1", resp.Executions[0].Execution.WorkflowID)
-}
-
-func TestShouldIncludeQueuedRuns(t *testing.T) {
-	require.True(t, shouldIncludeQueuedRuns(""))
-	require.True(t, shouldIncludeQueuedRuns("running"))
-	require.True(t, shouldIncludeQueuedRuns("Completed, RUNNING"))
-	require.False(t, shouldIncludeQueuedRuns("completed"))
-}
-
-func TestBuildQueuedWorkflowSummary(t *testing.T) {
-	now := time.Date(2026, 2, 17, 12, 0, 0, 0, time.UTC)
-	queued := QueuedPipelineRunAggregate{
-		TicketID:   "ticket-1",
-		Position:   0,
-		LineLen:    3,
-		RunnerIDs:  []string{"runner-1", "runner-2"},
-		EnqueuedAt: now,
-	}
-
-	summary := buildQueuedWorkflowSummary(queued, "UTC", "display-name")
-	require.Equal(t, "queue/ticket-1", summary.Execution.WorkflowID)
-	require.Equal(t, "ticket-1", summary.Execution.RunID)
-	require.Equal(t, "display-name", summary.DisplayName)
-	require.Equal(t, string(WorkflowStatusQueued), summary.Status)
-	require.Equal(t, 1, summary.Queue.Position)
-	require.Equal(t, 3, summary.Queue.LineLen)
-	require.Equal(t, []string{"runner-1", "runner-2"}, summary.Queue.RunnerIDs)
 }
 
 func TestResolveQueuedPipelineDisplayNameFallback(t *testing.T) {
