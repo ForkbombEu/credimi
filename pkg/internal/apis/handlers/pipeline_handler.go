@@ -287,6 +287,70 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		pipelineIdentifier := strings.Trim(pipelinePath, "/")
+
+		includeQueued := shouldIncludeQueuedPipelineExecutions(statusFilter)
+		if includeQueued {
+			queuedRuns, err := pipelineListQueuedRuns(e.Request.Context(), namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to list queued runs",
+					err.Error(),
+				).JSON(e)
+			}
+
+			queuedByPipelineID := mapQueuedRunsToPipelines(
+				e.App,
+				[]*core.Record{pipelineRecord},
+				queuedRuns,
+			)
+			queuedForPipeline := queuedByPipelineID[pipelineRecord.Id]
+
+			if queuedOnlyPipelineExecutions(statusFilter) {
+				return e.JSON(http.StatusOK, paginateQueuedPipelineSummaries(
+					e.App,
+					queuedForPipeline,
+					authRecord.GetString("Timezone"),
+					limit,
+					offset,
+				))
+			}
+
+			queuedCount := len(queuedForPipeline)
+			if offset < queuedCount {
+				queuedSummaries := paginateQueuedPipelineSummaries(
+					e.App,
+					queuedForPipeline,
+					authRecord.GetString("Timezone"),
+					limit,
+					offset,
+				)
+				if len(queuedSummaries) >= limit {
+					return e.JSON(http.StatusOK, queuedSummaries)
+				}
+
+				completedSummaries, apiErr := fetchCompletedWorkflowsWithPagination(
+					e,
+					map[string]*core.Record{pipelineRecord.Id: pipelineRecord},
+					namespace,
+					authRecord,
+					organization.Id,
+					pipelineIdentifier,
+					statusFilter,
+					limit-len(queuedSummaries),
+					0,
+					nil,
+				)
+				if apiErr != nil {
+					return apiErr.JSON(e)
+				}
+				return e.JSON(http.StatusOK, append(queuedSummaries, completedSummaries...))
+			}
+
+			offset -= queuedCount
+		}
+
 		temporalClient, err := pipelineTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
@@ -314,6 +378,70 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 
 		return e.JSON(http.StatusOK, summaries)
 	}
+}
+
+func shouldIncludeQueuedPipelineExecutions(statusFilter string) bool {
+	if strings.TrimSpace(statusFilter) == "" {
+		return true
+	}
+
+	for _, raw := range strings.Split(statusFilter, ",") {
+		if strings.EqualFold(strings.TrimSpace(raw), statusStringQueued) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func queuedOnlyPipelineExecutions(statusFilter string) bool {
+	if strings.TrimSpace(statusFilter) == "" {
+		return false
+	}
+
+	hasQueued := false
+	hasNonQueued := false
+	for _, raw := range strings.Split(statusFilter, ",") {
+		normalized := strings.ToLower(strings.TrimSpace(raw))
+		if normalized == "" {
+			continue
+		}
+		if normalized == statusStringQueued {
+			hasQueued = true
+			continue
+		}
+		hasNonQueued = true
+	}
+
+	return hasQueued && !hasNonQueued
+}
+
+func paginateQueuedPipelineSummaries(
+	app core.App,
+	queuedRuns []QueuedPipelineRunAggregate,
+	userTimezone string,
+	limit int,
+	offset int,
+) []*pipelineWorkflowSummary {
+	summaries := buildQueuedPipelineSummaries(
+		app,
+		queuedRuns,
+		userTimezone,
+		map[string]map[string]any{},
+	)
+	if len(summaries) == 0 || limit <= 0 || offset >= len(summaries) {
+		return []*pipelineWorkflowSummary{}
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	end := offset + limit
+	if end > len(summaries) {
+		end = len(summaries)
+	}
+
+	return summaries[offset:end]
 }
 
 func HandleGetPipelineDetails() func(*core.RequestEvent) error {
