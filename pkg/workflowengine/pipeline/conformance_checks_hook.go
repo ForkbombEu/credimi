@@ -22,6 +22,8 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+const conformanceCheckStepUse = "conformance-check"
+
 func ConformanceCheckSetupHook(
 	ctx workflow.Context,
 	steps *[]StepDefinition,
@@ -34,7 +36,7 @@ func ConformanceCheckSetupHook(
 	for i := range *steps {
 		step := &(*steps)[i]
 
-		if step.Use != "conformance-check" {
+		if step.Use != conformanceCheckStepUse {
 			continue
 		}
 		logger.Info("ConformanceCheckHook: processing step", "step", step.ID)
@@ -338,7 +340,7 @@ func ConformanceCheckCleanupHook(
 ) error {
 	cleanupCtx, _ := workflow.NewDisconnectedContext(ctx)
 	for _, step := range steps {
-		if step.Use != "conformance-check" {
+		if step.Use != conformanceCheckStepUse {
 			continue
 		}
 		if !errors.Is(ctx.Err(), workflow.ErrCanceled) {
