@@ -60,11 +60,6 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 			Path:    "/list-executions/{id}",
 			Handler: HandleGetPipelineSpecificDetails,
 		},
-		{
-			Method:  http.MethodGet,
-			Path:    "/list-results",
-			Handler: HandleGetPipelineResults,
-		},
 	},
 }
 
