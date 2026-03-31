@@ -202,7 +202,7 @@ func calculateStatsFromExecutions(
             stats.TotalSuccesses++
         }
 
-        isScheduled := strings.HasPrefix(exec.Execution.WorkflowID, "pipeline-Sched-")
+        isScheduled := strings.HasPrefix(exec.Execution.WorkflowID, "Pipeline-Sched-")
         if isScheduled {
             stats.ScheduledExecutions++
         } else {

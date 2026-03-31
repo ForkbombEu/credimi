@@ -87,7 +87,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	now:=time.Now()
 	exec1 := buildPipelineExecutionInfoWithRunner(
         t,
-        "pipeline-Sched-wf-1",
+        "Pipeline-Sched-wf-1",
         "run-1",
         fmt.Sprintf("%s/%s", namespace, pipeline1Canonified),
         "Completed",
@@ -118,7 +118,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 
     exec4 := buildPipelineExecutionInfoWithRunner(
         t,
-        "pipeline-Sched-wf-4",
+        "Pipeline-Sched-wf-4",
         "run-4",
         fmt.Sprintf("%s/%s", namespace, pipeline2Canonified),
         "Completed",

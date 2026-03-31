@@ -15,6 +15,12 @@ const (
 	PipelineIdentifierSearchAttribute = "PipelineIdentifier"
 	// RunnerIdentifierSearchAttribute is the Temporal visibility field storing runner identifiers.
 	RunnerIdentifiersSearchAttribute = "RunnerIdentifiers"
+	ActionsSearchAttribute = "ActionsID"
+    VersionsSearchAttribute = "VersionsID"
+    CredentialsSearchAttribute = "CredentialsID"
+    UseCaseSearchAttribute = "UseCaseID"
+    ConformanceCheckSearchAttribute = "ConformanceCheckID"
+    CustomCheckSearchAttribute = "CustomCheckID"
 )
 
 // NormalizePipelineIdentifier trims whitespace and leading/trailing slashes from identifiers.
