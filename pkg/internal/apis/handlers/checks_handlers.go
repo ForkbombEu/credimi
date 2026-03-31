@@ -132,6 +132,25 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 	AuthenticationRequired: true,
 }
 
+var WorkflowListingRoutes routing.RouteGroup = routing.RouteGroup{
+	BaseURL: "/api",
+	Routes: []routing.RouteDefinition{
+		{
+			Method:         http.MethodGet,
+			Path:           "/list-workflows",
+			OperationID:    "workflows.list",
+			Handler:        HandleListMyChecks,
+			ResponseSchema: ListMyChecksResponse{},
+			Description:    "List non-pipeline workflows for the authenticated user",
+			Summary:        "Get a list of non-pipeline workflows for the authenticated user",
+		},
+	},
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	AuthenticationRequired: true,
+}
+
 type ReRunCheckRequest struct {
 	Config map[string]interface{} `json:"config"`
 }

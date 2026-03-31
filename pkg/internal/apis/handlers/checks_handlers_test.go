@@ -19,6 +19,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
@@ -42,6 +43,37 @@ func decodeAPIError(t testing.TB, rec *httptest.ResponseRecorder) apierror.APIEr
 	var apiErr apierror.APIError
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&apiErr))
 	return apiErr
+}
+
+func TestWorkflowListingRoutesRegistered(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	WorkflowListingRoutes.Add(app)
+	ConformanceRoutes.Add(app)
+
+	baseRouter, err := apis.NewRouter(app)
+	require.NoError(t, err)
+
+	serveEvent := &core.ServeEvent{App: app, Router: baseRouter}
+	err = app.OnServe().Trigger(serveEvent, func(e *core.ServeEvent) error {
+		mux, err := e.Router.BuildMux()
+		require.NoError(t, err)
+
+		req := httptest.NewRequest(http.MethodGet, "/api/list-workflows", nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusUnauthorized, rec.Code)
+
+		req = httptest.NewRequest(http.MethodGet, "/api/compliance/checks", nil)
+		rec = httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		require.Equal(t, http.StatusNotFound, rec.Code)
+
+		return nil
+	})
+	require.NoError(t, err)
 }
 
 func TestHandleGetMyCheckRunRequiresAuth(t *testing.T) {
