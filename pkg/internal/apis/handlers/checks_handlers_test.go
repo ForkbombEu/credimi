@@ -1493,6 +1493,75 @@ func TestHandleListMyChecksStatusFilterQuery(t *testing.T) {
 	require.Contains(t, capturedQuery, "or")
 }
 
+func TestHandleListMyChecksPagination(t *testing.T) {
+	app, err := tests.NewTestApp(testDataDir)
+	require.NoError(t, err)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	origClient := listChecksTemporalClient
+	origList := listChecksWorkflows
+	t.Cleanup(func() {
+		listChecksTemporalClient = origClient
+		listChecksWorkflows = origList
+	})
+
+	mockClient := &temporalmocks.Client{}
+	listChecksTemporalClient = func(namespace string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	now := time.Now()
+	listChecksWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+		return &workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflow.WorkflowExecutionInfo{
+				{
+					Execution: &common.WorkflowExecution{WorkflowId: "wf-1", RunId: "run-1"},
+					Type:      &common.WorkflowType{Name: "CheckWorkflow"},
+					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					StartTime: timestamppb.New(now.Add(-1 * time.Minute)),
+					CloseTime: timestamppb.New(now),
+				},
+				{
+					Execution: &common.WorkflowExecution{WorkflowId: "wf-2", RunId: "run-2"},
+					Type:      &common.WorkflowType{Name: "CheckWorkflow"},
+					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					StartTime: timestamppb.New(now.Add(-2 * time.Minute)),
+					CloseTime: timestamppb.New(now.Add(-time.Minute)),
+				},
+				{
+					Execution: &common.WorkflowExecution{WorkflowId: "wf-3", RunId: "run-3"},
+					Type:      &common.WorkflowType{Name: "CheckWorkflow"},
+					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					StartTime: timestamppb.New(now.Add(-3 * time.Minute)),
+					CloseTime: timestamppb.New(now.Add(-2 * time.Minute)),
+				},
+			},
+		}, nil
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/list-workflows?limit=1&offset=1", nil)
+	rec := httptest.NewRecorder()
+
+	err = HandleListMyChecks()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var resp ListMyChecksResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+	require.Len(t, resp.Executions, 1)
+	require.Equal(t, "wf-2", resp.Executions[0].Execution.WorkflowID)
+}
+
 func TestHandleListMyChecksTemporalClientError(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -1529,7 +1598,7 @@ func TestHandleListMyChecksTemporalClientError(t *testing.T) {
 	require.Equal(t, "unable to create client", apiErr.Reason)
 }
 
-func TestHandleListMyChecksQueuedRunsError(t *testing.T) {
+func TestHandleListMyChecksQueuedStatusReturnsEmpty(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -1538,20 +1607,21 @@ func TestHandleListMyChecksQueuedRunsError(t *testing.T) {
 	require.NoError(t, err)
 
 	origClient := listChecksTemporalClient
-	origList := listMobileRunnerSemaphoreWorkflows
+	origList := listChecksWorkflows
 	t.Cleanup(func() {
 		listChecksTemporalClient = origClient
-		listMobileRunnerSemaphoreWorkflows = origList
+		listChecksWorkflows = origList
 	})
 
 	listChecksTemporalClient = func(_ string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	listMobileRunnerSemaphoreWorkflows = func(_ context.Context) ([]string, error) {
-		return nil, errors.New("list failed")
+	listChecksWorkflows = func(_ context.Context, _ client.Client, _ string, _ string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+		t.Fatalf("listChecksWorkflows should not be called for queued-only filter")
+		return nil, nil
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/my/checks?status=queued", nil)
+	req := httptest.NewRequest(http.MethodGet, "/api/list-workflows?status=queued", nil)
 	rec := httptest.NewRecorder()
 
 	err = HandleListMyChecks()(&core.RequestEvent{
@@ -1563,11 +1633,11 @@ func TestHandleListMyChecksQueuedRunsError(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusInternalServerError, rec.Code)
+	require.Equal(t, http.StatusOK, rec.Code)
 
-	apiErr := decodeAPIError(t, rec)
-	require.Equal(t, http.StatusInternalServerError, apiErr.Code)
-	require.Equal(t, "failed to list queued runs", apiErr.Reason)
+	var resp ListMyChecksResponse
+	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
+	require.Empty(t, resp.Executions)
 }
 
 func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
@@ -1602,6 +1672,34 @@ func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
 				},
 				{
 					Execution: &common.WorkflowExecution{
+						WorkflowId: "wf-dyn-child",
+						RunId:      "run-dyn-child",
+					},
+					Type: &common.WorkflowType{Name: "CheckWorkflow"},
+					ParentExecution: &common.WorkflowExecution{
+						WorkflowId: "wf-dyn",
+						RunId:      "run-dyn",
+					},
+					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					StartTime: timestamppb.New(time.Now().Add(-90 * time.Second)),
+					CloseTime: timestamppb.New(time.Now().Add(-30 * time.Second)),
+				},
+				{
+					Execution: &common.WorkflowExecution{
+						WorkflowId: "wf-dyn-missing-child",
+						RunId:      "run-dyn-missing-child",
+					},
+					Type: &common.WorkflowType{Name: "CheckWorkflow"},
+					ParentExecution: &common.WorkflowExecution{
+						WorkflowId: "wf-dyn-missing",
+						RunId:      "run-dyn-missing",
+					},
+					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					StartTime: timestamppb.New(time.Now().Add(-85 * time.Second)),
+					CloseTime: timestamppb.New(time.Now().Add(-25 * time.Second)),
+				},
+				{
+					Execution: &common.WorkflowExecution{
 						WorkflowId: "wf-check",
 						RunId:      "run-check",
 					},
@@ -1610,9 +1708,31 @@ func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
 					StartTime: timestamppb.New(time.Now().Add(-3 * time.Minute)),
 					CloseTime: timestamppb.New(time.Now().Add(-2 * time.Minute)),
 				},
+				{
+					Execution: &common.WorkflowExecution{
+						WorkflowId: "wf-check-child",
+						RunId:      "run-check-child",
+					},
+					Type: &common.WorkflowType{Name: "CheckWorkflow"},
+					ParentExecution: &common.WorkflowExecution{
+						WorkflowId: "wf-check",
+						RunId:      "run-check",
+					},
+					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					StartTime: timestamppb.New(time.Now().Add(-160 * time.Second)),
+					CloseTime: timestamppb.New(time.Now().Add(-150 * time.Second)),
+				},
 			},
 		}, nil
 	}
+	mockClient.
+		On("DescribeWorkflowExecution", mock.Anything, "wf-dyn-missing", "run-dyn-missing").
+		Return(&workflowservice.DescribeWorkflowExecutionResponse{
+			WorkflowExecutionInfo: &workflow.WorkflowExecutionInfo{
+				Type: &common.WorkflowType{Name: "Dynamic Pipeline Workflow"},
+			},
+		}, nil).
+		Once()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks?status=completed", nil)
 	rec := httptest.NewRecorder()
@@ -1632,6 +1752,8 @@ func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 	require.Len(t, resp.Executions, 1)
 	require.Equal(t, "wf-check", resp.Executions[0].Execution.WorkflowID)
+	require.Len(t, resp.Executions[0].Children, 1)
+	require.Equal(t, "wf-check-child", resp.Executions[0].Children[0].Execution.WorkflowID)
 }
 
 func TestBuildExecutionHierarchy(t *testing.T) {

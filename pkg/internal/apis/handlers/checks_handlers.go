@@ -164,6 +164,15 @@ var checksStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
 func HandleListMyChecks() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
+		if authRecord == nil {
+			return apierror.New(
+				http.StatusUnauthorized,
+				"auth",
+				"authentication required",
+				"user not authenticated",
+			).JSON(e)
+		}
+
 		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
@@ -173,6 +182,10 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
+
+		limit, pageNum := parsePaginationParams(e, 20, 0)
+		offset := pageNum * limit
+
 		c, err := listChecksTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
@@ -183,72 +196,14 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		statusParam := e.Request.URL.Query().Get("status")
-		if strings.ToLower(statusParam) == statusStringQueued {
-			queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to list queued runs",
-					err.Error(),
-				).JSON(e)
-			}
-			queuedSummaries := buildQueuedWorkflowSummaries(
-				e.App,
-				queuedRuns,
-				authRecord.GetString("Timezone"),
-			)
-			resp := ListMyChecksResponse{}
-
-			if queuedSummaries == nil {
-				resp.Executions = []*WorkflowExecutionSummary{}
-			} else {
-				resp.Executions = queuedSummaries
-			}
-			return e.JSON(http.StatusOK, resp)
-		}
-		var statusFilters []enums.WorkflowExecutionStatus
-		if statusParam != "" {
-			statusStrings := strings.SplitSeq(statusParam, ",")
-			for s := range statusStrings {
-				switch strings.ToLower(strings.TrimSpace(s)) {
-				case statusStringRunning:
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_RUNNING)
-				case statusStringCompleted:
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_COMPLETED)
-				case statusStringFailed:
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_FAILED)
-				case statusStringTerminated:
-					statusFilters = append(
-						statusFilters,
-						enums.WORKFLOW_EXECUTION_STATUS_TERMINATED,
-					)
-				case statusStringCanceled:
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_CANCELED)
-				case statusStringTimedOut:
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_TIMED_OUT)
-				case statusStringContinuedAsNew:
-					statusFilters = append(
-						statusFilters,
-						enums.WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW,
-					)
-				case statusStringUnspecified:
-					statusFilters = append(
-						statusFilters,
-						enums.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED,
-					)
-				}
-			}
+		statusFilters, statusOK := parseWorkflowStatusFilters(statusParam)
+		if statusParam != "" && !statusOK {
+			return e.JSON(http.StatusOK, ListMyChecksResponse{
+				Executions: []*WorkflowExecutionSummary{},
+			})
 		}
 
-		var query string
-		if len(statusFilters) > 0 {
-			var statusQueries []string
-			for _, s := range statusFilters {
-				statusQueries = append(statusQueries, fmt.Sprintf("ExecutionStatus=%d", s))
-			}
-			query = strings.Join(statusQueries, " or ")
-		}
+		query := buildWorkflowStatusQuery(statusFilters)
 
 		list, err := listChecksWorkflows(context.Background(), c, namespace, query)
 		if err != nil {
@@ -290,11 +245,18 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		var filteredExecutions []*WorkflowExecution
-		for _, exec := range execs.Executions {
-			if exec.Type.Name != "Dynamic Pipeline Workflow" {
-				filteredExecutions = append(filteredExecutions, exec)
-			}
+		filteredExecutions, err := filterNonPipelineExecutions(
+			e.Request.Context(),
+			c,
+			execs.Executions,
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to resolve workflow parents",
+				err.Error(),
+			).JSON(e)
 		}
 
 		hierarchy := buildExecutionHierarchy(
@@ -304,31 +266,122 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			authRecord.GetString("Timezone"),
 			c,
 		)
-
-		if shouldIncludeQueuedRuns(statusParam) {
-			queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to list queued runs",
-					err.Error(),
-				).JSON(e)
-			}
-			queuedSummaries := buildQueuedWorkflowSummaries(
-				e.App,
-				queuedRuns,
-				authRecord.GetString("Timezone"),
-			)
-			if len(queuedSummaries) > 0 {
-				hierarchy = append(queuedSummaries, hierarchy...)
-			}
-		}
+		hierarchy = paginateWorkflowExecutionSummaries(hierarchy, limit, offset)
 
 		resp := ListMyChecksResponse{}
 		resp.Executions = hierarchy
 		return e.JSON(http.StatusOK, resp)
 	}
+}
+
+func buildWorkflowStatusQuery(statusFilters []enums.WorkflowExecutionStatus) string {
+	if len(statusFilters) == 0 {
+		return ""
+	}
+
+	statusQueries := make([]string, 0, len(statusFilters))
+	for _, status := range statusFilters {
+		statusQueries = append(statusQueries, fmt.Sprintf("ExecutionStatus=%d", status))
+	}
+
+	return strings.Join(statusQueries, " or ")
+}
+
+func filterNonPipelineExecutions(
+	ctx context.Context,
+	temporalClient client.Client,
+	executions []*WorkflowExecution,
+) ([]*WorkflowExecution, error) {
+	pipelineWorkflowName := pipeline.NewPipelineWorkflow().Name()
+	executionByRunID := make(map[string]*WorkflowExecution, len(executions))
+	for _, exec := range executions {
+		if exec == nil || exec.Execution == nil {
+			continue
+		}
+		executionByRunID[exec.Execution.RunID] = exec
+	}
+
+	filtered := make([]*WorkflowExecution, 0, len(executions))
+	for _, exec := range executions {
+		if exec == nil || exec.Execution == nil {
+			continue
+		}
+		if exec.Type.Name == pipelineWorkflowName {
+			continue
+		}
+		if exec.ParentExecution == nil {
+			filtered = append(filtered, exec)
+			continue
+		}
+
+		parent, ok := executionByRunID[exec.ParentExecution.RunID]
+		if ok {
+			if parent != nil && parent.Type.Name == pipelineWorkflowName {
+				continue
+			}
+			filtered = append(filtered, exec)
+			continue
+		}
+
+		parentType, err := getWorkflowTypeName(
+			ctx,
+			temporalClient,
+			exec.ParentExecution.WorkflowID,
+			exec.ParentExecution.RunID,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if parentType == pipelineWorkflowName {
+			continue
+		}
+
+		filtered = append(filtered, exec)
+	}
+
+	return filtered, nil
+}
+
+func getWorkflowTypeName(
+	ctx context.Context,
+	temporalClient client.Client,
+	workflowID string,
+	runID string,
+) (string, error) {
+	if temporalClient == nil || workflowID == "" {
+		return "", nil
+	}
+
+	description, err := temporalClient.DescribeWorkflowExecution(ctx, workflowID, runID)
+	if err != nil {
+		return "", err
+	}
+	if description == nil || description.GetWorkflowExecutionInfo() == nil ||
+		description.GetWorkflowExecutionInfo().GetType() == nil {
+		return "", nil
+	}
+
+	return description.GetWorkflowExecutionInfo().GetType().GetName(), nil
+}
+
+func paginateWorkflowExecutionSummaries(
+	summaries []*WorkflowExecutionSummary,
+	limit int,
+	offset int,
+) []*WorkflowExecutionSummary {
+	if len(summaries) == 0 || limit <= 0 || offset >= len(summaries) {
+		return []*WorkflowExecutionSummary{}
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	end := offset + limit
+	if end > len(summaries) {
+		end = len(summaries)
+	}
+
+	return summaries[offset:end]
 }
 
 func listChecksWorkflowsTemporal(
