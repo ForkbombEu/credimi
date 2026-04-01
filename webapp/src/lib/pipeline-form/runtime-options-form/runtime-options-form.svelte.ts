@@ -2,40 +2,50 @@
 //
 // SPDX-License-Identifier: AGPL-3.0-or-later
 
-import type { ActivityOptions } from '$lib/pipeline/types.generated';
+import type { Pipeline } from '$lib';
 import type { Renderable } from '$lib/renderable';
-import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
-import { createForm } from '@/forms';
-import { getExceptionMessage } from '@/utils/errors';
-import Ajv from 'ajv';
 import type { SuperForm } from 'sveltekit-superforms';
+
+import PipelineSchema from '$root/schemas/pipeline/pipeline_schema.json';
+import Ajv from 'ajv';
 import { zod } from 'sveltekit-superforms/adapters';
 import { parse as parseYaml, stringify } from 'yaml';
 import { z } from 'zod/v3';
-import Component from './activity-options-form.svelte';
+
+import { createForm } from '@/forms';
+import { getExceptionMessage } from '@/utils/errors';
+
+import Component from './runtime-options-form.svelte';
 
 //
 
+export type RuntimeOptions = NonNullable<Pipeline.Pipeline['runtime']>;
+
 type Props = {
-	initialData?: ActivityOptions;
+	initialData?: RuntimeOptions;
 };
 
-export const DEFAULT_ACTIVITY_OPTIONS: ActivityOptions = {
-	schedule_to_close_timeout: '20m',
-	start_to_close_timeout: '20m',
-	retry_policy: {
-		maximum_attempts: 1
+export const DEFAULT_RUNTIME_OPTIONS: RuntimeOptions = {
+	disable_android_play_store: false,
+	temporal: {
+		activity_options: {
+			schedule_to_close_timeout: '20m',
+			start_to_close_timeout: '20m',
+			retry_policy: {
+				maximum_attempts: 3
+			}
+		}
 	}
 };
 
-export class ActivityOptionsForm implements Renderable<ActivityOptionsForm> {
+export class RuntimeOptionsForm implements Renderable<RuntimeOptionsForm> {
 	readonly Component = Component;
 
 	constructor(props: Props) {
-		this.#value = props.initialData ?? DEFAULT_ACTIVITY_OPTIONS;
+		this.#value = props.initialData ?? DEFAULT_RUNTIME_OPTIONS;
 	}
 
-	#value: ActivityOptions = $state({});
+	#value: RuntimeOptions = $state({});
 	get value() {
 		return this.#value;
 	}
@@ -46,7 +56,7 @@ export class ActivityOptionsForm implements Renderable<ActivityOptionsForm> {
 		this.superform = createForm({
 			adapter: zod(
 				z.object({
-					code: activtyOptionsStringSchema
+					code: runtimeOptionsStringSchema
 				})
 			),
 			initialData: { code: stringify(this.#value) },
@@ -64,9 +74,9 @@ export class ActivityOptionsForm implements Renderable<ActivityOptionsForm> {
 // Schema
 
 const ajv = new Ajv({ allowUnionTypes: true });
-export const validateActivityOptions = ajv.compile(PipelineSchema.$defs.ActivityOptions);
+export const validateRuntimeOptions = ajv.compile(PipelineSchema.properties.runtime);
 
-const activtyOptionsStringSchema = z.string().superRefine((v, ctx) => {
+const runtimeOptionsStringSchema = z.string().superRefine((v, ctx) => {
 	let res: unknown;
 	try {
 		res = parseYaml(v);
@@ -78,9 +88,9 @@ const activtyOptionsStringSchema = z.string().superRefine((v, ctx) => {
 		return;
 	}
 
-	const isValid = validateActivityOptions(res);
+	const isValid = validateRuntimeOptions(res);
 	if (!isValid) {
-		const error = ajv.errorsText(validateActivityOptions.errors);
+		const error = ajv.errorsText(validateRuntimeOptions.errors);
 		ctx.addIssue({
 			code: z.ZodIssueCode.custom,
 			message: `Invalid YAML document: ${error}`
@@ -88,6 +98,6 @@ const activtyOptionsStringSchema = z.string().superRefine((v, ctx) => {
 	}
 });
 
-export function isActivityOptions(value: unknown): value is ActivityOptions {
-	return validateActivityOptions(value);
+export function isRuntimeOptions(value: unknown): value is RuntimeOptions {
+	return validateRuntimeOptions(value);
 }

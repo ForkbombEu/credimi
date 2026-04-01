@@ -16,11 +16,11 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import Form from '@/forms/form.svelte';
 	import { m } from '@/i18n/index.js';
 
-	import type { ActivityOptionsForm } from './activity-options-form.svelte.js';
+	import type { RuntimeOptionsForm } from './runtime-options-form.svelte.js';
 
 	//
 
-	const { self: form }: SelfProp<ActivityOptionsForm> = $props();
+	const { self: form }: SelfProp<RuntimeOptionsForm> = $props();
 </script>
 
 <Dialog bind:open={form.isOpen}>
