@@ -554,7 +554,12 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 	resultRecord.Set("run_id", "run-2")
 	require.NoError(t, app.Save(resultRecord))
 
-	pipelinePath, err := canonify.BuildPath(app, pipelineRecord, canonify.CanonifyPaths["pipelines"], "")
+	pipelinePath, err := canonify.BuildPath(
+		app,
+		pipelineRecord,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
 	require.NoError(t, err)
 	pipelineIdentifier := strings.Trim(pipelinePath, "/")
 
@@ -565,8 +570,17 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 			mock.Anything,
 			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
 				return req.GetNamespace() == "usera-s-organization" &&
-					strings.Contains(req.GetQuery(), fmt.Sprintf("ExecutionStatus=%d", enums.WORKFLOW_EXECUTION_STATUS_COMPLETED)) &&
-					strings.Contains(req.GetQuery(), fmt.Sprintf(`PipelineIdentifier="%s"`, pipelineIdentifier)) &&
+					strings.Contains(
+						req.GetQuery(),
+						fmt.Sprintf(
+							"ExecutionStatus=%d",
+							enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+						),
+					) &&
+					strings.Contains(
+						req.GetQuery(),
+						fmt.Sprintf(`PipelineIdentifier="%s"`, pipelineIdentifier),
+					) &&
 					req.GetPageSize() == int32(1) &&
 					len(req.GetNextPageToken()) == 0
 			}),
@@ -584,8 +598,17 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 			mock.Anything,
 			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
 				return req.GetNamespace() == "usera-s-organization" &&
-					strings.Contains(req.GetQuery(), fmt.Sprintf("ExecutionStatus=%d", enums.WORKFLOW_EXECUTION_STATUS_COMPLETED)) &&
-					strings.Contains(req.GetQuery(), fmt.Sprintf(`PipelineIdentifier="%s"`, pipelineIdentifier)) &&
+					strings.Contains(
+						req.GetQuery(),
+						fmt.Sprintf(
+							"ExecutionStatus=%d",
+							enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+						),
+					) &&
+					strings.Contains(
+						req.GetQuery(),
+						fmt.Sprintf(`PipelineIdentifier="%s"`, pipelineIdentifier),
+					) &&
 					req.GetPageSize() == int32(1) &&
 					string(req.GetNextPageToken()) == "next"
 			}),
@@ -612,8 +635,8 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 						WorkflowId: "child-1",
 						RunId:      "child-run-1",
 					},
-					Type: &common.WorkflowType{Name: "ChildWorkflow"},
-					Status: enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
+					Type:      &common.WorkflowType{Name: "ChildWorkflow"},
+					Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
 					StartTime: timestamppb.New(time.Now().Add(-30 * time.Second)),
 					CloseTime: timestamppb.New(time.Now().Add(-20 * time.Second)),
 					ParentExecution: &common.WorkflowExecution{
@@ -791,7 +814,12 @@ func TestHandleGetPipelineSpecificDetailsIncludesQueuedInPagination(t *testing.T
 		}, nil
 	}
 
-	pipelinePath, err := canonify.BuildPath(app, pipelineRecord, canonify.CanonifyPaths["pipelines"], "")
+	pipelinePath, err := canonify.BuildPath(
+		app,
+		pipelineRecord,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
 	require.NoError(t, err)
 	pipelineIdentifier := strings.Trim(pipelinePath, "/")
 
@@ -802,7 +830,10 @@ func TestHandleGetPipelineSpecificDetailsIncludesQueuedInPagination(t *testing.T
 			mock.Anything,
 			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
 				return req.GetNamespace() == "usera-s-organization" &&
-					strings.Contains(req.GetQuery(), fmt.Sprintf(`PipelineIdentifier="%s"`, pipelineIdentifier)) &&
+					strings.Contains(
+						req.GetQuery(),
+						fmt.Sprintf(`PipelineIdentifier="%s"`, pipelineIdentifier),
+					) &&
 					req.GetPageSize() == int32(1) &&
 					len(req.GetNextPageToken()) == 0
 			}),

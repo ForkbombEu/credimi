@@ -11,7 +11,7 @@ import (
 )
 
 var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
-	handlers.ChecksRoutes,
+	handlers.WorkflowsRoutes,
 	handlers.ApiKeyRoutes,
 	handlers.SchedulesRoutes,
 	handlers.CustomIntegrationsRoutes,

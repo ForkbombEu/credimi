@@ -17,8 +17,8 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
-	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/dbx"
+	"github.com/pocketbase/pocketbase/apis"
 	"github.com/pocketbase/pocketbase/core"
 	"github.com/pocketbase/pocketbase/tests"
 	"github.com/pocketbase/pocketbase/tools/router"
@@ -84,11 +84,11 @@ func TestHandleGetMyCheckRunRequiresAuth(t *testing.T) {
 		"/api/my/checks/checks-1/runs/run-1",
 		nil,
 	)
-	req.SetPathValue("checkId", "checks-1")
+	req.SetPathValue("workflowId", "checks-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleGetMyCheckRun()(&core.RequestEvent{
+	err = HandleGetMyWorkflowRun()(&core.RequestEvent{
 		App: app,
 		Event: router.Event{
 			Request:  req,
@@ -116,10 +116,10 @@ func TestHandleGetMyCheckRunMissingRunID(t *testing.T) {
 		"/api/my/checks/checks-1/runs/",
 		nil,
 	)
-	req.SetPathValue("checkId", "checks-1")
+	req.SetPathValue("workflowId", "checks-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleGetMyCheckRun()(&core.RequestEvent{
+	err = HandleGetMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -146,7 +146,7 @@ func TestHandleListMyCheckRunsMissingCheckID(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks//runs", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleListMyCheckRuns()(&core.RequestEvent{
+	err = HandleListMyWorkflowRuns()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -159,7 +159,7 @@ func TestHandleListMyCheckRunsMissingCheckID(t *testing.T) {
 
 	apiErr := decodeAPIError(t, rec)
 	require.Equal(t, http.StatusBadRequest, apiErr.Code)
-	require.Equal(t, "checkId is required", apiErr.Reason)
+	require.Equal(t, "workflowId is required", apiErr.Reason)
 }
 
 func TestHandleListMyCheckRunsUnauthorized(t *testing.T) {
@@ -168,10 +168,10 @@ func TestHandleListMyCheckRunsUnauthorized(t *testing.T) {
 	defer app.Cleanup()
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/checks-1/runs", nil)
-	req.SetPathValue("checkId", "checks-1")
+	req.SetPathValue("workflowId", "checks-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleListMyCheckRuns()(&core.RequestEvent{
+	err = HandleListMyWorkflowRuns()(&core.RequestEvent{
 		App: app,
 		Event: router.Event{
 			Request:  req,
@@ -194,18 +194,18 @@ func TestHandleListMyCheckRunsTemporalClientError(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
-	t.Cleanup(func() { checksTemporalClient = origClient })
+	origClient := workflowTemporalClient
+	t.Cleanup(func() { workflowTemporalClient = origClient })
 
-	checksTemporalClient = func(string) (client.Client, error) {
+	workflowTemporalClient = func(string) (client.Client, error) {
 		return nil, errors.New("no client")
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/checks-1/runs", nil)
-	req.SetPathValue("checkId", "checks-1")
+	req.SetPathValue("workflowId", "checks-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleListMyCheckRuns()(&core.RequestEvent{
+	err = HandleListMyWorkflowRuns()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -229,21 +229,21 @@ func TestHandleListMyCheckRunsListError(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
-	t.Cleanup(func() { checksTemporalClient = origClient })
+	origClient := workflowTemporalClient
+	t.Cleanup(func() { workflowTemporalClient = origClient })
 
 	mockClient := &temporalmocks.Client{}
-	checksTemporalClient = func(string) (client.Client, error) {
+	workflowTemporalClient = func(string) (client.Client, error) {
 		return mockClient, nil
 	}
 	mockClient.On("ListWorkflow", mock.Anything, mock.Anything).
 		Return((*workflowservice.ListWorkflowExecutionsResponse)(nil), &serviceerror.Internal{Message: "boom"})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/checks-1/runs", nil)
-	req.SetPathValue("checkId", "checks-1")
+	req.SetPathValue("workflowId", "checks-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleListMyCheckRuns()(&core.RequestEvent{
+	err = HandleListMyWorkflowRuns()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -273,7 +273,7 @@ func TestListChecksWorkflowsTemporal(t *testing.T) {
 		).
 		Return(expected, nil)
 
-	resp, err := listChecksWorkflowsTemporal(context.Background(), mockClient, "tenant-1", "query")
+	resp, err := listWorkflowsTemporal(context.Background(), mockClient, "tenant-1", "query")
 	require.NoError(t, err)
 	require.Same(t, expected, resp)
 }
@@ -287,11 +287,11 @@ func TestHandleGetMyCheckRunHistoryMissingParams(t *testing.T) {
 	require.NoError(t, err)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/checks-1/runs/", nil)
-	req.SetPathValue("checkId", "")
+	req.SetPathValue("workflowId", "")
 	req.SetPathValue("runId", "")
 	ar := httptest.NewRecorder()
 
-	err = HandleGetMyCheckRunHistory()(&core.RequestEvent{
+	err = HandleGetMyWorkflowRunHistory()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -304,7 +304,7 @@ func TestHandleGetMyCheckRunHistoryMissingParams(t *testing.T) {
 
 	apiErr := decodeAPIError(t, ar)
 	require.Equal(t, http.StatusBadRequest, apiErr.Code)
-	require.Equal(t, "checkId and runId are required", apiErr.Reason)
+	require.Equal(t, "workflowId and runId are required", apiErr.Reason)
 }
 
 func TestHandleGetMyCheckRunSuccess(t *testing.T) {
@@ -315,13 +315,13 @@ func TestHandleGetMyCheckRunSuccess(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
@@ -340,11 +340,11 @@ func TestHandleGetMyCheckRunSuccess(t *testing.T) {
 		}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-1/runs/run-1", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleGetMyCheckRun()(&core.RequestEvent{
+	err = HandleGetMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -365,13 +365,13 @@ func TestHandleGetMyCheckRunInvalidArgument(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
@@ -385,11 +385,11 @@ func TestHandleGetMyCheckRunInvalidArgument(t *testing.T) {
 		Return(nil, &serviceerror.InvalidArgument{Message: "invalid"})
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-1/runs/bad-run", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "bad-run")
 	rec := httptest.NewRecorder()
 
-	err = HandleGetMyCheckRun()(&core.RequestEvent{
+	err = HandleGetMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -474,13 +474,13 @@ func TestHandleGetMyCheckRunHistorySuccess(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
@@ -502,11 +502,11 @@ func TestHandleGetMyCheckRunHistorySuccess(t *testing.T) {
 		Return(iter)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-1/runs/run-1/history", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleGetMyCheckRunHistory()(&core.RequestEvent{
+	err = HandleGetMyWorkflowRunHistory()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -520,7 +520,7 @@ func TestHandleGetMyCheckRunHistorySuccess(t *testing.T) {
 	var payload map[string]any
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&payload))
 	require.Equal(t, float64(1), payload["count"])
-	require.Equal(t, "check-1", payload["checkId"])
+	require.Equal(t, "check-1", payload["workflowId"])
 	require.Equal(t, "run-1", payload["runId"])
 	history, ok := payload["history"].([]any)
 	require.True(t, ok)
@@ -535,13 +535,13 @@ func TestHandleListMyCheckRunsSuccess(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
@@ -566,10 +566,10 @@ func TestHandleListMyCheckRunsSuccess(t *testing.T) {
 		}, nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-1/runs", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleListMyCheckRuns()(&core.RequestEvent{
+	err = HandleListMyWorkflowRuns()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -580,7 +580,7 @@ func TestHandleListMyCheckRunsSuccess(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	var resp ListMyChecksResponse
+	var resp ListMyWorkflowsResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 	require.Len(t, resp.Executions, 1)
 	require.Equal(t, "check-1", resp.Executions[0].Execution.WorkflowID)
@@ -599,9 +599,9 @@ func TestHandleCancelMyCheckRunNotFound(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -610,16 +610,16 @@ func TestHandleCancelMyCheckRunNotFound(t *testing.T) {
 		Return(&serviceerror.NotFound{}).
 		Once()
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/my/checks/check-1/runs/run-1", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleCancelMyCheckRun()(&core.RequestEvent{
+	err = HandleCancelMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -633,11 +633,11 @@ func TestHandleCancelMyCheckRunNotFound(t *testing.T) {
 
 func TestHandleTerminateMyCheckRunMissingAuth(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-1/runs/run-1/terminate", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err := HandleTerminateMyCheckRun()(&core.RequestEvent{
+	err := HandleTerminateMyWorkflowRun()(&core.RequestEvent{
 		Event: router.Event{
 			Request:  req,
 			Response: rec,
@@ -658,7 +658,7 @@ func TestHandleTerminateMyCheckRunMissingParams(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks//runs//terminate", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleTerminateMyCheckRun()(&core.RequestEvent{
+	err = HandleTerminateMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -681,11 +681,11 @@ func TestHandleTerminateMyCheckRunMissingOrganization(t *testing.T) {
 	authRecord.Id = "missing-user"
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-1/runs/run-1/terminate", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleTerminateMyCheckRun()(&core.RequestEvent{
+	err = HandleTerminateMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -705,21 +705,21 @@ func TestHandleTerminateMyCheckRunClientError(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return nil, errors.New("client error")
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-1/runs/run-1/terminate", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleTerminateMyCheckRun()(&core.RequestEvent{
+	err = HandleTerminateMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -739,9 +739,9 @@ func TestHandleTerminateMyCheckRunNotFound(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -757,16 +757,16 @@ func TestHandleTerminateMyCheckRunNotFound(t *testing.T) {
 		Return(&serviceerror.NotFound{}).
 		Once()
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-3/runs/run-3/terminate", nil)
-	req.SetPathValue("checkId", "check-3")
+	req.SetPathValue("workflowId", "check-3")
 	req.SetPathValue("runId", "run-3")
 	rec := httptest.NewRecorder()
 
-	err = HandleTerminateMyCheckRun()(&core.RequestEvent{
+	err = HandleTerminateMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -786,9 +786,9 @@ func TestHandleTerminateMyCheckRunError(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -804,16 +804,16 @@ func TestHandleTerminateMyCheckRunError(t *testing.T) {
 		Return(errors.New("terminate error")).
 		Once()
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-4/runs/run-4/terminate", nil)
-	req.SetPathValue("checkId", "check-4")
+	req.SetPathValue("workflowId", "check-4")
 	req.SetPathValue("runId", "run-4")
 	rec := httptest.NewRecorder()
 
-	err = HandleTerminateMyCheckRun()(&core.RequestEvent{
+	err = HandleTerminateMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -833,9 +833,9 @@ func TestHandleTerminateMyCheckRunSuccess(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -851,16 +851,16 @@ func TestHandleTerminateMyCheckRunSuccess(t *testing.T) {
 		Return(nil).
 		Once()
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-2/runs/run-2/terminate", nil)
-	req.SetPathValue("checkId", "check-2")
+	req.SetPathValue("workflowId", "check-2")
 	req.SetPathValue("runId", "run-2")
 	rec := httptest.NewRecorder()
 
-	err = HandleTerminateMyCheckRun()(&core.RequestEvent{
+	err = HandleTerminateMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -881,26 +881,26 @@ func TestHandleExportMyCheckRunSuccess(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
-	origInput := checksGetWorkflowInput
+	origClient := workflowTemporalClient
+	origInput := workflowRunInputGetter
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
-		checksGetWorkflowInput = origInput
+		workflowTemporalClient = origClient
+		workflowRunInputGetter = origInput
 	})
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	checksGetWorkflowInput = func(checkID string, runID string, c client.Client) (workflowengine.WorkflowInput, error) {
+	workflowRunInputGetter = func(checkID string, runID string, c client.Client) (workflowengine.WorkflowInput, error) {
 		return workflowengine.WorkflowInput{}, nil
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-3/runs/run-3/export", nil)
-	req.SetPathValue("checkId", "check-3")
+	req.SetPathValue("workflowId", "check-3")
 	req.SetPathValue("runId", "run-3")
 	rec := httptest.NewRecorder()
 
-	err = HandleExportMyCheckRun()(&core.RequestEvent{
+	err = HandleExportMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -915,11 +915,11 @@ func TestHandleExportMyCheckRunSuccess(t *testing.T) {
 
 func TestHandleMyCheckLogsMissingAuth(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-1/runs/run-1/logs", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err := HandleMyCheckLogs()(&core.RequestEvent{
+	err := HandleMyWorkflowLogs()(&core.RequestEvent{
 		Event: router.Event{
 			Request:  req,
 			Response: rec,
@@ -940,7 +940,7 @@ func TestHandleMyCheckLogsMissingParams(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks//runs//logs", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleMyCheckLogs()(&core.RequestEvent{
+	err = HandleMyWorkflowLogs()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -974,11 +974,11 @@ func TestHandleMyCheckLogsMissingOrganization(t *testing.T) {
 	require.NoError(t, app.Save(orgRecord))
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-2/runs/run-2/logs", nil)
-	req.SetPathValue("checkId", "check-2")
+	req.SetPathValue("workflowId", "check-2")
 	req.SetPathValue("runId", "run-2")
 	rec := httptest.NewRecorder()
 
-	err = HandleMyCheckLogs()(&core.RequestEvent{
+	err = HandleMyWorkflowLogs()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -998,21 +998,21 @@ func TestHandleMyCheckLogsClientError(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return nil, errors.New("client error")
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-3/runs/run-3/logs", nil)
-	req.SetPathValue("checkId", "check-3")
+	req.SetPathValue("workflowId", "check-3")
 	req.SetPathValue("runId", "run-3")
 	rec := httptest.NewRecorder()
 
-	err = HandleMyCheckLogs()(&core.RequestEvent{
+	err = HandleMyWorkflowLogs()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1032,9 +1032,9 @@ func TestHandleMyCheckLogsDescribeNotFound(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -1043,16 +1043,16 @@ func TestHandleMyCheckLogsDescribeNotFound(t *testing.T) {
 		Return(nil, &serviceerror.NotFound{}).
 		Once()
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-5/runs/run-5/logs", nil)
-	req.SetPathValue("checkId", "check-5")
+	req.SetPathValue("workflowId", "check-5")
 	req.SetPathValue("runId", "run-5")
 	rec := httptest.NewRecorder()
 
-	err = HandleMyCheckLogs()(&core.RequestEvent{
+	err = HandleMyWorkflowLogs()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1072,9 +1072,9 @@ func TestHandleMyCheckLogsDescribeError(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -1083,16 +1083,16 @@ func TestHandleMyCheckLogsDescribeError(t *testing.T) {
 		Return(nil, errors.New("describe error")).
 		Once()
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-6/runs/run-6/logs", nil)
-	req.SetPathValue("checkId", "check-6")
+	req.SetPathValue("workflowId", "check-6")
 	req.SetPathValue("runId", "run-6")
 	rec := httptest.NewRecorder()
 
-	err = HandleMyCheckLogs()(&core.RequestEvent{
+	err = HandleMyWorkflowLogs()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1112,9 +1112,9 @@ func TestHandleMyCheckLogsSignalStartError(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -1127,7 +1127,7 @@ func TestHandleMyCheckLogsSignalStartError(t *testing.T) {
 		Return(errors.New("signal error")).
 		Once()
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
@@ -1136,11 +1136,11 @@ func TestHandleMyCheckLogsSignalStartError(t *testing.T) {
 		"/api/my/checks/check-7/runs/run-7/logs?action=start",
 		nil,
 	)
-	req.SetPathValue("checkId", "check-7")
+	req.SetPathValue("workflowId", "check-7")
 	req.SetPathValue("runId", "run-7")
 	rec := httptest.NewRecorder()
 
-	err = HandleMyCheckLogs()(&core.RequestEvent{
+	err = HandleMyWorkflowLogs()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1160,9 +1160,9 @@ func TestHandleMyCheckLogsSignalStopError(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -1175,7 +1175,7 @@ func TestHandleMyCheckLogsSignalStopError(t *testing.T) {
 		Return(errors.New("signal error")).
 		Once()
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
@@ -1184,11 +1184,11 @@ func TestHandleMyCheckLogsSignalStopError(t *testing.T) {
 		"/api/my/checks/check-8/runs/run-8/logs?action=stop",
 		nil,
 	)
-	req.SetPathValue("checkId", "check-8")
+	req.SetPathValue("workflowId", "check-8")
 	req.SetPathValue("runId", "run-8")
 	rec := httptest.NewRecorder()
 
-	err = HandleMyCheckLogs()(&core.RequestEvent{
+	err = HandleMyWorkflowLogs()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1208,9 +1208,9 @@ func TestHandleMyCheckLogsStart(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -1223,7 +1223,7 @@ func TestHandleMyCheckLogsStart(t *testing.T) {
 		Return(nil).
 		Once()
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
@@ -1232,11 +1232,11 @@ func TestHandleMyCheckLogsStart(t *testing.T) {
 		"/api/my/checks/check-4/runs/run-4/logs?action=start",
 		nil,
 	)
-	req.SetPathValue("checkId", "check-4")
+	req.SetPathValue("workflowId", "check-4")
 	req.SetPathValue("runId", "run-4")
 	rec := httptest.NewRecorder()
 
-	err = HandleMyCheckLogs()(&core.RequestEvent{
+	err = HandleMyWorkflowLogs()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1257,13 +1257,13 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
-	origInput := checksGetWorkflowInput
-	origStart := checksStartWorkflowWithOptions
+	origClient := workflowTemporalClient
+	origInput := workflowRunInputGetter
+	origStart := workflowStartWithOptions
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
-		checksGetWorkflowInput = origInput
-		checksStartWorkflowWithOptions = origStart
+		workflowTemporalClient = origClient
+		workflowRunInputGetter = origInput
+		workflowStartWithOptions = origStart
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -1281,16 +1281,16 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 		}, nil).
 		Once()
 
-	checksTemporalClient = func(namespace string) (client.Client, error) {
+	workflowTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
-	checksGetWorkflowInput = func(checkID string, runID string, c client.Client) (workflowengine.WorkflowInput, error) {
+	workflowRunInputGetter = func(checkID string, runID string, c client.Client) (workflowengine.WorkflowInput, error) {
 		return workflowengine.WorkflowInput{
 			Payload: map[string]any{"foo": "bar"},
 			Config:  map[string]any{"app_url": "https://app"},
 		}, nil
 	}
-	checksStartWorkflowWithOptions = func(
+	workflowStartWithOptions = func(
 		namespace string,
 		options client.StartWorkflowOptions,
 		workflowName string,
@@ -1303,11 +1303,11 @@ func TestHandleRerunMyCheckSuccess(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-5/runs/run-5/rerun", nil)
-	req.SetPathValue("checkId", "check-5")
+	req.SetPathValue("workflowId", "check-5")
 	req.SetPathValue("runId", "run-5")
 	rec := httptest.NewRecorder()
 
-	err = HandleRerunMyCheck()(&core.RequestEvent{
+	err = HandleRerunMyWorkflow()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1369,7 +1369,7 @@ func TestGetWorkflowInputSuccess(t *testing.T) {
 	require.Equal(t, "https://app", got.Config["app_url"])
 }
 
-func TestHandleListMyChecksStatusFilterQuery(t *testing.T) {
+func TestHandleListMyWorkflowsStatusFilterQuery(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -1377,20 +1377,20 @@ func TestHandleListMyChecksStatusFilterQuery(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := listChecksTemporalClient
-	origList := listChecksWorkflows
+	origClient := listWorkflowsTemporalClient
+	origList := listWorkflows
 	t.Cleanup(func() {
-		listChecksTemporalClient = origClient
-		listChecksWorkflows = origList
+		listWorkflowsTemporalClient = origClient
+		listWorkflows = origList
 	})
 
 	mockClient := &temporalmocks.Client{}
-	listChecksTemporalClient = func(namespace string) (client.Client, error) {
+	listWorkflowsTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
 	var capturedQuery string
-	listChecksWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+	listWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
 		capturedQuery = query
 		return &workflowservice.ListWorkflowExecutionsResponse{}, nil
 	}
@@ -1398,7 +1398,7 @@ func TestHandleListMyChecksStatusFilterQuery(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks?status=Completed,FAILED", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleListMyChecks()(&core.RequestEvent{
+	err = HandleListMyWorkflows()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1419,7 +1419,7 @@ func TestHandleListMyChecksStatusFilterQuery(t *testing.T) {
 	require.Contains(t, capturedQuery, "or")
 }
 
-func TestHandleListMyChecksPagination(t *testing.T) {
+func TestHandleListMyWorkflowsPagination(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -1427,20 +1427,20 @@ func TestHandleListMyChecksPagination(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := listChecksTemporalClient
-	origList := listChecksWorkflows
+	origClient := listWorkflowsTemporalClient
+	origList := listWorkflows
 	t.Cleanup(func() {
-		listChecksTemporalClient = origClient
-		listChecksWorkflows = origList
+		listWorkflowsTemporalClient = origClient
+		listWorkflows = origList
 	})
 
 	mockClient := &temporalmocks.Client{}
-	listChecksTemporalClient = func(namespace string) (client.Client, error) {
+	listWorkflowsTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
 	now := time.Now()
-	listChecksWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+	listWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
 		return &workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
 				{
@@ -1471,7 +1471,7 @@ func TestHandleListMyChecksPagination(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/list-workflows?limit=1&offset=1", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleListMyChecks()(&core.RequestEvent{
+	err = HandleListMyWorkflows()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1482,13 +1482,13 @@ func TestHandleListMyChecksPagination(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	var resp ListMyChecksResponse
+	var resp ListMyWorkflowsResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 	require.Len(t, resp.Executions, 1)
 	require.Equal(t, "wf-2", resp.Executions[0].Execution.WorkflowID)
 }
 
-func TestHandleListMyChecksTemporalClientError(t *testing.T) {
+func TestHandleListMyWorkflowsTemporalClientError(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -1496,19 +1496,19 @@ func TestHandleListMyChecksTemporalClientError(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := listChecksTemporalClient
+	origClient := listWorkflowsTemporalClient
 	t.Cleanup(func() {
-		listChecksTemporalClient = origClient
+		listWorkflowsTemporalClient = origClient
 	})
 
-	listChecksTemporalClient = func(_ string) (client.Client, error) {
+	listWorkflowsTemporalClient = func(_ string) (client.Client, error) {
 		return nil, errors.New("no client")
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleListMyChecks()(&core.RequestEvent{
+	err = HandleListMyWorkflows()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1524,7 +1524,7 @@ func TestHandleListMyChecksTemporalClientError(t *testing.T) {
 	require.Equal(t, "unable to create client", apiErr.Reason)
 }
 
-func TestHandleListMyChecksQueuedStatusReturnsEmpty(t *testing.T) {
+func TestHandleListMyWorkflowsQueuedStatusReturnsEmpty(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -1532,25 +1532,25 @@ func TestHandleListMyChecksQueuedStatusReturnsEmpty(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := listChecksTemporalClient
-	origList := listChecksWorkflows
+	origClient := listWorkflowsTemporalClient
+	origList := listWorkflows
 	t.Cleanup(func() {
-		listChecksTemporalClient = origClient
-		listChecksWorkflows = origList
+		listWorkflowsTemporalClient = origClient
+		listWorkflows = origList
 	})
 
-	listChecksTemporalClient = func(_ string) (client.Client, error) {
+	listWorkflowsTemporalClient = func(_ string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	listChecksWorkflows = func(_ context.Context, _ client.Client, _ string, _ string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
-		t.Fatalf("listChecksWorkflows should not be called for queued-only filter")
+	listWorkflows = func(_ context.Context, _ client.Client, _ string, _ string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+		t.Fatalf("listWorkflows should not be called for queued-only filter")
 		return nil, nil
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/list-workflows?status=queued", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleListMyChecks()(&core.RequestEvent{
+	err = HandleListMyWorkflows()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1561,12 +1561,12 @@ func TestHandleListMyChecksQueuedStatusReturnsEmpty(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	var resp ListMyChecksResponse
+	var resp ListMyWorkflowsResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 	require.Empty(t, resp.Executions)
 }
 
-func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
+func TestHandleListMyWorkflowsFiltersDynamicPipeline(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -1574,19 +1574,19 @@ func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := listChecksTemporalClient
-	origList := listChecksWorkflows
+	origClient := listWorkflowsTemporalClient
+	origList := listWorkflows
 	t.Cleanup(func() {
-		listChecksTemporalClient = origClient
-		listChecksWorkflows = origList
+		listWorkflowsTemporalClient = origClient
+		listWorkflows = origList
 	})
 
 	mockClient := &temporalmocks.Client{}
-	listChecksTemporalClient = func(namespace string) (client.Client, error) {
+	listWorkflowsTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
 
-	listChecksWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+	listWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
 		return &workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
 				{
@@ -1663,7 +1663,7 @@ func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks?status=completed", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleListMyChecks()(&core.RequestEvent{
+	err = HandleListMyWorkflows()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1674,7 +1674,7 @@ func TestHandleListMyChecksFiltersDynamicPipeline(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	var resp ListMyChecksResponse
+	var resp ListMyWorkflowsResponse
 	require.NoError(t, json.NewDecoder(rec.Body).Decode(&resp))
 	require.Len(t, resp.Executions, 1)
 	require.Equal(t, "wf-check", resp.Executions[0].Execution.WorkflowID)
@@ -1729,7 +1729,7 @@ func TestBuildExecutionHierarchy(t *testing.T) {
 	require.Contains(t, results[0].EndTime, "/")
 }
 
-func TestHandleListMyChecksListError(t *testing.T) {
+func TestHandleListMyWorkflowsListError(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
 	defer app.Cleanup()
@@ -1737,25 +1737,25 @@ func TestHandleListMyChecksListError(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := listChecksTemporalClient
-	origList := listChecksWorkflows
+	origClient := listWorkflowsTemporalClient
+	origList := listWorkflows
 	t.Cleanup(func() {
-		listChecksTemporalClient = origClient
-		listChecksWorkflows = origList
+		listWorkflowsTemporalClient = origClient
+		listWorkflows = origList
 	})
 
 	mockClient := &temporalmocks.Client{}
-	listChecksTemporalClient = func(namespace string) (client.Client, error) {
+	listWorkflowsTemporalClient = func(namespace string) (client.Client, error) {
 		return mockClient, nil
 	}
-	listChecksWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
+	listWorkflows = func(ctx context.Context, c client.Client, namespace string, query string) (*workflowservice.ListWorkflowExecutionsResponse, error) {
 		return nil, &serviceerror.Internal{Message: "list failed"}
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleListMyChecks()(&core.RequestEvent{
+	err = HandleListMyWorkflows()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1777,11 +1777,11 @@ func TestHandleRerunMyCheckUnauthorizedAdditional(t *testing.T) {
 	defer app.Cleanup()
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-1/runs/run-1/rerun", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleRerunMyCheck()(&core.RequestEvent{
+	err = HandleRerunMyWorkflow()(&core.RequestEvent{
 		App: app,
 		Event: router.Event{
 			Request:  req,
@@ -1803,7 +1803,7 @@ func TestHandleRerunMyCheckMissingParamsAdditional(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks//runs//rerun", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleRerunMyCheck()(&core.RequestEvent{
+	err = HandleRerunMyWorkflow()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1823,9 +1823,9 @@ func TestHandleRerunMyCheckDescribeNotFoundAdditional(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -1833,16 +1833,16 @@ func TestHandleRerunMyCheckDescribeNotFoundAdditional(t *testing.T) {
 		On("DescribeWorkflowExecution", mock.Anything, "check-1", "run-1").
 		Return(nil, &serviceerror.NotFound{})
 
-	checksTemporalClient = func(string) (client.Client, error) {
+	workflowTemporalClient = func(string) (client.Client, error) {
 		return mockClient, nil
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-1/runs/run-1/rerun", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleRerunMyCheck()(&core.RequestEvent{
+	err = HandleRerunMyWorkflow()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1862,20 +1862,20 @@ func TestHandleRerunMyCheckTemporalClientErrorAdditional(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
-	checksTemporalClient = func(string) (client.Client, error) {
+	workflowTemporalClient = func(string) (client.Client, error) {
 		return nil, errors.New("no client")
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-1/runs/run-1/rerun", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleRerunMyCheck()(&core.RequestEvent{
+	err = HandleRerunMyWorkflow()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1895,11 +1895,11 @@ func TestHandleRerunMyCheckGetInputErrorAdditional(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
-	origInput := checksGetWorkflowInput
+	origClient := workflowTemporalClient
+	origInput := workflowRunInputGetter
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
-		checksGetWorkflowInput = origInput
+		workflowTemporalClient = origClient
+		workflowRunInputGetter = origInput
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -1912,19 +1912,19 @@ func TestHandleRerunMyCheckGetInputErrorAdditional(t *testing.T) {
 			},
 		}, nil)
 
-	checksTemporalClient = func(string) (client.Client, error) {
+	workflowTemporalClient = func(string) (client.Client, error) {
 		return mockClient, nil
 	}
-	checksGetWorkflowInput = func(string, string, client.Client) (workflowengine.WorkflowInput, error) {
+	workflowRunInputGetter = func(string, string, client.Client) (workflowengine.WorkflowInput, error) {
 		return workflowengine.WorkflowInput{}, errors.New("input error")
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-1/runs/run-1/rerun", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleRerunMyCheck()(&core.RequestEvent{
+	err = HandleRerunMyWorkflow()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -1944,13 +1944,13 @@ func TestHandleRerunMyCheckStartErrorAdditional(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
-	origInput := checksGetWorkflowInput
-	origStart := checksStartWorkflowWithOptions
+	origClient := workflowTemporalClient
+	origInput := workflowRunInputGetter
+	origStart := workflowStartWithOptions
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
-		checksGetWorkflowInput = origInput
-		checksStartWorkflowWithOptions = origStart
+		workflowTemporalClient = origClient
+		workflowRunInputGetter = origInput
+		workflowStartWithOptions = origStart
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -1963,13 +1963,13 @@ func TestHandleRerunMyCheckStartErrorAdditional(t *testing.T) {
 			},
 		}, nil)
 
-	checksTemporalClient = func(string) (client.Client, error) {
+	workflowTemporalClient = func(string) (client.Client, error) {
 		return mockClient, nil
 	}
-	checksGetWorkflowInput = func(string, string, client.Client) (workflowengine.WorkflowInput, error) {
+	workflowRunInputGetter = func(string, string, client.Client) (workflowengine.WorkflowInput, error) {
 		return workflowengine.WorkflowInput{Config: map[string]any{"app_url": "https://app"}}, nil
 	}
-	checksStartWorkflowWithOptions = func(
+	workflowStartWithOptions = func(
 		string,
 		client.StartWorkflowOptions,
 		string,
@@ -1979,11 +1979,11 @@ func TestHandleRerunMyCheckStartErrorAdditional(t *testing.T) {
 	}
 
 	req := httptest.NewRequest(http.MethodPost, "/api/my/checks/check-1/runs/run-1/rerun", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleRerunMyCheck()(&core.RequestEvent{
+	err = HandleRerunMyWorkflow()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -2003,9 +2003,9 @@ func TestHandleCancelMyCheckRunSuccessAdditional(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
+	origClient := workflowTemporalClient
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
+		workflowTemporalClient = origClient
 	})
 
 	mockClient := &temporalmocks.Client{}
@@ -2013,16 +2013,16 @@ func TestHandleCancelMyCheckRunSuccessAdditional(t *testing.T) {
 		On("CancelWorkflow", mock.Anything, "check-1", "run-1").
 		Return(nil)
 
-	checksTemporalClient = func(string) (client.Client, error) {
+	workflowTemporalClient = func(string) (client.Client, error) {
 		return mockClient, nil
 	}
 
 	req := httptest.NewRequest(http.MethodDelete, "/api/my/checks/check-1/runs/run-1", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleCancelMyCheckRun()(&core.RequestEvent{
+	err = HandleCancelMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -2046,7 +2046,7 @@ func TestHandleExportMyCheckRunMissingParamsAdditional(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks//runs/", nil)
 	rec := httptest.NewRecorder()
 
-	err = HandleExportMyCheckRun()(&core.RequestEvent{
+	err = HandleExportMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{
@@ -2066,26 +2066,26 @@ func TestHandleExportMyCheckRunGetInputErrorAdditional(t *testing.T) {
 	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
 	require.NoError(t, err)
 
-	origClient := checksTemporalClient
-	origInput := checksGetWorkflowInput
+	origClient := workflowTemporalClient
+	origInput := workflowRunInputGetter
 	t.Cleanup(func() {
-		checksTemporalClient = origClient
-		checksGetWorkflowInput = origInput
+		workflowTemporalClient = origClient
+		workflowRunInputGetter = origInput
 	})
 
-	checksTemporalClient = func(string) (client.Client, error) {
+	workflowTemporalClient = func(string) (client.Client, error) {
 		return &temporalmocks.Client{}, nil
 	}
-	checksGetWorkflowInput = func(string, string, client.Client) (workflowengine.WorkflowInput, error) {
+	workflowRunInputGetter = func(string, string, client.Client) (workflowengine.WorkflowInput, error) {
 		return workflowengine.WorkflowInput{}, errors.New("input error")
 	}
 
 	req := httptest.NewRequest(http.MethodGet, "/api/my/checks/check-1/runs/run-1/export", nil)
-	req.SetPathValue("checkId", "check-1")
+	req.SetPathValue("workflowId", "check-1")
 	req.SetPathValue("runId", "run-1")
 	rec := httptest.NewRecorder()
 
-	err = HandleExportMyCheckRun()(&core.RequestEvent{
+	err = HandleExportMyWorkflowRun()(&core.RequestEvent{
 		App:  app,
 		Auth: authRecord,
 		Event: router.Event{

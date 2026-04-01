@@ -218,10 +218,12 @@ func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 			TestAppFactory: setupWalletApp,
 		},
 		{
-			Name:           "get installer MD5 with invalid platform",
-			Method:         http.MethodPost,
-			URL:            "/api/wallet/get-installer-md5-or-etag",
-			Body:           jsonBody(map[string]any{"wallet_identifier": "nonexistent", "platform": "desktop"}),
+			Name:   "get installer MD5 with invalid platform",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(
+				map[string]any{"wallet_identifier": "nonexistent", "platform": "desktop"},
+			),
 			ExpectedStatus: 400,
 			ExpectedContent: []string{
 				`"platform"`,
@@ -340,7 +342,10 @@ func TestWalletStorePipelineResult(t *testing.T) {
 
 	var invalidPlatformBody bytes.Buffer
 	invalidPlatformWriter := multipart.NewWriter(&invalidPlatformBody)
-	_ = invalidPlatformWriter.WriteField("run_identifier", "usera-s-organization/workflow123-run123")
+	_ = invalidPlatformWriter.WriteField(
+		"run_identifier",
+		"usera-s-organization/workflow123-run123",
+	)
 	_ = invalidPlatformWriter.WriteField("runner_identifier", "usera-s-organization/test-runner")
 	_ = invalidPlatformWriter.WriteField("platform", "desktop")
 	require.NoError(t, invalidPlatformWriter.Close())
