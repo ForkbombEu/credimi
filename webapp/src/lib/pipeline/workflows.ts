@@ -37,18 +37,38 @@ export interface ExecutionSummary extends Workflow.WorkflowExecutionSummary {
 	}>;
 }
 
-const baseUrl = '/api/pipeline/list-workflows';
+const groupedExecutionsUrl = '/api/pipeline/list-executions';
 
 export async function listAllGroupedByPipelineId(options = { fetch }) {
-	return pb.send<Record<string, ExecutionSummary[]>>(baseUrl, {
+	return pb.send<Record<string, ExecutionSummary[]>>(groupedExecutionsUrl, {
 		method: 'GET',
 		fetch: options.fetch,
 		requestKey: null
 	});
 }
 
-export async function list(pipelineId: string, options = { fetch }) {
-	return pb.send<ExecutionSummary[]>(`${baseUrl}/${pipelineId}`, {
+export async function list(
+	pipelineId: string,
+	options: {
+		fetch?: typeof fetch;
+		status?: string | null;
+		limit?: number;
+		offset?: number;
+	} = {}
+) {
+	const params = new URLSearchParams();
+	if (options.status) {
+		params.set(Workflow.WORKFLOW_STATUS_QUERY_PARAM, options.status);
+	}
+	if (options.limit !== undefined) {
+		params.set(LIMIT_PARAM, String(options.limit));
+	}
+	if (options.offset !== undefined) {
+		params.set(OFFSET_PARAM, String(options.offset));
+	}
+	const query = params.toString() ? `?${params.toString()}` : '';
+
+	return pb.send<ExecutionSummary[]>(`${groupedExecutionsUrl}/${pipelineId}${query}`, {
 		method: 'GET',
 		fetch: options.fetch,
 		requestKey: null
@@ -66,20 +86,35 @@ export async function listAll(options: {
 	limit?: number;
 	offset?: number;
 }) {
-	const params = new URLSearchParams();
-	if (options.status) {
-		params.set(Workflow.WORKFLOW_STATUS_QUERY_PARAM, options.status);
+	const grouped = await listAllGroupedByPipelineId({ fetch: options.fetch });
+	const flattened = Object.values(grouped)
+		.flat()
+		.filter((execution) => !options.status || execution.status === options.status)
+		.sort((left, right) => parseExecutionTime(right) - parseExecutionTime(left));
+
+	const offset = options.offset ?? 0;
+	const limit = options.limit ?? flattened.length;
+	return flattened.slice(offset, offset + limit);
+}
+
+function parseExecutionTime(execution: ExecutionSummary): number {
+	const value = execution.enqueuedAt ?? execution.startTime;
+	if (!value) return 0;
+
+	const localizedMatch = value.match(
+		/^(\d{2})\/(\d{2})\/(\d{4}), (\d{2}):(\d{2}):(\d{2})$/
+	);
+	if (localizedMatch) {
+		const [, day, month, year, hour, minute, second] = localizedMatch;
+		return new Date(
+			Number(year),
+			Number(month) - 1,
+			Number(day),
+			Number(hour),
+			Number(minute),
+			Number(second)
+		).getTime();
 	}
-	if (options.limit !== undefined) {
-		params.set(LIMIT_PARAM, String(options.limit));
-	}
-	if (options.offset !== undefined) {
-		params.set(OFFSET_PARAM, String(options.offset));
-	}
-	const query = params.toString() ? `?${params.toString()}` : '';
-	return pb.send<ExecutionSummary[]>('/api/pipeline/list-results' + query, {
-		method: 'GET',
-		fetch: options.fetch,
-		requestKey: null
-	});
+
+	return new Date(value).getTime();
 }

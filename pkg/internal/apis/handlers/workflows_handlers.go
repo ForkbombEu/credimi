@@ -34,96 +34,88 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 )
 
-var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
-	BaseURL: "/api/my/checks",
+var WorkflowsRoutes routing.RouteGroup = routing.RouteGroup{
+	BaseURL: "/api/my/workflows",
 	Routes: []routing.RouteDefinition{
 		{
 			Method:         http.MethodGet,
-			OperationID:    "checks.list",
-			Handler:        HandleListMyChecks,
-			ResponseSchema: ListMyChecksResponse{},
-			Description:    "List all checks for the authenticated user",
-			Summary:        "Get a list of all checks for the authenticated user",
+			Path:           "/{workflowId}/runs",
+			OperationID:    "workflowRuns.list",
+			Handler:        HandleListMyWorkflowRuns,
+			ResponseSchema: ListMyWorkflowRunsResponse{},
+			Description:    "List all runs for a specific workflow",
+			Summary:        "Get a list of all runs for a specific workflow",
 		},
 		{
 			Method:         http.MethodGet,
-			Path:           "/{checkId}/runs",
-			OperationID:    "checkRuns.list",
-			Handler:        HandleListMyCheckRuns,
-			ResponseSchema: ListMyCheckRunsResponse{},
-			Description:    "List all runs for a specific check",
-			Summary:        "Get a list of all runs for a specific check",
+			Path:           "/{workflowId}/runs/{runId}",
+			OperationID:    "workflowRun.get",
+			Handler:        HandleGetMyWorkflowRun,
+			ResponseSchema: GetMyWorkflowRunResponse{},
+			Description:    "Get details of a specific run for a workflow",
+			Summary:        "Get details of a specific run for a workflow",
 		},
 		{
 			Method:         http.MethodGet,
-			Path:           "/{checkId}/runs/{runId}",
-			OperationID:    "checkRun.get",
-			Handler:        HandleGetMyCheckRun,
-			ResponseSchema: GetMyCheckRunResponse{},
-			Description:    "Get details of a specific run for a check",
-			Summary:        "Get details of a specific run for a check",
-		},
-		{
-			Method:         http.MethodGet,
-			Path:           "/{checkId}/runs/{runId}/history",
-			OperationID:    "checkRun.history",
-			Handler:        HandleGetMyCheckRunHistory,
-			ResponseSchema: GetMyCheckRunHistoryResponse{},
-			Description:    "Get the history of events for a specific run of a check",
-			Summary:        "Get the history of events for a specific run of a check",
+			Path:           "/{workflowId}/runs/{runId}/history",
+			OperationID:    "workflowRun.history",
+			Handler:        HandleGetMyWorkflowRunHistory,
+			ResponseSchema: GetMyWorkflowRunHistoryResponse{},
+			Description:    "Get the history of events for a specific run of a workflow",
+			Summary:        "Get the history of events for a specific run of a workflow",
 		},
 		{
 			Method:         http.MethodPost,
-			Path:           "/{checkId}/runs/{runId}/rerun",
-			OperationID:    "checkRun.rerun",
-			Handler:        HandleRerunMyCheck,
-			RequestSchema:  ReRunCheckRequest{},
-			ResponseSchema: ReRunCheckResponse{},
-			Description:    "Re-run a specific check run",
-			Summary:        "Re-run a specific check run",
+			Path:           "/{workflowId}/runs/{runId}/rerun",
+			OperationID:    "workflowRun.rerun",
+			Handler:        HandleRerunMyWorkflow,
+			RequestSchema:  ReRunWorkflowRequest{},
+			ResponseSchema: ReRunWorkflowResponse{},
+			Description:    "Re-run a specific workflow run",
+			Summary:        "Re-run a specific workflow run",
 		},
 		{
 			Method:         http.MethodPost,
-			Path:           "/{checkId}/runs/{runId}/cancel",
-			OperationID:    "checkRun.cancel",
-			Handler:        HandleCancelMyCheckRun,
-			ResponseSchema: CancelMyCheckRunResponse{},
-			Description:    "Cancel a specific check run",
-			Summary:        "Cancel a specific check run",
+			Path:           "/{workflowId}/runs/{runId}/cancel",
+			OperationID:    "workflowRun.cancel",
+			Handler:        HandleCancelMyWorkflowRun,
+			ResponseSchema: CancelMyWorkflowRunResponse{},
+			Description:    "Cancel a specific workflow run",
+			Summary:        "Cancel a specific workflow run",
 		},
 		{
 			Method:         http.MethodGet,
-			Path:           "/{checkId}/runs/{runId}/export",
-			OperationID:    "checkRun.export",
-			Handler:        HandleExportMyCheckRun,
-			ResponseSchema: ExportMyCheckRunResponse{},
-			Description:    "Export a specific check run",
-			Summary:        "Export a specific check run",
+			Path:           "/{workflowId}/runs/{runId}/export",
+			OperationID:    "workflowRun.export",
+			Handler:        HandleExportMyWorkflowRun,
+			ResponseSchema: ExportMyWorkflowRunResponse{},
+			Description:    "Export a specific workflow run",
+			Summary:        "Export a specific workflow run",
 		},
 		{
 			Method:         http.MethodGet,
-			Path:           "/{checkId}/runs/{runId}/logs",
-			OperationID:    "checkRun.logs",
-			Handler:        HandleMyCheckLogs,
-			ResponseSchema: ChecksLogsResponse{},
-			Description:    "Start or Stop logs for a specific check run and get the log channel",
-			Summary:        "Start or Stop logs for a specific check run",
+			Path:           "/{workflowId}/runs/{runId}/logs",
+			OperationID:    "workflowRun.logs",
+			Handler:        HandleMyWorkflowLogs,
+			ResponseSchema: WorkflowLogsResponse{},
+			Description:    "Start or Stop logs for a specific workflow run and get the log channel",
+			Summary:        "Start or Stop logs for a specific workflow run",
 			QuerySearchAttributes: []routing.QuerySearchAttribute{
 				{
 					Name:        "action",
 					Required:    false,
-					Description: "Can be 'start' or 'stop' to control logging for the check run",
+					Description: "Can be 'start' or 'stop' to control logging for the workflow run",
 				},
 			},
 		},
 		{
 			Method:         http.MethodPost,
-			Path:           "/{checkId}/runs/{runId}/terminate",
-			OperationID:    "checkRun.terminate",
-			Handler:        HandleTerminateMyCheckRun,
-			ResponseSchema: TerminateMyCheckRunResponse{},
-			Description:    "Terminate a specific check run",
-			Summary:        "Terminate a specific check run",
+			Path:           "/{workflowId}/runs/{runId}/terminate",
+			OperationID:    "workflowRun.terminate",
+			Handler:        HandleTerminateMyWorkflowRun,
+			ResponseSchema: TerminateMyWorkflowRunResponse{},
+			Description:    "Terminate a specific workflow run",
+			Summary:        "Terminate a specific workflow run",
 		},
 	},
 	Middlewares: []*hook.Handler[*core.RequestEvent]{
@@ -132,19 +124,47 @@ var ChecksRoutes routing.RouteGroup = routing.RouteGroup{
 	AuthenticationRequired: true,
 }
 
-type ReRunCheckRequest struct {
+var WorkflowListingRoutes routing.RouteGroup = routing.RouteGroup{
+	BaseURL: "/api",
+	Routes: []routing.RouteDefinition{
+		{
+			Method:         http.MethodGet,
+			Path:           "/list-workflows",
+			OperationID:    "workflows.list",
+			Handler:        HandleListMyWorkflows,
+			ResponseSchema: ListMyWorkflowsResponse{},
+			Description:    "List non-pipeline workflows for the authenticated user",
+			Summary:        "Get a list of non-pipeline workflows for the authenticated user",
+		},
+	},
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	AuthenticationRequired: true,
+}
+
+type ReRunWorkflowRequest struct {
 	Config map[string]interface{} `json:"config"`
 }
 
-var listChecksTemporalClient = temporalclient.GetTemporalClientWithNamespace
-var listChecksWorkflows = listChecksWorkflowsTemporal
-var checksTemporalClient = temporalclient.GetTemporalClientWithNamespace
-var checksGetWorkflowInput = getWorkflowInput
-var checksStartWorkflowWithOptions = workflowengine.StartWorkflowWithOptions
+var listWorkflowsTemporalClient = temporalclient.GetTemporalClientWithNamespace
+var listWorkflows = listWorkflowsTemporal
+var workflowTemporalClient = temporalclient.GetTemporalClientWithNamespace
+var workflowRunInputGetter = getWorkflowInput
+var workflowStartWithOptions = workflowengine.StartWorkflowWithOptions
 
-func HandleListMyChecks() func(*core.RequestEvent) error {
+func HandleListMyWorkflows() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
+		if authRecord == nil {
+			return apierror.New(
+				http.StatusUnauthorized,
+				"auth",
+				"authentication required",
+				"user not authenticated",
+			).JSON(e)
+		}
+
 		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
 		if err != nil {
 			return apierror.New(
@@ -154,7 +174,11 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-		c, err := listChecksTemporalClient(namespace)
+
+		limit, pageNum := parsePaginationParams(e, 20, 0)
+		offset := pageNum * limit
+
+		c, err := listWorkflowsTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -164,74 +188,16 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		statusParam := e.Request.URL.Query().Get("status")
-		if strings.ToLower(statusParam) == statusStringQueued {
-			queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to list queued runs",
-					err.Error(),
-				).JSON(e)
-			}
-			queuedSummaries := buildQueuedWorkflowSummaries(
-				e.App,
-				queuedRuns,
-				authRecord.GetString("Timezone"),
-			)
-			resp := ListMyChecksResponse{}
-
-			if queuedSummaries == nil {
-				resp.Executions = []*WorkflowExecutionSummary{}
-			} else {
-				resp.Executions = queuedSummaries
-			}
-			return e.JSON(http.StatusOK, resp)
-		}
-		var statusFilters []enums.WorkflowExecutionStatus
-		if statusParam != "" {
-			statusStrings := strings.SplitSeq(statusParam, ",")
-			for s := range statusStrings {
-				switch strings.ToLower(strings.TrimSpace(s)) {
-				case statusStringRunning:
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_RUNNING)
-				case statusStringCompleted:
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_COMPLETED)
-				case statusStringFailed:
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_FAILED)
-				case statusStringTerminated:
-					statusFilters = append(
-						statusFilters,
-						enums.WORKFLOW_EXECUTION_STATUS_TERMINATED,
-					)
-				case statusStringCanceled:
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_CANCELED)
-				case statusStringTimedOut:
-					statusFilters = append(statusFilters, enums.WORKFLOW_EXECUTION_STATUS_TIMED_OUT)
-				case statusStringContinuedAsNew:
-					statusFilters = append(
-						statusFilters,
-						enums.WORKFLOW_EXECUTION_STATUS_CONTINUED_AS_NEW,
-					)
-				case statusStringUnspecified:
-					statusFilters = append(
-						statusFilters,
-						enums.WORKFLOW_EXECUTION_STATUS_UNSPECIFIED,
-					)
-				}
-			}
+		statusFilters, statusOK := parseWorkflowStatusFilters(statusParam)
+		if statusParam != "" && !statusOK {
+			return e.JSON(http.StatusOK, ListMyWorkflowsResponse{
+				Executions: []*WorkflowExecutionSummary{},
+			})
 		}
 
-		var query string
-		if len(statusFilters) > 0 {
-			var statusQueries []string
-			for _, s := range statusFilters {
-				statusQueries = append(statusQueries, fmt.Sprintf("ExecutionStatus=%d", s))
-			}
-			query = strings.Join(statusQueries, " or ")
-		}
+		query := buildWorkflowStatusQuery(statusFilters)
 
-		list, err := listChecksWorkflows(context.Background(), c, namespace, query)
+		list, err := listWorkflows(context.Background(), c, namespace, query)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -271,11 +237,18 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		var filteredExecutions []*WorkflowExecution
-		for _, exec := range execs.Executions {
-			if exec.Type.Name != "Dynamic Pipeline Workflow" {
-				filteredExecutions = append(filteredExecutions, exec)
-			}
+		filteredExecutions, err := filterNonPipelineExecutions(
+			e.Request.Context(),
+			c,
+			execs.Executions,
+		)
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"workflow",
+				"failed to resolve workflow parents",
+				err.Error(),
+			).JSON(e)
 		}
 
 		hierarchy := buildExecutionHierarchy(
@@ -285,34 +258,125 @@ func HandleListMyChecks() func(*core.RequestEvent) error {
 			authRecord.GetString("Timezone"),
 			c,
 		)
+		hierarchy = paginateWorkflowExecutionSummaries(hierarchy, limit, offset)
 
-		if shouldIncludeQueuedRuns(statusParam) {
-			queuedRuns, err := listQueuedPipelineRuns(e.Request.Context(), namespace)
-			if err != nil {
-				return apierror.New(
-					http.StatusInternalServerError,
-					"workflow",
-					"failed to list queued runs",
-					err.Error(),
-				).JSON(e)
-			}
-			queuedSummaries := buildQueuedWorkflowSummaries(
-				e.App,
-				queuedRuns,
-				authRecord.GetString("Timezone"),
-			)
-			if len(queuedSummaries) > 0 {
-				hierarchy = append(queuedSummaries, hierarchy...)
-			}
-		}
-
-		resp := ListMyChecksResponse{}
+		resp := ListMyWorkflowsResponse{}
 		resp.Executions = hierarchy
 		return e.JSON(http.StatusOK, resp)
 	}
 }
 
-func listChecksWorkflowsTemporal(
+func buildWorkflowStatusQuery(statusFilters []enums.WorkflowExecutionStatus) string {
+	if len(statusFilters) == 0 {
+		return ""
+	}
+
+	statusQueries := make([]string, 0, len(statusFilters))
+	for _, status := range statusFilters {
+		statusQueries = append(statusQueries, fmt.Sprintf("ExecutionStatus=%d", status))
+	}
+
+	return strings.Join(statusQueries, " or ")
+}
+
+func filterNonPipelineExecutions(
+	ctx context.Context,
+	temporalClient client.Client,
+	executions []*WorkflowExecution,
+) ([]*WorkflowExecution, error) {
+	pipelineWorkflowName := pipeline.NewPipelineWorkflow().Name()
+	executionByRunID := make(map[string]*WorkflowExecution, len(executions))
+	for _, exec := range executions {
+		if exec == nil || exec.Execution == nil {
+			continue
+		}
+		executionByRunID[exec.Execution.RunID] = exec
+	}
+
+	filtered := make([]*WorkflowExecution, 0, len(executions))
+	for _, exec := range executions {
+		if exec == nil || exec.Execution == nil {
+			continue
+		}
+		if exec.Type.Name == pipelineWorkflowName {
+			continue
+		}
+		if exec.ParentExecution == nil {
+			filtered = append(filtered, exec)
+			continue
+		}
+
+		parent, ok := executionByRunID[exec.ParentExecution.RunID]
+		if ok {
+			if parent != nil && parent.Type.Name == pipelineWorkflowName {
+				continue
+			}
+			filtered = append(filtered, exec)
+			continue
+		}
+
+		parentType, err := getWorkflowTypeName(
+			ctx,
+			temporalClient,
+			exec.ParentExecution.WorkflowID,
+			exec.ParentExecution.RunID,
+		)
+		if err != nil {
+			return nil, err
+		}
+		if parentType == pipelineWorkflowName {
+			continue
+		}
+
+		filtered = append(filtered, exec)
+	}
+
+	return filtered, nil
+}
+
+func getWorkflowTypeName(
+	ctx context.Context,
+	temporalClient client.Client,
+	workflowID string,
+	runID string,
+) (string, error) {
+	if temporalClient == nil || workflowID == "" {
+		return "", nil
+	}
+
+	description, err := temporalClient.DescribeWorkflowExecution(ctx, workflowID, runID)
+	if err != nil {
+		return "", err
+	}
+	if description == nil || description.GetWorkflowExecutionInfo() == nil ||
+		description.GetWorkflowExecutionInfo().GetType() == nil {
+		return "", nil
+	}
+
+	return description.GetWorkflowExecutionInfo().GetType().GetName(), nil
+}
+
+func paginateWorkflowExecutionSummaries(
+	summaries []*WorkflowExecutionSummary,
+	limit int,
+	offset int,
+) []*WorkflowExecutionSummary {
+	if len(summaries) == 0 || limit <= 0 || offset >= len(summaries) {
+		return []*WorkflowExecutionSummary{}
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	end := offset + limit
+	if end > len(summaries) {
+		end = len(summaries)
+	}
+
+	return summaries[offset:end]
+}
+
+func listWorkflowsTemporal(
 	ctx context.Context,
 	c client.Client,
 	namespace string,
@@ -327,7 +391,7 @@ func listChecksWorkflowsTemporal(
 	)
 }
 
-func HandleGetMyCheckRun() func(*core.RequestEvent) error {
+func HandleGetMyWorkflowRun() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 		if authRecord == nil {
@@ -339,7 +403,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		checkID := e.Request.PathValue("checkId")
+		workflowID := e.Request.PathValue("workflowId")
 		runID := e.Request.PathValue("runId")
 		if runID == "" {
 			return apierror.New(
@@ -367,7 +431,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := checksTemporalClient(namespace)
+		c, err := workflowTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -378,7 +442,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 		}
 		workflowExecution, err := c.DescribeWorkflowExecution(
 			context.Background(),
-			checkID,
+			workflowID,
 			runID,
 		)
 		if err != nil {
@@ -430,7 +494,7 @@ func HandleGetMyCheckRun() func(*core.RequestEvent) error {
 	}
 }
 
-func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
+func HandleGetMyWorkflowRunHistory() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 		if authRecord == nil {
@@ -442,13 +506,13 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		checkID := e.Request.PathValue("checkId")
+		workflowID := e.Request.PathValue("workflowId")
 		runID := e.Request.PathValue("runId")
-		if checkID == "" || runID == "" {
+		if workflowID == "" || runID == "" {
 			return apierror.New(
 				http.StatusBadRequest,
 				"params",
-				"checkId and runId are required",
+				"workflowId and runId are required",
 				"missing required parameters",
 			).JSON(e)
 		}
@@ -463,7 +527,7 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := checksTemporalClient(namespace)
+		c, err := workflowTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -475,7 +539,7 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 
 		historyIterator := c.GetWorkflowHistory(
 			context.Background(),
-			checkID,
+			workflowID,
 			runID,
 			false,
 			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
@@ -515,17 +579,17 @@ func HandleGetMyCheckRunHistory() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, map[string]interface{}{
-			"history":   history,
-			"count":     len(history),
-			"time":      time.Now().Format(time.RFC3339),
-			"checkId":   checkID,
-			"runId":     runID,
-			"namespace": namespace,
+			"history":    history,
+			"count":      len(history),
+			"time":       time.Now().Format(time.RFC3339),
+			"workflowId": workflowID,
+			"runId":      runID,
+			"namespace":  namespace,
 		})
 	}
 }
 
-func HandleListMyCheckRuns() func(*core.RequestEvent) error {
+func HandleListMyWorkflowRuns() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 		if authRecord == nil {
@@ -536,13 +600,13 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"user not authenticated",
 			).JSON(e)
 		}
-		checkID := e.Request.PathValue("checkId")
-		if checkID == "" {
+		workflowID := e.Request.PathValue("workflowId")
+		if workflowID == "" {
 			return apierror.New(
 				http.StatusBadRequest,
-				"checkId",
-				"checkId is required",
-				"missing checkId parameter",
+				"workflowId",
+				"workflowId is required",
+				"missing workflowId parameter",
 			).JSON(e)
 		}
 		namespace, err := GetUserOrganizationCanonifiedName(e.App, authRecord.Id)
@@ -562,7 +626,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 				"missing organization",
 			).JSON(e)
 		}
-		c, err := checksTemporalClient(namespace)
+		c, err := workflowTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -576,7 +640,7 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 			context.Background(),
 			&workflowservice.ListWorkflowExecutionsRequest{
 				Namespace: namespace,
-				Query:     fmt.Sprintf("WorkflowId = '%s'", checkID),
+				Query:     fmt.Sprintf("WorkflowId = '%s'", workflowID),
 			},
 		)
 		if err != nil {
@@ -627,13 +691,13 @@ func HandleListMyCheckRuns() func(*core.RequestEvent) error {
 			c,
 		)
 
-		var resp ListMyChecksResponse
+		var resp ListMyWorkflowRunsResponse
 		resp.Executions = hierarchy
 		return e.JSON(http.StatusOK, resp)
 	}
 }
 
-func HandleRerunMyCheck() func(*core.RequestEvent) error {
+func HandleRerunMyWorkflow() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 		if authRecord == nil {
@@ -645,13 +709,13 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		checkID := e.Request.PathValue("checkId")
+		workflowID := e.Request.PathValue("workflowId")
 		runID := e.Request.PathValue("runId")
-		if checkID == "" || runID == "" {
+		if workflowID == "" || runID == "" {
 			return apierror.New(
 				http.StatusBadRequest,
 				"params",
-				"checkId and runId are required",
+				"workflowId and runId are required",
 				"missing required parameters",
 			).JSON(e)
 		}
@@ -666,7 +730,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := checksTemporalClient(namespace)
+		c, err := workflowTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -678,7 +742,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 
 		workflowExecution, err := c.DescribeWorkflowExecution(
 			context.Background(),
-			checkID,
+			workflowID,
 			runID,
 		)
 		if err != nil {
@@ -711,7 +775,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 				AsDuration(),
 		}
 
-		workflowInput, err := checksGetWorkflowInput(checkID, runID, c)
+		workflowInput, err := workflowRunInputGetter(workflowID, runID, c)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -721,8 +785,8 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		var req ReRunCheckRequest
-		req, err = routing.GetValidatedInput[ReRunCheckRequest](e)
+		var req ReRunWorkflowRequest
+		req, err = routing.GetValidatedInput[ReRunWorkflowRequest](e)
 		if err != nil {
 			return err
 		}
@@ -732,7 +796,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 			}
 		}
 
-		result, err := checksStartWorkflowWithOptions(
+		result, err := workflowStartWithOptions(
 			namespace,
 			workflowOptions,
 			workflowName,
@@ -754,7 +818,7 @@ func HandleRerunMyCheck() func(*core.RequestEvent) error {
 	}
 }
 
-func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
+func HandleCancelMyWorkflowRun() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 		if authRecord == nil {
@@ -766,13 +830,13 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		checkID := e.Request.PathValue("checkId")
+		workflowID := e.Request.PathValue("workflowId")
 		runID := e.Request.PathValue("runId")
-		if checkID == "" || runID == "" {
+		if workflowID == "" || runID == "" {
 			return apierror.New(
 				http.StatusBadRequest,
 				"params",
-				"checkId and runId are required",
+				"workflowId and runId are required",
 				"missing required parameters",
 			).JSON(e)
 		}
@@ -787,7 +851,7 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := checksTemporalClient(namespace)
+		c, err := workflowTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -797,7 +861,7 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		err = c.CancelWorkflow(context.Background(), checkID, runID)
+		err = c.CancelWorkflow(context.Background(), workflowID, runID)
 		if err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
@@ -817,17 +881,17 @@ func HandleCancelMyCheckRun() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
-			"message":   "Workflow execution canceled successfully",
-			"checkId":   checkID,
-			"runId":     runID,
-			"status":    statusStringCanceled,
-			"time":      time.Now().Format(time.RFC3339),
-			"namespace": namespace,
+			"message":    "Workflow execution canceled successfully",
+			"workflowId": workflowID,
+			"runId":      runID,
+			"status":     statusStringCanceled,
+			"time":       time.Now().Format(time.RFC3339),
+			"namespace":  namespace,
 		})
 	}
 }
 
-func HandleExportMyCheckRun() func(*core.RequestEvent) error {
+func HandleExportMyWorkflowRun() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 		if authRecord == nil {
@@ -839,13 +903,13 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		checkID := e.Request.PathValue("checkId")
+		workflowID := e.Request.PathValue("workflowId")
 		runID := e.Request.PathValue("runId")
-		if checkID == "" || runID == "" {
+		if workflowID == "" || runID == "" {
 			return apierror.New(
 				http.StatusBadRequest,
 				"params",
-				"checkId and runId are required",
+				"workflowId and runId are required",
 				"missing required parameters",
 			).JSON(e)
 		}
@@ -860,7 +924,7 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := checksTemporalClient(namespace)
+		c, err := workflowTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -870,7 +934,7 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		workflowInput, err := checksGetWorkflowInput(checkID, runID, c)
+		workflowInput, err := workflowRunInputGetter(workflowID, runID, c)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -886,10 +950,10 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 			workflowInput.Payload = make(map[string]interface{})
 		}
 		exportData := map[string]interface{}{
-			"checkId": checkID,
-			"runId":   runID,
-			"input":   workflowInput.Payload,
-			"config":  workflowInput.Config,
+			"workflowId": workflowID,
+			"runId":      runID,
+			"input":      workflowInput.Payload,
+			"config":     workflowInput.Config,
 		}
 
 		return e.JSON(http.StatusOK, map[string]interface{}{
@@ -899,14 +963,14 @@ func HandleExportMyCheckRun() func(*core.RequestEvent) error {
 }
 
 func getWorkflowInput(
-	checkID string,
+	workflowID string,
 	runID string,
 	c client.Client,
 ) (workflowengine.WorkflowInput, error) {
 	var workflowInput workflowengine.WorkflowInput
 	historyIterator := c.GetWorkflowHistory(
 		context.Background(),
-		checkID,
+		workflowID,
 		runID,
 		false,
 		enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
@@ -996,7 +1060,7 @@ func getWorkflowInput(
 	return workflowInput, nil
 }
 
-func HandleMyCheckLogs() func(*core.RequestEvent) error {
+func HandleMyWorkflowLogs() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 		if authRecord == nil {
@@ -1008,13 +1072,13 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		checkID := e.Request.PathValue("checkId")
+		workflowID := e.Request.PathValue("workflowId")
 		runID := e.Request.PathValue("runId")
-		if checkID == "" || runID == "" {
+		if workflowID == "" || runID == "" {
 			return apierror.New(
 				http.StatusBadRequest,
 				"params",
-				"checkId and runId are required",
+				"workflowId and runId are required",
 				"missing required parameters",
 			).JSON(e)
 		}
@@ -1037,7 +1101,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := checksTemporalClient(namespace)
+		c, err := workflowTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -1047,7 +1111,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		_, err = c.DescribeWorkflowExecution(context.Background(), checkID, runID)
+		_, err = c.DescribeWorkflowExecution(context.Background(), workflowID, runID)
 		if err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
@@ -1070,7 +1134,13 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 
 		switch action {
 		case "start":
-			err = c.SignalWorkflow(context.Background(), checkID, runID, "start-logs", struct{}{})
+			err = c.SignalWorkflow(
+				context.Background(),
+				workflowID,
+				runID,
+				"start-logs",
+				struct{}{},
+			)
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -1080,7 +1150,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 				).JSON(e)
 			}
 		case "stop":
-			err = c.SignalWorkflow(context.Background(), checkID, runID, "stop-logs", struct{}{})
+			err = c.SignalWorkflow(context.Background(), workflowID, runID, "stop-logs", struct{}{})
 			if err != nil {
 				return apierror.New(
 					http.StatusInternalServerError,
@@ -1091,11 +1161,11 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 			}
 		}
 
-		logsChannel := fmt.Sprintf("%s-logs", checkID)
+		logsChannel := fmt.Sprintf("%s-logs", workflowID)
 
 		return e.JSON(http.StatusOK, map[string]interface{}{
 			"channel":     logsChannel,
-			"workflow_id": checkID,
+			"workflow_id": workflowID,
 			"run_id":      runID,
 			"message":     "Logs streaming started",
 			"status":      "started",
@@ -1105,7 +1175,7 @@ func HandleMyCheckLogs() func(*core.RequestEvent) error {
 	}
 }
 
-func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
+func HandleTerminateMyWorkflowRun() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
 		authRecord := e.Auth
 		if authRecord == nil {
@@ -1117,13 +1187,13 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		checkID := e.Request.PathValue("checkId")
+		workflowID := e.Request.PathValue("workflowId")
 		runID := e.Request.PathValue("runId")
-		if checkID == "" || runID == "" {
+		if workflowID == "" || runID == "" {
 			return apierror.New(
 				http.StatusBadRequest,
 				"params",
-				"checkId and runId are required",
+				"workflowId and runId are required",
 				"missing required parameters",
 			).JSON(e)
 		}
@@ -1138,7 +1208,7 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		c, err := checksTemporalClient(namespace)
+		c, err := workflowTemporalClient(namespace)
 		if err != nil {
 			return apierror.New(
 				http.StatusInternalServerError,
@@ -1148,7 +1218,13 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 
-		err = c.TerminateWorkflow(context.Background(), checkID, runID, "Terminated by user", nil)
+		err = c.TerminateWorkflow(
+			context.Background(),
+			workflowID,
+			runID,
+			"Terminated by user",
+			nil,
+		)
 		if err != nil {
 			notFound := &serviceerror.NotFound{}
 			if errors.As(err, &notFound) {
@@ -1168,12 +1244,12 @@ func HandleTerminateMyCheckRun() func(*core.RequestEvent) error {
 		}
 
 		return e.JSON(http.StatusOK, map[string]any{
-			"message":   "Workflow execution terminated successfully",
-			"checkId":   checkID,
-			"runId":     runID,
-			"status":    statusStringTerminated,
-			"time":      time.Now().Format(time.RFC3339),
-			"namespace": namespace,
+			"message":    "Workflow execution terminated successfully",
+			"workflowId": workflowID,
+			"runId":      runID,
+			"status":     statusStringTerminated,
+			"time":       time.Now().Format(time.RFC3339),
+			"namespace":  namespace,
 		})
 	}
 }
@@ -1308,94 +1384,6 @@ func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location
 		if len(e.Children) > 0 {
 			sortExecutionSummaries(e.Children, loc, !ascending)
 		}
-	}
-}
-
-func shouldIncludeQueuedRuns(statusParam string) bool {
-	if statusParam == "" {
-		return true
-	}
-	for s := range strings.SplitSeq(statusParam, ",") {
-		if strings.ToLower(strings.TrimSpace(s)) == statusStringRunning {
-			return true
-		}
-	}
-	return false
-}
-
-func buildQueuedWorkflowSummaries(
-	app core.App,
-	queuedRuns map[string]QueuedPipelineRunAggregate,
-	userTimezone string,
-) []*WorkflowExecutionSummary {
-	if len(queuedRuns) == 0 {
-		return nil
-	}
-
-	nameCache := map[string]string{}
-	resolveName := func(identifier string) string {
-		if cached, ok := nameCache[identifier]; ok {
-			return cached
-		}
-		displayName := resolveQueuedPipelineDisplayName(app, identifier)
-		nameCache[identifier] = displayName
-		return displayName
-	}
-
-	runs := make([]QueuedPipelineRunAggregate, 0, len(queuedRuns))
-	for _, queued := range queuedRuns {
-		runs = append(runs, queued)
-	}
-	slices.SortFunc(runs, func(a, b QueuedPipelineRunAggregate) int {
-		switch {
-		case a.EnqueuedAt.After(b.EnqueuedAt):
-			return -1
-		case a.EnqueuedAt.Before(b.EnqueuedAt):
-			return 1
-		default:
-			return 0
-		}
-	})
-
-	summaries := make([]*WorkflowExecutionSummary, 0, len(runs))
-	for _, queued := range runs {
-		summaries = append(
-			summaries,
-			buildQueuedWorkflowSummary(
-				queued,
-				userTimezone,
-				resolveName(queued.PipelineIdentifier),
-			),
-		)
-	}
-	return summaries
-}
-
-func buildQueuedWorkflowSummary(
-	queued QueuedPipelineRunAggregate,
-	userTimezone string,
-	displayName string,
-) *WorkflowExecutionSummary {
-	enqueuedTime := formatQueuedRunTime(queued.EnqueuedAt, userTimezone)
-	queue := &WorkflowQueueSummary{
-		TicketID:  queued.TicketID,
-		Position:  queued.Position + 1,
-		LineLen:   queued.LineLen,
-		RunnerIDs: copyStringSlice(queued.RunnerIDs),
-	}
-	pipelineWorkflow := pipeline.NewPipelineWorkflow()
-	return &WorkflowExecutionSummary{
-		Execution: &WorkflowIdentifier{
-			WorkflowID: "queue/" + queued.TicketID,
-			RunID:      queued.TicketID,
-		},
-		Type: WorkflowType{
-			Name: pipelineWorkflow.Name(),
-		},
-		EnqueuedAt:  enqueuedTime,
-		Status:      string(WorkflowStatusQueued),
-		DisplayName: displayName,
-		Queue:       queue,
 	}
 }
 
