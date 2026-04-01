@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/workflows"
@@ -20,28 +21,28 @@ import (
 
 func TestDecodeAndValidatePayload(t *testing.T) {
 	_, err := decodeAndValidatePayload(
-		&StepDefinition{
-			StepSpec: StepSpec{ID: "step-1", With: StepInputs{Payload: map[string]any{}}},
+		&pipeline.StepDefinition{
+			StepSpec: pipeline.StepSpec{ID: "step-1", With: pipeline.StepInputs{Payload: map[string]any{}}},
 		},
 	)
 	require.Error(t, err)
 
 	_, err = decodeAndValidatePayload(
-		&StepDefinition{StepSpec: StepSpec{ID: "step-2", With: StepInputs{Payload: map[string]any{
+		&pipeline.StepDefinition{StepSpec: pipeline.StepSpec{ID: "step-2", With: pipeline.StepInputs{Payload: map[string]any{
 			"action_code": "code",
 		}}}},
 	)
 	require.Error(t, err)
 
 	_, err = decodeAndValidatePayload(
-		&StepDefinition{StepSpec: StepSpec{ID: "step-3", With: StepInputs{Payload: map[string]any{
+		&pipeline.StepDefinition{StepSpec: pipeline.StepSpec{ID: "step-3", With: pipeline.StepInputs{Payload: map[string]any{
 			"runner_id": "runner-1",
 		}}}},
 	)
 	require.Error(t, err)
 
 	payload, err := decodeAndValidatePayload(
-		&StepDefinition{StepSpec: StepSpec{ID: "step-4", With: StepInputs{Payload: map[string]any{
+		&pipeline.StepDefinition{StepSpec: pipeline.StepSpec{ID: "step-4", With: pipeline.StepInputs{Payload: map[string]any{
 			"action_id": "action-1",
 			"runner_id": "runner-2",
 		}}}},
@@ -52,12 +53,12 @@ func TestDecodeAndValidatePayload(t *testing.T) {
 }
 
 func TestCollectMobileRunnerIDs(t *testing.T) {
-	steps := []StepDefinition{
-		{StepSpec: StepSpec{Use: mobileAutomationStepUse, With: StepInputs{Payload: map[string]any{
+	steps := []pipeline.StepDefinition{
+		{StepSpec: pipeline.StepSpec{Use: mobileAutomationStepUse, With: pipeline.StepInputs{Payload: map[string]any{
 			"action_id": "action-1",
 			"runner_id": "runner-b",
 		}}}},
-		{StepSpec: StepSpec{Use: mobileAutomationStepUse, With: StepInputs{Payload: map[string]any{
+		{StepSpec: pipeline.StepSpec{Use: mobileAutomationStepUse, With: pipeline.StepInputs{Payload: map[string]any{
 			"action_id": "action-2",
 			"runner_id": "runner-a",
 		}}}},
@@ -69,8 +70,8 @@ func TestCollectMobileRunnerIDs(t *testing.T) {
 }
 
 func TestCollectMobileRunnerIDsNormalizesLeadingSlash(t *testing.T) {
-	steps := []StepDefinition{
-		{StepSpec: StepSpec{Use: mobileAutomationStepUse, With: StepInputs{Payload: map[string]any{
+	steps := []pipeline.StepDefinition{
+		{StepSpec: pipeline.StepSpec{Use: mobileAutomationStepUse, With: pipeline.StepInputs{Payload: map[string]any{
 			"action_id": "action-1",
 			"runner_id": "/tenant-a/runner-b",
 		}}}},
@@ -90,7 +91,7 @@ func TestParseAPKResponse(t *testing.T) {
 		},
 	}}
 	payload := &workflows.MobileAutomationWorkflowPipelinePayload{ActionID: "action-1"}
-	step := &StepDefinition{StepSpec: StepSpec{ID: "step-1"}}
+	step := &pipeline.StepDefinition{StepSpec: pipeline.StepSpec{ID: "step-1"}}
 	apkPath, versionID, actionCode, err := parseAPKResponse(result, payload, step)
 	require.NoError(t, err)
 	require.Equal(t, "path.apk", apkPath)
@@ -139,11 +140,11 @@ func TestParseDeviceMap(t *testing.T) {
 }
 
 func TestValidateRunnerIDConfigurationAdditional(t *testing.T) {
-	steps := []StepDefinition{
+	steps := []pipeline.StepDefinition{
 		{
-			StepSpec: StepSpec{
+			StepSpec: pipeline.StepSpec{
 				Use: mobileAutomationStepUse,
-				With: StepInputs{
+				With: pipeline.StepInputs{
 					Payload: map[string]any{
 						"action_id": "action-1",
 					},
@@ -161,7 +162,7 @@ func TestValidateRunnerIDConfigurationAdditional(t *testing.T) {
 	err = validateRunnerIDConfiguration(&steps, "")
 	require.NoError(t, err)
 
-	nonMobile := []StepDefinition{{StepSpec: StepSpec{Use: "rest"}}}
+	nonMobile := []pipeline.StepDefinition{{StepSpec: pipeline.StepSpec{Use: "rest"}}}
 	err = validateRunnerIDConfiguration(&nonMobile, "")
 	require.NoError(t, err)
 }

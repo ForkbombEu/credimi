@@ -10,6 +10,7 @@ import (
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/errorcodes"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/activities"
@@ -18,89 +19,19 @@ import (
 	"go.temporal.io/sdk/workflow"
 )
 
-// ValidateRunnerIDYAML enforces runner_id configuration rules for mobile-automation steps:
-// - If global_runner_id is set, no step may define runner_id.
-// - If global_runner_id is not set, every mobile-automation step must define runner_id.
-func ValidateRunnerIDYAML(yamlStr string) error {
-	wfDef, err := ParseWorkflow(yamlStr)
-	if err != nil {
-		return err
-	}
-
-	globalRunnerID := strings.TrimSpace(wfDef.Runtime.GlobalRunnerID)
-	globalSet := globalRunnerID != ""
-
-	foundMobileStep := false
-
-	firstConflictStepID := ""
-	firstMissingStepID := ""
-
-	anyStepRunnerSet := false
-	anyStepRunnerMissing := false
-
-	for _, step := range wfDef.Steps {
-		if step.Use != mobileAutomationStepUse {
-			continue
-		}
-
-		foundMobileStep = true
-
-		runnerID, _ := step.With.Payload["runner_id"].(string)
-		runnerSet := strings.TrimSpace(runnerID) != ""
-
-		if runnerSet {
-			anyStepRunnerSet = true
-			if globalSet && firstConflictStepID == "" {
-				firstConflictStepID = step.ID
-			}
-		} else {
-			anyStepRunnerMissing = true
-			if !globalSet && firstMissingStepID == "" {
-				firstMissingStepID = step.ID
-			}
-		}
-	}
-
-	// No mobile-automation steps → nothing to validate.
-	if !foundMobileStep {
-		return nil
-	}
-
-	// If global is set, no mobile step may set runner_id.
-	if globalSet {
-		if anyStepRunnerSet {
-			return fmt.Errorf(
-				"global_runner_id is set, but step %q defines runner_id; use only global_runner_id or set runner_id for all mobile-automation steps",
-				firstConflictStepID,
-			)
-		}
-		return nil
-	}
-
-	// If global is not set, all mobile steps must set runner_id.
-	if anyStepRunnerMissing {
-		return fmt.Errorf(
-			"global_runner_id is not set and step %q is missing runner_id; set runner_id on all mobile-automation steps or set global_runner_id",
-			firstMissingStepID,
-		)
-	}
-
-	return nil
-}
-
 func ExecuteStep(
 	id string,
 	use string,
-	with StepInputs,
-	activityOptions *ActivityOptionsConfig,
+	with pipeline.StepInputs,
+	activityOptions *pipeline.ActivityOptionsConfig,
 	ctx workflow.Context,
 	globalCfg map[string]any,
 	dataCtx map[string]any,
 	ao workflow.ActivityOptions,
 ) (any, error) {
 	errCode := errorcodes.Codes[errorcodes.PipelineInputError]
-	s := &StepDefinition{
-		StepSpec: StepSpec{
+	s := &pipeline.StepDefinition{
+		StepSpec: pipeline.StepSpec{
 			ID:              id,
 			Use:             use,
 			With:            with,
@@ -110,7 +41,7 @@ func ExecuteStep(
 		ContinueOnError: false,
 	}
 
-	err := ResolveInputs(s, globalCfg, dataCtx)
+	err := pipeline.ResolveInputs(s, globalCfg, dataCtx)
 	if err != nil {
 		appErr := workflowengine.NewAppError(
 			errCode,
@@ -121,7 +52,7 @@ func ExecuteStep(
 	step := registry.Registry[s.Use]
 	switch step.Kind {
 	case registry.TaskActivity:
-		payload, err := s.DecodePayload()
+		payload, err := DecodePayload(s)
 		if err != nil {
 			appErr := workflowengine.NewAppError(
 				errCode,
@@ -184,7 +115,7 @@ func ExecuteStep(
 
 		return output, nil
 	case registry.TaskWorkflow:
-		payload, err := s.DecodePayload()
+		payload, err := DecodePayload(s)
 		if err != nil {
 			appErr := workflowengine.NewAppError(
 				errCode,
@@ -236,7 +167,8 @@ func ExecuteStep(
 	return nil, nil
 }
 
-func (s *StepDefinition) Execute(
+func Execute(
+	s *pipeline.StepDefinition,
 	ctx workflow.Context,
 	globalCfg map[string]any,
 	dataCtx map[string]any,
@@ -245,7 +177,8 @@ func (s *StepDefinition) Execute(
 	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
 }
 
-func (s *OnErrorStepDefinition) ExecuteOnError(
+func ExecuteOnError(
+	s *pipeline.OnErrorStepDefinition,
 	ctx workflow.Context,
 	globalCfg map[string]any,
 	dataCtx map[string]any,
@@ -254,7 +187,8 @@ func (s *OnErrorStepDefinition) ExecuteOnError(
 	return ExecuteStep(s.ID, s.Use, s.With, s.ActivityOptions, ctx, globalCfg, dataCtx, ao)
 }
 
-func (s *OnSuccessStepDefinition) ExecuteOnSuccess(
+func ExecuteOnSuccess(
+	s *pipeline.OnSuccessStepDefinition,
 	ctx workflow.Context,
 	globalCfg map[string]any,
 	dataCtx map[string]any,
@@ -266,7 +200,7 @@ func (s *OnSuccessStepDefinition) ExecuteOnSuccess(
 // runChildPipeline executes a nested child pipeline and returns its outputs
 func runChildPipeline(
 	ctx workflow.Context,
-	step StepDefinition,
+	step pipeline.StepDefinition,
 	input PipelineWorkflowInput,
 	workflowName string,
 	dataCtx map[string]any,
@@ -279,7 +213,7 @@ func runChildPipeline(
 	}
 
 	// Parse workflow definition
-	wfDef, err := ParseWorkflow(yaml)
+	wfDef, err := pipeline.ParseWorkflow(yaml)
 	if err != nil {
 		return nil, workflowengine.NewWorkflowError(
 			workflowengine.NewAppError(
@@ -307,7 +241,7 @@ func runChildPipeline(
 
 	ctxChild := workflow.WithChildOptions(ctx, childOpts)
 	ao := PrepareActivityOptions(options.ActivityOptions, step.ActivityOptions)
-	err = ResolveInputs(&step, input.WorkflowInput.Config, dataCtx)
+	err = pipeline.ResolveInputs(&step, input.WorkflowInput.Config, dataCtx)
 	if err != nil {
 		return nil, err
 	}
@@ -338,7 +272,7 @@ func runChildPipeline(
 // fetchChildPipelineYAML fetches the pipeline YAML from an internal API route.
 func fetchChildPipelineYAML(
 	ctx workflow.Context,
-	step StepDefinition,
+	step pipeline.StepDefinition,
 	input PipelineWorkflowInput,
 	meta *workflowengine.WorkflowErrorMetadata,
 ) (string, error) {

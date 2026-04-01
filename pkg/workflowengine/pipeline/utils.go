@@ -6,9 +6,12 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
+	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"go.temporal.io/sdk/client"
 	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/workflow"
@@ -27,7 +30,7 @@ const (
 
 // Convert runtime config to Temporal SDK types
 
-func PrepareWorkflowOptions(rc RuntimeConfig) WorkflowOptions {
+func PrepareWorkflowOptions(rc pipeline.RuntimeConfig) pipeline.WorkflowOptions {
 	// Set defaults for task queue and namespace
 	taskQueue := PipelineTaskQueue
 	rp := &temporal.RetryPolicy{
@@ -62,7 +65,7 @@ func PrepareWorkflowOptions(rc RuntimeConfig) WorkflowOptions {
 		RetryPolicy: rp,
 	}
 
-	return WorkflowOptions{
+	return pipeline.WorkflowOptions{
 		Options: client.StartWorkflowOptions{
 			TaskQueue: taskQueue,
 			WorkflowExecutionTimeout: parseDurationOrDefault(
@@ -76,7 +79,7 @@ func PrepareWorkflowOptions(rc RuntimeConfig) WorkflowOptions {
 
 func PrepareActivityOptions(
 	globalAO workflow.ActivityOptions,
-	stepAO *ActivityOptionsConfig,
+	stepAO *pipeline.ActivityOptionsConfig,
 ) workflow.ActivityOptions {
 	rp := globalAO.RetryPolicy
 	scheduleToClose := globalAO.ScheduleToCloseTimeout
@@ -213,3 +216,27 @@ func getPipelineRunIdentifier(namespace, workflowID, runID string) string {
 	id := fmt.Sprintf("%s-%s", workflowID, runID)
 	return fmt.Sprintf("%s/%s", namespace, canonify.CanonifyPlain(id))
 }
+
+func  DecodePayload(s *pipeline.StepDefinition) (any, error) {
+	desc, ok := registry.Registry[s.Use]
+	if !ok {
+		return nil, fmt.Errorf("unknown step type: %s", s.Use)
+	}
+	if desc.PayloadType == nil {
+		return nil, fmt.Errorf("no input type registered for %s", s.Use)
+	}
+
+	data, err := json.Marshal(s.With.Payload)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal payload map: %w", err)
+	}
+
+	valPtr := reflect.New(desc.PayloadType).Interface()
+
+	if err := json.Unmarshal(data, valPtr); err != nil {
+		return nil, fmt.Errorf("failed to decode payload for %s: %w", s.ID, err)
+	}
+
+	return valPtr, nil
+}
+

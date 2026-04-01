@@ -7,9 +7,7 @@ package pipeline
 import (
 	"encoding/json"
 	"fmt"
-	"reflect"
 
-	"github.com/forkbombeu/credimi/pkg/workflowengine/registry"
 	"gopkg.in/yaml.v3"
 )
 
@@ -101,25 +99,3 @@ func (s *StepInputs) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-func (s *StepDefinition) DecodePayload() (any, error) {
-	desc, ok := registry.Registry[s.Use]
-	if !ok {
-		return nil, fmt.Errorf("unknown step type: %s", s.Use)
-	}
-	if desc.PayloadType == nil {
-		return nil, fmt.Errorf("no input type registered for %s", s.Use)
-	}
-
-	data, err := json.Marshal(s.With.Payload)
-	if err != nil {
-		return nil, fmt.Errorf("failed to marshal payload map: %w", err)
-	}
-
-	valPtr := reflect.New(desc.PayloadType).Interface()
-
-	if err := json.Unmarshal(data, valPtr); err != nil {
-		return nil, fmt.Errorf("failed to decode payload for %s: %w", s.ID, err)
-	}
-
-	return valPtr, nil
-}

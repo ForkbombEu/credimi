@@ -7,6 +7,7 @@ package pipeline
 import (
 	"testing"
 
+	"github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
@@ -62,9 +63,24 @@ func TestPipelineStartScheduled(t *testing.T) {
 	pipelineTemporalClient = func(_ string) (client.Client, error) {
 		return mockClient, nil
 	}
-
+	yaml := `name: scheduled-pipeline
+runtime:
+  schedule:
+    interval: 1m
+steps:
+  - id: step1
+    use: mobile-automation
+    with:
+      payload:
+        runner_id: "runner-android"
+  - id: step2
+    use: mobile-automation
+    with:
+      payload:
+        runner_id: "runner-ios"
+`	
 	result, err := pipelineWf.Start(
-		"name: scheduled-pipeline\nruntime:\n  schedule:\n    interval: 1m\nsteps: []\n",
+		yaml,
 		map[string]any{"namespace": "default"},
 		map[string]any{},
 		"tenant-1/scheduled-pipeline",
@@ -72,9 +88,17 @@ func TestPipelineStartScheduled(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "schedule-123", result.WorkflowID)
 	require.Contains(t, result.Message, "scheduled successfully")
+
+
+	expectedRunnerIDs := []string{"runner-android", "runner-ios"}
+	expectedSearchAttrs := workflowengine.PipelineTypedSearchAttributes(
+		"tenant-1/scheduled-pipeline",
+		expectedRunnerIDs,
+		workflowengine.EntityIDs{},
+	)
 	require.Equal(
 		t,
-		workflowengine.PipelineTypedSearchAttributes("tenant-1/scheduled-pipeline"),
+		expectedSearchAttrs,
 		capturedAction.TypedSearchAttributes,
 	)
 }
@@ -133,9 +157,9 @@ func TestPipelineWorkflowSuccessWithNoSteps(t *testing.T) {
 	)
 
 	env.ExecuteWorkflow(pipelineWf.Name(), PipelineWorkflowInput{
-		WorkflowDefinition: &WorkflowDefinition{
+		WorkflowDefinition: &pipeline.WorkflowDefinition{
 			Name:  "empty-steps",
-			Steps: []StepDefinition{},
+			Steps: []pipeline.StepDefinition{},
 		},
 		WorkflowInput: workflowengine.WorkflowInput{
 			Config: map[string]any{

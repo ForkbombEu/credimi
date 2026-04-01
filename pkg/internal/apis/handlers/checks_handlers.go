@@ -21,6 +21,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
 	"github.com/forkbombeu/credimi/pkg/internal/canonify"
 	"github.com/forkbombeu/credimi/pkg/internal/middlewares"
+	pipelineinternal "github.com/forkbombeu/credimi/pkg/internal/pipeline"
 	"github.com/forkbombeu/credimi/pkg/internal/routing"
 	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
@@ -1417,7 +1418,7 @@ func resolveQueuedPipelineDisplayName(app core.App, identifier string) string {
 
 	yaml := record.GetString("yaml")
 	if yaml != "" {
-		wfDef, err := pipeline.ParseWorkflow(yaml)
+		wfDef, err := pipelineinternal.ParseWorkflow(yaml)
 		if err == nil {
 			if name := strings.TrimSpace(wfDef.Name); name != "" {
 				return name
