@@ -105,6 +105,14 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		now.Add(-1*time.Hour).Add(-1*time.Minute).Add(-45*time.Second),
     	now.Add(-1*time.Hour),
     )
+	addEntitySearchAttributes(exec2.Info, map[string]any{
+        workflowengine.VersionsSearchAttribute:          "org/wallet/v1-0-0",
+        workflowengine.ActionsSearchAttribute:           []string{"org/action/maestro-1", "org/action/maestro-2"},
+        workflowengine.CredentialsSearchAttribute:       []string{"org/issuer/credential-1", "org/issuer/credential-2"},
+        workflowengine.UseCaseSearchAttribute:           []string{"org/verifier/uc-1", "org/verifier/uc-2"},
+        workflowengine.ConformanceCheckSearchAttribute:  []string{"conformance/check-1"},
+        workflowengine.CustomCheckSearchAttribute:       []string{"custom/check-1"},
+    })
     exec3 := buildPipelineExecutionInfoWithRunner(
         t,
         "wf-3",
@@ -126,7 +134,10 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		now.Add(-5*time.Minute).Add(-10*time.Second),
     	now.Add(-1*time.Minute),
     )
-
+	addEntitySearchAttributes(exec4.Info, map[string]any{
+        workflowengine.VersionsSearchAttribute:    "org/wallet/v2-0-0",
+        workflowengine.CredentialsSearchAttribute: []string{"org/issuer/credential-3"},
+    })
 	exec5 := buildPipelineExecutionInfoWithRunner(
         t,
         "wf-5",
@@ -212,6 +223,26 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.ElementsMatch(t, []string{"android", "ios"}, stats1.RunnerTypes)
 	require.Equal(t,66.67, stats1.SuccessRate)
 
+	require.NotNil(t, stats1.LastExecution, "LastExecution should not be nil")
+    lastExec1 := stats1.LastExecution
+    
+    require.Equal(t, "Android E2E Tests", lastExec1.PipelineName)
+    require.Empty(t, lastExec1.OrgLogo, "OrgLogo should be empty when no logo is set")
+    
+    require.Empty(t, lastExec1.Video, "Video URL should be empty")
+    require.Empty(t, lastExec1.Screenshots, "Screenshot URL should be empty")
+    require.Empty(t, lastExec1.Logs, "Logs URL should be empty")
+
+    require.Equal(t, "org/wallet", lastExec1.WalletUsed) 
+    require.Equal(t, "org/wallet/v1-0-0", lastExec1.WalletVersionUsed)
+    require.ElementsMatch(t, []string{"org/action/maestro-1", "org/action/maestro-2"}, lastExec1.MaestroScripts)
+    require.ElementsMatch(t, []string{"org/issuer/credential-1", "org/issuer/credential-2"}, lastExec1.Credentials)
+    require.ElementsMatch(t, []string{"org/issuer"}, lastExec1.Issuers) 
+    require.ElementsMatch(t, []string{"org/verifier/uc-1", "org/verifier/uc-2"}, lastExec1.UseCaseVerifications)
+    require.ElementsMatch(t, []string{"org/verifier"}, lastExec1.Verifiers)
+    require.ElementsMatch(t, []string{"conformance/check-1"}, lastExec1.ConformanceTests)
+    require.ElementsMatch(t, []string{"custom/check-1"}, lastExec1.CustomChecks)
+
     require.NotNil(t, stats2)
     require.Equal(t, 1, stats2.TotalRuns)	
     require.Equal(t, 1, stats2.TotalSuccesses)
@@ -228,9 +259,41 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.ElementsMatch(t, []string{"ios"}, stats2.RunnerTypes)
 	require.Equal(t,100.00, stats2.SuccessRate)
 
+	require.NotNil(t, stats2.LastExecution, "LastExecution should not be nil")
+    lastExec2 := stats2.LastExecution
+    
+    require.Equal(t, "iOS E2E Tests", lastExec2.PipelineName)
+    
+    // Verifica entity IDs per pipeline2
+    require.Equal(t, "org/wallet", lastExec2.WalletUsed)
+    require.Equal(t, "org/wallet/v2-0-0", lastExec2.WalletVersionUsed)
+    require.ElementsMatch(t, []string{"org/issuer/credential-3"}, lastExec2.Credentials)
+    require.ElementsMatch(t, []string{"org/issuer"}, lastExec2.Issuers)
+
 	require.Equal(t, "2h4m10s", stats3.MinExecutionTime)
 
+	require.NotNil(t, stats3.LastExecution, "LastExecution should not be nil")
+    lastExec3 := stats3.LastExecution
+    
+    require.Equal(t, "iOS E3E Tests", lastExec3.PipelineName)
+
     mockClient.AssertExpectations(t)
+}
+
+func addEntitySearchAttributes(info *workflow.WorkflowExecutionInfo, attrs map[string]any) {
+    if info.SearchAttributes == nil {
+        info.SearchAttributes = &common.SearchAttributes{
+            IndexedFields: make(map[string]*common.Payload),
+        }
+    }
+    
+    for key, value := range attrs {
+        payload, err := converter.GetDefaultDataConverter().ToPayload(value)
+        if err != nil {
+            continue
+        }
+        info.SearchAttributes.IndexedFields[key] = payload
+    }
 }
 
 type ExecutionInfo struct {

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/forkbombeu/credimi/pkg/internal/apierror"
+	"github.com/forkbombeu/credimi/pkg/utils"
 	"github.com/forkbombeu/credimi/pkg/workflowengine"
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
@@ -33,6 +34,7 @@ type PipelineStatsResponse struct {
 	MinExecutionTime    string   `json:"min_execution_time"`    
 	FirstExecutionDate  string   `json:"first_execution_date"`
 	LastExecutionDate   string   `json:"last_execution_date"`
+	LastExecution *LastExecutionDetails `json:"last_execution,omitempty"`
 }
 
 type PipelineStats struct {
@@ -47,6 +49,23 @@ type PipelineStats struct {
     MinExecutionTime    string
     FirstExecutionDate  string 
     LastExecutionDate   string  
+}
+
+type LastExecutionDetails struct {
+    PipelineName   string `json:"pipeline_name"`
+    OrgLogo        string `json:"org_logo,omitempty"`
+    Video          string `json:"video_results,omitempty"`
+    Screenshots    string `json:"screenshots,omitempty"`
+    Logs           string `json:"logs,omitempty"`
+    WalletUsed            string   `json:"wallet_used,omitempty"`           
+    WalletVersionUsed     string   `json:"wallet_version_used,omitempty"`   
+    MaestroScripts        []string `json:"maestro_scripts,omitempty"`       
+    Credentials           []string `json:"credentials,omitempty"`           
+    Issuers               []string `json:"issuers,omitempty"`               
+    UseCaseVerifications  []string `json:"use_case_verifications,omitempty"` 
+    Verifiers             []string `json:"verifiers,omitempty"`             
+    ConformanceTests      []string `json:"conformance_tests,omitempty"`     
+    CustomChecks          []string `json:"custom_checks,omitempty"`         
 }
 
 func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
@@ -118,6 +137,30 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 		pipelineIdentifiers := resolvePipelineIdentifiersForExecutions(executions)
 		
 		executionsByPipelineID := make(map[string][]*WorkflowExecution)
+
+		allExecutionRefs := make([]workflowExecutionRef, 0)
+		for _, execs := range executionsByPipelineID {
+    		for _, exec := range execs {
+        		if exec == nil || exec.Execution == nil {
+            		continue
+        		}
+        		allExecutionRefs = append(allExecutionRefs, workflowExecutionRef{
+            		WorkflowID: exec.Execution.WorkflowID,
+            		RunID:      exec.Execution.RunID,
+        		})
+    		}
+		}
+
+		resultRecordsByExecution, err := fetchPipelineResultRecords(
+    		e.App,
+    		"", 
+    		allExecutionRefs,
+		)
+		if err != nil {
+    		e.App.Logger().Warn("failed to fetch pipeline results", "error", err)
+    		resultRecordsByExecution = map[workflowExecutionRef]*core.Record{}
+		}
+
 		for _, exec := range executions {
             if exec == nil || exec.Execution == nil {
                 continue
@@ -151,7 +194,37 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
             
 			runnerCache := make(map[string]map[string]any)
             stats := calculateStatsFromExecutions(pipelineExecutions, e.App, runnerCache)
-            
+			
+			var lastSuccessfulExec *WorkflowExecution
+			sort.Slice(pipelineExecutions, func(i, j int) bool {
+        		return pipelineExecutions[i].StartTime > pipelineExecutions[j].StartTime
+    		})
+
+			for _, exec := range pipelineExecutions {
+    			if exec.Status == "WORKFLOW_EXECUTION_STATUS_COMPLETED" {
+        			lastSuccessfulExec = exec
+        			break
+    			}
+			}
+
+			var lastExecDetails *LastExecutionDetails
+    
+    		if lastSuccessfulExec != nil {
+        		ref := workflowExecutionRef{
+            		WorkflowID: lastSuccessfulExec.Execution.WorkflowID,
+            		RunID:      lastSuccessfulExec.Execution.RunID,
+        		}
+        		resultRecord := resultRecordsByExecution[ref]
+        
+        		video, screenshot, logs := getFirstPipelineResultFromRecord(e.App, resultRecord)
+        
+        	lastExecDetails = extractEntityDetailsFromExecution(lastSuccessfulExec)
+        	lastExecDetails.PipelineName = pipelineName
+        	lastExecDetails.OrgLogo = getOrgLogo(e.App, namespace)
+        	lastExecDetails.Video = video
+        	lastExecDetails.Screenshots = screenshot
+        	lastExecDetails.Logs = logs
+    	}
             response = append(response, PipelineStatsResponse{
                 PipelineID:          pipelineID,
                 PipelineName:        pipelineName,
@@ -166,6 +239,7 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
                 MinExecutionTime:    stats.MinExecutionTime,
                 FirstExecutionDate:  stats.FirstExecutionDate,
                 LastExecutionDate:   stats.LastExecutionDate,
+				LastExecution:       lastExecDetails,
             })
         }
 		return e.JSON(http.StatusOK, response)
@@ -339,4 +413,127 @@ func formatDurationString(d time.Duration, set bool) string {
         }
         return fmt.Sprintf("%dh", hours)
     }
+}
+
+func extractFirstTwoParts(fullPath string) string {
+    parts := strings.Split(fullPath, "/")
+    if len(parts) >= 2 {
+        return strings.Join(parts[:len(parts)-1], "/")
+    }
+    return fullPath
+}
+
+func getFirstPipelineResultFromRecord(app core.App, record *core.Record) (video, screenshot, logs string) {
+    if record == nil {
+        return "", "", ""
+    }
+    
+    results := computePipelineResultsFromRecord(app, record)
+    if len(results) == 0 {
+        return "", "", ""
+    }
+    
+    first := results[0]
+    return first.Video, first.Screenshot, first.Log
+}
+
+func extractEntityDetailsFromExecution(exec *WorkflowExecution) *LastExecutionDetails {
+    if exec == nil || exec.SearchAttributes == nil {
+        return &LastExecutionDetails{}
+    }
+    
+    attrs := *exec.SearchAttributes
+    
+    details := &LastExecutionDetails{}
+    
+    // version_id
+    if versionID := getStringFromAttrs(attrs, "VersionsID"); versionID != "" {
+        details.WalletVersionUsed = versionID
+        details.WalletUsed = extractFirstTwoParts(versionID)
+    }
+    
+    // action_id
+    details.MaestroScripts = getStringListFromAttrs(attrs, "ActionsID")
+    
+    // credential_id
+    details.Credentials = getStringListFromAttrs(attrs, "CredentialsID")
+    for _, cred := range details.Credentials {
+        issuer := extractFirstTwoParts(cred)
+        details.Issuers = appendUnique(details.Issuers, issuer)
+    }
+    
+    // use_case_id
+    details.UseCaseVerifications = getStringListFromAttrs(attrs, "UseCaseID")
+    for _, uc := range details.UseCaseVerifications {
+        verifier := extractFirstTwoParts(uc)
+        details.Verifiers = appendUnique(details.Verifiers, verifier)
+    }
+    
+    // check_id (conformance e custom)
+    details.ConformanceTests = getStringListFromAttrs(attrs, "ConformanceCheckID")
+    details.CustomChecks = getStringListFromAttrs(attrs, "CustomCheckID")
+    
+    return details
+}
+
+func getStringFromAttrs(attrs DecodedWorkflowSearchAttributes, key string) string {
+    if val, ok := attrs[key]; ok {
+        if s, ok := val.(string); ok {
+            return s
+        }
+    }
+    return ""
+}
+
+func getStringListFromAttrs(attrs DecodedWorkflowSearchAttributes, key string) []string {
+    if val, ok := attrs[key]; ok {
+        switch v := val.(type) {
+        case []string:
+            return v
+        case []interface{}:
+            result := make([]string, 0, len(v))
+            for _, item := range v {
+                if s, ok := item.(string); ok {
+                    result = append(result, s)
+                }
+            }
+            return result
+        }
+    }
+    return nil
+}
+
+func appendUnique(slice []string, item string) []string {
+    for _, existing := range slice {
+        if existing == item {
+            return slice	
+        }
+    }
+    return append(slice, item)
+}
+
+func getOrgLogo(app core.App, namespace string) string {
+    if namespace == "" {
+        return ""
+    }
+    
+    org, err := app.FindFirstRecordByFilter(
+        "organizations",
+        "canonified_name = {:canonified_name}",
+        dbx.Params{"canonified_name": namespace},
+    )
+    if err != nil {
+        return ""
+    }
+    
+    logo := org.GetString("logo")
+    if logo == "" {
+        return ""
+    }
+    
+    return utils.JoinURL(
+        app.Settings().Meta.AppURL,
+        "api", "files", "organizations",
+        org.Id, "logo", logo,
+    )
 }
