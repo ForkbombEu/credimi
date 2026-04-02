@@ -73,6 +73,10 @@ func (w walletWorkflowStub) Start(
 func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
 	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	userToken, err := userRecord.NewAuthToken()
+	require.NoError(t, err)
 
 	scenarios := []tests.ApiScenario{
 		{
@@ -143,6 +147,141 @@ func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 				versionRecord.Set("wallet", walletRecord.Id)
 				versionRecord.Set("tag", "2.0.0")
 				versionRecord.Set("owner", orgID)
+				apkFile := NewTestFile("app.apk", []byte("dummy apk content"))
+				versionRecord.Set("android_installer", []*filesystem.File{apkFile})
+				require.NoError(t, app.Save(versionRecord))
+
+				return app
+			},
+		},
+		{
+			Name:   "authenticated user can get installer for own organization",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(map[string]any{
+				"wallet_identifier":         "usera-s-organization/wallet-user-auth",
+				"wallet_version_identifier": "",
+				"platform":                  "android",
+			}),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + userToken,
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"installer_name"`,
+				`"installer_identifier"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupWalletApp(t)
+
+				walletColl, err := app.FindCollectionByNameOrId("wallets")
+				require.NoError(t, err)
+				walletRecord := core.NewRecord(walletColl)
+				walletRecord.Set("name", "wallet-user-auth")
+				walletRecord.Set("owner", orgID)
+				require.NoError(t, app.Save(walletRecord))
+
+				walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
+				require.NoError(t, err)
+				versionRecord := core.NewRecord(walletVersionColl)
+				versionRecord.Set("wallet", walletRecord.Id)
+				versionRecord.Set("tag", "4.0.0")
+				versionRecord.Set("owner", orgID)
+				apkFile := NewTestFile("app.apk", []byte("dummy apk content"))
+				versionRecord.Set("android_installer", []*filesystem.File{apkFile})
+				require.NoError(t, app.Save(versionRecord))
+
+				return app
+			},
+		},
+		{
+			Name:   "authenticated user can get installer for published wallet from another organization",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(map[string]any{
+				"wallet_identifier":         "other-org/wallet-published",
+				"wallet_version_identifier": "",
+				"platform":                  "android",
+			}),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + userToken,
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"installer_name"`,
+				`"installer_identifier"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupWalletApp(t)
+
+				orgColl, err := app.FindCollectionByNameOrId("organizations")
+				require.NoError(t, err)
+				otherOrg := core.NewRecord(orgColl)
+				otherOrg.Set("name", "Other Org")
+				otherOrg.Set("canonified_name", "other-org")
+				require.NoError(t, app.Save(otherOrg))
+
+				walletColl, err := app.FindCollectionByNameOrId("wallets")
+				require.NoError(t, err)
+				walletRecord := core.NewRecord(walletColl)
+				walletRecord.Set("name", "wallet-published")
+				walletRecord.Set("owner", otherOrg.Id)
+				walletRecord.Set("published", true)
+				require.NoError(t, app.Save(walletRecord))
+
+				walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
+				require.NoError(t, err)
+				versionRecord := core.NewRecord(walletVersionColl)
+				versionRecord.Set("wallet", walletRecord.Id)
+				versionRecord.Set("tag", "1.0.0")
+				versionRecord.Set("owner", otherOrg.Id)
+				apkFile := NewTestFile("app.apk", []byte("dummy apk content"))
+				versionRecord.Set("android_installer", []*filesystem.File{apkFile})
+				require.NoError(t, app.Save(versionRecord))
+
+				return app
+			},
+		},
+		{
+			Name:   "authenticated user cannot get installer for another organization",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/get-installer-md5-or-etag",
+			Body: jsonBody(map[string]any{
+				"wallet_identifier":         "other-org/wallet-forbidden",
+				"wallet_version_identifier": "",
+				"platform":                  "android",
+			}),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + userToken,
+			},
+			ExpectedStatus: 403,
+			ExpectedContent: []string{
+				`"authorization"`,
+				`"forbidden"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupWalletApp(t)
+
+				orgColl, err := app.FindCollectionByNameOrId("organizations")
+				require.NoError(t, err)
+				otherOrg := core.NewRecord(orgColl)
+				otherOrg.Set("name", "Other Org")
+				otherOrg.Set("canonified_name", "other-org")
+				require.NoError(t, app.Save(otherOrg))
+
+				walletColl, err := app.FindCollectionByNameOrId("wallets")
+				require.NoError(t, err)
+				walletRecord := core.NewRecord(walletColl)
+				walletRecord.Set("name", "wallet-forbidden")
+				walletRecord.Set("owner", otherOrg.Id)
+				require.NoError(t, app.Save(walletRecord))
+
+				walletVersionColl, err := app.FindCollectionByNameOrId("wallet_versions")
+				require.NoError(t, err)
+				versionRecord := core.NewRecord(walletVersionColl)
+				versionRecord.Set("wallet", walletRecord.Id)
+				versionRecord.Set("tag", "1.0.0")
+				versionRecord.Set("owner", otherOrg.Id)
 				apkFile := NewTestFile("app.apk", []byte("dummy apk content"))
 				versionRecord.Set("android_installer", []*filesystem.File{apkFile})
 				require.NoError(t, app.Save(versionRecord))
@@ -265,13 +404,19 @@ func TestWalletGetInstallerMD5OrETag(t *testing.T) {
 		if scenario.Headers == nil {
 			scenario.Headers = map[string]string{}
 		}
-		scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
+		if _, ok := scenario.Headers["Authorization"]; !ok {
+			scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
+		}
 		scenario.Test(t)
 	}
 }
 
 func TestWalletStorePipelineResult(t *testing.T) {
 	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+	userRecord, err := getUserRecordFromName("userA")
+	require.NoError(t, err)
+	userToken, err := userRecord.NewAuthToken()
 	require.NoError(t, err)
 
 	// Prepare the success multipart request with MP4
@@ -372,6 +517,27 @@ func TestWalletStorePipelineResult(t *testing.T) {
 			},
 		},
 		{
+			Name:   "store pipeline result successfully with authenticated user",
+			Method: http.MethodPost,
+			URL:    "/api/wallet/store-pipeline-result",
+			Body:   bytes.NewReader(successBody.Bytes()),
+			Headers: map[string]string{
+				"Authorization": "Bearer " + userToken,
+				"Content-Type":  successWriter.FormDataContentType(),
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				`"status":"success"`,
+				`"last_frame_file_name"`,
+				`"video_file_name"`,
+			},
+			TestAppFactory: func(t testing.TB) *tests.TestApp {
+				app := setupWalletApp(t)
+				setupWalletPipelineTestRecords(t, app, orgID)
+				return app
+			},
+		},
+		{
 			Name:   "store ios pipeline result successfully",
 			Method: http.MethodPost,
 			URL:    "/api/wallet/store-pipeline-result",
@@ -436,7 +602,9 @@ func TestWalletStorePipelineResult(t *testing.T) {
 		if scenario.Headers == nil {
 			scenario.Headers = map[string]string{}
 		}
-		scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
+		if _, ok := scenario.Headers["Authorization"]; !ok {
+			scenario.Headers["Credimi-Api-Key"] = "internal-test-api-key"
+		}
 		scenario.Test(t)
 	}
 }
