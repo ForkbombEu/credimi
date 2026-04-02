@@ -22,6 +22,15 @@ func setupOrganizationApp(t testing.TB) *tests.TestApp {
 	return app
 }
 
+func setupOrganizationPublicApp(t testing.TB) *tests.TestApp {
+    app, err := tests.NewTestApp(testDataDir)
+    require.NoError(t, err)
+    canonify.RegisterCanonifyHooks(app)
+    OrganizationTemporalInternalRoutes.Add(app)
+    seedInternalAdminKey(t, app)  
+    return app
+}
+
 func getUserRecordFromName(name string) (*core.Record, error) {
 	app, err := tests.NewTestApp(testDataDir)
 
@@ -71,6 +80,49 @@ func TestOrganizationHandlers(t *testing.T) {
 				"authentication_required",
 			},
 			TestAppFactory: setupOrganizationApp,
+		},
+	}
+	for _, scenario := range scenarios {
+		scenario.Test(t)
+	}
+}
+func TestGetAllNamespaces(t *testing.T) {
+	scenarios := []tests.ApiScenario{
+		{
+			Name:   "get all namespaces with API key",
+			Method: "GET",
+			URL:    "/api/organizations/namespaces",
+			Headers: map[string]string{
+				"Credimi-Api-Key": "internal-test-api-key",
+			},
+			ExpectedStatus: 200,
+			ExpectedContent: []string{
+				"namespaces",
+			},
+			TestAppFactory: setupOrganizationPublicApp,
+		},
+		{
+			Name:           "get all namespaces without API key",
+			Method:         "GET",
+			URL:            "/api/organizations/namespaces",
+			ExpectedStatus: 401,
+			ExpectedContent: []string{
+				"api_key_required",
+			},
+			TestAppFactory: setupOrganizationPublicApp,
+		},
+		{
+			Name:   "get all namespaces with wrong API key",
+			Method: "GET",
+			URL:    "/api/organizations/namespaces",
+			Headers: map[string]string{
+				"Credimi-Api-Key": "wrong-key",
+			},
+			ExpectedStatus: 401,
+			ExpectedContent: []string{
+				"invalid_api_key",
+			},
+			TestAppFactory: setupOrganizationPublicApp,
 		},
 	}
 	for _, scenario := range scenarios {

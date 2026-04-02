@@ -29,6 +29,25 @@ var OrganizationRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 	},
 }
+var OrganizationTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
+	BaseURL:                "/api/organizations",
+	AuthenticationRequired: false,
+	Middlewares: []*hook.Handler[*core.RequestEvent]{
+		{Func: middlewares.ErrorHandlingMiddleware},
+	},
+	Routes: []routing.RouteDefinition{
+		{
+			Method:      http.MethodGet,
+			Path:        "/namespaces",
+			Handler:     HandleGetAllNamespaces,
+			Description: "Get all organization namespaces (internal use)",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+	},
+}
+
 
 func HandleGetMyOrganization() func(*core.RequestEvent) error {
 	return func(e *core.RequestEvent) error {
@@ -52,5 +71,30 @@ func HandleGetMyOrganization() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		return e.JSON(http.StatusOK, orgRecord.FieldsData())
+	}
+}
+
+func HandleGetAllNamespaces() func(*core.RequestEvent) error {
+	return func(e *core.RequestEvent) error {
+		records, err := e.App.FindAllRecords("organizations")
+		if err != nil {
+			return apierror.New(
+				http.StatusInternalServerError,
+				"organizations",
+				"failed to fetch organizations",
+				err.Error(),
+			).JSON(e)
+		}
+
+		namespaces := make([]string, 0, len(records))
+		for _, record := range records {
+			if canonified := record.GetString("canonified_name"); canonified != "" {
+				namespaces = append(namespaces, canonified)
+			}
+		}
+
+		return e.JSON(http.StatusOK, map[string]interface{}{
+			"namespaces": namespaces,
+		})
 	}
 }

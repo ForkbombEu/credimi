@@ -98,6 +98,9 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			Method:  http.MethodGet,
 			Path:    "/scoreboard/{namespace}",
 			Handler: HandleGetPipelineScoreboard,
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
 		},
 	},
 }
