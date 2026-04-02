@@ -368,13 +368,11 @@ func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
 				buildPipelineExecutionInfo(
-					t,
 					"wf-1",
 					"run-1",
 					pipelineIdentifier,
 				),
 				buildPipelineExecutionInfo(
-					t,
 					"wf-2",
 					"run-2",
 					pipelineIdentifier,
@@ -430,6 +428,99 @@ func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
 	}
 }
 
+func TestFetchCompletedWorkflowsWithPaginationSortsByParsedStartTime(t *testing.T) {
+	app, authRecord, pipelineRecord := setupPipelineResultsApp(t)
+	defer app.Cleanup()
+
+	orgID := pipelineRecord.GetString("owner")
+	createPipelineResult(t, app, orgID, pipelineRecord.Id, "wf-new", "run-new")
+	createPipelineResult(t, app, orgID, pipelineRecord.Id, "wf-old", "run-old")
+
+	restore := installPipelineResultsSeams(t)
+	t.Cleanup(restore)
+
+	pipelinePath, err := canonify.BuildPath(
+		app,
+		pipelineRecord,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
+	require.NoError(t, err)
+	pipelineIdentifier := strings.Trim(pipelinePath, "/")
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return strings.Contains(req.GetQuery(), "WorkflowType") &&
+					!strings.Contains(req.GetQuery(), "ParentWorkflowId")
+			}),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflow.WorkflowExecutionInfo{
+				buildPipelineExecutionInfoAt(
+					"wf-old",
+					"run-old",
+					pipelineIdentifier,
+					time.Date(2026, time.March, 31, 23, 0, 0, 0, time.UTC),
+				),
+				buildPipelineExecutionInfoAt(
+					"wf-new",
+					"run-new",
+					pipelineIdentifier,
+					time.Date(2026, time.April, 2, 8, 0, 0, 0, time.UTC),
+				),
+			},
+		}, nil).
+		Once()
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return strings.Contains(req.GetQuery(), "ParentWorkflowId")
+			}),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
+		Maybe()
+	mockClient.
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			mock.Anything,
+			mock.Anything,
+			mock.Anything,
+			mock.Anything,
+		).
+		Return(&fakeHistoryIterator{events: []*historypb.HistoryEvent{}}).
+		Maybe()
+
+	pipelineResultsTemporalClient = func(string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	pipelineMap := map[string]*core.Record{pipelineRecord.Id: pipelineRecord}
+
+	summaries, apiErr := fetchCompletedWorkflowsWithPagination(
+		&core.RequestEvent{App: app, Auth: authRecord},
+		pipelineMap,
+		"ns-1",
+		authRecord,
+		orgID,
+		"",
+		"Completed",
+		2,
+		0,
+		nil,
+	)
+	require.Nil(t, apiErr)
+	require.Len(t, summaries, 2)
+	require.Equal(t, "wf-new", summaries[0].Execution.WorkflowID)
+	require.Equal(t, "wf-old", summaries[1].Execution.WorkflowID)
+}
+
 func TestBuildPipelineExecutionHierarchyFromResult(t *testing.T) {
 	app, err := tests.NewTestApp(testDataDir)
 	require.NoError(t, err)
@@ -467,7 +558,6 @@ func TestBuildPipelineExecutionHierarchyFromResult(t *testing.T) {
 		root,
 		[]*WorkflowExecution{child},
 		"default",
-		"UTC",
 		nil,
 	)
 	require.Len(t, summaries, 1)
@@ -920,8 +1010,19 @@ func createPipelineResult(
 }
 
 func buildPipelineExecutionInfo(
-	t testing.TB,
 	workflowID, runID, pipelineIdentifier string,
+) *workflow.WorkflowExecutionInfo {
+	return buildPipelineExecutionInfoAt(
+		workflowID,
+		runID,
+		pipelineIdentifier,
+		time.Now().Add(-2*time.Minute),
+	)
+}
+
+func buildPipelineExecutionInfoAt(
+	workflowID, runID, pipelineIdentifier string,
+	startTime time.Time,
 ) *workflow.WorkflowExecutionInfo {
 	info := &workflow.WorkflowExecutionInfo{
 		Execution: &common.WorkflowExecution{
@@ -932,8 +1033,8 @@ func buildPipelineExecutionInfo(
 			Name: pipeline.NewPipelineWorkflow().Name(),
 		},
 		Status:    enums.WORKFLOW_EXECUTION_STATUS_COMPLETED,
-		StartTime: timestamppb.New(time.Now().Add(-2 * time.Minute)),
-		CloseTime: timestamppb.New(time.Now().Add(-time.Minute)),
+		StartTime: timestamppb.New(startTime),
+		CloseTime: timestamppb.New(startTime.Add(time.Minute)),
 	}
 
 	if pipelineIdentifier == "" {
@@ -941,7 +1042,9 @@ func buildPipelineExecutionInfo(
 	}
 
 	payload, err := converter.GetDefaultDataConverter().ToPayload(pipelineIdentifier)
-	require.NoError(t, err)
+	if err != nil {
+		panic(err)
+	}
 	info.SearchAttributes = &common.SearchAttributes{
 		IndexedFields: map[string]*common.Payload{
 			workflowengine.PipelineIdentifierSearchAttribute: payload,

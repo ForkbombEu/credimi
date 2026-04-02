@@ -304,7 +304,6 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
 				buildPipelineExecutionInfo(
-					t,
 					"wf-1",
 					"run-1",
 					pipelineIdentifier,
@@ -340,7 +339,7 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 
 	var response map[string][]pipelineWorkflowSummary
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
@@ -541,9 +540,15 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 	require.NoError(t, app.Save(pipelineRecord))
 
 	originalTemporalClient := pipelineTemporalClient
+	originalListQueued := pipelineListQueuedRuns
 	t.Cleanup(func() {
 		pipelineTemporalClient = originalTemporalClient
+		pipelineListQueuedRuns = originalListQueued
 	})
+
+	pipelineListQueuedRuns = func(context.Context, string) (map[string]QueuedPipelineRunAggregate, error) {
+		return map[string]QueuedPipelineRunAggregate{}, nil
+	}
 
 	resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
 	require.NoError(t, err)
@@ -587,7 +592,7 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
-				buildPipelineExecutionInfo(t, "wf-1", "run-1", pipelineIdentifier),
+				buildPipelineExecutionInfo("wf-1", "run-1", pipelineIdentifier),
 			},
 			NextPageToken: []byte("next"),
 		}, nil).
@@ -615,7 +620,7 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
-				buildPipelineExecutionInfo(t, "wf-2", "run-2", pipelineIdentifier),
+				buildPipelineExecutionInfo("wf-2", "run-2", pipelineIdentifier),
 			},
 		}, nil).
 		Once()
@@ -679,7 +684,9 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status=%d body=%s", rec.Code, rec.Body.String())
+	}
 
 	var response []map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
@@ -754,7 +761,9 @@ func TestHandleGetPipelineSpecificDetailsQueuedOnly(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status=%d body=%s", rec.Code, rec.Body.String())
+	}
 
 	var response []pipelineWorkflowSummary
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
@@ -840,7 +849,7 @@ func TestHandleGetPipelineSpecificDetailsIncludesQueuedInPagination(t *testing.T
 		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
-				buildPipelineExecutionInfo(t, "wf-1", "run-1", pipelineIdentifier),
+				buildPipelineExecutionInfo("wf-1", "run-1", pipelineIdentifier),
 			},
 		}, nil).
 		Once()
@@ -887,7 +896,9 @@ func TestHandleGetPipelineSpecificDetailsIncludesQueuedInPagination(t *testing.T
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status=%d body=%s", rec.Code, rec.Body.String())
+	}
 
 	var response []pipelineWorkflowSummary
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
@@ -957,11 +968,138 @@ func TestHandleGetPipelineSpecificDetailsNoPipelines(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Equal(t, http.StatusOK, rec.Code)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unexpected status=%d body=%s", rec.Code, rec.Body.String())
+	}
 
 	var response []pipelineWorkflowSummary
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
 	require.Empty(t, response)
+}
+
+func TestHandleGetPipelineSpecificDetailsPublishedPipelineShowsOnlyMyRuns(t *testing.T) {
+	orgID, err := getOrgIDfromName("userA's organization")
+	require.NoError(t, err)
+
+	app := setupPipelineStartApp(t)
+	defer app.Cleanup()
+
+	authRecord, err := app.FindAuthRecordByEmail("users", "userA@example.org")
+	require.NoError(t, err)
+
+	orgColl, err := app.FindCollectionByNameOrId("organizations")
+	require.NoError(t, err)
+	otherOrg := core.NewRecord(orgColl)
+	otherOrg.Set("name", "Other Org")
+	otherOrg.Set("canonified_name", "other-org")
+	require.NoError(t, app.Save(otherOrg))
+
+	pipelineColl, err := app.FindCollectionByNameOrId("pipelines")
+	require.NoError(t, err)
+	pipelineRecord := core.NewRecord(pipelineColl)
+	pipelineRecord.Set("owner", otherOrg.Id)
+	pipelineRecord.Set("name", "pipeline123")
+	pipelineRecord.Set("canonified_name", "pipeline123")
+	pipelineRecord.Set("description", "published demo pipeline")
+	pipelineRecord.Set("yaml", "name: demo")
+	pipelineRecord.Set("published", true)
+	require.NoError(t, app.Save(pipelineRecord))
+
+	resultsColl, err := app.FindCollectionByNameOrId("pipeline_results")
+	require.NoError(t, err)
+	resultRecord := core.NewRecord(resultsColl)
+	resultRecord.Set("owner", orgID)
+	resultRecord.Set("pipeline", pipelineRecord.Id)
+	resultRecord.Set("workflow_id", "wf-foreign")
+	resultRecord.Set("run_id", "run-foreign")
+	require.NoError(t, app.Save(resultRecord))
+
+	pipelinePath, err := canonify.BuildPath(
+		app,
+		pipelineRecord,
+		canonify.CanonifyPaths["pipelines"],
+		"",
+	)
+	require.NoError(t, err)
+	pipelineIdentifier := strings.Trim(pipelinePath, "/")
+
+	originalTemporalClient := pipelineTemporalClient
+	originalListQueued := pipelineListQueuedRuns
+	t.Cleanup(func() {
+		pipelineTemporalClient = originalTemporalClient
+		pipelineListQueuedRuns = originalListQueued
+	})
+
+	pipelineListQueuedRuns = func(context.Context, string) (map[string]QueuedPipelineRunAggregate, error) {
+		return map[string]QueuedPipelineRunAggregate{}, nil
+	}
+
+	mockClient := &temporalmocks.Client{}
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return req.GetNamespace() == "usera-s-organization" &&
+					strings.Contains(req.GetQuery(), fmt.Sprintf(`PipelineIdentifier="%s"`, pipelineIdentifier))
+			}),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{
+			Executions: []*workflow.WorkflowExecutionInfo{
+				buildPipelineExecutionInfo("wf-foreign", "run-foreign", pipelineIdentifier),
+			},
+		}, nil).
+		Once()
+	mockClient.
+		On(
+			"ListWorkflow",
+			mock.Anything,
+			mock.MatchedBy(func(req *workflowservice.ListWorkflowExecutionsRequest) bool {
+				return strings.Contains(req.GetQuery(), `ParentWorkflowId="wf-foreign"`) &&
+					strings.Contains(req.GetQuery(), `ParentRunId="run-foreign"`)
+			}),
+		).
+		Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
+		Maybe()
+	mockClient.
+		On(
+			"GetWorkflowHistory",
+			mock.Anything,
+			"wf-foreign",
+			"run-foreign",
+			false,
+			enums.HISTORY_EVENT_FILTER_TYPE_ALL_EVENT,
+		).
+		Return(&fakeHistoryIterator{events: []*historypb.HistoryEvent{}}, nil).
+		Maybe()
+	pipelineTemporalClient = func(string) (client.Client, error) {
+		return mockClient, nil
+	}
+
+	req := httptest.NewRequest(
+		http.MethodGet,
+		"/api/pipeline/list-executions/"+pipelineRecord.Id,
+		nil,
+	)
+	req.SetPathValue("id", pipelineRecord.Id)
+	rec := httptest.NewRecorder()
+
+	err = HandleGetPipelineSpecificDetails()(&core.RequestEvent{
+		App:  app,
+		Auth: authRecord,
+		Event: router.Event{
+			Request:  req,
+			Response: rec,
+		},
+	})
+	require.NoError(t, err)
+	require.Equal(t, http.StatusOK, rec.Code)
+
+	var response []pipelineWorkflowSummary
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &response))
+	require.Len(t, response, 1)
+	require.Equal(t, "wf-foreign", response[0].Execution.WorkflowID)
+	require.Equal(t, pipelineIdentifier, response[0].PipelineIdentifier)
 }
 
 func TestHandleGetPipelineSpecificDetailsListError(t *testing.T) {
