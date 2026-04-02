@@ -106,7 +106,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
     	now.Add(-1*time.Hour),
     )
 	addEntitySearchAttributes(exec2.Info, map[string]any{
-        workflowengine.VersionsSearchAttribute:          "org/wallet/v1-0-0",
+        workflowengine.VersionsSearchAttribute:          []string{"org/wallet/v1-0-0"},
         workflowengine.ActionsSearchAttribute:           []string{"org/action/maestro-1", "org/action/maestro-2"},
         workflowengine.CredentialsSearchAttribute:       []string{"org/issuer/credential-1", "org/issuer/credential-2"},
         workflowengine.UseCaseSearchAttribute:           []string{"org/verifier/uc-1", "org/verifier/uc-2"},
@@ -135,7 +135,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
     	now.Add(-1*time.Minute),
     )
 	addEntitySearchAttributes(exec4.Info, map[string]any{
-        workflowengine.VersionsSearchAttribute:    "org/wallet/v2-0-0",
+        workflowengine.VersionsSearchAttribute:    []string{"org/wallet/v2-0-0","org/wallet/v3-0-0"},
         workflowengine.CredentialsSearchAttribute: []string{"org/issuer/credential-3"},
     })
 	exec5 := buildPipelineExecutionInfoWithRunner(
@@ -210,7 +210,7 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
     require.Equal(t, 1, stats1.ScheduledExecutions)
     require.Equal(t, 2, stats1.ManualExecutions)
     require.ElementsMatch(t, []string{"usera-s-organization/runner-android", "usera-s-organization/runner-ios"}, stats1.Runners)
-	require.Equal(t, "30s", stats1.MinExecutionTime)
+	require.Equal(t, "1m45s", stats1.MinExecutionTime)
 	expectedFirstTime := exec1.Info.StartTime.AsTime()
 	actualFirstTime, err := time.Parse(time.RFC3339Nano, stats1.FirstExecutionDate)
 	require.NoError(t, err)
@@ -233,8 +233,8 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
     require.Empty(t, lastExec1.Screenshots, "Screenshot URL should be empty")
     require.Empty(t, lastExec1.Logs, "Logs URL should be empty")
 
-    require.Equal(t, "org/wallet", lastExec1.WalletUsed) 
-    require.Equal(t, "org/wallet/v1-0-0", lastExec1.WalletVersionUsed)
+    require.Equal(t, []string{"org/wallet"}, lastExec1.WalletUsed) 
+    require.Equal(t, []string{"org/wallet/v1-0-0"}, lastExec1.WalletVersionUsed)
     require.ElementsMatch(t, []string{"org/action/maestro-1", "org/action/maestro-2"}, lastExec1.MaestroScripts)
     require.ElementsMatch(t, []string{"org/issuer/credential-1", "org/issuer/credential-2"}, lastExec1.Credentials)
     require.ElementsMatch(t, []string{"org/issuer"}, lastExec1.Issuers) 
@@ -264,9 +264,8 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
     
     require.Equal(t, "iOS E2E Tests", lastExec2.PipelineName)
     
-    // Verifica entity IDs per pipeline2
-    require.Equal(t, "org/wallet", lastExec2.WalletUsed)
-    require.Equal(t, "org/wallet/v2-0-0", lastExec2.WalletVersionUsed)
+    require.Equal(t, []string{"org/wallet"}, lastExec2.WalletUsed)
+    require.Equal(t, []string{"org/wallet/v2-0-0","org/wallet/v3-0-0"}, lastExec2.WalletVersionUsed)
     require.ElementsMatch(t, []string{"org/issuer/credential-3"}, lastExec2.Credentials)
     require.ElementsMatch(t, []string{"org/issuer"}, lastExec2.Issuers)
 

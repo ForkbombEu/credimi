@@ -57,8 +57,8 @@ type LastExecutionDetails struct {
     Video          string `json:"video_results,omitempty"`
     Screenshots    string `json:"screenshots,omitempty"`
     Logs           string `json:"logs,omitempty"`
-    WalletUsed            string   `json:"wallet_used,omitempty"`           
-    WalletVersionUsed     string   `json:"wallet_version_used,omitempty"`   
+    WalletUsed            []string   `json:"wallet_used,omitempty"`           
+    WalletVersionUsed     []string   `json:"wallet_version_used,omitempty"`   
     MaestroScripts        []string `json:"maestro_scripts,omitempty"`       
     Credentials           []string `json:"credentials,omitempty"`           
     Issuers               []string `json:"issuers,omitempty"`               
@@ -290,7 +290,9 @@ func calculateStatsFromExecutions(
 
         updateDateRange(exec.StartTime, &firstTime, &lastTime)
 
-        updateMinDuration(exec, &minDuration, &minDurationSet)
+        if isCompleted {
+            updateMinDuration(exec, &minDuration, &minDurationSet)
+        }
     }
 
     stats.Runners = mapKeysToSlice(runnerSet)
@@ -447,9 +449,10 @@ func extractEntityDetailsFromExecution(exec *WorkflowExecution) *LastExecutionDe
     details := &LastExecutionDetails{}
     
     // version_id
-    if versionID := getStringFromAttrs(attrs, "VersionsID"); versionID != "" {
-        details.WalletVersionUsed = versionID
-        details.WalletUsed = extractFirstTwoParts(versionID)
+    details.WalletVersionUsed = getStringListFromAttrs(attrs, "VersionsID"); 
+    for _, v := range details.WalletVersionUsed {
+        walletUsed := extractFirstTwoParts(v) 
+        details.WalletUsed = appendUnique(details.WalletUsed, walletUsed)
     }
     
     // action_id
