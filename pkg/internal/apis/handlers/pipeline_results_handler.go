@@ -178,7 +178,6 @@ func fetchCompletedWorkflowsWithPagination(
 			exec,
 			childWorkflowsByParent[ref],
 			namespace,
-			authRecord.GetString("Timezone"),
 			temporalClient,
 		)
 
@@ -218,8 +217,16 @@ func fetchCompletedWorkflowsWithPagination(
 	}
 
 	sort.Slice(allSummaries, func(i, j int) bool {
-		return allSummaries[i].StartTime > allSummaries[j].StartTime
+		t1, _ := time.Parse(time.RFC3339, allSummaries[i].StartTime)
+		t2, _ := time.Parse(time.RFC3339, allSummaries[j].StartTime)
+		return t1.After(t2)
 	})
+
+	loc, err := time.LoadLocation(authRecord.GetString("Timezone"))
+	if err != nil {
+		loc = time.Local
+	}
+	localizePipelineWorkflowSummaries(allSummaries, loc)
 
 	if allSummaries == nil {
 		allSummaries = []*pipelineWorkflowSummary{}
@@ -227,7 +234,6 @@ func fetchCompletedWorkflowsWithPagination(
 
 	return allSummaries, nil
 }
-
 func parsePaginationParams(
 	e *core.RequestEvent,
 	defaultLimit, defaultOffset int,
@@ -652,16 +658,10 @@ func buildPipelineExecutionHierarchyFromResult(
 	rootExecution *WorkflowExecution,
 	childExecutions []*WorkflowExecution,
 	namespace string,
-	userTimezone string,
 	c client.Client,
 ) []*WorkflowExecutionSummary {
 	if rootExecution == nil || rootExecution.Execution == nil {
 		return nil
-	}
-
-	loc, err := time.LoadLocation(userTimezone)
-	if err != nil {
-		loc = time.Local
 	}
 
 	rootSummary := buildWorkflowExecutionSummary(rootExecution, c)
@@ -698,8 +698,26 @@ func buildPipelineExecutionHierarchyFromResult(
 	}
 
 	roots := []*WorkflowExecutionSummary{rootSummary}
-	sortExecutionSummaries(roots, loc, false)
+	sortWorkflowExecutionSummaries(roots, false)
 	return roots
+}
+
+func localizePipelineWorkflowSummaries(list []*pipelineWorkflowSummary, loc *time.Location) {
+	for _, summary := range list {
+		if summary == nil {
+			continue
+		}
+
+		if t, err := time.Parse(time.RFC3339, summary.StartTime); err == nil {
+			summary.StartTime = t.In(loc).Format("02/01/2006, 15:04:05")
+		}
+		if t, err := time.Parse(time.RFC3339, summary.EndTime); err == nil {
+			summary.EndTime = t.In(loc).Format("02/01/2006, 15:04:05")
+		}
+		if len(summary.Children) > 0 {
+			localizeWorkflowExecutionSummaries(summary.Children, loc)
+		}
+	}
 }
 
 func buildWorkflowExecutionSummary(

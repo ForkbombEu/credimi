@@ -1352,6 +1352,11 @@ func buildExecutionHierarchy(
 }
 
 func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location, ascending bool) {
+	sortWorkflowExecutionSummaries(list, ascending)
+	localizeWorkflowExecutionSummaries(list, loc)
+}
+
+func sortWorkflowExecutionSummaries(list []*WorkflowExecutionSummary, ascending bool) {
 	slices.SortFunc(list, func(a, b *WorkflowExecutionSummary) int {
 		t1, _ := time.Parse(time.RFC3339, a.StartTime)
 		t2, _ := time.Parse(time.RFC3339, b.StartTime)
@@ -1374,6 +1379,14 @@ func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location
 	})
 
 	for _, e := range list {
+		if len(e.Children) > 0 {
+			sortWorkflowExecutionSummaries(e.Children, !ascending)
+		}
+	}
+}
+
+func localizeWorkflowExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location) {
+	for _, e := range list {
 		if t, err := time.Parse(time.RFC3339, e.StartTime); err == nil {
 			e.StartTime = t.In(loc).Format("02/01/2006, 15:04:05")
 		}
@@ -1382,7 +1395,7 @@ func sortExecutionSummaries(list []*WorkflowExecutionSummary, loc *time.Location
 		}
 
 		if len(e.Children) > 0 {
-			sortExecutionSummaries(e.Children, loc, !ascending)
+			localizeWorkflowExecutionSummaries(e.Children, loc)
 		}
 	}
 }
