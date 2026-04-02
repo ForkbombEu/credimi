@@ -249,13 +249,14 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		statusFilter := e.Request.URL.Query().Get("status")
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
-			"id = {:id} && owner={:owner}",
+			"(id = {:id} && owner={:owner}) || (id = {:id} && published={:published})",
 			"",
 			-1,
 			0,
 			dbx.Params{
-				"id":    pipelineID,
-				"owner": organization.Id,
+				"id":        pipelineID,
+				"owner":     organization.Id,
+				"published": true,
 			},
 		)
 		if err != nil {
