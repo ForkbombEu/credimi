@@ -368,13 +368,11 @@ func TestFetchCompletedWorkflowsWithPaginationSkipsAndFilters(t *testing.T) {
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
 				buildPipelineExecutionInfo(
-					t,
 					"wf-1",
 					"run-1",
 					pipelineIdentifier,
 				),
 				buildPipelineExecutionInfo(
-					t,
 					"wf-2",
 					"run-2",
 					pipelineIdentifier,
@@ -1012,7 +1010,6 @@ func createPipelineResult(
 }
 
 func buildPipelineExecutionInfo(
-	t testing.TB,
 	workflowID, runID, pipelineIdentifier string,
 ) *workflow.WorkflowExecutionInfo {
 	return buildPipelineExecutionInfoAt(

@@ -304,7 +304,6 @@ func TestHandleGetPipelineDetailsReturnsResults(t *testing.T) {
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
 				buildPipelineExecutionInfo(
-					t,
 					"wf-1",
 					"run-1",
 					pipelineIdentifier,
@@ -593,7 +592,7 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
-				buildPipelineExecutionInfo(t, "wf-1", "run-1", pipelineIdentifier),
+				buildPipelineExecutionInfo("wf-1", "run-1", pipelineIdentifier),
 			},
 			NextPageToken: []byte("next"),
 		}, nil).
@@ -621,7 +620,7 @@ func TestHandleGetPipelineSpecificDetailsFiltersAndPaginates(t *testing.T) {
 		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
-				buildPipelineExecutionInfo(t, "wf-2", "run-2", pipelineIdentifier),
+				buildPipelineExecutionInfo("wf-2", "run-2", pipelineIdentifier),
 			},
 		}, nil).
 		Once()
@@ -850,7 +849,7 @@ func TestHandleGetPipelineSpecificDetailsIncludesQueuedInPagination(t *testing.T
 		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
-				buildPipelineExecutionInfo(t, "wf-1", "run-1", pipelineIdentifier),
+				buildPipelineExecutionInfo("wf-1", "run-1", pipelineIdentifier),
 			},
 		}, nil).
 		Once()
@@ -1047,7 +1046,7 @@ func TestHandleGetPipelineSpecificDetailsPublishedPipelineShowsOnlyMyRuns(t *tes
 		).
 		Return(&workflowservice.ListWorkflowExecutionsResponse{
 			Executions: []*workflow.WorkflowExecutionInfo{
-				buildPipelineExecutionInfo(t, "wf-foreign", "run-foreign", pipelineIdentifier),
+				buildPipelineExecutionInfo("wf-foreign", "run-foreign", pipelineIdentifier),
 			},
 		}, nil).
 		Once()
