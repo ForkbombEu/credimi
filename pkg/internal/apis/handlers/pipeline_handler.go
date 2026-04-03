@@ -102,6 +102,15 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
 		},
+		{
+    		Method:  http.MethodGet,
+    		Path:    "/execution-details/{namespace}/{workflow_id}/{run_id}",
+    		Handler: HandleGetExecutionDetails,
+    		Description: "Get detailed information about a specific execution",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
 	},
 }
 

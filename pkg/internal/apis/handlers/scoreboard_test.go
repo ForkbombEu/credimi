@@ -105,14 +105,6 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		now.Add(-1*time.Hour).Add(-1*time.Minute).Add(-45*time.Second),
     	now.Add(-1*time.Hour),
     )
-	addEntitySearchAttributes(exec2.Info, map[string]any{
-        workflowengine.VersionsSearchAttribute:          []string{"org/wallet/v1-0-0"},
-        workflowengine.ActionsSearchAttribute:           []string{"org/action/maestro-1", "org/action/maestro-2"},
-        workflowengine.CredentialsSearchAttribute:       []string{"org/issuer/credential-1", "org/issuer/credential-2"},
-        workflowengine.UseCaseSearchAttribute:           []string{"org/verifier/uc-1", "org/verifier/uc-2"},
-        workflowengine.ConformanceCheckSearchAttribute:  []string{"conformance/check-1"},
-        workflowengine.CustomCheckSearchAttribute:       []string{"custom/check-1"},
-    })
     exec3 := buildPipelineExecutionInfoWithRunner(
         t,
         "wf-3",
@@ -134,10 +126,6 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 		now.Add(-5*time.Minute).Add(-10*time.Second),
     	now.Add(-1*time.Minute),
     )
-	addEntitySearchAttributes(exec4.Info, map[string]any{
-        workflowengine.VersionsSearchAttribute:    []string{"org/wallet/v2-0-0","org/wallet/v3-0-0"},
-        workflowengine.CredentialsSearchAttribute: []string{"org/issuer/credential-3"},
-    })
 	exec5 := buildPipelineExecutionInfoWithRunner(
         t,
         "wf-5",
@@ -223,25 +211,11 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.ElementsMatch(t, []string{"android", "ios"}, stats1.RunnerTypes)
 	require.Equal(t,66.67, stats1.SuccessRate)
 
-	require.NotNil(t, stats1.LastExecution, "LastExecution should not be nil")
-    lastExec1 := stats1.LastExecution
-    
-    require.Equal(t, "Android E2E Tests", lastExec1.PipelineName)
-    require.Empty(t, lastExec1.OrgLogo, "OrgLogo should be empty when no logo is set")
-    
-    require.Empty(t, lastExec1.Video, "Video URL should be empty")
-    require.Empty(t, lastExec1.Screenshots, "Screenshot URL should be empty")
-    require.Empty(t, lastExec1.Logs, "Logs URL should be empty")
+	require.NotNil(t, stats1.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
+	require.Equal(t, "wf-2", stats1.LastSuccessfulRun.WorkflowID)  
+	require.Equal(t, "run-2", stats1.LastSuccessfulRun.RunID)
+	require.NotEmpty(t, stats1.LastSuccessfulRun.StartTime)
 
-    require.Equal(t, []string{"org/wallet"}, lastExec1.WalletUsed) 
-    require.Equal(t, []string{"org/wallet/v1-0-0"}, lastExec1.WalletVersionUsed)
-    require.ElementsMatch(t, []string{"org/action/maestro-1", "org/action/maestro-2"}, lastExec1.MaestroScripts)
-    require.ElementsMatch(t, []string{"org/issuer/credential-1", "org/issuer/credential-2"}, lastExec1.Credentials)
-    require.ElementsMatch(t, []string{"org/issuer"}, lastExec1.Issuers) 
-    require.ElementsMatch(t, []string{"org/verifier/uc-1", "org/verifier/uc-2"}, lastExec1.UseCaseVerifications)
-    require.ElementsMatch(t, []string{"org/verifier"}, lastExec1.Verifiers)
-    require.ElementsMatch(t, []string{"conformance/check-1"}, lastExec1.ConformanceTests)
-    require.ElementsMatch(t, []string{"custom/check-1"}, lastExec1.CustomChecks)
 
     require.NotNil(t, stats2)
     require.Equal(t, 1, stats2.TotalRuns)	
@@ -258,23 +232,240 @@ func TestHandleGetPipelineScoreboard(t *testing.T) {
 	require.NotEmpty(t, stats2.RunnerTypes)
 	require.ElementsMatch(t, []string{"ios"}, stats2.RunnerTypes)
 	require.Equal(t,100.00, stats2.SuccessRate)
-
-	require.NotNil(t, stats2.LastExecution, "LastExecution should not be nil")
-    lastExec2 := stats2.LastExecution
-    
-    require.Equal(t, "iOS E2E Tests", lastExec2.PipelineName)
-    
-    require.Equal(t, []string{"org/wallet"}, lastExec2.WalletUsed)
-    require.Equal(t, []string{"org/wallet/v2-0-0","org/wallet/v3-0-0"}, lastExec2.WalletVersionUsed)
-    require.ElementsMatch(t, []string{"org/issuer/credential-3"}, lastExec2.Credentials)
-    require.ElementsMatch(t, []string{"org/issuer"}, lastExec2.Issuers)
+	require.NotNil(t, stats2.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
+	require.Equal(t, "Pipeline-Sched-wf-4", stats2.LastSuccessfulRun.WorkflowID)
+	require.Equal(t, "run-4", stats2.LastSuccessfulRun.RunID)
 
 	require.Equal(t, "2h4m10s", stats3.MinExecutionTime)
+	require.NotNil(t, stats3.LastSuccessfulRun, "LastSuccessfulRun should not be nil")
+	require.Equal(t, "wf-5", stats3.LastSuccessfulRun.WorkflowID)
+	require.Equal(t, "run-5", stats3.LastSuccessfulRun.RunID)
 
-	require.NotNil(t, stats3.LastExecution, "LastExecution should not be nil")
-    lastExec3 := stats3.LastExecution
-    
-    require.Equal(t, "iOS E3E Tests", lastExec3.PipelineName)
+    mockClient.AssertExpectations(t)
+}
+
+func TestHandleGetExecutionDetails(t *testing.T) {
+    app := setupPipelineApp(t)
+    defer app.Cleanup()
+
+    orgID, err := getOrgIDfromName("userA's organization")
+    require.NoError(t, err)
+
+    createRunnerRecord(t, app, orgID, "runner-android", "android")
+    createRunnerRecord(t, app, orgID, "runner-ios", "ios")
+    createRunnerRecord(t, app, orgID, "runner-default", "")
+
+    pipeline1 := createPipelineRecord(t, app, orgID, "Android E2E Tests")
+    pipeline2 := createPipelineRecord(t, app, orgID, "iOS E2E Tests")
+
+    pipeline1.Set("published", true)
+    require.NoError(t, app.Save(pipeline1))
+    pipeline2.Set("published", true)
+    require.NoError(t, app.Save(pipeline2))
+
+    pipeline1Canonified := pipeline1.GetString("canonified_name")
+    pipeline2Canonified := pipeline2.GetString("canonified_name")
+
+    namespace := "usera-s-organization"
+
+    now := time.Now()
+
+    exec2 := buildPipelineExecutionInfoWithRunner(
+        t,
+        "wf-2",
+        "run-2",
+        fmt.Sprintf("%s/%s", namespace, pipeline1Canonified),
+        "Completed",
+        []string{"usera-s-organization/runner-android"},
+        now.Add(-1*time.Hour).Add(-1*time.Minute).Add(-45*time.Second),
+        now.Add(-1*time.Hour),
+    )
+    addEntitySearchAttributes(exec2.Info, map[string]any{
+        workflowengine.VersionsSearchAttribute:          []string{"org/wallet/v1-0-0"},
+        workflowengine.ActionsSearchAttribute:           []string{"org/action/maestro-1", "org/action/maestro-2"},
+        workflowengine.CredentialsSearchAttribute:       []string{"org/issuer/credential-1", "org/issuer/credential-2"},
+        workflowengine.UseCaseSearchAttribute:           []string{"org/verifier/uc-1", "org/verifier/uc-2"},
+        workflowengine.ConformanceCheckSearchAttribute:  []string{"conformance/check-1"},
+        workflowengine.CustomCheckSearchAttribute:       []string{"custom/check-1"},
+    })
+
+    exec4 := buildPipelineExecutionInfoWithRunner(
+        t,
+        "Pipeline-Sched-wf-4",
+        "run-4",
+        fmt.Sprintf("%s/%s", namespace, pipeline2Canonified),
+        "Completed",
+        []string{"usera-s-organization/runner-ios", "usera-s-organization/runner-default"},
+        now.Add(-5*time.Minute).Add(-10*time.Second),
+        now.Add(-1*time.Minute),
+    )
+    addEntitySearchAttributes(exec4.Info, map[string]any{
+        workflowengine.VersionsSearchAttribute:    []string{"org/wallet/v2-0-0", "org/wallet/v3-0-0"},
+        workflowengine.CredentialsSearchAttribute: []string{"org/issuer/credential-3"},
+    })
+
+    mockClient := &temporalmocks.Client{}
+    mockClient.
+        On("ListWorkflow",
+            mock.Anything,
+            mock.Anything,
+        ).
+        Return(&workflowservice.ListWorkflowExecutionsResponse{}, nil).
+        Maybe()
+
+    mockClient.
+        On("DescribeWorkflowExecution",
+            mock.Anything,
+            "wf-2",
+            "run-2",
+        ).
+        Return(&workflowservice.DescribeWorkflowExecutionResponse{
+            WorkflowExecutionInfo: exec2.Info,
+        }, nil).
+        Once()
+
+    mockClient.
+        On("DescribeWorkflowExecution",
+            mock.Anything,
+            "Pipeline-Sched-wf-4",
+            "run-4",
+        ).
+        Return(&workflowservice.DescribeWorkflowExecutionResponse{
+            WorkflowExecutionInfo: exec4.Info,
+        }, nil).
+        Once()
+
+	mockClient.
+    	On("DescribeWorkflowExecution",
+        	mock.Anything,
+        	"non-existent",
+        	"non-existent",
+    ).
+    Return(nil, fmt.Errorf("workflow not found")).
+    Once()
+
+    originalClient := pipelineResultsTemporalClient
+    defer func() { pipelineResultsTemporalClient = originalClient }()
+    pipelineResultsTemporalClient = func(_ string) (client.Client, error) {
+        return mockClient, nil
+    }
+
+    t.Run("execution details for exec2", func(t *testing.T) {
+        req := httptest.NewRequest(
+            http.MethodGet,
+            "/api/pipeline/execution-details/"+namespace+"/wf-2/run-2",
+            nil,
+        )
+        req.SetPathValue("namespace", namespace)
+        req.SetPathValue("workflow_id", "wf-2")
+        req.SetPathValue("run_id", "run-2")
+        req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+        rec := httptest.NewRecorder()
+
+        err = HandleGetExecutionDetails()(&core.RequestEvent{
+            App: app,
+            Event: router.Event{
+                Request:  req,
+                Response: rec,
+            },
+        })
+        require.NoError(t, err)
+        require.Equal(t, http.StatusOK, rec.Code)
+
+        var details LastExecutionDetails
+        require.NoError(t, json.NewDecoder(rec.Body).Decode(&details))
+
+        require.Equal(t, "android-e2e-tests", details.PipelineName)
+        require.Empty(t, details.OrgLogo)
+
+        require.Empty(t, details.Video)
+        require.Empty(t, details.Screenshots)
+        require.Empty(t, details.Logs)
+
+        require.ElementsMatch(t, []string{"org/wallet"}, details.WalletUsed)
+        require.ElementsMatch(t, []string{"org/wallet/v1-0-0"}, details.WalletVersionUsed)
+        require.ElementsMatch(t, []string{"org/action/maestro-1", "org/action/maestro-2"}, details.MaestroScripts)
+        require.ElementsMatch(t, []string{"org/issuer/credential-1", "org/issuer/credential-2"}, details.Credentials)
+        require.ElementsMatch(t, []string{"org/issuer"}, details.Issuers)
+        require.ElementsMatch(t, []string{"org/verifier/uc-1", "org/verifier/uc-2"}, details.UseCaseVerifications)
+        require.ElementsMatch(t, []string{"org/verifier"}, details.Verifiers)
+        require.ElementsMatch(t, []string{"conformance/check-1"}, details.ConformanceTests)
+        require.ElementsMatch(t, []string{"custom/check-1"}, details.CustomChecks)
+    })
+
+    t.Run("execution details for exec4", func(t *testing.T) {
+        req := httptest.NewRequest(
+            http.MethodGet,
+            "/api/pipeline/execution-details/"+namespace+"/Pipeline-Sched-wf-4/run-4",
+            nil,
+        )
+        req.SetPathValue("namespace", namespace)
+        req.SetPathValue("workflow_id", "Pipeline-Sched-wf-4")
+        req.SetPathValue("run_id", "run-4")
+        req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+        rec := httptest.NewRecorder()
+
+        err = HandleGetExecutionDetails()(&core.RequestEvent{
+            App: app,
+            Event: router.Event{
+                Request:  req,
+                Response: rec,
+            },
+        })
+        require.NoError(t, err)
+        require.Equal(t, http.StatusOK, rec.Code)
+
+        var details LastExecutionDetails
+        require.NoError(t, json.NewDecoder(rec.Body).Decode(&details))
+
+        require.Equal(t, "ios-e2e-tests", details.PipelineName)
+
+        require.ElementsMatch(t, []string{"org/wallet"}, details.WalletUsed)
+        require.ElementsMatch(t, []string{"org/wallet/v2-0-0", "org/wallet/v3-0-0"}, details.WalletVersionUsed)
+        require.ElementsMatch(t, []string{"org/issuer/credential-3"}, details.Credentials)
+        require.ElementsMatch(t, []string{"org/issuer"}, details.Issuers)
+    })
+    t.Run("missing namespace", func(t *testing.T) {
+        req := httptest.NewRequest(
+            http.MethodGet,
+            "/api/pipeline/execution-details///",
+            nil,
+        )
+        rec := httptest.NewRecorder()
+
+        err = HandleGetExecutionDetails()(&core.RequestEvent{
+            App: app,
+            Event: router.Event{
+                Request:  req,
+                Response: rec,
+            },
+        })
+        require.NoError(t, err)
+        require.Equal(t, http.StatusBadRequest, rec.Code)
+    })
+
+    t.Run("workflow not found", func(t *testing.T) {
+        req := httptest.NewRequest(
+            http.MethodGet,
+            "/api/pipeline/execution-details/"+namespace+"/non-existent/non-existent",
+            nil,
+        )
+        req.SetPathValue("namespace", namespace)
+        req.SetPathValue("workflow_id", "non-existent")
+        req.SetPathValue("run_id", "non-existent")
+        req.Header.Set("Credimi-Api-Key", "internal-test-api-key")
+        rec := httptest.NewRecorder()
+
+        err = HandleGetExecutionDetails()(&core.RequestEvent{
+            App: app,
+            Event: router.Event{
+                Request:  req,
+                Response: rec,
+            },
+        })
+        require.NoError(t, err)
+        require.Equal(t, http.StatusInternalServerError, rec.Code)
+    })
 
     mockClient.AssertExpectations(t)
 }

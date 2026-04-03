@@ -18,6 +18,7 @@ import (
 	"github.com/forkbombeu/credimi/pkg/workflowengine/pipeline"
 	"github.com/pocketbase/dbx"
 	"github.com/pocketbase/pocketbase/core"
+	"go.temporal.io/sdk/client"
 )
 
 type PipelineStatsResponse struct {
@@ -34,7 +35,13 @@ type PipelineStatsResponse struct {
 	MinExecutionTime    string   `json:"min_execution_time"`    
 	FirstExecutionDate  string   `json:"first_execution_date"`
 	LastExecutionDate   string   `json:"last_execution_date"`
-	LastExecution *LastExecutionDetails `json:"last_execution,omitempty"`
+	LastSuccessfulRun *LastSuccessfulRun `json:"last_successful_run,omitempty"`
+}
+
+type LastSuccessfulRun struct {
+    WorkflowID string `json:"workflow_id"`
+    RunID      string `json:"run_id"`
+    StartTime  string `json:"start_time"`  
 }
 
 type PipelineStats struct {
@@ -138,29 +145,6 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
 		
 		executionsByPipelineID := make(map[string][]*WorkflowExecution)
 
-		allExecutionRefs := make([]workflowExecutionRef, 0)
-		for _, execs := range executionsByPipelineID {
-    		for _, exec := range execs {
-        		if exec == nil || exec.Execution == nil {
-            		continue
-        		}
-        		allExecutionRefs = append(allExecutionRefs, workflowExecutionRef{
-            		WorkflowID: exec.Execution.WorkflowID,
-            		RunID:      exec.Execution.RunID,
-        		})
-    		}
-		}
-
-		resultRecordsByExecution, err := fetchPipelineResultRecords(
-    		e.App,
-    		"", 
-    		allExecutionRefs,
-		)
-		if err != nil {
-    		e.App.Logger().Warn("failed to fetch pipeline results", "error", err)
-    		resultRecordsByExecution = map[workflowExecutionRef]*core.Record{}
-		}
-
 		for _, exec := range executions {
             if exec == nil || exec.Execution == nil {
                 continue
@@ -193,38 +177,8 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
             pipelineName := pipelineRecord.GetString("name")
             
 			runnerCache := make(map[string]map[string]any)
-            stats := calculateStatsFromExecutions(pipelineExecutions, e.App, runnerCache)
+            stats, lastSuccessfulRun := calculateStatsFromExecutions(pipelineExecutions, e.App, runnerCache)
 			
-			var lastSuccessfulExec *WorkflowExecution
-			sort.Slice(pipelineExecutions, func(i, j int) bool {
-        		return pipelineExecutions[i].StartTime > pipelineExecutions[j].StartTime
-    		})
-
-			for _, exec := range pipelineExecutions {
-    			if exec.Status == "WORKFLOW_EXECUTION_STATUS_COMPLETED" {
-        			lastSuccessfulExec = exec
-        			break
-    			}
-			}
-
-			var lastExecDetails *LastExecutionDetails
-    
-    		if lastSuccessfulExec != nil {
-        		ref := workflowExecutionRef{
-            		WorkflowID: lastSuccessfulExec.Execution.WorkflowID,
-            		RunID:      lastSuccessfulExec.Execution.RunID,
-        		}
-        		resultRecord := resultRecordsByExecution[ref]
-        
-        		video, screenshot, logs := getFirstPipelineResultFromRecord(e.App, resultRecord)
-        
-        	lastExecDetails = extractEntityDetailsFromExecution(lastSuccessfulExec)
-        	lastExecDetails.PipelineName = pipelineName
-        	lastExecDetails.OrgLogo = getOrgLogo(e.App, namespace)
-        	lastExecDetails.Video = video
-        	lastExecDetails.Screenshots = screenshot
-        	lastExecDetails.Logs = logs
-    	}
             response = append(response, PipelineStatsResponse{
                 PipelineID:          pipelineID,
                 PipelineName:        pipelineName,
@@ -239,18 +193,122 @@ func HandleGetPipelineScoreboard() func(*core.RequestEvent) error {
                 MinExecutionTime:    stats.MinExecutionTime,
                 FirstExecutionDate:  stats.FirstExecutionDate,
                 LastExecutionDate:   stats.LastExecutionDate,
-				LastExecution:       lastExecDetails,
+				LastSuccessfulRun: lastSuccessfulRun,
             })
         }
 		return e.JSON(http.StatusOK, response)
 	}
 }
 
+func HandleGetExecutionDetails() func(*core.RequestEvent) error {
+    return func(e *core.RequestEvent) error {
+        namespace := e.Request.PathValue("namespace")
+        workflowID := e.Request.PathValue("workflow_id")
+        runID := e.Request.PathValue("run_id")
+
+        if namespace == "" || workflowID == "" || runID == "" {
+            return apierror.New(
+				http.StatusBadRequest, 
+				"params", 
+				"namespace, workflow_id and run_id are required",
+				"").JSON(e)
+        }
+
+        temporalClient, err := pipelineResultsTemporalClient(namespace)
+        if err != nil {
+            return apierror.New(
+				http.StatusInternalServerError, 
+				"temporal", 
+				"unable to create temporal client", 
+				err.Error()).JSON(e)
+        }
+        exec, apiErr := getWorkflowExecutionWithDecodedAttrs(temporalClient, workflowID, runID)
+        if apiErr != nil {
+            return apierror.New(
+				http.StatusInternalServerError, 
+				"workflow", 
+				"failed to get workflow execution", 
+				apiErr.Error()).JSON(e) 
+        }
+		pipelineIdentifier := pipelineIdentifierFromSearchAttributes(exec.SearchAttributes)
+        
+        parts := strings.SplitN(pipelineIdentifier, "/", 2)
+        pipelineName := ""
+        if len(parts) == 2 {
+            pipelineName = parts[1]
+        }
+
+        resultRecord, _ := e.App.FindFirstRecordByFilter(
+            "pipeline_results",
+            "workflow_id={:workflow_id} && run_id={:run_id}",
+            dbx.Params{
+                "workflow_id": workflowID,
+                "run_id":      runID,
+            },
+        )
+
+        video, screenshot, logs := getPipelineResultFromRecord(e.App, resultRecord)
+        entityDetails := extractEntityDetailsFromExecution(exec)
+
+        response := LastExecutionDetails{
+            PipelineName:          pipelineName,
+            OrgLogo:               getOrgLogo(e.App, namespace),
+            Video:                 video,
+            Screenshots:           screenshot,
+            Logs:                  logs,
+            WalletUsed:            entityDetails.WalletUsed,
+            WalletVersionUsed:     entityDetails.WalletVersionUsed,
+            MaestroScripts:        entityDetails.MaestroScripts,
+            Credentials:           entityDetails.Credentials,
+            Issuers:               entityDetails.Issuers,
+            UseCaseVerifications:  entityDetails.UseCaseVerifications,
+            Verifiers:             entityDetails.Verifiers,
+            ConformanceTests:      entityDetails.ConformanceTests,
+            CustomChecks:          entityDetails.CustomChecks,
+        }
+
+        return e.JSON(http.StatusOK, response)
+    }
+}
+
+func getWorkflowExecutionWithDecodedAttrs(
+    temporalClient client.Client,
+    workflowID string,
+    runID string,
+) (*WorkflowExecution, error) {
+    resp, err := temporalClient.DescribeWorkflowExecution(
+        context.Background(),
+        workflowID,
+        runID,
+    )
+    if err != nil {
+        return nil, err
+    }
+    
+    execInfo := resp.GetWorkflowExecutionInfo()
+    var decodedAttrs DecodedWorkflowSearchAttributes
+    if execInfo.SearchAttributes != nil {
+        decodedAttrs, err = decodeWorkflowSearchAttributes(execInfo.SearchAttributes)
+        if err != nil {
+            return nil, err
+        }
+    }
+    
+    return &WorkflowExecution{
+        Execution: &WorkflowIdentifier{
+            WorkflowID: execInfo.Execution.WorkflowId,
+            RunID:      execInfo.Execution.RunId,
+        },
+        Type: WorkflowType{Name: execInfo.Type.Name},
+        SearchAttributes: &decodedAttrs,
+    }, nil
+}
+
 func calculateStatsFromExecutions(
     executions []*WorkflowExecution,
     app core.App,
     runnerCache map[string]map[string]any,
-) *PipelineStats {
+) (*PipelineStats, *LastSuccessfulRun) {
     stats := &PipelineStats{
         Runners:     []string{},
         RunnerTypes: []string{},
@@ -258,13 +316,15 @@ func calculateStatsFromExecutions(
     }
 
     if len(executions) == 0 {
-        return stats
+        return stats, nil
     }
 
     runnerSet := make(map[string]struct{})
     var minDuration time.Duration
     var firstTime, lastTime string
     minDurationSet := false
+
+	var lastSuccessfulExec *WorkflowExecution
 
     for _, exec := range executions {
         if exec == nil || exec.SearchAttributes == nil {
@@ -274,6 +334,10 @@ func calculateStatsFromExecutions(
         isCompleted := extractCompletionStatus(exec)
         if isCompleted {
             stats.TotalSuccesses++
+            
+            if lastSuccessfulExec == nil || exec.StartTime > lastSuccessfulExec.StartTime {
+                lastSuccessfulExec = exec
+            }
         }
 
         isScheduled := strings.HasPrefix(exec.Execution.WorkflowID, "Pipeline-Sched-")
@@ -306,7 +370,16 @@ func calculateStatsFromExecutions(
     stats.LastExecutionDate = lastTime
     stats.MinExecutionTime = formatDurationString(minDuration, minDurationSet)
 
-    return stats
+	var lastSuccessfulRun *LastSuccessfulRun
+    if lastSuccessfulExec != nil {
+        lastSuccessfulRun = &LastSuccessfulRun{
+            WorkflowID: lastSuccessfulExec.Execution.WorkflowID,
+            RunID:      lastSuccessfulExec.Execution.RunID,
+            StartTime:  lastSuccessfulExec.StartTime,
+        }
+    }
+
+    return stats, lastSuccessfulRun
 }
 
 func extractCompletionStatus(exec *WorkflowExecution) bool {
@@ -399,22 +472,13 @@ func formatDurationString(d time.Duration, set bool) string {
     case d < time.Hour:
         minutes := int(d.Minutes())
         seconds := int(d.Seconds()) % 60
-        if seconds > 0 {
-            return fmt.Sprintf("%dm%ds", minutes, seconds)
-        }
-        return fmt.Sprintf("%dm", minutes)
+        return fmt.Sprintf("%dm%ds", minutes, seconds)
     default:
         hours := int(d.Hours())
         minutes := int(d.Minutes()) % 60
         seconds := int(d.Seconds()) % 60
-        if minutes > 0 && seconds > 0 {
-            return fmt.Sprintf("%dh%dm%ds", hours, minutes, seconds)
+        return fmt.Sprintf("%dh%dm%ds", hours, minutes, seconds)
         }
-        if minutes > 0 {
-            return fmt.Sprintf("%dh%dm", hours, minutes)
-        }
-        return fmt.Sprintf("%dh", hours)
-    }
 }
 
 func extractFirstTwoParts(fullPath string) string {
@@ -425,7 +489,7 @@ func extractFirstTwoParts(fullPath string) string {
     return fullPath
 }
 
-func getFirstPipelineResultFromRecord(app core.App, record *core.Record) (video, screenshot, logs string) {
+func getPipelineResultFromRecord(app core.App, record *core.Record) (video, screenshot, logs string) {
     if record == nil {
         return "", "", ""
     }
@@ -477,15 +541,6 @@ func extractEntityDetailsFromExecution(exec *WorkflowExecution) *LastExecutionDe
     details.CustomChecks = getStringListFromAttrs(attrs, "CustomCheckID")
     
     return details
-}
-
-func getStringFromAttrs(attrs DecodedWorkflowSearchAttributes, key string) string {
-    if val, ok := attrs[key]; ok {
-        if s, ok := val.(string); ok {
-            return s
-        }
-    }
-    return ""
 }
 
 func getStringListFromAttrs(attrs DecodedWorkflowSearchAttributes, key string) []string {
