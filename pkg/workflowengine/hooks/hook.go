@@ -227,6 +227,15 @@ var DefaultWorkers = []workerConfig{
 			activities.NewQueryMobileRunnerSemaphoreRunStatusActivity(),
 		},
 	},
+	{
+        TaskQueue: workflows.AggregateScoreboardTaskQueue,
+        Workflows: []workflowengine.Workflow{
+            workflows.NewAggregateScoreboardWorkflow(),
+        },
+        Activities: []workflowengine.ExecutableActivity{
+            activities.NewInternalHTTPActivity(),
+        },
+    },
 }
 
 var (
