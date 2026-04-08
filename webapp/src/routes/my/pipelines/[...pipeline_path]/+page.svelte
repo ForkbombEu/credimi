@@ -8,26 +8,69 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	import { Pipeline } from '$lib';
 	import BackButton from '$lib/layout/back-button.svelte';
 	import { PolledResource } from '$lib/utils/state.svelte.js';
+	import { queryParameters } from 'sveltekit-search-params';
 
+	import SelectInputAny from '@/components/ui-custom/select-input-any.svelte';
 	import T from '@/components/ui-custom/t.svelte';
 	import { Separator } from '@/components/ui/separator/index.js';
 	import { m } from '@/i18n';
 
+	import PaginationArrows from '../../tests/runs/_partials/pagination-arrows.svelte';
+	import {
+		ALL_WORKFLOW_STATUSES,
+		isExtendedWorkflowStatus,
+		parseLimit,
+		parseOffset
+	} from '../../tests/runs/_partials/index.js';
 	import { setDashboardNavbar } from '../../+layout@.svelte';
 
 	//
 
 	let { data } = $props();
-	let { pipeline } = $derived(data);
+	let { pipeline, pagination } = $derived(data);
 
 	$effect(() => {
 		setDashboardNavbar({ title: m.Pipelines() });
 	});
 
-	const workflows = new PolledResource(() => Pipeline.Workflows.list(pipeline.id), {
+	const params = queryParameters({
+		status: {
+			encode: (value) => value,
+			decode: (value) => {
+				if (isExtendedWorkflowStatus(value)) return value;
+				return undefined;
+			}
+		},
+		limit: {
+			encode: (value) => value,
+			decode: parseLimit
+		},
+		offset: {
+			encode: (value) => value,
+			decode: parseOffset
+		}
+	});
+
+	const statusOptions = $derived([
+		{ value: undefined, label: m.All() },
+		...ALL_WORKFLOW_STATUSES.filter((status) => status !== null).map((status) => ({
+			value: status,
+			label: status
+		}))
+	]);
+
+	const workflows = new PolledResource(
+		() =>
+			Pipeline.Workflows.list(pipeline.id, {
+				status: params.status,
+				limit: params.limit,
+				offset: params.offset
+			}),
+		{
 		initialValue: () => data.workflows,
 		intervalMs: 10000
-	});
+		}
+	);
 
 	//
 
@@ -43,6 +86,7 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 	);
 
 	const successRate = $derived(((totalSuccesses / totalRuns) * 100).toFixed(1) + '%');
+	const currentItemCount = $derived(workflows.current?.length ?? 0);
 </script>
 
 <div class="flex items-end justify-between gap-8">
@@ -64,7 +108,36 @@ SPDX-License-Identifier: AGPL-3.0-or-later
 
 <Separator />
 
-<T tag="h3">{m.workflow_runs()}</T>
+<div class="flex flex-wrap items-center justify-between gap-3">
+	<T tag="h3">{m.workflow_runs()}</T>
+
+	<div class="flex flex-wrap items-center gap-3">
+		<SelectInputAny
+			items={statusOptions}
+			value={params.status}
+			placeholder={m.Status()}
+			onValueChange={(value) => {
+				params.status = value;
+				params.offset = 0;
+			}}
+		/>
+
+		<PaginationArrows
+			pagination={{ limit: params.limit ?? pagination.limit, offset: params.offset ?? pagination.offset }}
+			currentItemCount={currentItemCount}
+			onPrevious={() => {
+				params.offset = Math.max((params.offset ?? 0) - 1, 0);
+			}}
+			onNext={() => {
+				params.offset = (params.offset ?? 0) + 1;
+			}}
+			onLimitChange={(limit) => {
+				params.limit = limit;
+				params.offset = 0;
+			}}
+		/>
+	</div>
+</div>
 <Pipeline.Workflows.Table workflows={workflows.current ?? []} hidePipelineColumn />
 
 <!--  -->

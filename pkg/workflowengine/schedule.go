@@ -5,11 +5,8 @@
 package workflowengine
 
 import (
-	"context"
-	"fmt"
 	"time"
 
-	"github.com/forkbombeu/credimi/pkg/internal/temporalclient"
 	"go.temporal.io/sdk/client"
 )
 
@@ -17,69 +14,6 @@ import (
 type ScheduleMode struct {
 	Mode string `json:"mode"` // "daily", "weekly", "monthly"
 	Day  *int   `json:"day"`  // 0-6 for weekly (0=Sunday), 0-30 for monthly
-}
-
-type ScheduleStartInfo struct {
-	ID string
-}
-
-func StartScheduledWorkflowWithOptions(
-	runInfo WorkflowRunInfo,
-	workflowID, namespace string,
-	scheduleMode ScheduleMode,
-	timeZone string,
-) (ScheduleStartInfo, error) {
-	c, err := temporalclient.GetTemporalClientWithNamespace(namespace)
-	if err != nil {
-		return ScheduleStartInfo{}, fmt.Errorf(
-			"unable to create Temporal client for namespace %q: %w",
-			namespace,
-			err,
-		)
-	}
-
-	ctx := context.Background()
-	scheduleID := fmt.Sprintf("Schedule_ID_%s", workflowID)
-
-	calendarSpec := BuildCalendarSpec(scheduleMode)
-	scheduleHandle, err := c.ScheduleClient().Create(ctx, client.ScheduleOptions{
-		ID: scheduleID,
-		Spec: client.ScheduleSpec{
-			Calendars:    calendarSpec,
-			TimeZoneName: timeZone,
-		},
-		Action: &client.ScheduleWorkflowAction{
-			ID:        fmt.Sprintf("Scheduled_%s", workflowID),
-			Workflow:  runInfo.Name,
-			TaskQueue: runInfo.TaskQueue,
-			Args:      []any{runInfo.Input},
-			Memo:      runInfo.Memo,
-		},
-		Memo: map[string]any{
-			"test":                 runInfo.Memo["test"],
-			"original_workflow_id": workflowID,
-		},
-	})
-	if err != nil {
-		return ScheduleStartInfo{}, fmt.Errorf(
-			"failed to start scheduledID from workflowID: %s: %w",
-			workflowID,
-			err,
-		)
-	}
-
-	_, err = scheduleHandle.Describe(ctx)
-	if err != nil {
-		return ScheduleStartInfo{}, fmt.Errorf(
-			"failed to describe scheduledID: %s: %w",
-			scheduleID,
-			err,
-		)
-	}
-
-	return ScheduleStartInfo{
-		ID: scheduleID,
-	}, nil
 }
 
 func BuildCalendarSpec(mode ScheduleMode) []client.ScheduleCalendarSpec {

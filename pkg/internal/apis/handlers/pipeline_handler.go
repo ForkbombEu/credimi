@@ -52,18 +52,13 @@ var PipelineRoutes routing.RouteGroup = routing.RouteGroup{
 		},
 		{
 			Method:  http.MethodGet,
-			Path:    "/list-workflows",
+			Path:    "/list-executions",
 			Handler: HandleGetPipelineDetails,
 		},
 		{
 			Method:  http.MethodGet,
-			Path:    "/list-workflows/{id}",
+			Path:    "/list-executions/{id}",
 			Handler: HandleGetPipelineSpecificDetails,
-		},
-		{
-			Method:  http.MethodGet,
-			Path:    "/list-results",
-			Handler: HandleGetPipelineResults,
 		},
 	},
 }
@@ -266,15 +261,19 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 			).JSON(e)
 		}
 		namespace := organization.GetString("canonified_name")
+		limit, pageNum := parsePaginationParams(e, 20, 0)
+		offset := pageNum * limit
+		statusFilter := e.Request.URL.Query().Get("status")
 		pipelineRecords, err := e.App.FindRecordsByFilter(
 			"pipelines",
-			"id = {:id} && owner={:owner}",
+			"(id = {:id} && owner={:owner}) || (id = {:id} && published={:published})",
 			"",
 			-1,
 			0,
 			dbx.Params{
-				"id":    pipelineID,
-				"owner": organization.Id,
+				"id":        pipelineID,
+				"owner":     organization.Id,
+				"published": true,
 			},
 		)
 		if err != nil {
@@ -287,13 +286,10 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		}
 
 		if len(pipelineRecords) == 0 {
-			return e.JSON(http.StatusOK, ListMyChecksResponse{
-				Executions: []*WorkflowExecutionSummary{},
-			})
+			return e.JSON(http.StatusOK, []*pipelineWorkflowSummary{})
 		}
 
 		pipelineRecord := pipelineRecords[0]
-		pipelineID = pipelineRecord.Id
 		pipelinePath, err := canonify.BuildPath(
 			e.App,
 			pipelineRecord,
@@ -310,17 +306,68 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 		}
 		pipelineIdentifier := strings.Trim(pipelinePath, "/")
 
-		queuedRuns, err := pipelineListQueuedRuns(e.Request.Context(), namespace)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to list queued runs",
-				err.Error(),
-			).JSON(e)
+		includeQueued := shouldIncludeQueuedPipelineExecutions(statusFilter)
+		if includeQueued {
+			queuedRuns, err := pipelineListQueuedRuns(e.Request.Context(), namespace)
+			if err != nil {
+				return apierror.New(
+					http.StatusInternalServerError,
+					"workflow",
+					"failed to list queued runs",
+					err.Error(),
+				).JSON(e)
+			}
+
+			queuedByPipelineID := mapQueuedRunsToPipelines(
+				e.App,
+				[]*core.Record{pipelineRecord},
+				queuedRuns,
+			)
+			queuedForPipeline := queuedByPipelineID[pipelineRecord.Id]
+
+			if queuedOnlyPipelineExecutions(statusFilter) {
+				return e.JSON(http.StatusOK, paginateQueuedPipelineSummaries(
+					e.App,
+					queuedForPipeline,
+					authRecord.GetString("Timezone"),
+					limit,
+					offset,
+				))
+			}
+
+			queuedCount := len(queuedForPipeline)
+			if offset < queuedCount {
+				queuedSummaries := paginateQueuedPipelineSummaries(
+					e.App,
+					queuedForPipeline,
+					authRecord.GetString("Timezone"),
+					limit,
+					offset,
+				)
+				if len(queuedSummaries) >= limit {
+					return e.JSON(http.StatusOK, queuedSummaries)
+				}
+
+				completedSummaries, apiErr := fetchCompletedWorkflowsWithPagination(
+					e,
+					map[string]*core.Record{pipelineRecord.Id: pipelineRecord},
+					namespace,
+					authRecord,
+					organization.Id,
+					pipelineIdentifier,
+					statusFilter,
+					limit-len(queuedSummaries),
+					0,
+					nil,
+				)
+				if apiErr != nil {
+					return apiErr.JSON(e)
+				}
+				return e.JSON(http.StatusOK, append(queuedSummaries, completedSummaries...))
+			}
+
+			offset -= queuedCount
 		}
-		queuedByPipelineID := mapQueuedRunsToPipelines(e.App, pipelineRecords, queuedRuns)
-		queuedForPipeline := queuedByPipelineID[pipelineID]
 
 		temporalClient, err := pipelineTemporalClient(namespace)
 		if err != nil {
@@ -331,102 +378,88 @@ func HandleGetPipelineSpecificDetails() func(*core.RequestEvent) error {
 				err.Error(),
 			).JSON(e)
 		}
-
-		runnerInfo, err := pipeline.ParsePipelineRunnerInfo(pipelineRecord.GetString("yaml"))
-		if err != nil {
-			e.App.Logger().Warn(fmt.Sprintf(
-				"failed to parse pipeline yaml for runners (pipeline_id=%s): %v",
-				pipelineID,
-				err,
-			))
-		}
-
-		allExecutions, err := listPipelineWorkflowExecutions(
-			context.Background(),
-			temporalClient,
+		summaries, apiErr := fetchCompletedWorkflowsWithPagination(
+			e,
+			map[string]*core.Record{pipelineRecord.Id: pipelineRecord},
 			namespace,
-			nil,
+			authRecord,
+			organization.Id,
 			pipelineIdentifier,
-			pipelineListWorkflowsDefaultLimit,
-			0,
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"workflow",
-				"failed to list workflows",
-				err.Error(),
-			).JSON(e)
-		}
-
-		if len(allExecutions) == 0 {
-			queuedSummaries := buildQueuedPipelineSummaries(
-				e.App,
-				queuedForPipeline,
-				authRecord.GetString("Timezone"),
-				map[string]map[string]any{},
-			)
-			if len(queuedSummaries) == 0 {
-				return e.JSON(http.StatusOK, ListMyChecksResponse{
-					[]*WorkflowExecutionSummary{},
-				})
-			}
-			return e.JSON(http.StatusOK, queuedSummaries)
-		}
-
-		hierarchy := buildExecutionHierarchy(
-			e.App,
-			allExecutions,
-			namespace,
-			authRecord.GetString("Timezone"),
+			statusFilter,
+			limit,
+			offset,
 			temporalClient,
 		)
-
-		sort.Slice(hierarchy, func(i, j int) bool {
-			t1, _ := time.Parse(time.RFC3339, hierarchy[i].StartTime)
-			t2, _ := time.Parse(time.RFC3339, hierarchy[j].StartTime)
-
-			return t1.After(t2)
-		})
-
-		runnerCache := map[string]map[string]any{}
-		annotated, err := attachRunnerInfoFromTemporalStartInput(
-			attachRunnerInfoFromTemporalInputArgs{
-				App:         e.App,
-				Ctx:         context.Background(),
-				Client:      temporalClient,
-				Executions:  hierarchy,
-				Info:        runnerInfo,
-				RunnerCache: runnerCache,
-			},
-		)
-		if err != nil {
-			return apierror.New(
-				http.StatusInternalServerError,
-				"temporal",
-				"failed to read workflow history",
-				err.Error(),
-			).JSON(e)
+		if apiErr != nil {
+			return apiErr.JSON(e)
 		}
 
-		for _, summary := range annotated {
-			summary.PipelineIdentifier = pipelineIdentifier
-		}
-
-		if len(queuedForPipeline) > 0 {
-			queuedSummaries := buildQueuedPipelineSummaries(
-				e.App,
-				queuedForPipeline,
-				authRecord.GetString("Timezone"),
-				runnerCache,
-			)
-			if len(queuedSummaries) > 0 {
-				annotated = append(queuedSummaries, annotated...)
-			}
-		}
-
-		return e.JSON(http.StatusOK, annotated)
+		return e.JSON(http.StatusOK, summaries)
 	}
+}
+
+func shouldIncludeQueuedPipelineExecutions(statusFilter string) bool {
+	if strings.TrimSpace(statusFilter) == "" {
+		return true
+	}
+
+	for _, raw := range strings.Split(statusFilter, ",") {
+		if strings.EqualFold(strings.TrimSpace(raw), statusStringQueued) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func queuedOnlyPipelineExecutions(statusFilter string) bool {
+	if strings.TrimSpace(statusFilter) == "" {
+		return false
+	}
+
+	hasQueued := false
+	hasNonQueued := false
+	for _, raw := range strings.Split(statusFilter, ",") {
+		normalized := strings.ToLower(strings.TrimSpace(raw))
+		if normalized == "" {
+			continue
+		}
+		if normalized == statusStringQueued {
+			hasQueued = true
+			continue
+		}
+		hasNonQueued = true
+	}
+
+	return hasQueued && !hasNonQueued
+}
+
+func paginateQueuedPipelineSummaries(
+	app core.App,
+	queuedRuns []QueuedPipelineRunAggregate,
+	userTimezone string,
+	limit int,
+	offset int,
+) []*pipelineWorkflowSummary {
+	summaries := buildQueuedPipelineSummaries(
+		app,
+		queuedRuns,
+		userTimezone,
+		map[string]map[string]any{},
+	)
+	if len(summaries) == 0 || limit <= 0 || offset >= len(summaries) {
+		return []*pipelineWorkflowSummary{}
+	}
+	if offset < 0 {
+		offset = 0
+	}
+
+	end := offset + limit
+	if end > len(summaries) {
+		end = len(summaries)
+	}
+
+	return summaries[offset:end]
 }
 
 func HandleGetPipelineDetails() func(*core.RequestEvent) error {

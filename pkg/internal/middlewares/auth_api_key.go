@@ -19,12 +19,12 @@ import (
 const (
 	RequireAuthOrAPIKeyMiddlewareID = "requireAuthOrAPIKey"
 
-	apiKeyHeaderName          = "Credimi-Api-Key"
-	apiKeyScopeFieldName      = "key_type"
-	apiKeyScopeUser           = "user"
-	apiKeyScopeInternalAdmin  = "internal_admin"
-	internalAdminOwnerTable   = "_superusers"
-	userOwnerTable            = "users"
+	apiKeyHeaderName         = "Credimi-Api-Key"
+	apiKeyScopeFieldName     = "key_type"
+	apiKeyScopeUser          = "user"
+	apiKeyScopeInternalAdmin = "internal_admin"
+	internalAdminOwnerTable  = "_superusers"
+	userOwnerTable           = "users"
 )
 
 // RequireAuthOrAPIKey accepts either a Bearer token or a user-scoped API key.
@@ -44,9 +44,9 @@ func RequireAuthOrAPIKey() *hook.Handler[*core.RequestEvent] {
 					).JSON(e)
 				}
 
-				principal, err := authenticateAPIKeyByScope(e, apiKey, apiKeyScopeUser)
-				if err != nil {
-					return err
+				principal, apiErr := authenticateAPIKeyByScope(e.App, apiKey, apiKeyScopeUser)
+				if apiErr != nil {
+					return apiErr.JSON(e)
 				}
 				e.Auth = principal
 
@@ -83,9 +83,9 @@ func RequireInternalAdminAPIKey() *hook.Handler[*core.RequestEvent] {
 				).JSON(e)
 			}
 
-			principal, err := authenticateAPIKeyByScope(e, apiKey, apiKeyScopeInternalAdmin)
-			if err != nil {
-				return err
+			principal, apiErr := authenticateAPIKeyByScope(e.App, apiKey, apiKeyScopeInternalAdmin)
+			if apiErr != nil {
+				return apiErr.JSON(e)
 			}
 			e.Auth = principal
 
@@ -94,19 +94,41 @@ func RequireInternalAdminAPIKey() *hook.Handler[*core.RequestEvent] {
 	}
 }
 
+// RequireInternalAdminOrAuth accepts either an internal-admin API key or a user auth context.
+func RequireInternalAdminOrAuth() *hook.Handler[*core.RequestEvent] {
+	return &hook.Handler[*core.RequestEvent]{
+		Func: func(e *core.RequestEvent) error {
+			apiKey := strings.TrimSpace(e.Request.Header.Get(apiKeyHeaderName))
+			if apiKey != "" {
+				principal, apiErr := authenticateAPIKeyByScope(
+					e.App,
+					apiKey,
+					apiKeyScopeInternalAdmin,
+				)
+				if apiErr == nil {
+					e.Auth = principal
+					return e.Next()
+				}
+			}
+
+			return RequireAuthOrAPIKey().Func(e)
+		},
+	}
+}
+
 func authenticateAPIKeyByScope(
-	e *core.RequestEvent,
+	app core.App,
 	apiKey string,
 	requiredScope string,
-) (*core.Record, error) {
-	records, err := e.App.FindRecordsByFilter("api_keys", "", "", 0, 0)
+) (*core.Record, *apierror.APIError) {
+	records, err := app.FindRecordsByFilter("api_keys", "", "", 0, 0)
 	if err != nil {
 		return nil, apierror.New(
 			http.StatusInternalServerError,
 			"request.internal_error",
 			"failed_to_find_api_key_records",
 			err.Error(),
-		).JSON(e)
+		)
 	}
 
 	matched := findMatchingAPIKeyRecord(records, apiKey)
@@ -116,7 +138,7 @@ func authenticateAPIKeyByScope(
 			"request.validation",
 			"invalid_api_key",
 			"Invalid API key provided",
-		).JSON(e)
+		)
 	}
 
 	if matched.GetBool("revoked") {
@@ -125,7 +147,7 @@ func authenticateAPIKeyByScope(
 			"request.validation",
 			"revoked_api_key",
 			"API key is revoked",
-		).JSON(e)
+		)
 	}
 
 	expiresAt := matched.GetDateTime("expires_at")
@@ -135,7 +157,7 @@ func authenticateAPIKeyByScope(
 			"request.validation",
 			"expired_api_key",
 			"API key is expired",
-		).JSON(e)
+		)
 	}
 
 	userID := matched.GetString("user")
@@ -148,7 +170,7 @@ func authenticateAPIKeyByScope(
 			"request.validation",
 			"invalid_api_key_owner",
 			"API key owner must be exactly one of user or superuser",
-		).JSON(e)
+		)
 	}
 
 	scope := matched.GetString(apiKeyScopeFieldName)
@@ -170,7 +192,7 @@ func authenticateAPIKeyByScope(
 			"request.validation",
 			"insufficient_api_key_scope",
 			"API key does not have required scope",
-		).JSON(e)
+		)
 	}
 
 	ownerCollection := userOwnerTable
@@ -182,10 +204,10 @@ func authenticateAPIKeyByScope(
 		}
 	}
 
-	principal, err := e.App.FindRecordById(ownerCollection, ownerID)
+	principal, err := app.FindRecordById(ownerCollection, ownerID)
 	if err != nil {
 		if scope == apiKeyScopeInternalAdmin && userID != "" {
-			principal, err = e.App.FindRecordById(userOwnerTable, userID)
+			principal, err = app.FindRecordById(userOwnerTable, userID)
 		}
 	}
 	if err != nil {
@@ -194,11 +216,11 @@ func authenticateAPIKeyByScope(
 			"request.internal_error",
 			"failed_to_find_principal",
 			err.Error(),
-		).JSON(e)
+		)
 	}
 	if principal == nil {
 		if scope == apiKeyScopeInternalAdmin && userID != "" {
-			principal, _ = e.App.FindRecordById(userOwnerTable, userID)
+			principal, _ = app.FindRecordById(userOwnerTable, userID)
 		}
 	}
 	if principal == nil {
@@ -207,7 +229,7 @@ func authenticateAPIKeyByScope(
 			"request.validation",
 			"principal_not_found",
 			"Principal associated with the API key not found",
-		).JSON(e)
+		)
 	}
 
 	return principal, nil

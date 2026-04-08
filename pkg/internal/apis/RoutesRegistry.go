@@ -11,7 +11,7 @@ import (
 )
 
 var RouteGroups []routing.RouteGroup = []routing.RouteGroup{
-	handlers.ChecksRoutes,
+	handlers.WorkflowsRoutes,
 	handlers.ApiKeyRoutes,
 	handlers.SchedulesRoutes,
 	handlers.CustomIntegrationsRoutes,
@@ -28,6 +28,7 @@ var RouteGroupsNotExported []routing.RouteGroup = []routing.RouteGroup{
 	handlers.WalletTemporalInternalRoutes,
 	handlers.VerifierTemporalInternalRoutes,
 	handlers.DeepLinkRoutes,
+	handlers.WorkflowListingRoutes,
 	handlers.PipelineRoutes,
 	handlers.PipelineTemporalInternalRoutes,
 	handlers.CanonifyRoutes,
