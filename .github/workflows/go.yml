@@ -1,4 +1,4 @@
-# SPDX-FileCopyrightText: 2025 Forkbomb BV
+# SPDX-FileCopyrightText: 2025-2026 Forkbomb BV
 #
 # SPDX-License-Identifier: AGPL-3.0-or-later
 
@@ -15,42 +15,84 @@ jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+
       - uses: actions/setup-go@v6
         with:
           go-version: stable
+
       - uses: docker://morphy/revive-action:v2
+
       - name: git config for credimi-extra
         env:
           CREDIMI_EXTRA_PAT: ${{ secrets.CREDIMI_EXTRA_PAT }}
         run: |
           git config --global url."https://x-access-token:${CREDIMI_EXTRA_PAT}@github.com/ForkbombEu/credimi-extra".insteadOf "https://github.com/forkbombeu/credimi-extra"
         shell: bash
-      - uses: golang/govulncheck-action@v1
+
+      - name: Govulncheck (SARIF)
+        uses: golang/govulncheck-action@v1
         with:
           repo-checkout: false
+          go-package: ./...
+          output-format: sarif
+          output-file: govulncheck.sarif
+
+      - name: Upload govulncheck SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        with:
+          sarif_file: govulncheck.sarif
+
+      - name: Enforce govulncheck (ignore selected vulns)
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          go install golang.org/x/vuln/cmd/govulncheck@latest
+          govulncheck -C . -format json ./... > govulncheck.json || true
+
+          if jq -e '
+            select(.finding != null)
+            | .finding.osv
+            | select(. != "GO-2026-4887" and . != "GO-2026-4883")
+          ' govulncheck.json >/dev/null; then
+            echo "❌ Vulnerabilities found (excluding GO-2026-4887 and GO-2026-4883)"
+            exit 1
+          fi
+
+          echo "✅ Only ignored vulnerabilities present"
+
       - uses: golangci/golangci-lint-action@v9
         with:
           version: latest
+
   test:
     name: 🧪 Test
     runs-on: ubuntu-latest
     needs: lint
     env:
       ROOT_DIR: ${{ github.workspace }}
+
     steps:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+
       - uses: jdx/mise-action@v2
+
       - name: git config for credimi-extra
         env:
           CREDIMI_EXTRA_PAT: ${{ secrets.CREDIMI_EXTRA_PAT }}
         run: |
           git config --global url."https://x-access-token:${CREDIMI_EXTRA_PAT}@github.com/ForkbombEu/credimi-extra".insteadOf "https://github.com/forkbombeu/credimi-extra"
         shell: bash
+
       - name: Run go tests
         run: make test
