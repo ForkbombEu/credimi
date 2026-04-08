@@ -98,10 +98,20 @@ var PipelineTemporalInternalRoutes routing.RouteGroup = routing.RouteGroup{
 			},
 		},
 		{
-    		Method:  http.MethodGet,
-    		Path:    "/execution-details/{namespace}/{workflow_id}/{run_id}",
-    		Handler: HandleGetExecutionDetails,
-    		Description: "Get detailed information about a specific execution",
+			Method:         http.MethodPost,
+			Path:           "/scoreboard/aggregate/start",
+			Handler:        HandleStartAggregateScoreboard,
+			ResponseSchema: StartAggregateScoreboardResponse{},
+			Description:    "Start the aggregate scoreboard workflow",
+			Middlewares: []*hook.Handler[*core.RequestEvent]{
+				middlewares.RequireInternalAdminAPIKey(),
+			},
+		},
+		{
+			Method:      http.MethodGet,
+			Path:        "/execution-details/{namespace}/{workflow_id}/{run_id}",
+			Handler:     HandleGetExecutionDetails,
+			Description: "Get detailed information about a specific execution",
 			Middlewares: []*hook.Handler[*core.RequestEvent]{
 				middlewares.RequireInternalAdminAPIKey(),
 			},
