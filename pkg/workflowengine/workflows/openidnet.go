@@ -205,10 +205,10 @@ func (w *OpenIDNetWorkflow) ExecuteWorkflow(
 				Rid:   rid,
 				Token: utils.GetEnvironmentVariable("OPENIDNET_TOKEN"),
 			},
-			Config: map[string]any{
+			Config: workflowengine.MergeTelemetryConfig(ctx, map[string]any{
 				"app_url":  appURL,
 				"interval": time.Second,
-			},
+			}),
 		},
 	)
 	var subWorkflowResponse workflowengine.WorkflowResult
