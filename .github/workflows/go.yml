@@ -58,12 +58,24 @@ jobs:
           go install golang.org/x/vuln/cmd/govulncheck@latest
           govulncheck -C . -format json ./... > govulncheck.json || true
 
-          if jq -e '
+          echo "All finding IDs:"
+          jq -r '
             select(.finding != null)
             | .finding.osv
-            | select(. != "GO-2026-4887" and . != "GO-2026-4883")
-          ' govulncheck.json >/dev/null; then
-            echo "❌ Vulnerabilities found (excluding GO-2026-4887 and GO-2026-4883)"
+          ' govulncheck.json | sort -u
+
+          echo "Non-ignored finding IDs:"
+          NON_IGNORED="$(
+            jq -r '
+              select(.finding != null)
+              | .finding.osv
+              | select(. != "GO-2026-4887" and . != "GO-2026-4883")
+            ' govulncheck.json | sort -u
+          )"
+
+          if [ -n "${NON_IGNORED}" ]; then
+            echo "❌ Vulnerabilities found (excluding ignored ones):"
+            printf '%s\n' "${NON_IGNORED}"
             exit 1
           fi
 
